@@ -1,10 +1,16 @@
 import { describe, expect, it } from "vitest";
 import SunCalc from "suncalc";
 import {
+  equatorialToGalacticLatitudeDeg,
   getMoonConditions,
+  getMoonDeclinationDeg,
+  getMoonGalacticLatitudeDeg,
+  getMoonRangeRateKmS,
   getMoonSnapshot,
   getSublunarPoint,
 } from "./moon";
+
+const DEG_TO_RAD = Math.PI / 180;
 
 const ALL_PHASE_NAMES = [
   "New Moon",
@@ -156,5 +162,166 @@ describe("getSublunarPoint", () => {
     );
 
     expect(wrappedDelta).toBeLessThan(1);
+  });
+});
+
+describe("getMoonDeclinationDeg", () => {
+  it("agrees with the sub-lunar point's latitude (a point is overhead exactly at the Moon's own declination)", () => {
+    for (const iso of [
+      "2024-01-01T00:00:00Z",
+      "2024-06-15T12:00:00Z",
+      "2026-08-31T18:30:00Z",
+    ]) {
+      const at = new Date(iso);
+      expect(getMoonDeclinationDeg(at)).toBeCloseTo(
+        getSublunarPoint(at).lat,
+        9,
+      );
+    }
+  });
+
+  it("stays within the Moon's physically bounded declination range", () => {
+    const start = new Date("2024-01-01T00:00:00Z").getTime();
+    for (let h = 0; h < 30 * 24; h += 6) {
+      const decl = getMoonDeclinationDeg(new Date(start + h * 3_600_000));
+      expect(decl).toBeGreaterThanOrEqual(-29);
+      expect(decl).toBeLessThanOrEqual(29);
+    }
+  });
+});
+
+describe("getMoonRangeRateKmS", () => {
+  // Independent re-derivation of the formula under test, so
+  // "matches a manual ... difference" below is an actual cross-check rather
+  // than the implementation testing itself. Mirrors the constants and steps
+  // documented on `getMoonRangeRateKmS` in moon.ts.
+  const EARTH_ROTATION_RAD_S = 7.2921159e-5;
+  const EARTH_RADIUS_KM = 6371.0;
+
+  function manualRangeRateKmS(
+    at: Date,
+    lat: number,
+    lon: number,
+    deltaSeconds = 60,
+  ): number {
+    const before = SunCalc.getMoonPosition(
+      new Date(at.getTime() - deltaSeconds * 1000),
+      lat,
+      lon,
+    ).distance;
+    const after = SunCalc.getMoonPosition(
+      new Date(at.getTime() + deltaSeconds * 1000),
+      lat,
+      lon,
+    ).distance;
+    const geocentricRateKmS = (after - before) / (2 * deltaSeconds);
+    const { altitude, azimuth } = SunCalc.getMoonPosition(at, lat, lon);
+    const observerSpeedKmS =
+      EARTH_ROTATION_RAD_S * EARTH_RADIUS_KM * Math.cos(lat * DEG_TO_RAD);
+    const lineOfSightEastComponent = -Math.sin(azimuth) * Math.cos(altitude);
+    return geocentricRateKmS - observerSpeedKmS * lineOfSightEastComponent;
+  }
+
+  it("is negative while the Moon is rising toward the east (observer rotation dominates the geocentric orbital term)", () => {
+    // 2026-09-12T13:14Z, Austin TX: Moon well below the horizon (alt ~ -6.6
+    // deg), azimuth ~ -87 deg from south (near due east) -- rising.
+    const at = new Date("2026-09-12T13:14:00Z");
+    const rate = getMoonRangeRateKmS(at, 30.27, -97.74);
+    expect(rate).toBeLessThan(0);
+  });
+
+  it("is positive while the Moon is setting toward the west", () => {
+    // 2026-09-26T13:14Z, Austin TX: Moon below the horizon (alt ~ -12.2
+    // deg), azimuth ~ +101 deg from south (west of south) -- setting.
+    const at = new Date("2026-09-26T13:14:00Z");
+    const rate = getMoonRangeRateKmS(at, 30.27, -97.74);
+    expect(rate).toBeGreaterThan(0);
+  });
+
+  it("matches a manual finite difference plus the observer-rotation correction over the same window", () => {
+    const at = new Date("2026-09-12T13:14:00Z");
+    const lat = 30.27;
+    const lon = -97.74;
+    const delta = 60;
+    expect(getMoonRangeRateKmS(at, lat, lon, delta)).toBeCloseTo(
+      manualRangeRateKmS(at, lat, lon, delta),
+      9,
+    );
+  });
+
+  it("is dominated by the observer's own rotation, not the geocentric orbital term, near the eastern horizon at the equator", () => {
+    // 2026-09-05T00:28Z at the equator (0, 0): the Moon is right at
+    // moonrise, near due east (az ~ -118 deg from south) -- exactly the
+    // geometry where the ~0.46 km/s equatorial rotation term is largest
+    // relative to the orbital term (a few hundredths of a km/s).
+    const at = new Date("2026-09-05T00:28:00Z");
+    const lat = 0;
+    const lon = 0;
+    const rate = getMoonRangeRateKmS(at, lat, lon);
+    const before = SunCalc.getMoonPosition(
+      new Date(at.getTime() - 60_000),
+      lat,
+      lon,
+    ).distance;
+    const after = SunCalc.getMoonPosition(
+      new Date(at.getTime() + 60_000),
+      lat,
+      lon,
+    ).distance;
+    const geocentricRateKmS = (after - before) / 120;
+    expect(Math.abs(rate)).toBeGreaterThan(Math.abs(geocentricRateKmS) * 5);
+  });
+
+  it("flips sign between moonrise and moonset for the same observer", () => {
+    const lat = 0;
+    const lon = 0;
+    const rising = getMoonRangeRateKmS(new Date("2026-09-05T00:28:00Z"), lat, lon);
+    const setting = getMoonRangeRateKmS(new Date("2026-09-05T13:06:00Z"), lat, lon);
+    expect(rising).toBeLessThan(0);
+    expect(setting).toBeGreaterThan(0);
+  });
+});
+
+describe("equatorialToGalacticLatitudeDeg", () => {
+  it("is near zero for a position on the galactic plane (the galactic anticenter, l=180)", () => {
+    const b = equatorialToGalacticLatitudeDeg(
+      85.65 * DEG_TO_RAD,
+      28.93 * DEG_TO_RAD,
+    );
+    expect(Math.abs(b)).toBeLessThan(5);
+  });
+
+  it("is close to +90 for the north galactic pole's own coordinates", () => {
+    const b = equatorialToGalacticLatitudeDeg(
+      192.85948 * DEG_TO_RAD,
+      27.12825 * DEG_TO_RAD,
+    );
+    expect(b).toBeGreaterThan(85);
+  });
+
+  it("is close to -90 for the point antipodal to the north galactic pole", () => {
+    const b = equatorialToGalacticLatitudeDeg(
+      (192.85948 + 180) * DEG_TO_RAD,
+      -27.12825 * DEG_TO_RAD,
+    );
+    expect(b).toBeLessThan(-85);
+  });
+});
+
+describe("getMoonGalacticLatitudeDeg", () => {
+  it("stays within [-90, 90] across a lunar month", () => {
+    const start = new Date("2024-01-01T00:00:00Z").getTime();
+    for (let h = 0; h < 30 * 24; h += 6) {
+      const b = getMoonGalacticLatitudeDeg(new Date(start + h * 3_600_000));
+      expect(b).toBeGreaterThanOrEqual(-90);
+      expect(b).toBeLessThanOrEqual(90);
+    }
+  });
+
+  it("differs from the Moon's declination -- the galactic plane sits ~63 deg from the celestial equator, so the two are not interchangeable", () => {
+    const at = new Date("2026-09-05T13:14:00Z");
+    const galacticLatitude = getMoonGalacticLatitudeDeg(at);
+    const declination = getMoonDeclinationDeg(at);
+    expect(Math.abs(galacticLatitude - declination)).toBeGreaterThan(5);
   });
 });

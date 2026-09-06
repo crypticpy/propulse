@@ -2,7 +2,7 @@
  * Sun curve: hourly elevation and azimuth samples, the three twilight
  * windows, the day-length trend and polar day/night detection, all for the
  * Sun report (wall spec section 26.8). Everything here is computed with
- * SunCalc, the same library `SunMoonReport.tsx` and `greyline.ts` already use
+ * SunCalc, the same library `SunReport.tsx`, `MoonReport.tsx` and `greyline.ts` already use
  * for sunrise, sunset and the grey-line window, so nothing this module
  * produces can disagree with the rest of the wall.
  */

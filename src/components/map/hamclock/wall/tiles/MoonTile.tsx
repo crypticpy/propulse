@@ -6,8 +6,8 @@ import { HamClockTile, TileHero, TileSub } from "../HamClockTile";
 import { formatClock } from "../tokens";
 
 // The report is only worth its bytes once an operator opens it.
-const SunMoonReport = lazy(() =>
-  import("../reports/SunMoonReport").then((m) => ({ default: m.SunMoonReport })),
+const MoonReport = lazy(() =>
+  import("../reports/MoonReport").then((m) => ({ default: m.MoonReport })),
 );
 
 /** Illumination changes by a fraction of a percent per minute. */
@@ -91,7 +91,7 @@ export function MoonTile() {
         onOpen={() => setReportOpen(true)}
         openLabel={`Moon ${Math.round(
           moon.illumination * 100,
-        )} percent, ${moon.phaseName}. Open the sun and moon report`}
+        )} percent, ${moon.phaseName}. Open the moon report`}
       >
         <div className="hc-media">
           <MoonGlyph phase={moon.phase} />
@@ -120,11 +120,7 @@ export function MoonTile() {
 
       {reportOpen && (
         <Suspense fallback={null}>
-          <SunMoonReport
-            open
-            onClose={() => setReportOpen(false)}
-            focus="moon"
-          />
+          <MoonReport open onClose={() => setReportOpen(false)} />
         </Suspense>
       )}
     </>

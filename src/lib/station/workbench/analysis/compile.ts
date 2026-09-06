@@ -241,11 +241,24 @@ function walkRoute(revision: Revision, route: Route): { hops: OrientedHop[]; dia
   return { hops, diagnostics, cycle };
 }
 
+/** Only documented connector-family aliases, never equipment-type defaults or gender inference. */
+function normalizeConnectorFamily(family: string): ConnectorType | undefined {
+  const key = family.trim().toLowerCase().replace(/[\s-]+/g, "_");
+  const aliases: Record<string, ConnectorType> = {
+    n: "n_type", type_n: "n_type", pl_259: "pl259", so239: "pl259", so_239: "pl259", uhf: "pl259",
+    rp_sma: "sma_rp", reverse_polarity_sma: "sma_rp", "7_16_din": "din_7_16",
+  };
+  if (Object.prototype.hasOwnProperty.call(aliases, key)) return aliases[key];
+  return Object.prototype.hasOwnProperty.call(CONNECTOR_TYPE_LABELS, key) ? key as ConnectorType : undefined;
+}
+
 function mateConnectors(a: Port["connector"], b: Port["connector"]): CompatibilityFinding {
   if (a.state === "unknown" || b.state === "unknown") {
     return finding("unknown", "unknown-connector", "Connected ports have an unknown connector family");
   }
-  if (a.family !== b.family) return finding("contradicted", "connector-family-mismatch", `Connector families ${a.family} and ${b.family} do not match`);
+  const familyA = normalizeConnectorFamily(a.family) ?? a.family;
+  const familyB = normalizeConnectorFamily(b.family) ?? b.family;
+  if (familyA !== familyB) return finding("contradicted", "connector-family-mismatch", `Connector families ${a.family} and ${b.family} do not match`);
   if (a.gender === "unknown" || b.gender === "unknown") return finding("unknown", "unknown-connector-gender", "Connected ports have an unknown connector gender");
   if (a.gender === "genderless" && b.gender === "genderless") return finding("compatible", "connector-compatible", "Genderless connectors of the same family mate");
   if ((a.gender === "male" && b.gender === "female") || (a.gender === "female" && b.gender === "male")) {
@@ -434,7 +447,7 @@ function exclusiveSelections(hops: OrientedHop[]): { selections: ExclusiveSelect
 
 function emissionHops(radioId: string, hops: OrientedHop[]): OrientedHop[] {
   return hops[0] && hops[0].from.instanceId !== radioId
-    ? [...hops].reverse().map((hop) => ({ ...hop, from: hop.to, to: hop.from }))
+    ? [...hops].reverse().map((hop) => ({ ...hop, reverse: !hop.reverse, from: hop.to, to: hop.from }))
     : hops;
 }
 
@@ -568,23 +581,47 @@ function compileChain(
   }
   const radio = uniqueRadios[0];
   const antenna = uniqueAntennas[0];
-  const emission = hops[0] && hops[0].from.instanceId !== radio.id
-    ? [...hops].reverse().map((hop) => ({ ...hop, from: hop.to, to: hop.from }))
-    : hops;
+  const emission = emissionHops(radio.id, hops);
   const nodes: ChainNode[] = [{ type: "radio", radioId: radio.id }];
   const feedlineRuns: StationChain["feedlineRuns"] = [];
   const usedRuns = new Set<string>();
+  const rejectedRuns = new Set<string>();
+  const emittedRunDirections = new Map<string, boolean>();
   const compiledRuns: CompiledCableRun[] = [];
   const accessories: UserAccessory[] = [];
   const inlines: InlineComponent[] = [];
   const feedlines: UserFeedline[] = [];
 
-  const emitRun = (run: DeepReadonly<CableRun>) => {
-    if (usedRuns.has(run.id)) return;
+  const emitRun = (run: DeepReadonly<CableRun>, reverse: boolean, emissionIndex: number) => {
+    if (rejectedRuns.has(run.id)) return;
+    if (usedRuns.has(run.id)) {
+      if (emittedRunDirections.get(run.id) !== reverse) limits.push(finding("contradicted", "inconsistent-run-direction", `Selected route changes direction within cable run ${run.label}`, ["cableRuns"]));
+      return;
+    }
+    const storedHops: Route["hops"][number][] = [];
+    run.connections.forEach((segment, index) => {
+      storedHops.push({ kind: "connection", connectionId: segment.connectionId, reverse: segment.reverse });
+      const inline = run.inlineItems[index];
+      if (inline) storedHops.push({ kind: "internal", instanceId: inline.instanceId, internalPathId: inline.internalPathId, reverse: inline.reverse });
+    });
+    const requiredHops = reverse ? storedHops.reverse().map((hop) => ({ ...hop, reverse: !hop.reverse })) : storedHops;
+    const complete = requiredHops.every((required, offset) => {
+      const selected = emission[emissionIndex + offset];
+      return selected?.kind === required.kind && selected.reverse === required.reverse
+        && (required.kind === "connection" ? selected.connection?.id === required.connectionId
+          : selected.instance?.id === required.instanceId && selected.path?.id === required.internalPathId);
+    });
+    if (!complete) {
+      rejectedRuns.add(run.id);
+      limits.push(finding("contradicted", "incomplete-run-selection", `Cable run ${run.label} requires every connection and internal hop in matching contiguous order; unused cable and inline losses will not be emitted`, ["cableRuns"]));
+      return;
+    }
     usedRuns.add(run.id);
+    emittedRunDirections.set(run.id, reverse);
+    const inlineItems = reverse ? [...run.inlineItems].reverse() : run.inlineItems;
     compiledRuns.push({
       id: run.id, baseCableInstanceId: run.baseCableInstanceId, lengthMeters: run.lengthMeters,
-      inlineInstanceIds: run.inlineItems.map((item) => item.instanceId), countedInEngine: run.lengthMeters.state === "known",
+      inlineInstanceIds: inlineItems.map((item) => item.instanceId), countedInEngine: run.lengthMeters.state === "known",
     });
     if (run.baseCableInstanceId === null || run.lengthMeters.state !== "known") {
       missing.push(finding("unknown", "unknown-run-length", `Cable run ${run.id} is missing a known base-cable length`, ["cableRuns"], { connectionId: run.connections[0]?.connectionId }));
@@ -606,13 +643,25 @@ function compileChain(
       limits.push(finding("contradicted", "mixed-feedline-connectors-not-supported", `Base cable ${cable.label} records ${connectorType}/${connectorTypeFarEnd} ends, but the engine applies the near-end loss to every connector`, [], { instanceId: cable.id }));
       proposals.push({ code: "engine-feedline-far-connector", message: "Calculate connector losses from both recorded cable ends instead of multiplying the near-end loss by connectorCount.", owner: "coordinator" });
     }
+    const bound = revision.connections.find((connection) => connection.runId === run.id && connection.connectorInterface?.kind === "cable")?.connectorInterface;
+    if (bound?.kind === "cable" && connectorType) {
+      for (const portId of [bound.fromPortId, bound.toPortId]) {
+        const port = cable.ports.find((candidate) => candidate.id === portId)!;
+        const physicalType = port.connector.state === "known" ? normalizeConnectorFamily(port.connector.family) : undefined;
+        if (physicalType === undefined) {
+          missing.push(finding("unknown", "unmapped-cable-connector-family", `Cable port ${port.label} cannot be mapped to an engine connector type; its loss remains unknown`, [], { instanceId: cable.id, portId }));
+        } else if (physicalType !== connectorType) {
+          limits.push(finding("contradicted", "cable-connector-loss-mismatch", `Cable port ${port.label} records ${physicalType}, but the engine loss input declares ${connectorType}`, [], { instanceId: cable.id, portId }));
+        }
+      }
+    }
     const condition = knownText(cable, model, "feedline.condition") as FeedlineCondition | undefined;
     const connectorCount = knownNumber(cable, model, "feedline.connectorCount");
     if (!feedlineType) missing.push(finding("unknown", "unknown-feedline-type", `Base cable ${cable.label} has no feedline type`, [], { instanceId: cable.id }));
     if (!connectorType) missing.push(finding("unknown", "unknown-feedline-connector", `Base cable ${cable.label} has no connector type`, [], { instanceId: cable.id }));
     if (!condition) missing.push(finding("unknown", "unknown-feedline-condition", `Base cable ${cable.label} has no condition; the engine requires one and this adapter will not invent it`, [], { instanceId: cable.id }));
     if (connectorCount === undefined) missing.push(finding("unknown", "unknown-connector-count", `Base cable ${cable.label} has no connector count; unknown is not zero`, [], { instanceId: cable.id }));
-    run.inlineItems.forEach((inlineRef) => {
+    inlineItems.forEach((inlineRef) => {
       const inline = revision.equipment.find((item) => item.id === inlineRef.instanceId);
       if (!inline) return;
       const inlineModel = modelOf(revision, inline);
@@ -675,20 +724,23 @@ function compileChain(
         id: cable.id, name: cable.label, feedlineType, lengthFeet: run.lengthMeters.value / METERS_PER_FOOT,
         connectorCount, connectorType, ...(connectorTypeFarEnd ? { connectorTypeFarEnd } : {}), condition, addedAt: cable.addedAt,
       });
-      feedlineRuns.push({ id: run.id, feedlineId: cable.id, inlineComponentIds: run.inlineItems.map((item) => item.instanceId) });
+      feedlineRuns.push({ id: run.id, feedlineId: cable.id, inlineComponentIds: inlineItems.map((item) => item.instanceId) });
       nodes.push({ type: "feedline_run", feedlineRunId: run.id });
     }
   };
 
-  emission.forEach((hop) => {
+  emission.forEach((hop, emissionIndex) => {
     if (hop.kind === "connection" && hop.connection?.runId) {
       const run = revision.cableRuns.find((item) => item.id === hop.connection?.runId);
-      if (run) emitRun(run);
+      const segment = run?.connections.find((item) => item.connectionId === hop.connection?.id);
+      if (run && segment) emitRun(run, hop.reverse !== segment.reverse, emissionIndex);
     }
     if (hop.kind === "internal" && hop.instance) {
       if (hop.instance.kind === "inline") {
-        if (!revision.cableRuns.some((run) => usedRuns.has(run.id) && run.inlineItems.some((item) => item.instanceId === hop.instance!.id))) {
-          limits.push(finding("contradicted", "unrepresented-inline-path", `Inline device ${hop.instance.label} is not represented in a selected cable run`, [], { instanceId: hop.instance.id }));
+        const represented = revision.cableRuns.some((run) => usedRuns.has(run.id) && run.inlineItems.some((item) => item.instanceId === hop.instance!.id
+          && item.internalPathId === hop.path?.id && (item.reverse !== emittedRunDirections.get(run.id)) === hop.reverse));
+        if (!represented) {
+          limits.push(finding("contradicted", "unrepresented-inline-path", `Selected internal path and direction of ${hop.instance.label} do not match the emitted cable run`, [], { instanceId: hop.instance.id }));
         }
       } else if (hop.instance.kind !== "accessory") {
         limits.push(finding("contradicted", "unrepresented-device-path", `Internal path through ${hop.instance.label} cannot be represented by the engine`, [], { instanceId: hop.instance.id }));
@@ -768,7 +820,6 @@ function compileChain(
   if (maxPower === undefined) missing.push(finding("unknown", "unknown-radio-max-power", "Radio maximum power is unknown; the engine will not receive a fabricated 100 W", [], { instanceId: radio.id }));
   if (minPower === undefined) missing.push(finding("unknown", "unknown-radio-min-power", "Radio minimum power is unknown; the engine will not receive a fabricated zero", [], { instanceId: radio.id }));
   if (!bands?.length) missing.push(finding("unknown", "unknown-radio-bands", "Radio bands are unknown; none were inferred from frequency", [], { instanceId: radio.id }));
-  if (!modes?.length) missing.push(finding("unknown", "unknown-radio-modes", "Radio modes are unknown", [], { instanceId: radio.id }));
   if (!tier || !RADIO_TIERS.includes(tier)) missing.push(finding("unknown", "unknown-radio-tier", "Radio tier is unknown; the engine type requires one and this adapter will not invent it", [], { instanceId: radio.id }));
 
   const antennaType = knownText(antenna, antennaModel, "antenna.antennaType") as UserAntennaType | undefined;
@@ -846,6 +897,8 @@ function compileChain(
     displayName: knownText(radio, radioModel, "radio.displayName") ?? radio.label,
     receiver: { rmdr: Number.NaN, imdr3: Number.NaN, blockingGain: Number.NaN, sensitivity: Number.NaN },
     maxPower: maxPower!, minPower: minPower!,
+    // The power/loss engine does not consume mode capability. An empty array
+    // keeps its input shape safe; the separate envelope gate retains unknown.
     modes: (modes ?? []).filter((mode): mode is RadioMode => RADIO_MODES.includes(mode as RadioMode)),
     bands: bands!, tier: tier!,
   };
@@ -1159,7 +1212,14 @@ export function compileSelectedRoute(input: unknown, requestInput: unknown): Dee
       target.verdict = aggregate(target.findings);
     }
   }
-  const envelope = receiverFill.ok && parsedMode.success
+  const supportedRadioModes = radio ? knownList(radio, modelOf(revision, radio), "radio.modes") : undefined;
+  const modeSupported = parsedMode.success && supportedRadioModes?.includes(parsedMode.data) === true;
+  if (parsedMode.success && !modeSupported) {
+    compiled.limits.push(finding(supportedRadioModes === undefined ? "unknown" : "contradicted", supportedRadioModes === undefined ? "unknown-radio-mode-capability" : "unsupported-radio-mode",
+      supportedRadioModes === undefined ? "Pinned radio mode capability is unknown; the mode-dependent envelope is withheld"
+        : `Pinned radio does not declare support for ${parsedMode.data}; the mode-dependent envelope is withheld`, [], { instanceId: radio?.id }));
+  }
+  const envelope = receiverFill.ok && modeSupported
     ? deriveStationFeatureEnvelope(compiled.chain, compiled.inventory, bandId[0], options)
     : null;
   const hopPowerFindings = evaluateEnginePowerRatings(walk.hops, compiled.chain, engine, revision);

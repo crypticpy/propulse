@@ -660,3 +660,144 @@ describe("PR242 cable and inline constraints", () => {
     expect(compileSelectedRoute(archive, request).status).toBe("compiled");
   });
 });
+
+
+describe("final cable path and mode provenance", () => {
+  const request = { revisionId: "home-r1", routeId: "main", options: { bands: ["20m"] } };
+
+  it.each([createKnownSimpleFixture, createKnownReceiveFixture])("requires modeled cable connector loss to match both physical ends", (fixture) => {
+    const archive = fixture();
+    const revision = archive.revisions[0];
+    const cable = revision.equipment.find((item) => item.id === "feedline")!;
+    for (const item of revision.equipment.filter((item) => ["radio", "antenna", "feedline"].includes(item.id))) {
+      for (const port of item.ports) if (port.connector.state === "known") port.connector.family = "BNC";
+    }
+    const wrongLoss = compileSelectedRoute(archive, request);
+    expect(wrongLoss.status).toBe("unsupported");
+    expect(wrongLoss.calculationLimits.filter((item) => item.code === "cable-connector-loss-mismatch")).toHaveLength(2);
+    expect(wrongLoss.metrics).toEqual([]);
+    cable.fields!["feedline.connectorType"] = { state: "known", value: "bnc", evidenceId: "declared" };
+    expect(compileSelectedRoute(archive, request).status).toBe("compiled");
+    for (const item of revision.equipment.filter((item) => ["radio", "antenna", "feedline"].includes(item.id))) {
+      for (const port of item.ports) if (port.connector.state === "known") port.connector.family = "custom-owner-connector";
+    }
+    const unmapped = compileSelectedRoute(archive, request);
+    expect(unmapped.status).toBe("incomplete");
+    expect(unmapped.missingInputs.some((item) => item.code === "unmapped-cable-connector-family")).toBe(true);
+  });
+
+  it.each([
+    ["n_type", "N-type", "N"], ["pl259", "PL-259", "SO-239"], ["sma_rp", "RP-SMA", "SMA-RP"],
+  ])("supports explicit family aliases for %s without inventing gender", (engineType, nearAlias, farAlias) => {
+    const archive = createKnownSimpleFixture();
+    const revision = archive.revisions[0];
+    const cable = revision.equipment.find((item) => item.id === "feedline")!;
+    const radio = revision.equipment.find((item) => item.id === "radio")!;
+    const antenna = revision.equipment.find((item) => item.id === "antenna")!;
+    cable.fields!["feedline.connectorType"] = { state: "known", value: engineType, evidenceId: "declared" };
+    for (const port of [radio.ports[0], cable.ports[0]]) if (port.connector.state === "known") port.connector.family = nearAlias;
+    for (const port of [antenna.ports[0], cable.ports[1]]) if (port.connector.state === "known") port.connector.family = farAlias;
+    expect(compileSelectedRoute(archive, request).status).toBe("compiled");
+    if (cable.ports[0].connector.state === "known") cable.ports[0].connector.gender = "unknown";
+    expect(compileSelectedRoute(archive, request).status).toBe("incomplete");
+  });
+
+  it("keeps reverse-polarity SMA distinct from SMA even when each physical joint mates", () => {
+    const archive = createKnownSimpleFixture();
+    const revision = archive.revisions[0];
+    const cable = revision.equipment.find((item) => item.id === "feedline")!;
+    cable.fields!["feedline.connectorType"] = { state: "known", value: "sma", evidenceId: "declared" };
+    for (const port of [revision.equipment.find((item) => item.id === "radio")!.ports[0], cable.ports[0]]) if (port.connector.state === "known") port.connector.family = "SMA";
+    for (const port of [revision.equipment.find((item) => item.id === "antenna")!.ports[0], cable.ports[1]]) if (port.connector.state === "known") port.connector.family = "RP-SMA";
+    const mismatch = compileSelectedRoute(archive, request);
+    expect(mismatch.status).toBe("unsupported");
+    expect(mismatch.calculationLimits.some((item) => item.code === "cable-connector-loss-mismatch")).toBe(true);
+  });
+
+  it("requires the selected inline path to match its run and handles reversed run/path storage and receive flow", () => {
+    const archive = createKnownInlineRunsFixture();
+    const revision = archive.revisions[0];
+    const inline = revision.equipment.find((item) => item.id === "run-adapter")!;
+    const run = revision.cableRuns.find((item) => item.id === "legacy-run-a")!;
+    const hop = revision.routes[0].hops.find((item) => item.kind === "internal" && item.instanceId === inline.id)!;
+    if (hop.kind !== "internal") throw new Error("Fixture must have an inline hop");
+    inline.internalPaths[0].exclusiveGroupId = "selected-path";
+    inline.internalPaths.push({ ...structuredClone(inline.internalPaths[0]), id: "other-path" });
+    hop.internalPathId = "other-path";
+    const mismatched = compileSelectedRoute(archive, request);
+    expect(mismatched.status).toBe("unsupported");
+    expect(mismatched.calculationLimits.some((item) => item.code === "unrepresented-inline-path")).toBe(true);
+    expect(mismatched.metrics).toEqual([]);
+    hop.internalPathId = "through";
+    expect(compileSelectedRoute(archive, request).status).toBe("compiled");
+    // The same physical flow, but with the stored selected internal path reversed.
+    inline.internalPaths[0].fromPortId = "out";
+    inline.internalPaths[0].toPortId = "in";
+    hop.reverse = true;
+    run.inlineItems.find((item) => item.instanceId === inline.id)!.reverse = true;
+    expect(compileSelectedRoute(archive, request).status).toBe("compiled");
+    // Run order is independently stored backwards; emitted engine order stays RF flow order.
+    run.connections.reverse().forEach((segment) => { segment.reverse = !segment.reverse; });
+    run.inlineItems.reverse().forEach((item) => { item.reverse = !item.reverse; });
+    const reversedRun = compileSelectedRoute(archive, request);
+    expect(reversedRun.status).toBe("compiled");
+    expect(reversedRun.topology.chain?.feedlineRuns.find((item) => item.id === run.id)?.inlineComponentIds).toEqual(["run-adapter", "run-choke"]);
+    revision.routes[0].purpose = "receive";
+    revision.routes[0].hops.reverse().forEach((item) => { item.reverse = !item.reverse; });
+    revision.equipment.find((item) => item.id === "radio")!.ports[0].direction = "input";
+    revision.equipment.find((item) => item.id === "antenna")!.ports[0].direction = "output";
+    revision.settings.requestedPowerWatts = { state: "known", value: 0, unit: "W", evidenceId: "declared" };
+    const received = compileSelectedRoute(archive, request);
+    expect(received.status).toBe("compiled");
+    expect(received.purpose).toBe("receive");
+    expect(received.modeledRoute.engine?.bands[0].txPowerWatts).toBe(0);
+  });
+
+  it("uses pinned radio mode capability for the envelope without erasing mode-independent metrics", () => {
+    const archive = createKnownSimpleFixture();
+    const radio = archive.revisions[0].equipment.find((item) => item.id === "radio")!;
+    const supported = compileSelectedRoute(archive, { ...request, options: { bands: ["20m"], mode: " ft8 " } });
+    expect(supported.modeledRoute.envelope?.mode).toBe("FT8");
+    const unsupported = compileSelectedRoute(archive, { ...request, options: { bands: ["20m"], mode: "FM" } });
+    expect(unsupported.status).toBe("compiled");
+    expect(unsupported.modeledRoute.envelope).toBeNull();
+    expect(unsupported.calculationLimits.some((item) => item.code === "unsupported-radio-mode")).toBe(true);
+    expect(unsupported.metrics).toEqual(supported.metrics);
+    radio.fields!["radio.modes"] = { state: "unknown", reason: "Owned radio mode capability unverified" };
+    const unknown = compileSelectedRoute(archive, request);
+    expect(unknown.status).toBe("compiled");
+    expect(unknown.modeledRoute.envelope).toBeNull();
+    expect(unknown.calculationLimits.some((item) => item.code === "unknown-radio-mode-capability")).toBe(true);
+    expect(unknown.metrics).toEqual(supported.metrics);
+  });
+});
+
+
+describe("complete cable assembly coverage", () => {
+  it("does not emit unused run parts when a valid selected route exits through an exclusive inline branch", () => {
+    const archive = createKnownInlineRunsFixture();
+    const revision = archive.revisions[0];
+    const adapter = revision.equipment.find((item) => item.id === "run-adapter")!;
+    adapter.ports.push({ ...structuredClone(adapter.ports.find((port) => port.id === "out")!), id: "alternate" });
+    adapter.internalPaths[0].exclusiveGroupId = "output-selection";
+    adapter.internalPaths.push({ id: "alternate-path", fromPortId: "in", toPortId: "alternate", signal: "rf", exclusiveGroupId: "output-selection" });
+    const alternateAntenna = revision.equipment.find((item) => item.id === "antenna-b")!;
+    alternateAntenna.fields = structuredClone(revision.equipment.find((item) => item.id === "antenna")!.fields);
+    for (const field of Object.values(alternateAntenna.fields!)) if (field.state === "known") field.evidenceId = "declared";
+    revision.connections = revision.connections.filter((connection) => connection.id !== "switch-b");
+    revision.connections.push({ id: "alternate-exit", signal: "rf", from: { instanceId: adapter.id, portId: "alternate" }, to: { instanceId: alternateAntenna.id, portId: "feed" }, runId: null, label: "Alternate exit", connectorInterface: { kind: "direct" } });
+    revision.routes[0].hops = [
+      ...revision.routes[0].hops.slice(0, 3),
+      { kind: "internal", instanceId: adapter.id, internalPathId: "alternate-path", reverse: false },
+      { kind: "connection", connectionId: "alternate-exit", reverse: false },
+    ];
+    const result = compileSelectedRoute(archive, { revisionId: revision.id, routeId: "main", options: { bands: ["20m"] } });
+    expect(result.structuralCandidate).toBe(true);
+    expect(result.status).toBe("unsupported");
+    expect(result.diagnostics.some((finding) => finding.code === "invalid-document")).toBe(false);
+    expect(result.calculationLimits.some((finding) => finding.code === "incomplete-run-selection")).toBe(true);
+    expect(result.topology.cableRuns.some((run) => run.id === "legacy-run-a" && run.countedInEngine)).toBe(false);
+    expect(result.modeledRoute.engine).toBeNull();
+    expect(result.metrics).toEqual([]);
+  });
+});

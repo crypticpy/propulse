@@ -1,4 +1,4 @@
-import { useId, useMemo } from "react";
+import { useId, useMemo, useRef } from "react";
 import { useActiveLocation } from "@/hooks/useActiveLocation";
 import { useCurrentSFI, useMUFHourlySeries } from "@/hooks/useMUFData";
 import { useKIndex, useSolarFlux } from "@/hooks/useSolarData";
@@ -34,6 +34,7 @@ import {
 } from "@/lib/hamclock/engineComparison";
 import { HamClockTabs } from "../controls/HamClockTabs";
 import { reportFooter } from "../tokens";
+import { useElementSize } from "../useElementSize";
 import { EngineComparisonStrip } from "./EngineComparisonStrip";
 import { WallReport, type WallReportFact } from "./WallReport";
 
@@ -47,10 +48,8 @@ const FALLBACK_KP = 2;
  * refresh is a stale feed, not just a slow tick. */
 const SFI_STALE_HOURS = 6;
 
-const CHART_LEFT = 32;
-const CHART_RIGHT = 284;
-const CHART_TOP = 12;
-const CHART_BOTTOM = 66;
+/** Drawing size before the slot has been measured (jsdom, first paint). */
+const CHART_FALLBACK = { width: 720, height: 220 };
 
 /**
  * `MUF — 24 H · P.533 AT QTH`: the MUF line over a shaded FOT/LUF usable
@@ -69,6 +68,10 @@ function UsableWindowChart({
   staleFromMs: number | null;
 }) {
   const id = useId();
+  const ref = useRef<HTMLElement>(null);
+  const measured = useElementSize(ref);
+  const width = measured.width || CHART_FALLBACK.width;
+  const height = measured.height || CHART_FALLBACK.height;
   const rows = points
     .map((point) => ({ ...point, time: Date.parse(point.timestamp) }))
     .filter((point) => Number.isFinite(point.time))
@@ -82,10 +85,22 @@ function UsableWindowChart({
   const low = Math.min(...rows.map((row) => row.luf));
   const high = Math.max(...rows.map((row) => row.muf));
   const spread = high - low || 1;
+  // Drawn 1:1 in CSS pixels at the measured slot size, text in vh like the
+  // rest of the wall (the same sizing contract as `WallSeriesChart`).
+  const vh =
+    typeof window === "undefined"
+      ? CHART_FALLBACK.height / 72
+      : window.innerHeight / 100;
+  const fs = Math.max(11, Math.round(vh * 1.45));
+  const left = Math.round(fs * 3.2);
+  const right = Math.round(fs * 1.2);
+  const top = Math.round(fs * 0.6);
+  const bottom = Math.round(fs * 1.4);
+  const plotBottom = height - bottom;
   const x = (t: number) =>
-    CHART_LEFT + ((CHART_RIGHT - CHART_LEFT) * (t - start)) / (end - start);
+    left + ((width - right - left) * (t - start)) / (end - start);
   const y = (v: number) =>
-    CHART_BOTTOM - ((CHART_BOTTOM - CHART_TOP) * (v - low)) / spread;
+    plotBottom - ((plotBottom - top) * (v - low)) / spread;
 
   const bandPath = [
     ...rows.map(
@@ -120,62 +135,81 @@ function UsableWindowChart({
   return (
     <div className="hcr-chart">
       <p className="hcr-chart-title">MUF — 24 H · P.533 AT QTH</p>
-      <svg viewBox="0 0 300 88" role="img" aria-labelledby={`${id}-title`}>
-        <title id={`${id}-title`}>
-          MUF, FOT and LUF at QTH over the last 24 hours
-        </title>
-        <path
-          d={bandPath}
-          fill="var(--hcr-chart-dim, #64748b)"
-          fillOpacity="0.25"
-          stroke="none"
-        />
-        {mufFreshPath && (
+      <figure className="hcr-plot" ref={ref}>
+        <svg
+          viewBox={`0 0 ${width} ${height}`}
+          width={width}
+          height={height}
+          role="img"
+          aria-labelledby={`${id}-title`}
+          fontFamily="var(--hc-font-mono, monospace)"
+          fontSize={fs}
+        >
+          <title id={`${id}-title`}>
+            MUF, FOT and LUF at QTH over the last 24 hours
+          </title>
           <path
-            d={mufFreshPath}
-            fill="none"
-            stroke="var(--hcr-chart-observed, #44ddff)"
-            strokeWidth="2"
+            d={bandPath}
+            fill="var(--hcr-chart-dim, #64748b)"
+            fillOpacity="0.25"
+            stroke="none"
           />
-        )}
-        {mufDimPath && (
-          <path
-            d={mufDimPath}
-            fill="none"
-            stroke="var(--hcr-chart-dim, #64748b)"
-            strokeWidth="2"
-            strokeDasharray="4 2"
-          />
-        )}
-        {showNowMarker && (
-          <line
-            x1={x(nowMs)}
-            x2={x(nowMs)}
-            y1={CHART_TOP}
-            y2={CHART_BOTTOM}
-            stroke="var(--hcr-chart-now, #f8fafc)"
-            strokeDasharray="2 2"
-          />
-        )}
-        <text x="0" y="16" fill="var(--hcr-chart-dim, #94a3b8)" fontSize="9">
-          {high.toFixed(0)}
-        </text>
-        <text x="0" y="67" fill="var(--hcr-chart-dim, #94a3b8)" fontSize="9">
-          {low.toFixed(0)}
-        </text>
-        {hourTicks.map((tick) => (
+          {mufFreshPath && (
+            <path
+              d={mufFreshPath}
+              fill="none"
+              stroke="var(--hcr-chart-observed, #44ddff)"
+              strokeWidth={Math.max(2, fs * 0.16)}
+            />
+          )}
+          {mufDimPath && (
+            <path
+              d={mufDimPath}
+              fill="none"
+              stroke="var(--hcr-chart-dim, #64748b)"
+              strokeWidth={Math.max(2, fs * 0.16)}
+              strokeDasharray="6 4"
+            />
+          )}
+          {showNowMarker && (
+            <line
+              x1={x(nowMs)}
+              x2={x(nowMs)}
+              y1={top}
+              y2={plotBottom}
+              stroke="var(--hcr-chart-now, #f8fafc)"
+              strokeDasharray="2 2"
+            />
+          )}
           <text
-            key={tick.time}
-            x={x(tick.time)}
-            y="82"
-            textAnchor="middle"
+            x={left - fs * 0.5}
+            y={top + fs * 0.35}
+            textAnchor="end"
             fill="var(--hcr-chart-dim, #94a3b8)"
-            fontSize="8"
           >
-            {String(new Date(tick.time).getUTCHours()).padStart(2, "0")}Z
+            {high.toFixed(0)}
           </text>
-        ))}
-      </svg>
+          <text
+            x={left - fs * 0.5}
+            y={plotBottom + fs * 0.35}
+            textAnchor="end"
+            fill="var(--hcr-chart-dim, #94a3b8)"
+          >
+            {low.toFixed(0)}
+          </text>
+          {hourTicks.map((tick) => (
+            <text
+              key={tick.time}
+              x={x(tick.time)}
+              y={height - fs * 0.3}
+              textAnchor="middle"
+              fill="var(--hcr-chart-dim, #94a3b8)"
+            >
+              {String(new Date(tick.time).getUTCHours()).padStart(2, "0")}Z
+            </text>
+          ))}
+        </svg>
+      </figure>
       <table className="sr-only">
         <caption>MUF, FOT and LUF by hour, P.533 at QTH</caption>
         <thead>
@@ -504,7 +538,7 @@ export function MufReport({ open, onClose }: MufReportProps) {
     );
   }
 
-  const pathTab = (
+  const ionosphereBox = (
     <div className="hcr-box">
       <h4>Ionosphere at QTH</h4>
       <dl className="hcr-kv">
@@ -512,16 +546,6 @@ export function MufReport({ open, onClose }: MufReportProps) {
         <dd>{ionosphere ? `${ionosphere.f0F2.toFixed(1)} MHz` : "—"}</dd>
         <dt>F2 layer height hmF2</dt>
         <dd>{ionosphere ? `${Math.round(ionosphere.hmF2)} km` : "—"}</dd>
-        <dt>Geomagnetic latitude</dt>
-        <dd>
-          {ionosphere?.geomagneticLatitude != null
-            ? `${ionosphere.geomagneticLatitude.toFixed(1)}°`
-            : "—"}
-        </dd>
-        <dt>Side</dt>
-        <dd>
-          {ionosphere ? (ionosphere.isDaytime ? "DAYSIDE" : "NIGHTSIDE") : "—"}
-        </dd>
         <dt>M(3000)F2</dt>
         <dd>{ionosphere ? ionosphere.m3000F2.toFixed(2) : "—"}</dd>
         <dt>D-layer absorption</dt>
@@ -531,7 +555,51 @@ export function MufReport({ open, onClose }: MufReportProps) {
             : `${dLayerAbsorptionDb.toFixed(1)} dB`}
         </dd>
         <dt>Solar zenith angle</dt>
-        <dd>{ionosphere ? `${ionosphere.zenithAngle.toFixed(1)}°` : "—"}</dd>
+        <dd>
+          {ionosphere
+            ? `${ionosphere.zenithAngle.toFixed(1)}° · ${
+                ionosphere.isDaytime ? "DAYSIDE" : "NIGHTSIDE"
+              }`
+            : "—"}
+        </dd>
+        <dt>Geomagnetic latitude</dt>
+        <dd>
+          {ionosphere?.geomagneticLatitude != null
+            ? `${ionosphere.geomagneticLatitude.toFixed(1)}°`
+            : "—"}
+        </dd>
+      </dl>
+    </div>
+  );
+
+  // Ionosphere diagnostics beside the 24 h usable window: two columns so the
+  // kv list and the chart both fit the tab panel at 1080p (#250).
+  const pathTab = (
+    <div className="hcr-cols hcr-cols--fill">
+      {ionosphereBox}
+      <div className="hcr-box">
+        {chartPoints && chartPoints.length > 0 ? (
+          <UsableWindowChart
+            points={chartPoints}
+            now={now}
+            staleFromMs={sfiStale ? sfiUpdatedAt : null}
+          />
+        ) : (
+          <p className="hcr-note">Waiting for the 24 h MUF series…</p>
+        )}
+        <p className="hcr-note">
+          {ionosphere
+            ? describeConditions(ionosphere)
+            : "Waiting for ionosphere inputs…"}
+        </p>
+      </div>
+    </div>
+  );
+
+  const pathBox = (
+    <div className="hcr-box">
+      <h4>Path to target</h4>
+      <dl className="hcr-kv">
         <dt>Day/night at midpoint</dt>
         <dd>
           {!target
@@ -569,94 +637,94 @@ export function MufReport({ open, onClose }: MufReportProps) {
               : "—"}
         </dd>
       </dl>
-      <p className="hcr-note">
-        {ionosphere
-          ? describeConditions(ionosphere)
-          : "Waiting for ionosphere inputs…"}
-      </p>
-      {chartPoints && chartPoints.length > 0 && (
-        <UsableWindowChart
-          points={chartPoints}
-          now={now}
-          staleFromMs={sfiStale ? sfiUpdatedAt : null}
-        />
-      )}
     </div>
   );
 
-  const hopsTab = !target ? (
-    <p className="hcr-note">Pick a target on the map to trace a path.</p>
-  ) : !rayTrace ? (
-    <p className="hcr-note">No viable ray trace for this path right now.</p>
-  ) : (
-    <div className="hcr-box">
-      <p className="hcr-bandtable-caption">
-        {rayTrace.hops.length} hop{rayTrace.hops.length === 1 ? "" : "s"} ·{" "}
-        {rayTrace.summary}
-      </p>
-      <div className="hcr-hoptable-head" aria-hidden="true">
-        <span>#</span>
-        <span>Reflection point</span>
-        <span>MUF</span>
-        <span>Absorption</span>
-        <span>Score</span>
-      </div>
-      <div className="hcr-bandtable">
-        {rayTrace.hops.map((hop, index) => (
-          <button
-            key={index}
-            type="button"
-            className="hcr-hoprow"
-            onClick={() => {
-              setCenterLocation(
-                hop.reflectionPoint.lat,
-                hop.reflectionPoint.lon,
-              );
-              // Camera recentering alone leaves no visible trace of which
-              // point was picked — flash a momentary marker there too.
-              setFlashPoint(hop.reflectionPoint.lat, hop.reflectionPoint.lon);
-            }}
-          >
-            <span>{index + 1}</span>
-            <span>
-              {hop.reflectionPoint.lat.toFixed(1)}°,{" "}
-              {hop.reflectionPoint.lon.toFixed(1)}°
-            </span>
-            <span className={hop.isFrequencySupported ? "hc-good" : "hc-bad"}>
-              {hop.muf.toFixed(1)} MHz
-            </span>
-            <span>{hop.absorptionDb.toFixed(1)} dB</span>
-            <span className={index === rayTrace.limitingHop ? "hc-warn" : ""}>
-              {Math.round(hop.qualityScore)}
-            </span>
-          </button>
-        ))}
-      </div>
-      <table className="sr-only">
-        <caption>Ray trace hops to target</caption>
-        <thead>
-          <tr>
-            <th scope="col">Hop</th>
-            <th scope="col">Reflection latitude</th>
-            <th scope="col">Reflection longitude</th>
-            <th scope="col">Hop MUF</th>
-            <th scope="col">Absorption</th>
-            <th scope="col">Quality score</th>
-          </tr>
-        </thead>
-        <tbody>
-          {rayTrace.hops.map((hop, index) => (
-            <tr key={index}>
-              <td>{index + 1}</td>
-              <td>{hop.reflectionPoint.lat.toFixed(2)}</td>
-              <td>{hop.reflectionPoint.lon.toFixed(2)}</td>
-              <td>{hop.muf.toFixed(1)} MHz</td>
-              <td>{hop.absorptionDb.toFixed(1)} dB</td>
-              <td>{Math.round(hop.qualityScore)}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+  const hopsTab = (
+    <div className="hcr-cols hcr-cols--fill">
+      {!target ? (
+        <p className="hcr-note">Pick a target on the map to trace a path.</p>
+      ) : !rayTrace ? (
+        <p className="hcr-note">No viable ray trace for this path right now.</p>
+      ) : (
+        <div className="hcr-box">
+          <p className="hcr-bandtable-caption">
+            {rayTrace.hops.length} hop{rayTrace.hops.length === 1 ? "" : "s"} ·{" "}
+            {rayTrace.summary}
+          </p>
+          <div className="hcr-hoptable-head" aria-hidden="true">
+            <span>#</span>
+            <span>Reflection point</span>
+            <span>MUF</span>
+            <span>Absorption</span>
+            <span>Score</span>
+          </div>
+          <div className="hcr-bandtable">
+            {rayTrace.hops.map((hop, index) => (
+              <button
+                key={index}
+                type="button"
+                className="hcr-hoprow"
+                onClick={() => {
+                  setCenterLocation(
+                    hop.reflectionPoint.lat,
+                    hop.reflectionPoint.lon,
+                  );
+                  // Camera recentering alone leaves no visible trace of which
+                  // point was picked — flash a momentary marker there too.
+                  setFlashPoint(
+                    hop.reflectionPoint.lat,
+                    hop.reflectionPoint.lon,
+                  );
+                }}
+              >
+                <span>{index + 1}</span>
+                <span>
+                  {hop.reflectionPoint.lat.toFixed(1)}°,{" "}
+                  {hop.reflectionPoint.lon.toFixed(1)}°
+                </span>
+                <span
+                  className={hop.isFrequencySupported ? "hc-good" : "hc-bad"}
+                >
+                  {hop.muf.toFixed(1)} MHz
+                </span>
+                <span>{hop.absorptionDb.toFixed(1)} dB</span>
+                <span
+                  className={index === rayTrace.limitingHop ? "hc-warn" : ""}
+                >
+                  {Math.round(hop.qualityScore)}
+                </span>
+              </button>
+            ))}
+          </div>
+          <table className="sr-only">
+            <caption>Ray trace hops to target</caption>
+            <thead>
+              <tr>
+                <th scope="col">Hop</th>
+                <th scope="col">Reflection latitude</th>
+                <th scope="col">Reflection longitude</th>
+                <th scope="col">Hop MUF</th>
+                <th scope="col">Absorption</th>
+                <th scope="col">Quality score</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rayTrace.hops.map((hop, index) => (
+                <tr key={index}>
+                  <td>{index + 1}</td>
+                  <td>{hop.reflectionPoint.lat.toFixed(2)}</td>
+                  <td>{hop.reflectionPoint.lon.toFixed(2)}</td>
+                  <td>{hop.muf.toFixed(1)} MHz</td>
+                  <td>{hop.absorptionDb.toFixed(1)} dB</td>
+                  <td>{Math.round(hop.qualityScore)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+      {pathBox}
     </div>
   );
 

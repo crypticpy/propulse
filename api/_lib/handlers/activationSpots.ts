@@ -31,6 +31,8 @@ interface SourceResult {
   sourceUrl: string;
   count: number;
   spots: ActivationSpot[];
+  checkedAt: string;
+  fetchedAt: string | null;
 }
 
 const MAX_BODY_BYTES = 1_500_000;
@@ -458,7 +460,7 @@ async function readCappedJson(response: Response): Promise<unknown> {
   const declared = Number(response.headers.get("content-length") ?? "0");
   if (declared > MAX_BODY_BYTES) throw new ActivationFeedTooLargeError();
   const reader = response.body?.getReader();
-  if (!reader) return [];
+  if (!reader) throw new SyntaxError("Activation feed has no JSON body");
   const chunks: Uint8Array[] = [];
   let total = 0;
   for (;;) {
@@ -480,6 +482,16 @@ async function readCappedJson(response: Response): Promise<unknown> {
   return JSON.parse(new TextDecoder().decode(bytes));
 }
 
+function sourceResult(
+  definition: SourceDefinition,
+  status: ActivationSourceStatus,
+  spots: ActivationSpot[] = [],
+): SourceResult {
+  const checkedAt = new Date().toISOString();
+  return { ...definition, status, spots, count: spots.length, checkedAt,
+    fetchedAt: status === "ok" ? checkedAt : null };
+}
+
 async function fetchSource(definition: SourceDefinition): Promise<SourceResult> {
   try {
     const response = await fetch(definition.feedUrl, {
@@ -492,23 +504,19 @@ async function fetchSource(definition: SourceDefinition): Promise<SourceResult> 
     if (!response.ok) throw new Error(`upstream ${response.status}`);
     const payload = await readCappedJson(response);
     if (!Array.isArray(payload)) {
-      return { ...definition, status: "invalid", count: 0, spots: [] };
+      return sourceResult(definition, "invalid");
     }
     if (payload.length > 0 && !payload.some(definition.matchesRow)) {
-      return { ...definition, status: "invalid", count: 0, spots: [] };
+      return sourceResult(definition, "invalid");
     }
     const spots = definition.normalize(payload);
-    return { ...definition, status: "ok", count: spots.length, spots };
+    return sourceResult(definition, "ok", spots);
   } catch (error) {
-    return {
-      ...definition,
-      status:
-        error instanceof SyntaxError || error instanceof ActivationFeedTooLargeError
-          ? "invalid"
-          : "unavailable",
-      count: 0,
-      spots: [],
-    };
+    return sourceResult(definition,
+      error instanceof SyntaxError || error instanceof ActivationFeedTooLargeError
+        ? "invalid"
+        : "unavailable",
+    );
   }
 }
 
@@ -541,6 +549,8 @@ export async function handleActivationSpots(request: Request): Promise<Response>
         source: result.source,
         sourceUrl: result.sourceUrl,
         count: result.count,
+        checkedAt: result.checkedAt,
+        fetchedAt: result.fetchedAt,
       })),
     }),
     {

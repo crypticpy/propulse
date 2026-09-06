@@ -252,13 +252,14 @@ export function FullscreenPropSphere({
     }
     for (const [id, entry] of Object.entries(proPanelLayout)) {
       if (!entry.collapsed) {
+        const safeY = dockOffsets.has(id)
+          ? entry.y + dockOffsets.get(id)!
+          : safeDockGroupY(entry.y, entry.y, panelMinTop);
         rects[id] = {
           x: entry.x,
-          y: dockOffsets.has(id)
-            ? entry.y + dockOffsets.get(id)!
-            : safeDockGroupY(entry.y, entry.y, panelMinTop),
+          y: safeY,
           width: entry.width,
-          height: entry.height,
+          height: Math.min(entry.height, Math.max(0, window.innerHeight - safeY)),
         };
       }
     }
@@ -274,6 +275,11 @@ export function FullscreenPropSphere({
       if (!anchor) continue;
       const offset = Math.max(0, panelMinTop - anchor.y);
       if (offset === 0) continue;
+      const groupHeight = group.panelIds.reduce(
+        (total, memberId) => total + (proPanelLayout[memberId]?.height ?? 0),
+        0,
+      );
+      if (anchor.y + offset + groupHeight > window.innerHeight) continue;
       for (const memberId of group.panelIds) {
         const entry = proPanelLayout[memberId];
         if (entry) {

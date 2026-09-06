@@ -20,6 +20,8 @@ const mocks = vi.hoisted(() => ({
   setBandFocus: vi.fn(),
   setSpotFilters: vi.fn(),
   horizonActivated: vi.fn(),
+  stationCast: vi.fn(),
+  nowCast: vi.fn(),
 }));
 
 vi.mock("@/hooks/useBandVerdicts", () => ({ useBandVerdicts: mocks.verdicts }));
@@ -43,6 +45,12 @@ vi.mock("@/hooks/useSolarData", () => ({
   useSunspots: () => ({ data: [] }),
 }));
 vi.mock("@/hooks/useWeatherAlerts", () => ({ useWeatherAlerts: mocks.alerts }));
+vi.mock("@/hooks/useStationCastContext", () => ({
+  useStationCastContext: mocks.stationCast,
+}));
+vi.mock("@/hooks/useNowCastBandPredictions", () => ({
+  useNowCastBandPredictions: mocks.nowCast,
+}));
 vi.mock("@/stores/mapStore", () => ({
   useMapStore: (selector: (state: unknown) => unknown) =>
     selector({
@@ -54,7 +62,10 @@ vi.mock("@/stores/mapStore", () => ({
 }));
 vi.mock("@/stores/hamclockStore", () => ({
   useHamClockStore: (selector: (state: unknown) => unknown) =>
-    selector({ setBandFocus: mocks.setBandFocus }),
+    selector({
+      setBandFocus: mocks.setBandFocus,
+      reliability: { mode: "FT8", powerWatts: 100, antennaType: "dipole" },
+    }),
 }));
 vi.mock("@/lib/propagation/runtimeActivation", async (importOriginal) => ({
   ...(await importOriginal<
@@ -136,6 +147,30 @@ beforeEach(() => {
     hasLocation: true,
   });
   mocks.alerts.mockReturnValue({ alerts: [], isLoading: false, error: null });
+  mocks.stationCast.mockReturnValue({
+    location: { grid: AUSTIN.grid, lat: AUSTIN.lat, lon: AUSTIN.lon },
+    locationSource: "active_location",
+    chain: null,
+    hasConfiguredChain: false,
+    deriveEnvelope: () => null,
+  });
+  mocks.nowCast.mockReturnValue({
+    enabled: true,
+    visible: true,
+    available: false,
+    personalized: false,
+    pending: false,
+    capabilityError: null,
+    predictions: new Map(),
+    stationEnvelopes: new Map(),
+    errors: new Map(),
+    requestedCount: 0,
+    failedCount: 0,
+    partial: false,
+    fallbackBands: [],
+    staleInputBands: [],
+    nowcastBands: [],
+  });
   mocks.reliability.mockReturnValue({
     status: "no-target",
     cells: new Map(),

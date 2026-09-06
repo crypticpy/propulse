@@ -17,6 +17,7 @@ import {
   calculateDLayerAbsorption,
   calculateZenithAngle,
 } from "@/lib/utils/ionosphere";
+import { BAND_ORDER, BAND_RANGES } from "@/lib/data/bandRanges";
 import type { FrequencyLimits } from "@/types/propagation";
 
 export interface MUFData {
@@ -166,17 +167,20 @@ export function generateMUFGrid(
  * between stops exactly like the shader so the flat map, globe, and legend
  * all agree.
  */
-const MUF_COLOR_STOPS: Array<{ threshold: number; rgb: [number, number, number]; band: string }> =
-  [
-    { threshold: 3, rgb: [115, 20, 31], band: "< 3 MHz (no HF)" },
-    { threshold: 5, rgb: [217, 46, 38], band: "3-5 MHz (80m)" },
-    { threshold: 7, rgb: [242, 128, 26], band: "5-7 MHz (40m)" },
-    { threshold: 10, rgb: [242, 184, 26], band: "7-10 MHz (30m)" },
-    { threshold: 14, rgb: [191, 224, 51], band: "10-14 MHz (20m)" },
-    { threshold: 21, rgb: [38, 199, 102], band: "14-21 MHz (15m)" },
-    { threshold: 28, rgb: [26, 184, 217], band: "21-28 MHz (10m)" },
-    { threshold: Infinity, rgb: [77, 89, 235], band: "> 28 MHz (6m+)" },
-  ];
+const MUF_COLOR_STOPS: Array<{
+  threshold: number;
+  rgb: [number, number, number];
+  band: string;
+}> = [
+  { threshold: 3, rgb: [115, 20, 31], band: "< 3 MHz (no HF)" },
+  { threshold: 5, rgb: [217, 46, 38], band: "3-5 MHz (80m)" },
+  { threshold: 7, rgb: [242, 128, 26], band: "5-7 MHz (40m)" },
+  { threshold: 10, rgb: [242, 184, 26], band: "7-10 MHz (30m)" },
+  { threshold: 14, rgb: [191, 224, 51], band: "10-14 MHz (20m)" },
+  { threshold: 21, rgb: [38, 199, 102], band: "14-21 MHz (15m)" },
+  { threshold: 28, rgb: [26, 184, 217], band: "21-28 MHz (10m)" },
+  { threshold: Infinity, rgb: [77, 89, 235], band: "> 28 MHz (6m+)" },
+];
 
 export function getMUFColor(muf: number): { color: string; band: string } {
   // Below the first threshold: flat deep maroon (matches shader)
@@ -193,7 +197,8 @@ export function getMUFColor(muf: number): { color: string; band: string } {
       const prevThreshold = MUF_COLOR_STOPS[i - 1].threshold;
       const next = MUF_COLOR_STOPS[Math.min(i + 1, MUF_COLOR_STOPS.length - 1)];
       const span = stop.threshold - prevThreshold;
-      const t = span > 0 && Number.isFinite(span) ? (muf - prevThreshold) / span : 0;
+      const t =
+        span > 0 && Number.isFinite(span) ? (muf - prevThreshold) / span : 0;
       const r = Math.round(stop.rgb[0] + (next.rgb[0] - stop.rgb[0]) * t);
       const g = Math.round(stop.rgb[1] + (next.rgb[1] - stop.rgb[1]) * t);
       const b = Math.round(stop.rgb[2] + (next.rgb[2] - stop.rgb[2]) * t);
@@ -422,4 +427,67 @@ export function getFrequencyLimits(
     luf,
     hpf,
   };
+}
+
+/**
+ * Candidate bands for the "top band" line, lowest to highest.
+ *
+ * 160m is deliberately absent: this MUF is an F2 3000 km estimate, and top
+ * band is governed by D-layer absorption rather than by the MUF, so naming it
+ * as the highest usable band would be misleading. A MUF under 3.5 MHz
+ * therefore reads "—" — no HF band is supported by this path.
+ */
+const TOP_BAND_ORDER = BAND_ORDER.filter((band) => band !== "160m");
+
+/**
+ * Highest amateur band whose lower edge sits at or below the MUF.
+ *
+ * `getMUFColor().band` is a legend bucket ("14-21 MHz (15m)"), which names the
+ * colour stop rather than the band an operator can actually use, so this
+ * resolves the band from the band plan instead. Shared by the MUF tile and
+ * the MUF report so the two never disagree on which band is "usable".
+ */
+export function topUsableBand(mufMHz: number): string {
+  let top: string | null = null;
+  for (const band of TOP_BAND_ORDER) {
+    if (BAND_RANGES[band].startKHz / 1000 <= mufMHz) top = band;
+  }
+  return top ?? "—";
+}
+
+export interface MUFSeriesPoint {
+  timestamp: string;
+  muf: number;
+  /** Frequency of Optimum Traffic — 0.85 × MUF (`calculateFOT`). */
+  fot: number;
+  /** Lowest Usable Frequency at this hour (`calculateLUF`, default 100W/SSB). */
+  luf: number;
+}
+
+/**
+ * 24 hourly MUF/FOT/LUF-at-QTH samples ending at `centerDate`, for the MUF
+ * report's usable-window chart. No new feed: the existing point estimators
+ * (`estimateMUF`, `calculateFOT`, `calculateLUF`) are swept across the same
+ * hour grid `ForecastReport`'s MUF chart already sweeps for its own 24h
+ * window.
+ */
+export function sampleMufSeries(
+  lat: number,
+  lon: number,
+  sfi: number,
+  centerDate: Date,
+  hours = 24,
+): MUFSeriesPoint[] {
+  const points: MUFSeriesPoint[] = [];
+  for (let i = hours - 1; i >= 0; i--) {
+    const at = new Date(centerDate.getTime() - i * 60 * 60 * 1000);
+    const muf = estimateMUF(lat, lon, sfi, at);
+    points.push({
+      timestamp: at.toISOString(),
+      muf,
+      fot: calculateFOT(muf),
+      luf: calculateLUF(lat, lon, sfi, at),
+    });
+  }
+  return points;
 }

@@ -116,7 +116,7 @@
   display: grid;
   /* Facts keep at least 22vw so a wide hero/verdict (Sun countdown +
    * SUNRISE/SUNSET) cannot squeeze the column into ellipsis (#248). */
-  grid-template-columns: auto auto minmax(22vw, 1fr);
+  grid-template-columns: auto auto minmax(0, 1fr);
   gap: 2.4vw;
   align-items: end;
 }

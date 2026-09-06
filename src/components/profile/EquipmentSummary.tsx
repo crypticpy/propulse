@@ -5,13 +5,11 @@
  */
 
 import { useActiveChain, useStationInventory } from "@/stores/shackStore";
-import { useIsMobile } from "@/hooks/useIsMobile";
-import { EquipmentCardSm } from "@/components/shack/EquipmentCardSm";
+import { EquipmentInventoryRow } from "./EquipmentInventoryRow";
 import type { EquipmentType } from "@/components/shack/equipmentCardTypes";
 import { resolveChainKit } from "@/lib/station/stationIdentity";
 
 export function EquipmentSummary() {
-  const isMobile = useIsMobile();
   const chain = useActiveChain();
   const inventory = useStationInventory();
   const kit = resolveChainKit(chain, inventory);
@@ -25,7 +23,7 @@ export function EquipmentSummary() {
         <div className="text-center py-6">
           <p className="text-sm text-gray-500">No active signal path</p>
           <p className="text-xs text-gray-600 mt-1">
-            Activate a path in the Station Builder Lab.
+            Choose a signal path in the workbench.
           </p>
         </div>
       </div>
@@ -77,13 +75,9 @@ export function EquipmentSummary() {
         Equipment
       </h3>
       <p className="text-xs text-gray-500 mb-3">{kit.chainName}</p>
-      <div
-        className={
-          isMobile ? "space-y-2" : "grid grid-cols-1 sm:grid-cols-3 gap-2"
-        }
-      >
+      <ul className="profile-shack-list">
         {items.map((item) => (
-          <EquipmentCardSm
+          <EquipmentInventoryRow
             key={item.key}
             title={item.title}
             subtitle={item.subtitle}
@@ -91,7 +85,7 @@ export function EquipmentSummary() {
             stats={item.stats}
           />
         ))}
-      </div>
+      </ul>
     </div>
   );
 }

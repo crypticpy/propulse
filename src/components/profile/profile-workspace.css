@@ -1,0 +1,320 @@
+/* Feature-local adoption of station tokens. No app header, HamClock or shared palette rules. */
+.profile-workspace {
+  position: relative;
+  min-height: 100%;
+  isolation: isolate;
+}
+.profile-workspace-inner {
+  position: relative;
+  max-width: 1480px;
+  margin: 0 auto;
+  padding: 1.5rem 2rem 2rem;
+}
+.profile-workspace-background {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  opacity: 0.12;
+  background-size: cover;
+  background-position: center top;
+  mask-image: linear-gradient(black, transparent 48rem);
+  pointer-events: none;
+}
+.profile-workspace-context {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  color: var(--su-muted);
+  font-size: 0.875rem;
+}
+.profile-workspace-context > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.625rem;
+}
+.profile-workspace .su-page-header {
+  margin: 1.5rem 0 2rem;
+  padding-bottom: 1.75rem;
+  border-bottom: 1px solid var(--su-line);
+}
+.profile-workspace .su-page-description {
+  max-width: 42rem;
+}
+.profile-workspace-layout {
+  display: grid;
+  grid-template-columns: 280px minmax(0, 1fr);
+  align-items: start;
+  gap: 2rem;
+}
+.profile-workspace-identity,
+.profile-workspace-content {
+  min-width: 0;
+}
+.profile-workspace-identity {
+  display: grid;
+  gap: 1rem;
+}
+.profile-workspace-identity > .profile-workspace-legacy > div {
+  width: 100%;
+  max-height: none;
+  position: relative;
+  top: auto;
+}
+.profile-workspace-rail-note {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  padding: 1.125rem;
+  border: 1px solid var(--su-line);
+  border-radius: var(--su-radius-panel);
+  background: var(--su-panel);
+  font-size: 0.875rem;
+}
+.profile-workspace-rail-note > svg {
+  color: var(--su-info);
+  margin-top: 0.2rem;
+}
+.profile-workspace-rail-note p {
+  color: var(--su-muted);
+  margin: 0.4rem 0 0.75rem;
+}
+.profile-workspace .su-tabs > [role="tablist"] {
+  gap: 0;
+  flex-wrap: wrap;
+  margin-bottom: 1.75rem;
+  border-bottom: 1px solid var(--su-line);
+}
+.profile-workspace .su-tabs [role="tab"] {
+  padding: 0.875rem 1rem;
+  min-height: 48px;
+  font-size: 0.9375rem;
+}
+.profile-workspace .su-tabs > [role="tabpanel"] {
+  padding-top: 0;
+}
+.profile-workspace-section + .profile-workspace-section {
+  margin-top: 2.25rem;
+}
+.profile-workspace-section > .su-section-heading {
+  margin-bottom: 1rem;
+}
+.profile-workspace-section > .su-section-heading h2 {
+  letter-spacing: -0.01em;
+}
+.profile-workspace-section > .su-section-heading .su-hint {
+  max-width: 42rem;
+}
+.profile-workspace-panels {
+  display: grid;
+  gap: 1rem;
+  min-width: 0;
+}
+.profile-workspace-pair {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+  align-items: start;
+}
+.profile-workspace-panel {
+  background: var(--su-panel);
+  border: 1px solid var(--su-line);
+  border-radius: var(--su-radius-panel);
+  padding: 1.5rem;
+  min-width: 0;
+}
+.profile-workspace-panel > h3 {
+  color: var(--su-muted);
+  margin-bottom: 1rem;
+  letter-spacing: 0.04em;
+}
+.profile-workspace-section-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-height: 44px;
+  font-size: 0.875rem;
+}
+.profile-workspace-footer {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.625rem;
+  margin-top: 3rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid var(--su-line);
+  font-size: 0.875rem;
+  color: var(--su-muted);
+}
+.profile-workspace-visitor-card {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 1rem;
+}
+.profile-workspace-visitor-card > div {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.profile-workspace-visitor-card img {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  object-fit: cover;
+}
+.profile-workspace-visitor-card h2 {
+  font-family: var(--su-font-mono);
+  color: var(--su-accent-text);
+}
+
+/* Retained feature components keep their state and behavior. This scoped bridge
+ * gives their old utility classes the same readable surfaces as the new shell. */
+.profile-workspace-legacy
+  :is(.text-white, .text-gray-100, .text-gray-200, .text-gray-300) {
+  color: var(--su-text);
+}
+.profile-workspace-legacy :is(.text-gray-400, .text-gray-500, .text-gray-600) {
+  color: var(--su-muted);
+}
+.profile-workspace-legacy .text-plasma-orange {
+  color: var(--su-accent-text);
+}
+.profile-workspace-legacy .text-caution-yellow {
+  color: var(--su-warning);
+}
+.profile-workspace-legacy .text-signal-green {
+  color: var(--su-success);
+}
+.profile-workspace-legacy .font-mono[style*="color:"] {
+  color: var(--su-text) !important;
+}
+.profile-workspace-legacy .tracking-widest[style*="color:"] {
+  color: var(--su-muted) !important;
+}
+.profile-workspace-legacy [class~="bg-white/[0.05]"][style*="color:"] {
+  color: var(--su-text) !important;
+}
+.profile-workspace-legacy [class~="bg-gray-800"] {
+  background-color: var(--su-input);
+}
+.profile-workspace-legacy
+  :is(
+    .text-xs,
+    [class~="text-[9px]"],
+    [class~="text-[10px]"],
+    [class~="text-[11px]"]
+  ) {
+  font-size: 0.875rem;
+  line-height: 1.5;
+}
+.profile-workspace-legacy [class*="bg-panel/"] {
+  background-color: var(--su-panel);
+  backdrop-filter: none;
+}
+.profile-workspace-legacy [class*="bg-void/"] {
+  background-color: var(--su-input);
+}
+.profile-workspace-legacy
+  :is(
+    [class~="bg-white/5"],
+    [class~="bg-white/10"],
+    [class~="bg-white/[0.06]"]
+  ) {
+  background-color: var(--su-input);
+}
+.profile-workspace-legacy [class*="border-white/"] {
+  border-color: var(--su-line);
+}
+.profile-workspace-legacy
+  :is(
+    input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
+    textarea,
+    select
+  ) {
+  color: var(--su-text);
+  background-color: var(--su-input);
+  border-color: var(--su-line);
+  min-height: 44px;
+}
+.profile-workspace-legacy :is(button, summary) {
+  min-height: 44px;
+}
+.profile-workspace-legacy button[class~="bg-plasma-orange"] {
+  background-color: var(--su-accent);
+  color: var(--su-on-accent);
+}
+.profile-workspace-legacy :is(h1, h2, h3, p, span) {
+  text-shadow: none;
+}
+.profile-workspace-legacy p {
+  line-height: 1.65;
+}
+.profile-workspace-legacy :is(a, pre) {
+  overflow-wrap: anywhere;
+}
+.profile-workspace-legacy pre {
+  white-space: pre-wrap;
+}
+.profile-workspace-identity :is([class~="text-2xl"], h2) {
+  overflow-wrap: anywhere;
+}
+.profile-workspace .profile-workspace-panel {
+  box-shadow: none;
+}
+@media (max-width: 1100px) {
+  .profile-workspace-inner {
+    padding: 1.25rem;
+  }
+  .profile-workspace-layout {
+    grid-template-columns: 250px minmax(0, 1fr);
+    gap: 1.25rem;
+  }
+  .profile-workspace-pair {
+    grid-template-columns: 1fr;
+  }
+  .profile-workspace .su-tabs [role="tab"] {
+    padding: 0.75rem;
+  }
+}
+@media (max-width: 767px) {
+  .profile-workspace-inner {
+    padding: 1rem;
+  }
+  .profile-workspace-layout {
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }
+  .profile-workspace .su-page-header {
+    margin: 1.25rem 0;
+    padding-bottom: 1.25rem;
+  }
+  .profile-workspace .su-page-header .su-inline {
+    width: 100%;
+  }
+  .profile-workspace .su-page-header .su-button {
+    flex: 1 1 auto;
+  }
+  .profile-workspace-rail-note {
+    display: none;
+  }
+  .profile-workspace-panel {
+    padding: 1rem;
+  }
+  .profile-workspace .su-tabs [role="tab"] {
+    flex: 1 0 auto;
+  }
+  .profile-workspace-identity > .profile-workspace-legacy > div {
+    margin-bottom: 0;
+  }
+  .profile-workspace-identity .flex {
+    flex-wrap: wrap;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .profile-workspace-legacy
+    :is([class*="animate-rank-"], [class*="animate-ethereal"]) {
+    animation: none !important;
+  }
+}

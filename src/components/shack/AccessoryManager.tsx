@@ -6,7 +6,7 @@
  * Uses EquipmentCard for display and EquipmentDetailModal for detail view.
  */
 
-import { useState } from "react";
+import { useState, useId } from "react";
 import { useShackStore, useUserAccessories } from "@/stores/shackStore";
 import type {
   UserAccessory,
@@ -22,7 +22,15 @@ import type {
   AudioDspAccessory,
 } from "@/types/shack";
 import { MAX_ACCESSORIES, ACCESSORY_CATEGORY_LABELS } from "@/types/shack";
-import { DetailModal } from "@/components/ui/DetailModal";
+import {
+  Button,
+  Dialog,
+  Section,
+  StationProvider,
+  TextField,
+  SelectField,
+  TextAreaField,
+} from "@/components/station-ui";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { AccessoryCategoryFields } from "./AccessoryCategoryFields";
 import { EquipmentCard } from "@/components/shack/EquipmentCard";
@@ -794,6 +802,7 @@ export function AccessoryManager({
   const accessories = useUserAccessories();
   const { addAccessory, updateAccessory, removeAccessory } = useShackStore();
 
+  const formId = useId();
   const [modalOpen, setModalOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState<AccessoryForm>(createDefaultForm);
@@ -1197,141 +1206,130 @@ export function AccessoryManager({
       )}
 
       {/* Add / Edit Modal */}
-      <DetailModal
-        isOpen={modalOpen}
-        onClose={() => {
-          setModalOpen(false);
-          setEditingId(null);
-          setError(null);
-        }}
-        title={editingId ? "Edit Accessory" : "Add Accessory"}
-        subtitle="Configure your accessory details"
-        size="lg"
-      >
-        <div className="space-y-5">
-          {error && (
-            <div className="p-3 rounded-lg border border-alert-red/30 bg-alert-red/10 text-alert-red text-sm">
-              {error}
+      <StationProvider>
+        <Dialog
+          open={modalOpen}
+          onClose={() => {
+            setModalOpen(false);
+            setEditingId(null);
+            setError(null);
+          }}
+          title={editingId ? "Edit accessory" : "Add an accessory"}
+          description="Add equipment in your signal path or supporting gear around your shack."
+          footer={
+            <div className="su-inline">
+              <Button
+                onClick={() => {
+                  setModalOpen(false);
+                  setEditingId(null);
+                  setError(null);
+                }}
+              >
+                Cancel
+              </Button>
+              <Button variant="primary" type="submit" form={formId}>
+                {editingId ? "Save changes" : "Add accessory"}
+              </Button>
             </div>
-          )}
+          }
+        >
+          <form
+            id={formId}
+            className="su-stack"
+            noValidate
+            onSubmit={(event) => {
+              event.preventDefault();
+              save();
+            }}
+          >
+            {error && (
+              <div className="su-field-error" role="alert">
+                {error}
+              </div>
+            )}
 
-          {/* Category selector */}
-          {!editingId && (
-            <div>
-              <label className="block text-sm font-medium text-gray-200 mb-2">
-                Category
-              </label>
-              <div className="flex flex-wrap gap-2">
-                {ALL_CATEGORIES.map((cat) => (
-                  <button
-                    key={cat}
-                    type="button"
-                    onClick={() => setForm((p) => ({ ...p, category: cat }))}
-                    className={`px-3 py-1.5 text-xs rounded-lg transition-colors ${
-                      form.category === cat
-                        ? "bg-plasma-orange/20 text-plasma-orange border border-plasma-orange/50"
-                        : "bg-white/5 text-gray-400 border border-white/10 hover:text-gray-200 hover:bg-white/10"
-                    }`}
-                  >
-                    {CATEGORY_LABELS[cat]}
-                  </button>
+            {!editingId ? (
+              <SelectField
+                label="Accessory category"
+                value={form.category}
+                hint="Choose a category to see the relevant specifications."
+                onChange={(event) =>
+                  setForm((previous) => ({
+                    ...previous,
+                    category: event.target.value as AccessoryCategory,
+                  }))
+                }
+              >
+                {ALL_CATEGORIES.map((category) => (
+                  <option key={category} value={category}>
+                    {CATEGORY_LABELS[category]}
+                  </option>
                 ))}
+              </SelectField>
+            ) : (
+              <p className="su-hint">{CATEGORY_LABELS[form.category]}</p>
+            )}
+
+            {/* Common fields */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <TextField
+                  label="Accessory name"
+                  required
+                  value={form.name}
+                  onChange={(e) =>
+                    setForm((p) => ({ ...p, name: e.target.value }))
+                  }
+                  maxLength={100}
+                  placeholder="e.g., Ameritron AL-811"
+                />
+              </div>
+              <div>
+                <TextField
+                  label="Manufacturer"
+                  value={form.manufacturer}
+                  onChange={(e) =>
+                    setForm((p) => ({ ...p, manufacturer: e.target.value }))
+                  }
+                  placeholder="Optional"
+                />
+              </div>
+              <div>
+                <TextField
+                  label="Model"
+                  value={form.modelNumber}
+                  onChange={(e) =>
+                    setForm((p) => ({ ...p, modelNumber: e.target.value }))
+                  }
+                  placeholder="Optional"
+                />
               </div>
             </div>
-          )}
 
-          {/* Common fields */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {/* Category-specific fields */}
+            <Section title={`${CATEGORY_LABELS[form.category]} specifications`}>
+              <AccessoryCategoryFields
+                category={form.category}
+                form={form}
+                setForm={setForm}
+              />
+            </Section>
+
+            {/* Notes */}
             <div>
-              <label className="block text-sm font-medium text-gray-200 mb-1">
-                Name
-              </label>
-              <input
-                value={form.name}
+              <TextAreaField
+                label="Notes (optional)"
+                value={form.notes}
                 onChange={(e) =>
-                  setForm((p) => ({ ...p, name: e.target.value }))
+                  setForm((p) => ({ ...p, notes: e.target.value }))
                 }
-                maxLength={100}
-                placeholder="e.g., Ameritron AL-811"
-                className="w-full bg-void-black border border-white/10 rounded-lg px-3 py-2 text-sm text-gray-200 focus:border-plasma-orange/50 focus:outline-none"
+                rows={3}
+                placeholder="Usage notes, maintenance history..."
               />
             </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-200 mb-1">
-                Manufacturer
-              </label>
-              <input
-                value={form.manufacturer}
-                onChange={(e) =>
-                  setForm((p) => ({ ...p, manufacturer: e.target.value }))
-                }
-                placeholder="Optional"
-                className="w-full bg-void-black border border-white/10 rounded-lg px-3 py-2 text-sm text-gray-200 focus:border-plasma-orange/50 focus:outline-none"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-200 mb-1">
-                Model
-              </label>
-              <input
-                value={form.modelNumber}
-                onChange={(e) =>
-                  setForm((p) => ({ ...p, modelNumber: e.target.value }))
-                }
-                placeholder="Optional"
-                className="w-full bg-void-black border border-white/10 rounded-lg px-3 py-2 text-sm text-gray-200 focus:border-plasma-orange/50 focus:outline-none"
-              />
-            </div>
-          </div>
-
-          {/* Category-specific fields */}
-          <AccessoryCategoryFields
-            category={form.category}
-            form={form}
-            setForm={setForm}
-          />
-
-          {/* Notes */}
-          <div>
-            <label className="block text-sm font-medium text-gray-200 mb-1">
-              Notes (optional)
-            </label>
-            <textarea
-              value={form.notes}
-              onChange={(e) =>
-                setForm((p) => ({ ...p, notes: e.target.value }))
-              }
-              rows={3}
-              placeholder="Usage notes, maintenance history..."
-              className="w-full bg-void-black border border-white/10 rounded-lg px-3 py-2 text-sm text-gray-200 focus:border-plasma-orange/50 focus:outline-none"
-            />
-          </div>
-
-          {/* Action buttons */}
-          <div className="flex gap-3">
-            <button
-              type="button"
-              onClick={() => {
-                setModalOpen(false);
-                setEditingId(null);
-                setError(null);
-              }}
-              className="flex-1 px-4 py-2 bg-nebula-blue/60 border border-white/10 rounded-lg
-                         text-gray-200 hover:text-white hover:border-white/20 transition-colors font-medium text-sm"
-            >
-              Cancel
-            </button>
-            <button
-              type="button"
-              onClick={save}
-              className="flex-1 px-4 py-2 bg-plasma-orange/20 border border-plasma-orange/50 rounded-lg
-                         text-plasma-orange hover:bg-plasma-orange/30 transition-colors font-medium text-sm"
-            >
-              {editingId ? "Save Changes" : "Add Accessory"}
-            </button>
-          </div>
-        </div>
-      </DetailModal>
+          </form>
+        </Dialog>
+      </StationProvider>
 
       <ConfirmDialog
         open={deleteTarget !== null}

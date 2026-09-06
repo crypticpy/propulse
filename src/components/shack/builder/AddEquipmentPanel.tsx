@@ -7,6 +7,9 @@
  */
 
 import { useState, useMemo, useCallback } from "react";
+import { Link } from "react-router-dom";
+import { Button, Section, Surface, TextField } from "@/components/station-ui";
+import "./equipment-workbench.css";
 import type { EquipmentTypeOption } from "@/lib/chainOrdering";
 import type { AccessoryCategory } from "@/types/shack";
 import {
@@ -28,6 +31,8 @@ import {
 export interface AddEquipmentPanelProps {
   /** Position in the chain where the new node will be inserted */
   position: number;
+  /** Toolbar placement follows signal order; explicit gaps retain their position. */
+  automaticPlacement?: boolean;
   /** Valid equipment type options for this position (from getValidEquipmentTypes) */
   validTypes: EquipmentTypeOption[];
   /** Called when user selects equipment to add */
@@ -179,42 +184,6 @@ const TYPE_ICON_MAP: Record<string, React.FC<{ className?: string }>> = {
   antenna: AntennaIcon,
 };
 
-// ─── Color Map ──────────────────────────────────────────────────────────────
-
-const TYPE_BG_COLORS: Record<string, string> = {
-  radio:
-    "bg-plasma-orange/15 border-plasma-orange/30 hover:border-plasma-orange/60",
-  amplifier:
-    "bg-nebula-blue/15 border-nebula-blue/30 hover:border-nebula-blue/60",
-  tuner: "bg-nebula-blue/15 border-nebula-blue/30 hover:border-nebula-blue/60",
-  filter: "bg-nebula-blue/15 border-nebula-blue/30 hover:border-nebula-blue/60",
-  switch: "bg-indigo-500/15 border-indigo-500/30 hover:border-indigo-500/60",
-  feedline:
-    "bg-feedline-teal/15 border-feedline-teal/30 hover:border-feedline-teal/60",
-  antenna:
-    "bg-signal-green/15 border-signal-green/30 hover:border-signal-green/60",
-};
-
-const TYPE_ICON_COLORS: Record<string, string> = {
-  radio: "text-plasma-orange",
-  amplifier: "text-nebula-blue",
-  tuner: "text-nebula-blue",
-  filter: "text-nebula-blue",
-  switch: "text-indigo-400",
-  feedline: "text-feedline-teal",
-  antenna: "text-signal-green",
-};
-
-const TYPE_BADGE_COLORS: Record<string, string> = {
-  radio: "bg-plasma-orange/20 text-plasma-orange",
-  amplifier: "bg-nebula-blue/20 text-nebula-blue",
-  tuner: "bg-nebula-blue/20 text-nebula-blue",
-  filter: "bg-nebula-blue/20 text-nebula-blue",
-  switch: "bg-indigo-500/20 text-indigo-400",
-  feedline: "bg-feedline-teal/20 text-feedline-teal",
-  antenna: "bg-signal-green/20 text-signal-green",
-};
-
 // ─── In-Use Detection (across ALL chains) ───────────────────────────────────
 
 function buildGlobalInUseSet(
@@ -267,7 +236,8 @@ interface InventoryItem {
 // ─── Component ──────────────────────────────────────────────────────────────
 
 export function AddEquipmentPanel({
-  position: _position,
+  position,
+  automaticPlacement = false,
   validTypes,
   onAdd,
   onCancel,
@@ -275,6 +245,8 @@ export function AddEquipmentPanel({
   const [selectedType, setSelectedType] = useState<EquipmentTypeOption | null>(
     null,
   );
+
+  const [search, setSearch] = useState("");
 
   // ── Store hooks ─────────────────────────────────────────────────────────
   const userRadios = useUserRadios();
@@ -451,201 +423,153 @@ export function AddEquipmentPanel({
     [onAdd, resolveNodeType],
   );
 
-  // ── Step 2: Item Picker ─────────────────────────────────────────────────
+  const inventoryCategory = (key: string) =>
+    ["amplifier", "tuner", "filter", "switch"].includes(key)
+      ? "accessories"
+      : key === "radio"
+        ? "radios"
+        : key === "antenna"
+          ? "antennas"
+          : "feedlines";
+
   if (selectedType) {
     const items = getItemsForType(selectedType);
-    const iconKey = selectedType.inventoryKey;
-    const IconComponent = TYPE_ICON_MAP[iconKey];
-
+    const filtered = items.filter((item) =>
+      `${item.name} ${item.subLabel ?? ""}`
+        .toLowerCase()
+        .includes(search.trim().toLowerCase()),
+    );
     return (
-      <div className="bg-panel/30 backdrop-blur-sm border border-white/5 rounded-2xl p-4 space-y-3 animate-in fade-in duration-200">
-        {/* Header */}
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={handleBack}
-              className="flex items-center gap-1 text-xs text-gray-400 hover:text-gray-200 transition-colors min-h-[44px] px-2"
-            >
-              <svg
-                className="w-3.5 h-3.5"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-                strokeWidth={2}
+      <Surface className="equipment-picker">
+        <Section
+          title={`Choose ${selectedType.label.toLowerCase()}`}
+          description={
+            automaticPlacement
+              ? "Step 2 of 2 · Equipment will be placed in signal order."
+              : `Step 2 of 2 · Insert at position ${position + 1} in this signal path.`
+          }
+          actions={
+            <Button variant="quiet" onClick={onCancel}>
+              Cancel
+            </Button>
+          }
+        >
+          <div className="su-stack">
+            <div>
+              <Button
+                variant="quiet"
+                onClick={() => {
+                  handleBack();
+                  setSearch("");
+                }}
               >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18"
-                />
-              </svg>
-              Back
-            </button>
-            <div className="w-px h-4 bg-white/10" />
-            <div className="flex items-center gap-1.5">
-              {IconComponent && (
-                <IconComponent
-                  className={`w-4 h-4 ${TYPE_ICON_COLORS[iconKey] ?? "text-gray-400"}`}
-                />
-              )}
-              <span className="text-sm font-medium text-gray-200">
-                Select {selectedType.label}
-              </span>
+                ← Equipment types
+              </Button>
             </div>
-          </div>
-          <button
-            type="button"
-            onClick={onCancel}
-            className="text-xs text-gray-500 hover:text-gray-300 transition-colors min-h-[44px] px-2"
-          >
-            Cancel
-          </button>
-        </div>
-
-        {/* Item list */}
-        {items.length === 0 ? (
-          <p className="text-xs text-gray-500 italic text-center py-6">
-            No {selectedType.label.toLowerCase()}s in inventory. Add equipment
-            in the Inventory view.
-          </p>
-        ) : (
-          <div className="grid gap-2 sm:grid-cols-2">
-            {items.map((item) => (
-              <div
-                key={item.id}
-                className={`flex items-center gap-3 p-3 rounded-xl border transition-colors ${
-                  item.inUse
-                    ? "bg-white/[0.02] border-white/5 opacity-70"
-                    : "bg-white/[0.03] border-white/5 hover:border-white/15"
-                }`}
-              >
-                {/* Item info */}
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-sm font-medium text-gray-200 line-clamp-2 break-words">
-                      {item.name}
-                    </span>
-                    {item.inUse && (
-                      <span className="shrink-0 px-1.5 py-0.5 text-[10px] font-medium rounded-full bg-white/10 text-gray-400">
-                        In Use
-                      </span>
-                    )}
+            <TextField
+              label={`Find ${selectedType.label.toLowerCase()} in your inventory`}
+              type="search"
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+              placeholder="Name or model"
+            />
+            {filtered.length > 0 ? (
+              <div className="equipment-picker-list">
+                {filtered.map((item) => (
+                  <div key={item.id} className="equipment-picker-row">
+                    <div className="min-w-0">
+                      <h3>{item.name}</h3>
+                      {item.subLabel && (
+                        <p className="su-hint">{item.subLabel}</p>
+                      )}
+                      {item.inUse && (
+                        <p className="su-hint">Also used in a signal path</p>
+                      )}
+                    </div>
+                    <Button
+                      variant="primary"
+                      aria-label={`Add ${item.name} to path`}
+                      onClick={() => handleAdd(selectedType, item.id)}
+                    >
+                      Add to path
+                    </Button>
                   </div>
-                  {item.subLabel && (
-                    <p className="text-xs text-gray-400 line-clamp-1 mt-0.5">
-                      {item.subLabel}
-                    </p>
-                  )}
-                </div>
-
-                {/* Add button */}
-                <button
-                  type="button"
-                  onClick={() => handleAdd(selectedType, item.id)}
-                  className="shrink-0 px-3 py-1.5 rounded-lg bg-plasma-orange text-white text-xs font-medium hover:bg-plasma-orange/90 transition-colors min-h-[44px]"
-                >
-                  Add
-                </button>
+                ))}
               </div>
-            ))}
+            ) : (
+              <div className="equipment-picker-empty">
+                <h3>
+                  {items.length
+                    ? "No matching equipment"
+                    : `No ${selectedType.label.toLowerCase()} in your inventory yet`}
+                </h3>
+                <p className="su-hint">
+                  {items.length
+                    ? "Try another name or clear the search."
+                    : "Add catalog or custom equipment to your inventory, then connect it here."}
+                </p>
+                {items.length ? (
+                  <Button onClick={() => setSearch("")}>Clear search</Button>
+                ) : (
+                  <Link
+                    className="su-button su-button--secondary"
+                    onClick={onCancel}
+                    to={`/shack?view=equipment&category=${inventoryCategory(selectedType.inventoryKey)}`}
+                  >
+                    Open inventory
+                  </Link>
+                )}
+              </div>
+            )}
           </div>
-        )}
-      </div>
+        </Section>
+      </Surface>
     );
   }
 
-  // ── Step 1: Type Picker ─────────────────────────────────────────────────
   return (
-    <div className="bg-panel/30 backdrop-blur-sm border border-white/5 rounded-2xl p-4 space-y-3 animate-in fade-in duration-200">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider">
-          Add Equipment
-        </h3>
-        <button
-          type="button"
-          onClick={onCancel}
-          className="text-xs text-gray-500 hover:text-gray-300 transition-colors min-h-[44px] px-2"
-        >
-          Cancel
-        </button>
-      </div>
-
-      {/* Type buttons row */}
-      <div className="flex flex-wrap gap-2">
-        {allTypeOptions.map((option) => {
-          const key = option.inventoryKey;
-          const isValid = validTypeKeys.has(key);
-          const count = inventoryCounts[key] ?? 0;
-          const hasInventory = count > 0;
-          const isDisabled = !isValid || !hasInventory;
-          const IconComponent = TYPE_ICON_MAP[key];
-
-          return (
-            <button
-              key={key}
-              type="button"
-              onClick={() => !isDisabled && handleTypeSelect(option)}
-              disabled={isDisabled}
-              className={`
-                flex flex-col items-center justify-center gap-1 rounded-xl border
-                transition-all duration-150 min-w-[80px] min-h-[60px] px-3 py-2
-                ${
-                  isDisabled
-                    ? "opacity-40 cursor-not-allowed bg-white/[0.02] border-white/5"
-                    : `cursor-pointer ${TYPE_BG_COLORS[key] ?? "bg-white/5 border-white/10 hover:border-white/30"}`
-                }
-              `}
-              title={
-                !isValid
-                  ? "Can't place here"
-                  : !hasInventory
-                    ? "None in inventory"
-                    : `Add ${option.label}`
-              }
-            >
-              {/* Icon */}
-              {IconComponent && (
-                <IconComponent
-                  className={`w-5 h-5 ${
-                    isDisabled
-                      ? "text-gray-600"
-                      : (TYPE_ICON_COLORS[key] ?? "text-gray-400")
-                  }`}
-                />
-              )}
-
-              {/* Label */}
-              <span
-                className={`text-xs font-medium ${
-                  isDisabled ? "text-gray-600" : "text-gray-200"
-                }`}
+    <Surface className="equipment-picker">
+      <Section
+        title="Add to signal path"
+        description={
+          automaticPlacement
+            ? "Step 1 of 2 · Choose equipment for automatic placement in signal order."
+            : `Step 1 of 2 · Choose equipment for position ${position + 1}.`
+        }
+        actions={
+          <Button variant="quiet" onClick={onCancel}>
+            Cancel
+          </Button>
+        }
+      >
+        <div className="equipment-type-grid">
+          {allTypeOptions.map((option) => {
+            const key = option.inventoryKey;
+            const isValid = validTypeKeys.has(key);
+            const count = inventoryCounts[key] ?? 0;
+            const Icon = TYPE_ICON_MAP[key];
+            return (
+              <button
+                key={key}
+                type="button"
+                disabled={!isValid}
+                className="equipment-type-choice"
+                onClick={() => handleTypeSelect(option)}
               >
-                {option.label}
-              </span>
-
-              {/* Count badge */}
-              <span
-                className={`text-[10px] font-medium px-1.5 py-0.5 rounded-full ${
-                  isDisabled
-                    ? "bg-white/5 text-gray-600"
-                    : (TYPE_BADGE_COLORS[key] ?? "bg-white/10 text-gray-400")
-                }`}
-              >
-                {count}
-              </span>
-
-              {/* Disabled reason */}
-              {isDisabled && (
-                <span className="text-[9px] text-gray-600 leading-tight text-center">
-                  {!isValid ? "Can't place here" : "None in inventory"}
+                {Icon && <Icon className="w-6 h-6" />}
+                <strong>{option.label}</strong>{" "}
+                <span className="su-hint">
+                  {!isValid
+                    ? "Not available at this position"
+                    : count
+                      ? `${count} in inventory`
+                      : "Add your first item"}
                 </span>
-              )}
-            </button>
-          );
-        })}
-      </div>
-    </div>
+              </button>
+            );
+          })}
+        </div>
+      </Section>
+    </Surface>
   );
 }

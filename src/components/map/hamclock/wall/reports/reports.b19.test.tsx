@@ -377,10 +377,11 @@ describe("SolarWindReport", () => {
     expect(screen.getByText("NONE ANALYSED IN 7 DAYS")).toBeTruthy();
   });
 
-  it("toggles the aurora map layer", async () => {
+  it("toggles the aurora map layer from the GEOMAGNETIC tab", async () => {
     const user = userEvent.setup();
     render(<SolarWindReport open onClose={vi.fn()} />);
 
+    await user.click(screen.getByRole("tab", { name: "GEOMAGNETIC" }));
     await user.click(
       screen.getByRole("button", { name: /SHOW AURORA ON MAP/i }),
     );
@@ -388,7 +389,8 @@ describe("SolarWindReport", () => {
     expect(mocks.toggleLayer).toHaveBeenCalledWith("aurora");
   });
 
-  it("renders Bz, speed, and density history strips on the WIND tab", () => {
+  it("shows one WIND chart at a time, picked by the Bz / speed / density buttons", async () => {
+    const user = userEvent.setup();
     mocks.solar.mockImplementation((sourceId: string) => {
       if (sourceId === "swpc-solar-wind-plasma") {
         return envelope([
@@ -419,14 +421,15 @@ describe("SolarWindReport", () => {
     render(<SolarWindReport open onClose={vi.fn()} />);
 
     expect(screen.getByText("Bz — 24 H · ACE/DSCOVR AT L1")).toBeTruthy();
-    expect(screen.getByText("Speed — 24 H · ACE/DSCOVR AT L1")).toBeTruthy();
-    expect(screen.getByText("Density — 24 H · ACE/DSCOVR AT L1")).toBeTruthy();
+    expect(screen.queryByText("Speed — 24 H · ACE/DSCOVR AT L1")).toBeNull();
 
-    const speedChart = screen.getByRole("img", { name: /Solar-wind speed/ });
+    await user.click(screen.getByRole("radio", { name: "SPEED" }));
+    const speedChart = screen.getByRole("img", { name: /^Speed — 24 H/ });
     expect(speedChart.getAttribute("aria-label")).toContain("2 records");
-    const densityChart = screen.getByRole("img", {
-      name: /Solar-wind density/,
-    });
+    expect(screen.queryByText("Bz — 24 H · ACE/DSCOVR AT L1")).toBeNull();
+
+    await user.click(screen.getByRole("radio", { name: "DENSITY" }));
+    const densityChart = screen.getByRole("img", { name: /^Density — 24 H/ });
     expect(densityChart.getAttribute("aria-label")).toContain("2 records");
   });
 

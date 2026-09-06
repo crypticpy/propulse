@@ -33,6 +33,35 @@ describe("WallSeriesChart (#250 S1)", () => {
     expect(svg.textContent).toContain("NOW");
   });
 
+  it("labels a marker in the last quarter of the plot to the left of its line, clear of the threshold ladder", () => {
+    const { container } = render(
+      <WallSeriesChart
+        label="X-RAY — 24 H"
+        unit="W/m²"
+        points={[
+          { timestamp: at(0), value: 1e-7 },
+          { timestamp: at(24), value: 1e-7 },
+        ]}
+        markers={[
+          { timestamp: at(2), label: "EARLY" },
+          { timestamp: at(23), label: "LATE" },
+        ]}
+      />,
+    );
+    const labels = Array.from(container.querySelectorAll("svg text")).filter(
+      (t) => t.textContent === "EARLY" || t.textContent === "LATE",
+    );
+    const early = labels.find((t) => t.textContent === "EARLY")!;
+    const late = labels.find((t) => t.textContent === "LATE")!;
+    expect(early.getAttribute("text-anchor")).toBe("start");
+    expect(late.getAttribute("text-anchor")).toBe("end");
+    // The label sits on the far side of its own marker line in each case.
+    const lineX = (label: Element) =>
+      Number(label.parentElement?.querySelector("line")?.getAttribute("x1"));
+    expect(Number(early.getAttribute("x"))).toBeGreaterThan(lineX(early));
+    expect(Number(late.getAttribute("x"))).toBeLessThan(lineX(late));
+  });
+
   it("draws interval data as one bar per record, each tagged with its kind", () => {
     const { container } = render(
       <WallSeriesChart

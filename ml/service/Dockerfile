@@ -16,6 +16,7 @@ COPY --chown=propulse:propulse ml/service/model_bundle.py ./model_bundle.py
 COPY --chown=propulse:propulse ml/service/operational_weather.py ./operational_weather.py
 COPY --chown=propulse:propulse ml/service/path_history.py ./path_history.py
 COPY --chown=propulse:propulse ml/service/production_entrypoint.py ./production_entrypoint.py
+COPY --chown=propulse:propulse ml/service/reference_features.py ./reference_features.py
 COPY --chown=propulse:propulse ml/service/runtime_activation.py ./runtime_activation.py
 COPY --chown=propulse:propulse ml/service/serving_manifest.py ./serving_manifest.py
 COPY --chown=propulse:propulse ml/config/propagation_v4_2_runtime_activation.json /app/ml/config/propagation_v4_2_runtime_activation.json

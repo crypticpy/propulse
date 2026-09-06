@@ -4,6 +4,8 @@ This package is the pure allowlist projector for [W05 / #178](https://github.com
 
 The caller must resolve verified account identity, current friendship, publication presence/version and current media grants before invoking `evaluatePublicationPolicy`. A client-provided audience or owner ID is not authorization. `PUBLICATION_POLICY_TRUST_BOUNDARY` records that contract.
 
+The server must bind that context to the same publication owner, publication ID/version, setup and reviewed revision used to assemble the source. Friendship must concern that owner, and grants must belong to that publication and its intended assets. The policy's numeric version comparison cannot distinguish unrelated publications with the same version. Load pinned equipment/location from the reviewed revision; caller-supplied lineage or current live inventory is not proof of that binding. This package does not implement that server lookup or cache identity check.
+
 ## Entry points
 
 | Export | Responsibility |
@@ -20,13 +22,13 @@ Successful results include a private `lineage` object (`sourceId`, `setupId`, `r
 - Missing `sectionVisibility` keys are withheld, not treated as public.
 - Featured setup summaries copy selected equipment **labels** only. Inventory objects cannot be spread into the public featured shape.
 - Public location is the chosen Maidenhead disclosure truncated to field (2), square (4), subsquare (6) or extended (8) characters. Hidden precision publishes no region. Private `pinnedLocation` coordinates, including valid `0,0`, are never copied and never converted into a grid by default.
-- Media output lists **current** grant derivative IDs whose grant audience is allowed for the projected shape. When several current grants exist for one asset, the highest allowed audience wins, then a stable derivative id. Duplicate derivative IDs are emitted once. Derivative IDs are opaque references, not URLs. Revoked/absent grants are omitted. The policy does not claim that an already issued URL has been revoked.
+- Media grant identity is the tuple `(assetId, derivativeId, audience)`. Conflicting statuses for the same identity reject the entire policy input, regardless of order; a current row cannot override a revoked/absent row. Repeated identical rows are allowed, and different audiences or derivatives remain separate grants. Media output lists **current** grant derivative IDs whose grant audience is allowed for the projected shape. When several current grants exist for one asset, the highest allowed audience wins, then a stable derivative id. Duplicate derivative IDs are emitted once. Derivative IDs are opaque references, not URLs. Revoked/absent grants are omitted. The policy does not claim that an already issued URL has been revoked.
 - Owner preview uses `ownerPreviewAs` only when `verifiedAccountId` matches the pinned publication owner. The default owner projection is owner-shaped; an explicit visitor/friend preview uses that audience's fields, including denying a visitor preview of a friends-only publication.
 - `pending`, `revoked` and `absent` friendship are visitor, not friend. Signed-out viewers use the visitor field allowlist and `audience: "visitor"` because the W01 output enum has no signed-out member.
 
 ## Covered modules versus future contract extensions
 
-This slice can emit the skeletal W01 module kinds. Default section mapping exists only for `identity`, `station` → equipment, and `activity`. `projects`, `qsl` and `interests` stay withheld unless the source supplies an explicit `section`; they are reserved for W15/W16 contract extensions rather than implied public modules. Featured labels, `regionLabel` and `publicMediaIds` are covered.
+This slice can emit the skeletal W01 module kinds. Fixed section mappings are `identity` → identity, `station` → equipment, and `activity` → activity. An explicit section may repeat that mapping, but a conflicting override rejects the policy input; it cannot bypass the section's visibility. `projects`, `qsl` and `interests` stay withheld unless the source supplies an explicit `section`; they are reserved for W15/W16 contract extensions rather than implied public modules. Their explicitly mapped section still controls visibility. Featured labels, `regionLabel` and `publicMediaIds` are covered.
 
 | Existing profile capability | This package | Future contract |
 | --- | --- | --- |

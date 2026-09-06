@@ -17,6 +17,10 @@ Pure tests live in `src/lib/station/workbench/publication/evaluate.test.ts`. The
 
 `publicationAccessContextSchema` is `.strict()`. Client fields such as `claimedAudience` or `claimedOwnerId` are invalid input. `publication.ownerId` on the source must be the pinned server record, not a request-body owner id. `PUBLICATION_POLICY_TRUST_BOUNDARY` states that this function is not a secured endpoint.
 
+The server must additionally bind context and source to the same owner, publication ID/version, setup and reviewed revision. Friendship is relative to that owner; media grants belong to that publication and the intended assets. Equipment/location snapshots must be loaded from the bound reviewed revision. The numeric version comparison in this package cannot detect a context from another publication with the same version or prove that caller-supplied snapshot content belongs to its claimed revision. API/cache integration must test mismatched owner/publication/revision identities and reject them before projection. This binding remains a server integration requirement, not a claim established by these pure tests.
+
+Grant rows with the same `(assetId, derivativeId, audience)` and contradictory statuses are invalid input in every order. Fixed module kinds `identity`, `station` and `activity` reject section overrides that conflict with their intrinsic identity/equipment/activity mappings. These validations prevent ambiguous grant data or composition metadata from bypassing an otherwise private section; explicitly mapped `projects`, `qsl` and `interests` remain supported.
+
 ## Acceptance criteria map
 
 ### 1. Owner/friend/visitor allowlists, section visibility, grid precision, featured summaries
@@ -59,6 +63,8 @@ Issue text: test visibility changes, revoked friendship, cached responses and pr
 | Revoked/pending/absent friendship is visitor, not friend | parameterized friendship test | **Policy tests only** |
 | Friends-only publication denied to visitor/signed-out/pending | friends-only denial test | **Policy tests only** |
 | Revoked media grant omitted; no implication that an old URL is revoked | media grant test (`old-cover-url` / `revoked` absent from output) | **Policy tests only** |
+| Same-key current/revoked/absent grant conflicts fail closed independent of ordering/audience; identical duplicates and separate grant identities remain valid | contradictory grant permutations and grant-identity regression tests | **Policy tests only** |
+| Fixed module section overrides cannot bypass private/friends visibility; matching and otherwise unmapped kinds retain supported behavior | fixed-section rejection, matching-section and explicit-mapping regression tests | **Policy tests only** |
 | Application caches after visibility/friendship change | none | **Remaining** |
 | Previously obtained / signed / public URL fetch after grant revocation | none; DOMAIN-DECISIONS current-grant mediation is unimplemented | **Remaining** |
 | `Cache-Control: no-store` on restricted media | none | **Remaining** |

@@ -261,6 +261,19 @@
   flex: 1 1 auto;
   min-height: 8vh;
 }
+/* The fill row is the one slot sized by what is left over, so its boxes run
+ * compact: the MUF PATH tab's five ionosphere rows and its chart both fit
+ * the ~20vh the tab panel has under the engine strip at 1080p (#250). */
+.hcr-cols--fill > .hcr-box {
+  padding-top: 1.2vh;
+  padding-bottom: 1.2vh;
+}
+.hcr-cols--fill > .hcr-box > h4 {
+  margin-bottom: 0.8vh;
+}
+.hcr-cols--fill > .hcr-box > .hcr-kv {
+  row-gap: 0.3vh;
+}
 /* A measured list inside a fill row contributes no height of its own, so
  * the row is sized by its neighbour column and the list draws the rows
  * that fit (Weather/Emcomm alerts beside the session chart). */
@@ -748,7 +761,7 @@
  * more (~12vh), leaving the body's flexible slot its room. */
 .hcr-enginestrip {
   gap: 0.8vh;
-  padding: 1vh 1.2vw;
+  padding: 0.7vh 1.2vw;
 }
 .hcr-enginestrip-head {
   display: flex;

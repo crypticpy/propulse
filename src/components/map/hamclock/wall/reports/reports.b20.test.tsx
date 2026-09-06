@@ -151,7 +151,7 @@ describe("SunReport", () => {
     // Six facts (#250): the day-length change moved into the Sun times box.
     expect(facts).toHaveLength(6);
     expect(facts.some((row) => row?.startsWith("CHANGE"))).toBe(false);
-    expect(within(dialog).getByText("DAY LENGTH CHANGE")).toBeTruthy();
+    expect(within(dialog).getByText("VS YESTERDAY")).toBeTruthy();
     expect(facts.some((row) => row?.startsWith("ELEV NOW"))).toBe(true);
     expect(facts.some((row) => row?.startsWith("AZ NOW"))).toBe(true);
     // The chart's sr-only twin lists all 24 hourly samples.
@@ -264,14 +264,13 @@ describe("GreyLineReport", () => {
     expect(verdictText(screen.getByRole("dialog"))).toBe("NO QTH");
   });
 
-  it("reads NO TARGET SET when no DX target is chosen", () => {
+  it("reads NO TARGET when no DX target is chosen", () => {
     vi.setSystemTime(new Date("2026-09-05T13:14:00Z"));
     render(<GreyLineReport open onClose={vi.fn()} />);
     const facts = factRows(screen.getByRole("dialog"));
     expect(
       facts.some(
-        (row) =>
-          row?.startsWith("TARGET OVERLAP") && row.includes("NO TARGET SET"),
+        (row) => row?.startsWith("OVERLAP") && row.includes("NO TARGET"),
       ),
     ).toBe(true);
   });
@@ -306,8 +305,7 @@ describe("GreyLineReport", () => {
     const facts = factRows(screen.getByRole("dialog"));
     expect(
       facts.some(
-        (row) =>
-          row?.startsWith("TARGET OVERLAP") && row.includes("ACTIVE NOW"),
+        (row) => row?.startsWith("OVERLAP") && row.includes("ACTIVE NOW"),
       ),
     ).toBe(true);
   });
@@ -325,11 +323,14 @@ describe("GreyLineReport", () => {
     expect(verdictText(dialog)).toBe("NO GREY LINE TODAY");
     const facts = factRows(dialog);
     expect(
-      facts.some((row) => row?.startsWith("WINDOW START") && row.includes("—")),
+      facts.some((row) => row?.startsWith("START") && row.includes("—")),
     ).toBe(true);
-    const tiers = Array.from(dialog.querySelectorAll(".hcr-kv dd")).map(
-      (dd) => dd.textContent,
-    );
+    const tiers = Array.from(dialog.querySelectorAll(".hcr-kv dd"))
+      .filter((dd) =>
+        /^(160|80|40)M$/.test(dd.previousElementSibling?.textContent ?? ""),
+      )
+      .map((dd) => dd.textContent);
+    expect(tiers).toHaveLength(3);
     expect(tiers.every((t) => t?.includes("INACTIVE"))).toBe(true);
   });
 

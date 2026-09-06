@@ -25,8 +25,10 @@ export function NwsAlertBox({
   return (
     <div className="hcr-box hcr-box--fill">
       <h4>
-        {title} · {alerts.length}
-        {visible < alerts.length ? ` · top ${visible} of ${alerts.length}` : ""}
+        {title} ·{" "}
+        {visible < alerts.length
+          ? `top ${visible} of ${alerts.length}`
+          : alerts.length}
       </h4>
       {error ? (
         <p className="hcr-note">NWS alert feed unreachable. Retrying.</p>

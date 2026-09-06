@@ -30,6 +30,12 @@ function bothClocks(value: Date | null, zone: string | undefined): string {
   return `${formatClock(value, zone)} / ${formatClock(value, "UTC")}Z`;
 }
 
+/** Local clock alone, for the facts column; the UTC twin lives in the
+ * Low bands box because a clock pair no longer fits beside the hero. */
+function localClock(value: Date | null, zone: string | undefined): string {
+  return value ? formatClock(value, zone) : "—";
+}
+
 /** ACTIVE/INACTIVE for one band at one intensity — the wall only shows the
  * binary `isGreylineActiveForBand` already returns; it does not invent a
  * per-band tier the model does not compute. */
@@ -450,6 +456,11 @@ export function GreyLineReport({
       ? sunCurveToday.dayState.nextTransition.toISOString().slice(0, 10)
       : "—"
     : nextWindowEvent
+      ? localClock(nextWindowEvent.at, zone)
+      : "—";
+  const nextWindowBothClocks = isNoWindowToday
+    ? nextWindowValue
+    : nextWindowEvent
       ? bothClocks(nextWindowEvent.at, zone)
       : "—";
   const bandLabel = (band: string) =>
@@ -476,37 +487,34 @@ export function GreyLineReport({
   const verdict = isNoWindowToday ? "NO GREY LINE TODAY" : stateWord;
 
   const targetOverlapValue = !target
-    ? "NO TARGET SET"
+    ? "NO TARGET"
     : !mutualWindow
       ? "NONE TODAY"
       : mutualWindow.active
-        ? "YES · ACTIVE NOW"
-        : `YES · IN ${formatCountdown((mutualWindow.start.getTime() - now.getTime()) / 60_000)}`;
+        ? "ACTIVE NOW"
+        : `IN ${formatCountdown((mutualWindow.start.getTime() - now.getTime()) / 60_000)}`;
 
   // Six facts (#250): the hero/verdict pair is not repeated, the low-band
   // tiers live in their own box, and the mutual window gets its clocks.
+  // Each fact fits its half of the facts column beside a two-word hero at
+  // 1080p (label + value ≤ ~18 mono characters, #250 rendered check): the
+  // clocks here are local only, with the local/UTC pairs in the body boxes.
   const facts: WallReportFact[] = [
     {
-      label: "WINDOW START",
-      value: ownWindowForDisplay
-        ? bothClocks(ownWindowForDisplay.start, zone)
+      label: "START",
+      value: localClock(ownWindowForDisplay?.start ?? null, zone),
+    },
+    {
+      label: "END",
+      value: localClock(ownWindowForDisplay?.end ?? null, zone),
+    },
+    { label: "NEXT", value: nextWindowValue },
+    { label: "OVERLAP", value: targetOverlapValue },
+    {
+      label: "MUTUAL",
+      value: mutualWindow
+        ? `${formatClock(mutualWindow.start, zone)}–${formatClock(mutualWindow.end, zone)}`
         : "—",
-    },
-    {
-      label: "WINDOW END",
-      value: ownWindowForDisplay
-        ? bothClocks(ownWindowForDisplay.end, zone)
-        : "—",
-    },
-    { label: "NEXT WINDOW", value: nextWindowValue },
-    { label: "TARGET OVERLAP", value: targetOverlapValue },
-    {
-      label: "MUTUAL START",
-      value: mutualWindow ? bothClocks(mutualWindow.start, zone) : "—",
-    },
-    {
-      label: "MUTUAL END",
-      value: mutualWindow ? bothClocks(mutualWindow.end, zone) : "—",
     },
   ];
 
@@ -547,10 +555,24 @@ export function GreyLineReport({
             <dd>{bandLabel("80m")}</dd>
             <dt>40M</dt>
             <dd>{bandLabel("40m")}</dd>
+            <dt>WINDOW START</dt>
+            <dd>{bothClocks(ownWindowForDisplay?.start ?? null, zone)}</dd>
+            <dt>WINDOW END</dt>
+            <dd>{bothClocks(ownWindowForDisplay?.end ?? null, zone)}</dd>
+            <dt>NEXT EVENT</dt>
+            <dd>{nextWindowBothClocks}</dd>
           </dl>
         </div>
         <div className="hcr-box">
           <h4>DX target · terminator</h4>
+          {mutualWindow && (
+            <dl className="hcr-kv">
+              <dt>MUTUAL START</dt>
+              <dd>{bothClocks(mutualWindow.start, zone)}</dd>
+              <dt>MUTUAL END</dt>
+              <dd>{bothClocks(mutualWindow.end, zone)}</dd>
+            </dl>
+          )}
           <p className="hcr-note">
             {target
               ? `Mutual overlap with the DX target: ${targetOverlapValue.toLowerCase()}.`

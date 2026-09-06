@@ -365,26 +365,33 @@ export function WallSeriesChart({
             </text>
           </g>
         )}
-        {validMarkers.map((m) => (
-          <g key={`${m.timestamp}-${m.label}`}>
-            <line
-              x1={x(m.time)}
-              x2={x(m.time)}
-              y1={top}
-              y2={height - bottom}
-              stroke="var(--hcr-chart-marker, #fb7185)"
-              strokeWidth={Math.max(2, fs * 0.15)}
-            />
-            <text
-              x={Math.min(x(m.time) + fs * 0.3, width - right - fs * 3)}
-              y={top + fs * 2.2}
-              fill="var(--hcr-chart-marker, #fb7185)"
-              fontWeight="700"
-            >
-              {m.label}
-            </text>
-          </g>
-        ))}
+        {validMarkers.map((m) => {
+          // The threshold ladder's labels end at the right edge, so a
+          // marker in the last quarter of the plot labels itself to the
+          // left of its line instead of pinning the label onto them.
+          const flip = x(m.time) > width - right - plotW / 4;
+          return (
+            <g key={`${m.timestamp}-${m.label}`}>
+              <line
+                x1={x(m.time)}
+                x2={x(m.time)}
+                y1={top}
+                y2={height - bottom}
+                stroke="var(--hcr-chart-marker, #fb7185)"
+                strokeWidth={Math.max(2, fs * 0.15)}
+              />
+              <text
+                x={x(m.time) + (flip ? -fs * 0.3 : fs * 0.3)}
+                y={top + fs * 2.2}
+                textAnchor={flip ? "end" : "start"}
+                fill="var(--hcr-chart-marker, #fb7185)"
+                fontWeight="700"
+              >
+                {m.label}
+              </text>
+            </g>
+          );
+        })}
       </svg>
       <table className="sr-only" id={`${id}-values`}>
         <caption>{label} values</caption>

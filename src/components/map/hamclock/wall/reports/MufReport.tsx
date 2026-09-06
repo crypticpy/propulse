@@ -627,7 +627,7 @@ export function MufReport({ open, onClose }: MufReportProps) {
     <div className="hcr-box">
       <h4>Path to target</h4>
       <dl className="hcr-kv">
-        <dt>Day/night at midpoint</dt>
+        <dt>Midpoint</dt>
         <dd>
           {!target
             ? "SET TARGET"
@@ -637,7 +637,7 @@ export function MufReport({ open, onClose }: MufReportProps) {
                 : "NIGHTSIDE"
               : "—"}
         </dd>
-        <dt>Take-off angle</dt>
+        <dt>Take-off</dt>
         <dd>
           {!target
             ? "SET TARGET"
@@ -645,9 +645,9 @@ export function MufReport({ open, onClose }: MufReportProps) {
               ? "—"
               : `${takeoffAngleDeg.toFixed(1)}°`}
         </dd>
-        <dt>Hop count</dt>
+        <dt>Hops</dt>
         <dd>{!target ? "SET TARGET" : (rayTrace?.hops.length ?? "—")}</dd>
-        <dt>Total path loss</dt>
+        <dt>Path loss</dt>
         <dd>
           {!target
             ? "SET TARGET"

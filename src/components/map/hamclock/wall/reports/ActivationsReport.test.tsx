@@ -1,3 +1,5 @@
+import { useState } from "react";
+import { HamClockPinnedReportHost } from "./WallReport";
 import { afterEach, expect, it } from "vitest";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -40,4 +42,22 @@ it("keeps programme source status, accessible rows and explicit tuning distinct"
   fireEvent.click(screen.getByRole("tab", { name: "WWFF" }));
   expect(screen.getByText("No current reports available from this source.")).toBeTruthy();
   expect(document.querySelector(".hcr-foot")?.textContent).toContain("WAITING");
+});
+
+
+it("keeps the pinned report identity when its programme changes", () => {
+  client = new QueryClient();
+  client.setQueryData(["activationSpots"], { spots: [], sources: [], fetchedAt: new Date().toISOString() });
+  function Harness() {
+    const [open, setOpen] = useState(true);
+    return <>{open && <ActivationsReport open onClose={() => setOpen(false)} />}<HamClockPinnedReportHost /></>;
+  }
+  render(<QueryClientProvider client={client}><Harness /></QueryClientProvider>);
+  fireEvent.click(screen.getByRole("tab", { name: "SOTA" }));
+  fireEvent.click(screen.getByRole("button", { name: "PIN", exact: true }));
+  expect(screen.getByRole("tab", { name: "SOTA" }).getAttribute("aria-selected")).toBe("true");
+  fireEvent.click(screen.getByRole("tab", { name: "WWFF" }));
+  expect(screen.getByRole("button", { name: "UNPIN", exact: true }).getAttribute("aria-pressed")).toBe("true");
+  fireEvent.click(screen.getByRole("button", { name: "UNPIN", exact: true }));
+  expect(screen.queryByRole("dialog")).toBeNull();
 });

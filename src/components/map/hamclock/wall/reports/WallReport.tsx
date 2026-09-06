@@ -182,8 +182,10 @@ export function WallReport({
       </div>
 
       <div className="hcr-lead">
-        <div className={`hcr-hero hc-glow ${toneClass}`}>{hero}</div>
-        <div className={`hcr-verdict hc-glow ${toneClass}`}>{verdict}</div>
+        <div className="hcr-headline">
+          <div className={`hcr-hero hc-glow ${toneClass}`}>{hero}</div>
+          <div className={`hcr-verdict hc-glow ${toneClass}`}>{verdict}</div>
+        </div>
         <div className="hcr-facts">
           {facts?.map((fact) => (
             <div key={fact.label}>

@@ -14,7 +14,7 @@ import { WeatherGlyph, type WeatherGlyphKind } from "../tiles/WeatherTile";
 import { WallReport, type WallReportFact } from "./WallReport";
 import { useHamClockSessionTrend } from "./sessionTrend";
 import { reportFooter } from "../tokens";
-import { SolarMiniChart } from "@/components/solar/SolarMiniChart";
+import { WallSeriesChart } from "./WallSeriesChart";
 
 /** Which tile opened the report; it only chooses the hero. */
 export type WeatherFocus = "weather" | "alerts";
@@ -251,7 +251,8 @@ export function WeatherReport({ open, onClose, focus }: WeatherReportProps) {
         </div>
       </div>
       <div className="hcr-chart">
-        <SolarMiniChart
+        <p className="hcr-chart-title">TEMPERATURE — 2 H · SESSION</p>
+        <WallSeriesChart
           label="TEMPERATURE — 2 H · SESSION"
           points={trend.map((point) => ({
             ...point,

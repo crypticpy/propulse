@@ -6,7 +6,7 @@ import type { RIMSubScore } from "@/types/atmos";
 import { reportTone, reportFooter, rimGrade } from "../tokens";
 import { WallReport, type WallReportFact } from "./WallReport";
 import { useHamClockSessionTrend } from "./sessionTrend";
-import { SolarMiniChart } from "@/components/solar/SolarMiniChart";
+import { WallSeriesChart } from "./WallSeriesChart";
 
 /** Alerts worth drawing before the box runs out of height. */
 const MAX_ALERTS = 4;
@@ -159,7 +159,8 @@ export function EmcommReport({ open, onClose }: EmcommReportProps) {
         </div>
       </div>
       <div className="hcr-chart">
-        <SolarMiniChart
+        <p className="hcr-chart-title">RIM COMPOSITE — 2 H · SESSION</p>
+        <WallSeriesChart
           label="RIM COMPOSITE — 2 H · SESSION"
           points={trend}
           unit="score"

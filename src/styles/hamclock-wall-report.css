@@ -184,9 +184,10 @@
  * across the room. */
 .hcr-facts div {
   display: flex;
+  flex-wrap: wrap;
   justify-content: space-between;
   align-items: baseline;
-  gap: 1vw;
+  gap: 0 1vw;
   padding: 0.25vh 0;
   border-bottom: 1px solid var(--hc-line);
   white-space: normal;
@@ -200,10 +201,12 @@
   font-weight: 600;
   text-align: right;
   font-variant-numeric: tabular-nums;
-  /* Wrap between words only: `anywhere` split "364516 km" and "26.9° HIGH"
-   * into fragments when a wide verdict narrowed the facts column (#267
-   * rendered check). A value that is too long for its column now drops
-   * under its label whole. */
+  /* A value that does not fit beside its label drops under it whole: the
+   * row wraps, and the value keeps its full width on that line (only a
+   * value wider than the whole row wraps between its words). `anywhere`
+   * had split "364516 km" and "26.9° HIGH" into fragments when a wide
+   * verdict narrowed the facts column (#267 rendered check). */
+  flex: 1 1 auto;
   overflow-wrap: normal;
 }
 

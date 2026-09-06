@@ -31,6 +31,7 @@ import { ObservatoryTiltSlider } from "@/components/map/ObservatoryTiltSlider";
 import { ISSSkyTracker } from "@/components/map/ISSSkyTracker";
 import { DXSpotList } from "@/components/dx/DXSpotList";
 import { usePanelDocking, type PanelRect } from "@/hooks/usePanelDocking";
+import { safeDockGroupY } from "@/lib/map/proDockLayout";
 import {
   useMapOperationalContext,
   useScopedMapLayers,
@@ -154,6 +155,7 @@ export function FullscreenPropSphere({
   const setFullscreen = useMapStore((s) => s.setFullscreen);
   const target = useMapStore((s) => s.target);
   const proPanelLayout = useMapStore((s) => s.proPanelLayout);
+  const dockGroups = useMapStore((s) => s.dockGroups);
   const updateProPanelLayout = useMapStore((s) => s.updateProPanelLayout);
   const toggleProPanelCollapse = useMapStore((s) => s.toggleProPanelCollapse);
   const resetProPanelLayout = useMapStore((s) => s.resetProPanelLayout);
@@ -240,18 +242,57 @@ export function FullscreenPropSphere({
   // ── Panel docking ────────────────────────────────────────────
   const panelRects = useMemo<Record<string, PanelRect>>(() => {
     const rects: Record<string, PanelRect> = {};
+    const dockOffsets = new Map<string, number>();
+    for (const group of dockGroups) {
+      const anchor = proPanelLayout[group.panelIds[0]];
+      if (!anchor) continue;
+      const offset = Math.max(0, panelMinTop - anchor.y);
+      if (offset === 0) continue;
+      for (const memberId of group.panelIds) dockOffsets.set(memberId, offset);
+    }
     for (const [id, entry] of Object.entries(proPanelLayout)) {
       if (!entry.collapsed) {
+        const safeY = dockOffsets.has(id)
+          ? entry.y + dockOffsets.get(id)!
+          : safeDockGroupY(entry.y, entry.y, panelMinTop);
         rects[id] = {
           x: entry.x,
-          y: Math.max(panelMinTop, entry.y),
+          y: safeY,
           width: entry.width,
-          height: entry.height,
+          height: Math.min(entry.height, Math.max(0, window.innerHeight - safeY)),
         };
       }
     }
     return rects;
-  }, [proPanelLayout, panelMinTop]);
+  }, [dockGroups, proPanelLayout, panelMinTop]);
+
+  // Persist a translated dock group as one unit when its anchor was saved
+  // above the toolbar. This prevents the derived safe position from making
+  // the group overlap or undock on the next drag.
+  useEffect(() => {
+    for (const group of dockGroups) {
+      const anchor = proPanelLayout[group.panelIds[0]];
+      if (!anchor) continue;
+      const offset = Math.max(0, panelMinTop - anchor.y);
+      if (offset === 0) continue;
+      const groupHeight = group.panelIds.reduce(
+        (total, memberId) => total + (proPanelLayout[memberId]?.height ?? 0),
+        0,
+      );
+      if (anchor.y + offset + groupHeight > window.innerHeight) continue;
+      for (const memberId of group.panelIds) {
+        const entry = proPanelLayout[memberId];
+        if (entry) {
+          updateProPanelLayout(memberId, {
+            x: entry.x,
+            y: safeDockGroupY(anchor.y, entry.y, panelMinTop),
+            width: entry.width,
+            height: entry.height,
+          });
+        }
+      }
+    }
+  }, [dockGroups, panelMinTop, proPanelLayout, updateProPanelLayout]);
 
   const {
     onDragMove: handleDockDragMove,
@@ -501,6 +542,7 @@ export function FullscreenPropSphere({
             to stretch across the full top row on wide wall displays. */}
         {!proPanelLayout["propagation-forecast"]?.collapsed && (
           <FloatingPanel
+            minTop={panelMinTop}
             id="propagation-forecast"
             title="24-Hour Propagation Forecast"
             defaultPosition={{ x: 24, y: 6 }}

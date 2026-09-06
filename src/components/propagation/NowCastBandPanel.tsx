@@ -8,7 +8,10 @@ import {
 import { Card } from "@/components/ui";
 import { ResearchAttemptControl } from "@/components/propagation/ResearchAttemptControl";
 import type { NowCastBandPredictions } from "@/hooks/useNowCastBandPredictions";
-import { predictionIssueLabels } from "@/lib/propagation/predictionPresentation";
+import {
+  predictionIssueLabels,
+  unsupportedChainReason,
+} from "@/lib/propagation/predictionPresentation";
 
 interface NowCastBandPanelProps {
   state: NowCastBandPredictions;
@@ -205,7 +208,9 @@ export function NowCastBandPanel({
                         <span>{envelope.antennaGainTowardPathDbi.toFixed(1)} dBi path</span>
                       </>
                     ) : (
-                      <span className="text-caution-amber">Chain unsupported on this band</span>
+                      <span className="text-caution-amber">
+                        {unsupportedChainReason(envelope.warningCodes)}
+                      </span>
                     )}
                   </div>
                 )}

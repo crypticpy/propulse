@@ -44,9 +44,16 @@ DERIVED_WEATHER_FEATURES = (
     "dst_min_6h",
 )
 SOURCE_MAX_AGE_SECONDS = {
-    "kp": 15 * 60,
-    "magnetic_field": 15 * 60,
-    "solar_wind": 15 * 60,
+    # The collector snapshots every 15 min and the NOAA 1-minute Kp/IMF/wind
+    # products arrive ~5 min after observation, while clients bucket their
+    # issue_time to 5 min. A 15-minute window therefore rejected every fast
+    # source for roughly a third of each cycle (the newest snapshot is not yet
+    # visible to the bucketed issue_time and the previous one is already too
+    # old). Training consumed the hourly OMNI value, so 30 min stays well
+    # inside that granularity and covers cadence + latency + bucketing.
+    "kp": 30 * 60,
+    "magnetic_field": 30 * 60,
+    "solar_wind": 30 * 60,
     # GOES 5-minute integral proton flux reaches the collector ~10-13 min
     # after observation and snapshots are taken every 15 min, so a 15-minute
     # window left the feature usable for only a sliver of each cycle. Training
@@ -55,6 +62,10 @@ SOURCE_MAX_AGE_SECONDS = {
     "dst": 2 * 60 * 60,
     "f107": 2 * 24 * 60 * 60,
     "sunspot_number": 45 * 24 * 60 * 60,
+    # GFZ Hp60 is an hourly index published ~1 h after the hour it covers;
+    # 3 h gives room for publication latency without treating a stale
+    # value as current.
+    "hp60": 3 * 60 * 60,
 }
 FAST_SOURCES = {"kp", "magnetic_field", "solar_wind", "proton_flux_10mev", "dst"}
 FIELD_DEFINITIONS = (
@@ -70,6 +81,7 @@ FIELD_DEFINITIONS = (
     ("sunspot_number", "sunspot_number", "sunspot_number"),
     ("proton_flux_10mev", "proton_flux_10mev", "proton_flux_10mev"),
     ("dst", "dst_index", "dst"),
+    ("hp60", "hp60", "hp60"),
 )
 SNAPSHOT_COLUMNS = (
     "captured_at",
@@ -85,6 +97,7 @@ SNAPSHOT_COLUMNS = (
     "sunspot_number",
     "proton_flux_10mev",
     "dst_index",
+    "hp60",
     "source_observed_at",
     "source_status",
 )
@@ -123,6 +136,36 @@ def source_is_usable(row: dict[str, Any], source: str) -> bool:
     return not isinstance(status, dict) or status.get("active") is not False
 
 
+def inactive_source_barrier(
+    rows: list[dict[str, Any]],
+    *,
+    source: str,
+    issue_time: datetime,
+) -> datetime | None:
+    """Newest causal snapshot that explicitly marks ``source`` inactive.
+
+    NOAA occasionally flags every magnetometer / plasma spacecraft inactive.
+    The collector still records that snapshot (with ``active: false``), and
+    it invalidates the source from then on: an older *active* row must not be
+    served past it just because it is still inside the age window.
+    """
+
+    barrier: datetime | None = None
+    for row in rows:
+        if source_is_usable(row, source):
+            continue
+        try:
+            received = aware_datetime(str(row["captured_at"]))
+        except (KeyError, ValueError):
+            continue
+        if received > issue_time:
+            continue
+        marker = source_observed_at(row, source) or received
+        if barrier is None or marker > barrier:
+            barrier = marker
+    return barrier
+
+
 def selected_field(
     rows: list[dict[str, Any]],
     *,
@@ -132,6 +175,7 @@ def selected_field(
 ) -> tuple[float, datetime, datetime] | None:
     selected: tuple[float, datetime, datetime] | None = None
     maximum_age = timedelta(seconds=SOURCE_MAX_AGE_SECONDS[source])
+    barrier = inactive_source_barrier(rows, source=source, issue_time=issue_time)
     for row in rows:
         observed = source_observed_at(row, source)
         try:
@@ -146,6 +190,7 @@ def selected_field(
             or issue_time - observed > maximum_age
             or not finite(value)
             or not source_is_usable(row, source)
+            or (barrier is not None and observed < barrier)
         ):
             continue
         candidate = (float(value), observed, received)

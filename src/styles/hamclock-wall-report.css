@@ -545,3 +545,34 @@
 }
 
 /* ===== end B19 ===== */
+/* ===== B20: sun + grey line reports ===== */
+/* Shared text-link button for a report body: "SEE GREY LINE" (Sun report)
+ * and "SHOW TERMINATOR" (Grey line report). Same footprint as `.hcr-pin`
+ * (44px minimum hit target) so both stay reachable at TV distance, but laid
+ * out as a block so it never gets squeezed inline with body copy. */
+.hcr-link-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  min-width: 44px;
+  margin-top: 0.6vh;
+  font-family: var(--hc-font-mono);
+  font-size: 1.4vh;
+  letter-spacing: 0.12em;
+  color: var(--hc-accent, var(--hc-fg));
+  background: transparent;
+  border: 1px solid var(--hc-line);
+  border-radius: max(2px, calc(var(--hc-radius) * 0.8));
+  padding: 0.4vh 1vw;
+  cursor: pointer;
+}
+.hcr-link-button:hover {
+  color: var(--hc-fg);
+  border-color: var(--hc-accent);
+}
+.hcr-link-button:focus-visible {
+  outline: 0.25vh solid var(--hc-accent);
+  outline-offset: 0.2vh;
+}
+/* ===== end B20 ===== */

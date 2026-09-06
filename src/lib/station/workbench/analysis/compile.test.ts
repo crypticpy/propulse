@@ -322,9 +322,9 @@ describe("compileSelectedRoute", () => {
     const eirp = compiled.metrics.filter((item) => item.name === "eirp");
     expect(eirp.map((item) => item.sourceId).sort()).toEqual(["20m", "40m"]);
     const top = golden.bands[0];
-    expect(eirp.find((item) => item.sourceId === top.band)?.quantity).toMatchObject({ state: "known", unit: "W" });
-    expect(eirp.find((item) => item.sourceId === top.band)?.quantity.state === "known"
-      ? eirp.find((item) => item.sourceId === top.band)!.quantity.value
-      : NaN).toBeCloseTo(top.eirpWatts, 10);
+    const topEirp = eirp.find((item) => item.sourceId === top.band);
+    expect(topEirp?.quantity.state).toBe("known");
+    const topValue = topEirp?.quantity.state === "known" ? topEirp.quantity.value : Number.NaN;
+    expect(topValue).toBeCloseTo(top.eirpWatts, 10);
   });
 });

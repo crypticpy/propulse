@@ -166,13 +166,12 @@ function GreylineIntensityChart({
   };
 
   return (
-    <figure className="mt-4 min-w-0 border-t border-white/10 pt-3">
-      <figcaption className="mb-1 text-xs text-slate-300">
+    <div className="hcr-chart">
+      <p className="hcr-chart-title">
         GREY-LINE INTENSITY — 24 H · COMPUTED AT QTH
-      </figcaption>
+      </p>
       <svg
         viewBox={`0 0 ${width} ${height}`}
-        className="block w-full"
         role="img"
         aria-labelledby={`${id}-title`}
       >
@@ -315,7 +314,7 @@ function GreylineIntensityChart({
             : "."
         } Status: ${greylineStateWord(status)}.`}
       </p>
-    </figure>
+    </div>
   );
 }
 

@@ -90,10 +90,16 @@ function twilightBands(curve: SunCurve): TwilightBand[] {
 }
 
 /** "07:12 / 12:12Z" — local and UTC together, per the style guide's clock
- * rule (section 6): a wall reader must never see one without the other. */
+ * rule (section 6): a wall reader must never see one without the other.
+ * Used in the body boxes. The facts column uses one clock per row (#248). */
 function bothClocks(value: Date | null, zone: string | undefined): string {
   if (!value) return "—";
   return `${formatClock(value, zone)} / ${formatClock(value, "UTC")}Z`;
+}
+
+function localClock(value: Date | null, zone: string | undefined): string {
+  if (!value) return "—";
+  return formatClock(value, zone);
 }
 
 /** "+2M 14S", "−1M 03S" — the signed minutes-and-seconds format section 6
@@ -119,7 +125,8 @@ function twilightRange(window: SunCurve["twilights"][number]): string {
  * shaded and a now marker — the report's own chart, since neither
  * `SolarMiniChart` nor `SolarSeriesChart` can paint a shaded time band. Kept
  * in the same visual language: 300x88 viewBox, `--hcr-chart-*` tokens with
- * hex fallbacks, mono captions.
+ * hex fallbacks, mono captions. Wrapped in `.hcr-chart` so the SVG is
+ * height-capped like every other wall report (#248).
  */
 function SunElevationChart({ curve, now }: { curve: SunCurve; now: Date }) {
   const id = useId();
@@ -159,13 +166,10 @@ function SunElevationChart({ curve, now }: { curve: SunCurve; now: Date }) {
   const bands = twilightBands(curve);
 
   return (
-    <figure className="mt-4 min-w-0 border-t border-white/10 pt-3">
-      <figcaption className="mb-1 text-xs text-slate-300">
-        SUN ELEVATION — 24 H · COMPUTED AT QTH
-      </figcaption>
+    <div className="hcr-chart">
+      <p className="hcr-chart-title">SUN ELEVATION — 24 H · COMPUTED AT QTH</p>
       <svg
         viewBox={`0 0 ${width} ${height}`}
-        className="block w-full"
         role="img"
         aria-labelledby={`${id}-title`}
       >
@@ -272,7 +276,7 @@ function SunElevationChart({ curve, now }: { curve: SunCurve; now: Date }) {
           ))}
         </tbody>
       </table>
-    </figure>
+    </div>
   );
 }
 
@@ -352,19 +356,17 @@ export function SunReport({ open, onClose }: SunReportProps) {
   }
 
   const facts: WallReportFact[] = [
-    { label: "RISE", value: bothClocks(curve.rise, zone) },
-    { label: "NOON", value: bothClocks(curve.noon, zone) },
-    { label: "SET", value: bothClocks(curve.set, zone) },
+    { label: "RISE", value: localClock(curve.rise, zone) },
+    { label: "NOON", value: localClock(curve.noon, zone) },
+    { label: "SET", value: localClock(curve.set, zone) },
     {
       label: "DAY LENGTH",
       value:
         curve.dayLengthMin === null ? "—" : formatCountdown(curve.dayLengthMin),
     },
     { label: "CHANGE", value: signedMinSec(curve.dayLengthDeltaMin) },
-    {
-      label: "ELEV / AZ NOW",
-      value: `${Math.round(elevationNow)}° / ${Math.round(azimuthNow)}°`,
-    },
+    { label: "ELEV NOW", value: `${Math.round(elevationNow)}°` },
+    { label: "AZ NOW", value: `${Math.round(azimuthNow)}°` },
   ];
 
   const { footer, updated } = reportFooter(

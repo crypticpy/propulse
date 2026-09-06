@@ -114,6 +114,8 @@
 
 .hcr-lead {
   display: grid;
+  /* Facts shrink from zero so a long polar verdict (SUN DOES NOT SET)
+   * still fits; wrapping on `.hcr-facts div` is what avoids ellipsis. */
   grid-template-columns: auto auto minmax(0, 1fr);
   gap: 2.4vw;
   align-items: end;
@@ -153,9 +155,9 @@
   overflow: hidden;
 }
 .hcr-facts div {
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  /* TV-distance rule (#248): wrap rather than truncate a fact value. */
+  white-space: normal;
+  overflow: visible;
 }
 .hcr-facts b {
   color: var(--hc-fg);
@@ -176,6 +178,10 @@
   display: grid;
   grid-template-columns: 1.25fr 1fr;
   gap: 2vw;
+  /* Shared by every report: stay shrinkable so a tall Weather alerts
+   * list can share `.hcr-body` with the chart. Sun/Grey-line overlap is
+   * prevented by wrapping those SVGs in `.hcr-chart`, not by pinning
+   * this row. */
   min-height: 0;
 }
 .hcr-box {

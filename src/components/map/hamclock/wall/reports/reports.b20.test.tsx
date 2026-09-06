@@ -138,6 +138,19 @@ describe("SunReport", () => {
     expect(
       within(dialog).getByText("SUN ELEVATION — 24 H · COMPUTED AT QTH"),
     ).toBeTruthy();
+    const elevationChart = dialog.querySelector(".hcr-chart");
+    expect(elevationChart).toBeTruthy();
+    expect(
+      elevationChart!.querySelector(".hcr-chart-title")?.textContent,
+    ).toMatch(/SUN ELEVATION/);
+    expect(elevationChart!.querySelector("svg")).toBeTruthy();
+    // Facts are one local clock per row, not "06:33 / 12:33Z" (#248).
+    const riseFact = facts.find((row) => row?.startsWith("RISE"));
+    expect(riseFact).toBeTruthy();
+    expect(riseFact).not.toMatch(/\s\/\s/);
+    expect(facts.some((row) => row?.startsWith("CHANGE"))).toBe(true);
+    expect(facts.some((row) => row?.startsWith("ELEV NOW"))).toBe(true);
+    expect(facts.some((row) => row?.startsWith("AZ NOW"))).toBe(true);
     // The chart's sr-only twin lists all 24 hourly samples.
     const table = within(dialog).getByRole("table", {
       name: /sun elevation and azimuth/i,
@@ -275,6 +288,12 @@ describe("GreyLineReport", () => {
     expect(
       within(dialog).getByText("GREY-LINE INTENSITY — 24 H · COMPUTED AT QTH"),
     ).toBeTruthy();
+    const intensityChart = dialog.querySelector(".hcr-chart");
+    expect(intensityChart).toBeTruthy();
+    expect(
+      intensityChart!.querySelector(".hcr-chart-title")?.textContent,
+    ).toMatch(/GREY-LINE INTENSITY/);
+    expect(intensityChart!.querySelector("svg")).toBeTruthy();
   });
 
   it("marks the mutual overlap window active when a nearby DX target's terminator window coincides", () => {

@@ -60,6 +60,20 @@ describe("explicit physical cable mating interfaces", () => {
     archive.revisions[0].connections[0].connectorInterface = { kind: "cable", fromPortId: "b", toPortId: "a", internalPathId: "through" };
     expect(workbenchArchiveSchema.safeParse(archive).success).toBe(true);
   });
+  it.each([false, true])("rejects shared cable ownership even with incomplete bindings (%s)", (bindFirst) => {
+    const archive = fixture();
+    const revision = archive.revisions[0];
+    if (!bindFirst) delete revision.connections[0].connectorInterface;
+    const extra = { ...structuredClone(revision.connections[0]), id: "extra-edge", runId: "extra-run" };
+    delete extra.connectorInterface;
+    revision.connections.push(extra);
+    revision.cableRuns.push({ ...structuredClone(revision.cableRuns[0]), id: "extra-run", connections: [{ connectionId: "extra-edge", reverse: false }] });
+    revision.routes.forEach((route) => { route.analysis = { state: "documentation-only", reasons: ["Unmodeled branch"] }; });
+    archive.operating = null;
+    const parsed = workbenchArchiveSchema.safeParse(archive);
+    expect(parsed.success).toBe(false);
+    if (!parsed.success) expect(parsed.error.issues.some((issue) => issue.message.includes("Physical cable belongs to multiple runs"))).toBe(true);
+  });
   it.each([false, true])("rejects reusing a bound termination as an ordinary endpoint regardless of order (%s)", (reverse) => {
     const archive = fixture();
     const revision = archive.revisions[0];

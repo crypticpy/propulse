@@ -9,6 +9,7 @@ import {
 import { createUnsupportedBranchFixture } from "@/lib/station/workbench/fixtures";
 import { assessRevisionTopology } from "@/lib/station/workbench/revisions/inputs";
 import { resolveCatalogReceiver } from "@/lib/station/workbench/equipment/services";
+import { mapLegacyEquipment } from "@/lib/station/workbench/equipment/legacyAdapters";
 import {
   computeStationChainPerformance, deriveStationFeatureEnvelope, type StationInventory,
 } from "@/lib/station/stationChainEngine";
@@ -568,6 +569,23 @@ describe("validated compiler boundary", () => {
 
 describe("PR242 cable and inline constraints", () => {
   const request = { revisionId: "home-r1", routeId: "main", options: { bands: ["20m"] } };
+
+  it("keeps a legacy-imported unknown far end unresolved until reviewed", () => {
+    const archive = createKnownSimpleFixture();
+    const cable = archive.revisions[0].equipment.find((item) => item.id === "feedline")!;
+    const mapped = mapLegacyEquipment("feedline", { id: cable.id, name: cable.label, addedAt: cable.addedAt, connectorType: "pl259" },
+      { ownerId: archive.ownerId, sourceId: cable.id, sourceVersion: 1, capturedAt: cable.addedAt });
+    expect(mapped.status).toBe("mapped");
+    if (mapped.status !== "mapped") return;
+    const farEnd = mapped.value.fields!["feedline.connectorTypeFarEnd"];
+    expect(farEnd).toEqual({ state: "unknown", reason: "Not recorded in legacy source" });
+    cable.fields!["feedline.connectorTypeFarEnd"] = farEnd;
+    const result = compileSelectedRoute(archive, request);
+    expect(result.status).toBe("incomplete");
+    expect(result.missingInputs.some((item) => item.code === "unknown-feedline-far-connector")).toBe(true);
+    expect(result.metrics).toEqual([]);
+    expect(mapped.source.payload).not.toHaveProperty("connectorTypeFarEnd");
+  });
 
   it.each([createKnownSimpleFixture, createKnownReceiveFixture])("compares impedance at each actual equipment/cable joint in either route direction", (fixture) => {
     const archive = fixture();

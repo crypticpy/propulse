@@ -455,7 +455,12 @@ export const workbenchArchiveSchema = archiveObjectSchema.superRefine((archive, 
         issue(`Bound cable termination is also an explicit connection endpoint: ${connection.id}`);
       }
     });
+    const runBaseOwners = new Set<string>();
     revision.cableRuns.forEach((run) => {
+      if (run.baseCableInstanceId !== null) {
+        if (runBaseOwners.has(run.baseCableInstanceId)) issue(`Physical cable belongs to multiple runs: ${run.baseCableInstanceId}`);
+        runBaseOwners.add(run.baseCableInstanceId);
+      }
       if (run.baseCableInstanceId !== null && equipment.get(run.baseCableInstanceId)?.kind !== "cable") issue(`Missing or non-cable run base: ${run.id}`);
       if (run.baseCableInstanceId !== null && run.connections.every((segment) => connections.get(segment.connectionId)?.connectorInterface?.kind === "direct")) issue(`Cable run cannot describe only direct mating interfaces: ${run.id}`);
       checkFacts({ length: run.lengthMeters }, pinnedEvidence, run.baseCableInstanceId === null ? undefined : { instanceId: run.baseCableInstanceId });

@@ -107,16 +107,15 @@ function clampPosition(
   x: number,
   y: number,
   width: number,
+  height: number,
   minTop = 0,
 ): { x: number; y: number } {
   const vw = window.innerWidth;
   const vh = window.innerHeight;
 
   return {
-    // Keep at least 50% of panel width visible horizontally
-    x: clamp(x, -(width * 0.5), vw - width * 0.5),
-    // Keep title bar vertically within viewport
-    y: clamp(y, minTop, Math.max(minTop, vh - TITLE_BAR_HEIGHT)),
+    x: clamp(x, 0, Math.max(0, vw - width)),
+    y: clamp(y, minTop, Math.max(minTop, vh - height)),
   };
 }
 
@@ -132,24 +131,52 @@ function clampSizeToViewport(
 ): { width: number; height: number; maxWidth: number; maxHeight: number } {
   const maxWidth = Math.min(
     maxSize.width,
-    Math.max(
-      minSize.width,
-      window.innerWidth - Math.max(0, position.x) - 4,
-    ),
+    Math.max(0, window.innerWidth - Math.max(0, position.x) - 4),
   );
   const maxHeight = Math.min(
     maxSize.height,
-    Math.max(
-      minSize.height,
-      window.innerHeight - Math.max(0, position.y) - 4,
-    ),
+    Math.max(0, window.innerHeight - Math.max(0, position.y) - 4),
   );
 
   return {
-    width: clamp(width, minSize.width, maxWidth),
-    height: clamp(height, minSize.height, maxHeight),
+    width: clamp(width, Math.min(minSize.width, maxWidth), maxWidth),
+    height: clamp(height, Math.min(minSize.height, maxHeight), maxHeight),
     maxWidth,
     maxHeight,
+  };
+}
+
+/** Restore saved geometry by fitting its size first, then moving the complete
+ * panel into view. This avoids shrinking a panel to zero merely because its
+ * saved origin came from a larger monitor. */
+function fitLayoutToViewport(
+  layout: { x: number; y: number; width: number; height: number },
+  minSize: { width: number; height: number },
+  maxSize: { width: number; height: number },
+  minTop = 0,
+) {
+  const maxWidth = Math.min(
+    maxSize.width,
+    Math.max(0, window.innerWidth - 4),
+  );
+  const maxHeight = Math.min(
+    maxSize.height,
+    Math.max(0, window.innerHeight - minTop - 4),
+  );
+  const width = clamp(
+    layout.width,
+    Math.min(minSize.width, maxWidth),
+    maxWidth,
+  );
+  const height = clamp(
+    layout.height,
+    Math.min(minSize.height, maxHeight),
+    maxHeight,
+  );
+  return {
+    ...clampPosition(layout.x, layout.y, width, height, minTop),
+    width,
+    height,
   };
 }
 
@@ -211,25 +238,7 @@ export function FloatingPanel({
     width: defaultSize.width,
     height: defaultSize.height,
   };
-  const clampedInitialSize = clampSizeToViewport(
-    rawLayout.width,
-    rawLayout.height,
-    rawLayout,
-    minSize,
-    maxSize,
-  );
-  const clampedInit = clampPosition(
-    rawLayout.x,
-    rawLayout.y,
-    clampedInitialSize.width,
-    minTop,
-  );
-  const initialLayout = {
-    ...rawLayout,
-    ...clampedInit,
-    width: clampedInitialSize.width,
-    height: clampedInitialSize.height,
-  };
+  const initialLayout = fitLayoutToViewport(rawLayout, minSize, maxSize, minTop);
 
   // ---- Layout state (only updated on interaction END for perf) ----
   const [layout, setLayout] = useState(initialLayout);
@@ -271,24 +280,17 @@ export function FloatingPanel({
       return;
     }
 
-    const restoredSize = clampSizeToViewport(
-      persistedWidth,
-      persistedHeight,
-      { x: persistedX, y: persistedY },
+    const nextLayout = fitLayoutToViewport(
+      {
+        x: persistedX,
+        y: persistedY,
+        width: persistedWidth,
+        height: persistedHeight,
+      },
       minSize,
       maxSize,
-    );
-    const position = clampPosition(
-      persistedX,
-      persistedY,
-      restoredSize.width,
       minTop,
     );
-    const nextLayout = {
-      ...position,
-      width: restoredSize.width,
-      height: restoredSize.height,
-    };
     const current = layoutRef.current;
 
     if (
@@ -350,7 +352,13 @@ export function FloatingPanel({
       const dy = e.clientY - dragStart.current.pointerY;
       const newX = dragStart.current.panelX + dx;
       const newY = dragStart.current.panelY + dy;
-      const clamped = clampPosition(newX, newY, layoutRef.current.width, minTop);
+      const clamped = clampPosition(
+        newX,
+        newY,
+        layoutRef.current.width,
+        layoutRef.current.height,
+        minTop,
+      );
 
       // Direct DOM update for smoothness (no React re-render)
       const el = panelRef.current;
@@ -368,8 +376,14 @@ export function FloatingPanel({
         layoutRef.current.height,
       );
 
-      const finalX = snapped?.x ?? clamped.x;
-      const finalY = snapped?.y ?? clamped.y;
+      const finalPosition = clampPosition(
+        snapped?.x ?? clamped.x,
+        snapped?.y ?? clamped.y,
+        layoutRef.current.width,
+        layoutRef.current.height,
+        minTop,
+      );
+      const { x: finalX, y: finalY } = finalPosition;
 
       // Apply snapped position to DOM if it differs
       if (snapped && el) {
@@ -380,7 +394,7 @@ export function FloatingPanel({
       // Store in ref for commit on pointer up
       layoutRef.current = { ...layoutRef.current, x: finalX, y: finalY };
     },
-    [id, onDragMove, minTop],
+    [id, minTop, onDragMove],
   );
 
   const handleDragPointerUp = useCallback(
@@ -525,20 +539,7 @@ export function FloatingPanel({
   useEffect(() => {
     const handleWindowResize = () => {
       const cur = layoutRef.current;
-      const resized = clampSizeToViewport(
-        cur.width,
-        cur.height,
-        cur,
-        minSize,
-        maxSize,
-      );
-      const clamped = clampPosition(cur.x, cur.y, resized.width, minTop);
-      const nextLayout = {
-        ...cur,
-        ...clamped,
-        width: resized.width,
-        height: resized.height,
-      };
+      const nextLayout = fitLayoutToViewport(cur, minSize, maxSize, minTop);
       if (
         nextLayout.x !== cur.x ||
         nextLayout.y !== cur.y ||
@@ -550,16 +551,18 @@ export function FloatingPanel({
 
         const el = panelRef.current;
         if (el) {
-          el.style.left = `${clamped.x}px`;
-          el.style.top = `${clamped.y}px`;
-          el.style.width = `${resized.width}px`;
-          el.style.height = `${resized.height}px`;
+          el.style.left = `${nextLayout.x}px`;
+          el.style.top = `${nextLayout.y}px`;
+          el.style.width = `${nextLayout.width}px`;
+          el.style.height = `${nextLayout.height}px`;
         }
 
         // Persist the usable geometry so another render cannot restore the
         // oversized layout that this viewport just corrected.
         onLayoutChange?.(nextLayout);
-        if (resized.width !== cur.width) onResizeWidth?.(id, resized.width);
+        if (nextLayout.width !== cur.width) {
+          onResizeWidth?.(id, nextLayout.width);
+        }
       }
     };
 
@@ -615,7 +618,13 @@ export function FloatingPanel({
             const dy = e.clientY - dragStart.current.pointerY;
             const newX = dragStart.current.panelX + dx;
             const newY = dragStart.current.panelY + dy;
-            const clamped = clampPosition(newX, newY, 120, minTop);
+            const clamped = clampPosition(
+              newX,
+              newY,
+              panelRef.current?.offsetWidth || 120,
+              TITLE_BAR_HEIGHT,
+              minTop,
+            );
             const el = panelRef.current;
             if (el) {
               el.style.left = `${clamped.x}px`;
@@ -657,7 +666,6 @@ export function FloatingPanel({
         </div>
         {snapTarget && (
           <div
-            data-snap-edge={snapTarget.edge}
             className="fixed pointer-events-none z-[9999]"
             style={getSnapIndicatorStyle(snapTarget)}
           />
@@ -781,7 +789,6 @@ export function FloatingPanel({
       {/* Snap indicator overlay */}
       {snapTarget && (
         <div
-          data-snap-edge={snapTarget.edge}
           className="fixed pointer-events-none z-[9999]"
           style={getSnapIndicatorStyle(snapTarget)}
         />

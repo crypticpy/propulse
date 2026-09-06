@@ -14,6 +14,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { createPortal } from "react-dom";
 import { useLocation } from "react-router-dom";
+import { useAuthStore, selectIsAuthenticated } from "@/stores/authStore";
 import { useKioskStore } from "@/stores/kioskStore";
 
 // ── Constants ────────────────────────────────────────────────────────────────
@@ -573,12 +574,26 @@ function ProgressDots({
 // ── Main Component ───────────────────────────────────────────────────────────
 
 export function WelcomeOverlay() {
-  const [visible, dismiss] = useWelcomeVisible();
+  const [welcomeVisible, dismiss] = useWelcomeVisible();
+  const authInitialized = useAuthStore((s) => s.initialized);
+  const isAuthenticated = useAuthStore(selectIsAuthenticated);
   // Unattended kiosk/wall-display screens must never block on a welcome dialog
   const isKiosk = useKioskStore((s) => s.active);
   const isDisplayRoute = useLocation().pathname.startsWith("/display/");
+  const visible =
+    welcomeVisible &&
+    authInitialized &&
+    !isAuthenticated &&
+    !isKiosk &&
+    !isDisplayRoute;
   const [slide, setSlide] = useState(0);
   const [transitioning, setTransitioning] = useState(false);
+
+  // Account holders have already crossed the welcome step. Persist that fact
+  // even though the overlay is hidden so dependent first-run flows can proceed.
+  useEffect(() => {
+    if (authInitialized && isAuthenticated && welcomeVisible) dismiss();
+  }, [authInitialized, dismiss, isAuthenticated, welcomeVisible]);
 
   const goToSlide = useCallback(
     (next: number) => {
@@ -621,7 +636,7 @@ export function WelcomeOverlay() {
     }
   }, [visible]);
 
-  if (!visible || isKiosk || isDisplayRoute) return null;
+  if (!visible) return null;
 
   const modal = (
     <div

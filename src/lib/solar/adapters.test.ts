@@ -138,6 +138,23 @@ describe("solar provider adapters", () => {
     );
   });
 
+  it("drops zero-flux and electron-contaminated X-ray samples", () => {
+    const contaminated = [
+      { time_tag: "2026-07-15T18:58:00Z", satellite: 18, flux: 0, energy: "0.1-0.8nm" },
+      {
+        time_tag: "2026-07-15T18:59:00Z",
+        satellite: 18,
+        flux: 3e-7,
+        energy: "0.1-0.8nm",
+        electron_contaminaton: true,
+      },
+    ];
+    const result = adaptXray([...dualXray, ...contaminated]);
+    expect(result.data).toHaveLength(2);
+    expect(result.data.at(-1)?.flux).toBe(4e-7);
+    expect(result.observedAt).toBe("2026-07-15T18:44:00.000Z");
+  });
+
   it("filters the exact GOES long X-ray channel", () => {
     const result = adaptXray(dualXray);
     expect(result.data).toHaveLength(2);

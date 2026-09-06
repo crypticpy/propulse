@@ -268,6 +268,9 @@
 .hcr-cols > * {
   min-width: 0;
 }
+.hcr-cols--even {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
 .hcr-box {
   display: flex;
   flex-direction: column;

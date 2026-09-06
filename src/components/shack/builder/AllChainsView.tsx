@@ -165,6 +165,8 @@ function ExpandedChainBody({
   // ---- Remove node (with confirmation) --------------------------------------
   const handleRequestRemoveNode = useCallback(
     (nodeIndex: number, nodeName?: string) => {
+      // Release the inspector's focus and Escape handling before confirmation.
+      setSelectedNodeIndex(null);
       setConfirmAction({
         type: "removeNode",
         nodeIndex,

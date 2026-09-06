@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
-import { fireEvent, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import { StationProvider } from "@/components/station-ui";
 import { useShackStore } from "@/stores/shackStore";
 import { MAX_CHAIN_NODES, type StationChain } from "@/types/stationChain";
@@ -11,12 +11,17 @@ vi.mock("@/hooks/useChainPerformance", () => ({
 vi.mock("./BuilderCanvas", () => ({
   BuilderCanvas: ({
     onAddEquipmentAtPosition,
+    onSelectNode,
   }: {
     onAddEquipmentAtPosition: (index: number) => void;
+    onSelectNode: (index: number) => void;
   }) => (
-    <button onClick={() => onAddEquipmentAtPosition(1)}>
-      Add in first gap
-    </button>
+    <>
+      <button onClick={() => onAddEquipmentAtPosition(1)}>
+        Add in first gap
+      </button>
+      <button onClick={() => onSelectNode(0)}>Inspect first radio</button>
+    </>
   ),
 }));
 vi.mock("./EquipmentDrawer", () => ({ EquipmentDrawer: () => null }));
@@ -100,5 +105,36 @@ it("labels toolbar placement as automatic and leaves a failed selection open wit
   );
   expect(useShackStore.getState().stationChains[0].nodes).toHaveLength(
     MAX_CHAIN_NODES,
+  );
+});
+
+it("replaces the inspector with removal confirmation so one Escape cancels without removing equipment", () => {
+  view();
+  fireEvent.click(screen.getByRole("button", { name: "Inspect first radio" }));
+  const inspector = screen.getByRole("dialog", { name: "Radio in this path" });
+  fireEvent.click(
+    within(inspector).getByRole("button", { name: "Remove from path" }),
+  );
+  expect(screen.queryByRole("dialog")).toBeNull();
+  const confirmation = screen.getByRole("alertdialog", {
+    name: "Remove from Signal Path?",
+  });
+  act(() => vi.advanceTimersByTime(0));
+  expect(document.activeElement).toBe(
+    within(confirmation).getByRole("button", { name: "Remove" }),
+  );
+  fireEvent.keyDown(document.activeElement!, { key: "Escape" });
+  expect(screen.queryByRole("alertdialog")).toBeNull();
+  expect(screen.queryByRole("dialog")).toBeNull();
+  expect(useShackStore.getState().stationChains[0].nodes).toEqual(chain.nodes);
+
+  fireEvent.click(screen.getByRole("button", { name: "Inspect first radio" }));
+  fireEvent.click(screen.getByRole("button", { name: "Remove from path" }));
+  fireEvent.click(
+    within(screen.getByRole("alertdialog")).getByRole("button", { name: "Remove" }),
+  );
+  expect(screen.queryByRole("alertdialog")).toBeNull();
+  expect(useShackStore.getState().stationChains[0].nodes).toEqual(
+    chain.nodes.slice(1),
   );
 });

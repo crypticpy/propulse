@@ -103,11 +103,13 @@ describe("collectForecastSnapshot", () => {
   interface FakeDb {
     db: SupabaseClient;
     upserts: unknown[];
+    upsertOptions: Array<Record<string, unknown>>;
     healthInserts: Array<Record<string, unknown>>;
   }
 
   function fakeDb(solarRow: Record<string, unknown> | null): FakeDb {
     const upserts: unknown[] = [];
+    const upsertOptions: Array<Record<string, unknown>> = [];
     const healthInserts: Array<Record<string, unknown>> = [];
     const db = {
       from(table: string) {
@@ -124,8 +126,9 @@ describe("collectForecastSnapshot", () => {
         }
         if (table === "forecast_snapshots") {
           return {
-            upsert: async (rows: unknown) => {
+            upsert: async (rows: unknown, options: Record<string, unknown>) => {
               upserts.push(rows);
+              upsertOptions.push(options);
               return { error: null };
             },
           };
@@ -142,13 +145,13 @@ describe("collectForecastSnapshot", () => {
       },
       rpc: async () => ({ error: null }),
     } as unknown as SupabaseClient;
-    return { db, upserts, healthInserts };
+    return { db, upserts, upsertOptions, healthInserts };
   }
 
   it("writes horizon-0 plus lead-time rows near the top of the hour", async () => {
     vi.useFakeTimers();
     vi.setSystemTime(Date.parse("2026-08-29T12:04:00Z"));
-    const { db, upserts, healthInserts } = fakeDb({
+    const { db, upserts, upsertOptions, healthInserts } = fakeDb({
       captured_at: new Date(Date.now() - 10 * 60_000).toISOString(),
       kp_index: 2,
       sfi: 150,
@@ -160,6 +163,11 @@ describe("collectForecastSnapshot", () => {
     // 10 HF bands × (horizon 0 + the BH3 lead-time horizons)
     expect(upserts[0]).toHaveLength(10 * (1 + SNAPSHOT_HORIZONS_H.length));
     expect(healthInserts[0]?.status).toBe("ok");
+    // Post-migration unique key: the four-column target can't be inferred
+    // without mode_class in the onConflict list (P1).
+    expect(upsertOptions[0]?.onConflict).toBe(
+      "hour_utc,band,source,horizon_hours,mode_class",
+    );
   });
 
   it("skips horizon rows on a mid-hour tick — a restart at :55 must not claim a 1h-lead slot with 5 min of real lead", async () => {
@@ -220,6 +228,7 @@ describe("buildPhysicsSnapshotRows", () => {
       expect(row.hour_utc).toBe("2026-08-29T12:00:00.000Z");
       expect(row.source).toBe("physics");
       expect(row.horizon_hours).toBe(0);
+      expect(row.mode_class).toBe("all");
       expect(row.p_open).toBeGreaterThanOrEqual(0);
       expect(row.p_open).toBeLessThanOrEqual(1);
       expect(row.meta.algo).toBe(PHYSICS_ALGO_VERSION);
@@ -255,6 +264,7 @@ describe("buildPhysicsHorizonRows", () => {
           hourBucketUtc(nowMs + horizon * 3600_000),
         );
         expect(row.source).toBe("physics");
+        expect(row.mode_class).toBe("all");
         expect(row.p_open).toBeGreaterThanOrEqual(0);
         expect(row.p_open).toBeLessThanOrEqual(1);
         expect(row.meta.algo).toBe(PHYSICS_ALGO_VERSION);

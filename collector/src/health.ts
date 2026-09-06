@@ -34,6 +34,7 @@ const POLL_INTERVAL_SOURCES: Partial<Record<string, keyof PollIntervals>> = {
   "region-aggregator": "aggregator",
   "verdict-ladder": "verdictLadder",
   "inference-monitor": "inferenceMonitor",
+  "model-snapshot": "modelSnapshot",
 };
 
 export function getSourceStaleMs(
@@ -123,6 +124,12 @@ export function startHealthServer(port: number): http.Server {
     const degradedSources: string[] = [];
 
     for (const source of Object.keys(lastRuns)) {
+      // "disabled" means the source is intentionally unconfigured (e.g. no
+      // INFERENCE_SERVICE_TOKEN for model-snapshot) — it can never report a
+      // success, so it must not participate in staleness or it would 503
+      // the whole collector forever. It still shows up in lastRuns for
+      // visibility, same as "warning"/"over-budget" sources.
+      if (lastRuns[source]?.status === "disabled") continue;
       const lastSuccess = lastSuccessTimes[source];
       const stale = activeConfig
         ? isSourceStale(source, lastSuccess, now, activeConfig.pollIntervals)

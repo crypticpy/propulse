@@ -143,6 +143,7 @@ export interface ForecastSnapshotRow {
   source: "physics";
   horizon_hours: number;
   p_open: number;
+  mode_class: "all";
   meta: {
     algo: string;
     kp: number;
@@ -188,6 +189,7 @@ export function buildPhysicsSnapshotRows(
       source: "physics" as const,
       horizon_hours: 0,
       p_open: blendPOpen(score, fLit),
+      mode_class: "all" as const,
       meta: {
         algo: PHYSICS_ALGO_VERSION,
         kp,
@@ -248,6 +250,7 @@ export function buildPhysicsHorizonRows(
         source: "physics" as const,
         horizon_hours: horizon,
         p_open: blendPOpen(score, fLit),
+        mode_class: "all" as const,
         meta: {
           algo: PHYSICS_ALGO_VERSION,
           kp,
@@ -307,7 +310,7 @@ export async function collectForecastSnapshot(
     const { error: upsertError } = await db
       .from("forecast_snapshots")
       .upsert(rows, {
-        onConflict: "hour_utc,band,source,horizon_hours",
+        onConflict: "hour_utc,band,source,horizon_hours,mode_class",
         ignoreDuplicates: true,
       });
 

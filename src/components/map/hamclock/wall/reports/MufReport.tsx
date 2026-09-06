@@ -575,19 +575,19 @@ export function MufReport({ open, onClose }: MufReportProps) {
     <div className="hcr-box">
       <h4>Ionosphere at QTH</h4>
       <dl className="hcr-kv">
-        <dt>Critical frequency f0F2</dt>
+        <dt>f0F2 critical</dt>
         <dd>{ionosphere ? `${ionosphere.f0F2.toFixed(1)} MHz` : "—"}</dd>
-        <dt>F2 layer height hmF2</dt>
+        <dt>hmF2 height</dt>
         <dd>{ionosphere ? `${Math.round(ionosphere.hmF2)} km` : "—"}</dd>
         <dt>M(3000)F2</dt>
         <dd>{ionosphere ? ionosphere.m3000F2.toFixed(2) : "—"}</dd>
-        <dt>D-layer absorption</dt>
+        <dt>D-layer loss</dt>
         <dd>
           {dLayerAbsorptionDb == null
             ? "—"
             : `${dLayerAbsorptionDb.toFixed(1)} dB`}
         </dd>
-        <dt>Solar zenith angle</dt>
+        <dt>Sun zenith</dt>
         <dd>
           {ionosphere
             ? `${ionosphere.zenithAngle.toFixed(1)}° · ${

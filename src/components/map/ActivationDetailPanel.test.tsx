@@ -339,7 +339,7 @@ describe("ActivationDetailPanel", () => {
 });
 
 
-it("tunes the refreshed activation frequency without preparing or saving a QSO", () => {
+it.each(["FT8", "UNKNOWN"])("tunes the refreshed activation frequency in %s without changing the QSO draft", (mode) => {
   const rig = useRigStore.getState();
   const settings = useSettingsStore.getState();
   const selected = useActivationSpotStore.getState().selectedSpot;
@@ -347,14 +347,14 @@ it("tunes the refreshed activation frequency without preparing or saving a QSO",
     useSettingsStore.setState({ bridgeEnabled: true });
     useRigStore.setState({ catEnabled: true, connected: true, bridgeConnected: true, pendingFrequency: null, pendingMode: null });
     useActivationSpotStore.setState({ selectedSpot: SPOT });
-    mocks.activationFeed.mockReturnValue(activationFeed([{ ...SPOT, frequencyKHz: 7074.125 }]));
+    mocks.activationFeed.mockReturnValue(activationFeed([{ ...SPOT, frequencyKHz: 7074.125, mode }]));
     mocks.callsignIngestion.mockReturnValue({ result: null, loading: false, error: null });
     const draft = useQSOStore.getState().form;
     render(<MemoryRouter><ActivationDetailPanel /></MemoryRouter>);
     expect(useRigStore.getState().pendingFrequency).toBeNull();
-    fireEvent.click(screen.getByRole("button", { name: "Tune 7.074125 MHz FT8" }));
+    fireEvent.click(screen.getByRole("button", { name: mode === "UNKNOWN" ? "Tune 7.074125 MHz (mode unchanged)" : "Tune 7.074125 MHz FT8" }));
     expect(useRigStore.getState().pendingFrequency).toBe(7074125);
-    expect(useRigStore.getState().pendingMode).toBe("USB");
+    expect(useRigStore.getState().pendingMode).toBe(mode === "UNKNOWN" ? null : "USB");
     expect(screen.getByRole("dialog")).toBeTruthy();
     expect(useQSOStore.getState().form).toBe(draft);
   } finally {

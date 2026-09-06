@@ -43,7 +43,12 @@ from package_phase3_candidate import (  # noqa: E402
     selected_components,
 )
 from phase2_core import Phase2Error, validate_config  # noqa: E402
-from feature_contract import is_v2  # noqa: E402
+from feature_contract import assert_servable, is_v2  # noqa: E402
+from serving_manifest import (  # noqa: E402
+    APPROVED_PATH_HISTORY_STATISTICS,
+    FORBIDDEN_V2_FEATURE_NAMES,
+    PATH_HISTORY_CONTRACT_PROVIDER_KIND,
+)
 import run_paths  # noqa: E402
 from train_phase2_scale import validate_m5_runtime  # noqa: E402
 
@@ -100,11 +105,22 @@ class ValidationPathHistoryProvider:
             if v2
             else "phase3-validation-fixture"
         )
+        # path_history.path_history_contract_mismatch() checks provider_kind
+        # (not name) against the manifest's path_history_contract; without
+        # this, create_app() would reject this fixture for every v2 config
+        # and Phase 3 validation could never pass (#306 "A7 contract
+        # assertion").
+        self.provider_kind = self.name
         self.transform_version = (
             PATH_HISTORY_CONTRACT_V2["transform_version"]
             if v2
             else DEFAULT_PATH_TRANSFORM_VERSION
         )
+        # Sourced from the packaged contract, not a literal: the fixture
+        # must track whatever statistic package_phase3_candidate.py declares
+        # for v2, or a future change there would silently desync from this
+        # validation harness.
+        self.statistic = PATH_HISTORY_CONTRACT_V2["statistic"] if v2 else None
 
     def lookup(
         self, *, issue_time, band, origin_grid4, target_grid4s
@@ -290,15 +306,48 @@ def main() -> None:
         )
     load_started = time.perf_counter()
     # The freshly packaged bundle is a schema-2, pre-December candidate that
-    # `validate_serving_manifest` rejects (it pins the V1 core contract and the
-    # released-candidate fields). Skip that release-time check here; the same
-    # bundle is validated strictly at promotion.
+    # `validate_serving_manifest` rejects outright on schema_version alone
+    # (it pins schema 3 and the released-candidate fields: evidence,
+    # december_gate_scored, ...) -- true for a V1 candidate exactly as much
+    # as a V2 one, so `strict=not v2` is not a usable substitute here; the
+    # same bundle is validated strictly at promotion. Skip that release-time
+    # check, but re-apply the v2-specific structural checks
+    # `validate_serving_manifest` would otherwise have made below, so a
+    # malformed path_history_contract or forbidden weather feature still
+    # fails Phase 3 validation instead of only surfacing at promotion
+    # (#306 "A7 contract assertion").
     if "strict" not in inspect.signature(ModelRegistry.__init__).parameters:
         raise Phase2Error(
             "ModelRegistry does not accept strict=False; update ml/service"
         )
     registry = ModelRegistry(bundle_path, strict=False)
     load_seconds = time.perf_counter() - load_started
+    if v2:
+        path_history_contract = registry.path_history_contract or {}
+        if (
+            path_history_contract.get("provider_kind")
+            != PATH_HISTORY_CONTRACT_PROVIDER_KIND
+        ):
+            raise Phase2Error(
+                "path_history_contract.provider_kind must be field-recency-v2"
+            )
+        if not path_history_contract.get("transform_version"):
+            raise Phase2Error("path_history_contract.transform_version is invalid")
+        if (
+            path_history_contract.get("statistic")
+            not in APPROVED_PATH_HISTORY_STATISTICS
+        ):
+            raise Phase2Error("path_history_contract.statistic is invalid")
+        for profile_name in ("physics", "nowcast"):
+            forbidden = FORBIDDEN_V2_FEATURE_NAMES.intersection(
+                registry.profiles[profile_name]["features"]
+            )
+            if forbidden:
+                raise Phase2Error(
+                    "forbidden feature in archive-v4-features-v2 profile "
+                    f"{profile_name}: {sorted(forbidden)}"
+                )
+            assert_servable(registry.profiles[profile_name]["features"])
     features = registry.profiles["nowcast"]["features"]
     inputs = run_paths.evaluation_inputs(config)
     paths = [ROOT / inputs[month]["path"] for month in config["evaluation_months"]]

@@ -1356,6 +1356,8 @@ def create_app(
             ),
             "path_history_provider": history_provider.name,
             "path_history_transform_version": history_provider.transform_version,
+            "path_history_statistic": getattr(history_provider, "statistic", None),
+            "path_history_contract": getattr(runtime, "path_history_contract", None),
             "operational_weather_provider": weather_provider.name,
             "configured_profile": configured_profile,
             "serving_profile": last_served_profile.get(

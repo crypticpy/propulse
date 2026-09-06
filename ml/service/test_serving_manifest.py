@@ -1,13 +1,25 @@
 from __future__ import annotations
 
 import copy
+import sys
 import unittest
+from pathlib import Path
 
 from serving_manifest import (
     CORE_FEATURE_CONTRACT_V2,
     feature_order_sha256,
     validate_serving_manifest,
 )
+
+
+# Imported the way the ml/src/archive_v4_2/tests siblings import each other:
+# package_phase3_candidate.py has no heavy dependencies (stdlib + the other
+# pure-Python phase2_core/feature_contract/run_paths modules), so importing
+# it directly is safe here.
+ARCHIVE_V4_2 = Path(__file__).resolve().parents[2] / "ml/src/archive_v4_2"
+sys.path.insert(0, str(ARCHIVE_V4_2))
+
+from package_phase3_candidate import PATH_HISTORY_CONTRACT_V2  # noqa: E402
 
 
 SHA256 = "a" * 64
@@ -201,6 +213,16 @@ class ServingManifestTests(unittest.TestCase):
         payload["core_feature_contract"] = "archive-v4-features-v3"
         with self.assertRaisesRegex(RuntimeError, "core feature contract"):
             validate_serving_manifest(payload)
+
+    def test_accepts_the_packaged_v2_path_history_contract(self):
+        # package_phase3_candidate.PATH_HISTORY_CONTRACT_V2 is what actually
+        # gets written into a v2 serving manifest; validate it directly
+        # (not a hand-copied dict) so a drift in either module's statistic
+        # value fails loudly here instead of at service startup.
+        payload = valid_manifest()
+        payload["core_feature_contract"] = CORE_FEATURE_CONTRACT_V2
+        payload["path_history_contract"] = dict(PATH_HISTORY_CONTRACT_V2)
+        validate_serving_manifest(payload)
 
 
 if __name__ == "__main__":

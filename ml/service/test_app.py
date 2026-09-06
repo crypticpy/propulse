@@ -1228,6 +1228,22 @@ def v2_registry() -> FakeRegistry:
     return registry
 
 
+class DuckTypedFieldRecencyProvider:
+    """Mirrors validate_phase3_candidate.ValidationPathHistoryProvider: a
+    fixture that declares the field-recency-v2 identity via attributes
+    without being a PostgrestPathRecencyProvider instance. #306 "A7 contract
+    assertion" must accept this on identity, not isinstance()."""
+
+    def __init__(self, *, statistic: str = "quantile"):
+        self.name = "approved-fixture"
+        self.provider_kind = "field-recency-v2"
+        self.transform_version = "psk-rbn-field-recency-v2"
+        self.statistic = statistic
+
+    def lookup(self, *, issue_time, band, origin_grid4, target_grid4s):
+        return {}
+
+
 class CreateAppPathHistoryContractTests(unittest.TestCase):
     """#306 "A7 contract assertion": create_app() fails closed at startup
     when a v2 manifest's path_history_contract does not match the
@@ -1249,11 +1265,59 @@ class CreateAppPathHistoryContractTests(unittest.TestCase):
         )
         create_app(v2_registry(), path_history_provider=provider)
 
+    def test_health_reports_the_path_history_statistic_and_contract(self):
+        provider = PostgrestPathRecencyProvider(
+            base_url="https://feature.test",
+            service_key="service-secret",
+            provider="approved-fixture",
+            transform_version="psk-rbn-field-recency-v2",
+            statistic="quantile",
+        )
+        client = TestClient(
+            create_app(v2_registry(), path_history_provider=provider)
+        )
+        health = client.get("/v1/propagation/health").json()
+        self.assertEqual(health["path_history_statistic"], "quantile")
+        self.assertEqual(
+            health["path_history_contract"], V2_PATH_HISTORY_CONTRACT
+        )
+
+    def test_health_reports_a_null_statistic_and_contract_for_v1(self):
+        client = TestClient(
+            create_app(
+                FakeRegistry(),
+                path_history_provider=UnavailablePathHistoryProvider(),
+            )
+        )
+        health = client.get("/v1/propagation/health").json()
+        self.assertIsNone(health["path_history_statistic"])
+        self.assertIsNone(health["path_history_contract"])
+
     def test_v2_manifest_rejects_a_non_field_recency_provider(self):
         with self.assertRaisesRegex(RuntimeError, "field-recency-v2"):
             create_app(
                 v2_registry(),
                 path_history_provider=FakePathHistoryProvider(),
+            )
+
+    def test_v2_manifest_allows_a_duck_typed_matching_provider(self):
+        # validate_phase3_candidate.py's ValidationPathHistoryProvider is
+        # not a PostgrestPathRecencyProvider instance; create_app() must
+        # accept it on declared identity so Phase 3 validation can pass.
+        create_app(
+            v2_registry(),
+            path_history_provider=DuckTypedFieldRecencyProvider(),
+        )
+
+    def test_v2_manifest_rejects_a_duck_typed_provider_with_a_different_statistic(
+        self,
+    ):
+        with self.assertRaisesRegex(RuntimeError, "statistic"):
+            create_app(
+                v2_registry(),
+                path_history_provider=DuckTypedFieldRecencyProvider(
+                    statistic="rate"
+                ),
             )
 
     def test_v2_manifest_rejects_a_mismatched_transform_version(self):

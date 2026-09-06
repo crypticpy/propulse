@@ -428,6 +428,18 @@ profile only, and logs that clearly). `archive-v4-features-v1` manifests are
 unaffected: they carry no `path_history_contract` and keep reading
 `recency_rate` exactly as before.
 
+**Known train/serve asymmetries:**
+
+- **Availability.** Offline `path_prevN_available` means "the pair was heard
+  in that hour"; `lookup_path_recency_lags` additionally requires
+  `available_at <= issue_time`, so a request issued early in an hour can lose
+  the H-1 lag that training always saw as available.
+- **Self-pairs.** Offline opportunity cells exclude `tx_grid4 == rx_grid4`
+  pairs; production exposure counts them.
+- **Mode.** The WSPR archive used for offline training is single-mode;
+  production's `recency_rate` / `recency_quantile` sum spot counts across
+  `mode_class`.
+
 `ModelRegistry` also gained a `strict: bool = True` constructor argument;
 `strict=False` skips `validate_serving_manifest` for development bundles
 (schema 2 and earlier). Production always constructs it with the default

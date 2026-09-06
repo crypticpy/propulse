@@ -260,7 +260,15 @@ class PostgrestPathRecencyProvider:
     ``"rate"`` (default) for the raw ``recency_rate``, or ``"quantile"`` for
     ``recency_quantile``, the per-band-hour ``percent_rank()`` of that rate
     that ``archive-v4-features-v2`` models were trained on.
+
+    ``provider_kind`` is a constant identity marker ("what RPC contract does
+    this provider implement"), distinct from ``name`` (the operator-approved
+    ``PROPULSE_PATH_PROVIDER`` identity passed as ``p_provider``).
+    ``path_history_contract_mismatch`` checks ``provider_kind`` against the
+    manifest, not ``name``.
     """
+
+    provider_kind = FIELD_RECENCY_PROVIDER_KIND
 
     def __init__(
         self,
@@ -487,20 +495,30 @@ def path_history_contract_mismatch(
         return None
     if provider.name == "unavailable":
         return None
-    if not isinstance(provider, PostgrestPathRecencyProvider):
+    contract = path_history_contract or {}
+    if contract.get("provider_kind") != FIELD_RECENCY_PROVIDER_KIND:
+        return "manifest path_history_contract.provider_kind is not field-recency-v2"
+    # Duck-typed on a declared `provider_kind`, not
+    # isinstance(PostgrestPathRecencyProvider): validate_phase3_candidate.py
+    # exercises this contract with a fixture provider
+    # (ValidationPathHistoryProvider) that is not that concrete class but
+    # does declare a matching provider_kind/transform_version/statistic.
+    # `.name` is deliberately not used for this check: it carries the
+    # operator-configured approved identity (PROPULSE_PATH_PROVIDER, e.g.
+    # "approved-provider-id"), which is independent of the provider kind.
+    if getattr(provider, "provider_kind", None) != FIELD_RECENCY_PROVIDER_KIND:
         return (
             "archive-v4-features-v2 requires the field-recency-v2 "
             "path-history provider"
         )
-    contract = path_history_contract or {}
-    if contract.get("provider_kind") != FIELD_RECENCY_PROVIDER_KIND:
-        return "manifest path_history_contract.provider_kind is not field-recency-v2"
-    if provider.transform_version != contract.get("transform_version"):
+    if getattr(provider, "transform_version", None) != contract.get(
+        "transform_version"
+    ):
         return (
             "configured path-history transform_version does not match "
             "manifest path_history_contract.transform_version"
         )
-    if provider.statistic != contract.get("statistic"):
+    if getattr(provider, "statistic", None) != contract.get("statistic"):
         return (
             "configured path-history statistic does not match manifest "
             "path_history_contract.statistic"

@@ -93,3 +93,43 @@ WHERE stats.hour_utc = date_trunc('hour', :'hour'::timestamptz)
   AND stats.tx_field = :'tx'
   AND stats.rx_field = :'rx'
 ORDER BY stats.mode_class;
+
+-- #306 (N3 retrain): recency_quantile is
+-- percent_rank() OVER (PARTITION BY band, hour_utc ORDER BY recency_rate),
+-- computed over every heard-pair row of that (band, hour_utc,
+-- transform_version) by compute_path_recency_hourly
+-- (supabase/migrations/20260906230000_path_recency_quantile.sql). Recompute
+-- it here straight from the stored recency_rate column of every row in the
+-- same partition and diff against the stored recency_quantile; max_abs_diff
+-- must be 0 (or NULL when unpopulated_rows == rows_checked, i.e. this hour
+-- predates the migration backfill).
+
+\echo '== recency_quantile hand-check for :band @ :hour (max abs diff) =='
+
+WITH stored_rows AS (
+  SELECT
+    recency.tx_field,
+    recency.rx_field,
+    recency.recency_rate,
+    recency.recency_quantile
+  FROM public.path_recency_hourly AS recency
+  WHERE recency.hour_utc = date_trunc('hour', :'hour'::timestamptz)
+    AND recency.band = :'band'
+    AND recency.transform_version = :'transform_version'
+), hand_quantiled AS (
+  SELECT
+    stored_rows.tx_field,
+    stored_rows.rx_field,
+    stored_rows.recency_quantile AS stored_quantile,
+    percent_rank() OVER (
+      PARTITION BY :'band' ORDER BY stored_rows.recency_rate
+    ) AS hand_quantile
+  FROM stored_rows
+)
+SELECT
+  count(*) AS rows_checked,
+  count(*) FILTER (WHERE hand_quantiled.stored_quantile IS NULL)
+    AS unpopulated_rows,
+  max(abs(hand_quantiled.stored_quantile - hand_quantiled.hand_quantile))
+    AS max_abs_diff
+FROM hand_quantiled;

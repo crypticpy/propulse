@@ -11,6 +11,7 @@ import shutil
 import sys
 import tempfile
 import time
+from collections.abc import Sequence
 from pathlib import Path
 from typing import Any
 
@@ -39,9 +40,8 @@ PATH_HISTORY_CONTRACT_V2 = {
     "provider_kind": "field-recency-v2",
     "transform_version": "psk-rbn-field-recency-v2",
     "offline_transform_version": "wspr-field-recency-v2",
-    "statistic": "recency_quantile",
+    "statistic": "quantile",
     "normalisation": "percent_rank_within_band_hour_by_recency_rate",
-    "mode_class_selector": "serving_time",
 }
 
 
@@ -206,12 +206,27 @@ def trained_physics(training: dict[str, Any], bundle: Path) -> dict[str, Any]:
     }
 
 
-def profile_features(profile: dict[str, Any]) -> list[list[str]]:
-    if profile["kind"] == "single":
-        return [list(map(str, profile["features"]))]
-    return [
-        list(map(str, component["features"])) for component in profile["components"]
-    ]
+def assert_profiles_servable(
+    v2: bool, profiles_features: Sequence[tuple[str, Sequence[str]]]
+) -> None:
+    """Raise before any bundle file is copied if a v2 profile is not servable.
+
+    The V1 bundle deliberately carries the four raw weather channels
+    (``ae``/``al``/``au``/``pcn``) archive-v4-features-v1 models were trained
+    on, so this is a no-op unless the config declares the v2 core feature
+    contract. Callers must invoke this before copying any model artifact
+    into the bundle directory so a failed v2 assertion leaves nothing on
+    disk.
+    """
+    if not v2:
+        return
+    for profile_name, features in profiles_features:
+        try:
+            assert_servable(features)
+        except Exception as error:  # noqa: BLE001 - re-raised as Phase2Error
+            raise Phase2Error(
+                f"{profile_name} profile is not servable: {error}"
+            ) from error
 
 
 def public_profile(profile: dict[str, Any], prefix: str) -> dict[str, Any]:
@@ -268,20 +283,46 @@ def main() -> None:
     final_fold = str(config["final_fold"])
     bundle = run_paths.external_serving_bundle_dir(config)
     repository_bundle = run_paths.serving_bundle_dir(config)
-    bundle.mkdir(parents=True, exist_ok=True)
-    nowcast_components = [
-        copied_component(
-            name,
-            weight,
-            training["candidates"][name][final_fold],
-            bundle,
-            "nowcast",
-        )
+
+    nowcast_infos = [
+        (name, weight, training["candidates"][name][final_fold])
         for name, weight in components
     ]
-    feature_orders = {tuple(item["features"]) for item in nowcast_components}
-    if len(feature_orders) != 1:
+    nowcast_feature_orders = {
+        tuple(map(str, info["features"])) for _, _, info in nowcast_infos
+    }
+    if len(nowcast_feature_orders) != 1:
         raise Phase2Error("selected components have different feature order")
+    nowcast_features = list(next(iter(nowcast_feature_orders)))
+
+    v4_results = None if v2 else load_json(V4_RESULTS)
+    if v2:
+        physics_training_info = training.get("physics")
+        if physics_training_info is None:
+            raise Phase2Error(
+                "the V2 contract requires a retrained physics component; "
+                "run train_phase3_physics.py before packaging"
+            )
+        physics_features = list(map(str, physics_training_info["features"]))
+    else:
+        physics_features = list(
+            map(str, v4_results["candidates"]["M1_physics"]["features"])
+        )
+
+    # #306 "A7 contract assertion": gated on v2 (the V1 bundle deliberately
+    # carries the four raw weather channels a live request can never
+    # populate) and run before any bundle file is copied, so a failed
+    # assertion leaves nothing on disk next to a stale serving_manifest.json.
+    assert_profiles_servable(
+        v2,
+        (("physics", physics_features), ("nowcast", nowcast_features)),
+    )
+
+    bundle.mkdir(parents=True, exist_ok=True)
+    nowcast_components = [
+        copied_component(name, weight, info, bundle, "nowcast")
+        for name, weight, info in nowcast_infos
+    ]
     top_factors = []
     for name, _ in components:
         for row in training["candidates"][name][final_fold].get(
@@ -331,7 +372,7 @@ def main() -> None:
             "physics": (
                 trained_physics(training, bundle)
                 if v2
-                else copied_physics(load_json(V4_RESULTS), bundle)
+                else copied_physics(v4_results, bundle)
             ),
             "nowcast": nowcast,
         },
@@ -350,14 +391,6 @@ def main() -> None:
     }
     if v2:
         manifest["path_history_contract"] = dict(PATH_HISTORY_CONTRACT_V2)
-    for profile_name, profile in manifest["profiles"].items():
-        for features in profile_features(profile):
-            try:
-                assert_servable(features)
-            except Exception as error:  # noqa: BLE001 - re-raised as Phase2Error
-                raise Phase2Error(
-                    f"{profile_name} profile is not servable: {error}"
-                ) from error
     bundle_manifest = bundle / "serving_manifest.json"
     atomic_write(bundle_manifest, manifest)
     public_prefix = f"ml/models/archive_v4_2/{config['run_id']}/serving"

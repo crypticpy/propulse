@@ -13,3 +13,8 @@ it("keeps current-page focus visible and handles Home, End and shrinking results
   expect(spotPageWindow(3, 10, 20, -1)).toEqual({ start: 2, end: 3 });
   expect(spotPageWindow(0, 10, 20, -1)).toEqual({ start: 0, end: 0 });
 });
+
+it("does not oscillate the offset when the last page has one borderless row", () => {
+  expect(spotPageWindow(71, 10, 70, -1)).toEqual({ start: 70, end: 71 });
+  expect(spotPageWindow(71, 11, 70, -1)).toEqual({ start: 70, end: 71 });
+});

@@ -239,12 +239,12 @@ export function DXSpotList({
         }
         case "PageDown": {
           e.preventDefault();
-          setFocusedIndex((prev) => Math.min(prev + 10, len - 1));
+          setFocusedIndex((prev) => Math.min((prev < 0 && wallPaging ? pageStart : prev) + (wallPaging ? pageSize : 10), len - 1));
           break;
         }
         case "PageUp": {
           e.preventDefault();
-          setFocusedIndex((prev) => Math.max(prev - 10, 0));
+          setFocusedIndex((prev) => Math.max((prev < 0 && wallPaging ? pageStart : prev) - (wallPaging ? pageSize : 10), 0));
           break;
         }
         case "Home": {
@@ -311,6 +311,7 @@ export function DXSpotList({
       wallPaging,
       pageStart,
       pageEnd,
+      pageSize,
       focusedIndex,
       handleSelectSpot,
       handleSetTarget,
@@ -386,7 +387,7 @@ export function DXSpotList({
                   isAlertMatch={alertMatchSet.has(spot.id)}
                   isNeeded={neededStatusMap.get(spot.id) ?? true}
                   distanceKm={distanceMap.get(spot.id) ?? null}
-                  onSelect={handleSelectSpot}
+                  onSelect={wallPaging ? (selected) => { setFocusedIndex(index); handleSelectSpot(selected); } : handleSelectSpot}
                   onHover={setHoveredSpot}
                   onContextMenu={handleContextMenu}
                   onGridClick={handleGridFilterChange}

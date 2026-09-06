@@ -1,9 +1,10 @@
-import { useMemo } from "react";
-import { DXSpotList } from "@/components/dx/DXSpotList/DXSpotList";
+import { lazy, Suspense, useMemo } from "react";
 import { useDXStore } from "@/stores/dxStore";
 import { useUTCClock } from "@/hooks/useUTCClock";
 import { reportFooter } from "../tokens";
 import { WallReport } from "./WallReport";
+
+const DXSpotList = lazy(() => import("@/components/dx/DXSpotList/DXSpotList").then((module) => ({ default: module.DXSpotList })));
 
 /** Chrome for the wall's existing cluster list, distinct from map collections. */
 export function ClusterReport({ open, onClose }: { open: boolean; onClose: () => void }) {
@@ -22,7 +23,9 @@ export function ClusterReport({ open, onClose }: { open: boolean; onClose: () =>
     <WallReport open={open} onClose={onClose} title="DX cluster report" tone="accent"
       footer={footer} updated={updated} pinId="dx-cluster"
       pinElement={<ClusterReport open onClose={onClose} />}>
-      <DXSpotList showFilters wallPaging />
+      <Suspense fallback={<p className="hcr-note">LOADING CLUSTER LIST</p>}>
+        <DXSpotList showFilters wallPaging />
+      </Suspense>
     </WallReport>
   );
 }

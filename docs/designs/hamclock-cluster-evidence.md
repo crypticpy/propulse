@@ -21,6 +21,8 @@ Paging is the minimum navigation adjustment needed to reconcile the spec's chrom
 - Managed session owner `hamclock-b24-cluster`, ID `48abf0ff-db21-4cb6-926c-62730de8db41`, local `http://127.0.0.1:5181/map`, checkout `/Users/crypticpy/Projects/propulse/.worktrees/hamclock-b24-cluster`.
 - Deployed/authenticated and physical-monitor checks remain pending. HW-72 is partial until those are accepted.
 
-[1080p](../images/hamclock-b24/cluster-1080p.png) · [4K](../images/hamclock-b24/cluster-4k.png)
+[1080p](../images/hamclock-b24/cluster-1080p.png)
 
 Review follow-up: page ranges are anchored by absolute row offset, so changing row heights cannot change the first unseen row after Next. The footer names the visible ROWS range rather than an unstable page number. ArrowDown/ArrowUp after a page change initialize focus within that range. Added two range regressions and verified Next→ArrowDown in the disposable browser, along with the full prior display matrix.
+
+The report shell mounts eagerly to capture the opener and make the background inert before the heavy list chunk loads. HW-72 is recorded as Partial in both tracked registers. Aggregate counts must be reconciled when other B24 register updates merge. The last-page regression also covers 71 spots with one remaining row; changing measured capacity cannot move that page offset.

@@ -1,4 +1,4 @@
-import { lazy, Suspense, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { useActiveLocation } from "@/hooks/useActiveLocation";
 import { useUTCClock } from "@/hooks/useUTCClock";
 import { filterMapSpots } from "@/lib/map/filterMapSpots";
@@ -8,9 +8,7 @@ import { useMapStore } from "@/stores/mapStore";
 import type { DXSpot } from "@/types/dxcluster";
 import { HamClockTile } from "../HamClockTile";
 
-const ClusterReport = lazy(() =>
-  import("../reports/ClusterReport").then((m) => ({ default: m.ClusterReport })),
-);
+import { ClusterReport } from "../reports/ClusterReport";
 
 /** The rail cannot scroll, so render a generous slice and let CSS clip it. */
 const MAX_ROWS = 22;
@@ -111,9 +109,7 @@ export function ClusterTile() {
       </HamClockTile>
 
       {reportOpen && (
-        <Suspense fallback={null}>
-          <ClusterReport open onClose={() => setReportOpen(false)} />
-        </Suspense>
+        <ClusterReport open onClose={() => setReportOpen(false)} />
       )}
     </>
   );

@@ -21,6 +21,7 @@ const mocks = vi.hoisted(() => ({
   target: vi.fn(),
 }));
 
+vi.mock("@/hooks/useBandHistory", () => ({ useBandHistory: () => ({ data: undefined, isError: false }) }));
 vi.mock("@/hooks/useBandVerdicts", () => ({ useBandVerdicts: mocks.verdicts }));
 vi.mock("@/hooks/useBandActivity", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/hooks/useBandActivity")>()),
@@ -127,7 +128,7 @@ describe("wall reports", () => {
     expect(dialog.className).toContain("hcr");
     // Hero, verdict and one fact, at report size.
     expect(dialog.querySelector(".hcr-hero")?.textContent).toBe("20M");
-    expect(dialog.querySelector(".hcr-verdict")?.textContent).toBe("470");
+    expect(dialog.querySelector(".hcr-verdict")?.textContent).toBe("LEADS");
     // The total also appears in the chart's screen-reader table twin.
     expect(dialog.querySelector(".hcr-facts")?.textContent).toContain("886");
   });
@@ -366,5 +367,19 @@ describe("DxTargetReport", () => {
     expect(screen.getByText("WIND")).toBeTruthy();
     expect(screen.getByText("HUMIDITY")).toBeTruthy();
     expect(screen.getByText("55%")).toBeTruthy();
+  });
+});
+
+
+describe("Band history completeness", () => {
+  it("keeps partial hourly totals out of the numeric peak", async () => {
+    const { BandHistoryChart } = await import("./BandHistoryChart");
+    render(<BandHistoryChart snapshot={{ scope: "global", windowStart: "2026-09-06T14:00:00Z", windowEnd: "2026-09-06T20:00:00Z", fetchedAt: "2026-09-06T20:10:00Z", rows: [{ hour: "2026-09-06T19:00:00.000Z", band: "20m", count: 123, sources: {}, modes: {} }] }} live={{ samples: [], now: Date.parse("2026-09-06T20:10:00Z") }} />);
+    expect(screen.getByText(/PEAK UNKNOWN/)).toBeTruthy();
+    expect(screen.getByText("PARTIAL")).toBeTruthy();
+  });
+  it("does not turn absent contributing source keys into measured zero", () => {
+    render(<BandActivityReport open onClose={vi.fn()} />);
+    expect(screen.getByText(/PSKREPORTER WAITING · RBN WAITING · DXCLUSTER WAITING/)).toBeTruthy();
   });
 });

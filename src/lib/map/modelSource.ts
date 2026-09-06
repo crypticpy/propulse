@@ -12,7 +12,7 @@
  *    forecast heatmap and stands in for P.533 when it throws; and
  *  - the NowCast/StationCast ML models served from Railway, which power the
  *    NowCast chips and serve their physics-trained profile *per band* when
- *    recent path history is unavailable.
+ *    recent path history is stale or unavailable.
  *
  * The first two share a source tree, which is exactly why they need separate
  * descriptors -- "physics engine" reads as one thing to a user, and only one
@@ -150,8 +150,8 @@ export function describeNowCastSource(
       tone: "degraded",
       detail:
         failedCount > 0
-          ? `Every band the NowCast model service answered was served by its physics profile, and ${failedCount} band${failedCount === 1 ? "" : "s"} returned no prediction at all -- recent path history is unavailable.\nThese are still model predictions, at reduced confidence.`
-          : "The NowCast model service answered, but every band was served by its physics profile -- recent path history is unavailable.\nThese are model predictions at reduced confidence, not the client physics engine.",
+          ? `Every band the NowCast model service answered was served by its physics profile, and ${failedCount} band${failedCount === 1 ? "" : "s"} returned no prediction at all -- recent path history is stale or unavailable.\nThese are still model predictions, at reduced confidence.`
+          : "The NowCast model service answered, but every band was served by its physics profile -- recent path history is stale or unavailable.\nThese are model predictions at reduced confidence, not the client physics engine.",
     };
   }
 

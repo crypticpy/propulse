@@ -29,7 +29,7 @@ const NOWCAST_CHIP_TITLE =
 
 const PHYSICS_CHIP_TITLE =
   "The NowCast model's physics-trained profile: a learned model on path geometry, sun and " +
-  "solar-wind features, served without recent path history because that feed is unavailable. " +
+  "solar-wind features, served without recent path history because it is stale or unavailable. " +
   "These are model predictions at reduced confidence, not the client physics engine.";
 
 function probabilityTone(probability: number): string {

@@ -12,7 +12,7 @@ import type { PropagationPrediction } from "./modelClient";
 const FLAG_LABELS: Record<string, string> = {
   missing_features: "Some model inputs are unavailable",
   recent_network_stale_physics_fallback:
-    "Recent path history is unavailable; served by the physics profile",
+    "Recent path history is stale or unavailable; served by the physics profile",
 };
 
 export function predictionIssueLabels(

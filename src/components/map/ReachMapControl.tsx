@@ -171,7 +171,7 @@ export function ReachMapControl({
               {state.status === "partial"
                 ? `${state.failedCellCount} cells unavailable`
                 : state.staleInputCellCount > 0
-                  ? "Recent path history unavailable; physics profile active"
+                  ? "Recent path history stale or unavailable; physics profile active"
                   : state.fallbackCellCount > 0
                     ? "Physics profile active"
                     : "Verified recent path data active"}

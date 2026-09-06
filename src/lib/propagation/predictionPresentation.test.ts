@@ -12,7 +12,7 @@ describe("predictionIssueLabels", () => {
       }),
     ).toEqual([
       "Some model inputs are unavailable",
-      "Recent path history is unavailable; served by the physics profile",
+      "Recent path history is stale or unavailable; served by the physics profile",
     ]);
   });
 

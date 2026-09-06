@@ -28,3 +28,10 @@ This slice does not close #286. Next: apply the shared button to wall contact/ac
 AetherSDR/TCI target routing and the rig/SDR/both choice depend on the actual adapter. No unavailable SDR target is fabricated. Real radio acknowledgement and deployed/authenticated/physical-display checks remain pending and cannot be established by these fixtures.
 
 [1080p shared action](../images/hamclock-tuning/shared-tune-1080p.png)
+
+
+## Transport review follow-up
+
+The sync hook now sends a single `rig.set` request, whose existing bridge handler awaits frequency then mode. One tune request stays in flight until its acknowledgement/error; a newer staged target waits without being erased by the older response. A disconnect clears pending tune commands. The hook keeps CAT configuration independent of the master bridge switch so BRIDGE OFF remains visible for a configured backend. Reverse CW stays `CWR` for Hamlib and becomes `CW-R` for direct ICOM, including an auto-detected ICOM backend from the connection acknowledgement.
+
+The shared button imports its theme/control styles directly, so a fresh non-map route can render a portalled wall-style alert with the saved wall layout. Hook regressions cover combined dispatch, a second target queued during a request, acknowledgement clearing, auto backend normalization, frequency-only requests and disconnect cleanup. These are mocked bridge protocol tests, not hardware acknowledgement evidence.

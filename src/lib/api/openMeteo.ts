@@ -85,12 +85,16 @@ export async function fetchLocalWeather(
   // offset marker because `timezone=auto` was requested; `utc_offset_seconds`
   // (always present alongside it) is what converts it back to a UTC instant.
   const utcOffsetSeconds =
-    typeof data.utc_offset_seconds === "number" ? data.utc_offset_seconds : 0;
+    typeof data.utc_offset_seconds === "number" &&
+    Number.isFinite(data.utc_offset_seconds)
+      ? data.utc_offset_seconds
+      : null;
   const localTimeMs =
     typeof c.time === "string" ? Date.parse(`${c.time}:00Z`) : NaN;
-  const observedAt = Number.isFinite(localTimeMs)
-    ? new Date(localTimeMs - utcOffsetSeconds * 1000)
-    : null;
+  const observedAt =
+    Number.isFinite(localTimeMs) && utcOffsetSeconds !== null
+      ? new Date(localTimeMs - utcOffsetSeconds * 1000)
+      : null;
 
   return {
     timezone: typeof data.timezone === "string" ? data.timezone : undefined,

@@ -185,7 +185,9 @@ export function BestBandReport({ open, onClose }: BestBandReportProps) {
 
   const { footer, updated } = reportFooter(
     "BAND HEALTH LADDER · PHYSICS + LIVE ACTIVITY",
-    activityFetchedAt ?? (ready ? Date.now() : null),
+    // The ladder's freshness is the activity feed's own fetch time; without
+    // one the footer waits rather than claiming "just now".
+    activityFetchedAt ?? null,
   );
 
   const facts: WallReportFact[] = [
@@ -223,9 +225,11 @@ export function BestBandReport({ open, onClose }: BestBandReportProps) {
     <WallReport
       open={open}
       onClose={onClose}
-      title={`Best band now · computed MUF ${muf === null ? "—" : `${muf.toFixed(1)} MHz`} · ${
-        isDaylight ? "dayside" : "nightside"
-      } at QTH`}
+      title={`Best band now · computed MUF ${muf === null ? "—" : `${muf.toFixed(1)} MHz`}${
+        isDaylight === null
+          ? ""
+          : ` · ${isDaylight ? "dayside" : "nightside"} at QTH`
+      }`}
       tone={leader ? "good" : "info"}
       hero={leader ? leader.band.toUpperCase() : "—"}
       verdict={leader ? LADDER_WALL_LABEL[leader.stable] : "NO DATA"}

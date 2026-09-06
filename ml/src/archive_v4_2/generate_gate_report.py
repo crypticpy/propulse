@@ -16,8 +16,6 @@ MODULE = Path(__file__).resolve().parent
 if str(MODULE) not in sys.path:
     sys.path.insert(0, str(MODULE))
 
-import run_paths  # noqa: E402
-
 DEFAULT_CONFIG = ROOT / "ml/config/propagation_v4_2_phase2_scale.json"
 
 

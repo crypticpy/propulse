@@ -97,6 +97,10 @@ class V1PathParityTest(unittest.TestCase):
             f"{V1_RESULTS}/prediction_thread_benchmark.json",
         )
         self.expect(
+            run_paths.transform_parity_path(self.config),
+            f"{V1_RESULTS}/live_feature_pipeline/transform_parity.json",
+        )
+        self.expect(
             run_paths.outcome_manifest_path(self.config),
             f"{V1_RESULTS}/outcome_protocol_manifest.json",
         )

@@ -72,6 +72,10 @@ def prediction_thread_benchmark_path(config: Mapping[str, Any]) -> Path:
     return results_dir(config) / "prediction_thread_benchmark.json"
 
 
+def transform_parity_path(config: Mapping[str, Any]) -> Path:
+    return results_dir(config) / "live_feature_pipeline/transform_parity.json"
+
+
 def outcome_manifest_path(config: Mapping[str, Any]) -> Path:
     return results_dir(config) / "outcome_protocol_manifest.json"
 
@@ -131,6 +135,7 @@ def resolved_paths(config: Mapping[str, Any]) -> dict[str, str]:
         "evaluation_50m": evaluation_results_path(config, 50_000_000),
         "validation_50m": validation_results_path(config, 50_000_000),
         "prediction_thread_benchmark": prediction_thread_benchmark_path(config),
+        "transform_parity": transform_parity_path(config),
         "outcome_manifest": outcome_manifest_path(config),
         "source_pipeline_freeze": source_freeze_path(config),
         "synthetic_gate_dry_run": synthetic_gate_dir(config),

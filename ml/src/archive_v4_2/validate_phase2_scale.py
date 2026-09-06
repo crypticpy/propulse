@@ -148,9 +148,8 @@ def main() -> None:
     iterations = []
     feature_contracts = []
     reference_features: list[str] | None = None
-    expected_backend = matrix_backend(
-        config, scale, training.get("training_profile", "m5")
-    )
+    training_profile = str(training.get("training_profile", "m5"))
+    expected_backend = matrix_backend(config, scale, training_profile)
     for candidate in candidate_names:
         folds = training["candidates"].get(candidate, {})
         training_complete &= set(folds) == set(fold_names)
@@ -169,6 +168,17 @@ def main() -> None:
                 model_artifacts.append(check_artifact(item["calibrator"])[0])
     add("scale folds complete", training_complete, list(fold_names))
     add("matrix backend", all(training_modes), expected_backend)
+    m5_backend = matrix_backend(config, scale, "m5")
+    add(
+        "matrix backend profile amendment",
+        True,
+        {
+            "training_profile": training_profile,
+            "backend": expected_backend,
+            "m5_backend": m5_backend,
+            "differs_from_m5": expected_backend != m5_backend,
+        },
+    )
     add("training row counts", all(training_rows), training_rows)
     add("model and calibrator hashes", all(model_artifacts), f"{sum(model_artifacts)}/{len(model_artifacts)}")
     add("best iterations in bounds", all(iterations), iterations)

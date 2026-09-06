@@ -3,6 +3,7 @@
   "archive_namespace": "archive_v4",
   "execution_scope": "development",
   "core_feature_contract": "archive-v4-features-v2",
+  "feature_contract": "archive-v4-features-v2",
   "parent_run_id": "propagation_v4_multiyear_50m",
   "space_weather_run_id": "propagation_v4_multiyear_50m",
   "seed": 20260712,

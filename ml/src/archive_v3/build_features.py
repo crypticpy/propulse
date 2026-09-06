@@ -323,6 +323,27 @@ def add_polars_features(source: Path | list[Path], destination: Path, task: str)
         print(f"wrote feature partition {index + 1}/{len(sources)}", flush=True)
 
 
+def require_feature_contract(config: dict) -> None:
+    """Fail fast unless the config declares the contract this builder emits.
+
+    ``FEATURE_CONTRACT`` above is a hardcoded module constant: this builder
+    has produced only the V2 recency layout since that feature set shipped,
+    regardless of what a config's other settings imply. A config that does
+    not declare ``"feature_contract": "archive-v4-features-v2"`` would
+    silently receive V2 features under a run that never asked for them --
+    including a V1 run, whose frozen datasets must never be rebuilt.
+    """
+    declared = config.get("feature_contract")
+    if declared != FEATURE_CONTRACT:
+        source = config.get("config_path", config.get("run_id", "<config>"))
+        raise RuntimeError(
+            f"{source}: this branch's feature builder only produces the "
+            f"{FEATURE_CONTRACT!r} contract (found feature_contract="
+            f"{declared!r}); V1 datasets are frozen and must not be "
+            "rebuilt with this script."
+        )
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--config", required=True)
@@ -330,6 +351,7 @@ def main() -> None:
     parser.add_argument("--force", action="store_true")
     args = parser.parse_args()
     config = load_config(args.config)
+    require_feature_contract(config)
     ensure_directories()
     output = PROCESSED / f"dataset_{config['run_id']}_{args.task}.parquet"
     legacy_base = PROCESSED / f"dataset_{config['run_id']}_{args.task}_base.parquet"

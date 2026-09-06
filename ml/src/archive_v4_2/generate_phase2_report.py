@@ -15,6 +15,7 @@ ROOT = Path(__file__).resolve().parents[3]
 MODULE = Path(__file__).resolve().parent
 sys.path.insert(0, str(MODULE))
 
+from m5_runtime import LINUX_GPU_PROFILE, M5_PROFILE  # noqa: E402
 from phase2_core import validate_config  # noqa: E402
 from train_phase2_scale import validate_m5_runtime  # noqa: E402
 import run_paths  # noqa: E402
@@ -352,6 +353,125 @@ def cohort_rows(path: Path) -> list[dict[str, Any]]:
     return rows
 
 
+def training_profile_of(latest_training: dict[str, Any]) -> str:
+    """Which host trained the reported model, per the training results JSON."""
+    return str(latest_training.get("training_profile", M5_PROFILE))
+
+
+def backend_benchmark_applicable(training_profile: str, config: dict[str, Any]) -> bool:
+    """Whether the M5 ``backend_benchmark_*.json`` artifacts exist for this run.
+
+    The M5 profile always benchmarks the external-memory vs. streamed
+    in-memory Quantile backends. The linux_gpu profile fits both scales as an
+    in-memory QuantileDMatrix and never runs that benchmark; its config marks
+    ``compute.linux_gpu.backend_benchmark`` as not applicable.
+    """
+    if training_profile != LINUX_GPU_PROFILE:
+        return True
+    linux_gpu = config.get("compute", {}).get("linux_gpu", {})
+    return not str(linux_gpu.get("backend_benchmark", "")).startswith("not_applicable")
+
+
+def any_fold_execution(training: dict[str, Any]) -> dict[str, Any] | None:
+    """The ``execution`` block recorded for any trained fold, for reporting."""
+    for folds in training.get("candidates", {}).values():
+        for fold_result in folds.values():
+            execution = fold_result.get("execution")
+            if execution:
+                return execution
+    return None
+
+
+def compute_finding_body(
+    training_profile: str,
+    backend_benchmark_ok: bool,
+    latest_training: dict[str, Any],
+    prediction_benchmark: dict[str, Any],
+    backend_decision: dict[str, Any] | None,
+) -> str:
+    """The 'compute finding' markdown card, honest about which host trained."""
+    if training_profile == M5_PROFILE:
+        assert backend_decision is not None
+        return (
+            "## Native Apple Silicon execution removes the main scale bottleneck\n\nThe M5 uses native arm64 Python, "
+            "OpenMP-enabled XGBoost, 18 DuckDB threads, and a spawn-based two-process scheduler with nine XGBoost "
+            "threads and four Arrow I/O threads per fit. XGBoost has no Metal backend, so the correct acceleration "
+            "path is multicore CPU plus bounded unified memory. The 50M QuantileDMatrix backend was adopted only "
+            f"after a {backend_decision['speedup']:.3f}x total-time benchmark at exact validation parity and a "
+            f"conservative {backend_decision['projected_parallel_peak_rss_gb']:.2f} GiB two-worker projection. "
+            f"Single-process scoring uses the measured fastest bit-identical setting of "
+            f"{int(prediction_benchmark['selected_threads'])} XGBoost threads."
+        )
+    execution = any_fold_execution(latest_training) or {}
+    device = str(execution.get("device", "cuda"))
+    tree_method = str(execution.get("tree_method", "hist"))
+    workers = config_linux_gpu_workers(latest_training)
+    runtime = execution.get("runtime") or {}
+    backend_note = (
+        "not applicable under linux_gpu (in-memory quantile at both scales)"
+        if not backend_benchmark_ok
+        else f"benchmarked at {float(backend_decision['speedup']):.3f}x versus external memory"
+    )
+    return (
+        "## Linux GPU execution trains on CUDA while the rest of the chain stays on the M5\n\nTraining ran on an "
+        f"x86_64 Linux host with XGBoost `device={device}`, `tree_method={tree_method}`, and {workers} training "
+        f"worker. The recorded fit runtime was `{json.dumps(runtime, sort_keys=True)}`. Both the 20M and 50M "
+        f"scales fit as an in-memory QuantileDMatrix; the M5 external-memory-vs-quantile backend benchmark is "
+        f"{backend_note}."
+    )
+
+
+def config_linux_gpu_workers(latest_training: dict[str, Any]) -> int:
+    execution = any_fold_execution(latest_training) or {}
+    if "parallel_fit_workers" in execution:
+        return int(execution["parallel_fit_workers"])
+    return 1
+
+
+def apple_silicon_or_linux_gpu_section(
+    training_profile: str,
+    backend_benchmark_ok: bool,
+    latest_training: dict[str, Any],
+    prediction_benchmark: dict[str, Any],
+    backend_decision: dict[str, Any] | None,
+) -> str:
+    """The report's closing execution-summary section (markdown, no heading indent)."""
+    if training_profile == M5_PROFILE:
+        assert backend_decision is not None
+        return f"""## Apple Silicon execution
+
+The frozen 50M backend is `streamed_in_memory_quantile`. It was
+`{backend_decision['speedup']:.3f}x` faster end to end than external memory at
+identical recorded validation log loss. The conservative two-worker 50M memory
+projection is `{backend_decision['projected_parallel_peak_rss_gb']:.2f}` GiB.
+
+The scheduler uses two spawn-isolated fits, nine XGBoost OpenMP threads per fit,
+four Arrow I/O threads per fit, and 18 DuckDB threads for cohort construction.
+XGBoost's macOS build is native arm64 and has no CUDA/Metal training backend.
+Single-process scoring uses the measured fastest bit-identical setting of
+`{int(prediction_benchmark['selected_threads'])}` XGBoost prediction threads.
+"""
+    execution = any_fold_execution(latest_training) or {}
+    device = str(execution.get("device", "cuda"))
+    tree_method = str(execution.get("tree_method", "hist"))
+    workers = config_linux_gpu_workers(latest_training)
+    runtime = execution.get("runtime") or {}
+    backend_note = (
+        "not applicable under linux_gpu (in-memory quantile at both scales)"
+        if not backend_benchmark_ok
+        else "measured against the M5 external-memory backend"
+    )
+    return f"""## Linux GPU execution
+
+Training ran on an x86_64 Linux host with XGBoost `device={device}`,
+`tree_method={tree_method}`, and {workers} training worker. Both the 20M and
+50M scales fit as an in-memory QuantileDMatrix. The recorded fit runtime was
+`{json.dumps(runtime, sort_keys=True)}`.
+
+The M5 external-memory-vs-quantile backend benchmark is {backend_note}.
+"""
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--config", default=str(DEFAULT_CONFIG))
@@ -505,36 +625,48 @@ def main() -> None:
         )
     feature_rows = combined_feature_rows(latest_training, latest, focus)
 
-    backend_external = read_json(backend_external_path)
-    backend_quantile = read_json(backend_quantile_path)
-    backend_decision = read_json(backend_decision_path)
+    training_profile = training_profile_of(latest_training)
+    backend_benchmark_ok = backend_benchmark_applicable(training_profile, config)
+    if backend_benchmark_ok:
+        backend_external = read_json(backend_external_path)
+        backend_quantile = read_json(backend_quantile_path)
+        backend_decision = read_json(backend_decision_path)
+    else:
+        backend_external = None
+        backend_quantile = None
+        backend_decision = None
     prediction_benchmark = read_json(prediction_benchmark_path)
     ensure_open_scope(prediction_benchmark, "prediction thread benchmark")
     backend_rows = []
-    for value, label in (
-        (backend_external, "External-memory Quantile"),
-        (backend_quantile, "Streamed in-memory Quantile"),
-    ):
-        for stage in ("construct", "train", "total"):
-            backend_rows.append(
-                {
-                    "backend": label,
-                    "stage": stage,
-                    "seconds": float(value[f"{stage}_seconds"]),
-                }
-            )
-    backend_table_rows = [
-        {
-            "backend": label,
-            "total_seconds": float(value["total_seconds"]),
-            "validation_logloss": float(value["final_validation_logloss"]),
-            "peak_rss_gb": float(value["peak_rss_gb"]),
-        }
+    if backend_benchmark_ok:
         for value, label in (
             (backend_external, "External-memory Quantile"),
             (backend_quantile, "Streamed in-memory Quantile"),
-        )
-    ]
+        ):
+            for stage in ("construct", "train", "total"):
+                backend_rows.append(
+                    {
+                        "backend": label,
+                        "stage": stage,
+                        "seconds": float(value[f"{stage}_seconds"]),
+                    }
+                )
+    backend_table_rows = (
+        [
+            {
+                "backend": label,
+                "total_seconds": float(value["total_seconds"]),
+                "validation_logloss": float(value["final_validation_logloss"]),
+                "peak_rss_gb": float(value["peak_rss_gb"]),
+            }
+            for value, label in (
+                (backend_external, "External-memory Quantile"),
+                (backend_quantile, "Streamed in-memory Quantile"),
+            )
+        ]
+        if backend_benchmark_ok
+        else []
+    )
     single_thread_seconds = next(
         float(row["median_seconds"])
         for row in prediction_benchmark["results"]
@@ -550,13 +682,9 @@ def main() -> None:
         }
         for row in prediction_benchmark["results"]
     ]
-    cohorts = cohort_rows(
-        ROOT / "ml/data/manifests/propagation_v4_2_phase2_20m_cohorts.json"
-    )
+    cohorts = cohort_rows(run_paths.cohort_manifest_path(config, 20_000_000))
     cohorts.extend(
-        cohort_rows(
-            ROOT / "ml/data/manifests/propagation_v4_2_phase2_50m_cohorts.json"
-        )
+        cohort_rows(run_paths.cohort_manifest_path(config, 50_000_000))
     )
     summary = [
         {
@@ -569,7 +697,9 @@ def main() -> None:
                 focus_metric["overall"]["expected_calibration_error"]
             ),
             "evaluation_peak_rss_gb": float(latest["compute"]["peak_rss_gb"]),
-            "backend_speedup": float(backend_decision["speedup"]),
+            "backend_speedup": (
+                float(backend_decision["speedup"]) if backend_benchmark_ok else None
+            ),
             "prediction_threads": int(prediction_benchmark["selected_threads"]),
         }
     ]
@@ -584,12 +714,8 @@ def main() -> None:
     if evaluation_50 is not None:
         evaluation_sources.append(evaluation_50_path)
         training_sources.append(training_50_path)
-    cohort_sources = [
-        ROOT / "ml/data/manifests/propagation_v4_2_phase2_20m_cohorts.json"
-    ]
-    cohort_50_path = (
-        ROOT / "ml/data/manifests/propagation_v4_2_phase2_50m_cohorts.json"
-    )
+    cohort_sources = [run_paths.cohort_manifest_path(config, 20_000_000)]
+    cohort_50_path = run_paths.cohort_manifest_path(config, 50_000_000)
     if cohort_50_path.exists():
         cohort_sources.append(cohort_50_path)
     sources = [
@@ -902,15 +1028,12 @@ def main() -> None:
         {
             "id": "compute_finding",
             "type": "markdown",
-            "body": (
-                "## Native Apple Silicon execution removes the main scale bottleneck\n\nThe M5 uses native arm64 Python, "
-                "OpenMP-enabled XGBoost, 18 DuckDB threads, and a spawn-based two-process scheduler with nine XGBoost "
-                "threads and four Arrow I/O threads per fit. XGBoost has no Metal backend, so the correct acceleration "
-                "path is multicore CPU plus bounded unified memory. The 50M QuantileDMatrix backend was adopted only "
-                f"after a {backend_decision['speedup']:.3f}x total-time benchmark at exact validation parity and a "
-                f"conservative {backend_decision['projected_parallel_peak_rss_gb']:.2f} GiB two-worker projection. "
-                f"Single-process scoring uses the measured fastest bit-identical setting of "
-                f"{int(prediction_benchmark['selected_threads'])} XGBoost threads."
+            "body": compute_finding_body(
+                training_profile,
+                backend_benchmark_ok,
+                latest_training,
+                prediction_benchmark,
+                backend_decision,
             ),
         },
         {"id": "backend", "type": "chart", "chartId": "backend_time", "layout": "full"},
@@ -1046,20 +1169,14 @@ a guarantee of a completed two-way contact.
             f"{row['november_vs_b2']:+.8f} | {row['upper_95_vs_b2']:+.8f} | "
             f"{row['decision']} |\n"
         )
+    markdown += "\n\n" + apple_silicon_or_linux_gpu_section(
+        training_profile,
+        backend_benchmark_ok,
+        latest_training,
+        prediction_benchmark,
+        backend_decision,
+    )
     markdown += f"""
-
-## Apple Silicon execution
-
-The frozen 50M backend is `streamed_in_memory_quantile`. It was
-`{backend_decision['speedup']:.3f}x` faster end to end than external memory at
-identical recorded validation log loss. The conservative two-worker 50M memory
-projection is `{backend_decision['projected_parallel_peak_rss_gb']:.2f}` GiB.
-
-The scheduler uses two spawn-isolated fits, nine XGBoost OpenMP threads per fit,
-four Arrow I/O threads per fit, and 18 DuckDB threads for cohort construction.
-XGBoost's macOS build is native arm64 and has no CUDA/Metal training backend.
-Single-process scoring uses the measured fastest bit-identical setting of
-`{int(prediction_benchmark['selected_threads'])}` XGBoost prediction threads.
 
 ## Interpretation limits
 

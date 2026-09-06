@@ -176,8 +176,16 @@ def training_parameters(config: dict[str, Any], profile: str) -> dict[str, Any]:
     parameters["seed"] = int(config["seed"])
     if profile == LINUX_GPU_PROFILE:
         hardware = profile_settings(config, profile)
+        base_tree_method = str(parameters["tree_method"])
+        profile_tree_method = str(hardware["tree_method"])
+        if base_tree_method != profile_tree_method:
+            raise Phase2Error(
+                f"tree_method mismatch: config training.parameters declares "
+                f"{base_tree_method!r} but the {profile} profile pins "
+                f"{profile_tree_method!r}"
+            )
         parameters["device"] = str(hardware["device"])
-        parameters["tree_method"] = str(hardware["tree_method"])
+        parameters["tree_method"] = profile_tree_method
         parameters["nthread"] = int(hardware["threads_per_parallel_fit"])
     return parameters
 

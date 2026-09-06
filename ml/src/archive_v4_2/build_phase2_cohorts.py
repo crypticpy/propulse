@@ -23,6 +23,7 @@ MODULE = Path(__file__).resolve().parent
 sys.path.insert(0, str(MODULE))
 
 from phase1_core import sampling_threshold  # noqa: E402
+from feature_contract import contract_marker, core_feature_contract  # noqa: E402
 from m5_runtime import validate_m5_runtime  # noqa: E402
 from phase2_core import (  # noqa: E402
     EXPECTED_CANDIDATES,
@@ -78,10 +79,31 @@ def parquet_month(path: Path) -> tuple[str, int]:
     return statistics.min.strftime("%Y-%m"), file.metadata.num_rows
 
 
+def verify_feature_contract(dataset_root: Path, config: dict[str, Any]) -> None:
+    """Raise if a dataset's ``_CONTRACT`` marker disagrees with the run config.
+
+    ``build_features.py`` stamps the feature contract it built into
+    ``_CONTRACT`` alongside its output. A dataset with no marker predates
+    that stamp and is not checked; a dataset whose marker disagrees with the
+    run config's ``core_feature_contract`` has the wrong feature layout for
+    this run and must not be silently loaded.
+    """
+    declared = contract_marker(dataset_root)
+    if declared is None:
+        return
+    expected = core_feature_contract(config)
+    if declared != expected:
+        raise Phase2Error(
+            f"{dataset_root}: _CONTRACT marker declares {declared!r} but "
+            f"{config['run_id']} expects core_feature_contract={expected!r}"
+        )
+
+
 def resolve_sources(config: dict[str, Any]) -> tuple[dict[str, Path], dict[str, int]]:
     quarterly = ROOT / config["source_roots"]["quarterly"]
     if not quarterly.is_dir():
         raise FileNotFoundError(quarterly)
+    verify_feature_contract(quarterly, config)
     sources: dict[str, Path] = {}
     rows: dict[str, int] = {}
     for path in sorted(quarterly.glob("part-[0-9][0-9][0-9].parquet")):
@@ -90,6 +112,7 @@ def resolve_sources(config: dict[str, Any]) -> tuple[dict[str, Path], dict[str, 
         rows[month] = count
     for month, relative in config["source_roots"]["supplemental"].items():
         path = ROOT / relative
+        verify_feature_contract(path.parent, config)
         observed, count = parquet_month(path)
         if observed != month:
             raise Phase2Error(f"supplemental month mismatch: {month} != {observed}")

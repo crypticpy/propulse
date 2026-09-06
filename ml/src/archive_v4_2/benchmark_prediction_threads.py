@@ -75,6 +75,13 @@ def file_sha256(path: Path) -> str:
     return digest.hexdigest()
 
 
+def resolve_output_path(output: str | None, config: dict[str, Any]) -> Path:
+    """Resolve ``--output`` to an explicit path, or the run-scoped default."""
+    if output:
+        return Path(output)
+    return run_paths.prediction_thread_benchmark_path(config)
+
+
 def select_fastest_exact(results: list[dict[str, Any]]) -> int:
     if not results:
         raise Phase2Error("prediction benchmark has no results")
@@ -187,8 +194,9 @@ def main() -> None:
             "peak_rss_gb": peak_rss_gb(),
         },
     }
-    atomic_write(Path(args.output), output)
-    print(Path(args.output))
+    output_path = resolve_output_path(args.output, config)
+    atomic_write(output_path, output)
+    print(output_path)
 
 
 if __name__ == "__main__":

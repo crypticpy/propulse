@@ -16,7 +16,9 @@ from validate_phase6_release_readiness import (  # noqa: E402
     FUTURECAST_HORIZONS,
     FUTURECAST_SCORER,
     evaluate_release_readiness,
+    linux_gpu_training_backend_evidence_passed,
     load_evidence,
+    phase3_training_backend_evidence_passed,
     runtime_eligibility_document,
 )
 
@@ -391,6 +393,100 @@ class Phase6ReleaseReadinessTests(unittest.TestCase):
         self.assertEqual(
             result["public_release"]["releaseable_modes"],
             ["core_nowcast"],
+        )
+
+    def test_linux_gpu_trained_candidate_passes_the_backend_gate_on_fold_evidence(
+        self,
+    ) -> None:
+        evidence = release_evidence()
+        # The M5 always validates Phase 3, so its own runtime looks nothing
+        # like a CUDA box; the training evidence has to come from the folds.
+        evidence["phase3"]["runtime"] = {
+            "machine": "arm64",
+            "physical_cores_visible": 18,
+            "xgboost_openmp": True,
+        }
+        evidence["training_50m"] = {
+            "training_profile": "linux_gpu",
+            "candidates": {
+                "A4_recent_cycle": {
+                    "F3_2024_07": {
+                        "execution": {"device": "cuda", "profile": "linux_gpu"}
+                    }
+                }
+            },
+        }
+
+        result = evaluate_release_readiness(
+            evidence,
+            protocol_preregistered=True,
+            as_of=AFTER_WINDOW,
+        )
+
+        self.assertTrue(result["gates"]["phase3_native_m5_openmp_evidence"])
+        self.assertTrue(result["supported_scope_release_ready"])
+
+    def test_linux_gpu_trained_candidate_fails_closed_without_cuda_fold_evidence(
+        self,
+    ) -> None:
+        evidence = release_evidence()
+        evidence["training_50m"] = {
+            "training_profile": "linux_gpu",
+            "candidates": {
+                "A4_recent_cycle": {
+                    "F3_2024_07": {"execution": {"device": "cpu", "profile": "m5"}}
+                }
+            },
+        }
+
+        result = evaluate_release_readiness(
+            evidence,
+            protocol_preregistered=True,
+            as_of=AFTER_WINDOW,
+        )
+
+        self.assertFalse(result["gates"]["phase3_native_m5_openmp_evidence"])
+        self.assertFalse(result["supported_scope_release_ready"])
+
+    def test_missing_training_evidence_defaults_to_m5_and_keeps_prior_behavior(
+        self,
+    ) -> None:
+        evidence = release_evidence()
+        self.assertNotIn("training_50m", evidence)
+
+        result = evaluate_release_readiness(
+            evidence,
+            protocol_preregistered=True,
+            as_of=AFTER_WINDOW,
+        )
+
+        self.assertTrue(result["gates"]["phase3_native_m5_openmp_evidence"])
+
+    def test_linux_gpu_training_backend_evidence_requires_every_fold(self) -> None:
+        mixed = {
+            "candidates": {
+                "A4_recent_cycle": {
+                    "F1_2024_02": {"execution": {"device": "cuda", "profile": "linux_gpu"}},
+                    "F3_2024_07": {"execution": {"device": "cpu", "profile": "m5"}},
+                }
+            }
+        }
+        self.assertFalse(linux_gpu_training_backend_evidence_passed(mixed))
+        self.assertFalse(linux_gpu_training_backend_evidence_passed({"candidates": {}}))
+
+    def test_phase3_training_backend_evidence_m5_uses_validation_host_runtime(self) -> None:
+        good_runtime = {
+            "machine": "arm64",
+            "physical_cores_visible": 18,
+            "xgboost_openmp": True,
+        }
+        self.assertTrue(
+            phase3_training_backend_evidence_passed("m5", good_runtime, {})
+        )
+        self.assertFalse(
+            phase3_training_backend_evidence_passed(
+                "m5", {"machine": "x86_64"}, {}
+            )
         )
 
     def test_runtime_eligibility_is_mode_specific_and_fail_closed(self) -> None:

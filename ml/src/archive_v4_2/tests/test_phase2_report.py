@@ -10,12 +10,18 @@ MODULE = ROOT / "ml/src/archive_v4_2"
 sys.path.insert(0, str(MODULE))
 
 from generate_phase2_report import (  # noqa: E402
+    any_fold_execution,
+    apple_silicon_or_linux_gpu_section,
+    backend_benchmark_applicable,
+    compute_finding_body,
     ensure_open_scope,
     feature_gain_encodings,
     selection_by_name,
+    training_profile_of,
     training_rows,
     variant,
 )
+from m5_runtime import LINUX_GPU_PROFILE, M5_PROFILE  # noqa: E402
 
 
 class Phase2ReportTests(unittest.TestCase):
@@ -79,6 +85,97 @@ class Phase2ReportTests(unittest.TestCase):
             [row["thread_evidence"] for row in rows],
             ["frozen default training contract", "per-fold execution telemetry"],
         )
+
+    def linux_gpu_training(self) -> dict:
+        return {
+            "training_profile": LINUX_GPU_PROFILE,
+            "candidates": {
+                "A4_recent_cycle": {
+                    "F3_2024_07": {
+                        "execution": {
+                            "profile": LINUX_GPU_PROFILE,
+                            "device": "cuda",
+                            "tree_method": "hist",
+                            "parallel_fit_workers": 1,
+                            "runtime": {"machine": "x86_64", "gpu": "RTX 5080"},
+                        }
+                    }
+                }
+            },
+        }
+
+    def test_training_profile_of_defaults_to_m5_for_legacy_results(self) -> None:
+        self.assertEqual(training_profile_of({}), M5_PROFILE)
+        self.assertEqual(
+            training_profile_of({"training_profile": LINUX_GPU_PROFILE}),
+            LINUX_GPU_PROFILE,
+        )
+
+    def test_backend_benchmark_applicable_is_always_true_for_m5(self) -> None:
+        self.assertTrue(backend_benchmark_applicable(M5_PROFILE, {}))
+
+    def test_backend_benchmark_applicable_false_when_linux_gpu_marks_not_applicable(
+        self,
+    ) -> None:
+        config = {"compute": {"linux_gpu": {"backend_benchmark": "not_applicable_cuda_profile"}}}
+        self.assertFalse(backend_benchmark_applicable(LINUX_GPU_PROFILE, config))
+
+    def test_backend_benchmark_applicable_true_when_linux_gpu_has_a_benchmark(self) -> None:
+        config = {"compute": {"linux_gpu": {"backend_benchmark": "measured"}}}
+        self.assertTrue(backend_benchmark_applicable(LINUX_GPU_PROFILE, config))
+
+    def test_any_fold_execution_finds_first_recorded_block(self) -> None:
+        training = self.linux_gpu_training()
+        execution = any_fold_execution(training)
+        self.assertEqual(execution["device"], "cuda")
+        self.assertIsNone(any_fold_execution({"candidates": {}}))
+
+    def test_compute_finding_body_uses_m5_prose_for_m5_profile(self) -> None:
+        body = compute_finding_body(
+            M5_PROFILE,
+            True,
+            {"training_profile": M5_PROFILE},
+            {"selected_threads": 12},
+            {"speedup": 1.8, "projected_parallel_peak_rss_gb": 40.0},
+        )
+        self.assertIn("Native Apple Silicon execution", body)
+        self.assertIn("no Metal backend", body)
+
+    def test_compute_finding_body_is_honest_about_linux_gpu(self) -> None:
+        body = compute_finding_body(
+            LINUX_GPU_PROFILE,
+            False,
+            self.linux_gpu_training(),
+            {"selected_threads": 12},
+            None,
+        )
+        self.assertNotIn("Apple Silicon", body)
+        self.assertNotIn("Metal", body)
+        self.assertIn("device=cuda", body)
+        self.assertIn("tree_method=hist", body)
+        self.assertIn("not applicable under linux_gpu", body)
+
+    def test_apple_silicon_section_switches_on_profile(self) -> None:
+        m5_section = apple_silicon_or_linux_gpu_section(
+            M5_PROFILE,
+            True,
+            {"training_profile": M5_PROFILE},
+            {"selected_threads": 12},
+            {"speedup": 1.8, "projected_parallel_peak_rss_gb": 40.0},
+        )
+        self.assertIn("## Apple Silicon execution", m5_section)
+
+        linux_gpu_section = apple_silicon_or_linux_gpu_section(
+            LINUX_GPU_PROFILE,
+            False,
+            self.linux_gpu_training(),
+            {"selected_threads": 12},
+            None,
+        )
+        self.assertIn("## Linux GPU execution", linux_gpu_section)
+        self.assertIn("device=cuda", linux_gpu_section)
+        self.assertIn("not applicable under linux_gpu", linux_gpu_section)
+        self.assertNotIn("CUDA/Metal", linux_gpu_section)
 
 
 if __name__ == "__main__":

@@ -402,7 +402,9 @@ def _rebase(value: str, source: str, target: str) -> str:
     try:
         return str(Path(target) / path.relative_to(source))
     except ValueError:
-        return value
+        raise RuntimeProfileError(
+            f"{value} is not under the declared external root {source}"
+        ) from None
 
 
 def resolve_compute_profile(

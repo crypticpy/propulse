@@ -3,6 +3,7 @@
   "archive_namespace": "archive_v4_1",
   "execution_scope": "november-gate",
   "core_feature_contract": "archive-v4-features-v2",
+  "feature_contract": "archive-v4-features-v2",
   "parent_run_id": "propagation_v4_1_calibration_recovery_november_gate",
   "space_weather_run_id": "propagation_v4_1_calibration_recovery_november_gate",
   "seed": 20260712,

@@ -52,6 +52,7 @@ SOURCE_FILES = {
     "v3_features": ROOT / "ml/src/archive_v3/build_features.py",
     "v4_2_prepare_gate": MODULE / "prepare_locked_gate.py",
     "v4_2_audit_gate": MODULE / "audit_locked_dataset.py",
+    "live_opportunity_transform": ROOT / "ml/src/propagation_live/opportunity_transform.py",
 }
 
 
@@ -71,6 +72,20 @@ def checked(path: Path, name: str) -> dict[str, Any]:
     if value.get("december_2024_read") or value.get("locked_2025_read"):
         raise OutcomeProtocolError(f"freeze input reports locked access: {name}")
     return value
+
+
+def training_profile_fields(
+    training_profile: str, config: dict[str, Any]
+) -> dict[str, Any]:
+    """Environment fields recording which host trained the frozen candidate.
+
+    V1 (m5) freezes keep exactly the pre-existing keys; a linux_gpu freeze adds
+    the CUDA hardware contract alongside them.
+    """
+    fields: dict[str, Any] = {"training_profile": training_profile}
+    if training_profile == "linux_gpu":
+        fields["linux_gpu_contract"] = config["compute"]["linux_gpu"]
+    return fields
 
 
 def main() -> None:
@@ -118,6 +133,8 @@ def main() -> None:
     missing = [path for path in required_files if not path.is_file()]
     if missing:
         raise FileNotFoundError(missing)
+    training_results = load_json(training_path)
+    training_profile = str(training_results.get("training_profile", "m5"))
     source_freeze_path = run_paths.source_freeze_path(config)
     source_freeze = {
         "schema_version": 1,
@@ -152,6 +169,7 @@ def main() -> None:
         ),
         "apple_silicon_contract": config["compute"]["apple_silicon"],
         "source_pipeline_freeze": artifact(source_freeze_path),
+        **training_profile_fields(training_profile, config),
     }
     atomic_write(environment_path, environment)
     initialize(manifest_path, config_path)

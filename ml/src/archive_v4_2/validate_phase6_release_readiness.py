@@ -10,7 +10,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from m5_runtime import validate_m5_runtime
+from m5_runtime import LINUX_GPU_PROFILE, M5_PROFILE, validate_m5_runtime
 from validate_live_feature_migration import ROOT, atomic_write
 
 
@@ -28,6 +28,7 @@ PROSPECTIVE_WINDOW_END = datetime(2026, 10, 1, tzinfo=timezone.utc)
 EVIDENCE_PATHS = {
     "archive_protocol": PHASE2 / "outcome_protocol_manifest.json",
     "phase3": PHASE2 / "phase3_candidate_validation.json",
+    "training_50m": PHASE2 / "training_50m_results.json",
     "wspr_shadow": LIVE / "wspr_research_shadow_progress.json",
     "wspr_coverage_drift": LIVE / "wspr_shadow_coverage_drift.json",
     "recent_path_source_authorization": LIVE / "source_authorization.json",
@@ -379,6 +380,49 @@ def load_evidence(
     return evidence, provenance
 
 
+def linux_gpu_training_backend_evidence_passed(training: dict[str, Any]) -> bool:
+    """Whether every trained fold's recorded execution matches the CUDA contract.
+
+    The validation host's own runtime is irrelevant once training itself ran
+    on the linux_gpu box: the evidence has to come from what each fold's
+    ``train_phase2_scale.py`` execution block actually recorded.
+    """
+    candidates = training.get("candidates") or {}
+    folds = [
+        fold_result
+        for fold_results in candidates.values()
+        for fold_result in fold_results.values()
+    ]
+    if not folds:
+        return False
+    return all(
+        (fold_result.get("execution") or {}).get("device") == "cuda"
+        and (fold_result.get("execution") or {}).get("profile") == LINUX_GPU_PROFILE
+        for fold_result in folds
+    )
+
+
+def phase3_training_backend_evidence_passed(
+    training_profile: str,
+    phase3_runtime: dict[str, Any],
+    training: dict[str, Any],
+) -> bool:
+    """Fail-closed evidence that Phase 3's model was trained the way we claim.
+
+    ``m5`` keeps the original evidence (the validation host's own OpenMP
+    runtime, since training and validation share the M5). ``linux_gpu`` cannot
+    be evidenced that way -- validation always runs on the M5 -- so it instead
+    requires every trained fold to have recorded a CUDA execution.
+    """
+    if training_profile == LINUX_GPU_PROFILE:
+        return linux_gpu_training_backend_evidence_passed(training)
+    return bool(
+        phase3_runtime.get("machine") == "arm64"
+        and int(phase3_runtime.get("physical_cores_visible", 0)) >= 18
+        and phase3_runtime.get("xgboost_openmp") is True
+    )
+
+
 def evaluate_release_readiness(
     evidence: dict[str, dict[str, Any] | None],
     *,
@@ -388,6 +432,8 @@ def evaluate_release_readiness(
 ) -> dict[str, Any]:
     archive = evidence.get("archive_protocol") or {}
     phase3 = evidence.get("phase3") or {}
+    training_50m = evidence.get("training_50m") or {}
+    training_profile = str(training_50m.get("training_profile", M5_PROFILE))
     wspr = evidence.get("wspr_shadow") or {}
     coverage = evidence.get("wspr_coverage_drift") or {}
     capture = evidence.get("prospective_capture") or {}
@@ -414,10 +460,8 @@ def evaluate_release_readiness(
         "phase3_serving_candidate_validated": bool(
             phase3.get("passed") is True and all_boolean_gates_pass(phase3)
         ),
-        "phase3_native_m5_openmp_evidence": bool(
-            phase3_runtime.get("machine") == "arm64"
-            and int(phase3_runtime.get("physical_cores_visible", 0)) >= 18
-            and phase3_runtime.get("xgboost_openmp") is True
+        "phase3_native_m5_openmp_evidence": phase3_training_backend_evidence_passed(
+            training_profile, phase3_runtime, training_50m
         ),
         "prospective_capture_has_24_continuous_hours": bool(
             capture.get("prospective_capture_ready") is True

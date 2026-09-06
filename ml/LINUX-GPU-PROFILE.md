@@ -69,7 +69,8 @@ the wheel actually has a kernel for it before trusting a long run:
 import numpy as np, xgboost as xgb
 X = np.random.rand(10_000, 16).astype("float32")
 y = (np.random.rand(10_000) > 0.5).astype("float32")
-m = xgb.train({"device": "cuda", "tree_method": "hist", "objective": "binary:logistic"},
+m = xgb.train({"device": "cuda", "tree_method": "hist", "objective": "binary:logistic",
+               "max_bin": 255},
               xgb.QuantileDMatrix(X, y, max_bin=255), num_boost_round=5)
 print("cuda fit ok", m.num_boosted_rounds())
 PY
@@ -147,9 +148,20 @@ rsync -aP --files-from=/tmp/cohort-files.txt \
   <box-user>@<box-host>:/srv/propulseml/data/processed/
 ```
 
-The cohort manifest itself (`ml/data/manifests/propagation_v4_2_phase2_v2_20m_cohorts.json`,
-and `..._50m_cohorts.json`) lives in the repo, so `git pull` on the box is
-enough — copy it only if the branch has not been pushed:
+`.gitignore` excludes `ml/data/` wholesale, including every cohort manifest
+under `ml/data/manifests/` — some of those manifests are tracked anyway
+because they were force-added (`git add -f`), but that is an exception, not
+the rule, and it is easy to assume a manifest is tracked when it is not. As of
+this writing `propagation_v4_2_phase2_v2_20m_cohorts.json` and
+`..._50m_cohorts.json` are **not** force-added, so `git pull` alone will not
+put them on the box. Check before relying on either path:
+
+```bash
+git ls-files ml/data/manifests/propagation_v4_2_phase2_v2_20m_cohorts.json
+# empty output => not tracked => rsync it; a printed path => git pull is enough
+```
+
+Rsync whenever the check comes back empty:
 
 ```bash
 rsync -aP ml/data/manifests/propagation_v4_2_phase2_v2_20m_cohorts.json \
@@ -226,12 +238,16 @@ transfer for free — a truncated rsync fails as `artifact size changed` or
 Scoring, gates, packaging and every validator continue to run on the M5 with
 `--profile m5`.
 
-## 6. Known follow-up
+## 6. Validating a linux_gpu-trained result
 
-`validate_phase2_scale.py` derives its expected matrix backend with
-`matrix_backend(config, scale)` on the M5 default profile, so a 20M run fitted
-on the box records `streamed_in_memory_quantile` where that gate expects
-`external_memory_quantile`. `matrix_backend` now takes a `profile` argument and
-the training results record `training_profile`, so the fix is to pass the
-recorded profile through — that file was out of scope for this change and must
-be updated before a linux_gpu-trained 20M result is validated.
+`validate_phase2_scale.py` reads the trained-on profile from the training
+results (`training_profile`, `m5` when absent) and derives its expected matrix
+backend with `matrix_backend(config, scale, training_profile)`, so a 20M run
+fitted on the box is checked against `streamed_in_memory_quantile` rather than
+the M5's `external_memory_quantile`. The validation output also records an
+always-passing `"matrix backend profile amendment"` check whose `detail`
+carries `training_profile`, `backend`, `m5_backend` and `differs_from_m5`, so a
+linux_gpu-trained result is auditable against what the M5 would have produced
+without failing the gate over an intentional backend difference. No manual
+step is needed here beyond running `validate_phase2_scale.py --profile m5`
+as usual on the M5 once the results and models are copied back.

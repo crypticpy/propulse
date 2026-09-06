@@ -28,7 +28,7 @@ from outcome_protocol import (  # noqa: E402
     sha256,
 )
 from train_phase2_scale import validate_m5_runtime  # noqa: E402
-from feature_contract import nowcast_features  # noqa: E402
+from feature_contract import WSPR_PATH_FEATURES, is_v2, nowcast_features  # noqa: E402
 
 
 DEFAULT_CONFIG = ROOT / "ml/config/propagation_v4_2_phase2_scale.json"
@@ -79,9 +79,18 @@ def parse_parts(values: list[str], expected: list[str]) -> dict[str, Path]:
 
 
 def required_features(config: dict[str, Any]) -> list[str]:
-    """Feature columns the gate dataset must carry under this contract."""
+    """Feature columns the gate dataset must carry under this contract.
+
+    Under the V2 contract the B2 frozen-baseline still needs the offline-only
+    ``wspr_``-prefixed path-history features (``WSPR_PATH_FEATURES``); without
+    them a gate dataset can pass this one-shot audit and only fail later, once
+    the outcome has already been read.
+    """
     value = load_json(V4_RESULTS)["candidates"]["M2_nowcast"]
-    return nowcast_features(config, list(map(str, value["features"])))
+    features = nowcast_features(config, list(map(str, value["features"])))
+    if is_v2(config):
+        features = list(dict.fromkeys([*features, *WSPR_PATH_FEATURES]))
+    return features
 
 
 def dataset_stats(

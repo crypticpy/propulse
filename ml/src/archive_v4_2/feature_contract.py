@@ -22,6 +22,7 @@ Sizes, given the frozen V1 order:
 from __future__ import annotations
 
 from collections.abc import Iterable, Sequence
+from pathlib import Path
 
 
 CORE_FEATURE_CONTRACT_V1 = "archive-v4-features-v1"
@@ -177,6 +178,19 @@ def core_feature_contract(config: dict) -> str:
 
 def is_v2(config: dict) -> bool:
     return core_feature_contract(config) == CORE_FEATURE_CONTRACT_V2
+
+
+def contract_marker(dataset_root: Path) -> str | None:
+    """Read the ``_CONTRACT`` marker ``build_features.py`` stamps into a dataset.
+
+    Returns ``None`` when the marker is absent (a dataset built before the
+    marker existed, or one from a pipeline that never writes it), so callers
+    can treat "no marker" as "nothing to check" rather than a mismatch.
+    """
+    marker = dataset_root / "_CONTRACT"
+    if not marker.is_file():
+        return None
+    return marker.read_text(encoding="ascii").strip()
 
 
 def nowcast_features(config: dict, v1_features: Sequence[str]) -> list[str]:

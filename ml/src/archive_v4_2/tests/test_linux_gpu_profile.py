@@ -281,6 +281,14 @@ class FitParameterTest(unittest.TestCase):
             self.assertEqual(m5[key], box[key])
         self.assertEqual(m5["seed"], box["seed"])
 
+    def test_a_tree_method_mismatch_between_config_and_profile_raises(self) -> None:
+        changed = load(V2_CONFIG_PATH)
+        changed["compute"]["linux_gpu"]["tree_method"] = "approx"
+        with self.assertRaisesRegex(Phase2Error, "tree_method mismatch"):
+            training_parameters(changed, LINUX_GPU_PROFILE)
+        # The base config's own tree_method is untouched by the failed call.
+        self.assertEqual(changed["training"]["parameters"]["tree_method"], "hist")
+
     def test_matrix_backend_is_profile_aware(self) -> None:
         self.assertEqual(
             matrix_backend(self.config, 20_000_000, M5_PROFILE),
@@ -426,6 +434,34 @@ class CohortPathRemapTest(unittest.TestCase):
                 verify_artifact(missing, config=box)
 
 
+class RebaseTest(unittest.TestCase):
+    """``_rebase`` must fail loudly, not silently keep the M5 path.
+
+    A path outside the declared external root can only mean the config and
+    the recorded artifact paths have drifted apart; returning the unrebased
+    value would have the linux_gpu box quietly read (or fail to find) an M5
+    path instead of raising.
+    """
+
+    def test_same_root_is_a_no_op(self) -> None:
+        self.assertEqual(
+            m5_runtime._rebase("/Volumes/Projects/PropulseML/data", "/a", "/a"),
+            "/Volumes/Projects/PropulseML/data",
+        )
+
+    def test_a_path_under_the_source_root_is_rebased(self) -> None:
+        self.assertEqual(
+            m5_runtime._rebase("/a/data/processed", "/a", "/b"),
+            "/b/data/processed",
+        )
+
+    def test_a_path_outside_the_source_root_raises(self) -> None:
+        with self.assertRaises(RuntimeProfileError) as raised:
+            m5_runtime._rebase("/somewhere/else/data", "/a", "/b")
+        self.assertIn("/somewhere/else/data", str(raised.exception))
+        self.assertIn("/a", str(raised.exception))
+
+
 class V1ProfileParityTest(test_run_paths.V1PathParityTest):
     """The frozen V1 chain keeps its answers now that profiles exist.
 
@@ -502,6 +538,12 @@ class ProfileContractTest(unittest.TestCase):
         changed["compute"]["supported_profiles"] = [M5_PROFILE, "windows_gpu"]
         with self.assertRaises(Phase2Error):
             validate_profiles(changed)
+
+    def test_linux_gpu_backend_amendment_documents_the_20m_choice(self) -> None:
+        amendment = self.config["compute"]["linux_gpu"]["backend_amendment"]
+        self.assertIn("streamed_in_memory_quantile", amendment)
+        self.assertIn("maximum_validation_logloss_difference", amendment)
+        self.assertIn("m5 50M backend benchmark", amendment)
 
 
 if __name__ == "__main__":

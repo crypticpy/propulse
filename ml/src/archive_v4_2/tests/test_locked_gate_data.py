@@ -16,7 +16,8 @@ ROOT = Path(__file__).resolve().parents[4]
 MODULE = ROOT / "ml/src/archive_v4_2"
 sys.path.insert(0, str(MODULE))
 
-from audit_locked_dataset import dataset_stats, parse_parts  # noqa: E402
+from audit_locked_dataset import dataset_stats, parse_parts, required_features  # noqa: E402
+from feature_contract import WSPR_PATH_FEATURES  # noqa: E402
 from outcome_protocol import OutcomeProtocolError  # noqa: E402
 from prepare_locked_gate import scoped_config  # noqa: E402
 
@@ -66,6 +67,22 @@ class LockedGateDataTests(unittest.TestCase):
             )
             stats = dataset_stats(duckdb.connect(), path, "2024-12")
         self.assertEqual(stats[:6], (1, 0, 0, 0, 0, 0))
+
+    def test_required_features_v1_config_excludes_wspr_path_features(self) -> None:
+        features = required_features(self.config)
+        for name in WSPR_PATH_FEATURES:
+            self.assertNotIn(name, features)
+
+    def test_required_features_v2_config_includes_wspr_path_features(self) -> None:
+        v2_config = json.loads(
+            (ROOT / "ml/config/propagation_v4_2_phase2_scale_v2.json").read_text()
+        )
+        features = required_features(v2_config)
+        for name in WSPR_PATH_FEATURES:
+            self.assertIn(name, features)
+        # No duplicates even though the frozen order already has similarly
+        # named nowcast-only path features.
+        self.assertEqual(len(features), len(set(features)))
 
 
 if __name__ == "__main__":

@@ -293,7 +293,8 @@
       "twenty_million_backend": "streamed_in_memory_quantile",
       "fifty_million_backend": "streamed_in_memory_quantile",
       "backend_benchmark": "not_applicable_cuda_profile",
-      "vram_budget_note": "max_bin 255 quantizes to one byte per feature per row, so the 50M x 83 ellpack is about 4.2 GiB and the 20M about 1.7 GiB; both fit the 16 GiB RTX 5080 with room for gradients and histograms, so both scales use the iterator-fed in-memory QuantileDMatrix."
+      "vram_budget_note": "max_bin 255 quantizes to one byte per feature per row, so the 50M x 83 ellpack is about 4.2 GiB and the 20M about 1.7 GiB; both fit the 16 GiB RTX 5080 with room for gradients and histograms, so both scales use the iterator-fed in-memory QuantileDMatrix.",
+      "backend_amendment": "2026-09-06: 20M fits use streamed_in_memory_quantile on linux_gpu (single worker, in-memory fits in host RAM); equivalence to external_memory_quantile was established by the m5 50M backend benchmark within maximum_validation_logloss_difference."
     }
   }
 }

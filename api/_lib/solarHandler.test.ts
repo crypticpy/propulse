@@ -13,11 +13,12 @@ import {
   mixedProtons,
   newestFirstFlux,
   newestFirstProbabilities,
+  outlookText,
   reversedKp,
+  rtswWindPlasma,
   scales,
   sunspots,
   windMag,
-  windPlasma,
 } from "../../src/test/fixtures/solar/providerFixtures";
 
 const DATA_ROUTES = [
@@ -26,9 +27,11 @@ const DATA_ROUTES = [
   "/api/solar/drap",
   "/api/solar/dst",
   "/api/solar/flux-forecast",
+  "/api/solar/flux-outlook",
   "/api/solar/flux",
   "/api/solar/k-index",
   "/api/solar/magnetometer",
+  "/api/solar/magnetometer-24h",
   "/api/solar/probabilities",
   "/api/solar/protons",
   "/api/solar/scales",
@@ -37,6 +40,7 @@ const DATA_ROUTES = [
   "/api/solar/wind-plasma",
   "/api/solar/xray-latest",
   "/api/solar/xray",
+  "/api/solar/xray-24h",
 ] as const;
 
 function upstreamResponse(input: string | URL | Request): Response {
@@ -51,7 +55,7 @@ function upstreamResponse(input: string | URL | Request): Response {
   if (url.includes("solar-cycle/sunspots")) return json(sunspots);
   if (url.includes("rtsw_mag_1m") || url.includes("mag-1-day")) return json(magnetometerNewestFirst);
   if (url.includes("integral-protons")) return json(mixedProtons);
-  if (url.includes("xrays-6-hour")) return json(dualXray);
+  if (url.includes("xrays-6-hour") || url.includes("xrays-1-day")) return json(dualXray);
   if (url.includes("kyoto-dst")) return json(dst);
   if (url.includes("drap_global_frequencies")) {
     return new Response(drapText, { headers: { "Content-Type": "text/plain" } });
@@ -59,12 +63,15 @@ function upstreamResponse(input: string | URL | Request): Response {
   if (url.includes("3-day-solar-geomag")) {
     return new Response(forecastText, { headers: { "Content-Type": "text/plain" } });
   }
+  if (url.includes("27-day-outlook")) {
+    return new Response(outlookText, { headers: { "Content-Type": "text/plain" } });
+  }
   if (url.includes("CMEAnalysis")) return json(cme);
   if (url.includes("noaa-scales")) return json(scales);
   if (url.includes("products/alerts")) return json(alerts);
   if (url.includes("xray-flares-latest")) return json(latestXray);
   if (url.includes("solar-wind-mag-field")) return json(windMag);
-  if (url.includes("solar-wind-speed")) return json(windPlasma);
+  if (url.includes("rtsw_wind_1m")) return json(rtswWindPlasma);
   if (url.includes("products/animations")) {
     return json([
       { url: "/images/animations/d-rap/global/frame-1.png", time_tag: "2026-07-15T18:40:00Z" },

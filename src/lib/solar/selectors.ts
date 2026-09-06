@@ -1,5 +1,5 @@
 import type { SolarResource, SolarWidgetState } from "./contracts";
-import type { KpPoint } from "./dataTypes";
+import type { KpPoint, SolarFluxOutlookPoint, SolarFluxPoint } from "./dataTypes";
 import { parseUtcInstant } from "./normalization";
 
 export function latestByTime<T>(
@@ -130,6 +130,42 @@ export function generalHfGuidance(inputs: {
     evidence,
     missing,
   };
+}
+
+export interface FluxTrendPoint {
+  time_tag: string;
+  flux: number;
+  kind: "observed" | "predicted";
+}
+
+/**
+ * Merges observed 10.7 cm flux history with the 27-day outlook so a chart can
+ * continue an observed line as a dashed predicted tail. Only outlook points
+ * strictly after the last observed timestamp are appended, so the two series
+ * never overlap or duplicate a date.
+ */
+export function fluxTrendWithForecastTail(
+  observed: readonly SolarFluxPoint[] | undefined,
+  outlook: readonly SolarFluxOutlookPoint[] | undefined,
+): FluxTrendPoint[] {
+  const observedPoints: FluxTrendPoint[] = (observed ?? [])
+    .map((point) => ({ time_tag: point.time_tag, flux: point.flux, kind: "observed" as const }))
+    .filter((point) => parseUtcInstant(point.time_tag) !== null)
+    .sort((a, b) => parseUtcInstant(a.time_tag)! - parseUtcInstant(b.time_tag)!);
+
+  const lastObservedTime = observedPoints.at(-1)
+    ? parseUtcInstant(observedPoints.at(-1)!.time_tag)
+    : null;
+
+  const predictedPoints: FluxTrendPoint[] = (outlook ?? [])
+    .map((point) => ({ time_tag: point.date, flux: point.predicted_flux, kind: "predicted" as const }))
+    .filter((point) => {
+      const parsed = parseUtcInstant(point.time_tag);
+      return parsed !== null && (lastObservedTime === null || parsed > lastObservedTime);
+    })
+    .sort((a, b) => parseUtcInstant(a.time_tag)! - parseUtcInstant(b.time_tag)!);
+
+  return [...observedPoints, ...predictedPoints];
 }
 
 export function widgetState<T>(options: {

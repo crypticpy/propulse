@@ -10,6 +10,8 @@ import type {
   OfficialSolarAlert,
   ProtonPoint,
   SolarFluxForecastProduct,
+  SolarFluxOutlookPoint,
+  SolarFluxOutlookProduct,
   SolarFluxPoint,
   SolarWindMagPoint,
   SolarWindPlasmaPoint,
@@ -187,6 +189,7 @@ function matrixToRecords(value: unknown): Record<string, unknown>[] {
 export function adaptMagnetometer(
   value: unknown,
   maxRows = 90,
+  windowMs = 65 * 60_000,
 ): AdaptedProduct<MagnetometerPoint[]> {
   const values = requireArray(value, "Magnetometer");
   const records = values.length > 0 && Array.isArray(values[0])
@@ -201,7 +204,7 @@ export function adaptMagnetometer(
   const data = normalizeTimeSeries(points, {
     timestamp: (point) => point.time_tag,
     isValid: (point) => point.bz_gsm !== null,
-    windowMs: 65 * 60_000,
+    windowMs,
     maxRows,
   });
   return { data, observedAt: latestTimestamp(data, (point) => point.time_tag) };
@@ -231,6 +234,7 @@ export function adaptSunspots(
 export function adaptXray(
   value: unknown,
   maxRows = 120,
+  windowMs = 2 * 60 * 60_000,
 ): AdaptedProduct<XrayPoint[]> {
   const selected = requireExactChannel(
     requireArray(value, "X-ray flux"),
@@ -251,7 +255,7 @@ export function adaptXray(
   const data = normalizeTimeSeries(points, {
     timestamp: (point) => point.time_tag,
     maxRows,
-    windowMs: 2 * 60 * 60_000,
+    windowMs,
   });
   return { data, observedAt: latestTimestamp(data, (point) => point.time_tag) };
 }
@@ -444,6 +448,41 @@ export function adaptFluxForecastText(
   return { data: { issued_at: issuedAt, forecast }, observedAt: issuedAt };
 }
 
+export function adaptFluxOutlookText(
+  text: string,
+  maxRows = 27,
+): AdaptedProduct<SolarFluxOutlookProduct> {
+  const issued = text.match(/:Issued:\s*(\d{4})\s+([A-Za-z]{3})\s+(\d{1,2})\s+(\d{4})\s+UTC/i);
+  if (!issued) {
+    throw new SolarValidationError("Outlook response is missing an issue time");
+  }
+  const issuedAt = iso(
+    `${issued[1]} ${issued[2]} ${issued[3]} ${issued[4].slice(0, 2)}:${issued[4].slice(2)}`,
+    "outlook issue time",
+  );
+  const rows = [...text.matchAll(/^(\d{4})\s+([A-Za-z]{3})\s+(\d{1,2})\s+(-?\d+)\s+(-?\d+)\s+(-?\d+)\s*$/gm)];
+  const points = rows.flatMap((match): SolarFluxOutlookPoint[] => {
+    const [, year, mon, day, fluxText, aIndexText, kpText] = match;
+    const predicted_flux = Number(fluxText);
+    const predicted_planetary_a = Number(aIndexText);
+    const predicted_kp = Number(kpText);
+    if (
+      predicted_flux < 40 || predicted_flux > 600 ||
+      predicted_planetary_a < 0 || predicted_planetary_a > 400 ||
+      predicted_kp < 0 || predicted_kp > 9
+    ) {
+      return [];
+    }
+    return [{ date: iso(`${year} ${mon} ${day} 00:00`, "outlook date"), predicted_flux, predicted_planetary_a, predicted_kp }];
+  });
+  const outlook = normalizeTimeSeries(points, {
+    timestamp: (point) => point.date,
+    maxRows,
+    maxFutureMs: 30 * 24 * 60 * 60_000,
+  });
+  return { data: { issued_at: issuedAt, outlook }, observedAt: issuedAt };
+}
+
 export function adaptNoaaScales(value: unknown): AdaptedProduct<NoaaScalesProduct> {
   const root = record(value);
   const current = record(root?.["0"]);
@@ -575,6 +614,7 @@ export function adaptWindMag(
 export function adaptWindPlasma(
   value: unknown,
   maxRows = 12,
+  windowMs?: number,
 ): AdaptedProduct<SolarWindPlasmaPoint[]> {
   const values = requireArray(value, "Solar-wind speed");
   const records = values.length > 0 && Array.isArray(values[0])
@@ -582,13 +622,14 @@ export function adaptWindPlasma(
     : values.map(record).filter((row): row is Record<string, unknown> => row !== null);
   const points = records.map((row): SolarWindPlasmaPoint => ({
     time_tag: String(row.time_tag ?? ""),
-    density: toFiniteNumber(row.density),
+    density: toFiniteNumber(row.density ?? row.proton_density),
     speed: toFiniteNumber(row.speed ?? row.proton_speed),
-    temperature: toFiniteNumber(row.temperature),
+    temperature: toFiniteNumber(row.temperature ?? row.proton_temperature),
   }));
   const data = normalizeTimeSeries(points, {
     timestamp: (point) => point.time_tag,
     isValid: (point) => point.speed !== null || point.density !== null,
+    windowMs,
     maxRows,
   });
   return { data, observedAt: latestTimestamp(data, (point) => point.time_tag) };

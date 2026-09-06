@@ -85,6 +85,18 @@ export interface SolarFluxForecastProduct {
   forecast: SolarFluxForecastPoint[];
 }
 
+export interface SolarFluxOutlookPoint {
+  date: string;
+  predicted_flux: number;
+  predicted_planetary_a: number;
+  predicted_kp: number;
+}
+
+export interface SolarFluxOutlookProduct {
+  issued_at: string;
+  outlook: SolarFluxOutlookPoint[];
+}
+
 export interface NoaaScaleValue {
   scale: number | null;
   text: string | null;

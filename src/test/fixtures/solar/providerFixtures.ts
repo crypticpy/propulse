@@ -101,6 +101,12 @@ export const windPlasma = [
   ["2026-07-15T18:50:00Z", "6", "430", "110000"],
 ];
 
+/** RTSW real-time solar-wind plasma shape: object rows, proton_* fields only. */
+export const rtswWindPlasma = [
+  { time_tag: "2026-07-15T18:45:00", proton_speed: 420, proton_density: 5, proton_temperature: 100_000 },
+  { time_tag: "2026-07-15T18:50:00", proton_speed: 430, proton_density: 6, proton_temperature: 110_000 },
+];
+
 export const drapText = `# DRAP Tabular Values
 # Product Valid At : 2026-07-15 18:40 UTC
 -20 -18 -16 -14 -12 -10 -8 -6 -4 -2 0 2 4 6 8 10 12 14 16 18 20
@@ -120,6 +126,19 @@ A_Planetary             12             8             8
                         105           108           110`;
 
 export const malformedForecastText = `:Product: changed format\n:Issued: missing`;
+
+export const outlookText = `:Product: 27-day Space Weather Outlook Table 27DO.txt
+:Issued: 2026 Jul 15 1312 UTC
+#      27-day Space Weather Outlook Table
+#                Issued 2026-07-15
+#
+#   UTC      Radio Flux   Planetary   Largest
+#  Date       10.7 cm      A Index    Kp Index
+2026 Jul 15     110          12          3
+2026 Jul 16     105           5          2
+2026 Jul 17     105           5          2`;
+
+export const malformedOutlookText = `:Product: changed format\n:Issued: missing`;
 
 export const cme = [
   {

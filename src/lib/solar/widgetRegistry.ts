@@ -61,6 +61,9 @@ export const SOLAR_WIDGETS: readonly SolarWidgetDefinition[] = [
   widget({ id: "solar-cycle", title: "Solar cycle context", group: "details", requiredSources: ["noaa-sunspots"], desktopPlacement: "detail", mobilePlacement: "disclosure", essentialOnMobile: false, helpKey: "solar-cycle", detailModal: "none", refresh: "source" }),
   widget({ id: "wind-mag", title: "Solar-wind magnetic summary", group: "details", requiredSources: ["swpc-solar-wind-mag"], desktopPlacement: "detail", mobilePlacement: "disclosure", essentialOnMobile: false, helpKey: "wind-mag", detailModal: "none", refresh: "source" }),
   widget({ id: "wind-plasma", title: "Solar-wind speed summary", group: "details", requiredSources: ["swpc-solar-wind-plasma"], desktopPlacement: "detail", mobilePlacement: "disclosure", essentialOnMobile: false, helpKey: "wind-plasma", detailModal: "none", refresh: "source" }),
+  widget({ id: "xray-24h", title: "24-hour X-ray flux", group: "details", requiredSources: ["noaa-xray-24h"], desktopPlacement: "detail", mobilePlacement: "disclosure", essentialOnMobile: false, helpKey: "xray-24h", detailModal: "none", refresh: "source" }),
+  widget({ id: "bz-24h", title: "24-hour IMF Bz", group: "details", requiredSources: ["noaa-magnetometer-24h"], desktopPlacement: "detail", mobilePlacement: "disclosure", essentialOnMobile: false, helpKey: "bz-24h", detailModal: "none", refresh: "source" }),
+  widget({ id: "flux-outlook", title: "27-day solar and geomagnetic outlook", group: "forecast", requiredSources: ["noaa-flux-outlook"], desktopPlacement: "secondary", mobilePlacement: "disclosure", essentialOnMobile: false, helpKey: "flux-outlook", detailModal: "none", refresh: "source" }),
 ];
 
 export function sourceIdsForVisibleGroups(

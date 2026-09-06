@@ -246,6 +246,25 @@
   flex: 1 1 auto;
   min-height: 8vh;
 }
+/* A measured list inside a fill row contributes no height of its own, so
+ * the row is sized by its neighbour column and the list draws the rows
+ * that fit (Weather/Emcomm alerts beside the session chart). */
+.hcr-cols--fill > .hcr-box--fill > .hcr-list {
+  flex: 1 1 0;
+}
+/* One column of a fill row holding a fixed box over a flexible chart. */
+.hcr-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 1.6vh;
+  min-height: 0;
+}
+.hcr-stack > .hcr-box {
+  flex: 0 0 auto;
+}
+.hcr-stack > .hcr-chart {
+  flex: 1 1 auto;
+}
 .hcr-body .hcc-tabpanel {
   display: flex;
   flex-direction: column;

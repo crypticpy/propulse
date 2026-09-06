@@ -19,8 +19,9 @@ interface PublicShackPanelProps {
 }
 
 function formatWatts(watts?: number): string {
-  if (watts == null || !Number.isFinite(watts)) return "Not shared";
+  if (watts == null || !Number.isFinite(watts) || watts < 0) return "Not shared";
   if (watts === 0) return "0 W";
+  if (watts < 1) return `${Number((watts * 1000).toPrecision(3))} mW`;
   if (watts >= 1000) return `${(watts / 1000).toFixed(1)} kW`;
   if (watts >= 10) return `${Math.round(watts)} W`;
   return `${watts.toFixed(1)} W`;

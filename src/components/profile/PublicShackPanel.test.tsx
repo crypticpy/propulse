@@ -70,4 +70,22 @@ describe("public station showcase", () => {
     rerender(<PublicShackPanel equipment={{ ...equipment, radioPhotoId: "replacement" }} ownerUserId="owner" />);
     expect(screen.getByRole("img").getAttribute("src")).toContain("/owner/replacement.jpg");
   });
+
+  it.each([
+    [0.04, "40 mW"],
+    [0.00004, "0.04 mW"],
+    [1e-12, "1e-9 mW"],
+    [Number.MIN_VALUE, "4.94e-321 mW"],
+  ])("keeps small positive ERP %s W distinct from actual zero", (erp20m, expected) => {
+    render(<PublicShackPanel equipment={{ antennaName: "Lossy path antenna", erp20m, erp40m: 0 }} />);
+    expect(screen.getByText(expected)).toBeTruthy();
+    expect(screen.getAllByText("0 W")).toHaveLength(1);
+    expect(screen.queryByText("0 mW")).toBeNull();
+  });
+
+  it("shows negative power and ERP as unknown rather than meaningful performance", () => {
+    render(<PublicShackPanel equipment={{ radioName: "Radio", antennaName: "Antenna", powerWatts: -1, erp20m: -0.04, erp40m: -Infinity }} />);
+    expect(screen.getAllByText("Not shared")).toHaveLength(3);
+    expect(screen.queryByText(/^-.* [mk]?W$/)).toBeNull();
+  });
 });

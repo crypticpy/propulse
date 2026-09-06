@@ -50,9 +50,10 @@ test("accepts only delimited workbench SQL names with an optional timestamp", as
   } finally { await rm(root, { recursive: true, force: true }); }
 });
 
-function fakeDocker({ failCreate = false, failSql = false, signal = false, tamperCleanup = false, completion = "valid", noCid = false, inspectFailure, recoverMismatch = false } = {}) {
+function fakeDocker({ failCreate = false, failSql = false, signal = false, tamperCleanup = false, completion = "valid", noCid = false, inspectFailure, recoverMismatch = false, delayedAppearance = false } = {}) {
   const calls = [];
   let metadata;
+  let visible = !delayedAppearance;
   const command = async (args, options) => {
     calls.push({ args, options });
     if (args[0] === "create") {
@@ -68,7 +69,7 @@ function fakeDocker({ failCreate = false, failSql = false, signal = false, tampe
     }
     if (args[0] === "inspect") {
       if (args.at(-1) === metadata.name.slice(1)) {
-        if (inspectFailure === "absent") throw Object.assign(new Error("synthetic absent"), {
+        if (inspectFailure === "absent" || !visible) throw Object.assign(new Error("synthetic absent"), {
           exitCode: 1, stderr: `Error response from daemon: No such container: ${args.at(-1)}`,
         });
         if (inspectFailure) throw inspectFailure;
@@ -91,7 +92,7 @@ function fakeDocker({ failCreate = false, failSql = false, signal = false, tampe
     }
     return "";
   };
-  return { command, calls };
+  return { command, calls, completeCreate: () => { visible = true; } };
 }
 
 for (const failure of [true, "timeout"]) {
@@ -109,12 +110,50 @@ for (const failure of [true, "timeout"]) {
   });
 }
 
-test("a confirmed absent exact name needs no removal after a no-CID create failure", async () => {
+test("retains cleanup diagnostics when an exact name is absent after a no-CID create failure", async () => {
   const fake = fakeDocker({ failCreate: true, noCid: true, inspectFailure: "absent" });
-  await assert.rejects(runStationPostgresHarness({ root: process.cwd(), command: fake.command, log: () => {} }), /^Error: synthetic create client failure$/);
-  assert.deepEqual(fake.calls.map(({ args }) => args[0]), ["create", "inspect"]);
-  const create = fake.calls[0].args;
-  await assert.rejects(readFile(join(dirname(create[create.indexOf("--cidfile") + 1]), "ownership.json")), { code: "ENOENT" });
+  let scratch;
+  try {
+    await assert.rejects(runStationPostgresHarness({ root: process.cwd(), command: fake.command, log: () => {} }), /cleanup failed.*Cleanup uncertain.*creation may still complete/);
+    assert.deepEqual(fake.calls.map(({ args }) => args[0]), ["create", "inspect"]);
+    const create = fake.calls[0].args;
+    scratch = dirname(create[create.indexOf("--cidfile") + 1]);
+    const diagnostic = JSON.parse(await readFile(join(scratch, "ownership.json"), "utf8"));
+    assert.equal(diagnostic.name, create[create.indexOf("--name") + 1]);
+  } finally { if (scratch) await rm(scratch, { recursive: true, force: true }); }
+});
+
+test("retained ownership details identify a delayed container after the runner reports uncertain cleanup", async () => {
+  const fake = fakeDocker({ failCreate: "timeout", noCid: true, delayedAppearance: true });
+  const logs = [];
+  let scratch;
+  try {
+    await assert.rejects(runStationPostgresHarness({ root: process.cwd(), command: fake.command, log: (message) => logs.push(message) }), /cleanup failed.*Cleanup uncertain/);
+    assert.deepEqual(fake.calls.map(({ args }) => args[0]), ["create", "inspect"]);
+    assert.deepEqual(logs, []);
+    const create = fake.calls[0].args;
+    const cidfile = create[create.indexOf("--cidfile") + 1];
+    scratch = dirname(cidfile);
+    const diagnosticPath = join(scratch, "ownership.json");
+    const saved = await readFile(diagnosticPath, "utf8");
+    const diagnostic = JSON.parse(saved);
+    assert.equal(diagnostic.name, create[create.indexOf("--name") + 1]);
+    assert.equal(diagnostic.name, `${diagnostic.purpose}-${diagnostic.runId}`);
+    assert.equal(diagnostic.image, STATION_POSTGRES_IMAGE);
+    assert.equal(diagnostic.context, "desktop-linux");
+    assert.equal(diagnostic.id, "");
+    await assert.rejects(readFile(cidfile), { code: "ENOENT" });
+
+    // Deterministically complete the simulated daemon create only after the
+    // runner exits. Retained details allow an exact-name ownership check later.
+    fake.completeCreate();
+    const earlierInspect = fake.calls[1].args;
+    assert.equal(earlierInspect.at(-1), diagnostic.name);
+    const appeared = JSON.parse(await fake.command(earlierInspect));
+    verifyStationContainer(appeared, { ...diagnostic, id: appeared.id });
+    assert.equal(await readFile(diagnosticPath, "utf8"), saved);
+    assert.ok(fake.calls.every(({ args }) => args[0] !== "rm"));
+  } finally { if (scratch) await rm(scratch, { recursive: true, force: true }); }
 });
 
 for (const scenario of ["inspection failure", "inspection timeout", "unproven absence", "ownership mismatch"]) {

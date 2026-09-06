@@ -217,9 +217,12 @@ export async function runStationPostgresHarness({ root, files = [], log = consol
             `Error: No such object: ${identity.name}`,
             `Error response from daemon: No such container: ${identity.name}`,
           ].includes(error.stderr);
-          // Daemon, permission, timeout and malformed-output errors are not
-          // evidence of absence. Keep the diagnostic rather than claim cleanup.
-          if (!notFound) throw error;
+          // After an ambiguous create, even exact-name absence is inconclusive:
+          // the daemon may finish creating the container after this lookup.
+          // Keep ownership details for follow-up; bounded polling cannot prove
+          // that an in-flight create will never finish.
+          if (notFound) throw new Error("Cleanup uncertain: the owned container is not visible yet but creation may still complete", { cause: error });
+          throw error;
         }
         if (metadata !== undefined) {
           const recovered = { ...identity, id: metadata?.id };

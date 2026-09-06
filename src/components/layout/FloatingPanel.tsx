@@ -666,6 +666,7 @@ export function FloatingPanel({
         </div>
         {snapTarget && (
           <div
+            data-snap-edge={snapTarget.edge}
             className="fixed pointer-events-none z-[9999]"
             style={getSnapIndicatorStyle(snapTarget)}
           />
@@ -789,6 +790,7 @@ export function FloatingPanel({
       {/* Snap indicator overlay */}
       {snapTarget && (
         <div
+          data-snap-edge={snapTarget.edge}
           className="fixed pointer-events-none z-[9999]"
           style={getSnapIndicatorStyle(snapTarget)}
         />

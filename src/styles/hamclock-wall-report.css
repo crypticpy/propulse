@@ -271,9 +271,6 @@
 .hcr-cols--fill > .hcr-box > h4 {
   margin-bottom: 0.8vh;
 }
-.hcr-cols--fill > .hcr-box > .hcr-kv {
-  row-gap: 0.3vh;
-}
 /* A measured list inside a fill row contributes no height of its own, so
  * the row is sized by its neighbour column and the list draws the rows
  * that fit (Weather/Emcomm alerts beside the session chart). */
@@ -409,10 +406,11 @@
 .hcr-bars {
   display: grid;
   grid-template-columns: 4vw minmax(0, 1fr) 5vw;
-  gap: 1vh 1vw;
+  gap: 0.6vh 1vw;
   align-items: center;
   font-family: var(--hc-font-mono);
   font-size: 2.1vh;
+  line-height: 1.2;
 }
 .hcr-bars-k {
   color: var(--hc-dim);
@@ -441,7 +439,7 @@
 .hcr-kv {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
-  gap: 0.6vh 1vw;
+  gap: 0.3vh 1vw;
   align-content: start;
   font-family: var(--hc-font-mono);
   font-size: 2.1vh;

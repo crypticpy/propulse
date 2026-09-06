@@ -335,7 +335,7 @@ export function BestBandReport({ open, onClose }: BestBandReportProps) {
 
   const facts: WallReportFact[] = [
     {
-      label: "COMPUTED MUF",
+      label: "MUF",
       value: muf === null ? "—" : `${muf.toFixed(1)} MHz`,
     },
     {

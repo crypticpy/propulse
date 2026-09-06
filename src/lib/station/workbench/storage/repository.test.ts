@@ -927,6 +927,69 @@ describe("durable local station delivery bookkeeping", () => {
     expect(raced).toBe(true);
   });
 
+  it("returns retry-required after three valid graph races without delivery writes, then records a clean retry", async () => {
+    const { factory, db, archive, repo, a } = await deliveryFixture();
+    const writer = await repository(factory);
+    const checkpoints = vi.fn();
+    const recorder = await repository(factory, { testHooks: { checkpoint: checkpoints } });
+    const changes = await Promise.all([
+      rename(archive, "E", "C"), rename(archive, "F", "E"), rename(archive, "G", "F"),
+    ]);
+    const terminal = rejectedDelivery(a);
+    const originalRows = await deliveryRows(db);
+    let expectedRows = originalRows;
+    let expectedState = await snapshot(repo);
+    const { payloadDigest: _digest, ...auditedOperation } = await rename(archive, "A");
+    void _digest;
+    const auditedBytes = canonicalWorkbenchJson(auditedOperation);
+    const nativeDigest = crypto.subtle.digest.bind(crypto.subtle);
+    let auditAttempts = 0;
+    let writing = false;
+    const hash = vi.spyOn(crypto.subtle, "digest").mockImplementation(async (algorithm, data) => {
+      const hashed = await nativeDigest(algorithm, data);
+      // A is hashed once after each delivery readonly audit has completed. Hold
+      // that hash until another handle commits a valid new descendant, so every
+      // write attempt must observe a different graph. Ignore the writer's own
+      // dependency hashes to avoid recursive races; no timing/sleeps are needed.
+      if (!writing && new TextDecoder().decode(data) === auditedBytes) {
+        auditAttempts += 1;
+        const change = changes[auditAttempts - 1];
+        if (change) {
+          writing = true;
+          try {
+            expect(await deliveryRows(db)).toEqual(expectedRows);
+            await committed(writer, change);
+            expectedRows = await deliveryRows(db);
+            expect(expectedRows.results).toEqual([]);
+            expect(expectedRows.outbox.every((row) => row.state === "pending")).toBe(true);
+            expectedState = await snapshot(writer);
+          } finally { writing = false; }
+        }
+      }
+      return hashed;
+    });
+    const result = await recorder.recordDeliveryResult(terminal);
+    hash.mockRestore();
+    expect(result).toEqual({ status: "retry-required", reason: "Delivery graph changed repeatedly during integrity verification; retry the same result" });
+    expect(auditAttempts).toBe(3);
+    expect(checkpoints).not.toHaveBeenCalled();
+    expect(await deliveryRows(db)).toEqual(expectedRows);
+    expect(await snapshot(repo)).toEqual(expectedState);
+    expect(expectedState.localSequence).toBe(7);
+    expect(expectedState.archive.setups[0].name).toBe("G");
+    expect(expectedRows.operations.filter((row) => ["A", "B", "C", "D"].includes(row.operationId))).toEqual(originalRows.operations);
+
+    expect(await recorder.recordDeliveryResult(terminal)).toEqual({ status: "recorded", result: terminal });
+    const recordedRows = await deliveryRows(db);
+    expect(recordedRows.results).toEqual([terminal]);
+    expect(recordedRows.operations).toEqual(expectedRows.operations);
+    expect(recordedRows.outbox).toEqual(expectedRows.outbox.map((row) => ({ ...row, state: row.operationId === "D" ? "pending" : "blocked" })));
+    expect(await snapshot(repo)).toEqual(expectedState);
+    expect((await recorder.readDeliveryReadiness({ generationId })).map((node) => [node.operationId, node.status])).toEqual([
+      ["A", "rejected"], ["B", "blocked"], ["C", "blocked"], ["D", "ready"], ["E", "blocked"], ["F", "blocked"], ["G", "blocked"],
+    ]);
+  });
+
   it("aborts delivery when the account-bound handle closes after the terminal write", async () => {
     const { factory, db, a } = await deliveryFixture();
     const before = await deliveryRows(db);

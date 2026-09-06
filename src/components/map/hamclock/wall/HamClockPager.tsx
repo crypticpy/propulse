@@ -16,9 +16,9 @@ interface HamClockPagerProps {
 
 /**
  * Footer pager: ◀ TITLE n/N ▶ AUTO. Both rails follow one shared page (wall
- * spec §4/§5), so the pager announces "wall page" rather than a rail side —
- * there is one instance of this control at each end of the footer, but they
- * both step the same page and both toggle the same `autoPage.enabled` flag
+ * spec §4/§5), so the pager announces "wall page" rather than a rail side.
+ * The footer renders this control once, bottom-left (owner review #248);
+ * AUTO toggles the same `autoPage.enabled` flag the dwell timer reads
  * (HW-20, `useWallAutoPage`).
  */
 export function HamClockPager({

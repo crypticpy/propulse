@@ -52,10 +52,10 @@ interface HamClockWallProps {
 /**
  * The HamClock shell at both densities (wall spec §3, §15, HW-24/HW-25): a
  * full-bleed map with two tile rails, a callsign header with dual clocks,
- * the existing DX news ticker, and a footer carrying a pager control at
- * each end. Both rails and both pagers share the one page index — pick the
- * page from either side of the screen and the whole shell turns to it
- * together. Desk renders the identical tree at `--hc-scale` ~0.72 with
+ * the existing DX news ticker, and a footer with one pager at the
+ * bottom-left. Both rails share the one page index — pick the page from
+ * the pager or the arrow keys and the whole shell turns to it together.
+ * Desk renders the identical tree at `--hc-scale` ~0.72 with
  * opaque rails (`data-density`, `hamclock-wall.css`) instead of a second
  * layout, so a batch that adds a tile never has to build it twice. The
  * WALL/DESK switch lives in the header (alongside mode, projection and
@@ -121,7 +121,6 @@ export function HamClockWall({ children, onOpenSettings }: HamClockWallProps) {
       <footer className="hc-ftr">
         <HamClockPager pages={pages} pageIndex={page} onStep={onStep} />
         <WallStatus />
-        <HamClockPager pages={pages} pageIndex={page} onStep={onStep} />
       </footer>
     </div>
   );

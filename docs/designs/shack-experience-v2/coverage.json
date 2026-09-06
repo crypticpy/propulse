@@ -1,0 +1,262 @@
+{
+  "status": "proposal; implementation not complete",
+  "epic": "https://github.com/crypticpy/propulse/issues/276",
+  "accountableCoordinator": "crypticpy",
+  "baseline": "0b4cf402",
+  "requirements": [
+    {
+      "id": "SX2:C01",
+      "primaryIssue": 184,
+      "url": "https://github.com/crypticpy/propulse/issues/184"
+    },
+    {
+      "id": "SX2:C02",
+      "primaryIssue": 184,
+      "url": "https://github.com/crypticpy/propulse/issues/184"
+    },
+    {
+      "id": "SX2:C03",
+      "primaryIssue": 184,
+      "url": "https://github.com/crypticpy/propulse/issues/184"
+    },
+    {
+      "id": "SX2:C04",
+      "primaryIssue": 184,
+      "url": "https://github.com/crypticpy/propulse/issues/184"
+    },
+    {
+      "id": "SX2:C05",
+      "primaryIssue": 184,
+      "url": "https://github.com/crypticpy/propulse/issues/184"
+    },
+    {
+      "id": "SX2:C07",
+      "primaryIssue": 184,
+      "url": "https://github.com/crypticpy/propulse/issues/184"
+    },
+    {
+      "id": "SX2:Q03",
+      "primaryIssue": 184,
+      "url": "https://github.com/crypticpy/propulse/issues/184"
+    },
+    {
+      "id": "SX2:C06",
+      "primaryIssue": 185,
+      "url": "https://github.com/crypticpy/propulse/issues/185"
+    },
+    {
+      "id": "SX2:Q01",
+      "primaryIssue": 185,
+      "url": "https://github.com/crypticpy/propulse/issues/185"
+    },
+    {
+      "id": "SX2:P01",
+      "primaryIssue": 278,
+      "url": "https://github.com/crypticpy/propulse/issues/278"
+    },
+    {
+      "id": "SX2:P02",
+      "primaryIssue": 278,
+      "url": "https://github.com/crypticpy/propulse/issues/278"
+    },
+    {
+      "id": "SX2:P03",
+      "primaryIssue": 278,
+      "url": "https://github.com/crypticpy/propulse/issues/278"
+    },
+    {
+      "id": "SX2:P04",
+      "primaryIssue": 278,
+      "url": "https://github.com/crypticpy/propulse/issues/278"
+    },
+    {
+      "id": "SX2:P05",
+      "primaryIssue": 278,
+      "url": "https://github.com/crypticpy/propulse/issues/278"
+    },
+    {
+      "id": "SX2:M01",
+      "primaryIssue": 277,
+      "url": "https://github.com/crypticpy/propulse/issues/277"
+    },
+    {
+      "id": "SX2:M02",
+      "primaryIssue": 277,
+      "url": "https://github.com/crypticpy/propulse/issues/277"
+    },
+    {
+      "id": "SX2:M03",
+      "primaryIssue": 277,
+      "url": "https://github.com/crypticpy/propulse/issues/277"
+    },
+    {
+      "id": "SX2:M04",
+      "primaryIssue": 277,
+      "url": "https://github.com/crypticpy/propulse/issues/277"
+    },
+    {
+      "id": "SX2:M05",
+      "primaryIssue": 277,
+      "url": "https://github.com/crypticpy/propulse/issues/277"
+    },
+    {
+      "id": "SX2:M06",
+      "primaryIssue": 277,
+      "url": "https://github.com/crypticpy/propulse/issues/277"
+    },
+    {
+      "id": "SX2:M07",
+      "primaryIssue": 277,
+      "url": "https://github.com/crypticpy/propulse/issues/277"
+    },
+    {
+      "id": "SX2:M08",
+      "primaryIssue": 277,
+      "url": "https://github.com/crypticpy/propulse/issues/277"
+    },
+    {
+      "id": "SX2:M09",
+      "primaryIssue": 283,
+      "url": "https://github.com/crypticpy/propulse/issues/283"
+    },
+    {
+      "id": "SX2:F01",
+      "primaryIssue": 279,
+      "url": "https://github.com/crypticpy/propulse/issues/279"
+    },
+    {
+      "id": "SX2:F02",
+      "primaryIssue": 279,
+      "url": "https://github.com/crypticpy/propulse/issues/279"
+    },
+    {
+      "id": "SX2:F03",
+      "primaryIssue": 279,
+      "url": "https://github.com/crypticpy/propulse/issues/279"
+    },
+    {
+      "id": "SX2:S01",
+      "primaryIssue": 280,
+      "url": "https://github.com/crypticpy/propulse/issues/280"
+    },
+    {
+      "id": "SX2:S02",
+      "primaryIssue": 280,
+      "url": "https://github.com/crypticpy/propulse/issues/280"
+    },
+    {
+      "id": "SX2:S03",
+      "primaryIssue": 280,
+      "url": "https://github.com/crypticpy/propulse/issues/280"
+    },
+    {
+      "id": "SX2:S04",
+      "primaryIssue": 280,
+      "url": "https://github.com/crypticpy/propulse/issues/280"
+    },
+    {
+      "id": "SX2:S05",
+      "primaryIssue": 280,
+      "url": "https://github.com/crypticpy/propulse/issues/280"
+    },
+    {
+      "id": "SX2:S06",
+      "primaryIssue": 280,
+      "url": "https://github.com/crypticpy/propulse/issues/280"
+    },
+    {
+      "id": "SX2:D01",
+      "primaryIssue": 281,
+      "url": "https://github.com/crypticpy/propulse/issues/281"
+    },
+    {
+      "id": "SX2:D02",
+      "primaryIssue": 281,
+      "url": "https://github.com/crypticpy/propulse/issues/281"
+    },
+    {
+      "id": "SX2:D03",
+      "primaryIssue": 281,
+      "url": "https://github.com/crypticpy/propulse/issues/281"
+    },
+    {
+      "id": "SX2:D04",
+      "primaryIssue": 281,
+      "url": "https://github.com/crypticpy/propulse/issues/281"
+    },
+    {
+      "id": "SX2:D05",
+      "primaryIssue": 281,
+      "url": "https://github.com/crypticpy/propulse/issues/281"
+    },
+    {
+      "id": "SX2:Q02",
+      "primaryIssue": 194,
+      "url": "https://github.com/crypticpy/propulse/issues/194"
+    },
+    {
+      "id": "SX2:Q04",
+      "primaryIssue": 195,
+      "url": "https://github.com/crypticpy/propulse/issues/195"
+    },
+    {
+      "id": "SX2:Q05",
+      "primaryIssue": 276,
+      "url": "https://github.com/crypticpy/propulse/issues/276"
+    }
+  ],
+  "newWorkPackages": [
+    {
+      "issue": 277,
+      "blockedBy": [
+        177,
+        178
+      ],
+      "implementationStatus": "Todo; unclaimed"
+    },
+    {
+      "issue": 278,
+      "blockedBy": [
+        176,
+        177,
+        178,
+        187,
+        277
+      ],
+      "implementationStatus": "Todo; unclaimed"
+    },
+    {
+      "issue": 279,
+      "blockedBy": [
+        188,
+        277
+      ],
+      "implementationStatus": "Todo; unclaimed"
+    },
+    {
+      "issue": 280,
+      "blockedBy": [
+        175,
+        177,
+        178,
+        277
+      ],
+      "implementationStatus": "Todo; unclaimed"
+    },
+    {
+      "issue": 281,
+      "blockedBy": [
+        280
+      ],
+      "implementationStatus": "Todo; unclaimed"
+    },
+    {
+      "issue": 283,
+      "blockedBy": [
+        277
+      ],
+      "implementationStatus": "Todo; unclaimed"
+    }
+  ],
+  "namespace": "SX2"
+}

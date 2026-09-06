@@ -11,6 +11,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { TuneButton } from "@/components/radio/TuneButton";
 import { AccessibleDialog } from "@/components/ui/AccessibleDialog";
 import { useActiveLocation } from "@/hooks/useActiveLocation";
 import { useActivationSpots } from "@/hooks/useActivationSpots";
@@ -410,6 +411,8 @@ export function ActivationDetailPanel() {
             callsign={spot.callsign}
             program={spot.program}
           />
+
+        <TuneButton frequencyKHz={spot.frequencyKHz} mode={spot.mode || null} wall={false} />
 
         <footer className="grid grid-cols-1 gap-2 border-t border-white/10 bg-black/20 p-3 sm:grid-cols-3">
           <button

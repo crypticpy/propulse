@@ -90,6 +90,11 @@ def telemetry_event() -> dict:
             "space_weather_seconds": 120,
         },
         "ood_flag_counts": {},
+        "missing_features": {
+            "first_row_names": [],
+            "first_row_count": 0,
+            "histogram": {},
+        },
         "core_probability_summary": {
             "minimum": 0.4,
             "mean": 0.4,

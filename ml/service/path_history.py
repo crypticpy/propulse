@@ -200,6 +200,13 @@ class PostgrestPathHistoryProvider:
 
 
 def path_history_provider_from_environment() -> PathHistoryProvider:
+    override = os.environ.get("PROPULSE_PATH_HISTORY_PROVIDER", "").strip()
+    if override == "unavailable":
+        return UnavailablePathHistoryProvider()
+    if override:
+        raise RuntimeError(
+            "PROPULSE_PATH_HISTORY_PROVIDER must be 'unavailable' when set"
+        )
     values = {
         "base_url": os.environ.get("PROPULSE_FEATURE_STORE_URL", "").strip(),
         "service_key": os.environ.get(

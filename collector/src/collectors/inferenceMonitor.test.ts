@@ -19,6 +19,7 @@ function healthyBody(): Record<string, unknown> {
     service_auth_enabled: true,
     model_version: MODEL,
     profiles: ["nowcast", "physics"],
+    serving_profile: "nowcast",
   };
 }
 
@@ -49,6 +50,7 @@ describe("evaluateInferenceHealth", () => {
     expect(evaluateInferenceHealth(healthyBody(), MODEL)).toEqual({
       healthy: true,
       reason: "",
+      servingProfile: "nowcast",
     });
   });
 
@@ -59,12 +61,36 @@ describe("evaluateInferenceHealth", () => {
       [{ ...healthyBody(), service_auth_enabled: false }, "service auth is not enabled"],
       [{ ...healthyBody(), model_version: "other-model" }, "model identity mismatch"],
       [{ ...healthyBody(), profiles: ["nowcast"] }, "profiles missing nowcast/physics"],
+      [
+        { ...healthyBody(), serving_profile: "voacap" },
+        "serving_profile is missing or unexpected",
+      ],
+      [
+        (() => {
+          const body = healthyBody();
+          delete body.serving_profile;
+          return body;
+        })(),
+        "serving_profile is missing or unexpected",
+      ],
     ];
     for (const [body, reason] of cases) {
       const verdict = evaluateInferenceHealth(body, MODEL);
       expect(verdict.healthy).toBe(false);
       expect(verdict.reason).toContain(reason);
     }
+  });
+
+  it("reports the physics serving profile as healthy too", () => {
+    const verdict = evaluateInferenceHealth(
+      { ...healthyBody(), serving_profile: "physics" },
+      MODEL,
+    );
+    expect(verdict).toEqual({
+      healthy: true,
+      reason: "",
+      servingProfile: "physics",
+    });
   });
 
   it("aggregates multiple violations into one reason", () => {

@@ -470,7 +470,12 @@ describe("explicit cable interfaces and engine conditions", () => {
   });
 
   it("does not use an unsupported engine stage's zero as a power-rating pass", () => {
-    const result = compileSelectedRoute(createPostAmpPowerRatingFixture(), { ...request, options: { bands: ["40m"] } });
+    const archive = createPostAmpPowerRatingFixture();
+    for (const accessory of archive.revisions[0].equipment.filter((item) => item.kind === "accessory")) {
+      accessory.fields!["accessory.bands"] = { state: "known", value: ["20m", "40m"], evidenceId: "declared" };
+    }
+    archive.revisions[0].equipment.find((item) => item.id === "radio")!.fields!["radio.bands"] = { state: "known", value: ["20m"], evidenceId: "declared" };
+    const result = compileSelectedRoute(archive, { ...request, options: { bands: ["40m"] } });
     expect(result.status).toBe("unsupported");
     expect(result.metrics).toEqual([]);
     expect(result.compatibility.findings.some((item) => item.code === "power-rating-ok")).toBe(false);
@@ -799,5 +804,104 @@ describe("complete cable assembly coverage", () => {
     expect(result.topology.cableRuns.some((run) => run.id === "legacy-run-a" && run.countedInEngine)).toBe(false);
     expect(result.modeledRoute.engine).toBeNull();
     expect(result.metrics).toEqual([]);
+  });
+});
+
+
+describe("recorded constraints on every selected RF accessory", () => {
+  const request = { revisionId: "home-r1", routeId: "main", options: { bands: ["20m"] } };
+  function accessoryFixture(category: "amplifier" | "filter" | "switch" | "tuner") {
+    const archive = createEngineParityFixture();
+    const accessory = archive.revisions[0].equipment.find((item) => item.id === (category === "amplifier" ? "amplifier" : "filter"))!;
+    if (category === "switch" || category === "tuner") {
+      accessory.fields = {
+        "accessory.category": { state: "known", value: category, evidenceId: "declared" },
+        "accessory.insertionLossDb": { state: "known", value: 1, unit: "dB", evidenceId: "declared" },
+        ...(category === "switch" ? { "accessory.ports": { state: "known" as const, value: 2, unit: "count", evidenceId: "declared" } }
+          : { "accessory.tunerType": { state: "known" as const, value: "automatic", evidenceId: "declared" }, "accessory.maxPowerWatts": { state: "known" as const, value: 1000, unit: "W", evidenceId: "declared" } }),
+      };
+    }
+    return { archive, accessory };
+  }
+
+  it.each(["amplifier", "filter", "switch", "tuner"] as const)("enforces explicit supported/unknown/empty/outside bands for %s", (category) => {
+    const { archive, accessory } = accessoryFixture(category);
+    delete accessory.fields!["accessory.bands"];
+    expect(compileSelectedRoute(archive, request).status).toBe("compiled");
+    accessory.fields!["accessory.bands"] = { state: "known", value: ["20m"], evidenceId: "declared" };
+    expect(compileSelectedRoute(archive, request).status).toBe("compiled");
+    for (const bands of [[], ["40m"]]) {
+      accessory.fields!["accessory.bands"] = { state: "known", value: bands, evidenceId: "declared" };
+      const outside = compileSelectedRoute(archive, request);
+      expect(outside.status).toBe("unsupported");
+      expect(outside.calculationLimits.some((item) => item.code === "accessory-band-unsupported" && item.instanceId === accessory.id)).toBe(true);
+      expect(outside.metrics).toEqual([]);
+    }
+    accessory.fields!["accessory.bands"] = { state: "unknown", reason: "Supported bands unverified" };
+    const unknown = compileSelectedRoute(archive, request);
+    expect(unknown.status).toBe("incomplete");
+    expect(unknown.missingInputs.some((item) => item.code === "unknown-accessory-bands" && item.instanceId === accessory.id)).toBe(true);
+  });
+
+  it.each(["filter", "switch", "tuner"] as const)("compares %s maximum power to its modeled input after amplification", (category) => {
+    const { archive, accessory } = accessoryFixture(category);
+    accessory.fields!["accessory.maxPowerWatts"] = { state: "known", value: 1000, unit: "W", evidenceId: "declared" };
+    const supported = compileSelectedRoute(archive, request);
+    expect(supported.status).toBe("compiled");
+    expect(supported.compatibility.findings.some((item) => item.code === "accessory-power-rating-ok" && item.instanceId === accessory.id)).toBe(true);
+    // 450 W exceeds the requested 200 W and the lossy output, but 500 W arrives here.
+    accessory.fields!["accessory.maxPowerWatts"] = { state: "known", value: 450, unit: "W", evidenceId: "declared" };
+    const overloaded = compileSelectedRoute(archive, request);
+    expect(overloaded.status).toBe("unsupported");
+    expect(overloaded.compatibility.findings.some((item) => item.code === "accessory-power-rating-exceeded" && item.instanceId === accessory.id)).toBe(true);
+    expect(overloaded.modeledRoute.engine).toBeNull();
+    expect(overloaded.metrics).toEqual([]);
+    accessory.fields!["accessory.maxPowerWatts"] = { state: "unknown", reason: "No verified maximum" };
+    expect(compileSelectedRoute(archive, request).status).toBe("incomplete");
+    accessory.fields!["accessory.maxPowerWatts"] = { state: "known", value: 0, unit: "W", evidenceId: "declared" };
+    expect(compileSelectedRoute(archive, request).status).toBe("unsupported");
+  });
+
+  it("checks filter passband against both pinned and engine frequencies", () => {
+    const { archive, accessory } = accessoryFixture("filter");
+    accessory.fields!["accessory.passband"] = { state: "known", value: { min: 14e6, max: 14.35e6 }, unit: "Hz", evidenceId: "declared" };
+    expect(compileSelectedRoute(archive, request).status).toBe("compiled");
+    accessory.fields!["accessory.passband"] = { state: "known", value: { min: 7e6, max: 7.3e6 }, unit: "Hz", evidenceId: "declared" };
+    const outside = compileSelectedRoute(archive, request);
+    expect(outside.status).toBe("unsupported");
+    expect(outside.compatibility.findings.some((item) => item.code === "filter-frequency-outside-passband")).toBe(true);
+    expect(outside.metrics).toEqual([]);
+    accessory.fields!["accessory.passband"] = { state: "known", value: { min: 14.19e6, max: 14.21e6 }, unit: "Hz", evidenceId: "declared" };
+    const wrongEngineFrequency = compileSelectedRoute(archive, request);
+    expect(wrongEngineFrequency.status).toBe("unsupported");
+    expect(wrongEngineFrequency.compatibility.findings.some((item) => item.code === "filter-frequency-outside-passband" && item.message.startsWith("20m engine frequency"))).toBe(true);
+    accessory.fields!["accessory.passband"] = { state: "unknown", reason: "Passband not characterized" };
+    expect(compileSelectedRoute(archive, request).status).toBe("incomplete");
+  });
+
+  it.each(["accessory.lossAtSwr", "accessory.matchingRangeOhms"] as const)("withholds recorded %s without replacing it with constant loss", (key) => {
+    const { archive, accessory } = accessoryFixture("tuner");
+    expect(compileSelectedRoute(archive, request).status).toBe("compiled");
+    accessory.fields![key] = key === "accessory.lossAtSwr"
+      ? { state: "known", value: { "1.2": 4 }, unit: "dB", evidenceId: "declared" }
+      : { state: "known", value: { min: 10, max: 200 }, unit: "ohm", evidenceId: "declared" };
+    const unsupported = compileSelectedRoute(archive, request);
+    expect(unsupported.status).toBe("unsupported");
+    expect(unsupported.calculationLimits.some((item) => item.code === "unrepresented-tuner-constraint")).toBe(true);
+    expect(unsupported.integrationProposals.some((item) => item.code === "engine-tuner-constraints")).toBe(true);
+    expect(unsupported.metrics).toEqual([]);
+    accessory.fields![key] = { state: "unknown", reason: "Constraint not characterized" };
+    const unknown = compileSelectedRoute(archive, request);
+    expect(unknown.status).toBe("incomplete");
+    expect(unknown.missingInputs.some((item) => item.code === "unknown-tuner-constraint")).toBe(true);
+  });
+
+  it("preserves amplifier maximum-output cap semantics rather than treating it as an input limit", () => {
+    const { archive, accessory } = accessoryFixture("amplifier");
+    accessory.fields!["accessory.maxPowerWatts"] = { state: "known", value: 50, unit: "W", evidenceId: "declared" };
+    const result = compileSelectedRoute(archive, request);
+    expect(result.status).toBe("compiled");
+    expect(result.modeledRoute.engine?.bands[0].nodes.find((node) => node.label === accessory.label)?.outputPowerWatts).toBe(50);
+    expect(result.compatibility.findings.some((item) => item.code === "accessory-power-rating-exceeded" && item.instanceId === accessory.id)).toBe(false);
   });
 });

@@ -342,6 +342,20 @@ function evaluateRatings(
   return findings;
 }
 
+function evaluateFilterPassband(item: Item, model: Model | undefined, frequency: Quantity, path: (string | number)[]): CompatibilityFinding[] {
+  const recorded = lookupField(item, model, "accessory.passband");
+  if (!recorded) return [];
+  const value = recorded.value.state === "known" ? recorded.value.value : undefined;
+  if (value === undefined || value === null || typeof value !== "object" || Array.isArray(value)
+    || !("min" in value) || !("max" in value) || typeof value.min !== "number" || typeof value.max !== "number") {
+    return [finding("unknown", "unknown-filter-frequency-range", `Filter ${item.label} has an explicitly unknown passband`, path, { instanceId: item.id })];
+  }
+  if (frequency.state === "unknown") return [finding("unknown", "unknown-filter-frequency", `Operating frequency is unknown for filter ${item.label}`, path, { instanceId: item.id })];
+  const supported = frequency.value >= value.min && frequency.value <= value.max;
+  return [finding(supported ? "compatible" : "contradicted", supported ? "filter-frequency-in-passband" : "filter-frequency-outside-passband",
+    `Frequency ${frequency.value} Hz ${supported ? "is inside" : "is outside"} filter ${item.label} passband ${value.min}–${value.max} Hz`, path, { instanceId: item.id })];
+}
+
 function aggregate(findings: CompatibilityFinding[]): CompatibilityVerdict {
   if (findings.some((item) => item.verdict === "contradicted")) return "contradicted";
   if (findings.some((item) => item.verdict === "unknown")) return "unknown";
@@ -372,6 +386,10 @@ function evaluateHop(
   findings.push(directionForPurpose(toPort, "to", purpose, hop.kind));
   findings.push(roleForPath(fromPort, hop.kind, hop.path));
   findings.push(roleForPath(toPort, hop.kind, hop.path));
+  if (hop.kind === "internal" && hop.instance?.kind === "accessory") {
+    const model = modelOf(revision, hop.instance);
+    if (accessoryCategory(hop.instance, model) === "filter") findings.push(...evaluateFilterPassband(hop.instance, model, frequencyHz, path));
+  }
   if (hop.kind === "connection") {
     const binding = hop.connection?.connectorInterface;
     if (binding?.kind === "cable") {
@@ -514,6 +532,23 @@ function evaluateEnginePowerRatings(
       }
       const fromLookup = chainNodePerformance(chain, band, hop.from.instanceId);
       const toLookup = chainNodePerformance(chain, band, hop.to.instanceId);
+      if (hop.kind === "internal" && hop.instance?.kind === "accessory") {
+        const model = modelOf(revision, hop.instance);
+        const category = accessoryCategory(hop.instance, model);
+        const maximum = knownNumber(hop.instance, model, "accessory.maxPowerWatts");
+        // Amplifiers use a maximum OUTPUT cap in the engine. Passive RF gear
+        // instead must tolerate the modeled power arriving at its input.
+        if (category !== "amplifier" && maximum !== undefined) {
+          const power = fromLookup.performance?.inputPowerWatts;
+          const path = ["hops", hop.hopIndex, "engine", band.band];
+          if (power === undefined || !Number.isFinite(power)) {
+            findings.push(finding("unknown", "unknown-accessory-input-power", `Modeled input power is unavailable for ${hop.instance.label}; its ${maximum} W maximum cannot be verified`, path, { instanceId: hop.instance.id }));
+          } else {
+            findings.push(finding(power > maximum ? "contradicted" : "compatible", power > maximum ? "accessory-power-rating-exceeded" : "accessory-power-rating-ok",
+              `Modeled ${power} W arriving at ${hop.instance.label} on ${band.band} compared with its ${maximum} W maximum`, path, { instanceId: hop.instance.id }));
+          }
+        }
+      }
       ([["from", fromPort, fromLookup, hop.from.instanceId], ["to", toPort, toLookup, hop.to.instanceId]] as const).forEach(([side, port, lookup, instanceId]) => {
         const maxPower = ratingNumber(port, "port.maxPower");
         if (maxPower === undefined) return;
@@ -756,6 +791,21 @@ function compileChain(
           return;
         }
         const bands = knownList(hop.instance, model, "accessory.bands");
+        const bandField = lookupField(hop.instance, model, "accessory.bands");
+        if (bandField && bands === undefined) {
+          missing.push(finding("unknown", "unknown-accessory-bands", `Accessory ${hop.instance.label} explicitly records unknown band support`, [], { instanceId: hop.instance.id }));
+        } else if (bands) {
+          for (const band of requestedBands) {
+            if (!bands.includes(band)) limits.push(finding("contradicted", "accessory-band-unsupported", `Accessory ${hop.instance.label} does not declare support for requested band ${band}`, [], { instanceId: hop.instance.id }));
+          }
+        }
+        // Amplifier output caps and tuner required ratings retain their category
+        // checks below. Optional passive ratings must not disappear as undefined.
+        if (category !== "amplifier" && category !== "tuner"
+          && lookupField(hop.instance, model, "accessory.maxPowerWatts")
+          && knownNumber(hop.instance, model, "accessory.maxPowerWatts") === undefined) {
+          missing.push(finding("unknown", "unknown-accessory-power-limit", `Accessory ${hop.instance.label} explicitly records an unknown maximum power`, [], { instanceId: hop.instance.id }));
+        }
         if (category === "amplifier") {
           const gainDb = knownNumber(hop.instance, model, "accessory.gainDb");
           const maxPowerWatts = knownNumber(hop.instance, model, "accessory.maxPowerWatts");
@@ -787,6 +837,19 @@ function compileChain(
             nodes.push({ type: "accessory", accessoryId: hop.instance.id });
           }
         } else if (category === "tuner") {
+          // The current engine consumes constant insertion loss and exposes no
+          // tuner load impedance or SWR-conditioned loss evaluation.
+          for (const field of ["accessory.lossAtSwr", "accessory.matchingRangeOhms"] as const) {
+            const recorded = lookupField(hop.instance, model, field);
+            if (!recorded) continue;
+            const label = field === "accessory.lossAtSwr" ? "SWR-dependent loss" : "matching impedance range";
+            if (recorded.value.state === "unknown") {
+              missing.push(finding("unknown", "unknown-tuner-constraint", `Tuner ${hop.instance.label} explicitly records unknown ${label}`, [], { instanceId: hop.instance.id }));
+            } else {
+              limits.push(finding("contradicted", "unrepresented-tuner-constraint", `Tuner ${hop.instance.label} records ${label} that the constant-loss engine cannot resolve; dependent estimates are withheld`, [], { instanceId: hop.instance.id }));
+            }
+            proposals.push({ code: "engine-tuner-constraints", message: "Expose modeled load impedance and SWR at the tuner, and evaluate recorded matching ranges and conditional losses before issuing a supported estimate.", owner: "coordinator" });
+          }
           const insertionLossDb = knownNumber(hop.instance, model, "accessory.insertionLossDb");
           const tunerType = knownText(hop.instance, model, "accessory.tunerType") as "manual" | "automatic" | undefined;
           const maxPowerWatts = knownNumber(hop.instance, model, "accessory.maxPowerWatts");

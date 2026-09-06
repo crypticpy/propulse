@@ -31,6 +31,7 @@ export function BandActivityReport({ open, onClose }: BandActivityReportProps) {
   }, [data]);
 
   const top = bars[0] ?? null;
+  const split = Math.ceil(bars.length / 2);
   const total = bars.reduce((sum, entry) => sum + entry.count60m, 0);
   const fetchedAt = data?.fetchedAt ?? null;
 
@@ -83,14 +84,24 @@ export function BandActivityReport({ open, onClose }: BandActivityReportProps) {
                 : "No spots reported in this scope yet."}
           </p>
         ) : (
-          <div className="hcr-bars">
-            {bars.map((entry) => (
-              <BandRow
-                key={entry.band}
-                entry={entry}
-                top={top?.count60m ?? 1}
-              />
-            ))}
+          // Two equal columns, column-major (busiest bands down the left):
+          // a dozen open bands then take six rows, leaving the session chart
+          // its slot at 1080p (#250).
+          <div className="hcr-cols hcr-cols--even">
+            {[bars.slice(0, split), bars.slice(split)].map(
+              (half, index) =>
+                half.length > 0 && (
+                  <div className="hcr-bars" key={index}>
+                    {half.map((entry) => (
+                      <BandRow
+                        key={entry.band}
+                        entry={entry}
+                        top={top?.count60m ?? 1}
+                      />
+                    ))}
+                  </div>
+                ),
+            )}
           </div>
         )}
       </div>

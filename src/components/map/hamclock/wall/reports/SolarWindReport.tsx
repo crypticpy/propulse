@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { useSolarResource } from "@/hooks/useSolarResource";
 import { useMagnetometer24h } from "@/hooks/useSolarData";
 import {
@@ -13,7 +14,8 @@ import type {
 import { currentKp, latestByTime, protonScale } from "@/lib/solar/selectors";
 import { useMapStore } from "@/stores/mapStore";
 import { WallSeriesChart } from "./WallSeriesChart";
-import { HamClockButton, HamClockTabs } from "../controls";
+import { HamClockButton, HamClockSegmented, HamClockTabs } from "../controls";
+import { useVisibleRows } from "../useVisibleRows";
 import {
   bzTone,
   kpDescriptor,
@@ -26,6 +28,15 @@ import { WallReport, type WallReportFact } from "./WallReport";
 
 /** ±20 nT covers everything short of an extreme storm — same span the tile gauge uses. */
 const BZ_LIMIT = 20;
+
+type WindSeries = "bz" | "speed" | "density";
+
+/** One full-height WIND chart at a time, chosen by big buttons (guide §9). */
+const WIND_OPTIONS: readonly { value: WindSeries; label: string }[] = [
+  { value: "bz", label: "BZ" },
+  { value: "speed", label: "SPEED" },
+  { value: "density", label: "DENSITY" },
+];
 
 /** Severity rank so the worse of two tones can be picked deterministically. */
 const TONE_RANK: Record<string, number> = {
@@ -69,6 +80,7 @@ export function SolarWindReport({ open, onClose }: SolarWindReportProps) {
   const protonQuery = useProtonFlux();
   const layers = useMapStore((state) => state.layers);
   const toggleLayer = useMapStore((state) => state.toggleLayer);
+  const [windSeries, setWindSeries] = useState<WindSeries>("bz");
 
   const plasma = latestByTime(
     plasmaQuery.data?.envelope.data,
@@ -163,7 +175,6 @@ export function SolarWindReport({ open, onClose }: SolarWindReportProps) {
       label: "G-SCALE",
       value: scales ? `G${scales.geomagnetic_storm.scale ?? 0}` : "—",
     },
-    { label: "PROTON", value: proton === null ? "—" : protonScale(proton) },
   ];
 
   const { footer, updated } = reportFooter(
@@ -172,6 +183,47 @@ export function SolarWindReport({ open, onClose }: SolarWindReportProps) {
   );
 
   const cmeEvents = cmeQuery.data ?? [];
+  // Proton row + CMEs, newest first; only whole rows that fit the slot
+  // render (the report never scrolls).
+  const eventRows = 1 + cmeEvents.length;
+  const [eventsRef, visibleEvents] = useVisibleRows<HTMLDivElement>(eventRows);
+  const visibleCmes = Math.max(0, visibleEvents - 1);
+  // The feed is normalised oldest-first; the wall shows the newest.
+  const latestCmes = [...cmeEvents].reverse().slice(0, visibleCmes);
+
+  const magPoints = (magQuery.data ?? [])
+    .filter((point) => point.bz_gsm !== null)
+    .map((point) => ({
+      timestamp: point.time_tag,
+      value: point.bz_gsm as number,
+    }));
+  const plasmaPoints = (key: "speed" | "density") =>
+    (plasmaQuery.data?.envelope.data ?? [])
+      .filter((point) => point[key] !== null)
+      .map((point) => ({
+        timestamp: point.time_tag,
+        value: point[key] as number,
+      }));
+  const windChart =
+    windSeries === "bz"
+      ? {
+          title: "Bz — 24 H · ACE/DSCOVR AT L1",
+          points: magPoints,
+          unit: "nT",
+          min: -BZ_LIMIT,
+          max: BZ_LIMIT,
+        }
+      : windSeries === "speed"
+        ? {
+            title: "Speed — 24 H · ACE/DSCOVR AT L1",
+            points: plasmaPoints("speed"),
+            unit: "km/s",
+          }
+        : {
+            title: "Density — 24 H · ACE/DSCOVR AT L1",
+            points: plasmaPoints("density"),
+            unit: "p/cm³",
+          };
 
   return (
     <WallReport
@@ -200,90 +252,82 @@ export function SolarWindReport({ open, onClose }: SolarWindReportProps) {
             id: "wind",
             label: "WIND",
             content: (
-              <div className="hcr-chart-stack">
+              <>
+                <HamClockSegmented
+                  label="Wind series"
+                  hideLabel
+                  options={WIND_OPTIONS}
+                  value={windSeries}
+                  onChange={setWindSeries}
+                />
                 <div className="hcr-chart">
-                  <p className="hcr-chart-title">Bz — 24 H · ACE/DSCOVR AT L1</p>
+                  <p className="hcr-chart-title">{windChart.title}</p>
                   <WallSeriesChart
-                    label="Bz — 24 H · ACE/DSCOVR AT L1"
-                    points={(magQuery.data ?? [])
-                      .filter((point) => point.bz_gsm !== null)
-                      .map((point) => ({
-                        timestamp: point.time_tag,
-                        value: point.bz_gsm as number,
-                      }))}
-                    unit="nT"
-                    min={-BZ_LIMIT}
-                    max={BZ_LIMIT}
+                    label={windChart.title}
+                    points={windChart.points}
+                    unit={windChart.unit}
+                    min={windChart.min}
+                    max={windChart.max}
                     maxGapMs={300_000}
                   />
                 </div>
-                <div className="hcr-chart">
-                  <p className="hcr-chart-title">
-                    Speed — 24 H · ACE/DSCOVR AT L1
-                  </p>
-                  <WallSeriesChart
-                    label="Solar-wind speed — 24 H · ACE/DSCOVR AT L1"
-                    points={(plasmaQuery.data?.envelope.data ?? [])
-                      .filter((point) => point.speed !== null)
-                      .map((point) => ({
-                        timestamp: point.time_tag,
-                        value: point.speed as number,
-                      }))}
-                    unit="km/s"
-                    maxGapMs={300_000}
-                  />
-                </div>
-                <div className="hcr-chart">
-                  <p className="hcr-chart-title">
-                    Density — 24 H · ACE/DSCOVR AT L1
-                  </p>
-                  <WallSeriesChart
-                    label="Solar-wind density — 24 H · ACE/DSCOVR AT L1"
-                    points={(plasmaQuery.data?.envelope.data ?? [])
-                      .filter((point) => point.density !== null)
-                      .map((point) => ({
-                        timestamp: point.time_tag,
-                        value: point.density as number,
-                      }))}
-                    unit="p/cm³"
-                    maxGapMs={300_000}
-                  />
-                </div>
-              </div>
+              </>
             ),
           },
           {
             id: "geomagnetic",
             label: "GEOMAGNETIC",
             content: (
-              <div className="hcr-chart">
-                <p className="hcr-chart-title">Kp — 3 D · NOAA</p>
-                <WallSeriesChart
-                  label="Kp — 3 D · NOAA"
-                  points={(kpQuery.data?.envelope.data ?? [])
-                    .filter((point) => point.kind !== "predicted")
-                    .slice(-24)
-                    .map((point) => ({
-                      timestamp: point.time_tag,
-                      value: point.kp,
-                      kind: point.kind,
-                    }))}
-                  unit="Kp"
-                  min={0}
-                  max={9}
-                  intervalMs={10_800_000}
-                  maxGapMs={10_800_000}
-                />
-              </div>
+              <>
+                <div className="hcr-chart">
+                  <p className="hcr-chart-title">Kp — 3 D · NOAA</p>
+                  <WallSeriesChart
+                    label="Kp — 3 D · NOAA"
+                    points={(kpQuery.data?.envelope.data ?? [])
+                      .filter((point) => point.kind !== "predicted")
+                      .slice(-24)
+                      .map((point) => ({
+                        timestamp: point.time_tag,
+                        value: point.kp,
+                        kind: point.kind,
+                      }))}
+                    unit="Kp"
+                    min={0}
+                    max={9}
+                    intervalMs={10_800_000}
+                    maxGapMs={10_800_000}
+                  />
+                </div>
+                <div className="hcr-cols">
+                  <p className="hcr-note">
+                    Aurora imagery only — NOAA does not publish a numeric
+                    oval-reach latitude to fact here.
+                  </p>
+                  <HamClockButton
+                    variant="quiet"
+                    onClick={() => toggleLayer("aurora")}
+                    aria-pressed={layers.aurora}
+                  >
+                    {layers.aurora
+                      ? "HIDE AURORA ON MAP"
+                      : "SHOW AURORA ON MAP"}
+                  </HamClockButton>
+                </div>
+              </>
             ),
           },
           {
             id: "events",
             label: "EVENTS",
             content: (
-              <div className="hcr-box">
-                <h4>CME analysis · proton flux</h4>
-                <div className="hcr-list">
+              <div className="hcr-box hcr-box--fill">
+                <h4>
+                  CME analysis · proton flux
+                  {visibleCmes < cmeEvents.length
+                    ? ` · latest ${visibleCmes} of ${cmeEvents.length}`
+                    : ""}
+                </h4>
+                <div className="hcr-list" ref={eventsRef}>
                   <div className="hcr-item hc-info-text">
                     <b>{proton === null ? "—" : protonScale(proton)}</b>
                     <span>
@@ -292,7 +336,7 @@ export function SolarWindReport({ open, onClose }: SolarWindReportProps) {
                     </span>
                   </div>
                   {cmeEvents.length > 0 ? (
-                    cmeEvents.map((cme, index) => (
+                    latestCmes.map((cme, index) => (
                       <div
                         key={`${cme.time21_5}-${index}`}
                         className="hcr-item hc-accent-text"
@@ -314,20 +358,6 @@ export function SolarWindReport({ open, onClose }: SolarWindReportProps) {
           },
         ]}
       />
-
-      <div className="hcr-cols">
-        <p className="hcr-note">
-          Aurora imagery only — NOAA does not publish a numeric oval-reach
-          latitude to fact here.
-        </p>
-        <HamClockButton
-          variant="quiet"
-          onClick={() => toggleLayer("aurora")}
-          aria-pressed={layers.aurora}
-        >
-          {layers.aurora ? "HIDE AURORA ON MAP" : "SHOW AURORA ON MAP"}
-        </HamClockButton>
-      </div>
     </WallReport>
   );
 }

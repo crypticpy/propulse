@@ -63,3 +63,28 @@ describe("useVisibleRows (#250)", () => {
     }
   });
 });
+
+
+it("refits when row height changes inside an unchanged slot", () => {
+  let height = 30;
+  let fire: (() => void) | undefined;
+  const observed = vi.fn();
+  vi.spyOn(HTMLElement.prototype, "clientHeight", "get").mockReturnValue(100);
+  vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(() => ({ height }) as DOMRect);
+  vi.stubGlobal("ResizeObserver", class {
+    constructor(callback: () => void) { fire = callback; }
+    observe = observed;
+    disconnect() {}
+  });
+  try {
+    render(<List total={9} mounted />);
+    expect(screen.getByText("visible 3")).toBeTruthy();
+    expect(observed).toHaveBeenCalledWith(screen.getByText("row 1"));
+    height = 40;
+    act(() => fire?.());
+    expect(screen.getByText("visible 2")).toBeTruthy();
+  } finally {
+    vi.restoreAllMocks();
+    vi.unstubAllGlobals();
+  }
+});

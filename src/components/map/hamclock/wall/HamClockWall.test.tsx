@@ -144,7 +144,7 @@ describe("HamClockWall", () => {
       "Grey line",
       "MUF",
       "24h reliability",
-      "Emcomm",
+      "Activations",
     ];
     for (const title of leftTitles) {
       expect(within(left).getByText(title)).toBeTruthy();

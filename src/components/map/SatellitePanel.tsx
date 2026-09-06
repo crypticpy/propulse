@@ -35,7 +35,7 @@ import {
 import { computePassQuality } from "@/lib/utils/passQuality";
 import { calculatePosition } from "@/lib/api/satellites";
 import { useUserStore } from "@/stores/userStore";
-import { useRigStore } from "@/stores/rigStore";
+import { SatelliteTuneButton } from "@/components/radio/SatelliteTuneButton";
 import { SatelliteLogButton } from "./layers/SatelliteLogButton";
 import { CustomTLEDialog } from "./layers/CustomTLEDialog";
 
@@ -304,8 +304,6 @@ function TransponderInfo({
   satnogsTransponders?: SatNOGSTransmitter[];
 }) {
   const { station } = useUserStore();
-  const rigConnected = useRigStore((s) => s.connected);
-  const setPendingFrequency = useRigStore((s) => s.setPendingFrequency);
 
   const useSatNOGS = satnogsTransponders && satnogsTransponders.length > 0;
 
@@ -433,14 +431,10 @@ function TransponderInfo({
             </div>
           </div>
 
-          {rigConnected && (
-            <button
-              onClick={() => setPendingFrequency(dopplerInfo.downlinkHz)}
-              className="mt-1.5 w-full text-[10px] font-medium px-2 py-1 rounded bg-cyan-400/20 text-cyan-400 hover:bg-cyan-400/30 transition-colors"
-            >
-              Tune RX to {formatFreqMHz(dopplerInfo.downlinkHz)}
-            </button>
-          )}
+          <SatelliteTuneButton
+            downlinkHz={dopplerInfo.downlinkHz}
+            mode={transponderData.transponders[0]?.mode}
+          />
         </div>
       )}
     </div>

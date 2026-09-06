@@ -11,7 +11,8 @@ import { HamClockButton } from "@/components/map/hamclock/wall/controls";
 
 export interface TuneButtonProps {
   frequencyKHz: number;
-  mode?: string;
+  /** Null stages frequency only, preserving the radio’s observed mode. */
+  mode?: string | null;
   wall?: boolean;
 }
 
@@ -33,7 +34,7 @@ export function TuneButton({ frequencyKHz, mode, wall }: TuneButtonProps) {
       event.stopPropagation();
       queueTune(frequencyKHz, mode);
     },
-    "aria-label": `Tune ${target} MHz${mode ? ` ${mode}` : ""}${reason ? `: ${reason}` : ""}`,
+    "aria-label": `Tune ${target} MHz${mode === null ? " (mode unchanged)" : mode ? ` ${mode}` : ""}${reason ? `: ${reason}` : ""}`,
   };
   const content = <>TUNE {target}{reason && <span> · {reason}</span>}</>;
   return (wall ?? wallLayout) ? <HamClockButton {...props} data-hamclock-theme={theme}>{content}</HamClockButton> : (

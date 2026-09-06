@@ -960,8 +960,9 @@ function compileChain(
     displayName: knownText(radio, radioModel, "radio.displayName") ?? radio.label,
     receiver: { rmdr: Number.NaN, imdr3: Number.NaN, blockingGain: Number.NaN, sensitivity: Number.NaN },
     maxPower: maxPower!, minPower: minPower!,
-    // The power/loss engine does not consume mode capability. An empty array
-    // keeps its input shape safe; the separate envelope gate retains unknown.
+    // The engine does not consume this legacy mode array. Keep its narrower
+    // type safe without dropping canonical WSPR capability from the separate
+    // pinned envelope gate or inventing a capability for unknown lists.
     modes: (modes ?? []).filter((mode): mode is RadioMode => RADIO_MODES.includes(mode as RadioMode)),
     bands: bands!, tier: tier!,
   };
@@ -1113,7 +1114,8 @@ export function compileSelectedRoute(input: unknown, requestInput: unknown): Dee
   effectiveBands = bandId;
   if (bandId?.some((band) => !routeCompileBandSchema.safeParse(band).success)) {
     diagnostics.push(finding("contradicted", "unsupported-pinned-band", "The pinned band has no engine center frequency"));
-    return empty("unsupported");
+    // Preserve the selected route and pinned evidence through the context-aware
+    // compatibility withholding below; only the engine calculation is blocked.
   }
   const structuralCandidate = route.analysis.state === "candidate";
   const walk = walkRoute(revision, route);

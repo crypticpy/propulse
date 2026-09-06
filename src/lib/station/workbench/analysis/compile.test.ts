@@ -8,6 +8,8 @@ import {
 } from "@/lib/station/workbench/analysis/fixtures";
 import { createUnsupportedBranchFixture } from "@/lib/station/workbench/fixtures";
 import { assessRevisionTopology } from "@/lib/station/workbench/revisions/inputs";
+import { parseEquipmentFields } from "@/lib/station/workbench/equipment/registry";
+import { parseWorkbenchArchive } from "@/lib/station/workbench/contracts";
 import { resolveCatalogReceiver } from "@/lib/station/workbench/equipment/services";
 import { mapLegacyEquipment } from "@/lib/station/workbench/equipment/legacyAdapters";
 import {
@@ -903,5 +905,66 @@ describe("recorded constraints on every selected RF accessory", () => {
     expect(result.status).toBe("compiled");
     expect(result.modeledRoute.engine?.bands[0].nodes.find((node) => node.label === accessory.label)?.outputPowerWatts).toBe(50);
     expect(result.compatibility.findings.some((item) => item.code === "accessory-power-rating-exceeded" && item.instanceId === accessory.id)).toBe(false);
+  });
+});
+
+
+describe("unsupported pinned bands and explicit WSPR capability", () => {
+  it("retains route context and pinned evidence when the pinned band has no engine frequency", () => {
+    const archive = createKnownLayersFixture();
+    const request = { revisionId: "home-r1", routeId: "main" };
+    const supported = compileSelectedRoute(archive, request);
+    expect(supported.status).toBe("compiled");
+    archive.revisions[0].settings.bandId = "unmapped-band";
+    const result = compileSelectedRoute(archive, request);
+    expect(result.status).toBe("unsupported");
+    expect(result.purpose).toBe(supported.purpose);
+    expect(result.structuralCandidate).toBe(supported.structuralCandidate);
+    expect(result.pathTimeConditions.bands).toEqual(["unmapped-band"]);
+    expect(result.topology.members).toEqual(supported.topology.members);
+    expect(result.topology.members.length).toBeGreaterThan(0);
+    expect(result.topology.cableRuns).toEqual(supported.topology.cableRuns);
+    expect(result.topology.documentedLayers).toEqual(supported.topology.documentedLayers);
+    expect(result.topology.documentedLayers.length).toBeGreaterThan(0);
+    expect(result.gearCapability).toEqual(supported.gearCapability);
+    expect(result.measurements).toEqual(supported.measurements);
+    expect(result.measurements.some((item) => item.id === "gain-reading")).toBe(true);
+    expect(result.compatibility.hops.length).toBeGreaterThan(0);
+    expect(result.compatibility.findings.some((item) => item.code === "unsupported-pinned-band")).toBe(true);
+    expect(result.metrics).toEqual([]);
+    expect(result.modeledRoute.engine).toBeNull();
+    expect(result.modeledRoute.envelope).toBeNull();
+    expect(compileSelectedRoute(archive, { ...request, options: { bands: ["20m"] } }).status).toBe("compiled");
+  });
+
+  it("accepts explicitly recorded WSPR capability through real field and archive validation", () => {
+    const archive = createKnownSimpleFixture();
+    const revision = archive.revisions[0];
+    const radio = revision.equipment.find((item) => item.id === "radio")!;
+    radio.fields = parseEquipmentFields({ ...radio.fields, "radio.modes": { state: "known", value: ["WSPR"], evidenceId: "declared" } }, "radio");
+    revision.settings.mode = "WSPR";
+    const result = compileSelectedRoute(parseWorkbenchArchive(archive), { revisionId: revision.id, routeId: "main" });
+    expect(result.status).toBe("compiled");
+    expect(result.modeledRoute.envelope).toMatchObject({ mode: "WSPR", modeBandwidthHz: 6, modeSnrThresholdDb: -28 });
+    expect(result.calculationLimits.some((item) => item.code === "unsupported-radio-mode")).toBe(false);
+    expect(result.metrics.length).toBeGreaterThan(0);
+  });
+
+  it("does not infer WSPR capability from SSB or DATA and preserves explicitly unknown capability", () => {
+    const archive = createKnownSimpleFixture();
+    const revision = archive.revisions[0];
+    const radio = revision.equipment.find((item) => item.id === "radio")!;
+    const request = { revisionId: revision.id, routeId: "main", options: { mode: "WSPR" } };
+    radio.fields = parseEquipmentFields({ ...radio.fields, "radio.modes": { state: "known", value: ["SSB", "DATA"], evidenceId: "declared" } }, "radio");
+    const unsupported = compileSelectedRoute(parseWorkbenchArchive(archive), request);
+    expect(unsupported.status).toBe("compiled");
+    expect(unsupported.modeledRoute.envelope).toBeNull();
+    expect(unsupported.calculationLimits.some((item) => item.code === "unsupported-radio-mode")).toBe(true);
+    radio.fields = parseEquipmentFields({ ...radio.fields, "radio.modes": { state: "unknown", reason: "Digital mode capability unverified" } }, "radio");
+    const unknown = compileSelectedRoute(parseWorkbenchArchive(archive), request);
+    expect(unknown.status).toBe("compiled");
+    expect(unknown.modeledRoute.envelope).toBeNull();
+    expect(unknown.calculationLimits.some((item) => item.code === "unknown-radio-mode-capability")).toBe(true);
+    expect(unknown.metrics).toEqual(unsupported.metrics);
   });
 });

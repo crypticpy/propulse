@@ -114,7 +114,9 @@
 
 .hcr-lead {
   display: grid;
-  grid-template-columns: auto auto minmax(0, 1fr);
+  /* Facts keep at least 22vw so a wide hero/verdict (Sun countdown +
+   * SUNRISE/SUNSET) cannot squeeze the column into ellipsis (#248). */
+  grid-template-columns: auto auto minmax(22vw, 1fr);
   gap: 2.4vw;
   align-items: end;
 }
@@ -153,9 +155,9 @@
   overflow: hidden;
 }
 .hcr-facts div {
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  /* TV-distance rule (#248): wrap rather than truncate a fact value. */
+  white-space: normal;
+  overflow: visible;
 }
 .hcr-facts b {
   color: var(--hc-fg);
@@ -176,7 +178,8 @@
   display: grid;
   grid-template-columns: 1.25fr 1fr;
   gap: 2vw;
-  min-height: 0;
+  /* Flex item of `.hcr-body`: never yield height to a chart (#248). */
+  flex: 0 0 auto;
 }
 .hcr-box {
   display: flex;

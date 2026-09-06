@@ -7,5 +7,6 @@ export { compileSelectedRoute } from "@/lib/station/workbench/analysis/compile";
 export {
   analysisFixtureFactories, createCycleFixture, createEngineParityFixture, createExclusiveConflictFixture,
   createKnownInlineRunsFixture, createKnownLayersFixture, createKnownReceiveFixture, createKnownSimpleFixture,
-  createKnownSwitchFixture, createMismatchedConnectorFixture, createUnknownPortFixture, createZeroAndSignedFixture,
+  createKnownSwitchFixture, createMismatchedConnectorFixture, createPostAmpPowerRatingFixture,
+  createRadioCappedPowerRatingFixture, createUnknownPortFixture, createUnknownTunerLossFixture, createZeroAndSignedFixture,
 } from "@/lib/station/workbench/analysis/fixtures";

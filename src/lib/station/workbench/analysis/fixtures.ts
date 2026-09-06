@@ -370,7 +370,43 @@ export function createKnownLayersFixture(): WorkbenchArchive {
   antennaCatalog(archive);
   cableCatalog(archive);
   addEvidence(archive, [factoryReport, testedReport, gainMeasurement]);
+  const spareAntenna = structuredClone(revision.equipment.find((item) => item.id === "antenna")!);
+  spareAntenna.id = "spare-antenna";
+  spareAntenna.label = "Spare antenna";
+  if (spareAntenna.fields) {
+    for (const field of Object.values(spareAntenna.fields)) {
+      if (field.state === "known") field.evidenceId = "declared";
+    }
+  }
+  spareAntenna.facts = {};
+  archive.inventory.push(structuredClone(spareAntenna));
+  revision.equipment.push(spareAntenna);
   revision.settings.bandId = "20m";
+  return workbenchArchiveSchema.parse(archive);
+}
+
+export function createUnknownTunerLossFixture(): WorkbenchArchive {
+  const archive = createEngineParityFixture();
+  const filter = archive.revisions[0].equipment.find((item) => item.id === "filter")!;
+  filter.fields = {
+    "accessory.category": kt("tuner"),
+    "accessory.tunerType": kt("automatic"),
+    "accessory.maxPowerWatts": kn(200, "W"),
+  };
+  return workbenchArchiveSchema.parse(archive);
+}
+
+export function createPostAmpPowerRatingFixture(): WorkbenchArchive {
+  const archive = createEngineParityFixture();
+  const antenna = archive.revisions[0].equipment.find((item) => item.id === "antenna")!;
+  antenna.ports[0].ratings["port.maxPower"] = kn(50, "W");
+  return workbenchArchiveSchema.parse(archive);
+}
+
+export function createRadioCappedPowerRatingFixture(): WorkbenchArchive {
+  const archive = createKnownSimpleFixture();
+  const antenna = archive.revisions[0].equipment.find((item) => item.id === "antenna")!;
+  antenna.ports[0].ratings["port.maxPower"] = kn(100, "W");
   return workbenchArchiveSchema.parse(archive);
 }
 
@@ -386,5 +422,8 @@ export const analysisFixtureFactories = {
   zeroAndSigned: createZeroAndSignedFixture,
   knownInlineRuns: createKnownInlineRunsFixture,
   knownLayers: createKnownLayersFixture,
+  unknownTunerLoss: createUnknownTunerLossFixture,
+  postAmpPowerRating: createPostAmpPowerRatingFixture,
+  radioCappedPowerRating: createRadioCappedPowerRatingFixture,
   unsupportedBranch: createUnsupportedBranchFixture,
 };

@@ -3,7 +3,8 @@ import { compileSelectedRoute } from "@/lib/station/workbench/analysis/compile";
 import {
   createCycleFixture, createEngineParityFixture, createExclusiveConflictFixture, createKnownInlineRunsFixture,
   createKnownLayersFixture, createKnownReceiveFixture, createKnownSimpleFixture, createKnownSwitchFixture,
-  createMismatchedConnectorFixture, createUnknownPortFixture, createZeroAndSignedFixture,
+  createMismatchedConnectorFixture, createPostAmpPowerRatingFixture, createRadioCappedPowerRatingFixture,
+  createUnknownPortFixture, createUnknownTunerLossFixture, createZeroAndSignedFixture,
 } from "@/lib/station/workbench/analysis/fixtures";
 import { createUnsupportedBranchFixture } from "@/lib/station/workbench/fixtures";
 import { assessRevisionTopology } from "@/lib/station/workbench/revisions/inputs";
@@ -150,7 +151,8 @@ describe("compileSelectedRoute", () => {
     });
     expect(compiled.status).toBe("compiled");
     expect(compiled.topology.members.find((item) => item.instanceId === "spare-accessory")?.role).toBe("unwired-member");
-    expect(compiled.topology.chain?.shackAccessoryIds).toContain("spare-accessory");
+    expect(compiled.topology.members.find((item) => item.instanceId === "spare-antenna")?.role).toBe("unwired-member");
+    expect(compiled.topology.chain?.shackAccessoryIds).toEqual(["spare-accessory"]);
     expect(compiled.topology.chain?.nodes.some((node) => node.type === "accessory" && "accessoryId" in node && node.accessoryId === "spare-accessory")).toBe(false);
     const signals = compiled.topology.documentedLayers.map((item) => item.signal).sort();
     expect(signals).toEqual(expect.arrayContaining(["power", "audio", "control", "bonding"]));
@@ -268,5 +270,61 @@ describe("compileSelectedRoute", () => {
     const golden = deriveStationFeatureEnvelope(goldenChain(), goldenInventory(), "20m", { mode: "FT8", targetBearingDeg: 90, preferTestedSpecs: false });
     expect(forward.modeledRoute.envelope?.modeBandwidthHz).toBe(golden?.modeBandwidthHz);
     expect(forward.modeledRoute.envelope?.eirpWatts).toBeCloseTo(golden?.eirpWatts ?? NaN, 10);
+  });
+
+  it("uses modeled hop power rather than requested power for port ratings", () => {
+    const capped = compileSelectedRoute(createRadioCappedPowerRatingFixture(), {
+      revisionId: "home-r1", routeId: "main", options: { bands: ["20m"] },
+    });
+    expect(capped.status).toBe("compiled");
+    expect(capped.modeledRoute.engine?.bands[0]?.txPowerWatts).toBe(75);
+    expect(capped.compatibility.findings.some((item) => item.code === "power-rating-ok")).toBe(true);
+    const afterAmp = compileSelectedRoute(createPostAmpPowerRatingFixture(), {
+      revisionId: "home-r1", routeId: "main", options: { bands: ["20m"] },
+    });
+    expect(afterAmp.status).toBe("unsupported");
+    expect(afterAmp.modeledRoute.state).toBe("withheld");
+    expect(afterAmp.compatibility.findings.some((item) => item.code === "power-rating-exceeded")).toBe(true);
+  });
+
+  it("withholds when operating frequency or recorded frequency ratings are unknown", () => {
+    const archive = createKnownSimpleFixture();
+    archive.revisions[0].settings.frequencyHz = { state: "unknown", reason: "Operating frequency was not recorded" };
+    const unknownFrequency = compileSelectedRoute(archive, { revisionId: "home-r1", routeId: "main", options: { bands: ["20m"] } });
+    expect(unknownFrequency.status).toBe("incomplete");
+    expect(unknownFrequency.compatibility.findings.some((item) => item.code === "unknown-frequency")).toBe(true);
+    expect(unknownFrequency.modeledRoute.state).toBe("withheld");
+    const rated = createKnownSimpleFixture();
+    rated.revisions[0].equipment.find((item) => item.id === "antenna")!.ports[0].ratings["port.minFrequency"] = {
+      state: "unknown", reason: "Port frequency range was not recorded",
+    };
+    const unknownRating = compileSelectedRoute(rated, { revisionId: "home-r1", routeId: "main", options: { bands: ["20m"] } });
+    expect(unknownRating.status).toBe("incomplete");
+    expect(unknownRating.compatibility.findings.some((item) => item.code === "unknown-frequency-rating")).toBe(true);
+  });
+
+  it("requires tuner insertion loss before compiling so the engine cannot treat unknown as 0 dB", () => {
+    const compiled = compileSelectedRoute(createUnknownTunerLossFixture(), {
+      revisionId: "home-r1", routeId: "main", options: { bands: ["20m"] },
+    });
+    expect(compiled.status).toBe("incomplete");
+    expect(compiled.missingInputs.some((item) => item.code === "unknown-tuner-loss")).toBe(true);
+    expect(compiled.modeledRoute.state).toBe("withheld");
+  });
+
+  it("labels metrics with each engine result band instead of the request order", () => {
+    const compiled = compileSelectedRoute(createEngineParityFixture(), {
+      revisionId: "home-r1", routeId: "main", options: { bands: ["40m", "20m"], targetBearingDeg: 90 },
+    });
+    expect(compiled.status).toBe("compiled");
+    const golden = computeStationChainPerformance(goldenChain(), goldenInventory(), { bands: ["40m", "20m"], targetBearingDeg: 90 });
+    expect(compiled.modeledRoute.engine?.bands.map((item) => item.band)).toEqual(golden.bands.map((item) => item.band));
+    const eirp = compiled.metrics.filter((item) => item.name === "eirp");
+    expect(eirp.map((item) => item.sourceId).sort()).toEqual(["20m", "40m"]);
+    const top = golden.bands[0];
+    expect(eirp.find((item) => item.sourceId === top.band)?.quantity).toMatchObject({ state: "known", unit: "W" });
+    expect(eirp.find((item) => item.sourceId === top.band)?.quantity.state === "known"
+      ? eirp.find((item) => item.sourceId === top.band)!.quantity.value
+      : NaN).toBeCloseTo(top.eirpWatts, 10);
   });
 });

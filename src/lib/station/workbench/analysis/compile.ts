@@ -2,6 +2,9 @@
 import {
   computeStationChainPerformance,
   deriveStationFeatureEnvelope,
+  type BandChainPerformance,
+  type ChainPerformanceResult,
+  type NodePerformance,
   type StationInventory,
 } from "@/lib/station/stationChainEngine";
 import {
@@ -283,27 +286,30 @@ function ratingNumber(port: Port, key: string): number | undefined {
 }
 
 function evaluateRatings(
-  from: Port, to: Port, frequencyHz: Quantity, requestedPower: Quantity, path: (string | number)[],
+  from: Port, to: Port, frequencyHz: Quantity, path: (string | number)[],
 ): CompatibilityFinding[] {
   const findings: CompatibilityFinding[] = [];
-  const power = requestedPower.state === "known" ? requestedPower.value : undefined;
   for (const port of [from, to]) {
-    const maxPower = ratingNumber(port, "port.maxPower") ?? ratingNumber(port, "port.rfPower");
-    if (power === undefined && (port.ratings["port.maxPower"]?.state === "unknown" || port.ratings["port.rfPower"]?.state === "unknown")) {
-      findings.push(finding("unknown", "unknown-rating", `Port ${port.label} power rating is unknown`, path, { portId: port.id, instanceId: undefined }));
-    } else if (power !== undefined && maxPower !== undefined && power > maxPower) {
-      findings.push(finding("contradicted", "power-rating-exceeded", `Requested ${power} W exceeds port ${port.label} rating ${maxPower} W`, path, { portId: port.id }));
-    } else if (power !== undefined && maxPower !== undefined) {
-      findings.push(finding("compatible", "power-rating-ok", `Requested power is within port ${port.label} rating`, path, { portId: port.id }));
-    } else if (maxPower === undefined && (port.ratings["port.maxPower"] || port.ratings["port.rfPower"])) {
-      findings.push(finding("unknown", "unknown-rating", `Port ${port.label} power rating is not a known value`, path, { portId: port.id }));
+    if (port.ratings["port.maxPower"] || port.ratings["port.rfPower"]) {
+      const maxPower = ratingNumber(port, "port.maxPower") ?? ratingNumber(port, "port.rfPower");
+      if (maxPower === undefined) {
+        findings.push(finding("unknown", "unknown-rating", `Port ${port.label} power rating is not a known value`, path, { portId: port.id }));
+      }
     }
+    const minRating = port.ratings["port.minFrequency"];
+    const maxRating = port.ratings["port.maxFrequency"];
     const minHz = ratingNumber(port, "port.minFrequency");
     const maxHz = ratingNumber(port, "port.maxFrequency");
-    if (frequencyHz.state === "known") {
-      if (minHz !== undefined && frequencyHz.value < minHz) findings.push(finding("contradicted", "frequency-rating-exceeded", `Operating frequency is below port ${port.label} minimum`, path, { portId: port.id }));
-      else if (maxHz !== undefined && frequencyHz.value > maxHz) findings.push(finding("contradicted", "frequency-rating-exceeded", `Operating frequency is above port ${port.label} maximum`, path, { portId: port.id }));
-      else if (minHz !== undefined || maxHz !== undefined) findings.push(finding("compatible", "frequency-rating-ok", `Operating frequency is within port ${port.label} range`, path, { portId: port.id }));
+    if (frequencyHz.state !== "known") {
+      findings.push(finding("unknown", "unknown-frequency", `Operating frequency is unknown; port ${port.label} frequency compatibility is not established`, path, { portId: port.id }));
+    } else if ((minRating && minHz === undefined) || (maxRating && maxHz === undefined)) {
+      findings.push(finding("unknown", "unknown-frequency-rating", `Port ${port.label} frequency rating is not a known value`, path, { portId: port.id }));
+    } else if (minHz !== undefined && frequencyHz.value < minHz) {
+      findings.push(finding("contradicted", "frequency-rating-exceeded", `Operating frequency is below port ${port.label} minimum`, path, { portId: port.id }));
+    } else if (maxHz !== undefined && frequencyHz.value > maxHz) {
+      findings.push(finding("contradicted", "frequency-rating-exceeded", `Operating frequency is above port ${port.label} maximum`, path, { portId: port.id }));
+    } else if (minHz !== undefined || maxHz !== undefined) {
+      findings.push(finding("compatible", "frequency-rating-ok", `Operating frequency is within port ${port.label} range`, path, { portId: port.id }));
     }
   }
   const fromZ = ratingNumber(from, "port.impedance");
@@ -325,7 +331,7 @@ function aggregate(findings: CompatibilityFinding[]): CompatibilityVerdict {
 }
 
 function evaluateHop(
-  hop: OrientedHop, purpose: Route["purpose"], frequencyHz: Quantity, requestedPower: Quantity, revision: Revision,
+  hop: OrientedHop, purpose: Route["purpose"], frequencyHz: Quantity, revision: Revision,
 ): HopCompatibility {
   const findings: CompatibilityFinding[] = [];
   const fromPort = portAt(revision, hop.from);
@@ -352,7 +358,7 @@ function evaluateHop(
     const connector = mateConnectors(fromPort.connector, toPort.connector);
     findings.push({ ...connector, path, instanceId: hop.from.instanceId, connectionId: hop.connection?.id });
   }
-  findings.push(...evaluateRatings(fromPort, toPort, frequencyHz, requestedPower, path));
+  findings.push(...evaluateRatings(fromPort, toPort, frequencyHz, path));
   return { hopIndex: hop.hopIndex, verdict: aggregate(findings), findings };
 }
 
@@ -377,6 +383,80 @@ function exclusiveSelections(hops: OrientedHop[]): { selections: ExclusiveSelect
     });
   });
   return { selections, conflict };
+}
+
+function emissionHops(radioId: string, hops: OrientedHop[]): OrientedHop[] {
+  return hops[0] && hops[0].from.instanceId !== radioId
+    ? [...hops].reverse().map((hop) => ({ ...hop, from: hop.to, to: hop.from }))
+    : hops;
+}
+
+function chainNodePerformance(
+  chain: StationChain, band: BandChainPerformance, instanceId: string,
+): { performance: NodePerformance | undefined; inlineWithoutStage: boolean } {
+  for (let index = 0; index < chain.nodes.length; index++) {
+    const node = chain.nodes[index];
+    const performance = band.nodes[index];
+    if (!performance) continue;
+    if (node.type === "radio" && node.radioId === instanceId) return { performance, inlineWithoutStage: false };
+    if (node.type === "antenna" && node.antennaId === instanceId) return { performance, inlineWithoutStage: false };
+    if (node.type === "accessory" && node.accessoryId === instanceId) return { performance, inlineWithoutStage: false };
+    if (node.type === "feedline_run") {
+      const run = chain.feedlineRuns.find((item) => item.id === node.feedlineRunId);
+      if (run?.feedlineId === instanceId) return { performance, inlineWithoutStage: false };
+      if (run?.inlineComponentIds.includes(instanceId)) return { performance: undefined, inlineWithoutStage: true };
+    }
+  }
+  return { performance: undefined, inlineWithoutStage: false };
+}
+
+function hopPortPower(
+  hop: OrientedHop, side: "from" | "to", fromNode: NodePerformance | undefined, toNode: NodePerformance | undefined,
+): number | undefined {
+  if (hop.kind === "internal") {
+    const node = fromNode ?? toNode;
+    if (!node) return undefined;
+    return side === "from" ? node.inputPowerWatts : node.outputPowerWatts;
+  }
+  return side === "from" ? fromNode?.outputPowerWatts : toNode?.inputPowerWatts;
+}
+
+function evaluateEnginePowerRatings(
+  hops: OrientedHop[], chain: StationChain, engine: ChainPerformanceResult, revision: Revision,
+): CompatibilityFinding[] {
+  const radio = hops.flatMap((hop) => [hop.from, hop.to]).map((point) => revision.equipment.find((item) => item.id === point.instanceId)).find((item) => item?.kind === "radio");
+  if (!radio) return [];
+  const oriented = emissionHops(radio.id, hops);
+  const findings: CompatibilityFinding[] = [];
+  engine.bands.forEach((band) => {
+    oriented.forEach((hop) => {
+      const fromPort = portAt(revision, hop.from);
+      const toPort = portAt(revision, hop.to);
+      if (!fromPort || !toPort) return;
+      const fromLookup = chainNodePerformance(chain, band, hop.from.instanceId);
+      const toLookup = chainNodePerformance(chain, band, hop.to.instanceId);
+      ([["from", fromPort, fromLookup, hop.from.instanceId], ["to", toPort, toLookup, hop.to.instanceId]] as const).forEach(([side, port, lookup, instanceId]) => {
+        const maxPower = ratingNumber(port, "port.maxPower") ?? ratingNumber(port, "port.rfPower");
+        if (maxPower === undefined) return;
+        const path = ["hops", hop.hopIndex, "engine", band.band];
+        if (lookup.inlineWithoutStage) {
+          findings.push(finding("unknown", "unknown-hop-power", `stationChainEngine does not expose stage power inside a feedline run; inline port ${port.label} on ${band.band} is not compared to requested power`, path, { portId: port.id, instanceId }));
+          return;
+        }
+        const power = hopPortPower(hop, side, fromLookup.performance, toLookup.performance);
+        if (power === undefined) {
+          findings.push(finding("unknown", "unknown-hop-power", `Modeled hop power is unavailable for port ${port.label} on ${band.band}`, path, { portId: port.id, instanceId }));
+          return;
+        }
+        if (power > maxPower) {
+          findings.push(finding("contradicted", "power-rating-exceeded", `Modeled ${power} W at port ${port.label} on ${band.band} exceeds rating ${maxPower} W`, path, { portId: port.id, instanceId }));
+        } else {
+          findings.push(finding("compatible", "power-rating-ok", `Modeled hop power on ${band.band} is within port ${port.label} rating`, path, { portId: port.id, instanceId }));
+        }
+      });
+    });
+  });
+  return findings;
 }
 
 function accessoryCategory(item: Item, model: Model | undefined): AccessoryCategory | undefined {
@@ -562,8 +642,9 @@ function compileChain(
           const tunerType = knownText(hop.instance, model, "accessory.tunerType") as "manual" | "automatic" | undefined;
           const maxPowerWatts = knownNumber(hop.instance, model, "accessory.maxPowerWatts");
           if (maxPowerWatts === undefined) missing.push(finding("unknown", "unknown-tuner-power", `Tuner ${hop.instance.label} max power is unknown`, [], { instanceId: hop.instance.id }));
+          if (insertionLossDb === undefined) missing.push(finding("unknown", "unknown-tuner-loss", `Tuner ${hop.instance.label} insertion loss is unknown and will not be treated as zero`, [], { instanceId: hop.instance.id }));
           if (!tunerType) missing.push(finding("unknown", "unknown-tuner-type", `Tuner ${hop.instance.label} has no tuner type`, [], { instanceId: hop.instance.id }));
-          if (maxPowerWatts !== undefined && tunerType) {
+          if (insertionLossDb !== undefined && maxPowerWatts !== undefined && tunerType) {
             accessories.push({ id: hop.instance.id, name: hop.instance.label, category: "tuner", type: tunerType, maxPowerWatts, insertionLossDb, addedAt: hop.instance.addedAt });
             nodes.push({ type: "accessory", accessoryId: hop.instance.id });
           }
@@ -667,7 +748,10 @@ function compileChain(
     feedlineRuns,
     operatingPowerWatts: operatingPowerWatts!,
     linkedLocationId: revision.location?.id,
-    shackAccessoryIds: members.filter((member) => member.role === "unwired-member").map((member) => member.instanceId),
+    shackAccessoryIds: members
+      .filter((member) => member.role === "unwired-member")
+      .map((member) => member.instanceId)
+      .filter((id) => revision.equipment.find((item) => item.id === id)?.kind === "accessory"),
     notes: revision.notes,
     createdAt: revision.createdAt,
   };
@@ -793,9 +877,8 @@ export function compileSelectedRoute(input: unknown, request: RouteCompileReques
   if (exclusives.conflict) diagnostics.push(finding("contradicted", "exclusive-conflict", "Selected route includes more than one path from an exclusive switch group; hardware is not claimed to have switched"));
   if (walk.cycle) diagnostics.push(finding("contradicted", "cycle", "Selected route revisits an endpoint; cycles are documented and not compiled into the ordered engine"));
 
-  const hopCompat = walk.hops.map((hop) => evaluateHop(hop, route.purpose, revision.settings.frequencyHz, revision.settings.requestedPowerWatts, revision));
-  const compatFindings = hopCompat.flatMap((hop) => hop.findings);
-  const overall = hopCompat.length ? aggregate(compatFindings.concat(diagnostics)) : aggregate(diagnostics);
+  const hopCompat = walk.hops.map((hop) => evaluateHop(hop, route.purpose, revision.settings.frequencyHz, revision));
+  const overall = hopCompat.length ? aggregate(hopCompat.flatMap((hop) => hop.findings).concat(diagnostics)) : aggregate(diagnostics);
   const radio = revision.equipment.find((item) => item.kind === "radio" && walk.hops.some((hop) => hop.from.instanceId === item.id || hop.to.instanceId === item.id));
   const antenna = revision.equipment.find((item) => item.kind === "antenna" && walk.hops.some((hop) => hop.from.instanceId === item.id || hop.to.instanceId === item.id));
   const catalogReceiver = radio ? resolvePinnedReceiver(revision, radio, request.options?.preferTestedSpecs === true) : null;
@@ -822,16 +905,18 @@ export function compileSelectedRoute(input: unknown, request: RouteCompileReques
     });
   }
 
+  const latestFindings = () => [...diagnostics, ...hopCompat.flatMap((hop) => hop.findings)];
+  const latestOverall = () => hopCompat.length ? aggregate(latestFindings()) : aggregate(diagnostics);
   const withhold = (status: CompilationStatus, reasons: string[], extra: Partial<RouteCompilation> = {}) => empty(status, {
     purpose: route.purpose, structuralCandidate,
-    compatibility: { overall, hops: hopCompat, findings: [...diagnostics, ...compatFindings] },
+    compatibility: { overall: latestOverall(), hops: hopCompat, findings: latestFindings() },
     exclusiveSelections: exclusives.selections,
     topology: { chain: extra.topology?.chain ?? null, members: extra.topology?.members ?? [], cableRuns: extra.topology?.cableRuns ?? [], documentedLayers: layers },
     gearCapability: { radio: gearRadio, antenna: gearAntenna, catalogReceiver, bibliography },
     modeledRoute: { state: "withheld", reasons, engine: null, envelope: null },
     measurements, assumptions: extra.assumptions ?? [], missingInputs: extra.missingInputs ?? [],
     calculationLimits: extra.calculationLimits ?? [], integrationProposals: extra.integrationProposals ?? [],
-    diagnostics: [...diagnostics, ...compatFindings],
+    diagnostics: latestFindings(),
   });
 
   if (walk.cycle || exclusives.conflict || route.analysis.state === "documentation-only" || walk.diagnostics.some((item) => item.code === "non-rf-hop")) {
@@ -907,7 +992,24 @@ export function compileSelectedRoute(input: unknown, request: RouteCompileReques
   const envelope = receiverFill.ok
     ? deriveStationFeatureEnvelope(compiled.chain, compiled.inventory, bandId[0], { ...request.options, bands: bandId })
     : null;
-  const engineMetrics = engine.bands[0] ? metricsFromEngine(engine.bands[0], bandId[0]) : [];
+  const hopPowerFindings = evaluateEnginePowerRatings(walk.hops, compiled.chain, engine, revision);
+  hopPowerFindings.forEach((item) => {
+    const hop = hopCompat.find((entry) => entry.hopIndex === item.path[1]);
+    if (hop) {
+      hop.findings.push(item);
+      hop.verdict = aggregate(hop.findings);
+    }
+  });
+  const ratedOverall = hopCompat.length ? aggregate(hopCompat.flatMap((hop) => hop.findings).concat(diagnostics)) : overall;
+  if (ratedOverall === "contradicted" || ratedOverall === "unknown") {
+    return withhold(ratedOverall === "contradicted" ? "unsupported" : "incomplete", hopPowerFindings.filter((item) => item.verdict !== "compatible").map((item) => item.message), {
+      purpose: route.purpose, structuralCandidate,
+      topology: { chain: compiled.chain, members: compiled.members, cableRuns: compiled.cableRuns, documentedLayers: layers },
+      missingInputs: ratedOverall === "unknown" ? hopPowerFindings.filter((item) => item.verdict === "unknown") : compiled.missing,
+      calculationLimits: compiled.limits, integrationProposals: compiled.proposals,
+    });
+  }
+  const engineMetrics = engine.bands.flatMap((result) => metricsFromEngine(result, result.band));
   if (!receiverFill.ok) {
     assumptions.push("Path/time/conditions envelope withheld because catalog receiver fields are incomplete or unknown");
   }
@@ -918,7 +1020,7 @@ export function compileSelectedRoute(input: unknown, request: RouteCompileReques
     routeId: route.id,
     purpose: route.purpose,
     structuralCandidate,
-    compatibility: { overall, hops: hopCompat, findings: [...diagnostics, ...compatFindings] },
+    compatibility: { overall: ratedOverall, hops: hopCompat, findings: latestFindings() },
     exclusiveSelections: exclusives.selections,
     topology: { chain: compiled.chain, members: compiled.members, cableRuns: compiled.cableRuns, documentedLayers: layers },
     gearCapability: { radio: gearRadio, antenna: gearAntenna, catalogReceiver, bibliography },
@@ -934,6 +1036,6 @@ export function compileSelectedRoute(input: unknown, request: RouteCompileReques
     missingInputs: compiled.missing,
     calculationLimits: compiled.limits,
     integrationProposals: compiled.proposals,
-    diagnostics: [...diagnostics, ...compatFindings],
+    diagnostics: latestFindings(),
   });
 }

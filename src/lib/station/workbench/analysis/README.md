@@ -13,7 +13,7 @@ Callers must name the revision and route. The compiler never selects the first r
 
 Unknown is not zero. Known zero loss, zero transmit power and signed antenna gain are preserved. Cable-run `lengthMeters` is the only feedline length sent to the engine (`UserFeedline.lengthFeet` via 0.3048 m/ft). Inline pigtail lengths stay off that input. Unwired accessories remain members and are listed on `shackAccessoryIds` without entering RF nodes. Power, audio, control and bonding edges stay in `documentedLayers`.
 
-Compatibility verdicts are `compatible`, `contradicted` or `unknown`. A contradicted or exclusive-switch conflict is not an engine-supported estimate and does not claim that hardware switched. Missing engine-required fields produce `incomplete` plus `integrationProposals` for the coordinator; this package does not invent 1.5 SWR, 100 W, PL-259, peak catalog gain or receiver zeros.
+Compatibility verdicts are `compatible`, `contradicted` or `unknown`. A contradicted or exclusive-switch conflict is not an engine-supported estimate and does not claim that hardware switched. Port power ratings are compared to modeled hop input/output from the engine, not the revision's requested power. Missing engine-required fields produce `incomplete` plus `integrationProposals` for the coordinator; this package does not invent 1.5 SWR, 100 W, PL-259, peak catalog gain or receiver zeros.
 
 ## Engine boundary
 

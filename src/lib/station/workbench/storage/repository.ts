@@ -71,6 +71,13 @@ function immutable<T>(input: T): DeepReadonly<T> {
 }
 function damaged(message: string): never { throw new StationDatabaseError("recovery-required", message); }
 
+/** Canonical validation of stored data is corruption evidence; operational IO
+ * and cryptography failures outside this synchronous boundary are not. */
+function storedCanonicalJson(input: unknown): string {
+  try { return canonicalWorkbenchJson(input); }
+  catch (error) { return damaged(error instanceof Error ? error.message : "Stored body is not canonical JSON"); }
+}
+
 export type StationCommitReceipt = z.infer<typeof receiptSchema>;
 export type StationCommitResult =
   | { status: "committed" | "replayed"; receipt: StationCommitReceipt }
@@ -122,7 +129,7 @@ async function readState(tx: Transaction, ownerId: string, pointer: AccountPoint
     const row = versionSchema.parse(raw);
     if (row.ownerId !== ownerId || row.generationId !== generationId) damaged("Stored version scope mismatch");
     const body = bodies[row.kind].parse(row.body);
-    if (canonicalWorkbenchJson(body) !== canonicalWorkbenchJson(row.body)) damaged("Stored body is not canonical schema content");
+    if (storedCanonicalJson(body) !== storedCanonicalJson(row.body)) damaged("Stored body is not canonical schema content");
     if ((row.kind !== "operating" && (!("id" in body) || body.id !== row.id))
       || (row.kind === "operating" && row.id !== "operating")
       || (row.kind !== "model" && (!("ownerId" in body) || body.ownerId !== ownerId))
@@ -254,8 +261,12 @@ function createRepository(db: StationDatabaseHandle, hooks: StationRepositoryOpt
         // after settlement so lifecycle invalidation is not reported as corruption.
         const check = db.transaction("accountMeta", "readonly");
         await check.done;
-        if (error instanceof StationDatabaseError && error.code === "closed") throw error;
-        return immutable({ status: "recovery-required", reason: error instanceof Error ? error.message : "Stored station data cannot be read" });
+        if (error instanceof z.ZodError || (error instanceof StationDatabaseError && error.code === "recovery-required")) {
+          return immutable({ status: "recovery-required", reason: error.message });
+        }
+        // An open handle can still encounter transient transaction/request or
+        // cryptography errors. Propagate those; they do not establish corruption.
+        throw error;
       }
     },
     async commit(input: unknown): Promise<DeepReadonly<StationCommitResult>> {

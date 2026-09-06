@@ -10,11 +10,12 @@ function snapshot() {
   return { archive, heads: stationArchiveIdentities(archive).map((target) => ({ ...target, versionId: target.kind === "revision" ? target.id : `${target.kind}:${target.id}:v1`, deleted: false })) };
 }
 
-function editDraft(base: StationStateSnapshot): StationOperationDraft {
+function editDraft(base: StationStateSnapshot, location?: StationStateSnapshot["archive"]["revisions"][number]["location"]): StationOperationDraft {
   const setup = base.archive.setups[0];
   const revision = base.archive.revisions.find((item) => item.id === setup.draftRevisionId)!;
   const content = Object.fromEntries(Object.entries(revision).filter(([key]) => !["id", "ownerId", "setupId", "parentRevisionId", "createdAt", "transition"].includes(key)));
-  const proposal = prepareRevision(base.archive, { setupId: setup.id, revisionId: "next-revision", expectedHead: revision.id, createdAt: revision.createdAt, content: { ...content, notes: "Reviewed next draft" } });
+  const proposal = prepareRevision(base.archive, { setupId: setup.id, revisionId: "next-revision", expectedHead: revision.id, createdAt: revision.createdAt,
+    content: { ...content, notes: "Reviewed next draft", ...(location === undefined ? {} : { location }) } });
   return {
     schemaVersion: 1, operationId: "save-next", ownerId: base.archive.ownerId, generationId: "generation", createdAt: revision.createdAt,
     expectedHeads: [
@@ -31,6 +32,62 @@ function editDraft(base: StationStateSnapshot): StationOperationDraft {
 }
 
 describe("station transaction state validation", () => {
+  it.each(["home-to-other", "home-to-null", "null-to-home"] as const)("rejects %s setup relocation without a matching new draft", async (change) => {
+    const base = snapshot();
+    const other = { ...structuredClone(base.archive.locations[0]), id: "other-location", label: "Other location" };
+    base.archive.locations.push(other);
+    base.heads.push({ kind: "location", id: other.id, versionId: "other-v1", deleted: false });
+    if (change === "null-to-home") {
+      base.archive.setups[0].locationId = null;
+      base.archive.revisions[0].location = null;
+    }
+    const before = structuredClone(base);
+    const draft = editDraft(base);
+    draft.records = draft.records.filter((record) => record.kind === "setup");
+    draft.nextHeads = draft.nextHeads.filter((head) => head.kind === "setup");
+    draft.expectedHeads = draft.expectedHeads.filter((head) => head.kind === "setup");
+    const setup = draft.records[0];
+    if (setup.kind !== "setup") throw new Error("Missing fixture setup");
+    setup.body.draftRevisionId = base.archive.setups[0].draftRevisionId;
+    setup.body.locationId = change === "home-to-null" ? null : change === "null-to-home" ? base.archive.locations[0].id : other.id;
+    const operation = await prepareStationOperation(draft);
+    expect(() => evaluateStationChange(base, operation)).toThrow(/location must match.*pinned location/i);
+    expect(base).toEqual(before);
+  });
+  it.each(["home-to-other", "home-to-null", "null-to-home"] as const)("accepts W03 %s relocation through a new pinned draft", async (change) => {
+    const base = snapshot();
+    const other = { ...structuredClone(base.archive.locations[0]), id: "other-location", label: "Other location" };
+    base.archive.locations.push(other);
+    base.heads.push({ kind: "location", id: other.id, versionId: "other-v1", deleted: false });
+    if (change === "null-to-home") {
+      base.archive.setups[0].locationId = null;
+      base.archive.revisions[0].location = null;
+    }
+    const destination = change === "home-to-null" ? null : change === "null-to-home" ? base.archive.locations[0] : other;
+    const before = structuredClone(base);
+    const result = evaluateStationChange(base, await prepareStationOperation(editDraft(base, destination)));
+    expect(result.status).toBe("ready");
+    if (result.status !== "ready") return;
+    expect(result.archive.setups[0].locationId).toBe(destination?.id ?? null);
+    expect(result.archive.revisions.find((revision) => revision.id === "next-revision")?.location).toEqual(destination);
+    expect(result.archive.revisions.find((revision) => revision.id === before.archive.revisions[0].id)).toEqual(before.archive.revisions[0]);
+    expect(result.archive.operating).toEqual(before.archive.operating);
+    expect(base).toEqual(before);
+  });
+  it("allows setup metadata edits when both setup and pinned draft locations are null", async () => {
+    const base = snapshot();
+    base.archive.setups[0].locationId = null;
+    base.archive.revisions[0].location = null;
+    const draft = editDraft(base);
+    draft.records = draft.records.filter((record) => record.kind === "setup");
+    draft.nextHeads = draft.nextHeads.filter((head) => head.kind === "setup");
+    draft.expectedHeads = draft.expectedHeads.filter((head) => head.kind === "setup");
+    const setup = draft.records[0];
+    if (setup.kind !== "setup") throw new Error("Missing fixture setup");
+    setup.body.draftRevisionId = base.archive.setups[0].draftRevisionId;
+    setup.body.name = "Renamed unlocated setup";
+    expect(evaluateStationChange(base, await prepareStationOperation(draft)).status).toBe("ready");
+  });
   it("appends a W03 draft while preserving reviewed pins and detached history", async () => {
     const base = snapshot();
     const before = structuredClone(base);

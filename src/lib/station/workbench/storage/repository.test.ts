@@ -172,11 +172,16 @@ describe("internal station repository atomic saves", () => {
     const original = await rename(archive, "stale-invalid");
     const { payloadDigest: _digest, ...unsigned } = original;
     void _digest;
+    const equipment = archive.inventory[0];
+    // Model availability needs an aggregate context. Keep the setup's W03
+    // draft/location invariant intact while exercising an unvalidated reference.
     const operation = await prepareStationOperation({ ...unsigned,
-      records: unsigned.records.map((record) => record.kind === "setup" ? { ...record, body: { ...record.body, locationId: "missing-location" } } : record),
+      expectedHeads: [...unsigned.expectedHeads, { kind: "equipment", id: equipment.id, versionId: initial("equipment", equipment.id) }],
+      records: [...unsigned.records, { kind: "equipment", id: equipment.id, versionId: "invalid-model-v2", body: { ...equipment, modelId: "missing-model" } }],
+      nextHeads: [...unsigned.nextHeads, { kind: "equipment", id: equipment.id, versionId: "invalid-model-v2" }],
     });
     const initialCounts = await counts(db);
-    await expect(repo.commit(operation)).rejects.toThrow();
+    await expect(repo.commit(operation)).rejects.toThrow(/Missing model/);
     expect(await counts(db)).toEqual(initialCounts);
     await repo.commit(await rename(archive));
     const before = await snapshot(repo);
@@ -190,6 +195,7 @@ describe("internal station repository atomic saves", () => {
     const conflict = await tx.objectStore("conflicts").get([FIXTURE_OWNER, generationId, operation.operationId]);
     expect(conflict?.details).toMatchObject({ operation, candidateValidation: validation });
     expect(await tx.objectStore("recordVersions").get([FIXTURE_OWNER, generationId, "setup", archive.setups[0].id, "stale-invalid"])).toBeUndefined();
+    expect(await tx.objectStore("recordVersions").get([FIXTURE_OWNER, generationId, "equipment", equipment.id, "invalid-model-v2"])).toBeUndefined();
     await tx.done;
     repo.close();
     const reopened = await repository(factory);
@@ -589,6 +595,44 @@ describe("internal station repository atomic saves", () => {
     await expect(pending).rejects.toMatchObject({ code: "closed" });
     expect((await (await repository(factory)).readSnapshot()).status).toBe("ready");
   });
+  it.each(["UnknownError", "AbortError", "SecurityError"])("propagates operational readonly %s without diagnosing corruption", async (name) => {
+    const factory = new IDBFactory();
+    const db = await database(factory);
+    await seed(db);
+    const repo = await repository(factory);
+    const before = await counts(db);
+    const failure = new DOMException("Transient read failure", name);
+    const read = vi.spyOn(IDBObjectStore.prototype, "get").mockImplementationOnce(() => { throw failure; });
+    await expect(repo.readSnapshot()).rejects.toBe(failure);
+    read.mockRestore();
+    expect(await counts(db)).toEqual(before);
+    expect((await repo.readSnapshot()).status).toBe("ready");
+  });
+  it("propagates a real readonly transaction abort while keeping the handle usable", async () => {
+    const factory = new IDBFactory();
+    const db = await database(factory);
+    await seed(db);
+    const repo = await repository(factory);
+    const original = IDBObjectStore.prototype.get;
+    const read = vi.spyOn(IDBObjectStore.prototype, "get").mockImplementationOnce(function (this: IDBObjectStore, query) {
+      const request = original.call(this, query);
+      this.transaction.abort();
+      return request;
+    });
+    await expect(repo.readSnapshot()).rejects.toMatchObject({ name: "AbortError" });
+    read.mockRestore();
+    expect((await repo.readSnapshot()).status).toBe("ready");
+  });
+  it.each(["DOMException", "TypeError"])("propagates operational cryptography %s instead of reporting healthy data as corrupt", async (kind) => {
+    const factory = new IDBFactory();
+    await seed(await database(factory));
+    const repo = await repository(factory);
+    const failure = kind === "DOMException" ? new DOMException("Crypto unavailable", "OperationError") : new TypeError("Crypto unavailable");
+    const hash = vi.spyOn(crypto.subtle, "digest").mockRejectedValueOnce(failure);
+    await expect(repo.readSnapshot()).rejects.toBe(failure);
+    hash.mockRestore();
+    expect((await repo.readSnapshot()).status).toBe("ready");
+  });
   it.each(["unknown-kind", "padded-token", "nonboolean-tombstone", "unsafe-sequence", "future-generation"])("fails closed on persisted %s metadata", async (failure) => {
     const factory = new IDBFactory();
     const db = await database(factory);
@@ -610,7 +654,7 @@ describe("internal station repository atomic saves", () => {
     await expect(repo.commit(await rename(archive))).rejects.toThrow();
     expect(await counts(db)).toEqual(before);
   });
-  it.each(["missing-version", "invalid-body", "digest-mismatch"])("returns recovery-required for %s without repairing or dropping stored data", async (failure) => {
+  it.each(["missing-version", "invalid-body", "noncanonical-body", "digest-mismatch"])("returns recovery-required for %s without repairing or dropping stored data", async (failure) => {
     const factory = new IDBFactory();
     const db = await database(factory);
     const archive = await seed(db);
@@ -618,7 +662,9 @@ describe("internal station repository atomic saves", () => {
     const tx = db.transaction("recordVersions", "readwrite");
     const row = (await tx.store.get(tuple))!;
     if (failure === "missing-version") await tx.store.delete(tuple);
-    else await tx.store.put({ ...row, body: failure === "invalid-body" ? { malformed: true } : { ...archive.setups[0], name: "Tampered but schema-valid" } });
+    else await tx.store.put({ ...row, body: failure === "invalid-body" ? { malformed: true }
+      : failure === "noncanonical-body" ? { ...archive.setups[0], unexpectedDate: new Date(FIXTURE_DATE) }
+        : { ...archive.setups[0], name: "Tampered but schema-valid" } });
     await tx.done;
     const before = await counts(db);
     expect((await (await repository(factory)).readSnapshot()).status).toBe("recovery-required");

@@ -108,6 +108,14 @@ export function evaluateStationChange(snapshot: StationStateSnapshot, operationI
       && !revisions.some((revision) => revision.id === setup.body.draftRevisionId && revision.body.setupId === setup.id)) {
       throw new TypeError("Changing a draft requires a newly appended revision, not a historical head rewind");
     }
+    // W03 derives the setup location from its draft's pinned location. Renaming
+    // or otherwise editing setup metadata cannot independently relocate it.
+    const draft = revisions.find((revision) => revision.id === setup.body.draftRevisionId)?.body
+      ?? archive.revisions.find((revision) => revision.id === setup.body.draftRevisionId);
+    if (!draft || draft.setupId !== setup.id) throw new TypeError("Setup draft must reference its own retained or proposed revision");
+    if (setup.body.locationId !== (draft.location?.id ?? null)) {
+      throw new TypeError("Setup location must match its draft revision's pinned location");
+    }
   }
   const candidateValidation = { status: "quarantined", reason: "historical-validation-context-unavailable" } as const;
   const actualHeads = operation.expectedHeads.map((expected) => ({

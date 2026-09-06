@@ -408,9 +408,13 @@ export function MapTab({ onClose }: { onClose?: () => void } = {}) {
           <div className="hcc-row-text">
             <span className="hcc-row-label">Observatory</span>
             <span className="hcc-row-detail">
-              {observatoryMode
-                ? "Auto-rotating, zoom only"
-                : "Lean-back auto-rotate; zoom only"}
+{viewMode === "globe"
+  ? observatoryMode
+    ? "Auto-rotating, zoom only"
+    : "Lean-back auto-rotate; zoom only"
+  : observatoryMode
+    ? "Full-map overview"
+    : "Lean-back full-map overview"}
             </span>
           </div>
           <HamClockButton

@@ -9,7 +9,7 @@
  * refactoring it.
  */
 
-import { beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { DEFAULT_QSO_FORM } from "@/types/qso";
 import { DEFAULT_UI_INTERACTION } from "@/types/user";
 import type { DXSpot } from "@/types/dxcluster";
@@ -138,6 +138,9 @@ describe("aetherCompletedQso fixture (future Aether digital adapter)", () => {
 });
 
 describe("webSdrClick fixture (future Web SDR click-to-work adapter)", () => {
+  const initialRig = useRigStore.getState();
+  const initialSettings = useSettingsStore.getState();
+  afterEach(() => { useRigStore.setState(initialRig); useSettingsStore.setState(initialSettings); });
   const webSdrClick = spot();
 
   beforeEach(() => {
@@ -188,7 +191,9 @@ describe("webSdrClick fixture (future Web SDR click-to-work adapter)", () => {
     expect(useRigStore.getState().pendingFrequency).toBeNull();
   });
 
-  it("stages CAT via tune when click-to-tune is on", () => {
+  it("stages CAT via tune when click-to-tune is on and the rig is ready", () => {
+    useRigStore.setState({ catEnabled: true, bridgeConnected: true, connected: true });
+    useSettingsStore.setState({ bridgeEnabled: true });
     useSettingsStore.setState({
       uiInteraction: { ...DEFAULT_UI_INTERACTION, spotClickTunesRadio: true },
     });

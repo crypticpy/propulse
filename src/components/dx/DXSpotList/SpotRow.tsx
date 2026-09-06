@@ -18,6 +18,7 @@ import {
   getSplitTooltip,
 } from "@/lib/utils/spotParser";
 import { SpotBadge } from "../SpotBadge";
+import { TuneButton } from "@/components/radio/TuneButton";
 import { useRigStore } from "@/stores/rigStore";
 import type { SpotRowProps } from "./types";
 import {
@@ -67,36 +68,7 @@ function AgeProgressBar({ minutesAgo }: { minutesAgo: number }) {
   );
 }
 
-/**
- * Map a DX spot mode string to the rig operating mode.
- * Digital modes use USB, SSB depends on frequency, others pass through.
- */
-function mapSpotModeToRigMode(
-  mode: string | undefined,
-  frequencyKHz: number,
-): string {
-  const upper = (mode || "").toUpperCase();
-  switch (upper) {
-    case "FT8":
-    case "FT4":
-    case "JT65":
-    case "JT9":
-    case "PSK31":
-    case "RTTY":
-      return "USB"; // Digital modes use USB
-    case "CW":
-      return "CW";
-    case "SSB":
-      // LSB below 10 MHz, USB at/above 10 MHz
-      return frequencyKHz < 10000 ? "LSB" : "USB";
-    case "AM":
-      return "AM";
-    case "FM":
-      return "FM";
-    default:
-      return "USB";
-  }
-}
+
 
 /**
  * Individual spot row component with worked status and alert indicators
@@ -229,18 +201,6 @@ export const SpotRow = memo(function SpotRow({
 
   // Rig store for tune action
   const catEnabled = useRigStore((s) => s.catEnabled);
-  const setPendingFrequency = useRigStore((s) => s.setPendingFrequency);
-  const setPendingMode = useRigStore((s) => s.setPendingMode);
-
-  const handleTune = useCallback(
-    (e: React.MouseEvent) => {
-      e.stopPropagation();
-      setPendingFrequency(spot.frequency * 1000); // kHz → Hz
-      setPendingMode(mapSpotModeToRigMode(spot.mode, spot.frequency));
-    },
-    [spot.frequency, spot.mode, setPendingFrequency, setPendingMode],
-  );
-
   // Check if this band is the active filter
   const isBandActive = activeBandFilter === spot.band;
 
@@ -580,29 +540,6 @@ export const SpotRow = memo(function SpotRow({
             <span className="px-0.5 text-[9px] font-bold leading-none">L</span>
           </button>
         )}
-        {/* Tune (radio) - only when CAT is enabled */}
-        {catEnabled && (
-          <button
-            onClick={handleTune}
-            className="p-0.5 rounded text-gray-400 hover:text-green-400 hover:bg-green-500/10 transition-colors"
-            title={`Tune to ${(spot.frequency / 1000).toFixed(3)} MHz`}
-            aria-label={`Tune to ${spot.frequency} kHz`}
-          >
-            <svg
-              className="w-3.5 h-3.5"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={1.5}
-                d="M9.348 14.652a3.75 3.75 0 010-5.304m5.304 0a3.75 3.75 0 010 5.304m-7.425 2.121a6.75 6.75 0 010-9.546m9.546 0a6.75 6.75 0 010 9.546M5.106 18.894c-3.808-3.807-3.808-9.98 0-13.788m13.788 0c3.808 3.807 3.808 9.98 0 13.788M12 12h.008v.008H12V12zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z"
-              />
-            </svg>
-          </button>
-        )}
         {/* Target (crosshair) */}
         <button
           onClick={handleSetTarget}
@@ -674,6 +611,11 @@ export const SpotRow = memo(function SpotRow({
           </svg>
         </button>
       </div>
+      {catEnabled && (
+        <div className="col-span-full flex justify-end">
+          <TuneButton frequencyKHz={spot.frequency} mode={spot.mode} />
+        </div>
+      )}
     </div>
   );
 }, spotRowPropsAreEqual);

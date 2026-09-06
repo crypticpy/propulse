@@ -8,13 +8,13 @@
  * - Color-coded by priority (red = new DXCC, orange = rare, blue = standard)
  * - Auto-dismiss after 8 seconds
  * - Stacking: up to 3 visible, older fade out
- * - Click to tune: sets rig frequency via rigStore
+ * - Explicit tune button stages frequency and mode when the rig is ready
  */
 
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import { createPortal } from "react-dom";
 import type { AlertMatch } from "@/lib/alerts/alertEngine";
-import { useRigStore } from "@/stores/rigStore";
+import { TuneButton } from "@/components/radio/TuneButton";
 
 // ─── Constants ──────────────────────────────────────────────────────────────
 
@@ -101,7 +101,6 @@ const SpotAlertToastItem: React.FC<SpotAlertToastItemProps> = ({
   const [isExiting, setIsExiting] = useState(false);
   const [isEntered, setIsEntered] = useState(false);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const setPendingFrequency = useRigStore((s) => s.setPendingFrequency);
 
   const priority = getAlertPriority(match);
   const colors = PRIORITY_COLORS[priority];
@@ -141,16 +140,6 @@ const SpotAlertToastItem: React.FC<SpotAlertToastItemProps> = ({
     }, AUTO_DISMISS_MS);
   }, [onDismiss]);
 
-  // Click to tune
-  const handleClick = useCallback(
-    (e: React.MouseEvent) => {
-      if ((e.target as HTMLElement).closest("button")) return;
-      // Convert kHz to Hz for rig store
-      setPendingFrequency(spot.frequency * 1000);
-    },
-    [spot.frequency, setPendingFrequency],
-  );
-
   // Manual dismiss
   const handleDismiss = useCallback(
     (e: React.MouseEvent) => {
@@ -165,13 +154,12 @@ const SpotAlertToastItem: React.FC<SpotAlertToastItemProps> = ({
 
   return (
     <div
-      onClick={handleClick}
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
       role="alert"
       aria-live="polite"
       className={`
-        w-80 cursor-pointer
+        w-80
         ${colors.bg} backdrop-blur-md
         border ${colors.border} border-l-4 rounded-lg
         shadow-lg shadow-black/40
@@ -243,9 +231,8 @@ const SpotAlertToastItem: React.FC<SpotAlertToastItemProps> = ({
           </button>
         </div>
 
-        {/* Tune hint */}
-        <div className="mt-1.5 text-[10px] text-gray-500 font-mono">
-          Click to tune rig
+        <div className="mt-1.5">
+          <TuneButton frequencyKHz={spot.frequency} mode={spot.mode} />
         </div>
       </div>
 

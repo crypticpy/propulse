@@ -135,8 +135,11 @@ export function mapSpotModeToRigMode(
     case "PSK31":
     case "RTTY":
       return "USB";
+    case "LSB":
+    case "USB":
     case "CW":
-      return "CW";
+    case "CWR":
+      return (mode || "").toUpperCase();
     case "SSB":
       return frequencyKHz < 10000 ? "LSB" : "USB";
     case "AM":

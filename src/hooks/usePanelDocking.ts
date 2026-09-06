@@ -107,6 +107,7 @@ function getDockedPosition(
 
 export function usePanelDocking(
   panelRects: Record<string, PanelRect>,
+  minTop = 0,
 ): UsePanelDockingReturn {
   const [activeSnapTarget, setActiveSnapTarget] = useState<SnapTarget | null>(
     null,
@@ -132,7 +133,7 @@ export function usePanelDocking(
       const { dockGroups, removePanelFromDockGroup } = useMapStore.getState();
 
       let snappedX = x;
-      let snappedY = y;
+      let snappedY = Math.max(minTop, y);
       let newSnapTarget: SnapTarget | null = null;
       let newSnapInfo: PanelSnapInfo | null = null;
 
@@ -173,7 +174,10 @@ export function usePanelDocking(
 
         // Check: dragging panel snaps BELOW other panel
         // (dragging panel's top meets other panel's bottom)
-        if (Math.abs(draggingTop - otherBottom) < PANEL_SNAP_THRESHOLD) {
+        if (
+          otherBottom >= minTop &&
+          Math.abs(draggingTop - otherBottom) < PANEL_SNAP_THRESHOLD
+        ) {
           snappedX = otherRect.x; // Align horizontally with target
           snappedY = otherBottom;
           newSnapTarget = { edge: "top", position: otherBottom };
@@ -183,7 +187,10 @@ export function usePanelDocking(
 
         // Check: dragging panel snaps ABOVE other panel
         // (dragging panel's bottom meets other panel's top)
-        if (Math.abs(draggingBottom - otherTop) < PANEL_SNAP_THRESHOLD) {
+        if (
+          otherTop - height >= minTop &&
+          Math.abs(draggingBottom - otherTop) < PANEL_SNAP_THRESHOLD
+        ) {
           snappedX = otherRect.x; // Align horizontally with target
           snappedY = otherTop - height;
           newSnapTarget = { edge: "bottom", position: otherTop };
@@ -212,13 +219,13 @@ export function usePanelDocking(
         }
 
         // Top edge
-        if (y < EDGE_SNAP_THRESHOLD) {
-          snappedY = 0;
-          newSnapTarget = { edge: "top", position: 0 };
+        if (y < minTop + EDGE_SNAP_THRESHOLD) {
+          snappedY = minTop;
+          newSnapTarget = { edge: "top", position: minTop };
         }
         // Bottom edge
         else if (y + height > viewportHeight - EDGE_SNAP_THRESHOLD) {
-          snappedY = viewportHeight - height;
+          snappedY = Math.max(minTop, viewportHeight - height);
           newSnapTarget = { edge: "bottom", position: viewportHeight };
         }
       }
@@ -243,7 +250,7 @@ export function usePanelDocking(
 
       return { x: snappedX, y: snappedY };
     },
-    [panelRects],
+    [panelRects, minTop],
   );
 
   // ── onDragEnd ─────────────────────────────────────────────────────────────
@@ -273,14 +280,14 @@ export function usePanelDocking(
 
       if (!currentSnapInfo) {
         // No panel-to-panel snap active -- just persist position as-is
-        updateProPanelLayout(panelId, { x, y, width, height });
+        updateProPanelLayout(panelId, { x, y: Math.max(minTop, y), width, height });
         return;
       }
 
       const { targetPanelId, side } = currentSnapInfo;
       const targetRect = panelRects[targetPanelId];
       if (!targetRect) {
-        updateProPanelLayout(panelId, { x, y, width, height });
+        updateProPanelLayout(panelId, { x, y: Math.max(minTop, y), width, height });
         return;
       }
 
@@ -342,12 +349,12 @@ export function usePanelDocking(
 
       updateProPanelLayout(panelId, {
         x: sharedX,
-        y: finalY,
+        y: Math.max(minTop, finalY),
         width: sharedWidth,
         height,
       });
     },
-    [panelRects],
+    [panelRects, minTop],
   );
 
   // ── onGroupWidthResize ────────────────────────────────────────────────────

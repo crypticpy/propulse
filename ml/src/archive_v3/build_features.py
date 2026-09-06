@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import math
 import shutil
+import sys
 import time
 from datetime import datetime, timezone
 from pathlib import Path
@@ -12,12 +13,29 @@ from pathlib import Path
 import duckdb
 import polars as pl
 
-from common import (
+LIVE_FEATURES = Path(__file__).resolve().parents[1] / "propagation_live"
+sys.path.insert(0, str(LIVE_FEATURES))
+from opportunity_transform import materialize_field_recency_cells  # noqa: E402
+
+from common import (  # noqa: E402
     PROCESSED,
     configure_duckdb,
     ensure_directories,
     load_config,
     opportunity_path,
+)
+
+
+FEATURE_CONTRACT = "archive-v4-features-v2"
+RECENCY_LAG_HOURS = (1, 2, 3, 24)
+FIELD_RECENCY_COLUMNS = tuple(
+    column
+    for lag in RECENCY_LAG_HOURS
+    for column in (
+        f"path_success_prev{lag}",
+        f"path_recency_rate_prev{lag}",
+        f"path_prev{lag}_available",
+    )
 )
 
 
@@ -71,6 +89,130 @@ def split_sql(config: dict) -> str:
            WHEN {test_condition} THEN 'test'
            ELSE 'excluded' END
     """
+
+
+def recency_lag_select_sql() -> str:
+    """Field-grain network-recency lag columns served under the v2 contract."""
+    return ",\n".join(
+        f"""            coalesce(r{lag}.recency_quantile, 0) AS path_success_prev{lag},
+            coalesce(r{lag}.recency_rate, 0) AS path_recency_rate_prev{lag},
+            (r{lag}.hour_utc IS NOT NULL)::UTINYINT AS path_prev{lag}_available"""
+        for lag in RECENCY_LAG_HOURS
+    )
+
+
+def recency_lag_join_sql() -> str:
+    return "\n".join(
+        f"""          LEFT JOIN field_recency r{lag}
+            ON r{lag}.hour_utc=g.target_hour-INTERVAL {lag} HOUR
+            AND r{lag}.band=g.band AND r{lag}.tx_field=substr(g.tx_grid4,1,2)
+            AND r{lag}.rx_field=substr(g.rx_grid4,1,2)"""
+        for lag in RECENCY_LAG_HOURS
+    )
+
+
+def write_feature_base(
+    con: duckdb.DuckDBPyConnection,
+    *,
+    source: Path,
+    weather: Path,
+    base: Path,
+    split: str,
+) -> None:
+    """Write one month's leakage-controlled base feature parquet."""
+    con.execute(
+        f"""
+    CREATE OR REPLACE TEMP VIEW month_opportunities AS
+    SELECT * FROM read_parquet('{source}', hive_partitioning=false);
+
+    CREATE OR REPLACE TEMP TABLE path_hour AS
+    SELECT target_hour, band, tx_grid4, rx_grid4,
+           sum(successes) AS successes, sum(opportunities) AS opportunities,
+           sum(successes) / sum(opportunities) AS success_rate,
+           max(any_success) AS any_success
+    FROM month_opportunities GROUP BY 1, 2, 3, 4;
+        """
+    )
+    # Field-grain recency is built from the same single-month relation as
+    # path_hour, so like the grid4 lags it does NOT see the previous
+    # month's last hours: lags at the first 1/2/3/24 hours of a month are
+    # unavailable (0) for both feature families.
+    materialize_field_recency_cells(
+        con,
+        source_relation="month_opportunities",
+        destination_relation="field_recency",
+    )
+    con.execute(
+        f"""
+    COPY (
+      WITH coords AS (
+        SELECT o.*,
+          (ascii(substr(tx_grid4, 1, 1)) - 65) * 20 - 180
+            + cast(substr(tx_grid4, 3, 1) AS INTEGER) * 2 + 1.0 AS tx_lon,
+          (ascii(substr(tx_grid4, 2, 1)) - 65) * 10 - 90
+            + cast(substr(tx_grid4, 4, 1) AS INTEGER) + 0.5 AS tx_lat,
+          (ascii(substr(rx_grid4, 1, 1)) - 65) * 20 - 180
+            + cast(substr(rx_grid4, 3, 1) AS INTEGER) * 2 + 1.0 AS rx_lon,
+          (ascii(substr(rx_grid4, 2, 1)) - 65) * 10 - 90
+            + cast(substr(rx_grid4, 4, 1) AS INTEGER) + 0.5 AS rx_lat
+        FROM read_parquet('{source}', hive_partitioning=false) o
+      ), radians AS (
+        SELECT *, radians(tx_lat) la1, radians(tx_lon) lo1,
+               radians(rx_lat) la2, radians(rx_lon) lo2
+        FROM coords
+      ), geometry AS (
+        SELECT *, lo2-lo1 AS dlon,
+          acos(greatest(-1.0, least(1.0,
+            sin(la1)*sin(la2)+cos(la1)*cos(la2)*cos(lo2-lo1)))) AS central,
+          atan2(sin(la1)+sin(la2), sqrt(pow(cos(la1)+cos(la2)*cos(lo2-lo1),2)
+            + pow(cos(la2)*sin(lo2-lo1),2))) AS mid_lat_rad,
+          lo1 + atan2(cos(la2)*sin(lo2-lo1), cos(la1)+cos(la2)*cos(lo2-lo1))
+            AS mid_lon_rad,
+          atan2(sin(lo2-lo1)*cos(la2), cos(la1)*sin(la2)
+            - sin(la1)*cos(la2)*cos(lo2-lo1)) AS bearing
+        FROM radians
+      )
+      SELECT g.* EXCLUDE (la1,lo1,la2,lo2,dlon,central,mid_lat_rad,mid_lon_rad,bearing),
+        degrees(mid_lat_rad) AS mid_lat, degrees(mid_lon_rad) AS mid_lon,
+        central*6371.0 AS dist_km,
+        sin(bearing) AS bearing_sin, cos(bearing) AS bearing_cos,
+        sin(la1) AS tx_lat_sin, cos(la1) AS tx_lat_cos,
+        sin(lo1) AS tx_lon_sin, cos(lo1) AS tx_lon_cos,
+        sin(la2) AS rx_lat_sin, cos(la2) AS rx_lat_cos,
+        sin(mid_lat_rad) AS mid_lat_sin, cos(mid_lat_rad) AS mid_lat_cos,
+        CASE g.band
+          WHEN '160m' THEN 1.9 WHEN '80m' THEN 3.6 WHEN '60m' THEN 5.35
+          WHEN '40m' THEN 7.1 WHEN '30m' THEN 10.12 WHEN '20m' THEN 14.1
+          WHEN '17m' THEN 18.1 WHEN '15m' THEN 21.1 WHEN '12m' THEN 24.9
+          WHEN '10m' THEN 28.1 WHEN '6m' THEN 50.3 END AS band_mhz,
+        coalesce(p1.success_rate,0) AS wspr_path_success_prev1,
+        coalesce(p2.success_rate,0) AS wspr_path_success_prev2,
+        coalesce(p3.success_rate,0) AS wspr_path_success_prev3,
+        coalesce(p24.success_rate,0) AS wspr_path_success_prev24,
+        (p1.target_hour IS NOT NULL)::UTINYINT AS wspr_path_prev1_available,
+        (p2.target_hour IS NOT NULL)::UTINYINT AS wspr_path_prev2_available,
+        (p3.target_hour IS NOT NULL)::UTINYINT AS wspr_path_prev3_available,
+        (p24.target_hour IS NOT NULL)::UTINYINT AS wspr_path_prev24_available,
+        sw.available_at AS weather_available_at,
+        sw.* EXCLUDE (observed_hour, available_at),
+        {split} AS split,
+{recency_lag_select_sql()}
+      FROM geometry g
+      LEFT JOIN path_hour p1 ON p1.target_hour=g.target_hour-INTERVAL 1 HOUR
+        AND p1.band=g.band AND p1.tx_grid4=g.tx_grid4 AND p1.rx_grid4=g.rx_grid4
+      LEFT JOIN path_hour p2 ON p2.target_hour=g.target_hour-INTERVAL 2 HOUR
+        AND p2.band=g.band AND p2.tx_grid4=g.tx_grid4 AND p2.rx_grid4=g.rx_grid4
+      LEFT JOIN path_hour p3 ON p3.target_hour=g.target_hour-INTERVAL 3 HOUR
+        AND p3.band=g.band AND p3.tx_grid4=g.tx_grid4 AND p3.rx_grid4=g.rx_grid4
+      LEFT JOIN path_hour p24 ON p24.target_hour=g.target_hour-INTERVAL 24 HOUR
+        AND p24.band=g.band AND p24.tx_grid4=g.tx_grid4 AND p24.rx_grid4=g.rx_grid4
+{recency_lag_join_sql()}
+      LEFT JOIN read_parquet('{weather}') sw
+        ON sw.available_at=g.target_hour
+      WHERE ({split}) <> 'excluded'
+    ) TO '{base}' (FORMAT PARQUET, COMPRESSION ZSTD, ROW_GROUP_SIZE 250000);
+        """
+    )
 
 
 def add_polars_features(source: Path | list[Path], destination: Path, task: str) -> None:
@@ -251,81 +393,8 @@ def main() -> None:
         if base.exists():
             base.unlink()
         print(f"build feature base {month} {args.task}", flush=True)
-        con.execute(
-            f"""
-        CREATE OR REPLACE TEMP TABLE path_hour AS
-        SELECT target_hour, band, tx_grid4, rx_grid4,
-               sum(successes) AS successes, sum(opportunities) AS opportunities,
-               sum(successes) / sum(opportunities) AS success_rate,
-               max(any_success) AS any_success
-        FROM read_parquet('{source}', hive_partitioning=false) GROUP BY 1, 2, 3, 4;
-
-        COPY (
-          WITH coords AS (
-            SELECT o.*,
-              (ascii(substr(tx_grid4, 1, 1)) - 65) * 20 - 180
-                + cast(substr(tx_grid4, 3, 1) AS INTEGER) * 2 + 1.0 AS tx_lon,
-              (ascii(substr(tx_grid4, 2, 1)) - 65) * 10 - 90
-                + cast(substr(tx_grid4, 4, 1) AS INTEGER) + 0.5 AS tx_lat,
-              (ascii(substr(rx_grid4, 1, 1)) - 65) * 20 - 180
-                + cast(substr(rx_grid4, 3, 1) AS INTEGER) * 2 + 1.0 AS rx_lon,
-              (ascii(substr(rx_grid4, 2, 1)) - 65) * 10 - 90
-                + cast(substr(rx_grid4, 4, 1) AS INTEGER) + 0.5 AS rx_lat
-            FROM read_parquet('{source}', hive_partitioning=false) o
-          ), radians AS (
-            SELECT *, radians(tx_lat) la1, radians(tx_lon) lo1,
-                   radians(rx_lat) la2, radians(rx_lon) lo2
-            FROM coords
-          ), geometry AS (
-            SELECT *, lo2-lo1 AS dlon,
-              acos(greatest(-1.0, least(1.0,
-                sin(la1)*sin(la2)+cos(la1)*cos(la2)*cos(lo2-lo1)))) AS central,
-              atan2(sin(la1)+sin(la2), sqrt(pow(cos(la1)+cos(la2)*cos(lo2-lo1),2)
-                + pow(cos(la2)*sin(lo2-lo1),2))) AS mid_lat_rad,
-              lo1 + atan2(cos(la2)*sin(lo2-lo1), cos(la1)+cos(la2)*cos(lo2-lo1))
-                AS mid_lon_rad,
-              atan2(sin(lo2-lo1)*cos(la2), cos(la1)*sin(la2)
-                - sin(la1)*cos(la2)*cos(lo2-lo1)) AS bearing
-            FROM radians
-          )
-          SELECT g.* EXCLUDE (la1,lo1,la2,lo2,dlon,central,mid_lat_rad,mid_lon_rad,bearing),
-            degrees(mid_lat_rad) AS mid_lat, degrees(mid_lon_rad) AS mid_lon,
-            central*6371.0 AS dist_km,
-            sin(bearing) AS bearing_sin, cos(bearing) AS bearing_cos,
-            sin(la1) AS tx_lat_sin, cos(la1) AS tx_lat_cos,
-            sin(lo1) AS tx_lon_sin, cos(lo1) AS tx_lon_cos,
-            sin(la2) AS rx_lat_sin, cos(la2) AS rx_lat_cos,
-            sin(mid_lat_rad) AS mid_lat_sin, cos(mid_lat_rad) AS mid_lat_cos,
-            CASE g.band
-              WHEN '160m' THEN 1.9 WHEN '80m' THEN 3.6 WHEN '60m' THEN 5.35
-              WHEN '40m' THEN 7.1 WHEN '30m' THEN 10.12 WHEN '20m' THEN 14.1
-              WHEN '17m' THEN 18.1 WHEN '15m' THEN 21.1 WHEN '12m' THEN 24.9
-              WHEN '10m' THEN 28.1 WHEN '6m' THEN 50.3 END AS band_mhz,
-            coalesce(p1.success_rate,0) AS path_success_prev1,
-            coalesce(p2.success_rate,0) AS path_success_prev2,
-            coalesce(p3.success_rate,0) AS path_success_prev3,
-            coalesce(p24.success_rate,0) AS path_success_prev24,
-            (p1.target_hour IS NOT NULL)::UTINYINT AS path_prev1_available,
-            (p2.target_hour IS NOT NULL)::UTINYINT AS path_prev2_available,
-            (p3.target_hour IS NOT NULL)::UTINYINT AS path_prev3_available,
-            (p24.target_hour IS NOT NULL)::UTINYINT AS path_prev24_available,
-            sw.available_at AS weather_available_at,
-            sw.* EXCLUDE (observed_hour, available_at),
-            {split} AS split
-          FROM geometry g
-          LEFT JOIN path_hour p1 ON p1.target_hour=g.target_hour-INTERVAL 1 HOUR
-            AND p1.band=g.band AND p1.tx_grid4=g.tx_grid4 AND p1.rx_grid4=g.rx_grid4
-          LEFT JOIN path_hour p2 ON p2.target_hour=g.target_hour-INTERVAL 2 HOUR
-            AND p2.band=g.band AND p2.tx_grid4=g.tx_grid4 AND p2.rx_grid4=g.rx_grid4
-          LEFT JOIN path_hour p3 ON p3.target_hour=g.target_hour-INTERVAL 3 HOUR
-            AND p3.band=g.band AND p3.tx_grid4=g.tx_grid4 AND p3.rx_grid4=g.rx_grid4
-          LEFT JOIN path_hour p24 ON p24.target_hour=g.target_hour-INTERVAL 24 HOUR
-            AND p24.band=g.band AND p24.tx_grid4=g.tx_grid4 AND p24.rx_grid4=g.rx_grid4
-          LEFT JOIN read_parquet('{weather}') sw
-            ON sw.available_at=g.target_hour
-          WHERE ({split}) <> 'excluded'
-        ) TO '{base}' (FORMAT PARQUET, COMPRESSION ZSTD, ROW_GROUP_SIZE 250000);
-            """
+        write_feature_base(
+            con, source=source, weather=weather, base=base, split=split
         )
         month_stats = con.execute(
             f"""
@@ -370,6 +439,12 @@ def main() -> None:
         raise RuntimeError(
             f"feature handoff invariant failed: base={base_stats}, output={output_audit}"
         )
+    output_columns = set(pl.scan_parquet(output_glob).collect_schema().names())
+    missing_columns = [
+        column for column in FIELD_RECENCY_COLUMNS if column not in output_columns
+    ]
+    if missing_columns:
+        raise RuntimeError(f"{FEATURE_CONTRACT} columns missing: {missing_columns}")
     for base in bases:
         base.unlink()
     stats = pl.scan_parquet(output_glob).group_by("split").agg(
@@ -377,6 +452,7 @@ def main() -> None:
         pl.col("opportunities").sum().alias("weighted_opportunities"),
         pl.col("successes").sum().alias("weighted_successes"),
     ).collect()
+    (output / "_CONTRACT").write_text(f"{FEATURE_CONTRACT}\n", encoding="ascii")
     (output / "_SUCCESS").write_text("complete\n", encoding="ascii")
     print(stats)
     print(f"{output} built in {time.time()-started:.1f}s")

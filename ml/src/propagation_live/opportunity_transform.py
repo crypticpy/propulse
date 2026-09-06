@@ -9,6 +9,8 @@ import duckdb
 
 
 TRANSFORM_VERSION = "wspr-opportunity-duckdb-v1"
+FIELD_RECENCY_TRANSFORM_VERSION = "wspr-field-recency-v2"
+FIELD_RECENCY_GRAIN = "maidenhead_field"
 RECEIVER_SAMPLES_PER_TX_SLOT = 4
 SUPPORTED_DUCKDB_MAJOR_MINOR = (1, 5)
 _IDENTIFIER = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
@@ -157,6 +159,70 @@ def materialize_path_hour_cells(
     )
 
 
+def materialize_field_recency_cells(
+    connection: duckdb.DuckDBPyConnection,
+    *,
+    source_relation: str = "opportunity_cells",
+    destination_relation: str = "field_recency_cells",
+) -> None:
+    """Materialize the field-grain network-recency statistic from opportunity cells.
+
+    Mirrors ``compute_path_recency_hourly`` in
+    ``supabase/migrations/20260906210000_path_recency_v2.sql`` with WSPR
+    positives standing in for live spots, so the offline lag features match
+    the served ``path_recency_hourly`` rows:
+
+    * ``heard``: one row per (hour, band, tx_field, rx_field) that had any
+      positive opportunity row; rows exist only for heard pairs.
+    * ``exposure``: distinct tx fields heard by ``rx_field`` in that hour/band.
+    * ``recency_rate = 1.0 / exposure``.
+    * ``recency_quantile``: ``percent_rank()`` of ``recency_rate`` over the
+      hour/band's heard pairs (ties share a value; a lone pair scores 0).
+
+    Known divergences from production (``psk-rbn-field-recency-v2``):
+
+    * Opportunity cells exclude ``tx_grid4 = rx_grid4`` pairs, so same-field
+      pairs whose grid4 squares coincide are absent here, whereas production
+      counts same-field pairs.
+    * ``spots`` here counts positive opportunity rows (distinct
+      slot/tx/rx/power combinations), not raw spot counts.
+    * The WSPR archive is single-mode, so the production ``digital_*``
+      counterparts would equal the totals and are not emitted.
+    """
+    source = checked_identifier(source_relation)
+    destination = checked_identifier(destination_relation)
+    connection.execute(
+        f"""
+        CREATE OR REPLACE TEMP TABLE {destination} AS
+        WITH heard AS (
+          SELECT target_hour AS hour_utc, band,
+                 substr(tx_grid4, 1, 2) AS tx_field,
+                 substr(rx_grid4, 1, 2) AS rx_field,
+                 sum(positive_rows)::BIGINT AS spots
+          FROM {source}
+          WHERE positive_rows > 0
+          GROUP BY ALL
+        ), exposure AS (
+          SELECT hour_utc, band, rx_field,
+                 count(*)::INTEGER AS exposure,
+                 sum(spots)::BIGINT AS rx_spots
+          FROM heard
+          GROUP BY ALL
+        )
+        SELECT h.hour_utc, h.band, h.tx_field, h.rx_field,
+               1::UTINYINT AS heard,
+               e.exposure,
+               1.0::DOUBLE / e.exposure AS recency_rate,
+               h.spots, e.rx_spots,
+               percent_rank() OVER (
+                 PARTITION BY h.band, h.hour_utc ORDER BY 1.0::DOUBLE / e.exposure
+               ) AS recency_quantile
+        FROM heard h
+        JOIN exposure e USING (hour_utc, band, rx_field);
+        """
+    )
+
+
 def transform_metadata(receiver_samples: int) -> dict[str, str | int]:
     return {
         "transform_version": TRANSFORM_VERSION,
@@ -164,4 +230,6 @@ def transform_metadata(receiver_samples: int) -> dict[str, str | int]:
         "hash_engine": "duckdb_hash",
         "lag_aggregation": "sum_across_power_bins",
         "receiver_samples_per_tx_slot": int(receiver_samples),
+        "field_recency_transform_version": FIELD_RECENCY_TRANSFORM_VERSION,
+        "field_recency_grain": FIELD_RECENCY_GRAIN,
     }

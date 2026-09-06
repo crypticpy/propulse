@@ -1,0 +1,104 @@
+{
+  "run_id": "propagation_v4_multiyear_50m_v2",
+  "archive_namespace": "archive_v4",
+  "execution_scope": "development",
+  "core_feature_contract": "archive-v4-features-v2",
+  "parent_run_id": "propagation_v4_multiyear_50m",
+  "space_weather_run_id": "propagation_v4_multiyear_50m",
+  "seed": 20260712,
+  "months": [
+    "2018-01",
+    "2018-04",
+    "2018-07",
+    "2018-10",
+    "2019-01",
+    "2019-04",
+    "2019-07",
+    "2019-10",
+    "2020-01",
+    "2020-04",
+    "2020-07",
+    "2020-10",
+    "2021-01",
+    "2021-04",
+    "2021-07",
+    "2021-10",
+    "2022-01",
+    "2022-04",
+    "2022-07",
+    "2022-10",
+    "2023-01",
+    "2023-04",
+    "2023-07",
+    "2023-10",
+    "2024-01",
+    "2024-04",
+    "2024-07",
+    "2024-10"
+  ],
+  "train": {
+    "months": [
+      "2018-01",
+      "2018-04",
+      "2018-07",
+      "2018-10",
+      "2019-01",
+      "2019-04",
+      "2019-07",
+      "2019-10",
+      "2020-01",
+      "2020-04",
+      "2020-07",
+      "2020-10",
+      "2021-01",
+      "2021-04",
+      "2021-07",
+      "2021-10",
+      "2022-01",
+      "2022-04",
+      "2022-07",
+      "2022-10",
+      "2023-01",
+      "2023-04",
+      "2023-07",
+      "2023-10"
+    ]
+  },
+  "validation": {
+    "months": [
+      "2024-01",
+      "2024-04",
+      "2024-07",
+      "2024-10"
+    ]
+  },
+  "test": {
+    "months": []
+  },
+  "validation_protocol": {
+    "early_stopping_months": [
+      "2024-01",
+      "2024-07"
+    ],
+    "calibration_months": [
+      "2024-04"
+    ],
+    "gate_months": [
+      "2024-10"
+    ]
+  },
+  "negative_receivers_per_tx_slot": 4,
+  "gates": {
+    "max_exposure_weight_error_fraction": 0.03
+  },
+  "compute": {
+    "primary_machine": "Apple M5 Max 128 GB",
+    "data_root": "/Volumes/Projects/PropulseML/data",
+    "model_root": "/Volumes/Projects/PropulseML/models",
+    "external_memory": true,
+    "gpu_approved": false,
+    "duckdb_threads": 14,
+    "duckdb_memory_limit": "80GB",
+    "temp_root": "/Volumes/Projects/PropulseML/tmp"
+  }
+}

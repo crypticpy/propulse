@@ -1,0 +1,40 @@
+{
+  "run_id": "propagation_v4_1_calibration_recovery_v2",
+  "archive_namespace": "archive_v4_1",
+  "execution_scope": "calibration-development",
+  "core_feature_contract": "archive-v4-features-v2",
+  "parent_run_id": "propagation_v4_1_calibration_recovery",
+  "space_weather_run_id": "propagation_v4_1_calibration_recovery",
+  "seed": 20260712,
+  "months": [
+    "2024-02",
+    "2024-05",
+    "2024-08"
+  ],
+  "train": {
+    "months": []
+  },
+  "validation": {
+    "months": [
+      "2024-02",
+      "2024-05",
+      "2024-08"
+    ]
+  },
+  "test": {
+    "months": []
+  },
+  "negative_receivers_per_tx_slot": 4,
+  "compute": {
+    "required_profile": "m5",
+    "primary_machine": "Apple M5 Max 128 GB",
+    "data_root": "/Volumes/Projects/PropulseML/data",
+    "model_root": "/Volumes/Projects/PropulseML/models",
+    "temp_root": "/Volumes/Projects/PropulseML/tmp",
+    "duckdb_threads": 14,
+    "duckdb_memory_limit": "80GB",
+    "maximum_process_rss_gb": 96,
+    "minimum_free_gb_before_acquisition": 400,
+    "minimum_free_gb_before_gate": 150
+  }
+}

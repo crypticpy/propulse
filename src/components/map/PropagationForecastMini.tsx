@@ -362,9 +362,9 @@ export function PropagationForecastMini({
         return [{ band, prediction, probability }];
       });
 
-  // Which engine actually served the NowCast chips. Recomputed from the band
-  // lists rather than assumed, because the model falls back to physics per
-  // band whenever its live spot history goes stale.
+  // Which profile actually served the NowCast chips. Recomputed from the band
+  // lists rather than assumed, because the model serves its physics-trained
+  // profile per band whenever recent path history is unavailable.
   const nowCastSource = useMemo(
     () => describeNowCastSource(modelNowCast, displayBands),
     [modelNowCast, displayBands],
@@ -1100,9 +1100,10 @@ export function PropagationForecastMini({
             >
               NowCast
             </span>
-            {/* Which engine actually answered. The model falls back to physics
-                per band when its live inputs go stale, so this can disagree
-                with the "NowCast" label beside it — that is the point. */}
+            {/* Which profile actually answered. The model serves its
+                physics-trained profile per band when recent path history is
+                unavailable, so this can disagree with the "NowCast" label
+                beside it — that is the point. */}
             <ModelSourceBadge
               source={nowCastSource}
               className="flex-shrink-0"
@@ -1111,7 +1112,7 @@ export function PropagationForecastMini({
               <div
                 key={band}
                 className="font-mono px-1.5 py-0.5 rounded border border-white/10 bg-white/[0.06] flex items-center gap-1 flex-shrink-0 cursor-help"
-                title={`NOWCAST MODEL — ${band}\nProfile: ${prediction.profile === "physics" ? "Physics fallback (live WSPR history stale)" : "NowCast ML (live WSPR history)"}\nPath (WSPR): ${(prediction.core_probability * 100).toFixed(1)}%${
+                title={`NOWCAST MODEL — ${band}\nProfile: ${prediction.profile === "physics" ? "Physics profile (recent path history unavailable)" : "NowCast ML (recent path history)"}\nPath (WSPR): ${(prediction.core_probability * 100).toFixed(1)}%${
                   modelNowCast.personalized
                     ? `\nYour ${activeMode}: ${(prediction.personalized_probability * 100).toFixed(1)}%`
                     : ""

@@ -31,9 +31,9 @@ describe("ReachMap surface contract", () => {
     ]);
   });
 
-  it("never labels physics fallback as NowCast", () => {
+  it("never labels the physics profile as NowCast", () => {
     expect(reachMapProfileLabel("nowcast")).toBe("NowCast");
-    expect(reachMapProfileLabel("physics")).toBe("Physics fallback");
+    expect(reachMapProfileLabel("physics")).toBe("Physics profile");
     expect(reachMapProfileLabel(null)).toBe("Pending");
   });
 

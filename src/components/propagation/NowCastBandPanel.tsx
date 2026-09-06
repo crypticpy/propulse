@@ -25,11 +25,12 @@ const PATH_PROBABILITY_TITLE =
   "right now — the model's native measurement of whether the path is open.";
 
 const NOWCAST_CHIP_TITLE =
-  "Served by the ML model using live WSPR path history for this route.";
+  "NowCast model with recent path history (live network features) for this route.";
 
 const PHYSICS_CHIP_TITLE =
-  "Live WSPR path history is stale or unavailable, so this band is served by " +
-  "the physics-trained fallback model at reduced confidence.";
+  "The NowCast model's physics-trained profile: a learned model on path geometry, sun and " +
+  "solar-wind features, served without recent path history because that feed is unavailable. " +
+  "These are model predictions at reduced confidence, not the client physics engine.";
 
 function probabilityTone(probability: number): string {
   if (probability >= 0.5) return "text-signal-green";
@@ -156,7 +157,9 @@ export function NowCastBandPanel({
                         : NOWCAST_CHIP_TITLE
                     }
                   >
-                    {prediction.profile === "physics" ? "Physics" : "NowCast"}
+                    {prediction.profile === "physics"
+                      ? "Physics profile"
+                      : "NowCast"}
                   </span>
                 </div>
 
@@ -260,7 +263,10 @@ export function NowCastBandPanel({
           {pathAge && <span>Path data {pathAge}</span>}
           {weatherAge && <span>Space weather {weatherAge}</span>}
           {state.fallbackBands.length > 0 && (
-            <span>{state.fallbackBands.length} physics fallback band{state.fallbackBands.length === 1 ? "" : "s"}</span>
+            <span>
+              {state.fallbackBands.length} physics profile band
+              {state.fallbackBands.length === 1 ? "" : "s"}
+            </span>
           )}
           {firstPrediction.top_factors.length > 0 && (
             <span title="Predictive context, not causal effects">

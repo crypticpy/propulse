@@ -37,19 +37,20 @@ describe("describeNowCastSource", () => {
     expect(source.label).toMatch(/NowCast/);
   });
 
-  it("flags a full fallback as degraded, not as a model prediction", () => {
-    // The whole reason this module exists: every band silently fell back to
-    // the physics engine, but the surrounding UI still says "NowCast".
+  it("flags an all-physics-profile answer as degraded, not full ML", () => {
+    // The whole reason this module exists: every band silently came back on
+    // the model's physics profile, but the surrounding UI still says "NowCast".
     const source = describeNowCastSource(
       provenance({ fallbackBands: ["20m", "40m"] }),
     );
     expect(source.tone).toBe("degraded");
-    expect(source.label).toBe("Physics fallback");
+    expect(source.label).toBe("Physics profile");
   });
 
-  it("does not claim a full fallback when some bands simply failed", () => {
-    // One band answered with physics, one errored outright. Saying "every band
-    // fell back to physics" would hide the band that produced nothing at all.
+  it("does not claim a full physics-profile answer when some bands simply failed", () => {
+    // One band answered with the physics profile, one errored outright. Saying
+    // "every band used the physics profile" would hide the band that produced
+    // nothing at all.
     const source = describeNowCastSource(
       provenance({
         fallbackBands: ["20m"],
@@ -82,7 +83,7 @@ describe("describeNowCastSource", () => {
       }),
     );
     expect(source.label).toBe("NowCast · partial");
-    expect(source.detail).toContain("1 band fell back to physics");
+    expect(source.detail).toContain("1 band served by the physics profile");
     expect(source.detail).toContain("1 band returned no prediction");
   });
 
@@ -111,7 +112,7 @@ describe("describeNowCastSource", () => {
     );
     expect(source.tone).toBe("degraded");
     expect(source.label).toBe("NowCast · partial");
-    expect(source.detail).toContain("1 band fell back to physics");
+    expect(source.detail).toContain("1 band served by the physics profile");
     expect(source.detail).toContain("2 bands ran on stale inputs");
   });
 
@@ -144,7 +145,7 @@ describe("describeNowCastSource", () => {
       ["20m", "40m"],
     );
     expect(source.label).toBe("NowCast · partial");
-    expect(source.detail).toContain("1 band fell back to physics");
+    expect(source.detail).toContain("1 band served by the physics profile");
   });
 
   it("always produces a non-empty label and detail", () => {

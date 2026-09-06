@@ -5,13 +5,14 @@ import type { PropagationPrediction } from "./modelClient";
  *
  * The service returns stable machine identifiers for telemetry and tests. They
  * are intentionally preserved on the wire, but exposing underscore-delimited
- * identifiers in operator UI made a normal physics fallback look like a model
- * crash. Keep the technical contract separate from its concise explanation.
+ * identifiers in operator UI made the model's physics profile look like a
+ * model crash. Keep the technical contract separate from its concise
+ * explanation.
  */
 const FLAG_LABELS: Record<string, string> = {
   missing_features: "Some model inputs are unavailable",
   recent_network_stale_physics_fallback:
-    "Recent WSPR path history is stale; physics fallback is active",
+    "Recent path history is unavailable; served by the physics profile",
 };
 
 export function predictionIssueLabels(

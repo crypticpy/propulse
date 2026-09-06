@@ -51,6 +51,7 @@ export function useActivationSpots(enabled = true): UseActivationSpotsResult {
       POTA: spots.filter((spot) => spot.program === "POTA"),
       SOTA: spots.filter((spot) => spot.program === "SOTA"),
       WWFF: spots.filter((spot) => spot.program === "WWFF"),
+      WWBOTA: spots.filter((spot) => spot.program === "WWBOTA"),
     }),
     [spots],
   );

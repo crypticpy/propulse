@@ -111,7 +111,7 @@ export const internalPathSchema = z.object({
 /** Private recovery envelope, never a public projection field. JSON values are retained verbatim. */
 export const legacyRecordSchema = z.object({
   kind: z.enum(["radio", "radio-model", "antenna", "feedline", "feedline-run", "inline", "accessory", "chain", "preset", "profile", "location", "workbench"]),
-  sourceId: id, sourceVersion: z.number().int().nonnegative(), payload: jsonObject,
+  sourceId: id, sourceVersion: z.number().int().nonnegative().safe(), payload: jsonObject,
 }).strict();
 
 export const equipmentModelSchema = z.object({
@@ -227,7 +227,7 @@ export const operatingSelectionSchema = z.object({
 
 /** Output contract only. W05 must authorize audience and media before constructing this value. */
 export const publishedProfileSchema = z.object({
-  id, ownerId: id, publicationVersion: z.number().int().positive(),
+  id, ownerId: id, publicationVersion: z.number().int().positive().safe(),
   audience: z.enum(["owner", "visitor", "friend"]), displayName: id, biography: z.string(),
   featuredSetup: z.object({ title: id, equipmentLabels: z.array(id), description: z.string() }).strict().nullable(),
   regionLabel: z.string().nullable(), publicMediaIds: z.array(id),
@@ -237,7 +237,7 @@ export const publishedProfileSchema = z.object({
 /** Private reviewed source lineage. Public DTOs deliberately omit working setup/revision IDs. */
 export const publicationSourceSchema = z.object({
   id, ownerId: id, setupId: id, revisionId: id, audience: z.enum(["owner", "visitor", "friend"]),
-  publicationVersion: z.number().int().positive(), reviewedAt: instant,
+  publicationVersion: z.number().int().positive().safe(), reviewedAt: instant,
 }).strict();
 
 const archiveObjectSchema = z.object({

@@ -197,11 +197,35 @@ describe("station transaction state validation", () => {
     const draft = editDraft(base);
     draft.expectedHeads = [{ kind: "setup", id: proposal.setup.id, versionId: kind === "restore" ? base.heads.find((head) => head.kind === "setup" && head.id === source.setupId)!.versionId : null },
       { kind: "revision", id: proposal.revision.id, versionId: null }];
+    if (kind === "clone") draft.expectedHeads.push({ kind: "setup", id: source.setupId,
+      versionId: base.heads.find((head) => head.kind === "setup" && head.id === source.setupId)!.versionId });
     draft.records = [{ kind: "setup", id: proposal.setup.id, versionId: "setup-v2", body: structuredClone(proposal.setup) },
       { kind: "revision", id: proposal.revision.id, versionId: proposal.revision.id, body: structuredClone(proposal.revision) }] as StationOperationDraft["records"];
     draft.nextHeads = draft.records.map(({ kind, id, versionId }) => ({ kind, id, versionId }));
     draft.setupDraftPreconditions = [structuredClone(proposal.expectedHead)];
     expect(evaluateStationChange(base, await prepareStationOperation(draft)).status).toBe("ready");
+    if (kind === "clone") {
+      const missingDependency = structuredClone(draft);
+      missingDependency.expectedHeads = missingDependency.expectedHeads.filter((head) => head.kind !== "setup" || head.id !== source.setupId);
+      const missingOperation = await prepareStationOperation(missingDependency);
+      expect(() => evaluateStationChange(base, missingOperation)).toThrow(/source setup head dependency/);
+      const absentDependency = structuredClone(draft);
+      absentDependency.expectedHeads.find((head) => head.kind === "setup" && head.id === source.setupId)!.versionId = null;
+      const absentOperation = await prepareStationOperation(absentDependency);
+      expect(() => evaluateStationChange(base, absentOperation)).toThrow(/source setup head dependency/);
+
+      const staleOperation = await prepareStationOperation(draft);
+      const concurrent = structuredClone(base);
+      concurrent.archive.setups.find((setup) => setup.id === source.setupId)!.legacy.push({
+        kind: "workbench", sourceId: "source-setup-metadata", sourceVersion: 1, payload: { notes: "Later metadata", retainedZero: 0 },
+      });
+      concurrent.heads.find((head) => head.kind === "setup" && head.id === source.setupId)!.versionId = "source-metadata-v2";
+      const before = structuredClone(concurrent);
+      expect(evaluateStationChange(concurrent, staleOperation)).toMatchObject({ status: "conflict",
+        candidateValidation: { status: "quarantined", reason: "historical-validation-context-unavailable" } });
+      expect(concurrent).toEqual(before);
+      expect(staleOperation.records.find((record) => record.kind === "setup")?.body).toEqual(proposal.setup);
+    }
     const revision = draft.records.find((record) => record.kind === "revision")!;
     if (revision.kind === "revision") revision.body.equipment[0].label = "Not the historical gear";
     const forged = await prepareStationOperation(draft);

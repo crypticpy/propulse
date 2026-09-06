@@ -80,6 +80,33 @@ describe("pure generation staging", () => {
     expect(await verifyStationGeneration(candidate)).toEqual(candidate);
   });
 
+  it.each(["model", "inventory", "location", "setup", "pinned-model", "pinned-location", "pinned-equipment", "publication"])("rejects unsafe archived %s version identities before sealing", async (target) => {
+    const draft = synthetic();
+    const legacy = [{ kind: "workbench" as const, sourceId: "source", sourceVersion: Number.MAX_SAFE_INTEGER + 1, payload: {} }];
+    if (target === "model") draft.archive.models[0].legacy = legacy;
+    if (target === "inventory") draft.archive.inventory[0].legacy = legacy;
+    if (target === "location") draft.archive.locations[0].legacy = legacy;
+    if (target === "setup") draft.archive.setups[0].legacy = legacy;
+    if (target === "pinned-model") draft.archive.revisions[0].models[0].legacy = legacy;
+    if (target === "pinned-location") draft.archive.revisions[0].location!.legacy = legacy;
+    if (target === "pinned-equipment") draft.archive.revisions[0].equipment[0].legacy = legacy;
+    if (target === "publication") {
+      draft.archive.publications = [{ id: "unsafe-source", ownerId: FIXTURE_OWNER, setupId: "home-hf", revisionId: "home-r1", audience: "owner", publicationVersion: Number.MAX_SAFE_INTEGER + 1, reviewedAt: FIXTURE_DATE }];
+      draft.manifest.recordVersions.push({ kind: "publication-source", id: "unsafe-source", versionId: "source-v1" });
+    }
+    await expect(prepareStationGeneration(draft)).rejects.toThrow("9007199254740991");
+  });
+
+  it("preserves safe archived source and publication version boundaries", async () => {
+    const archive = createHfFixture();
+    archive.inventory[0].legacy = [{ kind: "workbench", sourceId: "source", sourceVersion: Number.MAX_SAFE_INTEGER, payload: {} }];
+    archive.publications = [{ id: "safe-source", ownerId: FIXTURE_OWNER, setupId: "home-hf", revisionId: "home-r1", audience: "owner", publicationVersion: Number.MAX_SAFE_INTEGER, reviewedAt: FIXTURE_DATE }];
+    const candidate = await prepareStationGeneration(synthetic(archive));
+    expect(candidate.archive.inventory[0].legacy[0].sourceVersion).toBe(Number.MAX_SAFE_INTEGER);
+    expect(candidate.archive.publications[0].publicationVersion).toBe(Number.MAX_SAFE_INTEGER);
+    expect(await verifyStationGeneration(candidate)).toEqual(candidate);
+  });
+
   it("rejects a nonempty archive under a new-empty label even with complete version coverage", () => {
     const draft = synthetic();
     draft.manifest.kind = "new-empty";

@@ -489,7 +489,96 @@ describe("internal station repository atomic saves", () => {
     await tx.done;
     const before = await counts(db);
     await expect(repo.commit(await rename(archive, "dependent", original.operationId))).rejects.toThrow(/digest/i);
+    await expect(repo.listOutbox({ generationId, limit: 10 })).rejects.toThrow(/digest/i);
     expect(await counts(db)).toEqual(before);
+  });
+  it.each(["missing-receipt", "different-signed-operation", "outbox-sequence", "receipt-head", "ledger-digest"])("rejects outbox %s corruption before returning queue entries", async (failure) => {
+    const factory = new IDBFactory();
+    const db = await database(factory);
+    const archive = await seed(db);
+    const repo = await repository(factory);
+    const operation = await rename(archive);
+    await repo.commit(operation);
+    const alternative = await rename(archive, operation.operationId, initial("setup", archive.setups[0].id), operation.operationId, "Different valid signed body");
+    const tx = db.transaction(["outbox", "operations"], "readwrite");
+    const queue = (await tx.objectStore("outbox").get([FIXTURE_OWNER, operation.operationId]))!;
+    const ledger = (await tx.objectStore("operations").get([FIXTURE_OWNER, operation.operationId]))!;
+    if (failure === "different-signed-operation") queue.operation = alternative;
+    if (failure === "outbox-sequence") queue.localSequence = 7;
+    if (failure === "receipt-head") (ledger.result as { committedHeads: { versionId: string }[] }).committedHeads[0].versionId = "wrong-head";
+    if (failure === "ledger-digest") ledger.payloadDigest = "0".repeat(64);
+    await tx.objectStore("outbox").put(queue);
+    if (failure === "missing-receipt") await tx.objectStore("operations").delete([FIXTURE_OWNER, operation.operationId]);
+    else await tx.objectStore("operations").put(ledger);
+    await tx.done;
+    const before = await counts(db);
+    await expect(repo.listOutbox({ generationId, limit: 10 })).rejects.toThrow();
+    expect(await counts(db)).toEqual(before);
+  });
+  it.each(["ledger", "receipt"])("rejects changing an originally unavailable conflict base into a tombstone in the %s", async (target) => {
+    const factory = new IDBFactory();
+    const db = await database(factory);
+    const archive = await seed(db);
+    const repo = await repository(factory);
+    const operation = await rename(archive, "future-conflict", "future-version", "candidate-version");
+    const result = await repo.commit(operation);
+    expect(result).toMatchObject({ status: "conflict", expectedBases: [{ versionId: "future-version", availability: "unavailable" }] });
+    const tx = db.transaction(["conflicts", "operations"], "readwrite");
+    if (target === "ledger") {
+      const row = (await tx.objectStore("conflicts").get([FIXTURE_OWNER, generationId, operation.operationId]))!;
+      (row.details as { expectedBases: { availability: string }[] }).expectedBases[0].availability = "tombstone";
+      await tx.objectStore("conflicts").put(row);
+    } else {
+      const row = (await tx.objectStore("operations").get([FIXTURE_OWNER, operation.operationId]))!;
+      (row.result as { expectedBases: { availability: string }[] }).expectedBases[0].availability = "tombstone";
+      await tx.objectStore("operations").put(row);
+    }
+    await tx.done;
+    await expect(repo.commit(operation)).rejects.toThrow("Conflict receipt binding");
+    await expect(repo.listOutbox({ generationId, limit: 10 })).rejects.toThrow("Conflict receipt binding");
+  });
+  it("rejects changing a captured tombstone conflict base into unavailable", async () => {
+    const factory = new IDBFactory();
+    const db = await database(factory);
+    const archive = createExperimentFixture();
+    const spare = { ...structuredClone(archive.inventory[2]), id: "unwired-spare" };
+    archive.inventory.push(spare);
+    await seed(db, archive);
+    const repo = await repository(factory);
+    const versionId = initial("equipment", spare.id);
+    await repo.commit(await prepareStationOperation({ ...base("delete-spare"),
+      expectedHeads: [{ kind: "equipment", id: spare.id, versionId }],
+      tombstones: [{ kind: "equipment", id: spare.id, versionId: "spare-tombstone", expectedVersionId: versionId }],
+    }));
+    const stale = await prepareStationOperation({ ...base("stale-spare"),
+      expectedHeads: [{ kind: "equipment", id: spare.id, versionId }],
+      records: [{ kind: "equipment", id: spare.id, versionId: "spare-candidate", body: spare }],
+      nextHeads: [{ kind: "equipment", id: spare.id, versionId: "spare-candidate" }],
+    });
+    expect(await repo.commit(stale)).toMatchObject({ status: "conflict", actualBases: [{ availability: "tombstone" }] });
+    const tx = db.transaction("conflicts", "readwrite");
+    const row = (await tx.store.get([FIXTURE_OWNER, generationId, stale.operationId]))!;
+    (row.details as { actualBases: { availability: string }[] }).actualBases[0].availability = "unavailable";
+    await tx.store.put(row);
+    await tx.done;
+    await expect(repo.commit(stale)).rejects.toThrow("Conflict receipt binding");
+  });
+  it("replays the original unavailable observation after that version legitimately appears and the generation changes", async () => {
+    const factory = new IDBFactory();
+    const db = await database(factory);
+    const archive = await seed(db);
+    const repo = await repository(factory);
+    const operation = await rename(archive, "future-conflict", "future-version", "candidate-version");
+    const original = await repo.commit(operation);
+    expect(original).toMatchObject({ status: "conflict", expectedBases: [{ availability: "unavailable" }] });
+    await repo.commit(await rename(archive, "real-future-write", initial("setup", archive.setups[0].id), "future-version"));
+    expect((await snapshot(repo)).heads.find((head) => head.kind === "setup")?.versionId).toBe("future-version");
+    repo.close();
+    const reopened = await repository(factory);
+    expect(await reopened.commit(operation)).toEqual(original);
+    expect((await reopened.listOutbox({ generationId, limit: 10 }))[0].operation).toEqual(operation);
+    await seed(db, archive, "next-generation");
+    expect(await reopened.commit(operation)).toEqual(original);
   });
   it("propagates close during a pending snapshot without diagnosing healthy storage as damaged", async () => {
     const factory = new IDBFactory();

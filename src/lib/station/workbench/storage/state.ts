@@ -93,6 +93,13 @@ export function evaluateStationChange(snapshot: StationStateSnapshot, operationI
       if (!source || (transition.kind === "restore" ? source.setupId !== revision.body.setupId : source.setupId === revision.body.setupId)) {
         throw new TypeError("Historical transition source has invalid retained lineage");
       }
+      // W03 clone copies the source setup's mutable legacy metadata as well as
+      // immutable revision pins. Bind that read before CAS, so later metadata
+      // changes quarantine the proposal instead of invalidating historical replay.
+      if (transition.kind === "clone" && !operation.expectedHeads.some((expected) =>
+        expected.kind === "setup" && expected.id === source.setupId && expected.versionId !== null)) {
+        throw new TypeError("Clone requires an explicit existing source setup head dependency");
+      }
     }
   }
   for (const setup of setups) {

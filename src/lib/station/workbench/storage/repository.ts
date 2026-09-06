@@ -23,6 +23,7 @@ const digest = z.string().regex(/^[0-9a-f]{64}$/);
 const kind = stationEntityKindSchema;
 const headSchema = z.object({ kind, id, versionId: id, deleted: z.boolean() }).strict();
 const expectationSchema = z.object({ kind, id, versionId: id.nullable() }).strict();
+const baseDescriptorSchema = expectationSchema.extend({ availability: z.enum(["absent", "available", "tombstone", "unavailable"]) }).strict();
 const receiptSchema = z.object({
   ownerId: id, generationId: id, operationId: id, payloadDigest: digest,
   localSequence: z.number().int().positive().safe(), committedHeads: z.array(headSchema),
@@ -30,6 +31,7 @@ const receiptSchema = z.object({
 const conflictResultSchema = z.object({
   status: z.literal("conflict"), conflictId: id, operationId: id, localSequence: z.number().int().positive().safe(),
   actualHeads: z.array(expectationSchema), reason: z.string(),
+  expectedBases: z.array(baseDescriptorSchema), actualBases: z.array(baseDescriptorSchema),
   candidateValidation: z.object({ status: z.literal("quarantined"), reason: z.literal("historical-validation-context-unavailable") }).strict(),
 }).strict();
 const versionSchema = z.object({ ownerId: id, generationId: id, kind, id, versionId: id, payloadDigest: digest, body: z.unknown() }).strict();
@@ -158,6 +160,10 @@ function committedHeads(operation: DeepReadonly<StationOperation>): StationStore
   ];
 }
 
+function baseDescriptor({ kind, id, versionId, availability }: z.infer<typeof baseDescriptorSchema>) {
+  return { kind, id, versionId, availability };
+}
+
 function boundReceipt(rowInput: OperationRecord): StationCommitReceipt {
   const row = operationRowSchema.parse(rowInput);
   const operation = stationOperationSchema.parse(row.operation);
@@ -181,14 +187,16 @@ async function replay(tx: Transaction, rowInput: OperationRecord, operation: Dee
     const result = conflictResultSchema.parse(row.result);
     const conflict = await tx.objectStore("conflicts").get([row.ownerId, row.generationId, row.operationId]);
     const details = z.object({ operation: z.unknown(), reason: z.string(), candidateValidation: conflictResultSchema.shape.candidateValidation,
-      expectedBases: z.array(expectationSchema.extend({ availability: z.enum(["absent", "available", "tombstone", "unavailable"]), body: z.unknown() }).strict()),
-      actualBases: z.array(expectationSchema.extend({ availability: z.enum(["absent", "available", "tombstone", "unavailable"]), body: z.unknown() }).strict()),
+      expectedBases: z.array(baseDescriptorSchema.extend({ body: z.unknown() }).strict()),
+      actualBases: z.array(baseDescriptorSchema.extend({ body: z.unknown() }).strict()),
     }).strict().parse(conflict?.details);
     if (!conflict || conflict.ownerId !== row.ownerId || conflict.generationId !== row.generationId || conflict.conflictId !== row.operationId
       || conflict.operationId !== row.operationId || conflict.createdAt !== operation.createdAt
       || result.conflictId !== row.operationId || result.operationId !== row.operationId || result.localSequence !== row.localSequence
       || canonicalWorkbenchJson(details.operation) !== canonicalWorkbenchJson(operation)
       || details.reason !== result.reason || canonicalWorkbenchJson(details.candidateValidation) !== canonicalWorkbenchJson(result.candidateValidation)
+      || canonicalWorkbenchJson(details.expectedBases.map(baseDescriptor)) !== canonicalWorkbenchJson(result.expectedBases)
+      || canonicalWorkbenchJson(details.actualBases.map(baseDescriptor)) !== canonicalWorkbenchJson(result.actualBases)
       || canonicalWorkbenchJson(details.expectedBases.map(({ kind, id, versionId }) => ({ kind, id, versionId }))) !== canonicalWorkbenchJson(operation.expectedHeads)
       || canonicalWorkbenchJson(details.actualBases.map(({ kind, id, versionId }) => ({ kind, id, versionId }))) !== canonicalWorkbenchJson(result.actualHeads)) damaged("Conflict receipt binding mismatch");
     if (result.actualHeads.length !== operation.expectedHeads.length
@@ -320,15 +328,19 @@ function createRepository(db: StationDatabaseHandle, hooks: StationRepositoryOpt
           let storedResult: unknown;
           if (change.status === "conflict") {
             const conflictId = operation.operationId;
-            result = { status: "conflict", conflictId, operationId: operation.operationId, localSequence: sequence, actualHeads: change.actualHeads, reason: change.reason, candidateValidation: change.candidateValidation };
-            storedResult = result;
             const bases = (heads: readonly StationHead[]) => heads.map((head) => {
               const record = head.versionId === null ? undefined : state.versions.find((row) => versionKey(row) === versionKey({ ...head, versionId: head.versionId! }));
               const deleted = state.heads.some((row) => key(row) === key(head) && row.versionId === head.versionId && row.deleted);
-              return { ...head, availability: head.versionId === null ? "absent" : record ? "available" : deleted ? "tombstone" : "unavailable", body: record?.body ?? null };
+              const availability: z.infer<typeof baseDescriptorSchema>["availability"] = head.versionId === null ? "absent" : record ? "available" : deleted ? "tombstone" : "unavailable";
+              return { ...head, availability, body: record?.body ?? null };
             });
+            const expectedBases = bases(operation.expectedHeads);
+            const actualBases = bases(change.actualHeads);
+            result = { status: "conflict", conflictId, operationId: operation.operationId, localSequence: sequence, actualHeads: change.actualHeads, reason: change.reason, candidateValidation: change.candidateValidation,
+              expectedBases: expectedBases.map(baseDescriptor), actualBases: actualBases.map(baseDescriptor) };
+            storedResult = result;
             await tx.objectStore("conflicts").add({ ownerId, generationId: operation.generationId, conflictId, state: "unresolved", operationId: operation.operationId, createdAt: operation.createdAt, resolutionOperationId: null,
-              details: { operation, reason: change.reason, candidateValidation: change.candidateValidation, expectedBases: bases(operation.expectedHeads), actualBases: bases(change.actualHeads) } });
+              details: { operation, reason: change.reason, candidateValidation: change.candidateValidation, expectedBases, actualBases } });
           } else {
             for (const record of operation.records) {
               await tx.objectStore("recordVersions").add({ ownerId, generationId: operation.generationId, ...record, payloadDigest: bodyDigests.get(versionKey(record))! } as RecordVersionRecord);
@@ -360,10 +372,25 @@ function createRepository(db: StationDatabaseHandle, hooks: StationRepositoryOpt
     },
     async listOutbox(options: { generationId: string; limit: number }): Promise<DeepReadonly<OutboxRecord[]>> {
       const request = z.object({ generationId: id, limit: z.number().int().positive().max(0xffff_ffff) }).strict().parse(options);
-      const tx = db.transaction("outbox", "readonly");
-      const rows = await readStationOutbox(tx.store, { ownerId, ...request });
-      await tx.done;
-      const selected = rows.map((row) => outboxRowSchema.parse(row));
+      const tx = db.transaction<StorageName[], "readonly">(["outbox", "operations", "conflicts", "recordVersions"], "readonly");
+      let selected: z.infer<typeof outboxRowSchema>[];
+      try {
+        const rows = await readStationOutbox(tx.objectStore("outbox"), { ownerId, ...request });
+        selected = rows.map((row) => outboxRowSchema.parse(row));
+        for (const row of selected) {
+          const stored = await tx.objectStore("operations").get([ownerId, row.operationId]);
+          if (!stored || row.ownerId !== ownerId || row.generationId !== request.generationId
+            || stored.ownerId !== ownerId || stored.generationId !== row.generationId || stored.operationId !== row.operationId
+            || stored.localSequence !== row.localSequence || canonicalWorkbenchJson(stored.operation) !== canonicalWorkbenchJson(row.operation)) damaged("Outbox operation receipt is missing or inconsistent");
+          // Validate receipts against this same readonly snapshot. Hash the bound
+          // operation only after completion; never trust a standalone queue envelope.
+          await replay(tx, stored, stationOperationSchema.parse(row.operation));
+        }
+        await tx.done;
+      } catch (error) {
+        await tx.done.catch(() => undefined);
+        throw error;
+      }
       for (const row of selected) {
         const operation = await verifyStationOperation(row.operation);
         if (row.ownerId !== ownerId || operation.ownerId !== ownerId || operation.generationId !== row.generationId || operation.operationId !== row.operationId) damaged("Outbox operation binding mismatch");

@@ -412,7 +412,7 @@ export function ActivationDetailPanel() {
             program={spot.program}
           />
 
-        <TuneButton frequencyKHz={spot.frequencyKHz} mode={spot.mode || null} wall={false} />
+        <TuneButton frequencyKHz={spot.frequencyKHz} mode={spot.mode.trim().toUpperCase() === "UNKNOWN" ? null : spot.mode || null} wall={false} />
 
         <footer className="grid grid-cols-1 gap-2 border-t border-white/10 bg-black/20 p-3 sm:grid-cols-3">
           <button

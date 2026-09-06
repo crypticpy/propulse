@@ -76,9 +76,14 @@ function EngineColumn({
       )}
       <p className="hcr-enginestrip-detail">
         {unavailable ? "—" : (reading.detail ?? "—")}
-      </p>
-      <p className={`hcr-enginestrip-age${stale ? " hc-warn" : ""}`}>
-        {unavailable ? "—" : ageLabel(reading, now)}
+        {!unavailable && (
+          <>
+            {" · "}
+            <span className={`hcr-enginestrip-age${stale ? " hc-warn" : ""}`}>
+              {ageLabel(reading, now)}
+            </span>
+          </>
+        )}
       </p>
     </div>
   );
@@ -116,11 +121,11 @@ export function EngineComparisonStrip({
     <div className="hcr-box hcr-enginestrip">
       <div className="hcr-enginestrip-head">
         <p className="hcr-bandtable-caption">Engine comparison · {subject}</p>
+        <p className="hcr-enginestrip-reason">
+          {result.reason.charAt(0).toUpperCase() + result.reason.slice(1)}
+        </p>
         <p className={`hcr-enginestrip-word ${toneClass}`}>{result.word}</p>
       </div>
-      <p className="hcr-enginestrip-reason">
-        {result.reason.charAt(0).toUpperCase() + result.reason.slice(1)}
-      </p>
       <div className="hcr-enginestrip-cols">
         <EngineColumn engine="physics" reading={physics} now={now} />
         <EngineColumn engine="nowcast" reading={nowcast} now={now} />

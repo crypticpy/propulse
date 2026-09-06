@@ -12,6 +12,7 @@
  */
 
 import { useState, useCallback, useEffect } from "react";
+import { useAuthStore, selectIsAuthenticated } from "@/stores/authStore";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Types
@@ -104,6 +105,9 @@ export function useOnboardingTour({
   onComplete,
   onSkip,
 }: UseOnboardingTourOptions): UseOnboardingTourReturn {
+  const authInitialized = useAuthStore((s) => s.initialized);
+  const isAuthenticated = useAuthStore(selectIsAuthenticated);
+
   // Check localStorage for completion status
   const getStoredCompletion = useCallback((): boolean => {
     if (typeof window === "undefined") {
@@ -121,16 +125,22 @@ export function useOnboardingTour({
   const [currentStep, setCurrentStep] = useState(0);
   const [hasCompleted, setHasCompleted] = useState(getStoredCompletion);
 
-  // Auto-start for first-time users
+  // Wait for session restoration so returning account holders never auto-start.
   useEffect(() => {
-    if (autoStart && !hasCompleted && steps.length > 0) {
+    if (
+      authInitialized &&
+      !isAuthenticated &&
+      autoStart &&
+      !hasCompleted &&
+      steps.length > 0
+    ) {
       // Small delay to let the page render first
       const timer = setTimeout(() => {
         setIsActive(true);
       }, 1000);
       return () => clearTimeout(timer);
     }
-  }, [autoStart, hasCompleted, steps.length]);
+  }, [authInitialized, isAuthenticated, autoStart, hasCompleted, steps.length]);
 
   // Execute onShow callback when step changes
   useEffect(() => {
@@ -174,30 +184,29 @@ export function useOnboardingTour({
     [currentStep, steps],
   );
 
-  // Skip tour
-  const skipTour = useCallback(() => {
-    steps[currentStep]?.onHide?.();
-    setIsActive(false);
-    setCurrentStep(0);
-    onSkip?.();
-  }, [currentStep, steps, onSkip]);
-
-  // Complete tour
-  const completeTour = useCallback(() => {
+  // Both skipping and finishing acknowledge the tour for future visits.
+  const dismissTour = useCallback(() => {
     steps[currentStep]?.onHide?.();
     setIsActive(false);
     setCurrentStep(0);
     setHasCompleted(true);
-
-    // Persist to localStorage
     try {
       localStorage.setItem(storageKey, "true");
     } catch {
       // Ignore storage errors
     }
 
+  }, [currentStep, steps, storageKey]);
+
+  const skipTour = useCallback(() => {
+    dismissTour();
+    onSkip?.();
+  }, [dismissTour, onSkip]);
+
+  const completeTour = useCallback(() => {
+    dismissTour();
     onComplete?.();
-  }, [currentStep, steps, storageKey, onComplete]);
+  }, [dismissTour, onComplete]);
 
   // Reset tour status
   const resetTourStatus = useCallback(() => {

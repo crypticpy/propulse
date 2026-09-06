@@ -215,4 +215,46 @@ describe("FloatingPanel", () => {
       });
     }
   });
+
+  it("keeps restored panels fully inside the viewport", () => {
+    const previousWidth = window.innerWidth;
+    const previousHeight = window.innerHeight;
+    Object.defineProperty(window, "innerWidth", {
+      configurable: true,
+      value: 800,
+    });
+    Object.defineProperty(window, "innerHeight", {
+      configurable: true,
+      value: 600,
+    });
+
+    try {
+      render(
+        <FloatingPanel
+          id="forecast"
+          title="Forecast"
+          defaultPosition={{ x: 10, y: 10 }}
+          defaultSize={{ width: 300, height: 200 }}
+          persistedLayout={{ x: -200, y: 900, width: 300, height: 200 }}
+        >
+          <div>Forecast content</div>
+        </FloatingPanel>,
+      );
+
+      const panel = document.getElementById("floating-panel-forecast");
+      expect(panel?.style.left).toBe("0px");
+      expect(panel?.style.top).toBe("0px");
+      expect(panel?.style.width).toBe("300px");
+      expect(panel?.style.height).toBe("200px");
+    } finally {
+      Object.defineProperty(window, "innerWidth", {
+        configurable: true,
+        value: previousWidth,
+      });
+      Object.defineProperty(window, "innerHeight", {
+        configurable: true,
+        value: previousHeight,
+      });
+    }
+  });
 });

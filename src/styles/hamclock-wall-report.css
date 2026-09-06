@@ -178,8 +178,11 @@
   display: grid;
   grid-template-columns: 1.25fr 1fr;
   gap: 2vw;
-  /* Flex item of `.hcr-body`: never yield height to a chart (#248). */
-  flex: 0 0 auto;
+  /* Shared by every report: stay shrinkable so a tall Weather alerts
+   * list can share `.hcr-body` with the chart. Sun/Grey-line overlap is
+   * prevented by wrapping those SVGs in `.hcr-chart`, not by pinning
+   * this row. */
+  min-height: 0;
 }
 .hcr-box {
   display: flex;

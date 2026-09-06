@@ -5,7 +5,7 @@ import { getBandColor } from "@/lib/utils/spotColors";
 import { WallReport, type WallReportFact } from "./WallReport";
 import { useHamClockSessionTrend } from "./sessionTrend";
 import { reportFooter } from "../tokens";
-import { SolarMiniChart } from "@/components/solar/SolarMiniChart";
+import { WallSeriesChart } from "./WallSeriesChart";
 
 export interface BandActivityReportProps {
   open: boolean;
@@ -95,7 +95,8 @@ export function BandActivityReport({ open, onClose }: BandActivityReportProps) {
         )}
       </div>
       <div className="hcr-chart">
-        <SolarMiniChart
+        <p className="hcr-chart-title">TOTAL SPOTS — 2 H · SESSION</p>
+        <WallSeriesChart
           label="TOTAL SPOTS — 2 H · SESSION"
           points={trend}
           unit="spots"

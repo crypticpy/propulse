@@ -12,7 +12,7 @@ import type {
 } from "@/lib/solar/dataTypes";
 import { currentKp, latestByTime, protonScale } from "@/lib/solar/selectors";
 import { useMapStore } from "@/stores/mapStore";
-import { SolarSeriesChart } from "@/components/solar/SolarSeriesChart";
+import { WallSeriesChart } from "./WallSeriesChart";
 import { HamClockButton, HamClockTabs } from "../controls";
 import {
   bzTone,
@@ -203,7 +203,7 @@ export function SolarWindReport({ open, onClose }: SolarWindReportProps) {
               <div className="hcr-chart-stack">
                 <div className="hcr-chart">
                   <p className="hcr-chart-title">Bz — 24 H · ACE/DSCOVR AT L1</p>
-                  <SolarSeriesChart
+                  <WallSeriesChart
                     label="Bz — 24 H · ACE/DSCOVR AT L1"
                     points={(magQuery.data ?? [])
                       .filter((point) => point.bz_gsm !== null)
@@ -215,14 +215,13 @@ export function SolarWindReport({ open, onClose }: SolarWindReportProps) {
                     min={-BZ_LIMIT}
                     max={BZ_LIMIT}
                     maxGapMs={300_000}
-                    chrome="plot"
                   />
                 </div>
                 <div className="hcr-chart">
                   <p className="hcr-chart-title">
                     Speed — 24 H · ACE/DSCOVR AT L1
                   </p>
-                  <SolarSeriesChart
+                  <WallSeriesChart
                     label="Solar-wind speed — 24 H · ACE/DSCOVR AT L1"
                     points={(plasmaQuery.data?.envelope.data ?? [])
                       .filter((point) => point.speed !== null)
@@ -232,14 +231,13 @@ export function SolarWindReport({ open, onClose }: SolarWindReportProps) {
                       }))}
                     unit="km/s"
                     maxGapMs={300_000}
-                    chrome="plot"
                   />
                 </div>
                 <div className="hcr-chart">
                   <p className="hcr-chart-title">
                     Density — 24 H · ACE/DSCOVR AT L1
                   </p>
-                  <SolarSeriesChart
+                  <WallSeriesChart
                     label="Solar-wind density — 24 H · ACE/DSCOVR AT L1"
                     points={(plasmaQuery.data?.envelope.data ?? [])
                       .filter((point) => point.density !== null)
@@ -249,7 +247,6 @@ export function SolarWindReport({ open, onClose }: SolarWindReportProps) {
                       }))}
                     unit="p/cm³"
                     maxGapMs={300_000}
-                    chrome="plot"
                   />
                 </div>
               </div>
@@ -260,7 +257,8 @@ export function SolarWindReport({ open, onClose }: SolarWindReportProps) {
             label: "GEOMAGNETIC",
             content: (
               <div className="hcr-chart">
-                <SolarSeriesChart
+                <p className="hcr-chart-title">Kp — 3 D · NOAA</p>
+                <WallSeriesChart
                   label="Kp — 3 D · NOAA"
                   points={(kpQuery.data?.envelope.data ?? [])
                     .filter((point) => point.kind !== "predicted")
@@ -275,7 +273,6 @@ export function SolarWindReport({ open, onClose }: SolarWindReportProps) {
                   max={9}
                   intervalMs={10_800_000}
                   maxGapMs={10_800_000}
-                  chrome="plot"
                 />
               </div>
             ),

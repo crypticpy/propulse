@@ -4,6 +4,7 @@ import { useDXStore } from "@/stores/dxStore";
 import { createElement, type ReactNode } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { ClusterWindowMinutes, SpotFeed } from "@/lib/api/spotFeed";
+import type { BridgeMessage, BridgeConnectionOptions } from "@/types/bridge";
 import type { DXSpot } from "@/types/dxcluster";
 import { useDXCluster, DX_QUERY_KEYS, useSharedBridgeSourceOwnership } from "./useDXCluster";
 
@@ -58,9 +59,9 @@ describe("DX cluster shared-source ownership", () => {
 });
 
 
-const mocks = vi.hoisted(() => ({ fetch: vi.fn(), bridge: { connected: false, lastMessage: null as unknown, send: vi.fn() } }));
+const mocks = vi.hoisted(() => ({ receive: undefined as undefined | ((message: BridgeMessage) => void), fetch: vi.fn(), bridge: { connected: false, lastMessage: null as unknown, send: vi.fn() } }));
 vi.mock("@/lib/api/dxcluster", async importOriginal => ({ ...await importOriginal<typeof import("@/lib/api/dxcluster")>(), fetchClusterFeed: mocks.fetch }));
-vi.mock("@/hooks/useBridge", () => ({ useBridge: () => mocks.bridge }));
+vi.mock("@/hooks/useBridge", () => ({ useBridge: (options: Partial<BridgeConnectionOptions>) => { mocks.receive = options.onMessage; return mocks.bridge; } }));
 
 describe("DX cluster history snapshots", () => {
   const initial = useDXStore.getState();
@@ -137,6 +138,7 @@ describe("DX cluster history snapshots", () => {
     mocks.bridge.connected=true;
     mocks.bridge.lastMessage={type:"cluster.spot",payload:{...row(2,"external-bridge"),time:new Date(now-120_000).toISOString()}};
     const {result,unmount}=renderHook(()=>useDXCluster({maxAge:120}),{wrapper});
+    act(()=>mocks.receive?.(mocks.bridge.lastMessage as BridgeMessage));
     expect(result.current.source).toBe("bridge");
     expect(result.current.spots[0].id).toBe("external-bridge");
     expect(result.current.lastUpdated?.getTime()).toBe(now-120_000);

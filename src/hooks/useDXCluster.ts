@@ -15,7 +15,8 @@
 
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { fetchClusterFeed, clusterPayloadToSpot } from "@/lib/api/dxcluster";
+import { fetchClusterFeed } from "@/lib/api/dxcluster";
+import { readClusterBridgeSpot, mergeClusterBridgeSpot } from "@/lib/dx/clusterBridge";
 import { clusterObservedAt, clusterRequestWindow, filterClusterAge } from "@/lib/dx/clusterHistory";
 import { spotFeedState } from "@/lib/map/spotAge";
 import { useBridge } from "@/hooks/useBridge";
@@ -27,7 +28,7 @@ import {
   type ClusterLinkStatus,
 } from "@/stores/dxStore";
 import type { DXSpot, DXClusterFilters } from "@/types/dxcluster";
-import type { ClusterSpotPayload } from "@/types/bridge";
+import type { BridgeMessage } from "@/types/bridge";
 
 // Query key constants for cache management
 export const DX_QUERY_KEYS = {
@@ -141,14 +142,37 @@ export function useDXCluster(
   const queryClient = useQueryClient();
   const {
     spots,
-    setSpots,
     setClusterFeed,
     filters: storeFilters,
     maxSpots,
     spotSource,
-    setSpotSource,
     setClusterStatus,
   } = useDXStore();
+
+  const [bridgeSpots, setBridgeSpots] = useState<DXSpot[]>([]);
+  const [now, setNow] = useState(Date.now);
+  const onMessage = useCallback((message: BridgeMessage) => {
+    if (!dataEnabled) return;
+    if (message.type === "cluster.status") {
+      setClusterStatus(message.payload as ClusterLinkStatus);
+      return;
+    }
+    if (message.type !== "cluster.spot") return;
+    const receivedAt = Date.now();
+    const spot = readClusterBridgeSpot(message.payload, receivedAt);
+    if (!spot) return;
+    setNow(receivedAt);
+    if (externalFilters !== undefined) {
+      setBridgeSpots(previous => mergeClusterBridgeSpot(previous, spot, 120, maxSpots, receivedAt));
+      return;
+    }
+    // Merge against the current shared snapshot, never an observer's partial
+    // buffer. Duplicate broadcasts to multiple sockets cannot erase history.
+    useDXStore.setState(state => ({
+      spotSource: "bridge",
+      spots: mergeClusterBridgeSpot(state.spotSource === "bridge" ? state.spots : [], spot, state.filters.maxAge, state.maxSpots, receivedAt),
+    }));
+  }, [dataEnabled, externalFilters, maxSpots, setClusterStatus]);
 
   // Bridge connection for real-time cluster spots (only when enabled)
   const bridgeEnabled = useUserStore(
@@ -156,60 +180,23 @@ export function useDXCluster(
   );
   const {
     connected: bridgeConnected,
-    lastMessage,
     send: bridgeSend,
   } = useBridge({
     enabled: dataEnabled && bridgeEnabled,
+    onMessage,
   });
-  const [bridgeSpots, setBridgeSpots] = useState<DXSpot[]>([]);
   useSharedBridgeSourceOwnership(dataEnabled, bridgeConnected);
   const source = externalFilters !== undefined && bridgeConnected && bridgeSpots.length > 0 ? "bridge" : spotSource;
 
   // Use external filters if provided, otherwise use store filters
   const filters = externalFilters || storeFilters;
   const requestWindow = clusterRequestWindow(filters.maxAge);
-  const [now, setNow] = useState(Date.now);
   useEffect(() => {
     if (!dataEnabled) return;
     setNow(Date.now());
     const timer = setInterval(() => setNow(Date.now()), 10_000);
     return () => clearInterval(timer);
   }, [dataEnabled]);
-
-  // ─── Tier 1: Bridge WebSocket ─────────────────────────────────────────────
-
-  // Listen for cluster spots from bridge
-  useEffect(() => {
-    if (
-      !dataEnabled ||
-      !lastMessage ||
-      lastMessage.type !== "cluster.spot"
-    ) {
-      return;
-    }
-    const spot = clusterPayloadToSpot(
-      lastMessage.payload as ClusterSpotPayload,
-    );
-    setBridgeSpots((prev) => {
-      const next = [spot, ...prev];
-      if (next.length > maxSpots) next.length = maxSpots;
-      return next;
-    });
-  }, [dataEnabled, lastMessage, maxSpots]);
-
-  // Mirror the bridge's cluster link status into the store. Without this the
-  // bridge's `cluster.status` broadcast was dropped on the floor and cluster
-  // UI could never move past "Connecting...".
-  useEffect(() => {
-    if (
-      !dataEnabled ||
-      !lastMessage ||
-      lastMessage.type !== "cluster.status"
-    ) {
-      return;
-    }
-    setClusterStatus(lastMessage.payload as ClusterLinkStatus);
-  }, [dataEnabled, lastMessage, setClusterStatus]);
 
   // A bridge that *drops* takes the cluster link with it, whatever it last
   // reported. Only an observed connected → disconnected transition counts:
@@ -230,13 +217,6 @@ export function useDXCluster(
     }
   }, [bridgeConnected, setClusterStatus]);
 
-  // Promote to bridge source when receiving bridge spots
-  useEffect(() => {
-    if (externalFilters === undefined && bridgeConnected && bridgeSpots.length > 0) {
-      setSpotSource("bridge");
-    }
-  }, [externalFilters, bridgeConnected, bridgeSpots.length, setSpotSource]);
-
   // ─── Tier 2: REST proxy ───────────────────────────────────────────────────
 
   const restQuery = useQuery({
@@ -249,13 +229,11 @@ export function useDXCluster(
   });
   useEffect(() => {
     if (dataEnabled) setNow(Date.now());
-  }, [dataEnabled, restQuery.dataUpdatedAt, lastMessage]);
+  }, [dataEnabled, restQuery.dataUpdatedAt]);
 
   const restSpots = useMemo(() =>
     filterClusterAge(restQuery.data?.spots ?? [], filters.maxAge, now),
   [restQuery.data, filters.maxAge, now]);
-  const ownBridgeSpots = useMemo(() => filterClusterAge(bridgeSpots, storeFilters.maxAge, now),
-    [bridgeSpots, storeFilters.maxAge, now]);
   const allSpots = useMemo(() => !dataEnabled ? [] : source === "bridge"
     ? filterClusterAge(externalFilters !== undefined && bridgeSpots.length > 0 ? bridgeSpots : spots, filters.maxAge, now) : restSpots,
   [dataEnabled, source, spots, externalFilters, bridgeSpots, filters.maxAge, now, restSpots]);
@@ -270,24 +248,27 @@ export function useDXCluster(
     observedAt: source === "bridge" ? clusterObservedAt(externalFilters !== undefined && bridgeSpots.length > 0 ? bridgeSpots : spots) : restQuery.data?.metadata.observedAt ?? null,
   }), [sourceState, source, restQuery.data, requestWindow, spots, externalFilters, bridgeSpots]);
 
-  // Only default observers publish the passive wall snapshot. A newly mounted
-  // bridge observer has no history to replace an existing live owner's rows.
+  // Snapshot effects must recheck current source ownership: a transport event
+  // can promote the shared store before an older REST render's effect runs.
   useEffect(() => {
     if (!dataEnabled || externalFilters !== undefined) return;
-    if (source === "bridge") {
-      if (bridgeSpots.length > 0) setSpots(ownBridgeSpots);
-    } else {
-      // Valid empty snapshots clear old rows; failures retain the query cache.
-      // An initial loading/error scope must never inherit another window's rows.
-      setSpots(restSpots);
-    }
-  }, [dataEnabled, externalFilters, source, bridgeSpots.length, ownBridgeSpots, restSpots, setSpots]);
+    useDXStore.setState(state => {
+      if (state.spotSource === "bridge") {
+        const eligible = filterClusterAge(state.spots, state.filters.maxAge, Date.now());
+        return eligible.length === state.spots.length ? state : { spots: eligible };
+      }
+      if (source === "bridge" || clusterRequestWindow(state.filters.maxAge) !== requestWindow || state.maxSpots !== maxSpots) return state;
+      return state.spots === restSpots ? state : { spots: restSpots };
+    });
+  }, [dataEnabled, externalFilters, source, now, spots.length, restSpots, requestWindow, maxSpots]);
   useEffect(() => {
     if (!dataEnabled || externalFilters !== undefined) return;
+    const current = useDXStore.getState();
+    if (current.spotSource !== source || (source === "rest" && clusterRequestWindow(current.filters.maxAge) !== requestWindow)) return;
     // A disconnected observer cannot relabel another live owner's transport.
     if (source === "bridge" && !bridgeConnected && connectedBridgeOwners.size > 0) return;
     setClusterFeed(feedState);
-  }, [dataEnabled, externalFilters, source, bridgeConnected, feedState, setClusterFeed]);
+  }, [dataEnabled, externalFilters, source, requestWindow, bridgeConnected, feedState, setClusterFeed]);
 
   const filteredSpots = filterSpots(allSpots, filters);
 

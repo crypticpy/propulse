@@ -44,6 +44,27 @@ const TREND_TONE_CLASS: Record<SolarTrendTone, string> = {
   muted: "text-su-muted",
 };
 
+/**
+ * Bulletin tone by SWPC severity (#578): warning/alert are the most urgent
+ * (danger), watch is elevated (warning), summary and information are
+ * routine (info). Static class maps — Tailwind can't resolve interpolated
+ * tone names.
+ */
+const ALERT_TONE_BORDER_CLASS: Record<OfficialSolarAlert["severity"], string> = {
+  alert: "border-l-[3px] border-su-danger",
+  warning: "border-l-[3px] border-su-danger",
+  watch: "border-l-[3px] border-su-warning",
+  summary: "border-l-[3px] border-su-info",
+  information: "border-l-[3px] border-su-info",
+};
+const ALERT_TONE_PILL_CLASS: Record<OfficialSolarAlert["severity"], string> = {
+  alert: "bg-su-danger text-su-canvas",
+  warning: "bg-su-danger text-su-canvas",
+  watch: "bg-su-warning text-su-canvas",
+  summary: "bg-su-info text-su-canvas",
+  information: "bg-su-info text-su-canvas",
+};
+
 const SolarForecastPanel = lazy(() => import("@/components/solar/SolarForecastPanel").then(module => ({ default: module.SolarForecastPanel })));
 
 const SolarAnimationPlayer = lazy(() =>
@@ -248,6 +269,39 @@ export function SolarPulse() {
           </div>
         </section>
 
+        <WidgetShell
+          title="Recent official SWPC bulletins"
+          eyebrow="Alerts, watches, warnings, and summaries"
+          {...sourceProps(resources.alerts)}
+          timestampLabel="Issued"
+          hasData={resources.alerts.state === "empty" || hasData(resources.alerts)}
+        >
+          {resources.alerts.data?.length ? (
+            <div className="divide-y divide-su-line/20"><p className="pb-3 text-xs text-su-muted">Recent messages may include ended events. Open the full bulletin for validity and cancellation details.</p>
+              {resources.alerts.data.slice(0, allBulletins ? undefined : 3).map((alert) => (
+                <button
+                  type="button"
+                  key={`${alert.product_id}-${alert.issued_at}`}
+                  onClick={() => setModal({ kind: "alert", alert })}
+                  className={`flex min-h-14 w-full items-center justify-between gap-4 py-3 pl-3 text-left hover:text-su-text ${ALERT_TONE_BORDER_CLASS[alert.severity]}`}
+                >
+                  <span className="min-w-0">
+                    <span className="block truncate text-sm font-medium text-su-text">{alert.title}</span>
+                    <span className="mt-1 block text-xs text-su-muted">{formatUtc(alert.issued_at)} · {alert.product_id}</span>
+                  </span>
+                  <span className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-semibold capitalize ${ALERT_TONE_PILL_CLASS[alert.severity]}`}>{alert.severity}</span>
+                </button>
+              ))}
+            </div>
+          ) : (
+            <p className="rounded-xl border border-su-line/40 bg-su-input p-4 text-sm text-su-muted">
+              No recent bulletins were reported in the current successful response.
+            </p>
+          )}
+        </WidgetShell>
+
+        {resources.alerts.data && resources.alerts.data.length > 3 && <button type="button" onClick={() => setAllBulletins(!allBulletins)} aria-expanded={allBulletins} className="min-h-11 rounded-lg border border-su-line/40 px-4 text-sm text-su-info">{allBulletins ? "Show recent three" : `Show all ${resources.alerts.data.length} bulletins`}</button>}
+
         <SolarDisclosure
           id="solar-forecast"
           title="Official forecast"
@@ -269,39 +323,6 @@ export function SolarPulse() {
             )}
           </div>
         </SolarDisclosure>
-
-        <WidgetShell
-          title="Recent official SWPC bulletins"
-          eyebrow="Alerts, watches, warnings, and summaries"
-          {...sourceProps(resources.alerts)}
-          timestampLabel="Issued"
-          hasData={resources.alerts.state === "empty" || hasData(resources.alerts)}
-        >
-          {resources.alerts.data?.length ? (
-            <div className="divide-y divide-su-line/20"><p className="pb-3 text-xs text-su-muted">Recent messages may include ended events. Open the full bulletin for validity and cancellation details.</p>
-              {resources.alerts.data.slice(0, allBulletins ? undefined : 3).map((alert) => (
-                <button
-                  type="button"
-                  key={`${alert.product_id}-${alert.issued_at}`}
-                  onClick={() => setModal({ kind: "alert", alert })}
-                  className="flex min-h-14 w-full items-center justify-between gap-4 py-3 text-left hover:text-su-text"
-                >
-                  <span className="min-w-0">
-                    <span className="block truncate text-sm font-medium text-su-text">{alert.title}</span>
-                    <span className="mt-1 block text-xs text-su-muted">{formatUtc(alert.issued_at)} · {alert.product_id}</span>
-                  </span>
-                  <span className="shrink-0 text-xs font-semibold capitalize text-su-info">{alert.severity}</span>
-                </button>
-              ))}
-            </div>
-          ) : (
-            <p className="rounded-xl border border-su-line/40 bg-su-input p-4 text-sm text-su-muted">
-              No recent bulletins were reported in the current successful response.
-            </p>
-          )}
-        </WidgetShell>
-
-        {resources.alerts.data && resources.alerts.data.length > 3 && <button type="button" onClick={() => setAllBulletins(!allBulletins)} aria-expanded={allBulletins} className="min-h-11 rounded-lg border border-su-line/40 px-4 text-sm text-su-info">{allBulletins ? "Show recent three" : `Show all ${resources.alerts.data.length} bulletins`}</button>}
 
         <SolarDisclosure
           id="solar-impacts"
@@ -344,7 +365,7 @@ export function SolarPulse() {
               />
             </WidgetShell>
           </div>
-          {!isMobile && <div className="mt-4 grid gap-3 md:grid-cols-2">{(["drap-global", "aurora-north"] as SolarImageProductId[]).map((productId) => <div key={productId}><p className="mb-2 text-sm text-su-muted">{productId === "drap-global" ? "Sunlit-side absorption: inspect where the model places HF effects. The global maximum is not a local tuning recommendation." : "Polar context: auroral probability is not an HF path forecast. This product covers the Northern Hemisphere."}</p><SolarImageCard productId={productId} onOpen={(selected, animation) => setModal({ kind: animation ? "animation" : "image", productId: selected })} /></div>)}</div>}
+          {!isMobile && <div className="mt-4 grid items-stretch gap-3 md:grid-cols-2">{(["drap-global", "aurora-north"] as SolarImageProductId[]).map((productId) => <div key={productId} className="flex h-full flex-col"><SolarImageCard productId={productId} onOpen={(selected, animation) => setModal({ kind: animation ? "animation" : "image", productId: selected })} /><p className="mt-2 min-h-[3.5rem] text-sm text-su-muted">{productId === "drap-global" ? "Sunlit-side absorption: inspect where the model places HF effects. The global maximum is not a local tuning recommendation." : "Polar context: auroral probability is not an HF path forecast. This product covers the Northern Hemisphere."}</p></div>)}</div>}
           <WidgetShell title="Recent CME analyses" eyebrow="NASA DONKI · current event set" {...sourceProps(resources.cme)} className="mt-3">
             {resources.cme.data?.length ? (
               <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-3">

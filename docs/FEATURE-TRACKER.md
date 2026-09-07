@@ -669,7 +669,7 @@ _Source: `docs/designs/hamclock-wall-spec.md` (feature register HW-01 to HW-73).
 | HW-65 | EME computation module `src/lib/utils/eme.ts`                 | PR #253, EME module: eme.ts path loss, degradation, Doppler, sky noise, mutual window                                                                                          |
 | HW-66 | Moon and EME report                                           | PR #253, Moon report: MOON/EME tabs, band selector, sub-lunar point                                                                                                            |
 
-| HW-59 | Propagation forecast report | B18 Forecast review slice, effective on merge: two UTC days, gated horizons, best +6h summary and NOAA Kp forecast. [Evidence](designs/hamclock-propagation-forecast-report.md) |
+| HW-59 | Propagation forecast report | PR #502, effective on merge: two UTC days, gated horizons, best +6h summary and NOAA Kp forecast. [Evidence](designs/hamclock-propagation-forecast-report.md) |
 
 ### Partial (3)
 

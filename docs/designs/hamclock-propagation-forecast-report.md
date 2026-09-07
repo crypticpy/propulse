@@ -18,6 +18,6 @@ HORIZONS always includes +3, +6, +12 and +24 hours. Available responses show cor
 
 Eight focused tests cover future-time feature construction, capability revocation, disabled horizons, both matrix days, and core/personalized chart/readout consistency including stale metadata, plus NOAA bucket boundaries and observation/forecast separation. The required wall suite passed all 328 tests in 32 files. TypeScript compilation passes. The browser matrix passed 24 MODEL OFF cases and 24 populated-model cases across QTH/target, three themes, 1080p/4K and both tabs. It checks all 288 cell labels across both days, 44px minimum hit targets, 90vw × 88vh limits, no overflow, selection and focus return. No page errors occurred. Browser data was synthetic in an isolated local context; this is not evidence that live FutureCast horizons are released.
 
-The mandatory pre-push verification runs before publication; its final outcome is recorded in the PR.
+PR #502 is stacked on Reliability PR #494. Full pre-push verification passed: 3,219 app tests in 368 files, Python/archive checks, bridge/daemon checks, lint, production build and all bundle budgets.
 
 ![Forecast horizons at 1080p](../images/hamclock-b18/forecast-horizons-1080p.png)

@@ -1,6 +1,13 @@
 /** @type {import('tailwindcss').Config} */
 export default {
-  content: ["./index.html", "./src/**/*.{js,ts,jsx,tsx}"],
+  content: [
+    "./index.html",
+    "./src/**/*.{js,ts,jsx,tsx}",
+    // Test files never render in the app, but their class names were still
+    // being emitted into the production stylesheet. Excluding them is pure
+    // dead-CSS removal and keeps the Main CSS budget honest.
+    "!./src/**/*.test.{js,ts,jsx,tsx}",
+  ],
   theme: {
     extend: {
       colors: {

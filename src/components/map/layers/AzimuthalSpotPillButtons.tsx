@@ -59,10 +59,10 @@ function AzimuthalSpotButton({
   return (
     <button
       type="button"
-      className={`pointer-events-auto absolute cursor-pointer rounded-full transition duration-100 hover:scale-105 hover:ring-1 hover:ring-white/50 focus-visible:scale-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cosmic-cyan focus-visible:ring-offset-1 focus-visible:ring-offset-void-black ${
+      className={`pointer-events-auto absolute cursor-pointer rounded-full transition duration-100 hover:scale-105 hover:ring-1 hover:ring-su-line/60 focus-visible:scale-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cosmic-cyan focus-visible:ring-offset-1 focus-visible:ring-offset-void-black ${
         isEndpoint
           ? "bg-transparent hover:bg-cosmic-cyan/10"
-          : "bg-transparent hover:bg-white/[0.06]"
+          : "bg-transparent hover:bg-su-line/20"
       }`}
       style={{ left, top, width, height }}
       aria-label={`${spot.dx} ${isEndpoint ? "destination" : "tag"}, ${(spot.frequency / 1000).toFixed(3)} megahertz, ${spot.mode || spot.band || "live spot"}. Select as target and open station details`}
@@ -94,7 +94,7 @@ function AzimuthalSpotButton({
       {isEndpoint && (
         <span
           aria-hidden="true"
-          className="pointer-events-none absolute top-1/2 left-1/2 h-2 w-2 -translate-x-1/2 -translate-y-1/2 rounded-full border border-white/50 bg-cosmic-cyan/80 shadow-[0_0_7px_rgba(34,211,238,0.65)]"
+          className="pointer-events-none absolute top-1/2 left-1/2 h-2 w-2 -translate-x-1/2 -translate-y-1/2 rounded-full border border-su-line/60 bg-cosmic-cyan/80 shadow-[0_0_7px_rgba(34,211,238,0.65)]"
         />
       )}
     </button>

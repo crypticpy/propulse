@@ -32,10 +32,10 @@ export function GlobeUnavailable({
   return (
     <div
       data-globe-unavailable
-      className="w-full h-full flex items-center justify-center bg-deep-space text-gray-500"
+      className="w-full h-full flex items-center justify-center bg-deep-space text-su-muted"
     >
       <div className="text-center px-4">
-        <p className="text-white">3D globe unavailable</p>
+        <p className="text-su-text">3D globe unavailable</p>
         <p className="text-sm mt-1 max-w-sm">
           {message} The flat map still works and does not require WebGL.
         </p>
@@ -50,7 +50,7 @@ export function GlobeUnavailable({
           <button
             type="button"
             onClick={onRetry}
-            className="rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-sm text-gray-300 transition-colors hover:bg-white/10"
+            className="rounded-lg border border-su-line/40 bg-su-line/10 px-3 py-1.5 text-sm text-su-muted transition-colors hover:bg-su-line/20"
           >
             Try again
           </button>

@@ -543,7 +543,7 @@ export function ISSSkyTracker() {
   const maxElColor = (maxEl: number): string => {
     if (maxEl >= 45) return "text-green-400";
     if (maxEl >= 20) return "text-yellow-400";
-    return "text-gray-500";
+    return "text-su-muted";
   };
 
   // --- Recompute time-sensitive values from `now` ---
@@ -579,7 +579,7 @@ export function ISSSkyTracker() {
             if (dragMovedRef.current) return;
             setIsVisible(true);
           }}
-          className="h-8 inline-flex items-center gap-1.5 pl-2 pr-2.5 bg-black/70 backdrop-blur-sm border border-white/10 hover:border-teal-400/50 rounded-lg transition-all cursor-grab active:cursor-grabbing text-gray-400 hover:text-gray-200"
+          className="h-8 inline-flex items-center gap-1.5 pl-2 pr-2.5 bg-su-panel/90 backdrop-blur-sm border border-su-line/40 hover:border-teal-400/50 rounded-lg transition-all cursor-grab active:cursor-grabbing text-su-muted hover:text-su-text"
           title="ISS Tracker — click to expand, drag to move"
           aria-label="Expand ISS Tracker"
         >
@@ -609,11 +609,11 @@ export function ISSSkyTracker() {
   const dragHandle = (
     <div
       onMouseDown={handleDragStart}
-      className="cursor-grab active:cursor-grabbing p-0.5 hover:bg-white/10 rounded"
+      className="cursor-grab active:cursor-grabbing p-0.5 hover:bg-su-line/20 rounded"
       title="Drag to reposition"
     >
       <svg
-        className="w-3 h-3 text-gray-500"
+        className="w-3 h-3 text-su-muted"
         fill="currentColor"
         viewBox="0 0 24 24"
       >
@@ -635,15 +635,15 @@ export function ISSSkyTracker() {
         className="absolute z-20 pointer-events-auto"
         style={posStyle}
       >
-        <div className="relative rounded-lg overflow-hidden bg-black/80 backdrop-blur-md border border-white/10 shadow-lg w-[220px]">
-          <div className="flex items-center justify-between px-2.5 py-1.5 bg-black/40 border-b border-white/5">
+        <div className="relative rounded-lg overflow-hidden bg-su-panel/80 backdrop-blur-md border border-su-line/40 shadow-lg w-[220px]">
+          <div className="flex items-center justify-between px-2.5 py-1.5 bg-su-input/50 border-b border-su-line/20">
             {dragHandle}
-            <span className="text-[9px] font-medium text-gray-400 uppercase tracking-wider flex-1 ml-1.5">
+            <span className="text-[9px] font-medium text-su-muted uppercase tracking-wider flex-1 ml-1.5">
               ISS Tracker
             </span>
             <button
               onClick={() => setIsVisible(false)}
-              className="p-0.5 text-gray-500 hover:text-gray-300"
+              className="p-0.5 text-su-muted hover:text-su-text"
             >
               <svg
                 className="w-3 h-3"
@@ -661,7 +661,7 @@ export function ISSSkyTracker() {
             </button>
           </div>
           <div className="px-4 py-8 text-center">
-            <p className="text-[11px] text-gray-500 leading-relaxed">
+            <p className="text-[11px] text-su-muted leading-relaxed">
               Set your home QTH in Settings to see ISS pass predictions
             </p>
           </div>
@@ -681,7 +681,7 @@ export function ISSSkyTracker() {
       }}
     >
       <div
-        className="relative rounded-lg overflow-hidden bg-black/80 backdrop-blur-md border border-white/10 shadow-lg"
+        className="relative rounded-lg overflow-hidden bg-su-panel/80 backdrop-blur-md border border-su-line/40 shadow-lg"
         style={{
           boxShadow: isDragging
             ? "0 8px 32px rgba(0,0,0,0.5), 0 0 0 1px rgba(0,229,204,0.2)"
@@ -689,14 +689,14 @@ export function ISSSkyTracker() {
         }}
       >
         {/* Header with drag handle */}
-        <div className="flex items-center justify-between px-2.5 py-1.5 bg-black/40 border-b border-white/5">
+        <div className="flex items-center justify-between px-2.5 py-1.5 bg-su-input/50 border-b border-su-line/20">
           {dragHandle}
-          <span className="text-[9px] font-medium text-gray-400 uppercase tracking-wider flex-1 ml-1.5">
+          <span className="text-[9px] font-medium text-su-muted uppercase tracking-wider flex-1 ml-1.5">
             ISS Tracker
           </span>
           <button
             onClick={() => setIsVisible(false)}
-            className="p-0.5 text-gray-500 hover:text-gray-300"
+            className="p-0.5 text-su-muted hover:text-su-text"
           >
             <svg
               className="w-3 h-3"
@@ -722,10 +722,10 @@ export function ISSSkyTracker() {
         />
 
         {/* Info Strip */}
-        <div className="px-2.5 py-2 bg-black/40 border-t border-white/5 space-y-0.5 font-mono">
+        <div className="px-2.5 py-2 bg-su-input/50 border-t border-su-line/20 space-y-0.5 font-mono">
           {/* Line 1: Position */}
           {elevation !== null && azimuth !== null && (
-            <div className="text-[10px] text-gray-300">
+            <div className="text-[10px] text-su-muted">
               El: {Math.round(elevation)}&deg;{"  "}Az: {Math.round(azimuth)}
               &deg; {azimuthToCompass(azimuth)}
             </div>
@@ -733,7 +733,7 @@ export function ISSSkyTracker() {
 
           {/* Line 2: Orbital */}
           {iss && (
-            <div className="text-[10px] text-gray-400">
+            <div className="text-[10px] text-su-muted">
               Alt: {Math.round(iss.position.alt)}km{"  "}
               {(iss.position.velocity * 3600).toLocaleString(undefined, {
                 maximumFractionDigits: 0,
@@ -751,7 +751,7 @@ export function ISSSkyTracker() {
                 {formatCountdown(passTimeToLos)} remaining
               </span>
             ) : nextPass && passTimeToAos !== null ? (
-              <span className="text-gray-400">
+              <span className="text-su-muted">
                 <span className="inline-block mr-1">{"\u25CB"}</span>
                 Next: {formatCountdown(passTimeToAos)}
                 {"  "}
@@ -764,7 +764,7 @@ export function ISSSkyTracker() {
                 </span>
               </span>
             ) : (
-              <span className="text-gray-500">
+              <span className="text-su-muted">
                 <span className="inline-block mr-1">{"\u25CB"}</span>
                 No passes in next 24h
               </span>

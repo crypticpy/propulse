@@ -245,7 +245,7 @@ export function WeatherAlertFlyout({
   const flyoutContent = (
     <div
       ref={flyoutRef}
-      className="fixed z-[200] bg-gray-900/95 backdrop-blur-md border border-white/10 rounded-xl shadow-2xl transition-all duration-150"
+      className="fixed z-[200] bg-su-canvas/95 backdrop-blur-md border border-su-line/40 rounded-xl shadow-2xl transition-all duration-150"
       style={{
         left: adjustedPosition.x,
         top: adjustedPosition.y,
@@ -257,10 +257,10 @@ export function WeatherAlertFlyout({
       aria-label={`Weather alert: ${alert.event}`}
     >
       {/* Header */}
-      <div className="px-3 py-2.5 border-b border-white/10">
+      <div className="px-3 py-2.5 border-b border-su-line/40">
         <div className="flex items-center gap-2">
           <span className="text-base flex-shrink-0">{emoji}</span>
-          <span className="text-white font-semibold text-sm leading-tight flex-1 min-w-0 truncate">
+          <span className="text-su-text font-semibold text-sm leading-tight flex-1 min-w-0 truncate">
             {alert.event}
           </span>
         </div>
@@ -269,8 +269,8 @@ export function WeatherAlertFlyout({
       {/* Severity badge */}
       <div className="px-3 pt-2 pb-1">
         <div className="flex items-center gap-1.5">
-          <span className="text-gray-400 text-xs">{"\u26A0\uFE0F"}</span>
-          <span className="text-gray-400 text-xs">Severity:</span>
+          <span className="text-su-muted text-xs">{"\u26A0\uFE0F"}</span>
+          <span className="text-su-muted text-xs">Severity:</span>
           <span
             className="text-xs font-semibold px-2 py-0.5 rounded-full"
             style={{
@@ -287,7 +287,7 @@ export function WeatherAlertFlyout({
       {/* Headline */}
       {truncatedHeadline && (
         <div className="px-3 py-1.5">
-          <p className="text-sm text-gray-300 leading-relaxed">
+          <p className="text-sm text-su-muted leading-relaxed">
             &ldquo;{truncatedHeadline}&rdquo;
           </p>
         </div>
@@ -297,10 +297,10 @@ export function WeatherAlertFlyout({
       {truncatedArea && (
         <div className="px-3 pb-2">
           <div className="flex items-start gap-1.5">
-            <span className="text-gray-400 text-xs flex-shrink-0 mt-0.5">
+            <span className="text-su-muted text-xs flex-shrink-0 mt-0.5">
               {"\uD83D\uDCCD"}
             </span>
-            <span className="text-xs text-gray-400 leading-relaxed">
+            <span className="text-xs text-su-muted leading-relaxed">
               {truncatedArea}
             </span>
           </div>
@@ -308,7 +308,7 @@ export function WeatherAlertFlyout({
       )}
 
       {/* Action buttons */}
-      <div className="px-2 py-2 border-t border-white/10 flex items-center gap-2">
+      <div className="px-2 py-2 border-t border-su-line/40 flex items-center gap-2">
         <button
           onClick={handleViewDetails}
           className="flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-cyan-500/10 text-cyan-400 hover:bg-cyan-500/20 border border-cyan-500/20 transition-colors duration-150"
@@ -317,7 +317,7 @@ export function WeatherAlertFlyout({
         </button>
         <button
           onClick={onClose}
-          className="flex items-center justify-center px-3 py-1.5 rounded-lg text-xs font-medium bg-white/5 text-gray-400 hover:bg-white/10 border border-white/10 transition-colors duration-150"
+          className="flex items-center justify-center px-3 py-1.5 rounded-lg text-xs font-medium bg-su-line/10 text-su-muted hover:bg-su-line/20 border border-su-line/40 transition-colors duration-150"
         >
           Close
         </button>

@@ -84,11 +84,11 @@ function SignalMeter({
   unavailableReason?: string;
 }) {
   if (unavailableReason) {
-    return <div className="text-xs text-gray-400">{unavailableReason}</div>;
+    return <div className="text-xs text-su-muted">{unavailableReason}</div>;
   }
   if (!signal) {
     return (
-      <div className="text-xs text-gray-400">
+      <div className="text-xs text-su-muted">
         No viable propagation on modeled HF bands
       </div>
     );
@@ -106,7 +106,7 @@ function SignalMeter({
     <div className="space-y-1">
       <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-2 min-w-0">
-          <span className="px-1.5 py-0.5 rounded bg-white/10 text-[10px] font-mono text-white">
+          <span className="px-1.5 py-0.5 rounded bg-su-line/20 text-[10px] font-mono text-su-text">
             {signal.band}
           </span>
           <span
@@ -115,29 +115,29 @@ function SignalMeter({
             {statusText}
           </span>
           {signal.isEstimated && (
-            <span className="text-[10px] text-gray-500">EST</span>
+            <span className="text-[10px] text-su-muted">EST</span>
           )}
         </div>
         <div className="flex items-center gap-2 flex-shrink-0">
-          <span className="text-xs font-mono text-white">
+          <span className="text-xs font-mono text-su-text">
             {signal.sUnit?.text ?? "--"}
           </span>
           {confidenceText && (
-            <span className="text-[10px] text-gray-500">{confidenceText}</span>
+            <span className="text-[10px] text-su-muted">{confidenceText}</span>
           )}
         </div>
       </div>
 
-      <div className="h-2 rounded bg-white/10 overflow-hidden relative">
+      <div className="h-2 rounded bg-su-line/20 overflow-hidden relative">
         <div
           className="absolute inset-y-0 left-0 bg-gradient-to-r from-alert-red via-caution-amber to-signal-green"
           style={{ width: `${fillPct}%` }}
         />
-        <div className="absolute inset-0 ring-1 ring-inset ring-white/10 rounded" />
+        <div className="absolute inset-0 ring-1 ring-inset ring-su-line/40 rounded" />
       </div>
 
       {signal.notes && (
-        <div className="text-[10px] text-gray-500 line-clamp-2">
+        <div className="text-[10px] text-su-muted line-clamp-2">
           {signal.notes}
         </div>
       )}
@@ -205,8 +205,8 @@ export function TargetHoverTooltip({
       }
       className={`
         ${overlayFrame.position === "absolute" ? "absolute" : "fixed"} z-[100] ${interactive ? "pointer-events-auto cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300" : "pointer-events-none"}
-        bg-gray-950
-        border border-white/10 rounded-lg
+        bg-su-canvas
+        border border-su-line/40 rounded-lg
         shadow-xl
         ${className}
       `}
@@ -223,14 +223,14 @@ export function TargetHoverTooltip({
         // movement does not briefly leave both the tag and the preview.
         <span className="absolute -inset-3" aria-hidden="true" />
       )}
-      <div className="px-3 py-2 border-b border-white/10">
+      <div className="px-3 py-2 border-b border-su-line/40">
         <div className="flex items-center justify-between gap-2">
           <div className="min-w-0">
-            <div className="text-white font-mono font-bold text-sm truncate">
+            <div className="text-su-text font-mono font-bold text-sm truncate">
               {label}
             </div>
             {grid && (
-              <div className="text-[10px] text-gray-500 font-mono">{grid}</div>
+              <div className="text-[10px] text-su-muted font-mono">{grid}</div>
             )}
             {contextLabel && (
               <div className="mt-0.5 truncate text-[10px] text-cyan-200/70">
@@ -255,7 +255,7 @@ export function TargetHoverTooltip({
 
       <div className="px-3 py-2 space-y-1.5">
         {(distanceKm !== undefined || bearing !== undefined) && (
-          <div className="flex items-center justify-between font-mono text-[10px] text-gray-400">
+          <div className="flex items-center justify-between font-mono text-[10px] text-su-muted">
             <span>
               {distanceKm !== undefined
                 ? `${Math.round(distanceKm).toLocaleString()} km`
@@ -268,7 +268,7 @@ export function TargetHoverTooltip({
             )}
           </div>
         )}
-        <div className="text-[10px] uppercase tracking-wide text-gray-500">
+        <div className="text-[10px] uppercase tracking-wide text-su-muted">
           Optimal Band Signal ({Math.round(txPowerWatts)}W {physicsMode})
         </div>
         <SignalMeter

@@ -10,7 +10,7 @@ Sources of truth:
 
 - `src/lib/themes/stationTokens.ts` — the palettes and `stationTokens(theme, accent)`.
 - `src/lib/themes/index.ts` — `applyThemeToDocument()` writes every `--su-*` (and its `-rgb` channel triplet) onto `document.documentElement`.
-- `src/styles/design-tokens.css` — the `:root` fallbacks (dark palette) so utilities render correctly before JS runs and in tests.
+- `src/styles/globals.css` — the `:root` fallbacks (dark palette, next to the `--theme-*` fallbacks) so utilities render correctly before JS runs and in tests.
 - `tailwind.config.js` — the `su` colour namespace.
 - `src/components/station-ui/StationProvider.tsx` — re-injects the same variables inline on its `.station-ui` element, which wins over the root by specificity, so scoped `theme`/`accent` previews still work.
 

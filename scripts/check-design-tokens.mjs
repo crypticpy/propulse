@@ -35,6 +35,9 @@ const RULES = [
   { kind: "class", name: "text-neutral-*", pattern: /\btext-neutral-\d/ },
   { kind: "hex", name: "#fff", pattern: /#fff\b/i },
   { kind: "hex", name: "#ffffff", pattern: /#ffffff\b/i },
+  // Arbitrary-value utilities are unambiguous class tokens, so they are
+  // checked on every line (multi-line className expressions included).
+  { kind: "class", name: "*-[#fff]", pattern: /-\[#(?:fff|ffffff)\]/i },
 ];
 
 const ALLOW = /(?:\/\/|\/\*)\s*design-tokens:\s*allow/;

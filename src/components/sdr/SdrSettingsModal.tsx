@@ -91,7 +91,7 @@ function SectionLabel({ children }: { children: React.ReactNode }) {
   return (
     <div className="flex items-center gap-2 pt-1">
       <div className="w-[3px] h-3 rounded-full bg-plasma-orange/60" />
-      <h3 className="text-xs font-semibold uppercase tracking-wider text-gray-400">
+      <h3 className="text-xs font-semibold uppercase tracking-wider text-su-muted">
         {children}
       </h3>
     </div>
@@ -122,8 +122,8 @@ function Slider({
   return (
     <div>
       <div className="flex items-center justify-between mb-1">
-        <span className="text-sm font-medium text-gray-300">{label}</span>
-        <span className="text-sm text-gray-400 font-mono">{display}</span>
+        <span className="text-sm font-medium text-su-muted">{label}</span>
+        <span className="text-sm text-su-muted font-mono">{display}</span>
       </div>
       <input
         type="range"
@@ -135,7 +135,7 @@ function Slider({
         className="w-full h-2 bg-void-black rounded-lg appearance-none cursor-pointer accent-plasma-orange"
       />
       {description && (
-        <p className="text-xs text-gray-500 mt-1">{description}</p>
+        <p className="text-xs text-su-muted mt-1">{description}</p>
       )}
     </div>
   );
@@ -158,22 +158,22 @@ function ColorPicker({
 
   return (
     <div>
-      <span className="text-sm font-medium text-gray-300">{label}</span>
+      <span className="text-sm font-medium text-su-muted">{label}</span>
       <div className="flex items-center gap-3 mt-1.5">
         <input
           type="color"
           value={hexValue}
           onChange={(e) => onChange(e.target.value)}
-          className="w-8 h-8 rounded cursor-pointer bg-transparent border border-white/20 flex-shrink-0"
+          className="w-8 h-8 rounded cursor-pointer bg-transparent border border-su-line/50 flex-shrink-0"
         />
-        <span className="text-xs font-mono text-gray-500 min-w-0 truncate">
+        <span className="text-xs font-mono text-su-muted min-w-0 truncate">
           {value}
         </span>
         {!isDefault && (
           <button
             type="button"
             onClick={() => onChange(defaultValue)}
-            className="text-[10px] text-gray-500 hover:text-plasma-orange underline underline-offset-2 flex-shrink-0 transition-colors"
+            className="text-[10px] text-su-muted hover:text-plasma-orange underline underline-offset-2 flex-shrink-0 transition-colors"
           >
             Reset
           </button>
@@ -186,11 +186,11 @@ function ColorPicker({
 /** Subtle reset link shown at the bottom of each tab */
 function ResetButton({ onClick }: { onClick: () => void }) {
   return (
-    <div className="pt-4 border-t border-white/5">
+    <div className="pt-4 border-t border-su-line/20">
       <button
         type="button"
         onClick={onClick}
-        className="text-xs text-gray-500 hover:text-gray-300 transition-colors"
+        className="text-xs text-su-muted hover:text-su-muted transition-colors"
       >
         Reset tab to defaults
       </button>
@@ -232,10 +232,10 @@ function SpectrumTab() {
         {/* Line Color — auto toggle + manual picker */}
         <div>
           <div className="flex items-center justify-between mb-1">
-            <span className="text-sm font-medium text-gray-300">
+            <span className="text-sm font-medium text-su-muted">
               Line Color
             </span>
-            <span className="text-xs font-mono text-gray-500">
+            <span className="text-xs font-mono text-su-muted">
               {lineColor === "auto" ? "auto" : lineColor}
             </span>
           </div>
@@ -251,13 +251,13 @@ function SpectrumTab() {
               className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors border ${
                 lineColor === "auto"
                   ? "bg-plasma-orange/15 text-plasma-orange border-plasma-orange/30"
-                  : "text-gray-400 border-white/10 hover:text-gray-200 hover:border-white/20"
+                  : "text-su-muted border-su-line/40 hover:text-su-text hover:border-su-line/50"
               }`}
             >
               Auto
             </button>
             {lineColor === "auto" ? (
-              <span className="text-xs text-gray-500">
+              <span className="text-xs text-su-muted">
                 Derived from waterfall palette
               </span>
             ) : (
@@ -267,7 +267,7 @@ function SpectrumTab() {
                 onChange={(e) =>
                   update({ sdrSpectrumLineColor: e.target.value })
                 }
-                className="w-8 h-8 rounded cursor-pointer bg-transparent border border-white/20"
+                className="w-8 h-8 rounded cursor-pointer bg-transparent border border-su-line/50"
               />
             )}
           </div>
@@ -291,7 +291,7 @@ function SpectrumTab() {
         />
 
         {gradientFill && (
-          <div className="pl-4 border-l-2 border-white/5">
+          <div className="pl-4 border-l-2 border-su-line/20">
             <Slider
               label="Fill Opacity"
               value={fillOpacity}
@@ -305,7 +305,7 @@ function SpectrumTab() {
         )}
       </div>
 
-      <div className="border-t border-white/10" />
+      <div className="border-t border-su-line/40" />
 
       {/* ── Effects ────────────────────────────── */}
       <div className="space-y-3">
@@ -326,7 +326,7 @@ function SpectrumTab() {
         />
 
         {lineShadow && (
-          <div className="pl-4 border-l-2 border-white/5">
+          <div className="pl-4 border-l-2 border-su-line/20">
             <Slider
               label="Shadow Blur"
               value={shadowBlur}
@@ -349,12 +349,12 @@ function SpectrumTab() {
         />
       </div>
 
-      <div className="border-t border-white/10" />
+      <div className="border-t border-su-line/40" />
 
       {/* ── Tuning Indicator ──────────────────── */}
       <div className="space-y-3">
         <SectionLabel>Tuning Indicator</SectionLabel>
-        <p className="text-xs text-gray-500">
+        <p className="text-xs text-su-muted">
           Arrow points down from the top, leaning toward the active sideband.
           Line extends from the arrow tip to the frequency.
         </p>
@@ -372,7 +372,7 @@ function SpectrumTab() {
         />
       </div>
 
-      <div className="border-t border-white/10" />
+      <div className="border-t border-su-line/40" />
 
       {/* ── Grid & Background ─────────────────── */}
       <div className="space-y-3">
@@ -404,7 +404,7 @@ function SpectrumTab() {
         />
 
         {gridLines > 0 && (
-          <div className="pl-4 border-l-2 border-white/5">
+          <div className="pl-4 border-l-2 border-su-line/20">
             <Slider
               label="Grid Opacity"
               value={gridOpacity}
@@ -451,7 +451,7 @@ function WaterfallTab() {
                 className={`group flex flex-col items-center gap-1.5 p-2 rounded-lg transition-all ${
                   isActive
                     ? "bg-plasma-orange/10 ring-1 ring-plasma-orange/40"
-                    : "hover:bg-white/5"
+                    : "hover:bg-su-line/10"
                 }`}
                 title={getPaletteDisplayName(name)}
               >
@@ -459,7 +459,7 @@ function WaterfallTab() {
                   className={`w-full h-5 rounded-sm border transition-colors ${
                     isActive
                       ? "border-plasma-orange/50"
-                      : "border-white/10 group-hover:border-white/25"
+                      : "border-su-line/40 group-hover:border-su-line/60"
                   }`}
                   style={{
                     background: getWaterfallPaletteGradientCss(name),
@@ -469,7 +469,7 @@ function WaterfallTab() {
                   className={`text-[10px] leading-tight transition-colors ${
                     isActive
                       ? "text-plasma-orange font-medium"
-                      : "text-gray-500 group-hover:text-gray-400"
+                      : "text-su-muted group-hover:text-su-muted"
                   }`}
                 >
                   {getPaletteDisplayName(name)}
@@ -480,7 +480,7 @@ function WaterfallTab() {
         </div>
       </div>
 
-      <div className="border-t border-white/10" />
+      <div className="border-t border-su-line/40" />
 
       {/* ── Dynamic Range ─────────────────────── */}
       <div className="space-y-3">
@@ -526,7 +526,7 @@ function WaterfallTab() {
         />
       </div>
 
-      <div className="border-t border-white/10" />
+      <div className="border-t border-su-line/40" />
 
       {/* ── Fidelity ──────────────────────────── */}
       <div className="space-y-3">
@@ -534,10 +534,10 @@ function WaterfallTab() {
 
         {/* Interpolation — SegmentedButton style */}
         <div>
-          <span className="text-sm font-medium text-gray-300">
+          <span className="text-sm font-medium text-su-muted">
             Interpolation
           </span>
-          <div className="flex gap-1 p-1 mt-1.5 bg-void-black rounded-lg border border-white/10">
+          <div className="flex gap-1 p-1 mt-1.5 bg-void-black rounded-lg border border-su-line/40">
             {(["nearest", "linear"] as const).map((mode) => (
               <button
                 key={mode}
@@ -545,15 +545,15 @@ function WaterfallTab() {
                 onClick={() => update({ sdrWaterfallInterpolation: mode })}
                 className={`flex-1 px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
                   interpolation === mode
-                    ? "bg-plasma-orange text-white"
-                    : "text-gray-400 hover:text-gray-200"
+                    ? "bg-plasma-orange text-su-on-accent"
+                    : "text-su-muted hover:text-su-text"
                 }`}
               >
                 {mode === "nearest" ? "Nearest (Sharp)" : "Linear (Smooth)"}
               </button>
             ))}
           </div>
-          <p className="text-xs text-gray-500 mt-1">
+          <p className="text-xs text-su-muted mt-1">
             Nearest preserves sharp FFT bins. Linear smooths pixel edges.
           </p>
         </div>
@@ -596,7 +596,7 @@ function PassbandTab() {
 
   return (
     <div className="space-y-5">
-      <p className="text-xs text-gray-500 leading-relaxed">
+      <p className="text-xs text-su-muted leading-relaxed">
         The passband overlay highlights the receiver filter bandwidth on both
         the spectrum scope and waterfall. These settings control its visual
         appearance.
@@ -614,19 +614,19 @@ function PassbandTab() {
               className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors border ${
                 blendMode === mode
                   ? "bg-plasma-orange/15 text-plasma-orange border-plasma-orange/30"
-                  : "bg-white/5 text-gray-400 border-white/10 hover:text-gray-200 hover:border-white/20"
+                  : "bg-su-line/10 text-su-muted border-su-line/40 hover:text-su-text hover:border-su-line/50"
               }`}
             >
               {mode}
             </button>
           ))}
         </div>
-        <p className="text-xs text-gray-500">
+        <p className="text-xs text-su-muted">
           How the passband color composites with the waterfall beneath it
         </p>
       </div>
 
-      <div className="border-t border-white/10" />
+      <div className="border-t border-su-line/40" />
 
       {/* ── Opacity ───────────────────────────── */}
       <div className="space-y-3">
@@ -658,7 +658,7 @@ function SliceTab() {
 
   return (
     <div className="space-y-5">
-      <p className="text-xs text-gray-500 leading-relaxed">
+      <p className="text-xs text-su-muted leading-relaxed">
         The slice flag is the floating frequency display on the Flexible skin.
         Customize its background to match your preferences.
       </p>
@@ -674,15 +674,15 @@ function SliceTab() {
         />
       </div>
 
-      <div className="border-t border-white/10" />
+      <div className="border-t border-su-line/40" />
 
       {/* ── Live Preview ──────────────────────── */}
       <div className="space-y-3">
         <SectionLabel>Preview</SectionLabel>
-        <div className="p-4 rounded-lg bg-void-black border border-white/10">
+        <div className="p-4 rounded-lg bg-void-black border border-su-line/40">
           {/* Mini slice flag */}
           <div
-            className="relative inline-flex flex-col gap-1.5 px-4 py-2.5 rounded-md border border-white/10"
+            className="relative inline-flex flex-col gap-1.5 px-4 py-2.5 rounded-md border border-su-line/40"
             style={{
               backgroundColor: sliceBgColor,
               boxShadow: "inset 3px 0 0 rgba(0, 220, 255, 0.6)",
@@ -693,7 +693,7 @@ function SliceTab() {
               <span className="text-[10px] font-semibold text-cyan-400 tracking-wider">
                 Slice A
               </span>
-              <span className="text-[9px] px-1 py-0.5 rounded bg-white/10 text-gray-400">
+              <span className="text-[9px] px-1 py-0.5 rounded bg-su-line/20 text-su-muted">
                 ANT1
               </span>
               <span className="text-[9px] px-1 py-0.5 rounded bg-signal-green/20 text-signal-green">
@@ -703,20 +703,20 @@ function SliceTab() {
             {/* Segmented frequency */}
             <div className="flex items-baseline gap-0.5 font-mono">
               <span
-                className="text-lg font-bold text-white"
+                className="text-lg font-bold text-su-text"
                 style={{ textShadow: "0 0 8px rgba(0,220,255,0.3)" }}
               >
                 14
               </span>
-              <span className="text-lg font-bold text-white/50">.</span>
+              <span className="text-lg font-bold text-su-text/50">.</span>
               <span
-                className="text-lg font-bold text-white"
+                className="text-lg font-bold text-su-text"
                 style={{ textShadow: "0 0 8px rgba(0,220,255,0.3)" }}
               >
                 074
               </span>
-              <span className="text-lg font-bold text-white/50">.</span>
-              <span className="text-sm text-gray-400">000</span>
+              <span className="text-lg font-bold text-su-text/50">.</span>
+              <span className="text-sm text-su-muted">000</span>
             </div>
             {/* Mode pill */}
             <span className="inline-flex self-start px-2 py-0.5 rounded-full text-[10px] font-semibold bg-green-500/20 text-green-400">
@@ -762,7 +762,7 @@ export function SdrSettingsModal({ isOpen, onClose }: SdrSettingsModalProps) {
     <div className="fixed inset-0 z-[400] flex items-center justify-center p-4 md:p-6">
       {/* Backdrop */}
       <div
-        className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+        className="absolute inset-0 bg-su-panel/60 backdrop-blur-sm"
         onClick={onClose}
       />
 
@@ -770,7 +770,7 @@ export function SdrSettingsModal({ isOpen, onClose }: SdrSettingsModalProps) {
       <div
         className={
           "relative z-10 w-full max-w-2xl max-h-[calc(100vh-2rem)] md:max-h-[calc(100vh-3rem)] " +
-          "flex flex-col rounded-2xl bg-black/90 backdrop-blur-md border border-white/15 " +
+          "flex flex-col rounded-2xl bg-su-panel/90 backdrop-blur-md border border-su-line/50 " +
           "shadow-2xl shadow-black/50"
         }
       >
@@ -780,13 +780,13 @@ export function SdrSettingsModal({ isOpen, onClose }: SdrSettingsModalProps) {
             <h2 className="font-orbitron text-lg font-bold text-gradient-orange">
               SDR Display
             </h2>
-            <p className="text-sm text-gray-500 mt-0.5">
+            <p className="text-sm text-su-muted mt-0.5">
               Spectrum, waterfall & overlay configuration
             </p>
           </div>
           <button
             onClick={onClose}
-            className="p-2 text-gray-400 hover:text-white hover:bg-white/10 rounded-lg transition-colors -mr-2 -mt-1"
+            className="p-2 text-su-muted hover:text-su-text hover:bg-su-line/20 rounded-lg transition-colors -mr-2 -mt-1"
             aria-label="Close settings"
           >
             <svg
@@ -806,7 +806,7 @@ export function SdrSettingsModal({ isOpen, onClose }: SdrSettingsModalProps) {
         </div>
 
         {/* Tab bar — SegmentedButton pattern */}
-        <div className="flex gap-1 p-1 mx-6 mt-4 mb-1 bg-void-black rounded-lg border border-white/10 flex-shrink-0">
+        <div className="flex gap-1 p-1 mx-6 mt-4 mb-1 bg-void-black rounded-lg border border-su-line/40 flex-shrink-0">
           {TABS.map((tab) => (
             <button
               key={tab.id}
@@ -814,8 +814,8 @@ export function SdrSettingsModal({ isOpen, onClose }: SdrSettingsModalProps) {
               onClick={() => setActiveTab(tab.id)}
               className={`flex-1 px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
                 activeTab === tab.id
-                  ? "bg-plasma-orange text-white"
-                  : "text-gray-400 hover:text-gray-200"
+                  ? "bg-plasma-orange text-su-on-accent"
+                  : "text-su-muted hover:text-su-text"
               }`}
             >
               {tab.label}

@@ -16,20 +16,20 @@ export function RadioStatusCard({ effectiveState }: RadioStatusCardProps) {
 
   return (
     <Card className="p-4 space-y-1.5">
-      <div className="text-sm font-semibold text-gray-200">Status</div>
-      <div className="text-xs text-gray-500 flex justify-between">
+      <div className="text-sm font-semibold text-su-text">Status</div>
+      <div className="text-xs text-su-muted flex justify-between">
         <span>Frequency</span>
-        <span className="text-gray-300 font-mono">
+        <span className="text-su-muted font-mono">
           {formatHz(effectiveState.freq)}
         </span>
       </div>
-      <div className="text-xs text-gray-500 flex justify-between">
+      <div className="text-xs text-su-muted flex justify-between">
         <span>Mode</span>
-        <span className="text-gray-300 font-mono">{effectiveState.mode}</span>
+        <span className="text-su-muted font-mono">{effectiveState.mode}</span>
       </div>
-      <div className="text-xs text-gray-500 flex justify-between">
+      <div className="text-xs text-su-muted flex justify-between">
         <span>AGC</span>
-        <span className="text-gray-300 font-mono">
+        <span className="text-su-muted font-mono">
           {effectiveState.agc ? "on" : "off"}
         </span>
       </div>

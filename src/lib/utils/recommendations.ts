@@ -516,7 +516,7 @@ export function getStatusColorClass(
     case "poor":
       return "text-alert-red";
     case "closed":
-      return "text-gray-500";
+      return "text-su-muted";
   }
 }
 
@@ -536,7 +536,7 @@ export function getStatusBgColorClass(
     case "poor":
       return "bg-alert-red/20";
     case "closed":
-      return "bg-gray-500/20";
+      return "bg-su-line/20";
   }
 }
 

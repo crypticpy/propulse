@@ -232,13 +232,13 @@ export function ClassicSkin(props: SdrSkinProps) {
       )}
 
       {!daemonConnected && (
-        <div className="p-4 rounded-lg border border-white/10 bg-white/[0.03] text-sm text-gray-300">
-          <div className="font-semibold text-gray-200 mb-1">
+        <div className="p-4 rounded-lg border border-su-line/40 bg-su-line/10 text-sm text-su-muted">
+          <div className="font-semibold text-su-text mb-1">
             No Daemon Connected
           </div>
-          <div className="text-gray-400">
+          <div className="text-su-muted">
             Start the daemon on the machine connected to your radio, then use{" "}
-            <span className="text-gray-200">Daemon</span> in the header to
+            <span className="text-su-text">Daemon</span> in the header to
             connect.
           </div>
         </div>
@@ -251,7 +251,7 @@ export function ClassicSkin(props: SdrSkinProps) {
           <button
             type="button"
             onClick={() => setMobileControlsOpen(true)}
-            className="fixed bottom-5 left-1/2 -translate-x-1/2 px-4 py-3 rounded-full bg-white/10 border border-white/20 backdrop-blur-md text-sm text-gray-100 hover:bg-white/15"
+            className="fixed bottom-5 left-1/2 -translate-x-1/2 px-4 py-3 rounded-full bg-su-line/20 border border-su-line/50 backdrop-blur-md text-sm text-su-text hover:bg-su-line/30"
             style={{ minHeight: 44 }}
           >
             Controls
@@ -269,17 +269,17 @@ export function ClassicSkin(props: SdrSkinProps) {
               }}
             >
               <div
-                className="absolute inset-0 bg-black/50"
+                className="absolute inset-0 bg-su-panel/50"
                 onClick={() => setMobileControlsOpen(false)}
               />
 
-              <div className="relative w-full max-h-[75dvh] bg-deep-space/95 backdrop-blur-md border-t border-white/10 rounded-t-2xl overflow-hidden">
-                <div className="flex items-center justify-between px-4 py-3 border-b border-white/10">
+              <div className="relative w-full max-h-[75dvh] bg-deep-space/95 backdrop-blur-md border-t border-su-line/40 rounded-t-2xl overflow-hidden">
+                <div className="flex items-center justify-between px-4 py-3 border-b border-su-line/40">
                   <div className="min-w-0">
-                    <div className="text-sm font-semibold text-white truncate">
+                    <div className="text-sm font-semibold text-su-text truncate">
                       Radio Controls
                     </div>
-                    <div className="text-[11px] text-gray-400 font-mono truncate">
+                    <div className="text-[11px] text-su-muted font-mono truncate">
                       {effectiveState
                         ? formatHz(effectiveState.freq)
                         : "\u2014"}
@@ -288,7 +288,7 @@ export function ClassicSkin(props: SdrSkinProps) {
                   <button
                     type="button"
                     onClick={() => setMobileControlsOpen(false)}
-                    className="px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-gray-200 hover:bg-white/10"
+                    className="px-3 py-2 rounded-lg bg-su-line/10 border border-su-line/40 text-su-text hover:bg-su-line/20"
                     style={{ minHeight: 44 }}
                   >
                     Close

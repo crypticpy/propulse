@@ -85,14 +85,14 @@ export const MetricCard: React.FC<MetricCardProps> = ({
       case "stable":
         return "text-caution-amber";
       default:
-        return "text-gray-400";
+        return "text-su-muted";
     }
   };
 
   return (
     <Card
       animate
-      className={`relative overflow-hidden ${onClick ? "cursor-pointer hover:border-white/30 hover:bg-white/[0.05] group" : ""}`}
+      className={`relative overflow-hidden ${onClick ? "cursor-pointer hover:border-su-line/60 hover:bg-su-line/10 group" : ""}`}
       style={{ animationDelay: `${delay}ms` }}
       onClick={onClick}
       role={onClick ? "button" : undefined}
@@ -110,7 +110,7 @@ export const MetricCard: React.FC<MetricCardProps> = ({
     >
       {/* Expand icon - shown when onClick is provided */}
       {onClick && (
-        <div className="absolute top-3 right-3 text-gray-500 opacity-0 group-hover:opacity-100 transition-opacity">
+        <div className="absolute top-3 right-3 text-su-muted opacity-0 group-hover:opacity-100 transition-opacity">
           <svg
             className="w-4 h-4"
             fill="none"
@@ -134,7 +134,7 @@ export const MetricCard: React.FC<MetricCardProps> = ({
       ) : (
         <div className="flex flex-col gap-2">
           {/* Label */}
-          <span className="text-sm font-sans font-semibold uppercase tracking-wide text-gray-300 flex items-center gap-1">
+          <span className="text-sm font-sans font-semibold uppercase tracking-wide text-su-muted flex items-center gap-1">
             {label}
             {tooltip && <InfoTip content={tooltip} />}
           </span>
@@ -151,7 +151,7 @@ export const MetricCard: React.FC<MetricCardProps> = ({
 
             {/* Unit */}
             {unit && (
-              <span className="text-sm font-mono text-gray-500">{unit}</span>
+              <span className="text-sm font-mono text-su-muted">{unit}</span>
             )}
 
             {/* Trend indicator */}
@@ -164,7 +164,7 @@ export const MetricCard: React.FC<MetricCardProps> = ({
 
           {/* Description */}
           {description && (
-            <span className="text-sm font-sans text-gray-400">
+            <span className="text-sm font-sans text-su-muted">
               {description}
             </span>
           )}

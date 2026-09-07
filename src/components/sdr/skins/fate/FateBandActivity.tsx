@@ -251,7 +251,7 @@ function BandActivityHeader({ sortField, sortDir, onSort }: HeaderProps) {
     return (
       <button
         type="button"
-        className={`flex items-center gap-0 ${align} select-none transition-colors hover:text-gray-300 ${
+        className={`flex items-center gap-0 ${align} select-none transition-colors hover:text-su-muted ${
           active ? "text-plasma-orange" : ""
         }`}
         onClick={() => onSort(field)}
@@ -265,7 +265,7 @@ function BandActivityHeader({ sortField, sortDir, onSort }: HeaderProps) {
 
   return (
     <div
-      className="grid items-center px-1.5 py-1 text-[9px] uppercase tracking-wider text-gray-500 font-medium bg-[#0c0c16] border-b border-white/[0.06] select-none shrink-0"
+      className="grid items-center px-1.5 py-1 text-[9px] uppercase tracking-wider text-su-muted font-medium bg-[#0c0c16] border-b border-su-line/20 select-none shrink-0"
       style={{ gridTemplateColumns: GRID_COLS }}
     >
       {sortable("time", "UTC", "justify-start")}
@@ -310,7 +310,7 @@ export function FateDecodeRow({
 
   // Row background/border classification — DXCC status overrides for CQ rows
   const isNewEntity = dxccInfo && !dxccInfo.isWorked && dxccInfo.entity != null;
-  let rowClass = "bg-white/[0.02] hover:bg-white/[0.05]";
+  let rowClass = "bg-su-line/10 hover:bg-su-line/20";
   if (isDirected) {
     rowClass = "bg-cosmic-cyan/8 border-l-2 border-cosmic-cyan/60";
   } else if (d.isFoxMulti || d.foxCallsign) {
@@ -325,7 +325,7 @@ export function FateDecodeRow({
   } else if (d.isCQ) {
     rowClass = "bg-signal-green/8 border-l-2 border-signal-green/60";
   } else if (dxccInfo?.isWorked) {
-    rowClass = "bg-white/[0.015] hover:bg-white/[0.04] opacity-75";
+    rowClass = "bg-su-line/10 hover:bg-su-line/20 opacity-75";
   }
 
   if (d.lowConfidence) {
@@ -349,7 +349,7 @@ export function FateDecodeRow({
       style={{ gridTemplateColumns: GRID_COLS }}
     >
       {/* UTC */}
-      <span className="text-gray-400 tabular-nums">{d.utcFormatted}</span>
+      <span className="text-su-muted tabular-nums">{d.utcFormatted}</span>
 
       {/* SNR with proportional bar */}
       <div className="relative text-right pr-0.5">
@@ -375,9 +375,9 @@ export function FateDecodeRow({
       </div>
 
       {/* Delta Frequency */}
-      <span className="text-right tabular-nums text-gray-400 pr-0.5">
+      <span className="text-right tabular-nums text-su-muted pr-0.5">
         {d.deltaFrequency}
-        <span className="text-gray-600 text-[9px] ml-0.5">Hz</span>
+        <span className="text-su-muted text-[9px] ml-0.5">Hz</span>
       </span>
 
       {/* Message — the full decoded text */}
@@ -389,7 +389,7 @@ export function FateDecodeRow({
               ? "text-signal-green/90"
               : isDirected
                 ? "text-cosmic-cyan/90"
-                : "text-gray-300"
+                : "text-su-muted"
         }`}
         title={d.message}
       >
@@ -407,7 +407,7 @@ export function FateDecodeRow({
         title={dxccInfo?.entity?.name ?? undefined}
       >
         <span
-          className={`truncate font-semibold ${dxccInfo?.isWorked ? "text-gray-400" : "text-white"}`}
+          className={`truncate font-semibold ${dxccInfo?.isWorked ? "text-su-muted" : "text-su-text"}`}
         >
           {d.parsedCallsign ?? ""}
         </span>
@@ -432,31 +432,31 @@ export function FateDecodeRow({
       </div>
 
       {/* Grid locator */}
-      <span className="text-gray-500 tabular-nums text-[10px]">
+      <span className="text-su-muted tabular-nums text-[10px]">
         {d.parsedGrid ?? ""}
       </span>
 
       {/* Distance */}
-      <span className="text-right tabular-nums text-gray-400 text-[10px]">
+      <span className="text-right tabular-nums text-su-muted text-[10px]">
         {d.distanceKm != null ? (
           <>
             {Math.round(d.distanceKm).toLocaleString()}
-            <span className="text-gray-600 text-[8px] ml-0.5">km</span>
+            <span className="text-su-muted text-[8px] ml-0.5">km</span>
           </>
         ) : (
-          <span className="text-gray-600">---</span>
+          <span className="text-su-muted">---</span>
         )}
       </span>
 
       {/* Bearing */}
-      <span className="text-right tabular-nums text-gray-400 text-[10px]">
+      <span className="text-right tabular-nums text-su-muted text-[10px]">
         {d.bearingDeg != null ? (
           <>
             {Math.round(d.bearingDeg)}
-            <span className="text-gray-600">&deg;</span>
+            <span className="text-su-muted">&deg;</span>
           </>
         ) : (
-          <span className="text-gray-600">---</span>
+          <span className="text-su-muted">---</span>
         )}
       </span>
 
@@ -468,7 +468,7 @@ export function FateDecodeRow({
             className={`w-5 h-5 flex items-center justify-center rounded transition-all ${
               isLogged
                 ? "text-signal-green cursor-default"
-                : "text-gray-600 hover:text-signal-green hover:bg-signal-green/10 active:scale-90"
+                : "text-su-muted hover:text-signal-green hover:bg-signal-green/10 active:scale-90"
             }`}
             onClick={handleLog}
             disabled={isLogged}
@@ -497,7 +497,7 @@ function JumpToLatestButton({ onClick }: { onClick: () => void }) {
     <button
       type="button"
       onClick={onClick}
-      className="absolute bottom-2 right-3 z-10 flex items-center gap-1 px-2.5 py-1 rounded-md bg-[#0c0c16]/90 border border-white/10 text-[10px] font-medium text-gray-300 hover:text-white hover:border-plasma-orange/40 hover:bg-[#0c0c16] transition-all shadow-lg backdrop-blur-sm"
+      className="absolute bottom-2 right-3 z-10 flex items-center gap-1 px-2.5 py-1 rounded-md bg-[#0c0c16]/90 border border-su-line/40 text-[10px] font-medium text-su-muted hover:text-su-text hover:border-plasma-orange/40 hover:bg-[#0c0c16] transition-all shadow-lg backdrop-blur-sm"
     >
       <ChevronDown className="w-3 h-3 rotate-180" />
       Jump to latest
@@ -510,10 +510,10 @@ function JumpToLatestButton({ onClick }: { onClick: () => void }) {
 function EmptyState() {
   return (
     <div className="flex-1 flex flex-col items-center justify-center gap-2 py-12 select-none">
-      <span className="text-sm font-medium text-gray-500 animate-pulse">
+      <span className="text-sm font-medium text-su-muted animate-pulse">
         Waiting for decodes&hellip;
       </span>
-      <span className="text-[11px] text-gray-600">
+      <span className="text-[11px] text-su-muted">
         FT8 signals will appear here as they are decoded.
       </span>
     </div>
@@ -543,8 +543,8 @@ function CycleSeparator({
   cycleDurationMs: number;
 }) {
   return (
-    <div className="flex items-center px-2 py-0.5 border-y border-white/5 bg-[#0a0a14]">
-      <span className="text-[8px] text-gray-600 font-mono">
+    <div className="flex items-center px-2 py-0.5 border-y border-su-line/20 bg-[#0a0a14]">
+      <span className="text-[8px] text-su-muted font-mono">
         ── Cycle {formatUtcFromCycleId(cycleId, cycleDurationMs)} ──
       </span>
     </div>
@@ -762,14 +762,14 @@ export function FateBandActivity({
   return (
     <div className="relative flex flex-col min-h-0 bg-[#080810]">
       {/* CQ filter bar */}
-      <div className="flex items-center gap-2 px-2 py-1 bg-[#0c0c16] border-b border-white/[0.04] shrink-0">
+      <div className="flex items-center gap-2 px-2 py-1 bg-[#0c0c16] border-b border-su-line/20 shrink-0">
         <button
           type="button"
           onClick={() => onCqFilterChange(!showCqOnly)}
           className={`px-2 py-0.5 rounded text-[10px] font-bold transition-colors ${
             showCqOnly
               ? "bg-signal-green/15 text-signal-green"
-              : "text-gray-500 hover:text-gray-300"
+              : "text-su-muted hover:text-su-muted"
           }`}
         >
           CQ
@@ -777,7 +777,7 @@ export function FateBandActivity({
             <span className="ml-1 text-[9px] opacity-70">({cqCount})</span>
           )}
         </button>
-        <span className="text-[9px] text-gray-600 font-mono">
+        <span className="text-[9px] text-su-muted font-mono">
           {sortedDecodes.length} decode{sortedDecodes.length !== 1 ? "s" : ""}
         </span>
       </div>

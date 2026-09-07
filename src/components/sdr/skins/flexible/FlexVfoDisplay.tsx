@@ -168,7 +168,7 @@ export const FlexVfoDisplay = memo(function FlexVfoDisplay({
   if (isMin) {
     return (
       <div
-        className="backdrop-blur-sm rounded-lg px-2 py-1 select-none border border-white/10 cursor-pointer pointer-events-auto"
+        className="backdrop-blur-sm rounded-lg px-2 py-1 select-none border border-su-line/40 cursor-pointer pointer-events-auto"
         style={{
           backgroundColor: bgColor,
           boxShadow: `inset 3px 0 0 ${accentColor}, 0 2px 12px rgba(0,0,0,0.5)`,
@@ -200,7 +200,7 @@ export const FlexVfoDisplay = memo(function FlexVfoDisplay({
 
   return (
     <div
-      className="backdrop-blur-sm rounded-lg px-3 py-1.5 select-none min-w-[280px] border border-white/10 pointer-events-none"
+      className="backdrop-blur-sm rounded-lg px-3 py-1.5 select-none min-w-[280px] border border-su-line/40 pointer-events-none"
       style={{
         backgroundColor: bgColor,
         boxShadow: `inset 3px 0 0 ${accentColor}, 0 4px 24px rgba(0,0,0,0.6), 0 1px 6px rgba(0,0,0,0.4)`,
@@ -263,7 +263,7 @@ export const FlexVfoDisplay = memo(function FlexVfoDisplay({
         {/* Size toggle button */}
         <button
           onClick={cycleSize}
-          className="pointer-events-auto text-[8px] font-bold text-gray-500 hover:text-gray-300 transition-colors px-0.5"
+          className="pointer-events-auto text-[8px] font-bold text-su-muted hover:text-su-muted transition-colors px-0.5"
           title={isMax ? "Collapse to normal" : "Expand to max"}
         >
           {isMax ? "\u25B4" : "\u25BE"}
@@ -356,7 +356,7 @@ export const FlexVfoDisplay = memo(function FlexVfoDisplay({
 
       {/* ── Bottom info row ──────────────────────────────────────────── */}
       {bandwidth && !slicePanels && (
-        <div className="mt-0.5 text-[10px] font-mono text-gray-500 tracking-wide">
+        <div className="mt-0.5 text-[10px] font-mono text-su-muted tracking-wide">
           BW {bandwidth}
         </div>
       )}
@@ -386,10 +386,10 @@ function TxMeterBar({
       {/* Power */}
       {powerW != null && (
         <div className="flex items-center gap-1 flex-1">
-          <span className="text-[8px] font-semibold text-gray-500 w-6">
+          <span className="text-[8px] font-semibold text-su-muted w-6">
             PWR
           </span>
-          <div className="flex-1 h-1.5 bg-white/5 rounded-full overflow-hidden">
+          <div className="flex-1 h-1.5 bg-su-line/10 rounded-full overflow-hidden">
             <div
               className="h-full bg-alert-red/80 rounded-full transition-[width] duration-75"
               style={{ width: `${Math.min(100, (powerW / 100) * 100)}%` }}
@@ -404,7 +404,7 @@ function TxMeterBar({
       {/* SWR */}
       {swr != null && (
         <div className="flex items-center gap-1">
-          <span className="text-[8px] font-semibold text-gray-500">SWR</span>
+          <span className="text-[8px] font-semibold text-su-muted">SWR</span>
           <span
             className={`text-[9px] font-mono font-semibold ${
               swr > 3
@@ -422,8 +422,8 @@ function TxMeterBar({
       {/* ALC */}
       {alc != null && (
         <div className="flex items-center gap-1">
-          <span className="text-[8px] font-semibold text-gray-500">ALC</span>
-          <div className="w-8 h-1.5 bg-white/5 rounded-full overflow-hidden">
+          <span className="text-[8px] font-semibold text-su-muted">ALC</span>
+          <div className="w-8 h-1.5 bg-su-line/10 rounded-full overflow-hidden">
             <div
               className={`h-full rounded-full transition-[width] duration-75 ${
                 alc > 80 ? "bg-alert-red/80" : "bg-signal-green/70"

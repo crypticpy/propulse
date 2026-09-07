@@ -939,13 +939,13 @@ export function Waterfall({
     >
       <canvas
         ref={canvasRef}
-        className="w-full h-full rounded-lg border border-white/10 bg-black"
+        className="w-full h-full rounded-lg border border-su-line/40 bg-black"
       />
 
       {axis ? (
-        <div className="absolute left-2 right-2 bottom-1 pointer-events-none flex justify-between text-[10px] text-gray-300 font-mono">
+        <div className="absolute left-2 right-2 bottom-1 pointer-events-none flex justify-between text-[10px] text-su-muted font-mono">
           <span>{formatAxisHz(axis.start)}</span>
-          <span className="text-gray-200">{formatAxisHz(axis.center)}</span>
+          <span className="text-su-text">{formatAxisHz(axis.center)}</span>
           <span>{formatAxisHz(axis.end)}</span>
         </div>
       ) : null}
@@ -970,9 +970,9 @@ export function Waterfall({
             />
           )}
           {/* Thin left edge line */}
-          <div className="absolute left-0 top-0 bottom-0 w-px bg-white/25" />
+          <div className="absolute left-0 top-0 bottom-0 w-px bg-su-text/30" />
           {/* Thin right edge line */}
-          <div className="absolute right-0 top-0 bottom-0 w-px bg-white/25" />
+          <div className="absolute right-0 top-0 bottom-0 w-px bg-su-text/30" />
         </div>
       ) : null}
 
@@ -1007,7 +1007,7 @@ export function Waterfall({
               <div className={`w-px h-full ${colorClass}`} />
               {o.label ? (
                 <div
-                  className={`absolute top-1 left-0 -translate-x-1/2 px-1 py-0.5 rounded text-[10px] bg-black/60 border border-white/10 ${colorClass}`}
+                  className={`absolute top-1 left-0 -translate-x-1/2 px-1 py-0.5 rounded text-[10px] bg-su-panel/60 border border-su-line/40 ${colorClass}`}
                 >
                   {o.label}
                 </div>

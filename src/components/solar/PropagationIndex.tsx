@@ -191,7 +191,7 @@ export const PropagationIndex: React.FC<PropagationIndexProps> = ({
   const markerY2 = gaugeCenter + markerOuterRadius * Math.sin(markerRad);
 
   return (
-    <Card className="relative overflow-hidden group hover:border-white/20">
+    <Card className="relative overflow-hidden group hover:border-su-line/50">
       {/* Background gradient glow */}
       <div
         className="absolute inset-0 opacity-20 blur-3xl"
@@ -206,7 +206,7 @@ export const PropagationIndex: React.FC<PropagationIndexProps> = ({
           <button
             type="button"
             onClick={onExpand}
-            className="flex min-h-11 min-w-11 items-center justify-center text-gray-500 transition-colors hover:text-white motion-reduce:transition-none"
+            className="flex min-h-11 min-w-11 items-center justify-center text-su-muted transition-colors hover:text-su-text motion-reduce:transition-none"
             aria-label="Expand global conditions score"
           >
             <svg
@@ -230,11 +230,11 @@ export const PropagationIndex: React.FC<PropagationIndexProps> = ({
         {/* Header */}
         <div className="flex items-center justify-between mb-2">
           <div>
-            <h2 className="font-sans text-lg font-semibold text-white tracking-wide flex items-center gap-2">
+            <h2 className="font-sans text-lg font-semibold text-su-text tracking-wide flex items-center gap-2">
               Global Conditions Score
               <InfoTip content={PROPAGATION_TOOLTIPS.propagationIndex} />
             </h2>
-            <p className="text-xs text-gray-400 mt-0.5">
+            <p className="text-xs text-su-muted mt-0.5">
               Uncalibrated global heuristic · not path-specific
             </p>
           </div>
@@ -245,7 +245,7 @@ export const PropagationIndex: React.FC<PropagationIndexProps> = ({
             <LoadingSpinner size="lg" />
           </div>
         ) : !result ? (
-          <div className="flex items-center justify-center min-h-[240px] text-gray-500 text-sm">
+          <div className="flex items-center justify-center min-h-[240px] text-su-muted text-sm">
             Solar data unavailable
           </div>
         ) : (
@@ -417,52 +417,52 @@ export const PropagationIndex: React.FC<PropagationIndexProps> = ({
               </div>
 
               {/* Description */}
-              <p className="text-sm text-gray-300">{result.description}</p>
+              <p className="text-sm text-su-muted">{result.description}</p>
 
               {/* Score breakdown */}
               <div className="space-y-2">
-                <div className="text-xs text-gray-400 uppercase tracking-wider">
+                <div className="text-xs text-su-muted uppercase tracking-wider">
                   Heuristic inputs · {result.evidenceCoverage}
                 </div>
 
                 {/* SFI contribution */}
                 <div className="flex items-center gap-2">
-                  <span className="text-xs text-gray-400 w-16 flex items-center gap-1">
+                  <span className="text-xs text-su-muted w-16 flex items-center gap-1">
                     SFI <InfoTip content={SOLAR_TOOLTIPS.sfi} />
                   </span>
-                  <div className="flex-1 h-2 bg-white/10 rounded-full overflow-hidden">
+                  <div className="flex-1 h-2 bg-su-line/20 rounded-full overflow-hidden">
                     <div
                       className="h-full bg-plasma-orange rounded-full transition-all duration-500"
                       style={{ width: `${(result.sfiScore / 40) * 100}%` }}
                     />
                   </div>
-                  <span className="text-xs font-mono text-gray-300 w-12 text-right">
+                  <span className="text-xs font-mono text-su-muted w-12 text-right">
                     {Math.round(result.sfiScore)}/40
                   </span>
                 </div>
 
                 {/* Kp contribution */}
                 <div className="flex items-center gap-2">
-                  <span className="text-xs text-gray-400 w-16 flex items-center gap-1">
+                  <span className="text-xs text-su-muted w-16 flex items-center gap-1">
                     K-index <InfoTip content={SOLAR_TOOLTIPS.kIndex} />
                   </span>
-                  <div className="flex-1 h-2 bg-white/10 rounded-full overflow-hidden">
+                  <div className="flex-1 h-2 bg-su-line/20 rounded-full overflow-hidden">
                     <div
                       className="h-full bg-signal-green rounded-full transition-all duration-500"
                       style={{ width: `${(result.kpScore / 40) * 100}%` }}
                     />
                   </div>
-                  <span className="text-xs font-mono text-gray-300 w-12 text-right">
+                  <span className="text-xs font-mono text-su-muted w-12 text-right">
                     {Math.round(result.kpScore)}/40
                   </span>
                 </div>
 
                 {/* Bz contribution */}
                 <div className="flex items-center gap-2">
-                  <span className="text-xs text-gray-400 w-16 flex items-center gap-1">
+                  <span className="text-xs text-su-muted w-16 flex items-center gap-1">
                     IMF Bz <InfoTip content={SOLAR_TOOLTIPS.bz} />
                   </span>
-                  <div className="flex-1 h-2 bg-white/10 rounded-full overflow-hidden">
+                  <div className="flex-1 h-2 bg-su-line/20 rounded-full overflow-hidden">
                     <div
                       className="h-full rounded-full transition-all duration-500"
                       style={{
@@ -476,16 +476,16 @@ export const PropagationIndex: React.FC<PropagationIndexProps> = ({
                       }}
                     />
                   </div>
-                  <span className="text-xs font-mono text-gray-300 w-12 text-right">
+                  <span className="text-xs font-mono text-su-muted w-12 text-right">
                     {result.bzAvailable ? `${Math.round(result.bzScore)}/20` : "N/A"}
                   </span>
                 </div>
               </div>
 
               {/* Current values */}
-              <div className="flex gap-4 pt-2 border-t border-white/10">
+              <div className="flex gap-4 pt-2 border-t border-su-line/40">
                 <div className="text-center">
-                  <div className="text-xs text-gray-400 flex items-center gap-1">
+                  <div className="text-xs text-su-muted flex items-center gap-1">
                     SFI <InfoTip content={SOLAR_TOOLTIPS.sfi} />
                   </div>
                   <div className="font-mono text-sm text-plasma-orange">
@@ -493,7 +493,7 @@ export const PropagationIndex: React.FC<PropagationIndexProps> = ({
                   </div>
                 </div>
                 <div className="text-center">
-                  <div className="text-xs text-gray-400 flex items-center gap-1">
+                  <div className="text-xs text-su-muted flex items-center gap-1">
                     Kp <InfoTip content={SOLAR_TOOLTIPS.kIndex} />
                   </div>
                   <div className="font-mono text-sm text-signal-green">
@@ -501,7 +501,7 @@ export const PropagationIndex: React.FC<PropagationIndexProps> = ({
                   </div>
                 </div>
                 <div className="text-center">
-                  <div className="text-xs text-gray-400 flex items-center gap-1">
+                  <div className="text-xs text-su-muted flex items-center gap-1">
                     Bz <InfoTip content={SOLAR_TOOLTIPS.bz} />
                   </div>
                   <div
@@ -523,9 +523,9 @@ export const PropagationIndex: React.FC<PropagationIndexProps> = ({
 
         {/* Propagation Summary (merged from SolarSummary) */}
         {result && conditionBadge && (
-          <div className="border-t border-white/10 mt-4 pt-4">
+          <div className="border-t border-su-line/40 mt-4 pt-4">
             <div className="flex items-center justify-between mb-2">
-              <h3 className="text-sm font-semibold text-gray-300 uppercase tracking-wider">
+              <h3 className="text-sm font-semibold text-su-muted uppercase tracking-wider">
                 General HF context
               </h3>
               <div className="flex items-center gap-2">
@@ -539,7 +539,7 @@ export const PropagationIndex: React.FC<PropagationIndexProps> = ({
                       e.stopPropagation();
                       onExpandSummary();
                     }}
-                    className="flex min-h-11 min-w-11 items-center justify-center text-gray-500 opacity-100 transition-colors hover:text-white motion-reduce:transition-none sm:opacity-0 sm:group-hover:opacity-100 sm:focus:opacity-100"
+                    className="flex min-h-11 min-w-11 items-center justify-center text-su-muted opacity-100 transition-colors hover:text-su-text motion-reduce:transition-none sm:opacity-0 sm:group-hover:opacity-100 sm:focus:opacity-100"
                     aria-label="Expand general HF context"
                   >
                     <svg
@@ -559,12 +559,12 @@ export const PropagationIndex: React.FC<PropagationIndexProps> = ({
                 )}
               </div>
             </div>
-            <p className="text-sm text-gray-300 leading-relaxed mb-3">
+            <p className="text-sm text-su-muted leading-relaxed mb-3">
               {detailedSummary}
             </p>
             {bestBands.length > 0 && (
               <div className="flex flex-col gap-1.5">
-                <span className="text-xs font-mono uppercase tracking-wider text-gray-500">
+                <span className="text-xs font-mono uppercase tracking-wider text-su-muted">
                   Bands supported by global indices
                 </span>
                 <div className="flex flex-wrap gap-2">

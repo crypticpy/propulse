@@ -69,17 +69,17 @@ export const BandRow: React.FC<BandRowProps> = ({
 }) => {
   return (
     <div
-      className="grid grid-cols-[50px_1fr_1fr_1fr] md:grid-cols-[60px_80px_90px_90px_1fr] lg:grid-cols-[60px_80px_90px_90px_70px_1fr] gap-3 md:gap-4 py-2 px-2 items-center border-b border-white/5 last:border-b-0 hover:bg-white/[0.02] transition-colors"
+      className="grid grid-cols-[50px_1fr_1fr_1fr] md:grid-cols-[60px_80px_90px_90px_1fr] lg:grid-cols-[60px_80px_90px_90px_70px_1fr] gap-3 md:gap-4 py-2 px-2 items-center border-b border-su-line/20 last:border-b-0 hover:bg-su-line/10 transition-colors"
       role="row"
     >
       {/* Band Name */}
-      <div className="font-mono text-sm text-white font-medium" role="cell">
+      <div className="font-mono text-sm text-su-text font-medium" role="cell">
         {name}
       </div>
 
       {/* Frequency - hidden on mobile */}
       <div
-        className="hidden md:block font-mono text-xs text-gray-400"
+        className="hidden md:block font-mono text-xs text-su-muted"
         role="cell"
       >
         {freq}
@@ -89,7 +89,7 @@ export const BandRow: React.FC<BandRowProps> = ({
       <div className="flex justify-center" role="cell">
         {isNightOnly ? (
           <span
-            className="text-gray-500 text-lg"
+            className="text-su-muted text-lg"
             title="Night-only band"
             aria-label="Night-only band"
           >
@@ -122,7 +122,7 @@ export const BandRow: React.FC<BandRowProps> = ({
                   ? "bg-signal-green"
                   : spotCount >= 3
                     ? "bg-caution-amber"
-                    : "bg-gray-500"
+                    : "bg-su-line"
               }`}
               title={
                 spotCount >= 10
@@ -132,16 +132,16 @@ export const BandRow: React.FC<BandRowProps> = ({
                     : "Low activity"
               }
             />
-            <span className="font-mono text-xs text-gray-300">{spotCount}</span>
+            <span className="font-mono text-xs text-su-muted">{spotCount}</span>
           </>
         ) : (
-          <span className="text-gray-600 text-xs">--</span>
+          <span className="text-su-muted text-xs">--</span>
         )}
       </div>
 
       {/* Best For */}
       <div
-        className="text-xs text-gray-400 text-right md:text-left md:pl-1"
+        className="text-xs text-su-muted text-right md:text-left md:pl-1"
         role="cell"
       >
         {bestFor}

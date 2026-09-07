@@ -50,7 +50,7 @@ export function FateWaterfallStrip({
   rowHeight,
 }: FateWaterfallStripProps) {
   return (
-    <div className="relative h-[80px] border-t border-white/10 bg-black shrink-0">
+    <div className="relative h-[80px] border-t border-su-line/40 bg-black shrink-0">
       <Waterfall
         frame={frame}
         view={view}
@@ -68,7 +68,7 @@ export function FateWaterfallStrip({
         className="rounded-none border-0"
       />
       {/* Label overlay */}
-      <span className="absolute top-1 left-2 text-[9px] text-white/30 uppercase tracking-wider pointer-events-none select-none">
+      <span className="absolute top-1 left-2 text-[9px] text-su-text/30 uppercase tracking-wider pointer-events-none select-none">
         Audio Waterfall
       </span>
     </div>

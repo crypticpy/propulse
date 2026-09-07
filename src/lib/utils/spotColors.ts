@@ -44,7 +44,7 @@ export const MODE_COLORS_TAILWIND: Record<string, string> = {
   CW: "text-yellow-400",
   SSB: "text-green-400",
   RTTY: "text-purple-400",
-  default: "text-gray-400",
+  default: "text-su-muted",
 };
 
 /**

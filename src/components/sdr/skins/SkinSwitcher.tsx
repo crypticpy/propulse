@@ -25,7 +25,7 @@ export function SkinSwitcher({
   if (isMobile) return null;
 
   return (
-    <div className="flex items-center gap-0.5 rounded-md border border-white/10 bg-white/[0.03] p-0.5">
+    <div className="flex items-center gap-0.5 rounded-md border border-su-line/40 bg-su-line/10 p-0.5">
       {(Object.keys(SKIN_LABELS) as SdrSkinName[]).map((skin) => (
         <button
           key={skin}
@@ -34,7 +34,7 @@ export function SkinSwitcher({
           className={`px-2 py-0.5 rounded text-[11px] font-medium transition-colors ${
             activeSkin === skin
               ? "bg-plasma-orange/15 text-plasma-orange"
-              : "text-gray-500 hover:text-gray-300"
+              : "text-su-muted hover:text-su-muted"
           }`}
         >
           {SKIN_LABELS[skin]}

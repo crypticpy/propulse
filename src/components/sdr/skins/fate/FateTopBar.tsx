@@ -40,7 +40,7 @@ function FateCycleBar({
   if (!active) {
     return (
       <div className="flex-1 min-w-[80px] max-w-[200px]">
-        <div className="h-1.5 w-full rounded-full bg-white/5" />
+        <div className="h-1.5 w-full rounded-full bg-su-line/10" />
       </div>
     );
   }
@@ -53,7 +53,7 @@ function FateCycleBar({
       className="flex-1 min-w-[80px] max-w-[200px] flex flex-col gap-0.5"
       title={`${mode} cycle (${cycleSec}): ${pct.toFixed(0)}%`}
     >
-      <div className="h-1.5 w-full rounded-full bg-white/5 overflow-hidden relative">
+      <div className="h-1.5 w-full rounded-full bg-su-line/10 overflow-hidden relative">
         <div
           className="h-full rounded-full bg-gradient-to-r from-cosmic-cyan to-signal-green transition-[width] duration-200 ease-linear"
           style={{ width: `${pct}%` }}
@@ -70,7 +70,7 @@ function FateCycleBar({
           />
         )}
       </div>
-      <span className="text-[8px] text-white/30 font-mono text-center leading-none">
+      <span className="text-[8px] text-su-text/30 font-mono text-center leading-none">
         {pct.toFixed(0)}%
       </span>
     </div>
@@ -108,8 +108,8 @@ function FateDialSwitcher({
               transition-all duration-150 border flex flex-col items-center leading-none gap-0.5
               ${
                 isActive
-                  ? "border-white/30 shadow-[0_0_8px_0px_rgba(255,255,255,0.2)]"
-                  : "border-white/5 hover:border-white/15 hover:bg-white/[0.04]"
+                  ? "border-su-line/60 shadow-[0_0_8px_0px_rgba(255,255,255,0.2)]"
+                  : "border-su-line/20 hover:border-su-line/50 hover:bg-su-line/10"
               }
             `}
             style={{
@@ -150,7 +150,7 @@ export function FateTopBar({
   const currentBand = freqHz ? bandFromFreq(freqHz / 1000) : null;
 
   return (
-    <div className="flex flex-col bg-[#0c0c16] border-b border-white/10 shrink-0">
+    <div className="flex flex-col bg-[#0c0c16] border-b border-su-line/40 shrink-0">
       {/* Row 1: Controls bar */}
       <div className="flex w-full items-center gap-2 px-3 h-10">
         {/* 1. Decoder toggle */}
@@ -163,7 +163,7 @@ export function FateTopBar({
             ${
               ft8DecoderEnabled
                 ? "border-signal-green/30 bg-signal-green/10 text-signal-green hover:bg-signal-green/15"
-                : "border-white/10 bg-white/[0.03] text-gray-500 hover:text-gray-300 hover:border-white/15"
+                : "border-su-line/40 bg-su-line/10 text-su-muted hover:text-su-muted hover:border-su-line/50"
             }
           `}
         >
@@ -171,14 +171,14 @@ export function FateTopBar({
             className={`inline-block h-2 w-2 rounded-full shrink-0 ${
               ft8DecoderEnabled
                 ? "bg-signal-green animate-pulse shadow-[0_0_6px_rgba(0,255,136,0.5)]"
-                : "bg-gray-600"
+                : "bg-su-line"
             }`}
           />
           {ft8DecoderEnabled ? "DECODING" : "DECODER OFF"}
         </button>
 
         {/* 2. FT8 / FT4 mode pills */}
-        <div className="flex items-center gap-0.5 rounded-md border border-white/10 bg-white/[0.02] p-0.5 shrink-0">
+        <div className="flex items-center gap-0.5 rounded-md border border-su-line/40 bg-su-line/10 p-0.5 shrink-0">
           <button
             type="button"
             onClick={() => onFt8ModeChange("FT8")}
@@ -187,7 +187,7 @@ export function FateTopBar({
               ${
                 ft8DecoderMode === "FT8"
                   ? "bg-signal-green/15 text-signal-green"
-                  : "text-gray-500 hover:text-gray-300"
+                  : "text-su-muted hover:text-su-muted"
               }
             `}
           >
@@ -201,7 +201,7 @@ export function FateTopBar({
               ${
                 ft8DecoderMode === "FT4"
                   ? "bg-cosmic-cyan/15 text-cosmic-cyan"
-                  : "text-gray-500 hover:text-gray-300"
+                  : "text-su-muted hover:text-su-muted"
               }
             `}
           >
@@ -216,7 +216,7 @@ export function FateTopBar({
           className={`px-2 py-0.5 rounded text-[10px] font-bold transition-colors ${
             showCqOnly
               ? "bg-signal-green/15 text-signal-green"
-              : "text-gray-500 hover:text-gray-300"
+              : "text-su-muted hover:text-su-muted"
           }`}
         >
           CQ
@@ -257,8 +257,8 @@ export function FateTopBar({
       </div>
 
       {/* Row 2: Band/Dial frequency selector — full-width, easy to hit */}
-      <div className="flex items-center gap-1.5 px-3 py-1.5 border-t border-white/5 bg-[#0a0a14]">
-        <span className="text-[9px] text-gray-500 uppercase tracking-wider font-semibold shrink-0 mr-1">
+      <div className="flex items-center gap-1.5 px-3 py-1.5 border-t border-su-line/20 bg-[#0a0a14]">
+        <span className="text-[9px] text-su-muted uppercase tracking-wider font-semibold shrink-0 mr-1">
           Tune
         </span>
         <FateDialSwitcher

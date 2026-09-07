@@ -833,7 +833,7 @@ export function DXNewsTicker({
         <button
           type="button"
           onClick={() => setSettingsOpen(true)}
-          className="ml-0.5 rounded p-0.5 text-gray-500 transition-colors hover:bg-white/10 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-plasma-orange/70"
+          className="ml-0.5 rounded p-0.5 text-su-muted transition-colors hover:bg-su-line/20 hover:text-su-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-plasma-orange/70"
           style={{ minWidth: "var(--dx-ticker-control-size, 0px)", minHeight: "var(--dx-ticker-control-size, 0px)", fontSize: "var(--dx-ticker-font-size, inherit)" }}
           aria-label="Configure alert and news crawl"
           title="Configure alert & news crawl"

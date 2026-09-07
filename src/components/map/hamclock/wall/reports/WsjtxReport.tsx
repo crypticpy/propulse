@@ -1,4 +1,6 @@
-import { useState } from "react";
+import { usePskStationData } from "@/hooks/usePskStation";
+import { WsjtxHeardReport } from "./WsjtxHeardReport";
+import { useState, type ReactNode } from "react";
 import { useWSJTXStore, type WSJTXDecode } from "@/stores/wsjtxStore";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { useRigStore } from "@/stores/rigStore";
@@ -10,10 +12,11 @@ import { TuneButton } from "@/components/radio/TuneButton";
 import { HamClockTabs } from "../controls";
 import { useVisibleRows } from "../useVisibleRows";
 import { reportFooter } from "../tokens";
-import { WallReport } from "./WallReport";
+import { WallReport, type WallReportProps } from "./WallReport";
 
 export function WsjtxReport({ open, onClose, initialTab = "recent" }: { open: boolean; onClose: () => void; initialTab?: string }) {
   const [tab, setTab] = useState(initialTab);
+  const heardData = usePskStationData(open && tab === "heard", "of");
   const stored = useWSJTXStore(s => s.decodes);
   const decodes = [...stored].sort((a, b) => b.receivedAt - a.receivedAt);
   const enabled = useSettingsStore(s => s.bridgeEnabled);
@@ -23,20 +26,41 @@ export function WsjtxReport({ open, onClose, initialTab = "recent" }: { open: bo
   const state = wsjtxSourceState(enabled, connected, decodes[0]?.receivedAt, now);
   const rows = tab === "recent" ? recent : decodes;
   const { footer, updated } = reportFooter(`WSJT-X BRIDGE · ${state} · RECEIVED`, decodes[0]?.receivedAt ?? null, now);
-  return <WallReport open={open} onClose={onClose} title="WSJT-X report" tone={state === "RECEIVING" ? "accent" : "warn"}
-    hero={recent.length} verdict={state} facts={[
+  const navigation = (heardContent?: ReactNode) => <HamClockTabs label="WSJT-X decode views" active={tab} onChange={setTab} tabs={[
+    { id: "recent", label: "NEW · 15 MIN", content: <WsjtxRows rows={rows} state={state} /> },
+    { id: "all", label: "ALL RETAINED", content: <WsjtxRows rows={rows} state={state} /> },
+    { id: "heard", label: "HEARING ME", content: heardContent },
+  ]} />;
+  const decodePresentation = {
+    tone: state === "RECEIVING" ? "accent" as const : "warn" as const,
+    hero: recent.length, verdict: state, facts: [
       { label: "NEW · 15 MIN", value: recent.length },
       { label: "CALLSIGNS", value: new Set(recent.map(d => d.callsign).filter(Boolean)).size },
       { label: "CQ", value: recent.filter(d => /^CQ\s/.test(d.message)).length },
       { label: "BANDS", value: new Set(recent.map(d => d.dialFrequencyHz ? bandFromFreq(d.dialFrequencyHz / 1000) : null).filter(Boolean)).size },
       { label: "RETAINED", value: decodes.length },
       { label: "LAST RX", value: decodes[0] ? activationAge(new Date(decodes[0].receivedAt).toISOString(), now) : "—" },
-    ]} footer={footer} updated={updated} pinId="wsjtx" pinElement={<WsjtxReport open onClose={onClose} initialTab={tab} />}>
-    <HamClockTabs label="WSJT-X decode views" active={tab} onChange={setTab} tabs={[
-      { id: "recent", label: "NEW · 15 MIN", content: <WsjtxRows rows={rows} state={state} /> },
-      { id: "all", label: "ALL RETAINED", content: <WsjtxRows rows={rows} state={state} /> },
-    ]} />
+    ], footer, updated,
+  };
+  return <WallReport open={open} onClose={onClose} title="WSJT-X report"
+    {...(tab === "heard" ? wsjtxHeardPresentation(heardData) : decodePresentation)}
+    pinId="wsjtx" pinElement={<WsjtxReport open onClose={onClose} initialTab={tab} />}>
+    {navigation(<WsjtxHeardReport data={heardData} />)}
   </WallReport>;
+}
+
+function wsjtxHeardPresentation(data: ReturnType<typeof usePskStationData>): Pick<WallReportProps, "hero" | "verdict" | "tone" | "facts" | "footer" | "updated"> {
+  const { feed, view, rows, state, now } = data;
+  const known = feed.data?.fetchedAt != null;
+  const { footer, updated } = reportFooter(`PSK REPORTER · ${state} · RETRIEVED`, feed.data?.fetchedAt ?? null, now);
+  return { hero: known ? rows.length : "—", verdict: "HEARING ME", tone: state === "UPDATED" ? "accent" : "warn", facts: [
+      { label: "MY CALL", value: feed.callsign ?? "—" },
+      { label: "RECEIVERS", value: known ? new Set(rows.map(r => r.receiverCallsign)).size : "—" },
+      { label: "WINDOW", value: `${view.minutes} MIN` },
+      { label: "BAND", value: view.band === "all" ? "ALL" : view.band.toUpperCase() },
+      { label: "SOURCE", value: state },
+      { label: "NEWEST", value: rows[0] ? activationAge(new Date(rows[0].observedAt).toISOString(), now) : "—" },
+    ], footer, updated };
 }
 
 export function WsjtxRows({ rows, state, compact = false }: { rows: readonly WSJTXDecode[]; state: string; compact?: boolean }) {

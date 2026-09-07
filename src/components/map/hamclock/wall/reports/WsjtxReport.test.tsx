@@ -1,11 +1,18 @@
 import { afterEach, expect, it } from "vitest";
-import { fireEvent, render, screen } from "@testing-library/react";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import type { ReactElement } from "react";
+import { fireEvent, render as renderElement, screen } from "@testing-library/react";
 import { useWSJTXStore, type WSJTXDecode } from "@/stores/wsjtxStore";
 import { useRigStore } from "@/stores/rigStore";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { WsjtxReport } from "./WsjtxReport";
+const clients: QueryClient[] = [];
+function render(element: ReactElement) {
+  const client = new QueryClient(); clients.push(client);
+  return renderElement(element, { wrapper: ({ children }) => <QueryClientProvider client={client}>{children}</QueryClientProvider> });
+}
 const initial = { wsjtx: useWSJTXStore.getState(), rig: useRigStore.getState(), settings: useSettingsStore.getState() };
-afterEach(() => { useWSJTXStore.setState(initial.wsjtx); useRigStore.setState(initial.rig); useSettingsStore.setState(initial.settings); });
+afterEach(() => { clients.splice(0).forEach(client => client.clear()); useWSJTXStore.setState(initial.wsjtx); useRigStore.setState(initial.rig); useSettingsStore.setState(initial.settings); });
 function seed() {
   const now = Date.now();
   const decode: WSJTXDecode = { instanceId: "A", isNew: true, time: (now - 15_000) % 86_400_000, snr: -10, deltaTime: 0.2, deltaFrequency: 1234, mode: "~", message: "CQ N0TEST EM38", lowConfidence: false, receivedAt: now, callsign: "N0TEST", grid: "EM38", dialFrequencyHz: 7_074_125, dialMode: "FT8" };

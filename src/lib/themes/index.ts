@@ -4,6 +4,8 @@
  * Defines available themes and utilities for applying them.
  */
 
+import { stationTokens } from "./stationTokens";
+
 export interface ThemeColors {
   bgPrimary: string;
   bgSecondary: string;
@@ -148,6 +150,8 @@ export function getAccentPreset(id: string): AccentColor {
  * e.g. "#ff6b35" -> "255 107 53"
  * Used so Tailwind can apply opacity modifiers: rgb(var(--channel) / <alpha>)
  */
+const HEX_COLOR = /^#(?:[0-9a-f]{3}|[0-9a-f]{6})$/i;
+
 function hexToRgbChannels(hex: string): string {
   let h = hex.replace("#", "");
   if (h.length === 3) {
@@ -184,6 +188,21 @@ export function applyThemeToDocument(theme: Theme, accent?: AccentColor): void {
     "--theme-accent-secondary-rgb",
     hexToRgbChannels(accentSecondary),
   );
+
+  // Station design tokens (--su-*) on the document root, so `su-` Tailwind
+  // utilities work anywhere. StationProvider still injects the same variables
+  // inline on its `.station-ui` element, which wins over the root, so local
+  // `theme`/`accent` overrides keep working.
+  for (const [name, value] of Object.entries(
+    stationTokens(theme.id, accentPrimary),
+  )) {
+    if (!name.startsWith("--su-") || typeof value !== "string") continue;
+    root.style.setProperty(name, value);
+    // Channel triplets so Tailwind opacity modifiers (text-su-text/70) work.
+    if (HEX_COLOR.test(value)) {
+      root.style.setProperty(`${name}-rgb`, hexToRgbChannels(value));
+    }
+  }
 
   root.classList.toggle("dark", theme.isDark);
   root.classList.toggle("light", !theme.isDark);

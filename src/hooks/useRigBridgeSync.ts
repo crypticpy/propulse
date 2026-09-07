@@ -16,6 +16,8 @@ import { useShallow } from "zustand/react/shallow";
 import { useBridge } from "@/hooks/useBridge";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { useRigStore } from "@/stores/rigStore";
+import { ingestWSJTXMessage } from "@/lib/radio/wsjtxIngestion";
+import { useWSJTXStore } from "@/stores/wsjtxStore";
 import type { BridgeMessage, RotorStatusPayload } from "@/types/bridge";
 
 type RigUpdatePayload = {
@@ -78,7 +80,13 @@ export function useRigBridgeSync() {
   );
   const { connected: bridgeConnected, lastMessage, send, sendRequest } = useBridge({
     enabled: settings.bridgeEnabled,
+    onMessage: ingestWSJTXMessage,
   });
+
+  useEffect(() => {
+    if (!bridgeConnected) useWSJTXStore.getState().setConnected(false);
+  }, [bridgeConnected]);
+  useEffect(() => () => useWSJTXStore.getState().setConnected(false), []);
 
   const catConfigured =
     settings.catBackend !== "disabled";

@@ -11,6 +11,7 @@
 import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { getSupabase, isSupabaseConfigured } from "@/lib/supabase";
+import { wsjtxDecodedAt, wsjtxFrequencyHz } from "@/lib/radio/wsjtxIngestion";
 import { useWSJTXStore } from "@/stores/wsjtxStore";
 import { BAND_RANGES } from "@/lib/data/bandRanges";
 import { classifySpot } from "@/lib/contest/spotContestClassifier";
@@ -79,31 +80,31 @@ export function useBandMapSpots(
   // ── Bridge (WSJT-X) spots ───────────────────────────────────────────────
 
   const wsjtxDecodes = useWSJTXStore((s) => s.decodes);
-  const wsjtxStatus = useWSJTXStore((s) => s.status);
   const wsjtxConnected = useWSJTXStore((s) => s.connected);
 
   const bridgeSpots = useMemo<BandMapSpot[]>(() => {
-    if (!wsjtxConnected || !wsjtxStatus || !range) return [];
+    if (!wsjtxConnected || !range) return [];
 
-    const dialKHz = wsjtxStatus.frequency / 1000;
     const cutoff = Date.now() - timeRangeMinutes * MINUTE;
 
     return wsjtxDecodes
       .filter((d) => {
         if (!d.callsign) return false;
-        if (d.receivedAt < cutoff) return false;
-        const spotKHz = dialKHz + d.deltaFrequency / 1000;
+        if ((wsjtxDecodedAt(d) ?? 0) < cutoff) return false;
+        const frequency = wsjtxFrequencyHz(d);
+        if (frequency === null || d.lowConfidence) return false;
+        const spotKHz = frequency / 1000;
         return spotKHz >= range.startKHz && spotKHz <= range.endKHz;
       })
       .map((d) => ({
         callsign: d.callsign!,
-        frequency: dialKHz + d.deltaFrequency / 1000,
-        mode: d.mode || wsjtxStatus.mode,
+        frequency: wsjtxFrequencyHz(d)! / 1000,
+        mode: d.dialMode || d.mode,
         snr: d.snr,
-        time: new Date(d.receivedAt),
+        time: new Date(wsjtxDecodedAt(d)!),
         source: "bridge" as const,
       }));
-  }, [wsjtxDecodes, wsjtxStatus, wsjtxConnected, range, timeRangeMinutes]);
+  }, [wsjtxDecodes, wsjtxConnected, range, timeRangeMinutes]);
 
   // ── Supabase (spot_history_live) spots ──────────────────────────────────
 

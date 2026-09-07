@@ -95,7 +95,7 @@ interface WSJTXState {
   /** Set connection state */
   setConnected: (connected: boolean) => void;
   /** Clear all decodes and reset counters */
-  clearDecodes: () => void;
+  clearDecodes: (instanceId?: string) => void;
 
   // Selectors
   /** Get decodes matching the current status frequency band */
@@ -130,7 +130,7 @@ export const useWSJTXStore = create<WSJTXState>()((set, get) => ({
       const cutoff = now - UNIQUE_CALLSIGN_WINDOW_MS;
       const newUniqueCallsigns = new Set<string>();
       for (const d of newDecodes) {
-        if (d.receivedAt >= cutoff && d.callsign) {
+        if (d.isNew && !d.offAir && d.receivedAt <= now && d.receivedAt >= cutoff && d.callsign) {
           newUniqueCallsigns.add(d.callsign);
         }
       }
@@ -139,11 +139,8 @@ export const useWSJTXStore = create<WSJTXState>()((set, get) => ({
       const rateCutoff = now - DECODE_RATE_WINDOW_MS;
       let recentCount = 0;
       for (const d of newDecodes) {
-        if (d.receivedAt >= rateCutoff) {
+        if (d.isNew && !d.offAir && d.receivedAt <= now && d.receivedAt >= rateCutoff) {
           recentCount++;
-        } else {
-          // Decodes are sorted newest-first, so we can break early
-          break;
         }
       }
 
@@ -163,12 +160,15 @@ export const useWSJTXStore = create<WSJTXState>()((set, get) => ({
       ...(connected ? {} : { status: null }),
     }),
 
-  clearDecodes: () =>
-    set({
-      decodes: [],
-      decodeRate: 0,
-      uniqueCallsigns: new Set<string>(),
-    }),
+  clearDecodes: (instanceId) => set((state) => {
+    const decodes = instanceId === undefined ? [] : state.decodes.filter(d => d.instanceId !== instanceId);
+    const now = Date.now();
+    return {
+      decodes,
+      decodeRate: decodes.filter(d => d.isNew && !d.offAir && d.receivedAt <= now && d.receivedAt >= now - DECODE_RATE_WINDOW_MS).length,
+      uniqueCallsigns: new Set(decodes.filter(d => d.isNew && !d.offAir && d.receivedAt <= now && d.receivedAt >= now - UNIQUE_CALLSIGN_WINDOW_MS && d.callsign).map(d => d.callsign!)),
+    };
+  }),
 
   // Selectors
   getDecodesByBand: (band) => get().decodes.filter((decode) =>

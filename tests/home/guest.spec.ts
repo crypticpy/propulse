@@ -17,7 +17,7 @@ test("first visit and cached personal settings stay public without radio connect
     localStorage.setItem("propulse-activity-explorer", JSON.stringify({ state: { mode: "frequency", band: "20m", frequencyInput: "14.313", toleranceKHz: 5, maxAgeMinutes: 60, maxDistanceKm: 1000 }, version: 1 }));
     localStorage.setItem("propulse-feeds", JSON.stringify({ state: { feeds: [{ id: "private", name: "Private operator feed", url: "https://private-feed.invalid/rss" }], activeFeedId: "private" } }));
     localStorage.setItem("propulse-settings", JSON.stringify({state:{bridgeEnabled:true, bridgeHost:"127.0.0.1", bridgePort:8787},version:0}));
-    localStorage.setItem("propulse-home-widgets-v1", JSON.stringify({desktop:["history","countdowns","news"],mobile:["history","countdowns","news"]}));
+    localStorage.setItem("propulse-home-layout-v2", JSON.stringify({desktop:["history","countdowns","news"],mobile:["history","countdowns","news"]}));
   });
   const feedRequests: string[] = [];
   page.on("request", request => { if (request.url().includes("private-feed.invalid")) feedRequests.push(request.url()); });
@@ -25,12 +25,13 @@ test("first visit and cached personal settings stay public without radio connect
   const home = page.locator("[data-home-dashboard]");
   await expect(page.locator("[data-public-home-shell]")).toBeVisible();
   await expect(home.getByText("Guest · Global view · no sign-in needed")).toBeVisible();
-  await expect(home.getByRole("region", { name: "Your information panels" })).toHaveCount(0);
-  await home.getByRole("button", { name: "Show more information panels" }).click();
-  for (const name of ["This day in history", "Countdowns", "Radio news"]) await home.getByRole("button", { name: `Add ${name} to Home`, exact: true }).click();
-  await expect(home.getByText("Sign in to view your saved personal panel.")).toHaveCount(3);
-  await home.getByRole("region", { name: "Your information panels" }).getByRole("button", { name: "Remove Radio news from Home" }).click();
-  expect(await page.evaluate(() => JSON.parse(localStorage.getItem("propulse-home-widgets-v1")!))).toEqual({ desktop: ["history", "countdowns", "news"], mobile: ["history", "countdowns", "news"] });
+  // A guest layout is in-memory: a cached signed-in layout is neither restored nor offered.
+  await expect(home.getByText("Sign in to view your saved personal panel.")).toHaveCount(0);
+  await home.getByRole("button", { name: "Add more panels +" }).click();
+  for (const name of ["This day in history", "Countdowns", "Radio news"]) await expect(home.getByRole("button", { name: `Add ${name} to your dashboard` })).toHaveCount(0);
+  await home.getByRole("button", { name: "Add Tides to your dashboard" }).click();
+  await expect(home.getByText("Tides added to your dashboard.")).toBeVisible();
+  expect(await page.evaluate(() => JSON.parse(localStorage.getItem("propulse-home-layout-v2")!))).toEqual({ desktop: ["history", "countdowns", "news"], mobile: ["history", "countdowns", "news"] });
   await expect(page.getByRole("button",{name:"My Shack"})).toHaveCount(0);
   await expect(home.getByText("Your station & recent operating")).toHaveCount(0);
   await home.getByRole("button",{name:"Set your location"}).click();

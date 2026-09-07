@@ -24,7 +24,7 @@ async function fixtures(page: Page, extraLocations?: Array<{ id: string; name: s
   return { solar, requests };
 }
 
-test("current band reports lead Home and optional feeds wait", async ({ page }, info) => {
+test("current band reports lead Home and optional feeds wait (DXpeditions is a default panel)", async ({ page }, info) => {
   const { requests } = await fixtures(page);
   await page.goto("/");
   const home = page.locator("[data-home-elevation]");
@@ -34,7 +34,7 @@ test("current band reports lead Home and optional feeds wait", async ({ page }, 
   await expect(home.getByText(/Phone 200/)).toBeVisible();
   await expect(home.getByText("Global Conditions Score")).toHaveCount(0);
   await expect(home.getByText(/All Quiet/)).toHaveCount(0);
-  expect(requests.filter(path => /atmos|tides|news|dxpedition/.test(path))).toEqual([]);
+  expect(requests.filter(path => /atmos|tides|news/.test(path))).toEqual([]);
   const viewport = page.viewportSize()!;
   expect((await home.getByRole("heading", { name: "On the bands now" }).boundingBox())!.y).toBeLessThan(500);
   await page.screenshot({ path: `tmp/home-elevation/${info.project.name}-initial.png`, fullPage: true });
@@ -78,21 +78,45 @@ test("impact briefing leads on phone, expired inputs are explained, and refresh 
   }
 });
 
-test("panel discovery and Add to Home are explicit and persist by layout", async ({ page }, info) => {
+test("default panels render in place and Customize dashboard reorders and persists them", async ({ page }, info) => {
   await fixtures(page);
-  const mobile=info.project.name.includes("mobile");
+  const device=info.project.name.includes("mobile")?"mobile":"desktop";
+  const layout=()=>page.evaluate(()=>JSON.parse(localStorage.getItem("propulse-home-layout-v2")!));
   await page.goto("/");
-  await page.getByRole("button", {name:"View Moon",exact:true}).click();
-  await expect(page.getByRole("button", {name:"Hide additional panels"})).toBeVisible();
-  await page.getByRole("button", {name:"Add Moon to Home",exact:true}).click();
-  await expect(page.getByRole("region", {name:"Your information panels"}).getByRole("region",{name:"Moon",exact:true})).toBeVisible();
-  const prefs=await page.evaluate(()=>JSON.parse(localStorage.getItem("propulse-home-widgets-v1")!));
-  expect(prefs).toEqual(mobile?{desktop:[],mobile:["moon"]}:{desktop:["moon"],mobile:[]});
+  // A fresh operator gets Moon, DXpeditions and World clocks on the page, not behind a catalogue.
+  const moon=page.getByRole("region",{name:"Moon",exact:true});
+  await expect(moon).toBeVisible();
+  await expect(page.getByRole("heading",{name:"DXpeditions",exact:true}).first()).toBeVisible();
+  await expect(page.getByRole("heading",{name:"World clocks",exact:true}).first()).toBeVisible();
+  const bands=page.getByRole("heading",{name:"On the bands now"});
+  expect((await moon.boundingBox())!.y).toBeGreaterThan((await bands.boundingBox())!.y);
+  await expect(page.getByRole("button",{name:"Add more panels +"})).toHaveAttribute("aria-expanded","false");
+
+  await page.getByRole("button",{name:"Customize dashboard"}).first().click();
+  const dialog=page.getByRole("dialog",{name:"Customize dashboard"});
+  for (let step=0; step<6; step+=1) await dialog.getByRole("button",{name:"Move Moon up"}).click();
+  await dialog.getByRole("button",{name:"Add Tides to your dashboard"}).click();
+  await dialog.getByRole("button",{name:"Done"}).click();
+  expect((await layout())[device].slice(0,1)).toEqual(["moon"]);
+  expect((await layout())[device]).toContain("tides");
+
   await page.reload();
-  await expect(page.getByRole("region",{name:"Your information panels"})).toBeVisible();
-  await expect(page.getByRole("button",{name:"Show more information panels"})).toHaveAttribute("aria-expanded","false");
-  await page.getByRole("button",{name:"Remove Moon from Home",exact:true}).click();
-  await expect(page.getByRole("region",{name:"Your information panels"})).toHaveCount(0);
+  expect((await layout())[device][0]).toBe("moon");
+  expect((await page.getByRole("region",{name:"Moon",exact:true}).boundingBox())!.y)
+    .toBeLessThan((await page.getByRole("heading",{name:"On the bands now"}).boundingBox())!.y);
+
+  await page.getByRole("button",{name:"Customize dashboard"}).first().click();
+  await dialog.getByRole("button",{name:"Hide Moon"}).click();
+  expect((await layout())[device]).not.toContain("moon");
+  await dialog.getByRole("button",{name:"Reset to default"}).click();
+  await dialog.getByRole("button",{name:"Done"}).click();
+  expect((await layout())[device]).toEqual(["activity","forecast","solar","weather","daylight","station","moon","dxpeditions","clocks"]);
+  await expect(page.getByRole("region",{name:"Moon",exact:true})).toBeVisible();
+
+  // The bottom section only offers panels that are not on the dashboard yet.
+  await page.getByRole("button",{name:"Add more panels +"}).click();
+  await page.getByRole("button",{name:"Add Volcano watch to your dashboard"}).click();
+  expect((await layout())[device].at(-1)).toBe("volcanoes");
 });
 
 test("switching station setups updates context without moving navigation or opening the console", async ({ page }) => {

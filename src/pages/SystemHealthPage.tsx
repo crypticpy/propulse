@@ -954,7 +954,7 @@ export function SystemHealthPage() {
       <div className="space-y-1">
         <Link
           to="/"
-          className="inline-flex items-center gap-1.5 text-xs text-su-muted hover:text-su-muted transition-colors mb-3"
+          className="inline-flex items-center gap-1.5 text-xs text-su-muted hover:text-su-text transition-colors mb-3"
           aria-label="Back to dashboard"
         >
           <svg

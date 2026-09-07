@@ -65,14 +65,14 @@ export function HelpCategoryCard({
           {icon}
         </div>
         <div className="flex-1 min-w-0">
-          <h3 className="text-sm font-medium text-su-text group-hover:text-su-text transition-colors">
+          <h3 className="text-sm font-medium text-su-text/80 group-hover:text-su-text transition-colors">
             {title}
           </h3>
           <p className="text-xs text-su-muted truncate">{description}</p>
         </div>
         <svg
           aria-hidden="true"
-          className="w-4 h-4 text-su-muted group-hover:text-su-muted transition-all duration-200 group-hover:translate-x-0.5 flex-shrink-0 motion-reduce:transition-none"
+          className="w-4 h-4 text-su-muted group-hover:text-su-text transition-all duration-200 group-hover:translate-x-0.5 flex-shrink-0 motion-reduce:transition-none"
           fill="none"
           viewBox="0 0 24 24"
           stroke="currentColor"

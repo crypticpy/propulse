@@ -148,7 +148,7 @@ function PasswordInput({
         type="button"
         tabIndex={-1}
         onClick={() => setVisible((v) => !v)}
-        className="absolute right-2.5 top-1/2 -translate-y-1/2 text-su-muted hover:text-su-muted transition-colors"
+        className="absolute right-2.5 top-1/2 -translate-y-1/2 text-su-muted hover:text-su-text transition-colors"
         aria-label={visible ? "Hide password" : "Show password"}
       >
         {visible ? (
@@ -389,7 +389,7 @@ export function AuthModal() {
     >
       {/* Backdrop */}
       <div
-        className="absolute inset-0 bg-su-panel/60 backdrop-blur-sm"
+        className="absolute inset-0 bg-black/60 backdrop-blur-sm"
         onClick={closeAuthModal}
       />
 
@@ -479,7 +479,7 @@ export function AuthModal() {
               <div className="flex items-center justify-between text-xs">
                 <button
                   onClick={() => switchView("forgot")}
-                  className="text-su-muted hover:text-su-muted transition-colors"
+                  className="text-su-muted hover:text-su-text transition-colors"
                 >
                   Forgot password?
                 </button>
@@ -585,7 +585,7 @@ export function AuthModal() {
               <div className="text-center">
                 <button
                   onClick={() => switchView("signin")}
-                  className="text-xs text-su-muted hover:text-su-muted transition-colors"
+                  className="text-xs text-su-muted hover:text-su-text transition-colors"
                 >
                   Already have an account?{" "}
                   <span className="text-plasma-orange">Sign in</span>
@@ -634,7 +634,7 @@ export function AuthModal() {
               <div className="text-center">
                 <button
                   onClick={() => switchView("signin")}
-                  className="text-xs text-su-muted hover:text-su-muted transition-colors"
+                  className="text-xs text-su-muted hover:text-su-text transition-colors"
                 >
                   Back to sign in
                 </button>

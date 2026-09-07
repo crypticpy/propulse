@@ -591,7 +591,7 @@ export function FloatingPanel({
       <>
         <div
           ref={panelRef}
-          className="fixed bg-su-panel/70 backdrop-blur-md border border-su-line/50 rounded-full shadow-lg
+          className="fixed bg-su-panel/90 backdrop-blur-md border border-su-line/50 rounded-full shadow-lg
                      hover:bg-su-line/20 transition-all duration-150 px-3 py-1.5 flex items-center gap-2 select-none"
           style={{
             left: layout.x,
@@ -659,7 +659,7 @@ export function FloatingPanel({
             }
           }}
         >
-          {icon && <span className="text-su-text/60 flex-shrink-0">{icon}</span>}
+          {icon && <span className="text-su-text/80 flex-shrink-0">{icon}</span>}
           <span className="text-[11px] font-medium text-su-text/70 whitespace-nowrap">
             {title.length > 12 ? title.slice(0, 12) + "\u2026" : title}
           </span>
@@ -681,7 +681,7 @@ export function FloatingPanel({
       <div
         ref={panelRef}
         id={`floating-panel-${id}`}
-        className={`group fixed bg-su-panel/60 backdrop-blur-md border border-su-line/50 rounded-lg shadow-2xl overflow-hidden ${className}`}
+        className={`group fixed bg-su-panel/90 backdrop-blur-md border border-su-line/50 rounded-lg shadow-2xl overflow-hidden ${className}`}
         style={{
           left: layout.x,
           top: layout.y,
@@ -728,7 +728,7 @@ export function FloatingPanel({
                 e.stopPropagation();
                 onCollapse();
               }}
-              className="p-1 text-su-text/40 hover:text-su-text transition-colors rounded hover:bg-su-line/20"
+              className="p-1 text-su-text/80 hover:text-su-text transition-colors rounded hover:bg-su-line/20"
               aria-label="Collapse panel"
             >
               <svg

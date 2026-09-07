@@ -288,7 +288,7 @@ function Application() {
             element={
               <Suspense
                 fallback={
-                  <div className="flex min-h-screen items-center justify-center bg-void-black font-mono text-xs uppercase tracking-widest text-su-text/40">
+                  <div className="flex min-h-screen items-center justify-center bg-void-black font-mono text-xs uppercase tracking-widest text-su-text/80">
                     Loading operating workspace…
                   </div>
                 }

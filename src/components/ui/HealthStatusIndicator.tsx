@@ -245,7 +245,7 @@ export function HealthStatusIndicator({
             </Link>
             <button
               onClick={() => setExpanded(false)}
-              className="p-0.5 rounded hover:bg-su-line/20 transition-colors text-su-muted hover:text-su-muted"
+              className="p-0.5 rounded hover:bg-su-line/20 transition-colors text-su-muted hover:text-su-text"
               aria-label="Close health panel"
               type="button"
             >
@@ -289,7 +289,7 @@ export function HealthStatusIndicator({
                   )}
                 </span>
                 <svg
-                  className="w-3 h-3 text-su-muted group-hover:text-su-muted ml-auto transition-colors"
+                  className="w-3 h-3 text-su-muted group-hover:text-su-text ml-auto transition-colors"
                   fill="none"
                   stroke="currentColor"
                   viewBox="0 0 24 24"

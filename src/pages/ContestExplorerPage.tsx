@@ -151,7 +151,7 @@ function FilterChip<T extends string>({
         ${
           active
             ? "bg-plasma-orange/20 text-plasma-orange border-plasma-orange/30"
-            : "bg-su-line/10 text-su-muted border-su-line/20 hover:bg-su-line/20 hover:text-su-muted"
+            : "bg-su-line/10 text-su-muted border-su-line/20 hover:bg-su-line/20 hover:text-su-text"
         }`}
       onClick={() => onClick(value)}
     >

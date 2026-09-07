@@ -231,7 +231,7 @@ export default function HelpArticlePage() {
             <button
               type="button"
               onClick={toggleAll}
-              className="shrink-0 text-xs text-su-muted hover:text-su-muted transition-colors px-2.5 py-1.5 rounded-lg border border-su-line/20 hover:border-su-line/40 focus:outline-none focus-visible:ring-2 focus-visible:ring-plasma-orange/60"
+              className="shrink-0 text-xs text-su-muted hover:text-su-text transition-colors px-2.5 py-1.5 rounded-lg border border-su-line/20 hover:border-su-line/40 focus:outline-none focus-visible:ring-2 focus-visible:ring-plasma-orange/60"
               data-print-hide
             >
               {allExpanded ? "Collapse All" : "Expand All"}

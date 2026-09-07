@@ -143,7 +143,7 @@ export function HelpAccordion({
               className={`text-sm font-semibold transition-colors ${
                 isOpen
                   ? "text-plasma-orange"
-                  : "text-su-text group-hover:text-su-text"
+                  : "text-su-text/80 group-hover:text-su-text"
               }`}
             >
               {title}

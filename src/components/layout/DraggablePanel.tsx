@@ -157,7 +157,7 @@ export function DraggablePanel({
       {/* Content */}
       {collapsed ? (
         <div
-          className="rounded-xl border border-su-line/40 bg-su-line/10 px-3 py-1.5 cursor-pointer hover:bg-su-line/10 transition-colors"
+          className="rounded-xl border border-su-line/40 bg-su-line/10 px-3 py-1.5 cursor-pointer hover:bg-su-line/20 transition-colors"
           onClick={() => onToggleCollapse?.(id)}
         >
           <span className="text-xs text-su-muted font-medium">{title}</span>

@@ -153,7 +153,7 @@ export function HelpArticleTOC({ items }: HelpArticleTOCProps) {
                   ${
                     activeId === item.id
                       ? "text-plasma-orange bg-plasma-orange/10"
-                      : "text-su-muted hover:text-su-muted active:text-plasma-orange/70"
+                      : "text-su-muted hover:text-su-text active:text-plasma-orange/70"
                   }`}
               >
                 {item.title}
@@ -187,7 +187,7 @@ export function HelpArticleTOC({ items }: HelpArticleTOCProps) {
               ${
                 activeId === item.id
                   ? "text-plasma-orange border-plasma-orange bg-plasma-orange/5"
-                  : "text-su-muted border-transparent hover:text-su-muted hover:border-su-line/40 active:text-plasma-orange/70"
+                  : "text-su-muted border-transparent hover:text-su-text hover:border-su-line/40 active:text-plasma-orange/70"
               }`}
           >
             {item.title}

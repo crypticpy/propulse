@@ -301,7 +301,7 @@ export function Logbook() {
           <button
             type="button"
             onClick={() => setBandMapCollapsed((prev) => !prev)}
-            className="w-full flex items-center justify-between px-3 py-2 bg-su-line/10 hover:bg-su-line/10 transition-colors"
+            className="w-full flex items-center justify-between px-3 py-2 bg-su-line/10 hover:bg-su-line/20 transition-colors"
           >
             <span className="text-xs font-mono font-medium text-su-muted uppercase tracking-wider">
               Band Map

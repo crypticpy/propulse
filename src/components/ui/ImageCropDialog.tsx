@@ -274,7 +274,7 @@ export function ImageCropDialog({
     <div className="fixed inset-0 z-[500] flex items-center justify-center p-4">
       {/* Backdrop */}
       <div
-        className="absolute inset-0 bg-su-panel/70 backdrop-blur-sm animate-in fade-in"
+        className="absolute inset-0 bg-black/70 backdrop-blur-sm animate-in fade-in"
         onClick={saving ? undefined : onClose}
       />
 

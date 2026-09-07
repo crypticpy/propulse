@@ -34,7 +34,7 @@ export function PWAUpdatePrompt() {
 
       <button
         onClick={() => updateServiceWorker(true)}
-        className="rounded-md bg-signal-green/90 px-3 py-1 text-xs font-semibold text-su-on-accent transition-colors hover:bg-signal-green"
+        className="rounded-md bg-signal-green/90 px-3 py-1 text-xs font-semibold text-su-canvas transition-colors hover:bg-signal-green"
       >
         Reload
       </button>

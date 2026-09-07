@@ -144,7 +144,7 @@ export function ToolsDrawer({ onClose }: ToolsDrawerProps) {
     <>
       {/* Backdrop */}
       <div
-        className="fixed inset-0 bg-su-panel/60 z-40"
+        className="fixed inset-0 bg-black/60 z-40"
         onClick={onClose}
         aria-hidden
       />

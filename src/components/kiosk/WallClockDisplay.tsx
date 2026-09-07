@@ -153,14 +153,14 @@ export function WallClockDisplay({ mode }: { mode: WallClockMode }) {
           >
             {localTime}
           </time>
-          <p className="mt-5 font-orbitron text-[clamp(1rem,2.2vw,2rem)] tracking-[0.12em] text-su-text/60">
+          <p className="mt-5 font-orbitron text-[clamp(1rem,2.2vw,2rem)] tracking-[0.12em] text-su-text/80">
             {date}
           </p>
           <div className="mt-10 flex items-baseline gap-3 border-t border-su-line/40 pt-5 font-mono">
             <span className={`${numeralClass} text-[clamp(1.5rem,4vw,3.5rem)] text-plasma-orange`}>
               {utcTime}
             </span>
-            <span className="text-[clamp(0.65rem,1.2vw,0.9rem)] tracking-[0.35em] text-su-text/30">
+            <span className="text-[clamp(0.65rem,1.2vw,0.9rem)] tracking-[0.35em] text-su-text/80">
               UTC
             </span>
           </div>
@@ -193,7 +193,7 @@ export function WallClockDisplay({ mode }: { mode: WallClockMode }) {
               Reset
             </button>
           </div>
-          <p className="mt-6 font-mono text-xs tracking-widest text-su-text/30">
+          <p className="mt-6 font-mono text-xs tracking-widest text-su-text/80">
             SPACE start/pause · R reset
           </p>
         </>

@@ -226,7 +226,7 @@ export function MobileMap() {
 
         {/* Landscape orientation hint */}
         {showLandscapeHint && (
-          <div className="absolute top-3 left-1/2 -translate-x-1/2 z-10 bg-su-panel/60 backdrop-blur-md border border-su-line/40 rounded-lg px-3 py-1.5 flex items-center gap-2 animate-in fade-in duration-300">
+          <div className="absolute top-3 left-1/2 -translate-x-1/2 z-10 bg-su-panel/90 backdrop-blur-md border border-su-line/40 rounded-lg px-3 py-1.5 flex items-center gap-2 animate-in fade-in duration-300">
             <svg
               className="w-4 h-4 text-cyan-400 flex-shrink-0"
               fill="none"

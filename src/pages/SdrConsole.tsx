@@ -1600,7 +1600,7 @@ export function SdrConsole() {
     <>
       {showAudioDebug ? (
         <div
-          className="fixed bottom-2 right-2 z-[2147483647] rounded bg-su-panel/70 text-su-text text-[11px] px-2 py-1 pointer-events-auto"
+          className="fixed bottom-2 right-2 z-[2147483647] rounded bg-su-panel/90 text-su-text text-[11px] px-2 py-1 pointer-events-auto"
           onPointerDown={(e) => {
             e.stopPropagation();
           }}

@@ -38,7 +38,7 @@ function PhotorealisticChrome({ label, onExit }: PhotorealisticChromeProps) {
       <div className="absolute top-3 left-3 z-20 flex max-w-[calc(100%-10rem)] flex-wrap items-center gap-2">
         <LayoutModeDropdown activeDestination="photorealistic" />
         {label && (
-          <div className="rounded-lg border border-su-line/50 bg-su-panel/60 px-3 py-2 backdrop-blur-md">
+          <div className="rounded-lg border border-su-line/50 bg-su-panel/90 px-3 py-2 backdrop-blur-md">
             <span className="text-xs text-su-text">Photorealistic 3D</span>
             <span className="ml-2 text-[9px] uppercase tracking-wider text-amber-300">
               Experimental · {label}
@@ -49,7 +49,7 @@ function PhotorealisticChrome({ label, onExit }: PhotorealisticChromeProps) {
       <button
         type="button"
         onClick={onExit}
-        className="absolute top-3 right-3 z-20 rounded-lg border border-su-line/50 bg-su-panel/60 px-3 py-2 text-xs text-su-muted hover:bg-su-line/20 hover:text-su-text"
+        className="absolute top-3 right-3 z-20 rounded-lg border border-su-line/50 bg-su-panel/90 px-3 py-2 text-xs text-su-muted hover:bg-su-line/20 hover:text-su-text"
       >
         Exit to PropSphere
       </button>
@@ -231,7 +231,7 @@ export default function Photorealistic3DPage() {
               className="h-[18px] w-auto"
             />
           </div>
-          <span className="absolute top-16 right-3 z-20 rounded bg-su-panel/60 px-2 py-1 text-[10px] text-su-muted">
+          <span className="absolute top-16 right-3 z-20 rounded bg-su-panel/90 px-2 py-1 text-[10px] text-su-muted">
             Metered provider · GPU cap {pixelRatio.toFixed(1)}×
           </span>
         </>

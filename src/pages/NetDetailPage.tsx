@@ -508,7 +508,7 @@ export function NetDetailPage() {
           {managers.map((manager) => (
             <div
               key={`${manager.netId}-${manager.userId}`}
-              className="flex items-center justify-between px-3 py-2 rounded-xl bg-su-line/10 hover:bg-su-line/10 transition-colors"
+              className="flex items-center justify-between px-3 py-2 rounded-xl bg-su-line/10 hover:bg-su-line/20 transition-colors"
             >
               <span className="text-sm font-mono text-su-text">
                 {manager.callsign || manager.userId.slice(0, 8)}

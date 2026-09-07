@@ -456,7 +456,7 @@ function StepProgressBar({ current }: { current: WizardStep }) {
                     ? "text-signal-green"
                     : isActive
                       ? "text-plasma-orange"
-                      : "text-su-text/30"
+                      : "text-su-text/80"
                 }`}
               >
                 {s.label}
@@ -730,7 +730,7 @@ function DetectionStep({ setup }: { setup: UseRadioSetupReturn }) {
             </button>
             <button
               onClick={skipSetup}
-              className="px-4 py-2 rounded-lg text-sm text-su-muted hover:text-su-muted transition-colors"
+              className="px-4 py-2 rounded-lg text-sm text-su-muted hover:text-su-text transition-colors"
             >
               I'll Set This Up Later
             </button>
@@ -749,7 +749,7 @@ function DetectionStep({ setup }: { setup: UseRadioSetupReturn }) {
           </button>
           <button
             onClick={skipSetup}
-            className="px-4 py-2 rounded-lg text-sm text-su-muted hover:text-su-muted transition-colors"
+            className="px-4 py-2 rounded-lg text-sm text-su-muted hover:text-su-text transition-colors"
           >
             Skip
           </button>
@@ -818,7 +818,7 @@ function ConfigurationStep({ setup }: { setup: UseRadioSetupReturn }) {
             </button>
             <button
               onClick={() => setShowManual(true)}
-              className="text-sm text-su-muted hover:text-su-muted transition-colors flex items-center gap-1"
+              className="text-sm text-su-muted hover:text-su-text transition-colors flex items-center gap-1"
             >
               Change
               <ChevronDownIcon className="w-3.5 h-3.5" />
@@ -1054,7 +1054,7 @@ function ConfigurationStep({ setup }: { setup: UseRadioSetupReturn }) {
           <div className="flex items-center justify-between">
             <button
               onClick={() => goToStep("detecting")}
-              className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm text-su-muted hover:text-su-muted transition-colors"
+              className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm text-su-muted hover:text-su-text transition-colors"
             >
               <ArrowLeftIcon className="w-3.5 h-3.5" />
               Back
@@ -1308,7 +1308,7 @@ function TestingStep({ setup }: { setup: UseRadioSetupReturn }) {
             </button>
             <button
               onClick={() => goToStep("configuring")}
-              className="px-4 py-2 rounded-lg text-sm text-su-muted hover:text-su-muted transition-colors"
+              className="px-4 py-2 rounded-lg text-sm text-su-muted hover:text-su-text transition-colors"
             >
               Change Settings
             </button>
@@ -1441,7 +1441,7 @@ function SuccessStep({ setup }: { setup: UseRadioSetupReturn }) {
         </button>
         <button
           onClick={skipSetup}
-          className="text-sm text-su-muted hover:text-su-muted transition-colors"
+          className="text-sm text-su-muted hover:text-su-text transition-colors"
         >
           Continue to Dashboard
         </button>
@@ -1513,7 +1513,7 @@ export function RadioSetupWizard() {
     >
       {/* Backdrop */}
       <div
-        className="absolute inset-0 bg-su-panel/60 backdrop-blur-sm"
+        className="absolute inset-0 bg-black/60 backdrop-blur-sm"
         onClick={setup.skipSetup}
       />
 
@@ -1522,7 +1522,7 @@ export function RadioSetupWizard() {
         {/* Close button */}
         <button
           onClick={setup.skipSetup}
-          className="absolute top-4 right-4 z-30 w-8 h-8 flex items-center justify-center rounded-lg text-su-muted hover:text-su-muted hover:bg-su-line/10 transition-colors"
+          className="absolute top-4 right-4 z-30 w-8 h-8 flex items-center justify-center rounded-lg text-su-muted hover:text-su-text hover:bg-su-line/10 transition-colors"
           aria-label="Close setup wizard"
         >
           <CloseIcon className="w-4 h-4" />

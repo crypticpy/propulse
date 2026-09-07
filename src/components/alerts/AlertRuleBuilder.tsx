@@ -279,7 +279,7 @@ export const AlertRuleBuilder: React.FC<AlertRuleBuilderProps> = ({
     >
       {/* Backdrop */}
       <div
-        className="absolute inset-0 bg-su-panel/60 backdrop-blur-sm"
+        className="absolute inset-0 bg-black/60 backdrop-blur-sm"
         onClick={onCancel}
         aria-hidden="true"
       />

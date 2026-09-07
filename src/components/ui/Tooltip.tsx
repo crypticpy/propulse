@@ -142,7 +142,7 @@ export const InfoTip: React.FC<{ content: string; className?: string }> = ({
     <svg
       tabIndex={0}
       aria-label="More info"
-      className="w-3.5 h-3.5 text-su-muted hover:text-su-muted focus:text-su-muted cursor-help transition-colors shrink-0 outline-none focus:ring-1 focus:ring-su-line/50 rounded-full"
+      className="w-3.5 h-3.5 text-su-muted hover:text-su-text focus:text-su-text cursor-help transition-colors shrink-0 outline-none focus:ring-1 focus:ring-su-line/50 rounded-full"
       fill="none"
       viewBox="0 0 24 24"
       stroke="currentColor"

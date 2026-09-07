@@ -186,7 +186,7 @@ function FAQItem({
 }) {
   return (
     <details className="group">
-      <summary className="flex items-center gap-3 cursor-pointer list-none text-sm font-medium text-su-text hover:text-su-text transition-colors py-3 px-4 rounded-xl bg-su-line/10 border border-su-line/20 hover:border-su-line/40">
+      <summary className="flex items-center gap-3 cursor-pointer list-none text-sm font-medium text-su-text/80 hover:text-su-text transition-colors py-3 px-4 rounded-xl bg-su-line/10 border border-su-line/20 hover:border-su-line/40">
         <svg
           className="w-4 h-4 shrink-0 text-su-muted transition-transform group-open:rotate-90"
           fill="none"
@@ -709,7 +709,7 @@ export function SetupGuidePage() {
       <div className="space-y-4">
         <Link
           to="/"
-          className="inline-flex items-center gap-1.5 text-sm text-su-muted hover:text-su-muted transition-colors"
+          className="inline-flex items-center gap-1.5 text-sm text-su-muted hover:text-su-text transition-colors"
           aria-label="Back to home"
         >
           <svg
@@ -981,7 +981,7 @@ export function SetupGuidePage() {
       {/* 2b. How to open a terminal                                       */}
       {/* ================================================================ */}
       <details className="group">
-        <summary className="flex items-center gap-3 cursor-pointer list-none text-sm font-medium text-su-text hover:text-su-text transition-colors py-3 px-4 rounded-xl bg-su-line/10 border border-su-line/20 hover:border-su-line/40">
+        <summary className="flex items-center gap-3 cursor-pointer list-none text-sm font-medium text-su-text/80 hover:text-su-text transition-colors py-3 px-4 rounded-xl bg-su-line/10 border border-su-line/20 hover:border-su-line/40">
           <svg
             className="w-4 h-4 shrink-0 text-su-muted transition-transform group-open:rotate-90"
             fill="none"
@@ -1809,13 +1809,13 @@ export function SetupGuidePage() {
               className="flex items-center justify-between gap-3 py-3 group"
             >
               <div>
-                <div className="text-sm font-medium text-su-text group-hover:text-su-text transition-colors">
+                <div className="text-sm font-medium text-su-text/80 group-hover:text-su-text transition-colors">
                   {link.label}
                 </div>
                 <div className="text-xs text-su-muted">{link.desc}</div>
               </div>
               <svg
-                className="w-4 h-4 shrink-0 text-su-muted group-hover:text-su-muted transition-colors"
+                className="w-4 h-4 shrink-0 text-su-muted group-hover:text-su-text transition-colors"
                 fill="none"
                 viewBox="0 0 24 24"
                 stroke="currentColor"
@@ -1849,13 +1849,13 @@ export function SetupGuidePage() {
               className="flex items-center justify-between gap-3 py-3 group"
             >
               <div>
-                <div className="text-sm font-medium text-su-text group-hover:text-su-text transition-colors">
+                <div className="text-sm font-medium text-su-text/80 group-hover:text-su-text transition-colors">
                   {link.label}
                 </div>
                 <div className="text-xs text-su-muted">{link.desc}</div>
               </div>
               <svg
-                className="w-4 h-4 shrink-0 text-su-muted group-hover:text-su-muted transition-colors"
+                className="w-4 h-4 shrink-0 text-su-muted group-hover:text-su-text transition-colors"
                 fill="none"
                 viewBox="0 0 24 24"
                 stroke="currentColor"

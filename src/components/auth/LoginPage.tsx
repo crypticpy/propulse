@@ -141,7 +141,7 @@ function PasswordInput({
         type="button"
         tabIndex={-1}
         onClick={() => setVisible((v) => !v)}
-        className="absolute right-2.5 top-1/2 -translate-y-1/2 text-su-muted hover:text-su-muted transition-colors"
+        className="absolute right-2.5 top-1/2 -translate-y-1/2 text-su-muted hover:text-su-text transition-colors"
         aria-label={visible ? "Hide password" : "Show password"}
       >
         {visible ? (
@@ -391,7 +391,7 @@ export function LoginPage() {
               <div className="flex items-center justify-between text-xs pt-1">
                 <button
                   onClick={() => switchView("forgot")}
-                  className="text-su-muted hover:text-su-muted transition-colors"
+                  className="text-su-muted hover:text-su-text transition-colors"
                 >
                   Forgot password?
                 </button>
@@ -451,7 +451,7 @@ export function LoginPage() {
               <div className="text-center">
                 <button
                   onClick={() => switchView("signin")}
-                  className="text-xs text-su-muted hover:text-su-muted transition-colors"
+                  className="text-xs text-su-muted hover:text-su-text transition-colors"
                 >
                   Back to password sign-in
                 </button>
@@ -506,7 +506,7 @@ export function LoginPage() {
               <div className="text-center">
                 <button
                   onClick={() => switchView("signin")}
-                  className="text-xs text-su-muted hover:text-su-muted transition-colors"
+                  className="text-xs text-su-muted hover:text-su-text transition-colors"
                 >
                   Back to sign in
                 </button>

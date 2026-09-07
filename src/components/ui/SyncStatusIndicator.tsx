@@ -187,7 +187,7 @@ export function SyncStatusIndicator(): JSX.Element | null {
               )}
               <button
                 onClick={() => setExpanded(false)}
-                className="p-0.5 rounded hover:bg-su-line/20 transition-colors text-su-muted hover:text-su-muted"
+                className="p-0.5 rounded hover:bg-su-line/20 transition-colors text-su-muted hover:text-su-text"
                 aria-label="Close sync panel"
                 type="button"
               >
@@ -255,7 +255,7 @@ export function SyncStatusIndicator(): JSX.Element | null {
                 {/* Dismiss button */}
                 <button
                   onClick={() => removeItem(item.id)}
-                  className="p-0.5 rounded hover:bg-su-line/20 transition-colors text-su-muted hover:text-su-muted shrink-0"
+                  className="p-0.5 rounded hover:bg-su-line/20 transition-colors text-su-muted hover:text-su-text shrink-0"
                   aria-label={`Dismiss ${serviceLabel(item.service)} upload`}
                   title="Dismiss"
                   type="button"
@@ -289,7 +289,7 @@ export function SyncStatusIndicator(): JSX.Element | null {
                   const store = useSyncQueueStore.getState();
                   store.clearFailed();
                 }}
-                className="text-[10px] text-su-muted hover:text-su-muted transition-colors"
+                className="text-[10px] text-su-muted hover:text-su-text transition-colors"
                 type="button"
               >
                 Clear failed

@@ -77,7 +77,7 @@ export function PWAInstallPrompt() {
       </button>
       <button
         onClick={() => setDismissed(true)}
-        className="flex-shrink-0 p-1 text-su-muted transition-colors hover:text-su-muted"
+        className="flex-shrink-0 p-1 text-su-muted transition-colors hover:text-su-text"
         aria-label="Dismiss install prompt"
       >
         <svg

@@ -243,7 +243,7 @@ export function ShareModal({
     <div className="fixed inset-0 z-[400] flex items-center justify-center p-4 md:p-6">
       {/* Backdrop */}
       <div
-        className="absolute inset-0 bg-su-panel/70 backdrop-blur-sm"
+        className="absolute inset-0 bg-black/70 backdrop-blur-sm"
         onClick={onClose}
       />
 

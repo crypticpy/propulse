@@ -255,8 +255,8 @@ export function Header({
                         text-[10px] font-bold rounded-full
                         ${
                           criticalAlertCount > 0
-                            ? "bg-alert-red text-su-on-accent"
-                            : "bg-caution-amber text-su-on-accent"
+                            ? "bg-alert-red text-su-canvas"
+                            : "bg-caution-amber text-su-canvas"
                         }
                       `}
                     >

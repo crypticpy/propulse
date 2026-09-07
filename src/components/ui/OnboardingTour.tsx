@@ -200,7 +200,7 @@ function SpotlightOverlay({ targetRect, onClick }: SpotlightOverlayProps) {
     // No target - full overlay for modal steps
     return (
       <div
-        className="fixed inset-0 bg-su-panel/70 backdrop-blur-sm transition-all duration-300 cursor-pointer"
+        className="fixed inset-0 bg-black/70 backdrop-blur-sm transition-all duration-300 cursor-pointer"
         onClick={onClick}
       />
     );
@@ -403,7 +403,7 @@ function TourTooltip({
         <div className="mt-3 text-center">
           <button
             onClick={onSkip}
-            className="text-xs text-su-muted hover:text-su-muted transition-colors"
+            className="text-xs text-su-muted hover:text-su-text transition-colors"
           >
             Skip tour
           </button>
@@ -584,7 +584,7 @@ export function OnboardingTour({
       {showSkipConfirm && (
         <div className="fixed inset-0 z-[500] flex items-center justify-center p-4">
           <div
-            className="absolute inset-0 bg-su-panel/60"
+            className="absolute inset-0 bg-black/50"
             onClick={() => setShowSkipConfirm(false)}
           />
           <div className="relative bg-nebula-blue border border-su-line/50 rounded-xl p-6 max-w-sm animate-fade-in-up">

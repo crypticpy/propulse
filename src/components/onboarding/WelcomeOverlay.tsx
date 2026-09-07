@@ -647,7 +647,7 @@ export function WelcomeOverlay() {
     >
       {/* Backdrop */}
       <div
-        className="absolute inset-0 bg-su-panel/60 backdrop-blur-sm"
+        className="absolute inset-0 bg-black/60 backdrop-blur-sm"
         onClick={dismiss}
       />
 
@@ -656,7 +656,7 @@ export function WelcomeOverlay() {
         {/* Close button */}
         <button
           onClick={dismiss}
-          className="absolute top-4 right-4 z-10 w-8 h-8 flex items-center justify-center rounded-lg text-su-muted hover:text-su-muted hover:bg-su-line/10 transition-colors"
+          className="absolute top-4 right-4 z-10 w-8 h-8 flex items-center justify-center rounded-lg text-su-muted hover:text-su-text hover:bg-su-line/10 transition-colors"
           aria-label="Close welcome overlay"
         >
           <CloseIcon className="w-4 h-4" />

@@ -988,7 +988,7 @@ export function PropSphere() {
                   />
                   {/* K-index */}
                   <div className="flex flex-col items-center gap-0.5">
-                    <span className="text-[8px] text-su-text/40 leading-none">
+                    <span className="text-[8px] text-su-text/80 leading-none">
                       K
                     </span>
                     <span className="text-[11px] font-mono font-medium text-su-text/70 leading-none">
@@ -997,7 +997,7 @@ export function PropSphere() {
                   </div>
                   {/* SFI */}
                   <div className="flex flex-col items-center gap-0.5">
-                    <span className="text-[8px] text-su-text/40 leading-none">
+                    <span className="text-[8px] text-su-text/80 leading-none">
                       SFI
                     </span>
                     <span className="text-[11px] font-mono font-medium text-su-text/70 leading-none">
@@ -1013,7 +1013,7 @@ export function PropSphere() {
                 onClick={() => setLeftPanelMode("mini")}
                 aria-label="Show band conditions panel"
                 title="Show panel"
-                className="hidden lg:flex w-4 flex-shrink-0 items-center justify-center bg-void-black/80 backdrop-blur-sm border-r border-su-line/40 text-su-text/40 hover:text-su-text hover:bg-su-line/20 transition-colors"
+                className="hidden lg:flex w-4 flex-shrink-0 items-center justify-center bg-void-black/80 backdrop-blur-sm border-r border-su-line/40 text-su-text/80 hover:text-su-text hover:bg-su-line/20 transition-colors"
               >
                 <svg
                   width="10"
@@ -1163,12 +1163,12 @@ export function PropSphere() {
                   layers.muf ||
                   (layers.ionosphere && target && viewMode === "globe")) && (
                   <>
-                    <LayerLegend className="self-start bg-su-panel/60 backdrop-blur-sm rounded-lg px-2 py-1 pointer-events-auto" />
+                    <LayerLegend className="self-start bg-su-panel/90 backdrop-blur-sm rounded-lg px-2 py-1 pointer-events-auto" />
                     {layers.ionosphere && target && viewMode === "globe" && (
-                      <IonosphereLegend className="self-start bg-su-panel/60 backdrop-blur-sm rounded-lg px-2 py-1 pointer-events-auto" />
+                      <IonosphereLegend className="self-start bg-su-panel/90 backdrop-blur-sm rounded-lg px-2 py-1 pointer-events-auto" />
                     )}
                     {layers.muf && (
-                      <MUFLegend className="bg-su-panel/60 backdrop-blur-sm rounded-lg p-2 pointer-events-auto" />
+                      <MUFLegend className="bg-su-panel/90 backdrop-blur-sm rounded-lg p-2 pointer-events-auto" />
                     )}
                   </>
                 )}
@@ -1181,7 +1181,7 @@ export function PropSphere() {
               >
                 <Suspense
                   fallback={
-                    <div className="flex h-full items-center justify-center font-mono text-xs uppercase tracking-widest text-su-text/30">
+                    <div className="flex h-full items-center justify-center font-mono text-xs uppercase tracking-widest text-su-text/80">
                       Loading projection…
                     </div>
                   }
@@ -1290,11 +1290,11 @@ export function PropSphere() {
                     <div className="absolute top-3 left-3 right-3 flex items-start justify-between gap-4 pointer-events-auto">
                       {/* Left cluster: Layout mode dropdown + Share */}
                       <div className="flex items-center gap-2">
-                        <LayoutModeDropdown className="bg-su-panel/60 backdrop-blur-md" />
+                        <LayoutModeDropdown className="bg-su-panel/90 backdrop-blur-md" />
                         <button
                           onClick={() => setShowShareModal(true)}
                           className="group flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg
-                                   bg-su-panel/60 backdrop-blur-md border border-su-line/40
+                                   bg-su-panel/90 backdrop-blur-md border border-su-line/40
                                    hover:border-cosmic-cyan/50 hover:bg-su-panel/70
                                    transition-all duration-200"
                           title="Share this view"
@@ -1319,7 +1319,7 @@ export function PropSphere() {
                       </div>
 
                       {/* Center: Time offset (compact) */}
-                      <div className="flex items-center gap-3 px-4 py-2 rounded-xl bg-su-panel/60 backdrop-blur-md border border-su-line/40">
+                      <div className="flex items-center gap-3 px-4 py-2 rounded-xl bg-su-panel/90 backdrop-blur-md border border-su-line/40">
                         <span className="text-[10px] uppercase tracking-wider text-su-muted">
                           Time
                         </span>
@@ -1346,7 +1346,7 @@ export function PropSphere() {
                         <ActiveKitChip className="pointer-events-auto" />
                         <QuickLocationControl variant="icon" />
                         {catActive && (
-                          <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-su-panel/60 backdrop-blur-md border border-su-line/40">
+                          <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-su-panel/90 backdrop-blur-md border border-su-line/40">
                             <span className="text-[10px] text-su-muted">S</span>
                             <span className="text-xs font-mono font-medium text-signal-green">
                               {getSMeterText()}
@@ -1354,7 +1354,7 @@ export function PropSphere() {
                           </div>
                         )}
                         {station && (
-                          <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-su-panel/60 backdrop-blur-md border border-su-line/40">
+                          <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-su-panel/90 backdrop-blur-md border border-su-line/40">
                             <div className="w-1.5 h-1.5 rounded-full bg-signal-green animate-pulse" />
                             <span className="text-xs font-mono font-medium text-su-text tracking-wide">
                               {station.callsign}
@@ -1375,8 +1375,8 @@ export function PropSphere() {
                           displayTime={displayTime}
                           className={
                             leftPanelExpanded
-                              ? "max-h-[350px] overflow-y-auto bg-su-panel/70 backdrop-blur-md border-su-line/40"
-                              : "bg-su-panel/60 backdrop-blur-md border-su-line/40"
+                              ? "max-h-[350px] overflow-y-auto bg-su-panel/90 backdrop-blur-md border-su-line/40"
+                              : "bg-su-panel/90 backdrop-blur-md border-su-line/40"
                           }
                           collapsed={!leftPanelExpanded}
                           onToggleCollapse={() =>
@@ -1390,7 +1390,7 @@ export function PropSphere() {
                     <div className="absolute bottom-3 right-3 pointer-events-auto flex flex-col items-end gap-1.5">
                       {/* Aspect ratio slider — flat view only, docked above path box */}
                       {viewMode === "flat" && (
-                        <AspectRatioSlider className="flex flex-col items-center gap-1 bg-su-panel/60 backdrop-blur-md border border-su-line/40 rounded-lg px-2 py-2" />
+                        <AspectRatioSlider className="flex flex-col items-center gap-1 bg-su-panel/90 backdrop-blur-md border border-su-line/40 rounded-lg px-2 py-2" />
                       )}
 
                       <div
@@ -1402,8 +1402,8 @@ export function PropSphere() {
                           displayTime={displayTime}
                           className={
                             rightPanelExpanded
-                              ? "max-h-[400px] overflow-y-auto bg-su-panel/70 backdrop-blur-md border-su-line/40"
-                              : "bg-su-panel/60 backdrop-blur-md border-su-line/40"
+                              ? "max-h-[400px] overflow-y-auto bg-su-panel/90 backdrop-blur-md border-su-line/40"
+                              : "bg-su-panel/90 backdrop-blur-md border-su-line/40"
                           }
                           collapsed={!rightPanelExpanded}
                           onToggleCollapse={() =>
@@ -1493,7 +1493,7 @@ export function PropSphere() {
                             fill="none"
                           />
                         </svg>
-                        <span className="text-[8px] text-su-text/40 leading-none">
+                        <span className="text-[8px] text-su-text/80 leading-none">
                           {formatBearing(miniPathMetrics.shortPath.bearing)}
                         </span>
                       </div>
@@ -1504,7 +1504,7 @@ export function PropSphere() {
                             ? `${Math.round(miniPathMetrics.shortPath.distance)}`
                             : `${(miniPathMetrics.shortPath.distance / 1000).toFixed(1)}k`}
                         </span>
-                        <span className="text-[8px] text-su-text/40 leading-none">
+                        <span className="text-[8px] text-su-text/80 leading-none">
                           km
                         </span>
                       </div>
@@ -1521,7 +1521,7 @@ export function PropSphere() {
                       />
                     </>
                   ) : (
-                    <span className="text-[9px] text-su-text/30 [writing-mode:vertical-rl]">
+                    <span className="text-[9px] text-su-text/80 [writing-mode:vertical-rl]">
                       No target
                     </span>
                   )}
@@ -1534,7 +1534,7 @@ export function PropSphere() {
                 onClick={() => setRightPanelMode("mini")}
                 aria-label="Show path analysis panel"
                 title="Show panel"
-                className="hidden lg:flex w-4 flex-shrink-0 items-center justify-center bg-void-black/80 backdrop-blur-sm border-l border-su-line/40 text-su-text/40 hover:text-su-text hover:bg-su-line/20 transition-colors"
+                className="hidden lg:flex w-4 flex-shrink-0 items-center justify-center bg-void-black/80 backdrop-blur-sm border-l border-su-line/40 text-su-text/80 hover:text-su-text hover:bg-su-line/20 transition-colors"
               >
                 <svg
                   width="10"

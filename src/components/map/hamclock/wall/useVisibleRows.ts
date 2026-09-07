@@ -4,7 +4,7 @@ import { useCallback, useLayoutEffect, useState } from "react";
  * How many uniform rows fit in a list box without clipping one mid-row.
  * The wall never scrolls inside a report, so a ranked table or an alert
  * list renders only the rows its flex slot can hold and says so in its
- * caption. Measures the box and its first row through a `ResizeObserver`;
+ * caption. Measures the box and rendered rows through a `ResizeObserver`;
  * in jsdom (no layout) every row stays visible.
  *
  * Returns a callback ref so a list that mounts later — inside a tab panel
@@ -21,8 +21,8 @@ export function useVisibleRows<T extends HTMLElement>(
   useLayoutEffect(() => {
     if (!el) return;
     const measure = () => {
-      const first = el.firstElementChild as HTMLElement | null;
-      const row = first?.getBoundingClientRect().height ?? 0;
+      const row = Math.max(0, ...Array.from(el.children).map((child) =>
+        (child as HTMLElement).getBoundingClientRect().height));
       const slot = el.clientHeight;
       if (!row || !slot) {
         setCount(total);
@@ -36,8 +36,11 @@ export function useVisibleRows<T extends HTMLElement>(
     if (typeof ResizeObserver === "undefined") return;
     const observer = new ResizeObserver(measure);
     observer.observe(el);
+    // Fonts and wrapped controls can change row heights without resizing
+    // the slot. Reconnect after each render to include replaced row nodes.
+    for (const child of el.children) observer.observe(child);
     return () => observer.disconnect();
-  }, [el, total]);
+  });
 
   return [ref, Math.min(count, total)];
 }

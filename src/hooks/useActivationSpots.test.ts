@@ -42,7 +42,7 @@ describe("useActivationSpots", () => {
           mode: "FT8",
           comments: "",
           spotter: "W1AW",
-          spottedAt: "2026-08-31T13:59:00.000Z",
+          spottedAt: new Date(Date.now() - 60_000).toISOString(),
         },
         {
           id: "wwff-1",
@@ -54,7 +54,7 @@ describe("useActivationSpots", () => {
           mode: "SSB",
           comments: "",
           spotter: "VE3AAA",
-          spottedAt: "2026-08-31T13:58:00.000Z",
+          spottedAt: new Date(Date.now() - 120_000).toISOString(),
         },
       ],
       sources: [],

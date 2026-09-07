@@ -5,6 +5,7 @@ import {
   normalizeSotaSpots,
   normalizeWwffSpots,
   normalizeWwbotaSpots,
+  normalizeCanparksSpots,
 } from "./activationSpots";
 import type { ActivationSpotsResponse } from "../../../src/types/activationSpots";
 
@@ -163,7 +164,8 @@ describe("handleActivationSpots", () => {
         )
         .mockRejectedValueOnce(new Error("syndication offline"))
         .mockResolvedValueOnce(Response.json([]))
-        .mockResolvedValueOnce(Response.json([])),
+        .mockResolvedValueOnce(Response.json([]))
+        .mockResolvedValueOnce(Response.json({ ok: true, spots: [] })),
     );
 
     const response = await handleActivationSpots(
@@ -185,6 +187,7 @@ describe("handleActivationSpots", () => {
       }),
       expect.objectContaining({ program: "WWFF", status: "ok", count: 0 }),
       expect.objectContaining({ program: "WWBOTA", status: "ok", count: 0 }),
+      expect.objectContaining({ program: "CANParks", status: "ok", count: 0 }),
     ]);
   });
 
@@ -210,7 +213,8 @@ describe("handleActivationSpots", () => {
         .mockResolvedValueOnce(Response.json([{ unexpected: true }]))
         .mockResolvedValueOnce(Response.json([]))
         .mockResolvedValueOnce(Response.json([]))
-        .mockResolvedValueOnce(Response.json([])),
+        .mockResolvedValueOnce(Response.json([]))
+        .mockResolvedValueOnce(Response.json({ ok: true, spots: [] })),
     );
 
     const response = await handleActivationSpots(
@@ -259,7 +263,7 @@ it("records each provider completion independently and never stamps a failure as
 it("classifies a successful HTTP response without JSON as invalid, not an empty feed", async () => {
   vi.stubGlobal("fetch", vi.fn().mockImplementation(() => Promise.resolve(new Response(null))));
   const body = await (await handleActivationSpots(new Request("https://propulse.test/api/activation/spots"))).json() as ActivationSpotsResponse;
-  expect(body.sources).toHaveLength(4);
+  expect(body.sources).toHaveLength(5);
   for (const source of body.sources) expect(source).toMatchObject({ status: "invalid", fetchedAt: null, count: 0 });
 });
 
@@ -291,5 +295,34 @@ describe("WWBOTA normalization", () => {
       { ...live, time: "2026-08-31T14:10:00Z" },
       { ...live, references: [{ reference: "US-0001" }] },
     ], NOW)).toEqual([]);
+  });
+});
+
+
+describe("CANParks normalization", () => {
+  const live = { id: "fixture", activator_callsign: "n0test", reference: "QC-0001", park_name: "Synthetic park", created_at: "2026-08-31T13:50:00Z", frequency_khz: 7074.125, mode: "ft8", source: "pota", source_label: "POTA.app", latitude: 45, longitude: -73 };
+  it("preserves imported-source attribution, precise kHz and the shorter expiry", () => {
+    expect(normalizeCanparksSpots([live], NOW)).toEqual([expect.objectContaining({
+      program: "CANParks", callsign: "N0TEST", reference: "QC-0001", frequencyKHz: 7074.125,
+      originSource: "pota", originLabel: "POTA.app", expiresAt: "2026-08-31T14:20:00.000Z", latitude: 45, longitude: -73,
+    })]);
+    expect(normalizeCanparksSpots([{ ...live, expires_at: "2026-08-31T14:05:00Z" }], NOW)[0].expiresAt).toBe("2026-08-31T14:05:00.000Z");
+  });
+  it("suppresses an older live report after a newer QRT without frequency", () => {
+    expect(normalizeCanparksSpots([live, { ...live, comment: "QRT", frequency_khz: null, created_at: "2026-08-31T13:55:00Z" }], NOW)).toEqual([]);
+  });
+  it("rejects expired, malformed, old, future and foreign-reference rows", () => {
+    expect(normalizeCanparksSpots([
+      { ...live, expires_at: "2026-08-31T14:00:00Z" },
+      { ...live, expires_at: "not a date" },
+      { ...live, created_at: "2026-08-31T13:30:00Z" },
+      { ...live, created_at: "2026-08-31T14:10:00Z" },
+      { ...live, frequency_khz: null }, { ...live, reference: "US-0001" },
+    ], NOW)).toEqual([]);
+  });
+  it.each([{ ok: false, spots: [] }, { ok: true, spots: {} }, []])("does not treat an invalid envelope as a healthy empty feed", async (payload) => {
+    vi.stubGlobal("fetch", vi.fn(async () => Response.json(payload)));
+    const body = await (await handleActivationSpots(new Request("https://propulse.test/api/activation/spots"))).json() as ActivationSpotsResponse;
+    expect(body.sources.find((source) => source.program === "CANParks")).toMatchObject({ status: "invalid", fetchedAt: null });
   });
 });

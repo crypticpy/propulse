@@ -24,6 +24,7 @@ import { useHamClockStore, type HamClockMode } from "@/stores/hamclockStore";
 import { HamClockBandFocus } from "./HamClockBandFocus";
 import {
   ACTIVATION_PROGRAM_META,
+  activationProvenance,
   ACTIVATION_PROGRAMS,
   type ActivationProgram,
   type ActivationSpot,
@@ -107,7 +108,7 @@ function ActivationSpotRow({ spot, onSelect }: ActivationSpotRowProps) {
         </span>
         <span className="font-mono text-gray-400 shrink-0">{spot.mode}</span>
         <span className="text-gray-500 truncate">
-          {spot.comments ||
+          {activationProvenance(spot) || spot.comments ||
             spot.referenceName ||
             `spotted by ${spot.spotter || "—"}`}
         </span>
@@ -224,6 +225,7 @@ export function HamClockSpotsSidebar({
     SOTA: spotsByProgram.SOTA.length,
     WWFF: spotsByProgram.WWFF.length,
     WWBOTA: spotsByProgram.WWBOTA.length,
+    CANParks: spotsByProgram.CANParks.length,
   };
   const activeCount = tabCounts[activeTab];
 

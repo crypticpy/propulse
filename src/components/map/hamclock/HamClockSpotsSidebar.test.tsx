@@ -87,7 +87,7 @@ beforeEach(() => {
       POTA: response.spots,
       SOTA: [],
       WWFF: [],
-      WWBOTA: [],
+      WWBOTA: [], CANParks: [],
     },
     sources: response.sources,
     isLoading: false,
@@ -117,7 +117,7 @@ describe("HamClockSpotsSidebar", () => {
     expect(screen.getByText("K5ABC")).toBeTruthy();
 
     fireEvent.keyDown(potaTab, { key: "End" });
-    const wwffTab = screen.getByRole("tab", { name: "WWBOTA 0" });
+    const wwffTab = screen.getByRole("tab", { name: "CANParks 0" });
     expect(document.activeElement).toBe(wwffTab);
     expect(wwffTab.getAttribute("aria-selected")).toBe("true");
   });
@@ -156,7 +156,7 @@ describe("HamClockSpotsSidebar", () => {
   it("keeps cached activations visible during a background refetch error", () => {
     mocks.activationSpots.mockReturnValue({
       spots: response.spots,
-      spotsByProgram: { POTA: response.spots, SOTA: [], WWFF: [], WWBOTA: [] },
+      spotsByProgram: { POTA: response.spots, SOTA: [], WWFF: [], WWBOTA: [], CANParks: [] },
       sources: response.sources,
       isLoading: false,
       error: new Error("background refetch failed"),

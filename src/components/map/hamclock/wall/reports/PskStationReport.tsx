@@ -46,7 +46,7 @@ export function PskDirectionControl({ direction, onChange }: { direction: PskDir
 }
 
 export function PskReceptionRows({ rows, direction, state, now, compact = false }: { rows: Reception[]; direction: PskDirection; state: string; now: number; compact?: boolean }) {
-  const [ref, visible] = useVisibleRows<HTMLDivElement>(rows.length);
+  const [ref, visible] = useVisibleRows<HTMLDivElement>(rows.length, compact ? 0 : 1);
   return <div className={`hcp-receptions${compact ? " hcp-compact" : ""}`}>
     <div className="hcp-list" ref={ref}>{rows.slice(0, visible).map((r, i) => <div className="hcp-row" key={`${r.senderCallsign}:${r.receiverCallsign}:${r.observedAt}:${i}`}>
       <div><strong>{direction === "of" ? r.receiverCallsign : r.senderCallsign}</strong><span>{direction === "of" ? r.receiverLocator ?? "GRID —" : r.senderLocator ?? "GRID —"} · {r.snr == null ? "SNR —" : `${r.snr > 0 ? "+" : ""}${r.snr} dB`}</span></div>

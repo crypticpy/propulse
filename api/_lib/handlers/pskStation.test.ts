@@ -1,8 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createPskStationHandler, parsePskStationXml } from "./pskStation";
+import { sharedPskStationCache } from "../pskStationCache.js";
+import { applyRateLimit } from "../rateLimit.js";
 import { canonicalPskCallsign } from "../../../src/lib/hamclock/pskStation";
 
 vi.mock("../rateLimit.js", () => ({ applyRateLimit: vi.fn(() => null) }));
+vi.mock("../pskStationCache.js", () => ({ sharedPskStationCache: { claim: vi.fn(), finish: vi.fn() } }));
 const NOW = Date.parse("2026-09-06T12:00:00Z");
 const seconds = NOW / 1_000;
 function report(attrs = "") {
@@ -11,7 +14,10 @@ function report(attrs = "") {
 const xml = (...rows: string[]) => `<receptionReports>${rows.join("")}</receptionReports>`;
 const request = (call = "N0TEST") => new Request(`https://local/api/spots/psk-station?callsign=${encodeURIComponent(call)}`);
 
-beforeEach(() => { vi.useFakeTimers(); vi.setSystemTime(NOW); });
+beforeEach(() => { vi.mocked(applyRateLimit).mockClear(); vi.useFakeTimers(); vi.setSystemTime(NOW);
+  vi.mocked(sharedPskStationCache.claim).mockReset().mockImplementation(async () => ({ token: "lease", snapshot: null, retryAt: Date.now() + 310_000 }));
+  vi.mocked(sharedPskStationCache.finish).mockReset().mockImplementation(async (_call, _token, snapshot) => snapshot);
+});
 afterEach(() => { vi.useRealTimers(); vi.unstubAllGlobals(); });
 
 describe("PSK station XML", () => {
@@ -112,12 +118,50 @@ describe("PSK station handler", () => {
     vi.stubGlobal("fetch", fetcher);
     const handle = createPskStationHandler();
     for (let i = 0; i < 128; i++) expect((await handle(request(`N${i}TEST`))).status).toBe(200);
+    const starts = () => vi.mocked(sharedPskStationCache.claim).mock.calls.length;
+    expect(starts()).toBe(128);
     expect((await handle(request("W1AW"))).status).toBe(503);
+    expect(starts()).toBe(128);
     await handle(request("N0TEST"));
     expect(fetcher).toHaveBeenCalledTimes(128);
     vi.setSystemTime(NOW + 300_000);
     expect((await handle(request("W1AW"))).status).toBe(200);
     expect(fetcher).toHaveBeenCalledTimes(129);
+  });
+
+  it("coordinates different calls and independent handler instances through the shared gate", async () => {
+    let reserved = false;
+    const gate = {
+      claim: vi.fn(async () => {
+        const token = reserved ? null : "lease";
+        reserved = true;
+        return { token, snapshot: null, retryAt: NOW + 310_000 };
+      }),
+      finish: vi.fn(async (_call: string, _token: string, snapshot: import("../../../src/lib/hamclock/pskStation").PskStationSnapshot) => snapshot),
+    };
+    const fetcher = vi.fn(async () => new Response(xml())); vi.stubGlobal("fetch", fetcher);
+    const [first, second] = await Promise.all([createPskStationHandler(gate)(request()), createPskStationHandler(gate)(request("W1AW"))]);
+    expect(first.status).toBe(200); expect(second.status).toBe(502);
+    expect(fetcher).toHaveBeenCalledTimes(1);
+    expect(await second.json()).toMatchObject({ status: "unavailable", fetchedAt: null, retryAt: NOW + 310_000 });
+  });
+
+  it("reuses a snapshot from another process without spending a provider lease", async () => {
+    const snapshot = { callsign: "N0TEST", reports: [], status: "ok" as const, fetchedAt: NOW, checkedAt: NOW,
+      retryAt: NOW + 300_000, windowMinutes: 1440 as const, limit: 1000, limited: false, discarded: 0 };
+    vi.mocked(sharedPskStationCache.claim).mockResolvedValueOnce({ token: null, snapshot, retryAt: snapshot.retryAt });
+    const fetcher = vi.fn(); vi.stubGlobal("fetch", fetcher);
+    expect(await (await createPskStationHandler()(request())).json()).toEqual(snapshot);
+    expect(fetcher).not.toHaveBeenCalled();
+  });
+
+  it("does not call the provider when shared coordination fails or the start deadline has expired", async () => {
+    const fetcher = vi.fn(); vi.stubGlobal("fetch", fetcher);
+    vi.mocked(sharedPskStationCache.claim).mockRejectedValueOnce(new Error("cache offline"));
+    expect((await createPskStationHandler()(request())).status).toBe(502);
+    vi.mocked(sharedPskStationCache.claim).mockResolvedValueOnce({ token: "lease", snapshot: null, retryAt: NOW + 299_000 });
+    expect((await createPskStationHandler()(request())).status).toBe(502);
+    expect(fetcher).not.toHaveBeenCalled();
   });
 
   it("keeps the deadline active while reading the response body", async () => {

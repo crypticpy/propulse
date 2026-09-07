@@ -25,12 +25,9 @@ import {
   useBandActivity,
   type BandActivityStatus,
 } from "@/hooks/useBandActivity";
-import {
-  canonicalKey,
-  useBandLadder,
-  type CanonicalLadderRow,
-} from "@/hooks/useBandLadder";
+import { useBandLadder } from "@/hooks/useBandLadder";
 import { useBandVerdicts, type BandLadderEntry } from "@/hooks/useBandVerdicts";
+import { canonicalForBand, type CanonicalBandRow } from "@/lib/verdict/bestBand";
 import type { LadderState } from "@/lib/verdict/ladder";
 import { useVerdictStore } from "@/stores/verdictStore";
 
@@ -45,7 +42,7 @@ const LADDER_CHIP_CLASSES: Record<LadderState, string> = {
 interface BandVerdictChipProps {
   entry: BandLadderEntry;
   activity?: BandActivityStatus;
-  canonical?: CanonicalLadderRow;
+  canonical?: CanonicalBandRow;
   scopeLabel: string;
   open: boolean;
   onToggle: () => void;
@@ -65,9 +62,12 @@ function BandVerdictChip({
     ? leadMinutes(canonical, "opens_in_min")
     : null;
   // Chip-level hint only while the server scope is still shut — an "opens"
-  // countdown on an already-open band would just be noise.
+  // countdown on an already-open band would just be noise. A stale row's
+  // countdown is stale too: the collector stopped ticking it, so it is not
+  // a live physics call about now.
   const opensChip =
     canonical &&
+    !canonical.stale &&
     (canonical.state === "closed" || canonical.state === "forecast")
       ? canonicalOpens
       : null;
@@ -153,19 +153,10 @@ export function BandVerdictPanel() {
   const [openBand, setOpenBand] = useState<string | null>(null);
 
   // The collector's canonical ladder covers global + regional scopes only;
-  // DX field pairs are client-side (see DEV-PLAN-BAND-HEALTH §6).
-  const canonicalFor = (band: string): CanonicalLadderRow | undefined => {
-    if (!canonicalByKey) return undefined;
-    if (scope.type === "regional" && scope.continent) {
-      return canonicalByKey.get(
-        canonicalKey("regional", scope.continent, band),
-      );
-    }
-    if (scope.type === "global") {
-      return canonicalByKey.get(canonicalKey("global", "", band));
-    }
-    return undefined;
-  };
+  // DX field pairs are client-side (see DEV-PLAN-BAND-HEALTH §6). Gated by
+  // canonicalForBand's staleness rule so a frozen row never renders as live.
+  const canonicalFor = (band: string): CanonicalBandRow | undefined =>
+    canonicalForBand(canonicalByKey, scope, band);
 
   return (
     <Card className="p-3">

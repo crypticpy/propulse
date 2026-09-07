@@ -6,7 +6,7 @@ import type { LadderState } from "@/lib/verdict/ladder";
 import { canonicalForBand } from "@/lib/verdict/bestBand";
 import { useHomeLocation } from "./useHomeLocation";
 import { activityRows, activityIsCurrent } from "@/lib/home/presentation";
-import { LADDER_BANDS, verdictIsCurrent } from "@/lib/home/bandsLadder";
+import { LADDER_BANDS } from "@/lib/home/bandsLadder";
 export function useHomeBandActivity(now: number, enabled = true) {
   const { location } = useHomeLocation();
   const continent = location ? continentForLatLon(location.lat, location.lon) : null;
@@ -30,9 +30,9 @@ export function useHomeBandActivity(now: number, enabled = true) {
     const bands = new Set<string>([...LADDER_BANDS, ...[...ladderData.values()].map(row => row.band)]);
     const scope = continent ? { type: "regional" as const, continent } : { type: "global" as const, continent: null };
     for (const band of bands) {
-      const row = canonicalForBand(ladderData, scope, band);
+      const row = canonicalForBand(ladderData, scope, band, Math.max(now, Date.now()));
       // A row that has stopped ticking is not a verdict about now.
-      if (row && verdictIsCurrent(Date.parse(row.updatedAt), Math.max(now, Date.now()))) byBand.set(band, row.state);
+      if (row && !row.stale) byBand.set(band, row.state);
     }
     return byBand;
   }, [ladderData, continent, now]);

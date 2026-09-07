@@ -2,6 +2,8 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { evaluateLadder, type LadderInputs } from "@/lib/verdict/ladder";
 import type { BandLadderEntry } from "@/hooks/useBandVerdicts";
+import type { CanonicalLadderRow } from "@/hooks/useBandLadder";
+import type { CanonicalBandRow } from "@/lib/verdict/bestBand";
 import { BandVerdictDetailsDialog } from "./BandVerdictDetailsDialog";
 
 function fadingEntry(): BandLadderEntry {
@@ -32,7 +34,39 @@ function fadingEntry(): BandLadderEntry {
   };
 }
 
+function canonicalRow(
+  overrides: Partial<CanonicalLadderRow> = {},
+): CanonicalBandRow {
+  return {
+    band: "80m",
+    scopeType: "regional",
+    scopeKey: "NA",
+    state: "hot",
+    stableSince: new Date(Date.now() - 45 * 60_000).toISOString(),
+    surprise: false,
+    openedAt: null,
+    inputs: {},
+    updatedAt: new Date(Date.now() - 45 * 60_000).toISOString(),
+    stale: true,
+    ...overrides,
+  };
+}
+
 describe("BandVerdictDetailsDialog", () => {
+  it("shows a stale qualifier when the server ladder row has stopped ticking", () => {
+    render(
+      <BandVerdictDetailsDialog
+        entry={fadingEntry()}
+        canonical={canonicalRow()}
+        scopeLabel="Regional · North America"
+        onClose={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByText("Stale")).not.toBeNull();
+    expect(screen.getByText(/Last verdict/)).not.toBeNull();
+  });
+
   it("portals fading details above an overflow-constrained panel", () => {
     const close = vi.fn();
     const { container } = render(

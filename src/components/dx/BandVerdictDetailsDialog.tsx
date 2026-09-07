@@ -11,8 +11,8 @@
 import { format, formatDistanceToNow } from "date-fns";
 import { AccessibleDialog } from "@/components/ui";
 import type { BandActivityStatus } from "@/hooks/useBandActivity";
-import type { CanonicalLadderRow } from "@/hooks/useBandLadder";
 import type { BandLadderEntry } from "@/hooks/useBandVerdicts";
+import type { CanonicalBandRow } from "@/lib/verdict/bestBand";
 import {
   ACTIVITY_LABEL,
   ACTIVITY_TEXT_CLASSES,
@@ -28,7 +28,7 @@ import { useVerdictStore } from "@/stores/verdictStore";
 interface BandVerdictDetailsDialogProps {
   entry: BandLadderEntry | null;
   activity?: BandActivityStatus;
-  canonical?: CanonicalLadderRow;
+  canonical?: CanonicalBandRow;
   scopeLabel?: string;
   onClose: () => void;
 }
@@ -115,6 +115,11 @@ export function BandVerdictDetailsDialog({
               <span className={LADDER_TEXT_CLASSES[canonical.state]}>
                 {LADDER_LABEL[canonical.state]}
               </span>
+              {canonical.stale && (
+                <span className="ml-1.5 rounded border border-caution-amber/30 bg-caution-amber/10 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-caution-amber">
+                  Stale
+                </span>
+              )}
               {canonical.surprise && (
                 <span className="text-plasma-orange"> · surprise</span>
               )}
@@ -127,6 +132,16 @@ export function BandVerdictDetailsDialog({
                 </span>
               )}
             </p>
+            {canonical.stale && (
+              <p className="mt-1 text-xs text-su-muted">
+                Last verdict{" "}
+                {formatDistanceToNow(new Date(canonical.updatedAt), {
+                  addSuffix: true,
+                })}{" "}
+                — the collector has stopped scoring this scope; treat as
+                historical, not current.
+              </p>
+            )}
             {canonicalOpens !== null && (
               <p className="mt-1 text-sm text-su-text/80">
                 Likely opens in ~{formatLead(canonicalOpens)}

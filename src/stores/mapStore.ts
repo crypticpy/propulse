@@ -22,6 +22,12 @@ import { useDisplayQualityStore } from "@/stores/displayQualityStore";
 import { useHamClockStore } from "@/stores/hamclockStore";
 import type { TileProviderId } from "@/lib/tiles/types";
 
+/**
+ * Canonical running-view ownership for layout, filters, camera homes, and
+ * follow flags is `src/lib/views/runtime`. This singleton remains the
+ * production writer until SP-09. Do not proxy writes through a global
+ * active-runtime selector.
+ */
 export type ViewMode = "globe" | "flat" | "azimuthal";
 export type PathMode = "short" | "long" | "both";
 export type MapStyle = "satellite" | "standard";

@@ -2,6 +2,10 @@
  * Zustand store for UI/UX preferences
  * Decomposed from the monolithic userStore.ts
  * Persists to localStorage with key 'propulse-settings'
+ *
+ * Migrated presentation fields (theme/text/clustering/forecast/ticker) are
+ * working-view state under `src/lib/views/runtime`. SDR/CAT/notification
+ * fields stay in this domain store. SP-02 still owns cloud/LAN isolation.
  */
 
 import { create } from "zustand";

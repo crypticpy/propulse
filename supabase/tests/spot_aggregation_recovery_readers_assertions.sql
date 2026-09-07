@@ -47,3 +47,28 @@ BEGIN
   END IF;
 END;
 $$;
+
+-- Switch the same disposable database from the legacy contract to the
+-- deployed model-owned contract, then apply the migration a second time.
+DROP FUNCTION public.lookup_path_recency_lags(
+  timestamptz, text, text, text[], text, text
+);
+CREATE FUNCTION public.lookup_path_recency_lags(
+  p_issue_time timestamptz, p_band text, p_origin_field text,
+  p_target_fields text[], p_transform_version text, p_provider text,
+  p_statistic text DEFAULT 'rate'::text
+) RETURNS TABLE (
+  target_field text, path_success_prev1 double precision,
+  path_success_prev2 double precision, path_success_prev3 double precision,
+  path_success_prev24 double precision, path_prev1_available smallint,
+  path_prev2_available smallint, path_prev3_available smallint,
+  path_prev24_available smallint, source_watermark timestamptz,
+  available_at timestamptz, provider text, transform_version text,
+  quality_flags text[]
+) LANGUAGE sql AS $$ SELECT NULL::text, 0::double precision, 0::double precision,
+  0::double precision, 0::double precision, 0::smallint, 0::smallint,
+  0::smallint, 0::smallint, now(), now(), ''::text, ''::text, '{}'::text[]
+  WHERE false $$;
+GRANT EXECUTE ON FUNCTION public.lookup_path_recency_lags(
+  timestamptz, text, text, text[], text, text, text
+) TO PUBLIC;

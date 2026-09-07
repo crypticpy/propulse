@@ -15,6 +15,8 @@ try {
       { kind: "fixture", path: "supabase/tests/spot_aggregation_recovery_readers_bootstrap.sql" },
       { kind: "migration", path: "supabase/migrations/20260907223000_spot_aggregation_recovery_readers.sql" },
       { kind: "fixture", path: "supabase/tests/spot_aggregation_recovery_readers_assertions.sql" },
+      { kind: "migration", path: "supabase/migrations/20260907223000_spot_aggregation_recovery_readers.sql" },
+      { kind: "fixture", path: "supabase/tests/spot_aggregation_recovery_readers_seven_assertions.sql" },
     ],
   });
   console.log(JSON.stringify({

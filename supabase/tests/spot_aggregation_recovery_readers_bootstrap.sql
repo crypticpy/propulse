@@ -11,6 +11,7 @@ CREATE TABLE public.path_recency_hourly (
   tx_field text NOT NULL,
   rx_field text NOT NULL,
   recency_rate double precision,
+  recency_quantile double precision,
   transform_version text NOT NULL,
   source_watermark timestamptz NOT NULL,
   available_at timestamptz NOT NULL
@@ -36,15 +37,15 @@ GRANT EXECUTE ON FUNCTION public.lookup_path_recency_lags(
 ) TO PUBLIC;
 
 INSERT INTO public.path_recency_hourly
-  (hour_utc, band, tx_field, rx_field, recency_rate, transform_version,
+  (hour_utc, band, tx_field, rx_field, recency_rate, recency_quantile, transform_version,
    source_watermark, available_at)
 VALUES
-  ('2026-09-07T11:00:00Z', '20m', 'EM', 'FN', 0.91, 'psk-rbn-field-recency-v2', '2026-09-07T12:00:00Z', '2026-09-07T11:30:00Z'),
-  ('2026-09-07T10:00:00Z', '20m', 'EM', 'FN', 0.42, 'psk-rbn-field-recency-v2', '2026-09-07T11:00:00Z', '2026-09-07T10:30:00Z'),
-  ('2026-09-07T09:00:00Z', '20m', 'EM', 'FN', 0.33, 'psk-rbn-field-recency-v2', '2026-09-07T10:00:00Z', '2026-09-07T09:30:00Z'),
-  ('2026-09-06T12:00:00Z', '20m', 'EM', 'FN', 0.24, 'psk-rbn-field-recency-v2', '2026-09-06T13:00:00Z', '2026-09-06T12:30:00Z'),
-  ('2026-09-07T11:00:00Z', '20m', 'EM', 'JO', 0.81, 'psk-rbn-field-recency-v2', '2026-09-07T12:00:00Z', '2026-09-07T11:30:00Z'),
-  ('2026-09-07T10:00:00Z', '20m', 'EM', 'JO', 0.52, 'psk-rbn-field-recency-v2', '2026-09-07T11:00:00Z', '2026-09-07T10:30:00Z');
+  ('2026-09-07T11:00:00Z', '20m', 'EM', 'FN', 0.91, 0.19, 'psk-rbn-field-recency-v2', '2026-09-07T12:00:00Z', '2026-09-07T11:30:00Z'),
+  ('2026-09-07T10:00:00Z', '20m', 'EM', 'FN', 0.42, 0.24, 'psk-rbn-field-recency-v2', '2026-09-07T11:00:00Z', '2026-09-07T10:30:00Z'),
+  ('2026-09-07T09:00:00Z', '20m', 'EM', 'FN', 0.33, 0.13, 'psk-rbn-field-recency-v2', '2026-09-07T10:00:00Z', '2026-09-07T09:30:00Z'),
+  ('2026-09-06T12:00:00Z', '20m', 'EM', 'FN', 0.24, 0.04, 'psk-rbn-field-recency-v2', '2026-09-06T13:00:00Z', '2026-09-06T12:30:00Z'),
+  ('2026-09-07T11:00:00Z', '20m', 'EM', 'JO', 0.81, 0.18, 'psk-rbn-field-recency-v2', '2026-09-07T12:00:00Z', '2026-09-07T11:30:00Z'),
+  ('2026-09-07T10:00:00Z', '20m', 'EM', 'JO', 0.52, 0.25, 'psk-rbn-field-recency-v2', '2026-09-07T11:00:00Z', '2026-09-07T10:30:00Z');
 
 INSERT INTO public.collector_aggregation_gaps
   (aggregation, start_hour, end_hour)

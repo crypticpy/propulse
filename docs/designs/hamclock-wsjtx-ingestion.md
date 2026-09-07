@@ -13,3 +13,12 @@ Frontend message/store types retain optional context for compatibility with olde
 Four actual-parser Node tests cover separate instances, retuning, replay/off-air/invalid context, heartbeat/inactivity/Close/stop and bounded eviction without opening UDP sockets. Two frontend store tests cover retrospective band correctness and unknown context. Bridge type checking passes. The standard bridge test script now includes the parser tests.
 
 Remaining slices: frontend ingest for direct/extension transports, per-instance clear and reconnect behavior, consumer conversion, WSJT-X wall tile/report/tuning, PSK OF/BY/window report and coordinated map-window work. No radio connection, transmission, or live UDP service was started for this slice.
+
+
+## Frontend ingestion slice
+
+The shell's existing bridge connection now synchronously routes each direct-WebSocket or extension message into a validated WSJT-X consumer. This avoids React `lastMessage` batching dropping a burst of decodes; no extra connection is opened. Invalid payloads are rejected, the retained queue remains capped at 500, and a named Clear removes only that instance. Disconnect/unmount marks the source unavailable and clears current status while retaining immutable decode history. Replay/off-air messages do not inflate the live decode-rate counter.
+
+Live spots, Band Map and FT8 spotter data use captured dial/RF frequency and status-mode context, never the latest global status. New on-air QTime values are resolved against the reception date across UTC midnight; old bridge reception timestamps are retained rather than refreshed to now. Unknown-context/low-confidence/replay/off-air entries remain available as raw decodes but are excluded from live map evidence. Older bridges without dial metadata therefore show unknown tuning context until upgraded.
+
+Tests exercise 40-packet direct and extension bursts, rejection of the wrong extension session, shell disconnect cleanup, per-instance clear, malformed payloads/queue bounds, UTC midnight, and 40m observations remaining on 40m after another instance moves to 20m. No hardware transport or UDP service was opened. Wall tile/report and PSK OF/BY/age controls remain the next slices.

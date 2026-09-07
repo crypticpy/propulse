@@ -253,3 +253,14 @@ files against the prerequisite. Final UI verification passes: 365 app files /
 review, with review follow-up ownership retained. No batch is currently in active
 implementation; recheck Ready status for B11/#207's nonweather configuration or
 B18/#226 presentation before claiming the next one. Weather remains last.
+
+
+B10 review corrections are published: server #479 e8e09970 rejects HTML with
+feed-like text and keeps verification failures uncached; UI #480 587641d2 routes
+Home additions through verification and preserves a valid tab after page removal.
+All six original review threads are answered/resolved with regression evidence.
+Final full UI checks: 365 app files / 3,214 tests; real-component browser harness
+verifies Home add/active selection, page recovery and focus, without bypassing
+Home's sign-in gate. Server stopped. The UI PR is now 15 files against #479.
+B11/#207 remains Backlog on the latest board audit; B18/#226 is Ready/unclaimed
+and is the next candidate after a fresh ownership check. No new claim yet.

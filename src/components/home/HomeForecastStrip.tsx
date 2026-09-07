@@ -11,6 +11,7 @@ import {
   OUTLOOK_LEVELS,
 } from "@/lib/home/bandOutlook";
 import { HomeStatus } from "./HomeStatus";
+import { accentForHomeItem } from "@/lib/themes/sectionAccent";
 
 const CAPTION = "Full 24h grid, path analysis and NowCast in PropSphere →";
 
@@ -88,10 +89,11 @@ export function HomeForecastStrip({
 
   return (
     <section
-      className="home-panel home-forecast-strip"
+      className="home-panel home-forecast-strip su-section-ruled"
+      data-accent={accentForHomeItem("forecast")}
       aria-label="Next 24 hours on your band"
     >
-      <div className="home-panel-heading">
+      <div className="home-panel-heading su-widget-header">
         <h2>
           Next 24 hours{outlook ? ` on ${outlook.band}` : ""}
         </h2>

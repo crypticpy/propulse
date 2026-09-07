@@ -107,6 +107,113 @@
   --su-danger-rgb: var(--su-fixed-dark-danger-rgb);
 }
 
+/* ─── Section accents (DS-14) ───────────────────────────────────────────────
+ * One tone per container, carried by a single custom property so a section's
+ * rule, its header hover, its expand glyph and every widget header inside it
+ * stay on the same hue. Set the tone with `data-accent` on the container; the
+ * classes below only ever read `--su-section-accent-rgb`, never a tone name,
+ * so all four palettes and colour-blind mode keep working and no new hex is
+ * introduced. `accentForFamily()` in src/lib/themes/sectionAccent.ts maps a
+ * content family to a tone. See docs/designs/design-system/README.md.
+ *
+ * Fallback: a widget with no `[data-accent]` ancestor reads as `info`.
+ *
+ * `--su-section-accent-text-rgb` is the same tone for reading text. It differs
+ * only for `accent`, which is a user-chosen brand colour and so is not assumed
+ * legible on a panel: it resolves through `--su-accent-text`, which
+ * stationTokens.ts drops to `info` when the accent misses the 4.5:1 floor. */
+:root {
+  --su-section-accent-rgb: var(--su-info-rgb);
+  --su-section-accent-text-rgb: var(--su-info-rgb);
+}
+
+[data-accent="accent"] {
+  --su-section-accent-rgb: var(--su-accent-rgb);
+  --su-section-accent-text-rgb: var(--su-accent-text-rgb);
+}
+[data-accent="info"] {
+  --su-section-accent-rgb: var(--su-info-rgb);
+  --su-section-accent-text-rgb: var(--su-info-rgb);
+}
+[data-accent="success"] {
+  --su-section-accent-rgb: var(--su-success-rgb);
+  --su-section-accent-text-rgb: var(--su-success-rgb);
+}
+[data-accent="warning"] {
+  --su-section-accent-rgb: var(--su-warning-rgb);
+  --su-section-accent-text-rgb: var(--su-warning-rgb);
+}
+[data-accent="danger"] {
+  --su-section-accent-rgb: var(--su-danger-rgb);
+  --su-section-accent-text-rgb: var(--su-danger-rgb);
+}
+
+/* The 3px rule as its own element: the first child of a container that clips
+ * its own corners (Solar's overflow-hidden cards). */
+.su-section-rule {
+  height: 3px;
+  width: 100%;
+  background: linear-gradient(
+    90deg,
+    rgb(var(--su-section-accent-rgb)),
+    rgb(var(--su-section-accent-rgb) / 0.5) 50%,
+    transparent
+  );
+}
+
+/* The same rule painted by a padded container that cannot host a full-bleed
+ * child (Home's .home-panel, which pads its own content). */
+.su-section-ruled {
+  position: relative;
+}
+.su-section-ruled::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 3px;
+  border-top-left-radius: inherit;
+  border-top-right-radius: inherit;
+  pointer-events: none;
+  background: linear-gradient(
+    90deg,
+    rgb(var(--su-section-accent-rgb)),
+    rgb(var(--su-section-accent-rgb) / 0.5) 50%,
+    transparent
+  );
+}
+
+/* Header/banner hover: a soft left-to-right tint of the section tone, never a
+ * flat grey. Pointer devices only, so a tap does not leave it stuck on. */
+@media (hover: hover) {
+  .su-section-header:hover {
+    background: linear-gradient(
+      90deg,
+      rgb(var(--su-section-accent-rgb) / 0.15),
+      transparent 70%
+    );
+  }
+}
+
+/* Expand/collapse glyph box: tone on the border and the glyph only. */
+.su-section-glyph {
+  border-color: rgb(var(--su-section-accent-rgb) / 0.5);
+  color: rgb(var(--su-section-accent-rgb));
+}
+
+/* Widget header wash. Every tile inside a section inherits that section's
+ * tone with no per-tile prop; a tile may override with its own data-accent.
+ * The title stays on --su-text; only the eyebrow takes the tone. */
+.su-widget-header {
+  background: linear-gradient(
+    90deg,
+    rgb(var(--su-section-accent-rgb) / 0.12),
+    transparent 70%
+  );
+}
+.su-widget-eyebrow {
+  color: rgb(var(--su-section-accent-text-rgb));
+}
+
 /* Settings → Text Size. useTextScale() writes data-text-scale on <html>; these
  * were declared in the never-imported design-tokens.css until DS-12, so the
  * control did nothing. Everything rem-based follows the root size. */

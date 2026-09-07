@@ -22,24 +22,28 @@ describe("SolarDisclosure", () => {
     expect(screen.getByLabelText("expensive chart")).not.toBeNull();
   });
 
-  it("applies the given accent's gradient rule, hover tint, and glyph classes", () => {
+  it("declares the tone once and wears the shared accent primitive", () => {
     const { container, getByRole } = render(
       <SolarDisclosure id="impacts" title="Impacts" summary="More" open={false} onToggle={() => {}} accent="warning">
         <p>Body</p>
       </SolarDisclosure>,
     );
-    const rule = container.querySelector('[aria-hidden="true"].h-\\[3px\\]');
-    expect(rule?.className).toContain("from-su-warning");
-    expect(rule?.className).toContain("via-su-warning/50");
-    expect(rule?.className).toContain("to-transparent");
+    // The tone is a data attribute on the section, not a per-tone class map:
+    // the rule, the hover tint and the glyph all read it through
+    // `--su-section-accent-rgb` (src/styles/globals.css).
+    const section = container.querySelector("section");
+    expect(section?.getAttribute("data-accent")).toBe("warning");
+    expect(section?.className).not.toContain("su-warning");
+
+    const rule = container.querySelector('[aria-hidden="true"].su-section-rule');
+    expect(rule).not.toBeNull();
+    expect(rule?.parentElement).toBe(section);
 
     const button = getByRole("button", { name: /Impacts/i });
-    expect(button.className).toContain("hover:from-su-warning/15");
-    expect(button.className).toContain("hover:to-transparent");
+    expect(button.className).toContain("su-section-header");
     expect(button.className).not.toContain("hover:bg-su-line/10");
 
     const glyph = screen.getByText("+");
-    expect(glyph.className).toContain("border-su-warning/50");
-    expect(glyph.className).toContain("text-su-warning");
+    expect(glyph.className).toContain("su-section-glyph");
   });
 });

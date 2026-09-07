@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { DEFAULT_QSO_FORM } from "@/types/qso";
 import type { DXSpot } from "@/types/dxcluster";
 import { useKioskStore } from "@/stores/kioskStore";
@@ -6,6 +6,7 @@ import { useMapOperationalStore } from "@/stores/mapOperationalStore";
 import { useMapStore } from "@/stores/mapStore";
 import { useOpsPostureStore } from "@/stores/opsPostureStore";
 import { useQSOStore } from "@/stores/qsoStore";
+import { useSettingsStore } from "@/stores/settingsStore";
 import { useRigStore } from "@/stores/rigStore";
 import { getLogEntry } from "@/lib/db/logStore";
 import { useProfileStore } from "@/stores/profileStore";
@@ -34,6 +35,9 @@ function spot(overrides: Partial<DXSpot> = {}): DXSpot {
 }
 
 describe("applyLogIntent", () => {
+  const initialRig = useRigStore.getState();
+  const initialSettings = useSettingsStore.getState();
+  afterEach(() => { useRigStore.setState(initialRig); useSettingsStore.setState(initialSettings); });
   beforeEach(() => {
     useOpsPostureStore.getState().reset();
     useKioskStore.setState({ active: false });
@@ -100,11 +104,19 @@ describe("applyLogIntent", () => {
   });
 
   it("Tune stages CAT and does not prefill", () => {
+    useSettingsStore.setState({ bridgeEnabled: true });
+    useRigStore.setState({ catEnabled: true, bridgeConnected: true, connected: true });
     const result = applyLogIntent("tune", spot());
     expect(result).toEqual({ status: "ok" });
     expect(useRigStore.getState().pendingFrequency).toBe(14_074_000);
     expect(useQSOStore.getState().form.callsign).toBe("");
     expect(useOpsPostureStore.getState().posture).toBe("observe");
+  });
+
+  it("does not leave a keyboard tune queued while the rig is unavailable", () => {
+    useRigStore.setState({ catEnabled: true, bridgeConnected: false, connected: false });
+    expect(applyLogIntent("tune", spot())).toEqual({ status: "ignored", reason: "rig-unavailable" });
+    expect(useRigStore.getState().pendingFrequency).toBeNull();
   });
 
   it("ignores Work on a kiosk", () => {

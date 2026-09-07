@@ -6,7 +6,7 @@
  * in a compact horizontal layout with smooth open/close animation.
  */
 
-import { memo, useMemo, useCallback } from "react";
+import { memo, useMemo } from "react";
 import type { DXSpot } from "@/types/dxcluster";
 import { getEntityFromCallsign } from "@/lib/utils/gridUtils";
 import {
@@ -15,7 +15,7 @@ import {
   formatBearing,
 } from "@/lib/utils/path";
 import { useActiveLocation } from "@/hooks/useActiveLocation";
-import { useRigStore } from "@/stores/rigStore";
+import { TuneButton } from "@/components/radio/TuneButton";
 import { InfoTip } from "@/components/ui/Tooltip";
 import { GEOGRAPHY_TOOLTIPS } from "@/constants/tooltips";
 
@@ -34,44 +34,6 @@ const CONTINENT_COLORS: Record<string, { bg: string; text: string }> = {
   OC: { bg: "bg-orange-500/20", text: "text-orange-400" },
 };
 
-/** Format a frequency in kHz for human-readable display (e.g., "14.074 MHz") */
-function formatFrequencyDisplay(kHz: number): string {
-  const mhz = kHz / 1000;
-  return mhz >= 1000
-    ? `${(mhz / 1000).toFixed(3)} GHz`
-    : `${mhz.toFixed(3)} MHz`;
-}
-
-/**
- * Map a DX spot mode string to the rig operating mode.
- * Digital modes use USB, SSB depends on frequency, others pass through.
- */
-function mapSpotModeToRigMode(
-  mode: string | undefined,
-  frequencyKHz: number,
-): string {
-  const upper = (mode || "").toUpperCase();
-  switch (upper) {
-    case "FT8":
-    case "FT4":
-    case "JT65":
-    case "JT9":
-    case "PSK31":
-    case "RTTY":
-      return "USB";
-    case "CW":
-      return "CW";
-    case "SSB":
-      return frequencyKHz < 10000 ? "LSB" : "USB";
-    case "AM":
-      return "AM";
-    case "FM":
-      return "FM";
-    default:
-      return "USB";
-  }
-}
-
 /** Extract a readable prefix from a callsign for fallback display */
 function getCallsignPrefix(callsign: string): string {
   const upper = callsign.toUpperCase();
@@ -85,16 +47,6 @@ export const SpotDetailPanel = memo(function SpotDetailPanel({
   className = "",
 }: SpotDetailPanelProps) {
   const activeLocation = useActiveLocation();
-  const catEnabled = useRigStore((s) => s.catEnabled);
-  const setPendingFrequency = useRigStore((s) => s.setPendingFrequency);
-  const setPendingMode = useRigStore((s) => s.setPendingMode);
-
-  const handleTune = useCallback(() => {
-    if (!spot) return;
-    setPendingFrequency(spot.frequency * 1000); // kHz → Hz
-    setPendingMode(mapSpotModeToRigMode(spot.mode, spot.frequency));
-  }, [spot, setPendingFrequency, setPendingMode]);
-
   const entity = useMemo(() => {
     if (!spot) return null;
     return getEntityFromCallsign(spot.dx);
@@ -213,31 +165,9 @@ export const SpotDetailPanel = memo(function SpotDetailPanel({
           </div>
         )}
 
-        {/* Tune button - only when CAT is enabled */}
-        {catEnabled && (
-          <div className="flex items-end ml-auto flex-shrink-0">
-            <button
-              onClick={handleTune}
-              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-cyan-500/20 text-cyan-300 hover:bg-cyan-500/30 rounded-md transition-colors"
-              title={`Tune radio to ${formatFrequencyDisplay(spot.frequency)}`}
-            >
-              <svg
-                className="w-3.5 h-3.5"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={1.5}
-                  d="M9.348 14.652a3.75 3.75 0 010-5.304m5.304 0a3.75 3.75 0 010 5.304m-7.425 2.121a6.75 6.75 0 010-9.546m9.546 0a6.75 6.75 0 010 9.546M5.106 18.894c-3.808-3.807-3.808-9.98 0-13.788m13.788 0c3.808 3.807 3.808 9.98 0 13.788M12 12h.008v.008H12V12zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z"
-                />
-              </svg>
-              Tune to {formatFrequencyDisplay(spot.frequency)} {spot.mode || ""}
-            </button>
-          </div>
-        )}
+        <div className="flex items-end ml-auto flex-shrink-0">
+          <TuneButton frequencyKHz={spot.frequency} mode={spot.mode} />
+        </div>
       </div>
     </div>
   );

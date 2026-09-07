@@ -1,7 +1,7 @@
 import { commitMapSpotSelection } from "@/hooks/useMapSpotSelection";
 import { invalidateDxccCache } from "@/hooks/useDxccStatus";
 import { addLogEntry } from "@/lib/db/logStore";
-import { mapSpotModeToRigMode } from "@/lib/map/spotPresentation";
+import { queueTune } from "@/lib/radio/tune";
 import { currentStationLogStamp } from "@/lib/station/stationLogStamp";
 import { getDeviceId } from "@/lib/sync/deviceId";
 import { bandFromFreq } from "@/lib/utils/bandFromFreq";
@@ -14,7 +14,6 @@ import { useMapOperationalStore } from "@/stores/mapOperationalStore";
 import { useMapStore } from "@/stores/mapStore";
 import { useOpsPostureStore } from "@/stores/opsPostureStore";
 import { useQSOStore } from "@/stores/qsoStore";
-import { useRigStore } from "@/stores/rigStore";
 import type { WSJTXQSOLoggedPayload } from "@/types/bridge";
 import type { DXSpot } from "@/types/dxcluster";
 
@@ -27,7 +26,7 @@ export interface ApplyLogIntentOptions {
 
 export type LogIntentResult =
   | { status: "ok" }
-  | { status: "ignored"; reason: "kiosk" | "contest-dock" | "missing-spot" }
+  | { status: "ignored"; reason: "kiosk" | "contest-dock" | "missing-spot" | "rig-unavailable" }
   | { status: "pending-replace" }
   | { status: "logged"; id: string }
   | { status: "duplicate" }
@@ -118,10 +117,9 @@ export function applyLogIntent(
 
   if (verb === "tune") {
     if (!spot) return { status: "ignored", reason: "missing-spot" };
-    const rig = useRigStore.getState();
-    rig.setPendingFrequency(spot.frequency * 1000);
-    rig.setPendingMode(mapSpotModeToRigMode(spot.mode, spot.frequency));
-    return { status: "ok" };
+    return queueTune(spot.frequency, spot.mode)
+      ? { status: "ok" }
+      : { status: "ignored", reason: "rig-unavailable" };
   }
 
   // work

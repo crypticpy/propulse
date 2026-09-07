@@ -1328,3 +1328,48 @@
 .hcp-controls--reception { grid-template-columns: minmax(0, 1fr); }
 .hcp-controls--reception > .hcc-seg-wrap:first-child .hcc-seg { grid-template-columns: repeat(5, minmax(0, 1fr)); }
 .hcp-controls--reception > .hcc-seg-wrap:last-child .hcc-seg { grid-template-columns: repeat(9, minmax(0, 1fr)); }
+.hcr-reliability-grid {
+  display: grid;
+  grid-template-columns: minmax(3em, 1.3fr) repeat(24, minmax(0, 1fr));
+  gap: 0.25vw;
+  align-items: center;
+  color: var(--hc-fg);
+  font: max(1.2vh, 12px) var(--hc-font-mono);
+}
+.hcr-reliability-grid button {
+  min-height: max(3.8vh, 44px);
+  border: 1px solid var(--hc-line);
+  background: transparent;
+}
+.hcr-reliability-grid button[aria-pressed="true"] { outline: 2px solid var(--hc-accent); }
+.hcr-comparison-chart { min-height: 0; width: 100%; }
+.hcr-comparison-chart svg { width: 100%; height: 15vh; overflow: visible; }
+.hcr-comparison-chart text { fill: var(--hc-dim); font: 20px var(--hc-font-mono); }
+.hcr-comparison-axis { stroke: var(--hc-line); }
+.hcr-comparison-physics { fill: none; stroke: var(--hc-accent); stroke-width: 2; }
+.hcr-comparison-model { fill: var(--hc-warn); }
+.hcr-comparison-model-line { fill: none; stroke: var(--hc-warn); stroke-width: 2; stroke-dasharray: 5 4; }
+.hcr-comparison-observed { fill: var(--hc-info); opacity: 0.3; }
+.hcr-comparison-now { stroke: var(--hc-fg); stroke-dasharray: 2 4; }
+.hcr-comparison-chart label { display: flex; gap: 1vw; color: var(--hc-dim); }
+.hcr-comparison-chart input { flex: 1; }
+
+/* Reliability carries station inputs and a full day matrix; use the wide
+ * report canvas so those facts do not consume the chart's height. */
+.hcr:has(.hcr-reliability-grid),
+.hcr:has(.hcr-comparison-chart) {
+  width: 90vw;
+  height: 88vh;
+  gap: 1.2vh;
+}
+.hcr:has(.hcr-comparison-chart) .hcr-facts,
+.hcr:has(.hcr-reliability-grid) .hcr-facts {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+.hcr:has(.hcr-comparison-chart) .hcr-body,
+.hcr:has(.hcr-reliability-grid) .hcr-body { gap: 1vh; }
+
+.hcr-reliability-toolbar { display: flex; align-items: center; gap: 1vw; flex: 0 0 auto; }
+
+.hcr:has(.hcr-comparison-chart) .hcc-tabpanel { gap: 1vh; }
+.hcr-chart:has(.hcr-comparison-chart) { flex: 0 0 auto; }

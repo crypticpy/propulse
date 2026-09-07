@@ -14,10 +14,10 @@
 [data-hamclock-theme="pulse"] {
   --hc-bg: #0a0e1a;
   --hc-panel: #0d1527;
-  --hc-glass: rgba(13, 21, 39, 0.74);
+  --hc-glass: rgba(13, 21, 39, 0.78);
   --hc-blur: 10px;
   --hc-line: rgba(255, 255, 255, 0.09);
-  --hc-fg: #ffffff;
+  --hc-fg: #e6ebf2;
   --hc-dim: rgba(255, 255, 255, 0.46);
   --hc-dim2: rgba(255, 255, 255, 0.28);
 

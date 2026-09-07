@@ -157,3 +157,23 @@ The existing station SQL harness keeps its default namespace restriction. The ne
 runner explicitly selects the view-library namespace and an exact file list; neither
 runner targets a live listener or replays unrelated migrations. Its synthetic display
 bootstrap mirrors only the columns used here, not the entire production schema.
+
+### Session-scoped library refresh
+
+`ViewLibrarySync` owns one account session's repository and refresh cancellation.
+Construction performs no I/O. Call `refresh()` explicitly to pull reusable library
+records; call `repository.flushPending()` explicitly on reconnect to replay queued
+saves. Refresh never sends saves or changes a running view. Concurrent refresh
+requests share one pass. Pages commit independently, only advance revisions, and
+retain pending drafts. Missing rows are not deletions; versioned tombstones are.
+An interrupted pass keeps earlier validated pages and retries from the beginning.
+
+Every auth transition must dispose the old coordinator, including sign-out and
+sign-in to the same owner, before creating its replacement. The current-owner
+callback also rejects late responses, but does not replace that lifecycle rule.
+Disposal cancels network requests and rolls back in-flight cache/settlement
+transactions; durable pending operations remain under the original owner.
+Page caching checks lifecycle between IndexedDB operations, including after the
+last write, so an account transition cannot commit a partially written page.
+Production auth subscriptions, legacy migration and runtime integration are still
+pending SP-02/SP-03 work; this module does not register global listeners.

@@ -216,15 +216,35 @@ export class IndexedViewLibrary {
   }
 
   /** Remote library refresh never alters pending drafts or activates a view. */
-  async cache(records: readonly LibraryRecord[]): Promise<void> {
+  async cache(
+    records: readonly LibraryRecord[],
+    lifecycle?: { signal: AbortSignal; isActive: () => boolean },
+  ): Promise<void> {
+    const check = () => {
+      if (this.closed || lifecycle?.signal.aborted || !(lifecycle?.isActive() ?? true)) {
+        throw new Error("Library lifecycle ended; refresh was not applied");
+      }
+    };
+    check();
     const validated = records.map((row) => libraryRecordSchema.parse(row));
     if (validated.some((row) => row.ownerId !== this.ownerId)) throw new Error("Owner mismatch");
-    const tx = (await this.db()).transaction("records", "readwrite");
-    await atomic(tx, async () => {
-      for (const record of validated) {
-        const current = await tx.store.get(documentKey(record));
-        if (!current || current.revision < record.revision) await tx.store.put(record);
-      }
-    });
+    const db = await this.db();
+    check();
+    const tx = db.transaction("records", "readwrite");
+    const abort = () => { try { tx.abort(); } catch { /* Transaction already finished. */ } };
+    lifecycle?.signal.addEventListener("abort", abort, { once: true });
+    try {
+      await atomic(tx, async () => {
+        check();
+        for (const record of validated) {
+          const current = await tx.store.get(documentKey(record));
+          check();
+          if (!current || current.revision < record.revision) await tx.store.put(record);
+          check();
+        }
+      });
+    } finally {
+      lifecycle?.signal.removeEventListener("abort", abort);
+    }
   }
 }

@@ -773,8 +773,9 @@ export function DXNewsTicker({
   return (
     <>
       <div
-        className={`relative flex items-center h-[30px] overflow-hidden select-none ${className}`}
+        className={`relative flex items-center overflow-hidden select-none ${className}`}
         style={{
+          height: "var(--dx-ticker-height, 30px)",
           background: "rgba(10, 10, 26, 0.85)",
           borderTop: "1px solid rgba(255, 255, 255, 0.1)",
           maskImage:
@@ -808,13 +809,13 @@ export function DXNewsTicker({
         <span
           className="font-mono font-bold uppercase tracking-wider"
           style={{
-            fontSize: "10px",
+            fontSize: "var(--dx-ticker-badge-size, 10px)",
             letterSpacing: "0.5px",
             background: "rgba(255, 107, 53, 0.9)",
             color: "#000",
             padding: "1px 5px",
             borderRadius: "2px",
-            lineHeight: "16px",
+            lineHeight: "1.6",
           }}
         >
           LIVE
@@ -833,6 +834,7 @@ export function DXNewsTicker({
           type="button"
           onClick={() => setSettingsOpen(true)}
           className="ml-0.5 rounded p-0.5 text-gray-500 transition-colors hover:bg-white/10 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-plasma-orange/70"
+          style={{ minWidth: "var(--dx-ticker-control-size, 0px)", minHeight: "var(--dx-ticker-control-size, 0px)", fontSize: "var(--dx-ticker-font-size, inherit)" }}
           aria-label="Configure alert and news crawl"
           title="Configure alert & news crawl"
         >
@@ -853,6 +855,7 @@ export function DXNewsTicker({
           data-testid="dx-ticker-track"
           className="inline-flex items-center font-mono text-[11px] text-gray-300"
           style={{
+            fontSize: "var(--dx-ticker-font-size, 11px)",
             animationName: KEYFRAMES_NAME,
             animationDuration: `${animationDuration}s`,
             animationTimingFunction: "linear",
@@ -887,6 +890,7 @@ export function DXNewsTicker({
         {breakInItem && (
           <div
             className="absolute inset-0 z-20 flex items-center gap-2 bg-[#160b10]/95 px-3 font-mono text-[11px]"
+            style={{ fontSize: "var(--dx-ticker-font-size, 11px)" }}
             role="status"
             aria-live="assertive"
             data-testid="ticker-break-in"

@@ -12,6 +12,7 @@ import { resolveUnits } from "@/lib/hamclock/units";
 import { getBandColor } from "@/lib/utils/spotColors";
 import { useHamClockDisplayStore } from "@/stores/hamclockDisplayStore";
 import { useMapStore } from "@/stores/mapStore";
+import { TuneButton } from "@/components/radio/TuneButton";
 import { HamClockButton } from "../controls";
 import { reportFooter } from "../tokens";
 import { useElementSize } from "../useElementSize";
@@ -160,7 +161,7 @@ export function RecentContactsReport({
         </div>
       ) : (
         <>
-          <div className="hcr-cols hcr-cols--even">
+          <div className="hcr-cols hcr-cols--even hcr-contact-summary">
             <div className="hcr-box">
               <h4>{period} · LAST CONTACT</h4>
               <HamClockButton
@@ -182,6 +183,13 @@ export function RecentContactsReport({
                   ? `${summary.last.callsign} · ${summary.last.band} · ${summary.last.timeOn} UTC`
                   : "NO CONTACTS ON DAY"}
               </HamClockButton>
+              {summary.last && (
+                <TuneButton
+                  frequencyKHz={summary.last.frequency}
+                  mode={summary.last.mode || null}
+                  wall
+                />
+              )}
               <p className="hcr-note">
                 {summary.last && !target
                   ? "Location unavailable · contact remains in the log."
@@ -193,6 +201,13 @@ export function RecentContactsReport({
               <p className="hcr-note">
                 {best ? `${best.entry.callsign} · ${distance}` : distance}
               </p>
+              {best && (
+                <TuneButton
+                  frequencyKHz={best.entry.frequency}
+                  mode={best.entry.mode || null}
+                  wall
+                />
+              )}
               <p className="hcr-note">
                 {summary.located}/{summary.count} with both logged grids ·{" "}
                 {summary.unresolvedDxcc} unresolved DXCC

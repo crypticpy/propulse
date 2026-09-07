@@ -6,7 +6,9 @@ import { readHamClockContacts } from "@/lib/hamclock/recentContacts";
 import { getBandColor } from "@/lib/utils/spotColors";
 import { useContestStore } from "@/stores/contestStore";
 import { useWidgetConfig } from "@/stores/hamclockWidgetConfigStore";
+import { TuneButton } from "@/components/radio/TuneButton";
 import { HamClockTile } from "../HamClockTile";
+import { useVisibleRows } from "../useVisibleRows";
 import { recentContactsConfig } from "../config/recentContactsConfig";
 
 const RecentContactsReport = lazy(() =>
@@ -50,6 +52,9 @@ export function RecentContactsTile() {
     "recentContacts",
     recentContactsConfig,
   );
+  const [rowsRef, visible] = useVisibleRows<HTMLDivElement>(
+    Math.min(data?.length ?? 0, rowCount),
+  );
 
   if (!location) {
     return (
@@ -59,41 +64,51 @@ export function RecentContactsTile() {
     );
   }
 
-  const entries = (data ?? []).slice(0, rowCount);
+  const entries = (data ?? []).slice(0, visible);
   const scope = contestId ? "SESSION" : "TODAY";
 
   return (
     <>
       <HamClockTile
+        grow
         title="Recent contacts"
         source={`${data?.length ?? 0} · ${scope}`}
         onOpen={() => setOpen(true)}
         openLabel="Open recent contacts report"
       >
-        {entries.length > 0 ? (
-          <div className="hc-rows">
+        {(data?.length ?? 0) > 0 ? (
+          <div className="hca-list hca-tile-list" ref={rowsRef}>
             {entries.map((entry) => {
               const at = loggedAt(entry.date, entry.timeOn);
               return (
-                <div className="hc-row" key={entry.id}>
-                  <span
-                    className="hc-chip"
-                    style={{ background: getBandColor(entry.band) }}
-                  >
-                    {entry.band || "—"}
-                  </span>
-                  <span className="hc-row-call">
-                    {entry.callsign}
-                    <small>
-                      {entry.mode}
-                      {entry.grid ? ` · ${entry.grid.toUpperCase()}` : ""}
-                    </small>
-                  </span>
-                  <span className="hc-row-age">
-                    {Number.isFinite(at)
-                      ? formatAge(now.getTime() - at)
-                      : entry.timeOn}
-                  </span>
+                <div className="hca-row" key={entry.id}>
+                  <div className="hc-row">
+                    <span
+                      className="hc-chip"
+                      style={{ background: getBandColor(entry.band) }}
+                    >
+                      {entry.band || "—"}
+                    </span>
+                    <span className="hc-row-call">
+                      {entry.callsign}
+                      <small>
+                        {entry.mode}
+                        {entry.grid ? ` · ${entry.grid.toUpperCase()}` : ""}
+                      </small>
+                    </span>
+                    <span className="hc-row-age">
+                      {Number.isFinite(at)
+                        ? formatAge(now.getTime() - at)
+                        : entry.timeOn}
+                    </span>
+                  </div>
+                  <div className="hca-tune">
+                    <TuneButton
+                      frequencyKHz={entry.frequency}
+                      mode={entry.mode || null}
+                      wall
+                    />
+                  </div>
                 </div>
               );
             })}
@@ -105,6 +120,11 @@ export function RecentContactsTile() {
               : isPending
                 ? "Reading the logbook…"
                 : `No contacts logged ${contestId ? "this session" : "today"}`}
+          </p>
+        )}
+        {(data?.length ?? 0) > 0 && (
+          <p className="hca-caption">
+            TOP {entries.length} OF {data?.length} · {scope}
           </p>
         )}
       </HamClockTile>

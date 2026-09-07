@@ -1,5 +1,7 @@
 import { act, renderHook } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { useWSJTXStore } from "@/stores/wsjtxStore";
+import type { BridgeConnectionOptions } from "@/types/bridge";
 import { useRigStore } from "@/stores/rigStore";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { useRigBridgeSync } from "./useRigBridgeSync";
@@ -32,8 +34,13 @@ describe("useRigBridgeSync transport mirror", () => {
     act(() => rerender());
     expect(useRigStore.getState().bridgeConnected).toBe(true);
 
+    const options = mocks.useBridge.mock.calls.at(-1)![0] as BridgeConnectionOptions;
+    act(() => options.onMessage?.({ type: "wsjtx.status", payload: { frequency: 7_074_000, mode: "FT8", txEnabled: false, decoding: true, rxDF: 1200, txDF: 1200 } }));
+    expect(useWSJTXStore.getState().connected).toBe(true);
     mocks.bridge.connected = false;
     act(() => rerender());
+    expect(useWSJTXStore.getState().connected).toBe(false);
+    expect(useWSJTXStore.getState().status).toBeNull();
     expect(useRigStore.getState().bridgeConnected).toBe(false);
   });
 });

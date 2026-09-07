@@ -39,6 +39,7 @@ const FATAL_MAX_RETRIES = 3;
 
 /** Default connection options */
 const DEFAULT_OPTIONS: Required<BridgeConnectionOptions> = {
+  onMessage: () => {},
   url: DEFAULT_BRIDGE_URL,
   enabled: true,
   autoReconnect: true,
@@ -516,6 +517,7 @@ export function useBridge(
 
         try {
           const message = JSON.parse(event.data) as BridgeMessage;
+          optsRef.current.onMessage(message);
           setLastMessage(message);
 
           // Handle bridge.pong — clear the pong timeout
@@ -650,6 +652,7 @@ export function useBridge(
       if (message.type === "message" && typeof message.text === "string") {
         try {
           const parsed = JSON.parse(message.text) as BridgeMessage;
+          optsRef.current.onMessage(parsed);
           setLastMessage(parsed);
           if (parsed.type === "bridge.pong") {
             if (pongTimeoutRef.current) {

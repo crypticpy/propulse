@@ -176,6 +176,8 @@ export type BridgeMessageType =
  * Options for bridge connection
  */
 export interface BridgeConnectionOptions {
+  /** Synchronous delivery for streams where React lastMessage batching may drop packets. */
+  onMessage?: (message: BridgeMessage) => void;
   /** WebSocket URL (defaults to ws://127.0.0.1:9867) */
   url?: string;
   /** Whether the bridge connection is enabled (default: true) */

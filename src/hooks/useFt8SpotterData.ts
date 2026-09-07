@@ -8,6 +8,7 @@
 
 import { useMemo, useRef } from "react";
 import { useFt8DecoderStore } from "@/stores/ft8DecoderStore";
+import { wsjtxDecodedAt, wsjtxFrequencyHz } from "@/lib/radio/wsjtxIngestion";
 import { useWSJTXStore } from "@/stores/wsjtxStore";
 import { gridToLatLon, isValidGrid } from "@/lib/utils/grid";
 import {
@@ -181,12 +182,14 @@ export function useFt8SpotterData(): Ft8SpotterData {
 
     // Then process bridge decodes (lower priority — skipped if already seen)
     for (const d of bridgeDecodes) {
-      if (!d.callsign) continue;
+      const decodedAt = wsjtxDecodedAt(d);
+      if (!d.callsign || d.lowConfidence || wsjtxFrequencyHz(d) === null || decodedAt === null) continue;
+      const decodeMode = d.dialMode || d.mode;
 
       const location = resolveLocation(d.callsign, d.grid);
       if (!location) continue;
 
-      const cycleId = computeCycleId(d.time, d.mode || mode);
+      const cycleId = computeCycleId(decodedAt, decodeMode);
       const key = `${d.callsign}_${cycleId}`;
       if (seen.has(key)) continue;
       seen.add(key);
@@ -195,8 +198,8 @@ export function useFt8SpotterData(): Ft8SpotterData {
         callsign: d.callsign,
         grid: d.grid ?? null,
         snr: d.snr,
-        mode: d.mode || mode,
-        time: d.time,
+        mode: decodeMode,
+        time: decodedAt,
         deltaFrequency: d.deltaFrequency,
         lat: location.lat,
         lon: location.lon,

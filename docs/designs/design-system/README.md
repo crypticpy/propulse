@@ -62,21 +62,42 @@ The existing app colours (`plasma-orange`, `deep-space`, `panel`, `nebula-blue`,
 
 Every container wears one tone, and the same kind of content wears the same tone on every page (DS-14). The tone is declared once, as `data-accent` on the container; the classes below read it through `--su-section-accent-rgb` and never name a tone, so all four palettes and colour-blind mode keep working and no new hex is introduced.
 
+### The header anatomy (DS-15)
+
+Every section is built the same way — **rule → band → content** — and one component paints the band: `SectionHeader` in `src/components/ui/SectionHeader.tsx`. Solar Pulse's disclosures and every Home panel render it, so the two pages cannot drift apart.
+
+1. **Rule** — a 3 px `su-section-rule` element on the container's top edge (`su-section-ruled` only where the DOM cannot hold a full-bleed first child, e.g. a `<details>`, which hides every child except its first `<summary>` while closed).
+2. **Band** — a full-width header, `min-h-16`, holding an Orbitron bold title, one muted line of summary beneath it, and a right-hand slot for the panel's own action (a status chip, a refresh control, a link). It is a `<button aria-expanded>` when the band is the disclosure control, a `<summary>` inside a `<details>`, and a plain heading band otherwise.
+3. **Content** — a bordered area below the band, with the panel's padding.
+
 ```html
+<!-- Solar Pulse: the band is the disclosure control -->
 <section data-accent="warning" class="overflow-hidden rounded-2xl ...">
   <div aria-hidden="true" class="su-section-rule"></div>
-  <button class="su-section-header ...">
+  <button class="su-section-header ..." aria-expanded="false">
     Impacts <span class="su-section-glyph ...">+</span>
   </button>
 </section>
+
+<!-- Home: the band is a heading, and the whole panel brightens it on hover -->
+<article data-accent="success" class="home-panel su-section-panel">
+  <div aria-hidden="true" class="su-section-rule"></div>
+  <div class="su-section-header su-widget-header">
+    <div><h3>Local weather</h3><p>Temperature, wind and the hours ahead.</p></div>
+  </div>
+  <div class="home-panel-body">…</div>
+</article>
 ```
+
+Home's per-panel summary strings live with the layout model (`homeItemSummary()` in `src/lib/home/layout.ts`), so the dashboard, the panel band and Customize dashboard all print the same sentence.
 
 | Class               | What it paints                                                                                                                                                                                                                     |
 | ------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `[data-accent="…"]` | Sets `--su-section-accent-rgb` for the subtree. Values: `accent`, `info`, `success`, `warning`, `danger`.                                                                                                                          |
 | `su-section-rule`   | The 3 px rule, tone → transparent, as its own first child of a container that clips its corners.                                                                                                                                   |
 | `su-section-ruled`  | The same rule painted by the container itself (`::before`), for a padded card that has no full-bleed child.                                                                                                                        |
-| `su-section-header` | Header/banner hover: a soft left-to-right tint of the tone, on pointer devices only. Never a flat grey.                                                                                                                            |
+| `su-section-header` | The header band. Its hover is a soft left-to-right tint of the tone, on pointer devices only. Never a flat grey.                                                                                                                  |
+| `su-section-panel`  | On the container: hovering anywhere in the panel brightens its band. For a band that is not itself the control.                                                                                                                   |
 | `su-section-glyph`  | The expand/collapse glyph box: tone on the border and the glyph.                                                                                                                                                                   |
 | `su-widget-header`  | The widget header wash — a 12% tint of the tone fading out by 70%. Inherits the enclosing section's tone.                                                                                                                          |
 | `su-widget-eyebrow` | The header eyebrow in the tone, through `--su-section-accent-text-rgb` (the reading-text variant: `accent` resolves via `--su-accent-text`, so a low-contrast custom accent falls back to `info`). The title stays on `--su-text`. |
@@ -97,7 +118,28 @@ Do not:
 - reintroduce a per-tone class map (`from-su-warning`, `hover:from-su-info/15`, …). One `data-accent` covers the container and everything nested inside it;
 - give a tile its own `data-accent` just to repeat its section's tone — the wash inherits. Override only when a tile genuinely belongs to another family.
 
-**Carrying it to another page.** Pick the family for each container from the table, put `data-accent` on the outermost element of the container, and add `su-section-rule` (as a first child, if the container clips its corners) or `su-section-ruled` (if it pads its own content). Give any header that toggles the container `su-section-header` so its hover is the tone tint rather than a grey, and the glyph box `su-section-glyph`. Every card header inside then only needs `su-widget-header` (plus `su-widget-eyebrow` on its eyebrow) — `WidgetShell` already carries both, so a Solar-style tile inherits the section tone with no prop at all. A widget with no `[data-accent]` ancestor falls back to `info`.
+**Carrying it to another page.** Pick the family for each container from the table, put `data-accent` on the outermost element of the container, and add `su-section-rule` as its first child (`su-section-ruled` only where a full-bleed first child is impossible). Render the band with `SectionHeader`; add `su-section-panel` to the container when the band is a heading rather than a control, so the whole panel brightens it on hover. Every card header inside then only needs `su-widget-header` (plus `su-widget-eyebrow` on its eyebrow) — `WidgetShell` already carries both, so a Solar-style tile inherits the section tone with no prop at all. A widget with no `[data-accent]` ancestor falls back to `info`.
+
+## Page glow
+
+One background technique per page. `su-page-glow` (globals.css, DS-15) is that technique where a page wants its panels to read as the centrepiece: a single fixed layer paints a canvas darker than the panels, a faint diagonal wash of `--su-accent` (≤ 0.06 alpha) from the top-left, and an image anchored bottom-right that fades out into the canvas. Nothing animates and nothing intercepts a pointer.
+
+```html
+<main class="home-dashboard su-page-glow">
+  <div aria-hidden="true" class="su-page-glow-layer"></div>
+  <div class="su-page-glow-content">…</div>
+</main>
+```
+
+```css
+.home-dashboard {
+  --su-page-glow-image: url("/home/sun-limb.webp");
+}
+```
+
+The canvas is `color-mix(in srgb, var(--su-canvas) 55%, var(--su-input))` — derived from the palette, so no new hex — and the Light palette keeps plain `var(--su-canvas)` with the image blended normally instead of screened. The layer is `position: fixed` rather than `background-attachment: fixed`, which is broken on iOS Safari. Home is the first page on it; carry it into another area by repeating the three classes and pointing `--su-page-glow-image` at that area's still.
+
+Home's still is NASA/SDO's 31 August 2012 “Magnificent Eruption” frame, turned so the prominence climbs out of the corner (public domain, `public/home/sun-limb.webp`, 900 × 1167); the credit line lives in the Dashboard help section.
 
 ## Migration recipe
 

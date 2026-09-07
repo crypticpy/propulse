@@ -5,6 +5,8 @@ import { useHomeLocation } from "@/hooks/useHomeLocation";
 import { daylightDay } from "@/lib/home/presentation";
 import { AccessibleDialog } from "@/components/ui/AccessibleDialog";
 import { accentForHomeItem } from "@/lib/themes/sectionAccent";
+import { homeItemSummary } from "@/lib/home/layout";
+import { SectionHeader } from "@/components/ui/SectionHeader";
 
 /** The chronologically next sunrise/sunset from `now`, rolling into tomorrow when today's
  * crossings have both already passed. Returns null for polar day/night, where SunCalc has no
@@ -36,7 +38,10 @@ export function HomeDaylight({ now }: { now: number }) {
   useEffect(() => {
     if (!day) setOpen(false);
   }, [day]);
-  return <section className="home-panel home-daylight su-section-ruled" data-accent={accentForHomeItem("daylight")} aria-label="Daylight at your location"><div className="home-panel-heading su-widget-header"><h2>Daylight</h2><span>{location?.grid ?? "Location needed"}</span></div>
+  return <section className="home-panel home-daylight su-section-panel" data-accent={accentForHomeItem("daylight")} aria-label="Daylight at your location">
+    <div aria-hidden="true" className="su-section-rule" />
+    <SectionHeader className="su-widget-header" title="Daylight" summary={homeItemSummary("daylight")} action={<span>{location?.grid ?? "Location needed"}</span>} />
+    <div className="home-panel-body">
     {day ? <><svg viewBox="0 0 340 150" role="img" aria-label="Solar altitude through the UTC day"><path d="M10 65H330" className="home-chart-axis" /><polyline points={day.samples.map((sample, i) => `${10+i/96*320},${y(sample.at)}`).join(" ")} className="home-chart-line" /><path d={`M${10+day.fraction*320} 8V118`} className="home-chart-now" /><circle cx={10+day.fraction*320} cy={y(now)} r="4" className="home-chart-dot" /><text x="10" y="145">00 UTC</text><text x="163" y="145">12</text><text x="307" y="145">24</text></svg>
       <p className="home-card-sub">{subText}</p>
       <div className="home-actions"><button type="button" aria-haspopup="dialog" aria-label="Daylight details" onClick={() => setOpen(true)}>Details</button></div>
@@ -48,5 +53,6 @@ export function HomeDaylight({ now }: { now: number }) {
         <div className="home-actions"><Link to="/map">View daylight map ↗</Link></div>
       </div>
     </AccessibleDialog>
+    </div>
   </section>;
 }

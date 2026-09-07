@@ -161,8 +161,9 @@
   );
 }
 
-/* The same rule painted by a padded container that cannot host a full-bleed
- * child (Home's .home-panel, which pads its own content). */
+/* The same rule painted by the container itself, for the case where a
+ * full-bleed first child is impossible — a <details>, which hides every child
+ * except its first <summary> while it is closed (Home's station panel). */
 .su-section-ruled {
   position: relative;
 }
@@ -183,9 +184,14 @@
 }
 
 /* Header/banner hover: a soft left-to-right tint of the section tone, never a
- * flat grey. Pointer devices only, so a tap does not leave it stuck on. */
+ * flat grey. Pointer devices only, so a tap does not leave it stuck on.
+ *
+ * A `su-section-panel` container brightens its own band on hover, for a panel
+ * whose header is not itself the control (DS-15: Home's panels do not
+ * collapse, so the band is a heading, not a button). */
 @media (hover: hover) {
-  .su-section-header:hover {
+  .su-section-header:hover,
+  .su-section-panel:hover > .su-section-header {
     background: linear-gradient(
       90deg,
       rgb(var(--su-section-accent-rgb) / 0.15),
@@ -212,6 +218,76 @@
 }
 .su-widget-eyebrow {
   color: rgb(var(--su-section-accent-text-rgb));
+}
+
+/* ─── Page glow (DS-15) ─────────────────────────────────────────────────────
+ * One background technique for a page that wants its panels to read as the
+ * centrepiece: a single fixed layer painting a canvas darker than the panels,
+ * a faint diagonal wash of the accent from the top-left, and an image anchored
+ * bottom-right that fades out into the canvas. Nothing animates, nothing
+ * intercepts a pointer, and `background-attachment: fixed` is avoided (it is
+ * broken on iOS Safari) by fixing the layer itself.
+ *
+ * Carrying it into another area: wrap the page in `su-page-glow`, give it a
+ * `su-page-glow-layer` first child (`aria-hidden`), put the page content in a
+ * `su-page-glow-content` wrapper, and set `--su-page-glow-image` on the page.
+ * The tone comes from the palette, so no new colour is introduced. */
+.su-page-glow {
+  position: relative;
+}
+.su-page-glow-layer {
+  --su-page-glow-size: min(60vw, 900px);
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background: color-mix(in srgb, var(--su-canvas) 55%, var(--su-input));
+}
+.su-page-glow-layer::before,
+.su-page-glow-layer::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+}
+.su-page-glow-layer::before {
+  background: linear-gradient(
+    135deg,
+    rgb(var(--su-accent-rgb) / 0.06),
+    transparent 60%
+  );
+}
+/* The still is portrait (the 2012 "Magnificent Eruption" frame turned so the
+ * prominence climbs out of the corner), so the mask is an ellipse 1.3× taller
+ * than wide: it matches the image box and its black sky never lands as a
+ * rectangle on the canvas. */
+.su-page-glow-layer::after {
+  background: var(--su-page-glow-image) no-repeat right bottom /
+    var(--su-page-glow-size) auto;
+  opacity: 0.55;
+  mix-blend-mode: screen;
+  -webkit-mask-image: radial-gradient(
+    ellipse var(--su-page-glow-size) calc(var(--su-page-glow-size) * 1.3) at 100% 100%,
+    rgb(0 0 0) 30%,
+    rgb(0 0 0 / 0) 100%
+  );
+  mask-image: radial-gradient(
+    ellipse var(--su-page-glow-size) calc(var(--su-page-glow-size) * 1.3) at 100% 100%,
+    rgb(0 0 0) 30%,
+    rgb(0 0 0 / 0) 100%
+  );
+}
+/* Screen blending needs a dark backdrop: the Light palette keeps its canvas
+ * and takes the image straight, quieter. */
+.light .su-page-glow-layer {
+  background: var(--su-canvas);
+}
+.light .su-page-glow-layer::after {
+  mix-blend-mode: normal;
+  opacity: 0.35;
+}
+.su-page-glow-content {
+  position: relative;
+  z-index: 1;
 }
 
 /* Settings → Text Size. useTextScale() writes data-text-scale on <html>; these

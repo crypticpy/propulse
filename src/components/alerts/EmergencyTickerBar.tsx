@@ -459,7 +459,7 @@ export function EmergencyTickerBar() {
   return (
     <>
       <div
-        className={`relative flex items-center h-[40px] overflow-hidden select-none ${bgColor} border-b ${borderColor}`}
+        className={`relative z-10 flex items-center h-[40px] overflow-hidden select-none ${bgColor} border-b ${borderColor}`}
         style={{
           boxShadow: `inset 0 0 20px ${glowColor}`,
         }}

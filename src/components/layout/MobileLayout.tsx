@@ -89,7 +89,7 @@ export function MobileLayout() {
       />
 
       {/* Offline connectivity banner (below header, flow-positioned) */}
-      <OfflineIndicator className="w-full bg-caution-amber/90 text-void-black text-xs py-1 text-center font-medium flex-shrink-0" />
+      <OfflineIndicator className="relative z-10 w-full bg-caution-amber/90 text-void-black text-xs py-1 text-center font-medium flex-shrink-0" />
 
       {/* Emergency ticker for critical space weather */}
       <EmergencyTickerBar />

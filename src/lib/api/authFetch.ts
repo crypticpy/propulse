@@ -39,15 +39,27 @@ export async function getAccessToken(): Promise<string | null> {
   if (!isSupabaseConfigured) return null;
 
   try {
-    await waitForAuthSession();
-    const supabase = getSupabase();
-    const {
-      data: { session },
-    } = await supabase.auth.getSession();
-    return session?.access_token ?? null;
+    // The same bound covers the whole lookup, not just initialize(): a
+    // stalled supabase.auth.getSession() (navigator.locks contention) must
+    // not leave every authenticated request pending indefinitely.
+    return await Promise.race([
+      lookupAccessToken(),
+      new Promise<string | null>((resolve) =>
+        setTimeout(() => resolve(null), AUTH_READY_TIMEOUT_MS),
+      ),
+    ]);
   } catch {
     return null;
   }
+}
+
+async function lookupAccessToken(): Promise<string | null> {
+  await waitForAuthSession();
+  const supabase = getSupabase();
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+  return session?.access_token ?? null;
 }
 
 /**

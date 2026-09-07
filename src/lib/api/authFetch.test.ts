@@ -46,6 +46,17 @@ describe("waitForAuthSession", () => {
 });
 
 describe("authHeaders", () => {
+  it("falls through without a header when the session read itself stalls", async () => {
+    vi.useFakeTimers();
+    authStoreMocks.initialized = true;
+    supabaseMocks.getSession.mockImplementation(() => new Promise(() => {}));
+
+    const headersPromise = authHeaders();
+    await vi.advanceTimersByTimeAsync(3_000);
+
+    expect(await headersPromise).toEqual({});
+  });
+
   it("attaches the bearer token once a delayed session restore completes", async () => {
     let resolveInit!: () => void;
     authStoreMocks.initialize.mockImplementation(

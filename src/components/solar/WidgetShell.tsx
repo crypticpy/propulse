@@ -14,14 +14,14 @@ const stateLabel: Record<SolarWidgetState, string> = {
 };
 
 const stateStyle: Record<SolarWidgetState, string> = {
-  loading: "border-slate-500/30 bg-slate-500/10 text-slate-300",
-  fresh: "text-emerald-300",
-  refreshing: "border-cyan-400/30 bg-cyan-400/10 text-cyan-300",
-  stale: "border-amber-400/30 bg-amber-400/10 text-amber-200",
-  partial: "border-amber-400/30 bg-amber-400/10 text-amber-200",
-  empty: "border-slate-500/30 bg-slate-500/10 text-slate-300",
-  unavailable: "border-rose-400/30 bg-rose-400/10 text-rose-200",
-  error: "border-rose-400/30 bg-rose-400/10 text-rose-200",
+  loading: "border-su-line/30 bg-su-line/10 text-su-muted",
+  fresh: "text-su-success",
+  refreshing: "border-su-info/30 bg-su-info/10 text-su-info",
+  stale: "border-su-warning/30 bg-su-warning/10 text-su-warning",
+  partial: "border-su-warning/30 bg-su-warning/10 text-su-warning",
+  empty: "border-su-line/30 bg-su-line/10 text-su-muted",
+  unavailable: "border-su-danger/30 bg-su-danger/10 text-su-danger",
+  error: "border-su-danger/30 bg-su-danger/10 text-su-danger",
 };
 
 function formatAge(milliseconds: number): string {
@@ -88,23 +88,23 @@ export function WidgetShell({
 
   return (
     <section
-      className={`group flex min-h-0 min-w-0 flex-col overflow-hidden rounded-2xl border border-white/10 bg-white/[0.035] ${className}`}
+      className={`group flex min-h-0 min-w-0 flex-col overflow-hidden rounded-2xl border border-su-line/40 bg-su-panel/40 ${className}`}
       aria-label={title}
     >
-      <header className={`grid grid-cols-[minmax(0,1fr)_auto] items-start gap-2 px-4 py-3 ${compact ? "" : "border-b border-white/[0.07] sm:px-5"}`}>
+      <header className={`grid grid-cols-[minmax(0,1fr)_auto] items-start gap-2 px-4 py-3 ${compact ? "" : "border-b border-su-line/20 sm:px-5"}`}>
         <div className="min-w-0">
           {eyebrow && (
             <p
-              className="mb-1 truncate text-xs font-semibold uppercase tracking-[0.12em] text-slate-400"
+              className="mb-1 truncate text-xs font-semibold uppercase tracking-[0.12em] text-su-muted"
               title={eyebrow}
             >
               {eyebrow}
             </p>
           )}
-          <h2 className="text-sm font-semibold text-slate-100 sm:text-base" title={title}>
+          <h2 className="text-sm font-semibold text-su-text sm:text-base" title={title}>
             {title}
           </h2>
-          <div className="mt-1 flex items-center flex-wrap gap-x-2 text-xs text-slate-400">
+          <div className="mt-1 flex items-center flex-wrap gap-x-2 text-xs text-su-muted">
             {age !== null && (
               <time
                 className="shrink-0"
@@ -119,7 +119,7 @@ export function WidgetShell({
                 href={sourceUrl}
                 target="_blank"
                 rel="noreferrer"
-                className="min-w-0 truncate rounded text-slate-400 underline decoration-white/20 underline-offset-2 hover:text-slate-300"
+                className="min-w-0 truncate rounded text-su-muted underline decoration-su-line/40 underline-offset-2 hover:text-su-text"
                 title={provider}
               >
                 {provider}
@@ -142,13 +142,13 @@ export function WidgetShell({
       </header>
 
       {state === "stale" && (
-        <div className="border-b border-amber-300/10 bg-amber-300/[0.06] px-4 py-2 text-xs leading-5 text-amber-100/80 sm:px-5">
+        <div className="border-b border-su-warning/20 bg-su-warning/10 px-4 py-2 text-xs leading-5 text-su-warning sm:px-5">
           {staleMessage ??
             "This reading is older than expected. Propulse checks for updates automatically."}
         </div>
       )}
       {state === "partial" && (
-        <div className="border-b border-amber-300/10 bg-amber-300/[0.06] px-4 py-2 text-xs leading-5 text-amber-100/80 sm:px-5">
+        <div className="border-b border-su-warning/20 bg-su-warning/10 px-4 py-2 text-xs leading-5 text-su-warning sm:px-5">
           {partialMessage ??
             "Some sources have not updated yet. The reading below uses the available data."}
         </div>
@@ -156,22 +156,22 @@ export function WidgetShell({
 
       <div className={`min-h-0 flex-1 ${compact ? "px-4 pb-4" : "p-4 sm:p-5"}`}>
         {showFallback ? (
-          <div className="flex min-h-32 flex-col items-center justify-center rounded-xl border border-dashed border-white/10 bg-black/10 px-5 text-center">
+          <div className="flex min-h-32 flex-col items-center justify-center rounded-xl border border-dashed border-su-line/40 bg-su-input px-5 text-center">
             {state === "loading" ? (
-              <div className="h-2 w-28 overflow-hidden rounded-full bg-white/10" aria-label="Loading data">
-                <div className="h-full w-1/2 animate-pulse rounded-full bg-cyan-300/60" />
+              <div className="h-2 w-28 overflow-hidden rounded-full bg-su-line/20" aria-label="Loading data">
+                <div className="h-full w-1/2 animate-pulse rounded-full bg-su-info/60" />
               </div>
             ) : (
               <>
-                <p className="text-sm font-medium text-slate-200">{message ?? stateLabel[state]}</p>
-                <p className="mt-1 max-w-xs text-xs leading-5 text-slate-400">
+                <p className="text-sm font-medium text-su-text">{message ?? stateLabel[state]}</p>
+                <p className="mt-1 max-w-xs text-xs leading-5 text-su-muted">
                   No recent reading is available yet. Propulse checks for updates automatically.
                 </p>
                 {onRetry && (
                   <button
                     type="button"
                     onClick={onRetry}
-                    className="mt-4 min-h-11 rounded-xl border border-white/10 bg-white/5 px-4 text-sm text-slate-200 hover:bg-white/10"
+                    className="mt-4 min-h-11 rounded-xl border border-su-line/40 bg-su-input px-4 text-sm text-su-text hover:bg-su-line/20"
                   >
                     Try again
                   </button>

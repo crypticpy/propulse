@@ -63,7 +63,7 @@ export function SolarMiniChart({
     );
   if (rows.length < (intervalMs ? 1 : 2))
     return (
-      <p className="mt-4 text-xs text-slate-400">
+      <p className="mt-4 text-xs text-su-muted">
         {domain
           ? "No Kp forecast intervals available for this UTC day."
           : `${label}: waiting for more readings.`}
@@ -94,8 +94,8 @@ export function SolarMiniChart({
         ? "var(--hcr-chart-estimated, #c4b5fd)"
         : "var(--hcr-chart-observed, #44ddff)";
   return (
-    <figure className="mt-4 min-w-0 border-t border-white/10 pt-3">
-      <figcaption className="mb-1 text-xs text-slate-300">{label}</figcaption>
+    <figure className="mt-4 min-w-0 border-t border-su-line/40 pt-3">
+      <figcaption className="mb-1 text-xs text-su-muted">{label}</figcaption>
       <svg
         viewBox="0 0 300 88"
         className="block w-full"
@@ -192,7 +192,7 @@ export function SolarMiniChart({
         </text>
       </svg>
       {!domain && (
-        <p className="text-[10px] text-slate-400">
+        <p className="text-[10px] text-su-muted">
           {unit} · UTC{logarithmic ? " · log scale" : ""}
           {intervalMs ? " · observed / estimated" : ""}
         </p>

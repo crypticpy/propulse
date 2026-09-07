@@ -95,11 +95,14 @@ Steps for a file: swap the classes, delete any local `--*` colour variable it de
 
 ### Migrated scope
 
-| Area            | Path                        | Migrated by        |
-| --------------- | --------------------------- | ------------------ |
-| Station library | `src/components/station-ui` | DS-02 (foundation) |
+| Area            | Path                                                                                                                                                                                                                                                                     | Migrated by        |
+| --------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------ |
+| Station library | `src/components/station-ui`                                                                                                                                                                                                                                            | DS-02 (foundation) |
+| Solar Pulse     | `src/pages/SolarPulse.tsx`, `src/components/solar/{WidgetShell,SolarDisclosure,SolarBriefingCard,SolarOperatingActions,SolarImageCard,SolarMiniChart,SolarSeriesChart,SolarForecastPanel,SolarAnimationPlayer,SolarImageDetail}.tsx`, `src/components/solar/modals/BandConditionsModal.tsx` | DS-03 (colour only, no layout change) |
 
-Not yet migrated: Solar Pulse (DS-03/04/05), Home (DS-06/07/08/11), PropSphere and the global Tailwind colours (DS-09), everything else (DS-12 widens the guard to all of `src/`).
+Solar Pulse note: chart series colours in `SolarMiniChart.tsx`/`SolarSeriesChart.tsx` are intentionally left on the existing `var(--hcr-chart-*, <hex fallback>)` contract (HW-29) so HamClock wall reports can still recolour them — only the surrounding wrapper classes were migrated to `su-` tokens. A few legacy/unreached files under `src/components/solar/` (`BandConditions.tsx`, `BandRow.tsx`, `MetricCard.tsx`, `PrimaryMetrics.tsx`, `PropagationIndex.tsx`, `SolarHandoffNotice.tsx`, and most of `modals/` other than `BandConditionsModal.tsx`) were left unmigrated to stay within this PR's file budget; they are not imported by the live Solar Pulse page (`SolarHandoffNotice` is reached from Band Planner / DX Wizard and `PropagationIndex` from the map's `SolarSnapshot`; they move with DS-09).
+
+Not yet migrated: the remaining `src/components/solar` files above (DS-09), Home (DS-06/07/08/11), PropSphere and the global Tailwind colours (DS-09), everything else (DS-12 widens the guard to all of `src/`).
 
 ## HamClock stays separate
 

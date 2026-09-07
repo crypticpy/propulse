@@ -93,7 +93,7 @@ export function SolarSeriesChart({
     [points, scale],
   );
   if (!sorted.length)
-    return <p className="text-sm text-slate-400">No usable series.</p>;
+    return <p className="text-sm text-su-muted">No usable series.</p>;
   const width = 720;
   const left = 66,
     right = 22,
@@ -365,7 +365,7 @@ export function SolarSeriesChart({
         </svg>
       </div>
       {!plotOnly && (
-        <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-300">
+        <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-su-muted">
           {kinds
             .filter((kind) =>
               sorted.some((p) => (p.kind ?? "observed") === kind),
@@ -385,7 +385,7 @@ export function SolarSeriesChart({
         </div>
       )}
       {!plotOnly && gaps.length > 0 && (
-        <p className="mt-2 text-xs text-amber-200">
+        <p className="mt-2 text-xs text-su-warning">
           {gaps.length} gap{gaps.length === 1 ? "" : "s"} in coverage;
           disconnected records are not interpolated.
         </p>
@@ -394,7 +394,7 @@ export function SolarSeriesChart({
         <>
           <label
             htmlFor={`${id}-inspect`}
-            className="mt-3 block text-xs text-slate-400"
+            className="mt-3 block text-xs text-su-muted"
           >
             Inspect {label} — drag or use arrow keys
           </label>
@@ -407,11 +407,11 @@ export function SolarSeriesChart({
             value={selectedIndex}
             onChange={(e) => setSelection(Number(e.target.value))}
             aria-valuetext={`${selected.timestamp}: ${number(selected.value)} ${unit}, ${selected.kind ?? "observed"}`}
-            className="h-11 w-full accent-cyan-300"
+            className="h-11 w-full accent-su-info"
           />
           <output
             htmlFor={`${id}-inspect`}
-            className="block break-words font-mono text-xs leading-6 text-slate-200"
+            className="block break-words font-mono text-xs leading-6 text-su-text"
             aria-live="polite"
           >
             {selected.timestamp}: {number(selected.value)} {unit},{" "}
@@ -422,7 +422,7 @@ export function SolarSeriesChart({
             onClick={() => setValuesOpen(!valuesOpen)}
             aria-expanded={valuesOpen}
             aria-controls={`${id}-values`}
-            className="mt-2 min-h-11 rounded-lg border border-white/10 px-3 text-xs text-cyan-200 hover:bg-white/5"
+            className="mt-2 min-h-11 rounded-lg border border-su-line/40 px-3 text-xs text-su-info hover:bg-su-line/10"
           >
             {valuesOpen ? "Hide" : "Show"} values
           </button>
@@ -455,7 +455,7 @@ export function SolarSeriesChart({
               {sorted.map((p) => (
                 <tr
                   key={`${p.timestamp}-${p.kind}`}
-                  className="border-t border-white/10"
+                  className="border-t border-su-line/40"
                 >
                   <td className="p-2">{p.timestamp}</td>
                   <td className="p-2 font-mono">{number(p.value)}</td>
@@ -465,7 +465,7 @@ export function SolarSeriesChart({
               {validMarkers.map((m) => (
                 <tr
                   key={`marker-${m.timestamp}-${m.label}`}
-                  className="border-t border-white/10"
+                  className="border-t border-su-line/40"
                 >
                   <td className="p-2">{new Date(m.time).toISOString()}</td>
                   <td className="p-2 font-mono">—</td>

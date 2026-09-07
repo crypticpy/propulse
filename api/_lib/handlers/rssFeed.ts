@@ -315,11 +315,14 @@ function degradedResponse(
 }
 
 export async function handleFeedsRss(request: Request): Promise<Response> {
+  const params = new URL(request.url).searchParams;
+  const verifying = params.get("verify") === "1";
   const origin = getAllowedOrigin();
-  const corsHeaders = {
+  const corsHeaders: Record<string, string> = {
     "Access-Control-Allow-Origin": origin,
     "Access-Control-Allow-Methods": "GET, OPTIONS",
     "Access-Control-Allow-Headers": "Content-Type",
+    ...(verifying ? { "Cache-Control": "no-store" } : {}),
   };
 
   if (request.method === "OPTIONS") {
@@ -327,10 +330,11 @@ export async function handleFeedsRss(request: Request): Promise<Response> {
   }
 
   const limited = applyRateLimit(request, "feeds/rss", 10, 60);
-  if (limited) return limited;
+  if (limited) {
+    if (verifying) limited.headers.set("Cache-Control", "no-store");
+    return limited;
+  }
 
-  const params = new URL(request.url).searchParams;
-  const verifying = params.get("verify") === "1";
   const raw = params.get("url");
   if (!raw) {
     return new Response(
@@ -355,7 +359,7 @@ export async function handleFeedsRss(request: Request): Promise<Response> {
     if (verifying) {
       // Verification uses the same bounded fetch and redirect/URL checks as
       // reading. A page title alone is not evidence of an RSS/Atom feed.
-      const recognized = /<(?:rss|feed)(?:\s|>)/i.test(xml);
+      const recognized = /^(?:\s|\uFEFF|<\?[\s\S]*?\?>|<!--[\s\S]*?-->)*<(?:rss|feed)(?:\s|>)/i.test(xml);
       const verified = recognized && feed.title.length > 0;
       return new Response(JSON.stringify({
         status: verified ? "ok" : "invalid_feed",
@@ -389,6 +393,13 @@ export async function handleFeedsRss(request: Request): Promise<Response> {
       },
     );
   } catch (error) {
+    if (verifying) {
+      return new Response(JSON.stringify({
+        status: error instanceof FeedTooLargeError ? "too_large" : "unreachable",
+        title: null,
+        itemCount: 0,
+      }), { headers: { ...corsHeaders, "Content-Type": "application/json", "Cache-Control": "no-store" } });
+    }
     if (error instanceof FeedTooLargeError) {
       return degradedResponse(corsHeaders, "too_large");
     }

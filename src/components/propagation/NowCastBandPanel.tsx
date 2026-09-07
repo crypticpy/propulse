@@ -120,7 +120,9 @@ export function NowCastBandPanel({
         <div className="mt-4 flex items-center gap-2 border-t border-su-line/40 pt-3 text-sm text-caution-amber">
           <TriangleAlert className="h-4 w-4 shrink-0" aria-hidden="true" />
           <span>
-            Model capability unavailable. The established planner remains active.
+            {state.capabilityError
+              ? "Model service is reconnecting. The established planner remains active."
+              : "Model capability unavailable. The established planner remains active."}
           </span>
         </div>
       )}

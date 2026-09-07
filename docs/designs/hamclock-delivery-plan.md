@@ -472,3 +472,29 @@ being checked. Fourteen focused history/report tests pass, including exact
 frequency/mode staging and invalid-frequency rejection. Browser/full verification
 and publication remain in progress. Band Activity is the next separate slice
 within #286; adapter-dependent SDR routing still awaits the real adapter.
+
+
+### Contacts published; Band Activity integration continues
+
+[#509](https://github.com/crypticpy/propulse/pull/509), `d26a19c4`, contains the
+13-file contact-report integration and tune controls. Full mandatory checks
+passed: 395 app files / 3,442 tests, Python/archive, bridge/daemon, lint, build
+and budgets. Fifteen focused tests plus Pulse/Classic/Brass × 1080p/4K report
+fixtures pass with no overflow/page errors. The owned contact-test server 5181
+was stopped; its claim was removed after absent-PID and both-loopback bind checks.
+Preview 5182 remains preserved.
+
+#505 also received a reviewed follow-up, `77ad802e`: the cluster tile applies
+bridge clock tolerance consistently with the report, while REST remains strict.
+A rendered-tile regression failed before the fix and passes afterward. Full
+checks pass (392 app files / 3,430 tests); the review thread is resolved and the
+PR remains within 15 files.
+
+#286 remains the sole active claim. Next worktree:
+`.worktrees/hamclock-band-history-integration`, branch
+`feat/hamclock-band-history-integration`, based on #509. It locally integrates
+#408's six-file history API and preserves the newer PSK station route while
+resolving the portable-route import conflict. Twenty-five focused history/spot
+API tests pass. Integration commit/full checks/publication are ongoing; the
+subsequent #409 report integration will add TuneButton to TOP DX rows. No new
+batch, model/3D work, hardware service or weather implementation is claimed.

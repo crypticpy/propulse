@@ -14,10 +14,16 @@
  */
 
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { fetchClusterSpots, clusterPayloadToSpot } from "@/lib/api/dxcluster";
+import { useCallback, useEffect, useRef } from "react";
+import { fetchClusterSpots } from "@/lib/api/dxcluster";
 import { useBridge } from "@/hooks/useBridge";
 import { useClusterLink } from "@/hooks/useClusterLink";
+import {
+  CLUSTER_BRIDGE_FUTURE_TOLERANCE_MS,
+  filterBridgeSpotAge,
+  mergeClusterBridgeSpot,
+  readClusterBridgeSpot,
+} from "@/lib/hamclock/clusterBridge";
 import { useUserStore } from "@/stores/userStore";
 import {
   useDXStore,
@@ -25,7 +31,7 @@ import {
   type ClusterLinkStatus,
 } from "@/stores/dxStore";
 import type { DXSpot, DXClusterFilters } from "@/types/dxcluster";
-import type { ClusterSpotPayload } from "@/types/bridge";
+import type { BridgeMessage } from "@/types/bridge";
 
 // Query key constants for cache management
 export const DX_QUERY_KEYS = {
@@ -79,7 +85,11 @@ export function useSharedBridgeSourceOwnership(
 /**
  * Filter spots based on criteria
  */
-function filterSpots(spots: DXSpot[], filters: DXClusterFilters): DXSpot[] {
+function filterSpots(
+  spots: DXSpot[],
+  filters: DXClusterFilters,
+  futureToleranceMs = 0,
+): DXSpot[] {
   let filtered = [...spots];
 
   // Filter by bands
@@ -105,7 +115,7 @@ function filterSpots(spots: DXSpot[], filters: DXClusterFilters): DXSpot[] {
         spot.time instanceof Date
           ? spot.time.getTime()
           : new Date(spot.time).getTime();
-      return t >= cutoff;
+      return t >= cutoff && t <= Date.now() + futureToleranceMs;
     });
   }
 
@@ -155,7 +165,6 @@ export function useDXCluster(
     filters: storeFilters,
     maxSpots,
     spotSource,
-    setSpotSource,
     setClusterStatus,
   } = useDXStore();
 
@@ -163,39 +172,39 @@ export function useDXCluster(
   const bridgeEnabled = useUserStore(
     (s) => s.preferences.bridgeEnabled ?? false,
   );
+  const ingestBridgeMessage = useCallback((message: BridgeMessage) => {
+    if (!dataEnabled || message.type !== "cluster.spot") return;
+    const now = Date.now();
+    const spot = readClusterBridgeSpot(message.payload, now);
+    if (!spot) return;
+    useDXStore.setState((state) => {
+      if (filterBridgeSpotAge([spot], state.filters.maxAge, now).length === 0) return state;
+      return {
+        spots: mergeClusterBridgeSpot(
+          state.spotSource === "bridge" ? state.spots : [],
+          spot,
+          state.filters.maxAge,
+          state.maxSpots,
+          now,
+        ),
+        spotSource: "bridge",
+      };
+    });
+  }, [dataEnabled]);
   const {
     connected: bridgeConnected,
     lastMessage,
     send: bridgeSend,
   } = useBridge({
     enabled: dataEnabled && bridgeEnabled,
+    onMessage: ingestBridgeMessage,
   });
-  const [bridgeSpots, setBridgeSpots] = useState<DXSpot[]>([]);
   useSharedBridgeSourceOwnership(dataEnabled, bridgeConnected);
 
   // Use external filters if provided, otherwise use store filters
   const filters = externalFilters || storeFilters;
 
   // ─── Tier 1: Bridge WebSocket ─────────────────────────────────────────────
-
-  // Listen for cluster spots from bridge
-  useEffect(() => {
-    if (
-      !dataEnabled ||
-      !lastMessage ||
-      lastMessage.type !== "cluster.spot"
-    ) {
-      return;
-    }
-    const spot = clusterPayloadToSpot(
-      lastMessage.payload as ClusterSpotPayload,
-    );
-    setBridgeSpots((prev) => {
-      const next = [spot, ...prev];
-      if (next.length > maxSpots) next.length = maxSpots;
-      return next;
-    });
-  }, [dataEnabled, lastMessage, maxSpots]);
 
   // Mirror the bridge's cluster link status into the store. Without this the
   // bridge's `cluster.status` broadcast was dropped on the floor and cluster
@@ -230,13 +239,6 @@ export function useDXCluster(
     }
   }, [bridgeConnected, setClusterStatus]);
 
-  // Promote to bridge source when receiving bridge spots
-  useEffect(() => {
-    if (bridgeConnected && bridgeSpots.length > 0) {
-      setSpotSource("bridge");
-    }
-  }, [bridgeConnected, bridgeSpots.length, setSpotSource]);
-
   // ─── Tier 2: REST proxy ───────────────────────────────────────────────────
 
   const restQuery = useQuery({
@@ -248,35 +250,32 @@ export function useDXCluster(
     retry: 2,
   });
 
-  // If REST returned spots, promote to "rest" source
+  // Publish REST only while REST still owns the source. A bridge packet can
+  // arrive between this render and this effect, and must win that race.
   useEffect(() => {
-    if (
-      spotSource !== "bridge" &&
-      restQuery.data &&
-      restQuery.data.length > 0
-    ) {
-      setSpotSource("rest");
-    }
-  }, [restQuery.data, spotSource, setSpotSource]);
+    if (!dataEnabled || restQuery.data === undefined) return;
+    useDXStore.setState((state) => state.spotSource === "bridge"
+      ? state
+      : { spots: restQuery.data, spotSource: "rest" });
+  }, [dataEnabled, restQuery.data, spotSource]);
 
-  // ─── Select data source ───────────────────────────────────────────────────
-
-  const allSpots = useMemo<DXSpot[]>(() => {
-    if (!dataEnabled) return [];
-    if (spotSource === "bridge") return bridgeSpots;
-    if (restQuery.data && restQuery.data.length > 0) return restQuery.data;
-    return [];
-  }, [dataEnabled, spotSource, bridgeSpots, restQuery.data]);
-
-  // Update store when the selected data changes
+  // Expire a quiet bridge snapshot on the same cadence as the passive tile.
   useEffect(() => {
-    if (allSpots.length > 0) {
-      setSpots(allSpots);
-    }
-  }, [allSpots, setSpots]);
+    if (!dataEnabled || spotSource !== "bridge") return;
+    const expire = () => useDXStore.setState((state) => {
+      if (state.spotSource !== "bridge") return state;
+      const eligible = filterBridgeSpotAge(state.spots, state.filters.maxAge, Date.now());
+      return eligible.length === state.spots.length ? state : { spots: eligible };
+    });
+    expire();
+    const timer = window.setInterval(expire, 10_000);
+    return () => window.clearInterval(timer);
+  }, [dataEnabled, spotSource]);
 
   // Apply filters to spots
-  const filteredSpots = dataEnabled ? filterSpots(spots, filters) : [];
+  const filteredSpots = dataEnabled
+    ? filterSpots(spots, filters, spotSource === "bridge" ? CLUSTER_BRIDGE_FUTURE_TOLERANCE_MS : 0)
+    : [];
 
   // ─── Cluster link control ─────────────────────────────────────────────────
 
@@ -289,10 +288,10 @@ export function useDXCluster(
   const refetch = useCallback(() => {
     if (!dataEnabled) return;
     if (spotSource === "bridge") {
-      setBridgeSpots([]);
+      setSpots([]);
     }
     queryClient.invalidateQueries({ queryKey: DX_QUERY_KEYS.restSpots });
-  }, [dataEnabled, queryClient, spotSource]);
+  }, [dataEnabled, queryClient, setSpots, spotSource]);
 
   // Determine loading state
   const isLoading =
@@ -306,8 +305,8 @@ export function useDXCluster(
     !dataEnabled
       ? null
       : spotSource === "bridge"
-      ? bridgeSpots.length > 0
-        ? bridgeSpots[0].time
+      ? spots.length > 0
+        ? spots[0].time
         : null
       : restQuery.dataUpdatedAt
         ? new Date(restQuery.dataUpdatedAt)

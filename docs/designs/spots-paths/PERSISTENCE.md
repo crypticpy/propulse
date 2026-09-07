@@ -237,10 +237,11 @@ Legacy angular cluster radius is explicitly replaced by geographic Regions, not
 reinterpreted as a geographic distance. Each scene starts from its own family
 baseline, never the previously converted scene.
 
-The integration layer supplies the shipped static legacy layer-preset table and
-Agent 4's accepted pure named-profile adapter as explicit inputs where needed.
-Missing required recipe conversion fails closed; entries are not silently dropped
-or replaced with another built-in. Valid existing profile IDs must survive.
+The integration layer supplies the shipped static legacy layer-preset table
+where scene presets require it. Named profiles use the accepted pure adapter by
+default; an explicit caller adapter may override that policy. Missing layer
+recipes or invalid profile conversion fails closed; entries are not silently
+dropped or replaced with another built-in. Valid existing profile IDs survive.
 Saved region/history catalogs remain in backup/untouched legacy storage; they do
 not become active settings. This converter does not publish scenes to displays.
 

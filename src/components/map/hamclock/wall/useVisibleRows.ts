@@ -21,6 +21,7 @@ export function useVisibleRows<T extends HTMLElement>(
   useLayoutEffect(() => {
     if (!el) return;
     const measure = () => {
+      // Divider borders can make later rows taller than the first one.
       const row = Math.max(0, ...Array.from(el.children).map((child) =>
         (child as HTMLElement).getBoundingClientRect().height));
       const slot = el.clientHeight;

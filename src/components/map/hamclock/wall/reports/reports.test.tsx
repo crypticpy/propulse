@@ -1,3 +1,4 @@
+import { useDXStore } from "@/stores/dxStore";
 import { fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -21,6 +22,7 @@ const mocks = vi.hoisted(() => ({
   target: vi.fn(),
 }));
 
+vi.mock("@/hooks/useBandHistory", () => ({ useBandHistory: () => ({ data: undefined, isError: false }) }));
 vi.mock("@/hooks/useBandVerdicts", () => ({ useBandVerdicts: mocks.verdicts }));
 vi.mock("@/hooks/useBandActivity", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/hooks/useBandActivity")>()),
@@ -53,6 +55,7 @@ vi.mock("@/hooks/useWeatherAlerts", () => ({
 vi.mock("@/stores/mapStore", () => ({
   useMapStore: (selector: (state: unknown) => unknown) =>
     selector({
+      spotFilters: { bands: [], modes: [] },
       timeOffset: 0,
       absoluteTime: null,
       target: mocks.target(),
@@ -127,7 +130,7 @@ describe("wall reports", () => {
     expect(dialog.className).toContain("hcr");
     // Hero, verdict and one fact, at report size.
     expect(dialog.querySelector(".hcr-hero")?.textContent).toBe("20M");
-    expect(dialog.querySelector(".hcr-verdict")?.textContent).toBe("470");
+    expect(dialog.querySelector(".hcr-verdict")?.textContent).toBe("LEADS");
     // The total also appears in the chart's screen-reader table twin.
     expect(dialog.querySelector(".hcr-facts")?.textContent).toContain("886");
   });
@@ -367,4 +370,45 @@ describe("DxTargetReport", () => {
     expect(screen.getByText("HUMIDITY")).toBeTruthy();
     expect(screen.getByText("55%")).toBeTruthy();
   });
+});
+
+
+describe("Band history completeness", () => {
+  it("keeps partial hourly totals out of the numeric peak", async () => {
+    const { BandHistoryChart } = await import("./BandHistoryChart");
+    render(<BandHistoryChart snapshot={{ scope: "global", windowStart: "2026-09-06T14:00:00Z", windowEnd: "2026-09-06T20:00:00Z", fetchedAt: "2026-09-06T20:10:00Z", rows: [{ hour: "2026-09-06T19:00:00.000Z", band: "20m", count: 123, sources: {}, modes: {} }] }} live={{ samples: [], now: Date.parse("2026-09-06T20:10:00Z") }} />);
+    expect(screen.getByText(/PEAK UNKNOWN/)).toBeTruthy();
+    expect(screen.getByText("PARTIAL")).toBeTruthy();
+  });
+  it("does not turn absent contributing source keys into measured zero", () => {
+    render(<BandActivityReport open onClose={vi.fn()} />);
+    expect(screen.getByText(/PSKREPORTER WAITING · RBN WAITING · DXCLUSTER WAITING/)).toBeTruthy();
+  });
+});
+
+
+it.each(["rest", "bridge"] as const)("TOP DX uses its own %s source timestamp and context", (source) => {
+  const previous = useDXStore.getState();
+  useDXStore.setState({
+    spots: [{
+      id: "timestamp",
+      spotter: "N0TEST",
+      dx: "JA1TEST",
+      frequency: 14_074.125,
+      mode: "CW",
+      comment: "fixture",
+      time: new Date("2026-09-05T12:00:00Z"),
+      band: "20m",
+      dxGrid: "PM95",
+      dxLocApprox: false,
+    }],
+    spotSource: source,
+  });
+  try {
+    render(<BandActivityReport open onClose={vi.fn()} initialView="dx" />);
+    expect(screen.getByRole("dialog", { name: "Band activity report · TOP DX FROM HOME" })).toBeTruthy();
+    expect(screen.getByText(new RegExp(`DX CLUSTER · ${source.toUpperCase()} · LOADED · LAST SPOT`))).toBeTruthy();
+    expect(screen.getByText(/12:00 UTC/)).toBeTruthy();
+    expect(screen.queryByText("SPOTS · 60 MIN")).toBeNull();
+  } finally { useDXStore.setState(previous); }
 });

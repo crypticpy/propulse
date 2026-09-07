@@ -36,6 +36,8 @@ export interface BandActivityEntry {
   /** 20-min deduplicated obs per mode class (cw/digital/phone/unknown) */
   modeObs20m: Record<string, number>;
   thresholds: ActivityThresholds | null;
+  /** p50 of this band × UTC-hour climatology cell — the "typical" count */
+  median60m: number | null;
   sampleCount: number | null;
 }
 
@@ -153,6 +155,7 @@ export function parseBandActivityEntry(value: unknown): BandActivityEntry | null
     sourceCounts60m: parseCountMap(row.source_counts_60m),
     modeObs20m: parseCountMap(row.mode_obs_20m),
     thresholds,
+    median60m: num(row.p50),
     sampleCount: num(row.sample_count),
   };
 }

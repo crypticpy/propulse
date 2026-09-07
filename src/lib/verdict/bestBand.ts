@@ -25,7 +25,7 @@ export function selectBestBand(
  * DX scopes have no canonical row, so they resolve to undefined. */
 export function canonicalForBand(
   canonicalByKey: Map<string, CanonicalLadderRow> | undefined,
-  scope: ActiveScope,
+  scope: Pick<ActiveScope, "type" | "continent">,
   band: string,
 ): CanonicalLadderRow | undefined {
   if (!canonicalByKey) return undefined;

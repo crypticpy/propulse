@@ -182,7 +182,7 @@ beforeEach(() => {
 });
 
 describe("chart theming (HW-29)", () => {
-  it("SolarMiniChart draws its observed series through the --hcr-chart-* token with a hex fallback", () => {
+  it("SolarMiniChart draws its observed series through the --hcr-chart-* token with a station-token fallback", () => {
     const day = Date.parse("2026-09-05T00:00:00Z");
     const { container } = render(
       <SolarMiniChart
@@ -197,14 +197,15 @@ describe("chart theming (HW-29)", () => {
     );
     const path = container.querySelector("path");
     expect(path?.getAttribute("stroke")).toBe(
-      "var(--hcr-chart-observed, #44ddff)",
+      "var(--hcr-chart-observed, var(--su-info))",
     );
   });
 
-  it("carries the same var(--hcr-chart-*, hex) contract outside a [data-hamclock-theme] ancestor, so /solar looks unchanged", () => {
+  it("carries the same var(--hcr-chart-*, --su-*) contract outside a [data-hamclock-theme] ancestor, so /solar follows the app theme", () => {
     // No data-hamclock-theme ancestor is present in this render — the CSS
     // scoping in hamclock-wall-report.css only rebinds the variable under
-    // that attribute, so the /solar page keeps the literal fallback colour.
+    // that attribute, so the /solar page falls back to the station token
+    // (DS-03) instead of the report theme.
     const day = Date.parse("2026-09-05T00:00:00Z");
     const { container } = render(
       <SolarMiniChart
@@ -217,7 +218,9 @@ describe("chart theming (HW-29)", () => {
         ]}
       />,
     );
-    expect(container.innerHTML).toContain("var(--hcr-chart-observed, #44ddff)");
+    expect(container.innerHTML).toContain(
+      "var(--hcr-chart-observed, var(--su-info))",
+    );
   });
 });
 

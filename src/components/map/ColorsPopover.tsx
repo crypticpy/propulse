@@ -73,12 +73,12 @@ function PillToggle({
         e.stopPropagation();
         onChange();
       }}
-      className={`relative inline-flex h-4 w-7 shrink-0 cursor-pointer rounded-full transition-colors duration-200 focus-visible:ring-2 focus-visible:ring-white/30 focus-visible:ring-offset-0 ${
-        checked ? "bg-signal-green" : "bg-white/10"
+      className={`relative inline-flex h-4 w-7 shrink-0 cursor-pointer rounded-full transition-colors duration-200 focus-visible:ring-2 focus-visible:ring-su-line/60 focus-visible:ring-offset-0 ${
+        checked ? "bg-signal-green" : "bg-su-line/20"
       }`}
     >
       <span
-        className={`pointer-events-none inline-block h-3 w-3 transform rounded-full bg-white shadow-sm transition-transform duration-200 mt-0.5 ${
+        className={`pointer-events-none inline-block h-3 w-3 transform rounded-full bg-su-text shadow-sm transition-transform duration-200 mt-0.5 ${
           checked ? "translate-x-3.5 ml-0" : "translate-x-0.5"
         }`}
       />
@@ -134,10 +134,10 @@ export function ColorsPopover() {
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium transition-colors focus-visible:ring-2 focus-visible:ring-white/30 focus-visible:ring-offset-0 ${
+        className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium transition-colors focus-visible:ring-2 focus-visible:ring-su-line/60 focus-visible:ring-offset-0 ${
           open
-            ? "bg-white/15 text-white"
-            : "text-gray-300 hover:text-white hover:bg-white/10"
+            ? "bg-su-line/30 text-su-text"
+            : "text-su-muted hover:text-su-text hover:bg-su-line/20"
         }`}
         aria-haspopup="true"
         aria-expanded={open}
@@ -164,7 +164,7 @@ export function ColorsPopover() {
 
       {/* ── Popover panel ── */}
       <div
-        className={`absolute top-full left-0 mt-1.5 w-[min(280px,calc(100vw-2rem))] z-50 bg-void-black/90 backdrop-blur-md border border-white/10 rounded-xl shadow-xl p-3 max-h-[70vh] overflow-y-auto transition-all duration-150 ${
+        className={`absolute top-full left-0 mt-1.5 w-[min(280px,calc(100vw-2rem))] z-50 bg-void-black/90 backdrop-blur-md border border-su-line/40 rounded-xl shadow-xl p-3 max-h-[70vh] overflow-y-auto transition-all duration-150 ${
           open
             ? "opacity-100 translate-y-0"
             : "opacity-0 -translate-y-1 pointer-events-none"
@@ -173,7 +173,7 @@ export function ColorsPopover() {
         aria-label="Spot coloring mode"
       >
         {/* ── Spot Coloring section ── */}
-        <div className="text-[10px] uppercase tracking-wider text-white/40 font-medium mb-1.5 px-0.5">
+        <div className="text-[10px] uppercase tracking-wider text-su-text/40 font-medium mb-1.5 px-0.5">
           Spot Coloring
         </div>
 
@@ -182,7 +182,7 @@ export function ColorsPopover() {
           return (
             <div
               key={option.value}
-              className="flex items-center gap-2 px-2 py-1.5 rounded-md cursor-pointer hover:bg-white/5 transition-colors"
+              className="flex items-center gap-2 px-2 py-1.5 rounded-md cursor-pointer hover:bg-su-line/10 transition-colors"
               role="radio"
               aria-checked={isSelected}
               onClick={() =>
@@ -192,7 +192,7 @@ export function ColorsPopover() {
               {/* Radio dot */}
               <span
                 className={`w-3.5 h-3.5 rounded-full border-2 shrink-0 flex items-center justify-center transition-colors ${
-                  isSelected ? "border-signal-green" : "border-white/30"
+                  isSelected ? "border-signal-green" : "border-su-line/60"
                 }`}
               >
                 {isSelected && (
@@ -204,12 +204,12 @@ export function ColorsPopover() {
               <div className="flex-1 min-w-0">
                 <span
                   className={`text-xs block transition-colors ${
-                    isSelected ? "text-white" : "text-white/60"
+                    isSelected ? "text-su-text" : "text-su-text/60"
                   }`}
                 >
                   {option.label}
                 </span>
-                <span className="text-[10px] text-white/30 block">
+                <span className="text-[10px] text-su-text/30 block">
                   {option.description}
                 </span>
               </div>
@@ -229,14 +229,14 @@ export function ColorsPopover() {
         })}
 
         {/* ── Visual Style section ── */}
-        <div className="border-t border-white/5 my-2" />
-        <div className="text-[10px] uppercase tracking-wider text-white/40 font-medium mb-1.5 px-0.5">
+        <div className="border-t border-su-line/20 my-2" />
+        <div className="text-[10px] uppercase tracking-wider text-su-text/40 font-medium mb-1.5 px-0.5">
           Visual Style
         </div>
 
         <div
           title="Bolder, high-contrast spot markers (2D map only)"
-          className="flex items-center h-8 px-0.5 rounded hover:bg-white/5 transition-colors cursor-pointer"
+          className="flex items-center h-8 px-0.5 rounded hover:bg-su-line/10 transition-colors cursor-pointer"
           onClick={() =>
             updateUIInteraction({
               visualStyle: isHighViz ? "realistic" : "high-viz",
@@ -245,16 +245,16 @@ export function ColorsPopover() {
         >
           <span
             className={`w-1.5 h-1.5 rounded-full mr-2.5 shrink-0 transition-colors ${
-              isHighViz ? "bg-signal-green" : "bg-white/20"
+              isHighViz ? "bg-signal-green" : "bg-su-line/30"
             }`}
           />
           <span
             className={`flex-1 text-xs transition-colors ${
-              isHighViz ? "text-white" : "text-white/60"
+              isHighViz ? "text-su-text" : "text-su-text/60"
             }`}
           >
             High Contrast
-            <span className="text-white/30 text-[10px] ml-1">2D only</span>
+            <span className="text-su-text/30 text-[10px] ml-1">2D only</span>
           </span>
           <PillToggle
             checked={isHighViz}

@@ -49,7 +49,7 @@ export function MapSizeSliders({ inline = false }: MapSizeSlidersProps) {
     return (
       <button
         onClick={() => setExpanded(true)}
-        className={`${inline ? "" : "absolute bottom-3 left-3 z-10"} pointer-events-auto flex h-7 w-7 items-center justify-center rounded-md border border-white/10 bg-void-black/70 text-gray-400 backdrop-blur-sm transition-colors hover:border-white/20 hover:text-gray-200`}
+        className={`${inline ? "" : "absolute bottom-3 left-3 z-10"} pointer-events-auto flex h-7 w-7 items-center justify-center rounded-md border border-su-line/40 bg-void-black/70 text-su-muted backdrop-blur-sm transition-colors hover:border-su-line/50 hover:text-su-text`}
         title="Adjust spot & pin sizes"
         aria-label="Adjust spot and pin sizes"
       >
@@ -76,16 +76,16 @@ export function MapSizeSliders({ inline = false }: MapSizeSlidersProps) {
 
   return (
     <div
-      className={`${inline ? "" : "absolute bottom-3 left-3 z-10"} pointer-events-auto select-none rounded-lg border border-white/10 bg-void-black/70 px-2.5 py-2 backdrop-blur-sm`}
+      className={`${inline ? "" : "absolute bottom-3 left-3 z-10"} pointer-events-auto select-none rounded-lg border border-su-line/40 bg-void-black/70 px-2.5 py-2 backdrop-blur-sm`}
     >
       {/* Header with close button */}
       <div className="flex items-center justify-between mb-1.5">
-        <span className="text-[10px] uppercase tracking-wider text-gray-500 font-medium">
+        <span className="text-[10px] uppercase tracking-wider text-su-muted font-medium">
           Size
         </span>
         <button
           onClick={() => setExpanded(false)}
-          className="text-gray-500 hover:text-gray-300 transition-colors -mr-0.5"
+          className="text-su-muted hover:text-su-muted transition-colors -mr-0.5"
           aria-label="Collapse size sliders"
         >
           <svg
@@ -105,7 +105,7 @@ export function MapSizeSliders({ inline = false }: MapSizeSlidersProps) {
 
       {/* Spots slider */}
       <div className="flex items-center gap-2 mb-1">
-        <span className="text-[10px] uppercase tracking-wider text-gray-400 font-medium w-8 shrink-0">
+        <span className="text-[10px] uppercase tracking-wider text-su-muted font-medium w-8 shrink-0">
           Spots
         </span>
         <input
@@ -118,14 +118,14 @@ export function MapSizeSliders({ inline = false }: MapSizeSlidersProps) {
           className="map-size-slider flex-1"
           aria-label="Spot dot size scale"
         />
-        <span className="text-[10px] font-mono text-gray-300 w-7 text-right shrink-0">
+        <span className="text-[10px] font-mono text-su-muted w-7 text-right shrink-0">
           {spotDotScale.toFixed(1)}&times;
         </span>
       </div>
 
       {/* Pins slider */}
       <div className="flex items-center gap-2">
-        <span className="text-[10px] uppercase tracking-wider text-gray-400 font-medium w-8 shrink-0">
+        <span className="text-[10px] uppercase tracking-wider text-su-muted font-medium w-8 shrink-0">
           Pins
         </span>
         <input
@@ -138,7 +138,7 @@ export function MapSizeSliders({ inline = false }: MapSizeSlidersProps) {
           className="map-size-slider flex-1"
           aria-label="Map pin size scale"
         />
-        <span className="text-[10px] font-mono text-gray-300 w-7 text-right shrink-0">
+        <span className="text-[10px] font-mono text-su-muted w-7 text-right shrink-0">
           {mapPinScale.toFixed(1)}&times;
         </span>
       </div>

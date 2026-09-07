@@ -53,10 +53,10 @@ export function LayerLegend({ className = "" }: LayerLegendProps) {
         type="button"
         onClick={() => setCollapsed((prev) => !prev)}
         aria-expanded={!collapsed}
-        className="flex items-center gap-1.5 text-gray-500 font-medium"
+        className="flex items-center gap-1.5 text-su-muted font-medium"
       >
         <span>LEGEND</span>
-        <span className="text-gray-400 text-[10px]">
+        <span className="text-su-muted text-[10px]">
           {specs.length} layer{specs.length === 1 ? "" : "s"}
         </span>
         {collapsed ? (
@@ -72,20 +72,20 @@ export function LayerLegend({ className = "" }: LayerLegendProps) {
               key={spec.key}
               className="flex flex-wrap items-center gap-x-2 gap-y-1"
             >
-              <span className="text-gray-500 font-medium">{spec.title}:</span>
+              <span className="text-su-muted font-medium">{spec.title}:</span>
               {spec.entries.map((entry) => (
                 <div key={entry.label} className="flex items-center gap-1">
                   <div
                     className="h-2.5 w-2.5 rounded-full"
                     style={{ backgroundColor: entry.color }}
                   />
-                  <span className="text-[10px] text-gray-400">
+                  <span className="text-[10px] text-su-muted">
                     {entry.label}
                   </span>
                 </div>
               ))}
               {spec.note && (
-                <span className="text-[10px] italic text-gray-500">
+                <span className="text-[10px] italic text-su-muted">
                   {spec.note}
                 </span>
               )}

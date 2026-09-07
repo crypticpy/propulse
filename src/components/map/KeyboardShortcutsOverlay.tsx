@@ -101,7 +101,7 @@ export function KeyboardShortcutsOverlay({
     >
       {/* Backdrop */}
       <div
-        className="absolute inset-0 bg-black/70 backdrop-blur-sm"
+        className="absolute inset-0 bg-su-panel/70 backdrop-blur-sm"
         onClick={onClose}
         aria-hidden="true"
       />
@@ -110,7 +110,7 @@ export function KeyboardShortcutsOverlay({
       <Card
         className="
           relative z-10 w-full max-w-lg p-6
-          !bg-black/85 !backdrop-blur-md border border-white/15
+          !bg-su-panel/80 !backdrop-blur-md border border-su-line/50
           shadow-2xl
         "
         animate
@@ -137,13 +137,13 @@ export function KeyboardShortcutsOverlay({
               </svg>
               Keyboard Shortcuts
             </h2>
-            <p className="mt-1 text-sm text-gray-400">
+            <p className="mt-1 text-sm text-su-muted">
               Quick access to PropSphere features
             </p>
           </div>
           <button
             onClick={onClose}
-            className="p-2 text-gray-400 hover:text-white hover:bg-white/10 rounded-lg transition-colors"
+            className="p-2 text-su-muted hover:text-su-text hover:bg-su-line/20 rounded-lg transition-colors"
             aria-label="Close shortcuts help"
           >
             <svg
@@ -182,10 +182,10 @@ export function KeyboardShortcutsOverlay({
                   {shortcuts.map((shortcut) => (
                     <div
                       key={`${shortcut.category}-${shortcut.action}`}
-                      className="flex items-center justify-between py-1.5 px-2 rounded hover:bg-white/5 transition-colors"
+                      className="flex items-center justify-between py-1.5 px-2 rounded hover:bg-su-line/10 transition-colors"
                     >
                       {/* Description */}
-                      <span className="text-sm text-gray-300">
+                      <span className="text-sm text-su-muted">
                         {shortcut.description}
                       </span>
 
@@ -195,8 +195,8 @@ export function KeyboardShortcutsOverlay({
                           inline-flex items-center justify-center
                           min-w-[28px] px-2 py-1
                           text-xs font-mono font-medium
-                          bg-white/10 text-cosmic-cyan
-                          border border-white/20 rounded
+                          bg-su-line/20 text-cosmic-cyan
+                          border border-su-line/50 rounded
                         "
                       >
                         {formatShortcut(shortcut)}
@@ -210,14 +210,14 @@ export function KeyboardShortcutsOverlay({
         </div>
 
         {/* Footer */}
-        <div className="mt-6 pt-4 border-t border-white/10 text-center">
-          <p className="text-xs text-gray-500">
+        <div className="mt-6 pt-4 border-t border-su-line/40 text-center">
+          <p className="text-xs text-su-muted">
             Press{" "}
-            <kbd className="px-1.5 py-0.5 text-[10px] font-mono bg-white/10 border border-white/20 rounded">
+            <kbd className="px-1.5 py-0.5 text-[10px] font-mono bg-su-line/20 border border-su-line/50 rounded">
               ?
             </kbd>{" "}
             or{" "}
-            <kbd className="px-1.5 py-0.5 text-[10px] font-mono bg-white/10 border border-white/20 rounded">
+            <kbd className="px-1.5 py-0.5 text-[10px] font-mono bg-su-line/20 border border-su-line/50 rounded">
               F1
             </kbd>{" "}
             to show this help

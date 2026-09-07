@@ -63,7 +63,7 @@ function formatRotateSpeed(seconds: number): string {
 
 // ─── Category Icons (16×16 viewBox) ──────────────────────────────────────────
 
-const iconClass = "w-4 h-4 shrink-0 text-white/50";
+const iconClass = "w-4 h-4 shrink-0 text-su-text/50";
 
 function IconIllumination() {
   return (
@@ -243,14 +243,14 @@ function PillToggle({
         e.stopPropagation();
         if (!disabled) onChange();
       }}
-      className={`relative inline-flex h-4 w-7 shrink-0 rounded-full transition-colors duration-200 focus-visible:ring-2 focus-visible:ring-white/30 focus-visible:ring-offset-0 ${
+      className={`relative inline-flex h-4 w-7 shrink-0 rounded-full transition-colors duration-200 focus-visible:ring-2 focus-visible:ring-su-line/60 focus-visible:ring-offset-0 ${
         disabled ? "cursor-not-allowed opacity-40" : "cursor-pointer"
       } ${
-        checked ? "bg-signal-green" : "bg-white/10"
+        checked ? "bg-signal-green" : "bg-su-line/20"
       }`}
     >
       <span
-        className={`pointer-events-none inline-block h-3 w-3 transform rounded-full bg-white shadow-sm transition-transform duration-200 mt-0.5 ${
+        className={`pointer-events-none inline-block h-3 w-3 transform rounded-full bg-su-text shadow-sm transition-transform duration-200 mt-0.5 ${
           checked ? "translate-x-3.5 ml-0" : "translate-x-0.5"
         }`}
       />
@@ -278,17 +278,17 @@ function CategoryRow({
   return (
     <div
       className={`flex items-center gap-2 px-2.5 py-[7px] cursor-pointer transition-colors duration-100 rounded-md group ${
-        isActive ? "bg-white/[0.08]" : "hover:bg-white/[0.04]"
+        isActive ? "bg-su-line/20" : "hover:bg-su-line/10"
       }`}
       onMouseEnter={onMouseEnter}
     >
       {/* Icon */}
-      <span className={isActive ? "[&_svg]:text-white/80" : ""}>{icon}</span>
+      <span className={isActive ? "[&_svg]:text-su-text/80" : ""}>{icon}</span>
 
       {/* Label */}
       <span
         className={`flex-1 text-[12px] font-medium transition-colors ${
-          isActive ? "text-white" : "text-white/70"
+          isActive ? "text-su-text" : "text-su-text/70"
         }`}
       >
         {label}
@@ -296,7 +296,7 @@ function CategoryRow({
 
       {/* Count badge */}
       {enabledCount > 0 && (
-        <span className="px-1 min-w-[18px] h-[16px] flex items-center justify-center rounded-[4px] bg-white/[0.08] text-[9px] font-semibold tabular-nums text-white/50">
+        <span className="px-1 min-w-[18px] h-[16px] flex items-center justify-center rounded-[4px] bg-su-line/20 text-[9px] font-semibold tabular-nums text-su-text/50">
           {enabledCount}/{totalCount}
         </span>
       )}
@@ -307,8 +307,8 @@ function CategoryRow({
         fill="none"
         className={`w-[6px] h-[10px] shrink-0 transition-all duration-100 ${
           isActive
-            ? "text-white/60 translate-x-0.5"
-            : "text-white/20 group-hover:text-white/40"
+            ? "text-su-text/60 translate-x-0.5"
+            : "text-su-text/30 group-hover:text-su-text/40"
         }`}
       >
         <path
@@ -344,19 +344,19 @@ function ToggleRow({
       aria-disabled={!availability.available}
       className={`flex items-center h-[30px] px-1 rounded transition-colors ${
         availability.available
-          ? "hover:bg-white/[0.06] cursor-pointer"
+          ? "hover:bg-su-line/20 cursor-pointer"
           : "cursor-not-allowed opacity-45"
       }`}
       onClick={availability.available ? item.onToggle : undefined}
     >
       <span
         className={`w-1.5 h-1.5 rounded-full mr-2 shrink-0 transition-colors ${
-          active ? "bg-signal-green" : "bg-white/20"
+          active ? "bg-signal-green" : "bg-su-line/30"
         }`}
       />
       <span
         className={`flex-1 text-[12px] transition-colors ${
-          active ? "text-white" : "text-white/55"
+          active ? "text-su-text" : "text-su-text/50"
         }`}
       >
         {item.label}
@@ -1033,7 +1033,7 @@ export function LayersPopover({ compact = false }: LayersPopoverProps) {
             ? "Showing ionosphere bounces — arcs skip off E/F1/F2 layers by band. Click for flat arcs."
             : "Showing flat arcs on globe surface. Click for ionosphere bounces."
         }
-        className="flex items-center h-[30px] px-1 rounded hover:bg-white/[0.06] transition-colors cursor-pointer"
+        className="flex items-center h-[30px] px-1 rounded hover:bg-su-line/20 transition-colors cursor-pointer"
         onClick={() =>
           updateUIInteraction({
             bandHeightArcs: !(uiPrefs.bandHeightArcs ?? true),
@@ -1042,12 +1042,12 @@ export function LayersPopover({ compact = false }: LayersPopoverProps) {
       >
         <span
           className={`w-1.5 h-1.5 rounded-full mr-2 shrink-0 transition-colors ${
-            (uiPrefs.bandHeightArcs ?? true) ? "bg-signal-green" : "bg-white/20"
+            (uiPrefs.bandHeightArcs ?? true) ? "bg-signal-green" : "bg-su-line/30"
           }`}
         />
         <span
           className={`flex-1 text-[12px] transition-colors ${
-            (uiPrefs.bandHeightArcs ?? true) ? "text-white" : "text-white/55"
+            (uiPrefs.bandHeightArcs ?? true) ? "text-su-text" : "text-su-text/50"
           }`}
         >
           {(uiPrefs.bandHeightArcs ?? true)
@@ -1069,7 +1069,7 @@ export function LayersPopover({ compact = false }: LayersPopoverProps) {
       {labelOptions.gridLabels && (
         <>
           <div className="flex items-center h-[28px] px-1 mt-1">
-            <span className="text-[11px] text-white/50 w-[60px] shrink-0">
+            <span className="text-[11px] text-su-text/50 w-[60px] shrink-0">
               Grid Detail
             </span>
             <input
@@ -1083,7 +1083,7 @@ export function LayersPopover({ compact = false }: LayersPopoverProps) {
               className="layers-slider flex-1 mx-2"
               aria-label="Grid label detail level"
             />
-            <span className="text-[10px] font-mono text-white/40 w-14 text-right shrink-0 tabular-nums">
+            <span className="text-[10px] font-mono text-su-text/40 w-14 text-right shrink-0 tabular-nums">
               {gridLabelDetail === 1
                 ? "Field"
                 : gridLabelDetail === 2
@@ -1095,11 +1095,11 @@ export function LayersPopover({ compact = false }: LayersPopoverProps) {
       )}
 
       {/* Separator */}
-      <div className="border-t border-white/[0.06] my-1.5" />
+      <div className="border-t border-su-line/20 my-1.5" />
 
       {/* Spot Size */}
       <div className="flex items-center h-[28px] px-1">
-        <span className="text-[11px] text-white/50 w-[60px] shrink-0">
+        <span className="text-[11px] text-su-text/50 w-[60px] shrink-0">
           Spot Size
         </span>
         <input
@@ -1113,14 +1113,14 @@ export function LayersPopover({ compact = false }: LayersPopoverProps) {
           className="layers-slider flex-1 mx-2"
           aria-label="Spot dot size scale"
         />
-        <span className="text-[10px] font-mono text-white/40 w-7 text-right shrink-0 tabular-nums">
+        <span className="text-[10px] font-mono text-su-text/40 w-7 text-right shrink-0 tabular-nums">
           {spotDotScale.toFixed(1)}&times;
         </span>
       </div>
 
       {/* Pin Size */}
       <div className="flex items-center h-[28px] px-1">
-        <span className="text-[11px] text-white/50 w-[60px] shrink-0">
+        <span className="text-[11px] text-su-text/50 w-[60px] shrink-0">
           Pin Size
         </span>
         <input
@@ -1134,14 +1134,14 @@ export function LayersPopover({ compact = false }: LayersPopoverProps) {
           className="layers-slider flex-1 mx-2"
           aria-label="Map pin size scale"
         />
-        <span className="text-[10px] font-mono text-white/40 w-7 text-right shrink-0 tabular-nums">
+        <span className="text-[10px] font-mono text-su-text/40 w-7 text-right shrink-0 tabular-nums">
           {mapPinScale.toFixed(1)}&times;
         </span>
       </div>
 
       {/* Label Size */}
       <div className="flex items-center h-[28px] px-1">
-        <span className="text-[11px] text-white/50 w-[60px] shrink-0">
+        <span className="text-[11px] text-su-text/50 w-[60px] shrink-0">
           Labels
         </span>
         <input
@@ -1155,14 +1155,14 @@ export function LayersPopover({ compact = false }: LayersPopoverProps) {
           className="layers-slider flex-1 mx-2"
           aria-label="Spot label size scale"
         />
-        <span className="text-[10px] font-mono text-white/40 w-7 text-right shrink-0 tabular-nums">
+        <span className="text-[10px] font-mono text-su-text/40 w-7 text-right shrink-0 tabular-nums">
           {labelScale.toFixed(1)}&times;
         </span>
       </div>
 
       {/* Arc Density */}
       <div className="flex items-center h-[28px] px-1">
-        <span className="text-[11px] text-white/50 w-[60px] shrink-0">
+        <span className="text-[11px] text-su-text/50 w-[60px] shrink-0">
           Density
         </span>
         <input
@@ -1176,7 +1176,7 @@ export function LayersPopover({ compact = false }: LayersPopoverProps) {
           className="layers-slider flex-1 mx-2"
           aria-label="Maximum number of spots to fetch and display"
         />
-        <span className="text-[10px] font-mono text-white/40 w-7 text-right shrink-0 tabular-nums">
+        <span className="text-[10px] font-mono text-su-text/40 w-7 text-right shrink-0 tabular-nums">
           {displayDensity}
         </span>
       </div>
@@ -1188,9 +1188,9 @@ export function LayersPopover({ compact = false }: LayersPopoverProps) {
     if (!isGlobeView || !autoRotate) return null;
     return (
       <>
-        <div className="border-t border-white/[0.06] my-1.5" />
+        <div className="border-t border-su-line/20 my-1.5" />
         <div className="flex items-center h-[28px] px-1">
-          <span className="text-[11px] text-white/50 w-[44px] shrink-0">
+          <span className="text-[11px] text-su-text/50 w-[44px] shrink-0">
             Speed
           </span>
           <input
@@ -1207,7 +1207,7 @@ export function LayersPopover({ compact = false }: LayersPopoverProps) {
             className="layers-slider flex-1 mx-2"
             aria-label="Auto-rotate speed"
           />
-          <span className="text-[10px] font-mono text-white/40 w-14 text-right shrink-0 tabular-nums">
+          <span className="text-[10px] font-mono text-su-text/40 w-14 text-right shrink-0 tabular-nums">
             {formatRotateSpeed(autoRotateSpeed)}
           </span>
         </div>
@@ -1233,10 +1233,10 @@ export function LayersPopover({ compact = false }: LayersPopoverProps) {
             }, 350);
           }
         }}
-        className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium transition-colors focus-visible:ring-2 focus-visible:ring-white/30 focus-visible:ring-offset-0 ${
+        className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium transition-colors focus-visible:ring-2 focus-visible:ring-su-line/60 focus-visible:ring-offset-0 ${
           open
-            ? "bg-white/15 text-white"
-            : "text-gray-300 hover:text-white hover:bg-white/10"
+            ? "bg-su-line/30 text-su-text"
+            : "text-su-muted hover:text-su-text hover:bg-su-line/20"
         }`}
         aria-haspopup="true"
         aria-expanded={open}
@@ -1258,7 +1258,7 @@ export function LayersPopover({ compact = false }: LayersPopoverProps) {
           <path d="M1.5 9.5L7 12.5L12.5 9.5" />
         </svg>
         {!compact && "Layers"}
-        <span className="ml-0.5 px-1.5 py-0.5 rounded-full bg-white/10 text-[10px] leading-none font-medium text-white/70">
+        <span className="ml-0.5 px-1.5 py-0.5 rounded-full bg-su-line/20 text-[10px] leading-none font-medium text-su-text/70">
           {activeCount}
         </span>
       </button>
@@ -1276,13 +1276,13 @@ export function LayersPopover({ compact = false }: LayersPopoverProps) {
             role="group"
             aria-label="Map layers"
           >
-            <div className="flex bg-[#0c0e18]/[0.96] backdrop-blur-xl border border-white/[0.08] rounded-xl shadow-2xl shadow-black/60 overflow-hidden">
+            <div className="flex bg-[#0c0e18]/[0.96] backdrop-blur-xl border border-su-line/20 rounded-xl shadow-2xl shadow-black/60 overflow-hidden">
               {/* ── Category column ── */}
-              <div className="w-[168px] py-1.5 border-r border-white/[0.06]">
+              <div className="w-[168px] py-1.5 border-r border-su-line/20">
                 {categories.map((cat, i) => (
                   <div key={cat.id}>
                     {i === categories.length - 1 && (
-                      <div className="border-t border-white/[0.05] my-1 mx-2" />
+                      <div className="border-t border-su-line/20 my-1 mx-2" />
                     )}
                     <CategoryRow
                       icon={cat.icon}
@@ -1296,7 +1296,7 @@ export function LayersPopover({ compact = false }: LayersPopoverProps) {
                 ))}
 
                 {/* Separator before Display */}
-                <div className="border-t border-white/[0.05] my-1 mx-2" />
+                <div className="border-t border-su-line/20 my-1 mx-2" />
                 <CategoryRow
                   icon={<IconDisplay />}
                   label="Display"
@@ -1310,7 +1310,7 @@ export function LayersPopover({ compact = false }: LayersPopoverProps) {
               {/* ── Submenu panel ── */}
               <div className="w-[232px] min-h-[180px] max-h-[70vh] overflow-y-auto py-2 px-2.5">
                 {/* Category header */}
-                <div className="text-[10px] uppercase tracking-wider text-white/30 font-semibold mb-1.5 px-1">
+                <div className="text-[10px] uppercase tracking-wider text-su-text/30 font-semibold mb-1.5 px-1">
                   {activeCategory === displayCategoryId
                     ? "Display"
                     : (activeCategoryDef?.name ?? "")}

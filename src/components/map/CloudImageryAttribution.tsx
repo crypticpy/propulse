@@ -22,18 +22,18 @@ export function CloudImageryAttribution({
 
   return (
     <div
-      className={`rounded bg-black/55 px-1.5 py-0.5 text-[9px] leading-tight backdrop-blur-sm select-none ${
-        degraded ? "text-amber-400" : "text-white/55"
+      className={`rounded bg-su-panel/50 px-1.5 py-0.5 text-[9px] leading-tight backdrop-blur-sm select-none ${
+        degraded ? "text-amber-400" : "text-su-text/50"
       }`}
       title="GOES-East infrared cloud imagery. NASA GIBS resolves the latest observation; PropSphere checks for a newer slot every 10 minutes."
     >
       <span>Live clouds · {statusLabel}</span>
-      <span className="mx-1 text-white/25">·</span>
+      <span className="mx-1 text-su-text/30">·</span>
       <a
         href="https://www.earthdata.nasa.gov/data/tools/gibs"
         target="_blank"
         rel="noreferrer"
-        className="pointer-events-auto underline decoration-white/20 underline-offset-2 hover:text-white"
+        className="pointer-events-auto underline decoration-su-line/40 underline-offset-2 hover:text-su-text"
       >
         NASA GIBS
       </a>

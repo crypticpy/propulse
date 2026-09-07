@@ -197,14 +197,14 @@ export function HamClockView({
         Math.abs(display.homeRequest.lon) +
           display.homeRequest.longitudeSpan / 2 >
           180 && (
-          <div className="absolute top-2 left-2 z-10 rounded bg-void-black/90 p-2 text-xs text-gray-200">
+          <div className="absolute top-2 left-2 z-10 rounded bg-void-black/90 p-2 text-xs text-su-text">
             Dateline region · world overview. Use 3D for a centered regional
             view.
           </div>
         )}
       <Suspense
         fallback={
-          <div className="flex h-full items-center justify-center font-mono text-xs uppercase tracking-widest text-white/35">
+          <div className="flex h-full items-center justify-center font-mono text-xs uppercase tracking-widest text-su-text/30">
             Loading projection…
           </div>
         }
@@ -232,7 +232,7 @@ export function HamClockView({
 
       {(hamclockMode === "traffic" || hamclockMode === "bands") &&
         mapContent !== "activity" && (
-          <div className="absolute bottom-3 left-3 rounded bg-void-black/85 px-2 py-1 text-xs text-gray-200 pointer-events-none">
+          <div className="absolute bottom-3 left-3 rounded bg-void-black/85 px-2 py-1 text-xs text-su-text pointer-events-none">
             ○ Logged contacts · UTC{" "}
             {mapContent === "both" && " · • Live activity"}
           </div>
@@ -261,7 +261,7 @@ export function HamClockView({
       <div
         data-hamclock-root
         data-hamclock-theme={display.theme}
-        className="fixed inset-0 z-[200] bg-void-black text-white select-none"
+        className="fixed inset-0 z-[200] bg-void-black text-su-text select-none"
       >
         <HamClockWall onOpenSettings={() => setSettingsOpen(true)}>
           {mapStage}

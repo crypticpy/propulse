@@ -40,7 +40,20 @@ const SCOPE = [
   "src/components/solar/SolarAnimationPlayer.tsx",
   "src/components/solar/SolarImageDetail.tsx",
   "src/components/solar/modals/BandConditionsModal.tsx",
+  // DS-12 sweep, area 1: PropSphere map surfaces.
+  "src/components/map",
 ];
+
+/**
+ * Repo-relative path prefixes carved out of SCOPE. HamClock is a standalone
+ * skin with its own palette (src/styles/hamclock-*.css) and is deliberately
+ * not on the station tokens.
+ */
+const EXCLUDE = ["src/components/map/hamclock/", "src/styles/hamclock-"];
+
+/** Matches both a file (`…/hamclock-classic.css`) and a directory (`…/hamclock`). */
+const isExcluded = (path) =>
+  EXCLUDE.some((prefix) => `${path}/`.startsWith(prefix));
 
 const CODE_EXTENSIONS = new Set([".ts", ".tsx", ".js", ".jsx"]);
 const STYLE_EXTENSIONS = new Set([".css"]);
@@ -88,6 +101,7 @@ function walk(dir, files = []) {
   for (const entry of readdirSync(dir)) {
     if (entry === "node_modules" || entry.startsWith(".")) continue;
     const full = join(dir, entry);
+    if (isExcluded(full)) continue;
     if (statSync(full).isDirectory()) {
       walk(full, files);
       continue;
@@ -103,7 +117,11 @@ const violations = [];
 for (const scope of SCOPE) {
   let files;
   try {
-    files = statSync(scope).isDirectory() ? walk(scope) : [scope];
+    files = statSync(scope).isDirectory()
+      ? walk(scope)
+      : isExcluded(scope)
+        ? []
+        : [scope];
   } catch {
     console.error(`\n[design-tokens] SCOPE entry not found: ${scope}`);
     process.exit(1);

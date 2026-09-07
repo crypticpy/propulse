@@ -194,7 +194,7 @@ export function CustomTLEDialog({ isOpen, onClose }: CustomTLEDialogProps) {
 
   const modalContent = (
     <div
-      className="fixed inset-0 z-[300] flex items-center justify-center bg-black/50 backdrop-blur-sm"
+      className="fixed inset-0 z-[300] flex items-center justify-center bg-su-panel/50 backdrop-blur-sm"
       onClick={handleBackdropClick}
       role="dialog"
       aria-modal="true"
@@ -202,7 +202,7 @@ export function CustomTLEDialog({ isOpen, onClose }: CustomTLEDialogProps) {
     >
       <div
         ref={modalRef}
-        className="bg-zinc-900 border border-zinc-700 rounded-2xl shadow-2xl overflow-hidden"
+        className="bg-su-canvas border border-su-line/40 rounded-2xl shadow-2xl overflow-hidden"
         style={{
           maxWidth: 520,
           maxHeight: "85vh",
@@ -211,7 +211,7 @@ export function CustomTLEDialog({ isOpen, onClose }: CustomTLEDialogProps) {
       >
         <div className="overflow-y-auto" style={{ maxHeight: "85vh" }}>
           {/* Header */}
-          <div className="px-5 pt-4 pb-3 flex items-center justify-between border-b border-zinc-800">
+          <div className="px-5 pt-4 pb-3 flex items-center justify-between border-b border-su-line/40">
             <div className="flex items-center gap-2">
               <svg
                 className="w-5 h-5 text-cyan-400"
@@ -226,7 +226,7 @@ export function CustomTLEDialog({ isOpen, onClose }: CustomTLEDialogProps) {
                   d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"
                 />
               </svg>
-              <h2 className="text-white font-bold text-base">
+              <h2 className="text-su-text font-bold text-base">
                 Import Custom TLEs
               </h2>
             </div>
@@ -234,11 +234,11 @@ export function CustomTLEDialog({ isOpen, onClose }: CustomTLEDialogProps) {
             {/* Close button */}
             <button
               onClick={onClose}
-              className="p-1 hover:bg-white/10 rounded-lg transition-colors"
+              className="p-1 hover:bg-su-line/20 rounded-lg transition-colors"
               aria-label="Close dialog"
             >
               <svg
-                className="w-5 h-5 text-gray-400"
+                className="w-5 h-5 text-su-muted"
                 fill="none"
                 viewBox="0 0 24 24"
                 stroke="currentColor"
@@ -256,7 +256,7 @@ export function CustomTLEDialog({ isOpen, onClose }: CustomTLEDialogProps) {
           {/* Body */}
           <div className="px-5 py-4 space-y-4">
             {/* Instructions */}
-            <p className="text-xs text-gray-400 leading-relaxed">
+            <p className="text-xs text-su-muted leading-relaxed">
               Paste TLE data in standard 3-line format. Each satellite entry
               should have a name line followed by TLE lines 1 and 2. Checksums
               are validated before import.
@@ -266,7 +266,7 @@ export function CustomTLEDialog({ isOpen, onClose }: CustomTLEDialogProps) {
             <div>
               <label
                 htmlFor="tle-input"
-                className="block text-[10px] text-gray-500 uppercase tracking-wider mb-1 font-semibold"
+                className="block text-[10px] text-su-muted uppercase tracking-wider mb-1 font-semibold"
               >
                 TLE Data
               </label>
@@ -276,7 +276,7 @@ export function CustomTLEDialog({ isOpen, onClose }: CustomTLEDialogProps) {
                 value={tleText}
                 onChange={(e) => setTleText(e.target.value)}
                 placeholder={`ISS (ZARYA)\n1 25544U 98067A   24020.54842296  .00011842  00000+0  21418-3 0  9994\n2 25544  51.6412 290.4332 0004460  43.4590  51.3729 15.49594862437036`}
-                className="w-full h-36 px-3 py-2 bg-void-black border border-gray-700 rounded-lg text-xs font-mono text-gray-200 placeholder-gray-600 focus:border-cyan-400/50 focus:outline-none focus:ring-1 focus:ring-cyan-400/30 resize-none scrollbar-hide"
+                className="w-full h-36 px-3 py-2 bg-void-black border border-su-line/40 rounded-lg text-xs font-mono text-su-text placeholder:text-su-muted/80 focus:border-cyan-400/50 focus:outline-none focus:ring-1 focus:ring-cyan-400/30 resize-none scrollbar-hide"
                 spellCheck={false}
               />
             </div>
@@ -285,10 +285,10 @@ export function CustomTLEDialog({ isOpen, onClose }: CustomTLEDialogProps) {
             <div>
               <label
                 htmlFor="tle-source"
-                className="block text-[10px] text-gray-500 uppercase tracking-wider mb-1 font-semibold"
+                className="block text-[10px] text-su-muted uppercase tracking-wider mb-1 font-semibold"
               >
                 Source Label{" "}
-                <span className="text-gray-600 normal-case">(optional)</span>
+                <span className="text-su-muted normal-case">(optional)</span>
               </label>
               <input
                 id="tle-source"
@@ -296,14 +296,14 @@ export function CustomTLEDialog({ isOpen, onClose }: CustomTLEDialogProps) {
                 value={source}
                 onChange={(e) => setSource(e.target.value)}
                 placeholder="e.g. New launch, Classified, AMSAT"
-                className="w-full px-3 py-1.5 bg-void-black border border-gray-700 rounded-lg text-xs text-gray-200 placeholder-gray-600 focus:border-cyan-400/50 focus:outline-none focus:ring-1 focus:ring-cyan-400/30"
+                className="w-full px-3 py-1.5 bg-void-black border border-su-line/40 rounded-lg text-xs text-su-text placeholder:text-su-muted/80 focus:border-cyan-400/50 focus:outline-none focus:ring-1 focus:ring-cyan-400/30"
               />
             </div>
 
             {/* Preview */}
             {preview.length > 0 && (
-              <div className="bg-white/[0.03] border border-gray-700/50 rounded-lg px-3 py-2">
-                <div className="text-[10px] text-gray-500 uppercase tracking-wider mb-1.5 font-semibold">
+              <div className="bg-su-line/10 border border-su-line/40 rounded-lg px-3 py-2">
+                <div className="text-[10px] text-su-muted uppercase tracking-wider mb-1.5 font-semibold">
                   Preview ({preview.length} satellite
                   {preview.length !== 1 ? "s" : ""} detected)
                 </div>
@@ -313,10 +313,10 @@ export function CustomTLEDialog({ isOpen, onClose }: CustomTLEDialogProps) {
                       key={idx}
                       className="flex items-center justify-between text-xs"
                     >
-                      <span className="text-gray-300 font-mono truncate">
+                      <span className="text-su-muted font-mono truncate">
                         {sat.name}
                       </span>
-                      <span className="text-gray-500 font-mono text-[10px] ml-2 flex-shrink-0">
+                      <span className="text-su-muted font-mono text-[10px] ml-2 flex-shrink-0">
                         #{sat.noradId}
                       </span>
                     </div>
@@ -344,7 +344,7 @@ export function CustomTLEDialog({ isOpen, onClose }: CustomTLEDialogProps) {
             {/* File import */}
             <button
               onClick={handleFileImport}
-              className="flex items-center gap-1.5 px-3 py-1.5 text-xs text-gray-400 hover:text-white bg-white/5 hover:bg-white/10 rounded-lg transition-colors"
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs text-su-muted hover:text-su-text bg-su-line/10 hover:bg-su-line/20 rounded-lg transition-colors"
             >
               <svg
                 className="w-3.5 h-3.5"
@@ -374,14 +374,14 @@ export function CustomTLEDialog({ isOpen, onClose }: CustomTLEDialogProps) {
             <div className="flex items-center gap-2">
               <button
                 onClick={onClose}
-                className="px-3 py-1.5 text-xs text-gray-400 hover:text-white bg-white/5 hover:bg-white/10 rounded-lg transition-colors"
+                className="px-3 py-1.5 text-xs text-su-muted hover:text-su-text bg-su-line/10 hover:bg-su-line/20 rounded-lg transition-colors"
               >
                 Cancel
               </button>
               <button
                 onClick={handleImport}
                 disabled={tleText.trim().length === 0}
-                className="px-4 py-1.5 text-xs font-medium text-white bg-cyan-500/80 hover:bg-cyan-500 disabled:bg-gray-700 disabled:text-gray-500 rounded-lg transition-colors"
+                className="px-4 py-1.5 text-xs font-medium text-su-text bg-cyan-500/80 hover:bg-cyan-500 disabled:bg-su-input disabled:text-su-muted rounded-lg transition-colors"
               >
                 Import
               </button>

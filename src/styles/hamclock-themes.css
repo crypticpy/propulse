@@ -6,8 +6,9 @@
  * the HamClock root. `pulse` is the default and is also declared on `:root`
  * so tokens still resolve for content portalled outside the HamClock subtree.
  *
- * State colours are derived from the shared `--color-*-rgb` tokens in
- * design-tokens.css, so the colour-blind palettes keep composing with themes.
+ * State colours read the shared `--color-*-rgb` tokens (see the note on
+ * `[data-hamclock-theme]` below: those tokens are never declared, so the
+ * wall does not compose with colour-blind mode today).
  */
 
 :root,
@@ -121,12 +122,13 @@
  * triples, so caution-amber and alert-red inside the wall keep their pre-DS-09
  * behaviour exactly.
  *
- * Those --hc-* triples read --color-*-rgb, which never ships: design-tokens.css
- * (the only file that declares the per-mode values, including its
- * [data-color-blind] blocks) is not imported, so they resolve to their literal
- * fallbacks. HamClock is therefore not colour-blind-reactive today — it was not
- * before DS-09 either, and this pin does not change that. Fixing it means
- * shipping those declarations, which is tracked in #533. */
+ * Those --hc-* triples read --color-*-rgb, which never ships: the only file
+ * that declared the per-mode values, including its [data-color-blind] blocks,
+ * was src/styles/design-tokens.css, which was never imported and was removed
+ * as dead code in #533. So they resolve to their literal fallbacks. HamClock
+ * is therefore not colour-blind-reactive today — it was not before DS-09
+ * either, and this pin does not change that. Fixing it means declaring those
+ * variables somewhere that is actually imported. */
 [data-hamclock-theme] {
   --su-canvas: #141827;
   --su-canvas-rgb: 20 24 39;

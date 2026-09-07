@@ -153,7 +153,9 @@ export const viewPresentationSchema = z.object({
   theme: z.object({
     id: z.enum(["dark", "light", "high-contrast", "midnight"]), accentId: contractIdSchema,
     customPrimary: z.string().regex(/^#[0-9a-fA-F]{6}$/).nullable(),
-    customSecondary: z.string().regex(/^#[0-9a-fA-F]{6}$/).nullable(),
+    // Retired with the secondary accent (DS-12, #493); still accepted so views
+    // saved before then keep parsing under the strict schema.
+    customSecondary: z.string().regex(/^#[0-9a-fA-F]{6}$/).nullable().optional(),
   }).strict(),
   labels: z.object({
     borders: z.boolean(), stateBorders: z.boolean(), countryNames: z.boolean(), cities: z.boolean(),

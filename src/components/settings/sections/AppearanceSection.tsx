@@ -43,7 +43,6 @@ export function AppearanceSection() {
   const tickerPositionId = useId();
   const tickerCoverageId = useId();
   const customPrimary = useThemeStore((s) => s.customPrimary);
-  const customSecondary = useThemeStore((s) => s.customSecondary);
   const setCustomColors = useThemeStore((s) => s.setCustomColors);
   const setAccent = useThemeStore((s) => s.setAccent);
   const themeId = useThemeStore((s) => s.themeId);
@@ -56,47 +55,27 @@ export function AppearanceSection() {
   const globeHiResTextures = useSettingsStore((s) => s.globeHiResTextures);
   const updatePreferences = useSettingsStore((s) => s.updatePreferences);
 
-  // Local form state for hex inputs
+  // Local form state for hex input
   const [primaryHex, setPrimaryHex] = useState(customPrimary ?? "#ff6b35");
-  const [secondaryHex, setSecondaryHex] = useState(
-    customSecondary ?? "#00ff88",
-  );
   const [primaryError, setPrimaryError] = useState<string | null>(null);
-  const [secondaryError, setSecondaryError] = useState<string | null>(null);
 
   // Sync local state when store changes externally (e.g., settings backup import)
   useEffect(() => {
     setPrimaryHex(customPrimary ?? "#ff6b35");
-    setSecondaryHex(customSecondary ?? "#00ff88");
-  }, [customPrimary, customSecondary]);
+  }, [customPrimary]);
 
   const handleApply = useCallback(() => {
-    let hasError = false;
-
     if (!isValidHex(primaryHex)) {
       setPrimaryError("Invalid hex (#RGB or #RRGGBB)");
-      hasError = true;
-    } else {
-      setPrimaryError(null);
+      return;
     }
-
-    if (!isValidHex(secondaryHex)) {
-      setSecondaryError("Invalid hex (#RGB or #RRGGBB)");
-      hasError = true;
-    } else {
-      setSecondaryError(null);
-    }
-
-    if (hasError) return;
-
-    setCustomColors(normalizeHex(primaryHex), normalizeHex(secondaryHex));
-  }, [primaryHex, secondaryHex, setCustomColors]);
+    setPrimaryError(null);
+    setCustomColors(normalizeHex(primaryHex));
+  }, [primaryHex, setCustomColors]);
 
   const handleReset = useCallback(() => {
     setPrimaryHex("#ff6b35");
-    setSecondaryHex("#00ff88");
     setPrimaryError(null);
-    setSecondaryError(null);
     // Reset to the default "plasma" preset
     setAccent("plasma");
   }, [setAccent]);
@@ -152,41 +131,6 @@ export function AppearanceSection() {
             </div>
             {primaryError && (
               <p className="text-xs text-alert-red mt-1">{primaryError}</p>
-            )}
-          </div>
-
-          {/* Background tint (secondary) */}
-          <div>
-            <label
-              htmlFor="custom-secondary-hex"
-              className="block text-xs font-medium text-gray-400 mb-1"
-            >
-              Secondary Color
-            </label>
-            <div className="flex items-center gap-2">
-              <span
-                className="w-5 h-5 rounded-full border border-white/20 shrink-0"
-                style={{
-                  backgroundColor: isValidHex(secondaryHex)
-                    ? normalizeHex(secondaryHex)
-                    : "#333",
-                }}
-              />
-              <input
-                id="custom-secondary-hex"
-                type="text"
-                value={secondaryHex}
-                onChange={(e) => {
-                  setSecondaryHex(e.target.value);
-                  setSecondaryError(null);
-                }}
-                placeholder="#00ff88"
-                maxLength={7}
-                className="w-28 px-2 py-1.5 text-sm bg-void-black border border-white/10 rounded-lg text-gray-200 placeholder-gray-600 focus:border-plasma-orange/50 focus:outline-none"
-              />
-            </div>
-            {secondaryError && (
-              <p className="text-xs text-alert-red mt-1">{secondaryError}</p>
             )}
           </div>
 

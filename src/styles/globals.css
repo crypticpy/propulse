@@ -9,8 +9,6 @@
 :root {
   --theme-accent-primary: #ff6b35;
   --theme-accent-primary-rgb: 255 107 53;
-  --theme-accent-secondary: #00ff88;
-  --theme-accent-secondary-rgb: 0 255 136;
   --theme-bg-primary: #0a0a1a;
   --theme-bg-secondary: #1a1a2e;
   --theme-bg-panel: rgba(20, 28, 46, 0.95);
@@ -61,6 +59,19 @@
   --su-success-rgb: 139 219 176;
   --su-warning-rgb: 245 207 121;
   --su-danger-rgb: 253 164 175;
+}
+
+/* Settings → Text Size. useTextScale() writes data-text-scale on <html>; these
+ * were declared in the never-imported design-tokens.css until DS-12, so the
+ * control did nothing. Everything rem-based follows the root size. */
+:root[data-text-scale="sm"] {
+  font-size: 14.4px; /* 16 × 0.9 */
+}
+:root[data-text-scale="lg"] {
+  font-size: 18.4px; /* 16 × 1.15 */
+}
+:root[data-text-scale="xl"] {
+  font-size: 22px; /* 16 × 1.375 */
 }
 
 /* Global styles */

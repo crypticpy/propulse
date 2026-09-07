@@ -19,7 +19,6 @@ export interface ThemeColors {
   textPrimary: string;
   textSecondary: string;
   accentPrimary: string;
-  accentSecondary: string;
   border: string;
   glow: string;
 }
@@ -38,7 +37,14 @@ export interface AccentColor {
   id: string;
   name: string;
   primary: string;
-  secondary: string;
+  /**
+   * Only rendered by the accent-preset swatch (`AppearanceSettings.tsx`'s
+   * dual-colour circle). The custom-hex accent built from `customPrimary`
+   * (see `themeStore.ts`) has no secondary, so this is optional rather than
+   * a second custom colour input — that control was removed in #533 because
+   * the `--theme-accent-secondary` CSS var it wrote had no consumer.
+   */
+  secondary?: string;
 }
 
 /**
@@ -48,14 +54,9 @@ export interface AccentColor {
  * (`AppearanceSection.tsx`) renders `theme.colors.bgPrimary`, so a hand-written
  * hex here would preview a colour other than the one selecting it applies.
  * `accentPrimary` is the per-theme default accent (the fallback when no accent
- * is passed); `accentSecondary` has no rendered consumer left — see the note on
- * `--theme-accent-secondary` below.
+ * is passed).
  */
-function paletteColors(
-  id: ThemeId,
-  accentPrimary: string,
-  accentSecondary: string,
-): ThemeColors {
+function paletteColors(id: ThemeId, accentPrimary: string): ThemeColors {
   const palette = stationPalettes[id];
   return {
     bgPrimary: palette.canvas,
@@ -64,7 +65,6 @@ function paletteColors(
     textPrimary: palette.text,
     textSecondary: palette.muted,
     accentPrimary,
-    accentSecondary,
     border: palette.line,
     glow: palette.info,
   };
@@ -76,28 +76,28 @@ export const THEMES: Theme[] = [
     name: "Dark",
     description: "Default dark theme with vibrant accents",
     isDark: true,
-    colors: paletteColors("dark", "#ff6b35", "#00ff88"),
+    colors: paletteColors("dark", "#ff6b35"),
   },
   {
     id: "light",
     name: "Light",
     description: "Light theme for daytime use",
     isDark: false,
-    colors: paletteColors("light", "#ea580c", "#0891b2"),
+    colors: paletteColors("light", "#ea580c"),
   },
   {
     id: "high-contrast",
     name: "High Contrast",
     description: "Maximum readability with strong contrast",
     isDark: true,
-    colors: paletteColors("high-contrast", "#ffaa00", "#00ffff"),
+    colors: paletteColors("high-contrast", "#ffaa00"),
   },
   {
     id: "midnight",
     name: "Midnight",
     description: "Extra dark with muted colors",
     isDark: true,
-    colors: paletteColors("midnight", "#c084fc", "#22d3ee"),
+    colors: paletteColors("midnight", "#c084fc"),
   },
 ];
 
@@ -164,12 +164,7 @@ export function applyThemeToDocument(
   const accentPrimary = /^#[0-9a-f]{6}$/i.test(requestedAccent)
     ? requestedAccent
     : DEFAULT_ACCENT_HEX;
-  // No station role maps to a "secondary" accent, so the legacy
-  // --theme-accent-secondary var (Settings' "Secondary Color" control, and
-  // anything still reading it) keeps the chosen accent's own secondary and
-  // falls back to the palette's info role rather than a hard-coded hex.
   const palette = stationPalettes[theme.id];
-  const accentSecondary = accent?.secondary || palette.info;
 
   // Legacy --theme-* vars, derived from the same station palette/accent as
   // the --su-* tokens below so the two systems agree instead of drifting.
@@ -179,7 +174,6 @@ export function applyThemeToDocument(
   root.style.setProperty("--theme-text-primary", palette.text);
   root.style.setProperty("--theme-text-secondary", palette.muted);
   root.style.setProperty("--theme-accent-primary", accentPrimary);
-  root.style.setProperty("--theme-accent-secondary", accentSecondary);
   root.style.setProperty("--theme-border", "rgb(var(--su-line-rgb) / 0.4)");
   root.style.setProperty("--theme-glow", "rgb(var(--su-accent-rgb) / 0.3)");
 
@@ -187,10 +181,6 @@ export function applyThemeToDocument(
   root.style.setProperty(
     "--theme-accent-primary-rgb",
     hexToChannels(accentPrimary),
-  );
-  root.style.setProperty(
-    "--theme-accent-secondary-rgb",
-    hexToChannels(accentSecondary),
   );
 
   // Station design tokens (--su-*) on the document root, so `su-` Tailwind

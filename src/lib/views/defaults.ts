@@ -52,7 +52,7 @@ export function createViewConfiguration(family: ViewFamily = "pro"): ViewConfigu
       textScale: wall ? "lg" : "md", smartScaling: true,
       forecast: { bandMode: "common", customBands: ["80m", "40m", "30m", "20m", "17m", "15m", "12m", "10m"], showSnrValues: false, detailedFooter: true, hoursToShow: 13 },
       ticker: { position: "bottom", coverageArea: "regional" },
-      theme: { id: "dark", accentId: "plasma", customPrimary: null, customSecondary: null },
+      theme: { id: "dark", accentId: "plasma", customPrimary: null },
       labels: {
         borders: true, stateBorders: false, countryNames: true, cities: false,
         maidenheadGrid: false, gridLabels: false, wasOverlay: false, tileLabels: true,

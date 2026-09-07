@@ -650,3 +650,28 @@ builds and budgets. #527 now has six files; both review threads are answered and
 resolved. B24/#232 returns to In review. No database migration, remote mutation,
 actual cloud session or hardware operation was performed. Deployed upgrade and
 two-device acceptance remain pending; no other batch was claimed.
+
+
+### Owner-authorized release wave — 2026-09-07
+
+The owner explicitly authorized shipping the approved preview and continuing the remaining operating work, including bounded GPT-5.6 sub-agent reviews. The earlier contributor-only merge restriction is superseded for this release work. Root retains integration/merge ownership; sub-agents validate isolated Contacts, Band History and news/config branches. Existing user previews at 5181 and 5182 remain preserved.
+
+Merged in this wave:
+
+| PR | Delivered slice | Merge commit |
+| --- | --- | --- |
+| #498 | Masthead clock labels, View settings, auto-rotate, settings/layer navigation | `47d43d5c` |
+| #542 | Larger ticker, contained footer AUTO control, six-band reliability fit | `0ae6bda2` |
+| #479 | Verified RSS/Atom proxy prerequisite | `7c80fe48` |
+| #411 | Shared guarded Tune action and combined frequency/mode dispatch | `84426989` |
+| #407 | Recent Contacts report and date selection | `6976be79` |
+| #412 | Station and satellite receive tuning | `ec3b0c38` |
+| #413 | Favourite and activation tuning; unknown mode remains unchanged | `8298a780` |
+| #408 | Bounded completed-hour Band History API | `12c8b8b4` |
+| #414 | Per-provider activation freshness | `f81842c8` |
+
+Each integration retained the small original PR boundary, current theme changes, normal hooks and non-force history. Current-main unit/browser validation and full publish checks are recorded in the respective evidence documents. The live aggregate prerequisite for #408 returned a recent numeric completed-hour row through a read-only public query. These releases do not close their full parent issues.
+
+Active release follow-up: #415–418 activation presentation; #480 news/widget configuration integration; B24 Band Activity report with #524's corrected ten-HF-band completeness and explicit TOP DX tuning. Older cluster chrome #410/#474 must not land alone because selected-spot reveal and live-prepend paging fixes are in #505. #527 contact metadata sync remains queued behind its required operating interfaces.
+
+No blanket claim is placed on future batches. B11 remains gated until #480 is merged. Weather stays last; the separate Spots & Paths runtime/persistence owners and model/3D owners keep their boundaries. Actual rig/WSJT-X operation, physical displays, live two-device sync, and deployed PSK cache coordination remain distinct acceptance gates. No hardware service or cloud mutation was performed in this release wave.

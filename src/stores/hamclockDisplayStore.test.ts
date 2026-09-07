@@ -550,3 +550,19 @@ it("leaves a customised Spots rail alone when migrating from v4", async () => {
     tileIds: ["cluster", "recentContacts"],
   });
 });
+
+
+it.each([false, true])("migrates the former shipped activation slot while preserving custom rails (%s)", async (custom) => {
+  const tiles = custom ? ["moon", "emcomm"] : ["bestBand", "greyLine", "muf", "reliability", "emcomm"];
+  sessionStorage.setItem("propulse-hamclock-display", JSON.stringify({ version: 5, state: {
+    railLayout: {
+      left: [{ pageId: "spots", tileIds: ["cluster"] }],
+      right: [{ pageId: "spots", tileIds: tiles }, { pageId: "weather", tileIds: ["emcomm"] }],
+    },
+  } }));
+  await display.persist.rehydrate();
+  const layout = display.getState().railLayout;
+  expect(layout.right[0].tileIds).toEqual(custom ? tiles : ["bestBand", "greyLine", "muf", "reliability", "activations"]);
+  expect(layout.right[1].tileIds).toEqual(["emcomm"]);
+  expect(layout.left[0].tileIds).toEqual(["cluster"]);
+});

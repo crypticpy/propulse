@@ -23,6 +23,7 @@ const BASE: ActivationSpot = {
 
 describe("formatActivationFrequency", () => {
   it("keeps useful MHz precision without padding map labels", () => {
+    expect(formatActivationFrequency(7074.125)).toBe("7.074125");
     expect(formatActivationFrequency(7240)).toBe("7.24");
     expect(formatActivationFrequency(7383)).toBe("7.383");
     expect(formatActivationFrequency(14074)).toBe("14.074");

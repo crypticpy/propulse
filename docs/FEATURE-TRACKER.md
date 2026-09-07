@@ -21,10 +21,10 @@
 | v0.14.0 Polish & Infra (2026-02-10)     | 12        | 1       | 0           | 0        | 13      |
 | v0.15.0 Spot Watch System (2026-02-10)  | 22        | 2       | 0           | 0        | 24      |
 | v0.16.0 NCS Workflow + QSO (2026-02-11) | 38        | 0       | 0           | 0        | 38      |
-| HamClock Wall (2026-09-05)              | 45        | 2       | 26          | 0        | 73      |
-| **Grand Total**                         | **306**   | **9**   | **37**      | **1**    | **353** |
+| HamClock Wall (2026-09-05)              | 45        | 3       | 25          | 0        | 73      |
+| **Grand Total**                         | **306**   | **10**  | **36**      | **1**    | **353** |
 
-**Delivery rate: 87% delivered, 3% partial, 10% not started**
+**Delivery rate: 86.7% delivered, 2.8% partial, 10.2% not started, 0.3% deferred**
 
 ---
 
@@ -669,14 +669,15 @@ _Source: `docs/designs/hamclock-wall-spec.md` (feature register HW-01 to HW-73).
 | HW-65 | EME computation module `src/lib/utils/eme.ts`                 | PR #253, EME module: eme.ts path loss, degradation, Doppler, sky noise, mutual window                                                                                          |
 | HW-66 | Moon and EME report                                           | PR #253, Moon report: MOON/EME tabs, band selector, sub-lunar point                                                                                                            |
 
-### Partial (2)
+### Partial (3)
 
 | ID    | Feature                 | Gap                                   |
 | ----- | ----------------------- | ------------------------------------- |
 | HW-18 | Weather alerts coverage | Nationwide feed, mapped geometry only |
 | HW-19 | SDR decodes tile        | Idle until a shared receiver exists   |
+| HW-58 | Reliability report | PR #494: dedicated report and current evidence; historical model/observed series and hop count are not supplied. [Evidence](designs/hamclock-reliability-report.md) |
 
-### Not Started (26)
+### Not Started (25)
 
 | ID    | Feature                                                          | Notes                                                |
 | ----- | ---------------------------------------------------------------- | ---------------------------------------------------- |
@@ -697,7 +698,6 @@ _Source: `docs/designs/hamclock-wall-spec.md` (feature register HW-01 to HW-73).
 | HW-47 | Monitored regions and RIM scores as a report                     | Moved from B16 to B23 with the RIM tile              |
 | HW-48 | EmComm forms and activation from the Emcomm tile                 |                                                      |
 | HW-49 | `/atmos` redirect or deep link                                   | Open decision D7                                     |
-| HW-58 | Reliability report: SNR, confidence, station inputs              | B18                                                  |
 | HW-59 | Propagation forecast report: 48 h chart, FutureCast horizons     | B18                                                  |
 | HW-67 | Open-Meteo fetch extended to hourly and 7-day                    | `src/lib/api/openMeteo.ts`; B22                      |
 | HW-68 | Alerts report: severity, area, expiry, map link                  | B22                                                  |

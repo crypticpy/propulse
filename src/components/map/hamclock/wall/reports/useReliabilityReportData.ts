@@ -11,7 +11,7 @@ import { continentForLatLon } from "@/lib/utils/continent";
 import { stationPhysicsScores } from "@/lib/verdict/physicsScore";
 import { useMapStore } from "@/stores/mapStore";
 import { useWallReliability, WALL_FORECAST_BANDS } from "../tiles/useWallReliability";
-import { FORECAST_HOUR_MS, modelEvidence } from "./forecastEvidence";
+import { FORECAST_HOUR_MS, modelEvidence, reportPathLabel } from "./forecastEvidence";
 
 /** Presentation joins existing sources; never changes engine/gate behavior. */
 export function useReliabilityReportData(band: string, selectedHour?: number) {
@@ -82,6 +82,6 @@ export function useReliabilityReportData(band: string, selectedHour?: number) {
   return { wall, location, target: targetContext, nowcast, model, liveModel, physics, matrix, liveObserved, hourIndex, dayStart,
     cell: wall.cells.get(`${band}:${hourIndex}`) ?? null,
     observed, activityAt, activityError: activity.isError, scope,
-    sourceLabel: targetContext ? `${originGrid} TO ${targetContext.grid}` : "NO TARGET — SHOWING QTH",
+    sourceLabel: reportPathLabel(originGrid, targetContext?.grid ?? null),
   };
 }

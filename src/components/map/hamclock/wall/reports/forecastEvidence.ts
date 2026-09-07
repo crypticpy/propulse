@@ -26,6 +26,7 @@ export function modelEvidence(
   if (!context.targetGrid) return unavailable("NO TARGET — PATH MODEL UNAVAILABLE");
   if (!prediction) return unavailable("NO MODEL RESPONSE");
   if (prediction.profile !== "nowcast") return unavailable("PHYSICS FALLBACK — NO MODEL VALUE");
+  if (typeof prediction.target_grid4 !== "string" || typeof prediction.mode !== "string") return unavailable("INVALID MODEL SCOPE");
   if (prediction.band !== context.band || prediction.target_grid4.toUpperCase() !== context.targetGrid.toUpperCase().slice(0, 4)) return unavailable("DIFFERENT PATH OR BAND");
   if (prediction.mode.toUpperCase() !== context.mode.toUpperCase()) return unavailable("DIFFERENT MODE");
   const issued = Date.parse(prediction.issue_time);
@@ -34,6 +35,10 @@ export function modelEvidence(
   if (Math.floor(valid / FORECAST_HOUR_MS) !== context.hourIndex) return unavailable("SELECTED HOUR NOT COVERED");
   if (context.now - issued > MAX_MODEL_AGE_MS) return unavailable("MODEL RESPONSE OLDER THAN 15 MIN");
   if (![prediction.core_probability, prediction.personalized_probability, prediction.confidence].every(value => Number.isFinite(value) && value >= 0 && value <= 1)) return unavailable("INVALID MODEL VALUE");
+  if (typeof prediction.model_version !== "string" ||
+    ![prediction.ood_flags, prediction.top_factors, prediction.assumptions].every(values => Array.isArray(values) && values.every(value => typeof value === "string")) ||
+    !prediction.data_freshness || typeof prediction.data_freshness !== "object" || Array.isArray(prediction.data_freshness) ||
+    !Object.values(prediction.data_freshness).every(value => typeof value === "number" && Number.isFinite(value) && value >= 0)) return unavailable("INVALID MODEL METADATA");
   return { prediction, reason: null };
 }
 
@@ -57,4 +62,10 @@ export function horizonEvidence(
         hourIndex: Math.floor((context.issueTime + hours * FORECAST_HOUR_MS) / FORECAST_HOUR_MS),
       })),
   }));
+}
+
+/** Missing origin is distinct from the valid station-wide, no-target view. */
+export function reportPathLabel(originGrid: string | null, targetGrid: string | null): string {
+  if (!originGrid) return "NO STATION — SET OPERATING LOCATION";
+  return targetGrid ? `${originGrid} TO ${targetGrid}` : "NO TARGET — SHOWING QTH";
 }

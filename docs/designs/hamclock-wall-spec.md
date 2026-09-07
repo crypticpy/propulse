@@ -501,7 +501,7 @@ Rows HW-40 to HW-49 in the feature register. All are Not started.
 | HW-72 | DX cluster modal adopts the report chrome, pin and footer                                   | Not started |                                       | section 26.16; chrome only, no new data                                                                                                                                                                                                                                                                                  |
 | HW-73 | Model track: weather-derived features in NowCast                                            | Not started |                                       | section 26.17; backlog, after every panel is live                                                                                                                                                                                                                                                                        |
 
-Totals: 45 delivered, 2 partial, 26 not started.
+Totals: 45 delivered, 3 partial, 25 not started.
 
 ## 22. Open decisions
 

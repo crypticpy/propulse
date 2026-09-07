@@ -1061,7 +1061,7 @@
   font: max(1.2vh, 12px) var(--hc-font-mono);
 }
 .hcr-reliability-grid button {
-  min-height: max(3.8vh, 36px);
+  min-height: max(3.8vh, 44px);
   border: 1px solid var(--hc-line);
   background: transparent;
 }
@@ -1083,7 +1083,7 @@
 .hcr:has(.hcr-reliability-grid),
 .hcr:has(.hcr-comparison-chart) {
   width: 90vw;
-  height: 94vh;
+  height: 88vh;
   gap: 1.2vh;
 }
 .hcr:has(.hcr-comparison-chart) .hcr-facts,

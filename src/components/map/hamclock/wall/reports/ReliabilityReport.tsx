@@ -46,7 +46,7 @@ export function ReliabilityReport({ open, onClose }: { open: boolean; onClose: (
     { label: "POWER", value: `${wall.inputs.powerWatts} W` },
     { label: "ANTENNA", value: `${wall.inputs.antennaType} · ${wall.inputs.antennaGainDbi?.toFixed(1) ?? "—"} dBi` },
     { label: "NOISE", value: wall.inputs.noiseEnvironment?.replace(/_/g, " ") ?? "ENGINE DEFAULT" },
-    { label: "DISTANCE / HOPS", value: wall.inputs.distanceKm === null ? "NO TARGET" : `${Math.round(wall.inputs.distanceKm)} km / NOT SUPPLIED` },
+    { label: "DISTANCE / HOPS", value: !data.location ? "NO STATION" : wall.inputs.distanceKm === null ? "NO TARGET" : `${Math.round(wall.inputs.distanceKm)} km / NOT SUPPLIED` },
   ];
   const chartModel = data.liveModel?.prediction;
   const chartPoints = physics.slice(0, 24).map(point => ({
@@ -59,9 +59,8 @@ export function ReliabilityReport({ open, onClose }: { open: boolean; onClose: (
     pinId="reliability" pinElement={<ReliabilityReport open onClose={onClose} />}>
     <EngineComparisonStrip subject={`${band.toUpperCase()} · ${data.sourceLabel}`} physics={physicsReading} nowcast={nowcastReading} observed={observedReading}
       classify={(value, unit) => unit === "spots" ? null : probabilityStepClassifier()(value, unit)} />
-    <HamClockSegmented label="Band" value={band} options={WALL_FORECAST_BANDS.map(value => ({ value, label: value.toUpperCase() }))} onChange={setBand} />
     <HamClockTabs label="Reliability views" tabs={[
-      { id: "now", label: "NOW", content: <><div className="hcr-reliability-toolbar"><button type="button" className="hcc-btn" onClick={() => setSelectedHour(undefined)}>LIVE HOUR</button><p className="hcr-note">{prediction ? `MODEL ${prediction.model_version} · ${modelWords(prediction.ood_flags)}` : model.reason}</p></div><div className="hcr-chart"><p className="hcr-chart-title">24 H · PHYSICS SCORE / MODEL PROBABILITY · SPOTS ON RIGHT AXIS</p><ForecastComparisonChart points={chartPoints} selectedHour={data.hourIndex} nowHour={Math.floor(Date.now() / FORECAST_HOUR_MS)} onSelect={setSelectedHour} /></div><p className="hcr-note">Model and observed values are current samples. Historical model/observation series are not supplied by these feeds.</p></> },
+      { id: "now", label: "NOW", content: <><div className="hcr-reliability-toolbar"><HamClockSegmented hideLabel label="Band" value={band} options={WALL_FORECAST_BANDS.map(value => ({ value, label: value.toUpperCase() }))} onChange={setBand} /><button type="button" className="hcc-btn" onClick={() => setSelectedHour(undefined)}>LIVE HOUR</button><p className="hcr-note">{prediction ? `MODEL ${prediction.model_version} · ${modelWords(prediction.ood_flags)}` : model.reason}</p></div><div className="hcr-chart"><p className="hcr-chart-title">24 H · PHYSICS SCORE / MODEL PROBABILITY · SPOTS ON RIGHT AXIS</p><ForecastComparisonChart points={chartPoints} selectedHour={data.hourIndex} nowHour={Math.floor(Date.now() / FORECAST_HOUR_MS)} onSelect={setSelectedHour} /></div><p className="hcr-note">Model and observed values are current samples. Historical model/observation series are not supplied by these feeds.</p></> },
       { id: "hours", label: "BY HOUR", content: <ReliabilityGrid matrix={data.matrix} start={data.dayStart} selectedBand={band} selectedHour={data.hourIndex} onSelect={(nextBand, hour) => { setBand(nextBand); setSelectedHour(hour); }} /> },
     ]} />
   </WallReport>;

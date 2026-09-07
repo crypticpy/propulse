@@ -335,8 +335,8 @@
   border-radius: var(--hc-radius) var(--hc-radius) 0 0;
 }
 .hcc-dialog--settings {
-  width: 70vw;
-  height: 80vh;
+  width: 88vw;
+  height: 88vh;
 }
 .hcc-dialog--config {
   width: 58vw;
@@ -800,3 +800,14 @@
 [data-hamclock-theme="brass"] .hcc-placeholder-title {
   font-family: var(--hc-font-mono);
 }
+
+/* Infrequent masthead choices are large, persistent controls at Settings top. */
+.hcc-view-controls { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 2vw; flex: 0 0 auto; }
+
+.hcc-tabs--vertical { flex-direction: row; gap: 1.5vw; }
+.hcc-tabs--vertical > .hcc-tablist { flex: 0 0 12vw; flex-direction: column; flex-wrap: nowrap; align-items: stretch; gap: 0.5vh; border-right: 1px solid var(--hc-line); padding-right: 1vw; }
+.hcc-tabs--vertical > .hcc-tablist > .hcc-tab { text-align: left; min-height: max(4.5vh, 44px); padding: 0.6vh 0.6vw; border-color: transparent; font-size: max(1.35vh, 13px); letter-spacing: 0.08em; }
+.hcc-tabs--vertical > .hcc-tabpanel { min-width: 0; }
+.hcc-rotate-speed { display: flex; flex-direction: column; gap: 1vh; color: var(--hc-fg); font: var(--hcc-t-body) var(--hc-font-mono); }
+.hcc-rotate-speed input { width: 100%; min-height: 44px; accent-color: var(--hc-accent); }
+.hcc-rotate-speed-scale { display: flex; justify-content: space-between; color: var(--hc-dim); font-size: var(--hcc-t-caption); }

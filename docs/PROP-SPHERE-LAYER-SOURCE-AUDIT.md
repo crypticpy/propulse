@@ -136,6 +136,20 @@ Sources are classified as follows:
 | Grid Labels | renderer dependent | Local grid computation | camera change | C | Good; density controls are bounded |
 | Map Labels | globe/flat | Configured tile provider, OSM-derived where applicable | tile cache | B | Provider fallback and authentication handling must remain monitored |
 
+Basemap and label tiles are cached client-side via Workbox `runtimeCaching`
+(`src/lib/tiles/tileRuntimeCaching.ts`), one CacheFirst cache per host, all at
+3000 entries / 30 days: `tiles-esri` for `server.arcgisonline.com` (ESRI World
+Imagery), `tiles-osm` for `tile.openstreetmap.org` (OpenStreetMap), `tiles-carto`
+for `basemaps.cartocdn.com` (the CARTO Dark Matter basemap and the
+`dark_only_labels`/`light_only_labels` overlays TiledLabels renders), and
+`tiles-pro` for `/api/tiles/proxy` (Mapbox HD satellite, Pro tier; matches
+ignoring `Vary: Authorization` since the proxied bytes are identical for every
+entitled user and the server-side entitlement check is unaffected). A one-time,
+idle-time warm-up (`src/lib/tiles/warmTileCache.ts`, triggered from the
+PropSphere route) pre-fetches z0-z2 of the active basemap and label overlay
+(z0-z3 on UHD/Extreme quality) so first paint reaches a fully skinned globe
+sooner and a returning session never re-fetches those low zooms.
+
 ## Composition rules
 
 Only one exclusive quantitative surface layer may be active at a time:

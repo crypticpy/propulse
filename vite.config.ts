@@ -9,6 +9,7 @@ import {
   handleDisplayPair,
   handleDisplayState,
 } from "./api/_lib/handlers/displays";
+import { TILE_RUNTIME_CACHING } from "./src/lib/tiles/tileRuntimeCaching";
 
 // ─── Solar API parity plugin ──────────────────────────────────────────────
 // Executes the same edge handlers in local development. Exact route matching
@@ -1266,38 +1267,7 @@ export default defineConfig(({ mode }) => {
                 networkTimeoutSeconds: 10,
               },
             },
-            {
-              // ESRI World Imagery satellite tiles (free tier)
-              urlPattern: /^https:\/\/server\.arcgisonline\.com\/.*/,
-              handler: "CacheFirst",
-              options: {
-                cacheName: "tiles-esri",
-                expiration: {
-                  maxEntries: 3000,
-                  maxAgeSeconds: 30 * 24 * 60 * 60, // 30 days
-                },
-              },
-            },
-            {
-              // OpenStreetMap standard tiles (free tier)
-              urlPattern: /^https:\/\/tile\.openstreetmap\.org\/.*/,
-              handler: "CacheFirst",
-              options: {
-                cacheName: "tiles-osm",
-                expiration: {
-                  maxEntries: 3000,
-                  maxAgeSeconds: 30 * 24 * 60 * 60, // 30 days
-                },
-              },
-            },
-            {
-              // Authenticated imagery uses the browser's private HTTP cache
-              // (one hour, Vary: Authorization) plus the decoded tile LRU.
-              // Avoid persisting JWT-keyed copies across refreshes/accounts in
-              // CacheStorage; never ignore Vary to share entitled responses.
-              urlPattern: /\/api\/tiles\/proxy/,
-              handler: "NetworkOnly",
-            },
+            ...TILE_RUNTIME_CACHING,
           ],
         },
       }),

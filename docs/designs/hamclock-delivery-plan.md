@@ -14,9 +14,9 @@ not a claim. Do not reserve all batches for one agent.
 
 | Lane | Responsibility | Boundary |
 | --- | --- | --- |
-| Codex / HamClock operating views | Coordinated spot display #288 in review; PSK/WSJT-X #287, Activations #285, shared tuning #286 and B24 #232 in review | One active implementation item; retain review and acceptance follow-up |
+| Codex / HamClock operating views | Current implementation: B10/#206 widget configuration; coordinated spot display #288 in review; PSK/WSJT-X #287, Activations #285, shared tuning #286 and B24 #232 in review | One active implementation item; retain review and acceptance follow-up |
 | Existing modeling / 3D agent | NowCast training, inference, evaluation, model activation, and 3D globe work, per owner direction | This plan does not assign or change that agent's existing cards |
-| Additional contributor | Claim an unclaimed Ready item, preferably B10 / #206 initially | Check current board, issue comments, and changed files before starting |
+| Additional contributor | Claim an unclaimed Ready item; B10/#206 is now claimed | Check current board, issue comments, and changed files before starting |
 | Weather | Deferred until operating work is complete | Inspect OpenWxGlobe before designing new weather adapters or layers |
 
 Shared-file coordination is required for `wall/tiles/index.ts`, report CSS,
@@ -210,3 +210,24 @@ Plan worktree: `.worktrees/hamclock-delivery-plan`, branch
 `docs/hamclock-delivery-plan`. Implementation worktree:
 `.worktrees/hamclock-b24-codex`, branch `feat/hamclock-b24-codex`.
 No application server or hardware service is started by the planning pass.
+
+
+## B10 active handoff
+
+B10/#206 is the sole In progress implementation claim (Codex, crypticpy),
+following the #288 review handoff. Worktree `.worktrees/hamclock-b10-codex`,
+branch `feat/hamclock-b10-codex`, starts at current `origin/main` 19b75c8b.
+The B0 validated widget store and registry contract already exist. Reuse them;
+wrap existing feedStore preferences rather than duplicating feed state.
+
+Implement server verification through `api/_lib/handlers/rssFeed.ts` with its
+existing URL/redirect/body controls, then the centered config shell/news panel,
+source fetch interval/status/refresh controls, verify-before-add and category
+pagination. The ticker already has alert/news settings: preserve alert controls
+while providing the wall news configuration entry. Keep each PR within 15 files;
+other reports/settings, model/3D and ticker rendering remain outside this batch.
+Full verify and theme/resolution/browser acceptance precede review handoff.
+
+Initial source slice adds `verify=1` returning parsed title and bounded item
+count, accepts titled empty feeds, rejects HTML/untitled documents and retains
+SSRF checks. Focused handler tests pass; the complete B10 UI remains in progress.

@@ -59,7 +59,7 @@ export const NET_TYPE_COLORS: Record<NetType, string> = {
   skywarn:
     "bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-300",
   club: "bg-indigo-100 text-indigo-800 dark:bg-indigo-900 dark:text-indigo-300",
-  specialty: "bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-300",
+  specialty: "bg-su-muted text-su-line dark:bg-su-canvas dark:text-su-muted",
 };
 
 /** Display labels for formality levels 1-5 */

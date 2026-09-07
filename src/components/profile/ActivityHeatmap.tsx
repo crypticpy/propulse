@@ -126,7 +126,7 @@ export function ActivityHeatmap({
             key={`month-${i}`}
             x={LEFT_PAD + m.week * CELL_STEP}
             y={TOP_PAD - 4}
-            className="fill-gray-500"
+            className="fill-su-muted"
             fontSize={9}
             fontFamily="sans-serif"
           >
@@ -141,7 +141,7 @@ export function ActivityHeatmap({
               key={`day-${i}`}
               x={LEFT_PAD - 6}
               y={TOP_PAD + i * CELL_STEP + CELL_SIZE - 1}
-              className="fill-gray-500"
+              className="fill-su-muted"
               fontSize={9}
               fontFamily="sans-serif"
               textAnchor="end"

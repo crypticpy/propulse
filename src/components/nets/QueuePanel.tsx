@@ -34,22 +34,22 @@ function QueueSlot({
     <div
       className={`
         rounded-xl px-4 py-3 transition-colors
-        ${highlight ? "bg-plasma-orange/10 border border-plasma-orange/30" : "bg-white/[0.03] border border-white/5"}
+        ${highlight ? "bg-plasma-orange/10 border border-plasma-orange/30" : "bg-su-line/10 border border-su-line/20"}
       `}
       aria-live={live}
       aria-atomic={live ? true : undefined}
     >
-      <p className="text-[10px] uppercase tracking-widest text-gray-500 mb-1">
+      <p className="text-[10px] uppercase tracking-widest text-su-muted mb-1">
         {label}
       </p>
       {callsign ? (
         <p
-          className={`font-mono font-bold text-lg ${highlight ? "text-plasma-orange" : "text-white"}`}
+          className={`font-mono font-bold text-lg ${highlight ? "text-plasma-orange" : "text-su-text"}`}
         >
           {callsign}
         </p>
       ) : (
-        <p className="text-sm text-gray-600 italic">---</p>
+        <p className="text-sm text-su-muted italic">---</p>
       )}
     </div>
   );
@@ -70,13 +70,13 @@ export function QueuePanel({ checkins, onAdvance, onSkip }: QueuePanelProps) {
 
   return (
     <div className="space-y-3" aria-label="Speaking queue" role="region">
-      <h3 className="text-[10px] uppercase tracking-widest text-gray-500">
+      <h3 className="text-[10px] uppercase tracking-widest text-su-muted">
         Speaking Queue
       </h3>
 
       {isEmpty ? (
         <div
-          className="flex items-center justify-center py-6 text-sm text-gray-500"
+          className="flex items-center justify-center py-6 text-sm text-su-muted"
           aria-live="polite"
         >
           No stations in queue

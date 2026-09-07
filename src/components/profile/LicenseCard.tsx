@@ -34,7 +34,7 @@ function getClassBadgeColor(licenseClass: LicenseClass): string {
     case "FOUNDATION":
       return "bg-nebula-blue/20 text-nebula-blue border-nebula-blue/30";
     default:
-      return "bg-white/10 text-gray-300 border-white/20";
+      return "bg-su-line/20 text-su-muted border-su-line/50";
   }
 }
 
@@ -71,7 +71,7 @@ function getDisplayName(licenseClass: LicenseClass): string {
 function ChevronIcon({ open }: { open: boolean }) {
   return (
     <svg
-      className={`w-4 h-4 text-gray-500 transition-transform duration-200 ${open ? "rotate-90" : ""}`}
+      className={`w-4 h-4 text-su-muted transition-transform duration-200 ${open ? "rotate-90" : ""}`}
       fill="none"
       viewBox="0 0 24 24"
       stroke="currentColor"
@@ -96,14 +96,14 @@ function Disclosure({
 }) {
   const [open, setOpen] = useState(defaultOpen);
   return (
-    <div className="border-t border-white/5 pt-2">
+    <div className="border-t border-su-line/20 pt-2">
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
         aria-expanded={open}
         className="flex items-center justify-between w-full text-left group rounded focus-visible:ring-2 focus-visible:ring-plasma-orange/50 focus-visible:outline-none"
       >
-        <span className="text-xs font-medium text-gray-400 uppercase tracking-wider group-hover:text-gray-300 transition-colors">
+        <span className="text-xs font-medium text-su-muted uppercase tracking-wider group-hover:text-su-muted transition-colors">
           {title}
         </span>
         <ChevronIcon open={open} />
@@ -118,7 +118,7 @@ export function LicenseCard() {
 
   if (!license) {
     return (
-      <div className="text-sm text-gray-500 italic">
+      <div className="text-sm text-su-muted italic">
         No license information configured.
       </div>
     );
@@ -130,7 +130,7 @@ export function LicenseCard() {
 
   return (
     <div className="space-y-3">
-      <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider">
+      <h3 className="text-sm font-semibold text-su-muted uppercase tracking-wider">
         License
       </h3>
 
@@ -141,7 +141,7 @@ export function LicenseCard() {
         >
           {displayName}
         </span>
-        <span className="text-xs text-gray-400">{countryName}</span>
+        <span className="text-xs text-su-muted">{countryName}</span>
       </div>
 
       {/* Expiration bar */}
@@ -150,8 +150,8 @@ export function LicenseCard() {
       {/* License ID if present */}
       {license.licenseId && (
         <div className="flex items-center gap-2 text-xs">
-          <span className="text-gray-500">ID</span>
-          <span className="font-mono text-gray-400">{license.licenseId}</span>
+          <span className="text-su-muted">ID</span>
+          <span className="font-mono text-su-muted">{license.licenseId}</span>
         </div>
       )}
 

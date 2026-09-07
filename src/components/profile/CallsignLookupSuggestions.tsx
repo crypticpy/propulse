@@ -197,8 +197,8 @@ export function CallsignLookupSuggestions({
   // Loading state
   if (loading) {
     return (
-      <div className="mt-2 px-3 py-2 bg-white/5 border border-white/10 rounded-lg">
-        <div className="flex items-center gap-2 text-sm text-gray-400">
+      <div className="mt-2 px-3 py-2 bg-su-line/10 border border-su-line/40 rounded-lg">
+        <div className="flex items-center gap-2 text-sm text-su-muted">
           <LoadingDots />
           <span>Looking up callsign...</span>
         </div>
@@ -230,8 +230,8 @@ export function CallsignLookupSuggestions({
           type="button"
           onClick={onDismiss}
           className="flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium
-                     text-gray-400 hover:text-white bg-white/5 hover:bg-white/10
-                     border border-white/10 hover:border-white/20 transition-colors"
+                     text-su-muted hover:text-su-text bg-su-line/10 hover:bg-su-line/20
+                     border border-su-line/40 hover:border-su-line/50 transition-colors"
           aria-label="Dismiss suggestions"
         >
           <svg
@@ -268,15 +268,15 @@ export function CallsignLookupSuggestions({
                 type="checkbox"
                 checked={isChecked}
                 onChange={() => toggleField(def.key)}
-                className="mt-0.5 rounded border-white/20 bg-white/5 text-signal-green
+                className="mt-0.5 rounded border-su-line/50 bg-su-line/10 text-signal-green
                            focus:ring-signal-green/30 focus:ring-offset-0"
               />
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2">
-                  <span className="text-xs text-gray-500 w-14 shrink-0">
+                  <span className="text-xs text-su-muted w-14 shrink-0">
                     {def.label}
                   </span>
-                  <span className="text-sm text-gray-200 truncate">
+                  <span className="text-sm text-su-text truncate">
                     {newVal}
                   </span>
                 </div>
@@ -293,7 +293,7 @@ export function CallsignLookupSuggestions({
 
       {/* QRZ API Key prompt — shown when QRZ isn't in sources and no key configured */}
       {missingRichSources && !qrzApiKey && (
-        <div className="mt-2 pt-2 border-t border-white/5">
+        <div className="mt-2 pt-2 border-t border-su-line/20">
           {!showQrzInput ? (
             <button
               type="button"
@@ -310,8 +310,8 @@ export function CallsignLookupSuggestions({
                 onChange={(e) => setQrzKeyDraft(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && handleSaveQrzKey()}
                 placeholder="QRZ XML API key"
-                className="flex-1 bg-void-black border border-white/10 rounded px-2 py-1 text-xs
-                           text-gray-200 placeholder-gray-600 focus:border-nebula-blue/50 focus:outline-none"
+                className="flex-1 bg-void-black border border-su-line/40 rounded px-2 py-1 text-xs
+                           text-su-text placeholder:text-su-muted/80 focus:border-nebula-blue/50 focus:outline-none"
                 autoFocus
               />
               <button
@@ -330,7 +330,7 @@ export function CallsignLookupSuggestions({
                   setShowQrzInput(false);
                   setQrzKeyDraft("");
                 }}
-                className="text-xs text-gray-500 hover:text-gray-300"
+                className="text-xs text-su-muted hover:text-su-muted"
               >
                 Cancel
               </button>
@@ -365,7 +365,7 @@ function SourceBadges({ sources }: { sources: string[] }) {
         <span
           key={s}
           className="text-[10px] uppercase tracking-wider px-1.5 py-0.5 rounded
-                     bg-white/5 text-gray-500 border border-white/5"
+                     bg-su-line/10 text-su-muted border border-su-line/20"
         >
           {s}
         </span>
@@ -377,9 +377,9 @@ function SourceBadges({ sources }: { sources: string[] }) {
 function LoadingDots() {
   return (
     <span className="inline-flex gap-0.5" aria-hidden="true">
-      <span className="w-1.5 h-1.5 bg-gray-400 rounded-full animate-pulse" />
-      <span className="w-1.5 h-1.5 bg-gray-400 rounded-full animate-pulse [animation-delay:150ms]" />
-      <span className="w-1.5 h-1.5 bg-gray-400 rounded-full animate-pulse [animation-delay:300ms]" />
+      <span className="w-1.5 h-1.5 bg-su-line rounded-full animate-pulse" />
+      <span className="w-1.5 h-1.5 bg-su-line rounded-full animate-pulse [animation-delay:150ms]" />
+      <span className="w-1.5 h-1.5 bg-su-line rounded-full animate-pulse [animation-delay:300ms]" />
     </span>
   );
 }

@@ -170,12 +170,17 @@
 }
 
 /* Retained feature components keep their state and behavior. This scoped bridge
- * gives their old utility classes the same readable surfaces as the new shell. */
+ * gives their old utility classes the same readable surfaces as the new shell.
+ * DS-12 g2: every component under src/components/profile now emits su- tokens
+ * directly, but src/pages/ProfilePage.tsx (DS-12 g3, out of this task's scope)
+ * still renders raw Tailwind grey/white utility classes inside this wrapper
+ * (see tabContent in ProfilePage.tsx). Deleting this bridge now would
+ * visibly regress that page. Remove once g3 lands. */
 .profile-workspace-legacy
-  :is(.text-white, .text-gray-100, .text-gray-200, .text-gray-300) {
+  :is(.text-white, .text-gray-100, .text-gray-200, .text-gray-300) /* design-tokens: allow */ {
   color: var(--su-text);
 }
-.profile-workspace-legacy :is(.text-gray-400, .text-gray-500, .text-gray-600) {
+.profile-workspace-legacy :is(.text-gray-400, .text-gray-500, .text-gray-600) /* design-tokens: allow */ {
   color: var(--su-muted);
 }
 .profile-workspace-legacy .text-plasma-orange {
@@ -193,10 +198,10 @@
 .profile-workspace-legacy .tracking-widest[style*="color:"] {
   color: var(--su-muted) !important;
 }
-.profile-workspace-legacy [class~="bg-white/[0.05]"][style*="color:"] {
+.profile-workspace-legacy [class~="bg-white/[0.05]"][style*="color:"] /* design-tokens: allow */ {
   color: var(--su-text) !important;
 }
-.profile-workspace-legacy [class~="bg-gray-800"] {
+.profile-workspace-legacy [class~="bg-gray-800"] /* design-tokens: allow */ {
   background-color: var(--su-input);
 }
 .profile-workspace-legacy
@@ -218,13 +223,13 @@
 }
 .profile-workspace-legacy
   :is(
-    [class~="bg-white/5"],
-    [class~="bg-white/10"],
-    [class~="bg-white/[0.06]"]
+    [class~="bg-white/5"], /* design-tokens: allow */
+    [class~="bg-white/10"], /* design-tokens: allow */
+    [class~="bg-white/[0.06]"] /* design-tokens: allow */
   ) {
   background-color: var(--su-input);
 }
-.profile-workspace-legacy [class*="border-white/"] {
+.profile-workspace-legacy [class*="border-white/"] /* design-tokens: allow */ {
   border-color: var(--su-line);
 }
 .profile-workspace-legacy

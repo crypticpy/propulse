@@ -262,7 +262,7 @@ export const FlexSideControls = memo(function FlexSideControls({
               className={`px-2 py-1.5 text-xs font-semibold rounded border transition-colors
                 disabled:opacity-40 disabled:cursor-not-allowed ${
                   isActive
-                    ? "text-su-text border-su-line/50"
+                    ? "text-white border-su-line/50" // design-tokens: allow
                     : "bg-su-line/10 text-su-muted border-su-line/40 hover:bg-su-line/20 hover:text-su-text"
                 }`}
               style={isActive ? { backgroundColor: bandColor } : undefined}
@@ -290,7 +290,7 @@ export const FlexSideControls = memo(function FlexSideControls({
                   className={`px-2 py-1.5 text-xs font-semibold rounded border transition-colors
                     disabled:opacity-40 disabled:cursor-not-allowed ${
                       isActive
-                        ? "text-su-text border-su-line/50"
+                        ? "text-white border-su-line/50" // design-tokens: allow
                         : "bg-su-line/10 text-su-muted border-su-line/40 hover:bg-su-line/20 hover:text-su-text"
                     }`}
                   style={isActive ? { backgroundColor: bandColor } : undefined}

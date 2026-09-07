@@ -45,17 +45,34 @@ const CODE_EXTENSIONS = new Set([".ts", ".tsx", ".js", ".jsx"]);
 const STYLE_EXTENSIONS = new Set([".css"]);
 
 /**
+ * Every Tailwind utility prefix that paints a colour. Variants (`hover:`,
+ * `dark:`, `group-hover:`) end in a non-word character, so the leading `\b`
+ * still anchors on the prefix.
+ */
+const COLOR_PREFIX =
+  "(?:bg|border|divide|ring|ring-offset|from|via|to|text|fill|stroke|outline|placeholder|decoration|shadow|caret|accent)";
+
+/**
  * `class` rules run on every line of a scoped file: these tokens are Tailwind
  * class names and do not occur in ordinary code. `hex` rules only run on CSS
  * and on lines that carry a class attribute, so colour math in TypeScript
  * (contrast against #ffffff) stays legal.
  */
 const RULES = [
-  { kind: "class", name: "text-white", pattern: /\btext-white\b/ },
-  { kind: "class", name: "text-gray-*", pattern: /\btext-gray-\d/ },
-  { kind: "class", name: "text-slate-*", pattern: /\btext-slate-\d/ },
-  { kind: "class", name: "bg-slate-*", pattern: /\bbg-slate-\d/ },
-  { kind: "class", name: "text-neutral-*", pattern: /\btext-neutral-\d/ },
+  // Covers `text-white`, `bg-white/5`, `border-white/[0.08]`, `divide-white/5`.
+  {
+    kind: "class",
+    name: "*-white",
+    pattern: new RegExp(`\\b${COLOR_PREFIX}-white(?![a-z-])`),
+  },
+  // Covers every raw grey ramp on any colour prefix (`bg-gray-800`, …).
+  {
+    kind: "class",
+    name: "*-gray|slate|neutral|zinc|stone-*",
+    pattern: new RegExp(
+      `\\b${COLOR_PREFIX}-(?:gray|slate|neutral|zinc|stone)-\\d`,
+    ),
+  },
   { kind: "hex", name: "#fff", pattern: /#fff\b/i },
   { kind: "hex", name: "#ffffff", pattern: /#ffffff\b/i },
   // Arbitrary-value utilities are unambiguous class tokens, so they are

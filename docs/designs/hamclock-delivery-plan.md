@@ -675,3 +675,31 @@ Each integration retained the small original PR boundary, current theme changes,
 Active release follow-up: #415–418 activation presentation; #480 news/widget configuration integration; B24 Band Activity report with #524's corrected ten-HF-band completeness and explicit TOP DX tuning. Older cluster chrome #410/#474 must not land alone because selected-spot reveal and live-prepend paging fixes are in #505. #527 contact metadata sync remains queued behind its required operating interfaces.
 
 No blanket claim is placed on future batches. B11 remains gated until #480 is merged. Weather stays last; the separate Spots & Paths runtime/persistence owners and model/3D owners keep their boundaries. Actual rig/WSJT-X operation, physical displays, live two-device sync, and deployed PSK cache coordination remain distinct acceptance gates. No hardware service or cloud mutation was performed in this release wave.
+
+### Operating release progress and remaining gates — 2026-09-07
+
+Additional merged slices:
+
+| PR | Delivered slice | Merge commit |
+| --- | --- | --- |
+| #480 | News/widget configuration foundation | `8a3332df` |
+| #415 | Activation tile and report | `84df8ec4` |
+| #503 | Correct rigctld default port and persisted-default migration | `b33ab151` |
+| #416 | WWBOTA provider and presentation | `a0866d48` |
+| #417 | CANParks provider and presentation | `96257e23` |
+| #418 | Activation expiry, detail and layout migration | `befada47` |
+| #550 | Contact metadata transport and existing-device repair | `bdbd22ff` |
+
+#527 is closed as superseded by the independent six-file #550 extraction. Its production Vercel deployment succeeded. A zero-row anonymous schema probe confirmed the existing `my_grid` and `dxcc` columns, without reading contacts. Authenticated two-device acceptance remains outstanding.
+
+Activation validation covers all five programmes, three themes and 1080p/4K, plus narrow sidebar navigation and selected-expiry behavior. A read-only local API probe returned 113 reports (POTA 100, WWFF 8, CANParks 5) with all five provider statuses OK at the time of the probe. This is point-in-time provider evidence, not sustained production or physical-display acceptance. Full publication checks passed 3,441 app tests for the combined activation release.
+
+B11/#207 remains unclaimed despite #480 now being merged. Its remaining cluster controls depend on the separately owned #514 scoped runtime and #519 preferences handoff; #521 owns the display boundary. Do not add new singleton configuration ahead of that handoff. World clocks are a candidate after the canonical runtime is ready; weather and alert scope remain lower priority.
+
+Local release preparation: Band Activity #409 incorporates the corrected ten-HF-band history completeness and explicit TOP DX tuning from #524 in 15 files, with 30 focused tests and 48 browser cases. After an initial automatic approval rejection, the owner explicitly authorized publication and merging on their own projects/resources. Commit `24a5ed84` is being published to its existing Propulse branch; #524 is not superseded until #409 merges.
+
+WSJT-X #419–421 are integrated locally as separate small commits: `253fe603`, `4e98f494`, `50fd9e3b`. Metadata/bridge and ingestion regressions pass; the wall report passes 59 focused tests and 36 browser combinations with no overflow or browser errors. Automatic approval review initially rejected their remote publication. The owner then explicitly approved publication to the three Propulse branches and merging after checks; publication is in progress. No physical WSJT-X or rig acceptance is claimed.
+
+PSK #422–424 remain dependent on `supabase/migrations/20260907010000_psk_station_cache.sql` and server-only `SUPABASE_URL` / `SUPABASE_SERVICE_ROLE_KEY`, shared across deployments for the global five-minute upstream gate. A zero-row anonymous probe returned 404/PGRST205 for the coordination relation, so deployment is not established. The endpoint fails closed without a durable claim and does not query upstream. The migration and service configuration have not been applied by this release work. #423 uses one callsign-keyed 24-hour snapshot and local band/age/direction filters; #424 reuses it for HEARING ME without extra query dimensions.
+
+Weather remains last. The other agents retain model/3D and Spots & Paths runtime ownership. Existing previews at 5181 and 5182 remain available; integration validation uses owner `hamclock-operating-release`, session `cb106b4a-e997-4847-a861-5a997bbac11d`, http://127.0.0.1:5186/map.

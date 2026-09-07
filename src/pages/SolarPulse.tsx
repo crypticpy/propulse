@@ -2,7 +2,7 @@ import { formatUtc, hasData, sourceProps } from "@/components/solar/presentation
 import { lazy, Suspense, useMemo, useState } from "react";
 import { AccessibleDialog } from "@/components/ui";
 import { fixedDarkSurfaceTokens } from "@/lib/themes/stationTokens";
-import { SolarBriefingCard } from "@/components/solar/SolarBriefingCard";
+import { SolarBriefingNotice } from "@/components/solar/SolarBriefingNotice";
 import { SolarOperatingActions } from "@/components/solar/SolarOperatingActions";
 import { useSolarDisclosureState } from "@/hooks/useSolarDisclosureState";
 import { SolarDisclosure } from "@/components/solar/SolarDisclosure";
@@ -106,7 +106,7 @@ function DetailButton({ onClick }: { onClick: () => void }) {
 
 export function SolarPulse() {
   const isMobile = useIsMobile();
-  const wideBriefing = !useIsMobile(1280);
+  const wideLayout = !useIsMobile(1280);
   const { open: openSections, toggle: toggleGroup } = useSolarDisclosureState(isMobile);
   const [modal, setModal] = useState<ModalState>(null);
   const [allBulletins, setAllBulletins] = useState(false);
@@ -149,12 +149,9 @@ export function SolarPulse() {
             <p id="solar-refresh-help" role="tooltip" className="absolute right-0 top-full z-20 mt-2 hidden w-64 rounded-xl border border-su-line/40 bg-su-panel p-3 text-xs leading-5 text-su-text shadow-xl group-hover:block group-focus-within:block">Refreshes data in the open sections. Images update on their own schedule.</p>
           </div>
         </header>
-        <div className="grid items-start gap-4 xl:grid-cols-[minmax(0,1fr)_18rem]">
-          <SolarBriefingCard briefing={model.briefing} scales={resources.scales.data}>
-            <SolarOperatingActions />
-          </SolarBriefingCard>
-          {wideBriefing && <div className="max-w-sm"><SolarImageCard productId="sunspot-hmi" onOpen={(productId) => setModal({ kind: "image", productId })} /><p className="mt-2 text-xs leading-5 text-su-muted">Visible sunspots on the full solar disk. Inspect solar history below for longer-term context.</p></div>}
-        </div>
+        <SolarBriefingNotice briefing={model.briefing} scales={resources.scales.data} kp={current.kp?.kp}>
+          <SolarOperatingActions />
+        </SolarBriefingNotice>
 
         <section aria-labelledby="solar-now-heading">
           <div className="mb-3 flex items-end justify-between px-1">
@@ -239,9 +236,12 @@ export function SolarPulse() {
           open={forecastOpen}
           onToggle={() => toggleGroup("forecast")}
         >
-          <Suspense fallback={<p role="status" className="py-8 text-sm text-su-muted">Loading forecast…</p>}>
-            <SolarForecastPanel resources={resources} current={current} />
-          </Suspense>
+          <div className="grid items-start gap-4 xl:grid-cols-[minmax(0,1fr)_18rem]">
+            <Suspense fallback={<p role="status" className="py-8 text-sm text-su-muted">Loading forecast…</p>}>
+              <SolarForecastPanel resources={resources} current={current} />
+            </Suspense>
+            {wideLayout && <div className="max-w-sm"><SolarImageCard productId="sunspot-hmi" onOpen={(productId) => setModal({ kind: "image", productId })} /><p className="mt-2 text-xs leading-5 text-su-muted">Visible sunspots on the full solar disk. Inspect solar history below for longer-term context.</p></div>}
+          </div>
         </SolarDisclosure>
 
         <WidgetShell
@@ -379,7 +379,7 @@ export function SolarPulse() {
           onToggle={() => toggleGroup("imagery")}
         >
           <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-            {imageProducts.filter((id) => isMobile || ((!wideBriefing || id !== "sunspot-hmi") && (!impactsOpen || !["drap-global", "aurora-north"].includes(id)))).map((productId) => (
+            {imageProducts.filter((id) => isMobile || ((!(wideLayout && forecastOpen) || id !== "sunspot-hmi") && (!impactsOpen || !["drap-global", "aurora-north"].includes(id)))).map((productId) => (
               <SolarImageCard
                 key={productId}
                 productId={productId}

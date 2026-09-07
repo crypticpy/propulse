@@ -3,7 +3,7 @@ import { MemoryRouter } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { WidgetShell } from "./WidgetShell";
 import { SolarDisclosure } from "./SolarDisclosure";
-import { SolarBriefingCard } from "./SolarBriefingCard";
+import { SolarBriefingNotice } from "./SolarBriefingNotice";
 import { SolarOperatingActions } from "./SolarOperatingActions";
 import { SolarImageCard } from "./SolarImageCard";
 import { SolarImageDetail } from "./SolarImageDetail";
@@ -193,16 +193,20 @@ describe("Solar Pulse structural snapshot (DS-03 retheme)", () => {
     expect(structure(container.innerHTML)).toMatchSnapshot("open");
   });
 
-  it("SolarBriefingCard: impact tone with evidence open", () => {
+  // DS-05 replaces the briefing card with a one-row notice, so this case is
+  // renamed and re-recorded: the collapsed notice is the new above-the-fold
+  // shape, and the inline expansion carries what the card used to print.
+  it("SolarBriefingNotice: collapsed row and the inline briefing expansion", () => {
     const { container, getByRole } = render(
-      <SolarBriefingCard briefing={briefing} scales={undefined}>
+      <SolarBriefingNotice briefing={briefing} scales={undefined} kp={4.3}>
         <p>Actions</p>
-      </SolarBriefingCard>,
+      </SolarBriefingNotice>,
     );
-    const evidence = getByRole("button", { name: /Sources & times/i });
-    fireEvent.click(evidence);
-    expect(evidence.getAttribute("aria-expanded")).toBe("true");
-    expect(structure(container.innerHTML)).toMatchSnapshot();
+    expect(structure(container.innerHTML)).toMatchSnapshot("collapsed");
+    const toggle = getByRole("button", { name: "Read the briefing" });
+    fireEvent.click(toggle);
+    expect(toggle.getAttribute("aria-expanded")).toBe("true");
+    expect(structure(container.innerHTML)).toMatchSnapshot("expanded");
   });
 
   it("SolarOperatingActions: the full handoff nav", () => {

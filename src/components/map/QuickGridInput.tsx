@@ -126,7 +126,7 @@ export function QuickGridInput({
   const getBorderColor = () => {
     if (isValid === null) {
       // Typing, not enough chars yet
-      return "border-white/30 focus:border-white/50";
+      return "border-su-line/60 focus:border-su-line/60";
     }
     if (isValid) {
       return "border-signal-green focus:border-signal-green";
@@ -151,7 +151,7 @@ export function QuickGridInput({
     >
       {/* Backdrop */}
       <div
-        className="absolute inset-0 bg-black/70 backdrop-blur-sm"
+        className="absolute inset-0 bg-su-panel/70 backdrop-blur-sm"
         onClick={onClose}
         aria-hidden="true"
       />
@@ -160,7 +160,7 @@ export function QuickGridInput({
       <Card
         className="
           relative z-10 w-full max-w-sm p-5
-          !bg-black/85 !backdrop-blur-md border border-white/15
+          !bg-su-panel/80 !backdrop-blur-md border border-su-line/50
           shadow-2xl
         "
         animate
@@ -193,13 +193,13 @@ export function QuickGridInput({
               </svg>
               Quick Grid Input
             </h2>
-            <p className="mt-0.5 text-xs text-gray-400">
+            <p className="mt-0.5 text-xs text-su-muted">
               Enter a Maidenhead grid locator
             </p>
           </div>
           <button
             onClick={onClose}
-            className="p-2 text-gray-400 hover:text-white hover:bg-white/10 rounded-lg transition-colors"
+            className="p-2 text-su-muted hover:text-su-text hover:bg-su-line/20 rounded-lg transition-colors"
             aria-label="Close grid input"
           >
             <svg
@@ -229,9 +229,9 @@ export function QuickGridInput({
               placeholder="CN87ml"
               className={`
                 w-full px-4 py-3 text-lg font-mono font-medium tracking-wider
-                bg-white/5 rounded-lg border-2 outline-none
+                bg-su-line/10 rounded-lg border-2 outline-none
                 transition-colors duration-200
-                placeholder:text-gray-600 placeholder:tracking-normal
+                placeholder:text-su-muted placeholder:tracking-normal
                 ${getBorderColor()}
               `}
               autoComplete="off"
@@ -275,7 +275,7 @@ export function QuickGridInput({
               </div>
             )}
           </div>
-          <p className="mt-1.5 text-[10px] text-gray-500">
+          <p className="mt-1.5 text-[10px] text-su-muted">
             Format: 2 letters + 2 digits + optional 2 letters (e.g., EM10,
             CN87ml)
           </p>
@@ -290,8 +290,8 @@ export function QuickGridInput({
             transition-all duration-200
             ${
               isValid
-                ? "bg-plasma-orange hover:bg-plasma-orange/80 text-white cursor-pointer"
-                : "bg-white/10 text-gray-500 cursor-not-allowed"
+                ? "bg-plasma-orange hover:bg-plasma-orange/80 text-su-on-accent cursor-pointer"
+                : "bg-su-line/20 text-su-muted cursor-not-allowed"
             }
           `}
         >
@@ -300,8 +300,8 @@ export function QuickGridInput({
 
         {/* Recent Grids */}
         {recentGrids.length > 0 && (
-          <div className="mt-5 pt-4 border-t border-white/10">
-            <h3 className="text-xs uppercase tracking-wider text-gray-500 mb-2">
+          <div className="mt-5 pt-4 border-t border-su-line/40">
+            <h3 className="text-xs uppercase tracking-wider text-su-muted mb-2">
               Recent Grids
             </h3>
             <div className="flex flex-wrap gap-1.5">
@@ -311,10 +311,10 @@ export function QuickGridInput({
                   onClick={() => handleRecentClick(grid)}
                   className="
                     px-2.5 py-1 text-xs font-mono
-                    bg-white/5 hover:bg-white/15
-                    border border-white/10 hover:border-plasma-orange/50
+                    bg-su-line/10 hover:bg-su-line/30
+                    border border-su-line/40 hover:border-plasma-orange/50
                     rounded transition-all duration-150
-                    text-gray-300 hover:text-white
+                    text-su-muted hover:text-su-text
                   "
                 >
                   {grid}
@@ -325,14 +325,14 @@ export function QuickGridInput({
         )}
 
         {/* Footer hint */}
-        <div className="mt-4 pt-3 border-t border-white/10 text-center">
-          <p className="text-[10px] text-gray-500">
+        <div className="mt-4 pt-3 border-t border-su-line/40 text-center">
+          <p className="text-[10px] text-su-muted">
             Press{" "}
-            <kbd className="px-1.5 py-0.5 text-[9px] font-mono bg-white/10 border border-white/20 rounded">
+            <kbd className="px-1.5 py-0.5 text-[9px] font-mono bg-su-line/20 border border-su-line/50 rounded">
               Enter
             </kbd>{" "}
             to go or{" "}
-            <kbd className="px-1.5 py-0.5 text-[9px] font-mono bg-white/10 border border-white/20 rounded">
+            <kbd className="px-1.5 py-0.5 text-[9px] font-mono bg-su-line/20 border border-su-line/50 rounded">
               Esc
             </kbd>{" "}
             to close

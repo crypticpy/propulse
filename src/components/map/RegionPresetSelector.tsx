@@ -78,10 +78,10 @@ function SavePresetForm({
         className="
           flex-1 min-w-0
           px-2.5 py-1.5
-          bg-gray-800/60 border border-gray-600/50
+          bg-su-panel/60 border border-su-line/50
           rounded-md
-          text-white text-xs
-          placeholder:text-gray-500
+          text-su-text text-xs
+          placeholder:text-su-muted
           focus:outline-none focus:ring-1 focus:ring-cyan-500/50 focus:border-cyan-500/50
         "
         aria-label="New preset name"
@@ -92,8 +92,8 @@ function SavePresetForm({
         className="
           px-2.5 py-1.5
           bg-cyan-600 hover:bg-cyan-500
-          disabled:bg-gray-700 disabled:text-gray-500
-          text-white text-xs font-medium
+          disabled:bg-su-input disabled:text-su-muted
+          text-su-text text-xs font-medium
           rounded-md
           transition-colors duration-150
         "
@@ -105,8 +105,8 @@ function SavePresetForm({
         onClick={onCancel}
         className="
           px-2 py-1.5
-          text-gray-400 hover:text-white
-          hover:bg-white/10
+          text-su-muted hover:text-su-text
+          hover:bg-su-line/20
           text-xs
           rounded-md
           transition-colors duration-150
@@ -281,8 +281,8 @@ export function RegionPresetSelector({
         >
           <div
             className="
-              bg-gray-900/95 backdrop-blur-md
-              border border-white/10
+              bg-su-canvas/95 backdrop-blur-md
+              border border-su-line/40
               rounded-lg
               shadow-2xl shadow-black/50
               overflow-hidden
@@ -306,7 +306,7 @@ export function RegionPresetSelector({
                       ${
                         isActive
                           ? "bg-cyan-500/15 text-cyan-300"
-                          : "text-gray-200 hover:bg-white/[0.07]"
+                          : "text-su-text hover:bg-su-line/20"
                       }
                     `}
                     title={preset.name}
@@ -333,8 +333,8 @@ export function RegionPresetSelector({
                         className="
                           flex-shrink-0
                           text-[10px] font-mono
-                          text-gray-500
-                          bg-white/5
+                          text-su-muted
+                          bg-su-line/10
                           w-5 h-5
                           flex items-center justify-center
                           rounded
@@ -349,7 +349,7 @@ export function RegionPresetSelector({
             </div>
 
             {/* Divider */}
-            <div className="border-t border-white/10" />
+            <div className="border-t border-su-line/40" />
 
             {/* Save / Manage actions */}
             <div className="p-2 space-y-1.5">
@@ -363,15 +363,15 @@ export function RegionPresetSelector({
                   onClick={() => setShowSaveForm(true)}
                   className="
                     w-full flex items-center gap-2 px-3 py-1.5
-                    text-sm text-gray-300 hover:text-white
-                    hover:bg-white/[0.07]
+                    text-sm text-su-muted hover:text-su-text
+                    hover:bg-su-line/20
                     rounded-md
                     transition-colors duration-150
                   "
                 >
                   {/* Plus icon */}
                   <svg
-                    className="w-4 h-4 text-gray-500"
+                    className="w-4 h-4 text-su-muted"
                     fill="none"
                     stroke="currentColor"
                     viewBox="0 0 24 24"
@@ -393,15 +393,15 @@ export function RegionPresetSelector({
                   onClick={handleManage}
                   className="
                     w-full flex items-center gap-2 px-3 py-1.5
-                    text-sm text-gray-400 hover:text-white
-                    hover:bg-white/[0.07]
+                    text-sm text-su-muted hover:text-su-text
+                    hover:bg-su-line/20
                     rounded-md
                     transition-colors duration-150
                   "
                 >
                   {/* Settings/gear icon */}
                   <svg
-                    className="w-4 h-4 text-gray-500"
+                    className="w-4 h-4 text-su-muted"
                     fill="none"
                     stroke="currentColor"
                     viewBox="0 0 24 24"
@@ -450,12 +450,12 @@ export function RegionPresetSelector({
         className={`
           inline-flex items-center gap-2
           px-3 py-1.5
-          bg-white/[0.05] hover:bg-white/[0.08]
-          border border-white/10 hover:border-white/20
+          bg-su-line/10 hover:bg-su-line/20
+          border border-su-line/40 hover:border-su-line/50
           rounded-lg
-          text-sm text-gray-200
+          text-sm text-su-text
           transition-all duration-150
-          ${isOpen ? "bg-white/[0.08] border-white/20" : ""}
+          ${isOpen ? "bg-su-line/20 border-su-line/50" : ""}
           ${className}
         `}
         title="Region presets"
@@ -475,7 +475,7 @@ export function RegionPresetSelector({
         {/* Chevron */}
         <svg
           className={`
-            w-3.5 h-3.5 text-gray-500
+            w-3.5 h-3.5 text-su-muted
             transition-transform duration-150
             ${isOpen ? "rotate-180" : ""}
           `}

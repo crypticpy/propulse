@@ -131,10 +131,10 @@ function MoreMapControls({
         ref={triggerRef}
         type="button"
         onClick={() => setOpen((value) => !value)}
-        className={`flex items-center rounded-md px-2.5 py-1 text-xs font-medium transition-colors focus-visible:ring-2 focus-visible:ring-white/30 ${
+        className={`flex items-center rounded-md px-2.5 py-1 text-xs font-medium transition-colors focus-visible:ring-2 focus-visible:ring-su-line/60 ${
           open
-            ? "bg-white/15 text-white"
-            : "text-gray-300 hover:bg-white/10 hover:text-white"
+            ? "bg-su-line/30 text-su-text"
+            : "text-su-muted hover:bg-su-line/20 hover:text-su-text"
         } ${compact ? "justify-center" : "gap-1.5"}`}
         aria-label="More map controls"
         aria-haspopup="dialog"
@@ -159,13 +159,13 @@ function MoreMapControls({
         createPortal(
           <div
             ref={panelRef}
-            className="fixed z-[240] overflow-y-auto overscroll-contain rounded-xl border border-white/10 bg-void-black/95 p-3 shadow-2xl backdrop-blur-md"
+            className="fixed z-[240] overflow-y-auto overscroll-contain rounded-xl border border-su-line/40 bg-void-black/95 p-3 shadow-2xl backdrop-blur-md"
             style={panelPosition}
             role="dialog"
             aria-label="More map controls"
             tabIndex={-1}
           >
-            <div className="mb-2 text-[10px] font-medium uppercase tracking-wider text-white/40">
+            <div className="mb-2 text-[10px] font-medium uppercase tracking-wider text-su-text/40">
               More map controls
             </div>
             <div className="flex flex-col items-start gap-1.5">
@@ -200,7 +200,7 @@ export function MapToolbarShell({
       ref={toolbarRef}
       role="toolbar"
       aria-label="Map controls"
-      className={`flex flex-shrink-0 gap-2 border-b border-white/5 bg-void-black/50 px-3 py-1.5 ${
+      className={`flex flex-shrink-0 gap-2 border-b border-su-line/20 bg-void-black/50 px-3 py-1.5 ${
         layout.stacked ? "flex-wrap items-center" : "items-center"
       }`}
       data-tour="layer-controls"
@@ -233,7 +233,7 @@ export function MapToolbarShell({
 
       <div
         className={`ml-auto flex shrink-0 items-center justify-end gap-2 ${
-          layout.stacked ? "w-full border-t border-white/5 pt-1" : ""
+          layout.stacked ? "w-full border-t border-su-line/20 pt-1" : ""
         }`}
         data-testid="map-toolbar-trailing"
       >

@@ -85,9 +85,9 @@ function InlineNameEditor({
       maxLength={32}
       className="
         w-full px-2 py-1
-        bg-gray-800/80 border border-cyan-500/40
+        bg-su-panel/80 border border-cyan-500/40
         rounded
-        text-white text-sm
+        text-su-text text-sm
         focus:outline-none focus:ring-1 focus:ring-cyan-500/50
       "
       aria-label="Edit preset name"
@@ -109,13 +109,13 @@ function DeleteConfirmation({
 }) {
   return (
     <div className="flex items-center gap-2 text-xs">
-      <span className="text-gray-400">Delete &ldquo;{presetName}&rdquo;?</span>
+      <span className="text-su-muted">Delete &ldquo;{presetName}&rdquo;?</span>
       <button
         onClick={onConfirm}
         className="
           px-2 py-0.5
           bg-red-600/80 hover:bg-red-500
-          text-white font-medium
+          text-su-text font-medium
           rounded
           transition-colors duration-150
         "
@@ -126,8 +126,8 @@ function DeleteConfirmation({
         onClick={onCancel}
         className="
           px-2 py-0.5
-          bg-gray-700/60 hover:bg-gray-600
-          text-gray-300
+          bg-su-input/50 hover:bg-su-line
+          text-su-muted
           rounded
           transition-colors duration-150
         "
@@ -190,7 +190,7 @@ function PresetRow({
         flex items-center gap-2 px-3 py-2
         rounded-lg
         transition-colors duration-100
-        ${isActive ? "bg-cyan-500/10 border border-cyan-500/20" : "bg-white/[0.02] border border-transparent hover:bg-white/[0.04]"}
+        ${isActive ? "bg-cyan-500/10 border border-cyan-500/20" : "bg-su-line/10 border border-transparent hover:bg-su-line/10"}
       `}
     >
       {/* Icon */}
@@ -220,8 +220,8 @@ function PresetRow({
             <span
               className={`
                 text-sm truncate
-                ${isActive ? "text-cyan-300 font-medium" : "text-gray-200"}
-                ${!preset.isBuiltIn ? "cursor-pointer hover:text-white" : ""}
+                ${isActive ? "text-cyan-300 font-medium" : "text-su-text"}
+                ${!preset.isBuiltIn ? "cursor-pointer hover:text-su-text" : ""}
               `}
               onDoubleClick={
                 !preset.isBuiltIn ? () => setIsEditing(true) : undefined
@@ -237,7 +237,7 @@ function PresetRow({
                 className="
                   text-[10px] font-medium uppercase tracking-wider
                   px-1.5 py-0.5 rounded
-                  bg-gray-700/60 text-gray-500
+                  bg-su-input/50 text-su-muted
                   flex-shrink-0
                 "
               >
@@ -257,9 +257,9 @@ function PresetRow({
             disabled={!canMoveUp}
             className="
               p-1
-              text-gray-500 hover:text-gray-300
-              disabled:text-gray-700 disabled:cursor-not-allowed
-              hover:bg-white/10
+              text-su-muted hover:text-su-muted
+              disabled:text-su-line disabled:cursor-not-allowed
+              hover:bg-su-line/20
               rounded
               transition-colors duration-150
             "
@@ -290,9 +290,9 @@ function PresetRow({
             disabled={!canMoveDown}
             className="
               p-1
-              text-gray-500 hover:text-gray-300
-              disabled:text-gray-700 disabled:cursor-not-allowed
-              hover:bg-white/10
+              text-su-muted hover:text-su-muted
+              disabled:text-su-line disabled:cursor-not-allowed
+              hover:bg-su-line/20
               rounded
               transition-colors duration-150
             "
@@ -322,8 +322,8 @@ function PresetRow({
             onClick={() => setIsEditing(true)}
             className="
               p-1
-              text-gray-500 hover:text-gray-300
-              hover:bg-white/10
+              text-su-muted hover:text-su-muted
+              hover:bg-su-line/20
               rounded
               transition-colors duration-150
             "
@@ -358,7 +358,7 @@ function PresetRow({
             ${
               isActive
                 ? "bg-cyan-500/20 text-cyan-300 border border-cyan-500/30"
-                : "bg-white/5 text-gray-400 hover:text-white hover:bg-white/10"
+                : "bg-su-line/10 text-su-muted hover:text-su-text hover:bg-su-line/20"
             }
           `}
           title={isActive ? "Active" : "Navigate to this preset"}
@@ -372,7 +372,7 @@ function PresetRow({
             onClick={() => setIsDeleting(true)}
             className="
               p-1
-              text-gray-600 hover:text-red-400
+              text-su-muted hover:text-red-400
               hover:bg-red-500/10
               rounded
               transition-colors duration-150
@@ -440,7 +440,7 @@ function ImportPanel({
 
   return (
     <div className="space-y-3">
-      <label className="block text-xs text-gray-400 font-medium">
+      <label className="block text-xs text-su-muted font-medium">
         Paste preset JSON:
       </label>
       <textarea
@@ -454,10 +454,10 @@ function ImportPanel({
         rows={5}
         className="
           w-full px-3 py-2
-          bg-gray-800/60 border border-gray-600/50
+          bg-su-panel/60 border border-su-line/50
           rounded-md
-          text-white text-xs font-mono
-          placeholder:text-gray-600
+          text-su-text text-xs font-mono
+          placeholder:text-su-muted
           focus:outline-none focus:ring-1 focus:ring-cyan-500/50 focus:border-cyan-500/50
           resize-none
         "
@@ -470,7 +470,7 @@ function ImportPanel({
           className="
             flex-1 px-3 py-2
             bg-cyan-600 hover:bg-cyan-500
-            text-white text-sm font-medium
+            text-su-text text-sm font-medium
             rounded-md
             transition-colors duration-150
           "
@@ -481,8 +481,8 @@ function ImportPanel({
           onClick={onCancel}
           className="
             px-3 py-2
-            bg-gray-700/50 hover:bg-gray-700
-            text-gray-300 text-sm
+            bg-su-input/50 hover:bg-su-input
+            text-su-muted text-sm
             rounded-md
             transition-colors duration-150
           "
@@ -646,7 +646,7 @@ export function RegionPresetManager({
       aria-label="Region Preset Manager"
     >
       {/* Backdrop */}
-      <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" />
+      <div className="absolute inset-0 bg-su-panel/50 backdrop-blur-sm" />
 
       {/* Panel */}
       <div
@@ -654,8 +654,8 @@ export function RegionPresetManager({
           relative
           w-full max-w-lg
           max-h-[85vh]
-          bg-gray-900/95 backdrop-blur-md
-          border border-white/10
+          bg-su-canvas/95 backdrop-blur-md
+          border border-su-line/40
           rounded-xl
           shadow-2xl shadow-black/60
           flex flex-col
@@ -667,19 +667,19 @@ export function RegionPresetManager({
         role="document"
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-5 py-4 border-b border-white/10 flex-shrink-0">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-su-line/40 flex-shrink-0">
           <div className="flex items-center gap-3">
             <span className="text-lg" aria-hidden="true">
               {"\u{1F30D}"}
             </span>
-            <h2 className="text-lg font-semibold text-white">Region Presets</h2>
+            <h2 className="text-lg font-semibold text-su-text">Region Presets</h2>
           </div>
           <button
             onClick={onClose}
             className="
               p-1.5
-              text-gray-400 hover:text-white
-              hover:bg-white/10
+              text-su-muted hover:text-su-text
+              hover:bg-su-line/20
               rounded-lg
               transition-colors duration-150
             "
@@ -707,7 +707,7 @@ export function RegionPresetManager({
           {/* Built-in presets section */}
           {builtInPresets.length > 0 && (
             <div>
-              <h3 className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-2.5">
+              <h3 className="text-xs font-medium text-su-muted uppercase tracking-wider mb-2.5">
                 Built-in Regions
               </h3>
               <div className="space-y-1">
@@ -732,18 +732,18 @@ export function RegionPresetManager({
 
           {/* User presets section */}
           <div>
-            <h3 className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-2.5">
+            <h3 className="text-xs font-medium text-su-muted uppercase tracking-wider mb-2.5">
               Custom Presets
               {userPresets.length > 0 && (
-                <span className="ml-2 text-gray-600">
+                <span className="ml-2 text-su-muted">
                   ({userPresets.length})
                 </span>
               )}
             </h3>
             {userPresets.length === 0 ? (
-              <div className="text-center py-6 border border-dashed border-white/10 rounded-lg">
-                <p className="text-gray-500 text-sm">No custom presets yet</p>
-                <p className="text-gray-600 text-xs mt-1">
+              <div className="text-center py-6 border border-dashed border-su-line/40 rounded-lg">
+                <p className="text-su-muted text-sm">No custom presets yet</p>
+                <p className="text-su-muted text-xs mt-1">
                   Save your current view from the preset dropdown
                 </p>
               </div>
@@ -776,7 +776,7 @@ export function RegionPresetManager({
 
           {/* Import panel */}
           {showImport && (
-            <div className="border-t border-white/10 pt-4">
+            <div className="border-t border-su-line/40 pt-4">
               <ImportPanel
                 onImport={handleImport}
                 onCancel={() => {
@@ -792,7 +792,7 @@ export function RegionPresetManager({
         </div>
 
         {/* Footer */}
-        <div className="flex items-center justify-between px-5 py-3 border-t border-white/10 flex-shrink-0">
+        <div className="flex items-center justify-between px-5 py-3 border-t border-su-line/40 flex-shrink-0">
           <div className="flex items-center gap-2">
             {/* Export button */}
             <button
@@ -800,9 +800,9 @@ export function RegionPresetManager({
               className="
                 flex items-center gap-1.5
                 px-3 py-1.5
-                text-xs text-gray-400 hover:text-white
-                bg-white/5 hover:bg-white/10
-                border border-white/10
+                text-xs text-su-muted hover:text-su-text
+                bg-su-line/10 hover:bg-su-line/20
+                border border-su-line/40
                 rounded-md
                 transition-colors duration-150
               "
@@ -832,13 +832,13 @@ export function RegionPresetManager({
                 flex items-center gap-1.5
                 px-3 py-1.5
                 text-xs
-                border border-white/10
+                border border-su-line/40
                 rounded-md
                 transition-colors duration-150
                 ${
                   showImport
                     ? "bg-cyan-500/20 text-cyan-300 border-cyan-500/30"
-                    : "text-gray-400 hover:text-white bg-white/5 hover:bg-white/10"
+                    : "text-su-muted hover:text-su-text bg-su-line/10 hover:bg-su-line/20"
                 }
               `}
               title="Import presets from JSON"
@@ -875,9 +875,9 @@ export function RegionPresetManager({
             onClick={onClose}
             className="
               px-4 py-1.5
-              text-sm text-gray-300 hover:text-white
-              bg-white/5 hover:bg-white/10
-              border border-white/10
+              text-sm text-su-muted hover:text-su-text
+              bg-su-line/10 hover:bg-su-line/20
+              border border-su-line/40
               rounded-md
               transition-colors duration-150
             "

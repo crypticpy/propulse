@@ -101,7 +101,7 @@ const DIFFICULTY_COLORS = [
  * Uses the same color scheme as difficulty ratings
  */
 const getDistanceColor = (difficulty: number): string => {
-  return DIFFICULTY_COLORS[difficulty] || "text-white";
+  return DIFFICULTY_COLORS[difficulty] || "text-su-text";
 };
 
 /**
@@ -190,10 +190,10 @@ const RecentTargetsDropdown = memo(function RecentTargetsDropdown({
   );
 
   return (
-    <div className="absolute top-full left-0 mt-1 w-56 bg-nebula-blue border border-white/10 rounded-lg shadow-lg z-50 overflow-hidden">
+    <div className="absolute top-full left-0 mt-1 w-56 bg-nebula-blue border border-su-line/40 rounded-lg shadow-lg z-50 overflow-hidden">
       {/* Header */}
-      <div className="flex items-center justify-between px-3 py-2 border-b border-white/10 bg-white/5">
-        <span className="text-xs font-medium text-gray-300">
+      <div className="flex items-center justify-between px-3 py-2 border-b border-su-line/40 bg-su-line/10">
+        <span className="text-xs font-medium text-su-muted">
           Recent Targets
         </span>
         <button
@@ -201,7 +201,7 @@ const RecentTargetsDropdown = memo(function RecentTargetsDropdown({
             e.stopPropagation();
             onClear();
           }}
-          className="text-[10px] text-gray-400 hover:text-alert-red transition-colors"
+          className="text-[10px] text-su-muted hover:text-alert-red transition-colors"
           title="Clear recent targets"
         >
           Clear
@@ -225,24 +225,24 @@ const RecentTargetsDropdown = memo(function RecentTargetsDropdown({
                 e.stopPropagation();
                 onSelect(target);
               }}
-              className={`w-full px-3 py-2 text-left hover:bg-white/10 transition-colors flex items-center justify-between gap-2 ${
+              className={`w-full px-3 py-2 text-left hover:bg-su-line/20 transition-colors flex items-center justify-between gap-2 ${
                 current ? "bg-plasma-orange/10" : ""
               }`}
             >
               <div className="min-w-0 flex-1">
                 <div
-                  className={`text-sm truncate ${current ? "text-plasma-orange" : "text-white"}`}
+                  className={`text-sm truncate ${current ? "text-plasma-orange" : "text-su-text"}`}
                 >
                   {displayName}
                 </div>
                 {target.grid && target.name && (
-                  <div className="text-[10px] text-gray-400 font-mono">
+                  <div className="text-[10px] text-su-muted font-mono">
                     {target.grid}
                   </div>
                 )}
               </div>
               {distance && (
-                <span className="text-[10px] font-mono text-gray-400 flex-shrink-0">
+                <span className="text-[10px] font-mono text-su-muted flex-shrink-0">
                   {distance}
                 </span>
               )}
@@ -276,7 +276,7 @@ function HopStrip({
 }) {
   return (
     <div className="flex items-center gap-1.5">
-      <span className="w-6 text-[9px] font-medium uppercase tracking-wider text-gray-500">
+      <span className="w-6 text-[9px] font-medium uppercase tracking-wider text-su-muted">
         {label}
       </span>
       <div className="flex flex-wrap gap-1">
@@ -294,7 +294,7 @@ function HopStrip({
           </span>
         ))}
       </div>
-      <span className="ml-auto font-mono text-[9px] text-gray-500">
+      <span className="ml-auto font-mono text-[9px] text-su-muted">
         {result.overallScore}/100
       </span>
     </div>
@@ -562,14 +562,14 @@ export function PathAnalysis({
         <Card className={`${className} h-full p-2 !rounded-lg`}>
           <div className="flex flex-col h-full">
             <div className="flex items-center justify-between mb-0.5 flex-shrink-0">
-              <h3 className="text-xs font-medium text-gray-300 uppercase tracking-wide">
+              <h3 className="text-xs font-medium text-su-muted uppercase tracking-wide">
                 Path Analysis
               </h3>
               <div className="flex items-center gap-1 flex-shrink-0">
                 <HelpButton onClick={() => setShowHelp(true)} />
               </div>
             </div>
-            <div className="flex-1 flex items-center justify-center text-gray-400">
+            <div className="flex-1 flex items-center justify-center text-su-muted">
               <p className="text-sm text-center px-4">
                 Set your QTH in settings to see path analysis
               </p>
@@ -602,14 +602,14 @@ export function PathAnalysis({
         <Card className={`${className} h-full p-2 !rounded-lg`}>
           <div className="flex flex-col h-full">
             <div className="flex items-center justify-between mb-0.5 flex-shrink-0">
-              <h3 className="text-xs font-medium text-gray-300 uppercase tracking-wide">
+              <h3 className="text-xs font-medium text-su-muted uppercase tracking-wide">
                 Path Analysis
               </h3>
               <div className="flex items-center gap-1 flex-shrink-0">
                 <HelpButton onClick={() => setShowHelp(true)} />
               </div>
             </div>
-            <div className="flex-1 flex items-center justify-center text-gray-400">
+            <div className="flex-1 flex items-center justify-center text-su-muted">
               <p className="text-sm text-center px-4">
                 Click on the map to select a target location
               </p>
@@ -676,7 +676,7 @@ export function PathAnalysis({
           <div className="flex items-center gap-3 w-full">
             {/* Expand indicator */}
             <svg
-              className="w-3.5 h-3.5 text-gray-500 flex-shrink-0"
+              className="w-3.5 h-3.5 text-su-muted flex-shrink-0"
               fill="none"
               viewBox="0 0 24 24"
               stroke="currentColor"
@@ -693,7 +693,7 @@ export function PathAnalysis({
             <span
               className={`text-[9px] uppercase tracking-wider px-1.5 py-0.5 rounded font-medium ${
                 pathMode === "short"
-                  ? "bg-white/10 text-gray-400"
+                  ? "bg-su-line/20 text-su-muted"
                   : "bg-plasma-orange/20 text-plasma-orange"
               }`}
             >
@@ -708,7 +708,7 @@ export function PathAnalysis({
               className={`text-[9px] uppercase tracking-wider px-1.5 py-0.5 rounded font-medium transition-colors ${
                 isolateTargetPath
                   ? "bg-cyan-500/30 text-cyan-200"
-                  : "bg-white/10 text-gray-400 hover:text-white"
+                  : "bg-su-line/20 text-su-muted hover:text-su-text"
               }`}
               title="Hide other traces and show only this target's short and long path"
             >
@@ -743,16 +743,16 @@ export function PathAnalysis({
             <span
               className={`text-[10px] uppercase tracking-wide px-1.5 py-0.5 rounded ${
                 DIFFICULTY_COLORS[metrics.difficulty]
-              } ${difficultyBgColors[metrics.difficulty] || "bg-white/5"}`}
+              } ${difficultyBgColors[metrics.difficulty] || "bg-su-line/10"}`}
             >
               {DIFFICULTY_LABELS[metrics.difficulty]}
             </span>
 
             {/* Divider */}
-            <div className="w-px h-3 bg-white/10" />
+            <div className="w-px h-3 bg-su-line/20" />
 
             {/* Bearing compact - show based on path mode */}
-            <span className="text-[10px] font-mono text-gray-400">
+            <span className="text-[10px] font-mono text-su-muted">
               {activeLeg === "long"
                 ? `${Math.round(metrics.longPath.bearing)}° ${formatBearing(metrics.longPath.bearing)}`
                 : `${Math.round(metrics.shortPath.bearing)}° ${formatBearing(metrics.shortPath.bearing)}`}
@@ -761,8 +761,8 @@ export function PathAnalysis({
             {/* Target indicator */}
             {target && (
               <>
-                <div className="w-px h-3 bg-white/10" />
-                <span className="text-[10px] text-gray-500 truncate max-w-[80px]">
+                <div className="w-px h-3 bg-su-line/20" />
+                <span className="text-[10px] text-su-muted truncate max-w-[80px]">
                   {pathMode === "long" ? "← " : "→ "}
                   {target.grid || target.name}
                 </span>
@@ -780,11 +780,11 @@ export function PathAnalysis({
                     e.stopPropagation();
                     onToggleCollapse();
                   }}
-                  className="p-1 hover:bg-white/10 rounded transition-colors flex-shrink-0"
+                  className="p-1 hover:bg-su-line/20 rounded transition-colors flex-shrink-0"
                   title="Collapse panel"
                 >
                   <svg
-                    className="w-4 h-4 text-gray-400"
+                    className="w-4 h-4 text-su-muted"
                     fill="none"
                     viewBox="0 0 24 24"
                     stroke="currentColor"
@@ -811,11 +811,11 @@ export function PathAnalysis({
               />
 
               <div className="min-w-0 flex-1">
-                <h3 className="text-xs font-medium text-gray-300 uppercase tracking-wide">
+                <h3 className="text-xs font-medium text-su-muted uppercase tracking-wide">
                   Path Info
                 </h3>
                 <div className="flex items-center gap-1">
-                  <p className="text-xs text-gray-400 truncate">
+                  <p className="text-xs text-su-muted truncate">
                     {station.callsign} →{" "}
                     {target.name || target.grid || "Target"}
                   </p>
@@ -827,11 +827,11 @@ export function PathAnalysis({
                           e.stopPropagation();
                           setShowRecentTargets(!showRecentTargets);
                         }}
-                        className="p-0.5 hover:bg-white/10 rounded transition-colors"
+                        className="p-0.5 hover:bg-su-line/20 rounded transition-colors"
                         title="Recent targets"
                       >
                         <svg
-                          className={`w-3.5 h-3.5 text-gray-400 transition-transform ${
+                          className={`w-3.5 h-3.5 text-su-muted transition-transform ${
                             showRecentTargets ? "rotate-180" : ""
                           }`}
                           fill="none"
@@ -883,7 +883,7 @@ export function PathAnalysis({
                     e.stopPropagation();
                     onClose();
                   }}
-                  className="p-1 rounded hover:bg-white/10 transition-colors text-white/40 hover:text-red-400"
+                  className="p-1 rounded hover:bg-su-line/20 transition-colors text-su-text/40 hover:text-red-400"
                   title="Hide panel"
                 >
                   <svg
@@ -975,17 +975,17 @@ export function PathAnalysis({
         >
           {/* Path Mode Toggle */}
           <div className="flex items-center justify-between mb-2">
-            <span className="text-xs font-medium text-gray-400">
+            <span className="text-xs font-medium text-su-muted">
               Path Display
             </span>
-            <div className="flex rounded-md overflow-hidden border border-white/10">
+            <div className="flex rounded-md overflow-hidden border border-su-line/40">
               <button
                 type="button"
                 onClick={() => setPathMode("short")}
                 className={`px-2.5 py-1 text-xs font-medium transition-colors ${
                   pathMode === "short"
                     ? "bg-plasma-orange/30 text-plasma-orange border-r border-plasma-orange/30"
-                    : "bg-white/5 text-gray-400 hover:text-white hover:bg-white/10 border-r border-white/10"
+                    : "bg-su-line/10 text-su-muted hover:text-su-text hover:bg-su-line/20 border-r border-su-line/40"
                 }`}
                 title="Short Path - direct great circle route"
               >
@@ -997,7 +997,7 @@ export function PathAnalysis({
                 className={`px-2.5 py-1 text-xs font-medium transition-colors ${
                   pathMode === "long"
                     ? "bg-plasma-orange/30 text-plasma-orange border-r border-plasma-orange/30"
-                    : "bg-white/5 text-gray-400 hover:text-white hover:bg-white/10 border-r border-white/10"
+                    : "bg-su-line/10 text-su-muted hover:text-su-text hover:bg-su-line/20 border-r border-su-line/40"
                 }`}
                 title="Long Path - around the other side of Earth"
               >
@@ -1009,7 +1009,7 @@ export function PathAnalysis({
                 className={`px-2.5 py-1 text-xs font-medium transition-colors ${
                   pathMode === "both"
                     ? "bg-plasma-orange/30 text-plasma-orange"
-                    : "bg-white/5 text-gray-400 hover:text-white hover:bg-white/10"
+                    : "bg-su-line/10 text-su-muted hover:text-su-text hover:bg-su-line/20"
                 }`}
                 title="Show short and long path together"
               >
@@ -1019,17 +1019,17 @@ export function PathAnalysis({
           </div>
 
           <div className="flex items-center justify-between mb-3">
-            <span className="text-xs font-medium text-gray-400">
+            <span className="text-xs font-medium text-su-muted">
               Target path
             </span>
-            <div className="flex rounded-md overflow-hidden border border-white/10">
+            <div className="flex rounded-md overflow-hidden border border-su-line/40">
               <button
                 type="button"
                 onClick={() => toggleLayer("rayPath")}
                 className={`px-2.5 py-1 text-xs font-medium transition-colors ${
                   bouncesActive
                     ? "bg-cyan-500/20 text-cyan-300 border-r border-cyan-500/30"
-                    : "bg-white/5 text-gray-400 hover:text-white hover:bg-white/10 border-r border-white/10"
+                    : "bg-su-line/10 text-su-muted hover:text-su-text hover:bg-su-line/20 border-r border-su-line/40"
                 }`}
                 title="Show modeled ionospheric skip bounces on the targeted path"
               >
@@ -1041,7 +1041,7 @@ export function PathAnalysis({
                 className={`px-2.5 py-1 text-xs font-medium transition-colors ${
                   isolateTargetPath
                     ? "bg-cyan-500/20 text-cyan-300"
-                    : "bg-white/5 text-gray-400 hover:text-white hover:bg-white/10"
+                    : "bg-su-line/10 text-su-muted hover:text-su-text hover:bg-su-line/20"
                 }`}
                 title="Hide every other trace and keep only this target's short and long path"
               >
@@ -1052,8 +1052,8 @@ export function PathAnalysis({
 
           {pathPresentation.showRayPath &&
             (pathPresentation.shortResult || pathPresentation.longResult) && (
-              <div className="mb-3 space-y-1.5 rounded-lg border border-white/10 bg-white/5 p-2">
-                <div className="text-[9px] font-medium uppercase tracking-wider text-gray-500">
+              <div className="mb-3 space-y-1.5 rounded-lg border border-su-line/40 bg-su-line/10 p-2">
+                <div className="text-[9px] font-medium uppercase tracking-wider text-su-muted">
                   Modeled hops · {pathPresentation.frequencyMHz.toFixed(3)} MHz
                 </div>
                 {pathPresentation.shortResult && (
@@ -1070,11 +1070,11 @@ export function PathAnalysis({
             className={`space-y-2 rounded-lg p-2 transition-colors ${
               pathMode === "short" || pathMode === "both"
                 ? "bg-plasma-orange/10 border border-plasma-orange/20"
-                : "bg-white/5 border border-transparent"
+                : "bg-su-line/10 border border-transparent"
             }`}
           >
             <div className="flex items-center gap-2">
-              <h4 className="text-xs font-medium text-gray-400 inline-flex items-center gap-1">
+              <h4 className="text-xs font-medium text-su-muted inline-flex items-center gap-1">
                 Short Path <InfoTip content={GEOGRAPHY_TOOLTIPS.greatCircle} />
               </h4>
               {(pathMode === "short" || pathMode === "both") && (
@@ -1111,11 +1111,11 @@ export function PathAnalysis({
             className={`space-y-2 pt-3 mt-3 rounded-lg p-2 transition-colors ${
               pathMode === "long" || pathMode === "both"
                 ? "bg-plasma-orange/10 border border-plasma-orange/20"
-                : "bg-white/5 border border-transparent"
+                : "bg-su-line/10 border border-transparent"
             }`}
           >
             <div className="flex items-center gap-2">
-              <h4 className="text-xs font-medium text-gray-400 inline-flex items-center gap-1">
+              <h4 className="text-xs font-medium text-su-muted inline-flex items-center gap-1">
                 Long Path <InfoTip content={GEOGRAPHY_TOOLTIPS.greatCircle} />
               </h4>
               {(pathMode === "long" || pathMode === "both") && (
@@ -1148,8 +1148,8 @@ export function PathAnalysis({
           </div>
 
           {/* Propagation Info */}
-          <div className="space-y-2 pt-3 border-t border-white/5 mt-3">
-            <h4 className="text-xs font-medium text-gray-400">Propagation</h4>
+          <div className="space-y-2 pt-3 border-t border-su-line/20 mt-3">
+            <h4 className="text-xs font-medium text-su-muted">Propagation</h4>
             <div className="grid grid-cols-3 gap-2">
               <MetricItem
                 label="Est. Hops"
@@ -1194,7 +1194,7 @@ export function PathAnalysis({
 
           {/* NowCast Model Section */}
           {modelNowCast.visible && (
-            <div className="pt-3 mt-3 border-t border-white/5">
+            <div className="pt-3 mt-3 border-t border-su-line/20">
               <NowCastBandPanel
                 state={modelNowCast}
                 bands={HF_MODEL_BANDS}
@@ -1224,7 +1224,7 @@ export function PathAnalysis({
           )}
 
           {/* Target coordinates footer */}
-          <div className="mt-auto pt-3 border-t border-white/5 text-xs text-gray-400 font-mono flex-shrink-0">
+          <div className="mt-auto pt-3 border-t border-su-line/20 text-xs text-su-muted font-mono flex-shrink-0">
             {target.lat.toFixed(2)}°, {target.lon.toFixed(2)}°
             {target.grid && <span className="ml-1">({target.grid})</span>}
           </div>
@@ -1234,7 +1234,7 @@ export function PathAnalysis({
         {showScrollIndicator && (
           <div className="absolute bottom-0 left-0 right-0 pointer-events-none">
             <div className="h-8 bg-gradient-to-t from-nebula-blue/90 to-transparent" />
-            <div className="absolute bottom-1 left-1/2 -translate-x-1/2 flex flex-col items-center text-gray-400 animate-bounce">
+            <div className="absolute bottom-1 left-1/2 -translate-x-1/2 flex flex-col items-center text-su-muted animate-bounce">
               <svg
                 className="w-4 h-4"
                 fill="none"
@@ -1265,7 +1265,7 @@ export function PathAnalysis({
           <div>
             <label
               htmlFor="target-name"
-              className="block text-sm font-medium text-gray-200 mb-1"
+              className="block text-sm font-medium text-su-text mb-1"
             >
               Target Name
             </label>
@@ -1275,8 +1275,8 @@ export function PathAnalysis({
               value={targetName}
               onChange={(e) => setTargetName(e.target.value)}
               placeholder="e.g., DX Station, Contest Target"
-              className="w-full px-3 py-2 bg-deep-space/70 border border-white/10 rounded-lg
-                         text-white placeholder-gray-400
+              className="w-full px-3 py-2 bg-deep-space/70 border border-su-line/40 rounded-lg
+                         text-su-text placeholder:text-su-muted/80
                          focus:outline-none focus:border-plasma-orange/50"
               autoFocus
               onKeyDown={(e) => {
@@ -1291,8 +1291,8 @@ export function PathAnalysis({
           <div className="flex gap-3">
             <button
               onClick={() => setShowSaveModal(false)}
-              className="flex-1 px-4 py-2 bg-nebula-blue/60 border border-white/10 rounded-lg
-                         text-gray-200 hover:text-white hover:border-white/20
+              className="flex-1 px-4 py-2 bg-nebula-blue/60 border border-su-line/40 rounded-lg
+                         text-su-text hover:text-su-text hover:border-su-line/50
                          transition-colors font-medium text-sm"
             >
               Cancel
@@ -1347,13 +1347,13 @@ const MetricItem = memo(function MetricItem({
 }) {
   return (
     <div className="text-center">
-      <div className="text-xs text-gray-400 mb-0.5 inline-flex items-center justify-center gap-0.5">
+      <div className="text-xs text-su-muted mb-0.5 inline-flex items-center justify-center gap-0.5">
         {label}
       </div>
-      <div className={`text-sm font-mono ${valueClassName || "text-white"}`}>
+      <div className={`text-sm font-mono ${valueClassName || "text-su-text"}`}>
         {value}
       </div>
-      {subValue && <div className="text-xs text-gray-400">{subValue}</div>}
+      {subValue && <div className="text-xs text-su-muted">{subValue}</div>}
     </div>
   );
 });
@@ -1369,9 +1369,9 @@ const FrequencyLimitsDisplay = memo(function FrequencyLimitsDisplay({
 }) {
   if (!limits) {
     return (
-      <div className="space-y-2 pt-3 border-t border-white/5 mt-3">
-        <h4 className="text-xs font-medium text-gray-400">Freq Limits</h4>
-        <div className="p-2 rounded-lg border border-white/10 bg-white/5 text-center text-gray-400 text-xs">
+      <div className="space-y-2 pt-3 border-t border-su-line/20 mt-3">
+        <h4 className="text-xs font-medium text-su-muted">Freq Limits</h4>
+        <div className="p-2 rounded-lg border border-su-line/40 bg-su-line/10 text-center text-su-muted text-xs">
           Calculating...
         </div>
       </div>
@@ -1405,12 +1405,12 @@ const FrequencyLimitsDisplay = memo(function FrequencyLimitsDisplay({
   };
 
   return (
-    <div className="space-y-2 pt-3 border-t border-white/5 mt-3">
-      <h4 className="text-xs font-medium text-gray-400">Freq Limits</h4>
-      <div className="p-2 rounded-lg border border-white/10 bg-white/5">
+    <div className="space-y-2 pt-3 border-t border-su-line/20 mt-3">
+      <h4 className="text-xs font-medium text-su-muted">Freq Limits</h4>
+      <div className="p-2 rounded-lg border border-su-line/40 bg-su-line/10">
         <div className="grid grid-cols-2 gap-x-3 gap-y-1 font-mono text-xs">
           <div className="flex justify-between items-center">
-            <span className="text-gray-400 inline-flex items-center gap-0.5">
+            <span className="text-su-muted inline-flex items-center gap-0.5">
               MUF: <InfoTip content={PROPAGATION_TOOLTIPS.muf} />
             </span>
             <span className={getMufColor(limits.muf)}>
@@ -1418,13 +1418,13 @@ const FrequencyLimitsDisplay = memo(function FrequencyLimitsDisplay({
             </span>
           </div>
           <div className="flex justify-between items-center">
-            <span className="text-gray-400 inline-flex items-center gap-0.5">
+            <span className="text-su-muted inline-flex items-center gap-0.5">
               FOT: <InfoTip content={PROPAGATION_TOOLTIPS.fot} />
             </span>
-            <span className="text-white">{limits.fot.toFixed(1)}</span>
+            <span className="text-su-text">{limits.fot.toFixed(1)}</span>
           </div>
           <div className="flex justify-between items-center">
-            <span className="text-gray-400 inline-flex items-center gap-0.5">
+            <span className="text-su-muted inline-flex items-center gap-0.5">
               LUF: <InfoTip content={PROPAGATION_TOOLTIPS.luf} />
             </span>
             <span className={getLufColor(limits.luf)}>
@@ -1432,10 +1432,10 @@ const FrequencyLimitsDisplay = memo(function FrequencyLimitsDisplay({
             </span>
           </div>
           <div className="flex justify-between items-center">
-            <span className="text-gray-400 inline-flex items-center gap-0.5">
+            <span className="text-su-muted inline-flex items-center gap-0.5">
               HPF: <InfoTip content={PROPAGATION_TOOLTIPS.hpf} />
             </span>
-            <span className="text-white">{limits.hpf.toFixed(1)}</span>
+            <span className="text-su-text">{limits.hpf.toFixed(1)}</span>
           </div>
         </div>
         {/* Compact frequency window bar */}
@@ -1463,7 +1463,7 @@ const FrequencyWindowBar = memo(function FrequencyWindowBar({
   const fotPercent = ((limits.fot - minFreq) / range) * 100;
 
   return (
-    <div className="mt-2 relative h-1.5 bg-gray-800 rounded-full overflow-hidden">
+    <div className="mt-2 relative h-1.5 bg-su-panel rounded-full overflow-hidden">
       <div
         className="absolute top-0 left-0 h-full bg-alert-red/30"
         style={{ width: `${lufPercent}%` }}
@@ -1569,15 +1569,15 @@ const RadioSuggestions = memo(function RadioSuggestions({
   }, [rxScore, difficulty]);
 
   return (
-    <div className="space-y-2 pt-3 border-t border-white/5 mt-3">
+    <div className="space-y-2 pt-3 border-t border-su-line/20 mt-3">
       <div className="flex items-center justify-between">
-        <h4 className="text-xs font-medium text-gray-400">Active Radio</h4>
+        <h4 className="text-xs font-medium text-su-muted">Active Radio</h4>
         <div className="flex items-center gap-2">
           {onUseProfile && (
             <button
               type="button"
               onClick={onUseProfile}
-              className="px-2 py-1 text-xs rounded bg-white/5 border border-white/10 text-gray-200 hover:text-white hover:border-white/20 transition-colors"
+              className="px-2 py-1 text-xs rounded bg-su-line/10 border border-su-line/40 text-su-text hover:text-su-text hover:border-su-line/50 transition-colors"
               title="Use active profile radio"
             >
               Use profile
@@ -1592,25 +1592,25 @@ const RadioSuggestions = memo(function RadioSuggestions({
           </button>
         </div>
       </div>
-      <div className="text-sm font-semibold text-white">
+      <div className="text-sm font-semibold text-su-text">
         {radio.manufacturer} {radio.model}
       </div>
-      <div className="p-2 rounded-lg border border-white/10 bg-white/5">
+      <div className="p-2 rounded-lg border border-su-line/40 bg-su-line/10">
         <div className="grid grid-cols-2 gap-x-3 gap-y-1 font-mono text-xs">
           <div className="flex justify-between">
-            <span className="text-gray-400">Power:</span>
+            <span className="text-su-muted">Power:</span>
             <span className="text-plasma-orange">{suggestedPower}W</span>
           </div>
           <div className="flex justify-between">
-            <span className="text-gray-400">Max:</span>
-            <span className="text-white">{radio.maxPower}W</span>
+            <span className="text-su-muted">Max:</span>
+            <span className="text-su-text">{radio.maxPower}W</span>
           </div>
           <div className="flex justify-between">
-            <span className="text-gray-400">RX:</span>
+            <span className="text-su-muted">RX:</span>
             <span className={rxColor}>{rxQuality}</span>
           </div>
           <div className="flex justify-between">
-            <span className="text-gray-400">For path:</span>
+            <span className="text-su-muted">For path:</span>
             <span
               className={
                 rxAdequate ? "text-signal-green" : "text-caution-amber"
@@ -1665,15 +1665,15 @@ const TerrainBounceDisplay = memo(function TerrainBounceDisplay({
   if (!terrainData) return null;
 
   return (
-    <div className="mt-2 p-2 rounded-lg border border-white/10 bg-white/5">
-      <div className="text-[10px] text-gray-400 mb-1 uppercase tracking-wide">
+    <div className="mt-2 p-2 rounded-lg border border-su-line/40 bg-su-line/10">
+      <div className="text-[10px] text-su-muted mb-1 uppercase tracking-wide">
         Ground Bounce Terrain
       </div>
       <div className="flex flex-wrap gap-1.5">
         {terrainData.types.map((t, i) => (
           <span
             key={i}
-            className="inline-flex items-center gap-0.5 text-xs text-gray-300"
+            className="inline-flex items-center gap-0.5 text-xs text-su-muted"
             title={`Bounce ${i + 1}: ${getTerrainLabel(t)}`}
           >
             <span>{getTerrainIcon(t)}</span>
@@ -1682,7 +1682,7 @@ const TerrainBounceDisplay = memo(function TerrainBounceDisplay({
         ))}
       </div>
       <div className="flex justify-between text-[10px] font-mono mt-1">
-        <span className="text-gray-400">Terrain loss:</span>
+        <span className="text-su-muted">Terrain loss:</span>
         <span className="text-caution-amber">
           {terrainData.totalLoss.toFixed(1)} dB
         </span>

@@ -92,7 +92,7 @@ export function RecommendationsBadge({
         <>
           {/* Best badge */}
           <div className="flex-shrink-0">
-            <div className="text-[10px] text-gray-500 uppercase tracking-wide">
+            <div className="text-[10px] text-su-muted uppercase tracking-wide">
               Best
             </div>
             <div className="flex items-baseline gap-1.5">
@@ -103,7 +103,7 @@ export function RecommendationsBadge({
               </span>
               <span
                 className={`text-sm font-semibold ${
-                  MODE_COLORS_TAILWIND[mode] || "text-white"
+                  MODE_COLORS_TAILWIND[mode] || "text-su-text"
                 }`}
               >
                 {mode}
@@ -115,7 +115,7 @@ export function RecommendationsBadge({
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2">
               {/* Score bar */}
-              <div className="flex-1 h-1.5 bg-white/10 rounded-full overflow-hidden">
+              <div className="flex-1 h-1.5 bg-su-line/20 rounded-full overflow-hidden">
                 <div
                   className={`h-full rounded-full ${
                     optimal.score >= 80
@@ -129,7 +129,7 @@ export function RecommendationsBadge({
                   style={{ width: `${optimal.score}%` }}
                 />
               </div>
-              <span className="text-xs font-mono text-gray-400">
+              <span className="text-xs font-mono text-su-muted">
                 {optimal.score}
               </span>
             </div>
@@ -139,7 +139,7 @@ export function RecommendationsBadge({
               >
                 {optimal.status}
               </span>
-              <span className="text-[10px] text-gray-500">
+              <span className="text-[10px] text-su-muted">
                 {optimal.snr > 0 ? "+" : ""}
                 {optimal.snr} dB
               </span>
@@ -148,13 +148,13 @@ export function RecommendationsBadge({
 
           {/* S-Unit */}
           <div className="flex-shrink-0 text-center">
-            <div className="text-[10px] text-gray-400">Signal</div>
-            <div className="text-xs font-mono text-white">{optimal.sUnit}</div>
+            <div className="text-[10px] text-su-muted">Signal</div>
+            <div className="text-xs font-mono text-su-text">{optimal.sUnit}</div>
           </div>
         </>
       ) : (
         <div className="flex-1 min-w-0">
-          <div className="text-xs text-gray-400 leading-snug">
+          <div className="text-xs text-su-muted leading-snug">
             Select a target to see the best band right now.
           </div>
         </div>

@@ -107,12 +107,12 @@ function PillToggle({
         e.stopPropagation();
         onChange();
       }}
-      className={`relative inline-flex h-4 w-7 shrink-0 cursor-pointer rounded-full transition-colors duration-200 focus-visible:ring-2 focus-visible:ring-white/30 focus-visible:ring-offset-0 ${
-        checked ? "bg-signal-green" : "bg-white/10"
+      className={`relative inline-flex h-4 w-7 shrink-0 cursor-pointer rounded-full transition-colors duration-200 focus-visible:ring-2 focus-visible:ring-su-line/60 focus-visible:ring-offset-0 ${
+        checked ? "bg-signal-green" : "bg-su-line/20"
       }`}
     >
       <span
-        className={`pointer-events-none inline-block h-3 w-3 transform rounded-full bg-white shadow-sm transition-transform duration-200 mt-0.5 ${
+        className={`pointer-events-none inline-block h-3 w-3 transform rounded-full bg-su-text shadow-sm transition-transform duration-200 mt-0.5 ${
           checked ? "translate-x-3.5 ml-0" : "translate-x-0.5"
         }`}
       />
@@ -341,12 +341,12 @@ export function WatchPopover() {
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium transition-colors focus-visible:ring-2 focus-visible:ring-white/30 focus-visible:ring-offset-0 ${
+        className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium transition-colors focus-visible:ring-2 focus-visible:ring-su-line/60 focus-visible:ring-offset-0 ${
           open
-            ? "bg-white/15 text-white"
+            ? "bg-su-line/30 text-su-text"
             : isActive
-              ? "text-white hover:bg-white/10"
-              : "text-gray-300 hover:text-white hover:bg-white/10"
+              ? "text-su-text hover:bg-su-line/20"
+              : "text-su-muted hover:text-su-text hover:bg-su-line/20"
         }`}
         aria-haspopup="true"
         aria-expanded={open}
@@ -373,7 +373,7 @@ export function WatchPopover() {
             <span>
               Watch
               {triggerSummary && (
-                <span className="text-white/60"> · {triggerSummary}</span>
+                <span className="text-su-text/60"> · {triggerSummary}</span>
               )}
             </span>
             {matchCount > 0 && (
@@ -383,13 +383,13 @@ export function WatchPopover() {
             )}
           </>
         ) : (
-          <span className="text-white/50">Watch</span>
+          <span className="text-su-text/50">Watch</span>
         )}
       </button>
 
       {/* ── Popover panel ── */}
       <div
-        className={`absolute top-full left-0 mt-1.5 w-[min(320px,calc(100vw-2rem))] z-50 bg-void-black/90 backdrop-blur-md border border-white/10 rounded-xl shadow-xl p-3 max-h-[70vh] overflow-y-auto transition-all duration-150 ${
+        className={`absolute top-full left-0 mt-1.5 w-[min(320px,calc(100vw-2rem))] z-50 bg-void-black/90 backdrop-blur-md border border-su-line/40 rounded-xl shadow-xl p-3 max-h-[70vh] overflow-y-auto transition-all duration-150 ${
           open
             ? "opacity-100 translate-y-0"
             : "opacity-0 -translate-y-1 pointer-events-none"
@@ -398,7 +398,7 @@ export function WatchPopover() {
         aria-label="Spot Watch filters"
       >
         {/* ── Quick Start ── */}
-        <div className="text-[10px] uppercase tracking-wider text-white/40 font-medium mb-2 px-0.5">
+        <div className="text-[10px] uppercase tracking-wider text-su-text/40 font-medium mb-2 px-0.5">
           Quick Start
         </div>
         <div className="flex flex-wrap gap-1.5 mb-3">
@@ -406,7 +406,7 @@ export function WatchPopover() {
             type="button"
             onClick={handleMyGrid}
             disabled={!stationGrid}
-            className="px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-sm text-white/70 hover:text-white transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+            className="px-3 py-1.5 rounded-lg bg-su-line/10 hover:bg-su-line/20 text-sm text-su-text/70 hover:text-su-text transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
             title={
               stationGrid
                 ? `Watch my grid: ${stationGrid}`
@@ -415,7 +415,7 @@ export function WatchPopover() {
           >
             My Grid
             {stationGrid && (
-              <span className="ml-1 text-white/40 text-xs">
+              <span className="ml-1 text-su-text/40 text-xs">
                 {stationGrid.substring(0, 4).toUpperCase()}
               </span>
             )}
@@ -423,14 +423,14 @@ export function WatchPopover() {
           <button
             type="button"
             onClick={handleQuickCallsign}
-            className="px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-sm text-white/70 hover:text-white transition-colors"
+            className="px-3 py-1.5 rounded-lg bg-su-line/10 hover:bg-su-line/20 text-sm text-su-text/70 hover:text-su-text transition-colors"
           >
             Callsign
           </button>
           <button
             type="button"
             onClick={handleQuickBand}
-            className="px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-sm text-white/70 hover:text-white transition-colors"
+            className="px-3 py-1.5 rounded-lg bg-su-line/10 hover:bg-su-line/20 text-sm text-su-text/70 hover:text-su-text transition-colors"
           >
             Band
           </button>
@@ -439,8 +439,8 @@ export function WatchPopover() {
         {/* ── Contest Section (visible when contest profile active or session running) ── */}
         {isContestMode && (
           <>
-            <div className="border-t border-white/5 my-2" />
-            <div className="text-[10px] uppercase tracking-wider text-white/40 font-medium mb-2 px-0.5 flex items-center gap-1.5">
+            <div className="border-t border-su-line/20 my-2" />
+            <div className="text-[10px] uppercase tracking-wider text-su-text/40 font-medium mb-2 px-0.5 flex items-center gap-1.5">
               <span>Contest</span>
               {!featureFlags.contestWatch && (
                 <span className="px-1 py-0.5 rounded bg-caution-amber/20 text-caution-amber text-[8px] font-bold leading-none">
@@ -465,7 +465,7 @@ export function WatchPopover() {
                 <div className="font-medium text-xs truncate">
                   {activeContestDef.name}
                 </div>
-                <div className="text-[10px] text-white/40 mt-0.5">
+                <div className="text-[10px] text-su-text/40 mt-0.5">
                   Auto-configure watch for active contest
                 </div>
               </button>
@@ -487,7 +487,7 @@ export function WatchPopover() {
                     type="button"
                     onClick={() => setContestWatch(preset.id)}
                     disabled={!featureFlags.contestWatch}
-                    className="px-2.5 py-1 rounded-lg bg-white/5 hover:bg-caution-amber/10 text-xs text-white/60 hover:text-caution-amber transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                    className="px-2.5 py-1 rounded-lg bg-su-line/10 hover:bg-caution-amber/10 text-xs text-su-text/60 hover:text-caution-amber transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
                     title={
                       featureFlags.contestWatch
                         ? `Watch for ${preset.label} spots`
@@ -504,7 +504,7 @@ export function WatchPopover() {
             <div
               className={`flex items-center h-8 px-0.5 rounded transition-colors ${
                 featureFlags.contestWatch
-                  ? "hover:bg-white/5 cursor-pointer"
+                  ? "hover:bg-su-line/10 cursor-pointer"
                   : "opacity-40 cursor-not-allowed"
               }`}
               onClick={() => {
@@ -515,14 +515,14 @@ export function WatchPopover() {
                 className={`w-1.5 h-1.5 rounded-full mr-2.5 shrink-0 transition-colors ${
                   neededOnly && featureFlags.contestWatch
                     ? "bg-caution-amber"
-                    : "bg-white/20"
+                    : "bg-su-line/30"
                 }`}
               />
               <span
                 className={`flex-1 text-xs transition-colors ${
                   neededOnly && featureFlags.contestWatch
-                    ? "text-white"
-                    : "text-white/60"
+                    ? "text-su-text"
+                    : "text-su-text/60"
                 }`}
               >
                 Needed multipliers only
@@ -539,30 +539,30 @@ export function WatchPopover() {
         )}
 
         {/* ── Divider ── */}
-        <div className="border-t border-white/5 my-2" />
+        <div className="border-t border-su-line/20 my-2" />
 
         {/* ── Filter Section ── */}
-        <div className="text-[10px] uppercase tracking-wider text-white/40 font-medium mb-2 px-0.5">
+        <div className="text-[10px] uppercase tracking-wider text-su-text/40 font-medium mb-2 px-0.5">
           Filter
         </div>
 
         <div className="space-y-2.5">
           {/* Callsign */}
           <div>
-            <label className="block text-xs text-white/50 mb-1">Callsign</label>
+            <label className="block text-xs text-su-text/50 mb-1">Callsign</label>
             <input
               ref={callsignInputRef}
               type="text"
               value={form.callsign}
               onChange={(e) => updateField("callsign", e.target.value)}
               placeholder="e.g., 3Y0J or W7*"
-              className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-1.5 text-sm text-white placeholder-white/30 focus:border-signal-green/50 focus:outline-none"
+              className="w-full bg-su-line/10 border border-su-line/40 rounded-lg px-3 py-1.5 text-sm text-su-text placeholder:text-su-muted/80 focus:border-signal-green/50 focus:outline-none"
             />
           </div>
 
           {/* Grid + TX/RX */}
           <div>
-            <label className="block text-xs text-white/50 mb-1">Grid</label>
+            <label className="block text-xs text-su-text/50 mb-1">Grid</label>
             <div className="flex items-center gap-2">
               <input
                 type="text"
@@ -575,7 +575,7 @@ export function WatchPopover() {
                 }
                 placeholder="e.g., EM73"
                 maxLength={6}
-                className="flex-1 bg-white/5 border border-white/10 rounded-lg px-3 py-1.5 text-sm text-white placeholder-white/30 focus:border-signal-green/50 focus:outline-none font-mono"
+                className="flex-1 bg-su-line/10 border border-su-line/40 rounded-lg px-3 py-1.5 text-sm text-su-text placeholder:text-su-muted/80 focus:border-signal-green/50 focus:outline-none font-mono"
               />
               <div className="flex items-center gap-2 shrink-0">
                 {(["tx", "rx", "either"] as const).map((dir) => (
@@ -591,10 +591,10 @@ export function WatchPopover() {
                       className={`w-3 h-3 rounded-full border transition-colors ${
                         form.txOrRx === dir
                           ? "bg-signal-green border-signal-green"
-                          : "border-white/30 bg-transparent"
+                          : "border-su-line/60 bg-transparent"
                       }`}
                     />
-                    <span className="text-[10px] text-white/50 uppercase">
+                    <span className="text-[10px] text-su-text/50 uppercase">
                       {dir === "either" ? "Any" : dir}
                     </span>
                   </label>
@@ -605,15 +605,15 @@ export function WatchPopover() {
 
           {/* Band */}
           <div>
-            <label className="block text-xs text-white/50 mb-1">Band</label>
+            <label className="block text-xs text-su-text/50 mb-1">Band</label>
             <select
               ref={bandSelectRef}
               value={form.band}
               onChange={(e) => updateField("band", e.target.value)}
-              className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-1.5 text-sm text-white focus:border-signal-green/50 focus:outline-none appearance-none cursor-pointer"
+              className="w-full bg-su-line/10 border border-su-line/40 rounded-lg px-3 py-1.5 text-sm text-su-text focus:border-signal-green/50 focus:outline-none appearance-none cursor-pointer"
             >
               {BAND_OPTIONS.map((b) => (
-                <option key={b} value={b} className="bg-void-black text-white">
+                <option key={b} value={b} className="bg-void-black text-su-text">
                   {b}
                 </option>
               ))}
@@ -622,14 +622,14 @@ export function WatchPopover() {
 
           {/* Mode */}
           <div>
-            <label className="block text-xs text-white/50 mb-1">Mode</label>
+            <label className="block text-xs text-su-text/50 mb-1">Mode</label>
             <select
               value={form.mode}
               onChange={(e) => updateField("mode", e.target.value)}
-              className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-1.5 text-sm text-white focus:border-signal-green/50 focus:outline-none appearance-none cursor-pointer"
+              className="w-full bg-su-line/10 border border-su-line/40 rounded-lg px-3 py-1.5 text-sm text-su-text focus:border-signal-green/50 focus:outline-none appearance-none cursor-pointer"
             >
               {MODE_OPTIONS.map((m) => (
-                <option key={m} value={m} className="bg-void-black text-white">
+                <option key={m} value={m} className="bg-void-black text-su-text">
                   {m}
                 </option>
               ))}
@@ -638,16 +638,16 @@ export function WatchPopover() {
 
           {/* Continent */}
           <div>
-            <label className="block text-xs text-white/50 mb-1">
+            <label className="block text-xs text-su-text/50 mb-1">
               Continent
             </label>
             <select
               value={form.continent}
               onChange={(e) => updateField("continent", e.target.value)}
-              className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-1.5 text-sm text-white focus:border-signal-green/50 focus:outline-none appearance-none cursor-pointer"
+              className="w-full bg-su-line/10 border border-su-line/40 rounded-lg px-3 py-1.5 text-sm text-su-text focus:border-signal-green/50 focus:outline-none appearance-none cursor-pointer"
             >
               {CONTINENT_OPTIONS.map((c) => (
-                <option key={c} value={c} className="bg-void-black text-white">
+                <option key={c} value={c} className="bg-void-black text-su-text">
                   {c}
                 </option>
               ))}
@@ -656,24 +656,24 @@ export function WatchPopover() {
         </div>
 
         {/* ── Divider ── */}
-        <div className="border-t border-white/5 my-3" />
+        <div className="border-t border-su-line/20 my-3" />
 
         {/* ── Options ── */}
-        <div className="text-[10px] uppercase tracking-wider text-white/40 font-medium mb-1.5 px-0.5">
+        <div className="text-[10px] uppercase tracking-wider text-su-text/40 font-medium mb-1.5 px-0.5">
           Options
         </div>
         <div
-          className="flex items-center h-8 px-0.5 rounded hover:bg-white/5 transition-colors cursor-pointer"
+          className="flex items-center h-8 px-0.5 rounded hover:bg-su-line/10 transition-colors cursor-pointer"
           onClick={toggleAutoPan}
         >
           <span
             className={`w-1.5 h-1.5 rounded-full mr-2.5 shrink-0 transition-colors ${
-              autoPan ? "bg-signal-green" : "bg-white/20"
+              autoPan ? "bg-signal-green" : "bg-su-line/30"
             }`}
           />
           <span
             className={`flex-1 text-xs transition-colors ${
-              autoPan ? "text-white" : "text-white/60"
+              autoPan ? "text-su-text" : "text-su-text/60"
             }`}
           >
             Auto-pan to matches
@@ -686,20 +686,20 @@ export function WatchPopover() {
         </div>
 
         {/* ── Divider ── */}
-        <div className="border-t border-white/5 my-3" />
+        <div className="border-t border-su-line/20 my-3" />
 
         {/* ── Saved Watches ── */}
-        <div className="text-[10px] uppercase tracking-wider text-white/40 font-medium mb-1.5 px-0.5">
+        <div className="text-[10px] uppercase tracking-wider text-su-text/40 font-medium mb-1.5 px-0.5">
           Saved Watches
           {savedWatches.length > 0 && (
-            <span className="ml-1 text-white/30">
+            <span className="ml-1 text-su-text/30">
               ({savedWatches.length}/{MAX_SAVED_WATCHES})
             </span>
           )}
         </div>
 
         {savedWatches.length === 0 ? (
-          <div className="text-xs text-white/30 px-0.5 py-1">
+          <div className="text-xs text-su-text/30 px-0.5 py-1">
             No saved watches yet
           </div>
         ) : (
@@ -714,8 +714,8 @@ export function WatchPopover() {
                   key={sw.id}
                   className={`flex items-center gap-2 px-2 py-1.5 rounded-md cursor-pointer transition-colors ${
                     isLoaded
-                      ? "bg-signal-green/10 text-white"
-                      : "hover:bg-white/5 text-white/70"
+                      ? "bg-signal-green/10 text-su-text"
+                      : "hover:bg-su-line/10 text-su-text/70"
                   }`}
                   onClick={() => loadWatch(sw.id)}
                   title={`Load: ${summary}`}
@@ -730,7 +730,7 @@ export function WatchPopover() {
                     strokeWidth="1.3"
                     strokeLinecap="round"
                     strokeLinejoin="round"
-                    className="shrink-0 text-white/40"
+                    className="shrink-0 text-su-text/40"
                   >
                     <path d="M1 7s2.5-4 6-4 6 4 6 4-2.5 4-6 4-6-4-6-4z" />
                     <circle cx="7" cy="7" r="2" />
@@ -740,7 +740,7 @@ export function WatchPopover() {
                     <div className="text-xs font-medium truncate">
                       {sw.name}
                     </div>
-                    <div className="text-[10px] text-white/40 truncate">
+                    <div className="text-[10px] text-su-text/40 truncate">
                       {summary}
                     </div>
                   </div>
@@ -752,7 +752,7 @@ export function WatchPopover() {
                       e.stopPropagation();
                       deleteWatch(sw.id);
                     }}
-                    className="shrink-0 w-5 h-5 flex items-center justify-center rounded text-white/30 hover:text-alert-red hover:bg-white/5 transition-colors"
+                    className="shrink-0 w-5 h-5 flex items-center justify-center rounded text-su-text/30 hover:text-alert-red hover:bg-su-line/10 transition-colors"
                     title="Delete saved watch"
                     aria-label={`Delete saved watch: ${sw.name}`}
                   >
@@ -793,7 +793,7 @@ export function WatchPopover() {
                   }}
                   placeholder="Watch name..."
                   maxLength={40}
-                  className="flex-1 bg-white/5 border border-white/10 rounded-lg px-2.5 py-1 text-xs text-white placeholder-white/30 focus:border-signal-green/50 focus:outline-none"
+                  className="flex-1 bg-su-line/10 border border-su-line/40 rounded-lg px-2.5 py-1 text-xs text-su-text placeholder:text-su-muted/80 focus:border-signal-green/50 focus:outline-none"
                 />
                 <button
                   type="button"
@@ -809,7 +809,7 @@ export function WatchPopover() {
                     setShowSaveInput(false);
                     setSaveName("");
                   }}
-                  className="px-1.5 py-1 rounded-lg text-white/40 hover:text-white/70 text-xs transition-colors"
+                  className="px-1.5 py-1 rounded-lg text-su-text/40 hover:text-su-text/70 text-xs transition-colors"
                 >
                   Cancel
                 </button>
@@ -818,7 +818,7 @@ export function WatchPopover() {
               <button
                 type="button"
                 onClick={() => setShowSaveInput(true)}
-                className="flex items-center gap-1.5 px-2 py-1.5 rounded-md text-xs text-white/50 hover:text-white/80 hover:bg-white/5 transition-colors w-full"
+                className="flex items-center gap-1.5 px-2 py-1.5 rounded-md text-xs text-su-text/50 hover:text-su-text/80 hover:bg-su-line/10 transition-colors w-full"
               >
                 <svg
                   width="10"
@@ -840,7 +840,7 @@ export function WatchPopover() {
         {/* ── Clear Watch ── */}
         {isActive && (
           <>
-            <div className="border-t border-white/5 my-3" />
+            <div className="border-t border-su-line/20 my-3" />
             <button
               type="button"
               onClick={handleClear}

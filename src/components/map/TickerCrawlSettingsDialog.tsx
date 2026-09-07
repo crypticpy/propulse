@@ -24,7 +24,7 @@ function isValidHttpUrl(value: string): boolean {
 }
 
 const selectClassName =
-  "rounded-lg border border-white/10 bg-void-black px-2.5 py-2 text-xs text-gray-200 focus:border-plasma-orange/50 focus:outline-none focus:ring-1 focus:ring-plasma-orange/30";
+  "rounded-lg border border-su-line/40 bg-void-black px-2.5 py-2 text-xs text-su-text focus:border-plasma-orange/50 focus:outline-none focus:ring-1 focus:ring-plasma-orange/30";
 
 export function TickerCrawlSettingsDialog({
   open,
@@ -67,15 +67,15 @@ export function TickerCrawlSettingsDialog({
         <section>
           <div className="mb-3 flex items-end justify-between gap-3">
             <div>
-              <h3 className="font-orbitron text-xs font-semibold uppercase tracking-wider text-white">
+              <h3 className="font-orbitron text-xs font-semibold uppercase tracking-wider text-su-text">
                 RSS sources
               </h3>
-              <p className="mt-1 text-xs leading-5 text-gray-500">
+              <p className="mt-1 text-xs leading-5 text-su-muted">
                 Each source has its own headline freshness threshold. Shared
                 stories are shown only once.
               </p>
             </div>
-            <span className="shrink-0 font-mono text-[10px] text-gray-500">
+            <span className="shrink-0 font-mono text-[10px] text-su-muted">
               {feeds.length}/{MAX_FEEDS}
             </span>
           </div>
@@ -84,7 +84,7 @@ export function TickerCrawlSettingsDialog({
             {feeds.map((feed) => (
               <div
                 key={feed.id}
-                className="grid gap-2 rounded-xl border border-white/10 bg-white/[0.03] p-3 sm:grid-cols-[minmax(0,1fr)_auto_auto] sm:items-center"
+                className="grid gap-2 rounded-xl border border-su-line/40 bg-su-line/10 p-3 sm:grid-cols-[minmax(0,1fr)_auto_auto] sm:items-center"
               >
                 <label className="flex min-w-0 items-center gap-2.5">
                   <input
@@ -95,19 +95,19 @@ export function TickerCrawlSettingsDialog({
                         crawlEnabled: event.target.checked,
                       })
                     }
-                    className="h-4 w-4 rounded border-white/20 bg-void-black accent-plasma-orange"
+                    className="h-4 w-4 rounded border-su-line/50 bg-void-black accent-plasma-orange"
                   />
                   <span className="min-w-0">
-                    <span className="block truncate text-sm text-gray-200">
+                    <span className="block truncate text-sm text-su-text">
                       {feed.label}
                     </span>
-                    <span className="block truncate font-mono text-[9px] text-gray-600">
+                    <span className="block truncate font-mono text-[9px] text-su-muted">
                       {feed.url}
                     </span>
                   </span>
                 </label>
 
-                <label className="flex items-center gap-2 text-[10px] uppercase tracking-wide text-gray-500">
+                <label className="flex items-center gap-2 text-[10px] uppercase tracking-wide text-su-muted">
                   Newer than
                   <select
                     value={feed.crawlMaxAgeHours}
@@ -133,7 +133,7 @@ export function TickerCrawlSettingsDialog({
                   type="button"
                   onClick={() => removeFeed(feed.id)}
                   disabled={feeds.length <= 1}
-                  className="justify-self-end rounded-lg px-2 py-1 text-xs text-gray-500 transition-colors hover:bg-red-500/10 hover:text-red-300 disabled:opacity-30"
+                  className="justify-self-end rounded-lg px-2 py-1 text-xs text-su-muted transition-colors hover:bg-red-500/10 hover:text-red-300 disabled:opacity-30"
                   aria-label={`Remove ${feed.label}`}
                 >
                   Remove
@@ -151,14 +151,14 @@ export function TickerCrawlSettingsDialog({
                 setUrlError(null);
               }}
               placeholder="https://example.com/feed.xml"
-              className="min-w-0 flex-1 rounded-lg border border-white/10 bg-void-black px-3 py-2 text-xs text-gray-200 placeholder:text-gray-600 focus:border-plasma-orange/50 focus:outline-none"
+              className="min-w-0 flex-1 rounded-lg border border-su-line/40 bg-void-black px-3 py-2 text-xs text-su-text placeholder:text-su-muted focus:border-plasma-orange/50 focus:outline-none"
               aria-label="Add RSS feed URL"
             />
             <button
               type="button"
               onClick={handleAdd}
               disabled={feeds.length >= MAX_FEEDS}
-              className="rounded-lg bg-plasma-orange px-3 py-2 text-xs font-semibold text-black transition-opacity hover:opacity-90 disabled:opacity-30"
+              className="rounded-lg bg-plasma-orange px-3 py-2 text-xs font-semibold text-su-on-accent transition-opacity hover:opacity-90 disabled:opacity-30"
             >
               Add feed
             </button>
@@ -166,12 +166,12 @@ export function TickerCrawlSettingsDialog({
           {urlError && <p className="mt-1 text-xs text-red-400">{urlError}</p>}
         </section>
 
-        <section className="border-t border-white/10 pt-5">
-          <h3 className="font-orbitron text-xs font-semibold uppercase tracking-wider text-white">
+        <section className="border-t border-su-line/40 pt-5">
+          <h3 className="font-orbitron text-xs font-semibold uppercase tracking-wider text-su-text">
             Alert thresholds
           </h3>
           <div className="mt-3 grid gap-3 sm:grid-cols-2">
-            <label className="space-y-1.5 text-xs text-gray-400">
+            <label className="space-y-1.5 text-xs text-su-muted">
               <span>Space weather break-in</span>
               <select
                 value={crawlPreferences.solarThreshold}
@@ -189,7 +189,7 @@ export function TickerCrawlSettingsDialog({
                 <option value="off">Off</option>
               </select>
             </label>
-            <label className="space-y-1.5 text-xs text-gray-400">
+            <label className="space-y-1.5 text-xs text-su-muted">
               <span>NWS break-in</span>
               <select
                 value={crawlPreferences.weatherThreshold}
@@ -207,7 +207,7 @@ export function TickerCrawlSettingsDialog({
                 <option value="off">Off</option>
               </select>
             </label>
-            <label className="space-y-1.5 text-xs text-gray-400">
+            <label className="space-y-1.5 text-xs text-su-muted">
               <span>Suppress repeats for</span>
               <select
                 value={crawlPreferences.dedupMinutes}
@@ -231,7 +231,7 @@ export function TickerCrawlSettingsDialog({
           </div>
         </section>
 
-        <section className="border-t border-white/10 pt-5">
+        <section className="border-t border-su-line/40 pt-5">
           <ToggleSwitch
             checked={crawlPreferences.breakInToneEnabled}
             onChange={(breakInToneEnabled) =>
@@ -240,7 +240,7 @@ export function TickerCrawlSettingsDialog({
             label="Play NWS break-in tone"
             description="New threshold-matching notices interrupt the crawl once per repeat-suppression window. Space-weather audio follows the global Notifications controls so it never sounds twice."
           />
-          <label className="mt-4 block text-xs text-gray-400">
+          <label className="mt-4 block text-xs text-su-muted">
             NWS tone volume · {crawlPreferences.breakInVolume}%
             <input
               type="range"

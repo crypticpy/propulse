@@ -48,7 +48,7 @@ const ACTIVE_STYLES: Record<PresetName, string> = {
 /* ─── Divider helper ─────────────────────────────────────────── */
 
 function Divider() {
-  return <div className="w-px h-6 bg-white/15 flex-shrink-0" />;
+  return <div className="w-px h-6 bg-su-line/30 flex-shrink-0" />;
 }
 
 /* ─── Compact Presets Dropdown ────────────────────────────────── */
@@ -105,8 +105,8 @@ function PresetsDropdown({
           activePreset
             ? ACTIVE_STYLES[activePreset]
             : open
-              ? "bg-white/15 text-white border-white/20"
-              : "text-gray-400 hover:text-white hover:bg-white/10 border-transparent"
+              ? "bg-su-line/30 text-su-text border-su-line/50"
+              : "text-su-muted hover:text-su-text hover:bg-su-line/20 border-transparent"
         }`}
       >
         {activeCfg ? (
@@ -167,7 +167,7 @@ function PresetsDropdown({
             style={{ top: rect.bottom + 6, left: rect.left }}
           >
             <div
-              className={`bg-void-black/90 backdrop-blur-md border border-white/10 rounded-xl p-2 ${isNarrow ? "min-w-[220px]" : "min-w-[180px]"} shadow-xl`}
+              className={`bg-void-black/90 backdrop-blur-md border border-su-line/40 rounded-xl p-2 ${isNarrow ? "min-w-[220px]" : "min-w-[180px]"} shadow-xl`}
             >
               {/* Time control (shown here when narrow) */}
               {isNarrow && (
@@ -175,7 +175,7 @@ function PresetsDropdown({
                   <div className="px-1 py-1">
                     <TimeControl className="[&>*:first-child]:hidden [&>*:nth-child(2)]:hidden [&>*:last-child]:hidden" />
                   </div>
-                  <div className="h-px bg-white/10 my-1.5" />
+                  <div className="h-px bg-su-line/20 my-1.5" />
                 </>
               )}
               {/* Layer presets */}
@@ -195,7 +195,7 @@ function PresetsDropdown({
                       className={`w-full flex items-center gap-2 px-2.5 py-1.5 text-[11px] rounded border transition-all ${
                         isActive
                           ? ACTIVE_STYLES[preset]
-                          : "text-gray-300 hover:text-white hover:bg-white/10 border-transparent"
+                          : "text-su-muted hover:text-su-text hover:bg-su-line/20 border-transparent"
                       }`}
                     >
                       <svg
@@ -216,7 +216,7 @@ function PresetsDropdown({
               </div>
 
               {/* Divider */}
-              <div className="h-px bg-white/10 my-1.5" />
+              <div className="h-px bg-su-line/20 my-1.5" />
 
               {/* Region presets */}
               <div className="px-0.5">
@@ -319,7 +319,7 @@ export function ProToolbarRibbon({
         <button
           type="button"
           onClick={toggleProRibbon}
-          className="bg-black/60 backdrop-blur-md border border-white/20 rounded-lg px-3 py-2 pointer-events-auto flex items-center gap-2 text-xs text-gray-300 hover:text-white transition-colors"
+          className="bg-su-panel/60 backdrop-blur-md border border-su-line/50 rounded-lg px-3 py-2 pointer-events-auto flex items-center gap-2 text-xs text-su-muted hover:text-su-text transition-colors"
         >
           <svg
             className="w-4 h-4 flex-shrink-0"
@@ -334,15 +334,15 @@ export function ProToolbarRibbon({
             <line x1="3" y1="12" x2="21" y2="12" />
             <line x1="3" y1="18" x2="21" y2="18" />
           </svg>
-          <span className="font-mono text-xs text-gray-400">
+          <span className="font-mono text-xs text-su-muted">
             {utcString} UTC
           </span>
-          <span className="text-white/30">&middot;</span>
+          <span className="text-su-text/30">&middot;</span>
           <span className="text-cyan-400 text-xs">{spots.length} spots</span>
         </button>
         <LayoutModeDropdown
           compact
-          className="pointer-events-auto bg-black/60 backdrop-blur-md rounded-lg"
+          className="pointer-events-auto bg-su-panel/60 backdrop-blur-md rounded-lg"
         />
       </div>
     );
@@ -360,13 +360,13 @@ export function ProToolbarRibbon({
     >
       <div
         ref={toolbarRef}
-        className="bg-black/60 backdrop-blur-md border-b border-white/20 flex flex-wrap items-center gap-2 px-3 py-2 pointer-events-auto"
+        className="bg-su-panel/60 backdrop-blur-md border-b border-su-line/50 flex flex-wrap items-center gap-2 px-3 py-2 pointer-events-auto"
       >
         {/* ── 1. Toggle (collapse) button ─────────────────────── */}
         <button
           type="button"
           onClick={toggleProRibbon}
-          className="p-1 rounded hover:bg-white/10 transition-colors text-gray-400 hover:text-white flex-shrink-0"
+          className="p-1 rounded hover:bg-su-line/20 transition-colors text-su-muted hover:text-su-text flex-shrink-0"
           title="Collapse toolbar"
         >
           <svg
@@ -394,16 +394,16 @@ export function ProToolbarRibbon({
           <>
             <div className="flex items-center gap-2 flex-shrink-0">
               <div className="w-2.5 h-2.5 rounded-full bg-signal-green animate-pulse" />
-              <span className="font-mono font-bold text-sm text-white">
+              <span className="font-mono font-bold text-sm text-su-text">
                 {station.callsign}
               </span>
               {/* Hide grid in compact mode */}
               {!isCompact && (
-                <span className="text-[10px] text-gray-500">
+                <span className="text-[10px] text-su-muted">
                   {station.grid}
                 </span>
               )}
-              <span className="text-white/20">|</span>
+              <span className="text-su-text/30">|</span>
               <div className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse" />
               <span className="text-xs text-cyan-400">
                 {spots.length} spots
@@ -422,8 +422,8 @@ export function ProToolbarRibbon({
               onClick={() => setViewMode(mode)}
               className={`px-2 py-1 rounded text-xs font-medium transition-all capitalize ${
                 viewMode === mode
-                  ? "bg-plasma-orange text-white"
-                  : "text-gray-400 hover:text-white hover:bg-white/10"
+                  ? "bg-plasma-orange text-su-on-accent"
+                  : "text-su-muted hover:text-su-text hover:bg-su-line/20"
               }`}
             >
               {mode === "azimuthal" ? "Azim" : mode}
@@ -478,7 +478,7 @@ export function ProToolbarRibbon({
                     className={`px-2 py-1 text-[10px] rounded border transition-all flex items-center gap-1 ${
                       isActive
                         ? ACTIVE_STYLES[preset]
-                        : "text-gray-400 hover:text-white hover:bg-white/10 border-transparent"
+                        : "text-su-muted hover:text-su-text hover:bg-su-line/20 border-transparent"
                     }`}
                   >
                     <svg
@@ -512,7 +512,7 @@ export function ProToolbarRibbon({
         <button
           type="button"
           onClick={enterObservatory}
-          className="flex items-center gap-1.5 px-2 py-1 rounded text-xs font-medium text-gray-300 hover:text-white hover:bg-white/10 transition-colors flex-shrink-0"
+          className="flex items-center gap-1.5 px-2 py-1 rounded text-xs font-medium text-su-muted hover:text-su-text hover:bg-su-line/20 transition-colors flex-shrink-0"
           title="Observatory Mode — fullscreen auto-rotating globe, zoom only"
         >
           <svg
@@ -542,7 +542,7 @@ export function ProToolbarRibbon({
         <button
           type="button"
           onClick={onResetLayout}
-          className="px-2 py-1.5 hover:bg-white/10 transition-colors text-gray-400 hover:text-white text-[10px] flex items-center gap-1 rounded flex-shrink-0"
+          className="px-2 py-1.5 hover:bg-su-line/20 transition-colors text-su-muted hover:text-su-text text-[10px] flex items-center gap-1 rounded flex-shrink-0"
           title="Reset panel positions"
         >
           <svg
@@ -571,8 +571,8 @@ export function ProToolbarRibbon({
             title={ambientMode ? "Show panels" : "Ambient mode"}
             className={`p-2 rounded transition-colors flex-shrink-0 ${
               ambientMode
-                ? "bg-white/15 text-white"
-                : "text-gray-400 hover:text-white hover:bg-white/10"
+                ? "bg-su-line/30 text-su-text"
+                : "text-su-muted hover:text-su-text hover:bg-su-line/20"
             }`}
           >
             <svg
@@ -602,15 +602,15 @@ export function ProToolbarRibbon({
         )}
 
         {/* ── 11. ESC hint + Exit button ─────────────────────── */}
-        <div className="text-[10px] text-gray-600 pointer-events-none select-none whitespace-nowrap">
-          <kbd className="px-1 py-0.5 bg-white/10 rounded text-gray-500">
+        <div className="text-[10px] text-su-muted pointer-events-none select-none whitespace-nowrap">
+          <kbd className="px-1 py-0.5 bg-su-line/20 rounded text-su-muted">
             ESC
           </kbd>
         </div>
         <button
           type="button"
           onClick={onExit}
-          className="p-2 hover:bg-white/10 transition-colors text-gray-400 hover:text-white rounded flex-shrink-0"
+          className="p-2 hover:bg-su-line/20 transition-colors text-su-muted hover:text-su-text rounded flex-shrink-0"
           aria-label="Exit fullscreen"
         >
           <svg

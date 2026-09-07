@@ -39,7 +39,7 @@ export function ObservatoryTiltSlider({
       transition-opacity duration-500
       ${visible ? "opacity-100" : "opacity-0 pointer-events-none"}`}
     >
-      <div className="bg-black/50 backdrop-blur-md border border-white/10 rounded-lg px-2 py-1.5 flex items-center gap-1.5 select-none">
+      <div className="bg-su-panel/50 backdrop-blur-md border border-su-line/40 rounded-lg px-2 py-1.5 flex items-center gap-1.5 select-none">
         {/* Tilted globe icon */}
         <svg
           width="11"

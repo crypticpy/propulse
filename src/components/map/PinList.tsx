@@ -170,10 +170,10 @@ export function PinList({
 
   return (
     <div
-      className={`flex flex-col bg-gray-900/50 backdrop-blur-sm rounded-lg border border-white/10 ${className}`}
+      className={`flex flex-col bg-su-canvas/50 backdrop-blur-sm rounded-lg border border-su-line/40 ${className}`}
     >
       {/* Category filter tabs */}
-      <div className="flex gap-1 p-2 border-b border-white/10 overflow-x-auto scrollbar-thin scrollbar-thumb-gray-700">
+      <div className="flex gap-1 p-2 border-b border-su-line/40 overflow-x-auto scrollbar-thin scrollbar-thumb-gray-700">
         {FILTER_TABS.map((tab) => {
           const count =
             tab.id === "all" ? pins.length : getPinsByCategory(tab.id).length;
@@ -187,7 +187,7 @@ export function PinList({
                 ${
                   activeFilter === tab.id
                     ? "bg-cyan-500/20 text-cyan-400 border border-cyan-500/30"
-                    : "text-gray-400 hover:text-gray-200 hover:bg-white/5"
+                    : "text-su-muted hover:text-su-text hover:bg-su-line/10"
                 }
               `}
               title={`Filter by ${tab.label}`}
@@ -200,7 +200,7 @@ export function PinList({
                 ${
                   activeFilter === tab.id
                     ? "bg-cyan-500/30 text-cyan-300"
-                    : "bg-gray-700/50 text-gray-500"
+                    : "bg-su-input/50 text-su-muted"
                 }
               `}
               >
@@ -220,17 +220,17 @@ export function PinList({
                 ? "📍"
                 : getCategoryMeta(activeFilter).icon}
             </span>
-            <p className="text-gray-400 text-sm">
+            <p className="text-su-muted text-sm">
               {activeFilter === "all"
                 ? "No pins saved yet"
                 : `No ${activeFilter} pins`}
             </p>
-            <p className="text-gray-500 text-xs mt-1">
+            <p className="text-su-muted text-xs mt-1">
               Click on the globe to add a pin
             </p>
           </div>
         ) : (
-          <ul className="divide-y divide-white/5">
+          <ul className="divide-y divide-su-line/20">
             {filteredPins.map((pin) => {
               const catMeta = getCategoryMeta(pin.category);
               const isDeleting = pendingDelete === pin.id;
@@ -240,7 +240,7 @@ export function PinList({
                 <li
                   key={pin.id}
                   onClick={() => handlePinClick(pin)}
-                  className="flex items-center gap-3 px-3 py-2 hover:bg-white/5 cursor-pointer transition-colors group"
+                  className="flex items-center gap-3 px-3 py-2 hover:bg-su-line/10 cursor-pointer transition-colors group"
                 >
                   {/* Category icon with color indicator */}
                   <div
@@ -253,18 +253,18 @@ export function PinList({
                   {/* Pin info */}
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
-                      <span className="text-white font-medium truncate">
+                      <span className="text-su-text font-medium truncate">
                         {pin.name || pin.grid}
                       </span>
                       {pin.name && (
-                        <span className="text-gray-500 text-xs font-mono">
+                        <span className="text-su-muted text-xs font-mono">
                           {pin.grid}
                         </span>
                       )}
                     </div>
                     <div className="flex items-center gap-2 text-xs">
                       <span
-                        className="text-gray-400"
+                        className="text-su-muted"
                         style={{ color: pin.color }}
                       >
                         {catMeta.label}
@@ -279,7 +279,7 @@ export function PinList({
                         </span>
                       )}
                       {pin.notes && (
-                        <span className="text-gray-500" title={pin.notes}>
+                        <span className="text-su-muted" title={pin.notes}>
                           Has notes
                         </span>
                       )}
@@ -312,7 +312,7 @@ export function PinList({
                         </button>
                         <button
                           onClick={handleCancelDelete}
-                          className="p-1.5 text-gray-400 hover:text-gray-300 hover:bg-white/10 rounded transition-colors"
+                          className="p-1.5 text-su-muted hover:text-su-muted hover:bg-su-line/20 rounded transition-colors"
                           title="Cancel"
                           aria-label="Cancel delete"
                         >
@@ -335,7 +335,7 @@ export function PinList({
                       <>
                         <button
                           onClick={(e) => handleEditClick(e, pin)}
-                          className="p-1.5 text-gray-400 hover:text-cyan-400 hover:bg-cyan-500/20 rounded transition-colors"
+                          className="p-1.5 text-su-muted hover:text-cyan-400 hover:bg-cyan-500/20 rounded transition-colors"
                           title="Edit pin"
                           aria-label="Edit pin"
                         >
@@ -355,7 +355,7 @@ export function PinList({
                         </button>
                         <button
                           onClick={(e) => handleDeleteClick(e, pin.id)}
-                          className="p-1.5 text-gray-400 hover:text-red-400 hover:bg-red-500/20 rounded transition-colors"
+                          className="p-1.5 text-su-muted hover:text-red-400 hover:bg-red-500/20 rounded transition-colors"
                           title="Delete pin"
                           aria-label="Delete pin"
                         >
@@ -385,8 +385,8 @@ export function PinList({
 
       {/* Footer with pin count and clear all */}
       {pins.length > 0 && (
-        <div className="flex items-center justify-between px-3 py-2 border-t border-white/10">
-          <span className="text-xs text-gray-500">
+        <div className="flex items-center justify-between px-3 py-2 border-t border-su-line/40">
+          <span className="text-xs text-su-muted">
             {pins.length} / {MAX_PINS} pins
           </span>
 
@@ -404,7 +404,7 @@ export function PinList({
               </button>
               <button
                 onClick={handleCancelClearAll}
-                className="px-2 py-0.5 text-xs font-medium text-gray-400 bg-white/5 rounded hover:bg-white/10 transition-colors"
+                className="px-2 py-0.5 text-xs font-medium text-su-muted bg-su-line/10 rounded hover:bg-su-line/20 transition-colors"
                 aria-label="Cancel clear all"
               >
                 No
@@ -413,7 +413,7 @@ export function PinList({
           ) : (
             <button
               onClick={handleClearAllClick}
-              className="flex items-center gap-1 px-2 py-0.5 text-xs font-medium text-gray-400 hover:text-red-400 bg-white/5 hover:bg-red-500/20 rounded transition-colors"
+              className="flex items-center gap-1 px-2 py-0.5 text-xs font-medium text-su-muted hover:text-red-400 bg-su-line/10 hover:bg-red-500/20 rounded transition-colors"
               title="Clear all pins"
               aria-label="Clear all pins"
             >

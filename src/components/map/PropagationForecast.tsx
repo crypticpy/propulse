@@ -147,11 +147,11 @@ export function PropagationForecast({
         <Card className={className}>
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <h3 className="text-sm font-medium text-white">24h Forecast</h3>
+              <h3 className="text-sm font-medium text-su-text">24h Forecast</h3>
               <HelpButton onClick={() => setShowHelp(true)} />
             </div>
           </div>
-          <div className="text-center py-8 text-gray-500">
+          <div className="text-center py-8 text-su-muted">
             <div className="animate-pulse">Loading forecast data...</div>
           </div>
         </Card>
@@ -173,11 +173,11 @@ export function PropagationForecast({
         <Card className={className}>
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <h3 className="text-sm font-medium text-white">24h Forecast</h3>
+              <h3 className="text-sm font-medium text-su-text">24h Forecast</h3>
               <HelpButton onClick={() => setShowHelp(true)} />
             </div>
           </div>
-          <div className="text-center py-6 text-gray-500">
+          <div className="text-center py-6 text-su-muted">
             <p className="text-sm">Set your QTH in settings for forecast</p>
           </div>
         </Card>
@@ -200,14 +200,14 @@ export function PropagationForecast({
           <div className="space-y-3">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <h3 className="text-sm font-medium text-white">24h Forecast</h3>
+                <h3 className="text-sm font-medium text-su-text">24h Forecast</h3>
                 <HelpButton onClick={() => setShowHelp(true)} />
               </div>
-              <div className="text-xs text-gray-500">
+              <div className="text-xs text-su-muted">
                 Kp={currentKp} SFI={currentSfi}
               </div>
             </div>
-            <div className="text-center py-4 text-gray-500">
+            <div className="text-center py-4 text-su-muted">
               <p className="text-sm">Select target for path forecast</p>
               <p className="text-xs mt-1">
                 Click on the map to set a target location
@@ -237,21 +237,21 @@ export function PropagationForecast({
           <div className="flex items-center justify-between">
             <div>
               <div className="flex items-center gap-2">
-                <h3 className="text-sm font-medium text-white">24h Forecast</h3>
+                <h3 className="text-sm font-medium text-su-text">24h Forecast</h3>
                 <HelpButton onClick={() => setShowHelp(true)} />
               </div>
               {topRecommendation && (
-                <p className="text-xs text-gray-500 mt-0.5">
+                <p className="text-xs text-su-muted mt-0.5">
                   Best: {topRecommendation.band} @ {topRecommendation.time}z
                 </p>
               )}
             </div>
             <button
-              className="p-1.5 rounded-lg bg-white/5 hover:bg-white/10 transition-colors"
+              className="p-1.5 rounded-lg bg-su-line/10 hover:bg-su-line/20 transition-colors"
               title="Expand forecast"
             >
               <svg
-                className="w-4 h-4 text-gray-400"
+                className="w-4 h-4 text-su-muted"
                 fill="none"
                 viewBox="0 0 24 24"
                 stroke="currentColor"
@@ -304,7 +304,7 @@ export function PropagationForecast({
                   x={MARGIN.left - 4}
                   y={MARGIN.top + idx * CELL_HEIGHT + CELL_HEIGHT / 2 + 3}
                   textAnchor="end"
-                  className="fill-gray-500 text-[9px] font-mono"
+                  className="fill-su-muted text-[9px] font-mono"
                 >
                   {band}
                 </text>
@@ -317,7 +317,7 @@ export function PropagationForecast({
                   x={MARGIN.left + hour * CELL_WIDTH + CELL_WIDTH / 2}
                   y={CHART_HEIGHT - 6}
                   textAnchor="middle"
-                  className="fill-gray-500 text-[9px] font-mono"
+                  className="fill-su-muted text-[9px] font-mono"
                 >
                   {formatHour(hour)}
                 </text>
@@ -399,33 +399,33 @@ export function PropagationForecast({
                 className="w-2.5 h-2.5 rounded-sm"
                 style={{ background: "var(--su-success)" }}
               />
-              <span className="text-gray-500">Excellent</span>
+              <span className="text-su-muted">Excellent</span>
             </div>
             <div className="flex items-center gap-1">
               <div
                 className="w-2.5 h-2.5 rounded-sm"
                 style={{ background: "rgb(var(--su-success-rgb) / 0.6)" }}
               />
-              <span className="text-gray-500">Good</span>
+              <span className="text-su-muted">Good</span>
             </div>
             <div className="flex items-center gap-1">
               <div
                 className="w-2.5 h-2.5 rounded-sm"
                 style={{ background: "var(--su-warning)" }}
               />
-              <span className="text-gray-500">Fair</span>
+              <span className="text-su-muted">Fair</span>
             </div>
             <div className="flex items-center gap-1">
               <div
                 className="w-2.5 h-2.5 rounded-sm"
                 style={{ background: "var(--su-danger)" }}
               />
-              <span className="text-gray-500">Poor</span>
+              <span className="text-su-muted">Poor</span>
             </div>
           </div>
 
           {/* Click hint */}
-          <div className="text-center text-[10px] text-gray-600">
+          <div className="text-center text-[10px] text-su-muted">
             Click for detailed forecast & recommendations
           </div>
         </div>

@@ -466,7 +466,7 @@ export function TimeControl({ className = "" }: TimeControlProps) {
         ref={headerRef}
         className="relative flex items-center justify-between mb-2"
       >
-        <h3 className="text-xs font-medium text-gray-300 uppercase tracking-wide">
+        <h3 className="text-xs font-medium text-su-muted uppercase tracking-wide">
           Time Machine
         </h3>
         <div className="flex items-center gap-1">
@@ -478,7 +478,7 @@ export function TimeControl({ className = "" }: TimeControlProps) {
             className={`p-1 rounded transition-colors ${
               showPresets
                 ? "bg-plasma-orange/20 text-plasma-orange"
-                : "text-gray-400 hover:text-white hover:bg-white/10"
+                : "text-su-muted hover:text-su-text hover:bg-su-line/20"
             }`}
             title="Smart presets"
             aria-label="Toggle smart presets"
@@ -505,7 +505,7 @@ export function TimeControl({ className = "" }: TimeControlProps) {
             className={`p-1 rounded transition-colors ${
               showScenarios
                 ? "bg-plasma-orange/20 text-plasma-orange"
-                : "text-gray-400 hover:text-white hover:bg-white/10"
+                : "text-su-muted hover:text-su-text hover:bg-su-line/20"
             }`}
             title="Saved scenarios"
             aria-label="Toggle saved scenarios"
@@ -544,8 +544,8 @@ export function TimeControl({ className = "" }: TimeControlProps) {
           >
             {/* Smart presets popover */}
             {showPresets && (
-              <div className="p-2 bg-void-black/95 backdrop-blur-md rounded-lg border border-white/10 shadow-lg shadow-black/50">
-                <div className="text-[10px] text-gray-500 uppercase tracking-wide mb-2">
+              <div className="p-2 bg-void-black/95 backdrop-blur-md rounded-lg border border-su-line/40 shadow-lg shadow-black/50">
+                <div className="text-[10px] text-su-muted uppercase tracking-wide mb-2">
                   Smart Presets
                 </div>
                 <div className="space-y-1">
@@ -555,18 +555,18 @@ export function TimeControl({ className = "" }: TimeControlProps) {
                       <button
                         key={preset.id}
                         onClick={() => handlePresetSelect(preset)}
-                        className="w-full flex items-center gap-2 px-2 py-1.5 text-left text-xs rounded hover:bg-white/10 transition-colors group"
+                        className="w-full flex items-center gap-2 px-2 py-1.5 text-left text-xs rounded hover:bg-su-line/20 transition-colors group"
                         title={preset.description}
                       >
                         <PresetIcon
                           type={preset.icon}
-                          className="text-gray-400 group-hover:text-plasma-orange"
+                          className="text-su-muted group-hover:text-plasma-orange"
                         />
-                        <span className="flex-1 text-gray-300 group-hover:text-white">
+                        <span className="flex-1 text-su-muted group-hover:text-su-text">
                           {preset.label}
                         </span>
                         {time && (
-                          <span className="text-gray-500 font-mono text-[10px]">
+                          <span className="text-su-muted font-mono text-[10px]">
                             {format(time, use24h ? "HH:mm" : "h:mm a")} UTC
                           </span>
                         )}
@@ -574,7 +574,7 @@ export function TimeControl({ className = "" }: TimeControlProps) {
                     );
                   })}
                   {availablePresets.length === 0 && (
-                    <div className="text-xs text-gray-500 text-center py-2">
+                    <div className="text-xs text-su-muted text-center py-2">
                       Set your station location to enable presets
                     </div>
                   )}
@@ -584,8 +584,8 @@ export function TimeControl({ className = "" }: TimeControlProps) {
 
             {/* Scenarios popover */}
             {showScenarios && (
-              <div className="p-2 bg-void-black/95 backdrop-blur-md rounded-lg border border-white/10 shadow-lg shadow-black/50">
-                <div className="text-[10px] text-gray-500 uppercase tracking-wide mb-2">
+              <div className="p-2 bg-void-black/95 backdrop-blur-md rounded-lg border border-su-line/40 shadow-lg shadow-black/50">
+                <div className="text-[10px] text-su-muted uppercase tracking-wide mb-2">
                   Saved Scenarios
                 </div>
 
@@ -595,7 +595,7 @@ export function TimeControl({ className = "" }: TimeControlProps) {
                     value={newScenarioName}
                     onChange={(e) => setNewScenarioName(e.target.value)}
                     placeholder="Scenario name..."
-                    className="flex-1 px-2 py-1 text-xs bg-white/5 border border-white/10 rounded text-white placeholder-gray-500 focus:outline-none focus:border-plasma-orange"
+                    className="flex-1 px-2 py-1 text-xs bg-su-line/10 border border-su-line/40 rounded text-su-text placeholder:text-su-muted/80 focus:outline-none focus:border-plasma-orange"
                     onKeyDown={(e) => e.key === "Enter" && handleSaveScenario()}
                   />
                   <button
@@ -611,16 +611,16 @@ export function TimeControl({ className = "" }: TimeControlProps) {
                   {timeScenarios.map((scenario) => (
                     <div
                       key={scenario.id}
-                      className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-white/10 transition-colors group"
+                      className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-su-line/20 transition-colors group"
                     >
                       <button
                         onClick={() => applyTimeScenario(scenario.id)}
                         className="flex-1 text-left"
                       >
-                        <div className="text-xs text-gray-300 group-hover:text-white">
+                        <div className="text-xs text-su-muted group-hover:text-su-text">
                           {scenario.name}
                         </div>
-                        <div className="text-[10px] text-gray-500">
+                        <div className="text-[10px] text-su-muted">
                           {format(
                             new Date(scenario.time),
                             use24h ? "MMM d, HH:mm" : "MMM d, h:mm a",
@@ -632,7 +632,7 @@ export function TimeControl({ className = "" }: TimeControlProps) {
                       </button>
                       <button
                         onClick={() => removeTimeScenario(scenario.id)}
-                        className="p-1 text-gray-500 hover:text-red-400 transition-colors opacity-0 group-hover:opacity-100"
+                        className="p-1 text-su-muted hover:text-red-400 transition-colors opacity-0 group-hover:opacity-100"
                         title="Delete scenario"
                       >
                         <svg
@@ -652,7 +652,7 @@ export function TimeControl({ className = "" }: TimeControlProps) {
                     </div>
                   ))}
                   {timeScenarios.length === 0 && (
-                    <div className="text-xs text-gray-500 text-center py-2">
+                    <div className="text-xs text-su-muted text-center py-2">
                       No saved scenarios
                     </div>
                   )}
@@ -677,12 +677,12 @@ export function TimeControl({ className = "" }: TimeControlProps) {
           className="text-center group cursor-pointer"
           title="Click to pick date/time"
         >
-          <div className="text-2xl font-mono font-bold text-white tracking-wide group-hover:text-plasma-orange transition-colors">
+          <div className="text-2xl font-mono font-bold text-su-text tracking-wide group-hover:text-plasma-orange transition-colors">
             {String(displayTime.getUTCHours()).padStart(2, "0")}:
             {String(displayTime.getUTCMinutes()).padStart(2, "0")}
-            <span className="text-sm text-gray-400 ml-1">UTC</span>
+            <span className="text-sm text-su-muted ml-1">UTC</span>
           </div>
-          <div className="text-xs text-gray-500 group-hover:text-gray-400 transition-colors">
+          <div className="text-xs text-su-muted group-hover:text-su-muted transition-colors">
             {displayTime.toLocaleDateString("en-US", {
               weekday: "short",
               month: "short",
@@ -732,10 +732,10 @@ export function TimeControl({ className = "" }: TimeControlProps) {
               flex-1 px-2 py-1.5 text-xs font-medium rounded transition-all
               ${
                 isLive && preset.value === 0
-                  ? "bg-signal-green text-black"
+                  ? "bg-signal-green text-su-on-accent"
                   : timeOffset === preset.value && !absoluteTime
-                    ? "bg-plasma-orange text-white"
-                    : "bg-white/5 text-gray-400 hover:bg-white/10 hover:text-white"
+                    ? "bg-plasma-orange text-su-on-accent"
+                    : "bg-su-line/10 text-su-muted hover:bg-su-line/20 hover:text-su-text"
               }
             `}
           >
@@ -751,8 +751,8 @@ export function TimeControl({ className = "" }: TimeControlProps) {
             onClick={() => setIsPlaying(!isPlaying)}
             className={`p-1.5 rounded transition-colors ${
               isPlaying
-                ? "bg-plasma-orange text-white"
-                : "bg-white/5 text-gray-400 hover:bg-white/10 hover:text-white"
+                ? "bg-plasma-orange text-su-on-accent"
+                : "bg-su-line/10 text-su-muted hover:bg-su-line/20 hover:text-su-text"
             }`}
             title={isPlaying ? "Pause" : "Play through time"}
           >
@@ -780,16 +780,16 @@ export function TimeControl({ className = "" }: TimeControlProps) {
             <div className="flex items-center gap-1">
               <button
                 onClick={() => setPlaySpeed(Math.max(0.5, playSpeed - 0.5))}
-                className="px-1.5 py-0.5 text-[10px] bg-white/5 text-gray-400 rounded hover:bg-white/10"
+                className="px-1.5 py-0.5 text-[10px] bg-su-line/10 text-su-muted rounded hover:bg-su-line/20"
               >
                 -
               </button>
-              <span className="text-[10px] text-gray-400 w-12 text-center">
+              <span className="text-[10px] text-su-muted w-12 text-center">
                 {playSpeed}x speed
               </span>
               <button
                 onClick={() => setPlaySpeed(Math.min(10, playSpeed + 0.5))}
-                className="px-1.5 py-0.5 text-[10px] bg-white/5 text-gray-400 rounded hover:bg-white/10"
+                className="px-1.5 py-0.5 text-[10px] bg-su-line/10 text-su-muted rounded hover:bg-su-line/20"
               >
                 +
               </button>
@@ -804,7 +804,7 @@ export function TimeControl({ className = "" }: TimeControlProps) {
                 className={`text-[10px] px-2 py-0.5 rounded transition-colors ${
                   replayEnabled
                     ? "bg-amber-900/40 text-amber-400 border border-amber-500/30"
-                    : "bg-white/5 text-gray-400 hover:bg-white/10"
+                    : "bg-su-line/10 text-su-muted hover:bg-su-line/20"
                 }`}
                 title="Toggle historical spot replay for past times"
               >
@@ -830,7 +830,7 @@ export function TimeControl({ className = "" }: TimeControlProps) {
             }
           }}
           aria-label="Time offset in hours"
-          className="w-full h-2 bg-white/10 rounded-lg appearance-none cursor-pointer
+          className="w-full h-2 bg-su-line/20 rounded-lg appearance-none cursor-pointer
             [&::-webkit-slider-thumb]:appearance-none
             [&::-webkit-slider-thumb]:w-4
             [&::-webkit-slider-thumb]:h-4
@@ -847,7 +847,7 @@ export function TimeControl({ className = "" }: TimeControlProps) {
             [&::-moz-range-thumb]:cursor-grab"
         />
 
-        <div className="flex justify-between mt-1 text-[10px] text-gray-500">
+        <div className="flex justify-between mt-1 text-[10px] text-su-muted">
           <span>-24h</span>
           <span>-12h</span>
           <span className={isLive ? "text-signal-green font-medium" : ""}>

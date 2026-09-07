@@ -126,12 +126,12 @@ export function ProfilePopover({
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium transition-colors focus-visible:ring-2 focus-visible:ring-white/30 focus-visible:ring-offset-0 ${
+        className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium transition-colors focus-visible:ring-2 focus-visible:ring-su-line/60 focus-visible:ring-offset-0 ${
           open
-            ? "bg-white/15 text-white"
+            ? "bg-su-line/30 text-su-text"
             : activeProfile
-              ? "text-gray-300 hover:text-white hover:bg-white/10"
-              : "text-gray-300 hover:text-white hover:bg-white/10"
+              ? "text-su-muted hover:text-su-text hover:bg-su-line/20"
+              : "text-su-muted hover:text-su-text hover:bg-su-line/20"
         }`}
         aria-haspopup="true"
         aria-expanded={open}
@@ -184,7 +184,7 @@ export function ProfilePopover({
 
       {/* ── Popover panel ── */}
       <div
-        className={`absolute top-full left-0 mt-1.5 w-[min(300px,calc(100vw-2rem))] z-50 bg-void-black/90 backdrop-blur-md border border-white/10 rounded-xl shadow-xl p-3 max-h-[70vh] overflow-y-auto transition-all duration-150 ${
+        className={`absolute top-full left-0 mt-1.5 w-[min(300px,calc(100vw-2rem))] z-50 bg-void-black/90 backdrop-blur-md border border-su-line/40 rounded-xl shadow-xl p-3 max-h-[70vh] overflow-y-auto transition-all duration-150 ${
           open
             ? "opacity-100 translate-y-0"
             : "opacity-0 -translate-y-1 pointer-events-none"
@@ -193,12 +193,12 @@ export function ProfilePopover({
         aria-label="Operating profiles"
       >
         {/* ── "None" option ── */}
-        <div className="text-[10px] uppercase tracking-wider text-white/40 font-medium mb-1.5 px-0.5">
+        <div className="text-[10px] uppercase tracking-wider text-su-text/40 font-medium mb-1.5 px-0.5">
           Operating Profile
         </div>
 
         <div
-          className="flex items-center gap-2 px-2 py-1.5 rounded-md cursor-pointer hover:bg-white/5 transition-colors"
+          className="flex items-center gap-2 px-2 py-1.5 rounded-md cursor-pointer hover:bg-su-line/10 transition-colors"
           role="radio"
           aria-checked={activeProfile === null}
           onClick={handleClearProfile}
@@ -206,7 +206,7 @@ export function ProfilePopover({
           {/* Radio dot */}
           <span
             className={`w-3.5 h-3.5 rounded-full border-2 shrink-0 flex items-center justify-center transition-colors ${
-              activeProfile === null ? "border-signal-green" : "border-white/30"
+              activeProfile === null ? "border-signal-green" : "border-su-line/60"
             }`}
           >
             {activeProfile === null && (
@@ -216,21 +216,21 @@ export function ProfilePopover({
 
           <span
             className={`text-xs transition-colors ${
-              activeProfile === null ? "text-white" : "text-white/60"
+              activeProfile === null ? "text-su-text" : "text-su-text/60"
             }`}
           >
             None
           </span>
-          <span className="text-[10px] text-white/30 ml-1">
+          <span className="text-[10px] text-su-text/30 ml-1">
             Custom layer configuration
           </span>
         </div>
 
         {/* ── Separator ── */}
-        <div className="border-t border-white/5 my-2" />
+        <div className="border-t border-su-line/20 my-2" />
 
         {/* ── Built-in Profiles ── */}
-        <div className="text-[10px] uppercase tracking-wider text-white/40 font-medium mb-1.5 px-0.5">
+        <div className="text-[10px] uppercase tracking-wider text-su-text/40 font-medium mb-1.5 px-0.5">
           Built-in Profiles
         </div>
 
@@ -239,13 +239,13 @@ export function ProfilePopover({
           const isActive = activeProfile === profileId;
           const accentClass = PROFILE_ACCENT[cfg.activeColor] ?? "";
           const ringClass =
-            PROFILE_RING_COLOR[cfg.activeColor] ?? "border-white/30";
+            PROFILE_RING_COLOR[cfg.activeColor] ?? "border-su-line/60";
 
           return (
             <div
               key={profileId}
-              className={`flex items-start gap-2 px-2 py-2 rounded-md cursor-pointer hover:bg-white/5 transition-colors ${
-                isActive ? "bg-white/5" : ""
+              className={`flex items-start gap-2 px-2 py-2 rounded-md cursor-pointer hover:bg-su-line/10 transition-colors ${
+                isActive ? "bg-su-line/10" : ""
               }`}
               role="radio"
               aria-checked={isActive}
@@ -254,7 +254,7 @@ export function ProfilePopover({
               {/* Radio dot */}
               <span
                 className={`w-3.5 h-3.5 rounded-full border-2 shrink-0 flex items-center justify-center transition-colors mt-0.5 ${
-                  isActive ? ringClass : "border-white/30"
+                  isActive ? ringClass : "border-su-line/60"
                 }`}
               >
                 {isActive && (
@@ -268,7 +268,7 @@ export function ProfilePopover({
               {/* Profile icon */}
               <svg
                 className={`w-4 h-4 shrink-0 mt-0.5 ${
-                  isActive ? accentClass : "text-white/40"
+                  isActive ? accentClass : "text-su-text/40"
                 }`}
                 viewBox="0 0 24 24"
                 fill="none"
@@ -284,12 +284,12 @@ export function ProfilePopover({
               <div className="flex-1 min-w-0">
                 <span
                   className={`text-xs font-medium block transition-colors ${
-                    isActive ? "text-white" : "text-white/70"
+                    isActive ? "text-su-text" : "text-su-text/70"
                   }`}
                 >
                   {cfg.label}
                 </span>
-                <span className="text-[10px] text-white/30 block leading-snug mt-0.5">
+                <span className="text-[10px] text-su-text/30 block leading-snug mt-0.5">
                   {cfg.description}
                 </span>
               </div>

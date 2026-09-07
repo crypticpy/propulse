@@ -47,6 +47,13 @@ const SCOPE = [
   "src/components/contest",
   "src/components/nets",
   "src/types/net.ts",
+  // DS-12 token sweep group 4.
+  "src/components/qso",
+  "src/components/dx",
+  "src/components/shack",
+  "src/components/settings",
+  "src/components/logbook",
+  "src/components/operating",
 ];
 
 /**

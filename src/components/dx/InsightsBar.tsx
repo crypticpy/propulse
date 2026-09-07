@@ -58,7 +58,7 @@ function abbreviateCondition(condition: string): string {
 // ---------------------------------------------------------------------------
 
 function Divider() {
-  return <div className="w-px h-5 bg-white/10 mx-3 flex-shrink-0" />;
+  return <div className="w-px h-5 bg-su-line/20 mx-3 flex-shrink-0" />;
 }
 
 // ---------------------------------------------------------------------------
@@ -235,15 +235,15 @@ export function InsightsBar({
   return (
     <div
       className={`
-        flex items-center h-10 bg-white/[0.02] backdrop-blur-sm
-        border border-white/5 rounded-2xl px-4 overflow-x-auto
+        flex items-center h-10 bg-su-line/10 backdrop-blur-sm
+        border border-su-line/20 rounded-2xl px-4 overflow-x-auto
         scrollbar-thin scrollbar-thumb-white/10 scrollbar-track-transparent
         ${className}
       `}
     >
       {/* ---- CLUSTER ---- */}
       <div
-        className="flex items-center gap-2 cursor-pointer hover:bg-white/5 rounded px-2 py-1 transition-colors flex-shrink-0"
+        className="flex items-center gap-2 cursor-pointer hover:bg-su-line/10 rounded px-2 py-1 transition-colors flex-shrink-0"
         onClick={() => setActiveModal("clusterPulse")}
         onKeyDown={(e) =>
           sectionKeyDown(e, () => setActiveModal("clusterPulse"))
@@ -252,27 +252,27 @@ export function InsightsBar({
         tabIndex={0}
         title="DX Cluster activity"
       >
-        <span className="text-[9px] font-semibold text-gray-500 uppercase tracking-wider">
+        <span className="text-[9px] font-semibold text-su-muted uppercase tracking-wider">
           Cluster
         </span>
-        <span className="text-sm font-bold font-mono text-white tabular-nums">
+        <span className="text-sm font-bold font-mono text-su-text tabular-nums">
           {clusterStats.total}
         </span>
-        <span className="text-[10px] text-gray-500">spots</span>
-        <span className="text-sm font-bold font-mono text-white tabular-nums">
+        <span className="text-[10px] text-su-muted">spots</span>
+        <span className="text-sm font-bold font-mono text-su-text tabular-nums">
           {clusterStats.uniqueCalls}
         </span>
-        <span className="text-[10px] text-gray-500">calls</span>
-        <span className="text-sm font-bold font-mono text-white tabular-nums">
+        <span className="text-[10px] text-su-muted">calls</span>
+        <span className="text-sm font-bold font-mono text-su-text tabular-nums">
           {clusterStats.uniqueGrids}
         </span>
-        <span className="text-[10px] text-gray-500">grids</span>
+        <span className="text-[10px] text-su-muted">grids</span>
         <span
           className={`text-sm font-bold font-mono tabular-nums ${rateColor}`}
         >
           {clusterStats.rate.toFixed(1)}/min
         </span>
-        <span className="text-sm font-bold font-mono text-white tabular-nums">
+        <span className="text-sm font-bold font-mono text-su-text tabular-nums">
           {Math.round(clusterStats.medianAge)}m
         </span>
         {clusterStats.peakBand && (
@@ -289,39 +289,39 @@ export function InsightsBar({
 
       {/* ---- LOG ---- */}
       <div
-        className="flex items-center gap-2 cursor-pointer hover:bg-white/5 rounded px-2 py-1 transition-colors flex-shrink-0"
+        className="flex items-center gap-2 cursor-pointer hover:bg-su-line/10 rounded px-2 py-1 transition-colors flex-shrink-0"
         onClick={() => setActiveModal("logStats")}
         onKeyDown={(e) => sectionKeyDown(e, () => setActiveModal("logStats"))}
         role="button"
         tabIndex={0}
         title="Logbook statistics"
       >
-        <span className="text-[9px] font-semibold text-gray-500 uppercase tracking-wider">
+        <span className="text-[9px] font-semibold text-su-muted uppercase tracking-wider">
           Log
         </span>
-        <span className="text-sm font-bold font-mono text-white tabular-nums">
+        <span className="text-sm font-bold font-mono text-su-text tabular-nums">
           {logStats.todayCount}
         </span>
-        <span className="text-[10px] text-gray-500">today</span>
-        <span className="text-sm font-bold font-mono text-white tabular-nums">
+        <span className="text-[10px] text-su-muted">today</span>
+        <span className="text-sm font-bold font-mono text-su-text tabular-nums">
           {logStats.weekCount}
         </span>
-        <span className="text-[10px] text-gray-500">week</span>
+        <span className="text-[10px] text-su-muted">week</span>
         <span
           className={`text-sm font-bold font-mono tabular-nums ${
-            logStats.entities > 0 ? "text-plasma-orange" : "text-white"
+            logStats.entities > 0 ? "text-plasma-orange" : "text-su-text"
           }`}
         >
           {logStats.entities}
         </span>
-        <span className="text-[10px] text-gray-500">DXCC</span>
+        <span className="text-[10px] text-su-muted">DXCC</span>
       </div>
 
       <Divider />
 
       {/* ---- BANDS ---- */}
       <div
-        className="flex items-center gap-2 cursor-pointer hover:bg-white/5 rounded px-2 py-1 transition-colors flex-shrink-0"
+        className="flex items-center gap-2 cursor-pointer hover:bg-su-line/10 rounded px-2 py-1 transition-colors flex-shrink-0"
         onClick={() => setActiveModal("bandConditions")}
         onKeyDown={(e) =>
           sectionKeyDown(e, () => setActiveModal("bandConditions"))
@@ -330,11 +330,11 @@ export function InsightsBar({
         tabIndex={0}
         title="Band conditions (Good+)"
       >
-        <span className="text-[9px] font-semibold text-gray-500 uppercase tracking-wider">
+        <span className="text-[9px] font-semibold text-su-muted uppercase tracking-wider">
           Bands
         </span>
         {goodBands.length === 0 ? (
-          <span className="text-[10px] text-gray-500 italic">
+          <span className="text-[10px] text-su-muted italic">
             {currentKp === null || currentSfi === null ? "N/A" : "none good"}
           </span>
         ) : (
@@ -367,17 +367,17 @@ export function InsightsBar({
 
       {/* ---- HISTORY ---- */}
       <div
-        className="flex items-center gap-2 cursor-pointer hover:bg-white/5 rounded px-2 py-1 transition-colors flex-shrink-0 min-w-0"
+        className="flex items-center gap-2 cursor-pointer hover:bg-su-line/10 rounded px-2 py-1 transition-colors flex-shrink-0 min-w-0"
         onClick={() => setActiveModal("history")}
         onKeyDown={(e) => sectionKeyDown(e, () => setActiveModal("history"))}
         role="button"
         tabIndex={0}
         title="This day in DX history"
       >
-        <span className="text-[9px] font-semibold text-gray-500 uppercase tracking-wider">
+        <span className="text-[9px] font-semibold text-su-muted uppercase tracking-wider">
           History
         </span>
-        <span className="text-[10px] text-gray-400 truncate max-w-[200px]">
+        <span className="text-[10px] text-su-muted truncate max-w-[200px]">
           {historyInfo}
         </span>
       </div>

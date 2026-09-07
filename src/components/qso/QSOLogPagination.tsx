@@ -45,13 +45,13 @@ export function QSOLogPagination() {
   if (totalCount === 0) return null;
 
   return (
-    <div className="flex items-center justify-between gap-4 px-3 py-2 bg-white/[0.02] rounded-xl border border-white/5">
+    <div className="flex items-center justify-between gap-4 px-3 py-2 bg-su-line/10 rounded-xl border border-su-line/20">
       {/* Previous */}
       <button
         type="button"
         disabled={currentPage === 0}
         onClick={() => goToPage(currentPage - 1)}
-        className="flex items-center gap-1 px-3 py-1.5 text-sm rounded-lg transition-colors border border-white/10 bg-white/5 hover:bg-white/10 text-gray-300 disabled:opacity-30 disabled:cursor-not-allowed"
+        className="flex items-center gap-1 px-3 py-1.5 text-sm rounded-lg transition-colors border border-su-line/40 bg-su-line/10 hover:bg-su-line/20 text-su-muted disabled:opacity-30 disabled:cursor-not-allowed"
       >
         <svg
           className="w-4 h-4"
@@ -70,12 +70,12 @@ export function QSOLogPagination() {
       </button>
 
       {/* Page indicator */}
-      <div className="flex items-center gap-3 text-sm text-gray-400">
+      <div className="flex items-center gap-3 text-sm text-su-muted">
         <span>
-          Page <span className="text-white font-medium">{currentPage + 1}</span>{" "}
-          of <span className="text-white font-medium">{totalPages}</span>
+          Page <span className="text-su-text font-medium">{currentPage + 1}</span>{" "}
+          of <span className="text-su-text font-medium">{totalPages}</span>
         </span>
-        <span className="text-gray-600">|</span>
+        <span className="text-su-muted">|</span>
         <span>{totalCount.toLocaleString()} total</span>
       </div>
 
@@ -84,14 +84,14 @@ export function QSOLogPagination() {
         <select
           value={pageSize}
           onChange={(e) => handlePageSizeChange(Number(e.target.value))}
-          className="bg-white/5 border border-white/10 rounded-lg text-sm text-gray-300 px-2 py-1.5 focus:border-plasma-orange/50 focus:outline-none appearance-none cursor-pointer"
+          className="bg-su-line/10 border border-su-line/40 rounded-lg text-sm text-su-muted px-2 py-1.5 focus:border-plasma-orange/50 focus:outline-none appearance-none cursor-pointer"
           aria-label="Entries per page"
         >
           {PAGE_SIZE_OPTIONS.map((size) => (
             <option
               key={size}
               value={size}
-              className="bg-deep-space text-white"
+              className="bg-deep-space text-su-text"
             >
               {size} / page
             </option>
@@ -102,7 +102,7 @@ export function QSOLogPagination() {
           type="button"
           disabled={currentPage >= totalPages - 1}
           onClick={() => goToPage(currentPage + 1)}
-          className="flex items-center gap-1 px-3 py-1.5 text-sm rounded-lg transition-colors border border-white/10 bg-white/5 hover:bg-white/10 text-gray-300 disabled:opacity-30 disabled:cursor-not-allowed"
+          className="flex items-center gap-1 px-3 py-1.5 text-sm rounded-lg transition-colors border border-su-line/40 bg-su-line/10 hover:bg-su-line/20 text-su-muted disabled:opacity-30 disabled:cursor-not-allowed"
         >
           Next
           <svg

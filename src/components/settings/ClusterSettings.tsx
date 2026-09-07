@@ -26,16 +26,16 @@ export const ClusterSettings = memo(function ClusterSettings({
 }: ClusterSettingsProps) {
   return (
     <div className={`space-y-4 ${className}`}>
-      <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider">
+      <h3 className="text-sm font-semibold text-su-muted uppercase tracking-wider">
         DX Cluster Connection
       </h3>
 
       <ClusterConnectionForm link={link} />
 
       {/* Info note */}
-      <div className="flex items-start gap-2 p-3 bg-white/5 rounded-lg border border-white/5">
+      <div className="flex items-start gap-2 p-3 bg-su-line/10 rounded-lg border border-su-line/20">
         <svg
-          className="w-4 h-4 text-gray-500 flex-shrink-0 mt-0.5"
+          className="w-4 h-4 text-su-muted flex-shrink-0 mt-0.5"
           fill="none"
           stroke="currentColor"
           viewBox="0 0 24 24"
@@ -48,7 +48,7 @@ export const ClusterSettings = memo(function ClusterSettings({
             d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
           />
         </svg>
-        <p className="text-xs text-gray-500">
+        <p className="text-xs text-su-muted">
           The DX cluster connection requires the ProPulse Bridge to be running
           locally. When connected, spots stream in real-time via WebSocket.
           Without the bridge, spots are fetched from the REST API. The cluster

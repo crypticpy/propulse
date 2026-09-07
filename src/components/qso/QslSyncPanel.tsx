@@ -92,7 +92,7 @@ function TabButton({
       className={`px-4 py-2 text-sm font-medium transition-colors border-b-2 ${
         active
           ? "text-plasma-orange border-plasma-orange"
-          : "text-gray-400 border-transparent hover:text-gray-200 hover:border-white/20"
+          : "text-su-muted border-transparent hover:text-su-text hover:border-su-line/50"
       }`}
     >
       {label}
@@ -168,7 +168,7 @@ function CredentialLockBanner() {
       <LockIcon />
       <div className="flex-1 min-w-0">
         <p className="text-sm text-caution-amber">Credential store is locked</p>
-        <p className="text-xs text-gray-400 mt-0.5">
+        <p className="text-xs text-su-muted mt-0.5">
           Unlock credentials in Settings to sync with QSL services.
         </p>
       </div>
@@ -239,7 +239,7 @@ function LotwTab() {
   return (
     <div className="p-4 space-y-4">
       {/* Sync status */}
-      <div className="flex items-center justify-between text-xs text-gray-400">
+      <div className="flex items-center justify-between text-xs text-su-muted">
         <span>Last sync</span>
         <span className="font-mono">
           {lastSync ? formatRelativeTime(lastSync) : "Never"}
@@ -258,12 +258,12 @@ function LotwTab() {
         type="button"
         onClick={handleUpload}
         disabled={isProcessing || entries.length === 0}
-        className="w-full flex items-center gap-3 px-4 py-3 bg-white/5 hover:bg-white/10 rounded-lg transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+        className="w-full flex items-center gap-3 px-4 py-3 bg-su-line/10 hover:bg-su-line/20 rounded-lg transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
       >
         <UploadIcon />
         <div className="text-left flex-1 min-w-0">
-          <p className="text-sm text-white font-medium">Export for TQSL</p>
-          <p className="text-[11px] text-gray-400">
+          <p className="text-sm text-su-text font-medium">Export for TQSL</p>
+          <p className="text-[11px] text-su-muted">
             {selectedIds.size > 0
               ? `Generate ADIF for ${selectedIds.size} selected QSO${selectedIds.size !== 1 ? "s" : ""}`
               : `Generate ADIF for all ${entries.length} QSO${entries.length !== 1 ? "s" : ""}`}
@@ -277,14 +277,14 @@ function LotwTab() {
         type="button"
         onClick={handleDownload}
         disabled={isProcessing}
-        className="w-full flex items-center gap-3 px-4 py-3 bg-white/5 hover:bg-white/10 rounded-lg transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+        className="w-full flex items-center gap-3 px-4 py-3 bg-su-line/10 hover:bg-su-line/20 rounded-lg transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
       >
         <DownloadIcon />
         <div className="text-left flex-1 min-w-0">
-          <p className="text-sm text-white font-medium">
+          <p className="text-sm text-su-text font-medium">
             Download Confirmations
           </p>
-          <p className="text-[11px] text-gray-400">
+          <p className="text-[11px] text-su-muted">
             Fetch QSL confirmations and update local log
           </p>
         </div>
@@ -297,7 +297,7 @@ function LotwTab() {
           className={`px-3 py-2 rounded-lg text-xs ${
             error
               ? "bg-alert-red/10 border border-alert-red/20 text-alert-red"
-              : "bg-white/5 text-gray-400"
+              : "bg-su-line/10 text-su-muted"
           }`}
         >
           {error || statusMessage}
@@ -370,7 +370,7 @@ function EqslTab() {
   return (
     <div className="p-4 space-y-4">
       {/* Sync status */}
-      <div className="flex items-center justify-between text-xs text-gray-400">
+      <div className="flex items-center justify-between text-xs text-su-muted">
         <span>Last sync</span>
         <span className="font-mono">
           {lastSync ? formatRelativeTime(lastSync) : "Never"}
@@ -389,12 +389,12 @@ function EqslTab() {
         type="button"
         onClick={handleUpload}
         disabled={isProcessing || entries.length === 0}
-        className="w-full flex items-center gap-3 px-4 py-3 bg-white/5 hover:bg-white/10 rounded-lg transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+        className="w-full flex items-center gap-3 px-4 py-3 bg-su-line/10 hover:bg-su-line/20 rounded-lg transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
       >
         <UploadIcon />
         <div className="text-left flex-1 min-w-0">
-          <p className="text-sm text-white font-medium">Upload to eQSL</p>
-          <p className="text-[11px] text-gray-400">
+          <p className="text-sm text-su-text font-medium">Upload to eQSL</p>
+          <p className="text-[11px] text-su-muted">
             {selectedIds.size > 0
               ? `Upload ${selectedIds.size} selected QSO${selectedIds.size !== 1 ? "s" : ""}`
               : `Upload all ${entries.length} QSO${entries.length !== 1 ? "s" : ""}`}
@@ -408,12 +408,12 @@ function EqslTab() {
         type="button"
         onClick={handleDownload}
         disabled={isProcessing}
-        className="w-full flex items-center gap-3 px-4 py-3 bg-white/5 hover:bg-white/10 rounded-lg transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+        className="w-full flex items-center gap-3 px-4 py-3 bg-su-line/10 hover:bg-su-line/20 rounded-lg transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
       >
         <DownloadIcon />
         <div className="text-left flex-1 min-w-0">
-          <p className="text-sm text-white font-medium">Download Inbox</p>
-          <p className="text-[11px] text-gray-400">
+          <p className="text-sm text-su-text font-medium">Download Inbox</p>
+          <p className="text-[11px] text-su-muted">
             Check eQSL inbox for new confirmations
           </p>
         </div>
@@ -426,7 +426,7 @@ function EqslTab() {
           className={`px-3 py-2 rounded-lg text-xs ${
             error
               ? "bg-alert-red/10 border border-alert-red/20 text-alert-red"
-              : "bg-white/5 text-gray-400"
+              : "bg-su-line/10 text-su-muted"
           }`}
         >
           {error || statusMessage}
@@ -479,7 +479,7 @@ function QrzTab() {
   return (
     <div className="p-4 space-y-4">
       {/* Sync status */}
-      <div className="flex items-center justify-between text-xs text-gray-400">
+      <div className="flex items-center justify-between text-xs text-su-muted">
         <span>Last sync</span>
         <span className="font-mono">
           {lastSync ? formatRelativeTime(lastSync) : "Never"}
@@ -502,12 +502,12 @@ function QrzTab() {
         type="button"
         onClick={handleUpload}
         disabled={uploading || entries.length === 0}
-        className="w-full flex items-center gap-3 px-4 py-3 bg-white/5 hover:bg-white/10 rounded-lg transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+        className="w-full flex items-center gap-3 px-4 py-3 bg-su-line/10 hover:bg-su-line/20 rounded-lg transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
       >
         <UploadIcon />
         <div className="text-left flex-1 min-w-0">
-          <p className="text-sm text-white font-medium">Upload to QRZ.com</p>
-          <p className="text-[11px] text-gray-400">
+          <p className="text-sm text-su-text font-medium">Upload to QRZ.com</p>
+          <p className="text-[11px] text-su-muted">
             {selectedIds.size > 0
               ? `Upload ${selectedIds.size} selected QSO${selectedIds.size !== 1 ? "s" : ""}`
               : `Upload all ${entries.length} QSO${entries.length !== 1 ? "s" : ""}`}
@@ -517,7 +517,7 @@ function QrzTab() {
       </button>
 
       {/* Info: no download */}
-      <div className="px-3 py-2 bg-white/5 rounded-lg text-xs text-gray-500">
+      <div className="px-3 py-2 bg-su-line/10 rounded-lg text-xs text-su-muted">
         QRZ.com only supports log upload. Confirmation downloads are not
         available via the API.
       </div>
@@ -528,7 +528,7 @@ function QrzTab() {
           className={`px-3 py-2 rounded-lg text-xs ${
             error
               ? "bg-alert-red/10 border border-alert-red/20 text-alert-red"
-              : "bg-white/5 text-gray-400"
+              : "bg-su-line/10 text-su-muted"
           }`}
         >
           {error || statusMessage}
@@ -579,19 +579,19 @@ export function QslSyncPanel({ isOpen, onClose }: QslSyncPanelProps) {
     >
       {/* Backdrop */}
       <div
-        className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+        className="absolute inset-0 bg-su-panel/60 backdrop-blur-sm"
         onClick={onClose}
       />
 
       {/* Modal */}
-      <div className="relative w-full max-w-md mx-4 bg-deep-space border border-white/15 rounded-2xl shadow-2xl overflow-hidden">
+      <div className="relative w-full max-w-md mx-4 bg-deep-space border border-su-line/50 rounded-2xl shadow-2xl overflow-hidden">
         {/* Header */}
-        <div className="flex items-center justify-between px-5 py-4 border-b border-white/10">
-          <h2 className="text-base font-semibold text-white">QSL Sync</h2>
+        <div className="flex items-center justify-between px-5 py-4 border-b border-su-line/40">
+          <h2 className="text-base font-semibold text-su-text">QSL Sync</h2>
           <button
             type="button"
             onClick={onClose}
-            className="p-1 rounded-lg hover:bg-white/10 transition-colors text-gray-400 hover:text-white"
+            className="p-1 rounded-lg hover:bg-su-line/20 transition-colors text-su-muted hover:text-su-text"
             aria-label="Close"
           >
             <svg
@@ -612,7 +612,7 @@ export function QslSyncPanel({ isOpen, onClose }: QslSyncPanelProps) {
 
         {/* Tabs */}
         <div
-          className="flex border-b border-white/10"
+          className="flex border-b border-su-line/40"
           role="tablist"
           aria-label="QSL services"
         >

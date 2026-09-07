@@ -369,7 +369,7 @@ export function LogUploadModal({
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
       {/* Backdrop */}
       <div
-        className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+        className="absolute inset-0 bg-su-panel/60 backdrop-blur-sm"
         onClick={handleClose}
       />
 
@@ -385,7 +385,7 @@ export function LogUploadModal({
           </h2>
           <button
             onClick={handleClose}
-            className="p-1 text-gray-400 hover:text-white transition-colors"
+            className="p-1 text-su-muted hover:text-su-text transition-colors"
             aria-label="Close"
           >
             <svg
@@ -406,7 +406,7 @@ export function LogUploadModal({
 
         {/* Date Range Filter */}
         <div className="mb-6">
-          <label className="block text-sm font-medium text-gray-300 mb-2">
+          <label className="block text-sm font-medium text-su-muted mb-2">
             Date Range
           </label>
           <div className="flex flex-wrap gap-2 mb-3">
@@ -426,7 +426,7 @@ export function LogUploadModal({
                   ${
                     dateRange === opt.value
                       ? "bg-plasma-orange/20 text-plasma-orange border border-plasma-orange/50"
-                      : "bg-nebula-blue text-gray-300 border border-white/10 hover:border-white/20"
+                      : "bg-nebula-blue text-su-muted border border-su-line/40 hover:border-su-line/50"
                   }
                 `}
               >
@@ -439,33 +439,33 @@ export function LogUploadModal({
           {dateRange === "custom" && (
             <div className="flex gap-3">
               <div className="flex-1">
-                <label className="block text-xs text-gray-400 mb-1">
+                <label className="block text-xs text-su-muted mb-1">
                   Start
                 </label>
                 <input
                   type="date"
                   value={customStart}
                   onChange={(e) => setCustomStart(e.target.value)}
-                  className="w-full px-3 py-2 bg-nebula-blue border border-white/10 rounded-lg
-                           text-white text-sm focus:outline-none focus:border-plasma-orange/50"
+                  className="w-full px-3 py-2 bg-nebula-blue border border-su-line/40 rounded-lg
+                           text-su-text text-sm focus:outline-none focus:border-plasma-orange/50"
                 />
               </div>
               <div className="flex-1">
-                <label className="block text-xs text-gray-400 mb-1">End</label>
+                <label className="block text-xs text-su-muted mb-1">End</label>
                 <input
                   type="date"
                   value={customEnd}
                   onChange={(e) => setCustomEnd(e.target.value)}
-                  className="w-full px-3 py-2 bg-nebula-blue border border-white/10 rounded-lg
-                           text-white text-sm focus:outline-none focus:border-plasma-orange/50"
+                  className="w-full px-3 py-2 bg-nebula-blue border border-su-line/40 rounded-lg
+                           text-su-text text-sm focus:outline-none focus:border-plasma-orange/50"
                 />
               </div>
             </div>
           )}
 
           {/* Entry count */}
-          <p className="mt-3 text-sm text-gray-400">
-            <span className="font-medium text-white">
+          <p className="mt-3 text-sm text-su-muted">
+            <span className="font-medium text-su-text">
               {filteredEntries.length}
             </span>{" "}
             {filteredEntries.length === 1 ? "entry" : "entries"} to upload
@@ -474,7 +474,7 @@ export function LogUploadModal({
 
         {/* Service Selection */}
         <div className="mb-6">
-          <label className="block text-sm font-medium text-gray-300 mb-3">
+          <label className="block text-sm font-medium text-su-muted mb-3">
             Services
           </label>
           <div className="space-y-2">
@@ -485,10 +485,10 @@ export function LogUploadModal({
                   p-3 rounded-lg border transition-colors
                   ${
                     service.comingSoon
-                      ? "bg-white/5 border-white/5 opacity-50 cursor-not-allowed"
+                      ? "bg-su-line/10 border-su-line/20 opacity-50 cursor-not-allowed"
                       : selectedServices.has(service.id)
                         ? "bg-plasma-orange/10 border-plasma-orange/30"
-                        : "bg-nebula-blue border-white/10 hover:border-white/20"
+                        : "bg-nebula-blue border-su-line/40 hover:border-su-line/50"
                   }
                 `}
               >
@@ -498,16 +498,16 @@ export function LogUploadModal({
                     checked={selectedServices.has(service.id)}
                     onChange={() => handleServiceToggle(service.id)}
                     disabled={service.comingSoon || uploading}
-                    className="mt-0.5 w-4 h-4 rounded border-gray-500 bg-nebula-blue
+                    className="mt-0.5 w-4 h-4 rounded border-su-line bg-nebula-blue
                              text-plasma-orange focus:ring-plasma-orange focus:ring-offset-0"
                   />
                   <div className="flex-1">
                     <div className="flex items-center gap-2">
-                      <span className="font-medium text-white">
+                      <span className="font-medium text-su-text">
                         {service.name}
                       </span>
                       {service.comingSoon && (
-                        <span className="px-2 py-0.5 bg-gray-600/50 text-gray-400 rounded text-xs">
+                        <span className="px-2 py-0.5 bg-su-line/50 text-su-muted rounded text-xs">
                           Coming Soon
                         </span>
                       )}
@@ -522,7 +522,7 @@ export function LogUploadModal({
                         </span>
                       )}
                     </div>
-                    <p className="text-sm text-gray-400 mt-0.5">
+                    <p className="text-sm text-su-muted mt-0.5">
                       {service.description}
                     </p>
                     {!service.configured &&
@@ -574,7 +574,7 @@ export function LogUploadModal({
                       ? "bg-signal-green/10 border-signal-green/30"
                       : p.status === "error"
                         ? "bg-alert-red/10 border-alert-red/30"
-                        : "bg-nebula-blue border-white/10"
+                        : "bg-nebula-blue border-su-line/40"
                   }
                 `}
               >
@@ -631,16 +631,16 @@ export function LogUploadModal({
                   </svg>
                 )}
                 {p.status === "pending" && (
-                  <div className="w-5 h-5 rounded-full border-2 border-gray-500" />
+                  <div className="w-5 h-5 rounded-full border-2 border-su-line" />
                 )}
 
                 <div className="flex-1">
-                  <span className="font-medium text-white">
+                  <span className="font-medium text-su-text">
                     {services.find((s) => s.id === p.service)?.name}
                   </span>
                   {p.message && (
                     <p
-                      className={`text-sm ${p.status === "error" ? "text-alert-red" : "text-gray-400"}`}
+                      className={`text-sm ${p.status === "error" ? "text-alert-red" : "text-su-muted"}`}
                     >
                       {p.message}
                     </p>
@@ -740,8 +740,8 @@ export function LogUploadModal({
           {!hasUploadServices && !hasLoTW && (
             <button
               disabled
-              className="flex-1 px-4 py-2.5 bg-nebula-blue border border-white/10 rounded-lg
-                       text-gray-500 cursor-not-allowed font-medium"
+              className="flex-1 px-4 py-2.5 bg-nebula-blue border border-su-line/40 rounded-lg
+                       text-su-muted cursor-not-allowed font-medium"
             >
               Select a service
             </button>

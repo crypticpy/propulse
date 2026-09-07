@@ -184,12 +184,12 @@ export function QSOEntryForm({
   );
 
   const inputClass =
-    "w-full px-3 py-2 bg-deep-space border border-white/10 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-plasma-orange/50 focus:ring-1 focus:ring-plasma-orange/30 disabled:opacity-50";
+    "w-full px-3 py-2 bg-deep-space border border-su-line/40 rounded-lg text-su-text placeholder:text-su-muted/80 focus:outline-none focus:border-plasma-orange/50 focus:ring-1 focus:ring-plasma-orange/30 disabled:opacity-50";
 
   const selectClass =
-    "w-full px-3 py-2 bg-deep-space border border-white/10 rounded-lg text-white focus:outline-none focus:border-plasma-orange/50 focus:ring-1 focus:ring-plasma-orange/30";
+    "w-full px-3 py-2 bg-deep-space border border-su-line/40 rounded-lg text-su-text focus:outline-none focus:border-plasma-orange/50 focus:ring-1 focus:ring-plasma-orange/30";
 
-  const labelClass = "block text-sm font-medium text-gray-400 mb-1";
+  const labelClass = "block text-sm font-medium text-su-muted mb-1";
 
   return (
     <Card
@@ -214,7 +214,7 @@ export function QSOEntryForm({
             </svg>
             <span className="font-medium">Guest Logging Mode</span>
           </div>
-          <p className="mt-2 text-sm text-gray-300">
+          <p className="mt-2 text-sm text-su-muted">
             Logging as{" "}
             <span className="font-mono font-bold text-cosmic-cyan">
               {guestContext.operatorCallsign}
@@ -441,8 +441,8 @@ export function QSOEntryForm({
               disabled:opacity-50 disabled:cursor-not-allowed
               ${
                 isGuestMode
-                  ? "bg-cosmic-cyan text-deep-space hover:bg-cosmic-cyan/90 shadow-[0_0_15px_rgba(0,255,255,0.3)]"
-                  : "bg-plasma-orange text-deep-space hover:bg-plasma-orange/90 shadow-[0_0_15px_rgba(255,170,0,0.3)]"
+                  ? "bg-cosmic-cyan text-su-on-accent hover:bg-cosmic-cyan/90 shadow-[0_0_15px_rgba(0,255,255,0.3)]"
+                  : "bg-plasma-orange text-su-on-accent hover:bg-plasma-orange/90 shadow-[0_0_15px_rgba(255,170,0,0.3)]"
               }
             `}
           >

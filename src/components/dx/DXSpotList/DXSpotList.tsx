@@ -323,10 +323,10 @@ export function DXSpotList({
       {showHeader && (
         <div className="flex items-center justify-between mb-2">
           <div className="flex items-center gap-3">
-            <h2 className="font-sans text-lg font-semibold text-white tracking-wide">
+            <h2 className="font-sans text-lg font-semibold text-su-text tracking-wide">
               DX CLUSTER
             </h2>
-            <span className="text-xs text-gray-400">
+            <span className="text-xs text-su-muted">
               {profileFilteredSpots.length}
               {(filters.neededOnly &&
                 profileFilteredSpots.length !== totalSpots) ||
@@ -370,7 +370,7 @@ export function DXSpotList({
             {(isLoading || isFetching) && <LoadingSpinner size="sm" />}
             <button
               onClick={refetch}
-              className="p-1.5 text-gray-400 hover:text-white transition-colors rounded hover:bg-white/5"
+              className="p-1.5 text-su-muted hover:text-su-text transition-colors rounded hover:bg-su-line/10"
               title="Refresh spots"
             >
               <svg
@@ -390,7 +390,7 @@ export function DXSpotList({
             {onExpand && (
               <button
                 onClick={onExpand}
-                className="p-1.5 text-gray-400 hover:text-white transition-colors rounded hover:bg-white/5"
+                className="p-1.5 text-su-muted hover:text-su-text transition-colors rounded hover:bg-su-line/10"
                 title="Expand"
               >
                 <svg
@@ -414,7 +414,7 @@ export function DXSpotList({
 
       {/* Profile filter indicator */}
       {profileFilterActive && (
-        <div className="mb-1.5 px-2 py-1 rounded bg-white/5 border border-white/10 text-[11px] text-gray-300 flex items-center gap-1.5">
+        <div className="mb-1.5 px-2 py-1 rounded bg-su-line/10 border border-su-line/40 text-[11px] text-su-muted flex items-center gap-1.5">
           <svg
             className="w-3 h-3 text-cyan-400 shrink-0"
             fill="none"
@@ -445,14 +445,14 @@ export function DXSpotList({
             {spotFilters.modes.length > 0 && (
               <> — {spotFilters.modes.join(", ")}</>
             )}
-            <span className="text-gray-400 ml-1">
+            <span className="text-su-muted ml-1">
               — Showing {profileFilteredSpots.length} of {displaySpots.length}{" "}
               spots
             </span>
           </span>
           <button
             onClick={() => useMapStore.getState().clearSpotFilters()}
-            className="ml-auto text-white/40 hover:text-white text-[10px]"
+            className="ml-auto text-su-text/40 hover:text-su-text text-[10px]"
             title="Clear filter"
           >
             ✕
@@ -500,7 +500,7 @@ export function DXSpotList({
             spotListRef as React.MutableRefObject<HTMLDivElement | null>
           ).current = el;
         }}
-        className="flex-1 overflow-y-auto divide-y divide-white/5 focus:outline-none"
+        className="flex-1 overflow-y-auto divide-y divide-su-line/20 focus:outline-none"
         style={{ maxHeight }}
         role="table"
         aria-label="DX Spots"
@@ -515,7 +515,7 @@ export function DXSpotList({
         {/* Column Headers - sticky at top of scroll container */}
         {!compact && (
           <div
-            className={`sticky top-0 z-10 bg-nebula-blue grid ${spotAgePrefs.showAgeColumn ? "grid-cols-[46px_40px_52px_66px_1fr_50px_62px_1fr_72px]" : "grid-cols-[46px_52px_66px_1fr_50px_62px_1fr_72px]"} gap-1.5 px-2 py-1.5 border-b border-white/10 text-[10px] font-semibold text-gray-300 uppercase tracking-wider`}
+            className={`sticky top-0 z-10 bg-nebula-blue grid ${spotAgePrefs.showAgeColumn ? "grid-cols-[46px_40px_52px_66px_1fr_50px_62px_1fr_72px]" : "grid-cols-[46px_52px_66px_1fr_50px_62px_1fr_72px]"} gap-1.5 px-2 py-1.5 border-b border-su-line/40 text-[10px] font-semibold text-su-muted uppercase tracking-wider`}
             role="row"
             style={{ borderLeft: "3px solid transparent" }}
           >
@@ -589,7 +589,7 @@ export function DXSpotList({
             <LoadingSpinner size="lg" />
           </div>
         ) : watchSortedSpots.length === 0 ? (
-          <div className="flex items-center justify-center py-12 text-gray-400">
+          <div className="flex items-center justify-center py-12 text-su-muted">
             {profileFilterActive
               ? "No spots match profile filters"
               : "No spots match your filters"}
@@ -657,14 +657,14 @@ export function DXSpotList({
       <SpotDetailPanel spot={selectedSpot} />
 
       {/* Footer */}
-      <div className="mt-2 pt-2 border-t border-white/10 flex items-center justify-between text-xs text-gray-400">
+      <div className="mt-2 pt-2 border-t border-su-line/40 flex items-center justify-between text-xs text-su-muted">
         <div>
           {lastUpdated && <span>Updated {formatTime(lastUpdated)} UTC</span>}
         </div>
         <div className="flex items-center gap-3">
           <span>{stats.total} total</span>
           {Object.keys(stats.byMode).length > 0 && (
-            <span className="text-gray-400">
+            <span className="text-su-muted">
               Top:{" "}
               {Object.entries(stats.byMode).sort((a, b) => b[1] - a[1])[0]?.[0]}
             </span>

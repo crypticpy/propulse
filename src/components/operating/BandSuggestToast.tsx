@@ -122,7 +122,7 @@ export function BandSuggestToast() {
         visible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"
       }`}
     >
-      <div className="flex items-center gap-3 px-4 py-3 bg-void-black/95 border border-white/10 rounded-xl shadow-2xl backdrop-blur-md max-w-sm">
+      <div className="flex items-center gap-3 px-4 py-3 bg-void-black/95 border border-su-line/40 rounded-xl shadow-2xl backdrop-blur-md max-w-sm">
         {/* Band color indicator bar */}
         <div
           className="w-2 h-8 rounded-full flex-shrink-0"
@@ -131,13 +131,13 @@ export function BandSuggestToast() {
 
         {/* Content */}
         <div className="flex-1 min-w-0">
-          <div className="text-sm font-medium text-white">
+          <div className="text-sm font-medium text-su-text">
             <span style={{ color: bandColor }} className="font-bold font-mono">
               {toast.band}
             </span>{" "}
             just opened
           </div>
-          <div className="text-[10px] text-gray-400 truncate">
+          <div className="text-[10px] text-su-muted truncate">
             {toast.message}
           </div>
         </div>
@@ -153,7 +153,7 @@ export function BandSuggestToast() {
         {/* Dismiss button */}
         <button
           onClick={dismiss}
-          className="text-gray-500 hover:text-gray-300 transition-colors flex-shrink-0"
+          className="text-su-muted hover:text-su-text transition-colors flex-shrink-0"
           aria-label="Dismiss"
         >
           <svg

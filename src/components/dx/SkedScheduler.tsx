@@ -66,21 +66,21 @@ function SkedForm({ onClose }: { onClose: () => void }) {
   return (
     <form onSubmit={handleSubmit} className="space-y-3">
       <div>
-        <label className="block text-xs text-gray-400 mb-1">
+        <label className="block text-xs text-su-muted mb-1">
           Target Callsign
         </label>
         <input
           type="text"
           value={callsign}
           onChange={(e) => setCallsign(e.target.value)}
-          className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-white font-mono text-sm focus:border-cosmic-cyan/50 focus:outline-none"
+          className="w-full px-3 py-2 bg-su-line/10 border border-su-line/40 rounded-lg text-su-text font-mono text-sm focus:border-cosmic-cyan/50 focus:outline-none"
           placeholder="W1ABC"
           autoFocus
         />
       </div>
       <div className="grid grid-cols-2 gap-3">
         <div>
-          <label className="block text-xs text-gray-400 mb-1">Band</label>
+          <label className="block text-xs text-su-muted mb-1">Band</label>
           <div className="flex flex-wrap gap-1">
             {bands.map((b) => (
               <button
@@ -90,7 +90,7 @@ function SkedForm({ onClose }: { onClose: () => void }) {
                 className={`px-2 py-1 text-[10px] rounded font-bold transition-colors ${
                   band === b
                     ? "bg-cosmic-cyan/30 text-cosmic-cyan border border-cosmic-cyan/50"
-                    : "bg-white/5 text-gray-400 border border-white/10 hover:bg-white/10"
+                    : "bg-su-line/10 text-su-muted border border-su-line/40 hover:bg-su-line/20"
                 }`}
               >
                 {b}
@@ -99,7 +99,7 @@ function SkedForm({ onClose }: { onClose: () => void }) {
           </div>
         </div>
         <div>
-          <label className="block text-xs text-gray-400 mb-1">Mode</label>
+          <label className="block text-xs text-su-muted mb-1">Mode</label>
           <div className="flex flex-wrap gap-1">
             {modes.map((m) => (
               <button
@@ -109,7 +109,7 @@ function SkedForm({ onClose }: { onClose: () => void }) {
                 className={`px-2 py-1 text-[10px] rounded font-bold transition-colors ${
                   mode === m
                     ? "bg-plasma-orange/30 text-plasma-orange border border-plasma-orange/50"
-                    : "bg-white/5 text-gray-400 border border-white/10 hover:bg-white/10"
+                    : "bg-su-line/10 text-su-muted border border-su-line/40 hover:bg-su-line/20"
                 }`}
               >
                 {m}
@@ -120,31 +120,31 @@ function SkedForm({ onClose }: { onClose: () => void }) {
       </div>
       <div className="grid grid-cols-2 gap-3">
         <div>
-          <label className="block text-xs text-gray-400 mb-1">Start Date</label>
+          <label className="block text-xs text-su-muted mb-1">Start Date</label>
           <input
             type="date"
             value={startDate}
             onChange={(e) => setStartDate(e.target.value)}
-            className="w-full px-2 py-1.5 bg-white/5 border border-white/10 rounded-lg text-white text-xs focus:border-cosmic-cyan/50 focus:outline-none"
+            className="w-full px-2 py-1.5 bg-su-line/10 border border-su-line/40 rounded-lg text-su-text text-xs focus:border-cosmic-cyan/50 focus:outline-none"
           />
         </div>
         <div>
-          <label className="block text-xs text-gray-400 mb-1">End Date</label>
+          <label className="block text-xs text-su-muted mb-1">End Date</label>
           <input
             type="date"
             value={endDate}
             onChange={(e) => setEndDate(e.target.value)}
-            className="w-full px-2 py-1.5 bg-white/5 border border-white/10 rounded-lg text-white text-xs focus:border-cosmic-cyan/50 focus:outline-none"
+            className="w-full px-2 py-1.5 bg-su-line/10 border border-su-line/40 rounded-lg text-su-text text-xs focus:border-cosmic-cyan/50 focus:outline-none"
           />
         </div>
       </div>
       <div>
-        <label className="block text-xs text-gray-400 mb-1">Notes</label>
+        <label className="block text-xs text-su-muted mb-1">Notes</label>
         <input
           type="text"
           value={notes}
           onChange={(e) => setNotes(e.target.value)}
-          className="w-full px-3 py-1.5 bg-white/5 border border-white/10 rounded-lg text-white text-xs focus:border-cosmic-cyan/50 focus:outline-none"
+          className="w-full px-3 py-1.5 bg-su-line/10 border border-su-line/40 rounded-lg text-su-text text-xs focus:border-cosmic-cyan/50 focus:outline-none"
           placeholder="Optional notes..."
         />
       </div>
@@ -152,7 +152,7 @@ function SkedForm({ onClose }: { onClose: () => void }) {
         <button
           type="button"
           onClick={onClose}
-          className="px-3 py-1.5 text-xs text-gray-400 hover:text-white transition-colors"
+          className="px-3 py-1.5 text-xs text-su-muted hover:text-su-text transition-colors"
         >
           Cancel
         </button>
@@ -180,17 +180,17 @@ function SkedCard({
     active: "text-signal-green",
     worked: "text-cosmic-cyan",
     missed: "text-alert-red",
-    cancelled: "text-gray-500",
+    cancelled: "text-su-muted",
   };
 
   return (
-    <div className="rounded-xl border border-white/10 bg-white/[0.03] p-3">
+    <div className="rounded-xl border border-su-line/40 bg-su-line/10 p-3">
       <div className="flex items-center justify-between mb-2">
         <div className="flex items-center gap-2">
-          <span className="text-sm font-mono font-bold text-white">
+          <span className="text-sm font-mono font-bold text-su-text">
             {sked.targetCallsign}
           </span>
-          <span className="px-1.5 py-0.5 text-[10px] font-bold rounded bg-white/10 text-gray-300">
+          <span className="px-1.5 py-0.5 text-[10px] font-bold rounded bg-su-line/20 text-su-muted">
             {sked.preferredBand} {sked.preferredMode}
           </span>
           <span
@@ -201,7 +201,7 @@ function SkedCard({
         </div>
         <button
           onClick={() => onRemove(sked.id)}
-          className="p-1 text-gray-500 hover:text-alert-red transition-colors"
+          className="p-1 text-su-muted hover:text-alert-red transition-colors"
           title="Delete sked"
         >
           <svg
@@ -219,10 +219,10 @@ function SkedCard({
           </svg>
         </button>
       </div>
-      <div className="text-[10px] text-gray-400 mb-2">
+      <div className="text-[10px] text-su-muted mb-2">
         {sked.dateRange[0]} to {sked.dateRange[1]}
         {sked.notes && (
-          <span className="ml-2 text-gray-500">— {sked.notes}</span>
+          <span className="ml-2 text-su-muted">— {sked.notes}</span>
         )}
       </div>
       {sked.status === "active" && (
@@ -241,7 +241,7 @@ function SkedCard({
           </button>
           <button
             onClick={() => onStatusChange(sked.id, "cancelled")}
-            className="px-2 py-1 text-[10px] font-medium bg-gray-500/20 text-gray-400 border border-gray-500/30 rounded hover:bg-gray-500/30 transition-colors"
+            className="px-2 py-1 text-[10px] font-medium bg-su-line/20 text-su-muted border border-su-line/30 rounded hover:bg-su-line/30 transition-colors"
           >
             Cancel
           </button>
@@ -283,9 +283,9 @@ export function SkedScheduler() {
   );
 
   return (
-    <section className="rounded-2xl border border-white/10 bg-white/[0.03] backdrop-blur-md p-4">
+    <section className="rounded-2xl border border-su-line/40 bg-su-line/10 backdrop-blur-md p-4">
       <div className="flex items-center justify-between mb-3">
-        <h2 className="font-sans text-lg font-semibold text-white tracking-wide">
+        <h2 className="font-sans text-lg font-semibold text-su-text tracking-wide">
           DX Skeds
         </h2>
         <button
@@ -297,14 +297,14 @@ export function SkedScheduler() {
       </div>
 
       {showForm && (
-        <div className="mb-4 p-3 rounded-xl border border-white/10 bg-white/[0.02]">
+        <div className="mb-4 p-3 rounded-xl border border-su-line/40 bg-su-line/10">
           <SkedForm onClose={() => setShowForm(false)} />
         </div>
       )}
 
       {upcoming.length > 0 ? (
         <div className="space-y-2 mb-4">
-          <div className="text-xs text-gray-400 font-semibold uppercase tracking-wider">
+          <div className="text-xs text-su-muted font-semibold uppercase tracking-wider">
             Upcoming ({upcoming.length})
           </div>
           {upcoming.map((sked) => (
@@ -317,14 +317,14 @@ export function SkedScheduler() {
           ))}
         </div>
       ) : (
-        <div className="text-center py-6 text-gray-500 text-sm mb-4">
+        <div className="text-center py-6 text-su-muted text-sm mb-4">
           No active skeds. Create one to track propagation windows.
         </div>
       )}
 
       {past.length > 0 && (
         <div className="space-y-2">
-          <div className="text-xs text-gray-400 font-semibold uppercase tracking-wider">
+          <div className="text-xs text-su-muted font-semibold uppercase tracking-wider">
             History
           </div>
           {past.map((sked) => (

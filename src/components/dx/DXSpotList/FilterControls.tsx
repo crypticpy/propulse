@@ -142,7 +142,7 @@ export const FilterControls = memo(function FilterControls({
           className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[11px] font-semibold transition-all ${
             activeFilterCount > 0
               ? "bg-plasma-orange/15 text-plasma-orange border border-plasma-orange/40 hover:bg-plasma-orange/25"
-              : "bg-white/5 text-gray-300 border border-white/10 hover:bg-white/10 hover:text-white"
+              : "bg-su-line/10 text-su-muted border border-su-line/40 hover:bg-su-line/20 hover:text-su-text"
           }`}
           title={`${activeFilterCount} active filter${activeFilterCount !== 1 ? "s" : ""} — click to expand`}
         >
@@ -187,12 +187,12 @@ export const FilterControls = memo(function FilterControls({
             placeholder="Search callsigns..."
             value={searchText}
             onChange={(e) => onSearchChange(e.target.value)}
-            className="w-full bg-white/5 border border-white/10 rounded px-2 py-1.5 text-[11px] text-white placeholder-gray-500 focus:outline-none focus:border-plasma-orange/50"
+            className="w-full bg-su-line/10 border border-su-line/40 rounded px-2 py-1.5 text-[11px] text-su-text placeholder:text-su-muted/80 focus:outline-none focus:border-plasma-orange/50"
           />
           {searchText && (
             <button
               onClick={() => onSearchChange("")}
-              className="absolute right-1.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white"
+              className="absolute right-1.5 top-1/2 -translate-y-1/2 text-su-muted hover:text-su-text"
               aria-label="Clear search"
             >
               <svg
@@ -220,13 +220,13 @@ export const FilterControls = memo(function FilterControls({
             value={gridFilter}
             onChange={(e) => onGridFilterChange(e.target.value.toUpperCase())}
             maxLength={MAX_GRID_INPUT_LENGTH}
-            className="w-full bg-white/5 border border-white/10 rounded px-2 py-1.5 text-[11px] text-white placeholder-gray-500 focus:outline-none focus:border-cyan-500/50 font-mono uppercase"
+            className="w-full bg-su-line/10 border border-su-line/40 rounded px-2 py-1.5 text-[11px] text-su-text placeholder:text-su-muted/80 focus:outline-none focus:border-cyan-500/50 font-mono uppercase"
             title="Filter by Maidenhead grid locator"
           />
           {gridFilter && (
             <button
               onClick={() => onGridFilterChange("")}
-              className="absolute right-1.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white"
+              className="absolute right-1.5 top-1/2 -translate-y-1/2 text-su-muted hover:text-su-text"
               aria-label="Clear grid filter"
             >
               <svg
@@ -260,12 +260,12 @@ export const FilterControls = memo(function FilterControls({
             placeholder="Search callsigns..."
             value={searchText}
             onChange={(e) => onSearchChange(e.target.value)}
-            className="w-full bg-white/5 border border-white/10 rounded px-2 py-1.5 text-[11px] text-white placeholder-gray-400 focus:outline-none focus:border-plasma-orange/50"
+            className="w-full bg-su-line/10 border border-su-line/40 rounded px-2 py-1.5 text-[11px] text-su-text placeholder:text-su-muted/80 focus:outline-none focus:border-plasma-orange/50"
           />
           {searchText && (
             <button
               onClick={() => onSearchChange("")}
-              className="absolute right-1.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white"
+              className="absolute right-1.5 top-1/2 -translate-y-1/2 text-su-muted hover:text-su-text"
               aria-label="Clear search"
             >
               <svg
@@ -293,13 +293,13 @@ export const FilterControls = memo(function FilterControls({
             value={gridFilter}
             onChange={(e) => onGridFilterChange(e.target.value.toUpperCase())}
             maxLength={MAX_GRID_INPUT_LENGTH}
-            className="w-full bg-white/5 border border-white/10 rounded px-2 py-1.5 text-[11px] text-white placeholder-gray-400 focus:outline-none focus:border-cyan-500/50 font-mono uppercase"
+            className="w-full bg-su-line/10 border border-su-line/40 rounded px-2 py-1.5 text-[11px] text-su-text placeholder:text-su-muted/80 focus:outline-none focus:border-cyan-500/50 font-mono uppercase"
             title="Filter by Maidenhead grid locator (e.g., CN87, FN31)"
           />
           {gridFilter && (
             <button
               onClick={() => onGridFilterChange("")}
-              className="absolute right-1.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white"
+              className="absolute right-1.5 top-1/2 -translate-y-1/2 text-su-muted hover:text-su-text"
               aria-label="Clear grid filter"
             >
               <svg
@@ -325,7 +325,7 @@ export const FilterControls = memo(function FilterControls({
           className={`flex items-center gap-1 px-2 py-1.5 rounded text-[10px] font-medium transition-all ${
             neededOnly
               ? "bg-yellow-500/20 text-yellow-400 border border-yellow-500/50"
-              : "bg-white/5 text-gray-300 border border-white/10 hover:bg-white/10 hover:text-white"
+              : "bg-su-line/10 text-su-muted border border-su-line/40 hover:bg-su-line/20 hover:text-su-text"
           }`}
           title={
             neededOnly
@@ -364,7 +364,7 @@ export const FilterControls = memo(function FilterControls({
         {/* Collapse toggle */}
         <button
           onClick={() => setIsCollapsed(true)}
-          className="p-1.5 rounded text-gray-400 hover:text-white hover:bg-white/5 transition-colors"
+          className="p-1.5 rounded text-su-muted hover:text-su-text hover:bg-su-line/10 transition-colors"
           title="Collapse filters"
           aria-label="Collapse filter panel"
         >
@@ -387,7 +387,7 @@ export const FilterControls = memo(function FilterControls({
       {/* Row 2: Time range + sort by needed */}
       <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-1.5">
-          <span className="text-[9px] text-gray-400 uppercase tracking-wide font-semibold">
+          <span className="text-[9px] text-su-muted uppercase tracking-wide font-semibold">
             Time:
           </span>
           <div className="flex gap-0.5">
@@ -398,7 +398,7 @@ export const FilterControls = memo(function FilterControls({
                 className={`px-1.5 py-0.5 rounded text-[9px] font-medium transition-all ${
                   maxAge === option.value
                     ? "bg-cyan-500/30 text-cyan-400 border border-cyan-500/50"
-                    : "bg-white/5 text-gray-300 border border-white/10 hover:bg-white/10 hover:text-white"
+                    : "bg-su-line/10 text-su-muted border border-su-line/40 hover:bg-su-line/20 hover:text-su-text"
                 }`}
                 aria-pressed={maxAge === option.value}
                 aria-label={`Show spots from last ${option.label}`}
@@ -415,7 +415,7 @@ export const FilterControls = memo(function FilterControls({
           className={`flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-medium transition-all ${
             sortByNeeded
               ? "bg-yellow-500/20 text-yellow-400 border border-yellow-500/40"
-              : "bg-white/5 text-gray-300 border border-white/10 hover:bg-white/10 hover:text-white"
+              : "bg-su-line/10 text-su-muted border border-su-line/40 hover:bg-su-line/20 hover:text-su-text"
           }`}
           title={
             sortByNeeded
@@ -470,7 +470,7 @@ export const FilterControls = memo(function FilterControls({
         })}
 
         {/* Separator */}
-        <span className="w-px h-3 bg-white/10 mx-0.5" />
+        <span className="w-px h-3 bg-su-line/20 mx-0.5" />
 
         {/* Band Presets (Q11) */}
         {bandPresets.map((preset) => (
@@ -487,7 +487,7 @@ export const FilterControls = memo(function FilterControls({
                 e.stopPropagation();
                 setDeletePresetId(preset.id);
               }}
-              className="absolute -top-1 -right-1 w-3 h-3 rounded-full bg-red-500/80 text-white text-[7px] font-bold opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center hover:bg-red-500"
+              className="absolute -top-1 -right-1 w-3 h-3 rounded-full bg-red-500/80 text-su-text text-[7px] font-bold opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center hover:bg-red-500"
               title="Delete preset"
               aria-label={`Delete preset ${preset.name}`}
             >
@@ -507,7 +507,7 @@ export const FilterControls = memo(function FilterControls({
                   onKeyDown={handleSaveKeyDown}
                   placeholder="Name..."
                   maxLength={MAX_PRESET_NAME_LENGTH}
-                  className="w-20 px-1 py-0.5 rounded text-[9px] bg-white/10 border border-white/20 text-white placeholder-gray-400 focus:outline-none focus:border-purple-500/50"
+                  className="w-20 px-1 py-0.5 rounded text-[9px] bg-su-line/20 border border-su-line/50 text-su-text placeholder:text-su-muted/80 focus:outline-none focus:border-purple-500/50"
                 />
                 <button
                   onClick={handleSavePreset}
@@ -521,7 +521,7 @@ export const FilterControls = memo(function FilterControls({
                     setShowSaveInput(false);
                     setPresetName("");
                   }}
-                  className="px-0.5 py-0.5 rounded text-[9px] text-gray-300 hover:text-white transition-colors"
+                  className="px-0.5 py-0.5 rounded text-[9px] text-su-muted hover:text-su-text transition-colors"
                 >
                   Cancel
                 </button>
@@ -539,7 +539,7 @@ export const FilterControls = memo(function FilterControls({
         )}
         {selectedBands.length > 0 && bandPresets.length >= MAX_BAND_PRESETS && (
           <span
-            className="text-[8px] text-gray-400"
+            className="text-[8px] text-su-muted"
             title={`Maximum ${MAX_BAND_PRESETS} presets`}
           >
             (max)
@@ -585,7 +585,7 @@ export const FilterControls = memo(function FilterControls({
 
         {/* Separator between bands and modes */}
         {availableModes.length > 0 && (
-          <span className="w-px h-3 bg-white/10 mx-0.5" />
+          <span className="w-px h-3 bg-su-line/20 mx-0.5" />
         )}
 
         {/* Mode filters */}
@@ -596,10 +596,10 @@ export const FilterControls = memo(function FilterControls({
             <button
               key={mode}
               onClick={() => onModeToggle(mode)}
-              className={`px-1.5 py-0.5 rounded text-[9px] font-medium transition-all border border-white/20 ${
+              className={`px-1.5 py-0.5 rounded text-[9px] font-medium transition-all border border-su-line/50 ${
                 isActive
-                  ? "bg-white/10 text-white"
-                  : "bg-transparent text-gray-400 opacity-60 hover:text-gray-200 hover:opacity-80"
+                  ? "bg-su-line/20 text-su-text"
+                  : "bg-transparent text-su-muted opacity-60 hover:text-su-text hover:opacity-80"
               }`}
               aria-pressed={isActive}
               aria-label={`Filter by ${mode} mode`}

@@ -86,7 +86,7 @@ function CompactField({
     <div className="flex flex-col gap-0.5">
       <label
         htmlFor={id}
-        className="text-[10px] uppercase tracking-wider text-gray-500 leading-none select-none"
+        className="text-[10px] uppercase tracking-wider text-su-muted leading-none select-none"
       >
         {label}
       </label>
@@ -102,14 +102,14 @@ function CompactField({
         spellCheck={false}
         className={`
           h-8 px-2
-          bg-white/5 border rounded-md
-          text-white text-sm
-          placeholder-gray-600
+          bg-su-line/10 border rounded-md
+          text-su-text text-sm
+          placeholder:text-su-muted/80
           focus:border-plasma-orange/50 focus:ring-1 focus:ring-plasma-orange/30
           focus:outline-none
           transition-colors
           ${mono ? "font-mono" : ""}
-          ${autoFilled ? "border-l-2 border-l-signal-green border-white/10" : "border-white/10"}
+          ${autoFilled ? "border-l-2 border-l-signal-green border-su-line/40" : "border-su-line/40"}
           ${type === "number" ? "[appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none" : ""}
         `}
       />
@@ -145,7 +145,7 @@ function LookupStrip({
 
   if (showLoading) {
     return (
-      <div className="h-8 flex items-center px-3 rounded-md bg-white/[0.02] border border-white/5">
+      <div className="h-8 flex items-center px-3 rounded-md bg-su-line/10 border border-su-line/20">
         <div className="flex items-center gap-2">
           <svg
             className="animate-spin h-3 w-3 text-plasma-orange"
@@ -166,7 +166,7 @@ function LookupStrip({
               d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
             />
           </svg>
-          <span className="text-xs text-gray-500 font-mono">Looking up...</span>
+          <span className="text-xs text-su-muted font-mono">Looking up...</span>
         </div>
       </div>
     );
@@ -181,34 +181,34 @@ function LookupStrip({
   const locationStr = parts.join(", ");
 
   return (
-    <div className="h-8 flex items-center px-3 rounded-md bg-white/[0.02] border border-white/5 overflow-hidden">
-      <div className="flex items-center gap-3 text-xs font-mono text-gray-400 truncate min-w-0">
-        <span className="text-white font-semibold shrink-0">
+    <div className="h-8 flex items-center px-3 rounded-md bg-su-line/10 border border-su-line/20 overflow-hidden">
+      <div className="flex items-center gap-3 text-xs font-mono text-su-muted truncate min-w-0">
+        <span className="text-su-text font-semibold shrink-0">
           {lookupResult.callsign}
         </span>
         {locationStr && (
           <>
-            <span className="text-gray-600">&mdash;</span>
+            <span className="text-su-muted">&mdash;</span>
             <span className="truncate">{locationStr}</span>
           </>
         )}
         {lookupResult.grid && (
-          <span className="text-gray-500 shrink-0">
-            <span className="text-gray-600">Grid:</span>
+          <span className="text-su-muted shrink-0">
+            <span className="text-su-muted">Grid:</span>
             <span className="text-signal-green/70 ml-1">
               {lookupResult.grid}
             </span>
           </span>
         )}
         {lookupResult.cqZone != null && (
-          <span className="text-gray-500 shrink-0">
-            <span className="text-gray-600">CQ:</span>
+          <span className="text-su-muted shrink-0">
+            <span className="text-su-muted">CQ:</span>
             {lookupResult.cqZone}
           </span>
         )}
         {lookupResult.ituZone != null && (
-          <span className="text-gray-500 shrink-0">
-            <span className="text-gray-600">ITU:</span>
+          <span className="text-su-muted shrink-0">
+            <span className="text-su-muted">ITU:</span>
             {lookupResult.ituZone}
           </span>
         )}
@@ -577,7 +577,7 @@ export function QSOEntryForm({ onQSOLogged }: QSOEntryFormProps) {
   return (
     <div
       ref={formContainerRef}
-      className="bg-white/[0.03] border border-white/10 rounded-xl p-3 space-y-2"
+      className="bg-su-line/10 border border-su-line/40 rounded-xl p-3 space-y-2"
     >
       {/* ── STATUS BAR: Mode pills + CAT badge ─────────────────────────────── */}
       <div className="flex items-center justify-between gap-2">
@@ -597,8 +597,8 @@ export function QSOEntryForm({ onQSOLogged }: QSOEntryFormProps) {
                 px-2.5 py-1 rounded-md text-xs font-medium transition-all duration-150
                 ${
                   operatingMode === m.key
-                    ? "bg-plasma-orange text-white shadow-sm shadow-plasma-orange/20"
-                    : "bg-white/5 text-gray-400 hover:text-white hover:bg-white/10"
+                    ? "bg-plasma-orange text-su-on-accent shadow-sm shadow-plasma-orange/20"
+                    : "bg-su-line/10 text-su-muted hover:text-su-text hover:bg-su-line/20"
                 }
               `}
             >
@@ -663,10 +663,10 @@ export function QSOEntryForm({ onQSOLogged }: QSOEntryFormProps) {
             min-w-[90px]
             ${
               logSuccess
-                ? "bg-signal-green text-white scale-105"
+                ? "bg-signal-green text-su-on-accent scale-105"
                 : canLog
-                  ? "bg-plasma-orange hover:bg-plasma-orange/80 text-white active:scale-95"
-                  : "bg-white/5 text-gray-500 cursor-not-allowed"
+                  ? "bg-plasma-orange hover:bg-plasma-orange/80 text-su-on-accent active:scale-95"
+                  : "bg-su-line/10 text-su-muted cursor-not-allowed"
             }
           `}
         >
@@ -728,7 +728,7 @@ export function QSOEntryForm({ onQSOLogged }: QSOEntryFormProps) {
           <div className="flex flex-col gap-0.5">
             <label
               htmlFor="qso-chain"
-              className="text-[10px] uppercase tracking-wider text-gray-500 leading-none select-none"
+              className="text-[10px] uppercase tracking-wider text-su-muted leading-none select-none"
             >
               Signal path
             </label>
@@ -741,8 +741,8 @@ export function QSOEntryForm({ onQSOLogged }: QSOEntryFormProps) {
               }}
               className="
                 h-8 px-2
-                bg-white/5 border border-white/10 rounded-md
-                text-white text-sm font-mono
+                bg-su-line/10 border border-su-line/40 rounded-md
+                text-su-text text-sm font-mono
                 focus:border-plasma-orange/50 focus:ring-1 focus:ring-plasma-orange/30
                 focus:outline-none
                 transition-colors
@@ -770,7 +770,7 @@ export function QSOEntryForm({ onQSOLogged }: QSOEntryFormProps) {
           <div className="flex flex-col gap-0.5">
             <label
               htmlFor="qso-tx-power"
-              className="text-[10px] uppercase tracking-wider text-gray-500 leading-none select-none"
+              className="text-[10px] uppercase tracking-wider text-su-muted leading-none select-none"
             >
               TX Power (W)
             </label>
@@ -794,9 +794,9 @@ export function QSOEntryForm({ onQSOLogged }: QSOEntryFormProps) {
               }
               className="
                 h-8 px-2
-                bg-white/5 border border-white/10 rounded-md
-                text-white text-sm font-mono
-                placeholder-gray-600
+                bg-su-line/10 border border-su-line/40 rounded-md
+                text-su-text text-sm font-mono
+                placeholder:text-su-muted/80
                 focus:border-plasma-orange/50 focus:ring-1 focus:ring-plasma-orange/30
                 focus:outline-none
                 transition-colors
@@ -850,7 +850,7 @@ export function QSOEntryForm({ onQSOLogged }: QSOEntryFormProps) {
       <div className="flex flex-col gap-0.5">
         <label
           htmlFor="qso-notes"
-          className="text-[10px] uppercase tracking-wider text-gray-500 leading-none select-none"
+          className="text-[10px] uppercase tracking-wider text-su-muted leading-none select-none"
         >
           Notes
         </label>
@@ -863,9 +863,9 @@ export function QSOEntryForm({ onQSOLogged }: QSOEntryFormProps) {
           autoComplete="off"
           className="
             h-8 px-2
-            bg-white/5 border border-white/10 rounded-md
-            text-white text-sm
-            placeholder-gray-600
+            bg-su-line/10 border border-su-line/40 rounded-md
+            text-su-text text-sm
+            placeholder:text-su-muted/80
             focus:border-plasma-orange/50 focus:ring-1 focus:ring-plasma-orange/30
             focus:outline-none
             transition-colors

@@ -366,7 +366,7 @@ export const CATSettings = memo(function CATSettings({
       ? "bg-signal-green"
       : connectionStatus === "connecting"
         ? "bg-solar-yellow animate-pulse"
-        : "bg-gray-500";
+        : "bg-su-line";
 
   const statusText =
     connectionStatus === "connected"
@@ -600,10 +600,10 @@ export const CATSettings = memo(function CATSettings({
   return (
     <div className={`space-y-4 ${className}`}>
       {/* Bridge Connection Toggle */}
-      <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider">
+      <h3 className="text-sm font-semibold text-su-muted uppercase tracking-wider">
         ProPulse Bridge
       </h3>
-      <div className="p-3 bg-nebula-blue rounded-lg border border-white/10">
+      <div className="p-3 bg-nebula-blue rounded-lg border border-su-line/40">
         <ToggleSwitch
           checked={bridgeEnabled}
           onChange={(enabled) => onBridgeEnabledChange?.(enabled)}
@@ -613,26 +613,26 @@ export const CATSettings = memo(function CATSettings({
       </div>
 
       {/* Divider */}
-      <div className="border-t border-white/10" />
+      <div className="border-t border-su-line/40" />
 
       {/* Header */}
-      <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider">
+      <h3 className="text-sm font-semibold text-su-muted uppercase tracking-wider">
         CAT Control
       </h3>
 
       {/* Connection Status */}
-      <div className="flex items-center justify-between p-3 bg-nebula-blue rounded-lg border border-white/10">
+      <div className="flex items-center justify-between p-3 bg-nebula-blue rounded-lg border border-su-line/40">
         <div className="flex items-center gap-2">
           <div className={`w-2.5 h-2.5 rounded-full ${statusDotColor}`} />
-          <span className="text-sm text-gray-200">{statusText}</span>
+          <span className="text-sm text-su-text">{statusText}</span>
         </div>
         {connected && (
-          <span className="text-xs text-gray-500 font-mono">{band}</span>
+          <span className="text-xs text-su-muted font-mono">{band}</span>
         )}
       </div>
 
       {/* Enable CAT Toggle */}
-      <div className="p-3 bg-nebula-blue rounded-lg border border-white/10">
+      <div className="p-3 bg-nebula-blue rounded-lg border border-su-line/40">
         <ToggleSwitch
           checked={catEnabled}
           onChange={handleCATToggle}
@@ -643,7 +643,7 @@ export const CATSettings = memo(function CATSettings({
 
       {/* Backend Selection */}
       <div className="space-y-2">
-        <label className="block text-sm font-medium text-gray-300">
+        <label className="block text-sm font-medium text-su-muted">
           CAT Backend
         </label>
         <div className="grid grid-cols-3 gap-1.5">
@@ -666,7 +666,7 @@ export const CATSettings = memo(function CATSettings({
                 ${
                   selectedBackend === id
                     ? "bg-plasma-orange/20 text-plasma-orange border border-plasma-orange/50"
-                    : "bg-nebula-blue text-gray-300 border border-white/10 hover:border-white/20"
+                    : "bg-nebula-blue text-su-muted border border-su-line/40 hover:border-su-line/50"
                 }
                 ${connected ? "opacity-50 cursor-not-allowed" : ""}`}
             >
@@ -682,7 +682,7 @@ export const CATSettings = memo(function CATSettings({
           <div className="col-span-2">
             <label
               htmlFor="hamlib-host"
-              className="block text-xs text-gray-400 mb-1"
+              className="block text-xs text-su-muted mb-1"
             >
               rigctld Host
             </label>
@@ -693,8 +693,8 @@ export const CATSettings = memo(function CATSettings({
               onChange={(e) => setHamlibHost(e.target.value)}
               placeholder="localhost"
               disabled={connected}
-              className="w-full px-3 py-2 bg-deep-space border border-white/10 rounded-lg
-                         text-white text-sm font-mono placeholder-gray-500
+              className="w-full px-3 py-2 bg-deep-space border border-su-line/40 rounded-lg
+                         text-su-text text-sm font-mono placeholder:text-su-muted/80
                          focus:outline-none focus:border-plasma-orange/50
                          disabled:opacity-50 disabled:cursor-not-allowed"
             />
@@ -702,7 +702,7 @@ export const CATSettings = memo(function CATSettings({
           <div>
             <label
               htmlFor="hamlib-port"
-              className="block text-xs text-gray-400 mb-1"
+              className="block text-xs text-su-muted mb-1"
             >
               Port
             </label>
@@ -713,8 +713,8 @@ export const CATSettings = memo(function CATSettings({
               onChange={(e) => setHamlibPort(e.target.value)}
               placeholder="4533"
               disabled={connected}
-              className="w-full px-3 py-2 bg-deep-space border border-white/10 rounded-lg
-                         text-white text-sm font-mono placeholder-gray-500
+              className="w-full px-3 py-2 bg-deep-space border border-su-line/40 rounded-lg
+                         text-su-text text-sm font-mono placeholder:text-su-muted/80
                          focus:outline-none focus:border-plasma-orange/50
                          disabled:opacity-50 disabled:cursor-not-allowed"
             />
@@ -728,7 +728,7 @@ export const CATSettings = memo(function CATSettings({
           <div className="w-28">
             <label
               htmlFor="civ-port"
-              className="block text-xs text-gray-400 mb-1"
+              className="block text-xs text-su-muted mb-1"
             >
               CI-V Port
             </label>
@@ -744,13 +744,13 @@ export const CATSettings = memo(function CATSettings({
               }}
               placeholder="4580"
               disabled={connected}
-              className="w-full px-3 py-2 bg-deep-space border border-white/10 rounded-lg
-                         text-white text-sm font-mono placeholder-gray-500
+              className="w-full px-3 py-2 bg-deep-space border border-su-line/40 rounded-lg
+                         text-su-text text-sm font-mono placeholder:text-su-muted/80
                          focus:outline-none focus:border-plasma-orange/50
                          disabled:opacity-50 disabled:cursor-not-allowed"
             />
           </div>
-          <p className="text-[11px] text-gray-500 pb-2">
+          <p className="text-[11px] text-su-muted pb-2">
             WFView CI-V TCP server for waterfall data
           </p>
         </div>
@@ -762,7 +762,7 @@ export const CATSettings = memo(function CATSettings({
           <div className="col-span-2">
             <label
               htmlFor="flrig-host"
-              className="block text-xs text-gray-400 mb-1"
+              className="block text-xs text-su-muted mb-1"
             >
               Flrig Host
             </label>
@@ -773,8 +773,8 @@ export const CATSettings = memo(function CATSettings({
               onChange={(e) => setFlrigHost(e.target.value)}
               placeholder="localhost"
               disabled={connected}
-              className="w-full px-3 py-2 bg-deep-space border border-white/10 rounded-lg
-                         text-white text-sm font-mono placeholder-gray-500
+              className="w-full px-3 py-2 bg-deep-space border border-su-line/40 rounded-lg
+                         text-su-text text-sm font-mono placeholder:text-su-muted/80
                          focus:outline-none focus:border-plasma-orange/50
                          disabled:opacity-50 disabled:cursor-not-allowed"
             />
@@ -782,7 +782,7 @@ export const CATSettings = memo(function CATSettings({
           <div>
             <label
               htmlFor="flrig-port"
-              className="block text-xs text-gray-400 mb-1"
+              className="block text-xs text-su-muted mb-1"
             >
               Port
             </label>
@@ -793,8 +793,8 @@ export const CATSettings = memo(function CATSettings({
               onChange={(e) => setFlrigPort(e.target.value)}
               placeholder="12345"
               disabled={connected}
-              className="w-full px-3 py-2 bg-deep-space border border-white/10 rounded-lg
-                         text-white text-sm font-mono placeholder-gray-500
+              className="w-full px-3 py-2 bg-deep-space border border-su-line/40 rounded-lg
+                         text-su-text text-sm font-mono placeholder:text-su-muted/80
                          focus:outline-none focus:border-plasma-orange/50
                          disabled:opacity-50 disabled:cursor-not-allowed"
             />
@@ -810,7 +810,7 @@ export const CATSettings = memo(function CATSettings({
             <div className="flex-1">
               <label
                 htmlFor="icom-serial-port"
-                className="block text-xs text-gray-400 mb-1"
+                className="block text-xs text-su-muted mb-1"
               >
                 Serial Port
               </label>
@@ -832,8 +832,8 @@ export const CATSettings = memo(function CATSettings({
                   }
                 }}
                 disabled={connected}
-                className="w-full px-3 py-2 bg-deep-space border border-white/10 rounded-lg
-                           text-white text-sm font-mono
+                className="w-full px-3 py-2 bg-deep-space border border-su-line/40 rounded-lg
+                           text-su-text text-sm font-mono
                            focus:outline-none focus:border-plasma-orange/50
                            disabled:opacity-50 disabled:cursor-not-allowed"
               >
@@ -851,8 +851,8 @@ export const CATSettings = memo(function CATSettings({
               type="button"
               onClick={handleScanPorts}
               disabled={connected || scanning || !bridgeSendRequest}
-              className="px-3 py-2 rounded-lg text-xs font-medium bg-white/5 border border-white/10
-                         text-gray-300 hover:bg-white/10 transition-colors
+              className="px-3 py-2 rounded-lg text-xs font-medium bg-su-line/10 border border-su-line/40
+                         text-su-muted hover:bg-su-line/20 transition-colors
                          disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {scanning ? "Scanning..." : "Scan"}
@@ -867,7 +867,7 @@ export const CATSettings = memo(function CATSettings({
             <div>
               <label
                 htmlFor="icom-baud"
-                className="block text-xs text-gray-400 mb-1"
+                className="block text-xs text-su-muted mb-1"
               >
                 Baud Rate
               </label>
@@ -876,8 +876,8 @@ export const CATSettings = memo(function CATSettings({
                 value={icomBaudRate}
                 onChange={(e) => setIcomBaudRate(e.target.value)}
                 disabled={connected}
-                className="w-full px-3 py-2 bg-deep-space border border-white/10 rounded-lg
-                           text-white text-sm font-mono
+                className="w-full px-3 py-2 bg-deep-space border border-su-line/40 rounded-lg
+                           text-su-text text-sm font-mono
                            focus:outline-none focus:border-plasma-orange/50
                            disabled:opacity-50 disabled:cursor-not-allowed"
               >
@@ -890,7 +890,7 @@ export const CATSettings = memo(function CATSettings({
             <div>
               <label
                 htmlFor="icom-radio-address"
-                className="block text-xs text-gray-400 mb-1"
+                className="block text-xs text-su-muted mb-1"
               >
                 CI-V Address
               </label>
@@ -900,27 +900,27 @@ export const CATSettings = memo(function CATSettings({
                 onChange={(e) => setIcomRadioAddress(e.target.value)}
                 disabled={connected}
                 placeholder="0x94"
-                className="w-full px-3 py-2 bg-deep-space border border-white/10 rounded-lg
-                           text-white text-sm font-mono focus:outline-none focus:border-plasma-orange/50
+                className="w-full px-3 py-2 bg-deep-space border border-su-line/40 rounded-lg
+                           text-su-text text-sm font-mono focus:outline-none focus:border-plasma-orange/50
                            disabled:opacity-50 disabled:cursor-not-allowed"
               />
             </div>
 
             {/* Radio model display (auto-detected) */}
             <div>
-              <label className="block text-xs text-gray-400 mb-1">
+              <label className="block text-xs text-su-muted mb-1">
                 Radio Model
               </label>
               <div
-                className="px-3 py-2 bg-deep-space/50 border border-white/5 rounded-lg
-                              text-sm font-mono text-gray-400 min-h-[38px] flex items-center"
+                className="px-3 py-2 bg-deep-space/50 border border-su-line/20 rounded-lg
+                              text-sm font-mono text-su-muted min-h-[38px] flex items-center"
               >
                 {icomModelDisplay || "Auto-detect"}
               </div>
             </div>
           </div>
 
-          <p className="text-[11px] text-gray-500">
+          <p className="text-[11px] text-su-muted">
             Direct USB serial connection via CI-V protocol. Spectrum data flows
             through the same connection.
           </p>
@@ -933,7 +933,7 @@ export const CATSettings = memo(function CATSettings({
           <div>
             <label
               htmlFor="icom-net-host"
-              className="block text-xs text-gray-400 mb-1"
+              className="block text-xs text-su-muted mb-1"
             >
               Host IP
             </label>
@@ -944,8 +944,8 @@ export const CATSettings = memo(function CATSettings({
               onChange={(e) => setIcomNetHost(e.target.value)}
               placeholder="192.168.1.100"
               disabled={connected}
-              className="w-full px-3 py-2 bg-deep-space border border-white/10 rounded-lg
-                         text-white text-sm font-mono placeholder-gray-500
+              className="w-full px-3 py-2 bg-deep-space border border-su-line/40 rounded-lg
+                         text-su-text text-sm font-mono placeholder:text-su-muted/80
                          focus:outline-none focus:border-plasma-orange/50
                          disabled:opacity-50 disabled:cursor-not-allowed"
             />
@@ -954,7 +954,7 @@ export const CATSettings = memo(function CATSettings({
             <div>
               <label
                 htmlFor="icom-net-user"
-                className="block text-xs text-gray-400 mb-1"
+                className="block text-xs text-su-muted mb-1"
               >
                 Username
               </label>
@@ -965,8 +965,8 @@ export const CATSettings = memo(function CATSettings({
                 onChange={(e) => setIcomNetUser(e.target.value)}
                 placeholder="admin"
                 disabled={connected}
-                className="w-full px-3 py-2 bg-deep-space border border-white/10 rounded-lg
-                           text-white text-sm font-mono placeholder-gray-500
+                className="w-full px-3 py-2 bg-deep-space border border-su-line/40 rounded-lg
+                           text-su-text text-sm font-mono placeholder:text-su-muted/80
                            focus:outline-none focus:border-plasma-orange/50
                            disabled:opacity-50 disabled:cursor-not-allowed"
               />
@@ -974,7 +974,7 @@ export const CATSettings = memo(function CATSettings({
             <div>
               <label
                 htmlFor="icom-net-pass"
-                className="block text-xs text-gray-400 mb-1"
+                className="block text-xs text-su-muted mb-1"
               >
                 Password
               </label>
@@ -985,14 +985,14 @@ export const CATSettings = memo(function CATSettings({
                 onChange={(e) => setIcomNetPass(e.target.value)}
                 placeholder="password"
                 disabled={connected}
-                className="w-full px-3 py-2 bg-deep-space border border-white/10 rounded-lg
-                           text-white text-sm font-mono placeholder-gray-500
+                className="w-full px-3 py-2 bg-deep-space border border-su-line/40 rounded-lg
+                           text-su-text text-sm font-mono placeholder:text-su-muted/80
                            focus:outline-none focus:border-plasma-orange/50
                            disabled:opacity-50 disabled:cursor-not-allowed"
               />
             </div>
           </div>
-          <p className="text-[11px] text-gray-500">
+          <p className="text-[11px] text-su-muted">
             RS-BA1 network connection. Requires ICOM RS-BA1 IP Remote Control
             Software running on the radio or gateway.
           </p>
@@ -1019,8 +1019,8 @@ export const CATSettings = memo(function CATSettings({
                   : testStatus === "testing"
                     ? "bg-solar-yellow/20 border border-solar-yellow/50 text-solar-yellow"
                     : !bridgeSend
-                      ? "bg-nebula-blue border border-white/10 text-gray-500 cursor-not-allowed"
-                      : "bg-white/5 border border-white/10 text-gray-200 hover:bg-white/10"
+                      ? "bg-nebula-blue border border-su-line/40 text-su-muted cursor-not-allowed"
+                      : "bg-su-line/10 border border-su-line/40 text-su-text hover:bg-su-line/20"
             }`}
         >
           {testStatus === "testing"
@@ -1034,10 +1034,10 @@ export const CATSettings = memo(function CATSettings({
       )}
 
       {/* Divider */}
-      <div className="border-t border-white/10" />
+      <div className="border-t border-su-line/40" />
 
       {/* PTT Lockout */}
-      <div className="p-3 bg-nebula-blue rounded-lg border border-white/10 space-y-2">
+      <div className="p-3 bg-nebula-blue rounded-lg border border-su-line/40 space-y-2">
         <ToggleSwitch
           checked={savedConfig.pttLockout}
           onChange={(checked) =>
@@ -1057,48 +1057,48 @@ export const CATSettings = memo(function CATSettings({
       {/* Connected Rig Info */}
       {connected && (
         <>
-          <div className="border-t border-white/10" />
+          <div className="border-t border-su-line/40" />
 
           <div className="space-y-3">
-            <h4 className="text-xs font-semibold text-gray-400 uppercase tracking-wider">
+            <h4 className="text-xs font-semibold text-su-muted uppercase tracking-wider">
               Current Rig Status
             </h4>
 
             {/* Rig Info Grid */}
             <div className="grid grid-cols-2 gap-2">
               {/* Frequency */}
-              <div className="p-2.5 bg-deep-space rounded-lg border border-white/10">
-                <div className="text-[10px] text-gray-500 uppercase tracking-wider mb-0.5">
+              <div className="p-2.5 bg-deep-space rounded-lg border border-su-line/40">
+                <div className="text-[10px] text-su-muted uppercase tracking-wider mb-0.5">
                   Frequency
                 </div>
-                <div className="text-sm font-mono text-white font-medium">
+                <div className="text-sm font-mono text-su-text font-medium">
                   {formatFrequency(frequency)}
                 </div>
               </div>
 
               {/* Mode */}
-              <div className="p-2.5 bg-deep-space rounded-lg border border-white/10">
-                <div className="text-[10px] text-gray-500 uppercase tracking-wider mb-0.5">
+              <div className="p-2.5 bg-deep-space rounded-lg border border-su-line/40">
+                <div className="text-[10px] text-su-muted uppercase tracking-wider mb-0.5">
                   Mode
                 </div>
-                <div className="text-sm font-mono text-white font-medium">
+                <div className="text-sm font-mono text-su-text font-medium">
                   {mode}
                 </div>
               </div>
 
               {/* Band */}
-              <div className="p-2.5 bg-deep-space rounded-lg border border-white/10">
-                <div className="text-[10px] text-gray-500 uppercase tracking-wider mb-0.5">
+              <div className="p-2.5 bg-deep-space rounded-lg border border-su-line/40">
+                <div className="text-[10px] text-su-muted uppercase tracking-wider mb-0.5">
                   Band
                 </div>
-                <div className="text-sm font-mono text-white font-medium">
+                <div className="text-sm font-mono text-su-text font-medium">
                   {band}
                 </div>
               </div>
 
               {/* PTT */}
-              <div className="p-2.5 bg-deep-space rounded-lg border border-white/10">
-                <div className="text-[10px] text-gray-500 uppercase tracking-wider mb-0.5">
+              <div className="p-2.5 bg-deep-space rounded-lg border border-su-line/40">
+                <div className="text-[10px] text-su-muted uppercase tracking-wider mb-0.5">
                   PTT
                 </div>
                 <div
@@ -1110,18 +1110,18 @@ export const CATSettings = memo(function CATSettings({
             </div>
 
             {/* S-Meter Visualization */}
-            <div className="p-2.5 bg-deep-space rounded-lg border border-white/10">
+            <div className="p-2.5 bg-deep-space rounded-lg border border-su-line/40">
               <div className="flex items-center justify-between mb-1.5">
-                <span className="text-[10px] text-gray-500 uppercase tracking-wider">
+                <span className="text-[10px] text-su-muted uppercase tracking-wider">
                   S-Meter
                 </span>
-                <span className="text-xs font-mono text-white font-medium">
+                <span className="text-xs font-mono text-su-text font-medium">
                   {sMeterText}
                 </span>
               </div>
 
               {/* Bar */}
-              <div className="relative h-3 bg-white/5 rounded-full overflow-hidden">
+              <div className="relative h-3 bg-su-line/10 rounded-full overflow-hidden">
                 <div
                   className={`absolute inset-y-0 left-0 rounded-full transition-all duration-300 ${sMeterColor(sMeter)}`}
                   style={{ width: `${sMeterPercent * 100}%` }}
@@ -1134,7 +1134,7 @@ export const CATSettings = memo(function CATSettings({
                   (mark) => (
                     <span
                       key={mark}
-                      className="text-[8px] text-gray-600 font-mono"
+                      className="text-[8px] text-su-muted font-mono"
                     >
                       {mark}
                     </span>
@@ -1145,9 +1145,9 @@ export const CATSettings = memo(function CATSettings({
 
             {/* Rig Model */}
             {rigModel && (
-              <div className="flex items-center gap-2 p-2 bg-white/5 rounded-lg">
+              <div className="flex items-center gap-2 p-2 bg-su-line/10 rounded-lg">
                 <svg
-                  className="w-4 h-4 text-gray-500 flex-shrink-0"
+                  className="w-4 h-4 text-su-muted flex-shrink-0"
                   fill="none"
                   stroke="currentColor"
                   viewBox="0 0 24 24"
@@ -1159,9 +1159,9 @@ export const CATSettings = memo(function CATSettings({
                     d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
                   />
                 </svg>
-                <span className="text-xs text-gray-400">
+                <span className="text-xs text-su-muted">
                   Model:{" "}
-                  <span className="text-gray-200 font-medium">{rigModel}</span>
+                  <span className="text-su-text font-medium">{rigModel}</span>
                 </span>
               </div>
             )}
@@ -1170,9 +1170,9 @@ export const CATSettings = memo(function CATSettings({
       )}
 
       {/* Info note */}
-      <div className="flex items-start gap-2 p-3 bg-white/5 rounded-lg border border-white/5">
+      <div className="flex items-start gap-2 p-3 bg-su-line/10 rounded-lg border border-su-line/20">
         <svg
-          className="w-4 h-4 text-gray-500 flex-shrink-0 mt-0.5"
+          className="w-4 h-4 text-su-muted flex-shrink-0 mt-0.5"
           fill="none"
           stroke="currentColor"
           viewBox="0 0 24 24"
@@ -1184,14 +1184,14 @@ export const CATSettings = memo(function CATSettings({
             d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
           />
         </svg>
-        <p className="text-xs text-gray-500">
+        <p className="text-xs text-su-muted">
           Enable the ProPulse Bridge above, then choose a CAT backend.{" "}
-          <strong className="text-gray-400">ICOM Direct</strong> connects via
+          <strong className="text-su-muted">ICOM Direct</strong> connects via
           USB serial (CI-V) for best latency and built-in spectrum.{" "}
-          <strong className="text-gray-400">ICOM Network</strong> uses RS-BA1
+          <strong className="text-su-muted">ICOM Network</strong> uses RS-BA1
           for remote operation.{" "}
-          <strong className="text-gray-400">Hamlib</strong> and{" "}
-          <strong className="text-gray-400">Flrig</strong> support most other
+          <strong className="text-su-muted">Hamlib</strong> and{" "}
+          <strong className="text-su-muted">Flrig</strong> support most other
           radios. Auto-detect tries all available backends.
         </p>
       </div>

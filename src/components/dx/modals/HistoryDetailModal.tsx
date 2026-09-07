@@ -100,13 +100,13 @@ export function HistoryDetailModal({
     >
       <div className="space-y-0">
         {/* Header with formatted date */}
-        <h3 className="text-sm font-bold text-white mb-4">
+        <h3 className="text-sm font-bold text-su-text mb-4">
           {monthName} {todayDay}
         </h3>
 
         {/* Empty state */}
         {yearGroups.length === 0 && (
-          <p className="text-center text-sm text-gray-400 py-8">
+          <p className="text-center text-sm text-su-muted py-8">
             No QSOs found for this date in previous years
           </p>
         )}
@@ -115,12 +115,12 @@ export function HistoryDetailModal({
         {yearGroups.map((group, index) => (
           <div
             key={group.year}
-            className={index > 0 ? "border-t border-white/10 pt-3 mt-3" : ""}
+            className={index > 0 ? "border-t border-su-line/40 pt-3 mt-3" : ""}
           >
             {/* Year header with count badge */}
             <div className="flex items-center gap-2 mb-2">
-              <span className="text-sm font-bold text-white">{group.year}</span>
-              <span className="bg-white/10 rounded px-2 py-0.5 text-[10px] text-gray-400">
+              <span className="text-sm font-bold text-su-text">{group.year}</span>
+              <span className="bg-su-line/20 rounded px-2 py-0.5 text-[10px] text-su-muted">
                 {group.entries.length} QSO
                 {group.entries.length !== 1 ? "s" : ""}
               </span>
@@ -130,7 +130,7 @@ export function HistoryDetailModal({
             <div className="overflow-x-auto">
               <table className="w-full text-xs font-mono">
                 <thead>
-                  <tr className="text-gray-500">
+                  <tr className="text-su-muted">
                     <th className="text-left py-1 pr-3 font-medium">
                       Callsign
                     </th>
@@ -145,18 +145,18 @@ export function HistoryDetailModal({
                     return (
                       <tr
                         key={entry.id}
-                        className={rowIndex % 2 === 1 ? "bg-white/[0.02]" : ""}
+                        className={rowIndex % 2 === 1 ? "bg-su-line/10" : ""}
                       >
                         <td className="py-1 pr-3 text-signal-green">
                           {entry.callsign}
                         </td>
-                        <td className="py-1 pr-3 text-gray-300">
+                        <td className="py-1 pr-3 text-su-muted">
                           {entry.band || "\u2014"}
                         </td>
-                        <td className="py-1 pr-3 text-gray-300">
+                        <td className="py-1 pr-3 text-su-muted">
                           {entry.mode || "\u2014"}
                         </td>
-                        <td className="py-1 text-gray-400">
+                        <td className="py-1 text-su-muted">
                           {entity?.name || "\u2014"}
                         </td>
                       </tr>

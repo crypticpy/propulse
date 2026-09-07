@@ -58,7 +58,7 @@ function getStatusColor(status: ServiceStatus): string {
     case "error":
       return "text-alert-red";
     case "not_configured":
-      return "text-gray-500";
+      return "text-su-muted";
   }
 }
 
@@ -71,7 +71,7 @@ function getStatusBgColor(status: ServiceStatus): string {
     case "error":
       return "bg-alert-red/20 border-alert-red/30";
     case "not_configured":
-      return "bg-white/5 border-white/10";
+      return "bg-su-line/10 border-su-line/40";
   }
 }
 
@@ -97,7 +97,7 @@ function getStatusDotColor(status: ServiceStatus): string {
     case "error":
       return "bg-alert-red";
     case "not_configured":
-      return "bg-gray-500";
+      return "bg-su-line";
   }
 }
 
@@ -263,7 +263,7 @@ function ServiceCard({
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-2">
           <Icon className={`w-5 h-5 ${accentColor}`} />
-          <h4 className="font-orbitron text-sm font-bold text-white">
+          <h4 className="font-orbitron text-sm font-bold text-su-text">
             {service.name}
           </h4>
         </div>
@@ -280,32 +280,32 @@ function ServiceCard({
       </div>
 
       {/* Description */}
-      <p className="text-xs text-gray-400 mb-3">{service.description}</p>
+      <p className="text-xs text-su-muted mb-3">{service.description}</p>
 
       {/* Stats row */}
       <div className="grid grid-cols-3 gap-2 mb-3">
         <div className="text-center p-2 bg-nebula-blue rounded-lg">
-          <p className="text-sm font-bold text-white">
+          <p className="text-sm font-bold text-su-text">
             {service.totalUploaded}
           </p>
-          <p className="text-[10px] text-gray-400">Uploaded</p>
+          <p className="text-[10px] text-su-muted">Uploaded</p>
         </div>
         <div className="text-center p-2 bg-nebula-blue rounded-lg">
           <p className="text-sm font-bold text-signal-green">
             {service.totalConfirmed}
           </p>
-          <p className="text-[10px] text-gray-400">Confirmed</p>
+          <p className="text-[10px] text-su-muted">Confirmed</p>
         </div>
         <div className="text-center p-2 bg-nebula-blue rounded-lg">
           <p className="text-sm font-bold text-caution-amber">
             {service.pendingUploads}
           </p>
-          <p className="text-[10px] text-gray-400">Pending</p>
+          <p className="text-[10px] text-su-muted">Pending</p>
         </div>
       </div>
 
       {/* Last sync */}
-      <div className="flex items-center justify-between text-xs text-gray-400 mb-3">
+      <div className="flex items-center justify-between text-xs text-su-muted mb-3">
         <span>Last sync:</span>
         <span className="font-mono">{formatTimestamp(service.lastSync)}</span>
       </div>
@@ -319,8 +319,8 @@ function ServiceCard({
             className={`
               flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg
               text-xs font-medium transition-colors
-              bg-white/5 border border-white/10 text-gray-300
-              hover:bg-white/10 hover:border-white/20
+              bg-su-line/10 border border-su-line/40 text-su-muted
+              hover:bg-su-line/20 hover:border-su-line/50
               disabled:opacity-50 disabled:cursor-not-allowed
             `}
           >
@@ -333,8 +333,8 @@ function ServiceCard({
             className={`
               flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg
               text-xs font-medium transition-colors
-              bg-white/5 border border-white/10 text-gray-300
-              hover:bg-white/10 hover:border-white/20
+              bg-su-line/10 border border-su-line/40 text-su-muted
+              hover:bg-su-line/20 hover:border-su-line/50
               disabled:opacity-50 disabled:cursor-not-allowed
             `}
           >
@@ -387,7 +387,7 @@ function ActivityLogEntry({ event }: { event: ActivityEvent }) {
         : "eQSL";
 
   return (
-    <div className="flex items-start gap-2.5 py-2 border-b border-white/5 last:border-0">
+    <div className="flex items-start gap-2.5 py-2 border-b border-su-line/20 last:border-0">
       {/* Status dot */}
       <div
         className={`mt-1.5 w-1.5 h-1.5 rounded-full flex-shrink-0 ${
@@ -397,13 +397,13 @@ function ActivityLogEntry({ event }: { event: ActivityEvent }) {
 
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2">
-          <span className="text-xs font-medium text-white">{serviceLabel}</span>
-          <span className="text-[10px] text-gray-500">{event.action}</span>
+          <span className="text-xs font-medium text-su-text">{serviceLabel}</span>
+          <span className="text-[10px] text-su-muted">{event.action}</span>
         </div>
-        <p className="text-xs text-gray-400 truncate">{event.message}</p>
+        <p className="text-xs text-su-muted truncate">{event.message}</p>
       </div>
 
-      <span className="text-[10px] text-gray-500 flex-shrink-0 font-mono">
+      <span className="text-[10px] text-su-muted flex-shrink-0 font-mono">
         {formatTimestamp(event.timestamp)}
       </span>
     </div>
@@ -642,7 +642,7 @@ export function QSLManager({ className = "" }: QSLManagerProps) {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="font-orbitron text-lg font-bold text-white flex items-center gap-2">
+          <h2 className="font-orbitron text-lg font-bold text-su-text flex items-center gap-2">
             <svg
               className="w-5 h-5 text-plasma-orange"
               fill="none"
@@ -658,7 +658,7 @@ export function QSLManager({ className = "" }: QSLManagerProps) {
             </svg>
             QSL Manager
           </h2>
-          <p className="text-xs text-gray-400 mt-0.5">
+          <p className="text-xs text-su-muted mt-0.5">
             {configuredCount} of 3 services configured
           </p>
         </div>
@@ -669,8 +669,8 @@ export function QSLManager({ className = "" }: QSLManagerProps) {
             onClick={handleSyncAll}
             disabled={syncingAll || configuredCount === 0}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium
-                       transition-colors bg-white/5 border border-white/10 text-gray-300
-                       hover:bg-white/10 hover:border-white/20
+                       transition-colors bg-su-line/10 border border-su-line/40 text-su-muted
+                       hover:bg-su-line/20 hover:border-su-line/50
                        disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <SyncIcon className="w-3.5 h-3.5" spinning={syncingAll} />
@@ -705,7 +705,7 @@ export function QSLManager({ className = "" }: QSLManagerProps) {
 
       {/* Statistics Section */}
       <Card className="p-4">
-        <h3 className="font-orbitron text-sm font-bold text-white mb-3 flex items-center gap-2">
+        <h3 className="font-orbitron text-sm font-bold text-su-text mb-3 flex items-center gap-2">
           <svg
             className="w-4 h-4 text-cosmic-cyan"
             fill="none"
@@ -725,8 +725,8 @@ export function QSLManager({ className = "" }: QSLManagerProps) {
         {/* Aggregate stats */}
         <div className="grid grid-cols-3 gap-3 mb-4">
           <div className="text-center p-3 bg-nebula-blue rounded-lg">
-            <p className="text-xl font-bold text-white">{stats.totalQSOs}</p>
-            <p className="text-[10px] text-gray-400 uppercase tracking-wider">
+            <p className="text-xl font-bold text-su-text">{stats.totalQSOs}</p>
+            <p className="text-[10px] text-su-muted uppercase tracking-wider">
               Total QSOs
             </p>
           </div>
@@ -734,7 +734,7 @@ export function QSLManager({ className = "" }: QSLManagerProps) {
             <p className="text-xl font-bold text-plasma-orange">
               {stats.totalUploaded}
             </p>
-            <p className="text-[10px] text-gray-400 uppercase tracking-wider">
+            <p className="text-[10px] text-su-muted uppercase tracking-wider">
               Uploaded
             </p>
           </div>
@@ -742,7 +742,7 @@ export function QSLManager({ className = "" }: QSLManagerProps) {
             <p className="text-xl font-bold text-signal-green">
               {stats.totalConfirmed}
             </p>
-            <p className="text-[10px] text-gray-400 uppercase tracking-wider">
+            <p className="text-[10px] text-su-muted uppercase tracking-wider">
               Confirmed
             </p>
           </div>
@@ -752,17 +752,17 @@ export function QSLManager({ className = "" }: QSLManagerProps) {
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
-              <tr className="text-gray-400 text-xs">
+              <tr className="text-su-muted text-xs">
                 <th className="text-left py-1.5">Service</th>
                 <th className="text-right py-1.5">Uploaded</th>
                 <th className="text-right py-1.5">Confirmed</th>
                 <th className="text-right py-1.5">Status</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-white/5">
+            <tbody className="divide-y divide-su-line/20">
               {services.map((svc) => (
                 <tr key={svc.id}>
-                  <td className="py-2 font-medium text-white">{svc.name}</td>
+                  <td className="py-2 font-medium text-su-text">{svc.name}</td>
                   <td className="py-2 text-right text-plasma-orange font-mono">
                     {svc.totalUploaded}
                   </td>
@@ -788,7 +788,7 @@ export function QSLManager({ className = "" }: QSLManagerProps) {
 
       {/* Recent Activity Log */}
       <Card className="p-4">
-        <h3 className="font-orbitron text-sm font-bold text-white mb-3 flex items-center gap-2">
+        <h3 className="font-orbitron text-sm font-bold text-su-text mb-3 flex items-center gap-2">
           <svg
             className="w-4 h-4 text-aurora-purple"
             fill="none"
@@ -814,7 +814,7 @@ export function QSLManager({ className = "" }: QSLManagerProps) {
         ) : (
           <div className="py-8 text-center">
             <svg
-              className="w-8 h-8 text-gray-600 mx-auto mb-2"
+              className="w-8 h-8 text-su-muted mx-auto mb-2"
               fill="none"
               stroke="currentColor"
               viewBox="0 0 24 24"
@@ -826,8 +826,8 @@ export function QSLManager({ className = "" }: QSLManagerProps) {
                 d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
               />
             </svg>
-            <p className="text-sm text-gray-500">No recent activity</p>
-            <p className="text-xs text-gray-600 mt-1">
+            <p className="text-sm text-su-muted">No recent activity</p>
+            <p className="text-xs text-su-muted mt-1">
               Sync or upload QSOs to see activity here
             </p>
           </div>

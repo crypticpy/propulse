@@ -39,7 +39,7 @@ const LADDER_CHIP_CLASSES: Record<LadderState, string> = {
   verified: "bg-signal-green/20 border-signal-green text-signal-green",
   stirring: "border-caution-amber/50 text-caution-amber",
   forecast: "border-signal-green/40 text-signal-green/70",
-  closed: "border-white/10 text-gray-500",
+  closed: "border-su-line/40 text-su-muted",
 };
 
 interface BandVerdictChipProps {
@@ -94,7 +94,7 @@ function BandVerdictChip({
           </span>
         )}
         {entry.fading && (
-          <span className="text-[10px] uppercase tracking-wide text-white/50">
+          <span className="text-[10px] uppercase tracking-wide text-su-text/50">
             Fading
           </span>
         )}
@@ -107,7 +107,7 @@ function BandVerdictChip({
           </span>
         )}
         {modeClass && (
-          <span className="rounded bg-white/5 px-1 text-[10px] uppercase tracking-wide text-white/50">
+          <span className="rounded bg-su-line/10 px-1 text-[10px] uppercase tracking-wide text-su-text/50">
             {MODE_BADGE_LABEL[modeClass]}
           </span>
         )}
@@ -116,7 +116,7 @@ function BandVerdictChip({
             className={
               activity.level
                 ? ACTIVITY_TEXT_CLASSES[activity.level]
-                : "text-white/40"
+                : "text-su-text/40"
             }
             aria-label={`activity ${activity.trend}`}
           >
@@ -170,10 +170,10 @@ export function BandVerdictPanel() {
   return (
     <Card className="p-3">
       <div className="mb-2 flex items-baseline gap-2">
-        <h3 className="font-orbitron text-xs uppercase tracking-wide text-gray-300">
+        <h3 className="font-orbitron text-xs uppercase tracking-wide text-su-muted">
           Band Health
         </h3>
-        <span className="text-[10px] text-white/30">{scope.label}</span>
+        <span className="text-[10px] text-su-text/30">{scope.label}</span>
         {dxAvailable && (
           <button
             type="button"
@@ -182,7 +182,7 @@ export function BandVerdictPanel() {
             className={`ml-auto rounded border px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-wide transition-colors ${
               dxMode
                 ? "border-nebula-blue bg-nebula-blue/10 text-nebula-blue"
-                : "border-white/10 text-white/40 hover:text-white/60"
+                : "border-su-line/40 text-su-text/40 hover:text-su-text/60"
             }`}
           >
             DX
@@ -191,7 +191,7 @@ export function BandVerdictPanel() {
       </div>
 
       {!ready ? (
-        <div className="py-2 text-sm text-gray-500">
+        <div className="py-2 text-sm text-su-muted">
           Waiting for solar data…
         </div>
       ) : (

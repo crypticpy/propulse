@@ -62,8 +62,8 @@ export function ModeSelector({ value, onChange }: ModeSelectorProps) {
         onChange={handleChange}
         className="
           w-full h-12 px-3 pr-8
-          bg-white/5 border border-white/10 rounded-lg
-          text-white text-base font-mono
+          bg-su-line/10 border border-su-line/40 rounded-lg
+          text-su-text text-base font-mono
           focus:border-plasma-orange/50 focus:ring-1 focus:ring-plasma-orange/30
           focus:outline-none
           transition-colors
@@ -71,7 +71,7 @@ export function ModeSelector({ value, onChange }: ModeSelectorProps) {
         "
         style={{ fontSize: "16px" }}
       >
-        <option value="" className="bg-deep-space text-gray-400">
+        <option value="" className="bg-deep-space text-su-muted">
           Mode
         </option>
         {MODE_GROUPS.map((group) => (
@@ -84,7 +84,7 @@ export function ModeSelector({ value, onChange }: ModeSelectorProps) {
               <option
                 key={mode}
                 value={mode}
-                className="bg-deep-space text-white"
+                className="bg-deep-space text-su-text"
               >
                 {mode}
               </option>
@@ -94,7 +94,7 @@ export function ModeSelector({ value, onChange }: ModeSelectorProps) {
       </select>
 
       {/* Custom chevron */}
-      <div className="absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none text-gray-400">
+      <div className="absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none text-su-muted">
         <svg
           width="12"
           height="12"

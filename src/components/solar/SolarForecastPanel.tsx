@@ -45,7 +45,7 @@ export function SolarForecastPanel({ resources, current }: Pick<Model, "resource
           </div>
           <WidgetShell title="Three-day outlook" timestampLabel="Issued" eyebrow="Official NOAA forecast" {...sourceProps(resources.forecast)}>
             {resources.forecast.data && (
-              <div className="grid gap-3 sm:grid-cols-3">
+              <div className="grid gap-3 sm:grid-cols-3 xl:grid-cols-1">
                 {resources.forecast.data.forecast.map((day) => <article key={day.date} className="rounded-xl border border-su-line/40 bg-su-panel/70 p-4 xl:grid xl:grid-cols-[auto_auto_minmax(0,1fr)_auto] xl:items-center xl:gap-x-6">
                   <div>
                     <h3 className="text-sm font-semibold text-su-text">{new Date(day.date).toLocaleDateString(undefined, { timeZone: "UTC", weekday: "short", month: "short", day: "numeric" })}</h3>
@@ -68,7 +68,7 @@ export function SolarForecastPanel({ resources, current }: Pick<Model, "resource
                     <SolarOperatingActions compact at={`${day.date.slice(0, 10)}T12:00:00Z`} />
                   </div>
                 </article>)}
-                <p className="text-xs text-su-muted sm:col-span-3">Issued {formatUtc(resources.forecast.data.issued_at)}. Planning opens this UTC day at 12:00; these global values do not predict a contact.</p>
+                <p className="text-xs text-su-muted sm:col-span-3 xl:col-span-1">Issued {formatUtc(resources.forecast.data.issued_at)}. Planning opens this UTC day at 12:00; these global values do not predict a contact.</p>
               </div>
             )}
           </WidgetShell>

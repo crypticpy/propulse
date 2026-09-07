@@ -60,3 +60,26 @@ The prerequisite PR #479 separately passed full verification: 364 app files /
 3,205 tests plus the remaining required checks.
 
 Final UI push verification passes: 365 app files / 3,211 tests, with all remaining required gates passing. Register statuses in this branch describe the delivered behavior upon merge; the board remains In review until maintainer acceptance.
+
+
+## Review corrections
+
+PR #479 now checks the actual RSS/Atom document root after declarations/comments,
+rejecting HTML with feed-like script/comment text. Verification failures use
+no-store responses, including timeout, non-2xx, oversized body and blocked
+redirect cases; 26 handler tests pass. The prolog check avoids redundant token
+alternatives. Server head: e8e09970.
+
+PR #480 routes Home's custom-feed additions through the same verified dialog,
+preserving Home's active-feed selection. Controlled tabs select a remaining page
+when the final feed on a page is removed. UI fix: 5c15a351; integrated head
+587641d2. Full required checks pass: 365 app files / 3,214 tests.
+
+A disposable Chromium harness rendered the real NewsFeedCard through Vite's
+normal TSX transform with the real query provider. It verified add gating,
+successful verified add and active selection, removal of NEWS 2's sole feed with
+NEWS 1 remaining visible, and Escape focus restoration. Three mocked RSS
+requests, zero page errors. This is component/browser evidence, not a signed-in
+Home-page test: the full Home personal-panel gate was not changed or bypassed.
+Session owner hamclock-b10-codex, local port 5181, ID
+452c6275-8046-4e69-a4d5-8c3ebf43ea38; server stopped after the check.

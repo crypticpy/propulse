@@ -247,6 +247,11 @@ export interface WSJTXStatus {
 
 /** A single WSJT-X decode */
 export interface WSJTXDecode {
+  /** Bridge reception time and same-instance status snapshot; absent for replay/off-air. */
+  receivedAt?: number;
+  dialFrequencyHz?: number;
+  dialMode?: string;
+  offAir?: boolean;
   isNew: boolean;
   time: number;
   snr: number;

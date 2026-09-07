@@ -711,7 +711,7 @@ export const CATSettings = memo(function CATSettings({
               id="hamlib-port"
               value={hamlibPort}
               onChange={(e) => setHamlibPort(e.target.value)}
-              placeholder="4533"
+              placeholder="4532"
               disabled={connected}
               className="w-full px-3 py-2 bg-deep-space border border-su-line/40 rounded-lg
                          text-su-text text-sm font-mono placeholder:text-su-muted/80

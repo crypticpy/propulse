@@ -1,12 +1,21 @@
 import { useQuery } from "@tanstack/react-query";
+import { lazy, Suspense, useState } from "react";
 import { useActiveLocation } from "@/hooks/useActiveLocation";
 import { useUTCClock } from "@/hooks/useUTCClock";
 import { readHamClockContacts } from "@/lib/hamclock/recentContacts";
 import { getBandColor } from "@/lib/utils/spotColors";
 import { useContestStore } from "@/stores/contestStore";
 import { useWidgetConfig } from "@/stores/hamclockWidgetConfigStore";
+import { TuneButton } from "@/components/radio/TuneButton";
 import { HamClockTile } from "../HamClockTile";
+import { useVisibleRows } from "../useVisibleRows";
 import { recentContactsConfig } from "../config/recentContactsConfig";
+
+const RecentContactsReport = lazy(() =>
+  import("../reports/RecentContactsReport").then((module) => ({
+    default: module.RecentContactsReport,
+  })),
+);
 
 /** Log entries carry a UTC date and HH:MM, never a full timestamp. */
 function loggedAt(date: string, timeOn: string): number {
@@ -24,12 +33,14 @@ function formatAge(ms: number): string {
 /** The operator's own most recent QSOs — the contest session when one is
  * running, otherwise today's log. */
 export function RecentContactsTile() {
+  const [open, setOpen] = useState(false);
   const location = useActiveLocation();
   const contestId = useContestStore((s) => s.activeSession?.id ?? null);
   const now = useUTCClock(30_000);
+  const today = now.toISOString().slice(0, 10);
   const { data, isPending, error } = useQuery({
-    queryKey: ["hamclock-recent-contacts", contestId],
-    queryFn: () => readHamClockContacts(contestId),
+    queryKey: ["hamclock-recent-contacts", contestId, today],
+    queryFn: () => readHamClockContacts(contestId, today),
     refetchInterval: 15_000,
     staleTime: 10_000,
     // No station/home set (wall spec §7, HW-53): don't read the logbook at
@@ -41,6 +52,7 @@ export function RecentContactsTile() {
     "recentContacts",
     recentContactsConfig,
   );
+  const [rowsRef, visible] = useVisibleRows<HTMLDivElement>(Math.min(data?.length ?? 0, rowCount));
 
   if (!location) {
     return (
@@ -50,51 +62,65 @@ export function RecentContactsTile() {
     );
   }
 
-  const entries = (data ?? []).slice(0, rowCount);
+  const entries = (data ?? []).slice(0, visible);
   const scope = contestId ? "SESSION" : "TODAY";
 
   return (
-    <HamClockTile
-      title="Recent contacts"
-      source={`${data?.length ?? 0} · ${scope}`}
-    >
-      {entries.length > 0 ? (
-        <div className="hc-rows">
-          {entries.map((entry) => {
-            const at = loggedAt(entry.date, entry.timeOn);
-            return (
-              <div className="hc-row" key={entry.id}>
-                <span
-                  className="hc-chip"
-                  style={{ background: getBandColor(entry.band) }}
-                >
-                  {entry.band || "—"}
-                </span>
-                <span className="hc-row-call">
-                  {entry.callsign}
-                  <small>
-                    {entry.mode}
-                    {entry.grid ? ` · ${entry.grid.toUpperCase()}` : ""}
-                  </small>
-                </span>
-                <span className="hc-row-age">
-                  {Number.isFinite(at)
-                    ? formatAge(now.getTime() - at)
-                    : entry.timeOn}
-                </span>
-              </div>
-            );
-          })}
-        </div>
-      ) : (
-        <p className="hc-placeholder">
-          {error
-            ? "Could not read the logbook"
-            : isPending
-              ? "Reading the logbook…"
-              : `No contacts logged ${contestId ? "this session" : "today"}`}
-        </p>
+    <>
+      <HamClockTile
+        grow
+        title="Recent contacts"
+        source={`${data?.length ?? 0} · ${scope}`}
+        onOpen={() => setOpen(true)}
+        openLabel="Open recent contacts report"
+      >
+        {(data?.length ?? 0) > 0 ? (
+          <div className="hca-list hca-tile-list" ref={rowsRef}>
+            {entries.map((entry) => {
+              const at = loggedAt(entry.date, entry.timeOn);
+              return (
+                <div className="hca-row" key={entry.id}>
+                  <div className="hc-row">
+                  <span
+                    className="hc-chip"
+                    style={{ background: getBandColor(entry.band) }}
+                  >
+                    {entry.band || "—"}
+                  </span>
+                  <span className="hc-row-call">
+                    {entry.callsign}
+                    <small>
+                      {entry.mode}
+                      {entry.grid ? ` · ${entry.grid.toUpperCase()}` : ""}
+                    </small>
+                  </span>
+                  <span className="hc-row-age">
+                    {Number.isFinite(at)
+                      ? formatAge(now.getTime() - at)
+                      : entry.timeOn}
+                  </span>
+                  </div>
+                  <div className="hca-tune"><TuneButton frequencyKHz={entry.frequency} mode={entry.mode || null} wall /></div>
+                </div>
+              );
+            })}
+          </div>
+        ) : (
+          <p className="hc-placeholder">
+            {error
+              ? "Could not read the logbook"
+              : isPending
+                ? "Reading the logbook…"
+                : `No contacts logged ${contestId ? "this session" : "today"}`}
+          </p>
+        )}
+        {(data?.length ?? 0) > 0 && <p className="hca-caption">TOP {entries.length} OF {data?.length} · {scope}</p>}
+      </HamClockTile>
+      {open && (
+        <Suspense fallback={null}>
+          <RecentContactsReport open onClose={() => setOpen(false)} />
+        </Suspense>
       )}
-    </HamClockTile>
+    </>
   );
 }

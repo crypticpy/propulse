@@ -1,4 +1,4 @@
-import { Fragment, lazy, Suspense, useState } from "react";
+import { lazy, Suspense, useState } from "react";
 import { HamClockTile, TileHero, TileSub, type WallTileProps } from "../HamClockTile";
 import { getBandColor } from "@/lib/utils/spotColors";
 import {
@@ -72,11 +72,11 @@ export function ReliabilityTile({ title = "24h reliability" }: WallTileProps) {
           <span>{targetLabel.toUpperCase()}</span>
         </TileSub>
 
-        <div className="hcf-bars">
+        <div className="hcf-bars hcf-bars--paired">
           {WALL_FORECAST_BANDS.map((band) => {
             const score = wallReliabilityScore(cells, band, hourIndex) ?? 0;
             return (
-              <Fragment key={band}>
+              <div className="hcf-band-reading" key={band}>
                 <span className="hcf-bars-k">{band}</span>
                 <span className="hcf-bar">
                   <i
@@ -89,7 +89,7 @@ export function ReliabilityTile({ title = "24h reliability" }: WallTileProps) {
                 <span className={`hcf-bars-v ${wallScoreTone(score)}`}>
                   {score}
                 </span>
-              </Fragment>
+              </div>
             );
           })}
         </div>

@@ -38,3 +38,16 @@ preserved. No spot presentation, model or 3D source was edited. PR is based on
 
 ![1080p footer and ticker](../images/hamclock-footer/footer-1080.png)
 ![4K footer and ticker](../images/hamclock-footer/footer-2160.png)
+
+## Populated reliability tile follow-up
+
+Owner found the final reliability row clipped on the Forecast page after the
+crawl grew. Reproduced with a real populated forecast: the six-row bar stack
+extended beneath the available rail boundary at 1080p and 4K. The six readings
+now use two equal columns without shrinking their text or removing bands. Short
+viewports tighten only line spacing and gaps. A further 54 browser cases cover
+all three default pages containing Reliability × three themes × wall/desk ×
+768p/1080p/4K. Every case retains six readings within the rail, without rail
+overflow or page errors. Inputs were live public feeds with a synthetic station
+and target; no radio or model code changed. The screenshots now show the
+populated Forecast page with all reliability readings visible.

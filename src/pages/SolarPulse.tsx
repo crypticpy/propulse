@@ -165,7 +165,7 @@ export function SolarPulse() {
           <SolarOperatingActions />
         </SolarBriefingNotice>
 
-        <section aria-labelledby="solar-now-heading">
+        <section aria-labelledby="solar-now-heading" data-accent="warning">
           <div className="mb-3 flex items-end justify-between px-1">
             <div>
               <p className="text-xs font-bold uppercase tracking-[0.2em] text-su-info">Now</p>

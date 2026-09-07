@@ -14,7 +14,7 @@ not a claim. Do not reserve all batches for one agent.
 
 | Lane | Responsibility | Boundary |
 | --- | --- | --- |
-| Codex / HamClock operating views | Current implementation: B10/#206 widget configuration; coordinated spot display #288 in review; PSK/WSJT-X #287, Activations #285, shared tuning #286 and B24 #232 in review | One active implementation item; retain review and acceptance follow-up |
+| Codex / HamClock operating views | B10/#206 widget configuration in review; coordinated spot display #288 in review; PSK/WSJT-X #287, Activations #285, shared tuning #286 and B24 #232 in review | One active implementation item; retain review and acceptance follow-up |
 | Existing modeling / 3D agent | NowCast training, inference, evaluation, model activation, and 3D globe work, per owner direction | This plan does not assign or change that agent's existing cards |
 | Additional contributor | Claim an unclaimed Ready item; B10/#206 is now claimed | Check current board, issue comments, and changed files before starting |
 | Weather | Deferred until operating work is complete | Inspect OpenWxGlobe before designing new weather adapters or layers |
@@ -243,3 +243,13 @@ published separately as [#479](https://github.com/crypticpy/propulse/pull/479),
 The UI branch locally incorporates that prerequisite and will target it, leaving
 room for register updates under the 15-file cap. B10 remains the sole active
 implementation claim until its full UI review handoff; no other batch is reserved.
+
+
+B10 review handoff: [#480](https://github.com/crypticpy/propulse/pull/480) targets
+[#479](https://github.com/crypticpy/propulse/pull/479), with 14 UI/register/evidence
+files against the prerequisite. Final UI verification passes: 365 app files /
+3,211 tests plus every required gate. Both 30-case browser matrices pass through
+4K, including the legacy bypass fix and focus restoration. Board #206 is In
+review, with review follow-up ownership retained. No batch is currently in active
+implementation; recheck Ready status for B11/#207's nonweather configuration or
+B18/#226 presentation before claiming the next one. Weather remains last.

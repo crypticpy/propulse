@@ -5,6 +5,7 @@ import { useSettingsStore } from "@/stores/settingsStore";
 import { useKioskStore } from "@/stores/kioskStore";
 import { TuneButton } from "./TuneButton";
 import { SpotAlertToastContainer } from "@/components/alerts/SpotAlertToast";
+import { SatelliteTuneButton } from "./SatelliteTuneButton";
 import { queueTune } from "@/lib/radio/tune";
 
 const previous = { rig: useRigStore.getState(), settings: useSettingsStore.getState(), kiosk: useKioskStore.getState() };
@@ -68,4 +69,19 @@ it("requires the explicit alert button and preserves the full target precision",
   fireEvent.click(screen.getByRole("button", { name: "Tune 7.074125 MHz CW" }));
   expect(useRigStore.getState().pendingFrequency).toBe(7_074_125);
   expect(useRigStore.getState().pendingMode).toBe("CW");
+});
+
+it.each(["linear", "digital", "mixed", undefined] as const)("preserves the receive mode for a %s transponder", (mode) => {
+  useRigStore.setState({ mode: "CWR", pendingMode: "USB" });
+  render(<SatelliteTuneButton downlinkHz={435_123_456.4} mode={mode} />);
+  fireEvent.click(screen.getByRole("button", { name: /Tune 435.123456 MHz \(mode unchanged\)/ }));
+  expect(useRigStore.getState().pendingFrequency).toBe(435_123_456);
+  expect(useRigStore.getState().pendingMode).toBeNull();
+  expect(useRigStore.getState().mode).toBe("CWR");
+});
+it("stages an explicit FM satellite receive mode", () => {
+  render(<SatelliteTuneButton downlinkHz={437_801_234} mode="FM" />);
+  fireEvent.click(screen.getByRole("button", { name: "Tune 437.801234 MHz FM" }));
+  expect(useRigStore.getState().pendingFrequency).toBe(437_801_234);
+  expect(useRigStore.getState().pendingMode).toBe("FM");
 });

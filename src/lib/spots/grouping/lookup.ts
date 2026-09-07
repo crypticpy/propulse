@@ -1,9 +1,16 @@
-import { CANADA_PROVINCES } from "@/lib/data/canadaProvinces.generated";
-import { US_STATES } from "@/lib/data/usStates.generated";
-import { WORLD_COUNTRIES } from "@/lib/data/worldCountries.generated";
+import { CANADA_PROVINCES, type ProvinceData } from "@/lib/data/canadaProvinces.generated";
+import { US_STATES, type StateData } from "@/lib/data/usStates.generated";
+import { WORLD_COUNTRIES, type CountryData } from "@/lib/data/worldCountries.generated";
 import type { ClusterGroup } from "@/lib/views/spotContracts";
 import { ATLAS_GAP_COUNTRIES } from "./atlasGaps";
-import { pointInPolygonWithHoles, pointInRings } from "./pointInPolygon";
+import {
+  closestPointOnRing,
+  minDistanceToRing,
+  pointInPolygonWithHoles,
+  pointInRings,
+  ringArea,
+} from "./pointInPolygon";
+import { representativePoint, representativePointFromRings } from "./representativePoint";
 
 type Region = NonNullable<ClusterGroup["region"]>;
 
@@ -18,82 +25,186 @@ const FIPS_TO_USPS: Record<string, string> = {
   "55": "WI", "56": "WY", "60": "AS", "66": "GU", "69": "MP", "72": "PR", "78": "VI",
 };
 
+/** Harbor-city snap only; never applied to administrative interiors. */
+export const CA_COAST_SNAP_DEG = 0.03;
+const CA_INTERNAL_EDGE_DEG = 0.02;
+const CA_COAST_UNIQUE_MARGIN_DEG = 0.005;
+
 export interface GeographyMatch {
   region: Region;
   anchor: { lat: number; lon: number };
   provenance: "atlas-centroid" | "atlas-gap-prefix";
 }
 
-function stateAnchor(borders: readonly (readonly (readonly [number, number])[])[]): { lat: number; lon: number } {
-  const ring = borders.reduce((best, current) => current.length > best.length ? current : best, borders[0] ?? []);
-  let lat = 0;
-  let lonX = 0;
-  let lonY = 0;
-  for (const [y, x] of ring) {
-    lat += y;
-    const radians = (x * Math.PI) / 180;
-    lonX += Math.cos(radians);
-    lonY += Math.sin(radians);
+const countryAnchors = new Map<string, { lat: number; lon: number }>();
+const usAnchors = new Map<string, { lat: number; lon: number }>();
+const caAnchors = new Map<string, { lat: number; lon: number }>();
+
+function countryAnchor(country: CountryData): { lat: number; lon: number } {
+  const cached = countryAnchors.get(country.iso);
+  if (cached) return cached;
+  const anchor = representativePointFromRings(country.borders)
+    ?? { lat: country.centroidLat, lon: country.centroidLon };
+  countryAnchors.set(country.iso, anchor);
+  return anchor;
+}
+
+function usAnchor(state: StateData): { lat: number; lon: number } {
+  const cached = usAnchors.get(state.fips);
+  if (cached) return cached;
+  const anchor = representativePointFromRings(state.borders)
+    ?? { lat: state.borders[0]?.[0]?.[0] ?? 0, lon: state.borders[0]?.[0]?.[1] ?? 0 };
+  usAnchors.set(state.fips, anchor);
+  return anchor;
+}
+
+function caAnchor(province: ProvinceData): { lat: number; lon: number } {
+  const cached = caAnchors.get(province.iso);
+  if (cached) return cached;
+  const anchor = representativePoint(province.polygons)
+    ?? { lat: province.centroidLat, lon: province.centroidLon };
+  caAnchors.set(province.iso, anchor);
+  return anchor;
+}
+
+function ringsArea(rings: readonly (readonly (readonly [number, number])[])[]): number {
+  return rings.reduce((sum, ring) => sum + ringArea(ring), 0);
+}
+
+function provinceArea(province: ProvinceData): number {
+  return province.polygons.reduce((sum, polygon) => sum + ringArea(polygon.exterior), 0);
+}
+
+function pickSmallest<T>(hits: readonly { item: T; area: number; key: string }[]): T | null {
+  if (hits.length === 0) return null;
+  const ranked = [...hits].sort((a, b) => a.area - b.area || a.key.localeCompare(b.key));
+  return ranked[0]!.item;
+}
+
+function provinceContains(province: ProvinceData, lat: number, lon: number): boolean {
+  return province.polygons.some((polygon) =>
+    pointInPolygonWithHoles(lat, lon, polygon.exterior, polygon.holes),
+  );
+}
+
+function closestOnProvince(province: ProvinceData, lat: number, lon: number): {
+  lat: number;
+  lon: number;
+  dist: number;
+} {
+  let best = { lat, lon, dist: Number.POSITIVE_INFINITY };
+  for (const polygon of province.polygons) {
+    const candidate = closestPointOnRing(lat, lon, polygon.exterior);
+    if (candidate.dist < best.dist) best = candidate;
   }
-  const n = Math.max(1, ring.length);
-  return { lat: lat / n, lon: Math.atan2(lonY, lonX) * 180 / Math.PI };
+  return best;
+}
+
+function nearOtherProvince(
+  point: { lat: number; lon: number },
+  exceptIso: string,
+): boolean {
+  return CANADA_PROVINCES.some((other) => {
+    if (other.iso === exceptIso) return false;
+    return other.polygons.some((polygon) =>
+      minDistanceToRing(point.lat, point.lon, polygon.exterior) < CA_INTERNAL_EDGE_DEG,
+    );
+  });
+}
+
+function nearUsBoundary(point: { lat: number; lon: number }): boolean {
+  return US_STATES.some((state) =>
+    state.borders.some((ring) =>
+      pointInRings(point.lat, point.lon, [ring])
+      || minDistanceToRing(point.lat, point.lon, ring) < CA_INTERNAL_EDGE_DEG,
+    ),
+  );
+}
+
+function coastalSnapProvince(lat: number, lon: number): ProvinceData | null {
+  const candidates: { province: ProvinceData; dist: number }[] = [];
+  for (const province of CANADA_PROVINCES) {
+    const closest = closestOnProvince(province, lat, lon);
+    if (closest.dist > CA_COAST_SNAP_DEG) continue;
+    if (nearOtherProvince(closest, province.iso)) continue;
+    if (nearUsBoundary(closest)) continue;
+    candidates.push({ province, dist: closest.dist });
+  }
+  if (candidates.length === 0) return null;
+  candidates.sort((a, b) => a.dist - b.dist || a.province.iso.localeCompare(b.province.iso));
+  if (candidates.length === 1) return candidates[0]!.province;
+  if (candidates[1]!.dist - candidates[0]!.dist >= CA_COAST_UNIQUE_MARGIN_DEG) {
+    return candidates[0]!.province;
+  }
+  return null;
+}
+
+function caMatch(province: ProvinceData): GeographyMatch {
+  return {
+    region: {
+      id: `subdivision:CA-${province.iso}`,
+      name: province.name,
+      kind: "subdivision",
+      countryCode: "CA",
+    },
+    anchor: caAnchor(province),
+    provenance: "atlas-centroid",
+  };
 }
 
 export function lookupCountry(lat: number, lon: number): GeographyMatch | null {
+  const hits: { item: CountryData; area: number; key: string }[] = [];
   for (const country of WORLD_COUNTRIES) {
-    if (pointInRings(lat, lon, country.borders)) {
-      return {
-        region: {
-          id: `country:${country.iso}`,
-          name: country.name,
-          kind: "country",
-          countryCode: country.iso,
-        },
-        anchor: { lat: country.centroidLat, lon: country.centroidLon },
-        provenance: "atlas-centroid",
-      };
-    }
+    if (!pointInRings(lat, lon, country.borders)) continue;
+    hits.push({ item: country, area: ringsArea(country.borders), key: country.iso });
   }
-  return null;
+  const country = pickSmallest(hits);
+  if (!country) return null;
+  return {
+    region: {
+      id: `country:${country.iso}`,
+      name: country.name,
+      kind: "country",
+      countryCode: country.iso,
+    },
+    anchor: countryAnchor(country),
+    provenance: "atlas-centroid",
+  };
 }
 
 export function lookupUsSubdivision(lat: number, lon: number): GeographyMatch | null {
+  const hits: { item: StateData; area: number; key: string }[] = [];
   for (const state of US_STATES) {
     if (!pointInRings(lat, lon, state.borders)) continue;
-    const usps = FIPS_TO_USPS[state.fips];
-    if (!usps) continue;
-    return {
-      region: {
-        id: `subdivision:US-${usps}`,
-        name: state.name,
-        kind: "subdivision",
-        countryCode: "US",
-      },
-      anchor: stateAnchor(state.borders),
-      provenance: "atlas-centroid",
-    };
+    hits.push({ item: state, area: ringsArea(state.borders), key: state.fips });
   }
-  return null;
+  const state = pickSmallest(hits);
+  if (!state) return null;
+  const usps = FIPS_TO_USPS[state.fips];
+  if (!usps) return null;
+  return {
+    region: {
+      id: `subdivision:US-${usps}`,
+      name: state.name,
+      kind: "subdivision",
+      countryCode: "US",
+    },
+    anchor: usAnchor(state),
+    provenance: "atlas-centroid",
+  };
 }
 
 export function lookupCaSubdivision(lat: number, lon: number): GeographyMatch | null {
+  const hits: { item: ProvinceData; area: number; key: string }[] = [];
   for (const province of CANADA_PROVINCES) {
-    const inside = province.polygons.some((polygon) =>
-      pointInPolygonWithHoles(lat, lon, polygon.exterior, polygon.holes),
-    );
-    if (!inside) continue;
-    return {
-      region: {
-        id: `subdivision:CA-${province.iso}`,
-        name: province.name,
-        kind: "subdivision",
-        countryCode: "CA",
-      },
-      anchor: { lat: province.centroidLat, lon: province.centroidLon },
-      provenance: "atlas-centroid",
-    };
+    if (!provinceContains(province, lat, lon)) continue;
+    hits.push({ item: province, area: provinceArea(province), key: province.iso });
   }
-  return null;
+  const inside = pickSmallest(hits);
+  if (inside) return caMatch(inside);
+  if (lookupUsSubdivision(lat, lon)) return null;
+  const coastal = coastalSnapProvince(lat, lon);
+  return coastal ? caMatch(coastal) : null;
 }
 
 /**
@@ -122,7 +233,7 @@ export function countryMatchFromCode(countryCode: string, name?: string): Geogra
         kind: "country",
         countryCode,
       },
-      anchor: { lat: country.centroidLat, lon: country.centroidLon },
+      anchor: countryAnchor(country),
       provenance: "atlas-centroid",
     };
   }

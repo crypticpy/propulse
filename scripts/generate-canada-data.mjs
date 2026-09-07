@@ -26,8 +26,8 @@ export const CANADA_SOURCE_COMMIT = "fb1c363b3624a256d42f00788fca96d9faf43a45";
 export const CANADA_SOURCE_URL =
   `https://raw.githubusercontent.com/codeforamerica/click_that_hood/${CANADA_SOURCE_COMMIT}/public/data/canada.geojson`;
 export const RDP_EPSILON_DEG = 0.015;
-export const COAST_BUFFER_DEG = 0.03;
 export const COORD_DECIMALS = 3;
+const ANCHOR_GRID = 28;
 
 const NAME_TO_ISO = {
   Alberta: "AB",
@@ -114,52 +114,93 @@ function ringArea(ring) {
   return Math.abs(area) / 2;
 }
 
-function signedAreaLonLat(ring) {
-  let area = 0;
+function pointInRing(lat, lon, ring) {
+  if (ring.length < 3) return false;
+  let inside = false;
   for (let i = 0, j = ring.length - 1; i < ring.length; j = i, i += 1) {
-    const lonI = ring[i][1];
-    const latI = ring[i][0];
-    const lonJ = ring[j][1];
-    const latJ = ring[j][0];
-    area += lonJ * latI - lonI * latJ;
+    const yi = ring[i][0];
+    const xi = ring[i][1];
+    const yj = ring[j][0];
+    const xj = ring[j][1];
+    const intersects = (yi > lat) !== (yj > lat)
+      && lon < ((xj - xi) * (lat - yi)) / (yj - yi + Number.EPSILON) + xi;
+    if (intersects) inside = !inside;
   }
-  return area / 2;
+  return inside;
 }
 
-function normalize(dx, dy) {
-  const length = Math.hypot(dx, dy);
-  if (length < 1e-12) return [0, 0];
-  return [dx / length, dy / length];
+function pointInPolygon(lat, lon, polygon) {
+  if (!pointInRing(lat, lon, polygon.exterior)) return false;
+  return !polygon.holes.some((hole) => pointInRing(lat, lon, hole));
 }
 
-/** Outward vertex offset so harbor cities ~2 km seaward of the source remain inside. */
-export function bufferRingOutward(ring, distance = COAST_BUFFER_DEG) {
-  if (ring.length < 4 || distance <= 0) return ring;
-  const closed = ring[0][0] === ring[ring.length - 1][0] && ring[0][1] === ring[ring.length - 1][1];
-  const pts = closed ? ring.slice(0, -1) : ring;
-  if (pts.length < 3) return ring;
-  const ccw = signedAreaLonLat(pts) >= 0;
-  const buffered = [];
-  for (let i = 0; i < pts.length; i += 1) {
-    const prev = pts[(i - 1 + pts.length) % pts.length];
-    const curr = pts[i];
-    const next = pts[(i + 1) % pts.length];
-    const [e1x, e1y] = normalize(curr[1] - prev[1], curr[0] - prev[0]);
-    const [e2x, e2y] = normalize(next[1] - curr[1], next[0] - curr[0]);
-    const n1x = ccw ? e1y : -e1y;
-    const n1y = ccw ? -e1x : e1x;
-    const n2x = ccw ? e2y : -e2y;
-    const n2y = ccw ? -e2x : e2x;
-    let [nx, ny] = normalize(n1x + n2x, n1y + n2y);
-    if (nx === 0 && ny === 0) {
-      nx = n1x;
-      ny = n1y;
+function minDistanceToRing(lat, lon, ring) {
+  let best = Infinity;
+  for (let i = 0; i < ring.length - 1; i += 1) {
+    const [ay, ax] = ring[i];
+    const [by, bx] = ring[i + 1];
+    const dx = bx - ax;
+    const dy = by - ay;
+    const length2 = dx * dx + dy * dy;
+    const t = length2 === 0 ? 0 : Math.max(0, Math.min(1, ((lon - ax) * dx + (lat - ay) * dy) / length2));
+    best = Math.min(best, Math.hypot(lon - (ax + t * dx), lat - (ay + t * dy)));
+  }
+  return best;
+}
+
+function wrapLongitude(lon) {
+  let wrapped = lon;
+  while (wrapped > 180) wrapped -= 360;
+  while (wrapped < -180) wrapped += 360;
+  return wrapped;
+}
+
+/** Interior representative (max-clearance grid). Not mean-of-vertices. */
+function representativePoint(polygons) {
+  if (polygons.length === 0) return { lat: 0, lon: 0 };
+  let bestPoly = polygons[0];
+  let bestArea = -1;
+  for (const polygon of polygons) {
+    const area = ringArea(polygon.exterior);
+    if (area > bestArea) {
+      bestArea = area;
+      bestPoly = polygon;
     }
-    buffered.push([round(curr[0] + ny * distance), round(curr[1] + nx * distance)]);
   }
-  if (buffered.length === 0) return ring;
-  buffered.push([buffered[0][0], buffered[0][1]]);
-  return buffered;
+  let minLat = Infinity;
+  let maxLat = -Infinity;
+  let minLon = Infinity;
+  let maxLon = -Infinity;
+  for (const [lat, lon] of bestPoly.exterior) {
+    if (lat < minLat) minLat = lat;
+    if (lat > maxLat) maxLat = lat;
+    if (lon < minLon) minLon = lon;
+    if (lon > maxLon) maxLon = lon;
+  }
+  let winner = null;
+  const dLat = (maxLat - minLat) / ANCHOR_GRID;
+  const dLon = (maxLon - minLon) / ANCHOR_GRID;
+  for (let i = 0; i < ANCHOR_GRID; i += 1) {
+    for (let j = 0; j < ANCHOR_GRID; j += 1) {
+      const lat = minLat + (i + 0.5) * dLat;
+      const lon = wrapLongitude(minLon + (j + 0.5) * dLon);
+      if (!pointInPolygon(lat, lon, bestPoly)) continue;
+      const dist = Math.min(
+        minDistanceToRing(lat, lon, bestPoly.exterior),
+        ...bestPoly.holes.map((hole) => minDistanceToRing(lat, lon, hole)),
+      );
+      if (!winner || dist > winner.dist) winner = { lat, lon, dist };
+    }
+  }
+  if (!winner) {
+    return {
+      lat: round((minLat + maxLat) / 2, 2),
+      lon: round(wrapLongitude((minLon + maxLon) / 2), 2),
+    };
+  }
+  const rounded = { lat: round(winner.lat), lon: round(winner.lon) };
+  if (pointInPolygon(rounded.lat, rounded.lon, bestPoly)) return rounded;
+  return { lat: winner.lat, lon: winner.lon };
 }
 
 function extractPolygons(geometry) {
@@ -175,8 +216,7 @@ function extractPolygons(geometry) {
       if (!sourceRing || sourceRing.length < 3) continue;
       const flipped = sourceRing.map(([lon, lat]) => [lat, lon]);
       const simplified = simplifyRingRdp(flipped);
-      const buffered = bufferRingOutward(simplified);
-      if (buffered.length >= 4) mapped.push(buffered);
+      if (simplified.length >= 4) mapped.push(simplified);
     }
     if (mapped.length === 0) continue;
     const [exterior, ...holes] = mapped;
@@ -184,27 +224,6 @@ function extractPolygons(geometry) {
     result.push({ exterior, holes });
   }
   return result;
-}
-
-function centroid(polygons) {
-  const ring = polygons.reduce(
-    (best, current) => current.exterior.length > best.length ? current.exterior : best,
-    polygons[0]?.exterior ?? [],
-  );
-  if (ring.length === 0) return { lat: 0, lon: 0 };
-  let lat = 0;
-  let lonX = 0;
-  let lonY = 0;
-  for (const [y, x] of ring) {
-    lat += y;
-    const radians = (x * Math.PI) / 180;
-    lonX += Math.cos(radians);
-    lonY += Math.sin(radians);
-  }
-  return {
-    lat: round(lat / ring.length, 2),
-    lon: round(Math.atan2(lonY, lonX) * 180 / Math.PI, 2),
-  };
 }
 
 function formatRing(ring, indent = "          ") {
@@ -256,7 +275,8 @@ function renderFile(provinces) {
  * Pinned commit: ${CANADA_SOURCE_COMMIT}
  * URL: ${CANADA_SOURCE_URL}
  * License: MIT (Code for America); OSM-derived geometries ODbL
- * Simplifier: Ramer–Douglas–Peucker epsilon ${RDP_EPSILON_DEG}°, then ${COAST_BUFFER_DEG}° outward coast buffer
+ * Simplifier: Ramer–Douglas–Peucker epsilon ${RDP_EPSILON_DEG}° (no administrative buffer)
+ * Anchors: interior max-clearance representative points, not mean-of-vertices
  * Subdivisions: ${provinces.length}; rings: ${ringCount}; holes: ${holeCount}
  *
  * DO NOT EDIT — regenerate with: node scripts/generate-canada-data.mjs
@@ -297,7 +317,7 @@ async function buildProvinces() {
     const canonicalName = name === "Yukon Territory" ? "Yukon" : name;
     const polygons = extractPolygons(feature.geometry);
     if (polygons.length === 0) continue;
-    const center = centroid(polygons);
+    const center = representativePoint(polygons);
     provinces.push({
       name: canonicalName,
       iso,

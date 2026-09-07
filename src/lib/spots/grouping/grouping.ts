@@ -16,6 +16,11 @@ export type GroupPrecision = ClusterGroup["precision"];
 
 export interface GroupingOptions {
   geographyVersion?: string;
+  /**
+   * Map these spots (EXPAND-01/04): hide these groups and emit their members as
+   * individual report IDs. This is not GEO-04; requested `preferences.detail`
+   * still chooses regions vs grid4 vs grid6 for unexpanded groups.
+   */
   expandedIds?: readonly string[];
 }
 
@@ -104,12 +109,12 @@ function assignWithExpansion(
   geographyVersion: string,
 ): Assignment | null {
   const chain = detailChain(report.dx.location, requested);
-  for (const detail of chain) {
-    const assignment = assignAtDetail(report, detail, geographyVersion);
-    if (!assignment) continue;
-    if (!expanded.has(assignment.id)) return assignment;
-  }
-  return null;
+  const start = chain[0];
+  if (!start) return null;
+  const assignment = assignAtDetail(report, start, geographyVersion);
+  if (!assignment) return null;
+  if (expanded.has(assignment.id)) return null;
+  return assignment;
 }
 
 function detailChain(location: SpotLocation, requested: GroupingDetail): GroupingDetail[] {

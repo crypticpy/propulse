@@ -176,47 +176,73 @@ describe("groupMappedReports", () => {
     assertExactlyOnce([...spain, ...approximate], result);
   });
 
-  it("expands a selected region into finer groups, persists across regroup of others, and syncs empty membership", () => {
-    const reports = reportsOf(createSpotFixtures().spain);
+  it("maps these spots to individual reports, not a finer cluster", () => {
+    const madrid = reportsOf(["m1", "m2", "m3"].map((id, n) => createSpotInput(id, {
+      dx: `EA${n}DX`, dxLat: 40.4, dxLon: -3.7,
+      time: new Date(SPOT_FIXTURE_NOW_MS - n * 1000),
+    })));
+    const colorado = reportsOf(["c1", "c2", "c3"].map((id, n) => createSpotInput(id, {
+      dx: `K0A${n}`, dxLat: 39.74, dxLon: -104.99,
+      time: new Date(SPOT_FIXTURE_NOW_MS - n * 1000),
+    })));
+    const reports = [...madrid, ...colorado];
     const grouped = groupMappedReports(reports, regions, { geographyVersion: VERSION });
-    const spainId = grouped.groups[0]!.id;
+    const spainId = grouped.groups.find((group) => group.region?.countryCode === "ES")!.id;
+    const coloradoId = grouped.groups.find((group) => group.region?.id === "subdivision:US-CO")!.id;
+    expect(grouped.groups).toHaveLength(2);
+
     let expansion = reduceExpansion(createExpansionState(), { type: "expand", groupId: spainId });
-    const expanded = groupMappedReports(reports, regions, {
+    const expandedSpain = groupMappedReports(reports, regions, {
       geographyVersion: VERSION,
       expandedIds: expansion.expandedIds,
     });
-    expect(expanded.groups.some((group) => group.id === spainId)).toBe(false);
-    expect(expanded.groups.some((group) => group.detail === "grid4")).toBe(true);
-    expect(expanded.liveGroupIds).toContain(spainId);
-    assertExactlyOnce(reports, expanded);
+    expect(expandedSpain.groups.some((group) => group.id === spainId)).toBe(false);
+    expect(expandedSpain.groups.some((group) => group.detail === "grid4")).toBe(false);
+    expect(expandedSpain.groups).toHaveLength(1);
+    expect(expandedSpain.groups[0]?.id).toBe(coloradoId);
+    expect(expandedSpain.singles).toEqual(madrid.map((report) => report.id));
+    expect(expandedSpain.liveGroupIds).toContain(spainId);
+    assertExactlyOnce(reports, expandedSpain);
 
-    const finer = expanded.groups.find((group) => group.detail === "grid4")!;
-    expansion = reduceExpansion(expansion, { type: "expand", groupId: finer.id });
-    const nested = groupMappedReports(reports, regions, {
+    expansion = reduceExpansion(expansion, { type: "expand", groupId: coloradoId });
+    const both = groupMappedReports(reports, regions, {
       geographyVersion: VERSION,
       expandedIds: expansion.expandedIds,
     });
-    expect(nested.groups.some((group) => group.id === finer.id)).toBe(false);
-    assertExactlyOnce(reports, nested);
+    expect(both.groups).toHaveLength(0);
+    expect(both.singles).toHaveLength(6);
+    assertExactlyOnce(reports, both);
 
-    expansion = reduceExpansion(expansion, { type: "regroup", groupId: finer.id });
-    const afterRegroup = groupMappedReports(reports, regions, {
+    const withNew = [...madrid, ...colorado, ...reportsOf([createSpotInput("m4", {
+      dx: "EA9DX", dxLat: 40.4, dxLon: -3.7, time: new Date(SPOT_FIXTURE_NOW_MS + 1000),
+    })])];
+    const afterNew = groupMappedReports(withNew, regions, {
       geographyVersion: VERSION,
       expandedIds: expansion.expandedIds,
     });
-    expect(afterRegroup.groups.some((group) => group.id === finer.id)).toBe(true);
+    expect(afterNew.singles).toContain("m4");
+    expect(afterNew.groups).toHaveLength(0);
 
-    expansion = reduceExpansion(expansion, { type: "sync", liveGroupIds: [] });
-    expect(expansion.expandedIds).toEqual([]);
-    const filteredOut = groupMappedReports([], regions, {
+    const afterExpiry = groupMappedReports(colorado, regions, {
       geographyVersion: VERSION,
-      expandedIds: [spainId],
+      expandedIds: expansion.expandedIds,
     });
-    expansion = reduceExpansion(
-      { expandedIds: [spainId] },
-      { type: "sync", liveGroupIds: filteredOut.liveGroupIds },
-    );
-    expect(expansion.expandedIds).toEqual([]);
+    expansion = reduceExpansion(expansion, { type: "sync", liveGroupIds: afterExpiry.liveGroupIds });
+    expect(expansion.expandedIds).toEqual([coloradoId]);
+    expect(afterExpiry.groups).toHaveLength(0);
+    expect(afterExpiry.singles).toHaveLength(3);
+
+    expansion = reduceExpansion(expansion, { type: "reset" });
+    const asGrid4 = groupMappedReports(madrid, grid4, { geographyVersion: VERSION });
+    expect(asGrid4.groups).toHaveLength(1);
+    expect(asGrid4.groups[0]?.detail).toBe("grid4");
+    expect(asGrid4.singles).toHaveLength(0);
+    const mappedGrid = groupMappedReports(madrid, grid4, {
+      geographyVersion: VERSION,
+      expandedIds: [asGrid4.groups[0]!.id],
+    });
+    expect(mappedGrid.groups).toHaveLength(0);
+    expect(mappedGrid.singles).toHaveLength(3);
   });
 
   it("turns expanded grid6 members into singles and below-threshold buckets into individuals", () => {

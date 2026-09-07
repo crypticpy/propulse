@@ -1,6 +1,7 @@
 export { CANADA_SOURCE_COMMIT, SPOT_GEOGRAPHY_VERSION } from "./version";
 export { ATLAS_GAP_COUNTRIES, type AtlasGapCountry } from "./atlasGaps";
-export { pointInPolygonWithHoles, pointInRing, pointInRings } from "./pointInPolygon";
+export { pointInPolygonWithHoles, pointInRing, pointInRings, ringArea } from "./pointInPolygon";
+export { representativePoint, representativePointFromRings } from "./representativePoint";
 export {
   countryMatchFromCode,
   lookupCaSubdivision,

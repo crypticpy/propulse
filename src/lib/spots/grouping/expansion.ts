@@ -1,6 +1,8 @@
 /**
- * In-runtime expansion only. Not serialized. Camera/projection are not inputs.
+ * In-runtime "Map these spots" expansion only. Not serialized.
+ * Camera/projection are not inputs. GEO-04 detail stays on grouping preferences.
  * Callers pass liveGroupIds from grouping so filters/expiry cannot leave stale IDs.
+ * Changing grouping detail, leaving the view, or reload should `reset`.
  */
 export interface ExpansionState {
   expandedIds: readonly string[];

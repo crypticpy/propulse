@@ -55,3 +55,11 @@ with the repair/merge correction removed and pass when restored. TypeScript and
 the 16-test focused contact/metadata suite pass. Verification uses mocked transport and
 local storage only; actual deployed upgrade and two-device acceptance remain
 pending. The helper introduces no schema change or remote mutation.
+
+## Independent release extraction
+
+The correction was extracted onto current `main` at
+`b33ab15136b9d44a8783d16adfb21aeaf82e6f35` as an exact six-file change. This
+release supersedes stacked PR #527 without importing its #524 spot-list paging
+history. The existing `LogEntry` fields, IndexedDB indexes and cloud columns on
+that baseline satisfy the correction; no schema or API prerequisite is added.

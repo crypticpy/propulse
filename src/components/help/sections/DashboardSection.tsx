@@ -21,8 +21,8 @@ export function DashboardSection() {
       <p>The setup selector uses My Shack's active rig/antenna chain and its linked location. Mode and band follow your existing operating selection. Check a path and Plan a session carry the active mode and a map target when one exists; destination tools ask for missing inputs. These links do not tune a radio.</p>
       <p className="mt-3">The daylight curve covers the current UTC day at the displayed QTH. Amber shows the Sun’s altitude and a soft gray marker shows now; it does not predict a complete path. Recent-contact totals and the seven-day trend also use UTC days. An existing contest session has a resume link; a contact history alone is not a live session.</p>
     </HelpAccordion>
-    <HelpAccordion id="home-favorites" title="Optional widgets" summary="Keep the quick look focused and pin what you follow">
-      <p>Open “Show more information panels” to browse sky, clocks, local conditions, DXpeditions, contest details, and radio news. Favorites are saved separately for desktop/tablet and phone. Use Add to Home or Remove from Home on each panel. Saved panels remain visible on phone too; View opens a preview without pinning. Personal panels require sign-in.</p>
+    <HelpAccordion id="home-favorites" title="Customize dashboard" summary="Choose your panels and the order they appear in">
+      <p>Moon, DXpeditions, and world clocks are on the dashboard by default. Open “Add more panels +” at the bottom to add sky, local conditions, contest details, or radio news. Customize dashboard opens your current layout: drag a panel, use the ▲ ▼ buttons to move it, Hide what you do not follow, or Reset to default. Layouts are saved separately for desktop/tablet and phone. Personal panels require sign-in.</p>
     </HelpAccordion>
   </div>;
 }

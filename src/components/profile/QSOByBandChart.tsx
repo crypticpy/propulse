@@ -35,7 +35,7 @@ export function QSOByBandChart({ data }: { data: Record<string, number> }) {
 
   if (bars.length === 0) {
     return (
-      <div className="flex items-center justify-center h-48 text-gray-500 text-sm">
+      <div className="flex items-center justify-center h-48 text-su-muted text-sm">
         No QSOs logged yet
       </div>
     );
@@ -66,7 +66,7 @@ export function QSOByBandChart({ data }: { data: Record<string, number> }) {
                 y={y + BAR_HEIGHT / 2 + 1}
                 textAnchor="end"
                 dominantBaseline="middle"
-                className="fill-gray-300"
+                className="fill-su-muted"
                 fontSize={11}
                 fontFamily="monospace"
               >
@@ -97,7 +97,7 @@ export function QSOByBandChart({ data }: { data: Record<string, number> }) {
                 y={y + BAR_HEIGHT / 2 + 1}
                 textAnchor="start"
                 dominantBaseline="middle"
-                className="fill-gray-400"
+                className="fill-su-muted"
                 fontSize={11}
                 fontFamily="monospace"
               >

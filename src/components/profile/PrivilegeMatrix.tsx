@@ -90,8 +90,8 @@ function getCellColor(
 ): { bg: string; text: string; label: string } {
   if (!summary || !summary.modes.has(mode)) {
     return {
-      bg: "bg-white/5",
-      text: "text-gray-600",
+      bg: "bg-su-line/10",
+      text: "text-su-muted",
       label: "\u2014",
     };
   }
@@ -116,7 +116,7 @@ function DesktopGrid({ summaries }: { summaries: Map<BandId, BandSummary> }) {
     <div className="overflow-x-auto">
       <table className="w-full text-xs">
         <thead>
-          <tr className="text-gray-500 uppercase tracking-wider">
+          <tr className="text-su-muted uppercase tracking-wider">
             <th className="text-left py-1.5 pr-3 font-medium">Band</th>
             {MODE_COLUMNS.map((m) => (
               <th key={m} className="text-center py-1.5 px-2 font-medium">
@@ -133,9 +133,9 @@ function DesktopGrid({ summaries }: { summaries: Map<BandId, BandSummary> }) {
             return (
               <tr
                 key={band}
-                className={`border-t border-white/5 ${hasBand ? "" : "opacity-40"}`}
+                className={`border-t border-su-line/20 ${hasBand ? "" : "opacity-40"}`}
               >
-                <td className="py-1.5 pr-3 font-mono text-gray-300 font-medium">
+                <td className="py-1.5 pr-3 font-mono text-su-muted font-medium">
                   {band}
                 </td>
                 {MODE_COLUMNS.map((mode) => {
@@ -150,7 +150,7 @@ function DesktopGrid({ summaries }: { summaries: Map<BandId, BandSummary> }) {
                     </td>
                   );
                 })}
-                <td className="py-1.5 pl-3 text-right font-mono text-gray-400">
+                <td className="py-1.5 pl-3 text-right font-mono text-su-muted">
                   {summary ? formatPower(summary.maxPowerWatts) : "\u2014"}
                 </td>
               </tr>
@@ -169,7 +169,7 @@ function MobileList({ summaries }: { summaries: Map<BandId, BandSummary> }) {
 
   if (bands.length === 0) {
     return (
-      <p className="text-sm text-gray-500 italic">
+      <p className="text-sm text-su-muted italic">
         No band privileges found for this license class.
       </p>
     );
@@ -182,10 +182,10 @@ function MobileList({ summaries }: { summaries: Map<BandId, BandSummary> }) {
         return (
           <div
             key={band}
-            className="flex items-center justify-between py-1.5 border-b border-white/5 last:border-0"
+            className="flex items-center justify-between py-1.5 border-b border-su-line/20 last:border-0"
           >
             <div className="flex items-center gap-2">
-              <span className="font-mono text-sm font-medium text-gray-300 w-10">
+              <span className="font-mono text-sm font-medium text-su-muted w-10">
                 {band}
               </span>
               <div className="flex gap-1">
@@ -199,7 +199,7 @@ function MobileList({ summaries }: { summaries: Map<BandId, BandSummary> }) {
                           ? summary.isPartial
                             ? "bg-caution-amber/15 text-caution-amber"
                             : "bg-signal-green/15 text-signal-green"
-                          : "bg-white/5 text-gray-600"
+                          : "bg-su-line/10 text-su-muted"
                       }`}
                     >
                       {mode}
@@ -208,7 +208,7 @@ function MobileList({ summaries }: { summaries: Map<BandId, BandSummary> }) {
                 })}
               </div>
             </div>
-            <span className="text-xs font-mono text-gray-400">
+            <span className="text-xs font-mono text-su-muted">
               {formatPower(summary.maxPowerWatts)}
             </span>
           </div>
@@ -232,7 +232,7 @@ export function PrivilegeMatrix() {
 
   if (!license) {
     return (
-      <p className="text-sm text-gray-500 italic">
+      <p className="text-sm text-su-muted italic">
         Set your license class to see band privileges.
       </p>
     );
@@ -246,20 +246,20 @@ export function PrivilegeMatrix() {
       <div className="flex flex-wrap gap-3 text-[10px]">
         <div className="flex items-center gap-1.5">
           <span className="inline-block w-3 h-3 rounded bg-signal-green/15 border border-signal-green/30" />
-          <span className="text-gray-400">Full access</span>
+          <span className="text-su-muted">Full access</span>
         </div>
         <div className="flex items-center gap-1.5">
           <span className="inline-block w-3 h-3 rounded bg-caution-amber/15 border border-caution-amber/30" />
-          <span className="text-gray-400">Partial</span>
+          <span className="text-su-muted">Partial</span>
         </div>
         <div className="flex items-center gap-1.5">
-          <span className="inline-block w-3 h-3 rounded bg-white/5 border border-white/10" />
-          <span className="text-gray-400">No access</span>
+          <span className="inline-block w-3 h-3 rounded bg-su-line/10 border border-su-line/40" />
+          <span className="text-su-muted">No access</span>
         </div>
       </div>
 
       {bandCount === 0 ? (
-        <p className="text-sm text-gray-500 italic">
+        <p className="text-sm text-su-muted italic">
           No privilege data available for this license class/country
           combination.
         </p>
@@ -268,7 +268,7 @@ export function PrivilegeMatrix() {
       ) : (
         <>
           <DesktopGrid summaries={summaries} />
-          <p className="text-[10px] text-gray-600 mt-1 text-right sm:hidden">
+          <p className="text-[10px] text-su-muted mt-1 text-right sm:hidden">
             Scroll for more bands &rarr;
           </p>
         </>

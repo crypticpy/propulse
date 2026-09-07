@@ -29,8 +29,8 @@ const COLOR_CONFIRMED_ORANGE = "#ff6b35";
 function RingSkeleton() {
   return (
     <div className="flex flex-col items-center gap-2 animate-pulse">
-      <div className="w-[120px] h-[120px] rounded-full bg-white/5" />
-      <div className="w-12 h-3 rounded bg-white/5" />
+      <div className="w-[120px] h-[120px] rounded-full bg-su-line/10" />
+      <div className="w-12 h-3 rounded bg-su-line/10" />
     </div>
   );
 }
@@ -57,7 +57,7 @@ export function AwardsTab() {
           <RingSkeleton />
           <RingSkeleton />
         </div>
-        <div className="h-16 rounded-lg bg-white/5 animate-pulse" />
+        <div className="h-16 rounded-lg bg-su-line/10 animate-pulse" />
       </div>
     );
   }
@@ -95,7 +95,7 @@ export function AwardsTab() {
             confirmedColor={COLOR_CONFIRMED_ORANGE}
           />
         </div>
-        <p className="text-sm text-gray-400 text-center max-w-md leading-relaxed">
+        <p className="text-sm text-su-muted text-center max-w-md leading-relaxed">
           Log QSOs to start tracking your award progress. Awards are computed
           from your logbook entries.
         </p>
@@ -135,7 +135,7 @@ export function AwardsTab() {
       </div>
 
       {/* Summary stats */}
-      <div className="rounded-lg border border-white/5 bg-panel/30 p-4">
+      <div className="rounded-lg border border-su-line/20 bg-panel/30 p-4">
         <div className="grid grid-cols-3 gap-4 text-center">
           <SummaryColumn
             label="DXCC"
@@ -158,34 +158,34 @@ export function AwardsTab() {
         </div>
 
         {/* Legend */}
-        <div className="flex items-center justify-center gap-6 mt-4 pt-3 border-t border-white/5">
+        <div className="flex items-center justify-center gap-6 mt-4 pt-3 border-t border-su-line/20">
           <div className="flex items-center gap-1.5">
             <span
               className="inline-block w-2.5 h-2.5 rounded-full"
               style={{ backgroundColor: COLOR_WORKED }}
             />
-            <span className="text-xs text-gray-400">Worked</span>
+            <span className="text-xs text-su-muted">Worked</span>
           </div>
           <div className="flex items-center gap-1.5">
             <span
               className="inline-block w-2.5 h-2.5 rounded-full"
               style={{ backgroundColor: COLOR_CONFIRMED_GREEN }}
             />
-            <span className="text-xs text-gray-400">Confirmed (DXCC/WAS)</span>
+            <span className="text-xs text-su-muted">Confirmed (DXCC/WAS)</span>
           </div>
           <div className="flex items-center gap-1.5">
             <span
               className="inline-block w-2.5 h-2.5 rounded-full"
               style={{ backgroundColor: COLOR_CONFIRMED_ORANGE }}
             />
-            <span className="text-xs text-gray-400">Confirmed (WAZ)</span>
+            <span className="text-xs text-su-muted">Confirmed (WAZ)</span>
           </div>
         </div>
       </div>
 
       {/* Achievement Badges */}
-      <div className="border-t border-white/5 pt-6">
-        <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-4">
+      <div className="border-t border-su-line/20 pt-6">
+        <h3 className="text-sm font-semibold text-su-muted uppercase tracking-wider mb-4">
           Achievement Badges
         </h3>
         <TrophyShelf>
@@ -213,20 +213,20 @@ function SummaryColumn({
 
   return (
     <div className="space-y-1">
-      <div className="text-xs font-semibold tracking-wider text-gray-400 uppercase">
+      <div className="text-xs font-semibold tracking-wider text-su-muted uppercase">
         {label}
       </div>
-      <div className="text-sm text-gray-300">
-        <span className="text-white font-medium">{worked}</span>
-        <span className="text-gray-500"> / {total}</span>
-        <span className="text-gray-500 ml-1">wkd</span>
+      <div className="text-sm text-su-muted">
+        <span className="text-su-text font-medium">{worked}</span>
+        <span className="text-su-muted"> / {total}</span>
+        <span className="text-su-muted ml-1">wkd</span>
       </div>
-      <div className="text-sm text-gray-300">
+      <div className="text-sm text-su-muted">
         <span className="text-signal-green font-medium">{confirmed}</span>
-        <span className="text-gray-500"> / {total}</span>
-        <span className="text-gray-500 ml-1">cfm</span>
+        <span className="text-su-muted"> / {total}</span>
+        <span className="text-su-muted ml-1">cfm</span>
       </div>
-      <div className="text-xs text-gray-500">{pct}% confirmed</div>
+      <div className="text-xs text-su-muted">{pct}% confirmed</div>
     </div>
   );
 }

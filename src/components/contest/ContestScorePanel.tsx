@@ -68,12 +68,12 @@ function StatDisplay({
     orange: "text-plasma-orange",
     cyan: "text-cosmic-cyan",
     green: "text-signal-green",
-    white: "text-white",
+    white: "text-su-text",
   };
 
   return (
     <div className="flex flex-col items-center">
-      <span className="text-[10px] uppercase tracking-wider text-gray-500 mb-0.5">
+      <span className="text-[10px] uppercase tracking-wider text-su-muted mb-0.5">
         {label}
       </span>
       <span
@@ -119,7 +119,7 @@ export function ContestScorePanel({ session }: ContestScorePanelProps) {
   if (!session) {
     return (
       <Card className="p-3">
-        <div className="text-center text-gray-500 text-sm">
+        <div className="text-center text-su-muted text-sm">
           No active contest
         </div>
       </Card>
@@ -132,7 +132,7 @@ export function ContestScorePanel({ session }: ContestScorePanelProps) {
         {/* Contest name indicator */}
         <div className="flex items-center gap-2">
           <div className="w-2 h-2 rounded-full bg-signal-green animate-pulse" />
-          <span className="text-xs text-gray-400 uppercase tracking-wider">
+          <span className="text-xs text-su-muted uppercase tracking-wider">
             {session.contestId}
           </span>
         </div>
@@ -143,7 +143,7 @@ export function ContestScorePanel({ session }: ContestScorePanelProps) {
           <StatDisplay label="QSOs" value={session.qsos.length} color="white" />
 
           {/* Divider */}
-          <div className="h-8 w-px bg-white/10" />
+          <div className="h-8 w-px bg-su-line/20" />
 
           {/* QSO Points */}
           <StatDisplay
@@ -153,7 +153,7 @@ export function ContestScorePanel({ session }: ContestScorePanelProps) {
           />
 
           {/* Divider */}
-          <div className="h-8 w-px bg-white/10" />
+          <div className="h-8 w-px bg-su-line/20" />
 
           {/* Multipliers */}
           <StatDisplay
@@ -163,7 +163,7 @@ export function ContestScorePanel({ session }: ContestScorePanelProps) {
           />
 
           {/* Divider */}
-          <div className="h-8 w-px bg-white/10" />
+          <div className="h-8 w-px bg-su-line/20" />
 
           {/* Total Score */}
           <StatDisplay
@@ -174,20 +174,20 @@ export function ContestScorePanel({ session }: ContestScorePanelProps) {
           />
 
           {/* Divider */}
-          <div className="h-8 w-px bg-white/10" />
+          <div className="h-8 w-px bg-su-line/20" />
 
           {/* QSO Rate */}
           <StatDisplay label="Rate/Hr" value={qsoRate} color="green" />
 
           {/* Divider */}
-          <div className="h-8 w-px bg-white/10" />
+          <div className="h-8 w-px bg-su-line/20" />
 
           {/* Elapsed Time */}
           <StatDisplay label="Elapsed" value={elapsedTime} color="white" />
         </div>
 
         {/* Score formula */}
-        <div className="text-xs text-gray-500">
+        <div className="text-xs text-su-muted">
           {session.totalPoints} x {session.totalMultipliers} ={" "}
           <span className="text-plasma-orange font-bold">
             {formatNumber(session.totalScore)}

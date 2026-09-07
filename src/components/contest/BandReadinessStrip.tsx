@@ -282,9 +282,9 @@ function getStatusColors(status: BandStatus): {
       };
     case "closed":
       return {
-        bg: "bg-gray-600/20",
-        text: "text-gray-500",
-        border: "border-gray-600/50",
+        bg: "bg-su-line/20",
+        text: "text-su-muted",
+        border: "border-su-line/50",
         glow: "",
       };
   }
@@ -370,7 +370,7 @@ function BandPill({
 
       {/* Spot count badge */}
       {!compact && (
-        <span className="text-[9px] text-gray-500 font-mono mt-0.5">
+        <span className="text-[9px] text-su-muted font-mono mt-0.5">
           {info.spotCount}
         </span>
       )}
@@ -382,7 +382,7 @@ function BandPill({
             ? "bg-signal-green"
             : info.status === "marginal"
               ? "bg-yellow-400"
-              : "bg-gray-600"
+              : "bg-su-line"
         }`}
       />
 
@@ -392,7 +392,7 @@ function BandPill({
           {info.directions.slice(0, 2).map((dir) => (
             <span
               key={dir}
-              className="text-[7px] px-1 py-0.5 rounded bg-white/10 text-gray-400 font-mono"
+              className="text-[7px] px-1 py-0.5 rounded bg-su-line/20 text-su-muted font-mono"
             >
               {dir}
             </span>
@@ -431,7 +431,7 @@ function SolarBadge({
       ? "text-signal-green"
       : solarFlux !== null && solarFlux >= SOLAR_FLUX_THRESHOLDS.moderate
         ? "text-yellow-400"
-        : "text-gray-500";
+        : "text-su-muted";
 
   const kColor =
     kIndex !== null && kIndex <= K_INDEX_THRESHOLDS.good
@@ -441,10 +441,10 @@ function SolarBadge({
         : "text-alert-red";
 
   return (
-    <div className="flex items-center gap-2 px-2 py-1 rounded bg-white/5 border border-white/10">
+    <div className="flex items-center gap-2 px-2 py-1 rounded bg-su-line/10 border border-su-line/40">
       {solarFlux !== null && (
         <div className="flex items-center gap-1">
-          <span className="text-[9px] text-gray-500">SFI</span>
+          <span className="text-[9px] text-su-muted">SFI</span>
           <span className={`text-[10px] font-mono font-bold ${sfiColor}`}>
             {solarFlux}
           </span>
@@ -452,7 +452,7 @@ function SolarBadge({
       )}
       {kIndex !== null && (
         <div className="flex items-center gap-1">
-          <span className="text-[9px] text-gray-500">K</span>
+          <span className="text-[9px] text-su-muted">K</span>
           <span className={`text-[10px] font-mono font-bold ${kColor}`}>
             {kIndex}
           </span>
@@ -577,7 +577,7 @@ export function BandReadinessStrip({
 
       {/* Summary (non-compact only) */}
       {!compact && (
-        <div className="flex items-center gap-2 text-[10px] text-gray-500 ml-2">
+        <div className="flex items-center gap-2 text-[10px] text-su-muted ml-2">
           <span className="flex items-center gap-1">
             <span className="w-2 h-2 rounded-full bg-signal-green" />
             {openCount}

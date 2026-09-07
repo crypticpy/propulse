@@ -88,7 +88,7 @@ export function VisitorProfileCard({
     <div className="w-[320px] flex-shrink-0 sticky top-6 self-start max-h-[calc(100vh-3rem)] overflow-y-auto">
       <div
         className={[
-          "relative bg-panel/30 backdrop-blur-sm border border-white/5 rounded-2xl p-6",
+          "relative bg-panel/30 backdrop-blur-sm border border-su-line/20 rounded-2xl p-6",
           getRankCardClasses(rank, effects),
         ]
           .filter(Boolean)
@@ -162,43 +162,43 @@ export function VisitorProfileCard({
           {/* Quick Stats Row */}
           <div className="flex items-center justify-center gap-4 mt-2 text-center">
             <div>
-              <div className="font-mono text-sm font-bold text-white">
+              <div className="font-mono text-sm font-bold text-su-text">
                 {totalQSOs.toLocaleString()}
               </div>
-              <div className="text-[9px] text-gray-500 uppercase">QSOs</div>
+              <div className="text-[9px] text-su-muted uppercase">QSOs</div>
             </div>
-            <div className="w-px h-6 bg-white/10" />
+            <div className="w-px h-6 bg-su-line/20" />
             <div>
-              <div className="font-mono text-sm font-bold text-white">
+              <div className="font-mono text-sm font-bold text-su-text">
                 {uniqueCountries}
               </div>
-              <div className="text-[9px] text-gray-500 uppercase">DXCC</div>
+              <div className="text-[9px] text-su-muted uppercase">DXCC</div>
             </div>
-            <div className="w-px h-6 bg-white/10" />
+            <div className="w-px h-6 bg-su-line/20" />
             <div>
-              <div className="font-mono text-sm font-bold text-white">
+              <div className="font-mono text-sm font-bold text-su-text">
                 {displayGrid}
               </div>
-              <div className="text-[9px] text-gray-500 uppercase">Grid</div>
+              <div className="text-[9px] text-su-muted uppercase">Grid</div>
             </div>
           </div>
 
           {/* Operator Name */}
           {profile.operatorName && (
-            <p className="text-sm text-gray-400 mt-1">{profile.operatorName}</p>
+            <p className="text-sm text-su-muted mt-1">{profile.operatorName}</p>
           )}
         </div>
 
         {/* ── Info Rows ──────────────────────────────────────────── */}
         <div className="space-y-2 text-sm">
-          <div className="flex items-center justify-between py-1.5 border-t border-white/5">
-            <span className="text-gray-500">Grid</span>
-            <span className="font-mono text-gray-200">{displayGrid}</span>
+          <div className="flex items-center justify-between py-1.5 border-t border-su-line/20">
+            <span className="text-su-muted">Grid</span>
+            <span className="font-mono text-su-text">{displayGrid}</span>
           </div>
           {showLocation && (
-            <div className="flex items-center justify-between py-1.5 border-t border-white/5">
-              <span className="text-gray-500">Coordinates</span>
-              <span className="font-mono text-gray-300 text-xs">
+            <div className="flex items-center justify-between py-1.5 border-t border-su-line/20">
+              <span className="text-su-muted">Coordinates</span>
+              <span className="font-mono text-su-muted text-xs">
                 {profile.lat!.toFixed(2)}, {profile.lon!.toFixed(2)}
               </span>
             </div>
@@ -218,13 +218,13 @@ export function VisitorProfileCard({
 
         {/* ── Operating Hours Mini Strip ──────────────────────────── */}
         {operatingHours.length === 24 && operatingHours.some((h) => h > 0) && (
-          <div className="py-2 border-t border-white/5">
+          <div className="py-2 border-t border-su-line/20">
             <OperatingHoursMini hours={operatingHours} />
           </div>
         )}
 
         {/* ── Follow / Unfollow Button ───────────────────────────── */}
-        <div className="mt-4 pt-4 border-t border-white/5">
+        <div className="mt-4 pt-4 border-t border-su-line/20">
           {isFollowing ? (
             <button
               type="button"

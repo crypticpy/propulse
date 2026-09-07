@@ -31,7 +31,7 @@ function streakColor(count: number): string {
   if (count >= 50) return "text-red-400";
   if (count >= 25) return "text-orange-400";
   if (count >= 10) return "text-amber-400";
-  return "text-gray-300";
+  return "text-su-muted";
 }
 
 // ── Component ────────────────────────────────────────────────────────────────
@@ -48,7 +48,7 @@ export const StreakBadge: React.FC<StreakBadgeProps> = ({
   if (streak <= 0) {
     return (
       <span
-        className={`inline-flex items-center gap-1 text-gray-500 ${size === "sm" ? "text-xs" : "text-sm"}`}
+        className={`inline-flex items-center gap-1 text-su-muted ${size === "sm" ? "text-xs" : "text-sm"}`}
         title="No active streak"
       >
         0

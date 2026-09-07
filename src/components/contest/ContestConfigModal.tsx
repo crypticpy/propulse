@@ -208,12 +208,12 @@ export function ContestConfigModal({
   }
 
   const inputClass =
-    "w-full px-3 py-2 bg-deep-space border border-white/10 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-plasma-orange/50 focus:ring-1 focus:ring-plasma-orange/30";
+    "w-full px-3 py-2 bg-deep-space border border-su-line/40 rounded-lg text-su-text placeholder:text-su-muted/80 focus:outline-none focus:border-plasma-orange/50 focus:ring-1 focus:ring-plasma-orange/30";
 
   const selectClass =
-    "w-full px-3 py-2 bg-deep-space border border-white/10 rounded-lg text-white focus:outline-none focus:border-plasma-orange/50 focus:ring-1 focus:ring-plasma-orange/30";
+    "w-full px-3 py-2 bg-deep-space border border-su-line/40 rounded-lg text-su-text focus:outline-none focus:border-plasma-orange/50 focus:ring-1 focus:ring-plasma-orange/30";
 
-  const labelClass = "block text-sm font-medium text-gray-300 mb-2";
+  const labelClass = "block text-sm font-medium text-su-muted mb-2";
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
@@ -235,7 +235,7 @@ export function ContestConfigModal({
           </h2>
           <button
             onClick={handleClose}
-            className="p-1 text-gray-400 hover:text-white transition-colors"
+            className="p-1 text-su-muted hover:text-su-text transition-colors"
             aria-label="Close"
           >
             <svg
@@ -278,11 +278,11 @@ export function ContestConfigModal({
 
           {/* Contest info */}
           {selectedContest && (
-            <div className="mt-2 p-3 bg-nebula-blue rounded-lg border border-white/10">
-              <p className="text-sm text-gray-300">
+            <div className="mt-2 p-3 bg-nebula-blue rounded-lg border border-su-line/40">
+              <p className="text-sm text-su-muted">
                 {selectedContest.description}
               </p>
-              <div className="mt-2 flex gap-4 text-xs text-gray-400">
+              <div className="mt-2 flex gap-4 text-xs text-su-muted">
                 <span>Duration: {selectedContest.durationHours}h</span>
                 <span>Multipliers: {selectedContest.multiplierType}</span>
               </div>
@@ -313,7 +313,7 @@ export function ContestConfigModal({
             }
             className={`${inputClass} font-mono`}
           />
-          <p className="mt-1 text-xs text-gray-500">
+          <p className="mt-1 text-xs text-su-muted">
             Exchange format:{" "}
             {selectedContest?.exchange.sent || "RST + Exchange"}
           </p>
@@ -321,13 +321,13 @@ export function ContestConfigModal({
 
         {/* Category Selection */}
         <div className="mb-6">
-          <h3 className="text-sm font-medium text-gray-300 mb-3">Categories</h3>
+          <h3 className="text-sm font-medium text-su-muted mb-3">Categories</h3>
           <div className="grid grid-cols-2 gap-4">
             {/* Operator Category */}
             <div>
               <label
                 htmlFor="cat-operator"
-                className="text-xs text-gray-400 mb-1 block"
+                className="text-xs text-su-muted mb-1 block"
               >
                 Operator
               </label>
@@ -356,7 +356,7 @@ export function ContestConfigModal({
             <div>
               <label
                 htmlFor="cat-band"
-                className="text-xs text-gray-400 mb-1 block"
+                className="text-xs text-su-muted mb-1 block"
               >
                 Band
               </label>
@@ -382,7 +382,7 @@ export function ContestConfigModal({
             <div>
               <label
                 htmlFor="cat-power"
-                className="text-xs text-gray-400 mb-1 block"
+                className="text-xs text-su-muted mb-1 block"
               >
                 Power
               </label>
@@ -408,7 +408,7 @@ export function ContestConfigModal({
             <div>
               <label
                 htmlFor="cat-mode"
-                className="text-xs text-gray-400 mb-1 block"
+                className="text-xs text-su-muted mb-1 block"
               >
                 Mode
               </label>
@@ -436,7 +436,7 @@ export function ContestConfigModal({
                 <div>
                   <label
                     htmlFor="cat-assisted"
-                    className="text-xs text-gray-400 mb-1 block"
+                    className="text-xs text-su-muted mb-1 block"
                   >
                     Assisted
                   </label>
@@ -464,7 +464,7 @@ export function ContestConfigModal({
           <button
             type="button"
             onClick={() => setShowCabrilloMeta(!showCabrilloMeta)}
-            className="flex items-center gap-2 text-sm font-medium text-gray-300 hover:text-white transition-colors"
+            className="flex items-center gap-2 text-sm font-medium text-su-muted hover:text-su-text transition-colors"
           >
             <svg
               className={`w-4 h-4 transition-transform ${showCabrilloMeta ? "rotate-90" : ""}`}
@@ -480,14 +480,14 @@ export function ContestConfigModal({
               />
             </svg>
             Cabrillo Export Info
-            <span className="text-xs text-gray-500 font-normal">
+            <span className="text-xs text-su-muted font-normal">
               (optional)
             </span>
           </button>
 
           {showCabrilloMeta && (
-            <div className="mt-3 p-4 bg-nebula-blue rounded-lg border border-white/10 space-y-4">
-              <p className="text-xs text-gray-400 mb-3">
+            <div className="mt-3 p-4 bg-nebula-blue rounded-lg border border-su-line/40 space-y-4">
+              <p className="text-xs text-su-muted mb-3">
                 These fields are included in your Cabrillo log file for contest
                 submission. You can also fill them in later before exporting.
               </p>
@@ -550,7 +550,7 @@ export function ContestConfigModal({
                   placeholder="State/Section/Country (e.g., CA, ORG, DX)"
                   className={`${inputClass} font-mono`}
                 />
-                <p className="mt-1 text-xs text-gray-500">
+                <p className="mt-1 text-xs text-su-muted">
                   ARRL section, US state abbreviation, or DX for non-US/Canada
                 </p>
               </div>
@@ -562,7 +562,7 @@ export function ContestConfigModal({
         <button
           onClick={handleStart}
           disabled={!selectedContestId || !myExchange.trim()}
-          className="w-full px-4 py-3 bg-plasma-orange text-deep-space font-bold rounded-lg
+          className="w-full px-4 py-3 bg-plasma-orange text-su-on-accent font-bold rounded-lg
                      hover:bg-plasma-orange/90 shadow-[0_0_20px_rgba(255,170,0,0.3)]
                      transition-all duration-200
                      disabled:opacity-50 disabled:cursor-not-allowed"
@@ -571,7 +571,7 @@ export function ContestConfigModal({
         </button>
 
         {/* Footer note */}
-        <p className="mt-4 text-xs text-gray-500 text-center">
+        <p className="mt-4 text-xs text-su-muted text-center">
           Contest session will be saved locally. You can export Cabrillo logs
           after the contest.
         </p>

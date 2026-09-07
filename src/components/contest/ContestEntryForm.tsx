@@ -147,17 +147,17 @@ export function ContestEntryForm({
   );
 
   const inputClass =
-    "w-full px-3 py-2 bg-deep-space border border-white/10 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-plasma-orange/50 focus:ring-1 focus:ring-plasma-orange/30 disabled:opacity-50";
+    "w-full px-3 py-2 bg-deep-space border border-su-line/40 rounded-lg text-su-text placeholder:text-su-muted/80 focus:outline-none focus:border-plasma-orange/50 focus:ring-1 focus:ring-plasma-orange/30 disabled:opacity-50";
 
   const selectClass =
-    "w-full px-2 py-2 bg-deep-space border border-white/10 rounded-lg text-white focus:outline-none focus:border-plasma-orange/50 focus:ring-1 focus:ring-plasma-orange/30 text-sm";
+    "w-full px-2 py-2 bg-deep-space border border-su-line/40 rounded-lg text-su-text focus:outline-none focus:border-plasma-orange/50 focus:ring-1 focus:ring-plasma-orange/30 text-sm";
 
-  const labelClass = "block text-xs font-medium text-gray-400 mb-1";
+  const labelClass = "block text-xs font-medium text-su-muted mb-1";
 
   if (!session) {
     return (
       <Card className="p-6">
-        <div className="text-center text-gray-400">
+        <div className="text-center text-su-muted">
           <p>No active contest session.</p>
           <p className="text-sm mt-2">Start a contest to begin logging.</p>
         </div>
@@ -170,11 +170,11 @@ export function ContestEntryForm({
       {/* Header with serial number and dupe indicator */}
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-3">
-          <span className="text-xs text-gray-400">Sending:</span>
+          <span className="text-xs text-su-muted">Sending:</span>
           <span className="font-mono text-plasma-orange font-bold">
             {rstSent} #{session.currentSerial}
           </span>
-          <span className="font-mono text-white/80">{session.myExchange}</span>
+          <span className="font-mono text-su-text/80">{session.myExchange}</span>
         </div>
         <DupeIndicator isDupe={isDupe} />
       </div>
@@ -277,9 +277,9 @@ export function ContestEntryForm({
 
         {/* Submit button */}
         <div className="mt-4 flex items-center justify-between">
-          <p className="text-xs text-gray-500">
+          <p className="text-xs text-su-muted">
             Press{" "}
-            <kbd className="px-1 py-0.5 bg-white/10 rounded text-gray-400">
+            <kbd className="px-1 py-0.5 bg-su-line/20 rounded text-su-muted">
               Enter
             </kbd>{" "}
             to log QSO
@@ -293,7 +293,7 @@ export function ContestEntryForm({
               ${
                 isDupe
                   ? "bg-alert-red/20 text-alert-red border border-alert-red/50"
-                  : "bg-plasma-orange text-deep-space hover:bg-plasma-orange/90 shadow-[0_0_15px_rgba(255,170,0,0.3)]"
+                  : "bg-plasma-orange text-su-on-accent hover:bg-plasma-orange/90 shadow-[0_0_15px_rgba(255,170,0,0.3)]"
               }
             `}
           >

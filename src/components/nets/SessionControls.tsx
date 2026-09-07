@@ -35,16 +35,16 @@ export function SessionControls({
 
   if (!isManager) {
     return (
-      <div className="flex items-center gap-3 px-4 py-3 bg-white/[0.03] border border-white/5 rounded-xl">
+      <div className="flex items-center gap-3 px-4 py-3 bg-su-line/10 border border-su-line/20 rounded-xl">
         <div className="w-2 h-2 rounded-full bg-green-400 animate-pulse shrink-0" />
-        <span className="text-sm text-gray-400">
+        <span className="text-sm text-su-muted">
           Session managed by{" "}
-          <span className="font-mono font-medium text-white">
+          <span className="font-mono font-medium text-su-text">
             {session?.ncsCallsign ?? "NCS"}
           </span>
         </span>
         {session && (
-          <span className="text-xs font-mono text-gray-500 ml-auto">
+          <span className="text-xs font-mono text-su-muted ml-auto">
             {elapsed}
           </span>
         )}
@@ -75,8 +75,8 @@ export function SessionControls({
 
         {/* Context text */}
         <div className="text-center space-y-1">
-          <p className="text-sm text-gray-400">Ready to begin</p>
-          <p className="text-xs text-gray-500">
+          <p className="text-sm text-su-muted">Ready to begin</p>
+          <p className="text-xs text-su-muted">
             Start a live net control session
           </p>
         </div>
@@ -84,7 +84,7 @@ export function SessionControls({
         {/* Launch button */}
         <button
           onClick={onStartSession}
-          className="animate-ncs-launch-pulse px-8 py-4 text-base font-bold rounded-2xl bg-plasma-orange text-white hover:bg-plasma-orange/90 hover:scale-[1.02] active:scale-[0.98] transition-all focus-visible:ring-2 focus-visible:ring-plasma-orange/50 focus-visible:ring-offset-2 focus-visible:ring-offset-deep-space inline-flex items-center gap-2"
+          className="animate-ncs-launch-pulse px-8 py-4 text-base font-bold rounded-2xl bg-plasma-orange text-su-on-accent hover:bg-plasma-orange/90 hover:scale-[1.02] active:scale-[0.98] transition-all focus-visible:ring-2 focus-visible:ring-plasma-orange/50 focus-visible:ring-offset-2 focus-visible:ring-offset-deep-space inline-flex items-center gap-2"
         >
           <svg
             className="w-5 h-5"
@@ -106,7 +106,7 @@ export function SessionControls({
     <div className="space-y-3">
       <div className="flex items-center gap-3">
         {/* Elapsed time */}
-        <span className="text-xs font-mono text-gray-500">
+        <span className="text-xs font-mono text-su-muted">
           Elapsed: {elapsed}
         </span>
 

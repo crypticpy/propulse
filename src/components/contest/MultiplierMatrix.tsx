@@ -193,7 +193,7 @@ function GridCell({
         ${
           isWorked
             ? "bg-signal-green/25 border border-signal-green/60 text-signal-green"
-            : "bg-white/5 border border-white/10 text-gray-600"
+            : "bg-su-line/10 border border-su-line/40 text-su-muted"
         }
       `}
       title={
@@ -396,12 +396,12 @@ function MultiplierSection({
           </span>
           {universeTotal > 0 && (
             <>
-              <span className="text-gray-500">/</span>
-              <span className="text-gray-500 font-mono">{universeTotal}</span>
+              <span className="text-su-muted">/</span>
+              <span className="text-su-muted font-mono">{universeTotal}</span>
             </>
           )}
           {rule.perBand && selectedBand && !showAllBandsView && (
-            <span className="text-gray-500 text-[10px]">on {selectedBand}</span>
+            <span className="text-su-muted text-[10px]">on {selectedBand}</span>
           )}
         </div>
       </div>
@@ -422,7 +422,7 @@ function MultiplierSection({
               </div>
             ))}
           {workedValues.size === 0 && (
-            <span className="text-gray-500 text-xs">None worked yet</span>
+            <span className="text-su-muted text-xs">None worked yet</span>
           )}
         </div>
       ) : rule.type === "CQ_ZONE" || rule.type === "ITU_ZONE" ? (
@@ -493,7 +493,7 @@ function BandTabs({
           ${
             selectedBand === null
               ? "bg-plasma-orange/20 text-plasma-orange border border-plasma-orange/50"
-              : "bg-white/5 text-gray-400 border border-white/10 hover:bg-white/10"
+              : "bg-su-line/10 text-su-muted border border-su-line/40 hover:bg-su-line/20"
           }
         `}
       >
@@ -515,7 +515,7 @@ function BandTabs({
               ${
                 isSelected
                   ? "bg-cosmic-cyan/20 text-cosmic-cyan border border-cosmic-cyan/50"
-                  : "bg-white/5 text-gray-400 border border-white/10 hover:bg-white/10"
+                  : "bg-su-line/10 text-su-muted border border-su-line/40 hover:bg-su-line/20"
               }
             `}
           >
@@ -524,7 +524,7 @@ function BandTabs({
               <span
                 className={`
                   text-[9px] px-1 rounded-full
-                  ${isSelected ? "bg-cosmic-cyan/30" : "bg-white/10"}
+                  ${isSelected ? "bg-cosmic-cyan/30" : "bg-su-line/20"}
                 `}
               >
                 {count}
@@ -616,13 +616,13 @@ export function MultiplierMatrix({
     return (
       <div className={className}>
         <div className="flex items-center justify-between text-xs">
-          <span className="text-gray-400">Multipliers</span>
+          <span className="text-su-muted">Multipliers</span>
           <span className="font-mono font-bold text-signal-green">
             {totalMults}
           </span>
         </div>
         {hasPerBand && (
-          <div className="text-[10px] text-gray-500 mt-1">
+          <div className="text-[10px] text-su-muted mt-1">
             {typeCount} type{typeCount > 1 ? "s" : ""}, per-band
           </div>
         )}
@@ -637,7 +637,7 @@ export function MultiplierMatrix({
         <h3 className="font-orbitron text-sm font-bold text-plasma-orange">
           Multiplier Matrix
         </h3>
-        <span className="text-xs text-gray-400">
+        <span className="text-xs text-su-muted">
           {multipliers.length} total
         </span>
       </div>
@@ -668,14 +668,14 @@ export function MultiplierMatrix({
       </div>
 
       {/* Legend */}
-      <div className="flex items-center gap-4 mt-4 pt-3 border-t border-white/10">
+      <div className="flex items-center gap-4 mt-4 pt-3 border-t border-su-line/40">
         <div className="flex items-center gap-1.5">
           <div className="w-3 h-3 rounded bg-signal-green/25 border border-signal-green/60" />
-          <span className="text-[10px] text-gray-400">Worked</span>
+          <span className="text-[10px] text-su-muted">Worked</span>
         </div>
         <div className="flex items-center gap-1.5">
-          <div className="w-3 h-3 rounded bg-white/5 border border-white/10" />
-          <span className="text-[10px] text-gray-400">Needed</span>
+          <div className="w-3 h-3 rounded bg-su-line/10 border border-su-line/40" />
+          <span className="text-[10px] text-su-muted">Needed</span>
         </div>
       </div>
     </Card>

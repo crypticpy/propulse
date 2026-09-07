@@ -42,6 +42,11 @@ const SCOPE = [
   "src/components/solar/modals/BandConditionsModal.tsx",
   // DS-12 sweep, area 1: PropSphere map surfaces.
   "src/components/map",
+  // DS-12 sweep group g2.
+  "src/components/profile",
+  "src/components/contest",
+  "src/components/nets",
+  "src/types/net.ts",
 ];
 
 /**

@@ -70,8 +70,8 @@ export function SessionSummaryCard({
 
   if (!data) {
     return (
-      <div className="bg-panel/30 border border-white/5 rounded-xl p-4">
-        <p className="text-sm text-gray-500">No summary available.</p>
+      <div className="bg-panel/30 border border-su-line/20 rounded-xl p-4">
+        <p className="text-sm text-su-muted">No summary available.</p>
       </div>
     );
   }
@@ -83,10 +83,10 @@ export function SessionSummaryCard({
     totalBreakdown > 0 ? (completed / totalBreakdown) * 100 : 0;
 
   return (
-    <div className="bg-panel/30 border border-white/5 rounded-xl p-4">
+    <div className="bg-panel/30 border border-su-line/20 rounded-xl p-4">
       {/* Header */}
       <div className="flex items-center justify-between mb-3">
-        <h4 className="text-xs font-semibold text-white">Session Summary</h4>
+        <h4 className="text-xs font-semibold text-su-text">Session Summary</h4>
         <div className="flex items-center gap-2">
           {onExportADIF && (
             <button
@@ -96,7 +96,7 @@ export function SessionSummaryCard({
               Export ADIF
             </button>
           )}
-          <span className="text-[10px] text-gray-500">
+          <span className="text-[10px] text-su-muted">
             {formatDate(session.startedAt)}
           </span>
         </div>
@@ -106,68 +106,68 @@ export function SessionSummaryCard({
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
         {/* Total check-ins */}
         <div>
-          <p className="text-[10px] uppercase tracking-widest text-gray-500">
+          <p className="text-[10px] uppercase tracking-widest text-su-muted">
             Total Check-ins
           </p>
-          <p className="text-lg font-bold text-white">
+          <p className="text-lg font-bold text-su-text">
             {data.totalCheckins ?? "--"}
           </p>
         </div>
 
         {/* Unique callsigns */}
         <div>
-          <p className="text-[10px] uppercase tracking-widest text-gray-500">
+          <p className="text-[10px] uppercase tracking-widest text-su-muted">
             Unique Callsigns
           </p>
-          <p className="text-lg font-bold text-white">
+          <p className="text-lg font-bold text-su-text">
             {data.uniqueCallsigns ?? "--"}
           </p>
         </div>
 
         {/* Duration */}
         <div>
-          <p className="text-[10px] uppercase tracking-widest text-gray-500">
+          <p className="text-[10px] uppercase tracking-widest text-su-muted">
             Duration
           </p>
-          <p className="text-lg font-bold text-white">
+          <p className="text-lg font-bold text-su-text">
             {formatDuration(data.durationMinutes)}
           </p>
         </div>
 
         {/* Relay count */}
         <div>
-          <p className="text-[10px] uppercase tracking-widest text-gray-500">
+          <p className="text-[10px] uppercase tracking-widest text-su-muted">
             Relay Count
           </p>
-          <p className="text-lg font-bold text-white">
+          <p className="text-lg font-bold text-su-text">
             {data.relayCount ?? "--"}
           </p>
         </div>
 
         {/* Peak queue depth */}
         <div>
-          <p className="text-[10px] uppercase tracking-widest text-gray-500">
+          <p className="text-[10px] uppercase tracking-widest text-su-muted">
             Peak Queue Depth
           </p>
-          <p className="text-lg font-bold text-white">
+          <p className="text-lg font-bold text-su-text">
             {data.peakQueueDepth ?? "--"}
           </p>
         </div>
 
         {/* Status breakdown */}
         <div>
-          <p className="text-[10px] uppercase tracking-widest text-gray-500 mb-1">
+          <p className="text-[10px] uppercase tracking-widest text-su-muted mb-1">
             Status Breakdown
           </p>
           {totalBreakdown > 0 ? (
             <div>
-              <div className="flex h-2 rounded-full overflow-hidden bg-white/5">
+              <div className="flex h-2 rounded-full overflow-hidden bg-su-line/10">
                 <div
                   className="bg-signal-green transition-all"
                   style={{ width: `${completedPct}%` }}
                 />
                 <div
-                  className="bg-gray-500 transition-all"
+                  className="bg-su-line transition-all"
                   style={{ width: `${100 - completedPct}%` }}
                 />
               </div>
@@ -175,13 +175,13 @@ export function SessionSummaryCard({
                 <span className="text-[10px] text-signal-green">
                   {completed} completed
                 </span>
-                <span className="text-[10px] text-gray-500">
+                <span className="text-[10px] text-su-muted">
                   {skipped} skipped
                 </span>
               </div>
             </div>
           ) : (
-            <p className="text-lg font-bold text-white">--</p>
+            <p className="text-lg font-bold text-su-text">--</p>
           )}
         </div>
       </div>

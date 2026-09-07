@@ -963,6 +963,25 @@
 }
 /* ===== end B21 ===== */
 
+/* Cluster report: body-only chrome and complete-row paging. */
+.hcr-lead:has(.hcr-cluster-hero) {
+  display: none;
+}
+.hcr:has(.hcr-cluster-hero) {
+  grid-template-rows: auto minmax(0, 1fr) auto;
+}
+.hcr-cluster-pages {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5vw;
+  padding-top: 0.5vh;
+  font-family: var(--hc-font-mono);
+  font-size: 1.5vh;
+  color: var(--hc-dim);
+}
+
 /* ===== B25: Solar imagery strip + X-ray flare list ===== */
 /* The Solar report's NOW-tab AIA/HMI frame pair: a fixed-height row above
  * the SFI chart, sized by height (not width) so it never crowds the chart

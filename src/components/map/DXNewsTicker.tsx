@@ -77,6 +77,12 @@ const WeatherAlertModal = lazy(() =>
   })),
 );
 
+const NewsFeedsConfigDialog = lazy(() =>
+  import("@/components/map/hamclock/wall/config/NewsFeedsConfig").then(module => ({
+    default: module.NewsFeedsConfigDialog,
+  })),
+);
+
 const TickerCrawlSettingsDialog = lazy(() =>
   import("@/components/map/TickerCrawlSettingsDialog").then((module) => ({
     default: module.TickerCrawlSettingsDialog,
@@ -307,6 +313,7 @@ export function DXNewsTicker({
     null,
   );
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [newsConfigOpen, setNewsConfigOpen] = useState(false);
   const [breakInItem, setBreakInItem] = useState<TickerItem | null>(null);
   const contentRef = useRef<HTMLDivElement>(null);
   // Keep the live suppression history in memory as well as localStorage.
@@ -728,7 +735,7 @@ export function DXNewsTicker({
         className="inline-flex items-center whitespace-nowrap"
       >
         {index > 0 && (
-          <span className="mx-3 text-gray-600 select-none">{SEPARATOR}</span>
+          <span className="mx-3 text-su-muted select-none">{SEPARATOR}</span>
         )}
         {item.detail && duplicate ? (
           // The second marquee copy exists only to make the animation loop.
@@ -741,7 +748,7 @@ export function DXNewsTicker({
           <button
             type="button"
             onClick={() => setSelectedDetail(item.detail ?? null)}
-            className={`rounded-sm underline decoration-current/40 underline-offset-2 transition-colors hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-plasma-orange/70 ${getTickerItemClass(item)}`}
+            className={`rounded-sm underline decoration-current/40 underline-offset-2 transition-colors hover:text-su-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-plasma-orange/70 ${getTickerItemClass(item)}`}
             aria-label={`${item.text}. Open details`}
           >
             {item.text} <span aria-hidden="true">↗</span>
@@ -773,8 +780,9 @@ export function DXNewsTicker({
   return (
     <>
       <div
-        className={`relative flex items-center h-[30px] overflow-hidden select-none ${className}`}
+        className={`relative flex items-center overflow-hidden select-none ${className}`}
         style={{
+          height: "var(--dx-ticker-height, 30px)",
           background: "rgba(10, 10, 26, 0.85)",
           borderTop: "1px solid rgba(255, 255, 255, 0.1)",
           maskImage:
@@ -808,13 +816,13 @@ export function DXNewsTicker({
         <span
           className="font-mono font-bold uppercase tracking-wider"
           style={{
-            fontSize: "10px",
+            fontSize: "var(--dx-ticker-badge-size, 10px)",
             letterSpacing: "0.5px",
             background: "rgba(255, 107, 53, 0.9)",
             color: "#000",
             padding: "1px 5px",
             borderRadius: "2px",
-            lineHeight: "16px",
+            lineHeight: "1.6",
           }}
         >
           LIVE
@@ -829,10 +837,15 @@ export function DXNewsTicker({
             animation: "dx-ticker-pulse 2s ease-in-out infinite",
           }}
         />
+        <button type="button" className="hc-news-config-gear"
+          aria-label="Configure news feeds" onClick={() => setNewsConfigOpen(true)}>
+          <span aria-hidden="true">⚙</span> NEWS
+        </button>
         <button
+          style={{ minWidth: "var(--dx-ticker-control-size, 0px)", minHeight: "var(--dx-ticker-control-size, 0px)", fontSize: "var(--dx-ticker-font-size, inherit)" }}
           type="button"
           onClick={() => setSettingsOpen(true)}
-          className="ml-0.5 rounded p-0.5 text-gray-500 transition-colors hover:bg-white/10 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-plasma-orange/70"
+          className="ml-0.5 rounded p-0.5 text-su-muted transition-colors hover:bg-su-line/20 hover:text-su-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-plasma-orange/70"
           aria-label="Configure alert and news crawl"
           title="Configure alert & news crawl"
         >
@@ -851,8 +864,9 @@ export function DXNewsTicker({
         <div
           ref={contentRef}
           data-testid="dx-ticker-track"
-          className="inline-flex items-center font-mono text-[11px] text-gray-300"
+          className="inline-flex items-center font-mono text-[11px] text-su-muted"
           style={{
+            fontSize: "var(--dx-ticker-font-size, 11px)",
             animationName: KEYFRAMES_NAME,
             animationDuration: `${animationDuration}s`,
             animationTimingFunction: "linear",
@@ -873,7 +887,7 @@ export function DXNewsTicker({
             {renderTickerContent()}
           </span>
           {/* Spacer between copies */}
-          <span className="mx-8 text-gray-600 select-none">{SEPARATOR}</span>
+          <span className="mx-8 text-su-muted select-none">{SEPARATOR}</span>
           {/* Second copy (duplicate for seamless loop) */}
           <span
             className="pointer-events-none inline-flex items-center whitespace-nowrap"
@@ -887,11 +901,12 @@ export function DXNewsTicker({
         {breakInItem && (
           <div
             className="absolute inset-0 z-20 flex items-center gap-2 bg-[#160b10]/95 px-3 font-mono text-[11px]"
+            style={{ fontSize: "var(--dx-ticker-font-size, 11px)" }}
             role="status"
             aria-live="assertive"
             data-testid="ticker-break-in"
           >
-            <span className="shrink-0 rounded bg-red-500 px-1.5 py-0.5 text-[9px] font-black uppercase tracking-wider text-white">
+            <span className="shrink-0 rounded bg-red-500 px-1.5 py-0.5 text-[9px] font-black uppercase tracking-wider text-su-text">
               Break-in
             </span>
             {breakInItem.detail ? (
@@ -901,7 +916,7 @@ export function DXNewsTicker({
                   setSelectedDetail(breakInItem.detail ?? null);
                   setBreakInItem(null);
                 }}
-                className={`min-w-0 truncate text-left underline decoration-current/40 underline-offset-2 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-plasma-orange/70 ${getTickerItemClass(breakInItem)}`}
+                className={`min-w-0 truncate text-left underline decoration-current/40 underline-offset-2 hover:text-su-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-plasma-orange/70 ${getTickerItemClass(breakInItem)}`}
                 aria-label={`${breakInItem.text}. Open break-in details`}
               >
                 {breakInItem.text} <span aria-hidden="true">↗</span>
@@ -914,7 +929,7 @@ export function DXNewsTicker({
             <button
               type="button"
               onClick={() => setBreakInItem(null)}
-              className="ml-auto shrink-0 rounded p-1 text-gray-500 hover:bg-white/10 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-plasma-orange/70"
+              className="ml-auto shrink-0 rounded p-1 text-su-muted hover:bg-su-line/20 hover:text-su-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-plasma-orange/70"
               aria-label="Dismiss break-in"
             >
               ×
@@ -938,10 +953,12 @@ export function DXNewsTicker({
             onClose={() => setSelectedDetail(null)}
           />
         )}
+        {newsConfigOpen && <NewsFeedsConfigDialog open onClose={() => setNewsConfigOpen(false)} />}
         {settingsOpen && (
           <TickerCrawlSettingsDialog
             open
             onClose={() => setSettingsOpen(false)}
+            onConfigureNews={() => { setSettingsOpen(false); setNewsConfigOpen(true); }}
           />
         )}
       </Suspense>
@@ -967,7 +984,7 @@ export function DXNewsTicker({
 function getTickerItemClass(item: TickerItem): string {
   if (item.alertLevel === "critical") return "font-semibold text-red-400";
   if (item.alertLevel === "warning") return "font-semibold text-amber-400";
-  return item.highlight ? "text-[#ff6b35]" : "text-gray-300";
+  return item.highlight ? "text-[#ff6b35]" : "text-su-muted";
 }
 
 function LightningTickerDetail({
@@ -999,13 +1016,13 @@ function LightningTickerDetail({
             <p className="font-orbitron text-xs font-semibold uppercase tracking-wider text-amber-300">
               Radio impact
             </p>
-            <p className="mt-2 text-sm leading-6 text-slate-300">
+            <p className="mt-2 text-sm leading-6 text-su-text">
               Nearby lightning can produce QRN and static crashes, with the
               strongest impact usually heard on 160m–40m. Use the bearing and
               distance as situational guidance, not as a safety warning system.
             </p>
           </div>
-          <p className="text-xs leading-5 text-slate-500">
+          <p className="text-xs leading-5 text-su-muted">
             Current ticker area: {detail.coverage.label} · lightning within{" "}
             {detail.coverage.lightningKm} km · weather within{" "}
             {detail.coverage.weatherKm} km. Change this under Settings →
@@ -1040,7 +1057,7 @@ function RssTickerDetail({
     >
       {headline && (
         <div className="space-y-4">
-          <div className="flex flex-wrap items-center gap-2 font-mono text-[10px] uppercase tracking-wider text-gray-500">
+          <div className="flex flex-wrap items-center gap-2 font-mono text-[10px] uppercase tracking-wider text-su-muted">
             <span>{headline.feed.label}</span>
             {headline.item.publishedAt && (
               <>
@@ -1052,7 +1069,7 @@ function RssTickerDetail({
             )}
           </div>
           {headline.item.summary && (
-            <p className="whitespace-pre-line text-sm leading-6 text-gray-300">
+            <p className="whitespace-pre-line text-sm leading-6 text-su-muted">
               {headline.item.summary}
             </p>
           )}
@@ -1061,7 +1078,7 @@ function RssTickerDetail({
               href={headline.item.link}
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex rounded-lg bg-plasma-orange px-3 py-2 text-xs font-semibold text-black transition-opacity hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-plasma-orange/70"
+              className="inline-flex rounded-lg bg-plasma-orange px-3 py-2 text-xs font-semibold text-su-on-accent transition-opacity hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-plasma-orange/70"
             >
               Open source
             </a>
@@ -1074,11 +1091,11 @@ function RssTickerDetail({
 
 function TickerMetric({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-xl border border-white/10 bg-white/[0.04] p-3">
-      <p className="font-mono text-[10px] uppercase tracking-wider text-slate-500">
+    <div className="rounded-xl border border-su-line/40 bg-su-line/10 p-3">
+      <p className="font-mono text-[10px] uppercase tracking-wider text-su-muted">
         {label}
       </p>
-      <p className="mt-1 font-orbitron text-base font-semibold text-white">
+      <p className="mt-1 font-orbitron text-base font-semibold text-su-text">
         {value}
       </p>
     </div>

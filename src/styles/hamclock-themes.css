@@ -6,18 +6,19 @@
  * the HamClock root. `pulse` is the default and is also declared on `:root`
  * so tokens still resolve for content portalled outside the HamClock subtree.
  *
- * State colours are derived from the shared `--color-*-rgb` tokens in
- * design-tokens.css, so the colour-blind palettes keep composing with themes.
+ * State colours read the shared `--color-*-rgb` tokens (see the note on
+ * `[data-hamclock-theme]` below: those tokens are never declared, so the
+ * wall does not compose with colour-blind mode today).
  */
 
 :root,
 [data-hamclock-theme="pulse"] {
   --hc-bg: #0a0e1a;
   --hc-panel: #0d1527;
-  --hc-glass: rgba(13, 21, 39, 0.74);
+  --hc-glass: rgba(13, 21, 39, 0.78);
   --hc-blur: 10px;
   --hc-line: rgba(255, 255, 255, 0.09);
-  --hc-fg: #ffffff;
+  --hc-fg: #e6ebf2;
   --hc-dim: rgba(255, 255, 255, 0.46);
   --hc-dim2: rgba(255, 255, 255, 0.28);
 
@@ -102,6 +103,54 @@
   --hc-good: rgb(var(--hc-good-rgb));
   --hc-warn: rgb(var(--hc-warn-rgb));
   --hc-bad: rgb(var(--hc-bad-rgb));
+}
+
+/* DS-09 isolation. The wall's tiles paint with the app-wide Tailwind colour
+ * names (bg-void-black, text-signal-green, text-cosmic-cyan, …) and DS-09
+ * aliased those onto the station tokens, which follow the app theme. The wall
+ * is standalone dark wall art, so it pins the surface roles to the Propulse
+ * dark palette here — every HamClock surface carries [data-hamclock-theme],
+ * including the panels portalled out of the subtree, so this one selector
+ * covers the wall, its reports and its control dialogs.
+ *
+ * The values are asserted against stationPalettes.dark in
+ * src/lib/themes/stationTokens.test.ts so they cannot drift.
+ *
+ * Deliberately not pinned: --su-accent (and its derived roles) is the
+ * operator's own colour and was already accent-driven before the remap, and
+ * the tone roles below are routed through the wall's own --hc-good/warn/bad
+ * triples, so caution-amber and alert-red inside the wall keep their pre-DS-09
+ * behaviour exactly.
+ *
+ * Those --hc-* triples read --color-*-rgb, which never ships: the only file
+ * that declared the per-mode values, including its [data-color-blind] blocks,
+ * was src/styles/design-tokens.css, which was never imported and was removed
+ * as dead code in #533. So they resolve to their literal fallbacks. HamClock
+ * is therefore not colour-blind-reactive today — it was not before DS-09
+ * either, and this pin does not change that. Fixing it means declaring those
+ * variables somewhere that is actually imported. */
+[data-hamclock-theme] {
+  --su-canvas: #141827;
+  --su-canvas-rgb: 20 24 39;
+  --su-panel: #191e2e;
+  --su-panel-rgb: 25 30 46;
+  --su-input: #111624;
+  --su-input-rgb: 17 22 36;
+  --su-text: #cad2dc;
+  --su-text-rgb: 202 210 220;
+  --su-muted: #a0abba;
+  --su-muted-rgb: 160 171 186;
+  --su-line: #637088;
+  --su-line-rgb: 99 112 136;
+
+  --su-info-rgb: var(--hc-info-rgb);
+  --su-success-rgb: var(--hc-good-rgb);
+  --su-warning-rgb: var(--hc-warn-rgb);
+  --su-danger-rgb: var(--hc-bad-rgb);
+  --su-info: rgb(var(--su-info-rgb));
+  --su-success: rgb(var(--su-success-rgb));
+  --su-warning: rgb(var(--su-warning-rgb));
+  --su-danger: rgb(var(--su-danger-rgb));
 }
 
 /* Glow is a 0/1 switch: at 0 the blur radius collapses and the shadow

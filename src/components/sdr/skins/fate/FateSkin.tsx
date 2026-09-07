@@ -298,7 +298,7 @@ export function FateSkin(props: SdrSkinProps) {
   // ── Render ──────────────────────────────────────────────────────────────
 
   return (
-    <div className="flex flex-col h-full w-full bg-[#080810] text-gray-200 overflow-hidden select-none">
+    <div className="su-fixed-dark flex flex-col h-full w-full bg-[#080810] text-su-text overflow-hidden select-none">
       {/* Row 1: Top Bar */}
       <FateTopBar
         ft8DecoderEnabled={ft8DecoderEnabled}
@@ -315,8 +315,8 @@ export function FateSkin(props: SdrSkinProps) {
 
       {/* Audio level meter strip — between top bar and main content */}
       {ft8DecoderEnabled && (
-        <div className="flex items-center gap-2 px-3 py-0.5 bg-[#0a0a14] border-b border-white/5 shrink-0">
-          <span className="text-[9px] text-gray-500 uppercase tracking-wider font-semibold">
+        <div className="flex items-center gap-2 px-3 py-0.5 bg-[#0a0a14] border-b border-su-line/20 shrink-0">
+          <span className="text-[9px] text-su-muted uppercase tracking-wider font-semibold">
             Audio
           </span>
           <FateAudioMeter analyserNode={audioAnalyser} />

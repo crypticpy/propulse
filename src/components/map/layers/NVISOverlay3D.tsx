@@ -268,7 +268,7 @@ function BandInfoPopup({
             e.stopPropagation();
             onClose();
           }}
-          className="text-[10px] px-1.5 py-0.5 rounded hover:bg-white/10 transition-colors"
+          className="text-[10px] px-1.5 py-0.5 rounded hover:bg-su-line/20 transition-colors"
           style={{ color: "#888" }}
           aria-label="Close"
         >

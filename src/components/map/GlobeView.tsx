@@ -2744,12 +2744,12 @@ export function GlobeView({
         radarAnimState &&
         radarAnimState.frameCount > 1 && (
           <div className="absolute bottom-16 left-1/2 -translate-x-1/2 z-10">
-            <div className="flex items-center gap-1.5 bg-void-black/85 backdrop-blur-sm rounded-full px-3 py-1.5 border border-white/10">
+            <div className="flex items-center gap-1.5 bg-void-black/85 backdrop-blur-sm rounded-full px-3 py-1.5 border border-su-line/40">
               {/* Play/Pause */}
               <button
                 type="button"
                 onClick={radarAnimState.togglePlay}
-                className="text-white/70 hover:text-white transition-colors text-xs w-4 h-4 flex items-center justify-center"
+                className="text-su-text/70 hover:text-su-text transition-colors text-xs w-4 h-4 flex items-center justify-center"
               >
                 {radarAnimState.isPlaying ? "\u23F8" : "\u25B6"}
               </button>
@@ -2765,13 +2765,13 @@ export function GlobeView({
                         ? "w-2 h-2 bg-plasma-orange shadow-[0_0_4px_rgba(255,107,53,0.6)]"
                         : radarAnimState.isNowcast[i]
                           ? "w-1.5 h-1.5 bg-blue-400/50 hover:bg-blue-400/80"
-                          : "w-1.5 h-1.5 bg-white/30 hover:bg-white/60"
+                          : "w-1.5 h-1.5 bg-su-text/30 hover:bg-su-text/60"
                     }`}
                   />
                 ))}
               </div>
               {/* Timestamp */}
-              <span className="text-[9px] text-white/50 font-mono ml-1 min-w-[40px] text-right">
+              <span className="text-[9px] text-su-text/80 font-mono ml-1 min-w-[40px] text-right">
                 {radarAnimState.activeIndex >= 0 &&
                 radarAnimState.timestamps[radarAnimState.activeIndex]
                   ? new Date(

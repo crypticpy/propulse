@@ -45,7 +45,7 @@ export function MobileHeader({
   const profileImageUrl = useProfileStore((s) => s.profileImageUrl);
   const subscriptionTier = useProfileStore((s) => s.subscriptionTier);
   return (
-    <header className="h-12 flex items-center justify-between px-2 bg-void-black/90 backdrop-blur-sm border-b border-white/10 pt-safe z-50">
+    <header className="h-12 flex items-center justify-between px-2 bg-void-black/90 backdrop-blur-sm border-b border-su-line/40 pt-safe z-50">
       {/* Brand */}
       <div className="flex shrink-0 items-center gap-1.5">
         <span className="text-base">☀️</span>
@@ -101,8 +101,8 @@ export function MobileHeader({
                 text-[10px] font-bold rounded-full
                 ${
                   criticalAlertCount > 0
-                    ? "bg-alert-red text-white"
-                    : "bg-caution-amber text-black"
+                    ? "bg-alert-red text-su-canvas"
+                    : "bg-caution-amber text-su-canvas"
                 }
               `}
             >
@@ -117,7 +117,7 @@ export function MobileHeader({
         {isSupabaseConfigured && !isAuthenticated && (
           <button
             onClick={() => openAuthModal()}
-            className="p-1.5 rounded-lg text-gray-400 hover:text-gray-200 hover:bg-white/5 transition-colors min-w-[44px] min-h-[44px] flex items-center justify-center"
+            className="p-1.5 rounded-lg text-su-muted hover:text-su-text hover:bg-su-line/10 transition-colors min-w-[44px] min-h-[44px] flex items-center justify-center"
             aria-label="Sign In"
           >
             <svg
@@ -163,7 +163,7 @@ export function MobileHeader({
         )}
         <button
           onClick={onSettingsClick}
-          className="p-1.5 rounded-lg text-gray-400 hover:text-gray-200 hover:bg-white/5 transition-colors min-w-[44px] min-h-[44px] flex items-center justify-center"
+          className="p-1.5 rounded-lg text-su-muted hover:text-su-text hover:bg-su-line/10 transition-colors min-w-[44px] min-h-[44px] flex items-center justify-center"
           aria-label="Settings"
         >
           {/* Gear icon SVG — matches Header.tsx */}

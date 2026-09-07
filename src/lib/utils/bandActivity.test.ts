@@ -102,8 +102,15 @@ describe("parseBandActivityEntry", () => {
       sourceCounts60m: { pskreporter: 30, rbn: 12 },
       modeObs20m: { digital: 5, cw: 2 },
       thresholds: { p25: 10, p75: 35, p95: 60 },
+      median60m: 22,
       sampleCount: 88,
     });
+  });
+
+  it("keeps p50 as the typical count even when the thresholds are missing", () => {
+    const entry = parseBandActivityEntry({ ...row, p75: null });
+    expect(entry?.median60m).toBe(22);
+    expect(parseBandActivityEntry({ ...row, p50: null })?.median60m).toBeNull();
   });
 
   it("tolerates a missing mode map (BH1 rows) as empty", () => {

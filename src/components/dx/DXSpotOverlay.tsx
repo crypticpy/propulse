@@ -127,14 +127,14 @@ function SpotMarker3D({
           <div
             className="px-2 py-1 rounded text-xs font-mono whitespace-nowrap"
             style={{
-              backgroundColor: "rgba(10, 10, 26, 0.95)",
+              backgroundColor: "rgb(var(--su-panel-rgb) / 0.95)",
               color: bandColor.color,
               border: `1px solid ${bandColor.color}`,
               boxShadow: `0 0 10px ${bandColor.color}40`,
             }}
           >
             <div className="font-bold">{spot.dx}</div>
-            <div className="text-gray-400 text-[10px]">
+            <div className="text-su-muted text-[10px]">
               {(spot.frequency / 1000).toFixed(3)} MHz {spot.mode}
             </div>
           </div>

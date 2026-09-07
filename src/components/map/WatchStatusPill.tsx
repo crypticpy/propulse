@@ -83,14 +83,14 @@ export function WatchStatusPill({ className }: WatchStatusPillProps) {
       ? "bg-caution-amber"
       : pillState === "recent"
         ? "bg-signal-green"
-        : "bg-white/30";
+        : "bg-su-text/30";
 
   const textClass =
     pillState === "highRate"
       ? "text-caution-amber"
       : pillState === "recent"
         ? "text-signal-green"
-        : "text-white/50";
+        : "text-su-text/80";
 
   const isPulsing = pillState === "recent" || pillState === "highRate";
 
@@ -98,7 +98,7 @@ export function WatchStatusPill({ className }: WatchStatusPillProps) {
     <div
       className={`
         inline-flex items-center gap-2
-        bg-void-black/80 backdrop-blur-sm border border-white/10 rounded-full
+        bg-void-black/80 backdrop-blur-sm border border-su-line/40 rounded-full
         px-3 py-1 text-xs font-medium select-none
         ${textClass}
         ${className ?? ""}
@@ -126,7 +126,7 @@ export function WatchStatusPill({ className }: WatchStatusPillProps) {
       <span className="truncate max-w-[160px]">{summary}</span>
 
       {/* Separator */}
-      <span className="text-white/20" aria-hidden="true">
+      <span className="text-su-text/30" aria-hidden="true">
         —
       </span>
 
@@ -138,7 +138,7 @@ export function WatchStatusPill({ className }: WatchStatusPillProps) {
       {/* Match rate (only when > 0) */}
       {matchRate > 0 && (
         <>
-          <span className="text-white/20" aria-hidden="true">
+          <span className="text-su-text/30" aria-hidden="true">
             ·
           </span>
           <span
@@ -161,7 +161,7 @@ export function WatchStatusPill({ className }: WatchStatusPillProps) {
       {/* Contest mode: rate + needed mults */}
       {contestWatch.isContestWatchActive && (
         <>
-          <span className="text-white/20" aria-hidden="true">
+          <span className="text-su-text/30" aria-hidden="true">
             ·
           </span>
           <span className="tabular-nums whitespace-nowrap text-caution-amber">
@@ -169,7 +169,7 @@ export function WatchStatusPill({ className }: WatchStatusPillProps) {
           </span>
           {contestWatch.neededMultCount > 0 && (
             <>
-              <span className="text-white/20" aria-hidden="true">
+              <span className="text-su-text/30" aria-hidden="true">
                 ·
               </span>
               <span className="tabular-nums whitespace-nowrap text-caution-amber/70">

@@ -226,28 +226,28 @@ export function ConflictResolutionModal({
 
       {/* Modal card */}
       <div
-        className="relative z-10 flex max-h-[90vh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl border border-white/10 bg-deep-space shadow-2xl animate-in zoom-in-95"
+        className="relative z-10 flex max-h-[90vh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl border border-su-line/40 bg-deep-space shadow-2xl animate-in zoom-in-95"
         role="dialog"
         aria-modal="true"
         aria-labelledby="conflict-modal-title"
       >
         {/* ── Header ──────────────────────────────────────────────────── */}
-        <div className="flex items-start justify-between border-b border-white/10 px-6 py-4">
+        <div className="flex items-start justify-between border-b border-su-line/40 px-6 py-4">
           <div className="space-y-1">
             <h2
               id="conflict-modal-title"
-              className="text-lg font-bold text-white"
+              className="text-lg font-bold text-su-text"
             >
               Resolve Sync Conflict
             </h2>
-            <p className="text-sm text-gray-400">
+            <p className="text-sm text-su-muted">
               {formatQsoHeader(conflict.localData)}
             </p>
           </div>
           <button
             type="button"
             onClick={onClose}
-            className="shrink-0 rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-white/10 hover:text-white"
+            className="shrink-0 rounded-lg p-1.5 text-su-muted transition-colors hover:bg-su-line/20 hover:text-su-text"
             aria-label="Close"
           >
             <svg
@@ -273,10 +273,10 @@ export function ConflictResolutionModal({
               <p className="text-xs font-semibold uppercase tracking-wider text-nebula-blue">
                 This Device
               </p>
-              <p className="mt-1 truncate text-sm text-gray-300">
+              <p className="mt-1 truncate text-sm text-su-muted">
                 {localDeviceId}
               </p>
-              <p className="text-xs text-gray-500">
+              <p className="text-xs text-su-muted">
                 {relativeTime(localUpdated)}
               </p>
             </div>
@@ -284,10 +284,10 @@ export function ConflictResolutionModal({
               <p className="text-xs font-semibold uppercase tracking-wider text-plasma-orange">
                 Other Device
               </p>
-              <p className="mt-1 truncate text-sm text-gray-300">
+              <p className="mt-1 truncate text-sm text-su-muted">
                 {remoteDeviceId}
               </p>
-              <p className="text-xs text-gray-500">
+              <p className="text-xs text-su-muted">
                 {relativeTime(remoteUpdated)}
               </p>
             </div>
@@ -295,14 +295,14 @@ export function ConflictResolutionModal({
 
           {/* Conflicting fields */}
           <div className="space-y-4">
-            <h3 className="text-sm font-semibold text-white">
+            <h3 className="text-sm font-semibold text-su-text">
               Conflicting Fields
-              <span className="ml-2 text-xs font-normal text-gray-500">
+              <span className="ml-2 text-xs font-normal text-su-muted">
                 ({conflict.conflictingFields.length})
               </span>
             </h3>
 
-            <div className="space-y-4 rounded-xl border border-white/10 bg-white/[0.02] p-4">
+            <div className="space-y-4 rounded-xl border border-su-line/40 bg-su-line/10 p-4">
               {conflict.conflictingFields.map((field) => (
                 <ConflictFieldRow
                   key={field}
@@ -332,7 +332,7 @@ export function ConflictResolutionModal({
               <button
                 type="button"
                 onClick={() => setUnchangedExpanded((v) => !v)}
-                className="flex w-full items-center gap-2 text-sm font-semibold text-gray-400 transition-colors hover:text-white"
+                className="flex w-full items-center gap-2 text-sm font-semibold text-su-muted transition-colors hover:text-su-text"
               >
                 <svg
                   xmlns="http://www.w3.org/2000/svg"
@@ -347,20 +347,20 @@ export function ConflictResolutionModal({
                   />
                 </svg>
                 Unchanged Fields
-                <span className="text-xs font-normal text-gray-500">
+                <span className="text-xs font-normal text-su-muted">
                   ({unchangedFields.length})
                 </span>
               </button>
 
               {unchangedExpanded && (
-                <div className="mt-2 rounded-xl border border-white/10 bg-white/[0.02] p-4">
+                <div className="mt-2 rounded-xl border border-su-line/40 bg-su-line/10 p-4">
                   <div className="grid grid-cols-2 gap-x-6 gap-y-2">
                     {unchangedFields.map(({ field, value }) => (
                       <div key={field} className="flex items-baseline gap-2">
-                        <span className="text-xs text-gray-500">
+                        <span className="text-xs text-su-muted">
                           {FIELD_LABELS[field] ?? field}:
                         </span>
-                        <span className="truncate font-mono text-xs text-gray-300">
+                        <span className="truncate font-mono text-xs text-su-muted">
                           {displayValue(value)}
                         </span>
                       </div>
@@ -373,12 +373,12 @@ export function ConflictResolutionModal({
         </div>
 
         {/* ── Footer: resolution buttons ──────────────────────────────── */}
-        <div className="flex items-center justify-end gap-3 border-t border-white/10 px-6 py-4">
+        <div className="flex items-center justify-end gap-3 border-t border-su-line/40 px-6 py-4">
           <button
             type="button"
             disabled={isResolving}
             onClick={handleKeepMine}
-            className="rounded-lg border border-white/10 bg-white/5 px-4 py-2 text-sm font-medium text-gray-300 transition-colors hover:bg-white/10 disabled:opacity-50"
+            className="rounded-lg border border-su-line/40 bg-su-line/10 px-4 py-2 text-sm font-medium text-su-muted transition-colors hover:bg-su-line/20 disabled:opacity-50"
           >
             Keep Mine
           </button>

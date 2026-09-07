@@ -1,5 +1,6 @@
 import { renderHook } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { useFeedStore } from "@/stores/feedStore";
 import { relativeTime, useRssFeeds } from "@/hooks/useRssFeed";
 
 const queryMocks = vi.hoisted(() => ({
@@ -61,4 +62,17 @@ describe("useRssFeeds", () => {
     expect(options.staleTime).toBe(10 * 60 * 1000);
     expect(options.refetchInterval).toBe(options.staleTime);
   });
+});
+
+
+it("uses persisted polling intervals and keeps disabled sources manual-only", () => {
+  const original = useFeedStore.getState();
+  try {
+    useFeedStore.getState().setRefreshMinutes(30);
+    queryMocks.useQueries.mockReturnValue([{}]);
+    renderHook(() => useRssFeeds([{ id: "off", url: "https://example.com/off", enabled: false }]));
+    const options = queryMocks.useQueries.mock.lastCall![0].queries[0];
+    expect(options.refetchInterval).toBe(30 * 60 * 1000);
+    expect(options.enabled).toBe(false);
+  } finally { useFeedStore.setState(original); }
 });

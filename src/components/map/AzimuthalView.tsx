@@ -3060,7 +3060,7 @@ export function AzimuthalView({
       {/* Loading indicator */}
       {!webglReady && center && mapStyle === "satellite" && (
         <div className="absolute inset-0 flex items-center justify-center bg-deep-space/80">
-          <div className="text-gray-400 text-sm">Loading map...</div>
+          <div className="text-su-muted text-sm">Loading map...</div>
         </div>
       )}
       {/* Spot & pin size sliders - bottom left corner */}
@@ -3092,7 +3092,7 @@ export function AzimuthalView({
       />
 
       {/* Legend overlay */}
-      <div className="absolute bottom-14 left-4 text-xs text-gray-500 bg-deep-space/80 px-2 py-1 rounded">
+      <div className="absolute bottom-14 left-4 text-xs text-su-muted bg-deep-space/80 px-2 py-1 rounded">
         <div className="flex items-center gap-2">
           <span
             className="w-3 h-0.5 inline-block"
@@ -3100,7 +3100,7 @@ export function AzimuthalView({
           />
           <span>Great circle path (straight line = beam heading)</span>
         </div>
-        <div className="flex items-center gap-2 mt-1 text-gray-400">
+        <div className="flex items-center gap-2 mt-1 text-su-muted">
           <span>Scroll to zoom</span>
           {zoom !== 1 && (
             <span className="text-signal-green">({zoom.toFixed(1)}x)</span>

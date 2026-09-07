@@ -33,7 +33,7 @@ function formatWatts(w: number): string {
 function dbClass(value: number): string {
   if (value > 0) return "text-signal-green";
   if (value < 0) return "text-alert-red";
-  return "text-gray-400";
+  return "text-su-muted";
 }
 
 function formatDb(value: number, alwaysSign = true): string {
@@ -137,11 +137,11 @@ export function PerformanceSidebar({
 
   if (!chain || bands.length === 0) {
     return (
-      <div className="bg-panel/30 backdrop-blur-sm border border-white/5 rounded-2xl p-6">
-        <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">
+      <div className="bg-panel/30 backdrop-blur-sm border border-su-line/20 rounded-2xl p-6">
+        <h3 className="text-xs font-semibold text-su-muted uppercase tracking-wider mb-3">
           Performance Analysis
         </h3>
-        <p className="text-center text-gray-500 text-sm">
+        <p className="text-center text-su-muted text-sm">
           {!chain
             ? "Select a chain to view performance data"
             : "No band data available. Ensure the antenna has bands configured."}
@@ -153,8 +153,8 @@ export function PerformanceSidebar({
   return (
     <div className="space-y-4">
       {/* Header */}
-      <div className="bg-panel/30 backdrop-blur-sm border border-white/5 rounded-2xl p-4">
-        <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider">
+      <div className="bg-panel/30 backdrop-blur-sm border border-su-line/20 rounded-2xl p-4">
+        <h3 className="text-xs font-semibold text-su-muted uppercase tracking-wider">
           Performance Analysis
         </h3>
       </div>
@@ -162,60 +162,60 @@ export function PerformanceSidebar({
       {/* Summary cards */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
         {bestBand && (
-          <div className="bg-panel/30 backdrop-blur-sm border border-white/5 rounded-2xl p-4">
-            <div className="text-xs text-gray-400 mb-1">Best Band</div>
+          <div className="bg-panel/30 backdrop-blur-sm border border-su-line/20 rounded-2xl p-4">
+            <div className="text-xs text-su-muted mb-1">Best Band</div>
             <div className="text-lg font-bold text-signal-green">
               {bestBand.band}
             </div>
-            <div className="text-xs text-gray-500">
+            <div className="text-xs text-su-muted">
               {formatWatts(bestBand.erpWatts)} ERP
             </div>
           </div>
         )}
         {worstBand && (
-          <div className="bg-panel/30 backdrop-blur-sm border border-white/5 rounded-2xl p-4">
-            <div className="text-xs text-gray-400 mb-1">Worst Band</div>
+          <div className="bg-panel/30 backdrop-blur-sm border border-su-line/20 rounded-2xl p-4">
+            <div className="text-xs text-su-muted mb-1">Worst Band</div>
             <div className="text-lg font-bold text-alert-red">
               {worstBand.band}
             </div>
-            <div className="text-xs text-gray-500">
+            <div className="text-xs text-su-muted">
               {formatWatts(worstBand.erpWatts)} ERP
             </div>
           </div>
         )}
         {lossRange && (
-          <div className="bg-panel/30 backdrop-blur-sm border border-white/5 rounded-2xl p-4">
-            <div className="text-xs text-gray-400 mb-1">Net Loss Range</div>
+          <div className="bg-panel/30 backdrop-blur-sm border border-su-line/20 rounded-2xl p-4">
+            <div className="text-xs text-su-muted mb-1">Net Loss Range</div>
             <div className="text-lg font-bold text-caution-amber">
               {lossRange.min.toFixed(1)} - {lossRange.max.toFixed(1)} dB
             </div>
-            <div className="text-xs text-gray-500">Across all bands</div>
+            <div className="text-xs text-su-muted">Across all bands</div>
           </div>
         )}
       </div>
 
       {/* Per-band table */}
-      <div className="bg-panel/30 backdrop-blur-sm border border-white/5 rounded-2xl p-4">
-        <h4 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">
+      <div className="bg-panel/30 backdrop-blur-sm border border-su-line/20 rounded-2xl p-4">
+        <h4 className="text-xs font-semibold text-su-muted uppercase tracking-wider mb-3">
           Per-Band Performance
         </h4>
         <div className="overflow-x-auto -mx-4 px-4">
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-white/10">
-                <th className="text-left py-2 pr-3 text-xs text-gray-400 font-medium whitespace-nowrap">
+              <tr className="border-b border-su-line/40">
+                <th className="text-left py-2 pr-3 text-xs text-su-muted font-medium whitespace-nowrap">
                   Band
                 </th>
-                <th className="text-right py-2 px-3 text-xs text-gray-400 font-medium whitespace-nowrap">
+                <th className="text-right py-2 px-3 text-xs text-su-muted font-medium whitespace-nowrap">
                   TX Power
                 </th>
-                <th className="text-right py-2 px-3 text-xs text-gray-400 font-medium whitespace-nowrap">
+                <th className="text-right py-2 px-3 text-xs text-su-muted font-medium whitespace-nowrap">
                   System Loss
                 </th>
-                <th className="text-right py-2 px-3 text-xs text-gray-400 font-medium whitespace-nowrap">
+                <th className="text-right py-2 px-3 text-xs text-su-muted font-medium whitespace-nowrap">
                   Ant. Gain
                 </th>
-                <th className="text-right py-2 pl-3 text-xs text-gray-400 font-medium whitespace-nowrap">
+                <th className="text-right py-2 pl-3 text-xs text-su-muted font-medium whitespace-nowrap">
                   ERP
                 </th>
               </tr>
@@ -230,14 +230,14 @@ export function PerformanceSidebar({
                   <tr
                     key={bp.band}
                     onClick={() => handleSelectBand(bp.band)}
-                    className={`border-b border-white/5 cursor-pointer transition-colors ${
-                      isSelected ? "bg-plasma-orange/10" : "hover:bg-white/5"
+                    className={`border-b border-su-line/20 cursor-pointer transition-colors ${
+                      isSelected ? "bg-plasma-orange/10" : "hover:bg-su-line/10"
                     }`}
                   >
-                    <td className="py-2 pr-3 font-medium text-gray-200 whitespace-nowrap">
+                    <td className="py-2 pr-3 font-medium text-su-text whitespace-nowrap">
                       {bp.band}
                     </td>
-                    <td className="py-2 px-3 text-right text-gray-300 whitespace-nowrap">
+                    <td className="py-2 px-3 text-right text-su-muted whitespace-nowrap">
                       {formatWatts(row.txPower)}
                     </td>
                     <td
@@ -277,33 +277,33 @@ function NodeBreakdownTable({
   bandPerformance: BandChainPerformance;
 }) {
   return (
-    <div className="bg-panel/30 backdrop-blur-sm border border-white/5 rounded-2xl p-4">
-      <h4 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">
+    <div className="bg-panel/30 backdrop-blur-sm border border-su-line/20 rounded-2xl p-4">
+      <h4 className="text-xs font-semibold text-su-muted uppercase tracking-wider mb-3">
         Node Breakdown &mdash; {bandPerformance.band}
       </h4>
       <div className="overflow-x-auto -mx-4 px-4">
         <table className="w-full text-sm">
           <thead>
-            <tr className="border-b border-white/10">
-              <th className="text-left py-2 pr-2 text-xs text-gray-400 font-medium whitespace-nowrap">
+            <tr className="border-b border-su-line/40">
+              <th className="text-left py-2 pr-2 text-xs text-su-muted font-medium whitespace-nowrap">
                 Node
               </th>
-              <th className="text-left py-2 px-2 text-xs text-gray-400 font-medium whitespace-nowrap">
+              <th className="text-left py-2 px-2 text-xs text-su-muted font-medium whitespace-nowrap">
                 Type
               </th>
-              <th className="text-right py-2 px-2 text-xs text-gray-400 font-medium whitespace-nowrap">
+              <th className="text-right py-2 px-2 text-xs text-su-muted font-medium whitespace-nowrap">
                 Input
               </th>
-              <th className="text-right py-2 px-2 text-xs text-gray-400 font-medium whitespace-nowrap">
+              <th className="text-right py-2 px-2 text-xs text-su-muted font-medium whitespace-nowrap">
                 Gain
               </th>
-              <th className="text-right py-2 px-2 text-xs text-gray-400 font-medium whitespace-nowrap">
+              <th className="text-right py-2 px-2 text-xs text-su-muted font-medium whitespace-nowrap">
                 Loss
               </th>
-              <th className="text-right py-2 px-2 text-xs text-gray-400 font-medium whitespace-nowrap">
+              <th className="text-right py-2 px-2 text-xs text-su-muted font-medium whitespace-nowrap">
                 Net
               </th>
-              <th className="text-right py-2 pl-2 text-xs text-gray-400 font-medium whitespace-nowrap">
+              <th className="text-right py-2 pl-2 text-xs text-su-muted font-medium whitespace-nowrap">
                 Output
               </th>
             </tr>
@@ -312,23 +312,23 @@ function NodeBreakdownTable({
             {bandPerformance.nodes.map((node: NodePerformance) => (
               <tr
                 key={node.nodeIndex}
-                className="border-b border-white/5 hover:bg-white/5 transition-colors"
+                className="border-b border-su-line/20 hover:bg-su-line/10 transition-colors"
               >
                 <td
-                  className="py-2 pr-2 text-gray-200 whitespace-nowrap max-w-[100px] truncate"
+                  className="py-2 pr-2 text-su-text whitespace-nowrap max-w-[100px] truncate"
                   title={node.label}
                 >
                   {node.label}
                 </td>
-                <td className="py-2 px-2 text-gray-400 whitespace-nowrap text-xs">
+                <td className="py-2 px-2 text-su-muted whitespace-nowrap text-xs">
                   {nodeTypeLabel(node.nodeType)}
                 </td>
-                <td className="py-2 px-2 text-right text-gray-300 whitespace-nowrap">
+                <td className="py-2 px-2 text-right text-su-muted whitespace-nowrap">
                   {formatWatts(node.inputPowerWatts)}
                 </td>
                 <td
                   className={`py-2 px-2 text-right whitespace-nowrap ${
-                    node.gainDb > 0 ? "text-signal-green" : "text-gray-500"
+                    node.gainDb > 0 ? "text-signal-green" : "text-su-muted"
                   }`}
                 >
                   {node.gainDb > 0
@@ -337,7 +337,7 @@ function NodeBreakdownTable({
                 </td>
                 <td
                   className={`py-2 px-2 text-right whitespace-nowrap ${
-                    node.lossDb > 0 ? "text-alert-red" : "text-gray-500"
+                    node.lossDb > 0 ? "text-alert-red" : "text-su-muted"
                   }`}
                 >
                   {node.lossDb > 0
@@ -349,7 +349,7 @@ function NodeBreakdownTable({
                 >
                   {formatDb(node.netDb)}
                 </td>
-                <td className="py-2 pl-2 text-right text-gray-300 whitespace-nowrap">
+                <td className="py-2 pl-2 text-right text-su-muted whitespace-nowrap">
                   {formatWatts(node.outputPowerWatts)}
                 </td>
               </tr>
@@ -359,8 +359,8 @@ function NodeBreakdownTable({
       </div>
 
       {/* Totals row */}
-      <div className="flex items-center justify-between mt-3 pt-2 border-t border-white/10">
-        <span className="text-xs text-gray-400">Total System</span>
+      <div className="flex items-center justify-between mt-3 pt-2 border-t border-su-line/40">
+        <span className="text-xs text-su-muted">Total System</span>
         <span
           className={`text-sm font-semibold ${dbClass(bandPerformance.totalSystemGainDb)}`}
         >

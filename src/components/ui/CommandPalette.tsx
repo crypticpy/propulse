@@ -687,14 +687,14 @@ export function CommandPalette({
 
       {/* Modal */}
       <div
-        className="relative z-10 w-full max-w-[32rem] mt-[20vh] mx-4 bg-white/[0.03] backdrop-blur-md border border-white/10 rounded-2xl overflow-hidden shadow-2xl animate-in fade-in zoom-in-95"
+        className="relative z-10 w-full max-w-[32rem] mt-[20vh] mx-4 bg-su-panel/95 backdrop-blur-md border border-su-line/40 rounded-2xl overflow-hidden shadow-2xl animate-in fade-in zoom-in-95"
         role="dialog"
         aria-label="Command palette"
         aria-modal="true"
       >
         {/* Search input */}
-        <div className="flex items-center gap-3 px-4 py-3 bg-white/[0.05] border-b border-white/10">
-          <SearchIcon className="w-5 h-5 text-gray-500 flex-shrink-0" />
+        <div className="flex items-center gap-3 px-4 py-3 bg-su-line/10 border-b border-su-line/40">
+          <SearchIcon className="w-5 h-5 text-su-muted flex-shrink-0" />
           <input
             ref={inputRef}
             type="text"
@@ -705,11 +705,11 @@ export function CommandPalette({
             }}
             onKeyDown={handleInputKeyDown}
             placeholder="Type a command..."
-            className="flex-1 bg-transparent text-white text-sm placeholder-gray-500 outline-none"
+            className="flex-1 bg-transparent text-su-text text-sm placeholder:text-su-muted/80 outline-none"
             autoComplete="off"
             spellCheck={false}
           />
-          <kbd className="hidden sm:inline-flex items-center gap-0.5 px-1.5 py-0.5 bg-white/[0.06] border border-white/10 rounded text-[10px] text-gray-500 font-mono">
+          <kbd className="hidden sm:inline-flex items-center gap-0.5 px-1.5 py-0.5 bg-su-line/20 border border-su-line/40 rounded text-[10px] text-su-muted font-mono">
             ESC
           </kbd>
         </div>
@@ -722,8 +722,8 @@ export function CommandPalette({
         >
           {filtered.length === 0 ? (
             <div className="px-4 py-8 text-center">
-              <p className="text-sm text-gray-500">No results found</p>
-              <p className="text-xs text-gray-600 mt-1">
+              <p className="text-sm text-su-muted">No results found</p>
+              <p className="text-xs text-su-muted mt-1">
                 Try a different search term
               </p>
             </div>
@@ -731,7 +731,7 @@ export function CommandPalette({
             groupedItems.map((group) => (
               <div key={group.category}>
                 {/* Category header */}
-                <div className="text-[10px] uppercase tracking-wider text-gray-500 px-3 py-1.5 select-none">
+                <div className="text-[10px] uppercase tracking-wider text-su-muted px-3 py-1.5 select-none">
                   {CATEGORY_LABELS[group.category]}
                 </div>
 
@@ -751,8 +751,8 @@ export function CommandPalette({
                         transition-colors duration-75 cursor-pointer
                         ${
                           isActive
-                            ? "bg-white/[0.08] border-l-2 border-plasma-orange"
-                            : "border-l-2 border-transparent hover:bg-white/[0.06]"
+                            ? "bg-su-line/20 border-l-2 border-plasma-orange"
+                            : "border-l-2 border-transparent hover:bg-su-line/20"
                         }
                       `}
                       onClick={() => {
@@ -762,18 +762,18 @@ export function CommandPalette({
                     >
                       <item.icon
                         className={`w-5 h-5 flex-shrink-0 ${
-                          isActive ? "text-plasma-orange" : "text-gray-400"
+                          isActive ? "text-plasma-orange" : "text-su-muted"
                         }`}
                       />
                       <span
                         className={`flex-1 text-sm ${
-                          isActive ? "text-white" : "text-gray-300"
+                          isActive ? "text-su-text" : "text-su-muted"
                         }`}
                       >
                         {item.label}
                       </span>
                       {item.shortcutHint && (
-                        <kbd className="px-1.5 py-0.5 bg-white/[0.06] border border-white/10 rounded text-xs text-gray-500 font-mono">
+                        <kbd className="px-1.5 py-0.5 bg-su-line/20 border border-su-line/40 rounded text-xs text-su-muted font-mono">
                           {item.shortcutHint}
                         </kbd>
                       )}
@@ -786,25 +786,25 @@ export function CommandPalette({
         </div>
 
         {/* Footer hint */}
-        <div className="flex items-center justify-between px-4 py-2 border-t border-white/10 bg-white/[0.02]">
-          <div className="flex items-center gap-3 text-[10px] text-gray-600">
+        <div className="flex items-center justify-between px-4 py-2 border-t border-su-line/40 bg-su-line/10">
+          <div className="flex items-center gap-3 text-[10px] text-su-muted">
             <span className="flex items-center gap-1">
-              <kbd className="px-1 py-0.5 bg-white/[0.06] border border-white/10 rounded font-mono">
+              <kbd className="px-1 py-0.5 bg-su-line/20 border border-su-line/40 rounded font-mono">
                 &uarr;
               </kbd>
-              <kbd className="px-1 py-0.5 bg-white/[0.06] border border-white/10 rounded font-mono">
+              <kbd className="px-1 py-0.5 bg-su-line/20 border border-su-line/40 rounded font-mono">
                 &darr;
               </kbd>
               <span className="ml-0.5">navigate</span>
             </span>
             <span className="flex items-center gap-1">
-              <kbd className="px-1 py-0.5 bg-white/[0.06] border border-white/10 rounded font-mono">
+              <kbd className="px-1 py-0.5 bg-su-line/20 border border-su-line/40 rounded font-mono">
                 &crarr;
               </kbd>
               <span className="ml-0.5">select</span>
             </span>
             <span className="flex items-center gap-1">
-              <kbd className="px-1 py-0.5 bg-white/[0.06] border border-white/10 rounded font-mono">
+              <kbd className="px-1 py-0.5 bg-su-line/20 border border-su-line/40 rounded font-mono">
                 esc
               </kbd>
               <span className="ml-0.5">close</span>

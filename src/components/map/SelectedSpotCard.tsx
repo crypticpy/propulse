@@ -77,12 +77,12 @@ function formatUtc(value: Date) {
 
 function DetailValue({ label, value }: { label: string; value: string }) {
   return (
-    <div className="min-w-0 rounded-md border border-white/10 bg-white/[0.025] px-2 py-1.5">
-      <div className="text-[9px] font-medium uppercase tracking-wider text-gray-500">
+    <div className="min-w-0 rounded-md border border-su-line/40 bg-su-line/10 px-2 py-1.5">
+      <div className="text-[9px] font-medium uppercase tracking-wider text-su-muted">
         {label}
       </div>
       <div
-        className="mt-0.5 truncate font-mono text-[11px] text-gray-200"
+        className="mt-0.5 truncate font-mono text-[11px] text-su-text"
         title={value}
       >
         {value}
@@ -113,7 +113,7 @@ function ActionButton({
       className={`rounded-md border px-2 py-1.5 text-[10px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-cyan-300 disabled:cursor-default disabled:opacity-70 ${
         active
           ? "border-signal-green/35 bg-signal-green/10 text-signal-green"
-          : "border-white/10 bg-white/5 text-gray-300 hover:border-cyan-400/30 hover:bg-cyan-400/10 hover:text-white"
+          : "border-su-line/40 bg-su-line/10 text-su-muted hover:border-cyan-400/30 hover:bg-cyan-400/10 hover:text-su-text"
       }`}
     >
       {children}
@@ -306,7 +306,7 @@ export function SelectedSpotCard({
       role="dialog"
       aria-modal="false"
       aria-label={`Spot details for ${spot.dx}`}
-      className="fixed z-[70] flex max-h-[calc(100vh-20px)] w-[min(364px,calc(100vw-20px))] flex-col overflow-hidden rounded-xl border border-white/15 bg-gray-950/95 text-gray-200 shadow-2xl backdrop-blur-xl"
+      className="fixed z-[70] flex max-h-[calc(100vh-20px)] w-[min(364px,calc(100vw-20px))] flex-col overflow-hidden rounded-xl border border-su-line/50 bg-su-canvas/95 text-su-text shadow-2xl backdrop-blur-xl"
       style={{
         left: adjustedPosition.x,
         top: adjustedPosition.y,
@@ -317,10 +317,10 @@ export function SelectedSpotCard({
       onClick={(event) => event.stopPropagation()}
       onDoubleClick={(event) => event.stopPropagation()}
     >
-      <div className="flex items-start justify-between gap-3 border-b border-white/10 px-3 py-2.5">
+      <div className="flex items-start justify-between gap-3 border-b border-su-line/40 px-3 py-2.5">
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
-            <h3 className="font-mono text-base font-bold text-white">
+            <h3 className="font-mono text-base font-bold text-su-text">
               {spot.dx}
             </h3>
             {spot.dxLocApprox && (
@@ -329,7 +329,7 @@ export function SelectedSpotCard({
               </span>
             )}
           </div>
-          <div className="mt-0.5 truncate text-[10px] text-gray-400">
+          <div className="mt-0.5 truncate text-[10px] text-su-muted">
             {entity?.name || "Station location"}
             {entity?.continent ? ` · ${entity.continent}` : ""}
           </div>
@@ -337,7 +337,7 @@ export function SelectedSpotCard({
         <button
           type="button"
           onClick={onClose}
-          className="rounded-md p-1 text-gray-500 transition-colors hover:bg-white/10 hover:text-white"
+          className="rounded-md p-1 text-su-muted transition-colors hover:bg-su-line/20 hover:text-su-text"
           aria-label="Close spot details"
         >
           <svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true">
@@ -355,17 +355,17 @@ export function SelectedSpotCard({
       <div className="overflow-y-auto">
         <div className="space-y-2.5 px-3 py-2.5">
           <div className="flex flex-wrap items-center gap-1.5">
-            <span className="font-mono text-sm text-white">
+            <span className="font-mono text-sm text-su-text">
               {formatFrequency(spot.frequency)}
             </span>
             {spot.band && (
-              <span className="rounded bg-white/10 px-1.5 py-0.5 text-[10px] font-semibold text-gray-300">
+              <span className="rounded bg-su-line/20 px-1.5 py-0.5 text-[10px] font-semibold text-su-muted">
                 {spot.band}
               </span>
             )}
             {spot.mode && (
               <span
-                className="rounded px-1.5 py-0.5 text-[10px] font-bold text-white"
+                className="rounded px-1.5 py-0.5 text-[10px] font-bold text-su-text"
                 style={{ backgroundColor: modeColor }}
               >
                 {spot.mode}
@@ -387,9 +387,9 @@ export function SelectedSpotCard({
             </span>
           </div>
 
-          <div className="rounded-lg border border-white/10 bg-white/[0.035] px-2.5 py-2">
+          <div className="rounded-lg border border-su-line/40 bg-su-line/10 px-2.5 py-2">
             <div className="flex items-center justify-between gap-2">
-              <span className="text-[10px] uppercase tracking-wide text-gray-500">
+              <span className="text-[10px] uppercase tracking-wide text-su-muted">
                 Path outlook
               </span>
               {difficulty && difficultyColor && (
@@ -406,7 +406,7 @@ export function SelectedSpotCard({
               )}
             </div>
             {pathMetrics && (
-              <div className="mt-1 flex items-center justify-between font-mono text-[10px] text-gray-400">
+              <div className="mt-1 flex items-center justify-between font-mono text-[10px] text-su-muted">
                 <span>{formatDistance(pathMetrics.shortPath.distance)}</span>
                 <span>
                   {Math.round(pathMetrics.shortPath.bearing)}° {formatBearing(pathMetrics.shortPath.bearing)}
@@ -417,7 +417,7 @@ export function SelectedSpotCard({
               <>
                 <div className="mt-1.5 flex items-center justify-between gap-3">
                   <div className="flex items-center gap-1.5">
-                    <span className="rounded bg-white/10 px-1.5 py-0.5 font-mono text-[10px] text-white">
+                    <span className="rounded bg-su-line/20 px-1.5 py-0.5 font-mono text-[10px] text-su-text">
                       {optimalSignal.band}
                     </span>
                     <span
@@ -430,7 +430,7 @@ export function SelectedSpotCard({
                     {optimalSignal.sUnit?.text ?? "Signal pending"}
                   </span>
                 </div>
-                <div className="relative mt-1.5 h-1.5 overflow-hidden rounded bg-white/10">
+                <div className="relative mt-1.5 h-1.5 overflow-hidden rounded bg-su-line/20">
                   <div
                     className="absolute inset-y-0 left-0 bg-gradient-to-r from-alert-red via-caution-amber to-signal-green"
                     style={{
@@ -440,7 +440,7 @@ export function SelectedSpotCard({
                 </div>
               </>
             ) : (
-              <p className="mt-1.5 text-[10px] text-gray-500">
+              <p className="mt-1.5 text-[10px] text-su-muted">
                 {signalUnavailableReason || "No viable modeled HF band right now"}
               </p>
             )}
@@ -479,18 +479,18 @@ export function SelectedSpotCard({
           </div>
 
           {spot.comment && (
-            <div className="rounded-md border border-white/10 bg-white/[0.025] px-2.5 py-2">
-              <div className="text-[9px] font-medium uppercase tracking-wider text-gray-500">
+            <div className="rounded-md border border-su-line/40 bg-su-line/10 px-2.5 py-2">
+              <div className="text-[9px] font-medium uppercase tracking-wider text-su-muted">
                 Spot comment
               </div>
-              <p className="mt-1 text-xs leading-relaxed text-gray-300">
+              <p className="mt-1 text-xs leading-relaxed text-su-muted">
                 {spot.comment}
               </p>
             </div>
           )}
         </div>
 
-        <div className="grid grid-cols-3 gap-1.5 border-t border-white/10 px-3 py-2.5">
+        <div className="grid grid-cols-3 gap-1.5 border-t border-su-line/40 px-3 py-2.5">
           {!isKiosk && (
             <ActionButton onClick={handleWorkAndLog}>Work &amp; log</ActionButton>
           )}

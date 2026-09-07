@@ -360,8 +360,8 @@ export function MapFlyout({
       ref={flyoutRef}
       className={`
         fixed z-50
-        bg-gray-900/90 backdrop-blur-md
-        border border-white/10 rounded-lg
+        bg-su-canvas/90 backdrop-blur-md
+        border border-su-line/40 rounded-lg
         shadow-xl
         transition-all duration-200
         ${isFading ? "opacity-0 scale-95" : visible ? "opacity-100 scale-100" : "opacity-0 scale-95"}
@@ -376,9 +376,9 @@ export function MapFlyout({
       aria-label="Map location actions"
     >
       {/* Header with grid, coordinates, and feasibility */}
-      <div className="px-3 py-2 border-b border-white/10">
+      <div className="px-3 py-2 border-b border-su-line/40">
         <div className="flex items-center justify-between gap-2">
-          <div className="text-white font-mono font-bold text-sm">{grid}</div>
+          <div className="text-su-text font-mono font-bold text-sm">{grid}</div>
           {homeGrid && feasibility.level !== "unlikely" && (
             <FeasibilityBadge
               level={feasibility.level}
@@ -388,7 +388,7 @@ export function MapFlyout({
           )}
         </div>
         <div className="flex items-center justify-between gap-2">
-          <div className="text-gray-400 text-xs font-mono">
+          <div className="text-su-muted text-xs font-mono">
             {formattedCoords}
           </div>
           {feasibility.isGrayline && (
@@ -411,8 +411,8 @@ export function MapFlyout({
             className="
               w-full px-3 py-2
               flex items-center gap-2
-              text-left text-sm text-gray-200
-              hover:bg-white/10
+              text-left text-sm text-su-text
+              hover:bg-su-line/20
               transition-colors duration-150
             "
             role="menuitem"

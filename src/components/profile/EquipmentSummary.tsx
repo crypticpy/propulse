@@ -17,12 +17,12 @@ export function EquipmentSummary() {
   if (!kit) {
     return (
       <div>
-        <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-3">
+        <h3 className="text-sm font-semibold text-su-muted uppercase tracking-wider mb-3">
           Equipment
         </h3>
         <div className="text-center py-6">
-          <p className="text-sm text-gray-500">No active signal path</p>
-          <p className="text-xs text-gray-600 mt-1">
+          <p className="text-sm text-su-muted">No active signal path</p>
+          <p className="text-xs text-su-muted mt-1">
             Choose a signal path in the workbench.
           </p>
         </div>
@@ -71,10 +71,10 @@ export function EquipmentSummary() {
 
   return (
     <div>
-      <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-3">
+      <h3 className="text-sm font-semibold text-su-muted uppercase tracking-wider mb-3">
         Equipment
       </h3>
-      <p className="text-xs text-gray-500 mb-3">{kit.chainName}</p>
+      <p className="text-xs text-su-muted mb-3">{kit.chainName}</p>
       <ul className="profile-shack-list">
         {items.map((item) => (
           <EquipmentInventoryRow

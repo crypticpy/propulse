@@ -41,7 +41,7 @@ export function AtmosLayout() {
             <Suspense
               fallback={
                 <div className="absolute inset-0 flex items-center justify-center bg-void-black">
-                  <span className="text-xs font-mono text-gray-600">
+                  <span className="text-xs font-mono text-su-muted">
                     Loading map...
                   </span>
                 </div>
@@ -53,7 +53,7 @@ export function AtmosLayout() {
             <Suspense
               fallback={
                 <div className="absolute inset-0 flex items-center justify-center bg-void-black">
-                  <span className="text-xs font-mono text-gray-600">
+                  <span className="text-xs font-mono text-su-muted">
                     Loading globe...
                   </span>
                 </div>

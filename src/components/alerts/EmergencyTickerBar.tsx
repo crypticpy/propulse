@@ -410,7 +410,7 @@ export function EmergencyTickerBar() {
         }}
       >
         {index > 0 && (
-          <span className="mx-3 text-gray-600 select-none">{SEPARATOR}</span>
+          <span className="mx-3 text-su-muted select-none">{SEPARATOR}</span>
         )}
         <span
           className={`font-semibold ${accentColor} underline decoration-dotted underline-offset-2`}
@@ -420,11 +420,11 @@ export function EmergencyTickerBar() {
           {entry.priority}
         </span>
         {entry.affectedBands && (
-          <span className="text-gray-300 ml-2">
+          <span className="text-su-muted ml-2">
             | Affected: {entry.affectedBands}
           </span>
         )}
-        <span className="text-gray-300 ml-2">| {entry.recommendation}</span>
+        <span className="text-su-muted ml-2">| {entry.recommendation}</span>
       </span>
     ));
 
@@ -459,7 +459,7 @@ export function EmergencyTickerBar() {
   return (
     <>
       <div
-        className={`relative flex items-center h-[40px] overflow-hidden select-none ${bgColor} border-b ${borderColor}`}
+        className={`relative z-10 flex items-center h-[40px] overflow-hidden select-none ${bgColor} border-b ${borderColor}`}
         style={{
           boxShadow: `inset 0 0 20px ${glowColor}`,
         }}
@@ -535,7 +535,7 @@ export function EmergencyTickerBar() {
               {renderTickerContent()}
             </span>
             {/* Spacer */}
-            <span className="mx-8 text-gray-600 select-none">{SEPARATOR}</span>
+            <span className="mx-8 text-su-muted select-none">{SEPARATOR}</span>
             {/* Second copy (seamless loop) */}
             <span className="inline-flex items-center whitespace-nowrap">
               {renderTickerContent()}
@@ -546,7 +546,7 @@ export function EmergencyTickerBar() {
         {/* Expand/collapse chevron */}
         <button
           type="button"
-          className={`relative z-10 flex items-center justify-center w-8 h-8 flex-shrink-0 rounded hover:bg-white/10 transition-colors ${accentColor}`}
+          className={`relative z-10 flex items-center justify-center w-8 h-8 flex-shrink-0 rounded hover:bg-su-line/20 transition-colors ${accentColor}`}
           onClick={handleToggleExpand}
           aria-label={
             expanded ? "Collapse detail panel" : "Expand detail panel"
@@ -571,7 +571,7 @@ export function EmergencyTickerBar() {
         {/* Dismiss button - pinned right */}
         <button
           type="button"
-          className={`relative z-10 flex items-center justify-center w-8 h-8 flex-shrink-0 mr-1 rounded hover:bg-white/10 transition-colors ${accentColor}`}
+          className={`relative z-10 flex items-center justify-center w-8 h-8 flex-shrink-0 mr-1 rounded hover:bg-su-line/20 transition-colors ${accentColor}`}
           onClick={handleDismiss}
           aria-label="Dismiss emergency ticker"
           title="Dismiss"

@@ -60,7 +60,7 @@ export default function ReferencePanel() {
               className={`px-2 py-0.5 rounded text-xs font-mono border transition-colors ${
                 band === selectedBand
                   ? "bg-plasma-orange/20 border-plasma-orange/60 text-plasma-orange"
-                  : "bg-white/5 border-white/10 text-gray-400 hover:bg-white/10"
+                  : "bg-su-line/10 border-su-line/40 text-su-muted hover:bg-su-line/20"
               }`}
             >
               {band}
@@ -76,27 +76,27 @@ export default function ReferencePanel() {
         value={filter}
         onChange={(e) => setFilter(e.target.value)}
         placeholder="Filter Q-codes, prosigns, abbreviations..."
-        className="w-full px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 text-sm text-gray-200 placeholder-gray-500 focus:outline-none focus:border-plasma-orange/50"
+        className="w-full px-3 py-1.5 rounded-lg bg-su-line/10 border border-su-line/40 text-sm text-su-text placeholder:text-su-muted/80 focus:outline-none focus:border-plasma-orange/50"
         aria-label="Filter reference tables"
       />
 
       <div>
         <SectionHeader title="Q-Codes" />
         {qCodes.length === 0 ? (
-          <p className="text-sm text-gray-500 px-2">No matches</p>
+          <p className="text-sm text-su-muted px-2">No matches</p>
         ) : (
           <div className="space-y-0.5">
             {qCodes.map((q) => (
               <div
                 key={q.code}
-                className="grid grid-cols-[3.5rem_1fr] gap-3 py-1.5 px-2 rounded hover:bg-white/5"
+                className="grid grid-cols-[3.5rem_1fr] gap-3 py-1.5 px-2 rounded hover:bg-su-line/10"
               >
                 <span className="font-mono text-sm text-signal-green">
                   {q.code}
                 </span>
-                <span className="text-sm text-gray-300">
+                <span className="text-sm text-su-muted">
                   {q.statement}
-                  <span className="block text-xs text-gray-500">
+                  <span className="block text-xs text-su-muted">
                     {q.question}
                   </span>
                 </span>
@@ -109,21 +109,21 @@ export default function ReferencePanel() {
       <div>
         <SectionHeader title="CW Prosigns" />
         {prosigns.length === 0 ? (
-          <p className="text-sm text-gray-500 px-2">No matches</p>
+          <p className="text-sm text-su-muted px-2">No matches</p>
         ) : (
           <div className="space-y-0.5">
             {prosigns.map((p) => (
               <div
                 key={p.sign}
-                className="grid grid-cols-[3.5rem_7rem_1fr] gap-3 py-1.5 px-2 rounded hover:bg-white/5"
+                className="grid grid-cols-[3.5rem_7rem_1fr] gap-3 py-1.5 px-2 rounded hover:bg-su-line/10"
               >
                 <span className="font-mono text-sm text-signal-green">
                   {p.sign}
                 </span>
-                <span className="font-mono text-xs text-gray-500 self-center">
+                <span className="font-mono text-xs text-su-muted self-center">
                   {p.morse}
                 </span>
-                <span className="text-sm text-gray-300">{p.meaning}</span>
+                <span className="text-sm text-su-muted">{p.meaning}</span>
               </div>
             ))}
           </div>
@@ -133,18 +133,18 @@ export default function ReferencePanel() {
       <div>
         <SectionHeader title="CW Abbreviations" />
         {abbreviations.length === 0 ? (
-          <p className="text-sm text-gray-500 px-2">No matches</p>
+          <p className="text-sm text-su-muted px-2">No matches</p>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-0.5">
             {abbreviations.map((a) => (
               <div
                 key={a.abbr}
-                className="grid grid-cols-[3.5rem_1fr] gap-3 py-1 px-2 rounded hover:bg-white/5"
+                className="grid grid-cols-[3.5rem_1fr] gap-3 py-1 px-2 rounded hover:bg-su-line/10"
               >
                 <span className="font-mono text-sm text-signal-green">
                   {a.abbr}
                 </span>
-                <span className="text-sm text-gray-300">{a.meaning}</span>
+                <span className="text-sm text-su-muted">{a.meaning}</span>
               </div>
             ))}
           </div>

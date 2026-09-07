@@ -24,7 +24,7 @@ export function SettingSelect({
     <div>
       <label
         htmlFor={id}
-        className="block text-sm font-medium text-gray-300 mb-1"
+        className="block text-sm font-medium text-su-muted mb-1"
       >
         {label}
       </label>
@@ -32,13 +32,13 @@ export function SettingSelect({
         id={id}
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="w-full bg-void-black border border-white/10 text-gray-200 rounded-lg px-3 py-2 text-sm focus:border-plasma-orange/50 focus:outline-none appearance-none cursor-pointer"
+        className="w-full bg-void-black border border-su-line/40 text-su-text rounded-lg px-3 py-2 text-sm focus:border-plasma-orange/50 focus:outline-none appearance-none cursor-pointer"
         style={SELECT_CARET_STYLE}
       >
         {children}
       </select>
       {description && (
-        <p className="text-xs text-gray-500 mt-1">{description}</p>
+        <p className="text-xs text-su-muted mt-1">{description}</p>
       )}
     </div>
   );

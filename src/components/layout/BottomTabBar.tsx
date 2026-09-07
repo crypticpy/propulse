@@ -136,7 +136,7 @@ export function BottomTabBar() {
 
   return (
     <>
-      <nav className="fixed bottom-0 left-0 right-0 z-50 bg-void-black/95 backdrop-blur-sm border-t border-white/10 pb-safe">
+      <nav className="fixed bottom-0 left-0 right-0 z-50 bg-void-black/95 backdrop-blur-sm border-t border-su-line/40 pb-safe">
         <div className="flex items-center justify-around h-14">
           {tabs.map((tab) => {
             const isTools = tab.icon === "wrench";
@@ -150,7 +150,7 @@ export function BottomTabBar() {
                   key="tools"
                   onClick={() => setShowTools(!showTools)}
                   className={`flex flex-col items-center justify-center gap-0.5 min-w-[44px] min-h-[44px] transition-colors ${
-                    isActive ? "text-plasma-orange" : "text-gray-500"
+                    isActive ? "text-plasma-orange" : "text-su-muted"
                   }`}
                   aria-label="Tools menu"
                 >
@@ -165,7 +165,7 @@ export function BottomTabBar() {
                 key={tab.path}
                 to={tab.path}
                 className={`flex flex-col items-center justify-center gap-0.5 min-w-[44px] min-h-[44px] transition-colors ${
-                  isActive ? "text-plasma-orange" : "text-gray-500"
+                  isActive ? "text-plasma-orange" : "text-su-muted"
                 }`}
                 aria-label={tab.label}
               >

@@ -48,7 +48,7 @@ function BandChip({
         ${
           selected
             ? "bg-plasma-orange/20 text-plasma-orange border border-plasma-orange/50"
-            : "bg-white/5 text-gray-400 border border-white/10 hover:border-white/20"
+            : "bg-su-line/10 text-su-muted border border-su-line/40 hover:border-su-line/50"
         }
         ${disabled ? "opacity-50 cursor-not-allowed" : "cursor-pointer"}
       `}
@@ -85,9 +85,9 @@ function KpSlider({
   return (
     <div className={`space-y-2 ${disabled ? "opacity-50" : ""}`}>
       <div className="flex items-center justify-between">
-        <label className="text-xs text-gray-400">Kp threshold:</label>
+        <label className="text-xs text-su-muted">Kp threshold:</label>
         <span
-          className={`text-sm font-mono font-medium ${kpColors[value] || "text-white"}`}
+          className={`text-sm font-mono font-medium ${kpColors[value] || "text-su-text"}`}
         >
           {value}
         </span>
@@ -102,7 +102,7 @@ function KpSlider({
         disabled={disabled}
         className={`
           w-full h-2 rounded-full appearance-none cursor-pointer
-          bg-white/10
+          bg-su-line/20
           [&::-webkit-slider-thumb]:appearance-none
           [&::-webkit-slider-thumb]:w-4
           [&::-webkit-slider-thumb]:h-4
@@ -120,7 +120,7 @@ function KpSlider({
           ${disabled ? "cursor-not-allowed [&::-webkit-slider-thumb]:cursor-not-allowed [&::-moz-range-thumb]:cursor-not-allowed" : ""}
         `}
       />
-      <div className="flex justify-between text-[10px] text-gray-500">
+      <div className="flex justify-between text-[10px] text-su-muted">
         <span>1 (Quiet)</span>
         <span>5 (Storm)</span>
         <span>9 (Severe)</span>
@@ -159,14 +159,14 @@ export function NotificationSettings({
   return (
     <div className={`space-y-4 ${className}`}>
       {/* Header */}
-      <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider">
+      <h3 className="text-sm font-semibold text-su-muted uppercase tracking-wider">
         Notifications
       </h3>
 
       {/* Notification toggles */}
       <div className="space-y-5">
         {/* Greyline alerts */}
-        <div className="p-3 bg-nebula-blue rounded-lg border border-white/10">
+        <div className="p-3 bg-nebula-blue rounded-lg border border-su-line/40">
           <ToggleSwitch
             checked={notifications.greylineAlerts}
             onChange={(checked) => handleToggle("greylineAlerts", checked)}
@@ -176,7 +176,7 @@ export function NotificationSettings({
         </div>
 
         {/* Storm alerts with Kp threshold */}
-        <div className="p-3 bg-nebula-blue rounded-lg border border-white/10 space-y-3">
+        <div className="p-3 bg-nebula-blue rounded-lg border border-su-line/40 space-y-3">
           <ToggleSwitch
             checked={notifications.stormAlerts}
             onChange={(checked) => handleToggle("stormAlerts", checked)}
@@ -193,7 +193,7 @@ export function NotificationSettings({
         </div>
 
         {/* Solar flare alerts */}
-        <div className="p-3 bg-nebula-blue rounded-lg border border-white/10">
+        <div className="p-3 bg-nebula-blue rounded-lg border border-su-line/40">
           <ToggleSwitch
             checked={notifications.flareAlerts}
             onChange={(checked) => handleToggle("flareAlerts", checked)}
@@ -203,7 +203,7 @@ export function NotificationSettings({
         </div>
 
         {/* Band opening alerts with band selector */}
-        <div className="p-3 bg-nebula-blue rounded-lg border border-white/10 space-y-3">
+        <div className="p-3 bg-nebula-blue rounded-lg border border-su-line/40 space-y-3">
           <ToggleSwitch
             checked={notifications.bandOpeningAlerts}
             onChange={(checked) => handleToggle("bandOpeningAlerts", checked)}
@@ -211,7 +211,7 @@ export function NotificationSettings({
             description="Alert when selected bands show activity between continents"
           />
           <div className="pl-[52px]">
-            <div className="text-xs text-gray-400 mb-2">Monitor bands:</div>
+            <div className="text-xs text-su-muted mb-2">Monitor bands:</div>
             <div className="flex flex-wrap gap-1.5">
               {ALL_BANDS.map((band) => (
                 <BandChip
@@ -235,10 +235,10 @@ export function NotificationSettings({
         </div>
 
         {/* Divider */}
-        <div className="border-t border-white/10" />
+        <div className="border-t border-su-line/40" />
 
         {/* Sound toggle */}
-        <div className="p-3 bg-nebula-blue rounded-lg border border-white/10">
+        <div className="p-3 bg-nebula-blue rounded-lg border border-su-line/40">
           <ToggleSwitch
             checked={notifications.soundEnabled}
             onChange={(checked) => handleToggle("soundEnabled", checked)}
@@ -248,11 +248,11 @@ export function NotificationSettings({
         </div>
 
         {/* Alert display style */}
-        <div className="p-3 bg-nebula-blue rounded-lg border border-white/10 space-y-2">
-          <label className="text-sm font-medium text-gray-300">
+        <div className="p-3 bg-nebula-blue rounded-lg border border-su-line/40 space-y-2">
+          <label className="text-sm font-medium text-su-muted">
             Alert display style
           </label>
-          <p className="text-xs text-gray-500">
+          <p className="text-xs text-su-muted">
             Choose where in-app alerts appear
           </p>
           <div className="flex gap-2 mt-2">
@@ -277,7 +277,7 @@ export function NotificationSettings({
                   ${
                     notifications.alertDisplayStyle === opt.value
                       ? "bg-plasma-orange/20 text-plasma-orange border-plasma-orange/50"
-                      : "bg-white/5 text-gray-400 border-white/10 hover:border-white/20"
+                      : "bg-su-line/10 text-su-muted border-su-line/40 hover:border-su-line/50"
                   }
                 `}
               >
@@ -289,9 +289,9 @@ export function NotificationSettings({
         </div>
 
         {/* Info notice */}
-        <div className="flex items-start gap-2 p-3 bg-white/5 rounded-lg border border-white/5">
+        <div className="flex items-start gap-2 p-3 bg-su-line/10 rounded-lg border border-su-line/20">
           <svg
-            className="w-4 h-4 text-gray-500 flex-shrink-0 mt-0.5"
+            className="w-4 h-4 text-su-muted flex-shrink-0 mt-0.5"
             fill="none"
             stroke="currentColor"
             viewBox="0 0 24 24"
@@ -303,14 +303,14 @@ export function NotificationSettings({
               d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
             />
           </svg>
-          <p className="text-xs text-gray-500">
+          <p className="text-xs text-su-muted">
             Push notifications coming soon. Currently, alerts display within the
             app when conditions change.
           </p>
         </div>
 
         {/* Divider before Watch Alerts */}
-        <div className="border-t border-white/10 my-6" />
+        <div className="border-t border-su-line/40 my-6" />
 
         {/* Watch Alert Settings */}
         <WatchAlertSettings />

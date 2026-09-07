@@ -1,0 +1,169 @@
+import { normalizeLiveSpot } from "@/lib/spots/presentation/pipeline";
+import { contractIdSchema, type NormalizedSpotReport } from "@/lib/views/spotContracts";
+import type { LiveSpot } from "@/types/livespot";
+import { groupMappedReports } from "./grouping";
+
+/**
+ * A cluster of nearby spots
+ */
+export interface SpotCluster {
+  /** Unique identifier for the cluster */
+  id: string;
+  /** Geographic center of the cluster */
+  center: { lat: number; lon: number };
+  /** All spots contained in this cluster */
+  spots: LiveSpot[];
+  /** Number of spots in this cluster */
+  count: number;
+  /** The most recent spot (used for color/display) */
+  primarySpot: LiveSpot;
+}
+
+/**
+ * Configuration options for spot clustering
+ */
+export interface ClusteringOptions {
+  /** Whether clustering is enabled */
+  enabled: boolean;
+  /** Ignored. Membership is geographic, not camera or degree-cell based. */
+  gridSize?: number;
+  /** Minimum spots required to form a cluster (clamped 2–50, default 3) */
+  minClusterSize?: number;
+}
+
+/**
+ * Result of the clustering operation
+ */
+export interface ClusteringResult {
+  /** Clustered spot groups */
+  clusters: SpotCluster[];
+  /** Spots that don't need clustering (isolated or in small groups) */
+  singles: LiveSpot[];
+  /** Total number of spots processed */
+  totalSpots: number;
+}
+
+const DEFAULT_MIN_GROUP_SIZE = 3;
+
+function clampMinGroupSize(value: unknown): number {
+  if (typeof value !== "number" || !Number.isFinite(value) || value < 2) {
+    return DEFAULT_MIN_GROUP_SIZE;
+  }
+  return Math.min(50, Math.floor(value));
+}
+
+function getSpotTime(spot: LiveSpot): number {
+  const value: unknown = spot.time;
+  const time =
+    value instanceof Date
+      ? value.getTime()
+      : typeof value === "string" || typeof value === "number"
+        ? new Date(value).getTime()
+        : Number.NaN;
+  return Number.isFinite(time) ? time : Number.NEGATIVE_INFINITY;
+}
+
+function compareSpots(a: LiveSpot, b: LiveSpot): number {
+  const aTime = getSpotTime(a);
+  const bTime = getSpotTime(b);
+  if (aTime !== bTime) return bTime - aTime;
+  return a.id.localeCompare(b.id);
+}
+
+function reportFromLiveSpot(spot: LiveSpot): NormalizedSpotReport | null {
+  const report = normalizeLiveSpot(spot, new Map());
+  if (!report || report.dx.location.kind === "unavailable") return null;
+  const parsedId = contractIdSchema.safeParse(spot.id);
+  return parsedId.success ? { ...report, id: parsedId.data } : report;
+}
+
+/**
+ * Cluster spots with the SP-05 geographic grouping rules.
+ *
+ * Prefix/approximate reports stay country groups. Camera and `gridSize` never
+ * participate in membership. Unlocated spots remain singles.
+ */
+export function clusterSpots(
+  spots: LiveSpot[],
+  options: ClusteringOptions,
+): ClusteringResult {
+  const enabled = options.enabled;
+  const minGroupSize = clampMinGroupSize(options.minClusterSize);
+
+  if (!enabled || spots.length === 0) {
+    return {
+      clusters: [],
+      singles: [...spots].sort(compareSpots),
+      totalSpots: spots.length,
+    };
+  }
+
+  const mapped: { spot: LiveSpot; report: NormalizedSpotReport }[] = [];
+  const unresolved: LiveSpot[] = [];
+  for (const spot of spots) {
+    const report = reportFromLiveSpot(spot);
+    if (!report) {
+      unresolved.push(spot);
+      continue;
+    }
+    mapped.push({ spot, report });
+  }
+
+  const byId = new Map(mapped.map((entry) => [entry.report.id, entry.spot]));
+  const grouped = groupMappedReports(
+    mapped.map((entry) => entry.report),
+    { enabled: true, detail: "regions", minGroupSize },
+  );
+
+  const clusters: SpotCluster[] = grouped.groups.map((group) => {
+    const clusteredSpots = group.reportIds
+      .map((id) => byId.get(id))
+      .filter((spot): spot is LiveSpot => Boolean(spot));
+    return {
+      id: group.id,
+      center: group.anchor,
+      spots: clusteredSpots,
+      count: clusteredSpots.length,
+      primarySpot: clusteredSpots[0]!,
+    };
+  });
+
+  const singles = [
+    ...unresolved,
+    ...grouped.singles.map((id) => byId.get(id)).filter((spot): spot is LiveSpot => Boolean(spot)),
+  ].sort(compareSpots);
+
+  clusters.sort((a, b) => a.id.localeCompare(b.id));
+
+  return {
+    clusters,
+    singles,
+    totalSpots: spots.length,
+  };
+}
+
+export function getClusterCallsignSummary(
+  cluster: SpotCluster,
+  maxCallsigns: number = 10,
+): string {
+  const callsigns = cluster.spots
+    .slice(0, maxCallsigns)
+    .map((spot) => spot.dx)
+    .join(", ");
+
+  if (cluster.count > maxCallsigns) {
+    return `${callsigns} +${cluster.count - maxCallsigns} more`;
+  }
+
+  return callsigns;
+}
+
+export function getClusterModes(cluster: SpotCluster): string[] {
+  const modes = new Set<string>();
+  for (const spot of cluster.spots) {
+    if (spot.mode) {
+      modes.add(spot.mode.toUpperCase());
+    }
+  }
+  return Array.from(modes);
+}

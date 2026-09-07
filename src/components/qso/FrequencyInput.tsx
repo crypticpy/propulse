@@ -52,20 +52,20 @@ export function FrequencyInput({
           placeholder="14074"
           className={`
             w-full h-12 px-3
-            bg-white/5 border rounded-lg
-            text-white text-base font-mono
-            placeholder-gray-500
+            bg-su-line/10 border rounded-lg
+            text-su-text text-base font-mono
+            placeholder:text-su-muted/80
             focus:border-plasma-orange/50 focus:ring-1 focus:ring-plasma-orange/30
             focus:outline-none
             transition-colors
             [appearance:textfield]
             [&::-webkit-inner-spin-button]:appearance-none
             [&::-webkit-outer-spin-button]:appearance-none
-            ${autoFilled ? "border-l-2 border-l-signal-green border-white/10" : "border-white/10"}
+            ${autoFilled ? "border-l-2 border-l-signal-green border-su-line/40" : "border-su-line/40"}
           `}
           style={{ fontSize: "16px" }}
         />
-        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-gray-500 pointer-events-none">
+        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-su-muted pointer-events-none">
           kHz
         </span>
       </div>

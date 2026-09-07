@@ -6,16 +6,16 @@ export function ProfileSection() {
   return (
     <div className="space-y-6">
       {/* Overview */}
-      <p className="text-sm leading-relaxed text-gray-300">
+      <p className="text-sm leading-relaxed text-su-muted">
         Your Profile is your ham radio identity on Propulse &mdash; featuring
         your callsign card, operator rank, badges, statistics, and public
         presence. Profiles can be shared publicly so other operators can learn
         about your station. Navigate to{" "}
-        <code className="text-xs bg-white/10 px-1.5 py-0.5 rounded font-mono">
+        <code className="text-xs bg-su-line/20 px-1.5 py-0.5 rounded font-mono">
           /profile
         </code>{" "}
         to manage your own profile, or visit{" "}
-        <code className="text-xs bg-white/10 px-1.5 py-0.5 rounded font-mono">
+        <code className="text-xs bg-su-line/20 px-1.5 py-0.5 rounded font-mono">
           /profile/&#123;callsign&#125;
         </code>{" "}
         to view another operator. On desktop, the profile page features a sticky
@@ -30,7 +30,7 @@ export function ProfileSection() {
         title="Profile Card"
         summary="Your callsign, grid, bio, avatar, and station identity"
       >
-        <div className="space-y-4 text-sm text-gray-300 leading-relaxed">
+        <div className="space-y-4 text-sm text-su-muted leading-relaxed">
           <p>
             The profile card is your at-a-glance station identity, displayed
             prominently on your profile page and visible to other operators.
@@ -96,7 +96,7 @@ export function ProfileSection() {
         title="Operator Rank System"
         summary="How XP is earned and ranks progress from Novice to Ethereal"
       >
-        <div className="space-y-4 text-sm text-gray-300 leading-relaxed">
+        <div className="space-y-4 text-sm text-su-muted leading-relaxed">
           <p>
             Propulse has a gamified rank system that tracks your activity and
             rewards engagement. Rank Points (RP) are accumulated from multiple
@@ -104,40 +104,46 @@ export function ProfileSection() {
           </p>
 
           <div>
-            <h4 className="text-white font-semibold mb-1.5">Rank Tiers</h4>
+            <h4 className="text-su-text font-semibold mb-1.5">Rank Tiers</h4>
             <p className="mb-2">
               Progress through seven tiers as you accumulate Rank Points:
             </p>
             <ul className="list-disc list-inside space-y-1.5 pl-1">
               <li>
-                <strong className="text-gray-400">Novice (0 RP)</strong> &mdash;
+                <strong className="text-su-muted">Novice (0 RP)</strong> &mdash;
                 &ldquo;Welcome to the Bands.&rdquo; Starting rank for all
                 operators. Card background: Schematic.
               </li>
               <li>
-                <strong className="text-sky-400">Apprentice (400 RP)</strong>{" "}
+                <strong className="text-cosmic-cyan">
+                  Apprentice (400 RP)
+                </strong>{" "}
                 &mdash; &ldquo;Signal Rising.&rdquo; Unlocks card flip animation
                 and Topographic background.
               </li>
               <li>
-                <strong className="text-emerald-400">
+                <strong className="text-signal-green">
                   Journeyman (1,500 RP)
                 </strong>{" "}
                 &mdash; &ldquo;Steady Signal.&rdquo; Unlocks mouse-tilt
                 interactive card effect and Circuit background.
               </li>
               <li>
-                <strong className="text-violet-400">Expert (4,000 RP)</strong>{" "}
+                <strong className="text-aurora-purple">
+                  Expert (4,000 RP)
+                </strong>{" "}
                 &mdash; &ldquo;Strong Copy.&rdquo; Unlocks particle effects,
                 animated stat count-up, and Constellation background.
               </li>
               <li>
-                <strong className="text-amber-300">Master (10,000 RP)</strong>{" "}
+                <strong className="text-caution-amber">
+                  Master (10,000 RP)
+                </strong>{" "}
                 &mdash; &ldquo;Full Quieting.&rdquo; Unlocks equipment wear
                 indicators and Propagation background.
               </li>
               <li>
-                <strong className="text-yellow-300">
+                <strong className="text-caution-amber">
                   Legendary (25,000 RP)
                 </strong>{" "}
                 &mdash; &ldquo;DX Commander.&rdquo; Unlocks card signature
@@ -145,7 +151,7 @@ export function ProfileSection() {
                 Aurora background.
               </li>
               <li>
-                <strong className="text-violet-300">
+                <strong className="text-aurora-purple">
                   Ethereal (50,000 RP)
                 </strong>{" "}
                 &mdash; &ldquo;The Infinite Signal.&rdquo; Unlocks chromatic
@@ -156,7 +162,7 @@ export function ProfileSection() {
           </div>
 
           <div>
-            <h4 className="text-white font-semibold mb-1.5">
+            <h4 className="text-su-text font-semibold mb-1.5">
               RP Sources (How to Earn Points)
             </h4>
             <ul className="list-disc list-inside space-y-1.5 pl-1">
@@ -210,7 +216,7 @@ export function ProfileSection() {
           </div>
 
           <div>
-            <h4 className="text-white font-semibold mb-1.5">Rank Badge</h4>
+            <h4 className="text-su-text font-semibold mb-1.5">Rank Badge</h4>
             <p>
               Your current rank badge is displayed next to your callsign in the
               app header and on your profile card. Each rank has a unique icon,
@@ -220,7 +226,7 @@ export function ProfileSection() {
           </div>
 
           <div>
-            <h4 className="text-white font-semibold mb-1.5">
+            <h4 className="text-su-text font-semibold mb-1.5">
               Card Customization
             </h4>
             <p>
@@ -266,7 +272,7 @@ export function ProfileSection() {
         title="Badges & Awards"
         summary="Achievement badges and operating awards earned through activity"
       >
-        <div className="space-y-3 text-sm text-gray-300 leading-relaxed">
+        <div className="space-y-3 text-sm text-su-muted leading-relaxed">
           <p>
             Badges are earned automatically based on your operating activity and
             are displayed on your profile for other operators to see. The Awards
@@ -275,7 +281,7 @@ export function ProfileSection() {
           </p>
 
           <div>
-            <h4 className="text-white font-semibold mb-1.5">
+            <h4 className="text-su-text font-semibold mb-1.5">
               Achievement Tiers
             </h4>
             <ul className="list-disc list-inside space-y-1.5 pl-1">
@@ -299,7 +305,7 @@ export function ProfileSection() {
           </div>
 
           <div>
-            <h4 className="text-white font-semibold mb-1.5">Categories</h4>
+            <h4 className="text-su-text font-semibold mb-1.5">Categories</h4>
             <ul className="list-disc list-inside space-y-1 pl-1">
               <li>
                 <strong>Operating Milestones</strong> &mdash; First QSO, 100
@@ -340,7 +346,7 @@ export function ProfileSection() {
         title="Statistics"
         summary="QSO counts, band/mode breakdowns, streaks, and entity tracking"
       >
-        <div className="space-y-3 text-sm text-gray-300 leading-relaxed">
+        <div className="space-y-3 text-sm text-su-muted leading-relaxed">
           <p>
             The Stats tab on your profile page provides a comprehensive
             breakdown of your operating activity. Statistics update
@@ -394,7 +400,7 @@ export function ProfileSection() {
         title="QSL Cards"
         summary="Digital QSL generation and external service integration"
       >
-        <div className="space-y-3 text-sm text-gray-300 leading-relaxed">
+        <div className="space-y-3 text-sm text-su-muted leading-relaxed">
           <p>
             The QSL Summary on your profile&apos;s Overview tab shows your QSL
             confirmation status and integration with external services.
@@ -437,10 +443,10 @@ export function ProfileSection() {
         title="Public Profiles"
         summary="Viewing other operators, following, and privacy controls"
       >
-        <div className="space-y-4 text-sm text-gray-300 leading-relaxed">
+        <div className="space-y-4 text-sm text-su-muted leading-relaxed">
           <p>
             Visit any operator&apos;s profile at{" "}
-            <code className="text-xs bg-white/10 px-1.5 py-0.5 rounded font-mono">
+            <code className="text-xs bg-su-line/20 px-1.5 py-0.5 rounded font-mono">
               /profile/&#123;callsign&#125;
             </code>
             . Public profiles show the operator&apos;s callsign, grid, bio,
@@ -449,7 +455,7 @@ export function ProfileSection() {
           </p>
 
           <div>
-            <h4 className="text-white font-semibold mb-1.5">
+            <h4 className="text-su-text font-semibold mb-1.5">
               Following Operators
             </h4>
             <p>
@@ -461,7 +467,7 @@ export function ProfileSection() {
           </div>
 
           <div>
-            <h4 className="text-white font-semibold mb-1.5">
+            <h4 className="text-su-text font-semibold mb-1.5">
               Privacy Controls
             </h4>
             <p>
@@ -503,7 +509,7 @@ export function ProfileSection() {
         title="Completeness Indicator"
         summary="What contributes to your profile completion percentage"
       >
-        <div className="space-y-3 text-sm text-gray-300 leading-relaxed">
+        <div className="space-y-3 text-sm text-su-muted leading-relaxed">
           <p>
             The profile completeness percentage tracks how many key profile
             fields you have filled out. It is displayed on your profile card and
@@ -511,7 +517,7 @@ export function ProfileSection() {
           </p>
 
           <div>
-            <h4 className="text-white font-semibold mb-1.5">
+            <h4 className="text-su-text font-semibold mb-1.5">
               Fields That Count
             </h4>
             <ul className="list-disc list-inside space-y-1 pl-1">
@@ -566,14 +572,14 @@ export function ProfileSection() {
         title="Overview Tab"
         summary="Station identity, license, bio, social links, equipment, and QSL"
       >
-        <div className="space-y-4 text-sm text-gray-300 leading-relaxed">
+        <div className="space-y-4 text-sm text-su-muted leading-relaxed">
           <p>
             The Overview tab is the default view on your profile page and
             contains the core sections that define your station.
           </p>
 
           <div>
-            <h4 className="text-white font-semibold mb-1.5">
+            <h4 className="text-su-text font-semibold mb-1.5">
               Station Identity
             </h4>
             <p>
@@ -586,7 +592,7 @@ export function ProfileSection() {
           </div>
 
           <div>
-            <h4 className="text-white font-semibold mb-1.5">License Card</h4>
+            <h4 className="text-su-text font-semibold mb-1.5">License Card</h4>
             <p>
               Displays your license class, license history timeline, and any
               upgrade milestones you have recorded. You can track your
@@ -595,7 +601,7 @@ export function ProfileSection() {
           </div>
 
           <div>
-            <h4 className="text-white font-semibold mb-1.5">Bio</h4>
+            <h4 className="text-su-text font-semibold mb-1.5">Bio</h4>
             <p>
               Freeform text about yourself and your station. Write about your
               operating interests, equipment, favorite bands, or anything else
@@ -604,7 +610,7 @@ export function ProfileSection() {
           </div>
 
           <div>
-            <h4 className="text-white font-semibold mb-1.5">Social Links</h4>
+            <h4 className="text-su-text font-semibold mb-1.5">Social Links</h4>
             <p>
               Links to your QRZ, HamQTH, and other profiles. QRZ and HamQTH
               links are auto-generated when you set your callsign. You can also
@@ -613,7 +619,7 @@ export function ProfileSection() {
           </div>
 
           <div>
-            <h4 className="text-white font-semibold mb-1.5">
+            <h4 className="text-su-text font-semibold mb-1.5">
               Equipment Summary
             </h4>
             <p>
@@ -631,7 +637,7 @@ export function ProfileSection() {
         title="Social Tab"
         summary="Friends list, activity feed, visibility settings, and share card"
       >
-        <div className="space-y-3 text-sm text-gray-300 leading-relaxed">
+        <div className="space-y-3 text-sm text-su-muted leading-relaxed">
           <p>
             The Social tab on your profile provides community features for
             connecting with other operators.

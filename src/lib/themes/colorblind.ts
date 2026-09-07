@@ -253,14 +253,14 @@ export function getStatusColorStyles(
       good: "text-signal-green",
       fair: "text-caution-amber",
       poor: "text-alert-red",
-      closed: "text-gray-500",
+      closed: "text-su-muted",
     };
 
     const bgClasses: Record<string, string> = {
       good: "bg-signal-green/15",
       fair: "bg-caution-amber/15",
       poor: "bg-alert-red/15",
-      closed: "bg-gray-500/15",
+      closed: "bg-su-line/10",
     };
 
     return {

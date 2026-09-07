@@ -31,6 +31,7 @@ import {
 } from "./handlers/atmosSpace";
 import { handleAuroraIndex } from "./handlers/aurora";
 import { handleSpotsBandActivity } from "./handlers/bandActivity";
+import { handleSpotsBandHistory } from "./handlers/bandHistory";
 import { handlePskStation } from "./handlers/pskStation";
 import { handleSpotsBandLadder } from "./handlers/bandLadder";
 import {
@@ -102,6 +103,7 @@ export const PORTABLE_ROUTES: Readonly<Record<string, EdgeHandler>> = {
   "/api/satellites/tle": handleSatellitesTle,
   "/api/satellites/transponders": handleSatellitesTransponders,
   "/api/spots/band-activity": handleSpotsBandActivity,
+  "/api/spots/band-history": handleSpotsBandHistory,
   "/api/spots/band-ladder": handleSpotsBandLadder,
   "/api/spots/dxcluster": handleSpotsDxcluster,
   "/api/spots/psk-station": handlePskStation,

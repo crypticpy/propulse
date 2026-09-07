@@ -120,7 +120,7 @@ export function RankBadge({
   // -- Ethereal overrides bg/text since it uses a gradient background -------
   const isEthereal = rank === "ethereal";
   const bgClass = isEthereal ? "" : styles.bg;
-  const textClass = isEthereal ? "text-white" : styles.text;
+  const textClass = isEthereal ? "text-su-text" : styles.text;
   const prismaticClass = isEthereal ? "rank-prismatic" : "";
 
   // -- Font overrides for legendary/ethereal --------------------------------

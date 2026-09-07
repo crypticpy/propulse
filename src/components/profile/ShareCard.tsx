@@ -170,9 +170,9 @@ export function ShareCard() {
   }, [template, cardData.callsign, handleDownload]);
 
   return (
-    <div className="bg-panel/30 backdrop-blur-sm border border-white/5 rounded-2xl p-6">
-      <h3 className="text-lg font-semibold text-white mb-1">Share Card</h3>
-      <p className="text-sm text-gray-400 mb-4">
+    <div className="bg-panel/30 backdrop-blur-sm border border-su-line/20 rounded-2xl p-6">
+      <h3 className="text-lg font-semibold text-su-text mb-1">Share Card</h3>
+      <p className="text-sm text-su-muted mb-4">
         Generate a profile card image for sharing
       </p>
 
@@ -192,17 +192,17 @@ export function ShareCard() {
                 isSelected
                   ? "border-plasma-orange bg-plasma-orange/10"
                   : unlocked
-                    ? "border-white/10 bg-white/5 hover:border-white/20 hover:bg-white/8"
-                    : "border-white/5 bg-white/[0.02] cursor-not-allowed opacity-50",
+                    ? "border-su-line/40 bg-su-line/10 hover:border-su-line/50 hover:bg-su-line/20"
+                    : "border-su-line/20 bg-su-line/10 cursor-not-allowed opacity-50",
               ].join(" ")}
               title={t.description}
             >
               <span
-                className={`block text-xs font-medium truncate ${isSelected ? "text-plasma-orange" : unlocked ? "text-gray-300" : "text-gray-500"}`}
+                className={`block text-xs font-medium truncate ${isSelected ? "text-plasma-orange" : unlocked ? "text-su-muted" : "text-su-muted"}`}
               >
                 {t.label}
               </span>
-              <span className="block text-[10px] text-gray-500 truncate mt-0.5">
+              <span className="block text-[10px] text-su-muted truncate mt-0.5">
                 {t.description}
               </span>
               {!unlocked && (
@@ -214,12 +214,12 @@ export function ShareCard() {
                     fill="none"
                     stroke="currentColor"
                     strokeWidth="1.5"
-                    className="text-gray-500"
+                    className="text-su-muted"
                   >
                     <rect x="3" y="8" width="10" height="7" rx="1.5" />
                     <path d="M5 8V5a3 3 0 016 0v3" />
                   </svg>
-                  <span className="text-[9px] text-gray-500 capitalize">
+                  <span className="text-[9px] text-su-muted capitalize">
                     {t.minRank}
                   </span>
                 </span>
@@ -230,7 +230,7 @@ export function ShareCard() {
       </div>
 
       {/* Live preview */}
-      <div className="relative aspect-[1200/630] w-full rounded-lg overflow-hidden border border-white/5 bg-black mb-4">
+      <div className="relative aspect-[1200/630] w-full rounded-lg overflow-hidden border border-su-line/20 bg-black mb-4">
         {loading && (
           <div className="absolute inset-0 flex items-center justify-center">
             <div className="w-6 h-6 border-2 border-plasma-orange/30 border-t-plasma-orange rounded-full animate-spin motion-reduce:animate-none" />
@@ -253,16 +253,16 @@ export function ShareCard() {
           type="checkbox"
           checked={showQR}
           onChange={(e) => setShowQR(e.target.checked)}
-          className="w-3.5 h-3.5 rounded border-white/20 bg-white/5 text-plasma-orange focus:ring-plasma-orange/50 focus:ring-offset-0"
+          className="w-3.5 h-3.5 rounded border-su-line/50 bg-su-line/10 text-plasma-orange focus:ring-plasma-orange/50 focus:ring-offset-0"
         />
-        <span className="text-xs text-gray-400">Include QR code link</span>
+        <span className="text-xs text-su-muted">Include QR code link</span>
       </label>
 
       {/* Actions */}
       <div className="flex gap-3">
         <button
           onClick={handleDownload}
-          className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium rounded-lg bg-plasma-orange hover:bg-plasma-orange/80 text-white transition-colors focus-visible:ring-2 focus-visible:ring-plasma-orange/50 focus-visible:outline-none"
+          className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium rounded-lg bg-plasma-orange hover:bg-plasma-orange/80 text-su-on-accent transition-colors focus-visible:ring-2 focus-visible:ring-plasma-orange/50 focus-visible:outline-none"
         >
           {/* Download icon */}
           <svg
@@ -288,7 +288,7 @@ export function ShareCard() {
               "Sign in to share your profile",
             )
           }
-          className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium rounded-lg bg-plasma-orange hover:bg-plasma-orange/80 text-white transition-colors focus-visible:ring-2 focus-visible:ring-plasma-orange/50 focus-visible:outline-none"
+          className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium rounded-lg bg-plasma-orange hover:bg-plasma-orange/80 text-su-on-accent transition-colors focus-visible:ring-2 focus-visible:ring-plasma-orange/50 focus-visible:outline-none"
         >
           {/* Share icon */}
           <svg

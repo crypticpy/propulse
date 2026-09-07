@@ -70,7 +70,7 @@ export function SatelliteGlobeFallback({
     <>
       <div ref={containerRef} className={`absolute inset-0 ${className}`} />
       {failed ? (
-        <div className="absolute inset-0 z-10 flex items-center justify-center bg-deep-space px-6 text-center text-sm text-gray-400">
+        <div className="absolute inset-0 z-10 flex items-center justify-center bg-deep-space px-6 text-center text-sm text-su-muted">
           The fallback globe could not load imagery.
         </div>
       ) : (

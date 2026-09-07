@@ -6,7 +6,7 @@ export function LogbookSection() {
   return (
     <div className="space-y-6">
       {/* Overview */}
-      <p className="text-sm leading-relaxed text-gray-300">
+      <p className="text-sm leading-relaxed text-su-muted">
         The Logbook is your digital station log — record QSOs, track awards
         progress, import/export in ADIF format, and sync with external services
         like LoTW, eQSL, and ClubLog. All timestamps are stored in UTC, and
@@ -19,7 +19,7 @@ export function LogbookSection() {
         title="Logging a QSO"
         summary="How to record contacts with fields and auto-population"
       >
-        <div className="space-y-3 text-sm text-gray-300 leading-relaxed">
+        <div className="space-y-3 text-sm text-su-muted leading-relaxed">
           <p>
             Click the <strong>New QSO</strong> button or use the entry form at
             the top of the Logbook page. The form is designed for fast,
@@ -27,7 +27,7 @@ export function LogbookSection() {
           </p>
 
           <div>
-            <h4 className="text-white font-semibold mb-1.5">Required Fields</h4>
+            <h4 className="text-su-text font-semibold mb-1.5">Required Fields</h4>
             <ul className="list-disc list-inside space-y-1 pl-1">
               <li>
                 <strong>Callsign</strong> — The callsign of the station you
@@ -49,7 +49,7 @@ export function LogbookSection() {
           </div>
 
           <div>
-            <h4 className="text-white font-semibold mb-1.5">Optional Fields</h4>
+            <h4 className="text-su-text font-semibold mb-1.5">Optional Fields</h4>
             <ul className="list-disc list-inside space-y-1 pl-1">
               <li>RST sent and received</li>
               <li>Frequency (kHz)</li>
@@ -59,7 +59,7 @@ export function LogbookSection() {
           </div>
 
           <div>
-            <h4 className="text-white font-semibold mb-1.5">Auto-Population</h4>
+            <h4 className="text-su-text font-semibold mb-1.5">Auto-Population</h4>
             <p>
               When you enter a callsign, Propulse performs a lookup and
               automatically fills in available data such as the operator's grid
@@ -81,17 +81,17 @@ export function LogbookSection() {
         title="ADIF Import/Export"
         summary="Import from and export to standard ADIF format"
       >
-        <div className="space-y-3 text-sm text-gray-300 leading-relaxed">
+        <div className="space-y-3 text-sm text-su-muted leading-relaxed">
           <div>
-            <h4 className="text-white font-semibold mb-1.5">Import</h4>
+            <h4 className="text-su-text font-semibold mb-1.5">Import</h4>
             <p>
               Click the <strong>Import</strong> button in the toolbar to open
               the import modal. You can either upload an{" "}
-              <code className="text-xs bg-white/10 px-1 py-0.5 rounded">
+              <code className="text-xs bg-su-line/20 px-1 py-0.5 rounded">
                 .adi
               </code>
               /
-              <code className="text-xs bg-white/10 px-1 py-0.5 rounded">
+              <code className="text-xs bg-su-line/20 px-1 py-0.5 rounded">
                 .adif
               </code>{" "}
               file directly, or paste raw ADIF text into the text area. The
@@ -101,10 +101,10 @@ export function LogbookSection() {
           </div>
 
           <div>
-            <h4 className="text-white font-semibold mb-1.5">Export</h4>
+            <h4 className="text-su-text font-semibold mb-1.5">Export</h4>
             <p>
               Click <strong>Export</strong> to download your entire log as{" "}
-              <code className="text-xs bg-white/10 px-1 py-0.5 rounded">
+              <code className="text-xs bg-su-line/20 px-1 py-0.5 rounded">
                 propulse-log-YYYY-MM-DD.adi
               </code>
               . The file follows the ADIF 3.x standard and is compatible with
@@ -128,7 +128,7 @@ export function LogbookSection() {
         title="Guest Mode"
         summary="Temporary operator sessions for shared stations or events"
       >
-        <div className="space-y-3 text-sm text-gray-300 leading-relaxed">
+        <div className="space-y-3 text-sm text-su-muted leading-relaxed">
           <p>
             Guest mode lets a visiting operator log QSOs under their own
             callsign at your station. This is ideal for Field Day, club
@@ -167,7 +167,7 @@ export function LogbookSection() {
         title="Awards Tracker"
         summary="Track progress toward WAS, DXCC, and other achievements"
       >
-        <div className="space-y-3 text-sm text-gray-300 leading-relaxed">
+        <div className="space-y-3 text-sm text-su-muted leading-relaxed">
           <p>
             The Awards Tracker automatically scans your log entries and
             calculates progress toward popular amateur radio awards. Toggle it
@@ -202,7 +202,7 @@ export function LogbookSection() {
         title="External Services"
         summary="Sync with LoTW, eQSL, and ClubLog"
       >
-        <div className="space-y-4 text-sm text-gray-300 leading-relaxed">
+        <div className="space-y-4 text-sm text-su-muted leading-relaxed">
           <p>
             Use the <strong>Upload</strong> button to open the upload modal,
             where you can push your log entries to external services. You can
@@ -211,7 +211,7 @@ export function LogbookSection() {
           </p>
 
           <div>
-            <h4 className="text-white font-semibold mb-1">
+            <h4 className="text-su-text font-semibold mb-1">
               LoTW (Logbook of The World)
             </h4>
             <p>
@@ -223,7 +223,7 @@ export function LogbookSection() {
           </div>
 
           <div>
-            <h4 className="text-white font-semibold mb-1">eQSL</h4>
+            <h4 className="text-su-text font-semibold mb-1">eQSL</h4>
             <p>
               Electronic QSL card exchange service. Upload logs directly from
               Propulse to send and receive virtual QSL cards. Configure your
@@ -233,7 +233,7 @@ export function LogbookSection() {
           </div>
 
           <div>
-            <h4 className="text-white font-semibold mb-1">ClubLog</h4>
+            <h4 className="text-su-text font-semibold mb-1">ClubLog</h4>
             <p>
               DXCC tracking and analysis service run by Michael Wells, G7VJR.
               Upload logs for expedition tracking and DXCC credit analysis.
@@ -255,7 +255,7 @@ export function LogbookSection() {
         title="Local vs Cloud Storage"
         summary="Understanding where your log data lives"
       >
-        <div className="space-y-3 text-sm text-gray-300 leading-relaxed">
+        <div className="space-y-3 text-sm text-su-muted leading-relaxed">
           <ul className="list-disc list-inside space-y-2 pl-1">
             <li>
               <strong>No Account</strong> — All QSOs are stored in your

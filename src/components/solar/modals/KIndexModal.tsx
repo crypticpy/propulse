@@ -217,7 +217,7 @@ export const KIndexModal: React.FC<KIndexModalProps> = ({
         <Card className="p-4">
           <div className="flex items-center justify-between">
             <div>
-              <span className="text-xs font-mono uppercase tracking-wider text-gray-400">
+              <span className="text-xs font-mono uppercase tracking-wider text-su-muted">
                 Current K-Index
               </span>
               <div className="flex items-baseline gap-3 mt-1">
@@ -248,7 +248,7 @@ export const KIndexModal: React.FC<KIndexModalProps> = ({
               >
                 {condition.level}
               </span>
-              <p className="text-sm text-gray-400 mt-1">
+              <p className="text-sm text-su-muted mt-1">
                 {condition.description}
               </p>
             </div>
@@ -257,10 +257,10 @@ export const KIndexModal: React.FC<KIndexModalProps> = ({
 
         {/* What is K-Index? */}
         <Card className="p-4">
-          <h3 className="text-sm font-semibold text-white mb-2">
+          <h3 className="text-sm font-semibold text-su-text mb-2">
             What is the K-Index?
           </h3>
-          <p className="text-sm text-gray-400 leading-relaxed">
+          <p className="text-sm text-su-muted leading-relaxed">
             The K-index quantifies disturbances in Earth's magnetic field on a
             scale of 0-9. It is measured every 3 hours at ground-based
             magnetometers worldwide. The planetary Kp index is a weighted
@@ -272,7 +272,7 @@ export const KIndexModal: React.FC<KIndexModalProps> = ({
 
         {/* Color Legend */}
         <Card className="p-4">
-          <h3 className="text-sm font-semibold text-white mb-3">
+          <h3 className="text-sm font-semibold text-su-text mb-3">
             K-Index Scale
           </h3>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
@@ -290,7 +290,7 @@ export const KIndexModal: React.FC<KIndexModalProps> = ({
                     className="w-3 h-3 rounded-full"
                     style={{ backgroundColor: item.color }}
                   />
-                  <span className="text-sm font-mono text-white">
+                  <span className="text-sm font-mono text-su-text">
                     {item.range}
                   </span>
                 </div>
@@ -300,7 +300,7 @@ export const KIndexModal: React.FC<KIndexModalProps> = ({
                 >
                   {item.label}
                 </span>
-                <span className="text-xs text-gray-500 block mt-0.5">
+                <span className="text-xs text-su-muted block mt-0.5">
                   {item.description}
                 </span>
               </div>
@@ -310,23 +310,23 @@ export const KIndexModal: React.FC<KIndexModalProps> = ({
 
         {/* NOAA G-Scale Table */}
         <Card className="p-4">
-          <h3 className="text-sm font-semibold text-white mb-3">
+          <h3 className="text-sm font-semibold text-su-text mb-3">
             NOAA Geomagnetic Storm Scale
           </h3>
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b border-white/10">
-                  <th className="text-left py-2 px-2 text-gray-400 font-medium">
+                <tr className="border-b border-su-line/40">
+                  <th className="text-left py-2 px-2 text-su-muted font-medium">
                     Scale
                   </th>
-                  <th className="text-left py-2 px-2 text-gray-400 font-medium">
+                  <th className="text-left py-2 px-2 text-su-muted font-medium">
                     Kp
                   </th>
-                  <th className="text-left py-2 px-2 text-gray-400 font-medium">
+                  <th className="text-left py-2 px-2 text-su-muted font-medium">
                     Level
                   </th>
-                  <th className="text-left py-2 px-2 text-gray-400 font-medium hidden md:table-cell">
+                  <th className="text-left py-2 px-2 text-su-muted font-medium hidden md:table-cell">
                     Effects
                   </th>
                 </tr>
@@ -335,8 +335,8 @@ export const KIndexModal: React.FC<KIndexModalProps> = ({
                 {G_SCALE_DATA.map((row) => (
                   <tr
                     key={row.scale}
-                    className={`border-b border-white/5 ${
-                      condition.gScale === row.scale ? "bg-white/5" : ""
+                    className={`border-b border-su-line/20 ${
+                      condition.gScale === row.scale ? "bg-su-line/10" : ""
                     }`}
                   >
                     <td className="py-2 px-2">
@@ -347,13 +347,13 @@ export const KIndexModal: React.FC<KIndexModalProps> = ({
                         {row.scale}
                       </span>
                     </td>
-                    <td className="py-2 px-2 font-mono text-gray-300">
+                    <td className="py-2 px-2 font-mono text-su-muted">
                       {row.kp}
                     </td>
                     <td className="py-2 px-2">
                       <span style={{ color: row.color }}>{row.name}</span>
                     </td>
-                    <td className="py-2 px-2 text-gray-400 hidden md:table-cell">
+                    <td className="py-2 px-2 text-su-muted hidden md:table-cell">
                       {row.effects}
                     </td>
                   </tr>
@@ -365,10 +365,10 @@ export const KIndexModal: React.FC<KIndexModalProps> = ({
 
         {/* Aurora Visibility */}
         <Card className="p-4">
-          <h3 className="text-sm font-semibold text-white mb-2">
+          <h3 className="text-sm font-semibold text-su-text mb-2">
             Aurora Visibility Zone
           </h3>
-          <p className="text-sm text-gray-400 mb-3">
+          <p className="text-sm text-su-muted mb-3">
             Based on current Kp of {Math.round(currentValue)}:
           </p>
           <div
@@ -383,16 +383,16 @@ export const KIndexModal: React.FC<KIndexModalProps> = ({
                 ? "Northern Lights visible southward"
                 : "Limited visibility"}
             </span>
-            <span className="text-sm text-gray-300">{auroraVisibility}</span>
+            <span className="text-sm text-su-muted">{auroraVisibility}</span>
           </div>
         </Card>
 
         {/* Radio Communications Impact */}
         <Card className="p-4">
-          <h3 className="text-sm font-semibold text-white mb-3">
+          <h3 className="text-sm font-semibold text-su-text mb-3">
             Impact on Radio Communications
           </h3>
-          <div className="space-y-3 text-sm text-gray-400">
+          <div className="space-y-3 text-sm text-su-muted">
             <div className="flex gap-3">
               <span className="text-signal-green font-medium min-w-[80px]">
                 K0-2:

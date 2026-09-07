@@ -115,11 +115,11 @@ export function StationIdentityForm({
 }: StationIdentityFormProps) {
   const spacing = compact ? "space-y-3" : "space-y-4";
   const labelClass = compact
-    ? "block text-xs font-medium text-gray-400 mb-1"
-    : "block text-sm font-medium text-gray-300 mb-1";
+    ? "block text-xs font-medium text-su-muted mb-1"
+    : "block text-sm font-medium text-su-muted mb-1";
   const gridLabelClass = compact
-    ? "block text-xs font-medium text-gray-400 mb-1"
-    : "block text-sm font-medium text-gray-300 mb-2";
+    ? "block text-xs font-medium text-su-muted mb-1"
+    : "block text-sm font-medium text-su-muted mb-2";
 
   // Multi-source callsign ingestion — only show suggestions for new callsigns
   const lastIngestedCallsign = useProfileStore((s) => s.lastIngestedCallsign);
@@ -237,9 +237,9 @@ export function StationIdentityForm({
             setCallsignError(null);
           }}
           placeholder="N5XXX"
-          className={`w-full bg-void-black border rounded-lg px-3 py-2 text-sm text-gray-200
+          className={`w-full bg-void-black border rounded-lg px-3 py-2 text-sm text-su-text
                      font-mono focus:border-plasma-orange/50 focus:outline-none
-                     ${callsignError ? "border-alert-red/50" : "border-white/10"}`}
+                     ${callsignError ? "border-alert-red/50" : "border-su-line/40"}`}
         />
         {callsignError && (
           <p className="mt-1 text-xs text-alert-red">{callsignError}</p>
@@ -267,7 +267,7 @@ export function StationIdentityForm({
         <label htmlFor={`${idPrefix}-name`} className={labelClass}>
           Operator Name
           {!compact && (
-            <span className="ml-1 text-xs text-gray-500 font-normal">
+            <span className="ml-1 text-xs text-su-muted font-normal">
               (optional)
             </span>
           )}
@@ -278,7 +278,7 @@ export function StationIdentityForm({
           value={operatorName}
           onChange={(e) => setOperatorName(e.target.value)}
           placeholder="John"
-          className="w-full bg-void-black border border-white/10 rounded-lg px-3 py-2 text-sm text-gray-200
+          className="w-full bg-void-black border border-su-line/40 rounded-lg px-3 py-2 text-sm text-su-text
                      focus:border-plasma-orange/50 focus:outline-none"
         />
       </div>
@@ -305,7 +305,7 @@ export function StationIdentityForm({
           <button
             type="button"
             onClick={handleSave}
-            className={`bg-plasma-orange hover:bg-plasma-orange/80 text-white px-6 py-2 rounded-lg text-sm font-medium transition-colors ${
+            className={`bg-plasma-orange hover:bg-plasma-orange/80 text-su-on-accent px-6 py-2 rounded-lg text-sm font-medium transition-colors ${
               compact ? "w-full" : ""
             }`}
           >

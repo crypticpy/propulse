@@ -23,7 +23,7 @@ describe("readyBandHealthByBand", () => {
     ).toBe("bg-signal-green");
     expect(
       bandHealthDotClass({ ...persistedEntry, stable: "closed" }),
-    ).toBe("bg-gray-500");
+    ).toBe("bg-su-line");
   });
 
   it("ages canonical freshness from the oldest active-scope row", () => {

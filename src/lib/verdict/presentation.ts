@@ -16,7 +16,7 @@ export const LADDER_TEXT_CLASSES: Record<LadderState, string> = {
   verified: "text-signal-green",
   stirring: "text-caution-amber",
   forecast: "text-signal-green/70",
-  closed: "text-gray-500",
+  closed: "text-su-muted",
 };
 
 export const ACTIVITY_LABEL: Record<ActivityLevel, string> = {
@@ -27,8 +27,8 @@ export const ACTIVITY_LABEL: Record<ActivityLevel, string> = {
 };
 
 export const ACTIVITY_TEXT_CLASSES: Record<ActivityLevel, string> = {
-  quiet: "text-gray-500",
-  normal: "text-white/60",
+  quiet: "text-su-muted",
+  normal: "text-su-text/80",
   busy: "text-caution-amber",
   exceptional: "text-plasma-orange",
 };
@@ -73,6 +73,33 @@ export function formatLead(min: number): string {
   const hours = Math.floor(min / 60);
   const rest = min % 60;
   return rest === 0 ? `${hours}h` : `${hours}h ${rest}m`;
+}
+
+/**
+ * The collector re-scores the ladder every ~5 minutes. Past this the stored
+ * states describe an earlier sky, so a canonical row this old must not be
+ * presented as a live verdict (DS-07 Home ladder; the gate in bestBand.ts's
+ * canonicalForBand applies the same threshold to every other consumer).
+ */
+export const VERDICT_MAX_AGE_MS = 30 * 60_000;
+
+/** Tolerate up to 5 minutes of clock skew between this client and the
+ * collector before treating a row's timestamp as impossible. */
+const CLOCK_SKEW_TOLERANCE_MS = 5 * 60_000;
+
+/**
+ * Whether a scored ladder timestamp is recent enough to speak for right now.
+ * A feed that has never landed (undefined) is not current either.
+ */
+export function verdictIsCurrent(
+  observedAt: number | undefined,
+  now: number,
+): boolean {
+  if (observedAt === undefined || !Number.isFinite(observedAt)) return false;
+  return (
+    observedAt - now < CLOCK_SKEW_TOLERANCE_MS &&
+    now - observedAt < VERDICT_MAX_AGE_MS
+  );
 }
 
 /** Dominant mode class of the 20-min deduplicated observations, if any. */

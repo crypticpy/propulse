@@ -78,7 +78,7 @@ export function SmartNetFinder() {
   // ── Render ──────────────────────────────────────────────────────────────
 
   return (
-    <div className="bg-panel/30 border border-white/5 rounded-2xl p-4">
+    <div className="bg-panel/30 border border-su-line/20 rounded-2xl p-4">
       {/* Header */}
       <div className="flex items-center gap-2 mb-1">
         {/* Sparkle icon */}
@@ -93,15 +93,15 @@ export function SmartNetFinder() {
             fill="currentColor"
           />
         </svg>
-        <h3 className="text-sm font-semibold text-white">Nets For You</h3>
+        <h3 className="text-sm font-semibold text-su-text">Nets For You</h3>
       </div>
-      <p className="text-gray-500 text-xs mb-3">
+      <p className="text-su-muted text-xs mb-3">
         Based on your equipment and license
       </p>
 
       {/* No profile / no radios CTA */}
       {!hasProfile && (
-        <p className="text-xs text-gray-400 leading-relaxed">
+        <p className="text-xs text-su-muted leading-relaxed">
           Set up your{" "}
           <Link
             to="/profile"
@@ -126,22 +126,22 @@ export function SmartNetFinder() {
           {matches.map((net) => (
             <li
               key={net.id}
-              className="flex items-center gap-2 py-2 border-b border-white/5 last:border-0"
+              className="flex items-center gap-2 py-2 border-b border-su-line/20 last:border-0"
             >
               <Link
                 to={`/nets/${net.id}`}
-                className="text-sm text-white hover:text-plasma-orange transition-colors truncate font-medium"
+                className="text-sm text-su-text hover:text-plasma-orange transition-colors truncate font-medium"
               >
                 {net.name}
               </Link>
 
               {/* Band pill */}
-              <span className="shrink-0 bg-white/10 text-gray-300 text-[10px] rounded-full px-2 py-0.5 uppercase tracking-wide">
+              <span className="shrink-0 bg-su-line/20 text-su-muted text-[10px] rounded-full px-2 py-0.5 uppercase tracking-wide">
                 {net.band}
               </span>
 
               {/* Mode */}
-              <span className="shrink-0 text-gray-500 text-[10px] uppercase tracking-wide">
+              <span className="shrink-0 text-su-muted text-[10px] uppercase tracking-wide">
                 {net.mode}
               </span>
 
@@ -158,7 +158,7 @@ export function SmartNetFinder() {
 
       {/* No matches */}
       {hasProfile && matches.length === 0 && (
-        <p className="text-xs text-gray-500">
+        <p className="text-xs text-su-muted">
           No matching nets found for your setup.
         </p>
       )}

@@ -2,8 +2,8 @@
 /**
  * eval-forecast — M4 F2 harness runner.
  *
- * Reads forecast_snapshots + band_hourly_stats through PostgREST (both are
- * public-read) and writes docs/reports/forecast-eval-YYYYMMDD.md. All the
+ * Reads forecast_snapshots plus gap-filtered band_hourly_stats_readable through
+ * PostgREST and writes docs/reports/forecast-eval-YYYYMMDD.md. All the
  * scoring math lives in scripts/lib/forecast-eval-core.mjs.
  *
  *   npm run eval:forecast              # 90-day baseline, P25, min 5 spots
@@ -113,7 +113,7 @@ const [snapshots, truth] = await Promise.all([
     "hour_utc,band,source,horizon_hours,p_open",
     sinceIso,
   ),
-  fetchAll("band_hourly_stats", "hour_utc,band,spot_count", sinceIso),
+  fetchAll("band_hourly_stats_readable", "hour_utc,band,spot_count", sinceIso),
 ]);
 
 console.log(

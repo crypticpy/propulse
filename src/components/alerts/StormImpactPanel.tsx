@@ -99,17 +99,17 @@ function EquipmentSection({ impacts }: { impacts: EquipmentImpact[] }) {
 
   return (
     <div>
-      <h4 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">
+      <h4 className="text-xs font-semibold text-su-muted uppercase tracking-wider mb-2">
         Your Equipment
       </h4>
       <div className="space-y-2">
         {impacts.map((impact) => (
           <div
             key={impact.antennaName}
-            className="p-2.5 rounded-lg bg-white/[0.03] border border-white/5"
+            className="p-2.5 rounded-lg bg-su-line/10 border border-su-line/20"
           >
             <div className="flex items-center gap-2 mb-1">
-              <span className="text-sm font-medium text-white">
+              <span className="text-sm font-medium text-su-text">
                 {impact.antennaName}
               </span>
               <span
@@ -118,7 +118,7 @@ function EquipmentSection({ impacts }: { impacts: EquipmentImpact[] }) {
                 {impact.severity}
               </span>
             </div>
-            <p className="text-xs text-gray-400 leading-relaxed">
+            <p className="text-xs text-su-muted leading-relaxed">
               {impact.description}
             </p>
           </div>
@@ -133,20 +133,20 @@ function BandStatusSection({ entries }: { entries: BandTimelineEntry[] }) {
 
   return (
     <div>
-      <h4 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">
+      <h4 className="text-xs font-semibold text-su-muted uppercase tracking-wider mb-2">
         Band Status
       </h4>
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5">
         {entries.map((entry) => (
           <div
             key={entry.band}
-            className="flex items-center gap-2 px-2 py-1.5 rounded bg-white/[0.03]"
+            className="flex items-center gap-2 px-2 py-1.5 rounded bg-su-line/10"
           >
             <span
               className={`inline-block w-2 h-2 rounded-full flex-shrink-0 ${BAND_STATUS_COLORS[entry.currentStatus]}`}
             />
-            <span className="text-xs font-mono text-white">{entry.band}</span>
-            <span className="text-[10px] text-gray-500 ml-auto">
+            <span className="text-xs font-mono text-su-text">{entry.band}</span>
+            <span className="text-[10px] text-su-muted ml-auto">
               {entry.recoveryEstimate}
             </span>
           </div>
@@ -161,7 +161,7 @@ function AlternativesSection({ alts }: { alts: AlternativeBand[] }) {
 
   return (
     <div>
-      <h4 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">
+      <h4 className="text-xs font-semibold text-su-muted uppercase tracking-wider mb-2">
         Suggested Alternatives
       </h4>
       <div className="space-y-1.5">
@@ -173,7 +173,7 @@ function AlternativesSection({ alts }: { alts: AlternativeBand[] }) {
             <span className="font-mono font-semibold text-cosmic-cyan whitespace-nowrap">
               {alt.band} {alt.mode}
             </span>
-            <span className="text-gray-400">{alt.reason}</span>
+            <span className="text-su-muted">{alt.reason}</span>
           </div>
         ))}
       </div>
@@ -186,13 +186,13 @@ function RecommendationsSection({ items }: { items: string[] }) {
 
   return (
     <div>
-      <h4 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">
+      <h4 className="text-xs font-semibold text-su-muted uppercase tracking-wider mb-2">
         Recommendations
       </h4>
       <ul className="space-y-1">
         {items.map((rec, i) => (
-          <li key={i} className="flex items-start gap-2 text-xs text-gray-300">
-            <span className="text-gray-600 mt-0.5 flex-shrink-0">&bull;</span>
+          <li key={i} className="flex items-start gap-2 text-xs text-su-muted">
+            <span className="text-su-muted mt-0.5 flex-shrink-0">&bull;</span>
             {rec}
           </li>
         ))}
@@ -203,8 +203,8 @@ function RecommendationsSection({ items }: { items: string[] }) {
 
 function ConfigureCTA() {
   return (
-    <div className="rounded-lg border border-dashed border-white/10 p-3 text-center">
-      <p className="text-xs text-gray-500 mb-1.5">
+    <div className="rounded-lg border border-dashed border-su-line/40 p-3 text-center">
+      <p className="text-xs text-su-muted mb-1.5">
         Configure your station in Shack for personalized impact analysis
       </p>
       <a
@@ -255,18 +255,18 @@ export function StormImpactPanel({
 
   return (
     <div
-      className={`rounded-xl bg-void-black/50 border border-white/10 p-4 ${className}`}
+      className={`rounded-xl bg-void-black/50 border border-su-line/40 p-4 ${className}`}
     >
       {/* Header */}
       <div className="flex items-center justify-between mb-3">
-        <h3 className="text-sm font-semibold text-gray-300 uppercase tracking-wider">
+        <h3 className="text-sm font-semibold text-su-muted uppercase tracking-wider">
           Radio Impact Analysis
         </h3>
         <SeverityBadge severity={report.overallSeverity} />
       </div>
 
       {/* Summary */}
-      <p className="text-sm text-gray-300 mb-4 leading-relaxed">
+      <p className="text-sm text-su-muted mb-4 leading-relaxed">
         {report.summary}
       </p>
 
@@ -284,9 +284,9 @@ export function StormImpactPanel({
 
         {/* Recovery estimate */}
         {report.estimatedRecovery && (
-          <div className="flex items-center gap-2 pt-2 border-t border-white/5">
-            <span className="text-xs text-gray-500">Recovery:</span>
-            <span className="text-xs text-gray-300 font-medium">
+          <div className="flex items-center gap-2 pt-2 border-t border-su-line/20">
+            <span className="text-xs text-su-muted">Recovery:</span>
+            <span className="text-xs text-su-muted font-medium">
               {report.estimatedRecovery}
             </span>
           </div>

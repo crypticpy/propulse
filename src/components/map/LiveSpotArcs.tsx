@@ -242,9 +242,9 @@ export function getAgeBadgeColors(ageCategory: SpotAgeCategory): {
       };
     case "old":
       return {
-        bg: "bg-gray-500/20",
-        text: "text-gray-400",
-        border: "border-gray-500/30",
+        bg: "bg-su-line/20",
+        text: "text-su-muted",
+        border: "border-su-line/30",
       };
   }
 }

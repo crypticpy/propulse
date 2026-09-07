@@ -171,7 +171,7 @@ export const SolarFluxModal: React.FC<SolarFluxModalProps> = ({
         <Card className="p-4">
           <div className="flex items-center justify-between">
             <div>
-              <span className="text-xs font-mono uppercase tracking-wider text-gray-400">
+              <span className="text-xs font-mono uppercase tracking-wider text-su-muted">
                 Current Value
               </span>
               <div className="flex items-baseline gap-2 mt-1">
@@ -181,7 +181,7 @@ export const SolarFluxModal: React.FC<SolarFluxModalProps> = ({
                 >
                   {currentValue}
                 </span>
-                <span className="text-lg text-gray-400">sfu</span>
+                <span className="text-lg text-su-muted">sfu</span>
               </div>
             </div>
             <div className="text-right">
@@ -191,7 +191,7 @@ export const SolarFluxModal: React.FC<SolarFluxModalProps> = ({
               >
                 {activityInfo.level}
               </span>
-              <p className="text-sm text-gray-400 mt-1 max-w-xs">
+              <p className="text-sm text-su-muted mt-1 max-w-xs">
                 {activityInfo.description}
               </p>
             </div>
@@ -200,10 +200,10 @@ export const SolarFluxModal: React.FC<SolarFluxModalProps> = ({
 
         {/* What is Solar Flux? */}
         <Card className="p-4">
-          <h3 className="text-sm font-semibold text-white mb-2">
+          <h3 className="text-sm font-semibold text-su-text mb-2">
             What is Solar Flux?
           </h3>
-          <p className="text-sm text-gray-400 leading-relaxed">
+          <p className="text-sm text-su-muted leading-relaxed">
             The Solar Flux Index (SFI) measures solar radio emissions at 10.7 cm
             wavelength (2800 MHz). It is one of the longest-running indicators
             of solar activity and directly correlates with ionospheric
@@ -215,7 +215,7 @@ export const SolarFluxModal: React.FC<SolarFluxModalProps> = ({
 
         {/* 30-Day Trend Chart */}
         <Card className="p-4">
-          <h3 className="text-sm font-semibold text-white mb-4">
+          <h3 className="text-sm font-semibold text-su-text mb-4">
             30-Day Trend
           </h3>
           {data.length > 0 ? (
@@ -314,7 +314,7 @@ export const SolarFluxModal: React.FC<SolarFluxModalProps> = ({
                     x={PADDING.left - 10}
                     y={y + 4}
                     textAnchor="end"
-                    className="fill-gray-500 text-[11px] font-mono"
+                    className="fill-su-muted text-[11px] font-mono"
                   >
                     {label}
                   </text>
@@ -327,7 +327,7 @@ export const SolarFluxModal: React.FC<SolarFluxModalProps> = ({
                     x={x}
                     y={CHART_HEIGHT - 10}
                     textAnchor="middle"
-                    className="fill-gray-500 text-[10px] font-mono"
+                    className="fill-su-muted text-[10px] font-mono"
                   >
                     {label}
                   </text>
@@ -353,22 +353,22 @@ export const SolarFluxModal: React.FC<SolarFluxModalProps> = ({
               </svg>
             </div>
           ) : (
-            <div className="text-center text-gray-500 py-8">
+            <div className="text-center text-su-muted py-8">
               No data available
             </div>
           )}
 
           {/* Stats footer */}
-          <div className="flex items-center gap-6 mt-4 pt-3 border-t border-white/5">
+          <div className="flex items-center gap-6 mt-4 pt-3 border-t border-su-line/20">
             <div>
-              <span className="text-xs text-gray-500 block">30d Average</span>
-              <span className="text-sm font-mono text-gray-300">
+              <span className="text-xs text-su-muted block">30d Average</span>
+              <span className="text-sm font-mono text-su-muted">
                 {average} sfu
               </span>
             </div>
             <div>
-              <span className="text-xs text-gray-500 block">Range</span>
-              <span className="text-sm font-mono text-gray-300">
+              <span className="text-xs text-su-muted block">Range</span>
+              <span className="text-sm font-mono text-su-muted">
                 {data.length > 0
                   ? `${Math.min(...data.map((d) => d.flux))} - ${Math.max(...data.map((d) => d.flux))} sfu`
                   : "N/A"}
@@ -379,7 +379,7 @@ export const SolarFluxModal: React.FC<SolarFluxModalProps> = ({
 
         {/* Activity Level Interpretation */}
         <Card className="p-4">
-          <h3 className="text-sm font-semibold text-white mb-3">
+          <h3 className="text-sm font-semibold text-su-text mb-3">
             Activity Level Scale
           </h3>
           <div className="space-y-2">
@@ -388,8 +388,8 @@ export const SolarFluxModal: React.FC<SolarFluxModalProps> = ({
                 className="w-3 h-3 rounded-full"
                 style={{ backgroundColor: "#ff4455" }}
               />
-              <span className="text-sm text-gray-400">
-                <span className="text-white font-medium">&lt;90 sfu</span> -
+              <span className="text-sm text-su-muted">
+                <span className="text-su-text font-medium">&lt;90 sfu</span> -
                 Low: limited global high-band support
               </span>
             </div>
@@ -398,8 +398,8 @@ export const SolarFluxModal: React.FC<SolarFluxModalProps> = ({
                 className="w-3 h-3 rounded-full"
                 style={{ backgroundColor: "#ffaa00" }}
               />
-              <span className="text-sm text-gray-400">
-                <span className="text-white font-medium">90-150 sfu</span> -
+              <span className="text-sm text-su-muted">
+                <span className="text-su-text font-medium">90-150 sfu</span> -
                 Moderate: mixed-to-supportive global ionization
               </span>
             </div>
@@ -408,8 +408,8 @@ export const SolarFluxModal: React.FC<SolarFluxModalProps> = ({
                 className="w-3 h-3 rounded-full"
                 style={{ backgroundColor: "#00ff88" }}
               />
-              <span className="text-sm text-gray-400">
-                <span className="text-white font-medium">&gt;150 sfu</span> -
+              <span className="text-sm text-su-muted">
+                <span className="text-su-text font-medium">&gt;150 sfu</span> -
                 High: stronger high-band potential where the path supports it
               </span>
             </div>
@@ -418,10 +418,10 @@ export const SolarFluxModal: React.FC<SolarFluxModalProps> = ({
 
         {/* Best Bands for Current Conditions */}
         <Card className="p-4">
-          <h3 className="text-sm font-semibold text-white mb-3">
+          <h3 className="text-sm font-semibold text-su-text mb-3">
             Recommended Bands
           </h3>
-          <p className="text-xs text-gray-400 mb-3">
+          <p className="text-xs text-su-muted mb-3">
             Based on current SFI of {currentValue} sfu:
           </p>
           <div className="flex flex-wrap gap-2">

@@ -9,6 +9,8 @@ import {
   handleDisplayPair,
   handleDisplayState,
 } from "./api/_lib/handlers/displays";
+import { handleViewLibrary, handleViewDisplayAssignment } from "./api/_lib/handlers/viewLibrary";
+import { TILE_RUNTIME_CACHING } from "./src/lib/tiles/tileRuntimeCaching";
 
 // ─── Solar API parity plugin ──────────────────────────────────────────────
 // Executes the same edge handlers in local development. Exact route matching
@@ -114,6 +116,8 @@ function displaysDevApi(): Plugin {
   const routes: Record<string, (request: Request) => Promise<Response>> = {
     "/api/displays/pair": handleDisplayPair,
     "/api/displays/state": handleDisplayState,
+    "/api/displays/assignment": handleViewDisplayAssignment,
+    "/api/views/library": handleViewLibrary,
   };
   return {
     name: "displays-dev-api",
@@ -134,7 +138,18 @@ function displaysDevApi(): Plugin {
           let body: Buffer | undefined;
           if (req.method !== "GET" && req.method !== "HEAD") {
             const chunks: Buffer[] = [];
-            for await (const chunk of req) chunks.push(chunk as Buffer);
+            let bytes = 0;
+            for await (const chunk of req) {
+              const buffer = Buffer.from(chunk);
+              bytes += buffer.byteLength;
+              if (bytes <= 600 * 1024) chunks.push(buffer);
+            }
+            if (bytes > 600 * 1024) {
+              res.statusCode = 413;
+              res.setHeader("Content-Type", "application/json");
+              res.end(JSON.stringify({ error: "Request body too large" }));
+              return;
+            }
             body = Buffer.concat(chunks);
           }
           const edgeRequest = new Request(new URL(req.url ?? "/", origin), {
@@ -1178,7 +1193,13 @@ export default defineConfig(({ mode }) => {
       layerDevProxy(),
       portableDevApi(),
       VitePWA({
-        registerType: "autoUpdate",
+        // "prompt": the worker already in control keeps serving the running
+        // page after a deploy; the new one waits until the user taps Reload
+        // on PWAUpdatePrompt (or every tab closes). autoUpdate + skipWaiting
+        // + clientsClaim yanked open tabs on every deploy and dropped the
+        // old precache, so lazy chunks 404'd and the stale-chunk recovery
+        // forced an error flash + reload (#590).
+        registerType: "prompt",
         includeAssets: ["propulse.svg"],
         manifest: {
           name: "Propulse — Ham Radio Propagation Dashboard",
@@ -1202,8 +1223,8 @@ export default defineConfig(({ mode }) => {
           enabled: true,
         },
         workbox: {
-          skipWaiting: true,
-          clientsClaim: true,
+          skipWaiting: false,
+          clientsClaim: false,
           // Install only the application shell and its synchronous imports.
           // Lazy routes are cached after use so installing Propulse does not
           // download every radio, mapping, and 3D feature up front. The
@@ -1266,38 +1287,7 @@ export default defineConfig(({ mode }) => {
                 networkTimeoutSeconds: 10,
               },
             },
-            {
-              // ESRI World Imagery satellite tiles (free tier)
-              urlPattern: /^https:\/\/server\.arcgisonline\.com\/.*/,
-              handler: "CacheFirst",
-              options: {
-                cacheName: "tiles-esri",
-                expiration: {
-                  maxEntries: 3000,
-                  maxAgeSeconds: 30 * 24 * 60 * 60, // 30 days
-                },
-              },
-            },
-            {
-              // OpenStreetMap standard tiles (free tier)
-              urlPattern: /^https:\/\/tile\.openstreetmap\.org\/.*/,
-              handler: "CacheFirst",
-              options: {
-                cacheName: "tiles-osm",
-                expiration: {
-                  maxEntries: 3000,
-                  maxAgeSeconds: 30 * 24 * 60 * 60, // 30 days
-                },
-              },
-            },
-            {
-              // Authenticated imagery uses the browser's private HTTP cache
-              // (one hour, Vary: Authorization) plus the decoded tile LRU.
-              // Avoid persisting JWT-keyed copies across refreshes/accounts in
-              // CacheStorage; never ignore Vary to share entitled responses.
-              urlPattern: /\/api\/tiles\/proxy/,
-              handler: "NetworkOnly",
-            },
+            ...TILE_RUNTIME_CACHING,
           ],
         },
       }),

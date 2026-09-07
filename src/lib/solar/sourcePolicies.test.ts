@@ -12,7 +12,7 @@ const DAY = 24 * HOUR;
 
 describe("solar source cadence policies", () => {
   it.each<[SolarSourceId, number]>([
-    ["noaa-solar-flux", 4.5 * HOUR],
+    ["noaa-solar-flux", 19 * HOUR], // overnight gap between the 22Z and next 17Z readings
     ["noaa-magnetometer", 13 * MINUTE],
     ["noaa-protons", 13 * MINUTE],
     ["noaa-dst", 83 * MINUTE],

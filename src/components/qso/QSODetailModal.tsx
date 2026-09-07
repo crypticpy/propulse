@@ -23,7 +23,7 @@ function Section({
 }) {
   return (
     <div className="mb-5">
-      <h3 className="text-xs font-semibold uppercase tracking-wider text-gray-500 mb-2">
+      <h3 className="text-xs font-semibold uppercase tracking-wider text-su-muted mb-2">
         {title}
       </h3>
       <div className="grid grid-cols-2 md:grid-cols-3 gap-x-4 gap-y-2">
@@ -47,8 +47,8 @@ function Field({
     typeof value === "boolean" ? (value ? "Yes" : "No") : String(value);
   return (
     <div>
-      <dt className="text-xs text-gray-500">{label}</dt>
-      <dd className={`text-sm text-white ${mono ? "font-mono" : ""}`}>
+      <dt className="text-xs text-su-muted">{label}</dt>
+      <dd className={`text-sm text-su-text ${mono ? "font-mono" : ""}`}>
         {display}
       </dd>
     </div>
@@ -112,14 +112,14 @@ export function QSODetailModal({
       />
 
       {/* Modal */}
-      <div className="relative z-10 w-full max-w-2xl max-h-[calc(100vh-2rem)] bg-deep-space border border-white/10 rounded-2xl shadow-2xl flex flex-col animate-in zoom-in-95">
+      <div className="relative z-10 w-full max-w-2xl max-h-[calc(100vh-2rem)] bg-deep-space border border-su-line/40 rounded-2xl shadow-2xl flex flex-col animate-in zoom-in-95">
         {/* Header */}
-        <div className="flex items-start justify-between p-6 pb-4 border-b border-white/5 flex-shrink-0">
+        <div className="flex items-start justify-between p-6 pb-4 border-b border-su-line/20 flex-shrink-0">
           <div>
-            <h2 className="font-mono text-2xl font-bold text-white">
+            <h2 className="font-mono text-2xl font-bold text-su-text">
               {entry.callsign}
             </h2>
-            <p className="text-sm text-gray-400 mt-1">
+            <p className="text-sm text-su-muted mt-1">
               {entry.date} at {entry.timeOn} UTC
               {entry.band && ` on ${entry.band}`}
               {entry.mode && ` ${entry.mode}`}
@@ -127,7 +127,7 @@ export function QSODetailModal({
           </div>
           <button
             onClick={onClose}
-            className="p-2 text-gray-400 hover:text-white hover:bg-white/10 rounded-lg transition-colors"
+            className="p-2 text-su-muted hover:text-su-text hover:bg-su-line/20 rounded-lg transition-colors"
             aria-label="Close modal"
           >
             <svg
@@ -253,7 +253,7 @@ export function QSODetailModal({
         </div>
 
         {/* Footer */}
-        <div className="flex items-center justify-between p-6 pt-4 border-t border-white/5 flex-shrink-0">
+        <div className="flex items-center justify-between p-6 pt-4 border-t border-su-line/20 flex-shrink-0">
           <button
             type="button"
             onClick={() => setConfirmDelete(true)}
@@ -265,7 +265,7 @@ export function QSODetailModal({
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 text-sm font-medium rounded-lg transition-colors bg-white/5 hover:bg-white/10 text-gray-300 border border-white/10"
+              className="px-4 py-2 text-sm font-medium rounded-lg transition-colors bg-su-line/10 hover:bg-su-line/20 text-su-muted border border-su-line/40"
             >
               Close
             </button>
@@ -273,7 +273,7 @@ export function QSODetailModal({
               <button
                 type="button"
                 onClick={() => onEdit(entry)}
-                className="px-4 py-2 text-sm font-medium rounded-lg transition-colors bg-plasma-orange hover:bg-plasma-orange/80 text-white"
+                className="px-4 py-2 text-sm font-medium rounded-lg transition-colors bg-plasma-orange hover:bg-plasma-orange/80 text-su-on-accent"
               >
                 Edit
               </button>

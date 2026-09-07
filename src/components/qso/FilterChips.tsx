@@ -178,7 +178,7 @@ export function FilterChips() {
         <button
           type="button"
           onClick={handleClearAll}
-          className="px-2 py-0.5 text-xs text-gray-400 hover:text-white rounded-full hover:bg-white/10 transition-colors"
+          className="px-2 py-0.5 text-xs text-su-muted hover:text-su-text rounded-full hover:bg-su-line/20 transition-colors"
         >
           Clear All
         </button>

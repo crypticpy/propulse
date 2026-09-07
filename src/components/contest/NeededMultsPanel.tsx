@@ -82,7 +82,7 @@ function getTypeColor(type: MultiplierType): string {
     case "PROVINCE":
       return "text-signal-green";
     default:
-      return "text-gray-300";
+      return "text-su-muted";
   }
 }
 
@@ -101,7 +101,7 @@ function getTypeBadgeColor(type: MultiplierType): string {
     case "PROVINCE":
       return "bg-signal-green/20 border-signal-green/40 text-signal-green";
     default:
-      return "bg-white/10 border-white/20 text-gray-300";
+      return "bg-su-line/20 border-su-line/50 text-su-muted";
   }
 }
 
@@ -128,10 +128,10 @@ function TargetRow({ target, showBand }: TargetRowProps) {
       ? "bg-plasma-orange/30 text-plasma-orange"
       : rank <= 6
         ? "bg-cosmic-cyan/20 text-cosmic-cyan"
-        : "bg-white/10 text-gray-400";
+        : "bg-su-line/20 text-su-muted";
 
   return (
-    <div className="flex items-center gap-2 py-1.5 px-2 rounded hover:bg-white/5 transition-colors">
+    <div className="flex items-center gap-2 py-1.5 px-2 rounded hover:bg-su-line/10 transition-colors">
       {/* Rank indicator */}
       <div
         className={`w-5 h-5 rounded flex items-center justify-center text-[10px] font-bold ${rankStyle}`}
@@ -146,7 +146,7 @@ function TargetRow({ target, showBand }: TargetRowProps) {
             {mult.value}
           </span>
           {showBand && mult.band && (
-            <span className="text-[10px] text-gray-500 font-mono">
+            <span className="text-[10px] text-su-muted font-mono">
               {mult.band}
             </span>
           )}
@@ -162,7 +162,7 @@ function TargetRow({ target, showBand }: TargetRowProps) {
 
       {/* Score (optional, for debugging) */}
       <div
-        className="text-[9px] text-gray-600 font-mono w-6 text-right"
+        className="text-[9px] text-su-muted font-mono w-6 text-right"
         title={`Score: ${score}`}
       >
         {score}
@@ -193,7 +193,7 @@ function SummaryHeader({ summary }: SummaryHeaderProps) {
   }
 
   return (
-    <div className="flex items-center justify-between gap-2 mb-3 pb-2 border-b border-white/10">
+    <div className="flex items-center justify-between gap-2 mb-3 pb-2 border-b border-su-line/40">
       <div className="flex items-center gap-2 flex-wrap">
         {typesWithNeeded.slice(0, 4).map(([type, count]) => (
           <div
@@ -206,7 +206,7 @@ function SummaryHeader({ summary }: SummaryHeaderProps) {
           </div>
         ))}
       </div>
-      <div className="text-xs text-gray-500">{summary.total} needed</div>
+      <div className="text-xs text-su-muted">{summary.total} needed</div>
     </div>
   );
 }
@@ -285,7 +285,7 @@ export function NeededMultsPanel({
     return (
       <div className={className}>
         <div className="flex items-center justify-between text-xs">
-          <span className="text-gray-400">Needed</span>
+          <span className="text-su-muted">Needed</span>
           <span className="font-mono font-bold text-plasma-orange">
             {totalNeeded}
           </span>
@@ -317,7 +317,7 @@ export function NeededMultsPanel({
           Next Best Mults
         </h3>
         {currentBand && (
-          <span className="text-[10px] text-gray-500">on {currentBand}</span>
+          <span className="text-[10px] text-su-muted">on {currentBand}</span>
         )}
       </div>
 
@@ -343,26 +343,26 @@ export function NeededMultsPanel({
 
       {/* Show more indicator */}
       {summary && summary.total > maxTargets && (
-        <div className="text-center mt-2 pt-2 border-t border-white/10">
-          <span className="text-[10px] text-gray-500">
+        <div className="text-center mt-2 pt-2 border-t border-su-line/40">
+          <span className="text-[10px] text-su-muted">
             +{summary.total - maxTargets} more needed
           </span>
         </div>
       )}
 
       {/* Legend */}
-      <div className="flex items-center justify-center gap-4 mt-3 pt-2 border-t border-white/10">
+      <div className="flex items-center justify-center gap-4 mt-3 pt-2 border-t border-su-line/40">
         <div className="flex items-center gap-1">
           <div className="w-2 h-2 rounded-full bg-plasma-orange" />
-          <span className="text-[9px] text-gray-500">High value</span>
+          <span className="text-[9px] text-su-muted">High value</span>
         </div>
         <div className="flex items-center gap-1">
           <div className="w-2 h-2 rounded-full bg-cosmic-cyan" />
-          <span className="text-[9px] text-gray-500">Medium</span>
+          <span className="text-[9px] text-su-muted">Medium</span>
         </div>
         <div className="flex items-center gap-1">
-          <div className="w-2 h-2 rounded-full bg-white/30" />
-          <span className="text-[9px] text-gray-500">Standard</span>
+          <div className="w-2 h-2 rounded-full bg-su-text/30" />
+          <span className="text-[9px] text-su-muted">Standard</span>
         </div>
       </div>
     </Card>

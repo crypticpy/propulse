@@ -484,7 +484,7 @@ export function drawNVISCoverage(
 export function NVISCoverageLegend({ className = "" }: { className?: string }) {
   return (
     <div
-      className={`bg-black/60 backdrop-blur-sm rounded-lg p-2 text-xs ${className}`}
+      className={`bg-su-panel/90 backdrop-blur-sm rounded-lg p-2 text-xs ${className}`}
     >
       <div className="font-medium text-purple-300 mb-1">NVIS Coverage</div>
       <div className="space-y-1">
@@ -493,14 +493,14 @@ export function NVISCoverageLegend({ className = "" }: { className?: string }) {
             className="w-3 h-3 rounded-full"
             style={{ backgroundColor: NVIS_COLORS.inner }}
           />
-          <span className="text-gray-400">Optimal</span>
+          <span className="text-su-muted">Optimal</span>
         </div>
         <div className="flex items-center gap-2">
           <div
             className="w-3 h-3 rounded-full"
             style={{ backgroundColor: NVIS_COLORS.outer }}
           />
-          <span className="text-gray-400">Maximum</span>
+          <span className="text-su-muted">Maximum</span>
         </div>
       </div>
     </div>

@@ -194,7 +194,7 @@ function SatelliteInfoPopup({
               className={`w-2 h-2 rounded-full ${
                 satellite.isVisible
                   ? "bg-green-400 animate-pulse"
-                  : "bg-gray-600"
+                  : "bg-su-line"
               }`}
               title={satellite.isVisible ? "Above horizon" : "Below horizon"}
             />
@@ -204,7 +204,7 @@ function SatelliteInfoPopup({
                 e.stopPropagation();
                 onDismiss();
               }}
-              className="w-3.5 h-3.5 flex items-center justify-center rounded text-gray-500 hover:text-white hover:bg-white/10 transition-colors"
+              className="w-3.5 h-3.5 flex items-center justify-center rounded text-su-muted hover:text-su-text hover:bg-su-line/20 transition-colors"
               aria-label="Close"
               title="Close"
             >
@@ -269,7 +269,7 @@ function SatelliteInfoPopup({
               className="my-0.5"
               style={{ borderTop: "1px solid rgba(255,255,255,0.08)" }}
             />
-            <div className="text-[9px] text-gray-500 uppercase tracking-wider font-semibold">
+            <div className="text-[9px] text-su-muted uppercase tracking-wider font-semibold">
               Transponders
             </div>
             {transponderData.transponders.slice(0, 2).map((xpdr, idx) => (
@@ -385,7 +385,7 @@ function SatelliteInfoPopup({
             onOpenModal(satellite.noradId);
           }}
           aria-label={`Open full details for ${satellite.name}`}
-          className="flex w-full items-center justify-center gap-1 rounded text-[8px] font-semibold uppercase tracking-wider hover:bg-white/5 focus:outline-none focus-visible:ring-1 focus-visible:ring-white/40"
+          className="flex w-full items-center justify-center gap-1 rounded text-[8px] font-semibold uppercase tracking-wider hover:bg-su-line/10 focus:outline-none focus-visible:ring-1 focus-visible:ring-su-line/60"
           style={{ color: `${color}aa` }}
         >
           <span>Tap for full details</span>

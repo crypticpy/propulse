@@ -21,11 +21,11 @@ export function Ft8StatsDashboard({
   const [expanded, setExpanded] = useState(false);
 
   return (
-    <div className="border-t border-white/[0.06]">
+    <div className="border-t border-su-line/20">
       {/* Toggle header */}
       <button
         onClick={() => setExpanded(!expanded)}
-        className="flex w-full items-center justify-between px-3 py-1.5 text-[10px] uppercase tracking-wider text-white/40 hover:text-white/60"
+        className="flex w-full items-center justify-between px-3 py-1.5 text-[10px] uppercase tracking-wider text-su-text/80 hover:text-su-text"
       >
         <span>Session Stats</span>
         <span className="text-[9px]">{expanded ? "\u25B2" : "\u25BC"}</span>
@@ -59,14 +59,14 @@ export function Ft8StatsDashboard({
 
           {/* Best DX */}
           {stats.bestDxKm > 0 && (
-            <div className="rounded bg-white/[0.03] px-2 py-1.5 text-center">
-              <div className="text-[9px] uppercase tracking-wider text-white/30">
+            <div className="rounded bg-su-line/10 px-2 py-1.5 text-center">
+              <div className="text-[9px] uppercase tracking-wider text-su-text/80">
                 Best DX
               </div>
               <div className="font-mono text-[13px] font-semibold tabular-nums text-caution-amber">
                 {stats.bestDxCallsign}
               </div>
-              <div className="font-mono text-[11px] tabular-nums text-white/50">
+              <div className="font-mono text-[11px] tabular-nums text-su-text/80">
                 {stats.bestDxKm.toLocaleString()} km
               </div>
             </div>
@@ -75,7 +75,7 @@ export function Ft8StatsDashboard({
           {/* Decodes-per-cycle sparkline */}
           {cycleCounts.length > 1 && (
             <div>
-              <div className="mb-1 text-[9px] uppercase tracking-wider text-white/30">
+              <div className="mb-1 text-[9px] uppercase tracking-wider text-su-text/80">
                 Decodes / Cycle
               </div>
               <DecodeSparkline data={cycleCounts} />
@@ -84,7 +84,7 @@ export function Ft8StatsDashboard({
 
           {/* Session time */}
           {stats.sessionStartedAt && (
-            <div className="text-center text-[9px] text-white/25">
+            <div className="text-center text-[9px] text-su-text/80">
               Session started{" "}
               {new Date(stats.sessionStartedAt).toLocaleTimeString()}
             </div>
@@ -107,11 +107,11 @@ function BigStatCard({
   color: string;
 }) {
   return (
-    <div className="rounded bg-white/[0.03] px-2 py-1.5 text-center">
+    <div className="rounded bg-su-line/10 px-2 py-1.5 text-center">
       <div className={`font-mono text-[16px] font-bold tabular-nums ${color}`}>
         {value.toLocaleString()}
       </div>
-      <div className="text-[9px] uppercase tracking-wider text-white/30">
+      <div className="text-[9px] uppercase tracking-wider text-su-text/80">
         {label}
       </div>
     </div>
@@ -181,7 +181,7 @@ function DecodeSparkline({ data }: { data: number[] }) {
     <canvas
       ref={canvasRef}
       style={{ width: WIDTH, height: HEIGHT }}
-      className="w-full rounded bg-white/[0.02]"
+      className="w-full rounded bg-su-line/10"
     />
   );
 }

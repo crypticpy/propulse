@@ -264,7 +264,7 @@ function TrendArrow({ trend }: { trend: RateTrend }) {
       height="12"
       viewBox="0 0 12 12"
       fill="none"
-      className="text-white/40 inline-block ml-1"
+      className="text-su-text/40 inline-block ml-1"
       aria-label="Rate steady"
     >
       <path
@@ -383,18 +383,18 @@ export function ContestRatePanel({ className }: ContestRatePanelProps) {
         onClick={toggleCollapsed}
         className={`
           inline-flex items-center gap-1.5
-          bg-void-black/90 backdrop-blur-md border border-white/10 rounded-full
-          px-3 py-1.5 text-xs font-medium text-white/80
-          hover:border-white/20 transition-colors select-none cursor-pointer
+          bg-void-black/90 backdrop-blur-md border border-su-line/40 rounded-full
+          px-3 py-1.5 text-xs font-medium text-su-text/80
+          hover:border-su-line/50 transition-colors select-none cursor-pointer
           ${className ?? ""}
         `}
         aria-label="Expand contest rate panel"
         role="status"
       >
-        <span className="text-[10px] uppercase tracking-wider text-white/50 font-semibold">
+        <span className="text-[10px] uppercase tracking-wider text-su-text/80 font-semibold">
           RATE
         </span>
-        <span className="tabular-nums font-semibold text-white">
+        <span className="tabular-nums font-semibold text-su-text">
           {Math.round(rateSnapshot.currentRate)}/hr
         </span>
         <TrendArrow trend={rateSnapshot.trend} />
@@ -410,7 +410,7 @@ export function ContestRatePanel({ className }: ContestRatePanelProps) {
     <div
       className={`
         w-[280px]
-        bg-void-black/90 backdrop-blur-md border border-white/10 rounded-xl shadow-xl
+        bg-void-black/90 backdrop-blur-md border border-su-line/40 rounded-xl shadow-xl
         select-none
         ${className ?? ""}
       `}
@@ -421,14 +421,14 @@ export function ContestRatePanel({ className }: ContestRatePanelProps) {
       <button
         type="button"
         onClick={toggleCollapsed}
-        className="w-full flex items-center justify-between px-3 py-2 hover:bg-white/5 rounded-t-xl transition-colors cursor-pointer"
+        className="w-full flex items-center justify-between px-3 py-2 hover:bg-su-line/10 rounded-t-xl transition-colors cursor-pointer"
         aria-label="Collapse contest rate panel"
       >
         <div className="flex flex-col items-start min-w-0">
-          <span className="text-xs font-medium text-white truncate max-w-[200px]">
+          <span className="text-xs font-medium text-su-text truncate max-w-[200px]">
             {contestName}
           </span>
-          <span className="text-[10px] text-white/40 tabular-nums">
+          <span className="text-[10px] text-su-text/80 tabular-nums">
             {formatDuration(activeSession.startTime)} elapsed
           </span>
         </div>
@@ -438,7 +438,7 @@ export function ContestRatePanel({ className }: ContestRatePanelProps) {
           height="12"
           viewBox="0 0 12 12"
           fill="none"
-          className="text-white/40 shrink-0 ml-2"
+          className="text-su-text/40 shrink-0 ml-2"
         >
           <path
             d="M3 7L6 4L9 7"
@@ -450,18 +450,18 @@ export function ContestRatePanel({ className }: ContestRatePanelProps) {
         </svg>
       </button>
 
-      <div className="border-t border-white/5" />
+      <div className="border-t border-su-line/20" />
 
       {/* ── Rate display ── */}
       <div className="px-3 py-2.5">
         <div className="flex items-baseline gap-1">
-          <span className="text-2xl font-bold tabular-nums text-white leading-none">
+          <span className="text-2xl font-bold tabular-nums text-su-text leading-none">
             {Math.round(rateSnapshot.currentRate)}
           </span>
-          <span className="text-xs text-white/40">/hr</span>
+          <span className="text-xs text-su-text/80">/hr</span>
           <TrendArrow trend={rateSnapshot.trend} />
         </div>
-        <div className="text-[10px] text-white/30 mt-0.5">
+        <div className="text-[10px] text-su-text/80 mt-0.5">
           10-min rolling average
         </div>
       </div>
@@ -469,9 +469,9 @@ export function ContestRatePanel({ className }: ContestRatePanelProps) {
       {/* ── Band rate bars ── */}
       {sortedBands.length > 0 && (
         <>
-          <div className="border-t border-white/5" />
+          <div className="border-t border-su-line/20" />
           <div className="px-3 py-2">
-            <div className="text-[10px] uppercase tracking-wider text-white/40 font-medium mb-1.5">
+            <div className="text-[10px] uppercase tracking-wider text-su-text/80 font-medium mb-1.5">
               Rate by Band
             </div>
             <div className="space-y-1">
@@ -483,10 +483,10 @@ export function ContestRatePanel({ className }: ContestRatePanelProps) {
                 const color = bandColor(band);
                 return (
                   <div key={band} className="flex items-center gap-2">
-                    <span className="text-[10px] text-white/60 w-8 text-right shrink-0 tabular-nums">
+                    <span className="text-[10px] text-su-text/80 w-8 text-right shrink-0 tabular-nums">
                       {band}
                     </span>
-                    <div className="flex-1 h-3 rounded-sm overflow-hidden bg-white/5">
+                    <div className="flex-1 h-3 rounded-sm overflow-hidden bg-su-line/10">
                       <div
                         className="h-full rounded-sm transition-all duration-300"
                         style={{
@@ -496,7 +496,7 @@ export function ContestRatePanel({ className }: ContestRatePanelProps) {
                         }}
                       />
                     </div>
-                    <span className="text-[10px] text-white/50 w-6 text-right shrink-0 tabular-nums">
+                    <span className="text-[10px] text-su-text/80 w-6 text-right shrink-0 tabular-nums">
                       {rate}
                     </span>
                   </div>
@@ -510,7 +510,7 @@ export function ContestRatePanel({ className }: ContestRatePanelProps) {
       {/* ── Band advice ── */}
       {advice && advice.type !== "stay" && adviceStyle && (
         <>
-          <div className="border-t border-white/5" />
+          <div className="border-t border-su-line/20" />
           <div className="px-3 py-2">
             <div
               className={`
@@ -521,7 +521,7 @@ export function ContestRatePanel({ className }: ContestRatePanelProps) {
             >
               {advice.message}
               {advice.targetBand && advice.type === "consider_qsy" && (
-                <span className="text-white/40"> -- consider QSY</span>
+                <span className="text-su-text/80"> -- consider QSY</span>
               )}
             </div>
           </div>
@@ -529,23 +529,23 @@ export function ContestRatePanel({ className }: ContestRatePanelProps) {
       )}
 
       {/* ── Score summary ── */}
-      <div className="border-t border-white/5" />
-      <div className="px-3 py-2 flex items-center justify-between text-[10px] text-white/50">
+      <div className="border-t border-su-line/20" />
+      <div className="px-3 py-2 flex items-center justify-between text-[10px] text-su-text/80">
         <div className="flex items-center gap-3">
           <span>
-            <span className="text-white/70 font-medium tabular-nums">
+            <span className="text-su-text/70 font-medium tabular-nums">
               {activeSession.qsos.filter((q) => !q.isDupe).length}
             </span>{" "}
             Qs
           </span>
           <span>
-            <span className="text-white/70 font-medium tabular-nums">
+            <span className="text-su-text/70 font-medium tabular-nums">
               {activeSession.totalMultipliers}
             </span>{" "}
             Mult
           </span>
         </div>
-        <span className="font-medium text-white/70 tabular-nums">
+        <span className="font-medium text-su-text/70 tabular-nums">
           {activeSession.totalScore.toLocaleString()} pts
         </span>
       </div>

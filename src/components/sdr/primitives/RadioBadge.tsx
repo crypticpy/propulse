@@ -30,7 +30,7 @@ export interface RadioBadgeProps {
 // ─── Variant colors ──────────────────────────────────────────────────────────
 
 const VARIANT_CLASSES = {
-  default: "text-gray-400 bg-white/5 border-white/10",
+  default: "text-su-muted bg-su-line/10 border-su-line/40",
   danger: "text-alert-red bg-alert-red/15 border-alert-red/30",
   success: "text-signal-green bg-signal-green/10 border-signal-green/20",
   warning: "text-caution-amber bg-caution-amber/15 border-caution-amber/30",

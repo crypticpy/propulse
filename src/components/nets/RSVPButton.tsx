@@ -43,7 +43,7 @@ export function RSVPButton({
       className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all duration-200 border disabled:opacity-50 disabled:cursor-not-allowed ${
         hasRsvpd
           ? "bg-signal-green/15 text-signal-green border-signal-green/30 hover:bg-signal-green/25"
-          : "bg-white/5 text-gray-300 border-white/10 hover:bg-white/10 hover:text-white"
+          : "bg-su-line/10 text-su-muted border-su-line/40 hover:bg-su-line/20 hover:text-su-text"
       }`}
     >
       {/* Hand wave icon */}
@@ -68,7 +68,7 @@ export function RSVPButton({
         className={`inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 rounded-full text-[11px] font-semibold ${
           hasRsvpd
             ? "bg-signal-green/20 text-signal-green"
-            : "bg-white/10 text-gray-400"
+            : "bg-su-line/20 text-su-muted"
         }`}
       >
         {rsvpCount}

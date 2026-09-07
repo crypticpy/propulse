@@ -98,7 +98,7 @@ export const PropagationIndexModal: React.FC<PropagationIndexModalProps> = ({
         subtitle="Transparent global heuristic; not a calibrated probability or path forecast"
         size="xl"
       >
-        <div className="text-center py-12 text-gray-500">
+        <div className="text-center py-12 text-su-muted">
           Required solar observations are unavailable, so the heuristic is withheld.
         </div>
       </DetailModal>
@@ -123,7 +123,7 @@ export const PropagationIndexModal: React.FC<PropagationIndexModalProps> = ({
     >
       <div className="space-y-6">
         {/* Current Score Hero */}
-        <div className="bg-void-black/50 rounded-lg p-6 border border-white/5 text-center">
+        <div className="bg-void-black/50 rounded-lg p-6 border border-su-line/20 text-center">
           <div
             className="text-6xl font-mono font-bold"
             style={{ color: scoreColor }}
@@ -140,12 +140,12 @@ export const PropagationIndexModal: React.FC<PropagationIndexModalProps> = ({
           >
             {currentCategory?.level}
           </div>
-          <p className="text-gray-300 mt-3">{result.description}</p>
+          <p className="text-su-muted mt-3">{result.description}</p>
         </div>
 
         {/* Score Breakdown */}
-        <div className="bg-void-black/50 rounded-lg p-4 border border-white/5">
-          <h4 className="text-sm font-mono uppercase tracking-wider text-gray-400 mb-4">
+        <div className="bg-void-black/50 rounded-lg p-4 border border-su-line/20">
+          <h4 className="text-sm font-mono uppercase tracking-wider text-su-muted mb-4">
             Score Breakdown
           </h4>
 
@@ -157,14 +157,14 @@ export const PropagationIndexModal: React.FC<PropagationIndexModalProps> = ({
                   <span className="text-plasma-orange font-semibold">
                     Solar Flux Index
                   </span>
-                  <span className="text-xs text-gray-400">40 points max</span>
+                  <span className="text-xs text-su-muted">40 points max</span>
                 </div>
-                <div className="font-mono text-white">
+                <div className="font-mono text-su-text">
                   {Math.round(result.sfiScore)} / 40
                 </div>
               </div>
               <div className="flex items-center gap-3">
-                <div className="flex-1 h-3 bg-white/10 rounded-full overflow-hidden">
+                <div className="flex-1 h-3 bg-su-line/20 rounded-full overflow-hidden">
                   <div
                     className="h-full bg-plasma-orange rounded-full transition-all"
                     style={{ width: `${(result.sfiScore / 40) * 100}%` }}
@@ -174,7 +174,7 @@ export const PropagationIndexModal: React.FC<PropagationIndexModalProps> = ({
                   {solarFlux} sfu
                 </span>
               </div>
-              <p className="text-xs text-gray-400">
+              <p className="text-xs text-su-muted">
                 Higher SFI = More ionization = Better propagation on higher
                 bands. SFI of 70 is baseline, 200+ is excellent.
               </p>
@@ -187,14 +187,14 @@ export const PropagationIndexModal: React.FC<PropagationIndexModalProps> = ({
                   <span className="text-signal-green font-semibold">
                     K-Index
                   </span>
-                  <span className="text-xs text-gray-400">40 points max</span>
+                  <span className="text-xs text-su-muted">40 points max</span>
                 </div>
-                <div className="font-mono text-white">
+                <div className="font-mono text-su-text">
                   {Math.round(result.kpScore)} / 40
                 </div>
               </div>
               <div className="flex items-center gap-3">
-                <div className="flex-1 h-3 bg-white/10 rounded-full overflow-hidden">
+                <div className="flex-1 h-3 bg-su-line/20 rounded-full overflow-hidden">
                   <div
                     className="h-full bg-signal-green rounded-full transition-all"
                     style={{ width: `${(result.kpScore / 40) * 100}%` }}
@@ -204,7 +204,7 @@ export const PropagationIndexModal: React.FC<PropagationIndexModalProps> = ({
                   Kp = {kIndex}
                 </span>
               </div>
-              <p className="text-xs text-gray-400">
+              <p className="text-xs text-su-muted">
                 Lower Kp = Quieter geomagnetic field = More stable propagation.
                 Kp of 0-2 is ideal, 5+ indicates storm conditions.
               </p>
@@ -223,14 +223,14 @@ export const PropagationIndexModal: React.FC<PropagationIndexModalProps> = ({
                   >
                     IMF Bz
                   </span>
-                  <span className="text-xs text-gray-400">20 points max</span>
+                  <span className="text-xs text-su-muted">20 points max</span>
                 </div>
-                <div className="font-mono text-white">
+                <div className="font-mono text-su-text">
                   {result.bzAvailable ? `${Math.round(result.bzScore)} / 20` : "Unavailable"}
                 </div>
               </div>
               <div className="flex items-center gap-3">
-                <div className="flex-1 h-3 bg-white/10 rounded-full overflow-hidden">
+                <div className="flex-1 h-3 bg-su-line/20 rounded-full overflow-hidden">
                   <div
                     className="h-full rounded-full transition-all"
                     style={{
@@ -252,7 +252,7 @@ export const PropagationIndexModal: React.FC<PropagationIndexModalProps> = ({
                     : "N/A"}
                 </span>
               </div>
-              <p className="text-xs text-gray-400">
+              <p className="text-xs text-su-muted">
                 Positive Bz (northward IMF) shields Earth from solar wind.
                 Negative Bz allows energy transfer, potentially triggering
                 storms.
@@ -263,8 +263,8 @@ export const PropagationIndexModal: React.FC<PropagationIndexModalProps> = ({
 
         {/* Current Recommendations */}
         {currentCategory && (
-          <div className="bg-void-black/50 rounded-lg p-4 border border-white/5">
-            <h4 className="text-sm font-mono uppercase tracking-wider text-gray-400 mb-3">
+          <div className="bg-void-black/50 rounded-lg p-4 border border-su-line/20">
+            <h4 className="text-sm font-mono uppercase tracking-wider text-su-muted mb-3">
               Current Operating Recommendations
             </h4>
             <div
@@ -274,17 +274,17 @@ export const PropagationIndexModal: React.FC<PropagationIndexModalProps> = ({
                 borderLeft: `3px solid ${currentCategory.color}`,
               }}
             >
-              <div className="font-semibold text-white mb-2">
+              <div className="font-semibold text-su-text mb-2">
                 {currentCategory.bands}
               </div>
-              <p className="text-sm text-gray-300">{currentCategory.tips}</p>
+              <p className="text-sm text-su-muted">{currentCategory.tips}</p>
             </div>
           </div>
         )}
 
         {/* Score Scale Reference */}
-        <div className="bg-void-black/50 rounded-lg p-4 border border-white/5">
-          <h4 className="text-sm font-mono uppercase tracking-wider text-gray-400 mb-4">
+        <div className="bg-void-black/50 rounded-lg p-4 border border-su-line/20">
+          <h4 className="text-sm font-mono uppercase tracking-wider text-su-muted mb-4">
             Score Scale Reference
           </h4>
           <div className="space-y-3">
@@ -295,8 +295,8 @@ export const PropagationIndexModal: React.FC<PropagationIndexModalProps> = ({
                   key={category.level}
                   className={`flex items-start gap-3 p-3 rounded-lg transition-colors ${
                     isCurrentLevel
-                      ? "bg-white/5 border border-white/10"
-                      : "hover:bg-white/[0.02]"
+                      ? "bg-su-line/10 border border-su-line/40"
+                      : "hover:bg-su-line/10"
                   }`}
                 >
                   <div
@@ -311,16 +311,16 @@ export const PropagationIndexModal: React.FC<PropagationIndexModalProps> = ({
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
-                      <span className="text-white font-medium">
+                      <span className="text-su-text font-medium">
                         {category.level}
                       </span>
                       {isCurrentLevel && (
-                        <span className="text-[10px] px-1.5 py-0.5 bg-white/10 text-white rounded">
+                        <span className="text-[10px] px-1.5 py-0.5 bg-su-line/20 text-su-text rounded">
                           Current
                         </span>
                       )}
                     </div>
-                    <p className="text-xs text-gray-400 mt-1">
+                    <p className="text-xs text-su-muted mt-1">
                       {category.bands}
                     </p>
                   </div>
@@ -331,16 +331,16 @@ export const PropagationIndexModal: React.FC<PropagationIndexModalProps> = ({
         </div>
 
         {/* Formula Explanation */}
-        <div className="bg-void-black/50 rounded-lg p-4 border border-white/5">
-          <h4 className="text-sm font-mono uppercase tracking-wider text-gray-400 mb-3">
+        <div className="bg-void-black/50 rounded-lg p-4 border border-su-line/20">
+          <h4 className="text-sm font-mono uppercase tracking-wider text-su-muted mb-3">
             How the Score is Calculated
           </h4>
-          <div className="space-y-3 text-sm text-gray-300">
+          <div className="space-y-3 text-sm text-su-muted">
             <p>
               The Global Conditions Score combines available space-weather inputs
               into an uncalibrated 0-100 heuristic. It does not predict a station-to-station path.
             </p>
-            <div className="bg-white/5 rounded p-3 font-mono text-xs">
+            <div className="bg-su-line/10 rounded p-3 font-mono text-xs">
               <div className="text-plasma-orange">
                 SFI Score = ((SFI - 70) / 130) × 40
               </div>
@@ -350,7 +350,7 @@ export const PropagationIndexModal: React.FC<PropagationIndexModalProps> = ({
               <div className="text-caution-amber mt-1">
                 Bz Score = 0-20 based on IMF direction
               </div>
-              <div className="text-white mt-2 border-t border-white/10 pt-2">
+              <div className="text-su-text mt-2 border-t border-su-line/40 pt-2">
                 Total = available points ÷ available maximum × 100
               </div>
             </div>

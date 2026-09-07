@@ -483,7 +483,7 @@ export function ContestOneLineEntry({
   if (!activeSession || !contestDefinition) {
     return (
       <Card className={`p-4 ${className}`}>
-        <p className="text-white/50 text-sm">No active contest session</p>
+        <p className="text-su-text/80 text-sm">No active contest session</p>
       </Card>
     );
   }
@@ -496,15 +496,15 @@ export function ContestOneLineEntry({
           <span className="text-plasma-orange font-bold text-lg">
             {band.toUpperCase()}
           </span>
-          <span className="text-white/70 font-medium">{mode}</span>
+          <span className="text-su-text/70 font-medium">{mode}</span>
           {frequencyKHz && (
-            <span className="text-white/40 text-sm">
+            <span className="text-su-text/80 text-sm">
               {(frequencyKHz / 1000).toFixed(3)} MHz
             </span>
           )}
         </div>
-        <div className="text-white/60 text-sm">
-          <span className="text-white/40">TX:</span>{" "}
+        <div className="text-su-text/80 text-sm">
+          <span className="text-su-text/80">TX:</span>{" "}
           <span className="font-mono">{sendingExchange}</span>
         </div>
       </div>
@@ -546,8 +546,8 @@ export function ContestOneLineEntry({
           spellCheck={false}
           className={`
             w-full px-4 py-3 rounded-lg
-            bg-white/5 border text-white font-mono text-lg
-            placeholder:text-white/30
+            bg-su-line/10 border text-su-text font-mono text-lg
+            placeholder:text-su-text/30
             focus:outline-none focus:ring-2
             transition-colors
             ${
@@ -555,7 +555,7 @@ export function ContestOneLineEntry({
                 ? "border-alert-red/50 focus:ring-alert-red/50"
                 : status.isNewMult
                   ? "border-signal-green/50 focus:ring-signal-green/50"
-                  : "border-white/20 focus:ring-plasma-orange/50"
+                  : "border-su-line/50 focus:ring-plasma-orange/50"
             }
           `}
         />
@@ -622,7 +622,7 @@ export function ContestOneLineEntry({
         {status.callsign && (
           <span
             className={`font-mono font-bold ${
-              status.isDupe ? "text-alert-red line-through" : "text-white"
+              status.isDupe ? "text-alert-red line-through" : "text-su-text"
             }`}
             aria-label={
               status.isDupe
@@ -713,11 +713,11 @@ export function ContestOneLineEntry({
         )}
 
         {/* Keyboard hints on the right */}
-        <div className="ml-auto text-white/30 text-xs">
+        <div className="ml-auto text-su-text/80 text-xs">
           <span className="hidden sm:inline">
-            <kbd className="px-1 py-0.5 rounded bg-white/10">Enter</kbd> log
+            <kbd className="px-1 py-0.5 rounded bg-su-line/20">Enter</kbd> log
             <span className="mx-2">|</span>
-            <kbd className="px-1 py-0.5 rounded bg-white/10">Esc</kbd> clear
+            <kbd className="px-1 py-0.5 rounded bg-su-line/20">Esc</kbd> clear
           </span>
         </div>
       </div>

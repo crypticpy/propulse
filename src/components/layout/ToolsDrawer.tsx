@@ -1,7 +1,7 @@
 import { Link } from "react-router-dom";
 
 function DrawerIcon({ icon }: { icon: string }) {
-  const cls = "w-5 h-5 text-gray-300";
+  const cls = "w-5 h-5 text-su-muted";
   if (icon === "profile") {
     return (
       <svg
@@ -150,12 +150,12 @@ export function ToolsDrawer({ onClose }: ToolsDrawerProps) {
       />
 
       {/* Drawer */}
-      <div className="fixed bottom-[calc(56px+env(safe-area-inset-bottom,0px))] left-0 right-0 z-50 bg-deep-space/95 backdrop-blur-md border-t border-white/10 rounded-t-2xl p-4 space-y-2 animate-in">
+      <div className="fixed bottom-[calc(56px+env(safe-area-inset-bottom,0px))] left-0 right-0 z-50 bg-deep-space/95 backdrop-blur-md border-t border-su-line/40 rounded-t-2xl p-4 space-y-2 animate-in">
         {/* Drag handle */}
-        <div className="w-10 h-1 bg-gray-600 rounded-full mx-auto mb-3" />
+        <div className="w-10 h-1 bg-su-line rounded-full mx-auto mb-3" />
 
         {/* My Station section */}
-        <div className="text-[10px] uppercase tracking-wider text-gray-500 font-medium px-3 pt-1">
+        <div className="text-[10px] uppercase tracking-wider text-su-muted font-medium px-3 pt-1">
           My Station
         </div>
         {stationItems.map((item) => (
@@ -163,21 +163,21 @@ export function ToolsDrawer({ onClose }: ToolsDrawerProps) {
             key={item.path}
             to={item.path}
             onClick={onClose}
-            className="flex items-center gap-3 p-3 rounded-xl hover:bg-white/[0.05] active:bg-white/[0.08] transition-colors min-h-[44px]"
+            className="flex items-center gap-3 p-3 rounded-xl hover:bg-su-line/10 active:bg-su-line/20 transition-colors min-h-[44px]"
           >
             <DrawerIcon icon={item.icon} />
             <div>
-              <div className="text-sm font-medium text-white">{item.label}</div>
-              <div className="text-xs text-gray-400">{item.description}</div>
+              <div className="text-sm font-medium text-su-text">{item.label}</div>
+              <div className="text-xs text-su-muted">{item.description}</div>
             </div>
           </Link>
         ))}
 
         {/* Separator */}
-        <div className="border-t border-white/10 my-1" />
+        <div className="border-t border-su-line/40 my-1" />
 
         {/* Tools section */}
-        <div className="text-[10px] uppercase tracking-wider text-gray-500 font-medium px-3 pt-1">
+        <div className="text-[10px] uppercase tracking-wider text-su-muted font-medium px-3 pt-1">
           Tools
         </div>
         {tools.map((tool) => (
@@ -185,30 +185,30 @@ export function ToolsDrawer({ onClose }: ToolsDrawerProps) {
             key={tool.path}
             to={tool.path}
             onClick={onClose}
-            className="flex items-center gap-3 p-3 rounded-xl hover:bg-white/[0.05] active:bg-white/[0.08] transition-colors min-h-[44px]"
+            className="flex items-center gap-3 p-3 rounded-xl hover:bg-su-line/10 active:bg-su-line/20 transition-colors min-h-[44px]"
           >
             <span className="text-lg">{tool.icon}</span>
             <div>
-              <div className="text-sm font-medium text-white">{tool.label}</div>
-              <div className="text-xs text-gray-400">{tool.description}</div>
+              <div className="text-sm font-medium text-su-text">{tool.label}</div>
+              <div className="text-xs text-su-muted">{tool.description}</div>
             </div>
           </Link>
         ))}
 
         {/* Separator */}
-        <div className="border-t border-white/10 my-1" />
+        <div className="border-t border-su-line/40 my-1" />
 
         {/* Support section */}
-        <div className="text-[10px] uppercase tracking-wider text-gray-500 font-medium px-3 pt-1">
+        <div className="text-[10px] uppercase tracking-wider text-su-muted font-medium px-3 pt-1">
           Support
         </div>
         <Link
           to="/help"
           onClick={onClose}
-          className="flex items-center gap-3 p-3 rounded-xl hover:bg-white/[0.05] active:bg-white/[0.08] transition-colors min-h-[44px]"
+          className="flex items-center gap-3 p-3 rounded-xl hover:bg-su-line/10 active:bg-su-line/20 transition-colors min-h-[44px]"
         >
           <svg
-            className="w-5 h-5 text-gray-300"
+            className="w-5 h-5 text-su-muted"
             fill="none"
             stroke="currentColor"
             viewBox="0 0 24 24"
@@ -221,8 +221,8 @@ export function ToolsDrawer({ onClose }: ToolsDrawerProps) {
             />
           </svg>
           <div>
-            <div className="text-sm font-medium text-white">Help & Docs</div>
-            <div className="text-xs text-gray-400">
+            <div className="text-sm font-medium text-su-text">Help & Docs</div>
+            <div className="text-xs text-su-muted">
               Guides, references & FAQ
             </div>
           </div>

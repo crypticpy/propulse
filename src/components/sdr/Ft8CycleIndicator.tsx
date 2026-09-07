@@ -20,7 +20,7 @@ export function Ft8CycleIndicator({
 
   return (
     <div
-      className="h-1 w-full bg-white/5 overflow-hidden"
+      className="h-1 w-full bg-su-line/10 overflow-hidden"
       title={`${mode} cycle: ${pct.toFixed(0)}%`}
     >
       <div

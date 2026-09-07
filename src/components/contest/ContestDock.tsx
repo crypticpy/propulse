@@ -138,16 +138,16 @@ export function ContestDock({ className = "" }: ContestDockProps) {
       <div className={`h-full p-4 ${className}`}>
         <Card className="p-6 h-full flex items-center justify-center">
           <div className="text-center space-y-4 max-w-md">
-            <h3 className="font-orbitron text-lg font-bold text-white">
+            <h3 className="font-orbitron text-lg font-bold text-su-text">
               No Contest Active
             </h3>
-            <p className="text-gray-400 text-sm">
+            <p className="text-su-muted text-sm">
               Start a contest session to enable the Contest dock inside
               PropSphere.
             </p>
             <button
               onClick={() => setShowConfigModal(true)}
-              className="px-6 py-2.5 bg-plasma-orange text-deep-space font-bold rounded-lg
+              className="px-6 py-2.5 bg-plasma-orange text-su-on-accent font-bold rounded-lg
                          hover:bg-plasma-orange/90 shadow-[0_0_20px_rgba(255,170,0,0.25)]
                          transition-all duration-200"
             >
@@ -168,11 +168,11 @@ export function ContestDock({ className = "" }: ContestDockProps) {
   return (
     <div className={`flex flex-col h-full ${className}`}>
       {/* Entry strip */}
-      <div className="p-4 border-b border-white/10 bg-black/20">
+      <div className="p-4 border-b border-su-line/40 bg-su-input">
         <div className="flex items-start justify-between gap-4">
           <div className="space-y-1">
             <div className="flex items-center gap-2">
-              <span className="font-orbitron text-sm font-bold text-white">
+              <span className="font-orbitron text-sm font-bold text-su-text">
                 {contestName ?? "Contest"}
               </span>
               <Link
@@ -183,16 +183,16 @@ export function ContestDock({ className = "" }: ContestDockProps) {
                 Open full view →
               </Link>
             </div>
-            <div className="flex items-center gap-3 text-[11px] text-gray-400">
+            <div className="flex items-center gap-3 text-[11px] text-su-muted">
               <span>
                 QSOs{" "}
-                <span className="text-white font-mono">
+                <span className="text-su-text font-mono">
                   {activeSession.qsos.length}
                 </span>
               </span>
               <span>
                 Mults{" "}
-                <span className="text-white font-mono">
+                <span className="text-su-text font-mono">
                   {activeSession.totalMultipliers}
                 </span>
               </span>
@@ -205,7 +205,7 @@ export function ContestDock({ className = "" }: ContestDockProps) {
               {lastQso && (
                 <span>
                   Last{" "}
-                  <span className="text-white font-mono">
+                  <span className="text-su-text font-mono">
                     {formatDeltaSince(lastQso.timestamp)}
                   </span>
                 </span>
@@ -246,14 +246,14 @@ export function ContestDock({ className = "" }: ContestDockProps) {
         />
 
         {/* Lightweight toggles */}
-        <div className="mt-3 flex flex-wrap items-center gap-2 text-[10px] text-gray-400">
+        <div className="mt-3 flex flex-wrap items-center gap-2 text-[10px] text-su-muted">
           <button
             type="button"
             onClick={() => setSpotPrefillInRun(!spotPrefillInRun)}
             className={`px-2 py-1 rounded border transition-colors ${
               spotPrefillInRun
                 ? "bg-plasma-orange/20 text-plasma-orange border-plasma-orange/40"
-                : "bg-white/5 text-gray-400 border-white/10 hover:bg-white/10 hover:text-white"
+                : "bg-su-line/10 text-su-muted border-su-line/40 hover:bg-su-line/20 hover:text-su-text"
             }`}
             title="Allow spot click to prefill even in RUN mode"
           >
@@ -265,7 +265,7 @@ export function ContestDock({ className = "" }: ContestDockProps) {
             className={`px-2 py-1 rounded border transition-colors ${
               adoptBandFromSpot
                 ? "bg-cosmic-cyan/15 text-cosmic-cyan border-cosmic-cyan/40"
-                : "bg-white/5 text-gray-400 border-white/10 hover:bg-white/10 hover:text-white"
+                : "bg-su-line/10 text-su-muted border-su-line/40 hover:bg-su-line/20 hover:text-su-text"
             }`}
             title="Adopt spot band when prefilling"
           >
@@ -277,7 +277,7 @@ export function ContestDock({ className = "" }: ContestDockProps) {
             className={`px-2 py-1 rounded border transition-colors ${
               adoptModeFromSpot
                 ? "bg-cosmic-cyan/15 text-cosmic-cyan border-cosmic-cyan/40"
-                : "bg-white/5 text-gray-400 border-white/10 hover:bg-white/10 hover:text-white"
+                : "bg-su-line/10 text-su-muted border-su-line/40 hover:bg-su-line/20 hover:text-su-text"
             }`}
             title="Adopt spot mode when prefilling"
           >
@@ -288,8 +288,8 @@ export function ContestDock({ className = "" }: ContestDockProps) {
             onClick={() => setFocusEntryOnSpotPrefill(!focusEntryOnSpotPrefill)}
             className={`px-2 py-1 rounded border transition-colors ${
               focusEntryOnSpotPrefill
-                ? "bg-white/10 text-white border-white/20"
-                : "bg-white/5 text-gray-400 border-white/10 hover:bg-white/10 hover:text-white"
+                ? "bg-su-line/20 text-su-text border-su-line/50"
+                : "bg-su-line/10 text-su-muted border-su-line/40 hover:bg-su-line/20 hover:text-su-text"
             }`}
             title="Refocus entry after spot click/prefill"
           >

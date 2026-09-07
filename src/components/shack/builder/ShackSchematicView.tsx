@@ -945,7 +945,7 @@ export function ShackSchematicView({
   if (chains.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-16 px-4 text-center">
-        <div className="w-20 h-20 mx-auto mb-5 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center">
+        <div className="w-20 h-20 mx-auto mb-5 rounded-2xl bg-su-line/10 border border-su-line/40 flex items-center justify-center">
           <svg
             className="w-10 h-10 text-plasma-orange/60"
             fill="none"
@@ -960,10 +960,10 @@ export function ShackSchematicView({
             />
           </svg>
         </div>
-        <h3 className="text-base font-semibold text-gray-200 mb-2">
+        <h3 className="text-base font-semibold text-su-text mb-2">
           No signal paths yet
         </h3>
-        <p className="text-sm text-gray-500 max-w-sm mb-6">
+        <p className="text-sm text-su-muted max-w-sm mb-6">
           Build your station&apos;s signal paths from radio to antenna. Map out
           each path like a QST magazine station diagram.
         </p>
@@ -1005,38 +1005,38 @@ export function ShackSchematicView({
   return (
     <div
       ref={containerRef}
-      className="relative rounded-2xl bg-panel/30 backdrop-blur-sm border border-white/5 overflow-hidden select-none"
+      className="relative rounded-2xl bg-panel/30 backdrop-blur-sm border border-su-line/20 overflow-hidden select-none"
       style={{
         cursor: isPanning ? "grabbing" : "grab",
         minHeight: MIN_CANVAS_HEIGHT,
       }}
     >
       {/* Zoom controls overlay (top-right) */}
-      <div className="absolute top-2 right-2 z-10 flex items-center gap-1 bg-void-black/80 backdrop-blur-sm border border-white/10 rounded-lg p-1">
+      <div className="absolute top-2 right-2 z-10 flex items-center gap-1 bg-void-black/80 backdrop-blur-sm border border-su-line/40 rounded-lg p-1">
         <button
           type="button"
           onClick={() => setZoom((prev) => Math.min(2.5, prev + 0.2))}
-          className="w-7 h-7 flex items-center justify-center rounded text-gray-400 hover:text-gray-200 hover:bg-white/10 text-sm font-bold"
+          className="w-7 h-7 flex items-center justify-center rounded text-su-muted hover:text-su-text hover:bg-su-line/20 text-sm font-bold"
           aria-label="Zoom in"
         >
           +
         </button>
-        <span className="text-[10px] text-gray-500 font-mono w-10 text-center">
+        <span className="text-[10px] text-su-muted font-mono w-10 text-center">
           {Math.round(zoom * 100)}%
         </span>
         <button
           type="button"
           onClick={() => setZoom((prev) => Math.max(0.3, prev - 0.2))}
-          className="w-7 h-7 flex items-center justify-center rounded text-gray-400 hover:text-gray-200 hover:bg-white/10 text-sm font-bold"
+          className="w-7 h-7 flex items-center justify-center rounded text-su-muted hover:text-su-text hover:bg-su-line/20 text-sm font-bold"
           aria-label="Zoom out"
         >
           {"\u2212"}
         </button>
-        <div className="w-px h-4 bg-white/10 mx-0.5" />
+        <div className="w-px h-4 bg-su-line/20 mx-0.5" />
         <button
           type="button"
           onClick={handleZoomToFit}
-          className="px-1.5 h-7 flex items-center justify-center rounded text-gray-500 hover:text-gray-200 hover:bg-white/10 text-[10px] font-medium"
+          className="px-1.5 h-7 flex items-center justify-center rounded text-su-muted hover:text-su-text hover:bg-su-line/20 text-[10px] font-medium"
           aria-label="Zoom to fit"
         >
           Fit
@@ -1044,9 +1044,9 @@ export function ShackSchematicView({
       </div>
 
       {/* Title badge (top-left) */}
-      <div className="absolute top-2 left-2 z-10 flex items-center gap-1.5 px-2.5 py-1 bg-void-black/60 backdrop-blur-sm border border-white/10 rounded-lg">
+      <div className="absolute top-2 left-2 z-10 flex items-center gap-1.5 px-2.5 py-1 bg-void-black/60 backdrop-blur-sm border border-su-line/40 rounded-lg">
         <svg
-          className="w-3.5 h-3.5 text-gray-400"
+          className="w-3.5 h-3.5 text-su-muted"
           fill="none"
           viewBox="0 0 24 24"
           stroke="currentColor"
@@ -1058,14 +1058,14 @@ export function ShackSchematicView({
             d="M3.75 6A2.25 2.25 0 016 3.75h2.25A2.25 2.25 0 0110.5 6v2.25a2.25 2.25 0 01-2.25 2.25H6a2.25 2.25 0 01-2.25-2.25V6zM3.75 15.75A2.25 2.25 0 016 13.5h2.25a2.25 2.25 0 012.25 2.25V18a2.25 2.25 0 01-2.25 2.25H6A2.25 2.25 0 013.75 18v-2.25zM13.5 6a2.25 2.25 0 012.25-2.25H18A2.25 2.25 0 0120.25 6v2.25A2.25 2.25 0 0118 10.5h-2.25a2.25 2.25 0 01-2.25-2.25V6zM13.5 15.75a2.25 2.25 0 012.25-2.25H18a2.25 2.25 0 012.25 2.25V18A2.25 2.25 0 0118 20.25h-2.25A2.25 2.25 0 0113.5 18v-2.25z"
           />
         </svg>
-        <span className="text-[10px] text-gray-400 font-medium">
+        <span className="text-[10px] text-su-muted font-medium">
           {chains.length} signal path{chains.length !== 1 ? "s" : ""}
         </span>
       </div>
 
       {/* Band selector strip (change #3) */}
       {onSelectBand && (
-        <div className="absolute top-2 left-1/2 -translate-x-1/2 z-10 flex items-center gap-0.5 bg-void-black/80 backdrop-blur-sm border border-white/10 rounded-lg px-1.5 py-1">
+        <div className="absolute top-2 left-1/2 -translate-x-1/2 z-10 flex items-center gap-0.5 bg-void-black/80 backdrop-blur-sm border border-su-line/40 rounded-lg px-1.5 py-1">
           {BANDS.map((band) => (
             <button
               key={band}
@@ -1073,8 +1073,8 @@ export function ShackSchematicView({
               onClick={() => onSelectBand(band)}
               className={`px-1.5 py-0.5 rounded text-[9px] font-semibold transition-colors ${
                 selectedBand === band
-                  ? "bg-plasma-orange text-white"
-                  : "text-gray-500 hover:text-gray-300 hover:bg-white/10"
+                  ? "bg-plasma-orange text-su-on-accent"
+                  : "text-su-muted hover:text-su-text hover:bg-su-line/20"
               }`}
             >
               {band}
@@ -1084,8 +1084,8 @@ export function ShackSchematicView({
       )}
 
       {/* Hint badge (bottom-left) */}
-      <div className="absolute bottom-2 left-2 z-10 px-2.5 py-1 bg-void-black/60 backdrop-blur-sm border border-white/10 rounded-lg">
-        <span className="text-[10px] text-gray-500">
+      <div className="absolute bottom-2 left-2 z-10 px-2.5 py-1 bg-void-black/60 backdrop-blur-sm border border-su-line/40 rounded-lg">
+        <span className="text-[10px] text-su-muted">
           Click a signal path to edit
         </span>
       </div>

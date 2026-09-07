@@ -1,4 +1,5 @@
 import { HamClockDialog, HamClockTabs } from "../controls";
+import { ViewControls } from "./ViewControls";
 import { DisplayTab } from "./DisplayTab";
 import { KioskTab } from "./KioskTab";
 import { LayersTab } from "./LayersTab";
@@ -30,12 +31,14 @@ export function HamClockSettingsDialog({
       open={open}
       onClose={onClose}
       title="SETTINGS"
-      purpose="Display, pages, layers, spots, map and theme for this HamClock wall."
+      purpose="View, display, pages, layers, spots, map and theme for this HamClock wall."
       size="settings"
     >
       <HamClockTabs
         label="Settings"
+        orientation="vertical"
         tabs={[
+          { id: "view", label: "View", content: <ViewControls /> },
           { id: "display", label: "Display", content: <DisplayTab /> },
           {
             id: "pages",

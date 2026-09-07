@@ -249,22 +249,22 @@ export function ShareModal({
 
       {/* Modal */}
       <Card
-        className="relative z-10 w-full max-w-md p-0 overflow-hidden !bg-black/90 !backdrop-blur-md border border-white/15"
+        className="relative z-10 w-full max-w-md p-0 overflow-hidden !bg-su-panel/90 !backdrop-blur-md border border-su-line/50"
         animate
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-white/10">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-su-line/40">
           <div>
             <h2 className="font-orbitron text-lg font-bold text-gradient-orange">
               {title}
             </h2>
             {description && (
-              <p className="mt-0.5 text-xs text-gray-400">{description}</p>
+              <p className="mt-0.5 text-xs text-su-muted">{description}</p>
             )}
           </div>
           <button
             onClick={onClose}
-            className="p-2 text-gray-400 hover:text-white hover:bg-white/10 rounded-lg transition-colors"
+            className="p-2 text-su-muted hover:text-su-text hover:bg-su-line/20 rounded-lg transition-colors"
             aria-label="Close modal"
           >
             <svg
@@ -285,7 +285,7 @@ export function ShareModal({
 
         {/* Share Preview */}
         {targetInfo && (
-          <div className="px-6 py-3 bg-white/5 border-b border-white/10">
+          <div className="px-6 py-3 bg-su-line/10 border-b border-su-line/40">
             <div className="flex items-center gap-2">
               <svg
                 className="w-4 h-4 text-plasma-orange flex-shrink-0"
@@ -306,7 +306,7 @@ export function ShareModal({
                   d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"
                 />
               </svg>
-              <span className="text-sm text-gray-300 truncate">
+              <span className="text-sm text-su-muted truncate">
                 {targetInfo}
               </span>
             </div>
@@ -325,7 +325,7 @@ export function ShareModal({
                     d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
                   />
                 </svg>
-                <span className="text-sm text-gray-400">
+                <span className="text-sm text-su-muted">
                   Time offset: {state.timeOffset > 0 ? "+" : ""}
                   {state.timeOffset}h
                 </span>
@@ -335,7 +335,7 @@ export function ShareModal({
         )}
 
         {/* Tab Navigation */}
-        <div className="flex border-b border-white/10">
+        <div className="flex border-b border-su-line/40">
           {(
             [
               { id: "link", label: "Link", icon: LinkIcon },
@@ -349,7 +349,7 @@ export function ShareModal({
               className={`flex-1 flex items-center justify-center gap-2 py-3 text-sm font-medium transition-colors border-b-2 ${
                 activeTab === tab.id
                   ? "text-plasma-orange border-plasma-orange bg-plasma-orange/5"
-                  : "text-gray-400 border-transparent hover:text-white hover:bg-white/5"
+                  : "text-su-muted border-transparent hover:text-su-text hover:bg-su-line/10"
               }`}
             >
               <tab.icon className="w-4 h-4" />
@@ -364,7 +364,7 @@ export function ShareModal({
           {activeTab === "link" && (
             <div className="space-y-4">
               <div>
-                <label className="block text-xs font-medium text-gray-400 uppercase tracking-wide mb-2">
+                <label className="block text-xs font-medium text-su-muted uppercase tracking-wide mb-2">
                   Shareable Link
                 </label>
                 <div className="flex gap-2">
@@ -372,8 +372,8 @@ export function ShareModal({
                     type="text"
                     readOnly
                     value={shareURL}
-                    className="flex-1 px-3 py-2 bg-deep-space/70 border border-white/10 rounded-lg
-                               text-sm text-gray-300 font-mono
+                    className="flex-1 px-3 py-2 bg-deep-space/70 border border-su-line/40 rounded-lg
+                               text-sm text-su-muted font-mono
                                focus:outline-none focus:border-plasma-orange/50"
                     onClick={(e) => (e.target as HTMLInputElement).select()}
                   />
@@ -414,8 +414,8 @@ export function ShareModal({
                 <button
                   onClick={handleNativeShare}
                   className="w-full flex items-center justify-center gap-2 px-4 py-3
-                             bg-white/5 border border-white/10 rounded-lg
-                             text-white hover:bg-white/10 transition-colors"
+                             bg-su-line/10 border border-su-line/40 rounded-lg
+                             text-su-text hover:bg-su-line/20 transition-colors"
                 >
                   <svg
                     className="w-5 h-5"
@@ -443,7 +443,7 @@ export function ShareModal({
           {/* Social Tab */}
           {activeTab === "social" && (
             <div className="space-y-4">
-              <p className="text-sm text-gray-400 mb-4">
+              <p className="text-sm text-su-muted mb-4">
                 Share your propagation analysis on social media
               </p>
 
@@ -451,10 +451,10 @@ export function ShareModal({
               <button
                 onClick={handleTwitterShare}
                 className="w-full flex items-center gap-3 px-4 py-3
-                           bg-white/5 border border-white/10 rounded-lg
-                           text-white hover:bg-white/10 transition-colors group"
+                           bg-su-line/10 border border-su-line/40 rounded-lg
+                           text-su-text hover:bg-su-line/20 transition-colors group"
               >
-                <div className="w-10 h-10 flex items-center justify-center rounded-lg bg-black">
+                <div className="w-10 h-10 flex items-center justify-center rounded-lg bg-su-line/10">
                   <svg
                     className="w-5 h-5"
                     fill="currentColor"
@@ -467,12 +467,12 @@ export function ShareModal({
                   <div className="font-medium group-hover:text-plasma-orange transition-colors">
                     Share on X
                   </div>
-                  <div className="text-xs text-gray-500">
+                  <div className="text-xs text-su-muted">
                     Post to your timeline
                   </div>
                 </div>
                 <svg
-                  className="w-5 h-5 text-gray-500 group-hover:text-plasma-orange transition-colors"
+                  className="w-5 h-5 text-su-muted group-hover:text-plasma-orange transition-colors"
                   fill="none"
                   viewBox="0 0 24 24"
                   stroke="currentColor"
@@ -487,11 +487,11 @@ export function ShareModal({
               </button>
 
               {/* Preview text */}
-              <div className="p-3 bg-deep-space/50 rounded-lg border border-white/5">
-                <div className="text-xs text-gray-500 uppercase tracking-wide mb-1">
+              <div className="p-3 bg-deep-space/50 rounded-lg border border-su-line/20">
+                <div className="text-xs text-su-muted uppercase tracking-wide mb-1">
                   Preview
                 </div>
-                <p className="text-sm text-gray-300">{twitterText}</p>
+                <p className="text-sm text-su-muted">{twitterText}</p>
               </div>
             </div>
           )}
@@ -499,17 +499,19 @@ export function ShareModal({
           {/* QR Code Tab */}
           {activeTab === "qr" && (
             <div className="space-y-4">
-              <p className="text-sm text-gray-400 text-center mb-4">
+              <p className="text-sm text-su-muted text-center mb-4">
                 Scan this code to open the shared view
               </p>
 
               <div className="flex justify-center">
-                <div className="p-4 bg-white rounded-xl">
+                <div
+                  className="p-4 bg-white rounded-xl" /* design-tokens: allow */
+                >
                   <QRCodeSVG data={shareURL} size={180} />
                 </div>
               </div>
 
-              <p className="text-xs text-gray-500 text-center">
+              <p className="text-xs text-su-muted text-center">
                 Point your phone camera at the code
               </p>
             </div>

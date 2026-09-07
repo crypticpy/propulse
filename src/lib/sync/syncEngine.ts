@@ -17,6 +17,7 @@ import type { LogEntry } from "@/lib/db/types";
 import { getDeviceId } from "./deviceId";
 import { detectFieldConflicts, autoMerge } from "./conflict";
 import { syncMeta } from "./syncMeta";
+import { backfillLogbookMetadata } from "./logbookMetadataBackfill";
 
 // ─── Constants ──────────────────────────────────────────────────────────────
 
@@ -157,6 +158,7 @@ export class QSOSyncEngine {
    * @returns Total number of entries applied
    */
   async pullAndApply(userId: string): Promise<number> {
+    await backfillLogbookMetadata(userId);
     const db = await getDB();
     let totalApplied = 0;
     let currentVersion = this.getLocalVersion();
@@ -191,6 +193,9 @@ export class QSOSyncEngine {
             if (localEntry && this.shouldResolveConflict(localEntry, delta)) {
               // Resolve conflict using existing auto-merge
               const merged = autoMerge(localEntry, remoteEntry);
+              // Legacy pulls omitted this core field. Fill an absent value,
+              // while preserving the existing local-wins policy for real edits.
+              merged.myGrid ??= remoteEntry.myGrid;
               merged.version = Math.max(localEntry.version ?? 0, delta.version);
               merged.lastDeviceId = delta.deviceId;
               await tx.store.put(merged);
@@ -393,6 +398,8 @@ export class QSOSyncEngine {
       rstSent: (row.rst_sent as string) ?? undefined,
       rstRcvd: (row.rst_rcvd as string) ?? undefined,
       grid: (row.grid as string) ?? undefined,
+      myGrid: (row.my_grid as string) ?? undefined,
+      dxcc: (row.dxcc as number) ?? undefined,
       name: (row.name as string) ?? undefined,
       qth: (row.qth as string) ?? undefined,
       notes: (row.notes as string) ?? undefined,
@@ -427,6 +434,8 @@ export class QSOSyncEngine {
       rstSent: (row.rst_sent as string) ?? undefined,
       rstRcvd: (row.rst_rcvd as string) ?? undefined,
       grid: (row.grid as string) ?? undefined,
+      myGrid: (row.my_grid as string) ?? undefined,
+      dxcc: (row.dxcc as number) ?? undefined,
       name: (row.name as string) ?? undefined,
       qth: (row.qth as string) ?? undefined,
       notes: (row.notes as string) ?? undefined,
@@ -463,6 +472,8 @@ export class QSOSyncEngine {
       rst_sent: entry.rstSent ?? null,
       rst_rcvd: entry.rstRcvd ?? null,
       grid: entry.grid ?? null,
+      my_grid: entry.myGrid ?? null,
+      dxcc: entry.dxcc ?? null,
       name: entry.name ?? null,
       qth: entry.qth ?? null,
       notes: entry.notes ?? null,

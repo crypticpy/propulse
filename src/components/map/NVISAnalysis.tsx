@@ -110,7 +110,7 @@ function FrequencyBar({
       />
 
       {/* Frequency labels */}
-      <div className="absolute inset-0 flex items-center justify-between px-2 text-[10px] font-mono text-gray-400">
+      <div className="absolute inset-0 flex items-center justify-between px-2 text-[10px] font-mono text-su-muted">
         <span>2</span>
         <span>4</span>
         <span>6</span>
@@ -132,7 +132,7 @@ function BandChip({ band, isPrimary }: { band: string; isPrimary: boolean }) {
         ${
           isPrimary
             ? "bg-purple-500/30 text-purple-300 border border-purple-500/50"
-            : "bg-white/5 text-gray-400 border border-white/10"
+            : "bg-su-line/10 text-su-muted border border-su-line/40"
         }
       `}
     >
@@ -157,12 +157,12 @@ function MetricItem({
 }) {
   return (
     <div className="text-center">
-      <div className="text-xs text-gray-500 mb-0.5">{label}</div>
-      <div className="text-lg font-mono text-white">
+      <div className="text-xs text-su-muted mb-0.5">{label}</div>
+      <div className="text-lg font-mono text-su-text">
         {value}
-        {unit && <span className="text-xs text-gray-400 ml-0.5">{unit}</span>}
+        {unit && <span className="text-xs text-su-muted ml-0.5">{unit}</span>}
       </div>
-      {subValue && <div className="text-xs text-gray-600">{subValue}</div>}
+      {subValue && <div className="text-xs text-su-muted">{subValue}</div>}
     </div>
   );
 }
@@ -190,22 +190,22 @@ export function NVISAnalysis({
     <Card className={className}>
       <div className="space-y-4">
         {/* Header */}
-        <div className="flex items-center justify-between border-b border-white/10 pb-3">
+        <div className="flex items-center justify-between border-b border-su-line/40 pb-3">
           <div className="flex items-center gap-3">
             <div className="p-2 bg-purple-500/20 rounded-lg">
               <NVISIcon className="w-5 h-5 text-purple-400" />
             </div>
             <div>
-              <h3 className="text-lg font-semibold text-white">
+              <h3 className="text-lg font-semibold text-su-text">
                 NVIS Analysis
               </h3>
-              <p className="text-xs text-gray-500">
+              <p className="text-xs text-su-muted">
                 Regional Emergency Communications
               </p>
             </div>
           </div>
           <div
-            className={`px-3 py-1 rounded-full text-xs font-medium ${conditionColor} bg-white/5`}
+            className={`px-3 py-1 rounded-full text-xs font-medium ${conditionColor} bg-su-line/10`}
           >
             {conditionLabel}
           </div>
@@ -225,7 +225,7 @@ export function NVISAnalysis({
         {/* Frequency visualization */}
         {analysis.nvisViable && (
           <div className="space-y-2">
-            <div className="flex items-center justify-between text-xs text-gray-400">
+            <div className="flex items-center justify-between text-xs text-su-muted">
               <span>Frequency Range (MHz)</span>
               <span className="font-mono">
                 {analysis.frequencyRange.min.toFixed(1)} -{" "}
@@ -241,22 +241,22 @@ export function NVISAnalysis({
             <div className="flex items-center justify-between text-[10px]">
               <div className="flex items-center gap-2">
                 <span className="inline-block w-2 h-2 bg-purple-500/60 rounded" />
-                <span className="text-gray-500">Usable</span>
+                <span className="text-su-muted">Usable</span>
               </div>
               <div className="flex items-center gap-2">
                 <span className="inline-block w-2 h-2 bg-signal-green rounded" />
-                <span className="text-gray-500">Optimal</span>
+                <span className="text-su-muted">Optimal</span>
               </div>
               <div className="flex items-center gap-2">
                 <span className="inline-block w-2 h-2 bg-alert-red/80 rounded" />
-                <span className="text-gray-500">f0F2</span>
+                <span className="text-su-muted">f0F2</span>
               </div>
             </div>
           </div>
         )}
 
         {/* Key metrics */}
-        <div className="grid grid-cols-3 gap-3 pt-2 border-t border-white/5">
+        <div className="grid grid-cols-3 gap-3 pt-2 border-t border-su-line/20">
           <MetricItem
             label="Optimal Freq"
             value={analysis.optimalFrequency.toFixed(2)}
@@ -272,7 +272,7 @@ export function NVISAnalysis({
         </div>
 
         {/* Additional info */}
-        <div className="grid grid-cols-3 gap-3 pt-2 border-t border-white/5">
+        <div className="grid grid-cols-3 gap-3 pt-2 border-t border-su-line/20">
           <MetricItem
             label="Takeoff Angle"
             value={`${analysis.takeoffAngle}°`}
@@ -292,8 +292,8 @@ export function NVISAnalysis({
 
         {/* Band recommendations */}
         {analysis.recommendedBands.length > 0 && (
-          <div className="space-y-2 pt-2 border-t border-white/5">
-            <div className="text-xs text-gray-400 font-medium">
+          <div className="space-y-2 pt-2 border-t border-su-line/20">
+            <div className="text-xs text-su-muted font-medium">
               Recommended Bands
             </div>
             <div className="flex flex-wrap gap-2">
@@ -305,8 +305,8 @@ export function NVISAnalysis({
         )}
 
         {/* Condition summary */}
-        <div className="pt-2 border-t border-white/5">
-          <p className="text-sm text-gray-400">{analysis.conditionSummary}</p>
+        <div className="pt-2 border-t border-su-line/20">
+          <p className="text-sm text-su-muted">{analysis.conditionSummary}</p>
         </div>
 
         {/* Emergency note */}

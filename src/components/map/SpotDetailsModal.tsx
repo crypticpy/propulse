@@ -56,11 +56,11 @@ function formatUtc(date: Date): string {
 
 function DetailItem({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-lg border border-white/10 bg-white/[0.03] px-3 py-2">
-      <div className="text-[10px] font-medium uppercase tracking-wider text-gray-500">
+    <div className="rounded-lg border border-su-line/40 bg-su-line/10 px-3 py-2">
+      <div className="text-[10px] font-medium uppercase tracking-wider text-su-muted">
         {label}
       </div>
-      <div className="mt-0.5 break-words font-mono text-sm text-gray-200">
+      <div className="mt-0.5 break-words font-mono text-sm text-su-text">
         {value}
       </div>
     </div>
@@ -89,26 +89,26 @@ export function SpotDetailsModal({ spot, onClose }: SpotDetailsModalProps) {
       size="md"
     >
       <div
-        className="overflow-hidden rounded-xl border border-white/10 bg-white/[0.02]"
+        className="overflow-hidden rounded-xl border border-su-line/40 bg-su-line/10"
         style={{ borderTopColor: modeColor, borderTopWidth: 3 }}
       >
         <div className="flex flex-wrap items-center gap-2 px-5 py-4">
           {spot.mode && (
             <span
-              className="rounded px-2 py-0.5 text-[10px] font-bold text-white"
+              className="rounded px-2 py-0.5 text-[10px] font-bold text-su-text"
               style={{ backgroundColor: modeColor }}
             >
               {spot.mode}
             </span>
           )}
           {spot.band && (
-            <span className="rounded bg-white/10 px-2 py-0.5 text-[10px] font-bold text-gray-300">
+            <span className="rounded bg-su-line/20 px-2 py-0.5 text-[10px] font-bold text-su-muted">
               {spot.band}
             </span>
           )}
         </div>
 
-        <div className="border-y border-white/10 bg-white/[0.025] px-5 py-3">
+        <div className="border-y border-su-line/40 bg-su-line/10 px-5 py-3">
           <div className="flex flex-wrap items-center gap-2">
             <span
               className="rounded px-2 py-1 text-[10px] font-medium"
@@ -124,7 +124,7 @@ export function SpotDetailsModal({ spot, onClose }: SpotDetailsModalProps) {
             >
               {formatSpotAge(spotTime)}
             </span>
-            <span className="text-xs text-gray-400">{formatUtc(spotTime)}</span>
+            <span className="text-xs text-su-muted">{formatUtc(spotTime)}</span>
           </div>
         </div>
 
@@ -161,21 +161,21 @@ export function SpotDetailsModal({ spot, onClose }: SpotDetailsModalProps) {
         </div>
 
         {spot.comment && (
-          <div className="mx-5 mb-4 rounded-lg border border-white/10 bg-white/[0.03] px-3 py-2">
-            <div className="text-[10px] font-medium uppercase tracking-wider text-gray-500">
+          <div className="mx-5 mb-4 rounded-lg border border-su-line/40 bg-su-line/10 px-3 py-2">
+            <div className="text-[10px] font-medium uppercase tracking-wider text-su-muted">
               Spot comment
             </div>
-            <p className="mt-1 text-sm leading-relaxed text-gray-300">
+            <p className="mt-1 text-sm leading-relaxed text-su-muted">
               {spot.comment}
             </p>
           </div>
         )}
 
-        <div className="flex justify-end border-t border-white/10 px-5 py-3">
+        <div className="flex justify-end border-t border-su-line/40 px-5 py-3">
           <button
             type="button"
             onClick={onClose}
-            className="rounded-lg border border-white/10 bg-white/5 px-4 py-2 text-sm font-medium text-gray-300 transition-colors hover:bg-white/10 hover:text-white"
+            className="rounded-lg border border-su-line/40 bg-su-line/10 px-4 py-2 text-sm font-medium text-su-muted transition-colors hover:bg-su-line/20 hover:text-su-text"
           >
             Close
           </button>

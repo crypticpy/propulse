@@ -131,11 +131,11 @@ function CongestionBadge({
 }) {
   return (
     <div
-      className="flex items-center gap-1.5 px-2 py-1 rounded-full bg-white/5 border border-white/10"
+      className="flex items-center gap-1.5 px-2 py-1 rounded-full bg-su-line/10 border border-su-line/40"
       title={`${band}: ${LEVEL_LABELS[level]} congestion (${score}/100)`}
     >
       <span className={`w-2 h-2 rounded-full ${LEVEL_COLORS[level]}`} />
-      <span className="text-xs font-mono text-gray-300">{band}</span>
+      <span className="text-xs font-mono text-su-muted">{band}</span>
       <span className={`text-[10px] font-medium ${LEVEL_TEXT_COLORS[level]}`}>
         {LEVEL_LABELS[level]}
       </span>
@@ -206,7 +206,7 @@ export function DxWizardContestNote({
 
   return (
     <div
-      className={`rounded-xl bg-void-black/60 border border-white/10 backdrop-blur-sm overflow-hidden ${className}`}
+      className={`rounded-xl bg-void-black/60 border border-su-line/40 backdrop-blur-sm overflow-hidden ${className}`}
     >
       {/* Header */}
       <div className="flex items-start gap-3 p-4">
@@ -220,10 +220,10 @@ export function DxWizardContestNote({
             </span>
             <span className="w-1.5 h-1.5 rounded-full bg-caution-amber animate-pulse" />
           </div>
-          <p className="text-sm text-gray-300 leading-relaxed">
-            <span className="text-white font-medium">{contestNames}</span>
+          <p className="text-sm text-su-muted leading-relaxed">
+            <span className="text-su-text font-medium">{contestNames}</span>
             {moreCount > 0 && (
-              <span className="text-gray-500"> +{moreCount} more</span>
+              <span className="text-su-muted"> +{moreCount} more</span>
             )}{" "}
             {activeContests.length === 1 ? "is" : "are"} active right now.
             {mostCongested && mostCongested.score > 30 && (
@@ -247,8 +247,8 @@ export function DxWizardContestNote({
 
           {/* Alternatives suggestion */}
           {alternatives.length > 0 && (
-            <div className="mt-3 p-2.5 rounded-lg bg-white/[0.03] border border-white/5">
-              <div className="text-[10px] text-gray-400 uppercase tracking-wide mb-1.5">
+            <div className="mt-3 p-2.5 rounded-lg bg-su-line/10 border border-su-line/20">
+              <div className="text-[10px] text-su-muted uppercase tracking-wide mb-1.5">
                 Quieter alternatives
               </div>
               <div className="space-y-1">
@@ -257,10 +257,10 @@ export function DxWizardContestNote({
                     <span
                       className={`w-1.5 h-1.5 rounded-full ${LEVEL_COLORS[alt.congestion.level]}`}
                     />
-                    <span className="text-xs font-mono text-white">
+                    <span className="text-xs font-mono text-su-text">
                       {alt.band}
                     </span>
-                    <span className="text-[10px] text-gray-400 truncate">
+                    <span className="text-[10px] text-su-muted truncate">
                       {alt.reason}
                     </span>
                   </div>
@@ -285,7 +285,7 @@ export function DxWizardContestNote({
             <button
               type="button"
               onClick={() => setShowWhy((v) => !v)}
-              className="text-[11px] text-gray-500 hover:text-gray-300 transition-colors flex items-center gap-1"
+              className="text-[11px] text-su-muted hover:text-su-text transition-colors flex items-center gap-1"
             >
               Why am I seeing this?
               <ChevronIcon expanded={showWhy} />
@@ -303,8 +303,8 @@ export function DxWizardContestNote({
 
       {/* Collapsible: Explanation */}
       {showWhy && (
-        <div className="px-4 pb-4 border-t border-white/5 pt-3">
-          <p className="text-xs text-gray-400 leading-relaxed">
+        <div className="px-4 pb-4 border-t border-su-line/20 pt-3">
+          <p className="text-xs text-su-muted leading-relaxed">
             During major contests, thousands of operators concentrate on the
             standard HF contest bands (160m through 10m). This can make it
             harder to find clear frequencies for casual QSOs. WARC bands (30m,

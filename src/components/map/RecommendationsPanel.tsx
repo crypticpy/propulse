@@ -170,7 +170,7 @@ export function RecommendationsPanel({
   if (kLoading || sfiLoading) {
     return (
       <Card className={`${className} p-2 !rounded-lg`}>
-        <div className="text-center py-6 text-gray-500">
+        <div className="text-center py-6 text-su-muted">
           <div className="animate-pulse">Analyzing propagation...</div>
         </div>
       </Card>
@@ -181,7 +181,7 @@ export function RecommendationsPanel({
   if (!recommendations) {
     return (
       <Card className={`${className} p-2 !rounded-lg`}>
-        <div className="text-center py-6 text-gray-500">
+        <div className="text-center py-6 text-su-muted">
           <p className="text-sm">Select a target for recommendations</p>
         </div>
       </Card>
@@ -197,13 +197,13 @@ export function RecommendationsPanel({
         {/* Header */}
         <div className="flex items-center justify-between mb-0.5">
           <div className="flex items-center gap-2">
-            <h3 className="text-xs font-medium text-gray-300 uppercase tracking-wide">
+            <h3 className="text-xs font-medium text-su-muted uppercase tracking-wide">
               Recommendations
             </h3>
-            <span className="text-[10px] font-mono text-gray-500 bg-white/5 px-1.5 py-0.5 rounded">
+            <span className="text-[10px] font-mono text-su-muted bg-su-line/10 px-1.5 py-0.5 rounded">
               Kp={currentKp}
             </span>
-            <span className="text-[10px] font-mono text-gray-500 bg-white/5 px-1.5 py-0.5 rounded">
+            <span className="text-[10px] font-mono text-su-muted bg-su-line/10 px-1.5 py-0.5 rounded">
               SFI={currentSfi}
             </span>
           </div>
@@ -211,7 +211,7 @@ export function RecommendationsPanel({
         </div>
 
         {/* Mode Selector - Pill Buttons */}
-        <div className="flex gap-1 p-1 bg-white/5 rounded-lg">
+        <div className="flex gap-1 p-1 bg-su-line/10 rounded-lg">
           {MODES.map((mode) => (
             <button
               key={mode}
@@ -220,8 +220,8 @@ export function RecommendationsPanel({
                 flex-1 px-2 py-1.5 text-xs font-medium rounded-md transition-all
                 ${
                   selectedMode === mode
-                    ? "bg-plasma-orange text-white shadow-sm"
-                    : "text-gray-400 hover:text-white hover:bg-white/5"
+                    ? "bg-plasma-orange text-su-on-accent shadow-sm"
+                    : "text-su-muted hover:text-su-text hover:bg-su-line/10"
                 }
               `}
             >
@@ -234,10 +234,10 @@ export function RecommendationsPanel({
         <div className="text-center py-3">
           {isOptimalClosed ? (
             <div className="space-y-2">
-              <div className="text-2xl font-mono text-gray-500">
+              <div className="text-2xl font-mono text-su-muted">
                 No Bands Open
               </div>
-              <p className="text-xs text-gray-500">
+              <p className="text-xs text-su-muted">
                 Try FT8 mode for better sensitivity
               </p>
             </div>
@@ -259,11 +259,11 @@ export function RecommendationsPanel({
                   {optimal.status.charAt(0).toUpperCase() +
                     optimal.status.slice(1)}
                 </span>
-                <span className="text-sm text-gray-400 font-mono">
+                <span className="text-sm text-su-muted font-mono">
                   {optimal.snr} dB / {optimal.sUnit}
                 </span>
               </div>
-              <div className="text-xs text-gray-500 mt-1">
+              <div className="text-xs text-su-muted mt-1">
                 Score: {optimal.score}/100
               </div>
             </div>
@@ -274,12 +274,12 @@ export function RecommendationsPanel({
         {!isOptimalClosed && (
           <div className="flex items-center justify-center">
             {nextBestWindow ? (
-              <div className="flex items-center gap-2 px-3 py-1.5 bg-white/5 rounded-full">
-                <span className="text-xs text-gray-400">Better on</span>
+              <div className="flex items-center gap-2 px-3 py-1.5 bg-su-line/10 rounded-full">
+                <span className="text-xs text-su-muted">Better on</span>
                 <span className="text-xs font-medium text-plasma-orange">
                   {nextBestWindow.band}
                 </span>
-                <span className="text-xs text-gray-400">
+                <span className="text-xs text-su-muted">
                   {formatTimeUntil(nextBestWindow.hoursUntilStart)}
                 </span>
               </div>
@@ -297,7 +297,7 @@ export function RecommendationsPanel({
         {/* Alternative Bands */}
         {alternatives.length > 0 && (
           <div className="space-y-2">
-            <div className="text-xs text-gray-500 uppercase tracking-wide">
+            <div className="text-xs text-su-muted uppercase tracking-wide">
               Alternatives
             </div>
             <div className="flex gap-2">
@@ -309,10 +309,10 @@ export function RecommendationsPanel({
         )}
 
         {/* Expandable Details */}
-        <div className="border-t border-white/5 pt-3">
+        <div className="border-t border-su-line/20 pt-3">
           <button
             onClick={() => setIsExpanded(!isExpanded)}
-            className="w-full flex items-center justify-between text-xs text-gray-400 hover:text-white transition-colors"
+            className="w-full flex items-center justify-between text-xs text-su-muted hover:text-su-text transition-colors"
           >
             <span>Time Windows</span>
             <svg
@@ -333,7 +333,7 @@ export function RecommendationsPanel({
           {isExpanded && (
             <div className="mt-3 space-y-2">
               {timeWindows.length === 0 ? (
-                <p className="text-xs text-gray-500 text-center py-2">
+                <p className="text-xs text-su-muted text-center py-2">
                   No favorable windows in next 24h
                 </p>
               ) : (
@@ -351,7 +351,7 @@ export function RecommendationsPanel({
         </div>
 
         {/* Summary */}
-        <div className="text-xs text-gray-500 leading-relaxed">{summary}</div>
+        <div className="text-xs text-su-muted leading-relaxed">{summary}</div>
       </div>
 
       {/* Help Modal */}
@@ -386,7 +386,7 @@ function AlternativeBandPill({
       className={`
         flex-1 px-2 py-1.5 rounded-lg border transition-colors
         ${getStatusBgColorClass(recommendation.status)}
-        border-white/10 hover:border-white/20
+        border-su-line/40 hover:border-su-line/50
       `}
       title={recommendation.reason}
     >
@@ -396,7 +396,7 @@ function AlternativeBandPill({
         >
           {recommendation.band}
         </div>
-        <div className="text-[10px] text-gray-500">{recommendation.snr} dB</div>
+        <div className="text-[10px] text-su-muted">{recommendation.snr} dB</div>
       </div>
     </div>
   );
@@ -412,17 +412,17 @@ function TimeWindowRow({ window }: { window: TimeWindow }) {
     <div
       className={`
         flex items-center justify-between px-3 py-2 rounded-lg
-        ${isActive ? "bg-signal-green/10 border border-signal-green/20" : "bg-white/5"}
+        ${isActive ? "bg-signal-green/10 border border-signal-green/20" : "bg-su-line/10"}
       `}
     >
       <div className="flex items-center gap-3">
-        <span className="text-sm font-mono text-white">{window.band}</span>
-        <span className="text-xs text-gray-500">
+        <span className="text-sm font-mono text-su-text">{window.band}</span>
+        <span className="text-xs text-su-muted">
           {formatHour(window.startHour)} - {formatHour(window.endHour)}
         </span>
       </div>
       <div className="flex items-center gap-2">
-        <span className="text-xs text-gray-400">
+        <span className="text-xs text-su-muted">
           Peak: {formatHour(window.peakHour)}
         </span>
         {isActive ? (
@@ -430,7 +430,7 @@ function TimeWindowRow({ window }: { window: TimeWindow }) {
             NOW
           </span>
         ) : (
-          <span className="text-xs text-gray-500">
+          <span className="text-xs text-su-muted">
             {formatTimeUntil(window.hoursUntilStart)}
           </span>
         )}

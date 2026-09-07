@@ -5,34 +5,47 @@
  * drawn as a parabolic arc from one ground point to the next, peaking at
  * the reflection height (visually exaggerated 5x for clarity).
  *
- * Features:
- * - Per-hop color coding by quality score (green/yellow/orange/red)
- * - Animated flowing dashes along the path
- * - Reflection markers at ionosphere bounce points
- * - Ground bounce markers between hops
- * - **Ionosphere bounce highlights**: when both ionosphere and rayPath layers
- *   are active, glowing layer-colored markers appear at each bounce point
- *   with a label identifying the ionospheric layer (D/E/F1/F2)
- * - Respects prefers-reduced-motion for accessibility
+ * Inspectable points are built from explicit model descriptors (SP-07).
+ * Drawn shell height is decorative and is never reported as modeled height.
  */
 
-import { useMemo, useRef, useState, useEffect } from "react";
-import { MapAnimationClock } from "./MapAnimationClock";
-import { useMapAnimationFrame } from "./hooks/useMapAnimationFrame";
-import { Line } from "@react-three/drei";
+import { useMemo, useRef, useState, useEffect, useCallback } from "react";
+import { Html, Line } from "@react-three/drei";
+import { ThreeEvent } from "@react-three/fiber";
 import * as THREE from "three";
 import type { Line2, LineSegments2 } from "three-stdlib";
-import { getPathPoints, getLongPathPoints } from "@/lib/utils/path";
+import { MapAnimationClock } from "./MapAnimationClock";
+import { useMapAnimationFrame } from "./hooks/useMapAnimationFrame";
+import { getPathPoints } from "@/lib/utils/path";
 import type { RayTraceResult } from "@/lib/utils/rayTrace";
 import { calculateLayerHeights } from "@/lib/utils/ionosphere";
 import { useCurrentSFI } from "@/hooks/useMUFData";
+import { useGlobeOcclusionBatch } from "@/hooks/useGlobeOcclusionBatch";
 import { ReflectionMarker } from "./ReflectionMarker";
+import { PathPointHitArea } from "./PathPointHitArea";
+import {
+  PathPointInspector,
+  type PathPointInspectorOpen,
+} from "./PathPointInspector";
 import {
   IONOSPHERE_LAYER_COLORS,
-  IONOSPHERE_LAYER_NAMES,
   heightToRadius,
 } from "./IonosphericShells";
 import { GLOBE_LAYER_ORDER } from "@/lib/map/globeRenderOrder";
+import type { PathDescriptor } from "@/lib/views/spotContracts";
+import { modelProvenanceSchema } from "@/lib/views/spotContracts";
+import type { ScreenAnchor } from "@/lib/map/anchoredOverlay";
+import { motionIsSuppressed, type MotionPresentation } from "@/lib/spots/motion";
+import {
+  APEX_DISPLAY_HEIGHT_BOOST,
+  builtinRayTraceProvenance,
+  buildPathPointSet,
+  computeGroundPoints,
+  decorativeShellPlacement,
+} from "@/lib/spots/pathPoints";
+import { z } from "zod";
+
+type ModelProvenance = z.infer<typeof modelProvenanceSchema>;
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -53,14 +66,11 @@ const SEGMENTS_PER_HOP = 20;
 /** Animation speed for flowing dashes */
 const DASH_ANIMATION_SPEED = 0.4;
 
-/** D layer height in km (fixed — not computed from ionosphere model) */
-const D_LAYER_HEIGHT_KM = 85;
-
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
 
-interface RayPathArcProps {
+export interface RayPathArcProps {
   /** Complete ray trace result from traceRayPath() */
   result: RayTraceResult;
   /** Start latitude */
@@ -79,18 +89,37 @@ interface RayPathArcProps {
   showIonosphereHighlights?: boolean;
   /** Display time — needed to compute ionospheric layer heights for highlights */
   displayTime?: Date;
+  /**
+   * SP-04 path identity when the selected path is a scene descriptor.
+   * SP-09: pass `path` (or `pathId` + `model`) from the scene. Unwired in GlobeView today.
+   */
+  path?: PathDescriptor | null;
+  pathId?: string;
+  model?: ModelProvenance | null;
+  nowMs?: number;
+  /** SP-06 motion snapshot; reduced motion keeps points inspectable. */
+  motion?: MotionPresentation | null;
+  osReducedMotion?: boolean;
+  reduceMotion?: boolean;
+  /**
+   * SP-09 Full path analysis navigation. Unwired until the producer passes it.
+   * Button stays disabled when omitted. Must not recenter or issue radio commands.
+   */
+  onOpenPathAnalysis?: () => void;
+  /**
+   * SP-09 overlay host. Pass GlobeView `mapOverlayPortal` (and the flat/azimuthal
+   * equivalent) so the card clips and stacks with map DOM overlays. Defaults to
+   * `document.body` for isolated DOM tests only.
+   */
+  portalTarget?: Element | null;
 }
-
-/** Identifies which ionospheric layer a bounce point intersects */
-type IonosphereLayer = "D" | "E" | "F1" | "F2";
 
 interface BounceHighlightData {
   lat: number;
   lon: number;
   radius: number;
-  layer: IonosphereLayer;
+  visualShell: "D" | "E" | "F1" | "F2";
   color: string;
-  label: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -157,68 +186,22 @@ function hasOpacity(
   return typeof (material as { opacity?: unknown }).opacity === "number";
 }
 
-/**
- * Determine which ionospheric layer a reflection height is closest to.
- *
- * For HF propagation, the primary reflection layer is almost always F2.
- * However, for higher frequencies with sporadic-E conditions, E-layer
- * bounces are possible. The D layer absorbs rather than reflects.
- *
- * We classify by comparing the ray trace's hmF2 (reflection height) to
- * the calculated ionospheric layer boundaries.
- */
-function classifyBounceLayer(
-  reflectionHeightKm: number,
-  layerHeights: { hmE: number; hmF1: number; hmF2: number },
-): IonosphereLayer {
-  // Boundaries midway between layer heights
-  const eBoundary = (D_LAYER_HEIGHT_KM + layerHeights.hmE) / 2;
-  const f1Boundary = (layerHeights.hmE + layerHeights.hmF1) / 2;
-  const f2Boundary = (layerHeights.hmF1 + layerHeights.hmF2) / 2;
+function modelFromResult(
+  result: RayTraceResult,
+  displayTime?: Date,
+): ModelProvenance | null {
+  const modeledAtMs = displayTime?.getTime();
+  if (modeledAtMs === undefined) return null;
+  return builtinRayTraceProvenance(modeledAtMs, result.summary);
+}
 
-  if (reflectionHeightKm < eBoundary) return "D";
-  if (reflectionHeightKm < f1Boundary) return "E";
-  if (reflectionHeightKm < f2Boundary) return "F1";
-  return "F2";
+function stopTraceEvent(event: ThreeEvent<MouseEvent | PointerEvent>) {
+  event.stopPropagation();
 }
 
 // ---------------------------------------------------------------------------
 // Geometry generation
 // ---------------------------------------------------------------------------
-
-/**
- * Compute the evenly-spaced ground points along the great circle.
- * For N hops we need N+1 ground points (including start and end).
- */
-function computeGroundPoints(
-  startLat: number,
-  startLon: number,
-  endLat: number,
-  endLon: number,
-  numHops: number,
-  pathMode: "short" | "long",
-): Array<{ lat: number; lon: number }> {
-  // Use a fine-grained set of path points, then sample at hop boundaries
-  const totalSegments = numHops * 10;
-  const pathPoints =
-    pathMode === "long"
-      ? getLongPathPoints(startLat, startLon, endLat, endLon, totalSegments)
-      : getPathPoints(startLat, startLon, endLat, endLon, totalSegments);
-
-  const groundPts: Array<{ lat: number; lon: number }> = [];
-
-  for (let i = 0; i <= numHops; i++) {
-    const fraction = i / numHops;
-    const idx = Math.round(fraction * totalSegments);
-    const clamped = Math.min(idx, pathPoints.length - 1);
-    groundPts.push({
-      lat: pathPoints[clamped].lat,
-      lon: pathPoints[clamped].lon,
-    });
-  }
-
-  return groundPts;
-}
 
 /**
  * Generate parabolic arc points for a single hop.
@@ -237,7 +220,7 @@ function generateHopPoints(
   segmentsPerHop: number = SEGMENTS_PER_HOP,
 ): Array<[number, number, number]> {
   // Boost height so arcs visually intersect the ionospheric shells
-  const boostedHeight = reflectionHeightKm * 1.15;
+  const boostedHeight = reflectionHeightKm * APEX_DISPLAY_HEIGHT_BOOST;
   const peakRadius = 1.0 + (boostedHeight / EARTH_RADIUS_KM) * HEIGHT_EXAG;
 
   const pathPts = getPathPoints(
@@ -272,12 +255,14 @@ function AnimatedHopLine({
   lineWidth,
   opacity,
   shouldAnimate,
+  onTraceClick,
 }: {
   points: Array<[number, number, number]>;
   color: string;
   lineWidth: number;
   opacity: number;
   shouldAnimate: boolean;
+  onTraceClick?: () => void;
 }) {
   const lineRef = useRef<Line2 | LineSegments2 | null>(null);
   const dashOffsetRef = useRef(0);
@@ -308,6 +293,13 @@ function AnimatedHopLine({
       depthTest={true}
       depthWrite={false}
       renderOrder={GLOBE_LAYER_ORDER.arcs + 0.1}
+      onClick={(event: ThreeEvent<MouseEvent>) => {
+        stopTraceEvent(event);
+        onTraceClick?.();
+      }}
+      onPointerDown={stopTraceEvent}
+      onPointerUp={stopTraceEvent}
+      onDoubleClick={stopTraceEvent}
     />
   );
 }
@@ -318,11 +310,13 @@ function StaticHopLine({
   color,
   lineWidth,
   opacity,
+  onTraceClick,
 }: {
   points: Array<[number, number, number]>;
   color: string;
   lineWidth: number;
   opacity: number;
+  onTraceClick?: () => void;
 }) {
   if (points.length < 2) return null;
 
@@ -336,6 +330,13 @@ function StaticHopLine({
       depthTest={true}
       depthWrite={false}
       renderOrder={GLOBE_LAYER_ORDER.arcs + 0.1}
+      onClick={(event: ThreeEvent<MouseEvent>) => {
+        stopTraceEvent(event);
+        onTraceClick?.();
+      }}
+      onPointerDown={stopTraceEvent}
+      onPointerUp={stopTraceEvent}
+      onDoubleClick={stopTraceEvent}
     />
   );
 }
@@ -374,6 +375,7 @@ function HopGlowLine({
       depthWrite={false}
       depthTest={true}
       renderOrder={GLOBE_LAYER_ORDER.arcs}
+      raycast={() => {}}
     />
   );
 }
@@ -500,21 +502,81 @@ export function RayPathArc({
   emphasis = "primary",
   showIonosphereHighlights = false,
   displayTime,
+  path = null,
+  pathId,
+  model,
+  nowMs,
+  motion = null,
+  osReducedMotion,
+  reduceMotion = false,
+  onOpenPathAnalysis,
+  portalTarget,
 }: RayPathArcProps) {
-  const reducedMotion = useReducedMotion();
-  const shouldAnimate = !reducedMotion;
+  const mediaReducedMotion = useReducedMotion();
+  const reduced = motionIsSuppressed(
+    osReducedMotion ?? mediaReducedMotion,
+    reduceMotion,
+  );
+  const shouldAnimate = motion ? motion.travelProgress !== null && !reduced : !reduced;
   const sfi = useCurrentSFI() ?? 100;
+
+  const [open, setOpen] = useState<PathPointInspectorOpen>("closed");
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [hoveredId, setHoveredId] = useState<string | null>(null);
+  const [anchor, setAnchor] = useState<ScreenAnchor | null>(null);
 
   const numHops = result.hops.length;
 
-  // Compute ionospheric layer heights for bounce classification
   const layerHeights = useMemo(() => {
     if (!showIonosphereHighlights || !displayTime) return null;
     const month = displayTime.getUTCMonth() + 1;
     return calculateLayerHeights(45, month, sfi);
   }, [showIonosphereHighlights, displayTime, sfi]);
 
-  // Compute all geometry in a single memo
+  const resolvedModel = useMemo(
+    () => path?.model ?? model ?? modelFromResult(result, displayTime),
+    [path, model, result, displayTime],
+  );
+  const resolvedNowMs = nowMs ?? displayTime?.getTime() ?? resolvedModel?.modeledAtMs ?? 0;
+
+  const pointSet = useMemo(
+    () =>
+      buildPathPointSet({
+        pathId: path?.id ?? pathId ?? `ray-${pathMode}`,
+        path,
+        result,
+        model: resolvedModel,
+        nowMs: resolvedNowMs,
+        startLat,
+        startLon,
+        endLat,
+        endLon,
+        pathMode,
+        includeShellHighlights: showIonosphereHighlights,
+        layerHeights,
+      }),
+    [
+      path,
+      pathId,
+      pathMode,
+      result,
+      resolvedModel,
+      resolvedNowMs,
+      startLat,
+      startLon,
+      endLat,
+      endLon,
+      showIonosphereHighlights,
+      layerHeights,
+    ],
+  );
+
+  const occlusionPositions = useMemo(
+    () => pointSet.points.map((point) => point.coordinates),
+    [pointSet],
+  );
+  const { getOpacity, version } = useGlobeOcclusionBatch(occlusionPositions);
+
   const { hopSegments, reflectionMarkers, groundMarkers, bounceHighlights } =
     useMemo(() => {
       if (numHops === 0) {
@@ -526,7 +588,6 @@ export function RayPathArc({
         };
       }
 
-      // Ground points along the great circle (N+1 points for N hops)
       const groundPts = computeGroundPoints(
         startLat,
         startLon,
@@ -567,8 +628,6 @@ export function RayPathArc({
 
         const reflectionHeightKm = hop.hmF2;
         const color = hopQualityColor(hop.qualityScore);
-
-        // Generate parabolic arc for this hop
         const pts = generateHopPoints(
           from.lat,
           from.lon,
@@ -583,9 +642,8 @@ export function RayPathArc({
           qualityScore: hop.qualityScore,
         });
 
-        // Reflection marker at the apex (midpoint of hop, at peak height)
         const rp = hop.reflectionPoint;
-        const boostedHeight = reflectionHeightKm * 1.15;
+        const boostedHeight = reflectionHeightKm * APEX_DISPLAY_HEIGHT_BOOST;
         const peakRadius =
           1.0 + (boostedHeight / EARTH_RADIUS_KM) * HEIGHT_EXAG;
 
@@ -597,45 +655,21 @@ export function RayPathArc({
           qualityScore: hop.qualityScore,
         });
 
-        // Ionosphere bounce highlight (only when ionosphere layer is also active)
         if (showIonosphereHighlights && layerHeights) {
-          const layer = classifyBounceLayer(reflectionHeightKm, layerHeights);
-          const layerColor = IONOSPHERE_LAYER_COLORS[layer];
-          const layerLabel = IONOSPHERE_LAYER_NAMES[layer];
-
-          // Place the highlight at the actual ionospheric shell radius for
-          // the classified layer — this way it sits right on the shell
-          let shellHeightKm: number;
-          switch (layer) {
-            case "D":
-              shellHeightKm = D_LAYER_HEIGHT_KM;
-              break;
-            case "E":
-              shellHeightKm = layerHeights.hmE;
-              break;
-            case "F1":
-              shellHeightKm = layerHeights.hmF1;
-              break;
-            case "F2":
-              shellHeightKm = layerHeights.hmF2;
-              break;
-          }
-          const highlightRadius = heightToRadius(shellHeightKm);
-
+          const shell = decorativeShellPlacement(
+            reflectionHeightKm,
+            layerHeights,
+          );
           highlights.push({
             lat: rp.lat,
             lon: rp.lon,
-            radius: highlightRadius,
-            layer,
-            color: layerColor,
-            label: layerLabel,
+            radius: heightToRadius(shell.displayHeightKm),
+            visualShell: shell.visualShell,
+            color: IONOSPHERE_LAYER_COLORS[shell.visualShell],
           });
         }
 
-        // Ground bounce marker between hops (not at start or end)
         if (i > 0) {
-          // Use the boundary color as the average of adjacent hop colors
-          // For simplicity, use the worse of the two adjacent hop scores
           const prevScore = result.hops[i - 1].qualityScore;
           const worstScore = Math.min(prevScore, hop.qualityScore);
           grounds.push({
@@ -664,20 +698,59 @@ export function RayPathArc({
       layerHeights,
     ]);
 
+  const handleHover = useCallback((id: string, screenPos: ScreenAnchor) => {
+    setHoveredId(id);
+    setAnchor(screenPos);
+    setOpen((current) => (current === "card" || current === "path" ? current : "hover"));
+  }, []);
+
+  const handleHoverEnd = useCallback((id: string) => {
+    setHoveredId((current) => (current === id ? null : current));
+    setOpen((current) => (current === "hover" ? "closed" : current));
+  }, []);
+
+  const handleSelect = useCallback((id: string, screenPos?: ScreenAnchor) => {
+    setSelectedId(id);
+    if (screenPos) setAnchor(screenPos);
+    setOpen("card");
+  }, []);
+
+  const handleClose = useCallback(() => {
+    setOpen("closed");
+    setSelectedId(null);
+    setHoveredId(null);
+  }, []);
+
+  const handleTraceClick = useCallback(() => {
+    setSelectedId(null);
+    setOpen("path");
+  }, []);
+
+  const handleOpenList = useCallback(() => {
+    setOpen((current) => (current === "closed" || current === "hover" ? "path" : current));
+  }, []);
+
+  const handleOpenPathAnalysis = useCallback(() => {
+    onOpenPathAnalysis?.();
+  }, [onOpenPathAnalysis]);
+
+  const overlayHost =
+    portalTarget instanceof HTMLElement ? portalTarget : document.body;
+  const overlayPortal = { current: overlayHost };
+
   if (hopSegments.length === 0) {
     return null;
   }
 
   const lineWidth = emphasis === "secondary" ? 1.8 : 2.5;
   const hopOpacity = emphasis === "secondary" ? 0.6 : 0.85;
+  void version;
 
   return (
     <MapAnimationClock>
     <group name={`ray-path-arc-${pathMode}`}>
-      {/* Render each hop as an arc */}
       {hopSegments.map((seg, i) => (
         <group key={`hop-${i}`}>
-          {/* Background glow */}
           {shouldAnimate && (
             <HopGlowLine
               points={seg.points}
@@ -685,8 +758,6 @@ export function RayPathArc({
               shouldAnimate={shouldAnimate}
             />
           )}
-
-          {/* Main arc line */}
           {shouldAnimate ? (
             <AnimatedHopLine
               points={seg.points}
@@ -694,6 +765,7 @@ export function RayPathArc({
               lineWidth={lineWidth}
               opacity={hopOpacity}
               shouldAnimate={shouldAnimate}
+              onTraceClick={handleTraceClick}
             />
           ) : (
             <StaticHopLine
@@ -701,12 +773,12 @@ export function RayPathArc({
               color={seg.color}
               lineWidth={lineWidth}
               opacity={hopOpacity}
+              onTraceClick={handleTraceClick}
             />
           )}
         </group>
       ))}
 
-      {/* Ionospheric reflection markers (at hop apex) */}
       {reflectionMarkers.map((m, i) => (
         <ReflectionMarker
           key={`refl-${i}`}
@@ -720,7 +792,6 @@ export function RayPathArc({
         />
       ))}
 
-      {/* Ground bounce markers (between hops) */}
       {groundMarkers.map((m, i) => (
         <ReflectionMarker
           key={`ground-${i}`}
@@ -732,7 +803,6 @@ export function RayPathArc({
         />
       ))}
 
-      {/* Ionosphere bounce highlights — layer-colored pulsing markers on the shell */}
       {bounceHighlights.map((bh, i) => (
         <IonosphereBounceHighlight
           key={`bounce-hl-${i}`}
@@ -743,10 +813,58 @@ export function RayPathArc({
           shouldAnimate={shouldAnimate}
         />
       ))}
+
+      {pointSet.points.map((point) => (
+        <PathPointHitArea
+          key={point.id}
+          pointId={point.id}
+          lat={point.coordinates.lat}
+          lon={point.coordinates.lon}
+          radius={
+            point.role === "ground-point"
+              ? BASE_RADIUS
+              : heightToRadius(point.displayHeightKm)
+          }
+          occlusionOpacity={getOpacity(
+            point.coordinates.lat,
+            point.coordinates.lon,
+          )}
+          onHover={handleHover}
+          onHoverEnd={handleHoverEnd}
+          onSelect={handleSelect}
+        />
+      ))}
+
+      {typeof document !== "undefined" && (
+        <Html
+          portal={overlayPortal}
+          fullscreen
+          zIndexRange={[180, 0]}
+          style={{ pointerEvents: "none" }}
+        >
+          <PathPointInspector
+            inline
+            pointSet={pointSet}
+            selectedId={selectedId}
+            hoveredId={hoveredId}
+            open={open}
+            anchor={anchor}
+            pathSummary={result.summary}
+            portalTarget={portalTarget}
+            onSelect={(id) => handleSelect(id)}
+            onClose={handleClose}
+            onOpenPathAnalysis={
+              onOpenPathAnalysis ? handleOpenPathAnalysis : undefined
+            }
+            onOpenList={handleOpenList}
+          />
+        </Html>
+      )}
     </group>
     </MapAnimationClock>
   );
 }
+
 
 RayPathArc.displayName = "RayPathArc";
 

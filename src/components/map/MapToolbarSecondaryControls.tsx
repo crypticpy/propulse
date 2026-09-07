@@ -19,7 +19,7 @@ interface MapToolbarSecondaryControlsProps {
   showPanelControl: boolean;
 }
 
-const ToolbarDivider = () => <div className="h-5 w-px bg-white/10" />;
+const ToolbarDivider = () => <div className="h-5 w-px bg-su-line/20" />;
 
 export function MapToolbarSecondaryControls({
   activeProfile,
@@ -52,7 +52,7 @@ export function MapToolbarSecondaryControls({
           onEnterObservatory();
           closeMenu();
         }}
-        className="flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-medium text-gray-300 transition-colors hover:bg-white/10 hover:text-white"
+        className="flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-medium text-su-muted transition-colors hover:bg-su-line/20 hover:text-su-text"
         title="Observatory Mode — fullscreen auto-rotating globe, zoom only"
       >
         <svg
@@ -82,7 +82,7 @@ export function MapToolbarSecondaryControls({
           className={`hidden items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-medium transition-colors lg:flex ${
             panelLayoutActive
               ? "bg-plasma-orange/15 text-plasma-orange hover:bg-plasma-orange/25"
-              : "text-gray-300 hover:bg-white/10 hover:text-white"
+              : "text-su-muted hover:bg-su-line/20 hover:text-su-text"
           }`}
           title={panelLayoutTitle}
           onClick={() => {
@@ -124,7 +124,7 @@ export function MapToolbarSecondaryControls({
         className={`flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-medium transition-colors ${
           activityPanelOpen
             ? "bg-plasma-orange/15 text-plasma-orange hover:bg-plasma-orange/25"
-            : "text-gray-300 hover:bg-white/10 hover:text-white"
+            : "text-su-muted hover:bg-su-line/20 hover:text-su-text"
         }`}
         title="Find stations heard recently by band or exact frequency"
       >

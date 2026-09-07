@@ -12,3 +12,10 @@ Managed local session: owner `hamclock-activation-followup`, id `2ef7c5a6-b39b-4
 
 
 Compact sidebar review follow-up (PR #416 comments 3945620024 / 3945629717): the grid now allocates one column per feed and uses narrow padding so all six labels fit at 280/320/384px. Browser geometry checks confirmed a shared row, no tab overflow and End-key focus on CANParks. Local session owner `hamclock-activation-followup`, id `32da24da-d89a-401b-8da5-f18c92732efc`, port 5181; isolated fixture and blocked hardware.
+
+
+## Combined release validation — 2026-09-07
+
+The refreshed WWBOTA, CANParks and activation detail/migration slices preserve their separate 9/15/9-file PR boundaries. Per-slice focused checks passed (23 WWBOTA and 28 CANParks tests); the combined expiry/detail/store suite passed 81 tests. The final browser matrix passed all 30 programme/theme/resolution combinations at 1080p/4K. Separate fixtures verify existing-layout migration, cached row expiry, selected-detail expiry/provenance, precise tuning, and six sidebar tabs fitting at 280/320/384px with keyboard End reaching CANParks. No page errors or measured overflow.
+
+Tests run in isolated browser contexts with hardware WebSockets blocked, on owner `hamclock-operating-release`, session `cb106b4a-e997-4847-a861-5a997bbac11d`, local http://127.0.0.1:5186, checkout `.worktrees/hamclock-operating-release`. Reproduction scripts: `tmp/activation-final/matrix.mjs`, `tmp/activation-final/check.mjs`, `tmp/activation-detail/check.mjs`, `tmp/activation-sidebar/check.mjs`. These checks use synthetic provider snapshots, not a real radio or authenticated account. Existing previews are preserved.

@@ -103,7 +103,7 @@ export function ProfileCardDesktop({
     <div className="w-[320px] flex-shrink-0 sticky top-6 self-start max-h-[calc(100vh-3rem)] overflow-y-auto">
       <div
         className={[
-          "relative bg-panel/30 backdrop-blur-sm border border-white/5 rounded-2xl p-6",
+          "relative bg-panel/30 backdrop-blur-sm border border-su-line/20 rounded-2xl p-6",
           getRankCardClasses(rank, effects),
         ]
           .filter(Boolean)
@@ -172,7 +172,7 @@ export function ProfileCardDesktop({
               {topArchetypes.map((a) => (
                 <span
                   key={a.key}
-                  className="px-1.5 py-0.5 text-[9px] rounded-full bg-white/[0.06] text-gray-400"
+                  className="px-1.5 py-0.5 text-[9px] rounded-full bg-su-line/20 text-su-muted"
                 >
                   {a.icon} {a.shortLabel}
                 </span>
@@ -182,41 +182,41 @@ export function ProfileCardDesktop({
           {/* Quick Stats Row */}
           <div className="flex items-center justify-center gap-4 mt-2 text-center">
             <div>
-              <div className="font-mono text-sm font-bold text-white">
+              <div className="font-mono text-sm font-bold text-su-text">
                 {totalQSOs.toLocaleString()}
               </div>
-              <div className="text-[9px] text-gray-500 uppercase">QSOs</div>
+              <div className="text-[9px] text-su-muted uppercase">QSOs</div>
             </div>
-            <div className="w-px h-6 bg-white/10" />
+            <div className="w-px h-6 bg-su-line/20" />
             <div>
-              <div className="font-mono text-sm font-bold text-white">
+              <div className="font-mono text-sm font-bold text-su-text">
                 {uniqueCountries}
               </div>
-              <div className="text-[9px] text-gray-500 uppercase">DXCC</div>
+              <div className="text-[9px] text-su-muted uppercase">DXCC</div>
             </div>
-            <div className="w-px h-6 bg-white/10" />
+            <div className="w-px h-6 bg-su-line/20" />
             <div>
-              <div className="font-mono text-sm font-bold text-white">
+              <div className="font-mono text-sm font-bold text-su-text">
                 {displayGrid || "\u2014"}
               </div>
-              <div className="text-[9px] text-gray-500 uppercase">Grid</div>
+              <div className="text-[9px] text-su-muted uppercase">Grid</div>
             </div>
           </div>
           {displayName && (
-            <p className="text-sm text-gray-400 mt-1">{displayName}</p>
+            <p className="text-sm text-su-muted mt-1">{displayName}</p>
           )}
         </div>
 
         {/* Info rows */}
         <div className="space-y-2 text-sm">
-          <div className="flex items-center justify-between py-1.5 border-t border-white/5">
-            <span className="text-gray-500">Grid</span>
-            <span className="font-mono text-gray-200">{displayGrid}</span>
+          <div className="flex items-center justify-between py-1.5 border-t border-su-line/20">
+            <span className="text-su-muted">Grid</span>
+            <span className="font-mono text-su-text">{displayGrid}</span>
           </div>
           {activeLocation && (
-            <div className="flex items-center justify-between py-1.5 border-t border-white/5">
-              <span className="text-gray-500">Coordinates</span>
-              <span className="font-mono text-gray-300 text-xs">
+            <div className="flex items-center justify-between py-1.5 border-t border-su-line/20">
+              <span className="text-su-muted">Coordinates</span>
+              <span className="font-mono text-su-muted text-xs">
                 {activeLocation.lat.toFixed(2)}, {activeLocation.lon.toFixed(2)}
               </span>
             </div>
@@ -247,13 +247,13 @@ export function ProfileCardDesktop({
 
         {/* Operating Hours Mini Strip */}
         {operatingHours.some((h) => h > 0) && (
-          <div className="py-2 border-t border-white/5">
+          <div className="py-2 border-t border-su-line/20">
             <OperatingHoursMini hours={operatingHours} />
           </div>
         )}
 
         {/* Completeness ring */}
-        <div className="flex justify-center py-4 border-t border-white/5">
+        <div className="flex justify-center py-4 border-t border-su-line/20">
           <ProfileCompletenessRing
             score={completeness.score}
             tier={completeness.tier}
@@ -268,8 +268,8 @@ export function ProfileCardDesktop({
               type="button"
               aria-label="Edit profile"
               onClick={() => setIsEditing(true)}
-              className="flex-1 px-3 py-2 text-xs rounded-lg bg-white/5 border border-white/10
-                         text-gray-300 hover:text-white hover:border-white/20 transition-colors"
+              className="flex-1 px-3 py-2 text-xs rounded-lg bg-su-line/10 border border-su-line/40
+                         text-su-muted hover:text-su-text hover:border-su-line/50 transition-colors"
             >
               Edit Profile
             </button>
@@ -278,8 +278,8 @@ export function ProfileCardDesktop({
                 type="button"
                 aria-label="Show QR code"
                 onClick={showQR}
-                className="px-3 py-2 text-xs rounded-lg bg-white/5 border border-white/10
-                           text-gray-300 hover:text-white hover:border-white/20 transition-colors"
+                className="px-3 py-2 text-xs rounded-lg bg-su-line/10 border border-su-line/40
+                           text-su-muted hover:text-su-text hover:border-su-line/50 transition-colors"
                 title="Show QR Code"
               >
                 <svg
@@ -299,7 +299,7 @@ export function ProfileCardDesktop({
             )}
           </div>
         ) : (
-          <div className="mt-4 space-y-3 border-t border-white/5 pt-4">
+          <div className="mt-4 space-y-3 border-t border-su-line/20 pt-4">
             <StationIdentityForm
               {...formProps}
               compact
@@ -310,8 +310,8 @@ export function ProfileCardDesktop({
               <button
                 type="button"
                 onClick={onCancelEdit}
-                className="flex-1 px-3 py-2 text-xs rounded-lg bg-white/5 border border-white/10
-                           text-gray-300 hover:text-white hover:border-white/20 transition-colors"
+                className="flex-1 px-3 py-2 text-xs rounded-lg bg-su-line/10 border border-su-line/40
+                           text-su-muted hover:text-su-text hover:border-su-line/50 transition-colors"
               >
                 Cancel
               </button>
@@ -321,8 +321,8 @@ export function ProfileCardDesktop({
                 disabled={!formProps.isDirty}
                 className={`flex-1 px-3 py-2 text-xs rounded-lg font-medium transition-colors ${
                   formProps.isDirty
-                    ? "bg-plasma-orange hover:bg-plasma-orange/80 text-white"
-                    : "bg-white/5 border border-white/10 text-gray-500 cursor-not-allowed"
+                    ? "bg-plasma-orange hover:bg-plasma-orange/80 text-su-on-accent"
+                    : "bg-su-line/10 border border-su-line/40 text-su-muted cursor-not-allowed"
                 }`}
               >
                 Save
@@ -366,7 +366,7 @@ export function ProfileCardMobile({
   return (
     <div
       className={[
-        "relative bg-panel/30 backdrop-blur-sm border border-white/5 rounded-2xl px-4 py-3 mb-4",
+        "relative bg-panel/30 backdrop-blur-sm border border-su-line/20 rounded-2xl px-4 py-3 mb-4",
         getRankCardClasses(rank, effects),
       ]
         .filter(Boolean)
@@ -425,12 +425,12 @@ export function ProfileCardMobile({
               {displayCallsign}
             </h2>
             <RankBadge rank={rank} size="sm" />
-            <p className="text-xs text-gray-400 font-mono">{displayGrid}</p>
+            <p className="text-xs text-su-muted font-mono">{displayGrid}</p>
           </div>
         </div>
         <div className="flex items-center gap-3">
           {displayName && (
-            <span className="text-sm text-gray-400">{displayName}</span>
+            <span className="text-sm text-su-muted">{displayName}</span>
           )}
 
           {/* QR + Edit icon buttons */}
@@ -438,7 +438,7 @@ export function ProfileCardMobile({
             {onEdit && (
               <button
                 onClick={onEdit}
-                className="p-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-gray-400 hover:text-gray-200 transition-colors"
+                className="p-1.5 rounded-lg bg-su-line/10 hover:bg-su-line/20 text-su-muted hover:text-su-text transition-colors"
                 aria-label="Edit profile"
               >
                 <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
@@ -455,7 +455,7 @@ export function ProfileCardMobile({
             {onShowQR && (
               <button
                 onClick={onShowQR}
-                className="p-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-gray-400 hover:text-gray-200 transition-colors"
+                className="p-1.5 rounded-lg bg-su-line/10 hover:bg-su-line/20 text-su-muted hover:text-su-text transition-colors"
                 aria-label="Show QR code"
               >
                 <svg width="16" height="16" viewBox="0 0 16 16" fill="none">

@@ -27,11 +27,11 @@ export default function HelpPage() {
       <header className="text-center mb-8 sm:mb-10">
         <h1
           id="help-page-heading"
-          className="text-2xl sm:text-3xl md:text-4xl font-bold text-gray-100 mb-2"
+          className="text-2xl sm:text-3xl md:text-4xl font-bold text-su-text mb-2"
         >
           Help Center
         </h1>
-        <p className="text-sm text-gray-400 mb-6 max-w-md mx-auto">
+        <p className="text-sm text-su-muted mb-6 max-w-md mx-auto">
           Find guides, tips, and answers for every feature in Propulse.
         </p>
         <HelpSearch className="max-w-lg mx-auto w-full" />
@@ -41,7 +41,7 @@ export default function HelpPage() {
       <section className="mb-8 sm:mb-10" aria-labelledby="help-popular-heading">
         <h2
           id="help-popular-heading"
-          className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-4"
+          className="text-sm font-semibold text-su-muted uppercase tracking-wider mb-4"
         >
           Popular Topics
         </h2>
@@ -74,7 +74,7 @@ export default function HelpPage() {
       >
         <h2
           id="help-all-topics-heading"
-          className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-4"
+          className="text-sm font-semibold text-su-muted uppercase tracking-wider mb-4"
         >
           All Topics
         </h2>

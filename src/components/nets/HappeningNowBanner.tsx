@@ -42,24 +42,24 @@ export function HappeningNowBanner({ liveNets }: HappeningNowBannerProps) {
           <Link
             key={net.id}
             to={`/nets/${net.id}`}
-            className="flex-shrink-0 w-56 bg-white/[0.03] border border-white/10 rounded-xl p-3 transition-all duration-200 hover:border-red-500/30 hover:bg-white/[0.05] group"
+            className="flex-shrink-0 w-56 bg-su-line/10 border border-su-line/40 rounded-xl p-3 transition-all duration-200 hover:border-red-500/30 hover:bg-su-line/20 group"
           >
             {/* Net name */}
-            <h4 className="text-sm font-semibold text-white truncate mb-1 group-hover:text-red-400 transition-colors">
+            <h4 className="text-sm font-semibold text-su-text truncate mb-1 group-hover:text-red-400 transition-colors">
               {net.name}
             </h4>
 
             {/* Frequency */}
-            <p className="text-xs font-mono text-gray-400 mb-1.5">
+            <p className="text-xs font-mono text-su-muted mb-1.5">
               {net.frequency}
             </p>
 
             {/* NCS callsign + Join label */}
             <div className="flex items-center justify-between">
               {ncsCallsign ? (
-                <span className="text-[11px] text-gray-500">
+                <span className="text-[11px] text-su-muted">
                   NCS:{" "}
-                  <span className="font-mono text-gray-400">{ncsCallsign}</span>
+                  <span className="font-mono text-su-muted">{ncsCallsign}</span>
                 </span>
               ) : (
                 <span />

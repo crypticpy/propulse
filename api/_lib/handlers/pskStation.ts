@@ -1,4 +1,4 @@
-import { sharedPskStationCache, type PskStationCache } from "../pskStationCache.js";
+import { sharedPskStationCache, type PskStationCache, type PskStationClaim } from "../pskStationCache.js";
 import { SaxesParser } from "saxes";
 import { applyRateLimit } from "../rateLimit.js";
 import { spotJsonResponse, spotOptionsResponse } from "../spotResponse.js";
@@ -97,6 +97,25 @@ interface CacheEntry {
   pending?: Promise<PskStationSnapshot>;
 }
 
+type PskStationDiagnostic =
+  | "claim_failed"
+  | "start_window_expired"
+  | "provider_fetch_failed"
+  | "provider_http"
+  | "body_read_failed"
+  | "xml_parse_failed"
+  | "provider_timeout"
+  | "finish_failed";
+
+function warnPskStation(category: PskStationDiagnostic, upstreamStatus?: number) {
+  console.warn(JSON.stringify({
+    event: "psk_station_refresh",
+    outcome: "failure",
+    category,
+    ...(Number.isInteger(upstreamStatus) ? { upstreamStatus } : {}),
+  }));
+}
+
 /** Per-process cache and single-flight; CDN caching adds a shared layer in cloud hosting. */
 export function createPskStationHandler(shared: PskStationCache = sharedPskStationCache) {
   const cache = new Map<string, CacheEntry>();
@@ -108,19 +127,29 @@ export function createPskStationHandler(shared: PskStationCache = sharedPskStati
   }
 
   async function refresh(callsign: string, previous?: PskStationSnapshot): Promise<PskStationSnapshot> {
+    let claim: PskStationClaim;
     try {
-      const claim = await shared.claim(callsign);
-      const retained = claim.snapshot ?? previous;
-      if (!claim.token) {
-        return claim.snapshot && claim.snapshot.retryAt > Date.now()
-          ? claim.snapshot : unavailable(callsign, retained, claim.retryAt);
-      }
-      if (Date.now() >= claim.retryAt - REFRESH_MS) return unavailable(callsign, retained, claim.retryAt);
-      const result = await retrieve(callsign, retained);
-      // A failed publication never permits another provider call: the durable lease survives.
-      try { return await shared.finish(callsign, claim.token, result); }
-      catch { return { ...result, retryAt: Math.max(result.retryAt, claim.retryAt) }; }
-    } catch { return unavailable(callsign, previous); }
+      claim = await shared.claim(callsign);
+    } catch {
+      warnPskStation("claim_failed");
+      return unavailable(callsign, previous);
+    }
+    const retained = claim.snapshot ?? previous;
+    if (!claim.token) {
+      return claim.snapshot && claim.snapshot.retryAt > Date.now()
+        ? claim.snapshot : unavailable(callsign, retained, claim.retryAt);
+    }
+    if (Date.now() >= claim.retryAt - REFRESH_MS) {
+      warnPskStation("start_window_expired");
+      return unavailable(callsign, retained, claim.retryAt);
+    }
+    const result = await retrieve(callsign, retained);
+    // A failed publication never permits another provider call: the durable lease survives.
+    try { return await shared.finish(callsign, claim.token, result); }
+    catch {
+      warnPskStation("finish_failed");
+      return { ...result, retryAt: Math.max(result.retryAt, claim.retryAt) };
+    }
   }
 
   async function retrieve(callsign: string, previous?: PskStationSnapshot): Promise<PskStationSnapshot> {
@@ -130,19 +159,32 @@ export function createPskStationHandler(shared: PskStationCache = sharedPskStati
       const url = new URL("https://retrieve.pskreporter.info/query");
       url.search = new URLSearchParams({ callsign, flowStartSeconds: "-86400",
         rptlimit: String(ROW_LIMIT), rronly: "1", noactive: "1" }).toString();
-      const response = await fetch(url, { signal: controller.signal, redirect: "error" });
-      if (!response.ok) throw new Error("PSK Reporter request failed");
-      const parsed = parsePskStationXml(await readXml(response), callsign, Date.now());
+      let response: Response;
+      try {
+        response = await fetch(url, { signal: controller.signal, redirect: "error" });
+      } catch {
+        warnPskStation(controller.signal.aborted ? "provider_timeout" : "provider_fetch_failed");
+        return unavailable(callsign, previous);
+      }
+      if (!response.ok) {
+        warnPskStation("provider_http", response.status);
+        return unavailable(callsign, previous);
+      }
+      let body: string;
+      try { body = await readXml(response); }
+      catch {
+        warnPskStation(controller.signal.aborted ? "provider_timeout" : "body_read_failed");
+        return unavailable(callsign, previous);
+      }
+      let parsed;
+      try { parsed = parsePskStationXml(body, callsign, Date.now()); }
+      catch {
+        warnPskStation("xml_parse_failed");
+        return unavailable(callsign, previous);
+      }
       const checkedAt = Date.now();
       return { callsign, ...parsed, status: "ok", fetchedAt: checkedAt, checkedAt,
         retryAt: checkedAt + REFRESH_MS, windowMinutes: 1440, limit: ROW_LIMIT };
-    } catch {
-      const checkedAt = Date.now();
-      return { callsign, reports: previous?.reports ?? [],
-        status: previous?.fetchedAt != null ? "stale" : "unavailable",
-        fetchedAt: previous?.fetchedAt ?? null, checkedAt, retryAt: checkedAt + REFRESH_MS,
-        windowMinutes: 1440, limit: ROW_LIMIT, limited: previous?.limited ?? false,
-        discarded: previous?.discarded ?? 0 };
     } finally {
       clearTimeout(timer);
     }

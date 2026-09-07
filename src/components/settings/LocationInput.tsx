@@ -67,7 +67,7 @@ function ModeButton({
         ${
           isActive
             ? "bg-plasma-orange/20 text-plasma-orange border border-plasma-orange/50"
-            : "bg-nebula-blue text-gray-400 border border-white/10 hover:border-white/20 hover:text-gray-300"
+            : "bg-nebula-blue text-su-muted border border-su-line/40 hover:border-su-line/50 hover:text-su-text"
         }
       `}
       title={label}
@@ -316,12 +316,12 @@ export function LocationInput({
             maxLength={6}
             className={`
               w-full px-3 py-2 bg-deep-space border rounded-lg
-              text-white placeholder-gray-500 font-mono uppercase
+              text-su-text placeholder:text-su-muted/80 font-mono uppercase
               focus:outline-none
               ${
                 error
                   ? "border-alert-red/50 focus:border-alert-red"
-                  : "border-white/10 focus:border-plasma-orange/50"
+                  : "border-su-line/40 focus:border-plasma-orange/50"
               }
             `}
           />
@@ -336,12 +336,12 @@ export function LocationInput({
               placeholder="Click 'Get Location' or enter grid"
               className={`
                 flex-1 px-3 py-2 bg-deep-space border rounded-lg
-                text-white placeholder-gray-500 font-mono uppercase
+                text-su-text placeholder:text-su-muted/80 font-mono uppercase
                 focus:outline-none
                 ${
                   error
                     ? "border-alert-red/50 focus:border-alert-red"
-                    : "border-white/10 focus:border-plasma-orange/50"
+                    : "border-su-line/40 focus:border-plasma-orange/50"
                 }
               `}
             />
@@ -381,12 +381,12 @@ export function LocationInput({
               placeholder="40.7128, -74.0060 or 40°42'N 74°0'W"
               className={`
                 flex-1 px-3 py-2 bg-deep-space border rounded-lg
-                text-white placeholder-gray-500 font-mono text-sm
+                text-su-text placeholder:text-su-muted/80 font-mono text-sm
                 focus:outline-none
                 ${
                   error
                     ? "border-alert-red/50 focus:border-alert-red"
-                    : "border-white/10 focus:border-plasma-orange/50"
+                    : "border-su-line/40 focus:border-plasma-orange/50"
                 }
               `}
             />
@@ -414,12 +414,12 @@ export function LocationInput({
                   placeholder="123 Main St, City, State or City, Country"
                   className={`
                     w-full px-3 py-2 bg-deep-space border rounded-lg
-                    text-white placeholder-gray-500 text-sm
+                    text-su-text placeholder:text-su-muted/80 text-sm
                     focus:outline-none
                     ${
                       error
                         ? "border-alert-red/50 focus:border-alert-red"
-                        : "border-white/10 focus:border-plasma-orange/50"
+                        : "border-su-line/40 focus:border-plasma-orange/50"
                     }
                   `}
                 />
@@ -433,17 +433,17 @@ export function LocationInput({
 
             {/* Address results dropdown */}
             {showResults && addressResults.length > 0 && (
-              <div className="absolute z-50 w-full mt-1 bg-deep-space border border-white/20 rounded-lg shadow-xl max-h-48 overflow-y-auto">
+              <div className="absolute z-50 w-full mt-1 bg-deep-space border border-su-line/50 rounded-lg shadow-xl max-h-48 overflow-y-auto">
                 {addressResults.map((result, index) => (
                   <button
                     key={`${result.lat}-${result.lon}-${index}`}
                     type="button"
                     onClick={() => handleSelectAddress(result)}
-                    className="w-full px-3 py-2 text-left text-sm text-gray-300 hover:bg-white/10 hover:text-white
-                               border-b border-white/5 last:border-b-0 transition-colors"
+                    className="w-full px-3 py-2 text-left text-sm text-su-muted hover:bg-su-line/20 hover:text-su-text
+                               border-b border-su-line/20 last:border-b-0 transition-colors"
                   >
                     <div className="truncate">{result.displayName}</div>
-                    <div className="text-xs text-gray-500 mt-0.5">
+                    <div className="text-xs text-su-muted mt-0.5">
                       {formatCoordinates(result.lat, result.lon)}
                     </div>
                   </button>
@@ -466,15 +466,15 @@ export function LocationInput({
         )}
 
         {!error && value && isValidGrid(value) && currentCoords && (
-          <p className="text-xs text-gray-500">
-            Grid: <span className="font-mono text-gray-400">{value}</span>
+          <p className="text-xs text-su-muted">
+            Grid: <span className="font-mono text-su-muted">{value}</span>
             {" · "}
             {formatCoordinates(currentCoords.lat, currentCoords.lon)}
           </p>
         )}
 
         {mode === "gps" && !error && !value && (
-          <p className="text-xs text-gray-500">
+          <p className="text-xs text-su-muted">
             Enter decimal (40.7, -74.0) or DMS (40°42'N 74°0'W) format
           </p>
         )}
@@ -483,7 +483,7 @@ export function LocationInput({
           !error &&
           !showResults &&
           addressInput.length < 3 && (
-            <p className="text-xs text-gray-500">
+            <p className="text-xs text-su-muted">
               Type at least 3 characters to search
             </p>
           )}

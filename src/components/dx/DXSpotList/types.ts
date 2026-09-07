@@ -99,6 +99,8 @@ export interface FilterControlsProps {
  */
 export interface DXSpotListProps {
   compact?: boolean;
+  /** Fit complete rows and page them instead of scrolling inside a wall report. */
+  wallPaging?: boolean;
   /** Maximum height of the list container */
   maxHeight?: string;
   /** Show filter controls */

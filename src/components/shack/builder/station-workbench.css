@@ -204,12 +204,6 @@
 }
 /* Keep legacy canvas and analysis readable inside this feature while their
    interaction implementations remain intact. No global or HamClock styling. */
-.station-workbench :is(.text-gray-200, .text-gray-300, .text-white) {
-  color: var(--su-text);
-}
-.station-workbench :is(.text-gray-400, .text-gray-500, .text-gray-600) {
-  color: var(--su-muted);
-}
 .station-workbench
   :is(
     [class~="bg-panel/30"],
@@ -219,9 +213,6 @@
   ) {
   background: var(--su-panel);
   backdrop-filter: none;
-}
-.station-workbench :is([class~="border-white/5"], [class~="border-white/10"]) {
-  border-color: var(--su-line);
 }
 .station-workbench .bg-plasma-orange {
   color: var(--su-on-accent);

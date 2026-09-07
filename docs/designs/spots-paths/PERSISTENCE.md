@@ -177,3 +177,40 @@ Page caching checks lifecycle between IndexedDB operations, including after the
 last write, so an account transition cannot commit a partially written page.
 Production auth subscriptions, legacy migration and runtime integration are still
 pending SP-02/SP-03 work; this module does not register global listeners.
+
+### Atomic migration journal (storage v2)
+
+`IndexedViewLibrary.migrateLegacy(plan, mode, lifecycle?)` accepts explicitly
+converted complete normal/pro/lite/HamClock `ViewDraft` seeds, copied named
+recipes, complete legacy scenes, warnings and a bounded rollback backup. The
+capture/conversion adapter must omit credentials and transient values; unknown
+non-secret settings stay in backup and are never applied. This transaction does
+not read current globals, modify legacy keys, activate a view, or publish a TV.
+
+The first successful transaction writes the journal with all four family seeds
+and recipes. Local mode creates revision-1 local records. Account mode enqueues
+revision-0 creates for authenticated CAS replay, leaving confirmed records empty
+until acknowledgement. `migrated` means the local migration transaction committed,
+not that a cloud save or display publication succeeded. Scenes remain complete
+journal snapshots for later explicit assignment, subject to assignment limits.
+`legacyMigration(source)` reads the original owner-scoped conversion and rollback
+data so runtime seeding can use it without re-reading mutable legacy globals.
+
+Retries return the first capture unchanged; new defaults and later legacy edits
+cannot silently reseed it. Conflicting destinations (including tombstones/pending
+drafts), queue capacity, storage failures and lifecycle cancellation never produce
+partial seeds or a completion marker. Named recipe IDs are retained. Device
+capture is claimed once across all owners of this local database; another account
+cannot automatically inherit it. Account captures are partitioned by owner and
+require account mode. A local/account mode change requires explicit copy/import,
+not reinterpretation of local records as server-confirmed saves. The caller must
+verify the capture's owner and bind every auth transition to cancellation; the
+storage API cannot authenticate arbitrary input by itself.
+
+Storage version 2 only adds `migrations`, preserving v1 records, pending saves and
+receipts. Existing connections receive version-change closure. A rollback binary
+that explicitly opens version 1 cannot open this upgraded library; rollback must
+use the untouched legacy keys, not delete/downgrade the library database. There is
+no live database migration in this slice. Production raw-key capture/conversion,
+auth subscriptions and account/LAN/backup activation boundaries remain pending;
+this journal alone does not satisfy the full SP-02 migration gate.

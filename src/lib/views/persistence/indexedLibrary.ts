@@ -1,12 +1,14 @@
 import { openDB, type DBSchema, type IDBPDatabase, type IDBPTransaction } from "idb";
 import { contractIdSchema } from "../spotContracts";
 import { canonicalJson } from "./canonical";
+import { legacyMigrationKey, legacyMigrationPlanSchema, type LegacyMigrationJournal, type LegacyMigrationPlan, type LegacyMigrationResult } from "./legacyMigration";
 import {
   libraryOperationSchema, libraryRecordSchema, pendingOperationSchema, validateCommitResult,
   type CommitResult, type LibraryKind, type LibraryOperation, type LibraryRecord, type PendingOperation,
 } from "./schema";
 
 interface LibraryDatabase extends DBSchema {
+  migrations: { key: string; value: LegacyMigrationJournal };
   records: { key: [string, LibraryKind, string]; value: LibraryRecord; indexes: { owner: string } };
   pending: { key: [string, string]; value: PendingOperation; indexes: { owner: string; document: [string, LibraryKind, string] } };
   receipts: { key: [string, string]; value: { operation: LibraryOperation; result: CommitResult }; indexes: { owner: string } };
@@ -42,13 +44,16 @@ export class IndexedViewLibrary {
   private db(): Promise<IDBPDatabase<LibraryDatabase>> {
     if (this.closed) return Promise.reject(new Error("Library connection is closed"));
     if (!this.connection) {
-      this.connection = openDB<LibraryDatabase>(this.databaseName, 1, {
-        upgrade(db) {
-          db.createObjectStore("records", { keyPath: ["ownerId", "kind", "id"] }).createIndex("owner", "ownerId");
-          const pending = db.createObjectStore("pending", { keyPath: ["operation.ownerId", "operation.operationId"] });
-          pending.createIndex("owner", "operation.ownerId");
-          pending.createIndex("document", ["operation.ownerId", "operation.kind", "operation.id"], { unique: true });
-          db.createObjectStore("receipts", { keyPath: ["operation.ownerId", "operation.operationId"] }).createIndex("owner", "operation.ownerId");
+      this.connection = openDB<LibraryDatabase>(this.databaseName, 2, {
+        upgrade(db, oldVersion) {
+          if (oldVersion < 1) {
+            db.createObjectStore("records", { keyPath: ["ownerId", "kind", "id"] }).createIndex("owner", "ownerId");
+            const pending = db.createObjectStore("pending", { keyPath: ["operation.ownerId", "operation.operationId"] });
+            pending.createIndex("owner", "operation.ownerId");
+            pending.createIndex("document", ["operation.ownerId", "operation.kind", "operation.id"], { unique: true });
+            db.createObjectStore("receipts", { keyPath: ["operation.ownerId", "operation.operationId"] }).createIndex("owner", "operation.ownerId");
+          }
+          if (oldVersion < 2) db.createObjectStore("migrations", { keyPath: "key" });
         },
         blocking: () => { void this.close(); },
       }).catch((error: unknown) => { this.connection = null; throw error; });
@@ -213,6 +218,100 @@ export class IndexedViewLibrary {
     } finally {
       lifecycle?.signal.removeEventListener("abort", abort);
     }
+  }
+
+  /** Atomically retain the captured baseline and seed records/drafts. Never publishes scenes.
+   * The caller supplies complete conversion results; this method never reads live stores.
+   */
+  async migrateLegacy(
+    rawPlan: LegacyMigrationPlan, mode: "local" | "account",
+    lifecycle?: { signal: AbortSignal; isActive: () => boolean },
+  ): Promise<LegacyMigrationResult> {
+    const parsed = legacyMigrationPlanSchema.safeParse(rawPlan);
+    if (!parsed.success || (mode !== "local" && mode !== "account")) {
+      return { status: "invalid", message: "Invalid legacy migration plan" };
+    }
+    const plan = parsed.data;
+    const active = () => !this.closed && !lifecycle?.signal.aborted && (lifecycle?.isActive() ?? true);
+    const forbidden = (): LegacyMigrationResult => ({ status: "forbidden", message: "Legacy migration owner/session mismatch" });
+    if (plan.ownerId !== this.ownerId || !active()) return forbidden();
+    if (plan.source === "account" && mode !== "account") {
+      return { status: "invalid", message: "Account migration requires pending cloud saves" };
+    }
+    try {
+      const db = await this.db();
+      if (!active()) return forbidden();
+      const tx = db.transaction(["records", "pending", "migrations"], "readwrite");
+      const abort = () => { try { tx.abort(); } catch { /* Already finished. */ } };
+      const check = () => { if (!active()) throw new Error("Migration session ended"); };
+      lifecycle?.signal.addEventListener("abort", abort, { once: true });
+      try {
+        return await atomic(tx, async (): Promise<LegacyMigrationResult> => {
+          check();
+          const key = legacyMigrationKey(this.ownerId, plan.source);
+          const migrations = tx.objectStore("migrations");
+          const existing = await migrations.get(key);
+          check();
+          if (existing) {
+            if (existing.plan.ownerId !== this.ownerId) return forbidden();
+            if (existing.mode !== mode) return { status: "conflict", message: "Migration mode changed; copy saved views explicitly" };
+            // The first capture wins even when legacy storage or conversion defaults later change.
+            legacyMigrationPlanSchema.parse(existing.plan);
+            return { status: "existing", journal: existing };
+          }
+          const values = [
+            ...Object.values(plan.views).map((data) => ({ kind: "view" as const, data })),
+            ...plan.presets.map((data) => ({ kind: "preset" as const, data })),
+          ];
+          const records = tx.objectStore("records");
+          const pending = tx.objectStore("pending");
+          if (mode === "account") {
+            const count = await pending.index("owner").count(this.ownerId);
+            check();
+            if (count + values.length > 100) return { status: "unavailable", message: "Pending save limit prevents migration; legacy data was retained" };
+          }
+          for (const value of values) {
+            const document: [string, LibraryKind, string] = [this.ownerId, value.kind, value.data.id];
+            const current = await records.get(document);
+            check();
+            const draft = await pending.index("document").get(document);
+            check();
+            if (current || draft) return { status: "conflict", message: "A migration destination already exists; no records were replaced" };
+          }
+          const operationIds: string[] = [];
+          for (const value of values) {
+            if (mode === "local") {
+              await records.add({ ownerId: this.ownerId, kind: value.kind, id: value.data.id, revision: 1, value });
+            } else {
+              const operation = libraryOperationSchema.parse({
+                operationId: crypto.randomUUID(), ownerId: this.ownerId,
+                kind: value.kind, id: value.data.id, expectedRevision: 0, value,
+              });
+              operationIds.push(operation.operationId);
+              await pending.add({ operation, state: "queued", message: null, current: null });
+            }
+            check();
+          }
+          const journal: LegacyMigrationJournal = { key, mode, plan, operationIds };
+          await migrations.add(journal);
+          check();
+          return { status: "migrated", journal };
+        });
+      } finally {
+        lifecycle?.signal.removeEventListener("abort", abort);
+      }
+    } catch {
+      return active() ? { status: "unavailable", message: "Migration was not committed; legacy data was retained" } : forbidden();
+    }
+  }
+
+  /** Read the original conversion/rollback data only within the capture's owner namespace. */
+  async legacyMigration(source: LegacyMigrationPlan["source"]): Promise<LegacyMigrationJournal | null> {
+    if (source !== "device" && source !== "account") throw new Error("Invalid migration source");
+    const journal = await (await this.db()).get("migrations", legacyMigrationKey(this.ownerId, source));
+    if (!journal || journal.plan.ownerId !== this.ownerId) return null;
+    legacyMigrationPlanSchema.parse(journal.plan);
+    return journal;
   }
 
   /** Remote library refresh never alters pending drafts or activates a view. */

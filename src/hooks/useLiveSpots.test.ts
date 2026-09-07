@@ -1,8 +1,10 @@
 import { renderHook } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import type { WSJTXDecode } from "@/stores/wsjtxStore";
 import type { LiveSpot } from "@/types/livespot";
 
 const mocks = vi.hoisted(() => ({
+  wsjtx: { connected: false, decodes: [] as WSJTXDecode[], status: null },
   displayDensity: 100,
   psk: {
     data: undefined as LiveSpot[] | undefined,
@@ -35,7 +37,7 @@ vi.mock("@/stores/wsjtxStore", () => ({
       decodes: unknown[];
       status: null;
     }) => unknown,
-  ) => selector({ connected: false, decodes: [], status: null }),
+  ) => selector(mocks.wsjtx),
 }));
 
 import { useLiveSpots } from "./useLiveSpots";
@@ -57,6 +59,7 @@ function spot(id: string, overrides: Partial<LiveSpot> = {}): LiveSpot {
 
 describe("useLiveSpots feed readiness", () => {
   beforeEach(() => {
+    mocks.wsjtx.connected = false; mocks.wsjtx.decodes = [];
     mocks.displayDensity = 100;
     mocks.psk.data = undefined;
     mocks.psk.dataUpdatedAt = 0;
@@ -163,4 +166,14 @@ describe("useLiveSpots feed readiness", () => {
     expect(result.current.feedScopeKey).toBe(initialScope);
     expect(result.current.feedScopeKey).toContain('"spotLimit":200');
   });
+});
+
+
+it("uses captured RF frequency and status-mode labels without a current status", () => {
+  const decode: WSJTXDecode = { isNew: true, time: 50_000, snr: -10, deltaTime: 0.2, deltaFrequency: 1234, mode: "~", message: "CQ N0TEST EM38", lowConfidence: false, receivedAt: Date.now(), callsign: "N0TEST", dialFrequencyHz: 7_074_000, dialMode: "FT8" };
+  mocks.wsjtx.connected = true;
+  mocks.wsjtx.decodes = [decode, { ...decode, callsign: "N1TEST", dialFrequencyHz: undefined }, { ...decode, callsign: "N2TEST", offAir: true }];
+  const { result } = renderHook(() => useLiveSpots({ sources: ["WSJT-X"] }));
+  expect(result.current.spots).toHaveLength(1);
+  expect(result.current.spots[0]).toMatchObject({ frequency: 7075.234, mode: "FT8", band: "40m" });
 });

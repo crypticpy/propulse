@@ -19,6 +19,7 @@ import { fetchPSKReporterSpots } from "@/lib/api/pskreporter";
 import { fetchRBNSpots } from "@/lib/api/rbn";
 import { getBandFromFrequency } from "@/lib/api/dxcluster";
 import { useWSJTXStore } from "@/stores/wsjtxStore";
+import { wsjtxDecodedAt, wsjtxFrequencyHz } from "@/lib/radio/wsjtxIngestion";
 import type { WSJTXDecode } from "@/stores/wsjtxStore";
 import type { LiveSpot, SpotSource } from "@/types/livespot";
 import type { SpotFilters } from "@/types/operatingProfile";
@@ -119,19 +120,18 @@ function deduplicateSpots(spots: LiveSpot[]): LiveSpot[] {
  */
 function wsjtxDecodeToLiveSpot(
   decode: WSJTXDecode,
-  statusFreqHz: number,
 ): LiveSpot {
-  const frequencyKHz = statusFreqHz / 1000; // DXSpot uses kHz
-  const spotFrequencyKHz = frequencyKHz + decode.deltaFrequency / 1000;
+  const frequencyKHz = decode.dialFrequencyHz! / 1000;
+  const spotFrequencyKHz = wsjtxFrequencyHz(decode)! / 1000;
   return {
-    id: `wsjtx-${decode.receivedAt}-${decode.callsign || decode.message}`,
+    id: `wsjtx-${decode.instanceId ?? "legacy"}-${decode.receivedAt}-${decode.callsign || decode.message}`,
     spotter: "WSJT-X", // local receiver
     dx: decode.callsign || "",
     dxGrid: decode.grid,
     frequency: spotFrequencyKHz,
-    mode: decode.mode,
+    mode: decode.dialMode || decode.mode,
     comment: decode.message,
-    time: new Date(decode.receivedAt), // use receivedAt timestamp
+    time: new Date(wsjtxDecodedAt(decode) ?? decode.receivedAt),
     band: getBandFromFrequency(frequencyKHz),
     source: "WSJT-X",
     snr: decode.snr,
@@ -198,14 +198,12 @@ export function useLiveSpots({
 
   // WSJT-X decodes from the bridge (via store)
   const wsjtxDecodes = useWSJTXStore((s) => s.decodes);
-  const wsjtxStatus = useWSJTXStore((s) => s.status);
   const wsjtxConnected = useWSJTXStore((s) => s.connected);
 
   // Convert WSJT-X decodes to LiveSpots
   const wsjtxSpots = useMemo<LiveSpot[]>(() => {
     if (
       !wsjtxConnected ||
-      !wsjtxStatus ||
       !sources.includes("WSJT-X") ||
       wsjtxDecodes.length === 0
     ) {
@@ -215,10 +213,10 @@ export function useLiveSpots({
     // Only convert decodes that have an extracted callsign (skip noise)
     // and limit to the most recent spots for performance
     return wsjtxDecodes
-      .filter((d) => d.callsign)
+      .filter((d) => d.callsign && !d.lowConfidence && wsjtxFrequencyHz(d) !== null)
       .slice(0, spotLimit)
-      .map((d) => wsjtxDecodeToLiveSpot(d, wsjtxStatus.frequency));
-  }, [wsjtxDecodes, wsjtxStatus, wsjtxConnected, sources, spotLimit]);
+      .map((d) => wsjtxDecodeToLiveSpot(d));
+  }, [wsjtxDecodes, wsjtxConnected, sources, spotLimit]);
 
   // Establish the complete eligible evidence set once. Visual consumers use
   // the deduplicated projection below, while activity summaries retain each

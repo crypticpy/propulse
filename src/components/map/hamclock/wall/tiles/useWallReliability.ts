@@ -6,6 +6,11 @@ import {
   buildReliabilityForecast,
   type ReliabilityCell,
 } from "@/lib/hamclock/reliabilityForecast";
+import { calculateGreatCircleDistance } from "@/lib/utils/bands";
+import { getAntennaGainForPath, type AntennaType } from "@/lib/data/antennas";
+import { MODE_PARAMETERS } from "@/lib/utils/signal";
+import type { NoiseEnvironment } from "@/lib/utils/noiseModel";
+import { parseUtcInstant } from "@/lib/solar/normalization";
 import { nearestHamClockPower } from "@/lib/station/stationPhysics";
 import {
   useHamClockStore,
@@ -42,6 +47,17 @@ export type WallReliabilityStatus =
   | "failed"
   | "ready";
 
+export interface WallReliabilityInputs {
+  powerWatts: number;
+  antennaType: AntennaType;
+  antennaGainDbi: number | null;
+  noiseEnvironment: NoiseEnvironment | undefined;
+  distanceKm: number | null;
+  modeThresholdDb: number;
+  kp: number | null;
+  sfi: number | null;
+}
+
 export interface WallReliability {
   status: WallReliabilityStatus;
   /**
@@ -57,6 +73,10 @@ export interface WallReliability {
   /** Where the path ends, for the context line. */
   targetLabel: string;
   mode: HamClockReliabilityMode;
+  /** Exact inputs supplied to the existing physics engine. */
+  inputs: WallReliabilityInputs;
+  /** Oldest known observation among the two solar inputs; not render time. */
+  updatedAt: number | null;
 }
 
 /**
@@ -109,6 +129,9 @@ export function useWallReliability(): WallReliability {
 
   const kp = kIndexQuery.data?.[kIndexQuery.data.length - 1]?.kp_index;
   const sfi = solarFluxQuery.data?.[solarFluxQuery.data.length - 1]?.flux;
+  const kpAt = parseUtcInstant(kIndexQuery.data?.at(-1)?.time_tag);
+  const sfiAt = parseUtcInstant(solarFluxQuery.data?.at(-1)?.time_tag);
+  const updatedAt = kpAt !== null && sfiAt !== null ? Math.min(kpAt, sfiAt) : null;
 
   // Mirror HamClockReliabilityPanel exactly so the wall and the desk panel
   // never disagree about the same path.
@@ -125,12 +148,26 @@ export function useWallReliability(): WallReliability {
   return useMemo<WallReliability>(() => {
     const empty = new Map<string, ReliabilityCell>();
     const targetLabel = target?.name || target?.grid || "DX target";
+    const distanceKm = origin && target
+      ? calculateGreatCircleDistance(origin.lat, origin.lon, target.lat, target.lon)
+      : null;
     const base = {
       cells: empty,
       hour,
       hourIndex,
       targetLabel,
       mode: reliability.mode,
+      updatedAt,
+      inputs: {
+        powerWatts,
+        antennaType,
+        antennaGainDbi: distanceKm === null ? null : getAntennaGainForPath(antennaType, distanceKm),
+        distanceKm,
+        noiseEnvironment,
+        modeThresholdDb: MODE_PARAMETERS[reliability.mode].minSNR,
+        kp: kp ?? null,
+        sfi: sfi ?? null,
+      },
     };
 
     if (!origin) return { ...base, status: "no-station" };
@@ -192,6 +229,7 @@ export function useWallReliability(): WallReliability {
     kp,
     sfi,
     forecastDay,
+    updatedAt,
     hour,
     hourIndex,
     reliability.mode,

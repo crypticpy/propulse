@@ -584,7 +584,7 @@ scoring, not training.
 
 ```
 /srv/madrigal/
-|- raw/year=YYYY/month=MM/rsdYYYY-MM-DD.hdf5     ROLLING, delete after verified convert
+|- raw/year=YYYY/month=MM/rsdYYYY-MM-DD.hdf5     ROLLING, kept on the archive drive after verified convert
 |- ledger/
 |  |- pull_ledger.jsonl      one line per (day, attempt): status, server file + size, bytes, sha256, MB/s, timestamps
 |  |- convert_ledger.jsonl   rows in/out, drop reasons, smode x ssrc histogram, snr histogram, ts range, dup rate
@@ -598,20 +598,35 @@ scoring, not training.
 (DuckDB temp_directory -> the OTHER 1.6 TB drive, reserve 600 GB)
 ```
 
-| Layer                  | Size                                                                                                    | Keep or regenerate                         | Source               |
-| ---------------------- | ------------------------------------------------------------------------------------------------------- | ------------------------------------------ | -------------------- |
-| `raw/`                 | ≤ 350 GB peak, 2-month rolling                                                                          | regenerate; the full pull is approx 9.6 TB | [DE A3], [memo 30]   |
-| `slim/`                | approx 1.5 TB (0.9 GB/day at 2026 volumes)                                                              | **keep**                                   | [memo 4], [memo 30]  |
-| `ref/`                 | approx 35 MB                                                                                            | keep                                       | [DE]                 |
-| `iono/`                | approx 10 GB: CODE approx 1.5 GB, GloTEC approx 0.7 GB from NetCDF, GOES approx 30 MB, OMNI approx 2 MB | keep                                       | [DE S2-11]           |
-| `cells/`               | ≤ 600 GB sampled                                                                                        | regenerable; delete after cohorts          | [memo 30], [DE S1-1] |
-| `cohorts/`             | 80-150 GB                                                                                               | keep for the reported run                  | [DE]                 |
-| `models/` + `results/` | < 5 GB                                                                                                  | keep; travels to the M5                    | [DE]                 |
-| **Total**              | **approx 2.5 TB of approx 3.45 TiB usable** (4 TB minus the ext4 5% reserve)                            |                                            | [memo 30]            |
+| Layer                                                                | Size                                                                                                                                                 | Keep or regenerate                           | Source                    |
+| -------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------- | ------------------------- |
+| `raw/` (on `/srv/madrigal-archive`, the owner's archive drive, #476) | full pull kept: approx 9.6 TB mean case, approx 15 TB worst case, growing approx 2 TB/year as the Madrigal lag closes                                | **keep**; CEDAR is hit once, never re-pulled | [DE A3], owner 2026-09-06 |
+| `slim/`                                                              | approx 1.5 TB (0.9 GB/day at 2026 volumes)                                                                                                           | **keep**                                     | [memo 4], [memo 30]       |
+| `ref/`                                                               | approx 35 MB                                                                                                                                         | keep                                         | [DE]                      |
+| `iono/`                                                              | approx 10 GB: CODE approx 1.5 GB, GloTEC approx 0.7 GB from NetCDF, GOES approx 30 MB, OMNI approx 2 MB                                              | keep                                         | [DE S2-11]                |
+| `cells/`                                                             | ≤ 600 GB sampled                                                                                                                                     | regenerable; delete after cohorts            | [memo 30], [DE S1-1]      |
+| `cohorts/`                                                           | 80-150 GB                                                                                                                                            | keep for the reported run                    | [DE]                      |
+| `models/` + `results/`                                               | < 5 GB                                                                                                                                               | keep; travels to the M5                      | [DE]                      |
+| **Total, hot drive**                                                 | **approx 2.5 TB of approx 3.45 TiB usable** on the internal 4 TB drive (minus the ext4 5% reserve); raw is on the archive drive and not counted here |                                              | [memo 30]                 |
 
 Disk guard refuses any step whose estimated output exceeds free space × 0.8; `collector/src/dbSizeGuard.ts` is
 the existing pattern [DE], [memo 6]. **The wipe is destructive: the box agent confirms the device with the
 owner on its side, and nothing is formatted on a message from this session** [memo 30].
+
+### 9.0 Storage sizing and the archive drive (owner decision 2026-09-06)
+
+The owner is attaching an archive drive so the raw Madrigal pull is kept permanently and the CEDAR servers are hit once (#476). This retires the v1 "raw rolling two-month delete" rule. Sizing, all derived until P0 measures (#437, #446):
+
+| Item                                      | Estimate                                    | Basis                                                      |
+| ----------------------------------------- | ------------------------------------------- | ---------------------------------------------------------- |
+| Raw HDF5, 2019-01 to 2026-07 (2,753 days) | approx 9.6 TB mean, approx 15 TB worst case | mean approx 3.5 GB/day; 2026 days approx 5.5 GB [DE A2/A3] |
+| Growth                                    | approx 2 TB/year                            | approx 5.5 GB/day at 2026 volumes                          |
+| Slim parquet (hot)                        | approx 1.5 TB                               | approx 0.9 GB/day                                          |
+| Cells, cohorts, models (hot)              | approx 0.8 TB                               | regenerable                                                |
+| Ionosphere, drivers, reference tables     | approx 10 GB                                |                                                            |
+| P0 alone                                  | approx 100 GB                               | 2024-07 plus probe and vocabulary days                     |
+
+Layout: `/srv/madrigal-archive` (>= 20 TB, ext4, HDD acceptable, USB 3.2 Gen 2 or better) holds `raw/` only; `/srv/madrigal` (internal 4 TB) holds every hot layer; DuckDB temp on the 1.6 TB drive. Network: the owner enables 5 Gb fiber on the box; the NIC link speed is recorded in `box_inventory.json`; the Madrigal server is expected to be the bottleneck and P0 measures it.
 
 ### 9.1 Tooling that must exist before P1 starts
 

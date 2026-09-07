@@ -16,6 +16,7 @@ import { notifyLogEntries } from "@/lib/db/logStore";
 import type { LogEntry } from "@/lib/db/types";
 import type { SyncModule, SyncableTable, WriteQueueEntry } from "../types";
 import type { Tables, TablesInsert } from "@/types/supabase";
+import { backfillLogbookMetadata } from "../logbookMetadataBackfill";
 
 /** Max entries per batch for push/pull pagination */
 const BATCH_SIZE = 100;
@@ -100,6 +101,7 @@ export const logbookSync: SyncModule = {
   tables: ["log_entries"] as SyncableTable[],
 
   async pull(userId: string, since: string | null): Promise<string | null> {
+    await backfillLogbookMetadata(userId);
     const supabase = getSupabase();
     const db = await getDB();
     let maxTimestamp: string | null = since;

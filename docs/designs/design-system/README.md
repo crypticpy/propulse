@@ -10,7 +10,7 @@ Sources of truth:
 
 - `src/lib/themes/stationTokens.ts` — the palettes and `stationTokens(theme, accent)`.
 - `src/lib/themes/index.ts` — `applyThemeToDocument()` writes every `--su-*` (and its `-rgb` channel triplet) onto `document.documentElement`.
-- `src/styles/design-tokens.css` — the `:root` fallbacks (dark palette) so utilities render correctly before JS runs and in tests.
+- `src/styles/globals.css` — the `:root` fallbacks (dark palette, next to the `--theme-*` fallbacks) so utilities render correctly before JS runs and in tests.
 - `tailwind.config.js` — the `su` colour namespace.
 - `src/components/station-ui/StationProvider.tsx` — re-injects the same variables inline on its `.station-ui` element, which wins over the root by specificity, so scoped `theme`/`accent` previews still work.
 
@@ -89,18 +89,21 @@ Steps for a file: swap the classes, delete any local `--*` colour variable it de
 
 ## Guard
 
-`npm run check:design-tokens` (in `npm run verify`, right after `check:tracked-artifacts`) fails on `text-white`, `text-gray-*`, `text-slate-*`, `bg-slate-*`, `text-neutral-*`, `#fff` and `#ffffff` inside the paths listed in the `SCOPE` array of `scripts/check-design-tokens.mjs`. Hex rules apply to CSS and to lines carrying a class attribute, so colour maths in TypeScript stays legal. A deliberate exception carries `// design-tokens: allow` (or `/* design-tokens: allow */`) on the line.
+`npm run check:design-tokens` (in `npm run verify`, right after `check:tracked-artifacts`) fails on any colour-bearing utility that names white or a raw grey ramp — `{bg,border,divide,ring,ring-offset,from,via,to,text,fill,stroke,outline,placeholder,decoration,shadow,caret,accent}-white` (with or without an opacity modifier, so `bg-white/5` and `border-white/[0.08]` are caught too) and the same prefixes against `gray|slate|neutral|zinc|stone-*` — plus `#fff` and `#ffffff`, inside the paths listed in the `SCOPE` array of `scripts/check-design-tokens.mjs`. Hex rules apply to CSS and to lines carrying a class attribute, so colour maths in TypeScript stays legal. A deliberate exception carries `// design-tokens: allow` (or `/* design-tokens: allow */`) on the line.
 
 **Each task that migrates an area appends its directory to `SCOPE`** and adds it to the list below, so a migrated area cannot regress.
 
 ### Migrated scope
 
-| Area            | Path                                                                 | Migrated by         |
-| --------------- | --------------------------------------------------------------------- | ------------------ |
-| Station library | `src/components/station-ui`                                          | DS-02 (foundation) |
-| Home            | `src/components/home`, `src/pages/Home.tsx`, `src/styles/home.css`   | DS-06               |
+| Area            | Path                                                                                                                                                                                                                                                                                        | Migrated by                           |
+| --------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------- |
+| Station library | `src/components/station-ui`                                                                                                                                                                                                                                                                 | DS-02 (foundation)                    |
+| Solar Pulse     | `src/pages/SolarPulse.tsx`, `src/components/solar/{WidgetShell,SolarDisclosure,SolarBriefingCard,SolarOperatingActions,SolarImageCard,SolarMiniChart,SolarSeriesChart,SolarForecastPanel,SolarAnimationPlayer,SolarImageDetail}.tsx`, `src/components/solar/modals/BandConditionsModal.tsx` | DS-03 (colour only, no layout change) |
+| Home            | `src/components/home`, `src/pages/Home.tsx`, `src/styles/home.css`                                                                                                                                                                                                                          | DS-06                                  |
 
-Not yet migrated: Solar Pulse (DS-03/04/05), Home's `src/components/dashboard` card library — still bridged by a `// design-tokens: allow` override in `src/styles/home.css` until it is migrated (DS-07/08/11), PropSphere and the global Tailwind colours (DS-09), everything else (DS-12 widens the guard to all of `src/`).
+Solar Pulse note: chart colours in `SolarMiniChart.tsx`/`SolarSeriesChart.tsx` keep the `--hcr-chart-*` indirection (HW-29) so HamClock wall reports can still recolour them, but the fallback is now a station token — `var(--hcr-chart-observed, var(--su-info))` — instead of a hard-coded hex. `hamclock-wall-report.css` defines every `--hcr-chart-*` under `[data-hamclock-theme]`, so the reports are unaffected, while `/solar` follows the app theme and stays legible on the light canvas. Dialog contents on Solar Pulse (and `BandConditionsModal`) pin `--su-*` to the midnight palette via `fixedDarkSurfaceTokens`, because `AccessibleDialog`'s chrome is a fixed dark panel; remove that when the dialog surface itself is themed. A few legacy/unreached files under `src/components/solar/` (`BandConditions.tsx`, `BandRow.tsx`, `MetricCard.tsx`, `PrimaryMetrics.tsx`, `PropagationIndex.tsx`, `SolarHandoffNotice.tsx`, and most of `modals/` other than `BandConditionsModal.tsx`) were left unmigrated to stay within this PR's file budget; they are not imported by the live Solar Pulse page (`SolarHandoffNotice` is reached from Band Planner / DX Wizard and `PropagationIndex` from the map's `SolarSnapshot`; they move with DS-09).
+
+Not yet migrated: the remaining `src/components/solar` files above (DS-09), Home's `src/components/dashboard` card library — still bridged by a `// design-tokens: allow` override in `src/styles/home.css` until [DS-13 #499](https://github.com/crypticpy/propulse/issues/499) migrates those cards and deletes the bridge, PropSphere and the global Tailwind colours (DS-09), everything else (DS-12 widens the guard to all of `src/`).
 
 ## HamClock stays separate
 

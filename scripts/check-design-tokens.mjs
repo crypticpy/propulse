@@ -21,10 +21,36 @@ const SCOPE = [
   "src/components/home",
   "src/pages/Home.tsx",
   "src/styles/home.css",
+  "src/pages/SolarPulse.tsx",
+  // DS-03 Solar Pulse retheme: only the components actually migrated to
+  // `su-` tokens are scoped here. Several sibling files under
+  // src/components/solar/ (BandConditions.tsx, BandRow.tsx, MetricCard.tsx,
+  // PrimaryMetrics.tsx, PropagationIndex.tsx, SolarHandoffNotice.tsx, and
+  // most of modals/) are legacy/unreached code kept out of this PR's 15-file
+  // budget — see docs/designs/design-system/README.md for the follow-up.
+  "src/components/solar/WidgetShell.tsx",
+  "src/components/solar/SolarDisclosure.tsx",
+  "src/components/solar/SolarBriefingCard.tsx",
+  "src/components/solar/SolarOperatingActions.tsx",
+  "src/components/solar/SolarImageCard.tsx",
+  "src/components/solar/SolarMiniChart.tsx",
+  "src/components/solar/SolarSeriesChart.tsx",
+  "src/components/solar/SolarForecastPanel.tsx",
+  "src/components/solar/SolarAnimationPlayer.tsx",
+  "src/components/solar/SolarImageDetail.tsx",
+  "src/components/solar/modals/BandConditionsModal.tsx",
 ];
 
 const CODE_EXTENSIONS = new Set([".ts", ".tsx", ".js", ".jsx"]);
 const STYLE_EXTENSIONS = new Set([".css"]);
+
+/**
+ * Every Tailwind utility prefix that paints a colour. Variants (`hover:`,
+ * `dark:`, `group-hover:`) end in a non-word character, so the leading `\b`
+ * still anchors on the prefix.
+ */
+const COLOR_PREFIX =
+  "(?:bg|border|divide|ring|ring-offset|from|via|to|text|fill|stroke|outline|placeholder|decoration|shadow|caret|accent)";
 
 /**
  * `class` rules run on every line of a scoped file: these tokens are Tailwind
@@ -33,13 +59,25 @@ const STYLE_EXTENSIONS = new Set([".css"]);
  * (contrast against #ffffff) stays legal.
  */
 const RULES = [
-  { kind: "class", name: "text-white", pattern: /\btext-white\b/ },
-  { kind: "class", name: "text-gray-*", pattern: /\btext-gray-\d/ },
-  { kind: "class", name: "text-slate-*", pattern: /\btext-slate-\d/ },
-  { kind: "class", name: "bg-slate-*", pattern: /\bbg-slate-\d/ },
-  { kind: "class", name: "text-neutral-*", pattern: /\btext-neutral-\d/ },
+  // Covers `text-white`, `bg-white/5`, `border-white/[0.08]`, `divide-white/5`.
+  {
+    kind: "class",
+    name: "*-white",
+    pattern: new RegExp(`\\b${COLOR_PREFIX}-white(?![a-z-])`),
+  },
+  // Covers every raw grey ramp on any colour prefix (`bg-gray-800`, …).
+  {
+    kind: "class",
+    name: "*-gray|slate|neutral|zinc|stone-*",
+    pattern: new RegExp(
+      `\\b${COLOR_PREFIX}-(?:gray|slate|neutral|zinc|stone)-\\d`,
+    ),
+  },
   { kind: "hex", name: "#fff", pattern: /#fff\b/i },
   { kind: "hex", name: "#ffffff", pattern: /#ffffff\b/i },
+  // Arbitrary-value utilities are unambiguous class tokens, so they are
+  // checked on every line (multi-line className expressions included).
+  { kind: "class", name: "*-[#fff]", pattern: /-\[#(?:fff|ffffff)\]/i },
 ];
 
 const ALLOW = /(?:\/\/|\/\*)\s*design-tokens:\s*allow/;

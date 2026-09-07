@@ -81,9 +81,16 @@ describe("station tokens on the document root", () => {
     expect(reExportedStationContrast("#ffffff", "#000000")).toBeCloseTo(21, 5);
   });
 
-  it("keeps the design-tokens.css :root fallbacks in sync with the dark palette", () => {
+  it("emits an -rgb triplet in the scoped token set itself (StationProvider overrides)", () => {
+    const tokens = stationTokens("dark", "#ff6b35");
+    expect(tokens["--su-text-rgb"]).toBe("202 210 220");
+    expect(tokens["--su-accent-rgb"]).toBe("255 107 53");
+    expect(tokens["--su-on-accent-rgb"]).toBe("0 0 0");
+  });
+
+  it("keeps the globals.css :root fallbacks in sync with the dark palette", () => {
     const css = readFileSync(
-      resolve(__dirname, "../../styles/design-tokens.css"),
+      resolve(__dirname, "../../styles/globals.css"),
       "utf8",
     );
     const tokens = stationTokens("dark", "#ff6b35");
@@ -97,6 +104,16 @@ describe("station tokens on the document root", () => {
         .join(" ");
       expect(css).toContain(`--su-${name}-rgb: ${channels};`);
     }
+  });
+
+  it("keeps Home's high-contrast text override on the high-contrast palette", () => {
+    const css = readFileSync(
+      resolve(__dirname, "../../styles/home.css"),
+      "utf8",
+    );
+    expect(css).toContain(
+      `.dark.contrast-more .home-dashboard{--su-text:${stationPalettes["high-contrast"].text}}`,
+    );
   });
 
   it("no longer declares the unused --color-text-* variables", () => {

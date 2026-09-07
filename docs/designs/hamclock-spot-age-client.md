@@ -41,3 +41,12 @@ Typecheck, lint and production build pass. Tests use synthetic responses and
 original observation times, with no provider traffic or production state writes.
 No visible UI changes in this slice; renderer/control acceptance follows when
 the new contract is consumed.
+
+
+## CSV review follow-up
+
+The legacy CSV path now validates positive decimal frequency, hour/minute ranges
+and actual calendar dates before including a row. Unknown timestamps are skipped
+rather than replaced with now; valid time-only reports use UTC day rollover.
+Mixed valid/invalid CSV and midnight rollover regressions bring focused client
+coverage to 45 tests. JSON frequencies also require a scalar number/string.

@@ -218,7 +218,9 @@ function parseHamQTHCSV(text: string): DXSpot[] {
     // Skip header rows or clearly invalid lines
     if (!spotter || !dx || spotter === "Spotter") continue;
 
-    const frequency = parseFloat(freqStr) || 0;
+    if (!/^\d+(?:\.\d+)?$/.test(freqStr)) continue;
+    const frequency = Number(freqStr);
+    if (!Number.isFinite(frequency) || frequency <= 0) continue;
 
     // Parse time: format is "HHMM YYYY-MM-DD"
     let time: Date;
@@ -227,19 +229,22 @@ function parseHamQTHCSV(text: string): DXSpot[] {
       const [, hhmm, datePart] = timeMatch;
       const h = parseInt(hhmm.substring(0, 2), 10);
       const m = parseInt(hhmm.substring(2, 4), 10);
+      if (h > 23 || m > 59) continue;
       time = new Date(
         `${datePart}T${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}:00Z`,
       );
+      if (!Number.isFinite(time.getTime()) || time.toISOString().slice(0, 10) !== datePart) continue;
     } else if (/^\d{4}$/.test(timeStr)) {
       const h = parseInt(timeStr.substring(0, 2), 10);
       const m = parseInt(timeStr.substring(2, 4), 10);
+      if (h > 23 || m > 59) continue;
       time = new Date();
       time.setUTCHours(h, m, 0, 0);
       if (time.getTime() > Date.now() + 60_000) {
-        time.setDate(time.getDate() - 1);
+        time.setUTCDate(time.getUTCDate() - 1);
       }
     } else {
-      time = new Date();
+      continue;
     }
 
     // Band: HamQTH uses "10M" -> normalize to "10m"
@@ -306,6 +311,7 @@ export async function fetchClusterFeed(
     if (!item || typeof item !== "object") return null;
     // Frequency: Edge Function uses "frequency" (number) or "freq" (string)
     const rawFreq = item.frequency ?? item.freq;
+    if (typeof rawFreq !== "number" && typeof rawFreq !== "string") return null;
     const frequency =
       typeof rawFreq === "number"
         ? rawFreq

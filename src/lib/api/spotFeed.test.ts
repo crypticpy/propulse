@@ -83,3 +83,28 @@ it("rejects invalid windows before any source request and malformed versioned me
     expect(() => readSpotFeedMetadata({ meta: { ...meta("rbn"), ...patch } }, "rbn", 60)).toThrow(/invalid/);
   }
 });
+
+
+it("filters invalid CSV dates/times/frequencies without manufacturing a current report", async () => {
+  const valid = "W3LPL^28022.0^EA6EJ^CW heard^1606 2026-02-05^L^E^EU^10M";
+  const invalid = [
+    valid.replace("1606 2026-02-05", "broken"),
+    valid.replace("1606", "2460"),
+    valid.replace("2026-02-05", "2026-02-30"),
+    valid.replace("28022.0", "nope"),
+    valid.replace("28022.0", "28022junk"),
+    valid.replace("28022.0", "0"),
+  ];
+  vi.stubGlobal("fetch", vi.fn(async () => new Response([valid, ...invalid].join("\n"), { headers: { "Content-Type": "text/plain" } })));
+  const feed = await fetchClusterFeed();
+  expect(feed.spots).toHaveLength(1);
+  expect(feed.spots[0].time.toISOString()).toBe("2026-02-05T16:06:00.000Z");
+  expect(feed.metadata.status).toBe("unknown");
+});
+
+it("uses UTC rollover for valid time-only CSV reports", async () => {
+  vi.useFakeTimers();
+  vi.setSystemTime(new Date("2026-09-07T00:01:00Z"));
+  vi.stubGlobal("fetch", vi.fn(async () => new Response("W3LPL^14074^EA6EJ^FT8^2359^L^E^EU^20M", { headers: { "Content-Type": "text/plain" } })));
+  expect((await fetchClusterFeed()).spots[0].time.toISOString()).toBe("2026-09-06T23:59:00.000Z");
+});

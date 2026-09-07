@@ -27,14 +27,15 @@ export const BUILTIN_RAY_TRACE_MODEL_VERSION = "propulse-physics";
 export function builtinRayTraceProvenance(
   modeledAtMs: number,
   summary: string,
+  inputsAsOfMs: number | null = null,
 ): ModelProvenance {
   return {
     name: BUILTIN_RAY_TRACE_MODEL_NAME,
     version: BUILTIN_RAY_TRACE_MODEL_VERSION,
     modeledAtMs,
-    inputsAsOfMs: modeledAtMs,
+    inputsAsOfMs,
     explanation:
-      `Built-in tracer: simplified Chapman f0F2, Martyn's secant MUF, and ITU-R P.533 D-layer absorption. Not a full ITU-R P.533 circuit prediction. ${summary}`.trim(),
+      `Built-in tracer: simplified Chapman f0F2, Martyn's secant MUF, custom hop scoring, and ITU-R P.533 D-layer absorption. Not a full ITU-R P.533 circuit prediction. ${summary}`.trim(),
   };
 }
 

@@ -162,6 +162,11 @@ export function PathPointCard({
               {point.model.name} {point.model.version}
             </div>
             <div>Modeled {formatModelTime(point.model.modeledAtMs)}</div>
+            <div>
+              {point.model.inputsAsOfMs == null
+                ? "Input time unavailable"
+                : `Inputs as of ${formatModelTime(point.model.inputsAsOfMs)}`}
+            </div>
           </div>
         </div>
       )}

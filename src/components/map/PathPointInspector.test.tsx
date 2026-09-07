@@ -4,7 +4,11 @@ import { describe, expect, it, vi } from "vitest";
 import { calculateLayerHeights } from "@/lib/utils/ionosphere";
 import { traceRayPath } from "@/lib/utils/rayTrace";
 import type { PathDescriptor } from "@/lib/views/spotContracts";
-import { buildPathPointSet } from "@/lib/spots/pathPoints";
+import {
+  BUILTIN_RAY_TRACE_MODEL_NAME,
+  builtinRayTraceProvenance,
+  buildPathPointSet,
+} from "@/lib/spots/pathPoints";
 import { PathPointInspector } from "./PathPointInspector";
 
 const DATE = new Date("2026-06-21T18:00:00Z");
@@ -199,5 +203,45 @@ describe("PathPointInspector", () => {
     );
     expect(screen.getByRole("tooltip").textContent).toMatch(/modeled apex/i);
     expect(screen.queryByRole("dialog")).toBeNull();
+  });
+
+  it("shows built-in tracer provenance without inventing input age", () => {
+    const result = traceRayPath({
+      startLat: NY.lat,
+      startLon: NY.lon,
+      endLat: TOKYO.lat,
+      endLon: TOKYO.lon,
+      frequencyMHz: 14.074,
+      date: DATE,
+      sfi: 150,
+      kp: 2,
+      pathMode: "short",
+    });
+    const set = buildPathPointSet({
+      pathId: "ray-short",
+      path: null,
+      model: builtinRayTraceProvenance(NOW_MS, result.summary),
+      result,
+      nowMs: NOW_MS,
+      startLat: NY.lat,
+      startLon: NY.lon,
+      endLat: TOKYO.lat,
+      endLon: TOKYO.lon,
+    });
+    const apex = set.points.find((point) => point.role === "ray-apex")!;
+    render(
+      <PathPointInspector
+        pointSet={set}
+        selectedId={apex.id}
+        hoveredId={null}
+        open="card"
+        anchor={{ x: 200, y: 200 }}
+        onSelect={vi.fn()}
+        onClose={vi.fn()}
+      />,
+    );
+    expect(screen.getByText(new RegExp(BUILTIN_RAY_TRACE_MODEL_NAME))).toBeTruthy();
+    expect(screen.getByText("Input time unavailable")).toBeTruthy();
+    expect(document.body.textContent).not.toMatch(/ITU-R P\.533 ray trace/i);
   });
 });

@@ -235,23 +235,46 @@ describe("buildPathPointSet", () => {
 
   it("parses points when pathId is already 128 contract characters", () => {
     const pathId = `p${"c".repeat(127)}`;
-    const set = buildPathPointSet(
-      input({ pathId, path: modeledPath({ id: pathId }) }),
+    const first = buildPathPointSet(
+      input({ pathId, path: modeledPath({ id: pathId }), nowMs: NOW_MS }),
     );
-    expect(set.status).toBe("ready");
-    expect(set.points.length).toBeGreaterThan(0);
-    for (const point of set.points) {
+    const later = buildPathPointSet(
+      input({
+        pathId,
+        path: modeledPath({ id: pathId }),
+        nowMs: NOW_MS + 5_000,
+      }),
+    );
+    expect(first.status).toBe("ready");
+    expect(first.points.map((point) => point.id)).toEqual(
+      later.points.map((point) => point.id),
+    );
+    expect(first.points.length).toBeGreaterThan(0);
+    for (const point of first.points) {
       expect(pathPointDescriptorSchema.parse(point)).toEqual(point);
       expect(point.id.length).toBeLessThanOrEqual(128);
+      expect(point.id).toMatch(/:h\d+:(ray-apex|shell-highlight|ground-point)$/);
     }
   });
 
-  it("does not label the built-in tracer as a full ITU-R P.533 circuit", () => {
+  it("does not invent input age or a full ITU-R P.533 circuit for the built-in tracer", () => {
     const provenance = builtinRayTraceProvenance(NOW_MS, "1-hop fixture");
     expect(provenance.name).toBe(BUILTIN_RAY_TRACE_MODEL_NAME);
     expect(provenance.name).not.toMatch(/ITU-R P\.533 ray trace/i);
     expect(provenance.explanation).toMatch(/Not a full ITU-R P\.533/i);
+    expect(provenance.inputsAsOfMs).toBeNull();
     expect(modelProvenanceSchema.parse(provenance)).toEqual(provenance);
+
+    const set = buildPathPointSet(
+      input({
+        path: null,
+        pathId: "ray-short",
+        model: provenance,
+      }),
+    );
+    expect(set.status).toBe("ready");
+    expect(set.points[0]?.model.inputsAsOfMs).toBeNull();
+    expect(set.points[0]?.model.name).toBe(BUILTIN_RAY_TRACE_MODEL_NAME);
   });
 
   it("uses hop.hmF2 as modeled height, never the decorative boost", () => {

@@ -5,6 +5,13 @@ import {
   pathPointId,
 } from "./identity";
 
+function maxPathId(tail: string): string {
+  const id = `p${"x".repeat(127 - tail.length)}${tail}`;
+  expect(id).toHaveLength(PATH_POINT_ID_MAX_LENGTH);
+  expect(pathPointDescriptorSchema.shape.id.parse(id)).toBe(id);
+  return id;
+}
+
 describe("pathPointId", () => {
   it("uses pathId + hop + role when that still fits the contract", () => {
     expect(pathPointId("path-ny-tokyo", 0, "ray-apex")).toBe(
@@ -12,24 +19,26 @@ describe("pathPointId", () => {
     );
   });
 
-  it("stays within 128 characters for a max-length contract pathId", () => {
-    const pathId = `p${"a".repeat(127)}`;
-    expect(pathId).toHaveLength(PATH_POINT_ID_MAX_LENGTH);
-    expect(pathPointDescriptorSchema.shape.id.parse(pathId)).toBe(pathId);
-
+  it("keeps hop and role in the suffix for a max-length pathId", () => {
+    const pathId = maxPathId("aaaaaaa");
     for (const role of ["ray-apex", "shell-highlight", "ground-point"] as const) {
       const id = pathPointId(pathId, 100, role);
       expect(id.length).toBeLessThanOrEqual(PATH_POINT_ID_MAX_LENGTH);
       expect(pathPointDescriptorSchema.shape.id.parse(id)).toBe(id);
-      expect(id).not.toBe(`${pathId}:h100:${role}`);
+      expect(id.endsWith(`:h100:${role}`)).toBe(true);
+      expect(id.startsWith("p")).toBe(true);
     }
   });
 
-  it("keeps hop and role distinct after bounding", () => {
-    const pathId = `p${"b".repeat(127)}`;
-    const apex = pathPointId(pathId, 0, "ray-apex");
-    const shell = pathPointId(pathId, 0, "shell-highlight");
-    const hop1 = pathPointId(pathId, 1, "ray-apex");
-    expect(new Set([apex, shell, hop1]).size).toBe(3);
+  it("distinguishes shared prefixes, hops, and roles", () => {
+    const left = maxPathId("aaaaaaa");
+    const right = maxPathId("bbbbbbb");
+    expect(left.slice(0, 120)).toBe(right.slice(0, 120));
+    const leftApex = pathPointId(left, 0, "ray-apex");
+    const rightApex = pathPointId(right, 0, "ray-apex");
+    const leftShell = pathPointId(left, 0, "shell-highlight");
+    const leftHop1 = pathPointId(left, 1, "ray-apex");
+    expect(leftApex).not.toBe(rightApex);
+    expect(new Set([leftApex, leftShell, leftHop1, rightApex]).size).toBe(4);
   });
 });

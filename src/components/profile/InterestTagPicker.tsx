@@ -159,7 +159,7 @@ export function InterestTagPicker({
                             ? "text-su-text"
                             : disabled
                               ? "bg-su-line/10 border-su-line/20 text-su-muted opacity-50 cursor-not-allowed"
-                              : "bg-su-line/20 border-su-line/40 text-su-muted hover:bg-su-line/20 hover:border-su-line/50 cursor-pointer"
+                              : "bg-su-line/20 border-su-line/40 text-su-muted hover:bg-su-line/30 hover:border-su-line/50 cursor-pointer"
                         }`}
                         style={
                           sel

@@ -330,7 +330,7 @@ export function CallsignLookupSuggestions({
                   setShowQrzInput(false);
                   setQrzKeyDraft("");
                 }}
-                className="text-xs text-su-muted hover:text-su-muted"
+                className="text-xs text-su-muted hover:text-su-text"
               >
                 Cancel
               </button>

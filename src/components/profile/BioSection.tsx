@@ -243,7 +243,7 @@ function EmptyState({ onAdd }: { onAdd: () => void }) {
           fill="currentColor"
         />
       </svg>
-      <p className="text-sm text-su-muted group-hover:text-su-muted transition-colors">
+      <p className="text-sm text-su-muted group-hover:text-su-text transition-colors">
         Add your bio and photo
       </p>
       <p className="text-xs text-su-muted mt-0.5">

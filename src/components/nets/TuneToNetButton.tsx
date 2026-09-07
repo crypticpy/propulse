@@ -123,7 +123,7 @@ export default function TuneToNetButton({
 
     const copyColors = copied
       ? "bg-signal-green/20 text-signal-green border border-signal-green/30 shadow-[0_0_12px_rgba(34,197,94,0.25)]"
-      : "bg-su-line/20 text-su-muted border border-su-line/50 hover:bg-su-line/20 hover:text-su-text cursor-pointer";
+      : "bg-su-line/20 text-su-muted border border-su-line/50 hover:bg-su-line/30 hover:text-su-text cursor-pointer";
 
     return (
       <button

@@ -34,7 +34,7 @@ export function ContestLiteHudSheet({
         if (e.key === "Escape") onClose();
       }}
     >
-      <div className="absolute inset-0 bg-su-panel/50" onClick={onClose} />
+      <div className="absolute inset-0 bg-black/50" onClick={onClose} />
 
       <div className="relative w-full max-h-[70dvh] bg-deep-space/95 backdrop-blur-md border-t border-su-line/40 rounded-t-2xl overflow-hidden">
         <div className="flex items-center justify-between px-4 py-3 border-b border-su-line/40">

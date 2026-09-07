@@ -30,7 +30,7 @@ export function ContestLiteHudPill({
 
   return (
     <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-[120] pointer-events-auto">
-      <div className="flex items-center gap-2 px-3 py-2 rounded-full bg-su-panel/70 backdrop-blur-md border border-su-line/40 shadow-lg">
+      <div className="flex items-center gap-2 px-3 py-2 rounded-full bg-su-panel/90 backdrop-blur-md border border-su-line/40 shadow-lg">
         <button
           type="button"
           onClick={onOpen}

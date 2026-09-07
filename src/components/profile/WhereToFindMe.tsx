@@ -79,7 +79,7 @@ export function WhereToFindMe({
                   className={`px-2.5 py-1 text-[10px] font-medium transition-colors border-0 ${
                     isActive
                       ? cfg.className
-                      : "bg-su-line/10 text-su-muted hover:text-su-muted hover:bg-su-line/10"
+                      : "bg-su-line/10 text-su-muted hover:text-su-text hover:bg-su-line/20"
                   }`}
                 >
                   {cfg.label}

@@ -212,7 +212,7 @@ export function QRCodeModal({
         <button
           ref={exitBtnRef}
           onClick={toggleFullscreen}
-          className="mt-6 px-6 py-2 text-sm rounded-lg bg-su-muted text-su-line hover:bg-su-muted transition-colors focus-visible:ring-2 focus-visible:ring-plasma-orange/50 focus-visible:outline-none"
+          className="mt-6 px-6 py-2 text-sm rounded-lg bg-su-muted text-su-line hover:bg-su-muted/80 transition-colors focus-visible:ring-2 focus-visible:ring-plasma-orange/50 focus-visible:outline-none"
         >
           Exit Fullscreen
         </button>

@@ -354,7 +354,7 @@ export function ContestQSOTable({
       {showUndoConfirm && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
           <div
-            className="absolute inset-0 bg-su-panel/60 backdrop-blur-sm"
+            className="absolute inset-0 bg-black/60 backdrop-blur-sm"
             onClick={() => setShowUndoConfirm(false)}
           />
           <Card className="relative z-10 w-full max-w-sm p-5" animate>

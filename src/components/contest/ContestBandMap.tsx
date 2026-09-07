@@ -909,7 +909,7 @@ export function ContestBandMap({
 
       {/* Header with band info */}
       {currentBand && frequencyRange && (
-        <div className="absolute top-2 left-14 px-2 py-1 bg-su-panel/60 backdrop-blur-sm rounded text-xs text-su-muted font-mono">
+        <div className="absolute top-2 left-14 px-2 py-1 bg-su-panel/90 backdrop-blur-sm rounded text-xs text-su-muted font-mono">
           {currentBand}: {(frequencyRange.min / 1000).toFixed(3)} -{" "}
           {(frequencyRange.max / 1000).toFixed(3)} MHz
           <span className="ml-2 text-su-muted">

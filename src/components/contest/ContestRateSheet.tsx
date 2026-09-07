@@ -254,7 +254,7 @@ const ViewToggle = memo(function ViewToggle({
         className={`px-2.5 py-1 text-xs font-medium rounded transition-colors ${
           mode === "hourly"
             ? "bg-plasma-orange/20 text-plasma-orange"
-            : "text-su-muted hover:text-su-muted"
+            : "text-su-muted hover:text-su-text"
         }`}
       >
         Hourly
@@ -264,7 +264,7 @@ const ViewToggle = memo(function ViewToggle({
         className={`px-2.5 py-1 text-xs font-medium rounded transition-colors ${
           mode === "10min"
             ? "bg-plasma-orange/20 text-plasma-orange"
-            : "text-su-muted hover:text-su-muted"
+            : "text-su-muted hover:text-su-text"
         }`}
       >
         10-Min

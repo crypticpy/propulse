@@ -608,7 +608,7 @@ export function NetForm({
         <button
           type="button"
           onClick={() => setShowSchedule((v) => !v)}
-          className="flex items-center gap-2 text-xs font-medium text-su-muted hover:text-su-muted transition-colors"
+          className="flex items-center gap-2 text-xs font-medium text-su-muted hover:text-su-text transition-colors"
         >
           <svg
             className={`w-3.5 h-3.5 transition-transform ${showSchedule ? "rotate-90" : ""}`}
@@ -762,7 +762,7 @@ export function NetForm({
         <button
           type="button"
           onClick={() => setShowDiscovery((v) => !v)}
-          className="flex items-center gap-2 text-xs font-medium text-su-muted hover:text-su-muted transition-colors"
+          className="flex items-center gap-2 text-xs font-medium text-su-muted hover:text-su-text transition-colors"
         >
           <svg
             className={`w-3.5 h-3.5 transition-transform ${showDiscovery ? "rotate-90" : ""}`}
@@ -841,7 +841,7 @@ export function NetForm({
         <button
           type="button"
           onClick={() => setShowRepeater((v) => !v)}
-          className="flex items-center gap-2 text-xs font-medium text-su-muted hover:text-su-muted transition-colors"
+          className="flex items-center gap-2 text-xs font-medium text-su-muted hover:text-su-text transition-colors"
         >
           <svg
             className={`w-3.5 h-3.5 transition-transform ${showRepeater ? "rotate-90" : ""}`}
@@ -902,7 +902,7 @@ export function NetForm({
         <button
           type="button"
           onClick={() => setShowVoip((v) => !v)}
-          className="flex items-center gap-2 text-xs font-medium text-su-muted hover:text-su-muted transition-colors"
+          className="flex items-center gap-2 text-xs font-medium text-su-muted hover:text-su-text transition-colors"
         >
           <svg
             className={`w-3.5 h-3.5 transition-transform ${showVoip ? "rotate-90" : ""}`}
@@ -961,7 +961,7 @@ export function NetForm({
         <button
           type="button"
           onClick={() => setShowPreamble((v) => !v)}
-          className="flex items-center gap-2 text-xs font-medium text-su-muted hover:text-su-muted transition-colors"
+          className="flex items-center gap-2 text-xs font-medium text-su-muted hover:text-su-text transition-colors"
         >
           <svg
             className={`w-3.5 h-3.5 transition-transform ${showPreamble ? "rotate-90" : ""}`}

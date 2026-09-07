@@ -168,7 +168,7 @@ export function LicenseHistory() {
           <div className="flex gap-2 justify-end">
             <button
               onClick={() => setIsAdding(false)}
-              className="text-xs text-su-muted hover:text-su-muted px-2 py-1"
+              className="text-xs text-su-muted hover:text-su-text px-2 py-1"
             >
               Cancel
             </button>

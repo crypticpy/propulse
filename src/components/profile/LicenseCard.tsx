@@ -103,7 +103,7 @@ function Disclosure({
         aria-expanded={open}
         className="flex items-center justify-between w-full text-left group rounded focus-visible:ring-2 focus-visible:ring-plasma-orange/50 focus-visible:outline-none"
       >
-        <span className="text-xs font-medium text-su-muted uppercase tracking-wider group-hover:text-su-muted transition-colors">
+        <span className="text-xs font-medium text-su-muted uppercase tracking-wider group-hover:text-su-text transition-colors">
           {title}
         </span>
         <ChevronIcon open={open} />

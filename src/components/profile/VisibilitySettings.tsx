@@ -75,7 +75,7 @@ export function VisibilitySettings() {
                   className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-xs font-medium transition-colors focus-visible:ring-2 focus-visible:ring-plasma-orange/50 focus-visible:outline-none ${
                     settings[section.key] === level.value
                       ? "bg-plasma-orange/15 text-plasma-orange border border-plasma-orange/30"
-                      : "bg-su-line/10 text-su-muted border border-su-line/40 hover:text-su-muted"
+                      : "bg-su-line/10 text-su-muted border border-su-line/40 hover:text-su-text"
                   }`}
                 >
                   <RadioDot active={settings[section.key] === level.value} />

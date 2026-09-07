@@ -483,7 +483,7 @@ export function ContestOneLineEntry({
   if (!activeSession || !contestDefinition) {
     return (
       <Card className={`p-4 ${className}`}>
-        <p className="text-su-text/50 text-sm">No active contest session</p>
+        <p className="text-su-text/80 text-sm">No active contest session</p>
       </Card>
     );
   }
@@ -498,13 +498,13 @@ export function ContestOneLineEntry({
           </span>
           <span className="text-su-text/70 font-medium">{mode}</span>
           {frequencyKHz && (
-            <span className="text-su-text/40 text-sm">
+            <span className="text-su-text/80 text-sm">
               {(frequencyKHz / 1000).toFixed(3)} MHz
             </span>
           )}
         </div>
-        <div className="text-su-text/60 text-sm">
-          <span className="text-su-text/40">TX:</span>{" "}
+        <div className="text-su-text/80 text-sm">
+          <span className="text-su-text/80">TX:</span>{" "}
           <span className="font-mono">{sendingExchange}</span>
         </div>
       </div>
@@ -713,7 +713,7 @@ export function ContestOneLineEntry({
         )}
 
         {/* Keyboard hints on the right */}
-        <div className="ml-auto text-su-text/30 text-xs">
+        <div className="ml-auto text-su-text/80 text-xs">
           <span className="hidden sm:inline">
             <kbd className="px-1 py-0.5 rounded bg-su-line/20">Enter</kbd> log
             <span className="mx-2">|</span>

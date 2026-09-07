@@ -40,7 +40,7 @@ function NodeRow({ label, node }: NodeRowProps) {
         type="button"
         onClick={handleCopy}
         title={copied ? "Copied!" : `Copy ${label} node`}
-        className="shrink-0 p-1 rounded-md text-su-muted hover:text-su-muted hover:bg-su-line/10 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-plasma-orange/60"
+        className="shrink-0 p-1 rounded-md text-su-muted hover:text-su-text hover:bg-su-line/10 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-plasma-orange/60"
       >
         {copied ? (
           /* Checkmark icon */

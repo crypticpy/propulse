@@ -18,7 +18,7 @@ export function EndContestModal({
   return (
     <div className="fixed inset-0 z-[110] flex items-center justify-center p-4">
       <div
-        className="absolute inset-0 bg-su-panel/60 backdrop-blur-sm"
+        className="absolute inset-0 bg-black/60 backdrop-blur-sm"
         onClick={onCancel}
       />
       <Card className="relative z-10 w-full max-w-md p-6" animate>

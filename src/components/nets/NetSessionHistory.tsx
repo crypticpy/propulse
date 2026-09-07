@@ -73,7 +73,7 @@ export function NetSessionHistory({
 
         return (
           <div key={session.id} className="space-y-0">
-            <div className="flex items-center gap-3 px-3 py-2.5 rounded-xl bg-su-line/10 hover:bg-su-line/10 transition-colors">
+            <div className="flex items-center gap-3 px-3 py-2.5 rounded-xl bg-su-line/10 hover:bg-su-line/20 transition-colors">
               {/* Date */}
               <div className="min-w-[90px]">
                 <span className="text-xs text-su-muted">
@@ -157,7 +157,7 @@ export function NetSessionHistory({
                   className={`px-2 py-0.5 text-[10px] font-medium rounded-md border transition-colors ${
                     isExpanded
                       ? "bg-nebula-blue/20 text-nebula-blue border-nebula-blue/30"
-                      : "bg-su-line/10 text-su-muted border-su-line/40 hover:bg-su-line/20 hover:text-su-muted"
+                      : "bg-su-line/10 text-su-muted border-su-line/40 hover:bg-su-line/20 hover:text-su-text"
                   }`}
                 >
                   Summary

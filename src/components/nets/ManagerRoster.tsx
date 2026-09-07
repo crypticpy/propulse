@@ -126,7 +126,7 @@ export function ManagerRoster({
                         <button
                           type="button"
                           onClick={() => setConfirmingId(null)}
-                          className="text-[10px] text-su-muted hover:text-su-muted font-medium"
+                          className="text-[10px] text-su-muted hover:text-su-text font-medium"
                         >
                           No
                         </button>

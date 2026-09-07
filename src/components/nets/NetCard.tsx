@@ -50,7 +50,7 @@ export function NetCard({ net, isLive }: NetCardProps) {
     <button
       type="button"
       onClick={() => navigate(`/nets/${net.id}`)}
-      className="w-full text-left bg-su-line/10 backdrop-blur-md border border-su-line/40 rounded-2xl p-4 transition-all duration-200 hover:border-su-line/50 hover:bg-su-line/10 cursor-pointer group"
+      className="w-full text-left bg-su-line/10 backdrop-blur-md border border-su-line/40 rounded-2xl p-4 transition-all duration-200 hover:border-su-line/50 hover:bg-su-line/20 cursor-pointer group"
     >
       {/* Top row: badge + live indicator */}
       <div className="flex items-center justify-between gap-2 mb-2">

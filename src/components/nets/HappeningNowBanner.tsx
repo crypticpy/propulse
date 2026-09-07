@@ -42,7 +42,7 @@ export function HappeningNowBanner({ liveNets }: HappeningNowBannerProps) {
           <Link
             key={net.id}
             to={`/nets/${net.id}`}
-            className="flex-shrink-0 w-56 bg-su-line/10 border border-su-line/40 rounded-xl p-3 transition-all duration-200 hover:border-red-500/30 hover:bg-su-line/10 group"
+            className="flex-shrink-0 w-56 bg-su-line/10 border border-su-line/40 rounded-xl p-3 transition-all duration-200 hover:border-red-500/30 hover:bg-su-line/20 group"
           >
             {/* Net name */}
             <h4 className="text-sm font-semibold text-su-text truncate mb-1 group-hover:text-red-400 transition-colors">

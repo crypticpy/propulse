@@ -53,7 +53,7 @@ export function ProtocolCheatSheet({
           className={`text-sm font-semibold transition-colors ${
             isExpanded
               ? "text-plasma-orange"
-              : "text-su-text group-hover:text-su-text"
+              : "text-su-text/90 group-hover:text-su-text"
           }`}
         >
           What to Expect

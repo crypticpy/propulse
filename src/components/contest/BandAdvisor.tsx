@@ -185,7 +185,7 @@ function SnoozeButton({ onSnooze }: { onSnooze: () => void }) {
     <button
       type="button"
       onClick={onSnooze}
-      className="px-1.5 py-0.5 rounded text-[9px] text-su-muted hover:text-su-muted hover:bg-su-line/10 transition-colors"
+      className="px-1.5 py-0.5 rounded text-[9px] text-su-muted hover:text-su-text hover:bg-su-line/10 transition-colors"
       title="Snooze advice for 5 minutes"
     >
       Snooze

@@ -31,3 +31,26 @@ export function canonicalPskCallsign(value: string): string | null {
     ? call
     : null;
 }
+
+export const PSK_WINDOWS = [15, 30, 60, 360, 1440] as const;
+export type PskWindowMinutes = typeof PSK_WINDOWS[number];
+export type PskDirection = "of" | "by";
+
+/** OF = this station transmitted; BY = this station reported receiving. */
+export function selectPskStationReports(
+  snapshot: PskStationSnapshot | undefined,
+  direction: PskDirection,
+  minutes: PskWindowMinutes,
+  now: number,
+): PskStationReport[] {
+  if (!snapshot) return [];
+  return snapshot.reports.filter(report =>
+    (direction === "of" ? report.senderCallsign : report.receiverCallsign) === snapshot.callsign &&
+    report.observedAt >= now - minutes * 60_000 && report.observedAt <= now + 5_000,
+  ).sort((a, b) => b.observedAt - a.observedAt);
+}
+
+export function pskStationState(snapshot: PskStationSnapshot | undefined, now: number): string {
+  if (!snapshot || snapshot.status === "unavailable") return "UNAVAILABLE";
+  return snapshot.status === "stale" || now >= snapshot.retryAt ? "STALE" : "UPDATED";
+}

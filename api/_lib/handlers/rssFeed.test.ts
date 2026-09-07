@@ -1,6 +1,7 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
+  handleFeedsRss,
   decodeEntities,
   parseFeed,
   stripTags,
@@ -203,5 +204,46 @@ describe("parseFeed — hostile/degenerate input", () => {
     );
     expect(feed.items[0].summary).not.toContain("<script>");
     expect(feed.items[0].summary).toContain("hello");
+  });
+});
+
+
+describe("feed verification", () => {
+  afterEach(() => vi.unstubAllGlobals());
+  let sequence = 0;
+  const request = (url = "https://example.com/feed") => new Request(
+    `https://propulse.test/api/feeds/rss?verify=1&url=${encodeURIComponent(url)}`,
+    { headers: { "x-forwarded-for": `verify-test-${sequence++}` } },
+  );
+
+  it("returns a parsed title and bounded item count without exposing XML", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(
+      '<rss><channel><title>Club &amp; News</title><item><title>Meeting</title></item></channel></rss>',
+    )));
+    const response = await handleFeedsRss(request());
+    expect(response.headers.get("cache-control")).toBe("no-store");
+    expect(await response.json()).toEqual({ status: "ok", title: "Club & News", itemCount: 1 });
+  });
+
+  it("accepts a titled empty Atom feed but rejects HTML and untitled feeds", async () => {
+    for (const [xml, status] of [
+      ['<feed xmlns="http://www.w3.org/2005/Atom"><title>Club</title></feed>', "ok"],
+      ["<html><title>Sign in</title></html>", "invalid_feed"],
+      ["<rss><channel></channel></rss>", "invalid_feed"],
+    ]) {
+      vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(xml)));
+      expect(await (await handleFeedsRss(request())).json()).toMatchObject({ status, itemCount: 0 });
+    }
+  });
+
+  it("keeps verification behind the existing URL and redirect gate", async () => {
+    const fetch = vi.fn().mockResolvedValue(new Response(null, {
+      status: 302, headers: { location: "http://127.0.0.1/private" },
+    }));
+    vi.stubGlobal("fetch", fetch);
+    expect((await handleFeedsRss(request("http://localhost/feed"))).status).toBe(400);
+    expect(fetch).not.toHaveBeenCalled();
+    expect(await (await handleFeedsRss(request())).json()).toMatchObject({ status: "unreachable" });
+    expect(fetch).toHaveBeenCalledTimes(1);
   });
 });

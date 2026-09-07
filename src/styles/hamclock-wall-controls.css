@@ -800,3 +800,29 @@
 [data-hamclock-theme="brass"] .hcc-placeholder-title {
   font-family: var(--hc-font-mono);
 }
+
+
+.hcc-input {
+  display: block;
+  width: 100%;
+  min-height: 56px;
+  margin-block: 12px;
+  padding: 12px;
+  color: var(--hc-fg);
+  background: transparent;
+  border: 1px solid var(--hc-line);
+  font-size: var(--hc-t-body);
+}
+.hc-news-config-gear {
+  color: var(--hc-fg);
+  background: transparent;
+  border: 1px solid var(--hc-line);
+  padding: 2px 6px;
+}
+
+.hcc-news-source {
+  display: block;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}

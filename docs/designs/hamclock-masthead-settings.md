@@ -17,12 +17,11 @@ All existing categories, source/cadence details, availability caveats and layer
 toggles are retained. The tab control exposes its vertical orientation and keeps
 arrow-key navigation, explicit activation, and focus return on close.
 
-Validation: 35 focused tests passed. The browser layout matrix passed 117 cases
+Validation: 40 focused tests passed (39 original plus the vertical-key regression). The browser layout matrix passed 117 cases
 across all Settings tabs and all seven layer categories, three themes, and
 1366×768, 1920×1080 and 3840×2160. Clock-label geometry and no masthead overflow
 were checked at each size/theme; screenshots were visually inspected. Production
 build passed. Final lint and interaction results are recorded in the PR.
 
-![Masthead clocks](../images/hamclock-masthead/clocks.png)
 ![View settings](../images/hamclock-masthead/view-settings.png)
 ![Layer navigation](../images/hamclock-masthead/layers.png)

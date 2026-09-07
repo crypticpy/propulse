@@ -253,9 +253,11 @@ eight rows each. The category-then-options structure of the current
 
 ### Top rail after the panel lands
 
-Mode · WALL | DESK · projection · SETTINGS. Nothing else. Until then (HW-22,
-HW-23) the layers trigger moves beside the Activity / Contacts / Both selector
-and the popover is clamped to the viewport.
+WALL | DESK · SETTINGS · exit. Mode (Activity / Satellites / Weather) and
+projection (Flat / Azimuthal / 3D) live in the first View tab of Settings,
+alongside 3D auto-rotate and rotation speed. Settings and layer categories use
+vertical navigation beside their options. This supersedes the compact mode and
+projection switches from HW-22; see PR #498.
 
 ## 13. Widget configuration dialogs
 
@@ -448,7 +450,7 @@ Rows HW-40 to HW-49 in the feature register. All are Not started.
 | HW-19 | SDR decodes tile                                                                            | Partial     | PR #169                               | idle until a shared receiver exists                                                                                                                                                                                                                                                                                      |
 | HW-20 | Auto-page dwell mode                                                                        | Delivered   | PR #236                               | today only kiosk scenes rotate pages                                                                                                                                                                                                                                                                                     |
 | HW-21 | Layer registry with provenance text                                                         | Delivered   | PR #222                               | feeds settings, help; no distinct wall status line component exists to feed (see B6 report)                                                                                                                                                                                                                              |
-| HW-22 | Header parity: WALL/DESK toggle and reduced top rail                                        | Delivered   | PR #216                               | mode · WALL \| DESK · projection · Display in one fixed slot at both densities; owner bug (no way back to wall from desk) closed                                                                                                                                                                                         |
+| HW-22 | Header parity: WALL/DESK toggle and reduced top rail                                        | Delivered   | PR #216                               | WALL \| DESK · SETTINGS · exit in the header; PR #498 moves mode/projection and auto-rotate into View settings; owner bug (no way back to wall from desk) closed                                                                                                                                                                                         |
 | HW-23 | Layers popover viewport clamp and trigger move (interim)                                    | Delivered   | PR #216                               | `LayersPopover` clamps to the viewport on open and resize; owner bug (menu renders off screen) closed                                                                                                                                                                                                                    |
 | HW-24 | Desk on wall tiles, paged, scale token                                                      | Delivered   | PR #238                               | retires accordion sidebar; `--hc-scale` (desk 0.72) in `hamclock-wall.css`, `HamClockView.tsx` renders `HamClockWall` at both densities                                                                                                                                                                                  |
 | HW-25 | Desk cleanup: DE station block, duplicate weather, DX target                                | Delivered   | PR #238                               | `HamClockSidebar.tsx`/`HamClockLocationConditions.tsx` deleted; `DxTargetTile`/`DxTargetReport` added to the "spots" page                                                                                                                                                                                                |

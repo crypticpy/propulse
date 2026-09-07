@@ -85,6 +85,8 @@ export function HamClockTabs({
     event: KeyboardEvent<HTMLButtonElement>,
     tabId: string,
   ) {
+    const perpendicularKeys = orientation === "vertical" ? ["ArrowLeft", "ArrowRight"] : ["ArrowUp", "ArrowDown"];
+    if (perpendicularKeys.includes(event.key)) return;
     switch (event.key) {
       case "ArrowRight":
       case "ArrowDown":

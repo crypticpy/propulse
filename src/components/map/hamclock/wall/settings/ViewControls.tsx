@@ -24,7 +24,9 @@ export function ViewControls() {
   const setAutoRotate = useMapStore(state => state.setAutoRotate);
   const speed = useMapStore(state => state.autoRotateSpeed);
   const setSpeed = useMapStore(state => state.setAutoRotateSpeed);
-  const duration = speed >= 3600 ? `${Math.round(speed / 3600)} hours` : `${Math.round(speed / 60)} minutes`;
+  const durationValue = Math.round(speed / (speed >= 3600 ? 3600 : 60));
+  const durationUnit = speed >= 3600 ? "hour" : "minute";
+  const duration = `${durationValue} ${durationUnit}${durationValue === 1 ? "" : "s"}`;
   return <div className="hcc-tabgrid"><div className="hcc-view-controls">
     <HamClockSegmented label="HamClock mode" value={mode === "bands" ? "traffic" : mode} options={MODES} onChange={setMode} />
     <HamClockSegmented label="Map projection" value={projection} options={PROJECTIONS} onChange={value => { setProjection(value); setPreferredView(value); }} />

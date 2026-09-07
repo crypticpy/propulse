@@ -98,5 +98,28 @@ it("enables auto-rotate only for 3D and updates the existing speed setting", () 
   expect(useMapStore.getState().autoRotate).toBe(true);
   fireEvent.change(screen.getByRole("slider", { name: "Auto-rotate speed" }), { target: { value: String(Math.log(3600)) } });
   expect(useMapStore.getState().autoRotateSpeed).toBe(3600);
+  expect(screen.getByRole("slider", { name: "Auto-rotate speed" }).getAttribute("aria-valuetext")).toBe("One turn every 1 hour");
+  fireEvent.change(screen.getByRole("slider", { name: "Auto-rotate speed" }), { target: { value: String(Math.log(60)) } });
+  expect(screen.getByRole("slider", { name: "Auto-rotate speed" }).getAttribute("aria-valuetext")).toBe("One turn every 1 minute");
   useMapStore.getState().setAutoRotate(false);
+});
+
+
+it("uses only vertical arrows to traverse Settings categories", () => {
+  render(<Harness />);
+  fireEvent.click(screen.getByRole("button", { name: "SETTINGS" }));
+  const view = screen.getByRole("tab", { name: "View" });
+  view.focus();
+  for (const key of ["ArrowLeft", "ArrowRight"]) {
+    expect(fireEvent.keyDown(view, { key })).toBe(true);
+    expect(document.activeElement).toBe(view);
+  }
+  fireEvent.keyDown(view, { key: "ArrowDown" });
+  const display = screen.getByRole("tab", { name: "Display" });
+  expect(document.activeElement).toBe(display);
+  expect(view.getAttribute("aria-selected")).toBe("true");
+  fireEvent.keyDown(display, { key: "Enter" });
+  expect(display.getAttribute("aria-selected")).toBe("true");
+  fireEvent.keyDown(display, { key: "ArrowUp" });
+  expect(document.activeElement).toBe(view);
 });

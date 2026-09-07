@@ -617,7 +617,7 @@ _Two major feature sets: NCS Dashboard phase-based workflow redesign and full QS
 
 ## 13. HamClock Wall (2026-09-05)
 
-_Source: `docs/designs/hamclock-wall-spec.md` (feature register HW-01 to HW-73). Wall density shipped as the HamClock default across PRs #167, #169, #170 and #171. Open work is packaged as batch issues #197 to #212 under tracker #213 on the ProPulse Delivery project board; batches B17 to B25 (the dedicated reports of spec section 26) have briefs but no issues yet._
+_Source: `docs/designs/hamclock-wall-spec.md` (feature register HW-01 to HW-73). Wall density shipped as the HamClock default across PRs #167, #169, #170 and #171. Batch issues #197–#212 and #225–#233 are tracked under #213 on ProPulse Delivery. Current sequence, ownership boundaries and contributor handoff: [September HamClock delivery plan](designs/hamclock-delivery-plan.md). Operating views, spots and activations precede weather; only the active batch is claimed._
 
 ### Delivered (47)
 
@@ -672,15 +672,17 @@ _Source: `docs/designs/hamclock-wall-spec.md` (feature register HW-01 to HW-73).
 | HW-36 | Widget config contract and validated per-tile store | PR #480; B0 registry reused with shared configuration shell |
 | HW-37 | News feeds configuration | PR #479, #480; verified add, source state/refresh, polling/age and pagination |
 
-### Partial (3)
+### Partial (5)
 
 | ID    | Feature                 | Gap                                   |
 | ----- | ----------------------- | ------------------------------------- |
 | HW-18 | Weather alerts coverage | Nationwide feed, mapped geometry only |
 | HW-19 | SDR decodes tile        | Idle until a shared receiver exists   |
-| HW-71 | Recent contacts report | PR #407: implementation and local checks complete; deployed/physical review pending |
+| HW-70 | Band activity report | PR #409: report, history, source/mode split and TOP DX delivered; production endpoint smoke passed; physical review pending |
+| HW-71 | Recent contacts report | PR #407 and #550: report plus metadata transport/repair delivered; authenticated two-device and physical review pending |
+| HW-72 | DX cluster report chrome | PR #557: report chrome, paging, selection reveal and live-prepend behavior delivered; physical review pending |
 
-### Not Started (23)
+### Not Started (21)
 
 | ID    | Feature                                                          | Notes                                                |
 | ----- | ---------------------------------------------------------------- | ---------------------------------------------------- |
@@ -704,8 +706,6 @@ _Source: `docs/designs/hamclock-wall-spec.md` (feature register HW-01 to HW-73).
 | HW-67 | Open-Meteo fetch extended to hourly and 7-day                    | `src/lib/api/openMeteo.ts`; B22                      |
 | HW-68 | Alerts report: severity, area, expiry, map link                  | B22                                                  |
 | HW-69 | Radio Impact Model tile                                          | Over `computeRIM` / `useRIM`; B23                    |
-| HW-70 | Band activity report: history, mode split, top DX                | B24                                                  |
-| HW-72 | DX cluster modal adopts the report chrome, pin and footer        | Chrome only; B24                                     |
 | HW-73 | Model track: weather-derived features in NowCast                 | Backlog, after every panel is live; B25              |
 
 ---

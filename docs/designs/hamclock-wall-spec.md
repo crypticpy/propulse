@@ -10,7 +10,8 @@ Related documents:
 - Style guide: `docs/guides/hamclock-tile-system.md` (rules every tile, report and settings row follows)
 - Layer provenance: `docs/PROP-SPHERE-LAYER-SOURCE-AUDIT.md`
 - Data truthfulness: `docs/decisions/ADR-SOLAR-DATA-TRUTH.md`
-- Delivery tracking: `docs/FEATURE-TRACKER.md` section 14
+- Delivery tracking: `docs/FEATURE-TRACKER.md` section 13
+- Current priority and ownership: [September delivery plan](hamclock-delivery-plan.md) — operating views, spots and activations first; weather last. This updates queue order in sections 23–24 without removing technical prerequisites.
 
 ---
 
@@ -498,12 +499,12 @@ Rows HW-40 to HW-49 in the feature register. All are Not started.
 | HW-67 | Open-Meteo fetch extended to hourly and 7-day                                               | Not started |                                       | `src/lib/api/openMeteo.ts`; return shape stays a superset                                                                                                                                                                                                                                                                |
 | HW-68 | Alerts report: severity, area, expiry, map link, 24 h count chart                           | Not started |                                       | section 26.12                                                                                                                                                                                                                                                                                                            |
 | HW-69 | Radio Impact Model tile                                                                     | Not started |                                       | new wall tile over `computeRIM` / `useRIM`; section 26.13                                                                                                                                                                                                                                                                |
-| HW-70 | Band activity report: per-band counts over time, mode split, top DX                         | Not started |                                       | section 26.14                                                                                                                                                                                                                                                                                                            |
-| HW-71 | Recent contacts report: log statistics and 30-day chart | Partial | PR #407 | Implemented and locally verified; deployed/physical review pending. |
-| HW-72 | DX cluster modal adopts the report chrome, pin and footer                                   | Not started |                                       | section 26.16; chrome only, no new data                                                                                                                                                                                                                                                                                  |
+| HW-70 | Band activity report: per-band counts over time, mode split, top DX                         | Partial | PR #409 | Delivered with completed-hour history, source/mode split and TOP DX; production endpoint smoke passed; physical review pending.                                                                                                                                                                                                                                                                                                            |
+| HW-71 | Recent contacts report: log statistics and 30-day chart | Partial | PR #407, #550 | Report and metadata transport/repair delivered; authenticated two-device and physical review pending. |
+| HW-72 | DX cluster modal adopts the report chrome, pin and footer                                   | Partial | PR #557 | Chrome, paging, selection reveal and live-prepend behavior delivered; physical review pending.                                                                                                                                                                                                                                                                                  |
 | HW-73 | Model track: weather-derived features in NowCast                                            | Not started |                                       | section 26.17; backlog, after every panel is live                                                                                                                                                                                                                                                                        |
 
-Totals: 45 delivered, 2 partial, 26 not started.
+Totals: 45 delivered, 4 partial, 24 not started.
 
 ## 22. Open decisions
 

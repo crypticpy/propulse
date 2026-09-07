@@ -14,7 +14,7 @@ not a claim. Do not reserve all batches for one agent.
 
 | Lane | Responsibility | Boundary |
 | --- | --- | --- |
-| Codex / HamClock operating views | Current implementation: B18/#226 Reliability/Forecast presentation; B10/#206 widget configuration in review; coordinated spot display #288 in review; PSK/WSJT-X #287, Activations #285, shared tuning #286 and B24 #232 in review | One active implementation item; retain review and acceptance follow-up |
+| Codex / HamClock operating views | Current review: B18/#226 Reliability/Forecast presentation; B10/#206 widget configuration in review; coordinated spot display #288 in review; PSK/WSJT-X #287, Activations #285, shared tuning #286 and B24 #232 in review | One active implementation item; retain review and acceptance follow-up |
 | Existing modeling / 3D agent | NowCast training, inference, evaluation, model activation, and 3D globe work, per owner direction | This plan does not assign or change that agent's existing cards |
 | Additional contributor | Claim an unclaimed Ready item; B10/#206 is now claimed | Check current board, issue comments, and changed files before starting |
 | Weather | Deferred until operating work is complete | Inspect OpenWxGlobe before designing new weather adapters or layers |
@@ -317,11 +317,11 @@ it does not activate FutureCast. Forecast verification and PR remain pending.
 zone labels beside clock digits; mode/projection controls in Settings; globe
 auto-rotate and speed exposed; compact Settings/layer category navigation.
 This supersedes the earlier B1 requirement to keep mode/projection in the
-masthead. It is a separate 14-file review slice; B18 remains the only claimed
+masthead. It is a separate 15-file review slice; B18 remains the only claimed
 batch and resumes with Forecast.
 
-Full pre-push verification passed (3,204 app tests, bridge/daemon, lint,
-build and budgets), as did 39 focused tests, 117 browser layout cases and
+Full pre-push verification passed (3,205 app tests, bridge/daemon, lint,
+build and budgets), as did 40 focused tests, 117 browser layout cases and
 interaction checks for the new controls and keyboard/focus behavior.
 
 User-facing preview is intentionally left running: owner
@@ -331,3 +331,28 @@ profile `local`, worktree `.worktrees/hamclock-masthead-controls`, URL
 `823382be-4652-4c34-9101-4b35f034a643`, PID 76440 (tool session 8045).
 Verify identity before using it; do not replace or stop it while the user may be
 reviewing the shared preview.
+
+
+### B18 Forecast review slice — PR #502
+
+[PR #502](https://github.com/crypticpy/propulse/pull/502), branch
+`feat/hamclock-b18-forecast`, is stacked on Reliability PR #494. Its 14 files
+cover the two-UTC-day chart, 288-value matrix with day selection, all four gated
+FutureCast rows, the best-in-six-hours summary and selected NOAA Kp forecast
+bucket. Capability/runtime gates, modeling mathematics and 3D internals remain
+unchanged. Both feature registers count HW-59 delivered when this slice merges;
+HW-58 remains partial for source history and hop-count contracts.
+
+Full pre-push verification passed: 3,219 app tests in 368 files, Python/archive,
+bridge/daemon, lint, production build and bundle budgets. The required wall suite
+passed 328 tests. Final browser checks passed 48 cases covering populated and
+model-off horizons, QTH/target, three themes, 1080p/4K, both tabs, all 288 matrix
+values, 44px hit targets, dialog size, overflow, selection and focus return.
+Fixtures were synthetic and isolated; no live FutureCast release is claimed.
+
+B18 now moves to In review, retaining Codex ownership for feedback. B11/#207 is
+still Backlog/unclaimed on the fresh board audit, and B10 PR #480 remains open.
+Recheck its readiness before claiming; prioritize operating configuration/world
+clocks ahead of its weather portions. Weather remains last. PR #498 review fixes
+(aa362a90) also passed verification and all four review threads were resolved;
+the user preview above stays running.

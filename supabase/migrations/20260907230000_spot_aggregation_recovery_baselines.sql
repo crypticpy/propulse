@@ -532,3 +532,6 @@ $$;
 
 GRANT EXECUTE ON FUNCTION public.region_activity_counts(text)
   TO anon, authenticated, service_role;
+
+-- Make the new view and function contracts available to PostgREST immediately.
+NOTIFY pgrst, 'reload schema';

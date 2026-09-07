@@ -77,6 +77,12 @@ const WeatherAlertModal = lazy(() =>
   })),
 );
 
+const NewsFeedsConfigDialog = lazy(() =>
+  import("@/components/map/hamclock/wall/config/NewsFeedsConfig").then(module => ({
+    default: module.NewsFeedsConfigDialog,
+  })),
+);
+
 const TickerCrawlSettingsDialog = lazy(() =>
   import("@/components/map/TickerCrawlSettingsDialog").then((module) => ({
     default: module.TickerCrawlSettingsDialog,
@@ -307,6 +313,7 @@ export function DXNewsTicker({
     null,
   );
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [newsConfigOpen, setNewsConfigOpen] = useState(false);
   const [breakInItem, setBreakInItem] = useState<TickerItem | null>(null);
   const contentRef = useRef<HTMLDivElement>(null);
   // Keep the live suppression history in memory as well as localStorage.
@@ -830,6 +837,10 @@ export function DXNewsTicker({
             animation: "dx-ticker-pulse 2s ease-in-out infinite",
           }}
         />
+        <button type="button" className="hc-news-config-gear"
+          aria-label="Configure news feeds" onClick={() => setNewsConfigOpen(true)}>
+          <span aria-hidden="true">⚙</span> NEWS
+        </button>
         <button
           style={{ minWidth: "var(--dx-ticker-control-size, 0px)", minHeight: "var(--dx-ticker-control-size, 0px)", fontSize: "var(--dx-ticker-font-size, inherit)" }}
           type="button"
@@ -942,10 +953,12 @@ export function DXNewsTicker({
             onClose={() => setSelectedDetail(null)}
           />
         )}
+        {newsConfigOpen && <NewsFeedsConfigDialog open onClose={() => setNewsConfigOpen(false)} />}
         {settingsOpen && (
           <TickerCrawlSettingsDialog
             open
             onClose={() => setSettingsOpen(false)}
+            onConfigureNews={() => { setSettingsOpen(false); setNewsConfigOpen(true); }}
           />
         )}
       </Suspense>

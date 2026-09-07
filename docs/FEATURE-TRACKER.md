@@ -21,8 +21,8 @@
 | v0.14.0 Polish & Infra (2026-02-10)     | 12        | 1       | 0           | 0        | 13      |
 | v0.15.0 Spot Watch System (2026-02-10)  | 22        | 2       | 0           | 0        | 24      |
 | v0.16.0 NCS Workflow + QSO (2026-02-11) | 38        | 0       | 0           | 0        | 38      |
-| HamClock Wall (2026-09-05)              | 45        | 3       | 25          | 0        | 73      |
-| **Grand Total**                         | **306**   | **10**  | **36**      | **1**    | **353** |
+| HamClock Wall (2026-09-05)              | 47        | 3       | 23          | 0        | 73      |
+| **Grand Total**                         | **308**   | **10**  | **34**      | **1**    | **353** |
 
 **Delivery rate: 87% delivered, 3% partial, 10% not started**
 
@@ -619,7 +619,7 @@ _Two major feature sets: NCS Dashboard phase-based workflow redesign and full QS
 
 _Source: `docs/designs/hamclock-wall-spec.md` (feature register HW-01 to HW-73). Wall density shipped as the HamClock default across PRs #167, #169, #170 and #171. Open work is packaged as batch issues #197 to #212 under tracker #213 on the ProPulse Delivery project board; batches B17 to B25 (the dedicated reports of spec section 26) have briefs but no issues yet._
 
-### Delivered (45)
+### Delivered (47)
 
 | ID    | Feature                                                       | Notes                                                                                                                                                                          |
 | ----- | ------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
@@ -669,6 +669,9 @@ _Source: `docs/designs/hamclock-wall-spec.md` (feature register HW-01 to HW-73).
 | HW-65 | EME computation module `src/lib/utils/eme.ts`                 | PR #253, EME module: eme.ts path loss, degradation, Doppler, sky noise, mutual window                                                                                          |
 | HW-66 | Moon and EME report                                           | PR #253, Moon report: MOON/EME tabs, band selector, sub-lunar point                                                                                                            |
 
+| HW-36 | Widget config contract and validated per-tile store | PR #480; B0 registry reused with shared configuration shell |
+| HW-37 | News feeds configuration | PR #479, #480; verified add, source state/refresh, polling/age and pagination |
+
 ### Partial (3)
 
 | ID    | Feature                 | Gap                                   |
@@ -677,7 +680,7 @@ _Source: `docs/designs/hamclock-wall-spec.md` (feature register HW-01 to HW-73).
 | HW-19 | SDR decodes tile        | Idle until a shared receiver exists   |
 | HW-71 | Recent contacts report | PR #407: implementation and local checks complete; deployed/physical review pending |
 
-### Not Started (25)
+### Not Started (23)
 
 | ID    | Feature                                                          | Notes                                                |
 | ----- | ---------------------------------------------------------------- | ---------------------------------------------------- |
@@ -685,8 +688,6 @@ _Source: `docs/designs/hamclock-wall-spec.md` (feature register HW-01 to HW-73).
 | HW-33 | Earthquakes tile and report (USGS)                               | Open decision D4                                     |
 | HW-34 | Volcanoes tile and report (Smithsonian GVP)                      | Open decision D4                                     |
 | HW-35 | Page taxonomy v2 (six pages, new tiles)                          | Depends on HW-27, HW-33, HW-34                       |
-| HW-36 | Widget config contract and `hamclockWidgetConfigStore`           | Segmented choices, no scroll, per-tile persistence   |
-| HW-37 | News feeds config dialog (first configurable widget)             | Over `feedStore`; verify URLs via `api/feeds/rss.ts` |
 | HW-38 | Config dialogs: cluster, weather, band list, clocks, alerts      | One PR per widget                                    |
 | HW-40 | Weather page with seven weather tiles                            | Spec section 16                                      |
 | HW-41 | Weather report: hero, trend charts, 7-day strip, pointer details | Moved from B13 to B22 with the fetch extension       |

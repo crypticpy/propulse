@@ -8,10 +8,14 @@
  * @module hooks/useRssFeed
  */
 
+import { useFeedStore, FEED_REFRESH_MINUTES, type FeedRefreshMinutes } from "@/stores/feedStore";
 import { useQueries, useQuery } from "@tanstack/react-query";
 
 const MINUTE = 60 * 1000;
-const RSS_REFRESH_INTERVAL_MS = 10 * MINUTE;
+function useRefreshInterval() {
+  const minutes = useFeedStore(state => state.refreshMinutes);
+  return (FEED_REFRESH_MINUTES.includes(minutes as FeedRefreshMinutes) ? minutes : 10) * MINUTE;
+}
 
 export interface RssFeedItem {
   id: string | null;
@@ -61,13 +65,14 @@ export function relativeTime(iso: string | null, now: Date): string {
 }
 
 export function useRssFeed(url: string | null) {
+  const interval = useRefreshInterval();
   const { data, isLoading, error } = useQuery<RssFeedResponse>({
     queryKey: ["rss-feed", url],
     queryFn: ({ signal }) => fetchRssFeed(url as string, signal),
     enabled: !!url,
-    staleTime: RSS_REFRESH_INTERVAL_MS,
+    staleTime: interval,
     gcTime: 30 * MINUTE,
-    refetchInterval: RSS_REFRESH_INTERVAL_MS,
+    refetchInterval: interval,
     refetchOnWindowFocus: false,
     retry: 2,
   });
@@ -82,22 +87,25 @@ export function useRssFeed(url: string | null) {
 }
 
 export interface RssFeedQuerySource {
+  enabled?: boolean;
   id: string;
   url: string;
 }
 
 /** Fetch several configured crawl feeds through the same normalized proxy. */
 export function useRssFeeds(sources: readonly RssFeedQuerySource[]) {
+  const interval = useRefreshInterval();
   const queries = useQueries({
     queries: sources.map((source) => ({
+      enabled: source.enabled ?? true,
       queryKey: ["rss-feed", source.url],
       queryFn: ({ signal }: { signal: AbortSignal }) =>
         fetchRssFeed(source.url, signal),
-      staleTime: RSS_REFRESH_INTERVAL_MS,
+      staleTime: interval,
       gcTime: 30 * MINUTE,
       // staleTime only changes cache eligibility; it does not schedule a
       // request. Polling keeps a wall display current without a remount.
-      refetchInterval: RSS_REFRESH_INTERVAL_MS,
+      refetchInterval: interval,
       refetchOnWindowFocus: false,
       retry: 2,
     })),
@@ -107,6 +115,9 @@ export function useRssFeeds(sources: readonly RssFeedQuerySource[]) {
     const query = queries[index];
     return {
       source,
+      fetchedAt: query?.dataUpdatedAt || null,
+      isFetching: query?.isFetching ?? false,
+      refresh: query.refetch,
       feed: query?.data?.feed ?? null,
       items: query?.data?.items ?? [],
       status: query?.data?.status ?? "ok",

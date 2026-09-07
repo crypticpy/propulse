@@ -4,6 +4,7 @@ import { sceneSnapshotSchema, type PresetRecipe, type ViewConfiguration, type Vi
 import { normalizeMode } from "../../spots/presentation/modes";
 import { legacyObject, legacyState, type LegacyViewCapture } from "./legacyCapture";
 import { legacyMigrationPlanSchema, type LegacyMigrationPlan } from "./legacyMigration";
+import { migrateLegacyKioskPins } from "./legacyKioskMigration";
 import { viewDraftSchema, type ViewDraft } from "./schema";
 
 const FAMILIES = ["normal", "pro", "lite", "hamclock"] as const;
@@ -115,8 +116,9 @@ function familySeed(family: typeof FAMILIES[number], capture: LegacyViewCapture,
   for (const [key, value] of Object.entries(collapsed)) {
     const id = aliases[key];
     const existing = panels.find((panel) => panel.id === id);
-    if (existing) existing.collapsed = value;
-    else if (id && typeof value === "boolean") {
+    // Pro's saved layout owns its collapse state. Generic panel controls are
+    // only a fallback for panels without a persisted Pro entry.
+    if (!existing && id && typeof value === "boolean") {
       panels.push({ id, visible: true, collapsed: value, dockedEdge: null, dockedOrder: 0, ...PANEL_FALLBACK[id] });
       warnings.add("Panel geometry was absent; stable legacy 1920x1080 default placements were used");
     }
@@ -186,7 +188,7 @@ export function convertLegacyViewCapture(capture: LegacyViewCapture, options: Le
   const warnings = new Set(capture.warnings);
   const configs = Object.fromEntries(FAMILIES.map((family) => [family, familySeed(family, capture, warnings)])) as Record<typeof FAMILIES[number], ViewConfiguration>;
   const views = { normal: draft("normal", configs.normal), pro: draft("pro", configs.pro), lite: draft("lite", configs.lite), hamclock: draft("hamclock", configs.hamclock) };
-  const kiosk = legacyState(capture.local["propulse-kiosk"]);
+  const kiosk = migrateLegacyKioskPins(capture.local["propulse-kiosk"]);
   const rotation = legacyObject(kiosk.rotation);
   const scenes = (Array.isArray(kiosk.scenes) ? kiosk.scenes : []).map((raw, index) => {
     const scene = legacyObject(raw);

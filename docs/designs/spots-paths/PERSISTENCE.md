@@ -251,3 +251,11 @@ checks account lifecycle across the asynchronous boundary, and preserves origina
 on read/conversion/transaction failure. No global listener or automatic production
 bootstrap is registered by these modules. Application auth/bootstrap wiring,
 account preference allowlisting and LAN/backup library import remain SP-02 work.
+
+Historical kiosk pins are converted on a copied state before materializing scenes:
+pre-v6 shipped default pins and pre-v7 numeric page indexes use their historical
+page IDs. This never restores deleted scenes or changes the captured backup.
+Persisted Pro panel layout entries own their collapse state; generic panel state
+fills only missing entries. Invalid scene duration/transition still aborts the
+atomic import rather than silently changing a saved playlist; originals remain
+available for explicit recovery.

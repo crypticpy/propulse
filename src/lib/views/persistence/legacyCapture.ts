@@ -52,13 +52,14 @@ function sanitize(value: unknown, warnings: Set<string>, depth = 0): unknown {
 /** Throws on unavailable/read-failing storage: never seal a partial capture as a migration. */
 export function captureLegacyViews(local: LegacyStorageReader, session: LegacyStorageReader): LegacyViewCapture {
   const warnings = new Set<string>();
+  const encoder = new TextEncoder();
   let bytes = 0;
   const read = (storage: LegacyStorageReader, keys: readonly string[], literals: boolean): Record<string, unknown> => {
     const result: Record<string, unknown> = {};
     for (const key of keys) {
       const raw = storage.getItem(key);
       if (raw === null) continue;
-      bytes += new TextEncoder().encode(raw).length;
+      bytes += encoder.encode(raw).length;
       if (bytes > LIMIT) throw new Error("Legacy capture exceeds 2 MiB; original storage was retained");
       let parsed: unknown;
       try { parsed = JSON.parse(raw); }

@@ -70,6 +70,33 @@ describe("legacy capture and conversion", () => {
     expect(plan.warnings.some((warning) => warning.includes("1920x1080"))).toBe(true);
   });
 
+  it("keeps saved Pro collapse state when generic controls disagree", () => {
+    const capture = captureLegacyViews(storage({
+      "propulse-pro-panel-layout": {
+        "band-conditions": { x: 20, y: 30, width: 256, height: 400, collapsed: false },
+        "path-analysis": { x: 300, y: 30, width: 288, height: 400, collapsed: true },
+      },
+      "propulse-panel-states": { bandConditions: true, pathAnalysis: false, satellites: true },
+    }), storage());
+    const plan = convertLegacyViewCapture(capture, { ownerId: "a" });
+    const panels = plan.views.pro.config.presentation.panels;
+    expect(panels.find((panel) => panel.id === "band-conditions")).toMatchObject({ x: 20, y: 30, collapsed: false });
+    expect(panels.find((panel) => panel.id === "path-analysis")?.collapsed).toBe(true);
+    expect(panels.find((panel) => panel.id === "satellites")?.collapsed).toBe(true);
+    expect(capture.local["propulse-panel-states"]).toEqual({ bandConditions: true, pathAnalysis: false, satellites: true });
+  });
+
+  it("does not silently change invalid scene timing or transitions", () => {
+    for (const override of [{ durationSec: 1 }, { transition: "unknown" }]) {
+      const capture = captureLegacyViews(storage({ "propulse-kiosk": persisted({ scenes: [
+        { id: "wall", name: "Wall", route: "/map", ...override },
+      ] }, 7) }), storage());
+      const original = structuredClone(capture);
+      expect(() => convertLegacyViewCapture(capture, { ownerId: "a" })).toThrow();
+      expect(capture).toEqual(original);
+    }
+  });
+
   it("uses newer HamClock fields once, resolves inherited text and validates widgets", () => {
     const capture = captureLegacyViews(storage({
       "propulse-settings": persisted({ textScale: "200" }, 37),
@@ -117,6 +144,22 @@ describe("legacy capture and conversion", () => {
     expect(plan.scenes.every((scene) => scene.durationSec === 45)).toBe(true);
     expect(plan.scenes[2].config).toMatchObject({ family: "route", route: "/solar" });
     expect(() => convertLegacyViewCapture(capture, { ownerId: "a" })).toThrow("needs its shipped layer preset");
+  });
+
+  it("migrates numeric kiosk pins and historical default pins before scene validation", () => {
+    for (const [version, id, pin, expected] of [
+      [6, "custom-wall", 1, "solar"], [6, "custom-wall", 3, "weather"],
+      [5, "default-wall", 1, "spots"], [5, "default-hamclock-weather", 0, "weather"],
+    ] as const) {
+      const capture = captureLegacyViews(storage({ "propulse-kiosk": persisted({ scenes: [{
+        id, name: "Wall", route: "/map", map: { layoutMode: "hamclock", hamclock: { leftPage: pin } },
+      }] }, version) }), storage());
+      const original = structuredClone(capture);
+      const plan = convertLegacyViewCapture(capture, { ownerId: "a" });
+      expect(plan.scenes[0].config.presentation.hamclock.initialPageId).toBe(expected);
+      expect(plan.backup).toEqual(original);
+      expect(capture).toEqual(original);
+    }
   });
 
   it("requires lossless named profile conversion and passes copied baseline inputs", () => {

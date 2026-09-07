@@ -116,6 +116,7 @@ test("switching station setups updates context without moving navigation or open
   await expect(page.getByText(/Nearby reports use JN58td/)).toBeVisible();
   await expect.poll(() => seen.some(url => url.includes("/api/spots/pskreporter") && url.includes("JN58td"))).toBe(true);
   expect(await page.evaluate(() => JSON.parse(localStorage.getItem("propulse-map-operational")!).state.workspaceOpen)).toBe(false);
+  await page.getByRole("region", { name: "Solar outlook" }).getByRole("button", { name: /Solar outlook details/ }).click();
   await page.getByRole("navigation", {name:"Home operating actions"}).getByRole("link",{name:"Plan a session"}).click();
   await expect(page).toHaveURL(/\/planner$/);
   await expect(page.getByRole("heading",{name:"Band Planner",exact:true})).toBeVisible();

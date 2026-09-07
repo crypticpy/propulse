@@ -23,12 +23,11 @@
  * are scoped to .home-context-grid only, keeping every other .home-panel's spacing untouched, and
  * keep each card at or under ~260px tall at a 1920px-wide viewport (3-column desktop layout). */
 .home-context-grid>.home-panel{padding:1rem}
-.home-context-grid .home-card-sub{margin:.35rem 0;font-size:.875rem;line-height:1.5;color:var(--su-muted)}
-.home-context-grid .home-actions{margin-top:.35rem}
+.home-context-grid .home-card-sub{margin:.35rem 0;font-size:.875rem;line-height:1.5;color:var(--su-text)}
 .home-context-grid .home-solar-instruments{margin:.5rem 0}
 .home-context-grid .home-weather-reading{margin:.35rem 0}
 .home-context-grid .home-weather-reading strong{font-size:1.75rem}
 .home-context-grid .home-weather-reading p{margin:0}
 .home-context-grid .home-weather-wind{margin:.3rem 0}
 .home-context-grid .home-weather-icon{font-size:2.5rem;line-height:1}
-@media(min-width:1101px){.home-context-grid .home-daylight svg{height:5.5rem;margin:.5rem 0}}
+@media(min-width:1101px){.home-context-grid .home-daylight svg{width:100%;height:auto;aspect-ratio:340/140;max-width:min(100%, calc(5.5rem * 340 / 140));margin:.5rem 0;margin-inline:auto}}

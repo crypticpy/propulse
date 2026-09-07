@@ -48,8 +48,9 @@ afterEach(() => cleanup());
 it("renders a hero, one sub line, and exactly one Details button", () => {
   render(<HomeWeather now={NOW} />);
   expect(screen.getByText("18° C")).toBeTruthy();
-  const buttons = screen.getAllByRole("button", { name: "Details" });
+  const buttons = screen.getAllByRole("button", { name: "Local weather details" });
   expect(buttons).toHaveLength(1);
+  expect(buttons[0].textContent).toBe("Details");
   expect(buttons[0].getAttribute("aria-haspopup")).toBe("dialog");
   expect(document.querySelectorAll(".home-card-sub")).toHaveLength(1);
   expect(screen.getByText("Next 6h · 16–22° C")).toBeTruthy();
@@ -58,7 +59,7 @@ it("renders a hero, one sub line, and exactly one Details button", () => {
 
 it("opens a dialog with the hourly rows, model time, attribution, and refresh", () => {
   render(<HomeWeather now={NOW} />);
-  fireEvent.click(screen.getByRole("button", { name: "Details" }));
+  fireEvent.click(screen.getByRole("button", { name: "Local weather details" }));
   const dialog = screen.getByRole("dialog");
   expect(within(dialog).getByText(/Weather by Open-Meteo/)).toBeTruthy();
   expect(within(dialog).getByRole("button", { name: "Refresh weather" })).toBeTruthy();
@@ -76,6 +77,6 @@ it("shows no Details button and no hero when the location is unset", () => {
     refetch: vi.fn(),
   });
   render(<HomeWeather now={NOW} />);
-  expect(screen.queryByRole("button", { name: "Details" })).toBeNull();
+  expect(screen.queryByRole("button", { name: "Local weather details" })).toBeNull();
   expect(screen.getByText("Set your location for local weather. No sign-in needed.")).toBeTruthy();
 });

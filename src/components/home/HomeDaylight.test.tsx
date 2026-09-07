@@ -29,15 +29,16 @@ it("renders the SVG hero, one sub line naming the phase and next event, and exac
   expect(screen.getByRole("img", { name: "Solar altitude through the UTC day" })).toBeTruthy();
   expect(document.querySelectorAll(".home-card-sub")).toHaveLength(1);
   expect(screen.getByText("After sunset · sunrise 12:35 UTC")).toBeTruthy();
-  const buttons = screen.getAllByRole("button", { name: "Details" });
+  const buttons = screen.getAllByRole("button", { name: "Daylight details" });
   expect(buttons).toHaveLength(1);
+  expect(buttons[0].textContent).toBe("Details");
   expect(buttons[0].getAttribute("aria-haspopup")).toBe("dialog");
   expect(screen.queryByRole("dialog")).toBeNull();
 });
 
 it("opens a dialog with today's crossings, the explanatory sentence, and the map link", () => {
   renderCard();
-  fireEvent.click(screen.getByRole("button", { name: "Details" }));
+  fireEvent.click(screen.getByRole("button", { name: "Daylight details" }));
   const dialog = screen.getByRole("dialog");
   expect(within(dialog).getByText("Sunset 01:25 UTC · Sunrise 12:35 UTC")).toBeTruthy();
   expect(within(dialog).getByText(/The marker is now/)).toBeTruthy();
@@ -47,7 +48,7 @@ it("opens a dialog with today's crossings, the explanatory sentence, and the map
 it("shows no Details button and no dialog when the location is unset", () => {
   state.location = null;
   renderCard();
-  expect(screen.queryByRole("button", { name: "Details" })).toBeNull();
+  expect(screen.queryByRole("button", { name: "Daylight details" })).toBeNull();
   expect(
     screen.getByText("Set your location to see sunrise, sunset, and daylight. No sign-in needed."),
   ).toBeTruthy();

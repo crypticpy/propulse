@@ -73,15 +73,16 @@ it("renders the instrument hero, one sub line, and exactly one Details button", 
   expect(screen.getByText("120")).toBeTruthy();
   expect(document.querySelectorAll(".home-card-sub")).toHaveLength(1);
   expect(screen.getByText("Check the latest NOAA outlook")).toBeTruthy();
-  const buttons = screen.getAllByRole("button", { name: "Details" });
+  const buttons = screen.getAllByRole("button", { name: "Solar outlook details" });
   expect(buttons).toHaveLength(1);
+  expect(buttons[0].textContent).toBe("Details");
   expect(buttons[0].getAttribute("aria-haspopup")).toBe("dialog");
   expect(screen.queryByRole("dialog")).toBeNull();
 });
 
 it("opens a dialog with the moved forecast, notes, sources, and links", () => {
   renderCard();
-  fireEvent.click(screen.getByRole("button", { name: "Details" }));
+  fireEvent.click(screen.getByRole("button", { name: "Solar outlook details" }));
   const dialog = screen.getByRole("dialog");
   expect(within(dialog).getByText(/Next 24h/)).toBeTruthy();
   expect(within(dialog).getByText(/Global conditions/)).toBeTruthy();
@@ -92,9 +93,14 @@ it("opens a dialog with the moved forecast, notes, sources, and links", () => {
 
 it("renders the official flux forecast date as a short UTC date, not an ISO timestamp (#531)", () => {
   renderCard();
-  fireEvent.click(screen.getByRole("button", { name: "Details" }));
+  fireEvent.click(screen.getByRole("button", { name: "Solar outlook details" }));
   const dialog = screen.getByRole("dialog");
-  expect(within(dialog).getByText("108 sfu · 7 Sep")).toBeTruthy();
+  // formatForecastDate now passes `undefined` as the locale (matching sibling
+  // components), so this is no longer pinned to "en-US" by the source; assert
+  // with a regex instead of an exact string match, plus a general guard
+  // against any raw ISO timestamp leaking through.
+  expect(within(dialog).getByText(/108 sfu · 7 Sep/)).toBeTruthy();
   expect(within(dialog).queryByText(/2026-09-07T00:00:00/)).toBeNull();
   expect(within(dialog).queryByText(/T00:00:00\.000Z/)).toBeNull();
+  expect(within(dialog).queryByText(/T\d\d:\d\d/)).toBeNull();
 });

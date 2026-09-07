@@ -14,7 +14,7 @@ not a claim. Do not reserve all batches for one agent.
 
 | Lane | Responsibility | Boundary |
 | --- | --- | --- |
-| Codex / HamClock operating views | B10/#206 widget configuration in review; coordinated spot display #288 in review; PSK/WSJT-X #287, Activations #285, shared tuning #286 and B24 #232 in review | One active implementation item; retain review and acceptance follow-up |
+| Codex / HamClock operating views | Current implementation: B18/#226 Reliability/Forecast presentation; B10/#206 widget configuration in review; coordinated spot display #288 in review; PSK/WSJT-X #287, Activations #285, shared tuning #286 and B24 #232 in review | One active implementation item; retain review and acceptance follow-up |
 | Existing modeling / 3D agent | NowCast training, inference, evaluation, model activation, and 3D globe work, per owner direction | This plan does not assign or change that agent's existing cards |
 | Additional contributor | Claim an unclaimed Ready item; B10/#206 is now claimed | Check current board, issue comments, and changed files before starting |
 | Weather | Deferred until operating work is complete | Inspect OpenWxGlobe before designing new weather adapters or layers |
@@ -264,3 +264,27 @@ verifies Home add/active selection, page recovery and focus, without bypassing
 Home's sign-in gate. Server stopped. The UI PR is now 15 files against #479.
 B11/#207 remains Backlog on the latest board audit; B18/#226 is Ready/unclaimed
 and is the next candidate after a fresh ownership check. No new claim yet.
+
+
+## B18 active implementation
+
+Fresh board audit: B18/#226 Ready and unclaimed; now the sole In progress claim
+(Codex, crypticpy). Branch `feat/hamclock-b18-codex`, worktree
+`.worktrees/hamclock-b18-codex`, starts from origin/main 19b75c8b.
+
+Scope: Reliability NOW/BY HOUR and Propagation MATRIX/HORIZONS reports, accessible
+matrix twins, engine comparison, explicit off/stale reasons and source metadata.
+No model maths, activation/capability gates, station calibration or 3D edits.
+The existing NowCast hook already returns full prediction objects, including
+factors/flags/freshness/version, so presentation can consume them directly.
+The wall physics adapter retains full cells but lacked their station context;
+initial change exposes exact power/pattern/gain/noise/threshold/path inputs and
+the oldest solar observation timestamp. Three adapter regressions pass.
+
+The existing matrix spans two UTC calendar days, and path-specific cells are
+empty without a target. Regional evidence comes through separate band interfaces.
+Audit source scope/time before combining charts: current predictions and spot
+counts must not become fabricated historical series, and relative physics scores
+must not be described as calibrated QSO probabilities. Show missing model/history
+interfaces explicitly and record owner dependencies. Keep every PR ≤15 files,
+with separate prerequisites if needed. Weather remains last.

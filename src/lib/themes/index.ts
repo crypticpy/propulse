@@ -150,8 +150,6 @@ export function getAccentPreset(id: string): AccentColor {
  * e.g. "#ff6b35" -> "255 107 53"
  * Used so Tailwind can apply opacity modifiers: rgb(var(--channel) / <alpha>)
  */
-const HEX_COLOR = /^#(?:[0-9a-f]{3}|[0-9a-f]{6})$/i;
-
 function hexToRgbChannels(hex: string): string {
   let h = hex.replace("#", "");
   if (h.length === 3) {
@@ -198,10 +196,6 @@ export function applyThemeToDocument(theme: Theme, accent?: AccentColor): void {
   )) {
     if (!name.startsWith("--su-") || typeof value !== "string") continue;
     root.style.setProperty(name, value);
-    // Channel triplets so Tailwind opacity modifiers (text-su-text/70) work.
-    if (HEX_COLOR.test(value)) {
-      root.style.setProperty(`${name}-rgb`, hexToRgbChannels(value));
-    }
   }
 
   root.classList.toggle("dark", theme.isDark);

@@ -13,6 +13,13 @@ export function activityIsCurrent(updatedAt: number, error: boolean, now: number
   return !error && updatedAt > 0 && updatedAt <= now && now - updatedAt < 120_000;
 }
 
+/** Snapshot age for the Stale/Error status chip and footnote, e.g. "Snapshot 04:49 UTC · 6 min old". */
+export function formatSnapshotAge(fetchedAt: number, now: number) {
+  const time = new Date(fetchedAt).toLocaleTimeString(undefined, { timeZone: "UTC", hour: "2-digit", minute: "2-digit", hour12: false });
+  const minutes = Math.max(0, Math.round((now - fetchedAt) / 60_000));
+  return `Snapshot ${time} UTC · ${minutes < 1 ? "under 1 min" : `${minutes} min`} old`;
+}
+
 /** UTC day avoids guessing the active QTH's civil timezone. Sample actual solar
  * altitude so a UTC day crossing local midnight and polar days remain valid. */
 export function daylightDay(now: number, lat: number, lon: number) {

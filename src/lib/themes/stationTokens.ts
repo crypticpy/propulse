@@ -69,6 +69,28 @@ export const stationPalettes = {
   },
 } satisfies Record<ThemeId, Record<string, string>>;
 
+/**
+ * `--su-*` pinned to the midnight palette, for content drawn on a surface that
+ * stays dark whatever the app theme — `AccessibleDialog`'s chrome is a fixed
+ * `bg-[#090b17]/95`. Without it, `text-su-text` / `text-su-muted` inside such a
+ * dialog flip to the light palette and fall to roughly 2.4:1 against that
+ * panel. Pass it through `panelProps={{ style: fixedDarkSurfaceTokens }}`, or
+ * set it on the content root where the dialog takes no panel props. Drop it
+ * when the dialog surface itself is themed.
+ *
+ * The accent-derived roles are deliberately left inherited: `--su-accent` is
+ * the operator's own colour and is theme-independent.
+ */
+export const fixedDarkSurfaceTokens: StationTokenStyle = {
+  ...Object.fromEntries(
+    Object.entries(stationPalettes.midnight).map(([name, value]) => [
+      `--su-${name}`,
+      value,
+    ]),
+  ),
+  colorScheme: "dark",
+};
+
 function luminance(hex: string) {
   const values = [1, 3, 5].map((start) => {
     const channel = parseInt(hex.slice(start, start + 2), 16) / 255;
@@ -98,7 +120,7 @@ export function stationTokens(
     stationContrast(accent, "#000000") >= stationContrast(accent, "#ffffff")
       ? "#000000"
       : "#ffffff";
-  return {
+  const colors: Record<string, string> = {
     ...Object.fromEntries(
       Object.entries(palette).map(([name, value]) => [`--su-${name}`, value]),
     ),
@@ -109,6 +131,27 @@ export function stationTokens(
     // A custom brand color is never assumed to be legible as text on a panel.
     "--su-accent-text":
       stationContrast(accent, palette.panel) >= 4.5 ? accent : palette.info,
+  };
+  // Channel triplets so Tailwind opacity modifiers (text-su-text/70) resolve
+  // inside a scoped StationProvider as well as on the document root.
+  const channels = Object.fromEntries(
+    Object.entries(colors).map(([name, value]) => [
+      `${name}-rgb`,
+      hexToChannels(value),
+    ]),
+  );
+  return {
+    ...colors,
+    ...channels,
     colorScheme: theme === "light" ? "light" : "dark",
   };
+}
+
+/** "#ff6b35" -> "255 107 53" */
+function hexToChannels(hex: string): string {
+  return hex
+    .slice(1)
+    .match(/../g)!
+    .map((pair) => parseInt(pair, 16))
+    .join(" ");
 }

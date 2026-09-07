@@ -5,9 +5,10 @@
  * focusing the 3D globe on a selected DX spot.
  */
 
-import { useEffect, useMemo, useRef, useCallback, useState } from "react";
+import { useEffect, useMemo, useRef, useCallback, useState, useSyncExternalStore } from "react";
 import { useDXStore } from "@/stores/dxStore";
 import type { DXSpot } from "@/types/dxcluster";
+import { useViewRuntime } from "@/components/views/ViewRuntimeContext";
 
 /** Duration in ms before isFocusing resets to false */
 const FOCUS_DURATION_MS = 5000;
@@ -130,16 +131,15 @@ function calculateCameraPosition(
  * // Call clearFocus() to return to default view
  * ```
  */
-export function useSpotFocus(): SpotFocusState {
-  const selectedSpot = useDXStore((state) => state.selectedSpot);
-  const setSelectedSpot = useDXStore((state) => state.setSelectedSpot);
-
+function useSpotFocusState(
+  selectedSpot: DXSpot | null,
+  onClear: () => void,
+): SpotFocusState {
   const [isFocusing, setIsFocusing] = useState(false);
   const [focusedSpot, setFocusedSpot] = useState<DXSpot | null>(null);
 
   const focusTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Calculate spot position on the globe surface
   const spotPosition = useMemo((): Position3D | null => {
     if (!hasValidSpotCoordinates(focusedSpot)) {
       return null;
@@ -148,7 +148,6 @@ export function useSpotFocus(): SpotFocusState {
     return latLonToPosition3D(focusedSpot.dxLat!, focusedSpot.dxLon!);
   }, [focusedSpot]);
 
-  // Calculate target camera position
   const targetPosition = useMemo((): Position3D | null => {
     if (!spotPosition) {
       return null;
@@ -157,33 +156,25 @@ export function useSpotFocus(): SpotFocusState {
     return calculateCameraPosition(spotPosition);
   }, [spotPosition]);
 
-  // Watch for spot selection changes
   useEffect(() => {
-    // Clear any existing timer
     if (focusTimerRef.current) {
       clearTimeout(focusTimerRef.current);
       focusTimerRef.current = null;
     }
 
-    // Check if spot has valid coordinates
     if (hasValidSpotCoordinates(selectedSpot)) {
-      // New valid spot selected - start focusing
       setFocusedSpot(selectedSpot);
       setIsFocusing(true);
 
-      // Set timer to stop focusing animation after duration
       focusTimerRef.current = setTimeout(() => {
         setIsFocusing(false);
         focusTimerRef.current = null;
       }, FOCUS_DURATION_MS);
     } else if (!selectedSpot) {
-      // Spot deselected - clear focus
       setFocusedSpot(null);
       setIsFocusing(false);
     }
-    // If selectedSpot exists but has no coordinates, maintain previous focus
 
-    // Cleanup timer on unmount
     return () => {
       if (focusTimerRef.current) {
         clearTimeout(focusTimerRef.current);
@@ -191,7 +182,6 @@ export function useSpotFocus(): SpotFocusState {
     };
   }, [selectedSpot]);
 
-  // Clear focus and return to default view
   const clearFocus = useCallback(() => {
     if (focusTimerRef.current) {
       clearTimeout(focusTimerRef.current);
@@ -200,8 +190,8 @@ export function useSpotFocus(): SpotFocusState {
 
     setFocusedSpot(null);
     setIsFocusing(false);
-    setSelectedSpot(null);
-  }, [setSelectedSpot]);
+    onClear();
+  }, [onClear]);
 
   return {
     targetPosition,
@@ -210,4 +200,26 @@ export function useSpotFocus(): SpotFocusState {
     focusedSpot,
     clearFocus,
   };
+}
+
+export function useSpotFocus(): SpotFocusState {
+  const selectedSpot = useDXStore((state) => state.selectedSpot);
+  const setSelectedSpot = useDXStore((state) => state.setSelectedSpot);
+  const onClear = useCallback(() => setSelectedSpot(null), [setSelectedSpot]);
+  return useSpotFocusState(selectedSpot, onClear);
+}
+
+/** Camera focus for this view's selection only. Shared DX rows stay shared. */
+export function useViewSpotFocus(spots: readonly DXSpot[]): SpotFocusState {
+  const runtime = useViewRuntime();
+  const selectedId = useSyncExternalStore(
+    runtime.subscribe,
+    () => runtime.getSnapshot().interaction.selectedReportId,
+  );
+  const selectedSpot = useMemo(
+    () => spots.find((spot) => spot.id === selectedId) ?? null,
+    [spots, selectedId],
+  );
+  const onClear = useCallback(() => runtime.clearSelection(), [runtime]);
+  return useSpotFocusState(selectedSpot, onClear);
 }

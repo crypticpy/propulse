@@ -14,6 +14,8 @@ import {
   mapSpotSourceProvenance,
   type MapDataProvenance,
 } from "@/lib/map/operationalScope";
+import type { ViewRuntime } from "@/lib/views/contracts";
+import { useViewRuntime } from "@/components/views/ViewRuntimeContext";
 
 export type MapSpotLocationSource = "coordinates" | "grid" | "callsign-prefix";
 
@@ -169,6 +171,26 @@ export function commitMapSpotSelection(
   return resolved;
 }
 
+/**
+ * Bound-runtime selection. Updates only the injected view; never tunes a radio
+ * and never writes the legacy dx/map singletons.
+ */
+export function commitViewSpotSelection(
+  runtime: ViewRuntime,
+  spot: DXSpot,
+): MapSpotSelection | null {
+  const resolved = resolveMapSpotSelection(spot);
+  if (resolved) {
+    runtime.selectSpot(resolved.spot.id, {
+      lat: resolved.target.lat,
+      lon: resolved.target.lon,
+    });
+  } else {
+    runtime.selectSpot(spot.id, null);
+  }
+  return resolved;
+}
+
 /** Shared selection command for map-rendered live and DX-cluster spots. */
 export function useMapSpotSelection() {
   const setSelectedSpot = useDXStore((state) => state.setSelectedSpot);
@@ -188,6 +210,15 @@ export function useMapSpotSelection() {
       return result;
     },
     [setSelectedReport, setSelectedSpot, setTarget],
+  );
+}
+
+/** Requires ViewProvider. There is no fallback to the global map/DX stores. */
+export function useViewSpotSelection() {
+  const runtime = useViewRuntime();
+  return useCallback(
+    (spot: DXSpot) => commitViewSpotSelection(runtime, spot),
+    [runtime],
   );
 }
 

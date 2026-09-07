@@ -1,7 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
 import type { DXSpot } from "@/types/dxcluster";
+import { createViewRuntime } from "@/lib/views/runtime";
 import {
   commitMapSpotSelection,
+  commitViewSpotSelection,
   resolveMapSpotSelection,
 } from "./useMapSpotSelection";
 
@@ -121,5 +123,24 @@ describe("commitMapSpotSelection", () => {
     ).toBeNull();
     expect(setSelectedSpot).toHaveBeenCalledWith(unresolved);
     expect(setTarget).toHaveBeenCalledWith(null);
+  });
+});
+
+describe("commitViewSpotSelection", () => {
+  it("writes only the bound runtime and does not call map/DX setters", () => {
+    const runtime = createViewRuntime({
+      binding: {
+        ownerId: "owner-a", slotId: "normal", kind: "interactive",
+        sourceView: null, displayId: null,
+      },
+      persistWorking: false,
+    });
+    const result = commitViewSpotSelection(runtime, dxSpot({ dxLat: 35, dxLon: 139 }));
+    expect(result?.target.lat).toBe(35);
+    expect(runtime.getSnapshot().interaction.selectedReportId).toBe("spot-1");
+    expect(runtime.getSnapshot().interaction.target).toMatchObject({
+      lat: 35, lon: 139, origin: "spot",
+    });
+    runtime.dispose();
   });
 });

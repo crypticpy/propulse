@@ -214,3 +214,48 @@ use the untouched legacy keys, not delete/downgrade the library database. There 
 no live database migration in this slice. Production raw-key capture/conversion,
 auth subscriptions and account/LAN/backup activation boundaries remain pending;
 this journal alone does not satisfy the full SP-02 migration gate.
+
+### Read-only device capture and conversion
+
+`captureLegacyViews(localReader, sessionReader)` reads an explicit allowlist of
+legacy preference keys. Readers expose `getItem` only. Device credentials, auth
+storage, live stores, target histories and observations are never enumerated.
+Credential-named properties and transient selection/playback fields are omitted;
+unknown non-secret JSON stays in the backup. Corrupt JSON is left in its untouched
+original key, with a warning, rather than copying potentially hidden credentials.
+Read failure or an aggregate capture over 2 MiB prevents migration.
+
+`convertLegacyViewCapture(capture, options)` creates four independent complete
+family seeds and complete scene snapshots from that captured baseline. Known
+invalid values retain defaults with warnings; unsupported future store versions
+or scene routes prevent commitment. Conversion covers map layers/styles/labels,
+spot band/mode/age/grouping preferences, visual controls, theme/text/forecast,
+panel geometry/docking and HamClock presentation/widget settings. Newer HamClock
+display fields take precedence over older layout fields; inherited text is resolved
+once. Actual live camera/selection is not converted into saved camera homes.
+Legacy angular cluster radius is explicitly replaced by geographic Regions, not
+reinterpreted as a geographic distance. Each scene starts from its own family
+baseline, never the previously converted scene.
+
+The integration layer supplies the shipped static legacy layer-preset table and
+Agent 4's accepted pure named-profile adapter as explicit inputs where needed.
+Missing required recipe conversion fails closed; entries are not silently dropped
+or replaced with another built-in. Valid existing profile IDs must survive.
+Saved region/history catalogs remain in backup/untouched legacy storage; they do
+not become active settings. This converter does not publish scenes to displays.
+
+`migrateLegacyFromStorage(library, readers, options, lifecycle)` is the explicit
+bootstrap action connecting capture/conversion to the accepted atomic journal.
+It checks for the original capture before reading potentially changed legacy keys,
+checks account lifecycle across the asynchronous boundary, and preserves originals
+on read/conversion/transaction failure. No global listener or automatic production
+bootstrap is registered by these modules. Application auth/bootstrap wiring,
+account preference allowlisting and LAN/backup library import remain SP-02 work.
+
+Historical kiosk pins are converted on a copied state before materializing scenes:
+pre-v6 shipped default pins and pre-v7 numeric page indexes use their historical
+page IDs. This never restores deleted scenes or changes the captured backup.
+Persisted Pro panel layout entries own their collapse state; generic panel state
+fills only missing entries. Invalid scene duration/transition still aborts the
+atomic import rather than silently changing a saved playlist; originals remain
+available for explicit recovery.

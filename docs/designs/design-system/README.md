@@ -139,7 +139,7 @@ One background technique per page. `su-page-glow` (globals.css, DS-15) is that t
 
 The canvas is `color-mix(in srgb, var(--su-canvas) 55%, var(--su-input))` — derived from the palette, so no new hex — and the Light palette keeps plain `var(--su-canvas)` with the image blended normally instead of screened. The layer is `position: fixed` rather than `background-attachment: fixed`, which is broken on iOS Safari. Home is the first page on it; carry it into another area by repeating the three classes and pointing `--su-page-glow-image` at that area's still.
 
-Home's still is NASA/SDO's 31 August 2012 “Magnificent Eruption” frame, turned so the prominence climbs out of the corner (public domain, `public/home/sun-limb.webp`, 900 × 1167); the credit line lives in the Dashboard help section.
+Home's still is NASA/SDO's 31 August 2012 “Magnificent Eruption” frame, turned so the prominence climbs out of the corner (public domain, `public/home/sun-limb.webp`, 900 × 1250; `--su-page-glow-ratio` must match the still's height/width); the credit line lives in the Dashboard help section.
 
 ## Migration recipe
 

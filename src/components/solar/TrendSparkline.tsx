@@ -26,9 +26,19 @@ export function TrendSparkline({ points, label, className = "" }: TrendSparkline
   const max = Math.max(...values);
   const range = max - min || 1;
   const usableHeight = VIEW_HEIGHT - PADDING_Y * 2;
+  // Position points by their real timestamp so gaps in the source cadence
+  // read as gaps on the chart rather than being compressed to equal steps.
+  // Falls back to even index spacing only when timestamps can't establish
+  // an ordering (unparsable, or all identical).
+  const timestamps = points.map((point) => Date.parse(point.timestamp));
+  const minTs = Math.min(...timestamps);
+  const maxTs = Math.max(...timestamps);
+  const useTimeAxis = timestamps.every(Number.isFinite) && maxTs > minTs;
   const coords = points
     .map((point, i) => {
-      const x = (i / (points.length - 1)) * VIEW_WIDTH;
+      const x = useTimeAxis
+        ? ((timestamps[i] - minTs) / (maxTs - minTs)) * VIEW_WIDTH
+        : (i / (points.length - 1)) * VIEW_WIDTH;
       const y = PADDING_Y + usableHeight - ((point.value - min) / range) * usableHeight;
       return `${x.toFixed(2)},${y.toFixed(2)}`;
     })

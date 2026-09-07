@@ -59,12 +59,30 @@
   --su-success-rgb: 139 219 176;
   --su-warning-rgb: 245 207 121;
   --su-danger-rgb: 253 164 175;
+
+  /* Dark-palette tone triples for .su-fixed-dark below. Pre-JS fallback only
+   * (no colour-blind swap): applyThemeToDocument() overwrites these on <html>
+   * with the colour-blind-aware dark-palette tones every time it runs. */
+  --su-fixed-dark-info: #85c4d0;
+  --su-fixed-dark-info-rgb: 133 196 208;
+  --su-fixed-dark-success: #8bdbb0;
+  --su-fixed-dark-success-rgb: 139 219 176;
+  --su-fixed-dark-warning: #f5cf79;
+  --su-fixed-dark-warning-rgb: 245 207 121;
+  --su-fixed-dark-danger: #fda4af;
+  --su-fixed-dark-danger-rgb: 253 164 175;
 }
 
 /* Fixed-dark surfaces (SDR cockpit skins, spectrum/waterfall overlays,
  * card backs) keep their near-black shells in every theme, so their su
  * neutrals are pinned to the dark palette the way HamClock pins them
- * (hamclock-themes.css). Tones and the accent still follow the user. */
+ * (hamclock-themes.css). The tone roles (info/success/warning/danger) are
+ * also pinned, to the dark palette's tones, so a tone fill (bg-alert-red)
+ * and the pinned-dark ink on it (text-su-canvas) always resolve from the
+ * same palette — see stationTokens.test.ts for the contrast bug this fixes.
+ * The accent still follows the user. `--su-fixed-dark-*` are written on
+ * <html> by applyThemeToDocument() (colour-blind-aware); the values above
+ * are only the pre-JS fallback. */
 .su-fixed-dark {
   --su-canvas: #141827;
   --su-canvas-rgb: 20 24 39;
@@ -78,6 +96,15 @@
   --su-muted-rgb: 160 171 186;
   --su-line: #637088;
   --su-line-rgb: 99 112 136;
+
+  --su-info: var(--su-fixed-dark-info);
+  --su-info-rgb: var(--su-fixed-dark-info-rgb);
+  --su-success: var(--su-fixed-dark-success);
+  --su-success-rgb: var(--su-fixed-dark-success-rgb);
+  --su-warning: var(--su-fixed-dark-warning);
+  --su-warning-rgb: var(--su-fixed-dark-warning-rgb);
+  --su-danger: var(--su-fixed-dark-danger);
+  --su-danger-rgb: var(--su-fixed-dark-danger-rgb);
 }
 
 /* Settings → Text Size. useTextScale() writes data-text-scale on <html>; these

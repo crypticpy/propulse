@@ -109,9 +109,13 @@ const STYLE_EXTENSIONS = new Set([".css"]);
  * Every Tailwind utility prefix that paints a colour. Variants (`hover:`,
  * `dark:`, `group-hover:`) end in a non-word character, so the leading `\b`
  * still anchors on the prefix.
+ *
+ * `border` carries an optional directional infix (`border-t-white`,
+ * `border-x-gray-700`, logical `border-s`/`border-e`) that the other prefixes
+ * don't have, so it gets its own optional group instead of a flat list.
  */
 const COLOR_PREFIX =
-  "(?:bg|border|divide|ring|ring-offset|from|via|to|text|fill|stroke|outline|placeholder|decoration|shadow|caret|accent)";
+  "(?:bg|border(?:-[trblxyse])?|divide|ring|ring-offset|from|via|to|text|fill|stroke|outline|placeholder|decoration|shadow|caret|accent)";
 
 /**
  * `class` rules run on every line of a scoped file: these tokens are Tailwind

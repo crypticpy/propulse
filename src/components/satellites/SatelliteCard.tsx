@@ -68,12 +68,12 @@ function formatPassTime(pass: PassPrediction): string {
 
 /** Category left border color — static map so Tailwind JIT can purge correctly */
 const CATEGORY_BORDER_COLORS: Record<string, string> = {
-  iss: "border-l-white",
+  iss: "border-l-su-line",
   fm: "border-l-green-400",
   linear: "border-l-cyan-400",
   digital: "border-l-orange-400",
   weather: "border-l-purple-400",
-  other: "border-l-gray-400",
+  other: "border-l-su-line",
 };
 
 // ---------------------------------------------------------------------------
@@ -110,7 +110,7 @@ export function SatelliteCard({
           onCardClick(satellite);
         }
       }}
-      className={`w-full text-left bg-su-line/10 backdrop-blur-md border border-su-line/40 rounded-2xl p-4 transition-all duration-200 hover:border-su-line/50 hover:bg-su-line/20 cursor-pointer group border-l-2 ${CATEGORY_BORDER_COLORS[satellite.category] ?? "border-l-gray-400"}`}
+      className={`w-full text-left bg-su-line/10 backdrop-blur-md border border-su-line/40 rounded-2xl p-4 transition-all duration-200 hover:border-su-line/50 hover:bg-su-line/20 cursor-pointer group border-l-2 ${CATEGORY_BORDER_COLORS[satellite.category] ?? "border-l-su-line"}`}
     >
       {/* Top row: Category badge + TLE age badge + Track Toggle */}
       <div className="flex items-center justify-between gap-2 mb-2">

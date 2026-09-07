@@ -1,10 +1,11 @@
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, expect, it, vi } from "vitest";
 import { useFeedStore } from "@/stores/feedStore";
+import { NewsFeedCard } from "@/components/dashboard/NewsFeedCard";
 import { TickerCrawlSettingsDialog } from "@/components/map/TickerCrawlSettingsDialog";
 import { NewsFeedsConfig } from "./NewsFeedsConfig";
 
-vi.mock("@/hooks/useRssFeed", () => ({ useRssFeeds: (sources: { id: string }[]) => sources.map(source => ({ source, fetchedAt: null, status: "ok", refresh: vi.fn() })) }));
+vi.mock("@/hooks/useRssFeed", () => ({ useRssFeed: () => ({ items: [], status: "ok", isLoading: false, error: null }), useRssFeeds: (sources: { id: string }[]) => sources.map(source => ({ source, fetchedAt: null, status: "ok", refresh: vi.fn() })) }));
 const original = useFeedStore.getState();
 afterEach(() => { useFeedStore.setState(original); vi.unstubAllGlobals(); });
 
@@ -54,4 +55,24 @@ it("routes legacy feed additions to verification while retaining alert controls"
   expect(configure).toHaveBeenCalledTimes(1);
   fireEvent.change(screen.getByLabelText("Space weather break-in"), { target: { value: "CRITICAL" } });
   expect(useFeedStore.getState().crawlPreferences.solarThreshold).toBe("CRITICAL");
+});
+
+
+it("keeps a source page visible after removing the last page's only feed", () => {
+  useFeedStore.setState({ feeds: Array.from({ length: 3 }, (_, i) => ({ ...original.feeds[0], id: String(i), label: `Feed ${i}` })) });
+  render(<NewsFeedsConfig />);
+  fireEvent.click(screen.getByRole("tab", { name: "NEWS 2" }));
+  fireEvent.click(screen.getByRole("button", { name: "REMOVE" }));
+  expect(screen.getByRole("tab", { name: "NEWS 1" }).getAttribute("aria-selected")).toBe("true");
+  expect(screen.getByRole("switch", { name: "Feed 0" })).toBeTruthy();
+});
+
+it("routes Home feed additions to the same verified dialog", async () => {
+  render(<NewsFeedCard />);
+  fireEvent.click(screen.getByRole("button", { name: "Manage feeds" }));
+  expect(screen.queryByLabelText("New feed URL")).toBeNull();
+  fireEvent.click(screen.getByRole("button", { name: "VERIFY & ADD NEWS FEED" }));
+  expect(await screen.findByRole("dialog", { name: "NEWS FEEDS" })).toBeTruthy();
+  fireEvent.click(screen.getByRole("tab", { name: "ADD FEED" }));
+  expect(screen.getByRole("button", { name: "ADD" }).hasAttribute("disabled")).toBe(true);
 });

@@ -56,3 +56,15 @@ it("plots only supplied evidence and exposes all three values to keyboard select
   expect(select).toHaveBeenCalledWith(0);
   expect(screen.getByText(/PHYSICS 50\/100 · MODEL 65% · SPOTS 12/)).toBeTruthy();
 });
+
+it("maps pointer hours inside the SVG plot after accounting for aspect-ratio gutters", () => {
+  const select = vi.fn();
+  const { container } = render(<ForecastComparisonChart points={Array.from({ length: 24 }, (_, hourIndex) => ({ hourIndex, physics: 50 }))} selectedHour={0} nowHour={0} onSelect={select} />);
+  const svg = container.querySelector("svg")!;
+  vi.spyOn(svg, "getBoundingClientRect").mockReturnValue({ x: 0, y: 0, left: 0, top: 0, right: 1800, bottom: 110, width: 1800, height: 110, toJSON: () => ({}) });
+  // The 1800×220 viewBox renders at half scale, centered in a wider box.
+  fireEvent(svg, new MouseEvent("pointermove", { bubbles: true, clientX: 450 + 70 / 2 }));
+  expect(select).toHaveBeenLastCalledWith(0);
+  fireEvent(svg, new MouseEvent("pointermove", { bubbles: true, clientX: 450 + 1715 / 2 }));
+  expect(select).toHaveBeenLastCalledWith(23);
+});

@@ -32,7 +32,7 @@ export function ReliabilityReport({ open, onClose }: { open: boolean; onClose: (
     comparable: { kind: "number", value: (data.nowcast.personalized ? prediction.personalized_probability : prediction.core_probability) * 100, unit: "pct" },
     confidence: prediction.confidence * 100, updatedAt: new Date(prediction.issue_time), state: "ok",
     detail: data.nowcast.personalized ? "PERSONALIZED" : "CORE DECODE PROBABILITY",
-  } : { value: "—", comparable: { kind: "none" }, state: "unavailable", unavailableReason: model.reason ?? "MODEL OFF" };
+  } : { value: "—", comparable: { kind: "none" }, state: "unavailable", unavailableReason: model.reason === "MODEL OFF" ? "MODEL OFF" : `MODEL OFF · ${model.reason ?? "UNAVAILABLE"}` };
   const observedReading: EngineReading = data.observed ? {
     value: `${data.observed.count60m} spots`, comparable: { kind: "number", value: data.observed.count60m, unit: "spots" },
     state: data.activityError ? "stale" : "ok", updatedAt: new Date(data.activityAt!), detail: "SCOPED 60 MIN SAMPLE — NOT PATH CONFIRMATION",
@@ -55,7 +55,7 @@ export function ReliabilityReport({ open, onClose }: { open: boolean; onClose: (
     ...(data.liveObserved && Math.floor((data.activityAt ?? 0) / FORECAST_HOUR_MS) === point.hourIndex ? { observed: data.liveObserved.count60m } : {}),
   }));
   return <WallReport open={open} onClose={onClose} title="Reliability report" hero={band.toUpperCase()}
-    verdict={score === null ? "NO DATA" : `${score.toFixed(0)} / 100`} facts={facts} {...footer}
+    verdict={score === null ? "NO DATA" : `${cell?.status?.toUpperCase() ?? "QTH"} · ${score.toFixed(0)} / 100`} verdictScale={0.65} facts={facts} {...footer}
     pinId="reliability" pinElement={<ReliabilityReport open onClose={onClose} />}>
     <EngineComparisonStrip subject={`${band.toUpperCase()} · ${data.sourceLabel}`} physics={physicsReading} nowcast={nowcastReading} observed={observedReading}
       classify={(value, unit) => unit === "spots" ? null : probabilityStepClassifier()(value, unit)} />

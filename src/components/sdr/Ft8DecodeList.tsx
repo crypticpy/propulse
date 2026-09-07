@@ -69,7 +69,7 @@ export function Ft8DecodeList({
 
   if (decodes.length === 0) {
     return (
-      <div className="px-3 py-4 text-center text-[11px] text-white/30">
+      <div className="px-3 py-4 text-center text-[11px] text-su-text/30">
         Waiting for decodes...
       </div>
     );
@@ -83,7 +83,7 @@ export function Ft8DecodeList({
       style={{ maxHeight }}
     >
       <table className="w-full text-[10px] leading-tight">
-        <thead className="sticky top-0 bg-void-black/90 text-white/30">
+        <thead className="sticky top-0 bg-void-black/90 text-su-text/30">
           <tr>
             <th className="px-1 py-1 text-left font-medium">UTC</th>
             <th className="px-1 py-1 text-right font-medium">dB</th>
@@ -101,14 +101,14 @@ export function Ft8DecodeList({
           {decodes.map((d, i) => {
             const rowBg = getRowBackground(d, highlightNeeded, highlightCQ);
             const textClass = d.isDupe
-              ? "text-white/25 line-through"
-              : "text-white/70";
+              ? "text-su-text/30 line-through"
+              : "text-su-text/70";
             const callClass = getCallClass(d, highlightNeeded, highlightCQ);
 
             return (
               <tr
                 key={`${d.time}-${d.deltaFrequency}-${i}`}
-                className={`border-b border-white/[0.03] ${rowBg} hover:bg-white/[0.05]`}
+                className={`border-b border-su-line/20 ${rowBg} hover:bg-su-line/10`}
               >
                 <td
                   className={`whitespace-nowrap px-1 py-0.5 font-mono tabular-nums ${textClass}`}
@@ -197,13 +197,13 @@ function getCallClass(
   if (d.isCallingMe) return "text-alert-red";
   if (highlightNeeded && d.isNeeded) return "text-caution-amber";
   if (highlightCQ && d.isCQ) return "text-signal-green";
-  if (d.isDupe) return "text-white/25 line-through";
+  if (d.isDupe) return "text-su-text/30 line-through";
   return "text-cosmic-cyan";
 }
 
 function getSnrColor(snr: number): string {
   if (snr >= 0) return "text-signal-green";
-  if (snr >= -10) return "text-white/70";
+  if (snr >= -10) return "text-su-text/70";
   if (snr >= -18) return "text-caution-amber/70";
   return "text-alert-red/60";
 }

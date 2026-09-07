@@ -16,10 +16,10 @@ interface FrequencyPlanEditorProps {
 const MODES = ["USB", "LSB", "FM", "AM", "CW", "RTTY", "FT8"] as const;
 
 const inputClasses =
-  "w-full bg-void-black/60 border border-white/10 rounded-md px-3 py-2 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-plasma-orange/50 transition-colors";
+  "w-full bg-void-black/60 border border-su-line/40 rounded-md px-3 py-2 text-sm text-su-text placeholder:text-su-muted/80 focus:outline-none focus:border-plasma-orange/50 transition-colors";
 
 const smallInputClasses =
-  "bg-void-black/60 border border-white/10 rounded-md px-2 py-1.5 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-plasma-orange/50 transition-colors";
+  "bg-void-black/60 border border-su-line/40 rounded-md px-2 py-1.5 text-xs text-su-text placeholder:text-su-muted/80 focus:outline-none focus:border-plasma-orange/50 transition-colors";
 
 interface DraftEntry {
   label: string;
@@ -111,7 +111,7 @@ export function FrequencyPlanEditor({
       <div className="space-y-5">
         {/* Plan Name */}
         <div>
-          <label className="block text-xs font-medium text-gray-400 mb-1">
+          <label className="block text-xs font-medium text-su-muted mb-1">
             Plan Name *
           </label>
           <input
@@ -126,7 +126,7 @@ export function FrequencyPlanEditor({
         {/* Entries */}
         <div>
           <div className="flex items-center justify-between mb-2">
-            <label className="text-xs font-medium text-gray-400">
+            <label className="text-xs font-medium text-su-muted">
               Frequency Entries
             </label>
             <button
@@ -142,17 +142,17 @@ export function FrequencyPlanEditor({
             {entries.map((entry, idx) => (
               <div
                 key={idx}
-                className="rounded-md border border-white/5 bg-void-black/30 p-3"
+                className="rounded-md border border-su-line/20 bg-void-black/30 p-3"
               >
                 <div className="flex items-center justify-between mb-2">
-                  <span className="text-[10px] font-mono text-gray-500 uppercase">
+                  <span className="text-[10px] font-mono text-su-muted uppercase">
                     Entry {idx + 1}
                   </span>
                   {entries.length > 1 && (
                     <button
                       type="button"
                       onClick={() => removeEntry(idx)}
-                      className="text-[10px] text-gray-500 hover:text-alert-red transition-colors"
+                      className="text-[10px] text-su-muted hover:text-alert-red transition-colors"
                     >
                       Remove
                     </button>
@@ -162,7 +162,7 @@ export function FrequencyPlanEditor({
                 <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
                   {/* Label */}
                   <div>
-                    <label className="block text-[10px] text-gray-500 mb-0.5">
+                    <label className="block text-[10px] text-su-muted mb-0.5">
                       Label
                     </label>
                     <input
@@ -178,7 +178,7 @@ export function FrequencyPlanEditor({
 
                   {/* Frequency (MHz) */}
                   <div>
-                    <label className="block text-[10px] text-gray-500 mb-0.5">
+                    <label className="block text-[10px] text-su-muted mb-0.5">
                       Freq (MHz) *
                     </label>
                     <input
@@ -195,7 +195,7 @@ export function FrequencyPlanEditor({
 
                   {/* Mode */}
                   <div>
-                    <label className="block text-[10px] text-gray-500 mb-0.5">
+                    <label className="block text-[10px] text-su-muted mb-0.5">
                       Mode
                     </label>
                     <select
@@ -213,7 +213,7 @@ export function FrequencyPlanEditor({
 
                   {/* Tone */}
                   <div>
-                    <label className="block text-[10px] text-gray-500 mb-0.5">
+                    <label className="block text-[10px] text-su-muted mb-0.5">
                       Tone (CTCSS)
                     </label>
                     <input
@@ -228,7 +228,7 @@ export function FrequencyPlanEditor({
 
                 {/* Purpose (full width) */}
                 <div className="mt-2">
-                  <label className="block text-[10px] text-gray-500 mb-0.5">
+                  <label className="block text-[10px] text-su-muted mb-0.5">
                     Purpose
                   </label>
                   <input
@@ -251,7 +251,7 @@ export function FrequencyPlanEditor({
           <button
             type="button"
             onClick={handleClose}
-            className="px-4 py-2 rounded-md text-sm text-gray-400 hover:text-white hover:bg-white/5 transition-colors"
+            className="px-4 py-2 rounded-md text-sm text-su-muted hover:text-su-text hover:bg-su-line/10 transition-colors"
           >
             Cancel
           </button>
@@ -259,7 +259,7 @@ export function FrequencyPlanEditor({
             type="button"
             onClick={handleSave}
             disabled={!planName.trim() || !hasValidEntries}
-            className="px-5 py-2 rounded-md text-sm font-semibold bg-plasma-orange text-void-black hover:bg-plasma-orange/90 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+            className="px-5 py-2 rounded-md text-sm font-semibold bg-plasma-orange text-su-on-accent hover:bg-plasma-orange/90 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
           >
             Save Plan
           </button>

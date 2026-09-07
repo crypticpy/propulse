@@ -48,12 +48,12 @@ export function ActivationBanner() {
       </span>
 
       {/* Center: incident name */}
-      <span className="flex-1 text-center text-xs text-white/80 font-medium truncate mx-3">
+      <span className="flex-1 text-center text-xs text-su-text/80 font-medium truncate mx-3">
         {activeIncident.name}
       </span>
 
       {/* Right: elapsed time */}
-      <span className="text-[10px] font-mono text-gray-400 tabular-nums shrink-0">
+      <span className="text-[10px] font-mono text-su-muted tabular-nums shrink-0">
         {elapsed}
       </span>
     </div>

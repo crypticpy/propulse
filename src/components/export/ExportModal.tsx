@@ -444,7 +444,7 @@ export function ExportModal({ isOpen, onClose, pathData }: ExportModalProps) {
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
       {/* Backdrop */}
       <div
-        className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+        className="absolute inset-0 bg-su-panel/60 backdrop-blur-sm"
         onClick={onClose}
         role="presentation"
       />
@@ -461,7 +461,7 @@ export function ExportModal({ isOpen, onClose, pathData }: ExportModalProps) {
           </h2>
           <button
             onClick={onClose}
-            className="p-1 text-gray-400 hover:text-white transition-colors"
+            className="p-1 text-su-muted hover:text-su-text transition-colors"
             aria-label="Close"
           >
             <svg
@@ -481,18 +481,18 @@ export function ExportModal({ isOpen, onClose, pathData }: ExportModalProps) {
         </div>
 
         {/* Path Summary */}
-        <div className="mb-6 p-3 bg-white/5 rounded-lg border border-white/10">
+        <div className="mb-6 p-3 bg-su-line/10 rounded-lg border border-su-line/40">
           <div className="flex items-center justify-between text-sm">
-            <div className="text-gray-400">
-              <span className="text-white font-mono">
+            <div className="text-su-muted">
+              <span className="text-su-text font-mono">
                 {pathData.homeCall || pathData.homeGrid}
               </span>
               {" to "}
-              <span className="text-white font-mono">
+              <span className="text-su-text font-mono">
                 {pathData.targetCall || pathData.targetGrid || "Target"}
               </span>
             </div>
-            <div className="text-gray-500 font-mono text-xs">
+            <div className="text-su-muted font-mono text-xs">
               {Math.round(pathData.distance)} km |{" "}
               {Math.round(pathData.bearing)}deg
             </div>
@@ -501,7 +501,7 @@ export function ExportModal({ isOpen, onClose, pathData }: ExportModalProps) {
 
         {/* Format Selection */}
         <div className="mb-6">
-          <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-3">
+          <h3 className="text-sm font-semibold text-su-muted uppercase tracking-wider mb-3">
             Export Format
           </h3>
           <div className="flex gap-2">
@@ -531,7 +531,7 @@ export function ExportModal({ isOpen, onClose, pathData }: ExportModalProps) {
 
         {/* Format-specific Options */}
         <div className="mb-6">
-          <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-3">
+          <h3 className="text-sm font-semibold text-su-muted uppercase tracking-wider mb-3">
             Export Options
           </h3>
 
@@ -550,7 +550,7 @@ export function ExportModal({ isOpen, onClose, pathData }: ExportModalProps) {
           )}
 
           {format === "csv" && (
-            <div className="p-3 bg-white/5 rounded-lg border border-white/10 text-sm text-gray-400">
+            <div className="p-3 bg-su-line/10 rounded-lg border border-su-line/40 text-sm text-su-muted">
               CSV export includes all path data fields with headers. No
               additional options available.
             </div>
@@ -559,11 +559,11 @@ export function ExportModal({ isOpen, onClose, pathData }: ExportModalProps) {
 
         {/* Preview Section */}
         <div className="mb-6">
-          <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-3">
+          <h3 className="text-sm font-semibold text-su-muted uppercase tracking-wider mb-3">
             Preview
           </h3>
           <div className="relative">
-            <pre className="p-4 bg-deep-space rounded-lg border border-white/10 text-xs font-mono text-gray-300 overflow-x-auto max-h-48 overflow-y-auto whitespace-pre-wrap">
+            <pre className="p-4 bg-deep-space rounded-lg border border-su-line/40 text-xs font-mono text-su-muted overflow-x-auto max-h-48 overflow-y-auto whitespace-pre-wrap">
               {previewContent}
             </pre>
           </div>
@@ -573,8 +573,8 @@ export function ExportModal({ isOpen, onClose, pathData }: ExportModalProps) {
         <div className="flex gap-3">
           <button
             onClick={onClose}
-            className="flex-1 px-4 py-2.5 bg-nebula-blue border border-white/10 rounded-lg
-                       text-gray-300 hover:text-white hover:border-white/20
+            className="flex-1 px-4 py-2.5 bg-nebula-blue border border-su-line/40 rounded-lg
+                       text-su-muted hover:text-su-text hover:border-su-line/50
                        transition-colors font-medium"
           >
             Cancel
@@ -585,7 +585,7 @@ export function ExportModal({ isOpen, onClose, pathData }: ExportModalProps) {
                        ${
                          copySuccess
                            ? "bg-signal-green/20 border border-signal-green/50 text-signal-green"
-                           : "bg-nebula-blue border border-white/10 text-gray-300 hover:text-white hover:border-white/20"
+                           : "bg-nebula-blue border border-su-line/40 text-su-muted hover:text-su-text hover:border-su-line/50"
                        }`}
           >
             {copySuccess ? "Copied!" : "Copy to Clipboard"}
@@ -633,17 +633,17 @@ function FormatButton({
                  ${
                    isSelected
                      ? "bg-plasma-orange/20 border border-plasma-orange/50"
-                     : "bg-nebula-blue border border-white/10 hover:border-white/20"
+                     : "bg-nebula-blue border border-su-line/40 hover:border-su-line/50"
                  }`}
     >
       <div
         className={`text-sm font-medium ${
-          isSelected ? "text-plasma-orange" : "text-gray-300"
+          isSelected ? "text-plasma-orange" : "text-su-muted"
         }`}
       >
         {label}
       </div>
-      <div className="text-xs text-gray-500 mt-0.5">{description}</div>
+      <div className="text-xs text-su-muted mt-0.5">{description}</div>
     </button>
   );
 }
@@ -659,7 +659,7 @@ function ADIFOptionsSection({
   onChange: (options: ADIFExportOptions) => void;
 }) {
   return (
-    <div className="space-y-3 p-4 bg-white/5 rounded-lg border border-white/10">
+    <div className="space-y-3 p-4 bg-su-line/10 rounded-lg border border-su-line/40">
       <CheckboxOption
         id="adif-propagation"
         checked={options.includePropagation}
@@ -698,12 +698,12 @@ function CabrilloOptionsSection({
   onChange: (options: CabrilloExportOptions) => void;
 }) {
   return (
-    <div className="space-y-4 p-4 bg-white/5 rounded-lg border border-white/10">
+    <div className="space-y-4 p-4 bg-su-line/10 rounded-lg border border-su-line/40">
       {/* Contest Selection */}
       <div>
         <label
           htmlFor="cabrillo-contest"
-          className="block text-sm font-medium text-gray-300 mb-1"
+          className="block text-sm font-medium text-su-muted mb-1"
         >
           Contest
         </label>
@@ -711,8 +711,8 @@ function CabrilloOptionsSection({
           id="cabrillo-contest"
           value={options.contest}
           onChange={(e) => onChange({ ...options, contest: e.target.value })}
-          className="w-full px-3 py-2 bg-deep-space border border-white/10 rounded-lg
-                     text-white focus:outline-none focus:border-plasma-orange/50"
+          className="w-full px-3 py-2 bg-deep-space border border-su-line/40 rounded-lg
+                     text-su-text focus:outline-none focus:border-plasma-orange/50"
         >
           {COMMON_CONTESTS.map((contest) => (
             <option key={contest.value} value={contest.value}>
@@ -726,7 +726,7 @@ function CabrilloOptionsSection({
       <div>
         <label
           htmlFor="cabrillo-callsign"
-          className="block text-sm font-medium text-gray-300 mb-1"
+          className="block text-sm font-medium text-su-muted mb-1"
         >
           Station Callsign
         </label>
@@ -738,8 +738,8 @@ function CabrilloOptionsSection({
             onChange({ ...options, callsign: e.target.value.toUpperCase() })
           }
           placeholder="N0CALL"
-          className="w-full px-3 py-2 bg-deep-space border border-white/10 rounded-lg
-                     text-white placeholder-gray-500 font-mono uppercase
+          className="w-full px-3 py-2 bg-deep-space border border-su-line/40 rounded-lg
+                     text-su-text placeholder:text-su-muted/80 font-mono uppercase
                      focus:outline-none focus:border-plasma-orange/50"
         />
       </div>
@@ -750,7 +750,7 @@ function CabrilloOptionsSection({
         <div>
           <label
             htmlFor="cabrillo-operator"
-            className="block text-sm font-medium text-gray-300 mb-1"
+            className="block text-sm font-medium text-su-muted mb-1"
           >
             Operator
           </label>
@@ -764,8 +764,8 @@ function CabrilloOptionsSection({
                   .value as CabrilloHeader["CATEGORY_OPERATOR"],
               })
             }
-            className="w-full px-3 py-2 bg-deep-space border border-white/10 rounded-lg
-                       text-white text-sm focus:outline-none focus:border-plasma-orange/50"
+            className="w-full px-3 py-2 bg-deep-space border border-su-line/40 rounded-lg
+                       text-su-text text-sm focus:outline-none focus:border-plasma-orange/50"
           >
             {CATEGORY_OPERATORS.map((cat) => (
               <option key={cat.value} value={cat.value}>
@@ -779,7 +779,7 @@ function CabrilloOptionsSection({
         <div>
           <label
             htmlFor="cabrillo-band"
-            className="block text-sm font-medium text-gray-300 mb-1"
+            className="block text-sm font-medium text-su-muted mb-1"
           >
             Band
           </label>
@@ -792,8 +792,8 @@ function CabrilloOptionsSection({
                 categoryBand: e.target.value as CabrilloHeader["CATEGORY_BAND"],
               })
             }
-            className="w-full px-3 py-2 bg-deep-space border border-white/10 rounded-lg
-                       text-white text-sm focus:outline-none focus:border-plasma-orange/50"
+            className="w-full px-3 py-2 bg-deep-space border border-su-line/40 rounded-lg
+                       text-su-text text-sm focus:outline-none focus:border-plasma-orange/50"
           >
             {CATEGORY_BANDS.map((cat) => (
               <option key={cat.value} value={cat.value}>
@@ -807,7 +807,7 @@ function CabrilloOptionsSection({
         <div>
           <label
             htmlFor="cabrillo-power"
-            className="block text-sm font-medium text-gray-300 mb-1"
+            className="block text-sm font-medium text-su-muted mb-1"
           >
             Power
           </label>
@@ -821,8 +821,8 @@ function CabrilloOptionsSection({
                   .value as CabrilloHeader["CATEGORY_POWER"],
               })
             }
-            className="w-full px-3 py-2 bg-deep-space border border-white/10 rounded-lg
-                       text-white text-sm focus:outline-none focus:border-plasma-orange/50"
+            className="w-full px-3 py-2 bg-deep-space border border-su-line/40 rounded-lg
+                       text-su-text text-sm focus:outline-none focus:border-plasma-orange/50"
           >
             {CATEGORY_POWERS.map((cat) => (
               <option key={cat.value} value={cat.value}>
@@ -836,7 +836,7 @@ function CabrilloOptionsSection({
         <div>
           <label
             htmlFor="cabrillo-mode"
-            className="block text-sm font-medium text-gray-300 mb-1"
+            className="block text-sm font-medium text-su-muted mb-1"
           >
             Mode
           </label>
@@ -849,8 +849,8 @@ function CabrilloOptionsSection({
                 categoryMode: e.target.value as CabrilloHeader["CATEGORY_MODE"],
               })
             }
-            className="w-full px-3 py-2 bg-deep-space border border-white/10 rounded-lg
-                       text-white text-sm focus:outline-none focus:border-plasma-orange/50"
+            className="w-full px-3 py-2 bg-deep-space border border-su-line/40 rounded-lg
+                       text-su-text text-sm focus:outline-none focus:border-plasma-orange/50"
           >
             {CATEGORY_MODES.map((cat) => (
               <option key={cat.value} value={cat.value}>
@@ -895,12 +895,12 @@ function CheckboxOption({
                      ${
                        checked
                          ? "bg-plasma-orange border-plasma-orange"
-                         : "bg-deep-space border-white/20 group-hover:border-white/40"
+                         : "bg-deep-space border-su-line/50 group-hover:border-su-line/60"
                      }`}
         >
           {checked && (
             <svg
-              className="w-5 h-5 text-white"
+              className="w-5 h-5 text-su-text"
               fill="none"
               viewBox="0 0 24 24"
               stroke="currentColor"
@@ -916,10 +916,10 @@ function CheckboxOption({
         </div>
       </div>
       <div>
-        <div className="text-sm font-medium text-gray-200 group-hover:text-white transition-colors">
+        <div className="text-sm font-medium text-su-text group-hover:text-su-text transition-colors">
           {label}
         </div>
-        <div className="text-xs text-gray-500">{description}</div>
+        <div className="text-xs text-su-muted">{description}</div>
       </div>
     </label>
   );

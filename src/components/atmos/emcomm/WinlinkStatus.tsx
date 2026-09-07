@@ -82,7 +82,7 @@ export function WinlinkStatus({
 
   if (nearby.length === 0) {
     return (
-      <div className="text-[10px] text-gray-700 text-center py-1">
+      <div className="text-[10px] text-su-line text-center py-1">
         No Winlink gateways found
       </div>
     );
@@ -90,7 +90,7 @@ export function WinlinkStatus({
 
   return (
     <div className="space-y-1">
-      <h3 className="text-[9px] font-mono uppercase text-gray-600">
+      <h3 className="text-[9px] font-mono uppercase text-su-muted">
         Winlink Gateways
       </h3>
       {nearby.map((g) => (
@@ -100,9 +100,9 @@ export function WinlinkStatus({
         >
           <div className="flex items-center gap-1">
             <div className="w-1 h-1 rounded-full bg-signal-green" />
-            <span className="text-gray-400 font-mono">{g.callsign}</span>
+            <span className="text-su-muted font-mono">{g.callsign}</span>
           </div>
-          <span className="text-gray-600">{Math.round(g.dist)} km</span>
+          <span className="text-su-muted">{Math.round(g.dist)} km</span>
         </div>
       ))}
     </div>

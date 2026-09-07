@@ -183,7 +183,7 @@ export function RankUpCelebration({
       onClick={onDismiss}
     >
       {/* -- Backdrop -- */}
-      <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" />
+      <div className="absolute inset-0 bg-su-panel/90 backdrop-blur-sm" />
 
       {/* -- Radial gradient burst -- */}
       {effects.glow && <div
@@ -247,7 +247,7 @@ export function RankUpCelebration({
 
         {/* Subtitle -- rank title */}
         <p
-          className="text-sm text-gray-400 text-center"
+          className="text-sm text-su-muted text-center"
           style={{
             animation: "celebrationFadeIn 400ms ease-out 350ms both",
           }}
@@ -266,7 +266,7 @@ export function RankUpCelebration({
 
         {/* "Rank Up!" text */}
         <span
-          className="text-xs text-gray-500 uppercase tracking-widest"
+          className="text-xs text-su-muted uppercase tracking-widest"
           style={{
             animation: "celebrationFadeIn 400ms ease-out 650ms both",
           }}

@@ -458,22 +458,22 @@ export function SignalChainHealth() {
   }, "good");
 
   return (
-    <div className="bg-void-black/40 rounded-lg border border-white/5 overflow-hidden">
+    <div className="bg-void-black/40 rounded-lg border border-su-line/20 overflow-hidden">
       {/* Header - always visible */}
       <button
         onClick={() => setExpanded(!expanded)}
-        className="w-full flex items-center justify-between px-3 py-2 hover:bg-white/[0.02] transition-colors"
+        className="w-full flex items-center justify-between px-3 py-2 hover:bg-su-line/10 transition-colors"
       >
         <div className="flex items-center gap-2">
           <div
             className={`w-2 h-2 rounded-full ${statusColor(overallStatus)}`}
           />
-          <span className="text-[10px] font-mono uppercase tracking-widest text-gray-500">
+          <span className="text-[10px] font-mono uppercase tracking-widest text-su-muted">
             Signal Chain
           </span>
         </div>
         <svg
-          className={`w-3 h-3 text-gray-600 transition-transform ${expanded ? "rotate-180" : ""}`}
+          className={`w-3 h-3 text-su-muted transition-transform ${expanded ? "rotate-180" : ""}`}
           viewBox="0 0 24 24"
           fill="none"
           stroke="currentColor"
@@ -491,17 +491,17 @@ export function SignalChainHealth() {
               {/* Connector line */}
               {i > 0 && (
                 <div className="flex justify-center py-0.5">
-                  <div className="w-px h-3 bg-white/10" />
+                  <div className="w-px h-3 bg-su-line/20" />
                 </div>
               )}
               {/* Stage card */}
-              <div className="flex items-start gap-2 px-2 py-1.5 rounded bg-white/[0.02]">
+              <div className="flex items-start gap-2 px-2 py-1.5 rounded bg-su-line/10">
                 <div
                   className={`w-1.5 h-1.5 rounded-full mt-1 shrink-0 ${statusColor(stage.status)}`}
                 />
                 <div className="flex-1 min-w-0">
                   <div className="flex items-baseline justify-between">
-                    <span className="text-[10px] font-medium text-gray-300">
+                    <span className="text-[10px] font-medium text-su-muted">
                       {stage.label}
                     </span>
                     <span
@@ -515,7 +515,7 @@ export function SignalChainHealth() {
                       {stage.details.map((d, j) => (
                         <span
                           key={j}
-                          className="block text-[9px] text-gray-600"
+                          className="block text-[9px] text-su-muted"
                         >
                           {d}
                         </span>

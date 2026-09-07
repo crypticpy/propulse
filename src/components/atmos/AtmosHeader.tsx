@@ -21,12 +21,12 @@ export function AtmosHeader() {
   const [modalOpen, setModalOpen] = useState(false);
 
   return (
-    <header className="flex items-center justify-between h-10 px-3 bg-deep-space/80 border-b border-white/5 backdrop-blur-sm shrink-0">
+    <header className="flex items-center justify-between h-10 px-3 bg-deep-space/80 border-b border-su-line/20 backdrop-blur-sm shrink-0">
       {/* Left: title + sidebar toggle */}
       <div className="flex items-center gap-2">
         <button
           onClick={() => setSidebarOpen(!sidebarOpen)}
-          className="p-1 rounded hover:bg-white/5 text-gray-400 hover:text-white transition-colors"
+          className="p-1 rounded hover:bg-su-line/10 text-su-muted hover:text-su-text transition-colors"
           title={sidebarOpen ? "Hide sidebar" : "Show sidebar"}
         >
           <svg
@@ -43,7 +43,7 @@ export function AtmosHeader() {
             />
           </svg>
         </button>
-        <h1 className="text-sm font-orbitron font-semibold tracking-wider text-white">
+        <h1 className="text-sm font-orbitron font-semibold tracking-wider text-su-text">
           ATMOS<span className="text-plasma-orange">PULSE</span>
         </h1>
       </div>
@@ -60,7 +60,7 @@ export function AtmosHeader() {
             className={`relative p-1 rounded transition-colors ${
               activeIncident
                 ? "text-alert-red hover:text-alert-red/80"
-                : "text-gray-500 hover:text-white"
+                : "text-su-muted hover:text-su-text"
             }`}
             title={
               activeIncident
@@ -93,7 +93,7 @@ export function AtmosHeader() {
         </div>
 
         {/* RIM summary badge */}
-        <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-void-black/40 border border-white/5">
+        <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-void-black/40 border border-su-line/20">
           <div
             className={`w-2 h-2 rounded-full ${
               rimResult
@@ -104,10 +104,10 @@ export function AtmosHeader() {
                     : rimResult.composite >= 30
                       ? "bg-plasma-orange"
                       : "bg-alert-red"
-                : "bg-gray-600"
+                : "bg-su-line"
             } ${rimResult ? "animate-pulse" : ""}`}
           />
-          <span className="text-xs font-mono text-gray-400">RIM</span>
+          <span className="text-xs font-mono text-su-muted">RIM</span>
           <span
             className={`text-xs font-mono font-semibold ${
               rimResult
@@ -118,7 +118,7 @@ export function AtmosHeader() {
                     : rimResult.composite >= 30
                       ? "text-plasma-orange"
                       : "text-alert-red"
-                : "text-gray-500"
+                : "text-su-muted"
             }`}
           >
             {rimResult ? Math.round(rimResult.composite) : "--"}

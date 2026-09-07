@@ -6,7 +6,7 @@ export function ViewSwitcher() {
   const setViewMode = useAtmosStore((s) => s.setViewMode);
 
   return (
-    <div className="flex items-center gap-1 rounded-lg bg-void-black/60 border border-white/10 p-0.5">
+    <div className="flex items-center gap-1 rounded-lg bg-void-black/60 border border-su-line/40 p-0.5">
       <ViewButton
         mode="2d"
         label="2D"
@@ -40,7 +40,7 @@ function ViewButton({
       className={`px-3 py-1 text-xs font-mono font-semibold rounded-md transition-all ${
         active
           ? "bg-plasma-orange/20 text-plasma-orange border border-plasma-orange/30"
-          : "text-gray-500 hover:text-gray-300 border border-transparent"
+          : "text-su-muted hover:text-su-muted border border-transparent"
       }`}
     >
       {label}

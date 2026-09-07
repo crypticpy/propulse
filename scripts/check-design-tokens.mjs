@@ -66,6 +66,29 @@ const SCOPE = [
   "src/components/settings",
   "src/components/logbook",
   "src/components/operating",
+  "src/pages/SolarPulse.tsx",
+  // DS-12 g5: the remaining raw-token files under src/components/solar/
+  // (BandConditions.tsx, BandRow.tsx, MetricCard.tsx, PropagationIndex.tsx,
+  // SolarHandoffNotice.tsx, modals/) were swept in this pass, so the whole
+  // directory is now scoped instead of the DS-03 file-by-file allowlist.
+  "src/components/solar",
+  "src/components/sdr",
+  "src/components/atmos",
+  "src/components/satellites",
+  "src/components/rank",
+  "src/components/awards",
+  "src/components/activation",
+  "src/components/ops",
+  "src/components/propagation",
+  "src/components/activity",
+  "src/components/bands",
+  "src/components/cluster",
+  "src/components/export",
+  "src/components/radio",
+  "src/components/ErrorBoundary.tsx",
+  "src/lib",
+  "src/hooks",
+  "src/stores",
 ];
 
 /**

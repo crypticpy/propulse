@@ -59,12 +59,12 @@ export function MonitoredRegionManager() {
       {regions.map((r) => (
         <div
           key={r.id}
-          className="flex items-center justify-between px-2 py-1 rounded bg-white/5 text-xs"
+          className="flex items-center justify-between px-2 py-1 rounded bg-su-line/10 text-xs"
         >
-          <span className="text-gray-300 truncate">{r.name}</span>
+          <span className="text-su-muted truncate">{r.name}</span>
           <button
             onClick={() => removeRegion(r.id)}
-            className="ml-1 text-gray-600 hover:text-alert-red text-[10px] shrink-0"
+            className="ml-1 text-su-muted hover:text-alert-red text-[10px] shrink-0"
           >
             ✕
           </button>
@@ -80,13 +80,13 @@ export function MonitoredRegionManager() {
             onChange={(e) => setInputValue(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && handleAdd()}
             placeholder="City or grid..."
-            className="flex-1 px-2 py-1 rounded bg-void-black/60 border border-white/10 text-xs text-gray-300 placeholder:text-gray-600 outline-none focus:border-nebula-blue/50"
+            className="flex-1 px-2 py-1 rounded bg-void-black/60 border border-su-line/40 text-xs text-su-muted placeholder:text-su-muted outline-none focus:border-nebula-blue/50"
             disabled={isGeocoding}
           />
           <button
             onClick={handleAdd}
             disabled={isGeocoding || !inputValue.trim()}
-            className="px-2 py-1 rounded bg-white/5 text-[10px] text-gray-400 hover:text-white hover:bg-white/10 disabled:opacity-30"
+            className="px-2 py-1 rounded bg-su-line/10 text-[10px] text-su-muted hover:text-su-text hover:bg-su-line/20 disabled:opacity-30"
           >
             {isGeocoding ? "..." : "+"}
           </button>
@@ -94,7 +94,7 @@ export function MonitoredRegionManager() {
       )}
 
       {regions.length === 0 && (
-        <p className="text-[10px] text-gray-700 text-center py-1">
+        <p className="text-[10px] text-su-line text-center py-1">
           Add cities to monitor RIM scores
         </p>
       )}

@@ -13,7 +13,7 @@ function statusConfig(status: SkywarnStatus) {
     case "activated":
       return {
         label: "SKYWARN ACTIVE",
-        color: "bg-alert-red text-white",
+        color: "bg-alert-red text-su-on-accent",
         pulse: true,
       };
     case "possible":
@@ -25,7 +25,7 @@ function statusConfig(status: SkywarnStatus) {
     case "inactive":
       return {
         label: "SKYWARN Inactive",
-        color: "bg-white/5 text-gray-600",
+        color: "bg-su-line/10 text-su-muted",
         pulse: false,
       };
   }

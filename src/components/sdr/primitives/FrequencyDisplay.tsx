@@ -94,23 +94,23 @@ export function FrequencyDisplay({
     <div className={`font-mono tracking-wider ${className}`} style={glowStyle}>
       {segments ? (
         <>
-          <span className={`${s.mhz} font-bold text-white`}>
+          <span className={`${s.mhz} font-bold text-su-text`}>
             {segments.mhz}
           </span>
-          <span className={`${s.dot} text-gray-400 mx-px`}>.</span>
-          <span className={`${s.khz} font-semibold text-white`}>
+          <span className={`${s.dot} text-su-muted mx-px`}>.</span>
+          <span className={`${s.khz} font-semibold text-su-text`}>
             {segments.khz}
           </span>
-          <span className={`${s.dot} text-gray-400 mx-px`}>.</span>
-          <span className={`${s.hz} text-gray-300`}>{segments.hz}</span>
+          <span className={`${s.dot} text-su-muted mx-px`}>.</span>
+          <span className={`${s.hz} text-su-muted`}>{segments.hz}</span>
         </>
       ) : (
-        <span className={`${s.placeholder} font-bold text-gray-600`}>
+        <span className={`${s.placeholder} font-bold text-su-muted`}>
           {"\u2014"}
-          <span className={`${s.dot} text-gray-700 mx-px`}>.</span>
+          <span className={`${s.dot} text-su-line mx-px`}>.</span>
           {"\u2014\u2014\u2014"}
-          <span className={`${s.dot} text-gray-700 mx-px`}>.</span>
-          <span className={`${s.hz} text-gray-700`}>
+          <span className={`${s.dot} text-su-line mx-px`}>.</span>
+          <span className={`${s.hz} text-su-line`}>
             {"\u2014\u2014\u2014"}
           </span>
         </span>

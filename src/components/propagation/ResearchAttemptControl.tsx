@@ -69,7 +69,7 @@ export function ResearchAttemptControl({
           type="button"
           onClick={start}
           disabled={research.startingAttempt}
-          className="flex h-7 w-full items-center justify-center gap-1 rounded-md border border-white/10 bg-white/5 px-2 text-[10px] font-medium text-gray-300 hover:bg-white/10 disabled:opacity-50"
+          className="flex h-7 w-full items-center justify-center gap-1 rounded-md border border-su-line/40 bg-su-line/10 px-2 text-[10px] font-medium text-su-muted hover:bg-su-line/20 disabled:opacity-50"
         >
           <Play className="h-3 w-3" aria-hidden="true" />
           {research.startingAttempt ? "Starting..." : "Start attempt"}
@@ -81,7 +81,7 @@ export function ResearchAttemptControl({
 
   return (
     <div className="mt-2 space-y-1.5">
-      <p className="text-[10px] text-gray-500">Record this attempt</p>
+      <p className="text-[10px] text-su-muted">Record this attempt</p>
       <div className="grid grid-cols-2 gap-1">
         {OUTCOMES.map((outcome) => (
           <button
@@ -89,7 +89,7 @@ export function ResearchAttemptControl({
             type="button"
             onClick={() => complete(outcome.value)}
             disabled={research.completingAttempt}
-            className="h-7 rounded-md border border-white/10 bg-white/5 px-1 text-[10px] text-gray-300 hover:bg-white/10 disabled:opacity-50"
+            className="h-7 rounded-md border border-su-line/40 bg-su-line/10 px-1 text-[10px] text-su-muted hover:bg-su-line/20 disabled:opacity-50"
           >
             {outcome.label}
           </button>
@@ -99,7 +99,7 @@ export function ResearchAttemptControl({
         type="button"
         onClick={() => complete("not_attempted")}
         disabled={research.completingAttempt}
-        className="flex h-6 w-full items-center justify-center gap-1 text-[10px] text-gray-500 hover:text-gray-300 disabled:opacity-50"
+        className="flex h-6 w-full items-center justify-center gap-1 text-[10px] text-su-muted hover:text-su-muted disabled:opacity-50"
       >
         <X className="h-3 w-3" aria-hidden="true" />
         Cancel attempt

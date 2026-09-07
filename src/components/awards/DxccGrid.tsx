@@ -56,7 +56,7 @@ function statusBg(status: SlotStatus): string {
     case "worked_unconfirmed":
       return "bg-caution-yellow/20 border-caution-yellow/40";
     case "needed":
-      return "bg-gray-800/40 border-gray-700/40";
+      return "bg-su-panel/40 border-su-line/40";
   }
 }
 
@@ -67,7 +67,7 @@ function statusText(status: SlotStatus): string {
     case "worked_unconfirmed":
       return "text-caution-yellow";
     case "needed":
-      return "text-gray-500";
+      return "text-su-muted";
   }
 }
 
@@ -81,20 +81,20 @@ interface EntityDetailProps {
 function EntityDetail({ slot, onClose }: EntityDetailProps) {
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-su-panel/60 backdrop-blur-sm"
       onClick={onClose}
       role="dialog"
       aria-modal="true"
       aria-label={`Details for ${slot.name}`}
     >
       <div
-        className="bg-void-black border border-gray-700 rounded-xl p-5 w-full max-w-sm mx-4 shadow-2xl"
+        className="bg-void-black border border-su-line/40 rounded-xl p-5 w-full max-w-sm mx-4 shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between mb-4">
           <div>
-            <h3 className="text-lg font-semibold text-white">{slot.name}</h3>
-            <span className="text-sm text-gray-400">{slot.prefix}</span>
+            <h3 className="text-lg font-semibold text-su-text">{slot.name}</h3>
+            <span className="text-sm text-su-muted">{slot.prefix}</span>
           </div>
           <span
             className={`px-2 py-0.5 rounded text-xs font-medium ${statusBg(slot.status)} ${statusText(slot.status)} border`}
@@ -109,31 +109,31 @@ function EntityDetail({ slot, onClose }: EntityDetailProps) {
 
         <div className="grid grid-cols-2 gap-3 text-sm">
           <div>
-            <span className="text-gray-500">Continent</span>
-            <p className="text-white">{slot.continent}</p>
+            <span className="text-su-muted">Continent</span>
+            <p className="text-su-text">{slot.continent}</p>
           </div>
           <div>
-            <span className="text-gray-500">CQ Zone</span>
-            <p className="text-white">{slot.cqZone}</p>
+            <span className="text-su-muted">CQ Zone</span>
+            <p className="text-su-text">{slot.cqZone}</p>
           </div>
           <div>
-            <span className="text-gray-500">QSOs</span>
-            <p className="text-white">{slot.qsoCount}</p>
+            <span className="text-su-muted">QSOs</span>
+            <p className="text-su-text">{slot.qsoCount}</p>
           </div>
           <div>
-            <span className="text-gray-500">Entity ID</span>
-            <p className="text-white">{slot.entityId}</p>
+            <span className="text-su-muted">Entity ID</span>
+            <p className="text-su-text">{slot.entityId}</p>
           </div>
         </div>
 
         {slot.bands.length > 0 && (
           <div className="mt-3">
-            <span className="text-gray-500 text-sm">Bands</span>
+            <span className="text-su-muted text-sm">Bands</span>
             <div className="flex flex-wrap gap-1 mt-1">
               {slot.bands.map((b) => (
                 <span
                   key={b}
-                  className="px-1.5 py-0.5 rounded bg-gray-800 text-gray-300 text-xs"
+                  className="px-1.5 py-0.5 rounded bg-su-panel text-su-muted text-xs"
                 >
                   {b}
                 </span>
@@ -144,12 +144,12 @@ function EntityDetail({ slot, onClose }: EntityDetailProps) {
 
         {slot.modes.length > 0 && (
           <div className="mt-3">
-            <span className="text-gray-500 text-sm">Modes</span>
+            <span className="text-su-muted text-sm">Modes</span>
             <div className="flex flex-wrap gap-1 mt-1">
               {slot.modes.map((m) => (
                 <span
                   key={m}
-                  className="px-1.5 py-0.5 rounded bg-gray-800 text-gray-300 text-xs"
+                  className="px-1.5 py-0.5 rounded bg-su-panel text-su-muted text-xs"
                 >
                   {m}
                 </span>
@@ -160,7 +160,7 @@ function EntityDetail({ slot, onClose }: EntityDetailProps) {
 
         <button
           onClick={onClose}
-          className="mt-4 w-full py-2 rounded-lg bg-gray-800 text-gray-300 hover:bg-gray-700 transition-colors text-sm"
+          className="mt-4 w-full py-2 rounded-lg bg-su-panel text-su-muted hover:bg-su-input transition-colors text-sm"
         >
           Close
         </button>
@@ -219,28 +219,28 @@ export function DxccGrid({
       <div className="flex flex-wrap items-center gap-4 text-sm">
         <div className="flex items-center gap-1.5">
           <span className="w-3 h-3 rounded-sm bg-signal-green/60" />
-          <span className="text-gray-300">
+          <span className="text-su-muted">
             Confirmed:{" "}
-            <span className="text-white font-medium">{confirmedCount}</span>
+            <span className="text-su-text font-medium">{confirmedCount}</span>
           </span>
         </div>
         <div className="flex items-center gap-1.5">
           <span className="w-3 h-3 rounded-sm bg-caution-yellow/60" />
-          <span className="text-gray-300">
+          <span className="text-su-muted">
             Worked:{" "}
-            <span className="text-white font-medium">
+            <span className="text-su-text font-medium">
               {workedCount - confirmedCount}
             </span>
           </span>
         </div>
         <div className="flex items-center gap-1.5">
-          <span className="w-3 h-3 rounded-sm bg-gray-700" />
-          <span className="text-gray-300">
+          <span className="w-3 h-3 rounded-sm bg-su-input" />
+          <span className="text-su-muted">
             Needed:{" "}
-            <span className="text-white font-medium">{neededCount}</span>
+            <span className="text-su-text font-medium">{neededCount}</span>
           </span>
         </div>
-        <span className="text-gray-500 ml-auto">
+        <span className="text-su-muted ml-auto">
           {workedCount} / {totalEntities} entities
         </span>
       </div>
@@ -252,12 +252,12 @@ export function DxccGrid({
           placeholder="Search entity or prefix..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          className="px-3 py-1.5 rounded-lg bg-gray-800/60 border border-gray-700 text-white text-sm placeholder-gray-500 focus:outline-none focus:border-plasma-orange/50 w-48"
+          className="px-3 py-1.5 rounded-lg bg-su-panel/60 border border-su-line/40 text-su-text text-sm placeholder:text-su-muted/80 focus:outline-none focus:border-plasma-orange/50 w-48"
         />
         <select
           value={continent}
           onChange={(e) => setContinent(e.target.value)}
-          className="px-3 py-1.5 rounded-lg bg-gray-800/60 border border-gray-700 text-white text-sm focus:outline-none focus:border-plasma-orange/50"
+          className="px-3 py-1.5 rounded-lg bg-su-panel/60 border border-su-line/40 text-su-text text-sm focus:outline-none focus:border-plasma-orange/50"
           aria-label="Filter by continent"
         >
           {CONTINENTS.map((c) => (
@@ -271,7 +271,7 @@ export function DxccGrid({
           onChange={(e) =>
             setStatusFilter(e.target.value as SlotStatus | "all")
           }
-          className="px-3 py-1.5 rounded-lg bg-gray-800/60 border border-gray-700 text-white text-sm focus:outline-none focus:border-plasma-orange/50"
+          className="px-3 py-1.5 rounded-lg bg-su-panel/60 border border-su-line/40 text-su-text text-sm focus:outline-none focus:border-plasma-orange/50"
           aria-label="Filter by status"
         >
           {STATUS_OPTIONS.map((opt) => (
@@ -283,7 +283,7 @@ export function DxccGrid({
         <select
           value={bandFilter}
           onChange={(e) => setBandFilter(e.target.value)}
-          className="px-3 py-1.5 rounded-lg bg-gray-800/60 border border-gray-700 text-white text-sm focus:outline-none focus:border-plasma-orange/50"
+          className="px-3 py-1.5 rounded-lg bg-su-panel/60 border border-su-line/40 text-su-text text-sm focus:outline-none focus:border-plasma-orange/50"
           aria-label="Filter by band"
         >
           {BANDS.map((b) => (
@@ -312,7 +312,7 @@ export function DxccGrid({
             >
               {slot.prefix}
             </div>
-            <div className="text-[10px] text-gray-500 truncate leading-tight">
+            <div className="text-[10px] text-su-muted truncate leading-tight">
               {slot.name.length > 12
                 ? slot.name.slice(0, 11) + "\u2026"
                 : slot.name}
@@ -322,7 +322,7 @@ export function DxccGrid({
       </div>
 
       {filteredSlots.length === 0 && (
-        <div className="text-center py-8 text-gray-500 text-sm">
+        <div className="text-center py-8 text-su-muted text-sm">
           No entities match the current filters.
         </div>
       )}

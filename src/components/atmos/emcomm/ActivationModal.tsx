@@ -33,9 +33,9 @@ const LEVELS: { value: ActivationLevel; label: string; color: string }[] = [
 ];
 
 const inputClasses =
-  "w-full bg-void-black/60 border border-white/10 rounded-md px-3 py-2 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-plasma-orange/50 transition-colors";
+  "w-full bg-void-black/60 border border-su-line/40 rounded-md px-3 py-2 text-sm text-su-text placeholder:text-su-muted/80 focus:outline-none focus:border-plasma-orange/50 transition-colors";
 
-const labelClasses = "block text-xs font-medium text-gray-400 mb-1";
+const labelClasses = "block text-xs font-medium text-su-muted mb-1";
 
 export function ActivationModal({ isOpen, onClose }: ActivationModalProps) {
   const activeIncident = useEmcommStore((s) => s.activeIncident);
@@ -154,7 +154,7 @@ export function ActivationModal({ isOpen, onClose }: ActivationModalProps) {
                 className={`px-3 py-2 rounded-md text-xs font-semibold border transition-all ${
                   level === opt.value
                     ? opt.color
-                    : "bg-void-black/30 text-gray-500 border-white/5 hover:border-white/10"
+                    : "bg-void-black/30 text-su-muted border-su-line/20 hover:border-su-line/40"
                 }`}
               >
                 {opt.label}
@@ -167,25 +167,25 @@ export function ActivationModal({ isOpen, onClose }: ActivationModalProps) {
         <div>
           <label className={labelClasses}>Pin Alerts</label>
           {alerts.length === 0 ? (
-            <p className="text-xs text-gray-500 italic">
+            <p className="text-xs text-su-muted italic">
               No active weather alerts
             </p>
           ) : (
-            <div className="max-h-40 overflow-y-auto space-y-1 rounded-md border border-white/5 bg-void-black/30 p-2">
+            <div className="max-h-40 overflow-y-auto space-y-1 rounded-md border border-su-line/20 bg-void-black/30 p-2">
               {alerts.map((alert) => (
                 <label
                   key={alert.id}
-                  className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-white/5 cursor-pointer transition-colors"
+                  className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-su-line/10 cursor-pointer transition-colors"
                 >
                   <input
                     type="checkbox"
                     checked={pinnedIds.has(alert.id)}
                     onChange={() => togglePin(alert.id)}
-                    className="w-3.5 h-3.5 rounded border-white/20 bg-void-black/60 text-plasma-orange focus:ring-0 focus:ring-offset-0"
+                    className="w-3.5 h-3.5 rounded border-su-line/50 bg-void-black/60 text-plasma-orange focus:ring-0 focus:ring-offset-0"
                   />
-                  <span className="text-xs text-white truncate">
+                  <span className="text-xs text-su-text truncate">
                     {alert.event}
-                    <span className="text-gray-500 ml-1">
+                    <span className="text-su-muted ml-1">
                       - {alert.areaDesc}
                     </span>
                   </span>
@@ -199,7 +199,7 @@ export function ActivationModal({ isOpen, onClose }: ActivationModalProps) {
         <div>
           <label className={labelClasses}>Frequency Plan</label>
           {frequencyPlans.length === 0 ? (
-            <p className="text-xs text-gray-500 italic">
+            <p className="text-xs text-su-muted italic">
               No frequency plans configured
             </p>
           ) : (
@@ -235,14 +235,14 @@ export function ActivationModal({ isOpen, onClose }: ActivationModalProps) {
         <div className="flex justify-end gap-3 pt-2">
           <button
             onClick={onClose}
-            className="px-4 py-2 rounded-md text-sm text-gray-400 hover:text-white hover:bg-white/5 transition-colors"
+            className="px-4 py-2 rounded-md text-sm text-su-muted hover:text-su-text hover:bg-su-line/10 transition-colors"
           >
             Cancel
           </button>
           <button
             onClick={handleSubmit}
             disabled={!name.trim()}
-            className="px-5 py-2 rounded-md text-sm font-semibold bg-plasma-orange text-void-black hover:bg-plasma-orange/90 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+            className="px-5 py-2 rounded-md text-sm font-semibold bg-plasma-orange text-su-on-accent hover:bg-plasma-orange/90 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
           >
             {isEditing ? "Update" : "Activate"}
           </button>

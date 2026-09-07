@@ -121,12 +121,12 @@ export function ActivationPanel({ className = "" }: ActivationPanelProps) {
   if (!isActive) {
     return (
       <div
-        className={`rounded-xl bg-panel border border-white/5 p-5 space-y-5 ${className}`}
+        className={`rounded-xl bg-panel border border-su-line/20 p-5 space-y-5 ${className}`}
       >
         {/* Header */}
         <div>
-          <h2 className="text-lg font-bold text-white">Start Activation</h2>
-          <p className="text-sm text-white/50 mt-1">
+          <h2 className="text-lg font-bold text-su-text">Start Activation</h2>
+          <p className="text-sm text-su-text/50 mt-1">
             Select POTA or SOTA, find your park or summit, and start logging.
           </p>
         </div>
@@ -140,7 +140,7 @@ export function ActivationPanel({ className = "" }: ActivationPanelProps) {
                        transition-all duration-150 ${
                          selectedType === "pota"
                            ? "bg-signal-green/20 text-signal-green border-2 border-signal-green/40"
-                           : "bg-space-900 text-white/50 border border-white/10 hover:text-white/70"
+                           : "bg-space-900 text-su-text/50 border border-su-line/40 hover:text-su-text/70"
                        }`}
           >
             POTA
@@ -152,7 +152,7 @@ export function ActivationPanel({ className = "" }: ActivationPanelProps) {
                        transition-all duration-150 ${
                          selectedType === "sota"
                            ? "bg-plasma-orange/20 text-plasma-orange border-2 border-plasma-orange/40"
-                           : "bg-space-900 text-white/50 border border-white/10 hover:text-white/70"
+                           : "bg-space-900 text-su-text/50 border border-su-line/40 hover:text-su-text/70"
                        }`}
           >
             SOTA
@@ -164,18 +164,18 @@ export function ActivationPanel({ className = "" }: ActivationPanelProps) {
 
         {/* Selected park/summit display */}
         {selectedRef && (
-          <div className="flex items-center gap-3 px-4 py-3 rounded-lg bg-space-900 border border-white/10">
+          <div className="flex items-center gap-3 px-4 py-3 rounded-lg bg-space-900 border border-su-line/40">
             <div
               className={`w-2 h-2 rounded-full ${
                 selectedType === "pota" ? "bg-signal-green" : "bg-plasma-orange"
               }`}
             />
             <div className="min-w-0 flex-1">
-              <div className="font-mono font-bold text-white text-sm">
+              <div className="font-mono font-bold text-su-text text-sm">
                 {selectedRef}
               </div>
               {selectedName && (
-                <div className="text-xs text-white/50 truncate">
+                <div className="text-xs text-su-text/50 truncate">
                   {selectedName}
                 </div>
               )}
@@ -192,8 +192,8 @@ export function ActivationPanel({ className = "" }: ActivationPanelProps) {
                      transition-all duration-150
                      disabled:opacity-30 disabled:cursor-not-allowed ${
                        selectedType === "pota"
-                         ? "bg-signal-green text-void-black hover:bg-signal-green/90"
-                         : "bg-plasma-orange text-void-black hover:bg-plasma-orange/90"
+                         ? "bg-signal-green text-su-on-accent hover:bg-signal-green/90"
+                         : "bg-plasma-orange text-su-on-accent hover:bg-plasma-orange/90"
                      }`}
         >
           Start {selectedType.toUpperCase()} Activation
@@ -211,10 +211,10 @@ export function ActivationPanel({ className = "" }: ActivationPanelProps) {
 
   return (
     <div
-      className={`rounded-xl bg-panel border border-white/5 overflow-hidden ${className}`}
+      className={`rounded-xl bg-panel border border-su-line/20 overflow-hidden ${className}`}
     >
       {/* Header bar */}
-      <div className="px-5 py-4 border-b border-white/5">
+      <div className="px-5 py-4 border-b border-su-line/20">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3 min-w-0">
             {/* Type badge */}
@@ -225,18 +225,18 @@ export function ActivationPanel({ className = "" }: ActivationPanelProps) {
             </span>
             {/* Ref and name */}
             <div className="min-w-0">
-              <div className="font-mono font-bold text-white text-sm truncate">
+              <div className="font-mono font-bold text-su-text text-sm truncate">
                 {currentRef}
               </div>
               {activationName && (
-                <div className="text-xs text-white/50 truncate">
+                <div className="text-xs text-su-text/50 truncate">
                   {activationName}
                 </div>
               )}
             </div>
           </div>
           {/* Timer */}
-          <div className="flex-shrink-0 font-mono text-white/70 text-sm tabular-nums">
+          <div className="flex-shrink-0 font-mono text-su-text/70 text-sm tabular-nums">
             {formatElapsed(elapsedTime)}
           </div>
         </div>
@@ -309,7 +309,7 @@ export function ActivationPanel({ className = "" }: ActivationPanelProps) {
                 type="button"
                 onClick={handleEnd}
                 className="flex-1 h-11 rounded-lg font-bold text-sm
-                           bg-alert-red text-white
+                           bg-alert-red text-su-on-accent
                            hover:bg-alert-red/90 active:scale-[0.98]
                            transition-all duration-150"
               >
@@ -319,8 +319,8 @@ export function ActivationPanel({ className = "" }: ActivationPanelProps) {
                 type="button"
                 onClick={() => setShowEndConfirm(false)}
                 className="h-11 px-3 rounded-lg text-sm
-                           bg-space-900 text-white/60 border border-white/10
-                           hover:text-white/80
+                           bg-space-900 text-su-text/60 border border-su-line/40
+                           hover:text-su-text/80
                            transition-all duration-150"
               >
                 Cancel

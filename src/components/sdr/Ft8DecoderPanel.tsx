@@ -93,10 +93,10 @@ export function Ft8DecoderPanel({
   }, [enabled, cycleProgress, stats.cyclesCompleted, stats.lastCycleDecodes]);
 
   return (
-    <div className="rounded border border-white/10 bg-void-black/60">
+    <div className="rounded border border-su-line/40 bg-void-black/60">
       {/* Header row: title + ON/OFF toggle */}
       <div className="flex items-center justify-between px-3 py-2">
-        <span className="text-[11px] font-semibold uppercase tracking-wider text-white/50">
+        <span className="text-[11px] font-semibold uppercase tracking-wider text-su-text/50">
           Decoder
         </span>
         <button
@@ -104,7 +104,7 @@ export function Ft8DecoderPanel({
           className={`rounded px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wide transition-colors ${
             enabled
               ? "bg-signal-green/20 text-signal-green ring-1 ring-signal-green/40"
-              : "bg-white/5 text-white/40 ring-1 ring-white/10 hover:bg-white/10"
+              : "bg-su-line/10 text-su-text/40 ring-1 ring-su-line/40 hover:bg-su-line/20"
           }`}
         >
           {enabled ? "ON" : "OFF"}
@@ -130,7 +130,7 @@ export function Ft8DecoderPanel({
                 className={`flex-1 rounded py-1 text-[11px] font-semibold tracking-wide transition-colors ${
                   mode === m
                     ? "bg-cosmic-cyan/20 text-cosmic-cyan ring-1 ring-cosmic-cyan/40"
-                    : "bg-white/5 text-white/30 hover:bg-white/10 hover:text-white/50"
+                    : "bg-su-line/10 text-su-text/30 hover:bg-su-line/20 hover:text-su-text/50"
                 }`}
               >
                 {m}
@@ -191,11 +191,11 @@ export function Ft8DecoderPanel({
 
 function StatCell({ label, value }: { label: string; value: number }) {
   return (
-    <div className="rounded bg-white/[0.03] px-1.5 py-1">
-      <div className="text-[13px] font-mono font-semibold tabular-nums text-white/80">
+    <div className="rounded bg-su-line/10 px-1.5 py-1">
+      <div className="text-[13px] font-mono font-semibold tabular-nums text-su-text/80">
         {value.toLocaleString()}
       </div>
-      <div className="text-[9px] uppercase tracking-wider text-white/30">
+      <div className="text-[9px] uppercase tracking-wider text-su-text/30">
         {label}
       </div>
     </div>

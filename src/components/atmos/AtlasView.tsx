@@ -120,9 +120,9 @@ export function AtlasView() {
       )}
       {/* Radar timestamp badge (latest frame indicator) */}
       {layerVisibility.radar && (
-        <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-10 flex items-center gap-2 bg-void-black/80 backdrop-blur-sm border border-white/10 rounded-full px-3 py-1.5">
+        <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-10 flex items-center gap-2 bg-void-black/80 backdrop-blur-sm border border-su-line/40 rounded-full px-3 py-1.5">
           <span className="w-2 h-2 rounded-full bg-signal-green animate-pulse" />
-          <span className="text-[10px] font-mono text-gray-400">
+          <span className="text-[10px] font-mono text-su-muted">
             RADAR LIVE
           </span>
         </div>

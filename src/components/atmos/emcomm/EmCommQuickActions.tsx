@@ -37,7 +37,7 @@ export function EmCommQuickActions() {
         <button
           type="button"
           onClick={scrollToSitRep}
-          className="px-3 py-1.5 rounded-full text-[11px] font-mono font-bold tracking-wide bg-deep-space/80 text-gray-200 hover:text-white border border-white/10 hover:border-plasma-orange/40 backdrop-blur-sm transition-colors"
+          className="px-3 py-1.5 rounded-full text-[11px] font-mono font-bold tracking-wide bg-deep-space/80 text-su-text hover:text-su-text border border-su-line/40 hover:border-plasma-orange/40 backdrop-blur-sm transition-colors"
         >
           SitRep
         </button>
@@ -45,7 +45,7 @@ export function EmCommQuickActions() {
         <button
           type="button"
           onClick={() => setIcsOpen(true)}
-          className="px-3 py-1.5 rounded-full text-[11px] font-mono font-bold tracking-wide bg-deep-space/80 text-gray-200 hover:text-white border border-white/10 hover:border-plasma-orange/40 backdrop-blur-sm transition-colors"
+          className="px-3 py-1.5 rounded-full text-[11px] font-mono font-bold tracking-wide bg-deep-space/80 text-su-text hover:text-su-text border border-su-line/40 hover:border-plasma-orange/40 backdrop-blur-sm transition-colors"
         >
           ICS-213
         </button>

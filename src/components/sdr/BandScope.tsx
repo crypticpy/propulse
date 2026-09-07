@@ -55,7 +55,7 @@ export function BandScope({
   if (!range) {
     return (
       <div
-        className={`w-full h-full rounded-lg border border-white/10 bg-black/40 flex items-center justify-center text-sm text-gray-500 ${className}`}
+        className={`w-full h-full rounded-lg border border-su-line/40 bg-su-input flex items-center justify-center text-sm text-su-muted ${className}`}
       >
         Band scope unavailable (unknown band).
       </div>
@@ -68,7 +68,7 @@ export function BandScope({
 
   return (
     <div
-      className={`w-full h-full rounded-lg border border-white/10 bg-black/40 relative overflow-hidden ${className}`}
+      className={`w-full h-full rounded-lg border border-su-line/40 bg-su-input relative overflow-hidden ${className}`}
       onClick={(e) => {
         if (!onPickFrequencyHz) return;
         const rect = (e.currentTarget as HTMLDivElement).getBoundingClientRect();
@@ -79,11 +79,11 @@ export function BandScope({
       }}
     >
       {/* Axis */}
-      <div className="absolute left-2 right-2 bottom-1 flex justify-between text-[10px] text-gray-300 font-mono pointer-events-none">
+      <div className="absolute left-2 right-2 bottom-1 flex justify-between text-[10px] text-su-muted font-mono pointer-events-none">
         <span>
           {band} {formatMhz(minHz)}
         </span>
-        <span className="text-gray-200">{formatMhz(frequencyHz)}</span>
+        <span className="text-su-text">{formatMhz(frequencyHz)}</span>
         <span>{formatMhz(maxHz)}</span>
       </div>
 
@@ -105,7 +105,7 @@ export function BandScope({
             style={{ left: `${Math.max(0, Math.min(1, t)) * 100}%` }}
           >
             <div className="w-px h-full bg-plasma-orange/60" />
-            <div className="absolute top-1 left-0 -translate-x-1/2 px-1 py-0.5 rounded text-[10px] bg-black/60 border border-white/10 text-plasma-orange">
+            <div className="absolute top-1 left-0 -translate-x-1/2 px-1 py-0.5 rounded text-[10px] bg-su-panel/60 border border-su-line/40 text-plasma-orange">
               {s.label}
             </div>
           </div>

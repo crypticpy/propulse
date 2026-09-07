@@ -183,7 +183,7 @@ export function EqBandPanel({
     : "bg-cosmic-cyan/20 border-cosmic-cyan/40 text-cosmic-cyan";
 
   const inactiveClasses =
-    "bg-white/5 border-white/10 text-gray-400 hover:bg-white/10 hover:text-gray-200";
+    "bg-su-line/10 border-su-line/40 text-su-muted hover:bg-su-line/20 hover:text-su-text";
 
   // ─── Render ───────────────────────────────────────────────────────────────
 
@@ -199,7 +199,7 @@ export function EqBandPanel({
         width: PANEL_WIDTH,
         zIndex: 9999,
       }}
-      className="bg-gray-900/95 backdrop-blur-sm border border-white/10
+      className="bg-su-canvas/95 backdrop-blur-sm border border-su-line/40
         rounded-lg shadow-xl shadow-black/50 select-none"
     >
       {/* Filter type selector */}
@@ -219,7 +219,7 @@ export function EqBandPanel({
         </div>
       </div>
 
-      <div className="border-t border-white/10" />
+      <div className="border-t border-su-line/40" />
 
       {/* Rotary knobs row */}
       <div className="flex items-center justify-around px-2.5 py-3">
@@ -259,7 +259,7 @@ export function EqBandPanel({
         />
       </div>
 
-      <div className="border-t border-white/10" />
+      <div className="border-t border-su-line/40" />
 
       {/* Slope selector */}
       <div className="px-2.5 py-2">
@@ -275,11 +275,11 @@ export function EqBandPanel({
               {s}
             </button>
           ))}
-          <span className="ml-1 text-[10px] text-gray-500">dB/oct</span>
+          <span className="ml-1 text-[10px] text-su-muted">dB/oct</span>
         </div>
       </div>
 
-      <div className="border-t border-white/10" />
+      <div className="border-t border-su-line/40" />
 
       {/* Action row */}
       <div className="flex gap-1.5 px-2.5 py-2">
@@ -288,7 +288,7 @@ export function EqBandPanel({
           className={`flex-1 px-2 py-1.5 text-[11px] font-semibold rounded border transition-colors ${
             band.enabled
               ? "bg-signal-green/15 border-signal-green/30 text-signal-green hover:bg-signal-green/25"
-              : "bg-white/5 border-white/10 text-gray-500 hover:bg-white/10 hover:text-gray-300"
+              : "bg-su-line/10 border-su-line/40 text-su-muted hover:bg-su-line/20 hover:text-su-muted"
           }`}
         >
           {band.enabled ? "Disable" : "Enable"}

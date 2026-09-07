@@ -14,7 +14,7 @@ not a claim. Do not reserve all batches for one agent.
 
 | Lane | Responsibility | Boundary |
 | --- | --- | --- |
-| Codex / HamClock operating views | Current implementation: #288 spot review follow-up; #289 and B18 in review; B10/#206 widget configuration in review; coordinated spot display #288 in review; PSK/WSJT-X #287, Activations #285, shared tuning #286 and B24 #232 in review | One active implementation item; retain review and acceptance follow-up |
+| Codex / HamClock operating views | No active implementation claim; #288 spot review follow-up, #289 and B18 in review; B10/#206 widget configuration in review; coordinated spot display #288 in review; PSK/WSJT-X #287, Activations #285, shared tuning #286 and B24 #232 in review | One active implementation item; retain review and acceptance follow-up |
 | Existing modeling / 3D agent | NowCast training, inference, evaluation, model activation, and 3D globe work, per owner direction | This plan does not assign or change that agent's existing cards |
 | Additional contributor | Claim an unclaimed Ready item; B10/#206 is now claimed | Check current board, issue comments, and changed files before starting |
 | Weather | Deferred until operating work is complete | Inspect OpenWxGlobe before designing new weather adapters or layers |
@@ -420,3 +420,32 @@ Next: anchor later cluster pages to report IDs, reconcile selected spots with
 the rendered window, and keep keyboard focus on the same report when live rows
 are prepended. Then complete browser/full verification and publish the bounded
 follow-up. Weather remains after these operating corrections.
+
+
+### Spot review follow-up published — #505
+
+[#505](https://github.com/crypticpy/propulse/pull/505), commit `86bb6dc3`, is a
+14-file follow-up stacked on #478. All activation and bridge corrections above
+are included. Later report pages and keyboard focus now track spot IDs; initial
+and external selections are revealed, while manual paging remains available.
+Regressions reproduce the former failures; 38 focused tests pass. Full required
+pre-push verification passed: 392 app test files / 3,429 tests, Python/archive,
+bridge/daemon, lint, production build and bundle budgets. Browser fixtures pass
+in Pulse, Classic and Brass, including 1080p/4K resize, deep selection, live
+prepend, no duplicate Next rows and Escape focus return. No page errors occurred.
+
+#288 returns to In review / Codex. Parent review findings on #417, #418, #474 and
+#478 point to this follow-up; the parent PRs require their dependent stack before
+acceptance. Evidence: `docs/designs/hamclock-spot-review-corrections.md` on #505.
+Owned server 5181 (`hamclock-spot-review`, session
+`2072480c-4c38-4bf5-aedb-87ead6d17987`) was stopped. Its stale claim was removed
+only after verifying the recorded PID was absent and both loopback binds were
+free. User settings preview 5182 remains running.
+
+Fresh full-board audit (107 items): B11/#207, B12/#208 and B13/#209 remain
+Backlog/Unclaimed; B10 PR #480 is still open, so B11's prerequisite is not merged.
+#250 remains another contributor's report-polish work. Ready modeling and design
+system cards are outside this HamClock lane. No additional batch was claimed.
+The read-only [Open WX Globe reuse audit](hamclock-openwx-reuse-audit.md) records
+specific utility/contracts candidates and their limitations for later weather
+work. No Open WX Globe source or services were changed. Weather stays last.

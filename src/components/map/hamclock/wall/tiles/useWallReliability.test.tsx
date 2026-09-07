@@ -15,8 +15,8 @@ vi.mock("@/hooks/useActiveLocation", () => ({
   useActiveLocation: () => ({ lat: 30.27, lon: -97.74 }),
 }));
 vi.mock("@/hooks/useSolarData", () => ({
-  useKIndex: () => ({ data: [{ kp_index: 2 }], isLoading: false }),
-  useSolarFlux: () => ({ data: [{ flux: 140 }], isLoading: false }),
+  useKIndex: () => ({ data: [{ kp_index: 2, time_tag: "2026-09-05T18:00:00Z" }], isLoading: false }),
+  useSolarFlux: () => ({ data: [{ flux: 140, time_tag: "2026-09-05T17:00:00Z" }], isLoading: false }),
 }));
 vi.mock("@/stores/mapStore", () => ({
   useMapStore: (selector: (state: unknown) => unknown) =>
@@ -77,6 +77,10 @@ describe("useWallReliability", () => {
     const { result } = renderHook(() => useWallReliability());
 
     expect(result.current.status).toBe("ready");
+    expect(result.current.inputs).toMatchObject({ powerWatts: 100, antennaType: "dipole", noiseEnvironment: "residential", kp: 2, sfi: 140 });
+    expect(result.current.inputs.distanceKm).toBeGreaterThan(10000);
+    expect(result.current.inputs.modeThresholdDb).toBeLessThan(0);
+    expect(result.current.updatedAt).toBe(Date.parse("2026-09-05T17:00:00Z"));
     expect(result.current.hour).toBe(20);
     expect(result.current.hourIndex).toBe(
       hourIndexOf("2026-09-05T20:00:00.000Z"),

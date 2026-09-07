@@ -35,3 +35,25 @@ Lint/typecheck/production build and required publish checks validate the final
 revision. No rendered UI changes or application/hardware servers in this slice;
 the list integration will receive its own browser verification. No collector,
 modeling or renderer internals changed.
+
+
+## Production contract check — 2026-09-07
+
+PR #576 merged as `ba2a0568`. The exact production deployment reached READY on
+`propulse.cloud`. One anonymous request with `windowMinutes=120&limit=10` returned
+HTTP 200, source `dxcluster`, status `ok`, windowMinutes 120, staleAfterSeconds
+1800 and ten reports. Observation time was 20:09:00 UTC and retrieval time
+20:10:28.974 UTC. This establishes the deployed query/metadata contract and an
+available bounded sample, not complete two-hour history or the purge schedule.
+
+The optional authenticated retention audit returned HTTP 401. Automatic approval
+review rejected further Keychain inspection as credential probing after that
+failure; inspection stopped without another credential path or mutation. The
+repository migration defines a direct `spot_history_live` view, two-hour table
+retention and job `spot_history_two_hour_window` at `*/15 * * * *`. Production
+cron configuration remains unverified.
+
+Final publication gates passed 426 app files / 3,713 tests, plus the normal
+station harness, bridge/daemon, lint, build and bundle checks. #473 is closed as
+superseded. The strict feed adapter also supports the independent bridge fix's
+distinction between a failed REST request and a successful empty response.

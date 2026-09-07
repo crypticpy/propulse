@@ -730,3 +730,43 @@ Read-only fallback audit: the owned collector subscribes to the sampled `pskr/fi
 Reliability #570 merged as `217a5b46` (13 files) and Forecast #571 as `5f2ae261` (10 files). The final report stack passed 424 app files / 3,649 tests and all normal publication gates. Final browser matrices cover 24 cases per report across target/QTH, three themes and 1080p/4K, plus six paired Reliability tile-row checks. Both reports preserve selected band, hour and tab when pinned; screenshots are included. The two owned B18 dev sessions (5197/5198) were stopped and their exact stale claims removed after process/listener verification. User previews 5181/5182 and integration 5186 remain untouched.
 
 Old #494/#502 are superseded and closed. HW-58/HW-59 now move from Not started to Partial in both registers; totals are 47 delivered, 7 partial and 19 not started. Historical model/observed series, hop count, a horizon-aware FutureCast scorer/response contract and physical acceptance remain open. FutureCast active=[] and zero future-model requests are preserved. The remaining shared DX bridge ingestion/timestamp slice is being completed under the explicit #288/#514 file handoff; view runtime and model/3D work remain with their current owners.
+
+
+### DX source/API prerequisite — 2026-09-07
+
+#576 merged as `ba2a0568`, replacing the old #473 stack with eleven source/API
+files. The strict feed adapter preserves failures and validates source/window
+metadata; DX alone adds a bounded 120-minute sample window. Legacy array wrappers
+remain available, PSK/RBN stay at 15/30/60 minutes, and source freshness remains
+30 minutes. Full publication checks passed 426 app files / 3,713 tests. The
+production 120-minute anonymous contract check returned HTTP 200 with matching
+metadata and ten reports; detailed evidence and the still-unverified production
+retention job are recorded in [the source contract](hamclock-cluster-history.md).
+
+Root integration review changed release order: the API prerequisite precedes the
+bridge fix because the legacy helper converted REST failures to empty arrays.
+The bridge hook must use the strict adapter before it can safely distinguish
+valid-empty data from an outage. Broader #475 source metadata/window-selection
+publication still needs the #514 store handoff; world clocks and cluster/band
+configuration retain their scoped-widget/settings dependencies. Weather remains
+last and no broader batch is claimed by this release.
+
+
+### Shared bridge source released — 2026-09-07
+
+#577 merged as `996ec6af` on the strict #576 API adapter. Every transport message
+is ingested, shared snapshots are validated/deduplicated/bounded, quiet bridge
+rows expire, and the permitted 60-second bridge clock skew is consistent. Late
+REST results cannot overwrite bridge data; failed REST requests preserve the
+last good snapshot, while genuine empty results clear it. Final checks passed
+56 focused tests and 428 app files / 3,726 tests plus normal release gates.
+The actual tile/report browser smoke passed with fresh, skewed, invalid and
+expired fixtures; its temporary fixture and exact owned server were removed.
+
+#478 and #505 are closed as superseded: paging/selection landed through #557,
+activation lifecycle through #562, and bridge behavior through #577. The shared
+source hook boundary is released for the scoped-runtime owner to consume.
+Remaining #475 window-selection/full metadata publication and B11 settings must
+coordinate with that owner. Physical bridge operation, authenticated two-device
+contact sync, PSK Reporter production access (403), B18 model/source contracts
+and production retention-job verification remain explicit acceptance gates.

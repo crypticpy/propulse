@@ -37,3 +37,13 @@ from #505 onto current main without importing its obsolete stacked base.
 - `npm run lint` and `npm run build` passed.
 - Physical bridge acceptance remains a follow-up; validation did not start
   radio or bridge hardware.
+
+
+## Release
+
+Merged as #577 (`996ec6af`) after strict source/API prerequisite #576. Final
+normal publication verification passed 428 app test files / 3,726 tests plus
+station harness, bridge/daemon, lint, build and bundle checks. Old #478/#505 are
+superseded; physical bridge acceptance remains on #288. The hook boundary is
+released to #514 for scoped-runtime adaptation without changing source-domain
+ownership.

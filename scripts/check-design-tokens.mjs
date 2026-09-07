@@ -16,7 +16,27 @@ import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join, relative, extname } from "node:path";
 
 /** Directories (repo-relative) that must be free of raw white/grey colours. */
-const SCOPE = ["src/components/station-ui"];
+const SCOPE = [
+  "src/components/station-ui",
+  "src/pages/SolarPulse.tsx",
+  // DS-03 Solar Pulse retheme: only the components actually migrated to
+  // `su-` tokens are scoped here. Several sibling files under
+  // src/components/solar/ (BandConditions.tsx, BandRow.tsx, MetricCard.tsx,
+  // PrimaryMetrics.tsx, PropagationIndex.tsx, SolarHandoffNotice.tsx, and
+  // most of modals/) are legacy/unreached code kept out of this PR's 15-file
+  // budget — see docs/designs/design-system/README.md for the follow-up.
+  "src/components/solar/WidgetShell.tsx",
+  "src/components/solar/SolarDisclosure.tsx",
+  "src/components/solar/SolarBriefingCard.tsx",
+  "src/components/solar/SolarOperatingActions.tsx",
+  "src/components/solar/SolarImageCard.tsx",
+  "src/components/solar/SolarMiniChart.tsx",
+  "src/components/solar/SolarSeriesChart.tsx",
+  "src/components/solar/SolarForecastPanel.tsx",
+  "src/components/solar/SolarAnimationPlayer.tsx",
+  "src/components/solar/SolarImageDetail.tsx",
+  "src/components/solar/modals/BandConditionsModal.tsx",
+];
 
 const CODE_EXTENSIONS = new Set([".ts", ".tsx", ".js", ".jsx"]);
 const STYLE_EXTENSIONS = new Set([".css"]);

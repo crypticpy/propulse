@@ -62,24 +62,24 @@ export function SolarImageDetail({
 
   return (
     <div>
-      <div className="relative min-h-64 overflow-hidden rounded-2xl bg-black/35 sm:min-h-96">
+      <div className="relative min-h-64 overflow-hidden rounded-2xl bg-su-input sm:min-h-96">
         {(state === "loading" || state === "retrying") && (
           <div className="absolute inset-0 flex items-center justify-center" role="status">
-            <span className="rounded-full border border-white/10 bg-black/50 px-3 py-1.5 text-xs text-slate-300">
+            <span className="rounded-full border border-su-line/40 bg-su-panel/90 px-3 py-1.5 text-xs text-su-muted">
               {state === "retrying" ? "Retrying full image…" : "Loading full image…"}
             </span>
           </div>
         )}
         {state === "error" && (
           <div className="absolute inset-0 z-10 flex flex-col items-center justify-center px-6 text-center" role="alert">
-            <p className="text-sm font-semibold text-slate-100">Full image temporarily unavailable</p>
-            <p className="mt-1 max-w-md text-xs leading-5 text-slate-400">
+            <p className="text-sm font-semibold text-su-text">Full image temporarily unavailable</p>
+            <p className="mt-1 max-w-md text-xs leading-5 text-su-muted">
               The surrounding widget remains usable, and automatic recovery is active.
             </p>
             <button
               type="button"
               onClick={retry}
-              className="mt-4 min-h-11 rounded-xl border border-white/10 bg-white/5 px-4 text-sm text-white hover:bg-white/10"
+              className="mt-4 min-h-11 rounded-xl border border-su-line/40 bg-su-input px-4 text-sm text-su-text hover:bg-su-line/20"
             >
               Retry now
             </button>
@@ -87,14 +87,14 @@ export function SolarImageDetail({
         )}
         {hardExpired && (
           <div className="absolute inset-0 z-10 flex flex-col items-center justify-center px-6 text-center" role="alert">
-            <p className="text-sm font-semibold text-slate-100">Image is too old to use</p>
-            <p className="mt-1 max-w-md text-xs leading-5 text-slate-400">
+            <p className="text-sm font-semibold text-su-text">Image is too old to use</p>
+            <p className="mt-1 max-w-md text-xs leading-5 text-su-muted">
               The last published image passed this product’s approved usability limit.
             </p>
             <button
               type="button"
               onClick={retry}
-              className="mt-4 min-h-11 rounded-xl border border-white/10 bg-white/5 px-4 text-sm text-white hover:bg-white/10"
+              className="mt-4 min-h-11 rounded-xl border border-su-line/40 bg-su-input px-4 text-sm text-su-text hover:bg-su-line/20"
             >
               Check again
             </button>
@@ -139,7 +139,7 @@ export function SolarImageDetail({
           />
         )}
       </div>
-      <div className="mt-4 flex flex-wrap items-center justify-between gap-3 text-sm text-slate-400">
+      <div className="mt-4 flex flex-wrap items-center justify-between gap-3 text-sm text-su-muted">
         <span>
           {Number.isFinite(observedTime)
             ? `Image time ${new Date(observedTime).toLocaleString(undefined, { timeZone: "UTC", month: "short", day: "numeric", hour: "2-digit", minute: "2-digit", timeZoneName: "short" })}`
@@ -154,7 +154,7 @@ export function SolarImageDetail({
           href={product.sourceUrl}
           target="_blank"
           rel="noreferrer"
-          className="rounded text-cyan-300 underline decoration-cyan-300/30 underline-offset-2 hover:text-cyan-200"
+          className="rounded text-su-info underline decoration-su-info/40 underline-offset-2 hover:text-su-text"
         >
           View source at {product.provider}
         </a>

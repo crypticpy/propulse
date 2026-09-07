@@ -57,3 +57,20 @@ it("does not capture after an account change while waiting for the original jour
   expect(port.getItem).not.toHaveBeenCalled();
   expect(await library.pending()).toEqual([]);
 });
+
+it.each(["local", "account"] as const)("atomically imports named profiles with the four %s family views", async (mode) => {
+  const library = make();
+  const entries: Record<string, unknown> = {
+    "propulse-settings": { version: 37, state: { spotAge: { maxAgeMinutes: 7 } } },
+    "propulse-custom-profiles": [{ id: "my-ssb", name: "My SSB", spotFilters: { bands: ["20m"], modes: ["USB"] } }],
+  };
+  const local = { getItem: vi.fn((key: string) => key in entries ? JSON.stringify(entries[key]) : null) };
+  const result = await migrateLegacyFromStorage(library, { local, session: { getItem: () => null } }, { ownerId: "owner-a", mode }, lifecycle());
+  expect(result.status).toBe("migrated");
+  const journal = await library.legacyMigration("device");
+  expect(journal?.plan.presets[0]).toMatchObject({ id: "my-ssb", kind: "display", config: { spots: { filters: { maxAgeMinutes: 7, modes: { modes: ["SSB"] } } } } });
+  expect(await library.list()).toHaveLength(mode === "local" ? 5 : 0);
+  expect(await library.pending()).toHaveLength(mode === "account" ? 5 : 0);
+  local.getItem.mockImplementation(() => { throw new Error("Must reuse sealed journal"); });
+  expect((await migrateLegacyFromStorage(library, { local, session: { getItem: () => null } }, { ownerId: "owner-a", mode }, lifecycle())).status).toBe("existing");
+});

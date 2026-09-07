@@ -259,3 +259,11 @@ Persisted Pro panel layout entries own their collapse state; generic panel state
 fills only missing entries. Invalid scene duration/transition still aborts the
 atomic import rather than silently changing a saved playlist; originals remain
 available for explicit recovery.
+
+Named operating profiles now use the accepted preset adapter by default during
+capture conversion. Each legacy ID becomes one complete display recipe, retaining
+its presentation and captured Spots & Paths baseline with only explicit legacy
+band/mode overrides. Unsupported legacy fields remain in backup and generate
+omission warnings in the migration plan. Malformed identities or filters abort
+before the atomic journal transaction. An explicitly supplied conversion adapter
+still takes precedence for callers that require a different import policy.

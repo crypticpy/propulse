@@ -1295,7 +1295,7 @@ export function PropSphere() {
                           onClick={() => setShowShareModal(true)}
                           className="group flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg
                                    bg-su-panel/90 backdrop-blur-md border border-su-line/40
-                                   hover:border-cosmic-cyan/50 hover:bg-su-panel/70
+                                   hover:border-cosmic-cyan/50 hover:bg-su-panel/95
                                    transition-all duration-200"
                           title="Share this view"
                         >

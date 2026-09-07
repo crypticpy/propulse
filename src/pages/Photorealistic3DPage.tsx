@@ -49,7 +49,7 @@ function PhotorealisticChrome({ label, onExit }: PhotorealisticChromeProps) {
       <button
         type="button"
         onClick={onExit}
-        className="absolute top-3 right-3 z-20 rounded-lg border border-su-line/50 bg-su-panel/90 px-3 py-2 text-xs text-su-muted hover:bg-su-line/20 hover:text-su-text"
+        className="absolute top-3 right-3 z-20 rounded-lg border border-su-line/50 bg-su-panel/90 px-3 py-2 text-xs text-su-muted hover:bg-su-panel/95 hover:text-su-text"
       >
         Exit to PropSphere
       </button>
@@ -237,11 +237,11 @@ export default function Photorealistic3DPage() {
         </>
       ) : apiKey !== undefined ? (
         <div className="absolute top-16 right-3 z-20 flex max-w-sm flex-col items-end gap-2">
-          <span className="rounded bg-su-panel/60 px-2 py-1 text-[10px] text-caution-amber">
+          <span className="rounded bg-su-panel/90 px-2 py-1 text-[10px] text-caution-amber">
             {fallbackBanner}
           </span>
           {keyError && (
-            <span className="rounded bg-su-panel/60 px-2 py-1 text-[10px] text-su-muted">
+            <span className="rounded bg-su-panel/90 px-2 py-1 text-[10px] text-su-muted">
               {keyError}
             </span>
           )}

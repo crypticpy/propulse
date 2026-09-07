@@ -41,8 +41,8 @@ export function ToggleSwitch({
         >
           <span
             className={`
-              absolute top-1 left-1 w-4 h-4 rounded-full bg-su-text transition-transform
-              ${checked ? "translate-x-4" : "translate-x-0"}
+              absolute top-1 left-1 w-4 h-4 rounded-full transition-transform
+              ${checked ? "bg-su-on-accent translate-x-4" : "bg-su-text translate-x-0"}
             `}
           />
         </button>

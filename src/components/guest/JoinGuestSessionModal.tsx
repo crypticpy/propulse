@@ -183,6 +183,7 @@ export function JoinGuestSessionModal({
 
       {/* Modal */}
       <Card
+        surface="dialog"
         className="relative z-10 w-full max-w-md p-6 max-h-[calc(100dvh-2rem)] overflow-y-auto"
         animate
       >

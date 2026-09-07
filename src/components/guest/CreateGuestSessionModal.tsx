@@ -88,6 +88,7 @@ export function CreateGuestSessionModal({
 
       {/* Modal */}
       <Card
+        surface="dialog"
         className="relative z-10 flex w-full max-w-md flex-col p-6 max-h-[calc(100dvh-2rem)]"
         animate
       >

@@ -318,7 +318,7 @@ export default function MapExplorerPage() {
       <div ref={containerRef} className="absolute inset-0" />
 
       <div className="pointer-events-none absolute top-3 right-3 left-3 z-20 flex flex-wrap items-start justify-between gap-3">
-        <div className="pointer-events-auto flex max-w-full flex-wrap items-center gap-2 rounded-xl border border-su-line/50 bg-void-black/85 p-2 shadow-xl backdrop-blur-md">
+        <div className="pointer-events-auto flex max-w-full flex-wrap items-center gap-2 rounded-xl border border-su-line/50 bg-su-panel/90 p-2 shadow-xl backdrop-blur-md">
           <LayoutModeDropdown activeDestination="explorer" />
           <div className="h-6 w-px bg-su-line/20" />
           {(["satellite", "light", "dark", "contrast"] as const).map(
@@ -339,7 +339,7 @@ export default function MapExplorerPage() {
           )}
         </div>
 
-        <div className="pointer-events-auto flex max-w-full flex-wrap items-center gap-1 rounded-xl border border-su-line/50 bg-void-black/85 p-2 shadow-xl backdrop-blur-md">
+        <div className="pointer-events-auto flex max-w-full flex-wrap items-center gap-1 rounded-xl border border-su-line/50 bg-su-panel/90 p-2 shadow-xl backdrop-blur-md">
           {DISPLAY_QUALITY_OPTIONS.map((option) => (
             <button
               key={option.id}
@@ -359,7 +359,7 @@ export default function MapExplorerPage() {
       </div>
 
       <div className="pointer-events-none absolute bottom-3 left-3 z-20 flex max-w-[calc(100%-11rem)] flex-col gap-2">
-        <div className="pointer-events-auto flex flex-wrap gap-1.5 rounded-xl border border-su-line/40 bg-void-black/80 p-2 backdrop-blur-md">
+        <div className="pointer-events-auto flex flex-wrap gap-1.5 rounded-xl border border-su-line/40 bg-su-panel/90 p-2 backdrop-blur-md">
           {REGIONS.map((region) => (
             <button
               key={region.label}
@@ -427,7 +427,7 @@ export default function MapExplorerPage() {
       <button
         type="button"
         onClick={exit}
-        className="absolute right-14 bottom-3 z-20 rounded-lg border border-su-line/50 bg-void-black/80 px-3 py-2 text-xs text-su-muted hover:bg-su-line/20 hover:text-su-text"
+        className="absolute right-14 bottom-3 z-20 rounded-lg border border-su-line/50 bg-su-panel/90 px-3 py-2 text-xs text-su-muted hover:bg-su-panel/95 hover:text-su-text"
       >
         Return to PropSphere
       </button>

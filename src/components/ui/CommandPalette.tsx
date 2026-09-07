@@ -687,7 +687,7 @@ export function CommandPalette({
 
       {/* Modal */}
       <div
-        className="relative z-10 w-full max-w-[32rem] mt-[20vh] mx-4 bg-su-line/10 backdrop-blur-md border border-su-line/40 rounded-2xl overflow-hidden shadow-2xl animate-in fade-in zoom-in-95"
+        className="relative z-10 w-full max-w-[32rem] mt-[20vh] mx-4 bg-su-panel/95 backdrop-blur-md border border-su-line/40 rounded-2xl overflow-hidden shadow-2xl animate-in fade-in zoom-in-95"
         role="dialog"
         aria-label="Command palette"
         aria-modal="true"

@@ -227,7 +227,7 @@ export function ShortcutsHelpModal({
       />
 
       {/* Modal card */}
-      <div className="relative z-10 w-full max-w-[36rem] max-h-[80vh] flex flex-col bg-su-line/10 backdrop-blur-md border border-su-line/40 rounded-2xl shadow-2xl">
+      <div className="relative z-10 w-full max-w-[36rem] max-h-[80vh] flex flex-col bg-su-panel/95 backdrop-blur-md border border-su-line/40 rounded-2xl shadow-2xl">
         {/* Header */}
         <div className="flex items-start justify-between p-6 pb-0">
           <div>

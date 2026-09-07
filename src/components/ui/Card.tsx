@@ -5,6 +5,13 @@ export interface CardProps extends React.HTMLAttributes<HTMLDivElement> {
   className?: string;
   variant?: "default" | "highlight" | "alert";
   animate?: boolean;
+  /**
+   * "card" (default) is the glass-morphism surface for content cards.
+   * "dialog" is a near-opaque themed surface for modal/dialog content
+   * rendered above a backdrop scrim, so adaptive text stays legible
+   * in every palette.
+   */
+  surface?: "card" | "dialog";
 }
 
 /**
@@ -27,12 +34,13 @@ export const Card = forwardRef<HTMLDivElement, CardProps>(
       className = "",
       variant = "default",
       animate = false,
+      surface = "card",
       ...props
     },
     ref,
   ) => {
     const baseStyles = [
-      "bg-su-line/10",
+      surface === "dialog" ? "bg-su-panel/95" : "bg-su-line/10",
       "backdrop-blur-md",
       "border",
       "rounded-2xl",

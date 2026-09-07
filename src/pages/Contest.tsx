@@ -556,7 +556,11 @@ export function Contest() {
             className="absolute inset-0 bg-black/60 backdrop-blur-sm"
             onClick={() => setShowEndConfirm(false)}
           />
-          <Card className="relative z-10 w-full max-w-md p-6" animate>
+          <Card
+            surface="dialog"
+            className="relative z-10 w-full max-w-md p-6"
+            animate
+          >
             <div className="text-center space-y-4">
               <div className="w-16 h-16 mx-auto rounded-full bg-alert-red/20 flex items-center justify-center">
                 <svg

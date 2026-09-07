@@ -133,14 +133,14 @@ export function WallClockDisplay({ mode }: { mode: WallClockMode }) {
 
   return (
     <main
-      className="relative isolate flex w-full flex-col items-center justify-center overflow-hidden bg-[radial-gradient(circle_at_50%_35%,rgba(255,107,53,0.11),transparent_42%),linear-gradient(180deg,#07101d_0%,#02050a_100%)] px-6 text-center"
+      className="relative isolate flex w-full flex-col items-center justify-center overflow-hidden bg-[radial-gradient(circle_at_50%_35%,rgba(255,107,53,0.11),transparent_42%),linear-gradient(180deg,rgb(var(--su-canvas-rgb))_0%,rgb(var(--su-panel-rgb))_100%)] px-6 text-center"
       style={{
         minHeight: `calc(100dvh - ${
           kioskActive ? HEADER_HEIGHT_PX[presentation.headerScale] : 64
         }px)`,
       }}
     >
-      <div className="pointer-events-none absolute inset-x-[8%] top-1/2 h-px bg-su-line/20" />
+      <div className="pointer-events-none absolute inset-x-[8%] top-1/2 h-px bg-gradient-to-r from-transparent via-su-line/10 to-transparent" />
 
       {mode === "clock" ? (
         <>

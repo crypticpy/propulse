@@ -79,7 +79,7 @@ export function GuestModeToggle({
         </span>
         <button
           onClick={exitGuestMode}
-          className="ml-2 px-2 py-1 text-xs font-medium rounded bg-su-input text-su-muted border border-su-line hover:bg-su-line transition-colors"
+          className="ml-2 px-2 py-1 text-xs font-medium rounded bg-su-input text-su-muted border border-su-line hover:bg-su-line/40 hover:text-su-text transition-colors"
         >
           Exit
         </button>

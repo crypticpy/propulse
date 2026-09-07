@@ -49,7 +49,7 @@ export function QRCodeDisplay({
 
   return (
     <div className="flex flex-col items-center">
-      <div className="p-4 bg-su-text rounded-xl">
+      <div className="p-4 bg-white rounded-xl" /* design-tokens: allow */>
         {qrDataUrl ? (
           <img
             src={qrDataUrl}

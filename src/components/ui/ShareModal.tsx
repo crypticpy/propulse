@@ -504,7 +504,9 @@ export function ShareModal({
               </p>
 
               <div className="flex justify-center">
-                <div className="p-4 bg-su-text rounded-xl">
+                <div
+                  className="p-4 bg-white rounded-xl" /* design-tokens: allow */
+                >
                   <QRCodeSVG data={shareURL} size={180} />
                 </div>
               </div>

@@ -207,7 +207,7 @@ export function DisplayPairPage() {
             <img
               src={qrDataUrl}
               alt={`QR code to claim this display at ${window.location.origin}/pair?code=${code}`}
-              className="w-[220px] h-[220px] rounded-lg bg-su-text p-2"
+              className="w-[220px] h-[220px] rounded-lg bg-white p-2" // design-tokens: allow
             />
           )}
 

@@ -5,6 +5,12 @@
  * Uses Vercel Edge Function as proxy to handle CORS
  */
 
+import {
+  readSpotFeedMetadata,
+  spotFeedWindowParameter,
+  type SpotFeed,
+  type SpotWindowMinutes,
+} from "./spotFeed";
 import type { LiveSpot, RBNSpot } from "@/types/livespot";
 import {
   getLocationFromPrefix,
@@ -161,11 +167,14 @@ function getBandFromFrequency(frequencyKHz: number): string {
  * @param limit - Maximum number of spots to return
  * @returns Array of LiveSpot objects
  */
-export async function fetchRBNSpots(limit: number = 50): Promise<LiveSpot[]> {
+export async function fetchRBNFeed(
+  limit = 50,
+  windowMinutes?: SpotWindowMinutes,
+): Promise<SpotFeed<LiveSpot>> {
   const params = new URLSearchParams();
   params.set("limit", limit.toString());
 
-  const response = await fetch(`/api/spots/rbn?${params}`);
+  const response = await fetch(`/api/spots/rbn?${params}${spotFeedWindowParameter(windowMinutes)}`);
 
   if (!response.ok) {
     throw new Error(`RBN request failed with HTTP ${response.status}`);
@@ -185,13 +194,16 @@ export async function fetchRBNSpots(limit: number = 50): Promise<LiveSpot[]> {
     throw new Error("RBN returned malformed JSON");
   }
 
+  const metadata = readSpotFeedMetadata(data, "rbn", windowMinutes);
+  const feed = (spots: LiveSpot[]): SpotFeed<LiveSpot> => ({ spots, metadata });
+
   // Detect format:
   // 1. Edge Function format: { spots: [...] }
   // 2. Edge Function format: flat array of RBNSpot
   // 3. HamQTH format: object keyed by callsign { "WA8VTD": { dxcall, freq, ... } }
   if (Array.isArray(data)) {
     assertValidRBNSpots(data);
-    return data.map((spot) => transformRBNSpot(spot));
+    return feed(data.map((spot) => transformRBNSpot(spot)));
   }
 
   if (data && typeof data === "object" && "spots" in data) {
@@ -208,13 +220,13 @@ export async function fetchRBNSpots(limit: number = 50): Promise<LiveSpot[]> {
       throw new Error("RBN spots payload is not an array");
     }
     assertValidRBNSpots(envelope.spots);
-    return envelope.spots.map((spot) => transformRBNSpot(spot));
+    return feed(envelope.spots.map((spot) => transformRBNSpot(spot)));
   }
 
   // HamQTH object format: keys are callsigns, values have dxcall/freq/mode/age/lsn
   if (data && typeof data === "object") {
     const entries = Object.entries(data);
-    if (entries.length === 0) return [];
+    if (entries.length === 0) return feed([]);
 
     if (!entries.every(([, entry]) => isHamQTHRBNEntry(entry))) {
       throw new Error("RBN returned an unexpected JSON payload");
@@ -222,10 +234,14 @@ export async function fetchRBNSpots(limit: number = 50): Promise<LiveSpot[]> {
     const spots = entries.map(([callsign, entry]) =>
       transformHamQTHRBNEntry(callsign, entry as HamQTHRBNEntry),
     );
-    return spots.slice(0, limit);
+    return feed(spots.slice(0, limit));
   }
 
   throw new Error("RBN returned an unexpected JSON payload");
+}
+
+export async function fetchRBNSpots(limit = 50): Promise<LiveSpot[]> {
+  return (await fetchRBNFeed(limit)).spots;
 }
 
 /**

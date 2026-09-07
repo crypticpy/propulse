@@ -1,12 +1,14 @@
 import { describe, expect, it } from "vitest";
 import { calculateLayerHeights } from "@/lib/utils/ionosphere";
 import { traceRayPath } from "@/lib/utils/rayTrace";
-import { pathPointDescriptorSchema } from "@/lib/views/spotContracts";
+import { pathPointDescriptorSchema, modelProvenanceSchema } from "@/lib/views/spotContracts";
 import type { PathDescriptor } from "@/lib/views/spotContracts";
 import { sampleAppearance } from "@/lib/spots/motion";
 import { createSpotPreferences } from "@/lib/views/defaults";
 import {
   APEX_DISPLAY_HEIGHT_BOOST,
+  BUILTIN_RAY_TRACE_MODEL_NAME,
+  builtinRayTraceProvenance,
   buildPathPointSet,
   decorativeShellPlacement,
   pathPointId,
@@ -229,6 +231,27 @@ describe("buildPathPointSet", () => {
     expect(set.points.some((point) => point.role === "shell-highlight")).toBe(false);
     expect(set.points.some((point) => point.role === "ray-apex")).toBe(true);
     expect(set.points.some((point) => point.role === "ground-point")).toBe(true);
+  });
+
+  it("parses points when pathId is already 128 contract characters", () => {
+    const pathId = `p${"c".repeat(127)}`;
+    const set = buildPathPointSet(
+      input({ pathId, path: modeledPath({ id: pathId }) }),
+    );
+    expect(set.status).toBe("ready");
+    expect(set.points.length).toBeGreaterThan(0);
+    for (const point of set.points) {
+      expect(pathPointDescriptorSchema.parse(point)).toEqual(point);
+      expect(point.id.length).toBeLessThanOrEqual(128);
+    }
+  });
+
+  it("does not label the built-in tracer as a full ITU-R P.533 circuit", () => {
+    const provenance = builtinRayTraceProvenance(NOW_MS, "1-hop fixture");
+    expect(provenance.name).toBe(BUILTIN_RAY_TRACE_MODEL_NAME);
+    expect(provenance.name).not.toMatch(/ITU-R P\.533 ray trace/i);
+    expect(provenance.explanation).toMatch(/Not a full ITU-R P\.533/i);
+    expect(modelProvenanceSchema.parse(provenance)).toEqual(provenance);
   });
 
   it("uses hop.hmF2 as modeled height, never the decorative boost", () => {

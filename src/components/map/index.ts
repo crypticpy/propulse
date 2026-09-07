@@ -26,6 +26,7 @@ export { RayPathArc, type RayPathArcProps } from "./RayPathArc";
 export { PathPointCard } from "./PathPointCard";
 export { PathPointList } from "./PathPointList";
 export { PathPointInspector } from "./PathPointInspector";
+export { PathPointHitArea } from "./PathPointHitArea";
 export { LocationMarker } from "./LocationMarker";
 export { CompassRose } from "./CompassRose";
 export { LiveSpotArcs } from "./LiveSpotArcs";

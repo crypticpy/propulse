@@ -20,6 +20,24 @@ import { pathPointId } from "./identity";
 
 export const DEFAULT_PATH_POINT_STALE_AFTER_MS = 30 * 60 * 1000;
 
+/** Fallback when the producer does not pass `path.model` / `model`. */
+export const BUILTIN_RAY_TRACE_MODEL_NAME = "Propulse physics ray trace";
+export const BUILTIN_RAY_TRACE_MODEL_VERSION = "propulse-physics";
+
+export function builtinRayTraceProvenance(
+  modeledAtMs: number,
+  summary: string,
+): ModelProvenance {
+  return {
+    name: BUILTIN_RAY_TRACE_MODEL_NAME,
+    version: BUILTIN_RAY_TRACE_MODEL_VERSION,
+    modeledAtMs,
+    inputsAsOfMs: modeledAtMs,
+    explanation:
+      `Built-in tracer: simplified Chapman f0F2, Martyn's secant MUF, and ITU-R P.533 D-layer absorption. Not a full ITU-R P.533 circuit prediction. ${summary}`.trim(),
+  };
+}
+
 export type PathPointBuildStatus =
   | "ready"
   | "model-unavailable"

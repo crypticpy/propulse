@@ -38,6 +38,7 @@ import type { ScreenAnchor } from "@/lib/map/anchoredOverlay";
 import { motionIsSuppressed, type MotionPresentation } from "@/lib/spots/motion";
 import {
   APEX_DISPLAY_HEIGHT_BOOST,
+  builtinRayTraceProvenance,
   buildPathPointSet,
   computeGroundPoints,
   decorativeShellPlacement,
@@ -88,7 +89,10 @@ export interface RayPathArcProps {
   showIonosphereHighlights?: boolean;
   /** Display time — needed to compute ionospheric layer heights for highlights */
   displayTime?: Date;
-  /** SP-04 path identity when the selected path is a scene descriptor. */
+  /**
+   * SP-04 path identity when the selected path is a scene descriptor.
+   * SP-09: pass `path` (or `pathId` + `model`) from the scene. Unwired in GlobeView today.
+   */
   path?: PathDescriptor | null;
   pathId?: string;
   model?: ModelProvenance | null;
@@ -97,8 +101,16 @@ export interface RayPathArcProps {
   motion?: MotionPresentation | null;
   osReducedMotion?: boolean;
   reduceMotion?: boolean;
-  /** Opens existing path analysis. Does not recenter or issue radio commands. */
+  /**
+   * SP-09 Full path analysis navigation. Unwired until the producer passes it.
+   * Button stays disabled when omitted. Must not recenter or issue radio commands.
+   */
   onOpenPathAnalysis?: () => void;
+  /**
+   * SP-09 overlay host. Pass GlobeView `mapOverlayPortal` (and the flat/azimuthal
+   * equivalent) so the card clips and stacks with map DOM overlays. Defaults to
+   * `document.body` for isolated DOM tests only.
+   */
   portalTarget?: Element | null;
 }
 
@@ -180,13 +192,7 @@ function modelFromResult(
 ): ModelProvenance | null {
   const modeledAtMs = displayTime?.getTime();
   if (modeledAtMs === undefined) return null;
-  return {
-    name: "ITU-R P.533 ray trace",
-    version: "propulse-physics",
-    modeledAtMs,
-    inputsAsOfMs: modeledAtMs,
-    explanation: result.summary,
-  };
+  return builtinRayTraceProvenance(modeledAtMs, result.summary);
 }
 
 function stopTraceEvent(event: ThreeEvent<MouseEvent | PointerEvent>) {

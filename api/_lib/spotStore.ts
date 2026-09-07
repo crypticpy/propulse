@@ -232,11 +232,15 @@ export async function readStoredSpots(
     ? options.windowMinutes ?? 30
     : 30;
   const cutoff = now - windowMinutes * 60_000;
+  const freshnessCutoff = now - STALE_AFTER_SECONDS[source] * 1_000;
+  const queryCutoff = Math.min(cutoff, freshnessCutoff);
   const query = new URLSearchParams({
     select:
       "source,spotted_at,tx_callsign,tx_grid,tx_lat,tx_lon,rx_callsign,rx_grid,rx_lat,rx_lon,frequency_khz,band,mode,snr,wpm,comment,dxcc,continent",
     source: `eq.${source}`,
-    spotted_at: `gte.${new Date(cutoff).toISOString()}`,
+    spotted_at: `gte.${new Date(queryCutoff).toISOString()}`,
+    // Exclude future observations before the newest-first storage row cap.
+    and: `(spotted_at.lte.${new Date(now).toISOString()})`,
     order: "spotted_at.desc",
     limit: String(Math.min(800, Math.max(options.limit, options.limit * 4))),
   });

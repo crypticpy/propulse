@@ -6,8 +6,8 @@ malformed, duplicate and unsupported values—including 360/1440—return 400 wi
 `no-store` before contacting storage. Responses add `meta.windowMinutes` while
 preserving each endpoint's existing spot shape and metadata version.
 
-Requested history is separate from freshness. The query uses the requested
-cutoff, and returned validated rows are sorted newest-first and filtered against
+Requested history is separate from freshness. The query covers both the requested
+window and the 30-minute freshness lookback, and returned validated rows are sorted newest-first and filtered against
 the inclusive cutoff and request time. A 45-minute-old report requested with a
 60-minute window is retained with its original timestamp and `status: stale`;
 it is not promoted to current evidence. Freshness remains 30 minutes after the
@@ -48,3 +48,14 @@ boundaries, caps, future/out-of-window filtering, retained stale history and
 unchanged source freshness, existing source/filter shapes, unavailable storage,
 and oversized responses. `npx tsc -b` passes. Fixtures use synthetic storage
 responses and fixed clocks; they do not read or modify production data.
+
+
+## Review corrections
+
+A 15-minute request now retains a 30-minute storage lookback for freshness
+assessment, then trims its displayed rows to 15 minutes. A latest observation at
+20 minutes therefore yields an empty selected window with its valid freshness
+state and original observedAt. A storage-side upper timestamp filter excludes
+future observations before sorting/limiting can let them starve valid reports.
+Two added regressions cover these cases (26 focused API tests total).
+The query uses PostgREST's documented [logical filter syntax](https://docs.postgrest.org/en/stable/references/api/tables_views.html#logical-operators).

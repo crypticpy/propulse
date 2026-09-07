@@ -214,7 +214,7 @@ it.each([15, 30, 60] as const)("bounds a %s-minute history independently of fres
     fetcher, now: () => NOW, storageConfig: () => CONFIG,
   });
   expect(new URL(String(fetcher.mock.calls[0][0])).searchParams.get("spotted_at")).toBe(
-    `gte.${new Date(NOW - windowMinutes * 60_000).toISOString()}`,
+    `gte.${new Date(NOW - Math.max(windowMinutes, 30) * 60_000).toISOString()}`,
   );
   expect(result.rows.map(row => row.spotted_at)).toEqual(windowMinutes === 60 ? [recent, old] : [recent]);
   expect(result.observedAt).toBe(recent);
@@ -250,4 +250,38 @@ it("keeps inclusive window boundaries, result caps, and bounded storage reads", 
     fetcher, now: () => NOW, storageConfig: () => CONFIG,
   });
   expect(inclusive.rows.at(-1)?.spotted_at).toBe(boundary);
+});
+
+
+it("assesses 30-minute freshness even when the requested history is only 15 minutes", async () => {
+  const observedAt = new Date(NOW - 20 * 60_000).toISOString();
+  const fetcher = vi.fn(async (input: string | URL | Request) => {
+    const url = new URL(String(input));
+    const lower = Date.parse(url.searchParams.get("spotted_at")!.slice(4));
+    return new Response(JSON.stringify(Date.parse(observedAt) >= lower ? [row({ spotted_at: observedAt })] : []));
+  });
+  const result = await readStoredSpots("pskreporter", { limit: 50, windowMinutes: 15 }, {
+    fetcher, now: () => NOW, storageConfig: () => CONFIG,
+  });
+  expect(result).toMatchObject({ status: "ok", observedAt, rows: [], staleAfterSeconds: 1800 });
+});
+
+it("excludes future rows at storage before they can exhaust the row cap", async () => {
+  const future = Array.from({ length: 800 }, () => row({ spotted_at: new Date(NOW + 60_000).toISOString() }));
+  const fetcher = vi.fn(async (input: string | URL | Request) => {
+    const url = new URL(String(input));
+    const upperFilter = url.searchParams.get("and");
+    const upper = upperFilter?.startsWith("(spotted_at.lte.")
+      ? Date.parse(upperFilter.slice("(spotted_at.lte.".length, -1))
+      : Number.POSITIVE_INFINITY;
+    const rows = [...future, row()]
+      .filter(r => Date.parse(r.spotted_at) <= upper)
+      .slice(0, Number(url.searchParams.get("limit")));
+    return new Response(JSON.stringify(rows));
+  });
+  const result = await readStoredSpots("pskreporter", { limit: 200, windowMinutes: 60 }, {
+    fetcher, now: () => NOW, storageConfig: () => CONFIG,
+  });
+  expect(result.status).toBe("ok");
+  expect(result.rows).toHaveLength(1);
 });

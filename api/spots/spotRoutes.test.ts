@@ -169,7 +169,7 @@ it.each(HISTORY_ROUTES)("%s exposes each bounded window and defaults to 30", asy
     expect((await response.json()).meta.windowMinutes).toBe(minutes ?? 30);
     const lastCall = vi.mocked(fetch).mock.calls.at(-1)!;
     expect(new URL(String(lastCall[0])).searchParams.get("spotted_at")).toBe(
-      `gte.${new Date(NOW.getTime() - (minutes ?? 30) * 60_000).toISOString()}`,
+      `gte.${new Date(NOW.getTime() - Math.max(minutes ?? 30, 30) * 60_000).toISOString()}`,
     );
   }
 });

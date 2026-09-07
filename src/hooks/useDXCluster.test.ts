@@ -1,4 +1,5 @@
-import { act, renderHook } from "@testing-library/react";
+import { ClusterTile } from "@/components/map/hamclock/wall/tiles/ClusterTile";
+import { act, renderHook, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { useDXStore } from "@/stores/dxStore";
 import { createElement, type ReactNode } from "react";
@@ -63,6 +64,9 @@ const mocks = vi.hoisted(() => ({ receive: undefined as undefined | ((message: B
 vi.mock("@/lib/api/dxcluster", async importOriginal => ({ ...await importOriginal<typeof import("@/lib/api/dxcluster")>(), fetchClusterFeed: mocks.fetch }));
 vi.mock("@/hooks/useBridge", () => ({ useBridge: (options: Partial<BridgeConnectionOptions>) => { mocks.receive = options.onMessage; return mocks.bridge; } }));
 
+vi.mock("@/hooks/useActiveLocation", () => ({ useActiveLocation: () => ({ grid: "EM38", lat: 38.5, lon: -93 }) }));
+vi.mock("@/components/map/hamclock/wall/reports/ClusterReport", () => ({ ClusterReport: () => null }));
+
 describe("DX cluster history snapshots", () => {
   const initial = useDXStore.getState();
   const now = Date.UTC(2026,8,7,4);
@@ -78,6 +82,13 @@ describe("DX cluster history snapshots", () => {
     mocks.bridge = {connected:false,lastMessage:null,send:vi.fn()};
   });
   afterEach(() => { client.clear(); useDXStore.setState(initial); vi.useRealTimers(); });
+  it("keeps the tile consistent with bridge clock tolerance while REST stays strict", () => {
+    useDXStore.setState({ spotSource: "bridge", spots: [row(-0.5)] });
+    render(createElement(ClusterTile));
+    expect(screen.getByRole("button", { name: "DX cluster: 1 spots. Open the full spot report" })).toBeTruthy();
+    act(() => useDXStore.setState({ spotSource: "rest" }));
+    expect(screen.getByRole("button", { name: "DX cluster: 0 spots. Open the full spot report" })).toBeTruthy();
+  });
   it("uses the matching source window and original retrieval timestamp", async () => {
     useDXStore.setState({filters:{maxAge:120}});
     mocks.fetch.mockResolvedValue(feed([row(90)],120));

@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { useActiveLocation } from "@/hooks/useActiveLocation";
 import { useUTCClock } from "@/hooks/useUTCClock";
 import { filterClusterAge } from "@/lib/dx/clusterHistory";
+import { CLUSTER_BRIDGE_FUTURE_TOLERANCE_MS } from "@/lib/dx/clusterBridge";
 import { filterMapSpots } from "@/lib/map/filterMapSpots";
 import { getBandColor } from "@/lib/utils/spotColors";
 import { useDXStore } from "@/stores/dxStore";
@@ -52,8 +53,8 @@ export function ClusterTile() {
   const [reportOpen, setReportOpen] = useState(false);
 
   const spots = useMemo(
-    () => filterMapSpots(filterClusterAge(allSpots ?? [], maxAge, now.getTime()), spotFilters),
-    [allSpots, spotFilters, maxAge, now],
+    () => filterMapSpots(filterClusterAge(allSpots ?? [], maxAge, now.getTime(), source === "bridge" ? CLUSTER_BRIDGE_FUTURE_TOLERANCE_MS : 0), spotFilters),
+    [allSpots, spotFilters, maxAge, now, source],
   );
   const rows = spots.slice(0, MAX_ROWS);
   const feed = source === "bridge" ? "BRIDGE" : "CLUSTER";

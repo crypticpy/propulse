@@ -38,49 +38,6 @@
   /* ==================== */
   --color-sunspot-blue: #3a86ff;
 
-  /* ============================================ */
-  /* Station tokens (--su-*)                      */
-  /* The unified design-system palette. These are */
-  /* pre-JS fallbacks for the Propulse (dark)     */
-  /* theme; applyThemeToDocument() overwrites     */
-  /* them on <html> for the active theme/accent,  */
-  /* and StationProvider overrides them again for */
-  /* a scoped subtree. Keep in sync with          */
-  /* src/lib/themes/stationTokens.ts (guarded by  */
-  /* src/lib/themes/stationTokens.test.ts).       */
-  /* See docs/designs/design-system/README.md     */
-  /* ============================================ */
-  --su-canvas: #141827;
-  --su-panel: #191e2e;
-  --su-input: #111624;
-  --su-text: #cad2dc;
-  --su-muted: #a0abba;
-  --su-line: #637088;
-  --su-accent: #ff6b35;
-  --su-on-accent: #000000;
-  --su-accent-edge: #ff6b35;
-  --su-accent-text: #ff6b35;
-  --su-info: #85c4d0;
-  --su-success: #8bdbb0;
-  --su-warning: #f5cf79;
-  --su-danger: #fda4af;
-
-  /* Channel triplets for Tailwind opacity modifiers (text-su-text/70) */
-  --su-canvas-rgb: 20 24 39;
-  --su-panel-rgb: 25 30 46;
-  --su-input-rgb: 17 22 36;
-  --su-text-rgb: 202 210 220;
-  --su-muted-rgb: 160 171 186;
-  --su-line-rgb: 99 112 136;
-  --su-accent-rgb: 255 107 53;
-  --su-on-accent-rgb: 0 0 0;
-  --su-accent-edge-rgb: 255 107 53;
-  --su-accent-text-rgb: 255 107 53;
-  --su-info-rgb: 133 196 208;
-  --su-success-rgb: 139 219 176;
-  --su-warning-rgb: 245 207 121;
-  --su-danger-rgb: 253 164 175;
-
   /* ==================== */
   /* Typography           */
   /* ==================== */

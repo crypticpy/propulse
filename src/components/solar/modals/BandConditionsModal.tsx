@@ -3,6 +3,7 @@ import { DetailModal } from "@/components/ui/DetailModal";
 import { Badge, type BadgeStatus } from "@/components/ui/Badge";
 import { calculateBandConditions } from "@/lib/utils/bands";
 import { useTimeFormat } from "@/hooks/useTimeFormat";
+import { fixedDarkSurfaceTokens } from "@/lib/themes/stationTokens";
 import type { BandCondition, VHFCondition } from "@/types/solar";
 
 export interface BandConditionsModalProps {
@@ -221,7 +222,10 @@ export const BandConditionsModal: React.FC<BandConditionsModalProps> = ({
         subtitle="Complete band analysis and propagation guide"
         size="full"
       >
-        <div className="text-center py-12 text-gray-500">
+        <div
+          className="text-center py-12 text-su-muted/80"
+          style={fixedDarkSurfaceTokens}
+        >
           Solar data unavailable — cannot calculate band conditions.
         </div>
       </DetailModal>
@@ -242,24 +246,27 @@ export const BandConditionsModal: React.FC<BandConditionsModalProps> = ({
       subtitle="Complete band analysis and propagation guide"
       size="full"
     >
-      <div className="space-y-6">
+      {/* DetailModal renders on AccessibleDialog's fixed dark panel, so the
+          su- tokens below are pinned to the dark palette instead of following
+          the app theme, which would be unreadable there in the light theme. */}
+      <div className="space-y-6" style={fixedDarkSurfaceTokens}>
         {/* Current Indices */}
         <div className="flex flex-wrap gap-4">
-          <div className="bg-void-black/50 rounded-lg px-4 py-3 border border-white/5">
-            <span className="text-xs text-gray-500 block">Solar Flux</span>
-            <span className="text-xl font-mono font-bold text-plasma-orange">
+          <div className="bg-su-panel/60 rounded-lg px-4 py-3 border border-su-line/20">
+            <span className="text-xs text-su-muted/80 block">Solar Flux</span>
+            <span className="text-xl font-mono font-bold text-su-accent-text">
               {solarFlux} sfu
             </span>
           </div>
-          <div className="bg-void-black/50 rounded-lg px-4 py-3 border border-white/5">
-            <span className="text-xs text-gray-500 block">K-Index</span>
-            <span className="text-xl font-mono font-bold text-cosmic-cyan">
+          <div className="bg-su-panel/60 rounded-lg px-4 py-3 border border-su-line/20">
+            <span className="text-xs text-su-muted/80 block">K-Index</span>
+            <span className="text-xl font-mono font-bold text-su-info">
               {kIndex}
             </span>
           </div>
-          <div className="bg-void-black/50 rounded-lg px-4 py-3 border border-white/5">
-            <span className="text-xs text-gray-500 block">Local Time</span>
-            <span className="text-xl font-mono font-bold text-white">
+          <div className="bg-su-panel/60 rounded-lg px-4 py-3 border border-su-line/20">
+            <span className="text-xs text-su-muted/80 block">Local Time</span>
+            <span className="text-xl font-mono font-bold text-su-text">
               {now.toLocaleTimeString("en-US", {
                 hour: "2-digit",
                 minute: "2-digit",
@@ -267,39 +274,39 @@ export const BandConditionsModal: React.FC<BandConditionsModalProps> = ({
               })}
             </span>
           </div>
-          <div className="bg-void-black/50 rounded-lg px-4 py-3 border border-white/5">
-            <span className="text-xs text-gray-500 block">Period</span>
-            <span className="text-xl font-mono font-bold text-white">
+          <div className="bg-su-panel/60 rounded-lg px-4 py-3 border border-su-line/20">
+            <span className="text-xs text-su-muted/80 block">Period</span>
+            <span className="text-xl font-mono font-bold text-su-text">
               {isDaytime ? "Daytime" : "Nighttime"}
             </span>
           </div>
         </div>
 
         {/* Full Band Matrix */}
-        <div className="bg-void-black/50 rounded-lg p-4 border border-white/5">
-          <h4 className="text-sm font-mono uppercase tracking-wider text-gray-400 mb-4">
+        <div className="bg-su-panel/60 rounded-lg p-4 border border-su-line/20">
+          <h4 className="text-sm font-mono uppercase tracking-wider text-su-muted mb-4">
             Band Condition Matrix
           </h4>
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b border-white/10">
-                  <th className="text-left py-2 px-3 text-xs font-semibold text-gray-400 uppercase">
+                <tr className="border-b border-su-line/40">
+                  <th className="text-left py-2 px-3 text-xs font-semibold text-su-muted uppercase">
                     Band
                   </th>
-                  <th className="text-left py-2 px-3 text-xs font-semibold text-gray-400 uppercase">
+                  <th className="text-left py-2 px-3 text-xs font-semibold text-su-muted uppercase">
                     Frequency
                   </th>
-                  <th className="text-center py-2 px-3 text-xs font-semibold text-gray-400 uppercase">
+                  <th className="text-center py-2 px-3 text-xs font-semibold text-su-muted uppercase">
                     Day
                   </th>
-                  <th className="text-center py-2 px-3 text-xs font-semibold text-gray-400 uppercase">
+                  <th className="text-center py-2 px-3 text-xs font-semibold text-su-muted uppercase">
                     Night
                   </th>
-                  <th className="text-left py-2 px-3 text-xs font-semibold text-gray-400 uppercase">
+                  <th className="text-left py-2 px-3 text-xs font-semibold text-su-muted uppercase">
                     Best For
                   </th>
-                  <th className="text-left py-2 px-3 text-xs font-semibold text-gray-400 uppercase hidden md:table-cell">
+                  <th className="text-left py-2 px-3 text-xs font-semibold text-su-muted uppercase hidden md:table-cell">
                     DX Window
                   </th>
                 </tr>
@@ -317,21 +324,21 @@ export const BandConditionsModal: React.FC<BandConditionsModalProps> = ({
                   return (
                     <tr
                       key={band.name}
-                      className={`border-b border-white/5 ${
-                        isRecommended ? "bg-signal-green/5" : ""
+                      className={`border-b border-su-line/20 ${
+                        isRecommended ? "bg-su-success/10" : ""
                       }`}
                     >
                       <td className="py-3 px-3">
-                        <span className="font-mono font-bold text-white">
+                        <span className="font-mono font-bold text-su-text">
                           {band.name}
                         </span>
                         {isRecommended && (
-                          <span className="ml-2 text-xs text-signal-green">
+                          <span className="ml-2 text-xs text-su-success">
                             *
                           </span>
                         )}
                       </td>
-                      <td className="py-3 px-3 text-gray-400 font-mono">
+                      <td className="py-3 px-3 text-su-muted font-mono">
                         {band.freq}
                       </td>
                       <td className="py-3 px-3 text-center">
@@ -350,10 +357,10 @@ export const BandConditionsModal: React.FC<BandConditionsModalProps> = ({
                           {band.nightCondition}
                         </Badge>
                       </td>
-                      <td className="py-3 px-3 text-gray-400">
+                      <td className="py-3 px-3 text-su-muted">
                         {band.bestFor}
                       </td>
-                      <td className="py-3 px-3 text-gray-400 hidden md:table-cell">
+                      <td className="py-3 px-3 text-su-muted hidden md:table-cell">
                         {dxWindow.window}
                       </td>
                     </tr>
@@ -362,14 +369,14 @@ export const BandConditionsModal: React.FC<BandConditionsModalProps> = ({
               </tbody>
             </table>
           </div>
-          <p className="text-xs text-gray-500 mt-3">
+          <p className="text-xs text-su-muted/80 mt-3">
             * Recommended bands for current time and conditions
           </p>
         </div>
 
         {/* Detailed Band Information */}
-        <div className="bg-void-black/50 rounded-lg p-4 border border-white/5">
-          <h4 className="text-sm font-mono uppercase tracking-wider text-gray-400 mb-4">
+        <div className="bg-su-panel/60 rounded-lg p-4 border border-su-line/20">
+          <h4 className="text-sm font-mono uppercase tracking-wider text-su-muted mb-4">
             Band Details and Propagation Modes
           </h4>
           <div className="grid gap-4">
@@ -390,20 +397,20 @@ export const BandConditionsModal: React.FC<BandConditionsModalProps> = ({
                   key={band.name}
                   className={`p-4 rounded-lg border ${
                     isOpen
-                      ? "bg-signal-green/5 border-signal-green/20"
-                      : "bg-white/[0.02] border-white/5"
+                      ? "bg-su-success/10 border-su-success/30"
+                      : "bg-su-panel/30 border-su-line/20"
                   }`}
                 >
                   <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
                     <div className="flex-1">
                       <div className="flex items-center gap-3 mb-2">
-                        <span className="font-mono font-bold text-xl text-white">
+                        <span className="font-mono font-bold text-xl text-su-text">
                           {band.name}
                         </span>
-                        <span className="text-sm text-gray-500">
+                        <span className="text-sm text-su-muted/80">
                           {band.freq}
                         </span>
-                        <span className="text-sm text-gray-500">
+                        <span className="text-sm text-su-muted/80">
                           ({details.wavelength})
                         </span>
                         {isOpen && (
@@ -412,19 +419,19 @@ export const BandConditionsModal: React.FC<BandConditionsModalProps> = ({
                           </Badge>
                         )}
                       </div>
-                      <p className="text-sm text-gray-300 mb-3">
+                      <p className="text-sm text-su-muted mb-3">
                         {details.notes}
                       </p>
                       <div className="grid md:grid-cols-2 gap-4 text-sm">
                         <div>
-                          <span className="text-gray-500 block mb-1">
+                          <span className="text-su-muted/80 block mb-1">
                             Propagation Modes:
                           </span>
                           <div className="flex flex-wrap gap-1">
                             {details.propagationModes.map((mode) => (
                               <span
                                 key={mode}
-                                className="px-2 py-0.5 text-xs bg-white/5 border border-white/10 rounded text-gray-300"
+                                className="px-2 py-0.5 text-xs bg-su-input border border-su-line/40 rounded text-su-muted"
                               >
                                 {mode}
                               </span>
@@ -432,34 +439,34 @@ export const BandConditionsModal: React.FC<BandConditionsModalProps> = ({
                           </div>
                         </div>
                         <div>
-                          <span className="text-gray-500 block mb-1">
+                          <span className="text-su-muted/80 block mb-1">
                             Typical Range:
                           </span>
-                          <span className="text-gray-300">
+                          <span className="text-su-muted">
                             {details.typicalRange}
                           </span>
                         </div>
                         <div>
-                          <span className="text-gray-500 block mb-1">
+                          <span className="text-su-muted/80 block mb-1">
                             Best Time:
                           </span>
-                          <span className="text-gray-300">
+                          <span className="text-su-muted">
                             {details.bestTime}
                           </span>
                         </div>
                         <div>
-                          <span className="text-gray-500 block mb-1">
+                          <span className="text-su-muted/80 block mb-1">
                             Current Conditions:
                           </span>
                           <span className="flex gap-2">
-                            <span className="text-gray-400">Day:</span>
+                            <span className="text-su-muted">Day:</span>
                             <Badge
                               status={conditionToBadgeStatus(band.dayCondition)}
                               size="sm"
                             >
                               {band.dayCondition}
                             </Badge>
-                            <span className="text-gray-400 ml-2">Night:</span>
+                            <span className="text-su-muted ml-2">Night:</span>
                             <Badge
                               status={conditionToBadgeStatus(
                                 band.nightCondition,
@@ -480,64 +487,64 @@ export const BandConditionsModal: React.FC<BandConditionsModalProps> = ({
         </div>
 
         {/* Propagation Mode Explanations */}
-        <div className="bg-void-black/50 rounded-lg p-4 border border-white/5">
-          <h4 className="text-sm font-mono uppercase tracking-wider text-gray-400 mb-4">
+        <div className="bg-su-panel/60 rounded-lg p-4 border border-su-line/20">
+          <h4 className="text-sm font-mono uppercase tracking-wider text-su-muted mb-4">
             Propagation Mode Guide
           </h4>
           <div className="grid md:grid-cols-2 gap-4 text-sm">
-            <div className="p-3 bg-white/[0.02] rounded-lg border border-white/5">
-              <h5 className="text-white font-medium mb-2">
+            <div className="p-3 bg-su-panel/30 rounded-lg border border-su-line/20">
+              <h5 className="text-su-text font-medium mb-2">
                 F2 Skip (Ionospheric)
               </h5>
-              <p className="text-gray-400">
+              <p className="text-su-muted">
                 Primary long-distance HF mode. Radio waves refract off the F2
                 layer of the ionosphere (200-400 km altitude). Effectiveness
                 depends on solar activity - higher SFI means better F2
                 propagation on higher bands.
               </p>
             </div>
-            <div className="p-3 bg-white/[0.02] rounded-lg border border-white/5">
-              <h5 className="text-white font-medium mb-2">Sporadic E (Es)</h5>
-              <p className="text-gray-400">
+            <div className="p-3 bg-su-panel/30 rounded-lg border border-su-line/20">
+              <h5 className="text-su-text font-medium mb-2">Sporadic E (Es)</h5>
+              <p className="text-su-muted">
                 Unpredictable propagation via dense patches in the E layer
                 (100-120 km). Common in summer months. Can provide excellent 6m,
                 10m, and 12m openings regardless of solar cycle. Watch for
                 sudden band openings.
               </p>
             </div>
-            <div className="p-3 bg-white/[0.02] rounded-lg border border-white/5">
-              <h5 className="text-white font-medium mb-2">
+            <div className="p-3 bg-su-panel/30 rounded-lg border border-su-line/20">
+              <h5 className="text-su-text font-medium mb-2">
                 NVIS (Near Vertical)
               </h5>
-              <p className="text-gray-400">
+              <p className="text-su-muted">
                 Signals sent nearly straight up reflect back down, providing
                 coverage out to ~300 miles with no skip zone. Ideal for
                 emergency communications on 40m, 60m, and 80m during daylight.
               </p>
             </div>
-            <div className="p-3 bg-white/[0.02] rounded-lg border border-white/5">
-              <h5 className="text-white font-medium mb-2">Ground Wave</h5>
-              <p className="text-gray-400">
+            <div className="p-3 bg-su-panel/30 rounded-lg border border-su-line/20">
+              <h5 className="text-su-text font-medium mb-2">Ground Wave</h5>
+              <p className="text-su-muted">
                 Direct propagation following Earth&apos;s surface. Reliable for
                 short distances (typically under 100 miles on HF). Range depends
                 on frequency, power, and terrain. Primary mode for local
                 contacts on lower bands.
               </p>
             </div>
-            <div className="p-3 bg-white/[0.02] rounded-lg border border-white/5">
-              <h5 className="text-white font-medium mb-2">Aurora</h5>
-              <p className="text-gray-400">
+            <div className="p-3 bg-su-panel/30 rounded-lg border border-su-line/20">
+              <h5 className="text-su-text font-medium mb-2">Aurora</h5>
+              <p className="text-su-muted">
                 Signals reflect off the auroral curtain during geomagnetic
                 storms (high K-index). Produces characteristic
                 &quot;flutter&quot; on signals. Primarily affects 6m and 2m.
                 Point antennas toward the aurora.
               </p>
             </div>
-            <div className="p-3 bg-white/[0.02] rounded-lg border border-white/5">
-              <h5 className="text-white font-medium mb-2">
+            <div className="p-3 bg-su-panel/30 rounded-lg border border-su-line/20">
+              <h5 className="text-su-text font-medium mb-2">
                 Tropospheric (Tropo)
               </h5>
-              <p className="text-gray-400">
+              <p className="text-su-muted">
                 VHF/UHF signals bend in temperature inversions in the
                 troposphere. Common during stable high-pressure weather
                 patterns. Can provide extended range on 6m and above. Watch for
@@ -548,8 +555,8 @@ export const BandConditionsModal: React.FC<BandConditionsModalProps> = ({
         </div>
 
         {/* Quick Reference Legend */}
-        <div className="bg-void-black/50 rounded-lg p-4 border border-white/5">
-          <h4 className="text-sm font-mono uppercase tracking-wider text-gray-400 mb-3">
+        <div className="bg-su-panel/60 rounded-lg p-4 border border-su-line/20">
+          <h4 className="text-sm font-mono uppercase tracking-wider text-su-muted mb-3">
             Condition Legend
           </h4>
           <div className="flex flex-wrap gap-4">
@@ -557,7 +564,7 @@ export const BandConditionsModal: React.FC<BandConditionsModalProps> = ({
               <Badge status="excellent" size="sm">
                 Excellent
               </Badge>
-              <span className="text-sm text-gray-400">
+              <span className="text-sm text-su-muted">
                 Worldwide DX possible
               </span>
             </div>
@@ -565,19 +572,19 @@ export const BandConditionsModal: React.FC<BandConditionsModalProps> = ({
               <Badge status="good" size="sm">
                 Good
               </Badge>
-              <span className="text-sm text-gray-400">Reliable DX</span>
+              <span className="text-sm text-su-muted">Reliable DX</span>
             </div>
             <div className="flex items-center gap-2">
               <Badge status="fair" size="sm">
                 Fair
               </Badge>
-              <span className="text-sm text-gray-400">Limited openings</span>
+              <span className="text-sm text-su-muted">Limited openings</span>
             </div>
             <div className="flex items-center gap-2">
               <Badge status="poor" size="sm">
                 Poor
               </Badge>
-              <span className="text-sm text-gray-400">
+              <span className="text-sm text-su-muted">
                 Band closed or very weak
               </span>
             </div>
@@ -585,7 +592,7 @@ export const BandConditionsModal: React.FC<BandConditionsModalProps> = ({
               <Badge status="active" size="sm">
                 Aurora
               </Badge>
-              <span className="text-sm text-gray-400">
+              <span className="text-sm text-su-muted">
                 Aurora scatter possible
               </span>
             </div>

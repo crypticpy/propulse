@@ -1,6 +1,7 @@
 import { formatUtc, hasData, sourceProps } from "@/components/solar/presentation";
 import { lazy, Suspense, useMemo, useState } from "react";
 import { AccessibleDialog } from "@/components/ui";
+import { fixedDarkSurfaceTokens } from "@/lib/themes/stationTokens";
 import { SolarBriefingCard } from "@/components/solar/SolarBriefingCard";
 import { SolarOperatingActions } from "@/components/solar/SolarOperatingActions";
 import { useSolarDisclosureState } from "@/hooks/useSolarDisclosureState";
@@ -15,7 +16,7 @@ function SolarMiniChart(props: SolarMiniChartProps) {
 }
 const Chart = lazy(() => import("@/components/solar/SolarSeriesChart").then((module) => ({ default: module.SolarSeriesChart })));
 function SolarSeriesChart(props: SolarSeriesChartProps) {
-  return <Suspense fallback={<p role="status" className="py-8 text-sm text-slate-400">Loading chart…</p>}><Chart {...props} /></Suspense>;
+  return <Suspense fallback={<p role="status" className="py-8 text-sm text-su-muted">Loading chart…</p>}><Chart {...props} /></Suspense>;
 }
 import { WidgetShell } from "@/components/solar/WidgetShell";
 import { useIsMobile } from "@/hooks/useIsMobile";
@@ -67,18 +68,18 @@ function MetricValue({
   tone?: "cyan" | "amber" | "green" | "rose";
 }) {
   const colors = {
-    cyan: "text-cyan-200",
-    amber: "text-amber-200",
-    green: "text-emerald-200",
-    rose: "text-rose-200",
+    cyan: "text-su-info",
+    amber: "text-su-warning",
+    green: "text-su-success",
+    rose: "text-su-danger",
   };
   return (
     <div>
       <p className={`${colors[tone]} font-mono text-3xl font-semibold tabular-nums tracking-tight sm:text-4xl`}>
         {value}
-        {unit && <span className="ml-2 text-base font-medium text-slate-400">{unit}</span>}
+        {unit && <span className="ml-2 text-base font-medium text-su-muted">{unit}</span>}
       </p>
-      <p className="mt-3 text-sm leading-6 text-slate-400">{note}</p>
+      <p className="mt-3 text-sm leading-6 text-su-muted">{note}</p>
     </div>
   );
 }
@@ -88,7 +89,7 @@ function DetailButton({ onClick }: { onClick: () => void }) {
     <button
       type="button"
       onClick={onClick}
-      className="min-h-11 rounded-lg border border-white/10 bg-white/5 px-3 text-xs font-semibold text-slate-300 hover:bg-white/10 hover:text-white"
+      className="min-h-11 rounded-lg border border-su-line/40 bg-su-input px-3 text-xs font-semibold text-su-muted hover:bg-su-line/20 hover:text-su-text"
     >
       Explain
     </button>
@@ -127,31 +128,31 @@ export function SolarPulse() {
         : "";
 
   return (
-    <main className="min-h-full bg-deep-space px-3 py-4 sm:px-5 sm:py-6 lg:px-8">
+    <main className="min-h-full bg-su-canvas px-3 py-4 sm:px-5 sm:py-6 lg:px-8">
       <div className="mx-auto max-w-[1500px] space-y-4 sm:space-y-6">
-        <header className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 border-b border-white/10 pb-4 md:grid-cols-[auto_minmax(0,1fr)_auto]">
-          <div><h1 className="font-orbitron text-2xl font-bold text-white">Solar Pulse</h1><p className="mt-1 text-sm text-slate-400">Space weather for your next session</p></div>
-          <div role="status" className="order-last col-span-2 text-xs text-slate-400 md:order-none md:col-span-1 md:px-3 md:text-right">
+        <header className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 border-b border-su-line/40 pb-4 md:grid-cols-[auto_minmax(0,1fr)_auto]">
+          <div><h1 className="font-orbitron text-2xl font-bold text-su-text">Solar Pulse</h1><p className="mt-1 text-sm text-su-muted">Space weather for your next session</p></div>
+          <div role="status" className="order-last col-span-2 text-xs text-su-muted md:order-none md:col-span-1 md:px-3 md:text-right">
             <p>{model.pageHealth === "healthy" ? "Core readings up to date" : model.pageHealth === "loading" ? "Checking space-weather updates" : "Some readings are delayed · see the briefing below"}</p>
             {refreshSummary && <p className="mt-1">{refreshSummary}</p>}
           </div>
           <div className="group relative justify-self-end">
-            <button type="button" aria-describedby="solar-refresh-help" onClick={() => void model.refreshVisible()} disabled={model.refreshResult.running} className="min-h-11 rounded-lg border border-white/10 px-4 text-sm text-cyan-200 hover:bg-white/5 disabled:opacity-60">{model.refreshResult.running ? "Refreshing…" : "Refresh"}</button>
-            <p id="solar-refresh-help" role="tooltip" className="absolute right-0 top-full z-20 mt-2 hidden w-64 rounded-xl border border-white/15 bg-panel p-3 text-xs leading-5 text-slate-200 shadow-xl group-hover:block group-focus-within:block">Refreshes data in the open sections. Images update on their own schedule.</p>
+            <button type="button" aria-describedby="solar-refresh-help" onClick={() => void model.refreshVisible()} disabled={model.refreshResult.running} className="min-h-11 rounded-lg border border-su-line/40 px-4 text-sm text-su-info hover:bg-su-line/10 disabled:opacity-60">{model.refreshResult.running ? "Refreshing…" : "Refresh"}</button>
+            <p id="solar-refresh-help" role="tooltip" className="absolute right-0 top-full z-20 mt-2 hidden w-64 rounded-xl border border-su-line/40 bg-su-panel p-3 text-xs leading-5 text-su-text shadow-xl group-hover:block group-focus-within:block">Refreshes data in the open sections. Images update on their own schedule.</p>
           </div>
         </header>
         <div className="grid items-start gap-4 xl:grid-cols-[minmax(0,1fr)_18rem]">
           <SolarBriefingCard briefing={model.briefing} scales={resources.scales.data}>
             <SolarOperatingActions />
           </SolarBriefingCard>
-          {wideBriefing && <div className="max-w-sm"><SolarImageCard productId="sunspot-hmi" onOpen={(productId) => setModal({ kind: "image", productId })} /><p className="mt-2 text-xs leading-5 text-slate-400">Visible sunspots on the full solar disk. Inspect solar history below for longer-term context.</p></div>}
+          {wideBriefing && <div className="max-w-sm"><SolarImageCard productId="sunspot-hmi" onOpen={(productId) => setModal({ kind: "image", productId })} /><p className="mt-2 text-xs leading-5 text-su-muted">Visible sunspots on the full solar disk. Inspect solar history below for longer-term context.</p></div>}
         </div>
 
         <section aria-labelledby="solar-now-heading">
           <div className="mb-3 flex items-end justify-between px-1">
             <div>
-              <p className="text-xs font-bold uppercase tracking-[0.2em] text-cyan-300">Now</p>
-              <h2 id="solar-now-heading" className="mt-1 font-orbitron text-xl font-bold text-white">Key readings</h2>
+              <p className="text-xs font-bold uppercase tracking-[0.2em] text-su-info">Now</p>
+              <h2 id="solar-now-heading" className="mt-1 font-orbitron text-xl font-bold text-su-text">Key readings</h2>
             </div>
           </div>
           <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
@@ -212,10 +213,10 @@ export function SolarPulse() {
           </div>
         </section>
 
-        <section aria-label="What changed" className="border-y border-white/10 py-4">
-          <h2 className="text-sm font-semibold text-white">What changed</h2>
+        <section aria-label="What changed" className="border-y border-su-line/40 py-4">
+          <h2 className="text-sm font-semibold text-su-text">What changed</h2>
           <div className="mt-3 grid grid-cols-2 gap-4 lg:grid-cols-4">
-            {model.trends.map((trend) => <div key={trend.sourceId} className="text-xs leading-5 text-slate-400"><p className="font-semibold text-slate-200">{trend.label} · {trend.summary}</p>{trend.from && trend.to && <p>{formatUtc(trend.from)} → {formatUtc(trend.to)}</p>}{trend.delayed && <p className="text-amber-200">Delayed observations</p>}</div>)}
+            {model.trends.map((trend) => <div key={trend.sourceId} className="text-xs leading-5 text-su-muted"><p className="font-semibold text-su-text">{trend.label} · {trend.summary}</p>{trend.from && trend.to && <p>{formatUtc(trend.from)} → {formatUtc(trend.to)}</p>}{trend.delayed && <p className="text-su-warning">Delayed observations</p>}</div>)}
           </div>
         </section>
 
@@ -226,7 +227,7 @@ export function SolarPulse() {
           open={forecastOpen}
           onToggle={() => toggleGroup("forecast")}
         >
-          <Suspense fallback={<p role="status" className="py-8 text-sm text-slate-400">Loading forecast…</p>}>
+          <Suspense fallback={<p role="status" className="py-8 text-sm text-su-muted">Loading forecast…</p>}>
             <SolarForecastPanel resources={resources} current={current} />
           </Suspense>
         </SolarDisclosure>
@@ -239,30 +240,30 @@ export function SolarPulse() {
           hasData={resources.alerts.state === "empty" || hasData(resources.alerts)}
         >
           {resources.alerts.data?.length ? (
-            <div className="divide-y divide-white/[0.07]"><p className="pb-3 text-xs text-slate-400">Recent messages may include ended events. Open the full bulletin for validity and cancellation details.</p>
+            <div className="divide-y divide-su-line/20"><p className="pb-3 text-xs text-su-muted">Recent messages may include ended events. Open the full bulletin for validity and cancellation details.</p>
               {resources.alerts.data.slice(0, allBulletins ? undefined : 3).map((alert) => (
                 <button
                   type="button"
                   key={`${alert.product_id}-${alert.issued_at}`}
                   onClick={() => setModal({ kind: "alert", alert })}
-                  className="flex min-h-14 w-full items-center justify-between gap-4 py-3 text-left hover:text-white"
+                  className="flex min-h-14 w-full items-center justify-between gap-4 py-3 text-left hover:text-su-text"
                 >
                   <span className="min-w-0">
-                    <span className="block truncate text-sm font-medium text-slate-200">{alert.title}</span>
-                    <span className="mt-1 block text-xs text-slate-400">{formatUtc(alert.issued_at)} · {alert.product_id}</span>
+                    <span className="block truncate text-sm font-medium text-su-text">{alert.title}</span>
+                    <span className="mt-1 block text-xs text-su-muted">{formatUtc(alert.issued_at)} · {alert.product_id}</span>
                   </span>
-                  <span className="shrink-0 text-xs font-semibold capitalize text-cyan-300">{alert.severity}</span>
+                  <span className="shrink-0 text-xs font-semibold capitalize text-su-info">{alert.severity}</span>
                 </button>
               ))}
             </div>
           ) : (
-            <p className="rounded-xl border border-white/10 bg-black/20 p-4 text-sm text-slate-400">
+            <p className="rounded-xl border border-su-line/40 bg-su-input p-4 text-sm text-su-muted">
               No recent bulletins were reported in the current successful response.
             </p>
           )}
         </WidgetShell>
 
-        {resources.alerts.data && resources.alerts.data.length > 3 && <button type="button" onClick={() => setAllBulletins(!allBulletins)} aria-expanded={allBulletins} className="min-h-11 rounded-lg border border-white/10 px-4 text-sm text-cyan-200">{allBulletins ? "Show recent three" : `Show all ${resources.alerts.data.length} bulletins`}</button>}
+        {resources.alerts.data && resources.alerts.data.length > 3 && <button type="button" onClick={() => setAllBulletins(!allBulletins)} aria-expanded={allBulletins} className="min-h-11 rounded-lg border border-su-line/40 px-4 text-sm text-su-info">{allBulletins ? "Show recent three" : `Show all ${resources.alerts.data.length} bulletins`}</button>}
 
         <SolarDisclosure
           id="solar-impacts"
@@ -304,20 +305,20 @@ export function SolarPulse() {
               />
             </WidgetShell>
           </div>
-          {!isMobile && <div className="mt-4 grid gap-3 md:grid-cols-2">{(["drap-global", "aurora-north"] as SolarImageProductId[]).map((productId) => <div key={productId}><p className="mb-2 text-sm text-slate-300">{productId === "drap-global" ? "Sunlit-side absorption: inspect where the model places HF effects. The global maximum is not a local tuning recommendation." : "Polar context: auroral probability is not an HF path forecast. This product covers the Northern Hemisphere."}</p><SolarImageCard productId={productId} onOpen={(selected, animation) => setModal({ kind: animation ? "animation" : "image", productId: selected })} /></div>)}</div>}
+          {!isMobile && <div className="mt-4 grid gap-3 md:grid-cols-2">{(["drap-global", "aurora-north"] as SolarImageProductId[]).map((productId) => <div key={productId}><p className="mb-2 text-sm text-su-muted">{productId === "drap-global" ? "Sunlit-side absorption: inspect where the model places HF effects. The global maximum is not a local tuning recommendation." : "Polar context: auroral probability is not an HF path forecast. This product covers the Northern Hemisphere."}</p><SolarImageCard productId={productId} onOpen={(selected, animation) => setModal({ kind: animation ? "animation" : "image", productId: selected })} /></div>)}</div>}
           <WidgetShell title="Recent CME analyses" eyebrow="NASA DONKI · current event set" {...sourceProps(resources.cme)} className="mt-3">
             {resources.cme.data?.length ? (
               <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-3">
                 {resources.cme.data.slice(-6).reverse().map((event) => (
-                  <a key={`${event.time21_5}-${event.link}`} href={event.link} target="_blank" rel="noreferrer" className="rounded-xl border border-white/10 bg-black/20 p-3 hover:bg-white/[0.04]">
-                    <p className="font-mono text-sm font-semibold text-white">{event.speed.toFixed(0)} km/s</p>
-                    <p className="mt-1 text-xs text-slate-400">{formatUtc(event.time21_5)} · half-angle {event.halfAngle.toFixed(0)}°</p>
-                    <p className="mt-2 line-clamp-2 text-xs leading-5 text-slate-400">{event.note || "No analyst note supplied."}</p>
+                  <a key={`${event.time21_5}-${event.link}`} href={event.link} target="_blank" rel="noreferrer" className="rounded-xl border border-su-line/40 bg-su-input p-3 hover:bg-su-line/10">
+                    <p className="font-mono text-sm font-semibold text-su-text">{event.speed.toFixed(0)} km/s</p>
+                    <p className="mt-1 text-xs text-su-muted">{formatUtc(event.time21_5)} · half-angle {event.halfAngle.toFixed(0)}°</p>
+                    <p className="mt-2 line-clamp-2 text-xs leading-5 text-su-muted">{event.note || "No analyst note supplied."}</p>
                   </a>
                 ))}
               </div>
             ) : (
-              <p className="text-sm text-slate-400">No CME analyses were returned in the current event window.</p>
+              <p className="text-sm text-su-muted">No CME analyses were returned in the current event window.</p>
             )}
           </WidgetShell>
         </SolarDisclosure>
@@ -378,7 +379,7 @@ export function SolarPulse() {
           </div>
         </SolarDisclosure>
 
-        <footer className="rounded-2xl border border-white/10 bg-black/15 px-5 py-4 text-xs leading-5 text-slate-400">
+        <footer className="rounded-2xl border border-su-line/40 bg-su-panel/70 px-5 py-4 text-xs leading-5 text-su-muted">
           Measurements and official forecasts are supplied by NOAA SWPC, NASA SDO, NASA DONKI, and Kyoto WDC products. “Observed,” “estimated,” “predicted,” and “general guidance” are deliberately kept distinct throughout this page.
         </footer>
       </div>
@@ -389,11 +390,15 @@ export function SolarPulse() {
 }
 
 function SolarModalHost({ modal, onClose }: { modal: ModalState; onClose: () => void }) {
+  // AccessibleDialog's chrome is a fixed dark panel, so the su- tokens inside it
+  // are pinned to the dark palette rather than following the app theme; in the
+  // light theme they would otherwise land at roughly 2.4:1 on that panel.
+  const panelProps = { style: fixedDarkSurfaceTokens };
   if (!modal) return null;
   if (modal.kind === "alert") {
     return (
-      <AccessibleDialog open onClose={onClose} title={modal.alert.title} description={`Official SWPC ${modal.alert.severity} · issued ${formatUtc(modal.alert.issued_at)}`} size="lg">
-        <pre className="whitespace-pre-wrap break-words font-sans text-sm leading-6 text-slate-300">{modal.alert.message}</pre>
+      <AccessibleDialog panelProps={panelProps} open onClose={onClose} title={modal.alert.title} description={`Official SWPC ${modal.alert.severity} · issued ${formatUtc(modal.alert.issued_at)}`} size="lg">
+        <pre className="whitespace-pre-wrap break-words font-sans text-sm leading-6 text-su-muted">{modal.alert.message}</pre>
       </AccessibleDialog>
     );
   }
@@ -405,23 +410,23 @@ function SolarModalHost({ modal, onClose }: { modal: ModalState; onClose: () => 
       xray: ["GOES long X-ray channel", "This GOES channel measures solar X-rays at 0.1–0.8 nm. M- and X-class activity can increase absorption on the sunlit side of Earth. Inspect the X-ray history and D-RAP map, then evaluate the illumination and frequency of your own path."],
     } as const;
     return (
-      <AccessibleDialog open onClose={onClose} title={content[modal.metric][0]} description="What it means for radio and what to check next" size="md">
-        <p className="text-sm leading-7 text-slate-300">{content[modal.metric][1]}</p>
+      <AccessibleDialog panelProps={panelProps} open onClose={onClose} title={content[modal.metric][0]} description="What it means for radio and what to check next" size="md">
+        <p className="text-sm leading-7 text-su-muted">{content[modal.metric][1]}</p>
       </AccessibleDialog>
     );
   }
   const product = SOLAR_IMAGE_PRODUCTS[modal.productId];
   if (modal.kind === "animation" && product.animation) {
     return (
-      <AccessibleDialog open onClose={onClose} title={`${product.title} timeline`} description={`${product.description} Frames load only while this dialog is open.`} size="xl">
-        <Suspense fallback={<p role="status" className="py-12 text-center text-sm text-slate-400">Loading timeline controls…</p>}>
+      <AccessibleDialog panelProps={panelProps} open onClose={onClose} title={`${product.title} timeline`} description={`${product.description} Frames load only while this dialog is open.`} size="xl">
+        <Suspense fallback={<p role="status" className="py-12 text-center text-sm text-su-muted">Loading timeline controls…</p>}>
           <SolarAnimationPlayer animationId={product.animation} thumbnailProductId={modal.productId} alt={product.alt} />
         </Suspense>
       </AccessibleDialog>
     );
   }
   return (
-    <AccessibleDialog open onClose={onClose} title={product.title} description={product.description} size="xl">
+    <AccessibleDialog panelProps={panelProps} open onClose={onClose} title={product.title} description={product.description} size="xl">
       <SolarImageDetail productId={modal.productId} />
     </AccessibleDialog>
   );

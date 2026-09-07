@@ -327,7 +327,8 @@ export function HamClockSpotsSidebar({
               <div
                 role="tablist"
                 aria-label="Spot feeds"
-                className="grid grid-cols-4 border-b border-white/10 shrink-0"
+                className="grid border-b border-white/10 shrink-0"
+                style={{ gridTemplateColumns: `repeat(${SPOT_TABS.length}, minmax(0, 1fr))` }}
               >
                 {SPOT_TABS.map((tab) => (
                   <button
@@ -341,7 +342,7 @@ export function HamClockSpotsSidebar({
                     ref={(node) => {
                       tabRefs.current[tab] = node;
                     }}
-                    className={`px-1 py-1.5 font-mono text-[9px] transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-plasma-orange ${
+                    className={`px-0.5 py-1.5 font-mono text-[9px] transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-plasma-orange ${
                       activeTab === tab
                         ? "bg-plasma-orange/10 text-plasma-orange"
                         : "text-gray-500 hover:bg-white/5 hover:text-gray-300"

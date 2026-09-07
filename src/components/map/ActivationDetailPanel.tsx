@@ -14,6 +14,8 @@ import { useNavigate } from "react-router-dom";
 import { TuneButton } from "@/components/radio/TuneButton";
 import { AccessibleDialog } from "@/components/ui/AccessibleDialog";
 import { useActiveLocation } from "@/hooks/useActiveLocation";
+import { useUTCClock } from "@/hooks/useUTCClock";
+import { currentActivations } from "@/lib/hamclock/activations";
 import { useActivationSpots } from "@/hooks/useActivationSpots";
 import { useCallsignIngestion } from "@/hooks/useCallsignIngestion";
 import {
@@ -32,6 +34,7 @@ import { useActivationSpotStore } from "@/stores/activationSpotStore";
 import { useQSOStore } from "@/stores/qsoStore";
 import {
   ACTIVATION_PROGRAM_META,
+  activationProvenance,
   type ActivationProgram,
 } from "@/types/activationSpots";
 
@@ -180,6 +183,9 @@ function sameActivationReport(
     left.referenceName === right.referenceName &&
     left.frequencyKHz === right.frequencyKHz &&
     left.mode === right.mode &&
+    left.expiresAt === right.expiresAt &&
+    left.originSource === right.originSource &&
+    left.originLabel === right.originLabel &&
     left.comments === right.comments &&
     left.spotter === right.spotter &&
     left.spottedAt === right.spottedAt &&
@@ -195,6 +201,7 @@ export function ActivationDetailPanel() {
   const selectSpot = useActivationSpotStore((state) => state.selectSpot);
   const clearSpot = useActivationSpotStore((state) => state.clearSpot);
   const activationFeed = useActivationSpots(spot !== null);
+  const now = useUTCClock(10_000).getTime();
   const location = useActiveLocation();
   const setField = useQSOStore((state) => state.setField);
   const resetForm = useQSOStore((state) => state.resetForm);
@@ -232,7 +239,9 @@ export function ActivationDetailPanel() {
   }, [spot?.id]);
 
   useEffect(() => {
-    if (!spot || activationFeed.isLoading || activationFeed.error) return;
+    if (!spot) return;
+    if (currentActivations([spot], now).length === 0) { clearSpot(); return; }
+    if (activationFeed.isLoading || activationFeed.error) return;
     if (!refreshedSpot) {
       const selectedSource = activationFeed.sources.find(
         (source) => source.program === spot.program,
@@ -249,6 +258,7 @@ export function ActivationDetailPanel() {
     // program/callsign/reference identity so it cannot prepare a stale QSO.
     if (!sameActivationReport(refreshedSpot, spot)) selectSpot(refreshedSpot);
   }, [
+    now,
     activationFeed.error,
     activationFeed.isLoading,
     activationFeed.sources,
@@ -274,6 +284,7 @@ export function ActivationDetailPanel() {
       `Grid: ${grid}`,
       `Coordinates: ${spot.latitude.toFixed(4)}, ${spot.longitude.toFixed(4)}`,
       `Spotted by: ${spot.spotter}`,
+      activationProvenance(spot),
       `Reported: ${reportedAtLabel}`,
       spot.comments ? `Comments: ${spot.comments}` : "",
     ]
@@ -309,6 +320,7 @@ export function ActivationDetailPanel() {
       [
         `${spot.program} ${spot.reference} — ${spot.referenceName}`,
         spot.spotter ? `spotted by ${spot.spotter}` : "",
+        activationProvenance(spot),
         spot.comments,
       ]
         .filter(Boolean)
@@ -368,6 +380,7 @@ export function ActivationDetailPanel() {
                 value={`${formatCoordinate(spot.latitude, true)}, ${formatCoordinate(spot.longitude, false)}`}
               />
               <DataRow label="Spotter" value={spot.spotter || "Not reported"} />
+              {activationProvenance(spot) && <DataRow label="Original source" value={activationProvenance(spot)} />}
               <DataRow label="Reported" value={reportedAtLabel} />
               {spot.comments && <DataRow label="Comments" value={spot.comments} />}
             </dl>

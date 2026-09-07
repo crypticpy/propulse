@@ -49,12 +49,16 @@ export function BandVerdictDetailsDialog({
         item.band === entry.band && item.scopeId === entry.result.scopeId,
     )
     .slice(0, 3);
-  const canonicalOpens = canonical
-    ? leadMinutes(canonical, "opens_in_min")
-    : null;
-  const canonicalFades = canonical
-    ? leadMinutes(canonical, "fades_in_min")
-    : null;
+  // A stale row's lead times are stale too (and a future-dated row clamps
+  // to age 0), so never advertise them as a current prediction.
+  const canonicalOpens =
+    canonical && !canonical.stale
+      ? leadMinutes(canonical, "opens_in_min")
+      : null;
+  const canonicalFades =
+    canonical && !canonical.stale
+      ? leadMinutes(canonical, "fades_in_min")
+      : null;
 
   return (
     <AccessibleDialog

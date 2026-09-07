@@ -67,6 +67,24 @@ describe("BandVerdictDetailsDialog", () => {
     expect(screen.getByText(/Last verdict/)).not.toBeNull();
   });
 
+  it("never advertises lead times from a stale or future-dated row", () => {
+    render(
+      <BandVerdictDetailsDialog
+        entry={fadingEntry()}
+        canonical={canonicalRow({
+          state: "closed",
+          updatedAt: new Date(Date.now() + 10 * 60_000).toISOString(),
+          inputs: { opens_in_min: 30, fades_in_min: 90 },
+        })}
+        scopeLabel="Regional · North America"
+        onClose={vi.fn()}
+      />,
+    );
+
+    expect(screen.queryByText(/Likely opens/)).toBeNull();
+    expect(screen.queryByText(/May fade/)).toBeNull();
+  });
+
   it("portals fading details above an overflow-constrained panel", () => {
     const close = vi.fn();
     const { container } = render(

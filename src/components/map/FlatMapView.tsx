@@ -1,3 +1,4 @@
+import { flatSpotPath, traceFlatSpotPath, traceFlatSpotEndpoint } from "@/lib/map/flatSpotPath";
 /**
  * FlatMapView Component
  *
@@ -1499,8 +1500,7 @@ function drawMUF(
 }
 
 /**
- * Draw a curved arc between two points using bezier curves
- * Creates a visually pleasing arc that curves away from the map surface
+ * Draw the actual short great-circle path and distinguish TX/RX endpoints.
  */
 function drawSpotArc(
   ctx: CanvasRenderingContext2D,
@@ -1520,17 +1520,12 @@ function drawSpotArc(
   const start = latLonToCanvas(spot.spotterLat, spot.spotterLon, width, height);
   const end = latLonToCanvas(spot.dxLat, spot.dxLon, width, height);
 
-  // Calculate control point for bezier curve
-  // The arc height is based on distance between points
-  const dx = end.x - start.x;
-  const dy = end.y - start.y;
-  const distance = Math.sqrt(dx * dx + dy * dy);
-
-  // Handle wrap-around at date line
-  let wrapAround = false;
-  if (Math.abs(dx) > width / 2) {
-    wrapAround = true;
-  }
+  const path = flatSpotPath(
+    spot.spotterLat, spot.spotterLon,
+    spot.dxLat, spot.dxLon,
+    width, height,
+  );
+  if (path.length === 0) return;
 
   ctx.save();
   ctx.globalAlpha = opacity;
@@ -1538,83 +1533,31 @@ function drawSpotArc(
   ctx.lineWidth = ((highViz ? 3 : 1.5) * spotDotScale) / zoomDamp;
   ctx.lineCap = "round";
 
-  if (wrapAround) {
-    // Draw two segments for wrap-around paths
-    // Use great circle points for more accurate path
-    const points = getGreatCirclePoints(
-      spot.spotterLat,
-      spot.spotterLon,
-      spot.dxLat,
-      spot.dxLon,
-      50,
-    );
+  traceFlatSpotPath(ctx, path);
+  ctx.stroke();
 
-    ctx.beginPath();
-    let lastX = -1;
-
-    for (const point of points) {
-      const { x, y } = latLonToCanvas(point.lat, point.lon, width, height);
-
-      if (lastX >= 0 && Math.abs(x - lastX) > width / 2) {
-        // Break at wrap point
-        ctx.stroke();
-        ctx.beginPath();
-        ctx.moveTo(x, y);
-      } else if (lastX < 0) {
-        ctx.moveTo(x, y);
-      } else {
-        ctx.lineTo(x, y);
-      }
-      lastX = x;
-    }
-    ctx.stroke();
-  } else {
-    // Draw a curved bezier arc for non-wrapping paths
-    const midX = (start.x + end.x) / 2;
-    const midY = (start.y + end.y) / 2;
-
-    // Arc curves upward (toward poles) - height based on distance
-    const arcHeight = Math.min(distance * 0.3, 80);
-    const controlY = midY - arcHeight;
-
-    ctx.beginPath();
-    ctx.moveTo(start.x, start.y);
-    ctx.quadraticCurveTo(midX, controlY, end.x, end.y);
-    ctx.stroke();
-  }
-
-  // Draw endpoint markers with distinct source/target styling
-  // Spotter (source): hollow ring — reads as origin/transmitter
-  ctx.beginPath();
-  ctx.arc(
-    start.x,
-    start.y,
+  // The reporting station is RX, represented by a hollow square.
+  traceFlatSpotEndpoint(
+    ctx, start.x, start.y,
     ((highViz ? 5 : 3.5) * spotDotScale) / zoomDamp,
-    0,
-    Math.PI * 2,
+    "rx",
   );
   ctx.strokeStyle = color;
   ctx.lineWidth = ((highViz ? 2 : 1.5) * spotDotScale) / zoomDamp;
   ctx.stroke();
 
-  // DX (target): filled circle with white outer ring — reads as destination
-  ctx.beginPath();
-  ctx.arc(
-    end.x,
-    end.y,
+  // The DX station is TX, represented by a filled circle with an outer ring.
+  traceFlatSpotEndpoint(
+    ctx, end.x, end.y,
     ((highViz ? 5 : 4) * spotDotScale) / zoomDamp,
-    0,
-    Math.PI * 2,
+    "tx",
   );
   ctx.fillStyle = color;
   ctx.fill();
-  ctx.beginPath();
-  ctx.arc(
-    end.x,
-    end.y,
+  traceFlatSpotEndpoint(
+    ctx, end.x, end.y,
     ((highViz ? 7 : 5.5) * spotDotScale) / zoomDamp,
-    0,
-    Math.PI * 2,
+    "tx",
   );
   ctx.strokeStyle = "rgba(255, 255, 255, 0.5)";
   ctx.lineWidth = ((highViz ? 1.5 : 1) * spotDotScale) / zoomDamp;
@@ -1682,48 +1625,18 @@ function drawSelectedSpotArc(
   const glowColor = "rgba(255, 107, 53, 0.3)";
   const zoomDamp = Math.max(1, zoomScale);
 
-  const dx = end.x - start.x;
-  const dy = end.y - start.y;
-  const distance = Math.sqrt(dx * dx + dy * dy);
-  const wrapAround = Math.abs(dx) > width / 2;
-
+  const path = flatSpotPath(
+    spot.spotterLat, spot.spotterLon,
+    spot.dxLat, spot.dxLon,
+    width, height,
+  );
+  if (path.length === 0) return;
   ctx.save();
 
-  // --- Helper to stroke the arc path (reused for glow + main line) ---
+  // Reuse the same geodesic for the glow and main stroke.
   const strokeArcPath = () => {
-    if (wrapAround) {
-      const points = getGreatCirclePoints(
-        spot.spotterLat,
-        spot.spotterLon,
-        spot.dxLat,
-        spot.dxLon,
-        50,
-      );
-      ctx.beginPath();
-      let lastX = -1;
-      for (const pt of points) {
-        const { x, y } = latLonToCanvas(pt.lat, pt.lon, width, height);
-        if (lastX >= 0 && Math.abs(x - lastX) > width / 2) {
-          ctx.stroke();
-          ctx.beginPath();
-          ctx.moveTo(x, y);
-        } else if (lastX < 0) {
-          ctx.moveTo(x, y);
-        } else {
-          ctx.lineTo(x, y);
-        }
-        lastX = x;
-      }
-      ctx.stroke();
-    } else {
-      const midX = (start.x + end.x) / 2;
-      const midY = (start.y + end.y) / 2;
-      const arcHeight = Math.min(distance * 0.3, 80);
-      ctx.beginPath();
-      ctx.moveTo(start.x, start.y);
-      ctx.quadraticCurveTo(midX, midY - arcHeight, end.x, end.y);
-      ctx.stroke();
-    }
+    traceFlatSpotPath(ctx, path);
+    ctx.stroke();
   };
 
   // Glow arc (wider, blurred)
@@ -1745,28 +1658,25 @@ function drawSelectedSpotArc(
   ctx.shadowColor = "transparent";
   ctx.shadowBlur = 0;
 
-  // Spotter endpoint — hollow ring (larger than normal arcs)
+  // RX endpoint — hollow square (larger than normal arcs)
   const spotterRadius = (5 * spotDotScale) / zoomDamp;
-  ctx.beginPath();
-  ctx.arc(start.x, start.y, spotterRadius, 0, Math.PI * 2);
+  traceFlatSpotEndpoint(ctx, start.x, start.y, spotterRadius, "rx");
   ctx.strokeStyle = highlightColor;
   ctx.lineWidth = (2 * spotDotScale) / zoomDamp;
   ctx.shadowColor = "rgba(255, 107, 53, 0.4)";
   ctx.shadowBlur = 6 / zoomDamp;
   ctx.stroke();
 
-  // DX endpoint — filled circle with white outer ring
+  // TX endpoint — filled circle with white outer ring
   const dxRadius = (6 * spotDotScale) / zoomDamp;
-  ctx.beginPath();
-  ctx.arc(end.x, end.y, dxRadius, 0, Math.PI * 2);
+  traceFlatSpotEndpoint(ctx, end.x, end.y, dxRadius, "tx");
   ctx.fillStyle = highlightColor;
   ctx.shadowColor = "rgba(255, 107, 53, 0.5)";
   ctx.shadowBlur = 8 / zoomDamp;
   ctx.fill();
   ctx.shadowColor = "transparent";
   ctx.shadowBlur = 0;
-  ctx.beginPath();
-  ctx.arc(end.x, end.y, dxRadius + 2 / zoomDamp, 0, Math.PI * 2);
+  traceFlatSpotEndpoint(ctx, end.x, end.y, dxRadius + 2 / zoomDamp, "tx");
   ctx.strokeStyle = "rgba(255, 255, 255, 0.8)";
   ctx.lineWidth = (1.5 * spotDotScale) / zoomDamp;
   ctx.stroke();

@@ -9,6 +9,12 @@
  * - Bridge payload conversion
  */
 
+import {
+  readSpotFeedMetadata,
+  spotFeedWindowParameter,
+  type SpotFeed,
+  type SpotWindowMinutes,
+} from "./spotFeed";
 import type { DXSpot, BandColorConfig } from "@/types/dxcluster";
 import type { ClusterSpotPayload } from "@/types/bridge";
 
@@ -261,84 +267,104 @@ function parseHamQTHCSV(text: string): DXSpot[] {
 /**
  * Fetch real spots from the DX cluster REST proxy (Vercel Edge Function).
  * Handles both Edge Function JSON responses (production) and HamQTH CSV
- * responses (dev mode via Vite proxy). Falls back gracefully if unavailable.
+ * responses (dev mode via Vite proxy). Evidence consumers retain metadata and errors.
  */
-export async function fetchClusterSpots(limit = 50): Promise<DXSpot[]> {
-  try {
-    const res = await fetch(`/api/spots/dxcluster?limit=${limit}`);
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+export async function fetchClusterFeed(
+  limit = 50,
+  windowMinutes?: SpotWindowMinutes,
+): Promise<SpotFeed<DXSpot>> {
+  const res = await fetch(`/api/spots/dxcluster?limit=${limit}${spotFeedWindowParameter(windowMinutes)}`);
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
 
-    const contentType = res.headers.get("content-type") || "";
+  const contentType = res.headers.get("content-type") || "";
 
-    // HamQTH CSV format (dev via Vite proxy) - text/html or text/plain with ^ delimiters
-    if (!contentType.includes("application/json")) {
-      const text = await res.text();
-      // Verify it looks like caret-delimited data before parsing
-      if (text.includes("^")) {
-        return parseHamQTHCSV(text);
+  // HamQTH CSV format (dev via Vite proxy) - text/html or text/plain with ^ delimiters
+  if (!contentType.includes("application/json")) {
+    const text = await res.text();
+    // Verify it looks like caret-delimited data before parsing
+    if (text.includes("^")) {
+      return { spots: parseHamQTHCSV(text), metadata: readSpotFeedMetadata(undefined, "dxcluster", windowMinutes) };
+    }
+    throw new Error("DX Cluster returned an unexpected response");
+  }
+
+  // JSON format: Edge Function response
+  const data = await res.json();
+  const metadata = readSpotFeedMetadata(data, "dxcluster", windowMinutes);
+
+  // Handle both Edge Function format ({ spots: [...] }) and flat array
+  const items: Record<string, unknown>[] = Array.isArray(data)
+    ? data
+    : Array.isArray(data?.spots)
+      ? data.spots
+      : [];
+
+  if (!Array.isArray(data) && !Array.isArray(data?.spots)) {
+    throw new Error("DX Cluster returned an unexpected JSON payload");
+  }
+  const parsed = items.map((item: Record<string, unknown>): DXSpot | null => {
+    if (!item || typeof item !== "object") return null;
+    // Frequency: Edge Function uses "frequency" (number) or "freq" (string)
+    const rawFreq = item.frequency ?? item.freq;
+    const frequency =
+      typeof rawFreq === "number"
+        ? rawFreq
+        : Number(rawFreq);
+
+    if (!Number.isFinite(frequency) || frequency <= 0 || typeof item.dx !== "string" || !item.dx.trim() ||
+      typeof (item.spotter ?? item.de) !== "string" || !String(item.spotter ?? item.de).trim()) return null;
+
+    // Time: Edge Function gives ISO string or HHMM
+    const rawTime = String(item.time || "");
+    let time: Date;
+    if (/^\d{4}$/.test(rawTime)) {
+      const h = parseInt(rawTime.substring(0, 2), 10);
+      const m = parseInt(rawTime.substring(2, 4), 10);
+      if (h > 23 || m > 59) return null;
+      time = new Date();
+      time.setUTCHours(h, m, 0, 0);
+      if (time.getTime() > Date.now() + 60_000) {
+        time.setUTCDate(time.getUTCDate() - 1);
       }
-      return [];
+    } else {
+      time = new Date(rawTime);
+      if (isNaN(time.getTime())) return null;
     }
 
-    // JSON format: Edge Function response
-    const data = await res.json();
+    const comment = String(item.comment ?? item.info ?? "");
 
-    // Handle both Edge Function format ({ spots: [...] }) and flat array
-    const items: Record<string, unknown>[] = Array.isArray(data)
-      ? data
-      : Array.isArray(data?.spots)
-        ? data.spots
-        : [];
+    // Mode: Edge Function provides it, otherwise extract from comment
+    let mode = item.mode as string | undefined;
+    if (!mode && comment) {
+      mode = extractModeFromComment(comment);
+    }
 
-    return items.map((item: Record<string, unknown>) => {
-      // Frequency: Edge Function uses "frequency" (number) or "freq" (string)
-      const rawFreq = item.frequency ?? item.freq;
-      const frequency =
-        typeof rawFreq === "number"
-          ? rawFreq
-          : parseFloat(String(rawFreq)) || 0;
+    const rawBand = String(item.band ?? "").trim();
+    return {
+      id: (item.id as string) || crypto.randomUUID(),
+      spotter: String(item.spotter ?? item.de ?? ""),
+      dx: String(item.dx ?? ""),
+      frequency,
+      mode,
+      comment,
+      time,
+      // Edge feed historically returns "20M"; app BandIds / BandMap ranges are "20m".
+      band: rawBand
+        ? rawBand.toLowerCase()
+        : getBandFromFrequency(frequency),
+      spotterGrid: item.spotterGrid as string | undefined,
+      dxGrid: item.dxGrid as string | undefined,
+    };
+  });
+  const spots = parsed.filter((spot): spot is DXSpot => spot !== null);
+  if (items.length > 0 && spots.length === 0) throw new Error("DX Cluster returned no valid reports");
+  return { spots, metadata };
+}
 
-      // Time: Edge Function gives ISO string or HHMM
-      const rawTime = String(item.time || "");
-      let time: Date;
-      if (/^\d{4}$/.test(rawTime)) {
-        const h = parseInt(rawTime.substring(0, 2), 10);
-        const m = parseInt(rawTime.substring(2, 4), 10);
-        time = new Date();
-        time.setUTCHours(h, m, 0, 0);
-        if (time.getTime() > Date.now() + 60_000) {
-          time.setDate(time.getDate() - 1);
-        }
-      } else {
-        time = new Date(rawTime);
-        if (isNaN(time.getTime())) time = new Date();
-      }
-
-      const comment = String(item.comment ?? item.info ?? "");
-
-      // Mode: Edge Function provides it, otherwise extract from comment
-      let mode = item.mode as string | undefined;
-      if (!mode && comment) {
-        mode = extractModeFromComment(comment);
-      }
-
-      const rawBand = String(item.band ?? "").trim();
-      return {
-        id: (item.id as string) || crypto.randomUUID(),
-        spotter: String(item.spotter ?? item.de ?? ""),
-        dx: String(item.dx ?? ""),
-        frequency,
-        mode,
-        comment,
-        time,
-        // Edge feed historically returns "20M"; app BandIds / BandMap ranges are "20m".
-        band: rawBand
-          ? rawBand.toLowerCase()
-          : getBandFromFrequency(frequency),
-        spotterGrid: item.spotterGrid as string | undefined,
-        dxGrid: item.dxGrid as string | undefined,
-      };
-    });
+/** Compatibility wrapper; evidence consumers use fetchClusterFeed to retain failures. */
+export async function fetchClusterSpots(limit = 50): Promise<DXSpot[]> {
+  try {
+    return (await fetchClusterFeed(limit)).spots;
   } catch {
     return [];
   }

@@ -20,6 +20,7 @@ import type { BridgeMessage, RotorStatusPayload } from "@/types/bridge";
 
 type RigUpdatePayload = {
   connected?: boolean;
+  backend?: string;
   frequency?: number;
   mode?: string;
   band?: string;
@@ -80,7 +81,9 @@ export function useRigBridgeSync() {
   });
 
   const catConfigured =
-    settings.bridgeEnabled && settings.catBackend !== "disabled";
+    settings.catBackend !== "disabled";
+  const rigConnected = useRigStore((s) => s.connected);
+  const backend = useRigStore((s) => s.backend);
   const pendingFrequency = useRigStore((s) => s.pendingFrequency);
   const pendingMode = useRigStore((s) => s.pendingMode);
   const pendingRotorHeading = useRigStore((s) => s.pendingRotorHeading);
@@ -97,13 +100,10 @@ export function useRigBridgeSync() {
   const setBackend = useRigStore((s) => s.setBackend);
   const updateStatus = useRigStore((s) => s.updateStatus);
   const connectRequestIdRef = useRef<string | null>(null);
-  const pendingFrequencyRequestRef = useRef<{
+  const pendingTuneRequestRef = useRef<{
     id: string;
-    value: number;
-  } | null>(null);
-  const pendingModeRequestRef = useRef<{
-    id: string;
-    value: string;
+    frequency: number | null;
+    mode: string | null;
   } | null>(null);
   const pendingRotorRequestRef = useRef<{
     id: string;
@@ -167,8 +167,7 @@ export function useRigBridgeSync() {
 
   const resetRequestRefs = () => {
     connectRequestIdRef.current = null;
-    pendingFrequencyRequestRef.current = null;
-    pendingModeRequestRef.current = null;
+    pendingTuneRequestRef.current = null;
   };
 
   useEffect(() => {
@@ -194,9 +193,13 @@ export function useRigBridgeSync() {
       setBridgeCapabilities([]);
       setRotorStatus(null);
       clearPendingRotorHeading();
+      clearPendingFrequency();
+      clearPendingMode();
     }
   }, [
     bridgeConnected,
+    clearPendingFrequency,
+    clearPendingMode,
     clearPendingRotorHeading,
     setBridgeCapabilities,
     setConnected,
@@ -242,6 +245,11 @@ export function useRigBridgeSync() {
     if (msg.id && msg.id === connectRequestIdRef.current) {
       if (msg.type === "rig.connect.ack") {
         connectRequestIdRef.current = null;
+        const resolved = msg.payload?.backend;
+        if (resolved === "hamlib" || resolved === "flrig" || resolved === "icom-serial" || resolved === "icom-network" || resolved === "none") {
+          setBackend(resolved);
+        }
+        if (typeof msg.payload?.connected === "boolean") setConnected(msg.payload.connected);
         send("rig.status", {});
       } else if (msg.type === "error") {
         connectRequestIdRef.current = null;
@@ -249,15 +257,16 @@ export function useRigBridgeSync() {
       }
     }
 
-    if (msg.id && msg.id === pendingFrequencyRequestRef.current?.id) {
-      pendingFrequencyRequestRef.current = null;
-      clearPendingFrequency();
-      if (msg.type === "error") console.error("Rig frequency command failed", msg.payload);
-    }
-    if (msg.id && msg.id === pendingModeRequestRef.current?.id) {
-      pendingModeRequestRef.current = null;
-      clearPendingMode();
-      if (msg.type === "error") console.error("Rig mode command failed", msg.payload);
+    const tune = pendingTuneRequestRef.current;
+    if (tune && msg.id === tune.id && (msg.type === "rig.set.ack" || msg.type === "error")) {
+      pendingTuneRequestRef.current = null;
+      // A newer target may have arrived while this request was in flight.
+      const current = useRigStore.getState();
+      if (current.pendingFrequency === tune.frequency && current.pendingMode === tune.mode) {
+        clearPendingFrequency();
+        clearPendingMode();
+      }
+      if (msg.type === "error") console.error("Rig tune command failed", msg.payload);
     }
     if (msg.id && msg.id === pendingRotorRequestRef.current?.id) {
       pendingRotorRequestRef.current = null;
@@ -271,37 +280,34 @@ export function useRigBridgeSync() {
     lastMessage,
     send,
     setBridgeCapabilities,
+    setBackend,
     setConnected,
     setRotorStatus,
     updateStatus,
   ]);
 
-  // Dispatch staged tuning commands.
+  // The bridge's combined command awaits frequency then mode. Allow one
+  // request in flight so successive clicks cannot overlap on Hamlib either.
   useEffect(() => {
-    if (!bridgeConnected || !catConfigured) return;
-    if (pendingFrequency === null && pendingMode === null) return;
-
-    if (
-      pendingFrequency !== null &&
-      pendingFrequencyRequestRef.current?.value !== pendingFrequency
-    ) {
-      const id = sendRequest("rig.setFrequency", {
-        frequency: pendingFrequency,
-      });
-      if (id) pendingFrequencyRequestRef.current = { id, value: pendingFrequency };
-    }
-    if (
-      pendingMode !== null &&
-      pendingModeRequestRef.current?.value !== pendingMode
-    ) {
-      const id = sendRequest("rig.setMode", { mode: pendingMode });
-      if (id) pendingModeRequestRef.current = { id, value: pendingMode };
-    }
+    if (!settings.bridgeEnabled || !bridgeConnected || !catConfigured || !rigConnected || pendingTuneRequestRef.current) return;
+    // The preceding acknowledgement effect may already have cleared these.
+    const { pendingFrequency: frequency, pendingMode: mode } = useRigStore.getState();
+    if (frequency === null && mode === null) return;
+    const wireMode = mode === "CWR" && (backend === "icom-serial" || backend === "icom-network") ? "CW-R" : mode;
+    const id = sendRequest("rig.set", {
+      ...(frequency === null ? {} : { frequency }),
+      ...(wireMode === null ? {} : { mode: wireMode }),
+    });
+    if (id) pendingTuneRequestRef.current = { id, frequency, mode };
   }, [
+    settings.bridgeEnabled,
     bridgeConnected,
     catConfigured,
+    rigConnected,
+    backend,
     pendingFrequency,
     pendingMode,
+    lastMessage,
     sendRequest,
   ]);
 

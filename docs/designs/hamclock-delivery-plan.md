@@ -14,7 +14,7 @@ not a claim. Do not reserve all batches for one agent.
 
 | Lane | Responsibility | Boundary |
 | --- | --- | --- |
-| Codex / HamClock operating views | Current review: B18/#226 Reliability/Forecast presentation; B10/#206 widget configuration in review; coordinated spot display #288 in review; PSK/WSJT-X #287, Activations #285, shared tuning #286 and B24 #232 in review | One active implementation item; retain review and acceptance follow-up |
+| Codex / HamClock operating views | Current implementation: #289 rigctld default; B18/#226 Reliability/Forecast in review; B10/#206 widget configuration in review; coordinated spot display #288 in review; PSK/WSJT-X #287, Activations #285, shared tuning #286 and B24 #232 in review | One active implementation item; retain review and acceptance follow-up |
 | Existing modeling / 3D agent | NowCast training, inference, evaluation, model activation, and 3D globe work, per owner direction | This plan does not assign or change that agent's existing cards |
 | Additional contributor | Claim an unclaimed Ready item; B10/#206 is now claimed | Check current board, issue comments, and changed files before starting |
 | Weather | Deferred until operating work is complete | Inspect OpenWxGlobe before designing new weather adapters or layers |
@@ -340,8 +340,9 @@ reviewing the shared preview.
 cover the two-UTC-day chart, 288-value matrix with day selection, all four gated
 FutureCast rows, the best-in-six-hours summary and selected NOAA Kp forecast
 bucket. Capability/runtime gates, modeling mathematics and 3D internals remain
-unchanged. Both feature registers count HW-59 delivered when this slice merges;
-HW-58 remains partial for source history and hop-count contracts.
+unchanged. Review found a missing FutureCast serving contract; both feature registers now
+keep HW-59 partial. HW-58 also remains partial for source history and hop-count
+contracts. See the correction below.
 
 Full pre-push verification passed: 3,219 app tests in 368 files, Python/archive,
 bridge/daemon, lint, production build and bundle budgets. The required wall suite
@@ -356,3 +357,31 @@ Recheck its readiness before claiming; prioritize operating configuration/world
 clocks ahead of its weather portions. Weather remains last. PR #498 review fixes
 (aa362a90) also passed verification and all four review threads were resolved;
 the user preview above stays running.
+
+
+### Forecast serving boundary correction and next claim
+
+PR #502 review found that the generic path endpoint selects only NowCast or
+physics scorers, regardless of a future valid timestamp. The report must not
+label those scores FutureCast. Commit `96fb62ce` removes future-time path
+requests and cached future evidence; even advertised horizons stay MODEL OFF
+with FUTURECAST SCORER NOT AVAILABLE. A horizon-aware scorer/endpoint and
+model/horizon-identifying response contract are an external dependency for the
+model owner. HW-59 is partial, not delivered. The regression failed before the
+fix and passes afterward; 326 wall tests and 24 advertised-horizon browser
+cases pass with zero future-time path requests. Full verification is running.
+
+The next independently Ready item is #289, now the sole In progress / Codex
+claim: `.worktrees/hamclock-rigctld-default`, `fix/hamclock-rigctld-default`, based
+on origin/main `0d28c6c0`. The fix covers all radio default call sites, the
+settings migration and setup placeholders. Rotator port 4533 remains intact.
+Existing settings contain no provenance for an explicit 4533 selection; the
+issue's old-default equality migration requires WFView users on that port to
+select it again once, as documented. Other custom ports and current-version
+explicit 4533 values survive reload. Four isolated browser scenarios and
+14 focused radio/settings tests pass; bridge compilation passes. No bridge,
+daemon or hardware service was started. Full publication checks follow.
+
+B11 remains Backlog pending B10 merge. #250 is already In progress under its
+existing report-polish ownership. Weather remains last. The Settings user
+preview at 5182 remains running and must be preserved.

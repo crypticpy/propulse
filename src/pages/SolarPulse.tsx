@@ -254,6 +254,7 @@ export function SolarPulse() {
           summary="NOAA predicted Kp, solar flux, planetary A, and event probabilities"
           open={forecastOpen}
           onToggle={() => toggleGroup("forecast")}
+          accent="accent"
         >
           <div className="space-y-4">
             <Suspense fallback={<p role="status" className="py-8 text-sm text-su-muted">Loading forecast…</p>}>
@@ -308,6 +309,7 @@ export function SolarPulse() {
           summary="Radiation, geomagnetic, absorption, and CME indicators"
           open={impactsOpen}
           onToggle={() => toggleGroup("impacts")}
+          accent="warning"
         >
           <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
             <WidgetShell title=">=10 MeV proton flux" eyebrow="Exact NOAA S-scale channel" {...sourceProps(resources.protons)}>
@@ -366,6 +368,7 @@ export function SolarPulse() {
           summary="Explore solar history, the solar cycle, and the wind approaching Earth"
           open={detailsOpen}
           onToggle={() => toggleGroup("details")}
+          accent="info"
         >
           <div className="grid gap-3 xl:grid-cols-2">
             <WidgetShell title="X-ray history" eyebrow="Flare activity · 0.1–0.8 nm" {...sourceProps(resources.xray)}>
@@ -402,6 +405,7 @@ export function SolarPulse() {
           summary="Explore absorption, aurora, and the visible Sun"
           open={imageryOpen}
           onToggle={() => toggleGroup("imagery")}
+          accent="success"
         >
           <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
             {imageProducts.filter((id) => isMobile || ((!(wideLayout && forecastOpen) || !FORECAST_ROW_PRODUCT_IDS.includes(id)) && (!impactsOpen || !["drap-global", "aurora-north"].includes(id)))).map((productId) => (

@@ -22,7 +22,7 @@ export {
   LEGACY_VIEW_OWNED_STORES, CODEX_PERSISTENCE_SEAM,
 } from "./legacyViewState";
 export { deepFreeze } from "./freeze";
-export { dxFiltersFromViewSpots } from "./dxFilters";
+export { dxFiltersFromViewSpots, dxSpotMatchesViewFilters, filterDxSpotsForView } from "./dxFilters";
 export {
   createViewScopedStore,
   selectConfiguredSpots,

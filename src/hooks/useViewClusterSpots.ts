@@ -2,7 +2,11 @@ import { useMemo, useSyncExternalStore } from "react";
 import { useViewRuntime } from "@/components/views/ViewRuntimeContext";
 import { useDXCluster, type UseDXClusterOptions } from "@/hooks/useDXCluster";
 import { useOperatingMonitor } from "@/hooks/useOperatingMonitor";
-import { dxFiltersFromViewSpots, type RadioObservation } from "@/lib/views/runtime";
+import {
+  dxFiltersFromViewSpots,
+  filterDxSpotsForView,
+  type RadioObservation,
+} from "@/lib/views/runtime";
 import type { SpotPresentationPreferences } from "@/lib/views/spotContracts";
 
 function observation(
@@ -29,10 +33,22 @@ export function useViewEffectiveSpots(): SpotPresentationPreferences {
 
 /**
  * Cluster spots for the bound view. Ingestion stays in useDXCluster;
- * this only supplies per-runtime effective filters (including follow radio).
+ * SP-04 matching (categories, aliases, unknown/inferred, sources, limits)
+ * is applied after ingest so legacy exact-match modes cannot discard rows.
  */
 export function useViewClusterSpots(options?: UseDXClusterOptions) {
   const spots = useViewEffectiveSpots();
-  const filters = useMemo(() => dxFiltersFromViewSpots(spots), [spots]);
-  return useDXCluster(filters, options);
+  const ingestFilters = useMemo(() => dxFiltersFromViewSpots(spots), [spots]);
+  const cluster = useDXCluster(ingestFilters, options);
+  const { matching, mapBudgeted } = useMemo(
+    () => filterDxSpotsForView(cluster.allSpots, spots),
+    [cluster.allSpots, spots],
+  );
+  return {
+    ...cluster,
+    spots: matching,
+    mapSpots: mapBudgeted,
+    listTotal: matching.length,
+    mapBudget: spots.filters.spotLimit,
+  };
 }

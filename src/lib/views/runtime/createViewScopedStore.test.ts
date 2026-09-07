@@ -27,4 +27,17 @@ describe("createViewScopedStore", () => {
     runtime.dispose();
     other.dispose();
   });
+
+  it("resubscribes after destroy so replay can reuse the same handle", () => {
+    const runtime = createViewRuntime({ binding: binding(), persistWorking: false });
+    const handle = createViewScopedStore(runtime);
+    handle.destroy();
+    runtime.selectSpot("report-1", { lat: 10, lon: 20 });
+    expect(runtime.getSnapshot().interaction.selectedReportId).toBe("report-1");
+    expect(handle.store.getState().interaction.selectedReportId).toBeNull();
+    handle.ensureSubscribed();
+    expect(handle.store.getState().interaction.selectedReportId).toBe("report-1");
+    handle.destroy();
+    runtime.dispose();
+  });
 });

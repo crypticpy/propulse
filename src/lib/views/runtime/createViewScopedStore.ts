@@ -33,6 +33,8 @@ export interface ViewScopedCommands {
 export interface ViewScopedStoreHandle extends ViewScopedCommands {
   store: StoreApi<ViewScopedState>;
   setRadio: (radio: RadioObservation | null) => void;
+  /** Re-attach after StrictMode simulated cleanup. Safe to call while already subscribed. */
+  ensureSubscribed: () => void;
   destroy: () => void;
 }
 
@@ -94,9 +96,17 @@ export function createViewScopedStore(
 ): ViewScopedStoreHandle {
   let currentRadio = radio;
   const store = createStore<ViewScopedState>(() => readState(runtime, currentRadio));
-  const unsubscribe = runtime.subscribe(() => {
+  let unsubscribe: () => void = () => undefined;
+
+  const attach = () => {
+    unsubscribe();
     store.setState(readState(runtime, currentRadio));
-  });
+    unsubscribe = runtime.subscribe(() => {
+      store.setState(readState(runtime, currentRadio));
+    });
+  };
+  attach();
+
   return {
     store,
     ...commandsFor(runtime),
@@ -104,6 +114,10 @@ export function createViewScopedStore(
       currentRadio = next;
       store.setState(readState(runtime, currentRadio));
     },
-    destroy: unsubscribe,
+    ensureSubscribed: attach,
+    destroy() {
+      unsubscribe();
+      unsubscribe = () => undefined;
+    },
   };
 }

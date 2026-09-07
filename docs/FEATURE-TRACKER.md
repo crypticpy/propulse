@@ -21,10 +21,10 @@
 | v0.14.0 Polish & Infra (2026-02-10)     | 12        | 1       | 0           | 0        | 13      |
 | v0.15.0 Spot Watch System (2026-02-10)  | 22        | 2       | 0           | 0        | 24      |
 | v0.16.0 NCS Workflow + QSO (2026-02-11) | 38        | 0       | 0           | 0        | 38      |
-| HamClock Wall (2026-09-05)              | 46        | 3       | 24          | 0        | 73      |
-| **Grand Total**                         | **307**   | **10**  | **35**      | **1**    | **353** |
+| HamClock Wall (2026-09-05)              | 45        | 4       | 24          | 0        | 73      |
+| **Grand Total**                         | **306**   | **11**  | **35**      | **1**    | **353** |
 
-**Delivery rate: 87.0% delivered, 2.8% partial, 9.9% not started, 0.3% deferred**
+**Delivery rate: 86.7% delivered, 3.1% partial, 9.9% not started, 0.3% deferred**
 
 ---
 
@@ -619,7 +619,7 @@ _Two major feature sets: NCS Dashboard phase-based workflow redesign and full QS
 
 _Source: `docs/designs/hamclock-wall-spec.md` (feature register HW-01 to HW-73). Wall density shipped as the HamClock default across PRs #167, #169, #170 and #171. Open work is packaged as batch issues #197 to #212 under tracker #213 on the ProPulse Delivery project board; batches B17 to B25 (the dedicated reports of spec section 26) have briefs but no issues yet._
 
-### Delivered (46)
+### Delivered (45)
 
 | ID    | Feature                                                       | Notes                                                                                                                                                                          |
 | ----- | ------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
@@ -669,9 +669,8 @@ _Source: `docs/designs/hamclock-wall-spec.md` (feature register HW-01 to HW-73).
 | HW-65 | EME computation module `src/lib/utils/eme.ts`                 | PR #253, EME module: eme.ts path loss, degradation, Doppler, sky noise, mutual window                                                                                          |
 | HW-66 | Moon and EME report                                           | PR #253, Moon report: MOON/EME tabs, band selector, sub-lunar point                                                                                                            |
 
-| HW-59 | Propagation forecast report | PR #502, effective on merge: two UTC days, gated horizons, best +6h summary and NOAA Kp forecast. [Evidence](designs/hamclock-propagation-forecast-report.md) |
 
-### Partial (3)
+### Partial (4)
 
 | ID    | Feature                 | Gap                                   |
 | ----- | ----------------------- | ------------------------------------- |
@@ -679,6 +678,8 @@ _Source: `docs/designs/hamclock-wall-spec.md` (feature register HW-01 to HW-73).
 | HW-19 | SDR decodes tile        | Idle until a shared receiver exists   |
 | HW-58 | Reliability report | PR #494: dedicated report and current evidence; historical model/observed series and hop count are not supplied. [Evidence](designs/hamclock-reliability-report.md) |
 
+
+| HW-59 | Propagation forecast report | PR #502: chart/matrix/summary/Kp and explicit unavailable horizons; horizon-aware scorer/response contract pending. [Evidence](designs/hamclock-propagation-forecast-report.md) |
 
 ### Not Started (24)
 

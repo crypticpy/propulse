@@ -28,7 +28,7 @@ export function PropagationForecastReport({ open, onClose }: { open: boolean; on
     weather: { ...(data.wall.inputs.kp === null ? {} : { kp: data.wall.inputs.kp }), ...(data.wall.inputs.sfi === null ? {} : { f107: data.wall.inputs.sfi }) },
     weatherUpdatedAt: data.wall.updatedAt ?? undefined, deriveEnvelope: station.deriveEnvelope,
   }), [data.location, data.target, data.wall.mode, data.wall.inputs.kp, data.wall.inputs.sfi, data.wall.updatedAt, station.location, station.deriveEnvelope]);
-  const future = useFutureCastReport(input);
+  const future = useFutureCastReport();
   const hour = Math.max(data.dayStart, Math.min(data.dayStart + 47, selected ?? data.wall.hourIndex));
   const score = data.matrix.get(`${band}:${hour}`);
   const ranked = (at: number) => WALL_FORECAST_BANDS.map(value => ({ band: value, score: data.matrix.get(`${value}:${at}`) })).filter(value => value.score !== undefined).sort((a, b) => b.score! - a.score!)[0];

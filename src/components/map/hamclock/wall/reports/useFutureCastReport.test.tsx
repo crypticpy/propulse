@@ -10,11 +10,10 @@ vi.mock("@/lib/propagation/modelClient", async original => ({
   ...await original<typeof import("@/lib/propagation/modelClient")>(),
   propagationModelEnabled: true, propagationModelMode: "released", propagationModelClient: mocks,
 }));
-const input = { origin: { grid: "EM38", lat: 38.5, lon: -93 }, target: { grid: "PM95", lat: 35.68, lon: 139.65 }, mode: "FT8", deriveEnvelope: () => null };
 function setup() {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: 0 } } });
   const wrapper = ({ children }: { children: ReactNode }) => createElement(QueryClientProvider, { client }, children);
-  return { client, ...renderHook(() => useFutureCastReport(input), { wrapper }) };
+  return { client, ...renderHook(() => useFutureCastReport(), { wrapper }) };
 }
 const allowed = () => ({ ...fixture, service_execution_enabled: true, model_loaded: true, runtime_activation_valid: true,
   modes: { ...fixture.modes, core_nowcast: { internal_available: true, released_eligible: true }, futurecast: { internal_available: true, released_eligible: true, released_horizons_hours: [3, 6] } } });
@@ -26,12 +25,13 @@ beforeEach(() => {
     core_probability: 0.7, personalized_probability: 0.8, confidence: 0.9, ood_flags: [], top_factors: ["solar_flux"], assumptions: [], data_freshness: {},
   }));
 });
-it("requests only released horizons and removes cached evidence when capability is revoked", async () => {
+it("does not score future horizons through the NowCast-only path endpoint, even when advertised", async () => {
   mocks.capabilities.mockResolvedValue(allowed());
   const hook = setup();
-  await waitFor(() => expect(hook.result.current.evidence.get("20m:3")?.prediction).toBeTruthy());
-  expect(mocks.path).toHaveBeenCalledTimes(12);
-  expect(hook.result.current.active).toEqual([3, 6]);
+  await waitFor(() => expect(hook.result.current.offReason).toBe("FUTURECAST SCORER NOT AVAILABLE"));
+  expect(mocks.path).not.toHaveBeenCalled();
+  expect(hook.result.current.active).toEqual([]);
+  expect(hook.result.current.evidence.size).toBe(0);
   act(() => hook.client.setQueryData(["propagation-v4", "capabilities"], { ...allowed(), runtime_activation_valid: false }));
   await waitFor(() => expect(hook.result.current.active).toEqual([]));
   expect(hook.result.current.evidence.size).toBe(0);

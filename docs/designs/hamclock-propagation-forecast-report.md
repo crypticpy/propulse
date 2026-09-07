@@ -1,23 +1,27 @@
 # HamClock Propagation Forecast report — B18 / HW-59
 
-The Forecast Matrix tile opens a dedicated, pinnable report. Its summary shows the highest physics-scoring band six hours ahead, its relative score, and model/physics agreement only when matching model evidence exists. The chart covers the current and next UTC calendar day, with six physics band scores, a now marker and model points only at permitted FutureCast horizons. This is two UTC days, not a promise of 48 future hours from the current moment.
+The Forecast Matrix tile opens a dedicated, pinnable report. Its summary shows the highest physics-scoring band six hours ahead and its relative score. The chart covers the current and next UTC calendar day with six physics band scores and a now marker. This is two UTC days, not a promise of 48 future hours from the current moment.
 
-MATRIX provides a day selector and 24 hourly columns per day. Both days retain all six bands (288 values in the screen-reader table); the visible cells remain at least 44 × 44 pixels. Selecting a cell or moving the chart's keyboard/pointer control updates the band/hour readout. The dialog fits within 90vw × 88vh without a scrolling region.
+MATRIX provides a day selector and 24 hourly columns per day. Both days retain all six bands (288 values in the screen-reader table); visible cells remain at least 44 × 44 pixels. Cell selection and the chart's keyboard/pointer control update the selected-hour readout. The dialog fits within 90vw × 88vh without a scrolling region.
 
-HORIZONS always includes +3, +6, +12 and +24 hours. Available responses show core probability, personalized probability only when a station envelope was actually sent, confidence, word-expanded factors and OOD flags, and supplied input ages. Missing or disabled horizons retain MODEL OFF and a reason. The chart and selected-hour model readout use the same core/personalized choice. Scoped spot counts remain evidence and are excluded from path-agreement classification.
+HORIZONS always includes +3, +6, +12 and +24 hours, with MODEL OFF and the applicable reason. The presentation supports probabilities/confidence/metadata when a real horizon scorer becomes available, but the current service cannot provide those values. Scoped spot counts remain evidence and are excluded from path-agreement classification.
 
-## Data boundaries and remaining work
+## Serving dependency — HW-59 remains partial
 
-- Existing model capability and runtime gates decide which horizons may be requested. This report cannot activate them. Capability revocation also hides cached responses.
-- Requests use the established station envelope and feature builder, recalculated at each valid time while retaining the issue time and observation freshness. Reliability mathematics and modeling internals are unchanged.
-- Model responses must match band, target, mode and valid hour, pass probability/metadata validation, and have a recent issue time. A stale response or refresh failure retains a warning. A current response is never extended across future hours.
-- Physics uses the existing two-day computation and current Kp/SFI observations. The separate Kp FORECAST fact reuses the full NOAA K-index resource, accepts only predicted points covering the selected three-hour interval, and marks stale values. It does not substitute observations for missing forecasts or alter the physics inputs.
-- Historical model/observed series and hop count remain the separate HW-58 gaps documented in the Reliability report. No synthetic values replace missing source data.
+Review identified that `ml/service/app.py` selects only `nowcast` or `physics` in `ModelRegistry.predict_many`; the path endpoint calls that scorer without a horizon-specific model. A future `valid_time` does not make the resulting score FutureCast. The service also advertises `futurecast.internal_available` as false.
 
-## Validation so far
+The report therefore sends no future-time path requests, reads no cached future-time NowCast results, and reports FUTURECAST SCORER NOT AVAILABLE even if activation metadata advertises horizons. A horizon-aware endpoint/scorer and a response contract identifying its model/horizon are required before this adapter can supply future evidence. That serving work belongs to the model owner; no modeling or activation code changed here. The removed request builder must not be restored against the generic path API.
 
-Eight focused tests cover future-time feature construction, capability revocation, disabled horizons, both matrix days, and core/personalized chart/readout consistency including stale metadata, plus NOAA bucket boundaries and observation/forecast separation. The required wall suite passed all 328 tests in 32 files. TypeScript compilation passes. The browser matrix passed 24 MODEL OFF cases and 24 populated-model cases across QTH/target, three themes, 1080p/4K and both tabs. It checks all 288 cell labels across both days, 44px minimum hit targets, 90vw × 88vh limits, no overflow, selection and focus return. No page errors occurred. Browser data was synthetic in an isolated local context; this is not evidence that live FutureCast horizons are released.
+Current-hour NowCast remains available through the existing validated Reliability adapter. The best-in-six-hours summary stays PHYSICS ONLY while future evidence is unavailable. Historical model/observed series and hop count remain the separate HW-58 gaps.
 
-PR #502 is stacked on Reliability PR #494. Full pre-push verification passed: 3,219 app tests in 368 files, Python/archive checks, bridge/daemon checks, lint, production build and all bundle budgets.
+## Kp and physics
+
+Physics uses the existing two-day computation and current Kp/SFI observations. The separate Kp FORECAST fact reuses the full NOAA K-index resource, accepts only predicted points covering the selected three-hour interval, and marks stale values. It does not substitute observations for missing forecasts or alter physics inputs.
+
+## Validation
+
+The new scorer-boundary regression failed against the original implementation and passes after removal of future-time path requests. Six focused tests cover that boundary, capability revocation, core/personalized presentation consistency, stale metadata, matrix day selection, and Kp bucket boundaries. Earlier full verification passed 3,219 app tests; final review-fix verification is recorded in PR #502.
+
+The review browser matrix passed 24 cases with advertised horizons but no supported scorer: all horizon rows show the reason, zero future-time path requests are sent, and no model points appear on the future chart. It also checks QTH/target, three themes, 1080p/4K, both tabs, all 288 cell labels, 44px minimum hit targets, report size, overflow, selection and focus return. No page errors occurred. Fixtures were isolated and synthetic. Earlier populated-row fixtures proved presentation only and did not establish an available FutureCast service.
 
 ![Forecast horizons at 1080p](../images/hamclock-b18/forecast-horizons-1080p.png)

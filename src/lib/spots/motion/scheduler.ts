@@ -52,6 +52,8 @@ export interface MotionPresentation {
   arrivalPulse: boolean;
   bounceGlow: boolean;
   repeating: boolean;
+  /** Present only while this path is in the active motion set. */
+  startedAtMs: number | null;
   staticReason?: MotionStaticReason;
 }
 
@@ -135,15 +137,37 @@ function repeatingFor(style: MotionStyle, animate: AnimateScope): boolean {
   return REPEATING_STYLES.has(style) && animate !== "new-spots";
 }
 
+export function repeatingCycleMs(appearance: PathAppearance): number {
+  return Math.max(appearance.repeatSeconds * 1000, appearance.travelSeconds * 1000);
+}
+
 function cycleSeconds(appearance: PathAppearance): number {
   if (appearance.style === "flowing-dashes") return appearance.travelSeconds;
-  if (appearance.style === "traveling-pulse") return appearance.repeatSeconds;
   return appearance.travelSeconds + appearance.trailSeconds + appearance.fadeSeconds;
+}
+
+/** Identity for adapter React state: excludes per-frame sampled progress. */
+export function motionTraceSignature(presentation: MotionPresentation): string {
+  const a = presentation.appearance;
+  return [
+    presentation.pathId,
+    presentation.travelProgress === null ? "static" : "motion",
+    a.shape,
+    a.style,
+    a.travelSeconds,
+    a.trailSeconds,
+    a.fadeSeconds,
+    a.repeatSeconds,
+    a.arrivalPulse ? "1" : "0",
+    a.bounceGlow ? "1" : "0",
+    presentation.repeating ? "1" : "0",
+    presentation.startedAtMs ?? "",
+  ].join(":");
 }
 
 export function sampleAppearance(
   appearance: PathAppearance,
-  elapsedMs: number,
+  rawElapsedMs: number,
   repeating: boolean,
 ): Pick<
   MotionPresentation,
@@ -155,6 +179,7 @@ export function sampleAppearance(
   | "arrivalPulse"
   | "bounceGlow"
 > {
+  const elapsedMs = Math.max(0, rawElapsedMs);
   const travelMs = appearance.travelSeconds * 1000;
   const trailMs = appearance.trailSeconds * 1000;
   const fadeMs = appearance.fadeSeconds * 1000;
@@ -184,7 +209,7 @@ export function sampleAppearance(
     };
   }
   if (repeating) {
-    const cycleMs = Math.max(appearance.repeatSeconds * 1000, travelMs);
+    const cycleMs = repeatingCycleMs(appearance);
     const t = cycleMs <= 0 ? 0 : elapsedMs % cycleMs;
     if (t < travelMs) {
       const progress = travelMs <= 0 ? 1 : t / travelMs;
@@ -299,7 +324,7 @@ export function tickMotion(runtime: MotionRuntime, input: MotionTickInput): Moti
   const pathById = new Map(input.paths.map((entry) => [entry.path.id, entry]));
   const displayedPathIds = new Set(input.paths.map((entry) => entry.path.id));
 
-  if (!input.visible) {
+  if (!input.visible || suppressed) {
     runtime.pending = [];
     runtime.active = [];
   }
@@ -381,8 +406,9 @@ export function tickMotion(runtime: MotionRuntime, input: MotionTickInput): Moti
     const appearance = resolvePathAppearance(preferences, entry.selected);
     item.appearance = appearance;
     item.repeating = repeatingFor(appearance.style, preferences.animate);
+    if (input.nowMs < item.startedAtMs) item.startedAtMs = input.nowMs;
     if (item.repeating || appearance.style === "flowing-dashes") return true;
-    return input.nowMs - item.startedAtMs < cycleSeconds(appearance) * 1000;
+    return Math.max(0, input.nowMs - item.startedAtMs) < cycleSeconds(appearance) * 1000;
   });
 
   if (input.visible && !suppressed) {
@@ -429,6 +455,7 @@ export function tickMotion(runtime: MotionRuntime, input: MotionTickInput): Moti
         appearance: active.appearance,
         selected: entry.selected,
         repeating: active.repeating,
+        startedAtMs: active.startedAtMs,
         ...sampled,
       };
     }
@@ -455,6 +482,7 @@ export function tickMotion(runtime: MotionRuntime, input: MotionTickInput): Moti
       arrivalPulse: false,
       bounceGlow: false,
       repeating: false,
+      startedAtMs: null,
       staticReason: staticReason({
         path: entry.path,
         selected: entry.selected,

@@ -92,12 +92,33 @@ function resolvedSpot(spot: LiveSpot): ResolvedSpot {
   };
 }
 
+function traceCount(container: HTMLElement): number {
+  return container.querySelectorAll('group[name="animated-spot-traces"] > group').length;
+}
+
+function tick(seconds: number) {
+  act(() => {
+    for (const callback of mocks.frameCallbacks) {
+      callback({
+        clock: { getElapsedTime: () => seconds },
+      });
+    }
+  });
+}
+
 describe("AnimatedSpotTraces feed scope", () => {
+  let visibilityHidden = false;
+
   beforeEach(() => {
     mocks.frameCallbacks.length = 0;
     mocks.simpleArcCalls = 0;
     mocks.hopCalls = 0;
+    visibilityHidden = false;
     vi.spyOn(console, "error").mockImplementation(() => undefined);
+    Object.defineProperty(document, "visibilityState", {
+      configurable: true,
+      get: () => (visibilityHidden ? "hidden" : "visible"),
+    });
     Object.defineProperty(window, "matchMedia", {
       writable: true,
       value: (query: string) => ({
@@ -114,7 +135,7 @@ describe("AnimatedSpotTraces feed scope", () => {
 
   afterEach(() => vi.restoreAllMocks());
 
-  it("clears active and pending traces when the hydration scope changes", () => {
+  it("keeps static hydration traces when the hydration scope changes", () => {
     const existing = liveSpot("existing");
     const firstNew = liveSpot("first-new");
     const pendingNew = liveSpot("pending-new");
@@ -127,6 +148,7 @@ describe("AnimatedSpotTraces feed scope", () => {
         hydrationKey="scope-a"
       />,
     );
+    expect(traceCount(container)).toBe(1);
 
     rerender(
       <AnimatedSpotTraces
@@ -137,14 +159,8 @@ describe("AnimatedSpotTraces feed scope", () => {
         hydrationKey="scope-a"
       />,
     );
-    act(() => {
-      mocks.frameCallbacks[0]({
-        clock: { getElapsedTime: () => 0.2 },
-      });
-    });
-    expect(
-      container.querySelectorAll('group[name="animated-spot-traces"] > group'),
-    ).toHaveLength(1);
+    tick(0.2);
+    expect(traceCount(container)).toBe(2);
 
     rerender(
       <AnimatedSpotTraces
@@ -173,20 +189,12 @@ describe("AnimatedSpotTraces feed scope", () => {
       />,
     );
 
-    expect(
-      container.querySelectorAll('group[name="animated-spot-traces"] > group'),
-    ).toHaveLength(0);
-    act(() => {
-      mocks.frameCallbacks[0]({
-        clock: { getElapsedTime: () => 6 },
-      });
-    });
-    expect(
-      container.querySelectorAll('group[name="animated-spot-traces"] > group'),
-    ).toHaveLength(0);
+    expect(traceCount(container)).toBe(3);
+    tick(6);
+    expect(traceCount(container)).toBe(3);
   });
 
-  it("re-baselines an expanded snapshot when the fetch-limit scope changes", () => {
+  it("re-baselines an expanded snapshot as static when the fetch-limit scope changes", () => {
     const existing = liveSpot("existing");
     const expandedHistory = liveSpot("expanded-history");
     const { container, rerender } = render(
@@ -211,18 +219,12 @@ describe("AnimatedSpotTraces feed scope", () => {
         hydrationKey='{"spotLimit":200}'
       />,
     );
-    act(() => {
-      mocks.frameCallbacks[0]({
-        clock: { getElapsedTime: () => 0.2 },
-      });
-    });
+    tick(0.2);
 
-    expect(
-      container.querySelectorAll('group[name="animated-spot-traces"] > group'),
-    ).toHaveLength(0);
+    expect(traceCount(container)).toBe(2);
   });
 
-  it("reports only trace lifecycles that became active after hydration", () => {
+  it("mounts hydrated traces statically and still reports later arrivals", () => {
     const existing = liveSpot("existing");
     const arriving = liveSpot("arriving");
     const onActiveTracesChange = vi.fn();
@@ -237,7 +239,9 @@ describe("AnimatedSpotTraces feed scope", () => {
       />,
     );
 
-    expect(onActiveTracesChange).toHaveBeenLastCalledWith([]);
+    expect(onActiveTracesChange).toHaveBeenLastCalledWith([
+      expect.objectContaining({ id: "existing" }),
+    ]);
     rerender(
       <AnimatedSpotTraces
         feedSpots={[existing, arriving]}
@@ -248,18 +252,15 @@ describe("AnimatedSpotTraces feed scope", () => {
         onActiveTracesChange={onActiveTracesChange}
       />,
     );
-    act(() => {
-      mocks.frameCallbacks[0]({
-        clock: { getElapsedTime: () => 0.2 },
-      });
-    });
+    tick(0.2);
 
     expect(onActiveTracesChange).toHaveBeenLastCalledWith([
+      expect.objectContaining({ id: "existing" }),
       expect.objectContaining({ id: "arriving" }),
     ]);
   });
 
-  it("keeps unknown-direction and off-style arrivals static", () => {
+  it("keeps unknown-direction and off-style paths visible as static traces", () => {
     const existing = liveSpot("existing");
     const arriving = liveSpot("arriving");
     const report = normalizeLiveSpot(arriving, new Map());
@@ -290,14 +291,8 @@ describe("AnimatedSpotTraces feed scope", () => {
         scenePaths={[unknown]}
       />,
     );
-    act(() => {
-      mocks.frameCallbacks[0]({
-        clock: { getElapsedTime: () => 0.2 },
-      });
-    });
-    expect(
-      container.querySelectorAll('group[name="animated-spot-traces"] > group'),
-    ).toHaveLength(0);
+    tick(0.2);
+    expect(traceCount(container)).toBe(1);
 
     const offPrefs = createSpotPreferences().paths;
     rerender(
@@ -314,14 +309,8 @@ describe("AnimatedSpotTraces feed scope", () => {
         }}
       />,
     );
-    act(() => {
-      mocks.frameCallbacks[0]({
-        clock: { getElapsedTime: () => 0.3 },
-      });
-    });
-    expect(
-      container.querySelectorAll('group[name="animated-spot-traces"] > group'),
-    ).toHaveLength(0);
+    tick(0.3);
+    expect(traceCount(container)).toBe(2);
   });
 
   it("builds simple-arc geometry for background and hops for an overridden selected path", () => {
@@ -331,7 +320,7 @@ describe("AnimatedSpotTraces feed scope", () => {
     const directed = report ? pathDescriptorForReport(report) : null;
     expect(directed).not.toBeNull();
     const prefs = createSpotPreferences().paths;
-    const { rerender } = render(
+    const { container, rerender } = render(
       <AnimatedSpotTraces
         feedSpots={[existing]}
         candidateSpots={[existing]}
@@ -352,16 +341,166 @@ describe("AnimatedSpotTraces feed scope", () => {
           ...prefs,
           animate: "selected-only",
           background: { ...prefs.background, shape: "simple-arc", style: "quick-sweep" },
-          selected: { ...prefs.selected!, shape: "ionospheric-hops", style: "traveling-pulse" },
+          selected: { ...prefs.selected!, shape: "ionospheric-hops", style: "traveling-pulse", repeatSeconds: 3 },
         }}
       />,
     );
-    act(() => {
-      mocks.frameCallbacks[0]({
-        clock: { getElapsedTime: () => 0.2 },
-      });
-    });
+    tick(0.2);
+    expect(traceCount(container)).toBe(2);
     expect(mocks.hopCalls).toBeGreaterThan(0);
-    expect(mocks.simpleArcCalls).toBe(0);
+    expect(mocks.simpleArcCalls).toBeGreaterThan(0);
+
+    const hopsAfterFirst = mocks.hopCalls;
+    const arcsAfterFirst = mocks.simpleArcCalls;
+    tick(0.216);
+    tick(0.232);
+    expect(mocks.hopCalls).toBe(hopsAfterFirst);
+    expect(mocks.simpleArcCalls).toBe(arcsAfterFirst);
+
+    rerender(
+      <AnimatedSpotTraces
+        feedSpots={[existing, arriving]}
+        candidateSpots={[existing, arriving]}
+        resolvedSpots={[resolvedSpot(existing), resolvedSpot(arriving)]}
+        isFeedReady
+        hydrationKey="scope-a"
+        selectedPathId={directed!.id}
+        pathPreferences={{
+          ...prefs,
+          animate: "selected-only",
+          background: { ...prefs.background, shape: "simple-arc", style: "quick-sweep" },
+          selected: {
+            ...prefs.selected!,
+            shape: "ionospheric-hops",
+            style: "traveling-pulse",
+            travelSeconds: 1.5,
+            repeatSeconds: 8,
+          },
+        }}
+      />,
+    );
+    tick(0.25);
+    expect(traceCount(container)).toBe(2);
+  });
+
+  it("keeps static paths when reduced motion is enabled during an active arrival", () => {
+    const existing = liveSpot("existing");
+    const arriving = liveSpot("arriving");
+    const prefs = createSpotPreferences().paths;
+    const { container, rerender } = render(
+      <AnimatedSpotTraces
+        feedSpots={[existing]}
+        candidateSpots={[existing]}
+        resolvedSpots={[resolvedSpot(existing)]}
+        isFeedReady
+        hydrationKey="scope-a"
+      />,
+    );
+    rerender(
+      <AnimatedSpotTraces
+        feedSpots={[existing, arriving]}
+        candidateSpots={[existing, arriving]}
+        resolvedSpots={[resolvedSpot(existing), resolvedSpot(arriving)]}
+        isFeedReady
+        hydrationKey="scope-a"
+      />,
+    );
+    tick(0.2);
+    expect(traceCount(container)).toBe(2);
+    rerender(
+      <AnimatedSpotTraces
+        feedSpots={[existing, arriving]}
+        candidateSpots={[existing, arriving]}
+        resolvedSpots={[resolvedSpot(existing), resolvedSpot(arriving)]}
+        isFeedReady
+        hydrationKey="scope-a"
+        osReducedMotion
+        pathPreferences={{ ...prefs, reduceMotion: false }}
+      />,
+    );
+    tick(0.3);
+    expect(traceCount(container)).toBe(2);
+  });
+
+  it("uses the renderer clock for hide/resume and does not replay a new-spots backlog", () => {
+    const existing = liveSpot("existing");
+    const arriving = liveSpot("arriving");
+    const prefs = createSpotPreferences().paths;
+    const { container, rerender } = render(
+      <AnimatedSpotTraces
+        feedSpots={[existing]}
+        candidateSpots={[existing]}
+        resolvedSpots={[resolvedSpot(existing)]}
+        isFeedReady
+        hydrationKey="scope-a"
+        pathPreferences={{
+          ...prefs,
+          animate: "selected-only",
+          background: { ...prefs.background, style: "flowing-dashes", travelSeconds: 2.5 },
+        }}
+      />,
+    );
+    const report = normalizeLiveSpot(arriving, new Map());
+    const directed = report ? pathDescriptorForReport(report) : null;
+    rerender(
+      <AnimatedSpotTraces
+        feedSpots={[existing, arriving]}
+        candidateSpots={[existing, arriving]}
+        resolvedSpots={[resolvedSpot(existing), resolvedSpot(arriving)]}
+        isFeedReady
+        hydrationKey="scope-a"
+        selectedPathId={directed?.id ?? null}
+        pathPreferences={{
+          ...prefs,
+          animate: "selected-only",
+          background: { ...prefs.background, style: "flowing-dashes", travelSeconds: 2.5 },
+        }}
+      />,
+    );
+    tick(0.2);
+    expect(traceCount(container)).toBe(2);
+
+    visibilityHidden = true;
+    act(() => {
+      document.dispatchEvent(new Event("visibilitychange"));
+    });
+    expect(traceCount(container)).toBe(2);
+
+    visibilityHidden = false;
+    act(() => {
+      document.dispatchEvent(new Event("visibilitychange"));
+    });
+    tick(0.3);
+    expect(traceCount(container)).toBe(2);
+
+    const late = liveSpot("late-hidden");
+    rerender(
+      <AnimatedSpotTraces
+        feedSpots={[existing, arriving, late]}
+        candidateSpots={[existing, arriving, late]}
+        resolvedSpots={[
+          resolvedSpot(existing),
+          resolvedSpot(arriving),
+          resolvedSpot(late),
+        ]}
+        isFeedReady
+        hydrationKey="scope-a"
+        selectedPathId={directed?.id ?? null}
+        pathPreferences={{
+          ...prefs,
+          animate: "new-spots",
+        }}
+      />,
+    );
+    visibilityHidden = true;
+    act(() => {
+      document.dispatchEvent(new Event("visibilitychange"));
+    });
+    visibilityHidden = false;
+    act(() => {
+      document.dispatchEvent(new Event("visibilitychange"));
+    });
+    tick(0.4);
+    expect(traceCount(container)).toBe(3);
   });
 });

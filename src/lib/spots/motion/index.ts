@@ -2,6 +2,8 @@ export {
   createMotionRuntime,
   defaultPathMotionPreferences,
   motionIsSuppressed,
+  motionTraceSignature,
+  repeatingCycleMs,
   resetMotionRuntime,
   resolvePathAppearance,
   sampleAppearance,

@@ -5,6 +5,8 @@ import { pathDescriptorSchema, type PathDescriptor } from "@/lib/views/spotContr
 import {
   createMotionRuntime,
   defaultPathMotionPreferences,
+  motionTraceSignature,
+  repeatingCycleMs,
   resetMotionRuntime,
   resolvePathAppearance,
   sampleAppearance,
@@ -369,5 +371,180 @@ describe("motion scheduler", () => {
     );
     expect(later.activeCount).toBe(1);
     expect(later.presentations[0]?.repeating).toBe(true);
+  });
+
+  it("immediately clears active and pending motion when reduced motion is enabled", () => {
+    const runtime = hydrate();
+    const arriving = Array.from({ length: 4 }, (_, n) => ({
+      path: directedPath(`live${n}`),
+      selected: false,
+    }));
+    const moving = tickMotion(
+      runtime,
+      input(arriving, { nowMs: 10, preferences: prefs({ maxActive: 1, maxPending: 10 }) }),
+    );
+    expect(moving.activeCount).toBe(1);
+    expect(moving.pendingCount).toBeGreaterThan(0);
+    const saved = prefs({ reduceMotion: true, maxActive: 1, maxPending: 10 });
+    const stopped = tickMotion(
+      runtime,
+      input(arriving, { nowMs: 20, preferences: saved }),
+    );
+    expect(stopped.activeCount).toBe(0);
+    expect(stopped.pendingCount).toBe(0);
+    expect(stopped.presentations.every((item) => item.travelProgress === null)).toBe(true);
+    expect(stopped.presentations.every((item) => item.staticReason === "reduced-motion")).toBe(true);
+    expect(stopped.displayedReportIds).toEqual(moving.displayedReportIds);
+    expect(saved.reduceMotion).toBe(true);
+
+    const osRuntime = hydrate();
+    tickMotion(
+      osRuntime,
+      input([{ path: directedPath("fresh"), selected: false }], { nowMs: 10 }),
+    );
+    const osStopped = tickMotion(
+      osRuntime,
+      input([{ path: directedPath("old"), selected: false }, { path: directedPath("fresh"), selected: false }], {
+        nowMs: 20,
+        osReducedMotion: true,
+        preferences: prefs({ reduceMotion: false }),
+      }),
+    );
+    expect(osStopped.activeCount).toBe(0);
+    expect(osStopped.presentations.every((item) => item.staticReason === "reduced-motion")).toBe(true);
+    expect(osStopped.displayedReportIds).toEqual(["old", "fresh"]);
+  });
+
+  it("keeps completed, unknown-direction, and budget-wait paths in the snapshot as static", () => {
+    const runtime = hydrate();
+    const paths = Array.from({ length: 3 }, (_, n) => ({
+      path: directedPath(`n${n}`),
+      selected: false,
+    }));
+    const crowded = tickMotion(
+      runtime,
+      input([{ path: directedPath("old"), selected: false }, ...paths, { path: unknownPath("mystery"), selected: false }], {
+        nowMs: 10,
+        preferences: prefs({ maxActive: 1, maxPending: 1 }),
+      }),
+    );
+    expect(crowded.activeCount).toBe(1);
+    expect(crowded.pendingCount).toBe(1);
+    expect(crowded.presentations).toHaveLength(5);
+    expect(crowded.presentations.filter((item) => item.travelProgress === null).length).toBe(4);
+    expect(crowded.presentations.find((item) => item.pathId === "pmystery")?.staticReason).toBe("unknown-direction");
+    expect(crowded.displayedReportIds).toEqual(["old", "n0", "n1", "n2", "mystery"]);
+
+    const finished = tickMotion(
+      runtime,
+      input([{ path: directedPath("old"), selected: false }, { path: directedPath("n0"), selected: false }], {
+        nowMs: 10_000,
+        preferences: prefs({
+          maxActive: 1,
+          background: { ...prefs().background, travelSeconds: 0.25, trailSeconds: 0, fadeSeconds: 0 },
+        }),
+      }),
+    );
+    expect(finished.activeCount).toBe(0);
+    expect(finished.presentations.every((item) => item.travelProgress === null)).toBe(true);
+    expect(finished.presentations).toHaveLength(2);
+  });
+
+  it("changes motionTraceSignature for appearance updates but not per-frame progress", () => {
+    const runtime = hydrate();
+    const path = directedPath("fresh");
+    const first = tickMotion(runtime, input([{ path, selected: false }], { nowMs: 10 }));
+    const mid = tickMotion(runtime, input([{ path, selected: false }], { nowMs: 26 }));
+    expect(motionTraceSignature(first.presentations[0]!)).toBe(motionTraceSignature(mid.presentations[0]!));
+    const updated = tickMotion(
+      runtime,
+      input([{ path, selected: false }], {
+        nowMs: 42,
+        preferences: prefs({
+          background: { ...prefs().background, travelSeconds: 4, style: "traveling-pulse", repeatSeconds: 8 },
+        }),
+      }),
+    );
+    expect(motionTraceSignature(updated.presentations[0]!)).not.toBe(motionTraceSignature(mid.presentations[0]!));
+  });
+
+  it("resyncs a backwards clock and does not replay a discarded hide backlog", () => {
+    const selectedPrefs = prefs({
+      animate: "selected-only",
+      background: { ...prefs().background, style: "flowing-dashes", travelSeconds: 2.5 },
+    });
+    const runtime = hydrate();
+    const path = directedPath("sel");
+    const started = tickMotion(
+      runtime,
+      input([{ path, selected: true }], { nowMs: 100, preferences: selectedPrefs }),
+    );
+    expect(started.activeCount).toBe(1);
+    expect(started.presentations[0]?.startedAtMs).toBe(100);
+    const hidden = tickMotion(
+      runtime,
+      input([{ path, selected: true }], { nowMs: 140, visible: false, preferences: selectedPrefs }),
+    );
+    expect(hidden.activeCount).toBe(0);
+    expect(hidden.pendingCount).toBe(0);
+    const resumed = tickMotion(
+      runtime,
+      input([{ path, selected: true }], { nowMs: 160, visible: true, preferences: selectedPrefs }),
+    );
+    expect(resumed.pendingCount).toBe(0);
+    expect(resumed.activeCount).toBe(1);
+    expect(resumed.presentations[0]?.startedAtMs).toBe(160);
+    expect(resumed.presentations[0]?.travelProgress).toBeGreaterThanOrEqual(0);
+
+    const jumped = tickMotion(
+      runtime,
+      input([{ path, selected: true }], { nowMs: 50, visible: true, preferences: selectedPrefs }),
+    );
+    expect(jumped.presentations[0]?.startedAtMs).toBeLessThanOrEqual(50);
+    expect(Math.max(0, 50 - (jumped.presentations[0]?.startedAtMs ?? 0))).toBeGreaterThanOrEqual(0);
+
+    const oneShot = hydrate();
+    tickMotion(
+      oneShot,
+      input(
+        [{ path: directedPath("late0"), selected: false }, { path: directedPath("late1"), selected: false }],
+        { nowMs: 10, preferences: prefs({ maxActive: 1, maxPending: 10 }) },
+      ),
+    );
+    tickMotion(
+      oneShot,
+      input(
+        [{ path: directedPath("late0"), selected: false }, { path: directedPath("late1"), selected: false }],
+        { nowMs: 20, visible: false },
+      ),
+    );
+    const after = tickMotion(
+      oneShot,
+      input(
+        [{ path: directedPath("late0"), selected: false }, { path: directedPath("late1"), selected: false }],
+        { nowMs: 30, visible: true },
+      ),
+    );
+    expect(after.activeCount).toBe(0);
+    expect(after.pendingCount).toBe(0);
+  });
+
+  it("repeats traveling pulses on repeatSeconds, including mid-cycle timing changes", () => {
+    const appearance = {
+      ...prefs().selected!,
+      style: "traveling-pulse" as const,
+      travelSeconds: 1.5,
+      repeatSeconds: 3,
+    };
+    expect(repeatingCycleMs(appearance)).toBe(3000);
+    expect(sampleAppearance(appearance, 0, true).travelProgress).toBeCloseTo(0);
+    expect(sampleAppearance(appearance, 1500, true).travelProgress).toBe(1);
+    expect(sampleAppearance(appearance, 2999, true).travelProgress).toBe(1);
+    expect(sampleAppearance(appearance, 3000, true).travelProgress).toBeCloseTo(0);
+    expect(sampleAppearance(appearance, 3750, true).travelProgress).toBeCloseTo(0.5);
+    const stretched = { ...appearance, repeatSeconds: 8 };
+    expect(sampleAppearance(stretched, 2000, true).travelProgress).toBe(1);
+    expect(sampleAppearance(stretched, 8000, true).travelProgress).toBeCloseTo(0);
+    expect(sampleAppearance(appearance, -250, true).travelProgress).toBeCloseTo(0);
   });
 });

@@ -17,15 +17,15 @@ import {
 } from "@/hooks/useVolcanoes";
 
 const COLOR_CODE_STYLES: Record<string, string> = {
-  GREEN: "bg-signal-green/15 border-signal-green/30 text-signal-green",
-  YELLOW: "bg-caution-amber/15 border-caution-amber/30 text-caution-amber",
-  ORANGE: "bg-plasma-orange/15 border-plasma-orange/30 text-plasma-orange",
-  RED: "bg-alert-red/15 border-alert-red/30 text-alert-red",
+  GREEN: "bg-su-success/15 border-su-success/30 text-su-success",
+  YELLOW: "bg-su-warning/15 border-su-warning/30 text-su-warning",
+  ORANGE: "bg-su-accent/15 border-su-accent/30 text-su-accent",
+  RED: "bg-su-danger/15 border-su-danger/30 text-su-danger",
 };
 
 function colorCodeStyle(colorCode: string): string {
   return (
-    COLOR_CODE_STYLES[colorCode] ?? "bg-white/5 border-white/10 text-gray-400"
+    COLOR_CODE_STYLES[colorCode] ?? "bg-su-input border-su-line/40 text-su-muted"
   );
 }
 
@@ -39,16 +39,16 @@ function relativeUpdate(lastUpdate: string | null): string | null {
 function SevereRow({ volcano }: { volcano: Volcano }) {
   const updated = relativeUpdate(volcano.lastUpdate);
   return (
-    <div className="text-xs">
+    <div className="text-sm">
       <div className="flex items-center gap-1.5">
         <span
-          className={`text-[10px] font-mono px-1.5 py-0.5 rounded border shrink-0 ${colorCodeStyle(volcano.colorCode)}`}
+          className={`text-sm font-mono px-1.5 py-0.5 rounded border shrink-0 ${colorCodeStyle(volcano.colorCode)}`}
         >
           {volcano.alertLevel}
         </span>
-        <span className="text-gray-200 truncate">{volcano.volcanoName}</span>
+        <span className="text-su-text truncate">{volcano.volcanoName}</span>
       </div>
-      <div className="text-[10px] text-gray-500 pl-1">
+      <div className="text-sm text-su-muted/80 pl-1">
         {volcano.obsAbbr}
         {updated ? ` · ${updated}` : ""}
       </div>
@@ -67,13 +67,13 @@ export function VolcanoCard({ className = "" }: VolcanoCardProps) {
   return (
     <Card className={className} role="region" aria-label="Volcano Watch">
       <div className="flex items-center gap-1.5 mb-2">
-        <span className="text-[10px] font-medium text-gray-400 uppercase tracking-wide">
+        <span className="text-sm font-medium text-su-muted uppercase tracking-wide">
           Volcano Watch &mdash; USGS
         </span>
       </div>
 
       {error && (
-        <div className="text-xs text-gray-500">Volcano status unavailable</div>
+        <div className="text-sm text-su-muted/80">Volcano status unavailable</div>
       )}
 
       {!error && !isLoading && severe.length > 0 && (
@@ -85,14 +85,14 @@ export function VolcanoCard({ className = "" }: VolcanoCardProps) {
       )}
 
       {!error && !isLoading && severe.length === 0 && (
-        <div className="text-xs">
-          <div className="text-gray-400">
+        <div className="text-sm">
+          <div className="text-su-muted">
             {elevated.length > 0
               ? `${elevated.length} volcano${elevated.length === 1 ? "" : "es"} at ADVISORY — none at WATCH/WARNING`
               : "No volcanoes at elevated alert levels"}
           </div>
           {elevated.length > 0 && (
-            <div className="text-[10px] text-gray-500 mt-1 truncate">
+            <div className="text-sm text-su-muted/80 mt-1 truncate">
               {elevated.map((v) => v.volcanoName).join(", ")}
             </div>
           )}

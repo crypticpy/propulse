@@ -13,16 +13,16 @@ import { Card } from "@/components/ui/Card";
 import { useMetar, type MetarStation } from "@/hooks/useMetar";
 
 const FLIGHT_CATEGORY_STYLES: Record<string, string> = {
-  VFR: "bg-signal-green/15 border-signal-green/30 text-signal-green",
-  MVFR: "bg-nebula-blue/15 border-nebula-blue/30 text-nebula-blue",
-  IFR: "bg-alert-red/15 border-alert-red/30 text-alert-red",
+  VFR: "bg-su-success/15 border-su-success/30 text-su-success",
+  MVFR: "bg-su-info/15 border-su-info/30 text-su-info",
+  IFR: "bg-su-danger/15 border-su-danger/30 text-su-danger",
   LIFR: "bg-aurora-purple/15 border-aurora-purple/30 text-aurora-purple",
 };
 
 function flightCategoryStyle(fltCat: string | null): string {
-  if (!fltCat) return "bg-white/5 border-white/10 text-gray-400";
+  if (!fltCat) return "bg-su-input border-su-line/40 text-su-muted";
   return (
-    FLIGHT_CATEGORY_STYLES[fltCat] ?? "bg-white/5 border-white/10 text-gray-400"
+    FLIGHT_CATEGORY_STYLES[fltCat] ?? "bg-su-input border-su-line/40 text-su-muted"
   );
 }
 
@@ -78,19 +78,19 @@ export function MetarCard({ className = "" }: MetarCardProps) {
   return (
     <Card className={className} role="region" aria-label="METAR">
       <div className="flex items-center gap-1.5 mb-2">
-        <span className="text-[10px] font-medium text-gray-400 uppercase tracking-wide">
+        <span className="text-sm font-medium text-su-muted uppercase tracking-wide">
           METAR &mdash; Nearby Aviation Wx
         </span>
       </div>
 
       {!hasLocation && (
-        <div className="text-[10px] text-gray-500">
+        <div className="text-sm text-su-muted/80">
           Set your grid in Profile for nearby aviation weather
         </div>
       )}
 
       {hasLocation && !isLoading && (error || stations.length === 0) && (
-        <div className="text-xs text-gray-500">
+        <div className="text-sm text-su-muted/80">
           No METAR stations in range
         </div>
       )}
@@ -108,26 +108,26 @@ export function MetarCard({ className = "" }: MetarCardProps) {
                   onClick={() => toggleExpanded(key)}
                   aria-expanded={canExpand ? expanded : undefined}
                   disabled={!canExpand}
-                  className="group w-full min-w-0 rounded-lg px-2 py-1.5 text-left text-xs transition-colors hover:bg-white/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-plasma-orange/60 disabled:cursor-default disabled:hover:bg-transparent"
+                  className="group w-full min-w-0 rounded-lg px-2 py-1.5 text-left text-sm transition-colors hover:bg-su-input focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-su-accent/60 disabled:cursor-default disabled:hover:bg-transparent"
                 >
                   <span className="flex min-w-0 items-center gap-2">
-                    <span className="shrink-0 font-mono font-semibold text-gray-200">
+                    <span className="shrink-0 font-mono font-semibold text-su-text">
                       {station.icaoId ?? "—"}
                     </span>
                     {station.name && (
-                      <span className="min-w-0 flex-1 truncate text-[10px] text-gray-500">
+                      <span className="min-w-0 flex-1 truncate text-sm text-su-muted/80">
                         {station.name}
                       </span>
                     )}
                     <span
-                      className={`shrink-0 rounded border px-1.5 py-0.5 font-mono text-[10px] ${flightCategoryStyle(station.fltCat)}`}
+                      className={`shrink-0 rounded border px-1.5 py-0.5 font-mono text-sm ${flightCategoryStyle(station.fltCat)}`}
                     >
                       {station.fltCat ?? "?"}
                     </span>
                     {canExpand && (
                       <span
                         aria-hidden="true"
-                        className={`shrink-0 text-[10px] text-gray-600 transition-transform ${expanded ? "rotate-180" : ""}`}
+                        className={`shrink-0 text-sm text-su-muted/80 transition-transform ${expanded ? "rotate-180" : ""}`}
                       >
                         ▼
                       </span>
@@ -146,7 +146,7 @@ export function MetarCard({ className = "" }: MetarCardProps) {
                   </span>
                 </button>
                 {expanded && station.rawOb && (
-                  <div className="break-all px-2 pb-2 pt-0.5 font-mono text-[10px] leading-4 text-gray-500">
+                  <div className="break-all px-2 pb-2 pt-0.5 font-mono text-sm leading-4 text-su-muted/80">
                     {station.rawOb}
                   </div>
                 )}
@@ -162,14 +162,14 @@ export function MetarCard({ className = "" }: MetarCardProps) {
 function MetarMetric({ label, value }: { label: string; value: string }) {
   return (
     <span
-      className="min-w-0 rounded-md bg-white/[0.035] px-1.5 py-1"
+      className="min-w-0 rounded-md bg-su-input px-1.5 py-1"
       title={`${label}: ${value}`}
       data-metar-metric={label.toLowerCase()}
     >
-      <span className="block truncate text-[9px] uppercase tracking-wide text-gray-600">
+      <span className="block truncate text-sm uppercase tracking-wide text-su-muted/80">
         {label}
       </span>
-      <span className="block min-w-0 [overflow-wrap:anywhere] font-mono text-[10px] leading-4 tabular-nums text-gray-200">
+      <span className="block min-w-0 [overflow-wrap:anywhere] font-mono text-sm leading-4 tabular-nums text-su-text">
         {value}
       </span>
     </span>

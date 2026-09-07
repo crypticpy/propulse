@@ -1,9 +1,10 @@
 import { act, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, expect, it, vi } from "vitest";
 import { useMapStore } from "@/stores/mapStore";
+import { usePskStationView } from "@/hooks/usePskStation";
 import { SpotsTab } from "./SpotsTab";
 vi.mock("@/hooks/useMapSpotFeed", () => ({
-  useMapSpotFeed: () => ({ sourceStates: { PSKReporter: "STALE", RBN: "UNAVAILABLE", "WSJT-X": "BRIDGE OFF" } }),
+  useMapSpotFeed: () => ({ station: { view: usePskStationView(), feed: { callsign: "N0TEST" } }, sourceStates: { PSKReporter: "STALE", RBN: "UNAVAILABLE", "WSJT-X": "BRIDGE OFF" } }),
 }));
 const initial = useMapStore.getState();
 afterEach(() => { useMapStore.setState(initial); localStorage.removeItem("propulse-spot-age-minutes"); });
@@ -47,4 +48,21 @@ it("changes map age by keyboard, persists it, and exposes source state", () => {
   expect(screen.getByLabelText("Map spot sources").textContent).toContain("PSK STALE · RBN UNAVAILABLE");
   act(() => useMapStore.getState().setSpotAgeMinutes(1440));
   expect(useMapStore.getState().spotAgeMinutes).toBe(30);
+});
+
+
+it("selects personal scope and shares its longer age without changing global age or filters", () => {
+  usePskStationView.setState({ direction: "by", minutes: 15, band: "40m" });
+  const filters = useMapStore.getState().spotFilters;
+  render(<SpotsTab />);
+  fireEvent.click(screen.getByRole("radio", { name: "MY PSK REPORTS" }));
+  expect(useMapStore.getState().spotFeedScope).toBe("psk-station");
+  fireEvent.click(screen.getByRole("radio", { name: "1440 MIN" }));
+  expect(usePskStationView.getState().minutes).toBe(1440);
+  expect(useMapStore.getState().spotAgeMinutes).toBe(30);
+  expect(useMapStore.getState().spotFilters).toBe(filters);
+  expect(screen.getByText(/BY N0TEST/).textContent).toContain("40M");
+  fireEvent.click(screen.getByRole("radio", { name: "GLOBAL SAMPLE" }));
+  expect(screen.queryByRole("radio", { name: "1440 MIN" })).toBeNull();
+  usePskStationView.setState({ direction: "of", minutes: 15, band: "all" });
 });

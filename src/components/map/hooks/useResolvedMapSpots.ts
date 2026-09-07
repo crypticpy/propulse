@@ -47,7 +47,7 @@ export function useResolvedMapSpots({
   refetchInterval = 60_000,
 }: UseResolvedMapSpotsOptions) {
   const live = useMapSpotFeed({ grid, enabled, sources, spotFilters, refetchInterval });
-  const { policy, scopedSources } = live;
+  const { policy, scopedSources, effectiveSpotFilters } = live;
   const scopedActivationsEnabled =
     activationsEnabled && policyAllows(policy, "activations", "public");
   const activations = useActivationSpots(scopedActivationsEnabled);
@@ -55,17 +55,17 @@ export function useResolvedMapSpots({
     () =>
       selectMapSpotCandidates(live.spots, {
         sources: scopedSources,
-        spotFilters,
+        spotFilters: effectiveSpotFilters,
       }),
-    [live.spots, scopedSources, spotFilters],
+    [live.spots, scopedSources, effectiveSpotFilters],
   );
   const evidenceSpots = useMemo(
     () =>
       selectMapSpotCandidates(live.evidenceSpots, {
         sources: scopedSources,
-        spotFilters,
+        spotFilters: effectiveSpotFilters,
       }),
-    [live.evidenceSpots, scopedSources, spotFilters],
+    [live.evidenceSpots, scopedSources, effectiveSpotFilters],
   );
   const {
     candidateSpots,

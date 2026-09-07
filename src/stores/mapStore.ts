@@ -603,6 +603,8 @@ export interface MapState {
 
   // Arc display density (persisted)
   displayDensity: number;
+  spotFeedScope: "global" | "psk-station";
+  setSpotFeedScope: (scope: "global" | "psk-station") => void;
   spotAgeMinutes: SpotWindowMinutes;
   setSpotAgeMinutes: (minutes: number) => void;
   setDisplayDensity: (density: number) => void;
@@ -1452,6 +1454,7 @@ const initialState = {
 
   // Arc display density
   displayDensity: DEFAULT_SPOT_DENSITY,
+  spotFeedScope: "global" as const,
   spotAgeMinutes: (() => {
     try { return normalizeMapSpotAge(Number(localStorage.getItem("propulse-spot-age-minutes") ?? 30)); }
     catch { return 30; }
@@ -2252,6 +2255,10 @@ export const useMapStore = create<MapState>((set, get) => ({
   },
 
   // Arc display density
+  setSpotFeedScope: (spotFeedScope) => set((state) => ({
+    spotFeedScope,
+    ...(spotFeedScope === "psk-station" ? { layers: { ...state.layers, spots: true } } : {}),
+  })),
   setSpotAgeMinutes: (minutes) => {
     const spotAgeMinutes = normalizeMapSpotAge(minutes);
     try { localStorage.setItem("propulse-spot-age-minutes", String(spotAgeMinutes)); } catch { /* Storage may be unavailable. */ }

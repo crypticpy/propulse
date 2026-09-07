@@ -1,4 +1,4 @@
-export { createInstanceId, getAnonymousInstallId, ownerNamespace } from "./ids";
+export { createInstanceId, getAnonymousInstallId, ownerNamespace, resetAnonymousInstallIdForTests } from "./ids";
 export {
   FAMILY_SLOTS, familyFromSlot, isFamilySlot, namedSlotId, previewSlotId, displaySlotId,
   persistsWorkingSlot, type FamilySlotId, type ViewSlotId,
@@ -7,7 +7,10 @@ export {
   createMemoryWorkingStorage, createSessionWorkingStorage, defaultSessionStorage,
   workingSlotKey, WORKING_SLOT_PREFIX, type WorkingSlotRecord, type WorkingSlotStorage,
 } from "./workingStorage";
-export { createViewRuntime, type CreateViewRuntimeOptions, type ScopedViewRuntime } from "./createViewRuntime";
+export {
+  createViewRuntime, shouldRecoverWorking,
+  type CreateViewRuntimeOptions, type ScopedViewRuntime,
+} from "./createViewRuntime";
 export { registerRuntimeWriter, runtimeWriterKey, registeredWriterCount } from "./registry";
 export {
   followSpotsFromRadio, resolveFollowStatus, bandModeFiltersEqual,
@@ -18,3 +21,10 @@ export {
   SHARED_STATION_DOMAINS, WORKING_VIEW_FIELDS, EPHEMERAL_VIEW_FIELDS, NEVER_SERIALIZE_WORKING,
   LEGACY_VIEW_OWNED_STORES, CODEX_PERSISTENCE_SEAM,
 } from "./legacyViewState";
+export { deepFreeze } from "./freeze";
+export { dxFiltersFromViewSpots } from "./dxFilters";
+export {
+  createViewScopedStore,
+  type ViewScopedState,
+  type ViewScopedStoreHandle,
+} from "./createViewScopedStore";

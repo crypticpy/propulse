@@ -118,7 +118,8 @@ describe("createViewRuntime", () => {
       context: { ...monitor.getSnapshot().config.context, followRadio: true },
     });
     expect(monitor.applyFollowFilters({ band: "20m", mode: "FT8" })).toBe(true);
-    expect(monitor.getSnapshot().config.spots.filters.bands).toEqual(["20m"]);
+    expect(monitor.getSnapshot().config.spots.filters.bands).toEqual([]);
+    expect(monitor.effectiveSpots({ band: "20m", mode: "FT8" }).filters.bands).toEqual(["20m"]);
     expect(wall.getSnapshot().config.context.followRadio).toBe(false);
     expect(wall.getSnapshot().config.spots.filters.bands).toEqual([]);
     const spots = JSON.parse(JSON.stringify(monitor.getSnapshot().config.spots));
@@ -251,5 +252,143 @@ describe("createViewRuntime", () => {
     expect(other.getSnapshot().config.presentation.projection).toBe("azimuthal");
     runtime.dispose();
     other.dispose();
+  });
+
+  it("freezes snapshots and bindings so external mutation cannot rewrite state", () => {
+    const values = new Map<string, string>();
+    const storage = createMemoryWorkingStorage(values);
+    const source = { id: "station", revision: 1 };
+    const runtime = createViewRuntime({
+      binding: { ...binding("named:station"), sourceView: source },
+      storage,
+      storageNamespace: "acct:owner-a",
+    });
+    const first = runtime.getSnapshot();
+    expect(runtime.getSnapshot()).toBe(first);
+    expect(() => {
+      (first.config.presentation as { textScale: string }).textScale = "xl";
+    }).toThrow();
+    expect(() => {
+      (first.config.spots.filters.bands as string[]).push("20m");
+    }).toThrow();
+    let notified = 0;
+    const stop = runtime.subscribe(() => {
+      notified += 1;
+    });
+    source.revision = 9;
+    expect(() => {
+      (runtime.binding.sourceView as { revision: number }).revision = 9;
+    }).toThrow();
+    expect(runtime.getSnapshot().config.presentation.textScale).toBe("md");
+    expect(runtime.getSnapshot().workingRevision).toBe(0);
+    expect(runtime.binding.sourceView?.revision).toBe(1);
+    expect(runtime.getSnapshot()).toBe(first);
+    expect(notified).toBe(0);
+    stop();
+    runtime.selectSpot("spot-1", { lat: 10, lon: 20 });
+    const afterSelect = runtime.getSnapshot();
+    expect(afterSelect).not.toBe(first);
+    expect(afterSelect.workingRevision).toBe(0);
+    expect(() => {
+      afterSelect.interaction.target!.lat = 0;
+    }).toThrow();
+    expect(afterSelect.interaction.target?.lat).toBe(10);
+    runtime.dispose();
+  });
+
+  it("derives follow filters without persisting radio intent", async () => {
+    const values = new Map<string, string>();
+    const storage = createMemoryWorkingStorage(values);
+    const runtime = createViewRuntime({
+      binding: binding("normal"),
+      storage,
+      storageNamespace: "acct:owner-a",
+    });
+    runtime.updateWorkingView({
+      context: { ...runtime.getSnapshot().config.context, followRadio: true },
+    });
+    const revision = runtime.getSnapshot().workingRevision;
+    const snapshot = runtime.getSnapshot();
+    expect(runtime.applyFollowFilters({ band: "20m", mode: "CW" })).toBe(true);
+    expect(runtime.getSnapshot()).toBe(snapshot);
+    expect(runtime.getSnapshot().workingRevision).toBe(revision);
+    expect(runtime.getSnapshot().config.spots.filters.bands).toEqual([]);
+    expect(runtime.effectiveSpots({ band: "20m", mode: "CW" }).filters.bands).toEqual(["20m"]);
+    expect(runtime.effectiveSpots(null).filters.bands).toEqual([]);
+    expect(runtime.followStatus({ band: "20m", mode: "CW" })).toBe("active");
+    expect(runtime.followStatus(null)).toBe("paused-missing-radio");
+    expect(runtime.followStatus({ band: "nope!", mode: "CW" })).toBe("paused-missing-radio");
+    const raw = JSON.parse(values.get(workingSlotKey("acct:owner-a", "normal")) ?? "{}");
+    expect(raw.config.spots.filters.bands).toEqual([]);
+    const saveView = vi.fn<ViewRepository["saveView"]>(async (_owner, view, expected) => ({
+      status: "saved" as const,
+      record: { ...view, ownerId: "owner-a", revision: expected + 1 },
+    }));
+    await saveWorkingViewCopy(runtime, { saveView, getView: vi.fn(), publishDisplay: vi.fn() }, {
+      id: "copy-follow", name: "Follow check", expectedRevision: 0,
+    });
+    expect(saveView.mock.calls[0][1].config.spots.filters.bands).toEqual([]);
+    runtime.dispose();
+  });
+
+  it("recovers unsaved edits for the same source revision but honors explicit loads", () => {
+    const storage = createMemoryWorkingStorage();
+    const firstSeed = createViewConfiguration("pro");
+    firstSeed.presentation.textScale = "md";
+    const v1 = createViewRuntime({
+      binding: { ...binding("named:one"), sourceView: { id: "one", revision: 1 } },
+      seed: firstSeed,
+      storage,
+      storageNamespace: "acct:owner-a",
+    });
+    v1.updateWorkingView({
+      presentation: { ...presentation(v1.getSnapshot().config), textScale: "lg" },
+    });
+    v1.dispose();
+    const refreshed = createViewRuntime({
+      binding: { ...binding("named:one"), sourceView: { id: "one", revision: 1 } },
+      seed: firstSeed,
+      storage,
+      storageNamespace: "acct:owner-a",
+    });
+    expect(refreshed.getSnapshot().config.presentation.textScale).toBe("lg");
+    refreshed.dispose();
+    const newerSeed = createViewConfiguration("pro");
+    newerSeed.presentation.textScale = "xl";
+    const v2 = createViewRuntime({
+      binding: { ...binding("named:one"), sourceView: { id: "one", revision: 2 } },
+      seed: newerSeed,
+      storage,
+      storageNamespace: "acct:owner-a",
+    });
+    expect(v2.getSnapshot().config.presentation.textScale).toBe("xl");
+    expect(v2.binding.sourceView?.revision).toBe(2);
+    v2.dispose();
+    const otherSeed = createViewConfiguration("pro");
+    otherSeed.presentation.textScale = "sm";
+    const other = createViewRuntime({
+      binding: { ...binding("named:two"), sourceView: { id: "two", revision: 1 } },
+      seed: otherSeed,
+      storage,
+      storageNamespace: "acct:owner-a",
+    });
+    expect(other.getSnapshot().config.presentation.textScale).toBe("sm");
+    other.dispose();
+    const family = createViewRuntime({
+      binding: binding("normal"),
+      storage,
+      storageNamespace: "acct:owner-a",
+    });
+    family.updateWorkingView({
+      presentation: { ...presentation(family.getSnapshot().config), projection: "azimuthal" },
+    });
+    family.dispose();
+    const familyRefresh = createViewRuntime({
+      binding: binding("normal"),
+      storage,
+      storageNamespace: "acct:owner-a",
+    });
+    expect(familyRefresh.getSnapshot().config.presentation.projection).toBe("azimuthal");
+    familyRefresh.dispose();
   });
 });

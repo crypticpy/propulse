@@ -216,10 +216,29 @@ export function useViewSpotFocus(spots: readonly DXSpot[]): SpotFocusState {
     runtime.subscribe,
     () => runtime.getSnapshot().interaction.selectedReportId,
   );
-  const selectedSpot = useMemo(
-    () => spots.find((spot) => spot.id === selectedId) ?? null,
-    [spots, selectedId],
+  const target = useSyncExternalStore(
+    runtime.subscribe,
+    () => runtime.getSnapshot().interaction.target,
   );
+  const selectedSpot = useMemo(() => {
+    if (!selectedId) return null;
+    if (!target || (target.reportId !== null && target.reportId !== selectedId)) return null;
+    const row = spots.find((spot) => spot.id === selectedId);
+    const hadCoordinates = hasValidSpotCoordinates(row);
+    return {
+      ...(row ?? {
+        id: selectedId,
+        spotter: "",
+        dx: "",
+        frequency: 0,
+        comment: "",
+        time: new Date(0),
+      }),
+      dxLat: target.lat,
+      dxLon: target.lon,
+      dxLocApprox: hadCoordinates ? row?.dxLocApprox === true : !row?.dxGrid,
+    };
+  }, [spots, selectedId, target]);
   const onClear = useCallback(() => runtime.clearSelection(), [runtime]);
   return useSpotFocusState(selectedSpot, onClear);
 }

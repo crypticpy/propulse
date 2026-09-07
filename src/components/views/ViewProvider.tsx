@@ -1,10 +1,11 @@
-import { useLayoutEffect, useState, type ReactNode } from "react";
+import { useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import type { ViewBinding, ViewConfiguration } from "@/lib/views/contracts";
 import {
   createViewRuntime,
   ownerNamespace,
   persistsWorkingSlot,
   registerRuntimeWriter,
+  type ScopedViewRuntime,
   type ViewSlotId,
   type WorkingSlotStorage,
 } from "@/lib/views/runtime";
@@ -21,36 +22,56 @@ export interface ViewProviderProps {
   children: ReactNode;
 }
 
-function ViewProviderInstance({
-  ownerId, slot, kind = "interactive", sourceView = null, displayId = null,
-  seed, storage, children,
-}: ViewProviderProps) {
-  const namespace = ownerNamespace(ownerId);
-  const [runtime] = useState(() => createViewRuntime({
+function optionsFrom(props: ViewProviderProps) {
+  const kind = props.kind ?? "interactive";
+  const namespace = ownerNamespace(props.ownerId);
+  return {
     binding: {
-      ownerId: ownerId && ownerId.length > 0 ? ownerId : namespace,
-      slotId: slot,
+      ownerId: props.ownerId && props.ownerId.length > 0 ? props.ownerId : namespace,
+      slotId: props.slot,
       kind,
-      sourceView,
-      displayId,
-    },
-    seed,
-    storage,
+      sourceView: props.sourceView ?? null,
+      displayId: props.displayId ?? null,
+    } satisfies ViewBinding,
+    seed: props.seed,
+    storage: props.storage,
     storageNamespace: namespace,
     persistWorking: persistsWorkingSlot(kind),
-  }));
+  };
+}
+
+function ViewProviderInstance(props: ViewProviderProps) {
+  const propsRef = useRef(props);
+  propsRef.current = props;
+  const generationRef = useRef(0);
+  const [runtime, setRuntime] = useState<ScopedViewRuntime>(() => createViewRuntime(optionsFrom(props)));
+  const runtimeRef = useRef(runtime);
+  runtimeRef.current = runtime;
 
   useLayoutEffect(() => {
-    const release = registerRuntimeWriter(runtime);
+    const generation = ++generationRef.current;
+    let current = runtimeRef.current;
+    if (current.isDisposed()) {
+      current = createViewRuntime(optionsFrom(propsRef.current));
+      runtimeRef.current = current;
+      setRuntime(current);
+    }
+    const release = registerRuntimeWriter(current);
     return () => {
       release();
-      runtime.dispose();
+      const instance = current;
+      queueMicrotask(() => {
+        // Compare the latest generation after StrictMode's simulated cleanup/replay.
+        // eslint-disable-next-line react-hooks/exhaustive-deps -- replay must observe the live generation
+        if (generationRef.current !== generation) return;
+        instance.dispose();
+      });
     };
   }, [runtime]);
 
   return (
     <ViewRuntimeContext.Provider value={runtime}>
-      {children}
+      {props.children}
     </ViewRuntimeContext.Provider>
   );
 }

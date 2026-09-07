@@ -8,9 +8,15 @@ export interface RadioObservation {
 
 export type FollowStatus = "off" | "active" | "paused-missing-radio";
 
-export function resolveFollowStatus(followRadio: boolean, radio: RadioObservation | null): FollowStatus {
+export function resolveFollowStatus(
+  followRadio: boolean,
+  radio: RadioObservation | null,
+  configured?: SpotPresentationPreferences,
+): FollowStatus {
   if (!followRadio) return "off";
-  return radio ? "active" : "paused-missing-radio";
+  if (!radio) return "paused-missing-radio";
+  if (configured && !followSpotsFromRadio(configured, radio)) return "paused-missing-radio";
+  return "active";
 }
 
 const MODE = /^[A-Z0-9-]{1,24}$/;

@@ -231,3 +231,15 @@ Full verify and theme/resolution/browser acceptance precede review handoff.
 Initial source slice adds `verify=1` returning parsed title and bounded item
 count, accepts titled empty feeds, rejects HTML/untitled documents and retains
 SSRF checks. Focused handler tests pass; the complete B10 UI remains in progress.
+
+
+B10 acceptance review found the legacy combined dialog still exposed an
+unverified add-feed form. The UI now routes additions to the verified dialog,
+retaining existing-feed and alert controls. Unit regressions and a second
+30-case browser matrix (including legacy handoff/focus restoration) pass.
+The owned server is stopped and its claim released. Server verification is
+published separately as [#479](https://github.com/crypticpy/propulse/pull/479),
+`c158c0a5`, two files, with full checks passing (364 app files / 3,205 tests).
+The UI branch locally incorporates that prerequisite and will target it, leaving
+room for register updates under the 15-file cap. B10 remains the sole active
+implementation claim until its full UI review handoff; no other batch is reserved.

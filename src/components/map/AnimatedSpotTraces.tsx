@@ -571,10 +571,13 @@ function traceDrawingSignature(
   color: string,
   spot: ResolvedSpot,
   sourceSpot: LiveSpot,
+  geometryKey: string,
 ): string {
   return [
     motionTraceSignature(presentation),
+    geometryKey,
     color,
+    spot.frequency,
     spot.spotterLat,
     spot.spotterLon,
     spot.dxLat,
@@ -586,6 +589,8 @@ function traceDrawingSignature(
     sourceSpot.spotter,
     sourceSpot.dx,
     sourceSpot.comment,
+    sourceSpot.frequency ?? "",
+    sourceSpot.band ?? "",
   ].join(":");
 }
 
@@ -771,7 +776,9 @@ function AnimatedSpotTracesContent({
       if (!next) continue;
       tracesByPathRef.current.set(presentation.pathId, next);
       nextTraces.push(next);
-      signatures.push(traceDrawingSignature(presentation, color, match.resolved, match.source));
+      signatures.push(
+        traceDrawingSignature(presentation, color, match.resolved, match.source, geometryKey),
+      );
     }
     tracesByPathRef.current = new Map(nextTraces.map((trace) => [trace.pathId, trace]));
     const key = signatures.join("|");

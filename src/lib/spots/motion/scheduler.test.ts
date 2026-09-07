@@ -930,4 +930,36 @@ describe("motion scheduler", () => {
     expect(reduced.presentations.every((item) => item.staticReason === "reduced-motion")).toBe(true);
     expect(reduced.displayedReportIds).toEqual(lateArrival.displayedReportIds);
   });
+
+  it("releases a new-spots flowing-dashes slot after one traversal", () => {
+    const runtime = hydrate(createMotionRuntime(), []);
+    const paths = [
+      { path: directedPath("first"), selected: false },
+      { path: directedPath("second"), selected: false },
+    ];
+    const preferences = prefs({
+      animate: "new-spots",
+      maxActive: 1,
+      background: { ...prefs().background, style: "flowing-dashes", travelSeconds: 2.5 },
+    });
+    const started = tickMotion(runtime, input(paths, { nowMs: 100, preferences }));
+    expect(started.activePathIds).toEqual(["pfirst"]);
+    expect(started.pendingPathIds).toEqual(["psecond"]);
+    expect(started.presentations).toHaveLength(2);
+
+    const afterFirst = tickMotion(runtime, input(paths, { nowMs: 2_600, preferences }));
+    expect(afterFirst.activePathIds).toEqual(["psecond"]);
+    expect(afterFirst.pendingCount).toBe(0);
+    expect(afterFirst.presentations).toHaveLength(2);
+    expect(afterFirst.presentations.find((item) => item.pathId === "pfirst")?.travelProgress).toBeNull();
+    expect(afterFirst.displayedReportIds).toEqual(["first", "second"]);
+
+    const later = tickMotion(runtime, input(paths, { nowMs: 60_100, preferences }));
+    expect(later.activePathIds).not.toContain("pfirst");
+    expect(later.activeCount).toBe(0);
+    expect(later.pendingCount).toBe(0);
+    expect(later.presentations).toHaveLength(2);
+    expect(later.presentations.every((item) => item.travelProgress === null)).toBe(true);
+    expect(later.displayedReportIds).toEqual(["first", "second"]);
+  });
 });

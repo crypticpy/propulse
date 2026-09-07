@@ -768,4 +768,53 @@ describe("AnimatedSpotTraces feed scope", () => {
     expect(staticTraceCount(container)).toBe(3);
     expect(motionTraceCount(container)).toBe(0);
   });
+
+  it("publishes a frequency-only geometry rebuild with a stable path ID and color", () => {
+    const existing = liveSpot("review-frequency");
+    const report = normalizeLiveSpot(existing, new Map());
+    const path = report ? pathDescriptorForReport(report) : null;
+    expect(path).not.toBeNull();
+    const onActiveTracesChange = vi.fn();
+    const { rerender } = render(
+      <AnimatedSpotTraces
+        feedSpots={[existing]}
+        candidateSpots={[existing]}
+        resolvedSpots={[resolvedSpot(existing)]}
+        isFeedReady
+        hydrationKey="frequency-drawing"
+        scenePaths={[path!]}
+        onActiveTracesChange={onActiveTracesChange}
+      />,
+    );
+    expect(onActiveTracesChange.mock.lastCall?.[0]?.[0]?.frequency).toBe(14_074);
+    expect(onActiveTracesChange.mock.lastCall?.[0]?.[0]?.id).toBe("review-frequency");
+    expect(mocks.lineColors).toContain("#44DDFF");
+    const hopsAfterFirst = mocks.hopCalls;
+    const arcsAfterFirst = mocks.simpleArcCalls;
+
+    mocks.lineColors.length = 0;
+    rerender(
+      <AnimatedSpotTraces
+        feedSpots={[existing]}
+        candidateSpots={[existing]}
+        resolvedSpots={[{ ...resolvedSpot(existing), frequency: 7_074 }]}
+        isFeedReady
+        hydrationKey="frequency-drawing"
+        scenePaths={[path!]}
+        onActiveTracesChange={onActiveTracesChange}
+      />,
+    );
+    expect(onActiveTracesChange.mock.lastCall?.[0]?.[0]?.id).toBe("review-frequency");
+    expect(onActiveTracesChange.mock.lastCall?.[0]?.[0]?.frequency).toBe(7_074);
+    expect(mocks.lineColors).toContain("#44DDFF");
+    expect(mocks.simpleArcCalls + mocks.hopCalls).toBeGreaterThan(hopsAfterFirst + arcsAfterFirst);
+
+    const hopsAfterPublish = mocks.hopCalls;
+    const arcsAfterPublish = mocks.simpleArcCalls;
+    tick(0.05);
+    tick(0.066);
+    expect(mocks.hopCalls).toBe(hopsAfterPublish);
+    expect(mocks.simpleArcCalls).toBe(arcsAfterPublish);
+    expect(onActiveTracesChange.mock.lastCall?.[0]?.[0]?.frequency).toBe(7_074);
+  });
 });

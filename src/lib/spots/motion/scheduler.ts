@@ -445,7 +445,7 @@ export function tickMotion(runtime: MotionRuntime, input: MotionTickInput): Moti
     item.repeating = repeatingFor(args.appearance.style, preferences.animate);
     if (input.nowMs < item.startedAtMs) item.startedAtMs = input.nowMs;
     if (!queueStillEligible(item.kind, args)) return false;
-    if (item.repeating || args.appearance.style === "flowing-dashes") return true;
+    if (item.repeating) return true;
     return Math.max(0, input.nowMs - item.startedAtMs) < cycleSeconds(args.appearance) * 1000;
   });
 

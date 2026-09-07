@@ -43,7 +43,7 @@ function getActivityInfo(participants: number): ActivityInfo {
     return {
       level: "high",
       label: "High",
-      colorClass: "text-su-accent",
+      colorClass: "text-su-accent-text",
       dotClass: "bg-su-accent",
     };
   }
@@ -293,7 +293,7 @@ export function ContestWeatherCard({
             Contest Weather
           </span>
           {isContestWeekend && (
-            <span className="px-1.5 py-0.5 rounded text-sm font-bold uppercase tracking-wider bg-su-accent/15 text-su-accent border border-su-accent/30">
+            <span className="px-1.5 py-0.5 rounded text-sm font-bold uppercase tracking-wider bg-su-accent/15 text-su-accent-text border border-su-accent/30">
               Scheduled now
             </span>
           )}

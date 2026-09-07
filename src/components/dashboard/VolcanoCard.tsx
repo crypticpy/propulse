@@ -19,7 +19,7 @@ import {
 const COLOR_CODE_STYLES: Record<string, string> = {
   GREEN: "bg-su-success/15 border-su-success/30 text-su-success",
   YELLOW: "bg-su-warning/15 border-su-warning/30 text-su-warning",
-  ORANGE: "bg-su-accent/15 border-su-accent/30 text-su-accent",
+  ORANGE: "bg-su-accent/15 border-su-accent-edge/30 text-su-accent-text",
   RED: "bg-su-danger/15 border-su-danger/30 text-su-danger",
 };
 

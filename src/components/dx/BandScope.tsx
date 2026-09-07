@@ -295,12 +295,12 @@ export function BandScope({ className = "" }: BandScopeProps) {
   if (!connected) {
     return (
       <div
-        className={`rounded-2xl border border-white/10 bg-white/[0.03] backdrop-blur-md p-4 ${className}`}
+        className={`rounded-2xl border border-su-line/40 bg-su-line/10 backdrop-blur-md p-4 ${className}`}
       >
-        <h2 className="font-sans text-lg font-semibold text-white tracking-wide mb-2">
+        <h2 className="font-sans text-lg font-semibold text-su-text tracking-wide mb-2">
           Band Scope
         </h2>
-        <div className="text-center py-8 text-gray-500 text-sm">
+        <div className="text-center py-8 text-su-muted text-sm">
           Connect WSJT-X via bridge to see decode waterfall.
         </div>
       </div>
@@ -309,15 +309,15 @@ export function BandScope({ className = "" }: BandScopeProps) {
 
   return (
     <div
-      className={`rounded-2xl border border-white/10 bg-white/[0.03] backdrop-blur-md overflow-hidden ${className}`}
+      className={`rounded-2xl border border-su-line/40 bg-su-line/10 backdrop-blur-md overflow-hidden ${className}`}
     >
       {/* Header */}
-      <div className="flex items-center justify-between px-4 py-2 border-b border-white/10">
-        <h2 className="font-sans text-sm font-semibold text-white uppercase tracking-wide">
+      <div className="flex items-center justify-between px-4 py-2 border-b border-su-line/40">
+        <h2 className="font-sans text-sm font-semibold text-su-text uppercase tracking-wide">
           Band Scope
         </h2>
         <div className="flex items-center gap-3 text-xs">
-          <span className="text-gray-400">{recentDecodes.length} decodes</span>
+          <span className="text-su-muted">{recentDecodes.length} decodes</span>
           {status && (
             <span className="font-mono text-cosmic-cyan">
               {(status.frequency / 1_000_000).toFixed(3)} MHz {status.mode}
@@ -337,7 +337,7 @@ export function BandScope({ className = "" }: BandScopeProps) {
       </div>
 
       {/* SNR Legend */}
-      <div className="flex items-center justify-center gap-3 px-4 py-1.5 border-t border-white/10 text-[9px]">
+      <div className="flex items-center justify-center gap-3 px-4 py-1.5 border-t border-su-line/40 text-[9px]">
         {[
           { label: ">0dB", color: "#22c55e" },
           { label: "-5dB", color: "#00d4ff" },
@@ -351,7 +351,7 @@ export function BandScope({ className = "" }: BandScopeProps) {
               className="inline-block w-2 h-2 rounded-full"
               style={{ backgroundColor: color }}
             />
-            <span className="text-gray-400">{label}</span>
+            <span className="text-su-muted">{label}</span>
           </div>
         ))}
       </div>

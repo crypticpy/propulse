@@ -82,10 +82,6 @@
   font-size: calc(0.875rem * var(--su-text-scale));
   line-height: 1.6;
 }
-.equipment-drawer-items [class*="text-gray-"],
-.equipment-node-details [class*="text-gray-"] {
-  color: var(--su-muted);
-}
 .equipment-drawer-items :is(.font-medium, .font-semibold),
 .equipment-node-details :is(dd, .font-bold, .font-medium) {
   color: var(--su-text);

@@ -80,7 +80,7 @@ function QSOCard({
       className={`p-3 rounded-xl border transition-colors ${
         isSelected
           ? "bg-plasma-orange/10 border-plasma-orange/40"
-          : "bg-white/[0.03] border-white/10 active:bg-white/[0.06]"
+          : "bg-su-line/10 border-su-line/40 active:bg-su-line/20"
       }`}
       onTouchStart={handleTouchStart}
       onTouchEnd={handleTouchEnd}
@@ -104,12 +104,12 @@ function QSOCard({
               className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-colors ${
                 isSelected
                   ? "bg-plasma-orange border-plasma-orange"
-                  : "border-white/30 bg-transparent"
+                  : "border-su-line/60 bg-transparent"
               }`}
             >
               {isSelected && (
                 <svg
-                  className="w-3 h-3 text-white"
+                  className="w-3 h-3 text-su-on-accent"
                   fill="none"
                   stroke="currentColor"
                   viewBox="0 0 24 24"
@@ -124,26 +124,26 @@ function QSOCard({
               )}
             </div>
           )}
-          <span className="font-mono font-bold text-white text-base">
+          <span className="font-mono font-bold text-su-text text-base">
             {entry.callsign}
           </span>
         </div>
-        <span className="text-xs text-gray-400 font-mono">{entry.timeOn}</span>
+        <span className="text-xs text-su-muted font-mono">{entry.timeOn}</span>
       </div>
 
       {/* Row 2: Band Mode Grid RST */}
       <div className="flex items-center justify-between mt-1.5">
-        <div className="flex items-center gap-2 text-xs text-gray-400">
-          <span className="font-mono text-gray-300">
+        <div className="flex items-center gap-2 text-xs text-su-muted">
+          <span className="font-mono text-su-muted">
             {entry.band} {entry.mode}
           </span>
           {entry.grid && (
-            <span className="font-mono text-gray-500">{entry.grid}</span>
+            <span className="font-mono text-su-muted">{entry.grid}</span>
           )}
         </div>
         <div className="flex items-center gap-1">
           {entry.rstSent && (
-            <span className="font-mono text-xs text-gray-400">
+            <span className="font-mono text-xs text-su-muted">
               {entry.rstSent}/{entry.rstRcvd ?? "?"}
             </span>
           )}
@@ -152,7 +152,7 @@ function QSOCard({
 
       {/* Row 3: Name/QTH + Badges */}
       <div className="flex items-center justify-between mt-1">
-        <span className="text-xs text-gray-500 truncate max-w-[200px]">
+        <span className="text-xs text-su-muted truncate max-w-[200px]">
           {entry.name ?? ""} {entry.qth ? `, ${entry.qth}` : ""}
         </span>
         {badges.length > 0 && (
@@ -215,7 +215,7 @@ export function QSOLogCards({ onCardTap }: QSOLogCardsProps) {
 
   if (entries.length === 0) {
     return (
-      <div className="text-center py-12 text-gray-500 text-sm">
+      <div className="text-center py-12 text-su-muted text-sm">
         No QSOs found. Start logging contacts to see them here.
       </div>
     );

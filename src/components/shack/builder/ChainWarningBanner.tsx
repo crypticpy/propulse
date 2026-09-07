@@ -13,7 +13,7 @@ export function ChainWarningBanner({ warnings }: ChainWarningBannerProps) {
   if (warnings.length === 0) return null;
 
   return (
-    <div className="flex flex-wrap gap-2 px-3 py-2 bg-panel/30 backdrop-blur-sm border border-white/5 rounded-xl">
+    <div className="flex flex-wrap gap-2 px-3 py-2 bg-panel/30 backdrop-blur-sm border border-su-line/20 rounded-xl">
       {warnings.map((warning) => (
         <div
           key={warning.code}

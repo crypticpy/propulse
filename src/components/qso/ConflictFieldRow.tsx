@@ -102,7 +102,7 @@ export function ConflictFieldRow({
   return (
     <div className="space-y-2">
       {/* Field label */}
-      <p className="text-xs font-semibold uppercase tracking-wider text-gray-400">
+      <p className="text-xs font-semibold uppercase tracking-wider text-su-muted">
         {humanLabel}
       </p>
 
@@ -127,10 +127,10 @@ export function ConflictFieldRow({
               "mt-0.5 h-3.5 w-3.5 shrink-0 rounded-full border-2 transition-colors",
               resolution === "local"
                 ? "border-signal-green bg-signal-green"
-                : "border-gray-500 bg-transparent",
+                : "border-su-line bg-transparent",
             ].join(" ")}
           />
-          <span className="font-mono text-sm text-white break-all">
+          <span className="font-mono text-sm text-su-text break-all">
             {displayValue(localValue)}
           </span>
         </button>
@@ -154,10 +154,10 @@ export function ConflictFieldRow({
               "mt-0.5 h-3.5 w-3.5 shrink-0 rounded-full border-2 transition-colors",
               resolution === "remote"
                 ? "border-signal-green bg-signal-green"
-                : "border-gray-500 bg-transparent",
+                : "border-su-line bg-transparent",
             ].join(" ")}
           />
-          <span className="font-mono text-sm text-white break-all">
+          <span className="font-mono text-sm text-su-text break-all">
             {displayValue(remoteValue)}
           </span>
         </button>
@@ -173,7 +173,7 @@ export function ConflictFieldRow({
               "flex items-center gap-2 rounded-lg border px-3 py-2 text-left text-sm transition-all w-full",
               resolution === "merged"
                 ? "border-signal-green/50 ring-2 ring-signal-green bg-signal-green/5"
-                : "border-white/10 bg-white/[0.03] hover:bg-white/[0.06]",
+                : "border-su-line/40 bg-su-line/10 hover:bg-su-line/20",
             ].join(" ")}
           >
             <span
@@ -181,10 +181,10 @@ export function ConflictFieldRow({
                 "h-3.5 w-3.5 shrink-0 rounded-full border-2 transition-colors",
                 resolution === "merged"
                   ? "border-signal-green bg-signal-green"
-                  : "border-gray-500 bg-transparent",
+                  : "border-su-line bg-transparent",
               ].join(" ")}
             />
-            <span className="text-gray-300">Merge both values</span>
+            <span className="text-su-muted">Merge both values</span>
           </button>
 
           {showMergeInput && resolution === "merged" && (
@@ -192,7 +192,7 @@ export function ConflictFieldRow({
               value={mergedValue ?? ""}
               onChange={(e) => onMergedValueChange?.(e.target.value)}
               rows={3}
-              className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 font-mono text-sm text-white placeholder-gray-500 focus:border-signal-green/50 focus:outline-none focus:ring-1 focus:ring-signal-green/50"
+              className="w-full rounded-lg border border-su-line/40 bg-su-line/10 px-3 py-2 font-mono text-sm text-su-text placeholder:text-su-muted/80 focus:border-signal-green/50 focus:outline-none focus:ring-1 focus:ring-signal-green/50"
               placeholder="Type merged value..."
             />
           )}

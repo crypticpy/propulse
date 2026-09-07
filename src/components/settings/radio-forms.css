@@ -17,15 +17,6 @@
 .radio-catalog-item h3 {
   overflow-wrap: anywhere;
 }
-.radio-custom-form [class*="text-gray-"] {
-  color: var(--su-muted);
-}
-.radio-custom-form .text-white {
-  color: var(--su-text);
-}
-.radio-custom-form [class*="border-white"] {
-  border-color: var(--su-line);
-}
 .radio-custom-form [class*="bg-nebula-blue"] {
   background: var(--su-input);
 }

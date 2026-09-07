@@ -58,7 +58,7 @@ function getSFIColor(sfi: number): { bg: string; text: string } {
   if (sfi >= 70) {
     return { bg: "bg-yellow-500/30", text: "text-yellow-400" };
   }
-  return { bg: "bg-gray-500/30", text: "text-gray-400" };
+  return { bg: "bg-su-line/30", text: "text-su-muted" };
 }
 
 /**
@@ -137,13 +137,13 @@ export function DXConsole({
 
   return (
     <div
-      className={`flex flex-col h-full bg-white/[0.03] backdrop-blur-md border border-white/10 rounded-2xl overflow-hidden ${className}`}
+      className={`flex flex-col h-full bg-su-line/10 backdrop-blur-md border border-su-line/40 rounded-2xl overflow-hidden ${className}`}
     >
       {/* Header Bar */}
       {showHeader && (
-        <div className="flex items-center justify-between h-12 px-4 border-b border-white/10 flex-shrink-0">
+        <div className="flex items-center justify-between h-12 px-4 border-b border-su-line/40 flex-shrink-0">
           {/* Left: Title */}
-          <h2 className="font-sans text-sm font-semibold text-white uppercase tracking-wide">
+          <h2 className="font-sans text-sm font-semibold text-su-text uppercase tracking-wide">
             DX Operations Console
           </h2>
 
@@ -152,11 +152,11 @@ export function DXConsole({
             {selectedSpot ? (
               // Show selected frequency prominently
               <div className="flex items-center gap-2">
-                <span className="text-xs text-gray-400">FREQ:</span>
+                <span className="text-xs text-su-muted">FREQ:</span>
                 <span className="font-mono text-lg font-bold text-plasma-orange tracking-wider">
                   {selectedSpot.frequency?.toFixed(1) ?? "--"}
                 </span>
-                <span className="text-xs text-gray-500">kHz</span>
+                <span className="text-xs text-su-muted">kHz</span>
               </div>
             ) : (
               // Show LIVE indicator and badges
@@ -178,7 +178,7 @@ export function DXConsole({
                     className={`flex items-center gap-1 px-2 py-0.5 rounded ${kIndexColors.bg}`}
                     title={`K-index: ${currentKIndex} - Geomagnetic activity indicator`}
                   >
-                    <span className="text-[10px] text-gray-400 uppercase">
+                    <span className="text-[10px] text-su-muted uppercase">
                       K
                     </span>
                     <span className={`text-xs font-bold ${kIndexColors.text}`}>
@@ -205,7 +205,7 @@ export function DXConsole({
                     className={`flex items-center gap-1 px-2 py-0.5 rounded ${sfiColors.bg}`}
                     title={`Solar Flux Index: ${currentSFI} - Higher values indicate better HF propagation`}
                   >
-                    <span className="text-[10px] text-gray-400 uppercase">
+                    <span className="text-[10px] text-su-muted uppercase">
                       SFI
                     </span>
                     <span className={`text-xs font-bold ${sfiColors.text}`}>
@@ -232,7 +232,7 @@ export function DXConsole({
           {/* Right: Collapse button */}
           <button
             onClick={onCollapse}
-            className="p-1.5 text-gray-500 hover:text-white transition-colors rounded hover:bg-white/5"
+            className="p-1.5 text-su-muted hover:text-su-text transition-colors rounded hover:bg-su-line/10"
             title="Collapse console"
             aria-label="Collapse DX console"
             type="button"
@@ -255,7 +255,7 @@ export function DXConsole({
       )}
 
       {/* Band Activity Bar — global overview at top */}
-      <div className="px-4 py-2 flex-shrink-0 border-b border-white/10">
+      <div className="px-4 py-2 flex-shrink-0 border-b border-su-line/40">
         <BandActivityBar
           spots={spots}
           activeBands={selectedBand ? [selectedBand] : []}
@@ -286,7 +286,7 @@ export function DXConsole({
               className={`px-3 py-1 text-xs font-bold rounded transition-colors ${
                 rightTab === "bandmap"
                   ? "bg-cosmic-cyan/20 text-cosmic-cyan border border-cosmic-cyan/40"
-                  : "bg-white/5 text-gray-400 border border-transparent hover:bg-white/10"
+                  : "bg-su-line/10 text-su-muted border border-transparent hover:bg-su-line/20"
               }`}
             >
               Band Map
@@ -296,7 +296,7 @@ export function DXConsole({
               className={`px-3 py-1 text-xs font-bold rounded transition-colors ${
                 rightTab === "skeds"
                   ? "bg-cosmic-cyan/20 text-cosmic-cyan border border-cosmic-cyan/40"
-                  : "bg-white/5 text-gray-400 border border-transparent hover:bg-white/10"
+                  : "bg-su-line/10 text-su-muted border border-transparent hover:bg-su-line/20"
               }`}
             >
               Skeds
@@ -312,7 +312,7 @@ export function DXConsole({
                     className={
                       selectedBand === band
                         ? "px-3 py-1 text-xs font-bold rounded border transition-all whitespace-nowrap"
-                        : "px-3 py-1 text-xs font-medium rounded border border-transparent transition-all whitespace-nowrap bg-white/5 text-gray-400 hover:bg-white/10 hover:text-white"
+                        : "px-3 py-1 text-xs font-medium rounded border border-transparent transition-all whitespace-nowrap bg-su-line/10 text-su-muted hover:bg-su-line/20 hover:text-su-text"
                     }
                     style={
                       selectedBand === band

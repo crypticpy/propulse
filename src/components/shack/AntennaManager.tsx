@@ -443,10 +443,10 @@ export function AntennaManager({
     <div className="space-y-4">
       {/* Section header */}
       <div className="flex items-center gap-2 mb-3">
-        <h2 className="text-sm font-semibold text-gray-400 uppercase tracking-wider">
+        <h2 className="text-sm font-semibold text-su-muted uppercase tracking-wider">
           {sectionLabel ?? "ANTENNAS"}
         </h2>
-        <span className="text-xs text-gray-500 bg-white/5 px-2 py-0.5 rounded-full">
+        <span className="text-xs text-su-muted bg-su-line/10 px-2 py-0.5 rounded-full">
           {sectionCount ?? antennas.length}
         </span>
         <div className="flex-1" />
@@ -488,7 +488,7 @@ export function AntennaManager({
           ))}
         </div>
       ) : (
-        <div className="p-6 text-center text-gray-500 text-sm bg-panel/30 backdrop-blur-sm border border-white/5 rounded-2xl">
+        <div className="p-6 text-center text-su-muted text-sm bg-panel/30 backdrop-blur-sm border border-su-line/20 rounded-2xl">
           No antennas added yet. Add your first antenna to track your station
           setup.
         </div>

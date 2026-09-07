@@ -48,7 +48,7 @@ function CheckIcon() {
 function CrossIcon() {
   return (
     <svg
-      className="w-4 h-4 text-gray-600 flex-shrink-0"
+      className="w-4 h-4 text-su-muted flex-shrink-0"
       fill="none"
       viewBox="0 0 24 24"
       stroke="currentColor"
@@ -99,9 +99,9 @@ function formatPeriodEnd(iso: string | null): string {
 
 function FeatureComparisonTable() {
   return (
-    <div className="rounded-xl border border-white/10 overflow-hidden">
+    <div className="rounded-xl border border-su-line/40 overflow-hidden">
       {/* Header */}
-      <div className="grid grid-cols-[1fr_72px_72px] gap-2 px-4 py-3 bg-white/5 text-xs font-semibold text-gray-400 uppercase tracking-wider">
+      <div className="grid grid-cols-[1fr_72px_72px] gap-2 px-4 py-3 bg-su-line/10 text-xs font-semibold text-su-muted uppercase tracking-wider">
         <span>Feature</span>
         <span className="text-center">Free</span>
         <span className="text-center text-plasma-orange">Pro</span>
@@ -112,17 +112,17 @@ function FeatureComparisonTable() {
         <div
           key={row.label}
           className={`grid grid-cols-[1fr_72px_72px] gap-2 px-4 py-2.5 text-sm items-center ${
-            i % 2 === 0 ? "bg-white/[0.02]" : ""
+            i % 2 === 0 ? "bg-su-line/10" : ""
           }`}
         >
-          <span className="text-gray-300">{row.label}</span>
+          <span className="text-su-muted">{row.label}</span>
 
           {/* Free column */}
           <span className="flex items-center justify-center">
             {row.free === "No" ? (
               <CrossIcon />
             ) : (
-              <span className="text-xs text-gray-500">{row.free}</span>
+              <span className="text-xs text-su-muted">{row.free}</span>
             )}
           </span>
 
@@ -169,7 +169,7 @@ function PastDueBanner({
           <p className="text-sm font-medium text-caution-amber">
             Payment issue
           </p>
-          <p className="text-xs text-gray-400 mt-1">
+          <p className="text-xs text-su-muted mt-1">
             Update your payment method to keep Pro features active.
           </p>
         </div>
@@ -205,14 +205,14 @@ function FreeTierView({
     <div className="space-y-6">
       {/* Current plan indicator */}
       <div className="flex items-center gap-3">
-        <div className="px-3 py-1 rounded-full bg-white/10 border border-white/10 text-sm font-medium text-gray-300">
+        <div className="px-3 py-1 rounded-full bg-su-line/20 border border-su-line/40 text-sm font-medium text-su-muted">
           Free Plan
         </div>
       </div>
 
       {/* Feature comparison */}
       <div>
-        <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-3">
+        <h3 className="text-sm font-semibold text-su-muted uppercase tracking-wider mb-3">
           Plan Comparison
         </h3>
         <FeatureComparisonTable />
@@ -224,7 +224,7 @@ function FreeTierView({
         onClick={onUpgrade}
         disabled={isLoading}
         className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-lg text-sm font-semibold
-                   bg-plasma-orange text-white hover:bg-plasma-orange/90
+                   bg-plasma-orange text-su-on-accent hover:bg-plasma-orange/90
                    transition-colors shadow-lg shadow-plasma-orange/20
                    disabled:opacity-50 disabled:cursor-not-allowed"
       >
@@ -278,10 +278,10 @@ function ProTierView({
 
       {/* Renewal info */}
       {periodEnd && !isPastDue && (
-        <div className="p-3 bg-white/5 border border-white/10 rounded-lg">
-          <p className="text-sm text-gray-400">
+        <div className="p-3 bg-su-line/10 border border-su-line/40 rounded-lg">
+          <p className="text-sm text-su-muted">
             {status === "canceled" ? "Access until" : "Renews"}{" "}
-            <span className="text-gray-200 font-medium">
+            <span className="text-su-text font-medium">
               {formatPeriodEnd(periodEnd)}
             </span>
           </p>
@@ -290,14 +290,14 @@ function ProTierView({
 
       {/* Feature list */}
       <div>
-        <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-3">
+        <h3 className="text-sm font-semibold text-su-muted uppercase tracking-wider mb-3">
           Unlocked Features
         </h3>
         <div className="space-y-2">
           {FEATURE_ROWS.map((row) => (
             <div key={row.label} className="flex items-center gap-2.5">
               <CheckIcon />
-              <span className="text-sm text-gray-300">{row.label}</span>
+              <span className="text-sm text-su-muted">{row.label}</span>
               {row.pro !== "Yes" && (
                 <span className="text-xs text-plasma-orange font-medium ml-auto">
                   {row.pro}
@@ -315,8 +315,8 @@ function ProTierView({
           onClick={onManage}
           disabled={isLoading}
           className="w-full flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-sm font-medium
-                     bg-white/5 border border-white/10 text-gray-300
-                     hover:bg-white/10 transition-colors
+                     bg-su-line/10 border border-su-line/40 text-su-muted
+                     hover:bg-su-line/20 transition-colors
                      disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {isLoading ? <SpinnerIcon /> : null}

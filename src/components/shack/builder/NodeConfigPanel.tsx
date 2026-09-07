@@ -58,19 +58,19 @@ function formatWatts(w: number): string {
 
 function SectionLabel({ children }: { children: React.ReactNode }) {
   return (
-    <dt className="text-xs text-gray-500 uppercase tracking-wider">
+    <dt className="text-xs text-su-muted uppercase tracking-wider">
       {children}
     </dt>
   );
 }
 
 function SectionValue({ children }: { children: React.ReactNode }) {
-  return <dd className="text-sm text-gray-200 mt-0.5">{children}</dd>;
+  return <dd className="text-sm text-su-text mt-0.5">{children}</dd>;
 }
 
 function Badge({
   children,
-  color = "bg-white/10 text-gray-300",
+  color = "bg-su-line/20 text-su-muted",
 }: {
   children: React.ReactNode;
   color?: string;
@@ -187,19 +187,19 @@ function RadioSection({
   return (
     <dl className="space-y-3">
       <div>
-        <div className="text-lg font-bold text-gray-100">
+        <div className="text-lg font-bold text-su-text">
           {nickname ||
             equipment?.displayName ||
             `${equipment?.manufacturer ?? ""} ${equipment?.model ?? ""}`.trim() ||
             "Unknown Radio"}
           {equipment && (
-            <span className="inline-block px-1.5 py-0.5 text-[10px] font-medium rounded bg-white/10 text-gray-400 ml-2 align-middle">
+            <span className="inline-block px-1.5 py-0.5 text-[10px] font-medium rounded bg-su-line/20 text-su-muted ml-2 align-middle">
               Your Inventory
             </span>
           )}
         </div>
         {nickname && equipment && (
-          <div className="text-xs text-gray-500 mt-0.5">
+          <div className="text-xs text-su-muted mt-0.5">
             {equipment.manufacturer} {equipment.model}
           </div>
         )}
@@ -261,15 +261,15 @@ function AccessorySection({
 }) {
   const acc = accessories.find((a) => a.id === accessoryId);
   if (!acc) {
-    return <div className="text-sm text-gray-500">Accessory not found</div>;
+    return <div className="text-sm text-su-muted">Accessory not found</div>;
   }
 
   return (
     <dl className="space-y-3">
       <div>
-        <div className="text-lg font-bold text-gray-100">
+        <div className="text-lg font-bold text-su-text">
           {acc.name}
-          <span className="inline-block px-1.5 py-0.5 text-[10px] font-medium rounded bg-white/10 text-gray-400 ml-2 align-middle">
+          <span className="inline-block px-1.5 py-0.5 text-[10px] font-medium rounded bg-su-line/20 text-su-muted ml-2 align-middle">
             Your Inventory
           </span>
         </div>
@@ -420,12 +420,12 @@ function FeedlineRunSection({
     (r) => r.id === feedlineRunId,
   );
   if (!run) {
-    return <div className="text-sm text-gray-500">Feedline run not found</div>;
+    return <div className="text-sm text-su-muted">Feedline run not found</div>;
   }
 
   const feedline = feedlines.find((f) => f.id === run.feedlineId);
   if (!feedline) {
-    return <div className="text-sm text-gray-500">Feedline not found</div>;
+    return <div className="text-sm text-su-muted">Feedline not found</div>;
   }
 
   const conditionColors: Record<string, string> = {
@@ -462,9 +462,9 @@ function FeedlineRunSection({
   return (
     <dl className="space-y-3">
       <div>
-        <div className="text-lg font-bold text-gray-100">
+        <div className="text-lg font-bold text-su-text">
           {feedline.name}
-          <span className="inline-block px-1.5 py-0.5 text-[10px] font-medium rounded bg-white/10 text-gray-400 ml-2 align-middle">
+          <span className="inline-block px-1.5 py-0.5 text-[10px] font-medium rounded bg-su-line/20 text-su-muted ml-2 align-middle">
             Your Inventory
           </span>
         </div>
@@ -499,7 +499,7 @@ function FeedlineRunSection({
         <dd className="mt-1">
           <Badge
             color={
-              conditionColors[feedline.condition] ?? "bg-white/10 text-gray-300"
+              conditionColors[feedline.condition] ?? "bg-su-line/20 text-su-muted"
             }
           >
             {feedline.condition.charAt(0).toUpperCase() +
@@ -514,7 +514,7 @@ function FeedlineRunSection({
           Inline Components ({resolvedInlines.length})
         </SectionLabel>
         {resolvedInlines.length === 0 ? (
-          <dd className="text-xs text-gray-500 mt-1 italic">
+          <dd className="text-xs text-su-muted mt-1 italic">
             No inline components — add baluns, chokes, or ferrites here
           </dd>
         ) : (
@@ -522,11 +522,11 @@ function FeedlineRunSection({
             {resolvedInlines.map((comp) => (
               <div
                 key={comp.id}
-                className="flex items-center justify-between bg-white/5 rounded-lg px-2.5 py-1.5"
+                className="flex items-center justify-between bg-su-line/10 rounded-lg px-2.5 py-1.5"
               >
                 <div>
-                  <div className="text-xs text-gray-200">{comp.name}</div>
-                  <div className="text-[10px] text-gray-500">
+                  <div className="text-xs text-su-text">{comp.name}</div>
+                  <div className="text-[10px] text-su-muted">
                     {INLINE_COMPONENT_LABELS[comp.componentType]}
                   </div>
                 </div>
@@ -537,7 +537,7 @@ function FeedlineRunSection({
                   <button
                     type="button"
                     onClick={() => handleRemoveInline(comp.id)}
-                    className="text-gray-500 hover:text-alert-red transition-colors"
+                    className="text-su-muted hover:text-alert-red transition-colors"
                     aria-label={`Remove ${comp.name}`}
                   >
                     <svg
@@ -565,19 +565,19 @@ function FeedlineRunSection({
       {showInlinePicker ? (
         <div className="space-y-1.5">
           <div className="flex items-center justify-between">
-            <span className="text-xs text-gray-400 font-medium">
+            <span className="text-xs text-su-muted font-medium">
               Select component:
             </span>
             <button
               type="button"
               onClick={() => setShowInlinePicker(false)}
-              className="text-xs text-gray-500 hover:text-gray-300 transition-colors"
+              className="text-xs text-su-muted hover:text-su-text transition-colors"
             >
               Cancel
             </button>
           </div>
           {availableInlines.length === 0 ? (
-            <div className="text-xs text-gray-500 italic py-2 text-center">
+            <div className="text-xs text-su-muted italic py-2 text-center">
               No available inline components
             </div>
           ) : (
@@ -587,15 +587,15 @@ function FeedlineRunSection({
                   key={comp.id}
                   type="button"
                   onClick={() => handleAddInline(comp.id)}
-                  className="w-full flex items-center justify-between bg-white/5 hover:bg-white/10 rounded-lg px-2.5 py-1.5 text-left transition-colors"
+                  className="w-full flex items-center justify-between bg-su-line/10 hover:bg-su-line/20 rounded-lg px-2.5 py-1.5 text-left transition-colors"
                 >
                   <div>
-                    <div className="text-xs text-gray-200">{comp.name}</div>
-                    <div className="text-[10px] text-gray-500">
+                    <div className="text-xs text-su-text">{comp.name}</div>
+                    <div className="text-[10px] text-su-muted">
                       {INLINE_COMPONENT_LABELS[comp.componentType]}
                     </div>
                   </div>
-                  <span className="text-xs text-gray-400">
+                  <span className="text-xs text-su-muted">
                     -{(comp.insertionLossDb ?? 0).toFixed(1)} dB
                   </span>
                 </button>
@@ -607,7 +607,7 @@ function FeedlineRunSection({
         <button
           type="button"
           onClick={() => setShowInlinePicker(true)}
-          className="w-full text-xs text-center py-1.5 rounded-lg border border-dashed border-white/20 text-gray-400 hover:text-gray-300 hover:border-white/30 transition-colors"
+          className="w-full text-xs text-center py-1.5 rounded-lg border border-dashed border-su-line/50 text-su-muted hover:text-su-text hover:border-su-line/60 transition-colors"
         >
           + Add Inline Component
         </button>
@@ -634,15 +634,15 @@ function AntennaSection({
 }) {
   const antenna = antennas.find((a) => a.id === antennaId);
   if (!antenna) {
-    return <div className="text-sm text-gray-500">Antenna not found</div>;
+    return <div className="text-sm text-su-muted">Antenna not found</div>;
   }
 
   return (
     <dl className="space-y-3">
       <div>
-        <div className="text-lg font-bold text-gray-100">
+        <div className="text-lg font-bold text-su-text">
           {antenna.name}
-          <span className="inline-block px-1.5 py-0.5 text-[10px] font-medium rounded bg-white/10 text-gray-400 ml-2 align-middle">
+          <span className="inline-block px-1.5 py-0.5 text-[10px] font-medium rounded bg-su-line/20 text-su-muted ml-2 align-middle">
             Your Inventory
           </span>
         </div>
@@ -695,7 +695,7 @@ function AntennaSection({
                   key={band}
                   className="flex items-center justify-between text-xs"
                 >
-                  <span className="text-gray-400">{band}</span>
+                  <span className="text-su-muted">{band}</span>
                   <span className="text-signal-green">
                     +{gain.toFixed(1)} dBi
                   </span>

@@ -65,9 +65,9 @@ export function QSOSuccessToast({
 
       <div className="text-sm">
         <span className="text-signal-green font-medium">Logged </span>
-        <span className="text-white font-mono font-bold">{callsign}</span>
+        <span className="text-su-text font-mono font-bold">{callsign}</span>
         {totalCount != null && totalCount > 0 && (
-          <span className="text-gray-400 ml-2">({totalCount} total)</span>
+          <span className="text-su-muted ml-2">({totalCount} total)</span>
         )}
       </div>
 
@@ -78,7 +78,7 @@ export function QSOSuccessToast({
         aria-label="Dismiss"
         className="
           ml-2 w-5 h-5 flex items-center justify-center
-          rounded text-gray-400 hover:text-white
+          rounded text-su-muted hover:text-su-text
           transition-colors
         "
       >

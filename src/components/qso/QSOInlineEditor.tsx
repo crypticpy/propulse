@@ -108,7 +108,7 @@ export function QSOInlineEditor({
   const config = FIELD_CONFIGS[field] ?? { type: "text" };
 
   const baseClass =
-    "w-full bg-white/10 border border-plasma-orange/50 rounded text-sm text-white px-2 py-1 focus:outline-none focus:border-plasma-orange";
+    "w-full bg-su-line/20 border border-plasma-orange/50 rounded text-sm text-su-text px-2 py-1 focus:outline-none focus:border-plasma-orange";
 
   if (config.type === "select" && config.options) {
     return (
@@ -121,11 +121,11 @@ export function QSOInlineEditor({
         className={`${baseClass} appearance-none cursor-pointer`}
         disabled={saving}
       >
-        <option value="" className="bg-deep-space text-white">
+        <option value="" className="bg-deep-space text-su-text">
           --
         </option>
         {config.options.map((opt) => (
-          <option key={opt} value={opt} className="bg-deep-space text-white">
+          <option key={opt} value={opt} className="bg-deep-space text-su-text">
             {opt}
           </option>
         ))}

@@ -83,35 +83,35 @@ export function BandVerdictDetailsDialog({
               </span>
             )}
           </div>
-          <span className="font-mono text-xs text-white/40">
+          <span className="font-mono text-xs text-su-text/80">
             {entry.result.inputs.obs20m} obs ·{" "}
             {entry.result.inputs.reporters20m} reporters
           </span>
         </div>
 
-        <div className="rounded-xl border border-white/10 bg-white/[0.035] p-4">
-          <h3 className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-white/40">
+        <div className="rounded-xl border border-su-line/40 bg-su-line/10 p-4">
+          <h3 className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-su-text/80">
             Why this status
           </h3>
           <ul className="space-y-1.5">
             {entry.result.evaluation.why.map((line, index) => (
-              <li key={index} className="text-sm leading-6 text-white/65">
+              <li key={index} className="text-sm leading-6 text-su-text/80">
                 {line}
               </li>
             ))}
           </ul>
-          <p className="mt-3 text-xs text-white/40">
+          <p className="mt-3 text-xs text-su-text/80">
             Stable since{" "}
             {formatDistanceToNow(new Date(entry.since), { addSuffix: true })}
           </p>
         </div>
 
         {canonical && (
-          <section className="rounded-xl border border-white/10 bg-white/[0.025] p-4">
-            <h3 className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-white/40">
+          <section className="rounded-xl border border-su-line/40 bg-su-line/10 p-4">
+            <h3 className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-su-text/80">
               Server ladder
             </h3>
-            <p className="text-sm text-white/65">
+            <p className="text-sm text-su-text/80">
               <span className={LADDER_TEXT_CLASSES[canonical.state]}>
                 {LADDER_LABEL[canonical.state]}
               </span>
@@ -119,7 +119,7 @@ export function BandVerdictDetailsDialog({
                 <span className="text-plasma-orange"> · surprise</span>
               )}
               {canonical.openedAt && (
-                <span className="text-white/40">
+                <span className="text-su-text/80">
                   {" "}· open{" "}
                   {formatDistanceToNow(new Date(canonical.openedAt), {
                     addSuffix: false,
@@ -128,42 +128,42 @@ export function BandVerdictDetailsDialog({
               )}
             </p>
             {canonicalOpens !== null && (
-              <p className="mt-1 text-sm text-white/60">
+              <p className="mt-1 text-sm text-su-text/80">
                 Likely opens in ~{formatLead(canonicalOpens)}
-                <span className="text-white/30"> · physics sweep</span>
+                <span className="text-su-text/80"> · physics sweep</span>
               </p>
             )}
             {canonicalFades !== null && (
-              <p className="mt-1 text-sm text-white/60">
+              <p className="mt-1 text-sm text-su-text/80">
                 May fade in ~{formatLead(canonicalFades)}
-                <span className="text-white/30"> · physics sweep</span>
+                <span className="text-su-text/80"> · physics sweep</span>
               </p>
             )}
           </section>
         )}
 
         {activity && (
-          <section className="rounded-xl border border-white/10 bg-white/[0.025] p-4">
-            <h3 className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-white/40">
+          <section className="rounded-xl border border-su-line/40 bg-su-line/10 p-4">
+            <h3 className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-su-text/80">
               Verified activity
             </h3>
-            <p className="text-sm text-white/65">
+            <p className="text-sm text-su-text/80">
               {activity.level ? (
                 <span className={ACTIVITY_TEXT_CLASSES[activity.level]}>
                   {ACTIVITY_LABEL[activity.level]}
                 </span>
               ) : (
-                <span className="text-white/40">No baseline yet</span>
+                <span className="text-su-text/80">No baseline yet</span>
               )}{" "}
               <span aria-hidden="true">{TREND_ARROW[activity.trend]}</span>{" "}
               {activity.trend}
             </p>
-            <p className="mt-1 font-mono text-sm text-white/60">
+            <p className="mt-1 font-mono text-sm text-su-text/80">
               {activity.count60m} spots/hr · {activity.obs20m} obs ·{" "}
               {activity.reporters20m} reporters (20 min)
             </p>
             {Object.keys(activity.modeObs20m).length > 0 && (
-              <p className="mt-1 font-mono text-xs text-white/40">
+              <p className="mt-1 font-mono text-xs text-su-text/80">
                 {Object.entries(activity.modeObs20m)
                   .filter(([, count]) => count > 0)
                   .map(
@@ -174,7 +174,7 @@ export function BandVerdictDetailsDialog({
               </p>
             )}
             {Object.keys(activity.sourceCounts60m).length > 0 && (
-              <p className="mt-1 font-mono text-xs text-white/40">
+              <p className="mt-1 font-mono text-xs text-su-text/80">
                 via{" "}
                 {Object.entries(activity.sourceCounts60m)
                   .filter(([, count]) => count > 0)
@@ -183,7 +183,7 @@ export function BandVerdictDetailsDialog({
               </p>
             )}
             {activity.level && activity.thresholds && (
-              <p className="mt-1 font-mono text-xs text-white/40">
+              <p className="mt-1 font-mono text-xs text-su-text/80">
                 vs this hour: p25 {Math.round(activity.thresholds.p25)} · p75{" "}
                 {Math.round(activity.thresholds.p75)} · p95{" "}
                 {Math.round(activity.thresholds.p95)}
@@ -193,13 +193,13 @@ export function BandVerdictDetailsDialog({
         )}
 
         {recent.length > 0 && (
-          <section className="rounded-xl border border-white/10 bg-white/[0.025] p-4">
-            <h3 className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-white/40">
+          <section className="rounded-xl border border-su-line/40 bg-su-line/10 p-4">
+            <h3 className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-su-text/80">
               Recent changes
             </h3>
             <ul className="space-y-1">
               {recent.map((item) => (
-                <li key={item.id} className="font-mono text-sm text-white/60">
+                <li key={item.id} className="font-mono text-sm text-su-text/80">
                   {format(new Date(item.at), "HH:mm")} {LADDER_LABEL[item.from]} →{" "}
                   {LADDER_LABEL[item.to]}
                 </li>

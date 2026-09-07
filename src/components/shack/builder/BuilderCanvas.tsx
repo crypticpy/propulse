@@ -610,7 +610,7 @@ export function BuilderCanvas({
               ? isDropHover
                 ? "border-plasma-orange bg-plasma-orange/10 shadow-[inset_0_0_40px_rgba(255,107,53,0.08)]"
                 : "border-plasma-orange/50 bg-plasma-orange/5 animate-pulse"
-              : "border-white/10 bg-panel/30 backdrop-blur-sm"
+              : "border-su-line/40 bg-panel/30 backdrop-blur-sm"
           }
         `}
         style={{ minHeight: MIN_CANVAS_HEIGHT }}
@@ -666,14 +666,14 @@ export function BuilderCanvas({
                     />
                   </svg>
                 </div>
-                <span className="text-[10px] text-gray-500 font-medium">
+                <span className="text-[10px] text-su-muted font-medium">
                   Radio
                 </span>
               </div>
 
               {/* Arrow */}
               <svg
-                className="w-6 h-4 text-gray-600 shrink-0"
+                className="w-6 h-4 text-su-muted shrink-0"
                 viewBox="0 0 24 16"
                 fill="currentColor"
               >
@@ -697,14 +697,14 @@ export function BuilderCanvas({
                     />
                   </svg>
                 </div>
-                <span className="text-[10px] text-gray-500 font-medium">
+                <span className="text-[10px] text-su-muted font-medium">
                   Cable
                 </span>
               </div>
 
               {/* Arrow */}
               <svg
-                className="w-6 h-4 text-gray-600 shrink-0"
+                className="w-6 h-4 text-su-muted shrink-0"
                 viewBox="0 0 24 16"
                 fill="currentColor"
               >
@@ -728,14 +728,14 @@ export function BuilderCanvas({
                     />
                   </svg>
                 </div>
-                <span className="text-[10px] text-gray-500 font-medium">
+                <span className="text-[10px] text-su-muted font-medium">
                   Antenna
                 </span>
               </div>
             </div>
 
             {/* Instructions */}
-            <p className="text-sm text-gray-400 text-center max-w-xs">
+            <p className="text-sm text-su-muted text-center max-w-xs">
               Drag equipment from the drawer below to start building your signal
               signal path
             </p>
@@ -743,7 +743,7 @@ export function BuilderCanvas({
             {/* Animated down arrow */}
             <div className="mt-3 animate-bounce">
               <svg
-                className="w-5 h-5 text-gray-500"
+                className="w-5 h-5 text-su-muted"
                 fill="none"
                 viewBox="0 0 24 24"
                 stroke="currentColor"
@@ -767,35 +767,35 @@ export function BuilderCanvas({
   return (
     <div
       ref={containerRef}
-      className="relative rounded-2xl bg-panel/30 backdrop-blur-sm border border-white/5 overflow-hidden select-none"
+      className="relative rounded-2xl bg-panel/30 backdrop-blur-sm border border-su-line/20 overflow-hidden select-none"
       style={{ cursor: isPanning ? "grabbing" : "grab" }}
     >
       {/* Zoom controls */}
-      <div className="absolute top-2 right-2 z-10 flex items-center gap-1 bg-void-black/80 backdrop-blur-sm border border-white/10 rounded-lg p-1">
+      <div className="absolute top-2 right-2 z-10 flex items-center gap-1 bg-void-black/80 backdrop-blur-sm border border-su-line/40 rounded-lg p-1">
         <button
           type="button"
           onClick={() => setZoom((prev) => Math.min(2.5, prev + 0.2))}
-          className="w-7 h-7 flex items-center justify-center rounded text-gray-400 hover:text-gray-200 hover:bg-white/10 text-sm font-bold"
+          className="w-7 h-7 flex items-center justify-center rounded text-su-muted hover:text-su-text hover:bg-su-line/20 text-sm font-bold"
           aria-label="Zoom in"
         >
           +
         </button>
-        <span className="text-[10px] text-gray-500 font-mono w-10 text-center">
+        <span className="text-[10px] text-su-muted font-mono w-10 text-center">
           {Math.round(zoom * 100)}%
         </span>
         <button
           type="button"
           onClick={() => setZoom((prev) => Math.max(0.3, prev - 0.2))}
-          className="w-7 h-7 flex items-center justify-center rounded text-gray-400 hover:text-gray-200 hover:bg-white/10 text-sm font-bold"
+          className="w-7 h-7 flex items-center justify-center rounded text-su-muted hover:text-su-text hover:bg-su-line/20 text-sm font-bold"
           aria-label="Zoom out"
         >
           {"\u2212"}
         </button>
-        <div className="w-px h-4 bg-white/10 mx-0.5" />
+        <div className="w-px h-4 bg-su-line/20 mx-0.5" />
         <button
           type="button"
           onClick={handleZoomToFit}
-          className="px-1.5 h-7 flex items-center justify-center rounded text-gray-500 hover:text-gray-200 hover:bg-white/10 text-[10px] font-medium"
+          className="px-1.5 h-7 flex items-center justify-center rounded text-su-muted hover:text-su-text hover:bg-su-line/20 text-[10px] font-medium"
           aria-label="Zoom to fit"
         >
           Fit

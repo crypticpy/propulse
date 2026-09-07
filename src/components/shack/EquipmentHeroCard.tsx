@@ -149,12 +149,12 @@ function HeroFieldCell({
 
   return (
     <div className="min-w-0">
-      <dt className="text-[10px] font-medium uppercase tracking-wider text-gray-500">
+      <dt className="text-[10px] font-medium uppercase tracking-wider text-su-muted">
         {field.label}
       </dt>
       <dd
         className={`mt-0.5 text-sm truncate ${
-          numeric ? "font-mono font-bold text-white" : "font-mono text-gray-200"
+          numeric ? "font-mono font-bold text-su-text" : "font-mono text-su-text"
         }`}
         style={numeric ? { color: `${accentHex}dd` } : undefined}
       >
@@ -179,7 +179,7 @@ function HeroGroupSection({
   return (
     <div className="px-4 sm:px-5 py-3">
       <h3
-        className="text-[11px] font-semibold uppercase tracking-wider text-gray-400 pb-2 mb-2.5 flex items-center gap-2"
+        className="text-[11px] font-semibold uppercase tracking-wider text-su-muted pb-2 mb-2.5 flex items-center gap-2"
         style={{ color: `${accentHex}cc` }}
       >
         <span
@@ -262,15 +262,15 @@ function GalleryThumbnail({
       onClick={onClick}
       className={[
         "group/thumb relative h-16 w-20 flex-shrink-0 rounded-lg overflow-hidden",
-        "transition-all duration-150 focus:outline-none focus-visible:ring-2 focus-visible:ring-white/40",
+        "transition-all duration-150 focus:outline-none focus-visible:ring-2 focus-visible:ring-su-line/60",
         isActive
-          ? "ring-2 ring-white/60 shadow-lg"
-          : "ring-1 ring-white/10 hover:ring-white/25",
+          ? "ring-2 ring-su-line/60 shadow-lg"
+          : "ring-1 ring-su-line/40 hover:ring-su-line/60",
       ].join(" ")}
     >
       <img src={url} alt="" className="w-full h-full object-cover" />
       {isActive && (
-        <div className="absolute inset-0 bg-white/5 pointer-events-none" />
+        <div className="absolute inset-0 bg-su-line/10 pointer-events-none" />
       )}
       {onRemove && (
         <button
@@ -279,10 +279,10 @@ function GalleryThumbnail({
             e.stopPropagation();
             onRemove();
           }}
-          className="absolute top-0.5 right-0.5 p-0.5 rounded-full bg-black/70 text-white/70
-                     hover:text-white hover:bg-red-500/80 transition-colors
+          className="absolute top-0.5 right-0.5 p-0.5 rounded-full bg-su-panel/90 text-su-text/80
+                     hover:bg-alert-red hover:text-su-canvas transition-colors
                      opacity-0 group-hover/thumb:opacity-100 focus:opacity-100
-                     focus:outline-none focus-visible:ring-1 focus-visible:ring-white/40"
+                     focus:outline-none focus-visible:ring-1 focus-visible:ring-su-line/60"
           aria-label="Remove photo"
         >
           <SmallXIcon />
@@ -484,9 +484,9 @@ export function EquipmentHeroCard({
               type="button"
               onClick={onClose}
               aria-label="Close"
-              className="absolute top-3 right-3 z-20 p-1.5 rounded-lg text-gray-500 hover:text-white
-                         hover:bg-white/10 transition-colors focus:outline-none
-                         focus-visible:ring-2 focus-visible:ring-white/30"
+              className="absolute top-3 right-3 z-20 p-1.5 rounded-lg text-su-muted hover:text-su-text
+                         hover:bg-su-line/20 transition-colors focus:outline-none
+                         focus-visible:ring-2 focus-visible:ring-su-line/60"
             >
               <CloseIcon />
             </button>
@@ -627,7 +627,7 @@ export function EquipmentHeroCard({
 
           {/* ── Gallery Strip ── */}
           {hasGallery && galleryCount > 0 && (
-            <div className="px-4 py-2 flex items-center gap-2 overflow-x-auto bg-white/[0.02]">
+            <div className="px-4 py-2 flex items-center gap-2 overflow-x-auto bg-su-line/10">
               {/* Hero image as first thumbnail */}
               {imageId && (
                 <GalleryThumbnail
@@ -670,9 +670,9 @@ export function EquipmentHeroCard({
                     quality={0.8}
                     compact
                     label="Add"
-                    className="h-16 w-16 rounded-lg border border-dashed border-white/15
-                               bg-white/[0.03] hover:bg-white/[0.06] transition-colors
-                               flex items-center justify-center text-gray-500 hover:text-gray-300"
+                    className="h-16 w-16 rounded-lg border border-dashed border-su-line/50
+                               bg-su-line/10 hover:bg-su-line/20 transition-colors
+                               flex items-center justify-center text-su-muted hover:text-su-text"
                   />
                 </div>
               )}
@@ -680,7 +680,7 @@ export function EquipmentHeroCard({
           )}
           {/* Gallery strip — show add button when no gallery images yet but gallery is supported */}
           {hasGallery && galleryCount === 0 && canAddMore && onGalleryAdd && (
-            <div className="px-4 py-2 flex items-center gap-2 bg-white/[0.02]">
+            <div className="px-4 py-2 flex items-center gap-2 bg-su-line/10">
               <div className="flex-shrink-0">
                 <ImageUploadButton
                   onImageChange={(newId) => {
@@ -693,12 +693,12 @@ export function EquipmentHeroCard({
                   quality={0.8}
                   compact
                   label="Add"
-                  className="h-12 px-3 rounded-lg border border-dashed border-white/15
-                             bg-white/[0.03] hover:bg-white/[0.06] transition-colors
-                             flex items-center gap-2 text-gray-500 hover:text-gray-300 text-xs"
+                  className="h-12 px-3 rounded-lg border border-dashed border-su-line/50
+                             bg-su-line/10 hover:bg-su-line/20 transition-colors
+                             flex items-center gap-2 text-su-muted hover:text-su-text text-xs"
                 />
               </div>
-              <span className="text-[11px] text-gray-500">
+              <span className="text-[11px] text-su-muted">
                 Add more photos ({maxGalleryImages} max)
               </span>
             </div>
@@ -743,14 +743,14 @@ export function EquipmentHeroCard({
             {/* Title — display font, responsive */}
             <h2
               id={titleId}
-              className="text-xl sm:text-2xl font-display font-bold text-white leading-tight mt-1"
+              className="text-xl sm:text-2xl font-display font-bold text-su-text leading-tight mt-1"
             >
               {title}
             </h2>
 
             {/* Subtitle */}
             {subtitle && (
-              <p className="text-sm text-gray-400 leading-snug mt-1">
+              <p className="text-sm text-su-muted leading-snug mt-1">
                 {subtitle}
               </p>
             )}
@@ -799,7 +799,7 @@ export function EquipmentHeroCard({
                       <StatIconSvg icon={stat.icon} />
                     </span>
                     <span
-                      className="text-base sm:text-lg font-mono font-bold text-white leading-none"
+                      className="text-base sm:text-lg font-mono font-bold text-su-text leading-none"
                       style={{
                         textShadow: `0 0 12px ${accentHex}30`,
                       }}
@@ -810,7 +810,7 @@ export function EquipmentHeroCard({
                         duration={600}
                       />
                     </span>
-                    <span className="text-[9px] sm:text-[10px] text-gray-500 uppercase tracking-wider">
+                    <span className="text-[9px] sm:text-[10px] text-su-muted uppercase tracking-wider">
                       {stat.label}
                     </span>
                   </div>
@@ -952,7 +952,7 @@ export function EquipmentHeroCard({
                                ${
                                  isActive
                                    ? "bg-signal-green/20 border border-signal-green/40 text-signal-green focus-visible:ring-signal-green/50 shadow-[0_0_12px_rgba(34,197,94,0.15)]"
-                                   : "bg-white/[0.04] border border-white/10 text-gray-400 hover:bg-white/[0.07] hover:text-gray-300 hover:border-white/15 focus-visible:ring-white/30"
+                                   : "bg-su-line/10 border border-su-line/40 text-su-muted hover:bg-su-line/20 hover:text-su-text hover:border-su-line/50 focus-visible:ring-su-line/60"
                                }`}
                   >
                     {isActive ? (

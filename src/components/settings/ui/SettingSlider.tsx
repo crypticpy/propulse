@@ -24,10 +24,10 @@ export function SettingSlider({
   return (
     <div>
       <div className="flex items-center justify-between mb-1">
-        <label htmlFor={id} className="text-sm font-medium text-gray-300">
+        <label htmlFor={id} className="text-sm font-medium text-su-muted">
           {label}
         </label>
-        <span className="text-sm text-gray-400 font-mono">{displayValue}</span>
+        <span className="text-sm text-su-muted font-mono">{displayValue}</span>
       </div>
       <input
         id={id}
@@ -45,7 +45,7 @@ export function SettingSlider({
         className="w-full h-2 bg-void-black rounded-lg appearance-none cursor-pointer accent-plasma-orange"
       />
       {description && (
-        <p className="text-xs text-gray-500 mt-1">{description}</p>
+        <p className="text-xs text-su-muted mt-1">{description}</p>
       )}
     </div>
   );

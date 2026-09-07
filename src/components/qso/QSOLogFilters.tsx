@@ -27,13 +27,13 @@ function FilterSelect({
       aria-label={label}
       value={value ?? ""}
       onChange={(e) => onChange(e.target.value || null)}
-      className="bg-white/5 border border-white/10 rounded-lg text-sm text-white px-3 py-2 focus:border-plasma-orange/50 focus:outline-none appearance-none cursor-pointer min-w-[100px]"
+      className="bg-su-line/10 border border-su-line/40 rounded-lg text-sm text-su-text px-3 py-2 focus:border-plasma-orange/50 focus:outline-none appearance-none cursor-pointer min-w-[100px]"
     >
-      <option value="" className="bg-deep-space text-white">
+      <option value="" className="bg-deep-space text-su-text">
         {label}
       </option>
       {options.map((opt) => (
-        <option key={opt} value={opt} className="bg-deep-space text-white">
+        <option key={opt} value={opt} className="bg-deep-space text-su-text">
           {opt}
         </option>
       ))}
@@ -97,11 +97,11 @@ export function QSOLogFilters() {
   }, [setFilters]);
 
   return (
-    <div className="flex flex-wrap items-center gap-2 p-3 bg-white/[0.03] backdrop-blur-md border border-white/10 rounded-2xl">
+    <div className="flex flex-wrap items-center gap-2 p-3 bg-su-line/10 backdrop-blur-md border border-su-line/40 rounded-2xl">
       {/* Search */}
       <div className="relative flex-1 min-w-[180px]">
         <svg
-          className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500"
+          className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-su-muted"
           fill="none"
           stroke="currentColor"
           viewBox="0 0 24 24"
@@ -118,7 +118,7 @@ export function QSOLogFilters() {
           placeholder="Search callsign, name, QTH..."
           value={searchInput}
           onChange={(e) => handleSearchChange(e.target.value)}
-          className="w-full bg-white/5 border border-white/10 rounded-lg text-sm text-white placeholder-gray-500 pl-9 pr-3 py-2 focus:border-plasma-orange/50 focus:outline-none"
+          className="w-full bg-su-line/10 border border-su-line/40 rounded-lg text-sm text-su-text placeholder:text-su-muted/80 pl-9 pr-3 py-2 focus:border-plasma-orange/50 focus:outline-none"
           aria-label="Search QSO log"
         />
       </div>
@@ -144,7 +144,7 @@ export function QSOLogFilters() {
         type="date"
         value={filters.dateFrom ?? ""}
         onChange={(e) => setFilters({ dateFrom: e.target.value || null })}
-        className="bg-white/5 border border-white/10 rounded-lg text-sm text-white px-3 py-2 focus:border-plasma-orange/50 focus:outline-none [color-scheme:dark]"
+        className="bg-su-line/10 border border-su-line/40 rounded-lg text-sm text-su-text px-3 py-2 focus:border-plasma-orange/50 focus:outline-none [color-scheme:dark]"
         aria-label="Date from"
       />
 
@@ -153,7 +153,7 @@ export function QSOLogFilters() {
         type="date"
         value={filters.dateTo ?? ""}
         onChange={(e) => setFilters({ dateTo: e.target.value || null })}
-        className="bg-white/5 border border-white/10 rounded-lg text-sm text-white px-3 py-2 focus:border-plasma-orange/50 focus:outline-none [color-scheme:dark]"
+        className="bg-su-line/10 border border-su-line/40 rounded-lg text-sm text-su-text px-3 py-2 focus:border-plasma-orange/50 focus:outline-none [color-scheme:dark]"
         aria-label="Date to"
       />
 
@@ -162,7 +162,7 @@ export function QSOLogFilters() {
         <button
           type="button"
           onClick={clearAll}
-          className="text-sm text-gray-400 hover:text-white px-3 py-2 rounded-lg hover:bg-white/5 transition-colors whitespace-nowrap"
+          className="text-sm text-su-muted hover:text-su-text px-3 py-2 rounded-lg hover:bg-su-line/10 transition-colors whitespace-nowrap"
         >
           Clear All
         </button>

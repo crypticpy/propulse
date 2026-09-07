@@ -65,20 +65,20 @@ export function WorkStationPanel({
   };
 
   return (
-    <div className="rounded-xl border border-cosmic-cyan/30 bg-white/[0.05] backdrop-blur-md p-3 space-y-2">
+    <div className="rounded-xl border border-cosmic-cyan/30 bg-su-line/10 backdrop-blur-md p-3 space-y-2">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <span className="text-sm font-mono font-bold text-white">
+          <span className="text-sm font-mono font-bold text-su-text">
             {spot.dx}
           </span>
-          <span className="text-xs text-gray-400">
+          <span className="text-xs text-su-muted">
             {spot.band} {spot.mode}
           </span>
         </div>
         <button
           type="button"
           onClick={onClose}
-          className="p-1 text-gray-400 hover:text-white transition-colors"
+          className="p-1 text-su-muted hover:text-su-text transition-colors"
         >
           ✕
         </button>
@@ -86,16 +86,16 @@ export function WorkStationPanel({
 
       {info && (
         <div className="grid grid-cols-2 gap-2 text-center text-xs">
-          <div className="rounded-lg bg-white/5 p-2">
-            <div className="text-[10px] text-gray-400 uppercase">Bearing</div>
-            <div className="font-mono text-white">
+          <div className="rounded-lg bg-su-line/10 p-2">
+            <div className="text-[10px] text-su-muted uppercase">Bearing</div>
+            <div className="font-mono text-su-text">
               {Math.round(info.shortPath.bearing)}°{" "}
               {formatBearing(info.shortPath.bearing)}
             </div>
           </div>
-          <div className="rounded-lg bg-white/5 p-2">
-            <div className="text-[10px] text-gray-400 uppercase">Distance</div>
-            <div className="font-mono text-white">
+          <div className="rounded-lg bg-su-line/10 p-2">
+            <div className="text-[10px] text-su-muted uppercase">Distance</div>
+            <div className="font-mono text-su-text">
               {formatDistance(info.shortPath.distance)}
             </div>
           </div>

@@ -35,13 +35,13 @@ function formatDb(db: number): string {
 function dbColor(db: number): string {
   if (db > 0) return "text-signal-green";
   if (db < 0) return "text-alert-red";
-  return "text-gray-400";
+  return "text-su-muted";
 }
 
 function dbBgColor(db: number): string {
   if (db > 0) return "bg-signal-green/10 border-signal-green/20";
   if (db < 0) return "bg-alert-red/10 border-alert-red/20";
-  return "bg-white/5 border-white/10";
+  return "bg-su-line/10 border-su-line/40";
 }
 
 // ---- Component -------------------------------------------------------------
@@ -65,8 +65,8 @@ export function LossBudgetBar({
               onClick={() => onSelectBand(band)}
               className={`px-2.5 py-1 rounded text-[11px] font-medium border transition-colors ${
                 isSelected
-                  ? "bg-plasma-orange text-white border-plasma-orange/50"
-                  : "bg-white/5 text-gray-400 border-white/10 hover:bg-white/10 hover:text-gray-300"
+                  ? "bg-plasma-orange text-su-on-accent border-plasma-orange/50"
+                  : "bg-su-line/10 text-su-muted border-su-line/40 hover:bg-su-line/20 hover:text-su-text"
               }`}
             >
               {band}
@@ -77,7 +77,7 @@ export function LossBudgetBar({
 
       {/* Waterfall diagram */}
       {bandPerformance == null ? (
-        <div className="text-sm text-gray-500 italic py-4 text-center">
+        <div className="text-sm text-su-muted italic py-4 text-center">
           Select a chain to view loss budget
         </div>
       ) : (
@@ -98,7 +98,7 @@ function WaterfallRow({
 
   if (nodes.length === 0) {
     return (
-      <div className="text-sm text-gray-500 italic py-4 text-center">
+      <div className="text-sm text-su-muted italic py-4 text-center">
         No nodes in chain
       </div>
     );
@@ -110,10 +110,10 @@ function WaterfallRow({
     <div className="flex items-center gap-0 overflow-x-auto pb-1">
       {/* Starting power */}
       <div className="flex flex-col items-center shrink-0 min-w-[56px]">
-        <span className="text-sm font-bold text-white">
+        <span className="text-sm font-bold text-su-text">
           {formatWatts(startingPower)}
         </span>
-        <span className="text-[10px] text-gray-500 mt-0.5">Input</span>
+        <span className="text-[10px] text-su-muted mt-0.5">Input</span>
       </div>
 
       {/* Node segments */}
@@ -126,7 +126,7 @@ function WaterfallRow({
         return (
           <div key={i} className="flex items-center shrink-0">
             {/* Arrow */}
-            <div className="flex items-center text-gray-600 mx-1">
+            <div className="flex items-center text-su-muted mx-1">
               <svg
                 width="20"
                 height="12"
@@ -140,18 +140,18 @@ function WaterfallRow({
             {/* Segment */}
             <div
               className={`flex flex-col items-center px-2 py-1.5 rounded-lg border min-w-[72px] ${
-                isSource ? "bg-white/5 border-white/10" : dbBgColor(netDb)
+                isSource ? "bg-su-line/10 border-su-line/40" : dbBgColor(netDb)
               }`}
             >
               <span
                 className={`text-xs font-semibold ${
-                  isSource ? "text-gray-300" : dbColor(netDb)
+                  isSource ? "text-su-muted" : dbColor(netDb)
                 }`}
               >
                 {isSource ? "0 dB" : formatDb(netDb)}
               </span>
               <span
-                className="text-[10px] text-gray-500 mt-0.5 max-w-[72px] truncate"
+                className="text-[10px] text-su-muted mt-0.5 max-w-[72px] truncate"
                 title={node.label}
               >
                 {node.label}
@@ -163,7 +163,7 @@ function WaterfallRow({
 
       {/* Final ERP */}
       <div className="flex items-center shrink-0">
-        <div className="flex items-center text-gray-600 mx-1">
+        <div className="flex items-center text-su-muted mx-1">
           <svg
             width="24"
             height="12"
@@ -177,7 +177,7 @@ function WaterfallRow({
           <span className="text-sm font-bold text-plasma-orange">
             {formatWatts(erpWatts)}
           </span>
-          <span className="text-[10px] text-gray-500 mt-0.5">ERP</span>
+          <span className="text-[10px] text-su-muted mt-0.5">ERP</span>
         </div>
       </div>
     </div>

@@ -96,8 +96,8 @@ export function QSOSyncStatusIndicator(): JSX.Element {
     dotColor = "bg-alert-red";
     statusText = "Error";
   } else if (isOffline) {
-    pillColor = "bg-gray-500/20 text-gray-400 border-gray-500/30";
-    dotColor = "bg-gray-500";
+    pillColor = "bg-su-line/20 text-su-muted border-su-line/30";
+    dotColor = "bg-su-line";
     statusText = hasPending ? `Offline (${pendingCount})` : "Offline";
   } else if (hasPending) {
     pillColor =
@@ -128,7 +128,7 @@ export function QSOSyncStatusIndicator(): JSX.Element {
         className={`
           inline-flex items-center gap-1.5 px-2 py-1 rounded-full border
           text-xs font-medium transition-colors cursor-pointer
-          hover:brightness-110 focus:outline-none focus:ring-1 focus:ring-white/20
+          hover:brightness-110 focus:outline-none focus:ring-1 focus:ring-su-line/50
           ${pillColor}
         `}
         aria-label={`QSO sync status: ${statusText}`}
@@ -172,18 +172,18 @@ export function QSOSyncStatusIndicator(): JSX.Element {
           ref={panelRef}
           className="absolute top-full right-0 mt-1 z-50 w-[260px]
                      bg-void-black/95 backdrop-blur-md
-                     border border-white/10 rounded-xl shadow-2xl"
+                     border border-su-line/40 rounded-xl shadow-2xl"
           role="dialog"
           aria-label="QSO sync details"
         >
           {/* Header */}
-          <div className="flex items-center justify-between px-3 pt-3 pb-2 border-b border-white/10">
-            <span className="text-xs font-semibold text-gray-200">
+          <div className="flex items-center justify-between px-3 pt-3 pb-2 border-b border-su-line/40">
+            <span className="text-xs font-semibold text-su-text">
               QSO Sync
             </span>
             <button
               onClick={() => setExpanded(false)}
-              className="p-0.5 rounded hover:bg-white/10 transition-colors text-gray-500 hover:text-gray-300"
+              className="p-0.5 rounded hover:bg-su-line/20 transition-colors text-su-muted hover:text-su-text"
               aria-label="Close sync details"
               type="button"
             >
@@ -207,10 +207,10 @@ export function QSOSyncStatusIndicator(): JSX.Element {
           <div className="px-3 py-2 space-y-2">
             {/* Status row */}
             <div className="flex items-center justify-between">
-              <span className="text-[10px] text-gray-500 uppercase tracking-wider">
+              <span className="text-[10px] text-su-muted uppercase tracking-wider">
                 Status
               </span>
-              <span className="text-xs text-gray-300">
+              <span className="text-xs text-su-muted">
                 {syncing
                   ? "Syncing..."
                   : hasError
@@ -223,31 +223,31 @@ export function QSOSyncStatusIndicator(): JSX.Element {
 
             {/* Pending row */}
             <div className="flex items-center justify-between">
-              <span className="text-[10px] text-gray-500 uppercase tracking-wider">
+              <span className="text-[10px] text-su-muted uppercase tracking-wider">
                 Pending
               </span>
-              <span className="text-xs text-gray-300">
+              <span className="text-xs text-su-muted">
                 {pendingCount} {pendingCount === 1 ? "entry" : "entries"}
               </span>
             </div>
 
             {/* Last sync row */}
             <div className="flex items-center justify-between">
-              <span className="text-[10px] text-gray-500 uppercase tracking-wider">
+              <span className="text-[10px] text-su-muted uppercase tracking-wider">
                 Last Sync
               </span>
-              <span className="text-xs text-gray-300">
+              <span className="text-xs text-su-muted">
                 {lastSyncAt ? formatTimeAgo(lastSyncAt) : "Never"}
               </span>
             </div>
 
             {/* Device ID row */}
             <div className="flex items-center justify-between">
-              <span className="text-[10px] text-gray-500 uppercase tracking-wider">
+              <span className="text-[10px] text-su-muted uppercase tracking-wider">
                 Device
               </span>
               <span
-                className="text-xs text-gray-400 font-mono truncate max-w-[120px]"
+                className="text-xs text-su-muted font-mono truncate max-w-[120px]"
                 title={deviceId}
               >
                 {deviceId.slice(0, 8)}
@@ -265,8 +265,8 @@ export function QSOSyncStatusIndicator(): JSX.Element {
           </div>
 
           {/* Footer actions */}
-          <div className="px-3 py-2 border-t border-white/10 flex items-center justify-between">
-            <span className="text-[10px] text-gray-600">
+          <div className="px-3 py-2 border-t border-su-line/40 flex items-center justify-between">
+            <span className="text-[10px] text-su-muted">
               {isOffline ? "Will sync when online" : "Auto-syncs every 30s"}
             </span>
             {(hasError || hasPending) && online && (

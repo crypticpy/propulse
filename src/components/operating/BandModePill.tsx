@@ -57,8 +57,8 @@ export function BandModePill({ className }: BandModePillProps) {
           inline-flex items-center gap-1.5
           min-w-[44px] min-h-[44px]
           px-2.5 py-1 rounded-full
-          bg-white/10 text-xs font-medium text-gray-200
-          border-l-2 transition-colors hover:bg-white/15
+          bg-su-line/20 text-xs font-medium text-su-text
+          border-l-2 transition-colors hover:bg-su-line/30
           ${className ?? ""}
         `}
         style={{ borderLeftColor: bandColor }}
@@ -70,7 +70,7 @@ export function BandModePill({ className }: BandModePillProps) {
           />
         )}
         <span className="font-bold">{activeBand}</span>
-        <span className="text-gray-400">{activeMode}</span>
+        <span className="text-su-muted">{activeMode}</span>
       </button>
 
       <Suspense fallback={null}>

@@ -104,14 +104,14 @@ function PresetCard({
       className={`bg-panel/30 backdrop-blur-sm border rounded-2xl p-4 space-y-3 transition-colors ${
         isActive
           ? "border-plasma-orange/50 shadow-[0_0_12px_rgba(255,140,50,0.1)]"
-          : "border-white/5"
+          : "border-su-line/20"
       }`}
     >
       {/* Title row */}
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
           <div className="flex items-center gap-2">
-            <span className="text-white font-medium truncate">
+            <span className="text-su-text font-medium truncate">
               {preset.name}
             </span>
             {isActive && (
@@ -120,7 +120,7 @@ function PresetCard({
               </span>
             )}
           </div>
-          <div className="text-xs text-gray-400 mt-0.5">{radioLabel}</div>
+          <div className="text-xs text-su-muted mt-0.5">{radioLabel}</div>
         </div>
         <div className="flex items-center gap-1 flex-shrink-0">
           {!isActive && (
@@ -135,7 +135,7 @@ function PresetCard({
           <button
             type="button"
             onClick={onEdit}
-            className="px-2 py-1 text-[10px] rounded bg-white/5 border border-white/10 text-gray-200 hover:text-white hover:border-white/20 transition-colors"
+            className="px-2 py-1 text-[10px] rounded bg-su-line/10 border border-su-line/40 text-su-text/90 hover:text-su-text hover:border-su-line/50 transition-colors"
           >
             Edit
           </button>
@@ -150,24 +150,24 @@ function PresetCard({
       </div>
 
       {/* Equipment summary */}
-      <div className="flex flex-wrap items-center gap-2 text-xs text-gray-400">
+      <div className="flex flex-wrap items-center gap-2 text-xs text-su-muted">
         {antenna && <span>{antenna.name}</span>}
         {feedline && (
           <>
-            <span className="text-white/20">|</span>
+            <span className="text-su-text/30">|</span>
             <span>{feedline.name}</span>
           </>
         )}
         {presetAccessories.length > 0 && (
           <>
-            <span className="text-white/20">|</span>
+            <span className="text-su-text/30">|</span>
             <span>
               {presetAccessories.length} accessor
               {presetAccessories.length === 1 ? "y" : "ies"}
             </span>
           </>
         )}
-        <span className="text-white/20">|</span>
+        <span className="text-su-text/30">|</span>
         <span>{preset.operatingPowerWatts}W</span>
       </div>
 
@@ -307,7 +307,7 @@ export function PresetBuilder() {
     <div className="space-y-4">
       {/* Header */}
       <div className="flex items-center justify-between">
-        <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider">
+        <h3 className="text-sm font-semibold text-su-muted uppercase tracking-wider">
           Station Presets
         </h3>
         <button
@@ -336,11 +336,11 @@ export function PresetBuilder() {
           ))}
         </div>
       ) : !hasEquipment ? (
-        <div className="p-6 text-center text-gray-500 text-sm bg-panel/30 backdrop-blur-sm border border-white/5 rounded-2xl">
+        <div className="p-6 text-center text-su-muted text-sm bg-panel/30 backdrop-blur-sm border border-su-line/20 rounded-2xl">
           Add equipment first
         </div>
       ) : (
-        <div className="p-6 text-center text-gray-500 text-sm bg-panel/30 backdrop-blur-sm border border-white/5 rounded-2xl">
+        <div className="p-6 text-center text-su-muted text-sm bg-panel/30 backdrop-blur-sm border border-su-line/20 rounded-2xl">
           Create a preset to combine your equipment
         </div>
       )}
@@ -369,7 +369,7 @@ export function PresetBuilder() {
 
           {/* Name */}
           <div>
-            <label className="block text-sm font-medium text-gray-200 mb-1">
+            <label className="block text-sm font-medium text-su-text mb-1">
               Name
             </label>
             <input
@@ -377,14 +377,14 @@ export function PresetBuilder() {
               onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))}
               maxLength={100}
               placeholder="e.g., Contest Station, Portable Setup"
-              className="w-full bg-void-black border border-white/10 rounded-lg px-3 py-2 text-sm text-gray-200 focus:border-plasma-orange/50 focus:outline-none"
+              className="w-full bg-void-black border border-su-line/40 rounded-lg px-3 py-2 text-sm text-su-text focus:border-plasma-orange/50 focus:outline-none"
             />
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {/* Radio */}
             <div>
-              <label className="block text-sm font-medium text-gray-200 mb-1">
+              <label className="block text-sm font-medium text-su-text mb-1">
                 Radio
               </label>
               <select
@@ -392,7 +392,7 @@ export function PresetBuilder() {
                 onChange={(e) =>
                   setForm((p) => ({ ...p, radioId: e.target.value }))
                 }
-                className="w-full bg-void-black border border-white/10 rounded-lg px-3 py-2 text-sm text-gray-200 focus:border-plasma-orange/50 focus:outline-none"
+                className="w-full bg-void-black border border-su-line/40 rounded-lg px-3 py-2 text-sm text-su-text focus:border-plasma-orange/50 focus:outline-none"
               >
                 <option value="">Select a radio...</option>
                 {radios.map(({ userRadio, equipment }) => (
@@ -408,7 +408,7 @@ export function PresetBuilder() {
 
             {/* Antenna */}
             <div>
-              <label className="block text-sm font-medium text-gray-200 mb-1">
+              <label className="block text-sm font-medium text-su-text mb-1">
                 Antenna
               </label>
               <select
@@ -416,7 +416,7 @@ export function PresetBuilder() {
                 onChange={(e) =>
                   setForm((p) => ({ ...p, antennaId: e.target.value }))
                 }
-                className="w-full bg-void-black border border-white/10 rounded-lg px-3 py-2 text-sm text-gray-200 focus:border-plasma-orange/50 focus:outline-none"
+                className="w-full bg-void-black border border-su-line/40 rounded-lg px-3 py-2 text-sm text-su-text focus:border-plasma-orange/50 focus:outline-none"
               >
                 <option value="">Select an antenna...</option>
                 {antennas.map((a) => (
@@ -431,7 +431,7 @@ export function PresetBuilder() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {/* Feedline (optional) */}
             <div>
-              <label className="block text-sm font-medium text-gray-200 mb-1">
+              <label className="block text-sm font-medium text-su-text mb-1">
                 Feedline (optional)
               </label>
               <select
@@ -439,7 +439,7 @@ export function PresetBuilder() {
                 onChange={(e) =>
                   setForm((p) => ({ ...p, feedlineId: e.target.value }))
                 }
-                className="w-full bg-void-black border border-white/10 rounded-lg px-3 py-2 text-sm text-gray-200 focus:border-plasma-orange/50 focus:outline-none"
+                className="w-full bg-void-black border border-su-line/40 rounded-lg px-3 py-2 text-sm text-su-text focus:border-plasma-orange/50 focus:outline-none"
               >
                 <option value="">None</option>
                 {feedlines.map((f) => (
@@ -452,7 +452,7 @@ export function PresetBuilder() {
 
             {/* Operating Power */}
             <div>
-              <label className="block text-sm font-medium text-gray-200 mb-1">
+              <label className="block text-sm font-medium text-su-text mb-1">
                 Operating Power (watts)
               </label>
               <input
@@ -465,7 +465,7 @@ export function PresetBuilder() {
                   }))
                 }
                 placeholder="e.g., 100"
-                className="w-full bg-void-black border border-white/10 rounded-lg px-3 py-2 text-sm text-gray-200 focus:border-plasma-orange/50 focus:outline-none"
+                className="w-full bg-void-black border border-su-line/40 rounded-lg px-3 py-2 text-sm text-su-text focus:border-plasma-orange/50 focus:outline-none"
               />
             </div>
           </div>
@@ -473,7 +473,7 @@ export function PresetBuilder() {
           {/* Accessories */}
           {accessories.length > 0 && (
             <div>
-              <label className="block text-sm font-medium text-gray-200 mb-2">
+              <label className="block text-sm font-medium text-su-text mb-2">
                 Accessories
               </label>
               <div className="space-y-1.5">
@@ -497,9 +497,9 @@ export function PresetBuilder() {
                         }
                         className="accent-plasma-orange"
                       />
-                      <span className="text-sm text-gray-200">
+                      <span className="text-sm text-su-text">
                         {acc.name}
-                        <span className="text-gray-500 ml-1.5">
+                        <span className="text-su-muted ml-1.5">
                           ({acc.category})
                         </span>
                       </span>
@@ -512,7 +512,7 @@ export function PresetBuilder() {
 
           {/* Notes */}
           <div>
-            <label className="block text-sm font-medium text-gray-200 mb-1">
+            <label className="block text-sm font-medium text-su-text mb-1">
               Notes (optional)
             </label>
             <textarea
@@ -522,14 +522,14 @@ export function PresetBuilder() {
               }
               rows={3}
               placeholder="Setup notes, contest config, etc."
-              className="w-full bg-void-black border border-white/10 rounded-lg px-3 py-2 text-sm text-gray-200 focus:border-plasma-orange/50 focus:outline-none"
+              className="w-full bg-void-black border border-su-line/40 rounded-lg px-3 py-2 text-sm text-su-text focus:border-plasma-orange/50 focus:outline-none"
             />
           </div>
 
           {/* Live preview */}
           {form.antennaId && previewBandLossData.length > 0 && (
             <div>
-              <label className="block text-xs font-medium text-gray-400 mb-2 uppercase tracking-wider">
+              <label className="block text-xs font-medium text-su-muted mb-2 uppercase tracking-wider">
                 Band Preview
               </label>
               <BandCapabilityStrip bands={previewBandLossData} />
@@ -541,8 +541,8 @@ export function PresetBuilder() {
             <button
               type="button"
               onClick={closeModal}
-              className="flex-1 px-4 py-2 bg-nebula-blue/60 border border-white/10 rounded-lg
-                         text-gray-200 hover:text-white hover:border-white/20 transition-colors font-medium text-sm"
+              className="flex-1 px-4 py-2 bg-nebula-blue/60 border border-su-line/40 rounded-lg
+                         text-su-text/90 hover:text-su-text hover:border-su-line/50 transition-colors font-medium text-sm"
             >
               Cancel
             </button>

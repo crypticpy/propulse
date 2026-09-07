@@ -309,3 +309,25 @@ built in `.worktrees/hamclock-b18-forecast`, branch
 rows and the complete two-day matrix. The new presentation adapter rebuilds
 future-time request features and respects the existing service capability gates;
 it does not activate FutureCast. Forecast verification and PR remain pending.
+
+### User-requested masthead and Settings follow-up — PR #498
+
+[PR #498](https://github.com/crypticpy/propulse/pull/498), branch
+`feat/hamclock-masthead-controls`, responds to the user's direct follow-up:
+zone labels beside clock digits; mode/projection controls in Settings; globe
+auto-rotate and speed exposed; compact Settings/layer category navigation.
+This supersedes the earlier B1 requirement to keep mode/projection in the
+masthead. It is a separate 14-file review slice; B18 remains the only claimed
+batch and resumes with Forecast.
+
+Full pre-push verification passed (3,204 app tests, bridge/daemon, lint,
+build and budgets), as did 39 focused tests, 117 browser layout cases and
+interaction checks for the new controls and keyboard/focus behavior.
+
+User-facing preview is intentionally left running: owner
+`hamclock-masthead-controls`, task `Verify clock labels and settings view controls`,
+profile `local`, worktree `.worktrees/hamclock-masthead-controls`, URL
+`http://127.0.0.1:5182/map`, session id
+`823382be-4652-4c34-9101-4b35f034a643`, PID 76440 (tool session 8045).
+Verify identity before using it; do not replace or stop it while the user may be
+reviewing the shared preview.

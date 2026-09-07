@@ -579,7 +579,7 @@ export function QslSyncPanel({ isOpen, onClose }: QslSyncPanelProps) {
     >
       {/* Backdrop */}
       <div
-        className="absolute inset-0 bg-su-panel/60 backdrop-blur-sm"
+        className="absolute inset-0 bg-black/60 backdrop-blur-sm"
         onClick={onClose}
       />
 

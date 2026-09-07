@@ -663,7 +663,7 @@ export function QSOEntryForm({ onQSOLogged }: QSOEntryFormProps) {
             min-w-[90px]
             ${
               logSuccess
-                ? "bg-signal-green text-su-on-accent scale-105"
+                ? "bg-signal-green text-su-canvas scale-105"
                 : canLog
                   ? "bg-plasma-orange hover:bg-plasma-orange/80 text-su-on-accent active:scale-95"
                   : "bg-su-line/10 text-su-muted cursor-not-allowed"

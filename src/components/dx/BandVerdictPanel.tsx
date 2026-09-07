@@ -94,7 +94,7 @@ function BandVerdictChip({
           </span>
         )}
         {entry.fading && (
-          <span className="text-[10px] uppercase tracking-wide text-su-text/50">
+          <span className="text-[10px] uppercase tracking-wide text-su-text/80">
             Fading
           </span>
         )}
@@ -107,7 +107,7 @@ function BandVerdictChip({
           </span>
         )}
         {modeClass && (
-          <span className="rounded bg-su-line/10 px-1 text-[10px] uppercase tracking-wide text-su-text/50">
+          <span className="rounded bg-su-line/10 px-1 text-[10px] uppercase tracking-wide text-su-text/80">
             {MODE_BADGE_LABEL[modeClass]}
           </span>
         )}
@@ -116,7 +116,7 @@ function BandVerdictChip({
             className={
               activity.level
                 ? ACTIVITY_TEXT_CLASSES[activity.level]
-                : "text-su-text/40"
+                : "text-su-text/80"
             }
             aria-label={`activity ${activity.trend}`}
           >
@@ -173,7 +173,7 @@ export function BandVerdictPanel() {
         <h3 className="font-orbitron text-xs uppercase tracking-wide text-su-muted">
           Band Health
         </h3>
-        <span className="text-[10px] text-su-text/30">{scope.label}</span>
+        <span className="text-[10px] text-su-text/80">{scope.label}</span>
         {dxAvailable && (
           <button
             type="button"
@@ -182,7 +182,7 @@ export function BandVerdictPanel() {
             className={`ml-auto rounded border px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-wide transition-colors ${
               dxMode
                 ? "border-nebula-blue bg-nebula-blue/10 text-nebula-blue"
-                : "border-su-line/40 text-su-text/40 hover:text-su-text/60"
+                : "border-su-line/40 text-su-text/80 hover:text-su-text"
             }`}
           >
             DX

@@ -441,7 +441,7 @@ export function QSOEntryForm({
               disabled:opacity-50 disabled:cursor-not-allowed
               ${
                 isGuestMode
-                  ? "bg-cosmic-cyan text-su-on-accent hover:bg-cosmic-cyan/90 shadow-[0_0_15px_rgba(0,255,255,0.3)]"
+                  ? "bg-cosmic-cyan text-su-canvas hover:bg-cosmic-cyan/90 shadow-[0_0_15px_rgba(0,255,255,0.3)]"
                   : "bg-plasma-orange text-su-on-accent hover:bg-plasma-orange/90 shadow-[0_0_15px_rgba(255,170,0,0.3)]"
               }
             `}

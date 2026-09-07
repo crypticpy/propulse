@@ -296,7 +296,7 @@ export function BandModeModal({ isOpen, onClose }: BandModeModalProps) {
       aria-label="Select Band and Mode"
     >
       {/* Backdrop */}
-      <div className="absolute inset-0 bg-su-panel/60 backdrop-blur-sm" />
+      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
 
       {/* Modal card */}
       <div

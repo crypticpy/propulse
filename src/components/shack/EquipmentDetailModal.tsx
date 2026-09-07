@@ -176,7 +176,7 @@ export function EquipmentDetailModal({
     <div className="fixed inset-0 z-[400] flex items-center justify-center p-4">
       {/* Backdrop */}
       <div
-        className="absolute inset-0 bg-su-panel/60 backdrop-blur-sm animate-in fade-in"
+        className="absolute inset-0 bg-black/60 backdrop-blur-sm animate-in fade-in"
         onClick={onClose}
       />
 

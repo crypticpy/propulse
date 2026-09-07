@@ -763,7 +763,7 @@ export function EquipmentCard({
               )}
               {/* Photo count badge */}
               {galleryImageIds && galleryImageIds.length > 0 && (
-                <div className="absolute bottom-1.5 right-1.5 z-[3] bg-su-panel/60 backdrop-blur-sm rounded-full px-1.5 py-0.5 flex items-center gap-1">
+                <div className="absolute bottom-1.5 right-1.5 z-[3] bg-su-panel/90 backdrop-blur-sm rounded-full px-1.5 py-0.5 flex items-center gap-1">
                   <svg
                     viewBox="0 0 16 16"
                     fill="none"

@@ -452,7 +452,7 @@ export function DXSpotList({
           </span>
           <button
             onClick={() => useMapStore.getState().clearSpotFilters()}
-            className="ml-auto text-su-text/40 hover:text-su-text text-[10px]"
+            className="ml-auto text-su-text/80 hover:text-su-text text-[10px]"
             title="Clear filter"
           >
             ✕

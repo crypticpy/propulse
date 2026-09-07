@@ -43,7 +43,12 @@ BEGIN
     OR p_hour IS NULL OR NOT isfinite(p_hour) OR p_hour <> date_trunc('hour', p_hour) THEN
     RAISE EXCEPTION 'invalid aggregation hour';
   END IF;
-  -- All guarded aggregators can run together; expiry waits until they finish.
+  -- Serialize replicas of the same aggregate before taking the expiry lock.
+  -- Otherwise a second DELETE can wait on old rows yet miss newly inserted
+  -- group keys committed by the first replay under READ COMMITTED.
+  PERFORM pg_advisory_xact_lock(584, CASE p_aggregation
+    WHEN 'band_hourly' THEN 2 WHEN 'path_hourly' THEN 3 ELSE 4 END);
+  -- Different aggregate kinds can run together; expiry waits for all of them.
   PERFORM pg_advisory_xact_lock_shared(584, 1);
   checked_at := clock_timestamp();
   IF p_hour + interval '1 hour' > checked_at THEN
@@ -54,9 +59,19 @@ BEGIN
     RETURN jsonb_build_object('status', 'expired', 'rows', 0);
   END IF;
   CASE p_aggregation
-    WHEN 'band_hourly' THEN written := public.compute_band_hourly_stats(p_hour);
-    WHEN 'path_hourly' THEN written := public.compute_path_hourly_stats(p_hour);
-    WHEN 'region_hourly' THEN written := public.compute_region_hourly_stats(p_hour);
+    -- Replays may change group keys (e.g. a corrected callsign field). Replace
+    -- the whole hour so disappeared groups cannot survive as duplicate cells.
+    -- Readers see the previous committed hour until this transaction commits;
+    -- any compute/progress failure rolls the deletion back as well.
+    WHEN 'band_hourly' THEN
+      DELETE FROM public.band_hourly_stats WHERE hour_utc = p_hour;
+      written := public.compute_band_hourly_stats(p_hour);
+    WHEN 'path_hourly' THEN
+      DELETE FROM public.path_hourly_stats WHERE hour_utc = p_hour;
+      written := public.compute_path_hourly_stats(p_hour);
+    WHEN 'region_hourly' THEN
+      DELETE FROM public.region_hourly_stats WHERE hour_utc = p_hour;
+      written := public.compute_region_hourly_stats(p_hour);
   END CASE;
   -- Compute and progress commit atomically. 'retained' is not 'complete':
   -- source outages/late arrivals require independent coverage evidence.

@@ -1,5 +1,6 @@
 import { useEffect, useId, useState, type ReactNode } from "react";
 import type { SolarWidgetState } from "@/lib/solar/contracts";
+import type { SectionAccent } from "@/lib/themes/sectionAccent";
 import { recordSolarTelemetry } from "@/lib/solar/telemetry";
 
 const stateLabel: Record<SolarWidgetState, string> = {
@@ -49,6 +50,11 @@ export interface WidgetShellProps {
   children: ReactNode;
   className?: string;
   telemetryId?: string;
+  /**
+   * DS-14 per-tile tone override. Left unset, the header wash inherits the
+   * tone of the nearest `[data-accent]` section, falling back to `info`.
+   */
+  accent?: SectionAccent;
 }
 
 export function WidgetShell({
@@ -69,6 +75,7 @@ export function WidgetShell({
   children,
   className = "",
   telemetryId,
+  accent,
 }: WidgetShellProps) {
   const noticeId = useId();
   const [, setTick] = useState(0);
@@ -110,14 +117,15 @@ export function WidgetShell({
 
   return (
     <section
+      data-accent={accent}
       className={`group flex min-h-0 min-w-0 flex-col overflow-hidden rounded-2xl border border-su-line/40 bg-su-panel/40 ${className}`}
       aria-label={title}
     >
-      <header className={`grid grid-cols-[minmax(0,1fr)_auto] items-start gap-2 px-4 py-3 ${compact ? "" : "border-b border-su-line/20 sm:px-5"}`}>
+      <header className={`su-widget-header grid grid-cols-[minmax(0,1fr)_auto] items-start gap-2 px-4 py-3 ${compact ? "" : "border-b border-su-line/20 sm:px-5"}`}>
         <div className="min-w-0">
           {eyebrow && (
             <p
-              className="mb-1 truncate text-xs font-semibold uppercase tracking-[0.12em] text-su-muted"
+              className="su-widget-eyebrow mb-1 truncate text-xs font-semibold uppercase tracking-[0.12em]"
               title={eyebrow}
             >
               {eyebrow}

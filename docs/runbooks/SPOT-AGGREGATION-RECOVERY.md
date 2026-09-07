@@ -12,9 +12,10 @@ retained hour on later ticks to absorb late arrivals. The legacy
 `RETENTION_SPOTS` configuration no longer determines aggregation catch-up.
 
 `compute_retained_spot_hour` is the authoritative boundary: it takes a shared
-transaction advisory lock, checks the database clock, computes the existing
-band/path/region aggregate, and commits its progress marker in the same
-transaction. `prune_retained_spots` takes the matching exclusive lock before
+transaction advisory lock, checks the database clock, replaces the exact
+band/path/region hour, and commits its progress marker in the same transaction.
+Same-kind workers are serialized so overlapping replicas cannot retain obsolete
+group keys. Failed rebuilds restore the previous committed rows. `prune_retained_spots` takes the matching exclusive lock before
 expiring raw rows. The named cleanup job must call that function. Ingestion is
 not locked by this protocol. Historical/direct aggregate RPCs are not protected;
 collector recovery must always use the wrapper.

@@ -6,6 +6,7 @@ import { fetchHomeWeather, weatherIsCurrent } from "@/lib/home/weather";
 import { weatherCodeToDescription } from "@/lib/api/openMeteo";
 import { HomeStatus } from "./HomeStatus";
 import { AccessibleDialog } from "@/components/ui/AccessibleDialog";
+import { accentForHomeItem } from "@/lib/themes/sectionAccent";
 
 export function HomeWeather({ now, detailed = false }: { now: number; detailed?: boolean }) {
   const { location } = useHomeLocation();
@@ -26,7 +27,7 @@ export function HomeWeather({ now, detailed = false }: { now: number; detailed?:
   // budget applies there, so it is left byte-for-byte as it was before DS-11.
   if (detailed) {
     const hours = usable ? data.hours.filter(hour => hour.at >= now && hour.at <= now + 12 * 3600000).slice(0, 12) : [];
-    return <section className="home-panel home-weather" aria-label="Weather at your location"><div className="home-panel-heading"><h2>Local weather</h2>{status}</div>
+    return <section className="home-panel home-weather su-section-ruled" data-accent={accentForHomeItem("weather")} aria-label="Weather at your location"><div className="home-panel-heading su-widget-header"><h2>Local weather</h2>{status}</div>
       <p className="home-note">{location ? `${location.grid} · weather model` : "Set your location for local weather. No sign-in needed."}</p>
       {location && (usable ? <><div className="home-weather-reading"><span aria-hidden="true" className="home-weather-icon">{data.code < 4 ? (SunCalc.getPosition(new Date(now), location.lat, location.lon).altitude > 0 ? "☀" : "☾") : "☁"}</span><div><strong>{Math.round(data.temperature)}° C</strong><p>{weatherCodeToDescription(data.code)}</p></div></div><p>Wind {Math.round(data.wind)} km/h{data.gusts !== null ? ` · gusts ${Math.round(data.gusts)}` : ""}</p>
         <div className="home-weather-hours">{hours.map(hour => <div key={hour.at}><time dateTime={new Date(hour.at).toISOString()}>{new Date(hour.at).toLocaleTimeString(undefined, { timeZone: data.timezone, hour: "2-digit", minute: "2-digit", hour12: false })}</time><strong>{Math.round(hour.temperature)}°</strong><span>{hour.rain === null ? "Rain unknown" : `Rain ${hour.rain}%`}</span></div>)}</div>{hours.length === 0 && <p>Hourly forecast unavailable.</p>}<p className="home-note">Forecast · {data.timezone}<br />Current model time {new Date(data.at).toLocaleTimeString(undefined, { timeZone: data.timezone, hour: "2-digit", minute: "2-digit" })}</p></> : <p>{query.isPending ? "Checking local weather…" : "Weather updates are unavailable. We retry automatically."}</p>)}
@@ -39,8 +40,8 @@ export function HomeWeather({ now, detailed = false }: { now: number; detailed?:
   const sixMax = sixHour.length ? Math.round(Math.max(...sixHour.map(h => h.temperature))) : null;
   const dialogHours = usable ? data.hours.filter(hour => hour.at >= now && hour.at <= now + 12 * 3600000).slice(0, 12) : [];
 
-  return <section className="home-panel home-weather" aria-label="Weather at your location">
-    <div className="home-panel-heading"><h2>Local weather</h2><span>{location ? `${location.grid} · weather model` : "Location needed"}</span>{status}</div>
+  return <section className="home-panel home-weather su-section-ruled" data-accent={accentForHomeItem("weather")} aria-label="Weather at your location">
+    <div className="home-panel-heading su-widget-header"><h2>Local weather</h2><span>{location ? `${location.grid} · weather model` : "Location needed"}</span>{status}</div>
     {!location ? <p className="home-note">Set your location for local weather. No sign-in needed.</p>
       : !usable ? <><p className="home-note">{query.isPending ? "Checking local weather…" : "Weather updates are unavailable. We retry automatically."}</p>
         <div className="home-actions"><button type="button" disabled={query.isFetching} onClick={() => void query.refetch()}>Refresh weather</button></div></>

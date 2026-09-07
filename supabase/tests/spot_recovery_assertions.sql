@@ -20,6 +20,10 @@ BEGIN
     RAISE EXCEPTION 'gap table permissions are unsafe';
   END IF;
 
+  INSERT INTO public.band_hourly_stats VALUES (retained_hour, 'stale');
+  INSERT INTO public.path_hourly_stats VALUES (retained_hour, 'stale');
+  INSERT INTO public.region_hourly_stats VALUES (retained_hour, 'stale');
+
   result := public.compute_retained_spot_hour('band_hourly', expired_hour);
   IF result <> jsonb_build_object('status', 'expired', 'rows', 0)
     OR EXISTS (SELECT 1 FROM public.spot_recovery_test_output WHERE hour = expired_hour)
@@ -31,10 +35,13 @@ BEGIN
   result := public.compute_retained_spot_hour('path_hourly', retained_hour);
   IF result <> jsonb_build_object('status', 'retained', 'rows', 1)
     OR NOT EXISTS (SELECT 1 FROM public.spot_recovery_test_output WHERE aggregation = 'path_hourly' AND hour = retained_hour)
-    OR NOT EXISTS (SELECT 1 FROM public.collector_aggregation_watermarks WHERE aggregation = 'path_hourly' AND hour_utc = retained_hour AND rows_written = 1) THEN
+    OR NOT EXISTS (SELECT 1 FROM public.collector_aggregation_watermarks WHERE aggregation = 'path_hourly' AND hour_utc = retained_hour AND rows_written = 1)
+    OR (SELECT array_agg(group_marker ORDER BY group_marker) FROM public.path_hourly_stats WHERE hour_utc = retained_hour) <> ARRAY['current'] THEN
     RAISE EXCEPTION 'retained aggregation and watermark were not written together';
   END IF;
 
+  INSERT INTO public.collector_aggregation_watermarks
+    VALUES ('region_hourly', retained_hour - interval '1 hour', 7);
   UPDATE public.spot_recovery_test_control SET fail_aggregation = 'region_hourly';
   BEGIN
     PERFORM public.compute_retained_spot_hour('region_hourly', retained_hour);
@@ -43,17 +50,27 @@ BEGIN
     IF SQLERRM = 'expected synthetic compute failure' THEN RAISE; END IF;
   END;
   IF EXISTS (SELECT 1 FROM public.spot_recovery_test_output WHERE aggregation = 'region_hourly')
-    OR EXISTS (SELECT 1 FROM public.collector_aggregation_watermarks WHERE aggregation = 'region_hourly') THEN
-    RAISE EXCEPTION 'failed aggregation did not roll back output and watermark';
+    OR (SELECT array_agg(group_marker ORDER BY group_marker) FROM public.region_hourly_stats WHERE hour_utc = retained_hour) <> ARRAY['stale']
+    OR NOT EXISTS (SELECT 1 FROM public.collector_aggregation_watermarks
+      WHERE aggregation = 'region_hourly' AND hour_utc = retained_hour - interval '1 hour' AND rows_written = 7) THEN
+    RAISE EXCEPTION 'failed aggregation did not restore old rows and watermark';
   END IF;
   UPDATE public.spot_recovery_test_control SET fail_aggregation = NULL;
+
+  PERFORM public.compute_retained_spot_hour('region_hourly', retained_hour);
+  IF (SELECT array_agg(group_marker ORDER BY group_marker) FROM public.region_hourly_stats WHERE hour_utc = retained_hour) <> ARRAY['current']
+    OR NOT EXISTS (SELECT 1 FROM public.collector_aggregation_watermarks
+      WHERE aggregation = 'region_hourly' AND hour_utc = retained_hour AND rows_written = 1) THEN
+    RAISE EXCEPTION 'region aggregation did not fully replace stale groups';
+  END IF;
 
   INSERT INTO public.collector_aggregation_watermarks
     VALUES ('band_hourly', future_hour, 9);
   PERFORM public.compute_retained_spot_hour('band_hourly', retained_hour);
-  IF NOT EXISTS (SELECT 1 FROM public.collector_aggregation_watermarks
+  IF (SELECT array_agg(group_marker ORDER BY group_marker) FROM public.band_hourly_stats WHERE hour_utc = retained_hour) <> ARRAY['current']
+    OR NOT EXISTS (SELECT 1 FROM public.collector_aggregation_watermarks
       WHERE aggregation = 'band_hourly' AND hour_utc = future_hour AND rows_written = 9) THEN
-    RAISE EXCEPTION 'older recovery regressed a newer watermark';
+    RAISE EXCEPTION 'band replacement failed or older recovery regressed a newer watermark';
   END IF;
 
   BEGIN
@@ -82,6 +99,29 @@ $$;
 INSERT INTO public.spot_history (spotted_at) VALUES
   (clock_timestamp() - interval '3 hours'),
   (clock_timestamp() - interval '1 hour');
+UPDATE public.spot_recovery_test_control SET sleep_seconds = 1;
+SELECT dblink_connect('spot_recovery_same_kind', 'host=/tmp dbname=postgres user=postgres');
+SELECT dblink_send_query('spot_recovery_same_kind',
+  format('SELECT public.compute_retained_spot_hour(%L, %L::timestamptz)',
+    'band_hourly', date_trunc('hour', clock_timestamp()) - interval '1 hour'));
+SELECT pg_sleep(0.2);
+UPDATE public.spot_recovery_test_control SET sleep_seconds = 0;
+DO $$
+DECLARE started timestamptz := clock_timestamp(); retained_hour timestamptz := date_trunc('hour', clock_timestamp()) - interval '1 hour';
+BEGIN
+  PERFORM public.compute_retained_spot_hour('band_hourly', retained_hour);
+  IF clock_timestamp() - started < interval '0.65 seconds' THEN
+    RAISE EXCEPTION 'same-kind recovery did not serialize';
+  END IF;
+  IF (SELECT count(*) FROM public.band_hourly_stats WHERE hour_utc = retained_hour) <> 1
+    OR NOT EXISTS (SELECT 1 FROM public.band_hourly_stats WHERE hour_utc = retained_hour AND group_marker = 'current') THEN
+    RAISE EXCEPTION 'serialized same-kind replacement retained duplicate groups';
+  END IF;
+END;
+$$;
+SELECT status FROM dblink_get_result('spot_recovery_same_kind') AS result(status jsonb);
+SELECT dblink_disconnect('spot_recovery_same_kind');
+
 UPDATE public.spot_recovery_test_control SET sleep_seconds = 1;
 SELECT dblink_connect('spot_recovery_lock', 'host=/tmp dbname=postgres user=postgres');
 SELECT dblink_send_query('spot_recovery_lock',

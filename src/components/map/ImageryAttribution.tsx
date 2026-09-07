@@ -34,7 +34,7 @@ export function ImageryAttribution({
   if (provider?.id === "mapbox-satellite") {
     return (
       <div
-        className={`flex max-w-full flex-wrap items-center gap-x-1.5 gap-y-1 rounded bg-su-panel/60 px-2 py-1 text-[9px] leading-tight text-su-text/70 backdrop-blur-sm select-none ${className}`}
+        className={`flex max-w-full flex-wrap items-center gap-x-1.5 gap-y-1 rounded bg-su-panel/90 px-2 py-1 text-[9px] leading-tight text-su-text/80 backdrop-blur-sm select-none ${className}`}
         title={title}
       >
         <span>{surfaceLabel}</span>
@@ -104,7 +104,7 @@ export function ImageryAttribution({
         </a>
         {includeCartoLabels && (
           <>
-            <span className="text-su-text/30">· Labels:</span>
+            <span className="text-su-text/80">· Labels:</span>
             <a
               href="https://carto.com/attributions"
               target="_blank"
@@ -130,7 +130,7 @@ export function ImageryAttribution({
   if (provider?.id === "carto-dark") {
     return (
       <div
-        className={`flex max-w-full flex-wrap items-center gap-x-1.5 gap-y-1 rounded bg-su-panel/50 px-1.5 py-0.5 text-[9px] leading-tight text-su-text/50 backdrop-blur-sm select-none ${className}`}
+        className={`flex max-w-full flex-wrap items-center gap-x-1.5 gap-y-1 rounded bg-su-panel/90 px-1.5 py-0.5 text-[9px] leading-tight text-su-text/80 backdrop-blur-sm select-none ${className}`}
         title={title}
       >
         <span>{surfaceLabel}</span>
@@ -159,7 +159,7 @@ export function ImageryAttribution({
 
   return (
     <div
-      className={`rounded bg-su-panel/50 px-1.5 py-0.5 text-[9px] leading-tight text-su-text/50 backdrop-blur-sm select-none ${className}`}
+      className={`rounded bg-su-panel/90 px-1.5 py-0.5 text-[9px] leading-tight text-su-text/80 backdrop-blur-sm select-none ${className}`}
       title={title}
     >
       <span>{surfaceLabel}</span>
@@ -189,7 +189,7 @@ export function ImageryAttribution({
       )}
       {includeCartoLabels && (
         <>
-          <span className="mx-1 text-su-text/30">· Labels:</span>
+          <span className="mx-1 text-su-text/80">· Labels:</span>
           <a
             href="https://carto.com/attributions"
             target="_blank"

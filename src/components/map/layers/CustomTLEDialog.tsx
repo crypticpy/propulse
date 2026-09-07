@@ -194,7 +194,7 @@ export function CustomTLEDialog({ isOpen, onClose }: CustomTLEDialogProps) {
 
   const modalContent = (
     <div
-      className="fixed inset-0 z-[300] flex items-center justify-center bg-su-panel/50 backdrop-blur-sm"
+      className="fixed inset-0 z-[300] flex items-center justify-center bg-black/50 backdrop-blur-sm"
       onClick={handleBackdropClick}
       role="dialog"
       aria-modal="true"

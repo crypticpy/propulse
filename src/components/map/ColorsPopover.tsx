@@ -173,7 +173,7 @@ export function ColorsPopover() {
         aria-label="Spot coloring mode"
       >
         {/* ── Spot Coloring section ── */}
-        <div className="text-[10px] uppercase tracking-wider text-su-text/40 font-medium mb-1.5 px-0.5">
+        <div className="text-[10px] uppercase tracking-wider text-su-text/80 font-medium mb-1.5 px-0.5">
           Spot Coloring
         </div>
 
@@ -204,12 +204,12 @@ export function ColorsPopover() {
               <div className="flex-1 min-w-0">
                 <span
                   className={`text-xs block transition-colors ${
-                    isSelected ? "text-su-text" : "text-su-text/60"
+                    isSelected ? "text-su-text" : "text-su-text/80"
                   }`}
                 >
                   {option.label}
                 </span>
-                <span className="text-[10px] text-su-text/30 block">
+                <span className="text-[10px] text-su-text/80 block">
                   {option.description}
                 </span>
               </div>
@@ -230,7 +230,7 @@ export function ColorsPopover() {
 
         {/* ── Visual Style section ── */}
         <div className="border-t border-su-line/20 my-2" />
-        <div className="text-[10px] uppercase tracking-wider text-su-text/40 font-medium mb-1.5 px-0.5">
+        <div className="text-[10px] uppercase tracking-wider text-su-text/80 font-medium mb-1.5 px-0.5">
           Visual Style
         </div>
 
@@ -250,11 +250,11 @@ export function ColorsPopover() {
           />
           <span
             className={`flex-1 text-xs transition-colors ${
-              isHighViz ? "text-su-text" : "text-su-text/60"
+              isHighViz ? "text-su-text" : "text-su-text/80"
             }`}
           >
             High Contrast
-            <span className="text-su-text/30 text-[10px] ml-1">2D only</span>
+            <span className="text-su-text/80 text-[10px] ml-1">2D only</span>
           </span>
           <PillToggle
             checked={isHighViz}

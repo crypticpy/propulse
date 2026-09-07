@@ -36,7 +36,7 @@ export function PanelMiniStrip({
           e.stopPropagation();
           onExpand();
         }}
-        className="w-6 h-6 flex items-center justify-center text-su-text/50 hover:text-su-text hover:bg-su-line/20 rounded"
+        className="w-6 h-6 flex items-center justify-center text-su-text/80 hover:text-su-text hover:bg-su-line/20 rounded"
         aria-label="Expand panel"
       >
         {isLeft ? (
@@ -91,7 +91,7 @@ export function PanelMiniStrip({
           e.stopPropagation();
           onHide();
         }}
-        className="w-6 h-6 flex items-center justify-center text-su-text/30 hover:text-red-400 hover:bg-su-line/20 rounded"
+        className="w-6 h-6 flex items-center justify-center text-su-text/80 hover:text-red-400 hover:bg-su-line/20 rounded"
         aria-label="Hide panel"
       >
         <svg

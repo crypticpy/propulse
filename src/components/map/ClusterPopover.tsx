@@ -108,7 +108,7 @@ export function ClusterPopover() {
         role="group"
         aria-label="DX cluster connection"
       >
-        <div className="text-[10px] uppercase tracking-wider text-su-text/40 font-medium mb-2 px-0.5">
+        <div className="text-[10px] uppercase tracking-wider text-su-text/80 font-medium mb-2 px-0.5">
           DX Cluster
         </div>
 
@@ -116,7 +116,7 @@ export function ClusterPopover() {
 
         <Link
           to="/settings"
-          className="block mt-2.5 text-[11px] text-su-muted hover:text-su-muted transition-colors"
+          className="block mt-2.5 text-[11px] text-su-muted hover:text-su-text transition-colors"
           onClick={() => setOpen(false)}
         >
           All connection settings →

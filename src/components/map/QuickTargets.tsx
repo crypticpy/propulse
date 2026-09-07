@@ -115,7 +115,7 @@ export function QuickTargets({ className = "", onEditPin }: QuickTargetsProps) {
             <div className="flex justify-end mb-2">
               <button
                 onClick={() => setShowClearAll(true)}
-                className="text-xs text-su-muted hover:text-su-muted transition-colors"
+                className="text-xs text-su-muted hover:text-su-text transition-colors"
                 title="Clear all saved targets"
               >
                 Clear all
@@ -137,7 +137,7 @@ export function QuickTargets({ className = "", onEditPin }: QuickTargetsProps) {
                   <button
                     onClick={() => handleTargetClick(target)}
                     className="w-full group flex items-center justify-between gap-2 p-2
-                               bg-su-line/10 hover:bg-su-line/10 border border-su-line/20
+                               bg-su-line/10 hover:bg-su-line/20 border border-su-line/20
                                hover:border-su-line/40 rounded-lg transition-all text-left"
                   >
                     <div className="flex-1 min-w-0">

@@ -2771,7 +2771,7 @@ export function GlobeView({
                 ))}
               </div>
               {/* Timestamp */}
-              <span className="text-[9px] text-su-text/50 font-mono ml-1 min-w-[40px] text-right">
+              <span className="text-[9px] text-su-text/80 font-mono ml-1 min-w-[40px] text-right">
                 {radarAnimState.activeIndex >= 0 &&
                 radarAnimState.timestamps[radarAnimState.activeIndex]
                   ? new Date(

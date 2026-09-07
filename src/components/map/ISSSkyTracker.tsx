@@ -579,7 +579,7 @@ export function ISSSkyTracker() {
             if (dragMovedRef.current) return;
             setIsVisible(true);
           }}
-          className="h-8 inline-flex items-center gap-1.5 pl-2 pr-2.5 bg-su-panel/70 backdrop-blur-sm border border-su-line/40 hover:border-teal-400/50 rounded-lg transition-all cursor-grab active:cursor-grabbing text-su-muted hover:text-su-text"
+          className="h-8 inline-flex items-center gap-1.5 pl-2 pr-2.5 bg-su-panel/90 backdrop-blur-sm border border-su-line/40 hover:border-teal-400/50 rounded-lg transition-all cursor-grab active:cursor-grabbing text-su-muted hover:text-su-text"
           title="ISS Tracker — click to expand, drag to move"
           aria-label="Expand ISS Tracker"
         >
@@ -636,14 +636,14 @@ export function ISSSkyTracker() {
         style={posStyle}
       >
         <div className="relative rounded-lg overflow-hidden bg-su-panel/80 backdrop-blur-md border border-su-line/40 shadow-lg w-[220px]">
-          <div className="flex items-center justify-between px-2.5 py-1.5 bg-su-input border-b border-su-line/20">
+          <div className="flex items-center justify-between px-2.5 py-1.5 bg-su-input/50 border-b border-su-line/20">
             {dragHandle}
             <span className="text-[9px] font-medium text-su-muted uppercase tracking-wider flex-1 ml-1.5">
               ISS Tracker
             </span>
             <button
               onClick={() => setIsVisible(false)}
-              className="p-0.5 text-su-muted hover:text-su-muted"
+              className="p-0.5 text-su-muted hover:text-su-text"
             >
               <svg
                 className="w-3 h-3"
@@ -689,14 +689,14 @@ export function ISSSkyTracker() {
         }}
       >
         {/* Header with drag handle */}
-        <div className="flex items-center justify-between px-2.5 py-1.5 bg-su-input border-b border-su-line/20">
+        <div className="flex items-center justify-between px-2.5 py-1.5 bg-su-input/50 border-b border-su-line/20">
           {dragHandle}
           <span className="text-[9px] font-medium text-su-muted uppercase tracking-wider flex-1 ml-1.5">
             ISS Tracker
           </span>
           <button
             onClick={() => setIsVisible(false)}
-            className="p-0.5 text-su-muted hover:text-su-muted"
+            className="p-0.5 text-su-muted hover:text-su-text"
           >
             <svg
               className="w-3 h-3"
@@ -722,7 +722,7 @@ export function ISSSkyTracker() {
         />
 
         {/* Info Strip */}
-        <div className="px-2.5 py-2 bg-su-input border-t border-su-line/20 space-y-0.5 font-mono">
+        <div className="px-2.5 py-2 bg-su-input/50 border-t border-su-line/20 space-y-0.5 font-mono">
           {/* Line 1: Position */}
           {elevation !== null && azimuth !== null && (
             <div className="text-[10px] text-su-muted">

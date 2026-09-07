@@ -126,7 +126,7 @@ export function QuickGridInput({
   const getBorderColor = () => {
     if (isValid === null) {
       // Typing, not enough chars yet
-      return "border-su-line/60 focus:border-su-line/60";
+      return "border-su-line/60 focus:border-su-line";
     }
     if (isValid) {
       return "border-signal-green focus:border-signal-green";
@@ -151,7 +151,7 @@ export function QuickGridInput({
     >
       {/* Backdrop */}
       <div
-        className="absolute inset-0 bg-su-panel/70 backdrop-blur-sm"
+        className="absolute inset-0 bg-black/70 backdrop-blur-sm"
         onClick={onClose}
         aria-hidden="true"
       />

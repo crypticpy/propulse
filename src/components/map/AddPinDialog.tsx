@@ -211,7 +211,7 @@ export function AddPinDialog({
   const title = mode === "add" ? "Add Pin" : "Edit Pin";
 
   const dialogContent = (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-su-panel/50 backdrop-blur-sm">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
       <div
         ref={dialogRef}
         className="w-full max-w-md mx-4 bg-su-canvas/90 backdrop-blur-md border border-su-line/40 rounded-xl shadow-2xl"

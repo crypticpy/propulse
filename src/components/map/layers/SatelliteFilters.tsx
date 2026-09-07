@@ -153,12 +153,12 @@ export default function SatelliteFilters() {
               className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-medium transition-colors ${
                 isActive
                   ? "bg-cyan-500/20 text-cyan-400 border border-cyan-500/40"
-                  : "bg-su-line/20 text-su-text/50 border border-transparent hover:bg-su-line/20 hover:text-su-text/70"
+                  : "bg-su-line/20 text-su-text/80 border border-transparent hover:bg-su-line/30 hover:text-su-text"
               }`}
             >
               {chip.label}
               <span
-                className={`text-[9px] tabular-nums ${isActive ? "text-cyan-400/70" : "text-su-text/30"}`}
+                className={`text-[9px] tabular-nums ${isActive ? "text-cyan-400/70" : "text-su-text/80"}`}
               >
                 {chip.count}
               </span>
@@ -178,7 +178,7 @@ export default function SatelliteFilters() {
             >
               <path d="M8 1.5l1.85 3.75 4.15.6-3 2.92.71 4.13L8 10.88l-3.71 1.97.71-4.08-3-2.97 4.15-.6L8 1.5z" />
             </svg>
-            <span className="text-[10px] font-semibold text-su-text/40 uppercase tracking-wider">
+            <span className="text-[10px] font-semibold text-su-text/80 uppercase tracking-wider">
               Popular
             </span>
           </div>
@@ -217,10 +217,10 @@ export default function SatelliteFilters() {
               strokeLinejoin="round"
             />
           </svg>
-          <span className="text-[10px] font-semibold text-su-text/40 uppercase tracking-wider">
+          <span className="text-[10px] font-semibold text-su-text/80 uppercase tracking-wider">
             All Satellites
           </span>
-          <span className="text-[9px] text-su-text/30 tabular-nums">
+          <span className="text-[9px] text-su-text/80 tabular-nums">
             ({remainingSats.length})
           </span>
         </button>
@@ -272,7 +272,7 @@ function TrackingStatusFooter({ totalCount }: { totalCount: number }) {
 
   return (
     <div className="flex items-center justify-between px-0.5 pt-1 border-t border-su-line/20">
-      <span className="text-[9px] text-su-text/30">{label}</span>
+      <span className="text-[9px] text-su-text/80">{label}</span>
       <Link
         to="/satellites"
         className="text-[9px] text-cyan-400 hover:text-cyan-300 hover:underline transition-colors"

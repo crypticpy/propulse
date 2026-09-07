@@ -85,7 +85,7 @@ export function MapSizeSliders({ inline = false }: MapSizeSlidersProps) {
         </span>
         <button
           onClick={() => setExpanded(false)}
-          className="text-su-muted hover:text-su-muted transition-colors -mr-0.5"
+          className="text-su-muted hover:text-su-text transition-colors -mr-0.5"
           aria-label="Collapse size sliders"
         >
           <svg

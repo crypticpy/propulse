@@ -193,7 +193,7 @@ export function ProfilePopover({
         aria-label="Operating profiles"
       >
         {/* ── "None" option ── */}
-        <div className="text-[10px] uppercase tracking-wider text-su-text/40 font-medium mb-1.5 px-0.5">
+        <div className="text-[10px] uppercase tracking-wider text-su-text/80 font-medium mb-1.5 px-0.5">
           Operating Profile
         </div>
 
@@ -216,12 +216,12 @@ export function ProfilePopover({
 
           <span
             className={`text-xs transition-colors ${
-              activeProfile === null ? "text-su-text" : "text-su-text/60"
+              activeProfile === null ? "text-su-text" : "text-su-text/80"
             }`}
           >
             None
           </span>
-          <span className="text-[10px] text-su-text/30 ml-1">
+          <span className="text-[10px] text-su-text/80 ml-1">
             Custom layer configuration
           </span>
         </div>
@@ -230,7 +230,7 @@ export function ProfilePopover({
         <div className="border-t border-su-line/20 my-2" />
 
         {/* ── Built-in Profiles ── */}
-        <div className="text-[10px] uppercase tracking-wider text-su-text/40 font-medium mb-1.5 px-0.5">
+        <div className="text-[10px] uppercase tracking-wider text-su-text/80 font-medium mb-1.5 px-0.5">
           Built-in Profiles
         </div>
 
@@ -289,7 +289,7 @@ export function ProfilePopover({
                 >
                   {cfg.label}
                 </span>
-                <span className="text-[10px] text-su-text/30 block leading-snug mt-0.5">
+                <span className="text-[10px] text-su-text/80 block leading-snug mt-0.5">
                   {cfg.description}
                 </span>
               </div>

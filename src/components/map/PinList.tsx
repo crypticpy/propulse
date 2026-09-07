@@ -312,7 +312,7 @@ export function PinList({
                         </button>
                         <button
                           onClick={handleCancelDelete}
-                          className="p-1.5 text-su-muted hover:text-su-muted hover:bg-su-line/20 rounded transition-colors"
+                          className="p-1.5 text-su-muted hover:text-su-text hover:bg-su-line/20 rounded transition-colors"
                           title="Cancel"
                           aria-label="Cancel delete"
                         >

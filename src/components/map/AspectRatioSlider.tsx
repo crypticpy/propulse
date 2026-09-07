@@ -66,7 +66,7 @@ export function AspectRatioSlider({ className }: AspectRatioSliderProps = {}) {
       />
 
       {/* Value label */}
-      <span className="text-[9px] font-mono text-su-text/40 leading-none">
+      <span className="text-[9px] font-mono text-su-text/80 leading-none">
         {mapAspectRatio.toFixed(1)}
       </span>
 

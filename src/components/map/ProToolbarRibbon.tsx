@@ -319,7 +319,7 @@ export function ProToolbarRibbon({
         <button
           type="button"
           onClick={toggleProRibbon}
-          className="bg-su-panel/60 backdrop-blur-md border border-su-line/50 rounded-lg px-3 py-2 pointer-events-auto flex items-center gap-2 text-xs text-su-muted hover:text-su-text transition-colors"
+          className="bg-su-panel/90 backdrop-blur-md border border-su-line/50 rounded-lg px-3 py-2 pointer-events-auto flex items-center gap-2 text-xs text-su-muted hover:text-su-text transition-colors"
         >
           <svg
             className="w-4 h-4 flex-shrink-0"
@@ -342,7 +342,7 @@ export function ProToolbarRibbon({
         </button>
         <LayoutModeDropdown
           compact
-          className="pointer-events-auto bg-su-panel/60 backdrop-blur-md rounded-lg"
+          className="pointer-events-auto bg-su-panel/90 backdrop-blur-md rounded-lg"
         />
       </div>
     );
@@ -360,7 +360,7 @@ export function ProToolbarRibbon({
     >
       <div
         ref={toolbarRef}
-        className="bg-su-panel/60 backdrop-blur-md border-b border-su-line/50 flex flex-wrap items-center gap-2 px-3 py-2 pointer-events-auto"
+        className="bg-su-panel/90 backdrop-blur-md border-b border-su-line/50 flex flex-wrap items-center gap-2 px-3 py-2 pointer-events-auto"
       >
         {/* ── 1. Toggle (collapse) button ─────────────────────── */}
         <button

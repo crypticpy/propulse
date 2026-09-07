@@ -82,7 +82,7 @@ function SavePresetForm({
       <button
         type="button"
         onClick={onCancel}
-        className="px-1.5 py-1 text-su-text/40 hover:text-su-text text-xs rounded-md hover:bg-su-line/10 transition-colors"
+        className="px-1.5 py-1 text-su-text/80 hover:text-su-text text-xs rounded-md hover:bg-su-line/10 transition-colors"
       >
         Cancel
       </button>
@@ -262,7 +262,7 @@ export function ViewsPopover({
         aria-label="Saved views"
       >
         {/* ── Header ── */}
-        <div className="text-[10px] uppercase tracking-wider text-su-text/40 font-medium mb-1.5 px-0.5">
+        <div className="text-[10px] uppercase tracking-wider text-su-text/80 font-medium mb-1.5 px-0.5">
           Saved Views
         </div>
 
@@ -278,7 +278,7 @@ export function ViewsPopover({
                 className={`flex items-center gap-2 px-2 py-1.5 rounded-md cursor-pointer transition-colors ${
                   isActive
                     ? "bg-su-line/20 text-su-text"
-                    : "text-su-text/60 hover:bg-su-line/10 hover:text-su-text"
+                    : "text-su-text/80 hover:bg-su-line/10 hover:text-su-text"
                 }`}
                 onClick={() => handleSelectPreset(preset)}
                 title={preset.name}
@@ -298,7 +298,7 @@ export function ViewsPopover({
 
                 {/* Keyboard shortcut hint */}
                 {shortcutKey && (
-                  <span className="text-[10px] font-mono text-su-text/30 bg-su-line/10 w-4 h-4 flex items-center justify-center rounded shrink-0">
+                  <span className="text-[10px] font-mono text-su-text/80 bg-su-line/10 w-4 h-4 flex items-center justify-center rounded shrink-0">
                     {shortcutKey}
                   </span>
                 )}
@@ -317,7 +317,7 @@ export function ViewsPopover({
           />
         ) : (
           <div
-            className="flex items-center gap-2 px-2 py-1.5 rounded-md cursor-pointer text-su-text/50 hover:text-su-text hover:bg-su-line/10 transition-colors"
+            className="flex items-center gap-2 px-2 py-1.5 rounded-md cursor-pointer text-su-text/80 hover:text-su-text hover:bg-su-line/10 transition-colors"
             onClick={() => setShowSaveForm(true)}
           >
             {/* Plus icon */}
@@ -339,7 +339,7 @@ export function ViewsPopover({
         )}
 
         <div
-          className="flex items-center gap-2 px-2 py-1.5 rounded-md cursor-pointer text-su-text/40 hover:text-su-text hover:bg-su-line/10 transition-colors"
+          className="flex items-center gap-2 px-2 py-1.5 rounded-md cursor-pointer text-su-text/80 hover:text-su-text hover:bg-su-line/10 transition-colors"
           onClick={handleManage}
         >
           {/* Settings icon */}

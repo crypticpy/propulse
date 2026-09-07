@@ -682,7 +682,7 @@ export function TimeControl({ className = "" }: TimeControlProps) {
             {String(displayTime.getUTCMinutes()).padStart(2, "0")}
             <span className="text-sm text-su-muted ml-1">UTC</span>
           </div>
-          <div className="text-xs text-su-muted group-hover:text-su-muted transition-colors">
+          <div className="text-xs text-su-muted group-hover:text-su-text transition-colors">
             {displayTime.toLocaleDateString("en-US", {
               weekday: "short",
               month: "short",
@@ -732,7 +732,7 @@ export function TimeControl({ className = "" }: TimeControlProps) {
               flex-1 px-2 py-1.5 text-xs font-medium rounded transition-all
               ${
                 isLive && preset.value === 0
-                  ? "bg-signal-green text-su-on-accent"
+                  ? "bg-signal-green text-su-canvas"
                   : timeOffset === preset.value && !absoluteTime
                     ? "bg-plasma-orange text-su-on-accent"
                     : "bg-su-line/10 text-su-muted hover:bg-su-line/20 hover:text-su-text"

@@ -165,7 +165,7 @@ function MoreMapControls({
             aria-label="More map controls"
             tabIndex={-1}
           >
-            <div className="mb-2 text-[10px] font-medium uppercase tracking-wider text-su-text/40">
+            <div className="mb-2 text-[10px] font-medium uppercase tracking-wider text-su-text/80">
               More map controls
             </div>
             <div className="flex flex-col items-start gap-1.5">

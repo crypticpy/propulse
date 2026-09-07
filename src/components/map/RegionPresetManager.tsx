@@ -190,7 +190,7 @@ function PresetRow({
         flex items-center gap-2 px-3 py-2
         rounded-lg
         transition-colors duration-100
-        ${isActive ? "bg-cyan-500/10 border border-cyan-500/20" : "bg-su-line/10 border border-transparent hover:bg-su-line/10"}
+        ${isActive ? "bg-cyan-500/10 border border-cyan-500/20" : "bg-su-line/10 border border-transparent hover:bg-su-line/20"}
       `}
     >
       {/* Icon */}
@@ -257,7 +257,7 @@ function PresetRow({
             disabled={!canMoveUp}
             className="
               p-1
-              text-su-muted hover:text-su-muted
+              text-su-muted hover:text-su-text
               disabled:text-su-line disabled:cursor-not-allowed
               hover:bg-su-line/20
               rounded
@@ -290,7 +290,7 @@ function PresetRow({
             disabled={!canMoveDown}
             className="
               p-1
-              text-su-muted hover:text-su-muted
+              text-su-muted hover:text-su-text
               disabled:text-su-line disabled:cursor-not-allowed
               hover:bg-su-line/20
               rounded
@@ -322,7 +322,7 @@ function PresetRow({
             onClick={() => setIsEditing(true)}
             className="
               p-1
-              text-su-muted hover:text-su-muted
+              text-su-muted hover:text-su-text
               hover:bg-su-line/20
               rounded
               transition-colors duration-150
@@ -646,7 +646,7 @@ export function RegionPresetManager({
       aria-label="Region Preset Manager"
     >
       {/* Backdrop */}
-      <div className="absolute inset-0 bg-su-panel/50 backdrop-blur-sm" />
+      <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" />
 
       {/* Panel */}
       <div

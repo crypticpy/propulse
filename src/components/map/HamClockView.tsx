@@ -204,7 +204,7 @@ export function HamClockView({
         )}
       <Suspense
         fallback={
-          <div className="flex h-full items-center justify-center font-mono text-xs uppercase tracking-widest text-su-text/30">
+          <div className="flex h-full items-center justify-center font-mono text-xs uppercase tracking-widest text-su-text/80">
             Loading projection…
           </div>
         }

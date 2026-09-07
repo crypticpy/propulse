@@ -411,7 +411,7 @@ export function ActivationDetailPanel() {
             program={spot.program}
           />
 
-        <footer className="grid grid-cols-1 gap-2 border-t border-su-line/40 bg-su-input p-3 sm:grid-cols-3">
+        <footer className="grid grid-cols-1 gap-2 border-t border-su-line/40 bg-su-input/50 p-3 sm:grid-cols-3">
           <button
             type="button"
             onClick={handleCopy}

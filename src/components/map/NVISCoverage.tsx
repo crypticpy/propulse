@@ -484,7 +484,7 @@ export function drawNVISCoverage(
 export function NVISCoverageLegend({ className = "" }: { className?: string }) {
   return (
     <div
-      className={`bg-su-panel/60 backdrop-blur-sm rounded-lg p-2 text-xs ${className}`}
+      className={`bg-su-panel/90 backdrop-blur-sm rounded-lg p-2 text-xs ${className}`}
     >
       <div className="font-medium text-purple-300 mb-1">NVIS Coverage</div>
       <div className="space-y-1">

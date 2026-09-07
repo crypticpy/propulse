@@ -797,10 +797,10 @@ export function FullscreenPropSphere({
             transition-opacity duration-300
             ${!showTopBar ? "opacity-100" : "opacity-0 pointer-events-none"}`}
         >
-          <div className="bg-su-panel/50 backdrop-blur-md border border-su-line/40 rounded-xl px-5 py-3 flex items-center gap-4">
+          <div className="bg-su-panel/90 backdrop-blur-md border border-su-line/40 rounded-xl px-5 py-3 flex items-center gap-4">
             <span className="font-mono text-lg text-su-text/90 tracking-wider tabular-nums">
               {utcString}
-              <span className="text-[10px] text-su-text/40 ml-1.5">UTC</span>
+              <span className="text-[10px] text-su-text/80 ml-1.5">UTC</span>
             </span>
             <div className="w-px h-5 bg-su-line/30" />
             <WatchStatusPill />

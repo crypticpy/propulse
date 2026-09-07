@@ -883,7 +883,7 @@ export function PathAnalysis({
                     e.stopPropagation();
                     onClose();
                   }}
-                  className="p-1 rounded hover:bg-su-line/20 transition-colors text-su-text/40 hover:text-red-400"
+                  className="p-1 rounded hover:bg-su-line/20 transition-colors text-su-text/80 hover:text-red-400"
                   title="Hide panel"
                 >
                   <svg
@@ -1292,7 +1292,7 @@ export function PathAnalysis({
             <button
               onClick={() => setShowSaveModal(false)}
               className="flex-1 px-4 py-2 bg-nebula-blue/60 border border-su-line/40 rounded-lg
-                         text-su-text hover:text-su-text hover:border-su-line/50
+                         text-su-text/90 hover:text-su-text hover:border-su-line/50
                          transition-colors font-medium text-sm"
             >
               Cancel
@@ -1577,7 +1577,7 @@ const RadioSuggestions = memo(function RadioSuggestions({
             <button
               type="button"
               onClick={onUseProfile}
-              className="px-2 py-1 text-xs rounded bg-su-line/10 border border-su-line/40 text-su-text hover:text-su-text hover:border-su-line/50 transition-colors"
+              className="px-2 py-1 text-xs rounded bg-su-line/10 border border-su-line/40 text-su-text/90 hover:text-su-text hover:border-su-line/50 transition-colors"
               title="Use active profile radio"
             >
               Use profile

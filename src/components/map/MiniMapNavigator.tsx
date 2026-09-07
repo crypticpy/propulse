@@ -420,7 +420,7 @@ export function MiniMapNavigator({
       >
         <button
           onClick={() => setIsVisible(true)}
-          className="w-6 h-6 flex items-center justify-center bg-su-panel/60 backdrop-blur-sm border border-su-line/40 hover:border-su-line/60 rounded-md transition-all"
+          className="w-6 h-6 flex items-center justify-center bg-su-panel/90 backdrop-blur-sm border border-su-line/40 hover:border-su-line/60 rounded-md transition-all"
           title="Show mini-map"
         >
           <svg
@@ -445,14 +445,14 @@ export function MiniMapNavigator({
     <div
       className={`absolute ${positionClasses[position]} z-20 pointer-events-auto ${className}`}
     >
-      <div className="relative rounded-lg overflow-hidden bg-su-panel/70 backdrop-blur-md border border-su-line/40 shadow-lg">
-        <div className="flex items-center justify-between px-2 py-1 bg-su-input border-b border-su-line/20">
+      <div className="relative rounded-lg overflow-hidden bg-su-panel/90 backdrop-blur-md border border-su-line/40 shadow-lg">
+        <div className="flex items-center justify-between px-2 py-1 bg-su-input/50 border-b border-su-line/20">
           <span className="text-[9px] font-medium text-su-muted uppercase tracking-wider">
             Overview
           </span>
           <button
             onClick={() => setIsVisible(false)}
-            className="p-0.5 text-su-muted hover:text-su-muted"
+            className="p-0.5 text-su-muted hover:text-su-text"
             title="Hide"
           >
             <svg
@@ -478,7 +478,7 @@ export function MiniMapNavigator({
           className="block cursor-crosshair"
           style={{ width: MINI_MAP_WIDTH, height: MINI_MAP_HEIGHT }}
         />
-        <div className="flex items-center justify-between px-2 py-1 bg-su-input border-t border-su-line/20">
+        <div className="flex items-center justify-between px-2 py-1 bg-su-input/50 border-t border-su-line/20">
           <div className="flex items-center gap-2">
             {station && (
               <div className="flex items-center gap-1">

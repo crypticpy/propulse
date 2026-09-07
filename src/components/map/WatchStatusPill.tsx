@@ -90,7 +90,7 @@ export function WatchStatusPill({ className }: WatchStatusPillProps) {
       ? "text-caution-amber"
       : pillState === "recent"
         ? "text-signal-green"
-        : "text-su-text/50";
+        : "text-su-text/80";
 
   const isPulsing = pillState === "recent" || pillState === "highRate";
 

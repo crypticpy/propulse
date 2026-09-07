@@ -180,6 +180,17 @@ export function propagationCapabilitiesAreValid(
   return true;
 }
 
+/** Propagation API error carrying the HTTP status so callers can branch on it (e.g. retry a 401/403 that races session restore, vs. giving up on a 4xx that won't resolve on its own). */
+export class PropagationModelError extends Error {
+  constructor(
+    message: string,
+    readonly status: number,
+  ) {
+    super(message);
+    this.name = "PropagationModelError";
+  }
+}
+
 async function responseJson<T>(response: Response): Promise<T> {
   if (!response.ok) {
     let detail = `Propagation API returned HTTP ${response.status}`;
@@ -190,7 +201,7 @@ async function responseJson<T>(response: Response): Promise<T> {
     } catch {
       // Preserve the status-based error when the body is not JSON.
     }
-    throw new Error(detail);
+    throw new PropagationModelError(detail, response.status);
   }
   return response.json() as Promise<T>;
 }

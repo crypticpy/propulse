@@ -188,9 +188,9 @@ const LADDER_GRID_COLORS: Record<
   { bg: string; border: string; text: string }
 > = {
   hot: {
-    bg: "rgb(var(--su-accent-rgb) / 0.20)",
-    border: "rgb(var(--su-accent-rgb) / 0.45)",
-    text: "var(--su-accent)",
+    bg: "rgb(var(--su-warning-rgb) / 0.20)",
+    border: "rgb(var(--su-warning-rgb) / 0.45)",
+    text: "var(--su-warning)",
   },
   verified: {
     bg: "rgb(var(--su-success-rgb) / 0.18)",

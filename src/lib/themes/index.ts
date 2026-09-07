@@ -6,6 +6,7 @@
 
 import type { ColorBlindMode } from "./colorblind";
 import {
+  DEFAULT_ACCENT_HEX,
   hexToChannels,
   stationPalettes,
   stationTokens,
@@ -167,7 +168,13 @@ export function applyThemeToDocument(
 ): void {
   const root = document.documentElement;
   const { colors } = theme;
-  const accentPrimary = accent?.primary || colors.accentPrimary;
+  const requestedAccent = accent?.primary || colors.accentPrimary;
+  // Normalised once so the --theme-* derivation below and the --su-* tokens
+  // stationTokens() emits can never disagree about what a malformed
+  // persisted accent falls back to.
+  const accentPrimary = /^#[0-9a-f]{6}$/i.test(requestedAccent)
+    ? requestedAccent
+    : DEFAULT_ACCENT_HEX;
   // No station role maps to a "secondary" accent, so the legacy
   // --theme-accent-secondary var (Settings' "Secondary Color" control, and
   // anything still reading it) keeps the chosen accent's own secondary and

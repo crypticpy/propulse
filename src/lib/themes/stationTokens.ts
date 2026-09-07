@@ -18,10 +18,20 @@ import type { ThemeId } from "./index";
 export type StationTokenStyle = CSSProperties &
   Record<`--su-${string}`, string>;
 
+/** Custom accents that fail validation fall back to this brand orange. */
+export const DEFAULT_ACCENT_HEX = "#ff6b35";
+
+/**
+ * The dark palette's canvas hex, hoisted so `hexToChannels`'s fallback
+ * channels can be derived from the same value instead of duplicating it as a
+ * magic `"20 24 39"` literal.
+ */
+const DARK_CANVAS_HEX = "#141827";
+
 /** Canonical palette; components only consume semantic --su-* properties. */
 export const stationPalettes = {
   dark: {
-    canvas: "#141827",
+    canvas: DARK_CANVAS_HEX,
     panel: "#191e2e",
     input: "#111624",
     text: "#cad2dc",
@@ -95,7 +105,7 @@ export function stationTokens(
   const palette = stationPalettes[theme];
   const accent = /^#[0-9a-f]{6}$/i.test(requestedAccent)
     ? requestedAccent
-    : "#ff6b35";
+    : DEFAULT_ACCENT_HEX;
   const onAccent =
     stationContrast(accent, "#000000") >= stationContrast(accent, "#ffffff")
       ? "#000000"
@@ -138,17 +148,29 @@ export function stationTokens(
   };
 }
 
+/** `hexPairsToChannels("141827")` -> `"20 24 39"`; expects six lowercase-safe hex digits, no `#`. */
+function hexPairsToChannels(sixDigitHex: string): string {
+  return sixDigitHex
+    .match(/../g)!
+    .map((pair) => parseInt(pair, 16))
+    .join(" ");
+}
+
+/** `DARK_CANVAS_HEX`'s channels, precomputed so the fallback below never recurses into `hexToChannels`. */
+const DARK_CANVAS_CHANNELS = hexPairsToChannels(DARK_CANVAS_HEX.slice(1));
+
 /**
  * `"#ff6b35"` -> `"255 107 53"`; three-digit hex expands first (`"#abc"` ->
  * `"170 187 204"`). Anything that is not a hex colour falls back to the dark
- * palette's canvas channels rather than emitting an invalid custom property —
- * callers normalise user-supplied accents before they reach here.
+ * palette's canvas channels (`DARK_CANVAS_HEX`) rather than emitting an
+ * invalid custom property — callers normalise user-supplied accents before
+ * they reach here.
  */
 export function hexToChannels(hex: string): string {
   const raw = hex.trim().replace(/^#/, "");
   const expanded =
     raw.length === 3 ? raw.replace(/./g, (digit) => digit + digit) : raw;
-  if (!/^[0-9a-f]{6}$/i.test(expanded)) return "20 24 39";
+  if (!/^[0-9a-f]{6}$/i.test(expanded)) return DARK_CANVAS_CHANNELS;
   return expanded
     .match(/../g)!
     .map((pair) => parseInt(pair, 16))

@@ -221,8 +221,9 @@ describe("hexToChannels", () => {
   });
 
   it("falls back to the dark canvas channels for non-hex input", () => {
-    expect(hexToChannels("rebeccapurple")).toBe("20 24 39");
-    expect(hexToChannels("#12345")).toBe("20 24 39");
-    expect(hexToChannels("")).toBe("20 24 39");
+    const darkCanvasChannels = hexToChannels(stationPalettes.dark.canvas);
+    expect(hexToChannels("rebeccapurple")).toBe(darkCanvasChannels);
+    expect(hexToChannels("#12345")).toBe(darkCanvasChannels);
+    expect(hexToChannels("")).toBe(darkCanvasChannels);
   });
 });

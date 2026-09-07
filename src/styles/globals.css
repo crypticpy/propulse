@@ -72,7 +72,7 @@
   }
 
   body {
-    @apply bg-deep-space text-gray-200;
+    @apply bg-deep-space text-su-text;
     min-height: 100vh;
   }
 

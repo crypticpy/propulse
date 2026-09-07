@@ -21,7 +21,8 @@ BEGIN
     OR NOT isfinite(p_start_hour) OR NOT isfinite(p_end_hour)
     OR p_start_hour <> date_trunc('hour', p_start_hour)
     OR p_end_hour <> date_trunc('hour', p_end_hour)
-    OR p_end_hour < p_start_hour OR p_end_hour >= date_trunc('hour', clock_timestamp()) THEN
+    OR p_end_hour < p_start_hour
+    OR p_end_hour >= clock_timestamp() - interval '2 hours' THEN
     RAISE EXCEPTION 'invalid aggregation gap';
   END IF;
   INSERT INTO public.collector_aggregation_gaps (aggregation, start_hour, end_hour)

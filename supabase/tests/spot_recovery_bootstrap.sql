@@ -21,7 +21,7 @@ CREATE TABLE public.spot_history (
 );
 CREATE TABLE public.collector_aggregation_watermarks (
   aggregation text PRIMARY KEY,
-  completed_hour timestamptz NOT NULL,
+  hour_utc timestamptz NOT NULL,
   rows_written integer NOT NULL
 );
 CREATE TABLE public.spot_recovery_test_output (
@@ -58,5 +58,6 @@ CREATE FUNCTION public.record_collector_aggregation_watermark(
 ) RETURNS void LANGUAGE sql AS $$
   INSERT INTO public.collector_aggregation_watermarks VALUES (p_aggregation, p_hour, p_rows)
   ON CONFLICT (aggregation) DO UPDATE
-    SET completed_hour = excluded.completed_hour, rows_written = excluded.rows_written
+    SET hour_utc = excluded.hour_utc, rows_written = excluded.rows_written
+  WHERE excluded.hour_utc >= collector_aggregation_watermarks.hour_utc
 $$;

@@ -9,7 +9,9 @@ BEGIN
     OR has_function_privilege('authenticated', 'public.compute_retained_spot_hour(text,timestamptz)', 'EXECUTE')
     OR NOT has_function_privilege('service_role', 'public.compute_retained_spot_hour(text,timestamptz)', 'EXECUTE')
     OR has_function_privilege('anon', 'public.prune_retained_spots()', 'EXECUTE')
-    OR NOT has_function_privilege('service_role', 'public.prune_retained_spots()', 'EXECUTE') THEN
+    OR NOT has_function_privilege('service_role', 'public.prune_retained_spots()', 'EXECUTE')
+    OR has_function_privilege('authenticated', 'public.record_spot_aggregation_gap(text,timestamptz,timestamptz)', 'EXECUTE')
+    OR NOT has_function_privilege('service_role', 'public.record_spot_aggregation_gap(text,timestamptz,timestamptz)', 'EXECUTE') THEN
     RAISE EXCEPTION 'spot recovery function permissions are unsafe';
   END IF;
   IF has_table_privilege('anon', 'public.collector_aggregation_gaps', 'SELECT')
@@ -21,7 +23,7 @@ BEGIN
   result := public.compute_retained_spot_hour('band_hourly', expired_hour);
   IF result <> jsonb_build_object('status', 'expired', 'rows', 0)
     OR EXISTS (SELECT 1 FROM public.spot_recovery_test_output WHERE hour = expired_hour)
-    OR EXISTS (SELECT 1 FROM public.collector_aggregation_watermarks WHERE completed_hour = expired_hour)
+    OR EXISTS (SELECT 1 FROM public.collector_aggregation_watermarks WHERE hour_utc = expired_hour)
     OR NOT EXISTS (SELECT 1 FROM public.collector_aggregation_gaps WHERE aggregation = 'band_hourly' AND start_hour = expired_hour AND end_hour = expired_hour) THEN
     RAISE EXCEPTION 'expired hours must record only a durable bounded gap';
   END IF;
@@ -29,7 +31,7 @@ BEGIN
   result := public.compute_retained_spot_hour('path_hourly', retained_hour);
   IF result <> jsonb_build_object('status', 'retained', 'rows', 1)
     OR NOT EXISTS (SELECT 1 FROM public.spot_recovery_test_output WHERE aggregation = 'path_hourly' AND hour = retained_hour)
-    OR NOT EXISTS (SELECT 1 FROM public.collector_aggregation_watermarks WHERE aggregation = 'path_hourly' AND completed_hour = retained_hour AND rows_written = 1) THEN
+    OR NOT EXISTS (SELECT 1 FROM public.collector_aggregation_watermarks WHERE aggregation = 'path_hourly' AND hour_utc = retained_hour AND rows_written = 1) THEN
     RAISE EXCEPTION 'retained aggregation and watermark were not written together';
   END IF;
 
@@ -46,6 +48,14 @@ BEGIN
   END IF;
   UPDATE public.spot_recovery_test_control SET fail_aggregation = NULL;
 
+  INSERT INTO public.collector_aggregation_watermarks
+    VALUES ('band_hourly', future_hour, 9);
+  PERFORM public.compute_retained_spot_hour('band_hourly', retained_hour);
+  IF NOT EXISTS (SELECT 1 FROM public.collector_aggregation_watermarks
+      WHERE aggregation = 'band_hourly' AND hour_utc = future_hour AND rows_written = 9) THEN
+    RAISE EXCEPTION 'older recovery regressed a newer watermark';
+  END IF;
+
   BEGIN
     PERFORM public.record_spot_aggregation_gap('band_hourly', NULL, retained_hour);
     RAISE EXCEPTION 'nullable gap accepted';
@@ -54,6 +64,10 @@ BEGIN
     PERFORM public.record_spot_aggregation_gap('band_hourly', retained_hour, future_hour);
     RAISE EXCEPTION 'future gap accepted';
   EXCEPTION WHEN OTHERS THEN IF SQLERRM = 'future gap accepted' THEN RAISE; END IF; END;
+  BEGIN
+    PERFORM public.record_spot_aggregation_gap('band_hourly', retained_hour, retained_hour);
+    RAISE EXCEPTION 'still-retained gap accepted';
+  EXCEPTION WHEN OTHERS THEN IF SQLERRM = 'still-retained gap accepted' THEN RAISE; END IF; END;
   BEGIN
     PERFORM public.record_spot_aggregation_gap('band_hourly', retained_hour, retained_hour - interval '1 hour');
     RAISE EXCEPTION 'reversed gap accepted';

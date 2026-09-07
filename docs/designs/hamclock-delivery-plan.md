@@ -14,7 +14,7 @@ not a claim. Do not reserve all batches for one agent.
 
 | Lane | Responsibility | Boundary |
 | --- | --- | --- |
-| Codex / HamClock operating views | Current implementation: #289 rigctld default; B18/#226 Reliability/Forecast in review; B10/#206 widget configuration in review; coordinated spot display #288 in review; PSK/WSJT-X #287, Activations #285, shared tuning #286 and B24 #232 in review | One active implementation item; retain review and acceptance follow-up |
+| Codex / HamClock operating views | Current review: #289 rigctld default and B18/#226 Reliability/Forecast; B10/#206 widget configuration in review; coordinated spot display #288 in review; PSK/WSJT-X #287, Activations #285, shared tuning #286 and B24 #232 in review | One active implementation item; retain review and acceptance follow-up |
 | Existing modeling / 3D agent | NowCast training, inference, evaluation, model activation, and 3D globe work, per owner direction | This plan does not assign or change that agent's existing cards |
 | Additional contributor | Claim an unclaimed Ready item; B10/#206 is now claimed | Check current board, issue comments, and changed files before starting |
 | Weather | Deferred until operating work is complete | Inspect OpenWxGlobe before designing new weather adapters or layers |
@@ -369,7 +369,9 @@ with FUTURECAST SCORER NOT AVAILABLE. A horizon-aware scorer/endpoint and
 model/horizon-identifying response contract are an external dependency for the
 model owner. HW-59 is partial, not delivered. The regression failed before the
 fix and passes afterward; 326 wall tests and 24 advertised-horizon browser
-cases pass with zero future-time path requests. Full verification is running.
+cases pass with zero future-time path requests. Full verification passed with
+3,217 app tests plus Python/archive, bridge/daemon, lint, build and budgets; the
+review thread is resolved.
 
 The next independently Ready item is #289, now the sole In progress / Codex
 claim: `.worktrees/hamclock-rigctld-default`, `fix/hamclock-rigctld-default`, based
@@ -380,8 +382,19 @@ issue's old-default equality migration requires WFView users on that port to
 select it again once, as documented. Other custom ports and current-version
 explicit 4533 values survive reload. Four isolated browser scenarios and
 14 focused radio/settings tests pass; bridge compilation passes. No bridge,
-daemon or hardware service was started. Full publication checks follow.
+daemon or hardware service was started. PR #503 now contains the 8-file fix
+(3bc25dbb), with required targeted pre-push checks passing: 3,221 app tests, lint,
+build, bundle budgets and bridge compilation. #289 is In review with Codex
+ownership retained for feedback.
 
 B11 remains Backlog pending B10 merge. #250 is already In progress under its
 existing report-polish ownership. Weather remains last. The Settings user
 preview at 5182 remains running and must be preserved.
+
+
+Completed UI test sessions have been stopped: Forecast owner
+`hamclock-b18-forecast` at 5181 (session 748360b1-0a9e-47f6-8982-ca56e532ecb5)
+and rigctld owner `hamclock-rigctld-default` at 5183 (session
+5e3fe846-ec96-4a78-80f8-573ca6c073c9). Their own stale registry files were
+removed after matching identity, absent PID and free IPv4/IPv6 bind checks.
+The user-facing masthead preview at 5182 is still preserved.

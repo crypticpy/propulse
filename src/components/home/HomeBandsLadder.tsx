@@ -11,6 +11,7 @@
  * click target per row is the band button, which opens nearby reports.
  */
 
+import type { CSSProperties } from "react";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import {
   formatRatio,
@@ -20,6 +21,7 @@ import {
 import { LADDER_LABEL, TREND_ARROW } from "@/lib/verdict/presentation";
 import type { LadderState } from "@/lib/verdict/ladder";
 import type { ActivityTrend } from "@/lib/utils/bandActivity";
+import { getBandColor } from "@/lib/utils/spotColors";
 
 /**
  * Below this the trend column is dropped rather than squeezed: the counts and
@@ -130,6 +132,9 @@ export function HomeBandsLadder({
                 aria-controls="home-nearby-reports"
                 aria-expanded={selectedBand === row.band}
                 onClick={() => onSelectBand(row.band)}
+                style={
+                  { "--band-hue": getBandColor(row.band) } as CSSProperties
+                }
               >
                 {row.band}
                 <span className="sr-only"> — open nearby reports</span>

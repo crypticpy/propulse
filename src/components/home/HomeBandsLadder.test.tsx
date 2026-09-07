@@ -3,6 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { expect, it, vi } from "vitest";
 import { HomeBandsLadder } from "./HomeBandsLadder";
 import { buildBandsLadder, LADDER_BANDS } from "@/lib/home/bandsLadder";
+import { getBandColor } from "@/lib/utils/spotColors";
 import type { BandActivityStatus } from "@/hooks/useBandActivity";
 import type { LadderState } from "@/lib/verdict/ladder";
 
@@ -194,6 +195,23 @@ it("dims the ladder and marks it stale when the snapshot is not current", () => 
   expect(
     container.querySelector(".home-ladder")?.getAttribute("data-stale"),
   ).toBe("true");
+});
+
+
+it("colors each band button with the shared per-band palette", () => {
+  stubViewport(1920);
+  renderLadder();
+  for (const band of ["40m", "20m", "30m"]) {
+    const button = screen.getByRole("button", {
+      name: new RegExp(`^${band}`),
+    });
+    // The hue drives the chip tint and bar; ink stays the station text token
+    // so the label reads on both palettes.
+    expect(button.style.color).toBe("");
+    expect(button.style.getPropertyValue("--band-hue")).toBe(
+      getBandColor(band),
+    );
+  }
 });
 
 it("opens nearby reports for the band that was clicked", async () => {

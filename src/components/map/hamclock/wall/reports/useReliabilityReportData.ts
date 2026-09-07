@@ -10,7 +10,7 @@ import { latLonToGrid } from "@/lib/utils/grid";
 import { continentForLatLon } from "@/lib/utils/continent";
 import { stationPhysicsScores } from "@/lib/verdict/physicsScore";
 import { useMapStore } from "@/stores/mapStore";
-import { useWallReliability } from "../tiles/useWallReliability";
+import { useWallReliability, WALL_FORECAST_BANDS } from "../tiles/useWallReliability";
 import { FORECAST_HOUR_MS, modelEvidence } from "./forecastEvidence";
 
 /** Presentation joins existing sources; never changes engine/gate behavior. */
@@ -48,25 +48,38 @@ export function useReliabilityReportData(band: string, selectedHour?: number) {
   const publicAllowed = policyAllows(policy, "liveSpots", "public");
   const activity = useBandActivity(scope, publicAllowed);
   const context = { band, targetGrid: targetContext?.grid ?? null, mode: wall.mode, hourIndex, now };
-  const model = sameStation ? modelEvidence(nowcast.predictions.get(band), context)
-    : { prediction: null, reason: "STATION LOCATION DOES NOT MATCH" };
+  const unavailableReason = !targetContext ? "NO TARGET — PATH MODEL UNAVAILABLE"
+    : !nowcast.enabled ? "MODEL OFF"
+    : !sameStation ? "STATION LOCATION DOES NOT MATCH"
+    : !nowcast.available ? "MODEL CAPABILITY UNAVAILABLE" : null;
+  const model = unavailableReason ? { prediction: null, reason: unavailableReason }
+    : modelEvidence(nowcast.predictions.get(band), context);
+  const liveModel = unavailableReason ? { prediction: null, reason: unavailableReason }
+    : modelEvidence(nowcast.predictions.get(band), { ...context, hourIndex: wall.hourIndex });
   const dayStart = wall.hourIndex - wall.hour;
-  const physics = useMemo(() => Array.from({ length: 48 }, (_, offset) => {
-    const index = dayStart + offset;
-    const cell = wall.cells.get(`${band}:${index}`);
-    let score: number | null = cell?.score ?? null;
-    if (!target && location && wall.inputs.kp !== null && wall.inputs.sfi !== null) {
-      const daytime = SunCalc.getPosition(new Date(index * FORECAST_HOUR_MS), location.lat, location.lon).altitude > 0;
-      score = (stationPhysicsScores(wall.inputs.kp, wall.inputs.sfi, daytime).get(band) ?? NaN) * 100;
-      if (!Number.isFinite(score)) score = null;
+  const matrix = useMemo(() => {
+    const values = new Map<string, number>();
+    for (let offset = 0; offset < 48; offset++) {
+      const index = dayStart + offset;
+      const localScores = !target && location && wall.inputs.kp !== null && wall.inputs.sfi !== null
+        ? stationPhysicsScores(wall.inputs.kp, wall.inputs.sfi, SunCalc.getPosition(new Date(index * FORECAST_HOUR_MS), location.lat, location.lon).altitude > 0)
+        : null;
+      for (const candidate of WALL_FORECAST_BANDS) {
+        const value = localScores ? (localScores.get(candidate) ?? NaN) * 100 : wall.cells.get(`${candidate}:${index}`)?.score;
+        if (value !== undefined && Number.isFinite(value)) values.set(`${candidate}:${index}`, value);
+      }
     }
-    return { hourIndex: index, score };
-  }), [dayStart, wall.cells, wall.inputs.kp, wall.inputs.sfi, band, target, location]);
+    return values;
+  }, [dayStart, wall.cells, wall.inputs.kp, wall.inputs.sfi, target, location]);
+  const physics = Array.from({ length: 48 }, (_, offset) => ({
+    hourIndex: dayStart + offset, score: matrix.get(`${band}:${dayStart + offset}`) ?? null,
+  }));
   const activityAt = activity.data?.fetchedAt ?? null;
-  const liveHour = Math.floor(now / FORECAST_HOUR_MS);
-  const observed = publicAllowed && hourIndex === liveHour && activityAt !== null && now - activityAt >= 0 && now - activityAt <= 120_000
+  const sampleHour = activityAt === null ? null : Math.floor(activityAt / FORECAST_HOUR_MS);
+  const liveObserved = publicAllowed && activityAt !== null && now - activityAt >= 0 && now - activityAt <= 120_000
     ? activity.data?.get(band) ?? null : null;
-  return { wall, location, target: targetContext, nowcast, model, physics, hourIndex, dayStart,
+  const observed = hourIndex === sampleHour ? liveObserved : null;
+  return { wall, location, target: targetContext, nowcast, model, liveModel, physics, matrix, liveObserved, hourIndex, dayStart,
     cell: wall.cells.get(`${band}:${hourIndex}`) ?? null,
     observed, activityAt, activityError: activity.isError, scope,
     sourceLabel: targetContext ? `${originGrid} TO ${targetContext.grid}` : "NO TARGET — SHOWING QTH",

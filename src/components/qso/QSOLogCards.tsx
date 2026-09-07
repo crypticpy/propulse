@@ -109,7 +109,7 @@ function QSOCard({
             >
               {isSelected && (
                 <svg
-                  className="w-3 h-3 text-su-text"
+                  className="w-3 h-3 text-su-on-accent"
                   fill="none"
                   stroke="currentColor"
                   viewBox="0 0 24 24"

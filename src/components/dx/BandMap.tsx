@@ -481,10 +481,10 @@ export function BandMap({
             {(hoveredSpot.frequency / 1000).toFixed(3)} MHz
             {hoveredSpot.mode && (
               <span
-                className="ml-2 px-1 py-0.5 rounded text-[10px]"
+                className="ml-2 px-1 py-0.5 rounded text-[10px] text-su-text border"
                 style={{
                   backgroundColor: getBandMapModeColor(hoveredSpot.mode) + "30",
-                  color: getBandMapModeColor(hoveredSpot.mode),
+                  borderColor: getBandMapModeColor(hoveredSpot.mode) + "66",
                 }}
               >
                 {hoveredSpot.mode}

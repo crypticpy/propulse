@@ -224,7 +224,7 @@ export function NodeContextMenu({
   const menu = (
     <div
       ref={menuRef}
-      className="fixed z-50 min-w-[192px] bg-[#0a0a14]/95 backdrop-blur-md border border-su-line/40 rounded-xl shadow-2xl p-1 animate-in fade-in duration-100"
+      className="fixed z-50 min-w-[192px] bg-su-panel/95 backdrop-blur-md border border-su-line/40 rounded-xl shadow-2xl p-1 animate-in fade-in duration-100"
       style={{ left: pos.left, top: pos.top }}
       role="menu"
       aria-label="Node context menu"

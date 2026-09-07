@@ -385,10 +385,7 @@ export function BandModeModal({ isOpen, onClose }: BandModeModalProps) {
           >
             <p className="text-[15px] text-su-text leading-snug">
               You&apos;re operating on{" "}
-              <span
-                className="font-bold font-mono text-base"
-                style={{ color: bandColor }}
-              >
+              <span className="font-bold font-mono text-base text-su-text">
                 {activeBand}
               </span>{" "}
               in <span className="font-semibold text-su-text">{activeMode}</span>{" "}
@@ -399,10 +396,7 @@ export function BandModeModal({ isOpen, onClose }: BandModeModalProps) {
                 className="w-1.5 h-1.5 rounded-full"
                 style={{ backgroundColor: sourceColor }}
               />
-              <span
-                className="text-[11px] font-medium"
-                style={{ color: sourceColor }}
-              >
+              <span className="text-[11px] font-medium text-su-muted">
                 {activeSource === "cat"
                   ? "via CAT"
                   : activeSource === "wsjtx"
@@ -885,10 +879,7 @@ export function BandModeModal({ isOpen, onClose }: BandModeModalProps) {
                                 {preset.name}
                               </div>
                               <div className="flex items-center gap-1.5">
-                                <span
-                                  className="text-[9px] font-bold font-mono"
-                                  style={{ color: presetBandColor }}
-                                >
+                                <span className="text-[9px] font-bold font-mono text-su-text">
                                   {preset.band}
                                 </span>
                                 <span className="text-[9px] text-su-muted">
@@ -1008,10 +999,7 @@ export function BandModeModal({ isOpen, onClose }: BandModeModalProps) {
                   className="w-2 h-2 rounded-full animate-pulse"
                   style={{ backgroundColor: sourceColor }}
                 />
-                <span
-                  className="text-xs font-medium"
-                  style={{ color: sourceColor }}
-                >
+                <span className="text-xs font-medium text-su-text">
                   {catOverridden ? "CAT Override" : `Following ${sourceLabel}`}
                 </span>
               </div>

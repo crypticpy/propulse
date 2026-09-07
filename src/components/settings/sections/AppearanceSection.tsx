@@ -369,7 +369,7 @@ export function AppearanceSection() {
             <span className="text-xs text-su-muted">Active setting</span>
           </div>
           <button
-            className="px-3 py-1.5 rounded-lg text-xs font-medium text-su-text"
+            className="px-3 py-1.5 rounded-lg text-xs font-medium text-su-on-accent"
             style={{ backgroundColor: "var(--theme-accent-primary)" }}
           >
             Sample Button

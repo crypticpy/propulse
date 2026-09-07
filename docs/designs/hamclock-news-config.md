@@ -102,3 +102,9 @@ recovery and focus return with three mocked requests and zero errors. The manage
 local session used owner `hamclock-config-release`, port 5187, ID
 `769dd284-16fc-4677-8e04-6d346949138f`; feed responses remained fixtures and no
 account, database, radio or physical-display service was used.
+
+Release touch-target follow-up sets both verified-news entry actions to the
+44 px minimum. A fresh disposable Chromium check measured the Home card and
+legacy ticker-dialog buttons at exactly 44 px, with zero page errors. It used
+the same isolated local profile on port 5188; 19 affected configuration and
+ticker tests also passed.

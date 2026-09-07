@@ -102,7 +102,7 @@ export function NewsFeedCard({ className = "" }: NewsFeedCardProps) {
             </div>
           ))}
           <button type="button" onClick={() => setConfigOpen(true)}
-            className="text-xs font-medium rounded-lg px-3 py-1.5">
+            className="min-h-11 rounded-lg px-3 py-1.5 text-xs font-medium">
             VERIFY & ADD NEWS FEED
           </button>
         </div>

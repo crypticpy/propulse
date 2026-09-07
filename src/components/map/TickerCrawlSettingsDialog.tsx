@@ -117,7 +117,7 @@ export function TickerCrawlSettingsDialog({
           </div>
 
           {onConfigureNews && (
-            <button type="button" onClick={onConfigureNews} className={selectClassName}>
+            <button type="button" onClick={onConfigureNews} className={`${selectClassName} min-h-11`}>
               VERIFY & ADD NEWS FEED
             </button>
           )}

@@ -1,6 +1,6 @@
 # B10 — News configuration evidence
 
-Issue #206, HW-36/HW-37. Branch `feat/hamclock-b10-codex` starts at
+Issue #206, HW-36/HW-37. UI PR #480, server prerequisite PR #479. Branch `feat/hamclock-b10-codex` starts at
 origin/main `19b75c8b`, independently of the earlier operating-view PR stack.
 
 The existing B0 widget registry and schema-validated store are reused. The new
@@ -58,3 +58,5 @@ restored to the original combined-settings gear. This used local owner
 `59d38514-abb4-4dfe-b40c-d68c3d0380ea`; its server was stopped after verification.
 The prerequisite PR #479 separately passed full verification: 364 app files /
 3,205 tests plus the remaining required checks.
+
+Final UI push verification passes: 365 app files / 3,211 tests, with all remaining required gates passing. Register statuses in this branch describe the delivered behavior upon merge; the board remains In review until maintainer acceptance.

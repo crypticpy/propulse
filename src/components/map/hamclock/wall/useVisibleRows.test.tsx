@@ -2,8 +2,8 @@ import { act, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { useVisibleRows } from "./useVisibleRows";
 
-function List({ total, mounted }: { total: number; mounted: boolean }) {
-  const [ref, visible] = useVisibleRows<HTMLDivElement>(total);
+function List({ total, mounted, minimum }: { total: number; mounted: boolean; minimum?: number }) {
+  const [ref, visible] = useVisibleRows<HTMLDivElement>(total, minimum);
   return (
     <div>
       <p>visible {visible}</p>
@@ -61,6 +61,54 @@ describe("useVisibleRows (#250)", () => {
     } finally {
       vi.unstubAllGlobals();
     }
+  });
+
+  it("restores rows when a compact zero-row slot grows", () => {
+    const slot = { height: 20 };
+    let fire: (() => void) | undefined;
+    vi.spyOn(HTMLElement.prototype, "clientHeight", "get").mockImplementation(
+      function (this: HTMLElement) {
+        return this.dataset.testid === "list" ? slot.height : 0;
+      },
+    );
+    vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockReturnValue({ height: 30 } as DOMRect);
+    vi.stubGlobal("ResizeObserver", class {
+      constructor(callback: () => void) { fire = callback; }
+      observe() {}
+      disconnect() {}
+    });
+    render(<List total={9} mounted minimum={0} />);
+    expect(screen.getByText("visible 0")).toBeTruthy();
+    expect(screen.queryByText("row 1")).toBeNull();
+
+    slot.height = 100;
+    act(() => fire?.());
+    expect(screen.getByText("visible 3")).toBeTruthy();
+    expect(screen.getByText("row 3")).toBeTruthy();
+  });
+
+  it("probes after the total becomes positive and retains its count while hidden", () => {
+    const slot = { height: 90 };
+    let fire: (() => void) | undefined;
+    vi.spyOn(HTMLElement.prototype, "clientHeight", "get").mockImplementation(
+      function (this: HTMLElement) {
+        return this.dataset.testid === "list" ? slot.height : 0;
+      },
+    );
+    vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockReturnValue({ height: 30 } as DOMRect);
+    vi.stubGlobal("ResizeObserver", class {
+      constructor(callback: () => void) { fire = callback; }
+      observe() {}
+      disconnect() {}
+    });
+    const { rerender } = render(<List total={0} mounted minimum={0} />);
+    expect(screen.getByText("visible 0")).toBeTruthy();
+
+    rerender(<List total={6} mounted minimum={0} />);
+    expect(screen.getByText("visible 3")).toBeTruthy();
+    slot.height = 0;
+    act(() => fire?.());
+    expect(screen.getByText("visible 3")).toBeTruthy();
   });
 });
 

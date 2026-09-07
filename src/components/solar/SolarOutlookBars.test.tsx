@@ -91,8 +91,10 @@ describe("SolarOutlookBars", () => {
         outlook={[day("2026-08-31T00:00:00Z", 100, 1), day("2026-09-01T00:00:00Z", 100, 1)]}
       />,
     );
-    expect(screen.getByText("Aug 31")).toBeTruthy();
-    expect(screen.getByText("Sep 1")).toBeTruthy();
+    expect(screen.getByText("31")).toBeTruthy();
+    expect(screen.getByText("1")).toBeTruthy();
+    expect(screen.getByText("Aug")).toBeTruthy();
+    expect(screen.getByText("Sep")).toBeTruthy();
   });
 
   it("renders nothing for an empty outlook", () => {

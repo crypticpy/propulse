@@ -35,38 +35,60 @@ export function SolarOutlookBars({ outlook }: SolarOutlookBarsProps) {
   };
 
   let lastMonth = "";
+  const columns = outlook.map((day) => {
+    const dateObj = new Date(day.date);
+    const dayLabel = dateObj.toLocaleDateString(undefined, { timeZone: "UTC", month: "short", day: "numeric" });
+    const monthLabel = dateObj.toLocaleDateString(undefined, { timeZone: "UTC", month: "short" });
+    const showMonth = monthLabel !== lastMonth;
+    lastMonth = monthLabel;
+    return {
+      key: day.date,
+      isToday: day.date.slice(0, 10) === todayKey,
+      dayOfMonth: dateObj.getUTCDate(),
+      monthLabel: showMonth ? monthLabel : null,
+      description: `${dayLabel} · Kp ${day.predicted_kp} · A ${day.predicted_planetary_a} · flux ${day.predicted_flux} sfu`,
+      tone: outlookKpToneClass(day.predicted_kp),
+      height: barHeight(day.predicted_flux),
+    };
+  });
 
   return (
     <div className="space-y-2">
-      <div className="flex items-end gap-2">
-        <div className="flex h-40 shrink-0 flex-col justify-between text-[10px] text-su-muted">
+      <div className="flex gap-2">
+        {/* Axis labels share the plot row's height exactly; the date rows sit below it. */}
+        <div className="flex h-32 shrink-0 flex-col justify-between text-[10px] text-su-muted">
           <span>{Math.round(maxFlux)} sfu</span>
           <span>{Math.round(minFlux)} sfu</span>
         </div>
-        <div className="flex h-40 flex-1 items-end gap-0.5 sm:gap-1">
-          {outlook.map((day) => {
-            const dateObj = new Date(day.date);
-            const isToday = day.date.slice(0, 10) === todayKey;
-            const dayLabel = dateObj.toLocaleDateString(undefined, { timeZone: "UTC", month: "short", day: "numeric" });
-            const monthLabel = dateObj.toLocaleDateString(undefined, { timeZone: "UTC", month: "short" });
-            const showMonth = monthLabel !== lastMonth;
-            lastMonth = monthLabel;
-            const description = `${dayLabel} · Kp ${day.predicted_kp} · A ${day.predicted_planetary_a} · flux ${day.predicted_flux} sfu`;
-            return (
-              <div key={day.date} className="flex h-full flex-1 flex-col items-center justify-end gap-1">
+        <div className="min-w-0 flex-1">
+          <div className="flex h-32 items-end gap-0.5 sm:gap-1">
+            {columns.map((column) => (
+              <div key={column.key} className="flex h-full min-w-0 flex-1 items-end">
                 <div
                   role="img"
-                  aria-label={description}
-                  title={description}
-                  className={`w-full rounded-t ${outlookKpToneClass(day.predicted_kp)} ${isToday ? "outline outline-2 outline-su-accent" : ""}`}
-                  style={{ height: `${barHeight(day.predicted_flux)}%` }}
+                  aria-label={column.description}
+                  title={column.description}
+                  className={`w-full rounded-t ${column.tone} ${column.isToday ? "outline outline-2 outline-su-accent" : ""}`}
+                  style={{ height: `${column.height}%` }}
                 />
-                <span className="whitespace-nowrap text-[10px] text-su-muted">
-                  {showMonth ? `${monthLabel} ${dateObj.getUTCDate()}` : dateObj.getUTCDate()}
-                </span>
               </div>
-            );
-          })}
+            ))}
+          </div>
+          {/* Month names spill over the empty neighbouring columns; min-w-0 keeps them from widening the row. */}
+          <div className="mt-1 flex gap-0.5 sm:gap-1">
+            {columns.map((column) => (
+              <span key={column.key} className="min-w-0 flex-1 whitespace-nowrap text-[9px] font-semibold uppercase text-su-muted sm:text-[10px]">
+                {column.monthLabel}
+              </span>
+            ))}
+          </div>
+          <div className="flex gap-0.5 sm:gap-1">
+            {columns.map((column) => (
+              <span key={column.key} className="min-w-0 flex-1 overflow-hidden text-center text-[9px] text-su-muted sm:text-[10px]">
+                {column.dayOfMonth}
+              </span>
+            ))}
+          </div>
         </div>
       </div>
       <p className="text-xs leading-5 text-su-muted">Bar height = predicted flux (sfu); colour = predicted Kp tier.</p>

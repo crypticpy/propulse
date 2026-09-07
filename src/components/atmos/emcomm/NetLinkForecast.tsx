@@ -139,7 +139,7 @@ export function NetLinkForecast() {
   if (!activePlan) {
     return (
       <div className="text-center py-2">
-        <p className="text-[10px] text-gray-600">Select a frequency plan</p>
+        <p className="text-[10px] text-su-muted">Select a frequency plan</p>
       </div>
     );
   }
@@ -147,7 +147,7 @@ export function NetLinkForecast() {
   if (!forecast || forecast.length === 0) {
     return (
       <div className="text-center py-2">
-        <p className="text-[10px] text-gray-600">No frequencies in plan</p>
+        <p className="text-[10px] text-su-muted">No frequencies in plan</p>
       </div>
     );
   }
@@ -164,7 +164,7 @@ export function NetLinkForecast() {
             return (
               <div key={i} className="flex-1 flex justify-center">
                 {marker ? (
-                  <span className="text-[8px] font-mono text-gray-600">
+                  <span className="text-[8px] font-mono text-su-muted">
                     {marker.label}
                   </span>
                 ) : null}
@@ -182,7 +182,7 @@ export function NetLinkForecast() {
         >
           {/* Frequency label */}
           <div className="w-16 shrink-0 text-right pr-2">
-            <span className="text-[10px] font-mono text-gray-400 truncate block">
+            <span className="text-[10px] font-mono text-su-muted truncate block">
               {formatFreq(entry.frequencyHz)}
             </span>
           </div>
@@ -205,7 +205,7 @@ export function NetLinkForecast() {
         {(["good", "marginal", "poor"] as const).map((q) => (
           <div key={q} className="flex items-center gap-1">
             <div className={`w-2 h-2 rounded-sm ${QUALITY_COLORS[q]}`} />
-            <span className="text-[8px] font-mono text-gray-600 capitalize">
+            <span className="text-[8px] font-mono text-su-muted capitalize">
               {q}
             </span>
           </div>

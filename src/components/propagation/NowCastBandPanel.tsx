@@ -38,7 +38,7 @@ const PHYSICS_CHIP_TITLE =
 function probabilityTone(probability: number): string {
   if (probability >= 0.5) return "text-signal-green";
   if (probability >= 0.2) return "text-caution-amber";
-  return "text-gray-200";
+  return "text-su-text";
 }
 
 function formatPower(watts: number): string {
@@ -80,14 +80,14 @@ export function NowCastBandPanel({
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="flex min-w-0 items-start gap-2.5">
           <BrainCircuit
-            className="mt-0.5 h-5 w-5 shrink-0 text-cyan-300"
+            className="mt-0.5 h-5 w-5 shrink-0 text-cosmic-cyan"
             aria-hidden="true"
           />
           <div className="min-w-0">
-            <h3 className="text-base font-semibold text-white">
+            <h3 className="text-base font-semibold text-su-text">
               {state.personalized ? "NowCast + StationCast" : "NowCast"}
             </h3>
-            <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-xs text-gray-400">
+            <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-xs text-su-muted">
               {locationLabel && (
                 <span className="inline-flex items-center gap-1">
                   <MapPin className="h-3 w-3" aria-hidden="true" />
@@ -110,14 +110,14 @@ export function NowCastBandPanel({
         </div>
         {state.pending && (
           <Loader2
-            className="h-4 w-4 shrink-0 animate-spin text-gray-400"
+            className="h-4 w-4 shrink-0 animate-spin text-su-muted"
             aria-label="Loading model predictions"
           />
         )}
       </div>
 
       {!state.pending && (state.capabilityError || !state.available) && (
-        <div className="mt-4 flex items-center gap-2 border-t border-white/10 pt-3 text-sm text-caution-amber">
+        <div className="mt-4 flex items-center gap-2 border-t border-su-line/40 pt-3 text-sm text-caution-amber">
           <TriangleAlert className="h-4 w-4 shrink-0" aria-hidden="true" />
           <span>
             Model capability unavailable. The established planner remains active.
@@ -127,7 +127,7 @@ export function NowCastBandPanel({
 
       {state.predictions.size > 0 && (
         <div
-          className={`mt-4 grid gap-px overflow-hidden rounded-md border border-white/10 bg-white/10 ${
+          className={`mt-4 grid gap-px overflow-hidden rounded-md border border-su-line/40 bg-su-line/20 ${
             compact ? "grid-cols-1 sm:grid-cols-2" : "grid-cols-2 sm:grid-cols-3 lg:grid-cols-5"
           }`}
         >
@@ -145,14 +145,14 @@ export function NowCastBandPanel({
                 style={{ minHeight: state.personalized ? 158 : 116 }}
               >
                 <div className="flex items-center justify-between gap-2">
-                  <span className="font-mono text-sm font-semibold text-white">
+                  <span className="font-mono text-sm font-semibold text-su-text">
                     {band}
                   </span>
                   <span
                     className={`cursor-help text-[11px] ${
                       prediction.profile === "physics"
                         ? "text-caution-amber/80"
-                        : "text-gray-500"
+                        : "text-su-muted"
                     }`}
                     title={
                       prediction.profile === "physics"
@@ -169,19 +169,19 @@ export function NowCastBandPanel({
                 <div className="mt-3 space-y-1.5 text-xs">
                   <div className="flex items-center justify-between gap-2">
                     <span
-                      className="cursor-help text-gray-500"
+                      className="cursor-help text-su-muted"
                       title={PATH_PROBABILITY_TITLE}
                     >
                       Path (WSPR)
                     </span>
-                    <span className="font-mono text-gray-200">
+                    <span className="font-mono text-su-text">
                       {(prediction.core_probability * 100).toFixed(1)}%
                     </span>
                   </div>
                   {state.personalized && (
                     <div className="flex items-center justify-between gap-2">
                       <span
-                        className="cursor-help text-gray-400"
+                        className="cursor-help text-su-muted"
                         title={personalizedTitle}
                       >
                         {personalizedLabel}
@@ -198,7 +198,7 @@ export function NowCastBandPanel({
                 </div>
 
                 {state.personalized && envelope && (
-                  <div className="mt-2 border-t border-white/5 pt-2 text-[10px] text-gray-500">
+                  <div className="mt-2 border-t border-su-line/20 pt-2 text-[10px] text-su-muted">
                     {envelope.supported ? (
                       <>
                         <span>{formatPower(envelope.eirpWatts)} EIRP</span>
@@ -215,7 +215,7 @@ export function NowCastBandPanel({
                   </div>
                 )}
 
-                <div className="mt-2 flex flex-wrap items-center justify-between gap-x-2 gap-y-1 text-[10px] text-gray-500">
+                <div className="mt-2 flex flex-wrap items-center justify-between gap-x-2 gap-y-1 text-[10px] text-su-muted">
                   <span>{Math.round(prediction.confidence * 100)}% confidence</span>
                   {state.personalized && (
                     <span className={delta >= 0 ? "text-signal-green" : "text-caution-amber"}>
@@ -240,14 +240,14 @@ export function NowCastBandPanel({
       )}
 
       {state.errors.size > 0 && state.predictions.size === 0 && (
-        <div className="mt-4 flex items-center gap-2 border-t border-white/10 pt-3 text-sm text-caution-amber">
+        <div className="mt-4 flex items-center gap-2 border-t border-su-line/40 pt-3 text-sm text-caution-amber">
           <TriangleAlert className="h-4 w-4 shrink-0" aria-hidden="true" />
           <span>Model service unavailable. The established planner remains active.</span>
         </div>
       )}
 
       {state.partial && (
-        <div className="mt-4 flex items-center gap-2 border-t border-white/10 pt-3 text-sm text-caution-amber">
+        <div className="mt-4 flex items-center gap-2 border-t border-su-line/40 pt-3 text-sm text-caution-amber">
           <TriangleAlert className="h-4 w-4 shrink-0" aria-hidden="true" />
           <span>
             {state.predictions.size}/{state.requestedCount} bands scored. The
@@ -257,7 +257,7 @@ export function NowCastBandPanel({
       )}
 
       {firstPrediction && (
-        <div className="mt-3 flex min-w-0 flex-wrap gap-x-4 gap-y-1 border-t border-white/5 pt-2 text-[10px] text-gray-500">
+        <div className="mt-3 flex min-w-0 flex-wrap gap-x-4 gap-y-1 border-t border-su-line/20 pt-2 text-[10px] text-su-muted">
           <span
             className="max-w-full truncate font-mono"
             title={firstPrediction.model_version}

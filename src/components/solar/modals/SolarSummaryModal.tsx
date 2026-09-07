@@ -210,7 +210,7 @@ export const SolarSummaryModal: React.FC<SolarSummaryModalProps> = ({
         subtitle="Detailed conditions and recommendations"
         size="xl"
       >
-        <div className="text-center py-12 text-gray-500">
+        <div className="text-center py-12 text-su-muted">
           Solar data unavailable — cannot generate propagation analysis.
         </div>
       </DetailModal>
@@ -237,10 +237,10 @@ export const SolarSummaryModal: React.FC<SolarSummaryModalProps> = ({
     >
       <div className="space-y-6">
         {/* Overall Assessment */}
-        <div className="bg-void-black/50 rounded-lg p-4 border border-white/5">
+        <div className="bg-void-black/50 rounded-lg p-4 border border-su-line/20">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div>
-              <h4 className="text-sm font-mono uppercase tracking-wider text-gray-400 mb-2">
+              <h4 className="text-sm font-mono uppercase tracking-wider text-su-muted mb-2">
                 Overall HF Conditions
               </h4>
               <Badge status={conditionToBadgeStatus(overall.hf)} size="md">
@@ -249,27 +249,27 @@ export const SolarSummaryModal: React.FC<SolarSummaryModalProps> = ({
             </div>
             <div className="flex gap-6">
               <div className="text-center">
-                <div className="text-xs text-gray-500 mb-1">Solar Flux</div>
+                <div className="text-xs text-su-muted mb-1">Solar Flux</div>
                 <div className="text-xl font-mono font-bold text-plasma-orange">
                   {solarFlux}
                 </div>
               </div>
               <div className="text-center">
-                <div className="text-xs text-gray-500 mb-1">K-Index</div>
+                <div className="text-xs text-su-muted mb-1">K-Index</div>
                 <div className="text-xl font-mono font-bold text-cosmic-cyan">
                   {kIndex}
                 </div>
               </div>
             </div>
           </div>
-          <p className="mt-4 text-gray-300 leading-relaxed">
+          <p className="mt-4 text-su-muted leading-relaxed">
             {overall.summary}
           </p>
         </div>
 
         {/* DX Opportunity Assessment */}
-        <div className="bg-void-black/50 rounded-lg p-4 border border-white/5">
-          <h4 className="text-sm font-mono uppercase tracking-wider text-gray-400 mb-3">
+        <div className="bg-void-black/50 rounded-lg p-4 border border-su-line/20">
+          <h4 className="text-sm font-mono uppercase tracking-wider text-su-muted mb-3">
             DX Opportunity Assessment
           </h4>
           <div className="flex items-start gap-4 mb-4">
@@ -283,17 +283,17 @@ export const SolarSummaryModal: React.FC<SolarSummaryModalProps> = ({
             >
               {dxAssessment.rating}
             </div>
-            <p className="text-gray-300">{dxAssessment.description}</p>
+            <p className="text-su-muted">{dxAssessment.description}</p>
           </div>
           <div className="mt-4">
-            <h5 className="text-sm font-medium text-white mb-2">
+            <h5 className="text-sm font-medium text-su-text mb-2">
               Tips for Today:
             </h5>
             <ul className="grid md:grid-cols-2 gap-2">
               {dxAssessment.tips.map((tip, i) => (
                 <li
                   key={i}
-                  className="flex items-start gap-2 text-sm text-gray-400"
+                  className="flex items-start gap-2 text-sm text-su-muted"
                 >
                   <span className="text-plasma-orange shrink-0">&#8226;</span>
                   <span>{tip}</span>
@@ -304,27 +304,27 @@ export const SolarSummaryModal: React.FC<SolarSummaryModalProps> = ({
         </div>
 
         {/* Complete Band Matrix */}
-        <div className="bg-void-black/50 rounded-lg p-4 border border-white/5">
-          <h4 className="text-sm font-mono uppercase tracking-wider text-gray-400 mb-4">
+        <div className="bg-void-black/50 rounded-lg p-4 border border-su-line/20">
+          <h4 className="text-sm font-mono uppercase tracking-wider text-su-muted mb-4">
             Complete HF Band Conditions
           </h4>
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead>
-                <tr className="border-b border-white/10">
-                  <th className="text-left py-2 px-3 text-xs font-semibold text-gray-400 uppercase">
+                <tr className="border-b border-su-line/40">
+                  <th className="text-left py-2 px-3 text-xs font-semibold text-su-muted uppercase">
                     Band
                   </th>
-                  <th className="text-left py-2 px-3 text-xs font-semibold text-gray-400 uppercase hidden md:table-cell">
+                  <th className="text-left py-2 px-3 text-xs font-semibold text-su-muted uppercase hidden md:table-cell">
                     Frequency
                   </th>
-                  <th className="text-center py-2 px-3 text-xs font-semibold text-gray-400 uppercase">
+                  <th className="text-center py-2 px-3 text-xs font-semibold text-su-muted uppercase">
                     Day
                   </th>
-                  <th className="text-center py-2 px-3 text-xs font-semibold text-gray-400 uppercase">
+                  <th className="text-center py-2 px-3 text-xs font-semibold text-su-muted uppercase">
                     Night
                   </th>
-                  <th className="text-left py-2 px-3 text-xs font-semibold text-gray-400 uppercase">
+                  <th className="text-left py-2 px-3 text-xs font-semibold text-su-muted uppercase">
                     Best For
                   </th>
                 </tr>
@@ -340,12 +340,12 @@ export const SolarSummaryModal: React.FC<SolarSummaryModalProps> = ({
                   return (
                     <tr
                       key={band.name}
-                      className={`border-b border-white/5 ${
-                        isCurrentlyBest ? "bg-white/[0.03]" : ""
+                      className={`border-b border-su-line/20 ${
+                        isCurrentlyBest ? "bg-su-line/10" : ""
                       }`}
                     >
                       <td className="py-2 px-3">
-                        <span className="font-mono font-medium text-white">
+                        <span className="font-mono font-medium text-su-text">
                           {band.name}
                         </span>
                         {isCurrentlyBest && (
@@ -354,7 +354,7 @@ export const SolarSummaryModal: React.FC<SolarSummaryModalProps> = ({
                           </span>
                         )}
                       </td>
-                      <td className="py-2 px-3 text-gray-400 text-sm font-mono hidden md:table-cell">
+                      <td className="py-2 px-3 text-su-muted text-sm font-mono hidden md:table-cell">
                         {band.freq}
                       </td>
                       <td className="py-2 px-3 text-center">
@@ -373,7 +373,7 @@ export const SolarSummaryModal: React.FC<SolarSummaryModalProps> = ({
                           {band.nightCondition}
                         </Badge>
                       </td>
-                      <td className="py-2 px-3 text-sm text-gray-400">
+                      <td className="py-2 px-3 text-sm text-su-muted">
                         {band.bestFor}
                       </td>
                     </tr>
@@ -385,8 +385,8 @@ export const SolarSummaryModal: React.FC<SolarSummaryModalProps> = ({
         </div>
 
         {/* Time-of-Day Recommendations */}
-        <div className="bg-void-black/50 rounded-lg p-4 border border-white/5">
-          <h4 className="text-sm font-mono uppercase tracking-wider text-gray-400 mb-4">
+        <div className="bg-void-black/50 rounded-lg p-4 border border-su-line/20">
+          <h4 className="text-sm font-mono uppercase tracking-wider text-su-muted mb-4">
             Best Times for DX (Local Time)
           </h4>
           <div className="space-y-4">
@@ -415,11 +415,11 @@ export const SolarSummaryModal: React.FC<SolarSummaryModalProps> = ({
                   className={`p-4 rounded-lg border ${
                     isCurrent
                       ? "bg-plasma-orange/10 border-plasma-orange/30"
-                      : "bg-white/[0.02] border-white/5"
+                      : "bg-su-line/10 border-su-line/20"
                   }`}
                 >
                   <div className="flex flex-col md:flex-row md:items-center justify-between gap-2 mb-2">
-                    <h5 className="font-medium text-white flex items-center gap-2">
+                    <h5 className="font-medium text-su-text flex items-center gap-2">
                       {rec.period}
                       {isCurrent && (
                         <span className="text-xs bg-plasma-orange/20 text-plasma-orange px-2 py-0.5 rounded-full">
@@ -438,7 +438,7 @@ export const SolarSummaryModal: React.FC<SolarSummaryModalProps> = ({
                       ))}
                     </div>
                   </div>
-                  <p className="text-sm text-gray-400">{rec.notes}</p>
+                  <p className="text-sm text-su-muted">{rec.notes}</p>
                 </div>
               );
             })}
@@ -451,7 +451,7 @@ export const SolarSummaryModal: React.FC<SolarSummaryModalProps> = ({
             <h4 className="text-sm font-mono uppercase tracking-wider text-aurora-purple mb-2">
               Aurora Propagation Possible
             </h4>
-            <p className="text-gray-300 text-sm">
+            <p className="text-su-muted text-sm">
               With current K-index levels, aurora propagation may be possible on
               6m and 2m. Listen for characteristic &quot;flutter&quot; signals
               and point antennas toward the auroral oval (generally north in the

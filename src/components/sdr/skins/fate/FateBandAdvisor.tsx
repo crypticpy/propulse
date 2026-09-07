@@ -181,11 +181,11 @@ export function FateBandAdvisor({ currentBand }: FateBandAdvisorProps) {
   // No data available — show muted fallback
   if (!bandRatings) {
     return (
-      <div className="flex items-center gap-1.5 px-3 py-1.5 border-t border-white/5 bg-[#0a0a14]">
-        <span className="text-[9px] text-gray-500 uppercase tracking-wider font-semibold shrink-0 mr-1">
+      <div className="flex items-center gap-1.5 px-3 py-1.5 border-t border-su-line/20 bg-[#0a0a14]">
+        <span className="text-[9px] text-su-muted uppercase tracking-wider font-semibold shrink-0 mr-1">
           Propagation
         </span>
-        <span className="text-[9px] text-gray-600 italic">
+        <span className="text-[9px] text-su-muted italic">
           No propagation data
         </span>
       </div>
@@ -193,8 +193,8 @@ export function FateBandAdvisor({ currentBand }: FateBandAdvisorProps) {
   }
 
   return (
-    <div className="flex items-center gap-1.5 px-3 py-1.5 border-t border-white/5 bg-[#0a0a14]">
-      <span className="text-[9px] text-gray-500 uppercase tracking-wider font-semibold shrink-0 mr-1">
+    <div className="flex items-center gap-1.5 px-3 py-1.5 border-t border-su-line/20 bg-[#0a0a14]">
+      <span className="text-[9px] text-su-muted uppercase tracking-wider font-semibold shrink-0 mr-1">
         Propagation
       </span>
 
@@ -209,8 +209,8 @@ export function FateBandAdvisor({ currentBand }: FateBandAdvisorProps) {
                 border transition-all duration-150
                 ${
                   isCurrent
-                    ? "border-white/20 bg-white/[0.06]"
-                    : "border-white/5 bg-white/[0.02]"
+                    ? "border-su-line/50 bg-su-line/20"
+                    : "border-su-line/20 bg-su-line/10"
                 }
               `}
               title={`${r.band}: ${r.condition}${isCurrent ? " (current)" : ""}`}
@@ -240,7 +240,7 @@ export function FateBandAdvisor({ currentBand }: FateBandAdvisorProps) {
 
       {/* Compact SFI / Kp readout */}
       {latestKp !== null && latestSfi !== null && (
-        <span className="text-[8px] text-gray-600 font-mono ml-auto shrink-0 tabular-nums">
+        <span className="text-[8px] text-su-muted font-mono ml-auto shrink-0 tabular-nums">
           SFI {Math.round(latestSfi)} · Kp {latestKp}
         </span>
       )}

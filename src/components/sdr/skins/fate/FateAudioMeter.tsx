@@ -148,10 +148,10 @@ export function FateAudioMeter({ analyserNode }: FateAudioMeterProps) {
   if (!analyserNode) {
     return (
       <div
-        className="flex items-center justify-center rounded border border-white/5 bg-[#0c0c16]"
+        className="flex items-center justify-center rounded border border-su-line/20 bg-[#0c0c16]"
         style={{ width: 120, height: 16 }}
       >
-        <span className="text-[9px] font-mono text-gray-600">No Audio</span>
+        <span className="text-[9px] font-mono text-su-muted">No Audio</span>
       </div>
     );
   }
@@ -166,12 +166,12 @@ export function FateAudioMeter({ analyserNode }: FateAudioMeterProps) {
 
   return (
     <div
-      className="flex items-center gap-1.5 rounded border border-white/5 bg-[#0c0c16] px-1.5"
+      className="flex items-center gap-1.5 rounded border border-su-line/20 bg-[#0c0c16] px-1.5"
       style={{ width: 120, height: 16 }}
       title={`RMS: ${rmsDb.toFixed(1)} dBFS | Peak: ${peakDb.toFixed(1)} dBFS`}
     >
       {/* Bar container */}
-      <div className="relative flex-1 h-[6px] rounded-sm bg-black/40 overflow-hidden">
+      <div className="relative flex-1 h-[6px] rounded-sm bg-su-input overflow-hidden">
         {/* RMS bar */}
         <div
           className="absolute inset-y-0 left-0 rounded-sm transition-[width] duration-75"

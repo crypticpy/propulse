@@ -66,6 +66,29 @@ const SCOPE = [
   "src/components/settings",
   "src/components/logbook",
   "src/components/operating",
+  "src/pages/SolarPulse.tsx",
+  // DS-12 g5: the remaining raw-token files under src/components/solar/
+  // (BandConditions.tsx, BandRow.tsx, MetricCard.tsx, PropagationIndex.tsx,
+  // SolarHandoffNotice.tsx, modals/) were swept in this pass, so the whole
+  // directory is now scoped instead of the DS-03 file-by-file allowlist.
+  "src/components/solar",
+  "src/components/sdr",
+  "src/components/atmos",
+  "src/components/satellites",
+  "src/components/rank",
+  "src/components/awards",
+  "src/components/activation",
+  "src/components/ops",
+  "src/components/propagation",
+  "src/components/activity",
+  "src/components/bands",
+  "src/components/cluster",
+  "src/components/export",
+  "src/components/radio",
+  "src/components/ErrorBoundary.tsx",
+  "src/lib",
+  "src/hooks",
+  "src/stores",
 ];
 
 /**
@@ -86,9 +109,13 @@ const STYLE_EXTENSIONS = new Set([".css"]);
  * Every Tailwind utility prefix that paints a colour. Variants (`hover:`,
  * `dark:`, `group-hover:`) end in a non-word character, so the leading `\b`
  * still anchors on the prefix.
+ *
+ * `border` carries an optional directional infix (`border-t-white`,
+ * `border-x-gray-700`, logical `border-s`/`border-e`) that the other prefixes
+ * don't have, so it gets its own optional group instead of a flat list.
  */
 const COLOR_PREFIX =
-  "(?:bg|border|divide|ring|ring-offset|from|via|to|text|fill|stroke|outline|placeholder|decoration|shadow|caret|accent)";
+  "(?:bg|border(?:-[trblxyse])?|divide|ring|ring-offset|from|via|to|text|fill|stroke|outline|placeholder|decoration|shadow|caret|accent)";
 
 /**
  * `class` rules run on every line of a scoped file: these tokens are Tailwind

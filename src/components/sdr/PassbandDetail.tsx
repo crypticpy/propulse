@@ -470,7 +470,7 @@ export function PassbandDetail({
   return (
     <div
       ref={containerRef}
-      className="relative h-[80px] shrink-0 border-t border-white/5"
+      className="relative h-[80px] shrink-0 border-t border-su-line/20"
     >
       <canvas
         ref={wfCanvasRef}
@@ -481,7 +481,7 @@ export function PassbandDetail({
         ref={mergedOlRef}
         className="absolute inset-0 w-full h-full touch-none"
       />
-      <span className="absolute top-1 left-2 text-[8px] text-gray-400/70 uppercase tracking-wider pointer-events-none select-none">
+      <span className="absolute top-1 left-2 text-[8px] text-su-muted/80 uppercase tracking-wider pointer-events-none select-none">
         {isAudioFft ? "Zoom \u00B7 Audio FFT" : "Zoom"}
       </span>
     </div>

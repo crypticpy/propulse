@@ -29,7 +29,7 @@ export function RegionRIMCard({ name, rim }: RegionRIMCardProps) {
   return (
     <div className={`rounded-md border px-2 py-1.5 ${scoreBg(score)}`}>
       <div className="flex items-center justify-between">
-        <span className="text-[10px] text-gray-400 truncate max-w-[120px]">
+        <span className="text-[10px] text-su-muted truncate max-w-[120px]">
           {name}
         </span>
         <span
@@ -40,13 +40,13 @@ export function RegionRIMCard({ name, rim }: RegionRIMCardProps) {
       </div>
       {rim && (
         <div className="flex gap-2 mt-0.5">
-          <span className="text-[8px] text-gray-600">
+          <span className="text-[8px] text-su-muted">
             HF {Math.round(rim.hfBand.value)}
           </span>
-          <span className="text-[8px] text-gray-600">
+          <span className="text-[8px] text-su-muted">
             VHF {Math.round(rim.vhfUhf.value)}
           </span>
-          <span className="text-[8px] text-gray-600">
+          <span className="text-[8px] text-su-muted">
             Infra {Math.round(rim.infraRisk.value)}
           </span>
         </div>

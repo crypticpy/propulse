@@ -113,10 +113,10 @@ export function FlexTimeAxis({
           style={{ top: `${label.yPercent}%`, transform: "translateY(-50%)" }}
         >
           {/* Tick mark */}
-          <div className="w-2 h-px bg-gray-700" />
+          <div className="w-2 h-px bg-su-input" />
 
           {/* Label text */}
-          <span className="font-mono text-[9px] text-gray-600 text-right pr-1 leading-none whitespace-nowrap">
+          <span className="font-mono text-[9px] text-su-muted text-right pr-1 leading-none whitespace-nowrap">
             {label.text}
           </span>
         </div>

@@ -16,7 +16,7 @@ export const LADDER_TEXT_CLASSES: Record<LadderState, string> = {
   verified: "text-signal-green",
   stirring: "text-caution-amber",
   forecast: "text-signal-green/70",
-  closed: "text-gray-500",
+  closed: "text-su-muted",
 };
 
 export const ACTIVITY_LABEL: Record<ActivityLevel, string> = {
@@ -27,8 +27,8 @@ export const ACTIVITY_LABEL: Record<ActivityLevel, string> = {
 };
 
 export const ACTIVITY_TEXT_CLASSES: Record<ActivityLevel, string> = {
-  quiet: "text-gray-500",
-  normal: "text-white/60",
+  quiet: "text-su-muted",
+  normal: "text-su-text/80",
   busy: "text-caution-amber",
   exceptional: "text-plasma-orange",
 };

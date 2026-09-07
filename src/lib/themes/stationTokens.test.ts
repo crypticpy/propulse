@@ -8,6 +8,7 @@ import {
   type ThemeId,
 } from "./index";
 import {
+  DEFAULT_ACCENT_HEX,
   hexToChannels,
   stationContrast,
   stationPalettes,
@@ -109,6 +110,23 @@ describe("station tokens on the document root", () => {
         .map((pair) => parseInt(pair, 16))
         .join(" ");
       expect(css).toContain(`--su-${name}-rgb: ${channels};`);
+    }
+  });
+
+  it("keeps the .su-fixed-dark pre-JS tone fallbacks in sync with the dark palette", () => {
+    // .su-fixed-dark (SDR cockpit skins, rank card back) pins its tone roles
+    // to --su-fixed-dark-*, whose :root fallback must match the dark
+    // palette's un-swapped tones the same way the neutral fallbacks above do.
+    const css = readFileSync(
+      resolve(__dirname, "../../styles/globals.css"),
+      "utf8",
+    );
+    for (const role of ["info", "success", "warning", "danger"] as const) {
+      const value = stationPalettes.dark[role];
+      expect(css).toContain(`--su-fixed-dark-${role}: ${value};`);
+      expect(css).toContain(
+        `--su-fixed-dark-${role}-rgb: ${hexToChannels(value)};`,
+      );
     }
   });
 
@@ -249,6 +267,43 @@ describe("colour-blind tone tokens", () => {
   it("leaves the tones on the palette when no mode is active", () => {
     applyThemeToDocument(getTheme("dark"), getAccentPreset("plasma"), "none");
     expect(rootTokens()("--su-danger")).toBe(stationPalettes.dark.danger);
+  });
+});
+
+describe("--su-fixed-dark-* tone triples for .su-fixed-dark", () => {
+  beforeEach(() => {
+    document.documentElement.removeAttribute("style");
+  });
+
+  it("stays on the dark palette's tones regardless of the active theme", () => {
+    // .su-fixed-dark pins its tone roles to these; a pinned SDR/rank-card
+    // subtree must read the dark palette's danger, not Light's, or a fill
+    // (bg-alert-red) and the pinned-dark ink on it (text-su-canvas) come from
+    // different palettes — the bug this token pair exists to fix.
+    applyThemeToDocument(getTheme("light"), getAccentPreset("plasma"));
+    const token = rootTokens();
+    expect(token("--su-fixed-dark-danger")).toBe(stationPalettes.dark.danger);
+    expect(token("--su-fixed-dark-danger-rgb")).toBe(
+      hexToChannels(stationPalettes.dark.danger),
+    );
+    expect(token("--su-fixed-dark-info")).toBe(stationPalettes.dark.info);
+    expect(token("--su-fixed-dark-success")).toBe(stationPalettes.dark.success);
+    expect(token("--su-fixed-dark-warning")).toBe(stationPalettes.dark.warning);
+  });
+
+  it("stays colour-blind-aware even though the theme's own tones are not swapped", () => {
+    applyThemeToDocument(
+      getTheme("light"),
+      getAccentPreset("plasma"),
+      "deuteranopia",
+    );
+    const token = rootTokens();
+    expect(token("--su-fixed-dark-danger")).not.toBe(
+      stationPalettes.dark.danger,
+    );
+    expect(token("--su-fixed-dark-danger")).toBe(
+      stationTokens("dark", DEFAULT_ACCENT_HEX, "deuteranopia")["--su-danger"],
+    );
   });
 });
 

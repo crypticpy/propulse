@@ -263,7 +263,7 @@ export const BzModal: React.FC<BzModalProps> = ({
     >
       <div className="space-y-6">
         {/* Chart */}
-        <div className="bg-void-black/50 rounded-lg p-4 border border-white/5">
+        <div className="bg-void-black/50 rounded-lg p-4 border border-su-line/20">
           <div
             className="relative w-full"
             style={{ aspectRatio: `${chartWidth}/${chartHeight}` }}
@@ -474,8 +474,8 @@ export const BzModal: React.FC<BzModalProps> = ({
         {/* Current Status and Trend */}
         <div className="grid md:grid-cols-2 gap-4">
           {/* Current Status */}
-          <div className="bg-void-black/50 rounded-lg p-4 border border-white/5">
-            <h4 className="text-sm font-mono uppercase tracking-wider text-gray-400 mb-3">
+          <div className="bg-void-black/50 rounded-lg p-4 border border-su-line/20">
+            <h4 className="text-sm font-mono uppercase tracking-wider text-su-muted mb-3">
               Current Status
             </h4>
             <div className="flex items-center gap-4">
@@ -486,12 +486,12 @@ export const BzModal: React.FC<BzModalProps> = ({
                 {currentValue !== null ? `${currentValue.toFixed(1)}` : "N/A"}
               </div>
               <div>
-                <div className="text-white font-medium">
+                <div className="text-su-text font-medium">
                   {currentValue !== null
                     ? `${getBzDescription(currentValue)}`
                     : "No Data"}
                 </div>
-                <div className="text-sm text-gray-400">
+                <div className="text-sm text-su-muted">
                   {currentLevel?.level ?? "Unknown"} IMF
                 </div>
               </div>
@@ -499,8 +499,8 @@ export const BzModal: React.FC<BzModalProps> = ({
           </div>
 
           {/* Trend */}
-          <div className="bg-void-black/50 rounded-lg p-4 border border-white/5">
-            <h4 className="text-sm font-mono uppercase tracking-wider text-gray-400 mb-3">
+          <div className="bg-void-black/50 rounded-lg p-4 border border-su-line/20">
+            <h4 className="text-sm font-mono uppercase tracking-wider text-su-muted mb-3">
               Recent Trend
             </h4>
             <div className="flex items-center gap-4">
@@ -520,14 +520,14 @@ export const BzModal: React.FC<BzModalProps> = ({
                     : "~"}
               </div>
               <div>
-                <div className="text-white font-medium">
+                <div className="text-su-text font-medium">
                   {trendInfo.trend === "improving"
                     ? "Improving"
                     : trendInfo.trend === "worsening"
                       ? "Worsening"
                       : "Stable"}
                 </div>
-                <div className="text-sm text-gray-400">
+                <div className="text-sm text-su-muted">
                   {trendInfo.trend === "improving"
                     ? "Bz trending northward"
                     : trendInfo.trend === "worsening"
@@ -540,8 +540,8 @@ export const BzModal: React.FC<BzModalProps> = ({
         </div>
 
         {/* Bz Level Legend */}
-        <div className="bg-void-black/50 rounded-lg p-4 border border-white/5">
-          <h4 className="text-sm font-mono uppercase tracking-wider text-gray-400 mb-4">
+        <div className="bg-void-black/50 rounded-lg p-4 border border-su-line/20">
+          <h4 className="text-sm font-mono uppercase tracking-wider text-su-muted mb-4">
             IMF Bz Conditions Scale
           </h4>
           <div className="space-y-3">
@@ -550,8 +550,8 @@ export const BzModal: React.FC<BzModalProps> = ({
                 key={level.level}
                 className={`flex items-start gap-3 p-3 rounded-lg transition-colors ${
                   currentLevel?.level === level.level
-                    ? "bg-white/5 border border-white/10"
-                    : "hover:bg-white/[0.02]"
+                    ? "bg-su-line/10 border border-su-line/40"
+                    : "hover:bg-su-line/10"
                 }`}
               >
                 <div
@@ -566,11 +566,11 @@ export const BzModal: React.FC<BzModalProps> = ({
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
-                    <span className="text-white font-medium">
+                    <span className="text-su-text font-medium">
                       {level.level}
                     </span>
                   </div>
-                  <p className="text-sm text-gray-400 mt-1">
+                  <p className="text-sm text-su-muted mt-1">
                     {level.description}
                   </p>
                 </div>
@@ -580,33 +580,33 @@ export const BzModal: React.FC<BzModalProps> = ({
         </div>
 
         {/* Educational Content */}
-        <div className="bg-void-black/50 rounded-lg p-4 border border-white/5">
-          <h4 className="text-sm font-mono uppercase tracking-wider text-gray-400 mb-3">
+        <div className="bg-void-black/50 rounded-lg p-4 border border-su-line/20">
+          <h4 className="text-sm font-mono uppercase tracking-wider text-su-muted mb-3">
             Understanding IMF Bz
           </h4>
-          <div className="space-y-4 text-sm text-gray-300">
+          <div className="space-y-4 text-sm text-su-muted">
             <p>
-              <strong className="text-white">What is Bz?</strong> Bz is the
+              <strong className="text-su-text">What is Bz?</strong> Bz is the
               north-south component of the Interplanetary Magnetic Field (IMF)
               in GSM (Geocentric Solar Magnetospheric) coordinates. It measures
               the direction of the magnetic field carried by the solar wind.
             </p>
             <p>
-              <strong className="text-white">Why does direction matter?</strong>{" "}
+              <strong className="text-su-text">Why does direction matter?</strong>{" "}
               Earth's magnetic field points northward at the dayside
               magnetopause. When the IMF Bz is southward (negative), it can
               reconnect with Earth's field, allowing solar wind energy and
               particles to enter the magnetosphere - like opening a valve.
             </p>
             <p>
-              <strong className="text-white">Impacts on HF radio:</strong>{" "}
+              <strong className="text-su-text">Impacts on HF radio:</strong>{" "}
               Strong southward Bz often precedes geomagnetic storms that can
               disrupt HF propagation, especially on polar and trans-polar paths.
               However, it can also enhance auroral activity, creating
               opportunities for VHF aurora scatter contacts.
             </p>
             <p>
-              <strong className="text-white">Timing:</strong> Solar wind
+              <strong className="text-su-text">Timing:</strong> Solar wind
               measured at the L1 Lagrange point (where DSCOVR/ACE satellites
               orbit) is about 30-60 minutes ahead of reaching Earth (up to
               ~80 minutes in slow solar wind), depending on solar wind speed.
@@ -617,11 +617,11 @@ export const BzModal: React.FC<BzModalProps> = ({
         </div>
 
         {/* Operating Tips */}
-        <div className="bg-void-black/50 rounded-lg p-4 border border-white/5">
-          <h4 className="text-sm font-mono uppercase tracking-wider text-gray-400 mb-3">
+        <div className="bg-void-black/50 rounded-lg p-4 border border-su-line/20">
+          <h4 className="text-sm font-mono uppercase tracking-wider text-su-muted mb-3">
             Operating Tips for Southward Bz
           </h4>
-          <ul className="space-y-2 text-sm text-gray-300">
+          <ul className="space-y-2 text-sm text-su-muted">
             <li className="flex items-start gap-2">
               <span className="text-plasma-orange">1.</span>
               <span>

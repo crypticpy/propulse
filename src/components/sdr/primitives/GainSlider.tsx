@@ -105,7 +105,7 @@ export function GainSlider({
   if (isDiscrete) {
     return (
       <div className="space-y-0.5">
-        <span className={`${cfg.labelText} text-gray-500`}>{displayLabel}</span>
+        <span className={`${cfg.labelText} text-su-muted`}>{displayLabel}</span>
         <div className="flex gap-1">
           {discreteSteps.map((step) => (
             <button
@@ -117,7 +117,7 @@ export function GainSlider({
                 disabled:opacity-40 disabled:cursor-not-allowed ${
                   value === step.value
                     ? `bg-signal-green/15 text-signal-green border-signal-green/30`
-                    : "bg-white/5 text-gray-500 border-white/10 hover:bg-white/10"
+                    : "bg-su-line/10 text-su-muted border-su-line/40 hover:bg-su-line/20"
                 }`}
             >
               {step.label}
@@ -135,8 +135,8 @@ export function GainSlider({
   return (
     <div className="space-y-0.5">
       <div className="flex items-center justify-between">
-        <span className={`${cfg.labelText} text-gray-500`}>{displayLabel}</span>
-        <span className={`${cfg.labelText} text-gray-200 font-mono`}>
+        <span className={`${cfg.labelText} text-su-muted`}>{displayLabel}</span>
+        <span className={`${cfg.labelText} text-su-text font-mono`}>
           {displayValue}
         </span>
       </div>

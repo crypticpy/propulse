@@ -73,7 +73,7 @@ export function FateBottomBar({
     : BAND_COLORS.default;
 
   return (
-    <div className="flex w-full items-center justify-between bg-[#0c0c16] border-t border-white/10 px-3 h-8 shrink-0">
+    <div className="flex w-full items-center justify-between bg-[#0c0c16] border-t border-su-line/40 px-3 h-8 shrink-0">
       {/* Left section: VFO frequency + band pill + connection */}
       <div className="flex items-center gap-2">
         {/* VFO frequency */}
@@ -96,23 +96,23 @@ export function FateBottomBar({
         )}
 
         {/* Separator */}
-        <span className="text-white/10">|</span>
+        <span className="text-su-text/10">|</span>
 
         {/* Connection dot + radio name */}
         <div className="flex items-center gap-1.5">
           <span
             className={`inline-block h-1.5 w-1.5 rounded-full shrink-0 ${
-              daemonConnected ? "bg-signal-green" : "bg-gray-600"
+              daemonConnected ? "bg-signal-green" : "bg-su-line"
             }`}
           />
-          <span className="text-[10px] text-gray-400 truncate max-w-[120px]">
+          <span className="text-[10px] text-su-muted truncate max-w-[120px]">
             {radioName ?? "No Radio"}
           </span>
         </div>
 
         {/* VFO badge */}
         {vfo && (
-          <span className="px-1 py-0.5 text-[9px] font-mono font-semibold rounded bg-white/8 text-gray-300 border border-white/10">
+          <span className="px-1 py-0.5 text-[9px] font-mono font-semibold rounded bg-su-line/20 text-su-muted border border-su-line/40">
             VFO {vfo}
           </span>
         )}
@@ -121,17 +121,17 @@ export function FateBottomBar({
       {/* Center section: Decode stats */}
       <div className="flex items-center gap-2">
         {ft8DecoderEnabled && (
-          <div className="flex items-center gap-1.5 text-[10px] text-gray-400 font-mono">
-            <span className="text-white/60">
+          <div className="flex items-center gap-1.5 text-[10px] text-su-muted font-mono">
+            <span className="text-su-text/80">
               {ft8DecoderStats.totalDecodes}
             </span>
-            <span className="text-white/20">decoded</span>
-            <span className="text-white/10">|</span>
-            <span className="text-white/60">
+            <span className="text-su-text/80">decoded</span>
+            <span className="text-su-text/10">|</span>
+            <span className="text-su-text/80">
               {ft8DecoderStats.lastCycleDecodes}
             </span>
-            <span className="text-white/20">/cycle</span>
-            <span className="text-white/10">|</span>
+            <span className="text-su-text/80">/cycle</span>
+            <span className="text-su-text/10">|</span>
             <span
               className={
                 ft8DecoderStats.workerReady
@@ -148,19 +148,19 @@ export function FateBottomBar({
       {/* Right section: Keyboard hints + TX badge + UTC clock */}
       <div className="flex items-center gap-3">
         {/* Compact keyboard shortcut legend */}
-        <span className="text-[8px] text-gray-600 hidden sm:inline">
+        <span className="text-[8px] text-su-muted hidden sm:inline">
           F1-F11: Bands &middot; Space: Log &middot; C: CQ &middot; D: Decode
         </span>
 
         {/* TX badge */}
         {ptt && (
-          <span className="animate-pulse rounded bg-alert-red px-1.5 py-0.5 text-[10px] font-bold text-white leading-none shadow-[0_0_8px_rgba(255,68,68,0.5)]">
+          <span className="animate-pulse rounded bg-alert-red px-1.5 py-0.5 text-[10px] font-bold text-su-canvas leading-none shadow-[0_0_8px_rgba(255,68,68,0.5)]">
             TX
           </span>
         )}
 
         {/* UTC clock */}
-        <span className="font-mono text-[11px] text-gray-400 tabular-nums">
+        <span className="font-mono text-[11px] text-su-muted tabular-nums">
           {utc}
         </span>
       </div>

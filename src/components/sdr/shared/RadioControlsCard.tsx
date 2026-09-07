@@ -90,12 +90,12 @@ export function RadioControlsCard({
 
   return (
     <Card className="p-4 space-y-3">
-      <div className="text-sm font-semibold text-gray-200">Radio Controls</div>
+      <div className="text-sm font-semibold text-su-text">Radio Controls</div>
 
       {/* ── Frequency input + unit selector + tune ── */}
       <div className="grid grid-cols-3 gap-2 items-end">
         <div className="col-span-2">
-          <label className="block text-xs text-gray-500 mb-1">Frequency</label>
+          <label className="block text-xs text-su-muted mb-1">Frequency</label>
           <input
             type="text"
             value={freqInput}
@@ -104,7 +104,7 @@ export function RadioControlsCard({
               if (e.key === "Enter" && !tuningLocked) onTune();
             }}
             disabled={!canControlConnected || !canTune || tuningLocked}
-            className="w-full px-3 py-2 bg-deep-space border border-white/10 rounded-lg text-white text-sm font-mono"
+            className="w-full px-3 py-2 bg-deep-space border border-su-line/40 rounded-lg text-su-text text-sm font-mono"
           />
           <div className="mt-1 flex gap-1">
             {(["MHz", "kHz", "Hz"] as const).map((u) => (
@@ -116,7 +116,7 @@ export function RadioControlsCard({
                 className={`px-2 py-1 rounded text-[11px] border transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
                   freqUnit === u
                     ? "bg-cosmic-cyan/10 border-cosmic-cyan/30 text-cosmic-cyan"
-                    : "bg-white/5 border-white/10 text-gray-300 hover:bg-white/10"
+                    : "bg-su-line/10 border-su-line/40 text-su-muted hover:bg-su-line/20"
                 }`}
               >
                 {u}
@@ -128,7 +128,7 @@ export function RadioControlsCard({
           type="button"
           onClick={onTune}
           disabled={!canControlConnected || !canTune || tuningLocked}
-          className="px-3 py-2 rounded-lg text-sm font-medium bg-white/5 border border-white/10 text-gray-200 hover:bg-white/10 disabled:opacity-50 disabled:cursor-not-allowed"
+          className="px-3 py-2 rounded-lg text-sm font-medium bg-su-line/10 border border-su-line/40 text-su-text hover:bg-su-line/20 disabled:opacity-50 disabled:cursor-not-allowed"
         >
           Tune
         </button>
@@ -136,12 +136,12 @@ export function RadioControlsCard({
 
       {/* ── Mode selector ── */}
       {canSetMode && (selectedDevice?.capabilities.modes.length ?? 0) > 0 ? <div>
-        <label className="block text-xs text-gray-500 mb-1">Mode</label>
+        <label className="block text-xs text-su-muted mb-1">Mode</label>
         <select
           value={effectiveState?.mode ?? ""}
           onChange={(e) => onModeChange(e.target.value)}
           disabled={!canControlConnected || !selectedDevice || !canSetMode}
-          className="w-full px-3 py-2 bg-deep-space border border-white/10 rounded-lg text-white text-sm"
+          className="w-full px-3 py-2 bg-deep-space border border-su-line/40 rounded-lg text-su-text text-sm"
         >
           {(selectedDevice?.capabilities.modes ?? []).map((m) => (
             <option key={m} value={m}>
@@ -156,7 +156,7 @@ export function RadioControlsCard({
         <div className="space-y-3 pt-1">
           {/* TX / RX */}
           <div className="flex items-center justify-between">
-            <div className="text-xs text-gray-500">Transmit</div>
+            <div className="text-xs text-su-muted">Transmit</div>
             {selectedDevice.capabilities.can_transmit && canPtt ? (
               <button
                 type="button"
@@ -165,14 +165,14 @@ export function RadioControlsCard({
                 className={`px-3 py-1.5 rounded-md text-xs font-semibold border transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
                   effectiveState.ptt
                     ? "bg-alert-red/20 border-alert-red/40 text-alert-red"
-                    : "bg-white/5 border-white/10 text-gray-200 hover:bg-white/10"
+                    : "bg-su-line/10 border-su-line/40 text-su-text hover:bg-su-line/20"
                 }`}
                 aria-pressed={!!effectiveState.ptt}
               >
                 {effectiveState.ptt ? "PTT ON" : "PTT"}
               </button>
             ) : (
-              <span className="text-[11px] px-2 py-1 rounded border border-white/10 bg-white/5 text-gray-400">
+              <span className="text-[11px] px-2 py-1 rounded border border-su-line/40 bg-su-line/10 text-su-muted">
                 RX Only
               </span>
             )}
@@ -180,7 +180,7 @@ export function RadioControlsCard({
 
           {/* AGC */}
           {canAgc ? <div className="flex items-center justify-between">
-            <div className="text-xs text-gray-500">AGC</div>
+            <div className="text-xs text-su-muted">AGC</div>
             <button
               type="button"
               onClick={() => onAgcToggle(!effectiveState.agc)}
@@ -188,7 +188,7 @@ export function RadioControlsCard({
               className={`px-3 py-1.5 rounded-md text-xs font-semibold border transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
                 effectiveState.agc
                   ? "bg-signal-green/10 border-signal-green/30 text-signal-green"
-                  : "bg-white/5 border-white/10 text-gray-200 hover:bg-white/10"
+                  : "bg-su-line/10 border-su-line/40 text-su-text hover:bg-su-line/20"
               }`}
               aria-pressed={effectiveState.agc}
             >
@@ -199,14 +199,14 @@ export function RadioControlsCard({
           {/* Antenna */}
           {canAntenna && selectedDevice.capabilities.antennas.length > 1 ? (
             <div>
-              <label className="block text-xs text-gray-500 mb-1">
+              <label className="block text-xs text-su-muted mb-1">
                 Antenna
               </label>
               <select
                 value={effectiveState.antenna ?? ""}
                 onChange={(e) => onAntennaChange(e.target.value)}
                 disabled={!canControlConnected}
-                className="w-full px-3 py-2 bg-deep-space border border-white/10 rounded-lg text-white text-sm"
+                className="w-full px-3 py-2 bg-deep-space border border-su-line/40 rounded-lg text-su-text text-sm"
               >
                 {selectedDevice.capabilities.antennas.map((a) => (
                   <option key={a} value={a}>
@@ -220,14 +220,14 @@ export function RadioControlsCard({
           {/* Gain stages */}
           {canGain && selectedDevice.capabilities.gain_stages.length > 0 ? (
             <div className="space-y-2">
-              <div className="text-xs font-semibold text-gray-200">Gain</div>
+              <div className="text-xs font-semibold text-su-text">Gain</div>
               {selectedDevice.capabilities.gain_stages.map((st) => {
                 const value = effectiveState.gains?.[st.name] ?? st.min;
                 return (
                   <div key={st.name} className="space-y-1">
-                    <div className="flex items-center justify-between text-xs text-gray-500">
+                    <div className="flex items-center justify-between text-xs text-su-muted">
                       <span>{st.label ?? st.name}</span>
-                      <span className="text-gray-200 font-mono">
+                      <span className="text-su-text font-mono">
                         {Number.isFinite(value)
                           ? st.max <= 1
                             ? Math.round(value * 100) + "%"
@@ -256,13 +256,13 @@ export function RadioControlsCard({
           {/* DSP controls only when the device can stream audio (SDR) */}
           {canFilter || canNr || canNb ? (
             <div className="space-y-2">
-              <div className="text-xs font-semibold text-gray-200">DSP</div>
+              <div className="text-xs font-semibold text-su-text">DSP</div>
 
               {/* Filter */}
               {canFilter ? <div className="space-y-1">
-                <div className="flex items-center justify-between text-xs text-gray-500">
+                <div className="flex items-center justify-between text-xs text-su-muted">
                   <span>Filter</span>
-                  <span className="text-gray-200 font-mono">
+                  <span className="text-su-text font-mono">
                     {(effectiveState.filter?.low ?? 300).toFixed(0)}&ndash;
                     {(effectiveState.filter?.high ?? 2700).toFixed(0)} Hz
                   </span>
@@ -305,7 +305,7 @@ export function RadioControlsCard({
 
               {/* NR */}
               {canNr ? <div className="space-y-1">
-                <div className="flex items-center justify-between text-xs text-gray-500">
+                <div className="flex items-center justify-between text-xs text-su-muted">
                   <span>NR</span>
                   <button
                     type="button"
@@ -319,7 +319,7 @@ export function RadioControlsCard({
                     className={`px-2 py-1 rounded border text-[11px] disabled:opacity-50 disabled:cursor-not-allowed ${
                       effectiveState.nr?.enabled
                         ? "bg-signal-green/10 border-signal-green/30 text-signal-green"
-                        : "bg-white/5 border-white/10 text-gray-300 hover:bg-white/10"
+                        : "bg-su-line/10 border-su-line/40 text-su-muted hover:bg-su-line/20"
                     }`}
                     aria-pressed={effectiveState.nr?.enabled ?? false}
                   >
@@ -350,7 +350,7 @@ export function RadioControlsCard({
 
               {/* NB */}
               {canNb ? <div className="space-y-1">
-                <div className="flex items-center justify-between text-xs text-gray-500">
+                <div className="flex items-center justify-between text-xs text-su-muted">
                   <span>NB</span>
                   <button
                     type="button"
@@ -364,7 +364,7 @@ export function RadioControlsCard({
                     className={`px-2 py-1 rounded border text-[11px] disabled:opacity-50 disabled:cursor-not-allowed ${
                       effectiveState.nb?.enabled
                         ? "bg-signal-green/10 border-signal-green/30 text-signal-green"
-                        : "bg-white/5 border-white/10 text-gray-300 hover:bg-white/10"
+                        : "bg-su-line/10 border-su-line/40 text-su-muted hover:bg-su-line/20"
                     }`}
                     aria-pressed={effectiveState.nb?.enabled ?? false}
                   >
@@ -398,9 +398,9 @@ export function RadioControlsCard({
       )}
 
       {/* ── S-meter ── */}
-      <div className="flex justify-between text-xs text-gray-500">
+      <div className="flex justify-between text-xs text-su-muted">
         <span>S-meter</span>
-        <span className="text-gray-300 font-mono">
+        <span className="text-su-muted font-mono">
           {smeterDbm !== undefined ? `${smeterDbm.toFixed(1)} dBm` : "\u2014"}
         </span>
       </div>
@@ -414,7 +414,7 @@ export function RadioControlsCard({
           className={`px-3 py-2 rounded-lg text-sm font-medium border transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
             fftEnabled
               ? "bg-signal-green/10 border-signal-green/30 text-signal-green hover:bg-signal-green/20"
-              : "bg-white/5 border-white/10 text-gray-200 hover:bg-white/10"
+              : "bg-su-line/10 border-su-line/40 text-su-text hover:bg-su-line/20"
           }`}
         >
           {canStreamFft ? (fftEnabled ? "Stop FFT" : "Start FFT") : "FFT N/A"}
@@ -426,7 +426,7 @@ export function RadioControlsCard({
           className={`px-3 py-2 rounded-lg text-sm font-medium border transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
             audioEnabled
               ? "bg-plasma-orange/10 border-plasma-orange/30 text-plasma-orange hover:bg-plasma-orange/20"
-              : "bg-white/5 border-white/10 text-gray-200 hover:bg-white/10"
+              : "bg-su-line/10 border-su-line/40 text-su-text hover:bg-su-line/20"
           }`}
         >
           {canStreamAudio

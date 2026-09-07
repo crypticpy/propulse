@@ -194,6 +194,28 @@ export function applyThemeToDocument(
     root.style.setProperty(name, value);
   }
 
+  // The dark palette's colour-blind-aware tone triples, always emitted
+  // regardless of the active theme: `.su-fixed-dark` (globals.css) reads
+  // these to pin its tone roles alongside the neutrals it already pins, so a
+  // fill like `bg-alert-red` and an ink like `text-su-canvas` inside a pinned
+  // SDR/rank-card subtree always come from the same (dark) palette instead of
+  // the active one — see the contrast bug this fixes in stationTokens.test.ts.
+  const fixedDarkTones = stationTokens(
+    "dark",
+    DEFAULT_ACCENT_HEX,
+    colorBlindMode,
+  );
+  for (const role of ["info", "success", "warning", "danger"] as const) {
+    root.style.setProperty(
+      `--su-fixed-dark-${role}`,
+      fixedDarkTones[`--su-${role}`],
+    );
+    root.style.setProperty(
+      `--su-fixed-dark-${role}-rgb`,
+      fixedDarkTones[`--su-${role}-rgb`],
+    );
+  }
+
   root.classList.toggle("dark", theme.isDark);
   root.classList.toggle("light", !theme.isDark);
 }

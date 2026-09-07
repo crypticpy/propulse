@@ -129,14 +129,15 @@ describe("Solar Pulse structural snapshot (DS-03 retheme)", () => {
     expect(structure(container.innerHTML)).toMatchSnapshot();
   });
 
-  it("WidgetShell: stale banner above the retained reading", () => {
+  it("WidgetShell: stale reason below the retained reading", () => {
     const { container, queryByRole } = render(
       <WidgetShell title="Solar flux" state="stale" onRetry={() => {}}>
         <p>—</p>
       </WidgetShell>,
     );
     // `showFallback` is only reached from loading/error/unavailable, so a
-    // stale widget keeps its last reading and shows the banner instead.
+    // stale widget keeps its last reading and states the reason underneath
+    // it (DS-04 moved that line out of the flow above the reading).
     expect(queryByRole("button", { name: "Try again" })).toBeNull();
     expect(structure(container.innerHTML)).toMatchSnapshot();
   });

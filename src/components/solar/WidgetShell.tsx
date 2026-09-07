@@ -88,16 +88,25 @@ export function WidgetShell({
   const showFallback = !hasData && ["loading", "error", "unavailable"].includes(state);
   // DS-04: stale/partial notices used to render as a banner between the
   // header and the body, pushing the reading down by a variable amount. The
-  // full text now lives on the chip (title + a visually hidden
-  // aria-describedby target); only a short, fixed line survives in the
-  // footer so every card's body starts at the same offset.
+  // notice now sits in the footer, below the reading, so every card's body
+  // starts at the same offset. Only the compact key-readings cards — the
+  // four NOAA SWPC readings, which must share one anatomy so their charts
+  // line up — condense it to a fixed one-line summary and carry the full
+  // reason on the chip (title + a visually hidden aria-describedby target).
+  // Every other shell (NASA DONKI CME, the NOAA probability window, the
+  // history cards) keeps its own source-specific reason visible.
   const noticeText =
     state === "stale"
       ? (staleMessage ?? "This reading is older than expected. Propulse checks for updates automatically.")
       : state === "partial"
         ? (partialMessage ?? "Some sources have not updated yet. The reading below uses the available data.")
         : null;
-  const footerNotice = noticeText ? "Delayed: waiting for fresh NOAA data" : null;
+  const chipNotice = compact ? noticeText : null;
+  const footerNotice = noticeText
+    ? compact
+      ? "Delayed: waiting for fresh NOAA data"
+      : noticeText
+    : null;
 
   return (
     <section
@@ -147,15 +156,15 @@ export function WidgetShell({
             className={`inline-flex items-center gap-1.5 rounded-md px-1.5 py-0.5 text-[10px] font-medium ${stateStyle[state]}`}
             role="status"
             aria-live="polite"
-            title={noticeText ?? undefined}
+            title={chipNotice ?? undefined}
             aria-describedby={noticeText ? noticeId : undefined}
           >
             <span aria-hidden="true">{state === "fresh" ? "●" : state === "refreshing" ? "↻" : "◇"}</span>
             {stateLabel[state]}
           </span>
-          {noticeText && (
+          {chipNotice && (
             <span id={noticeId} className="sr-only">
-              {noticeText}
+              {chipNotice}
             </span>
           )}
         </div>
@@ -192,7 +201,11 @@ export function WidgetShell({
       </div>
       {(footerNotice || action) && (
         <div className={`flex items-center gap-2 px-4 pb-3 ${footerNotice ? "justify-between" : "justify-end"}`}>
-          {footerNotice && <p className="text-[11px] leading-4 text-su-muted">{footerNotice}</p>}
+          {footerNotice && (
+            <p id={compact ? undefined : noticeId} className="text-[11px] leading-4 text-su-muted">
+              {footerNotice}
+            </p>
+          )}
           {action}
         </div>
       )}

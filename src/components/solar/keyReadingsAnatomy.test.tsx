@@ -3,41 +3,48 @@ import { describe, expect, it } from "vitest";
 import { WidgetShell } from "./WidgetShell";
 import { SolarMiniChart } from "./SolarMiniChart";
 import { MetricValue } from "@/pages/SolarPulse";
+import type { SolarChartPoint } from "./SolarSeriesChart";
 
 /**
  * DS-04: the four Solar Pulse key-readings cards (Kp, SFI, Bz, X-ray) must
  * keep the same card anatomy — header, hero, a fixed two-line note slot, a
- * fixed 96px chart, footer — no matter how much note text a metric/state
- * combination produces, and no matter whether the card is stale/delayed.
- * These tests exercise that anatomy directly through WidgetShell +
- * MetricValue + SolarMiniChart (the same pieces SolarPulse.tsx composes for
- * the key-readings grid) without standing up the whole page and its data
- * hooks.
+ * plot area with the same floor, footer — no matter how much note text a
+ * metric/state combination produces, whether the card is stale/delayed, and
+ * whether its feed has enough points to draw. These tests exercise that
+ * anatomy directly through WidgetShell + MetricValue + SolarMiniChart (the
+ * same pieces SolarPulse.tsx composes for the key-readings grid) without
+ * standing up the whole page and its data hooks. The last block guards the
+ * other direction: the shared pieces must keep their full text when they are
+ * used outside the key-readings grid.
  */
+const POINTS: SolarChartPoint[] = [
+  { timestamp: "2026-09-05T09:00:00Z", value: 3, kind: "observed" },
+  { timestamp: "2026-09-05T12:00:00Z", value: 5, kind: "observed" },
+];
+
 function KeyReadingCard({
   title,
   state,
   note,
+  points = POINTS,
 }: {
   title: string;
   state: "fresh" | "stale" | "partial";
   note: string;
+  points?: SolarChartPoint[];
 }) {
   return (
     <WidgetShell compact title={title} state={state} action={<button type="button">Explain</button>}>
-      <MetricValue value="3.2" unit="Kp" note={note} tone="cyan" />
+      <MetricValue keyReading value="3.2" unit="Kp" note={note} tone="cyan" />
       <SolarMiniChart
         label={`Recent ${title} intervals`}
-        points={[
-          { timestamp: "2026-09-05T09:00:00Z", value: 3, kind: "observed" },
-          { timestamp: "2026-09-05T12:00:00Z", value: 5, kind: "observed" },
-        ]}
+        points={points}
         unit="Kp"
         min={0}
         max={9}
         intervalMs={10_800_000}
         maxGapMs={10_800_000}
-        height={96}
+        minPlotHeight={96}
       />
     </WidgetShell>
   );
@@ -63,14 +70,32 @@ describe("Solar Pulse key-readings card anatomy (DS-04)", () => {
   });
 
   it.each(["fresh", "stale", "partial"] as const)(
-    "gives the chart a fixed 96px height in every state (%s)",
+    "gives the plot the same 96px floor in every state (%s)",
     (state) => {
       const { container } = render(<KeyReadingCard title="Planetary Kp" state={state} note={SHORT_NOTE} />);
-      const figure = container.querySelector("figure");
-      expect(figure).not.toBeNull();
-      expect(figure?.style.height).toBe("96px");
+      const plot = container.querySelector("svg");
+      expect(plot).not.toBeNull();
+      expect(plot?.style.minHeight).toBe("96px");
+      // The plot keeps its own aspect ratio: no fixed height that would make
+      // preserveAspectRatio letterbox the drawing inside the card.
+      expect(plot?.style.height).toBe("");
+      expect(plot?.getAttribute("viewBox")).toBe("0 0 300 88");
     },
   );
+
+  it("reserves the same plot slot when a feed has too few points to draw", () => {
+    const { container } = render(
+      <KeyReadingCard title="Planetary Kp" state="fresh" note={SHORT_NOTE} points={[]} />,
+    );
+    expect(container.querySelector("svg")).toBeNull();
+    const figure = container.querySelector("figure");
+    expect(figure).not.toBeNull();
+    // Same chrome as a drawn chart: caption, plot box, axis caption.
+    expect(figure?.querySelector("figcaption")?.textContent).toContain("Recent Planetary Kp intervals");
+    const placeholder = screen.getByText("Waiting for more readings.");
+    expect(placeholder.style.minHeight).toBe("96px");
+    expect(figure?.textContent).toContain("Kp · UTC");
+  });
 
   it.each(["stale", "partial"] as const)(
     "moves the %s notice off the hero flow: no banner precedes the hero, and the chip carries the notice",
@@ -112,5 +137,43 @@ describe("Solar Pulse key-readings card anatomy (DS-04)", () => {
     expect(container.querySelector(".sr-only")).toBeNull();
     expect(screen.queryByText("Delayed: waiting for fresh NOAA data")).toBeNull();
     expect(screen.getByRole("status").getAttribute("title")).toBeNull();
+  });
+});
+
+describe("DS-04 anatomy stays opt-in for the other Solar Pulse cards", () => {
+  it("keeps the full note visible for a non key-reading metric", () => {
+    render(<MetricValue value="-42" unit="nT" note={LONG_NOTE} tone="cyan" />);
+    const notePara = screen.getByText(LONG_NOTE, { exact: false });
+    expect(notePara.className).not.toContain("line-clamp-2");
+    expect(notePara.className).not.toContain("min-h-12");
+  });
+
+  it("keeps a non-compact shell's own stale reason visible instead of the NOAA summary", () => {
+    render(
+      <WidgetShell
+        title="Recent CME analyses"
+        state="stale"
+        provider="NASA DONKI"
+        staleMessage="No new DONKI analysis has arrived. The event set below is the last one published."
+      >
+        <p>3 events</p>
+      </WidgetShell>,
+    );
+    const notice = screen.getByText(/No new DONKI analysis has arrived/i);
+    expect(notice).not.toBeNull();
+    expect(screen.queryByText("Delayed: waiting for fresh NOAA data")).toBeNull();
+    // The visible line is what the chip points at — the reason is never
+    // duplicated into a hidden node.
+    expect(screen.getByRole("status").getAttribute("aria-describedby")).toBe(notice.id);
+    expect(document.querySelector(".sr-only")).toBeNull();
+  });
+
+  it("leaves the mini chart's width-driven height alone when no floor is requested", () => {
+    const { container } = render(
+      <SolarMiniChart label="Recent solar flux" points={POINTS} unit="sfu" maxGapMs={129_600_000} />,
+    );
+    const plot = container.querySelector("svg");
+    expect(plot?.style.minHeight).toBe("");
+    expect(plot?.style.height).toBe("");
   });
 });

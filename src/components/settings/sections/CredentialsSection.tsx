@@ -370,7 +370,7 @@ export function CredentialsSection() {
     return (
       <div className="flex items-center justify-center py-12">
         <svg
-          className="w-5 h-5 animate-spin text-gray-500"
+          className="w-5 h-5 animate-spin text-su-muted"
           fill="none"
           viewBox="0 0 24 24"
         >
@@ -395,7 +395,7 @@ export function CredentialsSection() {
   return (
     <div className="space-y-6">
       {/* Vault status bar */}
-      <div className="flex items-center justify-between px-4 py-3 rounded-lg bg-white/5 border border-white/10">
+      <div className="flex items-center justify-between px-4 py-3 rounded-lg bg-su-line/10 border border-su-line/40">
         <div className="flex items-center gap-3">
           {/* Lock/Unlock icon */}
           <div
@@ -404,7 +404,7 @@ export function CredentialsSection() {
                 ? "bg-signal-green/20"
                 : vaultSetup
                   ? "bg-caution-amber/20"
-                  : "bg-white/10"
+                  : "bg-su-line/20"
             }`}
           >
             {vaultUnlocked ? (
@@ -423,7 +423,7 @@ export function CredentialsSection() {
               </svg>
             ) : (
               <svg
-                className={`w-4 h-4 ${vaultSetup ? "text-caution-amber" : "text-gray-500"}`}
+                className={`w-4 h-4 ${vaultSetup ? "text-caution-amber" : "text-su-muted"}`}
                 fill="none"
                 stroke="currentColor"
                 viewBox="0 0 24 24"
@@ -439,14 +439,14 @@ export function CredentialsSection() {
           </div>
 
           <div>
-            <p className="text-sm font-medium text-gray-200">
+            <p className="text-sm font-medium text-su-text">
               {vaultUnlocked
                 ? "Vault Unlocked"
                 : vaultSetup
                   ? "Vault Locked"
                   : "Vault Not Configured"}
             </p>
-            <p className="text-xs text-gray-500">
+            <p className="text-xs text-su-muted">
               {vaultUnlocked
                 ? `${storedServices.length} service${storedServices.length !== 1 ? "s" : ""} stored`
                 : vaultSetup
@@ -462,8 +462,8 @@ export function CredentialsSection() {
               type="button"
               onClick={handleLockNow}
               className="px-3 py-1.5 rounded-lg text-xs font-medium
-                bg-white/5 text-gray-300 border border-white/10
-                hover:bg-white/10 transition-colors"
+                bg-su-line/10 text-su-muted border border-su-line/40
+                hover:bg-su-line/20 transition-colors"
             >
               Lock Now
             </button>
@@ -501,7 +501,7 @@ export function CredentialsSection() {
             <p className="text-sm font-medium text-caution-amber">
               Unencrypted credentials detected
             </p>
-            <p className="text-xs text-gray-400 mt-1">
+            <p className="text-xs text-su-muted mt-1">
               You have service credentials stored in plaintext. Set up a
               passphrase to migrate them to the encrypted vault.
             </p>
@@ -519,7 +519,7 @@ export function CredentialsSection() {
           return (
             <div
               key={service.id}
-              className="rounded-lg border border-white/10 bg-white/[0.02] overflow-hidden"
+              className="rounded-lg border border-su-line/40 bg-su-line/10 overflow-hidden"
             >
               {/* Service header */}
               <div className="flex items-center justify-between px-4 py-3">
@@ -527,7 +527,7 @@ export function CredentialsSection() {
                   <ServiceIcon serviceId={service.id} />
                   <div className="min-w-0">
                     <div className="flex items-center gap-2">
-                      <h4 className="text-sm font-medium text-gray-200 truncate">
+                      <h4 className="text-sm font-medium text-su-text truncate">
                         {service.label}
                       </h4>
                       {isStored && (
@@ -541,7 +541,7 @@ export function CredentialsSection() {
                         </span>
                       )}
                     </div>
-                    <p className="text-xs text-gray-500 truncate">
+                    <p className="text-xs text-su-muted truncate">
                       {service.description}
                     </p>
                   </div>
@@ -557,9 +557,9 @@ export function CredentialsSection() {
                       ${
                         vaultUnlocked
                           ? isStored
-                            ? "bg-white/5 text-gray-300 border border-white/10 hover:bg-white/10"
+                            ? "bg-su-line/10 text-su-muted border border-su-line/40 hover:bg-su-line/20"
                             : "bg-plasma-orange/15 text-plasma-orange border border-plasma-orange/25 hover:bg-plasma-orange/25"
-                          : "bg-white/5 text-gray-600 border border-white/5 cursor-not-allowed"
+                          : "bg-su-line/10 text-su-muted border border-su-line/20 cursor-not-allowed"
                       }`}
                   >
                     {isStored ? "Edit" : "Add"}
@@ -569,7 +569,7 @@ export function CredentialsSection() {
 
               {/* Inline credential form (when editing) */}
               {isEditing && form && (
-                <div className="px-4 pb-4 pt-1 border-t border-white/5 space-y-3">
+                <div className="px-4 pb-4 pt-1 border-t border-su-line/20 space-y-3">
                   {service.fields.map((field) => {
                     const value =
                       field.key === "username" ? form.username : form.password;
@@ -578,7 +578,7 @@ export function CredentialsSection() {
 
                     return (
                       <div key={field.key}>
-                        <label className="block text-xs font-medium text-gray-400 mb-1">
+                        <label className="block text-xs font-medium text-su-muted mb-1">
                           {field.label}
                         </label>
                         <div className="relative">
@@ -598,8 +598,8 @@ export function CredentialsSection() {
                                 e.target.value,
                               )
                             }
-                            className="w-full px-3 py-2 pr-10 rounded-lg bg-white/5 border border-white/10
-                              text-white placeholder-gray-600 text-sm
+                            className="w-full px-3 py-2 pr-10 rounded-lg bg-su-line/10 border border-su-line/40
+                              text-su-text placeholder:text-su-muted/80 text-sm
                               focus:outline-none focus:border-plasma-orange/50 focus:ring-1 focus:ring-plasma-orange/30
                               transition-colors"
                             placeholder={`Enter ${field.label.toLowerCase()}...`}
@@ -610,7 +610,7 @@ export function CredentialsSection() {
                             <button
                               type="button"
                               onClick={() => toggleShowPassword(service.id)}
-                              className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-gray-400 hover:text-white transition-colors"
+                              className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-su-muted hover:text-su-text transition-colors"
                               aria-label={
                                 showPw ? "Hide password" : "Show password"
                               }
@@ -633,7 +633,7 @@ export function CredentialsSection() {
                         form.saving || (!form.username && !form.password)
                       }
                       className="px-3 py-1.5 rounded-lg text-xs font-medium transition-colors
-                        bg-plasma-orange text-black
+                        bg-plasma-orange text-su-on-accent
                         hover:bg-plasma-orange/90
                         disabled:opacity-40 disabled:cursor-not-allowed"
                     >
@@ -643,8 +643,8 @@ export function CredentialsSection() {
                       type="button"
                       onClick={() => handleCancelEdit(service.id)}
                       className="px-3 py-1.5 rounded-lg text-xs font-medium
-                        bg-white/5 text-gray-400 border border-white/10
-                        hover:bg-white/10 transition-colors"
+                        bg-su-line/10 text-su-muted border border-su-line/40
+                        hover:bg-su-line/20 transition-colors"
                       disabled={form.saving}
                     >
                       Cancel
@@ -671,10 +671,10 @@ export function CredentialsSection() {
       </div>
 
       {/* Security note */}
-      <div className="px-4 py-3 rounded-lg bg-white/[0.02] border border-white/5">
+      <div className="px-4 py-3 rounded-lg bg-su-line/10 border border-su-line/20">
         <div className="flex items-start gap-2">
           <svg
-            className="w-4 h-4 text-gray-600 flex-shrink-0 mt-0.5"
+            className="w-4 h-4 text-su-muted flex-shrink-0 mt-0.5"
             fill="none"
             stroke="currentColor"
             viewBox="0 0 24 24"
@@ -686,7 +686,7 @@ export function CredentialsSection() {
               d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
             />
           </svg>
-          <p className="text-xs text-gray-500 leading-relaxed">
+          <p className="text-xs text-su-muted leading-relaxed">
             Credentials are encrypted with AES-256-GCM and stored in a separate
             local database. Your passphrase is never stored or transmitted. The
             vault auto-locks after 30 minutes of inactivity.
@@ -727,7 +727,7 @@ function ServiceIcon({ serviceId }: { serviceId: string }) {
 
   return (
     <div
-      className={`flex-shrink-0 w-8 h-8 rounded-lg flex items-center justify-center text-xs font-bold ${colors[serviceId] ?? "bg-white/10 text-gray-400"}`}
+      className={`flex-shrink-0 w-8 h-8 rounded-lg flex items-center justify-center text-xs font-bold ${colors[serviceId] ?? "bg-su-line/20 text-su-muted"}`}
     >
       {labels[serviceId] ?? "??"}
     </div>

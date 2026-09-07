@@ -568,13 +568,13 @@ export function EquipmentCard({
           </div>
 
           {/* Title */}
-          <h3 className="text-base font-bold text-white leading-tight truncate mt-0.5">
+          <h3 className="text-base font-bold text-su-text leading-tight truncate mt-0.5">
             {title}
           </h3>
 
           {/* Subtitle */}
           {subtitle && (
-            <p className="text-xs text-gray-400 truncate leading-tight mt-0.5">
+            <p className="text-xs text-su-muted truncate leading-tight mt-0.5">
               {subtitle}
             </p>
           )}
@@ -594,7 +594,7 @@ export function EquipmentCard({
                 e.stopPropagation();
                 setFlipped((value) => !value);
               }}
-              className="p-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white transition-colors min-h-[28px] min-w-[28px] flex items-center justify-center opacity-100"
+              className="p-1.5 rounded-lg bg-su-line/10 hover:bg-su-line/20 text-su-muted hover:text-su-text transition-colors min-h-[28px] min-w-[28px] flex items-center justify-center opacity-100"
               aria-label={flipped ? `Show front of ${title}` : `Flip ${title}`}
               title="Flip card"
             >
@@ -616,7 +616,7 @@ export function EquipmentCard({
                   e.stopPropagation();
                   onEdit();
                 }}
-                className="p-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white transition-colors min-h-[28px] min-w-[28px] flex items-center justify-center"
+                className="p-1.5 rounded-lg bg-su-line/10 hover:bg-su-line/20 text-su-muted hover:text-su-text transition-colors min-h-[28px] min-w-[28px] flex items-center justify-center"
                 aria-label={`Edit ${title}`}
                 title="Edit"
               >
@@ -630,7 +630,7 @@ export function EquipmentCard({
                   e.stopPropagation();
                   onDuplicate();
                 }}
-                className="p-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white transition-colors min-h-[28px] min-w-[28px] flex items-center justify-center"
+                className="p-1.5 rounded-lg bg-su-line/10 hover:bg-su-line/20 text-su-muted hover:text-su-text transition-colors min-h-[28px] min-w-[28px] flex items-center justify-center"
                 aria-label={`${duplicateLabel} ${title}`}
                 title={duplicateLabel}
               >
@@ -644,7 +644,7 @@ export function EquipmentCard({
                   e.stopPropagation();
                   onDelete();
                 }}
-                className="p-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-gray-400 hover:text-alert-red transition-colors min-h-[28px] min-w-[28px] flex items-center justify-center"
+                className="p-1.5 rounded-lg bg-su-line/10 hover:bg-su-line/20 text-su-muted hover:text-alert-red transition-colors min-h-[28px] min-w-[28px] flex items-center justify-center"
                 aria-label={`Delete ${title}`}
                 title="Delete"
               >
@@ -682,9 +682,9 @@ export function EquipmentCard({
                   {displayStats?.map((stat) => (
                     <div
                       key={stat.label}
-                      className="flex items-center justify-between text-[11px] text-gray-300"
+                      className="flex items-center justify-between text-[11px] text-su-muted"
                     >
-                      <span className="text-gray-500">{stat.label}</span>
+                      <span className="text-su-muted">{stat.label}</span>
                       <span className="font-mono">{stat.value}</span>
                     </div>
                   ))}
@@ -698,7 +698,7 @@ export function EquipmentCard({
                       {historyLines.map((line) => (
                         <li
                           key={line}
-                          className="text-[10px] text-gray-500 truncate"
+                          className="text-[10px] text-su-muted truncate"
                         >
                           {line}
                         </li>
@@ -708,7 +708,7 @@ export function EquipmentCard({
                   {(!displayStats || displayStats.length === 0) &&
                     historyLines.length === 0 &&
                     qsoCount === 0 && (
-                      <p className="text-[11px] text-gray-500">
+                      <p className="text-[11px] text-su-muted">
                         No logged history yet
                       </p>
                     )}
@@ -763,13 +763,13 @@ export function EquipmentCard({
               )}
               {/* Photo count badge */}
               {galleryImageIds && galleryImageIds.length > 0 && (
-                <div className="absolute bottom-1.5 right-1.5 z-[3] bg-black/60 backdrop-blur-sm rounded-full px-1.5 py-0.5 flex items-center gap-1">
+                <div className="absolute bottom-1.5 right-1.5 z-[3] bg-su-panel/60 backdrop-blur-sm rounded-full px-1.5 py-0.5 flex items-center gap-1">
                   <svg
                     viewBox="0 0 16 16"
                     fill="none"
                     stroke="currentColor"
                     strokeWidth={1.5}
-                    className="w-2.5 h-2.5 text-white/70"
+                    className="w-2.5 h-2.5 text-su-text/70"
                     aria-hidden="true"
                   >
                     <path
@@ -779,7 +779,7 @@ export function EquipmentCard({
                     />
                     <circle cx={8} cy={8.5} r={2.5} />
                   </svg>
-                  <span className="text-[10px] font-mono text-white/70">
+                  <span className="text-[10px] font-mono text-su-text/70">
                     {1 + galleryImageIds.length}
                   </span>
                 </div>
@@ -811,16 +811,16 @@ export function EquipmentCard({
                 key={`${stat.icon}-${stat.label}-${i}`}
                 className="flex flex-col items-center gap-0.5 min-w-0 px-0.5"
               >
-                <span className="text-gray-500">
+                <span className="text-su-muted">
                   <StatIconSvg icon={stat.icon} />
                 </span>
-                <span className="text-xs sm:text-sm font-mono font-bold text-gray-100">
+                <span className="text-xs sm:text-sm font-mono font-bold text-su-text">
                   <StatCountUp
                     value={stat.value}
                     enabled={rankState.hasStatCountUp}
                   />
                 </span>
-                <span className="text-[9px] sm:text-[10px] text-gray-500 truncate max-w-[60px] text-center">
+                <span className="text-[9px] sm:text-[10px] text-su-muted truncate max-w-[60px] text-center">
                   {stat.label}
                 </span>
               </div>
@@ -901,13 +901,13 @@ export function EquipmentCard({
                   }}
                   className={[
                     "relative w-9 h-5 rounded-full transition-colors",
-                    isActive ? "bg-signal-green" : "bg-gray-700",
+                    isActive ? "bg-signal-green" : "bg-su-input",
                     isActive ? "shadow-[0_0_10px_rgba(34,197,94,0.4)]" : "",
                   ].join(" ")}
                 >
                   <span
                     className={[
-                      "absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white transition-transform",
+                      "absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-su-text transition-transform",
                       isActive ? "translate-x-4" : "translate-x-0",
                     ].join(" ")}
                   />
@@ -915,7 +915,7 @@ export function EquipmentCard({
                 <span
                   className={[
                     "text-[10px] font-semibold uppercase tracking-wider",
-                    isActive ? "text-signal-green" : "text-gray-500",
+                    isActive ? "text-signal-green" : "text-su-muted",
                   ].join(" ")}
                 >
                   {isActive ? "Active" : "Standby"}
@@ -925,7 +925,7 @@ export function EquipmentCard({
 
             {/* Expand hint */}
             {onClick && (
-              <span className="text-gray-500 opacity-0 group-hover:opacity-30 transition-opacity mb-1">
+              <span className="text-su-muted opacity-0 group-hover:opacity-30 transition-opacity mb-1">
                 <ExpandHintIcon />
               </span>
             )}

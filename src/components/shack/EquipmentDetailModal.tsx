@@ -77,12 +77,12 @@ function FieldCell({ field }: { field: EquipmentDetailField }) {
 
   return (
     <div className="min-w-0">
-      <dt className="text-[10px] font-medium uppercase tracking-wider text-gray-500">
+      <dt className="text-[10px] font-medium uppercase tracking-wider text-su-muted">
         {field.label}
       </dt>
       <dd
         className={`mt-0.5 text-sm truncate ${
-          numeric ? "font-mono font-bold text-white" : "font-mono text-white"
+          numeric ? "font-mono font-bold text-su-text" : "font-mono text-su-text"
         }`}
       >
         {formatted}
@@ -97,7 +97,7 @@ function GroupSection({ group }: { group: EquipmentDetailGroup }) {
 
   return (
     <div className="px-5 py-3">
-      <h3 className="text-[11px] font-semibold uppercase tracking-wider text-gray-500 pb-2 mb-2.5 border-b border-white/5">
+      <h3 className="text-[11px] font-semibold uppercase tracking-wider text-su-muted pb-2 mb-2.5 border-b border-su-line/20">
         {group.heading}
       </h3>
       <dl className={`grid ${cols} gap-x-6 gap-y-2.5`}>
@@ -176,13 +176,13 @@ export function EquipmentDetailModal({
     <div className="fixed inset-0 z-[400] flex items-center justify-center p-4">
       {/* Backdrop */}
       <div
-        className="absolute inset-0 bg-black/60 backdrop-blur-sm animate-in fade-in"
+        className="absolute inset-0 bg-su-panel/60 backdrop-blur-sm animate-in fade-in"
         onClick={onClose}
       />
 
       {/* Modal panel */}
       <div
-        className="relative z-10 bg-[#0f1420] border border-white/10 rounded-2xl shadow-2xl
+        className="relative z-10 bg-[#0f1420] border border-su-line/40 rounded-2xl shadow-2xl
                    max-w-lg w-full mx-4 max-h-[85vh] overflow-y-auto
                    animate-in zoom-in-95 fade-in"
         role="dialog"
@@ -202,9 +202,9 @@ export function EquipmentDetailModal({
             type="button"
             onClick={onClose}
             aria-label="Close"
-            className="absolute top-3 right-3 p-1.5 rounded-lg text-gray-500 hover:text-white
-                       hover:bg-white/5 transition-colors focus:outline-none
-                       focus-visible:ring-2 focus-visible:ring-white/30"
+            className="absolute top-3 right-3 p-1.5 rounded-lg text-su-muted hover:text-su-text
+                       hover:bg-su-line/10 transition-colors focus:outline-none
+                       focus-visible:ring-2 focus-visible:ring-su-line/60"
           >
             <svg
               viewBox="0 0 24 24"
@@ -232,7 +232,7 @@ export function EquipmentDetailModal({
           {/* Title */}
           <h2
             id={titleId}
-            className="text-xl font-bold text-white text-center mt-3"
+            className="text-xl font-bold text-su-text text-center mt-3"
             style={{ color: accentHex }}
           >
             {title}
@@ -240,7 +240,7 @@ export function EquipmentDetailModal({
 
           {/* Subtitle */}
           {subtitle && (
-            <p className="text-sm text-gray-400 text-center mt-0.5">
+            <p className="text-sm text-su-muted text-center mt-0.5">
               {subtitle}
             </p>
           )}
@@ -267,14 +267,14 @@ export function EquipmentDetailModal({
         </div>
 
         {/* ---- Divider after hero ---- */}
-        <div className="border-t border-white/5" />
+        <div className="border-t border-su-line/20" />
 
         {/* ---- Grouped Fields (new layout) ---- */}
         {hasGroups && (
           <div>
             {groups.map((group, idx) => (
               <div key={group.heading}>
-                {idx > 0 && <div className="border-t border-white/5 mx-5" />}
+                {idx > 0 && <div className="border-t border-su-line/20 mx-5" />}
                 <GroupSection group={group} />
               </div>
             ))}
@@ -293,7 +293,7 @@ export function EquipmentDetailModal({
         {/* ---- Action buttons ---- */}
         {hasActions && (
           <>
-            <div className="border-t border-white/5 mx-5 mt-1" />
+            <div className="border-t border-su-line/20 mx-5 mt-1" />
             <div className="flex gap-3 px-5 pb-5 pt-3">
               {onEdit && (
                 <button

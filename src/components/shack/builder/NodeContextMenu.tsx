@@ -219,18 +219,18 @@ export function NodeContextMenu({
   const pos = getAdjustedPosition();
 
   const itemClass =
-    "flex items-center gap-2.5 w-full px-3 text-left text-sm font-medium rounded-lg transition-colors duration-100 text-gray-200 hover:bg-white/10 focus:bg-white/10 focus:outline-none";
+    "flex items-center gap-2.5 w-full px-3 text-left text-sm font-medium rounded-lg transition-colors duration-100 text-su-text hover:bg-su-line/20 focus:bg-su-line/20 focus:outline-none";
 
   const menu = (
     <div
       ref={menuRef}
-      className="fixed z-50 min-w-[192px] bg-[#0a0a14]/95 backdrop-blur-md border border-white/10 rounded-xl shadow-2xl p-1 animate-in fade-in duration-100"
+      className="fixed z-50 min-w-[192px] bg-[#0a0a14]/95 backdrop-blur-md border border-su-line/40 rounded-xl shadow-2xl p-1 animate-in fade-in duration-100"
       style={{ left: pos.left, top: pos.top }}
       role="menu"
       aria-label="Node context menu"
     >
       {/* Header: node name */}
-      <div className="px-3 py-2 text-xs font-medium text-gray-500 truncate select-none">
+      <div className="px-3 py-2 text-xs font-medium text-su-muted truncate select-none">
         {nodeName}
       </div>
 
@@ -295,7 +295,7 @@ export function NodeContextMenu({
       )}
 
       {/* Divider */}
-      <div className="my-1 mx-2 h-px bg-white/10" role="separator" />
+      <div className="my-1 mx-2 h-px bg-su-line/20" role="separator" />
 
       {/* Remove from Chain */}
       <button

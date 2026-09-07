@@ -73,16 +73,16 @@ export function ChainSelector({
         onClick={() => setIsOpen(!isOpen)}
         className="
           flex items-center gap-2 px-3 py-2 rounded-xl
-          bg-panel/30 backdrop-blur-sm border border-white/5
-          hover:border-white/10 transition-colors duration-150
+          bg-panel/30 backdrop-blur-sm border border-su-line/20
+          hover:border-su-line/40 transition-colors duration-150
           text-left w-full min-w-0
         "
       >
-        <span className="flex-1 min-w-0 truncate text-sm font-medium text-gray-200">
+        <span className="flex-1 min-w-0 truncate text-sm font-medium text-su-text">
           {activeChain?.name ?? "No signal path selected"}
         </span>
         <svg
-          className={`w-4 h-4 text-gray-400 shrink-0 transition-transform duration-150 ${isOpen ? "rotate-180" : ""}`}
+          className={`w-4 h-4 text-su-muted shrink-0 transition-transform duration-150 ${isOpen ? "rotate-180" : ""}`}
           fill="none"
           viewBox="0 0 24 24"
           stroke="currentColor"
@@ -101,14 +101,14 @@ export function ChainSelector({
         <div
           className="
             absolute top-full left-0 right-0 mt-1 z-50
-            bg-void-black/95 backdrop-blur-md border border-white/10
+            bg-void-black/95 backdrop-blur-md border border-su-line/40
             rounded-xl shadow-xl overflow-hidden
           "
         >
           {/* Chain list */}
           <div className="max-h-60 overflow-y-auto py-1">
             {chains.length === 0 && (
-              <p className="text-xs text-gray-500 italic text-center py-4 px-3">
+              <p className="text-xs text-su-muted italic text-center py-4 px-3">
                 No signal paths yet
               </p>
             )}
@@ -128,13 +128,13 @@ export function ChainSelector({
                     className={`
                       w-full flex items-center gap-2 px-3 py-2 text-left
                       transition-colors duration-100
-                      ${isActive ? "bg-plasma-orange/10 text-gray-100" : "text-gray-300 hover:bg-white/5"}
+                      ${isActive ? "bg-plasma-orange/10 text-su-text" : "text-su-muted hover:bg-su-line/10"}
                     `}
                   >
                     <span className="flex-1 min-w-0 truncate text-sm">
                       {chain.name}
                     </span>
-                    <span className="shrink-0 text-[10px] text-gray-500">
+                    <span className="shrink-0 text-[10px] text-su-muted">
                       {chain.nodes.length} node
                       {chain.nodes.length !== 1 ? "s" : ""}
                     </span>
@@ -150,7 +150,7 @@ export function ChainSelector({
                         e.stopPropagation();
                         setMenuChainId(isMenuOpen ? null : chain.id);
                       }}
-                      className="shrink-0 p-1 rounded hover:bg-white/10 text-gray-400 hover:text-gray-200"
+                      className="shrink-0 p-1 rounded hover:bg-su-line/20 text-su-muted hover:text-su-text"
                       aria-label="Signal path actions"
                     >
                       <svg
@@ -167,14 +167,14 @@ export function ChainSelector({
 
                   {/* Context menu */}
                   {isMenuOpen && (
-                    <div className="absolute right-2 top-full z-10 mt-0.5 bg-void-black border border-white/10 rounded-lg shadow-lg overflow-hidden">
+                    <div className="absolute right-2 top-full z-10 mt-0.5 bg-void-black border border-su-line/40 rounded-lg shadow-lg overflow-hidden">
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
                           onDuplicate(chain.id);
                           setMenuChainId(null);
                         }}
-                        className="w-full px-3 py-1.5 text-xs text-gray-300 hover:bg-white/5 text-left"
+                        className="w-full px-3 py-1.5 text-xs text-su-muted hover:bg-su-line/10 text-left"
                       >
                         Duplicate
                       </button>
@@ -197,7 +197,7 @@ export function ChainSelector({
           </div>
 
           {/* New chain button */}
-          <div className="border-t border-white/5 p-1">
+          <div className="border-t border-su-line/20 p-1">
             <button
               onClick={() => {
                 onCreate();
@@ -205,11 +205,11 @@ export function ChainSelector({
               }}
               className="
                 w-full flex items-center gap-2 px-3 py-2 rounded-lg
-                text-sm text-gray-300 hover:bg-white/5 transition-colors duration-100
+                text-sm text-su-muted hover:bg-su-line/10 transition-colors duration-100
               "
             >
               <svg
-                className="w-4 h-4 text-gray-400"
+                className="w-4 h-4 text-su-muted"
                 fill="none"
                 viewBox="0 0 24 24"
                 stroke="currentColor"

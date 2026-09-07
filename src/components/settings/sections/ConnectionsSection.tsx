@@ -34,8 +34,8 @@ export function ConnectionsSection() {
     <div className="space-y-6">
       {/* DX Cluster */}
       <div>
-        <h3 className="text-lg font-semibold text-gray-200 mb-1">DX Cluster</h3>
-        <p className="text-sm text-gray-500 mb-4">
+        <h3 className="text-lg font-semibold text-su-text mb-1">DX Cluster</h3>
+        <p className="text-sm text-su-muted mb-4">
           Connect to a DX cluster node for real-time spot streaming via the
           ProPulse Bridge.
         </p>
@@ -43,12 +43,12 @@ export function ConnectionsSection() {
       </div>
 
       {/* Separator */}
-      <div className="border-t border-white/10 pt-6 mt-6">
+      <div className="border-t border-su-line/40 pt-6 mt-6">
         {/* CAT / Rig Control */}
-        <h3 className="text-lg font-semibold text-gray-200 mb-1">
+        <h3 className="text-lg font-semibold text-su-text mb-1">
           CAT / Rig Control
         </h3>
-        <p className="text-sm text-gray-500 mb-4">
+        <p className="text-sm text-su-muted mb-4">
           Configure computer-aided transceiver control to sync frequency, mode,
           and S-meter data with your rig.
         </p>

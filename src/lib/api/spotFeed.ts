@@ -1,4 +1,5 @@
 export type SpotWindowMinutes = 15 | 30 | 60;
+export type ClusterWindowMinutes = SpotWindowMinutes | 120;
 export type SpotFeedSource = "pskreporter" | "rbn" | "dxcluster";
 export interface SpotFeedMetadata {
   source: SpotFeedSource;
@@ -6,16 +7,16 @@ export interface SpotFeedMetadata {
   observedAt: number | null;
   fetchedAt: number | null;
   staleAfterSeconds: number | null;
-  windowMinutes: SpotWindowMinutes | null;
+  windowMinutes: ClusterWindowMinutes | null;
 }
 export interface SpotFeed<T> {
   spots: T[];
   metadata: SpotFeedMetadata;
 }
 
-export function spotFeedWindowParameter(windowMinutes?: SpotWindowMinutes): string {
+export function spotFeedWindowParameter(windowMinutes?: ClusterWindowMinutes, source?: SpotFeedSource): string {
   if (windowMinutes === undefined) return "";
-  if (![15, 30, 60].includes(windowMinutes)) throw new Error("Unsupported spot history window");
+  if (!(source === "dxcluster" ? [15, 30, 60, 120] : [15, 30, 60]).includes(windowMinutes)) throw new Error("Unsupported spot history window");
   return `&windowMinutes=${windowMinutes}`;
 }
 
@@ -23,7 +24,7 @@ export function spotFeedWindowParameter(windowMinutes?: SpotWindowMinutes): stri
 export function readSpotFeedMetadata(
   payload: unknown,
   source: SpotFeedSource,
-  requestedWindow?: SpotWindowMinutes,
+  requestedWindow?: ClusterWindowMinutes,
 ): SpotFeedMetadata {
   const unknown: SpotFeedMetadata = {
     source, status: "unknown", observedAt: null, fetchedAt: null,
@@ -51,7 +52,7 @@ export function readSpotFeedMetadata(
     (value.observedAt !== null && observedAt === null) ||
     (observedAt !== null && observedAt > fetchedAt) ||
     !Number.isInteger(value.staleAfterSeconds) || Number(value.staleAfterSeconds) <= 0 ||
-    (windowMinutes !== null && ![15, 30, 60].includes(Number(windowMinutes))) ||
+    (windowMinutes !== null && !(source === "dxcluster" ? [15, 30, 60, 120] : [15, 30, 60]).includes(Number(windowMinutes))) ||
     (windowMinutes !== null && typeof windowMinutes !== "number")
   ) throw new Error(`${source} returned invalid feed metadata`);
   if (requestedWindow !== undefined && windowMinutes !== requestedWindow) {
@@ -60,6 +61,6 @@ export function readSpotFeedMetadata(
   return {
     source, status: value.status as "ok" | "stale", observedAt, fetchedAt,
     staleAfterSeconds: Number(value.staleAfterSeconds),
-    windowMinutes: windowMinutes as SpotWindowMinutes | null,
+    windowMinutes: windowMinutes as ClusterWindowMinutes | null,
   };
 }

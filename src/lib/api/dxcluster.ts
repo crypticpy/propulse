@@ -13,7 +13,7 @@ import {
   readSpotFeedMetadata,
   spotFeedWindowParameter,
   type SpotFeed,
-  type SpotWindowMinutes,
+  type ClusterWindowMinutes,
 } from "./spotFeed";
 import type { DXSpot, BandColorConfig } from "@/types/dxcluster";
 import type { ClusterSpotPayload } from "@/types/bridge";
@@ -276,9 +276,9 @@ function parseHamQTHCSV(text: string): DXSpot[] {
  */
 export async function fetchClusterFeed(
   limit = 50,
-  windowMinutes?: SpotWindowMinutes,
+  windowMinutes?: ClusterWindowMinutes,
 ): Promise<SpotFeed<DXSpot>> {
-  const res = await fetch(`/api/spots/dxcluster?limit=${limit}${spotFeedWindowParameter(windowMinutes)}`);
+  const res = await fetch(`/api/spots/dxcluster?limit=${limit}${spotFeedWindowParameter(windowMinutes, "dxcluster")}`);
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
 
   const contentType = res.headers.get("content-type") || "";

@@ -3,6 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { expect, it, vi } from "vitest";
 import { HomeBandsLadder } from "./HomeBandsLadder";
 import { buildBandsLadder, LADDER_BANDS } from "@/lib/home/bandsLadder";
+import { getBandColor } from "@/lib/utils/spotColors";
 import type { BandActivityStatus } from "@/hooks/useBandActivity";
 import type { LadderState } from "@/lib/verdict/ladder";
 
@@ -194,6 +195,28 @@ it("dims the ladder and marks it stale when the snapshot is not current", () => 
   expect(
     container.querySelector(".home-ladder")?.getAttribute("data-stale"),
   ).toBe("true");
+});
+
+function hexToRgb(hex: string) {
+  const clean = hex.replace("#", "");
+  const r = parseInt(clean.slice(0, 2), 16);
+  const g = parseInt(clean.slice(2, 4), 16);
+  const b = parseInt(clean.slice(4, 6), 16);
+  return `rgb(${r}, ${g}, ${b})`;
+}
+
+it("colors each band button with the shared per-band palette", () => {
+  stubViewport(1920);
+  renderLadder();
+  for (const band of ["40m", "20m", "30m"]) {
+    const button = screen.getByRole("button", {
+      name: new RegExp(`^${band}`),
+    });
+    expect(button.style.color).toBe(hexToRgb(getBandColor(band)));
+    expect(button.style.getPropertyValue("--band-hue")).toBe(
+      getBandColor(band),
+    );
+  }
 });
 
 it("opens nearby reports for the band that was clicked", async () => {

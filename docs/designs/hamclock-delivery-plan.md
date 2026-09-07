@@ -631,3 +631,22 @@ model/observed/hop contracts and FutureCast scorer dependency. These are not
 completed by this local report check. Production-rendered activation acceptance,
 real radio/WSJT-X operation, deployed PSK cache/retention, authenticated cross-device
 sync, and physical/sustained wall validation remain separate external checks.
+
+### Existing-device metadata upgrade fixed — 2026-09-07
+
+Two new #527 review findings required a narrow B24/#232 claim: old synced rows
+were skipped by advanced cursors, and later versioned merges could still drop
+an absent home grid. Published correction `023dc2d4` adds a one-time account-scoped
+repair before both pull paths. It queries only existing IDs with missing fields,
+in batches of 100, fills absent metadata without resetting cursors, and re-reads
+local rows to preserve intervening edits/deletions. Errors retry without marking
+the repair complete. Later versioned merges also fill an absent home grid while
+retaining the existing policy for explicitly recorded local values.
+
+Five new regressions fail without the correction; all ten metadata transport
+tests and the 16-test focused contact suite pass. Full mandatory publication
+checks pass: 400 app files / 3,481 tests, Python/archive, bridge/daemon, lint,
+builds and budgets. #527 now has six files; both review threads are answered and
+resolved. B24/#232 returns to In review. No database migration, remote mutation,
+actual cloud session or hardware operation was performed. Deployed upgrade and
+two-device acceptance remain pending; no other batch was claimed.

@@ -7,6 +7,7 @@ import {
   SPOT_FIXTURE_NOW_MS,
 } from "@/lib/views/fixtures";
 import { buildSpotPipelineStages, buildSpotSceneModel, pathDescriptorForReport } from "./pipeline";
+import type { LiveSpot } from "@/types/livespot";
 
 function scene(observations: Parameters<typeof buildSpotSceneModel>[0]["observations"], overrides: Partial<Parameters<typeof buildSpotSceneModel>[0]> = {}) {
   return buildSpotSceneModel({
@@ -20,14 +21,18 @@ describe("spot presentation pipeline", () => {
   it("deduplicates copied reports while keeping distinct receivers and sourceRefs", () => {
     const { duplicates } = createSpotFixtures();
     const result = scene(duplicates);
-    const byCall = new Map(result.reports.map((report) => [report.dx.callsign + ":" + (report.reporter?.callsign ?? ""), report]));
     expect(result.counts.loaded).toBe(4);
-    expect(result.counts.deduplicated).toBe(2);
-    const merged = [...byCall.values()].find((report) => report.reporter?.callsign === "TEST2RX")!;
-    const other = [...byCall.values()].find((report) => report.reporter?.callsign === "TEST3RX")!;
-    expect(merged.sourceRefs.map((ref) => ref.source).sort()).toEqual(["Cluster", "PSKReporter"]);
-    expect(other.sourceRefs).toHaveLength(1);
-    expect(result.counts.matching).toBe(2);
+    expect(result.counts.deduplicated).toBe(3);
+    const pskSame = result.reports.find((report) =>
+      report.reporter?.callsign === "TEST2RX" && report.reporter.role === "receiver",
+    );
+    const clusterCopy = result.reports.find((report) => report.source === "Cluster");
+    const other = result.reports.find((report) => report.reporter?.callsign === "TEST3RX");
+    expect(pskSame?.sourceRefs.map((ref) => ref.source)).toEqual(["PSKReporter"]);
+    expect(clusterCopy?.reporter?.role).toBe("posting-service");
+    expect(clusterCopy?.sourceRefs.map((ref) => ref.source)).toEqual(["Cluster"]);
+    expect(other?.sourceRefs).toHaveLength(1);
+    expect(result.counts.matching).toBe(3);
   });
 
   it("applies age bounds, source matching via sourceRefs, and empty filters as All", () => {
@@ -141,5 +146,104 @@ describe("spot presentation pipeline", () => {
       report.dx.location.region?.countryCode === "US",
     );
     expect(usApprox.length).toBeGreaterThanOrEqual(2);
+  });
+
+  it("intersects explicit source filters with authorized feeds and does not leak via sourceRefs", () => {
+    const observations = [
+      createSpotInput("psk-copy"),
+      createSpotInput("rbn-copy", { source: "RBN", id: "rbn-copy" }),
+      createSpotInput("cluster-only", { source: "Cluster", dx: "K1CLST" }),
+    ];
+    const merged = buildSpotPipelineStages({
+      observations,
+      nowMs: SPOT_FIXTURE_NOW_MS,
+    });
+    const mixed = merged.deduplicated.find((report) =>
+      report.sourceRefs.some((ref) => ref.source === "PSKReporter")
+      && report.sourceRefs.some((ref) => ref.source === "RBN"),
+    );
+    expect(mixed).toBeDefined();
+
+    const clusterSaved = createSpotPreferences();
+    clusterSaved.filters.sources = ["Cluster"];
+    const clusterUnauthorized = scene(observations, {
+      preferences: clusterSaved,
+      authorizedSources: ["PSKReporter"],
+    });
+    expect(clusterUnauthorized.counts.matching).toBe(0);
+    expect(clusterUnauthorized.counts.scopeEligible).toBe(1);
+
+    const rbnSaved = createSpotPreferences();
+    rbnSaved.filters.sources = ["RBN"];
+    const rbnUnauthorized = scene(observations, {
+      preferences: rbnSaved,
+      authorizedSources: ["PSKReporter"],
+    });
+    expect(rbnUnauthorized.counts.matching).toBe(0);
+
+    const logScoped = scene(observations, {
+      operating: { scope: "log" },
+      authorizedSources: ["PSKReporter", "RBN", "Cluster", "WSJT-X"],
+    });
+    expect(logScoped.counts.scopeEligible).toBe(0);
+    expect(logScoped.reports).toHaveLength(0);
+  });
+
+  it("does not treat a Cluster poster as a receiver even with precise coordinates", () => {
+    const heard = createSpotInput("psk-heard", { source: "PSKReporter" });
+    const posted = createSpotInput("cluster-poster", {
+      source: "Cluster",
+      spotterLat: 51.5,
+      spotterLon: -0.1,
+      spotterGrid: "IO91",
+    });
+    const result = scene([heard, posted]);
+    expect(result.counts.loaded).toBe(2);
+    expect(result.counts.deduplicated).toBe(2);
+    const cluster = result.reports.find((report) => report.sourceReportId === "cluster-poster")!;
+    const psk = result.reports.find((report) => report.sourceReportId === "psk-heard")!;
+    expect(cluster.reporter?.role).toBe("posting-service");
+    expect(cluster.reporter?.callsign).toBe("TEST2RX");
+    expect(psk.reporter?.role).toBe("receiver");
+    expect(pathDescriptorForReport(cluster)).toBeNull();
+    expect(pathDescriptorForReport(psk)?.direction).toBe("from-to");
+    expect(result.paths.some((path) => path.reportIds.includes(cluster.id))).toBe(false);
+  });
+
+  it("keeps scene output identical across equal-ranked duplicate permutations", () => {
+    const copies: LiveSpot[] = [
+      createSpotInput("psk-precise", { dxLat: 40.4, dxLon: -3.7, snr: -5 }),
+      createSpotInput("psk-coarse", { dxLat: 40.41, dxLon: -3.71, snr: -18 }),
+      createSpotInput("psk-extra", { dxLat: 40.405, dxLon: -3.705, snr: -9 }),
+    ];
+    const forward = scene(copies);
+    const reverse = scene([...copies].reverse());
+    const rotated = scene([copies[1]!, copies[2]!, copies[0]!]);
+    expect(forward).toEqual(reverse);
+    expect(forward).toEqual(rotated);
+    expect(forward.counts.loaded).toBe(3);
+    expect(forward.counts.deduplicated).toBe(1);
+    expect(forward.reports[0]?.sourceRefs.map((ref) => ref.sourceReportId)).toEqual([
+      "psk-coarse",
+      "psk-extra",
+      "psk-precise",
+    ]);
+  });
+
+  it("drops malformed observations without crashing and counts only normalized reports as loaded", () => {
+    const valid = createSpotInput("valid");
+    const observations: LiveSpot[] = [
+      valid,
+      createSpotInput("bad-time", { time: new Date(Number.NaN) }),
+      createSpotInput("bad-frequency", { frequency: Number.NaN }),
+      createSpotInput("missing-dx", { dx: "   " }),
+      { ...createSpotInput("zero-frequency"), frequency: 0 },
+    ];
+    expect(() => scene(observations)).not.toThrow();
+    const result = scene(observations);
+    expect(result.counts.loaded).toBe(1);
+    expect(result.counts.loaded).not.toBe(observations.length);
+    expect(result.reports).toHaveLength(1);
+    expect(result.reports[0]?.sourceReportId).toBe("valid");
   });
 });

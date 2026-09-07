@@ -9,7 +9,6 @@ import {
   type SpotLocation,
   type StationEndpoint,
 } from "@/lib/views/spotContracts";
-import { gridToLatLon } from "@/lib/utils/grid";
 import type { z } from "zod";
 
 type Coordinates = z.infer<typeof coordinatesSchema>;
@@ -137,22 +136,52 @@ function approximateFromPrefix(
   };
 }
 
-function maidenheadCenter(grid: string): Coordinates | null {
+function maidenheadSpan(grid: string): { south: number; west: number; latSpan: number; lonSpan: number } | null {
   const parsed = maidenheadSchema.safeParse(grid);
   if (!parsed.success) return null;
   const normalized = parsed.data;
-  if (normalized.length === 2) {
-    return {
-      lat: (normalized.charCodeAt(1) - 65) * 10 - 90 + 5,
-      lon: (normalized.charCodeAt(0) - 65) * 20 - 180 + 10,
-    };
-  }
-  try {
-    const source = normalized.length > 6 ? normalized.slice(0, 6) : normalized;
-    return gridToLatLon(source);
-  } catch {
-    return null;
-  }
+  let west = -180;
+  let south = -90;
+  let lonSpan = 360;
+  let latSpan = 180;
+  west += (normalized.charCodeAt(0) - 65) * 20;
+  south += (normalized.charCodeAt(1) - 65) * 10;
+  lonSpan = 20;
+  latSpan = 10;
+  if (normalized.length === 2) return { south, west, latSpan, lonSpan };
+  west += Number(normalized[2]) * 2;
+  south += Number(normalized[3]);
+  lonSpan = 2;
+  latSpan = 1;
+  if (normalized.length === 4) return { south, west, latSpan, lonSpan };
+  west += (normalized.charCodeAt(4) - 65) * (2 / 24);
+  south += (normalized.charCodeAt(5) - 65) * (1 / 24);
+  lonSpan = 2 / 24;
+  latSpan = 1 / 24;
+  if (normalized.length === 6) return { south, west, latSpan, lonSpan };
+  west += Number(normalized[6]) * (2 / 240);
+  south += Number(normalized[7]) * (1 / 240);
+  lonSpan = 2 / 240;
+  latSpan = 1 / 240;
+  return { south, west, latSpan, lonSpan };
+}
+
+function maidenheadCenter(grid: string): Coordinates | null {
+  const span = maidenheadSpan(grid);
+  if (!span) return null;
+  return {
+    lat: Math.round((span.south + span.latSpan / 2) * 10000) / 10000,
+    lon: Math.round((span.west + span.lonSpan / 2) * 10000) / 10000,
+  };
+}
+
+function coordinateInMaidenhead(coordinates: Coordinates, grid: string): boolean {
+  const span = maidenheadSpan(grid);
+  if (!span) return false;
+  const north = span.south + span.latSpan;
+  const east = span.west + span.lonSpan;
+  return coordinates.lat >= span.south && coordinates.lat < north
+    && coordinates.lon >= span.west && coordinates.lon < east;
 }
 
 export interface LocationInput {
@@ -179,12 +208,22 @@ export function resolveSpotLocation(input: LocationInput): SpotLocation {
   );
 
   const grid = input.grid?.trim();
-  const gridCoordinates = grid ? maidenheadCenter(grid) : null;
-  if (grid && gridCoordinates && !input.locApprox) {
+  const parsedGrid = grid ? maidenheadSchema.safeParse(grid) : null;
+  const normalizedGrid = parsedGrid?.success ? parsedGrid.data : null;
+  const gridCoordinates = normalizedGrid ? maidenheadCenter(normalizedGrid) : null;
+  const independentCoordinate = Boolean(
+    supplied && !input.locApprox && !matchesPrefixCentroid,
+  );
+
+  if (independentCoordinate && supplied && normalizedGrid && !coordinateInMaidenhead(supplied, normalizedGrid)) {
+    return { kind: "reported-coordinate", coordinates: supplied };
+  }
+
+  if (normalizedGrid && gridCoordinates) {
     return {
       kind: "reported-grid",
-      grid: maidenheadSchema.parse(grid),
-      coordinates: supplied ?? gridCoordinates,
+      grid: normalizedGrid,
+      coordinates: gridCoordinates,
     };
   }
 
@@ -200,14 +239,6 @@ export function resolveSpotLocation(input: LocationInput): SpotLocation {
         ? "Upstream marked this coordinate as approximate"
         : "Coordinate matches a callsign-prefix centroid",
     );
-  }
-
-  if (grid && gridCoordinates) {
-    return {
-      kind: "reported-grid",
-      grid: maidenheadSchema.parse(grid),
-      coordinates: gridCoordinates,
-    };
   }
 
   if (prefixLocation) {

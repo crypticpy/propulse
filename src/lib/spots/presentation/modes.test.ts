@@ -49,7 +49,41 @@ describe("mode normalization", () => {
     expect(normalizeModeSelection({
       all: false, categories: [], modes: [], includeUnknown: false, includeInferred: true,
     }).all).toBe(true);
-    expect(expandModeCategory("phone")).toEqual(["SSB", "AM", "FM"]);
     expect(summarizeModeSelection(allModesSelection())).toBe("All modes");
+  });
+
+  it("expands every recognized category member and keeps generic labels broader than SSB/FT8", () => {
+    const phone = ["AM", "FM", "PHONE", "SSB"];
+    const cw = ["CW"];
+    const digital = [
+      "ARDOP", "CONTESTI", "DIGITAL", "DOMINO", "FST4", "FST4W", "FT4", "FT8",
+      "HELL", "JS8", "JT65", "JT6M", "JT9", "MFSK", "MSK144", "OLIVIA", "PACKET",
+      "PACTOR", "PSK125", "PSK31", "PSK63", "Q65", "ROS", "RTTY", "SSTV", "THOR",
+      "VARA", "WSPR",
+    ];
+    expect(expandModeCategory("phone")).toEqual(phone);
+    expect(expandModeCategory("cw")).toEqual(cw);
+    expect(expandModeCategory("digital")).toEqual(digital);
+    expect(normalizeMode("PHONE").name).not.toBe("SSB");
+    expect(normalizeMode("DIGITAL").name).not.toBe("FT8");
+
+    for (const [category, names] of [
+      ["phone", phone],
+      ["cw", cw],
+      ["digital", digital],
+    ] as const) {
+      const categorySelection = {
+        all: false, categories: [category], modes: [] as string[], includeUnknown: false, includeInferred: true,
+      };
+      const expandedSelection = {
+        all: false, categories: [] as Array<"phone" | "cw" | "digital">, modes: names, includeUnknown: false, includeInferred: true,
+      };
+      for (const name of names) {
+        const mode = normalizeMode(name);
+        expect(mode).toMatchObject({ name, category, provenance: "reported" });
+        expect(modeMatchesSelection(mode, categorySelection)).toBe(true);
+        expect(modeMatchesSelection(mode, expandedSelection)).toBe(true);
+      }
+    }
   });
 });

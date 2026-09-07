@@ -80,4 +80,43 @@ describe("location provenance", () => {
       callsign: spot.dx, lat: spot.dxLat, lon: spot.dxLon,
     })).toEqual({ kind: "reported-coordinate", coordinates: { lat: 0, lon: 0 } });
   });
+
+  it("does not attach a prefix centroid or unrelated coordinate to a Maidenhead grid", () => {
+    const conflictingGrid = resolveSpotLocation({
+      callsign: "K1TEST",
+      lat: 39.8,
+      lon: -98.6,
+      grid: "IN80",
+    });
+    expect(conflictingGrid).toMatchObject({ kind: "reported-grid", grid: "IN80" });
+    if (conflictingGrid.kind === "reported-grid") {
+      expect(conflictingGrid.coordinates).not.toEqual({ lat: 39.8, lon: -98.6 });
+      expect(conflictingGrid.coordinates.lat).toBeGreaterThanOrEqual(40);
+      expect(conflictingGrid.coordinates.lat).toBeLessThan(41);
+      expect(conflictingGrid.coordinates.lon).toBeGreaterThanOrEqual(-4);
+      expect(conflictingGrid.coordinates.lon).toBeLessThan(-2);
+    }
+
+    const independent = resolveSpotLocation({
+      callsign: "W1AW",
+      lat: 42.36,
+      lon: -71.06,
+      grid: "IN80",
+    });
+    expect(independent).toEqual({
+      kind: "reported-coordinate",
+      coordinates: { lat: 42.36, lon: -71.06 },
+    });
+  });
+
+  it("computes an eight-character Maidenhead center instead of the six-character parent", () => {
+    const eight = resolveSpotLocation({ callsign: "EA1TEST", grid: "IN80KH00" });
+    const six = resolveSpotLocation({ callsign: "EA1TEST", grid: "IN80KH" });
+    expect(eight).toMatchObject({ kind: "reported-grid", grid: "IN80KH00" });
+    expect(six).toMatchObject({ kind: "reported-grid", grid: "IN80KH" });
+    if (eight.kind === "reported-grid" && six.kind === "reported-grid") {
+      expect(eight.coordinates).not.toEqual(six.coordinates);
+      expect(eight.grid).toHaveLength(8);
+    }
+  });
 });

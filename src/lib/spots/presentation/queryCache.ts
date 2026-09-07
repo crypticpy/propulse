@@ -1,6 +1,7 @@
 import type { MapDataScope } from "@/lib/map/operationalScope";
-import type { SpotPresentationPreferences } from "@/lib/views/spotContracts";
+import type { NormalizedSpotReport, SpotPresentationPreferences } from "@/lib/views/spotContracts";
 import type { SpotSource } from "@/types/livespot";
+import { hashStableString } from "./identity";
 
 type SpotFilterPreferences = SpotPresentationPreferences["filters"];
 type GroupingPreferences = SpotPresentationPreferences["grouping"];
@@ -63,4 +64,21 @@ export function viewSpotMemoKey(identity: ViewSpotMemoIdentity): string {
 
 export function reportRevisionFromIds(ids: readonly string[]): string {
   return [...ids].sort().join(",");
+}
+
+function stableValue(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(stableValue);
+  if (value && typeof value === "object") {
+    return Object.fromEntries(
+      Object.keys(value as Record<string, unknown>).sort()
+        .map((key) => [key, stableValue((value as Record<string, unknown>)[key])]),
+    );
+  }
+  return value;
+}
+
+/** Content-aware revision: IDs plus coordinates, SNR, provenance and sourceRefs. */
+export function reportRevisionFromReports(reports: readonly NormalizedSpotReport[]): string {
+  const serialized = reports.map((report) => JSON.stringify(stableValue(report))).sort();
+  return hashStableString(serialized.join("\n"));
 }

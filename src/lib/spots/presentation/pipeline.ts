@@ -7,12 +7,14 @@ import {
 } from "@/lib/map/operationalScope";
 import { createSpotPreferences } from "@/lib/views/defaults";
 import {
+  normalizedSpotReportSchema,
   pathDescriptorSchema,
   spotSceneModelSchema,
   type NormalizedSpotReport,
   type PathDescriptor,
   type SpotPresentationPreferences,
   type SpotSceneModel,
+  type StationEndpoint,
 } from "@/lib/views/spotContracts";
 import type { LiveSpot, SpotSource } from "@/types/livespot";
 import {
@@ -28,6 +30,8 @@ import {
 import { modeMatchesSelection, normalizeMode, normalizeModeSelection } from "./modes";
 
 type SpotFilterPreferences = SpotPresentationPreferences["filters"];
+
+const ALL_SOURCES: readonly SpotSource[] = ["PSKReporter", "RBN", "Cluster", "WSJT-X"];
 
 export interface SpotPipelineOperatingContext {
   scope: MapDataScope;
@@ -50,10 +54,14 @@ export interface SpotPipelineStage {
   matching: NormalizedSpotReport[];
 }
 
-function observedAtMs(time: LiveSpot["time"]): number {
-  if (time instanceof Date) return time.getTime();
-  const parsed = Date.parse(String(time));
-  return Number.isFinite(parsed) ? parsed : 0;
+/**
+ * Malformed observations are dropped before `loaded`.
+ * `counts.loaded` is successfully normalized reports, not raw input length.
+ */
+function observedAtMs(time: LiveSpot["time"]): number | null {
+  const ms = time instanceof Date ? time.getTime() : Date.parse(String(time));
+  if (!Number.isSafeInteger(ms) || ms < 0) return null;
+  return ms;
 }
 
 function normalizeBand(band: string | undefined, frequencyKhz: number): string {
@@ -63,14 +71,58 @@ function normalizeBand(band: string | undefined, frequencyKhz: number): string {
   return /^[a-z0-9.]{1,16}$/.test(fromFrequency) ? fromFrequency : "unknown";
 }
 
-function reporterRole(source: SpotSource, locationKind: string): StationEndpointRole {
-  if (source === "Cluster" && locationKind !== "reported-coordinate" && locationKind !== "reported-grid") {
-    return "posting-service";
-  }
-  return "receiver";
+function isReceptionSource(source: SpotSource): boolean {
+  return source === "PSKReporter" || source === "RBN" || source === "WSJT-X";
 }
 
-type StationEndpointRole = "transmitter" | "receiver" | "posting-service" | "unknown";
+function resolveReporter(spot: LiveSpot): StationEndpoint | null {
+  const explicitReceiver = spot.receiverCallsign?.trim().slice(0, 32);
+  if (isReceptionSource(spot.source)) {
+    const call = (explicitReceiver || spot.spotter || "").trim().slice(0, 32);
+    if (!call) return null;
+    return resolveStationEndpoint(call, "receiver", {
+      lat: spot.spotterLat,
+      lon: spot.spotterLon,
+      grid: spot.receiverGrid ?? spot.spotterGrid,
+      locApprox: spot.spotterLocApprox,
+    });
+  }
+  if (explicitReceiver) {
+    return resolveStationEndpoint(explicitReceiver, "receiver", {
+      grid: spot.receiverGrid,
+    });
+  }
+  const poster = (spot.spotter || "").trim().slice(0, 32);
+  if (!poster) return null;
+  return resolveStationEndpoint(poster, "posting-service", {
+    lat: spot.spotterLat,
+    lon: spot.spotterLon,
+    grid: spot.spotterGrid,
+    locApprox: spot.spotterLocApprox,
+  });
+}
+
+function reportObservationKey(report: NormalizedSpotReport): string {
+  return observationKey({
+    dx: report.dx.callsign,
+    reporter: report.reporter?.callsign ?? null,
+    reporterRole: report.reporter?.role ?? null,
+    observedAtMs: report.observedAtMs,
+    frequencyKhz: report.frequencyKhz,
+    mode: report.mode.name,
+    source: report.source,
+    sourceReportId: report.sourceReportId,
+  });
+}
+
+export function intersectAuthorizedSources(
+  selected: readonly SpotSource[],
+  authorized: readonly SpotSource[],
+): SpotSource[] {
+  const allowed = new Set(authorized);
+  const pool = selected.length > 0 ? selected : authorized;
+  return pool.filter((source) => allowed.has(source));
+}
 
 export function normalizeLiveSpot(
   spot: LiveSpot,
@@ -80,38 +132,29 @@ export function normalizeLiveSpot(
   if (!(frequencyKhz > 0) || !Number.isFinite(frequencyKhz)) return null;
   const dxCall = (spot.dx ?? "").trim().slice(0, 32);
   if (!dxCall) return null;
+  const observed = observedAtMs(spot.time);
+  if (observed === null) return null;
   const source = spot.source;
   const mode = normalizeMode(spot.mode);
-  const reporterCall = (spot.receiverCallsign ?? spot.spotter ?? "").trim().slice(0, 32);
   const dx = resolveStationEndpoint(dxCall, "transmitter", {
     lat: spot.dxLat,
     lon: spot.dxLon,
     grid: spot.dxGrid,
     locApprox: spot.dxLocApprox,
   });
-  const reporter = reporterCall
-    ? resolveStationEndpoint(reporterCall, "unknown", {
-      lat: spot.spotterLat,
-      lon: spot.spotterLon,
-      grid: spot.spotterGrid ?? spot.receiverGrid,
-      locApprox: spot.spotterLocApprox,
-    })
-    : null;
-  if (reporter) {
-    reporter.role = reporterRole(source, reporter.location.kind);
-  }
-  const observed = observedAtMs(spot.time);
+  const reporter = resolveReporter(spot);
   const sourceReportId = spot.id?.trim() ? spot.id.trim().slice(0, 256) : null;
   const key = observationKey({
     dx: dx.callsign,
-    reporter: reporter ? reporter.callsign : null,
+    reporter: reporter?.callsign ?? null,
+    reporterRole: reporter?.role ?? null,
     observedAtMs: observed,
     frequencyKhz,
     mode: mode.name,
     source,
     sourceReportId,
   });
-  return {
+  const candidate = {
     id: stableReportId(key, usedIds),
     source,
     sourceReportId,
@@ -124,36 +167,22 @@ export function normalizeLiveSpot(
     reporter,
     snrDb: typeof spot.snr === "number" && Number.isFinite(spot.snr) ? spot.snr : null,
   };
+  const parsed = normalizedSpotReportSchema.safeParse(candidate);
+  return parsed.success ? parsed.data : null;
 }
 
 export function deduplicateReports(reports: readonly NormalizedSpotReport[]): NormalizedSpotReport[] {
   const usedIds = new Map<string, string>();
   const grouped = new Map<string, NormalizedSpotReport>();
   for (const report of reports) {
-    const key = observationKey({
-      dx: report.dx.callsign,
-      reporter: report.reporter?.callsign ?? null,
-      observedAtMs: report.observedAtMs,
-      frequencyKhz: report.frequencyKhz,
-      mode: report.mode.name,
-      source: report.source,
-      sourceReportId: report.sourceReportId,
-    });
+    const key = reportObservationKey(report);
     const existing = grouped.get(key);
     grouped.set(key, existing ? mergeDuplicateReports(existing, report) : report);
   }
-  return [...grouped.values()].map((report) => {
-    const key = observationKey({
-      dx: report.dx.callsign,
-      reporter: report.reporter?.callsign ?? null,
-      observedAtMs: report.observedAtMs,
-      frequencyKhz: report.frequencyKhz,
-      mode: report.mode.name,
-      source: report.source,
-      sourceReportId: report.sourceReportId,
-    });
-    return { ...report, id: stableReportId(key, usedIds) };
-  });
+  return [...grouped.values()].map((report) => ({
+    ...report,
+    id: stableReportId(reportObservationKey(report), usedIds),
+  }));
 }
 
 export function reportMatchesFilters(
@@ -168,24 +197,24 @@ export function reportMatchesFilters(
   if (bands.size > 0 && !bands.has(report.band.toLowerCase())) return false;
   const maxAgeMs = filters.maxAgeMinutes * 60_000;
   if (nowMs - report.observedAtMs > maxAgeMs) return false;
-  const enabled = filters.sources.length > 0
-    ? filters.sources
-    : authorizedSources;
-  const allowed = new Set(enabled);
+  const allowed = new Set(intersectAuthorizedSources(filters.sources, authorizedSources));
   return report.sourceRefs.some((ref) => allowed.has(ref.source));
 }
 
 export function applyOperatingScope(
   reports: readonly NormalizedSpotReport[],
   operating: SpotPipelineOperatingContext | undefined,
+  authorizedSources: readonly SpotSource[] = ALL_SOURCES,
 ): NormalizedSpotReport[] {
   const policy = buildMapDataPolicy(
     operating?.scope ?? "observe",
     operating?.contestPublicAssistance ?? false,
   );
+  const authorized = new Set(authorizedSources);
   return reports.filter((report) =>
     report.sourceRefs.some((ref) =>
-      policyAllows(policy, "liveSpots", mapSpotSourceProvenance(ref.source)),
+      authorized.has(ref.source)
+      && policyAllows(policy, "liveSpots", mapSpotSourceProvenance(ref.source)),
     ),
   );
 }
@@ -238,9 +267,9 @@ export function buildSpotPipelineStages(input: BuildSpotSceneInput): SpotPipelin
     .map((spot) => normalizeLiveSpot(spot, usedIds))
     .filter((report): report is NormalizedSpotReport => report !== null);
   const deduplicated = deduplicateReports(loaded).sort(compareNewestThenId);
-  const scopeEligible = applyOperatingScope(deduplicated, input.operating);
+  const authorized = input.authorizedSources ?? ALL_SOURCES;
+  const scopeEligible = applyOperatingScope(deduplicated, input.operating, authorized);
   const preferences = input.preferences ?? createSpotPreferences();
-  const authorized = input.authorizedSources ?? ["PSKReporter", "RBN", "Cluster", "WSJT-X"];
   const matching = scopeEligible.filter((report) =>
     reportMatchesFilters(report, preferences.filters, input.nowMs, authorized),
   );

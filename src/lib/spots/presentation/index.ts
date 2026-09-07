@@ -27,6 +27,7 @@ export {
   buildSpotPipelineStages,
   buildSpotSceneModel,
   defaultSpotFilters,
+  intersectAuthorizedSources,
   isDefaultSpotFilters,
   normalizeLiveSpot,
   pathDescriptorForReport,
@@ -37,6 +38,7 @@ export {
 } from "./pipeline";
 export {
   reportRevisionFromIds,
+  reportRevisionFromReports,
   sharedSpotQueryKey,
   viewSpotMemoKey,
   type SharedSpotQueryIdentity,

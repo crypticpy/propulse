@@ -10,14 +10,19 @@ type ModeCategory = z.infer<typeof modeCategorySchema>;
 
 const MODE_NAME = /^[A-Z0-9-]{1,24}$/;
 
-const PHONE_MODES = new Set(["SSB", "AM", "FM", "PHONE"]);
+const PHONE_MODES = new Set(["AM", "FM", "PHONE", "SSB"]);
 const CW_MODES = new Set(["CW"]);
 const DIGITAL_MODES = new Set([
-  "FT8", "FT4", "RTTY", "JT65", "JT9", "JT6M", "PSK31", "PSK63", "PSK125",
-  "MFSK", "OLIVIA", "CONTESTI", "JS8", "WSPR", "FST4", "FST4W", "Q65",
-  "MSK144", "VARA", "PACKET", "PACTOR", "ARDOP", "ROS", "THOR", "DOMINO",
-  "HELL", "SSTV", "DIGITAL",
+  "ARDOP", "CONTESTI", "DIGITAL", "DOMINO", "FST4", "FST4W", "FT4", "FT8",
+  "HELL", "JS8", "JT65", "JT6M", "JT9", "MFSK", "MSK144", "OLIVIA", "PACKET",
+  "PACTOR", "PSK125", "PSK31", "PSK63", "Q65", "ROS", "RTTY", "SSTV", "THOR",
+  "VARA", "WSPR",
 ]);
+const CATEGORY_MEMBERS: Record<Exclude<ModeCategory, "unknown">, ReadonlySet<string>> = {
+  phone: PHONE_MODES,
+  cw: CW_MODES,
+  digital: DIGITAL_MODES,
+};
 
 const ALIASES: Record<string, string> = {
   "FT-8": "FT8",
@@ -34,9 +39,6 @@ const ALIASES: Record<string, string> = {
   DIGI: "DIGITAL",
   JS8CALL: "JS8",
 };
-
-export const PHONE_CATEGORY_MODES = ["SSB", "AM", "FM"] as const;
-export const DIGITAL_CATEGORY_MODES = ["FT8", "FT4", "RTTY"] as const;
 
 export const UNKNOWN_MODE: NormalizedMode = {
   name: "UNKNOWN",
@@ -56,10 +58,9 @@ export function modeCategoryForName(name: string): ModeCategory {
   return "unknown";
 }
 
+/** Every recognized member of a category, sorted. Generic PHONE/DIGITAL stay in their catalogs. */
 export function expandModeCategory(category: Exclude<ModeCategory, "unknown">): string[] {
-  if (category === "phone") return [...PHONE_CATEGORY_MODES];
-  if (category === "cw") return ["CW"];
-  return [...DIGITAL_CATEGORY_MODES];
+  return [...CATEGORY_MEMBERS[category]].sort();
 }
 
 /**

@@ -554,8 +554,8 @@ was performed; live two-device acceptance remains pending.
 Current review follow-up on #524: `c7f62d57` uses the collector's existing ten
 HF band identities for completeness, so complete history/live samples show a
 known peak. Missing HF bands remain partial even with duplicate/VHF rows. The
-collector is unchanged. Twenty focused history/report tests, TypeScript and
-lint pass; full mandatory pre-push checks are running. This edits existing
+collector is unchanged. Twenty focused history/report tests, TypeScript, lint and full mandatory
+pre-push checks pass; the correction is published on #524. This edits existing
 files and retains the 15-file PR boundary.
 
 The requested masthead/settings cleanup is already in #498 (`aa362a90`): zone
@@ -567,3 +567,12 @@ preview at http://127.0.0.1:5182/map is preserved.
 B10 #480 remains OPEN on the fresh dependency check, so B11 is not claimed.
 No implementation batch is currently reserved while the #524 review correction
 finishes; model/3D and weather ownership/dependency boundaries remain unchanged.
+
+
+The fresh board audit confirms #232 and #285–#289 remain In review and
+B11–B13 remain unclaimed Backlog. The new Spots & Paths foundation #511 is
+claimed by separate session `codex-sp01-20260907-0845` in
+`/private/tmp/propulse-sp01-codex`; #514 remains blocked Backlog. Do not treat
+the shared Codex agent-family label as permission to take that session's work.
+Its #288/#207 integration contracts require coordination when those packages
+become Ready. No source ownership was transferred in this audit.

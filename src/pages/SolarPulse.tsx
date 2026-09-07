@@ -17,6 +17,7 @@ const Chart = lazy(() => import("@/components/solar/SolarSeriesChart").then((mod
 function SolarSeriesChart(props: SolarSeriesChartProps) {
   return <Suspense fallback={<p role="status" className="py-8 text-sm text-su-muted">Loading chart…</p>}><Chart {...props} /></Suspense>;
 }
+import { TrendSparkline } from "@/components/solar/TrendSparkline";
 import { WidgetShell } from "@/components/solar/WidgetShell";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import {
@@ -33,6 +34,15 @@ import {
 import {
   type SolarSourceGroup,
 } from "@/lib/solar/sourcePolicies";
+import type { SolarTrendTone } from "@/lib/solar/trends";
+
+const TREND_TONE_CLASS: Record<SolarTrendTone, string> = {
+  success: "text-su-success",
+  warning: "text-su-warning",
+  danger: "text-su-danger",
+  info: "text-su-info",
+  muted: "text-su-muted",
+};
 
 const SolarForecastPanel = lazy(() => import("@/components/solar/SolarForecastPanel").then(module => ({ default: module.SolarForecastPanel })));
 
@@ -224,10 +234,17 @@ export function SolarPulse() {
           </div>
         </section>
 
-        <section aria-label="What changed" className="border-y border-su-line/40 py-4">
+        <section aria-label="What changed" className="border-b border-su-line/40 py-4">
+          <div aria-hidden="true" className="mb-3 h-0.5 w-full rounded-full bg-gradient-to-r from-su-accent via-su-info to-transparent" />
           <h2 className="text-sm font-semibold text-su-text">What changed</h2>
           <div className="mt-3 grid grid-cols-2 gap-4 lg:grid-cols-4">
-            {model.trends.map((trend) => <div key={trend.sourceId} className="text-xs leading-5 text-su-muted"><p className="font-semibold text-su-text">{trend.label} · {trend.summary}</p>{trend.from && trend.to && <p>{formatUtc(trend.from)} → {formatUtc(trend.to)}</p>}{trend.delayed && <p className="text-su-warning">Delayed observations</p>}</div>)}
+            {model.trends.map((trend) => <div key={trend.sourceId} className="text-xs leading-5 text-su-muted">
+              <div className="flex items-center gap-2">
+                <p className={`font-semibold ${TREND_TONE_CLASS[trend.tone]}`}>{trend.label} · {trend.summary}</p>
+                <TrendSparkline points={trend.series} label={`${trend.label} trend over the last 24 hours`} className={TREND_TONE_CLASS[trend.tone]} />
+              </div>
+              {trend.from && trend.to && <p>{formatUtc(trend.from)} → {formatUtc(trend.to)}</p>}{trend.delayed && <p className="text-su-warning">Delayed observations</p>}
+            </div>)}
           </div>
         </section>
 

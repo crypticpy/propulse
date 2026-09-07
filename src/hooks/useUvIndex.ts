@@ -34,11 +34,11 @@ export interface UvResponse {
 
 /** WHO UV Index scale → Tailwind text color class. */
 export function uvSeverityClass(uv: number | null | undefined): string {
-  if (uv == null || !Number.isFinite(uv)) return "text-gray-400";
-  if (uv < 3) return "text-signal-green";
-  if (uv < 6) return "text-caution-amber";
-  if (uv < 8) return "text-plasma-orange";
-  if (uv < 11) return "text-alert-red";
+  if (uv == null || !Number.isFinite(uv)) return "text-su-muted";
+  if (uv < 3) return "text-su-success";
+  if (uv < 6) return "text-su-warning";
+  if (uv < 8) return "text-su-accent-text";
+  if (uv < 11) return "text-su-danger";
   return "text-aurora-purple";
 }
 

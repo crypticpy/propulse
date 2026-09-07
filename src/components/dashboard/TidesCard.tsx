@@ -46,7 +46,7 @@ export function TidesCard({ className = "" }: TidesCardProps) {
 
   const header = (
     <div className="flex items-center gap-1.5 mb-2">
-      <span className="text-[10px] font-medium text-gray-400 uppercase tracking-wide">
+      <span className="text-sm font-medium text-su-muted uppercase tracking-wide">
         Tides
       </span>
     </div>
@@ -56,7 +56,7 @@ export function TidesCard({ className = "" }: TidesCardProps) {
     return (
       <Card className={className} role="region" aria-label="Tides">
         {header}
-        <div className="text-[10px] text-gray-500">
+        <div className="text-sm text-su-muted/80">
           Set your grid in Profile for tide data
         </div>
       </Card>
@@ -74,7 +74,7 @@ export function TidesCard({ className = "" }: TidesCardProps) {
     return (
       <Card className={className} role="region" aria-label="Tides">
         {header}
-        <div className="text-xs text-gray-500">Tide data unavailable</div>
+        <div className="text-sm text-su-muted/80">Tide data unavailable</div>
       </Card>
     );
   }
@@ -101,13 +101,13 @@ export function TidesCard({ className = "" }: TidesCardProps) {
       {header}
 
       <div className="mb-2 min-w-0">
-        <div className="text-sm font-medium text-white truncate">
+        <div className="text-sm font-medium text-su-text truncate">
           {station?.name ?? "Unknown station"}
         </div>
         {distanceKm != null && (
           <div
-            className={`text-xs font-mono tabular-nums ${
-              isFar ? "text-caution-amber" : "text-gray-400"
+            className={`text-sm font-mono tabular-nums ${
+              isFar ? "text-su-warning" : "text-su-muted"
             }`}
           >
             {distanceKm.toFixed(0)} km away{isFar ? " (not local)" : ""}
@@ -115,26 +115,26 @@ export function TidesCard({ className = "" }: TidesCardProps) {
         )}
       </div>
 
-      <div className="grid grid-cols-2 gap-x-2 gap-y-1 text-xs mb-2">
+      <div className="grid grid-cols-2 gap-x-2 gap-y-1 text-sm mb-2">
         <div>
-          <span className="text-gray-500">High </span>
-          <span className="text-gray-200 font-mono tabular-nums">
+          <span className="text-su-muted/80">High </span>
+          <span className="text-su-text font-mono tabular-nums">
             {formatEventTime(nextHigh, use24h)}
           </span>
           {nextHigh && (
-            <span className="text-gray-500 font-mono tabular-nums">
+            <span className="text-su-muted/80 font-mono tabular-nums">
               {" "}
               {nextHigh.heightM.toFixed(1)}m
             </span>
           )}
         </div>
         <div>
-          <span className="text-gray-500">Low </span>
-          <span className="text-gray-200 font-mono tabular-nums">
+          <span className="text-su-muted/80">Low </span>
+          <span className="text-su-text font-mono tabular-nums">
             {formatEventTime(nextLow, use24h)}
           </span>
           {nextLow && (
-            <span className="text-gray-500 font-mono tabular-nums">
+            <span className="text-su-muted/80 font-mono tabular-nums">
               {" "}
               {nextLow.heightM.toFixed(1)}m
             </span>
@@ -155,7 +155,7 @@ export function TidesCard({ className = "" }: TidesCardProps) {
             fill="none"
             stroke="currentColor"
             strokeWidth={1.5}
-            className="text-gray-300"
+            className="text-su-info"
           />
           {sparkline.nowX != null && (
             <line
@@ -165,13 +165,13 @@ export function TidesCard({ className = "" }: TidesCardProps) {
               y2={32}
               stroke="currentColor"
               strokeWidth={1}
-              className="text-plasma-orange"
+              className="text-su-accent"
             />
           )}
         </svg>
       )}
 
-      <div className="flex items-center gap-1 text-xs text-gray-400 pt-2 border-t border-white/10">
+      <div className="flex items-center gap-1 text-sm text-su-muted pt-2 border-t border-su-line/40">
         <span aria-hidden="true">
           {rising === true ? "▲" : rising === false ? "▼" : "—"}
         </span>

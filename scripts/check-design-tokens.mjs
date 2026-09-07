@@ -19,6 +19,7 @@ import { join, relative, extname } from "node:path";
 const SCOPE = [
   "src/components/station-ui",
   "src/components/home",
+  "src/components/dashboard",
   "src/pages/Home.tsx",
   "src/styles/home.css",
   "src/pages/SolarPulse.tsx",

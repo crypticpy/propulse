@@ -83,17 +83,17 @@ export function NewsFeedCard({ className = "" }: NewsFeedCardProps) {
     <Card className={className} role="region" aria-label="News">
       <div className="flex items-center justify-between gap-1.5 mb-2">
         <div className="flex items-center gap-1.5 min-w-0">
-          <span className="text-[10px] font-medium text-gray-400 uppercase tracking-wide shrink-0">
+          <span className="text-sm font-medium text-su-muted uppercase tracking-wide shrink-0">
             News
           </span>
-          <span className="text-[10px] text-gray-500 truncate">
+          <span className="text-sm text-su-muted/80 truncate">
             {activeFeed?.label ?? "No feed"}
           </span>
         </div>
         <button
           type="button"
           onClick={() => setEditing((v) => !v)}
-          className="text-gray-400 hover:text-white shrink-0"
+          className="text-su-muted hover:text-su-text shrink-0"
           aria-label="Manage feeds"
           aria-expanded={editing}
         >
@@ -102,16 +102,16 @@ export function NewsFeedCard({ className = "" }: NewsFeedCardProps) {
       </div>
 
       {editing && (
-        <div className="mb-2 pb-2 border-b border-white/10 space-y-1.5">
+        <div className="mb-2 pb-2 border-b border-su-line/40 space-y-1.5">
           {feeds.map((f) => (
             <div key={f.id} className="flex items-center gap-1.5">
               <button
                 type="button"
                 onClick={() => setActiveFeed(f.id)}
-                className={`flex-1 min-w-0 text-left text-xs truncate rounded px-1.5 py-1 ${
+                className={`flex-1 min-w-0 text-left text-sm truncate rounded px-1.5 py-1 ${
                   f.id === activeFeed?.id
-                    ? "bg-nebula-blue/20 text-nebula-blue"
-                    : "text-gray-300 hover:bg-white/5"
+                    ? "bg-su-info/20 text-su-info"
+                    : "text-su-muted hover:bg-su-input"
                 }`}
               >
                 {f.label}
@@ -120,7 +120,7 @@ export function NewsFeedCard({ className = "" }: NewsFeedCardProps) {
                 type="button"
                 onClick={() => removeFeed(f.id)}
                 disabled={feeds.length <= 1}
-                className="text-gray-400 hover:text-alert-red disabled:opacity-30 px-1 shrink-0"
+                className="text-su-muted hover:text-su-danger disabled:opacity-30 px-1 shrink-0"
                 aria-label={`Remove ${f.label}`}
               >
                 {"✕"}
@@ -136,34 +136,34 @@ export function NewsFeedCard({ className = "" }: NewsFeedCardProps) {
                 setUrlError(null);
               }}
               placeholder="https://example.com/feed.xml"
-              className="flex-1 min-w-0 text-xs bg-white/5 border border-white/10 rounded-lg px-2 py-1.5 text-gray-200 placeholder:text-gray-500"
+              className="flex-1 min-w-0 text-sm bg-su-input border border-su-line/40 rounded-lg px-2 py-1.5 text-su-text placeholder:text-su-muted/80"
               aria-label="New feed URL"
             />
             <button
               type="button"
               onClick={handleAdd}
               disabled={feeds.length >= MAX_FEEDS}
-              className="text-xs font-medium text-white bg-plasma-orange/80 hover:bg-plasma-orange disabled:opacity-30 rounded-lg px-3 py-1.5 shrink-0"
+              className="text-sm font-medium text-su-on-accent bg-su-accent/80 hover:bg-su-accent disabled:opacity-30 rounded-lg px-3 py-1.5 shrink-0"
             >
               Add
             </button>
           </div>
           {urlError && (
-            <div className="text-[10px] text-alert-red">{urlError}</div>
+            <div className="text-sm text-su-danger">{urlError}</div>
           )}
         </div>
       )}
 
       {statusMessage && !isLoading && (
-        <div className="text-xs text-gray-500">{statusMessage}</div>
+        <div className="text-sm text-su-muted/80">{statusMessage}</div>
       )}
 
       {!degraded && !isLoading && items.length === 0 && (
-        <div className="text-xs text-gray-500">No items</div>
+        <div className="text-sm text-su-muted/80">No items</div>
       )}
 
       {!degraded && items.length > 0 && (
-        <div className="max-h-56 overflow-y-auto divide-y divide-white/5">
+        <div className="max-h-56 overflow-y-auto divide-y divide-su-line/20">
           {items.slice(0, MAX_VISIBLE_ITEMS).map((item) => (
             <div key={item.id ?? item.link ?? item.title} className="py-1.5">
               {item.link ? (
@@ -171,17 +171,17 @@ export function NewsFeedCard({ className = "" }: NewsFeedCardProps) {
                   href={item.link}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-xs text-gray-200 hover:text-nebula-blue line-clamp-2"
+                  className="text-sm text-su-text hover:text-su-info line-clamp-2"
                 >
                   {item.title}
                 </a>
               ) : (
-                <div className="text-xs text-gray-200 line-clamp-2">
+                <div className="text-sm text-su-text line-clamp-2">
                   {item.title}
                 </div>
               )}
               {item.publishedAt && (
-                <div className="text-[10px] text-gray-500 font-mono tabular-nums">
+                <div className="text-sm text-su-muted/80 font-mono tabular-nums">
                   {relativeTime(item.publishedAt, now)}
                 </div>
               )}

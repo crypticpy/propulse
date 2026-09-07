@@ -32,7 +32,7 @@ export function DashboardHeader({
 
   return (
     <div
-      className={`bg-white/[0.03] backdrop-blur-md border border-white/10 rounded-2xl px-4 py-3 flex flex-col md:flex-row items-center justify-between gap-3 ${className}`}
+      className={`bg-su-panel border border-su-line/40 rounded-2xl px-4 py-3 flex flex-col md:flex-row items-center justify-between gap-3 ${className}`}
     >
       {/* Left: Branding */}
       <span className="font-orbitron text-sm tracking-wider text-gradient-orange">
@@ -43,15 +43,15 @@ export function DashboardHeader({
       <div className="flex items-center gap-2 text-sm">
         {station?.callsign ? (
           <>
-            <span className="font-mono font-medium text-white">
+            <span className="font-mono font-medium text-su-text">
               {station.callsign}
             </span>
             {station.grid && (
-              <span className="font-mono text-gray-400">{station.grid}</span>
+              <span className="font-mono text-su-muted">{station.grid}</span>
             )}
           </>
         ) : (
-          <span className="text-gray-400 text-xs">
+          <span className="text-su-muted text-sm">
             No Station Configured &mdash; use ⚙️ in header
           </span>
         )}
@@ -64,12 +64,12 @@ export function DashboardHeader({
       >
         <span
           className={`w-2 h-2 rounded-full ${
-            isLive ? "bg-signal-green animate-pulse" : "bg-gray-500"
+            isLive ? "bg-su-success animate-pulse" : "bg-su-muted/80"
           }`}
         />
         <span
-          className={`text-xs font-mono font-medium tracking-wider ${
-            isLive ? "text-signal-green" : "text-gray-500"
+          className={`text-sm font-mono font-medium tracking-wider ${
+            isLive ? "text-su-success" : "text-su-muted/80"
           }`}
         >
           {isLive ? "LIVE" : "STALE"}

@@ -10,6 +10,7 @@ import type { ActivationSpotsResponse } from "../../../src/types/activationSpots
 const NOW = Date.parse("2026-08-31T14:00:00.000Z");
 
 afterEach(() => {
+  vi.useRealTimers();
   vi.restoreAllMocks();
   vi.unstubAllGlobals();
 });
@@ -222,4 +223,38 @@ describe("handleActivationSpots", () => {
       count: 0,
     });
   });
+});
+
+
+it("records each provider completion independently and never stamps a failure as fetched", async () => {
+  vi.useFakeTimers();
+  vi.setSystemTime(NOW);
+  let release!: (response: Response) => void;
+  vi.stubGlobal("fetch", vi.fn((url: string) => {
+    if (url.includes("wwff")) return new Promise<Response>((resolve) => { release = resolve; });
+    return Promise.resolve(url.includes("parksnpeaks")
+      ? new Response("unavailable", { status: 503 })
+      : new Response("[]"));
+  }));
+  const pending = handleActivationSpots(new Request("https://propulse.test/api/activation/spots"));
+  await vi.advanceTimersByTimeAsync(0);
+  vi.setSystemTime(NOW + 5000);
+  release(new Response("[]"));
+  const body = await (await pending).json() as ActivationSpotsResponse;
+  expect(body.sources.find((source) => source.program === "POTA")).toMatchObject({
+    status: "ok", checkedAt: new Date(NOW).toISOString(), fetchedAt: new Date(NOW).toISOString(), count: 0,
+  });
+  expect(body.sources.find((source) => source.program === "SOTA")).toMatchObject({
+    status: "unavailable", checkedAt: new Date(NOW).toISOString(), fetchedAt: null,
+  });
+  expect(body.sources.find((source) => source.program === "WWFF")).toMatchObject({
+    status: "ok", checkedAt: new Date(NOW + 5000).toISOString(), fetchedAt: new Date(NOW + 5000).toISOString(),
+  });
+});
+
+it("classifies a successful HTTP response without JSON as invalid, not an empty feed", async () => {
+  vi.stubGlobal("fetch", vi.fn().mockImplementation(() => Promise.resolve(new Response(null))));
+  const body = await (await handleActivationSpots(new Request("https://propulse.test/api/activation/spots"))).json() as ActivationSpotsResponse;
+  expect(body.sources).toHaveLength(3);
+  for (const source of body.sources) expect(source).toMatchObject({ status: "invalid", fetchedAt: null, count: 0 });
 });

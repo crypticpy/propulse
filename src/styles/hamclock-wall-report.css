@@ -1212,3 +1212,40 @@
 .hc-rail:has(.hcw-compact) > .hc-tile--grow {
   flex-basis: 0;
 }
+
+/* Callsign-specific reception controls and measured rows. */
+.hcp-report, .hcp-receptions, .hcp-list {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+.hcp-report, .hcp-receptions { gap: 0.5vh; }
+.hcp-report > .hcc-seg-wrap { flex-shrink: 0; }
+.hcp-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr) auto;
+  align-items: center;
+  gap: 1vw;
+  padding: 0.6vh 0;
+  border-bottom: 1px solid var(--hc-border);
+  flex-shrink: 0;
+}
+.hcp-row > div { display: flex; flex-direction: column; min-width: 0; }
+.hcp-row strong { font-size: var(--hc-t-body); color: var(--hc-fg); }
+.hcp-row span { font-size: var(--hc-t-small); color: var(--hc-dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.hcp-compact .hcp-row { grid-template-columns: minmax(0, 1fr); gap: 0.2vh; }
+.hcp-compact .hcr-note { font-size: var(--hc-t-small); }
+.hc-rail:has(.hcp-compact) > .hc-tile--grow { flex-basis: 0; }
+.hcp-controls {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(0, 3fr);
+  gap: 0.7vh 1vw;
+  flex: 0 0 auto;
+}
+.hcp-controls > .hcc-seg-wrap:last-child { grid-column: 1 / -1; }
+.hcp-controls .hcc-seg { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.hcp-controls > .hcc-seg-wrap:nth-child(2) .hcc-seg { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+.hcp-controls > .hcc-seg-wrap:last-child .hcc-seg { grid-template-columns: repeat(9, minmax(0, 1fr)); }
+.hcp-controls .hcc-seg-btn { min-width: 0; padding: 0.4vh 0.2vw; }
+.hcp-controls .hcc-seg-btn-label { font-size: var(--hc-t-small); letter-spacing: 0.04em; }

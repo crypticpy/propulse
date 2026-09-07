@@ -80,7 +80,7 @@ export const WALL_PAGES: readonly WallPageData[] = [
     title: "Spots & Activity",
     shortLabel: "Spots",
     left: ["cluster", "bandActivity", "recentContacts", "dxTarget"],
-    right: ["bestBand", "greyLine", "muf", "reliability", "activations"],
+    right: ["bestBand", "greyLine", "pskStation", "reliability", "activations"],
   },
   {
     id: "solar",
@@ -108,7 +108,7 @@ export const WALL_PAGES: readonly WallPageData[] = [
     title: "SDR",
     shortLabel: "SDR",
     left: ["sdrScope", "sdrDecodes", "wsjtx"],
-    right: ["bandActivity", "cluster", "bestBand"],
+    right: ["bandActivity", "cluster", "bestBand", "pskStation"],
   },
 ];
 

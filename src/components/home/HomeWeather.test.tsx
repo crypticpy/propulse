@@ -80,3 +80,21 @@ it("shows no Details button and no hero when the location is unset", () => {
   expect(screen.queryByRole("button", { name: "Local weather details" })).toBeNull();
   expect(screen.getByText("Set your location for local weather. No sign-in needed.")).toBeTruthy();
 });
+
+it("keeps Refresh available when the reading is unavailable", () => {
+  const refetch = vi.fn();
+  queryMocks.useQuery.mockReturnValue({
+    data: undefined,
+    isError: true,
+    isPending: false,
+    isFetching: false,
+    refetch,
+  });
+  render(<HomeWeather now={NOW} />);
+  expect(
+    screen.getByText("Weather updates are unavailable. We retry automatically."),
+  ).toBeTruthy();
+  expect(screen.queryByRole("button", { name: "Local weather details" })).toBeNull();
+  fireEvent.click(screen.getByRole("button", { name: "Refresh weather" }));
+  expect(refetch).toHaveBeenCalledTimes(1);
+});

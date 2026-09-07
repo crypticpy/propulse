@@ -36,7 +36,7 @@ export function HomeDaylight({ now }: { now: number }) {
     if (!day) setOpen(false);
   }, [day]);
   return <section className="home-panel home-daylight" aria-label="Daylight at your location"><div className="home-panel-heading"><h2>Daylight</h2><span>{location?.grid ?? "Location needed"}</span></div>
-    {day ? <><svg viewBox="0 0 340 140" role="img" aria-label="Solar altitude through the UTC day"><path d="M10 65H330" className="home-chart-axis" /><polyline points={day.samples.map((sample, i) => `${10+i/96*320},${y(sample.at)}`).join(" ")} className="home-chart-line" /><path d={`M${10+day.fraction*320} 8V118`} className="home-chart-now" /><circle cx={10+day.fraction*320} cy={y(now)} r="4" className="home-chart-dot" /><text x="10" y="137">00 UTC</text><text x="163" y="137">12</text><text x="307" y="137">24</text></svg>
+    {day ? <><svg viewBox="0 0 340 150" role="img" aria-label="Solar altitude through the UTC day"><path d="M10 65H330" className="home-chart-axis" /><polyline points={day.samples.map((sample, i) => `${10+i/96*320},${y(sample.at)}`).join(" ")} className="home-chart-line" /><path d={`M${10+day.fraction*320} 8V118`} className="home-chart-now" /><circle cx={10+day.fraction*320} cy={y(now)} r="4" className="home-chart-dot" /><text x="10" y="145">00 UTC</text><text x="163" y="145">12</text><text x="307" y="145">24</text></svg>
       <p className="home-card-sub">{subText}</p>
       <div className="home-actions"><button type="button" aria-haspopup="dialog" aria-label="Daylight details" onClick={() => setOpen(true)}>Details</button></div>
     </> : <p>Set your location to see sunrise, sunset, and daylight. No sign-in needed.</p>}

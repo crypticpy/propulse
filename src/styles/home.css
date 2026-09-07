@@ -30,4 +30,8 @@
 .home-context-grid .home-weather-reading p{margin:0}
 .home-context-grid .home-weather-wind{margin:.3rem 0}
 .home-context-grid .home-weather-icon{font-size:2.5rem;line-height:1}
-@media(min-width:1101px){.home-context-grid .home-daylight svg{width:100%;height:auto;aspect-ratio:340/140;max-width:min(100%, calc(5.5rem * 340 / 140));margin:.5rem 0;margin-inline:auto}}
+/* The desktop card caps the chart at 5.5rem tall, so the 340x150 viewBox renders ~199px wide
+ * (scale 0.587). Axis labels are sized in viewBox units to land at ~14.7 CSS px there, and the
+ * viewBox keeps a 32-unit label band below the plot (which ends at y=118) so they never touch
+ * the curve or the now marker. */
+@media(min-width:1101px){.home-context-grid .home-daylight svg{width:100%;height:auto;aspect-ratio:340/150;max-width:min(100%, calc(5.5rem * 340 / 150));margin:.5rem 0;margin-inline:auto}.home-context-grid .home-daylight svg text{font-size:25px}}

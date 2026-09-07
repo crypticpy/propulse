@@ -42,7 +42,8 @@ export function HomeWeather({ now, detailed = false }: { now: number; detailed?:
   return <section className="home-panel home-weather" aria-label="Weather at your location">
     <div className="home-panel-heading"><h2>Local weather</h2><span>{location ? `${location.grid} · weather model` : "Location needed"}</span>{status}</div>
     {!location ? <p className="home-note">Set your location for local weather. No sign-in needed.</p>
-      : !usable ? <p className="home-note">{query.isPending ? "Checking local weather…" : "Weather updates are unavailable. We retry automatically."}</p>
+      : !usable ? <><p className="home-note">{query.isPending ? "Checking local weather…" : "Weather updates are unavailable. We retry automatically."}</p>
+        <div className="home-actions"><button type="button" disabled={query.isFetching} onClick={() => void query.refetch()}>Refresh weather</button></div></>
       : <>
         <div className="home-weather-reading"><span aria-hidden="true" className="home-weather-icon">{data.code < 4 ? (SunCalc.getPosition(new Date(now), location.lat, location.lon).altitude > 0 ? "☀" : "☾") : "☁"}</span><div><strong>{Math.round(data.temperature)}° C</strong><p>{weatherCodeToDescription(data.code)}</p></div></div>
         <p className="home-weather-wind">Wind {Math.round(data.wind)} km/h{data.gusts !== null ? ` · gusts ${Math.round(data.gusts)}` : ""}</p>

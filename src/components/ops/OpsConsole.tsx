@@ -106,7 +106,7 @@ export function OperationalScopeControl({
 
   return (
     <div
-      className="flex shrink-0 items-center gap-1 rounded-lg border border-su-line/40 bg-su-panel/50 p-1"
+      className="flex shrink-0 items-center gap-1 rounded-lg border border-su-line/40 bg-su-panel/90 p-1"
       data-map-scope={scope}
       data-public-assistance={String(policy.publicAssistance)}
     >
@@ -316,7 +316,7 @@ export function OpsConsole({
 
   return (
     <div
-      className={`flex flex-col h-full bg-su-line/10 backdrop-blur-md border border-su-line/40 rounded-2xl overflow-hidden ${className}`}
+      className={`flex flex-col h-full bg-su-panel/90 backdrop-blur-md border border-su-line/40 rounded-2xl overflow-hidden ${className}`}
     >
       {/* Header Bar */}
       <div className="flex items-center justify-between h-12 px-4 border-b border-su-line/40 flex-shrink-0">

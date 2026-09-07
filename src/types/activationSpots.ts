@@ -24,6 +24,10 @@ export interface ActivationFeedSource {
   source: string;
   sourceUrl: string;
   count: number;
+  /** Per-provider request completion; missing on older cached envelopes. */
+  checkedAt?: string;
+  /** Successful retrieval only, never a new observation timestamp. */
+  fetchedAt?: string | null;
 }
 
 export interface ActivationSpotsResponse {

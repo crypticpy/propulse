@@ -14,7 +14,7 @@ not a claim. Do not reserve all batches for one agent.
 
 | Lane | Responsibility | Boundary |
 | --- | --- | --- |
-| Codex / HamClock operating views | No active implementation claim; #288 spot review follow-up, #289 and B18 in review; B10/#206 widget configuration in review; coordinated spot display #288 in review; PSK/WSJT-X #287, Activations #285, shared tuning #286 and B24 #232 in review | One active implementation item; retain review and acceptance follow-up |
+| Codex / HamClock operating views | Current implementation: #286 remaining wall tuning; #288 spot review follow-up, #289 and B18 in review; B10/#206 widget configuration in review; coordinated spot display #288 in review; PSK/WSJT-X #287, Activations #285, shared tuning #286 and B24 #232 in review | One active implementation item; retain review and acceptance follow-up |
 | Existing modeling / 3D agent | NowCast training, inference, evaluation, model activation, and 3D globe work, per owner direction | This plan does not assign or change that agent's existing cards |
 | Additional contributor | Claim an unclaimed Ready item; B10/#206 is now claimed | Check current board, issue comments, and changed files before starting |
 | Weather | Deferred until operating work is complete | Inspect OpenWxGlobe before designing new weather adapters or layers |
@@ -449,3 +449,26 @@ system cards are outside this HamClock lane. No additional batch was claimed.
 The read-only [Open WX Globe reuse audit](hamclock-openwx-reuse-audit.md) records
 specific utility/contracts candidates and their limitations for later weather
 work. No Open WX Globe source or services were changed. Weather stays last.
+
+
+### Reopened shared tuning: missing B24 wall actions
+
+A source-level completion audit found a concrete remaining #286 requirement:
+#407's Recent Contacts tile/report and #409's Band Activity report still lack
+shared tune controls. Earlier station/satellite/favorites/activation/decode
+slices do not satisfy those B24 surfaces. #286 is again the sole In progress /
+Codex claim; #288 stays In review. This is actionable independently of B11's
+merge dependency.
+
+Current worktree `.worktrees/hamclock-contact-tune`, branch
+`feat/hamclock-contact-tune`, starts at #505 (`86bb6dc3`) and locally integrates
+#407. Both HW-71 and HW-72 stay Partial, retaining pending deployed/physical
+acceptance. The two tracker conflicts are reconciled without discarding either
+report's implementation evidence. No GitHub PR was merged.
+
+Contact controls now consume the logged kHz frequency and mode in the shared
+TuneButton; last-contact and best-DX report actions plus tile-row actions are
+being checked. Fourteen focused history/report tests pass, including exact
+frequency/mode staging and invalid-frequency rejection. Browser/full verification
+and publication remain in progress. Band Activity is the next separate slice
+within #286; adapter-dependent SDR routing still awaits the real adapter.

@@ -11,7 +11,7 @@
  * (Regional), or a Maidenhead field pair in both directions (DX).
  */
 
-import { keepPreviousData, useQuery } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 
 import {
   classifyActivityLevel,
@@ -98,8 +98,5 @@ export function useBandActivity(
     staleTime: 55 * 1000,
     retry: 1,
     enabled,
-    // Keep the last scope's snapshot on screen while a new scope (e.g. Home
-    // location change) is loading, instead of blanking the grid.
-    placeholderData: keepPreviousData,
   });
 }

@@ -498,3 +498,36 @@ resolving the portable-route import conflict. Twenty-five focused history/spot
 API tests pass. Integration commit/full checks/publication are ongoing; the
 subsequent #409 report integration will add TuneButton to TOP DX rows. No new
 batch, model/3D work, hardware service or weather implementation is claimed.
+
+
+### Band Activity report integration verified locally
+
+[#513](https://github.com/crypticpy/propulse/pull/513) publishes the six-file
+history integration (`bc7fcd1d`): 396 app files / 3,454 tests and all mandatory
+checks passed. Review follow-up `8c58b956` corrects self-hosting documentation:
+stored aggregate history requires its configured source; unavailable history
+returns 503 and the client retains separately labeled session samples when live
+activity exists. No no-config historical source or credentials are invented.
+The review thread is answered/resolved with that explicit boundary.
+
+Current #286 slice: `.worktrees/hamclock-band-tune`, `feat/hamclock-band-tune`,
+commit `e97a45b8`, based on #513 with local #409 integration (15 files). It adds
+separate map and tune actions to TOP DX, retains exact frequency/mode, and uses
+bridge-only clock tolerance. TOP DX now names its home-relative sample, keeps
+its own cluster status/timestamp, preserves the selected view when pinned, and
+uses the existing list-report layout instead of unrelated activity headlines.
+Twenty-eight focused tests and 48 populated browser cases pass (four views,
+three themes, 1080p/4K, history success/503). No overflow/page errors; no hardware
+connections. Full pre-push verification is currently running before publication.
+
+Owned server 5181 (`hamclock-band-tune`, session
+`9b8d1f25-60b2-4e57-b8a8-238898eb9bcc`) was stopped and its claim released after
+absent-PID and both-loopback bind checks. User preview 5182 is preserved.
+
+A new #509 review finding remains actionable after this slice: cloud logbook
+serializers drop `myGrid` and recorded `dxcc` on push/pull/delta paths. The
+20260216000000 migration already defines both columns, but current generated
+client types and mappings omit them. Preserve those two metadata fields and
+verify round trips before treating cross-device contact statistics as ready.
+No sync implementation claim or source edits have started yet; #286 remains
+the sole active batch until the Band Activity report is published.

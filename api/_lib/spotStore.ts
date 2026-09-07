@@ -1,3 +1,4 @@
+import type { SpotWindowMinutes } from "./spotWindow.js";
 import { isErrorNamed } from "./runtimeError.js";
 
 export type StoredSpotSource = "pskreporter" | "rbn" | "dxcluster";
@@ -45,6 +46,7 @@ export interface SpotStoreResult {
 
 export interface SpotStoreOptions {
   limit: number;
+  windowMinutes?: SpotWindowMinutes;
   grid?: string;
   bands?: string[];
   modes?: string[];
@@ -226,13 +228,15 @@ export async function readStoredSpots(
   const config = dependencies.storageConfig();
   if (!config) return unavailableResult(source, now, "configuration_missing");
 
+  const windowMinutes = [15, 30, 60].includes(options.windowMinutes ?? 30)
+    ? options.windowMinutes ?? 30
+    : 30;
+  const cutoff = now - windowMinutes * 60_000;
   const query = new URLSearchParams({
     select:
       "source,spotted_at,tx_callsign,tx_grid,tx_lat,tx_lon,rx_callsign,rx_grid,rx_lat,rx_lon,frequency_khz,band,mode,snr,wpm,comment,dxcc,continent",
     source: `eq.${source}`,
-    spotted_at: `gte.${new Date(
-      now - STALE_AFTER_SECONDS[source] * 1_000,
-    ).toISOString()}`,
+    spotted_at: `gte.${new Date(cutoff).toISOString()}`,
     order: "spotted_at.desc",
     limit: String(Math.min(800, Math.max(options.limit, options.limit * 4))),
   });
@@ -270,16 +274,22 @@ export async function readStoredSpots(
     }
     const rows = payload
       .map((row) => parseRow(row, source))
-      .filter((row): row is SpotHistoryRow => row !== null);
+      .filter((row): row is SpotHistoryRow =>
+        row !== null && Date.parse(row.spotted_at) <= now,
+      )
+      .sort((a, b) => Date.parse(b.spotted_at) - Date.parse(a.spotted_at));
     const observedAt = rows[0]?.spotted_at ?? null;
     const newestMs = observedAt ? Date.parse(observedAt) : Number.NaN;
     const staleAfterSeconds = STALE_AFTER_SECONDS[source];
-    if (!Number.isFinite(newestMs) || now - newestMs > staleAfterSeconds * 1_000) {
-      return emptyResult(source, now, "stale", observedAt);
-    }
+    const stale =
+      !Number.isFinite(newestMs) || now - newestMs > staleAfterSeconds * 1_000;
     return {
-      rows: rows.slice(0, options.limit),
-      status: "ok",
+      // Requested history can remain useful when its newest report is stale.
+      // Keep the original timestamps and source state; never renew freshness.
+      rows: rows
+        .filter(row => Date.parse(row.spotted_at) >= cutoff)
+        .slice(0, options.limit),
+      status: stale ? "stale" : "ok",
       observedAt,
       fetchedAt: new Date(now).toISOString(),
       staleAfterSeconds,

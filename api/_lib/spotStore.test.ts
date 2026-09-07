@@ -201,3 +201,53 @@ describe("central spot store", () => {
     });
   });
 });
+
+it.each([15, 30, 60] as const)("bounds a %s-minute history independently of freshness", async (windowMinutes) => {
+  const old = new Date(NOW - 45 * 60_000).toISOString();
+  const recent = new Date(NOW - 10 * 60_000).toISOString();
+  const fetcher = vi.fn(async () => new Response(JSON.stringify([
+    row({ spotted_at: old }), row({ spotted_at: recent }),
+    row({ spotted_at: new Date(NOW - 61 * 60_000).toISOString() }),
+    row({ spotted_at: new Date(NOW + 60_000).toISOString() }),
+  ])));
+  const result = await readStoredSpots("pskreporter", { limit: 200, windowMinutes }, {
+    fetcher, now: () => NOW, storageConfig: () => CONFIG,
+  });
+  expect(new URL(String(fetcher.mock.calls[0][0])).searchParams.get("spotted_at")).toBe(
+    `gte.${new Date(NOW - windowMinutes * 60_000).toISOString()}`,
+  );
+  expect(result.rows.map(row => row.spotted_at)).toEqual(windowMinutes === 60 ? [recent, old] : [recent]);
+  expect(result.observedAt).toBe(recent);
+  expect(result.status).toBe("ok");
+  expect(result.staleAfterSeconds).toBe(1800);
+});
+
+it("retains requested historical reports with stale source state and original timestamps", async () => {
+  const observedAt = new Date(NOW - 45 * 60_000).toISOString();
+  const result = await readStoredSpots("pskreporter", { limit: 50, windowMinutes: 60 }, {
+    fetcher: async () => new Response(JSON.stringify([row({ spotted_at: observedAt })])),
+    now: () => NOW, storageConfig: () => CONFIG,
+  });
+  expect(result.status).toBe("stale");
+  expect(result.rows[0].spotted_at).toBe(observedAt);
+  expect(result.observedAt).toBe(observedAt);
+  expect(result.fetchedAt).toBe(new Date(NOW).toISOString());
+  expect(spotCacheHeaders(result)["X-Propulse-Spot-Status"]).toBe("stale");
+});
+
+it("keeps inclusive window boundaries, result caps, and bounded storage reads", async () => {
+  const boundary = new Date(NOW - 60 * 60_000).toISOString();
+  const fetcher = vi.fn(async () => new Response(JSON.stringify([
+    row({ spotted_at: boundary }), row(), row(),
+  ])));
+  const result = await readStoredSpots("pskreporter", { limit: 2, windowMinutes: 60 }, {
+    fetcher, now: () => NOW, storageConfig: () => CONFIG,
+  });
+  expect(result.rows).toHaveLength(2);
+  expect(result.rows.every(row => row.spotted_at !== boundary)).toBe(true);
+  expect(new URL(String(fetcher.mock.calls[0][0])).searchParams.get("limit")).toBe("8");
+  const inclusive = await readStoredSpots("pskreporter", { limit: 3, windowMinutes: 60 }, {
+    fetcher, now: () => NOW, storageConfig: () => CONFIG,
+  });
+  expect(inclusive.rows.at(-1)?.spotted_at).toBe(boundary);
+});

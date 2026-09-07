@@ -5,6 +5,12 @@
  * Uses Vercel Edge Function as proxy to handle CORS
  */
 
+import {
+  readSpotFeedMetadata,
+  spotFeedWindowParameter,
+  type SpotFeed,
+  type SpotWindowMinutes,
+} from "./spotFeed";
 import type { LiveSpot, PSKReporterSpot } from "@/types/livespot";
 import { gridToLatLon } from "./dxcluster";
 
@@ -112,11 +118,12 @@ function parsePSKReporterJSON(data: unknown): PSKReporterSpot[] {
  * @param limit - Maximum number of spots to return
  * @returns Array of LiveSpot objects
  */
-export async function fetchPSKReporterSpots(
+export async function fetchPSKReporterFeed(
   grid?: string,
   mode?: string,
   limit: number = 50,
-): Promise<LiveSpot[]> {
+  windowMinutes?: SpotWindowMinutes,
+): Promise<SpotFeed<LiveSpot>> {
   const params = new URLSearchParams();
   if (grid) {
     params.set("grid", grid);
@@ -126,7 +133,7 @@ export async function fetchPSKReporterSpots(
   }
   params.set("limit", limit.toString());
 
-  const response = await fetch(`/api/spots/pskreporter?${params}`);
+  const response = await fetch(`/api/spots/pskreporter?${params}${spotFeedWindowParameter(windowMinutes)}`);
 
   if (!response.ok) {
     throw new Error(`PSKReporter request failed with HTTP ${response.status}`);
@@ -140,8 +147,10 @@ export async function fetchPSKReporterSpots(
   // Try JSON first (Edge Function / production). A non-JSON response is only
   // accepted when it is well-formed XML from the local development proxy.
   let reports: PSKReporterSpot[];
+  let payload: unknown;
   try {
-    reports = parsePSKReporterJSON(JSON.parse(text));
+    payload = JSON.parse(text);
+    reports = parsePSKReporterJSON(payload);
   } catch (error) {
     if (text.trimStart().startsWith("<")) {
       reports = parsePSKReporterXML(text);
@@ -150,11 +159,16 @@ export async function fetchPSKReporterSpots(
     }
   }
 
-  if (reports.length === 0) return [];
+  return {
+    spots: reports.map(transformPSKReporterSpot),
+    metadata: readSpotFeedMetadata(payload, "pskreporter", windowMinutes),
+  };
+}
 
-  return reports.map((spot: PSKReporterSpot) =>
-    transformPSKReporterSpot(spot),
-  );
+export async function fetchPSKReporterSpots(
+  grid?: string, mode?: string, limit = 50,
+): Promise<LiveSpot[]> {
+  return (await fetchPSKReporterFeed(grid, mode, limit)).spots;
 }
 
 /**

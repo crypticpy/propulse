@@ -1,5 +1,6 @@
 /** DX Cluster UI feed backed by the central collector store. */
 
+import { parseClusterWindow, parseSpotWindow } from "../spotWindow.js";
 import { applyRateLimit } from "../rateLimit.js";
 import {
   spotCacheHeaders,
@@ -23,9 +24,15 @@ export async function handleSpotsDxcluster(req: Request): Promise<Response> {
   if (limited) return limited;
 
   const url = new URL(req.url);
+  const windowMinutes = parseClusterWindow(url.searchParams.get("windowMinutes"));
+  if (windowMinutes === null || url.searchParams.getAll("windowMinutes").length > 1) {
+    return spotJsonResponse({ error: "windowMinutes must be 15, 30, 60 or 120", spots: [] }, 400, {
+      "Cache-Control": "no-store",
+    });
+  }
   const rawLimit = Number.parseInt(url.searchParams.get("limit") || "50", 10);
   const limit = Math.min(Math.max(1, Number.isNaN(rawLimit) ? 50 : rawLimit), 200);
-  const result = await readStoredSpots("dxcluster", { limit });
+  const result = await readStoredSpots("dxcluster", { limit, windowMinutes });
   const spots = result.rows.map((row, index) => ({
     id: `dxc-${row.tx_callsign}-${row.rx_callsign}-${Date.parse(row.spotted_at)}-${index}`,
     spotter: row.rx_callsign,
@@ -44,6 +51,7 @@ export async function handleSpotsDxcluster(req: Request): Promise<Response> {
       spots,
       meta: {
         schemaVersion: 1,
+        windowMinutes,
         source: "dxcluster",
         status: result.status,
         observedAt: result.observedAt,
@@ -81,6 +89,12 @@ export async function handleSpotsPskreporter(req: Request): Promise<Response> {
   if (limited) return limited;
 
   const url = new URL(req.url);
+  const windowMinutes = parseSpotWindow(url.searchParams.get("windowMinutes"));
+  if (windowMinutes === null || url.searchParams.getAll("windowMinutes").length > 1) {
+    return spotJsonResponse({ error: "windowMinutes must be 15, 30 or 60", spots: [] }, 400, {
+      "Cache-Control": "no-store",
+    });
+  }
   const rawLimit = Number.parseInt(url.searchParams.get("limit") || "50", 10);
   const limit = Math.min(Math.max(1, Number.isNaN(rawLimit) ? 50 : rawLimit), 200);
   const grid = url.searchParams.get("grid") || "";
@@ -98,6 +112,7 @@ export async function handleSpotsPskreporter(req: Request): Promise<Response> {
 
   const result = await readStoredSpots("pskreporter", {
     limit,
+    windowMinutes,
     grid: grid || undefined,
     modes: mode ? [mode.toUpperCase()] : undefined,
   });
@@ -117,6 +132,7 @@ export async function handleSpotsPskreporter(req: Request): Promise<Response> {
       spots,
       meta: {
         schemaVersion: 1,
+        windowMinutes,
         source: "pskreporter",
         status: result.status,
         observedAt: result.observedAt,
@@ -174,6 +190,12 @@ export async function handleSpotsRbn(req: Request): Promise<Response> {
   if (limited) return limited;
 
   const url = new URL(req.url);
+  const windowMinutes = parseSpotWindow(url.searchParams.get("windowMinutes"));
+  if (windowMinutes === null || url.searchParams.getAll("windowMinutes").length > 1) {
+    return spotJsonResponse({ error: "windowMinutes must be 15, 30 or 60", spots: [] }, 400, {
+      "Cache-Control": "no-store",
+    });
+  }
   const rawLimit = Number.parseInt(url.searchParams.get("limit") || "50", 10);
   const limit = Math.min(Math.max(1, Number.isNaN(rawLimit) ? 50 : rawLimit), 200);
   const bands = requestedBands(url.searchParams.get("band"));
@@ -184,7 +206,7 @@ export async function handleSpotsRbn(req: Request): Promise<Response> {
     });
   }
 
-  const result = await readStoredSpots("rbn", { limit, bands, modes });
+  const result = await readStoredSpots("rbn", { limit, bands, modes, windowMinutes });
   const spots = result.rows.map((row) => ({
     callsign: row.tx_callsign,
     de_pfx: row.rx_callsign,
@@ -205,6 +227,7 @@ export async function handleSpotsRbn(req: Request): Promise<Response> {
       spots,
       meta: {
         schemaVersion: 1,
+        windowMinutes,
         source: "rbn",
         status: result.status,
         observedAt: result.observedAt,

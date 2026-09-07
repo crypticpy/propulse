@@ -3,27 +3,20 @@
  *
  * Dashboard card showing the operator's active RSS/Atom feed (club
  * announcements, contest calendars, blogs) via the /api/feeds/rss edge
- * proxy. Feed management (add/remove/select) happens inline behind a gear
- * toggle -- no flyouts, no modals.
+ * proxy. Existing feeds are selected/removed inline; additions use the shared
+ * verified news configuration dialog.
  *
  * @module components/dashboard/NewsFeedCard
  */
 
-import { useEffect, useState } from "react";
+import { lazy, Suspense, useEffect, useState } from "react";
 import { Card } from "@/components/ui/Card";
-import { useFeedStore, MAX_FEEDS } from "@/stores/feedStore";
+import { useFeedStore } from "@/stores/feedStore";
 import { useRssFeed, relativeTime } from "@/hooks/useRssFeed";
 
 const MAX_VISIBLE_ITEMS = 6;
 
-function isValidHttpUrl(value: string): boolean {
-  try {
-    const url = new URL(value);
-    return url.protocol === "http:" || url.protocol === "https:";
-  } catch {
-    return false;
-  }
-}
+const NewsFeedsConfigDialog = lazy(() => import("@/components/map/hamclock/wall/config/NewsFeedsConfig").then(module => ({ default: module.NewsFeedsConfigDialog })));
 
 export interface NewsFeedCardProps {
   className?: string;
@@ -32,7 +25,6 @@ export interface NewsFeedCardProps {
 export function NewsFeedCard({ className = "" }: NewsFeedCardProps) {
   const feeds = useFeedStore((s) => s.feeds);
   const activeFeedId = useFeedStore((s) => s.activeFeedId);
-  const addFeed = useFeedStore((s) => s.addFeed);
   const removeFeed = useFeedStore((s) => s.removeFeed);
   const setActiveFeed = useFeedStore((s) => s.setActiveFeed);
 
@@ -40,8 +32,7 @@ export function NewsFeedCard({ className = "" }: NewsFeedCardProps) {
   const { items, status, isLoading, error } = useRssFeed(activeFeed?.url ?? null);
 
   const [editing, setEditing] = useState(false);
-  const [newUrl, setNewUrl] = useState("");
-  const [urlError, setUrlError] = useState<string | null>(null);
+  const [configOpen, setConfigOpen] = useState(false);
   const [now, setNow] = useState(() => new Date());
 
   useEffect(() => {
@@ -49,24 +40,7 @@ export function NewsFeedCard({ className = "" }: NewsFeedCardProps) {
     return () => clearInterval(id);
   }, []);
 
-  const handleAdd = () => {
-    const trimmed = newUrl.trim();
-    if (!isValidHttpUrl(trimmed)) {
-      setUrlError("Enter a valid http(s) URL");
-      return;
-    }
-    const created = addFeed(trimmed);
-    if (!created) {
-      setUrlError(`Limit of ${MAX_FEEDS} feeds reached`);
-      return;
-    }
-    setActiveFeed(created.id);
-    setNewUrl("");
-    setUrlError(null);
-  };
 
-  // A 400 from the SSRF gate throws in the hook (no status in the payload) —
-  // surface it instead of rendering an empty ok-state
   const degraded = status !== "ok" || error != null;
   const statusMessage =
     status === "unreachable"
@@ -127,30 +101,10 @@ export function NewsFeedCard({ className = "" }: NewsFeedCardProps) {
               </button>
             </div>
           ))}
-          <div className="flex items-center gap-1.5 pt-1">
-            <input
-              type="text"
-              value={newUrl}
-              onChange={(e) => {
-                setNewUrl(e.target.value);
-                setUrlError(null);
-              }}
-              placeholder="https://example.com/feed.xml"
-              className="flex-1 min-w-0 text-sm bg-su-input border border-su-line/40 rounded-lg px-2 py-1.5 text-su-text placeholder:text-su-muted/80"
-              aria-label="New feed URL"
-            />
-            <button
-              type="button"
-              onClick={handleAdd}
-              disabled={feeds.length >= MAX_FEEDS}
-              className="text-sm font-medium text-su-on-accent bg-su-accent/80 hover:bg-su-accent disabled:opacity-30 rounded-lg px-3 py-1.5 shrink-0"
-            >
-              Add
-            </button>
-          </div>
-          {urlError && (
-            <div className="text-sm text-su-danger">{urlError}</div>
-          )}
+          <button type="button" onClick={() => setConfigOpen(true)}
+            className="min-h-11 rounded-lg px-3 py-1.5 text-xs font-medium">
+            VERIFY & ADD NEWS FEED
+          </button>
         </div>
       )}
 
@@ -189,6 +143,7 @@ export function NewsFeedCard({ className = "" }: NewsFeedCardProps) {
           ))}
         </div>
       )}
+      {configOpen && <Suspense fallback={null}><NewsFeedsConfigDialog open onAdded={setActiveFeed} onClose={() => setConfigOpen(false)} /></Suspense>}
     </Card>
   );
 }

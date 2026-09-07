@@ -85,3 +85,12 @@ it("stages an explicit FM satellite receive mode", () => {
   expect(useRigStore.getState().pendingFrequency).toBe(437_801_234);
   expect(useRigStore.getState().pendingMode).toBe("FM");
 });
+
+it("shows a source context reason and refuses tuning an unverified target", () => {
+  render(<TuneButton frequencyKHz={7074} mode="FT8" unavailableReason="NO DIAL CONTEXT" />);
+  const button = screen.getByRole("button");
+  expect(button.hasAttribute("disabled")).toBe(true);
+  expect(button.textContent).toContain("NO DIAL CONTEXT");
+  fireEvent.click(button);
+  expect(useRigStore.getState().pendingFrequency).toBeNull();
+});

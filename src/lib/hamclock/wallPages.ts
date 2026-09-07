@@ -107,7 +107,7 @@ export const WALL_PAGES: readonly WallPageData[] = [
     id: "sdr",
     title: "SDR",
     shortLabel: "SDR",
-    left: ["sdrScope", "sdrDecodes"],
+    left: ["sdrScope", "sdrDecodes", "wsjtx"],
     right: ["bandActivity", "cluster", "bestBand"],
   },
 ];

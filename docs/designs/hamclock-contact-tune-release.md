@@ -19,6 +19,12 @@ Validation on 2026-09-07:
   keyboard report opening, two report tune actions, Escape dismissal, and no
   bounded report-content overflow or page errors at 1920×1080 and 3840×2160.
   WebSockets were blocked; no bridge, radio, provider, or cloud service was used.
+- Review follow-up permits zero rendered contact rows when a crowded custom rail
+  cannot fit a complete row. A mounted-tile browser resize check reduced the
+  tile until its caption honestly read `TOP 0 OF 1 · TODAY`, then restored room
+  and observed the same tile recover its row and `TOP 1 OF 1 · TODAY` caption.
+  This follow-up used owned session `80d50b3e-b16e-4f51-be0f-f4b529245b94`
+  at `http://127.0.0.1:5197`; it was stopped after the check.
 
 Managed browser session: owner `hamclock-contact-tune-release`, id
 `58c6cb9b-b5f7-4dc6-8567-782f2b644fd5`, local profile,

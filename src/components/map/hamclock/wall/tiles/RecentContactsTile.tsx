@@ -54,6 +54,7 @@ export function RecentContactsTile() {
   );
   const [rowsRef, visible] = useVisibleRows<HTMLDivElement>(
     Math.min(data?.length ?? 0, rowCount),
+    0,
   );
 
   if (!location) {

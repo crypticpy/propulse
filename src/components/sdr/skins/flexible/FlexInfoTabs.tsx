@@ -77,7 +77,7 @@ export const FlexInfoTabs = memo(function FlexInfoTabs({
               className={`px-2 py-0.5 rounded text-[10px] font-medium transition-colors ${
                 isActive
                   ? "bg-cosmic-cyan/15 text-cosmic-cyan"
-                  : "text-su-muted hover:text-su-muted"
+                  : "text-su-muted hover:text-su-text"
               }`}
             >
               {TAB_LABELS[tab]}

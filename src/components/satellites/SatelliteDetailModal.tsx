@@ -325,7 +325,7 @@ export function SatelliteDetailModal({
   return (
     <>
       {/* Backdrop */}
-      <div className="fixed inset-0 bg-su-panel/70 z-[200]" aria-hidden="true" />
+      <div className="fixed inset-0 bg-black/70 z-[200]" aria-hidden="true" />
 
       {/* Modal container — click outside to close */}
       <div

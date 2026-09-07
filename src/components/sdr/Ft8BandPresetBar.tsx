@@ -34,7 +34,7 @@ export function Ft8BandPresetBar({
             className={`rounded px-2 py-0.5 text-[10px] font-semibold tracking-wide transition-colors ${
               isActive
                 ? "bg-signal-green/20 text-signal-green ring-1 ring-signal-green/40"
-                : "bg-su-line/10 text-su-text/40 hover:bg-su-line/20 hover:text-su-text/60"
+                : "bg-su-line/10 text-su-text/80 hover:bg-su-line/20 hover:text-su-text"
             }`}
             title={`${preset.label} — ${(preset.dialFreqHz / 1_000_000).toFixed(3)} MHz`}
           >

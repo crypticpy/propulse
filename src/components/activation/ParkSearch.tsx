@@ -261,25 +261,25 @@ export function ParkSearch({
                         className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium ${
                           item.active
                             ? "bg-signal-green/20 text-signal-green"
-                            : "bg-su-line/20 text-su-text/40"
+                            : "bg-su-line/20 text-su-text/80"
                         }`}
                       >
                         {item.active ? "Active" : "Inactive"}
                       </span>
                     )}
                   </div>
-                  <div className="text-sm text-su-text/60 truncate mt-0.5">
+                  <div className="text-sm text-su-text/80 truncate mt-0.5">
                     {item.name}
                   </div>
                   {(item.location || item.region) && (
-                    <div className="text-xs text-su-text/40 truncate">
+                    <div className="text-xs text-su-text/80 truncate">
                       {item.location || item.region}
                     </div>
                   )}
                 </div>
                 {type === "sota" && item.points !== undefined && (
                   <div className="flex-shrink-0 text-right">
-                    <div className="text-xs text-su-text/50">
+                    <div className="text-xs text-su-text/80">
                       {item.altitude}m
                     </div>
                     <div className="text-xs font-bold text-plasma-orange">

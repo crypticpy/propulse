@@ -52,7 +52,7 @@ export function SidebarAccordion({
           />
         </svg>
 
-        <span className="text-[10px] font-semibold text-su-muted uppercase tracking-wider group-hover:text-su-muted transition-colors">
+        <span className="text-[10px] font-semibold text-su-muted uppercase tracking-wider group-hover:text-su-text transition-colors">
           {title}
         </span>
 

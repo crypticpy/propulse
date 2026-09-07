@@ -444,7 +444,7 @@ export function ExportModal({ isOpen, onClose, pathData }: ExportModalProps) {
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
       {/* Backdrop */}
       <div
-        className="absolute inset-0 bg-su-panel/60 backdrop-blur-sm"
+        className="absolute inset-0 bg-black/60 backdrop-blur-sm"
         onClick={onClose}
         role="presentation"
       />
@@ -916,7 +916,7 @@ function CheckboxOption({
         </div>
       </div>
       <div>
-        <div className="text-sm font-medium text-su-text group-hover:text-su-text transition-colors">
+        <div className="text-sm font-medium text-su-text/90 group-hover:text-su-text transition-colors">
           {label}
         </div>
         <div className="text-xs text-su-muted">{description}</div>

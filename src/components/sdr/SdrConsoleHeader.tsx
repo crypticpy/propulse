@@ -150,7 +150,7 @@ export function SdrConsoleHeader({
       {!isMobile && (
         <Link
           to="/setup"
-          className="text-[10px] text-su-muted hover:text-su-muted shrink-0"
+          className="text-[10px] text-su-muted hover:text-su-text shrink-0"
         >
           Setup
         </Link>

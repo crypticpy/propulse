@@ -218,7 +218,7 @@ export const FlexSideControls = memo(function FlexSideControls({
               disabled:opacity-40 disabled:cursor-not-allowed ${
                 vfo === v
                   ? "bg-cosmic-cyan/15 border-cosmic-cyan/30 text-cosmic-cyan"
-                  : "bg-su-line/10 border-su-line/40 text-su-muted hover:text-su-muted"
+                  : "bg-su-line/10 border-su-line/40 text-su-muted hover:text-su-text"
               }`}
           >
             VFO {v}
@@ -331,7 +331,7 @@ export const FlexSideControls = memo(function FlexSideControls({
             className={`flex-1 px-1 py-0.5 text-[10px] font-semibold rounded-full border transition-colors ${
               freqUnit === unit
                 ? "bg-cosmic-cyan/10 border-cosmic-cyan/30 text-cosmic-cyan"
-                : "bg-su-line/10 border-su-line/40 text-su-muted hover:text-su-muted"
+                : "bg-su-line/10 border-su-line/40 text-su-muted hover:text-su-text"
             }`}
           >
             {unit}
@@ -377,7 +377,7 @@ export const FlexSideControls = memo(function FlexSideControls({
                 ? ft8DecoderEnabled
                   ? "bg-cosmic-cyan/20 text-cosmic-cyan border-cosmic-cyan/40 ring-1 ring-cosmic-cyan/20"
                   : "bg-cosmic-cyan/10 text-cosmic-cyan/70 border-cosmic-cyan/25"
-                : "bg-su-line/10 text-su-muted border-su-line/40 hover:bg-su-line/20 hover:text-su-muted"
+                : "bg-su-line/10 text-su-muted border-su-line/40 hover:bg-su-line/20 hover:text-su-text"
             }`}
           >
             {m}
@@ -420,7 +420,7 @@ export const FlexSideControls = memo(function FlexSideControls({
                 <div className="text-sm font-mono font-semibold tabular-nums text-su-text/80">
                   {s.value.toLocaleString()}
                 </div>
-                <div className="text-[8px] uppercase tracking-wider text-su-text/30">
+                <div className="text-[8px] uppercase tracking-wider text-su-text/80">
                   {s.label}
                 </div>
               </div>
@@ -641,7 +641,7 @@ export const FlexSideControls = memo(function FlexSideControls({
                   <div className="text-sm font-mono font-semibold tabular-nums text-su-text/80">
                     {formatDuration(recordingDurationSec)}
                   </div>
-                  <div className="text-[8px] uppercase tracking-wider text-su-text/30">
+                  <div className="text-[8px] uppercase tracking-wider text-su-text/80">
                     Duration
                   </div>
                 </div>
@@ -649,7 +649,7 @@ export const FlexSideControls = memo(function FlexSideControls({
                   <div className="text-sm font-mono font-semibold tabular-nums text-su-text/80">
                     {formatBytes(recordingEstimatedBytes)}
                   </div>
-                  <div className="text-[8px] uppercase tracking-wider text-su-text/30">
+                  <div className="text-[8px] uppercase tracking-wider text-su-text/80">
                     Size
                   </div>
                 </div>

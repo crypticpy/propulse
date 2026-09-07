@@ -109,7 +109,7 @@ export function SlicePanelFilter({
                   disabled:opacity-40 disabled:cursor-not-allowed ${
                     isActive
                       ? colors
-                      : "bg-su-line/10 border-su-line/40 text-su-muted hover:bg-su-line/20 hover:text-su-muted"
+                      : "bg-su-line/10 border-su-line/40 text-su-muted hover:bg-su-line/20 hover:text-su-text"
                   }`}
               >
                 {entry.display}

@@ -152,7 +152,7 @@ function DspToggle({
         disabled:opacity-40 disabled:cursor-not-allowed ${
           active
             ? "bg-signal-green/15 border-signal-green/30 text-signal-green"
-            : "bg-su-line/10 border-su-line/40 text-su-muted hover:text-su-muted"
+            : "bg-su-line/10 border-su-line/40 text-su-muted hover:text-su-text"
         }`}
     >
       {label}

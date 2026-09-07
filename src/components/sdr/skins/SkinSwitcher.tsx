@@ -34,7 +34,7 @@ export function SkinSwitcher({
           className={`px-2 py-0.5 rounded text-[11px] font-medium transition-colors ${
             activeSkin === skin
               ? "bg-plasma-orange/15 text-plasma-orange"
-              : "text-su-muted hover:text-su-muted"
+              : "text-su-muted hover:text-su-text"
           }`}
         >
           {SKIN_LABELS[skin]}

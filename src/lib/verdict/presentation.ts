@@ -28,7 +28,7 @@ export const ACTIVITY_LABEL: Record<ActivityLevel, string> = {
 
 export const ACTIVITY_TEXT_CLASSES: Record<ActivityLevel, string> = {
   quiet: "text-su-muted",
-  normal: "text-su-text/60",
+  normal: "text-su-text/80",
   busy: "text-caution-amber",
   exceptional: "text-plasma-orange",
 };

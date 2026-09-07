@@ -190,7 +190,7 @@ function ResetButton({ onClick }: { onClick: () => void }) {
       <button
         type="button"
         onClick={onClick}
-        className="text-xs text-su-muted hover:text-su-muted transition-colors"
+        className="text-xs text-su-muted hover:text-su-text transition-colors"
       >
         Reset tab to defaults
       </button>
@@ -469,7 +469,7 @@ function WaterfallTab() {
                   className={`text-[10px] leading-tight transition-colors ${
                     isActive
                       ? "text-plasma-orange font-medium"
-                      : "text-su-muted group-hover:text-su-muted"
+                      : "text-su-muted group-hover:text-su-text"
                   }`}
                 >
                   {getPaletteDisplayName(name)}
@@ -762,7 +762,7 @@ export function SdrSettingsModal({ isOpen, onClose }: SdrSettingsModalProps) {
     <div className="fixed inset-0 z-[400] flex items-center justify-center p-4 md:p-6">
       {/* Backdrop */}
       <div
-        className="absolute inset-0 bg-su-panel/60 backdrop-blur-sm"
+        className="absolute inset-0 bg-black/60 backdrop-blur-sm"
         onClick={onClose}
       />
 

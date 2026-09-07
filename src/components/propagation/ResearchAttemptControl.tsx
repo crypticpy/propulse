@@ -99,7 +99,7 @@ export function ResearchAttemptControl({
         type="button"
         onClick={() => complete("not_attempted")}
         disabled={research.completingAttempt}
-        className="flex h-6 w-full items-center justify-center gap-1 text-[10px] text-su-muted hover:text-su-muted disabled:opacity-50"
+        className="flex h-6 w-full items-center justify-center gap-1 text-[10px] text-su-muted hover:text-su-text disabled:opacity-50"
       >
         <X className="h-3 w-3" aria-hidden="true" />
         Cancel attempt

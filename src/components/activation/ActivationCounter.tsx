@@ -98,7 +98,7 @@ export function ActivationCounter({
           {count}
         </span>
         <span
-          className="text-su-text/50 leading-none"
+          className="text-su-text/80 leading-none"
           style={{ fontSize: size * 0.14 }}
         >
           / {threshold}

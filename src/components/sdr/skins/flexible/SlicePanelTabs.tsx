@@ -389,7 +389,7 @@ export const SlicePanelTabs = memo(function SlicePanelTabs({
               className={`flex-1 px-2 py-1 text-[10px] font-bold uppercase tracking-wider transition-colors ${
                 isActive
                   ? "bg-cosmic-cyan/15 text-cosmic-cyan border-t-2 border-cosmic-cyan -mt-px"
-                  : "text-su-muted hover:text-su-muted hover:bg-su-line/10"
+                  : "text-su-muted hover:text-su-text hover:bg-su-line/10"
               }`}
             >
               {tab.label}
@@ -479,7 +479,7 @@ function SlicePanelRxInline({
                     disabled:opacity-40 disabled:cursor-not-allowed ${
                       isActive
                         ? "bg-cosmic-cyan/15 border-cosmic-cyan/30 text-cosmic-cyan"
-                        : "bg-su-line/10 border-su-line/40 text-su-muted hover:text-su-muted"
+                        : "bg-su-line/10 border-su-line/40 text-su-muted hover:text-su-text"
                     }`}
                 >
                   {antenna}
@@ -611,7 +611,7 @@ function SlicePanelXRit({
             disabled:opacity-40 disabled:cursor-not-allowed ${
               ritEnabled
                 ? "bg-plasma-orange/20 border-plasma-orange/30 text-plasma-orange"
-                : "bg-su-line/10 border-su-line/40 text-su-muted hover:text-su-muted"
+                : "bg-su-line/10 border-su-line/40 text-su-muted hover:text-su-text"
             }`}
         >
           RIT
@@ -634,7 +634,7 @@ function SlicePanelXRit({
           <button
             onClick={() => onRitOffset(0)}
             disabled={!canControl}
-            className="text-[9px] text-su-muted hover:text-su-muted disabled:opacity-40"
+            className="text-[9px] text-su-muted hover:text-su-text disabled:opacity-40"
             title="Clear RIT offset"
           >
             CLR
@@ -653,7 +653,7 @@ function SlicePanelXRit({
             disabled:opacity-40 disabled:cursor-not-allowed ${
               xitEnabled
                 ? "bg-cosmic-cyan/20 border-cosmic-cyan/30 text-cosmic-cyan"
-                : "bg-su-line/10 border-su-line/40 text-su-muted hover:text-su-muted"
+                : "bg-su-line/10 border-su-line/40 text-su-muted hover:text-su-text"
             }`}
         >
           XIT
@@ -676,7 +676,7 @@ function SlicePanelXRit({
           <button
             onClick={() => onXitOffset(0)}
             disabled={!canControl}
-            className="text-[9px] text-su-muted hover:text-su-muted disabled:opacity-40"
+            className="text-[9px] text-su-muted hover:text-su-text disabled:opacity-40"
             title="Clear XIT offset"
           >
             CLR
@@ -695,7 +695,7 @@ function SlicePanelXRit({
             disabled:opacity-40 disabled:cursor-not-allowed ${
               split
                 ? "bg-caution-amber/20 border-caution-amber/30 text-caution-amber"
-                : "bg-su-line/10 border-su-line/40 text-su-muted hover:text-su-muted"
+                : "bg-su-line/10 border-su-line/40 text-su-muted hover:text-su-text"
             }`}
         >
           SPLIT {split ? "ON" : "OFF"}
@@ -725,7 +725,7 @@ function SlicePanelXRit({
           <button
             onClick={() => onIfShift(0)}
             disabled={!canControl}
-            className="text-[9px] text-su-muted hover:text-su-muted disabled:opacity-40"
+            className="text-[9px] text-su-muted hover:text-su-text disabled:opacity-40"
             title="Clear IF shift"
           >
             CLR

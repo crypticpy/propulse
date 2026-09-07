@@ -263,7 +263,7 @@ export const FlexVfoDisplay = memo(function FlexVfoDisplay({
         {/* Size toggle button */}
         <button
           onClick={cycleSize}
-          className="pointer-events-auto text-[8px] font-bold text-su-muted hover:text-su-muted transition-colors px-0.5"
+          className="pointer-events-auto text-[8px] font-bold text-su-muted hover:text-su-text transition-colors px-0.5"
           title={isMax ? "Collapse to normal" : "Expand to max"}
         >
           {isMax ? "\u25B4" : "\u25BE"}

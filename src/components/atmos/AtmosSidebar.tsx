@@ -71,7 +71,7 @@ export function AtmosSidebar() {
               className={`flex items-center gap-2 w-full px-2 py-1.5 rounded-md text-left text-xs transition-colors ${
                 layerVisibility[id]
                   ? "bg-su-line/10 text-su-text"
-                  : "text-su-muted hover:text-su-muted hover:bg-su-line/10"
+                  : "text-su-muted hover:text-su-text hover:bg-su-line/10"
               }`}
             >
               <span className="text-sm">{icon}</span>

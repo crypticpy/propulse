@@ -122,15 +122,15 @@ export function FateBottomBar({
       <div className="flex items-center gap-2">
         {ft8DecoderEnabled && (
           <div className="flex items-center gap-1.5 text-[10px] text-su-muted font-mono">
-            <span className="text-su-text/60">
+            <span className="text-su-text/80">
               {ft8DecoderStats.totalDecodes}
             </span>
-            <span className="text-su-text/30">decoded</span>
+            <span className="text-su-text/80">decoded</span>
             <span className="text-su-text/10">|</span>
-            <span className="text-su-text/60">
+            <span className="text-su-text/80">
               {ft8DecoderStats.lastCycleDecodes}
             </span>
-            <span className="text-su-text/30">/cycle</span>
+            <span className="text-su-text/80">/cycle</span>
             <span className="text-su-text/10">|</span>
             <span
               className={
@@ -154,7 +154,7 @@ export function FateBottomBar({
 
         {/* TX badge */}
         {ptt && (
-          <span className="animate-pulse rounded bg-alert-red px-1.5 py-0.5 text-[10px] font-bold text-su-on-accent leading-none shadow-[0_0_8px_rgba(255,68,68,0.5)]">
+          <span className="animate-pulse rounded bg-alert-red px-1.5 py-0.5 text-[10px] font-bold text-su-canvas leading-none shadow-[0_0_8px_rgba(255,68,68,0.5)]">
             TX
           </span>
         )}

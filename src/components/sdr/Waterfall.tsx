@@ -1007,7 +1007,7 @@ export function Waterfall({
               <div className={`w-px h-full ${colorClass}`} />
               {o.label ? (
                 <div
-                  className={`absolute top-1 left-0 -translate-x-1/2 px-1 py-0.5 rounded text-[10px] bg-su-panel/60 border border-su-line/40 ${colorClass}`}
+                  className={`absolute top-1 left-0 -translate-x-1/2 px-1 py-0.5 rounded text-[10px] bg-su-panel/90 border border-su-line/40 ${colorClass}`}
                 >
                   {o.label}
                 </div>

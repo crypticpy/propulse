@@ -16,8 +16,8 @@ import {
 } from "@/lib/atmos/polygonAnalysis";
 
 const SEVERITY_COLORS: Record<string, string> = {
-  Extreme: "bg-alert-red text-su-on-accent",
-  Severe: "bg-caution-amber text-su-on-accent",
+  Extreme: "bg-alert-red text-su-canvas",
+  Severe: "bg-caution-amber text-su-canvas",
   Moderate: "bg-yellow-600 text-void-black",
   Minor: "bg-nebula-blue text-su-text",
   Unknown: "bg-su-line text-su-text",

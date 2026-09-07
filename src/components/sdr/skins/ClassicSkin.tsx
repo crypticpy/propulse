@@ -269,7 +269,7 @@ export function ClassicSkin(props: SdrSkinProps) {
               }}
             >
               <div
-                className="absolute inset-0 bg-su-panel/50"
+                className="absolute inset-0 bg-black/50"
                 onClick={() => setMobileControlsOpen(false)}
               />
 

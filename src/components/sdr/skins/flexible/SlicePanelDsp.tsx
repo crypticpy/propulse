@@ -124,7 +124,7 @@ export function SlicePanelDsp({
                       disabled:cursor-not-allowed ${
                         agcMode === a.mode
                           ? "bg-cosmic-cyan/20 border-cosmic-cyan/40 text-cosmic-cyan"
-                          : "bg-su-line/10 border-su-line/40 text-su-muted hover:text-su-muted disabled:opacity-40"
+                          : "bg-su-line/10 border-su-line/40 text-su-muted hover:text-su-text disabled:opacity-40"
                       }`}
                   >
                     {a.label}

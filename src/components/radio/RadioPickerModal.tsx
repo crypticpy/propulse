@@ -226,7 +226,7 @@ export function RadioPickerModal({
                     <button
                       type="button"
                       onClick={() => setTab("database")}
-                      className="px-3 py-2 rounded-lg bg-su-line/10 border border-su-line/40 text-su-text hover:text-su-text hover:border-su-line/50 transition-colors text-xs font-semibold"
+                      className="px-3 py-2 rounded-lg bg-su-line/10 border border-su-line/40 text-su-text/90 hover:text-su-text hover:border-su-line/50 transition-colors text-xs font-semibold"
                     >
                       Browse database
                     </button>
@@ -331,7 +331,7 @@ export function RadioPickerModal({
                   <button
                     type="button"
                     onClick={() => setSelectedCustomIds(new Set())}
-                    className="text-[10px] px-2 py-1 rounded bg-su-line/10 border border-su-line/40 text-su-text hover:text-su-text hover:border-su-line/50 transition-colors"
+                    className="text-[10px] px-2 py-1 rounded bg-su-line/10 border border-su-line/40 text-su-text/90 hover:text-su-text hover:border-su-line/50 transition-colors"
                   >
                     Clear
                   </button>
@@ -416,7 +416,7 @@ export function RadioPickerModal({
                               onClose();
                             }
                           }}
-                          className="text-[10px] px-2 py-1 rounded bg-su-line/10 border border-su-line/40 text-su-text hover:text-su-text hover:border-su-line/50 transition-colors"
+                          className="text-[10px] px-2 py-1 rounded bg-su-line/10 border border-su-line/40 text-su-text/90 hover:text-su-text hover:border-su-line/50 transition-colors"
                           title="Use this radio for this tool"
                         >
                           Use

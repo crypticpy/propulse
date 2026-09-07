@@ -879,7 +879,7 @@ export function FlexibleSkin(props: SdrSkinProps) {
                   // bottom waterfall (it belongs in the zoom view above).
                   className="rounded-none border-0"
                 />
-                <div className="pointer-events-none absolute left-2 top-2 z-20 flex items-center gap-2 rounded border border-su-line/50 bg-su-panel/60 px-2 py-1">
+                <div className="pointer-events-none absolute left-2 top-2 z-20 flex items-center gap-2 rounded border border-su-line/50 bg-su-panel/90 px-2 py-1">
                   <button
                     type="button"
                     className={`pointer-events-auto rounded px-2 py-0.5 text-[10px] font-medium ${

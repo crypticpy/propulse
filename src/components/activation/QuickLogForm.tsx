@@ -157,7 +157,7 @@ export function QuickLogForm({ onLogged, className = "" }: QuickLogFormProps) {
     >
       {/* Band/Mode indicator */}
       {(effectiveBand || effectiveMode) && (
-        <div className="flex items-center gap-2 text-xs text-su-text/50">
+        <div className="flex items-center gap-2 text-xs text-su-text/80">
           {effectiveBand && (
             <span className="px-2 py-0.5 rounded bg-su-line/10 font-mono">
               {effectiveBand}
@@ -200,7 +200,7 @@ export function QuickLogForm({ onLogged, className = "" }: QuickLogFormProps) {
         <div>
           <label
             htmlFor="quick-rst-sent"
-            className="block text-[10px] text-su-text/40 uppercase tracking-wider mb-1"
+            className="block text-[10px] text-su-text/80 uppercase tracking-wider mb-1"
           >
             RST Sent
           </label>
@@ -222,7 +222,7 @@ export function QuickLogForm({ onLogged, className = "" }: QuickLogFormProps) {
         <div>
           <label
             htmlFor="quick-rst-rcvd"
-            className="block text-[10px] text-su-text/40 uppercase tracking-wider mb-1"
+            className="block text-[10px] text-su-text/80 uppercase tracking-wider mb-1"
           >
             RST Rcvd
           </label>
@@ -274,20 +274,20 @@ export function QuickLogForm({ onLogged, className = "" }: QuickLogFormProps) {
       {/* Recent callsigns chips */}
       {recentCalls.length > 0 && (
         <div className="flex items-center gap-1.5 flex-wrap">
-          <span className="text-[10px] text-su-text/30 uppercase mr-1">
+          <span className="text-[10px] text-su-text/80 uppercase mr-1">
             Recent:
           </span>
           {recentCalls.map((call) => (
             <span
               key={call}
               className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full
-                         bg-su-line/10 text-su-text/60 text-xs font-mono"
+                         bg-su-line/10 text-su-text/80 text-xs font-mono"
             >
               {call}
               <button
                 type="button"
                 onClick={() => dismissRecent(call)}
-                className="text-su-text/30 hover:text-su-text/60 transition-colors ml-0.5"
+                className="text-su-text/80 hover:text-su-text transition-colors ml-0.5"
                 aria-label={`Dismiss ${call}`}
               >
                 <svg

@@ -126,7 +126,7 @@ export function ActivationPanel({ className = "" }: ActivationPanelProps) {
         {/* Header */}
         <div>
           <h2 className="text-lg font-bold text-su-text">Start Activation</h2>
-          <p className="text-sm text-su-text/50 mt-1">
+          <p className="text-sm text-su-text/80 mt-1">
             Select POTA or SOTA, find your park or summit, and start logging.
           </p>
         </div>
@@ -140,7 +140,7 @@ export function ActivationPanel({ className = "" }: ActivationPanelProps) {
                        transition-all duration-150 ${
                          selectedType === "pota"
                            ? "bg-signal-green/20 text-signal-green border-2 border-signal-green/40"
-                           : "bg-space-900 text-su-text/50 border border-su-line/40 hover:text-su-text/70"
+                           : "bg-space-900 text-su-text/80 border border-su-line/40 hover:text-su-text"
                        }`}
           >
             POTA
@@ -152,7 +152,7 @@ export function ActivationPanel({ className = "" }: ActivationPanelProps) {
                        transition-all duration-150 ${
                          selectedType === "sota"
                            ? "bg-plasma-orange/20 text-plasma-orange border-2 border-plasma-orange/40"
-                           : "bg-space-900 text-su-text/50 border border-su-line/40 hover:text-su-text/70"
+                           : "bg-space-900 text-su-text/80 border border-su-line/40 hover:text-su-text"
                        }`}
           >
             SOTA
@@ -175,7 +175,7 @@ export function ActivationPanel({ className = "" }: ActivationPanelProps) {
                 {selectedRef}
               </div>
               {selectedName && (
-                <div className="text-xs text-su-text/50 truncate">
+                <div className="text-xs text-su-text/80 truncate">
                   {selectedName}
                 </div>
               )}
@@ -192,7 +192,7 @@ export function ActivationPanel({ className = "" }: ActivationPanelProps) {
                      transition-all duration-150
                      disabled:opacity-30 disabled:cursor-not-allowed ${
                        selectedType === "pota"
-                         ? "bg-signal-green text-su-on-accent hover:bg-signal-green/90"
+                         ? "bg-signal-green text-su-canvas hover:bg-signal-green/90"
                          : "bg-plasma-orange text-su-on-accent hover:bg-plasma-orange/90"
                      }`}
         >
@@ -229,7 +229,7 @@ export function ActivationPanel({ className = "" }: ActivationPanelProps) {
                 {currentRef}
               </div>
               {activationName && (
-                <div className="text-xs text-su-text/50 truncate">
+                <div className="text-xs text-su-text/80 truncate">
                   {activationName}
                 </div>
               )}
@@ -309,7 +309,7 @@ export function ActivationPanel({ className = "" }: ActivationPanelProps) {
                 type="button"
                 onClick={handleEnd}
                 className="flex-1 h-11 rounded-lg font-bold text-sm
-                           bg-alert-red text-su-on-accent
+                           bg-alert-red text-su-canvas
                            hover:bg-alert-red/90 active:scale-[0.98]
                            transition-all duration-150"
               >
@@ -319,8 +319,8 @@ export function ActivationPanel({ className = "" }: ActivationPanelProps) {
                 type="button"
                 onClick={() => setShowEndConfirm(false)}
                 className="h-11 px-3 rounded-lg text-sm
-                           bg-space-900 text-su-text/60 border border-su-line/40
-                           hover:text-su-text/80
+                           bg-space-900 text-su-text/80 border border-su-line/40
+                           hover:text-su-text
                            transition-all duration-150"
               >
                 Cancel

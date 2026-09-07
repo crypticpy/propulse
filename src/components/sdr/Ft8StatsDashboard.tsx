@@ -25,7 +25,7 @@ export function Ft8StatsDashboard({
       {/* Toggle header */}
       <button
         onClick={() => setExpanded(!expanded)}
-        className="flex w-full items-center justify-between px-3 py-1.5 text-[10px] uppercase tracking-wider text-su-text/40 hover:text-su-text/60"
+        className="flex w-full items-center justify-between px-3 py-1.5 text-[10px] uppercase tracking-wider text-su-text/80 hover:text-su-text"
       >
         <span>Session Stats</span>
         <span className="text-[9px]">{expanded ? "\u25B2" : "\u25BC"}</span>
@@ -60,13 +60,13 @@ export function Ft8StatsDashboard({
           {/* Best DX */}
           {stats.bestDxKm > 0 && (
             <div className="rounded bg-su-line/10 px-2 py-1.5 text-center">
-              <div className="text-[9px] uppercase tracking-wider text-su-text/30">
+              <div className="text-[9px] uppercase tracking-wider text-su-text/80">
                 Best DX
               </div>
               <div className="font-mono text-[13px] font-semibold tabular-nums text-caution-amber">
                 {stats.bestDxCallsign}
               </div>
-              <div className="font-mono text-[11px] tabular-nums text-su-text/50">
+              <div className="font-mono text-[11px] tabular-nums text-su-text/80">
                 {stats.bestDxKm.toLocaleString()} km
               </div>
             </div>
@@ -75,7 +75,7 @@ export function Ft8StatsDashboard({
           {/* Decodes-per-cycle sparkline */}
           {cycleCounts.length > 1 && (
             <div>
-              <div className="mb-1 text-[9px] uppercase tracking-wider text-su-text/30">
+              <div className="mb-1 text-[9px] uppercase tracking-wider text-su-text/80">
                 Decodes / Cycle
               </div>
               <DecodeSparkline data={cycleCounts} />
@@ -84,7 +84,7 @@ export function Ft8StatsDashboard({
 
           {/* Session time */}
           {stats.sessionStartedAt && (
-            <div className="text-center text-[9px] text-su-text/30">
+            <div className="text-center text-[9px] text-su-text/80">
               Session started{" "}
               {new Date(stats.sessionStartedAt).toLocaleTimeString()}
             </div>
@@ -111,7 +111,7 @@ function BigStatCard({
       <div className={`font-mono text-[16px] font-bold tabular-nums ${color}`}>
         {value.toLocaleString()}
       </div>
-      <div className="text-[9px] uppercase tracking-wider text-su-text/30">
+      <div className="text-[9px] uppercase tracking-wider text-su-text/80">
         {label}
       </div>
     </div>

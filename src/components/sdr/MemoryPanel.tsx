@@ -167,7 +167,7 @@ export function MemoryPanel({
                 className={`flex-1 px-1 py-0.5 text-[9px] font-bold rounded border transition-colors ${
                   storeBank === b
                     ? BANK_COLORS[b]
-                    : "bg-su-line/10 border-su-line/40 text-su-muted hover:text-su-muted"
+                    : "bg-su-line/10 border-su-line/40 text-su-muted hover:text-su-text"
                 }`}
               >
                 {b}
@@ -214,7 +214,7 @@ export function MemoryPanel({
           className={`px-1.5 py-0.5 text-[9px] font-bold rounded border transition-colors ${
             activeBank === "ALL"
               ? "bg-su-line/20 border-su-line/50 text-su-text"
-              : "bg-su-line/10 border-su-line/40 text-su-muted hover:text-su-muted"
+              : "bg-su-line/10 border-su-line/40 text-su-muted hover:text-su-text"
           }`}
         >
           ALL
@@ -231,7 +231,7 @@ export function MemoryPanel({
             className={`flex-1 px-1 py-0.5 text-[9px] font-bold rounded border transition-colors ${
               activeBank === b
                 ? BANK_COLORS[b]
-                : "bg-su-line/10 border-su-line/40 text-su-muted hover:text-su-muted"
+                : "bg-su-line/10 border-su-line/40 text-su-muted hover:text-su-text"
             }`}
           >
             {b}

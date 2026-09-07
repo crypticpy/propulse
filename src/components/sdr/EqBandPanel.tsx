@@ -288,7 +288,7 @@ export function EqBandPanel({
           className={`flex-1 px-2 py-1.5 text-[11px] font-semibold rounded border transition-colors ${
             band.enabled
               ? "bg-signal-green/15 border-signal-green/30 text-signal-green hover:bg-signal-green/25"
-              : "bg-su-line/10 border-su-line/40 text-su-muted hover:bg-su-line/20 hover:text-su-muted"
+              : "bg-su-line/10 border-su-line/40 text-su-muted hover:bg-su-line/20 hover:text-su-text"
           }`}
         >
           {band.enabled ? "Disable" : "Enable"}

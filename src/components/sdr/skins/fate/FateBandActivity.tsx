@@ -769,7 +769,7 @@ export function FateBandActivity({
           className={`px-2 py-0.5 rounded text-[10px] font-bold transition-colors ${
             showCqOnly
               ? "bg-signal-green/15 text-signal-green"
-              : "text-su-muted hover:text-su-muted"
+              : "text-su-muted hover:text-su-text"
           }`}
         >
           CQ

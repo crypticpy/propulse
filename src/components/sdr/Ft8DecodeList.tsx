@@ -69,7 +69,7 @@ export function Ft8DecodeList({
 
   if (decodes.length === 0) {
     return (
-      <div className="px-3 py-4 text-center text-[11px] text-su-text/30">
+      <div className="px-3 py-4 text-center text-[11px] text-su-text/80">
         Waiting for decodes...
       </div>
     );
@@ -83,7 +83,7 @@ export function Ft8DecodeList({
       style={{ maxHeight }}
     >
       <table className="w-full text-[10px] leading-tight">
-        <thead className="sticky top-0 bg-void-black/90 text-su-text/30">
+        <thead className="sticky top-0 bg-void-black/90 text-su-text/80">
           <tr>
             <th className="px-1 py-1 text-left font-medium">UTC</th>
             <th className="px-1 py-1 text-right font-medium">dB</th>
@@ -101,7 +101,7 @@ export function Ft8DecodeList({
           {decodes.map((d, i) => {
             const rowBg = getRowBackground(d, highlightNeeded, highlightCQ);
             const textClass = d.isDupe
-              ? "text-su-text/30 line-through"
+              ? "text-su-text/80 line-through"
               : "text-su-text/70";
             const callClass = getCallClass(d, highlightNeeded, highlightCQ);
 
@@ -197,7 +197,7 @@ function getCallClass(
   if (d.isCallingMe) return "text-alert-red";
   if (highlightNeeded && d.isNeeded) return "text-caution-amber";
   if (highlightCQ && d.isCQ) return "text-signal-green";
-  if (d.isDupe) return "text-su-text/30 line-through";
+  if (d.isDupe) return "text-su-text/80 line-through";
   return "text-cosmic-cyan";
 }
 

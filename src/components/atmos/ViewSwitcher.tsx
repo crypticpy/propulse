@@ -40,7 +40,7 @@ function ViewButton({
       className={`px-3 py-1 text-xs font-mono font-semibold rounded-md transition-all ${
         active
           ? "bg-plasma-orange/20 text-plasma-orange border border-plasma-orange/30"
-          : "text-su-muted hover:text-su-muted border border-transparent"
+          : "text-su-muted hover:text-su-text border border-transparent"
       }`}
     >
       {label}

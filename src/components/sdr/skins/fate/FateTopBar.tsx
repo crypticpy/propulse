@@ -70,7 +70,7 @@ function FateCycleBar({
           />
         )}
       </div>
-      <span className="text-[8px] text-su-text/30 font-mono text-center leading-none">
+      <span className="text-[8px] text-su-text/80 font-mono text-center leading-none">
         {pct.toFixed(0)}%
       </span>
     </div>
@@ -163,7 +163,7 @@ export function FateTopBar({
             ${
               ft8DecoderEnabled
                 ? "border-signal-green/30 bg-signal-green/10 text-signal-green hover:bg-signal-green/15"
-                : "border-su-line/40 bg-su-line/10 text-su-muted hover:text-su-muted hover:border-su-line/50"
+                : "border-su-line/40 bg-su-line/10 text-su-muted hover:text-su-text hover:border-su-line/50"
             }
           `}
         >
@@ -187,7 +187,7 @@ export function FateTopBar({
               ${
                 ft8DecoderMode === "FT8"
                   ? "bg-signal-green/15 text-signal-green"
-                  : "text-su-muted hover:text-su-muted"
+                  : "text-su-muted hover:text-su-text"
               }
             `}
           >
@@ -201,7 +201,7 @@ export function FateTopBar({
               ${
                 ft8DecoderMode === "FT4"
                   ? "bg-cosmic-cyan/15 text-cosmic-cyan"
-                  : "text-su-muted hover:text-su-muted"
+                  : "text-su-muted hover:text-su-text"
               }
             `}
           >
@@ -216,7 +216,7 @@ export function FateTopBar({
           className={`px-2 py-0.5 rounded text-[10px] font-bold transition-colors ${
             showCqOnly
               ? "bg-signal-green/15 text-signal-green"
-              : "text-su-muted hover:text-su-muted"
+              : "text-su-muted hover:text-su-text"
           }`}
         >
           CQ

@@ -183,7 +183,7 @@ export function RankUpCelebration({
       onClick={onDismiss}
     >
       {/* -- Backdrop -- */}
-      <div className="absolute inset-0 bg-su-panel/90 backdrop-blur-sm" />
+      <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" />
 
       {/* -- Radial gradient burst -- */}
       {effects.glow && <div

@@ -7,6 +7,14 @@ import { SolarOperatingActions } from "./SolarOperatingActions";
 import { sourceProps, formatUtc } from "./presentation";
 
 type Model = ReturnType<typeof useSolarModel>;
+
+/** DS-04 ink-on-tone rule: filled cells use text-su-canvas for contrast, not text-su-text. */
+function outlookKpToneClass(kp: number): string {
+  if (kp >= 5) return "bg-su-danger/80";
+  if (kp === 4) return "bg-su-warning/80";
+  return "bg-su-success/80";
+}
+
 export function SolarForecastPanel({ resources, current }: Pick<Model, "resources" | "current">) {
   return <>
           <div className="grid items-start gap-3 xl:grid-cols-[3fr_2fr]">
@@ -23,25 +31,58 @@ export function SolarForecastPanel({ resources, current }: Pick<Model, "resource
                 max={9}
               />
             </WidgetShell>
-            <WidgetShell title="One-day event probabilities" timestampLabel="Issued" eyebrow="Official NOAA forecast" {...sourceProps(resources.probabilities)} state={current.probabilityWindowEnded ? "stale" : resources.probabilities.state} staleMessage={current.probabilityWindowEnded ? "This forecast's one-day window has ended. These are the previous issue's probabilities; waiting for a newer NOAA forecast." : undefined}>
-              {resources.probabilities.data && (
-                <div className="space-y-3">
-                  {[
-                    ["C-class flare", resources.probabilities.data.c_class],
-                    ["M-class flare", resources.probabilities.data.m_class],
-                    ["X-class flare", resources.probabilities.data.x_class],
-                    [">=10 MeV proton event", resources.probabilities.data.proton_10mev],
-                  ].map(([label, value]) => (
-                    <div key={String(label)}>
-                      <div className="flex justify-between text-xs"><span className="text-su-muted">{label}</span><span className="font-mono text-su-text">{value}%</span></div>
-                      <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-su-line/20"><div className="h-full rounded-full bg-gradient-to-r from-su-info to-su-warning" style={{ width: `${value}%` }} /></div>
+            <div className="space-y-3">
+              <WidgetShell title="One-day event probabilities" timestampLabel="Issued" eyebrow="Official NOAA forecast" {...sourceProps(resources.probabilities)} state={current.probabilityWindowEnded ? "stale" : resources.probabilities.state} staleMessage={current.probabilityWindowEnded ? "This forecast's one-day window has ended. These are the previous issue's probabilities; waiting for a newer NOAA forecast." : undefined}>
+                {resources.probabilities.data && (
+                  <div className="space-y-3">
+                    {[
+                      ["C-class flare", resources.probabilities.data.c_class],
+                      ["M-class flare", resources.probabilities.data.m_class],
+                      ["X-class flare", resources.probabilities.data.x_class],
+                      [">=10 MeV proton event", resources.probabilities.data.proton_10mev],
+                    ].map(([label, value]) => (
+                      <div key={String(label)}>
+                        <div className="flex justify-between text-xs"><span className="text-su-muted">{label}</span><span className="font-mono text-su-text">{value}%</span></div>
+                        <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-su-line/20"><div className="h-full rounded-full bg-gradient-to-r from-su-info to-su-warning" style={{ width: `${value}%` }} /></div>
+                      </div>
+                    ))}
+                    <p className="text-xs leading-5 text-su-muted">These percentages estimate events, not whether your contact will succeed. Elevated X-rays can weaken sunlit HF paths; proton storms can affect polar paths. <a href="https://www.spaceweather.gov/impacts/hf-radio-communications" target="_blank" rel="noreferrer" className="text-su-info underline">HF effects explained</a></p>
+                    <p className="border-t border-su-line/20 pt-3 text-xs text-su-muted">Issued {formatUtc(resources.probabilities.data.issue_time)} · one-day horizon.</p>
+                  </div>
+                )}
+              </WidgetShell>
+              <WidgetShell title="27-day outlook" timestampLabel="Issued" eyebrow="Official NOAA forecast · rotation ahead" {...sourceProps(resources.outlook)}>
+                {resources.outlook.data && (
+                  <div className="space-y-3">
+                    <div className="grid grid-cols-9 gap-1">
+                      {resources.outlook.data.outlook.map((day) => {
+                        const dayLabel = new Date(day.date).toLocaleDateString(undefined, { timeZone: "UTC", month: "short", day: "numeric" });
+                        const description = `${dayLabel} · Kp ${day.predicted_kp} · A ${day.predicted_planetary_a} · flux ${day.predicted_flux}`;
+                        return (
+                          <div
+                            key={day.date}
+                            title={description}
+                            aria-label={description}
+                            className={`flex aspect-square items-center justify-center rounded text-[10px] font-semibold text-su-canvas ${outlookKpToneClass(day.predicted_kp)}`}
+                          >
+                            {new Date(day.date).getUTCDate()}
+                          </div>
+                        );
+                      })}
                     </div>
-                  ))}
-                  <p className="text-xs leading-5 text-su-muted">These percentages estimate events, not whether your contact will succeed. Elevated X-rays can weaken sunlit HF paths; proton storms can affect polar paths. <a href="https://www.spaceweather.gov/impacts/hf-radio-communications" target="_blank" rel="noreferrer" className="text-su-info underline">HF effects explained</a></p>
-                  <p className="border-t border-su-line/20 pt-3 text-xs text-su-muted">Issued {formatUtc(resources.probabilities.data.issue_time)} · one-day horizon.</p>
-                </div>
-              )}
-            </WidgetShell>
+                    <SolarMiniChart
+                      label="Predicted 10.7 cm solar flux across the 27-day outlook"
+                      points={resources.outlook.data.outlook.map((day) => ({ timestamp: day.date, value: day.predicted_flux }))}
+                      unit="sfu"
+                      maxGapMs={26 * 3_600_000}
+                      minPlotHeight={64}
+                    />
+                    <p className="text-xs leading-5 text-su-muted">Cell colour is predicted Kp tier: green 0–3, amber 4, red 5 and above.</p>
+                    <p className="border-t border-su-line/20 pt-3 text-xs text-su-muted">Issued {formatUtc(resources.outlook.data.issued_at)} · 27-day horizon.</p>
+                  </div>
+                )}
+              </WidgetShell>
+            </div>
           </div>
           <WidgetShell title="Three-day outlook" timestampLabel="Issued" eyebrow="Official NOAA forecast" {...sourceProps(resources.forecast)}>
             {resources.forecast.data && (

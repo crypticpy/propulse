@@ -108,3 +108,63 @@ describe("change summaries", () => {
     expect(buildSolarTrends(data, now)[1].summary).toMatch(/Up 10/);
   });
 });
+describe("trend tone and series", () => {
+  it("colors Kp by disruption risk: rising is danger, falling is success", () => {
+    const rising = inputs();
+    rising.kp.data!.unshift({ ...rising.kp.data![0], time_tag: new Date(now - 10_800_000).toISOString(), kp: 1 });
+    expect(buildSolarTrends(rising, now)[0].tone).toBe("danger");
+
+    const falling = inputs();
+    falling.kp.data![0].kp = 1;
+    falling.kp.data!.unshift({ ...falling.kp.data![0], time_tag: new Date(now - 10_800_000).toISOString(), kp: 4 });
+    expect(buildSolarTrends(falling, now)[0].tone).toBe("success");
+  });
+  it("colors solar flux by usability: rising is success, falling is warning", () => {
+    const rising = inputs();
+    rising.flux.data!.unshift({ ...rising.flux.data![0], time_tag: new Date(now - 86_400_000).toISOString(), flux: 140 });
+    expect(buildSolarTrends(rising, now)[1].tone).toBe("success");
+
+    const falling = inputs();
+    falling.flux.data![0].flux = 140;
+    falling.flux.data!.unshift({ ...falling.flux.data![0], time_tag: new Date(now - 86_400_000).toISOString(), flux: 150 });
+    expect(buildSolarTrends(falling, now)[1].tone).toBe("warning");
+  });
+  it("colors Bz by its own sign: swinging southward is danger, northward is success", () => {
+    const southward = inputs();
+    southward.magnetometer.data!.unshift({ ...southward.magnetometer.data![0], time_tag: new Date(now - 3 * 60_000).toISOString(), bz_gsm: 5 });
+    expect(buildSolarTrends(southward, now)[2].tone).toBe("danger");
+
+    const northward = inputs();
+    northward.magnetometer.data![0].bz_gsm = -5;
+    northward.magnetometer.data!.unshift({ ...northward.magnetometer.data![0], time_tag: new Date(now - 3 * 60_000).toISOString(), bz_gsm: -8 });
+    expect(buildSolarTrends(northward, now)[2].tone).toBe("success");
+  });
+  it("colors X-ray by absorption risk: rising is warning, falling is info", () => {
+    const rising = inputs();
+    rising.xray.data!.unshift({ ...rising.xray.data![0], time_tag: new Date(now - 4 * 60_000).toISOString(), flux: 1e-8 });
+    expect(buildSolarTrends(rising, now)[3].tone).toBe("warning");
+
+    const falling = inputs();
+    falling.xray.data![0].flux = 1e-8;
+    falling.xray.data!.unshift({ ...falling.xray.data![0], time_tag: new Date(now - 4 * 60_000).toISOString(), flux: 1e-7 });
+    expect(buildSolarTrends(falling, now)[3].tone).toBe("info");
+  });
+  it("marks an unchanged reading as muted regardless of metric", () => {
+    const data = inputs();
+    data.kp.data!.unshift({ ...data.kp.data![0], time_tag: new Date(now - 10_800_000).toISOString() });
+    expect(buildSolarTrends(data, now)[0].tone).toBe("muted");
+  });
+  it("trims the trailing series to the last 24 hours, capped at 48 points, newest last", () => {
+    const data = inputs();
+    data.flux.data = Array.from({ length: 60 }, (_, i) => ({
+      time_tag: new Date(now - (59 - i) * 3_600_000).toISOString(),
+      flux: 100 + i,
+      frequency: 2800 as const,
+      schedule: "noon",
+    }));
+    const series = buildSolarTrends(data, now)[1].series;
+    expect(series.length).toBeLessThanOrEqual(48);
+    expect(series.at(-1)?.value).toBe(159);
+    expect(Date.parse(series[0].timestamp)).toBeGreaterThanOrEqual(now - 24 * 3_600_000);
+  });
+});

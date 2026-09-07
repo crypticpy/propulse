@@ -336,7 +336,7 @@ export function PropSphere() {
     : null;
   const miniKpColor =
     miniKp === null
-      ? "bg-white/30"
+      ? "bg-su-text/30"
       : miniKp <= 3
         ? "bg-signal-green"
         : miniKp <= 5
@@ -830,12 +830,12 @@ export function PropSphere() {
                 <OperatorProfile className="h-full" />
                 {/* S-meter reading when rig is connected via CAT */}
                 {catActive && (
-                  <div className="flex items-center gap-1.5 mt-1.5 px-1.5 py-1 rounded bg-white/5 border border-white/10">
+                  <div className="flex items-center gap-1.5 mt-1.5 px-1.5 py-1 rounded bg-su-line/10 border border-su-line/40">
                     <div className="w-1.5 h-1.5 rounded-full bg-signal-green" />
-                    <span className="text-[10px] text-gray-400 uppercase tracking-wider">
+                    <span className="text-[10px] text-su-muted uppercase tracking-wider">
                       S-Meter
                     </span>
-                    <span className="text-xs font-mono font-medium text-white ml-auto">
+                    <span className="text-xs font-mono font-medium text-su-text ml-auto">
                       {getSMeterText()}
                     </span>
                   </div>
@@ -855,7 +855,7 @@ export function PropSphere() {
                       className="h-full"
                     />
                   ) : (
-                    <div className="h-full flex items-center justify-center text-gray-500 text-xs">
+                    <div className="h-full flex items-center justify-center text-su-muted text-xs">
                       {station
                         ? "Select a target on the map"
                         : "Set QTH in settings"}
@@ -867,9 +867,9 @@ export function PropSphere() {
               {/* 24h Propagation Forecast (hidden on mobile and in compact fit) */}
               {!compactFit && (
                 <Card className="hidden lg:flex lg:flex-col col-span-1 p-2 !rounded-lg">
-                  <div className="text-xs text-gray-300 uppercase tracking-wide mb-0.5 flex-shrink-0 font-medium">
+                  <div className="text-xs text-su-muted uppercase tracking-wide mb-0.5 flex-shrink-0 font-medium">
                     24h Propagation Forecast
-                    <span className="text-gray-500 normal-case ml-1">
+                    <span className="text-su-muted normal-case ml-1">
                       (hover for details)
                     </span>
                   </div>
@@ -889,7 +889,7 @@ export function PropSphere() {
                   <LayoutModeDropdown className="flex-1" />
                   <button
                     onClick={() => setShowShareModal(true)}
-                    className="p-2 rounded-lg bg-white/[0.03] border border-white/10
+                    className="p-2 rounded-lg bg-su-line/10 border border-su-line/40
                              hover:border-cosmic-cyan/50 hover:bg-cosmic-cyan/5
                              transition-all duration-200 group"
                     title="Share this view"
@@ -964,7 +964,7 @@ export function PropSphere() {
                   onMouseDown={handleResizeLeft}
                   title="Drag to resize"
                 >
-                  <div className="w-0.5 h-8 bg-white/20 group-hover:bg-plasma-orange rounded-full transition-colors" />
+                  <div className="w-0.5 h-8 bg-su-line/30 group-hover:bg-plasma-orange rounded-full transition-colors" />
                 </div>
               </>
             )}
@@ -988,19 +988,19 @@ export function PropSphere() {
                   />
                   {/* K-index */}
                   <div className="flex flex-col items-center gap-0.5">
-                    <span className="text-[8px] text-white/40 leading-none">
+                    <span className="text-[8px] text-su-text/40 leading-none">
                       K
                     </span>
-                    <span className="text-[11px] font-mono font-medium text-white/70 leading-none">
+                    <span className="text-[11px] font-mono font-medium text-su-text/70 leading-none">
                       {miniKp ?? "–"}
                     </span>
                   </div>
                   {/* SFI */}
                   <div className="flex flex-col items-center gap-0.5">
-                    <span className="text-[8px] text-white/40 leading-none">
+                    <span className="text-[8px] text-su-text/40 leading-none">
                       SFI
                     </span>
-                    <span className="text-[11px] font-mono font-medium text-white/70 leading-none">
+                    <span className="text-[11px] font-mono font-medium text-su-text/70 leading-none">
                       {miniSfi ?? "–"}
                     </span>
                   </div>
@@ -1013,7 +1013,7 @@ export function PropSphere() {
                 onClick={() => setLeftPanelMode("mini")}
                 aria-label="Show band conditions panel"
                 title="Show panel"
-                className="hidden lg:flex w-4 flex-shrink-0 items-center justify-center bg-void-black/80 backdrop-blur-sm border-r border-white/10 text-white/40 hover:text-white hover:bg-white/10 transition-colors"
+                className="hidden lg:flex w-4 flex-shrink-0 items-center justify-center bg-void-black/80 backdrop-blur-sm border-r border-su-line/40 text-su-text/40 hover:text-su-text hover:bg-su-line/20 transition-colors"
               >
                 <svg
                   width="10"
@@ -1037,7 +1037,7 @@ export function PropSphere() {
             <Card className="flex-1 min-w-0 !p-0 relative min-h-[280px] flex flex-col">
               {/* View Mode Tabs - edge-to-edge row */}
               <div
-                className="flex-shrink-0 flex border-b border-white/10"
+                className="flex-shrink-0 flex border-b border-su-line/40"
                 data-tour="view-mode-tabs"
               >
                 {(
@@ -1055,7 +1055,7 @@ export function PropSphere() {
                     className={`flex-1 py-2 text-xs font-medium transition-all border-b-2 ${
                       viewMode === option.value
                         ? "bg-plasma-orange/10 text-plasma-orange border-plasma-orange"
-                        : "text-gray-400 hover:text-white hover:bg-white/5 border-transparent"
+                        : "text-su-muted hover:text-su-text hover:bg-su-line/10 border-transparent"
                     }`}
                   >
                     {option.label}
@@ -1163,12 +1163,12 @@ export function PropSphere() {
                   layers.muf ||
                   (layers.ionosphere && target && viewMode === "globe")) && (
                   <>
-                    <LayerLegend className="self-start bg-black/60 backdrop-blur-sm rounded-lg px-2 py-1 pointer-events-auto" />
+                    <LayerLegend className="self-start bg-su-panel/60 backdrop-blur-sm rounded-lg px-2 py-1 pointer-events-auto" />
                     {layers.ionosphere && target && viewMode === "globe" && (
-                      <IonosphereLegend className="self-start bg-black/60 backdrop-blur-sm rounded-lg px-2 py-1 pointer-events-auto" />
+                      <IonosphereLegend className="self-start bg-su-panel/60 backdrop-blur-sm rounded-lg px-2 py-1 pointer-events-auto" />
                     )}
                     {layers.muf && (
-                      <MUFLegend className="bg-black/60 backdrop-blur-sm rounded-lg p-2 pointer-events-auto" />
+                      <MUFLegend className="bg-su-panel/60 backdrop-blur-sm rounded-lg p-2 pointer-events-auto" />
                     )}
                   </>
                 )}
@@ -1181,7 +1181,7 @@ export function PropSphere() {
               >
                 <Suspense
                   fallback={
-                    <div className="flex h-full items-center justify-center font-mono text-xs uppercase tracking-widest text-white/35">
+                    <div className="flex h-full items-center justify-center font-mono text-xs uppercase tracking-widest text-su-text/30">
                       Loading projection…
                     </div>
                   }
@@ -1261,7 +1261,7 @@ export function PropSphere() {
                       </div>
                       <button
                         onClick={() => setTimeOffset(0)}
-                        className="ml-1 px-2 py-1 text-[10px] font-medium bg-black/20 hover:bg-black/30 rounded transition-colors"
+                        className="ml-1 px-2 py-1 text-[10px] font-medium bg-su-input/50 hover:bg-su-input/70 rounded transition-colors"
                         title="Return to live view"
                       >
                         Go Live
@@ -1290,12 +1290,12 @@ export function PropSphere() {
                     <div className="absolute top-3 left-3 right-3 flex items-start justify-between gap-4 pointer-events-auto">
                       {/* Left cluster: Layout mode dropdown + Share */}
                       <div className="flex items-center gap-2">
-                        <LayoutModeDropdown className="bg-black/60 backdrop-blur-md" />
+                        <LayoutModeDropdown className="bg-su-panel/60 backdrop-blur-md" />
                         <button
                           onClick={() => setShowShareModal(true)}
                           className="group flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg
-                                   bg-black/60 backdrop-blur-md border border-white/10
-                                   hover:border-cosmic-cyan/50 hover:bg-black/70
+                                   bg-su-panel/60 backdrop-blur-md border border-su-line/40
+                                   hover:border-cosmic-cyan/50 hover:bg-su-panel/70
                                    transition-all duration-200"
                           title="Share this view"
                         >
@@ -1312,20 +1312,20 @@ export function PropSphere() {
                               d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z"
                             />
                           </svg>
-                          <span className="text-[11px] font-medium text-gray-300 group-hover:text-white">
+                          <span className="text-[11px] font-medium text-su-muted group-hover:text-su-text">
                             Share
                           </span>
                         </button>
                       </div>
 
                       {/* Center: Time offset (compact) */}
-                      <div className="flex items-center gap-3 px-4 py-2 rounded-xl bg-black/60 backdrop-blur-md border border-white/10">
-                        <span className="text-[10px] uppercase tracking-wider text-gray-500">
+                      <div className="flex items-center gap-3 px-4 py-2 rounded-xl bg-su-panel/60 backdrop-blur-md border border-su-line/40">
+                        <span className="text-[10px] uppercase tracking-wider text-su-muted">
                           Time
                         </span>
-                        <span className="text-sm font-mono text-white">
+                        <span className="text-sm font-mono text-su-text">
                           {displayTime.toISOString().substring(11, 16)}
-                          <span className="text-gray-500 ml-1">UTC</span>
+                          <span className="text-su-muted ml-1">UTC</span>
                         </span>
                         {timeOffset !== 0 && (
                           <span
@@ -1346,17 +1346,17 @@ export function PropSphere() {
                         <ActiveKitChip className="pointer-events-auto" />
                         <QuickLocationControl variant="icon" />
                         {catActive && (
-                          <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-black/60 backdrop-blur-md border border-white/10">
-                            <span className="text-[10px] text-gray-500">S</span>
+                          <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-su-panel/60 backdrop-blur-md border border-su-line/40">
+                            <span className="text-[10px] text-su-muted">S</span>
                             <span className="text-xs font-mono font-medium text-signal-green">
                               {getSMeterText()}
                             </span>
                           </div>
                         )}
                         {station && (
-                          <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-black/60 backdrop-blur-md border border-white/10">
+                          <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-su-panel/60 backdrop-blur-md border border-su-line/40">
                             <div className="w-1.5 h-1.5 rounded-full bg-signal-green animate-pulse" />
-                            <span className="text-xs font-mono font-medium text-white tracking-wide">
+                            <span className="text-xs font-mono font-medium text-su-text tracking-wide">
                               {station.callsign}
                             </span>
                           </div>
@@ -1375,8 +1375,8 @@ export function PropSphere() {
                           displayTime={displayTime}
                           className={
                             leftPanelExpanded
-                              ? "max-h-[350px] overflow-y-auto bg-black/70 backdrop-blur-md border-white/10"
-                              : "bg-black/60 backdrop-blur-md border-white/10"
+                              ? "max-h-[350px] overflow-y-auto bg-su-panel/70 backdrop-blur-md border-su-line/40"
+                              : "bg-su-panel/60 backdrop-blur-md border-su-line/40"
                           }
                           collapsed={!leftPanelExpanded}
                           onToggleCollapse={() =>
@@ -1390,7 +1390,7 @@ export function PropSphere() {
                     <div className="absolute bottom-3 right-3 pointer-events-auto flex flex-col items-end gap-1.5">
                       {/* Aspect ratio slider — flat view only, docked above path box */}
                       {viewMode === "flat" && (
-                        <AspectRatioSlider className="flex flex-col items-center gap-1 bg-black/60 backdrop-blur-md border border-white/10 rounded-lg px-2 py-2" />
+                        <AspectRatioSlider className="flex flex-col items-center gap-1 bg-su-panel/60 backdrop-blur-md border border-su-line/40 rounded-lg px-2 py-2" />
                       )}
 
                       <div
@@ -1402,8 +1402,8 @@ export function PropSphere() {
                           displayTime={displayTime}
                           className={
                             rightPanelExpanded
-                              ? "max-h-[400px] overflow-y-auto bg-black/70 backdrop-blur-md border-white/10"
-                              : "bg-black/60 backdrop-blur-md border-white/10"
+                              ? "max-h-[400px] overflow-y-auto bg-su-panel/70 backdrop-blur-md border-su-line/40"
+                              : "bg-su-panel/60 backdrop-blur-md border-su-line/40"
                           }
                           collapsed={!rightPanelExpanded}
                           onToggleCollapse={() =>
@@ -1432,7 +1432,7 @@ export function PropSphere() {
                   onMouseDown={handleResizeRight}
                   title="Drag to resize"
                 >
-                  <div className="w-0.5 h-8 bg-white/20 group-hover:bg-plasma-orange rounded-full transition-colors" />
+                  <div className="w-0.5 h-8 bg-su-line/30 group-hover:bg-plasma-orange rounded-full transition-colors" />
                 </div>
 
                 {/* Path Analysis Panel (right) - hidden on mobile */}
@@ -1479,7 +1479,7 @@ export function PropSphere() {
                           width="16"
                           height="16"
                           viewBox="0 0 16 16"
-                          className="text-white/60"
+                          className="text-su-text/60"
                           style={{
                             transform: `rotate(${miniPathMetrics.shortPath.bearing}deg)`,
                           }}
@@ -1493,18 +1493,18 @@ export function PropSphere() {
                             fill="none"
                           />
                         </svg>
-                        <span className="text-[8px] text-white/40 leading-none">
+                        <span className="text-[8px] text-su-text/40 leading-none">
                           {formatBearing(miniPathMetrics.shortPath.bearing)}
                         </span>
                       </div>
                       {/* Distance */}
                       <div className="flex flex-col items-center gap-0.5">
-                        <span className="text-[11px] font-mono font-medium text-white/70 leading-none">
+                        <span className="text-[11px] font-mono font-medium text-su-text/70 leading-none">
                           {miniPathMetrics.shortPath.distance < 1000
                             ? `${Math.round(miniPathMetrics.shortPath.distance)}`
                             : `${(miniPathMetrics.shortPath.distance / 1000).toFixed(1)}k`}
                         </span>
-                        <span className="text-[8px] text-white/40 leading-none">
+                        <span className="text-[8px] text-su-text/40 leading-none">
                           km
                         </span>
                       </div>
@@ -1521,7 +1521,7 @@ export function PropSphere() {
                       />
                     </>
                   ) : (
-                    <span className="text-[9px] text-white/30 [writing-mode:vertical-rl]">
+                    <span className="text-[9px] text-su-text/30 [writing-mode:vertical-rl]">
                       No target
                     </span>
                   )}
@@ -1534,7 +1534,7 @@ export function PropSphere() {
                 onClick={() => setRightPanelMode("mini")}
                 aria-label="Show path analysis panel"
                 title="Show panel"
-                className="hidden lg:flex w-4 flex-shrink-0 items-center justify-center bg-void-black/80 backdrop-blur-sm border-l border-white/10 text-white/40 hover:text-white hover:bg-white/10 transition-colors"
+                className="hidden lg:flex w-4 flex-shrink-0 items-center justify-center bg-void-black/80 backdrop-blur-sm border-l border-su-line/40 text-su-text/40 hover:text-su-text hover:bg-su-line/20 transition-colors"
               >
                 <svg
                   width="10"
@@ -1568,10 +1568,10 @@ export function PropSphere() {
                   type="button"
                   onClick={openOpsConsole}
                   aria-label="Expand to Ops Console"
-                  className="hidden min-h-11 shrink-0 items-center justify-between rounded-xl border border-white/10 bg-nebula-blue/50 px-4 text-sm text-gray-300 transition-colors hover:bg-nebula-blue/80 lg:flex"
+                  className="hidden min-h-11 shrink-0 items-center justify-between rounded-xl border border-su-line/40 bg-nebula-blue/50 px-4 text-sm text-su-muted transition-colors hover:bg-nebula-blue/80 lg:flex"
                 >
                   <span>Ops Console</span>
-                  <span className="text-xs text-gray-400">Open workspace ↗</span>
+                  <span className="text-xs text-su-muted">Open workspace ↗</span>
                 </button>
               )}
               {/* Ops Console (when expanded) - takes full bottom area */}
@@ -1603,7 +1603,7 @@ export function PropSphere() {
                       className="h-full overflow-y-auto"
                     />
                   ) : (
-                    <Card className="h-full flex items-center justify-center text-gray-500 text-sm">
+                    <Card className="h-full flex items-center justify-center text-su-muted text-sm">
                       Select a target for recommendations
                     </Card>
                   )}
@@ -1648,13 +1648,13 @@ export function PropSphere() {
                       }}
                       role="button"
                       tabIndex={0}
-                      className="w-full h-10 flex items-center justify-between px-4 bg-nebula-blue/50 hover:bg-nebula-blue/80 border-b border-white/10 transition-colors cursor-pointer"
+                      className="w-full h-10 flex items-center justify-between px-4 bg-nebula-blue/50 hover:bg-nebula-blue/80 border-b border-su-line/40 transition-colors cursor-pointer"
                     >
                       <div className="flex items-center gap-2">
-                        <span className="text-sm font-medium text-white">
+                        <span className="text-sm font-medium text-su-text">
                           DX Cluster
                         </span>
-                        <span className="text-xs text-gray-400">
+                        <span className="text-xs text-su-muted">
                           Live spots from PSKReporter, RBN, and DX clusters
                         </span>
                       </div>
@@ -1665,7 +1665,7 @@ export function PropSphere() {
                             e.stopPropagation();
                             openOpsConsole();
                           }}
-                          className="p-1.5 text-gray-400 hover:text-plasma-orange transition-colors rounded hover:bg-white/5"
+                          className="p-1.5 text-su-muted hover:text-plasma-orange transition-colors rounded hover:bg-su-line/10"
                           title="Expand to Ops Console"
                           aria-label="Expand to Ops Console"
                         >
@@ -1685,7 +1685,7 @@ export function PropSphere() {
                         </button>
                         {/* Collapse/Expand chevron */}
                         <svg
-                          className={`w-5 h-5 text-gray-400 transition-transform duration-200 ${
+                          className={`w-5 h-5 text-su-muted transition-transform duration-200 ${
                             dxClusterExpanded ? "" : "rotate-180"
                           }`}
                           fill="none"
@@ -1725,7 +1725,7 @@ export function PropSphere() {
           <div className={compactFit && !isLiteMode ? "" : "lg:hidden"}>
             {showOpsLoggerStrip && !isDXConsoleExpanded && <OpsLoggerStrip />}
             {/* Tab Navigation */}
-            <div className="flex border-b border-white/10 mb-2">
+            <div className="flex border-b border-su-line/40 mb-2">
               {(
                 [
                   { id: "path", label: "Path" },
@@ -1740,7 +1740,7 @@ export function PropSphere() {
                   className={`flex-1 py-2 text-xs font-medium transition-colors ${
                     activeTab === tab.id
                       ? "text-plasma-orange border-b-2 border-plasma-orange"
-                      : "text-gray-400 hover:text-white"
+                      : "text-su-muted hover:text-su-text"
                   }`}
                 >
                   {tab.label}
@@ -1774,7 +1774,7 @@ export function PropSphere() {
                     className="h-full"
                   />
                 ) : (
-                  <Card className="h-full flex items-center justify-center text-gray-500 text-sm">
+                  <Card className="h-full flex items-center justify-center text-su-muted text-sm">
                     Select a target for recommendations
                   </Card>
                 ))}
@@ -1788,7 +1788,7 @@ export function PropSphere() {
                 />
               )}
               {activeTab === "spots" && !showPublicActivity && (
-                <Card className="flex h-full items-center justify-center px-5 text-center text-xs text-gray-500">
+                <Card className="flex h-full items-center justify-center px-5 text-center text-xs text-su-muted">
                   Public discovery is hidden while logging or operating an
                   unassisted contest. Your station, selected target, and own
                   contacts remain on the map.
@@ -1806,7 +1806,7 @@ export function PropSphere() {
             <div className="fixed inset-0 z-[200] bg-black flex items-center justify-center">
               <div className="text-center space-y-4">
                 <div className="w-8 h-8 border-2 border-plasma-orange border-t-transparent rounded-full animate-spin" />
-                <p className="text-gray-400 text-sm">
+                <p className="text-su-muted text-sm">
                   Loading fullscreen view...
                 </p>
               </div>
@@ -1827,7 +1827,7 @@ export function PropSphere() {
             <div className="fixed inset-0 z-[200] bg-black flex items-center justify-center">
               <div className="text-center space-y-4">
                 <div className="w-8 h-8 border-2 border-signal-green border-t-transparent rounded-full animate-spin" />
-                <p className="text-gray-400 text-sm">
+                <p className="text-su-muted text-sm">
                   Loading HamClock view...
                 </p>
               </div>

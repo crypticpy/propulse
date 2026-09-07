@@ -68,13 +68,13 @@ function CommandBlock({ children }: { children: string }) {
 
   return (
     <div className="relative group">
-      <pre className="text-xs md:text-sm bg-black/40 border border-white/10 rounded-lg p-3 pr-10 overflow-x-auto text-gray-100 font-mono">
+      <pre className="text-xs md:text-sm bg-su-input border border-su-line/40 rounded-lg p-3 pr-10 overflow-x-auto text-su-text font-mono">
         {children}
       </pre>
       <button
         type="button"
         onClick={handleCopy}
-        className="absolute top-2 right-2 p-1.5 rounded-md bg-white/5 border border-white/10 text-gray-400 hover:text-white hover:bg-white/10 transition-colors opacity-0 group-hover:opacity-100 focus:opacity-100"
+        className="absolute top-2 right-2 p-1.5 rounded-md bg-su-line/10 border border-su-line/40 text-su-muted hover:text-su-text hover:bg-su-line/20 transition-colors opacity-0 group-hover:opacity-100 focus:opacity-100"
         aria-label="Copy to clipboard"
       >
         {copied ? (
@@ -120,12 +120,12 @@ function Step({
   return (
     <div className="space-y-2">
       <div className="flex items-center gap-2">
-        <div className="w-7 h-7 rounded-full bg-white/10 border border-white/10 text-gray-200 flex items-center justify-center text-sm font-semibold shrink-0">
+        <div className="w-7 h-7 rounded-full bg-su-line/20 border border-su-line/40 text-su-text flex items-center justify-center text-sm font-semibold shrink-0">
           {n}
         </div>
-        <div className="text-sm font-semibold text-gray-100">{title}</div>
+        <div className="text-sm font-semibold text-su-text">{title}</div>
       </div>
-      <div className="text-sm text-gray-300 leading-relaxed pl-9">
+      <div className="text-sm text-su-muted leading-relaxed pl-9">
         {children}
       </div>
     </div>
@@ -143,7 +143,7 @@ function ConnectionDot({ state }: { state: string }) {
         return "bg-alert-red animate-[pulse_2s_ease-in-out_infinite]";
       case "disconnected":
       default:
-        return "bg-gray-500";
+        return "bg-su-line";
     }
   })();
 
@@ -186,7 +186,7 @@ function ConnectionBadge({
         return "text-alert-red bg-alert-red/10 border-alert-red/30";
       case "disconnected":
       default:
-        return "text-gray-400 bg-white/5 border-white/10";
+        return "text-su-muted bg-su-line/10 border-su-line/40";
     }
   })();
 
@@ -229,10 +229,10 @@ function FeatureCard({
           >
             {icon}
           </div>
-          <h3 className="text-sm font-semibold text-white">{title}</h3>
+          <h3 className="text-sm font-semibold text-su-text">{title}</h3>
         </div>
-        <p className="text-sm text-gray-300 leading-relaxed">{description}</p>
-        <p className="text-xs text-gray-500 leading-relaxed">{details}</p>
+        <p className="text-sm text-su-muted leading-relaxed">{description}</p>
+        <p className="text-xs text-su-muted leading-relaxed">{details}</p>
         <div
           className="text-xs leading-relaxed rounded-lg p-3"
           style={{
@@ -242,7 +242,7 @@ function FeatureCard({
           }}
         >
           <span className="font-semibold">What this means:</span>{" "}
-          <span className="text-gray-300">{callout}</span>
+          <span className="text-su-muted">{callout}</span>
         </div>
       </div>
     </Card>
@@ -423,7 +423,7 @@ function ArchitectureDiagram({ connected }: { connected: boolean }) {
         x="130"
         y="115"
         textAnchor="middle"
-        className="fill-gray-400 text-[11px]"
+        className="fill-su-muted text-[11px]"
       >
         (Browser)
       </text>
@@ -452,7 +452,7 @@ function ArchitectureDiagram({ connected }: { connected: boolean }) {
         x="490"
         y="115"
         textAnchor="middle"
-        className="fill-gray-400 text-[11px]"
+        className="fill-su-muted text-[11px]"
       >
         localhost:9867
       </text>
@@ -471,7 +471,7 @@ function ArchitectureDiagram({ connected }: { connected: boolean }) {
         x="310"
         y="88"
         textAnchor="middle"
-        className="fill-gray-500 text-[10px] font-mono"
+        className="fill-su-muted text-[10px] font-mono"
       >
         WebSocket
       </text>
@@ -562,7 +562,7 @@ function ArchitectureDiagram({ connected }: { connected: boolean }) {
         x="350"
         y="225"
         textAnchor="middle"
-        className="fill-gray-200 text-[11px] font-semibold"
+        className="fill-su-text text-[11px] font-semibold"
       >
         Hamlib
       </text>
@@ -570,7 +570,7 @@ function ArchitectureDiagram({ connected }: { connected: boolean }) {
         x="350"
         y="242"
         textAnchor="middle"
-        className="fill-gray-500 text-[10px]"
+        className="fill-su-muted text-[10px]"
       >
         rigctld
       </text>
@@ -590,7 +590,7 @@ function ArchitectureDiagram({ connected }: { connected: boolean }) {
         x="490"
         y="225"
         textAnchor="middle"
-        className="fill-gray-200 text-[11px] font-semibold"
+        className="fill-su-text text-[11px] font-semibold"
       >
         DX Cluster
       </text>
@@ -598,7 +598,7 @@ function ArchitectureDiagram({ connected }: { connected: boolean }) {
         x="490"
         y="242"
         textAnchor="middle"
-        className="fill-gray-500 text-[10px]"
+        className="fill-su-muted text-[10px]"
       >
         Telnet
       </text>
@@ -618,7 +618,7 @@ function ArchitectureDiagram({ connected }: { connected: boolean }) {
         x="630"
         y="225"
         textAnchor="middle"
-        className="fill-gray-200 text-[11px] font-semibold"
+        className="fill-su-text text-[11px] font-semibold"
       >
         WSJT-X
       </text>
@@ -626,7 +626,7 @@ function ArchitectureDiagram({ connected }: { connected: boolean }) {
         x="630"
         y="242"
         textAnchor="middle"
-        className="fill-gray-500 text-[10px]"
+        className="fill-su-muted text-[10px]"
       >
         UDP
       </text>
@@ -666,7 +666,7 @@ function ArchitectureDiagram({ connected }: { connected: boolean }) {
         x="350"
         y="328"
         textAnchor="middle"
-        className="fill-gray-500 text-[10px]"
+        className="fill-su-muted text-[10px]"
       >
         Transceiver
       </text>
@@ -687,9 +687,9 @@ function FAQItem({
 }) {
   return (
     <details className="group">
-      <summary className="flex items-center gap-3 cursor-pointer list-none text-sm font-medium text-gray-200 hover:text-white transition-colors py-3 px-4 rounded-xl bg-white/[0.02] border border-white/[0.06] hover:border-white/10">
+      <summary className="flex items-center gap-3 cursor-pointer list-none text-sm font-medium text-su-text hover:text-su-text transition-colors py-3 px-4 rounded-xl bg-su-line/10 border border-su-line/20 hover:border-su-line/40">
         <svg
-          className="w-4 h-4 shrink-0 text-gray-500 transition-transform group-open:rotate-90"
+          className="w-4 h-4 shrink-0 text-su-muted transition-transform group-open:rotate-90"
           fill="none"
           viewBox="0 0 24 24"
           stroke="currentColor"
@@ -699,7 +699,7 @@ function FAQItem({
         </svg>
         {question}
       </summary>
-      <div className="text-sm text-gray-400 leading-relaxed pl-7 pr-4 pb-3 pt-1">
+      <div className="text-sm text-su-muted leading-relaxed pl-7 pr-4 pb-3 pt-1">
         {children}
       </div>
     </details>
@@ -826,7 +826,7 @@ export function BridgeInfoPage() {
       <div className="space-y-4">
         <Link
           to="/"
-          className="inline-flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-300 transition-colors"
+          className="inline-flex items-center gap-1.5 text-sm text-su-muted hover:text-su-muted transition-colors"
         >
           <svg
             className="w-4 h-4"
@@ -848,7 +848,7 @@ export function BridgeInfoPage() {
           <h1 className="font-orbitron text-2xl md:text-3xl font-bold text-gradient-orange tracking-tight">
             ProPulse Bridge
           </h1>
-          <p className="text-gray-400 text-sm md:text-base max-w-2xl">
+          <p className="text-su-muted text-sm md:text-base max-w-2xl">
             Connect your radio hardware to Propulse
           </p>
         </div>
@@ -857,7 +857,7 @@ export function BridgeInfoPage() {
           <ConnectionBadge state={state} error={error} />
 
           <div className="flex items-center gap-2">
-            <code className="text-xs md:text-sm font-mono text-gray-300 bg-black/30 border border-white/10 rounded-lg px-3 py-1.5 select-all">
+            <code className="text-xs md:text-sm font-mono text-su-muted bg-su-input border border-su-line/40 rounded-lg px-3 py-1.5 select-all">
               {WS_URL}
             </code>
             <button
@@ -865,7 +865,7 @@ export function BridgeInfoPage() {
               onClick={() => {
                 navigator.clipboard.writeText(WS_URL).catch(() => {});
               }}
-              className="p-1.5 rounded-md bg-white/5 border border-white/10 text-gray-400 hover:text-white hover:bg-white/10 transition-colors"
+              className="p-1.5 rounded-md bg-su-line/10 border border-su-line/40 text-su-muted hover:text-su-text hover:bg-su-line/20 transition-colors"
               aria-label="Copy WebSocket URL"
             >
               <svg
@@ -884,7 +884,7 @@ export function BridgeInfoPage() {
 
         {state === "disconnected" && (
           <div className="flex items-center gap-3">
-            <p className="text-xs text-gray-600 italic">
+            <p className="text-xs text-su-muted italic">
               Start the bridge server to connect
             </p>
             <Link
@@ -914,10 +914,10 @@ export function BridgeInfoPage() {
       {/* 2. What is the Bridge?                                           */}
       {/* ---------------------------------------------------------------- */}
       <Card className="p-4 md:p-5 space-y-3">
-        <h2 className="text-sm font-semibold text-white">
+        <h2 className="text-sm font-semibold text-su-text">
           What is the Bridge?
         </h2>
-        <div className="space-y-3 text-sm text-gray-300 leading-relaxed">
+        <div className="space-y-3 text-sm text-su-muted leading-relaxed">
           <p>
             The ProPulse Bridge is a lightweight server that runs on your
             computer alongside Propulse.
@@ -943,7 +943,7 @@ export function BridgeInfoPage() {
       {/* 3. Features Grid                                                 */}
       {/* ---------------------------------------------------------------- */}
       <div>
-        <h2 className="text-sm font-semibold text-gray-200 mb-4 uppercase tracking-wider">
+        <h2 className="text-sm font-semibold text-su-text mb-4 uppercase tracking-wider">
           Capabilities
         </h2>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -986,20 +986,20 @@ export function BridgeInfoPage() {
       {/* 4. Live Connection Panel                                         */}
       {/* ---------------------------------------------------------------- */}
       <Card className="p-4 md:p-5 space-y-4">
-        <h2 className="text-sm font-semibold text-white">Live Connection</h2>
+        <h2 className="text-sm font-semibold text-su-text">Live Connection</h2>
 
         <div className="flex flex-wrap items-center gap-4">
           <div className="flex items-center gap-3">
             <ConnectionDot state={state} />
             <div>
-              <div className="text-sm font-medium text-gray-200">
+              <div className="text-sm font-medium text-su-text">
                 {state === "connected" && "Connected"}
                 {state === "connecting" && "Connecting..."}
                 {state === "disconnected" && "Disconnected"}
                 {state === "error" && (error ?? "Error")}
               </div>
               {state === "connecting" && reconnectCount > 0 && (
-                <div className="text-xs text-gray-500">
+                <div className="text-xs text-su-muted">
                   Attempt {reconnectCount}
                 </div>
               )}
@@ -1010,7 +1010,7 @@ export function BridgeInfoPage() {
             type="button"
             onClick={handleTestConnection}
             disabled={testingConnection}
-            className="px-3 py-1.5 rounded-lg text-sm font-medium bg-white/5 border border-white/10 text-gray-300 hover:text-white hover:bg-white/10 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            className="px-3 py-1.5 rounded-lg text-sm font-medium bg-su-line/10 border border-su-line/40 text-su-muted hover:text-su-text hover:bg-su-line/20 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {testingConnection ? "Testing..." : "Test Connection"}
           </button>
@@ -1029,11 +1029,11 @@ export function BridgeInfoPage() {
         )}
 
         {state === "connected" && lastMsgDisplay && (
-          <div className="text-xs font-mono text-gray-500 bg-black/30 border border-white/5 rounded-lg px-3 py-2">
+          <div className="text-xs font-mono text-su-muted bg-su-input border border-su-line/20 rounded-lg px-3 py-2">
             Last message:{" "}
-            <span className="text-gray-300">{lastMsgDisplay.type}</span>
+            <span className="text-su-muted">{lastMsgDisplay.type}</span>
             {" at "}
-            <span className="text-gray-400">{lastMsgDisplay.time}</span>
+            <span className="text-su-muted">{lastMsgDisplay.time}</span>
           </div>
         )}
       </Card>
@@ -1042,8 +1042,8 @@ export function BridgeInfoPage() {
       {/* 5. Architecture Diagram                                          */}
       {/* ---------------------------------------------------------------- */}
       <Card className="p-4 md:p-5 space-y-3">
-        <h2 className="text-sm font-semibold text-white">Architecture</h2>
-        <p className="text-xs text-gray-500">
+        <h2 className="text-sm font-semibold text-su-text">Architecture</h2>
+        <p className="text-xs text-su-muted">
           The bridge sits between your browser and hardware, routing messages
           over localhost.
           {state === "connected" &&
@@ -1063,9 +1063,9 @@ export function BridgeInfoPage() {
           onClick={() => setProtocolExpanded((v) => !v)}
           className="flex items-center justify-between w-full text-left"
         >
-          <h2 className="text-sm font-semibold text-white">Message Protocol</h2>
+          <h2 className="text-sm font-semibold text-su-text">Message Protocol</h2>
           <svg
-            className={`w-4 h-4 text-gray-500 transition-transform ${protocolExpanded ? "rotate-180" : ""}`}
+            className={`w-4 h-4 text-su-muted transition-transform ${protocolExpanded ? "rotate-180" : ""}`}
             fill="none"
             viewBox="0 0 24 24"
             stroke="currentColor"
@@ -1079,7 +1079,7 @@ export function BridgeInfoPage() {
           </svg>
         </button>
 
-        <p className="text-xs text-gray-500">
+        <p className="text-xs text-su-muted">
           All messages use a JSON envelope format with type, id, timestamp, and
           payload fields.
         </p>
@@ -1087,7 +1087,7 @@ export function BridgeInfoPage() {
         {protocolExpanded && (
           <div className="space-y-4 pt-2">
             <div>
-              <div className="text-xs font-semibold text-gray-300 mb-2">
+              <div className="text-xs font-semibold text-su-muted mb-2">
                 Envelope Structure
               </div>
               <CommandBlock>{`{
@@ -1103,68 +1103,68 @@ export function BridgeInfoPage() {
             </div>
 
             <div>
-              <div className="text-xs font-semibold text-gray-300 mb-2">
+              <div className="text-xs font-semibold text-su-muted mb-2">
                 Key Message Types
               </div>
               <div className="overflow-x-auto">
                 <table className="text-xs w-full">
                   <thead>
-                    <tr className="border-b border-white/10">
-                      <th className="text-left py-2 pr-4 text-gray-400 font-medium">
+                    <tr className="border-b border-su-line/40">
+                      <th className="text-left py-2 pr-4 text-su-muted font-medium">
                         Type
                       </th>
-                      <th className="text-left py-2 pr-4 text-gray-400 font-medium">
+                      <th className="text-left py-2 pr-4 text-su-muted font-medium">
                         Direction
                       </th>
-                      <th className="text-left py-2 text-gray-400 font-medium">
+                      <th className="text-left py-2 text-su-muted font-medium">
                         Description
                       </th>
                     </tr>
                   </thead>
-                  <tbody className="text-gray-300">
-                    <tr className="border-b border-white/5">
+                  <tbody className="text-su-muted">
+                    <tr className="border-b border-su-line/20">
                       <td className="py-1.5 pr-4 font-mono text-plasma-orange">
                         bridge.welcome
                       </td>
-                      <td className="py-1.5 pr-4 text-gray-500">
+                      <td className="py-1.5 pr-4 text-su-muted">
                         Server &rarr; Client
                       </td>
                       <td className="py-1.5">Sent on connection</td>
                     </tr>
-                    <tr className="border-b border-white/5">
+                    <tr className="border-b border-su-line/20">
                       <td className="py-1.5 pr-4 font-mono text-plasma-orange">
                         rig.update
                       </td>
-                      <td className="py-1.5 pr-4 text-gray-500">
+                      <td className="py-1.5 pr-4 text-su-muted">
                         Server &rarr; Client
                       </td>
                       <td className="py-1.5">
                         Rig frequency/mode/status changes
                       </td>
                     </tr>
-                    <tr className="border-b border-white/5">
+                    <tr className="border-b border-su-line/20">
                       <td className="py-1.5 pr-4 font-mono text-plasma-orange">
                         rig.setFrequency
                       </td>
-                      <td className="py-1.5 pr-4 text-gray-500">
+                      <td className="py-1.5 pr-4 text-su-muted">
                         Client &rarr; Server
                       </td>
                       <td className="py-1.5">Tune radio to a frequency</td>
                     </tr>
-                    <tr className="border-b border-white/5">
+                    <tr className="border-b border-su-line/20">
                       <td className="py-1.5 pr-4 font-mono text-plasma-orange">
                         cluster.spot
                       </td>
-                      <td className="py-1.5 pr-4 text-gray-500">
+                      <td className="py-1.5 pr-4 text-su-muted">
                         Server &rarr; Client
                       </td>
                       <td className="py-1.5">New DX spot from cluster</td>
                     </tr>
-                    <tr className="border-b border-white/5">
+                    <tr className="border-b border-su-line/20">
                       <td className="py-1.5 pr-4 font-mono text-plasma-orange">
                         wsjtx.decode
                       </td>
-                      <td className="py-1.5 pr-4 text-gray-500">
+                      <td className="py-1.5 pr-4 text-su-muted">
                         Server &rarr; Client
                       </td>
                       <td className="py-1.5">FT8/FT4 decode from WSJT-X</td>
@@ -1173,7 +1173,7 @@ export function BridgeInfoPage() {
                       <td className="py-1.5 pr-4 font-mono text-plasma-orange">
                         contest.session.create
                       </td>
-                      <td className="py-1.5 pr-4 text-gray-500">
+                      <td className="py-1.5 pr-4 text-su-muted">
                         Client &rarr; Server
                       </td>
                       <td className="py-1.5">Start a contest session</td>
@@ -1192,34 +1192,34 @@ export function BridgeInfoPage() {
       <Card className="p-4 md:p-5 space-y-4">
         <div className="flex items-center gap-2">
           <div className="w-1 h-5 rounded-full bg-signal-green" />
-          <h2 className="text-sm font-semibold text-white">Security Model</h2>
+          <h2 className="text-sm font-semibold text-su-text">Security Model</h2>
         </div>
 
         <div className="space-y-3">
           <div className="flex items-start gap-3">
             <GreenCheck />
-            <p className="text-sm text-gray-300 leading-relaxed">
+            <p className="text-sm text-su-muted leading-relaxed">
               Binds exclusively to localhost{" "}
-              <span className="font-mono text-gray-100">(127.0.0.1)</span> — no
+              <span className="font-mono text-su-text">(127.0.0.1)</span> — no
               remote connections accepted
             </p>
           </div>
           <div className="flex items-start gap-3">
             <GreenCheck />
-            <p className="text-sm text-gray-300 leading-relaxed">
+            <p className="text-sm text-su-muted leading-relaxed">
               CAT control commands cannot be issued from outside your computer
             </p>
           </div>
           <div className="flex items-start gap-3">
             <GreenCheck />
-            <p className="text-sm text-gray-300 leading-relaxed">
+            <p className="text-sm text-su-muted leading-relaxed">
               Contest data and QSO information never leave your local network
             </p>
           </div>
         </div>
 
-        <div className="pt-2 border-t border-white/5 space-y-2">
-          <div className="text-xs font-semibold text-gray-300">
+        <div className="pt-2 border-t border-su-line/20 space-y-2">
+          <div className="text-xs font-semibold text-su-muted">
             Need remote access for multi-computer setups?
           </div>
           <CommandBlock>{`ssh -L 9867:127.0.0.1:9867 user@contest-pc`}</CommandBlock>
@@ -1249,13 +1249,13 @@ export function BridgeInfoPage() {
       {/* 8. Setup Guide                                                   */}
       {/* ---------------------------------------------------------------- */}
       <Card className="p-4 md:p-5 space-y-5">
-        <h2 className="text-sm font-semibold text-white">Setup Guide</h2>
+        <h2 className="text-sm font-semibold text-su-text">Setup Guide</h2>
 
         {/* Platform selector */}
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
           <div>
-            <div className="text-sm text-gray-300">Pick your platform</div>
-            <div className="text-xs text-gray-500">
+            <div className="text-sm text-su-muted">Pick your platform</div>
+            <div className="text-xs text-su-muted">
               Steps shown for {platformLabel(platform)}.
             </div>
           </div>
@@ -1268,7 +1268,7 @@ export function BridgeInfoPage() {
                 className={`px-3 py-2 rounded-md text-sm border transition-colors ${
                   platform === p
                     ? "bg-cosmic-cyan/15 border-cosmic-cyan/30 text-cosmic-cyan"
-                    : "bg-white/5 border-white/10 text-gray-200 hover:bg-white/10"
+                    : "bg-su-line/10 border-su-line/40 text-su-text hover:bg-su-line/20"
                 }`}
               >
                 {platformLabel(p)}
@@ -1286,9 +1286,9 @@ export function BridgeInfoPage() {
               </div>
               <CommandBlock>{`cd bridge\nnpm install`}</CommandBlock>
               {platform === "windows" && (
-                <div className="text-xs text-gray-500">
+                <div className="text-xs text-su-muted">
                   Alternatively, download the pre-built binary{" "}
-                  <span className="font-mono text-gray-300">
+                  <span className="font-mono text-su-muted">
                     propulse-bridge-x86_64-pc-windows-msvc.exe
                   </span>{" "}
                   from{" "}
@@ -1304,9 +1304,9 @@ export function BridgeInfoPage() {
                 </div>
               )}
               {platform === "macos" && (
-                <div className="text-xs text-gray-500">
+                <div className="text-xs text-su-muted">
                   Alternatively, download{" "}
-                  <span className="font-mono text-gray-300">
+                  <span className="font-mono text-su-muted">
                     propulse-bridge-macos-universal
                   </span>{" "}
                   from{" "}
@@ -1322,9 +1322,9 @@ export function BridgeInfoPage() {
                 </div>
               )}
               {platform === "linux" && (
-                <div className="text-xs text-gray-500">
+                <div className="text-xs text-su-muted">
                   Alternatively, download{" "}
-                  <span className="font-mono text-gray-300">
+                  <span className="font-mono text-su-muted">
                     propulse-bridge-x86_64-unknown-linux-gnu
                   </span>{" "}
                   from{" "}
@@ -1337,7 +1337,7 @@ export function BridgeInfoPage() {
                     GitHub Releases
                   </a>
                   . For Raspberry Pi, use the{" "}
-                  <span className="font-mono text-gray-300">aarch64</span>{" "}
+                  <span className="font-mono text-su-muted">aarch64</span>{" "}
                   variant.
                 </div>
               )}
@@ -1357,12 +1357,12 @@ export function BridgeInfoPage() {
             <div className="space-y-2">
               <div>
                 Look for the green dot next to{" "}
-                <span className="text-gray-100 font-semibold">
+                <span className="text-su-text font-semibold">
                   System Health
                 </span>{" "}
                 in the Propulse header. It should show "Bridge: Connected."
               </div>
-              <div className="text-xs text-gray-500">
+              <div className="text-xs text-su-muted">
                 You can also use the "Test Connection" button above to verify.
               </div>
             </div>
@@ -1381,7 +1381,7 @@ export function BridgeInfoPage() {
                   Hamlib
                 </a>{" "}
                 and start{" "}
-                <span className="font-mono text-gray-100">rigctld</span> with
+                <span className="font-mono text-su-text">rigctld</span> with
                 your radio's model number and serial port:
               </div>
               {platform === "windows" ? (
@@ -1390,11 +1390,11 @@ export function BridgeInfoPage() {
                 <CommandBlock>{`rigctld -m 3085 -r /dev/ttyUSB0 -s 38400`}</CommandBlock>
               )}
               {(platform === "macos" || platform === "linux") && (
-                <div className="text-xs text-gray-500">
+                <div className="text-xs text-su-muted">
                   On {platformLabel(platform)}, you may need to add your user to
-                  the <span className="font-mono text-gray-300">dialout</span>{" "}
+                  the <span className="font-mono text-su-muted">dialout</span>{" "}
                   group for serial port access:{" "}
-                  <span className="font-mono text-gray-300">
+                  <span className="font-mono text-su-muted">
                     sudo usermod -aG dialout $USER
                   </span>
                 </div>
@@ -1416,18 +1416,18 @@ export function BridgeInfoPage() {
             <div className="space-y-2">
               <div>
                 In WSJT-X, go to{" "}
-                <span className="text-gray-100 font-semibold">
+                <span className="text-su-text font-semibold">
                   File &rarr; Settings &rarr; Reporting
                 </span>{" "}
                 and enable{" "}
-                <span className="text-gray-100 font-semibold">
+                <span className="text-su-text font-semibold">
                   "Accept UDP requests"
                 </span>
                 .
               </div>
               <div>
                 The default UDP port is{" "}
-                <span className="font-mono text-gray-100">2237</span>. The
+                <span className="font-mono text-su-text">2237</span>. The
                 bridge listens on this port automatically.
               </div>
             </div>
@@ -1439,7 +1439,7 @@ export function BridgeInfoPage() {
       {/* 9. Troubleshooting                                               */}
       {/* ---------------------------------------------------------------- */}
       <Card className="p-4 md:p-5 space-y-3">
-        <h2 className="text-sm font-semibold text-white mb-1">
+        <h2 className="text-sm font-semibold text-su-text mb-1">
           Troubleshooting
         </h2>
         <div className="space-y-2">
@@ -1447,17 +1447,17 @@ export function BridgeInfoPage() {
             <ul className="list-disc pl-4 space-y-1">
               <li>
                 Confirm the bridge server is running (
-                <span className="font-mono text-gray-300">npm run dev</span> or
+                <span className="font-mono text-su-muted">npm run dev</span> or
                 the standalone binary).
               </li>
               <li>
                 Check that port{" "}
-                <span className="font-mono text-gray-300">9867</span> is not
+                <span className="font-mono text-su-muted">9867</span> is not
                 blocked by your firewall.
               </li>
               <li>
                 Ensure the WebSocket URL matches (
-                <span className="font-mono text-gray-300">{WS_URL}</span>).
+                <span className="font-mono text-su-muted">{WS_URL}</span>).
               </li>
             </ul>
           </FAQItem>
@@ -1472,7 +1472,7 @@ export function BridgeInfoPage() {
               <li>
                 Check for port conflicts — another application may be using
                 9867. Use{" "}
-                <span className="font-mono text-gray-300">
+                <span className="font-mono text-su-muted">
                   {platform === "windows"
                     ? "netstat -ano | findstr 9867"
                     : "lsof -i :9867"}
@@ -1486,16 +1486,16 @@ export function BridgeInfoPage() {
             <ul className="list-disc pl-4 space-y-1">
               <li>
                 Ensure Hamlib is installed and{" "}
-                <span className="font-mono text-gray-300">rigctld</span> is
+                <span className="font-mono text-su-muted">rigctld</span> is
                 running with the correct model number (
-                <span className="font-mono text-gray-300">rigctld -l</span> to
+                <span className="font-mono text-su-muted">rigctld -l</span> to
                 list supported models).
               </li>
               {(platform === "macos" || platform === "linux") && (
                 <li>
                   Check serial port permissions. Your user may need to be in the{" "}
-                  <span className="font-mono text-gray-300">dialout</span> or{" "}
-                  <span className="font-mono text-gray-300">uucp</span> group.
+                  <span className="font-mono text-su-muted">dialout</span> or{" "}
+                  <span className="font-mono text-su-muted">uucp</span> group.
                 </li>
               )}
               <li>
@@ -1508,13 +1508,13 @@ export function BridgeInfoPage() {
           <FAQItem question="HTTPS mixed content warning">
             <p>
               Browsers normally block insecure WebSocket (
-              <span className="font-mono text-gray-300">ws://</span>)
+              <span className="font-mono text-su-muted">ws://</span>)
               connections from HTTPS pages. However, connections to{" "}
-              <span className="font-mono text-gray-300">localhost</span> and{" "}
-              <span className="font-mono text-gray-300">127.0.0.1</span> are
+              <span className="font-mono text-su-muted">localhost</span> and{" "}
+              <span className="font-mono text-su-muted">127.0.0.1</span> are
               exempt from this restriction in Chrome, Firefox, and Edge. If you
               still encounter issues, run Propulse locally on{" "}
-              <span className="font-mono text-gray-300">http://localhost</span>{" "}
+              <span className="font-mono text-su-muted">http://localhost</span>{" "}
               or install the Chrome bridge extension.
             </p>
           </FAQItem>
@@ -1540,10 +1540,10 @@ export function BridgeInfoPage() {
       {/* 10. Links & Resources                                            */}
       {/* ---------------------------------------------------------------- */}
       <Card className="p-4 md:p-5 space-y-3">
-        <h2 className="text-sm font-semibold text-white">
+        <h2 className="text-sm font-semibold text-su-text">
           Links &amp; Resources
         </h2>
-        <div className="divide-y divide-white/5">
+        <div className="divide-y divide-su-line/20">
           {[
             {
               label: "Hamlib Project",
@@ -1574,13 +1574,13 @@ export function BridgeInfoPage() {
               className="flex items-center justify-between gap-3 py-3 group"
             >
               <div>
-                <div className="text-sm font-medium text-gray-200 group-hover:text-white transition-colors">
+                <div className="text-sm font-medium text-su-text group-hover:text-su-text transition-colors">
                   {link.label}
                 </div>
-                <div className="text-xs text-gray-500">{link.desc}</div>
+                <div className="text-xs text-su-muted">{link.desc}</div>
               </div>
               <svg
-                className="w-4 h-4 shrink-0 text-gray-600 group-hover:text-gray-400 transition-colors"
+                className="w-4 h-4 shrink-0 text-su-muted group-hover:text-su-muted transition-colors"
                 fill="none"
                 viewBox="0 0 24 24"
                 stroke="currentColor"

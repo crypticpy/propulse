@@ -181,10 +181,10 @@ export default function HelpArticlePage() {
   if (!section) {
     return (
       <main className="max-w-[960px] mx-auto px-4 sm:px-6 py-8 text-center">
-        <h1 className="text-2xl font-bold text-gray-100 mb-2">
+        <h1 className="text-2xl font-bold text-su-text mb-2">
           Section Not Found
         </h1>
-        <p className="text-sm text-gray-400 mb-4">
+        <p className="text-sm text-su-muted mb-4">
           The help section you are looking for does not exist.
         </p>
         <Link
@@ -205,7 +205,7 @@ export default function HelpArticlePage() {
       {/* Skip to content link */}
       <a
         href="#help-article-content"
-        className="sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:z-50 focus:px-4 focus:py-2 focus:bg-gray-900 focus:text-plasma-orange focus:rounded-lg focus:ring-2 focus:ring-plasma-orange/60"
+        className="sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:z-50 focus:px-4 focus:py-2 focus:bg-su-canvas focus:text-plasma-orange focus:rounded-lg focus:ring-2 focus:ring-plasma-orange/60"
       >
         Skip to content
       </a>
@@ -221,17 +221,17 @@ export default function HelpArticlePage() {
           <div>
             <h1
               id="help-article-heading"
-              className="text-2xl font-bold text-gray-100 mb-1"
+              className="text-2xl font-bold text-su-text mb-1"
             >
               {section.title}
             </h1>
-            <p className="text-sm text-gray-400">{section.description}</p>
+            <p className="text-sm text-su-muted">{section.description}</p>
           </div>
           {tocItems.length > 0 && (
             <button
               type="button"
               onClick={toggleAll}
-              className="shrink-0 text-xs text-gray-500 hover:text-gray-300 transition-colors px-2.5 py-1.5 rounded-lg border border-white/5 hover:border-white/10 focus:outline-none focus-visible:ring-2 focus-visible:ring-plasma-orange/60"
+              className="shrink-0 text-xs text-su-muted hover:text-su-muted transition-colors px-2.5 py-1.5 rounded-lg border border-su-line/20 hover:border-su-line/40 focus:outline-none focus-visible:ring-2 focus-visible:ring-plasma-orange/60"
               data-print-hide
             >
               {allExpanded ? "Collapse All" : "Expand All"}
@@ -260,7 +260,7 @@ export default function HelpArticlePage() {
             <SectionComponent />
           ) : (
             <div className="text-center py-16">
-              <h2 className="text-lg font-semibold text-gray-300 mb-2">
+              <h2 className="text-lg font-semibold text-su-muted mb-2">
                 Section Not Found
               </h2>
               <Link

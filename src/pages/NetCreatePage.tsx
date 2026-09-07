@@ -51,7 +51,7 @@ export function NetCreatePage() {
         <button
           type="button"
           onClick={() => navigate("/ncs")}
-          className="flex items-center gap-1.5 text-sm text-gray-400 hover:text-gray-200 transition-colors mb-4"
+          className="flex items-center gap-1.5 text-sm text-su-muted hover:text-su-text transition-colors mb-4"
         >
           <svg
             className="w-4 h-4"
@@ -68,15 +68,15 @@ export function NetCreatePage() {
           </svg>
           Back to Net Controller
         </button>
-        <h1 className="text-2xl font-bold text-white">Create a New Net</h1>
-        <p className="mt-1 text-sm text-gray-400">
+        <h1 className="text-2xl font-bold text-su-text">Create a New Net</h1>
+        <p className="mt-1 text-sm text-su-muted">
           Set up a new net listing for your community. You'll be added as the
           owner.
         </p>
       </div>
 
       {/* Form */}
-      <div className="bg-panel/30 border border-white/5 rounded-2xl p-6">
+      <div className="bg-panel/30 border border-su-line/20 rounded-2xl p-6">
         <NetForm onSubmit={handleSubmit} isSubmitting={isSubmitting} />
       </div>
     </div>

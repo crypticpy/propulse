@@ -327,10 +327,10 @@ function TierBadge({
   const config = {
     none: {
       label: "No Account",
-      bg: "bg-white/[0.06]",
-      border: "border-white/10",
-      text: "text-gray-400",
-      dot: "bg-gray-500",
+      bg: "bg-su-line/20",
+      border: "border-su-line/40",
+      text: "text-su-muted",
+      dot: "bg-su-line",
     },
     free: {
       label: "Free Account",
@@ -379,7 +379,7 @@ function CellContent({
 
   if (isNotAvailable) {
     return (
-      <span className="flex items-center gap-1.5 text-gray-600">
+      <span className="flex items-center gap-1.5 text-su-muted">
         <XIcon className="w-3.5 h-3.5 shrink-0" />
         <span className="text-xs">Not available</span>
       </span>
@@ -387,13 +387,13 @@ function CellContent({
   }
 
   const colorMap = {
-    none: "text-gray-400",
-    free: "text-gray-300",
-    pro: "text-gray-300",
+    none: "text-su-muted",
+    free: "text-su-muted",
+    pro: "text-su-muted",
   };
 
   const checkColor = {
-    none: "text-gray-500",
+    none: "text-su-muted",
     free: "text-signal-green",
     pro: "text-plasma-orange",
   };
@@ -414,23 +414,23 @@ function CellContent({
 
 function DesktopFeatureTable({ category }: { category: FeatureCategory }) {
   return (
-    <div className="rounded-2xl bg-white/[0.02] border border-white/5 overflow-hidden">
+    <div className="rounded-2xl bg-su-line/10 border border-su-line/20 overflow-hidden">
       {/* Category Header */}
-      <div className="flex items-center gap-3 px-6 py-4 border-b border-white/5 bg-white/[0.02]">
+      <div className="flex items-center gap-3 px-6 py-4 border-b border-su-line/20 bg-su-line/10">
         <div className="w-9 h-9 rounded-xl bg-plasma-orange/10 text-plasma-orange flex items-center justify-center">
           {category.icon}
         </div>
         <div>
-          <h3 className="font-orbitron text-base font-bold text-white tracking-wide">
+          <h3 className="font-orbitron text-base font-bold text-su-text tracking-wide">
             {category.title}
           </h3>
-          <p className="text-xs text-gray-500">{category.description}</p>
+          <p className="text-xs text-su-muted">{category.description}</p>
         </div>
       </div>
 
       {/* Table Header */}
-      <div className="grid grid-cols-[1.2fr_1fr_1fr_1fr] gap-px bg-white/[0.03]">
-        <div className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">
+      <div className="grid grid-cols-[1.2fr_1fr_1fr_1fr] gap-px bg-su-line/10">
+        <div className="px-4 py-3 text-xs font-semibold text-su-muted uppercase tracking-wider">
           Feature
         </div>
         <div className="px-4 py-3 flex items-center gap-2">
@@ -449,11 +449,11 @@ function DesktopFeatureTable({ category }: { category: FeatureCategory }) {
         <div
           key={row.feature}
           className={`grid grid-cols-[1.2fr_1fr_1fr_1fr] gap-px ${
-            i % 2 === 0 ? "bg-white/[0.01]" : "bg-transparent"
-          } ${i < category.features.length - 1 ? "border-b border-white/[0.03]" : ""}`}
+            i % 2 === 0 ? "bg-su-line/10" : "bg-transparent"
+          } ${i < category.features.length - 1 ? "border-b border-su-line/20" : ""}`}
         >
           <div className="px-4 py-3 flex items-start">
-            <span className="text-sm font-medium text-gray-200">
+            <span className="text-sm font-medium text-su-text">
               {row.feature}
             </span>
           </div>
@@ -476,28 +476,28 @@ function DesktopFeatureTable({ category }: { category: FeatureCategory }) {
 
 function MobileFeatureCard({ category }: { category: FeatureCategory }) {
   return (
-    <div className="rounded-2xl bg-white/[0.02] border border-white/5 overflow-hidden">
+    <div className="rounded-2xl bg-su-line/10 border border-su-line/20 overflow-hidden">
       {/* Category Header */}
-      <div className="flex items-center gap-3 px-4 py-3 border-b border-white/5 bg-white/[0.02]">
+      <div className="flex items-center gap-3 px-4 py-3 border-b border-su-line/20 bg-su-line/10">
         <div className="w-8 h-8 rounded-lg bg-plasma-orange/10 text-plasma-orange flex items-center justify-center">
           {category.icon}
         </div>
         <div>
-          <h3 className="font-orbitron text-sm font-bold text-white tracking-wide">
+          <h3 className="font-orbitron text-sm font-bold text-su-text tracking-wide">
             {category.title}
           </h3>
-          <p className="text-[11px] text-gray-500">{category.description}</p>
+          <p className="text-[11px] text-su-muted">{category.description}</p>
         </div>
       </div>
 
       {/* Feature Items - stacked cards */}
-      <div className="divide-y divide-white/[0.03]">
+      <div className="divide-y divide-su-line/20">
         {category.features.map((row) => (
           <div key={row.feature} className="px-4 py-3 space-y-2">
-            <h4 className="text-sm font-medium text-gray-200">{row.feature}</h4>
+            <h4 className="text-sm font-medium text-su-text">{row.feature}</h4>
             <div className="space-y-1.5 pl-1">
               <div className="flex items-start gap-2">
-                <span className="shrink-0 mt-0.5 text-[10px] font-semibold text-gray-500 w-16 uppercase tracking-wider">
+                <span className="shrink-0 mt-0.5 text-[10px] font-semibold text-su-muted w-16 uppercase tracking-wider">
                   Local
                 </span>
                 <CellContent text={row.noAccount} tier="none" />
@@ -526,16 +526,16 @@ function MobileFeatureCard({ category }: { category: FeatureCategory }) {
 
 function MainViewsSection() {
   return (
-    <div className="rounded-2xl bg-white/[0.02] border border-white/5 overflow-hidden">
-      <div className="flex items-center gap-3 px-4 py-4 sm:px-6 border-b border-white/5 bg-white/[0.02]">
+    <div className="rounded-2xl bg-su-line/10 border border-su-line/20 overflow-hidden">
+      <div className="flex items-center gap-3 px-4 py-4 sm:px-6 border-b border-su-line/20 bg-su-line/10">
         <div className="w-9 h-9 rounded-xl bg-plasma-orange/10 text-plasma-orange flex items-center justify-center">
           <DashboardIcon className="w-5 h-5" />
         </div>
         <div>
-          <h3 className="font-orbitron text-sm sm:text-base font-bold text-white tracking-wide">
+          <h3 className="font-orbitron text-sm sm:text-base font-bold text-su-text tracking-wide">
             Main Views
           </h3>
-          <p className="text-xs text-gray-500">
+          <p className="text-xs text-su-muted">
             Available to all tiers -- no restrictions
           </p>
         </div>
@@ -550,10 +550,10 @@ function MainViewsSection() {
         {MAIN_VIEWS.map(([title, desc]) => (
           <div
             key={title}
-            className="p-4 rounded-xl bg-white/[0.03] border border-white/5 hover:border-white/10 transition-colors"
+            className="p-4 rounded-xl bg-su-line/10 border border-su-line/20 hover:border-su-line/40 transition-colors"
           >
-            <h4 className="text-sm font-semibold text-white mb-1.5">{title}</h4>
-            <p className="text-xs text-gray-400 leading-relaxed">{desc}</p>
+            <h4 className="text-sm font-semibold text-su-text mb-1.5">{title}</h4>
+            <p className="text-xs text-su-muted leading-relaxed">{desc}</p>
           </div>
         ))}
       </div>
@@ -574,7 +574,7 @@ function HeroSection() {
         </h1>
       </div>
 
-      <p className="text-gray-400 text-sm sm:text-base max-w-2xl mx-auto leading-relaxed mb-6">
+      <p className="text-su-muted text-sm sm:text-base max-w-2xl mx-auto leading-relaxed mb-6">
         Propulse gives you a complete ham radio propagation platform. Every core
         feature works immediately with no sign-up. Create a free account to
         unlock cloud sync, or go Pro for advanced modeling and extended history.
@@ -585,7 +585,7 @@ function HeroSection() {
         <TierBadge tier="none" size="lg" />
         <svg
           aria-hidden="true"
-          className="w-4 h-4 text-gray-600"
+          className="w-4 h-4 text-su-muted"
           viewBox="0 0 24 24"
           fill="none"
           stroke="currentColor"
@@ -600,7 +600,7 @@ function HeroSection() {
         <TierBadge tier="free" size="lg" />
         <svg
           aria-hidden="true"
-          className="w-4 h-4 text-gray-600"
+          className="w-4 h-4 text-su-muted"
           viewBox="0 0 24 24"
           fill="none"
           stroke="currentColor"
@@ -624,19 +624,19 @@ function ValueCallouts() {
   return (
     <div className="grid gap-4 sm:grid-cols-3 px-4 sm:px-0">
       {/* No Account */}
-      <div className="rounded-2xl bg-white/[0.02] border border-white/5 p-5 relative overflow-hidden">
-        <div className="absolute top-0 right-0 w-24 h-24 bg-white/[0.02] rounded-full -translate-y-1/2 translate-x-1/2" />
+      <div className="rounded-2xl bg-su-line/10 border border-su-line/20 p-5 relative overflow-hidden">
+        <div className="absolute top-0 right-0 w-24 h-24 bg-su-line/10 rounded-full -translate-y-1/2 translate-x-1/2" />
         <div className="relative">
           <TierBadge tier="none" size="sm" />
-          <h3 className="text-base font-semibold text-gray-200 mt-3 mb-2">
+          <h3 className="text-base font-semibold text-su-text mt-3 mb-2">
             Just open and use
           </h3>
-          <p className="text-xs text-gray-500 leading-relaxed">
+          <p className="text-xs text-su-muted leading-relaxed">
             Every main view and most tools work instantly in your browser. No
             sign-up, no email, no tracking. Your data stays in localStorage on
             your device.
           </p>
-          <p className="text-[11px] text-gray-600 mt-3 italic">
+          <p className="text-[11px] text-su-muted mt-3 italic">
             Limitation: Data is tied to this browser only. Clear your cache and
             it's gone.
           </p>
@@ -648,10 +648,10 @@ function ValueCallouts() {
         <div className="absolute top-0 right-0 w-24 h-24 bg-signal-green/[0.03] rounded-full -translate-y-1/2 translate-x-1/2" />
         <div className="relative">
           <TierBadge tier="free" size="sm" />
-          <h3 className="text-base font-semibold text-gray-200 mt-3 mb-2">
+          <h3 className="text-base font-semibold text-su-text mt-3 mb-2">
             Your data, everywhere
           </h3>
-          <p className="text-xs text-gray-500 leading-relaxed">
+          <p className="text-xs text-su-muted leading-relaxed">
             Sign up with just an email and your settings, logbook, contest
             sessions, and watch presets sync to the cloud. Access from any
             browser, any device. Your data persists even if you clear your
@@ -669,10 +669,10 @@ function ValueCallouts() {
         <div className="absolute top-0 right-0 w-24 h-24 bg-plasma-orange/[0.03] rounded-full -translate-y-1/2 translate-x-1/2" />
         <div className="relative">
           <TierBadge tier="pro" size="sm" />
-          <h3 className="text-base font-semibold text-gray-200 mt-3 mb-2">
+          <h3 className="text-base font-semibold text-su-text mt-3 mb-2">
             Your station, modeled
           </h3>
-          <p className="text-xs text-gray-500 leading-relaxed">
+          <p className="text-xs text-su-muted leading-relaxed">
             Pro unlocks per-station ML propagation models custom to YOUR
             location, antenna, and power. Get extended 30-day spot history,
             historical replay, multiple saved locations, custom profile images,
@@ -695,10 +695,10 @@ function BottomCTA() {
 
   return (
     <div className="text-center py-10 sm:py-14 px-4">
-      <h2 className="font-orbitron text-xl sm:text-2xl font-bold text-white tracking-wide mb-3">
+      <h2 className="font-orbitron text-xl sm:text-2xl font-bold text-su-text tracking-wide mb-3">
         Ready to Get Started?
       </h2>
-      <p className="text-sm text-gray-400 max-w-lg mx-auto mb-6">
+      <p className="text-sm text-su-muted max-w-lg mx-auto mb-6">
         Jump into the dashboard and start exploring real-time propagation data
         right now, or create a free account to unlock cloud sync and your public
         operator profile.
@@ -726,7 +726,7 @@ function BottomCTA() {
       </div>
 
       {isSupabaseConfigured && (
-        <p className="text-[11px] text-gray-600 mt-4">
+        <p className="text-[11px] text-su-muted mt-4">
           Pro subscription helps keep the servers running and unlocks advanced
           features.
         </p>

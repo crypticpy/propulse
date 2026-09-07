@@ -96,7 +96,7 @@ export const Tooltip: React.FC<TooltipProps> = ({
           <div
             ref={tooltipRef}
             role="tooltip"
-            className="fixed z-[70] px-3 py-2 max-w-xs w-max bg-panel border border-white/10 rounded-lg shadow-lg text-sm text-gray-200 font-sans text-center pointer-events-none"
+            className="fixed z-[70] px-3 py-2 max-w-xs w-max bg-panel border border-su-line/40 rounded-lg shadow-lg text-sm text-su-text font-sans text-center pointer-events-none"
             style={{
               top: flipped ? pos.top : undefined,
               bottom: flipped ? undefined : `${window.innerHeight - pos.top}px`,
@@ -142,7 +142,7 @@ export const InfoTip: React.FC<{ content: string; className?: string }> = ({
     <svg
       tabIndex={0}
       aria-label="More info"
-      className="w-3.5 h-3.5 text-gray-500 hover:text-gray-300 focus:text-gray-300 cursor-help transition-colors shrink-0 outline-none focus:ring-1 focus:ring-white/20 rounded-full"
+      className="w-3.5 h-3.5 text-su-muted hover:text-su-muted focus:text-su-muted cursor-help transition-colors shrink-0 outline-none focus:ring-1 focus:ring-su-line/50 rounded-full"
       fill="none"
       viewBox="0 0 24 24"
       stroke="currentColor"

@@ -324,9 +324,9 @@ function dotColorClass(status: ServiceStatus): string {
     case "error":
       return "bg-alert-red shadow-[0_0_6px_theme(colors.alert-red)] animate-pulse";
     case "loading":
-      return "bg-gray-500 animate-pulse";
+      return "bg-su-line animate-pulse";
     case "idle":
-      return "bg-gray-600";
+      return "bg-su-line";
   }
 }
 
@@ -352,11 +352,11 @@ function bridgeDotClass(state: string): string {
     case "connecting":
       return "bg-plasma-orange animate-pulse";
     case "disconnected":
-      return "bg-gray-500";
+      return "bg-su-line";
     case "error":
       return "bg-alert-red";
     default:
-      return "bg-gray-600";
+      return "bg-su-line";
   }
 }
 
@@ -712,7 +712,7 @@ function ArchitectureDiagram({
           x="80"
           y="126"
           textAnchor="middle"
-          className="fill-white text-[11px] font-semibold"
+          className="fill-su-text text-[11px] font-semibold"
           fontFamily="Orbitron, sans-serif"
         >
           Propulse
@@ -721,7 +721,7 @@ function ArchitectureDiagram({
           x="80"
           y="144"
           textAnchor="middle"
-          className="fill-gray-400 text-[9px]"
+          className="fill-su-muted text-[9px]"
         >
           (Browser)
         </text>
@@ -741,7 +741,7 @@ function ArchitectureDiagram({
           x="315"
           y="126"
           textAnchor="middle"
-          className="fill-white text-[11px] font-semibold"
+          className="fill-su-text text-[11px] font-semibold"
           fontFamily="Orbitron, sans-serif"
         >
           Edge Functions
@@ -750,7 +750,7 @@ function ArchitectureDiagram({
           x="315"
           y="144"
           textAnchor="middle"
-          className="fill-gray-400 text-[9px]"
+          className="fill-su-muted text-[9px]"
         >
           (Vercel /api/*)
         </text>
@@ -804,7 +804,7 @@ function ArchitectureDiagram({
               x="572"
               y={g.y + 18}
               textAnchor="middle"
-              className="fill-white text-[10px] font-semibold"
+              className="fill-su-text text-[10px] font-semibold"
             >
               {g.label}
             </text>
@@ -812,7 +812,7 @@ function ArchitectureDiagram({
               x="572"
               y={g.y + 33}
               textAnchor="middle"
-              className="fill-gray-500 text-[8px]"
+              className="fill-su-muted text-[8px]"
             >
               {g.sublabel}
             </text>
@@ -839,16 +839,16 @@ function ServiceDetail({
   if (!info) return null;
 
   return (
-    <div className="border-t border-white/5 first:border-t-0">
+    <div className="border-t border-su-line/20 first:border-t-0">
       <button
         type="button"
         onClick={() => setExpanded((v) => !v)}
-        className="w-full flex items-center justify-between py-2.5 px-1 text-left group hover:bg-white/[0.02] transition-colors rounded"
+        className="w-full flex items-center justify-between py-2.5 px-1 text-left group hover:bg-su-line/10 transition-colors rounded"
         aria-expanded={expanded}
       >
-        <span className="text-xs text-gray-300 font-medium">{serviceName}</span>
+        <span className="text-xs text-su-muted font-medium">{serviceName}</span>
         <svg
-          className={`w-3.5 h-3.5 text-gray-500 transition-transform duration-200 ${expanded ? "rotate-180" : ""}`}
+          className={`w-3.5 h-3.5 text-su-muted transition-transform duration-200 ${expanded ? "rotate-180" : ""}`}
           fill="none"
           stroke="currentColor"
           viewBox="0 0 24 24"
@@ -864,16 +864,16 @@ function ServiceDetail({
       {expanded && (
         <div className="pb-3 px-1 space-y-2 animate-in fade-in text-xs leading-relaxed">
           <div>
-            <span className="text-gray-500 font-semibold uppercase tracking-wider text-[10px]">
+            <span className="text-su-muted font-semibold uppercase tracking-wider text-[10px]">
               What is it?
             </span>
-            <p className="text-gray-400 mt-0.5">{info.whatIsIt}</p>
+            <p className="text-su-muted mt-0.5">{info.whatIsIt}</p>
           </div>
           <div>
-            <span className="text-gray-500 font-semibold uppercase tracking-wider text-[10px]">
+            <span className="text-su-muted font-semibold uppercase tracking-wider text-[10px]">
               How Propulse uses it
             </span>
-            <p className="text-gray-400 mt-0.5">{info.howUsed}</p>
+            <p className="text-su-muted mt-0.5">{info.howUsed}</p>
           </div>
         </div>
       )}
@@ -954,7 +954,7 @@ export function SystemHealthPage() {
       <div className="space-y-1">
         <Link
           to="/"
-          className="inline-flex items-center gap-1.5 text-xs text-gray-500 hover:text-gray-300 transition-colors mb-3"
+          className="inline-flex items-center gap-1.5 text-xs text-su-muted hover:text-su-muted transition-colors mb-3"
           aria-label="Back to dashboard"
         >
           <svg
@@ -975,7 +975,7 @@ export function SystemHealthPage() {
         <h1 className="font-orbitron text-2xl md:text-3xl font-bold text-gradient-orange">
           System Health
         </h1>
-        <p className="text-sm text-gray-500">
+        <p className="text-sm text-su-muted">
           Real-time status of all Propulse data services and integrations
         </p>
       </div>
@@ -1004,7 +1004,7 @@ export function SystemHealthPage() {
 
           {/* Summary text */}
           <div className="flex-1 text-center sm:text-left space-y-2">
-            <h2 className="text-lg font-semibold text-white">{overallLabel}</h2>
+            <h2 className="text-lg font-semibold text-su-text">{overallLabel}</h2>
             <div className="flex flex-wrap items-center justify-center sm:justify-start gap-x-4 gap-y-1 text-xs">
               {counts.healthy > 0 && (
                 <span className="flex items-center gap-1.5">
@@ -1012,7 +1012,7 @@ export function SystemHealthPage() {
                     className="w-2 h-2 rounded-full bg-signal-green"
                     aria-hidden="true"
                   />
-                  <span className="text-gray-300">
+                  <span className="text-su-muted">
                     {counts.healthy} Healthy
                   </span>
                 </span>
@@ -1020,19 +1020,19 @@ export function SystemHealthPage() {
               {counts.idle > 0 && (
                 <span className="flex items-center gap-1.5">
                   <span
-                    className="w-2 h-2 rounded-full bg-gray-600"
+                    className="w-2 h-2 rounded-full bg-su-line"
                     aria-hidden="true"
                   />
-                  <span className="text-gray-400">{counts.idle} Idle</span>
+                  <span className="text-su-muted">{counts.idle} Idle</span>
                 </span>
               )}
               {counts.loading > 0 && (
                 <span className="flex items-center gap-1.5">
                   <span
-                    className="w-2 h-2 rounded-full bg-gray-500 animate-pulse"
+                    className="w-2 h-2 rounded-full bg-su-line animate-pulse"
                     aria-hidden="true"
                   />
-                  <span className="text-gray-400">
+                  <span className="text-su-muted">
                     {counts.loading} Loading
                   </span>
                 </span>
@@ -1058,7 +1058,7 @@ export function SystemHealthPage() {
                 </span>
               )}
             </div>
-            <p className="text-[11px] text-gray-600 font-mono">
+            <p className="text-[11px] text-su-muted font-mono">
               Updated {secondsSinceRefresh}s ago
               {" \u00b7 "}
               Next refresh in {Math.max(0, 30 - secondsSinceRefresh)}s
@@ -1085,7 +1085,7 @@ export function SystemHealthPage() {
                 {/* Category header */}
                 <div className="flex items-center gap-2.5">
                   <CategoryIcon icon={cat.icon} color={cat.accentHex} />
-                  <span className="text-sm font-semibold text-white flex-1">
+                  <span className="text-sm font-semibold text-su-text flex-1">
                     {cat.title}
                   </span>
                   <span
@@ -1114,11 +1114,11 @@ export function SystemHealthPage() {
                         aria-hidden="true"
                       />
                       {/* Name */}
-                      <span className="text-xs text-gray-300 flex-1 min-w-0 truncate">
+                      <span className="text-xs text-su-muted flex-1 min-w-0 truncate">
                         {svc.name}
                       </span>
                       {/* Freshness */}
-                      <span className="text-[10px] text-gray-500 whitespace-nowrap">
+                      <span className="text-[10px] text-su-muted whitespace-nowrap">
                         {svc.status === "idle"
                           ? "Idle"
                           : svc.status === "loading"
@@ -1131,7 +1131,7 @@ export function SystemHealthPage() {
                       </span>
                       {/* Stale threshold badge */}
                       <span
-                        className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-white/[0.04] text-gray-600 hidden sm:inline"
+                        className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-su-line/10 text-su-muted hidden sm:inline"
                         title={`Data considered stale after ${formatStaleThreshold(svc.staleThreshold)}`}
                       >
                         {formatStaleThreshold(svc.staleThreshold)}
@@ -1169,12 +1169,12 @@ export function SystemHealthPage() {
                 d="M13 16h-1v-4h-1m1-4h.01M12 2a10 10 0 100 20 10 10 0 000-20z"
               />
             </svg>
-            <span className="text-sm font-semibold text-white">
+            <span className="text-sm font-semibold text-su-text">
               Service Reference Guide
             </span>
           </div>
           <svg
-            className={`w-4 h-4 text-gray-500 transition-transform duration-200 ${detailsExpanded ? "rotate-180" : ""}`}
+            className={`w-4 h-4 text-su-muted transition-transform duration-200 ${detailsExpanded ? "rotate-180" : ""}`}
             fill="none"
             stroke="currentColor"
             viewBox="0 0 24 24"
@@ -1189,7 +1189,7 @@ export function SystemHealthPage() {
         </button>
 
         {detailsExpanded && (
-          <div className="mt-4 space-y-0 divide-y divide-white/5">
+          <div className="mt-4 space-y-0 divide-y divide-su-line/20">
             {CATEGORIES.flatMap((cat) =>
               cat.services.map((svc) => (
                 <ServiceDetail
@@ -1205,7 +1205,7 @@ export function SystemHealthPage() {
 
       {/* ── Architecture Diagram ────────────────────────────────────── */}
       <Card className="p-3 md:p-5 space-y-3">
-        <h3 className="text-sm font-semibold text-white flex items-center gap-2">
+        <h3 className="text-sm font-semibold text-su-text flex items-center gap-2">
           <svg
             className="w-4 h-4 text-cosmic-cyan"
             fill="none"
@@ -1221,12 +1221,12 @@ export function SystemHealthPage() {
           </svg>
           Data Flow Architecture
         </h3>
-        <p className="text-xs text-gray-500">
+        <p className="text-xs text-su-muted">
           All upstream API requests are proxied through Vercel Edge Functions to
           avoid CORS issues and cache responses.
         </p>
         <ArchitectureDiagram overallColor={overallColor} />
-        <div className="flex items-center gap-4 text-[10px] text-gray-600 pt-1">
+        <div className="flex items-center gap-4 text-[10px] text-su-muted pt-1">
           <span className="flex items-center gap-1">
             <span className="w-2 h-1.5 rounded-sm bg-signal-green/50 inline-block" />
             Healthy
@@ -1250,7 +1250,7 @@ export function SystemHealthPage() {
             aria-hidden="true"
           />
           <div className="flex-1 min-w-0">
-            <span className="text-xs font-medium text-gray-300">
+            <span className="text-xs font-medium text-su-muted">
               Bridge: {bridgeLabel(bridge.state)}
             </span>
             <span className="sr-only">
@@ -1260,7 +1260,7 @@ export function SystemHealthPage() {
           </div>
           <Link
             to="/sdr/setup"
-            className="text-xs text-cosmic-cyan hover:text-white transition-colors whitespace-nowrap"
+            className="text-xs text-cosmic-cyan hover:text-su-text transition-colors whitespace-nowrap"
           >
             Learn more about the Bridge &rarr;
           </Link>

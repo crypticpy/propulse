@@ -38,8 +38,8 @@ function PhotorealisticChrome({ label, onExit }: PhotorealisticChromeProps) {
       <div className="absolute top-3 left-3 z-20 flex max-w-[calc(100%-10rem)] flex-wrap items-center gap-2">
         <LayoutModeDropdown activeDestination="photorealistic" />
         {label && (
-          <div className="rounded-lg border border-white/15 bg-black/65 px-3 py-2 backdrop-blur-md">
-            <span className="text-xs text-white">Photorealistic 3D</span>
+          <div className="rounded-lg border border-su-line/50 bg-su-panel/60 px-3 py-2 backdrop-blur-md">
+            <span className="text-xs text-su-text">Photorealistic 3D</span>
             <span className="ml-2 text-[9px] uppercase tracking-wider text-amber-300">
               Experimental · {label}
             </span>
@@ -49,7 +49,7 @@ function PhotorealisticChrome({ label, onExit }: PhotorealisticChromeProps) {
       <button
         type="button"
         onClick={onExit}
-        className="absolute top-3 right-3 z-20 rounded-lg border border-white/15 bg-black/65 px-3 py-2 text-xs text-gray-300 hover:bg-white/10 hover:text-white"
+        className="absolute top-3 right-3 z-20 rounded-lg border border-su-line/50 bg-su-panel/60 px-3 py-2 text-xs text-su-muted hover:bg-su-line/20 hover:text-su-text"
       >
         Exit to PropSphere
       </button>
@@ -206,7 +206,7 @@ export default function Photorealistic3DPage() {
         <div className="flex h-full items-center justify-center bg-deep-space">
           <div className="text-center">
             <div className="mx-auto h-8 w-8 animate-spin rounded-full border-2 border-cosmic-cyan border-t-transparent" />
-            <p className="mt-3 text-sm text-gray-400">
+            <p className="mt-3 text-sm text-su-muted">
               Verifying metered 3D access…
             </p>
           </div>
@@ -231,17 +231,17 @@ export default function Photorealistic3DPage() {
               className="h-[18px] w-auto"
             />
           </div>
-          <span className="absolute top-16 right-3 z-20 rounded bg-black/60 px-2 py-1 text-[10px] text-gray-400">
+          <span className="absolute top-16 right-3 z-20 rounded bg-su-panel/60 px-2 py-1 text-[10px] text-su-muted">
             Metered provider · GPU cap {pixelRatio.toFixed(1)}×
           </span>
         </>
       ) : apiKey !== undefined ? (
         <div className="absolute top-16 right-3 z-20 flex max-w-sm flex-col items-end gap-2">
-          <span className="rounded bg-black/60 px-2 py-1 text-[10px] text-caution-amber">
+          <span className="rounded bg-su-panel/60 px-2 py-1 text-[10px] text-caution-amber">
             {fallbackBanner}
           </span>
           {keyError && (
-            <span className="rounded bg-black/60 px-2 py-1 text-[10px] text-gray-400">
+            <span className="rounded bg-su-panel/60 px-2 py-1 text-[10px] text-su-muted">
               {keyError}
             </span>
           )}
@@ -258,7 +258,7 @@ export default function Photorealistic3DPage() {
             <button
               type="button"
               onClick={openExplorer}
-              className="rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-xs text-gray-300 hover:text-white"
+              className="rounded-lg border border-su-line/40 bg-su-line/10 px-3 py-1.5 text-xs text-su-muted hover:text-su-text"
             >
               Open 2D Explorer
             </button>

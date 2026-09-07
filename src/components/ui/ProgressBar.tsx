@@ -76,10 +76,10 @@ export const ProgressBar = forwardRef<HTMLDivElement, ProgressBarProps>(
         {(label || showValue) && (
           <div className="flex justify-between items-center mb-2">
             {label && (
-              <span className="text-sm text-gray-300 font-sans">{label}</span>
+              <span className="text-sm text-su-muted font-sans">{label}</span>
             )}
             {showValue && (
-              <span className="text-sm font-mono text-gray-200">
+              <span className="text-sm font-mono text-su-text">
                 {Math.round(clampedValue)}%
               </span>
             )}

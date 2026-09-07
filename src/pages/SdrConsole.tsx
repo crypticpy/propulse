@@ -1600,7 +1600,7 @@ export function SdrConsole() {
     <>
       {showAudioDebug ? (
         <div
-          className="fixed bottom-2 right-2 z-[2147483647] rounded bg-black/70 text-white text-[11px] px-2 py-1 pointer-events-auto"
+          className="fixed bottom-2 right-2 z-[2147483647] rounded bg-su-panel/70 text-su-text text-[11px] px-2 py-1 pointer-events-auto"
           onPointerDown={(e) => {
             e.stopPropagation();
           }}
@@ -1627,7 +1627,7 @@ export function SdrConsole() {
           <div>beepCount: {beepCount}</div>
           <button
             type="button"
-            className="mt-1 px-2 py-0.5 rounded bg-white/10 hover:bg-white/20 border border-white/10"
+            className="mt-1 px-2 py-0.5 rounded bg-su-line/20 hover:bg-su-line/30 border border-su-line/40"
             onPointerDown={(e) => e.stopPropagation()}
             onClickCapture={(e) => e.stopPropagation()}
             onClick={debugBeep}
@@ -1636,7 +1636,7 @@ export function SdrConsole() {
           </button>
           <button
             type="button"
-            className="mt-1 ml-1 px-2 py-0.5 rounded bg-white/10 hover:bg-white/20 border border-white/10"
+            className="mt-1 ml-1 px-2 py-0.5 rounded bg-su-line/20 hover:bg-su-line/30 border border-su-line/40"
             onPointerDown={(e) => e.stopPropagation()}
             onClickCapture={(e) => e.stopPropagation()}
             onClick={debugResetCtx}

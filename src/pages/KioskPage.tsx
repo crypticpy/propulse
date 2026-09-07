@@ -69,7 +69,7 @@ function withWallPin(
 }
 
 const inputClass =
-  "bg-deep-space border border-white/15 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-plasma-orange/60";
+  "bg-deep-space border border-su-line/50 rounded-lg px-3 py-2 text-sm text-su-text focus:outline-none focus:border-plasma-orange/60";
 
 interface SceneTemplate {
   id: string;
@@ -323,34 +323,34 @@ export function KioskPage() {
     <div className="mx-auto max-w-5xl space-y-6 px-4 py-8">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h1 className="mb-1 font-orbitron text-2xl text-white">
+          <h1 className="mb-1 font-orbitron text-2xl text-su-text">
             Wall Display Center
           </h1>
-          <p className="max-w-xl text-sm text-gray-400">
+          <p className="max-w-xl text-sm text-su-muted">
             Build a 4K-ready scene playlist, tune every map surface, and launch
             the wall with a dependable route back to PropSphere.
           </p>
         </div>
         <Link
           to="/displays"
-          className="rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-gray-300 hover:border-white/20 hover:text-white"
+          className="rounded-lg border border-su-line/40 bg-su-line/10 px-3 py-2 text-sm text-su-muted hover:border-su-line/50 hover:text-su-text"
         >
           Configure paired displays
         </Link>
       </div>
 
       {/* Scenes */}
-      <section className="space-y-4 rounded-xl border border-white/10 bg-deep-space/60 p-4">
+      <section className="space-y-4 rounded-xl border border-su-line/40 bg-deep-space/60 p-4">
         <div className="flex items-center justify-between gap-3">
           <div>
-            <h2 className="text-sm font-semibold uppercase tracking-wider text-gray-200">
+            <h2 className="text-sm font-semibold uppercase tracking-wider text-su-text">
               Scene playlist
             </h2>
-            <p className="mt-1 text-xs text-gray-500">
+            <p className="mt-1 text-xs text-su-muted">
               {enabledScenes.length} of {scenes.length} scenes enabled
             </p>
           </div>
-          <span className="text-[10px] uppercase tracking-widest text-gray-500">
+          <span className="text-[10px] uppercase tracking-widest text-su-muted">
             Rotation order
           </span>
         </div>
@@ -363,8 +363,8 @@ export function KioskPage() {
             return (
               <li
                 key={scene.id}
-                className={`rounded-lg border bg-white/5 transition-colors ${
-                  isExpanded ? "border-plasma-orange/30" : "border-white/10"
+                className={`rounded-lg border bg-su-line/10 transition-colors ${
+                  isExpanded ? "border-plasma-orange/30" : "border-su-line/40"
                 } ${isEnabled ? "" : "opacity-60"}`}
               >
                 <div className="flex flex-wrap items-center gap-2 px-3 py-2">
@@ -387,10 +387,10 @@ export function KioskPage() {
                     ▶
                   </button>
                   <div className="min-w-[180px] flex-1">
-                    <div className="truncate text-sm text-white">
+                    <div className="truncate text-sm text-su-text">
                       {scene.name}
                     </div>
-                    <div className="truncate font-mono text-xs text-gray-500">
+                    <div className="truncate font-mono text-xs text-su-muted">
                       {routeLabel(scene.route)}
                       {scene.map && ` · ${scene.map.layoutMode}`}
                       {scene.map?.viewMode && ` · ${scene.map.viewMode}`}
@@ -404,7 +404,7 @@ export function KioskPage() {
                       type="button"
                       onClick={() => moveScene(scene.id, -1)}
                       disabled={index === 0}
-                      className="rounded p-1.5 text-gray-500 hover:bg-white/10 hover:text-white disabled:opacity-20"
+                      className="rounded p-1.5 text-su-muted hover:bg-su-line/20 hover:text-su-text disabled:opacity-20"
                       aria-label={`Move ${scene.name} up`}
                     >
                       ↑
@@ -413,7 +413,7 @@ export function KioskPage() {
                       type="button"
                       onClick={() => moveScene(scene.id, 1)}
                       disabled={index === scenes.length - 1}
-                      className="rounded p-1.5 text-gray-500 hover:bg-white/10 hover:text-white disabled:opacity-20"
+                      className="rounded p-1.5 text-su-muted hover:bg-su-line/20 hover:text-su-text disabled:opacity-20"
                       aria-label={`Move ${scene.name} down`}
                     >
                       ↓
@@ -421,7 +421,7 @@ export function KioskPage() {
                     <button
                       type="button"
                       onClick={() => duplicateScene(scene.id)}
-                      className="rounded p-1.5 text-xs text-gray-500 hover:bg-white/10 hover:text-white"
+                      className="rounded p-1.5 text-xs text-su-muted hover:bg-su-line/20 hover:text-su-text"
                       aria-label={`Duplicate scene ${scene.name}`}
                     >
                       Copy
@@ -431,7 +431,7 @@ export function KioskPage() {
                       onClick={() =>
                         setExpandedSceneId(isExpanded ? null : scene.id)
                       }
-                      className="rounded p-1.5 text-xs text-gray-400 hover:bg-white/10 hover:text-white"
+                      className="rounded p-1.5 text-xs text-su-muted hover:bg-su-line/20 hover:text-su-text"
                       aria-expanded={isExpanded}
                       aria-controls={`scene-editor-${scene.id}`}
                       aria-label={`${isExpanded ? "Finish editing" : "Edit scene"} ${scene.name}`}
@@ -442,7 +442,7 @@ export function KioskPage() {
                       <button
                         type="button"
                         onClick={() => removeScene(scene.id)}
-                        className="p-1.5 text-sm text-gray-500 hover:text-alert-red"
+                        className="p-1.5 text-sm text-su-muted hover:text-alert-red"
                         aria-label={`Remove scene ${scene.name}`}
                       >
                         ✕
@@ -454,9 +454,9 @@ export function KioskPage() {
                 {isExpanded && (
                   <div
                     id={`scene-editor-${scene.id}`}
-                    className="grid grid-cols-2 gap-3 border-t border-white/10 bg-black/10 px-3 py-3 lg:grid-cols-4"
+                    className="grid grid-cols-2 gap-3 border-t border-su-line/40 bg-su-input px-3 py-3 lg:grid-cols-4"
                   >
-                    <label className="col-span-2 flex flex-col gap-1 text-[10px] uppercase tracking-wider text-gray-500">
+                    <label className="col-span-2 flex flex-col gap-1 text-[10px] uppercase tracking-wider text-su-muted">
                       Scene name
                       <input
                         value={scene.name}
@@ -466,7 +466,7 @@ export function KioskPage() {
                         className={inputClass}
                       />
                     </label>
-                    <label className="flex flex-col gap-1 text-[10px] uppercase tracking-wider text-gray-500">
+                    <label className="flex flex-col gap-1 text-[10px] uppercase tracking-wider text-su-muted">
                       Page
                       <select
                         value={scene.route}
@@ -494,7 +494,7 @@ export function KioskPage() {
                         ))}
                       </select>
                     </label>
-                    <label className="flex flex-col gap-1 text-[10px] uppercase tracking-wider text-gray-500">
+                    <label className="flex flex-col gap-1 text-[10px] uppercase tracking-wider text-su-muted">
                       Duration
                       <input
                         type="number"
@@ -509,7 +509,7 @@ export function KioskPage() {
                         className={inputClass}
                       />
                     </label>
-                    <label className="flex flex-col gap-1 text-[10px] uppercase tracking-wider text-gray-500">
+                    <label className="flex flex-col gap-1 text-[10px] uppercase tracking-wider text-su-muted">
                       Transition
                       <select
                         value={scene.transition ?? "fade"}
@@ -528,7 +528,7 @@ export function KioskPage() {
                     {capabilities.mapConfig && scene.map && (
                       <>
                         {capabilities.layoutMode && (
-                          <label className="flex flex-col gap-1 text-[10px] uppercase tracking-wider text-gray-500">
+                          <label className="flex flex-col gap-1 text-[10px] uppercase tracking-wider text-su-muted">
                             Layout
                             <select
                               value={scene.map.layoutMode}
@@ -550,7 +550,7 @@ export function KioskPage() {
                           </label>
                         )}
                         {capabilities.viewMode && (
-                          <label className="flex flex-col gap-1 text-[10px] uppercase tracking-wider text-gray-500">
+                          <label className="flex flex-col gap-1 text-[10px] uppercase tracking-wider text-su-muted">
                             Projection
                             <select
                               value={scene.map.viewMode ?? ""}
@@ -579,7 +579,7 @@ export function KioskPage() {
                           </label>
                         )}
                         {capabilities.preset && (
-                          <label className="flex flex-col gap-1 text-[10px] uppercase tracking-wider text-gray-500">
+                          <label className="flex flex-col gap-1 text-[10px] uppercase tracking-wider text-su-muted">
                             Layer preset
                             <select
                               value={scene.map.preset ?? ""}
@@ -604,7 +604,7 @@ export function KioskPage() {
                           </label>
                         )}
                         {capabilities.quality && (
-                          <label className="flex flex-col gap-1 text-[10px] uppercase tracking-wider text-gray-500">
+                          <label className="flex flex-col gap-1 text-[10px] uppercase tracking-wider text-su-muted">
                             Image quality
                             <select
                               value={scene.map.quality ?? ""}
@@ -630,7 +630,7 @@ export function KioskPage() {
                           </label>
                         )}
                         {capabilities.mapStyle && (
-                          <label className="flex flex-col gap-1 text-[10px] uppercase tracking-wider text-gray-500">
+                          <label className="flex flex-col gap-1 text-[10px] uppercase tracking-wider text-su-muted">
                             Basemap
                             <select
                               value={scene.map.mapStyle ?? ""}
@@ -654,7 +654,7 @@ export function KioskPage() {
                           </label>
                         )}
                         {capabilities.theme && (
-                          <label className="flex flex-col gap-1 text-[10px] uppercase tracking-wider text-gray-500">
+                          <label className="flex flex-col gap-1 text-[10px] uppercase tracking-wider text-su-muted">
                             Theme
                             <select
                               value={scene.map.theme ?? ""}
@@ -679,7 +679,7 @@ export function KioskPage() {
                         )}
                         {scene.map.layoutMode === "hamclock" && (
                           <>
-                            <label className="flex flex-col gap-1 text-[10px] uppercase tracking-wider text-gray-500">
+                            <label className="flex flex-col gap-1 text-[10px] uppercase tracking-wider text-su-muted">
                               Wall page
                               <select
                                 value={scene.map?.hamclock?.leftPage ?? ""}
@@ -715,7 +715,7 @@ export function KioskPage() {
                                 ))}
                               </select>
                             </label>
-                            <label className="flex flex-col gap-1 text-[10px] uppercase tracking-wider text-gray-500">
+                            <label className="flex flex-col gap-1 text-[10px] uppercase tracking-wider text-su-muted">
                               HamClock theme
                               <select
                                 value={scene.map.hamclock?.theme ?? ""}
@@ -747,7 +747,7 @@ export function KioskPage() {
                         )}
                         {capabilities.autoRotate &&
                           scene.map.viewMode === "globe" && (
-                            <label className="flex flex-col gap-1 text-[10px] uppercase tracking-wider text-gray-500">
+                            <label className="flex flex-col gap-1 text-[10px] uppercase tracking-wider text-su-muted">
                               Auto-rotate
                               <select
                                 value={
@@ -779,7 +779,7 @@ export function KioskPage() {
                         {capabilities.autoRotateSpeed &&
                           scene.map.viewMode === "globe" &&
                           scene.map.autoRotate && (
-                            <label className="flex flex-col gap-1 text-[10px] uppercase tracking-wider text-gray-500">
+                            <label className="flex flex-col gap-1 text-[10px] uppercase tracking-wider text-su-muted">
                               Seconds per orbit
                               <input
                                 type="number"
@@ -806,7 +806,7 @@ export function KioskPage() {
                           scene.route,
                           scene.map,
                         ) ? (
-                          <label className="flex items-end gap-2 pb-2 text-xs text-gray-400">
+                          <label className="flex items-end gap-2 pb-2 text-xs text-su-muted">
                             <input
                               type="checkbox"
                               checked={scene.map.showLiveClouds ?? false}
@@ -824,7 +824,7 @@ export function KioskPage() {
                           </label>
                         ) : (
                           capabilities.liveClouds && (
-                            <p className="self-end pb-2 text-[10px] text-gray-500">
+                            <p className="self-end pb-2 text-[10px] text-su-muted">
                               Live clouds require the Globe projection.
                             </p>
                           )
@@ -838,9 +838,9 @@ export function KioskPage() {
           })}
         </ul>
 
-        <div className="border-t border-white/10 pt-4">
+        <div className="border-t border-su-line/40 pt-4">
           <div className="mb-2 flex flex-wrap items-center justify-between gap-3">
-            <h3 className="text-xs font-semibold uppercase tracking-wider text-gray-300">
+            <h3 className="text-xs font-semibold uppercase tracking-wider text-su-muted">
               Polished templates
             </h3>
             <button
@@ -857,12 +857,12 @@ export function KioskPage() {
                 key={template.id}
                 type="button"
                 onClick={() => handleAddTemplate(template)}
-                className="rounded-lg border border-white/10 bg-white/[0.03] p-3 text-left transition-colors hover:border-plasma-orange/30 hover:bg-white/[0.07]"
+                className="rounded-lg border border-su-line/40 bg-su-line/10 p-3 text-left transition-colors hover:border-plasma-orange/30 hover:bg-su-line/20"
               >
-                <span className="block text-sm text-white">
+                <span className="block text-sm text-su-text">
                   {template.label}
                 </span>
-                <span className="mt-1 block text-xs text-gray-500">
+                <span className="mt-1 block text-xs text-su-muted">
                   {template.description}
                 </span>
               </button>
@@ -871,7 +871,7 @@ export function KioskPage() {
         </div>
 
         {/* Add scene */}
-        <div className="grid gap-2 border-t border-white/10 pt-4 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="grid gap-2 border-t border-su-line/40 pt-4 sm:grid-cols-2 lg:grid-cols-4">
           <input
             value={newName}
             onChange={(e) => setNewName(e.target.value)}
@@ -983,7 +983,7 @@ export function KioskPage() {
                 </select>
               )}
               {newRouteCapabilities.autoRotate && newView === "globe" && (
-                <label className="flex items-center gap-1.5 px-2 text-xs text-gray-400">
+                <label className="flex items-center gap-1.5 px-2 text-xs text-su-muted">
                   <input
                     type="checkbox"
                     checked={newAutoRotate}
@@ -1009,7 +1009,7 @@ export function KioskPage() {
                   />
                 )}
               {newRouteCapabilities.liveClouds && newView === "globe" && (
-                <label className="flex items-center gap-1.5 px-2 text-xs text-gray-400">
+                <label className="flex items-center gap-1.5 px-2 text-xs text-su-muted">
                   <input
                     type="checkbox"
                     checked={newLiveClouds}
@@ -1044,7 +1044,7 @@ export function KioskPage() {
           <button
             onClick={handleAddScene}
             disabled={!newName.trim()}
-            className="rounded-lg border border-white/15 bg-white/10 px-3 py-2 text-sm text-white hover:bg-white/20 disabled:cursor-not-allowed disabled:opacity-40"
+            className="rounded-lg border border-su-line/50 bg-su-line/20 px-3 py-2 text-sm text-su-text hover:bg-su-line/30 disabled:cursor-not-allowed disabled:opacity-40"
           >
             Add scene
           </button>
@@ -1055,12 +1055,12 @@ export function KioskPage() {
       <LaunchWallSection scenes={enabledScenes} />
 
       {/* Wall appearance */}
-      <section className="bg-deep-space/60 border border-white/10 rounded-xl p-4 space-y-4">
+      <section className="bg-deep-space/60 border border-su-line/40 rounded-xl p-4 space-y-4">
         <div>
-          <h2 className="text-sm font-semibold text-gray-200 uppercase tracking-wider">
+          <h2 className="text-sm font-semibold text-su-text uppercase tracking-wider">
             Wall appearance
           </h2>
-          <p className="mt-1 text-xs text-gray-500">
+          <p className="mt-1 text-xs text-su-muted">
             Tune high-distance readability without changing the normal app.
           </p>
         </div>
@@ -1070,7 +1070,7 @@ export function KioskPage() {
           role="group"
           aria-label="Header size"
         >
-          <span className="mr-1 text-sm text-gray-300">Header size</span>
+          <span className="mr-1 text-sm text-su-muted">Header size</span>
           {HEADER_SCALES.map((option) => (
             <button
               key={option.value}
@@ -1082,7 +1082,7 @@ export function KioskPage() {
               className={`rounded-lg border px-3 py-1.5 text-xs transition ${
                 presentation.headerScale === option.value
                   ? "border-plasma-orange/50 bg-plasma-orange/15 text-plasma-orange"
-                  : "border-white/10 bg-white/[0.03] text-gray-400 hover:bg-white/[0.07] hover:text-gray-200"
+                  : "border-su-line/40 bg-su-line/10 text-su-muted hover:bg-su-line/20 hover:text-su-text"
               }`}
             >
               {option.label}
@@ -1091,7 +1091,7 @@ export function KioskPage() {
         </div>
 
         <div className="flex flex-wrap gap-x-8 gap-y-3">
-          <label className="flex items-center gap-2 text-sm text-gray-300">
+          <label className="flex items-center gap-2 text-sm text-su-muted">
             <input
               type="checkbox"
               checked={presentation.slashedZero}
@@ -1105,7 +1105,7 @@ export function KioskPage() {
 
           <label
             className={`flex items-center gap-2 text-sm ${
-              station ? "text-gray-300" : "text-gray-600"
+              station ? "text-su-muted" : "text-su-muted"
             }`}
             title={
               station
@@ -1133,8 +1133,8 @@ export function KioskPage() {
       </section>
 
       {/* Rotation + alerts */}
-      <section className="bg-deep-space/60 border border-white/10 rounded-xl p-4 flex flex-wrap items-center gap-x-8 gap-y-4">
-        <label className="flex items-center gap-2 text-sm text-gray-300">
+      <section className="bg-deep-space/60 border border-su-line/40 rounded-xl p-4 flex flex-wrap items-center gap-x-8 gap-y-4">
+        <label className="flex items-center gap-2 text-sm text-su-muted">
           <input
             type="checkbox"
             checked={rotation.enabled}
@@ -1156,7 +1156,7 @@ export function KioskPage() {
           seconds
         </label>
 
-        <label className="flex items-center gap-2 text-sm text-gray-300">
+        <label className="flex items-center gap-2 text-sm text-su-muted">
           Alert break-in:
           <select
             value={breakInLevel}
@@ -1186,9 +1186,9 @@ export function KioskPage() {
             </p>
           )}
         </div>
-        <p className="text-xs text-gray-500 font-mono">
+        <p className="text-xs text-su-muted font-mono">
           Dedicated device? Point its browser at{" "}
-          <span className="text-gray-300">
+          <span className="text-su-muted">
             {window.location.origin}/kiosk?start=1
           </span>
         </p>

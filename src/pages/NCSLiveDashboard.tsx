@@ -378,8 +378,8 @@ export function NCSLiveDashboard() {
   if (!currentNet) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[400px] text-center animate-in fade-in">
-        <p className="text-lg font-medium text-white mb-2">Net not found</p>
-        <p className="text-sm text-gray-400">
+        <p className="text-lg font-medium text-su-text mb-2">Net not found</p>
+        <p className="text-sm text-su-muted">
           The net you are looking for does not exist or has been removed.
         </p>
       </div>
@@ -392,7 +392,7 @@ export function NCSLiveDashboard() {
     return (
       <div className="flex flex-col items-center justify-center min-h-[400px] text-center px-4 animate-in fade-in">
         <svg
-          className="w-10 h-10 text-gray-400 mb-4"
+          className="w-10 h-10 text-su-muted mb-4"
           fill="none"
           stroke="currentColor"
           viewBox="0 0 24 24"
@@ -404,8 +404,8 @@ export function NCSLiveDashboard() {
             d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"
           />
         </svg>
-        <p className="text-lg font-medium text-white mb-2">Not Authorized</p>
-        <p className="text-sm text-gray-400 max-w-xs">
+        <p className="text-lg font-medium text-su-text mb-2">Not Authorized</p>
+        <p className="text-sm text-su-muted max-w-xs">
           You are not authorized to manage this net. Contact the net owner if
           you believe this is an error.
         </p>
@@ -418,10 +418,10 @@ export function NCSLiveDashboard() {
   return (
     <div className="flex flex-col h-full min-h-0">
       {/* ── Header Bar (sticky) ────────────────────────────────────────── */}
-      <div className="sticky top-0 z-10 bg-white/[0.05] backdrop-blur-md border-b border-white/15 px-5 py-4 shadow-card">
+      <div className="sticky top-0 z-10 bg-su-line/10 backdrop-blur-md border-b border-su-line/50 px-5 py-4 shadow-card">
         <div className="flex items-center gap-4 flex-wrap">
           {/* Net name */}
-          <h1 className="text-xl font-bold font-orbitron text-white truncate">
+          <h1 className="text-xl font-bold font-orbitron text-su-text truncate">
             {currentNet.name}
           </h1>
 
@@ -430,7 +430,7 @@ export function NCSLiveDashboard() {
 
           {/* Elapsed time */}
           {currentSession && (
-            <span className="text-sm font-mono text-gray-300 bg-white/[0.08] px-2 py-0.5 rounded-md border border-white/15 shrink-0 tabular-nums">
+            <span className="text-sm font-mono text-su-muted bg-su-line/20 px-2 py-0.5 rounded-md border border-su-line/50 shrink-0 tabular-nums">
               {elapsed}
             </span>
           )}
@@ -440,7 +440,7 @@ export function NCSLiveDashboard() {
             className={`px-2 py-0.5 text-xs font-semibold rounded-full border shrink-0 tabular-nums ${
               activeCheckins.length > 0
                 ? "bg-signal-green/10 text-signal-green border-signal-green/20"
-                : "bg-white/10 text-gray-300 border-white/15"
+                : "bg-su-line/20 text-su-muted border-su-line/50"
             }`}
           >
             {activeCheckins.length} check-in
@@ -449,7 +449,7 @@ export function NCSLiveDashboard() {
 
           {/* NCS callsign */}
           {currentSession && (
-            <span className="text-sm text-gray-300 ml-auto shrink-0 pl-3 border-l border-white/15">
+            <span className="text-sm text-su-muted ml-auto shrink-0 pl-3 border-l border-su-line/50">
               NCS:{" "}
               <span className="font-mono font-medium text-plasma-orange">
                 {currentSession.ncsCallsign}
@@ -471,7 +471,7 @@ export function NCSLiveDashboard() {
             <button
               type="button"
               onClick={() => setShowKeyboardHints((prev) => !prev)}
-              className="shrink-0 px-2 py-0.5 text-xs font-mono rounded-md bg-white/5 border border-white/10 text-gray-300 hover:text-white hover:bg-white/15 hover:brightness-110 transition-all focus-visible:ring-2 focus-visible:ring-plasma-orange/70 focus-visible:ring-offset-2 focus-visible:ring-offset-deep-space"
+              className="shrink-0 px-2 py-0.5 text-xs font-mono rounded-md bg-su-line/10 border border-su-line/40 text-su-muted hover:text-su-text hover:bg-su-line/30 hover:brightness-110 transition-all focus-visible:ring-2 focus-visible:ring-plasma-orange/70 focus-visible:ring-offset-2 focus-visible:ring-offset-deep-space"
               title="Keyboard shortcuts"
             >
               <span className="hidden sm:inline">Keyboard </span>

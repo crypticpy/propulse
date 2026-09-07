@@ -200,7 +200,7 @@ function SpotlightOverlay({ targetRect, onClick }: SpotlightOverlayProps) {
     // No target - full overlay for modal steps
     return (
       <div
-        className="fixed inset-0 bg-black/70 backdrop-blur-sm transition-all duration-300 cursor-pointer"
+        className="fixed inset-0 bg-su-panel/70 backdrop-blur-sm transition-all duration-300 cursor-pointer"
         onClick={onClick}
       />
     );
@@ -307,7 +307,7 @@ function TourTooltip({
 
   return (
     <div
-      className="bg-nebula-blue/95 backdrop-blur-md border border-white/20 rounded-xl shadow-2xl p-5 animate-fade-in-up z-[1000]"
+      className="bg-nebula-blue/95 backdrop-blur-md border border-su-line/50 rounded-xl shadow-2xl p-5 animate-fade-in-up z-[1000]"
       style={tooltipStyle}
     >
       {/* Arrow (only for non-modal steps) */}
@@ -320,10 +320,10 @@ function TourTooltip({
 
       {/* Header */}
       <div className="flex items-start justify-between gap-3 mb-3">
-        <h3 className="text-lg font-semibold text-white">{step.title}</h3>
+        <h3 className="text-lg font-semibold text-su-text">{step.title}</h3>
         <button
           onClick={onSkip}
-          className="p-1 text-gray-400 hover:text-white hover:bg-white/10 rounded transition-colors flex-shrink-0"
+          className="p-1 text-su-muted hover:text-su-text hover:bg-su-line/20 rounded transition-colors flex-shrink-0"
           aria-label="Skip tour"
         >
           <svg
@@ -343,7 +343,7 @@ function TourTooltip({
       </div>
 
       {/* Content */}
-      <p className="text-sm text-gray-300 leading-relaxed mb-4">
+      <p className="text-sm text-su-muted leading-relaxed mb-4">
         {step.content}
       </p>
 
@@ -351,7 +351,7 @@ function TourTooltip({
       <div className="flex items-center justify-between">
         {/* Progress indicator */}
         <div className="flex items-center gap-2">
-          <span className="text-xs text-gray-400">
+          <span className="text-xs text-su-muted">
             Step {stepIndex + 1} of {totalSteps}
           </span>
           <div className="flex gap-1">
@@ -363,7 +363,7 @@ function TourTooltip({
                     ? "bg-plasma-orange"
                     : i < stepIndex
                       ? "bg-plasma-orange/50"
-                      : "bg-white/20"
+                      : "bg-su-line/30"
                 }`}
               />
             ))}
@@ -375,7 +375,7 @@ function TourTooltip({
           {!isFirstStep && (
             <button
               onClick={onPrev}
-              className="px-3 py-1.5 text-sm text-gray-300 hover:text-white hover:bg-white/10 rounded-lg transition-colors"
+              className="px-3 py-1.5 text-sm text-su-muted hover:text-su-text hover:bg-su-line/20 rounded-lg transition-colors"
             >
               Back
             </button>
@@ -383,14 +383,14 @@ function TourTooltip({
           {isLastStep ? (
             <button
               onClick={onComplete}
-              className="px-4 py-1.5 text-sm font-medium bg-plasma-orange hover:bg-plasma-orange/90 text-white rounded-lg transition-colors"
+              className="px-4 py-1.5 text-sm font-medium bg-plasma-orange hover:bg-plasma-orange/90 text-su-on-accent rounded-lg transition-colors"
             >
               Get Started
             </button>
           ) : (
             <button
               onClick={onNext}
-              className="px-4 py-1.5 text-sm font-medium bg-plasma-orange hover:bg-plasma-orange/90 text-white rounded-lg transition-colors"
+              className="px-4 py-1.5 text-sm font-medium bg-plasma-orange hover:bg-plasma-orange/90 text-su-on-accent rounded-lg transition-colors"
             >
               Next
             </button>
@@ -403,7 +403,7 @@ function TourTooltip({
         <div className="mt-3 text-center">
           <button
             onClick={onSkip}
-            className="text-xs text-gray-500 hover:text-gray-300 transition-colors"
+            className="text-xs text-su-muted hover:text-su-muted transition-colors"
           >
             Skip tour
           </button>
@@ -584,21 +584,21 @@ export function OnboardingTour({
       {showSkipConfirm && (
         <div className="fixed inset-0 z-[500] flex items-center justify-center p-4">
           <div
-            className="absolute inset-0 bg-black/50"
+            className="absolute inset-0 bg-su-panel/60"
             onClick={() => setShowSkipConfirm(false)}
           />
-          <div className="relative bg-nebula-blue border border-white/20 rounded-xl p-6 max-w-sm animate-fade-in-up">
-            <h4 className="text-lg font-semibold text-white mb-2">
+          <div className="relative bg-nebula-blue border border-su-line/50 rounded-xl p-6 max-w-sm animate-fade-in-up">
+            <h4 className="text-lg font-semibold text-su-text mb-2">
               Skip Tour?
             </h4>
-            <p className="text-sm text-gray-300 mb-4">
+            <p className="text-sm text-su-muted mb-4">
               Are you sure you want to skip the tour? You can restart it anytime
               from the help menu.
             </p>
             <div className="flex justify-end gap-3">
               <button
                 onClick={() => setShowSkipConfirm(false)}
-                className="px-4 py-2 text-sm text-gray-300 hover:text-white hover:bg-white/10 rounded-lg transition-colors"
+                className="px-4 py-2 text-sm text-su-muted hover:text-su-text hover:bg-su-line/20 rounded-lg transition-colors"
               >
                 Continue Tour
               </button>
@@ -607,7 +607,7 @@ export function OnboardingTour({
                   setShowSkipConfirm(false);
                   onSkip();
                 }}
-                className="px-4 py-2 text-sm font-medium bg-white/10 hover:bg-white/20 text-white rounded-lg transition-colors"
+                className="px-4 py-2 text-sm font-medium bg-su-line/20 hover:bg-su-line/30 text-su-text rounded-lg transition-colors"
               >
                 Skip
               </button>

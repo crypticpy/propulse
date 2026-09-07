@@ -203,7 +203,7 @@ export function NetDetailPage() {
     return (
       <div className="flex flex-col items-center justify-center min-h-[50vh] text-center px-4">
         <svg
-          className="w-12 h-12 text-gray-600 mb-4"
+          className="w-12 h-12 text-su-muted mb-4"
           fill="none"
           stroke="currentColor"
           viewBox="0 0 24 24"
@@ -215,8 +215,8 @@ export function NetDetailPage() {
             d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
           />
         </svg>
-        <p className="text-gray-400 text-sm mb-2">Net not found</p>
-        <p className="text-gray-400 text-xs mb-4">
+        <p className="text-su-muted text-sm mb-2">Net not found</p>
+        <p className="text-su-muted text-xs mb-4">
           This net may have been removed or the link is incorrect.
         </p>
         <Link
@@ -238,8 +238,8 @@ export function NetDetailPage() {
 
   // Shared panel class
   const panelClass = isMobile
-    ? "bg-panel/30 backdrop-blur-sm border border-white/5 rounded-2xl p-4"
-    : "bg-panel/30 backdrop-blur-sm border border-white/5 rounded-2xl p-6";
+    ? "bg-panel/30 backdrop-blur-sm border border-su-line/20 rounded-2xl p-4"
+    : "bg-panel/30 backdrop-blur-sm border border-su-line/20 rounded-2xl p-6";
 
   // ── Composable sidebar sections ─────────────────────────────────────────
 
@@ -252,9 +252,9 @@ export function NetDetailPage() {
           <FormalityBadge level={net.formalityLevel} size="md" />
         )}
       </div>
-      <h1 className="text-lg font-bold text-white mt-2">{net.name}</h1>
+      <h1 className="text-lg font-bold text-su-text mt-2">{net.name}</h1>
       {net.summary && (
-        <p className="text-sm text-gray-300 mt-1 leading-relaxed">
+        <p className="text-sm text-su-muted mt-1 leading-relaxed">
           {net.summary}
         </p>
       )}
@@ -264,14 +264,14 @@ export function NetDetailPage() {
   /** Frequency, mode, alt frequency, TuneToNetButton */
   const frequencySection = (
     <div>
-      <h4 className="text-xs uppercase tracking-widest text-gray-400 mb-1">
+      <h4 className="text-xs uppercase tracking-widest text-su-muted mb-1">
         Frequency
       </h4>
-      <p className="text-sm font-mono text-gray-200">
+      <p className="text-sm font-mono text-su-text">
         {net.frequency} &middot; {net.mode}
       </p>
       {net.altFrequency && (
-        <p className="text-xs font-mono text-gray-400 mt-0.5">
+        <p className="text-xs font-mono text-su-muted mt-0.5">
           Alt: {net.altFrequency}
         </p>
       )}
@@ -304,10 +304,10 @@ export function NetDetailPage() {
   /** Description panel */
   const descriptionSection = net.description ? (
     <div>
-      <h4 className="text-xs uppercase tracking-widest text-gray-400 mb-2">
+      <h4 className="text-xs uppercase tracking-widest text-su-muted mb-2">
         About This Net
       </h4>
-      <p className="text-sm text-gray-300 whitespace-pre-wrap leading-relaxed">
+      <p className="text-sm text-su-muted whitespace-pre-wrap leading-relaxed">
         {net.description}
       </p>
     </div>
@@ -316,16 +316,16 @@ export function NetDetailPage() {
   /** Schedule display — uses formatScheduleLocal for local time primary */
   const scheduleSection = (
     <div>
-      <h4 className="text-xs uppercase tracking-widest text-gray-400 mb-1">
+      <h4 className="text-xs uppercase tracking-widest text-su-muted mb-1">
         Schedule
       </h4>
-      <p className="text-sm text-gray-200">
+      <p className="text-sm text-su-text">
         {net.schedule
           ? formatScheduleLocal(net.schedule)
           : "Ad-hoc / On demand"}
       </p>
       {net.durationMinutes && (
-        <p className="text-xs text-gray-400 mt-0.5">
+        <p className="text-xs text-su-muted mt-0.5">
           ~{net.durationMinutes} min typical duration
         </p>
       )}
@@ -344,20 +344,20 @@ export function NetDetailPage() {
   /** Band metadata */
   const bandSection = (
     <div>
-      <h4 className="text-xs uppercase tracking-widest text-gray-400 mb-1">
+      <h4 className="text-xs uppercase tracking-widest text-su-muted mb-1">
         Band
       </h4>
-      <p className="text-sm text-gray-200">{net.band}</p>
+      <p className="text-sm text-su-text">{net.band}</p>
     </div>
   );
 
   /** Country / state display */
   const countrySection = net.country ? (
     <div>
-      <h4 className="text-xs uppercase tracking-widest text-gray-400 mb-1">
+      <h4 className="text-xs uppercase tracking-widest text-su-muted mb-1">
         Location
       </h4>
-      <p className="text-sm text-gray-200">
+      <p className="text-sm text-su-text">
         {formatCountryDisplay(net.country, net.stateOrProvince)}
       </p>
     </div>
@@ -366,25 +366,25 @@ export function NetDetailPage() {
   /** Region */
   const regionSection = net.region ? (
     <div>
-      <h4 className="text-xs uppercase tracking-widest text-gray-400 mb-1">
+      <h4 className="text-xs uppercase tracking-widest text-su-muted mb-1">
         Region
       </h4>
-      <p className="text-sm text-gray-200">{net.region}</p>
+      <p className="text-sm text-su-text">{net.region}</p>
     </div>
   ) : null;
 
   /** Repeater info */
   const repeaterSection = net.repeaterInfo ? (
     <div>
-      <h4 className="text-xs uppercase tracking-widest text-gray-400 mb-1">
+      <h4 className="text-xs uppercase tracking-widest text-su-muted mb-1">
         Repeater
       </h4>
-      <div className="text-sm text-gray-200 space-y-0.5">
+      <div className="text-sm text-su-text space-y-0.5">
         <p className="font-mono">{net.repeaterInfo.callsign}</p>
-        <p className="text-xs text-gray-400">
+        <p className="text-xs text-su-muted">
           Offset: {net.repeaterInfo.offset}
         </p>
-        <p className="text-xs text-gray-400">Tone: {net.repeaterInfo.tone}</p>
+        <p className="text-xs text-su-muted">Tone: {net.repeaterInfo.tone}</p>
       </div>
     </div>
   ) : null;
@@ -392,10 +392,10 @@ export function NetDetailPage() {
   /** Subscriber count */
   const subscriberSection = (
     <div>
-      <h4 className="text-xs uppercase tracking-widest text-gray-400 mb-1">
+      <h4 className="text-xs uppercase tracking-widest text-su-muted mb-1">
         Subscribers
       </h4>
-      <p className="text-sm text-gray-200">
+      <p className="text-sm text-su-text">
         {net.subscriberCount.toLocaleString()}
       </p>
     </div>
@@ -445,7 +445,7 @@ export function NetDetailPage() {
     <div className="bg-red-500/10 border border-red-500/30 rounded-2xl px-4 py-3 flex items-center justify-between">
       <div className="flex items-center gap-3">
         <NetLiveIndicator size="md" />
-        <span className="text-sm text-gray-200">
+        <span className="text-sm text-su-text">
           Net is currently in session
           {currentSession?.ncsCallsign && (
             <>
@@ -465,12 +465,12 @@ export function NetDetailPage() {
   const controllerLink = userIsManager ? (
     <Link
       to={`/ncs/${net.id}`}
-      className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium bg-white/[0.03] text-gray-300 border border-white/5 hover:bg-white/[0.06] transition-all"
+      className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium bg-su-line/10 text-su-muted border border-su-line/20 hover:bg-su-line/20 transition-all"
     >
       <span className="text-base">🎙️</span>
       You manage this net — go to Controller
       <svg
-        className="w-3.5 h-3.5 ml-auto text-gray-400"
+        className="w-3.5 h-3.5 ml-auto text-su-muted"
         fill="none"
         stroke="currentColor"
         viewBox="0 0 24 24"
@@ -496,11 +496,11 @@ export function NetDetailPage() {
   /** NCS Roster panel */
   const ncsRosterSection = (
     <div className={panelClass}>
-      <h3 className="text-xs uppercase tracking-widest text-gray-400 mb-3">
+      <h3 className="text-xs uppercase tracking-widest text-su-muted mb-3">
         NCS Roster
       </h3>
       {managers.length === 0 ? (
-        <p className="text-sm text-gray-400 italic">
+        <p className="text-sm text-su-muted italic">
           No managers assigned yet.
         </p>
       ) : (
@@ -508,9 +508,9 @@ export function NetDetailPage() {
           {managers.map((manager) => (
             <div
               key={`${manager.netId}-${manager.userId}`}
-              className="flex items-center justify-between px-3 py-2 rounded-xl bg-white/[0.02] hover:bg-white/[0.04] transition-colors"
+              className="flex items-center justify-between px-3 py-2 rounded-xl bg-su-line/10 hover:bg-su-line/10 transition-colors"
             >
-              <span className="text-sm font-mono text-gray-200">
+              <span className="text-sm font-mono text-su-text">
                 {manager.callsign || manager.userId.slice(0, 8)}
               </span>
               <span
@@ -534,7 +534,7 @@ export function NetDetailPage() {
   /** Session history panel */
   const sessionHistorySection = (
     <div className={panelClass}>
-      <h3 className="text-xs uppercase tracking-widest text-gray-400 mb-3">
+      <h3 className="text-xs uppercase tracking-widest text-su-muted mb-3">
         Session History
       </h3>
       <NetSessionHistory
@@ -585,7 +585,7 @@ export function NetDetailPage() {
       {/* RSVP next session */}
       {nextSessionDate && (
         <div className={panelClass}>
-          <h3 className="text-xs uppercase tracking-widest text-gray-400 mb-3">
+          <h3 className="text-xs uppercase tracking-widest text-su-muted mb-3">
             Next Session
           </h3>
           <RSVPButton

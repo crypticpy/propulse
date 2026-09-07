@@ -64,20 +64,20 @@ export function PWAInstallPrompt() {
         </svg>
       </div>
       <div className="flex-1 min-w-0">
-        <p className="text-sm font-medium text-gray-100">Install Propulse</p>
-        <p className="text-xs text-gray-400 truncate">
+        <p className="text-sm font-medium text-su-text">Install Propulse</p>
+        <p className="text-xs text-su-muted truncate">
           Add to home screen for quick access
         </p>
       </div>
       <button
         onClick={handleInstall}
-        className="flex-shrink-0 rounded-lg bg-plasma-orange/90 px-3.5 py-1.5 text-xs font-semibold text-void-black transition-colors hover:bg-plasma-orange"
+        className="flex-shrink-0 rounded-lg bg-plasma-orange/90 px-3.5 py-1.5 text-xs font-semibold text-su-on-accent transition-colors hover:bg-plasma-orange"
       >
         Install
       </button>
       <button
         onClick={() => setDismissed(true)}
-        className="flex-shrink-0 p-1 text-gray-500 transition-colors hover:text-gray-300"
+        className="flex-shrink-0 p-1 text-su-muted transition-colors hover:text-su-muted"
         aria-label="Dismiss install prompt"
       >
         <svg

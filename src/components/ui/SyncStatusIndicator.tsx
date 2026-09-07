@@ -127,7 +127,7 @@ export function SyncStatusIndicator(): JSX.Element | null {
         className={`
           inline-flex items-center gap-1.5 px-2 py-1 rounded-full border
           text-xs font-medium transition-colors cursor-pointer
-          hover:brightness-110 focus:outline-none focus:ring-1 focus:ring-white/20
+          hover:brightness-110 focus:outline-none focus:ring-1 focus:ring-su-line/50
           ${pillColor}
         `}
         aria-label={`Sync queue: ${totalCount} item${totalCount !== 1 ? "s" : ""}`}
@@ -162,14 +162,14 @@ export function SyncStatusIndicator(): JSX.Element | null {
           ref={panelRef}
           className="absolute top-full right-0 mt-1 z-50 w-[300px]
                      bg-void-black/95 backdrop-blur-md
-                     border border-white/10 rounded-xl shadow-2xl
+                     border border-su-line/40 rounded-xl shadow-2xl
                      animate-in fade-in slide-in-from-top-1"
           role="dialog"
           aria-label="Sync queue details"
         >
           {/* Header */}
-          <div className="flex items-center justify-between px-3 pt-3 pb-2 border-b border-white/10">
-            <span className="text-xs font-semibold text-gray-200">
+          <div className="flex items-center justify-between px-3 pt-3 pb-2 border-b border-su-line/40">
+            <span className="text-xs font-semibold text-su-text">
               Sync Queue
             </span>
             <div className="flex items-center gap-2">
@@ -187,7 +187,7 @@ export function SyncStatusIndicator(): JSX.Element | null {
               )}
               <button
                 onClick={() => setExpanded(false)}
-                className="p-0.5 rounded hover:bg-white/10 transition-colors text-gray-500 hover:text-gray-300"
+                className="p-0.5 rounded hover:bg-su-line/20 transition-colors text-su-muted hover:text-su-muted"
                 aria-label="Close sync panel"
                 type="button"
               >
@@ -213,7 +213,7 @@ export function SyncStatusIndicator(): JSX.Element | null {
             {items.map((item) => (
               <div
                 key={item.id}
-                className="flex items-start gap-2 py-1.5 border-b border-white/5 last:border-b-0"
+                className="flex items-start gap-2 py-1.5 border-b border-su-line/20 last:border-b-0"
               >
                 {/* Status dot */}
                 <span
@@ -224,24 +224,24 @@ export function SyncStatusIndicator(): JSX.Element | null {
                 {/* Info */}
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-1.5">
-                    <span className="text-xs font-medium text-gray-200">
+                    <span className="text-xs font-medium text-su-text">
                       {serviceLabel(item.service)}
                     </span>
-                    <span className="text-[10px] text-gray-500">
+                    <span className="text-[10px] text-su-muted">
                       {item.entryIds.length} QSO
                       {item.entryIds.length !== 1 ? "s" : ""}
                     </span>
                   </div>
                   <div className="flex items-center gap-1.5 mt-0.5">
-                    <span className="text-[10px] text-gray-500">
+                    <span className="text-[10px] text-su-muted">
                       {statusLabel(item.status)}
                     </span>
                     {item.retryCount > 0 && (
-                      <span className="text-[10px] text-gray-600">
+                      <span className="text-[10px] text-su-muted">
                         ({item.retryCount}/{item.maxRetries})
                       </span>
                     )}
-                    <span className="text-[10px] text-gray-600">
+                    <span className="text-[10px] text-su-muted">
                       {formatTimeAgo(item.createdAt)}
                     </span>
                   </div>
@@ -255,7 +255,7 @@ export function SyncStatusIndicator(): JSX.Element | null {
                 {/* Dismiss button */}
                 <button
                   onClick={() => removeItem(item.id)}
-                  className="p-0.5 rounded hover:bg-white/10 transition-colors text-gray-600 hover:text-gray-400 shrink-0"
+                  className="p-0.5 rounded hover:bg-su-line/20 transition-colors text-su-muted hover:text-su-muted shrink-0"
                   aria-label={`Dismiss ${serviceLabel(item.service)} upload`}
                   title="Dismiss"
                   type="button"
@@ -279,8 +279,8 @@ export function SyncStatusIndicator(): JSX.Element | null {
           </div>
 
           {/* Footer */}
-          <div className="px-3 py-2 border-t border-white/10 flex items-center justify-between">
-            <span className="text-[10px] text-gray-600">
+          <div className="px-3 py-2 border-t border-su-line/40 flex items-center justify-between">
+            <span className="text-[10px] text-su-muted">
               Auto-retries every 10s
             </span>
             {items.length > 0 && (
@@ -289,7 +289,7 @@ export function SyncStatusIndicator(): JSX.Element | null {
                   const store = useSyncQueueStore.getState();
                   store.clearFailed();
                 }}
-                className="text-[10px] text-gray-500 hover:text-gray-300 transition-colors"
+                className="text-[10px] text-su-muted hover:text-su-muted transition-colors"
                 type="button"
               >
                 Clear failed

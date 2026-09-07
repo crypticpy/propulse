@@ -261,7 +261,7 @@ function OtherProfileView({
       <div className="flex items-center justify-center min-h-[40vh]">
         <div className="text-center space-y-4">
           <div className="w-8 h-8 border-2 border-plasma-orange border-t-transparent rounded-full animate-spin mx-auto" />
-          <p className="text-gray-400 text-sm">
+          <p className="text-su-muted text-sm">
             Loading profile for {callsign.toUpperCase()}...
           </p>
         </div>
@@ -273,7 +273,7 @@ function OtherProfileView({
     return (
       <div className="flex items-center justify-center min-h-[40vh]">
         <div className="text-center space-y-4">
-          <p className="text-gray-400">{error || "Profile not found."}</p>
+          <p className="text-su-muted">{error || "Profile not found."}</p>
           <Link
             to="/profile"
             className="inline-block text-sm text-plasma-orange hover:text-plasma-orange/80 underline"
@@ -316,10 +316,10 @@ function OtherProfileView({
               {/* Bio */}
               {profile.bio && (
                 <div className={panelClass}>
-                  <h3 className="text-[10px] uppercase tracking-widest text-gray-500 mb-2">
+                  <h3 className="text-[10px] uppercase tracking-widest text-su-muted mb-2">
                     About
                   </h3>
-                  <p className="text-gray-300 text-sm whitespace-pre-wrap">
+                  <p className="text-su-muted text-sm whitespace-pre-wrap">
                     {profile.bio}
                   </p>
                 </div>
@@ -327,7 +327,7 @@ function OtherProfileView({
               {/* Interest Tags — read-only with shared-interest highlighting */}
               {profile.interests && profile.interests.length > 0 && (
                 <div className={panelClass}>
-                  <h3 className="text-[10px] uppercase tracking-widest text-gray-500 mb-3">
+                  <h3 className="text-[10px] uppercase tracking-widest text-su-muted mb-3">
                     Interests
                   </h3>
                   <InterestTagDisplay
@@ -341,7 +341,7 @@ function OtherProfileView({
                 profile.socialLinks &&
                 profile.socialLinks.length > 0 && (
                   <div className={panelClass}>
-                    <h3 className="text-[10px] uppercase tracking-widest text-gray-500 mb-2">
+                    <h3 className="text-[10px] uppercase tracking-widest text-su-muted mb-2">
                       Links
                     </h3>
                     <ul className="space-y-1">
@@ -363,7 +363,7 @@ function OtherProfileView({
                                 {link.type}: {link.url}
                               </a>
                             ) : (
-                              <span className="text-sm text-gray-400">
+                              <span className="text-sm text-su-muted">
                                 {link.type}: {link.url}
                               </span>
                             )}
@@ -425,36 +425,36 @@ function OtherProfileView({
               {/* Hero Stats — visitor version from statsCache */}
               {(!vis || vis.stats !== "private") && profile.statsCache && (
                 <div className={panelClass}>
-                  <h3 className="text-[10px] uppercase tracking-widest text-gray-500 mb-3">
+                  <h3 className="text-[10px] uppercase tracking-widest text-su-muted mb-3">
                     Station Stats
                   </h3>
                   <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                     {typeof profile.statsCache.totalQSOs === "number" && (
                       <div className="bg-void/50 rounded-lg px-3 py-2.5 text-center">
-                        <div className="text-lg font-bold text-white font-mono">
+                        <div className="text-lg font-bold text-su-text font-mono">
                           {profile.statsCache.totalQSOs.toLocaleString()}
                         </div>
-                        <div className="text-[10px] text-gray-500 uppercase">
+                        <div className="text-[10px] text-su-muted uppercase">
                           Total QSOs
                         </div>
                       </div>
                     )}
                     {typeof profile.statsCache.uniqueCountries === "number" && (
                       <div className="bg-void/50 rounded-lg px-3 py-2.5 text-center">
-                        <div className="text-lg font-bold text-white font-mono">
+                        <div className="text-lg font-bold text-su-text font-mono">
                           {profile.statsCache.uniqueCountries.toLocaleString()}
                         </div>
-                        <div className="text-[10px] text-gray-500 uppercase">
+                        <div className="text-[10px] text-su-muted uppercase">
                           Countries
                         </div>
                       </div>
                     )}
                     {typeof profile.statsCache.uniqueCallsigns === "number" && (
                       <div className="bg-void/50 rounded-lg px-3 py-2.5 text-center">
-                        <div className="text-lg font-bold text-white font-mono">
+                        <div className="text-lg font-bold text-su-text font-mono">
                           {profile.statsCache.uniqueCallsigns.toLocaleString()}
                         </div>
-                        <div className="text-[10px] text-gray-500 uppercase">
+                        <div className="text-[10px] text-su-muted uppercase">
                           Unique Calls
                         </div>
                       </div>
@@ -462,7 +462,7 @@ function OtherProfileView({
                     {profile.statsCache.qsosByBand &&
                     typeof profile.statsCache.qsosByBand === "object" ? (
                       <div className="bg-void/50 rounded-lg px-3 py-2.5 text-center">
-                        <div className="text-lg font-bold text-white font-mono">
+                        <div className="text-lg font-bold text-su-text font-mono">
                           {
                             Object.keys(
                               profile.statsCache.qsosByBand as Record<
@@ -472,7 +472,7 @@ function OtherProfileView({
                             ).length
                           }
                         </div>
-                        <div className="text-[10px] text-gray-500 uppercase">
+                        <div className="text-[10px] text-su-muted uppercase">
                           Bands
                         </div>
                       </div>
@@ -480,7 +480,7 @@ function OtherProfileView({
                     {profile.statsCache.qsosByMode &&
                     typeof profile.statsCache.qsosByMode === "object" ? (
                       <div className="bg-void/50 rounded-lg px-3 py-2.5 text-center">
-                        <div className="text-lg font-bold text-white font-mono">
+                        <div className="text-lg font-bold text-su-text font-mono">
                           {
                             Object.keys(
                               profile.statsCache.qsosByMode as Record<
@@ -490,7 +490,7 @@ function OtherProfileView({
                             ).length
                           }
                         </div>
-                        <div className="text-[10px] text-gray-500 uppercase">
+                        <div className="text-[10px] text-su-muted uppercase">
                           Modes
                         </div>
                       </div>
@@ -515,7 +515,7 @@ function OtherProfileView({
                 ownerUserId={profile.id}
               />
             ) : (
-              <p className="text-gray-500 text-sm italic py-4 text-center">
+              <p className="text-su-muted text-sm italic py-4 text-center">
                 Equipment info is private
               </p>
             )}
@@ -527,7 +527,7 @@ function OtherProfileView({
         <div className={panelClass}>
           {(!vis || vis.stats !== "private") && profile.statsCache ? (
             <div>
-              <h3 className="text-[10px] uppercase tracking-widest text-gray-500 mb-3">
+              <h3 className="text-[10px] uppercase tracking-widest text-su-muted mb-3">
                 Stats &amp; Records
               </h3>
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
@@ -542,12 +542,12 @@ function OtherProfileView({
                       key={key}
                       className="bg-void/50 rounded-lg px-3 py-2.5 text-center"
                     >
-                      <div className="text-lg font-bold text-gray-200 font-mono">
+                      <div className="text-lg font-bold text-su-text font-mono">
                         {typeof value === "number"
                           ? value.toLocaleString()
                           : String(value)}
                       </div>
-                      <div className="text-[10px] text-gray-500 capitalize">
+                      <div className="text-[10px] text-su-muted capitalize">
                         {key
                           .replace(/([A-Z])/g, " $1")
                           .replace(/_/g, " ")
@@ -558,7 +558,7 @@ function OtherProfileView({
               </div>
             </div>
           ) : (
-            <p className="text-gray-500 text-sm italic py-4 text-center">
+            <p className="text-su-muted text-sm italic py-4 text-center">
               Stats are private
             </p>
           )}
@@ -569,15 +569,15 @@ function OtherProfileView({
         <div className={panelClass}>
           {(!vis || vis.awards !== "private") && profile.statsCache?.awards ? (
             <div>
-              <h3 className="text-[10px] uppercase tracking-widest text-gray-500 mb-3">
+              <h3 className="text-[10px] uppercase tracking-widest text-su-muted mb-3">
                 Awards
               </h3>
-              <pre className="text-sm text-gray-300 whitespace-pre-wrap">
+              <pre className="text-sm text-su-muted whitespace-pre-wrap">
                 {JSON.stringify(profile.statsCache.awards, null, 2)}
               </pre>
             </div>
           ) : (
-            <p className="text-gray-500 text-sm italic py-4 text-center">
+            <p className="text-su-muted text-sm italic py-4 text-center">
               {vis?.awards === "private"
                 ? "Awards are private"
                 : "No awards data available"}
@@ -909,7 +909,7 @@ export default function ProfilePage() {
               {isMobile && (
                 <div className={panelClass} style={panelStyle}>
                   <h3
-                    className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-4"
+                    className="text-sm font-semibold text-su-muted uppercase tracking-wider mb-4"
                     style={{ color: "var(--rank-text-accent, #9ca3af)" }}
                   >
                     Station Identity

@@ -86,7 +86,7 @@ const MAP_CATEGORY_ORDER: ShortcutCategory[] = [
  */
 function KeyBadge({ label }: { label: string }) {
   return (
-    <kbd className="inline-flex items-center justify-center min-w-[24px] px-1.5 py-0.5 text-xs font-mono font-medium bg-white/10 text-gray-200 border border-white/20 rounded">
+    <kbd className="inline-flex items-center justify-center min-w-[24px] px-1.5 py-0.5 text-xs font-mono font-medium bg-su-line/20 text-su-text border border-su-line/50 rounded">
       {label}
     </kbd>
   );
@@ -106,12 +106,12 @@ function ShortcutRow({
   const keyParts = keys.split(" / ");
 
   return (
-    <div className="flex items-center justify-between py-1.5 px-2 rounded hover:bg-white/5 transition-colors">
-      <span className="text-sm text-gray-300">{description}</span>
+    <div className="flex items-center justify-between py-1.5 px-2 rounded hover:bg-su-line/10 transition-colors">
+      <span className="text-sm text-su-muted">{description}</span>
       <span className="flex items-center gap-1.5 ml-4 shrink-0">
         {keyParts.map((part, i) => (
           <span key={part} className="flex items-center gap-1.5">
-            {i > 0 && <span className="text-gray-600 text-xs">/</span>}
+            {i > 0 && <span className="text-su-muted text-xs">/</span>}
             <KeyBadge label={part} />
           </span>
         ))}
@@ -221,19 +221,19 @@ export function ShortcutsHelpModal({
     >
       {/* Backdrop */}
       <div
-        className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+        className="absolute inset-0 bg-su-panel/60 backdrop-blur-sm"
         onClick={onClose}
         aria-hidden="true"
       />
 
       {/* Modal card */}
-      <div className="relative z-10 w-full max-w-[36rem] max-h-[80vh] flex flex-col bg-white/[0.03] backdrop-blur-md border border-white/10 rounded-2xl shadow-2xl">
+      <div className="relative z-10 w-full max-w-[36rem] max-h-[80vh] flex flex-col bg-su-line/10 backdrop-blur-md border border-su-line/40 rounded-2xl shadow-2xl">
         {/* Header */}
         <div className="flex items-start justify-between p-6 pb-0">
           <div>
             <h2
               id="shortcuts-help-title"
-              className="text-lg font-semibold text-white flex items-center gap-2"
+              className="text-lg font-semibold text-su-text flex items-center gap-2"
             >
               <svg
                 className="w-5 h-5 text-plasma-orange"
@@ -250,7 +250,7 @@ export function ShortcutsHelpModal({
               </svg>
               {tab === "shortcuts" ? "Keyboard Shortcuts" : "Quick Reference"}
             </h2>
-            <p className="mt-1 text-sm text-gray-400">
+            <p className="mt-1 text-sm text-su-muted">
               {tab === "shortcuts"
                 ? "Quick access to Propulse features"
                 : "Band plan, Q-codes, and CW reference"}
@@ -259,7 +259,7 @@ export function ShortcutsHelpModal({
 
           <button
             onClick={onClose}
-            className="p-2 text-gray-400 hover:text-white hover:bg-white/10 rounded-lg transition-colors"
+            className="p-2 text-su-muted hover:text-su-text hover:bg-su-line/20 rounded-lg transition-colors"
             aria-label="Close shortcuts help"
           >
             <svg
@@ -294,7 +294,7 @@ export function ShortcutsHelpModal({
               className={`px-3 py-1.5 rounded-lg text-sm transition-colors ${
                 tab === id
                   ? "bg-plasma-orange/15 text-plasma-orange border border-plasma-orange/40"
-                  : "text-gray-400 border border-transparent hover:bg-white/5 hover:text-gray-200"
+                  : "text-su-muted border border-transparent hover:bg-su-line/10 hover:text-su-text"
               }`}
             >
               {label}
@@ -307,7 +307,7 @@ export function ShortcutsHelpModal({
           {tab === "reference" && (
             <Suspense
               fallback={
-                <p className="text-sm text-gray-500 text-center py-8">
+                <p className="text-sm text-su-muted text-center py-8">
                   Loading reference…
                 </p>
               }
@@ -370,10 +370,10 @@ export function ShortcutsHelpModal({
 
         {/* Footer */}
         <div className="p-6 pt-0">
-          <div className="pt-4 border-t border-white/10 text-center">
-            <p className="text-xs text-gray-500">
+          <div className="pt-4 border-t border-su-line/40 text-center">
+            <p className="text-xs text-su-muted">
               Press{" "}
-              <kbd className="px-1.5 py-0.5 text-[10px] font-mono bg-white/10 border border-white/20 rounded">
+              <kbd className="px-1.5 py-0.5 text-[10px] font-mono bg-su-line/20 border border-su-line/50 rounded">
                 ?
               </kbd>{" "}
               anywhere to toggle this help

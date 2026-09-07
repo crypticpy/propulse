@@ -187,7 +187,7 @@ export function DisplayPairPage() {
   return (
     <div className="fixed inset-0 bg-void-black flex flex-col items-center justify-center gap-8 px-6 select-none">
       {displayId && !code && !expiresAtDisplay && (
-        <p className="text-gray-500 text-sm font-mono">
+        <p className="text-su-muted text-sm font-mono">
           Checking pairing status…
         </p>
       )}
@@ -195,10 +195,10 @@ export function DisplayPairPage() {
       {code && (
         <>
           <div className="text-center">
-            <p className="font-mono text-xs uppercase tracking-[0.4em] text-gray-500 mb-4">
+            <p className="font-mono text-xs uppercase tracking-[0.4em] text-su-muted mb-4">
               PropPulse Display Wall
             </p>
-            <div className="font-orbitron text-white text-7xl sm:text-8xl tracking-[0.4em] pl-[0.4em]">
+            <div className="font-orbitron text-su-text text-7xl sm:text-8xl tracking-[0.4em] pl-[0.4em]">
               {code}
             </div>
           </div>
@@ -207,13 +207,13 @@ export function DisplayPairPage() {
             <img
               src={qrDataUrl}
               alt={`QR code to claim this display at ${window.location.origin}/pair?code=${code}`}
-              className="w-[220px] h-[220px] rounded-lg bg-white p-2"
+              className="w-[220px] h-[220px] rounded-lg bg-su-text p-2"
             />
           )}
 
-          <p className="text-gray-400 text-base font-mono text-center max-w-md">
+          <p className="text-su-muted text-base font-mono text-center max-w-md">
             On your phone, sign in to PropPulse and enter this code at{" "}
-            <span className="text-gray-200">
+            <span className="text-su-text">
               {window.location.origin}/pair
             </span>
           </p>

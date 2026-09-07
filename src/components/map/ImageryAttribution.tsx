@@ -32,26 +32,41 @@ export function ImageryAttribution({
     : `${primarySource.name}. ${quality.label} rendering.`;
 
   if (provider?.id === "mapbox-satellite") {
+    // The Mapbox logo asset is a fixed-white SVG, so this strip must stay a
+    // fixed dark surface in every theme (not the theme-swapping su-panel) or
+    // the required Mapbox branding disappears against the pale Light canvas.
     return (
       <div
-        className={`flex max-w-full flex-wrap items-center gap-x-1.5 gap-y-1 rounded bg-su-panel/90 px-2 py-1 text-[9px] leading-tight text-su-text/80 backdrop-blur-sm select-none ${className}`}
+        className={`flex max-w-full flex-wrap items-center gap-x-1.5 gap-y-1 rounded bg-black/65 px-2 py-1 text-[9px] leading-tight text-white/70 backdrop-blur-sm select-none ${className}`} // design-tokens: allow
         title={title}
       >
         <span>{surfaceLabel}</span>
-        <span className="text-su-text/30">·</span>
+        <span
+          className="text-white/25" // design-tokens: allow
+        >
+          ·
+        </span>
         <span>{quality.label}</span>
         {baseSource && (
           <>
-            <span className="text-su-text/30">·</span>
+            <span
+              className="text-white/25" // design-tokens: allow
+            >
+              ·
+            </span>
             <a
               href={baseSource.attributionUrl}
               target="_blank"
               rel="noreferrer"
-              className="pointer-events-auto underline decoration-su-line/40 underline-offset-2 hover:text-su-text"
+              className="pointer-events-auto underline decoration-white/20 underline-offset-2 hover:text-white" // design-tokens: allow
             >
               {baseSource.attribution}
             </a>
-            <span className="text-su-text/30">·</span>
+            <span
+              className="text-white/25" // design-tokens: allow
+            >
+              ·
+            </span>
             <span>Detail:</span>
           </>
         )}
@@ -74,7 +89,7 @@ export function ImageryAttribution({
           href="https://www.mapbox.com/about/maps/"
           target="_blank"
           rel="noreferrer"
-          className="pointer-events-auto underline decoration-su-line/40 underline-offset-2 hover:text-su-text"
+          className="pointer-events-auto underline decoration-white/20 underline-offset-2 hover:text-white" // design-tokens: allow
         >
           © Mapbox
         </a>
@@ -82,7 +97,7 @@ export function ImageryAttribution({
           href="https://www.openstreetmap.org/copyright"
           target="_blank"
           rel="noreferrer"
-          className="pointer-events-auto underline decoration-su-line/40 underline-offset-2 hover:text-su-text"
+          className="pointer-events-auto underline decoration-white/20 underline-offset-2 hover:text-white" // design-tokens: allow
         >
           © OpenStreetMap
         </a>
@@ -90,7 +105,7 @@ export function ImageryAttribution({
           href="https://www.maxar.com/"
           target="_blank"
           rel="noreferrer"
-          className="pointer-events-auto underline decoration-su-line/40 underline-offset-2 hover:text-su-text"
+          className="pointer-events-auto underline decoration-white/20 underline-offset-2 hover:text-white" // design-tokens: allow
         >
           © Maxar
         </a>
@@ -98,18 +113,22 @@ export function ImageryAttribution({
           href={mapboxFeedbackUrl}
           target="_blank"
           rel="noreferrer"
-          className="pointer-events-auto font-semibold underline decoration-su-line/40 underline-offset-2 hover:text-su-text"
+          className="pointer-events-auto font-semibold underline decoration-white/20 underline-offset-2 hover:text-white" // design-tokens: allow
         >
           Improve this map
         </a>
         {includeCartoLabels && (
           <>
-            <span className="text-su-text/80">· Labels:</span>
+            <span
+              className="text-white/25" // design-tokens: allow
+            >
+              · Labels:
+            </span>
             <a
               href="https://carto.com/attributions"
               target="_blank"
               rel="noreferrer"
-              className="pointer-events-auto underline decoration-su-line/40 underline-offset-2 hover:text-su-text"
+              className="pointer-events-auto underline decoration-white/20 underline-offset-2 hover:text-white" // design-tokens: allow
             >
               © CARTO
             </a>
@@ -117,7 +136,7 @@ export function ImageryAttribution({
               href="https://www.openstreetmap.org/copyright"
               target="_blank"
               rel="noreferrer"
-              className="pointer-events-auto underline decoration-su-line/40 underline-offset-2 hover:text-su-text"
+              className="pointer-events-auto underline decoration-white/20 underline-offset-2 hover:text-white" // design-tokens: allow
             >
               © OpenStreetMap contributors
             </a>

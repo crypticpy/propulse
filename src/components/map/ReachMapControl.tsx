@@ -99,7 +99,7 @@ export function ReachMapControl({
               ? "bg-plasma-orange text-su-on-accent"
               : state.stationAvailable
                 ? "text-su-muted hover:bg-su-line/20"
-                : "cursor-not-allowed text-su-muted"
+                : "cursor-not-allowed text-su-muted/60"
           }`}
         >
           My Station

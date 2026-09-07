@@ -231,7 +231,7 @@ export function QuickGridInput({
                 w-full px-4 py-3 text-lg font-mono font-medium tracking-wider
                 bg-su-line/10 rounded-lg border-2 outline-none
                 transition-colors duration-200
-                placeholder:text-su-muted placeholder:tracking-normal
+                placeholder:text-su-muted/80 placeholder:tracking-normal
                 ${getBorderColor()}
               `}
               autoComplete="off"

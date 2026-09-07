@@ -178,7 +178,7 @@ export function DateTimePicker({
                       ? "bg-cosmic-cyan/20 text-cosmic-cyan border border-cosmic-cyan/30"
                       : isCurrentMonth
                         ? "text-su-muted hover:bg-su-line/20"
-                        : "text-su-muted hover:bg-su-line/10"
+                        : "text-su-muted/60 hover:bg-su-line/10"
                 }
               `}
             >

@@ -422,7 +422,7 @@ export function AddPinDialog({
             </button>
             <button
               type="submit"
-              className="flex-1 px-4 py-2 bg-cyan-600 hover:bg-cyan-500 text-su-text font-medium rounded-lg transition-colors"
+              className="flex-1 px-4 py-2 bg-cyan-600 hover:bg-cyan-500 text-su-canvas font-semibold rounded-lg transition-colors"
             >
               {mode === "add" ? "Add Pin" : "Save Changes"}
             </button>

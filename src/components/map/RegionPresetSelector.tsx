@@ -81,7 +81,7 @@ function SavePresetForm({
           bg-su-panel/60 border border-su-line/50
           rounded-md
           text-su-text text-xs
-          placeholder:text-su-muted
+          placeholder:text-su-muted/80
           focus:outline-none focus:ring-1 focus:ring-cyan-500/50 focus:border-cyan-500/50
         "
         aria-label="New preset name"

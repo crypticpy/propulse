@@ -151,7 +151,7 @@ export function TickerCrawlSettingsDialog({
                 setUrlError(null);
               }}
               placeholder="https://example.com/feed.xml"
-              className="min-w-0 flex-1 rounded-lg border border-su-line/40 bg-void-black px-3 py-2 text-xs text-su-text placeholder:text-su-muted focus:border-plasma-orange/50 focus:outline-none"
+              className="min-w-0 flex-1 rounded-lg border border-su-line/40 bg-void-black px-3 py-2 text-xs text-su-text placeholder:text-su-muted/80 focus:border-plasma-orange/50 focus:outline-none"
               aria-label="Add RSS feed URL"
             />
             <button

@@ -46,6 +46,15 @@ hardware or physical display readability is claimed.
 Acceptance follow-up: the older combined dialog's unverified add form was removed
 in favor of the verified news handoff. A regression checks the absent URL form,
 handoff callback and retained alert controls; 17 targeted UI tests pass. The
-server verification is isolated on `feat/hamclock-b10-feed-verify` (two files),
+server verification is isolated in PR #479 (`feat/hamclock-b10-feed-verify`, two files),
 with the UI stacked on that prerequisite to keep register updates within the
 15-file PR limit. No additional batch is claimed.
+
+
+The legacy-entry-point browser rerun also passed the complete 30-case matrix,
+with no unverified URL form, successful handoff to NEWS FEEDS, and Escape focus
+restored to the original combined-settings gear. This used local owner
+`hamclock-b10-codex`, port 5181, session
+`59d38514-abb4-4dfe-b40c-d68c3d0380ea`; its server was stopped after verification.
+The prerequisite PR #479 separately passed full verification: 364 app files /
+3,205 tests plus the remaining required checks.

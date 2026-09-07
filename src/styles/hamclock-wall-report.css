@@ -1227,3 +1227,41 @@
 .hc-rail:has(.hcw-compact) > .hc-tile--grow {
   flex-basis: 0;
 }
+
+/* B24: compact band actions and a measured list; no nested scrolling. */
+.hcr-band-focus {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 0.4vh 0.5vw;
+  flex: 0 0 auto;
+}
+.hcr-band-focus .hcc-btn {
+  font-family: var(--hc-font-mono);
+  font-size: 1.5vh;
+  padding: 0.35vh 0.4vw;
+}
+.hcr-top-dx-list {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+  gap: 0.5vh;
+}
+.hcr-top-dx-list .hcc-btn {
+  flex: 0 0 auto;
+  text-align: left;
+  font-family: var(--hc-font-mono);
+  font-size: var(--hc-t-body);
+}
+.hcr-top-dx-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 0.5vw;
+  flex: 0 0 auto;
+}
+.hcr-lead:has(.hcr-top-dx-hero) {
+  /* Current main always renders the shared lead. This sentinel gives the
+   * existing TOP DX list the body-only layout without importing the broader
+   * WallReport API change from the unmerged cluster stack. */
+  display: none;
+}

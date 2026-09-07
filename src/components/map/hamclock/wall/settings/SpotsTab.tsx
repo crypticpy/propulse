@@ -1,3 +1,7 @@
+import { useUserStore } from "@/stores/userStore";
+import { useDXStore } from "@/stores/dxStore";
+import { MAP_SPOT_AGES } from "@/lib/map/spotAge";
+import { useMapSpotFeed } from "@/hooks/useMapSpotFeed";
 import { useMapStore } from "@/stores/mapStore";
 import { HamClockSegmented } from "../controls";
 
@@ -7,6 +11,18 @@ const DENSITIES = [10, 50, 100, 150, 200];
 export function SpotsTab() {
   const density = useMapStore((s) => s.displayDensity);
   const setDensity = useMapStore((s) => s.setDisplayDensity);
+  const age = useMapStore((s) => s.spotAgeMinutes);
+  const setAge = useMapStore((s) => s.setSpotAgeMinutes);
+  const layers = useMapStore((s) => s.layers);
+  const spotFilters = useMapStore((s) => s.spotFilters);
+  const station = useUserStore((s) => s.station);
+  const sources = useDXStore((s) => s.filters.sources);
+  const feed = useMapSpotFeed({
+    grid: station?.grid,
+    enabled: layers.spots || layers.spotTraces || layers.gridActivity,
+    sources,
+    spotFilters,
+  });
   // Preserve an intermediate value chosen with the existing desktop slider.
   const choices = DENSITIES.includes(density)
     ? DENSITIES
@@ -19,6 +35,19 @@ export function SpotsTab() {
         onChange={(value) => setDensity(Number(value))}
         options={choices.map((value) => ({ value: String(value), label: String(value) }))}
       />
+      <HamClockSegmented
+        label="Map spot age"
+        value={String(age)}
+        onChange={(value) => setAge(Number(value))}
+        options={MAP_SPOT_AGES.map(value => ({ value: String(value), label: `${value} MIN` }))}
+      />
+      <p className="hcc-row-detail">
+        Loaded sample · last {age} minutes. Reports expire as the clock advances;
+        this is not a complete interval count.
+      </p>
+      <p className="hcc-row-detail" aria-label="Map spot sources">
+        PSK {feed.sourceStates.PSKReporter} · RBN {feed.sourceStates.RBN} · WSJT-X {feed.sourceStates["WSJT-X"]}
+      </p>
       <p className="hcc-row-detail">
         Draw up to {density} eligible spots. Fewer spots reduce clutter; activity
         summaries keep their available evidence. The feed may contain fewer spots.

@@ -1,14 +1,11 @@
 import { useMemo } from "react";
 import { useActivationSpots } from "@/hooks/useActivationSpots";
-import { useLiveSpots } from "@/hooks/useLiveSpots";
-import { useMapOperationalContext } from "@/hooks/useMapOperationalContext";
+import { useMapSpotFeed } from "@/hooks/useMapSpotFeed";
 import { resolveActivationMarkers } from "@/lib/map/activationMarkers";
 import {
   policyAllows,
-  selectScopedLiveSpotSources,
 } from "@/lib/map/operationalScope";
 import { selectMapSpotCandidates } from "@/lib/map/spotCandidates";
-import { MAX_SPOT_FETCH_LIMIT } from "@/lib/map/spotDensity";
 import type { SpotSource } from "@/types/livespot";
 import type { SpotFilters } from "@/types/operatingProfile";
 import { resolveSpotLocations } from "../LiveSpotArcs";
@@ -49,25 +46,10 @@ export function useResolvedMapSpots({
   spotFilters,
   refetchInterval = 60_000,
 }: UseResolvedMapSpotsOptions) {
-  const { policy } = useMapOperationalContext();
-  const scopedSources = useMemo(
-    () => selectScopedLiveSpotSources(sources, policy),
-    [policy, sources],
-  );
+  const live = useMapSpotFeed({ grid, enabled, sources, spotFilters, refetchInterval });
+  const { policy, scopedSources } = live;
   const scopedActivationsEnabled =
     activationsEnabled && policyAllows(policy, "activations", "public");
-  const live = useLiveSpots({
-    grid,
-    enabled,
-    refetchInterval,
-    sources:
-      scopedSources && scopedSources.length > 0 ? scopedSources : undefined,
-    spotFilters,
-    // Semantic activity must not change when the visual density slider moves.
-    // Edge routes cap each source at 200, so this is the complete available
-    // snapshot; renderer limits are still applied below.
-    fetchLimit: MAX_SPOT_FETCH_LIMIT,
-  });
   const activations = useActivationSpots(scopedActivationsEnabled);
   const filteredSpots = useMemo(
     () =>

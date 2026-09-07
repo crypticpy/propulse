@@ -65,18 +65,18 @@ const SEGMENT_CONFIG: Record<
 > = {
   on_air: {
     label: "On Air",
-    activeBg: "bg-emerald-600",
-    activeText: "text-su-text",
+    activeBg: "bg-signal-green",
+    activeText: "text-su-canvas",
   },
   listening: {
     label: "Listening",
     activeBg: "bg-blue-600",
-    activeText: "text-su-text",
+    activeText: "text-su-canvas",
   },
   offline: {
     label: "Offline",
     activeBg: "bg-su-line",
-    activeText: "text-su-text",
+    activeText: "text-su-canvas",
   },
 };
 

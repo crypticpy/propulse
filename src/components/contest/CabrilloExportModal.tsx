@@ -457,7 +457,7 @@ export function CabrilloExportModal({
                 className={`px-4 py-2 rounded-lg font-bold transition-all duration-200 flex items-center gap-2
                   ${
                     downloadSuccess
-                      ? "bg-green-500 text-su-text shadow-[0_0_15px_rgba(34,197,94,0.4)]"
+                      ? "bg-signal-green text-su-canvas shadow-[0_0_15px_rgba(34,197,94,0.4)]"
                       : "bg-plasma-orange text-su-on-accent hover:bg-plasma-orange/90 shadow-[0_0_15px_rgba(255,170,0,0.3)]"
                   }
                   disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none`}

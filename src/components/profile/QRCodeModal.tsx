@@ -197,7 +197,7 @@ export function QRCodeModal({
         ref={fullscreenRef}
         tabIndex={-1}
         onKeyDown={handleFullscreenKeyDown}
-        className="fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-su-text"
+        className="fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-white" // design-tokens: allow
       >
         {/* Large QR code on white for maximum contrast */}
         <img
@@ -205,14 +205,14 @@ export function QRCodeModal({
           alt={`QR code for ${callsign}`}
           className="w-[80vmin] h-[80vmin] max-w-[512px] max-h-[512px]"
         />
-        <p className="mt-4 text-3xl font-mono font-bold text-su-line">
+        <p className="mt-4 text-3xl font-mono font-bold text-black">
           {callsign}
         </p>
-        {grid && <p className="mt-1 text-lg font-mono text-su-muted">{grid}</p>}
+        {grid && <p className="mt-1 text-lg font-mono text-black/80">{grid}</p>}
         <button
           ref={exitBtnRef}
           onClick={toggleFullscreen}
-          className="mt-6 px-6 py-2 text-sm rounded-lg bg-su-muted text-su-line hover:bg-su-muted/80 transition-colors focus-visible:ring-2 focus-visible:ring-plasma-orange/50 focus-visible:outline-none"
+          className="mt-6 px-6 py-2 text-sm rounded-lg bg-black/10 text-black hover:bg-black/20 transition-colors focus-visible:ring-2 focus-visible:ring-plasma-orange/50 focus-visible:outline-none"
         >
           Exit Fullscreen
         </button>
@@ -244,7 +244,7 @@ export function QRCodeModal({
           <div
             className={`rounded-lg border p-2 transition-colors ${
               brightMode
-                ? "bg-su-text border-su-line/60"
+                ? "bg-white border-su-line/60" // design-tokens: allow
                 : "bg-transparent border-su-line/20"
             }`}
           >

@@ -98,7 +98,7 @@ export function ProfileTabBar({
               }`}
               style={
                 activeTab === tab.id && rankColor
-                  ? { backgroundColor: rankColor }
+                  ? { backgroundColor: rankColor, color: "#000" }
                   : undefined
               }
             >

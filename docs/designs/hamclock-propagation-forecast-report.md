@@ -20,6 +20,8 @@ Physics uses the existing two-day computation and current Kp/SFI observations. T
 
 ## Validation
 
-The scorer-boundary regression fails against the original implementation and passes after removal of future-time path requests. Six focused tests cover that boundary, capability revocation, core/personalized presentation consistency, stale metadata, matrix day selection, and Kp bucket boundaries.
+The scorer-boundary regression fails against the original implementation and passes after removal of future-time path requests. Seven focused presentation tests cover that boundary, capability revocation, core/personalized presentation consistency, stale metadata, matrix day selection, and Kp bucket boundaries.
 
-The review browser matrix passed 24 cases with advertised horizons but no supported scorer: all horizon rows show the reason, zero future-time path requests are sent, and no model points appear on the future chart. It also checks QTH/target, three themes, 1080p/4K, both tabs, all 288 cell labels, 44px minimum hit targets, report size, overflow, selection and focus return. No page errors occurred. Fixtures were isolated and synthetic. Earlier populated-row fixtures proved presentation only and did not establish an available FutureCast service.
+The review browser matrix passed 24 cases with advertised horizons but no supported scorer: all horizon rows show the reason, zero future-time path requests are sent, and no model points appear on the future chart. It also checks QTH/target, three themes, 1080p/4K, both tabs, all 288 cell labels, 44px minimum hit targets, report size, overflow, selection, focus return and pinned band/hour/tab preservation. No page errors occurred. Fixtures were isolated and synthetic. Earlier populated-row fixtures proved presentation only and did not establish an available FutureCast service.
+
+Merged PR #571 delivers this presentation with HW-59 still Partial. The final combined focused suite passed 37 tests. Latest [pinned report screenshot](../images/hamclock-b18-release/forecast-pinned-4k.png).

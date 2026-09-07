@@ -9,6 +9,7 @@ import { useHomeLocation } from "@/hooks/useHomeLocation";
 import { HomeLocationProvider } from "@/components/home/HomeLocationProvider";
 import { HomeLocationPicker } from "@/components/home/HomeLocationPicker";
 import { HomeSolar } from "@/components/home/HomeSolar";
+import { HomeForecastStrip } from "@/components/home/HomeForecastStrip";
 import { HomeWeather } from "@/components/home/HomeWeather";
 import { HomeDaylight } from "@/components/home/HomeDaylight";
 import { HomePanelLibrary } from "@/components/home/HomePanelLibrary";
@@ -36,6 +37,7 @@ function HomeDashboard() {
     {model.briefing.tone === "impact" && <section className="home-panel home-impact" aria-label="Operating briefing"><h2>{model.briefing.title}</h2>{model.briefing.statements.filter(s=>s.kind === "impact").map(s=><p key={s.id}>{s.text}</p>)}<Link to="/solar">Read the Solar Pulse briefing ↗</Link></section>}
     {model.refreshResult.failed.length > 0 && <p role="status">Some solar updates could not refresh. Available readings retain their source age; updates retry automatically.</p>}
     {publicActivity ? <Suspense fallback={<p>Opening band activity…</p>}><Activity now={now} isMobile={isMobile} /></Suspense> : <section className="home-panel"><h2>Focused operating</h2><p>Public spotting is hidden by your current operating policy. Your solar briefing and log remain available.</p></section>}
+    <HomeForecastStrip model={model} now={now} />
     <div className="home-context-grid"><HomeSolar model={model} now={now} /><HomeWeather now={now} /><HomeDaylight now={now} /></div>
     {advanced && <div id="home-advanced-report"><Suspense fallback={<p>Opening Advanced dashboard…</p>}><Advanced model={model} now={now} publicActivity={publicActivity} /></Suspense><button type="button" onClick={()=>setAdvanced(false)}>Back to quick look</button></div>}
     {!guest && <details className="home-personal"><summary>Your station & recent operating</summary><div className="home-personal-grid"><HomeStation /><HomeSession now={now} isMobile={isMobile} /></div></details>}

@@ -31,7 +31,7 @@ const MAX_PER_CYCLE = 100;
 /** Maximum total recent decodes (for heatmap buffer) */
 const MAX_RECENT = 500;
 
-/** Recent window: 5 minutes in milliseconds (ms-since-midnight units) */
+/** Recent window: 5 minutes in milliseconds */
 const RECENT_WINDOW_MS = 5 * 60 * 1000;
 
 // ─── Types ──────────────────────────────────────────────────────────────────
@@ -41,7 +41,7 @@ export interface Ft8SpotterDecode {
   grid: string | null;
   snr: number;
   mode: string;
-  /** Milliseconds since midnight UTC */
+  /** Absolute Unix epoch milliseconds for both decoder sources. */
   time: number;
   deltaFrequency: number;
   lat: number;
@@ -155,12 +155,12 @@ export function useFt8SpotterData(): Ft8SpotterData {
 
     // Process native decodes first (higher priority)
     for (const d of nativeDecodes) {
-      if (!d.callsign) continue;
+      if (!d.callsign || d.epochMs == null || !Number.isFinite(d.epochMs) || d.epochMs <= 0) continue;
 
       const location = resolveLocation(d.callsign, d.grid);
       if (!location) continue;
 
-      const cycleId = computeCycleId(d.time, d.mode || mode);
+      const cycleId = computeCycleId(d.epochMs, d.mode || mode);
       const key = `${d.callsign}_${cycleId}`;
       if (seen.has(key)) continue;
       seen.add(key);
@@ -170,7 +170,7 @@ export function useFt8SpotterData(): Ft8SpotterData {
         grid: d.grid ?? null,
         snr: d.snr,
         mode: d.mode || mode,
-        time: d.time,
+        time: d.epochMs,
         deltaFrequency: d.deltaFrequency,
         lat: location.lat,
         lon: location.lon,

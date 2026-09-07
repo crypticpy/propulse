@@ -23,7 +23,7 @@ export function SpotsTab() {
   const sources = useDXStore((s) => s.filters.sources);
   const feed = useMapSpotFeed({
     grid: station?.grid,
-    enabled: layers.spots || layers.spotTraces || layers.gridActivity,
+    enabled: layers.spots || layers.spotTraces || layers.gridActivity || layers.spectrumRing,
     sources,
     spotFilters,
   });

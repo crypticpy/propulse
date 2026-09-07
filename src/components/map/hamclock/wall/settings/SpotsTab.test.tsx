@@ -1,10 +1,11 @@
 import { act, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, expect, it, vi } from "vitest";
 import { useMapStore } from "@/stores/mapStore";
+import { useMapSpotFeed } from "@/hooks/useMapSpotFeed";
 import { usePskStationView } from "@/hooks/usePskStation";
 import { SpotsTab } from "./SpotsTab";
 vi.mock("@/hooks/useMapSpotFeed", () => ({
-  useMapSpotFeed: () => ({ station: { view: usePskStationView(), feed: { callsign: "N0TEST" } }, sourceStates: { PSKReporter: "STALE", RBN: "UNAVAILABLE", "WSJT-X": "BRIDGE OFF" } }),
+  useMapSpotFeed: vi.fn(() => ({ station: { view: usePskStationView(), feed: { callsign: "N0TEST" } }, sourceStates: { PSKReporter: "STALE", RBN: "UNAVAILABLE", "WSJT-X": "BRIDGE OFF" } })),
 }));
 const initial = useMapStore.getState();
 afterEach(() => { useMapStore.setState(initial); localStorage.removeItem("propulse-spot-age-minutes"); });
@@ -65,4 +66,11 @@ it("selects personal scope and shares its longer age without changing global age
   fireEvent.click(screen.getByRole("radio", { name: "GLOBAL SAMPLE" }));
   expect(screen.queryByRole("radio", { name: "1440 MIN" })).toBeNull();
   usePskStationView.setState({ direction: "of", minutes: 15, band: "all" });
+});
+
+
+it("observes source status when only the globe spectrum ring needs live spots", () => {
+  useMapStore.setState({ layers: { ...initial.layers, spots: false, spotTraces: false, gridActivity: false, spectrumRing: true } });
+  render(<SpotsTab />);
+  expect(useMapSpotFeed).toHaveBeenLastCalledWith(expect.objectContaining({ enabled: true }));
 });

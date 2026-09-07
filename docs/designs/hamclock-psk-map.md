@@ -31,7 +31,7 @@ Global six-hour/24-hour history and DX Cluster list integration remain separate.
 
 ## Verification
 
-- 26 focused helper, hook, resolver, Settings, report and PSK-client tests pass.
+- 27 focused helper, hook, resolver, Settings, report and PSK-client tests pass.
   Coverage includes distinct receiver paths, invalid/missing locators, eight-
   character coordinates, RF/time preservation, both directions and all five
   windows, band scope, clock expiry, trace identity, restricted cached data,
@@ -52,7 +52,8 @@ Global six-hour/24-hour history and DX Cluster list integration remain separate.
 
 Managed local session: owner `hamclock-psk-map`, ID
 `d36f080a-c876-4716-a754-85e09ae77a7c`, this isolated worktree,
-`http://127.0.0.1:5181/map`. Root/owner/profile verified before use. Public base
+`http://127.0.0.1:5181/map`. Root/owner/profile verified before use; owned server stopped and its exact claim
+released after checking absent PID and free IPv4/IPv6 listeners. Public base
 imagery is normal. Deployed/signed-in, physical-TV and 3D performance acceptance
 remain separate work.
 

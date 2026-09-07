@@ -7,6 +7,31 @@ No source was copied, no files were edited there, and no services were started.
 This is preparation for the deferred weather batches, not a batch claim or a
 statement that their prerequisites are merged.
 
+## Reproduce the source audit
+
+Source repository: [crypticpy/openwxglobe](https://github.com/crypticpy/openwxglobe).
+Audited revision: [`17bb7a04e72b15c608f3b1ed99144f6fcd817247`](https://github.com/crypticpy/openwxglobe/commit/17bb7a04e72b15c608f3b1ed99144f6fcd817247).
+The repository and commit were verified through GitHub on 2026-09-07. It is a
+**private repository**: a contributor needs access granted by its owner before
+cloning. The local path above is an inspection location, not a dependency.
+
+From a directory chosen by the contributor, use a fresh checkout:
+
+```sh
+git clone https://github.com/crypticpy/openwxglobe.git openwxglobe-reuse-audit
+cd openwxglobe-reuse-audit
+git checkout --detach 17bb7a04e72b15c608f3b1ed99144f6fcd817247
+git rev-parse HEAD
+```
+
+The final command must print the audited revision. All candidate paths below
+are relative to that checkout and were verified in that commit's tree. Review
+its [root license](https://github.com/crypticpy/openwxglobe/blob/17bb7a04e72b15c608f3b1ed99144f6fcd817247/LICENSE)
+and applicable file/provider notices before adapting code. If access is missing,
+record the source-access blocker; do not substitute current-main files or infer
+compatibility from this summary. A later revision needs a refreshed audit.
+No vendored source or new runtime dependency is introduced here.
+
 | Candidate | Relevant work | Compatibility finding |
 | --- | --- | --- |
 | `apps/web/src/components/alerts/alertScope.ts` and its test | B11 alert area, B22 Alerts report | Small TypeScript utility: Polygon/MultiPolygon point containment, polygon holes, viewport overlap. Adapt types to ProPulse if reused. Route scope is bounding-box overlap, not exact route intersection; null geometry is excluded. County coverage needs an explicit geographic contract, and dateline/boundary cases need coverage before adoption. |

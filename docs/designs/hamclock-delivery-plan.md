@@ -14,7 +14,7 @@ not a claim. Do not reserve all batches for one agent.
 
 | Lane | Responsibility | Boundary |
 | --- | --- | --- |
-| Codex / HamClock operating views | Current work: #524 band-history review correction; #527 contact-sync metadata in review. Operating batches #285–#289, B24/#232, B18 and B10/#206 are in review; B11 awaits B10 merge | One active implementation item; retain review and acceptance follow-up |
+| Codex / HamClock operating views | Current work: review and dependency follow-up; #524 band-history correction and #527 contact-sync metadata are published. Operating batches #285–#289, B24/#232, B18 and B10/#206 are in review; B11 awaits B10 merge | One active implementation item; retain review and acceptance follow-up |
 | Existing modeling / 3D agent | NowCast training, inference, evaluation, model activation, and 3D globe work, per owner direction | This plan does not assign or change that agent's existing cards |
 | Additional contributor | Claim an unclaimed Ready item; B10/#206 is now claimed | Check current board, issue comments, and changed files before starting |
 | Weather | Deferred until operating work is complete | Inspect OpenWxGlobe before designing new weather adapters or layers |
@@ -133,9 +133,14 @@ need an engine comparison strip, as §26.14 specifies.
 
 ## Deferred weather and OpenWxGlobe reuse
 
-Local project found at `/Users/crypticpy/Projects/OpenWeather/openwxglobe`.
-The README describes weather, radar, ocean and alert layers; its root license is
-Apache-2.0. This is a reuse lead, not a completed adapter compatibility audit.
+Source: [crypticpy/openwxglobe](https://github.com/crypticpy/openwxglobe), audited
+at [`17bb7a04e72b15c608f3b1ed99144f6fcd817247`](https://github.com/crypticpy/openwxglobe/commit/17bb7a04e72b15c608f3b1ed99144f6fcd817247).
+The repository is private; contributors need owner-granted access. See the
+[reuse audit and reproducible checkout instructions](hamclock-openwx-reuse-audit.md)
+for verified candidate paths, license and compatibility limits. The local
+inspection path was `/Users/crypticpy/Projects/OpenWeather/openwxglobe`; it is
+not required on another machine. The root license is Apache-2.0. This source
+audit does not establish completed adapter or live-provider compatibility.
 
 Inspect these when weather reaches the front of the queue:
 
@@ -576,3 +581,14 @@ claimed by separate session `codex-sp01-20260907-0845` in
 the shared Codex agent-family label as permission to take that session's work.
 Its #288/#207 integration contracts require coordination when those packages
 become Ready. No source ownership was transferred in this audit.
+
+
+### Portable weather source handoff — 2026-09-07
+
+The #406 review finding about the Mac-only OpenWX path is addressed by a
+verified repository URL, exact audited commit and detached-checkout instructions
+in the reuse audit. GitHub confirms the commit exists and the repository is
+private; contributor access is an explicit prerequisite. Candidate paths were
+checked against the pinned tree. No weather implementation is claimed, and no
+source was copied or modified. #524's review thread is now resolved after
+publication of `c7f62d57` (399 app files / 3,473 tests and all required checks).

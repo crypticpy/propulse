@@ -185,7 +185,12 @@ export const clusterGroupSchema = z.object({
   anchor: coordinatesSchema,
   /** Newest first; ID tie-break. Badge count is reportIds.length. */
   reportIds: reportIdsSchema.refine((ids) => ids.length > 0),
-}).strict();
+}).strict().superRefine((group, ctx) => {
+  if (group.detail === "regions" ? group.region === null || group.grid !== null :
+      group.grid === null || group.grid.length !== (group.detail === "grid4" ? 4 : 6) || group.precision === "approximate") {
+    ctx.addIssue({ code: "custom", message: "Group detail must match its region/grid and source precision" });
+  }
+});
 export const spotSceneCountsSchema = z.object({
   loaded: count, deduplicated: count, scopeEligible: count, matching: count,
   unlocated: count, mapped: count, budgetOmitted: count,
@@ -204,6 +209,10 @@ export const spotSceneModelSchema = z.object({
   const represented = [...scene.singles, ...scene.groups.flatMap((group) => group.reportIds)];
   const idSet = new Set(ids);
   const c = scene.counts;
+  if (scene.reports.some((report) => report.dx.location.kind === "unavailable") ||
+      !unique(scene.paths.map((path) => path.id))) {
+    ctx.addIssue({ code: "custom", message: "Mapped reports require a location and path IDs must be unique" });
+  }
   if (!unique(ids) || !unique(scene.groups.map((group) => group.id)) ||
       !unique(represented) || represented.length !== ids.length ||
       represented.some((id) => !idSet.has(id))) {

@@ -123,8 +123,12 @@ Fixtures are synthetic and deterministic, including Spain50, Norway20, US states
 US prefix/approximate locations, dateline, poles, exact zero, grid-only/unlocated,
 aliases, duplicates/distinct receivers, age boundary/expired/future timestamps.
 
-Reference machine: Apple M5 Max, 18 CPU cores, 128 GB memory, macOS 26.6.2; Chrome
-152.0.7977.76 (record actual GPU renderer from browser when measuring). Reference
+Reference machine: Apple M5 Max, 18 CPU cores, **40 GPU cores**, 128 GB unified
+memory, macOS 26.6.2; Chrome 152.0.7977.76. GPU hardware/core count and Metal support
+were verified with `system_profiler SPDisplaysDataType` on 2026-09-07. Browser
+driver/ANGLE renderer string was not exposed: the browser tool blocks `chrome://gpu`;
+no driver string is inferred from the hardware name. Record it with performance
+traces when available, and distinguish hardware from software rendering. Reference
 viewport 1920x1080, DPR1, quality auto; also validate wall 3840x2160/DPR1 and compact
 1280x720. Input matrix 500/5000 x display budget50/100/200 x globe/flat/azimuthal.
 Fixed batches every 5 seconds, deterministic IDs; 10s warmup + 60s sample. Compare

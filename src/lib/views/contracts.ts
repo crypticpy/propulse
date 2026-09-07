@@ -1,5 +1,6 @@
 /** SP-01 v1. Saved intent is complete, serializable and independent of live stores. */
 import { z } from "zod";
+import { WALL_PAGES, WALL_TILE_IDS } from "@/lib/hamclock/wallPages";
 import { contractIdSchema, coordinatesSchema, spotPresentationPreferencesSchema } from "./spotContracts";
 
 export const VIEW_SCHEMA_VERSION = 1;
@@ -8,6 +9,8 @@ export const ASSIGNMENT_PAYLOAD_LIMIT_BYTES = 524_288;
 export const MAX_DISPLAY_SCENES = 24;
 const finite = z.number().finite();
 const boundedName = z.string().trim().min(1).max(100);
+const knownPageIds = new Set(WALL_PAGES.map((page) => page.id));
+const knownTileIds = new Set<string>(WALL_TILE_IDS);
 const revision = z.number().int().min(1).safe();
 const route = z.enum(["/map", "/map/explorer", "/map/photorealistic", "/", "/solar", "/dx", "/atmos", "/satellites", "/clock", "/stopwatch"]);
 export const viewFamilySchema = z.enum(["normal", "pro", "lite", "hamclock", "route"]);
@@ -65,7 +68,8 @@ const widgetJson = z.unknown().transform((input, ctx): ViewJson => {
         keys.some((key) => key !== "length" && (typeof key !== "string" || !/^(0|[1-9][0-9]*)$/.test(key))))) return false;
     for (const key of keys) {
       if (Array.isArray(value) && key === "length") continue;
-      if (typeof key !== "string" || /^(?:__proto__|prototype|constructor|deviceToken|password|secret|access_token|refresh_token)$/i.test(key)) return false;
+      if (typeof key !== "string" || /^(?:__proto__|prototype|constructor)$/i.test(key) ||
+          /(?:token|password|secret|apikey|credential|authorization)/i.test(key.replace(/[^a-z0-9]/gi, ""))) return false;
       const descriptor = descriptors[key];
       if (!("value" in descriptor) || !descriptor.enumerable || !valid(descriptor.value, depth + 1)) return false;
     }
@@ -105,6 +109,9 @@ export const hamclockPresentationSchema = z.object({
   }).strict()).max(64),
 }).strict().superRefine((wall, ctx) => {
   for (const side of [wall.railLayout.left, wall.railLayout.right]) {
+    if (side.length === 0 || side.some((page) => !knownPageIds.has(page.pageId) || page.tileIds.some((id) => !knownTileIds.has(id)))) {
+      ctx.addIssue({ code: "custom", message: "Wall pages and tiles must belong to the shipped catalog" });
+    }
     if (new Set(side.map((page) => page.pageId)).size !== side.length) {
       ctx.addIssue({ code: "custom", message: "Duplicate rail page ID" });
     }
@@ -120,6 +127,9 @@ export const hamclockPresentationSchema = z.object({
   }
   if (new Set(wall.widgets.map((widget) => widget.tileId)).size !== wall.widgets.length) {
     ctx.addIssue({ code: "custom", message: "Duplicate widget configuration" });
+  }
+  if (wall.pinnedTile && !knownTileIds.has(wall.pinnedTile.tileId)) {
+    ctx.addIssue({ code: "custom", message: "Pinned tile is not in the shipped catalog" });
   }
 });
 

@@ -300,7 +300,7 @@ on the baseline. Direct setState writers are called out separately.
 | Field | Destination |
 | --- | --- |
 | `scenes` | Saved configuration / Working |
-| `rotation` | Ephemeral |
+| `rotation` | Saved configuration / Working |
 | `breakInLevel` | Saved configuration / Working |
 | `presentation` | Saved configuration / Working |
 | `active` | Ephemeral |
@@ -434,6 +434,8 @@ Actions: `setDisplayQuality`.
 | visualEffectsStore | `propulse-visual-effects` device-local comfort choice, cross-tab storage listener | Retain device maximum/OS reduced-motion restriction; per-view paths can reduce it further. Device restrictions never write another view's configuration. |
 | operatingStore/useOperatingMonitor | Radio/WSJT-X/contest observations and manual active operating state resolve globally | Shared operational truth stays shared. SP-03 follow subscription is opt-in per view and read-only; missing radio gives paused status. Preferences/presets do not call tune/PTT actions. |
 | useHamClockRadioFollow | reads shared radio and writes mapStore.spotFilters; map subscription disables global wall follow | SP-03 targets only bound runtime filters/follow flag; manual filter change disables only that runtime's follow. |
+| HamClockView | Direct mapStore.setState replaces layers/activePreset; enter/product-mode effects write spot filters and restore prior snapshot | SP-03 scopes mode application to HamClock runtime; eliminate global enter/leave swapping. SP-09 checks mounted production consumers after integration. |
+| useOperationalWorkspaceSync (useMapOperationalContext.ts) | Cross-window snapshot receiver directly applies map target and DX selectedSpot, plus operating session context | SP-03 preserves shared operational observations but rejects active target/selection writes into unrelated view IDs. A secondary workspace needs an explicit binding; same account alone is not authority to change its selection. |
 | preferencesSync pull/push | settings spread, `_mapPrefs`, `_dxFilters`, theme; direct setState on map/DX/settings/theme plus shared profile/shack | SP-02 saved library/revisions sync separately; remove migrated visual live writes, preserve domain profile/shack sync. Older clients cannot overwrite new active views. |
 | settingsBackup export/import | profile/shack/preferences, maps/recent targets, DX filters, watches/pins/alerts; import calls global setters | SP-02 treats imported visual settings as validated new saved records, explicit apply only. Domain imports keep existing semantics. Never restore target just to import recent history. |
 | useLanSettingsSync | 30s automatic pull from `/api/bridge/settings` invokes importSettings; publish is explicit | SP-02 shared library import only for view fields; SP-10 display publication separate. Late response/account switch must not activate a view. |

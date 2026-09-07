@@ -3,7 +3,7 @@ import type { MapState } from "@/stores/mapStore";
 import { displayAssignmentSchema, viewConfigurationSchema, type ViewConfiguration } from "./contracts";
 import { createViewConfiguration } from "./defaults";
 import { createDisplayAssignmentFixture, createNormalizedSpot, createSpotFixtures, createSpotLoadFixture, SPOT_FIXTURE_NOW_MS } from "./fixtures";
-import { normalizedModeSchema, normalizedSpotReportSchema, pathDescriptorSchema, spotSceneModelSchema } from "./spotContracts";
+import { clusterGroupSchema, normalizedModeSchema, normalizedSpotReportSchema, pathDescriptorSchema, spotSceneModelSchema } from "./spotContracts";
 
 describe("independent view contract", () => {
   it("covers every existing layer and makes independent complete values", () => {
@@ -33,7 +33,7 @@ describe("independent view contract", () => {
     let getterCalls = 0;
     const accessor = Object.defineProperty({}, "value", { enumerable: true, get() { getterCalls++; return 1; } });
     const cyclic: Record<string, unknown> = {}; cyclic.self = cyclic;
-    for (const config of [accessor, cyclic, new Date(), { access_token: "fake" }, Array(2), { x: Infinity }, { x: "x".repeat(4097) }]) {
+    for (const config of [accessor, cyclic, new Date(), { access_token: "fake" }, { authToken: "fake" }, { apiKey: "fake" }, { nested: { device_token: "fake" } }, Array(2), { x: Infinity }, { x: "x".repeat(4097) }]) {
       const candidate = createViewConfiguration("hamclock");
       const raw = { ...candidate, presentation: { ...candidate.presentation, hamclock: {
         ...candidate.presentation.hamclock, widgets: [{ tileId: "clock", schemaVersion: 1, config }],
@@ -44,6 +44,18 @@ describe("independent view contract", () => {
     const valid = createViewConfiguration("hamclock");
     valid.presentation.hamclock.widgets = [{ tileId: "clock", schemaVersion: 1, config: { zones: ["UTC"], seconds: false } }];
     expect(viewConfigurationSchema.parse(valid)).toEqual(valid);
+  });
+
+  it("rejects unknown wall pages, tile assignments and pinned tiles", () => {
+    for (const change of ["page", "tile", "pin", "empty"] as const) {
+      const config = createViewConfiguration("hamclock");
+      const wall = config.presentation.hamclock;
+      if (change === "page") wall.railLayout.left[0].pageId = "missing-page";
+      if (change === "tile") wall.railLayout.left[0].tileIds.push("missing-tile");
+      if (change === "pin") wall.pinnedTile = { side: "left", tileId: "missing-tile" };
+      if (change === "empty") wall.railLayout.left = [];
+      expect(viewConfigurationSchema.safeParse(config).success).toBe(false);
+    }
   });
 
   it("keeps scene snapshots independent and validates assignment identity", () => {
@@ -98,6 +110,25 @@ describe("renderer-independent report contract", () => {
     expect(spotSceneModelSchema.safeParse({ ...scene, singles: [] }).success).toBe(false);
     expect(spotSceneModelSchema.safeParse({ ...scene, singles: [report.id, report.id] }).success).toBe(false);
     expect(spotSceneModelSchema.safeParse({ ...scene, counts: { ...scene.counts, mapped: 2 } }).success).toBe(false);
+    const unlocated = createNormalizedSpot();
+    unlocated.dx.location = { kind: "unavailable", reason: "No location" };
+    expect(spotSceneModelSchema.safeParse({ ...scene, reports: [unlocated] }).success).toBe(false);
+    const path = { id: "path-1", reportIds: [report.id], kind: "reported", from: report.dx, to: report.reporter, direction: "from-to", model: null };
+    expect(spotSceneModelSchema.safeParse({ ...scene, paths: [path] }).success).toBe(true);
+    expect(spotSceneModelSchema.safeParse({ ...scene, paths: [path, path] }).success).toBe(false);
+  });
+
+  it("requires grouping detail to match actual region/grid precision", () => {
+    const group = { id: "group-1", geographyVersion: "test-v1", endpointRole: "dx", label: "Spain", detail: "regions",
+      region: { id: "ES", name: "Spain", kind: "country", countryCode: "ES" }, grid: null,
+      precision: "reported-coordinate", anchor: { lat: 40, lon: -3 }, reportIds: ["normalized-1"] };
+    expect(clusterGroupSchema.safeParse(group).success).toBe(true);
+    expect(clusterGroupSchema.safeParse({ ...group, region: null }).success).toBe(false);
+    for (const grid of [null, "IN", "IN80", "IN80AA00"]) {
+      expect(clusterGroupSchema.safeParse({ ...group, detail: "grid6", grid }).success).toBe(false);
+    }
+    expect(clusterGroupSchema.safeParse({ ...group, detail: "grid6", grid: "IN80AA" }).success).toBe(true);
+    expect(clusterGroupSchema.safeParse({ ...group, detail: "grid6", grid: "IN80AA", precision: "approximate" }).success).toBe(false);
   });
 
   it("provides deterministic boundary, geography and load fixtures", () => {

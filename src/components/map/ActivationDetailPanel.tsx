@@ -240,6 +240,12 @@ export function ActivationDetailPanel() {
 
   useEffect(() => {
     if (!spot) return;
+    // A renewed report can arrive in the same render that the old one expires.
+    // Adopt its stable activation identity before expiring the old report.
+    if (refreshedSpot && currentActivations([refreshedSpot], now).length > 0) {
+      if (!sameActivationReport(refreshedSpot, spot)) selectSpot(refreshedSpot);
+      return;
+    }
     if (currentActivations([spot], now).length === 0) { clearSpot(); return; }
     if (activationFeed.isLoading || activationFeed.error) return;
     if (!refreshedSpot) {
@@ -253,10 +259,6 @@ export function ActivationDetailPanel() {
       if (selectedSource?.status === "ok") clearSpot();
       return;
     }
-    // Provider IDs describe individual reports and may change when the same
-    // activation moves frequency. Keep the open card bound to the stable
-    // program/callsign/reference identity so it cannot prepare a stale QSO.
-    if (!sameActivationReport(refreshedSpot, spot)) selectSpot(refreshedSpot);
   }, [
     now,
     activationFeed.error,

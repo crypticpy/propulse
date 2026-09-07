@@ -16,7 +16,7 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { fetchClusterFeed } from "@/lib/api/dxcluster";
-import { readClusterBridgeSpot, mergeClusterBridgeSpot } from "@/lib/dx/clusterBridge";
+import { CLUSTER_BRIDGE_FUTURE_TOLERANCE_MS, readClusterBridgeSpot, mergeClusterBridgeSpot } from "@/lib/dx/clusterBridge";
 import { clusterObservedAt, clusterRequestWindow, filterClusterAge } from "@/lib/dx/clusterHistory";
 import { spotFeedState } from "@/lib/map/spotAge";
 import { useBridge } from "@/hooks/useBridge";
@@ -235,7 +235,7 @@ export function useDXCluster(
     filterClusterAge(restQuery.data?.spots ?? [], filters.maxAge, now),
   [restQuery.data, filters.maxAge, now]);
   const allSpots = useMemo(() => !dataEnabled ? [] : source === "bridge"
-    ? filterClusterAge(externalFilters !== undefined && bridgeSpots.length > 0 ? bridgeSpots : spots, filters.maxAge, now) : restSpots,
+    ? filterClusterAge(externalFilters !== undefined && bridgeSpots.length > 0 ? bridgeSpots : spots, filters.maxAge, now, CLUSTER_BRIDGE_FUTURE_TOLERANCE_MS) : restSpots,
   [dataEnabled, source, spots, externalFilters, bridgeSpots, filters.maxAge, now, restSpots]);
 
   const sourceState = source === "bridge"
@@ -254,7 +254,7 @@ export function useDXCluster(
     if (!dataEnabled || externalFilters !== undefined) return;
     useDXStore.setState(state => {
       if (state.spotSource === "bridge") {
-        const eligible = filterClusterAge(state.spots, state.filters.maxAge, Date.now());
+        const eligible = filterClusterAge(state.spots, state.filters.maxAge, Date.now(), CLUSTER_BRIDGE_FUTURE_TOLERANCE_MS);
         return eligible.length === state.spots.length ? state : { spots: eligible };
       }
       if (source === "bridge" || clusterRequestWindow(state.filters.maxAge) !== requestWindow || state.maxSpots !== maxSpots) return state;

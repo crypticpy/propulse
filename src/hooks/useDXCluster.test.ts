@@ -172,4 +172,17 @@ describe("DX cluster history snapshots", () => {
     observer.unmount();owner.unmount();await act(async()=>Promise.resolve());
   });
 
+  it("keeps next-minute bridge reports through rendering and snapshot cleanup", async () => {
+    mocks.bridge.connected = true;
+    const hook = renderHook(() => useDXCluster(), { wrapper });
+    const future = { ...row(-0.5, "next-minute"), time: new Date(now + 30_000).toISOString() };
+    act(() => mocks.receive?.({ type: "cluster.spot", payload: future } as BridgeMessage));
+    expect(useDXStore.getState().spots.map(spot => spot.id)).toEqual(["next-minute"]);
+    await act(async () => { await vi.advanceTimersByTimeAsync(10_000); });
+    expect(hook.result.current.spots.map(spot => spot.id)).toEqual(["next-minute"]);
+    expect(useDXStore.getState().spots.map(spot => spot.id)).toEqual(["next-minute"]);
+    hook.unmount();
+    await act(async () => Promise.resolve());
+  });
+
 });

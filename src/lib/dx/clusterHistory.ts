@@ -14,10 +14,10 @@ export function clusterObservedAt(spots: readonly DXSpot[]): number | null {
   const values = spots.map(spot => new Date(spot.time).getTime()).filter(Number.isFinite);
   return values.length ? Math.max(...values) : null;
 }
-export function filterClusterAge(spots: readonly DXSpot[], age: number | undefined, now: number): DXSpot[] {
+export function filterClusterAge(spots: readonly DXSpot[], age: number | undefined, now: number, futureToleranceMs = 0): DXSpot[] {
   const cutoff = now - clusterAgeMinutes(age) * 60_000;
   return spots.filter(spot => {
     const time = new Date(spot.time).getTime();
-    return Number.isFinite(time) && time >= cutoff && time <= now;
+    return Number.isFinite(time) && time >= cutoff && time <= now + futureToleranceMs;
   });
 }

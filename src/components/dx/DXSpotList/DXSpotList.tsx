@@ -8,8 +8,8 @@
  * This is the main orchestrator component that composes the modular pieces.
  */
 
-import { useCallback, useMemo, useState, useRef, useEffect } from "react";
-import { spotPageWindow } from "./pageWindow";
+import { useCallback, useMemo, useRef } from "react";
+import { useSpotPage } from "./useSpotPage";
 import { useVisibleRows } from "@/components/map/hamclock/wall/useVisibleRows";
 import { HamClockButton } from "@/components/map/hamclock/wall/controls";
 import { Card, LoadingSpinner } from "@/components/ui";
@@ -208,19 +208,11 @@ export function DXSpotList({
   }, []);
 
   // --- QoL1: Keyboard-first DX spot navigation ---
-  const [focusedIndex, setFocusedIndex] = useState(-1);
   const spotListRef = useRef<HTMLDivElement>(null);
-  const [pageOffset, setPageOffset] = useState(0);
   const [pageRowsRef, measuredSize] = useVisibleRows<HTMLDivElement>(watchSortedSpots.length);
   const pageSize = Math.max(1, measuredSize);
-  const { start: pageStart, end: pageEnd } = wallPaging
-    ? spotPageWindow(watchSortedSpots.length, pageSize, pageOffset, focusedIndex)
-    : { start: 0, end: watchSortedSpots.length };
+  const { start: pageStart, end: pageEnd, focusedIndex, setFocusedIndex, changePage } = useSpotPage(watchSortedSpots, pageSize, selectedSpot?.id, wallPaging);
   const visibleSpots = wallPaging ? watchSortedSpots.slice(pageStart, pageEnd) : watchSortedSpots;
-  useEffect(() => {
-    if (wallPaging && pageStart !== pageOffset) setPageOffset(pageStart);
-  }, [wallPaging, pageStart, pageOffset]);
-  const changePage = (next: number) => { setFocusedIndex(-1); setPageOffset(next); };
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
@@ -314,6 +306,7 @@ export function DXSpotList({
       pageEnd,
       pageSize,
       focusedIndex,
+      setFocusedIndex,
       handleSelectSpot,
       handleSetTarget,
       handleWatchCallsign,

@@ -30,7 +30,7 @@ export function parseStationPostgresArgs(args) {
 }
 
 export async function readStationSqlFiles(root, files, namespace = "station") {
-  assert.ok(namespace === "station" || namespace === "views", "Unsupported SQL namespace");
+  assert.ok(namespace === "station" || namespace === "views" || namespace === "spots", "Unsupported SQL namespace");
   const checkout = await realpath(root);
   return Promise.all(files.map(async ({ kind, path }) => {
     const resolved = await realpath(isAbsolute(path) ? path : join(checkout, path));
@@ -38,8 +38,15 @@ export async function readStationSqlFiles(root, files, namespace = "station") {
     assert.ok(local && !isAbsolute(local) && local !== ".." && !local.startsWith(`..${sep}`), "SQL files must resolve inside this checkout");
     const pattern = namespace === "views"
       ? /^(?:\d{14}[_-])?view_library(?:[_-][a-z0-9][a-z0-9_-]*)?\.sql$/i
-      : /^(?:\d{14}[_-])?station(?:_workbench|-workbench)(?:[_-][a-z0-9][a-z0-9_-]*)?\.sql$/i;
-    assert.match(basename(resolved), pattern, namespace === "views" ? "Supply an explicit view_library SQL file" : "Supply a station_workbench or station-workbench SQL file");
+      : namespace === "spots"
+        ? /^(?:\d{14}[_-])?spot_(?:aggregation_)?recovery(?:[_-][a-z0-9][a-z0-9_-]*)?\.sql$/i
+        : /^(?:\d{14}[_-])?station(?:_workbench|-workbench)(?:[_-][a-z0-9][a-z0-9_-]*)?\.sql$/i;
+    const expected = namespace === "views"
+      ? "Supply an explicit view_library SQL file"
+      : namespace === "spots"
+        ? "Supply an explicit spot_recovery or spot_aggregation_recovery SQL file"
+        : "Supply a station_workbench or station-workbench SQL file";
+    assert.match(basename(resolved), pattern, expected);
     const info = await stat(resolved);
     assert.ok(info.isFile() && info.size <= 16 * 1024 * 1024, "SQL input must be a regular file of at most 16 MiB");
     const sql = await readFile(resolved, "utf8");

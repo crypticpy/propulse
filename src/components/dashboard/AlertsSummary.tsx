@@ -28,10 +28,10 @@ export function AlertsSummary({ className = "" }: AlertsSummaryProps) {
       <div
         role="status"
         aria-label="Solar alert status: all quiet"
-        className={`animate-card-entrance flex items-center gap-3 px-4 py-3 rounded-2xl bg-signal-green/10 border border-signal-green/30 ${className}`}
+        className={`animate-card-entrance flex items-center gap-3 px-4 py-3 rounded-2xl bg-su-success/10 border border-su-success/30 ${className}`}
       >
-        <span className="w-2 h-2 rounded-full bg-signal-green" />
-        <span className="text-sm text-signal-green">
+        <span className="w-2 h-2 rounded-full bg-su-success" />
+        <span className="text-sm text-su-success">
           All Quiet &mdash; No active solar alerts
         </span>
       </div>
@@ -42,21 +42,21 @@ export function AlertsSummary({ className = "" }: AlertsSummaryProps) {
     <div
       role="status"
       aria-label={`${activeCount} active solar alert${activeCount !== 1 ? "s" : ""}`}
-      className={`animate-card-entrance flex items-center justify-between gap-3 px-4 py-3 rounded-2xl bg-caution-amber/10 border border-caution-amber/30 ${className}`}
+      className={`animate-card-entrance flex items-center justify-between gap-3 px-4 py-3 rounded-2xl bg-su-warning/10 border border-su-warning/30 ${className}`}
     >
       <div className="flex items-center gap-3">
-        <span className="w-2 h-2 rounded-full bg-caution-amber animate-pulse" />
+        <span className="w-2 h-2 rounded-full bg-su-warning animate-pulse" />
         <div className="flex items-center gap-2 text-sm">
           {criticalCount > 0 && (
-            <span className="font-mono font-medium text-alert-red">
+            <span className="font-mono font-medium text-su-danger">
               {criticalCount} Critical
             </span>
           )}
           {criticalCount > 0 && warningCount > 0 && (
-            <span className="text-gray-500">/</span>
+            <span className="text-su-muted/80">/</span>
           )}
           {warningCount > 0 && (
-            <span className="font-mono font-medium text-caution-amber">
+            <span className="font-mono font-medium text-su-warning">
               {warningCount} Warning
             </span>
           )}
@@ -66,7 +66,7 @@ export function AlertsSummary({ className = "" }: AlertsSummaryProps) {
       <Link
         to="/solar"
         aria-label="View solar alert details"
-        className="text-xs text-caution-amber hover:text-white transition-colors whitespace-nowrap"
+        className="text-sm text-su-warning hover:text-su-text transition-colors whitespace-nowrap"
       >
         View Details &rarr;
       </Link>

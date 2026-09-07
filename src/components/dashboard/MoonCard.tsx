@@ -47,7 +47,7 @@ export function MoonCard({ className = "" }: MoonCardProps) {
   return (
     <Card className={className} role="region" aria-label="Moon">
       <div className="flex items-center gap-1.5 mb-2">
-        <span className="text-[10px] font-medium text-gray-400 uppercase tracking-wide">
+        <span className="text-sm font-medium text-su-muted uppercase tracking-wide">
           Moon
         </span>
       </div>
@@ -57,43 +57,43 @@ export function MoonCard({ className = "" }: MoonCardProps) {
           {snapshot.emoji}
         </span>
         <div className="min-w-0">
-          <div className="text-sm font-medium text-white truncate">
+          <div className="text-sm font-medium text-su-text truncate">
             {snapshot.phaseName}
           </div>
-          <div className="text-xs text-gray-400 font-mono tabular-nums">
+          <div className="text-sm text-su-muted font-mono tabular-nums">
             {Math.round(snapshot.illumination * 100)}% illuminated
           </div>
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-x-2 gap-y-1 text-xs mb-2">
+      <div className="grid grid-cols-2 gap-x-2 gap-y-1 text-sm mb-2">
         <div>
-          <span className="text-gray-500">Rise </span>
-          <span className="text-gray-200 font-mono tabular-nums">
+          <span className="text-su-muted/80">Rise </span>
+          <span className="text-su-text font-mono tabular-nums">
             {formatTimeOrDash(snapshot.rise, use24h)}
           </span>
         </div>
         <div>
-          <span className="text-gray-500">Set </span>
-          <span className="text-gray-200 font-mono tabular-nums">
+          <span className="text-su-muted/80">Set </span>
+          <span className="text-su-text font-mono tabular-nums">
             {formatTimeOrDash(snapshot.set, use24h)}
           </span>
         </div>
         <div>
-          <span className="text-gray-500">Full </span>
-          <span className="text-gray-200 font-mono tabular-nums">
+          <span className="text-su-muted/80">Full </span>
+          <span className="text-su-text font-mono tabular-nums">
             {formatShortDate(snapshot.nextFullMoon)}
           </span>
         </div>
         <div>
-          <span className="text-gray-500">New </span>
-          <span className="text-gray-200 font-mono tabular-nums">
+          <span className="text-su-muted/80">New </span>
+          <span className="text-su-text font-mono tabular-nums">
             {formatShortDate(snapshot.nextNewMoon)}
           </span>
         </div>
       </div>
 
-      <div className="flex items-center gap-1 text-xs text-gray-400 pt-2 border-t border-white/10">
+      <div className="flex items-center gap-1 text-sm text-su-muted pt-2 border-t border-su-line/40">
         <span aria-hidden="true">{rising ? "▲" : "▼"}</span>
         <span className="font-mono tabular-nums">
           {Math.round(snapshot.altitude)}° altitude
@@ -101,7 +101,7 @@ export function MoonCard({ className = "" }: MoonCardProps) {
       </div>
 
       {!station && (
-        <div className="mt-2 text-[10px] text-gray-500">
+        <div className="mt-2 text-sm text-su-muted/80">
           Set your grid in Profile for accurate moon data
         </div>
       )}

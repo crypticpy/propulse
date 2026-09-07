@@ -35,11 +35,11 @@ export function ContestCountdown({
 
   return (
     <span
-      className={`inline-flex items-center gap-1.5 text-xs font-mono tabular-nums ${className}`}
+      className={`inline-flex items-center gap-1.5 text-sm font-mono tabular-nums ${className}`}
       aria-label={ended ? label : `${label} ${text}`}
     >
-      <span className="text-gray-400">{label}</span>
-      {!ended && <span className="text-white font-medium">{text}</span>}
+      <span className="text-su-muted">{label}</span>
+      {!ended && <span className="text-su-text font-medium">{text}</span>}
     </span>
   );
 }

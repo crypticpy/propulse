@@ -1,6 +1,6 @@
 # HamClock operating views delivery plan
 
-Updated: 2026-09-06. Owner direction: finish operating views, spots, activations,
+Updated: 2026-09-07. Owner direction: finish operating views, spots, activations,
 and related controls before weather. This plan updates delivery priority; the
 [wall specification](../designs/hamclock-wall-spec.md) and
 [tile system](../guides/hamclock-tile-system.md) retain their product contracts.
@@ -14,7 +14,7 @@ not a claim. Do not reserve all batches for one agent.
 
 | Lane | Responsibility | Boundary |
 | --- | --- | --- |
-| Codex / HamClock operating views | Current implementation: #286 remaining wall tuning; #288 spot review follow-up, #289 and B18 in review; B10/#206 widget configuration in review; coordinated spot display #288 in review; PSK/WSJT-X #287, Activations #285, shared tuning #286 and B24 #232 in review | One active implementation item; retain review and acceptance follow-up |
+| Codex / HamClock operating views | Current work: #524 band-history review correction; #527 contact-sync metadata in review. Operating batches #285–#289, B24/#232, B18 and B10/#206 are in review; B11 awaits B10 merge | One active implementation item; retain review and acceptance follow-up |
 | Existing modeling / 3D agent | NowCast training, inference, evaluation, model activation, and 3D globe work, per owner direction | This plan does not assign or change that agent's existing cards |
 | Additional contributor | Claim an unclaimed Ready item; B10/#206 is now claimed | Check current board, issue comments, and changed files before starting |
 | Weather | Deferred until operating work is complete | Inspect OpenWxGlobe before designing new weather adapters or layers |
@@ -531,3 +531,39 @@ client types and mappings omit them. Preserve those two metadata fields and
 verify round trips before treating cross-device contact statistics as ready.
 No sync implementation claim or source edits have started yet; #286 remains
 the sole active batch until the Band Activity report is published.
+
+
+### Operating integration and metadata follow-up published — 2026-09-07
+
+[#524](https://github.com/crypticpy/propulse/pull/524), `e97a45b8`, publishes
+the 15-file Band Activity/TOP DX integration. Full mandatory checks passed
+(399 app files / 3,471 tests plus Python/archive, bridge/daemon, lint, build
+and budgets). #286 is back In review. The 48 browser cases and preview 5182
+boundary described above remain valid.
+
+B24/#232 was then claimed narrowly for contact-sync metadata and returned to
+In review after publishing [#527](https://github.com/crypticpy/propulse/pull/527),
+`45552c51`, five files based on #524. Both cloud serializers now preserve
+recorded home grid and DXCC through push/pull/delta/conflict paths; types match
+the existing migration. Five transport tests simulate another device and
+exercise actual contact statistics, including missing metadata and conflict
+recovery. Eighteen focused tests and full mandatory checks pass (400 app files /
+3,476 tests). The #509 review thread is resolved. No cloud write or migration
+was performed; live two-device acceptance remains pending.
+
+Current review follow-up on #524: `c7f62d57` uses the collector's existing ten
+HF band identities for completeness, so complete history/live samples show a
+known peak. Missing HF bands remain partial even with duplicate/VHF rows. The
+collector is unchanged. Twenty focused history/report tests, TypeScript and
+lint pass; full mandatory pre-push checks are running. This edits existing
+files and retains the 15-file PR boundary.
+
+The requested masthead/settings cleanup is already in #498 (`aa362a90`): zone
+labels left of clock digits; mode/projection controls under Settings → View;
+auto-rotate and its speed control; vertical Settings and Layers navigation.
+Its previously recorded full checks and 117 browser cases passed. The owned
+preview at http://127.0.0.1:5182/map is preserved.
+
+B10 #480 remains OPEN on the fresh dependency check, so B11 is not claimed.
+No implementation batch is currently reserved while the #524 review correction
+finishes; model/3D and weather ownership/dependency boundaries remain unchanged.

@@ -1193,7 +1193,13 @@ export default defineConfig(({ mode }) => {
       layerDevProxy(),
       portableDevApi(),
       VitePWA({
-        registerType: "autoUpdate",
+        // "prompt": the worker already in control keeps serving the running
+        // page after a deploy; the new one waits until the user taps Reload
+        // on PWAUpdatePrompt (or every tab closes). autoUpdate + skipWaiting
+        // + clientsClaim yanked open tabs on every deploy and dropped the
+        // old precache, so lazy chunks 404'd and the stale-chunk recovery
+        // forced an error flash + reload (#590).
+        registerType: "prompt",
         includeAssets: ["propulse.svg"],
         manifest: {
           name: "Propulse — Ham Radio Propagation Dashboard",
@@ -1217,8 +1223,8 @@ export default defineConfig(({ mode }) => {
           enabled: true,
         },
         workbox: {
-          skipWaiting: true,
-          clientsClaim: true,
+          skipWaiting: false,
+          clientsClaim: false,
           // Install only the application shell and its synchronous imports.
           // Lazy routes are cached after use so installing Propulse does not
           // download every radio, mapping, and 3D feature up front. The

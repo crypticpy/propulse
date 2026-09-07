@@ -95,4 +95,74 @@ describe("pure legacy adapters", () => {
     expect(captured.presentation.layers.muf).toBe(false);
     expect(captured.context.followRadio).toBe(true);
   });
+
+  it("overlays only legacy band/mode onto captured spots without resetting age, sources, grouping or motion", () => {
+    const captured = createViewConfiguration("pro");
+    captured.spots.filters.maxAgeMinutes = 7;
+    captured.spots.filters.spotLimit = 120;
+    captured.spots.filters.sources = ["RBN"];
+    captured.spots.filters.modes.includeInferred = false;
+    captured.spots.grouping = { enabled: false, detail: "grid4", minGroupSize: 8 };
+    captured.spots.paths.background.style = "off";
+    captured.spots.paths.animate = "selected-only";
+    captured.spots.paths.reduceMotion = true;
+    captured.context.followRadio = true;
+    const bands = ["20m"];
+    const modes = ["SSB"];
+    const converted = recipesFromLegacyOperatingProfile({
+      capturedConfig: captured,
+      profile: { id: "ssb-20", name: "20m SSB", spotFilters: { bands, modes } },
+    });
+
+    expect(converted.activity.spots.filters.maxAgeMinutes).toBe(7);
+    expect(converted.activity.spots.filters.spotLimit).toBe(120);
+    expect(converted.activity.spots.filters.sources).toEqual(["RBN"]);
+    expect(converted.activity.spots.filters.bands).toEqual(["20m"]);
+    expect(converted.activity.spots.filters.modes).toEqual({
+      all: false, categories: [], modes: ["SSB"], includeUnknown: false, includeInferred: false,
+    });
+    expect(converted.activity.spots.grouping).toEqual({ enabled: false, detail: "grid4", minGroupSize: 8 });
+    expect(converted.activity.spots.paths.background.style).toBe("off");
+    expect(converted.activity.spots.paths.animate).toBe("selected-only");
+    expect(converted.activity.spots.paths.reduceMotion).toBe(true);
+    expect(converted.display.config.spots).toEqual(converted.activity.spots);
+    expect(converted.display.config.spots).not.toBe(converted.activity.spots);
+    expect(converted.display.config.context.followRadio).toBe(false);
+    expect(converted.omitted).toEqual([]);
+
+    captured.spots.filters.maxAgeMinutes = 30;
+    captured.spots.filters.sources.push("PSKReporter");
+    captured.spots.grouping.enabled = true;
+    captured.spots.paths.background.style = "quick-sweep";
+    bands.push("40m");
+    modes.push("CW");
+    converted.activity.spots.filters.spotLimit = 10;
+    converted.display.config.spots.grouping.enabled = true;
+    converted.display.config.spots.paths.animate = "all-displayed";
+
+    expect(converted.activity.spots.filters.maxAgeMinutes).toBe(7);
+    expect(converted.activity.spots.filters.sources).toEqual(["RBN"]);
+    expect(converted.activity.spots.filters.bands).toEqual(["20m"]);
+    expect(converted.activity.spots.filters.modes.modes).toEqual(["SSB"]);
+    expect(converted.activity.spots.grouping.enabled).toBe(false);
+    expect(converted.display.config.spots.filters.spotLimit).toBe(120);
+    expect(converted.display.config.spots.filters.maxAgeMinutes).toBe(7);
+    expect(converted.activity.spots.paths.animate).toBe("selected-only");
+  });
+
+  it("still default-seeds activityRecipeFromLegacyInput when callers choose that path", () => {
+    const recipe = activityRecipeFromLegacyInput({
+      id: "legacy-defaults",
+      name: "Filters only",
+      bands: ["20m"],
+      modes: ["SSB"],
+    });
+    expect(recipe.spots.filters.maxAgeMinutes).toBe(30);
+    expect(recipe.spots.filters.spotLimit).toBe(50);
+    expect(recipe.spots.filters.sources).toEqual([]);
+    expect(recipe.spots.grouping.enabled).toBe(true);
+    expect(recipe.spots.paths.background.style).toBe("quick-sweep");
+    expect(recipe.spots.filters.bands).toEqual(["20m"]);
+    expect(recipe.spots.filters.modes.modes).toEqual(["SSB"]);
+  });
 });

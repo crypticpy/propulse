@@ -1,7 +1,7 @@
 import { modeSelectionFromLegacyModes } from "@/lib/spots/presentation";
 import { presetRecipeSchema, viewLayersSchema, type ViewConfiguration } from "../contracts";
 import { createSpotPreferences, createViewConfiguration } from "../defaults";
-import { spotSourceSchema } from "../spotContracts";
+import { spotSourceSchema, type SpotPresentationPreferences } from "../spotContracts";
 import { cloneJson } from "./clone";
 import type { ActivityPresetRecipe, DisplayPresetRecipe } from "./catalog";
 import type { SpotSource } from "./sources";
@@ -118,6 +118,20 @@ export function hamclockDisplayRecipeFromLegacyWall(input: LegacyWallInput): Dis
 
 const VIEW_LAYER_KEYS = new Set<string>(viewLayersSchema.keyof().options);
 
+/** Overlay only legacy band/mode onto a captured spots snapshot. Age, sources, grouping and motion stay. */
+function overlayLegacyBandMode(
+  capturedSpots: SpotPresentationPreferences,
+  filters: { bands: readonly string[]; modes: readonly string[] },
+): SpotPresentationPreferences {
+  const spots = cloneJson(capturedSpots);
+  const includeInferred = spots.filters.modes.includeInferred;
+  spots.filters.bands = [...new Set(filters.bands)];
+  spots.filters.modes = modeSelectionFromLegacyModes(filters.modes);
+  spots.filters.modes.includeInferred = includeInferred;
+  if (filters.modes.length > 0) spots.filters.modes.includeUnknown = false;
+  return spots;
+}
+
 /**
  * Pure adapter for SP-02 migration: explicit captured profile + complete baseline.
  * Preserves the profile id. Does not read stores. Callers persist one recipe kind per id.
@@ -132,13 +146,14 @@ export function recipesFromLegacyOperatingProfile(input: {
 } {
   const profile = input.profile;
   const omitted: LegacyFieldOmission[] = [];
-  const activity = activityRecipeFromLegacyInput({
+  const spots = overlayLegacyBandMode(input.capturedConfig.spots, profile.spotFilters);
+  const activity = presetRecipeSchema.parse({
+    kind: "activity",
     id: profile.id,
+    version: profile.version ?? 1,
     name: profile.name,
-    version: profile.version,
-    modes: profile.spotFilters.modes,
-    bands: profile.spotFilters.bands,
-  });
+    spots,
+  }) as ActivityPresetRecipe;
   const config = cloneJson(input.capturedConfig);
   config.spots = cloneJson(activity.spots);
   if (profile.layers) {

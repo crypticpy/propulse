@@ -178,7 +178,7 @@ export function WidgetShell({
         </div>
       </header>
 
-      <div className={`min-h-0 flex-1 ${compact ? "px-4 pb-4" : "p-4 sm:p-5"}`}>
+      <div className={`min-h-0 flex-1 ${compact ? "px-4 pb-4 pt-1.5" : "p-4 sm:p-5"}`}>
         {showFallback ? (
           <div className="flex min-h-32 flex-col items-center justify-center rounded-xl border border-dashed border-su-line/40 bg-su-input px-5 text-center">
             {state === "loading" ? (

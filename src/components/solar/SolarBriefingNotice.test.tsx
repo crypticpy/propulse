@@ -4,6 +4,7 @@ import { describe, expect, it, vi } from "vitest";
 import { SolarBriefingNotice } from "./SolarBriefingNotice";
 import { SolarOperatingActions } from "./SolarOperatingActions";
 import type { SolarBriefing } from "@/lib/solar/briefing";
+import type { NoaaScalesProduct } from "@/lib/solar/dataTypes";
 
 vi.mock("@/hooks/useActiveBandMode", () => ({ useActiveMode: () => "CW" }));
 vi.mock("@/hooks/useStationCastContext", () => ({
@@ -48,10 +49,14 @@ const briefing: SolarBriefing = {
   ],
 };
 
-function renderNotice(overrides: Partial<SolarBriefing> = {}, kp?: number) {
+function renderNotice(
+  overrides: Partial<SolarBriefing> = {},
+  kp?: number,
+  scales?: NoaaScalesProduct,
+) {
   return render(
     <MemoryRouter initialEntries={["/solar"]}>
-      <SolarBriefingNotice briefing={{ ...briefing, ...overrides }} scales={undefined} kp={kp}>
+      <SolarBriefingNotice briefing={{ ...briefing, ...overrides }} scales={scales} kp={kp}>
         <SolarOperatingActions />
       </SolarBriefingNotice>
     </MemoryRouter>,
@@ -80,14 +85,18 @@ describe("SolarBriefingNotice", () => {
     expect(queryByText(/· Kp /)).toBeNull();
   });
 
-  it("reveals the statements, delayed sentence, sources and actions on expand", () => {
-    const { getByRole, getByText } = renderNotice();
+  it("reveals the statements, delayed sentence and actions on expand", () => {
+    const { getByRole, getByText, queryByText, queryByRole } = renderNotice();
     fireEvent.click(getByRole("button", { name: "Read the briefing" }));
     expect(getByText("Kp reached 5 in the last interval.")).toBeTruthy();
     expect(getByText("Solar flux remains moderate.")).toBeTruthy();
     expect(getByText(/Updates are delayed for Solar flux/)).toBeTruthy();
-    expect(getByText("Sources & times")).toBeTruthy();
-    expect(getByRole("link", { name: "Planetary Kp" }).getAttribute("href")).toBe("https://example.test/kp");
+    // DS-05 round 5: the evidence list (sources & times) is no longer rendered.
+    expect(queryByText("Sources & times")).toBeNull();
+    expect(queryByRole("link", { name: "Planetary Kp" })).toBeNull();
+    for (const evidence of briefing.evidence) {
+      expect(queryByRole("link", { name: new RegExp(evidence.sourceUrl) })).toBeNull();
+    }
     expect(getByText(/Global conditions describe the backdrop/)).toBeTruthy();
     for (const action of ["Inspect a path", "Find a band for a target", "Plan a session"]) {
       expect(getByRole("link", { name: action })).toBeTruthy();
@@ -137,5 +146,18 @@ describe("SolarBriefingNotice", () => {
 
     const impact = renderNotice({ tone: "impact" });
     expect(impact.getByRole("region", { name: "HF briefing" }).className).toContain("border-su-danger");
+  });
+
+  it("colours scale chips by severity: an in-force G3 is danger, an R0 is not", () => {
+    const scales: NoaaScalesProduct = {
+      observed_at: "2026-09-05T12:00:00Z",
+      radio_blackout: { scale: 0, text: "none" },
+      solar_radiation: { scale: null, text: null },
+      geomagnetic_storm: { scale: 3, text: "strong" },
+    };
+    const { getByRole } = renderNotice({}, undefined, scales);
+    const group = getByRole("group", { name: "Official NOAA scales" });
+    expect(within(group).getByText("R0").className).not.toContain("text-su-danger");
+    expect(within(group).getByText("G3").className).toContain("text-su-danger");
   });
 });

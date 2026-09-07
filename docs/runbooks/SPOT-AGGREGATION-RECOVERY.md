@@ -75,3 +75,30 @@ a corrected collector is deployed; removing the gap ledger loses audit evidence.
 - Alerts before recoverable input expires, and explicit late-arrival cutoff
   behavior. The current guard prevents false recovery; it cannot resurrect raw
   data already deleted.
+
+## Gap-aware readers and baselines
+
+The reader follow-up migration supports the existing six-argument rate lookup
+and the deployed seven-argument lookup with its optional rate/quantile selector.
+It replaces only the installed signature and refuses ambiguous/missing contracts.
+A known path gap makes the affected lag unavailable even if a derived row already
+exists. It does not activate or alter a model.
+
+The baseline follow-up excludes known band/region gap hours before building the
+sample population. Counts remain live while baseline fields become null after a
+new gap, until a filtered rebuild succeeds. An identical gap report preserves
+its original timestamp; expanding a range legitimately invalidates the baseline.
+The gap-aware band-history view omits suspect hours but preserves stored zeroes.
+The API still uses its existing missing-hour presentation and bounded query.
+
+Apply `20260907230000_spot_aggregation_recovery_baselines.sql` and verify its
+permissions/view **before merging the API route change**, because main deploys
+that route automatically. Verify the exact deployed function bodies against the
+reviewed originals before replacing them. Both SQL harnesses use isolated
+fixtures; after rollout, also verify the public history/count endpoints and the
+collector's next baseline refresh. Do not force a costly historical rebuild as
+part of an ordinary API smoke check.
+
+These guards quarantine known gaps. They do not prove that every upstream spot
+arrived, identify all historical gaps retrospectively, or turn a positives-only
+feed into evidence of unobserved propagation opportunities.

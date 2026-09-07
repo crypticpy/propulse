@@ -31,7 +31,7 @@ export async function handleSpotsBandHistory(req: Request): Promise<Response> {
   const end = Math.floor(Date.now() / HOUR) * HOUR;
   const windowStart = new Date(end - 6 * HOUR).toISOString();
   const windowEnd = new Date(end).toISOString();
-  const url = new URL(`${storage.baseUrl}/rest/v1/band_hourly_stats`);
+  const url = new URL(`${storage.baseUrl}/rest/v1/band_hourly_stats_readable`);
   url.searchParams.set(
     "select",
     "hour_utc,band,spot_count,source_counts,mode_counts",

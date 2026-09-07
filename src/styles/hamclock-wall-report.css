@@ -1152,3 +1152,63 @@
   flex-basis: 0;
 
 }
+
+/* WSJT-X rows: full messages in the accessible table, measured rows on the wall. */
+.hcw-decodes {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  gap: 0.7vh;
+}
+.hcw-list {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+.hcw-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.5fr) auto;
+  gap: 1vw;
+  align-items: center;
+  flex-shrink: 0;
+  padding: 0.7vh 0;
+  border-bottom: 1px solid var(--hc-border);
+}
+.hcw-call, .hcw-message {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.hcw-call strong {
+  color: var(--hc-fg);
+  font-size: var(--hc-t-body);
+}
+.hcw-cq .hcw-call strong {
+  color: var(--hc-accent);
+}
+.hcw-call span, .hcw-message span {
+  font-size: var(--hc-t-small);
+  color: var(--hc-dim);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.hcw-message span:first-child {
+  color: var(--hc-fg);
+}
+.hcw-row button {
+  position: relative;
+  z-index: 2;
+}
+.hcw-compact .hcw-row {
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0.3vh;
+}
+.hcw-compact .hcr-note {
+  font-size: var(--hc-t-small);
+}
+.hc-rail:has(.hcw-compact) > .hc-tile--grow {
+  flex-basis: 0;
+}

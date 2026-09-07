@@ -3,6 +3,7 @@ import { registerWidgetConfig } from "@/stores/hamclockWidgetConfigStore";
 import type { RegisteredWidgetConfig } from "@/stores/hamclockWidgetConfigStore";
 import type { WallTileProps } from "../HamClockTile";
 import { recentContactsConfig } from "../config/recentContactsConfig";
+import { WsjtxTile } from "./WsjtxTile";
 import { ActivationsTile } from "./ActivationsTile";
 import { AlertsTile } from "./AlertsTile";
 import { BandActivityTile } from "./BandActivityTile";
@@ -46,6 +47,7 @@ export type TileId =
   | "alerts"
   | "emcomm"
   | "sdrScope"
+  | "wsjtx"
   | "sdrDecodes"
   | "recentContacts"
   | "dxTarget";
@@ -74,6 +76,7 @@ export const WALL_TILES: Record<TileId, WallTile> = {
   muf: { title: "MUF", Component: MufTile },
   alerts: { title: "Weather alerts", Component: AlertsTile },
   emcomm: { title: "Emcomm", Component: EmcommTile },
+  wsjtx: { title: "WSJT-X", Component: WsjtxTile },
   sdrScope: { title: "Band scope", Component: SdrScopeTile },
   sdrDecodes: { title: "Decodes", Component: SdrDecodesTile },
   recentContacts: {

@@ -513,7 +513,7 @@ export const useHamClockDisplayStore = create<HamClockDisplayState>()(
     }),
     {
       name: "propulse-hamclock-display",
-      version: 6,
+      version: 7,
       storage: createJSONStorage(() => sessionStorage),
       migrate: (persisted: unknown, version: number) => {
         const state = (persisted ?? {}) as Record<string, unknown>;
@@ -553,6 +553,9 @@ export const useHamClockDisplayStore = create<HamClockDisplayState>()(
             state.railLayout, "right", "spots",
             ["bestBand", "greyLine", "muf", "reliability", "emcomm"],
           );
+        }
+        if (version < 7) {
+          state.railLayout = adoptShippedRailPage(state.railLayout, "left", "sdr", ["sdrScope", "sdrDecodes"]);
         }
         return state as unknown as HamClockDisplayState;
       },

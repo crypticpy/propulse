@@ -16,3 +16,19 @@
 @media(prefers-reduced-motion:reduce){.home-dashboard *{animation:none!important;transition:none!important;scroll-behavior:auto!important}}
 
 [role="dialog"]:has(.home-location-dialog) :is(h2,p){color:var(--su-text)}
+[role="dialog"]:has(.home-solar-dialog,.home-weather-dialog,.home-daylight-dialog) :is(h2,p){color:var(--su-text)}
+
+/* DS-11: the three Home context cards (Solar/Weather/Daylight) trade their inline detail for an
+ * eyebrow + hero + one sub line + a Details dialog holding what used to run inline. These trims
+ * are scoped to .home-context-grid only, keeping every other .home-panel's spacing untouched, and
+ * keep each card at or under ~260px tall at a 1920px-wide viewport (3-column desktop layout). */
+.home-context-grid>.home-panel{padding:1rem}
+.home-context-grid .home-card-sub{margin:.35rem 0;font-size:.875rem;line-height:1.5;color:var(--su-muted)}
+.home-context-grid .home-actions{margin-top:.35rem}
+.home-context-grid .home-solar-instruments{margin:.5rem 0}
+.home-context-grid .home-weather-reading{margin:.35rem 0}
+.home-context-grid .home-weather-reading strong{font-size:1.75rem}
+.home-context-grid .home-weather-reading p{margin:0}
+.home-context-grid .home-weather-wind{margin:.3rem 0}
+.home-context-grid .home-weather-icon{font-size:2.5rem;line-height:1}
+@media(min-width:1101px){.home-context-grid .home-daylight svg{height:5.5rem;margin:.5rem 0}}

@@ -16,7 +16,12 @@ import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join, relative, extname } from "node:path";
 
 /** Directories (repo-relative) that must be free of raw white/grey colours. */
-const SCOPE = ["src/components/station-ui"];
+const SCOPE = [
+  "src/components/station-ui",
+  "src/components/home",
+  "src/pages/Home.tsx",
+  "src/styles/home.css",
+];
 
 const CODE_EXTENSIONS = new Set([".ts", ".tsx", ".js", ".jsx"]);
 const STYLE_EXTENSIONS = new Set([".css"]);

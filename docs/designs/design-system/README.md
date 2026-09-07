@@ -95,11 +95,12 @@ Steps for a file: swap the classes, delete any local `--*` colour variable it de
 
 ### Migrated scope
 
-| Area            | Path                        | Migrated by        |
-| --------------- | --------------------------- | ------------------ |
-| Station library | `src/components/station-ui` | DS-02 (foundation) |
+| Area            | Path                                                                 | Migrated by         |
+| --------------- | --------------------------------------------------------------------- | ------------------ |
+| Station library | `src/components/station-ui`                                          | DS-02 (foundation) |
+| Home            | `src/components/home`, `src/pages/Home.tsx`, `src/styles/home.css`   | DS-06               |
 
-Not yet migrated: Solar Pulse (DS-03/04/05), Home (DS-06/07/08/11), PropSphere and the global Tailwind colours (DS-09), everything else (DS-12 widens the guard to all of `src/`).
+Not yet migrated: Solar Pulse (DS-03/04/05), Home's `src/components/dashboard` card library — still bridged by a `// design-tokens: allow` override in `src/styles/home.css` until it is migrated (DS-07/08/11), PropSphere and the global Tailwind colours (DS-09), everything else (DS-12 widens the guard to all of `src/`).
 
 ## HamClock stays separate
 

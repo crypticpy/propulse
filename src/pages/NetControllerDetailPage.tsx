@@ -189,8 +189,8 @@ export function NetControllerDetailPage() {
   // ── Shared panel class ───────────────────────────────────────────────
 
   const panelClass = isMobile
-    ? "bg-panel/30 backdrop-blur-sm border border-white/5 rounded-2xl p-4"
-    : "bg-panel/30 backdrop-blur-sm border border-white/5 rounded-2xl p-6";
+    ? "bg-panel/30 backdrop-blur-sm border border-su-line/20 rounded-2xl p-4"
+    : "bg-panel/30 backdrop-blur-sm border border-su-line/20 rounded-2xl p-6";
 
   // ── Loading state ────────────────────────────────────────────────────
 
@@ -208,7 +208,7 @@ export function NetControllerDetailPage() {
     return (
       <div className="flex flex-col items-center justify-center min-h-[50vh] text-center px-4">
         <svg
-          className="w-12 h-12 text-gray-600 mb-4"
+          className="w-12 h-12 text-su-muted mb-4"
           fill="none"
           stroke="currentColor"
           viewBox="0 0 24 24"
@@ -220,8 +220,8 @@ export function NetControllerDetailPage() {
             d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
           />
         </svg>
-        <p className="text-gray-400 text-sm mb-2">Net not found</p>
-        <p className="text-gray-500 text-xs mb-4">
+        <p className="text-su-muted text-sm mb-2">Net not found</p>
+        <p className="text-su-muted text-xs mb-4">
           This net may have been removed or the link is incorrect.
         </p>
         <Link
@@ -244,7 +244,7 @@ export function NetControllerDetailPage() {
     return (
       <div className="flex flex-col items-center justify-center min-h-[50vh] text-center px-4">
         <svg
-          className="w-12 h-12 text-gray-600 mb-4"
+          className="w-12 h-12 text-su-muted mb-4"
           fill="none"
           stroke="currentColor"
           viewBox="0 0 24 24"
@@ -256,8 +256,8 @@ export function NetControllerDetailPage() {
             d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"
           />
         </svg>
-        <p className="text-gray-400 text-sm mb-2">Not Authorized</p>
-        <p className="text-gray-500 text-xs mb-4">
+        <p className="text-su-muted text-sm mb-2">Not Authorized</p>
+        <p className="text-su-muted text-xs mb-4">
           You must be a manager of this net to access the controller dashboard.
         </p>
         <Link
@@ -304,10 +304,10 @@ export function NetControllerDetailPage() {
           <FormalityBadge level={net.formalityLevel} size="md" />
         )}
       </div>
-      <h1 className="text-lg font-bold text-white">{net.name}</h1>
+      <h1 className="text-lg font-bold text-su-text">{net.name}</h1>
       <Link
         to={`/nets/${netId}`}
-        className="inline-flex items-center gap-1.5 text-xs text-gray-400 hover:text-plasma-orange transition-colors mt-1"
+        className="inline-flex items-center gap-1.5 text-xs text-su-muted hover:text-plasma-orange transition-colors mt-1"
       >
         <svg
           className="w-3 h-3"
@@ -334,7 +334,7 @@ export function NetControllerDetailPage() {
       <button
         type="button"
         onClick={() => navigate(`/ncs/${netId}/live`)}
-        className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium bg-plasma-orange text-white hover:bg-plasma-orange/90 transition-all justify-center flex-1"
+        className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium bg-plasma-orange text-su-on-accent hover:bg-plasma-orange/90 transition-all justify-center flex-1"
       >
         <svg
           className="w-4 h-4"
@@ -354,7 +354,7 @@ export function NetControllerDetailPage() {
       <button
         type="button"
         onClick={() => navigate(`/ncs/${netId}/analytics`)}
-        className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium bg-white/5 text-gray-200 border border-white/10 hover:bg-white/10 transition-all justify-center flex-1"
+        className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium bg-su-line/10 text-su-text border border-su-line/40 hover:bg-su-line/20 transition-all justify-center flex-1"
       >
         <svg
           className="w-4 h-4"
@@ -396,7 +396,7 @@ export function NetControllerDetailPage() {
 
       {/* Session History with ADIF export */}
       <div className={panelClass}>
-        <h3 className="text-[10px] uppercase tracking-widest text-gray-500 mb-3">
+        <h3 className="text-[10px] uppercase tracking-widest text-su-muted mb-3">
           Session History
         </h3>
         <NetSessionHistory

@@ -93,7 +93,7 @@ export function Header({
                 <h1 className="font-orbitron text-lg md:text-xl font-black text-gradient-orange tracking-wider">
                   PROPULSE
                 </h1>
-                <p className="text-[10px] text-gray-500 uppercase tracking-wider -mt-1">
+                <p className="text-[10px] text-su-muted uppercase tracking-wider -mt-1">
                   The ionosphere, visualized
                 </p>
               </div>
@@ -116,7 +116,7 @@ export function Header({
                       ${
                         isActive
                           ? "bg-plasma-orange/20 text-plasma-orange"
-                          : "text-gray-400 hover:text-gray-200 hover:bg-white/5"
+                          : "text-su-muted hover:text-su-text hover:bg-su-line/10"
                       }
                     `}
                   >
@@ -134,7 +134,7 @@ export function Header({
                     ${
                       isToolActive
                         ? "bg-plasma-orange/20 text-plasma-orange"
-                        : "text-gray-400 hover:text-gray-200 hover:bg-white/5"
+                        : "text-su-muted hover:text-su-text hover:bg-su-line/10"
                     }
                   `}
                 >
@@ -157,7 +157,7 @@ export function Header({
 
                 {/* Dropdown menu - shows on hover */}
                 <div className="invisible group-hover:visible group-focus-within:visible opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-all duration-150 absolute top-full right-0 pt-1 z-[200]">
-                  <div className="py-1 w-44 bg-deep-space border border-white/20 rounded-lg shadow-2xl">
+                  <div className="py-1 w-44 bg-deep-space border border-su-line/50 rounded-lg shadow-2xl">
                     {toolsItems.map((item) => {
                       const isActive = location.pathname === item.path;
                       return (
@@ -169,7 +169,7 @@ export function Header({
                             ${
                               isActive
                                 ? "bg-plasma-orange/20 text-plasma-orange"
-                                : "text-gray-300 hover:text-white hover:bg-white/10"
+                                : "text-su-muted hover:text-su-text hover:bg-su-line/20"
                             }
                           `}
                         >
@@ -197,7 +197,7 @@ export function Header({
                       ${
                         isActive
                           ? "bg-plasma-orange/20 text-plasma-orange"
-                          : "text-gray-400 hover:text-gray-200 hover:bg-white/5"
+                          : "text-su-muted hover:text-su-text hover:bg-su-line/10"
                       }
                     `}
                   >
@@ -217,7 +217,7 @@ export function Header({
               </div>
 
               {/* Global status and account controls stay in the same place on every route. */}
-              {publicView ? <Link to="/profile" className="text-sm text-slate-300 px-3 py-3">Sign in</Link> : <div className="flex shrink-0 items-center gap-1">
+              {publicView ? <Link to="/profile" className="text-sm text-su-text px-3 py-3">Sign in</Link> : <div className="flex shrink-0 items-center gap-1">
                 {/* Alert Indicator */}
                 {alertCount > 0 && (
                   <button
@@ -255,8 +255,8 @@ export function Header({
                         text-[10px] font-bold rounded-full
                         ${
                           criticalAlertCount > 0
-                            ? "bg-alert-red text-white"
-                            : "bg-caution-amber text-black"
+                            ? "bg-alert-red text-su-canvas"
+                            : "bg-caution-amber text-su-canvas"
                         }
                       `}
                     >
@@ -277,7 +277,7 @@ export function Header({
                   className={`p-2 rounded-lg transition-colors ${
                     location.pathname === "/shack"
                       ? "text-plasma-orange bg-plasma-orange/10"
-                      : "text-gray-400 hover:text-gray-200 hover:bg-white/5"
+                      : "text-su-muted hover:text-su-text hover:bg-su-line/10"
                   }`}
                   aria-label="My Shack"
                 >
@@ -301,7 +301,7 @@ export function Header({
                   className={`p-2 rounded-lg transition-colors ${
                     location.pathname.startsWith("/help")
                       ? "text-plasma-orange bg-plasma-orange/10"
-                      : "text-gray-400 hover:text-gray-200 hover:bg-white/5"
+                      : "text-su-muted hover:text-su-text hover:bg-su-line/10"
                   }`}
                   aria-label="Help & Documentation"
                 >
@@ -325,7 +325,7 @@ export function Header({
                   className={`p-2 rounded-lg transition-colors ${
                     location.pathname.startsWith("/settings")
                       ? "text-plasma-orange bg-plasma-orange/10"
-                      : "text-gray-400 hover:text-gray-200 hover:bg-white/5"
+                      : "text-su-muted hover:text-su-text hover:bg-su-line/10"
                   }`}
                   aria-label="Settings"
                   data-tour="settings-button"
@@ -393,7 +393,7 @@ function AuthHeaderButton() {
         className={`p-2 rounded-lg transition-colors ${
           location.pathname === "/profile"
             ? "text-plasma-orange bg-plasma-orange/10"
-            : "text-gray-400 hover:text-gray-200 hover:bg-white/5"
+            : "text-su-muted hover:text-su-text hover:bg-su-line/10"
         }`}
         aria-label="Operator Profile"
       >
@@ -419,7 +419,7 @@ function AuthHeaderButton() {
     return (
       <button
         onClick={() => openAuthModal()}
-        className="text-sm text-gray-400 px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 hover:bg-white/10 hover:text-gray-200 transition-colors"
+        className="text-sm text-su-muted px-3 py-1.5 rounded-lg bg-su-line/10 border border-su-line/40 hover:bg-su-line/20 hover:text-su-text transition-colors"
       >
         Sign In
       </button>

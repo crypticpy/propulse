@@ -4,7 +4,7 @@ import { Header } from "./Header";
 
 /** Public Home intentionally mounts no personal shell, hardware, or log services. */
 export function PublicHomeLayout() {
-  return <div className="min-h-screen bg-cosmic-gradient text-slate-300" data-public-home-shell>
+  return <div className="min-h-screen bg-cosmic-gradient text-su-text" data-public-home-shell>
     <div className="fixed inset-0 bg-stars opacity-40 pointer-events-none" />
     <div className="fixed inset-0 bg-glow-orange pointer-events-none" />
     <div className="relative z-10"><Header publicView />

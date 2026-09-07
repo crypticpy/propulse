@@ -223,7 +223,7 @@ export const AlertBanner: React.FC<AlertBannerProps> = ({
           <div className="flex-1 min-w-0">
             {/* Header row with title and priority badge */}
             <div className="flex items-center gap-2 flex-wrap">
-              <h4 className="text-sm font-mono font-semibold text-white truncate">
+              <h4 className="text-sm font-mono font-semibold text-su-text truncate">
                 {primaryAlert.title}
               </h4>
               <span
@@ -238,12 +238,12 @@ export const AlertBanner: React.FC<AlertBannerProps> = ({
             </div>
 
             {/* Alert message */}
-            <p className="text-sm text-gray-300 mt-1 leading-relaxed truncate sm:whitespace-normal sm:line-clamp-2">
+            <p className="text-sm text-su-muted mt-1 leading-relaxed truncate sm:whitespace-normal sm:line-clamp-2">
               {primaryAlert.message}
             </p>
 
             {/* Timestamp */}
-            <p className="text-xs text-gray-500 mt-1 font-mono">
+            <p className="text-xs text-su-muted mt-1 font-mono">
               {formatTimeAgo(primaryAlert.triggeredAt)}
             </p>
           </div>
@@ -277,10 +277,10 @@ export const AlertBanner: React.FC<AlertBannerProps> = ({
             onKeyDown={handleDismissKeyDown}
             className={`
               flex-shrink-0 p-1.5 rounded-lg
-              text-gray-500 hover:text-white
-              hover:bg-white/10
+              text-su-muted hover:text-su-text
+              hover:bg-su-line/20
               transition-colors duration-200
-              focus:outline-none focus:ring-2 focus:ring-white/20
+              focus:outline-none focus:ring-2 focus:ring-su-line/50
             `}
             aria-label="Dismiss alert"
           >
@@ -296,7 +296,7 @@ export const AlertBanner: React.FC<AlertBannerProps> = ({
             className={`
               sm:hidden
               mt-3 pt-3 w-full
-              border-t border-white/10
+              border-t border-su-line/40
               text-sm font-mono text-center
               text-cosmic-cyan hover:text-cosmic-cyan/80
               hover:underline

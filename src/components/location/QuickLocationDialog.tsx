@@ -103,9 +103,9 @@ export function QuickLocationDialog({ onClose }: QuickLocationDialogProps) {
             </div>
           )}
 
-          <div className="rounded-lg border border-white/10 bg-white/[0.03] px-3 py-2 text-xs text-gray-400">
-            <span className="text-gray-500">Home remains </span>
-            <span className="font-mono text-gray-200">{homeLocation.grid}</span>
+          <div className="rounded-lg border border-su-line/40 bg-su-line/10 px-3 py-2 text-xs text-su-muted">
+            <span className="text-su-muted">Home remains </span>
+            <span className="font-mono text-su-text">{homeLocation.grid}</span>
             {isTemporaryActive && activeLocation && (
               <span className="ml-2 text-caution-amber">
                 · currently using {activeLocation.grid}
@@ -126,7 +126,7 @@ export function QuickLocationDialog({ onClose }: QuickLocationDialogProps) {
             <button
               type="button"
               onClick={onClose}
-              className="min-h-11 rounded-lg border border-white/10 bg-white/5 px-4 py-2 text-sm font-medium text-gray-300 transition-colors hover:bg-white/10 hover:text-white"
+              className="min-h-11 rounded-lg border border-su-line/40 bg-su-line/10 px-4 py-2 text-sm font-medium text-su-muted transition-colors hover:bg-su-line/20 hover:text-su-text"
             >
               Cancel
             </button>

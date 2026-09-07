@@ -75,15 +75,15 @@ export function AwardsPage() {
     <div className="min-h-screen p-4 md:p-6 max-w-7xl mx-auto">
       {/* Header */}
       <div className="mb-6">
-        <h1 className="text-2xl font-bold text-white">Award Tracking</h1>
-        <p className="text-gray-400 text-sm mt-1">
+        <h1 className="text-2xl font-bold text-su-text">Award Tracking</h1>
+        <p className="text-su-muted text-sm mt-1">
           Track your progress toward DXCC, WAS, and WAZ awards
         </p>
       </div>
 
       {/* Tab Navigation */}
       <div
-        className="flex border-b border-gray-800 mb-6"
+        className="flex border-b border-su-line/40 mb-6"
         role="tablist"
         aria-label="Award categories"
       >
@@ -121,7 +121,7 @@ export function AwardsPage() {
                 ${
                   isActive
                     ? "text-plasma-orange"
-                    : "text-gray-400 hover:text-gray-200"
+                    : "text-su-muted hover:text-su-text"
                 }
               `}
             >
@@ -132,7 +132,7 @@ export function AwardsPage() {
                     className={`text-xs px-1.5 py-0.5 rounded-full ${
                       isActive
                         ? "bg-plasma-orange/20 text-plasma-orange"
-                        : "bg-gray-800 text-gray-500"
+                        : "bg-su-panel text-su-muted"
                     }`}
                   >
                     {badgeText}
@@ -148,7 +148,7 @@ export function AwardsPage() {
       </div>
 
       {/* Tab description */}
-      <p className="text-gray-500 text-sm mb-4">
+      <p className="text-su-muted text-sm mb-4">
         {TABS.find((t) => t.id === activeTab)?.description}
       </p>
 
@@ -158,7 +158,7 @@ export function AwardsPage() {
       {/* Loading state */}
       {isLoading && (
         <div className="flex items-center justify-center py-16">
-          <div className="text-gray-400 text-sm">
+          <div className="text-su-muted text-sm">
             Loading logbook entries...
           </div>
         </div>
@@ -167,7 +167,7 @@ export function AwardsPage() {
       {/* Empty state */}
       {!isLoading && !progress && (
         <div className="flex flex-col items-center justify-center py-16 text-center">
-          <div className="text-4xl mb-3 text-gray-600">
+          <div className="text-4xl mb-3 text-su-muted">
             <svg
               width="48"
               height="48"
@@ -180,10 +180,10 @@ export function AwardsPage() {
               <path d="M12 15l-2 5l9-11h-5l2-5l-9 11h5z" />
             </svg>
           </div>
-          <h2 className="text-lg font-semibold text-gray-300 mb-1">
+          <h2 className="text-lg font-semibold text-su-muted mb-1">
             No QSOs logged yet
           </h2>
-          <p className="text-gray-500 text-sm max-w-md">
+          <p className="text-su-muted text-sm max-w-md">
             Log your first contacts in the Logbook to start tracking your
             progress toward DXCC, WAS, and WAZ awards.
           </p>

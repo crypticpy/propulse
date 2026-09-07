@@ -70,7 +70,7 @@ export function DXWizard() {
                 tooltip="Learn more about DX Wizard"
               />
             </div>
-            <p className="text-gray-400 text-sm">
+            <p className="text-su-muted text-sm">
               Path advice for a target: best band and power now, short/long path,
               and the next opening window.
             </p>
@@ -81,7 +81,7 @@ export function DXWizard() {
               onRefresh={session.refetchWizardData}
               isRefetching={session.wizardIsRefetching}
             />
-            <div className="text-right text-xs text-gray-500">
+            <div className="text-right text-xs text-su-muted">
               <div className="font-mono">
                 Kp={session.currentKp} SFI={session.currentSfi}
               </div>
@@ -96,8 +96,8 @@ export function DXWizard() {
 
         {!station && (
           <Card className="p-5" variant="alert">
-            <div className="text-white font-semibold mb-1">Station not set</div>
-            <div className="text-sm text-gray-200">
+            <div className="text-su-text font-semibold mb-1">Station not set</div>
+            <div className="text-sm text-su-text">
               Set your callsign and grid square in Settings to enable path
               calculations.
             </div>
@@ -113,10 +113,10 @@ export function DXWizard() {
           <div className="space-y-4">
             {!station || !target ? (
               <Card className="p-5">
-                <h3 className="text-sm font-semibold text-white mb-3">
+                <h3 className="text-sm font-semibold text-su-text mb-3">
                   Recommendations
                 </h3>
-                <div className="text-sm text-gray-400">
+                <div className="text-sm text-su-muted">
                   {station
                     ? "Resolve a target to generate recommendations."
                     : "Set your station QTH in Settings to generate recommendations."}
@@ -150,13 +150,13 @@ export function DXWizard() {
                   <Card className="p-5">
                     <div className="flex items-start justify-between gap-3">
                       <div>
-                        <h3 className="text-sm font-semibold text-white mb-1">
+                        <h3 className="text-sm font-semibold text-su-text mb-1">
                           Next best window
                         </h3>
-                        <div className="text-sm text-gray-200">
+                        <div className="text-sm text-su-text">
                           {nextWindow.label}
                         </div>
-                        <div className="text-[10px] text-gray-500 font-mono mt-1">
+                        <div className="text-[10px] text-su-muted font-mono mt-1">
                           Peak SNR ≈ {nextWindow.window.peakSnr} dB ·{" "}
                           {String(nextWindow.window.peakHour).padStart(2, "0")}
                           :00Z
@@ -186,8 +186,8 @@ export function DXWizard() {
             )}
 
             <Card className="p-5">
-              <div className="text-xs text-gray-400">Notes</div>
-              <div className="text-sm text-gray-300 mt-1">
+              <div className="text-xs text-su-muted">Notes</div>
+              <div className="text-sm text-su-muted mt-1">
                 Recommendations are estimates based on current solar indices and
                 the path model. Long-path mode uses LP distance for antenna gain
                 and mode classification; endpoint physics still targets the same
@@ -217,8 +217,8 @@ function TargetCard({
   return (
     <Card className="p-5">
       <div className="flex items-center justify-between mb-3">
-        <h3 className="text-sm font-semibold text-white">1) Target Station</h3>
-        <span className="text-[10px] text-gray-400 inline-flex items-center gap-1">
+        <h3 className="text-sm font-semibold text-su-text">1) Target Station</h3>
+        <span className="text-[10px] text-su-muted inline-flex items-center gap-1">
           grid / coordinates / location
           <InfoTip content={GEOGRAPHY_TOOLTIPS.maidenheadGrid} />
         </span>
@@ -236,8 +236,8 @@ function TargetCard({
               }
             }}
             placeholder='e.g., "FN31pr", "Tokyo, Japan", or "40.7128, -74.0060"'
-            className="flex-1 px-3 py-2 bg-deep-space/70 border border-white/10 rounded-lg
-                       text-white placeholder-gray-500
+            className="flex-1 px-3 py-2 bg-deep-space/70 border border-su-line/40 rounded-lg
+                       text-su-text placeholder:text-su-muted/80
                        focus:outline-none focus:border-plasma-orange/50"
           />
           <button
@@ -262,7 +262,7 @@ function TargetCard({
               onClick={() =>
                 session.setShowRecentDropdown(!session.showRecentDropdown)
               }
-              className="text-xs text-gray-400 hover:text-white transition-colors flex items-center gap-1"
+              className="text-xs text-su-muted hover:text-su-text transition-colors flex items-center gap-1"
             >
               Recent PropSphere targets ({session.recentTargets.length})
               <svg
@@ -280,7 +280,7 @@ function TargetCard({
               </svg>
             </button>
             {session.showRecentDropdown && (
-              <div className="absolute left-0 top-full mt-1 z-20 w-72 max-h-56 overflow-y-auto rounded-lg border border-white/10 bg-deep-space/95 backdrop-blur-md shadow-lg">
+              <div className="absolute left-0 top-full mt-1 z-20 w-72 max-h-56 overflow-y-auto rounded-lg border border-su-line/40 bg-deep-space/95 backdrop-blur-md shadow-lg">
                 {session.recentTargets.map((rt, i) => {
                   const grid =
                     rt.grid ??
@@ -289,13 +289,13 @@ function TargetCard({
                     <button
                       key={`${rt.lat}-${rt.lon}-${i}`}
                       type="button"
-                      className="w-full text-left px-3 py-2 hover:bg-white/10 transition-colors border-b border-white/5 last:border-0"
+                      className="w-full text-left px-3 py-2 hover:bg-su-line/20 transition-colors border-b border-su-line/20 last:border-0"
                       onClick={() => session.selectRecentTarget(rt)}
                     >
-                      <div className="text-sm text-white font-medium truncate">
+                      <div className="text-sm text-su-text font-medium truncate">
                         {rt.name ?? grid}
                       </div>
-                      <div className="text-[10px] text-gray-400 font-mono">
+                      <div className="text-[10px] text-su-muted font-mono">
                         {rt.grid ?? grid} ({rt.lat.toFixed(2)},{" "}
                         {rt.lon.toFixed(2)})
                       </div>
@@ -307,8 +307,8 @@ function TargetCard({
           </div>
         )}
 
-        <div className="pt-2 border-t border-white/10">
-          <div className="text-xs text-gray-400 mb-2">
+        <div className="pt-2 border-t border-su-line/40">
+          <div className="text-xs text-su-muted mb-2">
             Callsign lookup (Callook → HamQTH → QRZ when unlocked)
           </div>
           <div className="flex flex-col sm:flex-row gap-2">
@@ -322,16 +322,16 @@ function TargetCard({
                 }
               }}
               placeholder="e.g., W1AW or JA1ABC"
-              className="flex-1 px-3 py-2 bg-deep-space/70 border border-white/10 rounded-lg
-                         text-white placeholder-gray-500 font-mono
+              className="flex-1 px-3 py-2 bg-deep-space/70 border border-su-line/40 rounded-lg
+                         text-su-text placeholder:text-su-muted/80 font-mono
                          focus:outline-none focus:border-plasma-orange/50"
             />
             <button
               type="button"
               onClick={() => void session.handleLookupCallsign()}
               disabled={session.callsignLoading}
-              className="w-full sm:w-auto px-4 py-2 bg-white/5 border border-white/10 rounded-lg
-                         text-gray-200 hover:bg-white/10 transition-colors font-medium
+              className="w-full sm:w-auto px-4 py-2 bg-su-line/10 border border-su-line/40 rounded-lg
+                         text-su-text hover:bg-su-line/20 transition-colors font-medium
                          disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {session.callsignLoading ? "Looking…" : "Lookup"}
@@ -345,19 +345,19 @@ function TargetCard({
         </div>
 
         {session.target && (
-          <div className="mt-3 p-3 rounded-xl bg-white/5 border border-white/10">
-            <div className="text-xs text-gray-400">Resolved target</div>
-            <div className="text-white font-semibold truncate">
+          <div className="mt-3 p-3 rounded-xl bg-su-line/10 border border-su-line/40">
+            <div className="text-xs text-su-muted">Resolved target</div>
+            <div className="text-su-text font-semibold truncate">
               {session.target.label}
             </div>
-            <div className="text-xs text-gray-300 font-mono mt-1 inline-flex items-center gap-1">
+            <div className="text-xs text-su-muted font-mono mt-1 inline-flex items-center gap-1">
               {session.target.grid} • {session.target.lat.toFixed(3)}°,{" "}
               {session.target.lon.toFixed(3)}°
               <InfoTip content={GEOGRAPHY_TOOLTIPS.maidenheadGrid} />
             </div>
             {session.target.lookupSources &&
               session.target.lookupSources.length > 0 && (
-                <div className="text-[10px] text-gray-500 mt-1">
+                <div className="text-[10px] text-su-muted mt-1">
                   via {session.target.lookupSources.join(" + ")}
                 </div>
               )}
@@ -376,9 +376,9 @@ function OperatorCard({
   return (
     <Card className="p-5">
       <div className="flex items-center justify-between mb-3">
-        <h3 className="text-sm font-semibold text-white">2) Operator Profile</h3>
+        <h3 className="text-sm font-semibold text-su-text">2) Operator Profile</h3>
         {session.station && (
-          <div className="text-[10px] text-gray-400 font-mono inline-flex items-center gap-1">
+          <div className="text-[10px] text-su-muted font-mono inline-flex items-center gap-1">
             {session.station.callsign} • {session.station.grid}
             <InfoTip content={GEOGRAPHY_TOOLTIPS.maidenheadGrid} />
           </div>
@@ -387,8 +387,8 @@ function OperatorCard({
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
         <div className="md:col-span-2">
-          <label className="block text-xs text-gray-300 mb-1">Mode</label>
-          <div className="flex flex-wrap gap-1 p-1 bg-white/5 rounded-lg">
+          <label className="block text-xs text-su-muted mb-1">Mode</label>
+          <div className="flex flex-wrap gap-1 p-1 bg-su-line/10 rounded-lg">
             {session.modes.map((m) => (
               <button
                 key={m}
@@ -396,8 +396,8 @@ function OperatorCard({
                 onClick={() => session.setMode(m)}
                 className={`flex-1 min-w-[3.5rem] px-2 py-2 rounded-md text-xs font-semibold transition-colors ${
                   session.mode === m
-                    ? "bg-plasma-orange text-white"
-                    : "text-gray-300 hover:text-white hover:bg-white/5"
+                    ? "bg-plasma-orange text-su-on-accent"
+                    : "text-su-muted hover:text-su-text hover:bg-su-line/10"
                 }`}
               >
                 {m}
@@ -407,7 +407,7 @@ function OperatorCard({
         </div>
 
         <div>
-          <label className="block text-xs text-gray-300 mb-1">
+          <label className="block text-xs text-su-muted mb-1">
             License Class
           </label>
           <select
@@ -415,8 +415,8 @@ function OperatorCard({
             onChange={(e) =>
               session.setLicenseClass(e.target.value as LicenseClass)
             }
-            className="w-full px-3 py-2 bg-deep-space/70 border border-white/10 rounded-lg
-                       text-white text-sm focus:outline-none focus:border-plasma-orange/50"
+            className="w-full px-3 py-2 bg-deep-space/70 border border-su-line/40 rounded-lg
+                       text-su-text text-sm focus:outline-none focus:border-plasma-orange/50"
           >
             {(
               [
@@ -435,14 +435,14 @@ function OperatorCard({
         </div>
 
         <div>
-          <label className="block text-xs text-gray-300 mb-1">ITU Region</label>
+          <label className="block text-xs text-su-muted mb-1">ITU Region</label>
           <select
             value={session.ituRegion}
             onChange={(e) =>
               session.setItuRegion(e.target.value as ITURegion)
             }
-            className="w-full px-3 py-2 bg-deep-space/70 border border-white/10 rounded-lg
-                       text-white text-sm focus:outline-none focus:border-plasma-orange/50"
+            className="w-full px-3 py-2 bg-deep-space/70 border border-su-line/40 rounded-lg
+                       text-su-text text-sm focus:outline-none focus:border-plasma-orange/50"
           >
             {(["ITU1", "ITU2", "ITU3"] as const).map((r) => (
               <option key={r} value={r}>
@@ -453,14 +453,14 @@ function OperatorCard({
         </div>
 
         <div className="md:col-span-2">
-          <label className="block text-xs text-gray-300 mb-1">
+          <label className="block text-xs text-su-muted mb-1">
             Radio Profile
           </label>
           <button
             type="button"
             onClick={() => session.setShowRadioPicker(true)}
-            className="w-full px-3 py-2 bg-deep-space/70 border border-white/10 rounded-lg
-                       text-left text-white text-sm hover:border-white/20
+            className="w-full px-3 py-2 bg-deep-space/70 border border-su-line/40 rounded-lg
+                       text-left text-su-text text-sm hover:border-su-line/50
                        focus:outline-none focus:border-plasma-orange/50 transition-colors"
           >
             {session.selectedRadio
@@ -472,11 +472,11 @@ function OperatorCard({
                 )
               : "Select a radio…"}
             {session.selectedRadioId === null && (
-              <span className="ml-2 text-[10px] text-gray-400">(active)</span>
+              <span className="ml-2 text-[10px] text-su-muted">(active)</span>
             )}
           </button>
           {session.selectedRadio && (
-            <div className="text-[10px] text-gray-400 mt-1">
+            <div className="text-[10px] text-su-muted mt-1">
               Max power: {session.selectedRadio.maxPower}W • Modes:{" "}
               {session.selectedRadio.modes.slice(0, 4).join(", ")}
               {session.selectedRadio.modes.length > 4 ? "…" : ""}
@@ -485,7 +485,7 @@ function OperatorCard({
         </div>
 
         <div className="md:col-span-2">
-          <label className="block text-xs text-gray-300 mb-1">
+          <label className="block text-xs text-su-muted mb-1">
             TX power ceiling (watts)
           </label>
           <div className="flex items-center gap-3">
@@ -502,11 +502,11 @@ function OperatorCard({
               }
               className="flex-1"
             />
-            <div className="w-20 text-right font-mono text-sm text-white">
+            <div className="w-20 text-right font-mono text-sm text-su-text">
               {session.txPowerCeilingWatts}W
             </div>
           </div>
-          <div className="text-[10px] text-gray-500 mt-1">
+          <div className="text-[10px] text-su-muted mt-1">
             Ceiling is also capped by band plan limits for your license/mode.
           </div>
         </div>
@@ -527,14 +527,14 @@ function OptimizeAndStationCard({
     <Card className="p-4 space-y-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
-          <div className="text-xs font-semibold text-white">Optimize for</div>
-          <div className="text-[10px] text-gray-500">
+          <div className="text-xs font-semibold text-su-text">Optimize for</div>
+          <div className="text-[10px] text-su-muted">
             {contestActive
               ? "Contest weekend — Balance prefers quieter spectrum"
               : "Propagation ranking (contest re-rank when contests run)"}
           </div>
         </div>
-        <div className="flex gap-1 p-0.5 bg-white/5 rounded-lg">
+        <div className="flex gap-1 p-0.5 bg-su-line/10 rounded-lg">
           {(
             [
               ["propagation", "Propagation"],
@@ -548,8 +548,8 @@ function OptimizeAndStationCard({
               onClick={() => session.setOptimizeFor(id)}
               className={`px-2.5 py-1 rounded-md text-xs font-semibold ${
                 session.optimizeFor === id
-                  ? "bg-plasma-orange text-white"
-                  : "text-gray-400 hover:text-white"
+                  ? "bg-plasma-orange text-su-on-accent"
+                  : "text-su-muted hover:text-su-text"
               }`}
             >
               {label}
@@ -558,7 +558,7 @@ function OptimizeAndStationCard({
         </div>
       </div>
       {session.shackSummary && (
-        <div className="text-[10px] text-gray-400 font-mono">
+        <div className="text-[10px] text-su-muted font-mono">
           Station: {session.shackSummary.name}
           {session.shackSummary.erpWatts != null &&
             ` · ERP ≈ ${session.shackSummary.erpWatts}W`}
@@ -589,7 +589,7 @@ function ActionsCard({
         </ActionBtn>
         <Link
           to={session.bandPlannerHref}
-          className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-white/5 border border-white/10 text-gray-200 hover:bg-white/10"
+          className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-su-line/10 border border-su-line/40 text-su-text hover:bg-su-line/20"
         >
           Band Planner
         </Link>
@@ -614,7 +614,7 @@ function ActionBtn({
     <button
       type="button"
       onClick={onClick}
-      className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-white/5 border border-white/10 text-gray-200 hover:bg-white/10"
+      className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-su-line/10 border border-su-line/40 text-su-text hover:bg-su-line/20"
     >
       {children}
     </button>
@@ -638,8 +638,8 @@ function PathGeometryCard({
   return (
     <Card className="p-5">
       <div className="flex items-center justify-between mb-3">
-        <h3 className="text-sm font-semibold text-white">Path geometry</h3>
-        <div className="flex gap-1 p-0.5 bg-white/5 rounded-lg">
+        <h3 className="text-sm font-semibold text-su-text">Path geometry</h3>
+        <div className="flex gap-1 p-0.5 bg-su-line/10 rounded-lg">
           {(["short", "long"] as const).map((m) => (
             <button
               key={m}
@@ -647,8 +647,8 @@ function PathGeometryCard({
               onClick={() => onPathModeChange(m)}
               className={`px-3 py-1 rounded-md text-xs font-semibold transition-colors ${
                 pathMode === m
-                  ? "bg-plasma-orange text-white"
-                  : "text-gray-400 hover:text-white"
+                  ? "bg-plasma-orange text-su-on-accent"
+                  : "text-su-muted hover:text-su-text"
               }`}
             >
               {m === "short" ? "Short path" : "Long path"}
@@ -683,7 +683,7 @@ function PathGeometryCard({
         />
       </div>
       {prop?.operationalAdvice && (
-        <div className="mt-3 text-xs text-gray-400">{prop.operationalAdvice}</div>
+        <div className="mt-3 text-xs text-su-muted">{prop.operationalAdvice}</div>
       )}
     </Card>
   );
@@ -699,14 +699,14 @@ function Metric({
   sub?: string;
 }) {
   return (
-    <div className="bg-white/5 rounded-xl p-3">
-      <div className="text-[10px] text-gray-400 uppercase tracking-wide">
+    <div className="bg-su-line/10 rounded-xl p-3">
+      <div className="text-[10px] text-su-muted uppercase tracking-wide">
         {label}
       </div>
-      <div className="text-sm font-mono font-bold text-white mt-0.5 truncate">
+      <div className="text-sm font-mono font-bold text-su-text mt-0.5 truncate">
         {value}
       </div>
-      {sub && <div className="text-[10px] text-gray-500 mt-0.5">{sub}</div>}
+      {sub && <div className="text-[10px] text-su-muted mt-0.5">{sub}</div>}
     </div>
   );
 }
@@ -729,10 +729,10 @@ function ResultsCard({
   if (!recommendation) {
     return (
       <Card className="p-5">
-        <h3 className="text-sm font-semibold text-white mb-3">
+        <h3 className="text-sm font-semibold text-su-text mb-3">
           3) Recommendations
         </h3>
-        <div className="text-sm text-gray-400">
+        <div className="text-sm text-su-muted">
           Resolve a target and verify your constraints.
         </div>
       </Card>
@@ -742,13 +742,13 @@ function ResultsCard({
   if (recommendation.type === "none") {
     return (
       <Card className="p-5">
-        <h3 className="text-sm font-semibold text-white mb-3">
+        <h3 className="text-sm font-semibold text-su-text mb-3">
           3) Recommendations
         </h3>
         <div className="text-alert-red font-semibold">
           No viable band/mode options found
         </div>
-        <div className="text-sm text-gray-300 mt-1">
+        <div className="text-sm text-su-muted mt-1">
           Try FT8/FT4, reduce constraints, switch path mode, or wait for a
           better window below.
         </div>
@@ -763,7 +763,7 @@ function ResultsCard({
   return (
     <Card className="p-5 space-y-4">
       <div className="flex items-center justify-between gap-2">
-        <h3 className="text-sm font-semibold text-white">3) Recommendations</h3>
+        <h3 className="text-sm font-semibold text-su-text">3) Recommendations</h3>
         {realityCheck && (
           <span
             className={`text-[10px] font-semibold uppercase tracking-wide px-2 py-1 rounded-md border ${
@@ -772,7 +772,7 @@ function ResultsCard({
                 : realityCheck.label === "Surprise Open"
                   ? "text-plasma-orange border-plasma-orange/40 bg-plasma-orange/10"
                   : realityCheck.label === "Closed"
-                    ? "text-gray-400 border-white/10 bg-white/5"
+                    ? "text-su-muted border-su-line/40 bg-su-line/10"
                     : "text-caution-amber border-caution-amber/40 bg-caution-amber/10"
             }`}
           >
@@ -781,12 +781,12 @@ function ResultsCard({
         )}
       </div>
       {realityCheck && (
-        <div className="text-[10px] text-gray-500">{realityCheck.detail}</div>
+        <div className="text-[10px] text-su-muted">{realityCheck.detail}</div>
       )}
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-        <div className="bg-white/5 rounded-xl p-4">
-          <div className="text-[10px] text-gray-400 uppercase tracking-wide">
+        <div className="bg-su-line/10 rounded-xl p-4">
+          <div className="text-[10px] text-su-muted uppercase tracking-wide">
             Band
           </div>
           <div
@@ -794,36 +794,36 @@ function ResultsCard({
           >
             {best.band}
           </div>
-          <div className="text-[10px] text-gray-400 mt-1">{best.frequency}</div>
+          <div className="text-[10px] text-su-muted mt-1">{best.frequency}</div>
         </div>
-        <div className="bg-white/5 rounded-xl p-4">
-          <div className="text-[10px] text-gray-400 uppercase tracking-wide">
+        <div className="bg-su-line/10 rounded-xl p-4">
+          <div className="text-[10px] text-su-muted uppercase tracking-wide">
             Required TX Power
           </div>
           <div className="text-2xl font-mono font-bold text-plasma-orange">
             {best.requiredWatts}W
           </div>
-          <div className="text-[10px] text-gray-400 mt-1">
+          <div className="text-[10px] text-su-muted mt-1">
             Ceiling: {best.ceilingWatts}W{" "}
             {!best.withinCeiling && (
               <span className="text-alert-red">• exceeds</span>
             )}
           </div>
         </div>
-        <div className="bg-white/5 rounded-xl p-4">
-          <div className="text-[10px] text-gray-400 uppercase tracking-wide">
+        <div className="bg-su-line/10 rounded-xl p-4">
+          <div className="text-[10px] text-su-muted uppercase tracking-wide">
             Target Frequency
           </div>
-          <div className="text-lg font-mono font-bold text-white">
+          <div className="text-lg font-mono font-bold text-su-text">
             {formatKHz(best.freqsKHz[0])}
           </div>
-          <div className="text-[10px] text-gray-400 mt-1">Mode: {mode}</div>
+          <div className="text-[10px] text-su-muted mt-1">Mode: {mode}</div>
         </div>
       </div>
 
-      <div className="bg-white/5 rounded-xl p-4 border border-white/10">
-        <div className="text-xs text-gray-300">{best.notes}</div>
-        <div className="mt-2 text-[10px] text-gray-400 font-mono">
+      <div className="bg-su-line/10 rounded-xl p-4 border border-su-line/40">
+        <div className="text-xs text-su-muted">{best.notes}</div>
+        <div className="mt-2 text-[10px] text-su-muted font-mono">
           Est. SNR <InfoTip content={SIGNAL_TOOLTIPS.snr} /> @{txPowerWatts}W:{" "}
           {best.snrEstimate} dB
           {bestMarginDb !== null && (
@@ -846,7 +846,7 @@ function ResultsCard({
             </>
           )}
           {recommendation.antennaGainDbi !== 0 && (
-            <span className="text-gray-500 text-[10px] font-mono ml-1">
+            <span className="text-su-muted text-[10px] font-mono ml-1">
               • Ant: {recommendation.antennaGainDbi > 0 ? "+" : ""}
               {recommendation.antennaGainDbi.toFixed(1)} dBi
             </span>
@@ -855,17 +855,17 @@ function ResultsCard({
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-        <div className="bg-white/5 rounded-xl p-4">
-          <div className="text-xs font-semibold text-white mb-2">
+        <div className="bg-su-line/10 rounded-xl p-4">
+          <div className="text-xs font-semibold text-su-text mb-2">
             Alternate Frequencies
           </div>
-          <div className="space-y-1 text-sm text-gray-200 font-mono">
+          <div className="space-y-1 text-sm text-su-text font-mono">
             {best.freqsKHz.slice(0, 3).map((f) => (
               <div key={f}>{formatKHz(f)}</div>
             ))}
           </div>
           {best.legalMaxWatts !== null && (
-            <div className="mt-2 text-[10px] text-gray-400">
+            <div className="mt-2 text-[10px] text-su-muted">
               Band plan max: {best.legalMaxWatts}W
             </div>
           )}
@@ -876,17 +876,17 @@ function ResultsCard({
             </div>
           )}
         </div>
-        <div className="bg-white/5 rounded-xl p-4">
-          <div className="text-xs font-semibold text-white mb-2">
+        <div className="bg-su-line/10 rounded-xl p-4">
+          <div className="text-xs font-semibold text-su-text mb-2">
             DX Tips ({mode})
           </div>
-          <div className="space-y-1 text-sm text-gray-200">
+          <div className="space-y-1 text-sm text-su-text">
             {tips.map((t) => (
               <div key={t.label} className="flex gap-2">
-                <span className="text-gray-300 font-semibold w-28">
+                <span className="text-su-muted font-semibold w-28">
                   {t.label}
                 </span>
-                <span className="text-gray-200">{t.value}</span>
+                <span className="text-su-text">{t.value}</span>
               </div>
             ))}
           </div>
@@ -895,14 +895,14 @@ function ResultsCard({
 
       {recommendation.contestAlternatives &&
         recommendation.contestAlternatives.length > 0 && (
-          <div className="bg-white/5 rounded-xl p-4 border border-white/10">
-            <div className="text-xs font-semibold text-white mb-2">
+          <div className="bg-su-line/10 rounded-xl p-4 border border-su-line/40">
+            <div className="text-xs font-semibold text-su-text mb-2">
               Quieter alternatives
             </div>
-            <div className="space-y-1 text-xs text-gray-300">
+            <div className="space-y-1 text-xs text-su-muted">
               {recommendation.contestAlternatives.slice(0, 4).map((a) => (
                 <div key={a.band}>
-                  <span className="font-mono text-white">{a.band}</span> —{" "}
+                  <span className="font-mono text-su-text">{a.band}</span> —{" "}
                   {a.reason}
                 </div>
               ))}
@@ -949,7 +949,7 @@ function AllBandsList({
 
   return (
     <div className="space-y-2">
-      <div className="text-xs text-gray-400 uppercase tracking-wide">
+      <div className="text-xs text-su-muted uppercase tracking-wide">
         All bands
       </div>
       <div className="space-y-1 max-h-72 overflow-y-auto">
@@ -958,7 +958,7 @@ function AllBandsList({
           return (
             <div
               key={band.band}
-              className="flex items-center justify-between gap-2 px-3 py-2 rounded-lg bg-white/[0.03] border border-white/5"
+              className="flex items-center justify-between gap-2 px-3 py-2 rounded-lg bg-su-line/10 border border-su-line/20"
             >
               <div className="flex items-center gap-3 min-w-0">
                 <span
@@ -966,15 +966,15 @@ function AllBandsList({
                 >
                   {band.band}
                 </span>
-                <span className="text-xs text-gray-500 truncate">
+                <span className="text-xs text-su-muted truncate">
                   {band.frequency}
                 </span>
               </div>
               <div className="text-right shrink-0">
-                <div className="text-xs text-gray-300 capitalize">
+                <div className="text-xs text-su-muted capitalize">
                   {band.status}
                 </div>
-                <div className="text-[10px] text-gray-500 font-mono">
+                <div className="text-[10px] text-su-muted font-mono">
                   {band.snrEstimate} dB
                   {cand
                     ? ` · ${cand.requiredWatts}W${cand.withinCeiling ? "" : " !"}`

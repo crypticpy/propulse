@@ -20,11 +20,11 @@ export function LaunchWallSection({ scenes }: LaunchWallSectionProps) {
     useLaunchWall();
 
   return (
-    <section className="bg-deep-space/60 border border-white/10 rounded-xl p-4">
-      <h2 className="text-sm font-semibold text-gray-200 uppercase tracking-wider mb-2">
+    <section className="bg-deep-space/60 border border-su-line/40 rounded-xl p-4">
+      <h2 className="text-sm font-semibold text-su-text uppercase tracking-wider mb-2">
         Launch Wall
       </h2>
-      <p className="text-sm text-gray-400 mb-3 max-w-xl">
+      <p className="text-sm text-su-muted mb-3 max-w-xl">
         {supportsMultiScreen
           ? "Open a kiosk window on every connected monitor in one click — scenes are assigned around the wall in order. Your browser will ask for window-management permission the first time."
           : "Your browser can't place windows on specific monitors (Chromium-only feature). Launch opens one window per scene — drag each to a monitor and press F11."}
@@ -38,7 +38,7 @@ export function LaunchWallSection({ scenes }: LaunchWallSectionProps) {
           {launching ? "Launching…" : "⬛⬛ Launch Wall"}
         </button>
         {result && (
-          <span className="text-xs text-gray-400">
+          <span className="text-xs text-su-muted">
             {result.mode === "multi-screen"
               ? `${result.opened} of ${result.screenCount} monitors launched`
               : `${result.opened} windows opened`}

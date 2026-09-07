@@ -46,7 +46,7 @@ export function UpgradePrompt({
         type="button"
         onClick={handleUpgrade}
         title={`${feature} requires Pro. Click to upgrade.`}
-        className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-xs text-gray-500 hover:text-plasma-orange transition-colors"
+        className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-xs text-su-muted hover:text-plasma-orange transition-colors"
       >
         <LockIcon className="w-3 h-3" />
         <span className="font-medium text-plasma-orange/70">Pro</span>
@@ -55,7 +55,7 @@ export function UpgradePrompt({
   }
 
   return (
-    <div className="inline-flex items-center gap-2 text-xs text-gray-500">
+    <div className="inline-flex items-center gap-2 text-xs text-su-muted">
       <LockIcon />
       <span className="inline-flex items-center gap-1.5">
         <span className="px-1.5 py-0.5 rounded bg-plasma-orange/15 text-plasma-orange font-semibold text-[10px] uppercase tracking-wide">

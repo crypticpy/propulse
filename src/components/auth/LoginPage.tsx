@@ -135,13 +135,13 @@ function PasswordInput({
         disabled={disabled}
         autoFocus={autoFocus}
         maxLength={maxLength}
-        className="w-full bg-void-black/50 border border-white/10 rounded-lg px-3 py-2.5 pr-10 text-sm text-gray-200 placeholder-gray-600 focus:outline-none focus:border-plasma-orange/50 focus-visible:ring-2 focus-visible:ring-plasma-orange/50 disabled:opacity-50 transition-colors"
+        className="w-full bg-void-black/50 border border-su-line/40 rounded-lg px-3 py-2.5 pr-10 text-sm text-su-text placeholder:text-su-muted/80 focus:outline-none focus:border-plasma-orange/50 focus-visible:ring-2 focus-visible:ring-plasma-orange/50 disabled:opacity-50 transition-colors"
       />
       <button
         type="button"
         tabIndex={-1}
         onClick={() => setVisible((v) => !v)}
-        className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-300 transition-colors"
+        className="absolute right-2.5 top-1/2 -translate-y-1/2 text-su-muted hover:text-su-text transition-colors"
         aria-label={visible ? "Hide password" : "Show password"}
       >
         {visible ? (
@@ -156,7 +156,7 @@ function PasswordInput({
 
 // ── Input class (reused for all text inputs) ─────────────────────────
 const INPUT_CLASS =
-  "w-full bg-void-black/50 border border-white/10 rounded-lg px-3 py-2.5 text-sm text-gray-200 placeholder-gray-600 focus:outline-none focus:border-plasma-orange/50 focus-visible:ring-2 focus-visible:ring-plasma-orange/50 disabled:opacity-50 transition-colors";
+  "w-full bg-void-black/50 border border-su-line/40 rounded-lg px-3 py-2.5 text-sm text-su-text placeholder:text-su-muted/80 focus:outline-none focus:border-plasma-orange/50 focus-visible:ring-2 focus-visible:ring-plasma-orange/50 disabled:opacity-50 transition-colors";
 
 // ── Main component ───────────────────────────────────────────────────
 export function LoginPage() {
@@ -304,7 +304,7 @@ export function LoginPage() {
         )}
 
         {/* Card */}
-        <div className="bg-deep-space/80 backdrop-blur-xl border border-white/10 rounded-2xl shadow-2xl overflow-hidden">
+        <div className="bg-deep-space/80 backdrop-blur-xl border border-su-line/40 rounded-2xl shadow-2xl overflow-hidden">
           {/* Header / Branding */}
           <div className="px-8 pt-8 pb-4 text-center">
             <h1
@@ -313,7 +313,7 @@ export function LoginPage() {
             >
               PROPULSE
             </h1>
-            <p className="text-xs text-gray-500 tracking-wide uppercase">
+            <p className="text-xs text-su-muted tracking-wide uppercase">
               Ham Radio Propagation Intelligence
             </p>
           </div>
@@ -338,7 +338,7 @@ export function LoginPage() {
               <div>
                 <label
                   htmlFor="login-email"
-                  className="block text-xs font-medium text-gray-400 mb-1.5"
+                  className="block text-xs font-medium text-su-muted mb-1.5"
                 >
                   Email address
                 </label>
@@ -359,7 +359,7 @@ export function LoginPage() {
               <div>
                 <label
                   htmlFor="login-password"
-                  className="block text-xs font-medium text-gray-400 mb-1.5"
+                  className="block text-xs font-medium text-su-muted mb-1.5"
                 >
                   Password
                 </label>
@@ -376,7 +376,7 @@ export function LoginPage() {
               <button
                 onClick={handleSignIn}
                 disabled={loading || !email.trim() || !password}
-                className="w-full py-2.5 rounded-lg text-sm font-medium bg-plasma-orange text-white hover:bg-plasma-orange/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors focus-visible:ring-2 focus-visible:ring-plasma-orange/50 focus-visible:outline-none"
+                className="w-full py-2.5 rounded-lg text-sm font-medium bg-plasma-orange text-su-on-accent hover:bg-plasma-orange/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors focus-visible:ring-2 focus-visible:ring-plasma-orange/50 focus-visible:outline-none"
               >
                 {loading ? (
                   <span className="flex items-center justify-center gap-2">
@@ -391,7 +391,7 @@ export function LoginPage() {
               <div className="flex items-center justify-between text-xs pt-1">
                 <button
                   onClick={() => switchView("forgot")}
-                  className="text-gray-500 hover:text-gray-300 transition-colors"
+                  className="text-su-muted hover:text-su-text transition-colors"
                 >
                   Forgot password?
                 </button>
@@ -408,14 +408,14 @@ export function LoginPage() {
           {/* ── Magic Link view ──────────────────────────────────────── */}
           {view === "magic_link" && (
             <div className="px-6 py-5 space-y-4">
-              <p className="text-sm text-gray-400">
+              <p className="text-sm text-su-muted">
                 Enter your email and we'll send you a passwordless sign-in link.
               </p>
 
               <div>
                 <label
                   htmlFor="magic-email"
-                  className="block text-xs font-medium text-gray-400 mb-1.5"
+                  className="block text-xs font-medium text-su-muted mb-1.5"
                 >
                   Email address
                 </label>
@@ -436,7 +436,7 @@ export function LoginPage() {
               <button
                 onClick={handleMagicLink}
                 disabled={loading || !email.trim()}
-                className="w-full py-2.5 rounded-lg text-sm font-medium bg-plasma-orange text-white hover:bg-plasma-orange/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors focus-visible:ring-2 focus-visible:ring-plasma-orange/50 focus-visible:outline-none"
+                className="w-full py-2.5 rounded-lg text-sm font-medium bg-plasma-orange text-su-on-accent hover:bg-plasma-orange/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors focus-visible:ring-2 focus-visible:ring-plasma-orange/50 focus-visible:outline-none"
               >
                 {loading ? (
                   <span className="flex items-center justify-center gap-2">
@@ -451,7 +451,7 @@ export function LoginPage() {
               <div className="text-center">
                 <button
                   onClick={() => switchView("signin")}
-                  className="text-xs text-gray-500 hover:text-gray-300 transition-colors"
+                  className="text-xs text-su-muted hover:text-su-text transition-colors"
                 >
                   Back to password sign-in
                 </button>
@@ -462,7 +462,7 @@ export function LoginPage() {
           {/* ── Forgot Password view ─────────────────────────────────── */}
           {view === "forgot" && (
             <div className="px-6 py-5 space-y-4">
-              <p className="text-sm text-gray-400">
+              <p className="text-sm text-su-muted">
                 Enter your email and we'll send you a link to reset your
                 password.
               </p>
@@ -470,7 +470,7 @@ export function LoginPage() {
               <div>
                 <label
                   htmlFor="forgot-email"
-                  className="block text-xs font-medium text-gray-400 mb-1.5"
+                  className="block text-xs font-medium text-su-muted mb-1.5"
                 >
                   Email address
                 </label>
@@ -491,7 +491,7 @@ export function LoginPage() {
               <button
                 onClick={handleForgotPassword}
                 disabled={loading || !email.trim()}
-                className="w-full py-2.5 rounded-lg text-sm font-medium bg-plasma-orange text-white hover:bg-plasma-orange/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors focus-visible:ring-2 focus-visible:ring-plasma-orange/50 focus-visible:outline-none"
+                className="w-full py-2.5 rounded-lg text-sm font-medium bg-plasma-orange text-su-on-accent hover:bg-plasma-orange/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors focus-visible:ring-2 focus-visible:ring-plasma-orange/50 focus-visible:outline-none"
               >
                 {loading ? (
                   <span className="flex items-center justify-center gap-2">
@@ -506,7 +506,7 @@ export function LoginPage() {
               <div className="text-center">
                 <button
                   onClick={() => switchView("signin")}
-                  className="text-xs text-gray-500 hover:text-gray-300 transition-colors"
+                  className="text-xs text-su-muted hover:text-su-text transition-colors"
                 >
                   Back to sign in
                 </button>
@@ -517,14 +517,14 @@ export function LoginPage() {
           {/* ── Reset Password view ──────────────────────────────────── */}
           {view === "reset_password" && (
             <div className="px-6 py-5 space-y-4">
-              <p className="text-sm text-gray-400">
+              <p className="text-sm text-su-muted">
                 Choose a new password for your account.
               </p>
 
               <div>
                 <label
                   htmlFor="reset-new-password"
-                  className="block text-xs font-medium text-gray-400 mb-1.5"
+                  className="block text-xs font-medium text-su-muted mb-1.5"
                 >
                   New password
                 </label>
@@ -540,7 +540,7 @@ export function LoginPage() {
                 {/* Strength meter */}
                 {strength && (
                   <div className="mt-2 space-y-1">
-                    <div className="h-1 w-full bg-white/5 rounded-full overflow-hidden">
+                    <div className="h-1 w-full bg-su-line/10 rounded-full overflow-hidden">
                       <div
                         className={`h-full rounded-full transition-all duration-300 ${strengthConfig[strength].barColor} ${strengthConfig[strength].width}`}
                       />
@@ -557,7 +557,7 @@ export function LoginPage() {
               <div>
                 <label
                   htmlFor="reset-confirm-password"
-                  className="block text-xs font-medium text-gray-400 mb-1.5"
+                  className="block text-xs font-medium text-su-muted mb-1.5"
                 >
                   Confirm new password
                 </label>
@@ -581,7 +581,7 @@ export function LoginPage() {
                   password.length < 8 ||
                   getPasswordStrength(password) === "weak"
                 }
-                className="w-full py-2.5 rounded-lg text-sm font-medium bg-plasma-orange text-white hover:bg-plasma-orange/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors focus-visible:ring-2 focus-visible:ring-plasma-orange/50 focus-visible:outline-none"
+                className="w-full py-2.5 rounded-lg text-sm font-medium bg-plasma-orange text-su-on-accent hover:bg-plasma-orange/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors focus-visible:ring-2 focus-visible:ring-plasma-orange/50 focus-visible:outline-none"
               >
                 {loading ? (
                   <span className="flex items-center justify-center gap-2">
@@ -597,7 +597,7 @@ export function LoginPage() {
 
           {/* Footer */}
           <div className="px-6 pb-6 pt-2">
-            <p className="text-[11px] text-gray-600 text-center">
+            <p className="text-[11px] text-su-muted text-center">
               Invite-only beta
             </p>
           </div>

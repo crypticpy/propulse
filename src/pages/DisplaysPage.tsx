@@ -112,7 +112,7 @@ export function DisplaysPage() {
   if (!isSupabaseConfigured) {
     return (
       <div className="min-h-[60vh] flex items-center justify-center px-4">
-        <p className="text-gray-400 text-sm text-center max-w-sm">
+        <p className="text-su-muted text-sm text-center max-w-sm">
           Display Wall needs a PropPulse account (cloud feature) — connect
           Supabase to pair and manage wall displays.
         </p>
@@ -123,10 +123,10 @@ export function DisplaysPage() {
   return (
     <div className="max-w-3xl mx-auto px-4 py-8 space-y-6">
       <div>
-        <h1 className="font-orbitron text-2xl text-white mb-1">
+        <h1 className="font-orbitron text-2xl text-su-text mb-1">
           Display Wall
         </h1>
-        <p className="text-sm text-gray-400 max-w-xl">
+        <p className="text-sm text-su-muted max-w-xl">
           Manage paired wall devices: rename, check status, and push a scene
           config.
         </p>
@@ -145,9 +145,9 @@ export function DisplaysPage() {
       )}
 
       {displays !== null && displays.length === 0 && (
-        <div className="bg-deep-space/60 border border-white/10 rounded-xl p-6 text-center space-y-3">
-          <p className="text-gray-300">No displays paired yet.</p>
-          <p className="text-sm text-gray-500 max-w-md mx-auto">
+        <div className="bg-deep-space/60 border border-su-line/40 rounded-xl p-6 text-center space-y-3">
+          <p className="text-su-muted">No displays paired yet.</p>
+          <p className="text-sm text-su-muted max-w-md mx-auto">
             Open{" "}
             <Link to="/display/pair" className="text-plasma-orange underline">
               /display/pair
@@ -350,12 +350,12 @@ function DisplayCard({ display, onChanged, onRequestDelete }: DisplayCardProps) 
   };
 
   return (
-    <div className="bg-deep-space/60 border border-white/10 rounded-xl p-4 space-y-4">
+    <div className="bg-deep-space/60 border border-su-line/40 rounded-xl p-4 space-y-4">
       <div className="flex items-center justify-between gap-3">
         <div className="flex items-center gap-3 min-w-0">
           <span
             className={`w-2.5 h-2.5 rounded-full shrink-0 ${
-              isLive ? "bg-signal-green" : "bg-white/20"
+              isLive ? "bg-signal-green" : "bg-su-line/30"
             }`}
             title={isLive ? "Online" : lastSeenLabel}
             aria-hidden="true"
@@ -375,12 +375,12 @@ function DisplayCard({ display, onChanged, onRequestDelete }: DisplayCardProps) 
               }}
               maxLength={MAX_NAME_LENGTH}
               disabled={savingName}
-              className="bg-void-black border border-white/15 rounded-lg px-2 py-1 text-white text-sm min-w-0"
+              className="bg-void-black border border-su-line/50 rounded-lg px-2 py-1 text-su-text text-sm min-w-0"
             />
           ) : (
             <button
               onClick={() => setEditingName(true)}
-              className="text-white font-medium truncate hover:text-plasma-orange transition-colors text-left"
+              className="text-su-text font-medium truncate hover:text-plasma-orange transition-colors text-left"
               title="Rename"
             >
               {display.name}
@@ -389,23 +389,23 @@ function DisplayCard({ display, onChanged, onRequestDelete }: DisplayCardProps) 
         </div>
         <button
           onClick={onRequestDelete}
-          className="text-gray-500 hover:text-alert-red text-sm px-2 shrink-0"
+          className="text-su-muted hover:text-alert-red text-sm px-2 shrink-0"
           aria-label={`Delete ${display.name}`}
         >
           Delete
         </button>
       </div>
 
-      <p className="text-xs text-gray-500 font-mono">
+      <p className="text-xs text-su-muted font-mono">
         {isLive ? "Online now" : lastSeenLabel}
       </p>
 
-      <div className="border-t border-white/10 pt-3 space-y-3">
-        <p className="text-xs uppercase tracking-wider text-gray-500">
+      <div className="border-t border-su-line/40 pt-3 space-y-3">
+        <p className="text-xs uppercase tracking-wider text-su-muted">
           Scenes
         </p>
         {assignmentScenes.length === 0 ? (
-          <p className="text-sm text-gray-500">
+          <p className="text-sm text-su-muted">
             No local scenes configured — set some up on the{" "}
             <Link to="/kiosk" className="text-plasma-orange underline">
               Kiosk page
@@ -421,7 +421,7 @@ function DisplayCard({ display, onChanged, onRequestDelete }: DisplayCardProps) 
                 <li key={scene.id}>
                   <label
                     className={`flex items-center gap-2 text-sm ${
-                      isEnabled ? "text-gray-300" : "text-gray-600"
+                      isEnabled ? "text-su-muted" : "text-su-muted"
                     }`}
                   >
                     <input
@@ -433,12 +433,12 @@ function DisplayCard({ display, onChanged, onRequestDelete }: DisplayCardProps) 
                     />
                     {scene.name}
                     {isRemoteSnapshot && (
-                      <span className="text-[10px] uppercase tracking-wider text-sky-400/70">
+                      <span className="text-[10px] uppercase tracking-wider text-cosmic-cyan/70">
                         Paired-display snapshot
                       </span>
                     )}
                     {!isEnabled && (
-                      <span className="text-[10px] uppercase tracking-wider text-gray-600">
+                      <span className="text-[10px] uppercase tracking-wider text-su-muted">
                         Disabled · not assignable
                       </span>
                     )}
@@ -449,14 +449,14 @@ function DisplayCard({ display, onChanged, onRequestDelete }: DisplayCardProps) 
           </ul>
         )}
         {selectedIds.size === 0 && (
-          <p className="text-xs text-gray-500">
+          <p className="text-xs text-su-muted">
             No scenes selected — saving clears the remote assignment and the
             device returns to its local defaults.
           </p>
         )}
 
         <div className="flex flex-wrap items-center gap-x-6 gap-y-2">
-          <label className="flex items-center gap-2 text-sm text-gray-300">
+          <label className="flex items-center gap-2 text-sm text-su-muted">
             <input
               type="checkbox"
               checked={rotationEnabled}
@@ -476,7 +476,7 @@ function DisplayCard({ display, onChanged, onRequestDelete }: DisplayCardProps) 
                 markConfigDirty("intervalSec");
                 setIntervalSec(Number(e.target.value));
               }}
-              className="w-20 bg-void-black border border-white/15 rounded-lg px-2 py-1 text-white text-sm text-center"
+              className="w-20 bg-void-black border border-su-line/50 rounded-lg px-2 py-1 text-su-text text-sm text-center"
               aria-label="Rotation interval in seconds"
             />
             seconds
@@ -484,7 +484,7 @@ function DisplayCard({ display, onChanged, onRequestDelete }: DisplayCardProps) 
         </div>
 
         <div className="flex flex-wrap items-center gap-x-6 gap-y-2">
-          <label className="flex items-center gap-2 text-sm text-gray-300">
+          <label className="flex items-center gap-2 text-sm text-su-muted">
             Layout
             <select
               value={layoutFit}
@@ -492,14 +492,14 @@ function DisplayCard({ display, onChanged, onRequestDelete }: DisplayCardProps) 
                 markConfigDirty("layoutFit");
                 setLayoutFit(e.target.value as DisplayFit);
               }}
-              className="bg-void-black border border-white/15 rounded-lg px-2 py-1 text-white text-sm"
+              className="bg-void-black border border-su-line/50 rounded-lg px-2 py-1 text-su-text text-sm"
             >
               <option value="auto">Auto (fit to screen)</option>
               <option value="compact">Compact</option>
               <option value="full">Full</option>
             </select>
           </label>
-          <label className="flex items-center gap-2 text-sm text-gray-300">
+          <label className="flex items-center gap-2 text-sm text-su-muted">
             Text size
             <select
               value={wallTextScale}
@@ -507,7 +507,7 @@ function DisplayCard({ display, onChanged, onRequestDelete }: DisplayCardProps) 
                 markConfigDirty("wallTextScale");
                 setWallTextScale(e.target.value as TextScale | "");
               }}
-              className="bg-void-black border border-white/15 rounded-lg px-2 py-1 text-white text-sm"
+              className="bg-void-black border border-su-line/50 rounded-lg px-2 py-1 text-su-text text-sm"
             >
               <option value="">Leave unchanged</option>
               <option value="sm">Small</option>
@@ -547,16 +547,16 @@ function DeleteConfirmModal({ name, onCancel, onConfirm }: DeleteConfirmModalPro
         className="absolute inset-0 bg-black/60 backdrop-blur-sm"
         onClick={onCancel}
       />
-      <div className="relative z-10 w-full max-w-sm bg-deep-space border border-white/10 rounded-2xl p-6 space-y-4">
-        <h2 className="font-orbitron text-lg text-white">Delete display?</h2>
-        <p className="text-sm text-gray-400">
+      <div className="relative z-10 w-full max-w-sm bg-deep-space border border-su-line/40 rounded-2xl p-6 space-y-4">
+        <h2 className="font-orbitron text-lg text-su-text">Delete display?</h2>
+        <p className="text-sm text-su-muted">
           &ldquo;{name}&rdquo; will be unpaired. The device will show a fresh
           pairing code the next time it polls.
         </p>
         <div className="flex justify-end gap-3">
           <button
             onClick={onCancel}
-            className="px-4 py-2 rounded-lg bg-white/10 border border-white/15 text-sm text-white hover:bg-white/20"
+            className="px-4 py-2 rounded-lg bg-su-line/20 border border-su-line/50 text-sm text-su-text hover:bg-su-line/30"
           >
             Cancel
           </button>

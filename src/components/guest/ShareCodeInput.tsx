@@ -37,13 +37,13 @@ export function ShareCodeInput({
         disabled={disabled}
         className={`
           w-full px-4 py-3 bg-deep-space border rounded-lg
-          text-white placeholder-gray-500 font-mono text-xl text-center tracking-widest
+          text-su-text placeholder:text-su-muted/80 font-mono text-xl text-center tracking-widest
           focus:outline-none focus:ring-2 focus:ring-offset-0
           disabled:opacity-50 disabled:cursor-not-allowed
           ${
             error
               ? "border-alert-red/50 focus:border-alert-red focus:ring-alert-red/30"
-              : "border-white/10 focus:border-plasma-orange/50 focus:ring-plasma-orange/30"
+              : "border-su-line/40 focus:border-plasma-orange/50 focus:ring-plasma-orange/30"
           }
         `}
         aria-invalid={!!error}

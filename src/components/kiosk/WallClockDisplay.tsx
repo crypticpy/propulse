@@ -133,14 +133,14 @@ export function WallClockDisplay({ mode }: { mode: WallClockMode }) {
 
   return (
     <main
-      className="relative isolate flex w-full flex-col items-center justify-center overflow-hidden bg-[radial-gradient(circle_at_50%_35%,rgba(255,107,53,0.11),transparent_42%),linear-gradient(180deg,#07101d_0%,#02050a_100%)] px-6 text-center"
+      className="relative isolate flex w-full flex-col items-center justify-center overflow-hidden bg-[radial-gradient(circle_at_50%_35%,rgba(255,107,53,0.11),transparent_42%),linear-gradient(180deg,rgb(var(--su-canvas-rgb))_0%,rgb(var(--su-panel-rgb))_100%)] px-6 text-center"
       style={{
         minHeight: `calc(100dvh - ${
           kioskActive ? HEADER_HEIGHT_PX[presentation.headerScale] : 64
         }px)`,
       }}
     >
-      <div className="pointer-events-none absolute inset-x-[8%] top-1/2 h-px bg-gradient-to-r from-transparent via-white/10 to-transparent" />
+      <div className="pointer-events-none absolute inset-x-[8%] top-1/2 h-px bg-gradient-to-r from-transparent via-su-line/10 to-transparent" />
 
       {mode === "clock" ? (
         <>
@@ -148,19 +148,19 @@ export function WallClockDisplay({ mode }: { mode: WallClockMode }) {
             Local time
           </p>
           <time
-            className={`${numeralClass} font-mono text-[clamp(4.2rem,17vw,17rem)] font-black leading-none tracking-[-0.075em] text-white drop-shadow-[0_0_40px_rgba(255,255,255,0.08)]`}
+            className={`${numeralClass} font-mono text-[clamp(4.2rem,17vw,17rem)] font-black leading-none tracking-[-0.075em] text-su-text drop-shadow-[0_0_40px_rgba(255,255,255,0.08)]`}
             dateTime={now.toISOString()}
           >
             {localTime}
           </time>
-          <p className="mt-5 font-orbitron text-[clamp(1rem,2.2vw,2rem)] tracking-[0.12em] text-white/55">
+          <p className="mt-5 font-orbitron text-[clamp(1rem,2.2vw,2rem)] tracking-[0.12em] text-su-text/80">
             {date}
           </p>
-          <div className="mt-10 flex items-baseline gap-3 border-t border-white/10 pt-5 font-mono">
+          <div className="mt-10 flex items-baseline gap-3 border-t border-su-line/40 pt-5 font-mono">
             <span className={`${numeralClass} text-[clamp(1.5rem,4vw,3.5rem)] text-plasma-orange`}>
               {utcTime}
             </span>
-            <span className="text-[clamp(0.65rem,1.2vw,0.9rem)] tracking-[0.35em] text-white/35">
+            <span className="text-[clamp(0.65rem,1.2vw,0.9rem)] tracking-[0.35em] text-su-text/80">
               UTC
             </span>
           </div>
@@ -171,7 +171,7 @@ export function WallClockDisplay({ mode }: { mode: WallClockMode }) {
             Stopwatch
           </p>
           <output
-            className={`${numeralClass} font-mono text-[clamp(3.8rem,15vw,15rem)] font-black leading-none tracking-[-0.08em] text-white drop-shadow-[0_0_40px_rgba(255,255,255,0.08)]`}
+            className={`${numeralClass} font-mono text-[clamp(3.8rem,15vw,15rem)] font-black leading-none tracking-[-0.08em] text-su-text drop-shadow-[0_0_40px_rgba(255,255,255,0.08)]`}
             aria-live="off"
           >
             {formatStopwatch(elapsedMs)}
@@ -188,12 +188,12 @@ export function WallClockDisplay({ mode }: { mode: WallClockMode }) {
               type="button"
               onClick={resetStopwatch}
               disabled={elapsedMs === 0}
-              className="min-h-12 min-w-32 rounded-xl border border-white/15 bg-white/[0.04] px-7 py-3 font-orbitron text-sm uppercase tracking-[0.18em] text-white/70 transition hover:bg-white/[0.08] disabled:cursor-not-allowed disabled:opacity-30"
+              className="min-h-12 min-w-32 rounded-xl border border-su-line/50 bg-su-line/10 px-7 py-3 font-orbitron text-sm uppercase tracking-[0.18em] text-su-text/70 transition hover:bg-su-line/20 disabled:cursor-not-allowed disabled:opacity-30"
             >
               Reset
             </button>
           </div>
-          <p className="mt-6 font-mono text-xs tracking-widest text-white/25">
+          <p className="mt-6 font-mono text-xs tracking-widest text-su-text/80">
             SPACE start/pause · R reset
           </p>
         </>

@@ -45,7 +45,7 @@ export function MobileDXWizard({ session }: MobileDXWizardProps) {
           <h2 className="font-orbitron text-xl font-black text-gradient-orange">
             DX Wizard
           </h2>
-          <p className="text-xs text-gray-400 mt-1">
+          <p className="text-xs text-su-muted mt-1">
             Target → constraints → band & power advice
           </p>
         </div>
@@ -57,13 +57,13 @@ export function MobileDXWizard({ session }: MobileDXWizardProps) {
       </div>
 
       {!session.station && (
-        <div className="rounded-xl border border-alert-red/40 bg-alert-red/10 p-3 text-sm text-gray-200">
+        <div className="rounded-xl border border-alert-red/40 bg-alert-red/10 p-3 text-sm text-su-text">
           Set your station callsign and grid in Settings first.
         </div>
       )}
 
       <div className="space-y-2">
-        <label className="text-xs text-gray-400">Target</label>
+        <label className="text-xs text-su-muted">Target</label>
         <div className="flex gap-2">
           <input
             value={session.targetQuery}
@@ -75,7 +75,7 @@ export function MobileDXWizard({ session }: MobileDXWizardProps) {
               }
             }}
             placeholder="Grid, place, or coords"
-            className="flex-1 px-3 py-2 bg-deep-space/70 border border-white/10 rounded-lg text-white text-sm"
+            className="flex-1 px-3 py-2 bg-deep-space/70 border border-su-line/40 rounded-lg text-su-text text-sm"
           />
           <button
             type="button"
@@ -92,14 +92,14 @@ export function MobileDXWizard({ session }: MobileDXWizardProps) {
 
       {session.recentTargets.length > 0 && (
         <div className="space-y-1">
-          <div className="text-xs text-gray-500">Recent targets</div>
+          <div className="text-xs text-su-muted">Recent targets</div>
           <div className="flex gap-2 overflow-x-auto pb-1">
             {session.recentTargets.slice(0, 8).map((rt, i) => (
               <button
                 key={`${rt.lat}-${rt.lon}-${i}`}
                 type="button"
                 onClick={() => session.selectRecentTarget(rt)}
-                className="shrink-0 px-2 py-1 rounded-lg bg-white/5 border border-white/10 text-xs text-gray-200"
+                className="shrink-0 px-2 py-1 rounded-lg bg-su-line/10 border border-su-line/40 text-xs text-su-text"
               >
                 {rt.name ?? rt.grid ?? `${rt.lat.toFixed(1)},${rt.lon.toFixed(1)}`}
               </button>
@@ -109,7 +109,7 @@ export function MobileDXWizard({ session }: MobileDXWizardProps) {
       )}
 
       <div className="space-y-2">
-        <label className="text-xs text-gray-400">Callsign</label>
+        <label className="text-xs text-su-muted">Callsign</label>
         <div className="flex gap-2">
           <input
             value={session.callsignInput}
@@ -121,12 +121,12 @@ export function MobileDXWizard({ session }: MobileDXWizardProps) {
               }
             }}
             placeholder="JA1ABC"
-            className="flex-1 px-3 py-2 bg-deep-space/70 border border-white/10 rounded-lg text-white text-sm font-mono"
+            className="flex-1 px-3 py-2 bg-deep-space/70 border border-su-line/40 rounded-lg text-su-text text-sm font-mono"
           />
           <button
             type="button"
             onClick={() => void session.handleLookupCallsign()}
-            className="px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-gray-200 text-sm"
+            className="px-3 py-2 rounded-lg bg-su-line/10 border border-su-line/40 text-su-text text-sm"
           >
             Lookup
           </button>
@@ -137,16 +137,16 @@ export function MobileDXWizard({ session }: MobileDXWizardProps) {
       </div>
 
       {session.target && (
-        <div className="rounded-xl bg-white/5 border border-white/10 p-3 text-sm text-white">
+        <div className="rounded-xl bg-su-line/10 border border-su-line/40 p-3 text-sm text-su-text">
           {session.target.label}
-          <div className="text-[10px] text-gray-400 font-mono mt-1">
+          <div className="text-[10px] text-su-muted font-mono mt-1">
             {session.target.grid}
           </div>
         </div>
       )}
 
       <div className="space-y-2">
-        <label className="text-xs text-gray-400">Mode</label>
+        <label className="text-xs text-su-muted">Mode</label>
         <div className="flex flex-wrap gap-1">
           {session.modes.map((m) => (
             <button
@@ -155,8 +155,8 @@ export function MobileDXWizard({ session }: MobileDXWizardProps) {
               onClick={() => session.setMode(m)}
               className={`px-2.5 py-1.5 rounded-md text-xs font-semibold ${
                 session.mode === m
-                  ? "bg-plasma-orange text-white"
-                  : "bg-white/5 text-gray-300"
+                  ? "bg-plasma-orange text-su-on-accent"
+                  : "bg-su-line/10 text-su-muted"
               }`}
             >
               {m}
@@ -173,8 +173,8 @@ export function MobileDXWizard({ session }: MobileDXWizardProps) {
             onClick={() => session.setPathMode(m)}
             className={`flex-1 py-2 rounded-lg text-xs font-semibold ${
               session.pathMode === m
-                ? "bg-plasma-orange text-white"
-                : "bg-white/5 text-gray-300"
+                ? "bg-plasma-orange text-su-on-accent"
+                : "bg-su-line/10 text-su-muted"
             }`}
           >
             {m === "short" ? "Short path" : "Long path"}
@@ -188,7 +188,7 @@ export function MobileDXWizard({ session }: MobileDXWizardProps) {
           onChange={(e) =>
             session.setLicenseClass(e.target.value as LicenseClass)
           }
-          className="px-2 py-2 bg-deep-space/70 border border-white/10 rounded-lg text-white text-xs"
+          className="px-2 py-2 bg-deep-space/70 border border-su-line/40 rounded-lg text-su-text text-xs"
         >
           {["TECHNICIAN", "GENERAL", "EXTRA", "ADVANCED", "NOVICE"].map((c) => (
             <option key={c} value={c}>
@@ -199,7 +199,7 @@ export function MobileDXWizard({ session }: MobileDXWizardProps) {
         <select
           value={session.ituRegion}
           onChange={(e) => session.setItuRegion(e.target.value as ITURegion)}
-          className="px-2 py-2 bg-deep-space/70 border border-white/10 rounded-lg text-white text-xs"
+          className="px-2 py-2 bg-deep-space/70 border border-su-line/40 rounded-lg text-su-text text-xs"
         >
           {["ITU1", "ITU2", "ITU3"].map((r) => (
             <option key={r} value={r}>
@@ -212,15 +212,15 @@ export function MobileDXWizard({ session }: MobileDXWizardProps) {
       <button
         type="button"
         onClick={() => session.setShowRadioPicker(true)}
-        className="w-full px-3 py-2 bg-deep-space/70 border border-white/10 rounded-lg text-left text-white text-sm"
+        className="w-full px-3 py-2 bg-deep-space/70 border border-su-line/40 rounded-lg text-left text-su-text text-sm"
       >
         {session.radioLabel || "Select radio…"}
       </button>
 
       <div>
-        <div className="flex justify-between text-xs text-gray-400 mb-1">
+        <div className="flex justify-between text-xs text-su-muted mb-1">
           <span>TX ceiling</span>
-          <span className="font-mono text-white">
+          <span className="font-mono text-su-text">
             {session.txPowerCeilingWatts}W
           </span>
         </div>
@@ -243,12 +243,12 @@ export function MobileDXWizard({ session }: MobileDXWizardProps) {
         type="button"
         disabled={!session.target || !session.station}
         onClick={handleAnalyze}
-        className="w-full py-3 rounded-xl bg-plasma-orange text-white font-semibold disabled:opacity-40"
+        className="w-full py-3 rounded-xl bg-plasma-orange text-su-on-accent font-semibold disabled:opacity-40"
       >
         Analyze path
       </button>
 
-      <div className="text-center text-[10px] text-gray-500 font-mono">
+      <div className="text-center text-[10px] text-su-muted font-mono">
         Kp={session.currentKp} · SFI={session.currentSfi}
       </div>
     </div>
@@ -277,13 +277,13 @@ function ResultsStep({
         <button
           type="button"
           onClick={onBack}
-          className="text-sm text-gray-400"
+          className="text-sm text-su-muted"
         >
           ← Change target
         </button>
-        <div className="rounded-2xl border border-white/10 p-4">
+        <div className="rounded-2xl border border-su-line/40 p-4">
           <div className="text-alert-red font-semibold">No viable options</div>
-          <div className="text-sm text-gray-300 mt-1">
+          <div className="text-sm text-su-muted mt-1">
             Try FT8/FT4 or check the next window.
           </div>
         </div>
@@ -303,35 +303,35 @@ function ResultsStep({
 
   return (
     <div className="p-4 space-y-3">
-      <button type="button" onClick={onBack} className="text-sm text-gray-400">
+      <button type="button" onClick={onBack} className="text-sm text-su-muted">
         ← Change target
       </button>
 
       {session.target && (
-        <div className="text-xs text-gray-400 font-mono">
+        <div className="text-xs text-su-muted font-mono">
           {session.target.label} ({session.target.grid})
         </div>
       )}
 
       {path && (
-        <div className="rounded-2xl border border-white/10 p-3 grid grid-cols-2 gap-2 text-xs">
+        <div className="rounded-2xl border border-su-line/40 p-3 grid grid-cols-2 gap-2 text-xs">
           <div>
-            <div className="text-gray-500">Distance</div>
-            <div className="font-mono text-white">
+            <div className="text-su-muted">Distance</div>
+            <div className="font-mono text-su-text">
               {formatPathDistanceKm(path.active.distanceKm)}
             </div>
           </div>
           <div>
-            <div className="text-gray-500">Bearing</div>
-            <div className="font-mono text-white">
+            <div className="text-su-muted">Bearing</div>
+            <div className="font-mono text-su-text">
               {formatPathBearing(path.active.bearing)}
             </div>
           </div>
         </div>
       )}
 
-      <div className="rounded-2xl border border-white/10 p-4 space-y-3">
-        <div className="text-xs text-gray-400 uppercase">Best band</div>
+      <div className="rounded-2xl border border-su-line/40 p-4 space-y-3">
+        <div className="text-xs text-su-muted uppercase">Best band</div>
         <div className="flex items-end justify-between">
           <div>
             <div
@@ -339,24 +339,24 @@ function ResultsStep({
             >
               {best.band}
             </div>
-            <div className="text-xs text-gray-400">{best.frequency}</div>
+            <div className="text-xs text-su-muted">{best.frequency}</div>
           </div>
           <div className="text-right">
             <div className="text-xl font-mono font-bold text-plasma-orange">
               {best.requiredWatts}W
             </div>
-            <div className="text-[10px] text-gray-400">
+            <div className="text-[10px] text-su-muted">
               Ceiling: {best.ceilingWatts}W
               {!best.withinCeiling && (
                 <span className="text-alert-red"> · exceeds</span>
               )}
             </div>
-            <div className="text-[10px] text-gray-400">
+            <div className="text-[10px] text-su-muted">
               {formatKHz(best.freqsKHz[0])} · {session.mode}
             </div>
           </div>
         </div>
-        <div className="text-xs text-gray-300">{best.notes}</div>
+        <div className="text-xs text-su-muted">{best.notes}</div>
       </div>
 
       {session.nextWindow && (
@@ -365,7 +365,7 @@ function ResultsStep({
           className="block rounded-xl border border-plasma-orange/40 bg-plasma-orange/10 p-3 text-sm text-plasma-orange"
         >
           {session.nextWindow.label}
-          <div className="text-[10px] text-gray-400 mt-1">
+          <div className="text-[10px] text-su-muted mt-1">
             Open Band Planner →
           </div>
         </Link>
@@ -381,7 +381,7 @@ function ResultsStep({
         )}
 
       <div className="space-y-2">
-        <div className="text-xs text-gray-400 uppercase px-1">All bands</div>
+        <div className="text-xs text-su-muted uppercase px-1">All bands</div>
         {rec.bands.map((band) => {
           const isExpanded = expandedBand === band.band;
           return (
@@ -391,7 +391,7 @@ function ResultsStep({
               onClick={() =>
                 setExpandedBand(isExpanded ? null : band.band)
               }
-              className="w-full text-left bg-white/[0.03] border border-white/10 rounded-xl p-3"
+              className="w-full text-left bg-su-line/10 border border-su-line/40 rounded-xl p-3"
             >
               <div className="flex items-center justify-between">
                 <span
@@ -399,19 +399,19 @@ function ResultsStep({
                 >
                   {band.band}
                 </span>
-                <span className="text-xs text-gray-400 capitalize">
+                <span className="text-xs text-su-muted capitalize">
                   {band.status}
                 </span>
               </div>
               {isExpanded && (
-                <div className="mt-2 pt-2 border-t border-white/10 text-xs text-gray-300 space-y-1">
+                <div className="mt-2 pt-2 border-t border-su-line/40 text-xs text-su-muted space-y-1">
                   <div>
                     SNR @{session.txPowerCeilingWatts}W:{" "}
-                    <span className="font-mono text-white">
+                    <span className="font-mono text-su-text">
                       {band.snrEstimate} dB
                     </span>
                   </div>
-                  <div className="text-gray-400">{band.notes}</div>
+                  <div className="text-su-muted">{band.notes}</div>
                 </div>
               )}
             </button>

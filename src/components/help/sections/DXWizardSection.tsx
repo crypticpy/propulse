@@ -6,7 +6,7 @@ export function DXWizardSection() {
   return (
     <div className="space-y-6">
       {/* Overview */}
-      <p className="text-sm leading-relaxed text-gray-300">
+      <p className="text-sm leading-relaxed text-su-muted">
         The DX Wizard provides actionable transmit guidance for reaching a
         specific target station. Enter a target location and your station
         parameters, and it recommends the best band, mode, and power level based
@@ -19,7 +19,7 @@ export function DXWizardSection() {
         title="Target Selection"
         summary="Enter your target by grid, callsign, coordinates, or location name"
       >
-        <div className="space-y-3 text-sm text-gray-300 leading-relaxed">
+        <div className="space-y-3 text-sm text-su-muted leading-relaxed">
           <p>
             The wizard accepts several input formats so you can identify your
             target however is most convenient:
@@ -71,9 +71,9 @@ export function DXWizardSection() {
         title="Operator Settings"
         summary="Configure your mode, license, radio, path, and power"
       >
-        <div className="space-y-4 text-sm text-gray-300 leading-relaxed">
+        <div className="space-y-4 text-sm text-su-muted leading-relaxed">
           <div>
-            <h4 className="text-white font-semibold mb-1">Mode</h4>
+            <h4 className="text-su-text font-semibold mb-1">Mode</h4>
             <p>
               Choose from <strong>FT8</strong>, <strong>FT4</strong>,{" "}
               <strong>CW</strong>, <strong>SSB</strong>, or{" "}
@@ -85,7 +85,7 @@ export function DXWizardSection() {
           </div>
 
           <div>
-            <h4 className="text-white font-semibold mb-1">Short / Long path</h4>
+            <h4 className="text-su-text font-semibold mb-1">Short / Long path</h4>
             <p>
               Toggle short-path vs long-path geometry for bearing, distance, and
               antenna-gain distance. Use long path for near-antipodal DX when
@@ -94,7 +94,7 @@ export function DXWizardSection() {
           </div>
 
           <div>
-            <h4 className="text-white font-semibold mb-1">License Class</h4>
+            <h4 className="text-su-text font-semibold mb-1">License Class</h4>
             <p>
               Select your license class: <strong>Technician</strong>,{" "}
               <strong>General</strong>, <strong>Extra</strong>,{" "}
@@ -106,7 +106,7 @@ export function DXWizardSection() {
           </div>
 
           <div>
-            <h4 className="text-white font-semibold mb-1">ITU Region</h4>
+            <h4 className="text-su-text font-semibold mb-1">ITU Region</h4>
             <p>
               Choose your ITU region: <strong>ITU1</strong> (Europe, Africa,
               Middle East), <strong>ITU2</strong> (Americas), or{" "}
@@ -118,7 +118,7 @@ export function DXWizardSection() {
           </div>
 
           <div>
-            <h4 className="text-white font-semibold mb-1">Radio Selection</h4>
+            <h4 className="text-su-text font-semibold mb-1">Radio Selection</h4>
             <p>
               Choose from the built-in radio database or your saved radio
               profiles. The selected radio's characteristics (maximum power
@@ -129,7 +129,7 @@ export function DXWizardSection() {
           </div>
 
           <div>
-            <h4 className="text-white font-semibold mb-1">TX Power Ceiling</h4>
+            <h4 className="text-su-text font-semibold mb-1">TX Power Ceiling</h4>
             <p>
               A 1-1500W slider that sets your maximum transmit power. The wizard
               will not recommend power above this limit. The slider's maximum is
@@ -147,7 +147,7 @@ export function DXWizardSection() {
         title="How Recommendations Work"
         summary="Band scoring, power estimation, and ranking algorithm"
       >
-        <div className="space-y-3 text-sm text-gray-300 leading-relaxed">
+        <div className="space-y-3 text-sm text-su-muted leading-relaxed">
           <p>
             The wizard evaluates every HF band (160 m through 10 m) using
             current propagation conditions. Here is the step-by-step process:
@@ -178,7 +178,7 @@ export function DXWizardSection() {
             </li>
             <li>
               <strong>Power formula</strong> —{" "}
-              <code className="text-xs font-mono text-gray-200 bg-white/5 px-1.5 py-0.5 rounded">
+              <code className="text-xs font-mono text-su-text bg-su-line/10 px-1.5 py-0.5 rounded">
                 RequiredWatts = 100W x 10^((targetSNR - snrAt100W) / 10)
               </code>
               . If the baseline SNR already exceeds the target, only 10W is
@@ -208,9 +208,9 @@ export function DXWizardSection() {
         title="Mode-Specific Tips"
         summary="Operating advice for FT8, CW, and SSB"
       >
-        <div className="space-y-4 text-sm text-gray-300 leading-relaxed">
+        <div className="space-y-4 text-sm text-su-muted leading-relaxed">
           <div>
-            <h4 className="text-white font-semibold mb-1.5">FT8</h4>
+            <h4 className="text-su-text font-semibold mb-1.5">FT8</h4>
             <ul className="list-disc list-inside space-y-1 pl-1">
               <li>
                 Use a 50 Hz filter if your radio supports it — as narrow as your
@@ -230,7 +230,7 @@ export function DXWizardSection() {
           </div>
 
           <div>
-            <h4 className="text-white font-semibold mb-1.5">CW</h4>
+            <h4 className="text-su-text font-semibold mb-1.5">CW</h4>
             <ul className="list-disc list-inside space-y-1 pl-1">
               <li>
                 Set your receive filter to 300-500 Hz bandwidth. Narrower
@@ -249,7 +249,7 @@ export function DXWizardSection() {
           </div>
 
           <div>
-            <h4 className="text-white font-semibold mb-1.5">SSB</h4>
+            <h4 className="text-su-text font-semibold mb-1.5">SSB</h4>
             <ul className="list-disc list-inside space-y-1 pl-1">
               <li>
                 Set your filter to 2.1-2.4 kHz bandwidth. Narrow the passband

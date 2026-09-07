@@ -45,15 +45,15 @@ export function Pagination({
   return (
     <nav
       aria-label="Pagination"
-      className="flex flex-wrap items-center justify-between gap-3 bg-white/[0.03] border border-white/10 rounded-xl px-4 py-3"
+      className="flex flex-wrap items-center justify-between gap-3 bg-su-line/10 border border-su-line/40 rounded-xl px-4 py-3"
     >
       {/* Showing X-Y of Z */}
-      <span className="text-xs text-gray-400 whitespace-nowrap">
-        Showing <span className="text-white font-medium">{rangeStart}</span>
+      <span className="text-xs text-su-muted whitespace-nowrap">
+        Showing <span className="text-su-text font-medium">{rangeStart}</span>
         {"-"}
-        <span className="text-white font-medium">{rangeEnd}</span>
+        <span className="text-su-text font-medium">{rangeEnd}</span>
         {" of "}
-        <span className="text-white font-medium">
+        <span className="text-su-text font-medium">
           {totalCount.toLocaleString()}
         </span>{" "}
         {entityName}
@@ -66,7 +66,7 @@ export function Pagination({
           disabled={isFirstPage}
           onClick={() => onPageChange(currentPage - 1)}
           aria-label="Previous page"
-          className="flex items-center gap-1 bg-white/5 hover:bg-white/10 border border-white/10 rounded-lg px-3 py-1.5 text-xs text-gray-300 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+          className="flex items-center gap-1 bg-su-line/10 hover:bg-su-line/20 border border-su-line/40 rounded-lg px-3 py-1.5 text-xs text-su-muted transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
         >
           <svg
             className="w-3.5 h-3.5"
@@ -84,10 +84,10 @@ export function Pagination({
           Previous
         </button>
 
-        <span className="text-xs text-gray-400 whitespace-nowrap">
-          Page <span className="text-white font-medium">{currentPage + 1}</span>
+        <span className="text-xs text-su-muted whitespace-nowrap">
+          Page <span className="text-su-text font-medium">{currentPage + 1}</span>
           {" of "}
-          <span className="text-white font-medium">{totalPages}</span>
+          <span className="text-su-text font-medium">{totalPages}</span>
         </span>
 
         <button
@@ -95,7 +95,7 @@ export function Pagination({
           disabled={isLastPage}
           onClick={() => onPageChange(currentPage + 1)}
           aria-label="Next page"
-          className="flex items-center gap-1 bg-white/5 hover:bg-white/10 border border-white/10 rounded-lg px-3 py-1.5 text-xs text-gray-300 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+          className="flex items-center gap-1 bg-su-line/10 hover:bg-su-line/20 border border-su-line/40 rounded-lg px-3 py-1.5 text-xs text-su-muted transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
         >
           Next
           <svg
@@ -118,11 +118,11 @@ export function Pagination({
       <select
         value={pageSize}
         onChange={(e) => onPageSizeChange(Number(e.target.value))}
-        className="bg-white/5 border border-white/10 rounded-lg text-xs text-gray-300 px-2 py-1.5 focus:border-plasma-orange/50 focus:outline-none appearance-none cursor-pointer"
+        className="bg-su-line/10 border border-su-line/40 rounded-lg text-xs text-su-muted px-2 py-1.5 focus:border-plasma-orange/50 focus:outline-none appearance-none cursor-pointer"
         aria-label="Results per page"
       >
         {pageSizeOptions.map((size) => (
-          <option key={size} value={size} className="bg-deep-space text-white">
+          <option key={size} value={size} className="bg-deep-space text-su-text">
             {size} / page
           </option>
         ))}

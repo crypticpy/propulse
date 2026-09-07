@@ -7,7 +7,7 @@ export function SdrConsoleSection() {
   return (
     <div className="space-y-6">
       {/* Overview */}
-      <p className="text-sm leading-relaxed text-gray-300">
+      <p className="text-sm leading-relaxed text-su-muted">
         The SDR Console connects to your radio hardware through the Propulse
         Radio Daemon, providing frequency control, spectrum/waterfall display,
         DSP processing, and integration with WSJT-X and DX clusters — all from
@@ -20,7 +20,7 @@ export function SdrConsoleSection() {
         title="Connecting to a Radio"
         summary="Setting up the daemon connection and device discovery"
       >
-        <div className="space-y-3 text-sm text-gray-300 leading-relaxed">
+        <div className="space-y-3 text-sm text-su-muted leading-relaxed">
           <p>
             The Propulse Radio Daemon is a lightweight binary that runs locally
             on your computer and bridges your SDR or traditional radio hardware
@@ -31,7 +31,7 @@ export function SdrConsoleSection() {
           <ul className="list-disc list-inside space-y-1.5 pl-1">
             <li>
               <strong>Default connection</strong> —{" "}
-              <code className="text-xs font-mono text-gray-200 bg-white/5 px-1.5 py-0.5 rounded">
+              <code className="text-xs font-mono text-su-text bg-su-line/10 px-1.5 py-0.5 rounded">
                 ws://127.0.0.1:9867
               </code>
               . This is the local WebSocket endpoint where the daemon listens.
@@ -75,9 +75,9 @@ export function SdrConsoleSection() {
         title="Radio Controls"
         summary="Frequency, mode, PTT, AGC, antenna, and gain"
       >
-        <div className="space-y-4 text-sm text-gray-300 leading-relaxed">
+        <div className="space-y-4 text-sm text-su-muted leading-relaxed">
           <div>
-            <h4 className="text-white font-semibold mb-1">Frequency Tuning</h4>
+            <h4 className="text-su-text font-semibold mb-1">Frequency Tuning</h4>
             <p>
               Enter a frequency directly in the input field with a unit selector
               (MHz, kHz, or Hz). Press Enter or click Tune to apply. The
@@ -88,7 +88,7 @@ export function SdrConsoleSection() {
           </div>
 
           <div>
-            <h4 className="text-white font-semibold mb-1">Mode Selection</h4>
+            <h4 className="text-su-text font-semibold mb-1">Mode Selection</h4>
             <p>
               A dropdown of modes supported by your specific device (AM, FM,
               LSB, USB, CW, etc.). The available modes depend on the connected
@@ -98,7 +98,7 @@ export function SdrConsoleSection() {
           </div>
 
           <div>
-            <h4 className="text-white font-semibold mb-1">PTT / Transmit</h4>
+            <h4 className="text-su-text font-semibold mb-1">PTT / Transmit</h4>
             <p>
               Push-to-talk button for devices that support transmit. Shows "PTT
               ON" in red when active, "PTT" when idle. Devices that are
@@ -108,7 +108,7 @@ export function SdrConsoleSection() {
           </div>
 
           <div>
-            <h4 className="text-white font-semibold mb-1">AGC</h4>
+            <h4 className="text-su-text font-semibold mb-1">AGC</h4>
             <p>
               Automatic Gain Control toggle. When enabled (green), the radio
               automatically adjusts gain to maintain consistent signal levels.
@@ -118,7 +118,7 @@ export function SdrConsoleSection() {
           </div>
 
           <div>
-            <h4 className="text-white font-semibold mb-1">Antenna Selection</h4>
+            <h4 className="text-su-text font-semibold mb-1">Antenna Selection</h4>
             <p>
               If your device has multiple antenna inputs, a dropdown lets you
               select which antenna port to use. This is common on devices like
@@ -127,7 +127,7 @@ export function SdrConsoleSection() {
           </div>
 
           <div>
-            <h4 className="text-white font-semibold mb-1">Gain Stages</h4>
+            <h4 className="text-su-text font-semibold mb-1">Gain Stages</h4>
             <p>
               Per-stage gain sliders that vary by device. SDR devices typically
               have multiple gain stages (LNA gain, mixer gain, IF gain). Each
@@ -145,7 +145,7 @@ export function SdrConsoleSection() {
         title="DSP Controls"
         summary="Filter bandwidth, noise reduction, and noise blanker"
       >
-        <div className="space-y-4 text-sm text-gray-300 leading-relaxed">
+        <div className="space-y-4 text-sm text-su-muted leading-relaxed">
           <p>
             DSP (Digital Signal Processing) controls are available on devices
             that support audio streaming (SDR devices). These controls shape the
@@ -153,7 +153,7 @@ export function SdrConsoleSection() {
           </p>
 
           <div>
-            <h4 className="text-white font-semibold mb-1">Filter (Passband)</h4>
+            <h4 className="text-su-text font-semibold mb-1">Filter (Passband)</h4>
             <p>
               Dual sliders for low and high cutoff frequency that define the
               receive passband in Hz. The filter adjusts which audio frequencies
@@ -164,7 +164,7 @@ export function SdrConsoleSection() {
           </div>
 
           <div>
-            <h4 className="text-white font-semibold mb-1">
+            <h4 className="text-su-text font-semibold mb-1">
               Noise Reduction (NR)
             </h4>
             <p>
@@ -176,7 +176,7 @@ export function SdrConsoleSection() {
           </div>
 
           <div>
-            <h4 className="text-white font-semibold mb-1">
+            <h4 className="text-su-text font-semibold mb-1">
               Noise Blanker (NB)
             </h4>
             <p>
@@ -204,14 +204,14 @@ export function SdrConsoleSection() {
         title="Spectrum & Waterfall"
         summary="Real-time FFT display with zoom, pan, and click-to-tune"
       >
-        <div className="space-y-3 text-sm text-gray-300 leading-relaxed">
+        <div className="space-y-3 text-sm text-su-muted leading-relaxed">
           <p>
             The SDR Console provides two complementary real-time displays when
             FFT streaming is active:
           </p>
 
           <div>
-            <h4 className="text-white font-semibold mb-1">Spectrum Display</h4>
+            <h4 className="text-su-text font-semibold mb-1">Spectrum Display</h4>
             <p>
               A real-time Fast Fourier Transform (FFT) display using a
               4096-point FFT at 20 frames per second, with averaging set to 4
@@ -222,7 +222,7 @@ export function SdrConsoleSection() {
           </div>
 
           <div>
-            <h4 className="text-white font-semibold mb-1">Waterfall Display</h4>
+            <h4 className="text-su-text font-semibold mb-1">Waterfall Display</h4>
             <p>
               A persistent time-versus-frequency display where signals paint as
               colored traces that scroll downward over time. The waterfall makes
@@ -271,7 +271,7 @@ export function SdrConsoleSection() {
         title="WSJT-X Integration"
         summary="Live decodes, frequency sync, and status display"
       >
-        <div className="space-y-3 text-sm text-gray-300 leading-relaxed">
+        <div className="space-y-3 text-sm text-su-muted leading-relaxed">
           <p>
             The SDR Console integrates with WSJT-X via UDP, displaying live
             digital mode activity alongside the waterfall display.
@@ -299,11 +299,11 @@ export function SdrConsoleSection() {
               <strong>Waterfall Overlay</strong> — Decoded signals appear as
               cyan markers on the SDR waterfall at their actual RF frequency.
               For LSB modes, the frequency offset calculation is{" "}
-              <code className="text-xs font-mono text-gray-200 bg-white/5 px-1.5 py-0.5 rounded">
+              <code className="text-xs font-mono text-su-text bg-su-line/10 px-1.5 py-0.5 rounded">
                 RF = dial - deltaFreq
               </code>
               ; for USB modes,{" "}
-              <code className="text-xs font-mono text-gray-200 bg-white/5 px-1.5 py-0.5 rounded">
+              <code className="text-xs font-mono text-su-text bg-su-line/10 px-1.5 py-0.5 rounded">
                 RF = dial + deltaFreq
               </code>
               .
@@ -325,7 +325,7 @@ export function SdrConsoleSection() {
         title="DX Cluster Overlay"
         summary="Spot markers on the waterfall display"
       >
-        <div className="space-y-3 text-sm text-gray-300 leading-relaxed">
+        <div className="space-y-3 text-sm text-su-muted leading-relaxed">
           <p>
             DX cluster spots that fall within your visible bandwidth
             automatically appear as overlay markers on the waterfall display.
@@ -361,7 +361,7 @@ export function SdrConsoleSection() {
         title="Bridge & Daemon Setup"
         summary="Installing the Radio Daemon on your computer"
       >
-        <div className="space-y-3 text-sm text-gray-300 leading-relaxed">
+        <div className="space-y-3 text-sm text-su-muted leading-relaxed">
           <p>
             The Propulse Radio Daemon is a lightweight binary that bridges your
             hardware to the browser. It discovers connected radio devices and
@@ -369,13 +369,13 @@ export function SdrConsoleSection() {
           </p>
 
           <div>
-            <h4 className="text-white font-semibold mb-1.5">
+            <h4 className="text-su-text font-semibold mb-1.5">
               Platform-Specific Installation
             </h4>
             <ul className="list-disc list-inside space-y-2 pl-1">
               <li>
                 <strong>Windows</strong> — Download the{" "}
-                <code className="text-xs font-mono text-gray-200 bg-white/5 px-1.5 py-0.5 rounded">
+                <code className="text-xs font-mono text-su-text bg-su-line/10 px-1.5 py-0.5 rounded">
                   .exe
                 </code>{" "}
                 binary from the GitHub releases page. Run it directly from
@@ -386,7 +386,7 @@ export function SdrConsoleSection() {
               <li>
                 <strong>macOS</strong> — Download the universal binary, make it
                 executable with{" "}
-                <code className="text-xs font-mono text-gray-200 bg-white/5 px-1.5 py-0.5 rounded">
+                <code className="text-xs font-mono text-su-text bg-su-line/10 px-1.5 py-0.5 rounded">
                   chmod +x
                 </code>
                 , and run from Terminal. macOS may require you to allow the
@@ -397,7 +397,7 @@ export function SdrConsoleSection() {
                 <strong>Linux</strong> — Download the binary for your
                 architecture (x86_64 or aarch64 for Raspberry Pi), make it
                 executable with{" "}
-                <code className="text-xs font-mono text-gray-200 bg-white/5 px-1.5 py-0.5 rounded">
+                <code className="text-xs font-mono text-su-text bg-su-line/10 px-1.5 py-0.5 rounded">
                   chmod +x
                 </code>
                 , and run. Devices are auto-discovered via libusb. You may need
@@ -407,7 +407,7 @@ export function SdrConsoleSection() {
           </div>
 
           <div>
-            <h4 className="text-white font-semibold mb-1.5">Configuration</h4>
+            <h4 className="text-su-text font-semibold mb-1.5">Configuration</h4>
             <p>
               The daemon creates a configuration file on first run. The config
               specifies the WebSocket port (default 9867), allowed origins,
@@ -418,7 +418,7 @@ export function SdrConsoleSection() {
           </div>
 
           <div>
-            <h4 className="text-white font-semibold mb-1.5">
+            <h4 className="text-su-text font-semibold mb-1.5">
               HTTPS / Mixed Content
             </h4>
             <p>
@@ -426,7 +426,7 @@ export function SdrConsoleSection() {
               propulse.vercel.app), browsers normally block insecure WebSocket
               connections. Install the Propulse Chrome bridge extension
               (included in the source repository under{" "}
-              <code className="text-xs font-mono text-gray-200 bg-white/5 px-1.5 py-0.5 rounded">
+              <code className="text-xs font-mono text-su-text bg-su-line/10 px-1.5 py-0.5 rounded">
                 extensions/propulse-daemon-bridge
               </code>
               ) to proxy the connection, or run Propulse locally on
@@ -442,7 +442,7 @@ export function SdrConsoleSection() {
         title="Supported Hardware"
         summary="Compatible SDR and traditional radio hardware"
       >
-        <div className="space-y-3 text-sm text-gray-300 leading-relaxed">
+        <div className="space-y-3 text-sm text-su-muted leading-relaxed">
           <ul className="list-disc list-inside space-y-2 pl-1">
             <li>
               <strong>RTL-SDR</strong> — USB dongle receivers based on the
@@ -485,7 +485,7 @@ export function SdrConsoleSection() {
         title="Data Sources"
         summary="Communication protocols and data feeds used by the SDR Console"
       >
-        <div className="space-y-3 text-sm text-gray-300 leading-relaxed">
+        <div className="space-y-3 text-sm text-su-muted leading-relaxed">
           <p>
             The SDR Console uses two primary data channels for communication
             with external applications and hardware. All connections are local

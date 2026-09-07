@@ -20,7 +20,7 @@ export function AuthRequiredPlaceholder({
     <div className="flex flex-col items-center justify-center py-12 px-4 text-center">
       {/* Lock icon */}
       <svg
-        className="w-10 h-10 text-gray-600 mb-4"
+        className="w-10 h-10 text-su-muted mb-4"
         fill="none"
         stroke="currentColor"
         viewBox="0 0 24 24"
@@ -33,7 +33,7 @@ export function AuthRequiredPlaceholder({
         />
       </svg>
 
-      <p className="text-sm text-gray-400 mb-4 max-w-xs">{prompt}</p>
+      <p className="text-sm text-su-muted mb-4 max-w-xs">{prompt}</p>
 
       <button
         onClick={() => openAuthModal(prompt)}

@@ -209,7 +209,7 @@ export const AlertToastContainer: React.FC<AlertToastContainerProps> = ({
         <div
           className={`
             text-xs font-mono text-right pr-2
-            ${hasCriticalQueued ? "text-alert-red animate-pulse" : "text-gray-500"}
+            ${hasCriticalQueued ? "text-alert-red animate-pulse" : "text-su-muted"}
             transition-colors duration-200
           `}
           role="status"

@@ -2,7 +2,7 @@ import { Link } from "react-router-dom";
 import { HelpAccordion } from "@/components/help/HelpAccordion";
 
 export function DashboardSection() {
-  return <div className="space-y-6 text-sm leading-relaxed text-gray-300">
+  return <div className="space-y-6 text-sm leading-relaxed text-su-muted">
     <p>Home is your quick look at current band activity, solar conditions, and your station. Recent reports lead the page; the HF briefing explains the global space-weather context. Reported impacts appear ahead of activity. You can use Home before signing in.</p>
     <HelpAccordion id="home-activity" title="On the bands now" summary="Recent reports, with a clear scope and time window">
       <p>The band tiles count deduplicated reception and cluster observations in the last 20 minutes, scoped to your Home location’s continent when available. The bars compare those same counts. Mode counts describe CW, digital, phone, or unknown reports.</p>
@@ -11,7 +11,7 @@ export function DashboardSection() {
     </HelpAccordion>
     <HelpAccordion id="home-briefing" title="Solar context and refresh" summary="The same source-aware interpretation as Solar Pulse">
       <p>The briefing reconciles six solar products and keeps current impacts separate from background conditions. Current, Stale, Partial, Error, and Unavailable describe source state. A cleared notification list does not establish quiet conditions.</p>
-      <p className="mt-3">The top-right refresh checks current solar sources and official forecasts. Activity updates every minute; the log and optional widgets use their own controls. Delayed sources retry automatically. Open Details on the Solar outlook card, then Forecast detail, sources &amp; times for provenance, or <Link to="/solar" className="text-cyan-200 underline">Solar Pulse</Link> for forecasts, history, and imagery.</p>
+      <p className="mt-3">The top-right refresh checks current solar sources and official forecasts. Activity updates every minute; the log and optional widgets use their own controls. Delayed sources retry automatically. Open Details on the Solar outlook card, then Forecast detail, sources &amp; times for provenance, or <Link to="/solar" className="text-cosmic-cyan underline">Solar Pulse</Link> for forecasts, history, and imagery.</p>
     </HelpAccordion>
     <HelpAccordion id="home-advanced" title="Location and Advanced dashboard" summary="Local context and a separate modeled outlook">
       <p>Choose a 4- or 6-character grid without an account, or follow your saved station when signed in. Weather and daylight use this Home location; solar conditions remain global. Home’s location selection does not change your station setup.</p>

@@ -199,8 +199,8 @@ function NotFound() {
   return (
     <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4 text-center px-4">
       <div className="text-6xl font-mono font-bold text-plasma-orange">404</div>
-      <h1 className="text-xl font-semibold text-white">Page Not Found</h1>
-      <p className="text-gray-400 max-w-md">
+      <h1 className="text-xl font-semibold text-su-text">Page Not Found</h1>
+      <p className="text-su-muted max-w-md">
         The frequency you&apos;re looking for isn&apos;t propagating. Check your
         heading and try again.
       </p>
@@ -288,7 +288,7 @@ function Application() {
             element={
               <Suspense
                 fallback={
-                  <div className="flex min-h-screen items-center justify-center bg-void-black font-mono text-xs uppercase tracking-widest text-white/40">
+                  <div className="flex min-h-screen items-center justify-center bg-void-black font-mono text-xs uppercase tracking-widest text-su-text/80">
                     Loading operating workspace…
                   </div>
                 }

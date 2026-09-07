@@ -1,4 +1,4 @@
-export type ActivationProgram = "POTA" | "SOTA" | "WWFF";
+export type ActivationProgram = "POTA" | "SOTA" | "WWFF" | "WWBOTA";
 
 export type ActivationSourceStatus = "ok" | "unavailable" | "invalid";
 
@@ -40,6 +40,7 @@ export const ACTIVATION_PROGRAMS: readonly ActivationProgram[] = [
   "POTA",
   "SOTA",
   "WWFF",
+  "WWBOTA",
 ] as const;
 
 export const ACTIVATION_PROGRAM_META: Record<
@@ -60,5 +61,10 @@ export const ACTIVATION_PROGRAM_META: Record<
     label: "WWFF",
     source: "WWFF Spotline",
     sourceUrl: "https://spots.wwff.co/",
+  },
+  WWBOTA: {
+    label: "WWBOTA",
+    source: "Worldwide Bunkers on the Air",
+    sourceUrl: "https://wwbota.net/",
   },
 };

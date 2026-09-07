@@ -112,3 +112,113 @@ END;
 $$;
 RESET ROLE;
 ROLLBACK;
+
+-- Inverse ordering: a transaction begins first, then a remote rebuild obtains
+-- the lock and holds it. The older transaction's gap insert must wait and use
+-- wall-clock time after that wait, so it invalidates the completed baseline.
+INSERT INTO public.band_hourly_stats (band, hour_utc, spot_count) VALUES
+  ('12m', date_trunc('hour', clock_timestamp()) - interval '24 hours', 12),
+  ('12m', date_trunc('hour', clock_timestamp()) - interval '120 hours', 912);
+CREATE FUNCTION public.spot_baseline_test_rebuild_and_sleep()
+RETURNS void LANGUAGE plpgsql AS $$
+BEGIN
+  PERFORM public.compute_band_activity_climatology(90);
+  PERFORM pg_sleep(1);
+END;
+$$;
+SELECT dblink_connect('spot_baseline_rebuild', 'host=/tmp dbname=postgres user=postgres');
+BEGIN;
+SELECT transaction_timestamp() AS gap_transaction_started;
+SELECT dblink_send_query('spot_baseline_rebuild',
+  'SELECT public.spot_baseline_test_rebuild_and_sleep()');
+SELECT pg_sleep(0.2);
+DO $$
+DECLARE
+  started timestamptz := clock_timestamp();
+  gap_hour timestamptz := date_trunc('hour', clock_timestamp()) - interval '120 hours';
+BEGIN
+  PERFORM public.record_spot_aggregation_gap('band_hourly', gap_hour, gap_hour);
+  IF clock_timestamp() - started < interval '0.65 seconds' THEN
+    RAISE EXCEPTION 'gap writer did not wait for concurrent baseline rebuild';
+  END IF;
+END;
+$$;
+COMMIT;
+SELECT result FROM dblink_get_result('spot_baseline_rebuild') AS completed(result text);
+SELECT dblink_disconnect('spot_baseline_rebuild');
+DO $$
+DECLARE
+  computed timestamptz;
+  recorded timestamptz;
+  gap_hour timestamptz := date_trunc('hour', clock_timestamp()) - interval '120 hours';
+BEGIN
+  SELECT computed_at INTO STRICT computed FROM public.band_activity_climatology
+    WHERE band = '12m';
+  SELECT recorded_at INTO STRICT recorded FROM public.collector_aggregation_gaps
+    WHERE aggregation = 'band_hourly' AND start_hour = gap_hour;
+  IF recorded <= computed
+    OR public.spot_aggregation_baseline_current('band_hourly', computed) THEN
+    RAISE EXCEPTION 'post-rebuild gap timestamp did not invalidate baseline';
+  END IF;
+END;
+$$;
+
+-- A gap may be written by one collector connection while the daily baseline
+-- rebuild starts on another. The rebuild must wait for that transaction and
+-- take its data snapshot only after the committed gap is visible.
+INSERT INTO public.band_hourly_stats (band, hour_utc, spot_count) VALUES
+  ('15m', date_trunc('hour', clock_timestamp()) - interval '24 hours', 10),
+  ('15m', date_trunc('hour', clock_timestamp()) - interval '72 hours', 30),
+  ('15m', date_trunc('hour', clock_timestamp()) - interval '96 hours', 999);
+
+CREATE FUNCTION public.spot_baseline_test_record_gap_and_sleep()
+RETURNS void LANGUAGE plpgsql AS $$
+DECLARE
+  gap_hour timestamptz := date_trunc('hour', clock_timestamp()) - interval '96 hours';
+BEGIN
+  PERFORM public.record_spot_aggregation_gap('band_hourly', gap_hour, gap_hour);
+  PERFORM pg_sleep(1);
+END;
+$$;
+
+SELECT dblink_connect('spot_baseline_gap', 'host=/tmp dbname=postgres user=postgres');
+SELECT dblink_send_query('spot_baseline_gap',
+  'SELECT public.spot_baseline_test_record_gap_and_sleep()');
+SELECT pg_sleep(0.2);
+DO $$
+DECLARE
+  started timestamptz := clock_timestamp();
+BEGIN
+  PERFORM public.compute_band_activity_climatology(90);
+  IF clock_timestamp() - started < interval '0.65 seconds' THEN
+    RAISE EXCEPTION 'baseline rebuild did not wait for concurrent gap transaction';
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM public.band_activity_climatology
+      WHERE band = '15m' AND sample_count = 1 AND p50 = 30) THEN
+    RAISE EXCEPTION 'rebuild snapshot did not exclude the concurrently committed gap';
+  END IF;
+END;
+$$;
+SELECT result FROM dblink_get_result('spot_baseline_gap') AS completed(result text);
+SELECT dblink_disconnect('spot_baseline_gap');
+
+BEGIN ISOLATION LEVEL REPEATABLE READ;
+DO $$
+BEGIN
+  BEGIN
+    PERFORM public.compute_band_activity_climatology(90);
+    RAISE EXCEPTION 'repeatable-read band rebuild accepted';
+  EXCEPTION WHEN OTHERS THEN
+    IF SQLERRM = 'repeatable-read band rebuild accepted' THEN RAISE; END IF;
+    IF SQLERRM <> 'band climatology rebuild requires read committed isolation' THEN RAISE; END IF;
+  END;
+  BEGIN
+    PERFORM public.compute_region_activity_climatology(90);
+    RAISE EXCEPTION 'repeatable-read region rebuild accepted';
+  EXCEPTION WHEN OTHERS THEN
+    IF SQLERRM = 'repeatable-read region rebuild accepted' THEN RAISE; END IF;
+    IF SQLERRM <> 'region climatology rebuild requires read committed isolation' THEN RAISE; END IF;
+  END;
+END;
+$$;
+ROLLBACK;

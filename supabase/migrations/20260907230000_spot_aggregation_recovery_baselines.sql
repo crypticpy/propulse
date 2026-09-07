@@ -13,12 +13,17 @@ BEGIN
     OR p_end_hour >= clock_timestamp() - interval '2 hours' THEN
     RAISE EXCEPTION 'invalid aggregation gap';
   END IF;
+  -- Lock allocation: (584,5) serializes only gap/baseline ordering. The spot
+  -- aggregation and retention workers use other keys in the 584 namespace.
+  -- Serialize gap visibility with climatology rebuild snapshots. PL/pgSQL's
+  -- following INSERT gets a fresh READ COMMITTED snapshot after this wait.
+  PERFORM pg_advisory_xact_lock(584, 5);
   INSERT INTO public.collector_aggregation_gaps AS existing_gap
-      (aggregation, start_hour, end_hour)
-    VALUES (p_aggregation, p_start_hour, p_end_hour)
+      (aggregation, start_hour, end_hour, recorded_at)
+    VALUES (p_aggregation, p_start_hour, p_end_hour, clock_timestamp())
     ON CONFLICT (aggregation, start_hour) DO UPDATE
       SET end_hour = excluded.end_hour,
-          recorded_at = now()
+          recorded_at = clock_timestamp()
       WHERE excluded.end_hour > existing_gap.end_hour;
 END;
 $$;
@@ -92,9 +97,18 @@ CREATE OR REPLACE FUNCTION public.compute_band_activity_climatology(
   baseline_days integer DEFAULT 90
 )
 RETURNS integer
-LANGUAGE sql
+LANGUAGE plpgsql
 SET statement_timeout = '120s'
 AS $$
+DECLARE
+  written integer;
+BEGIN
+  IF current_setting('transaction_isolation') <> 'read committed' THEN
+    RAISE EXCEPTION 'band climatology rebuild requires read committed isolation';
+  END IF;
+  -- The aggregate-gap writer takes this same exclusive transaction lock.
+  -- The CTE below therefore receives a new snapshot after any writer commits.
+  PERFORM pg_advisory_xact_lock(584, 5);
   -- Densify before ranking: band_hourly_stats has no row for a band that
   -- was silent during an aggregated hour, so sampling only existing rows
   -- would condition the percentiles on the band already being active and
@@ -144,7 +158,7 @@ AS $$
   upserted AS (
     INSERT INTO public.band_activity_climatology AS c
       (band, hour_of_day, p25, p50, p75, p95, sample_count, computed_at)
-    SELECT band, hour_of_day, p25, p50, p75, p95, sample_count, now()
+    SELECT band, hour_of_day, p25, p50, p75, p95, sample_count, clock_timestamp()
     FROM pct
     ON CONFLICT (band, hour_of_day) DO UPDATE SET
       p25 = excluded.p25,
@@ -155,7 +169,9 @@ AS $$
       computed_at = excluded.computed_at
     RETURNING 1
   )
-  SELECT count(*)::integer FROM upserted;
+  SELECT count(*)::integer INTO written FROM upserted;
+  RETURN written;
+END;
 $$;
 
 REVOKE ALL ON FUNCTION public.compute_band_activity_climatology(integer)
@@ -167,9 +183,16 @@ CREATE OR REPLACE FUNCTION public.compute_region_activity_climatology(
   baseline_days integer DEFAULT 90
 )
 RETURNS integer
-LANGUAGE sql
+LANGUAGE plpgsql
 SET statement_timeout = '120s'
 AS $$
+DECLARE
+  written integer;
+BEGIN
+  IF current_setting('transaction_isolation') <> 'read committed' THEN
+    RAISE EXCEPTION 'region climatology rebuild requires read committed isolation';
+  END IF;
+  PERFORM pg_advisory_xact_lock(584, 5);
   WITH window_rows AS (
     SELECT band, continent, hour_utc, spot_count
     FROM public.region_hourly_stats
@@ -215,7 +238,7 @@ AS $$
   upserted AS (
     INSERT INTO public.region_activity_climatology AS c
       (band, continent, hour_of_day, p25, p50, p75, p95, sample_count, computed_at)
-    SELECT band, continent, hour_of_day, p25, p50, p75, p95, sample_count, now()
+    SELECT band, continent, hour_of_day, p25, p50, p75, p95, sample_count, clock_timestamp()
     FROM pct
     ON CONFLICT (band, continent, hour_of_day) DO UPDATE SET
       p25 = excluded.p25,
@@ -226,7 +249,9 @@ AS $$
       computed_at = excluded.computed_at
     RETURNING 1
   )
-  SELECT count(*)::integer FROM upserted;
+  SELECT count(*)::integer INTO written FROM upserted;
+  RETURN written;
+END;
 $$;
 
 REVOKE ALL ON FUNCTION public.compute_region_activity_climatology(integer)

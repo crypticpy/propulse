@@ -1,3 +1,5 @@
+CREATE EXTENSION IF NOT EXISTS dblink;
+
 CREATE TABLE public.collector_aggregation_gaps (
   aggregation text NOT NULL,
   start_hour timestamptz NOT NULL,

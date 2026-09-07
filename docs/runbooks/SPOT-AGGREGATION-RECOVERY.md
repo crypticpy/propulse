@@ -1,6 +1,6 @@
 # Spot aggregation recovery
 
-Tracking: #584. This first slice protects aggregation against raw-spot expiry;
+Tracking: #584. These safeguards protect aggregation against raw-spot expiry;
 upstream delivery completeness and all-consumer coverage reporting remain open.
 
 ## Contract
@@ -65,9 +65,9 @@ a corrected collector is deployed; removing the gap ledger loses audit evidence.
 
 - Source delivery/coverage evidence to distinguish genuine zero, stale,
   incomplete and unavailable data across APIs, lists/maps and training consumers.
-- Make gap metadata authoritative in historical lookup consumers as well as
-  recovery. This slice does not invalidate pre-existing derived rows if a gap
-  is later discovered for their hour.
+- Extend gap-aware reading to any remaining direct training/archive consumers.
+  The path-lag reader, activity baselines and app band history quarantine known
+  gaps, including pre-existing derived rows; this is not a complete reader audit.
 - Deployed configuration and historical continuity audit, including any gaps
   produced before this guard existed and migration-ledger reconciliation.
 - A bounded longer recovery/archive policy if the model owner requires reports
@@ -88,6 +88,11 @@ The baseline follow-up excludes known band/region gap hours before building the
 sample population. Counts remain live while baseline fields become null after a
 new gap, until a filtered rebuild succeeds. An identical gap report preserves
 its original timestamp; expanding a range legitimately invalidates the baseline.
+Gap writes and both baseline rebuilds share a dedicated transaction lock. Rebuilds
+require READ COMMITTED isolation so their post-lock query sees committed gaps;
+post-lock timestamps preserve invalidation when a gap is recorded after a rebuild.
+A lock timeout fails the operation for retry rather than publishing mixed state.
+
 The gap-aware band-history view omits suspect hours but preserves stored zeroes.
 The API still uses its existing missing-hour presentation and bounded query.
 

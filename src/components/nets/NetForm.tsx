@@ -111,9 +111,9 @@ function isValidUrl(str: string): boolean {
 // ── Shared Input Class ───────────────────────────────────────────────────────
 
 const inputClass =
-  "w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-gray-200 placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-plasma-orange/50 focus:border-plasma-orange/30 transition-colors";
+  "w-full bg-su-line/10 border border-su-line/40 rounded-lg px-3 py-2 text-sm text-su-text placeholder:text-su-muted focus:outline-none focus:ring-2 focus:ring-plasma-orange/50 focus:border-plasma-orange/30 transition-colors";
 
-const labelClass = "block text-xs font-medium text-gray-400 mb-1";
+const labelClass = "block text-xs font-medium text-su-muted mb-1";
 
 // ── Country Combobox Data ────────────────────────────────────────────────────
 
@@ -206,7 +206,7 @@ function CountryCombobox({
               onChange("");
               setSearch("");
             }}
-            className="shrink-0 p-1 text-gray-400 hover:text-white"
+            className="shrink-0 p-1 text-su-muted hover:text-su-text"
             aria-label="Clear country"
           >
             <svg
@@ -227,11 +227,11 @@ function CountryCombobox({
       </div>
       {isOpen && (
         <ul
-          className="absolute z-20 mt-1 w-full max-h-48 overflow-y-auto bg-deep-space border border-white/15 rounded-lg shadow-xl"
+          className="absolute z-20 mt-1 w-full max-h-48 overflow-y-auto bg-deep-space border border-su-line/50 rounded-lg shadow-xl"
           role="listbox"
         >
           {filtered.length === 0 ? (
-            <li className="px-3 py-2 text-sm text-gray-500">
+            <li className="px-3 py-2 text-sm text-su-muted">
               No countries found
             </li>
           ) : (
@@ -244,7 +244,7 @@ function CountryCombobox({
                   className={`w-full text-left px-3 py-2 text-sm transition-colors ${
                     c.iso === value
                       ? "bg-plasma-orange/15 text-plasma-orange"
-                      : "text-gray-300 hover:bg-white/10"
+                      : "text-su-muted hover:bg-su-line/20"
                   }`}
                   onClick={() => {
                     onChange(c.iso);
@@ -522,7 +522,7 @@ export function NetForm({
       {/* ── Summary ────────────────────────────────────────────────────────── */}
       <div>
         <label className={labelClass}>
-          Summary <span className="text-gray-500 font-normal">(optional)</span>
+          Summary <span className="text-su-muted font-normal">(optional)</span>
         </label>
         <input
           type="text"
@@ -532,7 +532,7 @@ export function NetForm({
           maxLength={140}
           className={inputClass}
         />
-        <p className="text-right text-xs text-gray-500 mt-0.5 tabular-nums">
+        <p className="text-right text-xs text-su-muted mt-0.5 tabular-nums">
           {summary.length}/140
         </p>
       </div>
@@ -608,7 +608,7 @@ export function NetForm({
         <button
           type="button"
           onClick={() => setShowSchedule((v) => !v)}
-          className="flex items-center gap-2 text-xs font-medium text-gray-400 hover:text-gray-300 transition-colors"
+          className="flex items-center gap-2 text-xs font-medium text-su-muted hover:text-su-muted transition-colors"
         >
           <svg
             className={`w-3.5 h-3.5 transition-transform ${showSchedule ? "rotate-90" : ""}`}
@@ -627,7 +627,7 @@ export function NetForm({
         </button>
 
         {showSchedule && (
-          <div className="mt-3 space-y-3 pl-5 border-l border-white/5">
+          <div className="mt-3 space-y-3 pl-5 border-l border-su-line/20">
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className={labelClass}>Pattern</label>
@@ -733,7 +733,7 @@ export function NetForm({
         <div>
           <label className={labelClass}>
             Region / Area{" "}
-            <span className="text-gray-500 font-normal">(optional)</span>
+            <span className="text-su-muted font-normal">(optional)</span>
           </label>
           <input
             type="text"
@@ -762,7 +762,7 @@ export function NetForm({
         <button
           type="button"
           onClick={() => setShowDiscovery((v) => !v)}
-          className="flex items-center gap-2 text-xs font-medium text-gray-400 hover:text-gray-300 transition-colors"
+          className="flex items-center gap-2 text-xs font-medium text-su-muted hover:text-su-muted transition-colors"
         >
           <svg
             className={`w-3.5 h-3.5 transition-transform ${showDiscovery ? "rotate-90" : ""}`}
@@ -781,12 +781,12 @@ export function NetForm({
         </button>
 
         {showDiscovery && (
-          <div className="mt-3 space-y-4 pl-5 border-l border-white/5">
+          <div className="mt-3 space-y-4 pl-5 border-l border-su-line/20">
             {/* Formality Level */}
             <div>
               <label className={labelClass}>
                 Formality Level —{" "}
-                <span className="text-gray-300">
+                <span className="text-su-muted">
                   {FORMALITY_LABELS[formalityLevel] ?? "Moderate"}
                 </span>
               </label>
@@ -799,7 +799,7 @@ export function NetForm({
                 onChange={(e) => setFormalityLevel(Number(e.target.value))}
                 className="w-full accent-plasma-orange"
               />
-              <div className="flex justify-between text-[10px] text-gray-500 mt-1">
+              <div className="flex justify-between text-[10px] text-su-muted mt-1">
                 <span>Casual</span>
                 <span>Formal</span>
               </div>
@@ -826,8 +826,8 @@ export function NetForm({
                 className="w-4 h-4 rounded accent-plasma-orange"
               />
               <div>
-                <span className="text-sm text-gray-200">Newcomer Friendly</span>
-                <p className="text-[11px] text-gray-500">
+                <span className="text-sm text-su-text">Newcomer Friendly</span>
+                <p className="text-[11px] text-su-muted">
                   This net welcomes first-time check-ins
                 </p>
               </div>
@@ -841,7 +841,7 @@ export function NetForm({
         <button
           type="button"
           onClick={() => setShowRepeater((v) => !v)}
-          className="flex items-center gap-2 text-xs font-medium text-gray-400 hover:text-gray-300 transition-colors"
+          className="flex items-center gap-2 text-xs font-medium text-su-muted hover:text-su-muted transition-colors"
         >
           <svg
             className={`w-3.5 h-3.5 transition-transform ${showRepeater ? "rotate-90" : ""}`}
@@ -860,7 +860,7 @@ export function NetForm({
         </button>
 
         {showRepeater && (
-          <div className="mt-3 grid grid-cols-3 gap-3 pl-5 border-l border-white/5">
+          <div className="mt-3 grid grid-cols-3 gap-3 pl-5 border-l border-su-line/20">
             <div>
               <label className={labelClass}>Callsign</label>
               <input
@@ -902,7 +902,7 @@ export function NetForm({
         <button
           type="button"
           onClick={() => setShowVoip((v) => !v)}
-          className="flex items-center gap-2 text-xs font-medium text-gray-400 hover:text-gray-300 transition-colors"
+          className="flex items-center gap-2 text-xs font-medium text-su-muted hover:text-su-muted transition-colors"
         >
           <svg
             className={`w-3.5 h-3.5 transition-transform ${showVoip ? "rotate-90" : ""}`}
@@ -921,7 +921,7 @@ export function NetForm({
         </button>
 
         {showVoip && (
-          <div className="mt-3 grid grid-cols-3 gap-3 pl-5 border-l border-white/5">
+          <div className="mt-3 grid grid-cols-3 gap-3 pl-5 border-l border-su-line/20">
             <div>
               <label className={labelClass}>EchoLink Node</label>
               <input
@@ -961,7 +961,7 @@ export function NetForm({
         <button
           type="button"
           onClick={() => setShowPreamble((v) => !v)}
-          className="flex items-center gap-2 text-xs font-medium text-gray-400 hover:text-gray-300 transition-colors"
+          className="flex items-center gap-2 text-xs font-medium text-su-muted hover:text-su-muted transition-colors"
         >
           <svg
             className={`w-3.5 h-3.5 transition-transform ${showPreamble ? "rotate-90" : ""}`}
@@ -980,7 +980,7 @@ export function NetForm({
         </button>
 
         {showPreamble && (
-          <div className="mt-3 pl-5 border-l border-white/5">
+          <div className="mt-3 pl-5 border-l border-su-line/20">
             <textarea
               value={preambleTemplate}
               onChange={(e) => setPreambleTemplate(e.target.value)}
@@ -1007,7 +1007,7 @@ export function NetForm({
             {tags.map((tag) => (
               <span
                 key={tag}
-                className="px-2 py-0.5 text-[10px] font-medium rounded-full bg-white/10 text-gray-300 border border-white/5"
+                className="px-2 py-0.5 text-[10px] font-medium rounded-full bg-su-line/20 text-su-muted border border-su-line/20"
               >
                 {tag}
               </span>
@@ -1026,7 +1026,7 @@ export function NetForm({
               className={`flex items-start gap-3 p-3 rounded-xl border cursor-pointer transition-colors ${
                 visibility === opt.value
                   ? "bg-plasma-orange/5 border-plasma-orange/30"
-                  : "bg-white/[0.02] border-white/5 hover:border-white/10"
+                  : "bg-su-line/10 border-su-line/20 hover:border-su-line/40"
               }`}
             >
               <input
@@ -1038,10 +1038,10 @@ export function NetForm({
                 className="mt-0.5 accent-plasma-orange"
               />
               <div>
-                <span className="text-sm font-medium text-white">
+                <span className="text-sm font-medium text-su-text">
                   {opt.label}
                 </span>
-                <p className="text-[11px] text-gray-500">{opt.description}</p>
+                <p className="text-[11px] text-su-muted">{opt.description}</p>
               </div>
             </label>
           ))}
@@ -1070,7 +1070,7 @@ export function NetForm({
       <button
         type="submit"
         disabled={isSubmitting}
-        className="w-full py-3 text-sm font-semibold rounded-xl bg-plasma-orange text-white shadow-lg shadow-plasma-orange/20 hover:bg-plasma-orange/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+        className="w-full py-3 text-sm font-semibold rounded-xl bg-plasma-orange text-su-on-accent shadow-lg shadow-plasma-orange/20 hover:bg-plasma-orange/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
       >
         {isSubmitting ? "Saving..." : "Create Net"}
       </button>

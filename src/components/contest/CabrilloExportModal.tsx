@@ -67,7 +67,7 @@ function WarningBadge({ warning }: { warning: CabrilloValidationWarning }) {
         >
           {warning.field}:
         </span>
-        <span className="ml-1 text-gray-300">{warning.message}</span>
+        <span className="ml-1 text-su-muted">{warning.message}</span>
       </div>
     </div>
   );
@@ -211,16 +211,16 @@ export function CabrilloExportModal({
   const hasWarnings = warnings.length > 0;
 
   const inputClass =
-    "px-3 py-2 bg-deep-space border border-white/10 rounded-lg text-white focus:outline-none focus:border-plasma-orange/50 focus:ring-1 focus:ring-plasma-orange/30";
+    "px-3 py-2 bg-deep-space border border-su-line/40 rounded-lg text-su-text focus:outline-none focus:border-plasma-orange/50 focus:ring-1 focus:ring-plasma-orange/30";
 
   const selectClass =
-    "px-3 py-2 bg-deep-space border border-white/10 rounded-lg text-white focus:outline-none focus:border-plasma-orange/50 focus:ring-1 focus:ring-plasma-orange/30";
+    "px-3 py-2 bg-deep-space border border-su-line/40 rounded-lg text-su-text focus:outline-none focus:border-plasma-orange/50 focus:ring-1 focus:ring-plasma-orange/30";
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
       {/* Backdrop */}
       <div
-        className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+        className="absolute inset-0 bg-su-panel/60 backdrop-blur-sm"
         onClick={handleClose}
       />
 
@@ -236,7 +236,7 @@ export function CabrilloExportModal({
           </h2>
           <button
             onClick={handleClose}
-            className="p-1 text-gray-400 hover:text-white transition-colors"
+            className="p-1 text-su-muted hover:text-su-text transition-colors"
             aria-label="Close"
           >
             <svg
@@ -260,7 +260,7 @@ export function CabrilloExportModal({
           <div className="flex-1 flex items-center justify-center">
             <div className="text-center py-12">
               <svg
-                className="w-16 h-16 mx-auto mb-4 text-gray-600"
+                className="w-16 h-16 mx-auto mb-4 text-su-muted"
                 fill="none"
                 stroke="currentColor"
                 viewBox="0 0 24 24"
@@ -272,10 +272,10 @@ export function CabrilloExportModal({
                   d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
                 />
               </svg>
-              <p className="text-gray-400 text-lg">
+              <p className="text-su-muted text-lg">
                 No contest session to export
               </p>
-              <p className="text-gray-500 text-sm mt-2">
+              <p className="text-su-muted text-sm mt-2">
                 Start a contest session to generate a Cabrillo log file.
               </p>
             </div>
@@ -287,7 +287,7 @@ export function CabrilloExportModal({
               <div className="mb-4">
                 <label
                   htmlFor="session-select"
-                  className="block text-sm text-gray-400 mb-2"
+                  className="block text-sm text-su-muted mb-2"
                 >
                   Select Session
                 </label>
@@ -317,27 +317,27 @@ export function CabrilloExportModal({
             {/* Stats summary */}
             {cabrilloResult && (
               <div className="grid grid-cols-3 gap-4 mb-4">
-                <div className="p-3 bg-nebula-blue rounded-lg border border-white/10 text-center">
-                  <div className="text-2xl font-bold text-white font-mono">
+                <div className="p-3 bg-nebula-blue rounded-lg border border-su-line/40 text-center">
+                  <div className="text-2xl font-bold text-su-text font-mono">
                     {cabrilloResult.stats.qsoCount}
                   </div>
-                  <div className="text-xs text-gray-400 uppercase tracking-wide">
+                  <div className="text-xs text-su-muted uppercase tracking-wide">
                     QSOs
                   </div>
                 </div>
-                <div className="p-3 bg-nebula-blue rounded-lg border border-white/10 text-center">
-                  <div className="text-2xl font-bold text-white font-mono">
+                <div className="p-3 bg-nebula-blue rounded-lg border border-su-line/40 text-center">
+                  <div className="text-2xl font-bold text-su-text font-mono">
                     {cabrilloResult.stats.dupeCount}
                   </div>
-                  <div className="text-xs text-gray-400 uppercase tracking-wide">
+                  <div className="text-xs text-su-muted uppercase tracking-wide">
                     Dupes
                   </div>
                 </div>
-                <div className="p-3 bg-nebula-blue rounded-lg border border-white/10 text-center">
+                <div className="p-3 bg-nebula-blue rounded-lg border border-su-line/40 text-center">
                   <div className="text-2xl font-bold text-plasma-orange font-mono">
                     {cabrilloResult.stats.claimedScore.toLocaleString()}
                   </div>
-                  <div className="text-xs text-gray-400 uppercase tracking-wide">
+                  <div className="text-xs text-su-muted uppercase tracking-wide">
                     Score
                   </div>
                 </div>
@@ -347,7 +347,7 @@ export function CabrilloExportModal({
             {/* Validation warnings */}
             {hasWarnings && (
               <div className="mb-4 space-y-2">
-                <h3 className="text-sm font-medium text-gray-300">
+                <h3 className="text-sm font-medium text-su-muted">
                   {hasErrors ? "Validation Errors" : "Validation Warnings"}
                 </h3>
                 {warnings.map((warning, idx) => (
@@ -362,17 +362,17 @@ export function CabrilloExportModal({
             {/* Cabrillo preview */}
             <div className="flex-1 min-h-0 mb-4">
               <div className="flex items-center justify-between mb-2">
-                <h3 className="text-sm font-medium text-gray-300">
+                <h3 className="text-sm font-medium text-su-muted">
                   Cabrillo Preview
                 </h3>
-                <span className="text-xs text-gray-500">
+                <span className="text-xs text-su-muted">
                   {contest?.cabrilloId || "Unknown Contest"}
                 </span>
               </div>
-              <div className="h-64 overflow-auto bg-black/30 rounded-lg border border-white/10">
+              <div className="h-64 overflow-auto bg-su-input rounded-lg border border-su-line/40">
                 <pre
                   ref={previewRef}
-                  className="p-4 text-xs font-mono text-gray-300 whitespace-pre"
+                  className="p-4 text-xs font-mono text-su-muted whitespace-pre"
                 >
                   {cabrilloResult?.content || "No content generated"}
                 </pre>
@@ -380,10 +380,10 @@ export function CabrilloExportModal({
             </div>
 
             {/* Export options */}
-            <div className="flex items-center gap-4 pt-4 border-t border-white/10">
+            <div className="flex items-center gap-4 pt-4 border-t border-su-line/40">
               {/* File extension selector */}
               <div className="flex items-center gap-2">
-                <label htmlFor="file-ext" className="text-sm text-gray-400">
+                <label htmlFor="file-ext" className="text-sm text-su-muted">
                   Format:
                 </label>
                 <select
@@ -409,7 +409,7 @@ export function CabrilloExportModal({
                   ${
                     copySuccess
                       ? "bg-green-500/20 text-green-400 border border-green-500/30"
-                      : "bg-white/5 text-gray-300 border border-white/10 hover:bg-white/10 hover:text-white"
+                      : "bg-su-line/10 text-su-muted border border-su-line/40 hover:bg-su-line/20 hover:text-su-text"
                   }
                   disabled:opacity-50 disabled:cursor-not-allowed`}
               >
@@ -457,8 +457,8 @@ export function CabrilloExportModal({
                 className={`px-4 py-2 rounded-lg font-bold transition-all duration-200 flex items-center gap-2
                   ${
                     downloadSuccess
-                      ? "bg-green-500 text-white shadow-[0_0_15px_rgba(34,197,94,0.4)]"
-                      : "bg-plasma-orange text-deep-space hover:bg-plasma-orange/90 shadow-[0_0_15px_rgba(255,170,0,0.3)]"
+                      ? "bg-green-500 text-su-text shadow-[0_0_15px_rgba(34,197,94,0.4)]"
+                      : "bg-plasma-orange text-su-on-accent hover:bg-plasma-orange/90 shadow-[0_0_15px_rgba(255,170,0,0.3)]"
                   }
                   disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none`}
               >

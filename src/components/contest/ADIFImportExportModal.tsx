@@ -200,20 +200,20 @@ export function ADIFImportExportModal({
   }
 
   const inputClass =
-    "w-full px-3 py-2 bg-deep-space border border-white/10 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-plasma-orange/50 focus:ring-1 focus:ring-plasma-orange/30";
+    "w-full px-3 py-2 bg-deep-space border border-su-line/40 rounded-lg text-su-text placeholder:text-su-muted/80 focus:outline-none focus:border-plasma-orange/50 focus:ring-1 focus:ring-plasma-orange/30";
 
   const tabClass = (active: boolean) =>
     `px-4 py-2 font-medium text-sm rounded-t-lg transition-colors ${
       active
-        ? "bg-nebula-blue text-white border-b-2 border-plasma-orange"
-        : "text-gray-400 hover:text-gray-200 hover:bg-white/5"
+        ? "bg-nebula-blue text-su-text border-b-2 border-plasma-orange"
+        : "text-su-muted hover:text-su-text hover:bg-su-line/10"
     }`;
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
       {/* Backdrop */}
       <div
-        className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+        className="absolute inset-0 bg-su-panel/60 backdrop-blur-sm"
         onClick={handleClose}
       />
 
@@ -229,7 +229,7 @@ export function ADIFImportExportModal({
           </h2>
           <button
             onClick={handleClose}
-            className="p-1 text-gray-400 hover:text-white transition-colors"
+            className="p-1 text-su-muted hover:text-su-text transition-colors"
             aria-label="Close"
           >
             <svg
@@ -250,11 +250,11 @@ export function ADIFImportExportModal({
 
         {/* Session info */}
         {activeSession && contest && (
-          <div className="mb-4 p-3 bg-nebula-blue rounded-lg border border-white/10">
+          <div className="mb-4 p-3 bg-nebula-blue rounded-lg border border-su-line/40">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-white">{contest.name}</p>
-                <p className="text-xs text-gray-400">
+                <p className="text-sm font-medium text-su-text">{contest.name}</p>
+                <p className="text-xs text-su-muted">
                   {activeSession.qsos.length} QSOs logged
                 </p>
               </div>
@@ -278,7 +278,7 @@ export function ADIFImportExportModal({
         )}
 
         {/* Tabs */}
-        <div className="flex gap-1 mb-4 border-b border-white/10">
+        <div className="flex gap-1 mb-4 border-b border-su-line/40">
           <button
             onClick={() => handleTabChange("export")}
             className={tabClass(activeTab === "export")}
@@ -298,21 +298,21 @@ export function ADIFImportExportModal({
           <div className="space-y-4">
             {/* Export options */}
             <div className="flex flex-wrap gap-4">
-              <label className="flex items-center gap-2 text-sm text-gray-300 cursor-pointer">
+              <label className="flex items-center gap-2 text-sm text-su-muted cursor-pointer">
                 <input
                   type="checkbox"
                   checked={includeHeader}
                   onChange={(e) => setIncludeHeader(e.target.checked)}
-                  className="rounded border-white/20 bg-deep-space text-plasma-orange focus:ring-plasma-orange/30"
+                  className="rounded border-su-line/50 bg-deep-space text-plasma-orange focus:ring-plasma-orange/30"
                 />
                 Include ADIF header
               </label>
-              <label className="flex items-center gap-2 text-sm text-gray-300 cursor-pointer">
+              <label className="flex items-center gap-2 text-sm text-su-muted cursor-pointer">
                 <input
                   type="checkbox"
                   checked={includeAppFields}
                   onChange={(e) => setIncludeAppFields(e.target.checked)}
-                  className="rounded border-white/20 bg-deep-space text-plasma-orange focus:ring-plasma-orange/30"
+                  className="rounded border-su-line/50 bg-deep-space text-plasma-orange focus:ring-plasma-orange/30"
                 />
                 Include ProPulse fields
               </label>
@@ -321,7 +321,7 @@ export function ADIFImportExportModal({
             {/* Generate button */}
             <button
               onClick={handleGenerateExport}
-              className="px-4 py-2 bg-nebula-blue text-white text-sm font-medium rounded-lg hover:bg-nebula-blue/80 transition-colors"
+              className="px-4 py-2 bg-nebula-blue text-su-text text-sm font-medium rounded-lg hover:bg-nebula-blue/80 transition-colors"
             >
               Generate Preview
             </button>
@@ -330,7 +330,7 @@ export function ADIFImportExportModal({
             {exportContent && (
               <>
                 <div className="relative">
-                  <label className="block text-sm font-medium text-gray-300 mb-2">
+                  <label className="block text-sm font-medium text-su-muted mb-2">
                     ADIF Preview ({activeSession.qsos.length} QSOs)
                   </label>
                   <textarea
@@ -340,7 +340,7 @@ export function ADIFImportExportModal({
                   />
                   <button
                     onClick={handleCopyToClipboard}
-                    className="absolute top-8 right-2 p-1.5 text-gray-400 hover:text-white transition-colors"
+                    className="absolute top-8 right-2 p-1.5 text-su-muted hover:text-su-text transition-colors"
                     title="Copy to clipboard"
                   >
                     <svg
@@ -362,7 +362,7 @@ export function ADIFImportExportModal({
                 {/* Download button */}
                 <button
                   onClick={handleDownload}
-                  className="w-full px-4 py-3 bg-plasma-orange text-deep-space font-bold rounded-lg
+                  className="w-full px-4 py-3 bg-plasma-orange text-su-on-accent font-bold rounded-lg
                              hover:bg-plasma-orange/90 shadow-[0_0_20px_rgba(255,170,0,0.3)]
                              transition-all duration-200"
                 >
@@ -378,7 +378,7 @@ export function ADIFImportExportModal({
           <div className="space-y-4">
             {/* File input */}
             <div>
-              <label className="block text-sm font-medium text-gray-300 mb-2">
+              <label className="block text-sm font-medium text-su-muted mb-2">
                 Select ADIF File
               </label>
               <div className="flex gap-2">
@@ -398,7 +398,7 @@ export function ADIFImportExportModal({
                 />
                 <button
                   onClick={handleBrowseClick}
-                  className="px-4 py-2 bg-nebula-blue text-white text-sm font-medium rounded-lg hover:bg-nebula-blue/80 transition-colors whitespace-nowrap"
+                  className="px-4 py-2 bg-nebula-blue text-su-text text-sm font-medium rounded-lg hover:bg-nebula-blue/80 transition-colors whitespace-nowrap"
                 >
                   Browse...
                 </button>
@@ -414,15 +414,15 @@ export function ADIFImportExportModal({
 
             {/* File stats */}
             {adifStats && !importError && (
-              <div className="p-3 bg-nebula-blue rounded-lg border border-white/10">
-                <p className="text-sm text-gray-300">
-                  <span className="text-white font-medium">
+              <div className="p-3 bg-nebula-blue rounded-lg border border-su-line/40">
+                <p className="text-sm text-su-muted">
+                  <span className="text-su-text font-medium">
                     {adifStats.recordCount}
                   </span>{" "}
                   records found
                   {adifStats.hasHeader && " (with header)"}
                 </p>
-                <p className="text-xs text-gray-400 mt-1">
+                <p className="text-xs text-su-muted mt-1">
                   Fields: {adifStats.fields.slice(0, 8).join(", ")}
                   {adifStats.fields.length > 8 &&
                     ` +${adifStats.fields.length - 8} more`}
@@ -505,12 +505,12 @@ export function ADIFImportExportModal({
                 {/* QSO preview table */}
                 {importResult.importedQSOs.length > 0 && (
                   <div>
-                    <p className="text-sm font-medium text-gray-300 mb-2">
+                    <p className="text-sm font-medium text-su-muted mb-2">
                       QSOs to Import (first 10)
                     </p>
-                    <div className="overflow-x-auto rounded-lg border border-white/10">
+                    <div className="overflow-x-auto rounded-lg border border-su-line/40">
                       <table className="w-full text-xs">
-                        <thead className="bg-nebula-blue text-gray-300">
+                        <thead className="bg-nebula-blue text-su-muted">
                           <tr>
                             <th className="px-2 py-1.5 text-left">Call</th>
                             <th className="px-2 py-1.5 text-left">Band</th>
@@ -519,25 +519,25 @@ export function ADIFImportExportModal({
                             <th className="px-2 py-1.5 text-left">Exchange</th>
                           </tr>
                         </thead>
-                        <tbody className="divide-y divide-white/5">
+                        <tbody className="divide-y divide-su-line/20">
                           {importResult.importedQSOs.slice(0, 10).map((qso) => (
                             <tr
                               key={qso.id}
-                              className="bg-deep-space hover:bg-white/5"
+                              className="bg-deep-space hover:bg-su-line/10"
                             >
-                              <td className="px-2 py-1.5 font-mono text-white">
+                              <td className="px-2 py-1.5 font-mono text-su-text">
                                 {qso.callsign}
                               </td>
-                              <td className="px-2 py-1.5 text-gray-300">
+                              <td className="px-2 py-1.5 text-su-muted">
                                 {qso.band}
                               </td>
-                              <td className="px-2 py-1.5 text-gray-300">
+                              <td className="px-2 py-1.5 text-su-muted">
                                 {qso.mode}
                               </td>
-                              <td className="px-2 py-1.5 text-gray-400">
+                              <td className="px-2 py-1.5 text-su-muted">
                                 {qso.timestamp.slice(0, 16).replace("T", " ")}
                               </td>
-                              <td className="px-2 py-1.5 text-gray-400">
+                              <td className="px-2 py-1.5 text-su-muted">
                                 {qso.exchangeReceived || "-"}
                               </td>
                             </tr>
@@ -545,7 +545,7 @@ export function ADIFImportExportModal({
                         </tbody>
                       </table>
                       {importResult.importedQSOs.length > 10 && (
-                        <div className="px-2 py-1.5 text-xs text-gray-500 bg-deep-space border-t border-white/5">
+                        <div className="px-2 py-1.5 text-xs text-su-muted bg-deep-space border-t border-su-line/20">
                           ...and {importResult.importedQSOs.length - 10} more
                           QSOs
                         </div>
@@ -559,7 +559,7 @@ export function ADIFImportExportModal({
                   <button
                     onClick={handleConfirmImport}
                     disabled={isImporting}
-                    className="w-full px-4 py-3 bg-plasma-orange text-deep-space font-bold rounded-lg
+                    className="w-full px-4 py-3 bg-plasma-orange text-su-on-accent font-bold rounded-lg
                                hover:bg-plasma-orange/90 shadow-[0_0_20px_rgba(255,170,0,0.3)]
                                transition-all duration-200
                                disabled:opacity-50 disabled:cursor-not-allowed"
@@ -575,7 +575,7 @@ export function ADIFImportExportModal({
         )}
 
         {/* Footer */}
-        <p className="mt-4 text-xs text-gray-500 text-center">
+        <p className="mt-4 text-xs text-su-muted text-center">
           ADIF 3.1.4 format supported. Contest-specific fields are preserved in
           APP_PROPULSE_* tags.
         </p>

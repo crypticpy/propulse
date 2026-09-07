@@ -86,10 +86,10 @@ export function MyNetsSection({ editable = false }: MyNetsSectionProps) {
   if (visibleNets.length === 0) {
     return (
       <div>
-        <h3 className="text-[10px] uppercase tracking-widest text-gray-500 mb-3">
+        <h3 className="text-[10px] uppercase tracking-widest text-su-muted mb-3">
           My Nets
         </h3>
-        <p className="text-gray-500 text-sm italic py-4 text-center">
+        <p className="text-su-muted text-sm italic py-4 text-center">
           {editable ? (
             <>
               No net subscriptions yet.{" "}
@@ -114,10 +114,10 @@ export function MyNetsSection({ editable = false }: MyNetsSectionProps) {
     <div>
       {/* Section header with count badge */}
       <div className="flex items-center gap-2 mb-3">
-        <h3 className="text-[10px] uppercase tracking-widest text-gray-500">
+        <h3 className="text-[10px] uppercase tracking-widest text-su-muted">
           My Nets
         </h3>
-        <span className="text-[10px] font-mono bg-white/10 text-gray-400 rounded-full px-1.5 py-0.5 leading-none">
+        <span className="text-[10px] font-mono bg-su-line/20 text-su-muted rounded-full px-1.5 py-0.5 leading-none">
           {visibleNets.length}
         </span>
       </div>
@@ -128,14 +128,14 @@ export function MyNetsSection({ editable = false }: MyNetsSectionProps) {
           <div key={net.id} className="flex items-center gap-1">
             <Link
               to={`/nets/${net.id}`}
-              className="flex items-center gap-3 flex-1 min-w-0 bg-void/30 rounded-xl px-3 py-2.5 border border-white/5 hover:border-white/15 hover:bg-void/50 transition-all group"
+              className="flex items-center gap-3 flex-1 min-w-0 bg-void/30 rounded-xl px-3 py-2.5 border border-su-line/20 hover:border-su-line/50 hover:bg-void/50 transition-all group"
             >
               {/* Net name */}
               <div className="flex-1 min-w-0">
-                <span className="text-sm font-medium text-white truncate block group-hover:text-plasma-orange transition-colors">
+                <span className="text-sm font-medium text-su-text truncate block group-hover:text-plasma-orange transition-colors">
                   {net.name}
                 </span>
-                <span className="text-[11px] text-gray-500 block truncate">
+                <span className="text-[11px] text-su-muted block truncate">
                   {net.frequency} &middot; {net.mode} &middot;{" "}
                   {formatScheduleText(net.schedule)}
                 </span>

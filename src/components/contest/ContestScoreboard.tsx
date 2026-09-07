@@ -260,7 +260,7 @@ const TrendIndicator = memo(function TrendIndicator({
   if (trend === "stable") {
     return (
       <span
-        className="text-gray-500 text-xs ml-1"
+        className="text-su-muted text-xs ml-1"
         title="Stable rate"
         aria-label="Rate stable"
       >
@@ -358,7 +358,7 @@ const StatDisplay = memo(function StatDisplay({
     orange: "text-plasma-orange",
     cyan: "text-cosmic-cyan",
     green: "text-signal-green",
-    white: "text-white",
+    white: "text-su-text",
     red: "text-alert-red",
     yellow: "text-yellow-400",
   };
@@ -371,7 +371,7 @@ const StatDisplay = memo(function StatDisplay({
 
   return (
     <div className="flex flex-col items-center">
-      <span className="text-[10px] uppercase tracking-wider text-gray-500 mb-0.5">
+      <span className="text-[10px] uppercase tracking-wider text-su-muted mb-0.5">
         {label}
       </span>
       <div className="flex items-center">
@@ -383,7 +383,7 @@ const StatDisplay = memo(function StatDisplay({
         {trend && <TrendIndicator trend={trend} />}
       </div>
       {subValue && (
-        <span className="text-[9px] text-gray-500 font-mono">{subValue}</span>
+        <span className="text-[9px] text-su-muted font-mono">{subValue}</span>
       )}
     </div>
   );
@@ -412,12 +412,12 @@ const RateDisplay = memo(function RateDisplay({
     orange: "text-plasma-orange",
     cyan: "text-cosmic-cyan",
     green: "text-signal-green",
-    white: "text-white",
+    white: "text-su-text",
   };
 
   return (
     <div className="flex flex-col items-center">
-      <span className="text-[10px] uppercase tracking-wider text-gray-500 mb-0.5">
+      <span className="text-[10px] uppercase tracking-wider text-su-muted mb-0.5">
         {label}
       </span>
       <div className="flex items-center">
@@ -426,7 +426,7 @@ const RateDisplay = memo(function RateDisplay({
         </span>
         <TrendIndicator trend={trend} />
       </div>
-      <span className="text-[9px] text-gray-500 font-mono">60m: {rate60}</span>
+      <span className="text-[9px] text-su-muted font-mono">60m: {rate60}</span>
     </div>
   );
 });
@@ -443,10 +443,10 @@ const DeltaDisplay = memo(function DeltaDisplay({
   if (!delta) {
     return (
       <div className="flex flex-col items-center">
-        <span className="text-[10px] uppercase tracking-wider text-gray-500 mb-0.5">
+        <span className="text-[10px] uppercase tracking-wider text-su-muted mb-0.5">
           Last
         </span>
-        <span className="font-mono text-gray-600 text-sm">--</span>
+        <span className="font-mono text-su-muted text-sm">--</span>
       </div>
     );
   }
@@ -455,7 +455,7 @@ const DeltaDisplay = memo(function DeltaDisplay({
 
   return (
     <div className="flex flex-col items-center">
-      <span className="text-[10px] uppercase tracking-wider text-gray-500 mb-0.5">
+      <span className="text-[10px] uppercase tracking-wider text-su-muted mb-0.5">
         Last
       </span>
       <div className="flex items-center gap-1">
@@ -510,7 +510,7 @@ const DeltaDisplay = memo(function DeltaDisplay({
           </>
         )}
       </div>
-      <span className="text-[9px] text-gray-500 font-mono truncate max-w-[60px]">
+      <span className="text-[9px] text-su-muted font-mono truncate max-w-[60px]">
         {delta.callsign}
       </span>
     </div>
@@ -637,7 +637,7 @@ export function ContestScoreboard({
   if (!contestId || !startTime) {
     return (
       <Card className="p-3">
-        <div className="text-center text-gray-500 text-sm">
+        <div className="text-center text-su-muted text-sm">
           No active contest
         </div>
       </Card>
@@ -650,10 +650,10 @@ export function ContestScoreboard({
         <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-2">
             <div className="w-2 h-2 rounded-full bg-signal-green animate-pulse" />
-            <span className="text-xs text-gray-400">{contestId}</span>
+            <span className="text-xs text-su-muted">{contestId}</span>
           </div>
           <div className="flex items-center gap-4">
-            <span className="font-mono text-sm text-white">{qsoCount} Qs</span>
+            <span className="font-mono text-sm text-su-text">{qsoCount} Qs</span>
             <span className="font-mono text-lg font-bold text-plasma-orange">
               {formatNumber(totalScore)}
             </span>
@@ -671,7 +671,7 @@ export function ContestScoreboard({
           {/* Contest name + run mode indicator */}
           <div className="flex items-center gap-3">
             <div className="w-2 h-2 rounded-full bg-signal-green animate-pulse" />
-            <span className="text-xs text-gray-400 uppercase tracking-wider">
+            <span className="text-xs text-su-muted uppercase tracking-wider">
               {contestName}
             </span>
             <button
@@ -702,22 +702,22 @@ export function ContestScoreboard({
             {/* Dupe Count (if any) */}
             {dupeCount > 0 && (
               <>
-                <div className="h-8 w-px bg-white/10" />
+                <div className="h-8 w-px bg-su-line/20" />
                 <StatDisplay label="Dupes" value={dupeCount} color="red" />
               </>
             )}
 
-            <div className="h-8 w-px bg-white/10" />
+            <div className="h-8 w-px bg-su-line/20" />
 
             {/* QSO Points */}
             <StatDisplay label="Points" value={totalPoints} color="orange" />
 
-            <div className="h-8 w-px bg-white/10" />
+            <div className="h-8 w-px bg-su-line/20" />
 
             {/* Multipliers */}
             <StatDisplay label="Mults" value={totalMultipliers} color="cyan" />
 
-            <div className="h-8 w-px bg-white/10" />
+            <div className="h-8 w-px bg-su-line/20" />
 
             {/* Total Score */}
             <StatDisplay
@@ -727,14 +727,14 @@ export function ContestScoreboard({
               size="large"
             />
 
-            <div className="h-8 w-px bg-white/10" />
+            <div className="h-8 w-px bg-su-line/20" />
 
             {/* Elapsed Time */}
             <StatDisplay label="Elapsed" value={elapsedTime} color="white" />
           </div>
 
           {/* Score formula */}
-          <div className="text-xs text-gray-500">
+          <div className="text-xs text-su-muted">
             {scoreSummary
               ? `${formatNumber(scoreSummary.totalPoints)} × ${formatNumber(scoreSummary.totalMultipliers)}`
               : `${formatNumber(totalPoints)} × ${formatNumber(totalMultipliers)}`}{" "}
@@ -747,7 +747,7 @@ export function ContestScoreboard({
 
         {/* Advanced metrics row */}
         {showAdvanced && (
-          <div className="flex items-center justify-between gap-4 pt-2 border-t border-white/5">
+          <div className="flex items-center justify-between gap-4 pt-2 border-t border-su-line/20">
             {/* Rate metrics with trends */}
             <div className="flex items-center gap-5">
               {/* QSO Rate (10min/60min) */}
@@ -758,7 +758,7 @@ export function ContestScoreboard({
                 color="green"
               />
 
-              <div className="h-8 w-px bg-white/10" />
+              <div className="h-8 w-px bg-su-line/20" />
 
               {/* Points Rate */}
               <RateDisplay
@@ -768,7 +768,7 @@ export function ContestScoreboard({
                 color="orange"
               />
 
-              <div className="h-8 w-px bg-white/10" />
+              <div className="h-8 w-px bg-su-line/20" />
 
               {/* Mults Rate */}
               <RateDisplay
@@ -784,7 +784,7 @@ export function ContestScoreboard({
               {/* Last QSO Delta */}
               <DeltaDisplay delta={lastDelta} />
 
-              <div className="h-8 w-px bg-white/10" />
+              <div className="h-8 w-px bg-su-line/20" />
 
               {/* Projected Score */}
               <StatDisplay
@@ -794,7 +794,7 @@ export function ContestScoreboard({
                 subValue={projectedScore ? `@${contestDuration}hr` : undefined}
               />
 
-              <div className="h-8 w-px bg-white/10" />
+              <div className="h-8 w-px bg-su-line/20" />
 
               {/* Overall Rate */}
               <StatDisplay

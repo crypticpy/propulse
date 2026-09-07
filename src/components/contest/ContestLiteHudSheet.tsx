@@ -34,12 +34,12 @@ export function ContestLiteHudSheet({
         if (e.key === "Escape") onClose();
       }}
     >
-      <div className="absolute inset-0 bg-black/50" onClick={onClose} />
+      <div className="absolute inset-0 bg-su-panel/50" onClick={onClose} />
 
-      <div className="relative w-full max-h-[70dvh] bg-deep-space/95 backdrop-blur-md border-t border-white/10 rounded-t-2xl overflow-hidden">
-        <div className="flex items-center justify-between px-4 py-3 border-b border-white/10">
+      <div className="relative w-full max-h-[70dvh] bg-deep-space/95 backdrop-blur-md border-t border-su-line/40 rounded-t-2xl overflow-hidden">
+        <div className="flex items-center justify-between px-4 py-3 border-b border-su-line/40">
           <div className="flex items-center gap-2 min-w-0">
-            <span className="font-orbitron text-sm font-bold text-white truncate">
+            <span className="font-orbitron text-sm font-bold text-su-text truncate">
               {contestName ?? "Contest"}
             </span>
             <Link
@@ -58,7 +58,7 @@ export function ContestLiteHudSheet({
                 onClose();
                 requestEntryFocus();
               }}
-              className="px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 text-gray-300 hover:text-white hover:bg-white/10 transition-colors text-xs"
+              className="px-3 py-1.5 rounded-lg bg-su-line/10 border border-su-line/40 text-su-muted hover:text-su-text hover:bg-su-line/20 transition-colors text-xs"
             >
               Close
             </button>
@@ -70,10 +70,10 @@ export function ContestLiteHudSheet({
           <ContestVoiceControls sessionId={sessionId} />
 
           <Card className="p-3">
-            <div className="text-[11px] text-gray-400">
-              Focus entry: <span className="font-mono text-white">Alt+E</span> •
+            <div className="text-[11px] text-su-muted">
+              Focus entry: <span className="font-mono text-su-text">Alt+E</span> •
               Voice toggle:{" "}
-              <span className="font-mono text-white">Ctrl+Shift+.</span>
+              <span className="font-mono text-su-text">Ctrl+Shift+.</span>
             </div>
           </Card>
         </div>

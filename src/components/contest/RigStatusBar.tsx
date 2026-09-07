@@ -56,7 +56,7 @@ function getBandColor(band: string): string {
     "70cm": "text-red-400 bg-red-400/10 border-red-400/30",
   };
 
-  return bandColors[band] || "text-gray-400 bg-gray-400/10 border-gray-400/30";
+  return bandColors[band] || "text-su-muted bg-su-line/10 border-su-line/60";
 }
 
 /**
@@ -133,17 +133,17 @@ export function RigStatusBar({
       <div
         className={`
           flex items-center gap-3 px-4 py-2 rounded-lg
-          bg-white/[0.02] border border-white/5
+          bg-su-line/10 border border-su-line/20
           ${className}
         `}
       >
         <div className="flex items-center gap-2">
-          <span className="w-2 h-2 rounded-full bg-gray-500" />
-          <span className="text-gray-500 text-sm font-medium">
+          <span className="w-2 h-2 rounded-full bg-su-line" />
+          <span className="text-su-muted text-sm font-medium">
             Bridge Offline
           </span>
         </div>
-        <span className="text-gray-600 text-xs">Rig control unavailable</span>
+        <span className="text-su-muted text-xs">Rig control unavailable</span>
       </div>
     );
   }
@@ -153,7 +153,7 @@ export function RigStatusBar({
       <div
         className={`
           flex items-center gap-2 px-3 py-1.5 rounded-lg
-          bg-white/[0.03] border border-white/10
+          bg-su-line/10 border border-su-line/40
           ${className}
         `}
       >
@@ -178,7 +178,7 @@ export function RigStatusBar({
         </span>
 
         {/* Frequency */}
-        <span className="font-mono text-sm text-white font-medium">
+        <span className="font-mono text-sm text-su-text font-medium">
           {displayFrequency}
         </span>
       </div>
@@ -189,8 +189,8 @@ export function RigStatusBar({
     <div
       className={`
         flex items-center gap-4 px-4 py-2 rounded-lg
-        bg-white/[0.03] backdrop-blur-sm
-        border border-white/10
+        bg-su-line/10 backdrop-blur-sm
+        border border-su-line/40
         ${className}
       `}
     >
@@ -202,16 +202,16 @@ export function RigStatusBar({
         <span
           className={`
             w-2 h-2 rounded-full
-            ${isCATControlled ? "bg-signal-green shadow-[0_0_6px_#00ff88]" : "bg-gray-500"}
+            ${isCATControlled ? "bg-signal-green shadow-[0_0_6px_#00ff88]" : "bg-su-line"}
           `}
         />
-        <span className="text-[9px] text-gray-500 mt-0.5 uppercase tracking-wider">
+        <span className="text-[9px] text-su-muted mt-0.5 uppercase tracking-wider">
           {isCATControlled ? "CAT" : "MAN"}
         </span>
       </div>
 
       {/* Divider */}
-      <div className="h-8 w-px bg-white/10" />
+      <div className="h-8 w-px bg-su-line/20" />
 
       {/* Band badge */}
       <button
@@ -221,7 +221,7 @@ export function RigStatusBar({
           px-2.5 py-1 text-sm font-bold uppercase rounded-md border
           transition-colors
           ${bandColorClasses}
-          ${onModeClick ? "cursor-pointer hover:bg-white/5" : "cursor-default"}
+          ${onModeClick ? "cursor-pointer hover:bg-su-line/10" : "cursor-default"}
         `}
         type="button"
       >
@@ -236,7 +236,7 @@ export function RigStatusBar({
           px-2.5 py-1 text-sm font-bold uppercase rounded-md border
           transition-colors
           ${modeColorClasses}
-          ${onModeClick ? "cursor-pointer hover:bg-white/5" : "cursor-default"}
+          ${onModeClick ? "cursor-pointer hover:bg-su-line/10" : "cursor-default"}
         `}
         type="button"
       >
@@ -244,14 +244,14 @@ export function RigStatusBar({
       </button>
 
       {/* Divider */}
-      <div className="h-8 w-px bg-white/10" />
+      <div className="h-8 w-px bg-su-line/20" />
 
       {/* Large frequency display */}
       <button
         onClick={onFrequencyClick}
         disabled={!onFrequencyClick}
         className={`
-          font-mono text-2xl font-bold text-white tracking-wide
+          font-mono text-2xl font-bold text-su-text tracking-wide
           transition-colors
           ${onFrequencyClick ? "cursor-pointer hover:text-plasma-orange" : "cursor-default"}
         `}
@@ -264,13 +264,13 @@ export function RigStatusBar({
       {/* Split indicator */}
       {showSplit && (
         <>
-          <div className="h-8 w-px bg-white/10" />
+          <div className="h-8 w-px bg-su-line/20" />
           <div className="flex flex-col items-center">
             <span className="text-plasma-orange text-xs font-bold uppercase">
               SPLIT
             </span>
             {status?.txFrequency && (
-              <span className="text-[10px] text-gray-400 font-mono">
+              <span className="text-[10px] text-su-muted font-mono">
                 TX: {formatFrequency(status.txFrequency)}
               </span>
             )}
@@ -281,7 +281,7 @@ export function RigStatusBar({
       {/* PTT indicator */}
       {status?.ptt && (
         <>
-          <div className="h-8 w-px bg-white/10" />
+          <div className="h-8 w-px bg-su-line/20" />
           <span
             className={`
               px-2 py-1 text-xs font-bold uppercase rounded

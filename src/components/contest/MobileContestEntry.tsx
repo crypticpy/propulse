@@ -24,29 +24,29 @@ function ScoreStrip({
   mults: number;
 }) {
   return (
-    <div className="flex items-center justify-between px-4 py-2 bg-white/[0.03] border-b border-white/10">
+    <div className="flex items-center justify-between px-4 py-2 bg-su-line/10 border-b border-su-line/40">
       <div className="flex items-center gap-4">
         <div className="text-center">
-          <div className="text-[10px] text-gray-400 uppercase">QSOs</div>
-          <div className="text-lg font-bold text-white font-mono">
+          <div className="text-[10px] text-su-muted uppercase">QSOs</div>
+          <div className="text-lg font-bold text-su-text font-mono">
             {qsoCount}
           </div>
         </div>
         <div className="text-center">
-          <div className="text-[10px] text-gray-400 uppercase">Points</div>
+          <div className="text-[10px] text-su-muted uppercase">Points</div>
           <div className="text-lg font-bold text-signal-green font-mono">
             {points}
           </div>
         </div>
         <div className="text-center">
-          <div className="text-[10px] text-gray-400 uppercase">Mults</div>
+          <div className="text-[10px] text-su-muted uppercase">Mults</div>
           <div className="text-lg font-bold text-plasma-orange font-mono">
             {mults}
           </div>
         </div>
       </div>
       <div className="text-right">
-        <div className="text-[10px] text-gray-400 uppercase">Score</div>
+        <div className="text-[10px] text-su-muted uppercase">Score</div>
         <div className="text-lg font-bold text-cosmic-cyan font-mono">
           {(points * Math.max(1, mults)).toLocaleString()}
         </div>
@@ -61,34 +61,34 @@ function RecentQsoList({ qsos }: { qsos: ContestQSO[] }) {
 
   if (recent.length === 0) {
     return (
-      <div className="text-center py-4 text-gray-500 text-sm">
+      <div className="text-center py-4 text-su-muted text-sm">
         No QSOs logged yet
       </div>
     );
   }
 
   return (
-    <div className="divide-y divide-white/5">
+    <div className="divide-y divide-su-line/20">
       {recent.map((qso) => (
         <div
           key={qso.id}
           className="flex items-center justify-between px-3 py-1.5 text-xs"
         >
           <div className="flex items-center gap-2">
-            <span className="text-gray-400 font-mono w-12">
+            <span className="text-su-muted font-mono w-12">
               {new Date(qso.timestamp).toLocaleTimeString([], {
                 hour: "2-digit",
                 minute: "2-digit",
                 hour12: !use24h,
               })}
             </span>
-            <span className="text-white font-mono font-bold">
+            <span className="text-su-text font-mono font-bold">
               {qso.callsign}
             </span>
           </div>
           <div className="flex items-center gap-2">
-            <span className="text-gray-400">{qso.band}</span>
-            <span className="text-gray-400">{qso.mode}</span>
+            <span className="text-su-muted">{qso.band}</span>
+            <span className="text-su-muted">{qso.mode}</span>
             {qso.isMultiplier && (
               <span className="text-plasma-orange font-bold">M</span>
             )}
@@ -145,7 +145,7 @@ export function MobileContestEntry() {
 
   if (!session) {
     return (
-      <div className="flex items-center justify-center h-full text-gray-400 p-8 text-center">
+      <div className="flex items-center justify-center h-full text-su-muted p-8 text-center">
         No active contest session. Start a contest from the desktop view.
       </div>
     );
@@ -168,7 +168,7 @@ export function MobileContestEntry() {
             type="text"
             value={callsign}
             onChange={(e) => setCallsign(e.target.value.toUpperCase())}
-            className="w-full px-4 bg-white/5 border border-white/20 rounded-xl text-white font-mono font-bold text-xl focus:border-cosmic-cyan/50 focus:outline-none focus:ring-2 focus:ring-cosmic-cyan/20"
+            className="w-full px-4 bg-su-line/10 border border-su-line/50 rounded-xl text-su-text font-mono font-bold text-xl focus:border-cosmic-cyan/50 focus:outline-none focus:ring-2 focus:ring-cosmic-cyan/20"
             style={{ height: "48px", fontSize: "20px" }}
             placeholder="CALLSIGN"
             aria-label="Callsign"
@@ -188,7 +188,7 @@ export function MobileContestEntry() {
               className={`flex-1 min-w-[44px] min-h-[44px] rounded-lg font-bold text-sm transition-colors ${
                 band === b
                   ? "bg-cosmic-cyan/30 text-cosmic-cyan border-2 border-cosmic-cyan/60"
-                  : "bg-white/5 text-gray-400 border border-white/10"
+                  : "bg-su-line/10 text-su-muted border border-su-line/40"
               }`}
             >
               {b}
@@ -206,7 +206,7 @@ export function MobileContestEntry() {
               className={`flex-1 min-h-[44px] rounded-lg font-bold text-sm transition-colors ${
                 mode === m
                   ? "bg-plasma-orange/30 text-plasma-orange border-2 border-plasma-orange/60"
-                  : "bg-white/5 text-gray-400 border border-white/10"
+                  : "bg-su-line/10 text-su-muted border border-su-line/40"
               }`}
             >
               {m}
@@ -220,7 +220,7 @@ export function MobileContestEntry() {
             type="text"
             value={rst}
             onChange={(e) => setRst(e.target.value)}
-            className="px-3 bg-white/5 border border-white/10 rounded-lg text-white font-mono text-base focus:border-cosmic-cyan/50 focus:outline-none"
+            className="px-3 bg-su-line/10 border border-su-line/40 rounded-lg text-su-text font-mono text-base focus:border-cosmic-cyan/50 focus:outline-none"
             style={{ height: "44px" }}
             placeholder="RST"
             aria-label="Signal report"
@@ -229,7 +229,7 @@ export function MobileContestEntry() {
             type="text"
             value={exchange}
             onChange={(e) => setExchange(e.target.value)}
-            className="px-3 bg-white/5 border border-white/10 rounded-lg text-white font-mono text-base focus:border-cosmic-cyan/50 focus:outline-none"
+            className="px-3 bg-su-line/10 border border-su-line/40 rounded-lg text-su-text font-mono text-base focus:border-cosmic-cyan/50 focus:outline-none"
             style={{ height: "44px" }}
             placeholder="Exchange"
             aria-label="Exchange"
@@ -247,8 +247,8 @@ export function MobileContestEntry() {
       </form>
 
       {/* Recent QSOs */}
-      <div className="border-t border-white/10">
-        <div className="px-3 py-1.5 text-[10px] text-gray-400 uppercase tracking-wider font-semibold">
+      <div className="border-t border-su-line/40">
+        <div className="px-3 py-1.5 text-[10px] text-su-muted uppercase tracking-wider font-semibold">
           Recent
         </div>
         <RecentQsoList qsos={session.qsos} />

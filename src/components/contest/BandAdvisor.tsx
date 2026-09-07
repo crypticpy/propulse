@@ -119,11 +119,11 @@ function RateIndicator({
       ? "text-signal-green"
       : trend === "down"
         ? "text-alert-red"
-        : "text-gray-500";
+        : "text-su-muted";
 
   return (
     <div className="flex items-center gap-1">
-      <span className="text-xs text-gray-400 font-mono">
+      <span className="text-xs text-su-muted font-mono">
         {Math.round(rate)}/hr
       </span>
       <span className={`text-xs font-bold ${trendColor}`}>
@@ -185,7 +185,7 @@ function SnoozeButton({ onSnooze }: { onSnooze: () => void }) {
     <button
       type="button"
       onClick={onSnooze}
-      className="px-1.5 py-0.5 rounded text-[9px] text-gray-500 hover:text-gray-400 hover:bg-white/5 transition-colors"
+      className="px-1.5 py-0.5 rounded text-[9px] text-su-muted hover:text-su-muted hover:bg-su-line/10 transition-colors"
       title="Snooze advice for 5 minutes"
     >
       Snooze
@@ -326,7 +326,7 @@ export function BandAdvisor({
       <RateIndicator rate={currentRate} trend={trend} />
 
       {/* Advice message */}
-      <span className="text-[11px] text-gray-300 truncate flex-1 min-w-0">
+      <span className="text-[11px] text-su-muted truncate flex-1 min-w-0">
         {advice.message}
       </span>
 

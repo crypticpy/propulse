@@ -56,16 +56,16 @@ const QSORow = memo(function QSORow({
     <tr
       onClick={() => onRowClick(qso)}
       className={`
-        border-b border-white/5 cursor-pointer transition-colors
+        border-b border-su-line/20 cursor-pointer transition-colors
         ${qso.isDupe ? "opacity-50" : ""}
-        ${isLastQso ? "bg-white/5" : "hover:bg-white/5"}
+        ${isLastQso ? "bg-su-line/10" : "hover:bg-su-line/10"}
       `}
     >
-      <td className="py-2 pr-4 text-gray-500 text-xs">{qsoNumber}</td>
-      <td className="py-2 pr-4 text-gray-400">{formatTime(qso.timestamp)}</td>
+      <td className="py-2 pr-4 text-su-muted text-xs">{qsoNumber}</td>
+      <td className="py-2 pr-4 text-su-muted">{formatTime(qso.timestamp)}</td>
       <td
         className={`py-2 pr-4 font-bold ${
-          qso.isDupe ? "text-alert-red line-through" : "text-white"
+          qso.isDupe ? "text-alert-red line-through" : "text-su-text"
         }`}
       >
         {qso.callsign}
@@ -94,12 +94,12 @@ const QSORow = memo(function QSORow({
           </span>
         )}
       </td>
-      <td className="py-2 pr-4 text-gray-300">{qso.exchangeReceived}</td>
+      <td className="py-2 pr-4 text-su-muted">{qso.exchangeReceived}</td>
       <td className="py-2 pr-4 text-cosmic-cyan">{qso.band}</td>
-      <td className="py-2 pr-4 text-gray-400">{qso.mode}</td>
+      <td className="py-2 pr-4 text-su-muted">{qso.mode}</td>
       <td
         className={`py-2 pr-4 text-right ${
-          qso.isDupe ? "text-gray-500" : "text-plasma-orange"
+          qso.isDupe ? "text-su-muted" : "text-plasma-orange"
         }`}
       >
         {qso.points}
@@ -217,11 +217,11 @@ export function ContestQSOTable({
     return (
       <Card className={`p-4 ${className ?? ""}`}>
         <div className="flex items-center justify-between mb-4">
-          <h3 className="font-orbitron text-sm font-bold text-white">
+          <h3 className="font-orbitron text-sm font-bold text-su-text">
             Recent QSOs
           </h3>
         </div>
-        <div className="text-center py-8 text-gray-500">
+        <div className="text-center py-8 text-su-muted">
           No QSOs logged yet. Start making contacts!
         </div>
       </Card>
@@ -236,17 +236,17 @@ export function ContestQSOTable({
     >
       {/* Header with undo button */}
       <div className="flex items-center justify-between mb-4">
-        <h3 className="font-orbitron text-sm font-bold text-white">
+        <h3 className="font-orbitron text-sm font-bold text-su-text">
           Recent QSOs
         </h3>
         <div className="flex items-center gap-3">
-          <span className="text-xs text-gray-400">
+          <span className="text-xs text-su-muted">
             Showing last {Math.min(maxRows, totalQsos)} of {totalQsos}
           </span>
           <button
             onClick={() => setShowUndoConfirm(true)}
-            className="px-2 py-1 text-xs bg-nebula-blue border border-white/10 rounded
-                       text-gray-400 hover:text-white hover:border-white/20
+            className="px-2 py-1 text-xs bg-nebula-blue border border-su-line/40 rounded
+                       text-su-muted hover:text-su-text hover:border-su-line/50
                        transition-colors flex items-center gap-1"
             title="Undo last QSO (Ctrl+Z)"
           >
@@ -272,7 +272,7 @@ export function ContestQSOTable({
       <div className="overflow-x-auto">
         <table className="w-full text-sm" role="grid" aria-label="Recent QSOs">
           <thead>
-            <tr className="text-left text-xs text-gray-400 border-b border-white/10">
+            <tr className="text-left text-xs text-su-muted border-b border-su-line/40">
               <th className="pb-2 pr-4 font-medium" scope="col">
                 #
               </th>
@@ -318,8 +318,8 @@ export function ContestQSOTable({
         <div className="mt-3 flex justify-center">
           <button
             onClick={handleLoadMore}
-            className="px-4 py-2 text-sm bg-nebula-blue border border-white/10 rounded-lg
-                       text-gray-300 hover:text-white hover:border-white/20
+            className="px-4 py-2 text-sm bg-nebula-blue border border-su-line/40 rounded-lg
+                       text-su-muted hover:text-su-text hover:border-su-line/50
                        transition-colors flex items-center gap-2"
             aria-label={`Load ${Math.min(LOAD_MORE_INCREMENT, remainingRows)} more QSOs`}
           >
@@ -343,9 +343,9 @@ export function ContestQSOTable({
       )}
 
       {/* Keyboard hint */}
-      <div className="mt-3 text-xs text-gray-500 flex items-center gap-4">
+      <div className="mt-3 text-xs text-su-muted flex items-center gap-4">
         <span>
-          <kbd className="px-1 py-0.5 bg-white/10 rounded">Ctrl+Z</kbd> Undo
+          <kbd className="px-1 py-0.5 bg-su-line/20 rounded">Ctrl+Z</kbd> Undo
         </span>
         <span>Click row to edit</span>
       </div>
@@ -354,23 +354,23 @@ export function ContestQSOTable({
       {showUndoConfirm && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
           <div
-            className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+            className="absolute inset-0 bg-su-panel/60 backdrop-blur-sm"
             onClick={() => setShowUndoConfirm(false)}
           />
           <Card className="relative z-10 w-full max-w-sm p-5" animate>
             <div className="space-y-4">
-              <h3 className="text-lg font-orbitron font-bold text-white">
+              <h3 className="text-lg font-orbitron font-bold text-su-text">
                 Undo Last QSO?
               </h3>
-              <p className="text-gray-400 text-sm">
+              <p className="text-su-muted text-sm">
                 This will remove the last logged QSO:
               </p>
               {recentQSOs[0] && (
                 <div className="bg-nebula-blue/50 p-3 rounded-lg font-mono text-sm">
-                  <span className="text-white font-bold">
+                  <span className="text-su-text font-bold">
                     {recentQSOs[0].callsign}
                   </span>{" "}
-                  <span className="text-gray-400">
+                  <span className="text-su-muted">
                     {recentQSOs[0].exchangeReceived}
                   </span>{" "}
                   <span className="text-cosmic-cyan">{recentQSOs[0].band}</span>
@@ -379,8 +379,8 @@ export function ContestQSOTable({
               <div className="flex gap-3 pt-2">
                 <button
                   onClick={() => setShowUndoConfirm(false)}
-                  className="flex-1 px-4 py-2 bg-nebula-blue border border-white/10 rounded-lg
-                             text-gray-300 hover:text-white hover:border-white/20
+                  className="flex-1 px-4 py-2 bg-nebula-blue border border-su-line/40 rounded-lg
+                             text-su-muted hover:text-su-text hover:border-su-line/50
                              transition-colors font-medium"
                 >
                   Cancel

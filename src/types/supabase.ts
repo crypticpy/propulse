@@ -559,6 +559,8 @@ export type Database = {
           eqsl_status: boolean | null;
           frequency: number | null;
           grid: string | null;
+          my_grid: string | null;
+          dxcc: number | null;
           guest_session_id: string | null;
           id: string;
           is_guest_entry: boolean;
@@ -587,6 +589,8 @@ export type Database = {
           eqsl_status?: boolean | null;
           frequency?: number | null;
           grid?: string | null;
+          my_grid?: string | null;
+          dxcc?: number | null;
           guest_session_id?: string | null;
           id: string;
           is_guest_entry?: boolean;
@@ -615,6 +619,8 @@ export type Database = {
           eqsl_status?: boolean | null;
           frequency?: number | null;
           grid?: string | null;
+          my_grid?: string | null;
+          dxcc?: number | null;
           guest_session_id?: string | null;
           id?: string;
           is_guest_entry?: boolean;

@@ -4,6 +4,8 @@ Foundation · 7 September 2026 · [DS-02 #483](https://github.com/crypticpy/prop
 
 The app ran four parallel colour systems — the station library's `--su-*`, the app-wide `--theme-*`/`--color-*-rgb` Tailwind theme, Home's private `--home-*` overrides, and HamClock's `--hc-*` — declaring the same orange four times. This document defines the single set that replaces the first three.
 
+The `--color-*-rgb` half of the app-wide theme (and the rest of `src/styles/design-tokens.css`, which declared it) was never imported anywhere; it was deleted as dead code in #533 rather than migrated. The condition colours (`excellent`/`good`/`fair`/`poor`) and colour-blind swapping now come entirely from the `--su-success`/`-warning`/`-danger` tone tokens above. `--theme-accent-secondary` and its `-rgb` fallback were also removed in #533, along with Settings' "Secondary Color" custom-hex control and `themeStore`'s `customSecondary` — the CSS var had no consumer anywhere in Tailwind config or CSS. `AccentColor.secondary` (the accent-preset dual-colour swatch in `AppearanceSettings.tsx`) is unrelated and still live, so the 8 preset `secondary` hexes in `src/lib/themes/index.ts` stayed.
+
 **The station palette is the design system.** Navy canvas, soft off-white text, plasma orange accent, muted cyan for information. The **Propulse (dark)** palette is the default; Light, High Contrast and Midnight are token swaps of the same roles. Theming means changing token values, not component code.
 
 Sources of truth:

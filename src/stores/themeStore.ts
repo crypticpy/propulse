@@ -19,15 +19,20 @@ interface ThemeState {
   themeId: ThemeId;
   accentId: string;
   customPrimary: string | null;
-  customSecondary: string | null;
 
   setTheme: (themeId: ThemeId) => void;
   setAccent: (accentId: string) => void;
-  setCustomColors: (primary: string | null, secondary: string | null) => void;
+  setCustomColors: (primary: string | null) => void;
 }
 
 const STORAGE_KEY = "propulse-theme";
 
+// This store hand-rolls its localStorage persistence (predates the versioned
+// zustand/persist + migrate pattern used elsewhere — see CLAUDE.md), so there
+// is no version field to bump. `customSecondary` (Settings' now-removed
+// "Secondary Color" control) is simply never read from the parsed blob below,
+// so a stale key left over in an old visitor's localStorage is inert — the
+// equivalent of a migration step dropping it, without needing one.
 function loadPersistedTheme(): Partial<ThemeState> {
   try {
     const stored = localStorage.getItem(STORAGE_KEY);
@@ -52,13 +57,8 @@ function applyCurrentTheme(state: ThemeState) {
   const theme = getTheme(state.themeId);
   let accent: AccentColor | undefined;
 
-  if (state.customPrimary && state.customSecondary) {
-    accent = {
-      id: "custom",
-      name: "Custom",
-      primary: state.customPrimary,
-      secondary: state.customSecondary,
-    };
+  if (state.customPrimary) {
+    accent = { id: "custom", name: "Custom", primary: state.customPrimary };
   } else {
     accent = getAccentPreset(state.accentId);
   }
@@ -80,7 +80,6 @@ export const useThemeStore = create<ThemeState>((set, get) => {
     themeId: (persisted.themeId as ThemeId) || "dark",
     accentId: persisted.accentId || "plasma",
     customPrimary: persisted.customPrimary || null,
-    customSecondary: persisted.customSecondary || null,
     setTheme: () => {},
     setAccent: () => {},
     setCustomColors: () => {},
@@ -96,31 +95,28 @@ export const useThemeStore = create<ThemeState>((set, get) => {
         themeId,
         accentId: state.accentId,
         customPrimary: state.customPrimary,
-        customSecondary: state.customSecondary,
       });
       applyCurrentTheme(state);
     },
 
     setAccent: (accentId) => {
-      set({ accentId, customPrimary: null, customSecondary: null });
+      set({ accentId, customPrimary: null });
       const state = get();
       persistTheme({
         themeId: state.themeId,
         accentId,
         customPrimary: null,
-        customSecondary: null,
       });
       applyCurrentTheme(state);
     },
 
-    setCustomColors: (primary, secondary) => {
-      set({ customPrimary: primary, customSecondary: secondary });
+    setCustomColors: (primary) => {
+      set({ customPrimary: primary });
       const state = get();
       persistTheme({
         themeId: state.themeId,
         accentId: state.accentId,
         customPrimary: primary,
-        customSecondary: secondary,
       });
       applyCurrentTheme(state);
     },
@@ -145,7 +141,6 @@ if (typeof window !== "undefined") {
           themeId: newState.themeId,
           accentId: newState.accentId,
           customPrimary: newState.customPrimary,
-          customSecondary: newState.customSecondary,
         });
         applyCurrentTheme(useThemeStore.getState());
       } catch {

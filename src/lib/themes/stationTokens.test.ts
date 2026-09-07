@@ -153,16 +153,6 @@ describe("station tokens on the document root", () => {
       );
     }
   });
-
-  it("no longer declares the unused --color-text-* variables", () => {
-    const css = readFileSync(
-      resolve(__dirname, "../../styles/design-tokens.css"),
-      "utf8",
-    );
-    expect(css).not.toContain("--color-text-primary");
-    expect(css).not.toContain("--color-text-secondary");
-    expect(css).not.toContain("--color-text-muted");
-  });
 });
 
 describe("colour-blind tone tokens", () => {

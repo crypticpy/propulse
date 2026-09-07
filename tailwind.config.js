@@ -40,9 +40,10 @@ export default {
         "space-900": "rgb(var(--su-input-rgb) / <alpha-value>)",
 
         // Condition colors — aliased onto the su- tones (same style as
-        // `signal-green`/`caution-amber`/`alert-red` above). The `--color-*-rgb`
-        // variables they used to read never ship: src/styles/design-tokens.css
-        // is not imported (tracked in #533). Only `good` is used in src/ today.
+        // `signal-green`/`caution-amber`/`alert-red` above). They used to read
+        // `--color-*-rgb` variables from src/styles/design-tokens.css, which
+        // was never imported and was deleted as dead code in #533. Only
+        // `good` is used in src/ today.
         excellent: "rgb(var(--su-success-rgb) / <alpha-value>)",
         good: "rgb(var(--su-success-rgb) / <alpha-value>)",
         fair: "rgb(var(--su-warning-rgb) / <alpha-value>)",

@@ -4,9 +4,9 @@
  * Sets data-color-blind attribute on document.documentElement,
  * which triggers CSS custom property changes for condition/status colors.
  *
- * The condition colors (excellent, good, fair, poor) are defined as CSS
- * variables in design-tokens.css and consumed by Tailwind, and swap via the
- * `data-color-blind` attribute selector alone.
+ * The Tailwind condition colours (excellent/good/fair/poor) alias the station
+ * tone tokens (--su-success/-warning/-danger) in tailwind.config.js, so they
+ * swap wherever those tone tokens do — see the note below.
  *
  * The station tone tokens (--su-success/-warning/-danger, which now back
  * signal-green/caution-amber/alert-red too — see tailwind.config.js) are

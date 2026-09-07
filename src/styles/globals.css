@@ -9,8 +9,6 @@
 :root {
   --theme-accent-primary: #ff6b35;
   --theme-accent-primary-rgb: 255 107 53;
-  --theme-accent-secondary: #00ff88;
-  --theme-accent-secondary-rgb: 0 255 136;
   --theme-bg-primary: #0a0a1a;
   --theme-bg-secondary: #1a1a2e;
   --theme-bg-panel: rgba(20, 28, 46, 0.95);

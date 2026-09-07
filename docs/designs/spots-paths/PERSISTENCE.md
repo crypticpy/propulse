@@ -34,7 +34,8 @@ the previous draft. Requests survive connection restart under their original own
 Cloud acknowledgement validates owner, kind, document ID, expected resulting revision
 and full payload, with order-independent JSON object comparison for JSONB transports.
 Successful acknowledgement updates the library cache and removes the pending request
-atomically. Newer cached revisions cannot be overwritten by older responses.
+atomically with a receipt, so concurrent replay acknowledgements return the same
+confirmed result. A replay never rolls back a newer cache revision. Newer cached revisions cannot be overwritten by older responses.
 
 Offline/uncertain requests remain queued, including a lost acknowledgement after a
 server commit. Transport MUST deduplicate operation IDs atomically with server writes;

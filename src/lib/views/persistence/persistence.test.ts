@@ -189,6 +189,24 @@ describe("offline and account lifecycle", () => {
     expect(await db.pending()).toEqual([]);
   });
 
+  it("settles concurrent replay acknowledgements once across connections", async () => {
+    const db = library();
+    const other = library("owner-a", [...names][0]);
+    const server = library();
+    const request = operation();
+    await db.enqueue(request);
+    const acknowledgement = await server.commitLocal(request);
+    const results = await Promise.all([db.settle(request, acknowledgement), other.settle(request, acknowledgement)]);
+    expect(results.map((result) => result.status)).toEqual(["saved", "saved"]);
+    expect((await db.get("view", "station"))?.revision).toBe(1);
+    expect(await db.pending()).toEqual([]);
+    // Replaying the receipt must not roll back a later cache revision.
+    if (acknowledgement.status !== "saved") throw new Error("Expected saved fixture");
+    await db.cache([{ ...acknowledgement.record, revision: 2 }]);
+    expect((await other.settle(request, acknowledgement)).status).toBe("saved");
+    expect((await db.get("view", "station"))?.revision).toBe(2);
+  });
+
   it("retains conflict drafts and only retries after an explicit new revision choice", async () => {
     const server = library();
     await server.commitLocal(operation());

@@ -161,8 +161,14 @@ export class IndexedViewLibrary {
     const result = validateCommitResult(operation, rawResult);
     if (result.status === "unavailable") return result;
     const db = await this.db();
-    const tx = db.transaction(["records", "pending"], "readwrite");
+    const tx = db.transaction(["records", "pending", "receipts"], "readwrite");
     return atomic(tx, async () => {
+      const receipts = tx.objectStore("receipts");
+      const receipt = await receipts.get(operationKey(operation));
+      if (receipt) {
+        return canonicalJson(receipt.operation) === canonicalJson(operation)
+          ? validateCommitResult(operation, receipt.result) : invalid("Operation ID was reused with different content");
+      }
       const pending = tx.objectStore("pending");
       const entry = await pending.get(operationKey(operation));
       if (!entry || canonicalJson(entry.operation) !== canonicalJson(operation)) {
@@ -172,6 +178,7 @@ export class IndexedViewLibrary {
         const records = tx.objectStore("records");
         const current = await records.get(documentKey(operation));
         if (!current || current.revision <= result.record.revision) await records.put(result.record);
+        await receipts.put({ operation, result });
         await pending.delete(operationKey(operation));
       } else {
         await pending.put({

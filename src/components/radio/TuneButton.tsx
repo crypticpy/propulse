@@ -14,10 +14,12 @@ export interface TuneButtonProps {
   /** Null stages frequency only, preserving the radio’s observed mode. */
   mode?: string | null;
   wall?: boolean;
+  /** Source-specific missing-context reason; prevents staging a command. */
+  unavailableReason?: string;
 }
 
 /** Explicit target and visible disabled reason; never opens a hardware connection. */
-export function TuneButton({ frequencyKHz, mode, wall }: TuneButtonProps) {
+export function TuneButton({ frequencyKHz, mode, wall, unavailableReason }: TuneButtonProps) {
   const wallLayout = useMapStore((state) => state.layoutMode === "hamclock");
   const theme = useHamClockDisplayStore((state) => state.theme);
   const catEnabled = useRigStore((state) => state.catEnabled);
@@ -26,13 +28,13 @@ export function TuneButton({ frequencyKHz, mode, wall }: TuneButtonProps) {
   const bridgeEnabled = useSettingsStore((state) => state.bridgeEnabled);
   const kiosk = useKioskStore((state) => state.active);
   if (!catEnabled) return null;
-  const reason = tuneDisabledReason({ catEnabled, bridgeConnected, connected, bridgeEnabled, kiosk }, frequencyKHz);
+  const reason = unavailableReason || tuneDisabledReason({ catEnabled, bridgeConnected, connected, bridgeEnabled, kiosk }, frequencyKHz);
   const target = Number.isFinite(frequencyKHz) ? (frequencyKHz / 1000).toFixed(6).replace(/0+$/, "").replace(/\.$/, "") : "—";
   const props = {
     disabled: reason !== null,
     onClick: (event: MouseEvent<HTMLButtonElement>) => {
       event.stopPropagation();
-      queueTune(frequencyKHz, mode);
+      if (reason === null) queueTune(frequencyKHz, mode);
     },
     "aria-label": `Tune ${target} MHz${mode === null ? " (mode unchanged)" : mode ? ` ${mode}` : ""}${reason ? `: ${reason}` : ""}`,
   };

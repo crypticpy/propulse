@@ -566,3 +566,14 @@ it.each([false, true])("migrates the former shipped activation slot while preser
   expect(layout.right[1].tileIds).toEqual(["emcomm"]);
   expect(layout.left[0].tileIds).toEqual(["cluster"]);
 });
+
+
+it.each([false, true])("adopts WSJT-X on an unchanged v6 SDR rail while preserving customization (%s)", async (custom) => {
+  const tiles = custom ? ["sdrScope", "moon"] : ["sdrScope", "sdrDecodes"];
+  sessionStorage.setItem("propulse-hamclock-display", JSON.stringify({ version: 6, state: { railLayout: {
+    left: [{ pageId: "sdr", tileIds: tiles }], right: [{ pageId: "sdr", tileIds: ["cluster"] }],
+  } } }));
+  await display.persist.rehydrate();
+  expect(display.getState().railLayout.left[0].tileIds).toEqual(custom ? tiles : ["sdrScope", "sdrDecodes", "wsjtx"]);
+  expect(display.getState().railLayout.right[0].tileIds).toEqual(["cluster"]);
+});

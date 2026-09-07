@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { createViewConfiguration } from "../../../src/lib/views/defaults";
 import { createDisplayAssignmentFixture } from "../../../src/lib/views/fixtures";
+import { handleDisplayState, sha256Hex } from "./displays";
 import { handleViewDisplayAssignment, handleViewLibrary } from "./viewLibrary";
 const mock = vi.hoisted(() => ({ auth: vi.fn(), rpc: vi.fn(), from: vi.fn() }));
 vi.mock("../stationAuth", () => ({ verifyStationOwner: mock.auth }));
@@ -95,4 +96,16 @@ describe("paired display assignment endpoint", () => {
     mock.rpc.mockResolvedValueOnce({ data: { paired: true, assignment: { revision: 1 } }, error: null });
     expect((await handleViewDisplayAssignment(request())).status).toBe(503);
   });
+});
+
+
+it("does not deliver a versioned envelope to the legacy partial-scene consumer", async () => {
+  const token = "a".repeat(64);
+  const row = { id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa", owner: ownerId, name: "TV", scene_config: createDisplayAssignmentFixture(),
+    device_token_hash: await sha256Hex(token), updated_at: "2026-09-07T00:00:00Z" };
+  const query = { select: vi.fn().mockReturnThis(), eq: vi.fn().mockReturnThis(), update: vi.fn().mockReturnThis(), maybeSingle: vi.fn().mockResolvedValue({ data: row, error: null }) };
+  mock.from.mockReturnValue(query);
+  const response = await handleDisplayState(new Request(`https://app.test/api/displays/state?id=${row.id}`, { headers: { Authorization: `Bearer ${token}` } }));
+  expect(response.status).toBe(409);
+  expect(await response.json()).toEqual({ error: "Display client update required", code: "VERSIONED_ASSIGNMENT" });
 });

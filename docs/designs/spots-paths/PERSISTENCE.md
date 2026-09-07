@@ -123,7 +123,9 @@ unpaired interval. Renames/heartbeats leave binding identity unchanged.
 The same publication transaction updates the existing `displays.scene_config` delivery
 column with the complete envelope. A trigger prevents older clients from bypassing
 CAS once a revisioned assignment exists, and clears scene_config on owner changes.
-Legacy scenes remain usable before first publication. SP-10 will opt new consumers
+Legacy scenes remain usable before first publication. The legacy state endpoint
+returns 409 for versioned envelopes so older partial-scene consumers retain their
+last valid state instead of misinterpreting the new shape. SP-10 will opt new consumers
 into versioned assignment handling; saving a library view alone never publishes.
 
 GET library pages contain validated records (including tombstones), at most ten per

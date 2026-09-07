@@ -48,6 +48,18 @@ CREATE TABLE public.spot_recovery_test_output (
   aggregation text NOT NULL,
   hour timestamptz NOT NULL
 );
+CREATE TABLE public.band_hourly_stats (
+  hour_utc timestamptz NOT NULL,
+  group_marker text NOT NULL
+);
+CREATE TABLE public.path_hourly_stats (
+  hour_utc timestamptz NOT NULL,
+  group_marker text NOT NULL
+);
+CREATE TABLE public.region_hourly_stats (
+  hour_utc timestamptz NOT NULL,
+  group_marker text NOT NULL
+);
 CREATE TABLE public.spot_recovery_test_control (
   fail_aggregation text,
   sleep_seconds double precision NOT NULL DEFAULT 0
@@ -61,6 +73,14 @@ BEGIN
   SELECT sleep_seconds INTO delay_seconds FROM public.spot_recovery_test_control;
   IF delay_seconds > 0 THEN PERFORM pg_sleep(delay_seconds); END IF;
   INSERT INTO public.spot_recovery_test_output VALUES (p_aggregation, p_hour);
+  CASE p_aggregation
+    WHEN 'band_hourly' THEN
+      INSERT INTO public.band_hourly_stats VALUES (p_hour, 'current');
+    WHEN 'path_hourly' THEN
+      INSERT INTO public.path_hourly_stats VALUES (p_hour, 'current');
+    WHEN 'region_hourly' THEN
+      INSERT INTO public.region_hourly_stats VALUES (p_hour, 'current');
+  END CASE;
   IF (SELECT fail_aggregation FROM public.spot_recovery_test_control) = p_aggregation THEN
     RAISE EXCEPTION 'synthetic compute failure';
   END IF;

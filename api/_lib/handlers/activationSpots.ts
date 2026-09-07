@@ -87,6 +87,17 @@ const SOURCES: readonly SourceDefinition[] = [
     matchesRow: matchesWwffRow,
     normalize: normalizeWwffSpots,
   },
+  {
+    program: "WWBOTA",
+    source: "Worldwide Bunkers on the Air",
+    sourceUrl: "https://wwbota.net/",
+    feedUrl: "https://api.wwbota.net/spots/?age=2",
+    matchesRow: (value) => {
+      const row = objectRow(value);
+      return Boolean(row && typeof row.call === "string" && typeof row.time === "string" && Array.isArray(row.references));
+    },
+    normalize: normalizeWwbotaSpots,
+  },
 ] as const;
 
 function getAllowedOrigin(): string {
@@ -198,7 +209,7 @@ function frequencyKHz(
   // Units are provider contracts, not safely inferable from magnitude: both
   // 472 kHz and 1296.1 MHz are valid amateur activation frequencies.
   const khz = sourceUnit === "mhz" ? number * 1_000 : number;
-  return khz >= 100 && khz <= 1_500_000 ? Math.round(khz * 10) / 10 : null;
+  return khz >= 100 && khz <= 1_500_000 ? Math.round(khz * 1000) / 1000 : null;
 }
 
 function parseSpotTime(value: unknown): Date | null {
@@ -452,6 +463,48 @@ export function normalizeWwffSpots(
     });
   }
   return finishSpots(spots, terminalActivations);
+}
+
+/** Published WWBOTA SpotPublic schema: MHz, per-reference locations, typed QRT. */
+export function normalizeWwbotaSpots(rows: unknown[], nowMs = Date.now()): ActivationSpot[] {
+  const spots: ActivationSpot[] = [];
+  const terminal: TerminalActivation[] = [];
+  for (const value of rows) {
+    const row = objectRow(value);
+    if (!row || !Array.isArray(row.references)) continue;
+    const callsign = cleanString(row.call, 32).toUpperCase();
+    const time = parseSpotTime(row.time);
+    const type = cleanString(row.type, 12) || "Live";
+    if (!callsign || !time || !isCurrentSpotTime(time, nowMs) || (type !== "Live" && type !== "QRT")) continue;
+    const frequency = frequencyKHz(row.freq, "mhz");
+    for (const value of row.references) {
+      const bunker = objectRow(value);
+      if (!bunker) continue;
+      const reference = cleanString(bunker.reference, 32).toUpperCase();
+      if (!/^B\/[A-Z0-9]+-\d{4}$/.test(reference)) continue;
+      if (type === "QRT") {
+        terminal.push({ key: activationKey("WWBOTA", callsign, reference), spottedAt: time.toISOString() });
+        continue;
+      }
+      if (frequency === null) continue;
+      const latitude = coordinate(bunker.lat, -90, 90);
+      const longitude = coordinate(bunker.long, -180, 180);
+      const grid = cleanString(bunker.locator, 8).toUpperCase();
+      spots.push({
+        id: `wwbota-${cleanString(row.id, 48) || `${callsign}-${time.getTime()}`}-${reference}`,
+        program: "WWBOTA", callsign, reference,
+        referenceName: cleanString(bunker.name, 160),
+        frequencyKHz: frequency,
+        mode: cleanString(row.mode, 24).toUpperCase() || "UNKNOWN",
+        comments: cleanString(row.comment, 240),
+        spotter: cleanString(row.spotter, 32).toUpperCase(),
+        spottedAt: time.toISOString(),
+        ...(latitude !== undefined && longitude !== undefined ? { latitude, longitude } : {}),
+        ...(grid ? { grid } : {}),
+      });
+    }
+  }
+  return finishSpots(spots, terminal);
 }
 
 class ActivationFeedTooLargeError extends Error {}

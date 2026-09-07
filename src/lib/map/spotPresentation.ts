@@ -35,6 +35,7 @@ const ACTIVATION_SOURCE_COLORS: Record<
 > = {
   POTA: { color: "#34d399", bgColor: "rgba(52, 211, 153, 0.16)" },
   SOTA: { color: "#fbbf24", bgColor: "rgba(251, 191, 36, 0.16)" },
+  WWBOTA: { color: "#c084fc", bgColor: "rgba(192, 132, 252, 0.16)" },
   WWFF: { color: "#60a5fa", bgColor: "rgba(96, 165, 250, 0.16)" },
 };
 

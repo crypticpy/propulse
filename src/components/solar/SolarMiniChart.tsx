@@ -12,6 +12,14 @@ export interface SolarMiniChartProps {
   min?: number;
   max?: number;
   logarithmic?: boolean;
+  /**
+   * Fixed pixel height for the whole figure (label + plot + axis caption).
+   * DS-04: the Solar Pulse key-readings cards pass 96 so all four charts
+   * line up regardless of how much note text sits above them. Omitted by
+   * every other caller, which keeps the original width-driven aspect-ratio
+   * height unchanged.
+   */
+  height?: number;
 }
 const number = (value: number) =>
   Math.abs(value) > 0 && Math.abs(value) < 0.01
@@ -45,8 +53,10 @@ export function SolarMiniChart({
   min,
   max,
   logarithmic,
+  height,
 }: SolarMiniChartProps) {
   const id = useId();
+  const fixedHeightStyle = height ? { height } : undefined;
   const rows = points
     .map((point) => ({ ...point, time: parseUtcInstant(point.timestamp) }))
     .filter(
@@ -63,7 +73,10 @@ export function SolarMiniChart({
     );
   if (rows.length < (intervalMs ? 1 : 2))
     return (
-      <p className="mt-4 text-xs text-su-muted">
+      <p
+        className={`mt-4 text-xs text-su-muted ${height ? "flex items-center" : ""}`}
+        style={fixedHeightStyle}
+      >
         {domain
           ? "No Kp forecast intervals available for this UTC day."
           : `${label}: waiting for more readings.`}
@@ -94,11 +107,14 @@ export function SolarMiniChart({
         ? "var(--hcr-chart-estimated, #c4b5fd)"
         : "var(--hcr-chart-observed, #44ddff)";
   return (
-    <figure className="mt-4 min-w-0 border-t border-su-line/40 pt-3">
-      <figcaption className="mb-1 text-xs text-su-muted">{label}</figcaption>
+    <figure
+      className={`mt-4 min-w-0 border-t border-su-line/40 pt-3 ${height ? "flex flex-col" : ""}`}
+      style={fixedHeightStyle}
+    >
+      <figcaption className={`mb-1 text-xs text-su-muted ${height ? "shrink-0" : ""}`}>{label}</figcaption>
       <svg
         viewBox="0 0 300 88"
-        className="block w-full"
+        className={`block w-full ${height ? "min-h-0 flex-1" : ""}`}
         role="img"
         aria-labelledby={`${id}-title ${id}-desc`}
       >
@@ -192,7 +208,7 @@ export function SolarMiniChart({
         </text>
       </svg>
       {!domain && (
-        <p className="text-[10px] text-su-muted">
+        <p className={`text-[10px] text-su-muted ${height ? "shrink-0" : ""}`}>
           {unit} · UTC{logarithmic ? " · log scale" : ""}
           {intervalMs ? " · observed / estimated" : ""}
         </p>

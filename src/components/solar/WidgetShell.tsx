@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useId, useState, type ReactNode } from "react";
 import type { SolarWidgetState } from "@/lib/solar/contracts";
 import { recordSolarTelemetry } from "@/lib/solar/telemetry";
 
@@ -70,6 +70,7 @@ export function WidgetShell({
   className = "",
   telemetryId,
 }: WidgetShellProps) {
+  const noticeId = useId();
   const [, setTick] = useState(0);
   useEffect(() => {
     const timer = window.setInterval(() => setTick((value) => value + 1), 30_000);
@@ -85,6 +86,18 @@ export function WidgetShell({
   const parsed = observedAt ? Date.parse(observedAt) : NaN;
   const age = Number.isFinite(parsed) ? Math.max(0, Date.now() - parsed) : null;
   const showFallback = !hasData && ["loading", "error", "unavailable"].includes(state);
+  // DS-04: stale/partial notices used to render as a banner between the
+  // header and the body, pushing the reading down by a variable amount. The
+  // full text now lives on the chip (title + a visually hidden
+  // aria-describedby target); only a short, fixed line survives in the
+  // footer so every card's body starts at the same offset.
+  const noticeText =
+    state === "stale"
+      ? (staleMessage ?? "This reading is older than expected. Propulse checks for updates automatically.")
+      : state === "partial"
+        ? (partialMessage ?? "Some sources have not updated yet. The reading below uses the available data.")
+        : null;
+  const footerNotice = noticeText ? "Delayed: waiting for fresh NOAA data" : null;
 
   return (
     <section
@@ -134,25 +147,19 @@ export function WidgetShell({
             className={`inline-flex items-center gap-1.5 rounded-md px-1.5 py-0.5 text-[10px] font-medium ${stateStyle[state]}`}
             role="status"
             aria-live="polite"
+            title={noticeText ?? undefined}
+            aria-describedby={noticeText ? noticeId : undefined}
           >
             <span aria-hidden="true">{state === "fresh" ? "●" : state === "refreshing" ? "↻" : "◇"}</span>
             {stateLabel[state]}
           </span>
+          {noticeText && (
+            <span id={noticeId} className="sr-only">
+              {noticeText}
+            </span>
+          )}
         </div>
       </header>
-
-      {state === "stale" && (
-        <div className="border-b border-su-warning/20 bg-su-warning/10 px-4 py-2 text-xs leading-5 text-su-warning sm:px-5">
-          {staleMessage ??
-            "This reading is older than expected. Propulse checks for updates automatically."}
-        </div>
-      )}
-      {state === "partial" && (
-        <div className="border-b border-su-warning/20 bg-su-warning/10 px-4 py-2 text-xs leading-5 text-su-warning sm:px-5">
-          {partialMessage ??
-            "Some sources have not updated yet. The reading below uses the available data."}
-        </div>
-      )}
 
       <div className={`min-h-0 flex-1 ${compact ? "px-4 pb-4" : "p-4 sm:p-5"}`}>
         {showFallback ? (
@@ -183,7 +190,12 @@ export function WidgetShell({
           children
         )}
       </div>
-      {action && <div className="flex justify-end px-4 pb-3">{action}</div>}
+      {(footerNotice || action) && (
+        <div className={`flex items-center gap-2 px-4 pb-3 ${footerNotice ? "justify-between" : "justify-end"}`}>
+          {footerNotice && <p className="text-[11px] leading-4 text-su-muted">{footerNotice}</p>}
+          {action}
+        </div>
+      )}
     </section>
   );
 }

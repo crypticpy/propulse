@@ -55,7 +55,7 @@ function formatNumber(value: number | null | undefined, digits = 1): string {
   return value === null || value === undefined ? "—" : value.toFixed(digits);
 }
 
-function MetricValue({
+export function MetricValue({
   value,
   unit,
   note,
@@ -74,11 +74,11 @@ function MetricValue({
   };
   return (
     <div>
-      <p className={`${colors[tone]} font-mono text-3xl font-semibold tabular-nums tracking-tight sm:text-4xl`}>
+      <p className={`${colors[tone]} whitespace-nowrap font-mono text-3xl font-semibold tabular-nums tracking-tight sm:text-4xl`}>
         {value}
         {unit && <span className="ml-2 text-base font-medium text-su-muted">{unit}</span>}
       </p>
-      <p className="mt-3 text-sm leading-6 text-su-muted">{note}</p>
+      <p className="mt-3 line-clamp-2 min-h-12 text-sm leading-6 text-su-muted">{note}</p>
     </div>
   );
 }
@@ -166,7 +166,7 @@ export function SolarPulse() {
                 note="Measures geomagnetic disturbance over three hours. Storm-range readings can signal disruption on high-latitude HF paths."
                 tone={current.kp && current.kp.kp >= 5 ? "rose" : current.kp && current.kp.kp >= 4 ? "amber" : "green"}
               />
-              {!isMobile && <SolarMiniChart label="Recent Kp intervals" points={(resources.kp.data ?? []).filter(p => p.kind !== "predicted").map(p => ({ timestamp: p.time_tag, value: p.kp, kind: p.kind }))} unit="Kp" min={0} max={9} intervalMs={10_800_000} maxGapMs={10_800_000} />}
+              {!isMobile && <SolarMiniChart label="Recent Kp intervals" points={(resources.kp.data ?? []).filter(p => p.kind !== "predicted").map(p => ({ timestamp: p.time_tag, value: p.kp, kind: p.kind }))} unit="Kp" min={0} max={9} intervalMs={10_800_000} maxGapMs={10_800_000} height={96} />}
             </WidgetShell>
             <WidgetShell compact
               title="10.7 cm solar flux"
@@ -180,7 +180,7 @@ export function SolarPulse() {
                 note="Tracks solar activity that supports ionization. Combine it with your path and time when choosing a band."
                 tone="amber"
               />
-              {!isMobile && <SolarMiniChart label="Recent solar flux" points={(resources.flux.data ?? []).map(p => ({ timestamp: p.time_tag, value: p.flux }))} unit="sfu" maxGapMs={129_600_000} />}
+              {!isMobile && <SolarMiniChart label="Recent solar flux" points={(resources.flux.data ?? []).map(p => ({ timestamp: p.time_tag, value: p.flux }))} unit="sfu" maxGapMs={129_600_000} height={96} />}
             </WidgetShell>
             <WidgetShell compact
               title="IMF Bz"
@@ -194,7 +194,7 @@ export function SolarPulse() {
                 note={current.mag?.bz_gsm !== null && current.mag?.bz_gsm !== undefined && current.mag.bz_gsm < 0 ? "Sustained southward Bz can drive geomagnetic disturbance. Watch the trend and check Kp." : "Northward or near-neutral Bz is less likely to drive geomagnetic disturbance."}
                 tone={current.mag?.bz_gsm !== null && current.mag?.bz_gsm !== undefined && current.mag.bz_gsm <= -8 ? "rose" : "cyan"}
               />
-              {!isMobile && <SolarMiniChart label="Recent Bz orientation" points={(resources.magnetometer.data ?? []).filter(p => p.bz_gsm !== null).map(p => ({ timestamp: p.time_tag, value: p.bz_gsm! }))} unit="nT" maxGapMs={300_000} />}
+              {!isMobile && <SolarMiniChart label="Recent Bz orientation" points={(resources.magnetometer.data ?? []).filter(p => p.bz_gsm !== null).map(p => ({ timestamp: p.time_tag, value: p.bz_gsm! }))} unit="nT" maxGapMs={300_000} height={96} />}
             </WidgetShell>
             <WidgetShell compact
               title="GOES long X-ray"
@@ -207,7 +207,7 @@ export function SolarPulse() {
                 note={current.xray ? `${current.xray.flux.toExponential(2)} W/m². Elevated flux can produce sunlit-side HF absorption.` : "No usable long-channel observation."}
                 tone={current.xrayClass?.startsWith("M") || current.xrayClass?.startsWith("X") ? "rose" : "cyan"}
               />
-              {!isMobile && <SolarMiniChart label="Recent X-ray flux" points={(resources.xray.data ?? []).map(p => ({ timestamp: p.time_tag, value: p.flux }))} unit="W/m²" logarithmic maxGapMs={300_000} />}
+              {!isMobile && <SolarMiniChart label="Recent X-ray flux" points={(resources.xray.data ?? []).map(p => ({ timestamp: p.time_tag, value: p.flux }))} unit="W/m²" logarithmic maxGapMs={300_000} height={96} />}
             </WidgetShell>
           </div>
         </section>

@@ -28,6 +28,12 @@ import {
   type ActivityTrend,
 } from "@/lib/utils/bandActivity";
 import type { LadderState } from "@/lib/verdict/ladder";
+import {
+  VERDICT_MAX_AGE_MS,
+  verdictIsCurrent,
+} from "@/lib/verdict/presentation";
+
+export { VERDICT_MAX_AGE_MS, verdictIsCurrent };
 
 /** Fixed HF ladder, longest wavelength first — the approved DS-07 order. */
 export const LADDER_BANDS = [
@@ -50,13 +56,6 @@ export const MODE_LABEL: Record<string, string> = {
   cw: "CW",
   unknown: "Other",
 };
-
-/**
- * The collector re-scores the ladder every ~5 minutes. Past this the stored
- * states describe an earlier sky, so the ladder column goes quiet instead of
- * presenting them as the current call.
- */
-export const VERDICT_MAX_AGE_MS = 30 * 60_000;
 
 export interface BandsLadderRow {
   band: string;
@@ -171,23 +170,4 @@ export function formatShare(share: number): string {
 export function formatRatio(ratio: number): string {
   if (ratio > 0 && ratio < 0.05) return "<0.1× typical for this hour";
   return `${ratio.toFixed(1)}× typical for this hour`;
-}
-
-/**
- * Whether the scored ladder is recent enough to speak for right now. A feed
- * that has never landed (undefined) is not current either.
- */
-/** Tolerate up to 5 minutes of clock skew between this client and the
- * collector before treating a row's timestamp as impossible. */
-const CLOCK_SKEW_TOLERANCE_MS = 5 * 60_000;
-
-export function verdictIsCurrent(
-  observedAt: number | undefined,
-  now: number,
-): boolean {
-  if (observedAt === undefined || !Number.isFinite(observedAt)) return false;
-  return (
-    observedAt - now < CLOCK_SKEW_TOLERANCE_MS &&
-    now - observedAt < VERDICT_MAX_AGE_MS
-  );
 }

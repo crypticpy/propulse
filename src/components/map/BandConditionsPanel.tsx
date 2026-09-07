@@ -21,8 +21,10 @@ import { physicsArgsForPath } from "@/lib/station/stationPhysics";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { useActiveBand } from "@/hooks/useActiveBandMode";
 import { useBandActivity } from "@/hooks/useBandActivity";
-import { canonicalKey, useBandLadder } from "@/hooks/useBandLadder";
+import { useBandLadder } from "@/hooks/useBandLadder";
 import { useBandVerdicts, type BandLadderEntry } from "@/hooks/useBandVerdicts";
+import { canonicalForBand } from "@/lib/verdict/bestBand";
+import { verdictIsCurrent } from "@/lib/verdict/presentation";
 import { useKIndex, useSolarFlux } from "@/hooks/useSolarData";
 import { oldestKnownTimestamp } from "@/hooks/projectSolarResource";
 import { getPathIllumination, getDistance } from "@/lib/utils/path";
@@ -474,19 +476,11 @@ export function BandConditionsPanel({
   const selectedHealthEntry = selectedHealthBand
     ? liveBandHealthByBand.get(selectedHealthBand) ?? null
     : null;
+  // Gated by canonicalForBand's staleness rule so a frozen row never
+  // renders in the shared dialog as if it were a live server verdict.
   const canonicalFor = useCallback(
-    (band: string) => {
-      if (!canonicalByKey) return undefined;
-      if (bandHealthScope.type === "regional" && bandHealthScope.continent) {
-        return canonicalByKey.get(
-          canonicalKey("regional", bandHealthScope.continent, band),
-        );
-      }
-      if (bandHealthScope.type === "global") {
-        return canonicalByKey.get(canonicalKey("global", "", band));
-      }
-      return undefined;
-    }, [bandHealthScope, canonicalByKey],
+    (band: string) => canonicalForBand(canonicalByKey, bandHealthScope, band),
+    [bandHealthScope, canonicalByKey],
   );
 
   // Check if content overflows and handle scroll position
@@ -584,6 +578,12 @@ export function BandConditionsPanel({
     bandHealthScope.type === "dx"
       ? "not used for DX"
       : queryFreshnessText(bandLadderObservedAt, isBandLadderError);
+  // Same 30-min gate as canonicalForBand — flag the scope-wide age line so a
+  // frozen collector tick is visible even before a band is selected.
+  const bandLadderStale =
+    bandHealthScope.type !== "dx" &&
+    bandLadderObservedAt > 0 &&
+    !verdictIsCurrent(bandLadderObservedAt, Date.now());
 
   // Get current Kp and SFI values
   const currentKp = useMemo(() => {
@@ -1121,7 +1121,12 @@ export function BandConditionsPanel({
             </div>
             <div className="mt-1 flex flex-wrap gap-x-2 text-[10px] text-su-muted">
               <span>Band evidence: {bandActivityFreshnessText}</span>
-              <span>Canonical ladder: {bandLadderFreshnessText}</span>
+              <span
+                className={bandLadderStale ? "font-semibold text-caution-amber" : undefined}
+              >
+                Canonical ladder: {bandLadderFreshnessText}
+                {bandLadderStale ? " · Stale" : ""}
+              </span>
             </div>
             <div className="flex items-center justify-between mt-1.5 pt-1.5 border-t border-su-line/20">
               <span className="text-[10px] text-su-muted">

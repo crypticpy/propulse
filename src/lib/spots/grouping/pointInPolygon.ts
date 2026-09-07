@@ -1,4 +1,4 @@
-/** Ray-casting point-in-polygon. Rings are [lat, lon][] exterior rings. */
+/** Ray-casting point-in-polygon. Rings are [lat, lon][]. */
 export function pointInRing(
   lat: number,
   lon: number,
@@ -24,4 +24,15 @@ export function pointInRings(
   rings: readonly (readonly (readonly [number, number])[])[],
 ): boolean {
   return rings.some((ring) => pointInRing(lat, lon, ring));
+}
+
+/** Exterior minus holes. Used for Canadian polygons that retain lakes/islands. */
+export function pointInPolygonWithHoles(
+  lat: number,
+  lon: number,
+  exterior: readonly (readonly [number, number])[],
+  holes: readonly (readonly (readonly [number, number])[])[] = [],
+): boolean {
+  if (!pointInRing(lat, lon, exterior)) return false;
+  return !holes.some((hole) => pointInRing(lat, lon, hole));
 }

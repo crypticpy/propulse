@@ -2,7 +2,8 @@ import { CANADA_PROVINCES } from "@/lib/data/canadaProvinces.generated";
 import { US_STATES } from "@/lib/data/usStates.generated";
 import { WORLD_COUNTRIES } from "@/lib/data/worldCountries.generated";
 import type { ClusterGroup } from "@/lib/views/spotContracts";
-import { pointInRings } from "./pointInPolygon";
+import { ATLAS_GAP_COUNTRIES } from "./atlasGaps";
+import { pointInPolygonWithHoles, pointInRings } from "./pointInPolygon";
 
 type Region = NonNullable<ClusterGroup["region"]>;
 
@@ -20,11 +21,7 @@ const FIPS_TO_USPS: Record<string, string> = {
 export interface GeographyMatch {
   region: Region;
   anchor: { lat: number; lon: number };
-}
-
-function countryAnchor(iso: string): { lat: number; lon: number } | null {
-  const country = WORLD_COUNTRIES.find((entry) => entry.iso === iso);
-  return country ? { lat: country.centroidLat, lon: country.centroidLon } : null;
+  provenance: "atlas-centroid" | "atlas-gap-prefix";
 }
 
 function stateAnchor(borders: readonly (readonly (readonly [number, number])[])[]): { lat: number; lon: number } {
@@ -53,6 +50,7 @@ export function lookupCountry(lat: number, lon: number): GeographyMatch | null {
           countryCode: country.iso,
         },
         anchor: { lat: country.centroidLat, lon: country.centroidLon },
+        provenance: "atlas-centroid",
       };
     }
   }
@@ -72,6 +70,7 @@ export function lookupUsSubdivision(lat: number, lon: number): GeographyMatch | 
         countryCode: "US",
       },
       anchor: stateAnchor(state.borders),
+      provenance: "atlas-centroid",
     };
   }
   return null;
@@ -79,7 +78,10 @@ export function lookupUsSubdivision(lat: number, lon: number): GeographyMatch | 
 
 export function lookupCaSubdivision(lat: number, lon: number): GeographyMatch | null {
   for (const province of CANADA_PROVINCES) {
-    if (!pointInRings(lat, lon, province.borders)) continue;
+    const inside = province.polygons.some((polygon) =>
+      pointInPolygonWithHoles(lat, lon, polygon.exterior, polygon.holes),
+    );
+    if (!inside) continue;
     return {
       region: {
         id: `subdivision:CA-${province.iso}`,
@@ -88,6 +90,7 @@ export function lookupCaSubdivision(lat: number, lon: number): GeographyMatch | 
         countryCode: "CA",
       },
       anchor: { lat: province.centroidLat, lon: province.centroidLon },
+      provenance: "atlas-centroid",
     };
   }
   return null;
@@ -111,15 +114,28 @@ export function lookupRegion(
 
 export function countryMatchFromCode(countryCode: string, name?: string): GeographyMatch | null {
   const country = WORLD_COUNTRIES.find((entry) => entry.iso === countryCode);
-  const anchor = countryAnchor(countryCode);
-  if (!anchor) return null;
+  if (country) {
+    return {
+      region: {
+        id: `country:${countryCode}`,
+        name: name ?? country.name,
+        kind: "country",
+        countryCode,
+      },
+      anchor: { lat: country.centroidLat, lon: country.centroidLon },
+      provenance: "atlas-centroid",
+    };
+  }
+  const gap = ATLAS_GAP_COUNTRIES[countryCode];
+  if (!gap) return null;
   return {
     region: {
       id: `country:${countryCode}`,
-      name: name ?? country?.name ?? countryCode,
+      name: name ?? gap.name,
       kind: "country",
       countryCode,
     },
-    anchor,
+    anchor: { ...gap.anchor },
+    provenance: gap.provenance,
   };
 }

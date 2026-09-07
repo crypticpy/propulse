@@ -3,7 +3,8 @@ import { createSpotFixtures, createSpotInput, SPOT_FIXTURE_GEOGRAPHY_VERSION, SP
 import { normalizeLiveSpot } from "@/lib/spots/presentation/pipeline";
 import type { GroupingPreferences } from "./grouping";
 import { groupMappedReports } from "./grouping";
-import { lookupCaSubdivision, lookupCountry, lookupUsSubdivision } from "./lookup";
+import { lookupCaSubdivision, lookupCountry, lookupUsSubdivision, countryMatchFromCode } from "./lookup";
+import { ATLAS_GAP_COUNTRIES } from "./atlasGaps";
 import { maidenheadFromCoordinates } from "./maidenhead";
 import { createExpansionState, reduceExpansion } from "./expansion";
 import type { LiveSpot } from "@/types/livespot";
@@ -246,5 +247,43 @@ describe("groupMappedReports", () => {
     expect(result.groups).toHaveLength(0);
     expect(result.singles).toHaveLength(50);
     expect(result.liveGroupIds.length).toBeGreaterThan(0);
+  });
+
+  it("groups atlas-omitted SG/GU/VI prefixes as approximate countries with stable anchors", () => {
+    const spots = [
+      ...["sg-a", "sg-b", "sg-c"].map((id, n) => createSpotInput(id, {
+        dx: `9V1A${n}`, dxLat: undefined, dxLon: undefined,
+        time: new Date(SPOT_FIXTURE_NOW_MS - n * 1000),
+      })),
+      ...["gu-a", "gu-b", "gu-c"].map((id, n) => createSpotInput(id, {
+        dx: `KH2A${n}`, dxLat: undefined, dxLon: undefined,
+        time: new Date(SPOT_FIXTURE_NOW_MS - n * 1000),
+      })),
+      ...["vi-a", "vi-b", "vi-c"].map((id, n) => createSpotInput(id, {
+        dx: `KP2A${n}`, dxLat: undefined, dxLon: undefined,
+        time: new Date(SPOT_FIXTURE_NOW_MS - n * 1000),
+      })),
+    ];
+    const reports = reportsOf(spots);
+    expect(reports.every((report) => report.dx.location.kind === "approximate")).toBe(true);
+    const result = groupMappedReports(reports, regions, { geographyVersion: VERSION });
+    const reversed = groupMappedReports([...reports].reverse(), regions, { geographyVersion: VERSION });
+    const byCode = Object.fromEntries(result.groups.map((group) => [group.region?.countryCode, group]));
+    expect(byCode.SG?.precision).toBe("approximate");
+    expect(byCode.GU?.precision).toBe("approximate");
+    expect(byCode.VI?.precision).toBe("approximate");
+    expect(byCode.SG?.detail).toBe("regions");
+    expect(byCode.SG?.grid).toBeNull();
+    expect(byCode.SG?.region?.kind).toBe("country");
+    expect(byCode.SG?.anchor).toEqual(ATLAS_GAP_COUNTRIES.SG.anchor);
+    expect(byCode.GU?.anchor).toEqual(ATLAS_GAP_COUNTRIES.GU.anchor);
+    expect(byCode.VI?.anchor).toEqual(ATLAS_GAP_COUNTRIES.VI.anchor);
+    expect(countryMatchFromCode("SG")?.provenance).toBe("atlas-gap-prefix");
+    expect(result.groups.map((group) => group.id)).toEqual(reversed.groups.map((group) => group.id));
+    expect(result.groups.some((group) => group.region?.kind === "subdivision")).toBe(false);
+    expect(result.groups.some((group) => group.detail !== "regions")).toBe(false);
+    const asGrid = groupMappedReports(reports, grid6, { geographyVersion: VERSION });
+    expect(asGrid.groups.every((group) => group.detail === "regions" && group.precision === "approximate")).toBe(true);
+    assertExactlyOnce(reports, result);
   });
 });

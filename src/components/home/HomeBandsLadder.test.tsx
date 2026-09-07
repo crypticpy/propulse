@@ -96,7 +96,7 @@ it("lists every HF band once, 160 m first and 10 m last", () => {
   const bands = screen
     .getAllByRole("row")
     .slice(1)
-    .map((row) => within(row).getByRole("button").textContent);
+    .map((row) => within(row).getByRole("button").firstChild?.textContent);
   expect(bands).toEqual([...LADDER_BANDS]);
 });
 
@@ -201,7 +201,7 @@ it("opens nearby reports for the band that was clicked", async () => {
   const onSelectBand = vi.fn();
   renderLadder(VERDICTS, onSelectBand);
   await userEvent.click(
-    screen.getByRole("button", { name: "30m — open nearby reports" }),
+    screen.getByRole("button", { name: "30m— open nearby reports" }),
   );
   expect(onSelectBand).toHaveBeenCalledWith("30m");
 });

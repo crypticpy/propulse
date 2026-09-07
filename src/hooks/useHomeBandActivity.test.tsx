@@ -1,5 +1,5 @@
 import { renderHook } from "@testing-library/react";
-import { expect, it, vi } from "vitest";
+import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { canonicalKey } from "@/hooks/useBandLadder";
 import type { CanonicalLadderRow } from "@/hooks/useBandLadder";
 import { useHomeBandActivity } from "./useHomeBandActivity";
@@ -17,9 +17,8 @@ const mocks = vi.hoisted(() => ({
 vi.mock("@/hooks/useBandActivity", () => ({
   useBandActivity: (...args: unknown[]) => mocks.activity(...args),
 }));
-vi.mock("@/hooks/useBandLadder", () => ({
-  canonicalKey: (scopeType: string, scopeKey: string, band: string) =>
-    `${scopeType}|${scopeKey}|${band}`,
+vi.mock("@/hooks/useBandLadder", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/hooks/useBandLadder")>()),
   useBandLadder: () => mocks.ladder(),
 }));
 vi.mock("./useHomeLocation", () => ({
@@ -27,6 +26,15 @@ vi.mock("./useHomeLocation", () => ({
 }));
 
 const NOW = Date.parse("2026-09-07T12:00:00Z");
+
+beforeEach(() => {
+  vi.useFakeTimers();
+  vi.setSystemTime(NOW);
+});
+
+afterEach(() => {
+  vi.useRealTimers();
+});
 
 function row(
   band: string,
@@ -74,7 +82,7 @@ it("reads the verdict for the continent the counts are scoped to", () => {
   );
 });
 
-it("falls back to the global row for a band the continent has not scored", () => {
+it("does not fall back to the global row for a band the continent has not scored", () => {
   mocks.activity.mockReturnValue({ data: undefined, isError: false });
   mocks.ladder.mockReturnValue({
     data: ladderData([
@@ -83,7 +91,7 @@ it("falls back to the global row for a band the continent has not scored", () =>
     ]),
   });
   const { result } = renderHook(() => useHomeBandActivity(NOW));
-  expect(result.current.verdictByBand.get("40m")).toBe("stirring");
+  expect(result.current.verdictByBand.get("40m")).toBeUndefined();
 });
 
 it("drops verdicts whose scored rows have stopped ticking", () => {

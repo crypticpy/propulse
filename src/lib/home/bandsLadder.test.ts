@@ -135,6 +135,17 @@ describe("dominantMode", () => {
     expect(dominantMode({ digital: 0 })).toBeNull();
     expect(dominantMode(undefined)).toBeNull();
   });
+
+  it("breaks a tied count alphabetically on mode name, regardless of key order", () => {
+    expect(dominantMode({ digital: 5, cw: 5 })).toEqual({
+      label: "CW",
+      count: 5,
+    });
+    expect(dominantMode({ cw: 5, digital: 5 })).toEqual({
+      label: "CW",
+      count: 5,
+    });
+  });
 });
 
 describe("formatShare / formatRatio", () => {
@@ -142,9 +153,9 @@ describe("formatShare / formatRatio", () => {
     expect(formatShare(0)).toBe("0.0%");
     expect(formatShare(0.0004)).toBe("<0.1%");
     expect(formatShare(0.061)).toBe("6.1%");
-    expect(formatRatio(1.62)).toBe("1.6× typical");
-    expect(formatRatio(0.02)).toBe("<0.1× typical");
-    expect(formatRatio(0)).toBe("0.0× typical");
+    expect(formatRatio(1.62)).toBe("1.6× typical for this hour");
+    expect(formatRatio(0.02)).toBe("<0.1× typical for this hour");
+    expect(formatRatio(0)).toBe("0.0× typical for this hour");
   });
 });
 
@@ -155,5 +166,11 @@ describe("verdictIsCurrent", () => {
     expect(verdictIsCurrent(now - VERDICT_MAX_AGE_MS, now)).toBe(false);
     expect(verdictIsCurrent(undefined, now)).toBe(false);
     expect(verdictIsCurrent(Number.NaN, now)).toBe(false);
+  });
+
+  it("tolerates a small amount of clock skew ahead of now, but not a large one", () => {
+    const now = Date.parse("2026-09-07T12:00:00Z");
+    expect(verdictIsCurrent(now + 30_000, now)).toBe(true);
+    expect(verdictIsCurrent(now + 6 * 60_000, now)).toBe(false);
   });
 });

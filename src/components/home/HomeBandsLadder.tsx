@@ -129,10 +129,10 @@ export function HomeBandsLadder({
                 type="button"
                 aria-controls="home-nearby-reports"
                 aria-expanded={selectedBand === row.band}
-                aria-label={`${row.band} — open nearby reports`}
                 onClick={() => onSelectBand(row.band)}
               >
                 {row.band}
+                <span className="sr-only"> — open nearby reports</span>
               </button>
             </th>
             <VerdictCell row={row} />
@@ -179,9 +179,10 @@ export function HomeBandsLadder({
       </tbody>
     </table>
     <p className="home-note">
-      Verdict: the scored Band Health state for this scope, with this hour
-      against the same band-hour&rsquo;s 90-day median where there is enough
-      history.{" "}
+      Verdict: the scored Band Health state for this scope. The × figure
+      compares the last 60 minutes of raw reports with this band-hour&rsquo;s
+      90-day median where there is enough history — a different count from
+      the 20-minute Reports column.{" "}
       {showTrend && "Trend: the last 10 minutes against the 10 before. "}
       Bar: reports relative to the busiest band.
     </p>

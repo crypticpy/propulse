@@ -85,6 +85,6 @@ it("shows the scored verdict beside the band it belongs to, and No verdict for t
   render(<MemoryRouter><HomeActivity now={now} isMobile={false} /></MemoryRouter>);
   const row = screen.getByRole("row", { name: /^20m/ });
   expect(within(row).getByText("Verified Open")).toBeTruthy();
-  expect(within(row).getByText("1.5× typical")).toBeTruthy();
+  expect(within(row).getByText("1.5× typical for this hour")).toBeTruthy();
   expect(screen.getAllByText("No verdict").length).toBe(9);
 });

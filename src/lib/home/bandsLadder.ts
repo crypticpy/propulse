@@ -77,7 +77,9 @@ export interface BandsLadderRow {
   ratio: number | null;
 }
 
-/** Dominant mode class of the 20-min observations, with its spoken label. */
+/** Dominant mode class of the 20-min observations, with its spoken label.
+ * Ties break alphabetically on mode name so equal counts render the same
+ * mode on every poll instead of flickering between them. */
 export function dominantMode(
   modeObs20m: Record<string, number> | undefined,
 ): { label: string; count: number } | null {
@@ -85,7 +87,7 @@ export function dominantMode(
   let best: string | null = null;
   let bestCount = 0;
   for (const [mode, count] of Object.entries(modeObs20m)) {
-    if (count > bestCount) {
+    if (count > bestCount || (count === bestCount && count > 0 && best !== null && mode < best)) {
       best = mode;
       bestCount = count;
     }
@@ -165,20 +167,27 @@ export function formatShare(share: number): string {
   return `${percent.toFixed(1)}%`;
 }
 
-/** "1.6× typical" — the comparison the ratio actually makes. */
+/** "1.6× typical for this hour" — the comparison the ratio actually makes. */
 export function formatRatio(ratio: number): string {
-  if (ratio > 0 && ratio < 0.05) return "<0.1× typical";
-  return `${ratio.toFixed(1)}× typical`;
+  if (ratio > 0 && ratio < 0.05) return "<0.1× typical for this hour";
+  return `${ratio.toFixed(1)}× typical for this hour`;
 }
 
 /**
  * Whether the scored ladder is recent enough to speak for right now. A feed
  * that has never landed (undefined) is not current either.
  */
+/** Tolerate up to 5 minutes of clock skew between this client and the
+ * collector before treating a row's timestamp as impossible. */
+const CLOCK_SKEW_TOLERANCE_MS = 5 * 60_000;
+
 export function verdictIsCurrent(
   observedAt: number | undefined,
   now: number,
 ): boolean {
   if (observedAt === undefined || !Number.isFinite(observedAt)) return false;
-  return observedAt <= now && now - observedAt < VERDICT_MAX_AGE_MS;
+  return (
+    observedAt - now < CLOCK_SKEW_TOLERANCE_MS &&
+    now - observedAt < VERDICT_MAX_AGE_MS
+  );
 }

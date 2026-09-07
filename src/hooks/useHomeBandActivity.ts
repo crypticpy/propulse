@@ -1,8 +1,9 @@
 import { useMemo } from "react";
 import { useBandActivity, type BandActivityScope } from "@/hooks/useBandActivity";
-import { canonicalKey, useBandLadder } from "@/hooks/useBandLadder";
+import { useBandLadder } from "@/hooks/useBandLadder";
 import { continentForLatLon, CONTINENT_LABEL } from "@/lib/utils/continent";
 import type { LadderState } from "@/lib/verdict/ladder";
+import { canonicalForBand } from "@/lib/verdict/bestBand";
 import { useHomeLocation } from "./useHomeLocation";
 import { activityRows, activityIsCurrent } from "@/lib/home/presentation";
 import { LADDER_BANDS, verdictIsCurrent } from "@/lib/home/bandsLadder";
@@ -18,17 +19,18 @@ export function useHomeBandActivity(now: number, enabled = true) {
   const current = hasData && activityIsCurrent(fetchedAt, query.isError, Math.max(now, Date.now()));
   const rows = hasData ? activityRows(query.data).sort((a, b) => parseFloat(b.band) - parseFloat(a.band)) : [];
   // The collector's scored ladder, read on the same scope as the counts so
-  // the verdict and the numbers in a row describe one population. Regional
-  // falls back to the global row for a band its continent has not scored.
+  // the verdict and the numbers in a row describe one population. A regional
+  // scope with no scored row for a band gets no verdict for it — never the
+  // global row, which describes a different population.
   const ladder = useBandLadder(enabled);
   const ladderData = ladder.data;
   const verdictByBand = useMemo(() => {
     const byBand = new Map<string, LadderState>();
     if (!ladderData) return byBand;
     const bands = new Set<string>([...LADDER_BANDS, ...[...ladderData.values()].map(row => row.band)]);
+    const scope = continent ? { type: "regional" as const, continent } : { type: "global" as const, continent: null };
     for (const band of bands) {
-      const row = (continent ? ladderData.get(canonicalKey("regional", continent, band)) : undefined)
-        ?? ladderData.get(canonicalKey("global", "", band));
+      const row = canonicalForBand(ladderData, scope, band);
       // A row that has stopped ticking is not a verdict about now.
       if (row && verdictIsCurrent(Date.parse(row.updatedAt), Math.max(now, Date.now()))) byBand.set(band, row.state);
     }

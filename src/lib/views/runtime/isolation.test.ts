@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { ViewBinding, ViewConfiguration } from "../contracts";
 import { createSpotPreferences, createViewConfiguration } from "../defaults";
+import { getActivityRecipe, getDisplayRecipe } from "../presets/catalog";
 import { createViewRuntime } from "./createViewRuntime";
 import {
   createViewScopedStore,
@@ -195,5 +196,53 @@ describe("view-scoped isolation", () => {
     expect(runtime.getSnapshot().config.spots.filters.bands).toEqual(["80m"]);
     handle.destroy();
     runtime.dispose();
+  });
+
+  it("applies activity and display presets to one runtime without mutating the other", () => {
+    const storage = createMemoryWorkingStorage();
+    const monitor = createViewRuntime({
+      binding: binding("normal"),
+      storage,
+      storageNamespace: "acct:owner-a",
+    });
+    const wall = createViewRuntime({
+      binding: binding("hamclock"),
+      storage,
+      storageNamespace: "acct:owner-a",
+    });
+    monitor.updateWorkingView({
+      context: { ...monitor.getSnapshot().config.context, followRadio: true, followOperatingSession: true },
+      presentation: { ...clonePresentation(monitor.getSnapshot().config), projection: "azimuthal", textScale: "xl" },
+    });
+    wall.updateWorkingView({
+      context: { ...wall.getSnapshot().config.context, followRadio: true, stationId: "wall-station" },
+      presentation: { ...clonePresentation(wall.getSnapshot().config), projection: "flat", textScale: "sm" },
+    });
+    monitor.selectSpot("monitor-spot", { lat: 10, lon: 20 });
+    wall.selectSpot("wall-spot", { lat: 51, lon: 0 });
+    const wallBefore = {
+      config: JSON.parse(JSON.stringify(wall.getSnapshot().config)),
+      interaction: JSON.parse(JSON.stringify(wall.getSnapshot().interaction)),
+      revision: wall.getSnapshot().workingRevision,
+    };
+
+    monitor.applyPreset(getActivityRecipe("activity-ssb-v1"));
+    expect(monitor.getSnapshot().config.spots.filters.modes.modes).toEqual(["SSB"]);
+    expect(monitor.getSnapshot().config.context.followRadio).toBe(false);
+    expect(monitor.getSnapshot().interaction.selectedReportId).toBe("monitor-spot");
+    expect(wall.getSnapshot().config).toEqual(wallBefore.config);
+    expect(wall.getSnapshot().interaction).toEqual(wallBefore.interaction);
+    expect(wall.getSnapshot().workingRevision).toBe(wallBefore.revision);
+
+    monitor.applyPreset(getDisplayRecipe("display-hamclock-v1"));
+    expect(monitor.getSnapshot().config.family).toBe("hamclock");
+    expect(monitor.getSnapshot().interaction.selectedReportId).toBeNull();
+    expect(wall.getSnapshot().config).toEqual(wallBefore.config);
+    expect(wall.getSnapshot().interaction.selectedReportId).toBe("wall-spot");
+    expect(wall.getSnapshot().config.context.stationId).toBe("wall-station");
+    expect(wall.getSnapshot().config.presentation.textScale).toBe("sm");
+    expect(wall.getSnapshot().workingRevision).toBe(wallBefore.revision);
+    monitor.dispose();
+    wall.dispose();
   });
 });

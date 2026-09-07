@@ -9,6 +9,7 @@ import {
 } from "../contracts";
 import { spotPresentationPreferencesSchema, type SpotPresentationPreferences } from "../spotContracts";
 import { createViewConfiguration } from "../defaults";
+import { applyPresetRecipe } from "../presets/apply";
 import { createInstanceId } from "./ids";
 import {
   bandModeFiltersEqual,
@@ -203,20 +204,12 @@ export function createViewRuntime(options: CreateViewRuntimeOptions): ScopedView
     },
     applyPreset(preset: PresetRecipe) {
       assertActive();
+      const { config } = applyPresetRecipe(preset, snapshot.config);
       if (preset.kind === "activity") {
-        // Agent 4/#573 owns the canonical helper. Until it is accepted, activity
-        // application here disables both follow flags and leaves presentation alone.
-        runtime.updateWorkingView({
-          spots: spotPresentationPreferencesSchema.parse(JSON.parse(JSON.stringify(preset.spots))),
-          context: {
-            ...snapshot.config.context,
-            followRadio: false,
-            followOperatingSession: false,
-          },
-        });
+        commitConfig(config, snapshot.interaction, true);
         return;
       }
-      runtime.replaceWorkingView(preset.config);
+      runtime.replaceWorkingView(config);
     },
     selectSpot(reportId, location) {
       assertActive();

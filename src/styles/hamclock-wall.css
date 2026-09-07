@@ -128,6 +128,10 @@
   gap: calc(2.6vw * var(--hc-scale));
 }
 .hc-clock {
+  display: grid;
+  grid-template-columns: auto auto;
+  align-items: baseline;
+  column-gap: calc(0.6vw * var(--hc-scale));
   text-align: right;
 }
 .hc-clock .hc-clock-lbl {
@@ -146,6 +150,7 @@
   letter-spacing: 0.02em;
 }
 .hc-clock .hc-clock-dt {
+  grid-column: 2;
   font-family: var(--hc-font-mono);
   font-size: var(--hc-t-small);
   color: var(--hc-dim);

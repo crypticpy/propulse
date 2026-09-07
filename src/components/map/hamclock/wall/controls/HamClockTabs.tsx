@@ -23,6 +23,7 @@ export interface HamClockTabsProps {
   active?: string;
   defaultActive?: string;
   onChange?: (id: string) => void;
+  orientation?: "horizontal" | "vertical";
 }
 
 /**
@@ -39,6 +40,7 @@ export function HamClockTabs({
   active,
   defaultActive,
   onChange,
+  orientation = "horizontal",
 }: HamClockTabsProps) {
   const baseId = useId();
   const [internalActive, setInternalActive] = useState(
@@ -117,10 +119,11 @@ export function HamClockTabs({
   const activeTab = tabs.find((tab) => tab.id === activeId);
 
   return (
-    <div className="hcc-tabs">
+    <div className={`hcc-tabs${orientation === "vertical" ? " hcc-tabs--vertical" : ""}`}>
       <div
         role="tablist"
         aria-label={label}
+        aria-orientation={orientation}
         className="hcc-tablist"
         onBlur={handleTablistBlur}
       >

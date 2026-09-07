@@ -53,6 +53,7 @@ export function LayersTab() {
   return (
     <HamClockTabs
       label="Layer categories"
+      orientation="vertical"
       tabs={LAYER_CATEGORIES.map((category) => ({
         id: category.id,
         label: category.label,

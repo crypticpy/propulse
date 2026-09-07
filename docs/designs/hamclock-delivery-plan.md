@@ -592,3 +592,42 @@ private; contributor access is an explicit prerequisite. Candidate paths were
 checked against the pinned tree. No weather implementation is claimed, and no
 source was copied or modified. #524's review thread is now resolved after
 publication of `c7f62d57` (399 app files / 3,473 tests and all required checks).
+
+### Five-minute report stability check — 2026-09-07
+
+On #524 revision `c7f62d57`, a disposable headless Chromium context kept the
+populated Band Activity report open for 302 seconds. Thirty-one samples at
+roughly ten-second intervals checked report-container overflow while cycling
+TOP DX, BANDS and HISTORY every thirty seconds. TOP DX tune controls remained
+disabled with the disconnected bridge state; Escape returned focus to the tile
+opener after the run. No overflow assertions or page errors occurred.
+
+Configuration: local profile, Pulse, Flat map, 1920×1080/DPR 1, default text size,
+synthetic N0TEST/EM38, thirty synthetic cluster reports, synthetic activity and
+stored-history endpoints, no signed-in session. Non-HMR WebSockets were blocked.
+Source files were unchanged during the run. Diagnostics recorded one document
+throughout, 60.5–90.1 MB sampled JS heap, and 4.85 seconds cumulative browser task
+time after measurement began. These are observations from a short local run,
+not proof of leak freedom, real-traffic throughput, GPU performance or physical
+readability. Other owners' servers at 5182 and 5184 remained running; no attempt
+was made to control their load. No sustained-operation acceptance box is closed.
+
+Reproduction artifacts are local and ignored under
+`.worktrees/hamclock-band-tune/tmp/band-tune/`: `duration.mjs`,
+`duration-result.json`; command `node tmp/band-tune/duration.mjs` from that
+checkout. The script validates the exact owned server identity; a new run must
+substitute its new verified identity before launch. Log:
+`/private/tmp/hc-band-duration-browser.log`.
+Server owner `hamclock-band-duration`, session
+`2492529c-84da-4228-9be4-c91f64c9fb9f`, origin `http://127.0.0.1:5181`, was stopped
+using its own foreground session and its claim released only after the process
+was absent and both loopback addresses were free. User preview 5182 is preserved.
+
+Fresh scope audit: B11/#207 still requires B10 #480 to merge; #480 is OPEN.
+#250 explicitly assigns the shared/per-report production polish pass to Fable.
+#286's SDR target still depends on its actual adapter; no merged AetherSDR/TCI
+PR was found in the current audit. B18 retains its documented missing historical
+model/observed/hop contracts and FutureCast scorer dependency. These are not
+completed by this local report check. Production-rendered activation acceptance,
+real radio/WSJT-X operation, deployed PSK cache/retention, authenticated cross-device
+sync, and physical/sustained wall validation remain separate external checks.

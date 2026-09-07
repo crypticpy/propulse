@@ -14,6 +14,18 @@ export type Database = {
   };
   public: {
     Tables: {
+      view_library_records: {
+        Row: { owner_id: string; kind: "view" | "preset" | "display"; id: string; revision: number; value: Json | null; display_id: string | null };
+        Insert: { owner_id: string; kind: "view" | "preset" | "display"; id: string; revision: number; value?: Json | null; display_id?: never };
+        Update: { revision?: number; value?: Json | null; display_id?: never };
+        Relationships: [];
+      };
+      view_library_receipts: {
+        Row: { owner_id: string; operation_id: string; operation: Json; result: Json };
+        Insert: { owner_id: string; operation_id: string; operation: Json; result: Json };
+        Update: { operation?: Json; result?: Json };
+        Relationships: [];
+      };
       accessories: {
         Row: {
           bands: string[];
@@ -1103,6 +1115,8 @@ export type Database = {
       [_ in never]: never;
     };
     Functions: {
+      commit_view_library: { Args: { actor: string; op: Json }; Returns: Json };
+      read_view_display_assignment: { Args: { display_uuid: string; token_hash: string }; Returns: Json };
       update_profile_stats: {
         Args: { target_user_id: string };
         Returns: undefined;

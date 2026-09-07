@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { contractIdSchema } from "../spotContracts";
 import { displayAssignmentSchema, presetRecipeSchema, savedViewSchema, type ViewConfiguration } from "../contracts";
-import { persistedWidgetSchemas } from "@/lib/hamclock/widgetSchemas";
+import { persistedWidgetSchemas } from "../../hamclock/widgetSchemas";
 import { canonicalJson } from "./canonical";
 
 export const libraryKindSchema = z.enum(["view", "preset", "display"]);

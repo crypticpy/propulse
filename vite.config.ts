@@ -9,6 +9,7 @@ import {
   handleDisplayPair,
   handleDisplayState,
 } from "./api/_lib/handlers/displays";
+import { handleViewLibrary, handleViewDisplayAssignment } from "./api/_lib/handlers/viewLibrary";
 import { TILE_RUNTIME_CACHING } from "./src/lib/tiles/tileRuntimeCaching";
 
 // ─── Solar API parity plugin ──────────────────────────────────────────────
@@ -115,6 +116,8 @@ function displaysDevApi(): Plugin {
   const routes: Record<string, (request: Request) => Promise<Response>> = {
     "/api/displays/pair": handleDisplayPair,
     "/api/displays/state": handleDisplayState,
+    "/api/displays/assignment": handleViewDisplayAssignment,
+    "/api/views/library": handleViewLibrary,
   };
   return {
     name: "displays-dev-api",
@@ -135,7 +138,18 @@ function displaysDevApi(): Plugin {
           let body: Buffer | undefined;
           if (req.method !== "GET" && req.method !== "HEAD") {
             const chunks: Buffer[] = [];
-            for await (const chunk of req) chunks.push(chunk as Buffer);
+            let bytes = 0;
+            for await (const chunk of req) {
+              const buffer = Buffer.from(chunk);
+              bytes += buffer.byteLength;
+              if (bytes <= 600 * 1024) chunks.push(buffer);
+            }
+            if (bytes > 600 * 1024) {
+              res.statusCode = 413;
+              res.setHeader("Content-Type", "application/json");
+              res.end(JSON.stringify({ error: "Request body too large" }));
+              return;
+            }
             body = Buffer.concat(chunks);
           }
           const edgeRequest = new Request(new URL(req.url ?? "/", origin), {

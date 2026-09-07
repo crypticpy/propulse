@@ -1,6 +1,6 @@
 /** SP-01 v1. Saved intent is complete, serializable and independent of live stores. */
 import { z } from "zod";
-import { WALL_PAGES, WALL_TILE_IDS } from "@/lib/hamclock/wallPages";
+import { WALL_PAGES, WALL_TILE_IDS } from "../hamclock/wallPages";
 import { contractIdSchema, coordinatesSchema, spotPresentationPreferencesSchema } from "./spotContracts";
 
 export const VIEW_SCHEMA_VERSION = 1;

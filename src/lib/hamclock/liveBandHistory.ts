@@ -1,4 +1,11 @@
 import type { BandActivitySnapshot } from "@/hooks/useBandActivity";
+import { HF_BANDS } from "../../../collector/src/transforms/bands";
+
+/** Completeness follows the collector's supported band identities, not row count. */
+export function hasCollectedBandCoverage(rows: readonly { band: string }[]): boolean {
+  const present = new Set(rows.map(row => row.band));
+  return HF_BANDS.every(band => present.has(band));
+}
 
 export interface LiveBandSample {
   at: number;

@@ -4,7 +4,7 @@ import {
   type BandHistorySnapshot,
 } from "@/lib/hamclock/bandHistory";
 import { getBandColor } from "@/lib/utils/spotColors";
-import { liveBandSlots, type LiveBandSample } from "@/lib/hamclock/liveBandHistory";
+import { hasCollectedBandCoverage, liveBandSlots, type LiveBandSample } from "@/lib/hamclock/liveBandHistory";
 import { HamClockButton } from "../controls";
 import { useElementSize } from "../useElementSize";
 
@@ -35,7 +35,7 @@ export function BandHistoryChart({
     }).map((hour) => ({ ...hour, future: false })), [snapshot, showLive, live.samples, live.now]);
   const known = hours.flatMap((hour) => hour.count === null ? [] : [hour.count]);
   // Every supported band must be recorded before an hour's total is known.
-  const complete = hours.every((hour) => hour.rows.length === 12);
+  const complete = hours.every((hour) => hasCollectedBandCoverage(hour.rows));
   const peak = complete && known.length ? Math.max(...known) : null;
   const max = Math.max(1, ...known);
   const plotHeight = Math.max(1, height - 38);
@@ -83,7 +83,7 @@ export function BandHistoryChart({
                     {hour.future ? "NOT YET" : "UNKNOWN"}
                   </text>
                 )}
-                {hour.count !== null && hour.rows.length < 12 && (
+                {hour.count !== null && !hasCollectedBandCoverage(hour.rows) && (
                   <text x={(index + 0.5) * step} y={14} textAnchor="middle" fill="var(--hc-fg)" fontSize={12}>PARTIAL</text>
                 )}
                 <text

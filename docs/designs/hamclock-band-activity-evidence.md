@@ -55,3 +55,14 @@ Managed local test identity: owner `hamclock-band-tune`, session
 `.worktrees/hamclock-band-tune`. The user preview at 5182 is preserved. Full
 required checks run before publication; deployed, actual-radio and physical
 monitor acceptance remain pending. The integration stays within 15 files.
+
+## Review correction: collector band coverage
+
+Completeness now checks the ten HF band identities exported by the collector's
+pure band transform, instead of requiring twelve rows. Complete stored hours
+and current-hour samples can therefore show a known peak; absent HF bands stay
+partial even when duplicate or VHF rows bring the row count to twelve. The
+collector itself is unchanged. A rendered chart regression fails before the
+correction and passes for both chart modes afterward; the 20-test focused
+history/report suite passes. The initial integration passed all mandatory checks
+(399 app files / 3,471 tests), and the correction runs the same publication gate.

@@ -9,7 +9,6 @@
 import { create } from "zustand";
 import type { User, Session } from "@supabase/supabase-js";
 import { getSupabase, isSupabaseConfigured } from "@/lib/supabase";
-import { ensureProTileCacheOwner } from "@/lib/tiles/cacheUtils";
 
 // ── Module-scoped deduplication & cleanup ────────────────────────────
 /** Deduplicates concurrent initialize() calls */
@@ -106,7 +105,6 @@ export const useAuthStore = create<AuthState>()((set, get) => ({
             user: session?.user ?? null,
             session: session ?? null,
           });
-          ensureProTileCacheOwner(session?.user?.id ?? null);
 
           if (event === "PASSWORD_RECOVERY") {
             set({ isRecoveryMode: true });
@@ -135,7 +133,6 @@ export const useAuthStore = create<AuthState>()((set, get) => ({
           session: session ?? null,
           initialized: true,
         });
-        ensureProTileCacheOwner(session?.user?.id ?? null);
       } catch (err) {
         set({
           initialized: true,

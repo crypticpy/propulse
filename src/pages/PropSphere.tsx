@@ -1,6 +1,5 @@
 import { useStationCastContext } from "@/hooks/useStationCastContext";
 import { useApplySolarMapHandoff } from "@/hooks/useSolarHandoff";
-import { useTileCacheWarmup } from "@/hooks/useTileCacheWarmup";
 /**
  * PropSphere Page
  *
@@ -175,7 +174,6 @@ type PanelMode = "full" | "mini" | "hidden";
 
 export function PropSphere() {
   useApplySolarMapHandoff();
-  useTileCacheWarmup();
   const isKiosk = useKioskStore((s) => s.active);
   const viewMode = useMapStore((s) => s.viewMode);
   const timeOffset = useMapStore((s) => s.timeOffset);

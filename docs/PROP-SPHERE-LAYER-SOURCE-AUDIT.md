@@ -136,6 +136,34 @@ Sources are classified as follows:
 | Grid Labels | renderer dependent | Local grid computation | camera change | C | Good; density controls are bounded |
 | Map Labels | globe/flat | Configured tile provider, OSM-derived where applicable | tile cache | B | Provider fallback and authentication handling must remain monitored |
 
+Basemap and label tiles are cached client-side via Workbox `runtimeCaching`
+(`src/lib/tiles/tileRuntimeCaching.ts`), one CacheFirst cache per host, each
+capped at 3000 entries: `tiles-esri` for `server.arcgisonline.com` (ESRI World
+Imagery, 30 days), `tiles-osm` for `tile.openstreetmap.org` (OpenStreetMap,
+30 days), and `tiles-carto` for `basemaps.cartocdn.com` (the CARTO Dark Matter
+basemap and the `dark_only_labels`/`light_only_labels` overlays TiledLabels
+renders, one day — matching the CARTO provider TTL that
+`docs/guides/CARTO-BASEMAPS.md` commits to). Entries are evicted by that
+expiration policy, by the entry cap, and by the settings screen's cache-clear
+action, so these are retention ceilings rather than guarantees.
+
+Two limits are deliberate rather than incidental:
+
+- **No proactive prefetch or warm-up.** Only tiles a reader actually viewed
+  are stored. The OpenStreetMap tile usage policy and CARTO's basemap terms
+  both prohibit bulk downloading, and the Esri World Imagery terms restrict
+  caching beyond ordinary browser behaviour, so nothing in the app fetches
+  tiles ahead of the camera.
+- **`/api/tiles/proxy` (Mapbox HD satellite, Pro tier) is NetworkOnly.** Every
+  Pro tile request reaches the server-side entitlement check. It is not cached
+  in CacheStorage, because the service worker answers from CacheStorage before
+  any application code has established who is signed in — a purge on account
+  change would always race the first tile request of a page load, and
+  `subscriptionTier` is persisted, so a second account on the same browser can
+  briefly render as Pro. Re-enabling Pro caching would require partitioning the
+  cache key by user (for example a user-id component in the proxy URL), not
+  policing the cache after the fact.
+
 ## Composition rules
 
 Only one exclusive quantitative surface layer may be active at a time:

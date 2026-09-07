@@ -447,6 +447,7 @@ export type Database = {
       };
       displays: {
         Row: {
+          assignment_binding_id: string;
           created_at: string;
           device_token_hash: string;
           id: string;
@@ -457,6 +458,7 @@ export type Database = {
           updated_at: string;
         };
         Insert: {
+          assignment_binding_id?: string;
           created_at?: string;
           device_token_hash: string;
           id?: string;
@@ -467,6 +469,7 @@ export type Database = {
           updated_at?: string;
         };
         Update: {
+          assignment_binding_id?: string;
           created_at?: string;
           device_token_hash?: string;
           id?: string;

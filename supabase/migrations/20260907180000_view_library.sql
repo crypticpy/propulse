@@ -1,3 +1,5 @@
+-- Binding identity lets a device distinguish a new owner/token from a stale revision.
+alter table public.displays add column assignment_binding_id uuid not null default gen_random_uuid();
 -- SP-02: authenticated server writes only. RLS clients may read their library.
 -- Full versioned payload validation occurs in the service API; SQL independently
 -- enforces identity, size, revisions, idempotency and display ownership.
@@ -92,6 +94,10 @@ begin
     insert into public.view_library_records(owner_id,kind,id,revision,value)
       values(actor,doc_kind,doc_id,expected+1,payload)
       on conflict (owner_id,kind,id) do update set revision = excluded.revision, value = excluded.value;
+    if doc_kind = 'display' then
+      update public.displays set scene_config = payload->'data' || jsonb_build_object('revision',expected+1)
+        where id = doc_id::uuid;
+    end if;
     answer := jsonb_build_object('status','saved','record',jsonb_build_object(
       'ownerId',actor,'kind',doc_kind,'id',doc_id,'revision',expected+1,'value',payload));
   end if;
@@ -106,11 +112,42 @@ grant execute on function public.commit_view_library(uuid,jsonb) to service_role
 -- This endpoint does not expose account libraries or device credentials.
 create function public.read_view_display_assignment(display_uuid uuid, token_hash text) returns jsonb
 language sql stable security invoker set search_path = '' as $$
-  select jsonb_build_object('paired',d.owner is not null,'assignment',
-    case when r.value is null then null else r.value->'data' || jsonb_build_object('revision',r.revision) end)
+  select jsonb_build_object('paired',d.owner is not null,'bindingId',d.assignment_binding_id,'assignment',
+    case when r.value is null or d.scene_config is distinct from (r.value->'data' || jsonb_build_object('revision',r.revision))
+      then null else d.scene_config end)
   from public.displays d left join public.view_library_records r
     on r.owner_id = d.owner and r.kind = 'display' and r.id = d.id::text
   where d.id = display_uuid and d.device_token_hash = token_hash;
 $$;
 revoke all on function public.read_view_display_assignment(uuid,text) from public, anon, authenticated;
 grant execute on function public.read_view_display_assignment(uuid,text) to service_role;
+
+-- Older clients may keep managing legacy scenes until the first v1 publication.
+-- Thereafter scene_config can change only alongside the matching CAS record.
+create function public.guard_view_display_assignment() returns trigger
+language plpgsql security invoker set search_path = '' as $$
+declare expected_scene jsonb;
+begin
+  if new.owner is distinct from old.owner then
+    new.scene_config := '{}'::jsonb;
+    new.assignment_binding_id := gen_random_uuid();
+    return new;
+  end if;
+  if new.device_token_hash is distinct from old.device_token_hash then
+    new.assignment_binding_id := gen_random_uuid();
+  elsif new.assignment_binding_id is distinct from old.assignment_binding_id then
+    raise insufficient_privilege using message = 'Binding changes require ownership or token rotation';
+  end if;
+  if new.scene_config is not distinct from old.scene_config then return new; end if;
+  select value->'data' || jsonb_build_object('revision',revision) into expected_scene
+    from public.view_library_records where owner_id = new.owner and kind = 'display' and id = new.id::text;
+  if (expected_scene is not null and new.scene_config is distinct from expected_scene)
+    or (expected_scene is null and (new.scene_config ? 'schemaVersion' or new.scene_config ? 'revision')) then
+    raise insufficient_privilege using message = 'Use revisioned display publication';
+  end if;
+  return new;
+end;
+$$;
+revoke all on function public.guard_view_display_assignment() from public, anon, authenticated;
+create trigger view_library_assignment_guard before update on public.displays
+  for each row execute function public.guard_view_display_assignment();

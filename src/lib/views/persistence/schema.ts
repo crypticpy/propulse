@@ -115,3 +115,8 @@ export function validateCommitResult(operation: LibraryOperation, rawResult: unk
   }
   return result.status === "saved" ? { status: "saved", record: parsed.data } : { status: "conflict", current: parsed.data };
 }
+
+/** Device transport metadata is separate from the frozen saved assignment schema. */
+export const displayAssignmentResponseSchema = z.object({
+  paired: z.boolean(), bindingId: z.string().uuid(), assignment: displayAssignmentSchema.nullable(),
+}).strict().refine((response) => response.paired || response.assignment === null, "Unpaired device cannot have an assignment");

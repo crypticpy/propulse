@@ -4,9 +4,8 @@ import type { Database } from "../../../src/types/supabase";
 import { verifyStationOwner } from "../stationAuth";
 import { applyRateLimit } from "../rateLimit";
 import { sha256Hex } from "./displays";
-import { displayAssignmentSchema } from "../../../src/lib/views/contracts";
 import { contractIdSchema } from "../../../src/lib/views/spotContracts";
-import { commitResultSchema, libraryKindSchema, libraryOperationSchema, libraryRecordSchema, validateCommitResult } from "../../../src/lib/views/persistence/schema";
+import { displayAssignmentResponseSchema, commitResultSchema, libraryKindSchema, libraryOperationSchema, libraryRecordSchema, validateCommitResult } from "../../../src/lib/views/persistence/schema";
 
 const BODY_LIMIT = 600 * 1024;
 function json(body: unknown, status = 200): Response {
@@ -100,7 +99,7 @@ export async function handleViewLibrary(request: Request): Promise<Response> {
   } catch { return unavailable(); }
 }
 
-/** Separate opt-in endpoint; legacy scene_config and existing running displays are untouched. */
+/** Token-bound v1 read; publication also updates the existing scene_config delivery column. */
 export async function handleViewDisplayAssignment(request: Request): Promise<Response> {
   if (request.method !== "GET") return json({ error: "Method not allowed" }, 405);
   const limited = applyRateLimit(request, "views:display", 30, 60);
@@ -114,7 +113,7 @@ export async function handleViewDisplayAssignment(request: Request): Promise<Res
     const { data, error } = await db.rpc("read_view_display_assignment", { display_uuid: id.data, token_hash: await sha256Hex(token) });
     if (error) return unavailable();
     if (data === null) return json({ error: "Unknown display" }, 404);
-    const result = z.object({ paired: z.boolean(), assignment: displayAssignmentSchema.nullable() }).strict().parse(data);
+    const result = displayAssignmentResponseSchema.parse(data);
     return json(result);
   } catch { return unavailable(); }
 }

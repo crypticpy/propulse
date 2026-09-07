@@ -1,6 +1,6 @@
 -- SQL-only fixtures: API tests separately validate complete versioned configurations.
 insert into auth.users(id) values ('11111111-1111-4111-8111-111111111111'),('22222222-2222-4222-8222-222222222222');
-insert into public.displays values
+insert into public.displays(id,owner,device_token_hash) values
  ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa','11111111-1111-4111-8111-111111111111','token-a'),
  ('bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb','22222222-2222-4222-8222-222222222222','token-b');
 create function pg_temp.view_op(op_id text, doc text, rev bigint, doc_kind text default 'view') returns jsonb
@@ -16,6 +16,7 @@ declare
  op jsonb := pg_temp.view_op('create','station',0);
  first_result jsonb;
  answer jsonb;
+ binding text;
 begin
  first_result := public.commit_view_library(actor,op);
  if first_result->>'status' <> 'saved' then raise exception 'create failed'; end if;
@@ -38,16 +39,28 @@ begin
  if answer->>'status' <> 'invalid' then raise exception 'unsafe revision accepted'; end if;
  answer := public.commit_view_library(actor,pg_temp.view_op('tv','aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',0,'display'));
  if answer->>'status' <> 'saved' then raise exception 'owned publication failed'; end if;
+ if (select scene_config->>'revision' from public.displays where id='aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa') <> '1' then
+  raise exception 'existing display delivery column not published';
+ end if;
+ begin
+  update public.displays set scene_config = '{"legacy":"overwrite"}' where id='aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
+  raise exception 'legacy client overwrote managed assignment';
+ exception when insufficient_privilege then null; end;
  answer := public.commit_view_library(actor,pg_temp.view_op('foreign-tv','bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',0,'display'));
  if answer->>'status' <> 'forbidden' then raise exception 'foreign display publication accepted'; end if;
  if public.read_view_display_assignment('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa','token-b') is not null then raise exception 'cross-device token read'; end if;
  answer := public.read_view_display_assignment('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa','token-a');
  if answer->'assignment'->>'revision' <> '1' then raise exception 'assignment snapshot absent'; end if;
+ binding := answer->>'bindingId';
  update public.displays set owner = null where id = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
  answer := public.commit_view_library(actor,pg_temp.view_op('tv','aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',0,'display'));
  if answer->>'status' <> 'forbidden' then raise exception 'replay bypassed unpair'; end if;
  answer := public.read_view_display_assignment('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa','token-a');
  if answer->'assignment' <> 'null'::jsonb then raise exception 'unpaired display leaked assignment'; end if;
+ if answer->>'bindingId' is not distinct from binding then raise exception 'owner change retained binding'; end if;
+ if (select scene_config from public.displays where id='aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa') <> '{}'::jsonb then
+  raise exception 'owner change retained old scene';
+ end if;
 end $$;
 reset role;
 commit;

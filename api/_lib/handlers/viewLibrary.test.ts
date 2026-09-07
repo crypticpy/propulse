@@ -82,9 +82,9 @@ describe("paired display assignment endpoint", () => {
   const request = () => new Request(`https://app.test/api/displays/assignment?id=${id}`, { headers: { Authorization: `Bearer ${"a".repeat(64)}` } });
   it("binds the token hash and device in one RPC and returns a complete assignment", async () => {
     const assignment = createDisplayAssignmentFixture();
-    mock.rpc.mockResolvedValue({ data: { paired: true, assignment }, error: null });
+    mock.rpc.mockResolvedValue({ data: { paired: true, bindingId: id, assignment }, error: null });
     const response = await handleViewDisplayAssignment(request());
-    expect(response.status).toBe(200); expect(await response.json()).toEqual({ paired: true, assignment });
+    expect(response.status).toBe(200); expect(await response.json()).toEqual({ paired: true, bindingId: id, assignment });
     expect(mock.rpc).toHaveBeenCalledWith("read_view_display_assignment", { display_uuid: id, token_hash: expect.stringMatching(/^[a-f0-9]{64}$/) });
     expect(mock.rpc.mock.calls[0][1].token_hash).not.toBe("a".repeat(64));
     expect(mock.auth).not.toHaveBeenCalled();

@@ -93,7 +93,7 @@ account switches, mismatched responses, in-flight discard and distinct publicati
 
 The next delivery provides `/api/views/library` and the separate opt-in
 `/api/displays/assignment?id=<uuid>` device endpoint. It adds an authenticated
-HTTP transport, bounded pagination, database tables/RPC and generated-shape types.
+HTTP transport, bounded pagination, database tables/RPC and database types.
 Production runtime sync/migration remains a separate SP-02 delivery; constructing
 or refreshing the transport does not alter a working view.
 
@@ -116,9 +116,15 @@ A display publication locks/checks the existing paired display row before receip
 replay or mutation. Deleted devices cascade assignment records; unpaired/reassigned
 devices cannot replay the former owner's publications. The device read uses a single
 SQL statement joining current ownership, token hash and assignment. It returns only
-pairing state and the complete versioned assignment, never library records or tokens.
-Legacy `scene_config` is not overwritten; SP-10 will opt new consumers into this endpoint.
-An old running display continues its existing scene until that integration.
+pairing state, a non-secret binding ID, and the complete versioned assignment, never
+library records or tokens. The binding ID changes on ownership/token rotation, so
+SP-10 can reset its revision baseline after a binding change even if it missed the
+unpaired interval. Renames/heartbeats leave binding identity unchanged.
+The same publication transaction updates the existing `displays.scene_config` delivery
+column with the complete envelope. A trigger prevents older clients from bypassing
+CAS once a revisioned assignment exists, and clears scene_config on owner changes.
+Legacy scenes remain usable before first publication. SP-10 will opt new consumers
+into versioned assignment handling; saving a library view alone never publishes.
 
 GET library pages contain validated records (including tombstones), at most ten per
 page and within the byte budget. The cursor is the last returned kind/ID. Pagination

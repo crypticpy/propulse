@@ -106,6 +106,16 @@ describe("station tokens on the document root", () => {
     }
   });
 
+  it("keeps Home's high-contrast text override on the high-contrast palette", () => {
+    const css = readFileSync(
+      resolve(__dirname, "../../styles/home.css"),
+      "utf8",
+    );
+    expect(css).toContain(
+      `.dark.contrast-more .home-dashboard{--su-text:${stationPalettes["high-contrast"].text}}`,
+    );
+  });
+
   it("no longer declares the unused --color-text-* variables", () => {
     const css = readFileSync(
       resolve(__dirname, "../../styles/design-tokens.css"),

@@ -698,4 +698,74 @@ describe("AnimatedSpotTraces feed scope", () => {
     tick(0.14);
     expect(mocks.simpleArcCalls + mocks.hopCalls).toBeGreaterThan(hopsAfterFirst + arcsAfterFirst);
   });
+
+  it("keeps traces mounted through hydrate, policy, hide/resume, and reduced-motion", () => {
+    const spots = [liveSpot("0"), liveSpot("1"), liveSpot("2")];
+    const resolved = spots.map(resolvedSpot);
+    const prefs = createSpotPreferences().paths;
+    const allDisplayed = {
+      ...prefs,
+      animate: "all-displayed" as const,
+      maxActive: 1,
+      maxPending: 2,
+      background: { ...prefs.background, style: "traveling-pulse" as const, travelSeconds: 1.5, repeatSeconds: 3 },
+    };
+    const { container, rerender } = render(
+      <AnimatedSpotTraces
+        feedSpots={spots}
+        candidateSpots={spots}
+        resolvedSpots={resolved}
+        isFeedReady
+        hydrationKey="sequence"
+        pathPreferences={allDisplayed}
+      />,
+    );
+    expect(staticTraceCount(container)).toBe(3);
+    expect(motionTraceCount(container)).toBe(0);
+
+    tick(0.2);
+    expect(traceCount(container)).toBe(3);
+
+    rerender(
+      <AnimatedSpotTraces
+        feedSpots={spots}
+        candidateSpots={spots}
+        resolvedSpots={resolved}
+        isFeedReady
+        hydrationKey="sequence"
+        pathPreferences={{ ...allDisplayed, animate: "selected-only" }}
+      />,
+    );
+    tick(0.3);
+    expect(traceCount(container)).toBe(3);
+    expect(staticTraceCount(container)).toBe(3);
+
+    visibilityHidden = true;
+    act(() => {
+      document.dispatchEvent(new Event("visibilitychange"));
+    });
+    expect(traceCount(container)).toBe(3);
+    visibilityHidden = false;
+    act(() => {
+      document.dispatchEvent(new Event("visibilitychange"));
+    });
+    tick(0.4);
+    expect(traceCount(container)).toBe(3);
+
+    rerender(
+      <AnimatedSpotTraces
+        feedSpots={spots}
+        candidateSpots={spots}
+        resolvedSpots={resolved}
+        isFeedReady
+        hydrationKey="sequence"
+        osReducedMotion
+        pathPreferences={{ ...allDisplayed, animate: "selected-only", reduceMotion: false }}
+      />,
+    );
+    tick(0.5);
+    expect(traceCount(container)).toBe(3);
+    expect(staticTraceCount(container)).toBe(3);
+    expect(motionTraceCount(container)).toBe(0);
+  });
 });

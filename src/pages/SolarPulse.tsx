@@ -51,6 +51,9 @@ type ModalState =
 
 const imageProducts = Object.keys(SOLAR_IMAGE_PRODUCTS) as SolarImageProductId[];
 
+/** Imagery products already shown in the forecast section's row 3 (wide layout only). */
+const FORECAST_ROW_PRODUCT_IDS: SolarImageProductId[] = ["sunspot-hmi", "aia-193", "hmi-magnetogram", "synoptic-map"];
+
 function formatNumber(value: number | null | undefined, digits = 1): string {
   return value === null || value === undefined ? "—" : value.toFixed(digits);
 }
@@ -235,11 +238,17 @@ export function SolarPulse() {
           open={forecastOpen}
           onToggle={() => toggleGroup("forecast")}
         >
-          <div className="grid items-start gap-4 xl:grid-cols-[minmax(0,1fr)_18rem]">
+          <div className="space-y-4">
             <Suspense fallback={<p role="status" className="py-8 text-sm text-su-muted">Loading forecast…</p>}>
               <SolarForecastPanel resources={resources} current={current} />
             </Suspense>
-            {wideLayout && <div className="max-w-sm"><SolarImageCard productId="sunspot-hmi" onOpen={(productId) => setModal({ kind: "image", productId })} /><p className="mt-2 text-xs leading-5 text-su-muted">Visible sunspots on the full solar disk. Inspect solar history below for longer-term context.</p></div>}
+            {wideLayout && (
+              <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+                {FORECAST_ROW_PRODUCT_IDS.map((productId) => (
+                  <SolarImageCard key={productId} productId={productId} onOpen={(selected) => setModal({ kind: "image", productId: selected })} />
+                ))}
+              </div>
+            )}
           </div>
         </SolarDisclosure>
 
@@ -378,7 +387,7 @@ export function SolarPulse() {
           onToggle={() => toggleGroup("imagery")}
         >
           <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-            {imageProducts.filter((id) => isMobile || ((!(wideLayout && forecastOpen) || id !== "sunspot-hmi") && (!impactsOpen || !["drap-global", "aurora-north"].includes(id)))).map((productId) => (
+            {imageProducts.filter((id) => isMobile || ((!(wideLayout && forecastOpen) || !FORECAST_ROW_PRODUCT_IDS.includes(id)) && (!impactsOpen || !["drap-global", "aurora-north"].includes(id)))).map((productId) => (
               <SolarImageCard
                 key={productId}
                 productId={productId}

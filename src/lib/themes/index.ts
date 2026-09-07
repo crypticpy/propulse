@@ -4,6 +4,8 @@
  * Defines available themes and utilities for applying them.
  */
 
+import { stationTokens } from "./stationTokens";
+
 export interface ThemeColors {
   bgPrimary: string;
   bgSecondary: string;
@@ -184,6 +186,17 @@ export function applyThemeToDocument(theme: Theme, accent?: AccentColor): void {
     "--theme-accent-secondary-rgb",
     hexToRgbChannels(accentSecondary),
   );
+
+  // Station design tokens (--su-*) on the document root, so `su-` Tailwind
+  // utilities work anywhere. StationProvider still injects the same variables
+  // inline on its `.station-ui` element, which wins over the root, so local
+  // `theme`/`accent` overrides keep working.
+  for (const [name, value] of Object.entries(
+    stationTokens(theme.id, accentPrimary),
+  )) {
+    if (!name.startsWith("--su-") || typeof value !== "string") continue;
+    root.style.setProperty(name, value);
+  }
 
   root.classList.toggle("dark", theme.isDark);
   root.classList.toggle("light", !theme.isDark);

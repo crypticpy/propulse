@@ -34,6 +34,28 @@ export default {
         // Additional accents
         "sunspot-blue": "#3a86ff",
         "feedline-teal": "#14B8A6",
+
+        // Station design system (--su-*). One token set, themed by
+        // applyThemeToDocument(); the hex fallbacks are the Propulse dark
+        // palette. See docs/designs/design-system/README.md.
+        su: {
+          canvas: "rgb(var(--su-canvas-rgb, 20 24 39) / <alpha-value>)",
+          panel: "rgb(var(--su-panel-rgb, 25 30 46) / <alpha-value>)",
+          input: "rgb(var(--su-input-rgb, 17 22 36) / <alpha-value>)",
+          text: "rgb(var(--su-text-rgb, 202 210 220) / <alpha-value>)",
+          muted: "rgb(var(--su-muted-rgb, 160 171 186) / <alpha-value>)",
+          line: "rgb(var(--su-line-rgb, 99 112 136) / <alpha-value>)",
+          accent: "rgb(var(--su-accent-rgb, 255 107 53) / <alpha-value>)",
+          "on-accent": "rgb(var(--su-on-accent-rgb, 0 0 0) / <alpha-value>)",
+          "accent-edge":
+            "rgb(var(--su-accent-edge-rgb, 255 107 53) / <alpha-value>)",
+          "accent-text":
+            "rgb(var(--su-accent-text-rgb, 255 107 53) / <alpha-value>)",
+          info: "rgb(var(--su-info-rgb, 133 196 208) / <alpha-value>)",
+          success: "rgb(var(--su-success-rgb, 139 219 176) / <alpha-value>)",
+          warning: "rgb(var(--su-warning-rgb, 245 207 121) / <alpha-value>)",
+          danger: "rgb(var(--su-danger-rgb, 253 164 175) / <alpha-value>)",
+        },
       },
       fontFamily: {
         orbitron: ["Orbitron", "sans-serif"],

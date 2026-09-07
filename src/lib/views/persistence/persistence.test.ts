@@ -222,6 +222,30 @@ describe("offline and account lifecycle", () => {
     expect((await repo.saveView("owner-a", { ...view(), name: "Explicit overwrite" }, 1)).status).toBe("saved");
   });
 
+  it.each(["dispose", "owner-change"])("rolls back settlement when %s occurs after a write starts", async (change) => {
+    let owner = "owner-a";
+    const { repo } = account({ commit: async (request) => ({
+      status: "saved", record: { ownerId: request.ownerId, kind: request.kind, id: request.id, revision: 1, value: request.value },
+    }) }, () => owner);
+    const observer = library("owner-a", [...names][names.size - 1]);
+    const original = IDBObjectStore.prototype.put;
+    let interrupted = false;
+    const put = vi.spyOn(IDBObjectStore.prototype, "put").mockImplementation(function (this: IDBObjectStore, value, key) {
+      const request = original.call(this, value, key);
+      if (this.name === "records" && !interrupted) {
+        interrupted = true;
+        if (change === "dispose") repo.dispose();
+        else owner = "owner-b";
+      }
+      return request;
+    });
+    expect((await repo.saveView("owner-a", view(), 0)).status).toBe("forbidden");
+    put.mockRestore();
+    expect(interrupted).toBe(true);
+    expect(await observer.list()).toEqual([]);
+    expect(await observer.pending()).toHaveLength(1);
+  });
+
   it("leaves old-owner responses unapplied after account change", async () => {
     const server = library();
     let owner: string | null = "owner-a";
@@ -262,7 +286,7 @@ describe("offline and account lifecycle", () => {
 
   it("persists pending requests across connection restart", async () => {
     const { db, repo } = account({ commit: async () => { throw new Error("Offline"); } });
-    const name = [...names].at(-1)!;
+    const name = [...names][names.size - 1]!;
     await repo.saveView("owner-a", view(), 0);
     const request = (await db.pending())[0].operation;
     repo.dispose();

@@ -156,39 +156,63 @@ export class IndexedViewLibrary {
   }
 
   /** Apply a validated transport result atomically with removing/marking its pending request. */
-  async settle(operation: LibraryOperation, rawResult: CommitResult): Promise<CommitResult> {
+  async settle(
+    operation: LibraryOperation, rawResult: CommitResult,
+    lifecycle?: { signal: AbortSignal; isActive: () => boolean },
+  ): Promise<CommitResult> {
+    const active = () => !this.closed && !lifecycle?.signal.aborted && (lifecycle?.isActive() ?? true);
+    const forbidden = (): CommitResult => ({ status: "forbidden", message: "Library lifecycle ended; response was not applied" });
+    if (!active()) return forbidden();
     if (operation.ownerId !== this.ownerId) return { status: "forbidden", message: "Owner mismatch" };
     const result = validateCommitResult(operation, rawResult);
     if (result.status === "unavailable") return result;
     const db = await this.db();
+    if (!active()) return forbidden();
     const tx = db.transaction(["records", "pending", "receipts"], "readwrite");
-    return atomic(tx, async () => {
-      const receipts = tx.objectStore("receipts");
-      const receipt = await receipts.get(operationKey(operation));
-      if (receipt) {
-        return canonicalJson(receipt.operation) === canonicalJson(operation)
-          ? validateCommitResult(operation, receipt.result) : invalid("Operation ID was reused with different content");
-      }
-      const pending = tx.objectStore("pending");
-      const entry = await pending.get(operationKey(operation));
-      if (!entry || canonicalJson(entry.operation) !== canonicalJson(operation)) {
-        return invalid("Pending request was discarded or replaced");
-      }
-      if (result.status === "saved") {
-        const records = tx.objectStore("records");
-        const current = await records.get(documentKey(operation));
-        if (!current || current.revision <= result.record.revision) await records.put(result.record);
-        await receipts.put({ operation, result });
-        await pending.delete(operationKey(operation));
-      } else {
-        await pending.put({
-          operation, state: result.status === "conflict" ? "conflict" : "rejected",
-          message: result.status === "conflict" ? "Saved revision changed; review before retrying" : result.message,
-          current: result.status === "conflict" ? result.current : null,
+    const abort = () => { try { tx.abort(); } catch { /* Transaction already finished. */ } };
+    const check = () => { if (!active()) throw new Error("Library lifecycle ended"); };
+    lifecycle?.signal.addEventListener("abort", abort, { once: true });
+    try {
+      return await atomic(tx, async () => {
+        check();
+        const receipts = tx.objectStore("receipts");
+        const receipt = await receipts.get(operationKey(operation));
+        check();
+        if (receipt) {
+          return canonicalJson(receipt.operation) === canonicalJson(operation)
+            ? validateCommitResult(operation, receipt.result) : invalid("Operation ID was reused with different content");
+        }
+        const pending = tx.objectStore("pending");
+        const entry = await pending.get(operationKey(operation));
+        check();
+        if (!entry || canonicalJson(entry.operation) !== canonicalJson(operation)) {
+          return invalid("Pending request was discarded or replaced");
+        }
+        if (result.status === "saved") {
+          const records = tx.objectStore("records");
+          const current = await records.get(documentKey(operation));
+          check();
+          if (!current || current.revision <= result.record.revision) await records.put(result.record);
+          check();
+          await receipts.put({ operation, result });
+          check();
+          await pending.delete(operationKey(operation));
+        } else {
+          await pending.put({
+            operation, state: result.status === "conflict" ? "conflict" : "rejected",
+            message: result.status === "conflict" ? "Saved revision changed; review before retrying" : result.message,
+            current: result.status === "conflict" ? result.current : null,
         });
       }
+      check();
       return result;
-    });
+      });
+    } catch (error) {
+      if (!active()) return forbidden();
+      throw error;
+    } finally {
+      lifecycle?.signal.removeEventListener("abort", abort);
+    }
   }
 
   /** Remote library refresh never alters pending drafts or activates a view. */

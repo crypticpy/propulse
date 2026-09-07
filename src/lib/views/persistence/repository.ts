@@ -52,7 +52,7 @@ export class RevisionedViewRepository implements ViewRepository {
       const raw = await this.options.transport.commit(operation, this.controller.signal);
       if (!this.active()) return { status: "forbidden", message: "Owner changed; response was not applied" };
       const result = validateCommitResult(operation, raw);
-      return await this.library.settle(operation, result);
+      return await this.library.settle(operation, result, { signal: this.controller.signal, isActive: () => this.active() });
     } catch {
       return { status: "unavailable", message: "Save remains pending; server acceptance is unconfirmed" };
     }

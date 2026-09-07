@@ -27,7 +27,7 @@ const SCOPE = [
   // budget — see docs/designs/design-system/README.md for the follow-up.
   "src/components/solar/WidgetShell.tsx",
   "src/components/solar/SolarDisclosure.tsx",
-  "src/components/solar/SolarBriefingCard.tsx",
+  "src/components/solar/SolarBriefingNotice.tsx",
   "src/components/solar/SolarOperatingActions.tsx",
   "src/components/solar/SolarImageCard.tsx",
   "src/components/solar/SolarMiniChart.tsx",

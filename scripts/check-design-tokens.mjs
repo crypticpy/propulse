@@ -21,6 +21,24 @@ const SCOPE = [
   "src/components/home",
   "src/pages/Home.tsx",
   "src/styles/home.css",
+  "src/pages/SolarPulse.tsx",
+  // DS-03 Solar Pulse retheme: only the components actually migrated to
+  // `su-` tokens are scoped here. Several sibling files under
+  // src/components/solar/ (BandConditions.tsx, BandRow.tsx, MetricCard.tsx,
+  // PrimaryMetrics.tsx, PropagationIndex.tsx, SolarHandoffNotice.tsx, and
+  // most of modals/) are legacy/unreached code kept out of this PR's 15-file
+  // budget — see docs/designs/design-system/README.md for the follow-up.
+  "src/components/solar/WidgetShell.tsx",
+  "src/components/solar/SolarDisclosure.tsx",
+  "src/components/solar/SolarBriefingCard.tsx",
+  "src/components/solar/SolarOperatingActions.tsx",
+  "src/components/solar/SolarImageCard.tsx",
+  "src/components/solar/SolarMiniChart.tsx",
+  "src/components/solar/SolarSeriesChart.tsx",
+  "src/components/solar/SolarForecastPanel.tsx",
+  "src/components/solar/SolarAnimationPlayer.tsx",
+  "src/components/solar/SolarImageDetail.tsx",
+  "src/components/solar/modals/BandConditionsModal.tsx",
 ];
 
 const CODE_EXTENSIONS = new Set([".ts", ".tsx", ".js", ".jsx"]);
@@ -40,6 +58,9 @@ const RULES = [
   { kind: "class", name: "text-neutral-*", pattern: /\btext-neutral-\d/ },
   { kind: "hex", name: "#fff", pattern: /#fff\b/i },
   { kind: "hex", name: "#ffffff", pattern: /#ffffff\b/i },
+  // Arbitrary-value utilities are unambiguous class tokens, so they are
+  // checked on every line (multi-line className expressions included).
+  { kind: "class", name: "*-[#fff]", pattern: /-\[#(?:fff|ffffff)\]/i },
 ];
 
 const ALLOW = /(?:\/\/|\/\*)\s*design-tokens:\s*allow/;

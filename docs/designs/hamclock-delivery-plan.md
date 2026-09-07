@@ -14,7 +14,7 @@ not a claim. Do not reserve all batches for one agent.
 
 | Lane | Responsibility | Boundary |
 | --- | --- | --- |
-| Codex / HamClock operating views | Current review: #289 rigctld default and B18/#226 Reliability/Forecast; B10/#206 widget configuration in review; coordinated spot display #288 in review; PSK/WSJT-X #287, Activations #285, shared tuning #286 and B24 #232 in review | One active implementation item; retain review and acceptance follow-up |
+| Codex / HamClock operating views | Current implementation: #288 spot review follow-up; #289 and B18 in review; B10/#206 widget configuration in review; coordinated spot display #288 in review; PSK/WSJT-X #287, Activations #285, shared tuning #286 and B24 #232 in review | One active implementation item; retain review and acceptance follow-up |
 | Existing modeling / 3D agent | NowCast training, inference, evaluation, model activation, and 3D globe work, per owner direction | This plan does not assign or change that agent's existing cards |
 | Additional contributor | Claim an unclaimed Ready item; B10/#206 is now claimed | Check current board, issue comments, and changed files before starting |
 | Weather | Deferred until operating work is complete | Inspect OpenWxGlobe before designing new weather adapters or layers |
@@ -398,3 +398,25 @@ and rigctld owner `hamclock-rigctld-default` at 5183 (session
 5e3fe846-ec96-4a78-80f8-573ca6c073c9). Their own stale registry files were
 removed after matching identity, absent PID and free IPv4/IPv6 bind checks.
 The user-facing masthead preview at 5182 is still preserved.
+
+
+### Active spot review follow-up — #288
+
+A full review-thread audit found remaining defects in #417, #418, #474 and
+#478. #288 is again the sole In progress / Codex implementation claim. Work is
+isolated in `.worktrees/hamclock-spot-review`, branch `fix/hamclock-spot-review`,
+based on #478 commit `994cfabc`; the prior activation and cluster integrations
+are retained. Review ownership of the other batches is unchanged.
+
+Three reproduced defects are fixed locally: disabled activation consumers no
+longer subscribe to clock updates, enabled consumers honor ten-second cadence
+beside a one-second clock; renewed activations replace expired selections before
+the card is cleared; bridge reports retain the existing one-minute timestamp
+allowance through ingestion, rendering and cleanup while REST filtering remains
+strict. All 32 focused tests pass, including regressions that failed before the
+fixes. No modeling/3D internals or global clock behavior changed.
+
+Next: anchor later cluster pages to report IDs, reconcile selected spots with
+the rendered window, and keep keyboard focus on the same report when live rows
+are prepended. Then complete browser/full verification and publish the bounded
+follow-up. Weather remains after these operating corrections.

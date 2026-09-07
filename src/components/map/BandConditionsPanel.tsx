@@ -157,24 +157,24 @@ const GRID_STATUS_COLORS: Record<
   { bg: string; border: string; text: string }
 > = {
   excellent: {
-    bg: "rgba(0, 255, 136, 0.20)",
-    border: "rgba(0, 255, 136, 0.2)",
-    text: "#00ff88",
+    bg: "rgb(var(--su-success-rgb) / 0.20)",
+    border: "rgb(var(--su-success-rgb) / 0.20)",
+    text: "var(--su-success)",
   },
   good: {
-    bg: "rgba(0, 255, 136, 0.15)",
-    border: "rgba(0, 255, 136, 0.15)",
-    text: "#00ff88",
+    bg: "rgb(var(--su-success-rgb) / 0.15)",
+    border: "rgb(var(--su-success-rgb) / 0.15)",
+    text: "var(--su-success)",
   },
   fair: {
-    bg: "rgba(255, 180, 50, 0.15)",
-    border: "rgba(255, 180, 50, 0.15)",
-    text: "#ffb432",
+    bg: "rgb(var(--su-warning-rgb) / 0.15)",
+    border: "rgb(var(--su-warning-rgb) / 0.15)",
+    text: "var(--su-warning)",
   },
   poor: {
-    bg: "rgba(255, 68, 102, 0.15)",
-    border: "rgba(255, 68, 102, 0.15)",
-    text: "#ff4466",
+    bg: "rgb(var(--su-danger-rgb) / 0.15)",
+    border: "rgb(var(--su-danger-rgb) / 0.15)",
+    text: "var(--su-danger)",
   },
   closed: {
     bg: "rgba(128, 128, 128, 0.10)",
@@ -188,24 +188,24 @@ const LADDER_GRID_COLORS: Record<
   { bg: string; border: string; text: string }
 > = {
   hot: {
-    bg: "rgba(255, 130, 50, 0.20)",
-    border: "rgba(255, 130, 50, 0.45)",
-    text: "#ff8232",
+    bg: "rgb(var(--su-accent-rgb) / 0.20)",
+    border: "rgb(var(--su-accent-rgb) / 0.45)",
+    text: "var(--su-accent)",
   },
   verified: {
-    bg: "rgba(0, 255, 136, 0.18)",
-    border: "rgba(0, 255, 136, 0.35)",
-    text: "#00ff88",
+    bg: "rgb(var(--su-success-rgb) / 0.18)",
+    border: "rgb(var(--su-success-rgb) / 0.35)",
+    text: "var(--su-success)",
   },
   stirring: {
-    bg: "rgba(255, 180, 50, 0.14)",
-    border: "rgba(255, 180, 50, 0.35)",
-    text: "#ffb432",
+    bg: "rgb(var(--su-warning-rgb) / 0.14)",
+    border: "rgb(var(--su-warning-rgb) / 0.35)",
+    text: "var(--su-warning)",
   },
   forecast: {
-    bg: "rgba(0, 255, 136, 0.08)",
-    border: "rgba(0, 255, 136, 0.20)",
-    text: "rgba(0, 255, 136, 0.72)",
+    bg: "rgb(var(--su-success-rgb) / 0.08)",
+    border: "rgb(var(--su-success-rgb) / 0.20)",
+    text: "rgb(var(--su-success-rgb) / 0.72)",
   },
   closed: {
     bg: "rgba(128, 128, 128, 0.08)",
@@ -295,7 +295,7 @@ const BandConditionGridCell = memo(function BandConditionGridCell({
           fontWeight: 700,
           fontFamily:
             "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace",
-          color: isSynced ? "#22d3ee" : "#ffffff",
+          color: isSynced ? "#22d3ee" : "var(--su-text)",
           lineHeight: 1.3,
         }}
       >
@@ -323,7 +323,9 @@ const BandConditionGridCell = memo(function BandConditionGridCell({
           }}
         >
           {isEsActive && <span style={{ color: "#a855f7" }}>Es</span>}
-          {hasBandOpening && <span style={{ color: "#00ff88" }}>OPEN</span>}
+          {hasBandOpening && (
+            <span style={{ color: "var(--su-success)" }}>OPEN</span>
+          )}
         </div>
       )}
       {verdict && (
@@ -1511,10 +1513,10 @@ const ConfidenceBar = memo(function ConfidenceBar({
   // Determine color based on confidence center point
   const barColor =
     confidence >= 70
-      ? "#00ff88" // signal-green
+      ? "var(--su-success)"
       : confidence >= 45
-        ? "#ffaa00" // caution-amber
-        : "#ff4455"; // alert-red
+        ? "var(--su-warning)"
+        : "var(--su-danger)";
 
   return (
     <div

@@ -104,6 +104,46 @@
   --hc-bad: rgb(var(--hc-bad-rgb));
 }
 
+/* DS-09 isolation. The wall's tiles paint with the app-wide Tailwind colour
+ * names (bg-void-black, text-signal-green, text-cosmic-cyan, …) and DS-09
+ * aliased those onto the station tokens, which follow the app theme. The wall
+ * is standalone dark wall art, so it pins the surface roles to the Propulse
+ * dark palette here — every HamClock surface carries [data-hamclock-theme],
+ * including the panels portalled out of the subtree, so this one selector
+ * covers the wall, its reports and its control dialogs.
+ *
+ * The values are asserted against stationPalettes.dark in
+ * src/lib/themes/stationTokens.test.ts so they cannot drift.
+ *
+ * Deliberately not pinned: --su-accent (and its derived roles) is the
+ * operator's own colour and was already accent-driven before the remap, and
+ * the tone roles below follow the same colour-blind-aware --color-*-rgb
+ * triples as --hc-good/warn/bad, so caution-amber and alert-red inside the
+ * wall keep their pre-DS-09 behaviour. */
+[data-hamclock-theme] {
+  --su-canvas: #141827;
+  --su-canvas-rgb: 20 24 39;
+  --su-panel: #191e2e;
+  --su-panel-rgb: 25 30 46;
+  --su-input: #111624;
+  --su-input-rgb: 17 22 36;
+  --su-text: #cad2dc;
+  --su-text-rgb: 202 210 220;
+  --su-muted: #a0abba;
+  --su-muted-rgb: 160 171 186;
+  --su-line: #637088;
+  --su-line-rgb: 99 112 136;
+
+  --su-info-rgb: var(--hc-info-rgb);
+  --su-success-rgb: var(--hc-good-rgb);
+  --su-warning-rgb: var(--hc-warn-rgb);
+  --su-danger-rgb: var(--hc-bad-rgb);
+  --su-info: rgb(var(--su-info-rgb));
+  --su-success: rgb(var(--su-success-rgb));
+  --su-warning: rgb(var(--su-warning-rgb));
+  --su-danger: rgb(var(--su-danger-rgb));
+}
+
 /* Glow is a 0/1 switch: at 0 the blur radius collapses and the shadow
  * disappears, so classic and brass pay nothing for it. */
 .hc-glow {

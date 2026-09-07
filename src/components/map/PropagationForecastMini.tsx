@@ -292,15 +292,15 @@ export function PropagationForecastMini({
   // Helper function to get SFI color
   const getSfiColor = (sfi: number): string => {
     if (sfi >= 150) {
-      return "#00ff88";
+      return "var(--su-success)";
     } // Excellent
     if (sfi >= 100) {
-      return "#44dd66";
+      return "rgb(var(--su-success-rgb) / 0.6)";
     } // Good
     if (sfi >= 70) {
-      return "#ffaa00";
+      return "var(--su-warning)";
     } // Fair
-    return "#ff4455"; // Poor
+    return "var(--su-danger)"; // Poor
   };
 
   // Helper function to get Bz color and arrow
@@ -311,12 +311,13 @@ export function PropagationForecastMini({
       return { arrow: "-", color: "#6b7280" };
     } // Gray for no data
     if (bz > 0) {
-      return { arrow: "\u2191", color: "#00ff88" };
+      return { arrow: "\u2191", color: "var(--su-success)" };
     } // Green northward
     if (bz < -5) {
-      return { arrow: "\u2193", color: "#ff4455" };
+      return { arrow: "\u2193", color: "var(--su-danger)" };
     } // Red southward
-    return { arrow: "\u2193", color: "#ffaa00" }; // Amber for slightly negative
+    // Amber for slightly negative
+    return { arrow: "\u2193", color: "var(--su-warning)" };
   };
 
   // Current UTC hour
@@ -493,7 +494,7 @@ export function PropagationForecastMini({
     const totalBands = hourData.bands.length;
 
     if (totalBands === 0) {
-      return { score: 0, color: "#ff4455" };
+      return { score: 0, color: "var(--su-danger)", tone: "danger" as const };
     }
 
     // Open band score: 0-4 points based on percentage of bands open
@@ -523,14 +524,17 @@ export function PropagationForecastMini({
     const rawScore = openBandScore + avgSnrScore - kpPenalty;
     const score = Math.max(0, Math.min(10, rawScore));
 
-    let color = "#ff4455"; // red
+    let color = "var(--su-danger)";
+    let tone: "danger" | "warning" | "success" = "danger";
     if (score >= 7) {
-      color = "#00ff88"; // green
+      color = "var(--su-success)";
+      tone = "success";
     } else if (score >= 4) {
-      color = "#ffaa00"; // amber
+      color = "var(--su-warning)";
+      tone = "warning";
     }
 
-    return { score, color };
+    return { score, color, tone };
   }, [forecast, currentHour, currentKp]);
 
   // Greyline countdown
@@ -849,8 +853,8 @@ export function PropagationForecastMini({
               className="font-mono text-xs font-bold px-1.5 py-0.5 rounded border flex-shrink-0"
               style={{
                 color: propagationScore.color,
-                borderColor: `${propagationScore.color}40`,
-                backgroundColor: `${propagationScore.color}15`,
+                borderColor: `rgb(var(--su-${propagationScore.tone}-rgb) / 0.25)`,
+                backgroundColor: `rgb(var(--su-${propagationScore.tone}-rgb) / 0.08)`,
               }}
               title={`Propagation Score: ${propagationScore.score.toFixed(1)}/10\nBased on open bands, SNR, and Kp`}
             >
@@ -1284,8 +1288,8 @@ export function PropagationForecastMini({
                 className="font-mono font-bold px-1.5 py-0.5 rounded border flex-shrink-0"
                 style={{
                   color: propagationScore.color,
-                  borderColor: `${propagationScore.color}40`,
-                  backgroundColor: `${propagationScore.color}15`,
+                  borderColor: `rgb(var(--su-${propagationScore.tone}-rgb) / 0.25)`,
+                  backgroundColor: `rgb(var(--su-${propagationScore.tone}-rgb) / 0.08)`,
                 }}
               >
                 PROP {propagationScore.score.toFixed(1)}

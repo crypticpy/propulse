@@ -1,0 +1,30 @@
+/**
+ * DS-09 light-theme bridge — TEMPORARY, deleted by DS-12 (#493).
+ *
+ * DS-09 aliases the app-wide Tailwind colour names (`deep-space`, `panel`,
+ * `void-black`, …) onto the station tokens, so every surface in the app now
+ * follows the active theme. Roughly 1,770 fixed `text-white` / `text-gray-2xx`
+ * / `text-slate-3xx` classes still sit on those surfaces, and on the Light
+ * palette (`--su-canvas` #e9ece7, `--su-panel` #f3f4ef) they would be white on
+ * near-white. Until every file is migrated to `text-su-text` / `text-su-muted`
+ * this remaps them by role, exactly as the DS-06 bridge in `home.css` does for
+ * the unmigrated dashboard cards.
+ *
+ * Dark, High Contrast and Midnight are untouched: the rules are scoped to
+ * `html.light`, the class `applyThemeToDocument()` sets for the Light theme.
+ *
+ * HamClock is excluded. It is standalone dark wall art whatever the app theme
+ * (`hamclock-themes.css` pins the station tokens to the Propulse dark palette
+ * under `[data-hamclock-theme]`), so its white-on-dark text must stay white.
+ * Every HamClock surface carries that attribute, including the panels
+ * portalled out of the subtree.
+ *
+ * Borders are left alone: `border-white/10` and friends are hairlines that
+ * read as a faint dark line on the light canvas, so they degrade gracefully.
+ *
+ * DS-12 widens the design-token guard to all of `src/`, at which point no
+ * fixed white or grey text class is left and this file is deleted along with
+ * its import in `main.tsx`.
+ */
+html.light :is(.text-white,.text-gray-100,.text-gray-200,.text-slate-300):not([data-hamclock-theme] *){color:var(--su-text)!important} /* design-tokens: allow -- selectors target legacy Tailwind classes on unmigrated files, not raw colours we introduced */
+html.light :is(.text-gray-400,.text-gray-500,.text-gray-600,.text-slate-500):not([data-hamclock-theme] *){color:var(--su-muted)!important} /* design-tokens: allow -- see above */

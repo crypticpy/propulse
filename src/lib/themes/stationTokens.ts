@@ -12,6 +12,7 @@
  */
 
 import type { CSSProperties } from "react";
+import { COLOR_BLIND_PALETTES, type ColorBlindMode } from "./colorblind";
 import type { ThemeId } from "./index";
 
 export type StationTokenStyle = CSSProperties &
@@ -69,28 +70,6 @@ export const stationPalettes = {
   },
 } satisfies Record<ThemeId, Record<string, string>>;
 
-/**
- * `--su-*` pinned to the midnight palette, for content drawn on a surface that
- * stays dark whatever the app theme — `AccessibleDialog`'s chrome is a fixed
- * `bg-[#090b17]/95`. Without it, `text-su-text` / `text-su-muted` inside such a
- * dialog flip to the light palette and fall to roughly 2.4:1 against that
- * panel. Pass it through `panelProps={{ style: fixedDarkSurfaceTokens }}`, or
- * set it on the content root where the dialog takes no panel props. Drop it
- * when the dialog surface itself is themed.
- *
- * The accent-derived roles are deliberately left inherited: `--su-accent` is
- * the operator's own colour and is theme-independent.
- */
-export const fixedDarkSurfaceTokens: StationTokenStyle = {
-  ...Object.fromEntries(
-    Object.entries(stationPalettes.midnight).map(([name, value]) => [
-      `--su-${name}`,
-      value,
-    ]),
-  ),
-  colorScheme: "dark",
-};
-
 function luminance(hex: string) {
   const values = [1, 3, 5].map((start) => {
     const channel = parseInt(hex.slice(start, start + 2), 16) / 255;
@@ -111,6 +90,7 @@ export function stationContrast(first: string, second: string) {
 export function stationTokens(
   theme: ThemeId,
   requestedAccent: string,
+  colorBlindMode: ColorBlindMode = "none",
 ): StationTokenStyle {
   const palette = stationPalettes[theme];
   const accent = /^#[0-9a-f]{6}$/i.test(requestedAccent)
@@ -132,6 +112,17 @@ export function stationTokens(
     "--su-accent-text":
       stationContrast(accent, palette.panel) >= 4.5 ? accent : palette.info,
   };
+  // Colour-blind mode swaps the three tone roles for a palette whose hues stay
+  // distinguishable. It is folded in here (rather than layered on afterwards by
+  // a CSS rule or a second pass) so the document root and every scoped
+  // `.station-ui` subtree agree, and so a later theme/accent change cannot
+  // silently overwrite the swap.
+  const colorBlind = COLOR_BLIND_PALETTES[colorBlindMode];
+  if (colorBlind) {
+    colors["--su-success"] = colorBlind.good;
+    colors["--su-warning"] = colorBlind.fair;
+    colors["--su-danger"] = colorBlind.poor;
+  }
   // Channel triplets so Tailwind opacity modifiers (text-su-text/70) resolve
   // inside a scoped StationProvider as well as on the document root.
   const channels = Object.fromEntries(
@@ -147,10 +138,18 @@ export function stationTokens(
   };
 }
 
-/** "#ff6b35" -> "255 107 53" */
-function hexToChannels(hex: string): string {
-  return hex
-    .slice(1)
+/**
+ * `"#ff6b35"` -> `"255 107 53"`; three-digit hex expands first (`"#abc"` ->
+ * `"170 187 204"`). Anything that is not a hex colour falls back to the dark
+ * palette's canvas channels rather than emitting an invalid custom property —
+ * callers normalise user-supplied accents before they reach here.
+ */
+export function hexToChannels(hex: string): string {
+  const raw = hex.trim().replace(/^#/, "");
+  const expanded =
+    raw.length === 3 ? raw.replace(/./g, (digit) => digit + digit) : raw;
+  if (!/^[0-9a-f]{6}$/i.test(expanded)) return "20 24 39";
+  return expanded
     .match(/../g)!
     .map((pair) => parseInt(pair, 16))
     .join(" ");

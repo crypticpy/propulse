@@ -4,6 +4,9 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter } from "react-router-dom";
 import App from "./App";
 import "./styles/globals.css";
+// Temporary DS-09 bridge: remaps the app's remaining fixed white/grey text
+// classes onto the station tokens under the Light theme. Deleted by DS-12.
+import "./styles/legacy-theme-bridge.css";
 import { runStoreDecompositionMigration } from "@/lib/migrations/userStoreMigration";
 import { installStaleChunkRecovery } from "@/lib/pwa/staleChunkRecovery";
 

@@ -29,13 +29,17 @@ export function parseStationPostgresArgs(args) {
   return { files };
 }
 
-export async function readStationSqlFiles(root, files) {
+export async function readStationSqlFiles(root, files, namespace = "station") {
+  assert.ok(namespace === "station" || namespace === "views", "Unsupported SQL namespace");
   const checkout = await realpath(root);
   return Promise.all(files.map(async ({ kind, path }) => {
     const resolved = await realpath(isAbsolute(path) ? path : join(checkout, path));
     const local = relative(checkout, resolved);
     assert.ok(local && !isAbsolute(local) && local !== ".." && !local.startsWith(`..${sep}`), "SQL files must resolve inside this checkout");
-    assert.match(basename(resolved), /^(?:\d{14}[_-])?station(?:_workbench|-workbench)(?:[_-][a-z0-9][a-z0-9_-]*)?\.sql$/i, "Supply a station_workbench or station-workbench SQL file (optional 14-digit timestamp prefix), never another station namespace or the complete migration directory");
+    const pattern = namespace === "views"
+      ? /^(?:\d{14}[_-])?view_library(?:[_-][a-z0-9][a-z0-9_-]*)?\.sql$/i
+      : /^(?:\d{14}[_-])?station(?:_workbench|-workbench)(?:[_-][a-z0-9][a-z0-9_-]*)?\.sql$/i;
+    assert.match(basename(resolved), pattern, namespace === "views" ? "Supply an explicit view_library SQL file" : "Supply a station_workbench or station-workbench SQL file");
     const info = await stat(resolved);
     assert.ok(info.isFile() && info.size <= 16 * 1024 * 1024, "SQL input must be a regular file of at most 16 MiB");
     const sql = await readFile(resolved, "utf8");
@@ -109,10 +113,10 @@ function dockerCommand(args, { input, timeout = 30_000 } = {}) {
 /** Only creates, inspects, executes in, and removes the exact container created here.
  * Each selected file's remaining transaction is committed before its completion
  * check. Fixtures must explicitly ROLLBACK their own transient test changes. */
-export async function runStationPostgresHarness({ root, files = [], log = console.log, command = dockerCommand }) {
+export async function runStationPostgresHarness({ root, files = [], log = console.log, command = dockerCommand, namespace = "station" }) {
   const docker = command;
   // Resolve/detach every explicitly selected file before touching Docker.
-  const selected = await readStationSqlFiles(root, files);
+  const selected = await readStationSqlFiles(root, files, namespace);
   const runId = randomUUID();
   const identity = { runId, name: `${PURPOSE}-${runId}`, id: "" };
   const scratch = await mkdtemp(join(tmpdir(), `${PURPOSE}-`));

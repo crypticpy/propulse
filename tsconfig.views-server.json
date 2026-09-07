@@ -1,0 +1,5 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": { "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.views-server.tsbuildinfo", "types": ["node"] },
+  "include": ["api/_lib/handlers/viewLibrary*.ts", "api/views/library.ts", "api/displays/assignment.ts"]
+}

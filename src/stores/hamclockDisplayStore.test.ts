@@ -578,10 +578,10 @@ it.each([false, true])("adopts WSJT-X on an unchanged v6 SDR rail while preservi
   expect(display.getState().railLayout.right[0].tileIds).toEqual(["cluster"]);
 });
 
-it.each([false, true])("adopts PSK on unchanged v7 rails while preserving customization (%s)", async (custom) => {
+it.each([6, 7].flatMap(version => [false, true].map(custom => ({ version, custom }))))("adopts PSK from v$version while preserving custom=$custom rails", async ({ version, custom }) => {
   const spots = custom ? ["moon", "muf"] : ["bestBand", "greyLine", "muf", "reliability", "activations"];
   const sdr = custom ? ["cluster"] : ["bandActivity", "cluster", "bestBand"];
-  sessionStorage.setItem("propulse-hamclock-display", JSON.stringify({ version: 7, state: { railLayout: {
+  sessionStorage.setItem("propulse-hamclock-display", JSON.stringify({ version, state: { railLayout: {
     left: [{ pageId: "spots", tileIds: ["cluster"] }], right: [{ pageId: "spots", tileIds: spots }, { pageId: "sdr", tileIds: sdr }],
   } } }));
   await display.persist.rehydrate();

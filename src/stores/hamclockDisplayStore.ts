@@ -554,12 +554,12 @@ export const useHamClockDisplayStore = create<HamClockDisplayState>()(
             ["bestBand", "greyLine", "muf", "reliability", "emcomm"],
           );
         }
+        if (version < 7) {
+          state.railLayout = adoptShippedRailPage(state.railLayout, "left", "sdr", ["sdrScope", "sdrDecodes"]);
+        }
         if (version < 8) {
           state.railLayout = adoptShippedRailPage(state.railLayout, "right", "spots", ["bestBand", "greyLine", "muf", "reliability", "activations"]);
           state.railLayout = adoptShippedRailPage(state.railLayout, "right", "sdr", ["bandActivity", "cluster", "bestBand"]);
-        }
-        if (version < 7) {
-          state.railLayout = adoptShippedRailPage(state.railLayout, "left", "sdr", ["sdrScope", "sdrDecodes"]);
         }
         return state as unknown as HamClockDisplayState;
       },

@@ -17,6 +17,7 @@ import type { LogEntry } from "@/lib/db/types";
 import { getDeviceId } from "./deviceId";
 import { detectFieldConflicts, autoMerge } from "./conflict";
 import { syncMeta } from "./syncMeta";
+import { backfillLogbookMetadata } from "./logbookMetadataBackfill";
 
 // ─── Constants ──────────────────────────────────────────────────────────────
 
@@ -157,6 +158,7 @@ export class QSOSyncEngine {
    * @returns Total number of entries applied
    */
   async pullAndApply(userId: string): Promise<number> {
+    await backfillLogbookMetadata(userId);
     const db = await getDB();
     let totalApplied = 0;
     let currentVersion = this.getLocalVersion();
@@ -191,6 +193,9 @@ export class QSOSyncEngine {
             if (localEntry && this.shouldResolveConflict(localEntry, delta)) {
               // Resolve conflict using existing auto-merge
               const merged = autoMerge(localEntry, remoteEntry);
+              // Legacy pulls omitted this core field. Fill an absent value,
+              // while preserving the existing local-wins policy for real edits.
+              merged.myGrid ??= remoteEntry.myGrid;
               merged.version = Math.max(localEntry.version ?? 0, delta.version);
               merged.lastDeviceId = delta.deviceId;
               await tx.store.put(merged);

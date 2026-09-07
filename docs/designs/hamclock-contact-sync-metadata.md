@@ -32,3 +32,26 @@ based on #524. No server, real cloud sync, hardware, schema migration or databas
 write was performed. Full mandatory repository checks run before publication.
 Actual deployed two-device acceptance remains pending; the tests establish the
 mapping and statistics behavior, not a live synchronization session.
+
+## Upgrade and existing-contact correction
+
+A one-time, account-scoped metadata repair runs before either pull path. It
+queries only IDs already present locally with missing home grid or DXCC, in
+batches of 100, without timestamp/version filters. It fills only absent fields,
+re-reading the local entry after each request so intervening edits and deletions
+win. Existing fields, notes, versions and timestamps are untouched. Remote
+soft-deleted rows are skipped. The marker is saved only after every batch
+succeeds; errors and unavailable marker storage safely retry. Concurrent repair
+calls for the same account share one operation. Neither sync cursor is reset.
+
+For subsequent versioned deltas, an auto-merge also fills an absent home grid.
+A differing recorded local grid retains the existing core-field conflict policy;
+this change does not silently replace local edits or redesign conflict handling.
+
+Ten transport tests now cover the original round trips plus upgraded installations
+with advanced cursors, one-time repair, later deltas, retry, account separation,
+in-flight edits/deletion and multiple batches. The new upgrade regressions fail
+with the repair/merge correction removed and pass when restored. TypeScript and
+the 16-test focused contact/metadata suite pass. Verification uses mocked transport and
+local storage only; actual deployed upgrade and two-device acceptance remain
+pending. The helper introduces no schema change or remote mutation.

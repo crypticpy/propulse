@@ -10,7 +10,8 @@ Related documents:
 - Style guide: `docs/guides/hamclock-tile-system.md` (rules every tile, report and settings row follows)
 - Layer provenance: `docs/PROP-SPHERE-LAYER-SOURCE-AUDIT.md`
 - Data truthfulness: `docs/decisions/ADR-SOLAR-DATA-TRUTH.md`
-- Delivery tracking: `docs/FEATURE-TRACKER.md` section 14
+- Delivery tracking: `docs/FEATURE-TRACKER.md` section 13
+- Current priority and ownership: [September delivery plan](hamclock-delivery-plan.md) — operating views, spots and activations first; weather last. This updates queue order in sections 23–24 without removing technical prerequisites.
 
 ---
 

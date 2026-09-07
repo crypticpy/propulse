@@ -562,7 +562,7 @@ it.each([false, true])("migrates the former shipped activation slot while preser
   } }));
   await display.persist.rehydrate();
   const layout = display.getState().railLayout;
-  expect(layout.right[0].tileIds).toEqual(custom ? tiles : ["bestBand", "greyLine", "muf", "reliability", "activations"]);
+  expect(layout.right[0].tileIds).toEqual(custom ? tiles : ["bestBand", "greyLine", "pskStation", "reliability", "activations"]);
   expect(layout.right[1].tileIds).toEqual(["emcomm"]);
   expect(layout.left[0].tileIds).toEqual(["cluster"]);
 });
@@ -576,4 +576,16 @@ it.each([false, true])("adopts WSJT-X on an unchanged v6 SDR rail while preservi
   await display.persist.rehydrate();
   expect(display.getState().railLayout.left[0].tileIds).toEqual(custom ? tiles : ["sdrScope", "sdrDecodes", "wsjtx"]);
   expect(display.getState().railLayout.right[0].tileIds).toEqual(["cluster"]);
+});
+
+it.each([false, true])("adopts PSK on unchanged v7 rails while preserving customization (%s)", async (custom) => {
+  const spots = custom ? ["moon", "muf"] : ["bestBand", "greyLine", "muf", "reliability", "activations"];
+  const sdr = custom ? ["cluster"] : ["bandActivity", "cluster", "bestBand"];
+  sessionStorage.setItem("propulse-hamclock-display", JSON.stringify({ version: 7, state: { railLayout: {
+    left: [{ pageId: "spots", tileIds: ["cluster"] }], right: [{ pageId: "spots", tileIds: spots }, { pageId: "sdr", tileIds: sdr }],
+  } } }));
+  await display.persist.rehydrate();
+  expect(display.getState().railLayout.left[0].tileIds).toEqual(["cluster"]);
+  expect(display.getState().railLayout.right[0].tileIds).toEqual(custom ? spots : ["bestBand", "greyLine", "pskStation", "reliability", "activations"]);
+  expect(display.getState().railLayout.right[1].tileIds).toEqual(custom ? sdr : [...sdr, "pskStation"]);
 });

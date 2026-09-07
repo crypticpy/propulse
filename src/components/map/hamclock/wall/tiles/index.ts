@@ -3,6 +3,7 @@ import { registerWidgetConfig } from "@/stores/hamclockWidgetConfigStore";
 import type { RegisteredWidgetConfig } from "@/stores/hamclockWidgetConfigStore";
 import type { WallTileProps } from "../HamClockTile";
 import { recentContactsConfig } from "../config/recentContactsConfig";
+import { PskStationTile } from "./PskStationTile";
 import { WsjtxTile } from "./WsjtxTile";
 import { ActivationsTile } from "./ActivationsTile";
 import { AlertsTile } from "./AlertsTile";
@@ -30,6 +31,7 @@ import { XrayTile } from "./XrayTile";
  * one file plus one line here.
  */
 export type TileId =
+  | "pskStation"
   | "activations"
   | "bestBand"
   | "cluster"
@@ -60,6 +62,7 @@ export interface WallTile {
 }
 
 export const WALL_TILES: Record<TileId, WallTile> = {
+  pskStation: { title: "PSK Reporter", Component: PskStationTile },
   activations: { title: "Activations", Component: ActivationsTile },
   bestBand: { title: "Best band now", Component: BestBandTile },
   cluster: { title: "DX cluster", Component: ClusterTile },

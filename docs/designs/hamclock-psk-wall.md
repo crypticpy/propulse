@@ -1,0 +1,15 @@
+# PSK station wall views — #287
+
+The PSK Reporter tile opens a callsign-specific report for the station profile. OF MY CALL means this station transmitted and other stations reported receiving it; BY MY CALL means this station reported receiving the displayed transmitters. Direction, band and 15/30/60/360/1440-minute choices filter one cached 24-hour snapshot locally. The controls share session state between tile, report and pinned report, ready for the coordinated map integration.
+
+The Spots page uses PSK in the former MUF summary slot, prioritizing operating activity while keeping the existing four-tile left rail and five-tile right rail. MUF remains on the Solar and Forecast pages and available in tile configuration. SDR also gains PSK on its right rail. The v8 migration adopts these compositions only when the prior shipped rail is unchanged; custom rails retain their choices.
+
+The report has six facts, explicit source/retrieval age, loaded-row and possible-incompleteness caveats, a full accessible table twin, measured whole rows, shared explicit Tune actions, keyboard segmented controls and stable pin identity. Tune uses the reported RF frequency with exact Hz and normalized receive mode; PSK does not supply a captured WSJT-X dial frequency. It sends no transmit command. Missing SNR/grid remain unknown. A missing station call, loading, unavailable, stale and successful empty snapshot remain distinct, and expired reports leave the current window even when refresh fails.
+
+A successful snapshot is validated before use. Both mounted surfaces share the same canonical query key; changing controls does not request another provider snapshot. Automatic retry/focus/reconnect fetches are disabled, with five-minute polling. Query failures retain previously loaded data with stale state. Source limitations and server safeguards are documented in [the data slice](hamclock-psk-station.md).
+
+Validation: 364 targeted tests across 33 wall/store/hook files pass, including exact tuning, OF/BY/window/band selection without refetch, missing-call state, and legacy/custom rail migration. Browser fixtures cover 60 populated direction/window/theme/resolution combinations and 18 empty/stale/unavailable combinations at 1920×1080 and 3840×2160, including all sixteen supported bands, complete row bounds, pin/unpin and Escape focus return. Both Spots and SDR tile placements are checked. All hardware WebSockets were blocked. The initial page transition can cancel an in-flight request; once mounted, the entire control matrix makes no additional request.
+
+Evidence: [1080p report](../images/hamclock-psk/report-1080p.png), [4K report](../images/hamclock-psk/report-4k.png). Local fixture source: ignored `tmp/psk/check.mjs`. Managed server owner `hamclock-psk-wall`, session `21028ba4-26be-4de5-9db6-6cd415949781`, URL `http://127.0.0.1:5181` (stopped after verification).
+
+This slice adds the station views. WSJT-X's heard-by tab and coordinated map arcs/window/TX-RX glyphs follow separately. No model or 3D globe internals are changed. Maintainer merge, deployed rendering and physical-display acceptance remain pending.

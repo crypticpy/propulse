@@ -142,7 +142,7 @@ describe("HamClockWall", () => {
     const rightTitles = [
       "Best band now",
       "Grey line",
-      "MUF",
+      "PSK Reporter",
       "24h reliability",
       "Activations",
     ];

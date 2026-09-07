@@ -15,7 +15,9 @@
 
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { fetchClusterSpots, clusterPayloadToSpot } from "@/lib/api/dxcluster";
+import { fetchClusterFeed, clusterPayloadToSpot } from "@/lib/api/dxcluster";
+import { clusterObservedAt, clusterRequestWindow, filterClusterAge } from "@/lib/dx/clusterHistory";
+import { spotFeedState } from "@/lib/map/spotAge";
 import { useBridge } from "@/hooks/useBridge";
 import { useClusterLink } from "@/hooks/useClusterLink";
 import { useUserStore } from "@/stores/userStore";
@@ -97,18 +99,6 @@ function filterSpots(spots: DXSpot[], filters: DXClusterFilters): DXSpot[] {
     );
   }
 
-  // Filter by max age
-  if (filters.maxAge && filters.maxAge > 0) {
-    const cutoff = Date.now() - filters.maxAge * 60 * SECOND;
-    filtered = filtered.filter((spot) => {
-      const t =
-        spot.time instanceof Date
-          ? spot.time.getTime()
-          : new Date(spot.time).getTime();
-      return t >= cutoff;
-    });
-  }
-
   // Filter by search text
   if (filters.searchText && filters.searchText.trim().length > 0) {
     const search = filters.searchText.toLowerCase().trim();
@@ -152,6 +142,7 @@ export function useDXCluster(
   const {
     spots,
     setSpots,
+    setClusterFeed,
     filters: storeFilters,
     maxSpots,
     spotSource,
@@ -172,9 +163,18 @@ export function useDXCluster(
   });
   const [bridgeSpots, setBridgeSpots] = useState<DXSpot[]>([]);
   useSharedBridgeSourceOwnership(dataEnabled, bridgeConnected);
+  const source = externalFilters !== undefined && bridgeConnected && bridgeSpots.length > 0 ? "bridge" : spotSource;
 
   // Use external filters if provided, otherwise use store filters
   const filters = externalFilters || storeFilters;
+  const requestWindow = clusterRequestWindow(filters.maxAge);
+  const [now, setNow] = useState(Date.now);
+  useEffect(() => {
+    if (!dataEnabled) return;
+    setNow(Date.now());
+    const timer = setInterval(() => setNow(Date.now()), 10_000);
+    return () => clearInterval(timer);
+  }, [dataEnabled]);
 
   // ─── Tier 1: Bridge WebSocket ─────────────────────────────────────────────
 
@@ -232,51 +232,64 @@ export function useDXCluster(
 
   // Promote to bridge source when receiving bridge spots
   useEffect(() => {
-    if (bridgeConnected && bridgeSpots.length > 0) {
+    if (externalFilters === undefined && bridgeConnected && bridgeSpots.length > 0) {
       setSpotSource("bridge");
     }
-  }, [bridgeConnected, bridgeSpots.length, setSpotSource]);
+  }, [externalFilters, bridgeConnected, bridgeSpots.length, setSpotSource]);
 
   // ─── Tier 2: REST proxy ───────────────────────────────────────────────────
 
   const restQuery = useQuery({
-    queryKey: DX_QUERY_KEYS.restSpots,
-    queryFn: () => fetchClusterSpots(maxSpots),
-    enabled: dataEnabled && spotSource !== "bridge",
+    queryKey: [...DX_QUERY_KEYS.restSpots, "feed-v1", maxSpots, requestWindow],
+    queryFn: () => fetchClusterFeed(maxSpots, requestWindow),
+    enabled: dataEnabled && source !== "bridge",
     staleTime: 30 * SECOND,
     refetchInterval: 30 * SECOND,
     retry: 2,
   });
-
-  // If REST returned spots, promote to "rest" source
   useEffect(() => {
-    if (
-      spotSource !== "bridge" &&
-      restQuery.data &&
-      restQuery.data.length > 0
-    ) {
-      setSpotSource("rest");
-    }
-  }, [restQuery.data, spotSource, setSpotSource]);
+    if (dataEnabled) setNow(Date.now());
+  }, [dataEnabled, restQuery.dataUpdatedAt, lastMessage]);
 
-  // ─── Select data source ───────────────────────────────────────────────────
+  const restSpots = useMemo(() =>
+    filterClusterAge(restQuery.data?.spots ?? [], filters.maxAge, now),
+  [restQuery.data, filters.maxAge, now]);
+  const ownBridgeSpots = useMemo(() => filterClusterAge(bridgeSpots, storeFilters.maxAge, now),
+    [bridgeSpots, storeFilters.maxAge, now]);
+  const allSpots = useMemo(() => !dataEnabled ? [] : source === "bridge"
+    ? filterClusterAge(externalFilters !== undefined && bridgeSpots.length > 0 ? bridgeSpots : spots, filters.maxAge, now) : restSpots,
+  [dataEnabled, source, spots, externalFilters, bridgeSpots, filters.maxAge, now, restSpots]);
 
-  const allSpots = useMemo<DXSpot[]>(() => {
-    if (!dataEnabled) return [];
-    if (spotSource === "bridge") return bridgeSpots;
-    if (restQuery.data && restQuery.data.length > 0) return restQuery.data;
-    return [];
-  }, [dataEnabled, spotSource, bridgeSpots, restQuery.data]);
+  const sourceState = source === "bridge"
+    ? !dataEnabled ? "OFF" : (bridgeConnected || connectedBridgeOwners.size > 0) ? "BRIDGE" : "BRIDGE OFF"
+    : spotFeedState(restQuery.data?.metadata, dataEnabled, restQuery.isLoading, restQuery.isError, now);
+  const feedState = useMemo(() => ({
+    state: sourceState,
+    windowMinutes: source === "bridge" ? null : restQuery.data?.metadata.windowMinutes ?? requestWindow,
+    fetchedAt: source === "bridge" ? null : restQuery.data?.metadata.fetchedAt ?? null,
+    observedAt: source === "bridge" ? clusterObservedAt(externalFilters !== undefined && bridgeSpots.length > 0 ? bridgeSpots : spots) : restQuery.data?.metadata.observedAt ?? null,
+  }), [sourceState, source, restQuery.data, requestWindow, spots, externalFilters, bridgeSpots]);
 
-  // Update store when the selected data changes
+  // Only default observers publish the passive wall snapshot. A newly mounted
+  // bridge observer has no history to replace an existing live owner's rows.
   useEffect(() => {
-    if (allSpots.length > 0) {
-      setSpots(allSpots);
+    if (!dataEnabled || externalFilters !== undefined) return;
+    if (source === "bridge") {
+      if (bridgeSpots.length > 0) setSpots(ownBridgeSpots);
+    } else {
+      // Valid empty snapshots clear old rows; failures retain the query cache.
+      // An initial loading/error scope must never inherit another window's rows.
+      setSpots(restSpots);
     }
-  }, [allSpots, setSpots]);
+  }, [dataEnabled, externalFilters, source, bridgeSpots.length, ownBridgeSpots, restSpots, setSpots]);
+  useEffect(() => {
+    if (!dataEnabled || externalFilters !== undefined) return;
+    // A disconnected observer cannot relabel another live owner's transport.
+    if (source === "bridge" && !bridgeConnected && connectedBridgeOwners.size > 0) return;
+    setClusterFeed(feedState);
+  }, [dataEnabled, externalFilters, source, bridgeConnected, feedState, setClusterFeed]);
 
-  // Apply filters to spots
-  const filteredSpots = dataEnabled ? filterSpots(spots, filters) : [];
+  const filteredSpots = filterSpots(allSpots, filters);
 
   // ─── Cluster link control ─────────────────────────────────────────────────
 
@@ -288,41 +301,34 @@ export function useDXCluster(
   // Manual refetch
   const refetch = useCallback(() => {
     if (!dataEnabled) return;
-    if (spotSource === "bridge") {
+    if (source === "bridge") {
       setBridgeSpots([]);
     }
     queryClient.invalidateQueries({ queryKey: DX_QUERY_KEYS.restSpots });
-  }, [dataEnabled, queryClient, spotSource]);
+  }, [dataEnabled, queryClient, source]);
 
   // Determine loading state
   const isLoading =
-    dataEnabled && spotSource === "rest" ? restQuery.isLoading : false;
+    dataEnabled && source === "rest" ? restQuery.isLoading : false;
   const isFetching =
-    dataEnabled && spotSource === "rest" ? restQuery.isFetching : false;
-  const error = dataEnabled && spotSource === "rest" ? restQuery.error : null;
+    dataEnabled && source === "rest" ? restQuery.isFetching : false;
+  const error = dataEnabled && source === "rest" ? restQuery.error : null;
 
-  // Get last updated time
-  const lastUpdated =
-    !dataEnabled
-      ? null
-      : spotSource === "bridge"
-      ? bridgeSpots.length > 0
-        ? bridgeSpots[0].time
-        : null
-      : restQuery.dataUpdatedAt
-        ? new Date(restQuery.dataUpdatedAt)
-        : null;
+  // Retrieval time is server evidence, not the client cache's update time.
+  const timestamp = source === "bridge" ? feedState.observedAt : feedState.fetchedAt;
+  const lastUpdated = dataEnabled && timestamp !== null ? new Date(timestamp) : null;
 
   return {
     spots: filteredSpots,
-    allSpots: dataEnabled ? spots : [],
+    allSpots,
+    feedState,
     isLoading,
     isFetching,
     error,
     refetch,
     lastUpdated,
     /** Current data source tier: "bridge" | "rest" */
-    source: spotSource satisfies DXSpotSource,
+    source: source satisfies DXSpotSource,
     /** Whether the local bridge WebSocket is up (cluster control needs it) */
     bridgeConnected,
     /** Ask the bridge to attach to a cluster node. Returns false if not sent. */

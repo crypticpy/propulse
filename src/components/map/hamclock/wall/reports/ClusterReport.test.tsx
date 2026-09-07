@@ -14,7 +14,7 @@ it("retains cluster content inside report chrome without inventing a hero or rea
   const dialog = screen.getByRole("dialog", { name: "DX cluster report" });
   expect(dialog.querySelector(".hcr-lead")).toBeNull();
   expect(await screen.findByText("Existing cluster filters and content")).toBeTruthy();
-  expect(screen.getByText(/DX CLUSTER REST · LAST SPOT/)).toBeTruthy();
+  expect(screen.getByText(/DX REST · UNKNOWN · LAST SPOT/)).toBeTruthy();
   expect(screen.getByRole("button", { name: "PIN" })).toBeTruthy();
 });
 it("pins the existing list across owner unmount and unpins cleanly", async () => {

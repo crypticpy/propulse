@@ -8,16 +8,17 @@ const DXSpotList = lazy(() => import("@/components/dx/DXSpotList/DXSpotList").th
 
 /** Chrome for the wall's existing cluster list, distinct from map collections. */
 export function ClusterReport({ open, onClose }: { open: boolean; onClose: () => void }) {
+  const feedState = useDXStore(state => state.clusterFeed);
   const spots = useDXStore((state) => state.spots);
   const source = useDXStore((state) => state.spotSource);
   useUTCClock(10_000);
   const latest = useMemo(() => {
     const times = spots.map((spot) => new Date(spot.time).getTime()).filter(Number.isFinite);
-    return times.length ? Math.max(...times) : null;
-  }, [spots]);
+    return feedState.observedAt ?? (times.length ? Math.max(...times) : null);
+  }, [spots, feedState.observedAt]);
   // This timestamp is a spot observation, not an invented polling/sync time.
   const { footer, updated } = reportFooter(
-    `${source === "bridge" ? "CLUSTER BRIDGE" : "DX CLUSTER REST"} · LAST SPOT`, latest,
+    `${source === "bridge" ? "CLUSTER BRIDGE" : "DX REST"} · ${feedState.state} · LAST SPOT`, latest,
   );
   return (
     <WallReport open={open} onClose={onClose} title="DX cluster report" tone="accent"

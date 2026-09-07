@@ -82,6 +82,7 @@ export function DXSpotList({
     isLoading,
     isFetching,
     lastUpdated,
+    feedState,
     stats,
     selectedSpot,
     hoveredSpot,
@@ -435,7 +436,7 @@ export function DXSpotList({
                   <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-green-400" />
                 </span>
               )}
-              {SOURCE_BADGE_STYLES[spotSource].label}
+              {SOURCE_BADGE_STYLES[spotSource].label} · {feedState.state}
             </span>
             {alertMatchCount > 0 && (
               <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-alert-red/20 text-alert-red border border-alert-red/30 animate-pulse">
@@ -690,7 +691,8 @@ export function DXSpotList({
       {/* Footer */}
       <div className="mt-2 pt-2 border-t border-white/10 flex items-center justify-between text-xs text-gray-400">
         <div>
-          {lastUpdated && <span>Updated {formatTime(lastUpdated)} UTC</span>}
+          <span aria-label="Cluster source status">{feedState.state}{feedState.windowMinutes !== null ? ` · ${feedState.windowMinutes} MIN LOADED SAMPLE` : ""}</span>
+          {lastUpdated && <span> · {spotSource === "bridge" ? "Last spot" : "Fetched"} {formatTime(lastUpdated)} UTC</span>}
         </div>
         <div className="flex items-center gap-3">
           <span>{stats.total} total</span>

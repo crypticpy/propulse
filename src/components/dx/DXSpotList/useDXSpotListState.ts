@@ -47,6 +47,7 @@ export interface DXSpotListState {
   isLoading: boolean;
   isFetching: boolean;
   lastUpdated: Date | null;
+  feedState: ReturnType<typeof useDXCluster>["feedState"];
   stats: ReturnType<typeof useDXSpotStats>;
 
   // Selection state
@@ -115,7 +116,7 @@ export interface DXSpotListState {
 export function useDXSpotListState(
   onResearchGrid?: (grid: string) => void,
 ): DXSpotListState {
-  const { spots, isLoading, isFetching, refetch, lastUpdated } = useDXCluster();
+  const { spots, isLoading, isFetching, refetch, lastUpdated, feedState } = useDXCluster();
   const {
     selectedSpot,
     setSelectedSpot,
@@ -609,6 +610,7 @@ export function useDXSpotListState(
     isLoading,
     isFetching,
     lastUpdated,
+    feedState,
     stats,
 
     // Selection state

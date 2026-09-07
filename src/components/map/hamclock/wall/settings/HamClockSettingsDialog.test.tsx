@@ -17,7 +17,7 @@ function Harness() {
 }
 
 describe("HamClockSettingsDialog", () => {
-  it("opens from the trigger with the six tabs in order", () => {
+  it("opens from the trigger with the seven tabs in order", () => {
     render(<Harness />);
     fireEvent.click(screen.getByRole("button", { name: "SETTINGS" }));
 
@@ -27,6 +27,7 @@ describe("HamClockSettingsDialog", () => {
       "Display",
       "Pages & Tiles",
       "Layers",
+      "Spots",
       "Map",
       "Theme",
       "Kiosk",

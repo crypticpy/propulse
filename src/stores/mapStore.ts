@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import { DEFAULT_SPOT_DENSITY, normalizeSpotDensity } from "@/lib/map/spotDensity";
 import { type RegionPreset, DEFAULT_REGION_PRESETS } from "@/types/map";
 import type {
   OverlayLayerModel,
@@ -1446,7 +1447,7 @@ const initialState = {
   activePresetId: loadActivePresetId(),
 
   // Arc display density
-  displayDensity: 50,
+  displayDensity: DEFAULT_SPOT_DENSITY,
 
   // Grid label detail level (1=field, 2=square, 3=subsquare)
   gridLabelDetail: (() => {
@@ -2244,7 +2245,7 @@ export const useMapStore = create<MapState>((set, get) => ({
 
   // Arc display density
   setDisplayDensity: (density) =>
-    set({ displayDensity: Math.max(10, Math.min(200, density)) }),
+    set({ displayDensity: normalizeSpotDensity(density) }),
 
   // Grid label detail level
   setGridLabelDetail: (detail) => {

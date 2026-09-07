@@ -440,7 +440,7 @@ const defaultSettings: SettingsState = {
   radioDaemonAuthToken: "",
   catBackend: "auto" as const,
   catHamlibHost: "localhost",
-  catHamlibPort: 4533,
+  catHamlibPort: 4532,
   catCivPort: 4580,
   catFlrigHost: "localhost",
   catFlrigPort: 12345,
@@ -695,7 +695,7 @@ export const useSettingsStore = create<SettingsStore>()(
     }),
     {
       name: "propulse-settings",
-      version: 36,
+      version: 37,
       storage: createJSONStorage(() => localStorage),
       partialize: (state) => {
         const persisted: Partial<SettingsStore> = { ...state };
@@ -966,7 +966,7 @@ export const useSettingsStore = create<SettingsStore>()(
           if (state.catBackend === undefined) state.catBackend = "auto";
           if (state.catHamlibHost === undefined)
             state.catHamlibHost = "localhost";
-          if (state.catHamlibPort === undefined) state.catHamlibPort = 4533;
+          if (state.catHamlibPort === undefined) state.catHamlibPort = 4532;
           if (state.catCivPort === undefined) state.catCivPort = 4580;
           if (state.catFlrigHost === undefined)
             state.catFlrigHost = "localhost";
@@ -1057,6 +1057,13 @@ export const useSettingsStore = create<SettingsStore>()(
             if (ui.qsyWipeOnBandChange === undefined) {
               ui.qsyWipeOnBandChange = true;
             }
+          }
+        }
+        if (version < 37) {
+          // Replace the former default only; preserve other configured ports.
+          // Older settings did not distinguish an explicit 4533 from the default.
+          if (state.catHamlibPort === undefined || state.catHamlibPort === 4533) {
+            state.catHamlibPort = 4532;
           }
         }
         return state as unknown as SettingsState & SettingsStore;

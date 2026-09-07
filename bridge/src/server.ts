@@ -881,7 +881,7 @@ function parseRigControllerConfig(payload: unknown): {
       backend: "hamlib",
       config: {
         hamlibHost: host || "127.0.0.1",
-        hamlibPort: port ?? 4533,
+        hamlibPort: port ?? 4532,
       },
     };
   }

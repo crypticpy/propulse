@@ -69,6 +69,20 @@ BRIDGE_PORT=9868 npm run dev
 BRIDGE_ROTOR=1 npm run dev      # with a rotctld on 127.0.0.1:4533
 ```
 
+### Radio CAT port
+
+The Hamlib radio backend defaults to `127.0.0.1:4532`, the
+[rigctld default](https://hamlib.sourceforge.net/html/rigctld.1.html).
+The separate rotator backend keeps `4533`. Configure a different radio port in
+the app's CAT settings or radio setup wizard; a WFView listener on `4533` remains
+supported by explicitly selecting that port.
+
+Settings version 37 migrates the old radio default `4533` to `4532` and preserves
+other custom ports. Older saved settings did not record whether `4533` was chosen
+explicitly, so existing WFView users on that port must select `4533` again once.
+Subsequent reloads retain that choice. The bridge uses the configured port and
+does not probe the rotator port as a radio fallback.
+
 ## Security
 
 **The bridge server ONLY binds to localhost (127.0.0.1).**

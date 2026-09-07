@@ -31,6 +31,21 @@
  * `bg-su-info` status roles — where white text is intentional and stays
  * legible regardless of theme.
  *
+ * `bg-black` is excluded from the grey remaps for the same reason: it is a
+ * fixed surface that does not follow the theme (map/SDR overlay chrome such as
+ * `Photorealistic3DPage.tsx`'s `bg-black/60 text-gray-400` badges), so its text
+ * must stay theme-independent too. Low-alpha `bg-black/30` tints over the light
+ * canvas are left to DS-12 with the rest of their call sites.
+ *
+ * Foreground uses of the surface names are the one place a Tailwind alias
+ * cannot follow the theme on its own: `bg-plasma-orange text-deep-space`
+ * (13 call sites — contest submit buttons, `QSOEntryForm.tsx`) means "dark ink
+ * on the accent fill", but `deep-space` now resolves to `--su-canvas`, which on
+ * Light is #e9ece7 and lands at 2.4:1 on the orange. The tone fills
+ * (`bg-signal-green`, `bg-caution-amber`, `bg-cosmic-cyan`) invert with the
+ * palette and stay legible; only `--su-accent` does not, so those pairings are
+ * pinned to the token minted for exactly this, `--su-on-accent`.
+ *
  * Borders are left alone: `border-white/10` and friends are hairlines that
  * read as a faint dark line on the light canvas, so they degrade gracefully.
  *
@@ -39,5 +54,6 @@
  * its import in `main.tsx`.
  */
 html.light :is(.text-white,[class*="text-white/"],.hover\:text-white:hover,.group:hover .group-hover\:text-white):not([data-hamclock-theme]):not([data-hamclock-theme] *):not([class*="bg-alert-red"]):not([class*="bg-signal-green"]):not([class*="bg-caution-amber"]):not([class*="bg-plasma-orange"]):not([class*="bg-black"]):not([class*="bg-su-accent"]):not([class*="bg-su-danger"]):not([class*="bg-su-success"]):not([class*="bg-su-warning"]):not([class*="bg-su-info"]){color:var(--su-text)!important} /* design-tokens: allow -- selectors target legacy Tailwind classes on unmigrated files, not raw colours we introduced */
-html.light :is(.text-gray-100,.text-gray-200,.text-slate-300):not([data-hamclock-theme]):not([data-hamclock-theme] *){color:var(--su-text)!important} /* design-tokens: allow -- see above */
-html.light :is(.text-gray-300,.text-gray-400,.text-gray-500,.text-gray-600,.text-slate-500):not([data-hamclock-theme]):not([data-hamclock-theme] *){color:var(--su-muted)!important} /* design-tokens: allow -- see above */
+html.light :is(.text-gray-100,.text-gray-200,.text-slate-300):not([data-hamclock-theme]):not([data-hamclock-theme] *):not([class*="bg-black"]){color:var(--su-text)!important} /* design-tokens: allow -- see above */
+html.light :is(.text-gray-300,.text-gray-400,.text-gray-500,.text-gray-600,.text-slate-500):not([data-hamclock-theme]):not([data-hamclock-theme] *):not([class*="bg-black"]){color:var(--su-muted)!important} /* design-tokens: allow -- see above */
+html.light [class*="bg-plasma-orange"]:is(.text-deep-space,.text-void-black,.text-space-900):not([data-hamclock-theme] *){color:var(--su-on-accent)!important} /* design-tokens: allow -- see above */

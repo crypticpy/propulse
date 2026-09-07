@@ -96,6 +96,43 @@ export function stationContrast(first: string, second: string) {
   return (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05);
 }
 
+/** The design system's floor for status text (`docs/designs/design-system`). */
+const STATUS_TEXT_CONTRAST = 4.5;
+
+/** Blend `hex` `amount` of the way toward `toward`; both are `#rrggbb`. */
+function mixHex(hex: string, toward: string, amount: number): string {
+  const from = hexToChannels(hex).split(" ").map(Number);
+  const to = hexToChannels(toward).split(" ").map(Number);
+  return `#${from
+    .map((channel, index) =>
+      Math.round(channel + (to[index] - channel) * amount)
+        .toString(16)
+        .padStart(2, "0"),
+    )
+    .join("")}`;
+}
+
+/**
+ * Fit a colour-blind tone to the active palette.
+ *
+ * `COLOR_BLIND_PALETTES` is one fixed set of hues chosen for distinguishability,
+ * but the station palettes are not fixed: tritanopia's `#DDCC77` reads at
+ * 1.5:1 on the Light panel and deuteranopia's `#0077BB` at 3.7:1 on the dark
+ * one, and DS-09 routes the app-wide `text-caution-amber`/`text-signal-green`
+ * utilities through these tokens. Blend the tone toward the pole furthest from
+ * the surface until it clears the status-text floor: lightness moves, the hue
+ * that makes the mode legible does not.
+ */
+function toneOnPanel(tone: string, panel: string): string {
+  if (stationContrast(tone, panel) >= STATUS_TEXT_CONTRAST) return tone;
+  const pole = luminance(panel) > 0.18 ? "#000000" : "#ffffff";
+  for (let amount = 0.1; amount < 1; amount += 0.1) {
+    const mixed = mixHex(tone, pole, amount);
+    if (stationContrast(mixed, panel) >= STATUS_TEXT_CONTRAST) return mixed;
+  }
+  return pole;
+}
+
 /** Custom accents get a contrasting label; malformed persisted values use plasma. */
 export function stationTokens(
   theme: ThemeId,
@@ -129,9 +166,9 @@ export function stationTokens(
   // silently overwrite the swap.
   const colorBlind = COLOR_BLIND_PALETTES[colorBlindMode];
   if (colorBlind) {
-    colors["--su-success"] = colorBlind.good;
-    colors["--su-warning"] = colorBlind.fair;
-    colors["--su-danger"] = colorBlind.poor;
+    colors["--su-success"] = toneOnPanel(colorBlind.good, palette.panel);
+    colors["--su-warning"] = toneOnPanel(colorBlind.fair, palette.panel);
+    colors["--su-danger"] = toneOnPanel(colorBlind.poor, palette.panel);
   }
   // Channel triplets so Tailwind opacity modifiers (text-su-text/70) resolve
   // inside a scoped StationProvider as well as on the document root.

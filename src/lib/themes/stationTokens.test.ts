@@ -7,7 +7,12 @@ import {
   getTheme,
   type ThemeId,
 } from "./index";
-import { hexToChannels, stationPalettes, stationTokens } from "./stationTokens";
+import {
+  hexToChannels,
+  stationContrast,
+  stationPalettes,
+  stationTokens,
+} from "./stationTokens";
 import { DEUTERANOPIA_PALETTE, TRITANOPIA_PALETTE } from "./colorblind";
 import {
   stationTokens as reExportedStationTokens,
@@ -131,11 +136,22 @@ describe("station tokens on the document root", () => {
       expect(css).toContain(`--su-${name}: ${value};`);
       expect(css).toContain(`--su-${name}-rgb: ${hexToChannels(value)};`);
     }
-    // The tone roles are not pinned to fixed hexes: they follow the same
-    // colour-blind-aware --hc-*-rgb triples as the wall's own state colours.
+    // The tone roles are not pinned to fixed hexes: they are routed through the
+    // wall's own --hc-*-rgb triples, so they keep their pre-DS-09 values.
     expect(css).toContain("--su-success-rgb: var(--hc-good-rgb);");
     expect(css).toContain("--su-warning-rgb: var(--hc-warn-rgb);");
     expect(css).toContain("--su-danger-rgb: var(--hc-bad-rgb);");
+  });
+
+  it("previews the canvas it applies in the Settings theme swatch", () => {
+    // AppearanceSection.tsx renders theme.colors.bgPrimary as the swatch while
+    // applyThemeToDocument paints stationPalettes[id].canvas; the two used to
+    // be independent hexes and disagreed for all four themes.
+    for (const themeId of Object.keys(stationPalettes) as ThemeId[]) {
+      expect(getTheme(themeId).colors.bgPrimary).toBe(
+        stationPalettes[themeId].canvas,
+      );
+    }
   });
 
   it("no longer declares the unused --color-text-* variables", () => {
@@ -163,16 +179,17 @@ describe("colour-blind tone tokens", () => {
       "deuteranopia",
     );
     const token = rootTokens();
-    expect(token("--su-success")).toBe(DEUTERANOPIA_PALETTE.good);
+    // fair already clears the floor on the dark panel, so it is used verbatim.
     expect(token("--su-warning")).toBe(DEUTERANOPIA_PALETTE.fair);
-    expect(token("--su-danger")).toBe(DEUTERANOPIA_PALETTE.poor);
+    expect(token("--su-success")).not.toBe(stationPalettes.dark.success);
+    expect(token("--su-danger")).not.toBe(stationPalettes.dark.danger);
 
     applyThemeToDocument(
       getTheme("light"),
       getAccentPreset("plasma"),
       "deuteranopia",
     );
-    expect(token("--su-success")).toBe(DEUTERANOPIA_PALETTE.good);
+    expect(token("--su-success")).not.toBe(stationPalettes.light.success);
     expect(token("--su-canvas")).toBe(stationPalettes.light.canvas);
 
     applyThemeToDocument(
@@ -180,8 +197,41 @@ describe("colour-blind tone tokens", () => {
       getAccentPreset("aurora"),
       "deuteranopia",
     );
-    expect(token("--su-danger")).toBe(DEUTERANOPIA_PALETTE.poor);
+    expect(token("--su-danger")).not.toBe(stationPalettes.light.danger);
     expect(token("--su-accent")).toBe("#a855f7");
+  });
+
+  it("keeps every swapped tone above the status-text floor on its panel", () => {
+    // The colour-blind palette is one fixed set of hues; the station palettes
+    // are not. Raw tritanopia fair (#DDCC77) is 1.5:1 on the Light panel and
+    // raw deuteranopia good (#0077BB) 3.7:1 on the dark one, so the tones are
+    // blended toward the far pole until they clear 4.5:1.
+    expect(
+      stationContrast(TRITANOPIA_PALETTE.fair, stationPalettes.light.panel),
+    ).toBeLessThan(4.5);
+    for (const mode of ["deuteranopia", "protanopia", "tritanopia"] as const) {
+      for (const themeId of Object.keys(stationPalettes) as ThemeId[]) {
+        const tokens = stationTokens(themeId, "#ff6b35", mode);
+        for (const role of ["success", "warning", "danger"] as const) {
+          expect(
+            stationContrast(
+              tokens[`--su-${role}`],
+              stationPalettes[themeId].panel,
+            ),
+          ).toBeGreaterThanOrEqual(4.5);
+        }
+      }
+    }
+  });
+
+  it("keeps the three swapped tones distinguishable from each other", () => {
+    const tokens = stationTokens("light", "#ff6b35", "tritanopia");
+    const tones = new Set([
+      tokens["--su-success"],
+      tokens["--su-warning"],
+      tokens["--su-danger"],
+    ]);
+    expect(tones.size).toBe(3);
   });
 
   it("emits matching -rgb triplets for the swapped tones", () => {
@@ -197,6 +247,8 @@ describe("colour-blind tone tokens", () => {
 
   it("swaps the same tones in the scoped token set StationProvider injects", () => {
     const scoped = stationTokens("dark", "#ff6b35", "protanopia");
+    // Both protanopia tones already clear the dark panel, so they pass through.
+    expect(scoped["--su-warning"]).toBe("#EE7733");
     expect(scoped["--su-success"]).toBe("#009988");
     expect(scoped["--su-success-rgb"]).toBe("0 153 136");
     expect(stationTokens("dark", "#ff6b35")["--su-success"]).toBe(

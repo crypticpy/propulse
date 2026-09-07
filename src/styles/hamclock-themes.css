@@ -117,9 +117,16 @@
  *
  * Deliberately not pinned: --su-accent (and its derived roles) is the
  * operator's own colour and was already accent-driven before the remap, and
- * the tone roles below follow the same colour-blind-aware --color-*-rgb
- * triples as --hc-good/warn/bad, so caution-amber and alert-red inside the
- * wall keep their pre-DS-09 behaviour. */
+ * the tone roles below are routed through the wall's own --hc-good/warn/bad
+ * triples, so caution-amber and alert-red inside the wall keep their pre-DS-09
+ * behaviour exactly.
+ *
+ * Those --hc-* triples read --color-*-rgb, which never ships: design-tokens.css
+ * (the only file that declares the per-mode values, including its
+ * [data-color-blind] blocks) is not imported, so they resolve to their literal
+ * fallbacks. HamClock is therefore not colour-blind-reactive today — it was not
+ * before DS-09 either, and this pin does not change that. Fixing it means
+ * shipping those declarations, which is tracked in #533. */
 [data-hamclock-theme] {
   --su-canvas: #141827;
   --su-canvas-rgb: 20 24 39;

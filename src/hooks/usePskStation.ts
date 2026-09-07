@@ -64,12 +64,12 @@ export const usePskStationView = create<{
   setBand: (band) => set({ band }),
 }));
 
-export function usePskStationData(enabled = true) {
+export function usePskStationData(enabled = true, directionOverride?: PskDirection) {
   const call = useProfileStore(s => s.station?.callsign ?? "");
   const feed = usePskStation(call, enabled);
   const view = usePskStationView();
   const now = useUTCClock(10_000).getTime();
-  const rows = selectPskStationReports(feed.data, view.direction, view.minutes, now)
+  const rows = selectPskStationReports(feed.data, directionOverride ?? view.direction, view.minutes, now)
     .filter(row => view.band === "all" || bandFromFreq(row.frequencyHz / 1_000) === view.band);
   const state = !feed.callsign ? "SET STATION CALL" : feed.isLoading ? "LOADING" :
     feed.error ? (feed.data?.fetchedAt ? "STALE" : "UNAVAILABLE") : pskStationState(feed.data, now);

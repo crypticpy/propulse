@@ -25,6 +25,12 @@ export { deepFreeze } from "./freeze";
 export { dxFiltersFromViewSpots } from "./dxFilters";
 export {
   createViewScopedStore,
+  selectConfiguredSpots,
+  selectEffectiveSpots,
+  selectFollowStatus,
+  selectInteraction,
+  selectPresentation,
+  type ViewScopedCommands,
   type ViewScopedState,
   type ViewScopedStoreHandle,
 } from "./createViewScopedStore";

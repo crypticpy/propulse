@@ -204,8 +204,15 @@ export function createViewRuntime(options: CreateViewRuntimeOptions): ScopedView
     applyPreset(preset: PresetRecipe) {
       assertActive();
       if (preset.kind === "activity") {
+        // Agent 4/#573 owns the canonical helper. Until it is accepted, activity
+        // application here disables both follow flags and leaves presentation alone.
         runtime.updateWorkingView({
           spots: spotPresentationPreferencesSchema.parse(JSON.parse(JSON.stringify(preset.spots))),
+          context: {
+            ...snapshot.config.context,
+            followRadio: false,
+            followOperatingSession: false,
+          },
         });
         return;
       }

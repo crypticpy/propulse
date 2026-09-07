@@ -2,22 +2,21 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it } from "vitest";
 import { ViewProvider } from "@/components/views/ViewProvider";
-import { useViewRuntime } from "@/components/views/ViewRuntimeContext";
 import { createMemoryWorkingStorage } from "@/lib/views/runtime";
-import { useViewPresentation } from "./useViewPresentation";
+import { useUpdateViewPresentation, useViewPresentation } from "./useViewPresentation";
 
 function Probe() {
   const presentation = useViewPresentation();
-  const runtime = useViewRuntime();
+  const updatePresentation = useUpdateViewPresentation();
   return (
     <div>
       <span data-testid="projection">{presentation.projection}</span>
       <button
         type="button"
         onClick={() => {
-          const current = runtime.getSnapshot().config.presentation;
-          runtime.updateWorkingView({
-            presentation: { ...JSON.parse(JSON.stringify(current)), projection: "flat" },
+          updatePresentation({
+            ...JSON.parse(JSON.stringify(presentation)),
+            projection: "flat",
           });
         }}
       >

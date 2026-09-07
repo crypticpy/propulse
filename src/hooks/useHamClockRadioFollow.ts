@@ -45,18 +45,15 @@ export function useHamClockRadioFollow() {
 /**
  * Follow radio for one bound runtime. Manual band/mode edits disable follow
  * inside that runtime only (`updateWorkingView`). Missing radio pauses
- * following without writing filters or issuing a tune.
+ * following without writing filters or issuing a tune. This hook never writes
+ * mapStore or hamclockDisplayStore.
  */
 export function useViewRadioFollow(runtime: ScopedViewRuntime) {
   const radio = useOperatingMonitor();
-  const followRadio = useSyncExternalStore(
+  return useSyncExternalStore(
     runtime.subscribe,
-    () => runtime.getSnapshot().config.context.followRadio,
+    () => runtime.followStatus(radio ? { band: radio.band, mode: radio.mode } : null),
   );
-  useEffect(() => {
-    if (!followRadio || !radio) return;
-    runtime.applyFollowFilters({ band: radio.band, mode: radio.mode });
-  }, [followRadio, radio, runtime]);
 }
 
 export function useBoundViewRadioFollow() {

@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import type { ViewBinding, ViewConfiguration, ViewRepository } from "../contracts";
-import { createViewConfiguration } from "../defaults";
+import { createSpotPreferences, createViewConfiguration } from "../defaults";
 import { createViewRuntime } from "./createViewRuntime";
 import { saveWorkingViewCopy } from "./saveWorkingView";
 import { createMemoryWorkingStorage, workingSlotKey } from "./workingStorage";
@@ -390,5 +390,34 @@ describe("createViewRuntime", () => {
     });
     expect(familyRefresh.getSnapshot().config.presentation.projection).toBe("azimuthal");
     familyRefresh.dispose();
+  });
+
+  it("disables both follow flags when applying an activity recipe", () => {
+    const runtime = createViewRuntime({ binding: binding(), persistWorking: false });
+    runtime.updateWorkingView({
+      context: {
+        ...runtime.getSnapshot().config.context,
+        followRadio: true,
+        followOperatingSession: true,
+        scope: "logging",
+      },
+    });
+    const spots = createSpotPreferences();
+    spots.filters.bands = ["40m"];
+    spots.filters.modes = {
+      all: false, categories: [], modes: ["CW"],
+      includeUnknown: true, includeInferred: true,
+    };
+    const projection = runtime.getSnapshot().config.presentation.projection;
+    runtime.applyPreset({
+      kind: "activity", id: "cw40", version: 1, name: "CW 40", spots,
+    });
+    const next = runtime.getSnapshot().config;
+    expect(next.context.followRadio).toBe(false);
+    expect(next.context.followOperatingSession).toBe(false);
+    expect(next.context.scope).toBe("logging");
+    expect(next.spots.filters.bands).toEqual(["40m"]);
+    expect(next.presentation.projection).toBe(projection);
+    runtime.dispose();
   });
 });

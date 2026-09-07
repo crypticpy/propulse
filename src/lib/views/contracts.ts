@@ -306,7 +306,12 @@ export interface ViewRuntime {
   getSnapshot(): { config: ViewConfiguration; interaction: ViewInteractionState; workingRevision: number };
   subscribe(listener: () => void): () => void;
   updateWorkingView(patch: WorkingViewPatch): void;
+  /** Explicit load/scene entry: validated complete replacement clears interaction state. */
+  replaceWorkingView(config: ViewConfiguration): void;
   applyPreset(preset: PresetRecipe): void;
   selectSpot(reportId: string, location: { lat: number; lon: number } | null): void;
+  clearSelection(): void;
+  selectPathPoint(pointId: string | null): void;
+  setExpandedGroups(groupIds: readonly string[]): void;
   dispose(): void;
 }

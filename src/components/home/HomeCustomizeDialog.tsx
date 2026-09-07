@@ -13,7 +13,7 @@
 import { useState, type DragEvent } from "react";
 import { AccessibleDialog } from "@/components/ui";
 import type { HomeLayoutController } from "@/hooks/useHomeLayout";
-import { HOME_LAYOUT_ITEMS, homeItemTitle, isHomeItemAvailable } from "@/lib/home/layout";
+import { HOME_LAYOUT_ITEMS, homeItemSummary, homeItemTitle, isHomeItemAvailable } from "@/lib/home/layout";
 
 const ROW = "flex flex-wrap items-center gap-2 rounded-xl border border-su-line/40 bg-su-input px-3 py-2";
 const ACTION = "min-h-11 min-w-11 rounded-xl border border-su-line/40 bg-su-panel px-3 text-su-text hover:bg-su-line/20 disabled:opacity-50";
@@ -75,7 +75,7 @@ export function HomeCustomizeDialog({ open, onClose, layout, guest, isMobile }: 
               <span className="cursor-grab text-lg text-su-muted" aria-hidden="true">
                 ⠿
               </span>
-              <span className="min-w-0 flex-1 text-su-text">{homeItemTitle(id)}</span>
+              <span className="min-w-0 flex-1 text-su-text">{homeItemTitle(id)}<span className="block text-xs text-su-muted">{homeItemSummary(id)}</span></span>
               <span className="rounded-lg border border-su-line/40 px-2 py-1 text-xs text-su-muted">
                 {HOME_LAYOUT_ITEMS.find((item) => item.id === id)?.kind === "wide" ? "Full width" : "Tile"}
               </span>
@@ -117,7 +117,7 @@ export function HomeCustomizeDialog({ open, onClose, layout, guest, isMobile }: 
         <ul className="mt-3 flex flex-col gap-2" aria-label="Add panels">
           {available.map((item) => (
             <li key={item.id} className={ROW}>
-              <span className="min-w-0 flex-1 text-su-text">{item.title}</span>
+              <span className="min-w-0 flex-1 text-su-text">{item.title}<span className="block text-xs text-su-muted">{item.summary}</span></span>
               <span className="rounded-lg border border-su-line/40 px-2 py-1 text-xs text-su-muted">
                 {item.kind === "wide" ? "Full width" : "Tile"}
               </span>

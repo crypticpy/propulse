@@ -9,6 +9,8 @@ import { useHomeLocation } from "@/hooks/useHomeLocation";
 import { HomeStatus } from "./HomeStatus";
 import { AccessibleDialog } from "@/components/ui/AccessibleDialog";
 import { accentForHomeItem } from "@/lib/themes/sectionAccent";
+import { homeItemSummary } from "@/lib/home/layout";
+import { SectionHeader } from "@/components/ui/SectionHeader";
 
 /** Short UTC date for the flux forecast, e.g. "7 Sep" — never a raw ISO string (issue #531). A
  * non-breaking space keeps the day and month from wrapping onto separate lines. */
@@ -30,7 +32,10 @@ export function HomeSolar({ model, now }: { model: ReturnType<typeof useSolarMod
   const today = new Date(now).toISOString().slice(0,10);
   const forecast = resources.forecast.data;
   const days = forecast?.forecast.filter(day => day.date >= today).slice(0,3) ?? [];
-  return <section className="home-panel home-solar su-section-ruled" data-accent={accentForHomeItem("solar")} aria-label="Solar outlook"><div className="home-panel-heading su-widget-header"><h2>Solar outlook</h2><HomeStatus state={briefing.state} /></div>
+  return <section className="home-panel home-solar su-section-panel" data-accent={accentForHomeItem("solar")} aria-label="Solar outlook">
+    <div aria-hidden="true" className="su-section-rule" />
+    <SectionHeader className="su-widget-header" title="Solar outlook" summary={homeItemSummary("solar")} action={<HomeStatus state={briefing.state} />} />
+    <div className="home-panel-body">
     <div className="home-solar-instruments"><div className="home-reading"><span>Kp · {current.kp?.kind ?? "3-hour"}</span><strong>{current.kp?.kp.toFixed(1) ?? "—"}</strong><HomeStatus state={resources.kp.state} /></div><div className="home-reading"><span>Solar flux · sfu</span><strong>{current.flux?.flux.toFixed(0) ?? "—"}</strong><HomeStatus state={resources.flux.state} /></div><div className="home-reading"><span>X-ray class</span><strong>{current.xray ? current.xrayClass : "—"}</strong><HomeStatus state={resources.xray.state} /></div></div>
     <p className="home-card-sub">{briefing.title}</p>
     <div className="home-actions"><button type="button" aria-haspopup="dialog" aria-label="Solar outlook details" onClick={() => setOpen(true)}>Details</button></div>
@@ -43,5 +48,6 @@ export function HomeSolar({ model, now }: { model: ReturnType<typeof useSolarMod
         <nav aria-label="Home operating actions" className="home-actions"><Link to="/solar">Full Solar Pulse briefing ↗</Link><Link to="/dx" state={state}>Check a path</Link><Link to="/planner" state={state}>Plan a session</Link></nav>
       </div>
     </AccessibleDialog>
+    </div>
   </section>;
 }

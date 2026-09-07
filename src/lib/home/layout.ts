@@ -14,31 +14,37 @@ export type HomeItemKind = "wide" | "tile";
 export interface HomeLayoutItem {
   id: string;
   title: string;
+  /**
+   * One plain sentence under the title, printed in the panel's section header
+   * (DS-15) and beside the row in Customize dashboard. It says what the panel
+   * shows, not why it is worth having.
+   */
+  summary: string;
   kind: HomeItemKind;
   /** Rendered only for a signed-in operator (personal or saved-panel data). */
   signedInOnly?: boolean;
 }
 
 export const HOME_LAYOUT_ITEMS: readonly HomeLayoutItem[] = [
-  { id: "activity", title: "Bands now", kind: "wide" },
-  { id: "forecast", title: "Next 24 hours on your band", kind: "wide" },
-  { id: "station", title: "Your station & recent operating", kind: "wide", signedInOnly: true },
-  { id: "solar", title: "Solar outlook", kind: "tile" },
-  { id: "weather", title: "Local weather", kind: "tile" },
-  { id: "daylight", title: "Daylight", kind: "tile" },
-  { id: "moon", title: "Moon", kind: "tile" },
-  { id: "planets", title: "Planets", kind: "tile" },
-  { id: "clocks", title: "World clocks", kind: "tile" },
-  { id: "countdowns", title: "Countdowns", kind: "tile", signedInOnly: true },
-  { id: "tides", title: "Tides", kind: "tile" },
-  { id: "environment", title: "UV & air quality", kind: "tile" },
-  { id: "metar", title: "Aviation weather", kind: "tile" },
-  { id: "scope", title: "QTH scope", kind: "tile" },
-  { id: "volcanoes", title: "Volcano watch", kind: "tile" },
-  { id: "dxpeditions", title: "DXpeditions", kind: "tile" },
-  { id: "news", title: "Radio news", kind: "tile", signedInOnly: true },
-  { id: "contests", title: "Contest details", kind: "tile", signedInOnly: true },
-  { id: "history", title: "This day in history", kind: "tile", signedInOnly: true },
+  { id: "activity", title: "Bands now", summary: "Reception and cluster reports, band by band.", kind: "wide" },
+  { id: "forecast", title: "Next 24 hours on your band", summary: "The next 24 hours on the band you are working.", kind: "wide" },
+  { id: "station", title: "Your station & recent operating", summary: "Your active setup, recent contacts, and the contest calendar.", kind: "wide", signedInOnly: true },
+  { id: "solar", title: "Solar outlook", summary: "Kp, solar flux and X-ray class, with the current briefing.", kind: "tile" },
+  { id: "weather", title: "Local weather", summary: "Temperature, wind and the hours ahead at your location.", kind: "tile" },
+  { id: "daylight", title: "Daylight", summary: "Solar altitude through the UTC day, with sunrise and sunset.", kind: "tile" },
+  { id: "moon", title: "Moon", summary: "Phase, illumination, and rise and set times.", kind: "tile" },
+  { id: "planets", title: "Planets", summary: "Which planets are above the horizon from your profile location.", kind: "tile" },
+  { id: "clocks", title: "World clocks", summary: "The current time in the zones you follow.", kind: "tile" },
+  { id: "countdowns", title: "Countdowns", summary: "Time remaining on the dates you are counting down to.", kind: "tile", signedInOnly: true },
+  { id: "tides", title: "Tides", summary: "High and low water for your profile location.", kind: "tile" },
+  { id: "environment", title: "UV & air quality", summary: "UV index and air quality at your profile location.", kind: "tile" },
+  { id: "metar", title: "Aviation weather", summary: "Airfield weather reports near your profile location.", kind: "tile" },
+  { id: "scope", title: "QTH scope", summary: "Lightning strikes and fire hotspots within range of your QTH.", kind: "tile" },
+  { id: "volcanoes", title: "Volcano watch", summary: "Volcanoes the USGS currently reports as active.", kind: "tile" },
+  { id: "dxpeditions", title: "DXpeditions", summary: "DXpeditions on the air now and coming up.", kind: "tile" },
+  { id: "news", title: "Radio news", summary: "Recent headlines from the feeds you follow.", kind: "tile", signedInOnly: true },
+  { id: "contests", title: "Contest details", summary: "Contests on the calendar and how conditions look for them.", kind: "tile", signedInOnly: true },
+  { id: "history", title: "This day in history", summary: "Amateur radio events that happened on this date.", kind: "tile", signedInOnly: true },
 ];
 
 /**
@@ -77,6 +83,11 @@ export function findHomeItem(id: string): HomeLayoutItem | undefined {
 
 export function homeItemTitle(id: string): string {
   return findHomeItem(id)?.title ?? id;
+}
+
+/** The one-line summary printed under a panel's title (DS-15). */
+export function homeItemSummary(id: string): string {
+  return findHomeItem(id)?.summary ?? "";
 }
 
 /** A guest session has no saved profile panels, so those items never render. */

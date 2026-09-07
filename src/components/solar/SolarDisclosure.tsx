@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import type { SectionAccent } from "@/lib/themes/sectionAccent";
+import { SectionHeader } from "@/components/ui/SectionHeader";
 
 /**
  * DS-14: the tone is declared once with `data-accent` on the section and
@@ -9,6 +10,10 @@ import type { SectionAccent } from "@/lib/themes/sectionAccent";
  */
 export type SolarDisclosureAccent = Exclude<SectionAccent, "danger">;
 
+/**
+ * DS-15: the band itself is `SectionHeader`, shared with Home, so the two
+ * pages cannot drift. Everything else here is the disclosure behaviour.
+ */
 export function SolarDisclosure({
   id,
   title,
@@ -32,21 +37,11 @@ export function SolarDisclosure({
       className="min-w-0 overflow-hidden rounded-2xl border border-su-line/40 bg-su-panel/70"
     >
       <div aria-hidden="true" className="su-section-rule" />
-      <button
-        type="button"
-        aria-expanded={open}
-        aria-controls={`${id}-content`}
-        onClick={onToggle}
-        className="su-section-header flex min-h-16 w-full items-center justify-between gap-4 px-4 py-3 text-left sm:px-5"
-      >
-        <span>
-          <span className="block font-orbitron text-sm font-bold text-su-text sm:text-base">{title}</span>
-          <span className="mt-0.5 block text-xs leading-5 text-su-muted/80 sm:text-sm">{summary}</span>
-        </span>
-        <span className="su-section-glyph flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border bg-su-input" aria-hidden="true">
-          {open ? "−" : "+"}
-        </span>
-      </button>
+      <SectionHeader
+        title={title}
+        summary={summary}
+        toggle={{ open, onToggle, controls: `${id}-content` }}
+      />
       {open && (
         <div id={`${id}-content`} className="border-t border-su-line/20 p-3 sm:p-5">
           {children}

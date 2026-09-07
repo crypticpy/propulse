@@ -32,6 +32,7 @@ import {
 import { handleAuroraIndex } from "./handlers/aurora";
 import { handleSpotsBandActivity } from "./handlers/bandActivity";
 import { handleSpotsBandHistory } from "./handlers/bandHistory";
+import { handlePskStation } from "./handlers/pskStation";
 import { handleSpotsBandLadder } from "./handlers/bandLadder";
 import {
   handleCallsignClublogStatus,
@@ -105,6 +106,7 @@ export const PORTABLE_ROUTES: Readonly<Record<string, EdgeHandler>> = {
   "/api/spots/band-history": handleSpotsBandHistory,
   "/api/spots/band-ladder": handleSpotsBandLadder,
   "/api/spots/dxcluster": handleSpotsDxcluster,
+  "/api/spots/psk-station": handlePskStation,
   "/api/spots/pskreporter": handleSpotsPskreporter,
   "/api/spots/rbn": handleSpotsRbn,
   "/api/weather/alerts": handleWeatherAlerts,

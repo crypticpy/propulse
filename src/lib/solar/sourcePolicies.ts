@@ -69,9 +69,11 @@ export const SOLAR_SOURCE_POLICIES: Record<
     endpoint: "/api/solar/flux",
     sourceUrl: "https://services.swpc.noaa.gov/json/f107_cm_flux.json",
     // Penticton reports three times a day (17Z, 20Z, 22Z), so the newest
-    // reading is up to 19 h old every night. Soft TTL must clear that gap or
-    // the flux reads "stale" for most of every day.
-    softTtlMs: 24 * HOUR,
+    // reading is up to 19 h old every night. An 8 h soft TTL marked the flux
+    // stale for roughly 11 h of every day (06Z to 17Z). 21 h clears the gap
+    // with two hours of publication slack while still surfacing a stalled
+    // provider before the next scheduled reading.
+    softTtlMs: 21 * HOUR,
     hardTtlMs: 36 * HOUR,
     refetchMs: 4 * HOUR,
     maxRows: 45,

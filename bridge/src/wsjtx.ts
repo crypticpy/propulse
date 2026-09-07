@@ -33,7 +33,7 @@ const enum WSJTXMessageType {
   Clear = 3,
   // Reply = 4,  (outbound only)
   QSOLogged = 5,
-  // Close = 6,
+  Close = 6,
   // Replay = 7,
   // HaltTx = 8,
   // FreeText = 9,
@@ -211,6 +211,7 @@ export class WSJTXListener {
   private socket: UDPSocket | null = null;
   private readonly port: number;
   private readonly statsPerInstance = new Map<string, DecodeStats>();
+  private readonly contexts = new Map<string, { lastSeen: number; status?: WSJTXStatus }>();
 
   // Event handlers
   private statusHandlers: StatusHandler[] = [];
@@ -297,6 +298,7 @@ export class WSJTXListener {
       this.socket = null;
     }
     this.statsPerInstance.clear();
+    this.contexts.clear();
   }
 
   /** Returns decode statistics for all known instances */
@@ -354,9 +356,32 @@ export class WSJTXListener {
     // Instance ID
     const instanceId = reader.readUtf8() ?? "WSJT-X";
 
+    const now = Date.now();
+    for (const [id, context] of this.contexts) {
+      if (now - context.lastSeen >= 120_000 || now < context.lastSeen) {
+        this.contexts.delete(id);
+        this.statsPerInstance.delete(id);
+      }
+    }
+    const context = this.contexts.get(instanceId) ?? { lastSeen: now };
+    context.lastSeen = now;
+    // Keep active instances in recency order with a bounded context cache.
+    this.contexts.delete(instanceId);
+    this.contexts.set(instanceId, context);
+    if (this.contexts.size > 64) {
+      const oldest = this.contexts.keys().next().value!;
+      this.contexts.delete(oldest);
+      this.statsPerInstance.delete(oldest);
+    }
+
     switch (msgType) {
       case WSJTXMessageType.Heartbeat:
-        // Heartbeat — no action needed (could track liveness)
+        // Activity keeps the unchanged per-instance status valid.
+        break;
+
+      case WSJTXMessageType.Close:
+        this.contexts.delete(instanceId);
+        this.statsPerInstance.delete(instanceId);
         break;
 
       case WSJTXMessageType.Status:
@@ -415,6 +440,9 @@ export class WSJTXListener {
       txDF,
     };
 
+    const context = this.contexts.get(instanceId);
+    if (context) context.status = status;
+
     for (const handler of this.statusHandlers) {
       try {
         handler(status, instanceId);
@@ -433,6 +461,9 @@ export class WSJTXListener {
     const mode = reader.readUtf8() ?? "";
     const message = reader.readUtf8() ?? "";
     const lowConfidence = reader.readBool();
+    const offAir = reader.remaining > 0 ? reader.readBool() : false;
+    const status = this.contexts.get(instanceId)?.status;
+    const hasDial = isNew && !offAir && status && Number.isSafeInteger(status.frequency) && status.frequency > 0;
 
     // Extract callsign and grid from the FT8/FT4 message text
     const { callsign, grid } = extractCallInfo(message);
@@ -444,6 +475,9 @@ export class WSJTXListener {
     recordDecode(this.statsPerInstance.get(instanceId)!, callsign);
 
     const decode: WSJTXDecode = {
+      receivedAt: Date.now(),
+      offAir,
+      ...(hasDial ? { dialFrequencyHz: status.frequency, dialMode: status.mode } : {}),
       isNew,
       time,
       snr,

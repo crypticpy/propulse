@@ -1,8 +1,10 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { beforeEach, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import type { LogEntry } from "@/lib/db/types";
 import { useMapStore } from "@/stores/mapStore";
+import { useRigStore } from "@/stores/rigStore";
+import { useSettingsStore } from "@/stores/settingsStore";
 import { RecentContactsReport } from "./RecentContactsReport";
 
 const mocks = vi.hoisted(() => ({
@@ -40,6 +42,12 @@ const contact: LogEntry = {
   createdAt: "2026-09-06T10:00:00Z",
   updatedAt: "2026-09-06T10:00:00Z",
 };
+const previousRig = useRigStore.getState();
+const previousSettings = useSettingsStore.getState();
+afterEach(() => {
+  useRigStore.setState(previousRig);
+  useSettingsStore.setState(previousSettings);
+});
 function draw() {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false, gcTime: 0 } },
@@ -51,6 +59,14 @@ function draw() {
   );
 }
 beforeEach(() => {
+  useSettingsStore.setState({ bridgeEnabled: true });
+  useRigStore.setState({
+    catEnabled: true,
+    bridgeConnected: true,
+    connected: true,
+    pendingFrequency: null,
+    pendingMode: null,
+  });
   mocks.read
     .mockReset()
     .mockResolvedValue({
@@ -58,6 +74,36 @@ beforeEach(() => {
       totalCount: 1,
       readAt: Date.parse("2026-09-06T12:00:00Z"),
     });
+});
+it("tunes logged contacts with their exact frequency and mode", async () => {
+  mocks.read.mockResolvedValue({
+    entries: [{ ...contact, frequency: 14074.125, mode: "CW" }],
+    totalCount: 1,
+    readAt: Date.now(),
+  });
+  draw();
+  const buttons = await screen.findAllByRole("button", {
+    name: "Tune 14.074125 MHz CW",
+  });
+  expect(buttons).toHaveLength(2);
+  fireEvent.click(buttons[0]);
+  expect(useRigStore.getState().pendingFrequency).toBe(14_074_125);
+  expect(useRigStore.getState().pendingMode).toBe("CW");
+});
+
+it("does not infer a tune frequency from the logged band", async () => {
+  mocks.read.mockResolvedValue({
+    entries: [{ ...contact, frequency: 0 }],
+    totalCount: 1,
+    readAt: Date.now(),
+  });
+  draw();
+  const buttons = await screen.findAllByRole("button", {
+    name: /Tune.*INVALID FREQUENCY/,
+  });
+  expect(buttons).toHaveLength(2);
+  expect(buttons[0]).toHaveProperty("disabled", true);
+  expect(useRigStore.getState().pendingFrequency).toBeNull();
 });
 it("shows a table twin, selects a day and targets only a valid logged location", async () => {
   draw();

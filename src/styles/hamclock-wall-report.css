@@ -595,6 +595,10 @@
   font-size: var(--hc-t-small);
   color: var(--hc-dim);
 }
+.hcr-contact-summary > .hcr-box {
+  padding-top: 1vh;
+  padding-bottom: 1vh;
+}
 .hcr-contact-day-control input {
   flex: 1 1 auto;
   min-width: 44px;

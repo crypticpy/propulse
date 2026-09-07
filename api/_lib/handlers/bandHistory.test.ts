@@ -34,7 +34,7 @@ it("bounds the existing aggregate query to six completed UTC hours and selected 
   const response = await handleSpotsBandHistory(request());
   expect(response.status).toBe(200);
   const url = new URL(String(fetcher.mock.calls[0][0]));
-  expect(url.pathname).toBe("/rest/v1/band_hourly_stats");
+  expect(url.pathname).toBe("/rest/v1/band_hourly_stats_readable");
   expect(url.searchParams.getAll("hour_utc")).toEqual([
     "gte.2026-09-06T14:00:00.000Z",
     "lt.2026-09-06T20:00:00.000Z",

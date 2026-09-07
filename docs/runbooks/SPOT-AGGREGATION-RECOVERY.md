@@ -1,6 +1,6 @@
 # Spot aggregation recovery
 
-Tracking: #584. This first slice protects aggregation against raw-spot expiry;
+Tracking: #584. These safeguards protect aggregation against raw-spot expiry;
 upstream delivery completeness and all-consumer coverage reporting remain open.
 
 ## Contract
@@ -65,9 +65,9 @@ a corrected collector is deployed; removing the gap ledger loses audit evidence.
 
 - Source delivery/coverage evidence to distinguish genuine zero, stale,
   incomplete and unavailable data across APIs, lists/maps and training consumers.
-- Make gap metadata authoritative in historical lookup consumers as well as
-  recovery. This slice does not invalidate pre-existing derived rows if a gap
-  is later discovered for their hour.
+- Extend gap-aware reading to any remaining direct training/archive consumers.
+  The path-lag reader, activity baselines and app band history quarantine known
+  gaps, including pre-existing derived rows; this is not a complete reader audit.
 - Deployed configuration and historical continuity audit, including any gaps
   produced before this guard existed and migration-ledger reconciliation.
 - A bounded longer recovery/archive policy if the model owner requires reports
@@ -75,3 +75,35 @@ a corrected collector is deployed; removing the gap ledger loses audit evidence.
 - Alerts before recoverable input expires, and explicit late-arrival cutoff
   behavior. The current guard prevents false recovery; it cannot resurrect raw
   data already deleted.
+
+## Gap-aware readers and baselines
+
+The reader follow-up migration supports the existing six-argument rate lookup
+and the deployed seven-argument lookup with its optional rate/quantile selector.
+It replaces only the installed signature and refuses ambiguous/missing contracts.
+A known path gap makes the affected lag unavailable even if a derived row already
+exists. It does not activate or alter a model.
+
+The baseline follow-up excludes known band/region gap hours before building the
+sample population. Counts remain live while baseline fields become null after a
+new gap, until a filtered rebuild succeeds. An identical gap report preserves
+its original timestamp; expanding a range legitimately invalidates the baseline.
+Gap writes and both baseline rebuilds share a dedicated transaction lock. Rebuilds
+require READ COMMITTED isolation so their post-lock query sees committed gaps;
+post-lock timestamps preserve invalidation when a gap is recorded after a rebuild.
+A lock timeout fails the operation for retry rather than publishing mixed state.
+
+The gap-aware band-history view omits suspect hours but preserves stored zeroes.
+The API still uses its existing missing-hour presentation and bounded query.
+
+Apply `20260907230000_spot_aggregation_recovery_baselines.sql` and verify its
+permissions/view **before merging the API route change**, because main deploys
+that route automatically. Verify the exact deployed function bodies against the
+reviewed originals before replacing them. Both SQL harnesses use isolated
+fixtures; after rollout, also verify the public history/count endpoints and the
+collector's next baseline refresh. Do not force a costly historical rebuild as
+part of an ordinary API smoke check.
+
+These guards quarantine known gaps. They do not prove that every upstream spot
+arrived, identify all historical gaps retrospectively, or turn a positives-only
+feed into evidence of unobserved propagation opportunities.

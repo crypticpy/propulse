@@ -164,7 +164,7 @@ describe("legacy capture and conversion", () => {
 
   it("requires lossless named profile conversion and passes copied baseline inputs", () => {
     const capture = captureLegacyViews(storage({ "propulse-custom-profiles": [{ id: "my-cw", name: "My CW" }] }), storage());
-    expect(() => convertLegacyViewCapture(capture, { ownerId: "a" })).toThrow("adapter is required");
+    expect(() => convertLegacyViewCapture(capture, { ownerId: "a" })).toThrow(); // malformed legacy filters
     expect(() => convertLegacyViewCapture(capture, { ownerId: "a", convertProfiles: () => [] })).toThrow("omitted entries");
     const adapter = vi.fn((profiles: readonly unknown[]) => profiles.map(() => ({ kind: "activity" as const, id: "my-cw", name: "My CW", version: 1, spots: createSpotPreferences() })));
     expect(() => convertLegacyViewCapture(capture, { ownerId: "a", convertProfiles: () => [{ kind: "activity", id: "different", name: "Changed", version: 1, spots: createSpotPreferences() }] })).toThrow("changed a valid identity");

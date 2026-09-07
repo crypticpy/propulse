@@ -5,6 +5,7 @@ import { normalizeMode } from "../../spots/presentation/modes";
 import { legacyObject, legacyState, type LegacyViewCapture } from "./legacyCapture";
 import { legacyMigrationPlanSchema, type LegacyMigrationPlan } from "./legacyMigration";
 import { migrateLegacyKioskPins } from "./legacyKioskMigration";
+import { convertCapturedOperatingProfiles } from "./legacyProfileConversion";
 import { viewDraftSchema, type ViewDraft } from "./schema";
 
 const FAMILIES = ["normal", "pro", "lite", "hamclock"] as const;
@@ -225,8 +226,13 @@ export function convertLegacyViewCapture(capture: LegacyViewCapture, options: Le
   const rawProfiles = capture.local["propulse-custom-profiles"];
   if (rawProfiles !== undefined && !Array.isArray(rawProfiles)) throw new Error("Invalid legacy profile library; no migration committed");
   const profiles = rawProfiles ?? [];
-  if (profiles.length && !options.convertProfiles) throw new Error("Legacy profile conversion adapter is required; no migration committed");
-  const presets = profiles.length ? options.convertProfiles!(structuredClone(profiles), structuredClone(configs.pro)) : [];
+  const converted = profiles.length
+    ? options.convertProfiles
+      ? { presets: options.convertProfiles(structuredClone(profiles), structuredClone(configs.pro)), warnings: [] }
+      : convertCapturedOperatingProfiles(profiles, configs.pro)
+    : { presets: [], warnings: [] };
+  const presets = converted.presets;
+  for (const warning of converted.warnings) warnings.add(warning);
   if (presets.length !== profiles.length) throw new Error("Legacy profile adapter omitted entries; no migration committed");
   for (const profile of profiles) {
     const id = legacyObject(profile).id;

@@ -900,7 +900,7 @@ function CheckboxOption({
         >
           {checked && (
             <svg
-              className="w-5 h-5 text-su-text"
+              className="w-5 h-5 text-su-on-accent"
               fill="none"
               viewBox="0 0 24 24"
               stroke="currentColor"

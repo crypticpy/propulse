@@ -50,7 +50,7 @@ export function FateWaterfallStrip({
   rowHeight,
 }: FateWaterfallStripProps) {
   return (
-    <div className="relative h-[80px] border-t border-su-line/40 bg-black shrink-0">
+    <div className="su-fixed-dark relative h-[80px] border-t border-su-line/40 bg-black shrink-0">
       <Waterfall
         frame={frame}
         view={view}

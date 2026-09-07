@@ -624,7 +624,7 @@ export function SatelliteDetailModal({
                 <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-xs">
                   <div className="col-span-2">
                     <span className="text-su-muted">AOS: </span>
-                    <span className="text-cyan-400 font-medium">
+                    <span className="text-cosmic-cyan font-medium">
                       {formatPassTime(nextPass)}
                     </span>
                     <span className="text-su-muted mx-1.5">·</span>
@@ -665,7 +665,7 @@ export function SatelliteDetailModal({
                 {satellite.isCustom && (
                   <div>
                     <span className="text-su-muted">Source: </span>
-                    <span className="text-purple-400">Custom TLE</span>
+                    <span className="text-aurora-purple">Custom TLE</span>
                   </div>
                 )}
                 {description?.orbitType && (

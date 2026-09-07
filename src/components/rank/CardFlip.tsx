@@ -157,7 +157,7 @@ export function CardFlip({
 
         {/* ---- Back face ---- */}
         <div
-          className="card-flip-face card-flip-face--back bg-[#0f1420] rounded-xl border border-su-line/40 overflow-hidden"
+          className="su-fixed-dark card-flip-face card-flip-face--back bg-[#0f1420] rounded-xl border border-su-line/40 overflow-hidden"
           style={{ position: "relative" }}
         >
           {backContent}

@@ -80,7 +80,7 @@ export function NowCastBandPanel({
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="flex min-w-0 items-start gap-2.5">
           <BrainCircuit
-            className="mt-0.5 h-5 w-5 shrink-0 text-cyan-300"
+            className="mt-0.5 h-5 w-5 shrink-0 text-cosmic-cyan"
             aria-hidden="true"
           />
           <div className="min-w-0">

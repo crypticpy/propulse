@@ -930,7 +930,7 @@ export function Waterfall({
   return (
     <div
       ref={containerRef}
-      className={`w-full h-full relative select-none ${className}`}
+      className={`su-fixed-dark w-full h-full relative select-none ${className}`}
       style={{ touchAction: "none" }}
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}

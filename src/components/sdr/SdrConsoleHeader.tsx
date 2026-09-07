@@ -57,7 +57,7 @@ export function SdrConsoleHeader({
   const isConnected = !!connectedDeviceId;
 
   return (
-    <div className="h-10 shrink-0 bg-[#0d0d14] border-b border-su-line/40 px-3 flex items-center gap-2 text-su-muted select-none">
+    <div className="su-fixed-dark h-10 shrink-0 bg-[#0d0d14] border-b border-su-line/40 px-3 flex items-center gap-2 text-su-muted select-none">
       {/* Title */}
       {!isMobile && (
         <h2 className="text-sm font-semibold text-su-text whitespace-nowrap mr-1">

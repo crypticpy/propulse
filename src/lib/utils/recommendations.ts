@@ -510,7 +510,7 @@ export function getStatusColorClass(
     case "excellent":
       return "text-signal-green";
     case "good":
-      return "text-emerald-400";
+      return "text-signal-green";
     case "fair":
       return "text-caution-amber";
     case "poor":

@@ -298,7 +298,7 @@ export function FateSkin(props: SdrSkinProps) {
   // ── Render ──────────────────────────────────────────────────────────────
 
   return (
-    <div className="flex flex-col h-full w-full bg-[#080810] text-su-text overflow-hidden select-none">
+    <div className="su-fixed-dark flex flex-col h-full w-full bg-[#080810] text-su-text overflow-hidden select-none">
       {/* Row 1: Top Bar */}
       <FateTopBar
         ft8DecoderEnabled={ft8DecoderEnabled}

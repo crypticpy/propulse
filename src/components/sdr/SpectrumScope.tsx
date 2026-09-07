@@ -1013,7 +1013,7 @@ export function SpectrumScope({
   return (
     <canvas
       ref={mergedRef}
-      className={`w-full h-full rounded-lg border border-su-line/40 bg-black touch-none ${className}`}
+      className={`su-fixed-dark w-full h-full rounded-lg border border-su-line/40 bg-black touch-none ${className}`}
     />
   );
 }

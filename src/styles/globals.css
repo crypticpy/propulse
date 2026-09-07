@@ -61,6 +61,25 @@
   --su-danger-rgb: 253 164 175;
 }
 
+/* Fixed-dark surfaces (SDR cockpit skins, spectrum/waterfall overlays,
+ * card backs) keep their near-black shells in every theme, so their su
+ * neutrals are pinned to the dark palette the way HamClock pins them
+ * (hamclock-themes.css). Tones and the accent still follow the user. */
+.su-fixed-dark {
+  --su-canvas: #141827;
+  --su-canvas-rgb: 20 24 39;
+  --su-panel: #191e2e;
+  --su-panel-rgb: 25 30 46;
+  --su-input: #111624;
+  --su-input-rgb: 17 22 36;
+  --su-text: #cad2dc;
+  --su-text-rgb: 202 210 220;
+  --su-muted: #a0abba;
+  --su-muted-rgb: 160 171 186;
+  --su-line: #637088;
+  --su-line-rgb: 99 112 136;
+}
+
 /* Settings → Text Size. useTextScale() writes data-text-scale on <html>; these
  * were declared in the never-imported design-tokens.css until DS-12, so the
  * control did nothing. Everything rem-based follows the root size. */

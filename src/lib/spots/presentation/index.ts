@@ -17,6 +17,7 @@ export {
 } from "./location";
 export {
   canonicalCallsign,
+  mergeDuplicateGroup,
   mergeDuplicateReports,
   observationKey,
   SOURCE_PRECEDENCE,
@@ -27,6 +28,7 @@ export {
   buildSpotPipelineStages,
   buildSpotSceneModel,
   defaultSpotFilters,
+  eligibleMatchingSources,
   intersectAuthorizedSources,
   isDefaultSpotFilters,
   normalizeLiveSpot,

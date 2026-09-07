@@ -124,47 +124,91 @@ export function preferReport(
   return compareReportsDeterministic(current, incoming) >= 0 ? current : incoming;
 }
 
+export const SOURCE_REF_LIMIT = 32;
+
 function sourceRefStamp(ref: NormalizedSpotReport["sourceRefs"][number]): string {
   return `${ref.source}:${ref.sourceReportId ?? ""}`;
 }
 
-export function mergeSourceRefs(
-  primary: NormalizedSpotReport,
-  other: NormalizedSpotReport,
+function compareSourceRefs(
+  left: NormalizedSpotReport["sourceRefs"][number],
+  right: NormalizedSpotReport["sourceRefs"][number],
+): number {
+  const rank = sourcePrecedenceRank(left.source) - sourcePrecedenceRank(right.source);
+  if (rank) return rank;
+  return (left.sourceReportId ?? "").localeCompare(right.sourceReportId ?? "");
+}
+
+function uniqueSortedSourceRefs(
+  reports: readonly NormalizedSpotReport[],
 ): NormalizedSpotReport["sourceRefs"] {
-  const merged = [...primary.sourceRefs, ...other.sourceRefs];
   const unique = new Map<string, NormalizedSpotReport["sourceRefs"][number]>();
-  for (const ref of merged) {
-    const stamp = sourceRefStamp(ref);
-    const existing = unique.get(stamp);
-    if (!existing || (ref.sourceReportId ?? "") < (existing.sourceReportId ?? "")) {
-      unique.set(stamp, ref);
+  for (const report of reports) {
+    for (const ref of report.sourceRefs) {
+      const stamp = sourceRefStamp(ref);
+      const existing = unique.get(stamp);
+      if (!existing || (ref.sourceReportId ?? "") < (existing.sourceReportId ?? "")) {
+        unique.set(stamp, ref);
+      }
     }
   }
-  const ordered = [...unique.values()].sort((left, right) => {
-    const rank = sourcePrecedenceRank(left.source) - sourcePrecedenceRank(right.source);
-    if (rank) return rank;
-    return (left.sourceReportId ?? "").localeCompare(right.sourceReportId ?? "");
-  });
-  const capped = ordered.slice(0, 32);
-  if (!capped.some((ref) => ref.source === primary.source && ref.sourceReportId === primary.sourceReportId)) {
-    const primaryRef = primary.sourceRefs.find((ref) =>
-      ref.source === primary.source && ref.sourceReportId === primary.sourceReportId,
-    ) ?? { source: primary.source, sourceReportId: primary.sourceReportId };
-    return [primaryRef, ...capped.filter((ref) => sourceRefStamp(ref) !== sourceRefStamp(primaryRef))].slice(0, 32);
+  return [...unique.values()].sort(compareSourceRefs);
+}
+
+/**
+ * Keep primary identity and at least one ref per contributing feed, then fill
+ * remaining slots in deterministic precedence/id order up to SOURCE_REF_LIMIT.
+ */
+export function mergeSourceRefs(
+  reports: readonly NormalizedSpotReport[],
+  primary: NormalizedSpotReport,
+): NormalizedSpotReport["sourceRefs"] {
+  const ordered = uniqueSortedSourceRefs(reports);
+  const primaryRef = ordered.find((ref) =>
+    ref.source === primary.source && ref.sourceReportId === primary.sourceReportId,
+  ) ?? { source: primary.source, sourceReportId: primary.sourceReportId };
+  const keep = new Set<string>();
+  const consider = (ref: NormalizedSpotReport["sourceRefs"][number]) => {
+    if (keep.size >= SOURCE_REF_LIMIT) return;
+    keep.add(sourceRefStamp(ref));
+  };
+  consider(primaryRef);
+  for (const source of SOURCE_PRECEDENCE) {
+    const first = ordered.find((ref) => ref.source === source);
+    if (first) consider(first);
   }
-  return capped;
+  for (const ref of ordered) consider(ref);
+  return ordered.filter((ref) => keep.has(sourceRefStamp(ref)));
+}
+
+function preferredFromGroup(reports: readonly NormalizedSpotReport[]): NormalizedSpotReport {
+  return reports.reduce((best, report) => preferReport(best, report));
+}
+
+function snrFromGroup(reports: readonly NormalizedSpotReport[]): number | null {
+  const values = reports
+    .map((report) => report.snrDb)
+    .filter((value): value is number => value !== null);
+  if (values.length === 0) return null;
+  return values.reduce((best, value) => (value > best ? value : best));
+}
+
+/** Choose once from the complete immutable duplicate set. Order of `reports` does not matter. */
+export function mergeDuplicateGroup(
+  reports: readonly NormalizedSpotReport[],
+): NormalizedSpotReport {
+  const preferred = preferredFromGroup(reports);
+  return {
+    ...preferred,
+    sourceRefs: mergeSourceRefs(reports, preferred),
+    snrDb: snrFromGroup(reports),
+  };
 }
 
 export function mergeDuplicateReports(
-  primary: NormalizedSpotReport,
-  duplicate: NormalizedSpotReport,
+  first: NormalizedSpotReport,
+  second: NormalizedSpotReport,
+  ...rest: NormalizedSpotReport[]
 ): NormalizedSpotReport {
-  const preferred = preferReport(primary, duplicate);
-  const other = preferred === primary ? duplicate : primary;
-  return {
-    ...preferred,
-    sourceRefs: mergeSourceRefs(preferred, other),
-    snrDb: preferred.snrDb ?? other.snrDb,
-  };
+  return mergeDuplicateGroup([first, second, ...rest]);
 }

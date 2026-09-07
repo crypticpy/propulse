@@ -18,7 +18,7 @@ import {
 } from "@/lib/views/spotContracts";
 import type { LiveSpot, SpotSource } from "@/types/livespot";
 import {
-  mergeDuplicateReports,
+  mergeDuplicateGroup,
   observationKey,
   stableReportId,
 } from "./identity";
@@ -124,6 +124,36 @@ export function intersectAuthorizedSources(
   return pool.filter((source) => allowed.has(source));
 }
 
+export function sourceIsEligible(
+  source: SpotSource,
+  operating: SpotPipelineOperatingContext | undefined,
+  authorizedSources: readonly SpotSource[],
+): boolean {
+  if (!authorizedSources.includes(source)) return false;
+  const policy = buildMapDataPolicy(
+    operating?.scope ?? "observe",
+    operating?.contestPublicAssistance ?? false,
+  );
+  return policyAllows(policy, "liveSpots", mapSpotSourceProvenance(source));
+}
+
+/** Sources that simultaneously satisfy selection, authorization, and operating policy. */
+export function eligibleMatchingSources(
+  report: NormalizedSpotReport,
+  selected: readonly SpotSource[],
+  authorizedSources: readonly SpotSource[],
+  operating?: SpotPipelineOperatingContext,
+): SpotSource[] {
+  const selectedAuthorized = new Set(intersectAuthorizedSources(selected, authorizedSources));
+  const seen = new Set<SpotSource>();
+  for (const ref of report.sourceRefs) {
+    if (selectedAuthorized.has(ref.source) && sourceIsEligible(ref.source, operating, authorizedSources)) {
+      seen.add(ref.source);
+    }
+  }
+  return [...seen];
+}
+
 export function normalizeLiveSpot(
   spot: LiveSpot,
   usedIds: Map<string, string>,
@@ -173,16 +203,17 @@ export function normalizeLiveSpot(
 
 export function deduplicateReports(reports: readonly NormalizedSpotReport[]): NormalizedSpotReport[] {
   const usedIds = new Map<string, string>();
-  const grouped = new Map<string, NormalizedSpotReport>();
+  const grouped = new Map<string, NormalizedSpotReport[]>();
   for (const report of reports) {
     const key = reportObservationKey(report);
-    const existing = grouped.get(key);
-    grouped.set(key, existing ? mergeDuplicateReports(existing, report) : report);
+    const group = grouped.get(key);
+    if (group) group.push(report);
+    else grouped.set(key, [report]);
   }
-  return [...grouped.values()].map((report) => ({
-    ...report,
-    id: stableReportId(reportObservationKey(report), usedIds),
-  }));
+  return [...grouped.values()].map((group) => {
+    const merged = mergeDuplicateGroup(group);
+    return { ...merged, id: stableReportId(reportObservationKey(merged), usedIds) };
+  });
 }
 
 export function reportMatchesFilters(
@@ -190,6 +221,7 @@ export function reportMatchesFilters(
   filters: SpotFilterPreferences,
   nowMs: number,
   authorizedSources: readonly SpotSource[],
+  operating?: SpotPipelineOperatingContext,
 ): boolean {
   const modes = normalizeModeSelection(filters.modes);
   if (!modeMatchesSelection(report.mode, modes)) return false;
@@ -197,25 +229,21 @@ export function reportMatchesFilters(
   if (bands.size > 0 && !bands.has(report.band.toLowerCase())) return false;
   const maxAgeMs = filters.maxAgeMinutes * 60_000;
   if (nowMs - report.observedAtMs > maxAgeMs) return false;
-  const allowed = new Set(intersectAuthorizedSources(filters.sources, authorizedSources));
-  return report.sourceRefs.some((ref) => allowed.has(ref.source));
+  return eligibleMatchingSources(report, filters.sources, authorizedSources, operating).length > 0;
 }
 
+/**
+ * Restricts to copies whose own source is authorized and in policy, then
+ * re-deduplicates so an ineligible primary cannot enrich a permitted duplicate.
+ * Pass pre-dedup `loaded` reports, not already-merged rows.
+ */
 export function applyOperatingScope(
   reports: readonly NormalizedSpotReport[],
   operating: SpotPipelineOperatingContext | undefined,
   authorizedSources: readonly SpotSource[] = ALL_SOURCES,
 ): NormalizedSpotReport[] {
-  const policy = buildMapDataPolicy(
-    operating?.scope ?? "observe",
-    operating?.contestPublicAssistance ?? false,
-  );
-  const authorized = new Set(authorizedSources);
-  return reports.filter((report) =>
-    report.sourceRefs.some((ref) =>
-      authorized.has(ref.source)
-      && policyAllows(policy, "liveSpots", mapSpotSourceProvenance(ref.source)),
-    ),
+  return deduplicateReports(
+    reports.filter((report) => sourceIsEligible(report.source, operating, authorizedSources)),
   );
 }
 
@@ -268,10 +296,11 @@ export function buildSpotPipelineStages(input: BuildSpotSceneInput): SpotPipelin
     .filter((report): report is NormalizedSpotReport => report !== null);
   const deduplicated = deduplicateReports(loaded).sort(compareNewestThenId);
   const authorized = input.authorizedSources ?? ALL_SOURCES;
-  const scopeEligible = applyOperatingScope(deduplicated, input.operating, authorized);
+  const scopeEligible = applyOperatingScope(loaded, input.operating, authorized)
+    .sort(compareNewestThenId);
   const preferences = input.preferences ?? createSpotPreferences();
   const matching = scopeEligible.filter((report) =>
-    reportMatchesFilters(report, preferences.filters, input.nowMs, authorized),
+    reportMatchesFilters(report, preferences.filters, input.nowMs, authorized, input.operating),
   );
   return { loaded, deduplicated, scopeEligible, matching };
 }

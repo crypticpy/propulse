@@ -6,7 +6,7 @@ import {
   createSpotLoadFixture,
   SPOT_FIXTURE_NOW_MS,
 } from "@/lib/views/fixtures";
-import { buildSpotPipelineStages, buildSpotSceneModel, pathDescriptorForReport } from "./pipeline";
+import { buildSpotPipelineStages, buildSpotSceneModel, pathDescriptorForReport, applyOperatingScope, reportMatchesFilters } from "./pipeline";
 import type { LiveSpot } from "@/types/livespot";
 
 function scene(observations: Parameters<typeof buildSpotSceneModel>[0]["observations"], overrides: Partial<Parameters<typeof buildSpotSceneModel>[0]> = {}) {
@@ -245,5 +245,55 @@ describe("spot presentation pipeline", () => {
     expect(result.counts.loaded).not.toBe(observations.length);
     expect(result.reports).toHaveLength(1);
     expect(result.reports[0]?.sourceReportId).toBe("valid");
+  });
+
+  it("requires one source ref to satisfy policy, authorization, and selection together", () => {
+    const authorized = ["PSKReporter", "RBN", "Cluster", "WSJT-X"] as const;
+    const observations = [
+      createSpotInput("psk-mixed", { source: "PSKReporter", dxLat: 40.4, dxLon: -3.7, snr: -5 }),
+      createSpotInput("wsjt-mixed", { source: "WSJT-X", dxLat: 41.2, dxLon: -3.8, snr: -20 }),
+    ];
+    const pskOnly = createSpotPreferences();
+    pskOnly.filters.sources = ["PSKReporter"];
+    const stages = buildSpotPipelineStages({
+      observations,
+      nowMs: SPOT_FIXTURE_NOW_MS,
+      authorizedSources: authorized,
+    });
+    const scoped = applyOperatingScope(stages.loaded, { scope: "log" }, authorized);
+    const matches = scoped.filter((report) =>
+      reportMatchesFilters(report, pskOnly.filters, SPOT_FIXTURE_NOW_MS, authorized, { scope: "log" }),
+    );
+    expect(matches).toHaveLength(0);
+
+    const logAll = scene(observations, { operating: { scope: "log" }, authorizedSources: authorized });
+    expect(logAll.counts.matching).toBe(1);
+    expect(logAll.reports[0]?.source).toBe("WSJT-X");
+    expect(logAll.reports[0]?.dx.location).toMatchObject({ coordinates: { lat: 41.2, lon: -3.8 } });
+    expect(logAll.reports[0]?.sourceRefs.every((ref) => ref.source === "WSJT-X")).toBe(true);
+
+    const logPsk = scene(observations, {
+      operating: { scope: "log" },
+      authorizedSources: authorized,
+      preferences: pskOnly,
+    });
+    expect(logPsk.counts.matching).toBe(0);
+    expect(logPsk.reports).toHaveLength(0);
+  });
+
+  it("keeps a capped contributing feed visible to source filters", () => {
+    const pskCopies = Array.from({ length: 32 }, (_, n) =>
+      createSpotInput(`psk-cap-${String(n).padStart(2, "0")}`, { snr: undefined }),
+    );
+    const rbn = createSpotInput("rbn-cap", { source: "RBN", snr: -5 });
+    const observations = [...pskCopies, rbn];
+    const rbnOnly = createSpotPreferences();
+    rbnOnly.filters.sources = ["RBN"];
+    const forward = scene(observations, { preferences: rbnOnly });
+    const reverse = scene([...observations].reverse(), { preferences: rbnOnly });
+    expect(forward.counts.matching).toBe(1);
+    expect(reverse.counts.matching).toBe(1);
+    expect(forward.reports[0]?.sourceRefs.some((ref) => ref.source === "RBN")).toBe(true);
+    expect(forward.reports.map((report) => report.id)).toEqual(reverse.reports.map((report) => report.id));
   });
 });

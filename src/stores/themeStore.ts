@@ -13,6 +13,7 @@ import {
   getAccentPreset,
   applyThemeToDocument,
 } from "@/lib/themes";
+import { useSettingsStore } from "@/stores/settingsStore";
 
 interface ThemeState {
   themeId: ThemeId;
@@ -62,13 +63,19 @@ function applyCurrentTheme(state: ThemeState) {
     accent = getAccentPreset(state.accentId);
   }
 
-  applyThemeToDocument(theme, accent);
+  // Colour-blind mode is part of every theme write, not a later overlay: the
+  // tone tokens it swaps are inline styles on <html>, so re-applying the theme
+  // without it would silently undo the swap.
+  applyThemeToDocument(
+    theme,
+    accent,
+    useSettingsStore.getState().colorBlindMode ?? "none",
+  );
 }
 
 const persisted = loadPersistedTheme();
 
 export const useThemeStore = create<ThemeState>((set, get) => {
-  // Apply initial theme on store creation
   const initialState: ThemeState = {
     themeId: (persisted.themeId as ThemeId) || "dark",
     accentId: persisted.accentId || "plasma",
@@ -78,11 +85,6 @@ export const useThemeStore = create<ThemeState>((set, get) => {
     setAccent: () => {},
     setCustomColors: () => {},
   };
-
-  // Schedule initial theme application
-  if (typeof window !== "undefined") {
-    setTimeout(() => applyCurrentTheme(get()), 0);
-  }
 
   return {
     ...initialState,
@@ -125,6 +127,14 @@ export const useThemeStore = create<ThemeState>((set, get) => {
   };
 });
 
+// Apply the persisted theme synchronously at module scope. Deferring this to a
+// setTimeout used to race anything that reads or re-writes the --su-* tokens on
+// first paint (useColorBlindMode's effect, most visibly), and left one frame of
+// the globals.css fallback palette on screen.
+if (typeof document !== "undefined") {
+  applyCurrentTheme(useThemeStore.getState());
+}
+
 // Listen for storage changes to sync across tabs
 if (typeof window !== "undefined") {
   window.addEventListener("storage", (e) => {
@@ -148,3 +158,13 @@ if (typeof window !== "undefined") {
 // Selectors
 export const selectThemeId = (state: ThemeState) => state.themeId;
 export const selectAccentId = (state: ThemeState) => state.accentId;
+
+/**
+ * Re-run applyThemeToDocument for the current theme/accent without changing
+ * theme state. Used by useColorBlindMode when the mode changes: the swapped
+ * tone tokens are emitted by applyThemeToDocument itself, so one re-apply is
+ * the whole update.
+ */
+export function reapplyTheme() {
+  applyCurrentTheme(useThemeStore.getState());
+}

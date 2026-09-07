@@ -365,7 +365,7 @@ export function PropagationForecast({
                   y1={MARGIN.top - 4}
                   x2={MARGIN.left + currentHour * CELL_WIDTH + CELL_WIDTH / 2}
                   y2={CHART_HEIGHT - MARGIN.bottom + 4}
-                  stroke="#ff6b35"
+                  stroke="var(--su-accent)"
                   strokeWidth={2}
                   strokeLinecap="round"
                 />
@@ -376,7 +376,7 @@ export function PropagationForecast({
                     ${MARGIN.left + currentHour * CELL_WIDTH + CELL_WIDTH / 2 + 4},${MARGIN.top - 8}
                     ${MARGIN.left + currentHour * CELL_WIDTH + CELL_WIDTH / 2},${MARGIN.top - 2}
                   `}
-                  fill="#ff6b35"
+                  fill="var(--su-accent)"
                 />
               </g>
 
@@ -397,28 +397,28 @@ export function PropagationForecast({
             <div className="flex items-center gap-1">
               <div
                 className="w-2.5 h-2.5 rounded-sm"
-                style={{ background: "#00ff88" }}
+                style={{ background: "var(--su-success)" }}
               />
               <span className="text-gray-500">Excellent</span>
             </div>
             <div className="flex items-center gap-1">
               <div
                 className="w-2.5 h-2.5 rounded-sm"
-                style={{ background: "#44dd66" }}
+                style={{ background: "rgb(var(--su-success-rgb) / 0.6)" }}
               />
               <span className="text-gray-500">Good</span>
             </div>
             <div className="flex items-center gap-1">
               <div
                 className="w-2.5 h-2.5 rounded-sm"
-                style={{ background: "#ffaa00" }}
+                style={{ background: "var(--su-warning)" }}
               />
               <span className="text-gray-500">Fair</span>
             </div>
             <div className="flex items-center gap-1">
               <div
                 className="w-2.5 h-2.5 rounded-sm"
-                style={{ background: "#ff4455" }}
+                style={{ background: "var(--su-danger)" }}
               />
               <span className="text-gray-500">Poor</span>
             </div>

@@ -4,32 +4,49 @@ export default {
   theme: {
     extend: {
       colors: {
-        // Primary palette
-        "plasma-orange":
-          "rgb(var(--theme-accent-primary-rgb, 255 107 53) / <alpha-value>)",
-        "signal-green":
-          "rgb(var(--theme-accent-secondary-rgb, 0 255 136) / <alpha-value>)",
-        "caution-amber":
-          "rgb(var(--color-caution-rgb, 255 210 63) / <alpha-value>)",
-        "caution-yellow":
-          "rgb(var(--color-caution-rgb, 255 210 63) / <alpha-value>)",
-        "alert-red": "rgb(var(--color-alert-rgb, 255 68 85) / <alpha-value>)",
+        // Primary palette — aliased onto the unified station tokens
+        // (--su-*) so PropSphere and every remaining page share one
+        // palette with Solar/Home. See docs/designs/design-system/README.md.
+        //
+        // These aliases carry no hex fallback: globals.css declares every
+        // --su-*-rgb on :root as the documented pre-JS fallback, so a second
+        // copy here would be a fourth place the palette could drift — and it
+        // is repeated in every emitted utility, which cost ~5 kB of shipped
+        // CSS. The `su` namespace below keeps DS-02's fallbacks as they are.
+        "plasma-orange": "rgb(var(--su-accent-rgb) / <alpha-value>)",
+        "signal-green": "rgb(var(--su-success-rgb) / <alpha-value>)",
+        "caution-amber": "rgb(var(--su-warning-rgb) / <alpha-value>)",
+        "caution-yellow": "rgb(var(--su-warning-rgb) / <alpha-value>)",
+        "alert-red": "rgb(var(--su-danger-rgb) / <alpha-value>)",
         "aurora-purple": "#aa44ff",
-        "cosmic-cyan": "#44ddff",
+        "cosmic-cyan": "rgb(var(--su-info-rgb) / <alpha-value>)",
 
-        // Background colors
-        "deep-space": "#0a0a1a",
-        "nebula-blue": "#1a1a2e",
-        void: "#16213e",
-        "void-black": "#0d1527",
-        panel: "#0f0f23",
-        "space-900": "#0a0e1a",
+        // Background colors. Six legacy darks collapse onto the three station
+        // surface roles, keeping their relative depth: `space-900`/`void-black`
+        // were the darkest, so they take the darkest role (`--su-input`);
+        // `deep-space` and `void` are the page background (`--su-canvas`);
+        // `panel` and `nebula-blue` are card/surface colours (`--su-panel`).
+        // `void` points at `--su-canvas` rather than `--su-panel` so
+        // `from-nebula-blue to-void` gradients keep two distinct stops instead
+        // of flattening. Multi-stop gradients built from names that still
+        // share one role (for example `from-panel via-nebula-blue`) still
+        // flatten — acceptable, and the page/surface/well ordering that
+        // layout depends on is preserved.
+        "deep-space": "rgb(var(--su-canvas-rgb) / <alpha-value>)",
+        "nebula-blue": "rgb(var(--su-panel-rgb) / <alpha-value>)",
+        void: "rgb(var(--su-canvas-rgb) / <alpha-value>)",
+        "void-black": "rgb(var(--su-input-rgb) / <alpha-value>)",
+        panel: "rgb(var(--su-panel-rgb) / <alpha-value>)",
+        "space-900": "rgb(var(--su-input-rgb) / <alpha-value>)",
 
-        // Condition colors (CSS-variable-driven for color blind mode)
-        excellent: "rgb(var(--color-excellent-rgb, 0 255 136) / <alpha-value>)",
-        good: "rgb(var(--color-good-rgb, 68 221 102) / <alpha-value>)",
-        fair: "rgb(var(--color-fair-rgb, 255 170 0) / <alpha-value>)",
-        poor: "rgb(var(--color-poor-rgb, 255 68 85) / <alpha-value>)",
+        // Condition colors — aliased onto the su- tones (same style as
+        // `signal-green`/`caution-amber`/`alert-red` above). The `--color-*-rgb`
+        // variables they used to read never ship: src/styles/design-tokens.css
+        // is not imported (tracked in #533). Only `good` is used in src/ today.
+        excellent: "rgb(var(--su-success-rgb) / <alpha-value>)",
+        good: "rgb(var(--su-success-rgb) / <alpha-value>)",
+        fair: "rgb(var(--su-warning-rgb) / <alpha-value>)",
+        poor: "rgb(var(--su-danger-rgb) / <alpha-value>)",
 
         // Additional accents
         "sunspot-blue": "#3a86ff",
@@ -64,7 +81,7 @@ export default {
       },
       backgroundImage: {
         "cosmic-gradient":
-          "linear-gradient(135deg, #0a0a1a 0%, #1a1a2e 50%, #16213e 100%)",
+          "linear-gradient(135deg, rgb(var(--su-canvas-rgb)) 0%, rgb(var(--su-panel-rgb)) 50%, rgb(var(--su-canvas-rgb)) 100%)",
         "title-gradient": "linear-gradient(135deg, #ff6b35 0%, #ffd23f 100%)",
         "glow-orange":
           "radial-gradient(circle at 30% 20%, rgba(255, 107, 53, 0.1) 0%, transparent 50%)",
@@ -104,7 +121,7 @@ export default {
       },
       boxShadow: {
         "glow-orange": "0 0 20px rgba(255, 107, 53, 0.3)",
-        "glow-green": "0 0 20px rgba(0, 255, 136, 0.3)",
+        "glow-green": "0 0 20px rgb(var(--su-success-rgb) / 0.3)",
         card: "0 4px 20px rgba(0, 0, 0, 0.3)",
       },
     },

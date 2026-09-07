@@ -3,7 +3,6 @@ import { DetailModal } from "@/components/ui/DetailModal";
 import { Badge, type BadgeStatus } from "@/components/ui/Badge";
 import { calculateBandConditions } from "@/lib/utils/bands";
 import { useTimeFormat } from "@/hooks/useTimeFormat";
-import { fixedDarkSurfaceTokens } from "@/lib/themes/stationTokens";
 import type { BandCondition, VHFCondition } from "@/types/solar";
 
 export interface BandConditionsModalProps {
@@ -222,10 +221,7 @@ export const BandConditionsModal: React.FC<BandConditionsModalProps> = ({
         subtitle="Complete band analysis and propagation guide"
         size="full"
       >
-        <div
-          className="text-center py-12 text-su-muted/80"
-          style={fixedDarkSurfaceTokens}
-        >
+        <div className="text-center py-12 text-su-muted/80">
           Solar data unavailable — cannot calculate band conditions.
         </div>
       </DetailModal>
@@ -246,10 +242,7 @@ export const BandConditionsModal: React.FC<BandConditionsModalProps> = ({
       subtitle="Complete band analysis and propagation guide"
       size="full"
     >
-      {/* DetailModal renders on AccessibleDialog's fixed dark panel, so the
-          su- tokens below are pinned to the dark palette instead of following
-          the app theme, which would be unreadable there in the light theme. */}
-      <div className="space-y-6" style={fixedDarkSurfaceTokens}>
+      <div className="space-y-6">
         {/* Current Indices */}
         <div className="flex flex-wrap gap-4">
           <div className="bg-su-panel/60 rounded-lg px-4 py-3 border border-su-line/20">

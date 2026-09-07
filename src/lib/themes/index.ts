@@ -4,7 +4,13 @@
  * Defines available themes and utilities for applying them.
  */
 
-import { stationTokens } from "./stationTokens";
+import type { ColorBlindMode } from "./colorblind";
+import {
+  DEFAULT_ACCENT_HEX,
+  hexToChannels,
+  stationPalettes,
+  stationTokens,
+} from "./stationTokens";
 
 export interface ThemeColors {
   bgPrimary: string;
@@ -35,74 +41,63 @@ export interface AccentColor {
   secondary: string;
 }
 
+/**
+ * Legacy `Theme.colors` metadata, derived from the station palette rather than
+ * kept as a second copy of it: `applyThemeToDocument` paints from
+ * `stationPalettes`, and the Settings theme swatch
+ * (`AppearanceSection.tsx`) renders `theme.colors.bgPrimary`, so a hand-written
+ * hex here would preview a colour other than the one selecting it applies.
+ * `accentPrimary` is the per-theme default accent (the fallback when no accent
+ * is passed); `accentSecondary` has no rendered consumer left — see the note on
+ * `--theme-accent-secondary` below.
+ */
+function paletteColors(
+  id: ThemeId,
+  accentPrimary: string,
+  accentSecondary: string,
+): ThemeColors {
+  const palette = stationPalettes[id];
+  return {
+    bgPrimary: palette.canvas,
+    bgSecondary: palette.panel,
+    bgPanel: palette.panel,
+    textPrimary: palette.text,
+    textSecondary: palette.muted,
+    accentPrimary,
+    accentSecondary,
+    border: palette.line,
+    glow: palette.info,
+  };
+}
+
 export const THEMES: Theme[] = [
   {
     id: "dark",
     name: "Dark",
     description: "Default dark theme with vibrant accents",
     isDark: true,
-    colors: {
-      bgPrimary: "#0a0a1a",
-      bgSecondary: "#1a1a2e",
-      bgPanel: "rgba(20, 28, 46, 0.95)",
-      textPrimary: "#ffffff",
-      textSecondary: "#94a3b8",
-      accentPrimary: "#ff6b35",
-      accentSecondary: "#00ff88",
-      border: "rgba(255, 255, 255, 0.1)",
-      glow: "rgba(255, 107, 53, 0.3)",
-    },
+    colors: paletteColors("dark", "#ff6b35", "#00ff88"),
   },
   {
     id: "light",
     name: "Light",
     description: "Light theme for daytime use",
     isDark: false,
-    colors: {
-      bgPrimary: "#f8fafc",
-      bgSecondary: "#e2e8f0",
-      bgPanel: "rgba(255, 255, 255, 0.95)",
-      textPrimary: "#1e293b",
-      textSecondary: "#64748b",
-      accentPrimary: "#ea580c",
-      accentSecondary: "#0891b2",
-      border: "rgba(0, 0, 0, 0.1)",
-      glow: "rgba(234, 88, 12, 0.2)",
-    },
+    colors: paletteColors("light", "#ea580c", "#0891b2"),
   },
   {
     id: "high-contrast",
     name: "High Contrast",
     description: "Maximum readability with strong contrast",
     isDark: true,
-    colors: {
-      bgPrimary: "#000000",
-      bgSecondary: "#1a1a1a",
-      bgPanel: "rgba(0, 0, 0, 0.98)",
-      textPrimary: "#ffffff",
-      textSecondary: "#cccccc",
-      accentPrimary: "#ffaa00",
-      accentSecondary: "#00ffff",
-      border: "rgba(255, 255, 255, 0.3)",
-      glow: "rgba(255, 170, 0, 0.4)",
-    },
+    colors: paletteColors("high-contrast", "#ffaa00", "#00ffff"),
   },
   {
     id: "midnight",
     name: "Midnight",
     description: "Extra dark with muted colors",
     isDark: true,
-    colors: {
-      bgPrimary: "#050510",
-      bgSecondary: "#0f0f1f",
-      bgPanel: "rgba(10, 10, 25, 0.95)",
-      textPrimary: "#d1d5db",
-      textSecondary: "#6b7280",
-      accentPrimary: "#c084fc",
-      accentSecondary: "#22d3ee",
-      border: "rgba(255, 255, 255, 0.05)",
-      glow: "rgba(192, 132, 252, 0.2)",
-    },
+    colors: paletteColors("midnight", "#c084fc", "#22d3ee"),
   },
 ];
 
@@ -146,45 +141,56 @@ export function getAccentPreset(id: string): AccentColor {
 }
 
 /**
- * Convert a hex color (#rrggbb or #rgb) to space-separated RGB channels.
- * e.g. "#ff6b35" -> "255 107 53"
- * Used so Tailwind can apply opacity modifiers: rgb(var(--channel) / <alpha>)
+ * Write the active theme onto `<html>`: the station tokens (`--su-*` plus
+ * their `-rgb` triplets), the legacy `--theme-*` vars derived from the same
+ * palette, and the `dark`/`light` class.
+ *
+ * `colorBlindMode` is applied here, as part of the same write, because the
+ * tone tokens it swaps (`--su-success`/`-warning`/`-danger`) are inline styles
+ * on `<html>`: a separate CSS rule could never outrank them, and a separate
+ * second pass would be undone by the next theme or accent change.
  */
-function hexToRgbChannels(hex: string): string {
-  let h = hex.replace("#", "");
-  if (h.length === 3) {
-    h = h[0] + h[0] + h[1] + h[1] + h[2] + h[2];
-  }
-  const r = parseInt(h.slice(0, 2), 16);
-  const g = parseInt(h.slice(2, 4), 16);
-  const b = parseInt(h.slice(4, 6), 16);
-  return `${r} ${g} ${b}`;
-}
-
-export function applyThemeToDocument(theme: Theme, accent?: AccentColor): void {
+export function applyThemeToDocument(
+  theme: Theme,
+  accent?: AccentColor,
+  colorBlindMode: ColorBlindMode = "none",
+): void {
   const root = document.documentElement;
   const { colors } = theme;
-  const accentPrimary = accent?.primary || colors.accentPrimary;
-  const accentSecondary = accent?.secondary || colors.accentSecondary;
+  const requestedAccent = accent?.primary || colors.accentPrimary;
+  // Normalised once so the --theme-* derivation below and the --su-* tokens
+  // stationTokens() emits can never disagree about what a malformed
+  // persisted accent falls back to.
+  const accentPrimary = /^#[0-9a-f]{6}$/i.test(requestedAccent)
+    ? requestedAccent
+    : DEFAULT_ACCENT_HEX;
+  // No station role maps to a "secondary" accent, so the legacy
+  // --theme-accent-secondary var (Settings' "Secondary Color" control, and
+  // anything still reading it) keeps the chosen accent's own secondary and
+  // falls back to the palette's info role rather than a hard-coded hex.
+  const palette = stationPalettes[theme.id];
+  const accentSecondary = accent?.secondary || palette.info;
 
-  root.style.setProperty("--theme-bg-primary", colors.bgPrimary);
-  root.style.setProperty("--theme-bg-secondary", colors.bgSecondary);
-  root.style.setProperty("--theme-bg-panel", colors.bgPanel);
-  root.style.setProperty("--theme-text-primary", colors.textPrimary);
-  root.style.setProperty("--theme-text-secondary", colors.textSecondary);
+  // Legacy --theme-* vars, derived from the same station palette/accent as
+  // the --su-* tokens below so the two systems agree instead of drifting.
+  root.style.setProperty("--theme-bg-primary", palette.canvas);
+  root.style.setProperty("--theme-bg-secondary", palette.panel);
+  root.style.setProperty("--theme-bg-panel", "rgb(var(--su-panel-rgb) / 0.95)");
+  root.style.setProperty("--theme-text-primary", palette.text);
+  root.style.setProperty("--theme-text-secondary", palette.muted);
   root.style.setProperty("--theme-accent-primary", accentPrimary);
   root.style.setProperty("--theme-accent-secondary", accentSecondary);
-  root.style.setProperty("--theme-border", colors.border);
-  root.style.setProperty("--theme-glow", colors.glow);
+  root.style.setProperty("--theme-border", "rgb(var(--su-line-rgb) / 0.4)");
+  root.style.setProperty("--theme-glow", "rgb(var(--su-accent-rgb) / 0.3)");
 
   // RGB channel variables for Tailwind opacity modifier support
   root.style.setProperty(
     "--theme-accent-primary-rgb",
-    hexToRgbChannels(accentPrimary),
+    hexToChannels(accentPrimary),
   );
   root.style.setProperty(
     "--theme-accent-secondary-rgb",
-    hexToRgbChannels(accentSecondary),
+    hexToChannels(accentSecondary),
   );
 
   // Station design tokens (--su-*) on the document root, so `su-` Tailwind
@@ -192,7 +198,7 @@ export function applyThemeToDocument(theme: Theme, accent?: AccentColor): void {
   // inline on its `.station-ui` element, which wins over the root, so local
   // `theme`/`accent` overrides keep working.
   for (const [name, value] of Object.entries(
-    stationTokens(theme.id, accentPrimary),
+    stationTokens(theme.id, accentPrimary, colorBlindMode),
   )) {
     if (!name.startsWith("--su-") || typeof value !== "string") continue;
     root.style.setProperty(name, value);

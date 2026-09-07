@@ -1,7 +1,6 @@
 import { formatUtc, hasData, sourceProps } from "@/components/solar/presentation";
 import { lazy, Suspense, useMemo, useState } from "react";
 import { AccessibleDialog } from "@/components/ui";
-import { fixedDarkSurfaceTokens } from "@/lib/themes/stationTokens";
 import { SolarBriefingNotice } from "@/components/solar/SolarBriefingNotice";
 import { SolarOperatingActions } from "@/components/solar/SolarOperatingActions";
 import { useSolarDisclosureState } from "@/hooks/useSolarDisclosureState";
@@ -402,14 +401,10 @@ export function SolarPulse() {
 }
 
 function SolarModalHost({ modal, onClose }: { modal: ModalState; onClose: () => void }) {
-  // AccessibleDialog's chrome is a fixed dark panel, so the su- tokens inside it
-  // are pinned to the dark palette rather than following the app theme; in the
-  // light theme they would otherwise land at roughly 2.4:1 on that panel.
-  const panelProps = { style: fixedDarkSurfaceTokens };
   if (!modal) return null;
   if (modal.kind === "alert") {
     return (
-      <AccessibleDialog panelProps={panelProps} open onClose={onClose} title={modal.alert.title} description={`Official SWPC ${modal.alert.severity} · issued ${formatUtc(modal.alert.issued_at)}`} size="lg">
+      <AccessibleDialog open onClose={onClose} title={modal.alert.title} description={`Official SWPC ${modal.alert.severity} · issued ${formatUtc(modal.alert.issued_at)}`} size="lg">
         <pre className="whitespace-pre-wrap break-words font-sans text-sm leading-6 text-su-muted">{modal.alert.message}</pre>
       </AccessibleDialog>
     );
@@ -422,7 +417,7 @@ function SolarModalHost({ modal, onClose }: { modal: ModalState; onClose: () => 
       xray: ["GOES long X-ray channel", "This GOES channel measures solar X-rays at 0.1–0.8 nm. M- and X-class activity can increase absorption on the sunlit side of Earth. Inspect the X-ray history and D-RAP map, then evaluate the illumination and frequency of your own path."],
     } as const;
     return (
-      <AccessibleDialog panelProps={panelProps} open onClose={onClose} title={content[modal.metric][0]} description="What it means for radio and what to check next" size="md">
+      <AccessibleDialog open onClose={onClose} title={content[modal.metric][0]} description="What it means for radio and what to check next" size="md">
         <p className="text-sm leading-7 text-su-muted">{content[modal.metric][1]}</p>
       </AccessibleDialog>
     );
@@ -430,7 +425,7 @@ function SolarModalHost({ modal, onClose }: { modal: ModalState; onClose: () => 
   const product = SOLAR_IMAGE_PRODUCTS[modal.productId];
   if (modal.kind === "animation" && product.animation) {
     return (
-      <AccessibleDialog panelProps={panelProps} open onClose={onClose} title={`${product.title} timeline`} description={`${product.description} Frames load only while this dialog is open.`} size="xl">
+      <AccessibleDialog open onClose={onClose} title={`${product.title} timeline`} description={`${product.description} Frames load only while this dialog is open.`} size="xl">
         <Suspense fallback={<p role="status" className="py-12 text-center text-sm text-su-muted">Loading timeline controls…</p>}>
           <SolarAnimationPlayer animationId={product.animation} thumbnailProductId={modal.productId} alt={product.alt} />
         </Suspense>
@@ -438,7 +433,7 @@ function SolarModalHost({ modal, onClose }: { modal: ModalState; onClose: () => 
     );
   }
   return (
-    <AccessibleDialog panelProps={panelProps} open onClose={onClose} title={product.title} description={product.description} size="xl">
+    <AccessibleDialog open onClose={onClose} title={product.title} description={product.description} size="xl">
       <SolarImageDetail productId={modal.productId} />
     </AccessibleDialog>
   );

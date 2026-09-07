@@ -37,7 +37,7 @@ export function TuneButton({ frequencyKHz, mode, wall }: TuneButtonProps) {
   };
   const content = <>TUNE {target}{reason && <span> · {reason}</span>}</>;
   return (wall ?? wallLayout) ? <HamClockButton {...props} data-hamclock-theme={theme}>{content}</HamClockButton> : (
-    <button type="button" {...props} className="min-h-11 min-w-11 inline-flex items-center justify-center gap-1 rounded-md border border-white/15 bg-white/5 px-3 py-2 font-mono text-xs text-cyan-300 disabled:cursor-not-allowed disabled:text-gray-400">
+    <button type="button" {...props} className="min-h-11 min-w-11 inline-flex items-center justify-center gap-1 rounded-md border border-su-line bg-su-panel px-3 py-2 font-mono text-xs text-su-accent disabled:cursor-not-allowed disabled:text-su-muted">
       {content}
     </button>
   );

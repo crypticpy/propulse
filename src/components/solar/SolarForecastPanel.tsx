@@ -54,16 +54,16 @@ export function SolarForecastPanel({ resources, current }: Pick<Model, "resource
           <WidgetShell title="Three-day outlook" timestampLabel="Issued" eyebrow="Official NOAA forecast" {...sourceProps(resources.forecast)}>
             {resources.forecast.data && (
               <div className="grid gap-3 sm:grid-cols-3">
-                {resources.forecast.data.forecast.map((day) => <article key={day.date} className="rounded-xl border border-su-line/40 bg-su-panel/70 p-4 xl:grid xl:grid-cols-[auto_auto_minmax(0,1fr)_auto] xl:items-center xl:gap-x-6">
+                {resources.forecast.data.forecast.map((day) => <article key={day.date} className="rounded-xl border border-su-line/40 bg-su-panel/70 p-4">
                   <div>
                     <h3 className="text-sm font-semibold text-su-text">{new Date(day.date).toLocaleDateString(undefined, { timeZone: "UTC", weekday: "short", month: "short", day: "numeric" })}</h3>
-                    <p className="mt-2 text-xs text-su-muted xl:mt-1">Valid {day.date.slice(0, 10)} UTC · full day</p>
+                    <p className="mt-2 text-xs text-su-muted">Valid {day.date.slice(0, 10)} UTC · full day</p>
                   </div>
-                  <div className="mt-3 flex gap-4 xl:mt-0">
+                  <div className="mt-3 flex gap-4">
                     <p className="text-xs text-su-muted">Predicted SFI <strong className="block font-mono text-xl text-su-info">{day.predicted_flux} sfu</strong></p>
                     <p className="text-xs text-su-muted">Predicted planetary A <strong className="block font-mono text-base text-su-warning">{day.predicted_planetary_a}</strong></p>
                   </div>
-                  <div className="min-w-0 xl:flex-1">
+                  <div className="mt-3 min-w-0">
                     <SolarMiniChart
                       label="Predicted Kp through the UTC day"
                       points={current.predictedKp.map(point => ({ timestamp: point.time_tag, value: point.kp, kind: point.kind }))}
@@ -72,7 +72,7 @@ export function SolarForecastPanel({ resources, current }: Pick<Model, "resource
                     />
                     {resources.kp.state === "stale" && <p className="mt-1 text-xs text-su-warning">Kp forecast update delayed.</p>}
                   </div>
-                  <div className="xl:flex xl:justify-end">
+                  <div className="mt-3">
                     <SolarOperatingActions compact at={`${day.date.slice(0, 10)}T12:00:00Z`} />
                   </div>
                 </article>)}

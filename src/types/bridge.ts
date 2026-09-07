@@ -381,6 +381,7 @@ export interface ClusterStatusPayload {
  * WSJT-X application status payload
  */
 export interface WSJTXStatusPayload {
+  instanceId?: string;
   frequency: number; // Hz
   mode: string;
   dxCall?: string;
@@ -395,6 +396,11 @@ export interface WSJTXStatusPayload {
  * WSJT-X decoded message payload
  */
 export interface WSJTXDecodePayload {
+  instanceId?: string;
+  receivedAt?: number;
+  dialFrequencyHz?: number;
+  dialMode?: string;
+  offAir?: boolean;
   isNew: boolean;
   time: number; // ms since midnight
   snr: number;

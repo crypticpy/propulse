@@ -1,9 +1,10 @@
 import { act, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, expect, it, vi } from "vitest";
 import { useMapStore } from "@/stores/mapStore";
+import { useMapSpotFeed } from "@/hooks/useMapSpotFeed";
 import { SpotsTab } from "./SpotsTab";
 vi.mock("@/hooks/useMapSpotFeed", () => ({
-  useMapSpotFeed: () => ({ sourceStates: { PSKReporter: "STALE", RBN: "UNAVAILABLE", "WSJT-X": "BRIDGE OFF" } }),
+  useMapSpotFeed: vi.fn(() => ({ sourceStates: { PSKReporter: "STALE", RBN: "UNAVAILABLE", "WSJT-X": "BRIDGE OFF" } })),
 }));
 const initial = useMapStore.getState();
 afterEach(() => { useMapStore.setState(initial); localStorage.removeItem("propulse-spot-age-minutes"); });
@@ -47,4 +48,11 @@ it("changes map age by keyboard, persists it, and exposes source state", () => {
   expect(screen.getByLabelText("Map spot sources").textContent).toContain("PSK STALE · RBN UNAVAILABLE");
   act(() => useMapStore.getState().setSpotAgeMinutes(1440));
   expect(useMapStore.getState().spotAgeMinutes).toBe(30);
+});
+
+
+it("observes source status when only the globe spectrum ring needs live spots", () => {
+  useMapStore.setState({ layers: { ...initial.layers, spots: false, spotTraces: false, gridActivity: false, spectrumRing: true } });
+  render(<SpotsTab />);
+  expect(useMapSpotFeed).toHaveBeenLastCalledWith(expect.objectContaining({ enabled: true }));
 });

@@ -174,6 +174,7 @@ describe("Solar Pulse structural snapshot (DS-03 retheme)", () => {
         summary="Explore solar history"
         open={false}
         onToggle={() => {}}
+        accent="info"
       >
         <p>Body</p>
       </SolarDisclosure>,
@@ -186,6 +187,7 @@ describe("Solar Pulse structural snapshot (DS-03 retheme)", () => {
         summary="Explore solar history"
         open
         onToggle={() => {}}
+        accent="info"
       >
         <p>Body</p>
       </SolarDisclosure>,

@@ -708,3 +708,65 @@ PR #561 merged as `6e6dd060`: Recent Contacts tile/report tuning preserves the e
 PSK source PR #422 merged as `25cf48e7` and its production deployment succeeded. The first alias request returned an HTTP 307 redirect to the verified canonical `https://propulse.cloud` and never reached the handler. An upstream-free OPTIONS request to the canonical PSK route returned 204, confirming registration; the single canonical GET returned HTTP 502 with a valid `unavailable` envelope, zero reports, no fetched timestamp and a five-minute retry timestamp. No retry was issued. This verifies honest failure handling, not successful PSK data retrieval; failure diagnosis remains open. The exact #424 merge has a successful production deployment. Report PRs #423/#424 merged after refreshing on the merged prerequisites with reviewed heads `9b44dd20` and `991ae9f3`, respectively (15 and 10 files). Their reviewed report behavior is unchanged; focused tests and full pre-push gates pass.
 
 The API and model files from old integration PR #513 match merged #408 exactly, and the portable registry already includes both history and PSK through #422. Its useful self-hosting clarification is preserved here: global history needs the aggregate store, while current-browser samples cannot reconstruct absent hours.
+
+
+### Scoped-runtime ownership update — 2026-09-07
+
+The newer [SP-03 handoff on #514](https://github.com/crypticpy/propulse/issues/514) releases the old Codex reservation to external Agent 3. That agent owns runtime/provider/registry/slot modules and its declared selection/follow extraction. Codex retains persistence and final integration; the current five-worker amendment on #510 supersedes the older three-worker coordination wording for that initiative. This handoff is not a claim by the HamClock report session. B11 cluster/band configuration and personal PSK map controls must use the accepted scoped-runtime contract after its owner delivers it. Non-spot widget work remains on #207; weather stays below operating work.
+
+
+### PSK production diagnosis — 2026-09-07
+
+PR #569 merged as `bd508f19`, adding fixed-category server diagnostics without logging callsigns, URLs, report bodies, credentials or raw exception text. The unchanged shared lease and cooldown remain enforced. Its full publication checks passed (421 app files / 3,633 tests plus normal bridge/daemon, lint, build and budgets).
+
+The exact diagnostics deployment reached READY on the canonical `propulse.cloud` alias. After the previous retry window elapsed, one ordinary anonymous request at 19:35:58 UTC returned the valid HTTP 502 unavailable envelope. The matching server diagnostic is `provider_http`, upstream status **403**. This identifies the remaining failure as PSK Reporter rejecting the production server request, rather than route registration or XML parsing. No access bypass, alternate egress, forced retry or database reset was attempted. The provider-access acceptance gate remains open even though #422–#424 are merged and deployed.
+
+
+Read-only fallback audit: the owned collector subscribes to the sampled `pskr/filter/v2raw_1pc/#` stream. Raw `spot_history_live` is retained for roughly two hours, while durable band/path aggregates discard callsign identity. Explicit server-side TX/RX predicates could support labeled sampled 15/30/60-minute OF/BY results, but current global retrieval caps rows before local filtering and has only a 30-minute query window. The existing owned data is therefore not a complete or six-/24-hour replacement for the station endpoint. Do not silently fill longer windows from empty or sampled history; a proper fallback needs an explicit completeness contract and owned retention/index work coordinated with the source owners. No fallback or storage change was made.
+
+
+### B18 presentation released — 2026-09-07
+
+Reliability #570 merged as `217a5b46` (13 files) and Forecast #571 as `5f2ae261` (10 files). The final report stack passed 424 app files / 3,649 tests and all normal publication gates. Final browser matrices cover 24 cases per report across target/QTH, three themes and 1080p/4K, plus six paired Reliability tile-row checks. Both reports preserve selected band, hour and tab when pinned; screenshots are included. The two owned B18 dev sessions (5197/5198) were stopped and their exact stale claims removed after process/listener verification. User previews 5181/5182 and integration 5186 remain untouched.
+
+Old #494/#502 are superseded and closed. HW-58/HW-59 now move from Not started to Partial in both registers; totals are 47 delivered, 7 partial and 19 not started. Historical model/observed series, hop count, a horizon-aware FutureCast scorer/response contract and physical acceptance remain open. FutureCast active=[] and zero future-model requests are preserved. The remaining shared DX bridge ingestion/timestamp slice is being completed under the explicit #288/#514 file handoff; view runtime and model/3D work remain with their current owners.
+
+
+### DX source/API prerequisite — 2026-09-07
+
+#576 merged as `ba2a0568`, replacing the old #473 stack with eleven source/API
+files. The strict feed adapter preserves failures and validates source/window
+metadata; DX alone adds a bounded 120-minute sample window. Legacy array wrappers
+remain available, PSK/RBN stay at 15/30/60 minutes, and source freshness remains
+30 minutes. Full publication checks passed 426 app files / 3,713 tests. The
+production 120-minute anonymous contract check returned HTTP 200 with matching
+metadata and ten reports; detailed evidence and the still-unverified production
+retention job are recorded in [the source contract](hamclock-cluster-history.md).
+
+Root integration review changed release order: the API prerequisite precedes the
+bridge fix because the legacy helper converted REST failures to empty arrays.
+The bridge hook must use the strict adapter before it can safely distinguish
+valid-empty data from an outage. Broader #475 source metadata/window-selection
+publication still needs the #514 store handoff; world clocks and cluster/band
+configuration retain their scoped-widget/settings dependencies. Weather remains
+last and no broader batch is claimed by this release.
+
+
+### Shared bridge source released — 2026-09-07
+
+#577 merged as `996ec6af` on the strict #576 API adapter. Every transport message
+is ingested, shared snapshots are validated/deduplicated/bounded, quiet bridge
+rows expire, and the permitted 60-second bridge clock skew is consistent. Late
+REST results cannot overwrite bridge data; failed REST requests preserve the
+last good snapshot, while genuine empty results clear it. Final checks passed
+56 focused tests and 428 app files / 3,726 tests plus normal release gates.
+The actual tile/report browser smoke passed with fresh, skewed, invalid and
+expired fixtures; its temporary fixture and exact owned server were removed.
+
+#478 and #505 are closed as superseded: paging/selection landed through #557,
+activation lifecycle through #562, and bridge behavior through #577. The shared
+source hook boundary is released for the scoped-runtime owner to consume.
+Remaining #475 window-selection/full metadata publication and B11 settings must
+coordinate with that owner. Physical bridge operation, authenticated two-device
+contact sync, PSK Reporter production access (403), B18 model/source contracts
+and production retention-job verification remain explicit acceptance gates.

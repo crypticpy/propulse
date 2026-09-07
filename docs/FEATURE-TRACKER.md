@@ -672,17 +672,19 @@ _Source: `docs/designs/hamclock-wall-spec.md` (feature register HW-01 to HW-73).
 | HW-36 | Widget config contract and validated per-tile store | PR #480; B0 registry reused with shared configuration shell |
 | HW-37 | News feeds configuration | PR #479, #480; verified add, source state/refresh, polling/age and pagination |
 
-### Partial (5)
+### Partial (7)
 
 | ID    | Feature                 | Gap                                   |
 | ----- | ----------------------- | ------------------------------------- |
 | HW-18 | Weather alerts coverage | Nationwide feed, mapped geometry only |
 | HW-19 | SDR decodes tile        | Idle until a shared receiver exists   |
+| HW-58 | Reliability report | PR #570: presentation, matched current evidence and stable pinned selection delivered; historical series, hop count and physical review pending |
+| HW-59 | Propagation forecast report | PR #571: two-day physics/matrix and gated horizons delivered; genuine FutureCast scorer/response contract and physical review pending |
 | HW-70 | Band activity report | PR #409: report, history, source/mode split and TOP DX delivered; production endpoint smoke passed; physical review pending |
 | HW-71 | Recent contacts report | PR #407, #550 and #561: report, exact logged-frequency tuning and metadata transport/repair delivered; authenticated two-device and physical review pending |
 | HW-72 | DX cluster report chrome | PR #557: report chrome, paging, selection reveal and live-prepend behavior delivered; physical review pending |
 
-### Not Started (21)
+### Not Started (19)
 
 | ID    | Feature                                                          | Notes                                                |
 | ----- | ---------------------------------------------------------------- | ---------------------------------------------------- |
@@ -701,8 +703,6 @@ _Source: `docs/designs/hamclock-wall-spec.md` (feature register HW-01 to HW-73).
 | HW-47 | Monitored regions and RIM scores as a report                     | Moved from B16 to B23 with the RIM tile              |
 | HW-48 | EmComm forms and activation from the Emcomm tile                 |                                                      |
 | HW-49 | `/atmos` redirect or deep link                                   | Open decision D7                                     |
-| HW-58 | Reliability report: SNR, confidence, station inputs              | B18                                                  |
-| HW-59 | Propagation forecast report: 48 h chart, FutureCast horizons     | B18                                                  |
 | HW-67 | Open-Meteo fetch extended to hourly and 7-day                    | `src/lib/api/openMeteo.ts`; B22                      |
 | HW-68 | Alerts report: severity, area, expiry, map link                  | B22                                                  |
 | HW-69 | Radio Impact Model tile                                          | Over `computeRIM` / `useRIM`; B23                    |

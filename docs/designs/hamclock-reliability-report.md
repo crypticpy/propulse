@@ -14,18 +14,20 @@ The full six-band, 24-hour grid has 144 selectable cells and a screen-reader tab
 
 ## Verification
 
-32 focused tests cover station inputs, source timestamps, evidence rejection, horizon gaps, grid selection, screen-reader output, keyboard chart selection and pointer selection with SVG aspect-ratio gutters. Lint and the production build pass. The isolated browser matrix covers target and QTH states × pulse/classic/brass × 1080p/4K × NOW/BY HOUR (24 cases), populated scoped counts, all 144 grid buttons, cell selection and Escape focus return. A separate six-case browser pass verifies that all six paired reliability rows, including the last row, remain inside the tile at 1080p and 4K across all three themes. No browser page errors or report overflow occurred.
+33 focused tests cover station inputs, source timestamps, evidence rejection, horizon gaps, grid selection, screen-reader output, keyboard chart selection and pointer selection with SVG aspect-ratio gutters. Lint and the production build pass. The isolated browser matrix covers target and QTH states × pulse/classic/brass × 1080p/4K × NOW/BY HOUR (24 cases), populated scoped counts, all 144 grid buttons, cell selection, Escape focus return and pinned band/hour/tab preservation. A separate six-case browser pass verifies that all six paired reliability rows, including the last row, remain inside the tile at 1080p and 4K across all three themes. No browser page errors or report overflow occurred.
 
-The Forecast portion (HW-59) remains a separate B18 review slice; this report does not complete issue #226 by itself.
+Merged PR #570 delivers this presentation. Forecast follows in merged #571; neither closes the source/model and physical acceptance gaps in #226.
 
 ## Review corrections
 
 The presentation remains a partial HW-58 implementation because historical model
 and observed series and hop counts are not supplied. Malformed model scope and
-metadata are rejected. The extraction leaves the feature registers unchanged so
-their current delivery totals and later operating work are preserved.
+metadata are rejected. The post-merge registers classify HW-58 and HW-59 as Partial, preserving
+their source/model and physical acceptance gates.
 
 The NOW band selector shares its toolbar with the live-hour action. This keeps
 the report within 90vw × 88vh while preserving 44px minimum grid hit targets.
 The integration preserves the paired per-band markup from the current Reliability
 tile so its last row continues to fit above the news ticker.
+
+Latest [pinned report screenshot](../images/hamclock-b18-release/reliability-pinned-4k.png).

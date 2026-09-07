@@ -6,6 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { WALL_TILE_IDS } from "@/lib/hamclock/wallPages";
 import { latLonToGrid } from "@/lib/utils/grid";
 import { formatDistance, getPathMetrics } from "@/lib/utils/path";
+import { useDXStore } from "@/stores/dxStore";
 import { TileHero } from "../HamClockTile";
 import { BandActivityTile } from "./BandActivityTile";
 import { BestBandTile } from "./BestBandTile";
@@ -242,6 +243,24 @@ describe("ClusterTile", () => {
     mocks.location.mockReturnValue(null);
     draw(<ClusterTile />);
     expect(screen.getByText("SET HOME IN SETTINGS")).toBeTruthy();
+  });
+
+  it("uses the same one-minute bridge clock tolerance as ingestion", () => {
+    const original = useDXStore.getState();
+    const future = (id: string, time: string) => ({
+      id, dx: id, spotter: "N0TEST", frequency: 14_074,
+      comment: "fixture", time: new Date(time), band: "20m",
+    });
+    useDXStore.setState({
+      spots: [future("KEPT", "2026-09-05T13:15:00Z"), future("REJECTED", "2026-09-05T13:15:00.001Z")],
+      spotSource: "bridge", filters: { maxAge: 30 },
+    });
+    const view = draw(<ClusterTile />);
+    expect(screen.getByRole("button", { name: /DX cluster: 1 spots/ })).toBeTruthy();
+    expect(screen.getByText("KEPT")).toBeTruthy();
+    expect(screen.queryByText("REJECTED")).toBeNull();
+    view.unmount();
+    useDXStore.setState(original);
   });
 });
 

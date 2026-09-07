@@ -679,7 +679,7 @@ _Source: `docs/designs/hamclock-wall-spec.md` (feature register HW-01 to HW-73).
 | HW-18 | Weather alerts coverage | Nationwide feed, mapped geometry only |
 | HW-19 | SDR decodes tile        | Idle until a shared receiver exists   |
 | HW-70 | Band activity report | PR #409: report, history, source/mode split and TOP DX delivered; production endpoint smoke passed; physical review pending |
-| HW-71 | Recent contacts report | PR #407 and #550: report plus metadata transport/repair delivered; authenticated two-device and physical review pending |
+| HW-71 | Recent contacts report | PR #407, #550 and #561: report, exact logged-frequency tuning and metadata transport/repair delivered; authenticated two-device and physical review pending |
 | HW-72 | DX cluster report chrome | PR #557: report chrome, paging, selection reveal and live-prepend behavior delivered; physical review pending |
 
 ### Not Started (21)

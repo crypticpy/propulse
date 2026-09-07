@@ -60,6 +60,16 @@ describe("legacy capture and conversion", () => {
     expect(plan.views.hamclock.config.spots.paths.background.style).toBe("off");
   });
 
+  it("preserves collapsed panels with distinct stable placements when no saved geometry exists", () => {
+    const capture = captureLegacyViews(storage({ "propulse-panel-states": { bandConditions: true, pathAnalysis: false, dxSpotList: false, satellites: true } }), storage());
+    const plan = convertLegacyViewCapture(capture, { ownerId: "a" });
+    const panels = plan.views.pro.config.presentation.panels;
+    expect(panels).toHaveLength(4);
+    expect(new Set(panels.map((panel) => `${panel.x},${panel.y}`)).size).toBe(4);
+    expect(panels.find((panel) => panel.id === "band-conditions")?.collapsed).toBe(true);
+    expect(plan.warnings.some((warning) => warning.includes("1920x1080"))).toBe(true);
+  });
+
   it("uses newer HamClock fields once, resolves inherited text and validates widgets", () => {
     const capture = captureLegacyViews(storage({
       "propulse-settings": persisted({ textScale: "200" }, 37),

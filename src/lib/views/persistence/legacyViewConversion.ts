@@ -7,6 +7,14 @@ import { legacyMigrationPlanSchema, type LegacyMigrationPlan } from "./legacyMig
 import { viewDraftSchema, type ViewDraft } from "./schema";
 
 const FAMILIES = ["normal", "pro", "lite", "hamclock"] as const;
+// Legacy default panel placements at the stable 1920x1080 migration fallback.
+// Saved geometry takes precedence; do not consult the current window's viewport.
+const PANEL_FALLBACK: Record<string, { x: number; y: number; width: number; height: number }> = {
+  "band-conditions": { x: 19, y: 86, width: 256, height: 400 },
+  "path-analysis": { x: 1536, y: 86, width: 288, height: 400 },
+  "dx-spots": { x: 384, y: 778, width: 600, height: 200 },
+  satellites: { x: 1536, y: 540, width: 260, height: 360 },
+};
 const draft = (family: typeof FAMILIES[number], config: ViewConfiguration): ViewDraft => ({
   id: `legacy-v1-${family}`, name: `Imported ${family === "hamclock" ? "HamClock" : family === "normal" ? "PropSphere" : family === "pro" ? "Pro" : "Lite"}`,
   schemaVersion: 1, sourcePreset: null, config,
@@ -108,7 +116,10 @@ function familySeed(family: typeof FAMILIES[number], capture: LegacyViewCapture,
     const id = aliases[key];
     const existing = panels.find((panel) => panel.id === id);
     if (existing) existing.collapsed = value;
-    else if (id && typeof value === "boolean") panels.push({ id, visible: true, collapsed: value, dockedEdge: null, dockedOrder: 0, x: 0, y: 0, width: 300, height: 250 });
+    else if (id && typeof value === "boolean") {
+      panels.push({ id, visible: true, collapsed: value, dockedEdge: null, dockedOrder: 0, ...PANEL_FALLBACK[id] });
+      warnings.add("Panel geometry was absent; stable legacy 1920x1080 default placements were used");
+    }
   }
   for (const panel of panels) set("presentation.panels", [...p.result().presentation.panels, panel]);
   if (Array.isArray(local["propulse-dock-groups"])) {

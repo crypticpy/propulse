@@ -111,6 +111,7 @@ interface QueuedTrace {
   repeating: boolean;
   staticMode: boolean;
   startedAtMs: number | null;
+  geometryKey: string;
 }
 
 // =============================================================================
@@ -385,7 +386,10 @@ const TraceAnimation = React.memo(
       // Keep the animation lifecycle mounted while an aggregate owns both
       // endpoint surfaces. The trace can complete without leaving an orphan
       // path or a hidden member's pointer target in the scene.
-      <group visible={showPath}>
+      <group
+        visible={showPath}
+        name={staticMode ? "spot-trace-static" : "spot-trace-motion"}
+      >
         {/* Trail line — rendered with ALL points; instanceCount controls draw progress */}
         <Line
           ref={lineRef}
@@ -545,6 +549,46 @@ function locationCoordinates(
   return location.coordinates;
 }
 
+function traceGeometryKey(
+  path: PathDescriptor,
+  appearance: PathAppearance,
+  frequency: number,
+): string {
+  const from = locationCoordinates(path.from.location);
+  const to = locationCoordinates(path.to.location);
+  return [
+    appearance.shape,
+    from?.lat ?? "",
+    from?.lon ?? "",
+    to?.lat ?? "",
+    to?.lon ?? "",
+    frequency,
+  ].join(":");
+}
+
+function traceDrawingSignature(
+  presentation: Parameters<typeof motionTraceSignature>[0],
+  color: string,
+  spot: ResolvedSpot,
+  sourceSpot: LiveSpot,
+): string {
+  return [
+    motionTraceSignature(presentation),
+    color,
+    spot.spotterLat,
+    spot.spotterLon,
+    spot.dxLat,
+    spot.dxLon,
+    spot.mode,
+    spot.callsign,
+    spot.dxLocApprox ? "1" : "0",
+    sourceSpot.id,
+    sourceSpot.spotter,
+    sourceSpot.dx,
+    sourceSpot.comment,
+  ].join(":");
+}
+
 function AnimatedSpotTracesContent({
   grid,
   maxTraces,
@@ -668,6 +712,7 @@ function AnimatedSpotTracesContent({
         repeating,
         staticMode: true,
         startedAtMs: null,
+        geometryKey: traceGeometryKey(path, appearance, match.resolved.frequency),
       };
     },
     [colorMode, derived.byReportId],
@@ -693,33 +738,40 @@ function AnimatedSpotTracesContent({
     const nextTraces: QueuedTrace[] = [];
     const signatures: string[] = [];
     for (const presentation of snapshot.presentations) {
-      const existing = tracesByPathRef.current.get(presentation.pathId);
+      const path = current.derived.paths.find((item) => item.id === presentation.pathId);
+      if (!path) continue;
+      const match = path.reportIds
+        .map((id) => current.derived.byReportId.get(id))
+        .find((item): item is { source: LiveSpot; resolved: ResolvedSpot } => item != null);
+      if (!match) continue;
       const staticMode = presentation.travelProgress === null;
-      if (
-        existing &&
-        existing.appearance.shape === presentation.appearance.shape
-      ) {
-        const next: QueuedTrace = {
+      const color = getSpotColor(match.resolved, colorMode);
+      const geometryKey = traceGeometryKey(path, presentation.appearance, match.resolved.frequency);
+      const existing = tracesByPathRef.current.get(presentation.pathId);
+      let next: QueuedTrace | null = null;
+      if (existing && existing.geometryKey === geometryKey) {
+        next = {
           ...existing,
+          color,
+          spot: match.resolved,
+          sourceSpot: match.source,
           appearance: presentation.appearance,
           repeating: presentation.repeating,
           staticMode,
           startedAtMs: presentation.startedAtMs,
         };
-        nextTraces.push(next);
-        signatures.push(motionTraceSignature(presentation));
-        continue;
+      } else {
+        const built = buildTrace(path, presentation.appearance, presentation.repeating);
+        if (built) {
+          built.staticMode = staticMode;
+          built.startedAtMs = presentation.startedAtMs;
+          next = built;
+        }
       }
-      const path = current.derived.paths.find((item) => item.id === presentation.pathId);
-      if (!path) continue;
-      const built = buildTrace(path, presentation.appearance, presentation.repeating);
-      if (built) {
-        built.staticMode = staticMode;
-        built.startedAtMs = presentation.startedAtMs;
-        tracesByPathRef.current.set(presentation.pathId, built);
-        nextTraces.push(built);
-        signatures.push(motionTraceSignature(presentation));
-      }
+      if (!next) continue;
+      tracesByPathRef.current.set(presentation.pathId, next);
+      nextTraces.push(next);
+      signatures.push(traceDrawingSignature(presentation, color, match.resolved, match.source));
     }
     tracesByPathRef.current = new Map(nextTraces.map((trace) => [trace.pathId, trace]));
     const key = signatures.join("|");
@@ -727,7 +779,7 @@ function AnimatedSpotTracesContent({
       activeKeyRef.current = key;
       setActiveTraces(nextTraces);
     }
-  }, [buildTrace, tick]);
+  }, [buildTrace, colorMode, tick]);
 
   useEffect(() => {
     onActiveTracesChange?.(activeTraces.map(({ spot }) => spot));

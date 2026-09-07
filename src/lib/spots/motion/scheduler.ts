@@ -69,10 +69,13 @@ export interface MotionSnapshot {
   motionSuppressed: boolean;
 }
 
+type MotionQueueKind = "arrival" | "continuous";
+
 interface PendingItem {
   pathId: string;
   reportId: string;
   enqueuedAtMs: number;
+  kind: MotionQueueKind;
 }
 
 interface ActiveItem {
@@ -81,6 +84,7 @@ interface ActiveItem {
   startedAtMs: number;
   appearance: PathAppearance;
   repeating: boolean;
+  kind: MotionQueueKind;
 }
 
 export interface MotionRuntime {
@@ -269,24 +273,40 @@ export function sampleAppearance(
   };
 }
 
-function wantsAnimation(args: {
+interface MotionPolicyArgs {
   path: PathDescriptor;
   selected: boolean;
-  unseen: boolean;
   appearance: PathAppearance;
   animate: AnimateScope;
   suppressed: boolean;
   visible: boolean;
   hydrated: boolean;
-}): boolean {
+}
+
+function policyAllowsMotion(args: MotionPolicyArgs): boolean {
   if (!args.visible || !args.hydrated || args.suppressed) return false;
   if (args.path.direction !== "from-to") return false;
   if (args.appearance.style === "off") return false;
-  if (args.animate === "selected-only") return args.selected;
+  if (args.animate === "selected-only" && !args.selected) return false;
+  return true;
+}
+
+function wantsAnimation(args: MotionPolicyArgs & { unseen: boolean }): boolean {
+  if (!policyAllowsMotion(args)) return false;
+  if (args.animate === "selected-only") return true;
   if (args.animate === "all-displayed") {
     return repeatingFor(args.appearance.style, args.animate) || args.unseen;
   }
   return args.unseen;
+}
+
+function queueStillEligible(
+  kind: MotionQueueKind,
+  args: MotionPolicyArgs,
+): boolean {
+  if (!policyAllowsMotion(args)) return false;
+  if (kind === "continuous") return wantsAnimation({ ...args, unseen: false });
+  return true;
 }
 
 function staticReason(args: {
@@ -323,6 +343,7 @@ export function tickMotion(runtime: MotionRuntime, input: MotionTickInput): Moti
   const observedReportIds = [...(input.observedReportIds ?? displayedReportIds)];
   const pathById = new Map(input.paths.map((entry) => [entry.path.id, entry]));
   const displayedPathIds = new Set(input.paths.map((entry) => entry.path.id));
+  const becomingHydrated = !runtime.hydrated && input.ready;
 
   if (!input.visible || suppressed) {
     runtime.pending = [];
@@ -357,12 +378,19 @@ export function tickMotion(runtime: MotionRuntime, input: MotionTickInput): Moti
           pathId: path.path.id,
           reportId,
           enqueuedAtMs: input.nowMs,
+          kind: "arrival",
         });
       }
     }
   }
 
-  if (preferences.animate !== "new-spots" && input.visible && runtime.hydrated && !suppressed) {
+  if (
+    !becomingHydrated &&
+    preferences.animate !== "new-spots" &&
+    input.visible &&
+    runtime.hydrated &&
+    !suppressed
+  ) {
     for (const entry of input.paths) {
       const appearance = resolvePathAppearance(preferences, entry.selected);
       if (
@@ -387,29 +415,53 @@ export function tickMotion(runtime: MotionRuntime, input: MotionTickInput): Moti
           pathId: entry.path.id,
           reportId: entry.path.reportIds[0] ?? entry.path.id,
           enqueuedAtMs: input.nowMs,
+          kind: "continuous",
         });
       }
     }
   }
 
-  runtime.pending = runtime.pending.filter((item) => displayedPathIds.has(item.pathId));
-  runtime.active = runtime.active.filter((item) => {
+  const policyArgs = (entry: MotionPathInput): MotionPolicyArgs => ({
+    path: entry.path,
+    selected: entry.selected,
+    appearance: resolvePathAppearance(preferences, entry.selected),
+    animate: preferences.animate,
+    suppressed,
+    visible: input.visible,
+    hydrated: runtime.hydrated,
+  });
+
+  runtime.pending = runtime.pending.filter((item) => {
     const entry = pathById.get(item.pathId);
     if (!entry || !displayedPathIds.has(item.pathId)) return false;
-    if (preferences.animate === "selected-only" && !entry.selected) return false;
-    return true;
+    return queueStillEligible(item.kind, policyArgs(entry));
   });
 
   runtime.active = runtime.active.filter((item) => {
     const entry = pathById.get(item.pathId);
-    if (!entry) return false;
-    const appearance = resolvePathAppearance(preferences, entry.selected);
-    item.appearance = appearance;
-    item.repeating = repeatingFor(appearance.style, preferences.animate);
+    if (!entry || !displayedPathIds.has(item.pathId)) return false;
+    const args = policyArgs(entry);
+    item.appearance = args.appearance;
+    item.repeating = repeatingFor(args.appearance.style, preferences.animate);
     if (input.nowMs < item.startedAtMs) item.startedAtMs = input.nowMs;
-    if (item.repeating || appearance.style === "flowing-dashes") return true;
-    return Math.max(0, input.nowMs - item.startedAtMs) < cycleSeconds(appearance) * 1000;
+    if (!queueStillEligible(item.kind, args)) return false;
+    if (item.repeating || args.appearance.style === "flowing-dashes") return true;
+    return Math.max(0, input.nowMs - item.startedAtMs) < cycleSeconds(args.appearance) * 1000;
   });
+
+  if (runtime.active.length > maxActive) {
+    const excess = runtime.active.splice(maxActive);
+    for (let i = excess.length - 1; i >= 0; i -= 1) {
+      const item = excess[i]!;
+      if (runtime.pending.some((pending) => pending.pathId === item.pathId)) continue;
+      runtime.pending.unshift({
+        pathId: item.pathId,
+        reportId: item.reportId,
+        enqueuedAtMs: item.startedAtMs,
+        kind: item.kind,
+      });
+    }
+  }
 
   if (input.visible && !suppressed) {
     const activeIds = new Set(runtime.active.map((item) => item.pathId));
@@ -421,14 +473,15 @@ export function tickMotion(runtime: MotionRuntime, input: MotionTickInput): Moti
       }
       const entry = pathById.get(item.pathId);
       if (!entry) continue;
-      const appearance = resolvePathAppearance(preferences, entry.selected);
-      if (appearance.style === "off" || entry.path.direction !== "from-to") continue;
+      const args = policyArgs(entry);
+      if (!queueStillEligible(item.kind, args)) continue;
       runtime.active.push({
         pathId: item.pathId,
         reportId: item.reportId,
         startedAtMs: input.nowMs,
-        appearance,
-        repeating: repeatingFor(appearance.style, preferences.animate),
+        appearance: args.appearance,
+        repeating: repeatingFor(args.appearance.style, preferences.animate),
+        kind: item.kind,
       });
       activeIds.add(item.pathId);
     }

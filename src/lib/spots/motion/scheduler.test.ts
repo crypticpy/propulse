@@ -547,4 +547,198 @@ describe("motion scheduler", () => {
     expect(sampleAppearance(stretched, 8000, true).travelProgress).toBeCloseTo(0);
     expect(sampleAppearance(appearance, -250, true).travelProgress).toBeCloseTo(0);
   });
+
+  it("does not promote ineligible pending paths after a selected-only policy change", () => {
+    const runtime = createMotionRuntime();
+    const hydrated = tickMotion(
+      runtime,
+      input([], { nowMs: 0, preferences: prefs({ animate: "new-spots", maxActive: 1 }) }),
+    );
+    expect(hydrated.hydrated).toBe(true);
+    expect(hydrated.activeCount).toBe(0);
+
+    const paths = [
+      { path: directedPath("0"), selected: false },
+      { path: directedPath("1"), selected: false },
+      { path: directedPath("2"), selected: false },
+    ];
+    const started = tickMotion(
+      runtime,
+      input(paths, { nowMs: 10, preferences: prefs({ animate: "new-spots", maxActive: 1 }) }),
+    );
+    expect(started.activePathIds).toEqual(["p0"]);
+    expect(started.pendingPathIds).toEqual(["p1", "p2"]);
+
+    const switched = tickMotion(
+      runtime,
+      input(paths, { nowMs: 20, preferences: prefs({ animate: "selected-only", maxActive: 1 }) }),
+    );
+    expect(switched.activeCount).toBe(0);
+    expect(switched.pendingCount).toBe(0);
+    expect(switched.activePathIds).not.toContain("p1");
+    expect(switched.presentations.every((item) => item.travelProgress === null)).toBe(true);
+    expect(switched.presentations.every((item) => item.staticReason === "unselected")).toBe(true);
+
+    const queuedRuntime = createMotionRuntime();
+    tickMotion(queuedRuntime, input([], { nowMs: 0 }));
+    tickMotion(
+      queuedRuntime,
+      input(paths, { nowMs: 10, preferences: prefs({ animate: "new-spots", maxActive: 1 }) }),
+    );
+    const off = tickMotion(
+      queuedRuntime,
+      input(paths, {
+        nowMs: 20,
+        preferences: prefs({
+          animate: "new-spots",
+          maxActive: 1,
+          selected: null,
+          background: { ...prefs().background, style: "off" },
+        }),
+      }),
+    );
+    expect(off.activeCount).toBe(0);
+    expect(off.pendingCount).toBe(0);
+    expect(off.presentations.every((item) => item.staticReason === "off")).toBe(true);
+
+    const activeRuntime = createMotionRuntime();
+    tickMotion(activeRuntime, input([], { nowMs: 0 }));
+    tickMotion(
+      activeRuntime,
+      input(paths, { nowMs: 10, preferences: prefs({ animate: "new-spots", maxActive: 1 }) }),
+    );
+    const unknownQueued = tickMotion(
+      activeRuntime,
+      input(
+        [
+          { path: directedPath("0"), selected: false },
+          { path: unknownPath("1"), selected: false },
+          { path: directedPath("2"), selected: false },
+        ],
+        { nowMs: 20, preferences: prefs({ animate: "new-spots", maxActive: 1 }) },
+      ),
+    );
+    expect(unknownQueued.activePathIds).toEqual(["p0"]);
+    expect(unknownQueued.pendingPathIds).toEqual(["p2"]);
+    expect(unknownQueued.presentations.find((item) => item.pathId === "p1")?.staticReason).toBe(
+      "unknown-direction",
+    );
+
+    const unknownActive = tickMotion(
+      activeRuntime,
+      input(
+        [
+          { path: unknownPath("0"), selected: false },
+          { path: unknownPath("1"), selected: false },
+          { path: directedPath("2"), selected: false },
+        ],
+        { nowMs: 30, preferences: prefs({ animate: "new-spots", maxActive: 1 }) },
+      ),
+    );
+    expect(unknownActive.activePathIds).toEqual(["p2"]);
+    expect(unknownActive.pendingCount).toBe(0);
+    expect(unknownActive.presentations.find((item) => item.pathId === "p0")?.staticReason).toBe(
+      "unknown-direction",
+    );
+  });
+
+  it("applies lowered active and pending caps immediately without a restore replay burst", () => {
+    const repeatingPrefs = (maxActive: number, maxPending = 100): PathMotionPreferences =>
+      prefs({
+        animate: "all-displayed",
+        maxActive,
+        maxPending,
+        background: { ...prefs().background, style: "traveling-pulse", travelSeconds: 1.5, repeatSeconds: 3 },
+      });
+    const runtime = createMotionRuntime();
+    const paths = [
+      { path: directedPath("0"), selected: false },
+      { path: directedPath("1"), selected: false },
+      { path: directedPath("2"), selected: false },
+    ];
+    const hydrated = tickMotion(runtime, input(paths, { nowMs: 0, preferences: repeatingPrefs(12) }));
+    expect(hydrated.activeCount).toBe(0);
+    const running = tickMotion(runtime, input(paths, { nowMs: 16, preferences: repeatingPrefs(12) }));
+    expect(running.activeCount).toBe(3);
+    const lowered = tickMotion(runtime, input(paths, { nowMs: 32, preferences: repeatingPrefs(1) }));
+    expect(lowered.activeCount).toBe(1);
+    expect(lowered.pendingCount).toBe(2);
+    expect(lowered.presentations).toHaveLength(3);
+    expect(lowered.presentations.filter((item) => item.travelProgress === null)).toHaveLength(2);
+    expect(lowered.displayedReportIds).toEqual(["0", "1", "2"]);
+    const restored = tickMotion(runtime, input(paths, { nowMs: 48, preferences: repeatingPrefs(3) }));
+    expect(restored.activeCount).toBe(3);
+    expect(restored.pendingCount).toBe(0);
+    expect(restored.droppedPendingCount).toBe(0);
+
+    const pendingRuntime = createMotionRuntime();
+    const many = Array.from({ length: 8 }, (_, n) => ({
+      path: directedPath(`n${n}`),
+      selected: false,
+    }));
+    tickMotion(pendingRuntime, input([], { nowMs: 0 }));
+    const queued = tickMotion(
+      pendingRuntime,
+      input(many, { nowMs: 10, preferences: prefs({ animate: "new-spots", maxActive: 1, maxPending: 6 }) }),
+    );
+    expect(queued.activeCount).toBe(1);
+    expect(queued.pendingCount).toBe(6);
+    expect(queued.droppedPendingCount).toBe(1);
+    const pendingLowered = tickMotion(
+      pendingRuntime,
+      input(many, { nowMs: 20, preferences: prefs({ animate: "new-spots", maxActive: 1, maxPending: 2 }) }),
+    );
+    expect(pendingLowered.activeCount).toBe(1);
+    expect(pendingLowered.pendingCount).toBe(2);
+    expect(pendingLowered.droppedPendingCount).toBe(5);
+    expect(pendingLowered.presentations).toHaveLength(8);
+    const pendingRestored = tickMotion(
+      pendingRuntime,
+      input(many, { nowMs: 30, preferences: prefs({ animate: "new-spots", maxActive: 1, maxPending: 6 }) }),
+    );
+    expect(pendingRestored.activeCount).toBe(1);
+    expect(pendingRestored.pendingCount).toBe(2);
+    expect(pendingRestored.droppedPendingCount).toBe(5);
+  });
+
+  it("keeps the initial hydration tick static for new-spots, selected-only, and all-displayed", () => {
+    const policies: PathMotionPreferences[] = [
+      prefs({ animate: "new-spots" }),
+      prefs({ animate: "selected-only" }),
+      prefs({
+        animate: "all-displayed",
+        background: { ...prefs().background, style: "traveling-pulse", travelSeconds: 1.5, repeatSeconds: 3 },
+      }),
+    ];
+    const paths = [
+      { path: directedPath("0"), selected: true },
+      { path: directedPath("1"), selected: false },
+      { path: directedPath("2"), selected: false },
+    ];
+    for (const preferences of policies) {
+      const runtime = createMotionRuntime();
+      const first = tickMotion(runtime, input(paths, { nowMs: 0, ready: true, preferences }));
+      expect(first.hydrated).toBe(true);
+      expect(first.activeCount).toBe(0);
+      expect(first.pendingCount).toBe(0);
+      expect(first.presentations).toHaveLength(3);
+      expect(first.presentations.every((item) => item.travelProgress === null)).toBe(true);
+    }
+
+    const newSpots = createMotionRuntime();
+    tickMotion(newSpots, input(paths, { nowMs: 0, preferences: policies[0] }));
+    const laterNew = tickMotion(newSpots, input(paths, { nowMs: 16, preferences: policies[0] }));
+    expect(laterNew.activeCount).toBe(0);
+
+    const selectedOnly = createMotionRuntime();
+    tickMotion(selectedOnly, input(paths, { nowMs: 0, preferences: policies[1] }));
+    const laterSelected = tickMotion(selectedOnly, input(paths, { nowMs: 16, preferences: policies[1] }));
+    expect(laterSelected.activePathIds).toEqual(["p0"]);
+    expect(laterSelected.presentations.find((item) => item.pathId === "p1")?.staticReason).toBe("unselected");
+
+    const allDisplayed = createMotionRuntime();
+    tickMotion(allDisplayed, input(paths, { nowMs: 0, preferences: policies[2] }));
+    const laterAll = tickMotion(allDisplayed, input(paths, { nowMs: 16, preferences: policies[2] }));
+    expect([...laterAll.activePathIds].sort()).toEqual(["p0", "p1", "p2"]);
+  });
 });

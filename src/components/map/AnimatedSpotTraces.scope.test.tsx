@@ -7,6 +7,8 @@ const mocks = vi.hoisted(() => ({
   frameCallbacks: [] as Array<(state: unknown) => void>,
   simpleArcCalls: 0,
   hopCalls: 0,
+  colorMode: "mode" as "mode" | "band",
+  lineColors: [] as string[],
 }));
 
 vi.mock("@react-three/fiber", () => ({
@@ -14,7 +16,12 @@ vi.mock("@react-three/fiber", () => ({
     mocks.frameCallbacks.push(callback);
   },
 }));
-vi.mock("@react-three/drei", () => ({ Line: () => null }));
+vi.mock("@react-three/drei", () => ({
+  Line: (props: { color?: string }) => {
+    mocks.lineColors.push(String(props.color ?? ""));
+    return null;
+  },
+}));
 vi.mock("@/hooks/useLiveSpots", () => ({
   useLiveSpots: () => ({
     spots: [],
@@ -27,7 +34,7 @@ vi.mock("@/hooks/useLiveSpots", () => ({
   }),
 }));
 vi.mock("@/stores/userStore", () => ({
-  useUIInteractionPrefs: () => ({ spotColorMode: "mode" }),
+  useUIInteractionPrefs: () => ({ spotColorMode: mocks.colorMode }),
 }));
 vi.mock("@/hooks/useGlobeOcclusionBatch", () => ({
   useGlobeOcclusionBatch: () => ({ getOpacity: () => 1 }),
@@ -96,6 +103,14 @@ function traceCount(container: HTMLElement): number {
   return container.querySelectorAll('group[name="animated-spot-traces"] > group').length;
 }
 
+function staticTraceCount(container: HTMLElement): number {
+  return container.querySelectorAll('group[name="spot-trace-static"]').length;
+}
+
+function motionTraceCount(container: HTMLElement): number {
+  return container.querySelectorAll('group[name="spot-trace-motion"]').length;
+}
+
 function tick(seconds: number) {
   act(() => {
     for (const callback of mocks.frameCallbacks) {
@@ -113,6 +128,8 @@ describe("AnimatedSpotTraces feed scope", () => {
     mocks.frameCallbacks.length = 0;
     mocks.simpleArcCalls = 0;
     mocks.hopCalls = 0;
+    mocks.colorMode = "mode";
+    mocks.lineColors.length = 0;
     visibilityHidden = false;
     vi.spyOn(console, "error").mockImplementation(() => undefined);
     Object.defineProperty(document, "visibilityState", {
@@ -502,5 +519,183 @@ describe("AnimatedSpotTraces feed scope", () => {
     });
     tick(0.4);
     expect(traceCount(container)).toBe(3);
+  });
+
+  it("keeps the first hydration static for new-spots, selected-only, and all-displayed", () => {
+    const spots = [liveSpot("a"), liveSpot("b"), liveSpot("c")];
+    const resolved = spots.map(resolvedSpot);
+    const prefs = createSpotPreferences().paths;
+    const policies: Array<typeof prefs> = [
+      { ...prefs, animate: "new-spots" },
+      { ...prefs, animate: "selected-only" },
+      {
+        ...prefs,
+        animate: "all-displayed",
+        background: { ...prefs.background, style: "traveling-pulse", travelSeconds: 1.5, repeatSeconds: 3 },
+      },
+    ];
+    for (const pathPreferences of policies) {
+      mocks.frameCallbacks.length = 0;
+      const { container, unmount } = render(
+        <AnimatedSpotTraces
+          feedSpots={spots}
+          candidateSpots={spots}
+          resolvedSpots={resolved}
+          isFeedReady
+          hydrationKey={`hydrate-${pathPreferences.animate}`}
+          pathPreferences={pathPreferences}
+        />,
+      );
+      expect(traceCount(container)).toBe(3);
+      expect(staticTraceCount(container)).toBe(3);
+      expect(motionTraceCount(container)).toBe(0);
+      unmount();
+    }
+
+    const { container, rerender } = render(
+      <AnimatedSpotTraces
+        feedSpots={spots}
+        candidateSpots={spots}
+        resolvedSpots={resolved}
+        isFeedReady
+        hydrationKey="all-displayed-later"
+        pathPreferences={policies[2]}
+      />,
+    );
+    expect(staticTraceCount(container)).toBe(3);
+    tick(0.2);
+    expect(traceCount(container)).toBe(3);
+
+    rerender(
+      <AnimatedSpotTraces
+        feedSpots={spots}
+        candidateSpots={spots}
+        resolvedSpots={resolved}
+        isFeedReady
+        hydrationKey="all-displayed-later"
+        osReducedMotion
+        pathPreferences={{ ...policies[2], reduceMotion: false }}
+      />,
+    );
+    tick(0.3);
+    expect(traceCount(container)).toBe(3);
+    expect(staticTraceCount(container)).toBe(3);
+  });
+
+  it("does not promote queued traces after switching to selected-only with none selected", () => {
+    const spots = [liveSpot("0"), liveSpot("1"), liveSpot("2")];
+    const prefs = createSpotPreferences().paths;
+    const { container, rerender } = render(
+      <AnimatedSpotTraces
+        feedSpots={[]}
+        candidateSpots={[]}
+        resolvedSpots={[]}
+        isFeedReady
+        hydrationKey="policy-queue"
+        pathPreferences={{ ...prefs, animate: "new-spots", maxActive: 1 }}
+      />,
+    );
+    rerender(
+      <AnimatedSpotTraces
+        feedSpots={spots}
+        candidateSpots={spots}
+        resolvedSpots={spots.map(resolvedSpot)}
+        isFeedReady
+        hydrationKey="policy-queue"
+        pathPreferences={{ ...prefs, animate: "new-spots", maxActive: 1 }}
+      />,
+    );
+    tick(0.2);
+    expect(traceCount(container)).toBe(3);
+    rerender(
+      <AnimatedSpotTraces
+        feedSpots={spots}
+        candidateSpots={spots}
+        resolvedSpots={spots.map(resolvedSpot)}
+        isFeedReady
+        hydrationKey="policy-queue"
+        pathPreferences={{ ...prefs, animate: "selected-only", maxActive: 1 }}
+      />,
+    );
+    tick(0.3);
+    expect(traceCount(container)).toBe(3);
+    expect(staticTraceCount(container)).toBe(3);
+    expect(motionTraceCount(container)).toBe(0);
+  });
+
+  it("refreshes color and source data without a per-frame geometry rebuild", () => {
+    const existing = liveSpot("existing");
+    const report = normalizeLiveSpot(existing, new Map());
+    const directed = report ? pathDescriptorForReport(report) : null;
+    expect(directed).not.toBeNull();
+    const { rerender } = render(
+      <AnimatedSpotTraces
+        feedSpots={[existing]}
+        candidateSpots={[existing]}
+        resolvedSpots={[resolvedSpot(existing)]}
+        isFeedReady
+        hydrationKey="drawing"
+        scenePaths={[directed!]}
+      />,
+    );
+    tick(0.05);
+    expect(mocks.lineColors).toContain("#44DDFF");
+    const hopsAfterFirst = mocks.hopCalls;
+    const arcsAfterFirst = mocks.simpleArcCalls;
+    tick(0.066);
+    tick(0.082);
+    expect(mocks.hopCalls).toBe(hopsAfterFirst);
+    expect(mocks.simpleArcCalls).toBe(arcsAfterFirst);
+
+    mocks.lineColors.length = 0;
+    mocks.colorMode = "band";
+    rerender(
+      <AnimatedSpotTraces
+        feedSpots={[existing]}
+        candidateSpots={[existing]}
+        resolvedSpots={[resolvedSpot(existing)]}
+        isFeedReady
+        hydrationKey="drawing"
+        scenePaths={[directed!]}
+      />,
+    );
+    tick(0.1);
+    expect(mocks.lineColors).toContain("#66ff99");
+    expect(mocks.hopCalls).toBe(hopsAfterFirst);
+    expect(mocks.simpleArcCalls).toBe(arcsAfterFirst);
+
+    rerender(
+      <AnimatedSpotTraces
+        feedSpots={[{ ...existing, comment: "enriched-source" }]}
+        candidateSpots={[{ ...existing, comment: "enriched-source" }]}
+        resolvedSpots={[{ ...resolvedSpot(existing), callsign: "ENRICHED", dxLocApprox: true }]}
+        isFeedReady
+        hydrationKey="drawing"
+        scenePaths={[directed!]}
+      />,
+    );
+    tick(0.12);
+    expect(mocks.hopCalls).toBe(hopsAfterFirst);
+    expect(mocks.simpleArcCalls).toBe(arcsAfterFirst);
+
+    const movedPath = pathDescriptorSchema.parse({
+      ...directed!,
+      from: {
+        ...directed!.from,
+        location: { kind: "reported-coordinate", coordinates: { lat: -30, lon: -50 } },
+      },
+    });
+    rerender(
+      <AnimatedSpotTraces
+        feedSpots={[{ ...existing, dxLat: -30, dxLon: -50 }]}
+        candidateSpots={[{ ...existing, dxLat: -30, dxLon: -50 }]}
+        resolvedSpots={[{ ...resolvedSpot(existing), dxLat: -30, dxLon: -50, callsign: "ENRICHED" }]}
+        isFeedReady
+        hydrationKey="drawing"
+        scenePaths={[movedPath]}
+      />,
+    );
+    tick(0.14);
+    expect(mocks.simpleArcCalls + mocks.hopCalls).toBeGreaterThan(hopsAfterFirst + arcsAfterFirst);
   });
 });

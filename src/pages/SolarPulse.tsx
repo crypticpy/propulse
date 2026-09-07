@@ -2,7 +2,7 @@ import { formatUtc, hasData, sourceProps } from "@/components/solar/presentation
 import { lazy, Suspense, useMemo, useState } from "react";
 import { AccessibleDialog } from "@/components/ui";
 import { fixedDarkSurfaceTokens } from "@/lib/themes/stationTokens";
-import { SolarBriefingCard } from "@/components/solar/SolarBriefingCard";
+import { SolarBriefingNotice } from "@/components/solar/SolarBriefingNotice";
 import { SolarOperatingActions } from "@/components/solar/SolarOperatingActions";
 import { useSolarDisclosureState } from "@/hooks/useSolarDisclosureState";
 import { SolarDisclosure } from "@/components/solar/SolarDisclosure";
@@ -56,16 +56,24 @@ function formatNumber(value: number | null | undefined, digits = 1): string {
   return value === null || value === undefined ? "—" : value.toFixed(digits);
 }
 
-function MetricValue({
+export function MetricValue({
   value,
   unit,
   note,
   tone = "cyan",
+  keyReading = false,
 }: {
   value: string;
   unit?: string;
   note: string;
   tone?: "cyan" | "amber" | "green" | "rose";
+  /**
+   * DS-04: the four key-readings cards reserve a fixed two-line note slot and
+   * hold the hero on one line, so the four charts below them start at the
+   * same offset. The impact, detail, and history cards opt out and keep their
+   * full explanatory note.
+   */
+  keyReading?: boolean;
 }) {
   const colors = {
     cyan: "text-su-info",
@@ -75,11 +83,11 @@ function MetricValue({
   };
   return (
     <div>
-      <p className={`${colors[tone]} font-mono text-3xl font-semibold tabular-nums tracking-tight sm:text-4xl`}>
+      <p className={`${colors[tone]} ${keyReading ? "whitespace-nowrap" : ""} font-mono text-3xl font-semibold tabular-nums tracking-tight sm:text-4xl`}>
         {value}
         {unit && <span className="ml-2 text-base font-medium text-su-muted">{unit}</span>}
       </p>
-      <p className="mt-3 text-sm leading-6 text-su-muted">{note}</p>
+      <p className={`mt-3 ${keyReading ? "line-clamp-2 min-h-12" : ""} text-sm leading-6 text-su-muted`}>{note}</p>
     </div>
   );
 }
@@ -98,7 +106,7 @@ function DetailButton({ onClick }: { onClick: () => void }) {
 
 export function SolarPulse() {
   const isMobile = useIsMobile();
-  const wideBriefing = !useIsMobile(1280);
+  const wideLayout = !useIsMobile(1280);
   const { open: openSections, toggle: toggleGroup } = useSolarDisclosureState(isMobile);
   const [modal, setModal] = useState<ModalState>(null);
   const [allBulletins, setAllBulletins] = useState(false);
@@ -141,12 +149,9 @@ export function SolarPulse() {
             <p id="solar-refresh-help" role="tooltip" className="absolute right-0 top-full z-20 mt-2 hidden w-64 rounded-xl border border-su-line/40 bg-su-panel p-3 text-xs leading-5 text-su-text shadow-xl group-hover:block group-focus-within:block">Refreshes data in the open sections. Images update on their own schedule.</p>
           </div>
         </header>
-        <div className="grid items-start gap-4 xl:grid-cols-[minmax(0,1fr)_18rem]">
-          <SolarBriefingCard briefing={model.briefing} scales={resources.scales.data}>
-            <SolarOperatingActions />
-          </SolarBriefingCard>
-          {wideBriefing && <div className="max-w-sm"><SolarImageCard productId="sunspot-hmi" onOpen={(productId) => setModal({ kind: "image", productId })} /><p className="mt-2 text-xs leading-5 text-su-muted">Visible sunspots on the full solar disk. Inspect solar history below for longer-term context.</p></div>}
-        </div>
+        <SolarBriefingNotice briefing={model.briefing} scales={resources.scales.data} kp={current.kp?.kp}>
+          <SolarOperatingActions />
+        </SolarBriefingNotice>
 
         <section aria-labelledby="solar-now-heading">
           <div className="mb-3 flex items-end justify-between px-1">
@@ -163,11 +168,12 @@ export function SolarPulse() {
               action={<DetailButton onClick={() => setModal({ kind: "metric", metric: "kp" })} />}
             >
               <MetricValue
+                keyReading
                 value={formatNumber(current.kp?.kp)}
                 note="Measures geomagnetic disturbance over three hours. Storm-range readings can signal disruption on high-latitude HF paths."
                 tone={current.kp && current.kp.kp >= 5 ? "rose" : current.kp && current.kp.kp >= 4 ? "amber" : "green"}
               />
-              {!isMobile && <SolarMiniChart label="Recent Kp intervals" points={(resources.kp.data ?? []).filter(p => p.kind !== "predicted").map(p => ({ timestamp: p.time_tag, value: p.kp, kind: p.kind }))} unit="Kp" min={0} max={9} intervalMs={10_800_000} maxGapMs={10_800_000} />}
+              {!isMobile && <SolarMiniChart label="Recent Kp intervals" points={(resources.kp.data ?? []).filter(p => p.kind !== "predicted").map(p => ({ timestamp: p.time_tag, value: p.kp, kind: p.kind }))} unit="Kp" min={0} max={9} intervalMs={10_800_000} maxGapMs={10_800_000} minPlotHeight={96} />}
             </WidgetShell>
             <WidgetShell compact
               title="10.7 cm solar flux"
@@ -176,12 +182,13 @@ export function SolarPulse() {
               action={<DetailButton onClick={() => setModal({ kind: "metric", metric: "sfi" })} />}
             >
               <MetricValue
+                keyReading
                 value={formatNumber(current.flux?.flux, 0)}
                 unit="sfu"
                 note="Tracks solar activity that supports ionization. Combine it with your path and time when choosing a band."
                 tone="amber"
               />
-              {!isMobile && <SolarMiniChart label="Recent solar flux" points={(resources.flux.data ?? []).map(p => ({ timestamp: p.time_tag, value: p.flux }))} unit="sfu" maxGapMs={129_600_000} />}
+              {!isMobile && <SolarMiniChart label="Recent solar flux" points={(resources.flux.data ?? []).map(p => ({ timestamp: p.time_tag, value: p.flux }))} unit="sfu" maxGapMs={129_600_000} minPlotHeight={96} />}
             </WidgetShell>
             <WidgetShell compact
               title="IMF Bz"
@@ -190,12 +197,13 @@ export function SolarPulse() {
               action={<DetailButton onClick={() => setModal({ kind: "metric", metric: "bz" })} />}
             >
               <MetricValue
+                keyReading
                 value={formatNumber(current.mag?.bz_gsm)}
                 unit="nT"
                 note={current.mag?.bz_gsm !== null && current.mag?.bz_gsm !== undefined && current.mag.bz_gsm < 0 ? "Sustained southward Bz can drive geomagnetic disturbance. Watch the trend and check Kp." : "Northward or near-neutral Bz is less likely to drive geomagnetic disturbance."}
                 tone={current.mag?.bz_gsm !== null && current.mag?.bz_gsm !== undefined && current.mag.bz_gsm <= -8 ? "rose" : "cyan"}
               />
-              {!isMobile && <SolarMiniChart label="Recent Bz orientation" points={(resources.magnetometer.data ?? []).filter(p => p.bz_gsm !== null).map(p => ({ timestamp: p.time_tag, value: p.bz_gsm! }))} unit="nT" maxGapMs={300_000} />}
+              {!isMobile && <SolarMiniChart label="Recent Bz orientation" points={(resources.magnetometer.data ?? []).filter(p => p.bz_gsm !== null).map(p => ({ timestamp: p.time_tag, value: p.bz_gsm! }))} unit="nT" maxGapMs={300_000} minPlotHeight={96} />}
             </WidgetShell>
             <WidgetShell compact
               title="GOES long X-ray"
@@ -204,11 +212,12 @@ export function SolarPulse() {
               action={<DetailButton onClick={() => setModal({ kind: "metric", metric: "xray" })} />}
             >
               <MetricValue
+                keyReading
                 value={current.xrayClass ?? "—"}
                 note={current.xray ? `${current.xray.flux.toExponential(2)} W/m². Elevated flux can produce sunlit-side HF absorption.` : "No usable long-channel observation."}
                 tone={current.xrayClass?.startsWith("M") || current.xrayClass?.startsWith("X") ? "rose" : "cyan"}
               />
-              {!isMobile && <SolarMiniChart label="Recent X-ray flux" points={(resources.xray.data ?? []).map(p => ({ timestamp: p.time_tag, value: p.flux }))} unit="W/m²" logarithmic maxGapMs={300_000} />}
+              {!isMobile && <SolarMiniChart label="Recent X-ray flux" points={(resources.xray.data ?? []).map(p => ({ timestamp: p.time_tag, value: p.flux }))} unit="W/m²" logarithmic maxGapMs={300_000} minPlotHeight={96} />}
             </WidgetShell>
           </div>
         </section>
@@ -227,9 +236,12 @@ export function SolarPulse() {
           open={forecastOpen}
           onToggle={() => toggleGroup("forecast")}
         >
-          <Suspense fallback={<p role="status" className="py-8 text-sm text-su-muted">Loading forecast…</p>}>
-            <SolarForecastPanel resources={resources} current={current} />
-          </Suspense>
+          <div className="grid items-start gap-4 xl:grid-cols-[minmax(0,1fr)_18rem]">
+            <Suspense fallback={<p role="status" className="py-8 text-sm text-su-muted">Loading forecast…</p>}>
+              <SolarForecastPanel resources={resources} current={current} />
+            </Suspense>
+            {wideLayout && <div className="max-w-sm"><SolarImageCard productId="sunspot-hmi" onOpen={(productId) => setModal({ kind: "image", productId })} /><p className="mt-2 text-xs leading-5 text-su-muted">Visible sunspots on the full solar disk. Inspect solar history below for longer-term context.</p></div>}
+          </div>
         </SolarDisclosure>
 
         <WidgetShell
@@ -367,7 +379,7 @@ export function SolarPulse() {
           onToggle={() => toggleGroup("imagery")}
         >
           <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-            {imageProducts.filter((id) => isMobile || ((!wideBriefing || id !== "sunspot-hmi") && (!impactsOpen || !["drap-global", "aurora-north"].includes(id)))).map((productId) => (
+            {imageProducts.filter((id) => isMobile || ((!(wideLayout && forecastOpen) || id !== "sunspot-hmi") && (!impactsOpen || !["drap-global", "aurora-north"].includes(id)))).map((productId) => (
               <SolarImageCard
                 key={productId}
                 productId={productId}

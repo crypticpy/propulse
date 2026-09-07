@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { useActiveBand } from "@/hooks/useActiveBandMode";
 import { useHomeLocation } from "@/hooks/useHomeLocation";
 import type { useSolarModel } from "@/hooks/useSolarModel";
+import type { SolarWidgetState } from "@/lib/solar/contracts";
 import {
   buildHomeBandOutlook,
   pickHomeOutlookBand,
@@ -15,6 +16,22 @@ const CAPTION = "Full 24h grid, path analysis and NowCast in PropSphere →";
 
 function pad(hour: number) {
   return String(hour).padStart(2, "0");
+}
+
+// Worst-first: nothing usable, then loading/empty, then partial/stale, then refreshing, then fresh.
+const STATE_SEVERITY: Record<SolarWidgetState, number> = {
+  error: 0,
+  unavailable: 0,
+  loading: 1,
+  empty: 1,
+  partial: 2,
+  stale: 2,
+  refreshing: 3,
+  fresh: 4,
+};
+
+function worseState(a: SolarWidgetState, b: SolarWidgetState): SolarWidgetState {
+  return STATE_SEVERITY[a] <= STATE_SEVERITY[b] ? a : b;
 }
 
 export function HomeForecastStrip({
@@ -34,9 +51,12 @@ export function HomeForecastStrip({
     model.resources.forecast.state === "refreshing"
       ? model.resources.forecast.data
       : undefined;
+  const solarCurrent = [model.resources.kp.state, model.resources.flux.state].every(
+    (state) => state === "fresh" || state === "refreshing",
+  );
 
   const outlook = useMemo(() => {
-    if (!location || kp === null || sfi === null) return null;
+    if (!location || !solarCurrent || kp === null || sfi === null) return null;
     const choice = pickHomeOutlookBand(activeBand, {
       lat: location.lat,
       lon: location.lon,
@@ -57,6 +77,7 @@ export function HomeForecastStrip({
     return hours.length === 24 ? { ...choice, hours, grid: location.grid } : null;
   }, [
     location,
+    solarCurrent,
     activeBand,
     now,
     kp,
@@ -74,15 +95,20 @@ export function HomeForecastStrip({
         <h2>
           Next 24 hours{outlook ? ` on ${outlook.band}` : ""}
         </h2>
-        <HomeStatus state={model.resources.kp.state} />
+        <HomeStatus state={worseState(model.resources.kp.state, model.resources.flux.state)} />
       </div>
 
       {!outlook ? (
-        <p>
-          {!location
-            ? "Set your Home location for a 24-hour band outlook."
-            : "Awaiting current Kp and solar flux. The outlook is withheld while these inputs are unavailable."}
-        </p>
+        <>
+          <p>
+            {!location
+              ? "Set your Home location for a 24-hour band outlook."
+              : "The outlook is withheld while Kp and solar flux are not current."}
+          </p>
+          <div className="home-actions">
+            <Link to="/map">{CAPTION}</Link>
+          </div>
+        </>
       ) : (
         <>
           <p className="home-note">
@@ -95,7 +121,7 @@ export function HomeForecastStrip({
           <Link
             to="/map"
             className="home-forecast-strip-link"
-            aria-label={`${outlook.band} 24-hour outlook, starting ${pad(outlook.hours[0].hour)} UTC. ${CAPTION}`}
+            aria-label={`${outlook.band} 24-hour outlook, starting ${pad(outlook.hours[0].hour)} UTC. Opens PropSphere.`}
           >
             <span className="home-forecast-strip-row">
               {outlook.hours.map((cell, index) => (
@@ -117,6 +143,7 @@ export function HomeForecastStrip({
                 </span>
               ))}
             </span>
+            <span className="home-forecast-strip-caption">{CAPTION}</span>
           </Link>
 
           <ul className="home-forecast-strip-legend">
@@ -129,10 +156,6 @@ export function HomeForecastStrip({
           </ul>
         </>
       )}
-
-      <div className="home-actions">
-        <Link to="/map">{CAPTION}</Link>
-      </div>
     </section>
   );
 }

@@ -1,4 +1,4 @@
-export type ActivationProgram = "POTA" | "SOTA" | "WWFF" | "WWBOTA";
+export type ActivationProgram = "POTA" | "SOTA" | "WWFF" | "WWBOTA" | "CANParks";
 
 export type ActivationSourceStatus = "ok" | "unavailable" | "invalid";
 
@@ -16,6 +16,11 @@ export interface ActivationSpot {
   latitude?: number;
   longitude?: number;
   grid?: string;
+  /** Provider expiry; cached rows must not remain actionable after this time. */
+  expiresAt?: string;
+  /** Original observation source, distinct from the programme feed. */
+  originSource?: string;
+  originLabel?: string;
 }
 
 export interface ActivationFeedSource {
@@ -41,6 +46,7 @@ export const ACTIVATION_PROGRAMS: readonly ActivationProgram[] = [
   "SOTA",
   "WWFF",
   "WWBOTA",
+  "CANParks",
 ] as const;
 
 export const ACTIVATION_PROGRAM_META: Record<
@@ -62,9 +68,26 @@ export const ACTIVATION_PROGRAM_META: Record<
     source: "WWFF Spotline",
     sourceUrl: "https://spots.wwff.co/",
   },
+  CANParks: {
+    label: "CANParks",
+    source: "CANParks",
+    sourceUrl: "https://canparks.ca/spots.html",
+  },
   WWBOTA: {
     label: "WWBOTA",
     source: "Worldwide Bunkers on the Air",
     sourceUrl: "https://wwbota.net/",
   },
 };
+
+
+export function activationWindowMs(program: ActivationProgram): number {
+  return program === "CANParks" ? 30 * 60_000 : 2 * 60 * 60_000;
+}
+
+export function activationProvenance(spot: ActivationSpot): string {
+  if (!spot.originSource && !spot.originLabel) return "";
+  const label = spot.originLabel || spot.originSource || "Unknown source";
+  return spot.originSource?.toLowerCase() === "pota" || /pota/i.test(label)
+    ? `Imported · ${label}` : `Source · ${label}`;
+}

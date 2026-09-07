@@ -15,3 +15,13 @@ it("does not replace missing or failed source timing with the aggregate clock", 
   expect(activationSourceState({ ...source, fetchedAt: new Date(now - 3600_000).toISOString() }, now)).toBe("STALE");
   expect(activationSourceTime({ ...source, status: "unavailable", fetchedAt: new Date(now).toISOString() }, now)).toBeNull();
 });
+
+
+it("expires CANParks cached observations after 30 minutes or an earlier provider expiry", () => {
+  const canadian: ActivationSpot = { ...spot, program: "CANParks", reference: "QC-0001" };
+  expect(currentActivations([canadian], now + 29 * 60_000)).toEqual([]);
+  expect(currentActivations([{ ...canadian, expiresAt: new Date(now).toISOString() }], now)).toEqual([]);
+  expect(currentActivations([{ ...canadian, expiresAt: "invalid" }], now)).toEqual([]);
+  expect(currentActivations([canadian], now)).toEqual([canadian]);
+  expect(currentActivations([spot], now + 29 * 60_000)).toEqual([spot]);
+});

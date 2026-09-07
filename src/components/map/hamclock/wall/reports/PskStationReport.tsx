@@ -9,10 +9,9 @@ import { reportFooter } from "../tokens";
 import { WallReport } from "./WallReport";
 
 export function PskStationReport({ open, onClose }: { open: boolean; onClose: () => void }) {
-  const { feed, view, rows, state, now } = usePskStationData(open);
+  const data = usePskStationData(open);
+  const { feed, view, rows, state, now } = data;
   const { footer, updated } = reportFooter(`PSK REPORTER · ${state} · RETRIEVED`, feed.data?.fetchedAt ?? null, now);
-  const bands = [...new Set([...(feed.data?.reports ?? [])].sort((a, b) => a.frequencyHz - b.frequencyHz).map(r => bandFromFreq(r.frequencyHz / 1000)).filter((b): b is string => b !== null))];
-  if (view.band !== "all" && !bands.includes(view.band)) bands.push(view.band);
   const counterpart = (r: Reception) => view.direction === "of" ? r.receiverCallsign : r.senderCallsign;
   return <WallReport open={open} onClose={onClose} title={`PSK Reporter · ${feed.callsign ?? "station call required"}`}
     hero={feed.data?.fetchedAt == null ? "—" : rows.length} verdict={view.direction === "of" ? "HEARING ME" : "HEARD BY ME"}
@@ -25,17 +24,26 @@ export function PskStationReport({ open, onClose }: { open: boolean; onClose: ()
       { label: "NEWEST", value: rows[0] ? activationAge(new Date(rows[0].observedAt).toISOString(), now) : "—" },
     ]} footer={footer} updated={updated} pinId="psk-station" pinElement={<PskStationReport open onClose={onClose} />}>
     <div className="hcp-report">
-      <div className="hcp-controls">
-      <PskDirectionControl direction={view.direction} onChange={view.setDirection} />
+      <PskStationControls data={data} />
+      <p className="hcr-note">{feed.data?.limited ? "ROW LIMIT REACHED · " : ""}Loaded reports only · history may be incomplete · refresh 5 min.</p>
+      <PskReceptionRows rows={rows} direction={view.direction} state={state} now={now} />
+    </div>
+  </WallReport>;
+}
+
+export function PskStationControls({ data, direction = true }: { data: ReturnType<typeof usePskStationData>; direction?: boolean }) {
+  const { feed, view } = data;
+  const bands = [...new Set([...(feed.data?.reports ?? [])].sort((a, b) => a.frequencyHz - b.frequencyHz).map(r => bandFromFreq(r.frequencyHz / 1000)).filter((b): b is string => b !== null))];
+  if (view.band !== "all" && !bands.includes(view.band)) bands.push(view.band);
+  return (
+      <div className={`hcp-controls${direction ? "" : " hcp-controls--reception"}`}>
+      {direction && <PskDirectionControl direction={view.direction} onChange={view.setDirection} />}
       <HamClockSegmented label="Reception age window" value={String(view.minutes)} onChange={v => view.setMinutes(Number(v) as PskWindowMinutes)} options={PSK_WINDOWS.map(v => ({ value: String(v), label: `${v} MIN` }))} />
       <HamClockSegmented label="Reception band" value={view.band} onChange={view.setBand} options={[
         { value: "all", label: "ALL" }, ...bands.map(b => ({ value: b, label: b.toUpperCase() })),
       ]} />
       </div>
-      <p className="hcr-note">{feed.data?.limited ? "ROW LIMIT REACHED · " : ""}Loaded reports only · history may be incomplete · refresh 5 min.</p>
-      <PskReceptionRows rows={rows} direction={view.direction} state={state} now={now} />
-    </div>
-  </WallReport>;
+  );
 }
 
 export function PskDirectionControl({ direction, onChange }: { direction: PskDirection; onChange: (direction: PskDirection) => void }) {

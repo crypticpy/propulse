@@ -229,6 +229,9 @@ describe("feed verification", () => {
     for (const [xml, status] of [
       ['<feed xmlns="http://www.w3.org/2005/Atom"><title>Club</title></feed>', "ok"],
       ["<html><title>Sign in</title></html>", "invalid_feed"],
+      ['<html><title>Sign in</title><!-- <rss> --></html>', "invalid_feed"],
+      ['<html><title>Sign in</title><script>const x="<feed>"</script></html>', "invalid_feed"],
+      ['<?xml version="1.0"?><!-- example <rss> --><feed><title>Club</title></feed>', "ok"],
       ["<rss><channel></channel></rss>", "invalid_feed"],
     ]) {
       vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(xml)));
@@ -243,7 +246,23 @@ describe("feed verification", () => {
     vi.stubGlobal("fetch", fetch);
     expect((await handleFeedsRss(request("http://localhost/feed"))).status).toBe(400);
     expect(fetch).not.toHaveBeenCalled();
-    expect(await (await handleFeedsRss(request())).json()).toMatchObject({ status: "unreachable" });
+    const blocked = await handleFeedsRss(request());
+    expect(blocked.headers.get("cache-control")).toBe("no-store");
+    expect(await blocked.json()).toEqual({ status: "unreachable", title: null, itemCount: 0 });
     expect(fetch).toHaveBeenCalledTimes(1);
   });
+
+  it("does not cache transient or oversized verification failures", async () => {
+    for (const upstream of [
+      () => Promise.reject(new Error("timeout")),
+      () => Promise.resolve(new Response("down", { status: 503 })),
+      () => Promise.resolve(new Response("large", { headers: { "content-length": "2000000" } })),
+    ]) {
+      vi.stubGlobal("fetch", vi.fn(upstream));
+      const response = await handleFeedsRss(request());
+      expect(response.headers.get("cache-control")).toBe("no-store");
+      expect(await response.json()).toMatchObject({ title: null, itemCount: 0 });
+    }
+  });
+
 });

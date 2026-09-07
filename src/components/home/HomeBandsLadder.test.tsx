@@ -197,13 +197,6 @@ it("dims the ladder and marks it stale when the snapshot is not current", () => 
   ).toBe("true");
 });
 
-function hexToRgb(hex: string) {
-  const clean = hex.replace("#", "");
-  const r = parseInt(clean.slice(0, 2), 16);
-  const g = parseInt(clean.slice(2, 4), 16);
-  const b = parseInt(clean.slice(4, 6), 16);
-  return `rgb(${r}, ${g}, ${b})`;
-}
 
 it("colors each band button with the shared per-band palette", () => {
   stubViewport(1920);
@@ -212,7 +205,9 @@ it("colors each band button with the shared per-band palette", () => {
     const button = screen.getByRole("button", {
       name: new RegExp(`^${band}`),
     });
-    expect(button.style.color).toBe(hexToRgb(getBandColor(band)));
+    // The hue drives the chip tint and bar; ink stays the station text token
+    // so the label reads on both palettes.
+    expect(button.style.color).toBe("");
     expect(button.style.getPropertyValue("--band-hue")).toBe(
       getBandColor(band),
     );

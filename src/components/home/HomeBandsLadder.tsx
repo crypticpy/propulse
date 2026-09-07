@@ -133,10 +133,7 @@ export function HomeBandsLadder({
                 aria-expanded={selectedBand === row.band}
                 onClick={() => onSelectBand(row.band)}
                 style={
-                  {
-                    color: getBandColor(row.band),
-                    "--band-hue": getBandColor(row.band),
-                  } as CSSProperties
+                  { "--band-hue": getBandColor(row.band) } as CSSProperties
                 }
               >
                 {row.band}

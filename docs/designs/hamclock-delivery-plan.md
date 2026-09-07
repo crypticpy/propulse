@@ -288,3 +288,24 @@ counts must not become fabricated historical series, and relative physics scores
 must not be described as calibrated QSO probabilities. Show missing model/history
 interfaces explicitly and record owner dependencies. Keep every PR ≤15 files,
 with separate prerequisites if needed. Weather remains last.
+
+### B18 Reliability review slice — PR #494
+
+[PR #494](https://github.com/crypticpy/propulse/pull/494) implements the dedicated
+Reliability report on `feat/hamclock-b18-codex` (15 files against main). The full
+pre-push verification passed, including 3,209 application tests, bridge/daemon
+checks, lint, build and bundle budgets. The wall suite passed 318 tests; the
+browser matrix passed 24 target/QTH × theme × resolution × tab cases with
+populated scoped counts, grid selection and focus return.
+
+HW-58 remains partial: the supplied contracts have no historical model/observed
+series and no hop count. The report explicitly shows those gaps. Model evidence
+is gated and matched to station/path/mode/time; unavailable models are not
+counted as disagreement. No reliability mathematics or model gates changed.
+
+B18/#226 stays the sole active implementation claim while the Forecast slice is
+built in `.worktrees/hamclock-b18-forecast`, branch
+`feat/hamclock-b18-forecast`, stacked on Reliability. It retains all four horizon
+rows and the complete two-day matrix. The new presentation adapter rebuilds
+future-time request features and respects the existing service capability gates;
+it does not activate FutureCast. Forecast verification and PR remain pending.

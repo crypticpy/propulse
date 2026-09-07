@@ -990,10 +990,10 @@ function ConfigurationStep({ setup }: { setup: UseRadioSetupReturn }) {
                     value={config.hamlibPort}
                     onChange={(e) =>
                       setConfig({
-                        hamlibPort: parseInt(e.target.value, 10) || 4533,
+                        hamlibPort: parseInt(e.target.value, 10) || 4532,
                       })
                     }
-                    placeholder="4533"
+                    placeholder="4532"
                     className={inputClass}
                   />
                 </div>

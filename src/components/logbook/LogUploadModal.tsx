@@ -507,7 +507,7 @@ export function LogUploadModal({
                         {service.name}
                       </span>
                       {service.comingSoon && (
-                        <span className="px-2 py-0.5 bg-su-line/50 text-su-muted rounded text-xs">
+                        <span className="px-2 py-0.5 bg-su-line/20 text-su-text rounded text-xs">
                           Coming Soon
                         </span>
                       )}

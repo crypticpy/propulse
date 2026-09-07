@@ -280,7 +280,7 @@ function GalleryThumbnail({
             onRemove();
           }}
           className="absolute top-0.5 right-0.5 p-0.5 rounded-full bg-su-panel/90 text-su-text/80
-                     hover:text-su-text hover:bg-red-500/80 transition-colors
+                     hover:bg-alert-red hover:text-su-canvas transition-colors
                      opacity-0 group-hover/thumb:opacity-100 focus:opacity-100
                      focus:outline-none focus-visible:ring-1 focus-visible:ring-su-line/60"
           aria-label="Remove photo"

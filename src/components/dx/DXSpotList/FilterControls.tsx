@@ -487,7 +487,7 @@ export const FilterControls = memo(function FilterControls({
                 e.stopPropagation();
                 setDeletePresetId(preset.id);
               }}
-              className="absolute -top-1 -right-1 w-3 h-3 rounded-full bg-red-500/80 text-su-text text-[7px] font-bold opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center hover:bg-red-500"
+              className="absolute -top-1 -right-1 w-3 h-3 rounded-full bg-alert-red text-su-canvas text-[7px] font-bold opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center hover:bg-red-500"
               title="Delete preset"
               aria-label={`Delete preset ${preset.name}`}
             >

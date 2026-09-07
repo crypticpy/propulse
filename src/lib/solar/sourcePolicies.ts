@@ -68,7 +68,10 @@ export const SOLAR_SOURCE_POLICIES: Record<
     product: "Observed 10.7 cm radio flux",
     endpoint: "/api/solar/flux",
     sourceUrl: "https://services.swpc.noaa.gov/json/f107_cm_flux.json",
-    softTtlMs: 8 * HOUR,
+    // Penticton reports three times a day (17Z, 20Z, 22Z), so the newest
+    // reading is up to 19 h old every night. Soft TTL must clear that gap or
+    // the flux reads "stale" for most of every day.
+    softTtlMs: 24 * HOUR,
     hardTtlMs: 36 * HOUR,
     refetchMs: 4 * HOUR,
     maxRows: 45,

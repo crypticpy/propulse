@@ -1,26 +1,57 @@
-import { render } from "@testing-library/react";
+import { act, fireEvent, render } from "@testing-library/react";
+import { MemoryRouter } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { WidgetShell } from "./WidgetShell";
 import { SolarDisclosure } from "./SolarDisclosure";
 import { SolarBriefingCard } from "./SolarBriefingCard";
+import { SolarOperatingActions } from "./SolarOperatingActions";
 import { SolarImageCard } from "./SolarImageCard";
+import { SolarImageDetail } from "./SolarImageDetail";
 import { SolarMiniChart } from "./SolarMiniChart";
 import { SolarSeriesChart } from "./SolarSeriesChart";
 import { BandConditionsModal } from "./modals/BandConditionsModal";
 import type { SolarBriefing } from "@/lib/solar/briefing";
 
 /**
- * DS-03: proves the su- token retheme (colour classes only) leaves the DOM
- * structure of the migrated Solar Pulse surfaces unchanged. Generated from
- * the pre-migration component code, then re-run unchanged after the colour
- * classes were swapped to the su- tokens; a structural diff (added/removed
- * elements, changed non-class attributes) fails this test even though the
- * class *values* are expected to differ and are stripped before comparing.
+ * DS-03: proves the su- token retheme (colour only) leaves the DOM structure
+ * of the migrated Solar Pulse surfaces unchanged. Generated from the
+ * pre-migration component code, then re-run unchanged after the colours were
+ * swapped to the su- tokens; a structural diff (added/removed elements,
+ * changed geometry or accessibility attributes) fails this test.
+ *
+ * Only the colour carriers are normalised away, because their *values* are
+ * expected to differ: `class`, inline `style`, and the SVG paint attributes
+ * (`fill`, `stroke`, `color`, `stop-color`). Everything that describes shape,
+ * emphasis or semantics — `d`, `x`/`y`, `viewBox`, `stroke-width`,
+ * `stroke-dasharray`, `fill-opacity`, `role`, `aria-*` — is compared.
  */
 function structure(html: string): string {
   return html
-    .replace(/\sclass="[^"]*"/g, "")
-    .replace(/\sclass='[^']*'/g, "");
+    .replace(/\s(?:class|style|fill|stroke|color|stop-color)="[^"]*"/g, "")
+    .replace(/\s(?:class|style|fill|stroke|color|stop-color)='[^']*'/g, "");
+}
+
+/** Lets a mocked fetch and the state it drives settle under fake timers. */
+async function settle() {
+  await act(async () => {
+    await Promise.resolve();
+    await Promise.resolve();
+  });
+}
+
+function stubImageMetadata() {
+  vi.stubGlobal(
+    "fetch",
+    vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          observedAt: "2026-09-05T12:28:00.000Z",
+          checkedAt: "2026-09-05T12:28:00.000Z",
+        }),
+        { status: 200, headers: { "Content-Type": "application/json" } },
+      ),
+    ),
+  );
 }
 
 vi.mock("@/hooks/useActiveBandMode", () => ({ useActiveMode: () => "CW" }));
@@ -39,14 +70,30 @@ const briefing: SolarBriefing = {
   title: "Elevated geomagnetic activity may affect high-latitude paths",
   tone: "watch",
   statements: [
-    { id: "s1", kind: "impact", text: "Kp reached 5 in the last interval.", sources: ["noaa-k-index"] },
-    { id: "s2", kind: "background", text: "Solar flux remains moderate.", sources: ["noaa-solar-flux"] },
+    {
+      id: "s1",
+      kind: "impact",
+      text: "Kp reached 5 in the last interval.",
+      sources: ["noaa-k-index"],
+    },
+    {
+      id: "s2",
+      kind: "background",
+      text: "Solar flux remains moderate.",
+      sources: ["noaa-solar-flux"],
+    },
   ],
   state: "fresh",
   missing: [],
   delayed: ["Solar flux"],
   evidence: [
-    { sourceId: "noaa-k-index", label: "Planetary Kp", observedAt: "2026-09-05T12:00:00Z", state: "fresh", sourceUrl: "https://example.test/kp" },
+    {
+      sourceId: "noaa-k-index",
+      label: "Planetary Kp",
+      observedAt: "2026-09-05T12:00:00Z",
+      state: "fresh",
+      sourceUrl: "https://example.test/kp",
+    },
   ],
 };
 
@@ -62,6 +109,7 @@ describe("Solar Pulse structural snapshot (DS-03 retheme)", () => {
   afterEach(() => {
     vi.useRealTimers();
     vi.restoreAllMocks();
+    vi.unstubAllGlobals();
   });
 
   it("WidgetShell: fresh state with an eyebrow, timestamp, and action", () => {
@@ -81,12 +129,30 @@ describe("Solar Pulse structural snapshot (DS-03 retheme)", () => {
     expect(structure(container.innerHTML)).toMatchSnapshot();
   });
 
-  it("WidgetShell: stale state fallback with retry", () => {
-    const { container } = render(
-      <WidgetShell title="Solar flux" state="stale" hasData={false} onRetry={() => {}}>
+  it("WidgetShell: stale banner above the retained reading", () => {
+    const { container, queryByRole } = render(
+      <WidgetShell title="Solar flux" state="stale" onRetry={() => {}}>
         <p>—</p>
       </WidgetShell>,
     );
+    // `showFallback` is only reached from loading/error/unavailable, so a
+    // stale widget keeps its last reading and shows the banner instead.
+    expect(queryByRole("button", { name: "Try again" })).toBeNull();
+    expect(structure(container.innerHTML)).toMatchSnapshot();
+  });
+
+  it("WidgetShell: error fallback with the retry control", () => {
+    const { container, getByRole } = render(
+      <WidgetShell
+        title="Solar flux"
+        state="error"
+        hasData={false}
+        onRetry={() => {}}
+      >
+        <p>—</p>
+      </WidgetShell>,
+    );
+    expect(getByRole("button", { name: "Try again" })).toBeTruthy();
     expect(structure(container.innerHTML)).toMatchSnapshot();
   });
 
@@ -101,13 +167,25 @@ describe("Solar Pulse structural snapshot (DS-03 retheme)", () => {
 
   it("SolarDisclosure: closed and open", () => {
     const { container, rerender } = render(
-      <SolarDisclosure id="details" title="Details and history" summary="Explore solar history" open={false} onToggle={() => {}}>
+      <SolarDisclosure
+        id="details"
+        title="Details and history"
+        summary="Explore solar history"
+        open={false}
+        onToggle={() => {}}
+      >
         <p>Body</p>
       </SolarDisclosure>,
     );
     expect(structure(container.innerHTML)).toMatchSnapshot("closed");
     rerender(
-      <SolarDisclosure id="details" title="Details and history" summary="Explore solar history" open onToggle={() => {}}>
+      <SolarDisclosure
+        id="details"
+        title="Details and history"
+        summary="Explore solar history"
+        open
+        onToggle={() => {}}
+      >
         <p>Body</p>
       </SolarDisclosure>,
     );
@@ -120,7 +198,18 @@ describe("Solar Pulse structural snapshot (DS-03 retheme)", () => {
         <p>Actions</p>
       </SolarBriefingCard>,
     );
-    getByRole("button", { name: /Sources & times/i }).click();
+    const evidence = getByRole("button", { name: /Sources & times/i });
+    fireEvent.click(evidence);
+    expect(evidence.getAttribute("aria-expanded")).toBe("true");
+    expect(structure(container.innerHTML)).toMatchSnapshot();
+  });
+
+  it("SolarOperatingActions: the full handoff nav", () => {
+    const { container } = render(
+      <MemoryRouter initialEntries={["/solar"]}>
+        <SolarOperatingActions />
+      </MemoryRouter>,
+    );
     expect(structure(container.innerHTML)).toMatchSnapshot();
   });
 
@@ -157,35 +246,47 @@ describe("Solar Pulse structural snapshot (DS-03 retheme)", () => {
         ]}
       />,
     );
-    getByRole("button", { name: /show values/i }).click();
+    const toggle = getByRole("button", { name: /show values/i });
+    fireEvent.click(toggle);
+    expect(toggle.getAttribute("aria-expanded")).toBe("true");
+    expect(getByRole("region", { name: "Planetary Kp values" })).toBeTruthy();
     expect(structure(container.innerHTML)).toMatchSnapshot();
   });
 
-  it("SolarImageCard: a freshly loaded image", () => {
-    vi.stubGlobal(
-      "fetch",
-      vi.fn().mockResolvedValue(
-        new Response(
-          JSON.stringify({
-            observedAt: "2026-09-05T12:00:00.000Z",
-            checkedAt: "2026-09-05T12:00:00.000Z",
-          }),
-          { status: 200, headers: { "Content-Type": "application/json" } },
-        ),
-      ),
-    );
-    const { container, getByAltText } = render(
+  it("SolarImageCard: a freshly loaded image", async () => {
+    stubImageMetadata();
+    const { container, getByAltText, getByText } = render(
       <SolarImageCard productId="sunspot-hmi" onOpen={() => {}} />,
     );
-    getByAltText(/full solar disk/i).dispatchEvent(new Event("load"));
+    fireEvent.load(getByAltText(/full solar disk/i));
+    await settle();
+    expect(getByText("Current")).toBeTruthy();
     expect(structure(container.innerHTML)).toMatchSnapshot();
-    vi.unstubAllGlobals();
+  });
+
+  it("SolarImageDetail: a freshly loaded image with its observation time", async () => {
+    stubImageMetadata();
+    const { container, getByRole, getByText } = render(
+      <SolarImageDetail productId="sunspot-hmi" />,
+    );
+    fireEvent.load(getByRole("img"));
+    await settle();
+    expect(getByText(/Image time/)).toBeTruthy();
+    expect(structure(container.innerHTML)).toMatchSnapshot();
   });
 
   it("BandConditionsModal: the full band matrix", () => {
     vi.spyOn(Date.prototype, "getHours").mockReturnValue(14);
+    // The "Local Time" readout formats in the runner's own zone and locale;
+    // pin it so the structural snapshot is not machine-dependent.
+    vi.spyOn(Date.prototype, "toLocaleTimeString").mockReturnValue("02:30 PM");
     const { baseElement } = render(
-      <BandConditionsModal isOpen onClose={() => {}} kIndex={3} solarFlux={150} />,
+      <BandConditionsModal
+        isOpen
+        onClose={() => {}}
+        kIndex={3}
+        solarFlux={150}
+      />,
     );
     // AccessibleDialog portals to document.body, outside the render container.
     expect(structure(baseElement.innerHTML)).toMatchSnapshot();

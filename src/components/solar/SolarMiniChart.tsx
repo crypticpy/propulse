@@ -29,11 +29,12 @@ const stamp = (time: number) =>
 
 /**
  * Small companion to the detailed chart. Gaps remain gaps; the y range is
- * labeled. Every colour is a CSS custom property (`--hcr-chart-*`) with the
- * original hex as its fallback, so a HamClock report (which sets those
- * variables from its theme under `[data-hamclock-theme]`, see
- * `hamclock-wall-report.css`) recolours the chart while the /solar page,
- * which never sets them, renders byte-for-byte the same as before (HW-29).
+ * labeled. Every colour is a CSS custom property (`--hcr-chart-*`) whose
+ * fallback is a station token, so a HamClock report (which sets every
+ * `--hcr-chart-*` from its own theme under `[data-hamclock-theme]`, see
+ * `hamclock-wall-report.css`) still recolours the chart (HW-29), while
+ * /solar — which never sets them — follows the app theme and stays legible
+ * on the light canvas (DS-03).
  */
 export function SolarMiniChart({
   points,
@@ -89,10 +90,10 @@ export function SolarMiniChart({
     .join(" ");
   const color = (kind?: SolarChartPoint["kind"]) =>
     kind === "predicted"
-      ? "var(--hcr-chart-predicted, #ffd23f)"
+      ? "var(--hcr-chart-predicted, var(--su-warning))"
       : kind === "estimated"
-        ? "var(--hcr-chart-estimated, #c4b5fd)"
-        : "var(--hcr-chart-observed, #44ddff)";
+        ? "var(--hcr-chart-estimated, var(--su-success))"
+        : "var(--hcr-chart-observed, var(--su-info))";
   return (
     <figure className="mt-4 min-w-0 border-t border-su-line/40 pt-3">
       <figcaption className="mb-1 text-xs text-su-muted">{label}</figcaption>
@@ -114,13 +115,23 @@ export function SolarMiniChart({
           x2="284"
           y1="66"
           y2="66"
-          stroke="var(--hcr-chart-axis, #64748b)"
+          stroke="var(--hcr-chart-axis, var(--su-line))"
           strokeOpacity=".35"
         />
-        <text x="0" y="16" fill="var(--hcr-chart-dim, #94a3b8)" fontSize="9">
+        <text
+          x="0"
+          y="16"
+          fill="var(--hcr-chart-dim, var(--su-muted))"
+          fontSize="9"
+        >
           {number(high)}
         </text>
-        <text x="0" y="67" fill="var(--hcr-chart-dim, #94a3b8)" fontSize="9">
+        <text
+          x="0"
+          y="67"
+          fill="var(--hcr-chart-dim, var(--su-muted))"
+          fontSize="9"
+        >
           {number(low)}
         </text>
         {intervalMs ? (
@@ -149,7 +160,7 @@ export function SolarMiniChart({
           <path
             d={path}
             fill="none"
-            stroke="var(--hcr-chart-observed, #44ddff)"
+            stroke="var(--hcr-chart-observed, var(--su-info))"
             strokeWidth="2"
           />
         )}
@@ -160,21 +171,26 @@ export function SolarMiniChart({
               x2="284"
               y1={y(5)}
               y2={y(5)}
-              stroke="var(--hcr-chart-warn, #fb7185)"
+              stroke="var(--hcr-chart-warn, var(--su-danger))"
               strokeDasharray="3 3"
             />
             <text
               x="283"
               y={y(5) - 3}
               textAnchor="end"
-              fill="var(--hcr-chart-warn, #fda4af)"
+              fill="var(--hcr-chart-warn, var(--su-danger))"
               fontSize="9"
             >
               Kp 5
             </text>
           </>
         )}
-        <text x="32" y="82" fill="var(--hcr-chart-dim, #94a3b8)" fontSize="9">
+        <text
+          x="32"
+          y="82"
+          fill="var(--hcr-chart-dim, var(--su-muted))"
+          fontSize="9"
+        >
           {domain
             ? "00 UTC"
             : new Date(start).toISOString().slice(5, 16).replace("T", " ")}
@@ -183,7 +199,7 @@ export function SolarMiniChart({
           x="284"
           y="82"
           textAnchor="end"
-          fill="var(--hcr-chart-dim, #94a3b8)"
+          fill="var(--hcr-chart-dim, var(--su-muted))"
           fontSize="9"
         >
           {domain

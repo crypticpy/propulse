@@ -34,19 +34,24 @@ export interface SolarSeriesChartProps {
    * to before it existed. */
   chrome?: "full" | "plot";
 }
+/**
+ * Series colours go through the `--hcr-chart-*` layer (HW-29) so a HamClock
+ * report can recolour them, with a station token as the fallback so /solar
+ * follows the app theme instead of a hard-coded dark palette (DS-03).
+ */
 const styles = {
   observed: {
-    color: "var(--hcr-chart-observed, #44ddff)",
+    color: "var(--hcr-chart-observed, var(--su-info))",
     label: "Observed",
     dash: undefined,
   },
   estimated: {
-    color: "var(--hcr-chart-estimated, #c4b5fd)",
+    color: "var(--hcr-chart-estimated, var(--su-success))",
     label: "Estimated",
     dash: "3 4",
   },
   predicted: {
-    color: "var(--hcr-chart-predicted, #ffd23f)",
+    color: "var(--hcr-chart-predicted, var(--su-warning))",
     label: "Official NOAA prediction",
     dash: "8 5",
   },
@@ -186,13 +191,13 @@ export function SolarSeriesChart({
                 x2={width - right}
                 y1={y(tick)}
                 y2={y(tick)}
-                stroke="var(--hcr-chart-grid, rgba(255,255,255,.10))"
+                stroke="var(--hcr-chart-grid, color-mix(in srgb, var(--su-line) 30%, transparent))"
               />
               <text
                 x={left - 8}
                 y={y(tick) + 4}
                 textAnchor="end"
-                fill="var(--hcr-chart-dim, #cbd5e1)"
+                fill="var(--hcr-chart-dim, var(--su-muted))"
                 fontSize="12"
               >
                 {number(tick)}
@@ -202,7 +207,7 @@ export function SolarSeriesChart({
           <text
             x={left}
             y={14}
-            fill="var(--hcr-chart-dim, #cbd5e1)"
+            fill="var(--hcr-chart-dim, var(--su-muted))"
             fontSize="12"
           >
             {unit}
@@ -215,7 +220,7 @@ export function SolarSeriesChart({
               x2={width - right}
               y1={y(0)}
               y2={y(0)}
-              stroke="var(--hcr-chart-axis, #94a3b8)"
+              stroke="var(--hcr-chart-axis, var(--su-line))"
               strokeDasharray="4 4"
             />
           )}
@@ -228,14 +233,14 @@ export function SolarSeriesChart({
                   x2={width - right}
                   y1={y(t.value)}
                   y2={y(t.value)}
-                  stroke="var(--hcr-chart-warn, #fbbf24)"
+                  stroke="var(--hcr-chart-warn, var(--su-danger))"
                   strokeDasharray="2 5"
                 />
                 <text
                   x={width - right - 4}
                   y={y(t.value) - 5}
                   textAnchor="end"
-                  fill="var(--hcr-chart-warn, #fde68a)"
+                  fill="var(--hcr-chart-warn, var(--su-danger))"
                   fontSize="12"
                 >
                   {t.label}
@@ -251,7 +256,7 @@ export function SolarSeriesChart({
               x={x(time)}
               y={height - 20}
               textAnchor={i === 0 ? "start" : i === 3 ? "end" : "middle"}
-              fill="var(--hcr-chart-dim, #cbd5e1)"
+              fill="var(--hcr-chart-dim, var(--su-muted))"
               fontSize="12"
             >
               {new Date(time).toISOString().slice(5, 10)}{" "}
@@ -321,13 +326,13 @@ export function SolarSeriesChart({
                 x2={x(now)}
                 y1={top}
                 y2={height - bottom}
-                stroke="var(--hcr-chart-now, #f8fafc)"
+                stroke="var(--hcr-chart-now, var(--su-accent-text))"
                 strokeDasharray="2 4"
               />
               <text
                 x={Math.min(x(now) + 4, width - 48)}
                 y={top + 12}
-                fill="var(--hcr-chart-now, #f8fafc)"
+                fill="var(--hcr-chart-now, var(--su-accent-text))"
                 fontSize="12"
               >
                 Now
@@ -341,13 +346,13 @@ export function SolarSeriesChart({
                 x2={x(m.time)}
                 y1={top}
                 y2={height - bottom}
-                stroke="var(--hcr-chart-marker, #fb7185)"
+                stroke="var(--hcr-chart-marker, var(--su-danger))"
                 strokeWidth="2"
               />
               <text
                 x={Math.min(x(m.time) + 4, width - 48)}
                 y={top + 12}
-                fill="var(--hcr-chart-marker, #fb7185)"
+                fill="var(--hcr-chart-marker, var(--su-danger))"
                 fontSize="12"
               >
                 {m.label}
@@ -358,8 +363,8 @@ export function SolarSeriesChart({
             cx={x(Date.parse(selected.timestamp))}
             cy={y(selected.value)}
             r="5"
-            fill="var(--hcr-chart-now, #fff)"
-            stroke="var(--hcr-chart-selected-ring, #0f172a)"
+            fill="var(--hcr-chart-now, var(--su-accent-text))"
+            stroke="var(--hcr-chart-selected-ring, var(--su-canvas))"
             strokeWidth="2"
           />
         </svg>

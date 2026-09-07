@@ -1,3 +1,4 @@
+import { sharedPskStationCache, type PskStationCache } from "../pskStationCache.js";
 import { SaxesParser } from "saxes";
 import { applyRateLimit } from "../rateLimit.js";
 import { spotJsonResponse, spotOptionsResponse } from "../spotResponse.js";
@@ -25,6 +26,7 @@ export function parsePskStationXml(xml: string, callsign: string, now: number) {
   const reports: PskStationReport[] = [];
   let depth = 0;
   let discarded = 0;
+  let matched = 0;
   parser.on("doctype", () => { throw new Error("Unexpected XML doctype"); });
   parser.on("opentag", (tag) => {
     depth++;
@@ -47,15 +49,26 @@ export function parsePskStationXml(xml: string, callsign: string, now: number) {
       discarded++;
       return;
     }
+    matched++;
+    // Keep a bounded newest-first list throughout parsing, not just in the response.
+    // Binary insertion preserves upstream order for equal observation times.
+    if (reports.length === ROW_LIMIT && observedAt <= reports[ROW_LIMIT - 1].observedAt) return;
+    let low = 0;
+    let high = reports.length;
+    while (low < high) {
+      const middle = Math.floor((low + high) / 2);
+      if (reports[middle].observedAt >= observedAt) low = middle + 1;
+      else high = middle;
+    }
+    if (reports.length === ROW_LIMIT) reports.pop();
     const snr = a.sNR?.trim() ? Number(a.sNR) : Number.NaN;
-    reports.push({ senderCallsign, receiverCallsign,
+    reports.splice(low, 0, { senderCallsign, receiverCallsign,
       senderLocator: locator(a.senderLocator), receiverLocator: locator(a.receiverLocator),
       frequencyHz, mode, snr: Number.isFinite(snr) ? snr : null, observedAt });
   });
   parser.on("closetag", () => { depth--; });
   parser.write(xml).close();
-  reports.sort((a, b) => b.observedAt - a.observedAt);
-  return { reports: reports.slice(0, ROW_LIMIT), limited: reports.length >= ROW_LIMIT, discarded };
+  return { reports, limited: matched >= ROW_LIMIT, discarded };
 }
 
 async function readXml(response: Response): Promise<string> {
@@ -85,8 +98,30 @@ interface CacheEntry {
 }
 
 /** Per-process cache and single-flight; CDN caching adds a shared layer in cloud hosting. */
-export function createPskStationHandler() {
+export function createPskStationHandler(shared: PskStationCache = sharedPskStationCache) {
   const cache = new Map<string, CacheEntry>();
+
+  function unavailable(callsign: string, previous?: PskStationSnapshot, retryAt = Date.now() + REFRESH_MS): PskStationSnapshot {
+    return { callsign, reports: previous?.reports ?? [], status: previous?.fetchedAt != null ? "stale" : "unavailable",
+      fetchedAt: previous?.fetchedAt ?? null, checkedAt: Date.now(), retryAt,
+      windowMinutes: 1440, limit: ROW_LIMIT, limited: previous?.limited ?? false, discarded: previous?.discarded ?? 0 };
+  }
+
+  async function refresh(callsign: string, previous?: PskStationSnapshot): Promise<PskStationSnapshot> {
+    try {
+      const claim = await shared.claim(callsign);
+      const retained = claim.snapshot ?? previous;
+      if (!claim.token) {
+        return claim.snapshot && claim.snapshot.retryAt > Date.now()
+          ? claim.snapshot : unavailable(callsign, retained, claim.retryAt);
+      }
+      if (Date.now() >= claim.retryAt - REFRESH_MS) return unavailable(callsign, retained, claim.retryAt);
+      const result = await retrieve(callsign, retained);
+      // A failed publication never permits another provider call: the durable lease survives.
+      try { return await shared.finish(callsign, claim.token, result); }
+      catch { return { ...result, retryAt: Math.max(result.retryAt, claim.retryAt) }; }
+    } catch { return unavailable(callsign, previous); }
+  }
 
   async function retrieve(callsign: string, previous?: PskStationSnapshot): Promise<PskStationSnapshot> {
     const controller = new AbortController();
@@ -125,8 +160,6 @@ export function createPskStationHandler() {
     const now = Date.now();
     let entry = cache.get(callsign);
     if (!entry?.pending && (!entry?.snapshot || now >= entry.snapshot.retryAt)) {
-      const upstreamLimited = applyRateLimit(req, "spots/psk-station/upstream", 6, 300);
-      if (upstreamLimited) return upstreamLimited;
       // Never evict a fresh entry: doing so would allow another upstream request inside five minutes.
       for (const [key, value] of cache) {
         if (cache.size >= CACHE_LIMIT && key !== callsign && !value.pending && value.snapshot && now >= value.snapshot.retryAt) cache.delete(key);
@@ -136,7 +169,7 @@ export function createPskStationHandler() {
       entry ??= {};
       cache.set(callsign, entry);
       const current = entry;
-      current.pending = retrieve(callsign, current.snapshot).then((snapshot) => {
+      current.pending = refresh(callsign, current.snapshot).then((snapshot) => {
         current.snapshot = snapshot;
         current.pending = undefined;
         return snapshot;

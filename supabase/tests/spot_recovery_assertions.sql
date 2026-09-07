@@ -105,9 +105,19 @@ SELECT dblink_disconnect('spot_recovery_lock');
 
 DO $$
 BEGIN
-  IF NOT EXISTS (SELECT 1 FROM cron.jobs WHERE job_name = 'spot_history_two_hour_window'
-      AND schedule = '*/15 * * * *' AND command = 'SELECT public.prune_retained_spots()') THEN
-    RAISE EXCEPTION 'coordinated retention schedule missing';
+  IF (SELECT count(*) FROM cron.job WHERE jobname = 'spot_history_two_hour_window') <> 1
+    OR NOT EXISTS (SELECT 1 FROM cron.job
+      WHERE jobid = 58400
+        AND jobname = 'spot_history_two_hour_window'
+        AND schedule = '*/15 * * * *'
+        AND command = 'SELECT public.prune_retained_spots()'
+        AND database = 'postgres'
+        AND username = 'spot_recovery_cron_owner'
+        AND active) THEN
+    RAISE EXCEPTION 'retention job identity, schedule, owner, or active state changed';
+  END IF;
+  IF NOT has_function_privilege('spot_recovery_cron_owner', 'public.prune_retained_spots()', 'EXECUTE') THEN
+    RAISE EXCEPTION 'existing cron owner cannot execute coordinated prune';
   END IF;
 END;
 $$;

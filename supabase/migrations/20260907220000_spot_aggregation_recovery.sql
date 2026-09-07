@@ -86,7 +86,16 @@ GRANT EXECUTE ON FUNCTION public.record_spot_aggregation_gap(text,timestamptz,ti
   public.compute_retained_spot_hour(text,timestamptz), public.prune_retained_spots()
   TO service_role;
 
--- Same named job and retention policy, now coordinated with aggregation.
-SELECT cron.schedule('spot_history_two_hour_window', '*/15 * * * *',
-  'SELECT public.prune_retained_spots()');
+-- Job names are scoped by owner in pg_cron. Alter the existing job by ID
+-- instead of scheduling under the migration role and risking a second deleter.
+DO $$
+DECLARE existing_job record;
+BEGIN
+  SELECT jobid, username INTO STRICT existing_job
+    FROM cron.job WHERE jobname = 'spot_history_two_hour_window';
+  EXECUTE format('GRANT EXECUTE ON FUNCTION public.prune_retained_spots() TO %I', existing_job.username);
+  PERFORM cron.alter_job(existing_job.jobid,
+    command := 'SELECT public.prune_retained_spots()');
+END;
+$$;
 NOTIFY pgrst, 'reload schema';

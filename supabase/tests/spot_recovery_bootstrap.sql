@@ -1,17 +1,37 @@
 CREATE EXTENSION IF NOT EXISTS dblink;
 
+CREATE ROLE spot_recovery_cron_owner NOLOGIN;
 CREATE SCHEMA cron;
-CREATE TABLE cron.jobs (
-  job_name text PRIMARY KEY,
+CREATE TABLE cron.job (
+  jobid bigint PRIMARY KEY,
+  jobname text NOT NULL,
   schedule text NOT NULL,
-  command text NOT NULL
+  command text NOT NULL,
+  database text NOT NULL,
+  username text NOT NULL,
+  active boolean NOT NULL
 );
-CREATE FUNCTION cron.schedule(p_job_name text, p_schedule text, p_command text)
-RETURNS bigint LANGUAGE plpgsql AS $$
+INSERT INTO cron.job VALUES (
+  58400, 'spot_history_two_hour_window', '*/15 * * * *',
+  'DELETE FROM public.spot_history WHERE spotted_at < now() - interval ''2 hours''',
+  'postgres', 'spot_recovery_cron_owner', true
+);
+CREATE FUNCTION cron.alter_job(
+  job_id bigint,
+  schedule text DEFAULT NULL,
+  command text DEFAULT NULL,
+  database text DEFAULT NULL,
+  username text DEFAULT NULL,
+  active boolean DEFAULT NULL
+) RETURNS void LANGUAGE plpgsql AS $$
 BEGIN
-  INSERT INTO cron.jobs VALUES (p_job_name, p_schedule, p_command)
-  ON CONFLICT (job_name) DO UPDATE SET schedule = excluded.schedule, command = excluded.command;
-  RETURN 1;
+  UPDATE cron.job AS existing SET
+    schedule = coalesce(alter_job.schedule, existing.schedule),
+    command = coalesce(alter_job.command, existing.command),
+    database = coalesce(alter_job.database, existing.database),
+    username = coalesce(alter_job.username, existing.username),
+    active = coalesce(alter_job.active, existing.active)
+  WHERE existing.jobid = alter_job.job_id;
 END;
 $$;
 

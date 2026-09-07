@@ -33,10 +33,10 @@ export function HelpFeatureCompare({
           <span className="text-xs text-su-muted">{free}</span>
         </div>
         <div className="flex items-start gap-2 pl-1">
-          <span className="shrink-0 text-[10px] font-semibold text-purple-400 uppercase tracking-wider w-10 mt-0.5">
+          <span className="shrink-0 text-[10px] font-semibold text-aurora-purple uppercase tracking-wider w-10 mt-0.5">
             Pro
           </span>
-          <span className="text-xs text-purple-300">{pro}</span>
+          <span className="text-xs text-aurora-purple">{pro}</span>
         </div>
       </div>
     );
@@ -46,7 +46,7 @@ export function HelpFeatureCompare({
     <div className="grid grid-cols-3 gap-3 py-2 border-b border-su-line/20 last:border-b-0 text-sm">
       <span className="text-su-text font-medium">{feature}</span>
       <span className="text-su-muted">{free}</span>
-      <span className="text-purple-300">{pro}</span>
+      <span className="text-aurora-purple">{pro}</span>
     </div>
   );
 }
@@ -65,7 +65,7 @@ export function HelpFeatureCompareTable({ rows }: FeatureCompareTableProps) {
         <div className="grid grid-cols-3 gap-3 py-2 border-b border-su-line/40 text-xs font-semibold uppercase tracking-wider">
           <span className="text-su-muted">Feature</span>
           <span className="text-su-muted">Free</span>
-          <span className="text-purple-400">Pro</span>
+          <span className="text-aurora-purple">Pro</span>
         </div>
       )}
       {rows.map((row, i) => (

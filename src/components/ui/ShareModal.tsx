@@ -454,7 +454,7 @@ export function ShareModal({
                            bg-su-line/10 border border-su-line/40 rounded-lg
                            text-su-text hover:bg-su-line/20 transition-colors group"
               >
-                <div className="w-10 h-10 flex items-center justify-center rounded-lg bg-black">
+                <div className="w-10 h-10 flex items-center justify-center rounded-lg bg-su-line/10">
                   <svg
                     className="w-5 h-5"
                     fill="currentColor"

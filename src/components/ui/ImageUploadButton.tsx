@@ -173,7 +173,7 @@ export function ImageUploadButton({
               className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full
                          bg-void-black border border-su-line/50
                          flex items-center justify-center
-                         text-red-400 hover:text-red-300
+                         text-alert-red hover:text-alert-red/80
                          opacity-0 group-hover:opacity-100
                          transition-opacity focus:opacity-100
                          focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500/50"

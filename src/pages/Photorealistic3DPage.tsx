@@ -40,7 +40,7 @@ function PhotorealisticChrome({ label, onExit }: PhotorealisticChromeProps) {
         {label && (
           <div className="rounded-lg border border-su-line/50 bg-su-panel/90 px-3 py-2 backdrop-blur-md">
             <span className="text-xs text-su-text">Photorealistic 3D</span>
-            <span className="ml-2 text-[9px] uppercase tracking-wider text-amber-300">
+            <span className="ml-2 text-[9px] uppercase tracking-wider text-caution-amber">
               Experimental · {label}
             </span>
           </div>

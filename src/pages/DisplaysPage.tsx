@@ -433,7 +433,7 @@ function DisplayCard({ display, onChanged, onRequestDelete }: DisplayCardProps) 
                     />
                     {scene.name}
                     {isRemoteSnapshot && (
-                      <span className="text-[10px] uppercase tracking-wider text-sky-400/70">
+                      <span className="text-[10px] uppercase tracking-wider text-cosmic-cyan/70">
                         Paired-display snapshot
                       </span>
                     )}

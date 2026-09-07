@@ -115,29 +115,35 @@ export function ProfileSection() {
                 operators. Card background: Schematic.
               </li>
               <li>
-                <strong className="text-sky-400">Apprentice (400 RP)</strong>{" "}
+                <strong className="text-cosmic-cyan">
+                  Apprentice (400 RP)
+                </strong>{" "}
                 &mdash; &ldquo;Signal Rising.&rdquo; Unlocks card flip animation
                 and Topographic background.
               </li>
               <li>
-                <strong className="text-emerald-400">
+                <strong className="text-signal-green">
                   Journeyman (1,500 RP)
                 </strong>{" "}
                 &mdash; &ldquo;Steady Signal.&rdquo; Unlocks mouse-tilt
                 interactive card effect and Circuit background.
               </li>
               <li>
-                <strong className="text-violet-400">Expert (4,000 RP)</strong>{" "}
+                <strong className="text-aurora-purple">
+                  Expert (4,000 RP)
+                </strong>{" "}
                 &mdash; &ldquo;Strong Copy.&rdquo; Unlocks particle effects,
                 animated stat count-up, and Constellation background.
               </li>
               <li>
-                <strong className="text-amber-300">Master (10,000 RP)</strong>{" "}
+                <strong className="text-caution-amber">
+                  Master (10,000 RP)
+                </strong>{" "}
                 &mdash; &ldquo;Full Quieting.&rdquo; Unlocks equipment wear
                 indicators and Propagation background.
               </li>
               <li>
-                <strong className="text-yellow-300">
+                <strong className="text-caution-amber">
                   Legendary (25,000 RP)
                 </strong>{" "}
                 &mdash; &ldquo;DX Commander.&rdquo; Unlocks card signature
@@ -145,7 +151,7 @@ export function ProfileSection() {
                 Aurora background.
               </li>
               <li>
-                <strong className="text-violet-300">
+                <strong className="text-aurora-purple">
                   Ethereal (50,000 RP)
                 </strong>{" "}
                 &mdash; &ldquo;The Infinite Signal.&rdquo; Unlocks chromatic

@@ -1803,7 +1803,7 @@ export function PropSphere() {
       {layoutMode === "pro" && (
         <Suspense
           fallback={
-            <div className="fixed inset-0 z-[200] bg-black flex items-center justify-center">
+            <div className="fixed inset-0 z-[200] bg-su-canvas flex items-center justify-center">
               <div className="text-center space-y-4">
                 <div className="w-8 h-8 border-2 border-plasma-orange border-t-transparent rounded-full animate-spin" />
                 <p className="text-su-muted text-sm">
@@ -1824,7 +1824,7 @@ export function PropSphere() {
       {layoutMode === "hamclock" && (
         <Suspense
           fallback={
-            <div className="fixed inset-0 z-[200] bg-black flex items-center justify-center">
+            <div className="fixed inset-0 z-[200] bg-su-canvas flex items-center justify-center">
               <div className="text-center space-y-4">
                 <div className="w-8 h-8 border-2 border-signal-green border-t-transparent rounded-full animate-spin" />
                 <p className="text-su-muted text-sm">

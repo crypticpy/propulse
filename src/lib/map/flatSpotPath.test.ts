@@ -61,3 +61,30 @@ it("traces separate geodesic segments and uses circle=TX, square=RX", () => {
   traceFlatSpotEndpoint(ctx, 20, 30, 4, "tx");
   expect(ctx.arc).toHaveBeenCalledWith(20, 30, 4, 0, Math.PI * 2);
 });
+
+
+it.each([[80, 0, 80, 180, 0], [-80, 0, -80, 180, 180], [45, -90, 30, 90, 0]])(
+  "splits opposite meridians at the pole boundary (%s)",
+  (lat1, lon1, lat2, lon2, poleY) => {
+    const segments = flatSpotPath(lat1, lon1, lat2, lon2, 360, 180);
+    expect(segments).toHaveLength(2);
+    expect(segments[0].at(-1)!.y).toBe(poleY);
+    expect(segments[1][0].y).toBe(poleY);
+    for (const segment of segments) {
+      expect(segment.every(point => point.x === segment[0].x)).toBe(true);
+    }
+  },
+);
+
+
+it.each([[90, 12, 60, 80], [-50, 20, -90, -30], [90, 0, -90, 180]])(
+  "keeps a polar endpoint on the path meridian without an interior chord (%s)",
+  (lat1, lon1, lat2, lon2) => {
+    const segments = flatSpotPath(lat1, lon1, lat2, lon2, 360, 180);
+    for (const segment of segments) {
+      expect(segment.every(point => point.x === segment[0].x)).toBe(true);
+    }
+    expect(segments[0][0]).toEqual({ x: lon1 + 180, y: 90 - lat1 });
+    expect(segments.at(-1)!.at(-1)).toEqual({ x: lon2 + 180, y: 90 - lat2 });
+  },
+);

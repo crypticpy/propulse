@@ -59,3 +59,13 @@ remain separate acceptance work.
 ![1080p North Atlantic path and RX square](../images/hamclock-flat-path/report-1080p.png)
 
 ![4K world view with southern selected great-circle path](../images/hamclock-flat-path/world-4k.png)
+
+
+## Polar review follow-up
+
+Review identified an opposite-meridian path through a pole that joined the last
+samples with a horizontal chord. Such paths now terminate and resume exactly at
+the pole boundary. A station located at a pole uses the other endpoint's meridian
+for the visible path, with separate move-only subpaths preserving the supplied
+endpoint positions. Six regression cases cover north/south crossings and polar
+endpoints; the focused helper suite now has 17 passing tests.

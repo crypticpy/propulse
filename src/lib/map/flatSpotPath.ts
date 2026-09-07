@@ -55,6 +55,34 @@ export function flatSpotPath(
     x: (lon + 180) / 360 * width,
     y: (90 - lat) / 180 * height,
   });
+  // Opposite meridians meet at a pole. Their projected longitude jumps by
+  // exactly half the canvas, so ordinary date-line detection cannot split it.
+  // End each meridian at the pole boundary without drawing a horizontal chord.
+  const oppositeMeridians = Math.abs(Math.abs(lon2 - lon1) - 180) < 1e-10;
+  const poleLatitude = Math.sign(lat1 + lat2) * 90;
+  const startsAtPole = Math.abs(lat1) === 90;
+  const endsAtPole = Math.abs(lat2) === 90;
+  const meridian = startsAtPole ? lon2 : lon1;
+  const polarSegments = startsAtPole || endsAtPole
+    ? [
+        [project(lat1, lon1)],
+        [project(lat1, meridian), project(lat2, meridian)],
+        [project(lat2, lon2)],
+      ]
+    : oppositeMeridians && Math.abs(lat1 + lat2) > 1e-10
+      ? [
+          [project(lat1, lon1), project(poleLatitude, lon1)],
+          [project(poleLatitude, lon2), project(lat2, lon2)],
+        ]
+      : null;
+  if (polarSegments) {
+    const result = Object.freeze(polarSegments.map(segment =>
+      Object.freeze(segment.map(point => Object.freeze(point))),
+    ));
+    if (cache.size >= MAX_PATHS) cache.delete(cache.keys().next().value!);
+    cache.set(key, result);
+    return result;
+  }
   const points: FlatSpotPoint[] = [project(lat1, lon1)];
   const steps = angle < 1e-12 ? 1 : Math.max(8, Math.ceil(angle / (Math.PI / 96)));
   for (let i = 1; i < steps; i++) {

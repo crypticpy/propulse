@@ -7,9 +7,9 @@ import { createViewScopedStore, type ViewScopedStoreHandle } from "@/lib/views/r
  * Vanilla store + commands bound to this ViewProvider. Destroyed with the
  * runtime; never registered as a global active view.
  *
- * Subscribe in layout setup and delay destroy until after StrictMode replay
- * (same generation-ref pattern as ViewProvider). Replay reuses the memoized
- * handle, so cleanup must not leave it permanently unsubscribed.
+ * The memoized handle is created without subscribing. Attach only in committed
+ * layout setup so discarded StrictMode/suspended renders cannot leak. Destroy
+ * is delayed with the same generation-ref pattern as ViewProvider.
  */
 export function useViewScopedStore(): ViewScopedStoreHandle {
   const runtime = useViewRuntime();

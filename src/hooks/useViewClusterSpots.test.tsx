@@ -216,4 +216,18 @@ describe("useViewClusterSpots", () => {
     expect(screen.getByTestId("bands").textContent).toBe("none");
     expect(screen.getByTestId("store-count").textContent).toBe("3");
   });
+
+  it("drops invalid and far-future rows while keeping bridge clock-skew within tolerance", () => {
+    const seed = createViewConfiguration();
+    const now = Date.now();
+    plant([
+      dxRow("ok", { time: new Date(now) }),
+      dxRow("invalid", { time: new Date("invalid") }),
+      dxRow("future", { time: new Date(now + 86_400_000) }),
+      dxRow("skew", { time: new Date(now + 30_000) }),
+    ]);
+    const rendered = renderHook(() => useViewClusterSpots(), { wrapper: wrapperFor(seed, "clock") });
+    expect(rendered.result.current.spots.map((spot) => spot.id).sort()).toEqual(["ok", "skew"]);
+    rendered.unmount();
+  });
 });

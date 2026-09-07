@@ -52,7 +52,9 @@ describe("view-scoped isolation", () => {
       storageNamespace: "acct:owner-a",
     });
     const monitorStore = createViewScopedStore(monitor);
+    monitorStore.ensureSubscribed();
     const wallStore = createViewScopedStore(wall, { band: "20m", mode: "CW" });
+    wallStore.ensureSubscribed();
 
     monitorStore.updateWorkingView({
       context: { ...monitor.getSnapshot().config.context, followRadio: true },
@@ -114,7 +116,9 @@ describe("view-scoped isolation", () => {
       storageNamespace: "acct:owner-a",
     });
     const storeOne = createViewScopedStore(one);
+    storeOne.ensureSubscribed();
     const storeTwo = createViewScopedStore(two);
+    storeTwo.ensureSubscribed();
     storeOne.updateWorkingView({
       presentation: { ...clonePresentation(one.getSnapshot().config), projection: "azimuthal" },
     });
@@ -146,7 +150,9 @@ describe("view-scoped isolation", () => {
       binding: binding(displaySlotId("tv2"), "display"),
     });
     const d1 = createViewScopedStore(tv1);
+    d1.ensureSubscribed();
     const d2 = createViewScopedStore(tv2);
+    d2.ensureSubscribed();
     d1.updateWorkingView({
       presentation: { ...clonePresentation(tv1.getSnapshot().config), textScale: "sm" },
     });
@@ -169,6 +175,7 @@ describe("view-scoped isolation", () => {
       storageNamespace: "acct:owner-a",
     });
     const handle = createViewScopedStore(runtime);
+    handle.ensureSubscribed();
     handle.updateWorkingView({
       context: { ...runtime.getSnapshot().config.context, followRadio: true },
     });

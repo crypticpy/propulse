@@ -128,4 +128,34 @@ describe("filterDxSpotsForView", () => {
     expect(matching.some((spot) => spot.id === "cluster")).toBe(false);
     expect(mapBudgeted[0]?.id).toBe("rbn-0");
   });
+
+  it("applies a stable report-ID tie-break so equal-time membership ignores input order", () => {
+    const spots = createSpotPreferences();
+    spots.filters.spotLimit = 10;
+    const rows = Array.from({ length: 11 }, (_, index) => dxSpot({
+      id: `report-${String(index).padStart(2, "0")}`,
+    }));
+    const forward = filterDxSpotsForView(rows, spots, NOW).mapBudgeted.map((spot) => spot.id);
+    const reversed = filterDxSpotsForView([...rows].reverse(), spots, NOW).mapBudgeted.map((spot) => spot.id);
+    expect(forward).toEqual(reversed);
+    expect(forward).toEqual(rows.slice(0, 10).map((spot) => spot.id));
+  });
+
+  it("rejects invalid and far-future timestamps against an explicit clock", () => {
+    const spots = createSpotPreferences();
+    const rows = [
+      dxSpot({ id: "invalid", time: new Date("invalid") }),
+      dxSpot({ id: "future", time: new Date(NOW + 86_400_000) }),
+    ];
+    expect(filterDxSpotsForView(rows, spots, NOW).matching).toEqual([]);
+  });
+
+  it("preserves explicit future-time tolerance without admitting arbitrary future rows", () => {
+    const spots = createSpotPreferences();
+    const skew = dxSpot({ id: "skew", time: new Date(NOW + 30_000) });
+    const far = dxSpot({ id: "far", time: new Date(NOW + 86_400_000) });
+    expect(filterDxSpotsForView([skew, far], spots, NOW, 60_000).matching.map((spot) => spot.id))
+      .toEqual(["skew"]);
+    expect(filterDxSpotsForView([skew], spots, NOW, 0).matching).toEqual([]);
+  });
 });

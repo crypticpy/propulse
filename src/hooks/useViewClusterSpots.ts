@@ -2,6 +2,7 @@ import { useMemo, useSyncExternalStore } from "react";
 import { useViewRuntime } from "@/components/views/ViewRuntimeContext";
 import { useDXCluster, type UseDXClusterOptions } from "@/hooks/useDXCluster";
 import { useOperatingMonitor } from "@/hooks/useOperatingMonitor";
+import { CLUSTER_BRIDGE_FUTURE_TOLERANCE_MS } from "@/lib/hamclock/clusterBridge";
 import {
   dxFiltersFromViewSpots,
   filterDxSpotsForView,
@@ -40,10 +41,13 @@ export function useViewClusterSpots(options?: UseDXClusterOptions) {
   const spots = useViewEffectiveSpots();
   const ingestFilters = useMemo(() => dxFiltersFromViewSpots(spots), [spots]);
   const cluster = useDXCluster(ingestFilters, options);
-  const { matching, mapBudgeted } = useMemo(
-    () => filterDxSpotsForView(cluster.allSpots, spots),
-    [cluster.allSpots, spots],
-  );
+  const { matching, mapBudgeted } = useMemo(() => {
+    const nowMs = Date.now();
+    const futureToleranceMs = cluster.source === "bridge"
+      ? CLUSTER_BRIDGE_FUTURE_TOLERANCE_MS
+      : 0;
+    return filterDxSpotsForView(cluster.allSpots, spots, nowMs, futureToleranceMs);
+  }, [cluster.allSpots, cluster.source, spots]);
   return {
     ...cluster,
     spots: matching,

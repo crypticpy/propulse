@@ -89,6 +89,10 @@ function commandsFor(runtime: ScopedViewRuntime): ViewScopedCommands {
 /**
  * Per-runtime read model and command proxy. Writes go only to the injected
  * runtime. There is no module-level active-view registry.
+ *
+ * Construction has no subscription side effects. React must attach only in
+ * committed layout setup so discarded StrictMode/suspended renders cannot leak.
+ * Non-React callers call `ensureSubscribed()` explicitly.
  */
 export function createViewScopedStore(
   runtime: ScopedViewRuntime,
@@ -105,7 +109,6 @@ export function createViewScopedStore(
       store.setState(readState(runtime, currentRadio));
     });
   };
-  attach();
 
   return {
     store,

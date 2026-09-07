@@ -11,6 +11,7 @@ describe("createViewScopedStore", () => {
   it("mirrors one runtime and derives follow without writing configured filters", () => {
     const runtime = createViewRuntime({ binding: binding(), persistWorking: false });
     const handle = createViewScopedStore(runtime);
+    handle.ensureSubscribed();
     runtime.updateWorkingView({
       context: { ...runtime.getSnapshot().config.context, followRadio: true },
     });
@@ -21,6 +22,7 @@ describe("createViewScopedStore", () => {
     expect(handle.store.getState().config.spots.filters.bands).toEqual([]);
     const other = createViewRuntime({ binding: binding("hamclock"), persistWorking: false });
     const wall = createViewScopedStore(other);
+    wall.ensureSubscribed();
     expect(wall.store.getState().config.context.followRadio).toBe(false);
     handle.destroy();
     wall.destroy();
@@ -31,6 +33,7 @@ describe("createViewScopedStore", () => {
   it("resubscribes after destroy so replay can reuse the same handle", () => {
     const runtime = createViewRuntime({ binding: binding(), persistWorking: false });
     const handle = createViewScopedStore(runtime);
+    handle.ensureSubscribed();
     handle.destroy();
     runtime.selectSpot("report-1", { lat: 10, lon: 20 });
     expect(runtime.getSnapshot().interaction.selectedReportId).toBe("report-1");
@@ -38,6 +41,30 @@ describe("createViewScopedStore", () => {
     handle.ensureSubscribed();
     expect(handle.store.getState().interaction.selectedReportId).toBe("report-1");
     handle.destroy();
+    runtime.dispose();
+  });
+
+  it("does not subscribe during construction so discarded handles cannot leak", () => {
+    const runtime = createViewRuntime({ binding: binding(), persistWorking: false });
+    let active = 0;
+    const subscribe = runtime.subscribe;
+    runtime.subscribe = (listener) => {
+      active += 1;
+      const off = subscribe(listener);
+      return () => {
+        active -= 1;
+        off();
+      };
+    };
+    const abandoned = createViewScopedStore(runtime);
+    const kept = createViewScopedStore(runtime);
+    expect(active).toBe(0);
+    kept.ensureSubscribed();
+    expect(active).toBe(1);
+    abandoned.destroy();
+    expect(active).toBe(1);
+    kept.destroy();
+    expect(active).toBe(0);
     runtime.dispose();
   });
 });

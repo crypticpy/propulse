@@ -24,7 +24,7 @@ async function fixtures(page: Page, extraLocations?: Array<{ id: string; name: s
   return { solar, requests };
 }
 
-test("current band reports lead Home and optional feeds wait", async ({ page }, info) => {
+test("current band reports lead Home and optional feeds wait (DXpeditions is a default panel)", async ({ page }, info) => {
   const { requests } = await fixtures(page);
   await page.goto("/");
   const home = page.locator("[data-home-elevation]");
@@ -34,7 +34,7 @@ test("current band reports lead Home and optional feeds wait", async ({ page }, 
   await expect(home.getByText(/Phone 200/)).toBeVisible();
   await expect(home.getByText("Global Conditions Score")).toHaveCount(0);
   await expect(home.getByText(/All Quiet/)).toHaveCount(0);
-  expect(requests.filter(path => /atmos|tides|news|dxpedition/.test(path))).toEqual([]);
+  expect(requests.filter(path => /atmos|tides|news/.test(path))).toEqual([]);
   const viewport = page.viewportSize()!;
   expect((await home.getByRole("heading", { name: "On the bands now" }).boundingBox())!.y).toBeLessThan(500);
   await page.screenshot({ path: `tmp/home-elevation/${info.project.name}-initial.png`, fullPage: true });

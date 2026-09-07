@@ -188,7 +188,7 @@ export const AlertBanner: React.FC<AlertBannerProps> = ({
   return (
     <div
       className={`
-        w-full
+        relative z-10 w-full
         transition-all duration-300 ease-in-out
         ${className}
       `}

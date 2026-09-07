@@ -51,3 +51,4 @@
 @media(min-width:640px){.home-dashboard summary.su-section-header{padding-inline:1.25rem}}
 .home-personal .su-section-glyph::after{content:"+"}
 .home-personal[open] .su-section-glyph::after{content:"\2212"}
+.home-panel>summary.su-section-header:focus-visible{outline-offset:-3px}

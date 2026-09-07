@@ -256,30 +256,32 @@
     transparent 60%
   );
 }
-/* The mask circle matches the image box exactly, so the still's own dark sky
- * never lands as a rectangle on the canvas. */
+/* The still is portrait (the 2012 "Magnificent Eruption" frame turned so the
+ * prominence climbs out of the corner), so the mask is an ellipse 1.3× taller
+ * than wide: it matches the image box and its black sky never lands as a
+ * rectangle on the canvas. */
 .su-page-glow-layer::after {
   background: var(--su-page-glow-image) no-repeat right bottom /
     var(--su-page-glow-size) auto;
   opacity: 0.55;
   mix-blend-mode: screen;
   -webkit-mask-image: radial-gradient(
-    circle var(--su-page-glow-size) at 100% 100%,
+    ellipse var(--su-page-glow-size) calc(var(--su-page-glow-size) * 1.3) at 100% 100%,
     rgb(0 0 0) 30%,
     rgb(0 0 0 / 0) 100%
   );
   mask-image: radial-gradient(
-    circle var(--su-page-glow-size) at 100% 100%,
+    ellipse var(--su-page-glow-size) calc(var(--su-page-glow-size) * 1.3) at 100% 100%,
     rgb(0 0 0) 30%,
     rgb(0 0 0 / 0) 100%
   );
 }
 /* Screen blending needs a dark backdrop: the Light palette keeps its canvas
  * and takes the image straight, quieter. */
-html.light .su-page-glow-layer {
+.light .su-page-glow-layer {
   background: var(--su-canvas);
 }
-html.light .su-page-glow-layer::after {
+.light .su-page-glow-layer::after {
   mix-blend-mode: normal;
   opacity: 0.35;
 }

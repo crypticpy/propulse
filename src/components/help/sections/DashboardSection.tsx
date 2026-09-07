@@ -23,7 +23,7 @@ export function DashboardSection() {
     </HelpAccordion>
     <HelpAccordion id="data-sources-dashboard" title="Data sources &amp; credits" summary="Where the dashboard's readings and imagery come from">
       <p>Solar readings, scales, and official forecasts come from NOAA SWPC. Band activity comes from the reception and cluster networks, aggregated per band. Local weather and the hourly forecast come from Open-Meteo. Each panel labels its own source state and time.</p>
-      <p className="mt-3">Solar imagery courtesy of NASA/SDO and the AIA, EVE, and HMI science teams. The still behind the dashboard is an SDO/AIA 304 Å frame.</p>
+      <p className="mt-3">Solar imagery courtesy of NASA/SDO and the AIA, EVE, and HMI science teams. The still behind the dashboard is SDO's 31 August 2012 “Magnificent Eruption” frame (NASA/GSFC/SDO).</p>
     </HelpAccordion>
     <HelpAccordion id="home-favorites" title="Customize dashboard" summary="Choose your panels and the order they appear in">
       <p>Moon, DXpeditions, and world clocks are on the dashboard by default. Open “Add more panels +” at the bottom to add sky, local conditions, contest details, or radio news. Customize dashboard opens your current layout: drag a panel, use the ▲ ▼ buttons to move it, Hide what you do not follow, or Reset to default. Layouts are saved separately for desktop/tablet and phone. Personal panels require sign-in.</p>

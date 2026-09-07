@@ -63,6 +63,7 @@ function HomeDashboard() {
     return <details className="home-panel home-personal su-section-panel su-section-ruled" data-accent={accentForHomeItem("station")}>
       <SectionHeader
         element="summary"
+        as={null}
         className="su-widget-header"
         title={homeItemTitle("station")}
         summary={homeItemSummary("station")}

@@ -36,12 +36,12 @@ function jsonEqual(left: unknown, right: unknown): boolean {
   return JSON.stringify(left) === JSON.stringify(right);
 }
 
-/** Arrays and scalars are compared as wholes; objects recurse by key. */
+/** Arrays and scalars are compared as wholes; objects recurse by key. Leaf values are cloned. */
 export function describeFieldChanges(before: unknown, after: unknown, path = ""): PresetFieldChange[] {
   if (jsonEqual(before, after)) return [];
   const bothObjects = isPlainObject(before) && isPlainObject(after);
   if (!bothObjects) {
-    return [{ path: path || "(root)", before, after }];
+    return [{ path: path || "(root)", before: cloneJson(before), after: cloneJson(after) }];
   }
   const keys = new Set([...Object.keys(before), ...Object.keys(after)]);
   const changes: PresetFieldChange[] = [];
@@ -113,10 +113,14 @@ export function resetBuiltInRecipe(id: BuiltInPresetId): PresetRecipe {
 }
 
 function applyActivity(recipe: ActivityPresetRecipe, current: ViewConfiguration): ViewConfiguration {
-  return viewConfigurationSchema.parse({
-    ...cloneJson(current),
-    spots: cloneJson(recipe.spots),
-  });
+  const next = cloneJson(current);
+  next.spots = cloneJson(recipe.spots);
+  next.context = {
+    ...next.context,
+    followRadio: false,
+    followOperatingSession: false,
+  };
+  return viewConfigurationSchema.parse(next);
 }
 
 function applyDisplay(recipe: DisplayPresetRecipe): ViewConfiguration {
@@ -125,7 +129,8 @@ function applyDisplay(recipe: DisplayPresetRecipe): ViewConfiguration {
 
 /**
  * Pure application: returns a new configuration. Does not write stores, persistence,
- * TVs, radios, or the input objects. Activity recipes replace only `spots`.
+ * TVs, radios, or the input objects. Activity recipes replace `spots` and turn
+ * follow flags off; display recipes replace the complete snapshot.
  */
 export function applyPresetRecipe(
   recipe: PresetRecipe,

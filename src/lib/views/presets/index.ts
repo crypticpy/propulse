@@ -40,7 +40,10 @@ export {
 export {
   activityRecipeFromLegacyInput,
   hamclockDisplayRecipeFromLegacyWall,
+  recipesFromLegacyOperatingProfile,
   type LegacyActivityInput,
+  type LegacyFieldOmission,
+  type LegacyOperatingProfileSnapshot,
   type LegacyWallInput,
 } from "./legacy";
 export { cloneJson } from "./clone";

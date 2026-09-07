@@ -63,9 +63,17 @@ describe("copy and apply isolation", () => {
     expect(result.config.presentation.hamclock.mode).toBe("satellites");
     expect(result.config.presentation.autoRotate.enabled).toBe(true);
     expect(result.config.family).toBe("hamclock");
-    expect(result.config.context).toEqual(snapshot.context);
+    expect(result.config.context.followRadio).toBe(false);
+    expect(result.config.context.followOperatingSession).toBe(false);
+    expect(result.config.context.stationId).toBe("station-1");
+    expect(result.config.context.scope).toBe(snapshot.context.scope);
+    expect(result.config.context.radioId).toBe(snapshot.context.radioId);
+    expect(result.config.context.displayTime).toEqual(snapshot.context.displayTime);
     expect(result.changes.some((change) => change.path.startsWith("spots."))).toBe(true);
     expect(result.changes.some((change) => change.path.startsWith("presentation."))).toBe(false);
+    expect(result.changes).toEqual(expect.arrayContaining([
+      expect.objectContaining({ path: "context.followRadio", before: true, after: false }),
+    ]));
     current.presentation.cameraHomes.globe.center.lat = 0;
     recipe.spots.filters.spotLimit = 10;
     expect(result.config.presentation.cameraHomes.globe.center.lat).toBe(59.9);
@@ -114,6 +122,53 @@ describe("copy and apply isolation", () => {
     expect(clusterOnly.sourceNotes).toEqual(expect.arrayContaining([
       expect.objectContaining({ source: "Cluster", available: false, substituted: false, connectionStarted: false }),
     ]));
+
+    const multi = activityRecipeFromWorkingSpots({
+      id: "custom-multi",
+      name: "Cluster and RBN",
+      spots: { ...getActivityRecipe("activity-balanced-v1").spots, filters: {
+        ...getActivityRecipe("activity-balanced-v1").spots.filters, sources: ["Cluster", "RBN"],
+      } },
+    });
+    const unknown = applyPresetRecipe(multi, current);
+    expect(unknown.sourceNotes.map((note) => note.source)).toEqual(["Cluster", "RBN"]);
+    expect(unknown.sourceNotes.every((note) => note.substituted === false && note.connectionStarted === false)).toBe(true);
+  });
+
+  it("clears both follow flags on activity apply without touching other context", () => {
+    const current = createViewConfiguration("pro");
+    current.context.followRadio = true;
+    current.context.followOperatingSession = true;
+    current.context.scope = "logging";
+    current.context.stationId = "station-9";
+    current.context.radioId = "radio-2";
+    current.context.displayTime = { kind: "offset", hours: -1 };
+    current.presentation.projection = "flat";
+    const result = applyPresetRecipe(getActivityRecipe("activity-cw-v1"), current);
+    expect(result.config.context).toEqual({
+      scope: "logging",
+      followRadio: false,
+      followOperatingSession: false,
+      stationId: "station-9",
+      radioId: "radio-2",
+      displayTime: { kind: "offset", hours: -1 },
+    });
+    expect(result.config.presentation.projection).toBe("flat");
+    expect(result.changes).toEqual(expect.arrayContaining([
+      expect.objectContaining({ path: "context.followRadio", before: true, after: false }),
+      expect.objectContaining({ path: "context.followOperatingSession", before: true, after: false }),
+    ]));
+    expect(current.context.followRadio).toBe(true);
+    expect(current.context.followOperatingSession).toBe(true);
+  });
+
+  it("snapshots array field-change values so later config edits cannot rewrite history", () => {
+    const current = createViewConfiguration();
+    const result = applyPresetRecipe(getActivityRecipe("activity-ssb-v1"), current);
+    const modesChange = result.changes.find((change) => change.path === "spots.filters.modes.modes");
+    expect(modesChange?.after).toEqual(["SSB"]);
+    result.config.spots.filters.modes.modes.push("AM");
+    expect(modesChange?.after).toEqual(["SSB"]);
   });
 });
 

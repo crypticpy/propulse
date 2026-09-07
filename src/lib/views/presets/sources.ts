@@ -45,13 +45,22 @@ export function explainSourceAvailability(
   availability: readonly FeedAvailability[] | undefined,
 ): SourceAvailabilityNote[] {
   if (!availability) {
-    return [{
-      source: requested.length === 0 ? "all-enabled-authorized" : requested[0],
+    if (requested.length === 0) {
+      return [{
+        source: "all-enabled-authorized",
+        available: true,
+        substituted: false,
+        connectionStarted: false,
+        message: "Feed availability was not supplied. Recipe sources are unchanged and no connection is started.",
+      }];
+    }
+    return requested.map((source) => ({
+      source,
       available: true,
       substituted: false,
       connectionStarted: false,
-      message: "Feed availability was not supplied. Recipe sources are unchanged and no connection is started.",
-    }];
+      message: `Feed availability was not supplied for ${source}. Recipe sources are unchanged and no connection is started.`,
+    }));
   }
 
   const bySource = new Map(availability.map((feed) => [feed.source, feed]));

@@ -954,6 +954,7 @@ export function DXNewsTicker({
           <TickerCrawlSettingsDialog
             open
             onClose={() => setSettingsOpen(false)}
+            onConfigureNews={() => { setSettingsOpen(false); setNewsConfigOpen(true); }}
           />
         )}
       </Suspense>

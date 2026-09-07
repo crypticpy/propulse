@@ -1,6 +1,7 @@
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, expect, it, vi } from "vitest";
 import { useFeedStore } from "@/stores/feedStore";
+import { TickerCrawlSettingsDialog } from "@/components/map/TickerCrawlSettingsDialog";
 import { NewsFeedsConfig } from "./NewsFeedsConfig";
 
 vi.mock("@/hooks/useRssFeed", () => ({ useRssFeeds: (sources: { id: string }[]) => sources.map(source => ({ source, fetchedAt: null, status: "ok", refresh: vi.fn() })) }));
@@ -42,4 +43,15 @@ it("paginates long feed collections and exposes unfetched state", () => {
   expect(screen.getByRole("switch", { name: "Feed 8" })).toBeTruthy();
   expect(screen.queryByRole("switch", { name: "Feed 0" })).toBeNull();
   expect(screen.getByText(/NOT YET FETCHED/)).toBeTruthy();
+});
+
+
+it("routes legacy feed additions to verification while retaining alert controls", () => {
+  const configure = vi.fn();
+  render(<TickerCrawlSettingsDialog open onClose={() => {}} onConfigureNews={configure} />);
+  expect(screen.queryByLabelText("Add RSS feed URL")).toBeNull();
+  fireEvent.click(screen.getByRole("button", { name: "VERIFY & ADD NEWS FEED" }));
+  expect(configure).toHaveBeenCalledTimes(1);
+  fireEvent.change(screen.getByLabelText("Space weather break-in"), { target: { value: "CRITICAL" } });
+  expect(useFeedStore.getState().crawlPreferences.solarThreshold).toBe("CRITICAL");
 });

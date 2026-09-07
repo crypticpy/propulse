@@ -8,7 +8,8 @@ WidgetConfigDialog renders registered panels through useWidgetConfig, or an
 existing-store adapter such as NewsFeedsConfig. News remains in feedStore;
 10/15/30/60-minute polling preferences drive both RSS hooks, per-source age and
 enabled controls remain authoritative, and manual refresh exposes fetched state.
-The news gear opens the centered wall dialog; the existing alert controls remain.
+The news gear opens the centered wall dialog. The older combined dialog routes
+feed additions to the verified news flow; its alert and existing-feed controls remain.
 
 Custom feeds require a successful server `verify=1` response with a parsed title.
 The same URL/redirect/body/rate-limit boundary handles verification and reading.
@@ -40,3 +41,11 @@ Feed/API responses were fixtures; no real RSS availability, account sync, radio
 hardware or physical display readability is claimed.
 
 ![News sources at 1080p](../images/hamclock-b10/news-config-1080p.png)
+
+
+Acceptance follow-up: the older combined dialog's unverified add form was removed
+in favor of the verified news handoff. A regression checks the absent URL form,
+handoff callback and retained alert controls; 17 targeted UI tests pass. The
+server verification is isolated on `feat/hamclock-b10-feed-verify` (two files),
+with the UI stacked on that prerequisite to keep register updates within the
+15-file PR limit. No additional batch is claimed.

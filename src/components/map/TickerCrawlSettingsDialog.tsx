@@ -1,4 +1,3 @@
-import { useState } from "react";
 import { AccessibleDialog } from "@/components/ui/AccessibleDialog";
 import { ToggleSwitch } from "@/components/ui/ToggleSwitch";
 import {
@@ -12,15 +11,7 @@ import {
 interface TickerCrawlSettingsDialogProps {
   open: boolean;
   onClose: () => void;
-}
-
-function isValidHttpUrl(value: string): boolean {
-  try {
-    const url = new URL(value);
-    return url.protocol === "http:" || url.protocol === "https:";
-  } catch {
-    return false;
-  }
+  onConfigureNews?: () => void;
 }
 
 const selectClassName =
@@ -29,32 +20,15 @@ const selectClassName =
 export function TickerCrawlSettingsDialog({
   open,
   onClose,
+  onConfigureNews,
 }: TickerCrawlSettingsDialogProps) {
   const feeds = useFeedStore((state) => state.feeds);
   const crawlPreferences = useFeedStore((state) => state.crawlPreferences);
-  const addFeed = useFeedStore((state) => state.addFeed);
   const removeFeed = useFeedStore((state) => state.removeFeed);
   const updateFeedCrawl = useFeedStore((state) => state.updateFeedCrawl);
   const updateCrawlPreferences = useFeedStore(
     (state) => state.updateCrawlPreferences,
   );
-  const [newUrl, setNewUrl] = useState("");
-  const [urlError, setUrlError] = useState<string | null>(null);
-
-  const handleAdd = () => {
-    const trimmed = newUrl.trim();
-    if (!isValidHttpUrl(trimmed)) {
-      setUrlError("Enter a valid http(s) feed URL");
-      return;
-    }
-    if (!addFeed(trimmed)) {
-      setUrlError(`Limit of ${MAX_FEEDS} feeds reached`);
-      return;
-    }
-    setNewUrl("");
-    setUrlError(null);
-  };
-
   return (
     <AccessibleDialog
       open={open}
@@ -142,28 +116,11 @@ export function TickerCrawlSettingsDialog({
             ))}
           </div>
 
-          <div className="mt-3 flex gap-2">
-            <input
-              type="url"
-              value={newUrl}
-              onChange={(event) => {
-                setNewUrl(event.target.value);
-                setUrlError(null);
-              }}
-              placeholder="https://example.com/feed.xml"
-              className="min-w-0 flex-1 rounded-lg border border-white/10 bg-void-black px-3 py-2 text-xs text-gray-200 placeholder:text-gray-600 focus:border-plasma-orange/50 focus:outline-none"
-              aria-label="Add RSS feed URL"
-            />
-            <button
-              type="button"
-              onClick={handleAdd}
-              disabled={feeds.length >= MAX_FEEDS}
-              className="rounded-lg bg-plasma-orange px-3 py-2 text-xs font-semibold text-black transition-opacity hover:opacity-90 disabled:opacity-30"
-            >
-              Add feed
+          {onConfigureNews && (
+            <button type="button" onClick={onConfigureNews} className={selectClassName}>
+              VERIFY & ADD NEWS FEED
             </button>
-          </div>
-          {urlError && <p className="mt-1 text-xs text-red-400">{urlError}</p>}
+          )}
         </section>
 
         <section className="border-t border-white/10 pt-5">

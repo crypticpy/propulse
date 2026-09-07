@@ -12,7 +12,7 @@
   --theme-bg-primary: #0a0a1a;
   --theme-bg-secondary: #1a1a2e;
   --theme-bg-panel: rgba(20, 28, 46, 0.95);
-  --theme-text-primary: #ffffff;
+  --theme-text-primary: #cad2dc;
   --theme-text-secondary: #94a3b8;
   --theme-border: rgba(255, 255, 255, 0.1);
   --theme-glow: rgba(255, 107, 53, 0.3);
@@ -216,11 +216,11 @@
 
   .bg-stars {
     background-image:
-      radial-gradient(2px 2px at 20px 30px, #fff, transparent),
+      radial-gradient(2px 2px at 20px 30px, #fff, transparent), /* design-tokens: allow */
       radial-gradient(2px 2px at 40px 70px, rgba(255,255,255,0.8), transparent),
-      radial-gradient(1px 1px at 90px 40px, #fff, transparent),
+      radial-gradient(1px 1px at 90px 40px, #fff, transparent), /* design-tokens: allow */
       radial-gradient(2px 2px at 130px 80px, rgba(255,255,255,0.6), transparent),
-      radial-gradient(1px 1px at 160px 120px, #fff, transparent);
+      radial-gradient(1px 1px at 160px 120px, #fff, transparent); /* design-tokens: allow */
     background-size: 200px 200px;
   }
 }
@@ -292,11 +292,11 @@
 /* Glass morphism card effect */
 @layer components {
   .glass-card {
-    @apply bg-white/[0.03] backdrop-blur-md border border-white/10 rounded-2xl;
+    @apply bg-su-text/5 backdrop-blur-md border border-su-line/20 rounded-2xl;
   }
 
   .glass-panel {
-    @apply bg-black/30 backdrop-blur-md border-b border-white/10;
+    @apply bg-su-canvas/30 backdrop-blur-md border-b border-su-line/20;
   }
 }
 
@@ -481,12 +481,8 @@
 
 @layer components {
   /* Focus on light background contexts */
-  .bg-white *:focus-visible,
-  .bg-gray-100 *:focus-visible,
-  .bg-gray-200 *:focus-visible,
   [data-theme="light"] *:focus-visible {
-    --tw-ring-offset-color: #ffffff;
-    @apply ring-offset-white;
+    @apply ring-offset-su-canvas;
   }
 
   /* High-visibility focus for critical actions */
@@ -535,12 +531,8 @@
   }
 
   /* Increase text contrast */
-  .text-gray-400 {
-    @apply text-gray-200;
-  }
-
-  .text-gray-500 {
-    @apply text-gray-300;
+  .text-su-muted {
+    @apply text-su-text;
   }
 
   /* Make status indicators more visible */
@@ -561,12 +553,12 @@
   }
 
   /* Increase border visibility on inputs and cards */
-  .border-white\/10 {
-    @apply border-white/30;
+  .border-su-line\/20 {
+    @apply border-su-line/50;
   }
 
-  .border-white\/20 {
-    @apply border-white/40;
+  .border-su-line\/40 {
+    @apply border-su-line/70;
   }
 
   /* Make focus indicators more prominent in high contrast mode */
@@ -658,20 +650,8 @@
   to { stroke-dashoffset: 0; }
 }
 
-.contrast-more .text-gray-400 {
-  color: #d1d5db !important; /* gray-300 */
-}
-
-.contrast-more .text-gray-500 {
-  color: #9ca3af !important; /* gray-400 */
-}
-
-.contrast-more .text-gray-300 {
-  color: #e5e7eb !important; /* gray-200 — body text boost */
-}
-
-.contrast-more .text-gray-600 {
-  color: #9ca3af !important; /* gray-400 — subtle text boost */
+.contrast-more .text-su-muted {
+  color: rgb(var(--su-text-rgb)) !important;
 }
 
 .contrast-more :focus-visible {
@@ -680,13 +660,9 @@
 }
 
 /* Help system high-contrast overrides */
-.contrast-more .border-white\/5,
-.contrast-more .border-white\/\[0\.08\] {
-  border-color: rgba(255, 255, 255, 0.2) !important;
-}
-
-.contrast-more .border-white\/10 {
-  border-color: rgba(255, 255, 255, 0.25) !important;
+.contrast-more .border-su-line\/10,
+.contrast-more .border-su-line\/20 {
+  border-color: rgb(var(--su-line-rgb) / 0.6) !important;
 }
 
 .contrast-more [aria-expanded="true"] {
@@ -714,7 +690,7 @@
   body,
   main,
   .print-content {
-    background: #fff !important;
+    background: #fff !important; /* design-tokens: allow */
     color: #000 !important;
   }
 

@@ -2,11 +2,10 @@
 /**
  * Design-token guard.
  *
- * Migrated areas must express colour through the station tokens (`--su-*` /
- * the `su-` Tailwind utilities), not raw Tailwind greys or hard-coded white.
- * Once a directory is listed in SCOPE below it cannot regress.
+ * All of `src/` must express colour through the station tokens (`--su-*` /
+ * the `su-` Tailwind utilities), not raw Tailwind greys or hard-coded white,
+ * except the HamClock carve-out below (its own standalone palette).
  *
- * Each task that migrates an area appends its directory to SCOPE.
  * Escape hatch: put `// design-tokens: allow` (or `/* design-tokens: allow *\/`)
  * on the offending line.
  *
@@ -16,80 +15,7 @@ import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join, relative, extname } from "node:path";
 
 /** Directories (repo-relative) that must be free of raw white/grey colours. */
-const SCOPE = [
-  "src/components/station-ui",
-  "src/components/home",
-  "src/components/dashboard",
-  // DS-12 g3: src/pages as a directory supersedes the individual
-  // Home.tsx / SolarPulse.tsx entries below (both already migrated).
-  "src/pages",
-  "src/App.tsx",
-  "src/components/ui",
-  "src/components/layout",
-  "src/components/help",
-  "src/components/guest",
-  "src/components/mobile",
-  "src/components/kiosk",
-  "src/components/alerts",
-  "src/components/auth",
-  "src/components/onboarding",
-  "src/components/location",
-  "src/styles/home.css",
-  // DS-03 Solar Pulse retheme: only the components actually migrated to
-  // `su-` tokens are scoped here. Several sibling files under
-  // src/components/solar/ (BandConditions.tsx, BandRow.tsx, MetricCard.tsx,
-  // PrimaryMetrics.tsx, PropagationIndex.tsx, SolarHandoffNotice.tsx, and
-  // most of modals/) are legacy/unreached code kept out of this PR's 15-file
-  // budget — see docs/designs/design-system/README.md for the follow-up.
-  "src/components/solar/WidgetShell.tsx",
-  "src/components/solar/SolarDisclosure.tsx",
-  "src/components/solar/SolarBriefingNotice.tsx",
-  "src/components/solar/SolarOperatingActions.tsx",
-  "src/components/solar/SolarImageCard.tsx",
-  "src/components/solar/SolarMiniChart.tsx",
-  "src/components/solar/SolarSeriesChart.tsx",
-  "src/components/solar/SolarForecastPanel.tsx",
-  "src/components/solar/SolarAnimationPlayer.tsx",
-  "src/components/solar/SolarImageDetail.tsx",
-  "src/components/solar/modals/BandConditionsModal.tsx",
-  // DS-12 sweep, area 1: PropSphere map surfaces.
-  "src/components/map",
-  // DS-12 sweep group g2.
-  "src/components/profile",
-  "src/components/contest",
-  "src/components/nets",
-  "src/types/net.ts",
-  // DS-12 token sweep group 4.
-  "src/components/qso",
-  "src/components/dx",
-  "src/components/shack",
-  "src/components/settings",
-  "src/components/logbook",
-  "src/components/operating",
-  "src/pages/SolarPulse.tsx",
-  // DS-12 g5: the remaining raw-token files under src/components/solar/
-  // (BandConditions.tsx, BandRow.tsx, MetricCard.tsx, PropagationIndex.tsx,
-  // SolarHandoffNotice.tsx, modals/) were swept in this pass, so the whole
-  // directory is now scoped instead of the DS-03 file-by-file allowlist.
-  "src/components/solar",
-  "src/components/sdr",
-  "src/components/atmos",
-  "src/components/satellites",
-  "src/components/rank",
-  "src/components/awards",
-  "src/components/activation",
-  "src/components/ops",
-  "src/components/propagation",
-  "src/components/activity",
-  "src/components/bands",
-  "src/components/cluster",
-  "src/components/export",
-  "src/components/radio",
-  "src/components/ErrorBoundary.tsx",
-  "src/lib",
-  "src/hooks",
-  "src/stores",
-];
+const SCOPE = ["src"];
 
 /**
  * Repo-relative path prefixes carved out of SCOPE. HamClock is a standalone
@@ -209,6 +135,14 @@ if (violations.length > 0) {
   process.exit(1);
 }
 
+const fileCount = SCOPE.reduce((count, scope) => {
+  try {
+    return count + (statSync(scope).isDirectory() ? walk(scope).length : 1);
+  } catch {
+    return count;
+  }
+}, 0);
+
 console.log(
-  `[design-tokens] OK — ${SCOPE.length} scoped path(s) free of raw white/grey colours.`,
+  `[design-tokens] OK — ${fileCount} file(s) free of raw white/grey colours.`,
 );

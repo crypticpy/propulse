@@ -40,7 +40,9 @@ function model(overrides: Record<string, unknown> = {}): Model {
     },
     resources: {
       kp: { state: "fresh" },
+      flux: { state: "fresh" },
       forecast: { state: "unavailable", data: undefined },
+      ...(overrides.resources as object),
     },
   } as unknown as Model;
 }
@@ -133,10 +135,31 @@ it("withholds the strip while Kp or solar flux are unavailable", () => {
   renderStrip({ current: { kp: null, flux: null, predictedKp: [] } });
   expect(screen.queryAllByRole("img")).toHaveLength(0);
   expect(
-    screen.getByText(
-      "Awaiting current Kp and solar flux. The outlook is withheld while these inputs are unavailable.",
-    ),
+    screen.getByText("The outlook is withheld while Kp and solar flux are not current."),
   ).toBeTruthy();
+});
+
+it("withholds the outlook and shows a non-current badge when solar flux is stale, even though Kp is fresh", () => {
+  renderStrip({ resources: { flux: { state: "stale" } } });
+  expect(screen.queryAllByRole("img")).toHaveLength(0);
+  expect(
+    screen.getByText("The outlook is withheld while Kp and solar flux are not current."),
+  ).toBeTruthy();
+  expect(screen.getByRole("status").textContent).not.toMatch(/Current/);
+  const links = screen.getAllByRole("link");
+  expect(links).toHaveLength(1);
+  expect(links[0].getAttribute("href")).toBe("/map");
+});
+
+it("renders 24 cells behind exactly one link to /map when Kp and flux are both current", () => {
+  renderStrip();
+  expect(screen.getAllByRole("img")).toHaveLength(24);
+  const links = screen.getAllByRole("link");
+  expect(links).toHaveLength(1);
+  expect(links[0].getAttribute("href")).toBe("/map");
+  expect(links[0].textContent).toContain(
+    "Full 24h grid, path analysis and NowCast in PropSphere →",
+  );
 });
 
 it("names the four levels in words under the strip", () => {

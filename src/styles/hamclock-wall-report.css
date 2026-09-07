@@ -1061,13 +1061,13 @@
   font: max(1.2vh, 12px) var(--hc-font-mono);
 }
 .hcr-reliability-grid button {
-  min-height: max(3.8vh, 36px);
+  min-height: max(3.8vh, 44px);
   border: 1px solid var(--hc-line);
   background: transparent;
 }
 .hcr-reliability-grid button[aria-pressed="true"] { outline: 2px solid var(--hc-accent); }
 .hcr-comparison-chart { min-height: 0; width: 100%; }
-.hcr-comparison-chart svg { width: 100%; height: 16vh; overflow: visible; }
+.hcr-comparison-chart svg { width: 100%; height: 15vh; overflow: visible; }
 .hcr-comparison-chart text { fill: var(--hc-dim); font: 20px var(--hc-font-mono); }
 .hcr-comparison-axis { stroke: var(--hc-line); }
 .hcr-comparison-physics { fill: none; stroke: var(--hc-accent); stroke-width: 2; }
@@ -1083,7 +1083,7 @@
 .hcr:has(.hcr-reliability-grid),
 .hcr:has(.hcr-comparison-chart) {
   width: 90vw;
-  height: 94vh;
+  height: 88vh;
   gap: 1.2vh;
 }
 .hcr:has(.hcr-comparison-chart) .hcr-facts,

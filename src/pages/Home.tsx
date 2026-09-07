@@ -8,6 +8,7 @@ import { useMapOperationalContext } from "@/hooks/useMapOperationalContext";
 import { useHomeLocation } from "@/hooks/useHomeLocation";
 import { useHomeLayout } from "@/hooks/useHomeLayout";
 import { groupHomeLayout, homeItemTitle, isHomeItemAvailable } from "@/lib/home/layout";
+import { accentForHomeItem } from "@/lib/themes/sectionAccent";
 import { HomeLocationProvider } from "@/components/home/HomeLocationProvider";
 import { HomeLocationPicker } from "@/components/home/HomeLocationPicker";
 import { HomeSolar } from "@/components/home/HomeSolar";
@@ -44,13 +45,13 @@ function HomeDashboard() {
     if (id === "solar") return <HomeSolar key={id} model={model} now={now} />;
     if (id === "weather") return <HomeWeather key={id} now={now} />;
     if (id === "daylight") return <HomeDaylight key={id} now={now} />;
-    return <article className="home-panel" key={id}><div className="home-panel-heading"><h3>{homeItemTitle(id)}</h3></div><Suspense fallback={<p>Opening {homeItemTitle(id)}…</p>}><Widget id={id} /></Suspense></article>;
+    return <article className="home-panel su-section-ruled" data-accent={accentForHomeItem(id)} key={id}><div className="home-panel-heading su-widget-header"><h3>{homeItemTitle(id)}</h3></div><Suspense fallback={<p>Opening {homeItemTitle(id)}…</p>}><Widget id={id} /></Suspense></article>;
   };
   const advancedReport = advanced && <div id="home-advanced-report"><Suspense fallback={<p>Opening Advanced dashboard…</p>}><Advanced model={model} now={now} publicActivity={publicActivity} /></Suspense><button type="button" onClick={()=>setAdvanced(false)}>Back to quick look</button></div>;
   const wide = (id: string) => {
     if (id === "activity") return publicActivity ? <Suspense fallback={<p>Opening band activity…</p>}><Activity now={now} isMobile={isMobile} /></Suspense> : <section className="home-panel"><h2>Focused operating</h2><p>Public spotting is hidden by your current operating policy. Your solar briefing and log remain available.</p></section>;
     if (id === "forecast") return <HomeForecastStrip model={model} now={now} />;
-    return <details className="home-personal"><summary>Your station & recent operating</summary><div className="home-personal-grid"><HomeStation /><HomeSession now={now} isMobile={isMobile} /></div></details>;
+    return <details className="home-personal su-section-ruled" data-accent={accentForHomeItem("station")}><summary className="su-section-header">Your station & recent operating</summary><div className="home-personal-grid"><HomeStation /><HomeSession now={now} isMobile={isMobile} /></div></details>;
   };
   return <main className="home-dashboard" data-home-elevation data-home-dashboard>
     <header className="home-title"><div><h1>Your radio dashboard</h1><p>{guest ? "Guest" : callsign ?? "Home"} · {location?.grid ?? "Global view"}{guest && " · no sign-in needed"}</p></div><div className="home-refresh"><button type="button" aria-label="Refresh Home solar briefing" aria-describedby="home-refresh-help" disabled={model.refreshResult.running} onClick={() => void model.refreshVisible()}><span aria-hidden="true">↻</span><span className="sr-only">Refresh</span></button><p id="home-refresh-help" role="tooltip">Refreshes the solar readings and official forecasts. Activity updates every minute. Weather and log have separate refresh controls.</p></div></header>

@@ -58,6 +58,47 @@ Opacity modifiers are the intended way to soften a token: `border-su-line/40`, `
 
 The existing app colours (`plasma-orange`, `deep-space`, `panel`, `nebula-blue`, `signal-green`, `caution-amber`, `alert-red`, …) are untouched by this foundation; #DS-09 moves them onto these tokens.
 
+## Section accents
+
+Every container wears one tone, and the same kind of content wears the same tone on every page (DS-14). The tone is declared once, as `data-accent` on the container; the classes below read it through `--su-section-accent-rgb` and never name a tone, so all four palettes and colour-blind mode keep working and no new hex is introduced.
+
+```html
+<section data-accent="warning" class="overflow-hidden rounded-2xl ...">
+  <div aria-hidden="true" class="su-section-rule"></div>
+  <button class="su-section-header ...">
+    Impacts <span class="su-section-glyph ...">+</span>
+  </button>
+</section>
+```
+
+| Class               | What it paints                                                                                                                                                                                                                     |
+| ------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `[data-accent="…"]` | Sets `--su-section-accent-rgb` for the subtree. Values: `accent`, `info`, `success`, `warning`, `danger`.                                                                                                                          |
+| `su-section-rule`   | The 3 px rule, tone → transparent, as its own first child of a container that clips its corners.                                                                                                                                   |
+| `su-section-ruled`  | The same rule painted by the container itself (`::before`), for a padded card that has no full-bleed child.                                                                                                                        |
+| `su-section-header` | Header/banner hover: a soft left-to-right tint of the tone, on pointer devices only. Never a flat grey.                                                                                                                            |
+| `su-section-glyph`  | The expand/collapse glyph box: tone on the border and the glyph.                                                                                                                                                                   |
+| `su-widget-header`  | The widget header wash — a 12% tint of the tone fading out by 70%. Inherits the enclosing section's tone.                                                                                                                          |
+| `su-widget-eyebrow` | The header eyebrow in the tone, through `--su-section-accent-text-rgb` (the reading-text variant: `accent` resolves via `--su-accent-text`, so a low-contrast custom accent falls back to `info`). The title stays on `--su-text`. |
+
+`accentForFamily()` in `src/lib/themes/sectionAccent.ts` is the one place the family map lives; `accentForHomeItem()` applies it to Home's panel ids.
+
+| Family                           | Tone      | Examples                                                                                                                                                             |
+| -------------------------------- | --------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Propagation & forecast           | `accent`  | Bands now, Next 24 hours, Official forecast, NowCast                                                                                                                 |
+| Space weather observed & impacts | `warning` | Solar outlook, Impacts, Kp/flux/Bz/X-ray readings                                                                                                                    |
+| Local environment                | `success` | Local weather, Daylight, Tides, UV & air quality, Aviation weather, Imagery                                                                                          |
+| Reference, history & personal    | `info`    | Details and history, Your station, Recent operating, World clocks, Countdowns, News, Contest details, This day in history, Moon, Planets, Volcano watch, DXpeditions |
+
+Do not:
+
+- use `danger` as a section identity — it is reserved for alert states;
+- put the tone on the ink. Headings stay `--su-text` and sub lines stay `--su-muted`; the tone only ever carries the rule, the hover tint, the glyph, the wash and the eyebrow;
+- reintroduce a per-tone class map (`from-su-warning`, `hover:from-su-info/15`, …). One `data-accent` covers the container and everything nested inside it;
+- give a tile its own `data-accent` just to repeat its section's tone — the wash inherits. Override only when a tile genuinely belongs to another family.
+
+**Carrying it to another page.** Pick the family for each container from the table, put `data-accent` on the outermost element of the container, and add `su-section-rule` (as a first child, if the container clips its corners) or `su-section-ruled` (if it pads its own content). Give any header that toggles the container `su-section-header` so its hover is the tone tint rather than a grey, and the glyph box `su-section-glyph`. Every card header inside then only needs `su-widget-header` (plus `su-widget-eyebrow` on its eyebrow) — `WidgetShell` already carries both, so a Solar-style tile inherits the section tone with no prop at all. A widget with no `[data-accent]` ancestor falls back to `info`.
+
 ## Migration recipe
 
 Replace classes as you migrate a file. This is the whole map:

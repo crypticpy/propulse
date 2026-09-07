@@ -82,7 +82,7 @@ export function CreateGuestSessionModal({
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
       {/* Backdrop */}
       <div
-        className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+        className="absolute inset-0 bg-su-panel/60 backdrop-blur-sm"
         onClick={handleClose}
       />
 
@@ -98,7 +98,7 @@ export function CreateGuestSessionModal({
           </h2>
           <button
             onClick={handleClose}
-            className="p-1 text-gray-400 hover:text-white transition-colors"
+            className="p-1 text-su-muted hover:text-su-text transition-colors"
             aria-label="Close"
           >
             <svg
@@ -122,16 +122,16 @@ export function CreateGuestSessionModal({
           {!hasActiveSession ? (
             <>
               {/* Station Info */}
-              <div className="mb-6 p-3 bg-nebula-blue rounded-lg border border-white/10">
-                <p className="text-sm text-gray-400">Station</p>
-                <p className="font-mono font-bold text-white">
+              <div className="mb-6 p-3 bg-nebula-blue rounded-lg border border-su-line/40">
+                <p className="text-sm text-su-muted">Station</p>
+                <p className="font-mono font-bold text-su-text">
                   {stationCallsign}
                 </p>
               </div>
 
               {/* Duration Selector */}
               <div className="mb-6">
-                <label className="block text-sm font-medium text-gray-300 mb-2">
+                <label className="block text-sm font-medium text-su-muted mb-2">
                   Session Duration
                 </label>
                 <div className="flex gap-2">
@@ -144,7 +144,7 @@ export function CreateGuestSessionModal({
                       ${
                         duration === opt.value
                           ? "bg-plasma-orange/20 text-plasma-orange border border-plasma-orange/50"
-                          : "bg-nebula-blue text-gray-300 border border-white/10 hover:border-white/20"
+                          : "bg-nebula-blue text-su-muted border border-su-line/40 hover:border-su-line/50"
                       }
                     `}
                     >
@@ -165,7 +165,7 @@ export function CreateGuestSessionModal({
               </button>
 
               {/* Info Text */}
-              <p className="mt-4 text-sm text-gray-500 text-center">
+              <p className="mt-4 text-sm text-su-muted text-center">
                 Share the code with guests to allow them to log contacts on your
                 behalf.
               </p>
@@ -182,16 +182,16 @@ export function CreateGuestSessionModal({
               </div>
 
               {/* Session Info */}
-              <div className="mb-4 p-3 bg-nebula-blue rounded-lg border border-white/10 space-y-2">
+              <div className="mb-4 p-3 bg-nebula-blue rounded-lg border border-su-line/40 space-y-2">
                 <div className="flex justify-between">
-                  <span className="text-sm text-gray-400">Station</span>
-                  <span className="font-mono font-medium text-white">
+                  <span className="text-sm text-su-muted">Station</span>
+                  <span className="font-mono font-medium text-su-text">
                     {stationCallsign}
                   </span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-sm text-gray-400">Expires</span>
-                  <span className="text-sm text-gray-300">
+                  <span className="text-sm text-su-muted">Expires</span>
+                  <span className="text-sm text-su-muted">
                     {new Date(activeSession.expiresAt).toLocaleTimeString([], {
                       hour: "2-digit",
                       minute: "2-digit",
@@ -200,8 +200,8 @@ export function CreateGuestSessionModal({
                   </span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-sm text-gray-400">Entries</span>
-                  <span className="text-sm text-gray-300">
+                  <span className="text-sm text-su-muted">Entries</span>
+                  <span className="text-sm text-su-muted">
                     {activeSession.entryCount}
                   </span>
                 </div>
@@ -216,7 +216,7 @@ export function CreateGuestSessionModal({
                   ${
                     copied
                       ? "bg-signal-green/20 text-signal-green border border-signal-green/50"
-                      : "bg-nebula-blue text-gray-300 border border-white/10 hover:border-white/20"
+                      : "bg-nebula-blue text-su-muted border border-su-line/40 hover:border-su-line/50"
                   }
                 `}
                 >

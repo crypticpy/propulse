@@ -32,7 +32,7 @@ export const Card = forwardRef<HTMLDivElement, CardProps>(
     ref,
   ) => {
     const baseStyles = [
-      "bg-white/[0.03]",
+      "bg-su-line/10",
       "backdrop-blur-md",
       "border",
       "rounded-2xl",
@@ -42,7 +42,7 @@ export const Card = forwardRef<HTMLDivElement, CardProps>(
     ];
 
     const variantStyles: Record<typeof variant, string[]> = {
-      default: ["border-white/10", "hover:border-white/20"],
+      default: ["border-su-line/40", "hover:border-su-line/50"],
       highlight: [
         "border-plasma-orange/30",
         "shadow-glow-orange",

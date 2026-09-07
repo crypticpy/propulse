@@ -3,7 +3,7 @@ import { HelpCallout } from "@/components/help/HelpCallout";
 import { HelpFAQ } from "@/components/help/HelpFAQ";
 
 export function SolarPulseSection() {
-  return <div className="space-y-6 text-sm leading-relaxed text-gray-300">
+  return <div className="space-y-6 text-sm leading-relaxed text-su-muted">
     <p>Solar Pulse is your space-weather briefing before a session. Start with current HF concerns, inspect what changed, then open a path or plan a session. The briefing describes global context; it does not decide whether a particular contact is possible.</p>
     <HelpCallout type="note">Data freshness and weather severity are separate. “Data current” means the product is within its freshness window, even during a major storm. Delayed evidence qualifies the briefing; unavailable evidence never becomes zero or an all-clear.</HelpCallout>
     <HelpAccordion id="solar-briefing" title="Read the HF briefing" summary="Current impacts, background conditions, and what to watch">

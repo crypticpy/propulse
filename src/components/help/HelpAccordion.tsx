@@ -107,7 +107,7 @@ export function HelpAccordion({
   return (
     <div
       id={id}
-      className="border-b border-white/5 last:border-b-0"
+      className="border-b border-su-line/20 last:border-b-0"
       style={{ scrollMarginTop: "80px" }}
     >
       <h3>
@@ -118,12 +118,12 @@ export function HelpAccordion({
           onKeyDown={handleKeyDown}
           aria-expanded={isOpen}
           aria-controls={panelId}
-          className="w-full flex items-center gap-3 py-4 text-left group focus:outline-none focus-visible:ring-2 focus-visible:ring-plasma-orange/60 focus-visible:ring-offset-1 focus-visible:ring-offset-gray-900 rounded-lg"
+          className="w-full flex items-center gap-3 py-4 text-left group focus:outline-none focus-visible:ring-2 focus-visible:ring-plasma-orange/60 focus-visible:ring-offset-1 focus-visible:ring-offset-su-canvas rounded-lg"
         >
           {/* Chevron */}
           <svg
             aria-hidden="true"
-            className={`w-4 h-4 flex-shrink-0 text-gray-500 transition-transform duration-200 motion-reduce:transition-none ${
+            className={`w-4 h-4 flex-shrink-0 text-su-muted transition-transform duration-200 motion-reduce:transition-none ${
               isOpen ? "rotate-90" : "rotate-0"
             }`}
             fill="none"
@@ -143,13 +143,13 @@ export function HelpAccordion({
               className={`text-sm font-semibold transition-colors ${
                 isOpen
                   ? "text-plasma-orange"
-                  : "text-gray-200 group-hover:text-gray-100"
+                  : "text-su-text group-hover:text-su-text"
               }`}
             >
               {title}
             </span>
             {summary && !isOpen && (
-              <p className="text-xs text-gray-500 mt-0.5 truncate">{summary}</p>
+              <p className="text-xs text-su-muted mt-0.5 truncate">{summary}</p>
             )}
           </div>
         </button>

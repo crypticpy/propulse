@@ -177,7 +177,7 @@ export function JoinGuestSessionModal({
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
       {/* Backdrop */}
       <div
-        className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+        className="absolute inset-0 bg-su-panel/60 backdrop-blur-sm"
         onClick={handleClose}
       />
 
@@ -193,7 +193,7 @@ export function JoinGuestSessionModal({
           </h2>
           <button
             onClick={handleClose}
-            className="p-1 text-gray-400 hover:text-white transition-colors"
+            className="p-1 text-su-muted hover:text-su-text transition-colors"
             aria-label="Close"
           >
             <svg
@@ -214,7 +214,7 @@ export function JoinGuestSessionModal({
 
         {/* Share Code Input */}
         <div className="mb-4">
-          <label className="block text-sm font-medium text-gray-300 mb-2">
+          <label className="block text-sm font-medium text-su-muted mb-2">
             Share Code
           </label>
           <ShareCodeInput
@@ -235,7 +235,7 @@ export function JoinGuestSessionModal({
         <div className="mb-4">
           <label
             htmlFor="guest-callsign"
-            className="block text-sm font-medium text-gray-300 mb-2"
+            className="block text-sm font-medium text-su-muted mb-2"
           >
             Your Callsign <span className="text-alert-red">*</span>
           </label>
@@ -249,13 +249,13 @@ export function JoinGuestSessionModal({
             disabled={isLocked}
             className={`
               w-full px-3 py-2 bg-deep-space border rounded-lg
-              text-white placeholder-gray-500 font-mono uppercase
+              text-su-text placeholder:text-su-muted/80 font-mono uppercase
               focus:outline-none focus:ring-2 focus:ring-offset-0
               disabled:opacity-50 disabled:cursor-not-allowed
               ${
                 error && error.includes("callsign")
                   ? "border-alert-red/50 focus:border-alert-red focus:ring-alert-red/30"
-                  : "border-white/10 focus:border-cosmic-cyan/50 focus:ring-cosmic-cyan/30"
+                  : "border-su-line/40 focus:border-cosmic-cyan/50 focus:ring-cosmic-cyan/30"
               }
             `}
           />
@@ -268,10 +268,10 @@ export function JoinGuestSessionModal({
         <div className="mb-6">
           <label
             htmlFor="guest-name"
-            className="block text-sm font-medium text-gray-300 mb-2"
+            className="block text-sm font-medium text-su-muted mb-2"
           >
             Your Name{" "}
-            <span className="text-gray-500 font-normal">(optional)</span>
+            <span className="text-su-muted font-normal">(optional)</span>
           </label>
           <input
             type="text"
@@ -281,8 +281,8 @@ export function JoinGuestSessionModal({
             placeholder="John"
             maxLength={50}
             disabled={isLocked}
-            className="w-full px-3 py-2 bg-deep-space border border-white/10 rounded-lg
-                       text-white placeholder-gray-500
+            className="w-full px-3 py-2 bg-deep-space border border-su-line/40 rounded-lg
+                       text-su-text placeholder:text-su-muted/80
                        focus:outline-none focus:ring-2 focus:ring-offset-0
                        focus:border-cosmic-cyan/50 focus:ring-cosmic-cyan/30
                        disabled:opacity-50 disabled:cursor-not-allowed"
@@ -319,7 +319,7 @@ export function JoinGuestSessionModal({
         </button>
 
         {/* Info Text */}
-        <p className="mt-4 text-sm text-gray-500 text-center">
+        <p className="mt-4 text-sm text-su-muted text-center">
           Get the share code from the station owner to log contacts on their
           behalf.
         </p>

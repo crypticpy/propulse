@@ -49,7 +49,7 @@ export function QRCodeDisplay({
 
   return (
     <div className="flex flex-col items-center">
-      <div className="p-4 bg-white rounded-xl">
+      <div className="p-4 bg-su-text rounded-xl">
         {qrDataUrl ? (
           <img
             src={qrDataUrl}
@@ -60,7 +60,7 @@ export function QRCodeDisplay({
         ) : (
           <div
             style={{ width: size, height: size }}
-            className="animate-pulse bg-gray-200 rounded"
+            className="animate-pulse bg-su-muted rounded"
           />
         )}
       </div>

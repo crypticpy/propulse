@@ -114,14 +114,14 @@ export function HelpArticleTOC({ items }: HelpArticleTOCProps) {
   if (isMobile) {
     return (
       <nav
-        className="mb-4 rounded-lg bg-white/[0.03] border border-white/5"
+        className="mb-4 rounded-lg bg-su-line/10 border border-su-line/20"
         aria-label="Table of contents"
       >
         <button
           type="button"
           onClick={() => setMobileOpen((v) => !v)}
           aria-expanded={mobileOpen}
-          className="w-full flex items-center justify-between px-3 py-2.5 min-h-[44px] text-sm text-gray-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-plasma-orange/60 rounded-lg"
+          className="w-full flex items-center justify-between px-3 py-2.5 min-h-[44px] text-sm text-su-muted focus:outline-none focus-visible:ring-2 focus-visible:ring-plasma-orange/60 rounded-lg"
         >
           <span>On this page</span>
           <svg
@@ -153,7 +153,7 @@ export function HelpArticleTOC({ items }: HelpArticleTOCProps) {
                   ${
                     activeId === item.id
                       ? "text-plasma-orange bg-plasma-orange/10"
-                      : "text-gray-500 hover:text-gray-300 active:text-plasma-orange/70"
+                      : "text-su-muted hover:text-su-muted active:text-plasma-orange/70"
                   }`}
               >
                 {item.title}
@@ -171,7 +171,7 @@ export function HelpArticleTOC({ items }: HelpArticleTOCProps) {
       className="w-[180px] flex-shrink-0 sticky top-4 self-start"
       aria-label="Table of contents"
     >
-      <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">
+      <p className="text-xs font-semibold text-su-muted uppercase tracking-wider mb-3">
         On this page
       </p>
       <div className="space-y-0.5">
@@ -187,7 +187,7 @@ export function HelpArticleTOC({ items }: HelpArticleTOCProps) {
               ${
                 activeId === item.id
                   ? "text-plasma-orange border-plasma-orange bg-plasma-orange/5"
-                  : "text-gray-500 border-transparent hover:text-gray-300 hover:border-white/10 active:text-plasma-orange/70"
+                  : "text-su-muted border-transparent hover:text-su-muted hover:border-su-line/40 active:text-plasma-orange/70"
               }`}
           >
             {item.title}

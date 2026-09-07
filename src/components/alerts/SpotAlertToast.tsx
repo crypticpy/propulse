@@ -204,28 +204,28 @@ const SpotAlertToastItem: React.FC<SpotAlertToastItemProps> = ({
             </div>
 
             <div className="flex items-center gap-2 mt-1">
-              <span className="text-xs font-mono text-gray-200">
+              <span className="text-xs font-mono text-su-text">
                 {freq} kHz
               </span>
-              <span className="text-xs text-gray-500">|</span>
-              <span className="text-xs font-mono text-gray-300">
+              <span className="text-xs text-su-muted">|</span>
+              <span className="text-xs font-mono text-su-muted">
                 {spot.band}
               </span>
-              <span className="text-xs text-gray-500">|</span>
-              <span className="text-xs font-mono text-gray-300">
+              <span className="text-xs text-su-muted">|</span>
+              <span className="text-xs font-mono text-su-muted">
                 {spot.mode}
               </span>
               {spot.snr !== undefined && (
                 <>
-                  <span className="text-xs text-gray-500">|</span>
-                  <span className="text-xs font-mono text-gray-300">
+                  <span className="text-xs text-su-muted">|</span>
+                  <span className="text-xs font-mono text-su-muted">
                     SNR {spot.snr}
                   </span>
                 </>
               )}
             </div>
 
-            <p className="text-[11px] text-gray-400 mt-1 truncate">
+            <p className="text-[11px] text-su-muted mt-1 truncate">
               Rule: {rule.name}
             </p>
           </div>
@@ -234,7 +234,7 @@ const SpotAlertToastItem: React.FC<SpotAlertToastItemProps> = ({
           <button
             type="button"
             onClick={handleDismiss}
-            className="flex-shrink-0 p-1 text-gray-400 hover:text-white hover:bg-white/10 rounded transition-colors"
+            className="flex-shrink-0 p-1 text-su-muted hover:text-su-text hover:bg-su-line/20 rounded transition-colors"
             aria-label="Dismiss spot alert"
           >
             <svg className="w-4 h-4" viewBox="0 0 20 20" fill="currentColor">
@@ -244,13 +244,13 @@ const SpotAlertToastItem: React.FC<SpotAlertToastItemProps> = ({
         </div>
 
         {/* Tune hint */}
-        <div className="mt-1.5 text-[10px] text-gray-500 font-mono">
+        <div className="mt-1.5 text-[10px] text-su-muted font-mono">
           Click to tune rig
         </div>
       </div>
 
       {/* Auto-dismiss progress bar */}
-      <div className="h-0.5 bg-gray-800 rounded-b-lg overflow-hidden">
+      <div className="h-0.5 bg-su-panel rounded-b-lg overflow-hidden">
         <div
           className={`h-full ${
             priority === "critical"

@@ -591,8 +591,8 @@ export function FloatingPanel({
       <>
         <div
           ref={panelRef}
-          className="fixed bg-black/70 backdrop-blur-md border border-white/20 rounded-full shadow-lg
-                     hover:bg-white/10 transition-all duration-150 px-3 py-1.5 flex items-center gap-2 select-none"
+          className="fixed bg-su-panel/70 backdrop-blur-md border border-su-line/50 rounded-full shadow-lg
+                     hover:bg-su-line/20 transition-all duration-150 px-3 py-1.5 flex items-center gap-2 select-none"
           style={{
             left: layout.x,
             top: layout.y,
@@ -659,8 +659,8 @@ export function FloatingPanel({
             }
           }}
         >
-          {icon && <span className="text-white/60 flex-shrink-0">{icon}</span>}
-          <span className="text-[11px] font-medium text-white/80 whitespace-nowrap">
+          {icon && <span className="text-su-text/60 flex-shrink-0">{icon}</span>}
+          <span className="text-[11px] font-medium text-su-text/70 whitespace-nowrap">
             {title.length > 12 ? title.slice(0, 12) + "\u2026" : title}
           </span>
         </div>
@@ -681,7 +681,7 @@ export function FloatingPanel({
       <div
         ref={panelRef}
         id={`floating-panel-${id}`}
-        className={`group fixed bg-black/60 backdrop-blur-md border border-white/20 rounded-lg shadow-2xl overflow-hidden ${className}`}
+        className={`group fixed bg-su-panel/60 backdrop-blur-md border border-su-line/50 rounded-lg shadow-2xl overflow-hidden ${className}`}
         style={{
           left: layout.x,
           top: layout.y,
@@ -695,7 +695,7 @@ export function FloatingPanel({
       >
         {/* Title bar (drag handle) */}
         <div
-          className={`flex items-center gap-1.5 bg-white/5 border-b border-white/10 px-3 py-1.5 cursor-grab active:cursor-grabbing ${headerClassName}`}
+          className={`flex items-center gap-1.5 bg-su-line/10 border-b border-su-line/40 px-3 py-1.5 cursor-grab active:cursor-grabbing ${headerClassName}`}
           style={{ touchAction: "none", height: TITLE_BAR_HEIGHT }}
           onPointerDown={handleDragPointerDown}
           onPointerMove={handleDragPointerMove}
@@ -703,7 +703,7 @@ export function FloatingPanel({
         >
           {/* 6-dot drag grip icon */}
           <svg
-            className="w-3 h-4 text-white/30 flex-shrink-0"
+            className="w-3 h-4 text-su-text/30 flex-shrink-0"
             viewBox="0 0 6 10"
             fill="currentColor"
           >
@@ -716,7 +716,7 @@ export function FloatingPanel({
           </svg>
 
           {/* Title */}
-          <span className="flex-1 text-xs font-medium text-white/80 truncate select-none">
+          <span className="flex-1 text-xs font-medium text-su-text/70 truncate select-none">
             {title}
           </span>
 
@@ -728,7 +728,7 @@ export function FloatingPanel({
                 e.stopPropagation();
                 onCollapse();
               }}
-              className="p-1 text-white/40 hover:text-white transition-colors rounded hover:bg-white/10"
+              className="p-1 text-su-text/40 hover:text-su-text transition-colors rounded hover:bg-su-line/20"
               aria-label="Collapse panel"
             >
               <svg
@@ -775,7 +775,7 @@ export function FloatingPanel({
         >
           {/* Diagonal grip lines */}
           <svg
-            className="w-3 h-3 text-white/40"
+            className="w-3 h-3 text-su-text/40"
             viewBox="0 0 8 8"
             fill="none"
             stroke="currentColor"

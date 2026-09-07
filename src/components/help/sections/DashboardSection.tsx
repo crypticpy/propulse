@@ -2,7 +2,7 @@ import { Link } from "react-router-dom";
 import { HelpAccordion } from "@/components/help/HelpAccordion";
 
 export function DashboardSection() {
-  return <div className="space-y-6 text-sm leading-relaxed text-gray-300">
+  return <div className="space-y-6 text-sm leading-relaxed text-su-muted">
     <p>Home is your quick look at current band activity, solar conditions, and your station. Recent reports lead the page; the HF briefing explains the global space-weather context. Reported impacts appear ahead of activity. You can use Home before signing in.</p>
     <HelpAccordion id="home-activity" title="On the bands now" summary="Recent reports, with a clear scope and time window">
       <p>The band tiles count deduplicated reception and cluster observations in the last 20 minutes, scoped to your Home location’s continent when available. The bars compare those same counts. Mode counts describe CW, digital, phone, or unknown reports.</p>

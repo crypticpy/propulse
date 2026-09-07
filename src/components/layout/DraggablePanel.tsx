@@ -92,7 +92,7 @@ export function DraggablePanel({
       {draggable && (
         <div className="absolute -left-3 top-1/2 -translate-y-1/2 opacity-0 group-hover/panel:opacity-100 transition-opacity cursor-grab active:cursor-grabbing z-10">
           <svg
-            className="w-3 h-6 text-gray-500"
+            className="w-3 h-6 text-su-muted"
             viewBox="0 0 6 16"
             fill="currentColor"
           >
@@ -113,7 +113,7 @@ export function DraggablePanel({
         {onToggleCollapse && (
           <button
             onClick={() => onToggleCollapse(id)}
-            className="p-0.5 text-gray-500 hover:text-white transition-colors rounded"
+            className="p-0.5 text-su-muted hover:text-su-text transition-colors rounded"
             title={collapsed ? "Expand" : "Collapse"}
           >
             <svg
@@ -134,7 +134,7 @@ export function DraggablePanel({
         {onHide && (
           <button
             onClick={() => onHide(id)}
-            className="p-0.5 text-gray-500 hover:text-alert-red transition-colors rounded"
+            className="p-0.5 text-su-muted hover:text-alert-red transition-colors rounded"
             title="Hide panel"
           >
             <svg
@@ -157,10 +157,10 @@ export function DraggablePanel({
       {/* Content */}
       {collapsed ? (
         <div
-          className="rounded-xl border border-white/10 bg-white/[0.02] px-3 py-1.5 cursor-pointer hover:bg-white/[0.04] transition-colors"
+          className="rounded-xl border border-su-line/40 bg-su-line/10 px-3 py-1.5 cursor-pointer hover:bg-su-line/10 transition-colors"
           onClick={() => onToggleCollapse?.(id)}
         >
-          <span className="text-xs text-gray-400 font-medium">{title}</span>
+          <span className="text-xs text-su-muted font-medium">{title}</span>
         </div>
       ) : (
         children

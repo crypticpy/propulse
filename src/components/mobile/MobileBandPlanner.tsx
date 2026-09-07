@@ -78,7 +78,7 @@ function getStatusTextColor(status: ForecastStatus): string {
     case "poor":
       return "text-alert-red";
     case "closed":
-      return "text-gray-600";
+      return "text-su-muted";
   }
 }
 
@@ -214,8 +214,8 @@ export function MobileBandPlanner({
         {/* Header */}
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-lg font-bold text-white">Band Planner</h1>
-            <p className="text-[11px] text-gray-500 mt-0.5">
+            <h1 className="text-lg font-bold text-su-text">Band Planner</h1>
+            <p className="text-[11px] text-su-muted mt-0.5">
               24-hour path projection
             </p>
           </div>
@@ -229,14 +229,14 @@ export function MobileBandPlanner({
         {/* Current indices */}
         <div className="flex items-center gap-4 text-xs">
           <div className="flex items-center gap-1.5">
-            <span className="text-gray-500">SFI</span>
+            <span className="text-su-muted">SFI</span>
             <InfoTip content={SOLAR_TOOLTIPS.sfi} />
             <span className="font-mono text-plasma-orange">
               {currentFlux ?? "—"}
             </span>
           </div>
           <div className="flex items-center gap-1.5">
-            <span className="text-gray-500">Kp</span>
+            <span className="text-su-muted">Kp</span>
             <InfoTip content={SOLAR_TOOLTIPS.kIndex} />
             <span
               className="font-mono"
@@ -256,7 +256,7 @@ export function MobileBandPlanner({
           </div>
           {currentBz !== null && (
             <div className="flex items-center gap-1.5">
-              <span className="text-gray-500">Bz</span>
+              <span className="text-su-muted">Bz</span>
               <InfoTip content={SOLAR_TOOLTIPS.bz} />
               <span
                 className="font-mono"
@@ -275,7 +275,7 @@ export function MobileBandPlanner({
             <div className="text-xs font-semibold text-alert-red">
               Geomagnetic Storm (Kp {currentKp})
             </div>
-            <p className="text-[11px] text-gray-400 mt-0.5">
+            <p className="text-[11px] text-su-muted mt-0.5">
               Expect HF degradation. Consider lower bands and digital modes.
             </p>
           </div>
@@ -286,7 +286,7 @@ export function MobileBandPlanner({
             <div className="text-xs font-semibold text-caution-amber">
               Southward IMF (Bz {currentBz?.toFixed(1)} nT)
             </div>
-            <p className="text-[11px] text-gray-400 mt-0.5">
+            <p className="text-[11px] text-su-muted mt-0.5">
               Conditions may degrade, so the projection has weaker evidence.
             </p>
           </div>
@@ -299,13 +299,13 @@ export function MobileBandPlanner({
             value={targetGrid}
             onChange={(e) => handleTargetChange(e.target.value)}
             placeholder="Target grid (e.g., JN58, FN31pr)"
-            className="w-full px-3 py-2.5 bg-void-black/50 border border-white/10 rounded-lg
-                       text-white placeholder-gray-600 focus:outline-none focus:border-plasma-orange/50
+            className="w-full px-3 py-2.5 bg-void-black/50 border border-su-line/40 rounded-lg
+                       text-su-text placeholder:text-su-muted/80 focus:outline-none focus:border-plasma-orange/50
                        font-mono text-sm uppercase"
           />
-          <div className="mt-1.5 flex items-center gap-3 text-[11px] text-gray-500">
+          <div className="mt-1.5 flex items-center gap-3 text-[11px] text-su-muted">
             <span>
-              QTH: <span className="text-white font-mono">{station.grid}</span>
+              QTH: <span className="text-su-text font-mono">{station.grid}</span>
             </span>
             {targetCoords && (
               <span>
@@ -325,7 +325,7 @@ export function MobileBandPlanner({
               <button
                 key={grid}
                 onClick={() => handleTargetChange(grid)}
-                className="px-2.5 py-1 bg-white/5 border border-white/10 rounded-lg text-xs text-gray-400 font-mono"
+                className="px-2.5 py-1 bg-su-line/10 border border-su-line/40 rounded-lg text-xs text-su-muted font-mono"
               >
                 {grid}
               </button>
@@ -357,8 +357,8 @@ export function MobileBandPlanner({
             {/* {solarHandoff?.at ? "Selected planning hour" : "Right Now"} card */}
             <Card>
               <div className="flex items-center justify-between mb-2">
-                <h3 className="text-sm font-semibold text-white">{solarHandoff?.at ? "Selected planning hour" : "Right Now"}</h3>
-                <span className="text-[10px] text-gray-500 font-mono">
+                <h3 className="text-sm font-semibold text-su-text">{solarHandoff?.at ? "Selected planning hour" : "Right Now"}</h3>
+                <span className="text-[10px] text-su-muted font-mono">
                   {currentHour.toString().padStart(2, "0")}:00 UTC
                 </span>
               </div>
@@ -382,13 +382,13 @@ export function MobileBandPlanner({
                     >
                       {getStatusLabel(bestBandNow.status)}
                     </span>
-                    <span className="text-[11px] text-gray-500 ml-2">
+                    <span className="text-[11px] text-su-muted ml-2">
                       SNR {bestBandNow.snrEstimate} dB
                     </span>
                   </div>
                 </div>
               ) : (
-                <p className="text-xs text-gray-500">
+                <p className="text-xs text-su-muted">
                   The model does not identify a supported band for this hour.
                 </p>
               )}
@@ -397,7 +397,7 @@ export function MobileBandPlanner({
             {/* Best windows summary */}
             {bestWindows.length > 0 && (
               <div>
-                <h3 className="text-xs text-gray-400 uppercase tracking-wider mb-2">
+                <h3 className="text-xs text-su-muted uppercase tracking-wider mb-2">
                   Best Windows
                 </h3>
                 <div className="flex gap-2 overflow-x-auto pb-1">
@@ -410,13 +410,13 @@ export function MobileBandPlanner({
                         className={`flex-shrink-0 px-3 py-2 rounded-lg border ${
                           isActive
                             ? "bg-signal-green/10 border-signal-green/30"
-                            : "bg-white/[0.03] border-white/10"
+                            : "bg-su-line/10 border-su-line/40"
                         }`}
                       >
-                        <div className="font-mono text-xs font-bold text-white">
+                        <div className="font-mono text-xs font-bold text-su-text">
                           {w.band}
                         </div>
-                        <div className="text-[10px] text-gray-400 mt-0.5">
+                        <div className="text-[10px] text-su-muted mt-0.5">
                           {w.startHour.toString().padStart(2, "0")}-
                           {w.endHour.toString().padStart(2, "0")} UTC
                         </div>
@@ -434,7 +434,7 @@ export function MobileBandPlanner({
 
             {/* Band cards */}
             <div>
-              <h3 className="text-xs text-gray-400 uppercase tracking-wider mb-2">
+              <h3 className="text-xs text-su-muted uppercase tracking-wider mb-2">
                 24-Hour Projection
               </h3>
               <div className="space-y-2">
@@ -457,10 +457,10 @@ export function MobileBandPlanner({
                     <button
                       key={band}
                       onClick={() => setExpandedBand(isExpanded ? null : band)}
-                      className="w-full text-left bg-white/[0.03] border border-white/10 rounded-xl p-3"
+                      className="w-full text-left bg-su-line/10 border border-su-line/40 rounded-xl p-3"
                     >
                       <div className="flex items-center justify-between">
-                        <span className="font-mono text-sm text-white font-bold">
+                        <span className="font-mono text-sm text-su-text font-bold">
                           {band}
                         </span>
                         <span
@@ -475,7 +475,7 @@ export function MobileBandPlanner({
                         {hourlyData.map((hour, i) => (
                           <div
                             key={i}
-                            className={`flex-1 ${i === currentHour ? "ring-1 ring-white/50" : ""}`}
+                            className={`flex-1 ${i === currentHour ? "ring-1 ring-su-line/60" : ""}`}
                             style={{
                               backgroundColor: getForecastStatusColor(
                                 hour.status,
@@ -486,7 +486,7 @@ export function MobileBandPlanner({
                       </div>
 
                       {/* Time labels under gradient */}
-                      <div className="flex justify-between mt-1 text-[9px] text-gray-600">
+                      <div className="flex justify-between mt-1 text-[9px] text-su-muted">
                         <span>00</span>
                         <span>06</span>
                         <span>12</span>
@@ -496,13 +496,13 @@ export function MobileBandPlanner({
 
                       {/* Expanded detail */}
                       {isExpanded && (
-                        <div className="mt-3 grid grid-cols-6 gap-1 text-[10px] text-gray-400">
+                        <div className="mt-3 grid grid-cols-6 gap-1 text-[10px] text-su-muted">
                           {hourlyData.map((hour, i) => (
                             <div
                               key={i}
-                              className={`text-center p-1 rounded ${i === currentHour ? "bg-white/10" : ""}`}
+                              className={`text-center p-1 rounded ${i === currentHour ? "bg-su-line/20" : ""}`}
                             >
-                              <div className="text-gray-500">{hour.time}</div>
+                              <div className="text-su-muted">{hour.time}</div>
                               <div className={getStatusTextColor(hour.status)}>
                                 {hour.snr}
                               </div>
@@ -519,11 +519,11 @@ export function MobileBandPlanner({
             {/* Path info */}
             {targetCoords && (
               <div className="grid grid-cols-3 gap-2 text-center">
-                <div className="bg-white/[0.03] border border-white/10 rounded-lg p-2">
-                  <div className="text-[10px] text-gray-500 mb-0.5">
+                <div className="bg-su-line/10 border border-su-line/40 rounded-lg p-2">
+                  <div className="text-[10px] text-su-muted mb-0.5">
                     Distance
                   </div>
-                  <div className="font-mono text-xs text-white">
+                  <div className="font-mono text-xs text-su-text">
                     {Math.round(
                       calculateGreatCircleDistance(
                         station.lat,
@@ -535,17 +535,17 @@ export function MobileBandPlanner({
                     km
                   </div>
                 </div>
-                <div className="bg-white/[0.03] border border-white/10 rounded-lg p-2">
-                  <div className="text-[10px] text-gray-500 mb-0.5">
+                <div className="bg-su-line/10 border border-su-line/40 rounded-lg p-2">
+                  <div className="text-[10px] text-su-muted mb-0.5">
                     ap equivalent (estimated)
                   </div>
-                  <div className="font-mono text-xs text-white">
+                  <div className="font-mono text-xs text-su-text">
                     {currentKp !== null ? kpToAp(currentKp) : "—"}
                   </div>
                 </div>
-                <div className="bg-white/[0.03] border border-white/10 rounded-lg p-2">
-                  <div className="text-[10px] text-gray-500 mb-0.5">Peak</div>
-                  <div className="font-mono text-xs text-white">
+                <div className="bg-su-line/10 border border-su-line/40 rounded-lg p-2">
+                  <div className="text-[10px] text-su-muted mb-0.5">Peak</div>
+                  <div className="font-mono text-xs text-su-text">
                     {peakStatus(forecast, currentHour)}
                   </div>
                 </div>
@@ -557,7 +557,7 @@ export function MobileBandPlanner({
         {/* No target prompt */}
         {!targetCoords && !isLoading && (
           <div className="text-center py-8">
-            <p className="text-sm text-gray-500">
+            <p className="text-sm text-su-muted">
               Enter a target grid square above to see the projection.
             </p>
           </div>

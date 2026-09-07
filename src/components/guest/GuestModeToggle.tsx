@@ -42,7 +42,7 @@ export function GuestModeToggle({
           <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-signal-green opacity-75" />
           <span className="relative inline-flex rounded-full h-2 w-2 bg-signal-green" />
         </span>
-        <span className="text-sm text-gray-300">Guest Session:</span>
+        <span className="text-sm text-su-muted">Guest Session:</span>
         <span className="font-mono font-bold text-signal-green">
           {activeSession.shareCode}
         </span>
@@ -73,13 +73,13 @@ export function GuestModeToggle({
             d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
           />
         </svg>
-        <span className="text-sm text-gray-300">Guest:</span>
+        <span className="text-sm text-su-muted">Guest:</span>
         <span className="font-mono font-bold text-cosmic-cyan">
           {guestInfo.callsign}
         </span>
         <button
           onClick={exitGuestMode}
-          className="ml-2 px-2 py-1 text-xs font-medium rounded bg-gray-700 text-gray-300 border border-gray-600 hover:bg-gray-600 transition-colors"
+          className="ml-2 px-2 py-1 text-xs font-medium rounded bg-su-input text-su-muted border border-su-line hover:bg-su-line transition-colors"
         >
           Exit
         </button>
@@ -97,7 +97,7 @@ export function GuestModeToggle({
       }}
     >
       <button
-        className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-nebula-blue border border-white/10 text-gray-400 hover:text-gray-200 hover:border-white/20 transition-colors"
+        className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-nebula-blue border border-su-line/40 text-su-muted hover:text-su-text hover:border-su-line/50 transition-colors"
         onClick={() => setIsOpen(!isOpen)}
         aria-expanded={isOpen}
         aria-haspopup="menu"
@@ -131,7 +131,7 @@ export function GuestModeToggle({
         </svg>
       </button>
       <div
-        className={`absolute right-0 top-full mt-1 w-48 py-1 bg-deep-space border border-white/10 rounded-lg shadow-xl transition-all duration-200 z-50 ${
+        className={`absolute right-0 top-full mt-1 w-48 py-1 bg-deep-space border border-su-line/40 rounded-lg shadow-xl transition-all duration-200 z-50 ${
           isOpen
             ? "opacity-100 visible"
             : "opacity-0 invisible group-hover:opacity-100 group-hover:visible"
@@ -144,7 +144,7 @@ export function GuestModeToggle({
             setIsOpen(false);
           }}
           role="menuitem"
-          className="w-full px-4 py-2 text-left text-sm text-gray-300 hover:bg-white/5 hover:text-white transition-colors flex items-center gap-2"
+          className="w-full px-4 py-2 text-left text-sm text-su-muted hover:bg-su-line/10 hover:text-su-text transition-colors flex items-center gap-2"
         >
           <svg
             className="w-4 h-4 text-plasma-orange"
@@ -167,7 +167,7 @@ export function GuestModeToggle({
             setIsOpen(false);
           }}
           role="menuitem"
-          className="w-full px-4 py-2 text-left text-sm text-gray-300 hover:bg-white/5 hover:text-white transition-colors flex items-center gap-2"
+          className="w-full px-4 py-2 text-left text-sm text-su-muted hover:bg-su-line/10 hover:text-su-text transition-colors flex items-center gap-2"
         >
           <svg
             className="w-4 h-4 text-cosmic-cyan"

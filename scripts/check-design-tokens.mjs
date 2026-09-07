@@ -20,9 +20,21 @@ const SCOPE = [
   "src/components/station-ui",
   "src/components/home",
   "src/components/dashboard",
-  "src/pages/Home.tsx",
+  // DS-12 g3: src/pages as a directory supersedes the individual
+  // Home.tsx / SolarPulse.tsx entries below (both already migrated).
+  "src/pages",
+  "src/App.tsx",
+  "src/components/ui",
+  "src/components/layout",
+  "src/components/help",
+  "src/components/guest",
+  "src/components/mobile",
+  "src/components/kiosk",
+  "src/components/alerts",
+  "src/components/auth",
+  "src/components/onboarding",
+  "src/components/location",
   "src/styles/home.css",
-  "src/pages/SolarPulse.tsx",
   // DS-03 Solar Pulse retheme: only the components actually migrated to
   // `su-` tokens are scoped here. Several sibling files under
   // src/components/solar/ (BandConditions.tsx, BandRow.tsx, MetricCard.tsx,

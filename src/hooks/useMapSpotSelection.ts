@@ -217,7 +217,11 @@ export function useMapSpotSelection() {
 export function useViewSpotSelection() {
   const runtime = useViewRuntime();
   return useCallback(
-    (spot: DXSpot) => commitViewSpotSelection(runtime, spot),
+    (spot: DXSpot) => {
+      const result = commitViewSpotSelection(runtime, spot);
+      maybeTuneOnMapClick(spot);
+      return result;
+    },
     [runtime],
   );
 }

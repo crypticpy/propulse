@@ -81,7 +81,10 @@ import { SpotCollectionPopover } from "./SpotCollectionPopover";
 import { useViewSpotFocus } from "@/hooks/useSpotFocus";
 import { FLASH_POINT_DURATION_MS, useFlashPoint } from "./hooks/useFlashPoint";
 import { useViewSpotSelection } from "@/hooks/useMapSpotSelection";
-import { useBoundVisualTarget } from "@/hooks/useBoundMapSelection";
+import {
+  EMPTY_VIEW_SPOTS,
+  useBoundVisualTarget,
+} from "@/hooks/useBoundMapSelection";
 import { useTargetPathPresentation } from "@/hooks/useTargetPathPresentation";
 import type { BounceMarker } from "@/lib/map/targetPathPresentation";
 import { pathEmphasis } from "@/lib/map/targetPathPresentation";
@@ -3603,7 +3606,7 @@ export function FlatMapView({
   const currentSFI = useCurrentSFI();
 
   // Spot focus for pulsing ring effect
-  const { isFocusing, focusedSpot } = useViewSpotFocus([]);
+  const { isFocusing, focusedSpot } = useViewSpotFocus(EMPTY_VIEW_SPOTS);
 
   // User preferences for compass rose and callsign labels
   const compassRoseEnabled = preferences?.compassRose?.enabled ?? false;

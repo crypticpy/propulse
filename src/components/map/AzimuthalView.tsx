@@ -88,7 +88,10 @@ import {
 } from "@/lib/map/azimuthalSpotPillPlacement";
 import { useViewSpotSelection } from "@/hooks/useMapSpotSelection";
 import { useViewSpotFocus } from "@/hooks/useSpotFocus";
-import { useBoundVisualTarget } from "@/hooks/useBoundMapSelection";
+import {
+  EMPTY_VIEW_SPOTS,
+  useBoundVisualTarget,
+} from "@/hooks/useBoundMapSelection";
 import { useTargetPathPresentation } from "@/hooks/useTargetPathPresentation";
 import type { BounceMarker } from "@/lib/map/targetPathPresentation";
 import { pathEmphasis } from "@/lib/map/targetPathPresentation";
@@ -1762,7 +1765,7 @@ export function AzimuthalView({
   const labelOptions = useMapStore((s) => s.labelOptions);
   const overlayLayers = useMapStore((s) => s.overlayLayers);
   const { station } = useUserStore();
-  const { focusedSpot: selectedSpot } = useViewSpotFocus([]);
+  const { focusedSpot: selectedSpot } = useViewSpotFocus(EMPTY_VIEW_SPOTS);
   const uiPrefs = useUIInteractionPrefs();
   const spotColorMode: SpotColorMode = uiPrefs.spotColorMode ?? "mode";
   const spotDotScale = uiPrefs.spotDotScale ?? 1.0;

@@ -1,9 +1,9 @@
 import { act, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { User } from "@supabase/supabase-js";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { afterEach, describe, expect, it } from "vitest";
-import { BoundViewHost } from "./BoundViewHost";
+import { BoundSelectionClear, BoundViewHost } from "./BoundViewHost";
 import { usePropSphereFamilySlot } from "./usePropSphereFamilySlot";
 import { useViewRuntime } from "./ViewRuntimeContext";
 import { commitViewSpotSelection } from "@/hooks/useMapSpotSelection";
@@ -127,5 +127,27 @@ describe("BoundViewHost", () => {
     expect(screen.getByTestId("family-slot").textContent).toBe("pro");
     await user.click(screen.getByRole("button", { name: "open-hamclock" }));
     expect(screen.getByTestId("family-slot").textContent).toBe("pro");
+  });
+
+  it("clears this runtime's selection through BoundSelectionClear", async () => {
+    const user = userEvent.setup();
+    const storage = createMemoryWorkingStorage();
+    function Host() {
+      const clearRef = useRef<(() => void) | null>(null);
+      return (
+        <BoundViewHost slot="normal" storage={storage}>
+          <BoundSelectionClear clearRef={clearRef} />
+          <IsolationProbe id="clear" />
+          <button type="button" onClick={() => clearRef.current?.()}>
+            escape
+          </button>
+        </BoundViewHost>
+      );
+    }
+    render(<Host />);
+    await user.click(screen.getByRole("button", { name: "clear-select" }));
+    expect(screen.getByTestId("clear-sel").textContent).toBe("grid-1");
+    await user.click(screen.getByRole("button", { name: "escape" }));
+    expect(screen.getByTestId("clear-sel").textContent).toBe("none");
   });
 });

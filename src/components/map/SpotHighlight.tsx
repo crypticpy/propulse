@@ -11,6 +11,7 @@
 import { useRef, useMemo } from "react";
 import { useFrame } from "@react-three/fiber";
 import * as THREE from "three";
+import { EMPTY_VIEW_SPOTS } from "@/hooks/useBoundMapSelection";
 import { useViewSpotFocus, latLonToPosition3D } from "@/hooks/useSpotFocus";
 import { GLOBE_LAYER_ORDER } from "@/lib/map/globeRenderOrder";
 
@@ -47,7 +48,7 @@ export function SpotHighlight({
   color = PLASMA_ORANGE,
   visible: visibleOverride,
 }: SpotHighlightProps) {
-  const { isFocusing, focusedSpot } = useViewSpotFocus([]);
+  const { isFocusing, focusedSpot } = useViewSpotFocus(EMPTY_VIEW_SPOTS);
 
   const isVisible = visibleOverride ?? isFocusing;
 

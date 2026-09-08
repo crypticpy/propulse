@@ -9,8 +9,10 @@ import { useOpsPostureStore } from "@/stores/opsPostureStore";
 import { useQSOStore } from "@/stores/qsoStore";
 import { SelectedSpotCard } from "./SelectedSpotCard";
 import { ViewProvider } from "@/components/views/ViewProvider";
+import { useViewRuntime } from "@/components/views/ViewRuntimeContext";
 import { createMemoryWorkingStorage } from "@/lib/views/runtime";
 import type { ReactElement, ReactNode } from "react";
+import { useLayoutEffect } from "react";
 
 const { selectMapSpot, navigate } = vi.hoisted(() => ({
   selectMapSpot: vi.fn(),
@@ -294,5 +296,29 @@ describe("SelectedSpotCard", () => {
     expect(screen.getByText("POTA US-1234")).toBeTruthy();
     expect(screen.getByText("Test Park")).toBeTruthy();
     expect(screen.getByText("Parks on the Air")).toBeTruthy();
+  });
+
+  it("marks the bound report as the active target without a global pin", () => {
+    function SelectHost({ children }: { children: ReactNode }) {
+      const runtime = useViewRuntime();
+      useLayoutEffect(() => {
+        runtime.selectSpot(spot.id, { lat: spot.dxLat!, lon: spot.dxLon! });
+      }, [runtime]);
+      return children;
+    }
+
+    render(
+      <SelectHost>
+        <SelectedSpotCard
+          spot={spot}
+          position={{ x: 10, y: 10 }}
+          onOperator={vi.fn()}
+          onClose={vi.fn()}
+        />
+      </SelectHost>,
+    );
+
+    expect(screen.getByRole("button", { name: "Target selected" })).toBeTruthy();
+    expect(useMapStore.getState().target).toBeNull();
   });
 });

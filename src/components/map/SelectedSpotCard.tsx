@@ -3,7 +3,10 @@ import { createPortal } from "react-dom";
 import type { ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
 import { useViewSpotSelection } from "@/hooks/useMapSpotSelection";
-import { useBoundSelectedReportId } from "@/hooks/useBoundMapSelection";
+import {
+  useBoundSelectedReportId,
+  useBoundVisualTarget,
+} from "@/hooks/useBoundMapSelection";
 import { useMapStore } from "@/stores/mapStore";
 import { applyLogIntent } from "@/lib/qso/logIntent";
 import { useKioskStore } from "@/stores/kioskStore";
@@ -137,7 +140,8 @@ export function SelectedSpotCard({
   const navigate = useNavigate();
   const selectMapSpot = useViewSpotSelection();
   const selectedSpotId = useBoundSelectedReportId();
-  const target = useMapStore((state) => state.target);
+  const mapTarget = useMapStore((state) => state.target);
+  const target = useBoundVisualTarget(mapTarget);
   const setTarget = useMapStore((state) => state.setTarget);
   const setIsolateTargetPath = useMapStore((state) => state.setIsolateTargetPath);
   const isKiosk = useKioskStore((state) => state.active);

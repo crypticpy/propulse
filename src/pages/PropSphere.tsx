@@ -92,7 +92,7 @@ import { Card } from "@/components/ui/Card";
 import { HelpModal, HELP_CONTENT } from "@/components/ui/HelpModal";
 import { ShareModal } from "@/components/ui/ShareModal";
 import { OnboardingTour } from "@/components/ui/OnboardingTour";
-import { BoundViewHost } from "@/components/views/BoundViewHost";
+import { BoundViewHost, BoundSelectionClear } from "@/components/views/BoundViewHost";
 import { usePropSphereFamilySlot } from "@/components/views/usePropSphereFamilySlot";
 import { useMapStore } from "@/stores/mapStore";
 import { useDisplayFit } from "@/hooks/useDisplayFit";
@@ -419,6 +419,7 @@ export function PropSphere() {
 
   // Get undo store for tracking undoable actions
   const { pushAction } = useUndoStore();
+  const clearBoundSelectionRef = useRef<(() => void) | null>(null);
 
   // Apply share params from URL (if any)
   useShareParams();
@@ -491,7 +492,8 @@ export function PropSphere() {
               description: `Cleared target "${currentTarget.name || currentTarget.grid || "location"}"`,
             });
           }
-          // Clear target
+          // Clear bound selection and the leftover manual pin target
+          clearBoundSelectionRef.current?.();
           mapStore.setTarget(null);
           // Close flyout if open
           mapStore.setFlyoutPosition(null);
@@ -792,6 +794,7 @@ export function PropSphere() {
 
   return (
     <BoundViewHost slot={familySlot}>
+    <BoundSelectionClear clearRef={clearBoundSelectionRef} />
     <div
       className={`h-[calc(100dvh-4rem)] flex flex-col overflow-y-auto ${
         compactFit ? "" : "lg:overflow-hidden"

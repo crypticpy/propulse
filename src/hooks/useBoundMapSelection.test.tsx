@@ -61,7 +61,8 @@ describe("useBoundMapSelection", () => {
     await user.click(screen.getByRole("button", { name: "select" }));
     expect(screen.getByTestId("bound-id").textContent).toBe("grid-1");
     expect(screen.getByTestId("bound-lat").textContent).toBe("35");
-    expect(screen.getByTestId("bound-grid").textContent).toBe("JJ00");
+    expect(screen.getByTestId("bound-grid").textContent).toMatch(/^PM95/);
+    expect(screen.getByTestId("bound-grid").textContent).not.toBe("JJ00");
   });
 
   it("falls back to the manual map target when this view has no selection", () => {

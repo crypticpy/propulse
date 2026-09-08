@@ -1,5 +1,6 @@
-import type { ReactNode } from "react";
+import { useEffect, type MutableRefObject, type ReactNode } from "react";
 import { ViewProvider, type ViewProviderProps } from "./ViewProvider";
+import { useViewRuntime } from "./ViewRuntimeContext";
 import { useAuthStore } from "@/stores/authStore";
 
 export type BoundViewHostProps = Omit<ViewProviderProps, "ownerId"> & {
@@ -17,4 +18,23 @@ export function BoundViewHost({ children, ...props }: BoundViewHostProps) {
       {children}
     </ViewProvider>
   );
+}
+
+/**
+ * Lets a parent that owns keyboard shortcuts (outside this provider) clear
+ * the bound selection. Mount inside BoundViewHost.
+ */
+export function BoundSelectionClear({
+  clearRef,
+}: {
+  clearRef: MutableRefObject<(() => void) | null>;
+}) {
+  const runtime = useViewRuntime();
+  useEffect(() => {
+    clearRef.current = () => runtime.clearSelection();
+    return () => {
+      clearRef.current = null;
+    };
+  }, [clearRef, runtime]);
+  return null;
 }

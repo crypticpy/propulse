@@ -136,7 +136,10 @@ import { useLoggedQsoLocations } from "@/hooks/useLoggedQsoLocations";
 import { useWeatherRadar } from "@/hooks/useWeatherRadar";
 import { useViewSpotFocus } from "@/hooks/useSpotFocus";
 import { useViewSpotSelection } from "@/hooks/useMapSpotSelection";
-import { useBoundVisualTarget } from "@/hooks/useBoundMapSelection";
+import {
+  EMPTY_VIEW_SPOTS,
+  useBoundVisualTarget,
+} from "@/hooks/useBoundMapSelection";
 import {
   useMapOperationalContext,
   useScopedMapLayers,
@@ -358,7 +361,7 @@ function CameraController() {
   const hamclockObservatoryCamera = useRef<THREE.Vector3 | null>(null);
   const controlsRef = useRef<OrbitControlsType>(null);
   const { camera, gl, size } = useThree();
-  const { targetPosition, isFocusing } = useViewSpotFocus([]);
+  const { targetPosition, isFocusing } = useViewSpotFocus(EMPTY_VIEW_SPOTS);
   const centerLocation = useMapStore((state) => state.centerLocation);
   const clearCenterLocation = useMapStore((state) => state.clearCenterLocation);
   const activePresetId = useMapStore((state) => state.activePresetId);
@@ -1129,7 +1132,7 @@ const GlobeScene = React.memo(function GlobeScene({
   const layers = useScopedMapLayers();
   const mapTarget = useMapStore((s) => s.target);
   const target = useBoundVisualTarget(mapTarget);
-  const { focusedSpot: selectedSpot } = useViewSpotFocus([]);
+  const { focusedSpot: selectedSpot } = useViewSpotFocus(EMPTY_VIEW_SPOTS);
   const mapStyle = useMapStore((s) => s.mapStyle);
   const nightDarkness = useMapStore((s) => s.nightDarkness);
   const rotation = useMapStore((s) => s.rotation);

@@ -175,7 +175,7 @@ Rules:
 - **The app and the design system stay aligned.** Every UI fix goes through the shared component (`src/components/ui/*`, `station-ui`, wall tiles), never a one-off in a page; narrow layouts get a discrete stacked variant instead of a compressed two-column row; after the fix merges, the affected cards are re-graded so the project shows what ships.
 - Never delete the app-managed files `_ds_manifest.json` and `_adherence.oxlintrc.json` from a project.
 
-Where things live: the sync config, notes, entry barrel, shims and authored previews are in `.design-sync/` and the converter in `.ds-sync/`; until branch `chore/design-sync-config` lands they exist only in that worktree. The build recipe and re-sync driver (`resync.mjs --remote <project's _ds_sync.json>`) are documented in `.design-sync/NOTES.md`; read its "Re-sync risks" and "second-account mirror" sections before running `/design-sync`. The component README is `docs/designs/design-system/README.md`.
+Where things live: the sync config, notes, entry barrel, shims and authored previews are in `.design-sync/` (on main since PR #662) and the converter in `.ds-sync/` (gitignored, staged by `/design-sync`). The build recipe and re-sync driver (`resync.mjs --remote <project's _ds_sync.json>`) are documented in `.design-sync/NOTES.md`; read its "Re-sync risks" and "second-account mirror" sections before running `/design-sync`. The component README is `docs/designs/design-system/README.md`. Its "Rules" section carries the legibility standard (high contrast, no pure white text, no halo or fringe) that every new UI part must meet.
 
 ## Environment Variables
 

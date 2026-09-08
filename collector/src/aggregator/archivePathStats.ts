@@ -390,22 +390,11 @@ async function exportDay(
     throw new Error(`archive upload failed for ${day}: ${uploadError.message}`);
   }
 
-  // Verify what storage actually holds. A pre-existing object can only come
-  // from an interrupted prior run (a sealed day never reaches exportDay), so
-  // on mismatch it is safe to overwrite once and re-verify.
-  let storedBytes = await downloadObjectBytes(bucket, objectPath, day);
-  if (sha256Hex(storedBytes) !== sha256 && preExisting) {
-    const { error: replaceError } = await bucket.upload(objectPath, gz, {
-      ...uploadOpts,
-      upsert: true,
-    });
-    if (replaceError) {
-      throw new Error(
-        `archive re-upload failed for ${day}: ${replaceError.message}`,
-      );
-    }
-    storedBytes = await downloadObjectBytes(bucket, objectPath, day);
-  }
+  // Verify what storage actually holds. An identical pre-existing object is
+  // an interrupted upload and can be sealed. Conflicting bytes are preserved
+  // for operator reconciliation because the current live rows may no longer
+  // be authoritative for this historical day.
+  const storedBytes = await downloadObjectBytes(bucket, objectPath, day);
   if (sha256Hex(storedBytes) !== sha256) {
     throw new Error(
       `archive SHA-256 mismatch for ${day} — stored object differs from export; not sealing`,

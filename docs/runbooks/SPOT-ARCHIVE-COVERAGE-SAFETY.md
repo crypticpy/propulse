@@ -17,7 +17,9 @@ The service-only snapshot RPC returns at most 1,000 ranges and refuses overflow.
 The collector requires matching snapshots before and after its export, verifies
 the data object, then downloads and verifies the newly written manifest. Legacy
 manifests remain intact; they cannot authorize the new guarded prune operation.
-They are not automatically re-exported or relabeled as covered.
+They are not automatically re-exported or relabeled as covered. An existing
+unsealed CSV with different bytes is also preserved and requires reconciliation;
+only an identical interrupted upload can be resumed automatically.
 
 The guarded prune RPC takes the gap writer's `(584,5)` transaction lock, obtains
 a fresh READ COMMITTED snapshot, compares it to the manifest and only then calls

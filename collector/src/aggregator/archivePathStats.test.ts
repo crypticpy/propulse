@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { createHash } from "node:crypto";
-import { gunzipSync } from "node:zlib";
+import { gzipSync, gunzipSync } from "node:zlib";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import {
   PATH_STATS_COLUMNS,
@@ -553,13 +553,36 @@ describe("runArchivePass", () => {
     ]);
   });
 
-  it("replaces an unsealed leftover object from an interrupted run", async () => {
+  it("preserves a conflicting unsealed object and refuses to seal or prune", async () => {
     const storage = new FakeStorage();
-    // Crash artifact: the object exists with stale bytes but was never sealed.
-    storage.objects.set(
-      archiveObjectPath("2026-05-01"),
-      new Uint8Array([9, 9, 9]),
+    const original = new Uint8Array([9, 9, 9]);
+    storage.objects.set(archiveObjectPath("2026-05-01"), original);
+    const rpcCalls: { name: string; args: Record<string, unknown> }[] = [];
+    const db = makeDb(storage, { liveCount: () => 3, rpcCalls });
+
+    await expect(runArchivePass(db, CONTROLS, NOW)).rejects.toThrow(
+      /stored object differs from export; not sealing/,
     );
+
+    expect(storage.objects.get(archiveObjectPath("2026-05-01"))).toBe(original);
+    expect(storage.objects.has(manifestObjectPath("2026-05-01"))).toBe(false);
+    expect(storage.uploads).toEqual([
+      expect.objectContaining({
+        path: archiveObjectPath("2026-05-01"),
+        opts: expect.objectContaining({ upsert: false }),
+      }),
+    ]);
+    expect(rpcCalls.map((call) => call.name)).toEqual([
+      "spot_archive_path_gap_snapshot",
+    ]);
+  });
+
+  it("seals an identical object left by an interrupted upload", async () => {
+    const storage = new FakeStorage();
+    const original = new Uint8Array(
+      gzipSync(Buffer.from(toCsv(DAY_ROWS), "utf8")),
+    );
+    storage.objects.set(archiveObjectPath("2026-05-01"), original);
     const db = makeDb(storage, { liveCount: () => 3 });
 
     const result = await runArchivePass(
@@ -569,9 +592,13 @@ describe("runArchivePass", () => {
     );
 
     expect(result.daysArchived).toBe(1);
-    const gz = storage.objects.get(archiveObjectPath("2026-05-01"));
-    expect(gunzipSync(Buffer.from(gz!)).toString("utf8")).toBe(toCsv(DAY_ROWS));
+    expect(storage.objects.get(archiveObjectPath("2026-05-01"))).toBe(original);
     expect(storage.objects.has(manifestObjectPath("2026-05-01"))).toBe(true);
+    expect(
+      storage.uploads
+        .filter((upload) => upload.path === archiveObjectPath("2026-05-01"))
+        .every((upload) => upload.opts?.upsert !== true),
+    ).toBe(true);
   });
 
   it("refuses a malformed existing manifest without overwriting it", async () => {

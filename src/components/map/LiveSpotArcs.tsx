@@ -19,8 +19,10 @@ import { getPathPoints } from "@/lib/utils/path";
 import { gridToLatLon, isValidGrid } from "@/lib/utils/grid";
 import { useLiveSpots } from "@/hooks/useLiveSpots";
 import { useBoundSelectedReportId } from "@/hooks/useBoundMapSelection";
-import { useDXStore } from "@/stores/dxStore";
+import { useViewEffectiveSpots } from "@/hooks/useViewClusterSpots";
+import { projectLiveSpotsForView } from "@/lib/spots/presentation/pipeline";
 import { useMapStore } from "@/stores/mapStore";
+import { MAX_SPOT_FETCH_LIMIT } from "@/lib/map/spotDensity";
 import {
   useSpotAgePrefs,
   useUIInteractionPrefs,
@@ -748,32 +750,11 @@ export function LiveSpotArcs({
   onSpotHoverEnd,
   onSpotSelect,
 }: LiveSpotArcsProps) {
-  // Use displayDensity from mapStore, falling back to prop, then default 50
-  const displayDensity = useMapStore((s) => s.displayDensity);
-  const maxArcs = maxArcsProp ?? displayDensity ?? 50;
-  // Get source filter from dxStore - shared with DXSpotList
-  const filters = useDXStore((state) => state.filters);
+  const viewSpots = useViewEffectiveSpots();
+  const maxArcs = maxArcsProp ?? viewSpots.filters.spotLimit;
   const selectedSpotId = useBoundSelectedReportId();
-  const sourcesFilter = filters.sources as SpotSource[] | undefined;
-
-  // Get profile-based spot filters from mapStore
-  const spotFilters = useMapStore((s) => s.spotFilters);
-
-  // Pre-compute filter sets for case-insensitive matching
-  const profileBandSet = useMemo(
-    () =>
-      spotFilters.bands.length > 0
-        ? new Set(spotFilters.bands.map((b) => b.toLowerCase()))
-        : null,
-    [spotFilters.bands],
-  );
-  const profileModeSet = useMemo(
-    () =>
-      spotFilters.modes.length > 0
-        ? new Set(spotFilters.modes.map((m) => m.toLowerCase()))
-        : null,
-    [spotFilters.modes],
-  );
+  const sourcesFilter =
+    viewSpots.filters.sources.length > 0 ? viewSpots.filters.sources : undefined;
 
   // Get spot age visualization preferences
   const spotAgePrefs = useSpotAgePrefs();
@@ -785,11 +766,15 @@ export function LiveSpotArcs({
     grid,
     enabled: suppliedSpots === undefined,
     refetchInterval: 60000,
-    // Pass sources filter - when empty array, useLiveSpots shows all sources
     sources:
       sourcesFilter && sourcesFilter.length > 0 ? sourcesFilter : undefined,
+    fetchLimit: MAX_SPOT_FETCH_LIMIT,
   });
-  const spots = suppliedSpots ?? ownedFeed.spots;
+  const ownedProjection = useMemo(
+    () => projectLiveSpotsForView(ownedFeed.spots, viewSpots, Date.now()),
+    [ownedFeed.spots, viewSpots],
+  );
+  const spots = suppliedSpots ?? ownedProjection.mapBudgeted;
   const isLoading = suppliedIsLoading ?? ownedFeed.isLoading;
 
   // Coordinate resolution is shared by the map host when available. The old
@@ -927,13 +912,6 @@ export function LiveSpotArcs({
           // Determine if spot passes profile filter
           const orig = singlesMap.get(spot.id);
           const spotBand = orig?.band?.toLowerCase() ?? "";
-          const spotMode = spot.mode?.toLowerCase() ?? "";
-          // Treat missing metadata as "show anyway" — don't dim spots with unknown band/mode
-          const passesBandFilter =
-            !profileBandSet || !spotBand || profileBandSet.has(spotBand);
-          const passesModeFilter =
-            !profileModeSet || !spotMode || profileModeSet.has(spotMode);
-          const passesFilter = passesBandFilter && passesModeFilter;
           // Active band emphasis: arcs on the active band get full opacity,
           // others get reduced opacity when an active band is set
           const activeBandLower = activeBand?.toLowerCase() ?? "";
@@ -952,9 +930,7 @@ export function LiveSpotArcs({
                 spotBand === contactBand.toLowerCase(),
             ),
           });
-          const filterOpacity =
-            (passesFilter ? activeBandOpacity : 0.3 * activeBandOpacity) *
-            contactOpacity;
+          const filterOpacity = activeBandOpacity * contactOpacity;
 
           const endpointScale = spotAgePrefs.enabled ? ageInfo.scale : 1.0;
 

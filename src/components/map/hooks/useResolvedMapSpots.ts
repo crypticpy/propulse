@@ -13,7 +13,7 @@ import type { SpotSource } from "@/types/livespot";
 import type { SpotFilters } from "@/types/operatingProfile";
 import { resolveSpotLocations } from "../LiveSpotArcs";
 
-interface UseResolvedMapSpotsOptions {
+export interface UseResolvedMapSpotsOptions {
   /** Receiver grid used by PSKReporter. */
   grid?: string;
   /** Whether any renderer feature currently needs the raw live feed. */

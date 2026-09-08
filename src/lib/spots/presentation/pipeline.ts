@@ -7,6 +7,7 @@ import {
 } from "@/lib/map/operationalScope";
 import { createSpotPreferences } from "@/lib/views/defaults";
 import {
+  contractIdSchema,
   normalizedSpotReportSchema,
   pathDescriptorSchema,
   spotSceneModelSchema,
@@ -265,6 +266,58 @@ export function selectMappedBudget(
     mapped: locatable.slice(0, limit),
     unlocated,
     omitted: locatable.slice(limit),
+  };
+}
+
+export interface ViewLiveSpotProjection {
+  matching: LiveSpot[];
+  mapBudgeted: LiveSpot[];
+  matchingCount: number;
+  mappedCount: number;
+  unlocatedCount: number;
+  budgetOmittedCount: number;
+}
+
+/**
+ * SP-04 matching + map budget on live rows. Keeps the original LiveSpot
+ * objects so renderer IDs and provenance stay stable.
+ */
+export function projectLiveSpotsForView(
+  spots: readonly LiveSpot[],
+  preferences: SpotPresentationPreferences,
+  nowMs: number,
+): ViewLiveSpotProjection {
+  const usedIds = new Map<string, string>();
+  const mapped: { spot: LiveSpot; report: NormalizedSpotReport }[] = [];
+  for (const spot of spots) {
+    const report = normalizeLiveSpot(spot, usedIds);
+    if (!report) continue;
+    const parsedId = contractIdSchema.safeParse(spot.id);
+    mapped.push({
+      spot,
+      report: parsedId.success ? { ...report, id: parsedId.data } : report,
+    });
+  }
+  const matchingEntries = mapped.filter(({ report }) =>
+    reportMatchesFilters(report, preferences.filters, nowMs, ALL_SOURCES),
+  );
+  const matching = matchingEntries.map((entry) => entry.spot);
+  const byReportId = new Map(
+    matchingEntries.map((entry) => [entry.report.id, entry.spot]),
+  );
+  const budget = selectMappedBudget(
+    matchingEntries.map((entry) => entry.report),
+    preferences.filters.spotLimit,
+  );
+  return {
+    matching,
+    mapBudgeted: budget.mapped
+      .map((report) => byReportId.get(report.id))
+      .filter((spot): spot is LiveSpot => Boolean(spot)),
+    matchingCount: matching.length,
+    mappedCount: budget.mapped.length,
+    unlocatedCount: budget.unlocated.length,
+    budgetOmittedCount: budget.omitted.length,
   };
 }
 

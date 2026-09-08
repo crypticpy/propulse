@@ -1677,6 +1677,7 @@ export function AzimuthalView({
     title: string;
     subtitle: string;
     spots: LiveSpot[];
+    groupId?: string;
   } | null>(null);
   const [researchPanelOpen, setResearchPanelOpen] = useState(false);
   const [researchGrid, setResearchGrid] = useState("");
@@ -1761,7 +1762,6 @@ export function AzimuthalView({
   const pathPresentation = useTargetPathPresentation(displayTime);
   const mapStyle = useMapStore((s) => s.mapStyle);
   const nightDarkness = useMapStore((s) => s.nightDarkness);
-  const displayDensity = useMapStore((s) => s.displayDensity);
   const labelOptions = useMapStore((s) => s.labelOptions);
   const overlayLayers = useMapStore((s) => s.overlayLayers);
   const { station } = useUserStore();
@@ -2073,13 +2073,16 @@ export function AzimuthalView({
   // preserves the shared display-density contract without a local pipeline.
   const {
     resolvedSpots,
+    resolvedSingles,
     allResolvedSpots,
     activationSpots,
+    clusters,
+    groupingEnabled,
+    expandGroup,
   } = useAzimuthalMapSpots({
     grid: station?.grid,
     enabled: layers.spots || layers.spotTraces || layers.gridActivity,
     activationsEnabled: layers.activations,
-    maxSpots: displayDensity,
   });
   const gridActivityResolution = gridActivityResolutionForView(
     "azimuthal",
@@ -2150,21 +2153,65 @@ export function AzimuthalView({
     spotPillPlacements,
   ]);
 
+  const projectVisible = useCallback(
+    (lat: number, lon: number) => {
+      if (!center) return null;
+      const projected = azimuthalProject(lat, lon, center.lat, center.lon);
+      return Math.hypot(projected.x, projected.y) <= 1
+        ? projToCanvas(projected)
+        : null;
+    },
+    [center],
+  );
+
+  const geographicAzimuthalClusters = useMemo((): AzimuthalSpotCluster[] => {
+    if (!center || !groupingEnabled || (!layers.spots && !layers.spotTraces)) {
+      return [];
+    }
+    const cssScale = displaySize / CANVAS_SIZE;
+    const size = 30;
+    return clusters.flatMap((cluster) => {
+      const point = projectVisible(cluster.center.lat, cluster.center.lon);
+      if (!point) return [];
+      const x = (CENTER + (point.x - CENTER) * zoom) * cssScale;
+      const y = (CENTER + (point.y - CENTER) * zoom) * cssScale;
+      if (x < 0 || x > displaySize || y < 0 || y > displaySize) return [];
+      return [
+        {
+          key: cluster.id,
+          groupId: cluster.id,
+          x,
+          y,
+          left: x - size / 2,
+          top: y - size / 2,
+          width: size,
+          height: size,
+          members: cluster.spots.map((spot) => ({
+            dxLat: spot.dxLat ?? cluster.center.lat,
+            dxLon: spot.dxLon ?? cluster.center.lon,
+            originalSpot: spot,
+          })),
+        },
+      ];
+    });
+  }, [
+    center,
+    clusters,
+    displaySize,
+    groupingEnabled,
+    layers.spotTraces,
+    layers.spots,
+    projectVisible,
+    zoom,
+  ]);
+
   const azimuthalSpotClusters = useMemo(() => {
-    if (!center || (!layers.spots && !layers.spotTraces)) return [];
-    return buildAzimuthalSpotClusters(
-      resolvedSpots,
-      (lat, lon) => {
-        const projected = azimuthalProject(
-          lat,
-          lon,
-          center.lat,
-          center.lon,
-        );
-        return Math.hypot(projected.x, projected.y) <= 1
-          ? projToCanvas(projected)
-          : null;
-      },
+    if (!center || (!layers.spots && !layers.spotTraces)) {
+      return geographicAzimuthalClusters;
+    }
+    const screenClusters = buildAzimuthalSpotClusters(
+      resolvedSingles,
+      projectVisible,
       {
         canvasSize: CANVAS_SIZE,
         center: CENTER,
@@ -2172,12 +2219,15 @@ export function AzimuthalView({
         zoom,
       },
     );
+    return [...geographicAzimuthalClusters, ...screenClusters];
   }, [
     center,
     displaySize,
+    geographicAzimuthalClusters,
     layers.spotTraces,
     layers.spots,
-    resolvedSpots,
+    projectVisible,
+    resolvedSingles,
     zoom,
   ]);
 
@@ -2229,9 +2279,14 @@ export function AzimuthalView({
       setSelectedMapSpotData(null);
       setOpenSpotCollection({
         position,
-        title: `${cluster.members.length} nearby live spots`,
-        subtitle: "Azimuthal destinations combined to reduce map clutter",
+        title: cluster.groupId
+          ? `${cluster.members.length} active spots`
+          : `${cluster.members.length} nearby live spots`,
+        subtitle: cluster.groupId
+          ? "Geographic group on this azimuthal map"
+          : "Azimuthal destinations combined to reduce map clutter",
         spots: cluster.members.map((member) => member.originalSpot),
+        groupId: cluster.groupId,
       });
     },
     [cancelSpotHoverDismiss],
@@ -2262,7 +2317,7 @@ export function AzimuthalView({
 
   // Feed new spots into the grid glow renderer when spots arrive.
   useEffect(() => {
-    const currentIds = new Set(resolvedSpots.map((spot) => spot.id));
+    const currentIds = new Set(resolvedSingles.map((spot) => spot.id));
     if (layers.gridActivity) {
       prevGlowSpotIdsRef.current = currentIds;
       return;
@@ -2270,9 +2325,9 @@ export function AzimuthalView({
     if (!layers.spots && !layers.spotTraces) return;
     const now = Date.now();
     const prevIds = prevGlowSpotIdsRef.current;
-    const isInitialLoad = prevIds.size === 0 && resolvedSpots.length > 0;
+    const isInitialLoad = prevIds.size === 0 && resolvedSingles.length > 0;
 
-    for (const spot of resolvedSpots) {
+    for (const spot of resolvedSingles) {
       if (prevIds.has(spot.id)) continue;
 
       const color = getSpotColor(spot, spotColorMode);
@@ -2300,7 +2355,7 @@ export function AzimuthalView({
 
     if (glowRendererRef.current.hasActiveGlows()) startGridAnimation();
   }, [
-    resolvedSpots,
+    resolvedSingles,
     layers.spots,
     layers.spotTraces,
     layers.gridActivity,
@@ -3048,6 +3103,14 @@ export function AzimuthalView({
           setOpenSpotCollection(null);
           handleMapSpotSelect(spot, position);
         }}
+        onMapTheseSpots={
+          openSpotCollection?.groupId
+            ? () => {
+                expandGroup(openSpotCollection.groupId!);
+                setOpenSpotCollection(null);
+              }
+            : undefined
+        }
       />
 
       <TargetHoverTooltip

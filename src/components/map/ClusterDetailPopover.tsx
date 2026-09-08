@@ -10,6 +10,7 @@ export interface ClusterDetailPopoverProps {
   cluster: SpotCluster | null;
   onClose: () => void;
   onSpotSelect: (spot: LiveSpot) => void;
+  onMapTheseSpots?: () => void;
 }
 
 function formatCoord(value: number, latitude: boolean) {
@@ -30,6 +31,7 @@ export function ClusterDetailPopover({
   cluster,
   onClose,
   onSpotSelect,
+  onMapTheseSpots,
 }: ClusterDetailPopoverProps) {
   const grid = useMemo(() => {
     if (!cluster) return "";
@@ -51,6 +53,7 @@ export function ClusterDetailPopover({
       spots={cluster.spots}
       onClose={onClose}
       onSpotSelect={onSpotSelect}
+      onMapTheseSpots={onMapTheseSpots}
     />
   );
 }

@@ -189,4 +189,16 @@ describe("clusterSpots", () => {
     expect(result.clusters).toHaveLength(0);
     expect(result.singles).toEqual([unresolved]);
   });
+
+  it("keeps live group ids when clustering is disabled so expansion can sync", () => {
+    const result = clusterSpots(
+      [
+        liveSpot("es-1", { dx: "EA1AAA", dxLat: 40.4, dxLon: -3.7 }),
+        liveSpot("es-2", { dx: "EA1BBB", dxLat: 40.5, dxLon: -3.6 }),
+      ],
+      { ...clusteringOptions, enabled: false },
+    );
+    expect(result.clusters).toHaveLength(0);
+    expect(result.liveGroupIds.length).toBeGreaterThan(0);
+  });
 });

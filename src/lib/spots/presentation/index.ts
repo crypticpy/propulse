@@ -33,10 +33,12 @@ export {
   isDefaultSpotFilters,
   normalizeLiveSpot,
   pathDescriptorForReport,
+  projectLiveSpotsForView,
   reportMatchesFilters,
   selectMappedBudget,
   type BuildSpotSceneInput,
   type SpotPipelineOperatingContext,
+  type ViewLiveSpotProjection,
 } from "./pipeline";
 export {
   reportRevisionFromIds,

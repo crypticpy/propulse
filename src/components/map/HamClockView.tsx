@@ -26,7 +26,7 @@ import "@/styles/hamclock-wall-forecast.css";
 import "@/styles/hamclock-wall-report.css";
 import "@/styles/hamclock-wall-controls.css";
 import { BoundViewHost } from "@/components/views/BoundViewHost";
-import { useHamClockRadioFollow } from "@/hooks/useHamClockRadioFollow";
+import { useBoundViewRadioFollow } from "@/hooks/useHamClockRadioFollow";
 import { useHamClockDisplayStore } from "@/stores/hamclockDisplayStore";
 import { useKioskStore } from "@/stores/kioskStore";
 import {
@@ -90,11 +90,15 @@ function applyModeLayers(mode: HamClockMode) {
 // Main Component
 // ---------------------------------------------------------------------------
 
+function HamClockBoundFollow() {
+  useBoundViewRadioFollow();
+  return null;
+}
+
 export function HamClockView({
   displayTime,
   onLocationClick,
 }: HamClockViewProps) {
-  useHamClockRadioFollow();
   const display = useHamClockDisplayStore();
   const frameHome = display.frameHome;
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -259,6 +263,7 @@ export function HamClockView({
 
   return (
     <BoundViewHost slot="hamclock">
+      <HamClockBoundFollow />
       <div
         data-hamclock-root
         data-hamclock-theme={display.theme}

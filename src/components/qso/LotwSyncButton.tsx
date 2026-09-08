@@ -111,7 +111,7 @@ export function LotwSyncButton() {
         className={`flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-lg transition-colors border ${
           isProcessing
             ? "bg-plasma-orange/10 text-plasma-orange border-plasma-orange/30 animate-pulse"
-            : "bg-white/5 hover:bg-white/10 text-gray-300 border-white/10"
+            : "bg-su-line/10 hover:bg-su-line/20 text-su-muted border-su-line/40"
         }`}
         aria-label="LoTW sync options"
         aria-expanded={menuOpen}
@@ -154,16 +154,16 @@ export function LotwSyncButton() {
       {/* Dropdown Menu */}
       {menuOpen && (
         <div
-          className="absolute right-0 top-full mt-1 w-72 bg-deep-space/95 backdrop-blur-md border border-white/15 rounded-xl shadow-2xl z-[500] overflow-hidden"
+          className="absolute right-0 top-full mt-1 w-72 bg-deep-space/95 backdrop-blur-md border border-su-line/50 rounded-xl shadow-2xl z-[500] overflow-hidden"
           role="menu"
         >
           {/* Header */}
-          <div className="px-4 py-3 border-b border-white/10">
+          <div className="px-4 py-3 border-b border-su-line/40">
             <div className="flex items-center justify-between">
-              <span className="text-sm font-semibold text-white">
+              <span className="text-sm font-semibold text-su-text">
                 LoTW Sync
               </span>
-              <span className="text-[10px] text-gray-500 font-mono">
+              <span className="text-[10px] text-su-muted font-mono">
                 {lastSyncLabel}
               </span>
             </div>
@@ -181,7 +181,7 @@ export function LotwSyncButton() {
             role="menuitem"
             onClick={handleUpload}
             disabled={isProcessing || entries.length === 0}
-            className="w-full flex items-start gap-3 px-4 py-3 text-left hover:bg-white/5 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+            className="w-full flex items-start gap-3 px-4 py-3 text-left hover:bg-su-line/10 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
           >
             <svg
               className="w-5 h-5 mt-0.5 text-plasma-orange shrink-0"
@@ -197,8 +197,8 @@ export function LotwSyncButton() {
               />
             </svg>
             <div>
-              <p className="text-sm text-white font-medium">Export for TQSL</p>
-              <p className="text-[11px] text-gray-400 mt-0.5">
+              <p className="text-sm text-su-text font-medium">Export for TQSL</p>
+              <p className="text-[11px] text-su-muted mt-0.5">
                 {selectedIds.size > 0
                   ? `Generate ADIF for ${selectedIds.size} selected QSO${selectedIds.size !== 1 ? "s" : ""}`
                   : `Generate ADIF for all ${entries.length} QSO${entries.length !== 1 ? "s" : ""}`}
@@ -212,7 +212,7 @@ export function LotwSyncButton() {
             role="menuitem"
             onClick={handleDownload}
             disabled={isProcessing}
-            className="w-full flex items-start gap-3 px-4 py-3 text-left hover:bg-white/5 transition-colors border-t border-white/5 disabled:opacity-40 disabled:cursor-not-allowed"
+            className="w-full flex items-start gap-3 px-4 py-3 text-left hover:bg-su-line/10 transition-colors border-t border-su-line/20 disabled:opacity-40 disabled:cursor-not-allowed"
           >
             <svg
               className="w-5 h-5 mt-0.5 text-signal-green shrink-0"
@@ -228,10 +228,10 @@ export function LotwSyncButton() {
               />
             </svg>
             <div>
-              <p className="text-sm text-white font-medium">
+              <p className="text-sm text-su-text font-medium">
                 Download Confirmations
               </p>
-              <p className="text-[11px] text-gray-400 mt-0.5">
+              <p className="text-[11px] text-su-muted mt-0.5">
                 Fetch QSL confirmations and update local log
               </p>
             </div>
@@ -243,7 +243,7 @@ export function LotwSyncButton() {
               className={`px-4 py-2.5 border-t text-[11px] ${
                 error
                   ? "border-alert-red/20 text-alert-red bg-alert-red/5"
-                  : "border-white/10 text-gray-400"
+                  : "border-su-line/40 text-su-muted"
               }`}
             >
               {error || statusMessage}

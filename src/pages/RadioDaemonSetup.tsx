@@ -29,7 +29,7 @@ function platformLabel(p: Platform): string {
 
 function CommandBlock({ children }: { children: string }) {
   return (
-    <pre className="text-xs md:text-sm bg-black/40 border border-white/10 rounded-lg p-3 overflow-x-auto text-gray-100 font-mono">
+    <pre className="text-xs md:text-sm bg-su-input border border-su-line/40 rounded-lg p-3 overflow-x-auto text-su-text font-mono">
       {children}
     </pre>
   );
@@ -39,12 +39,12 @@ function Step({ n, title, children }: { n: number; title: string; children: Reac
   return (
     <div className="space-y-2">
       <div className="flex items-center gap-2">
-        <div className="w-7 h-7 rounded-full bg-white/10 border border-white/10 text-gray-200 flex items-center justify-center text-sm font-semibold">
+        <div className="w-7 h-7 rounded-full bg-su-line/20 border border-su-line/40 text-su-text flex items-center justify-center text-sm font-semibold">
           {n}
         </div>
-        <div className="text-sm font-semibold text-gray-100">{title}</div>
+        <div className="text-sm font-semibold text-su-text">{title}</div>
       </div>
-      <div className="text-sm text-gray-300 leading-relaxed pl-9">{children}</div>
+      <div className="text-sm text-su-muted leading-relaxed pl-9">{children}</div>
     </div>
   );
 }
@@ -83,15 +83,15 @@ export function RadioDaemonSetup() {
     <div className="max-w-4xl mx-auto px-4 md:px-6 py-6 space-y-6">
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h2 className="text-xl font-semibold text-white">Radio Setup (Daemon + SDRconnect)</h2>
-          <p className="text-sm text-gray-500">
+          <h2 className="text-xl font-semibold text-su-text">Radio Setup (Daemon + SDRconnect)</h2>
+          <p className="text-sm text-su-muted">
             A simple guide to get Propulse talking to your radio hardware (or SDRconnect) with the
             Propulse Radio Daemon.
           </p>
         </div>
         <Link
           to="/sdr"
-          className="px-3 py-2 rounded-md bg-white/5 border border-white/10 text-gray-200 text-sm hover:bg-white/10"
+          className="px-3 py-2 rounded-md bg-su-line/10 border border-su-line/40 text-su-text text-sm hover:bg-su-line/20"
         >
           Back to SDR Console
         </Link>
@@ -100,8 +100,8 @@ export function RadioDaemonSetup() {
       <Card className="p-4">
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
           <div>
-            <div className="text-sm font-semibold text-gray-100">Pick your platform</div>
-            <div className="text-xs text-gray-500">
+            <div className="text-sm font-semibold text-su-text">Pick your platform</div>
+            <div className="text-xs text-su-muted">
               We’ll show the exact steps for {platformLabel(platform)}.
             </div>
           </div>
@@ -114,7 +114,7 @@ export function RadioDaemonSetup() {
                 className={`px-3 py-2 rounded-md text-sm border transition-colors ${
                   platform === p
                     ? "bg-cosmic-cyan/15 border-cosmic-cyan/30 text-cosmic-cyan"
-                    : "bg-white/5 border-white/10 text-gray-200 hover:bg-white/10"
+                    : "bg-su-line/10 border-su-line/40 text-su-text hover:bg-su-line/20"
                 }`}
               >
                 {platformLabel(p)}
@@ -126,19 +126,19 @@ export function RadioDaemonSetup() {
 
       <Card className="p-4 space-y-4">
         <div>
-          <div className="text-sm font-semibold text-gray-100">Quick picture</div>
-          <ul className="mt-2 text-sm text-gray-300 space-y-1 list-disc pl-5">
+          <div className="text-sm font-semibold text-su-text">Quick picture</div>
+          <ul className="mt-2 text-sm text-su-muted space-y-1 list-disc pl-5">
             <li>
-              The <span className="text-gray-100 font-semibold">daemon</span> runs on a computer on
+              The <span className="text-su-text font-semibold">daemon</span> runs on a computer on
               your network (often the one connected to your radio).
             </li>
             <li>
               Propulse connects to the daemon at{" "}
-              <span className="text-gray-100 font-mono">ws://127.0.0.1:9867</span> (same machine) or
+              <span className="text-su-text font-mono">ws://127.0.0.1:9867</span> (same machine) or
               a LAN IP (different device).
             </li>
             <li>
-              For <span className="text-gray-100 font-semibold">SDRconnect</span>, the daemon can
+              For <span className="text-su-text font-semibold">SDRconnect</span>, the daemon can
               pull IQ from your Windows SDRconnect machine over the LAN and stream FFT/audio to
               Propulse.
             </li>
@@ -147,7 +147,7 @@ export function RadioDaemonSetup() {
       </Card>
 
       <Card className="p-4 space-y-5">
-        <div className="text-sm font-semibold text-gray-100">Install and run the daemon</div>
+        <div className="text-sm font-semibold text-su-text">Install and run the daemon</div>
 
         <Step n={1} title="Download the daemon (recommended)">
           <div className="space-y-2">
@@ -162,11 +162,11 @@ export function RadioDaemonSetup() {
                 Propulse GitHub Releases
               </a>{" "}
               and download:{" "}
-              <span className="text-gray-100 font-mono">{binaryName}</span>
+              <span className="text-su-text font-mono">{binaryName}</span>
             </div>
-            <div className="text-xs text-gray-500">
+            <div className="text-xs text-su-muted">
               Tip: If you’re on Linux ARM (Raspberry Pi), you probably want{" "}
-              <span className="text-gray-300 font-mono">propulse-daemon-aarch64-unknown-linux-gnu</span>.
+              <span className="text-su-muted font-mono">propulse-daemon-aarch64-unknown-linux-gnu</span>.
             </div>
           </div>
         </Step>
@@ -186,7 +186,7 @@ export function RadioDaemonSetup() {
             )}
             <div>
               The config file location (you can edit it later):{" "}
-              <span className="text-gray-100 font-mono">{configPath}</span>
+              <span className="text-su-text font-mono">{configPath}</span>
             </div>
           </div>
         </Step>
@@ -194,16 +194,16 @@ export function RadioDaemonSetup() {
         <Step n={3} title="Make sure Propulse can reach it">
           <div className="space-y-2">
             <div>
-              If Propulse is running on the <span className="text-gray-100">same computer</span> as
+              If Propulse is running on the <span className="text-su-text">same computer</span> as
               the daemon, you’re done — use the default daemon URL:
             </div>
             <CommandBlock>{`ws://127.0.0.1:9867`}</CommandBlock>
             <div>
-              If Propulse is on a <span className="text-gray-100">different device</span> (tablet,
+              If Propulse is on a <span className="text-su-text">different device</span> (tablet,
               laptop, another PC), edit the config and set:
             </div>
             <CommandBlock>{`[server]\nbind = "0.0.0.0"\nport = 9867`}</CommandBlock>
-            <div className="text-xs text-gray-500">
+            <div className="text-xs text-su-muted">
               You may need to allow port 9867 through your firewall.
             </div>
           </div>
@@ -211,26 +211,26 @@ export function RadioDaemonSetup() {
       </Card>
 
       <Card className="p-4 space-y-5">
-        <div className="text-sm font-semibold text-gray-100">Connect SDRconnect (LAN)</div>
-        <div className="text-sm text-gray-300 leading-relaxed">
+        <div className="text-sm font-semibold text-su-text">Connect SDRconnect (LAN)</div>
+        <div className="text-sm text-su-muted leading-relaxed">
           If SDRconnect is running on a Windows machine on your network, add an SDRconnect radio to
           your daemon config. Propulse connects via SDRconnect’s{" "}
-          <span className="text-gray-100 font-semibold">WebSocket API</span> (SDRconnect{" "}
-          <span className="text-gray-100 font-mono">v1.0.6+</span>, port{" "}
-          <span className="text-gray-100 font-mono">5454</span>).
-          <div className="mt-2 text-xs text-gray-500">
+          <span className="text-su-text font-semibold">WebSocket API</span> (SDRconnect{" "}
+          <span className="text-su-text font-mono">v1.0.6+</span>, port{" "}
+          <span className="text-su-text font-mono">5454</span>).
+          <div className="mt-2 text-xs text-su-muted">
             Note: SDRconnect also has a separate “Server mode” on port{" "}
-            <span className="text-gray-300 font-mono">50000</span> for SDRconnect-to-SDRconnect
+            <span className="text-su-muted font-mono">50000</span> for SDRconnect-to-SDRconnect
             clients. Propulse currently integrates via the{" "}
-            <span className="text-gray-300 font-mono">5454</span> WebSocket API.
+            <span className="text-su-muted font-mono">5454</span> WebSocket API.
           </div>
         </div>
 
         <Step n={1} title="Add this to your daemon config">
           <CommandBlock>{`[radio.sdrconnect]\nenabled = true\n\n[[radio.sdrconnect.radios]]\nname = "SDRconnect (LAN)"\nurl = "ws://192.168.1.50:5454"\ndevice_id = 0\nsample_rate = 2048000\nformat = "s16le"\n# gain = 20\n# ppm = 0\n# squelch = 0`}</CommandBlock>
-          <div className="text-xs text-gray-500">
+          <div className="text-xs text-su-muted">
             If you can’t connect, confirm SDRconnect is running (v1.0.6+), allow inbound TCP{" "}
-            <span className="text-gray-300 font-mono">5454</span> in Windows Firewall, and re-check
+            <span className="text-su-muted font-mono">5454</span> in Windows Firewall, and re-check
             the IP address.
           </div>
         </Step>
@@ -238,26 +238,26 @@ export function RadioDaemonSetup() {
         <Step n={2} title="Restart the daemon">
           <div>
             Stop the daemon and start it again. Then open Propulse →{" "}
-            <span className="text-gray-100">SDR Console</span> →{" "}
-            <span className="text-gray-100">Change Daemon</span> and pick your SDRconnect radio.
+            <span className="text-su-text">SDR Console</span> →{" "}
+            <span className="text-su-text">Change Daemon</span> and pick your SDRconnect radio.
           </div>
         </Step>
       </Card>
 
       <Card className="p-4 space-y-4">
-        <div className="text-sm font-semibold text-gray-100">
+        <div className="text-sm font-semibold text-su-text">
           If you’re using Propulse on the public website (HTTPS)
         </div>
-        <div className="text-sm text-gray-300 leading-relaxed">
+        <div className="text-sm text-su-muted leading-relaxed">
           Browsers usually block{" "}
-          <span className="text-gray-100 font-mono">ws://</span> connections from an{" "}
-          <span className="text-gray-100">https://</span> page. If you open Propulse at{" "}
-          <span className="text-gray-100 font-mono">https://propulse.vercel.app</span> (or any HTTPS
+          <span className="text-su-text font-mono">ws://</span> connections from an{" "}
+          <span className="text-su-text">https://</span> page. If you open Propulse at{" "}
+          <span className="text-su-text font-mono">https://propulse.vercel.app</span> (or any HTTPS
           host), install the Chrome bridge extension to connect to your local/LAN daemon.
         </div>
         <Step n={1} title="Install the Chrome extension (unpacked)">
           <div className="space-y-2">
-            <div className="text-sm text-gray-300">
+            <div className="text-sm text-su-muted">
               First, download the Propulse source code (ZIP) from{" "}
               <a
                 className="text-cosmic-cyan hover:underline"
@@ -271,13 +271,13 @@ export function RadioDaemonSetup() {
             </div>
             <ol className="list-decimal pl-5 space-y-1">
               <li>
-                Open <span className="text-gray-100 font-mono">chrome://extensions</span>
+                Open <span className="text-su-text font-mono">chrome://extensions</span>
               </li>
               <li>Enable Developer mode</li>
               <li>Click “Load unpacked”</li>
               <li>
                 Select the folder{" "}
-                <span className="text-gray-100 font-mono">
+                <span className="text-su-text font-mono">
                   extensions/propulse-daemon-bridge
                 </span>{" "}
                 from the Propulse folder you downloaded
@@ -285,27 +285,27 @@ export function RadioDaemonSetup() {
             </ol>
           </div>
         </Step>
-        <div className="text-xs text-gray-500">
+        <div className="text-xs text-su-muted">
           Once installed, Propulse will automatically use the extension when you connect to a{" "}
-          <span className="text-gray-300 font-mono">ws://</span> daemon URL from an HTTPS page.
+          <span className="text-su-muted font-mono">ws://</span> daemon URL from an HTTPS page.
         </div>
       </Card>
 
       <Card className="p-4 space-y-3">
-        <div className="text-sm font-semibold text-gray-100">Troubleshooting</div>
-        <ul className="text-sm text-gray-300 space-y-2 list-disc pl-5">
+        <div className="text-sm font-semibold text-su-text">Troubleshooting</div>
+        <ul className="text-sm text-su-muted space-y-2 list-disc pl-5">
           <li>
-            <span className="text-gray-100 font-semibold">“Offline” in SDR Console</span>: confirm
+            <span className="text-su-text font-semibold">“Offline” in SDR Console</span>: confirm
             the daemon is running and the URL is correct. If on LAN, check firewall +{" "}
-            <span className="text-gray-100 font-mono">server.bind = "0.0.0.0"</span>.
+            <span className="text-su-text font-mono">server.bind = "0.0.0.0"</span>.
           </li>
           <li>
-            <span className="text-gray-100 font-semibold">HTTPS mixed content error</span>: install
+            <span className="text-su-text font-semibold">HTTPS mixed content error</span>: install
             the Chrome bridge extension (above), or run Propulse locally on{" "}
-            <span className="text-gray-100 font-mono">http://localhost</span>.
+            <span className="text-su-text font-mono">http://localhost</span>.
           </li>
           <li>
-            <span className="text-gray-100 font-semibold">No SDRconnect audio/FFT</span>: verify
+            <span className="text-su-text font-semibold">No SDRconnect audio/FFT</span>: verify
             the SDRconnect URL + device id, confirm SDRconnect v1.0.6+, then restart the daemon.
           </li>
         </ul>

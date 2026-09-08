@@ -254,7 +254,7 @@ const ViewToggle = memo(function ViewToggle({
         className={`px-2.5 py-1 text-xs font-medium rounded transition-colors ${
           mode === "hourly"
             ? "bg-plasma-orange/20 text-plasma-orange"
-            : "text-gray-500 hover:text-gray-300"
+            : "text-su-muted hover:text-su-text"
         }`}
       >
         Hourly
@@ -264,7 +264,7 @@ const ViewToggle = memo(function ViewToggle({
         className={`px-2.5 py-1 text-xs font-medium rounded transition-colors ${
           mode === "10min"
             ? "bg-plasma-orange/20 text-plasma-orange"
-            : "text-gray-500 hover:text-gray-300"
+            : "text-su-muted hover:text-su-text"
         }`}
       >
         10-Min
@@ -321,16 +321,16 @@ const RateRow = memo(function RateRow({
 }) {
   return (
     <tr
-      className={`border-b border-white/5 ${
-        isBest ? "bg-signal-green/10" : "hover:bg-white/[0.02]"
+      className={`border-b border-su-line/20 ${
+        isBest ? "bg-signal-green/10" : "hover:bg-su-line/10"
       }`}
     >
       <td
-        className={`px-2 py-1 text-xs font-mono ${isBest ? "text-signal-green font-bold" : "text-gray-400"}`}
+        className={`px-2 py-1 text-xs font-mono ${isBest ? "text-signal-green font-bold" : "text-su-muted"}`}
       >
         {label}
       </td>
-      <td className="px-2 py-1 text-xs font-mono text-right text-gray-200">
+      <td className="px-2 py-1 text-xs font-mono text-right text-su-text">
         {qsoCount}
       </td>
       <td
@@ -338,10 +338,10 @@ const RateRow = memo(function RateRow({
       >
         {rate}/hr
       </td>
-      <td className="px-2 py-1 text-xs font-mono text-right text-gray-300">
+      <td className="px-2 py-1 text-xs font-mono text-right text-su-muted">
         {points}
       </td>
-      <td className="px-2 py-1 text-xs font-mono text-right text-gray-400">
+      <td className="px-2 py-1 text-xs font-mono text-right text-su-muted">
         {runningTotal}
       </td>
       <td className="px-2 py-1 w-24">
@@ -364,7 +364,7 @@ const HeatCell = memo(function HeatCell({
   if (count === 0) {
     return (
       <td className="px-1 py-0.5 text-center">
-        <span className="text-[10px] font-mono text-gray-700">-</span>
+        <span className="text-[10px] font-mono text-su-line">-</span>
       </td>
     );
   }
@@ -455,7 +455,7 @@ export function ContestRateSheet({ className = "" }: ContestRateSheetProps) {
           className="flex items-center gap-2 group"
         >
           <svg
-            className={`w-3.5 h-3.5 text-gray-500 transition-transform ${
+            className={`w-3.5 h-3.5 text-su-muted transition-transform ${
               isExpanded ? "rotate-90" : ""
             }`}
             fill="none"
@@ -469,10 +469,10 @@ export function ContestRateSheet({ className = "" }: ContestRateSheetProps) {
               d="M9 5l7 7-7 7"
             />
           </svg>
-          <h3 className="text-sm font-orbitron font-bold text-gray-300 group-hover:text-white transition-colors">
+          <h3 className="text-sm font-orbitron font-bold text-su-muted group-hover:text-su-text transition-colors">
             Rate Sheet
           </h3>
-          <span className="text-[10px] text-gray-600 font-mono">
+          <span className="text-[10px] text-su-muted font-mono">
             ({qsos.filter((q) => !q.isDupe).length} Qs)
           </span>
         </button>
@@ -486,23 +486,23 @@ export function ContestRateSheet({ className = "" }: ContestRateSheetProps) {
           <div className="overflow-x-auto">
             <table className="w-full border-collapse">
               <thead>
-                <tr className="border-b border-white/10">
-                  <th className="px-2 py-1 text-left text-[10px] uppercase tracking-wider text-gray-500 font-medium">
+                <tr className="border-b border-su-line/40">
+                  <th className="px-2 py-1 text-left text-[10px] uppercase tracking-wider text-su-muted font-medium">
                     Period
                   </th>
-                  <th className="px-2 py-1 text-right text-[10px] uppercase tracking-wider text-gray-500 font-medium">
+                  <th className="px-2 py-1 text-right text-[10px] uppercase tracking-wider text-su-muted font-medium">
                     QSOs
                   </th>
-                  <th className="px-2 py-1 text-right text-[10px] uppercase tracking-wider text-gray-500 font-medium">
+                  <th className="px-2 py-1 text-right text-[10px] uppercase tracking-wider text-su-muted font-medium">
                     Rate
                   </th>
-                  <th className="px-2 py-1 text-right text-[10px] uppercase tracking-wider text-gray-500 font-medium">
+                  <th className="px-2 py-1 text-right text-[10px] uppercase tracking-wider text-su-muted font-medium">
                     Pts
                   </th>
-                  <th className="px-2 py-1 text-right text-[10px] uppercase tracking-wider text-gray-500 font-medium">
+                  <th className="px-2 py-1 text-right text-[10px] uppercase tracking-wider text-su-muted font-medium">
                     Total
                   </th>
-                  <th className="px-2 py-1 text-[10px] uppercase tracking-wider text-gray-500 font-medium w-24">
+                  <th className="px-2 py-1 text-[10px] uppercase tracking-wider text-su-muted font-medium w-24">
                     &nbsp;
                   </th>
                 </tr>
@@ -526,10 +526,10 @@ export function ContestRateSheet({ className = "" }: ContestRateSheetProps) {
 
           {/* Summary row */}
           {rows.length > 0 && (
-            <div className="flex items-center gap-4 text-[10px] text-gray-500 border-t border-white/5 pt-2">
+            <div className="flex items-center gap-4 text-[10px] text-su-muted border-t border-su-line/20 pt-2">
               <span>
                 Total:{" "}
-                <span className="text-gray-300 font-mono">
+                <span className="text-su-muted font-mono">
                   {rows.reduce((s, r) => s + r.qsoCount, 0)}
                 </span>{" "}
                 QSOs
@@ -560,21 +560,21 @@ export function ContestRateSheet({ className = "" }: ContestRateSheetProps) {
           {/* Band-by-Hour Heatmap */}
           {bandHourMatrix.bands.length > 1 &&
             bandHourMatrix.hours.length > 0 && (
-              <div className="pt-2 border-t border-white/5">
-                <h4 className="text-[10px] uppercase tracking-wider text-gray-500 font-medium mb-2">
+              <div className="pt-2 border-t border-su-line/20">
+                <h4 className="text-[10px] uppercase tracking-wider text-su-muted font-medium mb-2">
                   Band x Hour
                 </h4>
                 <div className="overflow-x-auto">
                   <table className="border-collapse">
                     <thead>
                       <tr>
-                        <th className="px-1 py-0.5 text-[10px] text-gray-600 font-medium text-left">
+                        <th className="px-1 py-0.5 text-[10px] text-su-muted font-medium text-left">
                           &nbsp;
                         </th>
                         {bandHourMatrix.bands.map((band) => (
                           <th
                             key={band}
-                            className="px-1 py-0.5 text-[10px] text-gray-500 font-mono font-medium text-center"
+                            className="px-1 py-0.5 text-[10px] text-su-muted font-mono font-medium text-center"
                           >
                             {band}
                           </th>
@@ -583,8 +583,8 @@ export function ContestRateSheet({ className = "" }: ContestRateSheetProps) {
                     </thead>
                     <tbody>
                       {bandHourMatrix.hours.map((hour) => (
-                        <tr key={hour} className="border-b border-white/5">
-                          <td className="px-1 py-0.5 text-[10px] text-gray-500 font-mono">
+                        <tr key={hour} className="border-b border-su-line/20">
+                          <td className="px-1 py-0.5 text-[10px] text-su-muted font-mono">
                             Hr {hour + 1}
                           </td>
                           {bandHourMatrix.bands.map((band) => {

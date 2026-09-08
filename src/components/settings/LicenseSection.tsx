@@ -182,7 +182,7 @@ export function LicenseSection({ className = "" }: LicenseSectionProps) {
   return (
     <div className={`space-y-4 ${className}`}>
       {/* Header */}
-      <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider">
+      <h3 className="text-sm font-semibold text-su-muted uppercase tracking-wider">
         License Information
       </h3>
 
@@ -223,7 +223,7 @@ export function LicenseSection({ className = "" }: LicenseSectionProps) {
       <div>
         <label
           htmlFor="license-country"
-          className="block text-sm font-medium text-gray-300 mb-1"
+          className="block text-sm font-medium text-su-muted mb-1"
         >
           Country
         </label>
@@ -233,8 +233,8 @@ export function LicenseSection({ className = "" }: LicenseSectionProps) {
           onChange={(e) =>
             handleCountryChange(e.target.value as LicenseCountry)
           }
-          className="w-full px-3 py-2 bg-deep-space border border-white/10 rounded-lg
-                     text-white focus:outline-none focus:border-plasma-orange/50"
+          className="w-full px-3 py-2 bg-deep-space border border-su-line/40 rounded-lg
+                     text-su-text focus:outline-none focus:border-plasma-orange/50"
         >
           {sortedCountries.map(([code, name]) => (
             <option key={code} value={code}>
@@ -248,7 +248,7 @@ export function LicenseSection({ className = "" }: LicenseSectionProps) {
       <div>
         <label
           htmlFor="license-class"
-          className="block text-sm font-medium text-gray-300 mb-1"
+          className="block text-sm font-medium text-su-muted mb-1"
         >
           Class
         </label>
@@ -256,8 +256,8 @@ export function LicenseSection({ className = "" }: LicenseSectionProps) {
           id="license-class"
           value={licenseClass}
           onChange={(e) => handleClassChange(e.target.value as LicenseClass)}
-          className="w-full px-3 py-2 bg-deep-space border border-white/10 rounded-lg
-                     text-white focus:outline-none focus:border-plasma-orange/50"
+          className="w-full px-3 py-2 bg-deep-space border border-su-line/40 rounded-lg
+                     text-su-text focus:outline-none focus:border-plasma-orange/50"
         >
           {availableClasses.map((cls) => (
             <option key={cls} value={cls}>
@@ -271,7 +271,7 @@ export function LicenseSection({ className = "" }: LicenseSectionProps) {
       <div>
         <label
           htmlFor="license-expiration"
-          className="block text-sm font-medium text-gray-300 mb-1"
+          className="block text-sm font-medium text-su-muted mb-1"
         >
           Expiration Date
         </label>
@@ -282,11 +282,11 @@ export function LicenseSection({ className = "" }: LicenseSectionProps) {
             value={noExpiration ? "" : expirationDate}
             onChange={(e) => handleExpirationChange(e.target.value)}
             disabled={noExpiration}
-            className={`flex-1 px-3 py-2 bg-deep-space border border-white/10 rounded-lg
-                       text-white focus:outline-none focus:border-plasma-orange/50
+            className={`flex-1 px-3 py-2 bg-deep-space border border-su-line/40 rounded-lg
+                       text-su-text focus:outline-none focus:border-plasma-orange/50
                        ${noExpiration ? "opacity-50 cursor-not-allowed" : ""}`}
           />
-          <label className="flex items-center gap-2 text-sm text-gray-300 cursor-pointer select-none">
+          <label className="flex items-center gap-2 text-sm text-su-muted cursor-pointer select-none">
             <input
               type="checkbox"
               checked={noExpiration}
@@ -296,7 +296,7 @@ export function LicenseSection({ className = "" }: LicenseSectionProps) {
             <span className="whitespace-nowrap">No expiration</span>
           </label>
         </div>
-        <p className="mt-1 text-xs text-gray-500">
+        <p className="mt-1 text-xs text-su-muted">
           Some licenses (e.g., CB) do not expire.
         </p>
       </div>
@@ -305,10 +305,10 @@ export function LicenseSection({ className = "" }: LicenseSectionProps) {
       <div>
         <label
           htmlFor="license-id"
-          className="block text-sm font-medium text-gray-300 mb-1"
+          className="block text-sm font-medium text-su-muted mb-1"
         >
           License ID
-          <span className="ml-1 text-xs text-gray-500 font-normal">
+          <span className="ml-1 text-xs text-su-muted font-normal">
             (optional)
           </span>
         </label>
@@ -318,11 +318,11 @@ export function LicenseSection({ className = "" }: LicenseSectionProps) {
           value={licenseId}
           onChange={(e) => handleLicenseIdChange(e.target.value)}
           placeholder="FRN, license number, etc."
-          className="w-full px-3 py-2 bg-deep-space border border-white/10 rounded-lg
-                     text-white placeholder-gray-500 font-mono
+          className="w-full px-3 py-2 bg-deep-space border border-su-line/40 rounded-lg
+                     text-su-text placeholder:text-su-muted/80 font-mono
                      focus:outline-none focus:border-plasma-orange/50"
         />
-        <p className="mt-1 text-xs text-gray-500">
+        <p className="mt-1 text-xs text-su-muted">
           For US licenses, this is typically your FRN (FCC Registration Number).
         </p>
       </div>
@@ -333,8 +333,8 @@ export function LicenseSection({ className = "" }: LicenseSectionProps) {
           <button
             type="button"
             onClick={handleClear}
-            className="px-3 py-2 text-sm bg-nebula-blue border border-white/10 rounded-lg
-                       text-gray-300 hover:text-white hover:border-white/20
+            className="px-3 py-2 text-sm bg-nebula-blue border border-su-line/40 rounded-lg
+                       text-su-muted hover:text-su-text hover:border-su-line/50
                        transition-colors"
           >
             Clear
@@ -348,7 +348,7 @@ export function LicenseSection({ className = "" }: LicenseSectionProps) {
                      ${
                        isDirty
                          ? "bg-plasma-orange/20 border border-plasma-orange/50 text-plasma-orange hover:bg-plasma-orange/30"
-                         : "bg-nebula-blue border border-white/10 text-gray-500 cursor-not-allowed"
+                         : "bg-nebula-blue border border-su-line/40 text-su-muted cursor-not-allowed"
                      }`}
         >
           {isDirty ? "Save License Info" : "Saved"}

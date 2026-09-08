@@ -58,8 +58,8 @@ const DOT_CONFIG: Record<
     glow: "",
   },
   offline: {
-    bg: "bg-gray-600",
-    text: "text-gray-500",
+    bg: "bg-su-line",
+    text: "text-su-muted",
     label: "OFFLINE",
     pulse: false,
     glow: "",

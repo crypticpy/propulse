@@ -174,7 +174,7 @@ export function EquipmentCardMd({
         </div>
 
         {/* Title */}
-        <h3 className="text-sm font-bold text-white leading-tight truncate mt-0.5">
+        <h3 className="text-sm font-bold text-su-text leading-tight truncate mt-0.5">
           {title}
         </h3>
 
@@ -188,7 +188,7 @@ export function EquipmentCardMd({
                   e.stopPropagation();
                   onEdit();
                 }}
-                className="p-1 rounded bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white transition-colors min-h-[22px] min-w-[22px] flex items-center justify-center"
+                className="p-1 rounded bg-su-line/10 hover:bg-su-line/20 text-su-muted hover:text-su-text transition-colors min-h-[22px] min-w-[22px] flex items-center justify-center"
                 aria-label={`Edit ${title}`}
                 title="Edit"
               >
@@ -202,7 +202,7 @@ export function EquipmentCardMd({
                   e.stopPropagation();
                   onDelete();
                 }}
-                className="p-1 rounded bg-white/5 hover:bg-white/10 text-gray-400 hover:text-alert-red transition-colors min-h-[22px] min-w-[22px] flex items-center justify-center"
+                className="p-1 rounded bg-su-line/10 hover:bg-su-line/20 text-su-muted hover:text-alert-red transition-colors min-h-[22px] min-w-[22px] flex items-center justify-center"
                 aria-label={`Delete ${title}`}
                 title="Delete"
               >
@@ -266,13 +266,13 @@ export function EquipmentCardMd({
               key={`${stat.icon}-${stat.label}`}
               className="flex items-center gap-1 min-w-0"
             >
-              <span className="text-gray-500 flex-shrink-0">
+              <span className="text-su-muted flex-shrink-0">
                 <StatIconSvg icon={stat.icon} />
               </span>
-              <span className="text-xs font-mono font-bold text-gray-100 truncate">
+              <span className="text-xs font-mono font-bold text-su-text truncate">
                 {stat.value}
               </span>
-              <span className="text-[9px] text-gray-500 flex-shrink-0 hidden sm:inline">
+              <span className="text-[9px] text-su-muted flex-shrink-0 hidden sm:inline">
                 {stat.label}
               </span>
             </div>
@@ -292,7 +292,7 @@ export function EquipmentCardMd({
             </span>
           ))}
           {overflowCount > 0 && (
-            <span className="px-1 py-px text-[9px] font-mono font-medium rounded bg-gray-800/60 text-gray-400 border border-gray-700/40">
+            <span className="px-1 py-px text-[9px] font-mono font-medium rounded bg-su-panel/60 text-su-muted border border-su-line/40">
               +{overflowCount}
             </span>
           )}

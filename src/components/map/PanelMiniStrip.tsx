@@ -22,8 +22,8 @@ export function PanelMiniStrip({
         "bg-void-black/80 backdrop-blur-sm",
         "py-2 gap-3",
         "transition-all duration-200",
-        "hover:bg-white/5",
-        isLeft ? "border-r border-white/10" : "border-l border-white/10",
+        "hover:bg-su-line/10",
+        isLeft ? "border-r border-su-line/40" : "border-l border-su-line/40",
       ].join(" ")}
       onClick={(e) => {
         if (e.target === e.currentTarget) onExpand();
@@ -36,7 +36,7 @@ export function PanelMiniStrip({
           e.stopPropagation();
           onExpand();
         }}
-        className="w-6 h-6 flex items-center justify-center text-white/50 hover:text-white hover:bg-white/10 rounded"
+        className="w-6 h-6 flex items-center justify-center text-su-text/80 hover:text-su-text hover:bg-su-line/20 rounded"
         aria-label="Expand panel"
       >
         {isLeft ? (
@@ -91,7 +91,7 @@ export function PanelMiniStrip({
           e.stopPropagation();
           onHide();
         }}
-        className="w-6 h-6 flex items-center justify-center text-white/30 hover:text-red-400 hover:bg-white/10 rounded"
+        className="w-6 h-6 flex items-center justify-center text-su-text/80 hover:text-red-400 hover:bg-su-line/20 rounded"
         aria-label="Hide panel"
       >
         <svg

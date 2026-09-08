@@ -42,11 +42,11 @@ function renderInline(line: string): string {
   // Note: nested bold/italic (e.g., **bold *and italic***) is not supported
   result = result.replace(
     /\*\*(.+?)\*\*/g,
-    '<strong class="font-semibold text-white">$1</strong>',
+    '<strong class="font-semibold text-su-text">$1</strong>',
   );
   result = result.replace(
     /__(.+?)__/g,
-    '<strong class="font-semibold text-white">$1</strong>',
+    '<strong class="font-semibold text-su-text">$1</strong>',
   );
 
   // Italic: *text* or _text_ (single, not already consumed by bold)
@@ -132,7 +132,7 @@ export function MarkdownRenderer({
 
   return (
     <div
-      className={`text-sm text-gray-300 leading-relaxed ${className}`}
+      className={`text-sm text-su-muted leading-relaxed ${className}`}
       dangerouslySetInnerHTML={{ __html: html }}
     />
   );

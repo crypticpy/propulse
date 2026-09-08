@@ -100,23 +100,23 @@ export function SolarImageCard({
   const usableImage = state === "fresh" && !hardExpired;
 
   return (
-    <article className="overflow-hidden rounded-2xl border border-white/10 bg-white/[0.035]">
-      <div className="relative aspect-[4/3] bg-black/30">
+    <article className="overflow-hidden rounded-2xl border border-su-line/40 bg-su-panel/40">
+      <div className="relative aspect-[4/3] bg-su-input">
         {(state === "loading" || state === "retrying") && (
           <div className="absolute inset-0 flex items-center justify-center" role="status">
-            <span className="rounded-full border border-white/10 bg-black/40 px-3 py-1.5 text-xs text-slate-300">
+            <span className="rounded-full border border-su-line/40 bg-su-panel/90 px-3 py-1.5 text-xs text-su-muted">
               {state === "retrying" ? "Retrying image…" : "Loading image…"}
             </span>
           </div>
         )}
         {state === "error" && (
           <div className="absolute inset-0 flex flex-col items-center justify-center px-6 text-center">
-            <p className="text-sm font-medium text-slate-200">Image temporarily unavailable</p>
-            <p className="mt-1 text-xs leading-5 text-slate-500">Automatic recovery is active.</p>
+            <p className="text-sm font-medium text-su-text">Image temporarily unavailable</p>
+            <p className="mt-1 text-xs leading-5 text-su-muted/80">Automatic recovery is active.</p>
             <button
               type="button"
               onClick={retry}
-              className="mt-4 min-h-11 rounded-xl border border-white/10 bg-white/5 px-4 text-sm text-white hover:bg-white/10"
+              className="mt-4 min-h-11 rounded-xl border border-su-line/40 bg-su-input px-4 text-sm text-su-text hover:bg-su-line/20"
             >
               Retry now
             </button>
@@ -124,14 +124,14 @@ export function SolarImageCard({
         )}
         {hardExpired && (
           <div className="absolute inset-0 flex flex-col items-center justify-center px-6 text-center">
-            <p className="text-sm font-medium text-slate-200">Image is too old to use</p>
-            <p className="mt-1 text-xs leading-5 text-slate-500">
+            <p className="text-sm font-medium text-su-text">Image is too old to use</p>
+            <p className="mt-1 text-xs leading-5 text-su-muted/80">
               The last published image passed this product’s usability limit.
             </p>
             <button
               type="button"
               onClick={retry}
-              className="mt-4 min-h-11 rounded-xl border border-white/10 bg-white/5 px-4 text-sm text-white hover:bg-white/10"
+              className="mt-4 min-h-11 rounded-xl border border-su-line/40 bg-su-input px-4 text-sm text-su-text hover:bg-su-line/20"
             >
               Check again
             </button>
@@ -179,10 +179,10 @@ export function SolarImageCard({
         <span
           className={`absolute left-3 top-3 rounded-full border px-2.5 py-1 text-[0.65rem] font-bold uppercase tracking-wider backdrop-blur ${
             visibleState === "fresh"
-              ? "border-emerald-300/30 bg-emerald-950/80 text-emerald-200"
+              ? "border-su-success/40 bg-su-panel/90 text-su-success"
               : visibleState === "stale" || visibleState === "partial"
-                ? "border-amber-300/30 bg-amber-950/80 text-amber-200"
-                : "border-slate-300/20 bg-black/70 text-slate-300"
+                ? "border-su-warning/40 bg-su-panel/90 text-su-warning"
+                : "border-su-line/30 bg-su-panel/90 text-su-muted"
           }`}
         >
           {visibleState === "fresh"
@@ -197,19 +197,19 @@ export function SolarImageCard({
       <div className="p-4">
         <div className="flex items-start justify-between gap-3">
           <div>
-            <h3 className="font-semibold text-white">{product.title}</h3>
-            <p className="mt-1 text-xs leading-5 text-slate-400">{product.description}</p>
+            <h3 className="font-semibold text-su-text">{product.title}</h3>
+            <p className="mt-1 text-xs leading-5 text-su-muted">{product.description}</p>
           </div>
           <button
             type="button"
             onClick={() => onOpen(productId, false)}
             disabled={state === "error" || hardExpired}
-            className="min-h-11 shrink-0 rounded-xl border border-white/10 bg-white/5 px-3 text-sm text-slate-200 hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-40"
+            className="min-h-11 shrink-0 rounded-xl border border-su-line/40 bg-su-input px-3 text-sm text-su-muted hover:bg-su-line/20 disabled:cursor-not-allowed disabled:opacity-40"
           >
             Enlarge
           </button>
         </div>
-        <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-white/[0.07] pt-3 text-xs text-slate-500">
+        <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-su-line/20 pt-3 text-xs text-su-muted/80">
           <span>
             {timestamp
               ? `Image time ${ageLabel(timestamp)}`
@@ -225,12 +225,12 @@ export function SolarImageCard({
                 type="button"
                 onClick={() => onOpen(productId, true)}
                 disabled={hardExpired}
-                className="min-h-11 rounded-lg px-2 text-cyan-300 hover:bg-white/5 hover:text-cyan-200 disabled:cursor-not-allowed disabled:text-slate-600"
+                className="min-h-11 rounded-lg px-2 text-su-info hover:bg-su-line/10 hover:text-su-text disabled:cursor-not-allowed disabled:text-su-muted/40"
               >
                 Play timeline
               </button>
             )}
-            <a href={product.sourceUrl} target="_blank" rel="noreferrer" className="rounded underline decoration-white/20 underline-offset-2 hover:text-slate-300">
+            <a href={product.sourceUrl} target="_blank" rel="noreferrer" className="rounded underline decoration-su-line/40 underline-offset-2 hover:text-su-text">
               {product.provider}
             </a>
           </div>

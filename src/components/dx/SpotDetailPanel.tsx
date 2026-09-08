@@ -68,32 +68,32 @@ export const SpotDetailPanel = memo(function SpotDetailPanel({
 
   const continentCode = entity?.continent ?? "";
   const continentStyle = CONTINENT_COLORS[continentCode] ?? {
-    bg: "bg-white/10",
-    text: "text-gray-400",
+    bg: "bg-su-line/20",
+    text: "text-su-muted",
   };
 
   return (
     <div
-      className={`bg-white/[0.03] border-t border-white/10 px-3 py-2 transition-all duration-200 ease-in-out ${className}`}
+      className={`bg-su-line/10 border-t border-su-line/40 px-3 py-2 transition-all duration-200 ease-in-out ${className}`}
     >
       {/* Row 1 - Entity & Status */}
       <div className="flex items-center gap-2 mb-1">
         {entity ? (
           <>
-            <span className="text-white font-semibold text-xs inline-flex items-center gap-1">
+            <span className="text-su-text font-semibold text-xs inline-flex items-center gap-1">
               {entity.name}
               <InfoTip content={GEOGRAPHY_TOOLTIPS.dxccEntity} />
             </span>
-            <span className="text-[9px] text-gray-400 font-mono inline-flex items-center gap-0.5">
+            <span className="text-[9px] text-su-muted font-mono inline-flex items-center gap-0.5">
               CQ {entity.cqZone} <InfoTip content={GEOGRAPHY_TOOLTIPS.cqZone} />
             </span>
-            <span className="text-[9px] text-gray-400 font-mono inline-flex items-center gap-0.5">
+            <span className="text-[9px] text-su-muted font-mono inline-flex items-center gap-0.5">
               ITU {entity.ituZone}{" "}
               <InfoTip content={GEOGRAPHY_TOOLTIPS.ituZone} />
             </span>
           </>
         ) : (
-          <span className="text-white font-semibold text-xs">
+          <span className="text-su-text font-semibold text-xs">
             {getCallsignPrefix(spot.dx)}
           </span>
         )}
@@ -110,43 +110,43 @@ export const SpotDetailPanel = memo(function SpotDetailPanel({
       <div className="flex items-start gap-6">
         {/* Column 1 - Path */}
         <div className="flex flex-col gap-0.5">
-          <span className="text-[9px] text-gray-400 uppercase tracking-wider">
+          <span className="text-[9px] text-su-muted uppercase tracking-wider">
             Path
           </span>
           {pathMetrics ? (
             <>
-              <span className="text-[11px] text-gray-200 font-mono">
+              <span className="text-[11px] text-su-text font-mono">
                 {formatDistance(pathMetrics.shortPath.distance)}
               </span>
-              <span className="text-[11px] text-gray-200 font-mono">
+              <span className="text-[11px] text-su-text font-mono">
                 {Math.round(pathMetrics.shortPath.bearing)}&deg;{" "}
                 {formatBearing(pathMetrics.shortPath.bearing)}
               </span>
             </>
           ) : (
-            <span className="text-[11px] text-gray-400 font-mono">--</span>
+            <span className="text-[11px] text-su-muted font-mono">--</span>
           )}
         </div>
 
         {/* Column 2 - Spot Info */}
         <div className="flex flex-col gap-0.5">
-          <span className="text-[9px] text-gray-400 uppercase tracking-wider">
+          <span className="text-[9px] text-su-muted uppercase tracking-wider">
             Spot Info
           </span>
           {spot.dxGrid && (
             <div className="flex items-center gap-1">
-              <span className="text-[9px] text-gray-400 uppercase inline-flex items-center gap-0.5">
+              <span className="text-[9px] text-su-muted uppercase inline-flex items-center gap-0.5">
                 Grid <InfoTip content={GEOGRAPHY_TOOLTIPS.maidenheadGrid} />
               </span>
-              <span className="text-[11px] text-gray-200 font-mono">
+              <span className="text-[11px] text-su-text font-mono">
                 {spot.dxGrid}
               </span>
             </div>
           )}
           {spot.mode && (
             <div className="flex items-center gap-1">
-              <span className="text-[9px] text-gray-400 uppercase">Mode</span>
-              <span className="text-[11px] text-gray-200 font-mono">
+              <span className="text-[9px] text-su-muted uppercase">Mode</span>
+              <span className="text-[11px] text-su-text font-mono">
                 {spot.mode}
               </span>
             </div>
@@ -156,10 +156,10 @@ export const SpotDetailPanel = memo(function SpotDetailPanel({
         {/* Column 3 - Comment */}
         {spot.comment && (
           <div className="flex flex-col gap-0.5 min-w-0 flex-1">
-            <span className="text-[9px] text-gray-400 uppercase tracking-wider">
+            <span className="text-[9px] text-su-muted uppercase tracking-wider">
               Comment
             </span>
-            <span className="text-[11px] text-gray-200 font-mono break-words">
+            <span className="text-[11px] text-su-text font-mono break-words">
               {spot.comment}
             </span>
           </div>

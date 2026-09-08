@@ -32,7 +32,7 @@ export function HelpBreadcrumbs({ items }: HelpBreadcrumbsProps) {
       <nav aria-label="Breadcrumb" className="mb-4">
         <Link
           to={parentHref}
-          className="inline-flex items-center gap-1.5 min-h-[44px] text-sm text-gray-400 hover:text-plasma-orange active:text-plasma-orange/80 transition-colors"
+          className="inline-flex items-center gap-1.5 min-h-[44px] text-sm text-su-muted hover:text-plasma-orange active:text-plasma-orange/80 transition-colors"
         >
           <svg
             aria-hidden="true"
@@ -64,7 +64,7 @@ export function HelpBreadcrumbs({ items }: HelpBreadcrumbsProps) {
               {i > 0 && (
                 <svg
                   aria-hidden="true"
-                  className="w-3 h-3 text-gray-600"
+                  className="w-3 h-3 text-su-muted"
                   fill="none"
                   viewBox="0 0 24 24"
                   stroke="currentColor"
@@ -81,7 +81,7 @@ export function HelpBreadcrumbs({ items }: HelpBreadcrumbsProps) {
                 <span
                   aria-current={isLast ? "page" : undefined}
                   className={
-                    isLast ? "text-gray-200 font-medium" : "text-gray-500"
+                    isLast ? "text-su-text font-medium" : "text-su-muted"
                   }
                 >
                   {item.label}
@@ -89,7 +89,7 @@ export function HelpBreadcrumbs({ items }: HelpBreadcrumbsProps) {
               ) : (
                 <Link
                   to={item.href}
-                  className="text-gray-400 hover:text-plasma-orange transition-colors duration-150"
+                  className="text-su-muted hover:text-plasma-orange transition-colors duration-150"
                 >
                   {item.label}
                 </Link>

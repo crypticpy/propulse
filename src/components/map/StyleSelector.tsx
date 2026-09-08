@@ -111,18 +111,18 @@ export function StyleSelector({
   if (compact) {
     return (
       <div
-        className={`flex flex-row gap-1 rounded-xl bg-white/[0.03] backdrop-blur-md
-                     border border-white/10 p-1 ${className}`}
+        className={`flex flex-row gap-1 rounded-xl bg-su-line/10 backdrop-blur-md
+                     border border-su-line/40 p-1 ${className}`}
       >
         {/* Visual style toggle */}
-        <div className="inline-flex rounded-md bg-white/5 p-0.5">
+        <div className="inline-flex rounded-md bg-su-line/10 p-0.5">
           <button
             onClick={() => setVisualStyle("realistic")}
             title="Realistic style"
             className={`p-1.5 rounded transition-all ${
               currentStyle === "realistic"
                 ? "bg-cosmic-cyan/20 text-cosmic-cyan"
-                : "text-gray-400 hover:text-white hover:bg-white/10"
+                : "text-su-muted hover:text-su-text hover:bg-su-line/20"
             }`}
           >
             <EyeIcon className="w-4 h-4" />
@@ -133,7 +133,7 @@ export function StyleSelector({
             className={`p-1.5 rounded transition-all ${
               currentStyle === "high-viz"
                 ? "bg-cosmic-cyan/20 text-cosmic-cyan"
-                : "text-gray-400 hover:text-white hover:bg-white/10"
+                : "text-su-muted hover:text-su-text hover:bg-su-line/20"
             }`}
           >
             <ZapIcon className="w-4 h-4" />
@@ -141,14 +141,14 @@ export function StyleSelector({
         </div>
 
         {/* Color mode toggle */}
-        <div className="inline-flex rounded-md bg-white/5 p-0.5">
+        <div className="inline-flex rounded-md bg-su-line/10 p-0.5">
           <button
             onClick={() => setColorMode("mode")}
             title="Color by operating mode (FT8/CW/SSB)"
             className={`p-1.5 rounded transition-all ${
               currentColorMode === "mode"
                 ? "bg-cosmic-cyan/20 text-cosmic-cyan"
-                : "text-gray-400 hover:text-white hover:bg-white/10"
+                : "text-su-muted hover:text-su-text hover:bg-su-line/20"
             }`}
           >
             <PaletteIcon className="w-4 h-4" />
@@ -159,7 +159,7 @@ export function StyleSelector({
             className={`p-1.5 rounded transition-all ${
               currentColorMode === "band"
                 ? "bg-cosmic-cyan/20 text-cosmic-cyan"
-                : "text-gray-400 hover:text-white hover:bg-white/10"
+                : "text-su-muted hover:text-su-text hover:bg-su-line/20"
             }`}
           >
             <svg
@@ -185,22 +185,22 @@ export function StyleSelector({
   // -------------------------------------------------------------------------
   return (
     <div
-      className={`flex flex-col gap-1.5 rounded-xl bg-white/[0.03] backdrop-blur-md
-                   border border-white/10 p-2 max-w-[200px] ${className}`}
+      className={`flex flex-col gap-1.5 rounded-xl bg-su-line/10 backdrop-blur-md
+                   border border-su-line/40 p-2 max-w-[200px] ${className}`}
     >
       {/* --- Visual Style row --- */}
       <div className="flex items-center gap-1.5">
-        <span className="text-[10px] uppercase tracking-wider text-gray-500 w-10 shrink-0">
+        <span className="text-[10px] uppercase tracking-wider text-su-muted w-10 shrink-0">
           Style
         </span>
-        <div className="inline-flex flex-1 rounded-md bg-white/5 p-0.5">
+        <div className="inline-flex flex-1 rounded-md bg-su-line/10 p-0.5">
           <button
             onClick={() => setVisualStyle("realistic")}
             title="Realistic: clean, understated markers and colors"
             className={`flex items-center gap-1 flex-1 justify-center px-2 py-1 rounded text-xs font-medium transition-all ${
               currentStyle === "realistic"
                 ? "bg-cosmic-cyan/20 text-cosmic-cyan border border-cosmic-cyan/30"
-                : "text-gray-400 hover:text-white hover:bg-white/10 border border-transparent"
+                : "text-su-muted hover:text-su-text hover:bg-su-line/20 border border-transparent"
             }`}
           >
             <EyeIcon className="w-3.5 h-3.5" />
@@ -212,7 +212,7 @@ export function StyleSelector({
             className={`flex items-center gap-1 flex-1 justify-center px-2 py-1 rounded text-xs font-medium transition-all ${
               currentStyle === "high-viz"
                 ? "bg-cosmic-cyan/20 text-cosmic-cyan border border-cosmic-cyan/30"
-                : "text-gray-400 hover:text-white hover:bg-white/10 border border-transparent"
+                : "text-su-muted hover:text-su-text hover:bg-su-line/20 border border-transparent"
             }`}
           >
             <ZapIcon className="w-3.5 h-3.5" />
@@ -223,17 +223,17 @@ export function StyleSelector({
 
       {/* --- Color Mode row --- */}
       <div className="flex items-center gap-1.5">
-        <span className="text-[10px] uppercase tracking-wider text-gray-500 w-10 shrink-0">
+        <span className="text-[10px] uppercase tracking-wider text-su-muted w-10 shrink-0">
           Color
         </span>
-        <div className="inline-flex flex-1 rounded-md bg-white/5 p-0.5">
+        <div className="inline-flex flex-1 rounded-md bg-su-line/10 p-0.5">
           <button
             onClick={() => setColorMode("mode")}
             title="Color spots by operating mode (FT8 / CW / SSB)"
             className={`flex items-center gap-1 flex-1 justify-center px-2 py-1 rounded text-xs font-medium transition-all ${
               currentColorMode === "mode"
                 ? "bg-cosmic-cyan/20 text-cosmic-cyan border border-cosmic-cyan/30"
-                : "text-gray-400 hover:text-white hover:bg-white/10 border border-transparent"
+                : "text-su-muted hover:text-su-text hover:bg-su-line/20 border border-transparent"
             }`}
           >
             <span>Mode</span>
@@ -244,7 +244,7 @@ export function StyleSelector({
             className={`flex items-center gap-1 flex-1 justify-center px-2 py-1 rounded text-xs font-medium transition-all ${
               currentColorMode === "band"
                 ? "bg-cosmic-cyan/20 text-cosmic-cyan border border-cosmic-cyan/30"
-                : "text-gray-400 hover:text-white hover:bg-white/10 border border-transparent"
+                : "text-su-muted hover:text-su-text hover:bg-su-line/20 border border-transparent"
             }`}
           >
             <span>Band</span>

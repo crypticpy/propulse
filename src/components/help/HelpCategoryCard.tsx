@@ -30,7 +30,7 @@ export function HelpCategoryCard({
     return (
       <Link
         to={href}
-        className="group block rounded-xl bg-gray-900/60 backdrop-blur-xl border border-white/[0.08] p-4 sm:p-5 min-h-[44px] transition-all duration-200 hover:border-white/15 hover:-translate-y-0.5 hover:shadow-lg hover:shadow-black/20 active:scale-[0.98] active:shadow-md focus:outline-none focus-visible:ring-2 focus-visible:ring-plasma-orange/60 focus-visible:ring-offset-1 focus-visible:ring-offset-gray-900 motion-reduce:transition-none motion-reduce:hover:transform-none"
+        className="group block rounded-xl bg-su-canvas/60 backdrop-blur-xl border border-su-line/20 p-4 sm:p-5 min-h-[44px] transition-all duration-200 hover:border-su-line/50 hover:-translate-y-0.5 hover:shadow-lg hover:shadow-black/20 active:scale-[0.98] active:shadow-md focus:outline-none focus-visible:ring-2 focus-visible:ring-plasma-orange/60 focus-visible:ring-offset-1 focus-visible:ring-offset-su-canvas motion-reduce:transition-none motion-reduce:hover:transform-none"
       >
         <div className="flex items-start gap-3 sm:gap-4">
           <div
@@ -40,10 +40,10 @@ export function HelpCategoryCard({
             {icon}
           </div>
           <div className="flex-1 min-w-0">
-            <h3 className="text-sm font-semibold text-gray-100 mb-1 group-hover:text-plasma-orange transition-colors">
+            <h3 className="text-sm font-semibold text-su-text mb-1 group-hover:text-plasma-orange transition-colors">
               {title}
             </h3>
-            <p className="text-xs text-gray-400 leading-relaxed">
+            <p className="text-xs text-su-muted leading-relaxed">
               {description}
             </p>
           </div>
@@ -55,24 +55,24 @@ export function HelpCategoryCard({
   return (
     <Link
       to={href}
-      className="group block rounded-xl bg-gray-900/60 backdrop-blur-xl border border-white/[0.08] p-3.5 sm:p-4 min-h-[44px] transition-all duration-200 hover:border-white/15 hover:-translate-y-0.5 hover:shadow-lg hover:shadow-black/20 active:scale-[0.98] active:shadow-md focus:outline-none focus-visible:ring-2 focus-visible:ring-plasma-orange/60 focus-visible:ring-offset-1 focus-visible:ring-offset-gray-900 motion-reduce:transition-none motion-reduce:hover:transform-none"
+      className="group block rounded-xl bg-su-canvas/60 backdrop-blur-xl border border-su-line/20 p-3.5 sm:p-4 min-h-[44px] transition-all duration-200 hover:border-su-line/50 hover:-translate-y-0.5 hover:shadow-lg hover:shadow-black/20 active:scale-[0.98] active:shadow-md focus:outline-none focus-visible:ring-2 focus-visible:ring-plasma-orange/60 focus-visible:ring-offset-1 focus-visible:ring-offset-su-canvas motion-reduce:transition-none motion-reduce:hover:transform-none"
     >
       <div className="flex items-center gap-3">
         <div
-          className="flex-shrink-0 w-5 h-5 text-gray-400 group-hover:text-plasma-orange transition-colors"
+          className="flex-shrink-0 w-5 h-5 text-su-muted group-hover:text-plasma-orange transition-colors"
           aria-hidden="true"
         >
           {icon}
         </div>
         <div className="flex-1 min-w-0">
-          <h3 className="text-sm font-medium text-gray-200 group-hover:text-gray-100 transition-colors">
+          <h3 className="text-sm font-medium text-su-text/80 group-hover:text-su-text transition-colors">
             {title}
           </h3>
-          <p className="text-xs text-gray-500 truncate">{description}</p>
+          <p className="text-xs text-su-muted truncate">{description}</p>
         </div>
         <svg
           aria-hidden="true"
-          className="w-4 h-4 text-gray-600 group-hover:text-gray-400 transition-all duration-200 group-hover:translate-x-0.5 flex-shrink-0 motion-reduce:transition-none"
+          className="w-4 h-4 text-su-muted group-hover:text-su-text transition-all duration-200 group-hover:translate-x-0.5 flex-shrink-0 motion-reduce:transition-none"
           fill="none"
           viewBox="0 0 24 24"
           stroke="currentColor"

@@ -116,7 +116,7 @@ export function FavoriteFreqList({
 
   if (freqs.length === 0 && !editable) {
     return (
-      <p className="text-gray-500 text-xs italic">No favorite frequencies</p>
+      <p className="text-su-muted text-xs italic">No favorite frequencies</p>
     );
   }
 
@@ -126,25 +126,25 @@ export function FavoriteFreqList({
       {freqs.map((f) => (
         <div key={f.id} className="flex flex-wrap items-center gap-2 group text-xs">
           {/* Frequency */}
-          <span className="font-mono text-white shrink-0">
+          <span className="font-mono text-su-text shrink-0">
             {f.frequency} MHz
           </span>
 
           {/* Mode pill */}
           {f.mode && (
-            <span className="shrink-0 rounded-full bg-white/5 border border-white/10 px-1.5 py-0.5 text-[10px] text-gray-400">
+            <span className="shrink-0 rounded-full bg-su-line/10 border border-su-line/40 px-1.5 py-0.5 text-[10px] text-su-muted">
               {f.mode}
             </span>
           )}
 
           {/* Band */}
-          <span className="text-gray-500 shrink-0">{f.band}</span>
+          <span className="text-su-muted shrink-0">{f.band}</span>
 
           {/* Notes */}
           {f.notes && (
             <>
-              <span className="text-gray-600">—</span>
-              <span className="text-gray-400 italic truncate">{f.notes}</span>
+              <span className="text-su-muted">—</span>
+              <span className="text-su-muted italic truncate">{f.notes}</span>
             </>
           )}
 
@@ -170,10 +170,10 @@ export function FavoriteFreqList({
 
       {/* Add form */}
       {editable && freqs.length < MAX_FREQS && (
-        <div className="flex flex-wrap items-end gap-2 pt-2 border-t border-white/5">
+        <div className="flex flex-wrap items-end gap-2 pt-2 border-t border-su-line/20">
           {/* Frequency input */}
           <div className="flex flex-col gap-0.5">
-            <label className="text-[9px] uppercase tracking-widest text-gray-600">
+            <label className="text-[9px] uppercase tracking-widest text-su-muted">
               Freq (MHz)
             </label>
             <input
@@ -182,26 +182,26 @@ export function FavoriteFreqList({
               onChange={(e) => setFrequency(e.target.value)}
               onKeyDown={handleKeyDown}
               placeholder="14.250"
-              className="w-24 bg-white/5 border border-white/10 rounded px-2 py-1 text-xs text-white placeholder-gray-600 focus:outline-none focus:border-white/20 font-mono"
+              className="w-24 bg-su-line/10 border border-su-line/40 rounded px-2 py-1 text-xs text-su-text placeholder:text-su-muted/80 focus:outline-none focus:border-su-line/50 font-mono"
             />
           </div>
 
           {/* Auto-detected band */}
           {frequency && (
-            <span className="text-[10px] text-gray-500 pb-1">
+            <span className="text-[10px] text-su-muted pb-1">
               {detectedBand !== "?" ? detectedBand : "—"}
             </span>
           )}
 
           {/* Mode select */}
           <div className="flex flex-col gap-0.5">
-            <label className="text-[9px] uppercase tracking-widest text-gray-600">
+            <label className="text-[9px] uppercase tracking-widest text-su-muted">
               Mode
             </label>
             <select
               value={mode}
               onChange={(e) => setMode(e.target.value)}
-              className="bg-white/5 border border-white/10 rounded px-2 py-1 text-xs text-white focus:outline-none focus:border-white/20"
+              className="bg-su-line/10 border border-su-line/40 rounded px-2 py-1 text-xs text-su-text focus:outline-none focus:border-su-line/50"
             >
               {MODE_OPTIONS.map((m) => (
                 <option key={m} value={m}>
@@ -213,7 +213,7 @@ export function FavoriteFreqList({
 
           {/* Notes input */}
           <div className="flex flex-col gap-0.5">
-            <label className="text-[9px] uppercase tracking-widest text-gray-600">
+            <label className="text-[9px] uppercase tracking-widest text-su-muted">
               Notes
             </label>
             <input
@@ -222,7 +222,7 @@ export function FavoriteFreqList({
               onChange={(e) => setNotes(e.target.value)}
               onKeyDown={handleKeyDown}
               placeholder="Daily ragchew"
-              className="w-32 bg-white/5 border border-white/10 rounded px-2 py-1 text-xs text-white placeholder-gray-600 focus:outline-none focus:border-white/20"
+              className="w-32 bg-su-line/10 border border-su-line/40 rounded px-2 py-1 text-xs text-su-text placeholder:text-su-muted/80 focus:outline-none focus:border-su-line/50"
             />
           </div>
 
@@ -231,7 +231,7 @@ export function FavoriteFreqList({
             type="button"
             onClick={handleAdd}
             disabled={!frequency.trim() || detectedBand === "?"}
-            className="bg-white/5 hover:bg-white/10 disabled:opacity-30 disabled:cursor-not-allowed border border-white/10 rounded px-3 py-1 text-xs text-white transition-colors"
+            className="bg-su-line/10 hover:bg-su-line/20 disabled:opacity-30 disabled:cursor-not-allowed border border-su-line/40 rounded px-3 py-1 text-xs text-su-text transition-colors"
           >
             Add
           </button>
@@ -240,7 +240,7 @@ export function FavoriteFreqList({
 
       {/* Max reached */}
       {editable && freqs.length >= MAX_FREQS && (
-        <p className="text-[10px] text-gray-600 italic pt-1">
+        <p className="text-[10px] text-su-muted italic pt-1">
           Maximum of {MAX_FREQS} frequencies reached
         </p>
       )}

@@ -20,15 +20,15 @@ export function NotificationsSection() {
       <NotificationSettings />
 
       {/* Quiet Hours */}
-      <div className="border-t border-white/10 pt-6">
-        <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-3">
+      <div className="border-t border-su-line/40 pt-6">
+        <h3 className="text-sm font-semibold text-su-muted uppercase tracking-wider mb-3">
           Quiet Hours
         </h3>
-        <p className="text-xs text-gray-500 mb-4">
+        <p className="text-xs text-su-muted mb-4">
           Suppress all audible alerts during specified UTC hours.
         </p>
 
-        <div className="p-3 bg-nebula-blue rounded-lg border border-white/10 space-y-3">
+        <div className="p-3 bg-nebula-blue rounded-lg border border-su-line/40 space-y-3">
           {/* Enable toggle */}
           <label className="flex items-center gap-3 cursor-pointer">
             <input
@@ -49,13 +49,13 @@ export function NotificationsSection() {
               }}
               className="w-4 h-4 rounded accent-plasma-orange"
             />
-            <span className="text-sm text-gray-300">Enable quiet hours</span>
+            <span className="text-sm text-su-muted">Enable quiet hours</span>
           </label>
 
           {quietHoursEnabled && (
             <div className="flex items-center gap-3 pl-7">
               <div>
-                <label className="block text-xs text-gray-400 mb-1">
+                <label className="block text-xs text-su-muted mb-1">
                   Start (UTC)
                 </label>
                 <select
@@ -65,7 +65,7 @@ export function NotificationsSection() {
                       quietHoursStart: Number(e.target.value),
                     })
                   }
-                  className="bg-void-black border border-white/10 text-gray-200 rounded-lg px-2 py-1.5 text-sm focus:border-plasma-orange/50 focus:outline-none"
+                  className="bg-void-black border border-su-line/40 text-su-text rounded-lg px-2 py-1.5 text-sm focus:border-plasma-orange/50 focus:outline-none"
                 >
                   {Array.from({ length: 24 }, (_, i) => (
                     <option key={i} value={i}>
@@ -74,9 +74,9 @@ export function NotificationsSection() {
                   ))}
                 </select>
               </div>
-              <span className="text-gray-500 mt-5">to</span>
+              <span className="text-su-muted mt-5">to</span>
               <div>
-                <label className="block text-xs text-gray-400 mb-1">
+                <label className="block text-xs text-su-muted mb-1">
                   End (UTC)
                 </label>
                 <select
@@ -86,7 +86,7 @@ export function NotificationsSection() {
                       quietHoursEnd: Number(e.target.value),
                     })
                   }
-                  className="bg-void-black border border-white/10 text-gray-200 rounded-lg px-2 py-1.5 text-sm focus:border-plasma-orange/50 focus:outline-none"
+                  className="bg-void-black border border-su-line/40 text-su-text rounded-lg px-2 py-1.5 text-sm focus:border-plasma-orange/50 focus:outline-none"
                 >
                   {Array.from({ length: 24 }, (_, i) => (
                     <option key={i} value={i}>

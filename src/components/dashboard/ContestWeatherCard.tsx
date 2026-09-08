@@ -35,31 +35,31 @@ function getActivityInfo(participants: number): ActivityInfo {
     return {
       level: "extreme",
       label: "Extreme",
-      colorClass: "text-alert-red",
-      dotClass: "bg-alert-red",
+      colorClass: "text-su-danger",
+      dotClass: "bg-su-danger",
     };
   }
   if (participants > 10_000) {
     return {
       level: "high",
       label: "High",
-      colorClass: "text-plasma-orange",
-      dotClass: "bg-plasma-orange",
+      colorClass: "text-su-accent-text",
+      dotClass: "bg-su-accent",
     };
   }
   if (participants >= 1_000) {
     return {
       level: "medium",
       label: "Medium",
-      colorClass: "text-caution-yellow",
-      dotClass: "bg-caution-yellow",
+      colorClass: "text-su-warning",
+      dotClass: "bg-su-warning",
     };
   }
   return {
     level: "low",
     label: "Low",
-    colorClass: "text-signal-green",
-    dotClass: "bg-signal-green",
+    colorClass: "text-su-success",
+    dotClass: "bg-su-success",
   };
 }
 
@@ -110,7 +110,7 @@ function ContestWeatherIcon({ className = "" }: { className?: string }) {
 function CollapseChevron({ collapsed }: { collapsed: boolean }) {
   return (
     <svg
-      className={`w-4 h-4 text-gray-400 transition-transform duration-200 ${collapsed ? "-rotate-90" : ""}`}
+      className={`w-4 h-4 text-su-muted transition-transform duration-200 ${collapsed ? "-rotate-90" : ""}`}
       fill="none"
       stroke="currentColor"
       viewBox="0 0 24 24"
@@ -128,8 +128,8 @@ function CollapseChevron({ collapsed }: { collapsed: boolean }) {
 /** First-time tooltip explaining contest weekends to newcomers */
 function FirstTimeTooltip({ onDismiss }: { onDismiss: () => void }) {
   return (
-    <div className="mb-3 p-3 rounded-xl bg-nebula-blue/10 border border-nebula-blue/30 text-sm">
-      <p className="text-gray-300 leading-relaxed">
+    <div className="mb-3 p-3 rounded-xl bg-su-info/10 border border-su-info/30 text-sm">
+      <p className="text-su-muted leading-relaxed">
         A ham radio contest is happening &mdash; thousands of operators are
         making brief contacts to compete. Bands will be busier than usual.
       </p>
@@ -138,14 +138,14 @@ function FirstTimeTooltip({ onDismiss }: { onDismiss: () => void }) {
           href="https://www.arrl.org/contest-faq"
           target="_blank"
           rel="noopener noreferrer"
-          className="text-xs text-nebula-blue hover:text-white transition-colors"
+          className="text-sm text-su-info hover:text-su-text transition-colors"
         >
           Learn more
         </a>
         <button
           type="button"
           onClick={onDismiss}
-          className="text-xs text-gray-400 hover:text-white transition-colors px-2 py-0.5 rounded hover:bg-white/10"
+          className="text-sm text-su-muted hover:text-su-text transition-colors px-2 py-0.5 rounded hover:bg-su-line/10"
         >
           Got it
         </button>
@@ -163,10 +163,10 @@ function ActiveContestRow({ contest }: { contest: ContestCalendarEntry }) {
       {/* Contest name & activity level */}
       <div className="flex items-start justify-between gap-2 mb-1.5">
         <div className="min-w-0 flex-1">
-          <h4 className="text-sm font-medium text-white truncate">
+          <h4 className="text-sm font-medium text-su-text truncate">
             {contest.name}
           </h4>
-          <span className="text-[11px] text-gray-400">
+          <span className="text-sm text-su-muted">
             {formatModeBadges(contest.modes)}
           </span>
         </div>
@@ -175,7 +175,7 @@ function ActiveContestRow({ contest }: { contest: ContestCalendarEntry }) {
             className={`w-1.5 h-1.5 rounded-full ${activity.dotClass} ${activity.level === "extreme" || activity.level === "high" ? "animate-pulse" : ""}`}
           />
           <span
-            className={`text-[10px] font-medium uppercase tracking-wide ${activity.colorClass}`}
+            className={`text-sm font-medium uppercase tracking-wide ${activity.colorClass}`}
           >
             Estimated {activity.label.toLowerCase()}
           </span>
@@ -193,7 +193,7 @@ function ActiveContestRow({ contest }: { contest: ContestCalendarEntry }) {
           {contest.bands.map((band) => (
             <span
               key={band}
-              className="px-1.5 py-0.5 text-[10px] font-mono rounded bg-white/5 border border-white/10 text-gray-300"
+              className="px-1.5 py-0.5 text-sm font-mono rounded bg-su-input border border-su-line/40 text-su-muted"
             >
               {band}
             </span>
@@ -209,21 +209,21 @@ function UpcomingContestRow({ contest }: { contest: ContestCalendarEntry }) {
   return (
     <div className="py-2.5 first:pt-0 last:pb-0">
       <div className="flex items-start justify-between gap-2 mb-1">
-        <h4 className="text-sm font-medium text-white truncate flex-1 min-w-0">
+        <h4 className="text-sm font-medium text-su-text truncate flex-1 min-w-0">
           {contest.name}
         </h4>
-        <span className="text-[10px] text-gray-400 font-mono shrink-0">
+        <span className="text-sm text-su-muted font-mono shrink-0">
           {formatModeBadges(contest.modes)}
         </span>
       </div>
-      <div className="text-[11px] text-gray-400 mb-1">
+      <div className="text-sm text-su-muted mb-1">
         {formatDateRange(contest.startUtc, contest.endUtc)}
       </div>
       <div className="mb-1.5">
         <ContestCountdown targetUtc={contest.startUtc} isActive={false} />
       </div>
       {contest.description && (
-        <p className="text-[11px] text-gray-500 leading-relaxed line-clamp-2">
+        <p className="text-sm text-su-muted/80 leading-relaxed line-clamp-2">
           {contest.description}
         </p>
       )}
@@ -287,13 +287,13 @@ export function ContestWeatherCard({
       >
         <div className="flex items-center gap-1.5">
           <ContestWeatherIcon
-            className={`w-3.5 h-3.5 ${isContestWeekend ? "text-plasma-orange" : "text-gray-400"}`}
+            className={`w-3.5 h-3.5 ${isContestWeekend ? "text-su-accent" : "text-su-muted"}`}
           />
-          <span className="text-[10px] font-medium text-gray-400 uppercase tracking-wide">
+          <span className="text-sm font-medium text-su-muted uppercase tracking-wide">
             Contest Weather
           </span>
           {isContestWeekend && (
-            <span className="px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider bg-plasma-orange/15 text-plasma-orange border border-plasma-orange/30">
+            <span className="px-1.5 py-0.5 rounded text-sm font-bold uppercase tracking-wider bg-su-accent/15 text-su-accent-text border border-su-accent/30">
               Scheduled now
             </span>
           )}
@@ -312,7 +312,7 @@ export function ContestWeatherCard({
           {isContestWeekend ? (
             <>
               {/* Active Contests */}
-              <div className="divide-y divide-white/5">
+              <div className="divide-y divide-su-line/20">
                 {activeContests.map((contest) => (
                   <ActiveContestRow key={contest.id} contest={contest} />
                 ))}
@@ -320,10 +320,10 @@ export function ContestWeatherCard({
 
               {/* Quiet Bands Callout */}
               {quietBands.length > 0 && (
-                <div className="mt-3 pt-2.5 border-t border-white/10">
+                <div className="mt-3 pt-2.5 border-t border-su-line/40">
                   <div className="flex items-center gap-1.5 mb-1.5">
-                    <span className="w-1.5 h-1.5 rounded-full bg-signal-green" />
-                    <span className="text-[10px] font-medium text-gray-400 uppercase tracking-wide">
+                    <span className="w-1.5 h-1.5 rounded-full bg-su-success" />
+                    <span className="text-sm font-medium text-su-muted uppercase tracking-wide">
                       Contest-free bands
                     </span>
                   </div>
@@ -331,7 +331,7 @@ export function ContestWeatherCard({
                     {quietBands.map((band) => (
                       <span
                         key={band}
-                        className="px-2 py-0.5 text-[11px] font-mono rounded-full bg-signal-green/10 border border-signal-green/20 text-signal-green"
+                        className="px-2 py-0.5 text-sm font-mono rounded-full bg-su-success/10 border border-su-success/20 text-su-success"
                       >
                         {band}
                       </span>
@@ -343,17 +343,17 @@ export function ContestWeatherCard({
           ) : (
             <>
               {/* Upcoming Contests */}
-              <div className="divide-y divide-white/5">
+              <div className="divide-y divide-su-line/20">
                 {nextThree.map((contest) => (
                   <UpcomingContestRow key={contest.id} contest={contest} />
                 ))}
               </div>
 
               {/* View full calendar link */}
-              <div className="mt-2 pt-2 border-t border-white/10">
-                <span className="text-[10px] text-gray-500">
+              <div className="mt-2 pt-2 border-t border-su-line/40">
+                <span className="text-sm text-su-muted/80">
                   View full calendar &rarr;{" "}
-                  <span className="text-gray-600">(coming soon)</span>
+                  <span className="text-su-muted/80">(coming soon)</span>
                 </span>
               </div>
             </>

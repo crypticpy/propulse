@@ -136,7 +136,7 @@ const CountdownClock = memo(function CountdownClock({
         <span
           className={`font-mono text-sm font-bold tabular-nums ${
             isContestOver
-              ? "text-gray-500"
+              ? "text-su-muted"
               : hasEnd && remainingSeconds < 3600
                 ? "text-alert-red animate-pulse"
                 : "text-cosmic-cyan"
@@ -145,7 +145,7 @@ const CountdownClock = memo(function CountdownClock({
           {timeDisplay}
         </span>
         {hasStarted && (
-          <span className="text-[10px] text-gray-500">
+          <span className="text-[10px] text-su-muted">
             {hasEnd && !isContestOver ? "rem" : "elapsed"}
           </span>
         )}
@@ -159,7 +159,7 @@ const CountdownClock = memo(function CountdownClock({
       <div
         className={`font-mono text-2xl font-black tabular-nums tracking-wider ${
           isContestOver
-            ? "text-gray-500"
+            ? "text-su-muted"
             : hasEnd && remainingSeconds < 3600
               ? "text-alert-red animate-pulse"
               : "text-cosmic-cyan"
@@ -167,12 +167,12 @@ const CountdownClock = memo(function CountdownClock({
       >
         {timeDisplay}
       </div>
-      <div className="text-[10px] text-gray-500 uppercase tracking-wider mt-0.5">
+      <div className="text-[10px] text-su-muted uppercase tracking-wider mt-0.5">
         {isContestOver ? "Contest Over" : hasEnd ? "Remaining" : "Elapsed"}
       </div>
       {/* Show elapsed separately only when countdown is shown */}
       {hasEnd && hasStarted && !isContestOver && (
-        <div className="mt-1 text-xs text-gray-400 font-mono tabular-nums">
+        <div className="mt-1 text-xs text-su-muted font-mono tabular-nums">
           {elapsedDisplay} elapsed
         </div>
       )}
@@ -199,13 +199,13 @@ const OffTimeProgressBar = memo(function OffTimeProgressBar({
   if (compact) {
     return (
       <div className="flex items-center gap-1.5">
-        <div className="w-16 h-1.5 bg-white/10 rounded-full overflow-hidden">
+        <div className="w-16 h-1.5 bg-su-line/20 rounded-full overflow-hidden">
           <div
             className={`h-full rounded-full transition-all duration-500 ${barColor}`}
             style={{ width: `${percent}%` }}
           />
         </div>
-        <span className="text-[10px] font-mono text-gray-400 tabular-nums">
+        <span className="text-[10px] font-mono text-su-muted tabular-nums">
           {Math.round(percent)}%
         </span>
       </div>
@@ -215,7 +215,7 @@ const OffTimeProgressBar = memo(function OffTimeProgressBar({
   return (
     <div className="space-y-1">
       {/* Progress bar */}
-      <div className="w-full h-2 bg-white/10 rounded-full overflow-hidden">
+      <div className="w-full h-2 bg-su-line/20 rounded-full overflow-hidden">
         <div
           className={`h-full rounded-full transition-all duration-500 ${barColor}`}
           style={{ width: `${percent}%` }}
@@ -223,7 +223,7 @@ const OffTimeProgressBar = memo(function OffTimeProgressBar({
       </div>
 
       {/* Labels */}
-      <div className="flex items-center justify-between text-[10px] text-gray-400">
+      <div className="flex items-center justify-between text-[10px] text-su-muted">
         <span className="font-mono tabular-nums">
           {formatMinutes(status.totalOperatingMinutes)} operating
         </span>
@@ -311,7 +311,7 @@ const BreakTimeIndicator = memo(function BreakTimeIndicator({
         <span className="text-[10px] text-caution-amber font-mono tabular-nums">
           {idleDisplay}
         </span>
-        <span className="text-[10px] text-gray-500">idle</span>
+        <span className="text-[10px] text-su-muted">idle</span>
       </div>
     );
   }
@@ -334,7 +334,7 @@ const BreakTimeIndicator = memo(function BreakTimeIndicator({
       <span className="text-caution-amber font-mono tabular-nums">
         {idleDisplay}
       </span>
-      <span className="text-gray-500">since last QSO</span>
+      <span className="text-su-muted">since last QSO</span>
     </div>
   );
 });
@@ -392,7 +392,7 @@ export const ContestTimer = memo(function ContestTimer({
   // ---- Full mode ----
   return (
     <div
-      className={`rounded-xl border border-white/10 bg-nebula-blue/50 backdrop-blur-sm p-3 space-y-2 ${className}`}
+      className={`rounded-xl border border-su-line/40 bg-nebula-blue/50 backdrop-blur-sm p-3 space-y-2 ${className}`}
     >
       {/* Clock */}
       <CountdownClock contestStart={contestStart} contestEnd={contestEnd} />
@@ -404,7 +404,7 @@ export const ContestTimer = memo(function ContestTimer({
 
           {/* Remaining operating time */}
           <div className="text-center">
-            <span className="text-[10px] text-gray-500 uppercase tracking-wider">
+            <span className="text-[10px] text-su-muted uppercase tracking-wider">
               Operating time left:{" "}
             </span>
             <span
@@ -427,7 +427,7 @@ export const ContestTimer = memo(function ContestTimer({
 
       {/* No off-time rules indicator */}
       {!offTimeRules && (
-        <div className="text-center text-[10px] text-gray-500">
+        <div className="text-center text-[10px] text-su-muted">
           No off-time rules
         </div>
       )}

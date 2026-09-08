@@ -82,7 +82,7 @@ export function ContestContributions({
   return (
     <div
       className={`
-        rounded-lg border border-white/10 bg-deep-space/50
+        rounded-lg border border-su-line/40 bg-deep-space/50
         overflow-hidden ${className}
       `}
     >
@@ -92,14 +92,14 @@ export function ContestContributions({
         className="
           w-full flex items-center justify-between
           px-4 py-3 text-left
-          hover:bg-white/[0.02] transition-colors
+          hover:bg-su-line/10 transition-colors
         "
         aria-expanded={expanded}
       >
         <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm">
-          <span className="text-gray-400">From</span>
-          <span className="font-semibold text-white">{contestName}</span>
-          <span className="text-gray-500">:</span>
+          <span className="text-su-muted">From</span>
+          <span className="font-semibold text-su-text">{contestName}</span>
+          <span className="text-su-muted">:</span>
 
           {contributions.newDxccEntities.length > 0 && (
             <span className="text-alert-red font-medium">
@@ -135,7 +135,7 @@ export function ContestContributions({
         {/* Expand chevron */}
         <svg
           className={`
-            w-4 h-4 text-gray-500 shrink-0 ml-2
+            w-4 h-4 text-su-muted shrink-0 ml-2
             transition-transform duration-200
             ${expanded ? "rotate-180" : ""}
           `}
@@ -152,7 +152,7 @@ export function ContestContributions({
 
       {/* Expanded detail */}
       {expanded && (
-        <div className="px-4 pb-4 pt-1 border-t border-white/5 space-y-3">
+        <div className="px-4 pb-4 pt-1 border-t border-su-line/20 space-y-3">
           {/* New DXCC entities */}
           {contributions.newDxccEntities.length > 0 && (
             <div>
@@ -242,7 +242,7 @@ export function ContestContributions({
           )}
 
           {/* QSO count summary */}
-          <p className="text-xs text-gray-500 pt-1">
+          <p className="text-xs text-su-muted pt-1">
             {contributions.totalQsos} total QSOs analyzed (excluding dupes)
           </p>
         </div>

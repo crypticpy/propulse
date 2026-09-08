@@ -1,12 +1,6 @@
 /* Keep embedded inventory managers readable inside the guided setup surface. */
-.station-setup-wizard [class*="text-gray-"] {
-  color: var(--su-muted);
-}
 .station-setup-wizard [class*="bg-panel"] {
   background: var(--su-panel);
-}
-.station-setup-wizard [class*="border-white"] {
-  border-color: var(--su-line);
 }
 .station-setup-wizard button:not(.su-button) {
   min-height: var(--su-control-height);

@@ -36,7 +36,7 @@ const TIER_COLORS: Record<string, string> = {
 };
 
 function getTierClasses(tier: string): string {
-  return TIER_COLORS[tier] ?? "text-gray-400 bg-gray-400/15 border-gray-400/30";
+  return TIER_COLORS[tier] ?? "text-su-muted bg-su-line/10 border-su-line/60";
 }
 
 // ---------------------------------------------------------------------------
@@ -65,22 +65,22 @@ function QSOGauge({ low, high }: { low: number; high: number }) {
 
   return (
     <div className="w-full">
-      <div className="flex items-center justify-between text-xs text-gray-500 mb-1">
+      <div className="flex items-center justify-between text-xs text-su-muted mb-1">
         <span>10</span>
         <span>100</span>
         <span>1000</span>
         <span>3000+</span>
       </div>
-      <div className="relative h-3 rounded-full bg-white/5 overflow-hidden">
+      <div className="relative h-3 rounded-full bg-su-line/10 overflow-hidden">
         <div
           className="absolute top-0 h-full rounded-full bg-gradient-to-r from-nebula-blue/60 to-signal-green/60"
           style={{ left: `${pctLow}%`, width: `${pctHigh - pctLow}%` }}
         />
       </div>
       <div className="flex items-center justify-between text-xs mt-1.5">
-        <span className="text-gray-400">
-          Est. <span className="font-semibold text-white">{low}</span> &ndash;{" "}
-          <span className="font-semibold text-white">{high}</span> QSOs
+        <span className="text-su-muted">
+          Est. <span className="font-semibold text-su-text">{low}</span> &ndash;{" "}
+          <span className="font-semibold text-su-text">{high}</span> QSOs
         </span>
       </div>
     </div>
@@ -125,12 +125,12 @@ export function StationEstimate({
   if (!estimate) {
     return (
       <div
-        className={`rounded-xl border border-white/5 bg-panel p-4 ${className}`}
+        className={`rounded-xl border border-su-line/20 bg-panel p-4 ${className}`}
       >
-        <h3 className="text-sm font-semibold text-white mb-2">
+        <h3 className="text-sm font-semibold text-su-text mb-2">
           Station Estimate
         </h3>
-        <p className="text-sm text-gray-400 leading-relaxed">
+        <p className="text-sm text-su-muted leading-relaxed">
           Add radios and antennas in{" "}
           <span className="text-plasma-orange font-medium">My Shack</span> to
           see your estimated contest performance. Any station can participate
@@ -142,10 +142,10 @@ export function StationEstimate({
 
   return (
     <div
-      className={`rounded-xl border border-white/5 bg-panel p-4 ${className}`}
+      className={`rounded-xl border border-su-line/20 bg-panel p-4 ${className}`}
     >
       <div className="flex items-center gap-3 mb-3">
-        <h3 className="text-sm font-semibold text-white">Station Estimate</h3>
+        <h3 className="text-sm font-semibold text-su-text">Station Estimate</h3>
         <span
           className={`px-2.5 py-0.5 text-xs font-semibold rounded-full border ${getTierClasses(estimate.tier)}`}
         >
@@ -160,7 +160,7 @@ export function StationEstimate({
           {estimate.tips.slice(0, 3).map((tip, i) => (
             <li
               key={i}
-              className="flex gap-2 text-xs text-gray-400 leading-relaxed"
+              className="flex gap-2 text-xs text-su-muted leading-relaxed"
             >
               <span className="text-signal-green mt-0.5 flex-shrink-0">
                 &#9679;

@@ -109,10 +109,10 @@ export function RoundsPhase({
   // ── Sidebar Content ───────────────────────────────────────────────────────
 
   const sidebar = (
-    <div className="bg-white/[0.05] backdrop-blur-sm border border-white/15 rounded-2xl p-3 flex flex-col min-h-0 h-full">
+    <div className="bg-su-line/10 backdrop-blur-sm border border-su-line/50 rounded-2xl p-3 flex flex-col min-h-0 h-full">
       {/* Late check-in input */}
       <div className="mb-3">
-        <p className="text-xs uppercase tracking-widest text-gray-400 mb-2">
+        <p className="text-xs uppercase tracking-widest text-su-muted mb-2">
           Late Check-In
         </p>
         <CallsignInput
@@ -124,10 +124,10 @@ export function RoundsPhase({
 
       {/* Roster header */}
       <div className="flex items-center justify-between mb-2 px-1">
-        <span className="text-xs uppercase tracking-widest text-gray-400 font-semibold">
+        <span className="text-xs uppercase tracking-widest text-su-muted font-semibold">
           Roster
         </span>
-        <span className="text-xs tabular-nums text-gray-400">
+        <span className="text-xs tabular-nums text-su-muted">
           {checkins.length} station{checkins.length !== 1 ? "s" : ""}
         </span>
       </div>
@@ -164,12 +164,12 @@ export function RoundsPhase({
       {/* Closeout CTA when queue is empty */}
       {queueEmpty && (
         <div className="mt-6">
-          <p className="text-xs uppercase tracking-widest text-gray-400 mb-2 text-center">
+          <p className="text-xs uppercase tracking-widest text-su-muted mb-2 text-center">
             All stations served
           </p>
           <button
             onClick={onAdvance}
-            className="group px-6 py-3 text-sm font-semibold rounded-xl bg-plasma-orange text-white shadow-lg shadow-plasma-orange/20 hover:bg-plasma-orange/90 hover:shadow-lg hover:shadow-plasma-orange/30 active:scale-[0.98] transition-all will-change-transform focus-visible:ring-2 focus-visible:ring-plasma-orange/70 focus-visible:outline-none"
+            className="group px-6 py-3 text-sm font-semibold rounded-xl bg-plasma-orange text-su-on-accent shadow-lg shadow-plasma-orange/20 hover:bg-plasma-orange/90 hover:shadow-lg hover:shadow-plasma-orange/30 active:scale-[0.98] transition-all will-change-transform focus-visible:ring-2 focus-visible:ring-plasma-orange/70 focus-visible:outline-none"
             aria-label="Begin closeout phase"
           >
             Begin Closeout

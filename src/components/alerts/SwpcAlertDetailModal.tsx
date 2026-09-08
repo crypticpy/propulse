@@ -307,14 +307,14 @@ export function SwpcAlertDetailModal({
           </span>
 
           {/* Category tag */}
-          <span className="text-xs text-gray-400 bg-white/5 px-2 py-1 rounded-md border border-white/10">
+          <span className="text-xs text-su-muted bg-su-line/10 px-2 py-1 rounded-md border border-su-line/40">
             {categoryLabel}
           </span>
         </div>
 
         {/* Summary line */}
         <div className={`rounded-xl ${colors.bg} border ${colors.border} p-4`}>
-          <h3 className="text-sm font-semibold text-gray-300 uppercase tracking-wider mb-1">
+          <h3 className="text-sm font-semibold text-su-muted uppercase tracking-wider mb-1">
             Summary
           </h3>
           <p className={`text-sm font-medium ${colors.text}`}>
@@ -324,16 +324,16 @@ export function SwpcAlertDetailModal({
 
         {/* Radio Impact */}
         {impact && (impact.affectedBands.length > 0 || alert.noaaScaleCode) && (
-          <div className="rounded-xl bg-white/[0.03] border border-white/10 p-4">
-            <h3 className="text-sm font-semibold text-gray-300 uppercase tracking-wider mb-3">
+          <div className="rounded-xl bg-su-line/10 border border-su-line/40 p-4">
+            <h3 className="text-sm font-semibold text-su-muted uppercase tracking-wider mb-3">
               Radio Impact
             </h3>
 
-            <p className="text-sm text-gray-300 mb-3">{impact.description}</p>
+            <p className="text-sm text-su-muted mb-3">{impact.description}</p>
 
             {impact.affectedBands.length > 0 && (
               <div className="mb-3">
-                <span className="text-xs text-gray-500 block mb-1.5">
+                <span className="text-xs text-su-muted block mb-1.5">
                   Affected bands:
                 </span>
                 <div className="flex flex-wrap gap-1.5">
@@ -349,11 +349,11 @@ export function SwpcAlertDetailModal({
               </div>
             )}
 
-            <div className="mt-3 pt-3 border-t border-white/10">
-              <span className="text-xs text-gray-500 block mb-1">
+            <div className="mt-3 pt-3 border-t border-su-line/40">
+              <span className="text-xs text-su-muted block mb-1">
                 Recommended action:
               </span>
-              <p className="text-sm text-gray-300">{impact.recommendation}</p>
+              <p className="text-sm text-su-muted">{impact.recommendation}</p>
             </div>
           </div>
         )}
@@ -362,27 +362,27 @@ export function SwpcAlertDetailModal({
         {matchingAlert && <StormImpactPanel alert={matchingAlert} />}
 
         {/* Full message */}
-        <div className="rounded-xl bg-void-black/50 border border-white/10 p-4">
-          <h3 className="text-sm font-semibold text-gray-300 uppercase tracking-wider mb-3">
+        <div className="rounded-xl bg-void-black/50 border border-su-line/40 p-4">
+          <h3 className="text-sm font-semibold text-su-muted uppercase tracking-wider mb-3">
             Full Message
           </h3>
-          <pre className="whitespace-pre-wrap font-mono text-xs text-white/70 leading-relaxed max-h-80 overflow-y-auto">
+          <pre className="whitespace-pre-wrap font-mono text-xs text-su-text/70 leading-relaxed max-h-80 overflow-y-auto">
             {alert.message}
           </pre>
         </div>
 
         {/* Timestamp */}
-        <div className="flex items-center justify-between text-xs text-gray-500 pt-2 border-t border-white/10">
+        <div className="flex items-center justify-between text-xs text-su-muted pt-2 border-t border-su-line/40">
           <span>
             Issued:{" "}
-            <span className="text-gray-400 font-mono">{absoluteUtc}</span>
+            <span className="text-su-muted font-mono">{absoluteUtc}</span>
           </span>
-          <span className="text-gray-400">{relative}</span>
+          <span className="text-su-muted">{relative}</span>
         </div>
 
         {/* Official source links */}
-        <div className="rounded-xl bg-white/[0.03] border border-white/10 p-4">
-          <h3 className="text-sm font-semibold text-gray-300 uppercase tracking-wider mb-3">
+        <div className="rounded-xl bg-su-line/10 border border-su-line/40 p-4">
+          <h3 className="text-sm font-semibold text-su-muted uppercase tracking-wider mb-3">
             Official Sources
           </h3>
           <div className="space-y-2">
@@ -453,7 +453,7 @@ export function SwpcAlertDetailModal({
         </div>
 
         {/* Product ID */}
-        <div className="text-xs text-gray-600">
+        <div className="text-xs text-su-muted">
           Product ID: <span className="font-mono">{alert.product_id}</span>
         </div>
       </div>

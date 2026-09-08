@@ -219,7 +219,7 @@ export const SunspotModal: React.FC<SunspotModalProps> = ({
         <Card className="p-4">
           <div className="flex items-center justify-between">
             <div>
-              <span className="text-xs font-mono uppercase tracking-wider text-gray-400">
+              <span className="text-xs font-mono uppercase tracking-wider text-su-muted">
                 Current SSN
               </span>
               <div className="flex items-baseline gap-2 mt-1">
@@ -238,7 +238,7 @@ export const SunspotModal: React.FC<SunspotModalProps> = ({
               >
                 {cyclePhase.phase}
               </span>
-              <p className="text-sm text-gray-400 mt-1">
+              <p className="text-sm text-su-muted mt-1">
                 {cyclePhase.description}
               </p>
             </div>
@@ -247,10 +247,10 @@ export const SunspotModal: React.FC<SunspotModalProps> = ({
 
         {/* Current SDO image */}
         <Card className="p-4">
-          <h3 className="text-sm font-semibold text-white mb-3">
+          <h3 className="text-sm font-semibold text-su-text mb-3">
             Current SDO HMI image
           </h3>
-          <div className="relative bg-black/30 rounded-lg overflow-hidden aspect-square max-w-[400px] mx-auto">
+          <div className="relative bg-su-input rounded-lg overflow-hidden aspect-square max-w-[400px] mx-auto">
             {imageLoading && !imageError && (
               <div className="absolute inset-0 flex items-center justify-center">
                 <LoadingSpinner size="lg" />
@@ -289,17 +289,17 @@ export const SunspotModal: React.FC<SunspotModalProps> = ({
               />
             )}
           </div>
-          <p className="text-xs text-gray-500 text-center mt-2">
+          <p className="text-xs text-su-muted text-center mt-2">
             HMI Intensitygram - Shows sunspots on the solar surface
           </p>
         </Card>
 
         {/* What are Sunspots? */}
         <Card className="p-4">
-          <h3 className="text-sm font-semibold text-white mb-2">
+          <h3 className="text-sm font-semibold text-su-text mb-2">
             What are Sunspots?
           </h3>
-          <p className="text-sm text-gray-400 leading-relaxed">
+          <p className="text-sm text-su-muted leading-relaxed">
             Sunspots are temporary dark spots on the Sun's photosphere caused by
             concentrations of magnetic flux. They appear darker because they are
             cooler than the surrounding area (about 3,500K vs 5,800K). Sunspot
@@ -311,15 +311,15 @@ export const SunspotModal: React.FC<SunspotModalProps> = ({
 
         {/* Solar Cycle Context */}
         <Card className="p-4">
-          <h3 className="text-sm font-semibold text-white mb-3">
+          <h3 className="text-sm font-semibold text-su-text mb-3">
             Solar Cycle 25 Status
           </h3>
-          <p className="text-sm text-gray-400 mb-4">
+          <p className="text-sm text-su-muted mb-4">
             We are currently in Solar Cycle 25, which began in December 2019.
             Solar Cycle 25 reached its maximum in October 2024; activity
             remains elevated near the peak of the cycle.
           </p>
-          <div className="relative h-4 bg-white/5 rounded-full overflow-hidden">
+          <div className="relative h-4 bg-su-line/10 rounded-full overflow-hidden">
             {/* Cycle progress bar */}
             <div
               className="absolute inset-y-0 left-0 rounded-full"
@@ -330,14 +330,14 @@ export const SunspotModal: React.FC<SunspotModalProps> = ({
             />
             {/* Current position marker */}
             <div
-              className="absolute top-1/2 -translate-y-1/2 w-3 h-3 rounded-full bg-white border-2"
+              className="absolute top-1/2 -translate-y-1/2 w-3 h-3 rounded-full bg-su-text border-2"
               style={{
                 left: `${Math.min(95, (currentValue / 180) * 100)}%`,
                 borderColor: cyclePhase.color,
               }}
             />
           </div>
-          <div className="flex justify-between mt-2 text-xs text-gray-500">
+          <div className="flex justify-between mt-2 text-xs text-su-muted">
             <span>Solar Min (SSN ~0)</span>
             <span>Solar Max (SSN ~180)</span>
           </div>
@@ -345,7 +345,7 @@ export const SunspotModal: React.FC<SunspotModalProps> = ({
 
         {/* SSN and Propagation Relationship */}
         <Card className="p-4">
-          <h3 className="text-sm font-semibold text-white mb-3">
+          <h3 className="text-sm font-semibold text-su-text mb-3">
             SSN vs. HF Propagation
           </h3>
           <div className="space-y-2">
@@ -365,7 +365,7 @@ export const SunspotModal: React.FC<SunspotModalProps> = ({
                     currentValue >= 20 &&
                     currentValue < 50) ||
                   (item.range === "<20" && currentValue < 20)
-                    ? "bg-white/5 border border-white/10"
+                    ? "bg-su-line/10 border border-su-line/40"
                     : ""
                 }`}
               >
@@ -374,12 +374,12 @@ export const SunspotModal: React.FC<SunspotModalProps> = ({
                     className="w-3 h-3 rounded-full"
                     style={{ backgroundColor: item.color }}
                   />
-                  <span className="text-sm font-mono text-white">
+                  <span className="text-sm font-mono text-su-text">
                     {item.range}
                   </span>
                 </div>
-                <span className="text-sm text-gray-400">{item.condition}</span>
-                <span className="text-sm text-gray-500 hidden md:block">
+                <span className="text-sm text-su-muted">{item.condition}</span>
+                <span className="text-sm text-su-muted hidden md:block">
                   {item.bands}
                 </span>
               </div>
@@ -389,10 +389,10 @@ export const SunspotModal: React.FC<SunspotModalProps> = ({
 
         {/* Did You Know? */}
         <Card className="p-4">
-          <h3 className="text-sm font-semibold text-white mb-2">
+          <h3 className="text-sm font-semibold text-su-text mb-2">
             Did You Know?
           </h3>
-          <ul className="text-sm text-gray-400 space-y-2 list-disc list-inside">
+          <ul className="text-sm text-su-muted space-y-2 list-disc list-inside">
             <li>
               The sunspot number is calculated using the formula: SSN = k(10g +
               s), where g is the number of sunspot groups, s is the total number

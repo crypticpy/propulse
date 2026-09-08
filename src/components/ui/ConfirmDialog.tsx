@@ -74,23 +74,23 @@ export function ConfirmDialog({
         onClick={onCancel}
       />
       <div
-        className="relative z-10 w-full max-w-sm bg-deep-space border border-white/10 rounded-xl shadow-2xl p-6 animate-in zoom-in-95"
+        className="relative z-10 w-full max-w-sm bg-deep-space border border-su-line/40 rounded-xl shadow-2xl p-6 animate-in zoom-in-95"
         role="alertdialog"
         aria-modal="true"
         aria-labelledby="confirm-dialog-title"
         aria-describedby="confirm-dialog-message"
       >
-        <h2 id="confirm-dialog-title" className="text-lg font-bold text-white">
+        <h2 id="confirm-dialog-title" className="text-lg font-bold text-su-text">
           {title}
         </h2>
-        <p id="confirm-dialog-message" className="mt-2 text-sm text-gray-400">
+        <p id="confirm-dialog-message" className="mt-2 text-sm text-su-muted">
           {message}
         </p>
         <div className="mt-6 flex items-center justify-end gap-3">
           <button
             type="button"
             onClick={onCancel}
-            className="px-4 py-2 text-sm font-medium rounded-lg transition-colors bg-white/5 hover:bg-white/10 text-gray-300 border border-white/10"
+            className="px-4 py-2 text-sm font-medium rounded-lg transition-colors bg-su-line/10 hover:bg-su-line/20 text-su-muted border border-su-line/40"
           >
             {cancelLabel}
           </button>

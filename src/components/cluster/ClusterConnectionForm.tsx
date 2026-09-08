@@ -141,14 +141,14 @@ export const ClusterConnectionForm = memo(function ClusterConnectionForm({
   }, [clusterDisconnect]);
 
   const locked = phase === "connected";
-  const fieldClass = `w-full px-3 py-2 bg-deep-space border border-white/10 rounded-lg
-    text-white text-sm placeholder-gray-500 focus:outline-none
+  const fieldClass = `w-full px-3 py-2 bg-deep-space border border-su-line/40 rounded-lg
+    text-su-text text-sm placeholder:text-su-muted/80 focus:outline-none
     focus:border-plasma-orange/50 disabled:opacity-50 disabled:cursor-not-allowed`;
 
   return (
     <div className={`${compact ? "space-y-2.5" : "space-y-4"} ${className}`}>
       {/* ── Status ── */}
-      <div className="flex items-center justify-between gap-2 p-2.5 bg-nebula-blue rounded-lg border border-white/10">
+      <div className="flex items-center justify-between gap-2 p-2.5 bg-nebula-blue rounded-lg border border-su-line/40">
         <div className="flex items-center gap-2 min-w-0">
           <span
             className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${
@@ -156,10 +156,10 @@ export const ClusterConnectionForm = memo(function ClusterConnectionForm({
                 ? "bg-signal-green"
                 : phase === "connecting"
                   ? "bg-caution-amber animate-pulse"
-                  : "bg-gray-500"
+                  : "bg-su-line"
             }`}
           />
-          <span className="text-sm text-gray-200 truncate">
+          <span className="text-sm text-su-text truncate">
             {phase === "connected"
               ? (clusterStatus?.node ?? node.label)
               : phase === "connecting"
@@ -169,17 +169,17 @@ export const ClusterConnectionForm = memo(function ClusterConnectionForm({
                   : "Bridge offline"}
           </span>
         </div>
-        <div className="flex items-center gap-2.5 text-xs text-gray-500 flex-shrink-0">
+        <div className="flex items-center gap-2.5 text-xs text-su-muted flex-shrink-0">
           <span>
             via{" "}
-            <span className="text-gray-300">
+            <span className="text-su-muted">
               {spotSource === "bridge" ? "cluster" : "REST"}
             </span>
           </span>
           {/* Live store count, not `clusterStatus.spotsReceived` — the bridge
               only emits status on connect/disconnect, so its counter is frozen
               at whatever it was when the link came up. */}
-          <span className="font-mono text-gray-300" title="Spots held">
+          <span className="font-mono text-su-muted" title="Spots held">
             {spotCount}
           </span>
         </div>
@@ -189,7 +189,7 @@ export const ClusterConnectionForm = memo(function ClusterConnectionForm({
       <div className="space-y-1.5">
         <label
           htmlFor={`${uid}-node`}
-          className="block text-xs font-medium text-gray-400"
+          className="block text-xs font-medium text-su-muted"
         >
           Cluster node
         </label>
@@ -224,7 +224,7 @@ export const ClusterConnectionForm = memo(function ClusterConnectionForm({
           <div className="col-span-2">
             <label
               htmlFor={`${uid}-host`}
-              className="block text-xs text-gray-400 mb-1"
+              className="block text-xs text-su-muted mb-1"
             >
               Host
             </label>
@@ -241,7 +241,7 @@ export const ClusterConnectionForm = memo(function ClusterConnectionForm({
           <div>
             <label
               htmlFor={`${uid}-port`}
-              className="block text-xs text-gray-400 mb-1"
+              className="block text-xs text-su-muted mb-1"
             >
               Port
             </label>
@@ -269,7 +269,7 @@ export const ClusterConnectionForm = memo(function ClusterConnectionForm({
         <div>
           <label
             htmlFor={`${uid}-callsign`}
-            className="block text-xs text-gray-400 mb-1"
+            className="block text-xs text-su-muted mb-1"
           >
             Login callsign
           </label>
@@ -288,9 +288,9 @@ export const ClusterConnectionForm = memo(function ClusterConnectionForm({
         <div>
           <label
             htmlFor={`${uid}-password`}
-            className="block text-xs text-gray-400 mb-1"
+            className="block text-xs text-su-muted mb-1"
           >
-            Password <span className="text-gray-600">(optional)</span>
+            Password <span className="text-su-muted">(optional)</span>
           </label>
           <input
             type="password"
@@ -310,7 +310,7 @@ export const ClusterConnectionForm = memo(function ClusterConnectionForm({
           <button
             type="button"
             onClick={() => setShowFilters((v) => !v)}
-            className="flex items-center gap-1.5 text-xs font-semibold text-gray-400 uppercase tracking-wider hover:text-gray-200 transition-colors"
+            className="flex items-center gap-1.5 text-xs font-semibold text-su-muted uppercase tracking-wider hover:text-su-text transition-colors"
             aria-expanded={showFilters}
           >
             <span
@@ -327,7 +327,7 @@ export const ClusterConnectionForm = memo(function ClusterConnectionForm({
             )}
           </button>
         ) : (
-          <h4 className="text-xs font-semibold text-gray-400 uppercase tracking-wider">
+          <h4 className="text-xs font-semibold text-su-muted uppercase tracking-wider">
             Spot filters
           </h4>
         )}
@@ -371,7 +371,7 @@ export const ClusterConnectionForm = memo(function ClusterConnectionForm({
           disabled={!connectable || phase === "connecting"}
           className={`w-full px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
             !connectable || phase === "connecting"
-              ? "bg-nebula-blue border border-white/10 text-gray-500 cursor-not-allowed"
+              ? "bg-nebula-blue border border-su-line/40 text-su-muted cursor-not-allowed"
               : "bg-plasma-orange/20 border border-plasma-orange/50 text-plasma-orange hover:bg-plasma-orange/30"
           }`}
         >
@@ -400,8 +400,8 @@ interface FilterChipsProps {
 function FilterChips({ label, options, selected, onToggle }: FilterChipsProps) {
   return (
     <div>
-      <span className="block text-xs text-gray-500 mb-1.5">
-        {label} <span className="text-gray-600">(empty = all)</span>
+      <span className="block text-xs text-su-muted mb-1.5">
+        {label} <span className="text-su-muted">(empty = all)</span>
       </span>
       <div className="flex flex-wrap gap-1.5">
         {options.map((option) => (
@@ -413,7 +413,7 @@ function FilterChips({ label, options, selected, onToggle }: FilterChipsProps) {
             className={`px-2 py-1 rounded text-xs font-medium transition-all ${
               selected.includes(option)
                 ? "bg-plasma-orange/20 text-plasma-orange border border-plasma-orange/50"
-                : "bg-white/5 text-gray-400 border border-white/10 hover:border-white/20"
+                : "bg-su-line/10 text-su-muted border border-su-line/40 hover:border-su-line/50"
             }`}
           >
             {option}

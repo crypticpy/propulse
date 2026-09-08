@@ -33,7 +33,7 @@ function FAQEntry({ item, index }: { item: FAQItem; index: number }) {
   const panelId = `faq-panel-${index}`;
 
   return (
-    <div className="border-b border-white/5 last:border-b-0">
+    <div className="border-b border-su-line/20 last:border-b-0">
       <h4>
         <button
           id={headingId}
@@ -42,11 +42,11 @@ function FAQEntry({ item, index }: { item: FAQItem; index: number }) {
           onKeyDown={handleKeyDown}
           aria-expanded={isOpen}
           aria-controls={panelId}
-          className="w-full flex items-center gap-2.5 py-3 text-left group focus:outline-none focus-visible:ring-2 focus-visible:ring-plasma-orange/60 focus-visible:ring-offset-1 focus-visible:ring-offset-gray-900 rounded"
+          className="w-full flex items-center gap-2.5 py-3 text-left group focus:outline-none focus-visible:ring-2 focus-visible:ring-plasma-orange/60 focus-visible:ring-offset-1 focus-visible:ring-offset-su-canvas rounded"
         >
           <svg
             aria-hidden="true"
-            className={`w-3.5 h-3.5 flex-shrink-0 text-gray-500 transition-transform duration-200 motion-reduce:transition-none ${
+            className={`w-3.5 h-3.5 flex-shrink-0 text-su-muted transition-transform duration-200 motion-reduce:transition-none ${
               isOpen ? "rotate-90" : "rotate-0"
             }`}
             fill="none"
@@ -63,8 +63,8 @@ function FAQEntry({ item, index }: { item: FAQItem; index: number }) {
           <span
             className={`text-sm font-medium transition-colors ${
               isOpen
-                ? "text-gray-100"
-                : "text-gray-300 group-hover:text-gray-100"
+                ? "text-su-text"
+                : "text-su-muted group-hover:text-su-text"
             }`}
           >
             {item.question}
@@ -79,7 +79,7 @@ function FAQEntry({ item, index }: { item: FAQItem; index: number }) {
       >
         {isOpen && (
           <div className="pl-6 pr-2 pb-3">
-            <p className="text-sm text-gray-400 leading-relaxed">
+            <p className="text-sm text-su-muted leading-relaxed">
               {item.answer}
             </p>
           </div>

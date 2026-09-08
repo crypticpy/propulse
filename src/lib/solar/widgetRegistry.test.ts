@@ -20,13 +20,19 @@ describe("solar widget registry", () => {
     const everything = sourceIdsForVisibleGroups(
       new Set(["now", "impacts", "forecast", "details"]),
     );
-    for (const id of [
-      "noaa-xray-24h",
-      "noaa-magnetometer-24h",
-      "noaa-flux-outlook",
-    ]) {
+    for (const id of ["noaa-xray-24h", "noaa-magnetometer-24h"]) {
       expect(everything).not.toContain(id);
     }
+  });
+
+  it("refreshes the 27-day outlook whenever the forecast section is visible", () => {
+    const forecastOnly = sourceIdsForVisibleGroups(new Set(["forecast"]));
+    expect(forecastOnly).toContain("noaa-flux-outlook");
+
+    const withoutForecast = sourceIdsForVisibleGroups(
+      new Set(["now", "impacts", "details"]),
+    );
+    expect(withoutForecast).not.toContain("noaa-flux-outlook");
   });
 
   it("limits the collapsed mobile graph to essential now sources", () => {

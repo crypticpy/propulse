@@ -56,7 +56,7 @@ function getNodeTypeConfig(node: ChainNode): NodeTypeConfig {
         bg: "bg-signal-green/20",
       };
     default:
-      return { abbrev: "??", color: "text-gray-400", bg: "bg-white/10" };
+      return { abbrev: "??", color: "text-su-muted", bg: "bg-su-line/20" };
   }
 }
 
@@ -84,7 +84,7 @@ export function ChainStripPreview({
   return (
     <div
       className={`
-        bg-panel/20 border border-white/5 rounded-xl px-4 py-3 h-[60px]
+        bg-panel/20 border border-su-line/20 rounded-xl px-4 py-3 h-[60px]
         flex items-center justify-between gap-4 border-l-[3px]
         ${HEALTH_BORDER[health]}
       `}
@@ -92,7 +92,7 @@ export function ChainStripPreview({
       {/* Left: Node type indicators */}
       <div className="flex items-center gap-1 min-w-0 overflow-x-auto scrollbar-hide">
         {chain.nodes.length === 0 ? (
-          <span className="text-xs text-gray-500 italic">
+          <span className="text-xs text-su-muted italic">
             Empty signal path
           </span>
         ) : (
@@ -102,7 +102,7 @@ export function ChainStripPreview({
               <div key={i} className="flex items-center gap-1 shrink-0">
                 {i > 0 && (
                   <svg
-                    className="w-3 h-3 text-gray-600 shrink-0"
+                    className="w-3 h-3 text-su-muted shrink-0"
                     viewBox="0 0 12 12"
                     fill="currentColor"
                   >

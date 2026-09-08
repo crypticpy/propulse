@@ -19,10 +19,10 @@ export function AppearanceSettings() {
     <div className="space-y-6">
       {/* Accent Color */}
       <div className="space-y-3">
-        <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider">
+        <h3 className="text-sm font-semibold text-su-muted uppercase tracking-wider">
           Accent Color
         </h3>
-        <p className="text-xs text-gray-500">
+        <p className="text-xs text-su-muted">
           Choose an accent palette. This changes the primary and secondary
           highlight colors throughout the app.
         </p>
@@ -41,13 +41,13 @@ export function AppearanceSettings() {
                   border transition-all duration-200
                   ${
                     isActive
-                      ? "border-white/40 bg-white/10 ring-2 ring-white/20"
-                      : "border-white/10 bg-white/[0.03] hover:border-white/20 hover:bg-white/[0.06]"
+                      ? "border-su-line/60 bg-su-line/20 ring-2 ring-su-line/50"
+                      : "border-su-line/40 bg-su-line/10 hover:border-su-line/50 hover:bg-su-line/20"
                   }
                 `}
               >
                 {/* Dual-color swatch */}
-                <div className="relative w-8 h-8 rounded-full overflow-hidden ring-1 ring-white/10">
+                <div className="relative w-8 h-8 rounded-full overflow-hidden ring-1 ring-su-line/40">
                   {/* Primary half (left) */}
                   <div
                     className="absolute inset-0 w-1/2"
@@ -60,9 +60,9 @@ export function AppearanceSettings() {
                   />
                   {/* Active check overlay */}
                   {isActive && (
-                    <div className="absolute inset-0 flex items-center justify-center bg-black/30">
+                    <div className="absolute inset-0 flex items-center justify-center bg-su-input/50">
                       <svg
-                        className="w-4 h-4 text-white drop-shadow-md"
+                        className="w-4 h-4 text-su-text drop-shadow-md"
                         fill="none"
                         stroke="currentColor"
                         viewBox="0 0 24 24"
@@ -82,8 +82,8 @@ export function AppearanceSettings() {
                 <span
                   className={`text-[11px] font-medium leading-tight text-center ${
                     isActive
-                      ? "text-white"
-                      : "text-gray-400 group-hover:text-gray-300"
+                      ? "text-su-text"
+                      : "text-su-muted group-hover:text-su-text"
                   }`}
                 >
                   {preset.name}
@@ -95,9 +95,9 @@ export function AppearanceSettings() {
       </div>
 
       {/* Info note */}
-      <div className="p-3 bg-white/5 border border-white/10 rounded-lg">
-        <p className="text-xs text-gray-500">
-          <strong className="text-gray-400">How it works:</strong> Accent colors
+      <div className="p-3 bg-su-line/10 border border-su-line/40 rounded-lg">
+        <p className="text-xs text-su-muted">
+          <strong className="text-su-muted">How it works:</strong> Accent colors
           are applied globally via CSS custom properties. All panels, buttons,
           and highlights that use the primary and secondary accent colors will
           update instantly.

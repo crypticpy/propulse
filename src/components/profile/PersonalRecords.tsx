@@ -27,7 +27,7 @@ function IconTarget() {
       strokeWidth="1.5"
       strokeLinecap="round"
       strokeLinejoin="round"
-      className="text-white/20"
+      className="text-su-text/30"
     >
       <circle cx="12" cy="12" r="10" />
       <circle cx="12" cy="12" r="6" />
@@ -47,7 +47,7 @@ function IconTrophy() {
       strokeWidth="1.5"
       strokeLinecap="round"
       strokeLinejoin="round"
-      className="text-white/20"
+      className="text-su-text/30"
     >
       <path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6" />
       <path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18" />
@@ -70,7 +70,7 @@ function IconBolt() {
       strokeWidth="1.5"
       strokeLinecap="round"
       strokeLinejoin="round"
-      className="text-white/20"
+      className="text-su-text/30"
     >
       <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
     </svg>
@@ -88,7 +88,7 @@ function IconFlame() {
       strokeWidth="1.5"
       strokeLinecap="round"
       strokeLinejoin="round"
-      className="text-white/20"
+      className="text-su-text/30"
     >
       <path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z" />
     </svg>
@@ -106,7 +106,7 @@ function IconClock() {
       strokeWidth="1.5"
       strokeLinecap="round"
       strokeLinejoin="round"
-      className="text-white/20"
+      className="text-su-text/30"
     >
       <circle cx="12" cy="12" r="10" />
       <polyline points="12 6 12 12 16 14" />
@@ -125,7 +125,7 @@ function IconGlobe() {
       strokeWidth="1.5"
       strokeLinecap="round"
       strokeLinejoin="round"
-      className="text-white/20"
+      className="text-su-text/30"
     >
       <circle cx="12" cy="12" r="10" />
       <path d="M2 12h20" />
@@ -145,7 +145,7 @@ function IconRadioWaves() {
       strokeWidth="1.5"
       strokeLinecap="round"
       strokeLinejoin="round"
-      className="text-white/20"
+      className="text-su-text/30"
     >
       <path d="M4.9 19.1C1 15.2 1 8.8 4.9 4.9" />
       <path d="M7.8 16.2c-2.3-2.3-2.3-6.1 0-8.4" />
@@ -170,13 +170,13 @@ function RecordCard({
   detail?: string;
 }) {
   return (
-    <div className="flex-shrink-0 w-40 bg-white/[0.03] border border-white/10 rounded-xl p-3">
+    <div className="flex-shrink-0 w-40 bg-su-line/10 border border-su-line/40 rounded-xl p-3">
       <div className="mb-2">{icon}</div>
-      <div className="font-mono text-lg font-bold text-white">{value}</div>
-      <div className="text-[10px] text-gray-500 uppercase tracking-wider">
+      <div className="font-mono text-lg font-bold text-su-text">{value}</div>
+      <div className="text-[10px] text-su-muted uppercase tracking-wider">
         {label}
       </div>
-      {detail && <div className="text-xs text-gray-400 mt-0.5">{detail}</div>}
+      {detail && <div className="text-xs text-su-muted mt-0.5">{detail}</div>}
     </div>
   );
 }
@@ -185,10 +185,10 @@ function RecordCard({
 
 function SkeletonRecord() {
   return (
-    <div className="flex-shrink-0 w-40 bg-white/[0.03] border border-white/10 rounded-xl p-3 animate-pulse">
-      <div className="h-4 w-4 bg-white/10 rounded mb-2" />
-      <div className="h-5 w-16 bg-white/10 rounded mb-1" />
-      <div className="h-2.5 w-20 bg-white/5 rounded" />
+    <div className="flex-shrink-0 w-40 bg-su-line/10 border border-su-line/40 rounded-xl p-3 animate-pulse">
+      <div className="h-4 w-4 bg-su-line/20 rounded mb-2" />
+      <div className="h-5 w-16 bg-su-line/20 rounded mb-1" />
+      <div className="h-2.5 w-20 bg-su-line/10 rounded" />
     </div>
   );
 }
@@ -198,7 +198,7 @@ function SkeletonRecord() {
 function EmptyState() {
   return (
     <div className="flex items-center justify-center py-6 px-4">
-      <p className="text-sm text-gray-500">
+      <p className="text-sm text-su-muted">
         Import your logbook to unlock personal records
       </p>
     </div>

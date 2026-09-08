@@ -130,13 +130,13 @@ function ActivityFeedInner() {
 
   return (
     <div className="space-y-3">
-      <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider">
+      <h3 className="text-sm font-semibold text-su-muted uppercase tracking-wider">
         Activity Feed
       </h3>
 
       {feed.length === 0 && !isLoading && (
         <div className="text-center py-8">
-          <p className="text-sm text-gray-500">No activity yet</p>
+          <p className="text-sm text-su-muted">No activity yet</p>
         </div>
       )}
 
@@ -144,12 +144,12 @@ function ActivityFeedInner() {
         {feed.map((event) => (
           <div
             key={event.id}
-            className="border-b border-white/5 py-3 last:border-0 flex items-start gap-3"
+            className="border-b border-su-line/20 py-3 last:border-0 flex items-start gap-3"
           >
             {/* Icon badge */}
             <div
               className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold ${
-                EVENT_COLORS[event.type] ?? "bg-white/10 text-gray-400"
+                EVENT_COLORS[event.type] ?? "bg-su-line/20 text-su-muted"
               }`}
             >
               {EVENT_ICONS[event.type] ?? "?"}
@@ -157,10 +157,10 @@ function ActivityFeedInner() {
 
             {/* Content */}
             <div className="min-w-0 flex-1">
-              <p className="text-sm text-gray-300">
+              <p className="text-sm text-su-muted">
                 {eventDescription(event.type, event.data)}
               </p>
-              <p className="text-xs text-gray-500 mt-0.5">
+              <p className="text-xs text-su-muted mt-0.5">
                 {relativeTime(event.createdAt)}
               </p>
             </div>
@@ -170,7 +170,7 @@ function ActivityFeedInner() {
 
       {/* Loading indicator */}
       {isLoading && (
-        <p className="text-sm text-gray-500 text-center animate-pulse motion-reduce:animate-none py-2">
+        <p className="text-sm text-su-muted text-center animate-pulse motion-reduce:animate-none py-2">
           Loading...
         </p>
       )}
@@ -180,7 +180,7 @@ function ActivityFeedInner() {
 
       {/* End-of-feed indicator */}
       {!feedCursor && feed.length > 0 && (
-        <p className="text-xs text-gray-600 text-center py-2">End of feed</p>
+        <p className="text-xs text-su-muted text-center py-2">End of feed</p>
       )}
     </div>
   );

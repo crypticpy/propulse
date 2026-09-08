@@ -119,7 +119,7 @@ export function SmeterBar({
             return (
               <span
                 key={tick.label}
-                className="absolute text-[7px] text-gray-500 font-mono -translate-x-1/2"
+                className="absolute text-[7px] text-su-muted font-mono -translate-x-1/2"
                 style={{ left: `${pct}%` }}
               >
                 {tick.label}
@@ -133,7 +133,7 @@ export function SmeterBar({
       <div className="flex items-center gap-2">
         {/* Bar track */}
         <div
-          className={`relative flex-1 ${cfg.barHeight} rounded-sm bg-black/40 overflow-hidden border border-white/5`}
+          className={`relative flex-1 ${cfg.barHeight} rounded-sm bg-su-input overflow-hidden border border-su-line/20`}
         >
           {hasReading ? (
             <>
@@ -167,7 +167,7 @@ export function SmeterBar({
             return (
               <div
                 key={tick.label}
-                className="absolute top-0 w-px bg-white/20"
+                className="absolute top-0 w-px bg-su-line/30"
                 style={{
                   left: `${pct}%`,
                   height: tick.label === "9" ? "100%" : "60%",
@@ -179,9 +179,9 @@ export function SmeterBar({
 
         {/* Readout text */}
         <span
-          className={`${cfg.readoutText} font-mono font-bold text-gray-400 ${cfg.readoutW} text-right whitespace-nowrap tabular-nums ${
+          className={`${cfg.readoutText} font-mono font-bold text-su-muted ${cfg.readoutW} text-right whitespace-nowrap tabular-nums ${
             onToggleDbm || showDbmProp === undefined
-              ? "cursor-pointer hover:text-gray-300 transition-colors"
+              ? "cursor-pointer hover:text-su-muted transition-colors"
               : ""
           }`}
           onClick={handleToggleDbm}
@@ -193,13 +193,13 @@ export function SmeterBar({
         >
           {hasReading ? (
             <>
-              <span className="text-white">{smeterText}</span>
+              <span className="text-su-text">{smeterText}</span>
               {showDbm && (
-                <span className="text-gray-500 ml-1">{dbm.toFixed(0)}</span>
+                <span className="text-su-muted ml-1">{dbm.toFixed(0)}</span>
               )}
             </>
           ) : (
-            <span className="text-gray-600">---</span>
+            <span className="text-su-muted">---</span>
           )}
         </span>
       </div>

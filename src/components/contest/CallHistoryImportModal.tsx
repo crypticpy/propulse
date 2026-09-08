@@ -211,7 +211,7 @@ export function CallHistoryImportModal({
   }
 
   const selectClass =
-    "px-3 py-2 bg-deep-space border border-white/10 rounded-lg text-white focus:outline-none focus:border-plasma-orange/50 focus:ring-1 focus:ring-plasma-orange/30";
+    "px-3 py-2 bg-deep-space border border-su-line/40 rounded-lg text-su-text focus:outline-none focus:border-plasma-orange/50 focus:ring-1 focus:ring-plasma-orange/30";
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
@@ -233,7 +233,7 @@ export function CallHistoryImportModal({
           </h2>
           <button
             onClick={handleClose}
-            className="p-1 text-gray-400 hover:text-white transition-colors"
+            className="p-1 text-su-muted hover:text-su-text transition-colors"
             aria-label="Close"
           >
             <svg
@@ -256,23 +256,23 @@ export function CallHistoryImportModal({
         {step === "upload" && (
           <>
             {/* Info text */}
-            <p className="text-sm text-gray-400 mb-4">
+            <p className="text-sm text-su-muted mb-4">
               Import call history to boost SCP (Super Check Partial) suggestions
               during contests. Supports CSV and N1MM formats.
             </p>
 
             {/* Current history stats */}
             {existingStats.count > 0 && (
-              <div className="mb-4 p-3 bg-nebula-blue rounded-lg border border-white/10">
+              <div className="mb-4 p-3 bg-nebula-blue rounded-lg border border-su-line/40">
                 <div className="flex justify-between items-center">
                   <div>
-                    <span className="text-sm text-gray-300">
+                    <span className="text-sm text-su-muted">
                       Current history:{" "}
                     </span>
-                    <span className="text-white font-mono">
+                    <span className="text-su-text font-mono">
                       {existingStats.count.toLocaleString()}
                     </span>
-                    <span className="text-sm text-gray-300"> entries</span>
+                    <span className="text-sm text-su-muted"> entries</span>
                   </div>
                   <button
                     onClick={handleClearHistory}
@@ -288,7 +288,7 @@ export function CallHistoryImportModal({
             <div className="mb-4">
               <label
                 htmlFor="format-select"
-                className="block text-sm font-medium text-gray-300 mb-2"
+                className="block text-sm font-medium text-su-muted mb-2"
               >
                 File Format
               </label>
@@ -314,7 +314,7 @@ export function CallHistoryImportModal({
                 ${
                   isDragging
                     ? "border-plasma-orange bg-plasma-orange/10"
-                    : "border-white/20 hover:border-white/40"
+                    : "border-su-line/50 hover:border-su-line/60"
                 }
               `}
               onDragEnter={handleDragEnter}
@@ -332,7 +332,7 @@ export function CallHistoryImportModal({
               />
 
               <svg
-                className="w-12 h-12 mx-auto mb-3 text-gray-500"
+                className="w-12 h-12 mx-auto mb-3 text-su-muted"
                 fill="none"
                 stroke="currentColor"
                 viewBox="0 0 24 24"
@@ -345,21 +345,21 @@ export function CallHistoryImportModal({
                 />
               </svg>
 
-              <p className="text-gray-300 mb-1">
+              <p className="text-su-muted mb-1">
                 Drop your call history file here
               </p>
-              <p className="text-sm text-gray-500">or click to browse</p>
-              <p className="text-xs text-gray-600 mt-2">
+              <p className="text-sm text-su-muted">or click to browse</p>
+              <p className="text-xs text-su-muted mt-2">
                 Supports .csv, .txt, .ch files
               </p>
             </div>
 
             {/* Format help */}
-            <div className="mt-4 p-3 bg-nebula-blue rounded-lg border border-white/10">
-              <h4 className="text-sm font-medium text-gray-300 mb-2">
+            <div className="mt-4 p-3 bg-nebula-blue rounded-lg border border-su-line/40">
+              <h4 className="text-sm font-medium text-su-muted mb-2">
                 Supported Formats
               </h4>
-              <div className="space-y-2 text-xs text-gray-400">
+              <div className="space-y-2 text-xs text-su-muted">
                 <p>
                   <span className="text-plasma-orange">CSV:</span> Header row
                   with CALL column (EXCHANGE, NAME, SECTION, ZONE optional)
@@ -377,10 +377,10 @@ export function CallHistoryImportModal({
         {step === "preview" && parseResult && (
           <>
             {/* File info */}
-            <div className="mb-4 p-3 bg-nebula-blue rounded-lg border border-white/10">
+            <div className="mb-4 p-3 bg-nebula-blue rounded-lg border border-su-line/40">
               <div className="flex items-center gap-2">
                 <svg
-                  className="w-5 h-5 text-gray-400"
+                  className="w-5 h-5 text-su-muted"
                   fill="none"
                   stroke="currentColor"
                   viewBox="0 0 24 24"
@@ -392,8 +392,8 @@ export function CallHistoryImportModal({
                     d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
                   />
                 </svg>
-                <span className="text-sm text-gray-300">{fileName}</span>
-                <span className="text-xs text-gray-500 ml-auto">
+                <span className="text-sm text-su-muted">{fileName}</span>
+                <span className="text-xs text-su-muted ml-auto">
                   Format: {detectedFormat?.toUpperCase() || "Unknown"}
                 </span>
               </div>
@@ -406,14 +406,14 @@ export function CallHistoryImportModal({
                   <div className="text-2xl font-bold text-plasma-orange font-mono">
                     {parseResult.entries.length.toLocaleString()}
                   </div>
-                  <div className="text-xs text-gray-400">Entries Parsed</div>
+                  <div className="text-xs text-su-muted">Entries Parsed</div>
                 </div>
                 {parseResult.errorCount > 0 && (
                   <div className="text-center">
                     <div className="text-2xl font-bold text-red-400 font-mono">
                       {parseResult.errorCount}
                     </div>
-                    <div className="text-xs text-gray-400">Errors</div>
+                    <div className="text-xs text-su-muted">Errors</div>
                   </div>
                 )}
               </div>
@@ -434,34 +434,34 @@ export function CallHistoryImportModal({
             {/* Sample preview */}
             {sampleEntries.length > 0 && (
               <div className="mb-4">
-                <h4 className="text-sm font-medium text-gray-300 mb-2">
+                <h4 className="text-sm font-medium text-su-muted mb-2">
                   Sample Entries
                 </h4>
-                <div className="bg-deep-space border border-white/10 rounded-lg overflow-hidden">
+                <div className="bg-deep-space border border-su-line/40 rounded-lg overflow-hidden">
                   <table className="w-full text-xs">
-                    <thead className="bg-white/5">
+                    <thead className="bg-su-line/10">
                       <tr>
-                        <th className="px-3 py-2 text-left text-gray-400 font-medium">
+                        <th className="px-3 py-2 text-left text-su-muted font-medium">
                           Callsign
                         </th>
-                        <th className="px-3 py-2 text-left text-gray-400 font-medium">
+                        <th className="px-3 py-2 text-left text-su-muted font-medium">
                           Exchange
                         </th>
-                        <th className="px-3 py-2 text-left text-gray-400 font-medium">
+                        <th className="px-3 py-2 text-left text-su-muted font-medium">
                           Section
                         </th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-white/5">
+                    <tbody className="divide-y divide-su-line/20">
                       {sampleEntries.map((entry, i) => (
                         <tr key={i}>
-                          <td className="px-3 py-2 font-mono text-white">
+                          <td className="px-3 py-2 font-mono text-su-text">
                             {entry.callsign}
                           </td>
-                          <td className="px-3 py-2 font-mono text-gray-400">
+                          <td className="px-3 py-2 font-mono text-su-muted">
                             {entry.exchange || "-"}
                           </td>
-                          <td className="px-3 py-2 font-mono text-gray-400">
+                          <td className="px-3 py-2 font-mono text-su-muted">
                             {entry.section || entry.zone || "-"}
                           </td>
                         </tr>
@@ -470,7 +470,7 @@ export function CallHistoryImportModal({
                   </table>
                 </div>
                 {parseResult.entries.length > 5 && (
-                  <p className="text-xs text-gray-500 mt-1 text-center">
+                  <p className="text-xs text-su-muted mt-1 text-center">
                     ... and {(parseResult.entries.length - 5).toLocaleString()}{" "}
                     more entries
                   </p>
@@ -482,7 +482,7 @@ export function CallHistoryImportModal({
             <div className="mb-4">
               <label
                 htmlFor="format-override"
-                className="block text-xs text-gray-400 mb-1"
+                className="block text-xs text-su-muted mb-1"
               >
                 Wrong format detected? Override:
               </label>
@@ -508,9 +508,9 @@ export function CallHistoryImportModal({
                     type="checkbox"
                     checked={clearExisting}
                     onChange={(e) => setClearExisting(e.target.checked)}
-                    className="w-4 h-4 rounded border-white/20 bg-deep-space text-plasma-orange focus:ring-plasma-orange/30"
+                    className="w-4 h-4 rounded border-su-line/50 bg-deep-space text-plasma-orange focus:ring-plasma-orange/30"
                   />
-                  <span className="text-sm text-gray-300">
+                  <span className="text-sm text-su-muted">
                     Replace existing history (
                     {existingStats.count.toLocaleString()} entries)
                   </span>
@@ -522,14 +522,14 @@ export function CallHistoryImportModal({
             <div className="flex gap-3">
               <button
                 onClick={() => setStep("upload")}
-                className="flex-1 px-4 py-2 border border-white/20 text-gray-300 rounded-lg hover:bg-white/5 transition-colors"
+                className="flex-1 px-4 py-2 border border-su-line/50 text-su-muted rounded-lg hover:bg-su-line/10 transition-colors"
               >
                 Back
               </button>
               <button
                 onClick={handleImport}
                 disabled={parseResult.entries.length === 0}
-                className="flex-1 px-4 py-2 bg-plasma-orange text-deep-space font-bold rounded-lg hover:bg-plasma-orange/90 shadow-[0_0_15px_rgba(255,170,0,0.3)] transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                className="flex-1 px-4 py-2 bg-plasma-orange text-su-on-accent font-bold rounded-lg hover:bg-plasma-orange/90 shadow-[0_0_15px_rgba(255,170,0,0.3)] transition-all disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Import{" "}
                 {parseResult.entries.length > 0 &&
@@ -559,10 +559,10 @@ export function CallHistoryImportModal({
               </svg>
             </div>
 
-            <h3 className="text-lg font-bold text-white mb-2">
+            <h3 className="text-lg font-bold text-su-text mb-2">
               Import Complete
             </h3>
-            <p className="text-gray-400 mb-6">
+            <p className="text-su-muted mb-6">
               Successfully imported{" "}
               <span className="text-plasma-orange font-mono">
                 {parseResult.entries.length.toLocaleString()}
@@ -571,19 +571,19 @@ export function CallHistoryImportModal({
             </p>
 
             {/* Updated stats */}
-            <div className="mb-6 p-4 bg-nebula-blue rounded-lg border border-white/10">
-              <div className="text-sm text-gray-400">Total Call History</div>
-              <div className="text-3xl font-bold text-white font-mono">
+            <div className="mb-6 p-4 bg-nebula-blue rounded-lg border border-su-line/40">
+              <div className="text-sm text-su-muted">Total Call History</div>
+              <div className="text-3xl font-bold text-su-text font-mono">
                 {getCallHistoryStats().count.toLocaleString()}
               </div>
-              <div className="text-xs text-gray-500">
+              <div className="text-xs text-su-muted">
                 entries available for SCP
               </div>
             </div>
 
             <button
               onClick={handleClose}
-              className="px-6 py-2 bg-plasma-orange text-deep-space font-bold rounded-lg hover:bg-plasma-orange/90 transition-colors"
+              className="px-6 py-2 bg-plasma-orange text-su-on-accent font-bold rounded-lg hover:bg-plasma-orange/90 transition-colors"
             >
               Done
             </button>

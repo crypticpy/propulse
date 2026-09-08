@@ -683,7 +683,7 @@ export function FlexibleSkin(props: SdrSkinProps) {
   }, [onAgcToggle, agcEnabled]);
 
   return (
-    <div className="flex flex-col h-full bg-[#0a0a0f] overflow-hidden">
+    <div className="su-fixed-dark flex flex-col h-full bg-[#0a0a0f] overflow-hidden">
       {/* ── Error banner ─────────────────────────────────────────────── */}
       {(daemonError || lastResponseError) && (
         <div className="px-3 py-1.5 bg-alert-red/10 border-b border-alert-red/30 text-alert-red text-xs">
@@ -818,7 +818,7 @@ export function FlexibleSkin(props: SdrSkinProps) {
                 <div className="pointer-events-none absolute right-2 top-1 z-20 flex items-center gap-1">
                   <button
                     type="button"
-                    className="pointer-events-auto rounded border border-plasma-orange/40 bg-black/70 px-2 py-0.5 text-[10px] font-medium text-plasma-orange disabled:cursor-not-allowed disabled:opacity-40"
+                    className="pointer-events-auto rounded border border-plasma-orange/40 bg-su-panel/70 px-2 py-0.5 text-[10px] font-medium text-plasma-orange disabled:cursor-not-allowed disabled:opacity-40"
                     onClick={() => handleClearEqBands("notch")}
                     disabled={notchBandCount === 0}
                     title="Remove all notch points"
@@ -827,7 +827,7 @@ export function FlexibleSkin(props: SdrSkinProps) {
                   </button>
                   <button
                     type="button"
-                    className="pointer-events-auto rounded border border-cosmic-cyan/40 bg-black/70 px-2 py-0.5 text-[10px] font-medium text-cosmic-cyan disabled:cursor-not-allowed disabled:opacity-40"
+                    className="pointer-events-auto rounded border border-cosmic-cyan/40 bg-su-panel/70 px-2 py-0.5 text-[10px] font-medium text-cosmic-cyan disabled:cursor-not-allowed disabled:opacity-40"
                     onClick={() => handleClearEqBands("all")}
                     disabled={totalEqBandCount === 0}
                     title="Remove all EQ and notch points"
@@ -879,20 +879,20 @@ export function FlexibleSkin(props: SdrSkinProps) {
                   // bottom waterfall (it belongs in the zoom view above).
                   className="rounded-none border-0"
                 />
-                <div className="pointer-events-none absolute left-2 top-2 z-20 flex items-center gap-2 rounded border border-white/15 bg-black/60 px-2 py-1">
+                <div className="pointer-events-none absolute left-2 top-2 z-20 flex items-center gap-2 rounded border border-su-line/50 bg-su-panel/90 px-2 py-1">
                   <button
                     type="button"
                     className={`pointer-events-auto rounded px-2 py-0.5 text-[10px] font-medium ${
                       passbandHighlightEnabled
                         ? "border border-cosmic-cyan/40 text-cosmic-cyan"
-                        : "border border-white/20 text-gray-300"
+                        : "border border-su-line/50 text-su-muted"
                     }`}
                     onClick={handleTogglePassbandHighlight}
                     title="Toggle passband highlight in waterfall"
                   >
                     Passband {passbandHighlightEnabled ? "On" : "Off"}
                   </button>
-                  <label className="pointer-events-auto flex items-center gap-1 text-[10px] text-gray-300">
+                  <label className="pointer-events-auto flex items-center gap-1 text-[10px] text-su-muted">
                     <span>Opacity</span>
                     <input
                       type="range"
@@ -906,7 +906,7 @@ export function FlexibleSkin(props: SdrSkinProps) {
                       disabled={!passbandHighlightEnabled}
                       className="h-1 w-24 accent-cosmic-cyan disabled:opacity-40"
                     />
-                    <span className="w-8 text-right font-mono text-[9px] text-gray-400">
+                    <span className="w-8 text-right font-mono text-[9px] text-su-muted">
                       {wf.passbandOpacity.toFixed(2)}
                     </span>
                   </label>
@@ -940,24 +940,24 @@ export function FlexibleSkin(props: SdrSkinProps) {
               </div>
             </>
           ) : !daemonConnected ? (
-            <div className="flex-1 flex flex-col items-center justify-center gap-3 text-gray-500">
-              <div className="text-lg font-semibold text-gray-300">
+            <div className="flex-1 flex flex-col items-center justify-center gap-3 text-su-muted">
+              <div className="text-lg font-semibold text-su-muted">
                 No Daemon Connected
               </div>
-              <div className="text-sm text-gray-500 text-center max-w-md">
+              <div className="text-sm text-su-muted text-center max-w-md">
                 Start the daemon on the machine connected to your radio, then
-                click <span className="text-gray-300">Daemon</span> to connect.
+                click <span className="text-su-muted">Daemon</span> to connect.
               </div>
-              <div className="text-[11px] font-mono text-gray-600">
+              <div className="text-[11px] font-mono text-su-muted">
                 cd daemon &amp;&amp; cargo run -p propulse-daemon
               </div>
             </div>
           ) : !hasRadio ? (
-            <div className="flex-1 flex items-center justify-center text-sm text-gray-500">
+            <div className="flex-1 flex items-center justify-center text-sm text-su-muted">
               Select and connect a radio to begin.
             </div>
           ) : canStreamFft && !fftEnabled ? (
-            <div className="flex-1 flex items-center justify-center text-sm text-gray-500">
+            <div className="flex-1 flex items-center justify-center text-sm text-su-muted">
               Start FFT streaming to show the spectrum and waterfall.
             </div>
           ) : effectiveState ? (
@@ -969,14 +969,14 @@ export function FlexibleSkin(props: SdrSkinProps) {
               />
             </div>
           ) : (
-            <div className="flex-1 flex items-center justify-center text-sm text-gray-500">
+            <div className="flex-1 flex items-center justify-center text-sm text-su-muted">
               Waiting for radio state&hellip;
             </div>
           )}
         </div>
 
         {/* ── Right sidebar ──────────────────────────────────────────── */}
-        <div className="flex flex-col min-h-0 border-l border-white/10 bg-[#0d0d14]">
+        <div className="flex flex-col min-h-0 border-l border-su-line/40 bg-[#0d0d14]">
           <FlexSideControls
             effectiveState={effectiveState}
             selectedDevice={radio.selectedDevice}

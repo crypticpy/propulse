@@ -68,10 +68,10 @@ export function Ft8SpotterHUD({
   if (totalDecodes === 0) {
     return (
       <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-30 pointer-events-none">
-        <div className="bg-void-black/60 backdrop-blur-sm rounded-lg border border-white/10 px-5 py-3 min-w-[280px]">
+        <div className="bg-void-black/60 backdrop-blur-sm rounded-lg border border-su-line/40 px-5 py-3 min-w-[280px]">
           <div className="flex items-center gap-2.5">
-            <span className="ft8-hud-pulse-dot inline-block w-2 h-2 rounded-full bg-white/30" />
-            <span className="text-[12px] text-gray-500 font-medium tracking-wide">
+            <span className="ft8-hud-pulse-dot inline-block w-2 h-2 rounded-full bg-su-text/30" />
+            <span className="text-[12px] text-su-muted font-medium tracking-wide">
               Waiting for FT8 decodes...
             </span>
           </div>
@@ -92,9 +92,9 @@ export function Ft8SpotterHUD({
 
   return (
     <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-30 pointer-events-none">
-      <div className="bg-void-black/60 backdrop-blur-sm rounded-lg border border-white/10 overflow-hidden min-w-[280px] max-w-[320px]">
+      <div className="bg-void-black/60 backdrop-blur-sm rounded-lg border border-su-line/40 overflow-hidden min-w-[280px] max-w-[320px]">
         {/* Cycle progress bar */}
-        <div className="h-[3px] w-full bg-white/[0.06] relative overflow-hidden">
+        <div className="h-[3px] w-full bg-su-line/20 relative overflow-hidden">
           <div
             className={`h-full transition-[width] duration-300 ease-linear ${
               isNewCycle ? "ft8-hud-bar-flash" : ""
@@ -110,29 +110,29 @@ export function Ft8SpotterHUD({
         <div className="flex items-center gap-2 px-3 py-2">
           {/* Decode count */}
           <div className="flex items-baseline gap-1 min-w-0">
-            <span className="text-[14px] font-bold text-white tabular-nums leading-none">
+            <span className="text-[14px] font-bold text-su-text tabular-nums leading-none">
               {currentCycleCount > 0 ? currentCycleCount : totalDecodes}
             </span>
-            <span className="text-[10px] text-gray-500 font-medium">
+            <span className="text-[10px] text-su-muted font-medium">
               {currentCycleCount > 0 ? "decodes" : "total"}
             </span>
           </div>
 
           {/* Separator */}
-          <span className="text-[10px] text-white/20 select-none">
+          <span className="text-[10px] text-su-text/30 select-none">
             &middot;
           </span>
 
           {/* Unique stations */}
           <div className="flex items-baseline gap-1 min-w-0">
-            <span className="text-[13px] font-semibold text-white/80 tabular-nums leading-none">
+            <span className="text-[13px] font-semibold text-su-text/80 tabular-nums leading-none">
               {uniqueStations}
             </span>
-            <span className="text-[10px] text-gray-500 font-medium">stns</span>
+            <span className="text-[10px] text-su-muted font-medium">stns</span>
           </div>
 
           {/* Separator */}
-          <span className="text-[10px] text-white/20 select-none">
+          <span className="text-[10px] text-su-text/30 select-none">
             &middot;
           </span>
 
@@ -151,7 +151,7 @@ export function Ft8SpotterHUD({
 
           {/* Mode pill */}
           {currentMode && (
-            <span className="px-1.5 py-0.5 rounded text-[9px] font-bold tracking-wider bg-white/[0.08] text-white/70 leading-none uppercase">
+            <span className="px-1.5 py-0.5 rounded text-[9px] font-bold tracking-wider bg-su-line/20 text-su-text/70 leading-none uppercase">
               {currentMode}
             </span>
           )}

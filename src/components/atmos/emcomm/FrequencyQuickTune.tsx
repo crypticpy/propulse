@@ -68,7 +68,7 @@ function TuneButton({ onClick }: { onClick: () => void }) {
 
 function ModeBadge({ mode }: { mode: string }) {
   return (
-    <span className="inline-block px-1.5 py-0.5 rounded text-[9px] font-mono font-semibold bg-white/5 text-gray-400 border border-white/5">
+    <span className="inline-block px-1.5 py-0.5 rounded text-[9px] font-mono font-semibold bg-su-line/10 text-su-muted border border-su-line/20">
       {mode}
     </span>
   );
@@ -81,15 +81,15 @@ function FrequencyRow({ entry }: { entry: FrequencyPlanEntry }) {
   };
 
   return (
-    <div className="flex items-center justify-between gap-3 px-3 py-2 border-b border-white/5 hover:bg-white/[0.03] transition-colors">
+    <div className="flex items-center justify-between gap-3 px-3 py-2 border-b border-su-line/20 hover:bg-su-line/10 transition-colors">
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2">
-          <span className="text-sm font-mono text-white">
+          <span className="text-sm font-mono text-su-text">
             {formatMHz(entry.frequencyHz)} MHz
           </span>
           <ModeBadge mode={entry.mode} />
         </div>
-        <p className="text-[11px] text-gray-500 truncate mt-0.5">
+        <p className="text-[11px] text-su-muted truncate mt-0.5">
           {entry.purpose}
         </p>
       </div>
@@ -109,15 +109,15 @@ function EmergencyFrequencyRow({
   };
 
   return (
-    <div className="flex items-center justify-between gap-3 px-3 py-2 border-b border-white/5 hover:bg-white/[0.03] transition-colors">
+    <div className="flex items-center justify-between gap-3 px-3 py-2 border-b border-su-line/20 hover:bg-su-line/10 transition-colors">
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2">
-          <span className="text-sm font-mono text-white">
+          <span className="text-sm font-mono text-su-text">
             {(freq.frequencyKHz / 1000).toFixed(3)} MHz
           </span>
           <ModeBadge mode={freq.mode} />
         </div>
-        <p className="text-[11px] text-gray-500 truncate mt-0.5">
+        <p className="text-[11px] text-su-muted truncate mt-0.5">
           {freq.description}
         </p>
       </div>
@@ -138,22 +138,22 @@ export function FrequencyQuickTune() {
     <div className="space-y-3">
       {/* Active frequency plan entries */}
       <div>
-        <h4 className="text-[10px] font-semibold uppercase tracking-wider text-gray-500 px-3 mb-1">
+        <h4 className="text-[10px] font-semibold uppercase tracking-wider text-su-muted px-3 mb-1">
           Frequency Plan
         </h4>
         {activePlan ? (
-          <div className="rounded-md border border-white/5 bg-void-black/30 overflow-hidden">
+          <div className="rounded-md border border-su-line/20 bg-void-black/30 overflow-hidden">
             {activePlan.entries.map((entry, i) => (
               <FrequencyRow key={`${entry.frequencyHz}-${i}`} entry={entry} />
             ))}
             {activePlan.entries.length === 0 && (
-              <p className="px-3 py-3 text-xs text-gray-500 italic">
+              <p className="px-3 py-3 text-xs text-su-muted italic">
                 No frequencies in this plan
               </p>
             )}
           </div>
         ) : (
-          <p className="px-3 text-xs text-gray-500 italic">
+          <p className="px-3 text-xs text-su-muted italic">
             No frequency plan selected
           </p>
         )}
@@ -161,10 +161,10 @@ export function FrequencyQuickTune() {
 
       {/* Emergency frequencies */}
       <div>
-        <h4 className="text-[10px] font-semibold uppercase tracking-wider text-gray-500 px-3 mb-1">
+        <h4 className="text-[10px] font-semibold uppercase tracking-wider text-su-muted px-3 mb-1">
           Emergency Frequencies
         </h4>
-        <div className="rounded-md border border-white/5 bg-void-black/30 overflow-hidden">
+        <div className="rounded-md border border-su-line/20 bg-void-black/30 overflow-hidden">
           {EMERGENCY_FREQUENCIES.map((freq) => (
             <EmergencyFrequencyRow key={freq.frequencyKHz} freq={freq} />
           ))}

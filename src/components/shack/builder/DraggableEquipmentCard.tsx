@@ -36,7 +36,7 @@ const ACCENT_COLORS: Record<EquipmentCardType, string> = {
   feedline: "bg-feedline-teal",
   accessory: "bg-nebula-blue",
   inline: "bg-purple-400",
-  shack_accessory: "bg-gray-400",
+  shack_accessory: "bg-su-line",
 };
 
 const BORDER_COLORS: Record<EquipmentCardType, string> = {
@@ -45,7 +45,7 @@ const BORDER_COLORS: Record<EquipmentCardType, string> = {
   feedline: "border-feedline-teal/30 hover:border-feedline-teal/60",
   accessory: "border-nebula-blue/30 hover:border-nebula-blue/60",
   inline: "border-purple-400/30 hover:border-purple-400/60",
-  shack_accessory: "border-gray-400/30 hover:border-gray-400/60",
+  shack_accessory: "border-su-line/40 hover:border-su-line/60",
 };
 
 // ─── Component ──────────────────────────────────────────────────────────────
@@ -87,7 +87,7 @@ export function DraggableEquipmentCard({
       onDragEnd={handleDragEnd}
       className={`
         relative flex items-stretch overflow-hidden rounded-lg border
-        bg-white/[0.03] transition-all duration-150 select-none
+        bg-su-line/10 transition-all duration-150 select-none
         ${BORDER_COLORS[type]}
         ${inUse ? "opacity-40 cursor-not-allowed" : isDragging ? "opacity-40 scale-95 cursor-grabbing" : "cursor-grab"}
       `}
@@ -98,17 +98,17 @@ export function DraggableEquipmentCard({
       {/* Content */}
       <div className="flex-1 min-w-0 py-1 px-1">
         <div className="flex items-center gap-1.5">
-          <span className="text-xs font-medium text-gray-200 truncate">
+          <span className="text-xs font-medium text-su-text truncate">
             {name}
           </span>
           {inUse && (
-            <span className="shrink-0 px-1.5 py-0.5 text-[10px] font-semibold rounded-full bg-white/10 text-gray-400 border border-white/5">
+            <span className="shrink-0 px-1.5 py-0.5 text-[10px] font-semibold rounded-full bg-su-line/20 text-su-muted border border-su-line/20">
               In Use
             </span>
           )}
         </div>
         {subLabel && (
-          <p className="text-[10px] text-gray-400 truncate mt-0.5">
+          <p className="text-[10px] text-su-muted truncate mt-0.5">
             {subLabel}
           </p>
         )}

@@ -59,7 +59,7 @@ describe("SpotHoverPreview", () => {
     const preview = screen.getByRole("button", {
       name: /Open spot details for KA1VRY/i,
     });
-    expect(preview.className).toContain("bg-gray-950");
+    expect(preview.className).toContain("bg-su-canvas");
     expect(preview.className).not.toContain("backdrop-blur");
   });
 

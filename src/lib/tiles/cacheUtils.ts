@@ -1,5 +1,15 @@
-/** Cache names used by Workbox runtime caching for tiles. */
-const TILE_CACHE_NAMES = ["tiles-esri", "tiles-osm", "tiles-pro"] as const;
+/**
+ * Cache names used by Workbox runtime caching for tiles
+ * (`src/lib/tiles/tileRuntimeCaching.ts`). `tiles-pro` no longer has a caching
+ * rule — it stays listed so the settings screen's clear action still removes
+ * any cache left behind by an older build.
+ */
+const TILE_CACHE_NAMES = [
+  "tiles-esri",
+  "tiles-osm",
+  "tiles-carto",
+  "tiles-pro",
+] as const;
 
 /** Get tile cache statistics (entry counts per cache). */
 export async function getTileCacheStats(): Promise<{

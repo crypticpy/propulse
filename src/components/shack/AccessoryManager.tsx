@@ -1068,10 +1068,10 @@ export function AccessoryManager({
     <div className="space-y-4">
       {/* Section header */}
       <div className="flex items-center gap-2 mb-3">
-        <h2 className="text-sm font-semibold text-gray-400 uppercase tracking-wider">
+        <h2 className="text-sm font-semibold text-su-muted uppercase tracking-wider">
           {sectionLabel ?? "Accessories"}
         </h2>
-        <span className="text-xs text-gray-500 bg-white/5 px-2 py-0.5 rounded-full">
+        <span className="text-xs text-su-muted bg-su-line/10 px-2 py-0.5 rounded-full">
           {sectionCount ?? accessories.length}
         </span>
         <div className="flex-1" />
@@ -1088,7 +1088,7 @@ export function AccessoryManager({
         <div className="space-y-6">
           {grouped.map(({ category, items }) => (
             <div key={category}>
-              <h4 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">
+              <h4 className="text-xs font-semibold text-su-muted uppercase tracking-wider mb-2">
                 {CATEGORY_LABELS[category]}
               </h4>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -1128,7 +1128,7 @@ export function AccessoryManager({
           ))}
         </div>
       ) : (
-        <div className="p-6 text-center text-gray-500 text-sm bg-panel/30 backdrop-blur-sm border border-white/5 rounded-2xl">
+        <div className="p-6 text-center text-su-muted text-sm bg-panel/30 backdrop-blur-sm border border-su-line/20 rounded-2xl">
           No accessories added yet. Add amplifiers, tuners, filters, and more to
           complete your station profile.
         </div>

@@ -53,10 +53,10 @@ function getStatusColors(state: BridgeConnectionState): {
       };
     case "disconnected":
       return {
-        dot: "bg-gray-500",
-        text: "text-gray-500",
-        bg: "bg-gray-500/10",
-        border: "border-gray-500/30",
+        dot: "bg-su-line",
+        text: "text-su-muted",
+        bg: "bg-su-line/10",
+        border: "border-su-line/30",
       };
     case "error":
       return {
@@ -166,7 +166,7 @@ export function BridgeStatusIndicator({
           inline-flex items-center gap-1.5 px-2 py-1 rounded
           border transition-colors cursor-pointer
           ${colors.bg} ${colors.border}
-          hover:bg-white/5 focus:outline-none focus:ring-1 focus:ring-white/20
+          hover:bg-su-line/10 focus:outline-none focus:ring-1 focus:ring-su-line/50
         `}
         title={`Bridge: ${label}`}
         aria-label={`Bridge connection status: ${label}`}
@@ -198,13 +198,13 @@ export function BridgeStatusIndicator({
             absolute top-full left-0 mt-1 z-50
             min-w-[200px] p-3 rounded-lg
             bg-deep-space/95 backdrop-blur-md
-            border border-white/10 shadow-lg
+            border border-su-line/40 shadow-lg
           `}
           role="dialog"
           aria-label="Bridge connection details"
         >
           {/* Header */}
-          <div className="flex items-center gap-2 mb-2 pb-2 border-b border-white/10">
+          <div className="flex items-center gap-2 mb-2 pb-2 border-b border-su-line/40">
             <span
               className={`w-2.5 h-2.5 rounded-full ${colors.dot}`}
               aria-hidden="true"
@@ -215,15 +215,15 @@ export function BridgeStatusIndicator({
           {/* Details */}
           <div className="space-y-1.5 text-xs">
             <div className="flex justify-between">
-              <span className="text-gray-500">Bridge URL</span>
-              <span className="text-gray-300 font-mono text-[10px]">
+              <span className="text-su-muted">Bridge URL</span>
+              <span className="text-su-muted font-mono text-[10px]">
                 {url.replace("ws://", "")}
               </span>
             </div>
 
             {reconnectCount > 0 && (
               <div className="flex justify-between">
-                <span className="text-gray-500">Reconnect attempt</span>
+                <span className="text-su-muted">Reconnect attempt</span>
                 <span className="text-plasma-orange font-mono">
                   {reconnectCount}
                 </span>
@@ -232,7 +232,7 @@ export function BridgeStatusIndicator({
 
             {reconnectIn != null && reconnectIn > 0 && (
               <div className="flex justify-between">
-                <span className="text-gray-500">Retrying in</span>
+                <span className="text-su-muted">Retrying in</span>
                 <span className="text-plasma-orange font-mono">
                   {reconnectIn}s
                 </span>
@@ -248,7 +248,7 @@ export function BridgeStatusIndicator({
             )}
 
             {state === "disconnected" && (
-              <div className="mt-2 text-gray-500 text-[10px]">
+              <div className="mt-2 text-su-muted text-[10px]">
                 Bridge is offline. The app will continue to work without rig
                 control.
               </div>

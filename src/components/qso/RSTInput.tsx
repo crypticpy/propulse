@@ -32,7 +32,7 @@ export function RSTInput({
       <div className="flex-1">
         <label
           htmlFor="qso-rst-sent"
-          className="block text-xs text-gray-500 mb-1"
+          className="block text-xs text-su-muted mb-1"
         >
           RST Sent
         </label>
@@ -46,13 +46,13 @@ export function RSTInput({
           placeholder={modeDefault}
           className={`
             w-full h-10 px-3
-            bg-white/5 border rounded-lg
-            text-white text-sm font-mono text-center
-            placeholder-gray-500
+            bg-su-line/10 border rounded-lg
+            text-su-text text-sm font-mono text-center
+            placeholder:text-su-muted/80
             focus:border-plasma-orange/50 focus:ring-1 focus:ring-plasma-orange/30
             focus:outline-none
             transition-colors
-            ${sentIsDefault ? "border-l-2 border-l-signal-green border-white/10" : "border-white/10"}
+            ${sentIsDefault ? "border-l-2 border-l-signal-green border-su-line/40" : "border-su-line/40"}
           `}
         />
       </div>
@@ -61,7 +61,7 @@ export function RSTInput({
       <div className="flex-1">
         <label
           htmlFor="qso-rst-rcvd"
-          className="block text-xs text-gray-500 mb-1"
+          className="block text-xs text-su-muted mb-1"
         >
           RST Rcvd
         </label>
@@ -75,13 +75,13 @@ export function RSTInput({
           placeholder={modeDefault}
           className={`
             w-full h-10 px-3
-            bg-white/5 border rounded-lg
-            text-white text-sm font-mono text-center
-            placeholder-gray-500
+            bg-su-line/10 border rounded-lg
+            text-su-text text-sm font-mono text-center
+            placeholder:text-su-muted/80
             focus:border-plasma-orange/50 focus:ring-1 focus:ring-plasma-orange/30
             focus:outline-none
             transition-colors
-            ${rcvdIsDefault ? "border-l-2 border-l-signal-green border-white/10" : "border-white/10"}
+            ${rcvdIsDefault ? "border-l-2 border-l-signal-green border-su-line/40" : "border-su-line/40"}
           `}
         />
       </div>

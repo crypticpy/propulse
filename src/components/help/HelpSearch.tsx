@@ -103,7 +103,7 @@ export function HelpSearch({ className = "" }: HelpSearchProps) {
     >
       <div className="relative">
         <span
-          className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none"
+          className="absolute left-3 top-1/2 -translate-y-1/2 text-su-muted pointer-events-none"
           aria-hidden="true"
         >
           {HelpIcons.search("w-4 h-4")}
@@ -122,7 +122,7 @@ export function HelpSearch({ className = "" }: HelpSearchProps) {
           aria-controls={listboxId}
           aria-activedescendant={activeDescendant}
           aria-autocomplete="list"
-          className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-white/[0.04] border border-white/10 text-sm text-gray-200 placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-plasma-orange/50 focus:border-plasma-orange/30 transition-all duration-200"
+          className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-su-line/10 border border-su-line/40 text-sm text-su-text placeholder:text-su-muted focus:outline-none focus:ring-2 focus:ring-plasma-orange/50 focus:border-plasma-orange/30 transition-all duration-200"
         />
       </div>
 
@@ -141,7 +141,7 @@ export function HelpSearch({ className = "" }: HelpSearchProps) {
           id={listboxId}
           role="listbox"
           aria-label="Search results"
-          className="absolute top-full left-0 right-0 mt-1.5 rounded-xl bg-gray-900/95 backdrop-blur-xl border border-white/10 shadow-xl overflow-hidden z-50 animate-in fade-in slide-in-from-top-2 max-h-[70vh] overflow-y-auto"
+          className="absolute top-full left-0 right-0 mt-1.5 rounded-xl bg-su-canvas/95 backdrop-blur-xl border border-su-line/40 shadow-xl overflow-hidden z-50 animate-in fade-in slide-in-from-top-2 max-h-[70vh] overflow-y-auto"
         >
           {results.map((entry, i) => {
             const section = HELP_SECTIONS.find((s) => s.id === entry.sectionId);
@@ -155,12 +155,12 @@ export function HelpSearch({ className = "" }: HelpSearchProps) {
                 onClick={() => navigateToResult(entry)}
                 className={`w-full text-left px-4 py-3 min-h-[44px] flex items-center gap-3 transition-colors ${
                   selectedIdx === i
-                    ? "bg-plasma-orange/10 text-gray-100"
-                    : "text-gray-300 hover:bg-white/[0.04] active:bg-white/[0.06]"
+                    ? "bg-plasma-orange/10 text-su-text"
+                    : "text-su-muted hover:bg-su-line/10 active:bg-su-line/20"
                 }`}
               >
                 <span
-                  className="text-gray-500 flex-shrink-0"
+                  className="text-su-muted flex-shrink-0"
                   aria-hidden="true"
                 >
                   {section?.icon("w-4 h-4")}
@@ -168,7 +168,7 @@ export function HelpSearch({ className = "" }: HelpSearchProps) {
                 <div className="flex-1 min-w-0">
                   <span className="text-sm font-medium">{entry.heading}</span>
                   {section && entry.heading !== section.title && (
-                    <span className="text-xs text-gray-500 ml-2">
+                    <span className="text-xs text-su-muted ml-2">
                       in {section.title}
                     </span>
                   )}
@@ -184,9 +184,9 @@ export function HelpSearch({ className = "" }: HelpSearchProps) {
           ref={dropdownRef}
           id={listboxId}
           role="status"
-          className="absolute top-full left-0 right-0 mt-1.5 rounded-xl bg-gray-900/95 backdrop-blur-xl border border-white/10 shadow-xl overflow-hidden z-50 px-4 py-3 animate-in fade-in slide-in-from-top-2"
+          className="absolute top-full left-0 right-0 mt-1.5 rounded-xl bg-su-canvas/95 backdrop-blur-xl border border-su-line/40 shadow-xl overflow-hidden z-50 px-4 py-3 animate-in fade-in slide-in-from-top-2"
         >
-          <p className="text-sm text-gray-500">
+          <p className="text-sm text-su-muted">
             No results found for &quot;{query}&quot;
           </p>
         </div>

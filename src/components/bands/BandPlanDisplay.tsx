@@ -76,8 +76,8 @@ const SEGMENT_COLORS: Record<SegmentCategory, { bg: string; border: string }> =
       border: "border-purple-400/80",
     },
     not_allowed: {
-      bg: "bg-gray-600/40",
-      border: "border-gray-500/50",
+      bg: "bg-su-line/40",
+      border: "border-su-line/50",
     },
   };
 
@@ -226,7 +226,7 @@ export function BandPlanDisplay({
         {/* Highlight indicator */}
         {highlightPosition !== null && (
           <div
-            className="absolute top-0 w-0.5 h-full bg-white shadow-[0_0_6px_rgba(255,255,255,0.8)]"
+            className="absolute top-0 w-0.5 h-full bg-su-text shadow-[0_0_6px_rgba(255,255,255,0.8)]"
             style={{ left: `${highlightPosition}%` }}
           />
         )}
@@ -239,8 +239,8 @@ export function BandPlanDisplay({
     <div className={`space-y-2 ${className}`}>
       {/* Band header */}
       <div className="flex items-center justify-between">
-        <h3 className="text-sm font-semibold text-white/90">{bandPlan.name}</h3>
-        <span className="text-xs text-gray-400">
+        <h3 className="text-sm font-semibold text-su-text/80">{bandPlan.name}</h3>
+        <span className="text-xs text-su-muted">
           {effectiveLicense} - {effectiveRegion}
         </span>
       </div>
@@ -248,13 +248,13 @@ export function BandPlanDisplay({
       {/* Band visualization */}
       <div className="relative">
         {/* Frequency labels above */}
-        <div className="flex justify-between mb-1 text-[10px] text-gray-400">
+        <div className="flex justify-between mb-1 text-[10px] text-su-muted">
           <span>{formatFrequency(bandStartKHz)} MHz</span>
           <span>{formatFrequency(bandEndKHz)} MHz</span>
         </div>
 
         {/* Main band display */}
-        <div className="relative h-8 rounded-lg overflow-hidden bg-space-900/50 border border-white/10">
+        <div className="relative h-8 rounded-lg overflow-hidden bg-space-900/50 border border-su-line/40">
           {/* Segments */}
           {segmentInfo.map((info, index) => {
             const colors = SEGMENT_COLORS[info.category];
@@ -303,11 +303,11 @@ export function BandPlanDisplay({
           {/* Highlight indicator */}
           {highlightPosition !== null && (
             <div
-              className="absolute top-0 w-1 h-full bg-white shadow-[0_0_8px_rgba(255,255,255,0.9)] z-10"
+              className="absolute top-0 w-1 h-full bg-su-text shadow-[0_0_8px_rgba(255,255,255,0.9)] z-10"
               style={{ left: `calc(${highlightPosition}% - 2px)` }}
             >
               {/* Frequency label */}
-              <div className="absolute -top-5 left-1/2 -translate-x-1/2 text-[10px] text-white font-mono whitespace-nowrap">
+              <div className="absolute -top-5 left-1/2 -translate-x-1/2 text-[10px] text-su-text font-mono whitespace-nowrap">
                 {formatFrequency(highlightFrequency!)}
               </div>
             </div>
@@ -325,7 +325,7 @@ export function BandPlanDisplay({
               return (
                 <span
                   key={`start-${index}`}
-                  className="absolute text-[9px] text-gray-500 -translate-x-1/2"
+                  className="absolute text-[9px] text-su-muted -translate-x-1/2"
                   style={{ left: `${info.leftPercent}%` }}
                 >
                   {formatFrequency(info.segment.startKHz)}
@@ -351,18 +351,18 @@ export function BandPlanDisplay({
               <div
                 className={`w-3 h-3 rounded-sm ${colors.bg} border ${colors.border}`}
               />
-              <span className="text-gray-400">{CATEGORY_LABELS[category]}</span>
+              <span className="text-su-muted">{CATEGORY_LABELS[category]}</span>
             </div>
           ))}
         <div className="flex items-center gap-1">
           <div
-            className="w-3 h-3 rounded-sm bg-gray-600/40 border border-gray-500/50"
+            className="w-3 h-3 rounded-sm bg-su-line/40 border border-su-line/50"
             style={{
               backgroundImage:
                 "repeating-linear-gradient(45deg, transparent, transparent 2px, rgba(0,0,0,0.3) 2px, rgba(0,0,0,0.3) 4px)",
             }}
           />
-          <span className="text-gray-400">Not Authorized</span>
+          <span className="text-su-muted">Not Authorized</span>
         </div>
       </div>
     </div>

@@ -15,7 +15,7 @@ import type {
 } from "@/lib/map/modelSource";
 
 const TONE_CLASSES: Record<ModelSourceTone, string> = {
-  physics: "border-white/15 bg-white/[0.06] text-gray-400",
+  physics: "border-su-line/50 bg-su-line/20 text-su-muted",
   ml: "border-cyan-400/30 bg-cyan-400/10 text-cyan-300",
   degraded: "border-caution-amber/30 bg-caution-amber/10 text-caution-amber",
 };

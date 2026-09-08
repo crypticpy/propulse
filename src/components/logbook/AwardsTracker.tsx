@@ -369,7 +369,7 @@ export function AwardsTracker({ entries, className = "" }: AwardsTrackerProps) {
     <div className={`space-y-4 ${className}`}>
       {/* DXCC Progress */}
       <Card className="p-4">
-        <h3 className="font-orbitron text-lg font-bold text-white mb-4 flex items-center gap-2">
+        <h3 className="font-orbitron text-lg font-bold text-su-text mb-4 flex items-center gap-2">
           <svg
             className="w-5 h-5 text-plasma-orange"
             fill="none"
@@ -392,13 +392,13 @@ export function AwardsTracker({ entries, className = "" }: AwardsTrackerProps) {
             <p className="text-2xl font-bold text-plasma-orange">
               {dxccStats.totalWorked}
             </p>
-            <p className="text-xs text-gray-400">Entities Worked</p>
+            <p className="text-xs text-su-muted">Entities Worked</p>
           </div>
           <div className="text-center p-3 bg-nebula-blue rounded-lg">
             <p className="text-2xl font-bold text-signal-green">
               {dxccStats.totalConfirmed}
             </p>
-            <p className="text-xs text-gray-400">Confirmed</p>
+            <p className="text-xs text-su-muted">Confirmed</p>
           </div>
         </div>
 
@@ -420,7 +420,7 @@ export function AwardsTracker({ entries, className = "" }: AwardsTrackerProps) {
                 ${
                   dxccStats.totalConfirmed >= milestone
                     ? "bg-signal-green/20 text-signal-green border border-signal-green/30"
-                    : "bg-white/5 text-gray-500 border border-white/10"
+                    : "bg-su-line/10 text-su-muted border border-su-line/40"
                 }
               `}
             >
@@ -431,24 +431,24 @@ export function AwardsTracker({ entries, className = "" }: AwardsTrackerProps) {
 
         {/* Band breakdown */}
         <div className="mt-4">
-          <h4 className="text-sm font-medium text-gray-300 mb-2">
+          <h4 className="text-sm font-medium text-su-muted mb-2">
             Band Breakdown
           </h4>
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="text-gray-400 text-xs">
+                <tr className="text-su-muted text-xs">
                   <th className="text-left py-1">Band</th>
                   <th className="text-right py-1">Worked</th>
                   <th className="text-right py-1">Confirmed</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-white/5">
+              <tbody className="divide-y divide-su-line/20">
                 {BANDS.filter(
                   (band) => dxccStats.bandBreakdown[band]?.worked > 0,
                 ).map((band) => (
                   <tr key={band}>
-                    <td className="py-1.5 font-mono text-white">{band}</td>
+                    <td className="py-1.5 font-mono text-su-text">{band}</td>
                     <td className="py-1.5 text-right text-plasma-orange">
                       {dxccStats.bandBreakdown[band].worked}
                     </td>
@@ -463,7 +463,7 @@ export function AwardsTracker({ entries, className = "" }: AwardsTrackerProps) {
                   <tr>
                     <td
                       colSpan={3}
-                      className="py-3 text-center text-gray-500 italic"
+                      className="py-3 text-center text-su-muted italic"
                     >
                       No band data yet
                     </td>
@@ -477,7 +477,7 @@ export function AwardsTracker({ entries, className = "" }: AwardsTrackerProps) {
 
       {/* WAS (Worked All States) */}
       <Card className="p-4">
-        <h3 className="font-orbitron text-lg font-bold text-white mb-4 flex items-center gap-2">
+        <h3 className="font-orbitron text-lg font-bold text-su-text mb-4 flex items-center gap-2">
           <svg
             className="w-5 h-5 text-aurora-purple"
             fill="none"
@@ -500,13 +500,13 @@ export function AwardsTracker({ entries, className = "" }: AwardsTrackerProps) {
             <p className="text-2xl font-bold text-plasma-orange">
               {wasStats.totalWorked}
             </p>
-            <p className="text-xs text-gray-400">States Worked</p>
+            <p className="text-xs text-su-muted">States Worked</p>
           </div>
           <div className="text-center p-3 bg-nebula-blue rounded-lg">
             <p className="text-2xl font-bold text-signal-green">
               {wasStats.totalConfirmed}
             </p>
-            <p className="text-xs text-gray-400">Confirmed</p>
+            <p className="text-xs text-su-muted">Confirmed</p>
           </div>
         </div>
 
@@ -519,7 +519,7 @@ export function AwardsTracker({ entries, className = "" }: AwardsTrackerProps) {
         />
 
         {/* State indicator */}
-        <p className="mt-3 text-sm text-gray-400">
+        <p className="mt-3 text-sm text-su-muted">
           {50 - wasStats.totalConfirmed > 0
             ? `${50 - wasStats.totalConfirmed} more states needed for WAS`
             : "Congratulations! WAS complete!"}
@@ -528,7 +528,7 @@ export function AwardsTracker({ entries, className = "" }: AwardsTrackerProps) {
 
       {/* WAZ (Worked All Zones) */}
       <Card className="p-4">
-        <h3 className="font-orbitron text-lg font-bold text-white mb-4 flex items-center gap-2">
+        <h3 className="font-orbitron text-lg font-bold text-su-text mb-4 flex items-center gap-2">
           <svg
             className="w-5 h-5 text-cosmic-cyan"
             fill="none"
@@ -551,13 +551,13 @@ export function AwardsTracker({ entries, className = "" }: AwardsTrackerProps) {
             <p className="text-2xl font-bold text-plasma-orange">
               {wazStats.totalWorked}
             </p>
-            <p className="text-xs text-gray-400">Zones Worked</p>
+            <p className="text-xs text-su-muted">Zones Worked</p>
           </div>
           <div className="text-center p-3 bg-nebula-blue rounded-lg">
             <p className="text-2xl font-bold text-signal-green">
               {wazStats.totalConfirmed}
             </p>
-            <p className="text-xs text-gray-400">Confirmed</p>
+            <p className="text-xs text-su-muted">Confirmed</p>
           </div>
         </div>
 
@@ -571,7 +571,7 @@ export function AwardsTracker({ entries, className = "" }: AwardsTrackerProps) {
 
         {/* Zone grid (8x5 = 40 zones) */}
         <div className="mt-4">
-          <h4 className="text-sm font-medium text-gray-300 mb-2 inline-flex items-center gap-1">
+          <h4 className="text-sm font-medium text-su-muted mb-2 inline-flex items-center gap-1">
             CQ Zones (1-40) <InfoTip content={GEOGRAPHY_TOOLTIPS.cqZone} />
           </h4>
           <div className="grid grid-cols-8 gap-1">
@@ -589,7 +589,7 @@ export function AwardsTracker({ entries, className = "" }: AwardsTrackerProps) {
                         ? "bg-signal-green/30 text-signal-green border border-signal-green/50"
                         : worked
                           ? "bg-plasma-orange/30 text-plasma-orange border border-plasma-orange/50"
-                          : "bg-white/5 text-gray-600 border border-white/10"
+                          : "bg-su-line/10 text-su-muted border border-su-line/40"
                     }
                   `}
                   title={`Zone ${zone}: ${confirmed ? "Confirmed" : worked ? "Worked" : "Not worked"}`}
@@ -602,15 +602,15 @@ export function AwardsTracker({ entries, className = "" }: AwardsTrackerProps) {
           <div className="flex gap-4 mt-3 text-xs">
             <div className="flex items-center gap-1.5">
               <div className="w-3 h-3 rounded bg-signal-green/30 border border-signal-green/50" />
-              <span className="text-gray-400">Confirmed</span>
+              <span className="text-su-muted">Confirmed</span>
             </div>
             <div className="flex items-center gap-1.5">
               <div className="w-3 h-3 rounded bg-plasma-orange/30 border border-plasma-orange/50" />
-              <span className="text-gray-400">Worked</span>
+              <span className="text-su-muted">Worked</span>
             </div>
             <div className="flex items-center gap-1.5">
-              <div className="w-3 h-3 rounded bg-white/5 border border-white/10" />
-              <span className="text-gray-400">Not worked</span>
+              <div className="w-3 h-3 rounded bg-su-line/10 border border-su-line/40" />
+              <span className="text-su-muted">Not worked</span>
             </div>
           </div>
         </div>

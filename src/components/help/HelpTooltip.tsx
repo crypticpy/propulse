@@ -45,13 +45,13 @@ export function HelpTooltip({ section, anchor, tooltip }: HelpTooltipProps) {
         onClick={handleClick}
         onMouseEnter={handleMouseEnter}
         onMouseLeave={handleMouseLeave}
-        className="w-4 h-4 rounded-full border border-gray-600 flex items-center justify-center text-[10px] font-semibold text-gray-500 hover:text-plasma-orange hover:border-plasma-orange/50 transition-colors cursor-pointer"
+        className="w-4 h-4 rounded-full border border-su-line flex items-center justify-center text-[10px] font-semibold text-su-muted hover:text-plasma-orange hover:border-plasma-orange/50 transition-colors cursor-pointer"
         aria-label={tooltip || `Help: ${section}`}
       >
         ?
       </button>
       {showTooltip && tooltip && (
-        <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 px-2.5 py-1 rounded-md bg-gray-800 border border-white/10 text-xs text-gray-300 whitespace-nowrap shadow-lg pointer-events-none z-50">
+        <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 px-2.5 py-1 rounded-md bg-su-panel border border-su-line/40 text-xs text-su-muted whitespace-nowrap shadow-lg pointer-events-none z-50">
           {tooltip}
         </div>
       )}

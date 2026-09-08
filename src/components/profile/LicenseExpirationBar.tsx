@@ -53,7 +53,7 @@ export function LicenseExpirationBar({
   expirationDate,
 }: LicenseExpirationBarProps) {
   if (!expirationDate) {
-    return <div className="text-xs text-gray-500">No expiration set</div>;
+    return <div className="text-xs text-su-muted">No expiration set</div>;
   }
 
   const days = getDaysRemaining(expirationDate);
@@ -69,7 +69,7 @@ export function LicenseExpirationBar({
       <div className="flex items-center justify-between">
         <span className={`text-xs font-medium ${textColor}`}>{statusText}</span>
       </div>
-      <div className="h-1.5 bg-white/10 rounded-full overflow-hidden">
+      <div className="h-1.5 bg-su-line/20 rounded-full overflow-hidden">
         <div
           className={`h-full rounded-full transition-all duration-500 ${barColor}`}
           style={{ width: `${widthPercent}%` }}

@@ -29,10 +29,10 @@ function BarRow({
   const pct = max > 0 ? (count / max) * 100 : 0;
   return (
     <div className="flex items-center gap-2">
-      <span className="text-xs text-gray-400 font-mono w-12 text-right shrink-0">
+      <span className="text-xs text-su-muted font-mono w-12 text-right shrink-0">
         {label}
       </span>
-      <div className="flex-1 h-4 bg-white/5 rounded-full overflow-hidden">
+      <div className="flex-1 h-4 bg-su-line/10 rounded-full overflow-hidden">
         <div
           className="h-full rounded-full transition-all duration-500"
           style={{
@@ -41,7 +41,7 @@ function BarRow({
           }}
         />
       </div>
-      <span className="text-xs text-gray-500 w-10 text-right shrink-0">
+      <span className="text-xs text-su-muted w-10 text-right shrink-0">
         {count}
       </span>
     </div>
@@ -52,11 +52,11 @@ function BarRow({
 
 function StatCard({ label, value }: { label: string; value: string | number }) {
   return (
-    <div className="bg-white/[0.03] border border-white/5 rounded-xl p-3 text-center">
-      <div className="text-2xl font-bold text-white font-mono">
+    <div className="bg-su-line/10 border border-su-line/20 rounded-xl p-3 text-center">
+      <div className="text-2xl font-bold text-su-text font-mono">
         {typeof value === "number" ? value.toLocaleString() : value}
       </div>
-      <div className="text-xs text-gray-500 mt-0.5">{label}</div>
+      <div className="text-xs text-su-muted mt-0.5">{label}</div>
     </div>
   );
 }
@@ -91,11 +91,11 @@ export function QSOLogStats() {
 
   if (loading) {
     return (
-      <div className="bg-white/[0.03] backdrop-blur-md border border-white/10 rounded-2xl p-4 animate-pulse">
-        <div className="h-6 bg-white/5 rounded w-24 mb-4" />
+      <div className="bg-su-line/10 backdrop-blur-md border border-su-line/40 rounded-2xl p-4 animate-pulse">
+        <div className="h-6 bg-su-line/10 rounded w-24 mb-4" />
         <div className="grid grid-cols-4 gap-3">
           {Array.from({ length: 4 }).map((_, i) => (
-            <div key={i} className="h-16 bg-white/5 rounded-xl" />
+            <div key={i} className="h-16 bg-su-line/10 rounded-xl" />
           ))}
         </div>
       </div>
@@ -113,7 +113,7 @@ export function QSOLogStats() {
   const maxMode = modeEntries.length > 0 ? modeEntries[0][1] : 0;
 
   return (
-    <div className="bg-white/[0.03] backdrop-blur-md border border-white/10 rounded-2xl p-4 space-y-4">
+    <div className="bg-su-line/10 backdrop-blur-md border border-su-line/40 rounded-2xl p-4 space-y-4">
       {/* Stat Cards */}
       <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
         <StatCard label="Total QSOs" value={stats.totalQsos} />
@@ -126,7 +126,7 @@ export function QSOLogStats() {
       {/* Band Breakdown */}
       {bandEntries.length > 0 && (
         <div>
-          <h4 className="text-xs font-semibold uppercase tracking-wider text-gray-500 mb-2">
+          <h4 className="text-xs font-semibold uppercase tracking-wider text-su-muted mb-2">
             By Band
           </h4>
           <div className="space-y-1">
@@ -146,7 +146,7 @@ export function QSOLogStats() {
       {/* Mode Breakdown */}
       {modeEntries.length > 0 && (
         <div>
-          <h4 className="text-xs font-semibold uppercase tracking-wider text-gray-500 mb-2">
+          <h4 className="text-xs font-semibold uppercase tracking-wider text-su-muted mb-2">
             By Mode
           </h4>
           <div className="space-y-1">
@@ -216,7 +216,7 @@ export function QSOStatsPopover({ children }: QSOStatsPopoverProps) {
         createPortal(
           <div
             ref={panelRef}
-            className="fixed z-[9999] w-[420px] max-h-[70vh] overflow-y-auto rounded-2xl bg-void-black/95 backdrop-blur-xl border border-white/10 shadow-2xl shadow-black/50 animate-in fade-in slide-in-from-top-2 duration-200"
+            className="fixed z-[9999] w-[420px] max-h-[70vh] overflow-y-auto rounded-2xl bg-void-black/95 backdrop-blur-xl border border-su-line/40 shadow-2xl shadow-black/50 animate-in fade-in slide-in-from-top-2 duration-200"
             style={{ top: position.top, left: position.left }}
           >
             <div className="p-1">

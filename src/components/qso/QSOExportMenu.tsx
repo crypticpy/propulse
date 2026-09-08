@@ -36,10 +36,10 @@ function MenuItem({
       type="button"
       onClick={onClick}
       disabled={disabled}
-      className="w-full text-left px-4 py-2.5 hover:bg-white/5 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+      className="w-full text-left px-4 py-2.5 hover:bg-su-line/10 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
     >
-      <div className="text-sm text-white font-medium">{label}</div>
-      <div className="text-xs text-gray-500">{description}</div>
+      <div className="text-sm text-su-text font-medium">{label}</div>
+      <div className="text-xs text-su-muted">{description}</div>
     </button>
   );
 }
@@ -164,7 +164,7 @@ export function QSOExportMenu() {
       <button
         type="button"
         onClick={() => setOpen(!open)}
-        className="flex items-center gap-1.5 px-3 py-2 text-sm rounded-lg transition-colors bg-white/5 hover:bg-white/10 text-gray-300 border border-white/10"
+        className="flex items-center gap-1.5 px-3 py-2 text-sm rounded-lg transition-colors bg-su-line/10 hover:bg-su-line/20 text-su-muted border border-su-line/40"
       >
         <svg
           className="w-4 h-4"
@@ -196,10 +196,10 @@ export function QSOExportMenu() {
       </button>
 
       {open && (
-        <div className="absolute right-0 top-full mt-2 w-64 bg-deep-space border border-white/10 rounded-xl shadow-2xl overflow-hidden z-50 animate-in fade-in slide-in-from-top-2">
+        <div className="absolute right-0 top-full mt-2 w-64 bg-deep-space border border-su-line/40 rounded-xl shadow-2xl overflow-hidden z-50 animate-in fade-in slide-in-from-top-2">
           {/* ADIF Section */}
-          <div className="border-b border-white/5">
-            <div className="px-4 pt-3 pb-1 text-[10px] font-semibold uppercase tracking-wider text-gray-600">
+          <div className="border-b border-su-line/20">
+            <div className="px-4 pt-3 pb-1 text-[10px] font-semibold uppercase tracking-wider text-su-muted">
               ADIF (.adi)
             </div>
             <MenuItem
@@ -222,8 +222,8 @@ export function QSOExportMenu() {
           </div>
 
           {/* CSV Section */}
-          <div className="border-b border-white/5">
-            <div className="px-4 pt-3 pb-1 text-[10px] font-semibold uppercase tracking-wider text-gray-600">
+          <div className="border-b border-su-line/20">
+            <div className="px-4 pt-3 pb-1 text-[10px] font-semibold uppercase tracking-wider text-su-muted">
               CSV
             </div>
             <MenuItem
@@ -235,7 +235,7 @@ export function QSOExportMenu() {
 
           {/* Cabrillo Section */}
           <div>
-            <div className="px-4 pt-3 pb-1 text-[10px] font-semibold uppercase tracking-wider text-gray-600">
+            <div className="px-4 pt-3 pb-1 text-[10px] font-semibold uppercase tracking-wider text-su-muted">
               Cabrillo (.cbr)
             </div>
             <MenuItem

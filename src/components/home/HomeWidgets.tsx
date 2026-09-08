@@ -8,7 +8,7 @@ import { HistoryCard } from "@/components/dx/HistoryCard";
 const HistoryDetail = lazy(() => import("@/components/dx/modals/HistoryDetailModal").then(m => ({ default: m.HistoryDetailModal })));
 function HistoryWidget() {
   const [open, setOpen] = useState(false);
-  return <><HistoryCard onClick={() => setOpen(true)} />{open && <Suspense fallback={<p className="text-xs text-slate-400">Opening history…</p>}><HistoryDetail isOpen onClose={() => setOpen(false)} /></Suspense>}</>;
+  return <><HistoryCard onClick={() => setOpen(true)} />{open && <Suspense fallback={<p className="text-xs text-su-muted">Opening history…</p>}><HistoryDetail isOpen onClose={() => setOpen(false)} /></Suspense>}</>;
 }
 
 const widgets = { moon: MoonCard, planets: PlanetsCard, clocks: WorldClocksCard, countdowns: CountdownsCard, tides: TidesCard, environment: EnvironmentCard, metar: MetarCard, scope: QthScopeCard, volcanoes: VolcanoCard, dxpeditions: DxpeditionsCard, news: NewsFeedCard, contests: ContestWeatherCard, history: HistoryWidget };

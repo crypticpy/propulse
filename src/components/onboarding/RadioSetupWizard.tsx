@@ -446,7 +446,7 @@ function StepProgressBar({ current }: { current: WizardStep }) {
                       ? "bg-signal-green"
                       : isActive
                         ? "bg-plasma-orange"
-                        : "bg-white/20"
+                        : "bg-su-line/30"
                   }`}
                 />
               </div>
@@ -456,7 +456,7 @@ function StepProgressBar({ current }: { current: WizardStep }) {
                     ? "text-signal-green"
                     : isActive
                       ? "text-plasma-orange"
-                      : "text-white/30"
+                      : "text-su-text/80"
                 }`}
               >
                 {s.label}
@@ -467,7 +467,7 @@ function StepProgressBar({ current }: { current: WizardStep }) {
             {i < STEP_LABELS.length - 1 && (
               <div
                 className={`w-12 sm:w-16 h-px mx-2 mb-4 transition-colors duration-300 ${
-                  i < currentIdx ? "bg-signal-green" : "bg-white/10"
+                  i < currentIdx ? "bg-signal-green" : "bg-su-line/20"
                 }`}
               />
             )}
@@ -598,10 +598,10 @@ function DetectionStep({ setup }: { setup: UseRadioSetupReturn }) {
 
   return (
     <div className="px-6 py-6 sm:px-8 sm:py-8">
-      <h2 className="font-orbitron text-lg sm:text-xl font-bold text-white tracking-wide text-center mb-1">
+      <h2 className="font-orbitron text-lg sm:text-xl font-bold text-su-text tracking-wide text-center mb-1">
         Detecting Your Setup
       </h2>
-      <p className="text-xs text-gray-500 text-center mb-6">
+      <p className="text-xs text-su-muted text-center mb-6">
         Scanning for bridge daemon and connected radios
       </p>
 
@@ -623,7 +623,7 @@ function DetectionStep({ setup }: { setup: UseRadioSetupReturn }) {
             />
           ))}
           {/* Center icon */}
-          <div className="relative z-10 w-10 h-10 rounded-full bg-gray-800 border border-white/10 flex items-center justify-center">
+          <div className="relative z-10 w-10 h-10 rounded-full bg-su-panel border border-su-line/40 flex items-center justify-center">
             <RadioTowerIcon className="w-5 h-5 text-plasma-orange" />
           </div>
         </div>
@@ -634,7 +634,7 @@ function DetectionStep({ setup }: { setup: UseRadioSetupReturn }) {
         {items.map((item) => (
           <div
             key={item.id}
-            className="bg-white/[0.03] border border-white/5 rounded-xl p-3 flex items-center gap-3 animate-fadeSlideIn"
+            className="bg-su-line/10 border border-su-line/20 rounded-xl p-3 flex items-center gap-3 animate-fadeSlideIn"
           >
             {/* Status icon */}
             <div className="w-5 h-5 shrink-0 flex items-center justify-center">
@@ -662,13 +662,13 @@ function DetectionStep({ setup }: { setup: UseRadioSetupReturn }) {
                       ? "text-alert-red"
                       : item.status === "warning"
                         ? "text-caution-amber"
-                        : "text-gray-300"
+                        : "text-su-muted"
                 }`}
               >
                 {item.label}
               </span>
               {item.detail && (
-                <span className="ml-2 text-xs text-gray-500">
+                <span className="ml-2 text-xs text-su-muted">
                   {item.detail}
                 </span>
               )}
@@ -700,17 +700,17 @@ function DetectionStep({ setup }: { setup: UseRadioSetupReturn }) {
           </button>
 
           {showInstall && (
-            <div className="bg-white/[0.03] border border-white/5 rounded-xl p-4 mb-4 text-xs space-y-2">
-              <p className="text-gray-400">
-                <span className="font-semibold text-gray-300">
+            <div className="bg-su-line/10 border border-su-line/20 rounded-xl p-4 mb-4 text-xs space-y-2">
+              <p className="text-su-muted">
+                <span className="font-semibold text-su-muted">
                   {platformInfo.platform}:
                 </span>{" "}
                 {platformInfo.prereq}
               </p>
-              <div className="bg-black/40 rounded-lg px-3 py-2 font-mono text-gray-300 select-all">
+              <div className="bg-su-input rounded-lg px-3 py-2 font-mono text-su-muted select-all">
                 {platformInfo.installCmd}
               </div>
-              <p className="text-gray-500 text-[11px]">
+              <p className="text-su-muted text-[11px]">
                 The bridge daemon connects ProPulse to your radio via USB or
                 network.
               </p>
@@ -730,7 +730,7 @@ function DetectionStep({ setup }: { setup: UseRadioSetupReturn }) {
             </button>
             <button
               onClick={skipSetup}
-              className="px-4 py-2 rounded-lg text-sm text-gray-400 hover:text-gray-300 transition-colors"
+              className="px-4 py-2 rounded-lg text-sm text-su-muted hover:text-su-text transition-colors"
             >
               I'll Set This Up Later
             </button>
@@ -749,7 +749,7 @@ function DetectionStep({ setup }: { setup: UseRadioSetupReturn }) {
           </button>
           <button
             onClick={skipSetup}
-            className="px-4 py-2 rounded-lg text-sm text-gray-400 hover:text-gray-300 transition-colors"
+            className="px-4 py-2 rounded-lg text-sm text-su-muted hover:text-su-text transition-colors"
           >
             Skip
           </button>
@@ -766,14 +766,14 @@ function ConfigurationStep({ setup }: { setup: UseRadioSetupReturn }) {
   const [showManual, setShowManual] = useState(!detection.selectedRadio);
 
   const inputClass =
-    "w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder-white/30 focus:border-plasma-orange/50 focus:ring-1 focus:ring-plasma-orange/30 outline-none transition-colors";
+    "w-full bg-su-line/10 border border-su-line/40 rounded-lg px-3 py-2 text-sm text-su-text placeholder:text-su-muted/80 focus:border-plasma-orange/50 focus:ring-1 focus:ring-plasma-orange/30 outline-none transition-colors";
 
   return (
     <div className="px-6 py-6 sm:px-8 sm:py-8">
-      <h2 className="font-orbitron text-lg sm:text-xl font-bold text-white tracking-wide text-center mb-1">
+      <h2 className="font-orbitron text-lg sm:text-xl font-bold text-su-text tracking-wide text-center mb-1">
         Configure Connection
       </h2>
-      <p className="text-xs text-gray-500 text-center mb-6">
+      <p className="text-xs text-su-muted text-center mb-6">
         {detection.selectedRadio
           ? "Review your auto-detected settings"
           : "Select your radio backend and configure"}
@@ -781,26 +781,26 @@ function ConfigurationStep({ setup }: { setup: UseRadioSetupReturn }) {
 
       {/* Auto-filled summary when a radio was detected */}
       {detection.selectedRadio && !showManual && (
-        <div className="bg-white/[0.03] border border-white/10 rounded-xl p-5 mb-6">
+        <div className="bg-su-line/10 border border-su-line/40 rounded-xl p-5 mb-6">
           <div className="flex items-start gap-3 mb-4">
             <div className="w-9 h-9 shrink-0 rounded-lg bg-signal-green/15 text-signal-green flex items-center justify-center">
               <RadioTowerIcon className="w-5 h-5" />
             </div>
             <div className="min-w-0">
-              <h3 className="text-sm font-semibold text-white mb-0.5">
+              <h3 className="text-sm font-semibold text-su-text mb-0.5">
                 {detection.selectedRadio.modelName} Detected
               </h3>
-              <div className="space-y-1 text-xs text-gray-400">
+              <div className="space-y-1 text-xs text-su-muted">
                 <p>
-                  <span className="text-gray-500">Port:</span>{" "}
+                  <span className="text-su-muted">Port:</span>{" "}
                   {detection.selectedRadio.port}
                 </p>
                 <p>
-                  <span className="text-gray-500">Baud Rate:</span>{" "}
+                  <span className="text-su-muted">Baud Rate:</span>{" "}
                   {detection.selectedRadio.baudRate}
                 </p>
                 <p>
-                  <span className="text-gray-500">Backend:</span> ICOM Direct
+                  <span className="text-su-muted">Backend:</span> ICOM Direct
                   (USB)
                 </p>
               </div>
@@ -812,13 +812,13 @@ function ConfigurationStep({ setup }: { setup: UseRadioSetupReturn }) {
               onClick={() => {
                 testConnection();
               }}
-              className="px-5 py-2.5 rounded-xl text-sm font-semibold bg-gradient-to-r from-plasma-orange to-amber-500 text-white hover:brightness-110 transition-all"
+              className="px-5 py-2.5 rounded-xl text-sm font-semibold bg-gradient-to-r from-plasma-orange to-amber-500 text-su-text hover:brightness-110 transition-all"
             >
               Looks Good!
             </button>
             <button
               onClick={() => setShowManual(true)}
-              className="text-sm text-gray-400 hover:text-gray-300 transition-colors flex items-center gap-1"
+              className="text-sm text-su-muted hover:text-su-text transition-colors flex items-center gap-1"
             >
               Change
               <ChevronDownIcon className="w-3.5 h-3.5" />
@@ -840,16 +840,16 @@ function ConfigurationStep({ setup }: { setup: UseRadioSetupReturn }) {
                   className={`p-3 rounded-xl text-left transition-colors cursor-pointer border ${
                     isSelected
                       ? "border-plasma-orange/50 bg-plasma-orange/10"
-                      : "border-white/5 bg-white/[0.03] hover:bg-white/[0.06]"
+                      : "border-su-line/20 bg-su-line/10 hover:bg-su-line/20"
                   }`}
                 >
-                  <div className="w-6 h-6 mb-1.5 text-gray-400">
+                  <div className="w-6 h-6 mb-1.5 text-su-muted">
                     <BackendIcon iconId={b.iconId} className="w-6 h-6" />
                   </div>
-                  <h4 className="text-xs font-semibold text-white mb-0.5">
+                  <h4 className="text-xs font-semibold text-su-text mb-0.5">
                     {b.label}
                   </h4>
-                  <p className="text-[10px] text-gray-500">{b.desc}</p>
+                  <p className="text-[10px] text-su-muted">{b.desc}</p>
                 </button>
               );
             })}
@@ -860,7 +860,7 @@ function ConfigurationStep({ setup }: { setup: UseRadioSetupReturn }) {
             {config.catBackend === "icom-serial" && (
               <>
                 <div>
-                  <label className="block text-xs text-gray-400 mb-1">
+                  <label className="block text-xs text-su-muted mb-1">
                     Serial Port
                   </label>
                   {detection.radios.length > 0 ? (
@@ -891,7 +891,7 @@ function ConfigurationStep({ setup }: { setup: UseRadioSetupReturn }) {
                 </div>
 
                 <div>
-                  <label className="block text-xs text-gray-400 mb-1.5">
+                  <label className="block text-xs text-su-muted mb-1.5">
                     Baud Rate
                   </label>
                   <div className="flex gap-2">
@@ -902,7 +902,7 @@ function ConfigurationStep({ setup }: { setup: UseRadioSetupReturn }) {
                         className={`flex-1 py-2 rounded-lg text-xs font-medium transition-colors border ${
                           config.icomBaudRate === rate
                             ? "bg-plasma-orange/15 border-plasma-orange/40 text-plasma-orange"
-                            : "bg-white/5 border-white/10 text-gray-400 hover:bg-white/[0.08]"
+                            : "bg-su-line/10 border-su-line/40 text-su-muted hover:bg-su-line/20"
                         }`}
                       >
                         {rate.toLocaleString()}
@@ -912,8 +912,8 @@ function ConfigurationStep({ setup }: { setup: UseRadioSetupReturn }) {
                 </div>
 
                 {detection.selectedRadio && (
-                  <p className="text-xs text-gray-500">
-                    <span className="text-gray-400">Model:</span>{" "}
+                  <p className="text-xs text-su-muted">
+                    <span className="text-su-muted">Model:</span>{" "}
                     {detection.selectedRadio.modelName}
                   </p>
                 )}
@@ -923,7 +923,7 @@ function ConfigurationStep({ setup }: { setup: UseRadioSetupReturn }) {
             {config.catBackend === "icom-network" && (
               <>
                 <div>
-                  <label className="block text-xs text-gray-400 mb-1">
+                  <label className="block text-xs text-su-muted mb-1">
                     Host IP
                   </label>
                   <input
@@ -937,7 +937,7 @@ function ConfigurationStep({ setup }: { setup: UseRadioSetupReturn }) {
                   />
                 </div>
                 <div>
-                  <label className="block text-xs text-gray-400 mb-1">
+                  <label className="block text-xs text-su-muted mb-1">
                     Username
                   </label>
                   <input
@@ -951,7 +951,7 @@ function ConfigurationStep({ setup }: { setup: UseRadioSetupReturn }) {
                   />
                 </div>
                 <div>
-                  <label className="block text-xs text-gray-400 mb-1">
+                  <label className="block text-xs text-su-muted mb-1">
                     Password
                   </label>
                   <input
@@ -970,7 +970,7 @@ function ConfigurationStep({ setup }: { setup: UseRadioSetupReturn }) {
             {config.catBackend === "hamlib" && (
               <>
                 <div>
-                  <label className="block text-xs text-gray-400 mb-1">
+                  <label className="block text-xs text-su-muted mb-1">
                     Host
                   </label>
                   <input
@@ -982,7 +982,7 @@ function ConfigurationStep({ setup }: { setup: UseRadioSetupReturn }) {
                   />
                 </div>
                 <div>
-                  <label className="block text-xs text-gray-400 mb-1">
+                  <label className="block text-xs text-su-muted mb-1">
                     Port
                   </label>
                   <input
@@ -990,15 +990,15 @@ function ConfigurationStep({ setup }: { setup: UseRadioSetupReturn }) {
                     value={config.hamlibPort}
                     onChange={(e) =>
                       setConfig({
-                        hamlibPort: parseInt(e.target.value, 10) || 4533,
+                        hamlibPort: parseInt(e.target.value, 10) || 4532,
                       })
                     }
-                    placeholder="4533"
+                    placeholder="4532"
                     className={inputClass}
                   />
                 </div>
                 <div>
-                  <label className="block text-xs text-gray-400 mb-1">
+                  <label className="block text-xs text-su-muted mb-1">
                     WFView CI-V Port (optional)
                   </label>
                   <input
@@ -1019,7 +1019,7 @@ function ConfigurationStep({ setup }: { setup: UseRadioSetupReturn }) {
             {config.catBackend === "flrig" && (
               <>
                 <div>
-                  <label className="block text-xs text-gray-400 mb-1">
+                  <label className="block text-xs text-su-muted mb-1">
                     Host
                   </label>
                   <input
@@ -1031,7 +1031,7 @@ function ConfigurationStep({ setup }: { setup: UseRadioSetupReturn }) {
                   />
                 </div>
                 <div>
-                  <label className="block text-xs text-gray-400 mb-1">
+                  <label className="block text-xs text-su-muted mb-1">
                     Port
                   </label>
                   <input
@@ -1054,7 +1054,7 @@ function ConfigurationStep({ setup }: { setup: UseRadioSetupReturn }) {
           <div className="flex items-center justify-between">
             <button
               onClick={() => goToStep("detecting")}
-              className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm text-gray-400 hover:text-gray-300 transition-colors"
+              className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm text-su-muted hover:text-su-text transition-colors"
             >
               <ArrowLeftIcon className="w-3.5 h-3.5" />
               Back
@@ -1063,7 +1063,7 @@ function ConfigurationStep({ setup }: { setup: UseRadioSetupReturn }) {
               onClick={() => {
                 testConnection();
               }}
-              className="flex items-center gap-1.5 px-5 py-2.5 rounded-xl text-sm font-semibold bg-gradient-to-r from-plasma-orange to-amber-500 text-white hover:brightness-110 transition-all"
+              className="flex items-center gap-1.5 px-5 py-2.5 rounded-xl text-sm font-semibold bg-gradient-to-r from-plasma-orange to-amber-500 text-su-text hover:brightness-110 transition-all"
             >
               Test Connection
               <ArrowRightIcon className="w-3.5 h-3.5" />
@@ -1175,10 +1175,10 @@ function TestingStep({ setup }: { setup: UseRadioSetupReturn }) {
 
   return (
     <div className="px-6 py-6 sm:px-8 sm:py-8">
-      <h2 className="font-orbitron text-lg sm:text-xl font-bold text-white tracking-wide text-center mb-1">
+      <h2 className="font-orbitron text-lg sm:text-xl font-bold text-su-text tracking-wide text-center mb-1">
         Testing Connection
       </h2>
-      <p className="text-xs text-gray-500 text-center mb-6">
+      <p className="text-xs text-su-muted text-center mb-6">
         Verifying radio communication via {backendLabel}
       </p>
 
@@ -1187,8 +1187,8 @@ function TestingStep({ setup }: { setup: UseRadioSetupReturn }) {
         {phases.map((p) => (
           <div
             key={p.id}
-            className={`bg-white/[0.03] border rounded-xl p-3 flex items-center gap-3 transition-colors ${
-              p.status === "error" ? "border-alert-red/30" : "border-white/5"
+            className={`bg-su-line/10 border rounded-xl p-3 flex items-center gap-3 transition-colors ${
+              p.status === "error" ? "border-alert-red/30" : "border-su-line/20"
             }`}
           >
             <div className="w-5 h-5 shrink-0 flex items-center justify-center">
@@ -1202,7 +1202,7 @@ function TestingStep({ setup }: { setup: UseRadioSetupReturn }) {
                 <XIcon className="w-5 h-5 text-alert-red" />
               )}
               {p.status === "pending" && (
-                <div className="w-2 h-2 rounded-full bg-white/15" />
+                <div className="w-2 h-2 rounded-full bg-su-line/30" />
               )}
             </div>
             <span
@@ -1212,14 +1212,14 @@ function TestingStep({ setup }: { setup: UseRadioSetupReturn }) {
                   : p.status === "error"
                     ? "text-alert-red"
                     : p.status === "active"
-                      ? "text-gray-300"
-                      : "text-gray-600"
+                      ? "text-su-muted"
+                      : "text-su-muted"
               }`}
             >
               {p.label}
             </span>
             {p.detail && (
-              <span className="text-xs text-gray-400 font-mono">
+              <span className="text-xs text-su-muted font-mono">
                 {p.detail}
               </span>
             )}
@@ -1229,7 +1229,7 @@ function TestingStep({ setup }: { setup: UseRadioSetupReturn }) {
 
       {/* Success mini dashboard */}
       {testResult.status === "success" && (
-        <div className="bg-white/[0.03] border border-signal-green/20 rounded-xl p-4 mb-5">
+        <div className="bg-su-line/10 border border-signal-green/20 rounded-xl p-4 mb-5">
           <div className="flex items-center gap-2 mb-3">
             <CheckIcon className="w-4 h-4 text-signal-green" />
             <span className="text-sm font-semibold text-signal-green">
@@ -1237,10 +1237,10 @@ function TestingStep({ setup }: { setup: UseRadioSetupReturn }) {
             </span>
           </div>
 
-          <div className="bg-black/30 rounded-lg p-3 space-y-2.5">
+          <div className="bg-su-input rounded-lg p-3 space-y-2.5">
             {/* Frequency + Mode */}
             <div className="flex items-baseline justify-between">
-              <span className="font-mono text-lg text-white tracking-wider">
+              <span className="font-mono text-lg text-su-text tracking-wider">
                 {testResult.frequency
                   ? `${formatFrequency(testResult.frequency)} MHz`
                   : "-- MHz"}
@@ -1254,13 +1254,13 @@ function TestingStep({ setup }: { setup: UseRadioSetupReturn }) {
 
             {/* S-meter bar */}
             <div className="space-y-1">
-              <div className="h-2 w-full bg-white/5 rounded-full overflow-hidden">
+              <div className="h-2 w-full bg-su-line/10 rounded-full overflow-hidden">
                 <div
                   className={`h-full rounded-full transition-all duration-500 ${sMeterColor(-68)}`}
                   style={{ width: "58%" }}
                 />
               </div>
-              <div className="flex justify-between text-[10px] text-gray-500">
+              <div className="flex justify-between text-[10px] text-su-muted">
                 <span>{sMeterLabel(-68)}</span>
                 <span>-68 dBm</span>
               </div>
@@ -1270,7 +1270,7 @@ function TestingStep({ setup }: { setup: UseRadioSetupReturn }) {
             {testResult.hasSpectrum && (
               <div className="flex items-center gap-1.5">
                 <CheckIcon className="w-3 h-3 text-signal-green" />
-                <span className="text-xs text-gray-400">
+                <span className="text-xs text-su-muted">
                   Spectrum: Available
                 </span>
               </div>
@@ -1279,7 +1279,7 @@ function TestingStep({ setup }: { setup: UseRadioSetupReturn }) {
 
           <button
             onClick={() => goToStep("complete")}
-            className="mt-4 w-full flex items-center justify-center gap-1.5 px-5 py-2.5 rounded-xl text-sm font-semibold bg-gradient-to-r from-plasma-orange to-amber-500 text-white hover:brightness-110 transition-all"
+            className="mt-4 w-full flex items-center justify-center gap-1.5 px-5 py-2.5 rounded-xl text-sm font-semibold bg-gradient-to-r from-plasma-orange to-amber-500 text-su-text hover:brightness-110 transition-all"
           >
             Continue
             <ArrowRightIcon className="w-3.5 h-3.5" />
@@ -1296,7 +1296,7 @@ function TestingStep({ setup }: { setup: UseRadioSetupReturn }) {
               Connection Failed
             </span>
           </div>
-          <p className="text-xs text-gray-400 mb-4">
+          <p className="text-xs text-su-muted mb-4">
             {testResult.errorMessage ?? "Could not establish radio link"}
           </p>
           <div className="flex items-center gap-3">
@@ -1308,7 +1308,7 @@ function TestingStep({ setup }: { setup: UseRadioSetupReturn }) {
             </button>
             <button
               onClick={() => goToStep("configuring")}
-              className="px-4 py-2 rounded-lg text-sm text-gray-400 hover:text-gray-300 transition-colors"
+              className="px-4 py-2 rounded-lg text-sm text-su-muted hover:text-su-text transition-colors"
             >
               Change Settings
             </button>
@@ -1390,12 +1390,12 @@ function SuccessStep({ setup }: { setup: UseRadioSetupReturn }) {
       <h2 className="font-orbitron text-lg sm:text-xl font-bold text-signal-green tracking-wide text-center mb-1 relative z-20">
         You're All Set!
       </h2>
-      <p className="text-xs text-gray-500 text-center mb-6 relative z-20">
+      <p className="text-xs text-su-muted text-center mb-6 relative z-20">
         Your radio is connected and ready to operate
       </p>
 
       {/* Summary card */}
-      <div className="relative z-20 bg-white/[0.03] border border-white/10 rounded-xl p-5 mb-6">
+      <div className="relative z-20 bg-su-line/10 border border-su-line/40 rounded-xl p-5 mb-6">
         <div className="flex items-center gap-2 mb-3">
           <CheckIcon className="w-5 h-5 text-signal-green" />
           <h3 className="text-sm font-semibold text-signal-green">
@@ -1405,17 +1405,17 @@ function SuccessStep({ setup }: { setup: UseRadioSetupReturn }) {
 
         <div className="space-y-2 text-xs">
           <div className="flex items-center justify-between">
-            <span className="text-gray-400">{radioName}</span>
-            <span className="text-gray-500">{backendLabel}</span>
+            <span className="text-su-muted">{radioName}</span>
+            <span className="text-su-muted">{backendLabel}</span>
           </div>
 
           {testResult.frequency && (
             <div className="flex items-center justify-between">
-              <span className="font-mono text-white">
+              <span className="font-mono text-su-text">
                 {formatFrequency(testResult.frequency)} MHz
               </span>
               {testResult.mode && (
-                <span className="text-gray-400">{testResult.mode} mode</span>
+                <span className="text-su-muted">{testResult.mode} mode</span>
               )}
             </div>
           )}
@@ -1423,7 +1423,7 @@ function SuccessStep({ setup }: { setup: UseRadioSetupReturn }) {
           {testResult.hasSpectrum && (
             <div className="flex items-center gap-1.5">
               <CheckIcon className="w-3 h-3 text-signal-green" />
-              <span className="text-gray-400">Spectrum Available</span>
+              <span className="text-su-muted">Spectrum Available</span>
             </div>
           )}
         </div>
@@ -1435,13 +1435,13 @@ function SuccessStep({ setup }: { setup: UseRadioSetupReturn }) {
           onClick={() => {
             navigate("/sdr");
           }}
-          className="w-full max-w-xs px-6 py-3 rounded-xl text-sm font-semibold bg-gradient-to-r from-plasma-orange to-amber-500 text-white hover:brightness-110 transition-all"
+          className="w-full max-w-xs px-6 py-3 rounded-xl text-sm font-semibold bg-gradient-to-r from-plasma-orange to-amber-500 text-su-text hover:brightness-110 transition-all"
         >
           Open SDR Console
         </button>
         <button
           onClick={skipSetup}
-          className="text-sm text-gray-400 hover:text-gray-300 transition-colors"
+          className="text-sm text-su-muted hover:text-su-text transition-colors"
         >
           Continue to Dashboard
         </button>
@@ -1518,11 +1518,11 @@ export function RadioSetupWizard() {
       />
 
       {/* Panel */}
-      <div className="relative w-full max-w-xl bg-gray-900/95 backdrop-blur-xl border border-white/10 rounded-2xl shadow-2xl overflow-hidden max-h-[90vh] overflow-y-auto">
+      <div className="relative w-full max-w-xl bg-su-canvas/95 backdrop-blur-xl border border-su-line/40 rounded-2xl shadow-2xl overflow-hidden max-h-[90vh] overflow-y-auto">
         {/* Close button */}
         <button
           onClick={setup.skipSetup}
-          className="absolute top-4 right-4 z-30 w-8 h-8 flex items-center justify-center rounded-lg text-gray-500 hover:text-gray-300 hover:bg-white/5 transition-colors"
+          className="absolute top-4 right-4 z-30 w-8 h-8 flex items-center justify-center rounded-lg text-su-muted hover:text-su-text hover:bg-su-line/10 transition-colors"
           aria-label="Close setup wizard"
         >
           <CloseIcon className="w-4 h-4" />

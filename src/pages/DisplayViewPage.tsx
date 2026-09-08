@@ -38,13 +38,13 @@ export function DisplayViewPage() {
 
   return (
     <div className="fixed inset-0 bg-void-black flex flex-col items-center justify-center gap-4 select-none">
-      <div className="font-mono text-3xl text-gray-500 tabular-nums tracking-widest">
+      <div className="font-mono text-3xl text-su-muted tabular-nums tracking-widest">
         {utc} UTC
       </div>
-      <div className="font-orbitron text-2xl text-white">
+      <div className="font-orbitron text-2xl text-su-text">
         {pairedName ?? "Display"}
       </div>
-      <p className="text-gray-500 font-mono text-sm tracking-wide">
+      <p className="text-su-muted font-mono text-sm tracking-wide">
         Paired — waiting for a scene…
       </p>
     </div>

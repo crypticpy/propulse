@@ -165,13 +165,13 @@ export function QSOTable({
   };
 
   const headerClass =
-    "px-4 py-3 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider cursor-pointer hover:text-white transition-colors select-none";
+    "px-4 py-3 text-left text-xs font-semibold text-su-muted uppercase tracking-wider cursor-pointer hover:text-su-text transition-colors select-none";
 
   if (loading) {
     return (
       <Card className="p-6">
         <div className="flex items-center justify-center py-12">
-          <div className="flex items-center gap-3 text-gray-400">
+          <div className="flex items-center gap-3 text-su-muted">
             <svg
               className="w-6 h-6 animate-spin"
               fill="none"
@@ -201,7 +201,7 @@ export function QSOTable({
   if (entries.length === 0) {
     return (
       <Card className="p-6">
-        <div className="flex flex-col items-center justify-center py-12 text-gray-400">
+        <div className="flex flex-col items-center justify-center py-12 text-su-muted">
           <svg
             className="w-12 h-12 mb-4 opacity-50"
             fill="none"
@@ -228,7 +228,7 @@ export function QSOTable({
     <Card className="p-0 overflow-hidden">
       <div className="overflow-x-auto">
         <table className="w-full">
-          <thead className="bg-white/5 border-b border-white/10">
+          <thead className="bg-su-line/10 border-b border-su-line/40">
             <tr>
               <th className={headerClass} onClick={() => handleSort("date")}>
                 <div className="flex items-center gap-1">
@@ -263,29 +263,29 @@ export function QSOTable({
                   <SortIcon field="name" />
                 </div>
               </th>
-              <th className="px-4 py-3 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider">
+              <th className="px-4 py-3 text-left text-xs font-semibold text-su-muted uppercase tracking-wider">
                 RST
               </th>
               {onDelete && <th className="px-4 py-3 w-16" />}
             </tr>
           </thead>
-          <tbody className="divide-y divide-white/5">
+          <tbody className="divide-y divide-su-line/20">
             {sortedEntries.map((entry) => (
               <tr
                 key={entry.id}
                 className={`
-                  transition-colors hover:bg-white/5
+                  transition-colors hover:bg-su-line/10
                   ${entry.isGuestEntry ? "bg-cosmic-cyan/5" : ""}
                 `}
               >
-                <td className="px-4 py-3 text-sm text-gray-300 whitespace-nowrap">
+                <td className="px-4 py-3 text-sm text-su-muted whitespace-nowrap">
                   <div className="font-mono">
                     {formatDate(entry.date)} {entry.timeOn}
                   </div>
                 </td>
                 <td className="px-4 py-3 whitespace-nowrap">
                   <div className="flex items-center gap-2">
-                    <span className="font-mono font-semibold text-white">
+                    <span className="font-mono font-semibold text-su-text">
                       {entry.callsign}
                     </span>
                     {entry.isGuestEntry && entry.operatorCallsign && (
@@ -296,20 +296,20 @@ export function QSOTable({
                     )}
                   </div>
                 </td>
-                <td className="px-4 py-3 text-sm text-gray-300 whitespace-nowrap">
+                <td className="px-4 py-3 text-sm text-su-muted whitespace-nowrap">
                   <span className="px-2 py-0.5 bg-aurora-purple/20 text-aurora-purple rounded text-xs font-mono">
                     {entry.band}
                   </span>
                 </td>
-                <td className="px-4 py-3 text-sm text-gray-300 whitespace-nowrap">
+                <td className="px-4 py-3 text-sm text-su-muted whitespace-nowrap">
                   <span className="px-2 py-0.5 bg-plasma-orange/20 text-plasma-orange rounded text-xs font-mono">
                     {entry.mode}
                   </span>
                 </td>
-                <td className="px-4 py-3 text-sm text-gray-300">
+                <td className="px-4 py-3 text-sm text-su-muted">
                   {entry.name || "-"}
                 </td>
-                <td className="px-4 py-3 text-sm text-gray-400 whitespace-nowrap font-mono">
+                <td className="px-4 py-3 text-sm text-su-muted whitespace-nowrap font-mono">
                   {entry.rstSent && entry.rstRcvd
                     ? `${entry.rstSent}/${entry.rstRcvd}`
                     : entry.rstSent || entry.rstRcvd || "-"}
@@ -341,7 +341,7 @@ export function QSOTable({
                         <button
                           onClick={handleDeleteCancel}
                           disabled={isDeleting}
-                          className="p-1 text-gray-400 hover:bg-white/10 rounded transition-colors"
+                          className="p-1 text-su-muted hover:bg-su-line/20 rounded transition-colors"
                           title="Cancel"
                         >
                           <svg
@@ -362,7 +362,7 @@ export function QSOTable({
                     ) : (
                       <button
                         onClick={() => handleDeleteClick(entry.id)}
-                        className="p-1 text-gray-500 hover:text-alert-red hover:bg-alert-red/10 rounded transition-colors"
+                        className="p-1 text-su-muted hover:text-alert-red hover:bg-alert-red/10 rounded transition-colors"
                         title="Delete entry"
                       >
                         <svg
@@ -389,9 +389,9 @@ export function QSOTable({
       </div>
 
       {/* Footer */}
-      <div className="px-4 py-3 bg-white/5 border-t border-white/10 flex items-center justify-between text-sm text-gray-400">
+      <div className="px-4 py-3 bg-su-line/10 border-t border-su-line/40 flex items-center justify-between text-sm text-su-muted">
         <div>
-          <span className="font-medium text-white">{entries.length}</span>{" "}
+          <span className="font-medium text-su-text">{entries.length}</span>{" "}
           {entries.length === 1 ? "QSO" : "QSOs"} total
         </div>
         {guestEntryCount > 0 && (

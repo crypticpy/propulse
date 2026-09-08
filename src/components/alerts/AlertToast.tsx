@@ -261,7 +261,7 @@ export const AlertToast: React.FC<AlertToastProps> = ({
         ${isExiting ? "translate-x-full opacity-0" : isEntered ? "translate-x-0 opacity-100" : "translate-x-full opacity-0"}
         ${isCritical ? "ring-2 ring-alert-red/50" : alert.priority === "WARNING" ? "ring-1 ring-caution-amber/30" : "ring-1 ring-cosmic-cyan/20"}
         hover:scale-[1.02] hover:shadow-xl
-        focus:outline-none focus:ring-2 focus:ring-white/20
+        focus:outline-none focus:ring-2 focus:ring-su-line/50
       `}
       onClick={handleClick}
       onKeyDown={handleKeyDown}
@@ -288,7 +288,7 @@ export const AlertToast: React.FC<AlertToastProps> = ({
           <div className="flex-1 min-w-0">
             {/* Title with priority badge for critical */}
             <div className="flex items-center gap-2">
-              <h4 className="text-sm font-mono font-semibold text-white truncate">
+              <h4 className="text-sm font-mono font-semibold text-su-text truncate">
                 {alert.title}
               </h4>
               {isCritical && (
@@ -305,13 +305,13 @@ export const AlertToast: React.FC<AlertToastProps> = ({
             </div>
 
             {/* Message - truncated to 2 lines */}
-            <p className="text-xs text-gray-300 line-clamp-2 mt-0.5 leading-relaxed">
+            <p className="text-xs text-su-muted line-clamp-2 mt-0.5 leading-relaxed">
               {alert.message}
             </p>
 
             {/* Affected bands indicator (if any) */}
             {alert.affectedBands.length > 0 && (
-              <p className="text-[10px] text-gray-400 mt-1 font-mono truncate">
+              <p className="text-[10px] text-su-muted mt-1 font-mono truncate">
                 Affects: {alert.affectedBands.slice(0, 3).join(", ")}
                 {alert.affectedBands.length > 3 &&
                   ` +${alert.affectedBands.length - 3}`}
@@ -328,10 +328,10 @@ export const AlertToast: React.FC<AlertToastProps> = ({
             }}
             className={`
               flex-shrink-0 p-1.5 rounded
-              text-gray-400 hover:text-white
-              hover:bg-white/10
+              text-su-muted hover:text-su-text
+              hover:bg-su-line/20
               transition-colors duration-150
-              focus:outline-none focus:ring-2 focus:ring-white/20
+              focus:outline-none focus:ring-2 focus:ring-su-line/50
             `}
             aria-label="Dismiss alert"
           >
@@ -342,7 +342,7 @@ export const AlertToast: React.FC<AlertToastProps> = ({
 
       {/* Progress bar for auto-dismiss countdown */}
       {autoDismissMs && (
-        <div className="h-0.5 bg-gray-800 rounded-b-lg overflow-hidden">
+        <div className="h-0.5 bg-su-panel rounded-b-lg overflow-hidden">
           <div
             className={`h-full ${colors.bg} transition-[width] duration-50 ease-linear`}
             style={{ width: `${progress}%` }}

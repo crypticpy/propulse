@@ -45,7 +45,7 @@ const MILESTONE_CONFIG: Record<
   "25": {
     label: "25th CHECK-IN",
     badge: "Silver",
-    borderClass: "border-gray-300/30",
+    borderClass: "border-su-line/60",
     borderRgba: "rgba(209, 213, 219, 0.3)",
     animated: false,
   },
@@ -81,7 +81,7 @@ const MILESTONE_CONFIG: Record<
 
 const BADGE_COLORS: Record<string, string> = {
   Bronze: "bg-amber-700/30 text-amber-400 border-amber-500/30",
-  Silver: "bg-gray-500/20 text-gray-300 border-gray-400/30",
+  Silver: "bg-su-line/20 text-su-muted border-su-line/60",
   Gold: "bg-yellow-600/20 text-yellow-400 border-yellow-500/30",
   Platinum: "bg-plasma-orange/20 text-plasma-orange border-plasma-orange/30",
   Diamond: "bg-red-500/20 text-red-400 border-red-500/30",
@@ -293,21 +293,21 @@ export function NetMilestoneCard(props: NetMilestoneCardProps) {
         )}
 
         {/* Inner double border */}
-        <div className="absolute inset-2 border border-white/[0.06] rounded pointer-events-none" />
+        <div className="absolute inset-2 border border-su-line/20 rounded pointer-events-none" />
 
         {/* Corner brackets — top-left */}
-        <div className="absolute top-3 left-3 w-4 h-4 border-t border-l border-white/[0.12] pointer-events-none" />
+        <div className="absolute top-3 left-3 w-4 h-4 border-t border-l border-su-line/50 pointer-events-none" />
         {/* Corner brackets — top-right */}
-        <div className="absolute top-3 right-3 w-4 h-4 border-t border-r border-white/[0.12] pointer-events-none" />
+        <div className="absolute top-3 right-3 w-4 h-4 border-t border-r border-su-line/50 pointer-events-none" />
         {/* Corner brackets — bottom-left */}
-        <div className="absolute bottom-3 left-3 w-4 h-4 border-b border-l border-white/[0.12] pointer-events-none" />
+        <div className="absolute bottom-3 left-3 w-4 h-4 border-b border-l border-su-line/50 pointer-events-none" />
         {/* Corner brackets — bottom-right */}
-        <div className="absolute bottom-3 right-3 w-4 h-4 border-b border-r border-white/[0.12] pointer-events-none" />
+        <div className="absolute bottom-3 right-3 w-4 h-4 border-b border-r border-su-line/50 pointer-events-none" />
 
         {/* Card content */}
         <div className="relative z-[1] flex flex-col items-center justify-center h-full px-6 py-5 text-center">
           {/* Header */}
-          <span className="text-[10px] uppercase tracking-[0.3em] text-gray-400 mb-1">
+          <span className="text-[10px] uppercase tracking-[0.3em] text-su-muted mb-1">
             PROPULSE NET MILESTONE
           </span>
 
@@ -324,15 +324,15 @@ export function NetMilestoneCard(props: NetMilestoneCardProps) {
           </h2>
 
           {/* Callsign */}
-          <p className="font-mono text-2xl text-white font-bold mb-1">
+          <p className="font-mono text-2xl text-su-text font-bold mb-1">
             {callsign.toUpperCase()}
           </p>
 
           {/* Net name */}
-          <p className="text-sm text-gray-300 mb-1">{netName}</p>
+          <p className="text-sm text-su-muted mb-1">{netName}</p>
 
           {/* Frequency + mode */}
-          <p className="font-mono text-xs text-gray-400 mb-2">
+          <p className="font-mono text-xs text-su-muted mb-2">
             {frequency} &bull; {mode}
           </p>
 
@@ -342,10 +342,10 @@ export function NetMilestoneCard(props: NetMilestoneCardProps) {
           </p>
 
           {/* Divider */}
-          <div className="w-32 h-px bg-white/[0.08] mb-3" />
+          <div className="w-32 h-px bg-su-line/20 mb-3" />
 
           {/* Date */}
-          <p className="font-mono text-xs text-gray-400">{formattedDate}</p>
+          <p className="font-mono text-xs text-su-muted">{formattedDate}</p>
         </div>
       </div>
 
@@ -353,7 +353,7 @@ export function NetMilestoneCard(props: NetMilestoneCardProps) {
       <button
         type="button"
         onClick={handleDownload}
-        className="flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg bg-plasma-orange hover:bg-plasma-orange/80 text-white transition-colors focus-visible:ring-2 focus-visible:ring-plasma-orange/50 focus-visible:outline-none"
+        className="flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg bg-plasma-orange hover:bg-plasma-orange/80 text-su-on-accent transition-colors focus-visible:ring-2 focus-visible:ring-plasma-orange/50 focus-visible:outline-none"
       >
         <svg
           className="w-4 h-4"

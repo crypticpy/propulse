@@ -262,14 +262,14 @@ export function SatellitesPage() {
       {/* Header */}
       <div>
         <div className="flex items-center gap-2">
-          <h1 className="text-xl font-bold text-white">Satellite Database</h1>
+          <h1 className="text-xl font-bold text-su-text">Satellite Database</h1>
           {!isLoading && satellites.length > 0 && (
-            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-white/10 text-gray-300 border border-white/10">
+            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-su-line/20 text-su-muted border border-su-line/40">
               {satellites.length}
             </span>
           )}
         </div>
-        <p className="text-sm text-gray-400 mt-1 max-w-xl">
+        <p className="text-sm text-su-muted mt-1 max-w-xl">
           All satellites below are tracked on the globe by default. Toggle
           individual satellites or use category controls to customize your
           tracking preferences.
@@ -279,7 +279,7 @@ export function SatellitesPage() {
       {/* Tracking status bar */}
       {!isLoading && satellites.length > 0 && (
         <div className="flex items-center gap-3 flex-wrap">
-          <span className="text-xs text-gray-400">
+          <span className="text-xs text-su-muted">
             {hasCustomized
               ? `Tracking ${trackedCount} of ${satellites.length} satellites`
               : `Tracking all ${satellites.length} satellites`}
@@ -288,8 +288,8 @@ export function SatellitesPage() {
             onClick={hasCustomized ? trackAll : undefined}
             className={`px-3 py-1 rounded-full text-[11px] font-medium transition-colors ${
               hasCustomized
-                ? "bg-white/5 text-gray-300 border border-white/10 hover:bg-white/10 cursor-pointer"
-                : "bg-white/[0.02] text-gray-600 border border-white/5 cursor-default"
+                ? "bg-su-line/10 text-su-muted border border-su-line/40 hover:bg-su-line/20 cursor-pointer"
+                : "bg-su-line/10 text-su-muted border border-su-line/20 cursor-default"
             }`}
           >
             Reset to Default
@@ -319,7 +319,7 @@ export function SatellitesPage() {
       {!isLoading && filteredSatellites.length === 0 && (
         <div className="flex flex-col items-center justify-center min-h-[30vh] text-center">
           <svg
-            className="w-12 h-12 text-gray-600 mb-4"
+            className="w-12 h-12 text-su-muted mb-4"
             fill="none"
             stroke="currentColor"
             viewBox="0 0 24 24"
@@ -331,8 +331,8 @@ export function SatellitesPage() {
               d="M12 3v1m0 16v1m8.66-13.5l-.87.5M4.21 16l-.87.5M20.66 16l-.87-.5M4.21 8l-.87-.5M16 12a4 4 0 11-8 0 4 4 0 018 0z"
             />
           </svg>
-          <p className="text-gray-400 text-sm mb-2">No satellites found</p>
-          <p className="text-gray-500 text-xs mb-4">
+          <p className="text-su-muted text-sm mb-2">No satellites found</p>
+          <p className="text-su-muted text-xs mb-4">
             {activeFilterCount > 0
               ? "Try adjusting your filters or search query"
               : "Satellite TLE data could not be loaded"}
@@ -359,28 +359,28 @@ export function SatellitesPage() {
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <span
-                    className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold ${meta?.color ?? "text-gray-400"} ${meta?.bg ?? "bg-gray-400/20"}`}
+                    className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold ${meta?.color ?? "text-su-muted"} ${meta?.bg ?? "bg-su-line/20"}`}
                   >
                     {meta?.label ?? category.toUpperCase()}
                   </span>
-                  <h2 className="text-sm font-semibold text-gray-200">
+                  <h2 className="text-sm font-semibold text-su-text">
                     {CATEGORY_DISPLAY_NAMES[category] ?? category}
                   </h2>
-                  <span className="text-[11px] text-gray-500">
+                  <span className="text-[11px] text-su-muted">
                     ({sats.length})
                   </span>
                 </div>
                 <div className="flex items-center gap-1.5">
                   <button
                     onClick={() => handleCategorySelectAll(sats)}
-                    className="text-[11px] text-gray-400 hover:text-signal-green transition-colors"
+                    className="text-[11px] text-su-muted hover:text-signal-green transition-colors"
                   >
                     Select All
                   </button>
-                  <span className="text-gray-600">&middot;</span>
+                  <span className="text-su-muted">&middot;</span>
                   <button
                     onClick={() => handleCategoryDeselectAll(sats)}
-                    className="text-[11px] text-gray-400 hover:text-alert-red transition-colors"
+                    className="text-[11px] text-su-muted hover:text-alert-red transition-colors"
                   >
                     Deselect All
                   </button>

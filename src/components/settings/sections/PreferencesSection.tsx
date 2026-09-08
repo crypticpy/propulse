@@ -125,7 +125,7 @@ export function PreferencesSection() {
 
         {/* Time Format */}
         <div>
-          <label className="block text-sm font-medium text-gray-300 mb-2">
+          <label className="block text-sm font-medium text-su-muted mb-2">
             Time Format
           </label>
           <SegmentedButton
@@ -140,9 +140,9 @@ export function PreferencesSection() {
 
         {/* Text Scale */}
         <div>
-          <label className="block text-sm font-medium text-gray-300 mb-2">
+          <label className="block text-sm font-medium text-su-muted mb-2">
             Text Size
-            <span className="ml-2 text-xs text-gray-500 font-normal">
+            <span className="ml-2 text-xs text-su-muted font-normal">
               (Accessibility)
             </span>
           </label>
@@ -156,7 +156,7 @@ export function PreferencesSection() {
             value={textScale}
             onChange={(v) => updatePreferences({ textScale: v })}
           />
-          <p className="text-xs text-gray-500 mt-1">
+          <p className="text-xs text-su-muted mt-1">
             Increase text size for better readability. Affects panels and data
             displays. Wall is sized for TV screens read from across the room.
           </p>
@@ -164,10 +164,10 @@ export function PreferencesSection() {
 
         {/* Visual Style */}
         <div>
-          <label className="block text-sm font-medium text-gray-300 mb-1">
+          <label className="block text-sm font-medium text-su-muted mb-1">
             Visual Style
           </label>
-          <p className="text-xs text-gray-500 mb-2">
+          <p className="text-xs text-su-muted mb-2">
             Globe and map rendering style
           </p>
           <SegmentedButton
@@ -181,7 +181,7 @@ export function PreferencesSection() {
         </div>
       </section>
 
-      <div className="border-t border-white/10" />
+      <div className="border-t border-su-line/40" />
 
       {/* ── Accessibility ────────────────────────────────────────────────── */}
       <section className="space-y-4">
@@ -211,7 +211,7 @@ export function PreferencesSection() {
         />
       </section>
 
-      <div className="border-t border-white/10" />
+      <div className="border-t border-su-line/40" />
 
       {/* ── Map & Globe ──────────────────────────────────────────────────── */}
       <section className="space-y-4">
@@ -347,7 +347,7 @@ export function PreferencesSection() {
         </SettingSelect>
       </section>
 
-      <div className="border-t border-white/10" />
+      <div className="border-t border-su-line/40" />
 
       {/* ── Propagation ──────────────────────────────────────────────────── */}
       <section className="space-y-4">
@@ -386,7 +386,7 @@ export function PreferencesSection() {
             const selected = ANTENNA_TYPES.find((a) => a.type === antennaType);
             if (!selected) return null;
             return (
-              <div className="text-xs text-gray-500 mt-2 space-y-0.5 pl-1">
+              <div className="text-xs text-su-muted mt-2 space-y-0.5 pl-1">
                 <p>{selected.description}</p>
                 <p className="font-mono">
                   Optimal elevation: {selected.optimalElevationDeg}°
@@ -397,7 +397,7 @@ export function PreferencesSection() {
         </div>
 
         {/* ── Forecast Display ────────────────────────────────────────── */}
-        <div className="border-t border-white/10 pt-4 mt-4" />
+        <div className="border-t border-su-line/40 pt-4 mt-4" />
         <SectionHeader>Forecast Display</SectionHeader>
 
         <SettingRow label="Band Mode">
@@ -434,7 +434,7 @@ export function PreferencesSection() {
                   className={`px-2 py-1.5 rounded text-xs font-medium transition-colors border ${
                     isSelected
                       ? "bg-plasma-orange/20 text-plasma-orange border-plasma-orange/50"
-                      : "bg-nebula-blue text-gray-400 border-white/10 hover:text-gray-200"
+                      : "bg-nebula-blue text-su-muted border-su-line/40 hover:text-su-text"
                   }`}
                 >
                   {band}
@@ -476,7 +476,7 @@ export function PreferencesSection() {
         </SettingRow>
       </section>
 
-      <div className="border-t border-white/10" />
+      <div className="border-t border-su-line/40" />
 
       {/* ── Interaction ───────────────────────────────────────────────────── */}
       <section className="space-y-4">
@@ -542,7 +542,7 @@ export function PreferencesSection() {
         </ConditionalSubSettings>
       </section>
 
-      <div className="border-t border-white/10" />
+      <div className="border-t border-su-line/40" />
 
       {/* ── Bands ────────────────────────────────────────────────────────── */}
       <section className="space-y-6">

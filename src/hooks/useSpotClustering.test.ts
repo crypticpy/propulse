@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { LiveSpot } from "@/types/livespot";
 import { clusterSpots } from "./useSpotClustering";
+import { lookupCountry, lookupUsSubdivision } from "@/lib/spots/grouping";
 
 function liveSpot(
   id: string,
@@ -26,11 +27,11 @@ const clusteringOptions = {
 };
 
 describe("clusterSpots", () => {
-  it("clusters spots after resolving a missing raw location from the DX grid", () => {
+  it("clusters grid locators by geography, not 5-degree cells", () => {
     const result = clusterSpots(
       [
-        liveSpot("grid-1", { dxGrid: "EM10aa" }),
-        liveSpot("grid-2", { dxGrid: "EM10ab" }),
+        liveSpot("grid-1", { dx: "K5AAA", dxGrid: "EM10aa" }),
+        liveSpot("grid-2", { dx: "K5BBB", dxGrid: "EM10ab" }),
       ],
       clusteringOptions,
     );
@@ -40,24 +41,24 @@ describe("clusterSpots", () => {
       "grid-1",
       "grid-2",
     ]);
+    expect(result.clusters[0].center).toEqual(lookupUsSubdivision(30, -97)?.anchor);
     expect(result.singles).toHaveLength(0);
   });
 
-  it("treats zero latitude and longitude as valid explicit coordinates", () => {
+  it("does not invent a country for ocean zero coordinates", () => {
     const result = clusterSpots(
       [
-        liveSpot("zero-1", { dxLat: 0, dxLon: 0 }),
-        liveSpot("zero-2", { dxLat: 0.25, dxLon: 0.25 }),
+        liveSpot("zero-1", { dx: "TEST1AA", dxLat: 0, dxLon: 0 }),
+        liveSpot("zero-2", { dx: "TEST2AA", dxLat: 0.25, dxLon: 0.25 }),
       ],
       clusteringOptions,
     );
 
-    expect(result.clusters).toHaveLength(1);
-    expect(result.clusters[0].center.lat).toBeCloseTo(0.125);
-    expect(result.clusters[0].center.lon).toBeCloseTo(0.125);
+    expect(result.clusters).toHaveLength(0);
+    expect(result.singles.map((spot) => spot.id).sort()).toEqual(["zero-1", "zero-2"]);
   });
 
-  it("falls back to callsign-prefix locations when coordinates and grid are missing", () => {
+  it("keeps callsign-prefix locations as an approximate country group", () => {
     const result = clusterSpots(
       [
         liveSpot("ja-1", { dx: "JA1ABC" }),
@@ -67,22 +68,23 @@ describe("clusterSpots", () => {
     );
 
     expect(result.clusters).toHaveLength(1);
-    expect(result.clusters[0].center.lat).toBeCloseTo(36);
-    expect(result.clusters[0].center.lon).toBeCloseTo(138);
+    expect(result.clusters[0].center).toEqual(lookupCountry(36, 138)?.anchor);
+    expect(result.clusters[0].id).toContain("country:JP");
+    expect(result.clusters[0].id).toContain("approximate");
   });
 
   it("clusters exactly at the threshold and preserves sub-threshold spots as singles", () => {
     const atThreshold = clusterSpots(
       [
-        liveSpot("threshold-1", { dxLat: 10, dxLon: 10 }),
-        liveSpot("threshold-2", { dxLat: 10.2, dxLon: 10.2 }),
+        liveSpot("threshold-1", { dx: "EA1AAA", dxLat: 40.4, dxLon: -3.7 }),
+        liveSpot("threshold-2", { dx: "EA1BBB", dxLat: 40.5, dxLon: -3.6 }),
       ],
       { ...clusteringOptions, minClusterSize: 2 },
     );
     const belowThreshold = clusterSpots(
       [
-        liveSpot("threshold-1", { dxLat: 10, dxLon: 10 }),
-        liveSpot("threshold-2", { dxLat: 10.2, dxLon: 10.2 }),
+        liveSpot("threshold-1", { dx: "EA1AAA", dxLat: 40.4, dxLon: -3.7 }),
+        liveSpot("threshold-2", { dx: "EA1BBB", dxLat: 40.5, dxLon: -3.6 }),
       ],
       { ...clusteringOptions, minClusterSize: 3 },
     );
@@ -98,8 +100,8 @@ describe("clusterSpots", () => {
   it("falls back to a meaningful threshold for fractional values below one", () => {
     const result = clusterSpots(
       [
-        liveSpot("fractional-1", { dxLat: 10, dxLon: 10 }),
-        liveSpot("fractional-2", { dxLat: 10.2, dxLon: 10.2 }),
+        liveSpot("fractional-1", { dx: "EA1AAA", dxLat: 40.4, dxLon: -3.7 }),
+        liveSpot("fractional-2", { dx: "EA1BBB", dxLat: 40.5, dxLon: -3.6 }),
       ],
       { ...clusteringOptions, minClusterSize: 0.5 },
     );
@@ -108,26 +110,30 @@ describe("clusterSpots", () => {
     expect(result.singles).toHaveLength(2);
   });
 
-  it("keeps neighboring spatial groups separate with stable memberships and IDs", () => {
+  it("keeps neighboring countries separate with stable memberships and IDs", () => {
     const spots = [
-      liveSpot("west-old", {
-        dxLat: 20,
-        dxLon: 1,
+      liveSpot("spain-old", {
+        dx: "EA1OLD",
+        dxLat: 40.4,
+        dxLon: -3.7,
         time: new Date("2026-08-31T10:00:00Z"),
       }),
-      liveSpot("east-new", {
-        dxLat: 20,
-        dxLon: 8.2,
+      liveSpot("norway-new", {
+        dx: "LA1NEW",
+        dxLat: 60,
+        dxLon: 8,
         time: new Date("2026-08-31T13:00:00Z"),
       }),
-      liveSpot("west-new", {
-        dxLat: 20.2,
-        dxLon: 1.2,
+      liveSpot("spain-new", {
+        dx: "EA1NEW",
+        dxLat: 40.5,
+        dxLon: -3.6,
         time: new Date("2026-08-31T14:00:00Z"),
       }),
-      liveSpot("east-old", {
-        dxLat: 20.2,
-        dxLon: 8,
+      liveSpot("norway-old", {
+        dx: "LA1OLD",
+        dxLat: 59.5,
+        dxLon: 7.5,
         time: new Date("2026-08-31T09:00:00Z"),
       }),
     ];
@@ -150,10 +156,10 @@ describe("clusterSpots", () => {
     );
     expect(
       original.clusters.map((cluster) => cluster.primarySpot.id).sort(),
-    ).toEqual(["east-new", "west-new"]);
+    ).toEqual(["norway-new", "spain-new"]);
   });
 
-  it("uses a circular longitude centroid for a cluster across the dateline", () => {
+  it("does not merge dateline neighbors by proximity or camera", () => {
     const result = clusterSpots(
       [
         liveSpot("dateline-east", { dxLat: 5, dxLon: 179 }),
@@ -162,9 +168,11 @@ describe("clusterSpots", () => {
       clusteringOptions,
     );
 
-    expect(result.clusters).toHaveLength(1);
-    expect(result.clusters[0].center.lat).toBeCloseTo(6);
-    expect(Math.abs(result.clusters[0].center.lon)).toBeCloseTo(180);
+    expect(result.clusters).toHaveLength(0);
+    expect(result.singles.map((spot) => spot.id).sort()).toEqual([
+      "dateline-east",
+      "dateline-west",
+    ]);
   });
 
   it("retains an unresolvable spot as a single", () => {

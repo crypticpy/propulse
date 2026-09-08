@@ -31,3 +31,10 @@ describe("feedStore crawl migration", () => {
     );
   });
 });
+
+
+it("normalizes stored refresh intervals without discarding legacy feeds", () => {
+  expect(normalizePersistedFeedState({ refreshMinutes: 30 }).refreshMinutes).toBe(30);
+  expect(normalizePersistedFeedState({ refreshMinutes: -1 }).refreshMinutes).toBe(10);
+  expect(normalizePersistedFeedState({}).refreshMinutes).toBe(10);
+});

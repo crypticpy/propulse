@@ -1,21 +1,14 @@
-import { lazy, Suspense, useMemo, useState } from "react";
-import { DetailModal } from "@/components/ui/DetailModal";
+import { useMemo, useState } from "react";
 import { useActiveLocation } from "@/hooks/useActiveLocation";
 import { useUTCClock } from "@/hooks/useUTCClock";
+import { filterBridgeSpotAge } from "@/lib/hamclock/clusterBridge";
 import { filterMapSpots } from "@/lib/map/filterMapSpots";
 import { getBandColor } from "@/lib/utils/spotColors";
 import { useDXStore } from "@/stores/dxStore";
 import { useMapStore } from "@/stores/mapStore";
 import type { DXSpot } from "@/types/dxcluster";
 import { HamClockTile } from "../HamClockTile";
-
-// The full spot report is the only heavy dependency the wall pulls in; it
-// loads when an operator opens the report rather than with the wall itself.
-const DXSpotList = lazy(() =>
-  import("@/components/dx/DXSpotList/DXSpotList").then((m) => ({
-    default: m.DXSpotList,
-  })),
-);
+import { ClusterReport } from "../reports/ClusterReport";
 
 /** The rail cannot scroll, so render a generous slice and let CSS clip it. */
 const MAX_ROWS = 22;
@@ -44,20 +37,26 @@ function spotDetail(spot: DXSpot): string {
 
 /**
  * Reads the DX store the map stage's `useDXCluster` already fills. The tile
- * can be mounted on both rails at once, and each `useDXCluster` call owns its
- * own bridge socket and history, so the tile must never open a feed itself.
+ * can be mounted on both rails at once. Bridge observers merge into one shared
+ * source snapshot, so the tile must never open a feed itself.
  */
 export function ClusterTile() {
   const location = useActiveLocation();
   const allSpots = useDXStore((s) => s.spots);
   const source = useDXStore((s) => s.spotSource);
+  const maxAge = useDXStore((s) => s.filters.maxAge);
   const spotFilters = useMapStore((s) => s.spotFilters);
   const now = useUTCClock(10_000);
   const [reportOpen, setReportOpen] = useState(false);
 
   const spots = useMemo(
-    () => filterMapSpots(allSpots ?? [], spotFilters),
-    [allSpots, spotFilters],
+    () => filterMapSpots(
+      source === "bridge"
+        ? filterBridgeSpotAge(allSpots ?? [], maxAge, now.getTime())
+        : allSpots ?? [],
+      spotFilters,
+    ),
+    [allSpots, spotFilters, maxAge, now, source],
   );
   const rows = spots.slice(0, MAX_ROWS);
   const feed = source === "bridge" ? "BRIDGE" : "CLUSTER";
@@ -115,23 +114,9 @@ export function ClusterTile() {
         </div>
       </HamClockTile>
 
-      <DetailModal
-        isOpen={reportOpen}
-        onClose={() => setReportOpen(false)}
-        title="DX Cluster Report"
-        subtitle={`${spots.length} spots · ${feed}`}
-        size="xl"
-      >
-        <Suspense
-          fallback={
-            <p className="p-4 font-mono text-xs uppercase tracking-widest text-white/40">
-              Loading spots…
-            </p>
-          }
-        >
-          <DXSpotList showFilters maxHeight="60vh" />
-        </Suspense>
-      </DetailModal>
+      {reportOpen && (
+        <ClusterReport open onClose={() => setReportOpen(false)} />
+      )}
     </>
   );
 }

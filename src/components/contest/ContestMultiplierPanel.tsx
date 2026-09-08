@@ -55,7 +55,7 @@ export function ContestMultiplierPanel({
   if (compact) {
     return (
       <div className={className}>
-        <div className="text-xs text-gray-400">
+        <div className="text-xs text-su-muted">
           Mults:{" "}
           <span className="text-cosmic-cyan font-bold">
             {multipliers.length}

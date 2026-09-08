@@ -32,14 +32,14 @@ export function IonosphereLegend({ className = "" }: IonosphereLegendProps) {
     <div
       className={`flex flex-wrap items-center gap-x-2 gap-y-1 text-xs ${className}`}
     >
-      <span className="text-gray-500 font-medium">Bounce:</span>
+      <span className="text-su-muted font-medium">Bounce:</span>
       {IONOSPHERE_LAYERS.map(({ layer, color, name }) => (
         <div key={layer} className="flex items-center gap-1">
           <div
             className="w-2.5 h-2.5 rounded-full"
             style={{ backgroundColor: color }}
           />
-          <span className="text-gray-400">{name}</span>
+          <span className="text-su-muted">{name}</span>
         </div>
       ))}
     </div>

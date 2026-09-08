@@ -52,13 +52,13 @@ export function CallsignInput({
         spellCheck={false}
         className={`
           w-full h-12 px-3 pr-10
-          bg-white/5 border rounded-lg
-          text-white text-base font-mono uppercase
-          placeholder-gray-500
+          bg-su-line/10 border rounded-lg
+          text-su-text text-base font-mono uppercase
+          placeholder:text-su-muted/80
           focus:border-plasma-orange/50 focus:ring-1 focus:ring-plasma-orange/30
           focus:outline-none
           transition-colors
-          ${autoFilled ? "border-l-2 border-l-signal-green border-white/10" : "border-white/10"}
+          ${autoFilled ? "border-l-2 border-l-signal-green border-su-line/40" : "border-su-line/40"}
         `}
         style={{ fontSize: "16px" }}
       />
@@ -98,7 +98,7 @@ export function CallsignInput({
           className="
             absolute right-2 top-1/2 -translate-y-1/2
             w-7 h-7 flex items-center justify-center
-            rounded-md text-gray-400 hover:text-white hover:bg-white/10
+            rounded-md text-su-muted hover:text-su-text hover:bg-su-line/20
             transition-colors
           "
         >

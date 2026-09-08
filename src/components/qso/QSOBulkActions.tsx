@@ -69,20 +69,20 @@ export function QSOBulkActions() {
 
   return (
     <>
-      <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[400] flex items-center gap-3 px-5 py-3 bg-deep-space/95 backdrop-blur-md border border-white/15 rounded-2xl shadow-2xl animate-in slide-in-from-bottom-4">
+      <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[400] flex items-center gap-3 px-5 py-3 bg-deep-space/95 backdrop-blur-md border border-su-line/50 rounded-2xl shadow-2xl animate-in slide-in-from-bottom-4">
         {/* Count */}
-        <span className="text-sm text-white font-medium whitespace-nowrap">
+        <span className="text-sm text-su-text font-medium whitespace-nowrap">
           {count} selected
         </span>
 
-        <div className="w-px h-6 bg-white/10" />
+        <div className="w-px h-6 bg-su-line/20" />
 
         {/* Export ADIF */}
         <button
           type="button"
           onClick={handleExportADIF}
           disabled={processing}
-          className="flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-lg transition-colors bg-white/5 hover:bg-white/10 text-gray-300 border border-white/10 disabled:opacity-50"
+          className="flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-lg transition-colors bg-su-line/10 hover:bg-su-line/20 text-su-muted border border-su-line/40 disabled:opacity-50"
         >
           <svg
             className="w-4 h-4"
@@ -105,7 +105,7 @@ export function QSOBulkActions() {
           type="button"
           onClick={handleMarkQSLSent}
           disabled={processing}
-          className="flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-lg transition-colors bg-white/5 hover:bg-white/10 text-gray-300 border border-white/10 disabled:opacity-50"
+          className="flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-lg transition-colors bg-su-line/10 hover:bg-su-line/20 text-su-muted border border-su-line/40 disabled:opacity-50"
         >
           <svg
             className="w-4 h-4"
@@ -146,13 +146,13 @@ export function QSOBulkActions() {
           Delete
         </button>
 
-        <div className="w-px h-6 bg-white/10" />
+        <div className="w-px h-6 bg-su-line/20" />
 
         {/* Deselect */}
         <button
           type="button"
           onClick={deselectAll}
-          className="text-xs text-gray-500 hover:text-gray-300 transition-colors"
+          className="text-xs text-su-muted hover:text-su-text transition-colors"
         >
           Cancel
         </button>

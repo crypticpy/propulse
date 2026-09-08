@@ -48,12 +48,12 @@ const CATEGORY_META: Record<
   SatelliteCategory,
   { label: string; color: string; bg: string }
 > = {
-  iss: { label: "ISS", color: "text-white", bg: "bg-white/20" },
+  iss: { label: "ISS", color: "text-su-text", bg: "bg-su-line/30" },
   fm: { label: "FM", color: "text-green-400", bg: "bg-green-400/20" },
   linear: { label: "LIN", color: "text-cyan-400", bg: "bg-cyan-400/20" },
   digital: { label: "DIG", color: "text-orange-400", bg: "bg-orange-400/20" },
   weather: { label: "WX", color: "text-purple-400", bg: "bg-purple-400/20" },
-  other: { label: "OTH", color: "text-gray-400", bg: "bg-gray-400/20" },
+  other: { label: "OTH", color: "text-su-muted", bg: "bg-su-line/20" },
 };
 
 /** Format azimuth to compass bearing string */
@@ -129,7 +129,7 @@ function VisibilityDot({ isVisible }: { isVisible: boolean }) {
   return (
     <span
       className={`inline-block w-1.5 h-1.5 rounded-full flex-shrink-0 ${
-        isVisible ? "bg-green-400 animate-pulse" : "bg-gray-600"
+        isVisible ? "bg-green-400 animate-pulse" : "bg-su-line"
       }`}
       title={isVisible ? "Above horizon" : "Below horizon"}
     />
@@ -150,13 +150,13 @@ function SatelliteRow({
     <button
       className={`w-full flex items-center gap-2 px-2 py-1.5 rounded-md transition-colors text-left ${
         isSelected
-          ? "bg-white/10 border border-white/20"
-          : "hover:bg-white/5 border border-transparent"
+          ? "bg-su-line/20 border border-su-line/50"
+          : "hover:bg-su-line/10 border border-transparent"
       }`}
       onClick={() => onSelect(satellite.noradId)}
     >
       <VisibilityDot isVisible={satellite.isVisible} />
-      <span className="flex-1 text-xs font-mono text-gray-200 truncate">
+      <span className="flex-1 text-xs font-mono text-su-text truncate">
         {satellite.name}
       </span>
       <CategoryBadge category={satellite.category} />
@@ -177,7 +177,7 @@ function PassRow({ pass }: { pass: PassPrediction }) {
       className={`flex items-center gap-2 px-2 py-1.5 rounded text-xs ${
         isActive
           ? "bg-green-400/10 border border-green-400/20"
-          : "bg-white/[0.02]"
+          : "bg-su-line/10"
       }`}
     >
       <div className="flex-1">
@@ -185,15 +185,15 @@ function PassRow({ pass }: { pass: PassPrediction }) {
           {isActive && (
             <span className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse" />
           )}
-          <span className="font-mono text-gray-300">
+          <span className="font-mono text-su-muted">
             {isActive
               ? "NOW"
               : isFuture
                 ? format(pass.aos, timeFmt)
                 : format(pass.aos, timeFmt)}
           </span>
-          <span className="text-gray-500">-</span>
-          <span className="font-mono text-gray-400">
+          <span className="text-su-muted">-</span>
+          <span className="font-mono text-su-muted">
             {format(pass.los, timeFmt)}
           </span>
         </div>
@@ -213,17 +213,17 @@ function PassRow({ pass }: { pass: PassPrediction }) {
             {quality.label}
           </span>
           {isFuture && (
-            <span className="text-[10px] text-gray-500">
+            <span className="text-[10px] text-su-muted">
               in {formatDistanceToNow(pass.aos)}
             </span>
           )}
         </div>
       </div>
       <div className="text-right">
-        <div className="font-mono text-gray-300">
+        <div className="font-mono text-su-muted">
           {Math.round(pass.maxEl)}° max
         </div>
-        <div className="text-[10px] text-gray-500 mt-0.5">
+        <div className="text-[10px] text-su-muted mt-0.5">
           {formatAzimuth(pass.aosAz)} → {formatAzimuth(pass.losAz)}
         </div>
       </div>
@@ -242,9 +242,9 @@ function PassRow({ pass }: { pass: PassPrediction }) {
 /** Single SatNOGS transponder row */
 function SatNOGSTransponderRow({ tx }: { tx: SatNOGSTransmitter }) {
   return (
-    <div className="bg-white/[0.03] rounded-md px-2 py-1.5 mb-1">
+    <div className="bg-su-line/10 rounded-md px-2 py-1.5 mb-1">
       <div className="flex items-center justify-between">
-        <span className="text-[10px] font-medium text-gray-300 truncate">
+        <span className="text-[10px] font-medium text-su-muted truncate">
           {tx.description}
         </span>
         <div className="flex items-center gap-1 flex-shrink-0">
@@ -252,7 +252,7 @@ function SatNOGSTransponderRow({ tx }: { tx: SatNOGSTransmitter }) {
             className={`text-[8px] px-1 py-0.5 rounded font-semibold uppercase ${
               tx.status === "active"
                 ? "bg-green-400/20 text-green-400"
-                : "bg-gray-500/20 text-gray-500"
+                : "bg-su-line/20 text-su-muted"
             }`}
           >
             {tx.status}
@@ -268,8 +268,8 @@ function SatNOGSTransponderRow({ tx }: { tx: SatNOGSTransmitter }) {
       <div className="grid grid-cols-2 gap-1 mt-1 text-[10px] font-mono">
         {(tx.uplink_low || tx.uplink_high) && (
           <div>
-            <span className="text-gray-500">UP: </span>
-            <span className="text-gray-300">
+            <span className="text-su-muted">UP: </span>
+            <span className="text-su-muted">
               {tx.uplink_low ? formatFreqMHz(tx.uplink_low) : "—"}
               {tx.uplink_high &&
                 tx.uplink_low !== tx.uplink_high &&
@@ -279,8 +279,8 @@ function SatNOGSTransponderRow({ tx }: { tx: SatNOGSTransmitter }) {
         )}
         {(tx.downlink_low || tx.downlink_high) && (
           <div>
-            <span className="text-gray-500">DN: </span>
-            <span className="text-gray-300">
+            <span className="text-su-muted">DN: </span>
+            <span className="text-su-muted">
               {tx.downlink_low ? formatFreqMHz(tx.downlink_low) : "—"}
               {tx.downlink_high &&
                 tx.downlink_low !== tx.downlink_high &&
@@ -334,7 +334,7 @@ function TransponderInfo({
   return (
     <div className="mt-2">
       <div className="flex items-center gap-1.5 mb-1">
-        <span className="text-[10px] text-gray-500 uppercase tracking-wider">
+        <span className="text-[10px] text-su-muted uppercase tracking-wider">
           Transponders
         </span>
         {useSatNOGS && (
@@ -352,10 +352,10 @@ function TransponderInfo({
         : transponderData.transponders.map((xpdr: Transponder, idx: number) => (
             <div
               key={idx}
-              className="bg-white/[0.03] rounded-md px-2 py-1.5 mb-1"
+              className="bg-su-line/10 rounded-md px-2 py-1.5 mb-1"
             >
               <div className="flex items-center justify-between">
-                <span className="text-[10px] font-medium text-gray-300">
+                <span className="text-[10px] font-medium text-su-muted">
                   {xpdr.name}
                 </span>
                 <span
@@ -373,16 +373,16 @@ function TransponderInfo({
               </div>
               <div className="grid grid-cols-2 gap-1 mt-1 text-[10px] font-mono">
                 <div>
-                  <span className="text-gray-500">UP: </span>
-                  <span className="text-gray-300">
+                  <span className="text-su-muted">UP: </span>
+                  <span className="text-su-muted">
                     {formatFreqMHz(xpdr.uplinkRangeHz[0])}
                     {xpdr.uplinkRangeHz[0] !== xpdr.uplinkRangeHz[1] &&
                       ` - ${formatFreqMHz(xpdr.uplinkRangeHz[1])}`}
                   </span>
                 </div>
                 <div>
-                  <span className="text-gray-500">DN: </span>
-                  <span className="text-gray-300">
+                  <span className="text-su-muted">DN: </span>
+                  <span className="text-su-muted">
                     {formatFreqMHz(xpdr.downlinkRangeHz[0])}
                     {xpdr.downlinkRangeHz[0] !== xpdr.downlinkRangeHz[1] &&
                       ` - ${formatFreqMHz(xpdr.downlinkRangeHz[1])}`}
@@ -393,13 +393,13 @@ function TransponderInfo({
           ))}
 
       {transponderData.beaconHz && (
-        <div className="text-[10px] font-mono text-gray-400 mt-1">
+        <div className="text-[10px] font-mono text-su-muted mt-1">
           Beacon: {formatFreqMHz(transponderData.beaconHz)}
         </div>
       )}
 
       {transponderData.notes && (
-        <div className="text-[10px] text-gray-500 mt-1 italic">
+        <div className="text-[10px] text-su-muted mt-1 italic">
           {transponderData.notes}
         </div>
       )}
@@ -412,20 +412,20 @@ function TransponderInfo({
           </div>
           <div className="grid grid-cols-2 gap-1 text-[10px] font-mono">
             <div>
-              <span className="text-gray-500">TX: </span>
-              <span className="text-white">
+              <span className="text-su-muted">TX: </span>
+              <span className="text-su-text">
                 {formatFreqMHz(dopplerInfo.uplinkHz)}
               </span>
-              <div className="text-gray-500">
+              <div className="text-su-muted">
                 {formatShift(dopplerInfo.uplinkShiftHz)}
               </div>
             </div>
             <div>
-              <span className="text-gray-500">RX: </span>
-              <span className="text-white">
+              <span className="text-su-muted">RX: </span>
+              <span className="text-su-text">
                 {formatFreqMHz(dopplerInfo.downlinkHz)}
               </span>
-              <div className="text-gray-500">
+              <div className="text-su-muted">
                 {formatShift(dopplerInfo.downlinkShiftHz)}
               </div>
             </div>
@@ -479,11 +479,11 @@ function SatelliteDetail({
       <div className="flex items-center gap-2 mb-3">
         <button
           onClick={onBack}
-          className="p-1 hover:bg-white/10 rounded transition-colors flex-shrink-0"
+          className="p-1 hover:bg-su-line/20 rounded transition-colors flex-shrink-0"
           title="Back to list"
         >
           <svg
-            className="w-4 h-4 text-gray-400"
+            className="w-4 h-4 text-su-muted"
             fill="none"
             viewBox="0 0 24 24"
             stroke="currentColor"
@@ -498,12 +498,12 @@ function SatelliteDetail({
         </button>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
-            <span className="text-sm font-medium text-white truncate">
+            <span className="text-sm font-medium text-su-text truncate">
               {satellite.name}
             </span>
             <CategoryBadge category={satellite.category} />
           </div>
-          <div className="text-[10px] text-gray-500 font-mono">
+          <div className="text-[10px] text-su-muted font-mono">
             NORAD {satellite.noradId}
           </div>
         </div>
@@ -515,37 +515,37 @@ function SatelliteDetail({
         className="grid gap-2 mb-3"
         style={{ gridTemplateColumns: "1fr 1fr" }}
       >
-        <div className="bg-white/[0.03] rounded-md px-2 py-1.5">
-          <div className="text-[10px] text-gray-500 uppercase tracking-wider">
+        <div className="bg-su-line/10 rounded-md px-2 py-1.5">
+          <div className="text-[10px] text-su-muted uppercase tracking-wider">
             Position
           </div>
-          <div className="text-xs font-mono text-gray-200 mt-0.5">
+          <div className="text-xs font-mono text-su-text mt-0.5">
             {formatLatLon(lat, lon)}
           </div>
         </div>
-        <div className="bg-white/[0.03] rounded-md px-2 py-1.5">
-          <div className="text-[10px] text-gray-500 uppercase tracking-wider">
+        <div className="bg-su-line/10 rounded-md px-2 py-1.5">
+          <div className="text-[10px] text-su-muted uppercase tracking-wider">
             Altitude
           </div>
-          <div className="text-xs font-mono text-gray-200 mt-0.5">
+          <div className="text-xs font-mono text-su-text mt-0.5">
             {Math.round(alt)} km
           </div>
         </div>
-        <div className="bg-white/[0.03] rounded-md px-2 py-1.5">
-          <div className="text-[10px] text-gray-500 uppercase tracking-wider">
+        <div className="bg-su-line/10 rounded-md px-2 py-1.5">
+          <div className="text-[10px] text-su-muted uppercase tracking-wider">
             Velocity
           </div>
-          <div className="text-xs font-mono text-gray-200 mt-0.5">
+          <div className="text-xs font-mono text-su-text mt-0.5">
             {velocity.toFixed(1)} km/s
           </div>
         </div>
-        <div className="bg-white/[0.03] rounded-md px-2 py-1.5">
-          <div className="text-[10px] text-gray-500 uppercase tracking-wider">
+        <div className="bg-su-line/10 rounded-md px-2 py-1.5">
+          <div className="text-[10px] text-su-muted uppercase tracking-wider">
             Status
           </div>
           <div
             className={`text-xs font-mono mt-0.5 ${
-              satellite.isVisible ? "text-green-400" : "text-gray-400"
+              satellite.isVisible ? "text-green-400" : "text-su-muted"
             }`}
           >
             {satellite.isVisible ? "Visible" : "Below horizon"}
@@ -577,11 +577,11 @@ function SatelliteDetail({
 
       {/* Pass predictions */}
       <div className="flex-1 min-h-0">
-        <div className="text-[10px] text-gray-500 uppercase tracking-wider mb-1.5">
+        <div className="text-[10px] text-su-muted uppercase tracking-wider mb-1.5">
           Next Passes (24h)
         </div>
         {passes.length === 0 ? (
-          <div className="text-xs text-gray-500 text-center py-3">
+          <div className="text-xs text-su-muted text-center py-3">
             No passes predicted — set your QTH in settings
           </div>
         ) : (
@@ -718,7 +718,7 @@ export function SatellitePanel({
         >
           {/* Expand indicator */}
           <svg
-            className="w-3.5 h-3.5 text-gray-500 flex-shrink-0"
+            className="w-3.5 h-3.5 text-su-muted flex-shrink-0"
             fill="none"
             viewBox="0 0 24 24"
             stroke="currentColor"
@@ -746,13 +746,13 @@ export function SatellitePanel({
             />
           </svg>
 
-          <span className="text-sm text-gray-300">Satellites</span>
+          <span className="text-sm text-su-muted">Satellites</span>
 
-          <div className="w-px h-3 bg-white/10" />
+          <div className="w-px h-3 bg-su-line/20" />
 
           {/* Summary stats */}
           <div className="flex items-center gap-2 text-[10px] font-mono">
-            <span className="text-gray-400">{satellites.length} tracked</span>
+            <span className="text-su-muted">{satellites.length} tracked</span>
             {visibleCount > 0 && (
               <span className="text-green-400">{visibleCount} visible</span>
             )}
@@ -770,11 +770,11 @@ export function SatellitePanel({
           {onToggleCollapse && (
             <button
               onClick={onToggleCollapse}
-              className="p-1 hover:bg-white/10 rounded transition-colors flex-shrink-0"
+              className="p-1 hover:bg-su-line/20 rounded transition-colors flex-shrink-0"
               title="Collapse panel"
             >
               <svg
-                className="w-4 h-4 text-gray-400"
+                className="w-4 h-4 text-su-muted"
                 fill="none"
                 viewBox="0 0 24 24"
                 stroke="currentColor"
@@ -788,7 +788,7 @@ export function SatellitePanel({
               </svg>
             </button>
           )}
-          <h3 className="text-xs font-medium text-gray-300 uppercase tracking-wide truncate">
+          <h3 className="text-xs font-medium text-su-muted uppercase tracking-wide truncate">
             Satellites
           </h3>
         </div>
@@ -799,7 +799,7 @@ export function SatellitePanel({
               {visibleCount} vis
             </span>
           )}
-          <span className="text-xs font-mono px-1.5 py-0.5 rounded bg-white/5 text-gray-400">
+          <span className="text-xs font-mono px-1.5 py-0.5 rounded bg-su-line/10 text-su-muted">
             {satellites.length} sats
           </span>
 
@@ -819,7 +819,7 @@ export function SatellitePanel({
               className={`relative p-1 rounded transition-colors ${
                 alertsEnabled
                   ? "text-green-400 hover:bg-green-400/10"
-                  : "text-gray-500 hover:bg-white/10"
+                  : "text-su-muted hover:bg-su-line/20"
               }`}
               title={
                 alertsEnabled ? "Pass alerts enabled" : "Enable pass alerts"
@@ -850,12 +850,12 @@ export function SatellitePanel({
           {/* Import Custom TLE */}
           <button
             onClick={() => setShowCustomTLE(true)}
-            className="p-1 hover:bg-white/10 rounded transition-colors"
+            className="p-1 hover:bg-su-line/20 rounded transition-colors"
             title="Import custom TLE"
             aria-label="Import custom TLE"
           >
             <svg
-              className="w-3.5 h-3.5 text-gray-400"
+              className="w-3.5 h-3.5 text-su-muted"
               fill="none"
               viewBox="0 0 24 24"
               stroke="currentColor"
@@ -871,12 +871,12 @@ export function SatellitePanel({
 
           <button
             onClick={() => refetch()}
-            className="p-1 hover:bg-white/10 rounded transition-colors"
+            className="p-1 hover:bg-su-line/20 rounded transition-colors"
             title="Refresh TLE data"
             aria-label="Refresh satellite data"
           >
             <svg
-              className={`w-3.5 h-3.5 text-gray-400 ${isLoading ? "animate-spin" : ""}`}
+              className={`w-3.5 h-3.5 text-su-muted ${isLoading ? "animate-spin" : ""}`}
               fill="none"
               viewBox="0 0 24 24"
               stroke="currentColor"
@@ -896,7 +896,7 @@ export function SatellitePanel({
       <div className="flex-1 min-h-0 overflow-y-auto">
         {/* Loading state */}
         {isLoading && satellites.length === 0 && (
-          <div className="flex items-center justify-center h-full text-gray-400 text-sm">
+          <div className="flex items-center justify-center h-full text-su-muted text-sm">
             <svg
               className="w-4 h-4 mr-2 animate-spin"
               fill="none"
@@ -922,7 +922,7 @@ export function SatellitePanel({
 
         {/* No data state */}
         {!isLoading && !isAvailable && (
-          <div className="flex flex-col items-center justify-center h-full text-gray-400 text-sm text-center px-4">
+          <div className="flex flex-col items-center justify-center h-full text-su-muted text-sm text-center px-4">
             <p>No satellite data available</p>
             <button
               onClick={() => refetch()}
@@ -953,8 +953,8 @@ export function SatellitePanel({
                   onClick={() => setFilterCategory(filter.key)}
                   className={`px-2 py-0.5 rounded text-[10px] font-medium transition-colors whitespace-nowrap ${
                     filterCategory === filter.key
-                      ? "bg-white/15 text-white"
-                      : "bg-white/5 text-gray-400 hover:bg-white/10"
+                      ? "bg-su-line/30 text-su-text"
+                      : "bg-su-line/10 text-su-muted hover:bg-su-line/20"
                   }`}
                 >
                   {filter.label}
@@ -976,7 +976,7 @@ export function SatellitePanel({
               </div>
 
               {filteredSatellites.length === 0 && (
-                <div className="text-center text-gray-500 text-xs py-4">
+                <div className="text-center text-su-muted text-xs py-4">
                   No satellites match filter
                 </div>
               )}

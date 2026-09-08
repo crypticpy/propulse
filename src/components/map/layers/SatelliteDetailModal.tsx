@@ -67,7 +67,7 @@ function VisibilityDot({ isVisible }: { isVisible: boolean }) {
   return (
     <span
       className={`inline-block w-2 h-2 rounded-full flex-shrink-0 ${
-        isVisible ? "bg-green-400 animate-pulse" : "bg-gray-600"
+        isVisible ? "bg-green-400 animate-pulse" : "bg-su-line"
       }`}
       title={isVisible ? "Above horizon" : "Below horizon"}
     />
@@ -118,9 +118,9 @@ const LINK_QUALITY_STYLE: Record<
 /** Single SatNOGS transponder row */
 function SatNOGSTransponderRow({ tx }: { tx: SatNOGSTransmitter }) {
   return (
-    <div className="bg-white/[0.03] rounded-md px-2.5 py-2 mb-1">
+    <div className="bg-su-line/10 rounded-md px-2.5 py-2 mb-1">
       <div className="flex items-center justify-between">
-        <span className="text-[11px] font-medium text-gray-300 truncate">
+        <span className="text-[11px] font-medium text-su-muted truncate">
           {tx.description}
         </span>
         <div className="flex items-center gap-1 flex-shrink-0">
@@ -128,7 +128,7 @@ function SatNOGSTransponderRow({ tx }: { tx: SatNOGSTransmitter }) {
             className={`text-[8px] px-1 py-0.5 rounded font-semibold uppercase ${
               tx.status === "active"
                 ? "bg-green-400/20 text-green-400"
-                : "bg-gray-500/20 text-gray-500"
+                : "bg-su-line/20 text-su-muted"
             }`}
           >
             {tx.status}
@@ -144,8 +144,8 @@ function SatNOGSTransponderRow({ tx }: { tx: SatNOGSTransmitter }) {
       <div className="grid grid-cols-2 gap-1 mt-1 text-[10px] font-mono">
         {(tx.uplink_low || tx.uplink_high) && (
           <div>
-            <span className="text-gray-500">UP: </span>
-            <span className="text-gray-300">
+            <span className="text-su-muted">UP: </span>
+            <span className="text-su-muted">
               {tx.uplink_low ? formatFreqMHz(tx.uplink_low) : "\u2014"}
               {tx.uplink_high &&
                 tx.uplink_low !== tx.uplink_high &&
@@ -155,8 +155,8 @@ function SatNOGSTransponderRow({ tx }: { tx: SatNOGSTransmitter }) {
         )}
         {(tx.downlink_low || tx.downlink_high) && (
           <div>
-            <span className="text-gray-500">DN: </span>
-            <span className="text-gray-300">
+            <span className="text-su-muted">DN: </span>
+            <span className="text-su-muted">
               {tx.downlink_low ? formatFreqMHz(tx.downlink_low) : "\u2014"}
               {tx.downlink_high &&
                 tx.downlink_low !== tx.downlink_high &&
@@ -212,7 +212,7 @@ function TransponderInfo({
   return (
     <div className="mt-3">
       <div className="flex items-center gap-1.5 mb-1.5">
-        <span className="text-[10px] text-gray-500 uppercase tracking-wider font-semibold">
+        <span className="text-[10px] text-su-muted uppercase tracking-wider font-semibold">
           Transponders
         </span>
         {useSatNOGS && (
@@ -230,10 +230,10 @@ function TransponderInfo({
         : transponderData.transponders.map((xpdr: Transponder, idx: number) => (
             <div
               key={idx}
-              className="bg-white/[0.03] rounded-md px-2.5 py-2 mb-1"
+              className="bg-su-line/10 rounded-md px-2.5 py-2 mb-1"
             >
               <div className="flex items-center justify-between">
-                <span className="text-[11px] font-medium text-gray-300">
+                <span className="text-[11px] font-medium text-su-muted">
                   {xpdr.name}
                 </span>
                 <span
@@ -251,16 +251,16 @@ function TransponderInfo({
               </div>
               <div className="grid grid-cols-2 gap-1 mt-1 text-[10px] font-mono">
                 <div>
-                  <span className="text-gray-500">UP: </span>
-                  <span className="text-gray-300">
+                  <span className="text-su-muted">UP: </span>
+                  <span className="text-su-muted">
                     {formatFreqMHz(xpdr.uplinkRangeHz[0])}
                     {xpdr.uplinkRangeHz[0] !== xpdr.uplinkRangeHz[1] &&
                       ` - ${formatFreqMHz(xpdr.uplinkRangeHz[1])}`}
                   </span>
                 </div>
                 <div>
-                  <span className="text-gray-500">DN: </span>
-                  <span className="text-gray-300">
+                  <span className="text-su-muted">DN: </span>
+                  <span className="text-su-muted">
                     {formatFreqMHz(xpdr.downlinkRangeHz[0])}
                     {xpdr.downlinkRangeHz[0] !== xpdr.downlinkRangeHz[1] &&
                       ` - ${formatFreqMHz(xpdr.downlinkRangeHz[1])}`}
@@ -271,13 +271,13 @@ function TransponderInfo({
           ))}
 
       {transponderData.beaconHz && (
-        <div className="text-[10px] font-mono text-gray-400 mt-1">
+        <div className="text-[10px] font-mono text-su-muted mt-1">
           Beacon: {formatFreqMHz(transponderData.beaconHz)}
         </div>
       )}
 
       {transponderData.notes && (
-        <div className="text-[10px] text-gray-500 mt-1 italic">
+        <div className="text-[10px] text-su-muted mt-1 italic">
           {transponderData.notes}
         </div>
       )}
@@ -290,20 +290,20 @@ function TransponderInfo({
           </div>
           <div className="grid grid-cols-2 gap-1 text-[10px] font-mono">
             <div>
-              <span className="text-gray-500">TX: </span>
-              <span className="text-white">
+              <span className="text-su-muted">TX: </span>
+              <span className="text-su-text">
                 {formatFreqMHz(dopplerInfo.uplinkHz)}
               </span>
-              <div className="text-gray-500">
+              <div className="text-su-muted">
                 {formatShift(dopplerInfo.uplinkShiftHz)}
               </div>
             </div>
             <div>
-              <span className="text-gray-500">RX: </span>
-              <span className="text-white">
+              <span className="text-su-muted">RX: </span>
+              <span className="text-su-text">
                 {formatFreqMHz(dopplerInfo.downlinkHz)}
               </span>
-              <div className="text-gray-500">
+              <div className="text-su-muted">
                 {formatShift(dopplerInfo.downlinkShiftHz)}
               </div>
             </div>
@@ -335,7 +335,7 @@ function PassRow({ pass }: { pass: PassPrediction }) {
       className={`flex items-center gap-2 px-2 py-1.5 rounded text-xs ${
         isActive
           ? "bg-green-400/10 border border-green-400/20"
-          : "bg-white/[0.02]"
+          : "bg-su-line/10"
       }`}
     >
       <div className="flex-1">
@@ -343,11 +343,11 @@ function PassRow({ pass }: { pass: PassPrediction }) {
           {isActive && (
             <span className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse" />
           )}
-          <span className="font-mono text-gray-300">
+          <span className="font-mono text-su-muted">
             {isActive ? "NOW" : format(pass.aos, timeFmt)}
           </span>
-          <span className="text-gray-500">-</span>
-          <span className="font-mono text-gray-400">
+          <span className="text-su-muted">-</span>
+          <span className="font-mono text-su-muted">
             {format(pass.los, timeFmt)}
           </span>
         </div>
@@ -367,17 +367,17 @@ function PassRow({ pass }: { pass: PassPrediction }) {
             {quality.label}
           </span>
           {isFuture && (
-            <span className="text-[10px] text-gray-500">
+            <span className="text-[10px] text-su-muted">
               in {formatDistanceToNow(pass.aos)}
             </span>
           )}
         </div>
       </div>
       <div className="text-right">
-        <div className="font-mono text-gray-300">
+        <div className="font-mono text-su-muted">
           {Math.round(pass.maxEl)}&deg; max
         </div>
-        <div className="text-[10px] text-gray-500 mt-0.5">
+        <div className="text-[10px] text-su-muted mt-0.5">
           {formatAzimuth(pass.aosAz)} &rarr; {formatAzimuth(pass.losAz)}
         </div>
       </div>
@@ -458,23 +458,23 @@ function SatelliteDetailContent({
       <div className="flex items-center gap-2 mb-3 flex-shrink-0">
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
-            <span className="text-sm font-medium text-white truncate">
+            <span className="text-sm font-medium text-su-text truncate">
               {satellite.name}
             </span>
             <CategoryBadge category={satellite.category} />
             <VisibilityDot isVisible={satellite.isVisible} />
           </div>
-          <div className="text-[10px] text-gray-500 font-mono mt-0.5">
+          <div className="text-[10px] text-su-muted font-mono mt-0.5">
             NORAD {satellite.noradId}
           </div>
         </div>
         <button
           onClick={onClose}
-          className="p-1 hover:bg-white/10 rounded transition-colors flex-shrink-0"
+          className="p-1 hover:bg-su-line/20 rounded transition-colors flex-shrink-0"
           title="Close"
         >
           <svg
-            className="w-4 h-4 text-gray-400"
+            className="w-4 h-4 text-su-muted"
             fill="none"
             viewBox="0 0 24 24"
             stroke="currentColor"
@@ -496,37 +496,37 @@ function SatelliteDetailContent({
           className="grid gap-2 mb-3"
           style={{ gridTemplateColumns: "1fr 1fr" }}
         >
-          <div className="bg-white/[0.03] rounded-md px-2.5 py-2">
-            <div className="text-[10px] text-gray-500 uppercase tracking-wider">
+          <div className="bg-su-line/10 rounded-md px-2.5 py-2">
+            <div className="text-[10px] text-su-muted uppercase tracking-wider">
               Position
             </div>
-            <div className="text-xs font-mono text-gray-200 mt-0.5">
+            <div className="text-xs font-mono text-su-text mt-0.5">
               {formatLatLon(lat, lon)}
             </div>
           </div>
-          <div className="bg-white/[0.03] rounded-md px-2.5 py-2">
-            <div className="text-[10px] text-gray-500 uppercase tracking-wider">
+          <div className="bg-su-line/10 rounded-md px-2.5 py-2">
+            <div className="text-[10px] text-su-muted uppercase tracking-wider">
               Altitude
             </div>
-            <div className="text-xs font-mono text-gray-200 mt-0.5">
+            <div className="text-xs font-mono text-su-text mt-0.5">
               {Math.round(alt)} km
             </div>
           </div>
-          <div className="bg-white/[0.03] rounded-md px-2.5 py-2">
-            <div className="text-[10px] text-gray-500 uppercase tracking-wider">
+          <div className="bg-su-line/10 rounded-md px-2.5 py-2">
+            <div className="text-[10px] text-su-muted uppercase tracking-wider">
               Velocity
             </div>
-            <div className="text-xs font-mono text-gray-200 mt-0.5">
+            <div className="text-xs font-mono text-su-text mt-0.5">
               {velocity.toFixed(1)} km/s
             </div>
           </div>
-          <div className="bg-white/[0.03] rounded-md px-2.5 py-2">
-            <div className="text-[10px] text-gray-500 uppercase tracking-wider">
+          <div className="bg-su-line/10 rounded-md px-2.5 py-2">
+            <div className="text-[10px] text-su-muted uppercase tracking-wider">
               Status
             </div>
             <div
               className={`text-xs font-mono mt-0.5 ${
-                satellite.isVisible ? "text-green-400" : "text-gray-400"
+                satellite.isVisible ? "text-green-400" : "text-su-muted"
               }`}
             >
               {satellite.isVisible ? "Visible" : "Below horizon"}
@@ -549,7 +549,7 @@ function SatelliteDetailContent({
         {linkBudget && (
           <div className="mt-2 flex items-center gap-2 flex-wrap">
             <div className="flex items-center gap-1.5">
-              <span className="text-[10px] text-gray-500 uppercase tracking-wider font-semibold">
+              <span className="text-[10px] text-su-muted uppercase tracking-wider font-semibold">
                 Signal
               </span>
               <span
@@ -560,7 +560,7 @@ function SatelliteDetailContent({
                 {LINK_QUALITY_STYLE[linkBudget.quality].label}
               </span>
             </div>
-            <div className="flex items-center gap-2 text-[10px] font-mono text-gray-500">
+            <div className="flex items-center gap-2 text-[10px] font-mono text-su-muted">
               <span title="Free-space path loss">
                 FSPL: {linkBudget.freeSpacePathLossDb.toFixed(1)} dB
               </span>
@@ -587,11 +587,11 @@ function SatelliteDetailContent({
 
         {/* Pass predictions */}
         <div className="mt-3">
-          <div className="text-[10px] text-gray-500 uppercase tracking-wider mb-1.5 font-semibold">
+          <div className="text-[10px] text-su-muted uppercase tracking-wider mb-1.5 font-semibold">
             Next Passes (24h)
           </div>
           {passes.length === 0 ? (
-            <div className="text-xs text-gray-500 text-center py-3">
+            <div className="text-xs text-su-muted text-center py-3">
               No passes predicted &mdash; set your QTH in settings
             </div>
           ) : (
@@ -644,7 +644,7 @@ export default function SatelliteDetailModal() {
 
       {/* Modal content */}
       <div
-        className="relative w-full max-w-md mx-4 bg-zinc-900 border border-zinc-700 rounded-xl shadow-2xl shadow-black/60 p-4"
+        className="relative w-full max-w-md mx-4 bg-su-canvas border border-su-line/40 rounded-xl shadow-2xl shadow-black/60 p-4"
         onClick={(e) => e.stopPropagation()}
       >
         <SatelliteDetailContent

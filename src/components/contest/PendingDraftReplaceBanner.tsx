@@ -21,9 +21,9 @@ export function PendingDraftReplaceBanner({
 
   return (
     <div className="mt-3 px-3 py-2 rounded-lg bg-plasma-orange/10 border border-plasma-orange/30 flex items-center gap-3">
-      <div className="text-xs text-gray-200">
+      <div className="text-xs text-su-text">
         Replace current draft{" "}
-        <span className="font-mono text-white">{draft || "(empty)"}</span> with{" "}
+        <span className="font-mono text-su-text">{draft || "(empty)"}</span> with{" "}
         <span className="font-mono text-plasma-orange">
           {pendingDraftReplace.nextText}
         </span>
@@ -40,7 +40,7 @@ export function PendingDraftReplaceBanner({
         <button
           type="button"
           onClick={onCancel}
-          className="px-2 py-1 rounded bg-white/5 text-gray-300 border border-white/10 hover:bg-white/10 hover:text-white transition-colors text-xs"
+          className="px-2 py-1 rounded bg-su-line/10 text-su-muted border border-su-line/40 hover:bg-su-line/20 hover:text-su-text transition-colors text-xs"
         >
           Keep
         </button>

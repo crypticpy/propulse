@@ -175,7 +175,7 @@ export function WeatherAlertModal({ alert, onClose }: WeatherAlertModalProps) {
 
           {/* Headline */}
           {alert.headline && (
-            <p className="text-base leading-relaxed text-white">
+            <p className="text-base leading-relaxed text-su-text">
               {alert.headline}
             </p>
           )}
@@ -184,12 +184,12 @@ export function WeatherAlertModal({ alert, onClose }: WeatherAlertModalProps) {
           {alert.areaDesc && (
             <div className="flex items-start gap-2">
               <span
-                className="mt-0.5 flex-shrink-0 text-gray-400"
+                className="mt-0.5 flex-shrink-0 text-su-muted"
                 aria-hidden="true"
               >
                 {"\uD83D\uDCCD"}
               </span>
-              <p className="text-sm leading-relaxed text-gray-400">
+              <p className="text-sm leading-relaxed text-su-muted">
                 {alert.areaDesc}
               </p>
             </div>
@@ -197,7 +197,7 @@ export function WeatherAlertModal({ alert, onClose }: WeatherAlertModalProps) {
 
           {/* Radio impact section */}
           {radioImpact && (
-            <section className="border-t border-zinc-700 pt-4">
+            <section className="border-t border-su-line/40 pt-4">
               <div className="mb-2 flex items-center gap-2">
                 <span className="text-sm" aria-hidden="true">
                   {"\uD83D\uDCE1"}
@@ -206,7 +206,7 @@ export function WeatherAlertModal({ alert, onClose }: WeatherAlertModalProps) {
                   Impact on Radio
                 </h3>
               </div>
-              <p className="rounded-lg border border-cyan-500/10 bg-cyan-500/5 px-3 py-2 text-sm leading-relaxed text-gray-300">
+              <p className="rounded-lg border border-cyan-500/10 bg-cyan-500/5 px-3 py-2 text-sm leading-relaxed text-su-muted">
                 {radioImpact}
               </p>
             </section>
@@ -214,11 +214,11 @@ export function WeatherAlertModal({ alert, onClose }: WeatherAlertModalProps) {
 
           {/* A visible footer action supplements the shared header close
               control for mouse and touch users scanning long alert text. */}
-          <div className="flex justify-end border-t border-zinc-700 pt-4">
+          <div className="flex justify-end border-t border-su-line/40 pt-4">
             <button
               type="button"
               onClick={onClose}
-              className="rounded-lg border border-white/10 bg-white/5 px-4 py-2 text-sm font-medium text-gray-300 transition-colors duration-150 hover:bg-white/10"
+              className="rounded-lg border border-su-line/40 bg-su-line/10 px-4 py-2 text-sm font-medium text-su-muted transition-colors duration-150 hover:bg-su-line/20"
             >
               Close
             </button>

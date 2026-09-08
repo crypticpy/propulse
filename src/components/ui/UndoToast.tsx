@@ -360,7 +360,7 @@ export const UndoToast: React.FC<UndoToastProps> = ({ className = "" }) => {
         className={`
           w-80
           bg-deep-space/95 backdrop-blur-sm
-          border border-white/10 ${borderColor} border-l-4 rounded-lg
+          border border-su-line/40 ${borderColor} border-l-4 rounded-lg
           shadow-lg shadow-black/20
           transform transition-all duration-200 ease-out
           ${isExiting ? "-translate-x-full opacity-0" : isEntered ? "translate-x-0 opacity-100" : "-translate-x-full opacity-0"}
@@ -372,16 +372,16 @@ export const UndoToast: React.FC<UndoToastProps> = ({ className = "" }) => {
         <div className="p-3">
           <div className="flex items-start gap-2">
             {/* Action icon */}
-            <span className="text-gray-400 flex-shrink-0 mt-0.5">
+            <span className="text-su-muted flex-shrink-0 mt-0.5">
               {actionIcon}
             </span>
 
             {/* Text content */}
             <div className="flex-1 min-w-0">
-              <p className="text-sm text-gray-200 line-clamp-2">{message}</p>
+              <p className="text-sm text-su-text line-clamp-2">{message}</p>
 
               {/* Keyboard hint */}
-              <p className="text-[10px] text-gray-500 mt-1 font-mono">
+              <p className="text-[10px] text-su-muted mt-1 font-mono">
                 {isUndo
                   ? "Ctrl+Shift+Z to redo"
                   : isRedo
@@ -435,10 +435,10 @@ export const UndoToast: React.FC<UndoToastProps> = ({ className = "" }) => {
                 onClick={handleDismiss}
                 className="
                   p-1 rounded
-                  text-gray-500 hover:text-white
-                  hover:bg-white/10
+                  text-su-muted hover:text-su-text
+                  hover:bg-su-line/20
                   transition-colors duration-150
-                  focus:outline-none focus:ring-2 focus:ring-white/20
+                  focus:outline-none focus:ring-2 focus:ring-su-line/50
                 "
                 aria-label="Dismiss"
               >
@@ -449,7 +449,7 @@ export const UndoToast: React.FC<UndoToastProps> = ({ className = "" }) => {
         </div>
 
         {/* Progress bar */}
-        <div className="h-0.5 bg-gray-800 rounded-b-lg overflow-hidden">
+        <div className="h-0.5 bg-su-panel rounded-b-lg overflow-hidden">
           <div
             className={`h-full ${progressColor} transition-[width] duration-50 ease-linear`}
             style={{ width: `${progress}%` }}

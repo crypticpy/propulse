@@ -57,9 +57,9 @@ const STATUS_CONFIG: Record<DXCCStatus, StatusConfig> = {
   },
   dupe: {
     label: "Dupe",
-    bg: "bg-white/5",
-    text: "text-gray-500",
-    border: "border-white/10",
+    bg: "bg-su-line/10",
+    text: "text-su-muted",
+    border: "border-su-line/40",
     pulse: false,
   },
 };
@@ -108,7 +108,7 @@ export function DxccStatusBadge({
   if (loading) {
     return (
       <div className="flex items-center h-8">
-        <div className="w-16 h-5 rounded-full bg-white/5 animate-pulse" />
+        <div className="w-16 h-5 rounded-full bg-su-line/10 animate-pulse" />
       </div>
     );
   }
@@ -147,7 +147,7 @@ export function DxccStatusBadge({
               ${status === "new_band" ? "bg-signal-green" : ""}
               ${status === "new_mode" ? "bg-nebula-blue" : ""}
               ${status === "worked" ? "bg-plasma-orange" : ""}
-              ${status === "dupe" ? "bg-gray-500" : ""}
+              ${status === "dupe" ? "bg-su-line" : ""}
             `}
           />
           {config.label}
@@ -176,17 +176,17 @@ export function DxccStatusBadge({
               absolute left-0 top-full mt-1.5 z-50
               min-w-[260px] max-w-[340px]
               px-3 py-2 rounded-lg
-              bg-void-black border border-white/10
+              bg-void-black border border-su-line/40
               shadow-lg shadow-black/50
             "
             role="tooltip"
           >
-            <p className="text-xs text-gray-300 leading-relaxed">
+            <p className="text-xs text-su-muted leading-relaxed">
               {tooltipText}
             </p>
             {workedBands.length > 0 && status !== "new_entity" && (
               <div className="mt-1.5 flex items-center gap-1 flex-wrap">
-                <span className="text-[10px] text-gray-500 uppercase tracking-wider mr-1">
+                <span className="text-[10px] text-su-muted uppercase tracking-wider mr-1">
                   Bands:
                 </span>
                 {workedBands.map((b) => (
@@ -194,7 +194,7 @@ export function DxccStatusBadge({
                     key={b}
                     className="
                       text-[10px] font-mono px-1.5 py-0.5 rounded
-                      bg-white/5 text-gray-400
+                      bg-su-line/10 text-su-muted
                     "
                   >
                     {b}
@@ -208,11 +208,11 @@ export function DxccStatusBadge({
 
       {/* Mobile inline detail */}
       {showInlineDetail && showTooltip && tooltipText && (
-        <div className="px-2 py-1.5 rounded-md bg-white/[0.03] border border-white/5">
-          <p className="text-xs text-gray-400 leading-relaxed">{tooltipText}</p>
+        <div className="px-2 py-1.5 rounded-md bg-su-line/10 border border-su-line/20">
+          <p className="text-xs text-su-muted leading-relaxed">{tooltipText}</p>
           {workedBands.length > 0 && status !== "new_entity" && (
             <div className="mt-1 flex items-center gap-1 flex-wrap">
-              <span className="text-[10px] text-gray-500 uppercase tracking-wider mr-1">
+              <span className="text-[10px] text-su-muted uppercase tracking-wider mr-1">
                 Bands:
               </span>
               {workedBands.map((b) => (
@@ -220,7 +220,7 @@ export function DxccStatusBadge({
                   key={b}
                   className="
                     text-[10px] font-mono px-1.5 py-0.5 rounded
-                    bg-white/5 text-gray-400
+                    bg-su-line/10 text-su-muted
                   "
                 >
                   {b}

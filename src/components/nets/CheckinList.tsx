@@ -41,7 +41,7 @@ const STATUS_BADGE: Record<
   },
   completed: {
     label: "Complete",
-    className: "bg-gray-500/20 text-gray-300 border-gray-400/50",
+    className: "bg-su-line/20 text-su-muted border-su-line/60",
   },
   skipped: {
     label: "Skipped",
@@ -174,7 +174,7 @@ export function CheckinList({
     return (
       <div className="flex flex-col items-center justify-center py-12 gap-3">
         <svg
-          className="w-12 h-12 text-gray-400"
+          className="w-12 h-12 text-su-muted"
           fill="none"
           stroke="currentColor"
           viewBox="0 0 24 24"
@@ -187,8 +187,8 @@ export function CheckinList({
             d="M18 18.72a9.094 9.094 0 003.741-.479 3 3 0 00-4.682-2.72m.94 3.198l.001.031c0 .225-.012.447-.037.666A11.944 11.944 0 0112 21c-2.17 0-4.207-.576-5.963-1.584A6.062 6.062 0 016 18.719m12 0a5.971 5.971 0 00-.941-3.197m0 0A5.995 5.995 0 0012 12.75a5.995 5.995 0 00-5.058 2.772m0 0a3 3 0 00-4.681 2.72 8.986 8.986 0 003.74.477m.94-3.197a5.971 5.971 0 00-.94 3.197M15 6.75a3 3 0 11-6 0 3 3 0 016 0zm6 3a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0zm-13.5 0a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0z"
           />
         </svg>
-        <p className="text-base text-gray-400">No check-ins yet</p>
-        <p className="text-sm text-gray-400">Type a callsign above to begin</p>
+        <p className="text-base text-su-muted">No check-ins yet</p>
+        <p className="text-sm text-su-muted">Type a callsign above to begin</p>
       </div>
     );
   }
@@ -218,11 +218,11 @@ export function CheckinList({
             onDrop={(e) => handleDrop(e, checkin)}
             className={`
               group flex items-center gap-3 ${rowPadding} rounded-lg transition-colors select-none
-              bg-white/[0.05] hover:bg-white/[0.12] border border-white/15
+              bg-su-line/10 hover:bg-su-line/30 border border-su-line/50
               border-l-2 border-l-transparent hover:border-l-plasma-orange/40
               animate-ncs-checkin-entrance
-              ${checkin.status === "completed" ? "bg-white/[0.02]" : ""}
-              ${checkin.status === "skipped" ? "bg-white/[0.02]" : ""}
+              ${checkin.status === "completed" ? "bg-su-line/10" : ""}
+              ${checkin.status === "skipped" ? "bg-su-line/10" : ""}
               ${dragOverId === checkin.id ? "border-plasma-orange/60 bg-plasma-orange/10" : ""}
             `}
             style={{
@@ -233,7 +233,7 @@ export function CheckinList({
             {/* Drag handle -- hidden in compact mode */}
             {!compact && (
               <span
-                className="cursor-grab active:cursor-grabbing text-gray-400 hover:text-gray-200 text-sm shrink-0 transition-colors"
+                className="cursor-grab active:cursor-grabbing text-su-muted hover:text-su-text text-sm shrink-0 transition-colors"
                 title="Drag to reorder"
                 aria-hidden="true"
               >
@@ -243,7 +243,7 @@ export function CheckinList({
 
             {/* Queue position -- hidden in compact mode */}
             {!compact && (
-              <span className="text-xs font-mono text-gray-400 w-5 text-center shrink-0">
+              <span className="text-xs font-mono text-su-muted w-5 text-center shrink-0">
                 {checkin.queuePosition}
               </span>
             )}
@@ -252,10 +252,10 @@ export function CheckinList({
             <span
               className={`font-mono ${callsignSize} min-w-[80px] group-hover:text-plasma-orange/90 transition-colors ${
                 checkin.status === "completed"
-                  ? "text-gray-400"
+                  ? "text-su-muted"
                   : checkin.status === "skipped"
-                    ? "text-gray-500 line-through"
-                    : "text-white"
+                    ? "text-su-muted line-through"
+                    : "text-su-text"
               }`}
             >
               {checkin.callsign}
@@ -279,7 +279,7 @@ export function CheckinList({
             {/* Traffic notes -- hidden in compact mode (tooltip only) */}
             {checkin.trafficNotes && !isEditing && !compact && (
               <span
-                className="text-xs text-gray-400 truncate max-w-[120px]"
+                className="text-xs text-su-muted truncate max-w-[120px]"
                 title={checkin.trafficNotes}
               >
                 {checkin.trafficNotes}
@@ -299,7 +299,7 @@ export function CheckinList({
                   }}
                   autoFocus
                   aria-label={`Traffic notes for ${checkin.callsign}`}
-                  className="flex-1 min-w-0 bg-white/5 border border-white/15 rounded px-2 py-0.5 text-xs text-gray-200 focus:outline-none focus:ring-1 focus:ring-plasma-orange/70"
+                  className="flex-1 min-w-0 bg-su-line/10 border border-su-line/50 rounded px-2 py-0.5 text-xs text-su-text focus:outline-none focus:ring-1 focus:ring-plasma-orange/70"
                   placeholder="Traffic notes..."
                 />
                 <button
@@ -314,7 +314,7 @@ export function CheckinList({
 
             {/* Relative time -- hidden in compact mode */}
             {!compact && (
-              <span className="text-xs text-gray-400 shrink-0 ml-auto">
+              <span className="text-xs text-su-muted shrink-0 ml-auto">
                 {relativeTime(checkin.checkedInAt)}
               </span>
             )}
@@ -410,7 +410,7 @@ export function CheckinList({
                     setRelayViaValue("");
                   }
                 }}
-                className={`${btnPadding} ${btnMinSize} rounded-lg transition-colors ${focusRing} ${checkin.isRelay ? "text-purple-400 hover:bg-purple-400/10" : "text-gray-400 hover:bg-white/10"}`}
+                className={`${btnPadding} ${btnMinSize} rounded-lg transition-colors ${focusRing} ${checkin.isRelay ? "text-purple-400 hover:bg-purple-400/10" : "text-su-muted hover:bg-su-line/20"}`}
                 aria-label={
                   checkin.isRelay
                     ? `Remove relay for ${checkin.callsign}`
@@ -451,14 +451,14 @@ export function CheckinList({
                   autoFocus
                   placeholder="Via callsign"
                   aria-label={`Relay via callsign for ${checkin.callsign}`}
-                  className="w-24 bg-white/5 border border-purple-500/30 rounded px-2 py-0.5 text-xs font-mono text-purple-300 uppercase focus:outline-none focus:ring-1 focus:ring-purple-400/50"
+                  className="w-24 bg-su-line/10 border border-purple-500/30 rounded px-2 py-0.5 text-xs font-mono text-purple-300 uppercase focus:outline-none focus:ring-1 focus:ring-purple-400/50"
                 />
               )}
 
               {/* Edit notes */}
               <button
                 onClick={() => startEditNotes(checkin)}
-                className={`${btnPadding} ${btnMinSize} rounded-lg text-gray-400 hover:bg-white/10 hover:text-white transition-colors ${focusRing}`}
+                className={`${btnPadding} ${btnMinSize} rounded-lg text-su-muted hover:bg-su-line/20 hover:text-su-text transition-colors ${focusRing}`}
                 aria-label={`Edit notes for ${checkin.callsign}`}
                 title={
                   compact && checkin.trafficNotes

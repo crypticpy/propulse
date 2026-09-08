@@ -36,7 +36,7 @@ export function SidebarAccordion({
       >
         {/* Chevron */}
         <svg
-          className={`w-2.5 h-2.5 text-gray-600 transition-transform duration-200 ${
+          className={`w-2.5 h-2.5 text-su-muted transition-transform duration-200 ${
             open ? "rotate-90" : ""
           }`}
           viewBox="0 0 6 10"
@@ -52,12 +52,12 @@ export function SidebarAccordion({
           />
         </svg>
 
-        <span className="text-[10px] font-semibold text-gray-500 uppercase tracking-wider group-hover:text-gray-400 transition-colors">
+        <span className="text-[10px] font-semibold text-su-muted uppercase tracking-wider group-hover:text-su-text transition-colors">
           {title}
         </span>
 
         {badge != null && (
-          <span className="text-[9px] font-mono text-gray-600 ml-auto">
+          <span className="text-[9px] font-mono text-su-muted ml-auto">
             {badge}
           </span>
         )}

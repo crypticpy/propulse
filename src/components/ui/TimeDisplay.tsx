@@ -103,7 +103,7 @@ export const TimeDisplay: React.FC<TimeDisplayProps> = ({
 
   return (
     <span className={`relative inline-flex group ${className}`}>
-      <span className="cursor-help border-b border-dotted border-white/30 hover:border-white/50 transition-colors">
+      <span className="cursor-help border-b border-dotted border-su-line/40 hover:border-su-line/60 transition-colors">
         {displayedTime} {displayedSuffix}
       </span>
       <span
@@ -125,13 +125,13 @@ export const TimeDisplay: React.FC<TimeDisplayProps> = ({
           // Appearance
           "bg-panel",
           "border",
-          "border-white/10",
+          "border-su-line/40",
           "rounded-lg",
           "shadow-lg",
 
           // Typography
           "text-sm",
-          "text-gray-200",
+          "text-su-text",
           "font-sans",
           "font-mono",
           "whitespace-nowrap",

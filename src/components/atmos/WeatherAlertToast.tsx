@@ -301,7 +301,7 @@ function WeatherAlertToastItem({
           {/* Text */}
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2">
-              <h4 className="text-sm font-mono font-semibold text-white truncate">
+              <h4 className="text-sm font-mono font-semibold text-su-text truncate">
                 {alert.title}
               </h4>
               {isCritical && (
@@ -310,10 +310,10 @@ function WeatherAlertToastItem({
                 </span>
               )}
             </div>
-            <p className="text-xs text-gray-300 line-clamp-2 mt-0.5 leading-relaxed">
+            <p className="text-xs text-su-muted line-clamp-2 mt-0.5 leading-relaxed">
               {alert.message}
             </p>
-            <p className="text-[10px] text-gray-500 mt-1 font-mono">
+            <p className="text-[10px] text-su-muted mt-1 font-mono">
               {relativeTime(alert.timestamp)}
             </p>
           </div>
@@ -325,7 +325,7 @@ function WeatherAlertToastItem({
               e.stopPropagation();
               handleDismiss();
             }}
-            className="flex-shrink-0 p-1.5 rounded text-gray-400 hover:text-white hover:bg-white/10 transition-colors duration-150 focus:outline-none focus:ring-2 focus:ring-white/20"
+            className="flex-shrink-0 p-1.5 rounded text-su-muted hover:text-su-text hover:bg-su-line/20 transition-colors duration-150 focus:outline-none focus:ring-2 focus:ring-su-line/50"
             aria-label="Dismiss weather alert"
           >
             <CloseIcon />
@@ -334,7 +334,7 @@ function WeatherAlertToastItem({
       </div>
 
       {/* Progress bar countdown */}
-      <div className="h-0.5 bg-gray-800 rounded-b-lg overflow-hidden">
+      <div className="h-0.5 bg-su-panel rounded-b-lg overflow-hidden">
         <div
           className={`h-full transition-[width] duration-75 ease-linear ${
             isCritical
@@ -412,7 +412,7 @@ export function WeatherAlertToasts() {
         />
       ))}
       {visibleAlerts.length > MAX_VISIBLE && (
-        <div className="text-xs font-mono text-right pr-2 text-gray-500">
+        <div className="text-xs font-mono text-right pr-2 text-su-muted">
           +{visibleAlerts.length - MAX_VISIBLE} more alert
           {visibleAlerts.length - MAX_VISIBLE !== 1 ? "s" : ""}
         </div>

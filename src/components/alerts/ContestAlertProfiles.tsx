@@ -130,22 +130,22 @@ export const ContestAlertProfiles: React.FC<ContestAlertProfilesProps> = ({
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h3 className="text-sm font-mono font-semibold text-white">
+          <h3 className="text-sm font-mono font-semibold text-su-text">
             Contest Alert Profiles
           </h3>
-          <p className="text-xs text-gray-400 mt-0.5">
+          <p className="text-xs text-su-muted mt-0.5">
             Control how alerts behave during active contests
           </p>
         </div>
       </div>
 
       {/* Auto-switch toggle */}
-      <div className="flex items-center justify-between rounded-lg border border-white/10 bg-deep-space px-4 py-3">
+      <div className="flex items-center justify-between rounded-lg border border-su-line/40 bg-deep-space px-4 py-3">
         <div>
-          <p className="text-sm font-mono text-gray-200">
+          <p className="text-sm font-mono text-su-text">
             Auto-switch during contests
           </p>
-          <p className="text-xs text-gray-500 mt-0.5">
+          <p className="text-xs text-su-muted mt-0.5">
             Automatically activate the selected contest profile when a contest
             is detected
           </p>
@@ -156,11 +156,11 @@ export const ContestAlertProfiles: React.FC<ContestAlertProfilesProps> = ({
           aria-checked={autoSwitch}
           onClick={handleToggleAutoSwitch}
           className={`relative w-11 h-6 rounded-full transition-colors flex-shrink-0 ${
-            autoSwitch ? "bg-signal-green" : "bg-gray-600"
+            autoSwitch ? "bg-signal-green" : "bg-su-line"
           }`}
         >
           <span
-            className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform ${
+            className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-su-text shadow transition-transform ${
               autoSwitch ? "translate-x-5" : "translate-x-0"
             }`}
           />
@@ -168,8 +168,8 @@ export const ContestAlertProfiles: React.FC<ContestAlertProfilesProps> = ({
       </div>
 
       {/* Throttle multiplier */}
-      <div className="rounded-lg border border-white/10 bg-deep-space px-4 py-3">
-        <p className="text-sm font-mono text-gray-200 mb-2">Throttle Rate</p>
+      <div className="rounded-lg border border-su-line/40 bg-deep-space px-4 py-3">
+        <p className="text-sm font-mono text-su-text mb-2">Throttle Rate</p>
         <div className="flex flex-wrap gap-2">
           {THROTTLE_MULTIPLIER_OPTIONS.map((opt) => (
             <button
@@ -178,15 +178,15 @@ export const ContestAlertProfiles: React.FC<ContestAlertProfilesProps> = ({
               onClick={() => handleMultiplierChange(opt.value)}
               className={`px-3 py-1.5 rounded-lg text-xs font-mono transition-colors border ${
                 throttleMultiplier === opt.value
-                  ? "bg-plasma-orange/30 border-plasma-orange text-white"
-                  : "bg-void-black border-white/10 text-gray-400 hover:border-white/20"
+                  ? "bg-plasma-orange/30 border-plasma-orange text-su-text"
+                  : "bg-void-black border-su-line/40 text-su-muted hover:border-su-line/50"
               }`}
             >
               {opt.label}
             </button>
           ))}
         </div>
-        <p className="text-xs text-gray-500 mt-1.5">
+        <p className="text-xs text-su-muted mt-1.5">
           When throttling, alerts are reduced by this factor instead of
           suppressed
         </p>
@@ -205,7 +205,7 @@ export const ContestAlertProfiles: React.FC<ContestAlertProfilesProps> = ({
               className={`rounded-lg border transition-colors ${
                 isSelected
                   ? "border-plasma-orange/50 bg-plasma-orange/5"
-                  : "border-white/10 bg-space-900 hover:border-white/20"
+                  : "border-su-line/40 bg-space-900 hover:border-su-line/50"
               }`}
             >
               {/* Profile header with radio */}
@@ -217,7 +217,7 @@ export const ContestAlertProfiles: React.FC<ContestAlertProfilesProps> = ({
                 {/* Radio indicator */}
                 <span
                   className={`mt-0.5 flex-shrink-0 w-4 h-4 rounded-full border-2 flex items-center justify-center ${
-                    isSelected ? "border-plasma-orange" : "border-gray-500"
+                    isSelected ? "border-plasma-orange" : "border-su-line"
                   }`}
                 >
                   {isSelected && (
@@ -229,12 +229,12 @@ export const ContestAlertProfiles: React.FC<ContestAlertProfilesProps> = ({
                 <div className="flex-1 min-w-0">
                   <p
                     className={`text-sm font-mono font-medium ${
-                      isSelected ? "text-white" : "text-gray-300"
+                      isSelected ? "text-su-text" : "text-su-muted"
                     }`}
                   >
                     {profile.name}
                   </p>
-                  <p className="text-xs text-gray-500 mt-0.5">
+                  <p className="text-xs text-su-muted mt-0.5">
                     {profile.description}
                   </p>
                 </div>
@@ -242,9 +242,9 @@ export const ContestAlertProfiles: React.FC<ContestAlertProfilesProps> = ({
 
               {/* Rule list */}
               {isSelected && (
-                <div className="px-4 pb-3 border-t border-white/5 pt-2">
+                <div className="px-4 pb-3 border-t border-su-line/20 pt-2">
                   <div className="flex items-center justify-between mb-2">
-                    <span className="text-xs font-mono text-gray-400 uppercase tracking-wider">
+                    <span className="text-xs font-mono text-su-muted uppercase tracking-wider">
                       Rules
                     </span>
                     {!isNormal && !isEditing && (
@@ -261,7 +261,7 @@ export const ContestAlertProfiles: React.FC<ContestAlertProfilesProps> = ({
                         <button
                           type="button"
                           onClick={cancelEditing}
-                          className="text-xs font-mono text-gray-400 hover:text-white transition-colors"
+                          className="text-xs font-mono text-su-muted hover:text-su-text transition-colors"
                         >
                           Cancel
                         </button>
@@ -283,7 +283,7 @@ export const ContestAlertProfiles: React.FC<ContestAlertProfilesProps> = ({
                           key={`${rule.condition}-${idx}`}
                           className="flex items-center justify-between py-1.5 px-2 rounded bg-void-black/50"
                         >
-                          <span className="text-xs font-mono text-gray-300">
+                          <span className="text-xs font-mono text-su-muted">
                             {CONDITION_LABELS[rule.condition]}
                           </span>
 
@@ -296,7 +296,7 @@ export const ContestAlertProfiles: React.FC<ContestAlertProfilesProps> = ({
                                   e.target.value as ProfileAction,
                                 )
                               }
-                              className="text-xs font-mono bg-deep-space border border-white/10 rounded px-2 py-1 text-white focus:outline-none focus:ring-1 focus:ring-plasma-orange/50"
+                              className="text-xs font-mono bg-deep-space border border-su-line/40 rounded px-2 py-1 text-su-text focus:outline-none focus:ring-1 focus:ring-plasma-orange/50"
                             >
                               <option value="allow">Allow</option>
                               <option value="suppress">Suppress</option>

@@ -231,8 +231,8 @@ export function SpotContextMenu({
       ref={menuRef}
       className={`
         fixed z-[100]
-        bg-gray-900/95 backdrop-blur-md
-        border border-white/10 rounded-lg
+        bg-su-canvas/95 backdrop-blur-md
+        border border-su-line/40 rounded-lg
         shadow-xl shadow-black/50
         py-1
         animate-in fade-in zoom-in-95 duration-150
@@ -247,13 +247,13 @@ export function SpotContextMenu({
       aria-label="Spot context menu"
     >
       {/* Header with spot info */}
-      <div className="px-3 py-2 border-b border-white/10">
-        <div className="text-white font-mono font-bold text-sm">{spot.dx}</div>
-        <div className="flex items-center gap-2 text-xs text-gray-400">
+      <div className="px-3 py-2 border-b border-su-line/40">
+        <div className="text-su-text font-mono font-bold text-sm">{spot.dx}</div>
+        <div className="flex items-center gap-2 text-xs text-su-muted">
           <span className="font-mono">
             {(spot.frequency / 1000).toFixed(3)} MHz
           </span>
-          {spot.mode && <span className="text-gray-500">({spot.mode})</span>}
+          {spot.mode && <span className="text-su-muted">({spot.mode})</span>}
         </div>
         {spot.dxGrid && (
           <div className="text-xs text-cyan-400/70 font-mono mt-0.5">
@@ -275,8 +275,8 @@ export function SpotContextMenu({
                 className="
                   w-full px-3 py-2
                   flex items-center justify-between gap-2
-                  text-left text-sm text-gray-200
-                  hover:bg-white/10
+                  text-left text-sm text-su-text
+                  hover:bg-su-line/20
                   transition-colors duration-100
                 "
                 role="menuitem"
@@ -287,12 +287,12 @@ export function SpotContextMenu({
                   <span>{label}</span>
                 </div>
                 {item.shortcut && (
-                  <span className="text-xs text-gray-500 font-mono">
+                  <span className="text-xs text-su-muted font-mono">
                     {item.shortcut}
                   </span>
                 )}
               </button>
-              {showDivider && <div className="my-1 border-t border-white/10" />}
+              {showDivider && <div className="my-1 border-t border-su-line/40" />}
             </div>
           );
         })}

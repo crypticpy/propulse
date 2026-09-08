@@ -35,22 +35,22 @@ export function ToggleSwitch({
           onClick={() => !disabled && onChange(!checked)}
           className={`
             relative w-10 h-6 rounded-full transition-colors
-            ${checked ? "bg-plasma-orange" : "bg-white/10"}
+            ${checked ? "bg-plasma-orange" : "bg-su-line/20"}
             ${disabled ? "cursor-not-allowed" : "cursor-pointer"}
           `}
         >
           <span
             className={`
-              absolute top-1 left-1 w-4 h-4 rounded-full bg-white transition-transform
-              ${checked ? "translate-x-4" : "translate-x-0"}
+              absolute top-1 left-1 w-4 h-4 rounded-full transition-transform
+              ${checked ? "bg-su-on-accent translate-x-4" : "bg-su-text translate-x-0"}
             `}
           />
         </button>
       </div>
       <div className="min-w-0">
-        <div className="text-sm font-medium text-gray-200">{label}</div>
+        <div className="text-sm font-medium text-su-text">{label}</div>
         {description && (
-          <div className="text-xs text-gray-500 mt-0.5">{description}</div>
+          <div className="text-xs text-su-muted mt-0.5">{description}</div>
         )}
       </div>
     </label>

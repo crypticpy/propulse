@@ -153,10 +153,10 @@ export function MemoryPanel({
             onKeyDown={handleStoreKeyDown}
             placeholder="Memory name"
             autoFocus
-            className="w-full px-2 py-1 text-[11px] font-mono text-white
-              bg-black/40 border border-white/10 rounded
+            className="w-full px-2 py-1 text-[11px] font-mono text-su-text
+              bg-su-input border border-su-line/40 rounded
               focus:border-cosmic-cyan/50 focus:outline-none
-              placeholder:text-gray-600"
+              placeholder:text-su-muted"
           />
           {/* Bank selector */}
           <div className="flex gap-0.5">
@@ -167,7 +167,7 @@ export function MemoryPanel({
                 className={`flex-1 px-1 py-0.5 text-[9px] font-bold rounded border transition-colors ${
                   storeBank === b
                     ? BANK_COLORS[b]
-                    : "bg-white/5 border-white/10 text-gray-500 hover:text-gray-300"
+                    : "bg-su-line/10 border-su-line/40 text-su-muted hover:text-su-text"
                 }`}
               >
                 {b}
@@ -188,7 +188,7 @@ export function MemoryPanel({
             <button
               onClick={handleCancelStore}
               className="flex-1 px-2 py-1 text-[10px] font-semibold rounded border transition-colors
-                bg-white/5 border-white/10 text-gray-400 hover:text-gray-200"
+                bg-su-line/10 border-su-line/40 text-su-muted hover:text-su-text"
             >
               Cancel
             </button>
@@ -213,8 +213,8 @@ export function MemoryPanel({
           onClick={() => setActiveBank("ALL")}
           className={`px-1.5 py-0.5 text-[9px] font-bold rounded border transition-colors ${
             activeBank === "ALL"
-              ? "bg-white/10 border-white/20 text-white"
-              : "bg-white/5 border-white/10 text-gray-500 hover:text-gray-300"
+              ? "bg-su-line/20 border-su-line/50 text-su-text"
+              : "bg-su-line/10 border-su-line/40 text-su-muted hover:text-su-text"
           }`}
         >
           ALL
@@ -231,7 +231,7 @@ export function MemoryPanel({
             className={`flex-1 px-1 py-0.5 text-[9px] font-bold rounded border transition-colors ${
               activeBank === b
                 ? BANK_COLORS[b]
-                : "bg-white/5 border-white/10 text-gray-500 hover:text-gray-300"
+                : "bg-su-line/10 border-su-line/40 text-su-muted hover:text-su-text"
             }`}
           >
             {b}
@@ -256,7 +256,7 @@ export function MemoryPanel({
 
       {/* Memory list */}
       {filtered.length === 0 ? (
-        <div className="text-[9px] text-gray-600 leading-tight py-2 text-center">
+        <div className="text-[9px] text-su-muted leading-tight py-2 text-center">
           {memories.length === 0
             ? "No memories saved. Store your first frequency."
             : `No memories in bank ${activeBank}.`}
@@ -273,27 +273,27 @@ export function MemoryPanel({
                 className={`flex items-center gap-1.5 px-1.5 py-1 rounded border cursor-pointer transition-all group ${
                   isActive
                     ? "bg-cosmic-cyan/10 border-cosmic-cyan/25"
-                    : "bg-white/[0.02] border-white/5 hover:bg-white/5 hover:border-white/10"
+                    : "bg-su-line/10 border-su-line/20 hover:bg-su-line/20 hover:border-su-line/40"
                 }`}
                 title={`${mem.name}\n${formatFreqMHz(mem.freq)} MHz ${mem.mode}\nClick to recall`}
               >
                 {/* Bank dot */}
                 <span
-                  className={`w-1.5 h-1.5 rounded-full shrink-0 ${DOT_COLORS[mem.bank] ?? "bg-gray-500"}`}
+                  className={`w-1.5 h-1.5 rounded-full shrink-0 ${DOT_COLORS[mem.bank] ?? "bg-su-line"}`}
                 />
 
                 {/* Name (truncated) */}
-                <span className="text-[10px] text-gray-300 truncate flex-1 min-w-0">
+                <span className="text-[10px] text-su-muted truncate flex-1 min-w-0">
                   {mem.name}
                 </span>
 
                 {/* Frequency */}
-                <span className="text-[9px] font-mono text-gray-400 shrink-0">
+                <span className="text-[9px] font-mono text-su-muted shrink-0">
                   {formatFreqMHz(mem.freq)}
                 </span>
 
                 {/* Mode badge */}
-                <span className="text-[8px] font-bold text-gray-500 bg-white/5 px-1 py-0.5 rounded shrink-0">
+                <span className="text-[8px] font-bold text-su-muted bg-su-line/10 px-1 py-0.5 rounded shrink-0">
                   {mem.mode}
                 </span>
 
@@ -303,7 +303,7 @@ export function MemoryPanel({
                     e.stopPropagation();
                     removeMemory(mem.id);
                   }}
-                  className="text-[9px] text-gray-600 hover:text-alert-red transition-colors shrink-0 opacity-0 group-hover:opacity-100"
+                  className="text-[9px] text-su-muted hover:text-alert-red transition-colors shrink-0 opacity-0 group-hover:opacity-100"
                   title="Delete memory"
                 >
                   &times;
@@ -316,7 +316,7 @@ export function MemoryPanel({
 
       {/* Footer: count */}
       {memories.length > 0 && (
-        <div className="text-[8px] text-gray-600 text-right">
+        <div className="text-[8px] text-su-muted text-right">
           {memories.length}/{MAX_MEMORIES} memories
         </div>
       )}

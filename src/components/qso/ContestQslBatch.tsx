@@ -161,7 +161,7 @@ export function ContestQslBatch() {
       <div>
         <label
           htmlFor="contest-session-select"
-          className="block text-sm font-medium text-gray-300 mb-2"
+          className="block text-sm font-medium text-su-muted mb-2"
         >
           Contest Session
         </label>
@@ -172,8 +172,8 @@ export function ContestQslBatch() {
           disabled={uploading}
           className="
             w-full px-3 py-2 rounded-lg
-            bg-void-black border border-white/10
-            text-white text-sm
+            bg-void-black border border-su-line/40
+            text-su-text text-sm
             focus:outline-none focus:ring-2 focus:ring-plasma-orange/50
             disabled:opacity-50
           "
@@ -197,7 +197,7 @@ export function ContestQslBatch() {
       {/* Service checkboxes */}
       {selectedSessionId && (
         <div>
-          <p className="text-sm font-medium text-gray-300 mb-2">
+          <p className="text-sm font-medium text-su-muted mb-2">
             Upload Services
           </p>
           <div className="space-y-2">
@@ -211,8 +211,8 @@ export function ContestQslBatch() {
                     service.available
                       ? selectedServices.has(service.id)
                         ? "border-plasma-orange/30 bg-plasma-orange/5"
-                        : "border-white/10 bg-white/[0.02] hover:bg-white/[0.04]"
-                      : "border-white/5 bg-white/[0.01] opacity-50 cursor-not-allowed"
+                        : "border-su-line/40 bg-su-line/10 hover:bg-su-line/20"
+                      : "border-su-line/20 bg-su-line/10 opacity-50 cursor-not-allowed"
                   }
                 `}
               >
@@ -222,14 +222,14 @@ export function ContestQslBatch() {
                   onChange={() => toggleService(service.id)}
                   disabled={!service.available || uploading}
                   className="
-                    w-4 h-4 rounded border-gray-600
+                    w-4 h-4 rounded border-su-line
                     text-plasma-orange focus:ring-plasma-orange/50
                     bg-void-black
                   "
                 />
                 <div className="flex-1">
                   <div className="flex items-center gap-2">
-                    <span className="text-sm font-medium text-white">
+                    <span className="text-sm font-medium text-su-text">
                       {service.label}
                     </span>
                     {!service.available && (
@@ -238,7 +238,7 @@ export function ContestQslBatch() {
                       </span>
                     )}
                   </div>
-                  <span className="text-xs text-gray-500">
+                  <span className="text-xs text-su-muted">
                     {service.description}
                   </span>
                 </div>
@@ -260,7 +260,7 @@ export function ContestQslBatch() {
           disabled={uploading || selectedServices.size === 0}
           className="
             w-full px-4 py-2.5 rounded-lg
-            bg-plasma-orange text-void-black font-semibold text-sm
+            bg-plasma-orange text-su-on-accent font-semibold text-sm
             hover:bg-plasma-orange/90 transition-colors
             disabled:opacity-50 disabled:cursor-not-allowed
           "
@@ -309,11 +309,11 @@ export function ContestQslBatch() {
 
       {/* Confirmation rate card */}
       {confirmationRate && confirmationRate.total > 0 && (
-        <div className="rounded-lg border border-white/10 bg-deep-space/50 p-4">
-          <h3 className="text-sm font-semibold text-white mb-3">
+        <div className="rounded-lg border border-su-line/40 bg-deep-space/50 p-4">
+          <h3 className="text-sm font-semibold text-su-text mb-3">
             Confirmation Rate
             {contestDef && (
-              <span className="text-gray-400 font-normal ml-2">
+              <span className="text-su-muted font-normal ml-2">
                 {contestDef.name}
               </span>
             )}
@@ -346,7 +346,7 @@ export function ContestQslBatch() {
             />
           </div>
 
-          <div className="mt-3 text-xs text-gray-500">
+          <div className="mt-3 text-xs text-su-muted">
             {confirmationRate.unconfirmed} of {confirmationRate.total} QSOs
             unconfirmed
           </div>
@@ -380,13 +380,13 @@ function ProgressIndicator({ progress }: { progress: BatchUploadProgress }) {
         </span>
       ) : (
         <div className="space-y-1">
-          <div className="h-1.5 rounded-full bg-white/10 overflow-hidden">
+          <div className="h-1.5 rounded-full bg-su-line/20 overflow-hidden">
             <div
               className="h-full rounded-full bg-plasma-orange transition-all duration-300"
               style={{ width: `${pct}%` }}
             />
           </div>
-          <span className="text-[10px] text-gray-500">{pct}%</span>
+          <span className="text-[10px] text-su-muted">{pct}%</span>
         </div>
       )}
     </div>
@@ -409,10 +409,10 @@ function ConfirmationStat({
   return (
     <div className="text-center">
       <div className={`text-lg font-bold ${color}`}>{pct}%</div>
-      <div className="text-xs text-gray-500">
+      <div className="text-xs text-su-muted">
         {confirmed}/{total}
       </div>
-      <div className="text-[10px] text-gray-600 uppercase tracking-wider">
+      <div className="text-[10px] text-su-muted uppercase tracking-wider">
         {label}
       </div>
     </div>

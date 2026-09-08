@@ -65,25 +65,25 @@ const SEGMENT_CONFIG: Record<
 > = {
   on_air: {
     label: "On Air",
-    activeBg: "bg-emerald-600",
-    activeText: "text-white",
+    activeBg: "bg-signal-green",
+    activeText: "text-su-canvas",
   },
   listening: {
     label: "Listening",
     activeBg: "bg-blue-600",
-    activeText: "text-white",
+    activeText: "text-su-canvas",
   },
   offline: {
     label: "Offline",
-    activeBg: "bg-gray-600",
-    activeText: "text-white",
+    activeBg: "bg-su-line",
+    activeText: "text-su-canvas",
   },
 };
 
 const STATES: OnAirState[] = ["on_air", "listening", "offline"];
 
 const inputClasses =
-  "bg-black/30 border border-white/10 rounded-lg px-3 py-1.5 text-sm text-white w-full focus:outline-none focus:border-white/20 transition-colors";
+  "bg-su-input border border-su-line/40 rounded-lg px-3 py-1.5 text-sm text-su-text w-full focus:outline-none focus:border-su-line/50 transition-colors";
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
@@ -195,14 +195,14 @@ export function OnAirToggle({ status, onChange }: OnAirToggleProps) {
   };
 
   return (
-    <div className="bg-panel/30 border border-white/5 rounded-xl p-4">
+    <div className="bg-panel/30 border border-su-line/20 rounded-xl p-4">
       {/* Header */}
-      <h3 className="text-[10px] uppercase tracking-widest text-gray-500 mb-3">
+      <h3 className="text-[10px] uppercase tracking-widest text-su-muted mb-3">
         On Air Status
       </h3>
 
       {/* ── Segmented Control ──────────────────────────────────────── */}
-      <div className="flex rounded-lg border border-white/10 overflow-hidden">
+      <div className="flex rounded-lg border border-su-line/40 overflow-hidden">
         {STATES.map((s) => {
           const cfg = SEGMENT_CONFIG[s];
           const active = status.status === s;
@@ -215,7 +215,7 @@ export function OnAirToggle({ status, onChange }: OnAirToggleProps) {
                 "flex-1 py-1.5 text-xs font-medium transition-colors",
                 active
                   ? `${cfg.activeBg} ${cfg.activeText}`
-                  : "bg-white/5 text-gray-400 hover:bg-white/10",
+                  : "bg-su-line/10 text-su-muted hover:bg-su-line/20",
               ].join(" ")}
             >
               {cfg.label}
@@ -233,7 +233,7 @@ export function OnAirToggle({ status, onChange }: OnAirToggleProps) {
           {/* Band + Mode row */}
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-[10px] uppercase tracking-widest text-gray-500 mb-1">
+              <label className="block text-[10px] uppercase tracking-widest text-su-muted mb-1">
                 Band
               </label>
               <select
@@ -250,7 +250,7 @@ export function OnAirToggle({ status, onChange }: OnAirToggleProps) {
               </select>
             </div>
             <div>
-              <label className="block text-[10px] uppercase tracking-widest text-gray-500 mb-1">
+              <label className="block text-[10px] uppercase tracking-widest text-su-muted mb-1">
                 Mode
               </label>
               <select
@@ -270,7 +270,7 @@ export function OnAirToggle({ status, onChange }: OnAirToggleProps) {
 
           {/* Frequency */}
           <div>
-            <label className="block text-[10px] uppercase tracking-widest text-gray-500 mb-1">
+            <label className="block text-[10px] uppercase tracking-widest text-su-muted mb-1">
               Frequency
             </label>
             <input
@@ -284,7 +284,7 @@ export function OnAirToggle({ status, onChange }: OnAirToggleProps) {
 
           {/* Notes */}
           <div>
-            <label className="block text-[10px] uppercase tracking-widest text-gray-500 mb-1">
+            <label className="block text-[10px] uppercase tracking-widest text-su-muted mb-1">
               Notes
             </label>
             <input
@@ -299,7 +299,7 @@ export function OnAirToggle({ status, onChange }: OnAirToggleProps) {
 
           {/* Auto-expire */}
           <div>
-            <label className="block text-[10px] uppercase tracking-widest text-gray-500 mb-1">
+            <label className="block text-[10px] uppercase tracking-widest text-su-muted mb-1">
               Auto-expire
             </label>
             <select

@@ -50,7 +50,7 @@ export function GlossaryTooltip({ term, children }: GlossaryTooltipProps) {
       onBlur={() => setOpen(false)}
     >
       <span
-        className="border-b border-dotted border-gray-400 cursor-help"
+        className="border-b border-dotted border-su-line/60 cursor-help"
         tabIndex={0}
         aria-describedby={open ? tooltipId : undefined}
       >
@@ -62,16 +62,16 @@ export function GlossaryTooltip({ term, children }: GlossaryTooltipProps) {
           id={tooltipId}
           role="tooltip"
           className={`absolute z-50 left-1/2 -translate-x-1/2 w-72 px-3 py-2.5 rounded-lg
-            bg-space-900 border border-white/10 shadow-xl text-sm text-gray-200
+            bg-space-900 border border-su-line/40 shadow-xl text-sm text-su-text
             pointer-events-none animate-fade-in
             ${above ? "bottom-full mb-2" : "top-full mt-2"}`}
         >
-          <span className="block font-semibold text-white mb-1">
+          <span className="block font-semibold text-su-text mb-1">
             {entry.term}
           </span>
           <span className="block leading-relaxed">{entry.definition}</span>
           {entry.example && (
-            <span className="block mt-1.5 text-xs text-gray-400 italic">
+            <span className="block mt-1.5 text-xs text-su-muted italic">
               Example: {entry.example}
             </span>
           )}

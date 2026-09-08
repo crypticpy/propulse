@@ -70,13 +70,13 @@ function CommandBlock({ children }: { children: string }) {
 
   return (
     <div className="relative group">
-      <pre className="text-xs md:text-sm bg-black/40 border border-white/10 rounded-lg p-3 pr-10 overflow-x-auto text-gray-100 font-mono">
+      <pre className="text-xs md:text-sm bg-su-input border border-su-line/40 rounded-lg p-3 pr-10 overflow-x-auto text-su-text font-mono">
         {children}
       </pre>
       <button
         type="button"
         onClick={handleCopy}
-        className="absolute top-2 right-2 p-1.5 rounded-md bg-white/5 border border-white/10 text-gray-400 hover:text-white hover:bg-white/10 transition-colors opacity-0 group-hover:opacity-100 focus:opacity-100"
+        className="absolute top-2 right-2 p-1.5 rounded-md bg-su-line/10 border border-su-line/40 text-su-muted hover:text-su-text hover:bg-su-line/20 transition-colors opacity-0 group-hover:opacity-100 focus:opacity-100"
         aria-label="Copy to clipboard"
       >
         {copied ? (
@@ -123,12 +123,12 @@ function Step({
   return (
     <div className="space-y-2">
       <div className="flex items-center gap-2">
-        <div className="w-7 h-7 rounded-full bg-white/10 border border-white/10 text-gray-200 flex items-center justify-center text-sm font-semibold shrink-0">
+        <div className="w-7 h-7 rounded-full bg-su-line/20 border border-su-line/40 text-su-text flex items-center justify-center text-sm font-semibold shrink-0">
           {n}
         </div>
-        <div className="text-sm font-semibold text-gray-100">{title}</div>
+        <div className="text-sm font-semibold text-su-text">{title}</div>
       </div>
-      <div className="text-sm text-gray-300 leading-relaxed pl-9">
+      <div className="text-sm text-su-muted leading-relaxed pl-9">
         {children}
       </div>
     </div>
@@ -147,7 +147,7 @@ function StatusDot({ color }: { color: "green" | "amber" | "red" | "gray" }) {
         return "bg-alert-red animate-[pulse_2s_ease-in-out_infinite]";
       case "gray":
       default:
-        return "bg-gray-500";
+        return "bg-su-line";
     }
   })();
 
@@ -186,9 +186,9 @@ function FAQItem({
 }) {
   return (
     <details className="group">
-      <summary className="flex items-center gap-3 cursor-pointer list-none text-sm font-medium text-gray-200 hover:text-white transition-colors py-3 px-4 rounded-xl bg-white/[0.02] border border-white/[0.06] hover:border-white/10">
+      <summary className="flex items-center gap-3 cursor-pointer list-none text-sm font-medium text-su-text/80 hover:text-su-text transition-colors py-3 px-4 rounded-xl bg-su-line/10 border border-su-line/20 hover:border-su-line/40">
         <svg
-          className="w-4 h-4 shrink-0 text-gray-500 transition-transform group-open:rotate-90"
+          className="w-4 h-4 shrink-0 text-su-muted transition-transform group-open:rotate-90"
           fill="none"
           viewBox="0 0 24 24"
           stroke="currentColor"
@@ -198,7 +198,7 @@ function FAQItem({
         </svg>
         {question}
       </summary>
-      <div className="text-sm text-gray-400 leading-relaxed pl-7 pr-4 pb-3 pt-1">
+      <div className="text-sm text-su-muted leading-relaxed pl-7 pr-4 pb-3 pt-1">
         {children}
       </div>
     </details>
@@ -212,7 +212,7 @@ const REQUIRED_BADGE = (
 );
 
 const OPTIONAL_BADGE = (
-  <span className="ml-2 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-white/5 border border-white/10 text-gray-500 uppercase tracking-wide">
+  <span className="ml-2 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-su-line/10 border border-su-line/40 text-su-muted uppercase tracking-wide">
     Optional
   </span>
 );
@@ -234,17 +234,17 @@ function ManualStep({
   return (
     <details className="group" open={defaultOpen || undefined}>
       <summary className="cursor-pointer list-none">
-        <Card className="p-0 overflow-hidden group-open:border-white/20">
+        <Card className="p-0 overflow-hidden group-open:border-su-line/50">
           <div className="flex items-center gap-3 p-4">
             <div className="w-8 h-8 rounded-full bg-plasma-orange/10 border border-plasma-orange/25 text-plasma-orange flex items-center justify-center text-sm font-bold shrink-0 font-orbitron">
               {n}
             </div>
-            <h3 className="text-sm font-semibold text-gray-100 flex-1">
+            <h3 className="text-sm font-semibold text-su-text flex-1">
               {title}
               {badge}
             </h3>
             <svg
-              className="w-4 h-4 shrink-0 text-gray-500 transition-transform group-open:rotate-180"
+              className="w-4 h-4 shrink-0 text-su-muted transition-transform group-open:rotate-180"
               fill="none"
               viewBox="0 0 24 24"
               stroke="currentColor"
@@ -259,7 +259,7 @@ function ManualStep({
           </div>
         </Card>
       </summary>
-      <div className="px-4 pb-4 pt-2 -mt-3 ml-0 border-l-2 border-plasma-orange/15 ml-[1.4rem] space-y-3 text-sm text-gray-300 leading-relaxed">
+      <div className="px-4 pb-4 pt-2 -mt-3 ml-0 border-l-2 border-plasma-orange/15 ml-[1.4rem] space-y-3 text-sm text-su-muted leading-relaxed">
         {children}
       </div>
     </details>
@@ -284,7 +284,7 @@ function PlatformTabs({
           className={`px-3 py-2 rounded-md text-sm border transition-colors ${
             platform === p
               ? "bg-cosmic-cyan/15 border-cosmic-cyan/30 text-cosmic-cyan"
-              : "bg-white/5 border-white/10 text-gray-200 hover:bg-white/10"
+              : "bg-su-line/10 border-su-line/40 text-su-text hover:bg-su-line/20"
           }`}
         >
           {platformLabel(p)}
@@ -364,7 +364,7 @@ function SetupArchitectureDiagram({ connected }: { connected: boolean }) {
         x="120"
         y="103"
         textAnchor="middle"
-        className="fill-gray-400 text-[11px]"
+        className="fill-su-muted text-[11px]"
       >
         (Browser)
       </text>
@@ -393,7 +393,7 @@ function SetupArchitectureDiagram({ connected }: { connected: boolean }) {
         x="470"
         y="103"
         textAnchor="middle"
-        className="fill-gray-400 text-[11px]"
+        className="fill-su-muted text-[11px]"
       >
         localhost:9867
       </text>
@@ -412,7 +412,7 @@ function SetupArchitectureDiagram({ connected }: { connected: boolean }) {
         x="295"
         y="78"
         textAnchor="middle"
-        className="fill-gray-500 text-[10px] font-mono"
+        className="fill-su-muted text-[10px] font-mono"
       >
         WebSocket
       </text>
@@ -500,7 +500,7 @@ function SetupArchitectureDiagram({ connected }: { connected: boolean }) {
         x="330"
         y="208"
         textAnchor="middle"
-        className="fill-gray-200 text-[11px] font-semibold"
+        className="fill-su-text text-[11px] font-semibold"
       >
         Hamlib
       </text>
@@ -508,7 +508,7 @@ function SetupArchitectureDiagram({ connected }: { connected: boolean }) {
         x="330"
         y="226"
         textAnchor="middle"
-        className="fill-gray-500 text-[10px]"
+        className="fill-su-muted text-[10px]"
       >
         rigctld
       </text>
@@ -528,7 +528,7 @@ function SetupArchitectureDiagram({ connected }: { connected: boolean }) {
         x="470"
         y="208"
         textAnchor="middle"
-        className="fill-gray-200 text-[11px] font-semibold"
+        className="fill-su-text text-[11px] font-semibold"
       >
         DX Cluster
       </text>
@@ -536,7 +536,7 @@ function SetupArchitectureDiagram({ connected }: { connected: boolean }) {
         x="470"
         y="226"
         textAnchor="middle"
-        className="fill-gray-500 text-[10px]"
+        className="fill-su-muted text-[10px]"
       >
         Telnet
       </text>
@@ -556,7 +556,7 @@ function SetupArchitectureDiagram({ connected }: { connected: boolean }) {
         x="610"
         y="208"
         textAnchor="middle"
-        className="fill-gray-200 text-[11px] font-semibold"
+        className="fill-su-text text-[11px] font-semibold"
       >
         WSJT-X
       </text>
@@ -564,7 +564,7 @@ function SetupArchitectureDiagram({ connected }: { connected: boolean }) {
         x="610"
         y="226"
         textAnchor="middle"
-        className="fill-gray-500 text-[10px]"
+        className="fill-su-muted text-[10px]"
       >
         UDP 2237
       </text>
@@ -709,7 +709,7 @@ export function SetupGuidePage() {
       <div className="space-y-4">
         <Link
           to="/"
-          className="inline-flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-300 transition-colors"
+          className="inline-flex items-center gap-1.5 text-sm text-su-muted hover:text-su-text transition-colors"
           aria-label="Back to home"
         >
           <svg
@@ -732,7 +732,7 @@ export function SetupGuidePage() {
           <h1 className="font-orbitron text-2xl md:text-3xl font-bold text-gradient-orange tracking-tight">
             ProPulse Setup
           </h1>
-          <p className="text-gray-400 text-sm md:text-base max-w-2xl">
+          <p className="text-su-muted text-sm md:text-base max-w-2xl">
             Get your station connected in minutes. No programming experience
             needed — just follow the steps below.
           </p>
@@ -740,8 +740,8 @@ export function SetupGuidePage() {
 
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
           <div>
-            <div className="text-sm text-gray-300">Select your platform</div>
-            <div className="text-xs text-gray-500">
+            <div className="text-sm text-su-muted">Select your platform</div>
+            <div className="text-xs text-su-muted">
               Showing instructions for {platformLabel(platform)}.
             </div>
           </div>
@@ -753,10 +753,10 @@ export function SetupGuidePage() {
       {/* 2. Quick Status Dashboard                                        */}
       {/* ================================================================ */}
       <Card className="p-4 md:p-5 space-y-4">
-        <h2 className="text-sm font-semibold text-white">
+        <h2 className="text-sm font-semibold text-su-text">
           Quick Status Dashboard
         </h2>
-        <p className="text-xs text-gray-500">
+        <p className="text-xs text-su-muted">
           This shows whether each piece of the system is running. Only the
           Bridge Server can be tested from the browser — the others require the
           setup script.
@@ -764,24 +764,24 @@ export function SetupGuidePage() {
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           {/* Node.js */}
-          <div className="flex items-center gap-3 px-3 py-2.5 rounded-lg bg-white/[0.02] border border-white/[0.06]">
+          <div className="flex items-center gap-3 px-3 py-2.5 rounded-lg bg-su-line/10 border border-su-line/20">
             <StatusDot color="gray" />
             <div className="flex-1 min-w-0">
-              <div className="text-sm font-medium text-gray-200">Node.js</div>
-              <div className="text-xs text-gray-500 truncate">
+              <div className="text-sm font-medium text-su-text">Node.js</div>
+              <div className="text-xs text-su-muted truncate">
                 Powers the bridge server
               </div>
             </div>
           </div>
 
           {/* Bridge Server - LIVE */}
-          <div className="flex items-center gap-3 px-3 py-2.5 rounded-lg bg-white/[0.02] border border-white/[0.06]">
+          <div className="flex items-center gap-3 px-3 py-2.5 rounded-lg bg-su-line/10 border border-su-line/20">
             <ConnectionDot state={state} />
             <div className="flex-1 min-w-0">
-              <div className="text-sm font-medium text-gray-200">
+              <div className="text-sm font-medium text-su-text">
                 Bridge Server
               </div>
-              <div className="text-xs text-gray-500 truncate">
+              <div className="text-xs text-su-muted truncate">
                 {bridgeStatusLabel}
               </div>
             </div>
@@ -793,45 +793,45 @@ export function SetupGuidePage() {
           </div>
 
           {/* Hamlib */}
-          <div className="flex items-center gap-3 px-3 py-2.5 rounded-lg bg-white/[0.02] border border-white/[0.06]">
+          <div className="flex items-center gap-3 px-3 py-2.5 rounded-lg bg-su-line/10 border border-su-line/20">
             <StatusDot color="gray" />
             <div className="flex-1 min-w-0">
-              <div className="text-sm font-medium text-gray-200">Hamlib</div>
-              <div className="text-xs text-gray-500 truncate">
+              <div className="text-sm font-medium text-su-text">Hamlib</div>
+              <div className="text-xs text-su-muted truncate">
                 Controls your radio via computer
               </div>
             </div>
-            <span className="text-[9px] text-gray-600 uppercase tracking-wide">
+            <span className="text-[9px] text-su-muted uppercase tracking-wide">
               Optional
             </span>
           </div>
 
           {/* WSJT-X */}
-          <div className="flex items-center gap-3 px-3 py-2.5 rounded-lg bg-white/[0.02] border border-white/[0.06]">
+          <div className="flex items-center gap-3 px-3 py-2.5 rounded-lg bg-su-line/10 border border-su-line/20">
             <StatusDot color="gray" />
             <div className="flex-1 min-w-0">
-              <div className="text-sm font-medium text-gray-200">WSJT-X</div>
-              <div className="text-xs text-gray-500 truncate">
+              <div className="text-sm font-medium text-su-text">WSJT-X</div>
+              <div className="text-xs text-su-muted truncate">
                 Digital modes (FT8, FT4)
               </div>
             </div>
-            <span className="text-[9px] text-gray-600 uppercase tracking-wide">
+            <span className="text-[9px] text-su-muted uppercase tracking-wide">
               Optional
             </span>
           </div>
 
           {/* DX Cluster */}
-          <div className="flex items-center gap-3 px-3 py-2.5 rounded-lg bg-white/[0.02] border border-white/[0.06] md:col-span-2">
+          <div className="flex items-center gap-3 px-3 py-2.5 rounded-lg bg-su-line/10 border border-su-line/20 md:col-span-2">
             <StatusDot color="gray" />
             <div className="flex-1 min-w-0">
-              <div className="text-sm font-medium text-gray-200">
+              <div className="text-sm font-medium text-su-text">
                 DX Cluster
               </div>
-              <div className="text-xs text-gray-500 truncate">
+              <div className="text-xs text-su-muted truncate">
                 Live spots from other operators
               </div>
             </div>
-            <span className="text-[9px] text-gray-600 uppercase tracking-wide">
+            <span className="text-[9px] text-su-muted uppercase tracking-wide">
               Optional
             </span>
           </div>
@@ -843,7 +843,7 @@ export function SetupGuidePage() {
             type="button"
             onClick={handleTestConnection}
             disabled={testingConnection}
-            className="px-4 py-2 rounded-lg text-sm font-medium bg-white/5 border border-white/10 text-gray-300 hover:text-white hover:bg-white/10 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            className="px-4 py-2 rounded-lg text-sm font-medium bg-su-line/10 border border-su-line/40 text-su-muted hover:text-su-text hover:bg-su-line/20 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {testingConnection ? (
               <span className="flex items-center gap-2">
@@ -874,7 +874,7 @@ export function SetupGuidePage() {
           </button>
 
           <StatusDot color={bridgeDotColor} />
-          <span className="text-xs text-gray-500">{bridgeStatusLabel}</span>
+          <span className="text-xs text-su-muted">{bridgeStatusLabel}</span>
         </div>
 
         {testResult && (
@@ -897,14 +897,14 @@ export function SetupGuidePage() {
 
             {/* Post-failure troubleshooter */}
             {!testResult.startsWith("Connected") && (
-              <div className="mt-2 pt-2 border-t border-alert-red/10 space-y-1.5 text-gray-400">
-                <p className="font-semibold text-gray-300">
+              <div className="mt-2 pt-2 border-t border-alert-red/10 space-y-1.5 text-su-muted">
+                <p className="font-semibold text-su-muted">
                   Quick fixes to try:
                 </p>
                 <ul className="list-disc pl-4 space-y-1">
                   <li>
                     Open a terminal and run{" "}
-                    <span className="font-mono text-gray-300">
+                    <span className="font-mono text-su-muted">
                       cd bridge && npm run dev
                     </span>
                   </li>
@@ -920,11 +920,11 @@ export function SetupGuidePage() {
                     </button>
                   </li>
                 </ul>
-                <details className="mt-2 pt-2 border-t border-white/5">
-                  <summary className="text-gray-300 cursor-pointer hover:text-white text-xs">
+                <details className="mt-2 pt-2 border-t border-su-line/20">
+                  <summary className="text-su-muted cursor-pointer hover:text-su-text text-xs">
                     How do I open a terminal?
                   </summary>
-                  <ul className="list-disc pl-4 space-y-1 mt-1.5 text-gray-400">
+                  <ul className="list-disc pl-4 space-y-1 mt-1.5 text-su-muted">
                     <li>
                       <strong>Windows:</strong> Right-click the Start button
                       &rarr; &ldquo;Windows PowerShell&rdquo; or
@@ -965,7 +965,7 @@ export function SetupGuidePage() {
               <div className="text-sm font-semibold text-signal-green">
                 Bridge is connected!
               </div>
-              <p className="text-xs text-gray-400 mt-0.5">
+              <p className="text-xs text-su-muted mt-0.5">
                 Your station is online. You can now{" "}
                 <Link to="/" className="text-cosmic-cyan hover:underline">
                   explore the map
@@ -981,9 +981,9 @@ export function SetupGuidePage() {
       {/* 2b. How to open a terminal                                       */}
       {/* ================================================================ */}
       <details className="group">
-        <summary className="flex items-center gap-3 cursor-pointer list-none text-sm font-medium text-gray-200 hover:text-white transition-colors py-3 px-4 rounded-xl bg-white/[0.02] border border-white/[0.06] hover:border-white/10">
+        <summary className="flex items-center gap-3 cursor-pointer list-none text-sm font-medium text-su-text/80 hover:text-su-text transition-colors py-3 px-4 rounded-xl bg-su-line/10 border border-su-line/20 hover:border-su-line/40">
           <svg
-            className="w-4 h-4 shrink-0 text-gray-500 transition-transform group-open:rotate-90"
+            className="w-4 h-4 shrink-0 text-su-muted transition-transform group-open:rotate-90"
             fill="none"
             viewBox="0 0 24 24"
             stroke="currentColor"
@@ -997,46 +997,46 @@ export function SetupGuidePage() {
           </svg>
           How do I open a terminal?
         </summary>
-        <div className="text-sm text-gray-400 leading-relaxed pl-7 pr-4 pb-3 pt-2 space-y-2">
+        <div className="text-sm text-su-muted leading-relaxed pl-7 pr-4 pb-3 pt-2 space-y-2">
           <p>
             A terminal (also called a command prompt) is a text window where you
             type commands. Here is how to open one on each platform:
           </p>
           <ul className="list-disc pl-4 space-y-1.5">
             <li>
-              <strong className="text-gray-200">Windows:</strong> Right-click
+              <strong className="text-su-text">Windows:</strong> Right-click
               the Start button and choose{" "}
-              <span className="font-mono text-gray-300">
+              <span className="font-mono text-su-muted">
                 "Windows PowerShell"
               </span>{" "}
-              or <span className="font-mono text-gray-300">"Terminal"</span>.
+              or <span className="font-mono text-su-muted">"Terminal"</span>.
             </li>
             <li>
-              <strong className="text-gray-200">macOS:</strong> Press{" "}
-              <kbd className="px-1.5 py-0.5 rounded bg-white/10 border border-white/15 text-gray-300 text-xs font-mono">
+              <strong className="text-su-text">macOS:</strong> Press{" "}
+              <kbd className="px-1.5 py-0.5 rounded bg-su-line/20 border border-su-line/50 text-su-muted text-xs font-mono">
                 Cmd
               </kbd>
               {" + "}
-              <kbd className="px-1.5 py-0.5 rounded bg-white/10 border border-white/15 text-gray-300 text-xs font-mono">
+              <kbd className="px-1.5 py-0.5 rounded bg-su-line/20 border border-su-line/50 text-su-muted text-xs font-mono">
                 Space
               </kbd>
-              , type <span className="font-mono text-gray-300">"Terminal"</span>
+              , type <span className="font-mono text-su-muted">"Terminal"</span>
               , press Enter.
             </li>
             <li>
-              <strong className="text-gray-200">Linux:</strong> Right-click the
+              <strong className="text-su-text">Linux:</strong> Right-click the
               desktop and choose{" "}
-              <span className="font-mono text-gray-300">"Open Terminal"</span>,
+              <span className="font-mono text-su-muted">"Open Terminal"</span>,
               or press{" "}
-              <kbd className="px-1.5 py-0.5 rounded bg-white/10 border border-white/15 text-gray-300 text-xs font-mono">
+              <kbd className="px-1.5 py-0.5 rounded bg-su-line/20 border border-su-line/50 text-su-muted text-xs font-mono">
                 Ctrl
               </kbd>
               {" + "}
-              <kbd className="px-1.5 py-0.5 rounded bg-white/10 border border-white/15 text-gray-300 text-xs font-mono">
+              <kbd className="px-1.5 py-0.5 rounded bg-su-line/20 border border-su-line/50 text-su-muted text-xs font-mono">
                 Alt
               </kbd>
               {" + "}
-              <kbd className="px-1.5 py-0.5 rounded bg-white/10 border border-white/15 text-gray-300 text-xs font-mono">
+              <kbd className="px-1.5 py-0.5 rounded bg-su-line/20 border border-su-line/50 text-su-muted text-xs font-mono">
                 T
               </kbd>
               .
@@ -1051,16 +1051,16 @@ export function SetupGuidePage() {
       <Card variant="highlight" className="p-4 md:p-5 space-y-4">
         <div className="flex items-center gap-2">
           <div className="w-1 h-5 rounded-full bg-plasma-orange" />
-          <h2 className="text-sm font-semibold text-white">
+          <h2 className="text-sm font-semibold text-su-text">
             One-Line Installer
           </h2>
           <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-plasma-orange/10 border border-plasma-orange/25 text-plasma-orange ml-auto">
             RECOMMENDED
           </span>
         </div>
-        <p className="text-xs text-gray-500 mt-1">Runs in about 2 minutes.</p>
+        <p className="text-xs text-su-muted mt-1">Runs in about 2 minutes.</p>
 
-        <p className="text-sm text-gray-300 leading-relaxed">
+        <p className="text-sm text-su-muted leading-relaxed">
           Copy and paste this single command into your terminal (or PowerShell
           on Windows). It will check what you already have installed, set up
           anything that's missing, and verify everything works — all
@@ -1069,21 +1069,21 @@ export function SetupGuidePage() {
 
         {platform === "windows" ? (
           <div className="space-y-2">
-            <div className="text-xs font-medium text-gray-400">
+            <div className="text-xs font-medium text-su-muted">
               PowerShell (Run as Administrator)
             </div>
             <CommandBlock>{`irm ${SCRIPTS_BASE}/setup.ps1 | iex`}</CommandBlock>
           </div>
         ) : (
           <div className="space-y-2">
-            <div className="text-xs font-medium text-gray-400">
+            <div className="text-xs font-medium text-su-muted">
               Terminal ({platformLabel(platform)})
             </div>
             <CommandBlock>{`curl -fsSL ${SCRIPTS_BASE}/setup.sh | bash`}</CommandBlock>
           </div>
         )}
 
-        <div className="flex flex-wrap items-center gap-3 text-xs text-gray-500">
+        <div className="flex flex-wrap items-center gap-3 text-xs text-su-muted">
           <span>Or download and review first:</span>
           {platform === "windows" ? (
             <a
@@ -1140,13 +1140,13 @@ export function SetupGuidePage() {
       {/* 4. Step-by-Step Manual Guide                                     */}
       {/* ================================================================ */}
       <div className="space-y-3">
-        <h2 className="text-sm font-semibold text-gray-200 uppercase tracking-wider">
+        <h2 className="text-sm font-semibold text-su-text uppercase tracking-wider">
           Manual Setup Guide
         </h2>
-        <p className="text-xs text-gray-500">
+        <p className="text-xs text-su-muted">
           Prefer to set things up yourself? Expand each step below.
         </p>
-        <p className="text-xs text-gray-500">
+        <p className="text-xs text-su-muted">
           Estimated time: ~15 minutes total (Steps 1-2 required, ~7 min. Steps
           3-6 optional.)
         </p>
@@ -1164,11 +1164,11 @@ export function SetupGuidePage() {
             </p>
             {platform === "macos" && (
               <div className="space-y-2">
-                <div className="text-xs font-medium text-gray-400">
+                <div className="text-xs font-medium text-su-muted">
                   Using Homebrew
                 </div>
                 <CommandBlock>{`brew install node@22`}</CommandBlock>
-                <div className="text-xs font-medium text-gray-400">
+                <div className="text-xs font-medium text-su-muted">
                   Or using nvm
                 </div>
                 <CommandBlock>{`curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.1/install.sh | bash\nnvm install 22\nnvm use 22`}</CommandBlock>
@@ -1176,11 +1176,11 @@ export function SetupGuidePage() {
             )}
             {platform === "windows" && (
               <div className="space-y-2">
-                <div className="text-xs font-medium text-gray-400">
+                <div className="text-xs font-medium text-su-muted">
                   Using winget
                 </div>
                 <CommandBlock>{`winget install OpenJS.NodeJS.LTS`}</CommandBlock>
-                <p className="text-xs text-gray-500">
+                <p className="text-xs text-su-muted">
                   Or download the installer from{" "}
                   <a
                     href="https://nodejs.org"
@@ -1196,17 +1196,17 @@ export function SetupGuidePage() {
             )}
             {platform === "linux" && (
               <div className="space-y-2">
-                <div className="text-xs font-medium text-gray-400">
+                <div className="text-xs font-medium text-su-muted">
                   Using NodeSource (Debian/Ubuntu)
                 </div>
                 <CommandBlock>{`curl -fsSL https://deb.nodesource.com/setup_22.x | sudo -E bash -\nsudo apt install nodejs`}</CommandBlock>
-                <div className="text-xs font-medium text-gray-400">
+                <div className="text-xs font-medium text-su-muted">
                   Or using nvm
                 </div>
                 <CommandBlock>{`curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.1/install.sh | bash\nnvm install 22\nnvm use 22`}</CommandBlock>
               </div>
             )}
-            <div className="text-xs font-medium text-gray-400 pt-1">
+            <div className="text-xs font-medium text-su-muted pt-1">
               Verify installation
             </div>
             <CommandBlock>{`node -v\n# Should show v22.x.x`}</CommandBlock>
@@ -1224,11 +1224,11 @@ export function SetupGuidePage() {
                 bridge dependencies.
               </p>
               <CommandBlock>{`cd bridge\nnpm install`}</CommandBlock>
-              <div className="text-xs font-medium text-gray-400">
+              <div className="text-xs font-medium text-su-muted">
                 Development mode (auto-reloads)
               </div>
               <CommandBlock>{`npm run dev`}</CommandBlock>
-              <div className="text-xs font-medium text-gray-400">
+              <div className="text-xs font-medium text-su-muted">
                 Or from the project root
               </div>
               <CommandBlock>{`npm run bridge`}</CommandBlock>
@@ -1240,12 +1240,12 @@ export function SetupGuidePage() {
                 type="button"
                 onClick={handleTestConnection}
                 disabled={testingConnection}
-                className="px-3 py-1.5 rounded-lg text-xs font-medium bg-white/5 border border-white/10 text-gray-300 hover:text-white hover:bg-white/10 transition-colors disabled:opacity-50"
+                className="px-3 py-1.5 rounded-lg text-xs font-medium bg-su-line/10 border border-su-line/40 text-su-muted hover:text-su-text hover:bg-su-line/20 transition-colors disabled:opacity-50"
               >
                 {testingConnection ? "Testing..." : "Test Connection"}
               </button>
               <ConnectionDot state={state} />
-              <span className="text-xs text-gray-500">{bridgeStatusLabel}</span>
+              <span className="text-xs text-su-muted">{bridgeStatusLabel}</span>
               {state === "connected" && (
                 <svg
                   className="w-4 h-4 text-signal-green"
@@ -1284,7 +1284,7 @@ export function SetupGuidePage() {
             )}
             {platform === "windows" && (
               <div className="space-y-2">
-                <p className="text-xs text-gray-500">
+                <p className="text-xs text-su-muted">
                   Download from{" "}
                   <a
                     href="https://hamlib.github.io/"
@@ -1305,26 +1305,26 @@ export function SetupGuidePage() {
             )}
 
             {/* Radio reference table */}
-            <div className="text-xs font-medium text-gray-400 pt-2">
+            <div className="text-xs font-medium text-su-muted pt-2">
               Common radio model reference
             </div>
             <div className="overflow-x-auto">
               <table className="text-xs w-full">
                 <thead>
-                  <tr className="border-b border-white/10">
-                    <th className="text-left py-2 pr-4 text-gray-400 font-medium">
+                  <tr className="border-b border-su-line/40">
+                    <th className="text-left py-2 pr-4 text-su-muted font-medium">
                       Radio
                     </th>
-                    <th className="text-left py-2 pr-4 text-gray-400 font-medium">
+                    <th className="text-left py-2 pr-4 text-su-muted font-medium">
                       Model #
                     </th>
-                    <th className="text-left py-2 text-gray-400 font-medium">
+                    <th className="text-left py-2 text-su-muted font-medium">
                       Command
                     </th>
                   </tr>
                 </thead>
-                <tbody className="text-gray-300 font-mono">
-                  <tr className="border-b border-white/5">
+                <tbody className="text-su-muted font-mono">
+                  <tr className="border-b border-su-line/20">
                     <td className="py-1.5 pr-4 font-sans">Icom IC-7300</td>
                     <td className="py-1.5 pr-4 text-plasma-orange">3085</td>
                     <td className="py-1.5 text-[11px]">
@@ -1333,7 +1333,7 @@ export function SetupGuidePage() {
                       115200
                     </td>
                   </tr>
-                  <tr className="border-b border-white/5">
+                  <tr className="border-b border-su-line/20">
                     <td className="py-1.5 pr-4 font-sans">Yaesu FT-991A</td>
                     <td className="py-1.5 pr-4 text-plasma-orange">1035</td>
                     <td className="py-1.5 text-[11px]">
@@ -1342,7 +1342,7 @@ export function SetupGuidePage() {
                       38400
                     </td>
                   </tr>
-                  <tr className="border-b border-white/5">
+                  <tr className="border-b border-su-line/20">
                     <td className="py-1.5 pr-4 font-sans">Kenwood TS-890S</td>
                     <td className="py-1.5 pr-4 text-plasma-orange">2044</td>
                     <td className="py-1.5 text-[11px]">
@@ -1351,7 +1351,7 @@ export function SetupGuidePage() {
                       115200
                     </td>
                   </tr>
-                  <tr className="border-b border-white/5">
+                  <tr className="border-b border-su-line/20">
                     <td className="py-1.5 pr-4 font-sans">Elecraft K3</td>
                     <td className="py-1.5 pr-4 text-plasma-orange">2036</td>
                     <td className="py-1.5 text-[11px]">
@@ -1372,33 +1372,33 @@ export function SetupGuidePage() {
             </div>
 
             {platform === "windows" && (
-              <p className="text-xs text-gray-500 pt-1">
+              <p className="text-xs text-su-muted pt-1">
                 Serial ports on Windows are named{" "}
-                <span className="font-mono text-gray-300">COM3</span>,{" "}
-                <span className="font-mono text-gray-300">COM4</span>, etc.
+                <span className="font-mono text-su-muted">COM3</span>,{" "}
+                <span className="font-mono text-su-muted">COM4</span>, etc.
                 Check Device Manager for the correct port.
               </p>
             )}
             {platform === "macos" && (
-              <p className="text-xs text-gray-500 pt-1">
+              <p className="text-xs text-su-muted pt-1">
                 Serial ports on macOS look like{" "}
-                <span className="font-mono text-gray-300">
+                <span className="font-mono text-su-muted">
                   /dev/cu.usbserial-*
                 </span>
                 . Run{" "}
-                <span className="font-mono text-gray-300">ls /dev/cu.usb*</span>{" "}
+                <span className="font-mono text-su-muted">ls /dev/cu.usb*</span>{" "}
                 to find yours.
               </p>
             )}
             {platform === "linux" && (
               <div className="space-y-1 pt-1">
-                <p className="text-xs text-gray-500">
+                <p className="text-xs text-su-muted">
                   Serial ports on Linux are typically{" "}
-                  <span className="font-mono text-gray-300">/dev/ttyUSB0</span>{" "}
+                  <span className="font-mono text-su-muted">/dev/ttyUSB0</span>{" "}
                   or{" "}
-                  <span className="font-mono text-gray-300">/dev/ttyACM0</span>.
+                  <span className="font-mono text-su-muted">/dev/ttyACM0</span>.
                 </p>
-                <p className="text-xs text-gray-500">
+                <p className="text-xs text-su-muted">
                   You may need serial port permissions:
                 </p>
                 <CommandBlock>{`sudo usermod -aG dialout $USER\n# Log out and back in for changes to take effect`}</CommandBlock>
@@ -1422,7 +1422,7 @@ export function SetupGuidePage() {
               <Step n={1} title="Open WSJT-X Settings">
                 <p>
                   Go to{" "}
-                  <span className="text-gray-100 font-semibold">
+                  <span className="text-su-text font-semibold">
                     File &rarr; Settings &rarr; Reporting
                   </span>
                 </p>
@@ -1430,7 +1430,7 @@ export function SetupGuidePage() {
               <Step n={2} title="Enable UDP">
                 <p>
                   Check{" "}
-                  <span className="text-gray-100 font-semibold">
+                  <span className="text-su-text font-semibold">
                     "Accept UDP requests"
                   </span>
                 </p>
@@ -1438,12 +1438,12 @@ export function SetupGuidePage() {
               <Step n={3} title="Set the port">
                 <p>
                   Ensure the UDP port is set to{" "}
-                  <span className="font-mono text-gray-100">2237</span> (the
+                  <span className="font-mono text-su-text">2237</span> (the
                   default). The bridge auto-listens on this port.
                 </p>
               </Step>
             </div>
-            <p className="text-xs text-gray-500 pt-2">
+            <p className="text-xs text-su-muted pt-2">
               Once configured, decoded callsigns from FT8/FT4 sessions will
               appear in Propulse automatically, and completed QSOs will be
               auto-logged.
@@ -1465,34 +1465,34 @@ export function SetupGuidePage() {
             <div className="space-y-2">
               <p>
                 In Propulse, go to{" "}
-                <span className="text-gray-100 font-semibold">
+                <span className="text-su-text font-semibold">
                   Settings &rarr; Connections &rarr; DX Cluster
                 </span>
                 .
               </p>
-              <div className="text-xs font-medium text-gray-400">
+              <div className="text-xs font-medium text-su-muted">
                 Common cluster nodes
               </div>
               <div className="overflow-x-auto">
                 <table className="text-xs w-full">
                   <thead>
-                    <tr className="border-b border-white/10">
-                      <th className="text-left py-2 pr-4 text-gray-400 font-medium">
+                    <tr className="border-b border-su-line/40">
+                      <th className="text-left py-2 pr-4 text-su-muted font-medium">
                         Node
                       </th>
-                      <th className="text-left py-2 text-gray-400 font-medium">
+                      <th className="text-left py-2 text-su-muted font-medium">
                         Region
                       </th>
                     </tr>
                   </thead>
-                  <tbody className="text-gray-300">
-                    <tr className="border-b border-white/5">
+                  <tbody className="text-su-muted">
+                    <tr className="border-b border-su-line/20">
                       <td className="py-1.5 pr-4 font-mono text-cosmic-cyan">
                         dxc.nc7j.com:7373
                       </td>
                       <td className="py-1.5">North America</td>
                     </tr>
-                    <tr className="border-b border-white/5">
+                    <tr className="border-b border-su-line/20">
                       <td className="py-1.5 pr-4 font-mono text-cosmic-cyan">
                         dxc.ve7cc.net:23
                       </td>
@@ -1507,7 +1507,7 @@ export function SetupGuidePage() {
                   </tbody>
                 </table>
               </div>
-              <p className="text-xs text-gray-500">
+              <p className="text-xs text-su-muted">
                 Your callsign is required for cluster login. Enter it in
                 Settings.
               </p>
@@ -1531,12 +1531,12 @@ export function SetupGuidePage() {
                 type="button"
                 onClick={handleTestConnection}
                 disabled={testingConnection}
-                className="px-3 py-1.5 rounded-lg text-xs font-medium bg-white/5 border border-white/10 text-gray-300 hover:text-white hover:bg-white/10 transition-colors disabled:opacity-50"
+                className="px-3 py-1.5 rounded-lg text-xs font-medium bg-su-line/10 border border-su-line/40 text-su-muted hover:text-su-text hover:bg-su-line/20 transition-colors disabled:opacity-50"
               >
                 {testingConnection ? "Testing..." : "Test Bridge Connection"}
               </button>
               <ConnectionDot state={state} />
-              <span className="text-xs text-gray-500">{bridgeStatusLabel}</span>
+              <span className="text-xs text-su-muted">{bridgeStatusLabel}</span>
             </div>
 
             {testResult && (
@@ -1553,7 +1553,7 @@ export function SetupGuidePage() {
 
             {/* Checklist */}
             <div className="space-y-2 pt-2">
-              <div className="text-xs font-medium text-gray-400">
+              <div className="text-xs font-medium text-su-muted">
                 Verification checklist
               </div>
               {[
@@ -1564,9 +1564,9 @@ export function SetupGuidePage() {
               ].map((item) => (
                 <div
                   key={item}
-                  className="flex items-center gap-2 text-xs text-gray-300"
+                  className="flex items-center gap-2 text-xs text-su-muted"
                 >
-                  <div className="w-4 h-4 rounded border border-white/15 bg-white/[0.03] shrink-0" />
+                  <div className="w-4 h-4 rounded border border-su-line/50 bg-su-line/10 shrink-0" />
                   {item}
                 </div>
               ))}
@@ -1588,10 +1588,10 @@ export function SetupGuidePage() {
       {/* 5. Architecture Overview                                         */}
       {/* ================================================================ */}
       <Card className="p-4 md:p-5 space-y-3">
-        <h2 className="text-sm font-semibold text-white">
+        <h2 className="text-sm font-semibold text-su-text">
           Architecture Overview
         </h2>
-        <p className="text-xs text-gray-500">
+        <p className="text-xs text-su-muted">
           The bridge sits between your browser and radio hardware, routing all
           messages over localhost.
           {state === "connected" &&
@@ -1606,31 +1606,31 @@ export function SetupGuidePage() {
       {/* 6. Troubleshooting FAQ                                           */}
       {/* ================================================================ */}
       <Card className="p-4 md:p-5 space-y-3">
-        <h2 className="text-sm font-semibold text-white mb-1">
+        <h2 className="text-sm font-semibold text-su-text mb-1">
           Troubleshooting
         </h2>
         <div className="space-y-2">
           <FAQItem question="Node.js version is too old">
             <p>
               The bridge requires Node.js 18+. Check your version with{" "}
-              <span className="font-mono text-gray-300">node -v</span>.
+              <span className="font-mono text-su-muted">node -v</span>.
             </p>
             <p className="pt-2">To upgrade:</p>
             <ul className="list-disc pl-4 space-y-1 pt-1">
               {platform === "macos" && (
                 <li>
-                  <span className="font-mono text-gray-300">
+                  <span className="font-mono text-su-muted">
                     brew upgrade node
                   </span>{" "}
                   or{" "}
-                  <span className="font-mono text-gray-300">
+                  <span className="font-mono text-su-muted">
                     nvm install 22
                   </span>
                 </li>
               )}
               {platform === "windows" && (
                 <li>
-                  <span className="font-mono text-gray-300">
+                  <span className="font-mono text-su-muted">
                     winget upgrade OpenJS.NodeJS.LTS
                   </span>{" "}
                   or download from{" "}
@@ -1647,7 +1647,7 @@ export function SetupGuidePage() {
               {platform === "linux" && (
                 <li>
                   Re-run the NodeSource setup script for the latest LTS, or use{" "}
-                  <span className="font-mono text-gray-300">
+                  <span className="font-mono text-su-muted">
                     nvm install 22
                   </span>
                 </li>
@@ -1659,18 +1659,18 @@ export function SetupGuidePage() {
             <ul className="list-disc pl-4 space-y-1">
               <li>
                 Confirm the bridge server is running (
-                <span className="font-mono text-gray-300">npm run dev</span> in
-                the <span className="font-mono text-gray-300">bridge/</span>{" "}
+                <span className="font-mono text-su-muted">npm run dev</span> in
+                the <span className="font-mono text-su-muted">bridge/</span>{" "}
                 directory).
               </li>
               <li>
                 Check that port{" "}
-                <span className="font-mono text-gray-300">9867</span> is not
+                <span className="font-mono text-su-muted">9867</span> is not
                 blocked by your firewall.
               </li>
               <li>
                 Verify the WebSocket URL is{" "}
-                <span className="font-mono text-gray-300">
+                <span className="font-mono text-su-muted">
                   ws://127.0.0.1:9867
                 </span>
                 .
@@ -1699,9 +1699,9 @@ export function SetupGuidePage() {
           <FAQItem question="Can't control my radio">
             <ul className="list-disc pl-4 space-y-1">
               <li>
-                Verify <span className="font-mono text-gray-300">rigctld</span>{" "}
+                Verify <span className="font-mono text-su-muted">rigctld</span>{" "}
                 is running with the correct model number. Use{" "}
-                <span className="font-mono text-gray-300">rigctld -l</span> to
+                <span className="font-mono text-su-muted">rigctld -l</span> to
                 list all supported models.
               </li>
               <li>
@@ -1711,9 +1711,9 @@ export function SetupGuidePage() {
               {platform === "linux" && (
                 <li>
                   Ensure your user is in the{" "}
-                  <span className="font-mono text-gray-300">dialout</span>{" "}
+                  <span className="font-mono text-su-muted">dialout</span>{" "}
                   group:{" "}
-                  <span className="font-mono text-gray-300">
+                  <span className="font-mono text-su-muted">
                     sudo usermod -aG dialout $USER
                   </span>{" "}
                   then log out and back in.
@@ -1732,7 +1732,7 @@ export function SetupGuidePage() {
             <ul className="list-disc pl-4 space-y-1">
               <li>
                 In WSJT-X, verify{" "}
-                <span className="font-mono text-gray-300">
+                <span className="font-mono text-su-muted">
                   File &rarr; Settings &rarr; Reporting &rarr; Accept UDP
                   requests
                 </span>{" "}
@@ -1740,7 +1740,7 @@ export function SetupGuidePage() {
               </li>
               <li>
                 Confirm the UDP port is{" "}
-                <span className="font-mono text-gray-300">2237</span>.
+                <span className="font-mono text-su-muted">2237</span>.
               </li>
               <li>
                 Make sure the bridge server is running — it listens for WSJT-X
@@ -1752,7 +1752,7 @@ export function SetupGuidePage() {
           <FAQItem question="Permission denied on serial port (Linux)">
             <p>
               Add your user to the{" "}
-              <span className="font-mono text-gray-300">dialout</span> group:
+              <span className="font-mono text-su-muted">dialout</span> group:
             </p>
             <div className="pt-2">
               <CommandBlock>{`sudo usermod -aG dialout $USER`}</CommandBlock>
@@ -1760,7 +1760,7 @@ export function SetupGuidePage() {
             <p className="pt-2">
               You must log out and log back in (or reboot) for the change to
               take effect. Verify with{" "}
-              <span className="font-mono text-gray-300">groups</span>.
+              <span className="font-mono text-su-muted">groups</span>.
             </p>
           </FAQItem>
         </div>
@@ -1770,10 +1770,10 @@ export function SetupGuidePage() {
       {/* 7. Links & Resources                                             */}
       {/* ================================================================ */}
       <Card className="p-4 md:p-5 space-y-3">
-        <h2 className="text-sm font-semibold text-white">
+        <h2 className="text-sm font-semibold text-su-text">
           Links &amp; Resources
         </h2>
-        <div className="divide-y divide-white/5">
+        <div className="divide-y divide-su-line/20">
           {/* External links */}
           {[
             {
@@ -1809,13 +1809,13 @@ export function SetupGuidePage() {
               className="flex items-center justify-between gap-3 py-3 group"
             >
               <div>
-                <div className="text-sm font-medium text-gray-200 group-hover:text-white transition-colors">
+                <div className="text-sm font-medium text-su-text/80 group-hover:text-su-text transition-colors">
                   {link.label}
                 </div>
-                <div className="text-xs text-gray-500">{link.desc}</div>
+                <div className="text-xs text-su-muted">{link.desc}</div>
               </div>
               <svg
-                className="w-4 h-4 shrink-0 text-gray-600 group-hover:text-gray-400 transition-colors"
+                className="w-4 h-4 shrink-0 text-su-muted group-hover:text-su-text transition-colors"
                 fill="none"
                 viewBox="0 0 24 24"
                 stroke="currentColor"
@@ -1849,13 +1849,13 @@ export function SetupGuidePage() {
               className="flex items-center justify-between gap-3 py-3 group"
             >
               <div>
-                <div className="text-sm font-medium text-gray-200 group-hover:text-white transition-colors">
+                <div className="text-sm font-medium text-su-text/80 group-hover:text-su-text transition-colors">
                   {link.label}
                 </div>
-                <div className="text-xs text-gray-500">{link.desc}</div>
+                <div className="text-xs text-su-muted">{link.desc}</div>
               </div>
               <svg
-                className="w-4 h-4 shrink-0 text-gray-600 group-hover:text-gray-400 transition-colors"
+                className="w-4 h-4 shrink-0 text-su-muted group-hover:text-su-text transition-colors"
                 fill="none"
                 viewBox="0 0 24 24"
                 stroke="currentColor"
@@ -1876,11 +1876,11 @@ export function SetupGuidePage() {
       {/* 8. Glossary                                                       */}
       {/* ================================================================ */}
       <Card className="p-4 md:p-5 space-y-3">
-        <h2 className="text-sm font-semibold text-white">Glossary</h2>
-        <p className="text-xs text-gray-500">
+        <h2 className="text-sm font-semibold text-su-text">Glossary</h2>
+        <p className="text-xs text-su-muted">
           Quick definitions of the technical terms used on this page.
         </p>
-        <div className="divide-y divide-white/5 text-sm">
+        <div className="divide-y divide-su-line/20 text-sm">
           {[
             {
               term: "Node.js",
@@ -1932,8 +1932,8 @@ export function SetupGuidePage() {
             },
           ].map((item) => (
             <div key={item.term} className="py-2.5 flex flex-col">
-              <dt className="text-gray-200 font-medium">{item.term}</dt>
-              <dd className="text-gray-400 text-xs mt-0.5">{item.def}</dd>
+              <dt className="text-su-text font-medium">{item.term}</dt>
+              <dd className="text-su-muted text-xs mt-0.5">{item.def}</dd>
             </div>
           ))}
         </div>

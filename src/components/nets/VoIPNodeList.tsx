@@ -33,14 +33,14 @@ function NodeRow({ label, node }: NodeRowProps) {
   return (
     <div className="flex items-center justify-between gap-3 py-1.5">
       <div className="flex items-center gap-2 min-w-0">
-        <span className="text-xs text-gray-400 shrink-0">{label}</span>
-        <span className="text-xs font-mono text-gray-200 truncate">{node}</span>
+        <span className="text-xs text-su-muted shrink-0">{label}</span>
+        <span className="text-xs font-mono text-su-text truncate">{node}</span>
       </div>
       <button
         type="button"
         onClick={handleCopy}
         title={copied ? "Copied!" : `Copy ${label} node`}
-        className="shrink-0 p-1 rounded-md text-gray-500 hover:text-gray-300 hover:bg-white/5 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-plasma-orange/60"
+        className="shrink-0 p-1 rounded-md text-su-muted hover:text-su-text hover:bg-su-line/10 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-plasma-orange/60"
       >
         {copied ? (
           /* Checkmark icon */
@@ -92,10 +92,10 @@ export function VoIPNodeList({
 
   return (
     <div>
-      <h4 className="text-[10px] uppercase tracking-widest text-gray-500 mb-2">
+      <h4 className="text-[10px] uppercase tracking-widest text-su-muted mb-2">
         VoIP Access
       </h4>
-      <div className="divide-y divide-white/5">
+      <div className="divide-y divide-su-line/20">
         {echolinkNode && echolinkNode.trim() && (
           <NodeRow label="EchoLink" node={echolinkNode} />
         )}

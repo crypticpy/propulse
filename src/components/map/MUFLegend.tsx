@@ -34,17 +34,17 @@ const MUF_BANDS = [
 export function MUFLegend({ className = "" }: MUFLegendProps) {
   return (
     <div className={`flex items-center gap-3 text-xs ${className}`}>
-      <span className="text-gray-500 font-medium">MUF:</span>
+      <span className="text-su-muted font-medium">MUF:</span>
       {MUF_BANDS.map((band) => (
         <div key={band.label} className="flex items-center gap-1.5">
           <div
             className="w-3 h-3 rounded-sm"
             style={{ backgroundColor: band.color, opacity: 0.85 }}
           />
-          <span className="text-gray-400">{band.label}</span>
+          <span className="text-su-muted">{band.label}</span>
         </div>
       ))}
-      <span className="text-gray-500">MHz</span>
+      <span className="text-su-muted">MHz</span>
     </div>
   );
 }
@@ -55,7 +55,7 @@ export function MUFLegend({ className = "" }: MUFLegendProps) {
 export function MUFLegendCompact({ className = "" }: MUFLegendProps) {
   return (
     <div className={`flex items-center gap-2 text-[10px] ${className}`}>
-      <span className="text-gray-500">MUF:</span>
+      <span className="text-su-muted">MUF:</span>
       <div className="flex items-center gap-0.5">
         {MUF_BANDS.map((band) => (
           <div
@@ -66,7 +66,7 @@ export function MUFLegendCompact({ className = "" }: MUFLegendProps) {
           />
         ))}
       </div>
-      <span className="text-gray-500">Low-High</span>
+      <span className="text-su-muted">Low-High</span>
     </div>
   );
 }

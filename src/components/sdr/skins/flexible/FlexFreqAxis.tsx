@@ -142,7 +142,7 @@ export function FlexFreqAxis({
               x={`${tick.xPercent}%`}
               y={textY}
               textAnchor="middle"
-              className="font-mono text-[10px] fill-gray-500"
+              className="font-mono text-[10px] fill-su-muted"
               style={{ userSelect: "none" }}
             >
               {tick.label}

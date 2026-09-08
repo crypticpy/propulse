@@ -25,7 +25,7 @@ function PlayIcon() {
       height="14"
       viewBox="0 0 14 14"
       fill="currentColor"
-      className="text-gray-300"
+      className="text-su-muted"
     >
       <polygon points="3,1 12,7 3,13" />
     </svg>
@@ -39,7 +39,7 @@ function PauseIcon() {
       height="14"
       viewBox="0 0 14 14"
       fill="currentColor"
-      className="text-gray-300"
+      className="text-su-muted"
     >
       <rect x="2" y="1" width="3.5" height="12" rx="0.5" />
       <rect x="8.5" y="1" width="3.5" height="12" rx="0.5" />
@@ -163,7 +163,7 @@ export function RadarScrubber3D({
   const ageLabel = currentTs ? formatAge(currentTs) : "";
 
   return (
-    <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-10 flex items-center gap-2 bg-void-black/80 backdrop-blur-sm border border-white/10 rounded-full px-3 py-1.5">
+    <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-10 flex items-center gap-2 bg-void-black/80 backdrop-blur-sm border border-su-line/40 rounded-full px-3 py-1.5">
       {/* Play / Pause */}
       <button
         type="button"
@@ -176,11 +176,11 @@ export function RadarScrubber3D({
 
       {/* UTC timestamp + age */}
       <div className="flex flex-col items-center min-w-[42px]">
-        <span className="text-[10px] font-mono text-gray-400 tabular-nums leading-tight">
+        <span className="text-[10px] font-mono text-su-muted tabular-nums leading-tight">
           {utcLabel}
         </span>
         {ageLabel && (
-          <span className="text-[8px] font-mono text-gray-500 leading-tight">
+          <span className="text-[8px] font-mono text-su-muted leading-tight">
             {ageLabel}
           </span>
         )}
@@ -198,7 +198,7 @@ export function RadarScrubber3D({
                 ? "bg-plasma-orange"
                 : isNowcast[i]
                   ? "bg-nebula-blue/40"
-                  : "bg-white/20"
+                  : "bg-su-line/30"
             }`}
             aria-label={`Frame ${i + 1}`}
           />

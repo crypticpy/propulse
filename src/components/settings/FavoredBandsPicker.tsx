@@ -49,11 +49,11 @@ function BandChip({
 
   const stateClasses = {
     normal:
-      "bg-nebula-blue text-gray-300 border-white/10 hover:border-white/20 hover:text-white",
+      "bg-nebula-blue text-su-muted border-su-line/40 hover:border-su-line/50 hover:text-su-text",
     favored:
       "bg-plasma-orange/20 text-plasma-orange border-plasma-orange/50 hover:bg-plasma-orange/30",
     hidden:
-      "bg-white/5 text-gray-500 border-white/5 line-through opacity-60 hover:opacity-80",
+      "bg-su-line/10 text-su-muted border-su-line/20 line-through opacity-60 hover:opacity-80",
   };
 
   const icon = {
@@ -139,20 +139,20 @@ export function FavoredBandsPicker({
   return (
     <div className={`space-y-4 ${className}`}>
       {/* Header */}
-      <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider">
+      <h3 className="text-sm font-semibold text-su-muted uppercase tracking-wider">
         Favored Bands
       </h3>
 
       {/* Legend / Instructions */}
-      <div className="p-3 bg-nebula-blue rounded-lg border border-white/10">
-        <p className="text-xs text-gray-400">
-          Click to cycle: <span className="text-gray-300">Normal</span>
+      <div className="p-3 bg-nebula-blue rounded-lg border border-su-line/40">
+        <p className="text-xs text-su-muted">
+          Click to cycle: <span className="text-su-muted">Normal</span>
           {" -> "}
           <span className="text-plasma-orange">Favored</span>
           {" -> "}
-          <span className="text-gray-500 line-through">Hidden</span>
+          <span className="text-su-muted line-through">Hidden</span>
           {" -> "}
-          <span className="text-gray-300">Normal</span>
+          <span className="text-su-muted">Normal</span>
         </p>
       </div>
 
@@ -169,7 +169,7 @@ export function FavoredBandsPicker({
       </div>
 
       {/* Legend */}
-      <div className="flex flex-wrap items-center gap-4 text-xs text-gray-400 pt-2 border-t border-white/10">
+      <div className="flex flex-wrap items-center gap-4 text-xs text-su-muted pt-2 border-t border-su-line/40">
         <div className="flex items-center gap-1.5">
           <svg
             className="w-3.5 h-3.5 text-plasma-orange"
@@ -182,7 +182,7 @@ export function FavoredBandsPicker({
         </div>
         <div className="flex items-center gap-1.5">
           <svg
-            className="w-3.5 h-3.5 text-gray-500"
+            className="w-3.5 h-3.5 text-su-muted"
             fill="none"
             stroke="currentColor"
             viewBox="0 0 24 24"
@@ -200,7 +200,7 @@ export function FavoredBandsPicker({
 
       {/* Summary */}
       {(primary.length > 0 || hidden.length > 0) && (
-        <div className="text-xs text-gray-500">
+        <div className="text-xs text-su-muted">
           {primary.length > 0 && (
             <span>
               Favored:{" "}
@@ -213,7 +213,7 @@ export function FavoredBandsPicker({
           {hidden.length > 0 && (
             <span>
               Hidden:{" "}
-              <span className="text-gray-400 line-through">
+              <span className="text-su-muted line-through">
                 {hidden.join(", ")}
               </span>
             </span>

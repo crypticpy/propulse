@@ -96,7 +96,7 @@ export function PropagationNetSuggestions() {
   if (sfi === null || suggestions.length === 0) return null;
 
   return (
-    <div className="bg-gradient-to-br from-panel/30 to-plasma-orange/5 border border-white/5 rounded-2xl p-4">
+    <div className="bg-gradient-to-br from-panel/30 to-plasma-orange/5 border border-su-line/20 rounded-2xl p-4">
       {/* Header */}
       <div className="flex items-center gap-2 mb-1">
         {/* Radio wave icon */}
@@ -120,11 +120,11 @@ export function PropagationNetSuggestions() {
             strokeLinecap="round"
           />
         </svg>
-        <h3 className="text-sm font-semibold text-white">Nets You Can Hear</h3>
+        <h3 className="text-sm font-semibold text-su-text">Nets You Can Hear</h3>
       </div>
 
       {/* SFI value + open bands */}
-      <p className="text-gray-500 text-xs mb-2">SFI {sfi} — open HF bands:</p>
+      <p className="text-su-muted text-xs mb-2">SFI {sfi} — open HF bands:</p>
 
       {/* Open band pills */}
       <div className="flex flex-wrap gap-1 mb-3">
@@ -143,22 +143,22 @@ export function PropagationNetSuggestions() {
         {suggestions.map((net) => (
           <li
             key={net.id}
-            className="flex items-center gap-2 py-2 border-b border-white/5 last:border-0"
+            className="flex items-center gap-2 py-2 border-b border-su-line/20 last:border-0"
           >
             <Link
               to={`/nets/${net.id}`}
-              className="text-sm text-white hover:text-plasma-orange transition-colors truncate font-medium"
+              className="text-sm text-su-text hover:text-plasma-orange transition-colors truncate font-medium"
             >
               {net.name}
             </Link>
 
             {/* Band pill */}
-            <span className="shrink-0 bg-white/10 text-gray-300 text-[10px] rounded-full px-2 py-0.5 uppercase tracking-wide">
+            <span className="shrink-0 bg-su-line/20 text-su-muted text-[10px] rounded-full px-2 py-0.5 uppercase tracking-wide">
               {net.band}
             </span>
 
             {/* Mode */}
-            <span className="shrink-0 text-gray-500 text-[10px] uppercase tracking-wide">
+            <span className="shrink-0 text-su-muted text-[10px] uppercase tracking-wide">
               {net.mode}
             </span>
 

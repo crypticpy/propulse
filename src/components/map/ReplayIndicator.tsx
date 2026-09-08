@@ -191,9 +191,9 @@ export function ReplayIndicator({
       <div
         className={`
           inline-flex items-center gap-2
-          bg-void-black/80 backdrop-blur-sm border border-white/10 rounded-xl
+          bg-void-black/80 backdrop-blur-sm border border-su-line/40 rounded-xl
           px-3 py-1.5 text-xs font-medium select-none
-          text-white/30 cursor-not-allowed
+          text-su-text/80 cursor-not-allowed
           ${className ?? ""}
         `}
         title="Upgrade to Pro for spot replay"
@@ -216,10 +216,10 @@ export function ReplayIndicator({
       onClick={onToggle}
       className={`
         inline-flex items-center gap-2
-        bg-void-black/80 backdrop-blur-sm border border-white/10 rounded-xl
+        bg-void-black/80 backdrop-blur-sm border border-su-line/40 rounded-xl
         px-3 py-1.5 text-xs font-medium select-none
-        text-white/60 hover:text-white/90
-        hover:bg-void-black/90 hover:border-white/20
+        text-su-text/80 hover:text-su-text/90
+        hover:bg-void-black/90 hover:border-su-line/50
         transition-colors duration-150 cursor-pointer
         ${className ?? ""}
       `}

@@ -142,24 +142,24 @@ export function SpotCollectionPopover({
       role="dialog"
       aria-modal="false"
       aria-label={`${title}: ${sortedSpots.length} spots`}
-      className="fixed z-[65] flex max-h-[calc(100vh-20px)] w-[min(330px,calc(100vw-20px))] flex-col overflow-hidden rounded-xl border border-white/15 bg-deep-space/95 text-gray-100 shadow-2xl backdrop-blur-xl"
+      className="fixed z-[65] flex max-h-[calc(100vh-20px)] w-[min(330px,calc(100vw-20px))] flex-col overflow-hidden rounded-xl border border-su-line/50 bg-deep-space/95 text-su-text shadow-2xl backdrop-blur-xl"
       style={{ left: adjustedPosition.x, top: adjustedPosition.y }}
       onPointerDown={(event) => event.stopPropagation()}
       onClick={(event) => event.stopPropagation()}
       onDoubleClick={(event) => event.stopPropagation()}
     >
-      <div className="flex items-start justify-between gap-3 border-b border-white/10 px-3 py-2.5">
+      <div className="flex items-start justify-between gap-3 border-b border-su-line/40 px-3 py-2.5">
         <div className="min-w-0">
           <div className="font-mono text-xs font-semibold uppercase tracking-wider text-signal-green">
             {title}
           </div>
-          <div className="mt-0.5 text-[10px] text-gray-500">
+          <div className="mt-0.5 text-[10px] text-su-muted">
             {subtitle || "Select a station to target and inspect"}
           </div>
         </div>
         <button
           type="button"
-          className="rounded p-1 text-gray-500 hover:bg-white/10 hover:text-white"
+          className="rounded p-1 text-su-muted hover:bg-su-line/20 hover:text-su-text"
           onClick={onClose}
           aria-label="Close spot collection"
         >
@@ -186,7 +186,7 @@ export function SpotCollectionPopover({
               ref={index === 0 ? firstSpotRef : undefined}
               key={spot.id || `${spot.dx}-${spot.frequency}-${index}`}
               onClick={() => onSpotSelect(spot)}
-              className="group w-full rounded-md px-2.5 py-2 text-left transition-colors hover:bg-white/10 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-signal-green"
+              className="group w-full rounded-md px-2.5 py-2 text-left transition-colors hover:bg-su-line/20 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-signal-green"
               aria-label={`Select ${spot.dx} and view details`}
             >
               <div className="flex items-center gap-1.5">
@@ -196,19 +196,19 @@ export function SpotCollectionPopover({
                 >
                   {spot.dx}
                 </span>
-                <span className="font-mono text-[10px] text-gray-300">
+                <span className="font-mono text-[10px] text-su-muted">
                   {formatFrequency(rawSpot)}
                 </span>
               </div>
               <div className="mt-1 flex items-center gap-1.5">
                 {spot.band && (
-                  <span className="rounded bg-white/10 px-1 py-0.5 text-[9px] font-bold text-gray-300">
+                  <span className="rounded bg-su-line/20 px-1 py-0.5 text-[9px] font-bold text-su-muted">
                     {spot.band}
                   </span>
                 )}
                 {spot.mode && (
                   <span
-                    className="rounded px-1 py-0.5 text-[9px] font-bold text-white"
+                    className="rounded px-1 py-0.5 text-[9px] font-bold text-su-text"
                     style={{ backgroundColor: modeColor }}
                   >
                     {spot.mode}
@@ -235,7 +235,7 @@ export function SpotCollectionPopover({
                 )}
               </div>
               {(spot.dxGrid || spot.comment) && (
-                <div className="mt-1 truncate text-[9px] text-gray-500">
+                <div className="mt-1 truncate text-[9px] text-su-muted">
                   {spot.dxGrid || "Grid unavailable"}
                   {spot.comment ? ` · ${spot.comment}` : ""}
                 </div>
@@ -245,7 +245,7 @@ export function SpotCollectionPopover({
         })}
       </div>
 
-      <div className="flex items-center justify-between gap-2 border-t border-white/10 px-3 py-2 text-[9px] text-gray-500">
+      <div className="flex items-center justify-between gap-2 border-t border-su-line/40 px-3 py-2 text-[9px] text-su-muted">
         <span className="truncate">
           {summary.modes
             .slice(0, 3)

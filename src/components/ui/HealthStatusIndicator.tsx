@@ -29,9 +29,9 @@ function dotColorClass(status: ServiceStatus): string {
     case "error":
       return "bg-alert-red";
     case "loading":
-      return "bg-gray-500 animate-pulse";
+      return "bg-su-line animate-pulse";
     case "idle":
-      return "bg-gray-600";
+      return "bg-su-line";
   }
 }
 
@@ -75,11 +75,11 @@ function bridgeDotClass(state: string): string {
     case "connecting":
       return "bg-plasma-orange animate-pulse";
     case "disconnected":
-      return "bg-gray-500";
+      return "bg-su-line";
     case "error":
       return "bg-alert-red";
     default:
-      return "bg-gray-600";
+      return "bg-su-line";
   }
 }
 
@@ -186,8 +186,8 @@ export function HealthStatusIndicator({
         ref={triggerRef}
         onClick={() => setExpanded((prev) => !prev)}
         className={`inline-flex min-h-11 min-w-11 items-center justify-center rounded
-                   hover:bg-white/5 transition-colors cursor-pointer
-                   focus:outline-none focus:ring-1 focus:ring-white/20
+                   hover:bg-su-line/10 transition-colors cursor-pointer
+                   focus:outline-none focus:ring-1 focus:ring-su-line/50
                    ${compact ? "p-1.5" : "gap-1.5 px-2 py-1"}`}
         aria-label={`System health: ${overallLabel(health.overall)}`}
         aria-expanded={expanded}
@@ -216,21 +216,21 @@ export function HealthStatusIndicator({
           ref={panelRef}
           className="absolute top-full right-0 mt-1 z-50 w-[min(280px,90vw)]
                      bg-void-black/95 backdrop-blur-md
-                     border border-white/10 rounded-xl shadow-2xl
+                     border border-su-line/40 rounded-xl shadow-2xl
                      animate-in fade-in slide-in-from-top-1"
           role="dialog"
           aria-label="System health details"
         >
           {/* Header */}
-          <div className="flex items-center justify-between px-3 pt-3 pb-2 border-b border-white/10">
+          <div className="flex items-center justify-between px-3 pt-3 pb-2 border-b border-su-line/40">
             <Link
               to="/health"
               onClick={() => setExpanded(false)}
-              className="text-xs font-semibold text-gray-200 hover:text-plasma-orange transition-colors flex items-center gap-1"
+              className="text-xs font-semibold text-su-text hover:text-plasma-orange transition-colors flex items-center gap-1"
             >
               System Health
               <svg
-                className="w-3 h-3 text-gray-500"
+                className="w-3 h-3 text-su-muted"
                 fill="none"
                 stroke="currentColor"
                 viewBox="0 0 24 24"
@@ -245,7 +245,7 @@ export function HealthStatusIndicator({
             </Link>
             <button
               onClick={() => setExpanded(false)}
-              className="p-0.5 rounded hover:bg-white/10 transition-colors text-gray-500 hover:text-gray-300"
+              className="p-0.5 rounded hover:bg-su-line/20 transition-colors text-su-muted hover:text-su-text"
               aria-label="Close health panel"
               type="button"
             >
@@ -268,19 +268,19 @@ export function HealthStatusIndicator({
           <div className="px-3 py-2 space-y-3">
             {/* Bridge section */}
             <div>
-              <span className="text-[10px] uppercase tracking-wider text-gray-500 font-semibold">
+              <span className="text-[10px] uppercase tracking-wider text-su-muted font-semibold">
                 Bridge
               </span>
               <Link
                 to="/bridge"
                 onClick={() => setExpanded(false)}
-                className="flex items-center gap-2 mt-1 -mx-1 px-1 py-0.5 rounded-md hover:bg-white/5 transition-colors group"
+                className="flex items-center gap-2 mt-1 -mx-1 px-1 py-0.5 rounded-md hover:bg-su-line/10 transition-colors group"
               >
                 <span
                   className={`w-2 h-2 rounded-full shrink-0 ${bridgeDotClass(health.bridgeState)}`}
                   aria-hidden="true"
                 />
-                <span className="text-xs text-gray-300 group-hover:text-gray-100 transition-colors">
+                <span className="text-xs text-su-muted group-hover:text-su-text transition-colors">
                   Bridge:{" "}
                   {bridgeLabel(
                     health.bridgeState,
@@ -289,7 +289,7 @@ export function HealthStatusIndicator({
                   )}
                 </span>
                 <svg
-                  className="w-3 h-3 text-gray-600 group-hover:text-gray-400 ml-auto transition-colors"
+                  className="w-3 h-3 text-su-muted group-hover:text-su-text ml-auto transition-colors"
                   fill="none"
                   stroke="currentColor"
                   viewBox="0 0 24 24"
@@ -304,7 +304,7 @@ export function HealthStatusIndicator({
               </Link>
               {health.bridgeError && health.bridgeState !== "connected" && (
                 <p
-                  className="mt-1 text-[10px] text-gray-500 leading-tight line-clamp-2"
+                  className="mt-1 text-[10px] text-su-muted leading-tight line-clamp-2"
                   title={health.bridgeError}
                 >
                   {health.bridgeError}
@@ -324,7 +324,7 @@ export function HealthStatusIndicator({
 
             {/* API Services section */}
             <div>
-              <span className="text-[10px] uppercase tracking-wider text-gray-500 font-semibold">
+              <span className="text-[10px] uppercase tracking-wider text-su-muted font-semibold">
                 API Services
               </span>
               <div className="mt-1 space-y-1.5 max-h-[280px] overflow-y-auto">
@@ -333,7 +333,7 @@ export function HealthStatusIndicator({
                     Array.from(groupByProvider(health.services)).map(
                       ([provider, svcs]) => (
                         <div key={provider}>
-                          <span className="text-[9px] uppercase tracking-wider text-gray-600 font-medium">
+                          <span className="text-[9px] uppercase tracking-wider text-su-muted font-medium">
                             {provider}
                           </span>
                           <div className="mt-0.5 space-y-1">
@@ -344,21 +344,21 @@ export function HealthStatusIndicator({
                                     className={`w-2 h-2 rounded-full shrink-0 ${dotColorClass(svc.status)}`}
                                     aria-hidden="true"
                                   />
-                                  <span className="text-xs text-gray-300 min-w-0 truncate flex-1">
+                                  <span className="text-xs text-su-muted min-w-0 truncate flex-1">
                                     {svc.name}
                                     {svc.isUpstream && (
-                                      <span className="text-[9px] text-gray-500 bg-white/5 px-1 py-0.5 rounded ml-1">
+                                      <span className="text-[9px] text-su-muted bg-su-line/10 px-1 py-0.5 rounded ml-1">
                                         upstream
                                       </span>
                                     )}
                                   </span>
-                                  <span className="text-[10px] text-gray-500 whitespace-nowrap">
+                                  <span className="text-[10px] text-su-muted whitespace-nowrap">
                                     {serviceDetail(svc)}
                                   </span>
                                 </div>
                                 {svc.status === "error" && svc.userMessage && (
                                   <p
-                                    className="ml-4 mt-0.5 text-[10px] text-gray-500 leading-tight line-clamp-2"
+                                    className="ml-4 mt-0.5 text-[10px] text-su-muted leading-tight line-clamp-2"
                                     title={svc.userMessage}
                                   >
                                     {svc.userMessage}
@@ -377,10 +377,10 @@ export function HealthStatusIndicator({
                           className={`w-2 h-2 rounded-full shrink-0 ${dotColorClass(svc.status)}`}
                           aria-hidden="true"
                         />
-                        <span className="text-xs text-gray-300 min-w-0 truncate flex-1">
+                        <span className="text-xs text-su-muted min-w-0 truncate flex-1">
                           {svc.name}
                         </span>
-                        <span className="text-[10px] text-gray-500 whitespace-nowrap">
+                        <span className="text-[10px] text-su-muted whitespace-nowrap">
                           {serviceDetail(svc)}
                         </span>
                       </div>
@@ -390,14 +390,14 @@ export function HealthStatusIndicator({
           </div>
 
           {/* Footer */}
-          <div className="px-3 py-2 border-t border-white/10 flex items-center justify-between">
-            <span className="text-[10px] text-gray-600">
+          <div className="px-3 py-2 border-t border-su-line/40 flex items-center justify-between">
+            <span className="text-[10px] text-su-muted">
               Refreshes every 30s
             </span>
             <Link
               to="/health"
               onClick={() => setExpanded(false)}
-              className="text-[10px] text-gray-500 hover:text-plasma-orange transition-colors"
+              className="text-[10px] text-su-muted hover:text-plasma-orange transition-colors"
             >
               View full dashboard
             </Link>

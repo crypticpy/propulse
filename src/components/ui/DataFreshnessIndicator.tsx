@@ -39,16 +39,16 @@ export function DataFreshnessIndicator({
 
   return (
     <div className={`flex items-center gap-1.5 ${className}`}>
-      <span className="text-[10px] text-gray-500 font-mono">{label}</span>
+      <span className="text-[10px] text-su-muted font-mono">{label}</span>
       {onRefresh && (
         <button
           onClick={onRefresh}
           disabled={isRefetching}
-          className="p-1 hover:bg-white/10 rounded transition-colors disabled:opacity-50"
+          className="p-1 hover:bg-su-line/20 rounded transition-colors disabled:opacity-50"
           aria-label="Refresh data"
         >
           <svg
-            className={`w-3 h-3 text-gray-400 ${isRefetching ? "animate-spin" : ""}`}
+            className={`w-3 h-3 text-su-muted ${isRefetching ? "animate-spin" : ""}`}
             fill="none"
             stroke="currentColor"
             viewBox="0 0 24 24"

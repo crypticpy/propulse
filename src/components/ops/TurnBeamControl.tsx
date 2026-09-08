@@ -113,7 +113,7 @@ export function TurnBeamControl({ bearing }: TurnBeamControlProps) {
       }
       className={`h-9 rounded-md px-2 font-mono text-[10px] uppercase tracking-wide ${
         rigPtt
-          ? "cursor-not-allowed bg-white/5 text-gray-600"
+          ? "cursor-not-allowed bg-su-line/10 text-su-muted"
           : armed
             ? "bg-plasma-orange/25 text-plasma-orange hover:bg-plasma-orange/35"
             : "bg-cosmic-cyan/15 text-cosmic-cyan hover:bg-cosmic-cyan/25"
@@ -123,7 +123,7 @@ export function TurnBeamControl({ bearing }: TurnBeamControlProps) {
         ? `Turn to ${Math.round(armed.azimuth).toString().padStart(3, "0")}°?`
         : "Turn beam"}
       {!armed && rotorStatus?.azimuth != null && (
-        <span className="ml-1 text-gray-400">
+        <span className="ml-1 text-su-muted">
           beam {Math.round(rotorStatus.azimuth)}°
         </span>
       )}

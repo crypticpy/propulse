@@ -102,14 +102,14 @@ export function Logbook() {
     return (
       <div className="h-full flex flex-col">
         {/* Header Bar */}
-        <div className="flex items-center justify-between px-6 py-3 border-b border-white/10 bg-void-black/50 shrink-0">
+        <div className="flex items-center justify-between px-6 py-3 border-b border-su-line/40 bg-void-black/50 shrink-0">
           <div className="flex items-center gap-4">
-            <h1 className="font-orbitron text-lg font-black uppercase tracking-widest text-white">
+            <h1 className="font-orbitron text-lg font-black uppercase tracking-widest text-su-text">
               Logbook
             </h1>
-            <span className="text-sm font-mono tabular-nums text-gray-400">
+            <span className="text-sm font-mono tabular-nums text-su-muted">
               {totalCount.toLocaleString()}{" "}
-              <span className="text-gray-600">
+              <span className="text-su-muted">
                 {totalCount === 1 ? "QSO" : "QSOs"}
               </span>
             </span>
@@ -118,7 +118,7 @@ export function Logbook() {
             <QSOStatsPopover>
               <button
                 type="button"
-                className="flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-lg transition-colors bg-white/5 hover:bg-white/10 text-gray-300 border border-white/10"
+                className="flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-lg transition-colors bg-su-line/10 hover:bg-su-line/20 text-su-muted border border-su-line/40"
               >
                 <svg
                   className="w-4 h-4"
@@ -141,7 +141,7 @@ export function Logbook() {
             <button
               type="button"
               onClick={() => setShowQslSync(true)}
-              className="flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-lg transition-colors bg-white/5 hover:bg-white/10 text-gray-300 border border-white/10"
+              className="flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-lg transition-colors bg-su-line/10 hover:bg-su-line/20 text-su-muted border border-su-line/40"
             >
               QSL Sync
             </button>
@@ -156,7 +156,7 @@ export function Logbook() {
         {/* Two-Column Body */}
         <div className="flex-1 flex min-h-0">
           {/* Left Column: Entry Form + Band Map (sticky) */}
-          <div className="w-[420px] shrink-0 border-r border-white/10 overflow-y-auto p-4">
+          <div className="w-[420px] shrink-0 border-r border-su-line/40 overflow-y-auto p-4">
             <div className="sticky top-0 space-y-3">
               <QuietBandNav />
               <QSOEntryForm onQSOLogged={handleQSOLogged} />
@@ -228,12 +228,12 @@ export function Logbook() {
   return (
     <div className="min-h-screen">
       {/* Header Bar */}
-      <div className="flex items-center justify-between px-4 py-3 border-b border-white/10 bg-void-black/50 sticky top-0 z-30">
+      <div className="flex items-center justify-between px-4 py-3 border-b border-su-line/40 bg-void-black/50 sticky top-0 z-30">
         <div className="flex items-center gap-3">
-          <h1 className="font-orbitron text-base font-black uppercase tracking-widest text-white">
+          <h1 className="font-orbitron text-base font-black uppercase tracking-widest text-su-text">
             Logbook
           </h1>
-          <span className="text-xs font-mono tabular-nums text-gray-400">
+          <span className="text-xs font-mono tabular-nums text-su-muted">
             {totalCount.toLocaleString()}
           </span>
         </div>
@@ -241,7 +241,7 @@ export function Logbook() {
           <QSOStatsPopover>
             <button
               type="button"
-              className="p-1.5 rounded-lg text-gray-400 hover:text-white hover:bg-white/10 transition-colors"
+              className="p-1.5 rounded-lg text-su-muted hover:text-su-text hover:bg-su-line/20 transition-colors"
               aria-label="Stats"
             >
               <svg
@@ -264,7 +264,7 @@ export function Logbook() {
           <button
             type="button"
             onClick={() => setShowQslSync(true)}
-            className="p-1.5 rounded-lg text-gray-400 hover:text-white hover:bg-white/10 transition-colors"
+            className="p-1.5 rounded-lg text-su-muted hover:text-su-text hover:bg-su-line/20 transition-colors"
             aria-label="QSL Sync"
           >
             <svg
@@ -297,17 +297,17 @@ export function Logbook() {
         <QSOEntryForm onQSOLogged={handleQSOLogged} />
 
         {/* Band Map (collapsible on mobile) */}
-        <div className="border border-white/10 rounded-lg overflow-hidden">
+        <div className="border border-su-line/40 rounded-lg overflow-hidden">
           <button
             type="button"
             onClick={() => setBandMapCollapsed((prev) => !prev)}
-            className="w-full flex items-center justify-between px-3 py-2 bg-white/[0.03] hover:bg-white/[0.05] transition-colors"
+            className="w-full flex items-center justify-between px-3 py-2 bg-su-line/10 hover:bg-su-line/20 transition-colors"
           >
-            <span className="text-xs font-mono font-medium text-gray-400 uppercase tracking-wider">
+            <span className="text-xs font-mono font-medium text-su-muted uppercase tracking-wider">
               Band Map
             </span>
             <svg
-              className={`w-4 h-4 text-gray-500 transition-transform duration-200 ${
+              className={`w-4 h-4 text-su-muted transition-transform duration-200 ${
                 bandMapCollapsed ? "" : "rotate-180"
               }`}
               fill="none"

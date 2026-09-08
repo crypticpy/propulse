@@ -92,9 +92,9 @@ export function NCSRotationCalendar({
   // ── Render ─────────────────────────────────────────────────────────────────
 
   return (
-    <div className="bg-panel/30 border border-white/5 rounded-2xl p-4">
+    <div className="bg-panel/30 border border-su-line/20 rounded-2xl p-4">
       {/* Header */}
-      <h3 className="text-[10px] uppercase tracking-widest text-gray-500 mb-3">
+      <h3 className="text-[10px] uppercase tracking-widest text-su-muted mb-3">
         NCS Rotation
       </h3>
 
@@ -107,7 +107,7 @@ export function NCSRotationCalendar({
           return (
             <div key={day} className="flex flex-col items-center">
               {/* Day label */}
-              <span className="text-[10px] uppercase tracking-widest text-gray-500 text-center mb-1">
+              <span className="text-[10px] uppercase tracking-widest text-su-muted text-center mb-1">
                 {DAY_LABELS[day]}
               </span>
 
@@ -124,7 +124,7 @@ export function NCSRotationCalendar({
                     }}
                     onBlur={commitEdit}
                     autoFocus
-                    className="w-full bg-transparent text-center text-xs font-mono text-white placeholder:text-gray-600 focus:outline-none"
+                    className="w-full bg-transparent text-center text-xs font-mono text-su-text placeholder:text-su-muted focus:outline-none"
                     placeholder="Call"
                   />
                 </div>
@@ -133,18 +133,18 @@ export function NCSRotationCalendar({
                   type="button"
                   onClick={() => openEdit(day)}
                   disabled={!isManager}
-                  className={`bg-void/50 border border-white/5 rounded-lg p-2 min-h-[40px] w-full flex items-center justify-center transition-colors ${
+                  className={`bg-void/50 border border-su-line/20 rounded-lg p-2 min-h-[40px] w-full flex items-center justify-center transition-colors ${
                     isManager
                       ? "hover:border-plasma-orange/30 hover:bg-void/70 cursor-pointer"
                       : "cursor-default"
                   }`}
                 >
                   {assignee ? (
-                    <span className="font-mono text-xs text-white truncate">
+                    <span className="font-mono text-xs text-su-text truncate">
                       {assignee}
                     </span>
                   ) : (
-                    <span className="text-gray-600 text-xs select-none">—</span>
+                    <span className="text-su-muted text-xs select-none">—</span>
                   )}
                 </button>
               )}
@@ -155,7 +155,7 @@ export function NCSRotationCalendar({
 
       {/* Edit hint */}
       {isManager && (
-        <p className="text-[10px] text-gray-600 mt-2 text-center">
+        <p className="text-[10px] text-su-muted mt-2 text-center">
           Click a day to assign NCS
         </p>
       )}

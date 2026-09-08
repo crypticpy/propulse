@@ -105,10 +105,10 @@ export function ArchetypeRadar({ className }: ArchetypeRadarProps) {
 
   return (
     <div
-      className={`bg-white/[0.03] border border-white/10 rounded-xl p-4 ${className ?? ""}`}
+      className={`bg-su-line/10 border border-su-line/40 rounded-xl p-4 ${className ?? ""}`}
     >
       {/* Section Header */}
-      <h3 className="text-xs text-gray-500 uppercase tracking-wider mb-3">
+      <h3 className="text-xs text-su-muted uppercase tracking-wider mb-3">
         Operating Style
       </h3>
 
@@ -225,7 +225,7 @@ export function ArchetypeRadar({ className }: ArchetypeRadarProps) {
                 y={labelPt.y}
                 textAnchor={labelAnchor(i)}
                 dominantBaseline={labelDominantBaseline(i)}
-                className="fill-gray-400"
+                className="fill-su-muted"
                 fontSize={10}
                 fontFamily="system-ui, sans-serif"
               >
@@ -238,7 +238,7 @@ export function ArchetypeRadar({ className }: ArchetypeRadarProps) {
 
       {/* Empty state message */}
       {isEmpty && (
-        <p className="text-sm text-gray-500 text-center mt-2">
+        <p className="text-sm text-su-muted text-center mt-2">
           Import your logbook to reveal your operating archetypes
         </p>
       )}
@@ -249,7 +249,7 @@ export function ArchetypeRadar({ className }: ArchetypeRadarProps) {
           {topArchetypes.map((archetype, i) => (
             <span
               key={archetype.key}
-              className="inline-flex items-center gap-1.5 bg-white/[0.05] rounded-full px-3 py-1 text-xs"
+              className="inline-flex items-center gap-1.5 bg-su-line/10 rounded-full px-3 py-1 text-xs"
               style={{
                 borderWidth: 1,
                 borderStyle: "solid",

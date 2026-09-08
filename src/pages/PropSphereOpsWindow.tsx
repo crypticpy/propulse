@@ -26,7 +26,7 @@ export function PropSphereOpsWindow() {
 
   return (
     <main
-      className="overflow-hidden bg-cosmic-gradient p-2 text-white"
+      className="overflow-hidden bg-cosmic-gradient p-2 text-su-text"
       style={{ height: "100vh" }}
     >
       <OpsConsole

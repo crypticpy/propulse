@@ -113,21 +113,21 @@ export function EqBandContextMenu({
         top: position.top,
         zIndex: 9999,
       }}
-      className="min-w-[180px] bg-gray-900/95 backdrop-blur-sm border border-white/10
+      className="min-w-[180px] bg-su-canvas/95 backdrop-blur-sm border border-su-line/40
         rounded-lg shadow-xl shadow-black/50 py-1.5 select-none"
     >
       <div className="space-y-0.5">
         <button
           onClick={() => handleAddBand("notch")}
           className="w-full px-3 py-1.5 text-left text-[11px] font-semibold rounded
-            text-plasma-orange hover:bg-white/10 transition-colors"
+            text-plasma-orange hover:bg-su-line/20 transition-colors"
         >
           Add Notch
         </button>
         <button
           onClick={() => handleAddBand("eq")}
           className="w-full px-3 py-1.5 text-left text-[11px] font-semibold rounded
-            text-cosmic-cyan hover:bg-white/10 transition-colors"
+            text-cosmic-cyan hover:bg-su-line/20 transition-colors"
         >
           Add EQ Band
         </button>

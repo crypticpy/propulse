@@ -9,6 +9,8 @@ import {
 } from "@/lib/hamclock/wallPages";
 import type { TextScale } from "@/types/user";
 
+/** Per-tab HamClock chrome. SP-03 scopes equivalent fields by view slot/instance. */
+
 export const HAMCLOCK_PANELS = [
   ["best", "Best Band Now"],
   ["de", "DE Station"],

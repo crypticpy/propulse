@@ -60,7 +60,7 @@ export function PhaseIndicator({
 
   return (
     <nav
-      className="flex w-full rounded-xl overflow-hidden border border-white/15 bg-white/[0.03] backdrop-blur-sm"
+      className="flex w-full rounded-xl overflow-hidden border border-su-line/50 bg-su-line/10 backdrop-blur-sm"
       aria-label="Session phases"
     >
       {PHASES.map((phase, index) => {
@@ -86,14 +86,14 @@ export function PhaseIndicator({
                 : "",
               // Completed phase (not current)
               completed && !isCurrent
-                ? "text-signal-green font-medium bg-signal-green/15 hover:bg-white/[0.04] cursor-pointer"
+                ? "text-signal-green font-medium bg-signal-green/15 hover:bg-su-line/10 cursor-pointer"
                 : "",
               // Future / not clickable, not current
-              !clickable && !isCurrent && !completed ? "text-gray-500" : "",
+              !clickable && !isCurrent && !completed ? "text-su-muted" : "",
               // Disabled rounds (no checkins)
               disabled ? "opacity-40 cursor-not-allowed" : "",
               // Separator between pills
-              index > 0 ? "border-l border-white/15" : "",
+              index > 0 ? "border-l border-su-line/50" : "",
               // Focus ring
               clickable
                 ? "focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-plasma-orange/70 focus-visible:outline-none"
@@ -139,7 +139,7 @@ export function PhaseIndicator({
 
             {/* Keyboard shortcut hint */}
             <span
-              className="absolute top-0.5 right-1 text-[11px] leading-none text-gray-400 font-mono pointer-events-none bg-white/[0.06] rounded px-0.5"
+              className="absolute top-0.5 right-1 text-[11px] leading-none text-su-muted font-mono pointer-events-none bg-su-line/20 rounded px-0.5"
               aria-hidden="true"
             >
               {index + 1}

@@ -68,12 +68,12 @@ function formatPassTime(pass: PassPrediction): string {
 
 /** Category left border color — static map so Tailwind JIT can purge correctly */
 const CATEGORY_BORDER_COLORS: Record<string, string> = {
-  iss: "border-l-white",
+  iss: "border-l-su-line",
   fm: "border-l-green-400",
   linear: "border-l-cyan-400",
   digital: "border-l-orange-400",
   weather: "border-l-purple-400",
-  other: "border-l-gray-400",
+  other: "border-l-su-line",
 };
 
 // ---------------------------------------------------------------------------
@@ -110,7 +110,7 @@ export function SatelliteCard({
           onCardClick(satellite);
         }
       }}
-      className={`w-full text-left bg-white/[0.03] backdrop-blur-md border border-white/10 rounded-2xl p-4 transition-all duration-200 hover:border-white/20 hover:bg-white/[0.05] cursor-pointer group border-l-2 ${CATEGORY_BORDER_COLORS[satellite.category] ?? "border-l-gray-400"}`}
+      className={`w-full text-left bg-su-line/10 backdrop-blur-md border border-su-line/40 rounded-2xl p-4 transition-all duration-200 hover:border-su-line/50 hover:bg-su-line/20 cursor-pointer group border-l-2 ${CATEGORY_BORDER_COLORS[satellite.category] ?? "border-l-su-line"}`}
     >
       {/* Top row: Category badge + TLE age badge + Track Toggle */}
       <div className="flex items-center justify-between gap-2 mb-2">
@@ -146,29 +146,29 @@ export function SatelliteCard({
             className={`absolute top-[2px] left-[2px] w-[20px] h-[20px] rounded-full transition-transform duration-200 ${
               isTracked
                 ? "translate-x-[20px] bg-signal-green"
-                : "translate-x-0 bg-gray-400"
+                : "translate-x-0 bg-su-line"
             }`}
           />
         </button>
       </div>
 
       {/* Satellite name */}
-      <h3 className="text-lg font-bold text-white truncate mb-0.5 group-hover:text-plasma-orange transition-colors">
+      <h3 className="text-lg font-bold text-su-text truncate mb-0.5 group-hover:text-plasma-orange transition-colors">
         {satellite.name}
       </h3>
 
       {/* NORAD ID */}
-      <p className="text-xs text-gray-400 font-mono mb-2">
+      <p className="text-xs text-su-muted font-mono mb-2">
         NORAD {satellite.noradId}
       </p>
 
       {/* Transponder frequencies */}
       {primaryTransponder && (
-        <div className="flex items-center gap-3 text-xs font-mono text-gray-300 mb-2">
+        <div className="flex items-center gap-3 text-xs font-mono text-su-muted mb-2">
           {primaryTransponder.uplinkRangeHz[0] > 0 && (
             <span className="flex items-center gap-1">
               <svg
-                className="w-3 h-3 text-gray-500"
+                className="w-3 h-3 text-su-muted"
                 fill="none"
                 stroke="currentColor"
                 viewBox="0 0 24 24"
@@ -186,7 +186,7 @@ export function SatelliteCard({
           {primaryTransponder.downlinkRangeHz[0] > 0 && (
             <span className="flex items-center gap-1">
               <svg
-                className="w-3 h-3 text-gray-500"
+                className="w-3 h-3 text-su-muted"
                 fill="none"
                 stroke="currentColor"
                 viewBox="0 0 24 24"
@@ -206,7 +206,7 @@ export function SatelliteCard({
 
       {/* Next pass row */}
       {nextPass && (
-        <div className="flex items-center gap-1 text-xs text-cyan-400 mb-2">
+        <div className="flex items-center gap-1 text-xs text-cosmic-cyan mb-2">
           <svg
             className="w-3 h-3"
             fill="none"

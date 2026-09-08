@@ -92,7 +92,7 @@ async function fetchAllPages<T>(
 }
 
 /**
- * Query band_hourly_stats for a given band over a trailing window,
+ * Query gap-filtered band_hourly_stats_readable for a trailing window,
  * ordered oldest-first by hour_utc.
  *
  * @param band - Amateur band designation (e.g., "20m", "40m")
@@ -109,14 +109,14 @@ export async function queryBandHourlyStats(
     (from, to) =>
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (supabase as any)
-        .from("band_hourly_stats")
+        .from("band_hourly_stats_readable")
         .select("*")
         .eq("band", band)
         .gte("hour_utc", since)
         .order("hour_utc", { ascending: true })
         .order("id", { ascending: true })
         .range(from, to),
-    "band_hourly_stats",
+    "band_hourly_stats_readable",
   );
 }
 

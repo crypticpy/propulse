@@ -172,7 +172,7 @@ export function PredictionsCard({
 
   return (
     <Card
-      className={`relative overflow-hidden ${onClick ? "cursor-pointer hover:border-white/30 hover:bg-white/[0.05] group" : ""} ${className}`}
+      className={`relative overflow-hidden ${onClick ? "cursor-pointer hover:border-su-line/60 hover:bg-su-line/10 group" : ""} ${className}`}
       onClick={onClick}
       role={onClick ? "button" : undefined}
       tabIndex={onClick ? 0 : undefined}
@@ -188,7 +188,7 @@ export function PredictionsCard({
       }
     >
       {onClick && (
-        <div className="absolute top-3 right-3 text-gray-500 opacity-0 group-hover:opacity-100 transition-opacity">
+        <div className="absolute top-3 right-3 text-su-muted opacity-0 group-hover:opacity-100 transition-opacity">
           <svg
             className="w-3.5 h-3.5"
             fill="none"
@@ -209,11 +209,11 @@ export function PredictionsCard({
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-2">
           <ForecastIcon className="w-4 h-4 text-signal-green" />
-          <span className="text-xs font-mono uppercase tracking-wider text-gray-400">
+          <span className="text-xs font-mono uppercase tracking-wider text-su-muted">
             Best Bands Now
           </span>
         </div>
-        <span className="text-[10px] text-gray-300 px-1.5 py-0.5 rounded bg-white/5 flex items-center gap-1">
+        <span className="text-[10px] text-su-muted px-1.5 py-0.5 rounded bg-su-line/10 flex items-center gap-1">
           <span
             className={`inline-block w-1.5 h-1.5 rounded-full ${isDay ? "bg-caution-amber" : "bg-cosmic-cyan"}`}
           />
@@ -227,11 +227,11 @@ export function PredictionsCard({
           <div className="w-5 h-5 border-2 border-signal-green/30 border-t-signal-green rounded-full animate-spin" />
         </div>
       ) : predictions.length === 0 ? (
-        <div className="text-sm text-gray-400 py-2">
+        <div className="text-sm text-su-muted py-2">
           <div className="flex items-center gap-2">
             <span className="text-alert-red">Solar data unavailable</span>
           </div>
-          <div className="text-xs text-gray-400 mt-1">
+          <div className="text-xs text-su-muted mt-1">
             Current SFI and Kp are required for band estimates
           </div>
         </div>
@@ -241,7 +241,7 @@ export function PredictionsCard({
             <div
               key={prediction.band}
               className={`flex items-center justify-between py-1.5 ${
-                index > 0 ? "border-t border-white/5" : ""
+                index > 0 ? "border-t border-su-line/20" : ""
               }`}
             >
               {/* Band info */}
@@ -255,7 +255,7 @@ export function PredictionsCard({
                 >
                   {prediction.band}
                 </span>
-                <span className="text-sm text-gray-300">
+                <span className="text-sm text-su-muted">
                   {prediction.description}
                 </span>
               </div>
@@ -274,13 +274,13 @@ export function PredictionsCard({
           ))}
 
           {/* Context footer */}
-          <div className="pt-2 border-t border-white/10 mt-2">
-            <div className="text-[10px] text-gray-500">
+          <div className="pt-2 border-t border-su-line/40 mt-2">
+            <div className="text-[10px] text-su-muted">
               {isDay
                 ? "Higher bands favored during daylight"
                 : "Lower bands favored at night"}
               {currentSfi !== null && currentKp !== null && (
-                <span className="ml-1.5 text-gray-600">
+                <span className="ml-1.5 text-su-muted">
                   SFI {currentSfi} / Kp {currentKp}
                 </span>
               )}

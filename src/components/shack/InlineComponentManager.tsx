@@ -802,10 +802,10 @@ export function InlineComponentManager({
     <div className="space-y-4">
       {/* Section header */}
       <div className="flex items-center gap-2 mb-3">
-        <h2 className="text-sm font-semibold text-gray-400 uppercase tracking-wider">
+        <h2 className="text-sm font-semibold text-su-muted uppercase tracking-wider">
           {sectionLabel ?? "Inline Components"}
         </h2>
-        <span className="text-xs text-gray-500 bg-white/5 px-2 py-0.5 rounded-full">
+        <span className="text-xs text-su-muted bg-su-line/10 px-2 py-0.5 rounded-full">
           {sectionCount ?? components.length}
         </span>
         <div className="flex-1" />
@@ -847,7 +847,7 @@ export function InlineComponentManager({
           ))}
         </div>
       ) : (
-        <div className="p-6 text-center text-gray-500 text-sm bg-panel/30 backdrop-blur-sm border border-white/5 rounded-2xl">
+        <div className="p-6 text-center text-su-muted text-sm bg-panel/30 backdrop-blur-sm border border-su-line/20 rounded-2xl">
           No inline components added yet. Add adapters, pigtails, chokes,
           baluns, or ferrites to track signal chain loss.
         </div>

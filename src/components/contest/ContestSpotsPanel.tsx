@@ -189,7 +189,7 @@ function FilterControls({
       {/* Band and Mode filters */}
       <div className="flex items-center gap-3">
         <div className="flex items-center gap-1.5">
-          <span className="text-[10px] text-gray-500 uppercase tracking-wide">
+          <span className="text-[10px] text-su-muted uppercase tracking-wide">
             Band:
           </span>
           <div className="flex gap-0.5">
@@ -200,7 +200,7 @@ function FilterControls({
                 className={`px-1.5 py-0.5 rounded text-[10px] font-medium transition-all ${
                   bandFilter === opt
                     ? "bg-plasma-orange/30 text-plasma-orange border border-plasma-orange/50"
-                    : "bg-white/5 text-gray-400 border border-white/10 hover:bg-white/10"
+                    : "bg-su-line/10 text-su-muted border border-su-line/40 hover:bg-su-line/20"
                 }`}
               >
                 {opt === "current" ? "Cur" : opt === "hf" ? "HF" : "All"}
@@ -210,7 +210,7 @@ function FilterControls({
         </div>
 
         <div className="flex items-center gap-1.5">
-          <span className="text-[10px] text-gray-500 uppercase tracking-wide">
+          <span className="text-[10px] text-su-muted uppercase tracking-wide">
             Mode:
           </span>
           <div className="flex gap-0.5">
@@ -221,7 +221,7 @@ function FilterControls({
                 className={`px-1.5 py-0.5 rounded text-[10px] font-medium transition-all ${
                   modeFilter === opt
                     ? "bg-cosmic-cyan/30 text-cosmic-cyan border border-cosmic-cyan/50"
-                    : "bg-white/5 text-gray-400 border border-white/10 hover:bg-white/10"
+                    : "bg-su-line/10 text-su-muted border border-su-line/40 hover:bg-su-line/20"
                 }`}
               >
                 {opt === "current" ? "Cur" : "Any"}
@@ -238,7 +238,7 @@ function FilterControls({
           className={`px-2 py-0.5 rounded text-[10px] font-medium transition-all ${
             neededOnly
               ? "bg-signal-green/30 text-signal-green border border-signal-green/50"
-              : "bg-white/5 text-gray-400 border border-white/10 hover:bg-white/10"
+              : "bg-su-line/10 text-su-muted border border-su-line/40 hover:bg-su-line/20"
           }`}
         >
           Needed Only
@@ -249,14 +249,14 @@ function FilterControls({
           className={`px-2 py-0.5 rounded text-[10px] font-medium transition-all ${
             hideWorked
               ? "bg-alert-red/30 text-alert-red border border-alert-red/50"
-              : "bg-white/5 text-gray-400 border border-white/10 hover:bg-white/10"
+              : "bg-su-line/10 text-su-muted border border-su-line/40 hover:bg-su-line/20"
           }`}
         >
           Hide Dupes
         </button>
 
         <div className="flex items-center gap-1.5 ml-auto">
-          <span className="text-[10px] text-gray-500 uppercase tracking-wide">
+          <span className="text-[10px] text-su-muted uppercase tracking-wide">
             Age:
           </span>
           <div className="flex gap-0.5">
@@ -267,7 +267,7 @@ function FilterControls({
                 className={`px-1.5 py-0.5 rounded text-[10px] font-medium transition-all ${
                   ageFilter === opt.value
                     ? "bg-cosmic-cyan/30 text-cosmic-cyan border border-cosmic-cyan/50"
-                    : "bg-white/5 text-gray-400 border border-white/10 hover:bg-white/10"
+                    : "bg-su-line/10 text-su-muted border border-su-line/40 hover:bg-su-line/20"
                 }`}
               >
                 {opt.label}
@@ -298,7 +298,7 @@ function SpotRow({ spot, onClick }: SpotRowProps) {
       case "DUPE":
         return {
           rowBg: "bg-alert-red/5",
-          textColor: "text-gray-500",
+          textColor: "text-su-muted",
           badge: {
             bg: "bg-alert-red/20",
             text: "text-alert-red",
@@ -308,7 +308,7 @@ function SpotRow({ spot, onClick }: SpotRowProps) {
       case "NEW_MULT":
         return {
           rowBg: "bg-signal-green/10",
-          textColor: "text-white",
+          textColor: "text-su-text",
           badge: {
             bg: "bg-signal-green/25",
             text: "text-signal-green",
@@ -318,7 +318,7 @@ function SpotRow({ spot, onClick }: SpotRowProps) {
       case "NEEDED_MULT":
         return {
           rowBg: "bg-cosmic-cyan/10",
-          textColor: "text-white",
+          textColor: "text-su-text",
           badge: {
             bg: "bg-cosmic-cyan/25",
             text: "text-cosmic-cyan",
@@ -328,7 +328,7 @@ function SpotRow({ spot, onClick }: SpotRowProps) {
       default:
         return {
           rowBg: "",
-          textColor: "text-white",
+          textColor: "text-su-text",
           badge: null,
         };
     }
@@ -336,13 +336,13 @@ function SpotRow({ spot, onClick }: SpotRowProps) {
 
   return (
     <div
-      className={`grid grid-cols-[40px_50px_60px_1fr_70px] gap-2 px-2 py-1.5 cursor-pointer transition-all duration-100 hover:bg-white/5 ${statusStyles.rowBg}`}
+      className={`grid grid-cols-[40px_50px_60px_1fr_70px] gap-2 px-2 py-1.5 cursor-pointer transition-all duration-100 hover:bg-su-line/10 ${statusStyles.rowBg}`}
       onClick={onClick}
       role="row"
     >
       {/* Age */}
       <div
-        className="text-gray-400 text-[11px] font-mono"
+        className="text-su-muted text-[11px] font-mono"
         title={formatTime(spot.time)}
       >
         {minutesAgo}m
@@ -374,7 +374,7 @@ function SpotRow({ spot, onClick }: SpotRowProps) {
           {spot.dx}
         </span>
         {spot.mode && (
-          <span className="px-1 py-0.5 rounded bg-white/5 text-[9px] text-gray-400 flex-shrink-0">
+          <span className="px-1 py-0.5 rounded bg-su-line/10 text-[9px] text-su-muted flex-shrink-0">
             {spot.mode}
           </span>
         )}
@@ -599,10 +599,10 @@ export function ContestSpotsPanel({
       {/* Header */}
       <div className="flex items-center justify-between mb-2">
         <div className="flex items-center gap-2">
-          <h3 className="text-sm font-semibold text-white tracking-wide">
+          <h3 className="text-sm font-semibold text-su-text tracking-wide">
             CONTEST SPOTS
           </h3>
-          <span className="text-[10px] text-gray-500">
+          <span className="text-[10px] text-su-muted">
             {filteredSpots.length}/{stats.total}
           </span>
           {stats.newMultCount > 0 && (
@@ -613,7 +613,7 @@ export function ContestSpotsPanel({
         </div>
         <div className="flex items-center gap-2">
           {(isLoading || isFetching) && <LoadingSpinner size="sm" />}
-          <span className="text-[10px] text-gray-500">{filterSummary}</span>
+          <span className="text-[10px] text-su-muted">{filterSummary}</span>
         </div>
       </div>
 
@@ -633,7 +633,7 @@ export function ContestSpotsPanel({
 
       {/* Column Headers */}
       <div
-        className="grid grid-cols-[40px_50px_60px_1fr_70px] gap-2 px-2 py-1 border-b border-white/10 text-[10px] font-semibold text-gray-500 uppercase tracking-wider"
+        className="grid grid-cols-[40px_50px_60px_1fr_70px] gap-2 px-2 py-1 border-b border-su-line/40 text-[10px] font-semibold text-su-muted uppercase tracking-wider"
         role="row"
       >
         <div>Age</div>
@@ -645,7 +645,7 @@ export function ContestSpotsPanel({
 
       {/* Spot List */}
       <div
-        className="flex-1 overflow-y-auto divide-y divide-white/5"
+        className="flex-1 overflow-y-auto divide-y divide-su-line/20"
         role="table"
         aria-label="Contest Spots"
       >
@@ -654,7 +654,7 @@ export function ContestSpotsPanel({
             <LoadingSpinner size="md" />
           </div>
         ) : filteredSpots.length === 0 ? (
-          <div className="flex items-center justify-center py-8 text-gray-500 text-sm">
+          <div className="flex items-center justify-center py-8 text-su-muted text-sm">
             {neededOnly
               ? "No needed multipliers spotted"
               : hideWorked
@@ -673,7 +673,7 @@ export function ContestSpotsPanel({
       </div>
 
       {/* Footer */}
-      <div className="mt-2 pt-2 border-t border-white/10 flex items-center justify-between text-[10px] text-gray-500">
+      <div className="mt-2 pt-2 border-t border-su-line/40 flex items-center justify-between text-[10px] text-su-muted">
         <div>
           {lastUpdated && <span>Updated {formatTime(lastUpdated)} UTC</span>}
         </div>

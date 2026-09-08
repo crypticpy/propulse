@@ -1,9 +1,9 @@
 /**
  * TanStack Query hook for fetching band hourly stats from Supabase.
  *
- * Queries `band_hourly_stats` — pre-computed aggregate rows (one per band
- * per hour) with spot counts, SNR stats, mode/source breakdowns, and
- * denormalized solar conditions. Preserved forever (~288 rows/day).
+ * Queries `band_hourly_stats_readable` — gap-filtered aggregate rows (one per
+ * band per hour) with spot counts, SNR stats, mode/source breakdowns, and
+ * denormalized solar conditions.
  */
 
 import { useQuery } from "@tanstack/react-query";
@@ -57,9 +57,8 @@ export function useBandHourlyStats(options?: { band?: string; days?: number }) {
   return useQuery({
     queryKey: BAND_HOURLY_STATS_KEYS.filtered(band, days),
     queryFn: async (): Promise<BandHourlyStat[]> => {
-      // Cast needed: collector tables (band_hourly_stats, spot_history) are
-      // not in the generated Database type — they were created by a separate
-      // migration for the Railway collector service.
+      // Cast needed: collector relations are not in the generated Database
+      // type because they are managed by separate collector migrations.
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const supabase = getSupabase() as any;
 
@@ -67,7 +66,7 @@ export function useBandHourlyStats(options?: { band?: string; days?: number }) {
       since.setDate(since.getDate() - days);
 
       let query = supabase
-        .from("band_hourly_stats")
+        .from("band_hourly_stats_readable")
         .select("*")
         .gte("hour_utc", since.toISOString())
         .order("hour_utc", { ascending: true });

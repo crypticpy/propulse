@@ -36,31 +36,31 @@ export function AtmosSidebar() {
   if (activeIncident) return <EmCommSidebarPanel />;
 
   return (
-    <aside className="w-56 shrink-0 bg-deep-space/60 border-r border-white/5 overflow-y-auto">
+    <aside className="w-56 shrink-0 bg-deep-space/60 border-r border-su-line/20 overflow-y-auto">
       {/* RIM Summary */}
-      <div className="p-3 border-b border-white/5">
-        <h2 className="text-[10px] font-mono uppercase tracking-widest text-gray-500 mb-2">
+      <div className="p-3 border-b border-su-line/20">
+        <h2 className="text-[10px] font-mono uppercase tracking-widest text-su-muted mb-2">
           Radio Impact
         </h2>
         <RIMScoreCard />
       </div>
 
       {/* Local Weather */}
-      <div className="p-3 border-b border-white/5">
-        <h2 className="text-[10px] font-mono uppercase tracking-widest text-gray-500 mb-2">
+      <div className="p-3 border-b border-su-line/20">
+        <h2 className="text-[10px] font-mono uppercase tracking-widest text-su-muted mb-2">
           Station Weather
         </h2>
         <LocalWeatherCard />
       </div>
 
       {/* Signal Chain Health */}
-      <div className="p-3 border-b border-white/5">
+      <div className="p-3 border-b border-su-line/20">
         <SignalChainHealth />
       </div>
 
       {/* Layer toggles */}
       <div className="p-3">
-        <h2 className="text-[10px] font-mono uppercase tracking-widest text-gray-500 mb-2">
+        <h2 className="text-[10px] font-mono uppercase tracking-widest text-su-muted mb-2">
           Layers
         </h2>
         <div className="space-y-0.5">
@@ -70,8 +70,8 @@ export function AtmosSidebar() {
               onClick={() => toggleLayer(id)}
               className={`flex items-center gap-2 w-full px-2 py-1.5 rounded-md text-left text-xs transition-colors ${
                 layerVisibility[id]
-                  ? "bg-white/5 text-white"
-                  : "text-gray-500 hover:text-gray-300 hover:bg-white/[0.02]"
+                  ? "bg-su-line/10 text-su-text"
+                  : "text-su-muted hover:text-su-text hover:bg-su-line/10"
               }`}
             >
               <span className="text-sm">{icon}</span>
@@ -85,8 +85,8 @@ export function AtmosSidebar() {
       </div>
 
       {/* Monitored Regions */}
-      <div className="p-3 border-t border-white/5">
-        <h2 className="text-[10px] font-mono uppercase tracking-widest text-gray-500 mb-2">
+      <div className="p-3 border-t border-su-line/20">
+        <h2 className="text-[10px] font-mono uppercase tracking-widest text-su-muted mb-2">
           Monitored Regions
         </h2>
         <MonitoredRegionManager />

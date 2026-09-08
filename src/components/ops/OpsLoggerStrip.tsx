@@ -25,7 +25,7 @@ const TurnBeamControl = lazy(() =>
 );
 
 const FIELD =
-  "h-9 w-full rounded-md border border-white/10 bg-white/5 px-2 font-mono text-sm text-white placeholder-gray-500 focus:border-plasma-orange/50 focus:outline-none focus:ring-1 focus:ring-plasma-orange/30";
+  "h-9 w-full rounded-md border border-su-line/40 bg-su-line/10 px-2 font-mono text-sm text-su-text placeholder:text-su-muted/80 focus:border-plasma-orange/50 focus:outline-none focus:ring-1 focus:ring-plasma-orange/30";
 
 export function OpsLoggerStrip() {
   const {
@@ -124,14 +124,14 @@ export function OpsLoggerStrip() {
 
   return (
     <div
-      className="shrink-0 border-b border-white/10 bg-black/40 px-3 py-2"
+      className="shrink-0 border-b border-su-line/40 bg-su-input px-3 py-2"
       data-ops-posture={posture}
     >
       {pendingReplace && (
         <div className="mb-2 flex items-center gap-3 rounded-lg border border-plasma-orange/30 bg-plasma-orange/10 px-3 py-2">
-          <div className="text-xs text-gray-200">
+          <div className="text-xs text-su-text">
             Replace current draft{" "}
-            <span className="font-mono text-white">
+            <span className="font-mono text-su-text">
               {form.callsign || "(empty)"}
             </span>{" "}
             with{" "}
@@ -151,7 +151,7 @@ export function OpsLoggerStrip() {
             <button
               type="button"
               onClick={() => setPendingReplace(null)}
-              className="rounded border border-white/10 bg-white/5 px-2 py-1 text-xs text-gray-300"
+              className="rounded border border-su-line/40 bg-su-line/10 px-2 py-1 text-xs text-su-muted"
             >
               Keep
             </button>
@@ -244,7 +244,7 @@ export function OpsLoggerStrip() {
           className={`h-9 rounded-md px-3 text-xs font-bold uppercase tracking-wide ${
             canLog && !dupeBlocks
               ? "bg-signal-green/20 text-signal-green hover:bg-signal-green/30"
-              : "cursor-not-allowed bg-white/5 text-gray-600"
+              : "cursor-not-allowed bg-su-line/10 text-su-muted"
           }`}
           title={
             dupeBlocks
@@ -257,7 +257,7 @@ export function OpsLoggerStrip() {
 
         {path && (
           <div
-            className="hidden items-center gap-2 font-mono text-[10px] text-gray-400 sm:flex"
+            className="hidden items-center gap-2 font-mono text-[10px] text-su-muted sm:flex"
             data-contact-bearing
           >
             <span>
@@ -267,7 +267,7 @@ export function OpsLoggerStrip() {
               ° {formatBearing(path.shortPath.bearing)}
             </span>
             <span>{formatDistance(path.shortPath.distance)}</span>
-            <span className="text-gray-600">
+            <span className="text-su-muted">
               RX {Math.round(path.shortPath.reciprocal)}°
             </span>
           </div>
@@ -281,7 +281,7 @@ export function OpsLoggerStrip() {
 
         {stationLine && (
           <span
-            className="hidden max-w-[14rem] truncate font-mono text-[10px] text-gray-500 sm:inline"
+            className="hidden max-w-[14rem] truncate font-mono text-[10px] text-su-muted sm:inline"
             title={stationLine}
             data-station-gear
           >
@@ -296,12 +296,12 @@ export function OpsLoggerStrip() {
         )}
 
         {lookupLoading && (
-          <span className="text-[10px] text-gray-500">Lookup…</span>
+          <span className="text-[10px] text-su-muted">Lookup…</span>
         )}
 
         <Link
           to="/log"
-          className="ml-auto text-[10px] text-cosmic-cyan hover:text-white"
+          className="ml-auto text-[10px] text-cosmic-cyan hover:text-su-text"
         >
           Open book →
         </Link>

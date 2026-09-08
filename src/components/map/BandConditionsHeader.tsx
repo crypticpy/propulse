@@ -71,12 +71,12 @@ export function BandConditionsHeader({
                 e.stopPropagation();
                 onToggleCollapse();
               }}
-              className="p-1 hover:bg-white/10 rounded transition-colors flex-shrink-0"
+              className="p-1 hover:bg-su-line/20 rounded transition-colors flex-shrink-0"
               title="Collapse panel"
               aria-label="Collapse panel"
             >
               <svg
-                className="w-4 h-4 text-gray-400"
+                className="w-4 h-4 text-su-muted"
                 fill="none"
                 viewBox="0 0 24 24"
                 stroke="currentColor"
@@ -97,7 +97,7 @@ export function BandConditionsHeader({
             />
           )}
 
-          <h3 className="text-xs font-medium text-gray-300 uppercase tracking-wide flex items-center gap-1">
+          <h3 className="text-xs font-medium text-su-muted uppercase tracking-wide flex items-center gap-1">
             Band Conditions
             <InfoTip content={PROPAGATION_TOOLTIPS.bandCondition} />
           </h3>
@@ -110,12 +110,12 @@ export function BandConditionsHeader({
                 e.stopPropagation();
                 onClose();
               }}
-              className="p-1 rounded hover:bg-white/10 transition-colors"
+              className="p-1 rounded hover:bg-su-line/20 transition-colors"
               title="Hide panel"
               aria-label="Hide panel"
             >
               <svg
-                className="text-white/40 hover:text-red-400"
+                className="text-su-text/40 hover:text-red-400"
                 width={18}
                 height={18}
                 viewBox="0 0 18 18"
@@ -151,7 +151,7 @@ export function BandConditionsHeader({
           className={`text-[10px] font-mono px-1.5 py-0.5 rounded ${
             currentKp >= 4
               ? "bg-caution-amber/20 text-caution-amber"
-              : "bg-white/5 text-gray-400"
+              : "bg-su-line/10 text-su-muted"
           }`}
           title="Planetary K-index"
         >
@@ -161,7 +161,7 @@ export function BandConditionsHeader({
           className={`text-[10px] font-mono px-1.5 py-0.5 rounded ${
             currentSfi >= 120
               ? "bg-signal-green/20 text-signal-green"
-              : "bg-white/5 text-gray-400"
+              : "bg-su-line/10 text-su-muted"
           }`}
           title="Solar Flux Index"
         >

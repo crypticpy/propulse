@@ -152,16 +152,16 @@ export function HistoryCard({ className = "", onClick }: HistoryCardProps) {
   if (loading) {
     return (
       <Card
-        className={`p-3 relative ${onClick ? "cursor-pointer hover:border-white/30 hover:bg-white/[0.05] group" : ""} ${className}`}
+        className={`p-3 relative ${onClick ? "cursor-pointer hover:border-su-line/60 hover:bg-su-line/10 group" : ""} ${className}`}
         onClick={onClick}
         role={onClick ? "button" : undefined}
         tabIndex={onClick ? 0 : undefined}
         onKeyDown={handleKeyDown}
       >
         <div className="flex items-center gap-2">
-          <CalendarIcon className="w-4 h-4 text-gray-400 flex-shrink-0" />
+          <CalendarIcon className="w-4 h-4 text-su-muted flex-shrink-0" />
           <div className="flex-1 min-w-0">
-            <span className="text-xs text-gray-400">Loading history...</span>
+            <span className="text-xs text-su-muted">Loading history...</span>
           </div>
         </div>
       </Card>
@@ -173,25 +173,25 @@ export function HistoryCard({ className = "", onClick }: HistoryCardProps) {
     const hasLogbook = entries.length > 0;
     return (
       <Card
-        className={`p-3 relative ${onClick ? "cursor-pointer hover:border-white/30 hover:bg-white/[0.05] group" : ""} ${className}`}
+        className={`p-3 relative ${onClick ? "cursor-pointer hover:border-su-line/60 hover:bg-su-line/10 group" : ""} ${className}`}
         onClick={hasLogbook ? onClick : undefined}
         role={hasLogbook && onClick ? "button" : undefined}
         tabIndex={hasLogbook && onClick ? 0 : undefined}
         onKeyDown={hasLogbook ? handleKeyDown : undefined}
       >
         <div className="flex items-start gap-2">
-          <CalendarIcon className="w-4 h-4 text-gray-400 flex-shrink-0 mt-0.5" />
+          <CalendarIcon className="w-4 h-4 text-su-muted flex-shrink-0 mt-0.5" />
           <div className="flex-1 min-w-0">
-            <span className="text-[10px] font-medium text-gray-400 uppercase tracking-wide">
+            <span className="text-[10px] font-medium text-su-muted uppercase tracking-wide">
               This Day in History
             </span>
             {hasLogbook ? (
-              <p className="text-xs text-gray-400 mt-0.5">
+              <p className="text-xs text-su-muted mt-0.5">
                 No DX logged on {formattedDate} in previous years
               </p>
             ) : (
               <div className="mt-1">
-                <p className="text-xs text-gray-400">
+                <p className="text-xs text-su-muted">
                   Import your logbook to see past contacts on this date.
                 </p>
                 <Link
@@ -212,14 +212,14 @@ export function HistoryCard({ className = "", onClick }: HistoryCardProps) {
   // Normal state with history
   return (
     <Card
-      className={`p-3 relative ${onClick ? "cursor-pointer hover:border-white/30 hover:bg-white/[0.05] group" : ""} ${className}`}
+      className={`p-3 relative ${onClick ? "cursor-pointer hover:border-su-line/60 hover:bg-su-line/10 group" : ""} ${className}`}
       onClick={onClick}
       role={onClick ? "button" : undefined}
       tabIndex={onClick ? 0 : undefined}
       onKeyDown={handleKeyDown}
     >
       {onClick && (
-        <div className="absolute top-2 right-2 text-gray-500 opacity-0 group-hover:opacity-100 transition-opacity">
+        <div className="absolute top-2 right-2 text-su-muted opacity-0 group-hover:opacity-100 transition-opacity">
           <svg
             className="w-3.5 h-3.5"
             fill="none"
@@ -238,15 +238,15 @@ export function HistoryCard({ className = "", onClick }: HistoryCardProps) {
       <div className="flex items-start gap-2">
         <CalendarIcon className="w-4 h-4 text-plasma-orange flex-shrink-0 mt-0.5" />
         <div className="flex-1 min-w-0">
-          <span className="text-[10px] font-medium text-gray-400 uppercase tracking-wide">
+          <span className="text-[10px] font-medium text-su-muted uppercase tracking-wide">
             This Day in History
           </span>
-          <p className="text-xs text-gray-300 mt-0.5">
-            <span className="text-gray-400">Best DX on {formattedDate}:</span>{" "}
+          <p className="text-xs text-su-muted mt-0.5">
+            <span className="text-su-muted">Best DX on {formattedDate}:</span>{" "}
             <span className="font-mono text-signal-green">{displayText}</span>
           </p>
           {historyEntries.length > 3 && (
-            <p className="text-[10px] text-gray-400 mt-0.5">
+            <p className="text-[10px] text-su-muted mt-0.5">
               +{historyEntries.length - 3} more
             </p>
           )}

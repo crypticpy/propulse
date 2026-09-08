@@ -112,7 +112,7 @@ export function RadioPickerModal({
       size="lg"
     >
       <div className="space-y-4">
-        <div className="flex gap-2 p-1 bg-white/5 rounded-lg">
+        <div className="flex gap-2 p-1 bg-su-line/10 rounded-lg">
           {(
             [
               { id: "profile", label: "My Profile" },
@@ -127,8 +127,8 @@ export function RadioPickerModal({
               onClick={() => setTab(t.id)}
               className={`flex-1 px-3 py-2 rounded-md text-xs font-semibold transition-colors ${
                 tab === t.id
-                  ? "bg-plasma-orange text-white"
-                  : "text-gray-300 hover:text-white hover:bg-white/5"
+                  ? "bg-plasma-orange text-su-on-accent"
+                  : "text-su-muted hover:text-su-text hover:bg-su-line/10"
               }`}
             >
               {t.label}
@@ -142,8 +142,8 @@ export function RadioPickerModal({
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder="Search database (e.g., IC-7610, Flex, K3)..."
-              className="w-full px-3 py-2 bg-deep-space/70 border border-white/10 rounded-lg
-                         text-white placeholder-gray-500 focus:outline-none focus:border-plasma-orange/50"
+              className="w-full px-3 py-2 bg-deep-space/70 border border-su-line/40 rounded-lg
+                         text-su-text placeholder:text-su-muted/80 focus:outline-none focus:border-plasma-orange/50"
             />
           )}
         </div>
@@ -159,25 +159,25 @@ export function RadioPickerModal({
               className={`w-full text-left px-3 py-2 rounded-lg border transition-colors ${
                 value.radioId === null
                   ? "bg-plasma-orange/10 border-plasma-orange/40"
-                  : "bg-white/5 border-white/10 hover:border-white/20"
+                  : "bg-su-line/10 border-su-line/40 hover:border-su-line/50"
               }`}
             >
               <div className="flex items-center justify-between">
-                <div className="text-sm font-semibold text-white">
+                <div className="text-sm font-semibold text-su-text">
                   Use active profile radio
                 </div>
-                <div className="text-[10px] text-gray-400 font-mono">
+                <div className="text-[10px] text-su-muted font-mono">
                   {activeEquipmentId ?? "none"}
                 </div>
               </div>
-              <div className="text-xs text-gray-300 mt-1">
+              <div className="text-xs text-su-muted mt-1">
                 {activeRadio
                   ? getDisplayLabel(activeRadio)
                   : "No active radio set in Settings"}
               </div>
             </button>
 
-            <div className="text-xs text-gray-400">My radios</div>
+            <div className="text-xs text-su-muted">My radios</div>
             <div className="max-h-[340px] overflow-y-auto space-y-2 pr-1">
               {userRadios
                 .filter((r) => r.equipment)
@@ -195,21 +195,21 @@ export function RadioPickerModal({
                       className={`w-full text-left px-3 py-2 rounded-lg border transition-colors ${
                         isSelected
                           ? "bg-plasma-orange/10 border-plasma-orange/40"
-                          : "bg-white/5 border-white/10 hover:border-white/20"
+                          : "bg-su-line/10 border-su-line/40 hover:border-su-line/50"
                       }`}
                     >
                       <div className="flex items-center justify-between gap-3">
                         <div className="min-w-0">
-                          <div className="text-sm font-semibold text-white truncate">
+                          <div className="text-sm font-semibold text-su-text truncate">
                             {label}
                           </div>
                           {userRadio.nickname && (
-                            <div className="text-xs text-gray-400 truncate">
+                            <div className="text-xs text-su-muted truncate">
                               {userRadio.nickname}
                             </div>
                           )}
                         </div>
-                        <div className="text-[10px] text-gray-400 font-mono flex-shrink-0">
+                        <div className="text-[10px] text-su-muted font-mono flex-shrink-0">
                           {equipment!.maxPower}W
                         </div>
                       </div>
@@ -219,14 +219,14 @@ export function RadioPickerModal({
 
               {userRadios.filter((r) => r.equipment).length === 0 && (
                 <div className="space-y-2">
-                  <div className="text-sm text-gray-400">
+                  <div className="text-sm text-su-muted">
                     No radios in your profile yet. Add one now:
                   </div>
                   <div className="flex gap-2">
                     <button
                       type="button"
                       onClick={() => setTab("database")}
-                      className="px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-gray-200 hover:text-white hover:border-white/20 transition-colors text-xs font-semibold"
+                      className="px-3 py-2 rounded-lg bg-su-line/10 border border-su-line/40 text-su-text/90 hover:text-su-text hover:border-su-line/50 transition-colors text-xs font-semibold"
                     >
                       Browse database
                     </button>
@@ -268,12 +268,12 @@ export function RadioPickerModal({
                     className={`w-full text-left px-3 py-2 rounded-lg border transition-colors ${
                       isSelected
                         ? "bg-plasma-orange/10 border-plasma-orange/40"
-                        : "bg-white/5 border-white/10 hover:border-white/20"
+                        : "bg-su-line/10 border-su-line/40 hover:border-su-line/50"
                     }`}
                   >
                     <div className="flex items-center justify-between gap-3">
                       <div className="min-w-0">
-                        <div className="text-sm font-semibold text-white truncate">
+                        <div className="text-sm font-semibold text-su-text truncate">
                           {radio.manufacturer} {radio.model}
                           {hasTested && (
                             <span className="ml-2 text-[9px] px-1.5 py-0.5 bg-green-500/20 text-green-400 rounded">
@@ -281,7 +281,7 @@ export function RadioPickerModal({
                             </span>
                           )}
                         </div>
-                        <div className="text-[10px] text-gray-400 truncate">
+                        <div className="text-[10px] text-su-muted truncate">
                           Tier: {radio.tier} • Bands:{" "}
                           {radio.bands.slice(0, 4).join(", ")}
                           {radio.bands.length > 4 ? "…" : ""}
@@ -289,7 +289,7 @@ export function RadioPickerModal({
                       </div>
                       <div className="flex items-center gap-2 flex-shrink-0">
                         {inProfile ? (
-                          <div className="text-[9px] px-1.5 py-0.5 rounded bg-white/5 border border-white/10 text-gray-300">
+                          <div className="text-[9px] px-1.5 py-0.5 rounded bg-su-line/10 border border-su-line/40 text-su-muted">
                             In profile
                           </div>
                         ) : (
@@ -305,7 +305,7 @@ export function RadioPickerModal({
                             Add
                           </button>
                         )}
-                        <div className="text-[10px] text-gray-400 font-mono">
+                        <div className="text-[10px] text-su-muted font-mono">
                           {radio.maxPower}W
                         </div>
                       </div>
@@ -319,11 +319,11 @@ export function RadioPickerModal({
 
         {tab === "custom" && (
           <div className="space-y-3">
-            <div className="text-sm text-gray-300">
+            <div className="text-sm text-su-muted">
               Create and edit custom radios in the Manage tab.
             </div>
             <div className="flex items-center justify-between">
-              <div className="text-[10px] text-gray-400">
+              <div className="text-[10px] text-su-muted">
                 Selected: {selectedCustomIds.size}
               </div>
               <div className="flex items-center gap-2">
@@ -331,7 +331,7 @@ export function RadioPickerModal({
                   <button
                     type="button"
                     onClick={() => setSelectedCustomIds(new Set())}
-                    className="text-[10px] px-2 py-1 rounded bg-white/5 border border-white/10 text-gray-200 hover:text-white hover:border-white/20 transition-colors"
+                    className="text-[10px] px-2 py-1 rounded bg-su-line/10 border border-su-line/40 text-su-text/90 hover:text-su-text hover:border-su-line/50 transition-colors"
                   >
                     Clear
                   </button>
@@ -365,7 +365,7 @@ export function RadioPickerModal({
                     className={`w-full text-left px-3 py-2 rounded-lg border transition-colors ${
                       isSelected
                         ? "bg-plasma-orange/10 border-plasma-orange/40"
-                        : "bg-white/5 border-white/10 hover:border-white/20"
+                        : "bg-su-line/10 border-su-line/40 hover:border-su-line/50"
                     }`}
                   >
                     <div className="flex items-center justify-between gap-3">
@@ -385,17 +385,17 @@ export function RadioPickerModal({
                           className="accent-plasma-orange"
                         />
                         <div className="min-w-0">
-                          <div className="text-sm font-semibold text-white truncate">
+                          <div className="text-sm font-semibold text-su-text truncate">
                             {getDisplayLabel(radio)}
                           </div>
-                          <div className="text-[10px] text-gray-400 truncate">
+                          <div className="text-[10px] text-su-muted truncate">
                             {radio.manufacturer} {radio.model} • {radio.maxPower}W
                           </div>
                         </div>
                       </label>
                       <div className="flex items-center gap-2 flex-shrink-0">
                         {inProfile ? (
-                          <div className="text-[9px] px-1.5 py-0.5 rounded bg-white/5 border border-white/10 text-gray-300">
+                          <div className="text-[9px] px-1.5 py-0.5 rounded bg-su-line/10 border border-su-line/40 text-su-muted">
                             In profile
                           </div>
                         ) : (
@@ -416,7 +416,7 @@ export function RadioPickerModal({
                               onClose();
                             }
                           }}
-                          className="text-[10px] px-2 py-1 rounded bg-white/5 border border-white/10 text-gray-200 hover:text-white hover:border-white/20 transition-colors"
+                          className="text-[10px] px-2 py-1 rounded bg-su-line/10 border border-su-line/40 text-su-text/90 hover:text-su-text hover:border-su-line/50 transition-colors"
                           title="Use this radio for this tool"
                         >
                           Use
@@ -427,7 +427,7 @@ export function RadioPickerModal({
                 );
               })}
               {customRadios.length === 0 && (
-                <div className="text-sm text-gray-400">
+                <div className="text-sm text-su-muted">
                   No custom radios yet.
                 </div>
               )}

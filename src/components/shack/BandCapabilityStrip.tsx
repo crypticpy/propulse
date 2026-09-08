@@ -32,7 +32,7 @@ function getLossColor(lossDb: number): string {
 
 export function BandCapabilityStrip({ bands }: BandCapabilityStripProps) {
   if (bands.length === 0) {
-    return <div className="text-xs text-gray-500 italic">No band data</div>;
+    return <div className="text-xs text-su-muted italic">No band data</div>;
   }
 
   return (

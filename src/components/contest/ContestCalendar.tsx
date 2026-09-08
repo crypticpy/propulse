@@ -148,7 +148,7 @@ const DifficultyBadge = memo(function DifficultyBadge({
 }) {
   return (
     <span
-      className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${DIFFICULTY_COLORS[difficulty] || "bg-void/50 text-gray-400"}`}
+      className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${DIFFICULTY_COLORS[difficulty] || "bg-void/50 text-su-muted"}`}
     >
       {DIFFICULTY_LABELS[difficulty] || difficulty}
     </span>
@@ -166,7 +166,7 @@ const BandPills = memo(function BandPills({ bands }: { bands: string[] }) {
             className={`px-1.5 py-0.5 rounded text-[10px] font-mono ${
               isWarc
                 ? "bg-nebula-blue/20 text-nebula-blue border border-nebula-blue/30"
-                : "bg-void/60 text-gray-300 border border-white/10"
+                : "bg-void/60 text-su-muted border border-su-line/40"
             }`}
           >
             {band}
@@ -220,20 +220,20 @@ const ContestEntryCard = memo(function ContestEntryCard({
       className={`relative rounded-lg border p-4 transition-colors ${
         active
           ? "border-signal-green/40 bg-signal-green/5"
-          : "border-white/10 bg-void-black/40 hover:border-white/20 hover:bg-void-black/60"
+          : "border-su-line/40 bg-void-black/40 hover:border-su-line/50 hover:bg-void-black/60"
       }`}
     >
       {/* Header row */}
       <div className="flex items-start justify-between gap-3 mb-2">
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2 flex-wrap">
-            <h3 className="text-sm font-semibold text-white truncate">
+            <h3 className="text-sm font-semibold text-su-text truncate">
               {entry.name}
             </h3>
             {active && <ActiveBadge />}
             <DifficultyBadge difficulty={entry.difficulty} />
           </div>
-          <p className="text-xs text-gray-400 mt-0.5">
+          <p className="text-xs text-su-muted mt-0.5">
             {entry.sponsor} &middot; {duration}h &middot;{" "}
             {formatParticipants(entry.estimatedParticipants)} participants
           </p>
@@ -253,10 +253,10 @@ const ContestEntryCard = memo(function ContestEntryCard({
 
       {/* Date range */}
       <div className="mb-2 space-y-0.5">
-        <p className="text-xs text-gray-300 font-mono">
+        <p className="text-xs text-su-muted font-mono">
           {formatUtcRange(entry.startUtc, entry.endUtc)}
         </p>
-        <p className="text-[11px] text-gray-500">
+        <p className="text-[11px] text-su-muted">
           Local: {formatDateRange(entry.startUtc, entry.endUtc)}
         </p>
       </div>
@@ -268,22 +268,22 @@ const ContestEntryCard = memo(function ContestEntryCard({
       </div>
 
       {/* Exchange */}
-      <p className="text-xs text-gray-400 mb-1">
-        <span className="text-gray-500">Exchange:</span> {entry.exchange}
+      <p className="text-xs text-su-muted mb-1">
+        <span className="text-su-muted">Exchange:</span> {entry.exchange}
       </p>
 
       {/* Description */}
-      <p className="text-xs text-gray-500 leading-relaxed">
+      <p className="text-xs text-su-muted leading-relaxed">
         {entry.description}
       </p>
 
       {/* Footer: tags + rules link */}
-      <div className="flex items-center justify-between mt-3 pt-2 border-t border-white/5">
+      <div className="flex items-center justify-between mt-3 pt-2 border-t border-su-line/20">
         <div className="flex flex-wrap gap-1">
           {entry.tags.slice(0, 5).map((tag) => (
             <span
               key={tag}
-              className="px-1.5 py-0.5 rounded text-[10px] text-gray-500 bg-white/5"
+              className="px-1.5 py-0.5 rounded text-[10px] text-su-muted bg-su-line/10"
             >
               #{tag}
             </span>
@@ -353,8 +353,8 @@ const WeekTimeline = memo(function WeekTimeline({
   if (overlapping.length === 0) return null;
 
   return (
-    <div className="rounded-lg border border-white/10 bg-void-black/40 p-3 mb-4">
-      <h4 className="text-xs font-medium text-gray-400 mb-2">
+    <div className="rounded-lg border border-su-line/40 bg-void-black/40 p-3 mb-4">
+      <h4 className="text-xs font-medium text-su-muted mb-2">
         This Week's Contests
       </h4>
 
@@ -364,7 +364,7 @@ const WeekTimeline = memo(function WeekTimeline({
           {dayLabels.map((label, i) => (
             <div
               key={i}
-              className="flex-1 text-center text-[10px] text-gray-500 border-r border-white/5 last:border-r-0 pb-1"
+              className="flex-1 text-center text-[10px] text-su-muted border-r border-su-line/20 last:border-r-0 pb-1"
             >
               {label}
             </div>
@@ -400,7 +400,7 @@ const WeekTimeline = memo(function WeekTimeline({
                   }}
                   title={`${c.name}: ${formatUtcRange(c.startUtc, c.endUtc)}`}
                 >
-                  <span className="text-[9px] text-white/80 truncate font-medium">
+                  <span className="text-[9px] text-su-text/80 truncate font-medium">
                     {c.name}
                   </span>
                 </div>
@@ -489,8 +489,8 @@ export function ContestCalendar({
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-lg font-semibold text-white">Contest Calendar</h2>
-          <p className="text-xs text-gray-500">
+          <h2 className="text-lg font-semibold text-su-text">Contest Calendar</h2>
+          <p className="text-xs text-su-muted">
             {sorted.length} contest{sorted.length !== 1 ? "s" : ""}{" "}
             {isContestWeekend && (
               <span className="text-signal-green font-medium">
@@ -508,7 +508,7 @@ export function ContestCalendar({
       <div className="flex flex-wrap items-center gap-2 text-xs">
         {/* Sort */}
         <div className="flex items-center gap-1">
-          <span className="text-gray-500">Sort:</span>
+          <span className="text-su-muted">Sort:</span>
           {(["date", "difficulty", "size"] as SortKey[]).map((key) => (
             <button
               key={key}
@@ -517,7 +517,7 @@ export function ContestCalendar({
               className={`px-2 py-1 rounded transition-colors ${
                 sortKey === key
                   ? "bg-plasma-orange/20 text-plasma-orange border border-plasma-orange/30"
-                  : "text-gray-400 hover:text-white hover:bg-white/5"
+                  : "text-su-muted hover:text-su-text hover:bg-su-line/10"
               }`}
             >
               {key.charAt(0).toUpperCase() + key.slice(1)}
@@ -525,11 +525,11 @@ export function ContestCalendar({
           ))}
         </div>
 
-        <span className="text-white/10">|</span>
+        <span className="text-su-text/10">|</span>
 
         {/* Mode filter */}
         <div className="flex items-center gap-1">
-          <span className="text-gray-500">Mode:</span>
+          <span className="text-su-muted">Mode:</span>
           {(
             ["all", "CW", "SSB", "RTTY", "Digital", "Mixed"] as ModeFilter[]
           ).map((m) => (
@@ -540,7 +540,7 @@ export function ContestCalendar({
               className={`px-2 py-1 rounded transition-colors ${
                 modeFilter === m
                   ? "bg-nebula-blue/20 text-nebula-blue border border-nebula-blue/30"
-                  : "text-gray-400 hover:text-white hover:bg-white/5"
+                  : "text-su-muted hover:text-su-text hover:bg-su-line/10"
               }`}
             >
               {m === "all" ? "All" : m}
@@ -548,11 +548,11 @@ export function ContestCalendar({
           ))}
         </div>
 
-        <span className="text-white/10">|</span>
+        <span className="text-su-text/10">|</span>
 
         {/* Difficulty filter */}
         <div className="flex items-center gap-1">
-          <span className="text-gray-500">Level:</span>
+          <span className="text-su-muted">Level:</span>
           {(
             [
               "all",
@@ -568,7 +568,7 @@ export function ContestCalendar({
               className={`px-2 py-1 rounded transition-colors ${
                 difficultyFilter === d
                   ? "bg-caution-amber/20 text-caution-amber border border-caution-amber/30"
-                  : "text-gray-400 hover:text-white hover:bg-white/5"
+                  : "text-su-muted hover:text-su-text hover:bg-su-line/10"
               }`}
             >
               {d === "all" ? "All" : d.charAt(0).toUpperCase() + d.slice(1)}
@@ -576,7 +576,7 @@ export function ContestCalendar({
           ))}
         </div>
 
-        <span className="text-white/10">|</span>
+        <span className="text-su-text/10">|</span>
 
         {/* Weekend toggle */}
         <button
@@ -585,7 +585,7 @@ export function ContestCalendar({
           className={`px-2 py-1 rounded transition-colors ${
             weekendOnly
               ? "bg-signal-green/20 text-signal-green border border-signal-green/30"
-              : "text-gray-400 hover:text-white hover:bg-white/5"
+              : "text-su-muted hover:text-su-text hover:bg-su-line/10"
           }`}
         >
           This Weekend
@@ -595,7 +595,7 @@ export function ContestCalendar({
       {/* Contest List */}
       <div className="space-y-3">
         {sorted.length === 0 ? (
-          <div className="text-center py-8 text-gray-500 text-sm">
+          <div className="text-center py-8 text-su-muted text-sm">
             No contests match the current filters.
           </div>
         ) : (

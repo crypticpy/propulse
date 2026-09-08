@@ -93,7 +93,7 @@ function CQZoneGrid({ workedZones }: { workedZones: Set<string> }) {
               ${
                 isWorked
                   ? "bg-signal-green/30 border border-signal-green/50 text-signal-green"
-                  : "bg-white/5 border border-white/10 text-gray-500"
+                  : "bg-su-line/10 border border-su-line/40 text-su-muted"
               }
             `}
             title={`Zone ${zone}${isWorked ? " - Worked" : ""}`}
@@ -124,7 +124,7 @@ function ITUZoneGrid({ workedZones }: { workedZones: Set<string> }) {
               ${
                 isWorked
                   ? "bg-signal-green/30 border border-signal-green/50 text-signal-green"
-                  : "bg-white/5 border border-white/10 text-gray-500"
+                  : "bg-su-line/10 border border-su-line/40 text-su-muted"
               }
             `}
             title={`Zone ${zone}${isWorked ? " - Worked" : ""}`}
@@ -154,7 +154,7 @@ function StateGrid({ workedStates }: { workedStates: Set<string> }) {
               ${
                 isWorked
                   ? "bg-signal-green/30 border border-signal-green/50 text-signal-green"
-                  : "bg-white/5 border border-white/10 text-gray-500"
+                  : "bg-su-line/10 border border-su-line/40 text-su-muted"
               }
             `}
             title={`${state}${isWorked ? " - Worked" : ""}`}
@@ -187,7 +187,7 @@ function MultiplierList({
 
   if (sortedMultipliers.length === 0) {
     return (
-      <div className="text-gray-500 text-sm text-center py-4">
+      <div className="text-su-muted text-sm text-center py-4">
         {emptyMessage}
       </div>
     );
@@ -214,7 +214,7 @@ function MultiplierList({
           >
             {mult.value}
             {mult.band && (
-              <span className="text-gray-400 ml-1 text-[10px]">
+              <span className="text-su-muted ml-1 text-[10px]">
                 {mult.band}
               </span>
             )}
@@ -294,7 +294,7 @@ export function MultiplierTracker({
         <h3 className="font-orbitron text-sm font-bold text-cosmic-cyan">
           {getTitle()}
         </h3>
-        <span className="text-xs text-gray-400">
+        <span className="text-xs text-su-muted">
           {multipliers.length} worked
         </span>
       </div>

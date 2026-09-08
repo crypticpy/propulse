@@ -67,41 +67,41 @@ function ActivityRow({
       : `${result.locationApproximate ? "~" : ""}${Math.round(result.distanceKm).toLocaleString()} km · ${Math.round(result.bearing ?? 0)}° ${result.bearingLabel}`;
 
   return (
-    <div className="border-b border-white/[0.06] last:border-b-0">
+    <div className="border-b border-su-line/20 last:border-b-0">
       <button
         type="button"
         onClick={onToggle}
         aria-expanded={expanded}
-        className="grid min-h-11 w-full grid-cols-[minmax(5rem,0.8fr)_minmax(6.5rem,1fr)_4rem] items-center gap-2 px-3 py-2 text-left transition-colors hover:bg-white/[0.04] sm:grid-cols-[minmax(5rem,0.7fr)_minmax(7rem,1fr)_5rem_4rem_minmax(8rem,1fr)]"
+        className="grid min-h-11 w-full grid-cols-[minmax(5rem,0.8fr)_minmax(6.5rem,1fr)_4rem] items-center gap-2 px-3 py-2 text-left transition-colors hover:bg-su-line/10 sm:grid-cols-[minmax(5rem,0.7fr)_minmax(7rem,1fr)_5rem_4rem_minmax(8rem,1fr)]"
       >
         <span className="min-w-0">
-          <span className="block truncate font-mono text-sm font-bold text-white">
+          <span className="block truncate font-mono text-sm font-bold text-su-text">
             {result.callsign}
           </span>
-          <span className="block truncate text-[10px] text-gray-500 sm:hidden">
+          <span className="block truncate text-[10px] text-su-muted sm:hidden">
             {result.mode ?? "?"} · {path}
           </span>
         </span>
         <span className="truncate font-mono text-xs text-cosmic-cyan">
           {formatFrequency(result.frequencyKHz)}
         </span>
-        <span className="hidden truncate text-xs text-gray-300 sm:block">
+        <span className="hidden truncate text-xs text-su-muted sm:block">
           {result.mode ?? "—"}
         </span>
-        <span className="font-mono text-xs tabular-nums text-gray-400">
+        <span className="font-mono text-xs tabular-nums text-su-muted">
           {formatAge(result.time, now)}
         </span>
-        <span className="hidden truncate font-mono text-[11px] text-gray-400 sm:block">
+        <span className="hidden truncate font-mono text-[11px] text-su-muted sm:block">
           {path}
         </span>
       </button>
 
       {expanded && (
-        <div className="grid gap-3 bg-white/[0.025] px-3 py-3 text-xs sm:grid-cols-[1fr_auto]">
-          <div className="space-y-1.5 text-gray-400">
+        <div className="grid gap-3 bg-su-line/10 px-3 py-3 text-xs sm:grid-cols-[1fr_auto]">
+          <div className="space-y-1.5 text-su-muted">
             <div>
-              <span className="text-gray-500">Heard / reported by </span>
-              <span className="font-mono text-gray-200">
+              <span className="text-su-muted">Heard / reported by </span>
+              <span className="font-mono text-su-text">
                 {result.heardBy.length > 0 ? result.heardBy.join(", ") : "Unknown"}
               </span>
             </div>
@@ -109,16 +109,16 @@ function ActivityRow({
               {result.sources.map((source) => (
                 <span
                   key={source}
-                  className="rounded border border-white/10 bg-white/5 px-1.5 py-0.5 font-mono text-[10px] text-gray-300"
+                  className="rounded border border-su-line/40 bg-su-line/10 px-1.5 py-0.5 font-mono text-[10px] text-su-muted"
                 >
                   {SOURCE_LABELS[source]}
                 </span>
               ))}
-              <span className="text-gray-500">
+              <span className="text-su-muted">
                 {result.reportCount} report{result.reportCount === 1 ? "" : "s"}
               </span>
               {result.snr !== undefined && (
-                <span className="font-mono text-gray-400">SNR {result.snr} dB</span>
+                <span className="font-mono text-su-muted">SNR {result.snr} dB</span>
               )}
             </div>
           </div>
@@ -240,24 +240,24 @@ export function NearbyActivityExplorer({
 
   return (
     <section
-      className={`overflow-hidden rounded-xl border border-white/10 bg-nebula-blue/55 ${className}`}
+      className={`overflow-hidden rounded-xl border border-su-line/40 bg-nebula-blue/55 ${className}`}
       aria-label="Nearby on-air activity"
     >
-      <div className="border-b border-white/10 px-3 py-3 sm:px-4">
+      <div className="border-b border-su-line/40 px-3 py-3 sm:px-4">
         <div className="flex flex-wrap items-start justify-between gap-2">
           <div>
             <div className="flex items-center gap-2">
               <span className="h-2 w-2 animate-pulse rounded-full bg-signal-green" />
-              <h2 className="font-orbitron text-xs font-semibold uppercase tracking-wider text-white">
+              <h2 className="font-orbitron text-xs font-semibold uppercase tracking-wider text-su-text">
                 Nearby Activity
               </h2>
             </div>
-            <p className="mt-1 text-[11px] text-gray-500">
+            <p className="mt-1 text-[11px] text-su-muted">
               Recent reception and cluster reports near your active location—not decoded audio or confirmed QSOs.
             </p>
           </div>
           <div className="flex items-start gap-2">
-            <div className="pt-0.5 font-mono text-[10px] text-gray-500">
+            <div className="pt-0.5 font-mono text-[10px] text-su-muted">
               {results.length} active · {queryLabel}
             </div>
             {onClose && (
@@ -265,7 +265,7 @@ export function NearbyActivityExplorer({
                 type="button"
                 onClick={onClose}
                 aria-label="Close nearby activity"
-                className="-mr-1 -mt-1 flex h-8 w-8 items-center justify-center rounded-lg text-gray-500 transition-colors hover:bg-white/10 hover:text-white"
+                className="-mr-1 -mt-1 flex h-8 w-8 items-center justify-center rounded-lg text-su-muted transition-colors hover:bg-su-line/20 hover:text-su-text"
               >
                 <svg
                   width="14"
@@ -287,7 +287,7 @@ export function NearbyActivityExplorer({
         </div>
 
         <div className="mt-3 flex flex-wrap items-end gap-2">
-          <div className="flex rounded-lg border border-white/10 bg-void-black/40 p-0.5">
+          <div className="flex rounded-lg border border-su-line/40 bg-void-black/40 p-0.5">
             {(["band", "frequency"] as const).map((value) => (
               <button
                 key={value}
@@ -297,7 +297,7 @@ export function NearbyActivityExplorer({
                 className={`min-h-9 rounded-md px-3 text-xs font-medium transition-colors ${
                   mode === value
                     ? "bg-plasma-orange/20 text-plasma-orange"
-                    : "text-gray-400 hover:text-white"
+                    : "text-su-muted hover:text-su-text"
                 }`}
               >
                 {value === "band" ? "Band" : "Frequency"}
@@ -306,12 +306,12 @@ export function NearbyActivityExplorer({
           </div>
 
           {mode === "band" ? (
-            <label className="text-[10px] uppercase tracking-wide text-gray-500">
+            <label className="text-[10px] uppercase tracking-wide text-su-muted">
               Band
               <select
                 value={band}
                 onChange={(event) => setBand(event.target.value)}
-                className="mt-1 block min-h-9 rounded-lg border border-white/10 bg-deep-space px-3 font-mono text-xs normal-case text-white focus:border-plasma-orange/50 focus:outline-none"
+                className="mt-1 block min-h-9 rounded-lg border border-su-line/40 bg-deep-space px-3 font-mono text-xs normal-case text-su-text focus:border-plasma-orange/50 focus:outline-none"
               >
                 {BAND_ORDER.map((value) => (
                   <option key={value}>{value}</option>
@@ -320,7 +320,7 @@ export function NearbyActivityExplorer({
             </label>
           ) : (
             <>
-              <label className="text-[10px] uppercase tracking-wide text-gray-500">
+              <label className="text-[10px] uppercase tracking-wide text-su-muted">
                 Frequency
                 <input
                   value={frequencyInput}
@@ -328,19 +328,19 @@ export function NearbyActivityExplorer({
                   inputMode="decimal"
                   placeholder="7.200 MHz"
                   aria-invalid={frequencyKHz === null}
-                  className={`mt-1 block min-h-9 w-32 rounded-lg border bg-deep-space px-3 font-mono text-xs normal-case text-white focus:outline-none ${
+                  className={`mt-1 block min-h-9 w-32 rounded-lg border bg-deep-space px-3 font-mono text-xs normal-case text-su-text focus:outline-none ${
                     frequencyKHz === null
                       ? "border-alert-red/60"
-                      : "border-white/10 focus:border-plasma-orange/50"
+                      : "border-su-line/40 focus:border-plasma-orange/50"
                   }`}
                 />
               </label>
-              <label className="text-[10px] uppercase tracking-wide text-gray-500">
+              <label className="text-[10px] uppercase tracking-wide text-su-muted">
                 Tolerance
                 <select
                   value={toleranceKHz}
                   onChange={(event) => setToleranceKHz(Number(event.target.value))}
-                  className="mt-1 block min-h-9 rounded-lg border border-white/10 bg-deep-space px-2 font-mono text-xs normal-case text-white focus:border-plasma-orange/50 focus:outline-none"
+                  className="mt-1 block min-h-9 rounded-lg border border-su-line/40 bg-deep-space px-2 font-mono text-xs normal-case text-su-text focus:border-plasma-orange/50 focus:outline-none"
                 >
                   {[0.5, 1, 3, 5].map((value) => (
                     <option key={value} value={value}>
@@ -352,12 +352,12 @@ export function NearbyActivityExplorer({
             </>
           )}
 
-          <label className="text-[10px] uppercase tracking-wide text-gray-500">
+          <label className="text-[10px] uppercase tracking-wide text-su-muted">
             Recent
             <select
               value={maxAgeMinutes}
               onChange={(event) => setMaxAgeMinutes(Number(event.target.value))}
-              className="mt-1 block min-h-9 rounded-lg border border-white/10 bg-deep-space px-2 font-mono text-xs normal-case text-white focus:border-plasma-orange/50 focus:outline-none"
+              className="mt-1 block min-h-9 rounded-lg border border-su-line/40 bg-deep-space px-2 font-mono text-xs normal-case text-su-text focus:border-plasma-orange/50 focus:outline-none"
             >
               {[5, 15, 30, 60].map((value) => (
                 <option key={value} value={value}>
@@ -367,7 +367,7 @@ export function NearbyActivityExplorer({
             </select>
           </label>
 
-          <label className="text-[10px] uppercase tracking-wide text-gray-500">
+          <label className="text-[10px] uppercase tracking-wide text-su-muted">
             Range
             <select
               value={maxDistanceKm ?? "global"}
@@ -378,7 +378,7 @@ export function NearbyActivityExplorer({
                     : Number(event.target.value),
                 )
               }
-              className="mt-1 block min-h-9 rounded-lg border border-white/10 bg-deep-space px-2 font-mono text-xs normal-case text-white focus:border-plasma-orange/50 focus:outline-none"
+              className="mt-1 block min-h-9 rounded-lg border border-su-line/40 bg-deep-space px-2 font-mono text-xs normal-case text-su-text focus:border-plasma-orange/50 focus:outline-none"
             >
               <option value={500}>500 km</option>
               <option value={1500}>1,500 km</option>
@@ -391,7 +391,7 @@ export function NearbyActivityExplorer({
       </div>
 
       {!activeLocation ? (
-        <div className="px-4 py-8 text-center text-sm text-gray-500">
+        <div className="px-4 py-8 text-center text-sm text-su-muted">
           Set a home or current travel location to calculate nearby activity.
         </div>
       ) : frequencyKHz === null && mode === "frequency" ? (
@@ -399,7 +399,7 @@ export function NearbyActivityExplorer({
           Enter a frequency such as 7.200 MHz or 7200 kHz.
         </div>
       ) : loading && results.length === 0 ? (
-        <div className="px-4 py-8 text-center text-sm text-gray-500">
+        <div className="px-4 py-8 text-center text-sm text-su-muted">
           Loading recent reports…
         </div>
       ) : live.isError && results.length === 0 ? (
@@ -408,7 +408,7 @@ export function NearbyActivityExplorer({
           try again.
         </div>
       ) : results.length === 0 ? (
-        <div className="px-4 py-8 text-center text-sm text-gray-500">
+        <div className="px-4 py-8 text-center text-sm text-su-muted">
           No recent {queryLabel} reports in this distance and time window.
         </div>
       ) : (

@@ -21,8 +21,10 @@ import { physicsArgsForPath } from "@/lib/station/stationPhysics";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { useActiveBand } from "@/hooks/useActiveBandMode";
 import { useBandActivity } from "@/hooks/useBandActivity";
-import { canonicalKey, useBandLadder } from "@/hooks/useBandLadder";
+import { useBandLadder } from "@/hooks/useBandLadder";
 import { useBandVerdicts, type BandLadderEntry } from "@/hooks/useBandVerdicts";
+import { canonicalForBand } from "@/lib/verdict/bestBand";
+import { verdictIsCurrent } from "@/lib/verdict/presentation";
 import { useKIndex, useSolarFlux } from "@/hooks/useSolarData";
 import { oldestKnownTimestamp } from "@/hooks/projectSolarResource";
 import { getPathIllumination, getDistance } from "@/lib/utils/path";
@@ -157,24 +159,24 @@ const GRID_STATUS_COLORS: Record<
   { bg: string; border: string; text: string }
 > = {
   excellent: {
-    bg: "rgba(0, 255, 136, 0.20)",
-    border: "rgba(0, 255, 136, 0.2)",
-    text: "#00ff88",
+    bg: "rgb(var(--su-success-rgb) / 0.20)",
+    border: "rgb(var(--su-success-rgb) / 0.20)",
+    text: "var(--su-success)",
   },
   good: {
-    bg: "rgba(0, 255, 136, 0.15)",
-    border: "rgba(0, 255, 136, 0.15)",
-    text: "#00ff88",
+    bg: "rgb(var(--su-success-rgb) / 0.15)",
+    border: "rgb(var(--su-success-rgb) / 0.15)",
+    text: "var(--su-success)",
   },
   fair: {
-    bg: "rgba(255, 180, 50, 0.15)",
-    border: "rgba(255, 180, 50, 0.15)",
-    text: "#ffb432",
+    bg: "rgb(var(--su-warning-rgb) / 0.15)",
+    border: "rgb(var(--su-warning-rgb) / 0.15)",
+    text: "var(--su-warning)",
   },
   poor: {
-    bg: "rgba(255, 68, 102, 0.15)",
-    border: "rgba(255, 68, 102, 0.15)",
-    text: "#ff4466",
+    bg: "rgb(var(--su-danger-rgb) / 0.15)",
+    border: "rgb(var(--su-danger-rgb) / 0.15)",
+    text: "var(--su-danger)",
   },
   closed: {
     bg: "rgba(128, 128, 128, 0.10)",
@@ -188,24 +190,24 @@ const LADDER_GRID_COLORS: Record<
   { bg: string; border: string; text: string }
 > = {
   hot: {
-    bg: "rgba(255, 130, 50, 0.20)",
-    border: "rgba(255, 130, 50, 0.45)",
-    text: "#ff8232",
+    bg: "rgb(var(--su-warning-rgb) / 0.20)",
+    border: "rgb(var(--su-warning-rgb) / 0.45)",
+    text: "var(--su-warning)",
   },
   verified: {
-    bg: "rgba(0, 255, 136, 0.18)",
-    border: "rgba(0, 255, 136, 0.35)",
-    text: "#00ff88",
+    bg: "rgb(var(--su-success-rgb) / 0.18)",
+    border: "rgb(var(--su-success-rgb) / 0.35)",
+    text: "var(--su-success)",
   },
   stirring: {
-    bg: "rgba(255, 180, 50, 0.14)",
-    border: "rgba(255, 180, 50, 0.35)",
-    text: "#ffb432",
+    bg: "rgb(var(--su-warning-rgb) / 0.14)",
+    border: "rgb(var(--su-warning-rgb) / 0.35)",
+    text: "var(--su-warning)",
   },
   forecast: {
-    bg: "rgba(0, 255, 136, 0.08)",
-    border: "rgba(0, 255, 136, 0.20)",
-    text: "rgba(0, 255, 136, 0.72)",
+    bg: "rgb(var(--su-success-rgb) / 0.08)",
+    border: "rgb(var(--su-success-rgb) / 0.20)",
+    text: "rgb(var(--su-success-rgb) / 0.72)",
   },
   closed: {
     bg: "rgba(128, 128, 128, 0.08)",
@@ -219,7 +221,7 @@ const LADDER_BADGE_CLASSES: Record<LadderState, string> = {
   verified: "text-signal-green bg-signal-green/15",
   stirring: "text-caution-amber bg-caution-amber/15",
   forecast: "text-signal-green/70 bg-signal-green/10",
-  closed: "text-gray-500 bg-white/5",
+  closed: "text-su-muted bg-su-line/10",
 };
 
 function bandHealthLabel(entry: BandLadderEntry): string {
@@ -295,7 +297,7 @@ const BandConditionGridCell = memo(function BandConditionGridCell({
           fontWeight: 700,
           fontFamily:
             "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace",
-          color: isSynced ? "#22d3ee" : "#ffffff",
+          color: isSynced ? "#22d3ee" : "var(--su-text)",
           lineHeight: 1.3,
         }}
       >
@@ -323,7 +325,9 @@ const BandConditionGridCell = memo(function BandConditionGridCell({
           }}
         >
           {isEsActive && <span style={{ color: "#a855f7" }}>Es</span>}
-          {hasBandOpening && <span style={{ color: "#00ff88" }}>OPEN</span>}
+          {hasBandOpening && (
+            <span style={{ color: "var(--su-success)" }}>OPEN</span>
+          )}
         </div>
       )}
       {verdict && (
@@ -472,19 +476,11 @@ export function BandConditionsPanel({
   const selectedHealthEntry = selectedHealthBand
     ? liveBandHealthByBand.get(selectedHealthBand) ?? null
     : null;
+  // Gated by canonicalForBand's staleness rule so a frozen row never
+  // renders in the shared dialog as if it were a live server verdict.
   const canonicalFor = useCallback(
-    (band: string) => {
-      if (!canonicalByKey) return undefined;
-      if (bandHealthScope.type === "regional" && bandHealthScope.continent) {
-        return canonicalByKey.get(
-          canonicalKey("regional", bandHealthScope.continent, band),
-        );
-      }
-      if (bandHealthScope.type === "global") {
-        return canonicalByKey.get(canonicalKey("global", "", band));
-      }
-      return undefined;
-    }, [bandHealthScope, canonicalByKey],
+    (band: string) => canonicalForBand(canonicalByKey, bandHealthScope, band),
+    [bandHealthScope, canonicalByKey],
   );
 
   // Check if content overflows and handle scroll position
@@ -582,6 +578,12 @@ export function BandConditionsPanel({
     bandHealthScope.type === "dx"
       ? "not used for DX"
       : queryFreshnessText(bandLadderObservedAt, isBandLadderError);
+  // Same 30-min gate as canonicalForBand — flag the scope-wide age line so a
+  // frozen collector tick is visible even before a band is selected.
+  const bandLadderStale =
+    bandHealthScope.type !== "dx" &&
+    bandLadderObservedAt > 0 &&
+    !verdictIsCurrent(bandLadderObservedAt, Date.now());
 
   // Get current Kp and SFI values
   const currentKp = useMemo(() => {
@@ -791,7 +793,7 @@ export function BandConditionsPanel({
               currentSfi={currentSfi}
               onHelp={() => setShowHelp(true)}
             />
-            <div className="flex-1 flex items-center justify-center text-gray-400 text-sm">
+            <div className="flex-1 flex items-center justify-center text-su-muted text-sm">
               Set your QTH in settings
             </div>
           </div>
@@ -818,7 +820,7 @@ export function BandConditionsPanel({
               currentSfi={currentSfi}
               onHelp={() => setShowHelp(true)}
             />
-            <div className="flex-1 flex items-center justify-center text-gray-400 text-sm text-center px-4">
+            <div className="flex-1 flex items-center justify-center text-su-muted text-sm text-center px-4">
               Click on the map to select a target
             </div>
           </div>
@@ -905,7 +907,7 @@ export function BandConditionsPanel({
             <div className="flex items-center gap-3 w-full">
               {/* Expand indicator */}
               <svg
-                className="w-3.5 h-3.5 text-gray-500 flex-shrink-0"
+                className="w-3.5 h-3.5 text-su-muted flex-shrink-0"
                 fill="none"
                 viewBox="0 0 24 24"
                 stroke="currentColor"
@@ -948,24 +950,24 @@ export function BandConditionsPanel({
                   </span>
                 </div>
               ) : (
-                <span className="text-xs text-gray-500">No data</span>
+                <span className="text-xs text-su-muted">No data</span>
               )}
 
               {/* Divider */}
-              <div className="w-px h-3 bg-white/10" />
+              <div className="w-px h-3 bg-su-line/20" />
 
               {/* Solar indices compact */}
               <div className="flex items-center gap-2 text-[10px] font-mono">
                 <span
                   className={
-                    currentKp >= 4 ? "text-caution-amber" : "text-gray-400"
+                    currentKp >= 4 ? "text-caution-amber" : "text-su-muted"
                   }
                 >
                   K{currentKp}
                 </span>
                 <span
                   className={
-                    currentSfi >= 120 ? "text-signal-green" : "text-gray-400"
+                    currentSfi >= 120 ? "text-signal-green" : "text-su-muted"
                   }
                 >
                   SFI {currentSfi}
@@ -1033,7 +1035,7 @@ export function BandConditionsPanel({
                 /* Table View — original detailed layout */
                 <table className="w-full text-xs">
                   <thead className="sticky top-0 z-10">
-                    <tr className="bg-nebula-blue text-gray-400">
+                    <tr className="bg-nebula-blue text-su-muted">
                       <th className="px-1 py-1 text-left font-medium">Band</th>
                       <th className="px-1 py-1 text-center font-medium">
                         Status
@@ -1050,7 +1052,7 @@ export function BandConditionsPanel({
                       )}
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-white/5">
+                  <tbody className="divide-y divide-su-line/20">
                     {bandConditions.map((condition) => (
                       <BandConditionRow
                         key={condition.band}
@@ -1090,7 +1092,7 @@ export function BandConditionsPanel({
             {showScrollIndicator && (
               <div className="absolute bottom-0 left-0 right-0 pointer-events-none">
                 <div className="h-8 bg-gradient-to-t from-nebula-blue/90 to-transparent" />
-                <div className="absolute bottom-1 left-1/2 -translate-x-1/2 flex flex-col items-center text-gray-400 animate-bounce">
+                <div className="absolute bottom-1 left-1/2 -translate-x-1/2 flex flex-col items-center text-su-muted animate-bounce">
                   <svg
                     className="w-4 h-4"
                     fill="none"
@@ -1110,30 +1112,35 @@ export function BandConditionsPanel({
           </div>
 
           {/* Footer with path info and refresh */}
-          <div className="flex-shrink-0 pt-2 mt-2 border-t border-white/5">
-            <div className="flex items-center justify-between text-xs text-gray-400">
+          <div className="flex-shrink-0 pt-2 mt-2 border-t border-su-line/20">
+            <div className="flex items-center justify-between text-xs text-su-muted">
               <span>Path illumination: {Math.round(illumination)}%</span>
             </div>
-            <div className="mt-1 text-[10px] text-gray-500">
+            <div className="mt-1 text-[10px] text-su-muted">
               Live status: {bandHealthScope.label} · signal/SNR: path model
             </div>
-            <div className="mt-1 flex flex-wrap gap-x-2 text-[10px] text-gray-500">
+            <div className="mt-1 flex flex-wrap gap-x-2 text-[10px] text-su-muted">
               <span>Band evidence: {bandActivityFreshnessText}</span>
-              <span>Canonical ladder: {bandLadderFreshnessText}</span>
+              <span
+                className={bandLadderStale ? "font-semibold text-caution-amber" : undefined}
+              >
+                Canonical ladder: {bandLadderFreshnessText}
+                {bandLadderStale ? " · Stale" : ""}
+              </span>
             </div>
-            <div className="flex items-center justify-between mt-1.5 pt-1.5 border-t border-white/5">
-              <span className="text-[10px] text-gray-500">
+            <div className="flex items-center justify-between mt-1.5 pt-1.5 border-t border-su-line/20">
+              <span className="text-[10px] text-su-muted">
                 Solar inputs: {lastUpdatedText}
               </span>
               <button
                 onClick={handleRefresh}
                 disabled={isRefetching}
-                className="p-1 hover:bg-white/10 rounded transition-colors disabled:opacity-50"
+                className="p-1 hover:bg-su-line/20 rounded transition-colors disabled:opacity-50"
                 title="Refresh band conditions"
                 aria-label="Refresh band conditions"
               >
                 <svg
-                  className={`w-3.5 h-3.5 text-gray-400 ${isRefetching ? "animate-spin" : ""}`}
+                  className={`w-3.5 h-3.5 text-su-muted ${isRefetching ? "animate-spin" : ""}`}
                   fill="none"
                   viewBox="0 0 24 24"
                   stroke="currentColor"
@@ -1267,7 +1274,7 @@ const BandConditionRow = memo(function BandConditionRow({
   return (
     <tr
       onClick={() => verdict && onSelect?.(condition.band)}
-      className={`transition-colors ${verdict ? "cursor-pointer hover:bg-white/5" : ""} ${
+      className={`transition-colors ${verdict ? "cursor-pointer hover:bg-su-line/10" : ""} ${
         isSynced ? "bg-cyan-500/10 border-l-2 border-cyan-400" : ""
       } ${isGreylineActive ? "bg-amber-500/5" : ""}`}
     >
@@ -1295,14 +1302,14 @@ const BandConditionRow = memo(function BandConditionRow({
                 event.stopPropagation();
                 onSelect?.(condition.band);
               }}
-              className={`rounded font-mono text-sm underline decoration-transparent underline-offset-2 hover:decoration-current focus-visible:outline focus-visible:outline-1 focus-visible:outline-cyan-300 ${isSynced ? "text-cyan-400" : "text-white"}`}
+              className={`rounded font-mono text-sm underline decoration-transparent underline-offset-2 hover:decoration-current focus-visible:outline focus-visible:outline-1 focus-visible:outline-cyan-300 ${isSynced ? "text-cyan-400" : "text-su-text"}`}
               aria-label={`${condition.band} ${statusLabel}. Open live band health details`}
             >
               {condition.band}
             </button>
           ) : (
             <div
-              className={`font-mono text-sm ${isSynced ? "text-cyan-400" : "text-white"}`}
+              className={`font-mono text-sm ${isSynced ? "text-cyan-400" : "text-su-text"}`}
             >
               {condition.band}
             </div>
@@ -1336,7 +1343,7 @@ const BandConditionRow = memo(function BandConditionRow({
           )}
         </div>
         <div className="flex items-center gap-1.5">
-          <span className="text-gray-400 text-xs">{condition.frequency}</span>
+          <span className="text-su-muted text-xs">{condition.frequency}</span>
           {sparklineData && sparklineData.length >= 2 && (
             <BandSparkline data={sparklineData} />
           )}
@@ -1351,7 +1358,7 @@ const BandConditionRow = memo(function BandConditionRow({
           </span>
           {verdict && (
             <span
-              className="text-[9px] text-gray-500"
+              className="text-[9px] text-su-muted"
               title="Independent path-physics estimate"
             >
               Path {pathStatusLabel}
@@ -1389,8 +1396,8 @@ const BandConditionRow = memo(function BandConditionRow({
                 <span
                   className={
                     condition.snrEstimate <= -24
-                      ? "text-gray-400"
-                      : "text-white"
+                      ? "text-su-muted"
+                      : "text-su-text"
                   }
                 >
                   {condition.signalPrediction.snrLow} to{" "}
@@ -1400,7 +1407,7 @@ const BandConditionRow = memo(function BandConditionRow({
             ) : (
               <span
                 className={
-                  condition.snrEstimate <= -24 ? "text-gray-400" : "text-white"
+                  condition.snrEstimate <= -24 ? "text-su-muted" : "text-su-text"
                 }
               >
                 {condition.snrEstimate}dB
@@ -1418,7 +1425,7 @@ const BandConditionRow = memo(function BandConditionRow({
             {hasEnhancedData &&
               condition.pathLoss !== undefined &&
               condition.signalPrediction?.snrLow === undefined && (
-                <div className="text-xs text-gray-400">
+                <div className="text-xs text-su-muted">
                   {Math.round(condition.pathLoss)}dB loss
                 </div>
               )}
@@ -1434,7 +1441,7 @@ const BandConditionRow = memo(function BandConditionRow({
  */
 function getSUnitColor(sUnit?: SUnit): string {
   if (!sUnit) {
-    return "text-gray-400";
+    return "text-su-muted";
   }
   const { value } = sUnit;
   if (value >= 8) {
@@ -1459,7 +1466,7 @@ const SMeterIndicator = memo(function SMeterIndicator({
     return (
       <div className="flex gap-0.5">
         {[...Array(5)].map((_, i) => (
-          <div key={i} className="w-1 h-2 rounded-sm bg-gray-700" />
+          <div key={i} className="w-1 h-2 rounded-sm bg-su-input" />
         ))}
       </div>
     );
@@ -1470,7 +1477,7 @@ const SMeterIndicator = memo(function SMeterIndicator({
 
   const getBarColor = (_barIndex: number, filled: boolean): string => {
     if (!filled) {
-      return "bg-gray-700";
+      return "bg-su-input";
     }
     if (value >= 8) {
       return "bg-signal-green";
@@ -1511,14 +1518,14 @@ const ConfidenceBar = memo(function ConfidenceBar({
   // Determine color based on confidence center point
   const barColor =
     confidence >= 70
-      ? "#00ff88" // signal-green
+      ? "var(--su-success)"
       : confidence >= 45
-        ? "#ffaa00" // caution-amber
-        : "#ff4455"; // alert-red
+        ? "var(--su-warning)"
+        : "var(--su-danger)";
 
   return (
     <div
-      className="relative w-full h-1 mt-1 rounded-full bg-white/5 overflow-hidden"
+      className="relative w-full h-1 mt-1 rounded-full bg-su-line/10 overflow-hidden"
       title={`Confidence: ${low}%-${high}% (center: ${confidence}%)`}
     >
       {/* Translucent range (the interval) */}

@@ -142,10 +142,10 @@ export function WaterfallPanel({
   return (
     <Card className="p-4">
       <div className="flex items-center justify-between mb-3">
-        <div className="text-sm font-semibold text-gray-200">
+        <div className="text-sm font-semibold text-su-text">
           {canStreamFft ? "Waterfall" : "Band Scope"}
         </div>
-        <div className="text-xs text-gray-500 font-mono">
+        <div className="text-xs text-su-muted font-mono">
           {effectiveState ? formatHz(effectiveState.freq) : "\u2014"}
         </div>
       </div>
@@ -221,7 +221,7 @@ export function WaterfallPanel({
                 ft8DecodeOverlay={ft8DecodeOverlay}
               />
             ) : (
-              <div className="w-full h-full rounded-lg border border-white/10 bg-black/40 flex items-center justify-center text-sm text-gray-500">
+              <div className="w-full h-full rounded-lg border border-su-line/40 bg-su-input flex items-center justify-center text-sm text-su-muted">
                 Start FFT to show the waterfall.
               </div>
             )
@@ -232,7 +232,7 @@ export function WaterfallPanel({
               onPickFrequencyHz={onPickFrequencyHz}
             />
           ) : (
-            <div className="w-full h-full rounded-lg border border-white/10 bg-black/40 flex items-center justify-center text-sm text-gray-500">
+            <div className="w-full h-full rounded-lg border border-su-line/40 bg-su-input flex items-center justify-center text-sm text-su-muted">
               Connect a radio to show the band scope.
             </div>
           )}

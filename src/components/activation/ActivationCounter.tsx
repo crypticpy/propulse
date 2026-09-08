@@ -91,14 +91,14 @@ export function ActivationCounter({
       <div className="absolute inset-0 flex flex-col items-center justify-center">
         <span
           className={`font-bold leading-none ${
-            isThresholdMet ? "text-signal-green" : "text-white"
+            isThresholdMet ? "text-signal-green" : "text-su-text"
           }`}
           style={{ fontSize: size * 0.28 }}
         >
           {count}
         </span>
         <span
-          className="text-white/50 leading-none"
+          className="text-su-text/80 leading-none"
           style={{ fontSize: size * 0.14 }}
         >
           / {threshold}

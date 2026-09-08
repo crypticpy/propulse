@@ -40,11 +40,11 @@ export const SPOT_REPLAY_COLOR = "#8B7355";
  * Used in React components that rely on Tailwind classes instead of raw hex.
  */
 export const MODE_COLORS_TAILWIND: Record<string, string> = {
-  FT8: "text-cyan-400",
-  CW: "text-yellow-400",
-  SSB: "text-green-400",
-  RTTY: "text-purple-400",
-  default: "text-gray-400",
+  FT8: "text-cosmic-cyan",
+  CW: "text-caution-amber",
+  SSB: "text-signal-green",
+  RTTY: "text-aurora-purple",
+  default: "text-su-muted",
 };
 
 /**

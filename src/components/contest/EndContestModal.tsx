@@ -23,18 +23,18 @@ export function EndContestModal({
       />
       <Card className="relative z-10 w-full max-w-md p-6" animate>
         <div className="text-center space-y-4">
-          <h3 className="text-lg font-orbitron font-bold text-white">
+          <h3 className="text-lg font-orbitron font-bold text-su-text">
             End Contest Session?
           </h3>
-          <p className="text-gray-400 text-sm">
+          <p className="text-su-muted text-sm">
             This will end your current session and move it to history.
           </p>
           <div className="flex gap-3 pt-2">
             <button
               type="button"
               onClick={onCancel}
-              className="flex-1 px-4 py-2 bg-nebula-blue border border-white/10 rounded-lg
-                         text-gray-300 hover:text-white hover:border-white/20
+              className="flex-1 px-4 py-2 bg-nebula-blue border border-su-line/40 rounded-lg
+                         text-su-muted hover:text-su-text hover:border-su-line/50
                          transition-colors font-medium"
             >
               Cancel

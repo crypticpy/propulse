@@ -94,8 +94,8 @@ function SortHeader({
     <th
       className={`px-3 py-2 text-left text-xs font-medium uppercase tracking-wider ${
         column.sortable
-          ? "cursor-pointer select-none text-gray-400 hover:text-white"
-          : "text-gray-500"
+          ? "cursor-pointer select-none text-su-muted hover:text-su-text"
+          : "text-su-muted"
       } ${column.className ?? ""}`}
       onClick={handleSort}
       onKeyDown={column.sortable ? handleKeyDown : undefined}
@@ -198,14 +198,14 @@ export function QSOLogTable({
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
-            <tr className="border-b border-white/10">
+            <tr className="border-b border-su-line/40">
               {/* Checkbox header */}
               <th className="w-10 px-3 py-2">
                 <input
                   type="checkbox"
                   checked={allSelected}
                   onChange={handleToggleAll}
-                  className="rounded border-white/20 bg-white/5 text-plasma-orange focus:ring-plasma-orange/50"
+                  className="rounded border-su-line/50 bg-su-line/10 text-plasma-orange focus:ring-plasma-orange/50"
                   aria-label="Select all entries"
                 />
               </th>
@@ -225,7 +225,7 @@ export function QSOLogTable({
               <tr>
                 <td
                   colSpan={COLUMNS.length + 1}
-                  className="text-center py-12 text-gray-500"
+                  className="text-center py-12 text-su-muted"
                 >
                   No QSOs found. Start logging contacts to see them here.
                 </td>
@@ -236,10 +236,10 @@ export function QSOLogTable({
               return (
                 <tr
                   key={entry.id}
-                  className={`border-b border-white/5 transition-colors cursor-pointer ${
+                  className={`border-b border-su-line/20 transition-colors cursor-pointer ${
                     isSelected
                       ? "bg-plasma-orange/10 border-l-2 border-l-plasma-orange"
-                      : "bg-white/[0.02] hover:bg-white/[0.05]"
+                      : "bg-su-line/10 hover:bg-su-line/20"
                   }`}
                   onClick={() => onRowClick(entry)}
                 >
@@ -252,7 +252,7 @@ export function QSOLogTable({
                       type="checkbox"
                       checked={isSelected}
                       onChange={() => handleToggleRow(entry.id)}
-                      className="rounded border-white/20 bg-white/5 text-plasma-orange focus:ring-plasma-orange/50"
+                      className="rounded border-su-line/50 bg-su-line/10 text-plasma-orange focus:ring-plasma-orange/50"
                       aria-label={`Select ${entry.callsign}`}
                     />
                   </td>
@@ -294,8 +294,8 @@ export function QSOLogTable({
                         key={col.key}
                         className={`px-3 py-2 ${isMono ? "font-mono" : ""} ${
                           col.key === "callsign"
-                            ? "text-white font-semibold"
-                            : "text-gray-300"
+                            ? "text-su-text font-semibold"
+                            : "text-su-muted"
                         }`}
                         onDoubleClick={(e) => {
                           if (isEditableField(col.key)) {

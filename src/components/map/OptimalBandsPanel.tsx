@@ -271,17 +271,17 @@ export function OptimalBandsPanel({
       {!isExpanded && (
         <div
           className="flex items-center gap-2 px-3 py-2 rounded-lg
-                     bg-deep-space/90 backdrop-blur-sm border border-white/10
-                     hover:border-white/20 transition-all shadow-lg"
+                     bg-deep-space/90 backdrop-blur-sm border border-su-line/40
+                     hover:border-su-line/50 transition-all shadow-lg"
         >
           {/* Drag handle */}
           <div
             onMouseDown={handleDragStart}
-            className="cursor-grab active:cursor-grabbing p-0.5 -ml-1 hover:bg-white/10 rounded"
+            className="cursor-grab active:cursor-grabbing p-0.5 -ml-1 hover:bg-su-line/20 rounded"
             title="Drag to reposition"
           >
             <svg
-              className="w-3 h-3 text-gray-500"
+              className="w-3 h-3 text-su-muted"
               fill="currentColor"
               viewBox="0 0 24 24"
             >
@@ -297,16 +297,16 @@ export function OptimalBandsPanel({
             className="w-2 h-2 rounded-full"
             style={{ backgroundColor: difficultyColor }}
           />
-          <span className="text-xs font-mono text-gray-300">
+          <span className="text-xs font-mono text-su-muted">
             {formatDistance(pathMetrics.shortPath.distance)}
           </span>
           <button
             onClick={() => setIsExpanded(true)}
-            className="p-0.5 hover:bg-white/10 rounded transition-colors"
+            className="p-0.5 hover:bg-su-line/20 rounded transition-colors"
             title="Expand"
           >
             <svg
-              className="w-3 h-3 text-gray-400"
+              className="w-3 h-3 text-su-muted"
               fill="none"
               viewBox="0 0 24 24"
               stroke="currentColor"
@@ -326,22 +326,22 @@ export function OptimalBandsPanel({
       {isExpanded && (
         <div
           className="w-48 rounded-lg bg-deep-space/95 backdrop-blur-sm
-                     border border-white/10 shadow-xl overflow-hidden"
+                     border border-su-line/40 shadow-xl overflow-hidden"
         >
           {/* Header with drag handle */}
           <div
-            className="flex items-center justify-between px-3 py-2 border-b border-white/10"
+            className="flex items-center justify-between px-3 py-2 border-b border-su-line/40"
             style={{ cursor: isDragging ? "grabbing" : undefined }}
           >
             <div className="flex items-center gap-2">
               {/* Drag handle */}
               <div
                 onMouseDown={handleDragStart}
-                className="cursor-grab active:cursor-grabbing p-0.5 -ml-1 hover:bg-white/10 rounded"
+                className="cursor-grab active:cursor-grabbing p-0.5 -ml-1 hover:bg-su-line/20 rounded"
                 title="Drag to reposition"
               >
                 <svg
-                  className="w-3 h-3 text-gray-500"
+                  className="w-3 h-3 text-su-muted"
                   fill="currentColor"
                   viewBox="0 0 24 24"
                 >
@@ -357,17 +357,17 @@ export function OptimalBandsPanel({
                 className="w-2 h-2 rounded-full animate-pulse"
                 style={{ backgroundColor: difficultyColor }}
               />
-              <span className="text-xs font-medium text-gray-300 uppercase tracking-wide">
+              <span className="text-xs font-medium text-su-muted uppercase tracking-wide">
                 Path Info
               </span>
             </div>
             <button
               onClick={() => setIsExpanded(false)}
-              className="p-1 rounded hover:bg-white/10 transition-colors"
+              className="p-1 rounded hover:bg-su-line/20 transition-colors"
               title="Collapse"
             >
               <svg
-                className="w-3 h-3 text-gray-400"
+                className="w-3 h-3 text-su-muted"
                 fill="none"
                 viewBox="0 0 24 24"
                 stroke="currentColor"
@@ -386,11 +386,11 @@ export function OptimalBandsPanel({
           <div className="p-3 space-y-2">
             {/* Distance */}
             <div>
-              <div className="text-[10px] text-gray-500 mb-0.5">Distance</div>
-              <div className="text-lg font-mono text-white">
+              <div className="text-[10px] text-su-muted mb-0.5">Distance</div>
+              <div className="text-lg font-mono text-su-text">
                 {formatDistance(pathMetrics.shortPath.distance)}
               </div>
-              <div className="text-[10px] text-gray-500">
+              <div className="text-[10px] text-su-muted">
                 {pathMetrics.hops} hop{pathMetrics.hops > 1 ? "s" : ""} •{" "}
                 {Math.round(illumination)}% daylight
               </div>
@@ -398,7 +398,7 @@ export function OptimalBandsPanel({
 
             {/* Difficulty */}
             <div className="flex items-center gap-2">
-              <span className="text-[10px] text-gray-500">Difficulty:</span>
+              <span className="text-[10px] text-su-muted">Difficulty:</span>
               <span
                 className="px-1.5 py-0.5 rounded text-[10px] font-medium"
                 style={{
@@ -412,7 +412,7 @@ export function OptimalBandsPanel({
 
             {/* Optimal Bands */}
             <div>
-              <div className="text-[10px] text-gray-500 mb-1">
+              <div className="text-[10px] text-su-muted mb-1">
                 Optimal Bands
               </div>
               {optimalBands.length > 0 ? (
@@ -421,7 +421,7 @@ export function OptimalBandsPanel({
                     <div
                       key={band.band}
                       className="flex items-center justify-between p-1.5 rounded
-                                 bg-white/5 border border-white/10"
+                                 bg-su-line/10 border border-su-line/40"
                     >
                       <div className="flex items-center gap-2">
                         <span
@@ -433,7 +433,7 @@ export function OptimalBandsPanel({
                         >
                           {index + 1}
                         </span>
-                        <span className="text-sm font-mono text-white">
+                        <span className="text-sm font-mono text-su-text">
                           {band.band}
                         </span>
                       </div>
@@ -445,7 +445,7 @@ export function OptimalBandsPanel({
                               ? "bg-good/20 text-good"
                               : band.status === "fair"
                                 ? "bg-caution-amber/20 text-caution-amber"
-                                : "bg-gray-500/20 text-gray-400"
+                                : "bg-su-line/20 text-su-muted"
                         }`}
                       >
                         {band.status}
@@ -454,14 +454,14 @@ export function OptimalBandsPanel({
                   ))}
                 </div>
               ) : (
-                <div className="text-xs text-gray-500 italic">
+                <div className="text-xs text-su-muted italic">
                   No bands available
                 </div>
               )}
             </div>
 
             {/* Target info */}
-            <div className="pt-2 border-t border-white/5 text-[10px] text-gray-400 font-mono">
+            <div className="pt-2 border-t border-su-line/20 text-[10px] text-su-muted font-mono">
               → {target.name || target.grid || "Target"}
             </div>
           </div>

@@ -202,8 +202,8 @@ export function MobileMap() {
               onClick={() => setViewMode(mode)}
               className={`px-2 py-1 rounded text-xs font-medium backdrop-blur-md transition-all capitalize ${
                 viewMode === mode
-                  ? "bg-plasma-orange text-white"
-                  : "bg-black/40 text-gray-300 hover:text-white"
+                  ? "bg-plasma-orange text-su-on-accent"
+                  : "bg-su-input/50 text-su-muted hover:text-su-text"
               }`}
             >
               {mode}
@@ -226,9 +226,9 @@ export function MobileMap() {
 
         {/* Landscape orientation hint */}
         {showLandscapeHint && (
-          <div className="absolute top-3 left-1/2 -translate-x-1/2 z-10 bg-black/60 backdrop-blur-md border border-white/10 rounded-lg px-3 py-1.5 flex items-center gap-2 animate-in fade-in duration-300">
+          <div className="absolute top-3 left-1/2 -translate-x-1/2 z-10 bg-su-panel/90 backdrop-blur-md border border-su-line/40 rounded-lg px-3 py-1.5 flex items-center gap-2 animate-in fade-in duration-300">
             <svg
-              className="w-4 h-4 text-cyan-400 flex-shrink-0"
+              className="w-4 h-4 text-cosmic-cyan flex-shrink-0"
               fill="none"
               viewBox="0 0 24 24"
               stroke="currentColor"
@@ -241,7 +241,7 @@ export function MobileMap() {
                 transform="rotate(-45 12 12)"
               />
             </svg>
-            <span className="text-[11px] text-gray-300 whitespace-nowrap">
+            <span className="text-[11px] text-su-muted whitespace-nowrap">
               Rotate for a wider view
             </span>
             <button
@@ -250,7 +250,7 @@ export function MobileMap() {
                 setHintDismissed(true);
                 localStorage.setItem("propulse:landscape-hint-dismissed", "1");
               }}
-              className="text-gray-500 hover:text-white ml-1"
+              className="text-su-muted hover:text-su-text ml-1"
             >
               <svg
                 className="w-3.5 h-3.5"
@@ -281,24 +281,24 @@ export function MobileMap() {
       {/* Toggle panel handle */}
       <button
         onClick={() => setShowPanel(!showPanel)}
-        className="absolute bottom-14 left-0 right-0 z-10 bg-deep-space/90 border-t border-white/10 py-2 flex justify-center"
+        className="absolute bottom-14 left-0 right-0 z-10 bg-deep-space/90 border-t border-su-line/40 py-2 flex justify-center"
       >
-        <div className="w-10 h-1 bg-gray-600 rounded-full" />
+        <div className="w-10 h-1 bg-su-line rounded-full" />
       </button>
 
       {/* Panel overlay when open */}
       {showPanel && (
-        <div className="absolute bottom-0 left-0 right-0 z-20 h-[40vh] bg-deep-space/95 backdrop-blur-md border-t border-white/10 rounded-t-2xl flex flex-col">
+        <div className="absolute bottom-0 left-0 right-0 z-20 h-[40vh] bg-deep-space/95 backdrop-blur-md border-t border-su-line/40 rounded-t-2xl flex flex-col">
           {/* Close handle */}
           <button
             onClick={() => setShowPanel(false)}
             className="flex justify-center pt-2 pb-1"
           >
-            <div className="w-10 h-1 bg-gray-500 rounded-full" />
+            <div className="w-10 h-1 bg-su-line rounded-full" />
           </button>
 
           {/* Tab bar */}
-          <div className="flex border-b border-white/10">
+          <div className="flex border-b border-su-line/40">
             {(["bands", "spots", "path"] as const).map((tab) => (
               <button
                 key={tab}
@@ -306,7 +306,7 @@ export function MobileMap() {
                 className={`flex-1 py-2.5 text-xs font-medium capitalize ${
                   activeTab === tab
                     ? "text-plasma-orange border-b-2 border-plasma-orange"
-                    : "text-gray-500"
+                    : "text-su-muted"
                 }`}
               >
                 {tab}
@@ -320,7 +320,7 @@ export function MobileMap() {
             {activeTab === "bands" && (
               <div className="space-y-1.5">
                 {hfBands.length === 0 ? (
-                  <p className="text-xs text-gray-500 text-center py-4">
+                  <p className="text-xs text-su-muted text-center py-4">
                     Waiting for solar data...
                   </p>
                 ) : (
@@ -335,13 +335,13 @@ export function MobileMap() {
                     return (
                       <div
                         key={band.name}
-                        className="flex items-center justify-between bg-white/[0.03] border border-white/10 rounded-lg px-3 py-2"
+                        className="flex items-center justify-between bg-su-line/10 border border-su-line/40 rounded-lg px-3 py-2"
                       >
                         <div className="flex items-center gap-3">
-                          <span className="font-mono text-sm text-white font-bold w-10">
+                          <span className="font-mono text-sm text-su-text font-bold w-10">
                             {band.name}
                           </span>
-                          <span className="text-[10px] text-gray-500">
+                          <span className="text-[10px] text-su-muted">
                             {band.freq}
                           </span>
                         </div>
@@ -362,7 +362,7 @@ export function MobileMap() {
             {activeTab === "spots" && (
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
-                  <span className="text-xs text-gray-400">
+                  <span className="text-xs text-su-muted">
                     {spotsLoading ? "Loading..." : `${spots.length} spots`}
                   </span>
                 </div>
@@ -372,25 +372,25 @@ export function MobileMap() {
                   .map(([band, count]) => (
                     <div
                       key={band}
-                      className="flex items-center justify-between bg-white/[0.03] border border-white/10 rounded-lg px-3 py-2"
+                      className="flex items-center justify-between bg-su-line/10 border border-su-line/40 rounded-lg px-3 py-2"
                     >
-                      <span className="font-mono text-xs text-white">
+                      <span className="font-mono text-xs text-su-text">
                         {band}
                       </span>
-                      <span className="text-xs text-gray-400">
+                      <span className="text-xs text-su-muted">
                         {count} spot{count !== 1 ? "s" : ""}
                       </span>
                     </div>
                   ))}
                 {spots.length === 0 && !spotsLoading && (
-                  <p className="text-xs text-gray-500 text-center py-4">
+                  <p className="text-xs text-su-muted text-center py-4">
                     No spots available
                   </p>
                 )}
                 {/* Recent spots list */}
                 {spots.length > 0 && (
                   <div className="mt-3 space-y-1">
-                    <div className="text-[10px] text-gray-500 uppercase tracking-wider mb-1">
+                    <div className="text-[10px] text-su-muted uppercase tracking-wider mb-1">
                       Recent
                     </div>
                     {spots.slice(0, 8).map((spot, i) => (
@@ -401,7 +401,7 @@ export function MobileMap() {
                         <span className="font-mono text-signal-green">
                           {spot.dx}
                         </span>
-                        <span className="text-gray-500">
+                        <span className="text-su-muted">
                           {spot.band || spot.frequency?.toFixed(1)}
                         </span>
                       </div>
@@ -416,52 +416,52 @@ export function MobileMap() {
               <div className="space-y-3">
                 {!target ? (
                   <div className="text-center py-6">
-                    <p className="text-xs text-gray-500">
+                    <p className="text-xs text-su-muted">
                       No target selected. Tap a location on the map to set a
                       target.
                     </p>
                   </div>
                 ) : (
                   <>
-                    <div className="bg-white/[0.03] border border-white/10 rounded-xl p-3 space-y-2">
+                    <div className="bg-su-line/10 border border-su-line/40 rounded-xl p-3 space-y-2">
                       <div className="flex items-center justify-between">
-                        <span className="text-xs text-gray-400">Target</span>
+                        <span className="text-xs text-su-muted">Target</span>
                         <span className="font-mono text-sm text-signal-green">
                           {target.grid || target.name || "Custom"}
                         </span>
                       </div>
                       <div className="flex items-center justify-between">
-                        <span className="text-xs text-gray-400">Position</span>
-                        <span className="font-mono text-xs text-gray-300">
+                        <span className="text-xs text-su-muted">Position</span>
+                        <span className="font-mono text-xs text-su-muted">
                           {target.lat.toFixed(2)}, {target.lon.toFixed(2)}
                         </span>
                       </div>
                     </div>
                     {pathInfo && (
-                      <div className="bg-white/[0.03] border border-white/10 rounded-xl p-3 space-y-2">
+                      <div className="bg-su-line/10 border border-su-line/40 rounded-xl p-3 space-y-2">
                         <div className="flex items-center justify-between">
-                          <span className="text-xs text-gray-400">
+                          <span className="text-xs text-su-muted">
                             Distance
                           </span>
-                          <span className="font-mono text-sm text-white">
+                          <span className="font-mono text-sm text-su-text">
                             {pathInfo.distance.toLocaleString()} km
                           </span>
                         </div>
                         <div className="flex items-center justify-between">
-                          <span className="text-xs text-gray-400">Bearing</span>
-                          <span className="font-mono text-sm text-white">
+                          <span className="text-xs text-su-muted">Bearing</span>
+                          <span className="font-mono text-sm text-su-text">
                             {pathInfo.bearing}°
                           </span>
                         </div>
                       </div>
                     )}
                     {station && (
-                      <div className="bg-white/[0.03] border border-white/10 rounded-xl p-3">
+                      <div className="bg-su-line/10 border border-su-line/40 rounded-xl p-3">
                         <div className="flex items-center justify-between">
-                          <span className="text-xs text-gray-400">
+                          <span className="text-xs text-su-muted">
                             Your QTH
                           </span>
-                          <span className="font-mono text-xs text-gray-300">
+                          <span className="font-mono text-xs text-su-muted">
                             {station.grid}
                           </span>
                         </div>

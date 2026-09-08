@@ -143,7 +143,7 @@ export function OperatingHoursChart({
               y={y}
               textAnchor="middle"
               dominantBaseline="middle"
-              className="fill-gray-500"
+              className="fill-su-muted"
               fontSize={9}
               fontFamily="monospace"
             >
@@ -158,7 +158,7 @@ export function OperatingHoursChart({
           y={CENTER - 4}
           textAnchor="middle"
           dominantBaseline="middle"
-          className="fill-gray-400"
+          className="fill-su-muted"
           fontSize={10}
           fontFamily="sans-serif"
         >
@@ -169,7 +169,7 @@ export function OperatingHoursChart({
           y={CENTER + 8}
           textAnchor="middle"
           dominantBaseline="middle"
-          className="fill-gray-400"
+          className="fill-su-muted"
           fontSize={11}
           fontFamily="monospace"
           fontWeight="bold"
@@ -181,7 +181,7 @@ export function OperatingHoursChart({
       {/* Tooltip */}
       {tooltipInfo && (
         <div
-          className="absolute pointer-events-none z-10 rounded-lg bg-gray-900/95 border border-white/10 px-2.5 py-1.5 text-xs text-gray-200 whitespace-nowrap shadow-lg"
+          className="absolute pointer-events-none z-10 rounded-lg bg-su-canvas/95 border border-su-line/40 px-2.5 py-1.5 text-xs text-su-text whitespace-nowrap shadow-lg"
           style={{
             left: (tooltipInfo.x / 200) * size,
             top: (tooltipInfo.y / 200) * size,

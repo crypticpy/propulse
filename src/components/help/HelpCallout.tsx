@@ -143,7 +143,7 @@ export function HelpCallout({ type, children }: HelpCalloutProps) {
               </span>
             )}
           </div>
-          <div className="text-sm text-gray-200 leading-relaxed">
+          <div className="text-sm text-su-text leading-relaxed">
             {children}
           </div>
         </div>

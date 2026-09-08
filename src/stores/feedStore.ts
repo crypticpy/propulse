@@ -13,6 +13,9 @@ import type { AlertPriority } from "@/types/alerts";
 
 export const MAX_FEEDS = 5;
 
+export type FeedRefreshMinutes = 10 | 15 | 30 | 60;
+export const FEED_REFRESH_MINUTES = [10, 15, 30, 60] as const;
+
 export type CrawlFeedMaxAgeHours = 1 | 6 | 24 | 72;
 export type TickerSolarThreshold = AlertPriority | "off";
 export type TickerWeatherThreshold =
@@ -61,9 +64,11 @@ interface FeedStore {
   feeds: FeedSource[];
   activeFeedId: string | null;
   crawlPreferences: TickerCrawlPreferences;
+  refreshMinutes: FeedRefreshMinutes;
+  setRefreshMinutes: (minutes: FeedRefreshMinutes) => void;
 
   /** Adds a feed (label derived from the URL's hostname); no-op past MAX_FEEDS */
-  addFeed: (url: string) => FeedSource | null;
+  addFeed: (url: string, verifiedTitle?: string) => FeedSource | null;
   /** Removes a feed; the last remaining feed cannot be removed */
   removeFeed: (id: string) => void;
   setActiveFeed: (id: string) => void;
@@ -95,6 +100,7 @@ export function normalizePersistedFeedState(
   return {
     ...state,
     feeds,
+    refreshMinutes: FEED_REFRESH_MINUTES.includes(state.refreshMinutes as FeedRefreshMinutes) ? state.refreshMinutes! : 10,
     activeFeedId: state.activeFeedId ?? feeds[0]?.id ?? null,
     crawlPreferences: {
       ...DEFAULT_TICKER_CRAWL_PREFERENCES,
@@ -110,13 +116,18 @@ export const useFeedStore = create<FeedStore>()(
       activeFeedId: DEFAULT_FEEDS[0].id,
       crawlPreferences: DEFAULT_TICKER_CRAWL_PREFERENCES,
 
-      addFeed: (url) => {
+      refreshMinutes: 10,
+      setRefreshMinutes: (minutes) => {
+        if (FEED_REFRESH_MINUTES.includes(minutes)) set({ refreshMinutes: minutes });
+      },
+
+      addFeed: (url, verifiedTitle) => {
         const { feeds } = get();
         if (feeds.length >= MAX_FEEDS) return null;
         const created: FeedSource = {
           id: crypto.randomUUID(),
           url,
-          label: labelFromUrl(url),
+          label: verifiedTitle?.trim().slice(0, 200) || labelFromUrl(url),
           crawlEnabled: true,
           crawlMaxAgeHours: 24,
         };

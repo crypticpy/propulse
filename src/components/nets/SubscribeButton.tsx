@@ -58,7 +58,7 @@ export function SubscribeButton({
             : "Subscribe"}
       </button>
       {!isSubscribed && (
-        <p className="text-xs text-gray-400 mt-1.5">
+        <p className="text-xs text-su-muted mt-1.5">
           Get alerts before sessions start
         </p>
       )}

@@ -88,7 +88,7 @@ export function ScheduleOverlap({
     <div className="space-y-2">
       {/* Viewer row */}
       <div>
-        <div className="text-[10px] uppercase tracking-widest text-gray-500 mb-1">
+        <div className="text-[10px] uppercase tracking-widest text-su-muted mb-1">
           You
         </div>
         <div className="flex gap-[2px]">
@@ -99,7 +99,7 @@ export function ScheduleOverlap({
                 key={h}
                 className={[
                   "flex-1 h-5 rounded-[2px] transition-all",
-                  isOverlap ? "ring-1 ring-white/30" : "",
+                  isOverlap ? "ring-1 ring-su-line/60" : "",
                 ].join(" ")}
                 style={{
                   backgroundColor: `rgba(59, 130, 246, ${normalizedOpacity(val, viewerMax)})`,
@@ -113,7 +113,7 @@ export function ScheduleOverlap({
 
       {/* Target row */}
       <div>
-        <div className="text-[10px] uppercase tracking-widest text-gray-500 mb-1">
+        <div className="text-[10px] uppercase tracking-widest text-su-muted mb-1">
           {targetCallsign}
         </div>
         <div className="flex gap-[2px]">
@@ -124,7 +124,7 @@ export function ScheduleOverlap({
                 key={h}
                 className={[
                   "flex-1 h-5 rounded-[2px] transition-all",
-                  isOverlap ? "ring-1 ring-white/30" : "",
+                  isOverlap ? "ring-1 ring-su-line/60" : "",
                 ].join(" ")}
                 style={{
                   backgroundColor: `rgba(249, 115, 22, ${normalizedOpacity(val, targetMax)})`,
@@ -141,7 +141,7 @@ export function ScheduleOverlap({
         {TICK_LABELS.map(({ hour, label }) => (
           <div
             key={hour}
-            className="font-mono text-[9px] text-gray-600"
+            className="font-mono text-[9px] text-su-muted"
             style={{ width: "25%", paddingLeft: hour === 0 ? 0 : undefined }}
           >
             {label}
@@ -151,9 +151,9 @@ export function ScheduleOverlap({
 
       {/* Summary */}
       {overlapRange && (
-        <p className="text-[11px] text-gray-400">
+        <p className="text-[11px] text-su-muted">
           Best overlap:{" "}
-          <span className="text-white font-mono">{overlapRange}</span>
+          <span className="text-su-text font-mono">{overlapRange}</span>
         </p>
       )}
     </div>

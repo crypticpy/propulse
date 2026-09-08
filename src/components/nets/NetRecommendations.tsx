@@ -60,10 +60,10 @@ export function NetRecommendations({ netId }: NetRecommendationsProps) {
   if (isLoading) {
     return (
       <div className="space-y-2">
-        <div className="h-2.5 w-48 animate-pulse rounded bg-white/10" />
-        <div className="h-10 animate-pulse rounded-lg bg-white/5" />
-        <div className="h-10 animate-pulse rounded-lg bg-white/5" />
-        <div className="h-10 animate-pulse rounded-lg bg-white/5" />
+        <div className="h-2.5 w-48 animate-pulse rounded bg-su-line/20" />
+        <div className="h-10 animate-pulse rounded-lg bg-su-line/10" />
+        <div className="h-10 animate-pulse rounded-lg bg-su-line/10" />
+        <div className="h-10 animate-pulse rounded-lg bg-su-line/10" />
       </div>
     );
   }
@@ -78,7 +78,7 @@ export function NetRecommendations({ netId }: NetRecommendationsProps) {
 
   return (
     <div>
-      <h4 className="mb-2 text-[10px] uppercase tracking-widest text-gray-500">
+      <h4 className="mb-2 text-[10px] uppercase tracking-widest text-su-muted">
         Also Popular With These Operators
       </h4>
 
@@ -87,17 +87,17 @@ export function NetRecommendations({ netId }: NetRecommendationsProps) {
           <Link
             key={rec.netId}
             to={`/nets/${rec.netId}`}
-            className="flex items-center gap-3 rounded-lg border border-white/5 bg-void/30 px-3 py-2 transition-colors hover:bg-void/50"
+            className="flex items-center gap-3 rounded-lg border border-su-line/20 bg-void/30 px-3 py-2 transition-colors hover:bg-void/50"
           >
             <div className="min-w-0 flex-1">
-              <p className="truncate text-sm font-medium text-gray-200">
+              <p className="truncate text-sm font-medium text-su-text">
                 {rec.name}
               </p>
               {rec.frequency && (
-                <p className="text-[11px] text-gray-500">{rec.frequency}</p>
+                <p className="text-[11px] text-su-muted">{rec.frequency}</p>
               )}
             </div>
-            <span className="shrink-0 rounded-full bg-white/10 px-1.5 text-[10px] text-gray-400">
+            <span className="shrink-0 rounded-full bg-su-line/20 px-1.5 text-[10px] text-su-muted">
               {rec.overlapCount} in common
             </span>
           </Link>

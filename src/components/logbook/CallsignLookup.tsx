@@ -65,7 +65,7 @@ export function CallsignLookup({
   if (!loading && !hasAnyData && externalError) {
     return (
       <div
-        className={`mt-2 px-3 py-2 bg-white/5 border border-white/10 rounded-lg ${className}`}
+        className={`mt-2 px-3 py-2 bg-su-line/10 border border-su-line/40 rounded-lg ${className}`}
       >
         <div className="flex items-center gap-2 text-sm text-caution-amber">
           <WarningIcon />
@@ -79,9 +79,9 @@ export function CallsignLookup({
   if (loading && !hasAnyData) {
     return (
       <div
-        className={`mt-2 px-3 py-2 bg-white/5 border border-white/10 rounded-lg ${className}`}
+        className={`mt-2 px-3 py-2 bg-su-line/10 border border-su-line/40 rounded-lg ${className}`}
       >
-        <div className="flex items-center gap-2 text-sm text-gray-400">
+        <div className="flex items-center gap-2 text-sm text-su-muted">
           <LoadingSpinner size="sm" />
           <span>Loading...</span>
         </div>
@@ -96,7 +96,7 @@ export function CallsignLookup({
 
   return (
     <div
-      className={`mt-2 px-3 py-2 bg-white/5 border border-white/10 rounded-lg ${className}`}
+      className={`mt-2 px-3 py-2 bg-su-line/10 border border-su-line/40 rounded-lg ${className}`}
     >
       {local?.isWorked && local.lastQSO ? (
         <WorkedBeforeView
@@ -171,8 +171,8 @@ function WorkedBeforeView({
         </span>
         {lastQSO && (
           <>
-            <span className="text-gray-500">·</span>
-            <span className="text-gray-400">
+            <span className="text-su-muted">·</span>
+            <span className="text-su-muted">
               Last: {formattedDate} on {lastQSO.band} {lastQSO.mode}
             </span>
           </>
@@ -181,14 +181,14 @@ function WorkedBeforeView({
 
       {/* Details row */}
       {(displayName || displayGrid || displayQth) && (
-        <div className="flex items-center gap-2 text-sm text-gray-300">
+        <div className="flex items-center gap-2 text-sm text-su-muted">
           {displayName && <span>{displayName}</span>}
           {displayName && displayGrid && (
-            <span className="text-gray-500">·</span>
+            <span className="text-su-muted">·</span>
           )}
           {displayGrid && <span className="font-mono">{displayGrid}</span>}
           {(displayName || displayGrid) && displayQth && (
-            <span className="text-gray-500">·</span>
+            <span className="text-su-muted">·</span>
           )}
           {displayQth && <span>{displayQth}</span>}
         </div>
@@ -240,16 +240,16 @@ function NewCallsignView({ externalData, onAutoFill }: NewCallsignViewProps) {
         </span>
         {externalData?.country && (
           <>
-            <span className="text-gray-500">·</span>
-            <span className="text-gray-400">
+            <span className="text-su-muted">·</span>
+            <span className="text-su-muted">
               Country: {externalData.country}
             </span>
           </>
         )}
         {externalData?.cqzone && (
           <>
-            <span className="text-gray-500">·</span>
-            <span className="text-gray-400">
+            <span className="text-su-muted">·</span>
+            <span className="text-su-muted">
               CQ Zone: {externalData.cqzone}
             </span>
           </>
@@ -258,16 +258,16 @@ function NewCallsignView({ externalData, onAutoFill }: NewCallsignViewProps) {
 
       {/* Details row */}
       {(externalData?.name || externalData?.grid || externalData?.qth) && (
-        <div className="flex items-center gap-2 text-sm text-gray-300">
+        <div className="flex items-center gap-2 text-sm text-su-muted">
           {externalData.name && <span>{externalData.name}</span>}
           {externalData.name && externalData.grid && (
-            <span className="text-gray-500">·</span>
+            <span className="text-su-muted">·</span>
           )}
           {externalData.grid && (
             <span className="font-mono">{externalData.grid}</span>
           )}
           {(externalData.name || externalData.grid) && externalData.qth && (
-            <span className="text-gray-500">·</span>
+            <span className="text-su-muted">·</span>
           )}
           {externalData.qth && <span>{externalData.qth}</span>}
         </div>

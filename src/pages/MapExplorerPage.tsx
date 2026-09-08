@@ -318,9 +318,9 @@ export default function MapExplorerPage() {
       <div ref={containerRef} className="absolute inset-0" />
 
       <div className="pointer-events-none absolute top-3 right-3 left-3 z-20 flex flex-wrap items-start justify-between gap-3">
-        <div className="pointer-events-auto flex max-w-full flex-wrap items-center gap-2 rounded-xl border border-white/15 bg-void-black/85 p-2 shadow-xl backdrop-blur-md">
+        <div className="pointer-events-auto flex max-w-full flex-wrap items-center gap-2 rounded-xl border border-su-line/50 bg-su-panel/90 p-2 shadow-xl backdrop-blur-md">
           <LayoutModeDropdown activeDestination="explorer" />
-          <div className="h-6 w-px bg-white/10" />
+          <div className="h-6 w-px bg-su-line/20" />
           {(["satellite", "light", "dark", "contrast"] as const).map(
             (option) => (
               <button
@@ -329,8 +329,8 @@ export default function MapExplorerPage() {
                 onClick={() => selectStyle(option)}
                 className={`rounded-lg px-2.5 py-1.5 text-xs capitalize transition-colors ${
                   style === option
-                    ? "bg-plasma-orange text-white"
-                    : "text-gray-400 hover:bg-white/10 hover:text-white"
+                    ? "bg-plasma-orange text-su-on-accent"
+                    : "text-su-muted hover:bg-su-line/20 hover:text-su-text"
                 }`}
               >
                 {option}
@@ -339,7 +339,7 @@ export default function MapExplorerPage() {
           )}
         </div>
 
-        <div className="pointer-events-auto flex max-w-full flex-wrap items-center gap-1 rounded-xl border border-white/15 bg-void-black/85 p-2 shadow-xl backdrop-blur-md">
+        <div className="pointer-events-auto flex max-w-full flex-wrap items-center gap-1 rounded-xl border border-su-line/50 bg-su-panel/90 p-2 shadow-xl backdrop-blur-md">
           {DISPLAY_QUALITY_OPTIONS.map((option) => (
             <button
               key={option.id}
@@ -349,7 +349,7 @@ export default function MapExplorerPage() {
               className={`rounded px-2 py-1.5 text-[10px] ${
                 displayQuality === option.id
                   ? "bg-cosmic-cyan/20 text-cosmic-cyan"
-                  : "text-gray-500 hover:bg-white/10 hover:text-white"
+                  : "text-su-muted hover:bg-su-line/20 hover:text-su-text"
               }`}
             >
               {option.label}
@@ -359,13 +359,13 @@ export default function MapExplorerPage() {
       </div>
 
       <div className="pointer-events-none absolute bottom-3 left-3 z-20 flex max-w-[calc(100%-11rem)] flex-col gap-2">
-        <div className="pointer-events-auto flex flex-wrap gap-1.5 rounded-xl border border-white/10 bg-void-black/80 p-2 backdrop-blur-md">
+        <div className="pointer-events-auto flex flex-wrap gap-1.5 rounded-xl border border-su-line/40 bg-su-panel/90 p-2 backdrop-blur-md">
           {REGIONS.map((region) => (
             <button
               key={region.label}
               type="button"
               onClick={() => flyToRegion(region)}
-              className="rounded-lg px-2.5 py-1.5 text-xs text-gray-300 hover:bg-white/10 hover:text-white"
+              className="rounded-lg px-2.5 py-1.5 text-xs text-su-muted hover:bg-su-line/20 hover:text-su-text"
             >
               {region.label}
             </button>
@@ -384,7 +384,7 @@ export default function MapExplorerPage() {
         <div className="absolute inset-0 z-10 flex items-center justify-center bg-deep-space">
           <div className="text-center">
             <div className="mx-auto h-8 w-8 animate-spin rounded-full border-2 border-plasma-orange border-t-transparent" />
-            <p className="mt-3 text-sm text-gray-400">
+            <p className="mt-3 text-sm text-su-muted">
               Resolving regional imagery…
             </p>
           </div>
@@ -427,7 +427,7 @@ export default function MapExplorerPage() {
       <button
         type="button"
         onClick={exit}
-        className="absolute right-14 bottom-3 z-20 rounded-lg border border-white/15 bg-void-black/80 px-3 py-2 text-xs text-gray-300 hover:bg-white/10 hover:text-white"
+        className="absolute right-14 bottom-3 z-20 rounded-lg border border-su-line/50 bg-su-panel/90 px-3 py-2 text-xs text-su-muted hover:bg-su-panel/95 hover:text-su-text"
       >
         Return to PropSphere
       </button>

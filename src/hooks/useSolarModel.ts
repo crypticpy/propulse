@@ -15,6 +15,7 @@ import type {
   OfficialSolarAlert,
   ProtonPoint,
   SolarFluxForecastProduct,
+  SolarFluxOutlookProduct,
   SolarFluxPoint,
   SolarWindMagPoint,
   SolarWindPlasmaPoint,
@@ -106,6 +107,7 @@ export function useSolarModel(options: UseSolarModelOptions = {}) {
   const dstQuery = useSolarResource<DstPoint[]>("noaa-dst", enabled("noaa-dst"));
   const drapQuery = useSolarResource<DrapGrid>("noaa-drap", enabled("noaa-drap"));
   const forecastQuery = useSolarResource<SolarFluxForecastProduct>("noaa-flux-forecast", enabled("noaa-flux-forecast"));
+  const outlookQuery = useSolarResource<SolarFluxOutlookProduct>("noaa-flux-outlook", enabled("noaa-flux-outlook"));
   const cmeQuery = useSolarResource<CmeAnalysisPoint[]>("nasa-cme", enabled("nasa-cme"));
   const scalesQuery = useSolarResource<NoaaScalesProduct>("swpc-scales", enabled("swpc-scales"));
   const alertsQuery = useSolarResource<OfficialSolarAlert[]>("swpc-alerts", enabled("swpc-alerts"));
@@ -125,6 +127,7 @@ export function useSolarModel(options: UseSolarModelOptions = {}) {
       dst: view("noaa-dst", dstQuery, now),
       drap: view("noaa-drap", drapQuery, now),
       forecast: view("noaa-flux-forecast", forecastQuery, now),
+      outlook: view("noaa-flux-outlook", outlookQuery, now),
       cme: view("nasa-cme", cmeQuery, now),
       scales: view("swpc-scales", scalesQuery, now),
       alerts: view("swpc-alerts", alertsQuery, now),
@@ -143,6 +146,7 @@ export function useSolarModel(options: UseSolarModelOptions = {}) {
       kpQuery,
       latestFlareQuery,
       magnetometerQuery,
+      outlookQuery,
       probabilitiesQuery,
       protonsQuery,
       scalesQuery,

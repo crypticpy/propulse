@@ -41,10 +41,10 @@ import {
 function DataRow({ label, value }: { label: string; value: React.ReactNode }) {
   return (
     <div className="flex items-start justify-between gap-4">
-      <dt className="shrink-0 text-xs uppercase tracking-wide text-gray-500">
+      <dt className="shrink-0 text-xs uppercase tracking-wide text-su-muted">
         {label}
       </dt>
-      <dd className="min-w-0 break-words text-right text-sm text-gray-200">
+      <dd className="min-w-0 break-words text-right text-sm text-su-text">
         {value}
       </dd>
     </div>
@@ -84,20 +84,20 @@ function ActivationOperatorContext({
       <div className="mb-2 flex items-center justify-between gap-3">
         <h3
           id="activation-operator-heading"
-          className="text-xs font-semibold uppercase tracking-[0.16em] text-gray-400"
+          className="text-xs font-semibold uppercase tracking-[0.16em] text-su-muted"
         >
           Operator context
         </h3>
-        <span className="text-right text-[10px] text-gray-500">
+        <span className="text-right text-[10px] text-su-muted">
           {profile.result?.sources.length
             ? profile.result.sources.map(formatProfileSource).join(" + ")
             : "QRZ · HamQTH · Callook"}
         </span>
       </div>
       {profile.loading ? (
-        <div className="h-20 animate-pulse rounded-lg bg-white/5" />
+        <div className="h-20 animate-pulse rounded-lg bg-su-line/10" />
       ) : profile.result ? (
-        <dl className="space-y-2 rounded-lg border border-white/10 bg-white/[0.035] p-3">
+        <dl className="space-y-2 rounded-lg border border-su-line/40 bg-su-line/10 p-3">
           {profile.result.name && (
             <DataRow label="Operator" value={profile.result.name} />
           )}
@@ -131,7 +131,7 @@ function ActivationOperatorContext({
           )}
         </dl>
       ) : (
-        <p className="rounded-lg border border-white/10 bg-white/[0.035] p-3 text-sm text-gray-400">
+        <p className="rounded-lg border border-su-line/40 bg-su-line/10 p-3 text-sm text-su-muted">
           No enriched profile was returned by the available callsign sources.
           The live activation report above is still available.
         </p>
@@ -141,7 +141,7 @@ function ActivationOperatorContext({
           href={`https://www.qrz.com/db/${encodeURIComponent(callsign)}`}
           target="_blank"
           rel="noopener noreferrer"
-          className="text-cosmic-cyan hover:text-white"
+          className="text-cosmic-cyan hover:text-su-text"
         >
           Open QRZ.com ↗
         </a>
@@ -149,7 +149,7 @@ function ActivationOperatorContext({
           href={programMeta.sourceUrl}
           target="_blank"
           rel="noopener noreferrer"
-          className="text-cosmic-cyan hover:text-white"
+          className="text-cosmic-cyan hover:text-su-text"
         >
           {programMeta.source} ↗
         </a>
@@ -240,6 +240,12 @@ export function ActivationDetailPanel() {
 
   useEffect(() => {
     if (!spot) return;
+    // A renewed report can arrive in the same render that the old one expires.
+    // Adopt its stable activation identity before expiring the old report.
+    if (refreshedSpot && currentActivations([refreshedSpot], now).length > 0) {
+      if (!sameActivationReport(refreshedSpot, spot)) selectSpot(refreshedSpot);
+      return;
+    }
     if (currentActivations([spot], now).length === 0) { clearSpot(); return; }
     if (activationFeed.isLoading || activationFeed.error) return;
     if (!refreshedSpot) {
@@ -253,10 +259,6 @@ export function ActivationDetailPanel() {
       if (selectedSource?.status === "ok") clearSpot();
       return;
     }
-    // Provider IDs describe individual reports and may change when the same
-    // activation moves frequency. Keep the open card bound to the stable
-    // program/callsign/reference identity so it cannot prepare a stale QSO.
-    if (!sameActivationReport(refreshedSpot, spot)) selectSpot(refreshedSpot);
   }, [
     now,
     activationFeed.error,
@@ -353,22 +355,22 @@ export function ActivationDetailPanel() {
           <section aria-labelledby="activation-report-heading">
             <h3
               id="activation-report-heading"
-              className="mb-2 text-xs font-semibold uppercase tracking-[0.16em] text-gray-400"
+              className="mb-2 text-xs font-semibold uppercase tracking-[0.16em] text-su-muted"
             >
               Reported activation
             </h3>
-            <dl className="space-y-2 rounded-lg border border-white/10 bg-white/[0.035] p-3">
+            <dl className="space-y-2 rounded-lg border border-su-line/40 bg-su-line/10 p-3">
               <DataRow
                 label="Frequency"
-                value={<span className="font-mono text-white">{frequency}</span>}
+                value={<span className="font-mono text-su-text">{frequency}</span>}
               />
               <DataRow label="Mode" value={spot.mode || "Unknown"} />
               <DataRow
                 label="Reference"
                 value={
                   <span>
-                    <span className="font-mono text-white">{spot.reference}</span>
-                    <span className="block text-xs text-gray-400">
+                    <span className="font-mono text-su-text">{spot.reference}</span>
+                    <span className="block text-xs text-su-muted">
                       {spot.referenceName}
                     </span>
                   </span>
@@ -389,27 +391,27 @@ export function ActivationDetailPanel() {
           <section aria-labelledby="activation-path-heading">
             <h3
               id="activation-path-heading"
-              className="mb-2 text-xs font-semibold uppercase tracking-[0.16em] text-gray-400"
+              className="mb-2 text-xs font-semibold uppercase tracking-[0.16em] text-su-muted"
             >
               Path from current location
             </h3>
             {path ? (
               <div className="grid grid-cols-3 gap-2">
-                <div className="rounded-lg border border-white/10 bg-white/[0.035] p-2">
-                  <div className="text-[10px] uppercase text-gray-500">Distance</div>
-                  <div className="mt-1 font-mono text-sm text-white">
+                <div className="rounded-lg border border-su-line/40 bg-su-line/10 p-2">
+                  <div className="text-[10px] uppercase text-su-muted">Distance</div>
+                  <div className="mt-1 font-mono text-sm text-su-text">
                     {formatDistance(path.shortPath.distance)}
                   </div>
                 </div>
-                <div className="rounded-lg border border-white/10 bg-white/[0.035] p-2">
-                  <div className="text-[10px] uppercase text-gray-500">Bearing</div>
-                  <div className="mt-1 font-mono text-sm text-white">
+                <div className="rounded-lg border border-su-line/40 bg-su-line/10 p-2">
+                  <div className="text-[10px] uppercase text-su-muted">Bearing</div>
+                  <div className="mt-1 font-mono text-sm text-su-text">
                     {Math.round(path.shortPath.bearing)}° {formatBearing(path.shortPath.bearing)}
                   </div>
                 </div>
-                <div className="rounded-lg border border-white/10 bg-white/[0.035] p-2">
-                  <div className="text-[10px] uppercase text-gray-500">Est. hops</div>
-                  <div className="mt-1 font-mono text-sm text-white">{path.hops}</div>
+                <div className="rounded-lg border border-su-line/40 bg-su-line/10 p-2">
+                  <div className="text-[10px] uppercase text-su-muted">Est. hops</div>
+                  <div className="mt-1 font-mono text-sm text-su-text">{path.hops}</div>
                 </div>
               </div>
             ) : (
@@ -427,11 +429,11 @@ export function ActivationDetailPanel() {
 
         <TuneButton frequencyKHz={spot.frequencyKHz} mode={spot.mode.trim().toUpperCase() === "UNKNOWN" ? null : spot.mode || null} wall={false} />
 
-        <footer className="grid grid-cols-1 gap-2 border-t border-white/10 bg-black/20 p-3 sm:grid-cols-3">
+        <footer className="grid grid-cols-1 gap-2 border-t border-su-line/40 bg-su-input/50 p-3 sm:grid-cols-3">
           <button
             type="button"
             onClick={handleCopy}
-            className="rounded-lg border border-white/15 bg-white/5 px-3 py-2 text-sm text-gray-200 transition-colors hover:bg-white/10"
+            className="rounded-lg border border-su-line/50 bg-su-line/10 px-3 py-2 text-sm text-su-text transition-colors hover:bg-su-line/20"
           >
             {copyState === "copied"
               ? "Copied"

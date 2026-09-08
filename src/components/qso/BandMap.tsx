@@ -303,7 +303,7 @@ export function BandMap({
   if (!range) {
     return (
       <div
-        className={`bg-void-black border border-white/10 rounded-lg p-4 text-center text-gray-500 text-sm ${className}`}
+        className={`bg-void-black border border-su-line/40 rounded-lg p-4 text-center text-su-muted text-sm ${className}`}
       >
         Select a band to view the band map
       </div>
@@ -313,7 +313,7 @@ export function BandMap({
   return (
     <div
       ref={containerRef}
-      className={`relative bg-void-black border border-white/10 rounded-lg overflow-hidden ${className}`}
+      className={`relative bg-void-black border border-su-line/40 rounded-lg overflow-hidden ${className}`}
     >
       <svg
         width={containerWidth}
@@ -478,10 +478,10 @@ export function BandMap({
 
       {/* Resize handle */}
       <div
-        className="absolute bottom-0 left-0 right-0 h-2 cursor-ns-resize flex items-center justify-center hover:bg-white/5 transition-colors"
+        className="absolute bottom-0 left-0 right-0 h-2 cursor-ns-resize flex items-center justify-center hover:bg-su-line/10 transition-colors"
         onMouseDown={handleResizeMouseDown}
       >
-        <div className="w-8 h-0.5 rounded-full bg-white/20" />
+        <div className="w-8 h-0.5 rounded-full bg-su-line/30" />
       </div>
     </div>
   );

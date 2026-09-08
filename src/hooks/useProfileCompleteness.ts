@@ -91,7 +91,7 @@ export function useProfileCompleteness(): CompletenessResult {
         ? "text-plasma-orange"
         : score >= 40
           ? "text-caution-yellow"
-          : "text-gray-400";
+          : "text-su-muted";
 
   return { score, tier, tierColor, items };
 }

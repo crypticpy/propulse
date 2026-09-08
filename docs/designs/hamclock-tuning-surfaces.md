@@ -20,3 +20,10 @@ These existing compact panels explicitly use normal 44-pixel controls, even if t
 [Focused station/satellite fixture](../images/hamclock-tuning/satellite-station-fixture.png)
 
 Remaining #286 work includes wall contacts/activity/tile actions, activation/decode and favourite surfaces, plus the adapter-dependent SDR target. Real hardware acknowledgement and full satellite presentation acceptance remain pending.
+
+
+## Release integration — 2026-09-07
+
+Integrated on the refreshed shared tuning foundation and current main, retaining shared theme tokens. Twenty-two focused button/dispatcher tests pass. The isolated component fixture passes all 18 combinations (320px/1080p/4K, Pulse/Classic/Brass, ready/disconnected), with at least 44px targets and no clipping or page errors. It verifies 7.074 MHz FT8 stages USB and the unspecified-mode satellite target stages 435,123,456 Hz with no mode request. This is component behavior evidence, not provider or hardware validation.
+
+Owned local test session: `hamclock-operating-release`, `cb106b4a-e997-4847-a861-5a997bbac11d`, http://127.0.0.1:5186, checkout `.worktrees/hamclock-operating-release`. Browser fixture: `tmp/surfaces/check.mjs`. Hardware WebSockets blocked; user previews preserved.

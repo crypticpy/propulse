@@ -159,6 +159,24 @@ Do not commit generated/build artifacts: `node_modules/`, `dist/`, `dev-dist/`, 
 
 Local prototyping without a PR is fine, in a worktree. Anything that reaches `main` goes through one issue → one PR per `docs/AGENT-CONSTITUTION.md`. No stacked PRs. The primary checkout is shared scratch — never commit from it.
 
+## Design system (Claude Design)
+
+The shared component library is synced to **Claude Design** so design work is done with the real PROPULSE components (station-ui, Home widgets, Solar charts, HamClock wall tiles and chrome). A Claude Design project is visible only to the account that owns it, and the team works on two accounts, so the design system lives in **two mirrored projects**:
+
+| Account                         | Project                                                                                                    |
+| ------------------------------- | ---------------------------------------------------------------------------------------------------------- |
+| aboveearthproductions@gmail.com | `b5bd52bb-3dae-49e3-a9d9-0ee4fd4feae6` — <https://claude.ai/design/p/b5bd52bb-3dae-49e3-a9d9-0ee4fd4feae6> |
+| propulsetecnologies@gmail.com   | `30f79cc2-2a71-411b-91a2-6cce7ede8afd` — <https://claude.ai/design/p/30f79cc2-2a71-411b-91a2-6cce7ede8afd> |
+
+Rules:
+
+- **Every sync close-out pushes to both projects.** A sync plan is per account and per session: finish one account, then `/design-login` as the other, `finalize_plan` against that account's project id, and push the same `ds-bundle/` in the same order. If only one account is reachable, push there and leave a note in `.design-sync/NOTES.md` so the next session on the other account catches up.
+- **Pick the target from the account you are on.** `.design-sync/config.json` holds `projectId` (the current run) and `mirrorProjects` (account → project id). `get_project` on the other account's id returns 404; that is expected, not an error.
+- **The app and the design system stay aligned.** Every UI fix goes through the shared component (`src/components/ui/*`, `station-ui`, wall tiles), never a one-off in a page; narrow layouts get a discrete stacked variant instead of a compressed two-column row; after the fix merges, the affected cards are re-graded so the project shows what ships.
+- Never delete the app-managed files `_ds_manifest.json` and `_adherence.oxlintrc.json` from a project.
+
+Where things live: the sync config, notes, entry barrel, shims and authored previews are in `.design-sync/` and the converter in `.ds-sync/`; until branch `chore/design-sync-config` lands they exist only in that worktree. The build recipe and re-sync driver (`resync.mjs --remote <project's _ds_sync.json>`) are documented in `.design-sync/NOTES.md`; read its "Re-sync risks" and "second-account mirror" sections before running `/design-sync`. The component README is `docs/designs/design-system/README.md`.
+
 ## Environment Variables
 
 **Frontend** (`.env`):

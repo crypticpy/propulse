@@ -174,6 +174,7 @@ Steps for a file: swap the classes, delete any local `--*` colour variable it de
 4. **Charts.** `--su-info` for the default series, `--su-accent` for the "now"/selected marker, the tone tokens for status bands. Do not reach for a raw Tailwind palette colour to add a series.
 5. **No new colour systems.** A feature does not declare its own `--feature-*` colour variables or a private override stylesheet. If a role is missing, add a token here.
 6. **No glow on reading surfaces.** Text shadow, blur and glow stay out of anything you read (a station-design rule, restated so it is not lost in migration).
+7. **Legibility first (owner rule, 2026-09-08).** Many operators wear glasses or have astigmatism; they read walls from across the room and phones in daylight. So: high contrast by default (rules 1 and 3 are floors, not targets), body and data text in the sharp faces already in the system (Inter for body, JetBrains Mono for data; Orbitron only for headings), no thin weights below 400 for anything read, and nothing that halos or fringes text: no glow, no blur, no text shadow, no low-alpha text on a busy surface, no saturated text on a saturated background. When a colour, weight or size choice is in doubt, pick the one that reads more clearly, and give the user a text-size control rather than shrinking the type.
 
 ## Guard
 

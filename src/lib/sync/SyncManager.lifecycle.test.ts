@@ -97,30 +97,61 @@ describe("SyncManager session lifetime", () => {
     expect(vi.getTimerCount()).toBe(1);
   });
 
-  it("does not flush on stop or dequeue a newer session's durable entries on old completion", async () => {
+  it("keeps an old in-flight queue completion from dequeuing the next owner's own entries", async () => {
     const oldQueue = deferred<string[]>();
     const nextQueue = deferred<string[]>();
     const processQueue = vi.fn().mockReturnValueOnce(oldQueue.promise).mockReturnValueOnce(nextQueue.promise);
     manager.registerModule(moduleWith({ name: "logs", tier: "incremental", tables: ["log_entries"], processQueue }));
     await manager.start("owner-a");
-    manager.enqueue("log_entries", "upsert", { id: "entry" });
+    manager.enqueue("log_entries", "upsert", { id: "entry-a" });
     const firstSync = manager.syncNow();
     await vi.waitFor(() => expect(processQueue).toHaveBeenCalledTimes(1));
     const oldIds = processQueue.mock.calls[0][1].map((entry: { queueId: string }) => entry.queueId);
-    const stopped = manager.stop();
+    await manager.stop();
     expect(processQueue).toHaveBeenCalledTimes(1);
-    const restarted = manager.start("owner-b");
+    expect(manager.getPendingCount()).toBe(0);
+    expect(manager.getFailedEntries()).toEqual([]);
+    await manager.start("owner-b");
+    expect(processQueue).toHaveBeenCalledTimes(1);
+    manager.enqueue("log_entries", "upsert", { id: "entry-b" });
+    const nextSync = manager.syncNow();
     await vi.waitFor(() => expect(processQueue).toHaveBeenCalledTimes(2));
+    const nextIds = processQueue.mock.calls[1][1].map((entry: { queueId: string }) => entry.queueId);
     oldQueue.resolve(oldIds);
     await firstSync;
-    await stopped;
     expect(manager.getPendingCount()).toBe(1);
-    expect(JSON.parse(localStorage.getItem("propulse-sync-queue")!)).toHaveLength(1);
+    expect(JSON.parse(localStorage.getItem("propulse-account-write-queue-v1:owner-a")!)).toHaveLength(1);
+    expect(JSON.parse(localStorage.getItem("propulse-account-write-queue-v1:owner-b")!)).toHaveLength(1);
     const { useSyncStore } = await import("./syncStore");
     expect(useSyncStore.getState().status.state).toBe("syncing");
     expect(processQueue.mock.calls.map(([owner]) => owner)).toEqual(["owner-a", "owner-b"]);
-    nextQueue.resolve(oldIds);
-    await restarted;
+    expect(processQueue.mock.calls[1][1].map((entry: { data: { id: string } }) => entry.data.id)).toEqual(["entry-b"]);
+    nextQueue.resolve(nextIds);
+    await nextSync;
+    expect(manager.getPendingCount()).toBe(0);
+  });
+
+  it.each([false, true])("replays offline rows only when their original owner returns (storage unavailable: %s)", async (unavailable) => {
+    if (unavailable) {
+      vi.spyOn(Storage.prototype, "getItem").mockImplementation(() => { throw new Error("storage unavailable"); });
+      vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => { throw new Error("storage unavailable"); });
+      vi.spyOn(console, "warn").mockImplementation(() => {});
+    }
+    const online = vi.spyOn(manager, "isOnline").mockReturnValue(false);
+    const processQueue = vi.fn(async (_owner: string, entries: { queueId: string }[]) => entries.map((entry) => entry.queueId));
+    manager.registerModule(moduleWith({ name: "logs", tier: "incremental", tables: ["log_entries"], processQueue }));
+    await manager.start("owner-a");
+    manager.enqueue("log_entries", "upsert", { id: "offline-a" });
+    expect(manager.getPendingCount()).toBe(1);
+    await manager.stop();
+    online.mockReturnValue(true);
+    await manager.start("owner-b");
+    expect(manager.getPendingCount()).toBe(0);
+    expect(processQueue).not.toHaveBeenCalled();
+    await manager.stop();
+    await manager.start("owner-a");
+    expect(processQueue).toHaveBeenCalledTimes(1);
+    expect(processQueue.mock.calls[0][0]).toBe("owner-a");
     expect(manager.getPendingCount()).toBe(0);
   });
 

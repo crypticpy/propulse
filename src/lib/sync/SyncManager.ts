@@ -43,6 +43,8 @@ export class SyncManager {
 
   private modules = new Map<string, SyncModule>();
   private writeQueue: WriteQueue;
+  // Retain each owner's in-memory queue even when browser storage is unavailable.
+  private ownerQueues = new Map<string, WriteQueue>();
   private userId: string | null = null;
   private running = false;
   private generation = 0;
@@ -105,6 +107,12 @@ export class SyncManager {
     }
 
     const generation = ++this.generation;
+    let queue = this.ownerQueues.get(userId);
+    if (!queue) {
+      queue = new WriteQueue(userId);
+      this.ownerQueues.set(userId, queue);
+    }
+    this.writeQueue = queue;
     this.userId = userId;
     this.running = true;
     this.updateStatus({ state: "syncing", error: null });
@@ -143,6 +151,7 @@ export class SyncManager {
     ++this.generation;
     this.running = false;
     this.userId = null;
+    this.writeQueue = new WriteQueue();
     this.flushing = false;
     this.flushingTables.clear();
 
@@ -152,8 +161,8 @@ export class SyncManager {
     this.clearRetryTimers();
 
     if (!preserveMetadata) syncMeta.clear();
-    // Don't clear the write queue — unsynced entries survive for next session.
-    // The queue persists in localStorage and will be flushed on next start().
+    // Retain owner queues; only the same owner can replay its unsynced entries.
+    // The inactive queue exposes no previous account's pending or failed rows.
     useSyncStore.getState().reset();
   }
 

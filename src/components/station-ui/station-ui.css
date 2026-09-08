@@ -104,7 +104,10 @@
 }
 .su-grid {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(
+    auto-fit,
+    minmax(min(100%, max(14rem, calc(50% - var(--su-gap) / 2))), 1fr)
+  );
   gap: var(--su-gap);
   min-width: 0;
 }
@@ -406,7 +409,7 @@
 }
 .su-upload-label .su-hint {
   margin-top: 0.25rem;
-  overflow-wrap: anywhere;
+  overflow-wrap: break-word;
 }
 .su-disclosure {
   border-top: 1px solid color-mix(in srgb, var(--su-line) 55%, transparent);
@@ -589,7 +592,7 @@
 }
 .su-key-values dd {
   margin: 0;
-  overflow-wrap: anywhere;
+  overflow-wrap: break-word;
 }
 .su-table-scroll {
   overflow-x: auto;
@@ -691,7 +694,7 @@
   gap: 0.65rem;
   min-width: 0;
   font: 400 calc(0.875rem * var(--su-text-scale))/1.6 var(--su-font-mono);
-  overflow-wrap: anywhere;
+  overflow-wrap: break-word;
 }
 .su-connection-preview svg {
   color: var(--su-info);
@@ -720,9 +723,6 @@
   gap: 0.3rem;
 }
 @media (max-width: 640px) {
-  .su-grid {
-    grid-template-columns: 1fr;
-  }
   .su-disclosure summary {
     flex-wrap: wrap;
     gap: 0.25rem 0.75rem;

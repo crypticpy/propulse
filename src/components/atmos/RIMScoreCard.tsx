@@ -59,7 +59,7 @@ function trendColor(trend: "up" | "down" | "stable"): string {
     case "down":
       return "text-alert-red";
     case "stable":
-      return "text-gray-500";
+      return "text-su-muted";
   }
 }
 
@@ -70,20 +70,20 @@ function trendColor(trend: "up" | "down" | "stable"): string {
 function SubScoreBar({ sub }: { sub: RIMSubScore }) {
   return (
     <div className="flex items-center gap-1.5">
-      <span className="text-[10px] text-gray-400 w-[68px] truncate font-mono">
+      <span className="text-[10px] text-su-muted w-[68px] truncate font-mono">
         {sub.label}
       </span>
-      <div className="flex-1 h-1.5 rounded-full bg-white/5 overflow-hidden">
+      <div className="flex-1 h-1.5 rounded-full bg-su-line/10 overflow-hidden">
         {sub.dataAvailable ? (
           <div
             className={`h-full rounded-full transition-all duration-500 ${scoreBarColor(sub.value)}`}
             style={{ width: `${sub.value}%` }}
           />
         ) : (
-          <div className="h-full w-full bg-white/[0.03]" />
+          <div className="h-full w-full bg-su-line/10" />
         )}
       </div>
-      <span className="text-[10px] font-mono text-gray-300 w-6 text-right tabular-nums">
+      <span className="text-[10px] font-mono text-su-muted w-6 text-right tabular-nums">
         {sub.dataAvailable ? sub.value : "\u2014"}
       </span>
       <span className={`text-[10px] w-3 text-center ${trendColor(sub.trend)}`}>
@@ -103,10 +103,10 @@ export function RIMScoreCard() {
   // Loading state
   if (isLoading && !rimResult) {
     return (
-      <div className="flex items-center justify-center h-20 rounded-lg bg-void-black/40 border border-white/5">
+      <div className="flex items-center justify-center h-20 rounded-lg bg-void-black/40 border border-su-line/20">
         <div className="flex items-center gap-2">
           <div className="w-3 h-3 rounded-full border-2 border-plasma-orange/40 border-t-plasma-orange animate-spin" />
-          <span className="text-[10px] text-gray-500 font-mono">
+          <span className="text-[10px] text-su-muted font-mono">
             Computing RIM...
           </span>
         </div>
@@ -117,8 +117,8 @@ export function RIMScoreCard() {
   // No data state
   if (!rimResult) {
     return (
-      <div className="flex items-center justify-center h-20 rounded-lg bg-void-black/40 border border-white/5">
-        <span className="text-[10px] text-gray-600 font-mono">
+      <div className="flex items-center justify-center h-20 rounded-lg bg-void-black/40 border border-su-line/20">
+        <span className="text-[10px] text-su-muted font-mono">
           No data available
         </span>
       </div>
@@ -126,7 +126,7 @@ export function RIMScoreCard() {
   }
 
   return (
-    <div className="rounded-lg bg-void-black/40 border border-white/5 p-2.5">
+    <div className="rounded-lg bg-void-black/40 border border-su-line/20 p-2.5">
       {/* Composite score */}
       <div className="flex items-center gap-3 mb-2.5">
         <div className="flex flex-col items-center">
@@ -135,12 +135,12 @@ export function RIMScoreCard() {
           >
             {rimResult.composite}
           </span>
-          <span className="text-[9px] text-gray-500 font-mono mt-0.5">
+          <span className="text-[9px] text-su-muted font-mono mt-0.5">
             /100
           </span>
         </div>
         <div className="flex flex-col">
-          <span className="text-[10px] font-mono text-gray-400 uppercase tracking-wider">
+          <span className="text-[10px] font-mono text-su-muted uppercase tracking-wider">
             Radio Impact
           </span>
           <span

@@ -142,7 +142,7 @@ export function BandActivityBar({
           <button
             key={seg.band}
             onClick={() => handleClick(seg.band)}
-            className={`relative flex items-center justify-center transition-all duration-300 ease-in-out cursor-pointer rounded-md hover:brightness-125 ${isActive && hasActiveFilter ? "ring-1 ring-white/40" : ""}`}
+            className={`relative flex items-center justify-center transition-all duration-300 ease-in-out cursor-pointer rounded-md hover:brightness-125 ${isActive && hasActiveFilter ? "ring-1 ring-su-line/60" : ""}`}
             style={{
               flex: `${seg.count} 0 0%`,
               minWidth: `${MIN_SEGMENT_WIDTH}px`,

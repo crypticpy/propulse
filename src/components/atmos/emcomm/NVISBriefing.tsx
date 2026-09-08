@@ -29,7 +29,7 @@ export function NVISBriefing() {
   if (!location) {
     return (
       <div className="text-center py-2">
-        <p className="text-[10px] text-gray-600">
+        <p className="text-[10px] text-su-muted">
           Set station location in Settings
         </p>
       </div>
@@ -40,7 +40,7 @@ export function NVISBriefing() {
   if (!analysis) {
     return (
       <div className="flex items-center justify-center py-3">
-        <div className="w-3 h-3 border border-gray-600 border-t-plasma-orange rounded-full animate-spin" />
+        <div className="w-3 h-3 border border-su-line border-t-plasma-orange rounded-full animate-spin" />
       </div>
     );
   }
@@ -55,7 +55,7 @@ export function NVISBriefing() {
             NVIS Not Viable
           </span>
         </div>
-        <p className="text-[10px] text-gray-500 leading-tight">
+        <p className="text-[10px] text-su-muted leading-tight">
           f0F2 too low ({analysis.f0F2.toFixed(1)} MHz). Regional skywave
           communications unlikely on HF low bands.
         </p>
@@ -83,29 +83,29 @@ export function NVISBriefing() {
 
       {/* Details grid */}
       <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-[10px]">
-        <div className="text-gray-500">Optimal Freq</div>
-        <div className="text-gray-300 font-mono text-right">
+        <div className="text-su-muted">Optimal Freq</div>
+        <div className="text-su-muted font-mono text-right">
           {analysis.optimalFrequency.toFixed(2)} MHz
         </div>
 
-        <div className="text-gray-500">Coverage</div>
-        <div className="text-gray-300 font-mono text-right">
+        <div className="text-su-muted">Coverage</div>
+        <div className="text-su-muted font-mono text-right">
           ~{analysis.coverageRadius} km
         </div>
 
-        <div className="text-gray-500">Bands</div>
-        <div className="text-gray-300 font-mono text-right">
+        <div className="text-su-muted">Bands</div>
+        <div className="text-su-muted font-mono text-right">
           {analysis.recommendedBands.join(", ") || "None"}
         </div>
 
-        <div className="text-gray-500">f0F2</div>
-        <div className="text-gray-300 font-mono text-right">
+        <div className="text-su-muted">f0F2</div>
+        <div className="text-su-muted font-mono text-right">
           {analysis.f0F2.toFixed(1)} MHz
         </div>
       </div>
 
       {/* Condition summary */}
-      <p className="text-[10px] text-gray-500 leading-tight">
+      <p className="text-[10px] text-su-muted leading-tight">
         {analysis.conditionSummary}
       </p>
     </div>

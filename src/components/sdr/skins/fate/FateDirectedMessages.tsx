@@ -67,7 +67,7 @@ function DirectedRow({
   return (
     <div className="flex flex-col gap-0.5 px-2 py-1 rounded bg-cosmic-cyan/5 border-l-2 border-cosmic-cyan/40 hover:bg-cosmic-cyan/10 transition-colors">
       <div className="flex items-center gap-2 text-[10px]">
-        <span className="font-mono text-gray-500 shrink-0">
+        <span className="font-mono text-su-muted shrink-0">
           {decode.utcFormatted}
         </span>
         <span className={`font-mono shrink-0 ${snrColorClass(decode.snr)}`}>
@@ -75,11 +75,11 @@ function DirectedRow({
         </span>
         {decode.parsedCallsign && (
           <div className="flex flex-col min-w-0">
-            <span className="font-mono font-bold text-white text-[11px] truncate">
+            <span className="font-mono font-bold text-su-text text-[11px] truncate">
               {decode.parsedCallsign}
             </span>
             {dxccInfo && (
-              <span className="text-[8px] text-gray-500 truncate">
+              <span className="text-[8px] text-su-muted truncate">
                 {dxccInfo.entity?.name ?? "Unknown"}
                 {!dxccInfo.isWorked && (
                   <span className="ml-1 text-signal-green font-semibold">
@@ -91,7 +91,7 @@ function DirectedRow({
           </div>
         )}
         {decode.parsedGrid && decode.distanceKm != null && (
-          <span className="text-gray-500 shrink-0 ml-auto tabular-nums">
+          <span className="text-su-muted shrink-0 ml-auto tabular-nums">
             {Math.round(decode.distanceKm)} km
           </span>
         )}
@@ -106,7 +106,7 @@ function DirectedRow({
           </button>
         )}
       </div>
-      <div className="text-[10px] font-mono text-gray-300 truncate">
+      <div className="text-[10px] font-mono text-su-muted truncate">
         {decode.message}
       </div>
     </div>
@@ -119,9 +119,9 @@ function EmptyState({ myCallsign }: { myCallsign: string | null }) {
   if (!myCallsign) {
     return (
       <div className="flex flex-col items-center justify-center py-6 px-3 text-center gap-2">
-        <div className="w-8 h-8 rounded-full bg-white/5 flex items-center justify-center">
+        <div className="w-8 h-8 rounded-full bg-su-line/10 flex items-center justify-center">
           <svg
-            className="w-4 h-4 text-gray-600"
+            className="w-4 h-4 text-su-muted"
             fill="none"
             viewBox="0 0 24 24"
             stroke="currentColor"
@@ -134,7 +134,7 @@ function EmptyState({ myCallsign }: { myCallsign: string | null }) {
             />
           </svg>
         </div>
-        <p className="text-[11px] text-gray-500 leading-relaxed">
+        <p className="text-[11px] text-su-muted leading-relaxed">
           Set your callsign in Profile to see directed messages.
         </p>
         <Link
@@ -164,14 +164,14 @@ function EmptyState({ myCallsign }: { myCallsign: string | null }) {
           />
         </svg>
       </div>
-      <p className="text-[11px] text-gray-400">
+      <p className="text-[11px] text-su-muted">
         No messages directed to{" "}
         <span className="font-mono font-bold text-cosmic-cyan">
           {myCallsign}
         </span>{" "}
         yet.
       </p>
-      <p className="text-[10px] text-gray-600 leading-relaxed">
+      <p className="text-[10px] text-su-muted leading-relaxed">
         CQ calls and responses involving your callsign will appear here.
       </p>
     </div>
@@ -182,7 +182,7 @@ function EmptyState({ myCallsign }: { myCallsign: string | null }) {
 
 function GridPrompt() {
   return (
-    <div className="px-3 py-1.5 border-t border-white/5 bg-caution-yellow/5">
+    <div className="px-3 py-1.5 border-t border-su-line/20 bg-caution-yellow/5">
       <p className="text-[9px] text-caution-yellow/70 leading-relaxed">
         Set your grid in{" "}
         <Link
@@ -246,7 +246,7 @@ function QsoProgressRow({
       }`}
     >
       {/* Callsign */}
-      <span className="font-mono font-bold text-white text-[10px] w-[60px] truncate shrink-0">
+      <span className="font-mono font-bold text-su-text text-[10px] w-[60px] truncate shrink-0">
         {state.callsign}
       </span>
 
@@ -260,7 +260,7 @@ function QsoProgressRow({
             <span
               key={stage}
               className={`inline-block w-1.5 h-1.5 rounded-full transition-all ${
-                isFilled ? "bg-signal-green" : "bg-white/10"
+                isFilled ? "bg-signal-green" : "bg-su-line/20"
               } ${
                 isCurrent
                   ? "animate-pulse shadow-[0_0_4px_theme(colors.signal-green/0.5)]"
@@ -278,7 +278,7 @@ function QsoProgressRow({
       {/* Stage label */}
       <span
         className={`text-[9px] shrink-0 ${
-          state.isComplete ? "text-signal-green font-semibold" : "text-gray-500"
+          state.isComplete ? "text-signal-green font-semibold" : "text-su-muted"
         }`}
       >
         {state.isComplete ? (
@@ -442,8 +442,8 @@ function FateActiveQsos({
   if (visibleEntries.length === 0) return null;
 
   return (
-    <div className="border-t border-white/10 p-2 bg-[#0f0f1a]">
-      <div className="text-[8px] uppercase tracking-wider text-gray-600 font-semibold mb-1 px-2">
+    <div className="border-t border-su-line/40 p-2 bg-[#0f0f1a]">
+      <div className="text-[8px] uppercase tracking-wider text-su-muted font-semibold mb-1 px-2">
         Active QSOs
       </div>
       <div className="space-y-0.5">
@@ -506,16 +506,16 @@ export function FateDecodeStats({
   ];
 
   return (
-    <div className="border-t border-white/10 p-2">
-      <div className="border border-white/5 rounded overflow-hidden">
-        <div className="grid grid-cols-2 gap-px bg-white/5">
+    <div className="border-t border-su-line/40 p-2">
+      <div className="border border-su-line/20 rounded overflow-hidden">
+        <div className="grid grid-cols-2 gap-px bg-su-line/10">
           {cells.map((cell) => (
             <div key={cell.label} className="bg-[#0f0f1a] px-2 py-1.5">
-              <div className="text-[8px] uppercase tracking-wider text-gray-600 leading-none mb-0.5">
+              <div className="text-[8px] uppercase tracking-wider text-su-muted leading-none mb-0.5">
                 {cell.label}
               </div>
               <div
-                className={`text-[14px] font-mono font-bold tabular-nums leading-tight ${cell.accent ?? "text-white"}`}
+                className={`text-[14px] font-mono font-bold tabular-nums leading-tight ${cell.accent ?? "text-su-text"}`}
               >
                 {cell.value}
               </div>
@@ -523,7 +523,7 @@ export function FateDecodeStats({
           ))}
           {/* WASM status cell */}
           <div className="bg-[#0f0f1a] px-2 py-1.5">
-            <div className="text-[8px] uppercase tracking-wider text-gray-600 leading-none mb-0.5">
+            <div className="text-[8px] uppercase tracking-wider text-su-muted leading-none mb-0.5">
               WASM
             </div>
             <div className="flex items-center gap-1.5">
@@ -588,10 +588,10 @@ export function FateDirectedMessages({
   );
 
   return (
-    <div className="flex flex-col h-full bg-[#0c0c16] border-l border-white/10">
+    <div className="flex flex-col h-full bg-[#0c0c16] border-l border-su-line/40">
       {/* ── Header ─────────────────────────────────────────────────── */}
-      <div className="flex items-center justify-between px-3 py-2 border-b border-white/10">
-        <span className="text-[11px] font-semibold text-gray-300 uppercase tracking-wider">
+      <div className="flex items-center justify-between px-3 py-2 border-b border-su-line/40">
+        <span className="text-[11px] font-semibold text-su-muted uppercase tracking-wider">
           Directed Messages
         </span>
         {directed.length > 0 && (

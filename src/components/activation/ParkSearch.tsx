@@ -197,8 +197,8 @@ export function ParkSearch({
             if (results.length > 0) setIsOpen(true);
           }}
           placeholder={placeholder}
-          className="w-full h-12 px-4 pr-10 rounded-lg bg-space-900 border border-white/10
-                     text-white placeholder-white/40 text-base
+          className="w-full h-12 px-4 pr-10 rounded-lg bg-space-900 border border-su-line/40
+                     text-su-text placeholder:text-su-muted/80 text-base
                      focus:outline-none focus:ring-2 focus:ring-plasma-orange/50 focus:border-plasma-orange/50
                      transition-colors"
           autoComplete="off"
@@ -207,13 +207,13 @@ export function ParkSearch({
         {/* Loading spinner */}
         {isLoading && (
           <div className="absolute right-3 top-1/2 -translate-y-1/2">
-            <div className="w-5 h-5 border-2 border-white/20 border-t-plasma-orange rounded-full animate-spin" />
+            <div className="w-5 h-5 border-2 border-su-line/50 border-t-plasma-orange rounded-full animate-spin" />
           </div>
         )}
         {/* Search icon when not loading */}
         {!isLoading && (
           <svg
-            className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 text-white/30"
+            className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 text-su-text/30"
             fill="none"
             viewBox="0 0 24 24"
             stroke="currentColor"
@@ -233,7 +233,7 @@ export function ParkSearch({
         <ul
           ref={listRef}
           className="absolute z-50 w-full mt-1 max-h-80 overflow-y-auto rounded-lg
-                     bg-deep-space border border-white/10 shadow-xl"
+                     bg-deep-space border border-su-line/40 shadow-xl"
           role="listbox"
         >
           {results.map((item, idx) => (
@@ -241,11 +241,11 @@ export function ParkSearch({
               key={item.ref}
               role="option"
               aria-selected={idx === highlightIndex}
-              className={`px-4 py-3 cursor-pointer transition-colors border-b border-white/5 last:border-b-0
+              className={`px-4 py-3 cursor-pointer transition-colors border-b border-su-line/20 last:border-b-0
                 ${
                   idx === highlightIndex
-                    ? "bg-plasma-orange/20 text-white"
-                    : "text-white/80 hover:bg-white/5"
+                    ? "bg-plasma-orange/20 text-su-text"
+                    : "text-su-text/80 hover:bg-su-line/10"
                 }`}
               onClick={() => handleSelect(item)}
               onMouseEnter={() => setHighlightIndex(idx)}
@@ -261,25 +261,25 @@ export function ParkSearch({
                         className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium ${
                           item.active
                             ? "bg-signal-green/20 text-signal-green"
-                            : "bg-white/10 text-white/40"
+                            : "bg-su-line/20 text-su-text/80"
                         }`}
                       >
                         {item.active ? "Active" : "Inactive"}
                       </span>
                     )}
                   </div>
-                  <div className="text-sm text-white/60 truncate mt-0.5">
+                  <div className="text-sm text-su-text/80 truncate mt-0.5">
                     {item.name}
                   </div>
                   {(item.location || item.region) && (
-                    <div className="text-xs text-white/40 truncate">
+                    <div className="text-xs text-su-text/80 truncate">
                       {item.location || item.region}
                     </div>
                   )}
                 </div>
                 {type === "sota" && item.points !== undefined && (
                   <div className="flex-shrink-0 text-right">
-                    <div className="text-xs text-white/50">
+                    <div className="text-xs text-su-text/80">
                       {item.altitude}m
                     </div>
                     <div className="text-xs font-bold text-plasma-orange">

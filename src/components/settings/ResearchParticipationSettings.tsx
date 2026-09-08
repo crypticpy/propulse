@@ -84,12 +84,12 @@ export function ResearchParticipationSettings() {
   };
 
   return (
-    <div className="border-t border-white/10 pt-6 mt-6 space-y-4">
-      <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider">
+    <div className="border-t border-su-line/40 pt-6 mt-6 space-y-4">
+      <h3 className="text-sm font-semibold text-su-muted uppercase tracking-wider">
         Propagation Research
       </h3>
       {research.loading ? (
-        <p className="text-sm text-gray-500">Loading participation status...</p>
+        <p className="text-sm text-su-muted">Loading participation status...</p>
       ) : (
         <>
           <ToggleSwitch
@@ -116,7 +116,7 @@ export function ResearchParticipationSettings() {
           />
 
           {(optedIn || editingOptIn) && !confirmWithdrawal && (
-            <div className="space-y-3 border-l-2 border-white/10 pl-4">
+            <div className="space-y-3 border-l-2 border-su-line/40 pl-4">
               {USE_OPTIONS.map((option) => (
                 <label key={option.value} className="flex items-start gap-3">
                   <input
@@ -124,15 +124,15 @@ export function ResearchParticipationSettings() {
                     checked={selectedUses.includes(option.value)}
                     disabled={research.savingConsent}
                     onChange={() => toggleUse(option.value)}
-                    className="mt-1 h-4 w-4 rounded border-white/20 bg-white/5 text-plasma-orange focus:ring-plasma-orange"
+                    className="mt-1 h-4 w-4 rounded border-su-line/50 bg-su-line/10 text-plasma-orange focus:ring-plasma-orange"
                   />
                   <span>
-                    <span className="block text-sm text-gray-200">{option.label}</span>
-                    <span className="block text-xs text-gray-500">{option.description}</span>
+                    <span className="block text-sm text-su-text">{option.label}</span>
+                    <span className="block text-xs text-su-muted">{option.description}</span>
                   </span>
                 </label>
               ))}
-              <p className="text-xs text-gray-500">
+              <p className="text-xs text-su-muted">
                 Shared research is aggregated at grid4/hour resolution with minimum cohort
                 sizes. Raw equipment, callsigns, exact coordinates, credentials, and viewed-only
                 predictions are excluded. Account-bound predictions, attempts, and outcomes are
@@ -152,7 +152,7 @@ export function ResearchParticipationSettings() {
 
           {confirmWithdrawal && (
             <div className="space-y-3 border border-caution-amber/30 bg-caution-amber/5 p-3 rounded-md">
-              <p className="text-sm text-gray-300">
+              <p className="text-sm text-su-muted">
                 Withdrawal stops collection and future training use, and immediately deletes
                 retained account-bound predictions, attempts, and outcomes.
               </p>
@@ -169,7 +169,7 @@ export function ResearchParticipationSettings() {
                   type="button"
                   onClick={() => setConfirmWithdrawal(false)}
                   disabled={research.savingConsent}
-                  className="flex-1 px-3 py-2 rounded-md text-sm font-medium bg-white/5 text-gray-300 border border-white/10 disabled:opacity-50"
+                  className="flex-1 px-3 py-2 rounded-md text-sm font-medium bg-su-line/10 text-su-muted border border-su-line/40 disabled:opacity-50"
                 >
                   Keep Participating
                 </button>
@@ -178,7 +178,7 @@ export function ResearchParticipationSettings() {
           )}
 
           {(status || research.error) && (
-            <p className="text-xs text-gray-400" role="status">
+            <p className="text-xs text-su-muted" role="status">
               {status ?? "Research participation status is unavailable."}
             </p>
           )}

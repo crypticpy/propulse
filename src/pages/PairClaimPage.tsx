@@ -97,7 +97,7 @@ export function PairClaimPage() {
   if (!isSupabaseConfigured) {
     return (
       <div className="min-h-[70vh] flex items-center justify-center px-4">
-        <p className="text-gray-400 text-sm text-center max-w-sm">
+        <p className="text-su-muted text-sm text-center max-w-sm">
           Display Wall needs a PropPulse account (cloud feature) — sign in
           from a device with Supabase configured to claim a display.
         </p>
@@ -115,11 +115,11 @@ export function PairClaimPage() {
 
   return (
     <div className="min-h-[70vh] flex items-center justify-center px-4 py-8">
-      <div className="w-full max-w-sm bg-deep-space/60 border border-white/10 rounded-2xl p-6">
-        <h1 className="font-orbitron text-xl text-white mb-1 text-center">
+      <div className="w-full max-w-sm bg-deep-space/60 border border-su-line/40 rounded-2xl p-6">
+        <h1 className="font-orbitron text-xl text-su-text mb-1 text-center">
           Claim Display
         </h1>
-        <p className="text-sm text-gray-400 text-center mb-6">
+        <p className="text-sm text-su-muted text-center mb-6">
           Enter the code shown on the wall display.
         </p>
 
@@ -128,7 +128,7 @@ export function PairClaimPage() {
             <p className="text-signal-green font-orbitron text-lg mb-1">
               Claimed
             </p>
-            <p className="text-gray-400 text-sm">
+            <p className="text-su-muted text-sm">
               &ldquo;{claimed}&rdquo; is now yours to manage.
             </p>
           </div>
@@ -137,7 +137,7 @@ export function PairClaimPage() {
             <div>
               <label
                 htmlFor="pair-code"
-                className="block text-sm font-medium text-gray-300 mb-2"
+                className="block text-sm font-medium text-su-muted mb-2"
               >
                 Pairing code
               </label>
@@ -150,16 +150,16 @@ export function PairClaimPage() {
                 maxLength={CODE_LENGTH}
                 autoComplete="off"
                 autoCapitalize="characters"
-                className="w-full px-3 py-3 bg-void-black border border-white/15 rounded-lg text-white font-mono text-2xl tracking-[0.3em] text-center placeholder-gray-600 focus:outline-none focus:border-plasma-orange/60"
+                className="w-full px-3 py-3 bg-void-black border border-su-line/50 rounded-lg text-su-text font-mono text-2xl tracking-[0.3em] text-center placeholder:text-su-muted/80 focus:outline-none focus:border-plasma-orange/60"
               />
             </div>
 
             <div>
               <label
                 htmlFor="pair-name"
-                className="block text-sm font-medium text-gray-300 mb-2"
+                className="block text-sm font-medium text-su-muted mb-2"
               >
-                Name <span className="text-gray-500 font-normal">(optional)</span>
+                Name <span className="text-su-muted font-normal">(optional)</span>
               </label>
               <input
                 id="pair-name"
@@ -168,7 +168,7 @@ export function PairClaimPage() {
                 onChange={(e) => setName(e.target.value)}
                 placeholder="Shack wall"
                 maxLength={MAX_NAME_LENGTH}
-                className="w-full px-3 py-2 bg-void-black border border-white/15 rounded-lg text-white placeholder-gray-600 focus:outline-none focus:border-plasma-orange/60"
+                className="w-full px-3 py-2 bg-void-black border border-su-line/50 rounded-lg text-su-text placeholder:text-su-muted/80 focus:outline-none focus:border-plasma-orange/60"
               />
             </div>
 

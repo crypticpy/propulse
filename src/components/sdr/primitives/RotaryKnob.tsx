@@ -179,14 +179,14 @@ export function RotaryKnob({
           textAnchor="middle"
           dominantBaseline="central"
           fill="currentColor"
-          className="text-gray-200"
+          className="text-su-text"
           style={{ fontSize: 10, fontFamily: "monospace" }}
         >
           {displayValue}
         </text>
       </svg>
       <span
-        className="text-gray-500"
+        className="text-su-muted"
         style={{
           fontSize: 9,
           textTransform: "uppercase",

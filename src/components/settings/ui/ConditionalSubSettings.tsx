@@ -47,7 +47,7 @@ export function ConditionalSubSettings({
     >
       <div
         ref={contentRef}
-        className="pl-4 border-l-2 border-white/5 space-y-3 pt-2"
+        className="pl-4 border-l-2 border-su-line/20 space-y-3 pt-2"
       >
         {children}
       </div>

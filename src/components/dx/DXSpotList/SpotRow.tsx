@@ -54,7 +54,7 @@ function AgeProgressBar({ minutesAgo }: { minutesAgo: number }) {
 
   return (
     <div
-      className="w-[40px] h-[3px] rounded-full bg-white/10 overflow-hidden flex-shrink-0"
+      className="w-[40px] h-[3px] rounded-full bg-su-line/20 overflow-hidden flex-shrink-0"
       title={`${minutesAgo}m ago`}
     >
       <div
@@ -235,7 +235,7 @@ export const SpotRow = memo(function SpotRow({
     const base = `group ${compact ? "flex flex-col" : `grid ${gridCols}`} gap-1.5 px-2 py-1 cursor-pointer transition-all duration-150`;
 
     // Q6: Zebra striping for alternating rows (only applies when no other highlight)
-    const zebraStripe = index % 2 === 0 ? "bg-white/[0.02]" : "";
+    const zebraStripe = index % 2 === 0 ? "bg-su-line/10" : "";
 
     // Q8: Highlight animation for scroll-to-selected (brief cyan glow)
     const highlightClass = isHighlighted
@@ -264,11 +264,11 @@ export const SpotRow = memo(function SpotRow({
     }
 
     if (isHovered) {
-      return `${base} bg-white/5 ${highlightClass}`;
+      return `${base} bg-su-line/10 ${highlightClass}`;
     }
 
     // Apply zebra stripe for default state
-    return `${base} ${zebraStripe} hover:bg-white/5 ${highlightClass} ${focusClass}`;
+    return `${base} ${zebraStripe} hover:bg-su-line/10 ${highlightClass} ${focusClass}`;
   }, [
     isSelected,
     isHovered,
@@ -364,13 +364,13 @@ export const SpotRow = memo(function SpotRow({
         onContextMenu={handleContextMenu}
       >
         <div role="cell" className="flex flex-wrap items-center gap-1.5">
-          <span className="font-mono text-sm font-semibold text-white">
+          <span className="font-mono text-sm font-semibold text-su-text">
             {spot.dx}
           </span>
           {workedBadge}
           {atnoBadge}
           <span
-            className="ml-auto font-mono text-xs text-gray-400"
+            className="ml-auto font-mono text-xs text-su-muted"
             title={`${formatTime(spot.time)} UTC`}
           >
             {formatSpotAge(spot.time)}
@@ -381,7 +381,7 @@ export const SpotRow = memo(function SpotRow({
           className="flex flex-wrap items-center gap-2 text-xs font-mono"
         >
           <span style={{ color: bandHexColor }}>{spot.band}</span>
-          <span className="text-gray-300">{spot.mode}</span>
+          <span className="text-su-muted">{spot.mode}</span>
           <button
             onClick={handleFrequencyCopy}
             className="text-cosmic-cyan"
@@ -392,7 +392,7 @@ export const SpotRow = memo(function SpotRow({
               : `${formatFrequency(spot.frequency)} MHz`}
           </button>
           {spot.dxGrid && (
-            <span className="ml-auto text-gray-400">{spot.dxGrid}</span>
+            <span className="ml-auto text-su-muted">{spot.dxGrid}</span>
           )}
         </div>
       </div>
@@ -413,7 +413,7 @@ export const SpotRow = memo(function SpotRow({
     >
       {/* Time */}
       <div
-        className="text-gray-400 text-[11px] font-mono tabular-nums leading-tight flex items-center"
+        className="text-su-muted text-[11px] font-mono tabular-nums leading-tight flex items-center"
         title={`${minutesAgo}m ago`}
       >
         {formatTime(spot.time)}
@@ -435,8 +435,8 @@ export const SpotRow = memo(function SpotRow({
           onClick={handleBandClick}
           className={`px-1 py-0.5 rounded text-[10px] font-bold transition-all leading-none ${
             isBandActive
-              ? "ring-2 ring-white/50 ring-offset-1 ring-offset-nebula-blue scale-105"
-              : "hover:scale-105 hover:ring-1 hover:ring-white/30"
+              ? "ring-2 ring-su-line/60 ring-offset-1 ring-offset-nebula-blue scale-105"
+              : "hover:scale-105 hover:ring-1 hover:ring-su-line/60"
           }`}
           style={{
             backgroundColor: bandColor.bgColor,
@@ -467,7 +467,7 @@ export const SpotRow = memo(function SpotRow({
 
       {/* DX Callsign with grid and badges */}
       <div className="flex items-center gap-1 min-w-0">
-        <span className="text-white font-mono font-medium text-[11px] truncate leading-tight">
+        <span className="text-su-text font-mono font-medium text-[11px] truncate leading-tight">
           {spot.dx}
         </span>
         {/* Grid locator - clickable to filter */}
@@ -493,7 +493,7 @@ export const SpotRow = memo(function SpotRow({
 
       {/* Distance */}
       <div
-        className="text-gray-400 text-[11px] font-mono text-right tabular-nums leading-tight flex items-center justify-end"
+        className="text-su-muted text-[11px] font-mono text-right tabular-nums leading-tight flex items-center justify-end"
         title={distanceKm !== null ? `${Math.round(distanceKm)} km` : "Unknown"}
       >
         {formatDistance(distanceKm)}
@@ -501,16 +501,16 @@ export const SpotRow = memo(function SpotRow({
 
       {/* Spotter */}
       <div
-        className="text-gray-400 text-[11px] font-mono truncate leading-tight flex items-center"
+        className="text-su-muted text-[11px] font-mono truncate leading-tight flex items-center"
         title={spot.spotterGrid}
       >
         {spot.spotter}
       </div>
 
       {/* Comment/Mode */}
-      <div className="flex items-center gap-1.5 text-[11px] text-gray-300 truncate">
+      <div className="flex items-center gap-1.5 text-[11px] text-su-muted truncate">
         {spot.mode && (
-          <span className="px-1 py-0.5 rounded bg-white/8 text-gray-300 text-[10px] leading-none font-medium">
+          <span className="px-1 py-0.5 rounded bg-su-line/20 text-su-muted text-[10px] leading-none font-medium">
             {spot.mode}
           </span>
         )}
@@ -533,7 +533,7 @@ export const SpotRow = memo(function SpotRow({
         {onWork && (
           <button
             onClick={handleWork}
-            className="p-0.5 rounded text-gray-400 hover:text-signal-green hover:bg-signal-green/10 transition-colors"
+            className="p-0.5 rounded text-su-muted hover:text-signal-green hover:bg-signal-green/10 transition-colors"
             title="Work this station (L)"
             aria-label={`Work ${spot.dx}`}
           >
@@ -543,7 +543,7 @@ export const SpotRow = memo(function SpotRow({
         {/* Target (crosshair) */}
         <button
           onClick={handleSetTarget}
-          className="p-0.5 rounded text-gray-400 hover:text-cyan-400 hover:bg-cyan-500/10 transition-colors"
+          className="p-0.5 rounded text-su-muted hover:text-cyan-400 hover:bg-cyan-500/10 transition-colors"
           title="Set as map target"
           aria-label="Set as map target"
         >
@@ -565,7 +565,7 @@ export const SpotRow = memo(function SpotRow({
         {/* Watch (eye) */}
         <button
           onClick={handleWatchCallsign}
-          className="p-0.5 rounded text-gray-400 hover:text-yellow-400 hover:bg-yellow-500/10 transition-colors"
+          className="p-0.5 rounded text-su-muted hover:text-yellow-400 hover:bg-yellow-500/10 transition-colors"
           title="Watch this callsign"
           aria-label="Watch this callsign"
         >
@@ -592,7 +592,7 @@ export const SpotRow = memo(function SpotRow({
         {/* Hide (x) */}
         <button
           onClick={handleHideSpot}
-          className="p-0.5 rounded text-gray-400 hover:text-red-400 hover:bg-red-500/10 transition-colors"
+          className="p-0.5 rounded text-su-muted hover:text-red-400 hover:bg-red-500/10 transition-colors"
           title="Hide this spot"
           aria-label="Hide this spot"
         >

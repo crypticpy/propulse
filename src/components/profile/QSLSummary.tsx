@@ -45,7 +45,7 @@ const QSL_SERVICES: QSLService[] = [
 export function QSLSummary() {
   return (
     <div>
-      <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-3">
+      <h3 className="text-sm font-semibold text-su-muted uppercase tracking-wider mb-3">
         QSL Services
       </h3>
 
@@ -53,7 +53,7 @@ export function QSLSummary() {
         {QSL_SERVICES.map((service) => (
           <div
             key={service.key}
-            className="bg-panel/30 border border-white/5 rounded-lg p-3 flex items-start gap-3"
+            className="bg-panel/30 border border-su-line/20 rounded-lg p-3 flex items-start gap-3"
           >
             {/* Icon */}
             <span className="text-lg leading-none mt-0.5" aria-hidden="true">
@@ -63,17 +63,17 @@ export function QSLSummary() {
             <div className="min-w-0 flex-1">
               {/* Name + status dot */}
               <div className="flex items-center gap-2">
-                <span className="text-sm font-medium text-gray-200 truncate">
+                <span className="text-sm font-medium text-su-text truncate">
                   {service.shortName}
                 </span>
                 <span
-                  className="inline-block w-2 h-2 rounded-full flex-shrink-0 bg-gray-600"
+                  className="inline-block w-2 h-2 rounded-full flex-shrink-0 bg-su-line"
                   title="Not configured"
                 />
               </div>
 
               {/* Status text */}
-              <p className="text-xs text-gray-500 mt-0.5 truncate">
+              <p className="text-xs text-su-muted mt-0.5 truncate">
                 Not configured
               </p>
             </div>
@@ -82,7 +82,7 @@ export function QSLSummary() {
       </div>
 
       {/* Setup hint */}
-      <p className="text-xs text-gray-600 mt-3 text-center">
+      <p className="text-xs text-su-muted mt-3 text-center">
         QSL service integration coming soon. Configure in Settings.
       </p>
     </div>

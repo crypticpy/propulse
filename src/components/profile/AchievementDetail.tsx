@@ -117,24 +117,24 @@ export function AchievementDetail({
           )}
 
           {!isEarned && (
-            <span className="text-xs text-gray-500 uppercase tracking-wider font-semibold">
+            <span className="text-xs text-su-muted uppercase tracking-wider font-semibold">
               Not yet earned
             </span>
           )}
         </div>
 
         {/* Description */}
-        <p className="text-sm text-gray-300 text-center leading-relaxed">
+        <p className="text-sm text-su-muted text-center leading-relaxed">
           {definition.description}
         </p>
 
         {/* Progress bar */}
         <div className="space-y-2">
-          <div className="flex items-center justify-between text-xs text-gray-400">
+          <div className="flex items-center justify-between text-xs text-su-muted">
             <span>Progress</span>
             <span>{Math.round(progressPercent)}%</span>
           </div>
-          <div className="h-2 rounded-full bg-white/5 overflow-hidden">
+          <div className="h-2 rounded-full bg-su-line/10 overflow-hidden">
             <div
               className="h-full rounded-full transition-all duration-500"
               style={{
@@ -145,12 +145,12 @@ export function AchievementDetail({
               }}
             />
           </div>
-          <p className="text-xs text-gray-400 text-center">{progressLabel}</p>
+          <p className="text-xs text-su-muted text-center">{progressLabel}</p>
         </div>
 
         {/* Tier breakdown */}
         <div className="space-y-2">
-          <h4 className="text-xs font-semibold text-gray-400 uppercase tracking-wider">
+          <h4 className="text-xs font-semibold text-su-muted uppercase tracking-wider">
             Tier Requirements
           </h4>
           <div className="space-y-1.5">
@@ -165,7 +165,7 @@ export function AchievementDetail({
                   key={tierDef.tier}
                   className={`flex items-center justify-between px-3 py-2 rounded-lg text-sm ${
                     isCurrentTier
-                      ? "bg-white/5 border border-white/10"
+                      ? "bg-su-line/10 border border-su-line/40"
                       : "opacity-60"
                   }`}
                 >
@@ -189,7 +189,7 @@ export function AchievementDetail({
                       {TIER_LABELS[tierDef.tier]}
                     </span>
                   </div>
-                  <span className="text-gray-400">{tierDef.label}</span>
+                  <span className="text-su-muted">{tierDef.label}</span>
                 </div>
               );
             })}
@@ -198,9 +198,9 @@ export function AchievementDetail({
 
         {/* Current value */}
         {isEarned && (
-          <div className="text-center pt-2 border-t border-white/5">
-            <span className="text-xs text-gray-500">Current value: </span>
-            <span className="text-sm font-medium text-gray-300">
+          <div className="text-center pt-2 border-t border-su-line/20">
+            <span className="text-xs text-su-muted">Current value: </span>
+            <span className="text-sm font-medium text-su-muted">
               {earned.progress.toLocaleString()}
             </span>
           </div>

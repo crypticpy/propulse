@@ -14,7 +14,7 @@ function formatWatts(w: number): string {
 }
 
 const SELECT_CLASS =
-  "w-full bg-void-black border border-white/10 rounded-lg px-3 py-2 text-sm text-gray-200 focus:border-plasma-orange/50 focus:outline-none";
+  "w-full bg-void-black border border-su-line/40 rounded-lg px-3 py-2 text-sm text-su-text focus:border-plasma-orange/50 focus:outline-none";
 
 interface ComparisonRow {
   band: string;
@@ -109,11 +109,11 @@ export function PathComparison() {
 
   if (chains.length < 2) {
     return (
-      <div className="bg-panel/30 backdrop-blur-sm border border-white/5 rounded-2xl p-4">
-        <h3 className="text-sm font-semibold text-gray-200 mb-2">
+      <div className="bg-panel/30 backdrop-blur-sm border border-su-line/20 rounded-2xl p-4">
+        <h3 className="text-sm font-semibold text-su-text mb-2">
           Compare Signal Paths
         </h3>
-        <p className="text-xs text-gray-500 italic">
+        <p className="text-xs text-su-muted italic">
           Create at least 2 signal paths in the Diagram lab to compare
         </p>
       </div>
@@ -123,14 +123,14 @@ export function PathComparison() {
   const bothSelected = chainIdA !== "" && chainIdB !== "";
 
   return (
-    <div className="bg-panel/30 backdrop-blur-sm border border-white/5 rounded-2xl p-4 space-y-4">
-      <h3 className="text-sm font-semibold text-gray-200">
+    <div className="bg-panel/30 backdrop-blur-sm border border-su-line/20 rounded-2xl p-4 space-y-4">
+      <h3 className="text-sm font-semibold text-su-text">
         Compare Signal Paths
       </h3>
 
       <div className="grid grid-cols-2 gap-3">
         <div>
-          <label className="block text-[10px] uppercase tracking-wider text-gray-500 mb-1">
+          <label className="block text-[10px] uppercase tracking-wider text-su-muted mb-1">
             Path A
           </label>
           <select
@@ -147,7 +147,7 @@ export function PathComparison() {
           </select>
         </div>
         <div>
-          <label className="block text-[10px] uppercase tracking-wider text-gray-500 mb-1">
+          <label className="block text-[10px] uppercase tracking-wider text-su-muted mb-1">
             Path B
           </label>
           <select
@@ -170,7 +170,7 @@ export function PathComparison() {
           <div className="overflow-x-auto">
             <table className="w-full text-xs">
               <thead>
-                <tr className="border-b border-white/5 text-gray-500">
+                <tr className="border-b border-su-line/20 text-su-muted">
                   <th className="text-left py-1.5 pr-3 font-medium">Band</th>
                   <th className="text-right py-1.5 px-3 font-medium">
                     {chainA?.name ?? "Path A"} ERP
@@ -187,15 +187,15 @@ export function PathComparison() {
                 {rows.map((row) => (
                   <tr
                     key={row.band}
-                    className="border-b border-white/[0.03] hover:bg-white/[0.02] transition-colors"
+                    className="border-b border-su-line/20 hover:bg-su-line/10 transition-colors"
                   >
-                    <td className="py-1.5 pr-3 text-gray-300 font-medium">
+                    <td className="py-1.5 pr-3 text-su-muted font-medium">
                       {row.band}
                     </td>
-                    <td className="py-1.5 px-3 text-right text-gray-400 tabular-nums">
+                    <td className="py-1.5 px-3 text-right text-su-muted tabular-nums">
                       {row.erpA != null ? formatWatts(row.erpA) : "\u2014"}
                     </td>
-                    <td className="py-1.5 px-3 text-right text-gray-400 tabular-nums">
+                    <td className="py-1.5 px-3 text-right text-su-muted tabular-nums">
                       {row.erpB != null ? formatWatts(row.erpB) : "\u2014"}
                     </td>
                     <td className="py-1.5 pl-3 text-right tabular-nums">
@@ -208,21 +208,21 @@ export function PathComparison() {
           </div>
 
           {summary && (
-            <p className="text-xs text-gray-400 pt-1">
-              <span className="text-gray-500">Summary:</span> {summary}
+            <p className="text-xs text-su-muted pt-1">
+              <span className="text-su-muted">Summary:</span> {summary}
             </p>
           )}
         </>
       )}
 
       {!bothSelected && (
-        <p className="text-xs text-gray-500 italic">
+        <p className="text-xs text-su-muted italic">
           Select two signal paths above to compare their per-band ERP
         </p>
       )}
 
       {bothSelected && rows.length === 0 && (
-        <p className="text-xs text-gray-500 italic">
+        <p className="text-xs text-su-muted italic">
           No band data available for the selected paths
         </p>
       )}
@@ -232,7 +232,7 @@ export function PathComparison() {
 
 function DiffCell({ diff }: { diff: number | null }) {
   if (diff == null) {
-    return <span className="text-gray-600">{"\u2014"}</span>;
+    return <span className="text-su-muted">{"\u2014"}</span>;
   }
 
   const absDiff = Math.abs(diff);
@@ -260,5 +260,5 @@ function DiffCell({ diff }: { diff: number | null }) {
     );
   }
 
-  return <span className="text-gray-500">0W</span>;
+  return <span className="text-su-muted">0W</span>;
 }

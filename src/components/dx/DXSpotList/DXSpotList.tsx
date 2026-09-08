@@ -8,8 +8,8 @@
  * This is the main orchestrator component that composes the modular pieces.
  */
 
-import { useCallback, useMemo, useState, useRef, useEffect } from "react";
-import { spotPageWindow } from "./pageWindow";
+import { useCallback, useMemo, useRef } from "react";
+import { useSpotPage } from "./useSpotPage";
 import { useVisibleRows } from "@/components/map/hamclock/wall/useVisibleRows";
 import { HamClockButton } from "@/components/map/hamclock/wall/controls";
 import { Card, LoadingSpinner } from "@/components/ui";
@@ -208,19 +208,14 @@ export function DXSpotList({
   }, []);
 
   // --- QoL1: Keyboard-first DX spot navigation ---
-  const [focusedIndex, setFocusedIndex] = useState(-1);
   const spotListRef = useRef<HTMLDivElement>(null);
-  const [pageOffset, setPageOffset] = useState(0);
   const [pageRowsRef, measuredSize] = useVisibleRows<HTMLDivElement>(watchSortedSpots.length);
   const pageSize = Math.max(1, measuredSize);
-  const { start: pageStart, end: pageEnd } = wallPaging
-    ? spotPageWindow(watchSortedSpots.length, pageSize, pageOffset, focusedIndex)
-    : { start: 0, end: watchSortedSpots.length };
-  const visibleSpots = wallPaging ? watchSortedSpots.slice(pageStart, pageEnd) : watchSortedSpots;
-  useEffect(() => {
-    if (wallPaging && pageStart !== pageOffset) setPageOffset(pageStart);
-  }, [wallPaging, pageStart, pageOffset]);
-  const changePage = (next: number) => { setFocusedIndex(-1); setPageOffset(next); };
+  const { start: pageStart, end: pageEnd, focusedIndex, setFocusedIndex, changePage } =
+    useSpotPage(watchSortedSpots, pageSize, selectedSpot?.id, wallPaging);
+  const visibleSpots = wallPaging
+    ? watchSortedSpots.slice(pageStart, pageEnd)
+    : watchSortedSpots;
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
@@ -314,6 +309,7 @@ export function DXSpotList({
       pageEnd,
       pageSize,
       focusedIndex,
+      setFocusedIndex,
       handleSelectSpot,
       handleSetTarget,
       handleWatchCallsign,
@@ -337,87 +333,16 @@ export function DXSpotList({
     scrollFocusedIntoView(focusedIndex);
   }
 
-  const spotRows = (<>
-        {isLoading && watchSortedSpots.length === 0 ? (
-          <div className="flex items-center justify-center py-12">
-            <LoadingSpinner size="lg" />
-          </div>
-        ) : watchSortedSpots.length === 0 ? (
-          <div className="flex items-center justify-center py-12 text-gray-400">
-            {profileFilterActive
-              ? "No spots match profile filters"
-              : "No spots match your filters"}
-          </div>
-        ) : (
-          visibleSpots.map((spot, localIndex) => {
-            const index = pageStart + localIndex;
-            const isWatchMatch =
-              watchCriteria !== null && matchedSpotIds.has(spot.id);
-            const isNewMult = newMultSpotIds.has(spot.id);
-            return (
-              <div
-                key={spot.id}
-                className={`relative ${
-                  isNewMult
-                    ? "bg-caution-amber/10 border-l-2 border-caution-amber"
-                    : isWatchMatch
-                      ? "bg-signal-green/10 border-l-2 border-signal-green"
-                      : ""
-                }`}
-              >
-                {isNewMult && (
-                  <span className="absolute top-1 right-1 z-10 px-1 py-0.5 rounded bg-caution-amber/20 text-caution-amber text-[8px] font-bold leading-none uppercase tracking-wider">
-                    NEW MULT
-                  </span>
-                )}
-                <SpotRow
-                  compact={compact}
-                  spot={spot}
-                  index={index}
-                  isSelected={selectedSpot?.id === spot.id}
-                  isHovered={hoveredSpot?.id === spot.id}
-                  isFocused={focusedIndex === index}
-                  workedStatus={
-                    workedStatusMap.get(spot.id) || {
-                      isWorked: false,
-                      workedOnBand: false,
-                      workedBands: [],
-                      isATNO: false,
-                    }
-                  }
-                  isAlertMatch={alertMatchSet.has(spot.id)}
-                  isNeeded={neededStatusMap.get(spot.id) ?? true}
-                  distanceKm={distanceMap.get(spot.id) ?? null}
-                  onSelect={wallPaging ? (selected) => { setFocusedIndex(index); handleSelectSpot(selected); } : handleSelectSpot}
-                  onHover={setHoveredSpot}
-                  onContextMenu={handleContextMenu}
-                  onGridClick={handleGridFilterChange}
-                  onBandClick={handleBandBadgeClick}
-                  onSetTarget={handleSetTarget}
-                  onWork={handleWorkSpot}
-                  onWatchCallsign={handleWatchCallsign}
-                  onHideSpot={handleHideSpot}
-                  showAgeColumn={spotAgePrefs.showAgeColumn}
-                  ageVisualizationEnabled={spotAgePrefs.enabled}
-                  activeBandFilter={activeBandFilter}
-                  isHighlighted={highlightedSpotId === spot.id}
-                />
-              </div>
-            );
-          })
-        )}
-  </>);
-
   return (
     <Card className={`h-full ${wallPaging ? "min-h-0" : ""} flex flex-col ${className}`}>
       {/* Header */}
       {showHeader && (
         <div className="flex items-center justify-between mb-2">
           <div className="flex items-center gap-3">
-            <h2 className="font-sans text-lg font-semibold text-white tracking-wide">
+            <h2 className="font-sans text-lg font-semibold text-su-text tracking-wide">
               DX CLUSTER
             </h2>
-            <span className="text-xs text-gray-400">
+            <span className="text-xs text-su-muted">
               {profileFilteredSpots.length}
               {(filters.neededOnly &&
                 profileFilteredSpots.length !== totalSpots) ||
@@ -461,7 +386,7 @@ export function DXSpotList({
             {(isLoading || isFetching) && <LoadingSpinner size="sm" />}
             <button
               onClick={refetch}
-              className="p-1.5 text-gray-400 hover:text-white transition-colors rounded hover:bg-white/5"
+              className="p-1.5 text-su-muted hover:text-su-text transition-colors rounded hover:bg-su-line/10"
               title="Refresh spots"
             >
               <svg
@@ -481,7 +406,7 @@ export function DXSpotList({
             {onExpand && (
               <button
                 onClick={onExpand}
-                className="p-1.5 text-gray-400 hover:text-white transition-colors rounded hover:bg-white/5"
+                className="p-1.5 text-su-muted hover:text-su-text transition-colors rounded hover:bg-su-line/10"
                 title="Expand"
               >
                 <svg
@@ -505,7 +430,7 @@ export function DXSpotList({
 
       {/* Profile filter indicator */}
       {profileFilterActive && (
-        <div className="mb-1.5 px-2 py-1 rounded bg-white/5 border border-white/10 text-[11px] text-gray-300 flex items-center gap-1.5">
+        <div className="mb-1.5 px-2 py-1 rounded bg-su-line/10 border border-su-line/40 text-[11px] text-su-muted flex items-center gap-1.5">
           <svg
             className="w-3 h-3 text-cyan-400 shrink-0"
             fill="none"
@@ -536,14 +461,14 @@ export function DXSpotList({
             {spotFilters.modes.length > 0 && (
               <> — {spotFilters.modes.join(", ")}</>
             )}
-            <span className="text-gray-400 ml-1">
+            <span className="text-su-muted ml-1">
               — Showing {profileFilteredSpots.length} of {displaySpots.length}{" "}
               spots
             </span>
           </span>
           <button
             onClick={() => useMapStore.getState().clearSpotFilters()}
-            className="ml-auto text-white/40 hover:text-white text-[10px]"
+            className="ml-auto text-su-text/80 hover:text-su-text text-[10px]"
             title="Clear filter"
           >
             ✕
@@ -591,7 +516,7 @@ export function DXSpotList({
             spotListRef as React.MutableRefObject<HTMLDivElement | null>
           ).current = el;
         }}
-        className={wallPaging ? "flex-1 min-h-0 flex flex-col overflow-hidden focus:outline-none" : "flex-1 overflow-y-auto divide-y divide-white/5 focus:outline-none"}
+        className={wallPaging ? "flex-1 min-h-0 flex flex-col overflow-hidden focus:outline-none" : "flex-1 overflow-y-auto divide-y divide-su-line/20 focus:outline-none"}
         style={wallPaging ? undefined : { maxHeight }}
         role="table"
         aria-label="DX Spots"
@@ -606,7 +531,7 @@ export function DXSpotList({
         {/* Column Headers - sticky at top of scroll container */}
         {!compact && (
           <div
-            className={`sticky top-0 z-10 bg-nebula-blue grid ${spotAgePrefs.showAgeColumn ? "grid-cols-[46px_40px_52px_66px_1fr_50px_62px_1fr_72px]" : "grid-cols-[46px_52px_66px_1fr_50px_62px_1fr_72px]"} gap-1.5 px-2 py-1.5 border-b border-white/10 text-[10px] font-semibold text-gray-300 uppercase tracking-wider`}
+            className={`sticky top-0 z-10 bg-nebula-blue grid ${spotAgePrefs.showAgeColumn ? "grid-cols-[46px_40px_52px_66px_1fr_50px_62px_1fr_72px]" : "grid-cols-[46px_52px_66px_1fr_50px_62px_1fr_72px]"} gap-1.5 px-2 py-1.5 border-b border-su-line/40 text-[10px] font-semibold text-su-muted uppercase tracking-wider`}
             role="row"
             style={{ borderLeft: "3px solid transparent" }}
           >
@@ -675,8 +600,78 @@ export function DXSpotList({
             </button>
           </div>
         )}
-        {wallPaging ? <div ref={pageRowsRef} className="flex-1 min-h-0 overflow-hidden divide-y divide-white/5">{spotRows}</div> : spotRows}
+        <div ref={wallPaging ? pageRowsRef : undefined} className={wallPaging ? "flex-1 min-h-0 overflow-hidden divide-y divide-su-line/20" : undefined}>
+        {isLoading && watchSortedSpots.length === 0 ? (
+          <div className="flex items-center justify-center py-12">
+            <LoadingSpinner size="lg" />
+          </div>
+        ) : watchSortedSpots.length === 0 ? (
+          <div className="flex items-center justify-center py-12 text-su-muted">
+            {profileFilterActive
+              ? "No spots match profile filters"
+              : "No spots match your filters"}
+          </div>
+        ) : (
+          visibleSpots.map((spot, localIndex) => {
+            const index = pageStart + localIndex;
+            const isWatchMatch =
+              watchCriteria !== null && matchedSpotIds.has(spot.id);
+            const isNewMult = newMultSpotIds.has(spot.id);
+            return (
+              <div
+                key={spot.id}
+                className={`relative ${
+                  isNewMult
+                    ? "bg-caution-amber/10 border-l-2 border-caution-amber"
+                    : isWatchMatch
+                      ? "bg-signal-green/10 border-l-2 border-signal-green"
+                      : ""
+                }`}
+              >
+                {isNewMult && (
+                  <span className="absolute top-1 right-1 z-10 px-1 py-0.5 rounded bg-caution-amber/20 text-caution-amber text-[8px] font-bold leading-none uppercase tracking-wider">
+                    NEW MULT
+                  </span>
+                )}
+                <SpotRow
+                  compact={compact}
+                  spot={spot}
+                  index={index}
+                  isSelected={selectedSpot?.id === spot.id}
+                  isHovered={hoveredSpot?.id === spot.id}
+                  isFocused={focusedIndex === index}
+                  workedStatus={
+                    workedStatusMap.get(spot.id) || {
+                      isWorked: false,
+                      workedOnBand: false,
+                      workedBands: [],
+                      isATNO: false,
+                    }
+                  }
+                  isAlertMatch={alertMatchSet.has(spot.id)}
+                  isNeeded={neededStatusMap.get(spot.id) ?? true}
+                  distanceKm={distanceMap.get(spot.id) ?? null}
+                  onSelect={wallPaging ? (selected) => { setFocusedIndex(index); handleSelectSpot(selected); } : handleSelectSpot}
+                  onHover={setHoveredSpot}
+                  onContextMenu={handleContextMenu}
+                  onGridClick={handleGridFilterChange}
+                  onBandClick={handleBandBadgeClick}
+                  onSetTarget={handleSetTarget}
+                  onWork={handleWorkSpot}
+                  onWatchCallsign={handleWatchCallsign}
+                  onHideSpot={handleHideSpot}
+                  showAgeColumn={spotAgePrefs.showAgeColumn}
+                  ageVisualizationEnabled={spotAgePrefs.enabled}
+                  activeBandFilter={activeBandFilter}
+                  isHighlighted={highlightedSpotId === spot.id}
+                />
+              </div>
+            );
+          })
+        )}
+        </div>
       </div>
+
       {wallPaging && (
         <div className="hcr-cluster-pages">
           <HamClockButton disabled={pageStart === 0} onClick={() => changePage(Math.max(0, pageStart - pageSize))}>PREVIOUS</HamClockButton>
@@ -689,7 +684,7 @@ export function DXSpotList({
       <SpotDetailPanel spot={selectedSpot} />
 
       {/* Footer */}
-      <div className="mt-2 pt-2 border-t border-white/10 flex items-center justify-between text-xs text-gray-400">
+      <div className="mt-2 pt-2 border-t border-su-line/40 flex items-center justify-between text-xs text-su-muted">
         <div>
           <span aria-label="Cluster source status">{feedState.state}{feedState.windowMinutes !== null ? ` · ${feedState.windowMinutes} MIN LOADED SAMPLE` : ""}</span>
           {lastUpdated && <span> · {spotSource === "bridge" ? "Last spot" : "Fetched"} {formatTime(lastUpdated)} UTC</span>}
@@ -697,7 +692,7 @@ export function DXSpotList({
         <div className="flex items-center gap-3">
           <span>{stats.total} total</span>
           {Object.keys(stats.byMode).length > 0 && (
-            <span className="text-gray-400">
+            <span className="text-su-muted">
               Top:{" "}
               {Object.entries(stats.byMode).sort((a, b) => b[1] - a[1])[0]?.[0]}
             </span>

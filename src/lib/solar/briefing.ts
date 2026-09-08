@@ -96,7 +96,7 @@ export function buildSolarBriefing(raw: BriefingInputs, now: number): SolarBrief
   if (xrayEvent && !rEvent) add("xray", "impact", `X-ray flux is at ${xrayClass(xray.flux)}. Sunlit HF absorption may be elevated.`, ["noaa-xray"]);
   // Keep differing snapshots visible, including the reverse case after a flare.
   if (xray && r != null && rEvent !== xrayEvent) add("different-times", "notice",
-    `X-ray flux (${xrayClass(xray.flux)}) and the official R${r} snapshot differ. Compare their observation times under Sources & times; they can update at different times.`,
+    `X-ray flux (${xrayClass(xray.flux)}) and the official R${r} snapshot differ. The two products update at different times; the fresher one leads until they agree.`,
     ["noaa-xray", "swpc-scales"]);
   if (s != null && s > 0) add("radiation", "impact", `NOAA reports S${s} radiation-storm conditions. HF paths through polar regions may be affected.`, ["swpc-scales"]);
   if (g != null && g > 0) add("geomagnetic", "impact", `NOAA reports G${g} geomagnetic-storm conditions. HF propagation may be disrupted, with effects depending on latitude and path.`, ["swpc-scales"]);

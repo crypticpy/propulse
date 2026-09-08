@@ -18,6 +18,14 @@ export function hasData<T>(view: SolarResourceView<T>): boolean {
   return view.data !== undefined && view.data !== null;
 }
 
+export type NoaaScaleTone = "neutral" | "watch" | "impact";
+
+export function noaaScaleTone(scale: number | null | undefined): NoaaScaleTone {
+  if (scale == null || scale <= 0) return "neutral";
+  if (scale <= 2) return "watch";
+  return "impact";
+}
+
 export function sourceProps<T>(view: SolarResourceView<T>) {
   const policy = getSolarSourcePolicy(view.sourceId);
   return {

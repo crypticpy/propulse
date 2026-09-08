@@ -27,7 +27,7 @@ function IconRadio() {
       strokeWidth="1.5"
       strokeLinecap="round"
       strokeLinejoin="round"
-      className="text-white/[0.07]"
+      className="text-su-text/5"
     >
       <path d="M4.9 19.1C1 15.2 1 8.8 4.9 4.9" />
       <path d="M7.8 16.2c-2.3-2.3-2.3-6.1 0-8.4" />
@@ -49,7 +49,7 @@ function IconGlobe() {
       strokeWidth="1.5"
       strokeLinecap="round"
       strokeLinejoin="round"
-      className="text-white/[0.07]"
+      className="text-su-text/5"
     >
       <circle cx="12" cy="12" r="10" />
       <path d="M2 12h20" />
@@ -69,7 +69,7 @@ function IconGrid() {
       strokeWidth="1.5"
       strokeLinecap="round"
       strokeLinejoin="round"
-      className="text-white/[0.07]"
+      className="text-su-text/5"
     >
       <rect x="3" y="3" width="7" height="7" rx="1" />
       <rect x="14" y="3" width="7" height="7" rx="1" />
@@ -90,7 +90,7 @@ function IconSignal() {
       strokeWidth="1.5"
       strokeLinecap="round"
       strokeLinejoin="round"
-      className="text-white/[0.07]"
+      className="text-su-text/5"
     >
       <path d="M12 20V10" />
       <path d="M18 20V4" />
@@ -110,7 +110,7 @@ function IconCalendar() {
       strokeWidth="1.5"
       strokeLinecap="round"
       strokeLinejoin="round"
-      className="text-white/[0.07]"
+      className="text-su-text/5"
     >
       <rect x="3" y="4" width="18" height="18" rx="2" />
       <path d="M16 2v4" />
@@ -131,7 +131,7 @@ function IconAntenna() {
       strokeWidth="1.5"
       strokeLinecap="round"
       strokeLinejoin="round"
-      className="text-white/[0.07]"
+      className="text-su-text/5"
     >
       <path d="M12 2v20" />
       <path d="M5 7l7-5 7 5" />
@@ -158,7 +158,7 @@ function HeroCard({
   progress?: number;
 }) {
   return (
-    <div className="relative bg-white/[0.03] border border-white/10 rounded-xl p-4 overflow-hidden">
+    <div className="relative bg-su-line/10 border border-su-line/40 rounded-xl p-4 overflow-hidden">
       {/* Icon in top-right */}
       <div className="absolute top-3 right-3">{icon}</div>
 
@@ -171,18 +171,18 @@ function HeroCard({
       </div>
 
       {/* Label */}
-      <div className="text-xs text-gray-500 uppercase tracking-wider mt-1">
+      <div className="text-xs text-su-muted uppercase tracking-wider mt-1">
         {label}
       </div>
 
       {/* Optional subtitle */}
       {subtitle && (
-        <div className="text-[10px] text-gray-500 mt-0.5">{subtitle}</div>
+        <div className="text-[10px] text-su-muted mt-0.5">{subtitle}</div>
       )}
 
       {/* Optional progress bar */}
       {progress != null && progress > 0 && (
-        <div className="mt-2 h-1 w-full rounded-full bg-white/[0.06]">
+        <div className="mt-2 h-1 w-full rounded-full bg-su-line/20">
           <div
             className="h-1 rounded-full transition-all duration-500"
             style={{
@@ -201,9 +201,9 @@ function HeroCard({
 
 function SkeletonCard() {
   return (
-    <div className="bg-white/[0.03] border border-white/10 rounded-xl p-4 animate-pulse">
-      <div className="h-7 w-16 bg-white/10 rounded mb-2" />
-      <div className="h-3 w-20 bg-white/5 rounded" />
+    <div className="bg-su-line/10 border border-su-line/40 rounded-xl p-4 animate-pulse">
+      <div className="h-7 w-16 bg-su-line/20 rounded mb-2" />
+      <div className="h-3 w-20 bg-su-line/10 rounded" />
     </div>
   );
 }
@@ -374,7 +374,7 @@ export function HeroStatsBlock({ className }: HeroStatsBlockProps) {
 
       {topMode && (
         <div className="mt-3 text-center">
-          <span className="text-[11px] text-gray-500 uppercase tracking-wider">
+          <span className="text-[11px] text-su-muted uppercase tracking-wider">
             Primary Mode
           </span>
           <span
@@ -383,7 +383,7 @@ export function HeroStatsBlock({ className }: HeroStatsBlockProps) {
           >
             {topMode.mode}
           </span>
-          <span className="ml-1 text-xs text-gray-500">
+          <span className="ml-1 text-xs text-su-muted">
             ({topMode.count.toLocaleString()} QSOs)
           </span>
         </div>

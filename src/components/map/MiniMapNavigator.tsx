@@ -420,11 +420,11 @@ export function MiniMapNavigator({
       >
         <button
           onClick={() => setIsVisible(true)}
-          className="w-6 h-6 flex items-center justify-center bg-black/60 backdrop-blur-sm border border-white/10 hover:border-white/30 rounded-md transition-all"
+          className="w-6 h-6 flex items-center justify-center bg-su-panel/90 backdrop-blur-sm border border-su-line/40 hover:border-su-line/60 rounded-md transition-all"
           title="Show mini-map"
         >
           <svg
-            className="w-3.5 h-3.5 text-gray-400"
+            className="w-3.5 h-3.5 text-su-muted"
             fill="none"
             viewBox="0 0 24 24"
             stroke="currentColor"
@@ -445,14 +445,14 @@ export function MiniMapNavigator({
     <div
       className={`absolute ${positionClasses[position]} z-20 pointer-events-auto ${className}`}
     >
-      <div className="relative rounded-lg overflow-hidden bg-black/70 backdrop-blur-md border border-white/10 shadow-lg">
-        <div className="flex items-center justify-between px-2 py-1 bg-black/40 border-b border-white/5">
-          <span className="text-[9px] font-medium text-gray-400 uppercase tracking-wider">
+      <div className="relative rounded-lg overflow-hidden bg-su-panel/90 backdrop-blur-md border border-su-line/40 shadow-lg">
+        <div className="flex items-center justify-between px-2 py-1 bg-su-input/50 border-b border-su-line/20">
+          <span className="text-[9px] font-medium text-su-muted uppercase tracking-wider">
             Overview
           </span>
           <button
             onClick={() => setIsVisible(false)}
-            className="p-0.5 text-gray-500 hover:text-gray-300"
+            className="p-0.5 text-su-muted hover:text-su-text"
             title="Hide"
           >
             <svg
@@ -478,22 +478,22 @@ export function MiniMapNavigator({
           className="block cursor-crosshair"
           style={{ width: MINI_MAP_WIDTH, height: MINI_MAP_HEIGHT }}
         />
-        <div className="flex items-center justify-between px-2 py-1 bg-black/40 border-t border-white/5">
+        <div className="flex items-center justify-between px-2 py-1 bg-su-input/50 border-t border-su-line/20">
           <div className="flex items-center gap-2">
             {station && (
               <div className="flex items-center gap-1">
                 <div className="w-1.5 h-1.5 rounded-full bg-[#4488FF]" />
-                <span className="text-[8px] text-gray-500">QTH</span>
+                <span className="text-[8px] text-su-muted">QTH</span>
               </div>
             )}
             {target && (
               <div className="flex items-center gap-1">
                 <div className="w-1.5 h-1.5 rounded-full bg-[#ff6b35]" />
-                <span className="text-[8px] text-gray-500">Target</span>
+                <span className="text-[8px] text-su-muted">Target</span>
               </div>
             )}
           </div>
-          <span className="text-[7px] text-gray-600">Click to navigate</span>
+          <span className="text-[7px] text-su-muted">Click to navigate</span>
         </div>
       </div>
     </div>

@@ -21,10 +21,10 @@ const VISIBILITY_META: Record<
   PlanetVisibility["visibility"],
   { label: string; colorClass: string }
 > = {
-  evening: { label: "Evening", colorClass: "text-plasma-orange" },
+  evening: { label: "Evening", colorClass: "text-su-accent-text" },
   morning: { label: "Morning", colorClass: "text-sky-400" },
-  "all-night": { label: "All night", colorClass: "text-signal-green" },
-  "not-visible": { label: "Not visible", colorClass: "text-gray-500" },
+  "all-night": { label: "All night", colorClass: "text-su-success" },
+  "not-visible": { label: "Not visible", colorClass: "text-su-muted/80" },
 };
 
 function PlanetRow({ planet }: { planet: PlanetVisibility }) {
@@ -35,18 +35,18 @@ function PlanetRow({ planet }: { planet: PlanetVisibility }) {
     <div
       className={`flex items-center justify-between gap-2 py-1.5 ${isVisible ? "" : "opacity-50"}`}
     >
-      <span className="text-sm text-white w-16 shrink-0">
+      <span className="text-sm text-su-text w-16 shrink-0">
         {planet.planet}
       </span>
       <span
-        className={`text-[10px] font-medium uppercase tracking-wide px-1.5 py-0.5 rounded shrink-0 ${meta.colorClass}`}
+        className={`text-sm font-medium uppercase tracking-wide px-1.5 py-0.5 rounded shrink-0 ${meta.colorClass}`}
       >
         {meta.label}
       </span>
-      <span className="text-xs text-gray-400 font-mono tabular-nums shrink-0">
+      <span className="text-sm text-su-muted font-mono tabular-nums shrink-0">
         mag {planet.magnitude.toFixed(1)}
       </span>
-      <span className="text-xs text-gray-400 font-mono tabular-nums text-right flex-1 truncate">
+      <span className="text-sm text-su-muted font-mono tabular-nums text-right flex-1 truncate">
         {isVisible
           ? `${Math.round(planet.altitude)}° ${formatAzimuth(planet.azimuth).split(" ")[1]}`
           : "—"}
@@ -75,19 +75,19 @@ export function PlanetsCard({ className = "" }: PlanetsCardProps) {
   return (
     <Card className={className} role="region" aria-label="Planets">
       <div className="flex items-center gap-1.5 mb-2">
-        <span className="text-[10px] font-medium text-gray-400 uppercase tracking-wide">
+        <span className="text-sm font-medium text-su-muted uppercase tracking-wide">
           Planets
         </span>
       </div>
 
-      <div className="divide-y divide-white/5">
+      <div className="divide-y divide-su-line/20">
         {planets.map((planet) => (
           <PlanetRow key={planet.planet} planet={planet} />
         ))}
       </div>
 
       {!station && (
-        <div className="mt-2 pt-2 border-t border-white/10 text-[10px] text-gray-500">
+        <div className="mt-2 pt-2 border-t border-su-line/40 text-sm text-su-muted/80">
           Set your grid in Profile for accurate visibility
         </div>
       )}

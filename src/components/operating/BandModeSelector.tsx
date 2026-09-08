@@ -192,7 +192,7 @@ export function BandModeSelector({ className }: { className?: string }) {
         ref={modeBtnRef}
         type="button"
         onClick={() => togglePopover("mode")}
-        className="flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-medium text-gray-300 hover:text-white hover:bg-white/10 border border-transparent transition-colors"
+        className="flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-medium text-su-muted hover:text-su-text hover:bg-su-line/20 border border-transparent transition-colors"
       >
         {activeMode}
         <ChevronDown className="opacity-70" />
@@ -216,7 +216,7 @@ export function BandModeSelector({ className }: { className?: string }) {
             <button
               type="button"
               onClick={handleResumeCat}
-              className="text-[10px] font-medium text-gray-400 hover:text-white transition-colors"
+              className="text-[10px] font-medium text-su-muted hover:text-su-text transition-colors"
             >
               Resume ↩
             </button>
@@ -226,7 +226,7 @@ export function BandModeSelector({ className }: { className?: string }) {
 
       {/* ── Band popover ─────────────────────────────────────────────── */}
       {openPopover === "band" && (
-        <div className="absolute left-0 top-full mt-1.5 z-50 bg-void-black/95 backdrop-blur-sm border border-white/10 rounded-lg shadow-xl p-2 min-w-[200px]">
+        <div className="absolute left-0 top-full mt-1.5 z-50 bg-void-black/95 backdrop-blur-sm border border-su-line/40 rounded-lg shadow-xl p-2 min-w-[200px]">
           {/* HF bands */}
           <div className="grid grid-cols-4 gap-1">
             {HF_BANDS.map((band) => {
@@ -245,8 +245,8 @@ export function BandModeSelector({ className }: { className?: string }) {
                     ${isHidden ? "opacity-40" : ""}
                     ${
                       isActive
-                        ? "text-white"
-                        : "text-gray-400 hover:text-white hover:bg-white/10"
+                        ? "text-su-text"
+                        : "text-su-muted hover:text-su-text hover:bg-su-line/20"
                     }
                   `}
                   style={{
@@ -269,7 +269,7 @@ export function BandModeSelector({ className }: { className?: string }) {
           </div>
 
           {/* Separator */}
-          <div className="border-t border-white/10 my-1.5" />
+          <div className="border-t border-su-line/40 my-1.5" />
 
           {/* VHF/UHF bands */}
           <div className="grid grid-cols-4 gap-1">
@@ -289,8 +289,8 @@ export function BandModeSelector({ className }: { className?: string }) {
                     ${isHidden ? "opacity-40" : ""}
                     ${
                       isActive
-                        ? "text-white"
-                        : "text-gray-400 hover:text-white hover:bg-white/10"
+                        ? "text-su-text"
+                        : "text-su-muted hover:text-su-text hover:bg-su-line/20"
                     }
                   `}
                   style={{
@@ -316,7 +316,7 @@ export function BandModeSelector({ className }: { className?: string }) {
 
       {/* ── Mode popover ─────────────────────────────────────────────── */}
       {openPopover === "mode" && (
-        <div className="absolute left-0 top-full mt-1.5 z-50 bg-void-black/95 backdrop-blur-sm border border-white/10 rounded-lg shadow-xl p-2 min-w-[200px]">
+        <div className="absolute left-0 top-full mt-1.5 z-50 bg-void-black/95 backdrop-blur-sm border border-su-line/40 rounded-lg shadow-xl p-2 min-w-[200px]">
           <div className="grid grid-cols-4 gap-1">
             {ALL_UI_MODES.map((mode) => {
               const isActive = mode === activeMode;
@@ -330,7 +330,7 @@ export function BandModeSelector({ className }: { className?: string }) {
                     ${
                       isActive
                         ? "bg-plasma-orange/20 text-plasma-orange border border-plasma-orange/30"
-                        : "text-gray-400 hover:text-white hover:bg-white/10 border border-transparent"
+                        : "text-su-muted hover:text-su-text hover:bg-su-line/20 border border-transparent"
                     }
                   `}
                 >

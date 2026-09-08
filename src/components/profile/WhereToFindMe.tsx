@@ -34,7 +34,7 @@ const SKED_CONFIG: Record<
   },
   offline: {
     label: "Offline",
-    className: "bg-white/5 text-gray-500 border-white/10",
+    className: "bg-su-line/10 text-su-muted border-su-line/40",
   },
 };
 
@@ -61,13 +61,13 @@ export function WhereToFindMe({
     <div className="space-y-4">
       {/* Section header */}
       <div className="flex items-center justify-between gap-3">
-        <h3 className="text-[10px] uppercase tracking-widest text-gray-500 mb-0">
+        <h3 className="text-[10px] uppercase tracking-widest text-su-muted mb-0">
           Where to Find Me
         </h3>
 
         {/* Sked availability badge or toggle */}
         {editable && onSkedChange ? (
-          <div className="flex rounded-lg overflow-hidden border border-white/10">
+          <div className="flex rounded-lg overflow-hidden border border-su-line/40">
             {SKED_OPTIONS.map((opt) => {
               const cfg = SKED_CONFIG[opt];
               const isActive = skedAvailability === opt;
@@ -79,7 +79,7 @@ export function WhereToFindMe({
                   className={`px-2.5 py-1 text-[10px] font-medium transition-colors border-0 ${
                     isActive
                       ? cfg.className
-                      : "bg-white/[0.02] text-gray-600 hover:text-gray-400 hover:bg-white/5"
+                      : "bg-su-line/10 text-su-muted hover:text-su-text hover:bg-su-line/20"
                   }`}
                 >
                   {cfg.label}
@@ -98,7 +98,7 @@ export function WhereToFindMe({
 
       {/* No data fallback */}
       {!hasData && !editable && (
-        <p className="text-gray-500 text-xs italic py-4 text-center">
+        <p className="text-su-muted text-xs italic py-4 text-center">
           No operating data yet
         </p>
       )}
@@ -108,7 +108,7 @@ export function WhereToFindMe({
         <div className="flex flex-col sm:flex-row gap-6 items-start">
           {hasHours && hours && (
             <div className="shrink-0">
-              <p className="text-[9px] uppercase tracking-widest text-gray-600 mb-2">
+              <p className="text-[9px] uppercase tracking-widest text-su-muted mb-2">
                 Operating Hours (UTC)
               </p>
               <OperatingHoursChart hours={hours} size={180} />
@@ -116,7 +116,7 @@ export function WhereToFindMe({
           )}
           {hasDays && qsosByDate && (
             <div className="flex-1 min-w-0">
-              <p className="text-[9px] uppercase tracking-widest text-gray-600 mb-2">
+              <p className="text-[9px] uppercase tracking-widest text-su-muted mb-2">
                 Active Days
               </p>
               <ActiveDaysChart qsosByDate={qsosByDate} />
@@ -128,7 +128,7 @@ export function WhereToFindMe({
       {/* Favorite frequencies */}
       {(hasFreqs || editable) && (
         <div>
-          <p className="text-[9px] uppercase tracking-widest text-gray-600 mb-2">
+          <p className="text-[9px] uppercase tracking-widest text-su-muted mb-2">
             Favorite Frequencies
           </p>
           <FavoriteFreqList

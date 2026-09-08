@@ -45,8 +45,8 @@ function VolumeSlider({
   return (
     <div className={`space-y-2 ${disabled ? "opacity-50" : ""}`}>
       <div className="flex items-center justify-between">
-        <label className="text-xs text-gray-400">Volume:</label>
-        <span className="text-sm font-mono font-medium text-white">
+        <label className="text-xs text-su-muted">Volume:</label>
+        <span className="text-sm font-mono font-medium text-su-text">
           {value}%
         </span>
       </div>
@@ -60,7 +60,7 @@ function VolumeSlider({
         disabled={disabled}
         className={`
           w-full h-2 rounded-full appearance-none cursor-pointer
-          bg-white/10
+          bg-su-line/20
           [&::-webkit-slider-thumb]:appearance-none
           [&::-webkit-slider-thumb]:w-4
           [&::-webkit-slider-thumb]:h-4
@@ -78,7 +78,7 @@ function VolumeSlider({
           ${disabled ? "cursor-not-allowed [&::-webkit-slider-thumb]:cursor-not-allowed [&::-moz-range-thumb]:cursor-not-allowed" : ""}
         `}
       />
-      <div className="flex justify-between text-[10px] text-gray-500">
+      <div className="flex justify-between text-[10px] text-su-muted">
         <span>0%</span>
         <span>50%</span>
         <span>100%</span>
@@ -109,7 +109,7 @@ function CooldownSelector({
 
   return (
     <div className={`space-y-2 ${disabled ? "opacity-50" : ""}`}>
-      <label className="text-xs text-gray-400">Alert cooldown:</label>
+      <label className="text-xs text-su-muted">Alert cooldown:</label>
       <div className="flex flex-wrap gap-1.5">
         {options.map((opt) => (
           <button
@@ -122,7 +122,7 @@ function CooldownSelector({
               ${
                 value === opt.value
                   ? "bg-plasma-orange/20 text-plasma-orange border border-plasma-orange/50"
-                  : "bg-white/5 text-gray-400 border border-white/10 hover:border-white/20"
+                  : "bg-su-line/10 text-su-muted border border-su-line/40 hover:border-su-line/50"
               }
               ${disabled ? "cursor-not-allowed" : "cursor-pointer"}
             `}
@@ -131,7 +131,7 @@ function CooldownSelector({
           </button>
         ))}
       </div>
-      <p className="text-[10px] text-gray-500">
+      <p className="text-[10px] text-su-muted">
         Minimum time between alerts for the same watch
       </p>
     </div>
@@ -183,10 +183,10 @@ function TestSoundButton({
         flex items-center gap-1.5
         ${
           disabled
-            ? "bg-white/5 text-gray-500 cursor-not-allowed"
+            ? "bg-su-line/10 text-su-muted cursor-not-allowed"
             : isPlaying
               ? "bg-plasma-orange/30 text-plasma-orange cursor-wait"
-              : "bg-white/5 text-gray-300 hover:bg-white/10 hover:text-white border border-white/10"
+              : "bg-su-line/10 text-su-muted hover:bg-su-line/20 hover:text-su-text border border-su-line/40"
         }
       `}
     >
@@ -236,7 +236,7 @@ export function WatchAlertSettings({
   return (
     <div className={`space-y-4 ${className}`}>
       {/* Header */}
-      <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider">
+      <h3 className="text-sm font-semibold text-su-muted uppercase tracking-wider">
         Watch Alerts
       </h3>
 
@@ -263,7 +263,7 @@ export function WatchAlertSettings({
       )}
 
       {/* Main enable toggle */}
-      <div className="p-3 bg-nebula-blue rounded-lg border border-white/10">
+      <div className="p-3 bg-nebula-blue rounded-lg border border-su-line/40">
         <ToggleSwitch
           checked={watchAlerts.enabled}
           onChange={(checked) => handleUpdate({ enabled: checked })}
@@ -274,7 +274,7 @@ export function WatchAlertSettings({
       </div>
 
       {/* Mute and Volume controls */}
-      <div className="p-3 bg-nebula-blue rounded-lg border border-white/10 space-y-4">
+      <div className="p-3 bg-nebula-blue rounded-lg border border-su-line/40 space-y-4">
         <ToggleSwitch
           checked={!watchAlerts.muted}
           onChange={(checked) => handleUpdate({ muted: !checked })}
@@ -295,8 +295,8 @@ export function WatchAlertSettings({
       </div>
 
       {/* Alert type toggles */}
-      <div className="p-3 bg-nebula-blue rounded-lg border border-white/10 space-y-3">
-        <div className="text-xs text-gray-400 mb-2 font-medium">
+      <div className="p-3 bg-nebula-blue rounded-lg border border-su-line/40 space-y-3">
+        <div className="text-xs text-su-muted mb-2 font-medium">
           Alert by watch type:
         </div>
 
@@ -326,7 +326,7 @@ export function WatchAlertSettings({
       </div>
 
       {/* Cooldown setting */}
-      <div className="p-3 bg-nebula-blue rounded-lg border border-white/10">
+      <div className="p-3 bg-nebula-blue rounded-lg border border-su-line/40">
         <CooldownSelector
           value={watchAlerts.cooldownSeconds}
           onChange={(value) => handleUpdate({ cooldownSeconds: value })}
@@ -335,11 +335,11 @@ export function WatchAlertSettings({
       </div>
 
       {/* Divider */}
-      <div className="border-t border-white/10" />
+      <div className="border-t border-su-line/40" />
 
       {/* Test sounds */}
-      <div className="p-3 bg-nebula-blue rounded-lg border border-white/10 space-y-3">
-        <div className="text-xs text-gray-400 font-medium">
+      <div className="p-3 bg-nebula-blue rounded-lg border border-su-line/40 space-y-3">
+        <div className="text-xs text-su-muted font-medium">
           Test alert sounds:
         </div>
         <div className="flex flex-wrap gap-2">
@@ -371,15 +371,15 @@ export function WatchAlertSettings({
             }
           />
         </div>
-        <p className="text-[10px] text-gray-500">
+        <p className="text-[10px] text-su-muted">
           Each watch type has a distinct sound to help identify alert sources
         </p>
       </div>
 
       {/* Info notice */}
-      <div className="flex items-start gap-2 p-3 bg-white/5 rounded-lg border border-white/5">
+      <div className="flex items-start gap-2 p-3 bg-su-line/10 rounded-lg border border-su-line/20">
         <svg
-          className="w-4 h-4 text-gray-500 flex-shrink-0 mt-0.5"
+          className="w-4 h-4 text-su-muted flex-shrink-0 mt-0.5"
           fill="none"
           stroke="currentColor"
           viewBox="0 0 24 24"
@@ -391,7 +391,7 @@ export function WatchAlertSettings({
             d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
           />
         </svg>
-        <p className="text-xs text-gray-500">
+        <p className="text-xs text-su-muted">
           Audio alerts require user interaction (click/tap) before sounds can
           play. The Watch Indicator badge will pulse when alerts trigger.
         </p>

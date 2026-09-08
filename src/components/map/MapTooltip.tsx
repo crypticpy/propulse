@@ -146,8 +146,8 @@ export function MapTooltip({
     <div
       className={`
         fixed z-50 pointer-events-none
-        bg-black/80 backdrop-blur-md
-        border border-white/10 rounded-lg
+        bg-su-panel/80 backdrop-blur-md
+        border border-su-line/40 rounded-lg
         shadow-xl
         transition-opacity duration-200
         ${visible ? "opacity-100" : "opacity-0"}
@@ -161,23 +161,23 @@ export function MapTooltip({
     >
       <div className="p-3 space-y-1.5">
         {/* Grid locator header */}
-        <div className="text-white font-mono font-bold text-sm">{grid}</div>
+        <div className="text-su-text font-mono font-bold text-sm">{grid}</div>
 
         {/* Spot count */}
         {spotCount > 0 ? (
           <>
-            <div className="text-gray-400 text-xs">
+            <div className="text-su-muted text-xs">
               {spotCount} spot{spotCount !== 1 ? "s" : ""}
             </div>
 
             {/* Band breakdown */}
             {bandBreakdown.length > 0 && (
-              <div className="text-xs text-gray-300">
+              <div className="text-xs text-su-muted">
                 {bandBreakdown.map((b, i) => (
                   <span key={b.band}>
-                    {i > 0 && <span className="text-gray-500"> | </span>}
+                    {i > 0 && <span className="text-su-muted"> | </span>}
                     <span className="text-cyan-400">{b.band}</span>
-                    <span className="text-gray-500">: {b.count}</span>
+                    <span className="text-su-muted">: {b.count}</span>
                   </span>
                 ))}
               </div>
@@ -191,7 +191,7 @@ export function MapTooltip({
                     key={`${info.callsign}-${i}`}
                     className="flex items-center justify-between gap-2 text-xs"
                   >
-                    <span className="text-gray-300 font-mono truncate">
+                    <span className="text-su-muted font-mono truncate">
                       {info.callsign}
                     </span>
                     <span className="text-cyan-400/80 font-mono text-[10px] flex-shrink-0">
@@ -200,7 +200,7 @@ export function MapTooltip({
                   </div>
                 ))}
                 {spots.length > recentSpotInfo.length && (
-                  <div className="text-gray-500 text-[10px]">
+                  <div className="text-su-muted text-[10px]">
                     +{spots.length - recentSpotInfo.length} more...
                   </div>
                 )}
@@ -208,7 +208,7 @@ export function MapTooltip({
             )}
           </>
         ) : (
-          <div className="text-gray-500 text-xs">No active spots</div>
+          <div className="text-su-muted text-xs">No active spots</div>
         )}
       </div>
     </div>

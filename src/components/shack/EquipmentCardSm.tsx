@@ -87,7 +87,7 @@ export function EquipmentCardSm({
         // Background + shape
         "bg-[#0f1420] rounded-lg overflow-hidden",
         // Border
-        "border border-white/[0.06]",
+        "border border-su-line/20",
         // Transitions
         "transition-all duration-150",
         // Hover lift
@@ -134,7 +134,7 @@ export function EquipmentCardSm({
 
       {/* ── Text block ── */}
       <div className="flex flex-col min-w-0 flex-1">
-        <span className="text-sm font-semibold text-white leading-tight truncate">
+        <span className="text-sm font-semibold text-su-text leading-tight truncate">
           {title}
         </span>
         <span
@@ -146,13 +146,13 @@ export function EquipmentCardSm({
 
       {/* ── Inline stats ── */}
       {displayStats && displayStats.length > 0 && (
-        <div className="flex items-center gap-1.5 flex-shrink-0 text-gray-400">
+        <div className="flex items-center gap-1.5 flex-shrink-0 text-su-muted">
           {displayStats.map((stat, i) => (
             <React.Fragment key={`${stat.icon}-${stat.label}`}>
               {i > 0 && (
-                <span className="text-gray-600 text-xs select-none">|</span>
+                <span className="text-su-muted text-xs select-none">|</span>
               )}
-              <span className="flex items-center gap-0.5 text-xs font-mono text-gray-300">
+              <span className="flex items-center gap-0.5 text-xs font-mono text-su-muted">
                 <StatIconSvg icon={stat.icon} />
                 {stat.value}
               </span>
@@ -176,7 +176,7 @@ export function EquipmentCardSm({
 
       {/* ── In Use indicator ── */}
       {inUse && (
-        <span className="flex-shrink-0 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider rounded bg-white/5 text-gray-500">
+        <span className="flex-shrink-0 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider rounded bg-su-line/10 text-su-muted">
           In Use
         </span>
       )}

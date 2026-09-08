@@ -134,7 +134,7 @@ export function SatMatchPanel({ satellite, myLocation }: SatMatchPanelProps) {
   // Early return: no satellite selected
   if (!satellite) {
     return (
-      <div className="p-3 text-xs text-gray-500 text-center">
+      <div className="p-3 text-xs text-su-muted text-center">
         Select a satellite to find shared passes.
       </div>
     );
@@ -143,7 +143,7 @@ export function SatMatchPanel({ satellite, myLocation }: SatMatchPanelProps) {
   // Early return: no observer location
   if (!myLocation) {
     return (
-      <div className="p-3 text-xs text-gray-500 text-center">
+      <div className="p-3 text-xs text-su-muted text-center">
         Set your QTH location to find shared passes.
       </div>
     );
@@ -157,9 +157,9 @@ export function SatMatchPanel({ satellite, myLocation }: SatMatchPanelProps) {
       </div>
 
       {/* Satellite name */}
-      <div className="text-[11px] text-gray-400">
+      <div className="text-[11px] text-su-muted">
         Satellite:{" "}
-        <span className="text-gray-200 font-medium">{satellite.name}</span>
+        <span className="text-su-text font-medium">{satellite.name}</span>
       </div>
 
       {/* Grid input */}
@@ -175,7 +175,7 @@ export function SatMatchPanel({ satellite, myLocation }: SatMatchPanelProps) {
           onKeyDown={(e) => {
             if (e.key === "Enter" && canSearch) handleSearch();
           }}
-          className="flex-1 bg-void-black/60 border border-gray-700 rounded px-2 py-1.5 text-xs text-gray-200 placeholder-gray-600 focus:outline-none focus:border-nebula-blue/60 font-mono"
+          className="flex-1 bg-void-black/60 border border-su-line/40 rounded px-2 py-1.5 text-xs text-su-text placeholder:text-su-muted/80 focus:outline-none focus:border-nebula-blue/60 font-mono"
           maxLength={8}
           aria-label="Target station grid locator"
         />
@@ -197,7 +197,7 @@ export function SatMatchPanel({ satellite, myLocation }: SatMatchPanelProps) {
 
       {/* Error message */}
       {error && !loading && (
-        <div className="text-[10px] text-gray-500 text-center py-2">
+        <div className="text-[10px] text-su-muted text-center py-2">
           {error}
         </div>
       )}
@@ -208,17 +208,17 @@ export function SatMatchPanel({ satellite, myLocation }: SatMatchPanelProps) {
           {results.map((pass, i) => (
             <div
               key={`${pass.overlapStartUTC}-${i}`}
-              className="bg-void-black/50 border border-gray-800 rounded p-2 flex flex-col gap-1"
+              className="bg-void-black/50 border border-su-line/40 rounded p-2 flex flex-col gap-1"
             >
               {/* Pass time window */}
               <div className="flex items-center justify-between">
-                <div className="text-[11px] text-gray-200 font-mono">
+                <div className="text-[11px] text-su-text font-mono">
                   {formatDateTime(pass.overlapStartUTC)} -{" "}
                   {formatTime(pass.overlapEndUTC)}z
                 </div>
                 <button
                   onClick={() => handleCopy(pass, i)}
-                  className="text-[10px] px-1.5 py-0.5 rounded bg-gray-800 hover:bg-gray-700 text-gray-400 hover:text-gray-200 transition-colors"
+                  className="text-[10px] px-1.5 py-0.5 rounded bg-su-panel hover:bg-su-input text-su-muted hover:text-su-text transition-colors"
                   aria-label="Copy pass summary"
                 >
                   {copiedIndex === i ? "Copied" : "Copy"}
@@ -226,7 +226,7 @@ export function SatMatchPanel({ satellite, myLocation }: SatMatchPanelProps) {
               </div>
 
               {/* Pass details */}
-              <div className="flex items-center gap-3 text-[10px] text-gray-400">
+              <div className="flex items-center gap-3 text-[10px] text-su-muted">
                 <span>
                   Duration:{" "}
                   <span className="text-signal-green font-medium">
@@ -235,13 +235,13 @@ export function SatMatchPanel({ satellite, myLocation }: SatMatchPanelProps) {
                 </span>
                 <span>
                   My max el:{" "}
-                  <span className="text-gray-300">
+                  <span className="text-su-muted">
                     {Math.round(pass.myMaxEl)}&deg;
                   </span>
                 </span>
                 <span>
                   Their max el:{" "}
-                  <span className="text-gray-300">
+                  <span className="text-su-muted">
                     {Math.round(pass.theirMaxEl)}&deg;
                   </span>
                 </span>
@@ -253,7 +253,7 @@ export function SatMatchPanel({ satellite, myLocation }: SatMatchPanelProps) {
 
       {/* Empty state */}
       {!results && !error && !loading && (
-        <div className="text-[10px] text-gray-600 text-center py-3">
+        <div className="text-[10px] text-su-muted text-center py-3">
           Enter a target station grid to find shared satellite passes.
         </div>
       )}

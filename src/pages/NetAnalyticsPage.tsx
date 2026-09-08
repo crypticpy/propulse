@@ -266,8 +266,8 @@ export function NetAnalyticsPage() {
         <div className="text-4xl font-mono font-bold text-plasma-orange">
           403
         </div>
-        <h1 className="text-xl font-semibold text-white">Not Authorized</h1>
-        <p className="text-gray-400 max-w-md">
+        <h1 className="text-xl font-semibold text-su-text">Not Authorized</h1>
+        <p className="text-su-muted max-w-md">
           Only net managers can access analytics for this net.
         </p>
         {netId && (
@@ -318,19 +318,19 @@ export function NetAnalyticsPage() {
       <div className="flex items-center gap-3 mb-6">
         <Link
           to={`/ncs/${netId}`}
-          className="text-gray-400 hover:text-white transition-colors text-sm"
+          className="text-su-muted hover:text-su-text transition-colors text-sm"
         >
           &larr; Back
         </Link>
-        <h1 className="text-xl font-bold text-white">
+        <h1 className="text-xl font-bold text-su-text">
           {currentNet?.name ?? "Net"} &mdash; Analytics
         </h1>
       </div>
 
       {!hasData ? (
-        <div className="flex flex-col items-center justify-center h-64 text-gray-500 text-sm gap-2">
+        <div className="flex flex-col items-center justify-center h-64 text-su-muted text-sm gap-2">
           <p>No completed sessions yet.</p>
-          <p className="text-gray-600 text-xs">
+          <p className="text-su-muted text-xs">
             Analytics will appear after your first completed session.
           </p>
         </div>
@@ -412,7 +412,7 @@ export function NetAnalyticsPage() {
                               x={x + attendanceBarWidth / 2}
                               y={y - 4}
                               textAnchor="middle"
-                              className="fill-gray-400"
+                              className="fill-su-muted"
                               fontSize={9}
                               fontFamily="monospace"
                             >
@@ -424,7 +424,7 @@ export function NetAnalyticsPage() {
                             x={x + attendanceBarWidth / 2}
                             y={attendanceChartHeight + 14}
                             textAnchor="middle"
-                            className="fill-gray-500"
+                            className="fill-su-muted"
                             fontSize={8}
                             fontFamily="monospace"
                           >
@@ -466,7 +466,7 @@ export function NetAnalyticsPage() {
                             y={y + BAR_HEIGHT / 2 + 1}
                             textAnchor="end"
                             dominantBaseline="middle"
-                            className="fill-gray-300"
+                            className="fill-su-muted"
                             fontSize={11}
                             fontFamily="monospace"
                           >
@@ -497,7 +497,7 @@ export function NetAnalyticsPage() {
                             y={y + BAR_HEIGHT / 2 + 1}
                             textAnchor="start"
                             dominantBaseline="middle"
-                            className="fill-gray-400"
+                            className="fill-su-muted"
                             fontSize={11}
                             fontFamily="monospace"
                           >
@@ -524,7 +524,7 @@ export function NetAnalyticsPage() {
                       className="flex flex-col items-center flex-1 gap-1"
                     >
                       {count > 0 && (
-                        <span className="text-[9px] text-gray-400 font-mono">
+                        <span className="text-[9px] text-su-muted font-mono">
                           {count}
                         </span>
                       )}
@@ -541,7 +541,7 @@ export function NetAnalyticsPage() {
                           }}
                         />
                       </div>
-                      <span className="text-[10px] text-gray-500 font-mono">
+                      <span className="text-[10px] text-su-muted font-mono">
                         {DAY_LABELS[i]}
                       </span>
                     </div>
@@ -560,9 +560,9 @@ export function NetAnalyticsPage() {
 
 function StatCard({ label, value }: { label: string; value: string }) {
   return (
-    <div className="bg-panel/30 border border-white/5 rounded-2xl p-4 flex flex-col gap-1">
-      <span className="text-2xl font-bold text-white">{value}</span>
-      <span className="text-[10px] uppercase tracking-widest text-gray-500">
+    <div className="bg-panel/30 border border-su-line/20 rounded-2xl p-4 flex flex-col gap-1">
+      <span className="text-2xl font-bold text-su-text">{value}</span>
+      <span className="text-[10px] uppercase tracking-widest text-su-muted">
         {label}
       </span>
     </div>
@@ -577,8 +577,8 @@ function ChartCard({
   children: React.ReactNode;
 }) {
   return (
-    <div className="bg-panel/30 border border-white/5 rounded-2xl p-4">
-      <h3 className="text-[10px] uppercase tracking-widest text-gray-500 mb-3">
+    <div className="bg-panel/30 border border-su-line/20 rounded-2xl p-4">
+      <h3 className="text-[10px] uppercase tracking-widest text-su-muted mb-3">
         {title}
       </h3>
       {children}
@@ -588,7 +588,7 @@ function ChartCard({
 
 function EmptyChart() {
   return (
-    <div className="flex items-center justify-center h-32 text-gray-500 text-sm">
+    <div className="flex items-center justify-center h-32 text-su-muted text-sm">
       No data yet
     </div>
   );

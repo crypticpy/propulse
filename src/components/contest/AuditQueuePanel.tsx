@@ -86,9 +86,9 @@ function AuditFlagItem({ flag }: { flag: AuditFlag }) {
   return (
     <div className="flex items-start gap-2 text-xs">
       <SeverityBadge severity={flag.severity} />
-      <span className="text-gray-300">{flag.message}</span>
+      <span className="text-su-muted">{flag.message}</span>
       {flag.actual && (
-        <span className="text-gray-500 font-mono">({flag.actual})</span>
+        <span className="text-su-muted font-mono">({flag.actual})</span>
       )}
     </div>
   );
@@ -139,19 +139,19 @@ function FlaggedQSORow({
       onClick={handleClick}
       onKeyDown={handleKeyDown}
       className={`
-        p-3 bg-white/5 rounded-lg border-l-4 ${borderColor}
-        hover:bg-white/10 cursor-pointer transition-colors
+        p-3 bg-su-line/10 rounded-lg border-l-4 ${borderColor}
+        hover:bg-su-line/20 cursor-pointer transition-colors
         focus:outline-none focus:ring-2 focus:ring-plasma-orange/50
       `}
     >
       {/* QSO Info Row */}
       <div className="flex items-center justify-between mb-2">
         <div className="flex items-center gap-3">
-          <span className="text-gray-500 text-xs font-mono">
+          <span className="text-su-muted text-xs font-mono">
             {formatLocal(new Date(qso.timestamp), use24h)}
           </span>
-          <span className="text-white font-bold font-mono">{qso.callsign}</span>
-          <span className="text-gray-400 text-sm font-mono">
+          <span className="text-su-text font-bold font-mono">{qso.callsign}</span>
+          <span className="text-su-muted text-sm font-mono">
             {qso.exchangeReceived}
           </span>
           <span className="text-cosmic-cyan text-xs">{qso.band}</span>
@@ -183,15 +183,15 @@ function FlaggedQSORow({
           <AuditFlagItem key={flag.id} flag={flag} />
         ))}
         {flags.length > 3 && (
-          <span className="text-xs text-gray-500">
+          <span className="text-xs text-su-muted">
             +{flags.length - 3} more issues
           </span>
         )}
       </div>
 
       {/* Edit hint */}
-      <div className="mt-2 text-[10px] text-gray-500 flex items-center gap-1">
-        <kbd className="px-1 py-0.5 bg-white/10 rounded">Enter</kbd>
+      <div className="mt-2 text-[10px] text-su-muted flex items-center gap-1">
+        <kbd className="px-1 py-0.5 bg-su-line/20 rounded">Enter</kbd>
         <span>or click to edit</span>
       </div>
     </div>
@@ -259,7 +259,7 @@ export function AuditQueuePanel({
   if (!session) {
     return (
       <Card className={`p-4 ${className}`}>
-        <div className="text-center text-gray-500 text-sm">
+        <div className="text-center text-su-muted text-sm">
           No active contest session
         </div>
       </Card>
@@ -271,7 +271,7 @@ export function AuditQueuePanel({
     return (
       <Card className={`p-4 ${className}`}>
         <div className="flex items-center justify-between mb-3">
-          <h3 className="font-orbitron text-sm font-bold text-white">
+          <h3 className="font-orbitron text-sm font-bold text-su-text">
             QC Audit Queue
           </h3>
           <div className="flex items-center gap-2">
@@ -279,7 +279,7 @@ export function AuditQueuePanel({
             <span className="text-xs text-signal-green">All Clear</span>
           </div>
         </div>
-        <div className="text-center py-6 text-gray-500 text-sm">
+        <div className="text-center py-6 text-su-muted text-sm">
           No issues detected - great logging!
         </div>
       </Card>
@@ -290,7 +290,7 @@ export function AuditQueuePanel({
     <Card className={`p-4 ${className}`}>
       {/* Header */}
       <div className="flex items-center justify-between mb-4">
-        <h3 className="font-orbitron text-sm font-bold text-white">
+        <h3 className="font-orbitron text-sm font-bold text-su-text">
           QC Audit Queue
         </h3>
 
@@ -332,7 +332,7 @@ export function AuditQueuePanel({
               {summary.info}
             </span>
           )}
-          <span className="text-gray-500 ml-1">
+          <span className="text-su-muted ml-1">
             ({auditQueue.length} QSO{auditQueue.length !== 1 ? "s" : ""})
           </span>
         </div>
@@ -351,13 +351,13 @@ export function AuditQueuePanel({
 
       {/* Show more indicator */}
       {auditQueue.length > maxItems && (
-        <div className="mt-3 text-center text-xs text-gray-500">
+        <div className="mt-3 text-center text-xs text-su-muted">
           +{auditQueue.length - maxItems} more flagged QSOs
         </div>
       )}
 
       {/* Keyboard hint */}
-      <div className="mt-4 pt-3 border-t border-white/10 text-[10px] text-gray-500">
+      <div className="mt-4 pt-3 border-t border-su-line/40 text-[10px] text-su-muted">
         Click a QSO to open edit dialog
       </div>
     </Card>

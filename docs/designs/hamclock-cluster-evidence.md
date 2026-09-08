@@ -53,3 +53,29 @@ was checked before testing. The list's metadata/history/expiry integration
 remains the next serialized slice.
 The integration server is stopped; its exact claim was released after verifying
 the absent PID and free IPv4/IPv6 port. Other agents' sessions were untouched.
+
+## Current-main release extraction
+
+The local release branch rebuilds the report on current main without importing
+the cluster history, bridge metadata, feed-state, activation, or Spots & Paths
+runtime branches. It keeps main's `DXSpotList` filtering, row actions, selection,
+and styling, then layers on the report-only paging API. `useSpotPage` retains row
+identity when live spots arrive ahead of the current page, reveals existing and
+asynchronously loaded selections, and keeps keyboard focus within the displayed
+range. Offset-based windows prevent changed row capacity from skipping or
+repeating rows.
+
+Current main's shared `WallReport` still requires a hero and always allocates a
+lead row. A Cluster-specific sentinel and scoped CSS provide the body-only grid
+without changing that shared shell. The report uses three rows—header, flexible
+body, footer—so the list receives the space formerly reserved for the hidden
+lead. The footer continues to date LAST SPOT rather than claiming source health.
+
+Thirteen focused paging, selection, report, and row-measurement tests pass, as
+do lint and the production build. An owned local session
+`7ab280ae-6e38-49cc-b4f5-b81fd58bb968` at `http://127.0.0.1:5192` ran a disposable
+fixture with 80 synthetic REST spots and blocked non-HMR WebSockets. Pulse,
+Classic, and Brass at 1920×1080 and 3840×2160 had no measured overflow or page
+errors. Next→ArrowDown, Home/End, expanded filters, selected details, pin/unpin,
+Escape, and opener focus return passed. The tracked 1080p capture comes from this
+run; no login, hardware, bridge, server-side data, or production state was used.

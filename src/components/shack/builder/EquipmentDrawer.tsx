@@ -102,7 +102,7 @@ const EMPTY_SHORT: Record<DrawerTab, string> = {
 function EmptyState({ tab }: { tab: DrawerTab }) {
   return (
     <div className="text-center py-6 px-4 space-y-1.5">
-      <p className="text-xs text-gray-500 italic">{EMPTY_SHORT[tab]}</p>
+      <p className="text-xs text-su-muted italic">{EMPTY_SHORT[tab]}</p>
       <Link
         className="su-button su-button--secondary"
         to={`/shack?view=equipment&category=${tab === "shack" ? "accessories" : tab}`}
@@ -229,7 +229,7 @@ export function EquipmentDrawer({
         });
         if (filteredRadios.length === 0)
           return (
-            <p className="text-xs text-gray-500 italic text-center py-4">
+            <p className="text-xs text-su-muted italic text-center py-4">
               No matches
             </p>
           );
@@ -255,7 +255,7 @@ export function EquipmentDrawer({
         );
         if (filteredAntennas.length === 0)
           return (
-            <p className="text-xs text-gray-500 italic text-center py-4">
+            <p className="text-xs text-su-muted italic text-center py-4">
               No matches
             </p>
           );
@@ -283,7 +283,7 @@ export function EquipmentDrawer({
         );
         if (filteredFeedlines.length === 0)
           return (
-            <p className="text-xs text-gray-500 italic text-center py-4">
+            <p className="text-xs text-su-muted italic text-center py-4">
               No matches
             </p>
           );
@@ -309,7 +309,7 @@ export function EquipmentDrawer({
         );
         if (filteredAccessories.length === 0)
           return (
-            <p className="text-xs text-gray-500 italic text-center py-4">
+            <p className="text-xs text-su-muted italic text-center py-4">
               No matches
             </p>
           );
@@ -334,7 +334,7 @@ export function EquipmentDrawer({
         );
         if (filteredShack.length === 0)
           return (
-            <p className="text-xs text-gray-500 italic text-center py-4">
+            <p className="text-xs text-su-muted italic text-center py-4">
               No matches
             </p>
           );
@@ -362,7 +362,7 @@ export function EquipmentDrawer({
         );
         if (filteredInline.length === 0)
           return (
-            <p className="text-xs text-gray-500 italic text-center py-4">
+            <p className="text-xs text-su-muted italic text-center py-4">
               No matches
             </p>
           );

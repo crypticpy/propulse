@@ -14,11 +14,11 @@ describe("HamClockWallControls", () => {
     expect(document.querySelector("[data-layers-popover]")).toBeNull();
   });
 
-  it("keeps mode, density, projection, SETTINGS and exit always visible in the fixed instrument slot", () => {
+  it("keeps density, SETTINGS and exit visible while mode and projection live inside Settings", () => {
     render(<HamClockWallControls onOpenSettings={vi.fn()} />);
 
-    expect(screen.getByRole("group", { name: "HamClock mode" })).not.toBeNull();
-    expect(screen.getByRole("group", { name: "Map projection" })).not.toBeNull();
+    expect(screen.queryByRole("group", { name: "HamClock mode" })).toBeNull();
+    expect(screen.queryByRole("group", { name: "Map projection" })).toBeNull();
     expect(screen.getByRole("button", { name: "WALL" })).not.toBeNull();
     expect(screen.getByRole("button", { name: "DESK" })).not.toBeNull();
     expect(screen.getByRole("button", { name: "SETTINGS" })).not.toBeNull();

@@ -98,11 +98,11 @@ export function NetRegulars({ netId }: NetRegularsProps) {
 
   if (isLoading) {
     return (
-      <div className="rounded-2xl border border-white/5 bg-panel/30 p-4">
+      <div className="rounded-2xl border border-su-line/20 bg-panel/30 p-4">
         <div className="animate-pulse space-y-2">
-          <div className="h-3 w-32 rounded bg-white/10" />
-          <div className="h-3 w-48 rounded bg-white/5" />
-          <div className="h-3 w-40 rounded bg-white/5" />
+          <div className="h-3 w-32 rounded bg-su-line/20" />
+          <div className="h-3 w-48 rounded bg-su-line/10" />
+          <div className="h-3 w-40 rounded bg-su-line/10" />
         </div>
       </div>
     );
@@ -122,7 +122,7 @@ export function NetRegulars({ netId }: NetRegularsProps) {
 
   if (regulars.length === 0) {
     return (
-      <div className="rounded-2xl border border-white/5 bg-panel/30 p-4 text-center text-sm text-gray-500">
+      <div className="rounded-2xl border border-su-line/20 bg-panel/30 p-4 text-center text-sm text-su-muted">
         No session history yet
       </div>
     );
@@ -131,12 +131,12 @@ export function NetRegulars({ netId }: NetRegularsProps) {
   // ── Render ─────────────────────────────────────────────────────────────────
 
   return (
-    <div className="rounded-2xl border border-white/5 bg-panel/30 p-4">
+    <div className="rounded-2xl border border-su-line/20 bg-panel/30 p-4">
       <div className="mb-3 flex items-center gap-2">
-        <h3 className="text-sm font-semibold text-gray-200">
+        <h3 className="text-sm font-semibold text-su-text">
           Regular Check-Ins
         </h3>
-        <span className="rounded-full bg-white/10 px-2 py-0.5 text-xs font-medium text-gray-400">
+        <span className="rounded-full bg-su-line/20 px-2 py-0.5 text-xs font-medium text-su-muted">
           {regulars.length}
         </span>
       </div>
@@ -144,13 +144,13 @@ export function NetRegulars({ netId }: NetRegularsProps) {
       <div className="space-y-0.5">
         {regulars.map((entry, idx) => (
           <div key={entry.callsign} className="flex items-center gap-3 py-1.5">
-            <span className="w-5 text-right text-[10px] text-gray-500">
+            <span className="w-5 text-right text-[10px] text-su-muted">
               {idx + 1}
             </span>
-            <span className="font-mono text-sm text-white">
+            <span className="font-mono text-sm text-su-text">
               {entry.callsign}
             </span>
-            <span className="ml-auto rounded-full bg-white/10 px-1.5 py-0.5 text-[10px] text-gray-400">
+            <span className="ml-auto rounded-full bg-su-line/20 px-1.5 py-0.5 text-[10px] text-su-muted">
               {entry.count}
             </span>
           </div>

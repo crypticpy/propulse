@@ -247,7 +247,7 @@ export default function BasemapCategory() {
               className={`flex flex-col items-center gap-1.5 rounded-lg p-1.5 transition-all duration-150 cursor-pointer border ${
                 isActive
                   ? "border-cyan-500 bg-cyan-500/10 ring-1 ring-cyan-500/40"
-                  : "border-zinc-700 bg-white/[0.03] hover:bg-white/[0.06] hover:border-zinc-600"
+                  : "border-su-line/40 bg-su-line/10 hover:bg-su-line/20 hover:border-su-line"
               }`}
             >
               {/* Thumbnail preview */}
@@ -261,19 +261,19 @@ export default function BasemapCategory() {
               {/* Label + subtitle */}
               <span
                 className={`text-[11px] font-medium transition-colors ${
-                  isActive ? "text-cyan-400" : "text-white/60"
+                  isActive ? "text-cyan-400" : "text-su-text/80"
                 }`}
               >
                 {opt.label}
               </span>
               {opt.subtitle && (
-                <span className="text-[9px] text-white/40">{opt.subtitle}</span>
+                <span className="text-[9px] text-su-text/80">{opt.subtitle}</span>
               )}
             </button>
           );
         })}
       </div>
-      <p className="mt-2 text-[9px] text-white/30 text-center">
+      <p className="mt-2 text-[9px] text-su-text/80 text-center">
         {mapStyle === "satellite"
           ? subscriptionTier === "pro"
             ? "\u00A9 Mapbox \u00A9 OpenStreetMap"
@@ -281,9 +281,9 @@ export default function BasemapCategory() {
           : "\u00A9 OpenStreetMap contributors"}
       </p>
 
-      <div className="mt-3 border-t border-white/10 pt-3">
+      <div className="mt-3 border-t border-su-line/40 pt-3">
         <div className="mb-2 flex items-center justify-between gap-2">
-          <span className="text-[10px] uppercase tracking-wider text-white/50">
+          <span className="text-[10px] uppercase tracking-wider text-su-text/80">
             Image quality
           </span>
           <span className="text-[9px] text-cyan-400/80">
@@ -301,14 +301,14 @@ export default function BasemapCategory() {
               className={`rounded border px-1 py-1.5 text-[9px] transition-colors ${
                 displayQuality === quality.id
                   ? "border-cyan-500/60 bg-cyan-500/15 text-cyan-300"
-                  : "border-white/10 bg-white/[0.03] text-white/45 hover:bg-white/[0.07] hover:text-white/80"
+                  : "border-su-line/40 bg-su-line/10 text-su-text/80 hover:bg-su-line/20 hover:text-su-text"
               }`}
             >
               {quality.label}
             </button>
           ))}
         </div>
-        <p className="mt-1 text-[9px] leading-relaxed text-white/30">
+        <p className="mt-1 text-[9px] leading-relaxed text-su-text/80">
           Controls globe refinement, map tiles, textures, and HiDPI rendering.
         </p>
         {displayQuality === "extreme" && (
@@ -319,10 +319,10 @@ export default function BasemapCategory() {
         )}
       </div>
 
-      <div className="mt-3 border-t border-white/10 pt-3">
+      <div className="mt-3 border-t border-su-line/40 pt-3">
         <label
           htmlFor="basemap-night-darkness"
-          className="flex items-center justify-between text-[10px] text-white/60"
+          className="flex items-center justify-between text-[10px] text-su-text/80"
         >
           <span>Night darkness</span>
           <output htmlFor="basemap-night-darkness" className="font-mono text-cyan-300">
@@ -342,7 +342,7 @@ export default function BasemapCategory() {
         />
         <p
           id="basemap-night-darkness-help"
-          className="mt-1 text-[9px] leading-relaxed text-white/30"
+          className="mt-1 text-[9px] leading-relaxed text-su-text/80"
         >
           Controls dark-side intensity when the Day/Night layer is on.
         </p>

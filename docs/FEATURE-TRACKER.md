@@ -21,8 +21,8 @@
 | v0.14.0 Polish & Infra (2026-02-10)     | 12        | 1       | 0           | 0        | 13      |
 | v0.15.0 Spot Watch System (2026-02-10)  | 22        | 2       | 0           | 0        | 24      |
 | v0.16.0 NCS Workflow + QSO (2026-02-11) | 38        | 0       | 0           | 0        | 38      |
-| HamClock Wall (2026-09-05)              | 45        | 2       | 26          | 0        | 73      |
-| **Grand Total**                         | **306**   | **9**   | **37**      | **1**    | **353** |
+| HamClock Wall (2026-09-05)              | 47        | 3       | 23          | 0        | 73      |
+| **Grand Total**                         | **308**   | **10**  | **34**      | **1**    | **353** |
 
 **Delivery rate: 87% delivered, 3% partial, 10% not started**
 
@@ -617,9 +617,9 @@ _Two major feature sets: NCS Dashboard phase-based workflow redesign and full QS
 
 ## 13. HamClock Wall (2026-09-05)
 
-_Source: `docs/designs/hamclock-wall-spec.md` (feature register HW-01 to HW-73). Wall density shipped as the HamClock default across PRs #167, #169, #170 and #171. Open work is packaged as batch issues #197 to #212 under tracker #213 on the ProPulse Delivery project board; batches B17 to B25 (the dedicated reports of spec section 26) have briefs but no issues yet._
+_Source: `docs/designs/hamclock-wall-spec.md` (feature register HW-01 to HW-73). Wall density shipped as the HamClock default across PRs #167, #169, #170 and #171. Batch issues #197–#212 and #225–#233 are tracked under #213 on ProPulse Delivery. Current sequence, ownership boundaries and contributor handoff: [September HamClock delivery plan](designs/hamclock-delivery-plan.md). Operating views, spots and activations precede weather; only the active batch is claimed._
 
-### Delivered (45)
+### Delivered (47)
 
 | ID    | Feature                                                       | Notes                                                                                                                                                                          |
 | ----- | ------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
@@ -639,7 +639,7 @@ _Source: `docs/designs/hamclock-wall-spec.md` (feature register HW-01 to HW-73).
 | HW-15 | Accessibility baseline: sr-only tables, focus return          | PR #170, #171                                                                                                                                                                  |
 | HW-16 | Style guide for tiles, reports and settings                   | `docs/guides/hamclock-tile-system.md`                                                                                                                                          |
 | HW-21 | Layer registry with provenance text                           | PR #222, `src/lib/map/layerRegistry.ts`; feeds settings and help — no distinct wall status line component exists                                                               |
-| HW-22 | Header parity: WALL/DESK toggle and reduced top rail          | PR #216                                                                                                                                                                        |
+| HW-22 | Header parity: WALL/DESK toggle and reduced top rail          | PR #216; PR #498 moves mode/projection into View settings and adds auto-rotate                                                                                                                                                                        |
 | HW-23 | Layers popover viewport clamp and trigger move                | PR #216                                                                                                                                                                        |
 | HW-26 | Centered settings panel with tabs                             | PR #221                                                                                                                                                                        |
 | HW-32 | Lightning bolt glyph (2D and 3D)                              | PR #217, `src/lib/map/lightningGlyph.ts`                                                                                                                                       |
@@ -669,15 +669,22 @@ _Source: `docs/designs/hamclock-wall-spec.md` (feature register HW-01 to HW-73).
 | HW-65 | EME computation module `src/lib/utils/eme.ts`                 | PR #253, EME module: eme.ts path loss, degradation, Doppler, sky noise, mutual window                                                                                          |
 | HW-66 | Moon and EME report                                           | PR #253, Moon report: MOON/EME tabs, band selector, sub-lunar point                                                                                                            |
 
-### Partial (3)
+| HW-36 | Widget config contract and validated per-tile store | PR #480; B0 registry reused with shared configuration shell |
+| HW-37 | News feeds configuration | PR #479, #480; verified add, source state/refresh, polling/age and pagination |
+
+### Partial (7)
 
 | ID    | Feature                 | Gap                                   |
 | ----- | ----------------------- | ------------------------------------- |
 | HW-18 | Weather alerts coverage | Nationwide feed, mapped geometry only |
 | HW-19 | SDR decodes tile        | Idle until a shared receiver exists   |
-| HW-72 | DX cluster report chrome and paging | PR #410; deployed/authenticated and physical acceptance pending |
+| HW-58 | Reliability report | PR #570: presentation, matched current evidence and stable pinned selection delivered; historical series, hop count and physical review pending |
+| HW-59 | Propagation forecast report | PR #571: two-day physics/matrix and gated horizons delivered; genuine FutureCast scorer/response contract and physical review pending |
+| HW-70 | Band activity report | PR #409: report, history, source/mode split and TOP DX delivered; production endpoint smoke passed; physical review pending |
+| HW-71 | Recent contacts report | PR #407, #550 and #561: report, exact logged-frequency tuning and metadata transport/repair delivered; authenticated two-device and physical review pending |
+| HW-72 | DX cluster report chrome | PR #557: report chrome, paging, selection reveal and live-prepend behavior delivered; physical review pending |
 
-### Not Started (25)
+### Not Started (19)
 
 | ID    | Feature                                                          | Notes                                                |
 | ----- | ---------------------------------------------------------------- | ---------------------------------------------------- |
@@ -685,8 +692,6 @@ _Source: `docs/designs/hamclock-wall-spec.md` (feature register HW-01 to HW-73).
 | HW-33 | Earthquakes tile and report (USGS)                               | Open decision D4                                     |
 | HW-34 | Volcanoes tile and report (Smithsonian GVP)                      | Open decision D4                                     |
 | HW-35 | Page taxonomy v2 (six pages, new tiles)                          | Depends on HW-27, HW-33, HW-34                       |
-| HW-36 | Widget config contract and `hamclockWidgetConfigStore`           | Segmented choices, no scroll, per-tile persistence   |
-| HW-37 | News feeds config dialog (first configurable widget)             | Over `feedStore`; verify URLs via `api/feeds/rss.ts` |
 | HW-38 | Config dialogs: cluster, weather, band list, clocks, alerts      | One PR per widget                                    |
 | HW-40 | Weather page with seven weather tiles                            | Spec section 16                                      |
 | HW-41 | Weather report: hero, trend charts, 7-day strip, pointer details | Moved from B13 to B22 with the fetch extension       |
@@ -698,13 +703,9 @@ _Source: `docs/designs/hamclock-wall-spec.md` (feature register HW-01 to HW-73).
 | HW-47 | Monitored regions and RIM scores as a report                     | Moved from B16 to B23 with the RIM tile              |
 | HW-48 | EmComm forms and activation from the Emcomm tile                 |                                                      |
 | HW-49 | `/atmos` redirect or deep link                                   | Open decision D7                                     |
-| HW-58 | Reliability report: SNR, confidence, station inputs              | B18                                                  |
-| HW-59 | Propagation forecast report: 48 h chart, FutureCast horizons     | B18                                                  |
 | HW-67 | Open-Meteo fetch extended to hourly and 7-day                    | `src/lib/api/openMeteo.ts`; B22                      |
 | HW-68 | Alerts report: severity, area, expiry, map link                  | B22                                                  |
 | HW-69 | Radio Impact Model tile                                          | Over `computeRIM` / `useRIM`; B23                    |
-| HW-70 | Band activity report: history, mode split, top DX                | B24                                                  |
-| HW-71 | Recent contacts report: log statistics, 30-day chart             | B24                                                  |
 | HW-73 | Model track: weather-derived features in NowCast                 | Backlog, after every panel is live; B25              |
 
 ---

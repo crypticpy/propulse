@@ -87,3 +87,29 @@ it("distinguishes forecast issue age from observation age", () => {
   expect(screen.getByText(/Issued just now/)).not.toBeNull();
   expect(screen.queryByText(/Observed/)).toBeNull();
 });
+
+describe("WidgetShell section accent (DS-14)", () => {
+  it("washes the header and tones the eyebrow without naming a tone", () => {
+    const { container } = render(
+      <WidgetShell title="Planetary Kp" eyebrow="3-hour observed" state="fresh">
+        <p>3.2</p>
+      </WidgetShell>,
+    );
+    const header = container.querySelector("header");
+    expect(header?.className).toContain("su-widget-header");
+    expect(screen.getByText("3-hour observed").className).toContain("su-widget-eyebrow");
+    // No accent prop: the wash inherits the enclosing section's tone, so the
+    // shell must not pin one of its own.
+    expect(container.querySelector("section")?.hasAttribute("data-accent")).toBe(false);
+    expect(screen.getByText("Planetary Kp").className).toContain("text-su-text");
+  });
+
+  it("lets a tile override the tone it inherits", () => {
+    const { container } = render(
+      <WidgetShell title="Local weather" state="fresh" accent="success">
+        <p>18 °C</p>
+      </WidgetShell>,
+    );
+    expect(container.querySelector("section")?.getAttribute("data-accent")).toBe("success");
+  });
+});

@@ -89,7 +89,6 @@ export const preferencesSync: SyncModule = {
             themeId: string;
             accentId: string;
             customPrimary: string | null;
-            customSecondary: string | null;
           };
           _mapPrefs?: {
             timeScenarios: unknown[];
@@ -149,7 +148,6 @@ export const preferencesSync: SyncModule = {
             >["themeId"],
             accentId: serverTheme.accentId,
             customPrimary: serverTheme.customPrimary,
-            customSecondary: serverTheme.customSecondary,
           });
         }
 
@@ -263,7 +261,6 @@ export const preferencesSync: SyncModule = {
         themeId: theme.themeId,
         accentId: theme.accentId,
         customPrimary: theme.customPrimary,
-        customSecondary: theme.customSecondary,
       },
       // Map preference fields (only persisted prefs, not runtime state)
       _mapPrefs: {

@@ -127,10 +127,10 @@ export function GettingStartedSection() {
         className="mb-6"
         style={{ scrollMarginTop: "80px" }}
       >
-        <h2 className="text-lg font-semibold text-gray-100 mb-3">
+        <h2 className="text-lg font-semibold text-su-text mb-3">
           What is Propulse?
         </h2>
-        <p className="text-sm text-gray-300 leading-relaxed">
+        <p className="text-sm text-su-muted leading-relaxed">
           Propulse is a real-time ham radio propagation intelligence platform.
           It combines live solar data, DX cluster spots, propagation modeling,
           and operating tools into a single dashboard &mdash; all running in
@@ -152,10 +152,10 @@ export function GettingStartedSection() {
       >
         <div className="space-y-4">
           <div>
-            <h4 className="text-white font-semibold mb-1">
+            <h4 className="text-su-text font-semibold mb-1">
               Step 1: Explore the Dashboard
             </h4>
-            <p className="text-sm text-gray-300">
+            <p className="text-sm text-su-muted">
               The{" "}
               <Link
                 to="/help/dashboard"
@@ -169,10 +169,10 @@ export function GettingStartedSection() {
             </p>
           </div>
           <div>
-            <h4 className="text-white font-semibold mb-1">
+            <h4 className="text-su-text font-semibold mb-1">
               Step 2: Check Solar Pulse
             </h4>
-            <p className="text-sm text-gray-300">
+            <p className="text-sm text-su-muted">
               <Link
                 to="/help/solar-pulse"
                 className="text-plasma-orange hover:underline"
@@ -185,10 +185,10 @@ export function GettingStartedSection() {
             </p>
           </div>
           <div>
-            <h4 className="text-white font-semibold mb-1">
+            <h4 className="text-su-text font-semibold mb-1">
               Step 3: Open PropSphere
             </h4>
-            <p className="text-sm text-gray-300">
+            <p className="text-sm text-su-muted">
               <Link
                 to="/help/propsphere"
                 className="text-plasma-orange hover:underline"
@@ -218,16 +218,16 @@ export function GettingStartedSection() {
             <Link
               key={item.name}
               to={item.href}
-              className="flex items-center gap-3 py-1.5 rounded-lg hover:bg-white/[0.03] transition-colors -mx-1 px-1"
+              className="flex items-center gap-3 py-1.5 rounded-lg hover:bg-su-line/10 transition-colors -mx-1 px-1"
             >
-              <span className="text-gray-500 flex-shrink-0">
+              <span className="text-su-muted flex-shrink-0">
                 {item.icon("w-4 h-4")}
               </span>
               <div className="flex-1 min-w-0">
-                <span className="text-sm font-medium text-gray-200">
+                <span className="text-sm font-medium text-su-text">
                   {item.name}
                 </span>
-                <span className="text-xs text-gray-500 ml-2">{item.desc}</span>
+                <span className="text-xs text-su-muted ml-2">{item.desc}</span>
               </div>
             </Link>
           ))}
@@ -240,23 +240,23 @@ export function GettingStartedSection() {
         title="Account Tiers"
         summary="No account required, free account, and Pro"
       >
-        <div className="space-y-3 text-sm text-gray-300 leading-relaxed">
+        <div className="space-y-3 text-sm text-su-muted leading-relaxed">
           <div>
-            <h4 className="text-white font-semibold mb-1">No Account</h4>
+            <h4 className="text-su-text font-semibold mb-1">No Account</h4>
             <p>
               Everything works out of the box. All data is stored locally in
               your browser using IndexedDB.
             </p>
           </div>
           <div>
-            <h4 className="text-white font-semibold mb-1">Free Account</h4>
+            <h4 className="text-su-text font-semibold mb-1">Free Account</h4>
             <p>
               Adds Radio Shack (equipment inventory), cloud-synced logbook, user
               profile page, operator ranks, and badges.
             </p>
           </div>
           <div>
-            <h4 className="text-white font-semibold mb-1">Pro Account</h4>
+            <h4 className="text-su-text font-semibold mb-1">Pro Account</h4>
             <p>
               Adds spot replay, extended solar history, per-user propagation
               modeling, custom profile images, and priority data access.
@@ -266,7 +266,7 @@ export function GettingStartedSection() {
               want maximum propagation intelligence.
             </HelpCallout>
           </div>
-          <p className="text-xs text-gray-500">
+          <p className="text-xs text-su-muted">
             See the{" "}
             <Link to="/features" className="text-plasma-orange hover:underline">
               full feature comparison
@@ -282,14 +282,14 @@ export function GettingStartedSection() {
         title="Command Palette"
         summary="Quick navigation and search with Ctrl+K"
       >
-        <div className="space-y-3 text-sm text-gray-300 leading-relaxed">
+        <div className="space-y-3 text-sm text-su-muted leading-relaxed">
           <p>
             Press{" "}
-            <kbd className="inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 rounded bg-white/[0.06] border border-white/10 text-[10px] font-mono font-medium text-gray-300 mx-0.5">
+            <kbd className="inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 rounded bg-su-line/20 border border-su-line/40 text-[10px] font-mono font-medium text-su-muted mx-0.5">
               Ctrl+K
             </kbd>{" "}
             (or{" "}
-            <kbd className="inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 rounded bg-white/[0.06] border border-white/10 text-[10px] font-mono font-medium text-gray-300 mx-0.5">
+            <kbd className="inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 rounded bg-su-line/20 border border-su-line/40 text-[10px] font-mono font-medium text-su-muted mx-0.5">
               Cmd+K
             </kbd>{" "}
             on Mac) anywhere in Propulse to open the Command Palette &mdash; a
@@ -323,7 +323,7 @@ export function GettingStartedSection() {
         <HelpShortcutTable shortcuts={SHORTCUTS} />
         <HelpCallout type="tip">
           Press{" "}
-          <kbd className="inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 rounded bg-white/[0.06] border border-white/10 text-[10px] font-mono font-medium text-gray-300 mx-0.5">
+          <kbd className="inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 rounded bg-su-line/20 border border-su-line/40 text-[10px] font-mono font-medium text-su-muted mx-0.5">
             ?
           </kbd>{" "}
           anywhere in the app to see the shortcuts overlay.
@@ -336,20 +336,20 @@ export function GettingStartedSection() {
         title="Utility Pages"
         summary="System health, bridge info, setup guide, and features"
       >
-        <div className="space-y-3 text-sm text-gray-300 leading-relaxed">
+        <div className="space-y-3 text-sm text-su-muted leading-relaxed">
           <p>
             In addition to the main feature pages, Propulse includes several
             utility and informational pages:
           </p>
           <ul className="list-disc list-inside space-y-1.5 pl-1">
             <li>
-              <strong className="text-white">/health</strong> &mdash; System
+              <strong className="text-su-text">/health</strong> &mdash; System
               Health page showing the status of all data feeds, API endpoints,
               and WebSocket connections. Use this to diagnose issues if data is
               not loading or appears stale.
             </li>
             <li>
-              <strong className="text-white">/bridge</strong> &mdash; ProPulse
+              <strong className="text-su-text">/bridge</strong> &mdash; ProPulse
               Bridge information page. Explains how to set up the local bridge
               application for DX cluster, CAT rig control, and WSJT-X
               integration. See also the{" "}
@@ -362,16 +362,16 @@ export function GettingStartedSection() {
               help section under Connections.
             </li>
             <li>
-              <strong className="text-white">/setup</strong> &mdash; Setup Guide
+              <strong className="text-su-text">/setup</strong> &mdash; Setup Guide
               for first-time users. Walks you through initial configuration
               including callsign, grid square, antenna, and preferences.
             </li>
             <li>
-              <strong className="text-white">/features</strong> &mdash; Feature
+              <strong className="text-su-text">/features</strong> &mdash; Feature
               comparison page showing Free vs Pro tier differences.
             </li>
             <li>
-              <strong className="text-white">/sdr/setup</strong> &mdash; Radio
+              <strong className="text-su-text">/sdr/setup</strong> &mdash; Radio
               Daemon setup guide with platform-specific installation
               instructions for the SDR Console daemon. See also the{" "}
               <Link
@@ -392,7 +392,7 @@ export function GettingStartedSection() {
         title="Getting Help"
         summary="Report issues and join the community"
       >
-        <div className="space-y-2 text-sm text-gray-300 leading-relaxed">
+        <div className="space-y-2 text-sm text-su-muted leading-relaxed">
           <p>
             Found a bug or have a feature request? Report issues on the{" "}
             <span className="text-plasma-orange">GitHub repository</span>.
@@ -406,7 +406,7 @@ export function GettingStartedSection() {
 
       {/* FAQ */}
       <div id="faq" className="mt-6" style={{ scrollMarginTop: "80px" }}>
-        <h2 className="text-lg font-semibold text-gray-100 mb-3">
+        <h2 className="text-lg font-semibold text-su-text mb-3">
           Frequently Asked Questions
         </h2>
         <HelpFAQ items={FAQ_ITEMS} />

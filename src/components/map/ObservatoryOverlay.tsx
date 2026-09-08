@@ -39,22 +39,22 @@ export function ObservatoryOverlay() {
 
   return (
     <div className="fixed bottom-8 left-1/2 -translate-x-1/2 z-[220] pointer-events-none select-none">
-      <div className="bg-black/50 backdrop-blur-md border border-white/10 rounded-xl px-5 py-3 flex items-center gap-4">
+      <div className="bg-su-panel/90 backdrop-blur-md border border-su-line/40 rounded-xl px-5 py-3 flex items-center gap-4">
         {/* UTC clock */}
-        <span className="font-mono text-lg text-white/90 tracking-wider tabular-nums">
+        <span className="font-mono text-lg text-su-text/90 tracking-wider tabular-nums">
           {utcString}
-          <span className="text-[10px] text-white/40 ml-1.5">UTC</span>
+          <span className="text-[10px] text-su-text/80 ml-1.5">UTC</span>
         </span>
 
         {/* Station info */}
         {station && (
           <>
-            <div className="w-px h-5 bg-white/15" />
+            <div className="w-px h-5 bg-su-line/30" />
             <div className="flex items-center gap-2">
-              <span className="font-mono text-sm font-bold text-white/80">
+              <span className="font-mono text-sm font-bold text-su-text/80">
                 {station.callsign}
               </span>
-              <span className="text-[10px] text-white/40">
+              <span className="text-[10px] text-su-text/80">
                 {station.grid ?? "\u2014"}
               </span>
             </div>
@@ -65,12 +65,12 @@ export function ObservatoryOverlay() {
         <div
           className={`transition-opacity duration-1000 ${showEscHint ? "opacity-100" : "opacity-0"}`}
         >
-          <div className="w-px h-5 bg-white/15" />
+          <div className="w-px h-5 bg-su-line/30" />
         </div>
         <span
-          className={`text-[10px] text-white/30 transition-opacity duration-1000 ${showEscHint ? "opacity-100" : "opacity-0"}`}
+          className={`text-[10px] text-su-text/80 transition-opacity duration-1000 ${showEscHint ? "opacity-100" : "opacity-0"}`}
         >
-          <kbd className="px-1 py-0.5 bg-white/10 rounded text-white/40">
+          <kbd className="px-1 py-0.5 bg-su-line/20 rounded text-su-text/80">
             ESC
           </kbd>{" "}
           to exit

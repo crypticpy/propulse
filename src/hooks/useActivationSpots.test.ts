@@ -1,11 +1,13 @@
 import { createElement, type ReactNode } from "react";
-import { renderHook, waitFor } from "@testing-library/react";
+import { act, renderHook, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { useUTCClock } from "./useUTCClock";
 import { useActivationSpots } from "./useActivationSpots";
 import type { ActivationSpotsResponse } from "@/types/activationSpots";
 
 afterEach(() => {
+  vi.useRealTimers();
   vi.restoreAllMocks();
   vi.unstubAllGlobals();
 });
@@ -85,4 +87,31 @@ describe("useActivationSpots", () => {
     unmount();
     queryClient.clear();
   });
+});
+
+
+it("does not subscribe disabled consumers and honors ten seconds beside a one-second clock", () => {
+  vi.useFakeTimers();
+  vi.stubGlobal("fetch", vi.fn());
+  const client = new QueryClient();
+  client.setQueryData(["activationSpots"], { spots: [], sources: [], fetchedAt: new Date().toISOString() });
+  const wrapper = ({ children }: { children: ReactNode }) => createElement(QueryClientProvider, { client }, children);
+  const clock = renderHook(() => useUTCClock());
+  let renders = 0;
+  const hook = renderHook((enabled: boolean) => { renders++; return useActivationSpots(enabled); }, { wrapper, initialProps: false });
+  try {
+    let baseline = renders;
+    act(() => vi.advanceTimersByTime(3000));
+    expect(renders).toBe(baseline);
+    hook.rerender(true);
+    baseline = renders;
+    act(() => vi.advanceTimersByTime(9000));
+    expect(renders).toBe(baseline);
+    act(() => vi.advanceTimersByTime(1000));
+    expect(renders).toBe(baseline + 1);
+    hook.rerender(false);
+    baseline = renders;
+    act(() => vi.advanceTimersByTime(20000));
+    expect(renders).toBe(baseline);
+  } finally { hook.unmount(); clock.unmount(); client.clear(); }
 });

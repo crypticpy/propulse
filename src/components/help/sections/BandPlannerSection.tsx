@@ -6,7 +6,7 @@ import { HelpFAQ } from "@/components/help/HelpFAQ";
 export function BandPlannerSection() {
   return (
     <div className="space-y-6">
-      <p className="text-sm leading-relaxed text-gray-300">
+      <p className="text-sm leading-relaxed text-su-muted">
         Band Planner creates a 24-hour station-to-target projection from a
         simplified ionospheric model and current solar inputs. It is an estimate,
         not a provider-issued forecast or a promise that a band will open.
@@ -17,7 +17,7 @@ export function BandPlannerSection() {
         title="Reading the Heatmap"
         summary="Band-by-hour model output for the selected path"
       >
-        <div className="space-y-3 text-sm leading-relaxed text-gray-300">
+        <div className="space-y-3 text-sm leading-relaxed text-su-muted">
           <p>
             Rows are amateur bands and columns are UTC hours. Each cell shows a
             modeled status and signal-to-noise ratio (SNR) estimate for the path
@@ -37,7 +37,7 @@ export function BandPlannerSection() {
         title="Status Colors"
         summary="Qualitative categories derived from modeled SNR"
       >
-        <div className="space-y-3 text-sm leading-relaxed text-gray-300">
+        <div className="space-y-3 text-sm leading-relaxed text-su-muted">
           <p>
             Excellent, Good, Fair, Poor, and Closed are model buckets based on
             estimated SNR. They compare hours and bands within the projection;
@@ -57,7 +57,7 @@ export function BandPlannerSection() {
         title="Best Windows"
         summary="Contiguous fair-or-better periods in the projection"
       >
-        <div className="space-y-3 text-sm leading-relaxed text-gray-300">
+        <div className="space-y-3 text-sm leading-relaxed text-su-muted">
           <p>
             A window is a consecutive run of hours where a band reaches at least
             the model’s Fair threshold. Windows are ordered as active, upcoming,
@@ -75,7 +75,7 @@ export function BandPlannerSection() {
         title="Storms & Evidence"
         summary="Why disturbed conditions reduce the usefulness of the projection"
       >
-        <div className="space-y-3 text-sm leading-relaxed text-gray-300">
+        <div className="space-y-3 text-sm leading-relaxed text-su-muted">
           <p>
             Projection Evidence is a qualitative coverage label, not a calibrated
             probability. It becomes weaker when required inputs are missing or
@@ -98,7 +98,7 @@ export function BandPlannerSection() {
         title="Operating Recommendations"
         summary="How to use model output without over-interpreting it"
       >
-        <div className="space-y-3 text-sm leading-relaxed text-gray-300">
+        <div className="space-y-3 text-sm leading-relaxed text-su-muted">
           <p>
             Mode suggestions reflect the model’s SNR thresholds. Narrow-band
             digital modes and CW can remain usable at lower SNR than SSB, but
@@ -117,7 +117,7 @@ export function BandPlannerSection() {
         title="Favorites Filter"
         summary="Reduce the heatmap to bands you use"
       >
-        <p className="text-sm leading-relaxed text-gray-300">
+        <p className="text-sm leading-relaxed text-su-muted">
           The star control switches the heatmap between all bands and your saved
           favorites. It changes presentation only; the model and Best Windows
           calculation keep the same inputs.
@@ -129,7 +129,7 @@ export function BandPlannerSection() {
         title="Data Sources"
         summary="Observed inputs used by the local projection"
       >
-        <div className="space-y-3 text-sm leading-relaxed text-gray-300">
+        <div className="space-y-3 text-sm leading-relaxed text-su-muted">
           <p>
             The model uses source-aged NOAA observations including 10.7 cm solar
             flux, planetary Kp, and IMF Bz. A missing input remains missing; the

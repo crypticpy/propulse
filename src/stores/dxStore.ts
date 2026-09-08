@@ -1,6 +1,10 @@
 /**
  * Zustand store for DX Cluster state management
  * Manages spots, filters, and UI state for DX cluster integration
+ *
+ * Spot rows remain shared domain data. View filters, selection, and display
+ * settings belong to `src/lib/views/runtime` once SP-09 consumes it. Keep these
+ * exports until those callers migrate; do not add a global active-view proxy.
  */
 
 import { create } from "zustand";

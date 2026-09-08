@@ -1,4 +1,4 @@
-import { Fragment, lazy, Suspense, useState } from "react";
+import { lazy, Suspense, useState } from "react";
 import { HamClockTile, TileHero, TileSub, type WallTileProps } from "../HamClockTile";
 import { getBandColor } from "@/lib/utils/spotColors";
 import {
@@ -11,9 +11,9 @@ import {
 } from "./useWallReliability";
 
 // The report is only worth its bytes once an operator opens it.
-const ForecastReport = lazy(() =>
-  import("../reports/ForecastReport").then((m) => ({
-    default: m.ForecastReport,
+const ReliabilityReport = lazy(() =>
+  import("../reports/ReliabilityReport").then((m) => ({
+    default: m.ReliabilityReport,
   })),
 );
 
@@ -33,15 +33,27 @@ export function ReliabilityTile({ title = "24h reliability" }: WallTileProps) {
   const { status, cells, hour, hourIndex, targetLabel, mode } =
     useWallReliability();
   const [reportOpen, setReportOpen] = useState(false);
+  const report = reportOpen ? (
+    <Suspense fallback={null}>
+      <ReliabilityReport open onClose={() => setReportOpen(false)} />
+    </Suspense>
+  ) : null;
 
   if (status !== "ready") {
     return (
-      <HamClockTile title={title}>
-        <TileHero tone="hc-dim-text">—</TileHero>
-        <p className="hcf-idle">
-          {IDLE_COPY[status as Exclude<WallReliabilityStatus, "ready">]}
-        </p>
-      </HamClockTile>
+      <>
+        <HamClockTile
+          title={title}
+          onOpen={() => setReportOpen(true)}
+          openLabel="Open reliability report"
+        >
+          <TileHero tone="hc-dim-text">—</TileHero>
+          <p className="hcf-idle">
+            {IDLE_COPY[status as Exclude<WallReliabilityStatus, "ready">]}
+          </p>
+        </HamClockTile>
+        {report}
+      </>
     );
   }
 
@@ -57,7 +69,7 @@ export function ReliabilityTile({ title = "24h reliability" }: WallTileProps) {
         onOpen={() => setReportOpen(true)}
         openLabel={`${
           best ? `${best.band} ${best.score} percent` : "Nothing open"
-        } to ${targetLabel}. Open the propagation report`}
+        } to ${targetLabel}. Open reliability report`}
       >
         <div className="hc-heroline">
           <TileHero tone={tone} flush>
@@ -72,11 +84,11 @@ export function ReliabilityTile({ title = "24h reliability" }: WallTileProps) {
           <span>{targetLabel.toUpperCase()}</span>
         </TileSub>
 
-        <div className="hcf-bars">
+        <div className="hcf-bars hcf-bars--paired">
           {WALL_FORECAST_BANDS.map((band) => {
             const score = wallReliabilityScore(cells, band, hourIndex) ?? 0;
             return (
-              <Fragment key={band}>
+              <div className="hcf-band-reading" key={band}>
                 <span className="hcf-bars-k">{band}</span>
                 <span className="hcf-bar">
                   <i
@@ -89,21 +101,13 @@ export function ReliabilityTile({ title = "24h reliability" }: WallTileProps) {
                 <span className={`hcf-bars-v ${wallScoreTone(score)}`}>
                   {score}
                 </span>
-              </Fragment>
+              </div>
             );
           })}
         </div>
       </HamClockTile>
 
-      {reportOpen && (
-        <Suspense fallback={null}>
-          <ForecastReport
-            open
-            onClose={() => setReportOpen(false)}
-            focus="reliability"
-          />
-        </Suspense>
-      )}
+      {report}
     </>
   );
 }

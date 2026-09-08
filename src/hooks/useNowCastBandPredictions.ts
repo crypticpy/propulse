@@ -6,6 +6,7 @@ import {
   type OperationalSpaceWeather,
 } from "@/lib/propagation/coreFeatureBuilder";
 import {
+  PropagationModelError,
   propagationModelClient,
   propagationModelEnabled,
   propagationModelMode,
@@ -230,6 +231,26 @@ export function summarizeNowCastResults(
   };
 }
 
+/**
+ * The capabilities endpoint intermittently 401s on a cold page load or during
+ * a token refresh (authHeaders() races Supabase's session restore) even
+ * though the inference service is healthy. Retry a bounded number of times
+ * with a short exponential backoff instead of giving up after one attempt —
+ * a genuinely disabled capability is a successful 200 response, not an
+ * error, so any thrown error here is worth a couple of retries.
+ */
+function capabilitiesRetry(failureCount: number, error: unknown): boolean {
+  if (failureCount >= 3) return false;
+  if (error instanceof PropagationModelError) {
+    return error.status === 401 || error.status === 403 || error.status >= 500;
+  }
+  return true;
+}
+
+function capabilitiesRetryDelay(attemptIndex: number): number {
+  return Math.min(1_000 * 2 ** attemptIndex, 4_000);
+}
+
 export function useNowCastBandPredictions(
   input: NowCastBandInput,
 ): NowCastBandPredictions {
@@ -246,7 +267,9 @@ export function useNowCastBandPredictions(
     refetchInterval: FIVE_MINUTES_MS,
     refetchIntervalInBackground: true,
     refetchOnWindowFocus: true,
-    retry: 1,
+    placeholderData: (previous) => previous,
+    retry: capabilitiesRetry,
+    retryDelay: capabilitiesRetryDelay,
   });
   const access = resolveNowCastCapabilityAccess(
     capabilities.data,

@@ -279,11 +279,11 @@ export function BandPlanner() {
   if (isMobile && !operatingStation) {
     return (
       <div className="p-4">
-        <div className="bg-white/[0.03] border border-white/10 rounded-2xl p-5">
-          <h2 className="font-orbitron text-lg text-white mb-2">
+        <div className="bg-su-line/10 border border-su-line/40 rounded-2xl p-5">
+          <h2 className="font-orbitron text-lg text-su-text mb-2">
             Band Planner
           </h2>
-          <p className="text-sm text-gray-400">
+          <p className="text-sm text-su-muted">
             Set your callsign and grid square in Settings to enable propagation
             projections.
           </p>
@@ -344,13 +344,13 @@ export function BandPlanner() {
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
           <div>
             <div className="flex items-center gap-2">
-              <h1 className="text-2xl font-bold text-white">Band Planner</h1>
+              <h1 className="text-2xl font-bold text-su-text">Band Planner</h1>
               <HelpTooltip
                 section="band-planner"
                 tooltip="Learn more about Band Planner"
               />
             </div>
-            <p className="text-sm text-gray-400 mt-1">
+            <p className="text-sm text-su-muted mt-1">
               Explore a 24-hour path projection from current inputs
             </p>
           </div>
@@ -366,14 +366,14 @@ export function BandPlanner() {
           {/* Current conditions summary */}
           <div className="flex items-center gap-4 text-sm">
             <div className="flex items-center gap-2">
-              <span className="text-gray-400">SFI:</span>
+              <span className="text-su-muted">SFI:</span>
               <InfoTip content={SOLAR_TOOLTIPS.sfi} />
               <span className="font-mono text-plasma-orange">
                 {currentFlux ?? "—"}
               </span>
             </div>
             <div className="flex items-center gap-2">
-              <span className="text-gray-400">Kp:</span>
+              <span className="text-su-muted">Kp:</span>
               <InfoTip content={SOLAR_TOOLTIPS.kIndex} />
               <span
                 className="font-mono"
@@ -393,7 +393,7 @@ export function BandPlanner() {
             </div>
             {currentBz !== null && (
               <div className="flex items-center gap-2">
-                <span className="text-gray-400">Bz:</span>
+                <span className="text-su-muted">Bz:</span>
                 <InfoTip content={SOLAR_TOOLTIPS.bz} />
                 <span
                   className="font-mono"
@@ -425,7 +425,7 @@ export function BandPlanner() {
               <div className="font-semibold text-alert-red">
                 Geomagnetic Storm in Progress
               </div>
-              <p className="text-sm text-gray-300">
+              <p className="text-sm text-su-muted">
                 K-index is {currentKp ?? "—"}. Expect significant HF propagation
                 degradation. Consider lower bands (40m, 80m) and digital modes.
               </p>
@@ -450,7 +450,7 @@ export function BandPlanner() {
               <div className="font-semibold text-caution-amber">
                 Southward IMF Detected
               </div>
-              <p className="text-sm text-gray-300">
+              <p className="text-sm text-su-muted">
                 Bz is {currentBz?.toFixed(1)} nT. Geomagnetic activity may
                 increase, so the path projection has weaker evidence.
               </p>
@@ -463,7 +463,7 @@ export function BandPlanner() {
           <Card>
             <div className="text-center py-8">
               <svg
-                className="w-12 h-12 text-gray-500 mx-auto mb-4"
+                className="w-12 h-12 text-su-muted mx-auto mb-4"
                 fill="none"
                 stroke="currentColor"
                 viewBox="0 0 24 24"
@@ -481,10 +481,10 @@ export function BandPlanner() {
                   d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"
                 />
               </svg>
-              <h3 className="text-lg font-semibold text-white mb-2">
+              <h3 className="text-lg font-semibold text-su-text mb-2">
                 Set Your Station Location
               </h3>
-              <p className="text-gray-400 text-sm max-w-md mx-auto">
+              <p className="text-su-muted text-sm max-w-md mx-auto">
                 To use the Band Planner, please configure your station location
                 in Settings. We need your coordinates to calculate path-specific
                 propagation projections.
@@ -499,7 +499,7 @@ export function BandPlanner() {
             <Card>
               <div className="flex flex-col md:flex-row md:items-end gap-4">
                 <div className="flex-1">
-                  <label className="block text-sm font-medium text-gray-300 mb-2">
+                  <label className="block text-sm font-medium text-su-muted mb-2">
                     Target Location
                   </label>
                   <input
@@ -507,14 +507,14 @@ export function BandPlanner() {
                     value={targetGrid}
                     onChange={(e) => handleTargetChange(e.target.value)}
                     placeholder="Enter grid square (e.g., JN58, FN31pr)"
-                    className="w-full px-4 py-3 bg-void-black/50 border border-white/10 rounded-lg
-                             text-white placeholder-gray-500 focus:outline-none focus:border-plasma-orange/50
+                    className="w-full px-4 py-3 bg-void-black/50 border border-su-line/40 rounded-lg
+                             text-su-text placeholder:text-su-muted/80 focus:outline-none focus:border-plasma-orange/50
                              font-mono text-lg uppercase"
                   />
-                  <div className="mt-2 flex items-center gap-4 text-xs text-gray-400">
+                  <div className="mt-2 flex items-center gap-4 text-xs text-su-muted">
                     <span>
                       Your QTH:{" "}
-                      <span className="text-white font-mono">
+                      <span className="text-su-text font-mono">
                         {operatingStation.grid}
                       </span>
                     </span>
@@ -531,7 +531,7 @@ export function BandPlanner() {
 
                 {/* Confidence indicator */}
                 <div className="text-right">
-                  <div className="text-xs text-gray-400 mb-1 flex items-center justify-end gap-1">
+                  <div className="text-xs text-su-muted mb-1 flex items-center justify-end gap-1">
                     Projection Evidence
                     <InfoTip
                       content={PROPAGATION_TOOLTIPS.forecastConfidence}
@@ -622,7 +622,7 @@ export function BandPlanner() {
               <Card>
                 <div className="text-center py-12">
                   <svg
-                    className="w-16 h-16 text-gray-600 mx-auto mb-4"
+                    className="w-16 h-16 text-su-muted mx-auto mb-4"
                     fill="none"
                     stroke="currentColor"
                     viewBox="0 0 24 24"
@@ -634,10 +634,10 @@ export function BandPlanner() {
                       d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
                     />
                   </svg>
-                  <h3 className="text-lg font-semibold text-white mb-2">
+                  <h3 className="text-lg font-semibold text-su-text mb-2">
                     Enter a Target Location
                   </h3>
-                  <p className="text-gray-400 text-sm max-w-md mx-auto">
+                  <p className="text-su-muted text-sm max-w-md mx-auto">
                     Enter a grid square (like JN58 for central Europe or VK3 for
                     Melbourne) to see the 24-hour propagation projection for that
                     path.
@@ -647,8 +647,8 @@ export function BandPlanner() {
                       <button
                         key={grid}
                         onClick={() => handleTargetChange(grid)}
-                        className="px-3 py-1.5 bg-white/5 hover:bg-white/10 border border-white/10
-                                 rounded-lg text-sm text-gray-300 font-mono transition-colors"
+                        className="px-3 py-1.5 bg-su-line/10 hover:bg-su-line/20 border border-su-line/40
+                                 rounded-lg text-sm text-su-muted font-mono transition-colors"
                       >
                         {grid}
                       </button>
@@ -670,10 +670,10 @@ export function BandPlanner() {
                 {/* {solarHandoff?.at ? "Selected planning hour" : "Right Now"} */}
                 <Card>
                   <div className="flex items-center justify-between">
-                    <h3 className="text-lg font-semibold text-white">
+                    <h3 className="text-lg font-semibold text-su-text">
                       {solarHandoff?.at ? "Selected planning hour" : "Right Now"}
                     </h3>
-                    <span className="text-xs text-gray-400 font-mono">
+                    <span className="text-xs text-su-muted font-mono">
                       {currentHour.toString().padStart(2, "0")}:00 UTC
                     </span>
                   </div>
@@ -698,14 +698,14 @@ export function BandPlanner() {
                           >
                             {bestBandNow.status}
                           </span>
-                          <span className="text-sm text-gray-400 font-mono">
+                          <span className="text-sm text-su-muted font-mono">
                             {bestBandNow.snrLow !== undefined &&
                             bestBandNow.snrHigh !== undefined
                               ? `SNR ${bestBandNow.snrLow} to ${bestBandNow.snrHigh} dB`
                               : `SNR ${bestBandNow.snrEstimate} dB`}
                           </span>
                         </div>
-                        <p className="text-xs text-gray-400 mt-1">
+                        <p className="text-xs text-su-muted mt-1">
                           {bestBandNow.status === "excellent" ||
                           bestBandNow.status === "good"
                             ? "Model is supportive — compare with current observations"
@@ -716,7 +716,7 @@ export function BandPlanner() {
                       </div>
                     </div>
                   ) : (
-                    <div className="mt-3 text-gray-400">
+                    <div className="mt-3 text-su-muted">
                       The model does not identify a supported band for this hour.
                       Check the projection below for other windows.
                     </div>
@@ -725,12 +725,12 @@ export function BandPlanner() {
 
                 {/* Best Windows */}
                 <Card>
-                  <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+                  <h3 className="text-lg font-semibold text-su-text mb-4 flex items-center gap-2">
                     Best Operating Windows
                     <InfoTip content={PROPAGATION_TOOLTIPS.bandCondition} />
                   </h3>
                   {bestWindows.length === 0 ? (
-                    <div className="text-center py-6 text-gray-400">
+                    <div className="text-center py-6 text-su-muted">
                       No favorable windows found for this path in the next 24
                       hours. Try a different target or wait for conditions to
                       improve.
@@ -754,7 +754,7 @@ export function BandPlanner() {
                             }${
                               selectedBand === window.band
                                 ? "bg-plasma-orange/10 border-plasma-orange/40"
-                                : "bg-white/5 border-white/10 hover:border-white/20"
+                                : "bg-su-line/10 border-su-line/40 hover:border-su-line/50"
                             }`}
                             onClick={() =>
                               setSelectedBand(
@@ -775,7 +775,7 @@ export function BandPlanner() {
                             }}
                           >
                             <div className="flex items-center justify-between mb-2">
-                              <span className="text-xl font-mono font-bold text-white">
+                              <span className="text-xl font-mono font-bold text-su-text">
                                 {window.band}
                               </span>
                               <span
@@ -790,12 +790,12 @@ export function BandPlanner() {
                                 {window.peakStatus}
                               </span>
                             </div>
-                            <div className="text-sm text-gray-300">
+                            <div className="text-sm text-su-muted">
                               {window.startHour.toString().padStart(2, "0")}
                               :00 - {window.endHour.toString().padStart(2, "0")}
                               :00 UTC
                             </div>
-                            <div className="text-xs text-gray-400 mt-1">
+                            <div className="text-xs text-su-muted mt-1">
                               Peak at{" "}
                               {window.peakHour.toString().padStart(2, "0")}:00 •
                               SNR {window.peakSnr} dB
@@ -812,7 +812,7 @@ export function BandPlanner() {
                                 ) {
                                   return (
                                     <div className="mt-1.5 flex items-center gap-2">
-                                      <span className="text-[10px] text-gray-400 font-mono">
+                                      <span className="text-[10px] text-su-muted font-mono">
                                         Model SNR range {peakBand.snrLow} to{" "}
                                         {peakBand.snrHigh} dB
                                       </span>
@@ -827,14 +827,14 @@ export function BandPlanner() {
                               </div>
                             )}
                             {!isActive && !isPassed && (
-                              <div className="mt-2 text-xs text-gray-400">
+                              <div className="mt-2 text-xs text-su-muted">
                                 Opens at{" "}
                                 {window.startHour.toString().padStart(2, "0")}
                                 :00 UTC
                               </div>
                             )}
                             {isPassed && (
-                              <div className="mt-2 text-xs text-gray-500">
+                              <div className="mt-2 text-xs text-su-muted">
                                 Passed
                               </div>
                             )}
@@ -849,7 +849,7 @@ export function BandPlanner() {
                 <Card>
                   <div className="flex items-center justify-between mb-4">
                     <div className="flex items-center gap-3">
-                      <h3 className="text-lg font-semibold text-white flex items-center gap-2">
+                      <h3 className="text-lg font-semibold text-su-text flex items-center gap-2">
                         24-Hour Projection
                         <InfoTip content={PROPAGATION_TOOLTIPS.bandCondition} />
                       </h3>
@@ -859,7 +859,7 @@ export function BandPlanner() {
                         className={`px-2.5 py-1 rounded-full text-xs font-medium border transition-colors ${
                           favoritesOnly
                             ? "bg-plasma-orange/20 border-plasma-orange/50 text-plasma-orange"
-                            : "bg-white/5 border-white/10 text-gray-400 hover:text-white hover:border-white/20"
+                            : "bg-su-line/10 border-su-line/40 text-su-muted hover:text-su-text hover:border-su-line/50"
                         }`}
                         title={
                           favoritesOnly
@@ -883,35 +883,35 @@ export function BandPlanner() {
                           className="w-3 h-3 rounded"
                           style={{ backgroundColor: "#00ff88" }}
                         />
-                        <span className="text-gray-400">Excellent</span>
+                        <span className="text-su-muted">Excellent</span>
                       </div>
                       <div className="flex items-center gap-1">
                         <span
                           className="w-3 h-3 rounded"
                           style={{ backgroundColor: "#44dd66" }}
                         />
-                        <span className="text-gray-400">Good</span>
+                        <span className="text-su-muted">Good</span>
                       </div>
                       <div className="flex items-center gap-1">
                         <span
                           className="w-3 h-3 rounded"
                           style={{ backgroundColor: "#ffaa00" }}
                         />
-                        <span className="text-gray-400">Fair</span>
+                        <span className="text-su-muted">Fair</span>
                       </div>
                       <div className="flex items-center gap-1">
                         <span
                           className="w-3 h-3 rounded"
                           style={{ backgroundColor: "#ff4455" }}
                         />
-                        <span className="text-gray-400">Poor</span>
+                        <span className="text-su-muted">Poor</span>
                       </div>
                       <div className="flex items-center gap-1">
                         <span
                           className="w-3 h-3 rounded"
                           style={{ backgroundColor: "#374151" }}
                         />
-                        <span className="text-gray-400">Closed</span>
+                        <span className="text-su-muted">Closed</span>
                       </div>
                     </div>
                   </div>
@@ -920,7 +920,7 @@ export function BandPlanner() {
                     <table className="w-full text-xs">
                       <thead>
                         <tr>
-                          <th className="text-left py-2 pr-4 text-gray-400 font-medium sticky left-0 bg-deep-space/95 z-10">
+                          <th className="text-left py-2 pr-4 text-su-muted font-medium sticky left-0 bg-deep-space/95 z-10">
                             Band
                           </th>
                           {Array.from({ length: 24 }, (_, i) => (
@@ -929,7 +929,7 @@ export function BandPlanner() {
                               className={`px-1 py-2 text-center font-mono ${
                                 i === currentHour
                                   ? "text-plasma-orange font-bold"
-                                  : "text-gray-400 font-normal"
+                                  : "text-su-muted font-normal"
                               }`}
                             >
                               {i.toString().padStart(2, "0")}
@@ -945,8 +945,8 @@ export function BandPlanner() {
                               tabIndex={0}
                               aria-selected={selectedBand === band}
                               style={{ cursor: "pointer" }}
-                              className={`border-t border-white/5 ${
-                                selectedBand === band ? "bg-white/5" : ""
+                              className={`border-t border-su-line/20 ${
+                                selectedBand === band ? "bg-su-line/10" : ""
                               }`}
                               onClick={() =>
                                 setSelectedBand(
@@ -966,7 +966,7 @@ export function BandPlanner() {
                                 className={`py-2 pr-4 font-mono font-semibold sticky left-0 bg-deep-space/95 z-10 cursor-pointer ${
                                   bestBandNow && band === bestBandNow.band
                                     ? "text-plasma-orange"
-                                    : "text-white"
+                                    : "text-su-text"
                                 }`}
                               >
                                 <span className="inline-flex items-center gap-1.5">
@@ -979,7 +979,7 @@ export function BandPlanner() {
                                         ? `Remove ${band} from favorites`
                                         : `Add ${band} to favorites`
                                     }
-                                    className="text-gray-500 hover:text-plasma-orange transition-colors"
+                                    className="text-su-muted hover:text-plasma-orange transition-colors"
                                     onClick={(e) => {
                                       e.stopPropagation();
                                       toggleFavoredBand(band as BandId);
@@ -1034,7 +1034,7 @@ export function BandPlanner() {
                   </div>
 
                   {/* Time labels */}
-                  <div className="mt-2 flex items-center justify-between text-xs text-gray-400">
+                  <div className="mt-2 flex items-center justify-between text-xs text-su-muted">
                     <span>00:00 UTC</span>
                     <span className="text-plasma-orange font-medium">
                       {solarHandoff?.at ? "Selected:" : "Now:"} {currentHour.toString().padStart(2, "0")}:00 UTC
@@ -1045,13 +1045,13 @@ export function BandPlanner() {
 
                 {/* Operating Recommendations */}
                 <Card>
-                  <h3 className="text-lg font-semibold text-white mb-4">
+                  <h3 className="text-lg font-semibold text-su-text mb-4">
                     Operating Recommendations
                   </h3>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     {/* Mode recommendations */}
                     <div>
-                      <h4 className="text-sm font-mono uppercase tracking-wider text-gray-400 mb-3">
+                      <h4 className="text-sm font-mono uppercase tracking-wider text-su-muted mb-3">
                         Suggested Modes
                       </h4>
                       <div className="space-y-2">
@@ -1060,7 +1060,7 @@ export function BandPlanner() {
                             bestBandNow.status === "good") && (
                             <div className="flex items-center gap-2">
                               <span className="w-2 h-2 rounded-full bg-signal-green" />
-                              <span className="text-gray-300">
+                              <span className="text-su-muted">
                                 SSB/CW — strong signals on {bestBandNow.band}
                               </span>
                             </div>
@@ -1068,7 +1068,7 @@ export function BandPlanner() {
                         {bestBandNow && bestBandNow.status === "fair" && (
                           <div className="flex items-center gap-2">
                             <span className="w-2 h-2 rounded-full bg-caution-amber" />
-                            <span className="text-gray-300">
+                            <span className="text-su-muted">
                               FT8/FT4 recommended — marginal on{" "}
                               {bestBandNow.band}
                             </span>
@@ -1077,7 +1077,7 @@ export function BandPlanner() {
                         {(!bestBandNow || bestBandNow.status === "poor") && (
                           <div className="flex items-center gap-2">
                             <span className="w-2 h-2 rounded-full bg-alert-red" />
-                            <span className="text-gray-300">
+                            <span className="text-su-muted">
                               {bestBandNow
                                 ? "Digital modes only — poor conditions"
                                 : "No bands open — wait for better conditions"}
@@ -1089,10 +1089,10 @@ export function BandPlanner() {
 
                     {/* Power recommendations */}
                     <div>
-                      <h4 className="text-sm font-mono uppercase tracking-wider text-gray-400 mb-3">
+                      <h4 className="text-sm font-mono uppercase tracking-wider text-su-muted mb-3">
                         Power Guidance
                       </h4>
-                      <div className="space-y-2 text-gray-300">
+                      <div className="space-y-2 text-su-muted">
                         {bestBandNow && bestBandNow.snrEstimate >= -10 && (
                           <p>
                             50-100W should be sufficient for contacts on{" "}
@@ -1114,7 +1114,7 @@ export function BandPlanner() {
                           </p>
                         )}
                         {!bestBandNow && (
-                          <p className="text-gray-400">
+                          <p className="text-su-muted">
                             No bands open — save power for better openings
                           </p>
                         )}
@@ -1125,30 +1125,30 @@ export function BandPlanner() {
 
                 {/* Path Details */}
                 <Card>
-                  <h3 className="text-lg font-semibold text-white mb-4">
+                  <h3 className="text-lg font-semibold text-su-text mb-4">
                     Path Information
                   </h3>
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
                     <div>
-                      <div className="text-xs text-gray-400 mb-1">From</div>
-                      <div className="font-mono text-white">{operatingStation.grid}</div>
-                      <div className="text-xs text-gray-500">
+                      <div className="text-xs text-su-muted mb-1">From</div>
+                      <div className="font-mono text-su-text">{operatingStation.grid}</div>
+                      <div className="text-xs text-su-muted">
                         {operatingStation.lat.toFixed(2)}°, {operatingStation.lon.toFixed(2)}°
                       </div>
                     </div>
                     <div>
-                      <div className="text-xs text-gray-400 mb-1">To</div>
+                      <div className="text-xs text-su-muted mb-1">To</div>
                       <div className="font-mono text-signal-green">
                         {targetCoords.grid}
                       </div>
-                      <div className="text-xs text-gray-500">
+                      <div className="text-xs text-su-muted">
                         {targetCoords.lat.toFixed(2)}°,{" "}
                         {targetCoords.lon.toFixed(2)}°
                       </div>
                     </div>
                     <div>
-                      <div className="text-xs text-gray-400 mb-1">Distance</div>
-                      <div className="font-mono text-white">
+                      <div className="text-xs text-su-muted mb-1">Distance</div>
+                      <div className="font-mono text-su-text">
                         {Math.round(
                           calculateGreatCircleDistance(
                             operatingStation.lat,
@@ -1161,10 +1161,10 @@ export function BandPlanner() {
                       </div>
                     </div>
                     <div>
-                      <div className="text-xs text-gray-400 mb-1">
+                      <div className="text-xs text-su-muted mb-1">
                         ap equivalent (estimated)
                       </div>
-                      <div className="font-mono text-white">
+                      <div className="font-mono text-su-text">
                         {currentKp !== null ? kpToAp(currentKp) : "—"}
                       </div>
                     </div>
@@ -1177,7 +1177,7 @@ export function BandPlanner() {
       </main>
 
       {/* Footer */}
-      <footer className="max-w-7xl mx-auto px-4 md:px-6 py-8 text-center text-xs text-gray-500">
+      <footer className="max-w-7xl mx-auto px-4 md:px-6 py-8 text-center text-xs text-su-muted">
         <p>
           Projections use current solar indices and a simplified ionospheric
           model. They are estimates, not provider-issued forecasts.

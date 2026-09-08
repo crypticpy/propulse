@@ -1,5 +1,4 @@
-import { useMemo } from "react";
-import { useUTCClock } from "@/hooks/useUTCClock";
+import { useEffect, useMemo, useState } from "react";
 import { currentActivations } from "@/lib/hamclock/activations";
 import { useQuery } from "@tanstack/react-query";
 import type {
@@ -40,14 +39,21 @@ export function useActivationSpots(enabled = true): UseActivationSpotsResult {
     queryKey: ACTIVATION_SPOTS_QUERY_KEY,
     queryFn: ({ signal }) => fetchActivationSpots(signal),
     staleTime: 30 * SECOND,
-    refetchInterval: MINUTE,
+    refetchInterval: enabled ? MINUTE : false,
     gcTime: 5 * MINUTE,
     enabled,
     refetchOnWindowFocus: false,
     retry: 2,
   });
 
-  const now = useUTCClock(10_000).getTime();
+  const [now, setNow] = useState(Date.now);
+  useEffect(() => {
+    if (!enabled) return;
+    const update = () => setNow(Date.now());
+    update();
+    const timer = setInterval(update, 10 * SECOND);
+    return () => clearInterval(timer);
+  }, [enabled]);
   const spots = useMemo(() => currentActivations(query.data?.spots ?? EMPTY_SPOTS, now), [query.data?.spots, now]);
   const spotsByProgram = useMemo<Record<ActivationProgram, ActivationSpot[]>>(
     () => ({

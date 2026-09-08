@@ -214,22 +214,22 @@ export function AddPinDialog({
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
       <div
         ref={dialogRef}
-        className="w-full max-w-md mx-4 bg-gray-900/90 backdrop-blur-md border border-white/10 rounded-xl shadow-2xl"
+        className="w-full max-w-md mx-4 bg-su-canvas/90 backdrop-blur-md border border-su-line/40 rounded-xl shadow-2xl"
         role="dialog"
         aria-labelledby="pin-dialog-title"
         aria-modal="true"
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-4 py-3 border-b border-white/10">
+        <div className="flex items-center justify-between px-4 py-3 border-b border-su-line/40">
           <h2
             id="pin-dialog-title"
-            className="text-lg font-semibold text-white"
+            className="text-lg font-semibold text-su-text"
           >
             {title}
           </h2>
           <button
             onClick={onClose}
-            className="p-1 text-gray-400 hover:text-white transition-colors rounded-lg hover:bg-white/10"
+            className="p-1 text-su-muted hover:text-su-text transition-colors rounded-lg hover:bg-su-line/20"
             aria-label="Close dialog"
           >
             <svg
@@ -261,7 +261,7 @@ export function AddPinDialog({
           <div>
             <label
               htmlFor="pin-name"
-              className="block text-sm font-medium text-gray-300 mb-1"
+              className="block text-sm font-medium text-su-muted mb-1"
             >
               Name (optional)
             </label>
@@ -272,14 +272,14 @@ export function AddPinDialog({
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder={grid || "Enter a name..."}
-              className="w-full px-3 py-2 bg-gray-800/50 border border-white/10 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
+              className="w-full px-3 py-2 bg-su-panel/50 border border-su-line/40 rounded-lg text-su-text placeholder:text-su-muted/80 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
               maxLength={50}
             />
           </div>
 
           {/* Category selector */}
           <div>
-            <label className="block text-sm font-medium text-gray-300 mb-2">
+            <label className="block text-sm font-medium text-su-muted mb-2">
               Category
             </label>
             <div className="grid grid-cols-5 gap-2">
@@ -293,13 +293,13 @@ export function AddPinDialog({
                     ${
                       category === cat.id
                         ? "border-cyan-500 bg-cyan-500/20"
-                        : "border-white/10 bg-gray-800/50 hover:bg-gray-700/50"
+                        : "border-su-line/40 bg-su-panel/50 hover:bg-su-input/50"
                     }
                   `}
                   title={cat.label}
                 >
                   <span className="text-xl">{cat.icon}</span>
-                  <span className="text-xs text-gray-400 mt-1 truncate w-full text-center">
+                  <span className="text-xs text-su-muted mt-1 truncate w-full text-center">
                     {cat.label}
                   </span>
                 </button>
@@ -310,15 +310,15 @@ export function AddPinDialog({
           {/* Color picker */}
           <div>
             <div className="flex items-center justify-between mb-2">
-              <label className="block text-sm font-medium text-gray-300">
+              <label className="block text-sm font-medium text-su-muted">
                 Color
               </label>
-              <label className="flex items-center gap-2 text-xs text-gray-400">
+              <label className="flex items-center gap-2 text-xs text-su-muted">
                 <input
                   type="checkbox"
                   checked={useCustomColor}
                   onChange={(e) => setUseCustomColor(e.target.checked)}
-                  className="rounded border-gray-600 bg-gray-800 text-cyan-500 focus:ring-cyan-500"
+                  className="rounded border-su-line bg-su-panel text-cyan-500 focus:ring-cyan-500"
                 />
                 Custom color
               </label>
@@ -336,8 +336,8 @@ export function AddPinDialog({
                       w-8 h-8 rounded-full border-2 transition-all
                       ${
                         color === presetColor
-                          ? "border-white scale-110"
-                          : "border-transparent hover:border-white/50"
+                          ? "border-su-text scale-110"
+                          : "border-transparent hover:border-su-line/60"
                       }
                     `}
                   style={{ backgroundColor: presetColor }}
@@ -358,8 +358,8 @@ export function AddPinDialog({
                         w-8 h-8 rounded-full border-2 transition-all
                         ${
                           color === presetColor
-                            ? "border-white scale-110"
-                            : "border-transparent hover:border-white/50"
+                            ? "border-su-text scale-110"
+                            : "border-transparent hover:border-su-line/60"
                         }
                       `}
                       style={{ backgroundColor: presetColor }}
@@ -377,7 +377,7 @@ export function AddPinDialog({
             <div>
               <label
                 htmlFor="pin-expires"
-                className="block text-sm font-medium text-gray-300 mb-1"
+                className="block text-sm font-medium text-su-muted mb-1"
               >
                 End Date (optional)
               </label>
@@ -386,7 +386,7 @@ export function AddPinDialog({
                 type="date"
                 value={expiresAt}
                 onChange={(e) => setExpiresAt(e.target.value)}
-                className="w-full px-3 py-2 bg-gray-800/50 border border-white/10 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
+                className="w-full px-3 py-2 bg-su-panel/50 border border-su-line/40 rounded-lg text-su-text focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
                 min={new Date().toISOString().split("T")[0]}
               />
             </div>
@@ -396,7 +396,7 @@ export function AddPinDialog({
           <div>
             <label
               htmlFor="pin-notes"
-              className="block text-sm font-medium text-gray-300 mb-1"
+              className="block text-sm font-medium text-su-muted mb-1"
             >
               Notes (optional)
             </label>
@@ -406,7 +406,7 @@ export function AddPinDialog({
               onChange={(e) => setNotes(e.target.value)}
               placeholder="Add any notes or context..."
               rows={3}
-              className="w-full px-3 py-2 bg-gray-800/50 border border-white/10 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent resize-none"
+              className="w-full px-3 py-2 bg-su-panel/50 border border-su-line/40 rounded-lg text-su-text placeholder:text-su-muted/80 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent resize-none"
               maxLength={500}
             />
           </div>
@@ -416,13 +416,13 @@ export function AddPinDialog({
             <button
               type="button"
               onClick={onClose}
-              className="flex-1 px-4 py-2 bg-gray-700/50 hover:bg-gray-600/50 text-gray-300 rounded-lg transition-colors"
+              className="flex-1 px-4 py-2 bg-su-input/50 hover:bg-su-line/50 text-su-muted rounded-lg transition-colors"
             >
               Cancel
             </button>
             <button
               type="submit"
-              className="flex-1 px-4 py-2 bg-cyan-600 hover:bg-cyan-500 text-white font-medium rounded-lg transition-colors"
+              className="flex-1 px-4 py-2 bg-cyan-600 hover:bg-cyan-500 text-su-canvas font-semibold rounded-lg transition-colors"
             >
               {mode === "add" ? "Add Pin" : "Save Changes"}
             </button>

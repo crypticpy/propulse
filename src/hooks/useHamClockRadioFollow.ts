@@ -1,7 +1,9 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useSyncExternalStore } from "react";
 import { useHamClockDisplayStore } from "@/stores/hamclockDisplayStore";
 import { useMapStore } from "@/stores/mapStore";
 import { useOperatingMonitor } from "./useOperatingMonitor";
+import type { ScopedViewRuntime } from "@/lib/views/runtime";
+import { useViewRuntime } from "@/components/views/ViewRuntimeContext";
 
 /** Follow the display's radio even while its spots panel is hidden or collapsed. */
 export function useHamClockRadioFollow() {
@@ -38,4 +40,22 @@ export function useHamClockRadioFollow() {
       }
     }
   }, [followRadio, radio, setSpotFilters]);
+}
+
+/**
+ * Follow radio for one bound runtime. Manual band/mode edits disable follow
+ * inside that runtime only (`updateWorkingView`). Missing radio pauses
+ * following without writing filters or issuing a tune. This hook never writes
+ * mapStore or hamclockDisplayStore.
+ */
+export function useViewRadioFollow(runtime: ScopedViewRuntime) {
+  const radio = useOperatingMonitor();
+  return useSyncExternalStore(
+    runtime.subscribe,
+    () => runtime.followStatus(radio ? { band: radio.band, mode: radio.mode } : null),
+  );
+}
+
+export function useBoundViewRadioFollow() {
+  useViewRadioFollow(useViewRuntime());
 }

@@ -13,10 +13,11 @@ import {
   resolveNowCastCapabilityAccess,
 } from "@/lib/propagation/capabilityAccess";
 import capabilitiesFixture from "../../ml/fixtures/propagation_capabilities_v1.json";
-import type {
-  PathPredictionRequest,
-  PropagationCapabilitiesResponse,
-  PropagationPrediction,
+import {
+  PropagationModelError,
+  type PathPredictionRequest,
+  type PropagationCapabilitiesResponse,
+  type PropagationPrediction,
 } from "@/lib/propagation/modelClient";
 
 const modelClientMocks = vi.hoisted(() => ({
@@ -199,6 +200,112 @@ describe("useNowCastBandPredictions capability refreshes", () => {
 
     unmount();
     queryClient.clear();
+  });
+
+  it("retries a transient capabilities 401 and recovers once the session settles", async () => {
+    vi.useFakeTimers();
+    const capabilities = capabilitiesFixture as PropagationCapabilitiesResponse;
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    });
+    const wrapper = ({ children }: { children: ReactNode }) =>
+      createElement(QueryClientProvider, { client: queryClient }, children);
+
+    modelClientMocks.capabilities
+      .mockRejectedValueOnce(
+        new PropagationModelError(
+          "Missing or invalid authorization header",
+          401,
+        ),
+      )
+      .mockRejectedValueOnce(
+        new PropagationModelError(
+          "Missing or invalid authorization header",
+          401,
+        ),
+      )
+      .mockResolvedValue(capabilities);
+
+    const { result, unmount } = renderHook(
+      () =>
+        useNowCastBandPredictions({
+          origin: null,
+          target: null,
+          deriveEnvelope: () => null,
+        }),
+      { wrapper },
+    );
+
+    // waitFor's polling uses real timers, which are faked here, so drive
+    // and assert against result.current directly instead.
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(0);
+    });
+    expect(result.current.available).toBe(false);
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1_000);
+    });
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(2_000);
+    });
+    // The query's success notification lands just past the retry delay
+    // window — one more advance settles the resolved query state.
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1_000);
+    });
+
+    expect(result.current.available).toBe(true);
+    expect(result.current.capabilityError).toBeNull();
+    expect(modelClientMocks.capabilities).toHaveBeenCalledTimes(3);
+
+    unmount();
+    queryClient.clear();
+    vi.useRealTimers();
+  });
+
+  it("keeps reporting a transport error (not a disabled capability) after repeated 401 failures", async () => {
+    vi.useFakeTimers();
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    });
+    const wrapper = ({ children }: { children: ReactNode }) =>
+      createElement(QueryClientProvider, { client: queryClient }, children);
+
+    modelClientMocks.capabilities.mockRejectedValue(
+      new PropagationModelError("Missing or invalid authorization header", 401),
+    );
+
+    const { result, unmount } = renderHook(
+      () =>
+        useNowCastBandPredictions({
+          origin: null,
+          target: null,
+          deriveEnvelope: () => null,
+        }),
+      { wrapper },
+    );
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1_000);
+    });
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(2_000);
+    });
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(4_000);
+    });
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1_000);
+    });
+
+    expect(result.current.available).toBe(false);
+    expect(result.current.capabilityError).toBeInstanceOf(Error);
+    expect(modelClientMocks.capabilities).toHaveBeenCalledTimes(4);
+
+    unmount();
+    queryClient.clear();
+    vi.useRealTimers();
   });
 });
 

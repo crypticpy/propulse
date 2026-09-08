@@ -284,7 +284,7 @@ export function LayoutModeDropdown({
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className={`flex items-center gap-2 rounded-lg bg-white/[0.03] border border-white/10 hover:border-white/20 text-gray-300 hover:text-white transition-colors ${
+        className={`flex items-center gap-2 rounded-lg bg-su-line/10 border border-su-line/40 hover:border-su-line/50 text-su-muted hover:text-su-text transition-colors ${
           compact ? "p-2" : "px-3 py-1.5"
         }`}
         aria-label={compact ? `Display mode: ${activeOption.label}` : undefined}
@@ -313,7 +313,7 @@ export function LayoutModeDropdown({
         <div
           role="menu"
           aria-label="Display mode"
-          className={`absolute top-full mt-1.5 min-w-[230px] z-[260] rounded-lg bg-void-black/95 backdrop-blur-md border border-white/10 shadow-xl py-1 ${
+          className={`absolute top-full mt-1.5 min-w-[230px] z-[260] rounded-lg bg-void-black/95 backdrop-blur-md border border-su-line/40 shadow-xl py-1 ${
             align === "right" ? "right-0" : "left-0"
           }`}
         >
@@ -327,7 +327,7 @@ export function LayoutModeDropdown({
             return (
               <div key={opt.id}>
                 {opt.dividerBefore && (
-                  <div className="h-px bg-white/10 my-1" aria-hidden="true" />
+                  <div className="h-px bg-su-line/20 my-1" aria-hidden="true" />
                 )}
                 <button
                   type="button"
@@ -342,7 +342,7 @@ export function LayoutModeDropdown({
                   className={`w-full flex items-center gap-3 px-3 py-2 text-left transition-colors ${
                     isActive
                       ? "bg-plasma-orange/10 text-plasma-orange border-l-2 border-plasma-orange"
-                      : "text-gray-300 hover:text-white hover:bg-white/5 border-l-2 border-transparent"
+                      : "text-su-muted hover:text-su-text hover:bg-su-line/10 border-l-2 border-transparent"
                   }`}
                 >
                   <span className="shrink-0">{opt.icon}</span>
@@ -351,7 +351,7 @@ export function LayoutModeDropdown({
                       {opt.label}
                     </span>
                     <span
-                      className={`text-[10px] leading-tight ${isActive ? "text-plasma-orange/70" : "text-gray-500"}`}
+                      className={`text-[10px] leading-tight ${isActive ? "text-plasma-orange/70" : "text-su-muted"}`}
                     >
                       {opt.description}
                     </span>

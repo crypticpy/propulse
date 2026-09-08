@@ -35,3 +35,12 @@ AetherSDR/TCI target routing and the rig/SDR/both choice depend on the actual ad
 The sync hook now sends a single `rig.set` request, whose existing bridge handler awaits frequency then mode. One tune request stays in flight until its acknowledgement/error; a newer staged target waits without being erased by the older response. A disconnect clears pending tune commands. The hook keeps CAT configuration independent of the master bridge switch so BRIDGE OFF remains visible for a configured backend. Reverse CW stays `CWR` for Hamlib and becomes `CW-R` for direct ICOM, including an auto-detected ICOM backend from the connection acknowledgement.
 
 The shared button imports its theme/control styles directly, so a fresh non-map route can render a portalled wall-style alert with the saved wall layout. Hook regressions cover combined dispatch, a second target queued during a request, acknowledgement clearing, auto backend normalization, frequency-only requests and disconnect cleanup. These are mocked bridge protocol tests, not hardware acknowledgement evidence.
+
+
+## Current-main release integration — 2026-09-07
+
+Integrated with main `0ae6bda2`, preserving the current theme tokens while replacing the old toast hint and hover-only tuning action. The merge has 15 changed files against main. Lint, production build and 49 focused tuning/dispatcher/adapter tests pass. Six isolated Chromium cases cover Pulse/Classic/Brass at 1080p and 4K; all targets are at least 44px, no target clipping or page errors. Synthetic connection states cover BRIDGE OFF, BRIDGE SEEKING, RIG WAITING and ready. The ready action stages 14,074,000 Hz plus USB.
+
+The adapted browser fixture seeds parsed synthetic DX records after the simulated rig transition; this validates controls and layout, not live feed retention. All hardware WebSockets remain blocked. Current test owner is `hamclock-operating-release`, session `cb106b4a-e997-4847-a861-5a997bbac11d`, local profile at http://127.0.0.1:5186/map, checkout `.worktrees/hamclock-operating-release`. Existing user previews at 5181 and 5182 are preserved.
+
+The user authorized moving the reviewed operating stack toward release. Integration proceeds one dependency at a time; no new weather/model/3D batch is claimed. Hardware acknowledgement, actual account sync, deployed PSK coordination and physical-display acceptance remain separately pending.

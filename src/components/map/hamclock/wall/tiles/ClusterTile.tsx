@@ -2,13 +2,13 @@ import { useMemo, useState } from "react";
 import { useActiveLocation } from "@/hooks/useActiveLocation";
 import { useUTCClock } from "@/hooks/useUTCClock";
 import { filterClusterAge } from "@/lib/dx/clusterHistory";
+import { filterBridgeSpotAge } from "@/lib/hamclock/clusterBridge";
 import { filterMapSpots } from "@/lib/map/filterMapSpots";
 import { getBandColor } from "@/lib/utils/spotColors";
 import { useDXStore } from "@/stores/dxStore";
 import { useMapStore } from "@/stores/mapStore";
 import type { DXSpot } from "@/types/dxcluster";
 import { HamClockTile } from "../HamClockTile";
-
 import { ClusterReport } from "../reports/ClusterReport";
 
 /** The rail cannot scroll, so render a generous slice and let CSS clip it. */
@@ -38,22 +38,27 @@ function spotDetail(spot: DXSpot): string {
 
 /**
  * Reads the DX store the map stage's `useDXCluster` already fills. The tile
- * can be mounted on both rails at once, and each `useDXCluster` call owns its
- * own bridge socket and history, so the tile must never open a feed itself.
+ * can be mounted on both rails at once. Bridge observers merge into one shared
+ * source snapshot, so the tile must never open a feed itself.
  */
 export function ClusterTile() {
   const location = useActiveLocation();
   const allSpots = useDXStore((s) => s.spots);
-  const feedState = useDXStore(s => s.clusterFeed);
-  const maxAge = useDXStore(s => s.filters.maxAge);
+  const feedState = useDXStore((s) => s.clusterFeed);
   const source = useDXStore((s) => s.spotSource);
+  const maxAge = useDXStore((s) => s.filters.maxAge);
   const spotFilters = useMapStore((s) => s.spotFilters);
   const now = useUTCClock(10_000);
   const [reportOpen, setReportOpen] = useState(false);
 
   const spots = useMemo(
-    () => filterMapSpots(filterClusterAge(allSpots ?? [], maxAge, now.getTime()), spotFilters),
-    [allSpots, spotFilters, maxAge, now],
+    () => filterMapSpots(
+      source === "bridge"
+        ? filterBridgeSpotAge(allSpots ?? [], maxAge, now.getTime())
+        : filterClusterAge(allSpots ?? [], maxAge, now.getTime()),
+      spotFilters,
+    ),
+    [allSpots, spotFilters, maxAge, now, source],
   );
   const rows = spots.slice(0, MAX_ROWS);
   const feed = source === "bridge" ? "BRIDGE" : "CLUSTER";

@@ -9,3 +9,8 @@ Each source now includes `checkedAt`, its own request-completion timestamp, and 
 Tests hold one provider's response while the others finish, proving independent timestamps, failure handling and successful empty-feed semantics. A separate regression rejects bodyless HTTP success. Full repository gates run before publication. No new provider endpoint, credentials, hardware connection or renderer is introduced.
 
 Next: build the wall tile and report with programme tabs, no-scroll measured rows, shared tuning and source-specific footers, then validate the additional programmes independently.
+
+
+## Release integration — 2026-09-07
+
+Integrated on the refreshed guarded-tuning stack. All nine activation handler tests pass, including delayed provider completion and bodyless-success rejection. Source changes remain limited to the handler, its tests and shared response types; no provider, database or model configuration was changed. Publication runs the full repository hooks.

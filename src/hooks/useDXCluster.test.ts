@@ -132,16 +132,18 @@ describe("DX cluster history snapshots", () => {
     expect(result.current.spots).toEqual([sentinel]);expect(useDXStore.getState().spots).toEqual([sentinel]);
     expect(mocks.fetch).not.toHaveBeenCalled();unmount();await act(async()=>Promise.resolve());
   });
-  it("lets an external consumer read its bridge without replacing the default REST snapshot", async () => {
-    const sentinel=row(1,"shared-rest");useDXStore.setState({spots:[sentinel]});
+  // Bridge reports live in one shared buffer (#577), so an external-filter
+  // observer reads that snapshot through its own filters instead of a private
+  // one, and still never republishes it or re-scopes the shared request.
+  it("lets an external consumer read the shared bridge rows without republishing them", async () => {
+    const sentinel=row(2,"shared-bridge");useDXStore.setState({spots:[sentinel],spotSource:"bridge"});
     mocks.bridge.connected=true;
-    mocks.bridge.lastMessage={type:"cluster.spot",payload:{...row(2,"external-bridge"),time:new Date(now-120_000).toISOString()}};
     const {result,unmount}=renderHook(()=>useDXCluster({maxAge:120}),{wrapper});
     expect(result.current.source).toBe("bridge");
-    expect(result.current.spots[0].id).toBe("external-bridge");
+    expect(result.current.spots[0].id).toBe("shared-bridge");
     expect(result.current.lastUpdated?.getTime()).toBe(now-120_000);
-    expect(useDXStore.getState().spotSource).toBe("rest");
     expect(useDXStore.getState().spots).toEqual([sentinel]);
+    expect(mocks.fetch).not.toHaveBeenCalled();
     unmount();await act(async()=>Promise.resolve());
   });
 

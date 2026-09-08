@@ -91,7 +91,7 @@ const BADGE_COLORS: Record<
   NonNullable<PanelBadge["color"]>,
   { bg: string; text: string }
 > = {
-  default: { bg: "bg-white/5", text: "text-gray-400" },
+  default: { bg: "bg-su-line/10", text: "text-su-muted" },
   success: { bg: "bg-signal-green/20", text: "text-signal-green" },
   warning: { bg: "bg-caution-amber/20", text: "text-caution-amber" },
   danger: { bg: "bg-alert-red/20", text: "text-alert-red" },
@@ -104,7 +104,7 @@ const STATUS_DOT_COLORS: Record<
   success: "bg-signal-green",
   warning: "bg-caution-amber",
   danger: "bg-alert-red",
-  neutral: "bg-gray-500",
+  neutral: "bg-su-line",
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -112,7 +112,7 @@ const STATUS_DOT_COLORS: Record<
 // ─────────────────────────────────────────────────────────────────────────────
 
 const VARIANT_STYLES: Record<NonNullable<PanelCardProps["variant"]>, string> = {
-  default: "border-white/10 hover:border-white/20",
+  default: "border-su-line/40 hover:border-su-line/50",
   highlight:
     "border-plasma-orange/30 shadow-glow-orange hover:border-plasma-orange/50",
   alert:
@@ -189,7 +189,7 @@ export const PanelCard = forwardRef<HTMLDivElement, PanelCardProps>(
         <div
           ref={ref}
           className={`
-            bg-white/[0.03] backdrop-blur-md border rounded-2xl
+            bg-su-line/10 backdrop-blur-md border rounded-2xl
             transition-all duration-200
             ${VARIANT_STYLES[variant]}
             ${collapsed ? "p-2.5" : "p-4"}
@@ -221,11 +221,11 @@ export const PanelCard = forwardRef<HTMLDivElement, PanelCardProps>(
                     e.stopPropagation();
                     onToggleCollapse?.();
                   }}
-                  className="p-0.5 hover:bg-white/10 rounded transition-colors flex-shrink-0"
+                  className="p-0.5 hover:bg-su-line/20 rounded transition-colors flex-shrink-0"
                   aria-label={collapsed ? "Expand panel" : "Collapse panel"}
                 >
                   <svg
-                    className={`w-3.5 h-3.5 text-gray-500 transition-transform duration-200 ${
+                    className={`w-3.5 h-3.5 text-su-muted transition-transform duration-200 ${
                       collapsed ? "" : "rotate-90"
                     }`}
                     fill="none"
@@ -252,7 +252,7 @@ export const PanelCard = forwardRef<HTMLDivElement, PanelCardProps>(
               {/* Title and subtitle */}
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2 flex-wrap">
-                  <h3 className="text-[10px] font-medium text-gray-300 uppercase tracking-wide">
+                  <h3 className="text-[10px] font-medium text-su-muted uppercase tracking-wide">
                     {title}
                   </h3>
 
@@ -276,7 +276,7 @@ export const PanelCard = forwardRef<HTMLDivElement, PanelCardProps>(
                   {/* Collapsed summary (inline with title when collapsed) */}
                   {collapsed && collapsedSummary && (
                     <div className="flex items-center gap-2 text-xs">
-                      <div className="w-px h-3 bg-white/10" />
+                      <div className="w-px h-3 bg-su-line/20" />
                       {collapsedSummary}
                     </div>
                   )}
@@ -284,7 +284,7 @@ export const PanelCard = forwardRef<HTMLDivElement, PanelCardProps>(
 
                 {/* Subtitle (only when not collapsed) */}
                 {!collapsed && subtitle && (
-                  <p className="text-[10px] text-gray-500 mt-0.5 truncate">
+                  <p className="text-[10px] text-su-muted mt-0.5 truncate">
                     {subtitle}
                   </p>
                 )}
@@ -307,8 +307,8 @@ export const PanelCard = forwardRef<HTMLDivElement, PanelCardProps>(
                       e.stopPropagation();
                       onExpand?.();
                     }}
-                    className="p-1 rounded-full bg-white/5 hover:bg-white/10
-                               border border-white/10 text-gray-400 hover:text-white
+                    className="p-1 rounded-full bg-su-line/10 hover:bg-su-line/20
+                               border border-su-line/40 text-su-muted hover:text-su-text
                                transition-colors flex-shrink-0"
                     title="Expand"
                     aria-label="Expand panel"
@@ -348,7 +348,7 @@ export const PanelCard = forwardRef<HTMLDivElement, PanelCardProps>(
 
             {/* Footer (sticks to bottom) */}
             {footer && (
-              <div className="flex-shrink-0 pt-2 mt-2 border-t border-white/5">
+              <div className="flex-shrink-0 pt-2 mt-2 border-t border-su-line/20">
                 {footer}
               </div>
             )}

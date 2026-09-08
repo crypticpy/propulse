@@ -29,7 +29,7 @@ function renderBulletText(text: string): ReactNode {
     const rest = text.slice(colonIdx + 2);
     return (
       <>
-        <span className="text-white font-medium">{label}:</span> {rest}
+        <span className="text-su-text font-medium">{label}:</span> {rest}
       </>
     );
   }
@@ -48,7 +48,7 @@ function renderContent(content: string): ReactNode {
       blocks.push(
         <p
           key={`p-${blocks.length}`}
-          className="text-sm text-gray-300 leading-relaxed"
+          className="text-sm text-su-muted leading-relaxed"
         >
           {paragraphLines.join(" ")}
         </p>,
@@ -62,7 +62,7 @@ function renderContent(content: string): ReactNode {
       blocks.push(
         <ul
           key={`ul-${blocks.length}`}
-          className="space-y-1.5 text-sm text-gray-300"
+          className="space-y-1.5 text-sm text-su-muted"
         >
           {currentBullets.map((b, i) => (
             <li key={i} className="flex gap-2 leading-relaxed">
@@ -109,7 +109,7 @@ export function HelpModal({
         {sections.map((section, idx) => (
           <div
             key={idx}
-            className="rounded-lg bg-white/[0.02] border border-white/5 px-4 py-3"
+            className="rounded-lg bg-su-line/10 border border-su-line/20 px-4 py-3"
           >
             <h3 className="text-sm font-semibold text-plasma-orange mb-2">
               {section.title}
@@ -145,8 +145,8 @@ export function HelpButton({
         e.stopPropagation();
         onClick();
       }}
-      className={`${buttonClasses} rounded-full bg-white/5 hover:bg-white/10 border border-white/10
-                  text-gray-400 hover:text-white transition-colors ${className}`}
+      className={`${buttonClasses} rounded-full bg-su-line/10 hover:bg-su-line/20 border border-su-line/40
+                  text-su-muted hover:text-su-text transition-colors ${className}`}
       title="Help"
     >
       <svg

@@ -300,7 +300,7 @@ export const TurnTimer = forwardRef<TurnTimerHandle, TurnTimerProps>(
             ? "stroke-amber-400"
             : timerState === "running"
               ? "stroke-emerald-400"
-              : "stroke-gray-500";
+              : "stroke-su-line";
 
     const minutes = Math.floor(remaining / 60);
     const seconds = remaining % 60;
@@ -331,14 +331,14 @@ export const TurnTimer = forwardRef<TurnTimerHandle, TurnTimerProps>(
         aria-label="Turn timer"
       >
         {!hideControls && (
-          <h3 className="font-orbitron text-xs uppercase tracking-widest text-gray-300 self-start">
+          <h3 className="font-orbitron text-xs uppercase tracking-widest text-su-muted self-start">
             Turn Timer
           </h3>
         )}
 
         {/* Speaker callsign label */}
         {!hideControls && speakerCallsign && (
-          <p className="text-xs uppercase tracking-widest text-gray-300 text-center mb-1">
+          <p className="text-xs uppercase tracking-widest text-su-muted text-center mb-1">
             {speakerCallsign}
           </p>
         )}
@@ -364,7 +364,7 @@ export const TurnTimer = forwardRef<TurnTimerHandle, TurnTimerProps>(
               fill="none"
               stroke="currentColor"
               strokeWidth="6"
-              className="text-white/[0.12]"
+              className="text-su-text/10"
             />
             {/* Progress ring */}
             <circle
@@ -389,7 +389,7 @@ export const TurnTimer = forwardRef<TurnTimerHandle, TurnTimerProps>(
                   ? "text-red-400 animate-pulse"
                   : isWarning
                     ? "text-amber-400"
-                    : "text-white"
+                    : "text-su-text"
               }`}
               aria-hidden="true"
             >
@@ -433,7 +433,7 @@ export const TurnTimer = forwardRef<TurnTimerHandle, TurnTimerProps>(
 
             <button
               onClick={handleReset}
-              className="px-4 py-2.5 min-h-[44px] text-xs font-medium rounded-xl bg-white/5 text-gray-300 border border-white/10 hover:bg-white/15 hover:text-white will-change-transform hover:brightness-110 active:scale-[0.98] transition-all focus-visible:ring-2 focus-visible:ring-plasma-orange/70 focus-visible:outline-none"
+              className="px-4 py-2.5 min-h-[44px] text-xs font-medium rounded-xl bg-su-line/10 text-su-muted border border-su-line/40 hover:bg-su-line/30 hover:text-su-text will-change-transform hover:brightness-110 active:scale-[0.98] transition-all focus-visible:ring-2 focus-visible:ring-plasma-orange/70 focus-visible:outline-none"
               aria-label="Reset timer"
             >
               Reset
@@ -441,7 +441,7 @@ export const TurnTimer = forwardRef<TurnTimerHandle, TurnTimerProps>(
 
             <button
               onClick={() => handleAddTime(1)}
-              className="px-2.5 py-2 min-h-[44px] text-xs font-medium rounded-xl bg-white/5 text-gray-300 border border-white/10 hover:bg-white/15 hover:text-white will-change-transform hover:brightness-110 active:scale-[0.98] transition-all focus-visible:ring-2 focus-visible:ring-plasma-orange/70 focus-visible:outline-none"
+              className="px-2.5 py-2 min-h-[44px] text-xs font-medium rounded-xl bg-su-line/10 text-su-muted border border-su-line/40 hover:bg-su-line/30 hover:text-su-text will-change-transform hover:brightness-110 active:scale-[0.98] transition-all focus-visible:ring-2 focus-visible:ring-plasma-orange/70 focus-visible:outline-none"
               aria-label="Add 1 minute"
             >
               +1m
@@ -449,7 +449,7 @@ export const TurnTimer = forwardRef<TurnTimerHandle, TurnTimerProps>(
 
             <button
               onClick={() => handleAddTime(2)}
-              className="px-2.5 py-2 min-h-[44px] text-xs font-medium rounded-xl bg-white/5 text-gray-300 border border-white/10 hover:bg-white/15 hover:text-white will-change-transform hover:brightness-110 active:scale-[0.98] transition-all focus-visible:ring-2 focus-visible:ring-plasma-orange/70 focus-visible:outline-none"
+              className="px-2.5 py-2 min-h-[44px] text-xs font-medium rounded-xl bg-su-line/10 text-su-muted border border-su-line/40 hover:bg-su-line/30 hover:text-su-text will-change-transform hover:brightness-110 active:scale-[0.98] transition-all focus-visible:ring-2 focus-visible:ring-plasma-orange/70 focus-visible:outline-none"
               aria-label="Add 2 minutes"
             >
               +2m

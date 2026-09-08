@@ -10,7 +10,7 @@ export function SegmentedButton<T extends string>({
   return (
     <div
       role="radiogroup"
-      className="flex gap-1 p-1 bg-void-black rounded-lg border border-white/10"
+      className="flex gap-1 p-1 bg-void-black rounded-lg border border-su-line/40"
     >
       {options.map((opt) => (
         <button
@@ -21,8 +21,8 @@ export function SegmentedButton<T extends string>({
           onClick={() => onChange(opt.value)}
           className={`flex-1 px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
             value === opt.value
-              ? "bg-plasma-orange text-white"
-              : "text-gray-400 hover:text-gray-200"
+              ? "bg-plasma-orange text-su-on-accent"
+              : "text-su-muted hover:text-su-text"
           }`}
         >
           {opt.label}

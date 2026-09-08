@@ -35,11 +35,11 @@ export function EnvironmentCard({ className = "" }: EnvironmentCardProps) {
     return (
       <Card className={className} role="region" aria-label="Environment">
         <div className="flex items-center gap-1.5 mb-2">
-          <span className="text-[10px] font-medium text-gray-400 uppercase tracking-wide">
+          <span className="text-sm font-medium text-su-muted uppercase tracking-wide">
             Environment
           </span>
         </div>
-        <div className="text-[10px] text-gray-500">
+        <div className="text-sm text-su-muted/80">
           Set your grid in Profile for UV and air quality data
         </div>
       </Card>
@@ -58,18 +58,18 @@ export function EnvironmentCard({ className = "" }: EnvironmentCardProps) {
   return (
     <Card className={className} role="region" aria-label="Environment">
       <div className="flex items-center gap-1.5 mb-2">
-        <span className="text-[10px] font-medium text-gray-400 uppercase tracking-wide">
+        <span className="text-sm font-medium text-su-muted uppercase tracking-wide">
           Environment
         </span>
       </div>
 
       <div className="grid grid-cols-2 gap-3">
         <div>
-          <div className="text-[10px] text-gray-500 uppercase tracking-wide mb-1">
+          <div className="text-sm text-su-muted/80 uppercase tracking-wide mb-1">
             UV Index
           </div>
           {uvUnavailable ? (
-            <div className="text-xs text-gray-500">UV data unavailable</div>
+            <div className="text-sm text-su-muted/80">UV data unavailable</div>
           ) : (
             <>
               <div
@@ -77,10 +77,10 @@ export function EnvironmentCard({ className = "" }: EnvironmentCardProps) {
               >
                 {currentUv != null ? currentUv.toFixed(1) : "—"}
               </div>
-              <div className="text-xs text-gray-500 font-mono tabular-nums mt-1">
+              <div className="text-sm text-su-muted/80 font-mono tabular-nums mt-1">
                 {todayMax != null ? todayMax.toFixed(1) : "—"} max today
               </div>
-              <div className="text-xs text-gray-500 font-mono tabular-nums">
+              <div className="text-sm text-su-muted/80 font-mono tabular-nums">
                 {tomorrowMax != null ? tomorrowMax.toFixed(1) : "—"} max
                 tomorrow
               </div>
@@ -88,14 +88,14 @@ export function EnvironmentCard({ className = "" }: EnvironmentCardProps) {
           )}
         </div>
 
-        <div className="border-l border-white/10 pl-3">
-          <div className="text-[10px] text-gray-500 uppercase tracking-wide mb-1">
+        <div className="border-l border-su-line/40 pl-3">
+          <div className="text-sm text-su-muted/80 uppercase tracking-wide mb-1">
             Air Quality
           </div>
           {configurationMissing ? (
-            <div className="text-xs text-gray-500">Needs API key</div>
+            <div className="text-sm text-su-muted/80">Needs API key</div>
           ) : aqiUnavailable ? (
-            <div className="text-xs text-gray-500">AQI unavailable</div>
+            <div className="text-sm text-su-muted/80">AQI unavailable</div>
           ) : (
             <>
               <div
@@ -103,16 +103,16 @@ export function EnvironmentCard({ className = "" }: EnvironmentCardProps) {
               >
                 {aqiValue ?? "—"}
               </div>
-              <div className="text-xs text-gray-400 truncate mt-1">
+              <div className="text-sm text-su-muted truncate mt-1">
                 {aqi?.category ?? "—"}
               </div>
               {aqi?.pollutant && (
-                <div className="text-xs text-gray-500 font-mono">
+                <div className="text-sm text-su-muted/80 font-mono">
                   {aqi.pollutant}
                 </div>
               )}
               {aqi?.source && aqi.source !== "none" && (
-                <div className="text-[10px] text-gray-600 mt-1">
+                <div className="text-sm text-su-muted/80 mt-1">
                   Source: {aqi.source === "airnow" ? "AirNow" : "WAQI"}
                 </div>
               )}

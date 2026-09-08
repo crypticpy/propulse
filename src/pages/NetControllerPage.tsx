@@ -94,8 +94,8 @@ export function NetControllerPage() {
   }, [authUser, fetchMyManagedNets]);
 
   const panelClass = isMobile
-    ? "bg-panel/30 backdrop-blur-sm border border-white/5 rounded-2xl p-4"
-    : "bg-panel/30 backdrop-blur-sm border border-white/5 rounded-2xl p-6";
+    ? "bg-panel/30 backdrop-blur-sm border border-su-line/20 rounded-2xl p-4"
+    : "bg-panel/30 backdrop-blur-sm border border-su-line/20 rounded-2xl p-6";
 
   // ── Auth gate ───────────────────────────────────────────────────────────
 
@@ -103,7 +103,7 @@ export function NetControllerPage() {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] text-center px-4">
         <svg
-          className="w-14 h-14 text-gray-600 mb-4"
+          className="w-14 h-14 text-su-muted mb-4"
           fill="none"
           stroke="currentColor"
           viewBox="0 0 24 24"
@@ -115,10 +115,10 @@ export function NetControllerPage() {
             d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
           />
         </svg>
-        <p className="text-gray-400 text-base font-medium mb-1">
+        <p className="text-su-muted text-base font-medium mb-1">
           Sign in to manage your nets
         </p>
-        <p className="text-gray-500 text-sm">
+        <p className="text-su-muted text-sm">
           The Net Controller lets you operate, schedule, and analyze your nets.
         </p>
       </div>
@@ -138,8 +138,8 @@ export function NetControllerPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-bold text-white">Net Controller</h1>
-          <p className="text-sm text-gray-500 mt-0.5">
+          <h1 className="text-xl font-bold text-su-text">Net Controller</h1>
+          <p className="text-sm text-su-muted mt-0.5">
             Manage and operate your nets
           </p>
         </div>
@@ -176,7 +176,7 @@ export function NetControllerPage() {
       {!isLoadingManagedNets && managedNets.length === 0 && (
         <div className="flex flex-col items-center justify-center min-h-[30vh] text-center">
           <svg
-            className="w-12 h-12 text-gray-600 mb-4"
+            className="w-12 h-12 text-su-muted mb-4"
             fill="none"
             stroke="currentColor"
             viewBox="0 0 24 24"
@@ -188,10 +188,10 @@ export function NetControllerPage() {
               d="M8.111 16.404a5.5 5.5 0 017.778 0M12 20h.01m-7.08-7.071c3.904-3.905 10.236-3.905 14.141 0M1.394 9.393c5.857-5.858 15.355-5.858 21.213 0"
             />
           </svg>
-          <p className="text-gray-400 text-sm mb-2">
+          <p className="text-su-muted text-sm mb-2">
             You don't manage any nets yet.
           </p>
-          <p className="text-gray-500 text-xs">
+          <p className="text-su-muted text-xs">
             Create one or get added as a manager to an existing net.
           </p>
         </div>
@@ -212,17 +212,17 @@ export function NetControllerPage() {
               </div>
 
               {/* Net name */}
-              <h3 className="text-sm font-bold text-white truncate mb-1">
+              <h3 className="text-sm font-bold text-su-text truncate mb-1">
                 {net.name}
               </h3>
 
               {/* Frequency + mode */}
-              <p className="text-xs text-gray-400 font-mono mb-2">
+              <p className="text-xs text-su-muted font-mono mb-2">
                 {net.frequency} &middot; {net.mode}
               </p>
 
               {/* Next session */}
-              <div className="flex items-center gap-1.5 text-[11px] text-gray-500 mb-4">
+              <div className="flex items-center gap-1.5 text-[11px] text-su-muted mb-4">
                 <svg
                   className="w-3.5 h-3.5 shrink-0"
                   fill="none"
@@ -240,7 +240,7 @@ export function NetControllerPage() {
               </div>
 
               {/* Action buttons */}
-              <div className="flex items-center gap-2 pt-3 border-t border-white/5">
+              <div className="flex items-center gap-2 pt-3 border-t border-su-line/20">
                 <Link
                   to={`/ncs/${net.id}/live`}
                   className={`flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
@@ -267,14 +267,14 @@ export function NetControllerPage() {
 
                 <Link
                   to={`/ncs/${net.id}/analytics`}
-                  className="text-xs text-gray-400 hover:text-gray-200 transition-colors px-2 py-1.5"
+                  className="text-xs text-su-muted hover:text-su-text transition-colors px-2 py-1.5"
                 >
                   Analytics
                 </Link>
 
                 <Link
                   to={`/ncs/${net.id}`}
-                  className="text-xs text-gray-400 hover:text-gray-200 transition-colors px-2 py-1.5 ml-auto"
+                  className="text-xs text-su-muted hover:text-su-text transition-colors px-2 py-1.5 ml-auto"
                 >
                   Manage
                 </Link>

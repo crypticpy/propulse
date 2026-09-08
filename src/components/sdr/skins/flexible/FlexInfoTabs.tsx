@@ -57,7 +57,7 @@ export const FlexInfoTabs = memo(function FlexInfoTabs({
   }, [ft8DecoderEnabled]);
 
   return (
-    <div className="flex flex-col border-t border-white/10">
+    <div className="flex flex-col border-t border-su-line/40">
       {/* ── Tab pills ──────────────────────────────────────────────── */}
       <div className="flex items-center gap-0.5 px-2 py-1.5 bg-[#0d0d14]">
         {(Object.keys(TAB_LABELS) as InfoTab[]).map((tab) => {
@@ -77,7 +77,7 @@ export const FlexInfoTabs = memo(function FlexInfoTabs({
               className={`px-2 py-0.5 rounded text-[10px] font-medium transition-colors ${
                 isActive
                   ? "bg-cosmic-cyan/15 text-cosmic-cyan"
-                  : "text-gray-500 hover:text-gray-300"
+                  : "text-su-muted hover:text-su-text"
               }`}
             >
               {TAB_LABELS[tab]}
@@ -89,7 +89,7 @@ export const FlexInfoTabs = memo(function FlexInfoTabs({
               {badge && (
                 <span
                   className={`ml-1 text-[8px] ${
-                    isActive ? "text-cosmic-cyan/70" : "text-gray-600"
+                    isActive ? "text-cosmic-cyan/70" : "text-su-muted"
                   }`}
                 >
                   {badge}
@@ -115,7 +115,7 @@ export const FlexInfoTabs = memo(function FlexInfoTabs({
 function DecodesTab({ decodes }: { decodes: WsjtxDecode[] }) {
   if (decodes.length === 0) {
     return (
-      <div className="text-[10px] text-gray-600 py-2">
+      <div className="text-[10px] text-su-muted py-2">
         No decodes received yet.
       </div>
     );
@@ -126,18 +126,18 @@ function DecodesTab({ decodes }: { decodes: WsjtxDecode[] }) {
       {decodes.slice(0, 15).map((d, idx) => (
         <div
           key={`${d.time}-${d.deltaFrequency}-${idx}`}
-          className="flex items-center gap-1.5 text-[10px] px-1 py-0.5 rounded bg-white/[0.02] hover:bg-white/[0.05]"
+          className="flex items-center gap-1.5 text-[10px] px-1 py-0.5 rounded bg-su-line/10 hover:bg-su-line/20"
         >
-          <span className="font-mono text-gray-600 w-12 shrink-0">
+          <span className="font-mono text-su-muted w-12 shrink-0">
             {formatUtcMsSinceMidnight(d.time)}
           </span>
-          <span className="font-mono text-gray-500 w-7 text-right shrink-0">
+          <span className="font-mono text-su-muted w-7 text-right shrink-0">
             {d.snr > 0 ? `+${d.snr}` : d.snr}
           </span>
-          <span className="font-mono text-gray-500 w-10 text-right shrink-0">
+          <span className="font-mono text-su-muted w-10 text-right shrink-0">
             {d.deltaFrequency}
           </span>
-          <span className="text-gray-300 truncate min-w-0">{d.message}</span>
+          <span className="text-su-muted truncate min-w-0">{d.message}</span>
         </div>
       ))}
     </div>
@@ -149,7 +149,7 @@ function DecodesTab({ decodes }: { decodes: WsjtxDecode[] }) {
 function SpotsTab({ spots }: { spots: ClusterSpotMessage[] }) {
   if (spots.length === 0) {
     return (
-      <div className="text-[10px] text-gray-600 py-2">
+      <div className="text-[10px] text-su-muted py-2">
         No DX cluster spots yet.
       </div>
     );
@@ -160,15 +160,15 @@ function SpotsTab({ spots }: { spots: ClusterSpotMessage[] }) {
       {spots.slice(0, 15).map((s, idx) => (
         <div
           key={`${s.id ?? "spot"}-${idx}`}
-          className="flex items-center gap-1.5 text-[10px] px-1 py-0.5 rounded bg-white/[0.02] hover:bg-white/[0.05]"
+          className="flex items-center gap-1.5 text-[10px] px-1 py-0.5 rounded bg-su-line/10 hover:bg-su-line/20"
         >
-          <span className="font-mono text-gray-400 w-14 truncate shrink-0">
+          <span className="font-mono text-su-muted w-14 truncate shrink-0">
             {s.dx}
           </span>
-          <span className="font-mono text-gray-500 w-16 text-right shrink-0">
+          <span className="font-mono text-su-muted w-16 text-right shrink-0">
             {s.freq.toFixed(1)}
           </span>
-          <span className="text-gray-500 truncate min-w-0">{s.comment}</span>
+          <span className="text-su-muted truncate min-w-0">{s.comment}</span>
         </div>
       ))}
     </div>
@@ -180,7 +180,7 @@ function SpotsTab({ spots }: { spots: ClusterSpotMessage[] }) {
 function WsjtxTab({ status }: { status: WsjtxStatus | null }) {
   if (!status) {
     return (
-      <div className="text-[10px] text-gray-600 py-2">
+      <div className="text-[10px] text-su-muted py-2">
         WSJT-X not connected. Start WSJT-X on this machine (UDP 2237) to see
         status here.
       </div>
@@ -201,8 +201,8 @@ function WsjtxTab({ status }: { status: WsjtxStatus | null }) {
           key={row.label}
           className="flex items-center justify-between text-[10px]"
         >
-          <span className="text-gray-500">{row.label}</span>
-          <span className="text-gray-300 font-mono">{row.value}</span>
+          <span className="text-su-muted">{row.label}</span>
+          <span className="text-su-muted font-mono">{row.value}</span>
         </div>
       ))}
     </div>

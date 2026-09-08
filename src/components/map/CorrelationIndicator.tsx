@@ -94,13 +94,13 @@ const Tooltip = memo(function Tooltip({
       className="absolute bottom-full left-1/2 z-50 mb-2 -translate-x-1/2 pointer-events-none"
       role="tooltip"
     >
-      <div className="rounded-lg border border-zinc-700 bg-zinc-900/95 px-3 py-2 text-xs shadow-lg backdrop-blur-sm min-w-[200px] max-w-[280px]">
+      <div className="rounded-lg border border-su-line/40 bg-su-canvas/95 px-3 py-2 text-xs shadow-lg backdrop-blur-sm min-w-[200px] max-w-[280px]">
         {/* Header row */}
         <div className="flex items-center gap-2 mb-1.5">
           <span
             className={`inline-block h-2 w-2 rounded-full ${DOT_COLORS[agreement]}`}
           />
-          <span className="font-semibold text-zinc-100">
+          <span className="font-semibold text-su-text">
             {AGREEMENT_LABELS[agreement]}
           </span>
           <span
@@ -111,18 +111,18 @@ const Tooltip = memo(function Tooltip({
         </div>
 
         {/* Spot count */}
-        <div className="text-zinc-400 mb-1">
+        <div className="text-su-muted mb-1">
           {spotCount === 0
             ? "No spots observed"
             : `${spotCount} spot${spotCount !== 1 ? "s" : ""} observed`}
         </div>
 
         {/* Details */}
-        <div className="text-zinc-300 leading-snug">{details}</div>
+        <div className="text-su-muted leading-snug">{details}</div>
       </div>
 
       {/* Arrow */}
-      <div className="absolute left-1/2 -translate-x-1/2 -bottom-1 w-2 h-2 rotate-45 border-b border-r border-zinc-700 bg-zinc-900/95" />
+      <div className="absolute left-1/2 -translate-x-1/2 -bottom-1 w-2 h-2 rotate-45 border-b border-r border-su-line/40 bg-su-canvas/95" />
     </div>
   );
 });
@@ -181,7 +181,7 @@ export const CorrelationIndicator = memo(function CorrelationIndicator({
 
       {/* Spot count badge */}
       {spotCount > 0 && (
-        <span className="rounded-full bg-zinc-700/60 px-1.5 py-0.5 text-[9px] font-medium leading-none text-zinc-300">
+        <span className="rounded-full bg-su-input/50 px-1.5 py-0.5 text-[9px] font-medium leading-none text-su-muted">
           {spotCount} {spotCount === 1 ? "spot" : "spots"}
         </span>
       )}

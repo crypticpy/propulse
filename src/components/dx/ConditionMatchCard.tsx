@@ -207,7 +207,7 @@ export function ConditionMatchCard({
       {/* Header */}
       <div className="flex items-center gap-2 mb-3">
         <HistoryIcon className="w-4 h-4 text-plasma-orange" />
-        <span className="text-xs font-mono uppercase tracking-wider text-gray-400">
+        <span className="text-xs font-mono uppercase tracking-wider text-su-muted">
           Similar Days
         </span>
       </div>
@@ -218,7 +218,7 @@ export function ConditionMatchCard({
           <div className="w-5 h-5 border-2 border-plasma-orange/30 border-t-plasma-orange rounded-full animate-spin" />
         </div>
       ) : matches.length === 0 ? (
-        <div className="text-sm text-gray-400 py-2">
+        <div className="text-sm text-su-muted py-2">
           Log more QSOs to see patterns
         </div>
       ) : (
@@ -227,13 +227,13 @@ export function ConditionMatchCard({
             <div
               key={match.date}
               className={`flex items-center justify-between py-1.5 ${
-                index > 0 ? "border-t border-white/5" : ""
+                index > 0 ? "border-t border-su-line/20" : ""
               }`}
             >
               <div className="flex items-center gap-2">
-                <span className="text-sm text-gray-300">
+                <span className="text-sm text-su-muted">
                   Similar to{" "}
-                  <span className="text-white font-medium">
+                  <span className="text-su-text font-medium">
                     {formatDate(match.date)}
                   </span>
                 </span>
@@ -242,7 +242,7 @@ export function ConditionMatchCard({
                 <span className="text-sm text-signal-green font-mono">
                   {match.qsoCount}
                 </span>
-                <span className="text-xs text-gray-400">QSOs</span>
+                <span className="text-xs text-su-muted">QSOs</span>
                 {match.topBand && (
                   <span className="text-xs px-1.5 py-0.5 rounded bg-plasma-orange/20 text-plasma-orange font-bold">
                     {match.topBand}
@@ -254,8 +254,8 @@ export function ConditionMatchCard({
 
           {/* Current conditions indicator */}
           {currentSfi !== null && currentKp !== null && (
-            <div className="pt-2 border-t border-white/10 mt-2">
-              <div className="flex items-center justify-between text-xs text-gray-400">
+            <div className="pt-2 border-t border-su-line/40 mt-2">
+              <div className="flex items-center justify-between text-xs text-su-muted">
                 <span>Current: SFI {currentSfi}</span>
                 <span>Kp {currentKp}</span>
               </div>

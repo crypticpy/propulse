@@ -1,10 +1,9 @@
-import { beforeEach, describe, expect, it } from "vitest";
+import { describe, expect, it } from "vitest";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 import {
   PATH_RECENCY_TRANSFORM_VERSION,
   computePathRecency,
-  resetPathRecencyCursor,
 } from "./pathRecency.js";
 
 interface RpcCall {
@@ -23,11 +22,18 @@ function fakeDb(
     rowsWritten?: number;
     rpcError?: string;
     newestStoredHour?: string | null;
+    gaps?: { start_hour: string; end_hour: string }[];
+    gapError?: boolean;
   } = {},
 ): FakeDb {
   const calls: RpcCall[] = [];
   const db = {
     from(table: string) {
+      if (table === "collector_aggregation_gaps") {
+        return { select: () => ({ eq: () => ({ lte: () => ({ gte: () => ({
+          limit: async () => ({ data: options.gaps ?? [], error: options.gapError ? { message: "failed" } : null }),
+        }) }) }) }) };
+      }
       if (table === "path_recency_hourly") {
         const stored = options.newestStoredHour ?? null;
         return {
@@ -71,10 +77,6 @@ function fakeDb(
 }
 
 describe("path recency aggregator", () => {
-  beforeEach(() => {
-    resetPathRecencyCursor();
-  });
-
   it("recomputes the path_hourly watermark hour and the hour before it", async () => {
     const { db, calls } = fakeDb("2026-09-06T14:00:00+00:00", {
       rowsWritten: 3,
@@ -127,7 +129,7 @@ describe("path recency aggregator", () => {
     expect(calls[47].args.p_hour).toBe("2026-09-06T14:00:00.000Z");
   });
 
-  it("skips the recompute when the watermark has not advanced", async () => {
+  it("replays recency for same-hour late path updates", async () => {
     const { db, calls } = fakeDb("2026-09-06T14:00:00+00:00");
 
     await computePathRecency(db);
@@ -135,8 +137,23 @@ describe("path recency aggregator", () => {
     const rows = await computePathRecency(db);
 
     expect(afterFirst).toBe(2);
-    expect(calls).toHaveLength(2);
+    expect(calls).toHaveLength(4);
     expect(rows).toBe(0);
+  });
+
+
+  it("skips known source gaps while allowing newer retained hours to recover", async () => {
+    const { db, calls } = fakeDb("2026-09-06T14:00:00Z", {
+      gaps: [{ start_hour: "2026-09-06T13:00:00Z", end_hour: "2026-09-06T13:00:00Z" }],
+    });
+    await expect(computePathRecency(db)).rejects.toThrow("skipped 1");
+    expect(calls.map((call) => call.args.p_hour)).toEqual(["2026-09-06T14:00:00.000Z"]);
+  });
+
+  it("fails closed when gap metadata is unavailable", async () => {
+    const { db, calls } = fakeDb("2026-09-06T14:00:00Z", { gapError: true });
+    await expect(computePathRecency(db)).rejects.toThrow("Cannot verify");
+    expect(calls).toHaveLength(0);
   });
 
   it("does nothing until the path aggregator has a watermark", async () => {

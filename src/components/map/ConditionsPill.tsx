@@ -79,7 +79,7 @@ export function ConditionsPill({ className = "", compact = false }: ConditionsPi
   if (isLoading) {
     return (
       <div
-        className={`px-2 py-0.5 rounded-full bg-white/10 text-xs text-gray-400 ${className}`}
+        className={`px-2 py-0.5 rounded-full bg-su-line/20 text-xs text-su-muted ${className}`}
       >
         ...
       </div>
@@ -88,7 +88,7 @@ export function ConditionsPill({ className = "", compact = false }: ConditionsPi
 
   if (!indexResult) {
     return (
-      <div className={`px-2 py-0.5 rounded-full bg-white/10 text-xs text-gray-400 ${className}`}>
+      <div className={`px-2 py-0.5 rounded-full bg-su-line/20 text-xs text-su-muted ${className}`}>
         Global conditions unavailable
       </div>
     );
@@ -96,7 +96,7 @@ export function ConditionsPill({ className = "", compact = false }: ConditionsPi
 
   return (
     <div
-      className={`flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-white/10 ${className}`}
+      className={`flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-su-line/20 ${className}`}
       title={`Global conditions heuristic: ${indexResult.score}/100 (${indexResult.evidenceCoverage}) - ${getCategoryShort(indexResult.category)}`}
     >
       {/* Mini score indicator */}
@@ -111,7 +111,7 @@ export function ConditionsPill({ className = "", compact = false }: ConditionsPi
         {indexResult.score}
       </span>
       {!compact && (
-        <span className="text-xs text-gray-400">
+        <span className="text-xs text-su-muted">
           {getCategoryShort(indexResult.category)}
         </span>
       )}

@@ -70,6 +70,7 @@ export default tseslint.config(
             "ALERT_SEVERITY_COLORS",
             "STORM_CATEGORY_HEX",
             "RIVER_STATUS_HEX",
+            "outlookKpToneClass",
           ],
         },
       ],

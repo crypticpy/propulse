@@ -75,11 +75,11 @@ export function QuickTargets({ className = "", onEditPin }: QuickTargetsProps) {
     <Card className={className}>
       {/* Header with title and watch indicator */}
       <div className="flex items-center justify-between mb-3">
-        <h3 className="text-sm font-medium text-white">Quick Access</h3>
+        <h3 className="text-sm font-medium text-su-text">Quick Access</h3>
       </div>
 
       {/* Tab switcher */}
-      <div className="flex gap-1 mb-3 border-b border-white/10 pb-2">
+      <div className="flex gap-1 mb-3 border-b border-su-line/40 pb-2">
         <button
           onClick={() => setActiveTab("targets")}
           className={`
@@ -87,7 +87,7 @@ export function QuickTargets({ className = "", onEditPin }: QuickTargetsProps) {
             ${
               activeTab === "targets"
                 ? "bg-cyan-500/20 text-cyan-400 border border-cyan-500/30"
-                : "text-gray-400 hover:text-gray-200 hover:bg-white/5"
+                : "text-su-muted hover:text-su-text hover:bg-su-line/10"
             }
           `}
         >
@@ -100,7 +100,7 @@ export function QuickTargets({ className = "", onEditPin }: QuickTargetsProps) {
             ${
               activeTab === "pins"
                 ? "bg-cyan-500/20 text-cyan-400 border border-cyan-500/30"
-                : "text-gray-400 hover:text-gray-200 hover:bg-white/5"
+                : "text-su-muted hover:text-su-text hover:bg-su-line/10"
             }
           `}
         >
@@ -115,7 +115,7 @@ export function QuickTargets({ className = "", onEditPin }: QuickTargetsProps) {
             <div className="flex justify-end mb-2">
               <button
                 onClick={() => setShowClearAll(true)}
-                className="text-xs text-gray-500 hover:text-gray-300 transition-colors"
+                className="text-xs text-su-muted hover:text-su-text transition-colors"
                 title="Clear all saved targets"
               >
                 Clear all
@@ -124,7 +124,7 @@ export function QuickTargets({ className = "", onEditPin }: QuickTargetsProps) {
           )}
 
           {savedTargets.length === 0 ? (
-            <div className="text-center py-4 text-gray-500">
+            <div className="text-center py-4 text-su-muted">
               <p className="text-sm">No saved targets</p>
               <p className="text-xs mt-1">
                 Click &quot;Save&quot; in path analysis to add targets
@@ -137,21 +137,21 @@ export function QuickTargets({ className = "", onEditPin }: QuickTargetsProps) {
                   <button
                     onClick={() => handleTargetClick(target)}
                     className="w-full group flex items-center justify-between gap-2 p-2
-                               bg-white/[0.02] hover:bg-white/[0.05] border border-white/5
-                               hover:border-white/10 rounded-lg transition-all text-left"
+                               bg-su-line/10 hover:bg-su-line/20 border border-su-line/20
+                               hover:border-su-line/40 rounded-lg transition-all text-left"
                   >
                     <div className="flex-1 min-w-0">
-                      <div className="text-sm text-white font-medium truncate">
+                      <div className="text-sm text-su-text font-medium truncate">
                         {target.name}
                       </div>
-                      <div className="text-xs text-gray-500 font-mono">
+                      <div className="text-xs text-su-muted font-mono">
                         {target.grid ||
                           `${target.lat.toFixed(2)}°, ${target.lon.toFixed(2)}°`}
                       </div>
                     </div>
                     <button
                       onClick={(e) => handleRemoveTarget(e, target.id)}
-                      className="p-1 text-gray-600 hover:text-alert-red
+                      className="p-1 text-su-muted hover:text-alert-red
                                  opacity-0 group-hover:opacity-100 transition-all"
                       title="Remove target"
                     >
@@ -176,7 +176,7 @@ export function QuickTargets({ className = "", onEditPin }: QuickTargetsProps) {
           )}
 
           {savedTargets.length > 0 && (
-            <p className="text-xs text-gray-600 mt-3 text-center">
+            <p className="text-xs text-su-muted mt-3 text-center">
               {savedTargets.length}/10 targets saved
             </p>
           )}

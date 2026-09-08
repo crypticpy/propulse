@@ -142,13 +142,13 @@ function PasswordInput({
         disabled={disabled}
         autoFocus={autoFocus}
         maxLength={maxLength}
-        className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2.5 pr-10 text-sm text-gray-200 placeholder-gray-600 focus:outline-none focus:border-plasma-orange/50 focus-visible:ring-2 focus-visible:ring-plasma-orange/50 disabled:opacity-50 transition-colors"
+        className="w-full bg-su-line/10 border border-su-line/40 rounded-lg px-3 py-2.5 pr-10 text-sm text-su-text placeholder:text-su-muted/80 focus:outline-none focus:border-plasma-orange/50 focus-visible:ring-2 focus-visible:ring-plasma-orange/50 disabled:opacity-50 transition-colors"
       />
       <button
         type="button"
         tabIndex={-1}
         onClick={() => setVisible((v) => !v)}
-        className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-300 transition-colors"
+        className="absolute right-2.5 top-1/2 -translate-y-1/2 text-su-muted hover:text-su-text transition-colors"
         aria-label={visible ? "Hide password" : "Show password"}
       >
         {visible ? (
@@ -394,14 +394,14 @@ export function AuthModal() {
       />
 
       {/* Panel */}
-      <div className="relative w-full max-w-sm bg-void-black/95 border border-white/15 rounded-2xl shadow-2xl overflow-hidden">
+      <div className="relative w-full max-w-sm bg-void-black/95 border border-su-line/50 rounded-2xl shadow-2xl overflow-hidden">
         {/* Header */}
         <div className="px-6 pt-6 pb-2">
-          <h2 className="text-lg font-semibold text-white">
+          <h2 className="text-lg font-semibold text-su-text">
             {viewTitles[displayView]}
           </h2>
           {prompt && displayView === "signin" && (
-            <p className="text-sm text-gray-400 mt-1">{prompt}</p>
+            <p className="text-sm text-su-muted mt-1">{prompt}</p>
           )}
         </div>
 
@@ -433,7 +433,7 @@ export function AuthModal() {
               <div>
                 <label
                   htmlFor="auth-email"
-                  className="block text-xs font-medium text-gray-400 mb-1.5"
+                  className="block text-xs font-medium text-su-muted mb-1.5"
                 >
                   Email address
                 </label>
@@ -447,14 +447,14 @@ export function AuthModal() {
                   onKeyDown={handleKeyDown}
                   disabled={loading}
                   maxLength={254}
-                  className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2.5 text-sm text-gray-200 placeholder-gray-600 focus:outline-none focus:border-plasma-orange/50 focus-visible:ring-2 focus-visible:ring-plasma-orange/50 disabled:opacity-50 transition-colors"
+                  className="w-full bg-su-line/10 border border-su-line/40 rounded-lg px-3 py-2.5 text-sm text-su-text placeholder:text-su-muted/80 focus:outline-none focus:border-plasma-orange/50 focus-visible:ring-2 focus-visible:ring-plasma-orange/50 disabled:opacity-50 transition-colors"
                 />
               </div>
 
               <div>
                 <label
                   htmlFor="auth-password"
-                  className="block text-xs font-medium text-gray-400 mb-1.5"
+                  className="block text-xs font-medium text-su-muted mb-1.5"
                 >
                   Password
                 </label>
@@ -471,7 +471,7 @@ export function AuthModal() {
               <button
                 onClick={handleSignIn}
                 disabled={loading || !email.trim() || !password}
-                className="w-full py-2.5 rounded-lg text-sm font-medium bg-plasma-orange text-white hover:bg-plasma-orange/80 disabled:opacity-50 disabled:cursor-not-allowed transition-colors focus-visible:ring-2 focus-visible:ring-plasma-orange/50 focus-visible:outline-none"
+                className="w-full py-2.5 rounded-lg text-sm font-medium bg-plasma-orange text-su-on-accent hover:bg-plasma-orange/80 disabled:opacity-50 disabled:cursor-not-allowed transition-colors focus-visible:ring-2 focus-visible:ring-plasma-orange/50 focus-visible:outline-none"
               >
                 {loading ? "Signing in..." : "Sign In"}
               </button>
@@ -479,7 +479,7 @@ export function AuthModal() {
               <div className="flex items-center justify-between text-xs">
                 <button
                   onClick={() => switchView("forgot")}
-                  className="text-gray-500 hover:text-gray-300 transition-colors"
+                  className="text-su-muted hover:text-su-text transition-colors"
                 >
                   Forgot password?
                 </button>
@@ -499,7 +499,7 @@ export function AuthModal() {
               <div>
                 <label
                   htmlFor="signup-email"
-                  className="block text-xs font-medium text-gray-400 mb-1.5"
+                  className="block text-xs font-medium text-su-muted mb-1.5"
                 >
                   Email address
                 </label>
@@ -513,14 +513,14 @@ export function AuthModal() {
                   onKeyDown={handleKeyDown}
                   disabled={loading}
                   maxLength={254}
-                  className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2.5 text-sm text-gray-200 placeholder-gray-600 focus:outline-none focus:border-plasma-orange/50 focus-visible:ring-2 focus-visible:ring-plasma-orange/50 disabled:opacity-50 transition-colors"
+                  className="w-full bg-su-line/10 border border-su-line/40 rounded-lg px-3 py-2.5 text-sm text-su-text placeholder:text-su-muted/80 focus:outline-none focus:border-plasma-orange/50 focus-visible:ring-2 focus-visible:ring-plasma-orange/50 disabled:opacity-50 transition-colors"
                 />
               </div>
 
               <div>
                 <label
                   htmlFor="signup-password"
-                  className="block text-xs font-medium text-gray-400 mb-1.5"
+                  className="block text-xs font-medium text-su-muted mb-1.5"
                 >
                   Password
                 </label>
@@ -535,7 +535,7 @@ export function AuthModal() {
                 {/* Strength meter */}
                 {strength && (
                   <div className="mt-2 space-y-1">
-                    <div className="h-1 w-full bg-white/5 rounded-full overflow-hidden">
+                    <div className="h-1 w-full bg-su-line/10 rounded-full overflow-hidden">
                       <div
                         className={`h-full rounded-full transition-all duration-300 ${strengthConfig[strength].barColor} ${strengthConfig[strength].width}`}
                       />
@@ -552,7 +552,7 @@ export function AuthModal() {
               <div>
                 <label
                   htmlFor="signup-confirm"
-                  className="block text-xs font-medium text-gray-400 mb-1.5"
+                  className="block text-xs font-medium text-su-muted mb-1.5"
                 >
                   Confirm password
                 </label>
@@ -577,7 +577,7 @@ export function AuthModal() {
                   password.length < 8 ||
                   getPasswordStrength(password) === "weak"
                 }
-                className="w-full py-2.5 rounded-lg text-sm font-medium bg-plasma-orange text-white hover:bg-plasma-orange/80 disabled:opacity-50 disabled:cursor-not-allowed transition-colors focus-visible:ring-2 focus-visible:ring-plasma-orange/50 focus-visible:outline-none"
+                className="w-full py-2.5 rounded-lg text-sm font-medium bg-plasma-orange text-su-on-accent hover:bg-plasma-orange/80 disabled:opacity-50 disabled:cursor-not-allowed transition-colors focus-visible:ring-2 focus-visible:ring-plasma-orange/50 focus-visible:outline-none"
               >
                 {loading ? "Creating account..." : "Create Account"}
               </button>
@@ -585,7 +585,7 @@ export function AuthModal() {
               <div className="text-center">
                 <button
                   onClick={() => switchView("signin")}
-                  className="text-xs text-gray-500 hover:text-gray-300 transition-colors"
+                  className="text-xs text-su-muted hover:text-su-text transition-colors"
                 >
                   Already have an account?{" "}
                   <span className="text-plasma-orange">Sign in</span>
@@ -597,7 +597,7 @@ export function AuthModal() {
           {/* ── Forgot Password view ──────────────────────────────── */}
           {displayView === "forgot" && (
             <div className="px-6 py-4 space-y-4">
-              <p className="text-sm text-gray-400">
+              <p className="text-sm text-su-muted">
                 Enter your email and we'll send you a link to reset your
                 password.
               </p>
@@ -605,7 +605,7 @@ export function AuthModal() {
               <div>
                 <label
                   htmlFor="forgot-email"
-                  className="block text-xs font-medium text-gray-400 mb-1.5"
+                  className="block text-xs font-medium text-su-muted mb-1.5"
                 >
                   Email address
                 </label>
@@ -619,14 +619,14 @@ export function AuthModal() {
                   onKeyDown={handleKeyDown}
                   disabled={loading}
                   maxLength={254}
-                  className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2.5 text-sm text-gray-200 placeholder-gray-600 focus:outline-none focus:border-plasma-orange/50 focus-visible:ring-2 focus-visible:ring-plasma-orange/50 disabled:opacity-50 transition-colors"
+                  className="w-full bg-su-line/10 border border-su-line/40 rounded-lg px-3 py-2.5 text-sm text-su-text placeholder:text-su-muted/80 focus:outline-none focus:border-plasma-orange/50 focus-visible:ring-2 focus-visible:ring-plasma-orange/50 disabled:opacity-50 transition-colors"
                 />
               </div>
 
               <button
                 onClick={handleForgotPassword}
                 disabled={loading || !email.trim()}
-                className="w-full py-2.5 rounded-lg text-sm font-medium bg-plasma-orange text-white hover:bg-plasma-orange/80 disabled:opacity-50 disabled:cursor-not-allowed transition-colors focus-visible:ring-2 focus-visible:ring-plasma-orange/50 focus-visible:outline-none"
+                className="w-full py-2.5 rounded-lg text-sm font-medium bg-plasma-orange text-su-on-accent hover:bg-plasma-orange/80 disabled:opacity-50 disabled:cursor-not-allowed transition-colors focus-visible:ring-2 focus-visible:ring-plasma-orange/50 focus-visible:outline-none"
               >
                 {loading ? "Sending..." : "Send Reset Link"}
               </button>
@@ -634,7 +634,7 @@ export function AuthModal() {
               <div className="text-center">
                 <button
                   onClick={() => switchView("signin")}
-                  className="text-xs text-gray-500 hover:text-gray-300 transition-colors"
+                  className="text-xs text-su-muted hover:text-su-text transition-colors"
                 >
                   Back to sign in
                 </button>
@@ -660,11 +660,11 @@ export function AuthModal() {
                   />
                 </svg>
               </div>
-              <p className="text-sm text-gray-300">
+              <p className="text-sm text-su-muted">
                 We sent a link to{" "}
-                <strong className="text-white">{sentTo}</strong>
+                <strong className="text-su-text">{sentTo}</strong>
               </p>
-              <p className="text-xs text-gray-500">
+              <p className="text-xs text-su-muted">
                 Check your inbox and click the link to continue. You can close
                 this dialog.
               </p>
@@ -684,14 +684,14 @@ export function AuthModal() {
           {/* ── Reset Password view ───────────────────────────────── */}
           {displayView === "reset_password" && (
             <div className="px-6 py-4 space-y-4">
-              <p className="text-sm text-gray-400">
+              <p className="text-sm text-su-muted">
                 Choose a new password for your account.
               </p>
 
               <div>
                 <label
                   htmlFor="reset-password"
-                  className="block text-xs font-medium text-gray-400 mb-1.5"
+                  className="block text-xs font-medium text-su-muted mb-1.5"
                 >
                   New password
                 </label>
@@ -707,7 +707,7 @@ export function AuthModal() {
                 {/* Strength meter */}
                 {strength && (
                   <div className="mt-2 space-y-1">
-                    <div className="h-1 w-full bg-white/5 rounded-full overflow-hidden">
+                    <div className="h-1 w-full bg-su-line/10 rounded-full overflow-hidden">
                       <div
                         className={`h-full rounded-full transition-all duration-300 ${strengthConfig[strength].barColor} ${strengthConfig[strength].width}`}
                       />
@@ -724,7 +724,7 @@ export function AuthModal() {
               <div>
                 <label
                   htmlFor="reset-confirm"
-                  className="block text-xs font-medium text-gray-400 mb-1.5"
+                  className="block text-xs font-medium text-su-muted mb-1.5"
                 >
                   Confirm new password
                 </label>
@@ -748,7 +748,7 @@ export function AuthModal() {
                   password.length < 8 ||
                   getPasswordStrength(password) === "weak"
                 }
-                className="w-full py-2.5 rounded-lg text-sm font-medium bg-plasma-orange text-white hover:bg-plasma-orange/80 disabled:opacity-50 disabled:cursor-not-allowed transition-colors focus-visible:ring-2 focus-visible:ring-plasma-orange/50 focus-visible:outline-none"
+                className="w-full py-2.5 rounded-lg text-sm font-medium bg-plasma-orange text-su-on-accent hover:bg-plasma-orange/80 disabled:opacity-50 disabled:cursor-not-allowed transition-colors focus-visible:ring-2 focus-visible:ring-plasma-orange/50 focus-visible:outline-none"
               >
                 {loading ? "Updating..." : "Update Password"}
               </button>
@@ -758,7 +758,7 @@ export function AuthModal() {
 
         {/* Footer */}
         <div className="px-6 pb-5 pt-2">
-          <p className="text-xs text-gray-600 text-center">
+          <p className="text-xs text-su-muted text-center">
             No account needed -- the app works fully offline.
           </p>
         </div>

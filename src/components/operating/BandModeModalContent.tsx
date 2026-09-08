@@ -117,8 +117,8 @@ function SectionLabel({
   return (
     <div className="flex items-center gap-2">
       <div className="w-[3px] h-3 rounded-full bg-plasma-orange" />
-      <span className="text-xs font-semibold text-gray-300">{children}</span>
-      {hint && <span className="text-[10px] text-gray-600 ml-0">{hint}</span>}
+      <span className="text-xs font-semibold text-su-muted">{children}</span>
+      {hint && <span className="text-[10px] text-su-muted ml-0">{hint}</span>}
     </div>
   );
 }
@@ -300,7 +300,7 @@ export function BandModeModal({ isOpen, onClose }: BandModeModalProps) {
 
       {/* Modal card */}
       <div
-        className="relative z-10 bg-black/85 backdrop-blur-md border border-white/15 rounded-2xl shadow-2xl max-w-md w-full max-h-[calc(100vh-2rem)] overflow-hidden animate-in zoom-in-95 fade-in flex flex-col"
+        className="relative z-10 bg-su-panel/80 backdrop-blur-md border border-su-line/50 rounded-2xl shadow-2xl max-w-md w-full max-h-[calc(100vh-2rem)] overflow-hidden animate-in zoom-in-95 fade-in flex flex-col"
         onClick={(e) => e.stopPropagation()}
       >
         {/* ── Header ────────────────────────────────────────────────── */}
@@ -309,9 +309,9 @@ export function BandModeModal({ isOpen, onClose }: BandModeModalProps) {
             <h2 className="font-orbitron text-lg font-bold text-gradient-orange">
               Band &amp; Mode
             </h2>
-            <p className="text-[11px] text-gray-500 mt-0.5">
+            <p className="text-[11px] text-su-muted mt-0.5">
               Choose your operating band and mode{" "}
-              <span className="text-gray-600">
+              <span className="text-su-muted">
                 (<kbd className="font-mono">B</kbd> /{" "}
                 <kbd className="font-mono">M</kbd> keys)
               </span>
@@ -325,7 +325,7 @@ export function BandModeModal({ isOpen, onClose }: BandModeModalProps) {
                 className={`flex items-center gap-1 px-2 py-1.5 rounded-lg text-[10px] font-medium transition-colors ${
                   contestLocked
                     ? "bg-amber-500/20 text-amber-400"
-                    : "bg-white/5 text-gray-400 hover:bg-white/10"
+                    : "bg-su-line/10 text-su-muted hover:bg-su-line/20"
                 }`}
                 aria-label={
                   contestLocked ? "Unlock band/mode" : "Lock band/mode"
@@ -352,7 +352,7 @@ export function BandModeModal({ isOpen, onClose }: BandModeModalProps) {
             )}
             <button
               onClick={onClose}
-              className="p-2 text-gray-400 hover:text-white hover:bg-white/10 rounded-lg transition-colors"
+              className="p-2 text-su-muted hover:text-su-text hover:bg-su-line/20 rounded-lg transition-colors"
               aria-label="Close"
             >
               <svg
@@ -383,15 +383,12 @@ export function BandModeModal({ isOpen, onClose }: BandModeModalProps) {
               boxShadow: `0 0 20px ${bandColor}08`,
             }}
           >
-            <p className="text-[15px] text-gray-100 leading-snug">
+            <p className="text-[15px] text-su-text leading-snug">
               You&apos;re operating on{" "}
-              <span
-                className="font-bold font-mono text-base"
-                style={{ color: bandColor }}
-              >
+              <span className="font-bold font-mono text-base text-su-text">
                 {activeBand}
               </span>{" "}
-              in <span className="font-semibold text-white">{activeMode}</span>{" "}
+              in <span className="font-semibold text-su-text">{activeMode}</span>{" "}
               mode
             </p>
             <div className="flex items-center gap-2 mt-1.5">
@@ -399,10 +396,7 @@ export function BandModeModal({ isOpen, onClose }: BandModeModalProps) {
                 className="w-1.5 h-1.5 rounded-full"
                 style={{ backgroundColor: sourceColor }}
               />
-              <span
-                className="text-[11px] font-medium"
-                style={{ color: sourceColor }}
-              >
+              <span className="text-[11px] font-medium text-su-muted">
                 {activeSource === "cat"
                   ? "via CAT"
                   : activeSource === "wsjtx"
@@ -413,8 +407,8 @@ export function BandModeModal({ isOpen, onClose }: BandModeModalProps) {
               </span>
               {subBandSegment && (
                 <>
-                  <span className="text-gray-600">&middot;</span>
-                  <span className="text-[11px] text-gray-400">
+                  <span className="text-su-muted">&middot;</span>
+                  <span className="text-[11px] text-su-muted">
                     {subBandSegment} segment
                   </span>
                 </>
@@ -462,7 +456,7 @@ export function BandModeModal({ isOpen, onClose }: BandModeModalProps) {
                           relative rounded-lg overflow-hidden transition-all duration-150 group
                           active:scale-90 active:brightness-125 cursor-pointer
                           ${isHidden ? "opacity-40" : ""}
-                          ${isActive ? "ring-[3px] ring-white scale-[1.08] z-10" : ""}
+                          ${isActive ? "ring-[3px] ring-su-text scale-[1.08] z-10" : ""}
                         `}
                         style={{
                           ...(isActive
@@ -480,7 +474,7 @@ export function BandModeModal({ isOpen, onClose }: BandModeModalProps) {
                           style={{ backgroundColor: bColor }}
                         >
                           {!isActive && (
-                            <div className="absolute inset-0 bg-black/10 group-hover:bg-transparent transition-colors duration-150 pointer-events-none" />
+                            <div className="absolute inset-0 bg-su-input/50 group-hover:bg-transparent transition-colors duration-150 pointer-events-none" />
                           )}
                           <div className="relative text-sm font-black font-mono text-black leading-none">
                             {band}
@@ -497,7 +491,7 @@ export function BandModeModal({ isOpen, onClose }: BandModeModalProps) {
                           }}
                         >
                           {!isActive && (
-                            <div className="absolute inset-0 group-hover:bg-white/[0.04] transition-colors duration-150 pointer-events-none" />
+                            <div className="absolute inset-0 group-hover:bg-su-line/10 transition-colors duration-150 pointer-events-none" />
                           )}
                           {statusInfo ? (
                             <>
@@ -514,7 +508,7 @@ export function BandModeModal({ isOpen, onClose }: BandModeModalProps) {
                               </span>
                             </>
                           ) : (
-                            <span className="text-[8px] text-gray-600 relative">
+                            <span className="text-[8px] text-su-muted relative">
                               --
                             </span>
                           )}
@@ -534,7 +528,7 @@ export function BandModeModal({ isOpen, onClose }: BandModeModalProps) {
                           }
                         >
                           {isWatched ? (
-                            <span className="block w-2 h-2 rounded-full bg-white shadow-[0_0_4px_rgba(255,255,255,0.8)]" />
+                            <span className="block w-2 h-2 rounded-full bg-su-text shadow-[0_0_4px_rgba(255,255,255,0.8)]" />
                           ) : (
                             <span className="block w-2 h-2 rounded-full border border-black/30" />
                           )}
@@ -544,7 +538,7 @@ export function BandModeModal({ isOpen, onClose }: BandModeModalProps) {
                   })}
                 </div>
                 {unsupportedCount > 0 && radioBands && (
-                  <p className="text-[10px] text-gray-600 mt-2 flex items-center gap-1.5">
+                  <p className="text-[10px] text-su-muted mt-2 flex items-center gap-1.5">
                     <svg
                       className="w-3 h-3 flex-shrink-0"
                       fill="none"
@@ -604,7 +598,7 @@ export function BandModeModal({ isOpen, onClose }: BandModeModalProps) {
                         className={`
                           relative px-3 py-2.5 rounded-lg text-sm font-bold transition-all duration-150
                           active:scale-90 active:brightness-125 cursor-pointer
-                          ${isActive ? "ring-[3px] ring-white scale-[1.08] z-10 text-black" : "text-gray-400 hover:text-gray-200"}
+                          ${isActive ? "ring-[3px] ring-su-text scale-[1.08] z-10 text-black" : "text-su-muted hover:text-su-text"}
                         `}
                         style={
                           isActive
@@ -634,7 +628,7 @@ export function BandModeModal({ isOpen, onClose }: BandModeModalProps) {
                   })}
                 </div>
                 {unsupportedModeCount > 0 && radioModes && (
-                  <p className="text-[10px] text-gray-600 mt-2 flex items-center gap-1.5">
+                  <p className="text-[10px] text-su-muted mt-2 flex items-center gap-1.5">
                     <svg
                       className="w-3 h-3 flex-shrink-0"
                       fill="none"
@@ -670,7 +664,7 @@ export function BandModeModal({ isOpen, onClose }: BandModeModalProps) {
           {activeRadio ? (
             <div>
               <SectionLabel>Your active radio</SectionLabel>
-              <div className="mt-2 flex items-start gap-3 px-3 py-2.5 rounded-lg bg-white/[0.02] border border-white/5">
+              <div className="mt-2 flex items-start gap-3 px-3 py-2.5 rounded-lg bg-su-line/10 border border-su-line/20">
                 <svg
                   className="w-4 h-4 text-plasma-orange flex-shrink-0 mt-0.5"
                   viewBox="0 0 24 24"
@@ -684,20 +678,20 @@ export function BandModeModal({ isOpen, onClose }: BandModeModalProps) {
                   <polyline points="17 2 12 7 7 2" />
                 </svg>
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm text-gray-200">
+                  <p className="text-sm text-su-text">
                     {activeRadio.manufacturer} {activeRadio.model}
                   </p>
                   <div className="flex items-center gap-2 mt-1">
                     {activeRadio.maxPower && (
-                      <span className="px-1.5 py-0.5 rounded bg-white/[0.06] text-[10px] font-mono text-gray-400 border border-white/5">
+                      <span className="px-1.5 py-0.5 rounded bg-su-line/20 text-[10px] font-mono text-su-muted border border-su-line/20">
                         {activeRadio.maxPower}W
                       </span>
                     )}
-                    <span className="text-[10px] text-gray-500">
+                    <span className="text-[10px] text-su-muted">
                       {activeRadio.bands?.length ?? 0} bands supported
                     </span>
                   </div>
-                  <p className="text-[10px] text-gray-500 italic mt-1.5">
+                  <p className="text-[10px] text-su-muted italic mt-1.5">
                     Band and mode grids are filtered to your radio's
                     capabilities
                   </p>
@@ -732,7 +726,7 @@ export function BandModeModal({ isOpen, onClose }: BandModeModalProps) {
                   <p className="text-sm font-semibold text-amber-400">
                     No radio profile configured
                   </p>
-                  <p className="text-[11px] text-gray-400 mt-1">
+                  <p className="text-[11px] text-su-muted mt-1">
                     Without a radio profile, band filtering and power limits
                     won't be personalized to your station.
                   </p>
@@ -748,7 +742,7 @@ export function BandModeModal({ isOpen, onClose }: BandModeModalProps) {
                     </button>
                     <button
                       onClick={() => setRadioWarningDismissed(true)}
-                      className="text-[10px] text-gray-500 hover:text-gray-400 transition-colors"
+                      className="text-[10px] text-su-muted hover:text-su-text transition-colors"
                     >
                       Continue with defaults
                     </button>
@@ -774,7 +768,7 @@ export function BandModeModal({ isOpen, onClose }: BandModeModalProps) {
               className="flex items-center gap-2 w-full text-left group"
             >
               <svg
-                className={`w-3 h-3 text-gray-500 transition-transform duration-200 ${presetsOpen ? "rotate-90" : ""}`}
+                className={`w-3 h-3 text-su-muted transition-transform duration-200 ${presetsOpen ? "rotate-90" : ""}`}
                 fill="none"
                 viewBox="0 0 24 24"
                 stroke="currentColor"
@@ -786,11 +780,11 @@ export function BandModeModal({ isOpen, onClose }: BandModeModalProps) {
                   d="M9 5l7 7-7 7"
                 />
               </svg>
-              <span className="text-xs font-semibold text-gray-300 group-hover:text-gray-200 transition-colors">
+              <span className="text-xs font-semibold text-su-muted group-hover:text-su-text transition-colors">
                 Presets
               </span>
               {presets.length > 0 && (
-                <span className="text-[10px] text-gray-600">
+                <span className="text-[10px] text-su-muted">
                   ({presets.length} saved)
                 </span>
               )}
@@ -814,7 +808,7 @@ export function BandModeModal({ isOpen, onClose }: BandModeModalProps) {
                         value={presetName}
                         onChange={(e) => setPresetName(e.target.value)}
                         placeholder="Name this preset..."
-                        className="flex-1 px-2.5 py-1.5 rounded-lg bg-white/[0.04] border border-white/10 text-[11px] font-mono text-gray-200 placeholder:text-gray-600 outline-none focus:border-white/20 transition-colors"
+                        className="flex-1 px-2.5 py-1.5 rounded-lg bg-su-line/10 border border-su-line/40 text-[11px] font-mono text-su-text placeholder:text-su-muted outline-none focus:border-su-line/50 transition-colors"
                         onKeyDown={(e) => {
                           if (e.key === "Escape") {
                             setIsAddingPreset(false);
@@ -827,7 +821,7 @@ export function BandModeModal({ isOpen, onClose }: BandModeModalProps) {
                           }
                         }}
                       />
-                      <span className="text-[10px] text-gray-500 font-mono whitespace-nowrap">
+                      <span className="text-[10px] text-su-muted font-mono whitespace-nowrap">
                         {activeBand} {activeMode}
                       </span>
                       <button
@@ -842,11 +836,11 @@ export function BandModeModal({ isOpen, onClose }: BandModeModalProps) {
                     <button
                       onClick={() => setIsAddingPreset(true)}
                       disabled={presets.length >= 8}
-                      className="px-3 py-1.5 rounded-lg bg-white/[0.03] text-[11px] text-gray-500 hover:bg-white/[0.06] hover:text-gray-400 transition-colors border border-white/5 border-dashed disabled:opacity-30 disabled:cursor-not-allowed"
+                      className="px-3 py-1.5 rounded-lg bg-su-line/10 text-[11px] text-su-muted hover:bg-su-line/20 hover:text-su-text transition-colors border border-su-line/20 border-dashed disabled:opacity-30 disabled:cursor-not-allowed"
                     >
                       + Save this as preset
                       {presets.length >= 8 && (
-                        <span className="ml-1 text-[9px] text-gray-600">
+                        <span className="ml-1 text-[9px] text-su-muted">
                           (max 8)
                         </span>
                       )}
@@ -872,8 +866,8 @@ export function BandModeModal({ isOpen, onClose }: BandModeModalProps) {
                             onClick={() => handlePresetApply(preset.id)}
                             className={`flex items-center gap-1.5 rounded-lg transition-colors border ${
                               isCurrentPreset
-                                ? "bg-white/[0.08] border-white/15"
-                                : "bg-white/[0.04] hover:bg-white/[0.08] border-white/5"
+                                ? "bg-su-line/20 border-su-line/50"
+                                : "bg-su-line/10 hover:bg-su-line/20 border-su-line/20"
                             }`}
                           >
                             <div
@@ -881,17 +875,14 @@ export function BandModeModal({ isOpen, onClose }: BandModeModalProps) {
                               style={{ backgroundColor: presetBandColor }}
                             />
                             <div className="text-left pr-2.5 py-1.5">
-                              <div className="text-[11px] font-medium text-gray-300">
+                              <div className="text-[11px] font-medium text-su-muted">
                                 {preset.name}
                               </div>
                               <div className="flex items-center gap-1.5">
-                                <span
-                                  className="text-[9px] font-bold font-mono"
-                                  style={{ color: presetBandColor }}
-                                >
+                                <span className="text-[9px] font-bold font-mono text-su-text">
                                   {preset.band}
                                 </span>
-                                <span className="text-[9px] text-gray-500">
+                                <span className="text-[9px] text-su-muted">
                                   {preset.mode}
                                 </span>
                               </div>
@@ -899,7 +890,7 @@ export function BandModeModal({ isOpen, onClose }: BandModeModalProps) {
                           </button>
                           <button
                             onClick={() => handlePresetRemove(preset.id)}
-                            className="absolute -right-1 -top-1 w-4 h-4 flex items-center justify-center rounded-full bg-white/5 text-gray-500 hover:text-red-400 hover:bg-red-500/10 opacity-0 group-hover:opacity-100 transition-all"
+                            className="absolute -right-1 -top-1 w-4 h-4 flex items-center justify-center rounded-full bg-su-line/10 text-su-muted hover:text-red-400 hover:bg-red-500/10 opacity-0 group-hover:opacity-100 transition-all"
                             aria-label={`Remove preset ${preset.name}`}
                           >
                             <svg
@@ -920,7 +911,7 @@ export function BandModeModal({ isOpen, onClose }: BandModeModalProps) {
                     })}
                   </div>
                 ) : (
-                  <p className="text-[10px] text-gray-600 italic">
+                  <p className="text-[10px] text-su-muted italic">
                     No presets saved yet. Save your current band and mode for
                     quick recall.
                   </p>
@@ -937,7 +928,7 @@ export function BandModeModal({ isOpen, onClose }: BandModeModalProps) {
                 className="flex items-center gap-2 w-full text-left group"
               >
                 <svg
-                  className={`w-3 h-3 text-gray-500 transition-transform duration-200 ${historyOpen ? "rotate-90" : ""}`}
+                  className={`w-3 h-3 text-su-muted transition-transform duration-200 ${historyOpen ? "rotate-90" : ""}`}
                   fill="none"
                   viewBox="0 0 24 24"
                   stroke="currentColor"
@@ -949,10 +940,10 @@ export function BandModeModal({ isOpen, onClose }: BandModeModalProps) {
                     d="M9 5l7 7-7 7"
                   />
                 </svg>
-                <span className="text-xs font-semibold text-gray-300 group-hover:text-gray-200 transition-colors">
+                <span className="text-xs font-semibold text-su-muted group-hover:text-su-text transition-colors">
                   Recent
                 </span>
-                <span className="text-[10px] text-gray-600">
+                <span className="text-[10px] text-su-muted">
                   ({uniqueHistory.length})
                 </span>
               </button>
@@ -969,19 +960,19 @@ export function BandModeModal({ isOpen, onClose }: BandModeModalProps) {
                         onClick={() =>
                           handleHistorySelect(entry.band, entry.mode)
                         }
-                        className="flex items-center gap-1.5 pl-0 pr-2.5 py-1 rounded-lg bg-white/[0.04] hover:bg-white/[0.08] transition-colors border border-white/5"
+                        className="flex items-center gap-1.5 pl-0 pr-2.5 py-1 rounded-lg bg-su-line/10 hover:bg-su-line/20 transition-colors border border-su-line/20"
                       >
                         <div
                           className="w-[3px] h-4 rounded-r-full"
                           style={{ backgroundColor: hColor }}
                         />
-                        <span className="text-[11px] font-mono text-gray-300">
+                        <span className="text-[11px] font-mono text-su-muted">
                           {entry.band}
                         </span>
-                        <span className="text-[11px] text-gray-400">
+                        <span className="text-[11px] text-su-muted">
                           {entry.mode}
                         </span>
-                        <span className="text-[9px] text-gray-600">
+                        <span className="text-[9px] text-su-muted">
                           {timeAgo}
                         </span>
                       </button>
@@ -1008,24 +999,21 @@ export function BandModeModal({ isOpen, onClose }: BandModeModalProps) {
                   className="w-2 h-2 rounded-full animate-pulse"
                   style={{ backgroundColor: sourceColor }}
                 />
-                <span
-                  className="text-xs font-medium"
-                  style={{ color: sourceColor }}
-                >
+                <span className="text-xs font-medium text-su-text">
                   {catOverridden ? "CAT Override" : `Following ${sourceLabel}`}
                 </span>
               </div>
               {catOverridden ? (
                 <button
                   onClick={handleResumeCat}
-                  className="text-xs text-gray-400 hover:text-green-400 transition-colors"
+                  className="text-xs text-su-muted hover:text-green-400 transition-colors"
                 >
                   Resume &#8617;
                 </button>
               ) : activeSource === "cat" ? (
                 <button
                   onClick={handleOverrideCat}
-                  className="text-xs text-gray-400 hover:text-gray-200 transition-colors"
+                  className="text-xs text-su-muted hover:text-su-text transition-colors"
                 >
                   Override
                 </button>
@@ -1035,7 +1023,7 @@ export function BandModeModal({ isOpen, onClose }: BandModeModalProps) {
         </div>
 
         {/* ── Fixed Done footer — always visible, explicit close ── */}
-        <div className="flex-shrink-0 px-5 py-3 border-t border-white/10 bg-black/60">
+        <div className="flex-shrink-0 px-5 py-3 border-t border-su-line/40 bg-su-panel/60">
           <button
             onClick={onClose}
             className="w-full py-2.5 rounded-xl text-sm font-semibold transition-all duration-200 hover:brightness-110 active:scale-[0.98]"

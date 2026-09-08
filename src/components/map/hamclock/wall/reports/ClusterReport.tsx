@@ -8,7 +8,7 @@ const DXSpotList = lazy(() => import("@/components/dx/DXSpotList/DXSpotList").th
 
 /** Chrome for the wall's existing cluster list, distinct from map collections. */
 export function ClusterReport({ open, onClose }: { open: boolean; onClose: () => void }) {
-  const feedState = useDXStore(state => state.clusterFeed);
+  const feedState = useDXStore((state) => state.clusterFeed);
   const spots = useDXStore((state) => state.spots);
   const source = useDXStore((state) => state.spotSource);
   useUTCClock(10_000);
@@ -22,6 +22,7 @@ export function ClusterReport({ open, onClose }: { open: boolean; onClose: () =>
   );
   return (
     <WallReport open={open} onClose={onClose} title="DX cluster report" tone="accent"
+      hero={<span className="hcr-cluster-hero">DX CLUSTER</span>}
       footer={footer} updated={updated} pinId="dx-cluster"
       pinElement={<ClusterReport open onClose={onClose} />}>
       <Suspense fallback={<p className="hcr-note">LOADING CLUSTER LIST</p>}>

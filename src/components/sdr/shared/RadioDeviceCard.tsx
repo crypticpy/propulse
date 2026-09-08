@@ -33,14 +33,14 @@ export function RadioDeviceCard({
 }: RadioDeviceCardProps) {
   return (
     <Card className="p-4 space-y-3">
-      <div className="text-sm font-semibold text-gray-200">Device</div>
+      <div className="text-sm font-semibold text-su-text">Device</div>
 
-      <label className="block text-xs text-gray-500">Radio</label>
+      <label className="block text-xs text-su-muted">Radio</label>
       <select
         value={selectedDeviceId ?? ""}
         onChange={(e) => onDeviceSelect(e.target.value || null)}
         disabled={!daemonConnected}
-        className="w-full px-3 py-2 bg-deep-space border border-white/10 rounded-lg text-white text-sm"
+        className="w-full px-3 py-2 bg-deep-space border border-su-line/40 rounded-lg text-su-text text-sm"
       >
         {devices.length === 0 && <option value="">No devices</option>}
         {devices.map((d) => (
@@ -51,16 +51,16 @@ export function RadioDeviceCard({
       </select>
 
       {selectedDevice && (
-        <div className="text-xs text-gray-500">
+        <div className="text-xs text-su-muted">
           <div className="flex justify-between">
             <span>Driver</span>
-            <span className="text-gray-300 font-mono">
+            <span className="text-su-muted font-mono">
               {selectedDevice.driver}
             </span>
           </div>
           <div className="flex justify-between">
             <span>Type</span>
-            <span className="text-gray-300 font-mono">
+            <span className="text-su-muted font-mono">
               {selectedDevice.type}
             </span>
           </div>
@@ -72,7 +72,7 @@ export function RadioDeviceCard({
           type="button"
           onClick={onConnectRadio}
           disabled={!canControlDevice || !!connectedDeviceId}
-          className="flex-1 px-3 py-2 rounded-lg text-sm font-medium bg-white/5 border border-white/10 text-gray-200 hover:bg-white/10 disabled:opacity-50 disabled:cursor-not-allowed"
+          className="flex-1 px-3 py-2 rounded-lg text-sm font-medium bg-su-line/10 border border-su-line/40 text-su-text hover:bg-su-line/20 disabled:opacity-50 disabled:cursor-not-allowed"
         >
           Connect
         </button>

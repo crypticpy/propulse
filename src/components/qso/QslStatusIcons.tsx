@@ -115,7 +115,7 @@ function QslBadge({
   // Gray: not submitted
   return (
     <span
-      className={`inline-flex items-center justify-center rounded-sm font-mono font-bold ${sizeClasses} bg-white/[0.03] text-gray-600 border border-white/[0.06]`}
+      className={`inline-flex items-center justify-center rounded-sm font-mono font-bold ${sizeClasses} bg-su-line/10 text-su-muted border border-su-line/20`}
       title={`${service.name}: Not submitted`}
       aria-label={`${service.name} not submitted`}
     >

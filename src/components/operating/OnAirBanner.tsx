@@ -50,10 +50,10 @@ export function OnAirBanner() {
         <span className="font-orbitron text-lg text-alert-red tracking-[0.25em]">
           ON AIR
         </span>
-        <span className="font-mono text-sm text-gray-200 tabular-nums">
+        <span className="font-mono text-sm text-su-text tabular-nums">
           {formatFreqMHz(frequency)} {mode}
         </span>
-        <span className="font-mono text-sm text-gray-400 tabular-nums">
+        <span className="font-mono text-sm text-su-muted tabular-nums">
           TX {timerText}
         </span>
       </div>

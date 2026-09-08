@@ -262,7 +262,7 @@ export function CardSignature({
       aria-hidden="true"
     >
       <p
-        className="text-[9px] italic text-gray-500 leading-tight"
+        className="text-[9px] italic text-su-muted leading-tight"
         style={{ fontVariantLigatures: "common-ligatures" }}
       >
         {signature}

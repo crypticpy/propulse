@@ -16,9 +16,9 @@ import { QSOByBandChart } from "./QSOByBandChart";
 
 function SkeletonCard() {
   return (
-    <div className="bg-panel/30 border border-white/5 rounded-lg p-4 animate-pulse">
-      <div className="h-7 w-16 bg-white/10 rounded mx-auto mb-2" />
-      <div className="h-3 w-20 bg-white/5 rounded mx-auto" />
+    <div className="bg-panel/30 border border-su-line/20 rounded-lg p-4 animate-pulse">
+      <div className="h-7 w-16 bg-su-line/20 rounded mx-auto mb-2" />
+      <div className="h-3 w-20 bg-su-line/10 rounded mx-auto" />
     </div>
   );
 }
@@ -26,10 +26,10 @@ function SkeletonCard() {
 function SkeletonBlock({ className = "" }: { className?: string }) {
   return (
     <div
-      className={`bg-panel/30 border border-white/5 rounded-lg p-6 animate-pulse ${className}`}
+      className={`bg-panel/30 border border-su-line/20 rounded-lg p-6 animate-pulse ${className}`}
     >
-      <div className="h-4 w-32 bg-white/10 rounded mb-4" />
-      <div className="h-32 bg-white/5 rounded" />
+      <div className="h-4 w-32 bg-su-line/20 rounded mb-4" />
+      <div className="h-32 bg-su-line/10 rounded" />
     </div>
   );
 }
@@ -38,7 +38,7 @@ function EmptyState() {
   return (
     <div className="flex flex-col items-center justify-center py-16 text-center">
       <svg
-        className="w-12 h-12 text-gray-600 mx-auto mb-4"
+        className="w-12 h-12 text-su-muted mx-auto mb-4"
         fill="none"
         stroke="currentColor"
         viewBox="0 0 24 24"
@@ -50,10 +50,10 @@ function EmptyState() {
           d="M3 13h2v8H3zM9 9h2v12H9zM15 5h2v16h-2zM21 1h2v20h-2z"
         />
       </svg>
-      <h3 className="text-lg font-semibold text-gray-300 mb-2">
+      <h3 className="text-lg font-semibold text-su-muted mb-2">
         No QSOs Logged Yet
       </h3>
-      <p className="text-sm text-gray-500 max-w-md">
+      <p className="text-sm text-su-muted max-w-md">
         Start logging contacts in the Logbook to see your operating statistics,
         activity heatmap, and mode/band distributions here.
       </p>
@@ -153,8 +153,8 @@ export function StatsTab() {
       </div>
 
       {/* Activity Heatmap */}
-      <div className="bg-panel/30 border border-white/5 rounded-lg p-4">
-        <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-3">
+      <div className="bg-panel/30 border border-su-line/20 rounded-lg p-4">
+        <h3 className="text-sm font-semibold text-su-muted uppercase tracking-wider mb-3">
           Activity (Last 365 Days)
         </h3>
         <ActivityHeatmap qsosByDate={stats.qsosByDate} />
@@ -162,14 +162,14 @@ export function StatsTab() {
 
       {/* Charts: Mode + Band side by side on desktop */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div className="bg-panel/30 border border-white/5 rounded-lg p-4">
-          <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-3">
+        <div className="bg-panel/30 border border-su-line/20 rounded-lg p-4">
+          <h3 className="text-sm font-semibold text-su-muted uppercase tracking-wider mb-3">
             QSOs by Mode
           </h3>
           <QSOByModeChart data={stats.qsosByMode} />
         </div>
-        <div className="bg-panel/30 border border-white/5 rounded-lg p-4">
-          <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-3">
+        <div className="bg-panel/30 border border-su-line/20 rounded-lg p-4">
+          <h3 className="text-sm font-semibold text-su-muted uppercase tracking-wider mb-3">
             QSOs by Band
           </h3>
           <QSOByBandChart data={stats.qsosByBand} />

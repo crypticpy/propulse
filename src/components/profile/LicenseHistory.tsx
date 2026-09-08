@@ -43,7 +43,7 @@ export function LicenseHistory() {
   return (
     <div className="space-y-3">
       {sorted.length === 0 && !isAdding && (
-        <p className="text-sm text-gray-500 italic">
+        <p className="text-sm text-su-muted italic">
           No license history recorded yet.
         </p>
       )}
@@ -52,7 +52,7 @@ export function LicenseHistory() {
       {sorted.length > 0 && (
         <div className="relative ml-3">
           {/* Vertical line */}
-          <div className="absolute left-0 top-2 bottom-2 w-px bg-white/10" />
+          <div className="absolute left-0 top-2 bottom-2 w-px bg-su-line/20" />
 
           <div className="space-y-4">
             {sorted.map((entry, idx) => {
@@ -64,7 +64,7 @@ export function LicenseHistory() {
                     className={`absolute left-0 top-1.5 w-2.5 h-2.5 rounded-full border-2 -translate-x-1/2 ${
                       isCurrent
                         ? "bg-signal-green border-signal-green/50"
-                        : "bg-gray-600 border-gray-500"
+                        : "bg-su-line border-su-line"
                     }`}
                   />
 
@@ -72,7 +72,7 @@ export function LicenseHistory() {
                     <div className="min-w-0">
                       <div className="flex items-center gap-2">
                         <span
-                          className={`text-sm font-semibold ${isCurrent ? "text-white" : "text-gray-300"}`}
+                          className={`text-sm font-semibold ${isCurrent ? "text-su-text" : "text-su-muted"}`}
                         >
                           {entry.class}
                         </span>
@@ -82,11 +82,11 @@ export function LicenseHistory() {
                           </span>
                         )}
                       </div>
-                      <div className="text-xs text-gray-500 mt-0.5">
+                      <div className="text-xs text-su-muted mt-0.5">
                         {formatDate(entry.date)}
                       </div>
                       {entry.notes && (
-                        <div className="text-xs text-gray-400 mt-1">
+                        <div className="text-xs text-su-muted mt-1">
                           {entry.notes}
                         </div>
                       )}
@@ -103,7 +103,7 @@ export function LicenseHistory() {
                           removeEntry(entry.id);
                         }
                       }}
-                      className="opacity-60 hover:opacity-100 transition-opacity text-gray-600 hover:text-alert-red text-xs p-1 shrink-0"
+                      className="opacity-60 hover:opacity-100 transition-opacity text-su-muted hover:text-alert-red text-xs p-1 shrink-0"
                       title="Remove entry"
                     >
                       <svg
@@ -130,31 +130,31 @@ export function LicenseHistory() {
 
       {/* Add entry form */}
       {isAdding && (
-        <div className="bg-panel/30 backdrop-blur-sm border border-white/5 rounded-xl p-3 space-y-2">
+        <div className="bg-panel/30 backdrop-blur-sm border border-su-line/20 rounded-xl p-3 space-y-2">
           <div className="grid grid-cols-2 gap-2">
             <div>
-              <label className="text-xs text-gray-500 block mb-1">Date</label>
+              <label className="text-xs text-su-muted block mb-1">Date</label>
               <input
                 type="date"
                 value={newDate}
                 onChange={(e) => setNewDate(e.target.value)}
                 max={new Date().toISOString().split("T")[0]}
-                className="w-full bg-void-black/50 border border-white/10 rounded-lg px-2 py-1 text-sm text-gray-200 focus:outline-none focus:border-plasma-orange/50"
+                className="w-full bg-void-black/50 border border-su-line/40 rounded-lg px-2 py-1 text-sm text-su-text focus:outline-none focus:border-plasma-orange/50"
               />
             </div>
             <div>
-              <label className="text-xs text-gray-500 block mb-1">Class</label>
+              <label className="text-xs text-su-muted block mb-1">Class</label>
               <input
                 type="text"
                 value={newClass}
                 onChange={(e) => setNewClass(e.target.value)}
                 placeholder="e.g. General"
-                className="w-full bg-void-black/50 border border-white/10 rounded-lg px-2 py-1 text-sm text-gray-200 placeholder-gray-600 focus:outline-none focus:border-plasma-orange/50"
+                className="w-full bg-void-black/50 border border-su-line/40 rounded-lg px-2 py-1 text-sm text-su-text placeholder:text-su-muted/80 focus:outline-none focus:border-plasma-orange/50"
               />
             </div>
           </div>
           <div>
-            <label className="text-xs text-gray-500 block mb-1">
+            <label className="text-xs text-su-muted block mb-1">
               Notes (optional)
             </label>
             <input
@@ -162,13 +162,13 @@ export function LicenseHistory() {
               value={newNotes}
               onChange={(e) => setNewNotes(e.target.value)}
               placeholder="e.g. Passed VE exam"
-              className="w-full bg-void-black/50 border border-white/10 rounded-lg px-2 py-1 text-sm text-gray-200 placeholder-gray-600 focus:outline-none focus:border-plasma-orange/50"
+              className="w-full bg-void-black/50 border border-su-line/40 rounded-lg px-2 py-1 text-sm text-su-text placeholder:text-su-muted/80 focus:outline-none focus:border-plasma-orange/50"
             />
           </div>
           <div className="flex gap-2 justify-end">
             <button
               onClick={() => setIsAdding(false)}
-              className="text-xs text-gray-500 hover:text-gray-300 px-2 py-1"
+              className="text-xs text-su-muted hover:text-su-text px-2 py-1"
             >
               Cancel
             </button>
@@ -187,7 +187,7 @@ export function LicenseHistory() {
       {!isAdding && history.length < MAX_ENTRIES && (
         <button
           onClick={() => setIsAdding(true)}
-          className="text-xs text-gray-500 hover:text-plasma-orange transition-colors flex items-center gap-1"
+          className="text-xs text-su-muted hover:text-plasma-orange transition-colors flex items-center gap-1"
         >
           <svg
             className="w-3.5 h-3.5"

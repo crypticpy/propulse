@@ -186,7 +186,7 @@ export function FireFlyout({
   const flyoutContent = (
     <div
       ref={flyoutRef}
-      className="fixed z-[200] bg-gray-900/95 backdrop-blur-md border border-white/10 rounded-xl shadow-2xl transition-all duration-150"
+      className="fixed z-[200] bg-su-canvas/95 backdrop-blur-md border border-su-line/40 rounded-xl shadow-2xl transition-all duration-150"
       style={{
         left: adjustedPosition.x,
         top: adjustedPosition.y,
@@ -198,14 +198,14 @@ export function FireFlyout({
       aria-label="Active fire detection"
     >
       {/* Header */}
-      <div className="px-3 py-2.5 border-b border-white/10">
+      <div className="px-3 py-2.5 border-b border-su-line/40">
         <div className="flex items-center gap-2">
           <span className="text-base flex-shrink-0">{"🔥"}</span>
-          <span className="text-white font-semibold text-sm leading-tight flex-1 min-w-0 truncate">
+          <span className="text-su-text font-semibold text-sm leading-tight flex-1 min-w-0 truncate">
             Active Fire Detection
           </span>
         </div>
-        <div className="text-[10px] text-gray-500 mt-0.5 font-mono">
+        <div className="text-[10px] text-su-muted mt-0.5 font-mono">
           NASA FIRMS · VIIRS (last 24h)
         </div>
       </div>
@@ -213,19 +213,19 @@ export function FireFlyout({
       {/* Detection details */}
       <div className="px-3 py-2 space-y-1.5 text-xs">
         <div className="flex items-center justify-between">
-          <span className="text-gray-400">Fire radiative power</span>
-          <span className="text-white font-mono">
+          <span className="text-su-muted">Fire radiative power</span>
+          <span className="text-su-text font-mono">
             {hotspot.frp.toFixed(1)} MW
           </span>
         </div>
         <div className="flex items-center justify-between">
-          <span className="text-gray-400">Brightness temp</span>
-          <span className="text-white font-mono">
+          <span className="text-su-muted">Brightness temp</span>
+          <span className="text-su-text font-mono">
             {hotspot.brightness.toFixed(0)} K
           </span>
         </div>
         <div className="flex items-center justify-between">
-          <span className="text-gray-400">Confidence</span>
+          <span className="text-su-muted">Confidence</span>
           <span
             className="font-semibold px-2 py-0.5 rounded-full"
             style={{
@@ -238,8 +238,8 @@ export function FireFlyout({
           </span>
         </div>
         <div className="flex items-center justify-between">
-          <span className="text-gray-400">Location</span>
-          <span className="text-white font-mono">
+          <span className="text-su-muted">Location</span>
+          <span className="text-su-text font-mono">
             {formatCoords(hotspot.lat, hotspot.lon)}
             {grid ? ` (${grid})` : ""}
           </span>
@@ -247,10 +247,10 @@ export function FireFlyout({
       </div>
 
       {/* Action buttons */}
-      <div className="px-2 py-2 border-t border-white/10 flex items-center">
+      <div className="px-2 py-2 border-t border-su-line/40 flex items-center">
         <button
           onClick={onClose}
-          className="flex-1 flex items-center justify-center px-3 py-1.5 rounded-lg text-xs font-medium bg-white/5 text-gray-400 hover:bg-white/10 border border-white/10 transition-colors duration-150"
+          className="flex-1 flex items-center justify-center px-3 py-1.5 rounded-lg text-xs font-medium bg-su-line/10 text-su-muted hover:bg-su-line/20 border border-su-line/40 transition-colors duration-150"
         >
           Close
         </button>

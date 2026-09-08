@@ -385,3 +385,15 @@ it.each(["unavailable", "request-error"])("expires a selected CANParks report du
   expect(useQSOStore.getState().form).toBe(draft);
   expect(useRigStore.getState()).toBe(rig);
 });
+
+
+it("keeps the card open when a renewed report replaces an expired selection", () => {
+  useActivationSpotStore.setState({ selectedSpot: { ...SPOT, expiresAt: "2026-08-31T14:00:05Z" } });
+  mocks.now = Date.parse("2026-08-31T14:00:06Z");
+  const renewed = { ...SPOT, id: "renewed", spottedAt: "2026-08-31T14:00:06Z", expiresAt: "2026-08-31T14:30:00Z", frequencyKHz: 7074 };
+  mocks.activationFeed.mockReturnValue(activationFeed([renewed]));
+  mocks.callsignIngestion.mockReturnValue({ result: null, loading: false, error: null });
+  render(<MemoryRouter><ActivationDetailPanel /></MemoryRouter>);
+  expect(useActivationSpotStore.getState().selectedSpot?.id).toBe("renewed");
+  expect(screen.getByRole("dialog")).toBeTruthy();
+});

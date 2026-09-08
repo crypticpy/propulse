@@ -848,7 +848,7 @@ export function ContestBandMap({
   return (
     <div
       ref={containerRef}
-      className={`relative rounded-lg border border-white/10 backdrop-blur-sm overflow-hidden ${className}`}
+      className={`relative rounded-lg border border-su-line/40 backdrop-blur-sm overflow-hidden ${className}`}
       style={{
         background:
           "linear-gradient(135deg, rgba(10, 15, 30, 0.95) 0%, rgba(20, 30, 50, 0.95) 100%)",
@@ -868,21 +868,21 @@ export function ContestBandMap({
       {/* Tooltip */}
       {hoveredSpot && (
         <div
-          className="fixed z-50 px-3 py-2 text-xs bg-gray-900/95 border border-white/20 rounded-lg shadow-lg pointer-events-none backdrop-blur-sm"
+          className="fixed z-50 px-3 py-2 text-xs bg-su-canvas/95 border border-su-line/50 rounded-lg shadow-lg pointer-events-none backdrop-blur-sm"
           style={{
             left: tooltipPosition.x + 10,
             top: tooltipPosition.y + 10,
           }}
         >
           <div className="flex items-center gap-2">
-            <span className="font-mono font-bold text-white">
+            <span className="font-mono font-bold text-su-text">
               {hoveredSpot.dx}
             </span>
             {hoveredStatusLabel && (
               <span
                 className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${
                   hoveredSpotStatus === "dupe"
-                    ? "bg-gray-600/50 text-gray-300"
+                    ? "bg-su-line/50 text-su-muted"
                     : hoveredSpotStatus === "new-mult"
                       ? "bg-plasma-orange/30 text-plasma-orange"
                       : "bg-cosmic-cyan/30 text-cosmic-cyan"
@@ -892,13 +892,13 @@ export function ContestBandMap({
               </span>
             )}
           </div>
-          <div className="text-gray-400">
+          <div className="text-su-muted">
             {(hoveredSpot.frequency / 1000).toFixed(3)} MHz
             {hoveredSpot.mode && (
-              <span className="ml-2 text-gray-500">{hoveredSpot.mode}</span>
+              <span className="ml-2 text-su-muted">{hoveredSpot.mode}</span>
             )}
           </div>
-          <div className="text-gray-500 text-[10px] mt-1">
+          <div className="text-su-muted text-[10px] mt-1">
             Spotted by {hoveredSpot.spotter}
           </div>
           <div className="text-cosmic-cyan text-[10px] mt-1">
@@ -909,44 +909,44 @@ export function ContestBandMap({
 
       {/* Header with band info */}
       {currentBand && frequencyRange && (
-        <div className="absolute top-2 left-14 px-2 py-1 bg-black/60 backdrop-blur-sm rounded text-xs text-gray-300 font-mono">
+        <div className="absolute top-2 left-14 px-2 py-1 bg-su-panel/90 backdrop-blur-sm rounded text-xs text-su-muted font-mono">
           {currentBand}: {(frequencyRange.min / 1000).toFixed(3)} -{" "}
           {(frequencyRange.max / 1000).toFixed(3)} MHz
-          <span className="ml-2 text-gray-500">
+          <span className="ml-2 text-su-muted">
             ({filteredSpots.length} spots)
           </span>
         </div>
       )}
 
       {/* Contest status legend */}
-      <div className="flex items-center justify-center gap-4 py-2 px-3 border-t border-white/5 bg-black/30">
+      <div className="flex items-center justify-center gap-4 py-2 px-3 border-t border-su-line/20 bg-su-input">
         <div className="flex items-center gap-1.5">
           <span
             className="w-2.5 h-2.5 rounded-full"
             style={{ backgroundColor: STATUS_COLORS["new-mult"] }}
           />
-          <span className="text-[10px] text-gray-400 font-mono">NEW MULT</span>
+          <span className="text-[10px] text-su-muted font-mono">NEW MULT</span>
         </div>
         <div className="flex items-center gap-1.5">
           <span
             className="w-2.5 h-2.5 rounded-full"
             style={{ backgroundColor: STATUS_COLORS["needed-mult"] }}
           />
-          <span className="text-[10px] text-gray-400 font-mono">NEEDED</span>
+          <span className="text-[10px] text-su-muted font-mono">NEEDED</span>
         </div>
         <div className="flex items-center gap-1.5">
           <span
             className="w-2.5 h-2.5 rounded-full"
             style={{ backgroundColor: STATUS_COLORS["normal"] }}
           />
-          <span className="text-[10px] text-gray-400 font-mono">AVAIL</span>
+          <span className="text-[10px] text-su-muted font-mono">AVAIL</span>
         </div>
         <div className="flex items-center gap-1.5">
           <span
             className="w-2.5 h-2.5 rounded-full"
             style={{ backgroundColor: STATUS_COLORS["dupe"] }}
           />
-          <span className="text-[10px] text-gray-400 font-mono">DUPE</span>
+          <span className="text-[10px] text-su-muted font-mono">DUPE</span>
         </div>
       </div>
     </div>

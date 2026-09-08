@@ -185,7 +185,7 @@ export function AccessibleDialog({
         className={
           chrome === "bare"
             ? `relative ${panelProps?.className ?? ""}`
-            : `relative flex max-h-[calc(100dvh-1.5rem)] w-full ${sizes[size]} flex-col overflow-hidden rounded-2xl border border-white/15 bg-[#090b17]/95 shadow-2xl shadow-black/60 ${panelProps?.className ?? ""}`
+            : `relative flex max-h-[calc(100dvh-1.5rem)] w-full ${sizes[size]} flex-col overflow-hidden rounded-2xl border border-su-line/40 bg-su-panel/95 shadow-2xl shadow-black/60 ${panelProps?.className ?? ""}`
         }
       >
         {chrome === "bare" ? (
@@ -202,13 +202,13 @@ export function AccessibleDialog({
           </>
         ) : (
           <>
-            <header className="flex shrink-0 items-start justify-between gap-4 border-b border-white/10 px-5 py-4 sm:px-6">
+            <header className="flex shrink-0 items-start justify-between gap-4 border-b border-su-line/40 px-5 py-4 sm:px-6">
               <div className="min-w-0">
-                <h2 id={titleId} className="font-orbitron text-lg font-bold text-white sm:text-xl">
+                <h2 id={titleId} className="font-orbitron text-lg font-bold text-su-text sm:text-xl">
                   {title}
                 </h2>
                 {description && (
-                  <p id={descriptionId} className="mt-1 text-sm leading-6 text-slate-400">
+                  <p id={descriptionId} className="mt-1 text-sm leading-6 text-su-muted">
                     {description}
                   </p>
                 )}
@@ -216,7 +216,7 @@ export function AccessibleDialog({
               <button
                 type="button"
                 onClick={onClose}
-                className="flex min-h-11 min-w-11 shrink-0 items-center justify-center rounded-xl border border-white/10 bg-white/5 text-xl text-slate-300 transition-colors hover:bg-white/10 hover:text-white"
+                className="flex min-h-11 min-w-11 shrink-0 items-center justify-center rounded-xl border border-su-line/40 bg-su-input text-xl text-su-muted transition-colors hover:bg-su-line/20 hover:text-su-text"
                 aria-label="Close dialog"
               >
                 <span aria-hidden="true">×</span>

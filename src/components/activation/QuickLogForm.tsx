@@ -157,14 +157,14 @@ export function QuickLogForm({ onLogged, className = "" }: QuickLogFormProps) {
     >
       {/* Band/Mode indicator */}
       {(effectiveBand || effectiveMode) && (
-        <div className="flex items-center gap-2 text-xs text-white/50">
+        <div className="flex items-center gap-2 text-xs text-su-text/80">
           {effectiveBand && (
-            <span className="px-2 py-0.5 rounded bg-white/5 font-mono">
+            <span className="px-2 py-0.5 rounded bg-su-line/10 font-mono">
               {effectiveBand}
             </span>
           )}
           {effectiveMode && (
-            <span className="px-2 py-0.5 rounded bg-white/5 font-mono">
+            <span className="px-2 py-0.5 rounded bg-su-line/10 font-mono">
               {effectiveMode}
             </span>
           )}
@@ -183,9 +183,9 @@ export function QuickLogForm({ onLogged, className = "" }: QuickLogFormProps) {
           onChange={(e) => setCallsign(e.target.value.toUpperCase())}
           onKeyDown={handleKeyDown}
           placeholder="CALLSIGN"
-          className="w-full h-14 px-4 rounded-lg bg-space-900 border border-white/10
-                     text-white text-xl font-mono font-bold uppercase tracking-wider
-                     placeholder-white/20
+          className="w-full h-14 px-4 rounded-lg bg-space-900 border border-su-line/40
+                     text-su-text text-xl font-mono font-bold uppercase tracking-wider
+                     placeholder:text-su-muted/80
                      focus:outline-none focus:ring-2 focus:ring-plasma-orange/50 focus:border-plasma-orange/50
                      transition-colors"
           autoComplete="off"
@@ -200,7 +200,7 @@ export function QuickLogForm({ onLogged, className = "" }: QuickLogFormProps) {
         <div>
           <label
             htmlFor="quick-rst-sent"
-            className="block text-[10px] text-white/40 uppercase tracking-wider mb-1"
+            className="block text-[10px] text-su-text/80 uppercase tracking-wider mb-1"
           >
             RST Sent
           </label>
@@ -211,10 +211,10 @@ export function QuickLogForm({ onLogged, className = "" }: QuickLogFormProps) {
             onChange={(e) => setRstSent(e.target.value)}
             onKeyDown={handleKeyDown}
             placeholder={rstDefault}
-            className="w-full h-11 px-3 rounded-lg bg-space-900 border border-white/10
-                       text-white font-mono text-center
-                       placeholder-white/20
-                       focus:outline-none focus:ring-1 focus:ring-white/20
+            className="w-full h-11 px-3 rounded-lg bg-space-900 border border-su-line/40
+                       text-su-text font-mono text-center
+                       placeholder:text-su-muted/80
+                       focus:outline-none focus:ring-1 focus:ring-su-line/50
                        transition-colors"
             inputMode="numeric"
           />
@@ -222,7 +222,7 @@ export function QuickLogForm({ onLogged, className = "" }: QuickLogFormProps) {
         <div>
           <label
             htmlFor="quick-rst-rcvd"
-            className="block text-[10px] text-white/40 uppercase tracking-wider mb-1"
+            className="block text-[10px] text-su-text/80 uppercase tracking-wider mb-1"
           >
             RST Rcvd
           </label>
@@ -233,10 +233,10 @@ export function QuickLogForm({ onLogged, className = "" }: QuickLogFormProps) {
             onChange={(e) => setRstRcvd(e.target.value)}
             onKeyDown={handleKeyDown}
             placeholder={rstDefault}
-            className="w-full h-11 px-3 rounded-lg bg-space-900 border border-white/10
-                       text-white font-mono text-center
-                       placeholder-white/20
-                       focus:outline-none focus:ring-1 focus:ring-white/20
+            className="w-full h-11 px-3 rounded-lg bg-space-900 border border-su-line/40
+                       text-su-text font-mono text-center
+                       placeholder:text-su-muted/80
+                       focus:outline-none focus:ring-1 focus:ring-su-line/50
                        transition-colors"
             inputMode="numeric"
           />
@@ -251,9 +251,9 @@ export function QuickLogForm({ onLogged, className = "" }: QuickLogFormProps) {
           onChange={(e) => setNotes(e.target.value)}
           onKeyDown={handleKeyDown}
           placeholder="Notes (optional)"
-          className="w-full h-10 px-3 rounded-lg bg-space-900 border border-white/10
-                     text-white text-sm placeholder-white/20
-                     focus:outline-none focus:ring-1 focus:ring-white/20
+          className="w-full h-10 px-3 rounded-lg bg-space-900 border border-su-line/40
+                     text-su-text text-sm placeholder:text-su-muted/80
+                     focus:outline-none focus:ring-1 focus:ring-su-line/50
                      transition-colors"
         />
       </div>
@@ -263,7 +263,7 @@ export function QuickLogForm({ onLogged, className = "" }: QuickLogFormProps) {
         type="submit"
         disabled={!callsign.trim() || isLogging}
         className="w-full h-12 rounded-lg font-bold text-base uppercase tracking-wider
-                   bg-plasma-orange text-void-black
+                   bg-plasma-orange text-su-on-accent
                    hover:bg-plasma-orange/90 active:scale-[0.98]
                    disabled:opacity-40 disabled:cursor-not-allowed
                    transition-all duration-150"
@@ -274,20 +274,20 @@ export function QuickLogForm({ onLogged, className = "" }: QuickLogFormProps) {
       {/* Recent callsigns chips */}
       {recentCalls.length > 0 && (
         <div className="flex items-center gap-1.5 flex-wrap">
-          <span className="text-[10px] text-white/30 uppercase mr-1">
+          <span className="text-[10px] text-su-text/80 uppercase mr-1">
             Recent:
           </span>
           {recentCalls.map((call) => (
             <span
               key={call}
               className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full
-                         bg-white/5 text-white/60 text-xs font-mono"
+                         bg-su-line/10 text-su-text/80 text-xs font-mono"
             >
               {call}
               <button
                 type="button"
                 onClick={() => dismissRecent(call)}
-                className="text-white/30 hover:text-white/60 transition-colors ml-0.5"
+                className="text-su-text/80 hover:text-su-text transition-colors ml-0.5"
                 aria-label={`Dismiss ${call}`}
               >
                 <svg

@@ -143,7 +143,7 @@ export function LogStatsDetailModal({
       size="lg"
     >
       {entries.length === 0 ? (
-        <p className="text-center text-gray-400 py-12">No QSOs logged yet</p>
+        <p className="text-center text-su-muted py-12">No QSOs logged yet</p>
       ) : (
         <div className="space-y-0">
           {/* ---- Summary Row ---- */}
@@ -155,11 +155,11 @@ export function LogStatsDetailModal({
               { value: stats.dxccCount, label: "DXCC" },
               { value: stats.totalCount, label: "Total" },
             ].map(({ value, label }) => (
-              <div key={label} className="bg-white/5 rounded-lg p-3">
-                <div className="text-2xl font-bold font-mono tabular-nums text-white">
+              <div key={label} className="bg-su-line/10 rounded-lg p-3">
+                <div className="text-2xl font-bold font-mono tabular-nums text-su-text">
                   {value.toLocaleString()}
                 </div>
-                <div className="text-[10px] text-gray-400 uppercase">
+                <div className="text-[10px] text-su-muted uppercase">
                   {label}
                 </div>
               </div>
@@ -167,8 +167,8 @@ export function LogStatsDetailModal({
           </div>
 
           {/* ---- Band Breakdown ---- */}
-          <div className="border-t border-white/10 pt-4 mt-4">
-            <h3 className="text-xs font-semibold text-gray-300 uppercase tracking-wider mb-3">
+          <div className="border-t border-su-line/40 pt-4 mt-4">
+            <h3 className="text-xs font-semibold text-su-muted uppercase tracking-wider mb-3">
               Band Breakdown
             </h3>
             <div className="space-y-2">
@@ -178,10 +178,10 @@ export function LogStatsDetailModal({
 
                 return (
                   <div key={band} className="flex items-center gap-3">
-                    <span className="w-10 text-xs font-mono text-gray-300 text-right shrink-0">
+                    <span className="w-10 text-xs font-mono text-su-muted text-right shrink-0">
                       {band}
                     </span>
-                    <div className="flex-1 h-5 bg-white/5 rounded-full overflow-hidden">
+                    <div className="flex-1 h-5 bg-su-line/10 rounded-full overflow-hidden">
                       <div
                         className="h-full rounded-full transition-all"
                         style={{
@@ -190,7 +190,7 @@ export function LogStatsDetailModal({
                         }}
                       />
                     </div>
-                    <span className="w-10 text-xs font-mono text-gray-400 shrink-0">
+                    <span className="w-10 text-xs font-mono text-su-muted shrink-0">
                       {count}
                     </span>
                   </div>
@@ -200,13 +200,13 @@ export function LogStatsDetailModal({
           </div>
 
           {/* ---- Recent QSOs ---- */}
-          <div className="border-t border-white/10 pt-4 mt-4">
-            <h3 className="text-xs font-semibold text-gray-300 uppercase tracking-wider mb-3">
+          <div className="border-t border-su-line/40 pt-4 mt-4">
+            <h3 className="text-xs font-semibold text-su-muted uppercase tracking-wider mb-3">
               Recent QSOs
             </h3>
             <div className="overflow-x-auto">
               {/* Header */}
-              <div className="grid grid-cols-4 gap-2 px-2 py-1 text-[10px] text-gray-400 uppercase">
+              <div className="grid grid-cols-4 gap-2 px-2 py-1 text-[10px] text-su-muted uppercase">
                 <span>Callsign</span>
                 <span>Band</span>
                 <span>Mode</span>
@@ -217,13 +217,13 @@ export function LogStatsDetailModal({
                 <div
                   key={entry.id}
                   className={`grid grid-cols-4 gap-2 px-2 py-1.5 text-xs font-mono ${
-                    idx % 2 === 1 ? "bg-white/[0.02]" : ""
+                    idx % 2 === 1 ? "bg-su-line/10" : ""
                   }`}
                 >
-                  <span className="text-white truncate">{entry.callsign}</span>
-                  <span className="text-gray-300">{entry.band}</span>
-                  <span className="text-gray-300">{entry.mode}</span>
-                  <span className="text-gray-400">{entry.date}</span>
+                  <span className="text-su-text truncate">{entry.callsign}</span>
+                  <span className="text-su-muted">{entry.band}</span>
+                  <span className="text-su-muted">{entry.mode}</span>
+                  <span className="text-su-muted">{entry.date}</span>
                 </div>
               ))}
             </div>
@@ -231,8 +231,8 @@ export function LogStatsDetailModal({
 
           {/* ---- QSL Stats ---- */}
           {stats.hasAnyQsl && (
-            <div className="border-t border-white/10 pt-4 mt-4">
-              <h3 className="text-xs font-semibold text-gray-300 uppercase tracking-wider mb-3">
+            <div className="border-t border-su-line/40 pt-4 mt-4">
+              <h3 className="text-xs font-semibold text-su-muted uppercase tracking-wider mb-3">
                 QSL Statistics
               </h3>
               <div className="grid grid-cols-4 gap-3 text-center">
@@ -242,11 +242,11 @@ export function LogStatsDetailModal({
                   { value: stats.lotwCount, label: "LoTW" },
                   { value: stats.eqslCount, label: "eQSL" },
                 ].map(({ value, label }) => (
-                  <div key={label} className="bg-white/5 rounded-lg p-3">
-                    <div className="text-2xl font-bold font-mono tabular-nums text-white">
+                  <div key={label} className="bg-su-line/10 rounded-lg p-3">
+                    <div className="text-2xl font-bold font-mono tabular-nums text-su-text">
                       {value.toLocaleString()}
                     </div>
-                    <div className="text-[10px] text-gray-400 uppercase">
+                    <div className="text-[10px] text-su-muted uppercase">
                       {label}
                     </div>
                   </div>

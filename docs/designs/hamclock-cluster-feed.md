@@ -17,7 +17,7 @@ explicitly a loaded sample rather than a complete interval total.
 
 Only default consumers publish the passive wall snapshot. Disabled consumers
 withhold public rows without overwriting another owner. External filters keep
-their own REST window and may read their own bridge buffer without replacing the
+their own REST window and may read the shared bridge rows without replacing the
 default snapshot. A newly mounted empty bridge observer retains the shared live
 rows; a disconnected observer cannot relabel another live owner's transport.
 Existing connect/disconnect controls and shared ownership remain in place.

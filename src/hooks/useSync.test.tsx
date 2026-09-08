@@ -84,3 +84,12 @@ it("invalidates synchronously before React cleans up an auth transition", () => 
   });
   expect(calls.stop).toHaveBeenCalledOnce();
 });
+
+it("retains same-owner offline metadata during token refresh but clears on sign-out", () => {
+  ready();
+  renderHook(useSync);
+  act(() => useAuthStore.setState({ session: { ...session, access_token: "synthetic-refreshed-token" } }));
+  expect(calls.stop).toHaveBeenLastCalledWith({ preserveMetadata: true });
+  act(() => useAuthStore.setState({ session: null, user: null }));
+  expect(calls.stop).toHaveBeenLastCalledWith({ preserveMetadata: false });
+});

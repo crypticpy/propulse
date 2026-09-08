@@ -27,6 +27,41 @@ function moduleWith(overrides: Partial<SyncModule>): SyncModule {
 }
 
 describe("SyncManager session lifetime", () => {
+  it("preserves timestamps and dirty location tokens across a same-owner restart when requested", async () => {
+    const { syncMeta } = await import("./syncMeta");
+    const module = moduleWith({ name: "locations" });
+    manager.registerModule(module);
+    await manager.start("owner-a");
+    syncMeta.setTimestamp("locations", "2026-09-07T12:00:00Z");
+    const token = syncMeta.markLocationDirty("offline-location");
+    const persisted = localStorage.getItem("propulse-sync-meta");
+
+    const stopping = manager.stop({ preserveMetadata: true });
+    expect(manager.isRunning).toBe(false);
+    expect(syncMeta.getTimestamp("locations")).toBe("2026-09-07T12:00:00Z");
+    expect(syncMeta.getLocationDirtyToken("offline-location")).toBe(token);
+    expect(localStorage.getItem("propulse-sync-meta")).toBe(persisted);
+    await stopping;
+    await manager.start("owner-a");
+
+    expect(module.pull).toHaveBeenLastCalledWith(
+      "owner-a", "2026-09-07T12:00:00Z", expect.objectContaining({ isActive: expect.any(Function) }),
+    );
+    expect(syncMeta.getLocationDirtyToken("offline-location")).toBe(token);
+  });
+
+  it("clears timestamps and dirty location tokens on default stop", async () => {
+    const { syncMeta } = await import("./syncMeta");
+    await manager.start("owner-a");
+    syncMeta.setTimestamp("locations", "2026-09-07T12:00:00Z");
+    syncMeta.markLocationDirty("offline-location");
+    const stopping = manager.stop();
+    expect(syncMeta.getTimestamp("locations")).toBeNull();
+    expect(syncMeta.getLocationDirtyToken("offline-location")).toBeNull();
+    expect(localStorage.getItem("propulse-sync-meta")).toBeNull();
+    await stopping;
+  });
+
   it.each(["same owner", "different owner"])("a stopped pending start cannot revive after restart: %s", async (kind) => {
     const oldPull = deferred<string | null>();
     const nextPull = deferred<string | null>();

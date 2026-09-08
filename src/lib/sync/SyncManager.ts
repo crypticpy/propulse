@@ -137,8 +137,8 @@ export class SyncManager {
     }
   }
 
-  /** Stop sync engine (on sign out or cleanup) */
-  async stop(): Promise<void> {
+  /** Stop sync engine; same-owner restart may retain durable sync metadata. */
+  async stop({ preserveMetadata = false }: { preserveMetadata?: boolean } = {}): Promise<void> {
     // Invalidate synchronously, before any old promise can settle or a new start runs.
     ++this.generation;
     this.running = false;
@@ -151,7 +151,7 @@ export class SyncManager {
     this.clearEagerDebounce();
     this.clearRetryTimers();
 
-    syncMeta.clear();
+    if (!preserveMetadata) syncMeta.clear();
     // Don't clear the write queue — unsynced entries survive for next session.
     // The queue persists in localStorage and will be flushed on next start().
     useSyncStore.getState().reset();

@@ -46,7 +46,8 @@ export function useSync(): void {
     const stop = () => {
       if (stopped) return;
       stopped = true;
-      void manager.stop();
+      const auth = useAuthStore.getState();
+      void manager.stop({ preserveMetadata: auth.session !== null && auth.user?.id === userId });
     };
     const invalidate = () => {
       const auth = useAuthStore.getState();

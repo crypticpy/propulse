@@ -241,7 +241,7 @@ export function SolarAnimationPlayer({
 
   return (
     <div>
-      <div className="relative flex min-h-72 items-center justify-center overflow-hidden rounded-2xl border border-white/10 bg-black/30">
+      <div className="relative flex min-h-72 items-center justify-center overflow-hidden rounded-2xl border border-su-line/40 bg-su-input">
         <img
           key={
             retainedImage.hasLoadedImage
@@ -318,15 +318,15 @@ export function SolarAnimationPlayer({
           />
         )}
         {state === "loading" && (
-          <div className="absolute inset-0 flex items-center justify-center bg-black/60 text-sm text-slate-200" role="status">
+          <div className="absolute inset-0 flex items-center justify-center bg-su-canvas/70 text-sm text-su-text" role="status">
             Loading timeline manifest…
           </div>
         )}
         {state === "error" && (
-          <div className="absolute inset-x-4 bottom-4 rounded-xl border border-amber-300/20 bg-black/85 p-4 text-center">
-            <p className="text-sm text-amber-100">{message}</p>
-            <p className="mt-1 text-xs text-slate-400">The current static product remains available.</p>
-            <button type="button" onClick={retryManifest} className="mt-3 min-h-11 rounded-xl border border-white/10 bg-white/10 px-4 text-sm text-white hover:bg-white/15">
+          <div className="absolute inset-x-4 bottom-4 rounded-xl border border-su-warning/30 bg-su-canvas/90 p-4 text-center">
+            <p className="text-sm text-su-warning">{message}</p>
+            <p className="mt-1 text-xs text-su-muted">The current static product remains available.</p>
+            <button type="button" onClick={retryManifest} className="mt-3 min-h-11 rounded-xl border border-su-line/40 bg-su-line/20 px-4 text-sm text-su-text hover:bg-su-line/30">
               Retry timeline
             </button>
           </div>
@@ -334,11 +334,11 @@ export function SolarAnimationPlayer({
       </div>
 
       {frames.length > 0 && (
-        <div className="mt-4 rounded-2xl border border-white/10 bg-white/[0.035] p-4">
+        <div className="mt-4 rounded-2xl border border-su-line/40 bg-su-panel/40 p-4">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
-              <p className="font-mono text-sm text-white">{timestamp}</p>
-              <p className="mt-1 text-xs text-slate-500">
+              <p className="font-mono text-sm text-su-text">{timestamp}</p>
+              <p className="mt-1 text-xs text-su-muted/80">
                 {displayedFrame.frame
                   ? `Frame ${displayedFrame.index + 1} of ${displayedFrame.total}`
                   : "Static fallback"}
@@ -348,7 +348,7 @@ export function SolarAnimationPlayer({
               <button
                 type="button"
                 onClick={() => setState((currentState) => currentState === "playing" ? "paused" : "playing")}
-                className="min-h-11 rounded-xl border border-cyan-300/20 bg-cyan-300/10 px-4 text-sm font-semibold text-cyan-100 hover:bg-cyan-300/15"
+                className="min-h-11 rounded-xl border border-su-info/30 bg-su-info/10 px-4 text-sm font-semibold text-su-info hover:bg-su-info/15"
               >
                 {state === "playing" ? "Pause" : "Play"}
               </button>
@@ -359,14 +359,14 @@ export function SolarAnimationPlayer({
                     setMessage("");
                     setFrameRetry((value) => value + 1);
                   }}
-                  className="min-h-11 rounded-xl border border-white/10 bg-white/5 px-4 text-sm text-slate-200 hover:bg-white/10"
+                  className="min-h-11 rounded-xl border border-su-line/40 bg-su-input px-4 text-sm text-su-muted hover:bg-su-line/20"
                 >
                   Retry frame
                 </button>
               )}
             </div>
           </div>
-          <label className="mt-4 block text-xs font-medium text-slate-400" htmlFor={`solar-timeline-${animationId}`}>
+          <label className="mt-4 block text-xs font-medium text-su-muted" htmlFor={`solar-timeline-${animationId}`}>
             Timeline position
           </label>
           <input
@@ -379,10 +379,10 @@ export function SolarAnimationPlayer({
               setIndex(Number(event.target.value));
               setState("paused");
             }}
-            className="mt-2 min-h-11 w-full accent-cyan-300"
+            className="mt-2 min-h-11 w-full accent-su-info"
             aria-valuetext={timestamp}
           />
-          {message && <p className="mt-2 text-xs text-amber-200" role="status">{message}</p>}
+          {message && <p className="mt-2 text-xs text-su-warning" role="status">{message}</p>}
         </div>
       )}
     </div>

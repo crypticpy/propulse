@@ -138,28 +138,28 @@ export function ContactThisStation({
   }
 
   return (
-    <div className="bg-panel/30 backdrop-blur-sm border border-white/5 rounded-2xl p-5 space-y-4">
+    <div className="bg-panel/30 backdrop-blur-sm border border-su-line/20 rounded-2xl p-5 space-y-4">
       {/* Section header */}
-      <h3 className="text-[10px] uppercase tracking-widest text-gray-500">
+      <h3 className="text-[10px] uppercase tracking-widest text-su-muted">
         Contact This Station
       </h3>
 
       {/* Header: callsign, distance, bearing */}
       <div className="space-y-1">
         <div className="flex items-center gap-2">
-          <span className="text-lg font-bold text-white">
+          <span className="text-lg font-bold text-su-text">
             Contact {profile.callsign}
           </span>
           <CompassArrow bearing={bearing} />
         </div>
-        <p className="text-sm text-gray-400 font-mono">
+        <p className="text-sm text-su-muted font-mono">
           {Math.round(distance).toLocaleString()} km &middot;{" "}
           {bearing.toFixed(0)}&deg;
         </p>
 
         {/* Grid path */}
         {(viewerGrid || profile.grid) && (
-          <p className="text-xs text-gray-500 font-mono">
+          <p className="text-xs text-su-muted font-mono">
             {viewerGrid ?? "---"} &rarr; {profile.grid ?? "---"}
           </p>
         )}
@@ -167,7 +167,7 @@ export function ContactThisStation({
 
       {/* Band conditions bar chart */}
       <div className="space-y-1.5">
-        <h4 className="text-[10px] uppercase tracking-widest text-gray-500">
+        <h4 className="text-[10px] uppercase tracking-widest text-su-muted">
           Band Conditions
         </h4>
         <BandConditionsBar
@@ -202,7 +202,7 @@ export function ContactThisStation({
       {/* Schedule overlap */}
       {hasScheduleData && (
         <div className="space-y-1.5">
-          <h4 className="text-[10px] uppercase tracking-widest text-gray-500">
+          <h4 className="text-[10px] uppercase tracking-widest text-su-muted">
             Schedule Overlap
           </h4>
           <ScheduleOverlap
@@ -221,7 +221,7 @@ export function ContactThisStation({
             Recommendation
           </div>
           {recommendations.map((rec, i) => (
-            <p key={i} className="text-sm text-gray-200">
+            <p key={i} className="text-sm text-su-text">
               {rec}
             </p>
           ))}

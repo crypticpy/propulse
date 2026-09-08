@@ -32,7 +32,7 @@ interface CloseoutPhaseProps {
 function StatCell({
   value,
   label,
-  colorClass = "text-white",
+  colorClass = "text-su-text",
   delay = 0,
 }: {
   value: number | string;
@@ -42,13 +42,13 @@ function StatCell({
 }) {
   return (
     <div
-      className="bg-white/[0.05] border border-white/15 rounded-xl p-4 overflow-hidden animate-ncs-stat-shimmer"
+      className="bg-su-line/10 border border-su-line/50 rounded-xl p-4 overflow-hidden animate-ncs-stat-shimmer"
       style={{ animationDelay: `${delay}ms`, opacity: 1 }}
     >
       <p className={`text-3xl font-mono font-bold tabular-nums ${colorClass}`}>
         {value}
       </p>
-      <p className="text-xs text-gray-400 uppercase tracking-wider mt-1">
+      <p className="text-xs text-su-muted uppercase tracking-wider mt-1">
         {label}
       </p>
     </div>
@@ -151,8 +151,8 @@ export function CloseoutPhase({
       </div>
 
       {/* Session Summary Card */}
-      <div className="bg-white/[0.05] backdrop-blur-md border border-white/15 rounded-2xl p-6">
-        <p className="text-xs uppercase tracking-widest text-gray-400 mb-4">
+      <div className="bg-su-line/10 backdrop-blur-md border border-su-line/50 rounded-2xl p-6">
+        <p className="text-xs uppercase tracking-widest text-su-muted mb-4">
           Session Summary
         </p>
 
@@ -187,7 +187,7 @@ export function CloseoutPhase({
 
       {/* Session Notes */}
       <div className="space-y-2">
-        <p className="text-xs uppercase tracking-widest text-gray-400">
+        <p className="text-xs uppercase tracking-widest text-su-muted">
           Session Notes
         </p>
         <textarea
@@ -196,7 +196,7 @@ export function CloseoutPhase({
           onBlur={handleNotesBlur}
           placeholder="Session notes, highlights, follow-ups..."
           rows={5}
-          className="w-full bg-void border border-white/20 rounded-xl px-4 py-3 text-sm text-gray-200 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-plasma-orange/70 focus:border-plasma-orange/50 resize-none transition-colors"
+          className="w-full bg-void border border-su-line/50 rounded-xl px-4 py-3 text-sm text-su-text placeholder:text-su-muted focus:outline-none focus:ring-2 focus:ring-plasma-orange/70 focus:border-plasma-orange/50 resize-none transition-colors"
           aria-label={`Session notes for ${net.name}`}
         />
       </div>
@@ -226,7 +226,7 @@ export function CloseoutPhase({
             </svg>
           </span>
         </button>
-        <p className="text-xs text-gray-400 mt-2">
+        <p className="text-xs text-su-muted mt-2">
           Session data will be saved automatically
         </p>
       </div>

@@ -6142,7 +6142,7 @@ export function FlatMapView({
         <div className="absolute inset-0 flex items-center justify-center bg-deep-space">
           <div className="flex flex-col items-center gap-3">
             <div className="w-8 h-8 border-2 border-plasma-orange border-t-transparent rounded-full animate-spin" />
-            <span className="text-gray-500 text-sm">Loading map...</span>
+            <span className="text-su-muted text-sm">Loading map...</span>
           </div>
         </div>
       )}
@@ -6335,18 +6335,18 @@ export function FlatMapView({
       {/* Bearing/Distance overlay - shown when hovering over the map */}
       {hoverBearingDistance && (
         <div className="absolute bottom-3 left-3 z-10 pointer-events-none">
-          <div className="px-2.5 py-1.5 rounded-lg bg-void-black/80 backdrop-blur-sm border border-white/10 text-xs font-mono tabular-nums text-gray-300">
+          <div className="px-2.5 py-1.5 rounded-lg bg-void-black/80 backdrop-blur-sm border border-su-line/40 text-xs font-mono tabular-nums text-su-muted">
             <span className="text-plasma-orange font-semibold">
               {String(hoverBearingDistance.bearing).padStart(3, "0")}°
             </span>
-            <span className="text-gray-500 mx-1">
+            <span className="text-su-muted mx-1">
               {hoverBearingDistance.compassDir}
             </span>
-            <span className="text-gray-500 mx-1">|</span>
+            <span className="text-su-muted mx-1">|</span>
             <span className="text-cosmic-cyan font-semibold">
               {hoverBearingDistance.distanceKm.toLocaleString()}
             </span>
-            <span className="text-gray-500 ml-0.5">km</span>
+            <span className="text-su-muted ml-0.5">km</span>
           </div>
         </div>
       )}

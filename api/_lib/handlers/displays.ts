@@ -291,6 +291,12 @@ export async function handleDisplayState(request: Request): Promise<Response> {
     .update({ last_seen_at: new Date().toISOString() })
     .eq("id", id);
 
+  // Legacy clients interpret scenes as partial global-store patches. Never send
+  // them a v1 complete-view envelope that they cannot safely install.
+  if (display.scene_config && typeof display.scene_config === "object" && "schemaVersion" in display.scene_config) {
+    return jsonResponse({ error: "Display client update required", code: "VERSIONED_ASSIGNMENT" }, 409, METHODS);
+  }
+
   return jsonResponse(
     {
       paired: display.owner !== null,

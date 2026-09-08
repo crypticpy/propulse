@@ -60,12 +60,16 @@
   --hc-gap: calc(1vh * var(--hc-scale));
   --hc-pad: calc(1.25vh * var(--hc-scale));
   --hc-header-h: calc(7.4vh * var(--hc-scale));
-  --hc-footer-h: calc(3.4vh * var(--hc-scale));
+  --hc-footer-h: max(56px, calc(4.6vh * var(--hc-scale)));
 }
 
 /* ---------- shell ---------- */
 
 .hc-wall {
+  --dx-ticker-height: max(44px, calc(3.2vh * var(--hc-scale)));
+  --dx-ticker-font-size: max(16px, calc(1.8vh * var(--hc-scale)));
+  --dx-ticker-badge-size: max(12px, calc(1.35vh * var(--hc-scale)));
+  --dx-ticker-control-size: 44px;
   position: relative;
   width: 100%;
   height: 100%;
@@ -128,6 +132,10 @@
   gap: calc(2.6vw * var(--hc-scale));
 }
 .hc-clock {
+  display: grid;
+  grid-template-columns: auto auto;
+  align-items: baseline;
+  column-gap: calc(0.6vw * var(--hc-scale));
   text-align: right;
 }
 .hc-clock .hc-clock-lbl {
@@ -146,6 +154,7 @@
   letter-spacing: 0.02em;
 }
 .hc-clock .hc-clock-dt {
+  grid-column: 2;
   font-family: var(--hc-font-mono);
   font-size: var(--hc-t-small);
   color: var(--hc-dim);
@@ -623,16 +632,19 @@
   outline: 0.2vh solid var(--hc-accent);
   outline-offset: 0.2vh;
 }
-/* The footer row is a fixed --hc-footer-h; the shared .hcc-toggle 44 px
-   minimum would overflow it (and .hc-wall clips), so the AUTO toggle keeps
-   the toggle colours but sizes to the row it lives in. */
-.hc-pager-auto {
-  min-height: 0;
+/* Reserve a full touch target inside the footer, independently of the
+   settings toggle's larger size and stylesheet load order. */
+.hc-ftr .hc-pager-auto {
+  min-height: 44px;
   height: calc(var(--hc-footer-h) - 0.6vh);
   min-width: max(6vw, 84px);
   padding: 0 0.8vw;
   line-height: 1;
-  font-size: 1.3vh;
+  font-size: max(12px, calc(1.3vh * var(--hc-scale)));
+}
+.hc-pager-arrow {
+  min-height: 44px;
+  min-width: 44px;
 }
 
 .hc-status {

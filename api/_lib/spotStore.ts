@@ -1,4 +1,4 @@
-import type { SpotWindowMinutes } from "./spotWindow.js";
+import type { ClusterWindowMinutes } from "./spotWindow.js";
 import { isErrorNamed } from "./runtimeError.js";
 
 export type StoredSpotSource = "pskreporter" | "rbn" | "dxcluster";
@@ -46,7 +46,7 @@ export interface SpotStoreResult {
 
 export interface SpotStoreOptions {
   limit: number;
-  windowMinutes?: SpotWindowMinutes;
+  windowMinutes?: ClusterWindowMinutes;
   grid?: string;
   bands?: string[];
   modes?: string[];
@@ -228,7 +228,8 @@ export async function readStoredSpots(
   const config = dependencies.storageConfig();
   if (!config) return unavailableResult(source, now, "configuration_missing");
 
-  const windowMinutes = [15, 30, 60].includes(options.windowMinutes ?? 30)
+  const allowedWindows = source === "dxcluster" ? [15, 30, 60, 120] : [15, 30, 60];
+  const windowMinutes = allowedWindows.includes(options.windowMinutes ?? 30)
     ? options.windowMinutes ?? 30
     : 30;
   const cutoff = now - windowMinutes * 60_000;

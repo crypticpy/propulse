@@ -57,23 +57,23 @@ export function SdrConsoleHeader({
   const isConnected = !!connectedDeviceId;
 
   return (
-    <div className="h-10 shrink-0 bg-[#0d0d14] border-b border-white/10 px-3 flex items-center gap-2 text-gray-300 select-none">
+    <div className="su-fixed-dark h-10 shrink-0 bg-[#0d0d14] border-b border-su-line/40 px-3 flex items-center gap-2 text-su-muted select-none">
       {/* Title */}
       {!isMobile && (
-        <h2 className="text-sm font-semibold text-white whitespace-nowrap mr-1">
+        <h2 className="text-sm font-semibold text-su-text whitespace-nowrap mr-1">
           SDR Console
         </h2>
       )}
 
       {/* Separator */}
-      {!isMobile && <div className="w-px h-5 bg-white/10 shrink-0" />}
+      {!isMobile && <div className="w-px h-5 bg-su-line/20 shrink-0" />}
 
       {/* Device dropdown */}
       <select
         value={selectedDeviceId ?? ""}
         onChange={(e) => onDeviceSelect(e.target.value || null)}
         disabled={!daemonConnected || devices.length === 0 || isConnected}
-        className="px-2 py-1 bg-black/40 border border-white/10 rounded text-[11px] text-gray-200 max-w-[180px] truncate disabled:opacity-40 disabled:cursor-not-allowed"
+        className="px-2 py-1 bg-su-input border border-su-line/40 rounded text-[11px] text-su-text max-w-[180px] truncate disabled:opacity-40 disabled:cursor-not-allowed"
       >
         {devices.length === 0 ? (
           <option value="">No devices</option>
@@ -101,7 +101,7 @@ export function SdrConsoleHeader({
           type="button"
           onClick={onConnectRadio}
           disabled={!canControlDevice || isConnected}
-          className="px-2 py-0.5 text-[10px] font-semibold rounded bg-white/5 border border-white/10 text-gray-200 hover:bg-white/10 disabled:opacity-40 disabled:cursor-not-allowed whitespace-nowrap"
+          className="px-2 py-0.5 text-[10px] font-semibold rounded bg-su-line/10 border border-su-line/40 text-su-text hover:bg-su-line/20 disabled:opacity-40 disabled:cursor-not-allowed whitespace-nowrap"
         >
           Connect
         </button>
@@ -115,10 +115,10 @@ export function SdrConsoleHeader({
               ? "bg-signal-green shadow-[0_0_4px_theme(colors.signal-green)]"
               : daemonConnecting
                 ? "bg-caution-amber animate-pulse"
-                : "bg-gray-600"
+                : "bg-su-line"
           }`}
         />
-        <span className="text-[11px] text-gray-400 truncate max-w-[120px]">
+        <span className="text-[11px] text-su-muted truncate max-w-[120px]">
           {daemonConnected
             ? (radioName ?? "Connected")
             : daemonConnecting
@@ -128,20 +128,20 @@ export function SdrConsoleHeader({
       </div>
 
       {/* Separator */}
-      <div className="w-px h-5 bg-white/10 shrink-0" />
+      <div className="w-px h-5 bg-su-line/20 shrink-0" />
 
       {/* Daemon button */}
       <button
         type="button"
         onClick={onOpenDevicePicker}
-        className="px-2 py-0.5 rounded text-[10px] font-medium bg-white/5 border border-white/10 text-gray-300 hover:bg-white/10 whitespace-nowrap"
+        className="px-2 py-0.5 rounded text-[10px] font-medium bg-su-line/10 border border-su-line/40 text-su-muted hover:bg-su-line/20 whitespace-nowrap"
       >
         Daemon
       </button>
 
       {/* Daemon URL */}
       {!isMobile && (
-        <span className="text-[10px] text-gray-500 font-mono truncate max-w-[160px]">
+        <span className="text-[10px] text-su-muted font-mono truncate max-w-[160px]">
           {daemonUrl}
         </span>
       )}
@@ -150,7 +150,7 @@ export function SdrConsoleHeader({
       {!isMobile && (
         <Link
           to="/setup"
-          className="text-[10px] text-gray-500 hover:text-gray-300 shrink-0"
+          className="text-[10px] text-su-muted hover:text-su-text shrink-0"
         >
           Setup
         </Link>
@@ -170,7 +170,7 @@ export function SdrConsoleHeader({
       <button
         type="button"
         onClick={onOpenSdrSettings}
-        className="p-1.5 rounded text-gray-400 hover:text-white hover:bg-white/5 transition-colors"
+        className="p-1.5 rounded text-su-muted hover:text-su-text hover:bg-su-line/10 transition-colors"
         title="SDR Settings"
       >
         <svg

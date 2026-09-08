@@ -3,7 +3,7 @@
  *
  * Everything here is deterministic and I/O-free so it can be unit tested
  * with `node --test`. The runner (scripts/eval-forecast.mjs) fetches
- * forecast_snapshots + band_hourly_stats and feeds them in.
+ * forecast_snapshots + gap-filtered band_hourly_stats_readable and feeds them in.
  *
  * Definitions (documented in every report):
  * - Outcome: band b is "open" at hour h iff spot_count >= threshold(b, hod)
@@ -384,7 +384,7 @@ export function renderReport(results, meta) {
   lines.push("");
   lines.push(
     `Generated ${meta.generatedAt} by \`npm run eval:forecast\` (M4 F2). ` +
-      `Scores \`forecast_snapshots\` against \`band_hourly_stats\` ground truth.`,
+      `Scores \`forecast_snapshots\` against gap-filtered \`band_hourly_stats_readable\` ground truth.`,
   );
   lines.push("");
   lines.push("## Data coverage");

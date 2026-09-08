@@ -31,7 +31,7 @@ const ACTION_SHORTCUTS = [
 ] as const;
 
 const KBD_CLASS =
-  "bg-white/[0.06] border border-white/15 rounded-md px-2 py-0.5 text-xs font-mono text-gray-200 leading-tight min-w-[24px] text-center shadow-[0_1px_0_rgba(255,255,255,0.05)]";
+  "bg-su-line/20 border border-su-line/50 rounded-md px-2 py-0.5 text-xs font-mono text-su-text leading-tight min-w-[24px] text-center shadow-[0_1px_0_rgba(255,255,255,0.05)]";
 
 function ShortcutRow({
   shortcut,
@@ -43,14 +43,14 @@ function ShortcutRow({
   return (
     <div
       className={`flex items-center justify-between py-2.5 ${
-        !isLast ? "border-b border-white/5" : ""
+        !isLast ? "border-b border-su-line/20" : ""
       }`}
     >
-      <span className="text-sm text-gray-300">{shortcut.description}</span>
+      <span className="text-sm text-su-muted">{shortcut.description}</span>
       <div className="flex items-center gap-1.5">
         {shortcut.keys.map((key, j) => (
           <span key={j} className="flex items-center gap-1">
-            {j > 0 && <span className="text-[10px] text-gray-400">or</span>}
+            {j > 0 && <span className="text-[10px] text-su-muted">or</span>}
             <kbd className={KBD_CLASS}>{key}</kbd>
           </span>
         ))}
@@ -102,21 +102,21 @@ export function NCSKeyboardHints({ onClose }: NCSKeyboardHintsProps) {
 
       {/* Card */}
       <div
-        className="relative z-10 w-full max-w-sm bg-deep-space border border-white/10 rounded-2xl p-6 shadow-2xl animate-in zoom-in-95"
+        className="relative z-10 w-full max-w-sm bg-deep-space border border-su-line/40 rounded-2xl p-6 shadow-2xl animate-in zoom-in-95"
         onClick={handleCardClick}
       >
         {/* Header */}
         <div className="flex items-center justify-between mb-4">
           <h2
             id="ncs-keyboard-hints-title"
-            className="text-sm font-orbitron font-bold text-white uppercase tracking-wider"
+            className="text-sm font-orbitron font-bold text-su-text uppercase tracking-wider"
           >
             Keyboard Shortcuts
           </h2>
           <button
             type="button"
             onClick={onClose}
-            className="p-1 rounded-lg text-gray-400 hover:text-white hover:bg-white/10 transition-colors focus-visible:ring-2 focus-visible:ring-plasma-orange/50"
+            className="p-1 rounded-lg text-su-muted hover:text-su-text hover:bg-su-line/20 transition-colors focus-visible:ring-2 focus-visible:ring-plasma-orange/50"
             aria-label="Close keyboard shortcuts"
           >
             <svg
@@ -148,7 +148,7 @@ export function NCSKeyboardHints({ onClose }: NCSKeyboardHintsProps) {
 
           {/* Section divider */}
           <div className="pt-2 pb-1">
-            <span className="text-[10px] uppercase tracking-widest text-gray-400 font-medium">
+            <span className="text-[10px] uppercase tracking-widest text-su-muted font-medium">
               Actions
             </span>
           </div>

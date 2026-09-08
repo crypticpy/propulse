@@ -278,7 +278,7 @@ export function PassphrasePrompt({
         ref={modalRef}
         className={`
           relative z-10 w-full max-w-md p-6
-          !bg-black/85 !backdrop-blur-md border border-white/15
+          !bg-su-panel/80 !backdrop-blur-md border border-su-line/50
           animate-fade-in-up
           ${shaking ? "animate-shake" : ""}
         `}
@@ -312,7 +312,7 @@ export function PassphrasePrompt({
                 ? "Secure Your Credentials"
                 : "Unlock Credentials"}
             </h2>
-            <p className="text-xs text-gray-400 mt-0.5">
+            <p className="text-xs text-su-muted mt-0.5">
               {mode === "setup"
                 ? "This passphrase encrypts your service credentials"
                 : "Enter your passphrase to access saved credentials"}
@@ -322,7 +322,7 @@ export function PassphrasePrompt({
           {/* Close button */}
           <button
             onClick={onClose}
-            className="flex-shrink-0 p-2 text-gray-400 hover:text-white hover:bg-white/10 rounded-lg transition-colors"
+            className="flex-shrink-0 p-2 text-su-muted hover:text-su-text hover:bg-su-line/20 rounded-lg transition-colors"
             aria-label="Close"
             type="button"
           >
@@ -348,7 +348,7 @@ export function PassphrasePrompt({
           <div>
             <label
               htmlFor="passphrase-input"
-              className="block text-sm font-medium text-gray-300 mb-1.5"
+              className="block text-sm font-medium text-su-muted mb-1.5"
             >
               Passphrase
             </label>
@@ -362,8 +362,8 @@ export function PassphrasePrompt({
                   setPassphrase(e.target.value);
                   setError(null);
                 }}
-                className="w-full px-3 py-2.5 pr-10 rounded-lg bg-white/5 border border-white/10
-                  text-white placeholder-gray-500 text-sm
+                className="w-full px-3 py-2.5 pr-10 rounded-lg bg-su-line/10 border border-su-line/40
+                  text-su-text placeholder:text-su-muted/80 text-sm
                   focus:outline-none focus:border-plasma-orange/50 focus:ring-1 focus:ring-plasma-orange/30
                   transition-colors"
                 placeholder={
@@ -377,7 +377,7 @@ export function PassphrasePrompt({
               <button
                 type="button"
                 onClick={() => setShowPassphrase(!showPassphrase)}
-                className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-gray-400 hover:text-white transition-colors"
+                className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-su-muted hover:text-su-text transition-colors"
                 aria-label={
                   showPassphrase ? "Hide passphrase" : "Show passphrase"
                 }
@@ -398,7 +398,7 @@ export function PassphrasePrompt({
                     className={`flex-1 rounded-full transition-colors duration-300 ${
                       i < strength.score
                         ? strengthColors[strength.level]
-                        : "bg-white/10"
+                        : "bg-su-line/20"
                     }`}
                   />
                 ))}
@@ -416,7 +416,7 @@ export function PassphrasePrompt({
             <div>
               <label
                 htmlFor="confirm-passphrase"
-                className="block text-sm font-medium text-gray-300 mb-1.5"
+                className="block text-sm font-medium text-su-muted mb-1.5"
               >
                 Confirm Passphrase
               </label>
@@ -426,13 +426,13 @@ export function PassphrasePrompt({
                   type={showConfirm ? "text" : "password"}
                   value={confirmPassphrase}
                   onChange={(e) => setConfirmPassphrase(e.target.value)}
-                  className={`w-full px-3 py-2.5 pr-10 rounded-lg bg-white/5 border text-sm
-                    text-white placeholder-gray-500
+                  className={`w-full px-3 py-2.5 pr-10 rounded-lg bg-su-line/10 border text-sm
+                    text-su-text placeholder:text-su-muted/80
                     focus:outline-none focus:border-plasma-orange/50 focus:ring-1 focus:ring-plasma-orange/30
                     transition-colors ${
                       confirmPassphrase.length > 0 && !passwordsMatch
                         ? "border-red-500/50"
-                        : "border-white/10"
+                        : "border-su-line/40"
                     }`}
                   placeholder="Re-enter your passphrase..."
                   autoComplete="off"
@@ -441,7 +441,7 @@ export function PassphrasePrompt({
                 <button
                   type="button"
                   onClick={() => setShowConfirm(!showConfirm)}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-gray-400 hover:text-white transition-colors"
+                  className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-su-muted hover:text-su-text transition-colors"
                   aria-label={
                     showConfirm ? "Hide passphrase" : "Show passphrase"
                   }
@@ -485,10 +485,10 @@ export function PassphrasePrompt({
                 type="checkbox"
                 checked
                 readOnly
-                className="w-3.5 h-3.5 rounded border-white/20 bg-white/5 text-plasma-orange
+                className="w-3.5 h-3.5 rounded border-su-line/50 bg-su-line/10 text-plasma-orange
                   focus:ring-plasma-orange/30 focus:ring-offset-0"
               />
-              <span className="text-xs text-gray-400">
+              <span className="text-xs text-su-muted">
                 Remember for this session
               </span>
             </label>
@@ -536,12 +536,12 @@ export function PassphrasePrompt({
 
         {/* Forgot passphrase (unlock mode only) */}
         {mode === "unlock" && (
-          <div className="mt-4 pt-4 border-t border-white/5">
+          <div className="mt-4 pt-4 border-t border-su-line/20">
             {!showForgotConfirm ? (
               <button
                 type="button"
                 onClick={handleForgotPassphrase}
-                className="text-xs text-gray-500 hover:text-gray-300 transition-colors"
+                className="text-xs text-su-muted hover:text-su-text transition-colors"
                 disabled={loading}
               >
                 Forgot passphrase? You&apos;ll need to re-enter your service
@@ -566,8 +566,8 @@ export function PassphrasePrompt({
                   <button
                     type="button"
                     onClick={() => setShowForgotConfirm(false)}
-                    className="px-3 py-1.5 rounded text-xs font-medium bg-white/5 text-gray-400
-                      hover:bg-white/10 transition-colors"
+                    className="px-3 py-1.5 rounded text-xs font-medium bg-su-line/10 text-su-muted
+                      hover:bg-su-line/20 transition-colors"
                     disabled={loading}
                   >
                     Cancel

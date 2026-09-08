@@ -281,7 +281,7 @@ export function Contest() {
                   tooltip="Learn more about Contest mode"
                 />
               </div>
-              <p className="text-gray-400 text-sm">No active contest session</p>
+              <p className="text-su-muted text-sm">No active contest session</p>
             </div>
           </div>
 
@@ -304,17 +304,17 @@ export function Contest() {
                 </svg>
               </div>
               <div>
-                <h2 className="text-xl font-orbitron font-bold text-white mb-2">
+                <h2 className="text-xl font-orbitron font-bold text-su-text mb-2">
                   No Contest Active
                 </h2>
-                <p className="text-gray-400 max-w-md mx-auto">
+                <p className="text-su-muted max-w-md mx-auto">
                   Start a contest session to begin logging QSOs with live
                   scoring, multiplier tracking, and rate calculations.
                 </p>
               </div>
               <button
                 onClick={() => setShowConfigModal(true)}
-                className="px-8 py-3 bg-plasma-orange text-deep-space font-bold rounded-lg
+                className="px-8 py-3 bg-plasma-orange text-su-on-accent font-bold rounded-lg
                            hover:bg-plasma-orange/90 shadow-[0_0_20px_rgba(255,170,0,0.3)]
                            transition-all duration-200"
               >
@@ -355,7 +355,7 @@ export function Contest() {
                 tooltip="Learn more about Contest mode"
               />
             </div>
-            <p className="text-gray-400 text-sm">{contestName}</p>
+            <p className="text-su-muted text-sm">{contestName}</p>
           </div>
 
           <div className="flex items-center gap-3">
@@ -371,7 +371,7 @@ export function Contest() {
             )}
 
             {/* Band/Mode quick-select display */}
-            <div className="flex items-center gap-2 px-3 py-1.5 bg-nebula-blue rounded-lg border border-white/10">
+            <div className="flex items-center gap-2 px-3 py-1.5 bg-nebula-blue rounded-lg border border-su-line/40">
               {catActive && (
                 <span className="px-1.5 py-0.5 text-[10px] font-bold rounded bg-signal-green/20 text-signal-green border border-signal-green/30">
                   CAT
@@ -393,15 +393,15 @@ export function Contest() {
                   </option>
                 ))}
               </select>
-              <span className="text-gray-500">/</span>
+              <span className="text-su-muted">/</span>
               <select
                 value={currentMode}
                 onChange={(e) => setCurrentMode(e.target.value)}
                 disabled={catActive}
                 className={`bg-transparent font-mono text-sm focus:outline-none ${
                   catActive
-                    ? "text-white/70 cursor-not-allowed"
-                    : "text-white cursor-pointer"
+                    ? "text-su-text/70 cursor-not-allowed"
+                    : "text-su-text cursor-pointer"
                 }`}
               >
                 <option value="CW" className="bg-deep-space">
@@ -421,8 +421,8 @@ export function Contest() {
 
             <button
               onClick={() => setShowCabrilloExport(true)}
-              className="px-4 py-2 bg-white/5 border border-white/10 rounded-lg
-                         text-gray-300 hover:text-white hover:bg-white/10
+              className="px-4 py-2 bg-su-line/10 border border-su-line/40 rounded-lg
+                         text-su-muted hover:text-su-text hover:bg-su-line/20
                          transition-colors flex items-center gap-2 font-medium"
             >
               <svg
@@ -529,22 +529,22 @@ export function Contest() {
         {qsoCount > 0 && <ContestScoreShare />}
 
         {/* Keyboard shortcuts hint */}
-        <div className="text-xs text-gray-500 flex flex-wrap items-center gap-4 justify-center">
+        <div className="text-xs text-su-muted flex flex-wrap items-center gap-4 justify-center">
           <span>
-            <kbd className="px-1 py-0.5 bg-white/10 rounded">Enter</kbd> Log
+            <kbd className="px-1 py-0.5 bg-su-line/20 rounded">Enter</kbd> Log
           </span>
           <span>
-            <kbd className="px-1 py-0.5 bg-white/10 rounded">Esc</kbd> Clear
+            <kbd className="px-1 py-0.5 bg-su-line/20 rounded">Esc</kbd> Clear
           </span>
           <span>
-            <kbd className="px-1 py-0.5 bg-white/10 rounded">Ctrl+Z</kbd> Undo
+            <kbd className="px-1 py-0.5 bg-su-line/20 rounded">Ctrl+Z</kbd> Undo
           </span>
           <span>
-            <kbd className="px-1 py-0.5 bg-white/10 rounded">Ctrl+E</kbd> Edit
+            <kbd className="px-1 py-0.5 bg-su-line/20 rounded">Ctrl+E</kbd> Edit
             Last
           </span>
           <span>
-            <kbd className="px-1 py-0.5 bg-white/10 rounded">Alt+1-9</kbd> Band
+            <kbd className="px-1 py-0.5 bg-su-line/20 rounded">Alt+1-9</kbd> Band
           </span>
         </div>
       </div>
@@ -556,7 +556,11 @@ export function Contest() {
             className="absolute inset-0 bg-black/60 backdrop-blur-sm"
             onClick={() => setShowEndConfirm(false)}
           />
-          <Card className="relative z-10 w-full max-w-md p-6" animate>
+          <Card
+            surface="dialog"
+            className="relative z-10 w-full max-w-md p-6"
+            animate
+          >
             <div className="text-center space-y-4">
               <div className="w-16 h-16 mx-auto rounded-full bg-alert-red/20 flex items-center justify-center">
                 <svg
@@ -573,12 +577,12 @@ export function Contest() {
                   />
                 </svg>
               </div>
-              <h3 className="text-lg font-orbitron font-bold text-white">
+              <h3 className="text-lg font-orbitron font-bold text-su-text">
                 End Contest Session?
               </h3>
-              <p className="text-gray-400 text-sm">
+              <p className="text-su-muted text-sm">
                 This will end your current contest session with{" "}
-                <span className="text-white font-bold">{qsoCount}</span> QSOs
+                <span className="text-su-text font-bold">{qsoCount}</span> QSOs
                 and a score of{" "}
                 <span className="text-plasma-orange font-bold">
                   {totalScore.toLocaleString()}
@@ -588,8 +592,8 @@ export function Contest() {
               <div className="flex gap-3 pt-2">
                 <button
                   onClick={() => setShowEndConfirm(false)}
-                  className="flex-1 px-4 py-2 bg-nebula-blue border border-white/10 rounded-lg
-                             text-gray-300 hover:text-white hover:border-white/20
+                  className="flex-1 px-4 py-2 bg-nebula-blue border border-su-line/40 rounded-lg
+                             text-su-muted hover:text-su-text hover:border-su-line/50
                              transition-colors font-medium"
                 >
                   Cancel

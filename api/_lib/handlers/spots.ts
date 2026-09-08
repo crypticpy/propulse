@@ -1,6 +1,6 @@
 /** DX Cluster UI feed backed by the central collector store. */
 
-import { parseSpotWindow } from "../spotWindow.js";
+import { parseClusterWindow, parseSpotWindow } from "../spotWindow.js";
 import { applyRateLimit } from "../rateLimit.js";
 import {
   spotCacheHeaders,
@@ -24,9 +24,9 @@ export async function handleSpotsDxcluster(req: Request): Promise<Response> {
   if (limited) return limited;
 
   const url = new URL(req.url);
-  const windowMinutes = parseSpotWindow(url.searchParams.get("windowMinutes"));
+  const windowMinutes = parseClusterWindow(url.searchParams.get("windowMinutes"));
   if (windowMinutes === null || url.searchParams.getAll("windowMinutes").length > 1) {
-    return spotJsonResponse({ error: "windowMinutes must be 15, 30 or 60", spots: [] }, 400, {
+    return spotJsonResponse({ error: "windowMinutes must be 15, 30, 60 or 120", spots: [] }, 400, {
       "Cache-Control": "no-store",
     });
   }

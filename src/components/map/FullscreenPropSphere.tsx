@@ -756,8 +756,8 @@ export function FullscreenPropSphere({
                 key={panelId}
                 onClick={() => toggleProPanelCollapse(panelId)}
                 aria-label={`Expand ${PANEL_LABELS[panelId] ?? panelId} panel`}
-                className={`w-8 shrink-0 bg-black/80 backdrop-blur-md border border-white/25 shadow-lg shadow-black/40
-                  hover:bg-white/15 hover:border-cyan-400/40 hover:shadow-cyan-400/20
+                className={`w-8 shrink-0 bg-su-panel/80 backdrop-blur-md border border-su-line/60 shadow-lg shadow-black/40
+                  hover:bg-su-line/30 hover:border-cyan-400/40 hover:shadow-cyan-400/20
                   focus-visible:ring-2 focus-visible:ring-cyan-400/50
                   transition-all duration-200 pointer-events-auto
                   flex flex-col items-center gap-2 py-3
@@ -769,7 +769,7 @@ export function FullscreenPropSphere({
                   {PANEL_ICONS[panelId] ?? null}
                 </span>
                 <span
-                  className="text-[9px] font-semibold text-white/70 whitespace-nowrap tracking-wide"
+                  className="text-[9px] font-semibold text-su-text/70 whitespace-nowrap tracking-wide"
                   style={{
                     writingMode: "vertical-rl",
                     textOrientation: "mixed",
@@ -797,12 +797,12 @@ export function FullscreenPropSphere({
             transition-opacity duration-300
             ${!showTopBar ? "opacity-100" : "opacity-0 pointer-events-none"}`}
         >
-          <div className="bg-black/50 backdrop-blur-md border border-white/10 rounded-xl px-5 py-3 flex items-center gap-4">
-            <span className="font-mono text-lg text-white/90 tracking-wider tabular-nums">
+          <div className="bg-su-panel/90 backdrop-blur-md border border-su-line/40 rounded-xl px-5 py-3 flex items-center gap-4">
+            <span className="font-mono text-lg text-su-text/90 tracking-wider tabular-nums">
               {utcString}
-              <span className="text-[10px] text-white/40 ml-1.5">UTC</span>
+              <span className="text-[10px] text-su-text/80 ml-1.5">UTC</span>
             </span>
-            <div className="w-px h-5 bg-white/15" />
+            <div className="w-px h-5 bg-su-line/30" />
             <WatchStatusPill />
           </div>
         </div>

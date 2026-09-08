@@ -174,7 +174,7 @@ export function ClusterPulseCard({
     <Card
       className={`
         relative min-w-[280px]
-        ${onClick ? "cursor-pointer hover:border-white/30 hover:bg-white/[0.05] group" : ""}
+        ${onClick ? "cursor-pointer hover:border-su-line/60 hover:bg-su-line/10 group" : ""}
         ${className}
       `}
       onClick={onClick}
@@ -184,7 +184,7 @@ export function ClusterPulseCard({
     >
       {/* Hover-reveal expand icon */}
       {onClick && (
-        <div className="absolute top-2 right-2 text-gray-400 opacity-0 group-hover:opacity-100 transition-opacity">
+        <div className="absolute top-2 right-2 text-su-muted opacity-0 group-hover:opacity-100 transition-opacity">
           <ExpandIcon />
         </div>
       )}
@@ -192,7 +192,7 @@ export function ClusterPulseCard({
       {/* Header */}
       <div className="flex items-center gap-1.5 mb-2">
         <PulseIcon className="w-3.5 h-3.5 text-signal-green" />
-        <span className="text-[10px] font-medium text-gray-400 uppercase tracking-wide">
+        <span className="text-[10px] font-medium text-su-muted uppercase tracking-wide">
           Cluster Pulse
         </span>
       </div>
@@ -200,7 +200,7 @@ export function ClusterPulseCard({
       {/* Content */}
       {metrics === null ? (
         <div className="flex items-center justify-center py-6">
-          <span className="text-sm text-gray-400">Waiting for spots...</span>
+          <span className="text-sm text-su-muted">Waiting for spots...</span>
         </div>
       ) : (
         <>
@@ -212,13 +212,13 @@ export function ClusterPulseCard({
               >
                 {metrics.rate.toFixed(1)}
               </span>
-              <span className="text-[11px] text-gray-400 uppercase mt-1">
+              <span className="text-[11px] text-su-muted uppercase mt-1">
                 /min
               </span>
             </div>
 
             {/* Divider */}
-            <div className="w-px h-10 bg-white/10" />
+            <div className="w-px h-10 bg-su-line/20" />
 
             {/* Age (median freshness) */}
             <div className="flex flex-col items-center">
@@ -226,27 +226,27 @@ export function ClusterPulseCard({
                 {metrics.medianAge}
                 <span className="text-lg">m</span>
               </span>
-              <span className="text-[11px] text-gray-400 uppercase mt-1">
+              <span className="text-[11px] text-su-muted uppercase mt-1">
                 Age
               </span>
             </div>
 
             {/* Divider */}
-            <div className="w-px h-10 bg-white/10" />
+            <div className="w-px h-10 bg-su-line/20" />
 
             {/* Peak band */}
             <div className="flex flex-col items-center">
               <span className="text-4xl font-bold font-mono text-plasma-orange leading-none">
                 {metrics.peakBand}
               </span>
-              <span className="text-[11px] text-gray-400 uppercase mt-1">
+              <span className="text-[11px] text-su-muted uppercase mt-1">
                 Peak
               </span>
             </div>
           </div>
 
           {/* Explainer */}
-          <div className="mt-2 pt-2 border-t border-white/10 text-[10px] text-gray-500 leading-relaxed">
+          <div className="mt-2 pt-2 border-t border-su-line/40 text-[10px] text-su-muted leading-relaxed">
             Spot rate, median freshness & most active band from the DX cluster.
             Data via HamQTH.
           </div>

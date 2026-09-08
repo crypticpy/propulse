@@ -55,7 +55,7 @@ export function ProfileCompletenessRing({
         </svg>
         {/* Centered percentage text */}
         <div className="absolute inset-0 flex items-center justify-center">
-          <span className="text-lg font-bold text-white">{score}%</span>
+          <span className="text-lg font-bold text-su-text">{score}%</span>
         </div>
       </div>
       <span className={`text-xs font-medium ${tierColor}`}>{tier}</span>

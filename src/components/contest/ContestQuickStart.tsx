@@ -36,16 +36,16 @@ function Section({
   const [open, setOpen] = useState(defaultOpen);
 
   return (
-    <div className="border-b border-white/5 last:border-b-0">
+    <div className="border-b border-su-line/20 last:border-b-0">
       <button
         type="button"
-        className="flex items-center justify-between w-full py-2.5 text-left text-sm font-medium text-white hover:text-plasma-orange transition-colors"
+        className="flex items-center justify-between w-full py-2.5 text-left text-sm font-medium text-su-text hover:text-plasma-orange transition-colors"
         onClick={() => setOpen(!open)}
         aria-expanded={open}
       >
         <span>{title}</span>
         <svg
-          className={`w-4 h-4 text-gray-500 transition-transform ${open ? "rotate-180" : ""}`}
+          className={`w-4 h-4 text-su-muted transition-transform ${open ? "rotate-180" : ""}`}
           fill="none"
           viewBox="0 0 24 24"
           stroke="currentColor"
@@ -59,7 +59,7 @@ function Section({
         </svg>
       </button>
       {open && (
-        <div className="pb-3 text-sm text-gray-300 leading-relaxed">
+        <div className="pb-3 text-sm text-su-muted leading-relaxed">
           {children}
         </div>
       )}
@@ -80,9 +80,9 @@ export function ContestQuickStart({
 
   return (
     <div
-      className={`rounded-xl border border-white/5 bg-panel p-4 ${className}`}
+      className={`rounded-xl border border-su-line/20 bg-panel p-4 ${className}`}
     >
-      <h3 className="text-sm font-semibold text-white mb-2">
+      <h3 className="text-sm font-semibold text-su-text mb-2">
         Quick-Start Guide
       </h3>
 

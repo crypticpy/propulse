@@ -60,7 +60,7 @@ export function NetSessionHistory({
   if (pastSessions.length === 0) {
     return (
       <div className="text-center py-8">
-        <p className="text-gray-500 text-sm">No past sessions recorded yet.</p>
+        <p className="text-su-muted text-sm">No past sessions recorded yet.</p>
       </div>
     );
   }
@@ -73,10 +73,10 @@ export function NetSessionHistory({
 
         return (
           <div key={session.id} className="space-y-0">
-            <div className="flex items-center gap-3 px-3 py-2.5 rounded-xl bg-white/[0.02] hover:bg-white/[0.04] transition-colors">
+            <div className="flex items-center gap-3 px-3 py-2.5 rounded-xl bg-su-line/10 hover:bg-su-line/20 transition-colors">
               {/* Date */}
               <div className="min-w-[90px]">
-                <span className="text-xs text-gray-400">
+                <span className="text-xs text-su-muted">
                   {formatDate(session.startedAt)}
                 </span>
               </div>
@@ -90,13 +90,13 @@ export function NetSessionHistory({
 
               {/* Duration */}
               <div className="flex-1">
-                <span className="text-xs text-gray-500">
+                <span className="text-xs text-su-muted">
                   {computeDuration(session.startedAt, session.endedAt)}
                 </span>
               </div>
 
               {/* Check-in count */}
-              <div className="flex items-center gap-1 text-[11px] text-gray-500">
+              <div className="flex items-center gap-1 text-[11px] text-su-muted">
                 <svg
                   className="w-3 h-3"
                   fill="none"
@@ -121,7 +121,7 @@ export function NetSessionHistory({
                     onExportSession(session.id);
                   }}
                   title="Export ADIF"
-                  className="p-1 text-gray-500 hover:text-plasma-orange transition-colors rounded"
+                  className="p-1 text-su-muted hover:text-plasma-orange transition-colors rounded"
                 >
                   <svg
                     className="w-3.5 h-3.5"
@@ -157,7 +157,7 @@ export function NetSessionHistory({
                   className={`px-2 py-0.5 text-[10px] font-medium rounded-md border transition-colors ${
                     isExpanded
                       ? "bg-nebula-blue/20 text-nebula-blue border-nebula-blue/30"
-                      : "bg-white/5 text-gray-500 border-white/10 hover:bg-white/10 hover:text-gray-300"
+                      : "bg-su-line/10 text-su-muted border-su-line/40 hover:bg-su-line/20 hover:text-su-text"
                   }`}
                 >
                   Summary

@@ -106,17 +106,17 @@ export function AwardProgressRing({
 
         {/* Centered text overlay */}
         <div className="absolute inset-0 flex flex-col items-center justify-center">
-          <span className="text-lg font-bold text-white leading-none">
+          <span className="text-lg font-bold text-su-text leading-none">
             {confirmed}
           </span>
-          <span className="text-[10px] text-gray-400 leading-none mt-0.5">
+          <span className="text-[10px] text-su-muted leading-none mt-0.5">
             / {total}
           </span>
         </div>
       </div>
 
       {/* Label below ring */}
-      <span className="text-xs font-semibold tracking-wider text-gray-300 uppercase">
+      <span className="text-xs font-semibold tracking-wider text-su-muted uppercase">
         {label}
       </span>
     </div>

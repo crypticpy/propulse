@@ -2,7 +2,7 @@
  * ProPulse Bridge — CAT (Computer Aided Transceiver) Control
  *
  * Supports two backends:
- *   1. Hamlib rigctld  — TCP text protocol on port 4533
+ *   1. Hamlib rigctld  — TCP text protocol on port 4532
  *   2. Flrig           — XML-RPC over HTTP on port 12345
  *
  * Auto-detects which backend is available at startup, then polls
@@ -30,7 +30,7 @@ export type RigBackend =
 export interface RigControllerConfig {
   /** Hamlib rigctld host (default 127.0.0.1) */
   hamlibHost?: string;
-  /** Hamlib rigctld port (default 4533 — matches WFView's default) */
+  /** Hamlib rigctld port (default 4532; set 4533 explicitly for a WFView listener) */
   hamlibPort?: number;
   /** Flrig host (default 127.0.0.1) */
   flrigHost?: string;
@@ -607,7 +607,7 @@ export class RigController {
   constructor(config?: RigControllerConfig) {
     this.config = {
       hamlibHost: config?.hamlibHost ?? "127.0.0.1",
-      hamlibPort: config?.hamlibPort ?? 4533,
+      hamlibPort: config?.hamlibPort ?? 4532,
       flrigHost: config?.flrigHost ?? "127.0.0.1",
       flrigPort: config?.flrigPort ?? 12345,
       pollInterval: config?.pollInterval ?? 200,

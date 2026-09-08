@@ -342,7 +342,7 @@ function BackfaceLabel({
       <div
         ref={divRef}
         className={`${fontSize} font-medium whitespace-nowrap px-1 py-0.5
-                    text-white/90 bg-black/40 rounded`}
+                    text-su-text/90 bg-su-input/50 rounded`}
         style={{
           textShadow: "0 1px 2px rgba(0,0,0,0.9)",
         }}

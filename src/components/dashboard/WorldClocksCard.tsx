@@ -75,18 +75,18 @@ function ClockRow({
     <div className="flex items-center justify-between gap-2 py-1.5">
       <div className="flex items-center gap-1.5 min-w-0">
         <span
-          className={`w-1.5 h-1.5 rounded-full shrink-0 ${day ? "bg-yellow-300" : "bg-nebula-blue"}`}
+          className={`w-1.5 h-1.5 rounded-full shrink-0 ${day ? "bg-yellow-300" : "bg-su-info"}`}
           aria-label={day ? "Daytime" : "Nighttime"}
         />
-        <span className="text-sm text-white truncate">{city.city}</span>
+        <span className="text-sm text-su-text truncate">{city.city}</span>
         {offset && (
-          <span className="text-[10px] text-gray-500 font-mono shrink-0">
+          <span className="text-sm text-su-muted/80 font-mono shrink-0">
             {offset}
           </span>
         )}
       </div>
       <div className="flex items-center gap-2 shrink-0">
-        <span className="text-sm font-mono tabular-nums text-gray-200">
+        <span className="text-sm font-mono tabular-nums text-su-text">
           {time}
         </span>
         {editing && (
@@ -95,7 +95,7 @@ function ClockRow({
               type="button"
               onClick={() => onMove(-1)}
               disabled={isFirst}
-              className="text-gray-400 hover:text-white disabled:opacity-30 px-1"
+              className="text-su-muted hover:text-su-text disabled:opacity-30 px-1"
               aria-label={`Move ${city.city} up`}
             >
               ▲
@@ -104,7 +104,7 @@ function ClockRow({
               type="button"
               onClick={() => onMove(1)}
               disabled={isLast}
-              className="text-gray-400 hover:text-white disabled:opacity-30 px-1"
+              className="text-su-muted hover:text-su-text disabled:opacity-30 px-1"
               aria-label={`Move ${city.city} down`}
             >
               ▼
@@ -112,7 +112,7 @@ function ClockRow({
             <button
               type="button"
               onClick={onRemove}
-              className="text-gray-400 hover:text-alert-red px-1"
+              className="text-su-muted hover:text-su-danger px-1"
               aria-label={`Remove ${city.city}`}
             >
               ✕
@@ -156,26 +156,26 @@ export function WorldClocksCard({ className = "" }: WorldClocksCardProps) {
   return (
     <Card className={className} role="region" aria-label="World clocks">
       <div className="flex items-center justify-between mb-2">
-        <span className="text-[10px] font-medium text-gray-400 uppercase tracking-wide">
+        <span className="text-sm font-medium text-su-muted uppercase tracking-wide">
           World Clocks
         </span>
         <button
           type="button"
           onClick={() => setEditing((prev) => !prev)}
-          className="text-[10px] text-gray-400 hover:text-white uppercase tracking-wide"
+          className="text-sm text-su-muted hover:text-su-text uppercase tracking-wide"
         >
           {editing ? "Done" : "Edit"}
         </button>
       </div>
 
-      <div className="flex items-center justify-between gap-2 py-1.5 border-b border-white/10 mb-1">
-        <span className="text-sm text-white">UTC</span>
-        <span className="text-sm font-mono tabular-nums text-gray-200">
+      <div className="flex items-center justify-between gap-2 py-1.5 border-b border-su-line/40 mb-1">
+        <span className="text-sm text-su-text">UTC</span>
+        <span className="text-sm font-mono tabular-nums text-su-text">
           {utcTime}
         </span>
       </div>
 
-      <div className="divide-y divide-white/5">
+      <div className="divide-y divide-su-line/20">
         {cities.map((city, index) => (
           <ClockRow
             key={city.id}
@@ -192,13 +192,13 @@ export function WorldClocksCard({ className = "" }: WorldClocksCardProps) {
       </div>
 
       {editing && availableCities.length > 0 && (
-        <div className="mt-2 pt-2 border-t border-white/10">
+        <div className="mt-2 pt-2 border-t border-su-line/40">
           <select
             value=""
             onChange={(e) => {
               if (e.target.value) addCity(e.target.value);
             }}
-            className="w-full text-xs bg-white/5 border border-white/10 rounded-lg px-2 py-1.5 text-gray-300"
+            className="w-full text-sm bg-su-input border border-su-line/40 rounded-lg px-2 py-1.5 text-su-muted"
             aria-label="Add city"
           >
             <option value="">Add city…</option>

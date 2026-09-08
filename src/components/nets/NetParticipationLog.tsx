@@ -32,7 +32,7 @@ function formatDate(iso: string): string {
 /** Status badge color classes keyed by CheckinStatus value. */
 const STATUS_COLORS: Record<string, string> = {
   completed: "bg-green-500/20 text-green-400 border-green-500/30",
-  skipped: "bg-gray-500/20 text-gray-400 border-gray-500/30",
+  skipped: "bg-su-line/20 text-su-muted border-su-line/30",
   had_turn: "bg-blue-500/20 text-blue-400 border-blue-500/30",
   checked_in: "bg-amber-500/20 text-amber-400 border-amber-500/30",
 };
@@ -95,7 +95,7 @@ export const NetParticipationLog: React.FC<NetParticipationLogProps> = ({
 
   if (entries.length === 0) {
     return (
-      <div className="rounded-2xl border border-white/5 bg-panel/30 p-6 text-center text-sm text-gray-400">
+      <div className="rounded-2xl border border-su-line/20 bg-panel/30 p-6 text-center text-sm text-su-muted">
         No check-ins yet. Join a net session to start building your log.
       </div>
     );
@@ -105,8 +105,8 @@ export const NetParticipationLog: React.FC<NetParticipationLogProps> = ({
 
   const header = (
     <div className="mb-3 flex items-center gap-3">
-      <h3 className="text-sm font-semibold text-gray-200">My Net Check-Ins</h3>
-      <span className="rounded-full bg-white/10 px-2 py-0.5 text-xs font-medium text-gray-400">
+      <h3 className="text-sm font-semibold text-su-text">My Net Check-Ins</h3>
+      <span className="rounded-full bg-su-line/20 px-2 py-0.5 text-xs font-medium text-su-muted">
         {entries.length}
       </span>
       {streak && streak.current > 0 && (
@@ -119,26 +119,26 @@ export const NetParticipationLog: React.FC<NetParticipationLogProps> = ({
 
   if (isMobile) {
     return (
-      <div className="rounded-2xl border border-white/5 bg-panel/30 p-4">
+      <div className="rounded-2xl border border-su-line/20 bg-panel/30 p-4">
         {header}
         <div className="max-h-80 space-y-2 overflow-y-auto">
           {entries.map((entry) => (
             <div
               key={`${entry.sessionId}-${entry.checkedInAt}`}
-              className="rounded-xl border border-white/5 bg-white/[0.03] p-3"
+              className="rounded-xl border border-su-line/20 bg-su-line/10 p-3"
             >
               <div className="mb-1 flex items-center justify-between">
-                <span className="text-xs text-gray-400">
+                <span className="text-xs text-su-muted">
                   {formatDate(entry.sessionDate)}
                 </span>
                 <StatusBadge status={entry.status} />
               </div>
               {!netId && (
-                <p className="mb-1 text-sm font-medium text-gray-200">
+                <p className="mb-1 text-sm font-medium text-su-text">
                   {entry.netName}
                 </p>
               )}
-              <p className="text-xs text-gray-500">
+              <p className="text-xs text-su-muted">
                 Queue position: #{entry.queuePosition}
               </p>
             </div>
@@ -151,11 +151,11 @@ export const NetParticipationLog: React.FC<NetParticipationLogProps> = ({
   // ── Desktop: table layout ──────────────────────────────────────────
 
   return (
-    <div className="rounded-2xl border border-white/5 bg-panel/30 p-4">
+    <div className="rounded-2xl border border-su-line/20 bg-panel/30 p-4">
       {header}
       <div className="max-h-80 overflow-y-auto">
         <table className="w-full text-left text-sm">
-          <thead className="sticky top-0 z-10 border-b border-white/10 bg-panel/80 text-xs uppercase text-gray-500 backdrop-blur">
+          <thead className="sticky top-0 z-10 border-b border-su-line/40 bg-panel/80 text-xs uppercase text-su-muted backdrop-blur">
             <tr>
               <th className="px-3 py-2 font-medium">Date</th>
               {!netId && <th className="px-3 py-2 font-medium">Net Name</th>}
@@ -163,19 +163,19 @@ export const NetParticipationLog: React.FC<NetParticipationLogProps> = ({
               <th className="px-3 py-2 font-medium">Status</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-white/5">
+          <tbody className="divide-y divide-su-line/20">
             {entries.map((entry) => (
               <tr
                 key={`${entry.sessionId}-${entry.checkedInAt}`}
-                className="transition-colors hover:bg-white/[0.02]"
+                className="transition-colors hover:bg-su-line/10"
               >
-                <td className="whitespace-nowrap px-3 py-2 text-gray-300">
+                <td className="whitespace-nowrap px-3 py-2 text-su-muted">
                   {formatDate(entry.sessionDate)}
                 </td>
                 {!netId && (
-                  <td className="px-3 py-2 text-gray-200">{entry.netName}</td>
+                  <td className="px-3 py-2 text-su-text">{entry.netName}</td>
                 )}
-                <td className="px-3 py-2 text-gray-400">
+                <td className="px-3 py-2 text-su-muted">
                   #{entry.queuePosition}
                 </td>
                 <td className="px-3 py-2">

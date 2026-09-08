@@ -306,14 +306,14 @@ export function KioskChrome() {
         <button
           onClick={() => goToScene(-1)}
           disabled={enabledScenes.length < 2}
-          className="px-3 py-1.5 rounded-lg bg-void-black/80 border border-white/15 text-gray-200 hover:bg-white/10 text-sm font-mono"
+          className="px-3 py-1.5 rounded-lg bg-void-black/80 border border-su-line/50 text-su-text hover:bg-su-line/20 text-sm font-mono"
           aria-label="Previous scene"
         >
           ‹
         </button>
         <button
           onClick={() => setPaused((p) => !p)}
-          className="px-3 py-1.5 rounded-lg bg-void-black/80 border border-white/15 text-gray-200 hover:bg-white/10 text-sm font-mono"
+          className="px-3 py-1.5 rounded-lg bg-void-black/80 border border-su-line/50 text-su-text hover:bg-su-line/20 text-sm font-mono"
           aria-label={paused ? "Resume rotation" : "Pause rotation"}
         >
           {paused ? "▶" : "❚❚"}
@@ -321,7 +321,7 @@ export function KioskChrome() {
         <button
           onClick={() => goToScene(1)}
           disabled={enabledScenes.length < 2}
-          className="px-3 py-1.5 rounded-lg bg-void-black/80 border border-white/15 text-gray-200 hover:bg-white/10 text-sm font-mono"
+          className="px-3 py-1.5 rounded-lg bg-void-black/80 border border-su-line/50 text-su-text hover:bg-su-line/20 text-sm font-mono"
           aria-label="Next scene"
         >
           ›
@@ -360,13 +360,13 @@ export function KioskChrome() {
             >
               {breakInAlert.priority} ALERT
             </div>
-            <h1 className="font-orbitron text-4xl text-white mb-4">
+            <h1 className="font-orbitron text-4xl text-su-text mb-4">
               {breakInAlert.title}
             </h1>
-            <p className="text-xl text-gray-300 mb-8">{breakInAlert.message}</p>
+            <p className="text-xl text-su-muted mb-8">{breakInAlert.message}</p>
             <button
               onClick={() => dismissAlert(breakInAlert.id)}
-              className="px-6 py-3 rounded-xl bg-white/10 border border-white/20 text-white hover:bg-white/20 font-medium"
+              className="px-6 py-3 rounded-xl bg-su-line/20 border border-su-line/50 text-su-text hover:bg-su-line/30 font-medium"
             >
               Acknowledge
             </button>
@@ -426,20 +426,20 @@ function KioskClockBar({
     <div
       data-testid="kiosk-clock-bar"
       data-scene-count={sceneCount}
-      className={`relative z-[510] flex items-center justify-between bg-void-black/70 backdrop-blur border-b border-white/10 select-none ${HEADER_SIZE_CLASSES[headerScale]}`}
+      className={`relative z-[510] flex items-center justify-between bg-void-black/70 backdrop-blur border-b border-su-line/40 select-none ${HEADER_SIZE_CLASSES[headerScale]}`}
     >
       <div className="flex items-baseline gap-3 font-mono">
-        <span className={`${HEADER_CLOCK_CLASSES[headerScale]} ${numeralClass} text-white`}>
+        <span className={`${HEADER_CLOCK_CLASSES[headerScale]} ${numeralClass} text-su-text`}>
           {utc}
         </span>
         <span className="text-xs text-plasma-orange tracking-widest">UTC</span>
-        <span className={`text-sm text-gray-400 ${numeralClass}`}>
+        <span className={`text-sm text-su-muted ${numeralClass}`}>
           {local} local
         </span>
       </div>
 
       <div className="flex items-center gap-3">
-        <span className={`font-orbitron text-gray-200 tracking-wide ${HEADER_SCENE_CLASSES[headerScale]}`}>
+        <span className={`font-orbitron text-su-text tracking-wide ${HEADER_SCENE_CLASSES[headerScale]}`}>
           {sceneName}
         </span>
         {sceneCount > 1 && (
@@ -451,8 +451,8 @@ function KioskClockBar({
                   i === sceneIndex
                     ? "bg-plasma-orange"
                     : rotating
-                      ? "bg-white/25"
-                      : "bg-white/10"
+                      ? "bg-su-text/30"
+                      : "bg-su-line/20"
                 }`}
               />
             ))}
@@ -460,7 +460,7 @@ function KioskClockBar({
         )}
       </div>
 
-      <div className="font-mono text-sm text-gray-400">{date}</div>
+      <div className="font-mono text-sm text-su-muted">{date}</div>
     </div>
   );
 }

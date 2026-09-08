@@ -100,12 +100,12 @@ export function ContestEditLastModal({
   }
 
   const inputClass =
-    "w-full px-3 py-2 bg-deep-space border border-white/10 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-plasma-orange/50 focus:ring-1 focus:ring-plasma-orange/30 font-mono";
+    "w-full px-3 py-2 bg-deep-space border border-su-line/40 rounded-lg text-su-text placeholder:text-su-muted/80 focus:outline-none focus:border-plasma-orange/50 focus:ring-1 focus:ring-plasma-orange/30 font-mono";
 
   const selectClass =
-    "w-full px-2 py-2 bg-deep-space border border-white/10 rounded-lg text-white focus:outline-none focus:border-plasma-orange/50 focus:ring-1 focus:ring-plasma-orange/30 text-sm";
+    "w-full px-2 py-2 bg-deep-space border border-su-line/40 rounded-lg text-su-text focus:outline-none focus:border-plasma-orange/50 focus:ring-1 focus:ring-plasma-orange/30 text-sm";
 
-  const labelClass = "block text-xs font-medium text-gray-400 mb-1";
+  const labelClass = "block text-xs font-medium text-su-muted mb-1";
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
@@ -121,10 +121,10 @@ export function ContestEditLastModal({
         <div className="space-y-4">
           {/* Header */}
           <div className="flex items-center justify-between">
-            <h3 className="text-lg font-orbitron font-bold text-white">
+            <h3 className="text-lg font-orbitron font-bold text-su-text">
               Edit QSO
             </h3>
-            <span className="text-xs text-gray-400">
+            <span className="text-xs text-su-muted">
               #{qso.serialSent} •{" "}
               {new Date(qso.timestamp).toLocaleTimeString([], {
                 hour: "2-digit",
@@ -224,12 +224,12 @@ export function ContestEditLastModal({
           </div>
 
           {/* Keyboard hints */}
-          <div className="text-xs text-gray-500 flex items-center gap-4">
+          <div className="text-xs text-su-muted flex items-center gap-4">
             <span>
-              <kbd className="px-1 py-0.5 bg-white/10 rounded">Enter</kbd> Save
+              <kbd className="px-1 py-0.5 bg-su-line/20 rounded">Enter</kbd> Save
             </span>
             <span>
-              <kbd className="px-1 py-0.5 bg-white/10 rounded">Esc</kbd> Cancel
+              <kbd className="px-1 py-0.5 bg-su-line/20 rounded">Esc</kbd> Cancel
             </span>
           </div>
 
@@ -237,15 +237,15 @@ export function ContestEditLastModal({
           <div className="flex gap-3 pt-2">
             <button
               onClick={onClose}
-              className="flex-1 px-4 py-2 bg-nebula-blue border border-white/10 rounded-lg
-                         text-gray-300 hover:text-white hover:border-white/20
+              className="flex-1 px-4 py-2 bg-nebula-blue border border-su-line/40 rounded-lg
+                         text-su-muted hover:text-su-text hover:border-su-line/50
                          transition-colors font-medium"
             >
               Cancel
             </button>
             <button
               onClick={handleSave}
-              className="flex-1 px-4 py-2 bg-plasma-orange text-deep-space rounded-lg
+              className="flex-1 px-4 py-2 bg-plasma-orange text-su-on-accent rounded-lg
                          hover:bg-plasma-orange/90 shadow-[0_0_15px_rgba(255,170,0,0.3)]
                          transition-colors font-bold"
             >

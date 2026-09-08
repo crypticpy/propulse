@@ -148,14 +148,14 @@ export function NetsPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-bold text-white">Net Registry</h1>
-          <p className="text-sm text-gray-500 mt-0.5">
+          <h1 className="text-xl font-bold text-su-text">Net Registry</h1>
+          <p className="text-sm text-su-muted mt-0.5">
             Discover and subscribe to amateur radio nets
           </p>
         </div>
         <Link
           to="/ncs"
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs text-gray-400 hover:text-gray-200 bg-white/[0.03] border border-white/5 hover:bg-white/[0.06] transition-all"
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs text-su-muted hover:text-su-text bg-su-line/10 border border-su-line/20 hover:bg-su-line/20 transition-all"
         >
           <span>🎙️</span>
           Net Controller
@@ -191,7 +191,7 @@ export function NetsPage() {
       {!isLoading && nets.length === 0 && (
         <div className="flex flex-col items-center justify-center min-h-[30vh] text-center">
           <svg
-            className="w-12 h-12 text-gray-600 mb-4"
+            className="w-12 h-12 text-su-muted mb-4"
             fill="none"
             stroke="currentColor"
             viewBox="0 0 24 24"
@@ -203,8 +203,8 @@ export function NetsPage() {
               d="M8.111 16.404a5.5 5.5 0 017.778 0M12 20h.01m-7.08-7.071c3.904-3.905 10.236-3.905 14.141 0M1.394 9.393c5.857-5.858 15.355-5.858 21.213 0"
             />
           </svg>
-          <p className="text-gray-400 text-sm mb-2">No nets found</p>
-          <p className="text-gray-500 text-xs mb-4">
+          <p className="text-su-muted text-sm mb-2">No nets found</p>
+          <p className="text-su-muted text-xs mb-4">
             {activeFilterCount > 0
               ? "Try adjusting your filters or search query"
               : "Be the first to create a net for the community"}

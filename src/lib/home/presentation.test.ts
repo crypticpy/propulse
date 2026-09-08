@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { activityIsCurrent, activityRows, daylightDay, recentContacts } from "./presentation";
+import { activityIsCurrent, activityRows, daylightDay, formatSnapshotAge, recentContacts } from "./presentation";
 import type { BandActivityStatus } from "@/hooks/useBandActivity";
 import type { LogEntry } from "@/lib/db/types";
 
@@ -15,6 +15,11 @@ describe("Home observation presentation", () => {
     const rows = [{band:"20m",obs20m:30,reporters20m:4}, {band:"40m",obs20m:0,reporters20m:0}, {band:"10m",obs20m:-1,reporters20m:0}] as BandActivityStatus[];
     expect(activityRows(new Map(rows.map(row => [row.band,row]))).map(row => [row.band,row.obs20m])).toEqual([["20m",30],["40m",0]]);
     expect(activityRows(undefined)).toEqual([]);
+  });
+  it("formats the snapshot age chip/footnote text from the last-good fetch time", () => {
+    const fetchedAt = Date.parse("2026-09-05T04:49:00Z");
+    expect(formatSnapshotAge(fetchedAt, fetchedAt + 6 * 60_000)).toBe("Snapshot 04:49 UTC · 6 min old");
+    expect(formatSnapshotAge(fetchedAt, fetchedAt + 10_000)).toBe("Snapshot 04:49 UTC · under 1 min old");
   });
 });
 

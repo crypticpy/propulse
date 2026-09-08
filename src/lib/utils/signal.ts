@@ -790,7 +790,7 @@ export function getSignalClassColor(signalClass: SignalClass): string {
     case "marginal":
       return "text-alert-red";
     case "none":
-      return "text-gray-500";
+      return "text-su-muted";
   }
 }
 
@@ -811,7 +811,7 @@ export function getSignalClassBgColor(signalClass: SignalClass): string {
     case "marginal":
       return "bg-alert-red/20";
     case "none":
-      return "bg-gray-500/20";
+      return "bg-su-line/20";
   }
 }
 

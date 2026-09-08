@@ -93,12 +93,12 @@ export function ProfileTabBar({
               onClick={() => onTabChange(tab.id)}
               className={`flex-shrink-0 px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-colors focus-visible:ring-2 focus-visible:ring-plasma-orange/50 focus-visible:outline-none ${
                 activeTab === tab.id
-                  ? "bg-plasma-orange text-white"
-                  : "bg-white/5 text-gray-400 hover:text-gray-200 hover:bg-white/10"
+                  ? "bg-plasma-orange text-su-on-accent"
+                  : "bg-su-line/10 text-su-muted hover:text-su-text hover:bg-su-line/20"
               }`}
               style={
                 activeTab === tab.id && rankColor
-                  ? { backgroundColor: rankColor }
+                  ? { backgroundColor: rankColor, color: "#000" }
                   : undefined
               }
             >
@@ -133,9 +133,9 @@ export function ProfileTabBar({
           className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors focus-visible:ring-2 focus-visible:ring-plasma-orange/50 focus-visible:outline-none ${
             activeTab === tab.id
               ? rankColor
-                ? "border text-white"
+                ? "border text-su-text"
                 : "bg-plasma-orange/15 text-plasma-orange border border-plasma-orange/30"
-              : "text-gray-400 hover:text-gray-200 hover:bg-white/5 border border-transparent"
+              : "text-su-muted hover:text-su-text hover:bg-su-line/10 border border-transparent"
           }`}
           style={
             activeTab === tab.id && rankColor

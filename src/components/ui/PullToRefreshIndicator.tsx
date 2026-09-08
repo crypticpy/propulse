@@ -47,7 +47,7 @@ export function PullToRefreshIndicator({
           }
         />
         {isRefreshing && (
-          <span className="text-xs text-gray-400">Refreshing...</span>
+          <span className="text-xs text-su-muted">Refreshing...</span>
         )}
       </div>
     </div>

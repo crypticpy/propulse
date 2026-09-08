@@ -35,9 +35,22 @@ npm install
 npm run dev          # http://localhost:5173 — dev proxies serve /api/* locally
 ```
 
-The Vite dev server mirrors the edge functions with local middleware, so the
-full app works with **no** cloud configuration. Leave `VITE_SUPABASE_URL`
-unset: the app runs in local mode and never shows a login screen.
+The Vite dev server mirrors the edge functions with local middleware. Leave
+`VITE_SUPABASE_URL` unset to run in local mode without a login screen. Local
+storage and directly available public feeds need no cloud configuration;
+features that read ProPulse's stored aggregates still require their data source.
+
+In particular, HamClock's six completed hours of Band Activity history come
+from `band_hourly_stats`. Without a configured aggregate store,
+`/api/spots/band-history` returns an uncached 503. The report marks hourly
+history unavailable and keeps its separate current-hour sample view available
+when live activity data exists. Those samples start with this browser session;
+they do not reconstruct six hours of missing history. If live activity is also
+unavailable, the report shows that gap rather than sample data. The handler
+accepts server-side `SUPABASE_URL` and `SUPABASE_ANON_KEY` for a store containing
+the existing aggregates; setting those does not enable client login. No
+database, collector, credentials or hosted fallback are provisioned by the
+portable route. See [the band history contract](../designs/hamclock-band-history.md).
 
 ## Production-style LAN host (bridge)
 

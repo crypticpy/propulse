@@ -65,7 +65,7 @@ export function DspBadge({
   if (placeholder) {
     return (
       <span
-        className={`${sizeClass} rounded font-bold font-mono border opacity-30 border-white/5 bg-white/[0.02] text-gray-600`}
+        className={`${sizeClass} rounded font-bold font-mono border opacity-30 border-su-line/20 bg-su-line/10 text-su-muted`}
         title="Not yet available"
       >
         {label}
@@ -75,7 +75,7 @@ export function DspBadge({
 
   const stateClass = active
     ? (ACTIVE_CLASSES[activeColor] ?? DEFAULT_ACTIVE_CLASS)
-    : "text-gray-600 bg-white/5 border-white/10";
+    : "text-su-muted bg-su-line/10 border-su-line/40";
 
   const base = `${sizeClass} rounded font-bold font-mono border ${stateClass}`;
 

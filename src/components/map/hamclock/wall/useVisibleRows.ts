@@ -1,4 +1,4 @@
-import { useCallback, useLayoutEffect, useState } from "react";
+import { useCallback, useLayoutEffect, useRef, useState } from "react";
 
 /**
  * How many uniform rows fit in a list box without clipping one mid-row.
@@ -13,24 +13,39 @@ import { useCallback, useLayoutEffect, useState } from "react";
  */
 export function useVisibleRows<T extends HTMLElement>(
   total: number,
+  minimum = 1,
 ): [ref: (el: T | null) => void, visible: number] {
   const [el, setEl] = useState<T | null>(null);
   const [count, setCount] = useState(total);
+  const lastRowHeight = useRef(0);
   const ref = useCallback((node: T | null) => setEl(node), []);
 
   useLayoutEffect(() => {
     if (!el) return;
     const measure = () => {
-      const row = Math.max(0, ...Array.from(el.children).map((child) =>
+      const measuredRow = Math.max(0, ...Array.from(el.children).map((child) =>
         (child as HTMLElement).getBoundingClientRect().height));
+      if (measuredRow > 0) lastRowHeight.current = measuredRow;
+      const row = measuredRow || lastRowHeight.current;
       const slot = el.clientHeight;
-      if (!row || !slot) {
+      if (total === 0) {
+        setCount(0);
+        return;
+      }
+      if (!row) {
+        // No measurement exists yet (including a 0 -> positive total change),
+        // so render probe rows and measure them on the next layout pass.
         setCount(total);
+        return;
+      }
+      if (!slot) {
+        // A hidden/unmounted tab has no meaningful capacity. Keep the last
+        // count until its observer reports a real slot.
         return;
       }
       const gap = parseFloat(getComputedStyle(el).rowGap) || 0;
       const fit = Math.floor((slot + gap) / (row + gap));
-      setCount(Math.max(1, Math.min(total, fit)));
+      setCount(Math.max(minimum, Math.min(total, fit)));
     };
     measure();
     if (typeof ResizeObserver === "undefined") return;

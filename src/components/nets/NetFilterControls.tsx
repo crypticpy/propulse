@@ -148,7 +148,7 @@ export function NetFilterControls({
         {/* Search input */}
         <div className="relative flex-1">
           <svg
-            className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500"
+            className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-su-muted"
             fill="none"
             stroke="currentColor"
             viewBox="0 0 24 24"
@@ -165,12 +165,12 @@ export function NetFilterControls({
             placeholder="Search nets by name..."
             value={filters.search}
             onChange={(e) => handleChange("search", e.target.value)}
-            className="w-full bg-white/5 border border-white/10 rounded-lg pl-9 pr-3 py-2 text-sm text-gray-200 placeholder-gray-500 focus:outline-none focus:border-plasma-orange/50"
+            className="w-full bg-su-line/10 border border-su-line/40 rounded-lg pl-9 pr-3 py-2 text-sm text-su-text placeholder:text-su-muted/80 focus:outline-none focus:border-plasma-orange/50"
           />
           {filters.search && (
             <button
               onClick={() => handleChange("search", "")}
-              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white"
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-su-muted hover:text-su-text"
               aria-label="Clear search"
             >
               <svg
@@ -196,7 +196,7 @@ export function NetFilterControls({
           className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold transition-all ${
             activeCount > 0
               ? "bg-plasma-orange/15 text-plasma-orange border border-plasma-orange/40 hover:bg-plasma-orange/25"
-              : "bg-white/5 text-gray-300 border border-white/10 hover:bg-white/10 hover:text-white"
+              : "bg-su-line/10 text-su-muted border border-su-line/40 hover:bg-su-line/20 hover:text-su-text"
           }`}
           title={`${activeCount} active filter${activeCount !== 1 ? "s" : ""}`}
         >
@@ -236,10 +236,10 @@ export function NetFilterControls({
       </div>
 
       {/* Quick Filters — always visible */}
-      <div className="bg-white/[0.02] border border-white/5 rounded-xl p-4 space-y-4">
+      <div className="bg-su-line/10 border border-su-line/20 rounded-xl p-4 space-y-4">
         {/* Net Type */}
         <div>
-          <h4 className="text-xs uppercase tracking-widest text-gray-400 mb-2">
+          <h4 className="text-xs uppercase tracking-widest text-su-muted mb-2">
             Type
           </h4>
           <div className="flex flex-wrap gap-1.5">
@@ -256,7 +256,7 @@ export function NetFilterControls({
                 className={`${pillBase} ${
                   filters.type === opt.value
                     ? "bg-plasma-orange/20 text-plasma-orange border-plasma-orange/40"
-                    : "bg-white/5 text-gray-300 border-white/10 hover:bg-white/10 hover:text-white"
+                    : "bg-su-line/10 text-su-muted border-su-line/40 hover:bg-su-line/20 hover:text-su-text"
                 }`}
               >
                 {opt.label}
@@ -267,7 +267,7 @@ export function NetFilterControls({
 
         {/* Band */}
         <div>
-          <h4 className="text-xs uppercase tracking-widest text-gray-400 mb-2">
+          <h4 className="text-xs uppercase tracking-widest text-su-muted mb-2">
             Band
           </h4>
           <div className="flex flex-wrap gap-1.5">
@@ -281,7 +281,7 @@ export function NetFilterControls({
                 className={`${pillBase} ${
                   filters.band === band
                     ? "bg-cyan-500/20 text-cyan-400 border-cyan-500/40"
-                    : "bg-white/5 text-gray-300 border-white/10 hover:bg-white/10 hover:text-white"
+                    : "bg-su-line/10 text-su-muted border-su-line/40 hover:bg-su-line/20 hover:text-su-text"
                 }`}
               >
                 {band}
@@ -294,7 +294,7 @@ export function NetFilterControls({
       {/* Sort row — always visible */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-1.5">
-          <span className="text-xs uppercase tracking-widest text-gray-400 mr-1">
+          <span className="text-xs uppercase tracking-widest text-su-muted mr-1">
             Sort
           </span>
           {SORT_OPTIONS.map((opt) => (
@@ -304,8 +304,8 @@ export function NetFilterControls({
               aria-pressed={filters.sortBy === opt.value}
               className={`${pillBase} ${
                 filters.sortBy === opt.value
-                  ? "bg-white/10 text-white border-white/20"
-                  : "bg-white/5 text-gray-400 border-white/10 hover:bg-white/10 hover:text-white"
+                  ? "bg-su-line/20 text-su-text border-su-line/50"
+                  : "bg-su-line/10 text-su-muted border-su-line/40 hover:bg-su-line/20 hover:text-su-text"
               }`}
             >
               {opt.label}
@@ -320,7 +320,7 @@ export function NetFilterControls({
               onReset();
               onPageReset?.();
             }}
-            className="text-xs text-gray-400 hover:text-white transition-colors"
+            className="text-xs text-su-muted hover:text-su-text transition-colors"
           >
             Reset filters
           </button>
@@ -329,10 +329,10 @@ export function NetFilterControls({
 
       {/* Collapsible "More Filters" panel */}
       {isExpanded && (
-        <div className="bg-white/[0.02] border border-white/5 rounded-xl p-4 space-y-4">
+        <div className="bg-su-line/10 border border-su-line/20 rounded-xl p-4 space-y-4">
           {/* Mode */}
           <div>
-            <h4 className="text-xs uppercase tracking-widest text-gray-400 mb-2">
+            <h4 className="text-xs uppercase tracking-widest text-su-muted mb-2">
               Mode
             </h4>
             <div className="flex flex-wrap gap-1.5">
@@ -346,7 +346,7 @@ export function NetFilterControls({
                   className={`${pillBase} ${
                     filters.mode === mode
                       ? "bg-purple-500/20 text-purple-400 border-purple-500/40"
-                      : "bg-white/5 text-gray-300 border-white/10 hover:bg-white/10 hover:text-white"
+                      : "bg-su-line/10 text-su-muted border-su-line/40 hover:bg-su-line/20 hover:text-su-text"
                   }`}
                 >
                   {mode}
@@ -357,7 +357,7 @@ export function NetFilterControls({
 
           {/* Day of Week */}
           <div>
-            <h4 className="text-xs uppercase tracking-widest text-gray-400 mb-2">
+            <h4 className="text-xs uppercase tracking-widest text-su-muted mb-2">
               Day
             </h4>
             <div className="flex flex-wrap gap-1.5">
@@ -374,7 +374,7 @@ export function NetFilterControls({
                   className={`${pillBase} ${
                     filters.dayOfWeek === day.value
                       ? "bg-emerald-500/20 text-emerald-400 border-emerald-500/40"
-                      : "bg-white/5 text-gray-300 border-white/10 hover:bg-white/10 hover:text-white"
+                      : "bg-su-line/10 text-su-muted border-su-line/40 hover:bg-su-line/20 hover:text-su-text"
                   }`}
                 >
                   {day.label}
@@ -385,7 +385,7 @@ export function NetFilterControls({
 
           {/* Formality */}
           <div>
-            <h4 className="text-xs uppercase tracking-widest text-gray-400 mb-2">
+            <h4 className="text-xs uppercase tracking-widest text-su-muted mb-2">
               Formality
             </h4>
             <div className="flex flex-wrap gap-1.5">
@@ -402,7 +402,7 @@ export function NetFilterControls({
                   className={`${pillBase} ${
                     filters.formalityLevel === level
                       ? "bg-blue-500/20 text-blue-400 border-blue-500/40"
-                      : "bg-white/5 text-gray-300 border-white/10 hover:bg-white/10 hover:text-white"
+                      : "bg-su-line/10 text-su-muted border-su-line/40 hover:bg-su-line/20 hover:text-su-text"
                   }`}
                 >
                   {FORMALITY_LABELS[level]}
@@ -413,7 +413,7 @@ export function NetFilterControls({
 
           {/* Newcomer Friendly */}
           <div>
-            <h4 className="text-xs uppercase tracking-widest text-gray-400 mb-2">
+            <h4 className="text-xs uppercase tracking-widest text-su-muted mb-2">
               Newcomer Friendly
             </h4>
             <button
@@ -427,7 +427,7 @@ export function NetFilterControls({
               className={`${pillBase} ${
                 filters.newcomerFriendly === true
                   ? "bg-signal-green/20 text-signal-green border-signal-green/40"
-                  : "bg-white/5 text-gray-300 border-white/10 hover:bg-white/10 hover:text-white"
+                  : "bg-su-line/10 text-su-muted border-su-line/40 hover:bg-su-line/20 hover:text-su-text"
               }`}
             >
               Newcomer Friendly
@@ -436,12 +436,12 @@ export function NetFilterControls({
 
           {/* Country filter — searchable combobox */}
           <div>
-            <h4 className="text-xs uppercase tracking-widest text-gray-400 mb-2">
+            <h4 className="text-xs uppercase tracking-widest text-su-muted mb-2">
               Country
             </h4>
             {filters.country && selectedCountryName ? (
               <div className="flex items-center gap-2">
-                <span className="text-sm text-gray-200">
+                <span className="text-sm text-su-text">
                   {selectedCountryName}
                 </span>
                 <button
@@ -449,7 +449,7 @@ export function NetFilterControls({
                     handleChange("country", null);
                     setCountrySearch("");
                   }}
-                  className="text-gray-400 hover:text-white transition-colors"
+                  className="text-su-muted hover:text-su-text transition-colors"
                   aria-label="Clear country filter"
                 >
                   <svg
@@ -478,10 +478,10 @@ export function NetFilterControls({
                     setCountryDropdownOpen(true);
                   }}
                   onFocus={() => setCountryDropdownOpen(true)}
-                  className="w-full max-w-xs bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-gray-200 placeholder-gray-500 focus:outline-none focus:border-plasma-orange/50"
+                  className="w-full max-w-xs bg-su-line/10 border border-su-line/40 rounded-lg px-3 py-2 text-sm text-su-text placeholder:text-su-muted/80 focus:outline-none focus:border-plasma-orange/50"
                 />
                 {countryDropdownOpen && filteredCountries.length > 0 && (
-                  <ul className="absolute z-20 mt-1 w-full max-w-xs max-h-[240px] overflow-y-auto bg-deep-space border border-white/10 rounded-lg shadow-lg">
+                  <ul className="absolute z-20 mt-1 w-full max-w-xs max-h-[240px] overflow-y-auto bg-deep-space border border-su-line/40 rounded-lg shadow-lg">
                     {filteredCountries.slice(0, 50).map((c) => (
                       <li key={c.iso}>
                         <button
@@ -491,10 +491,10 @@ export function NetFilterControls({
                             setCountrySearch("");
                             setCountryDropdownOpen(false);
                           }}
-                          className="w-full text-left px-3 py-2 text-sm text-gray-300 hover:bg-white/10 hover:text-white transition-colors"
+                          className="w-full text-left px-3 py-2 text-sm text-su-muted hover:bg-su-line/20 hover:text-su-text transition-colors"
                         >
                           {c.name}{" "}
-                          <span className="text-gray-500 text-xs">
+                          <span className="text-su-muted text-xs">
                             ({c.iso})
                           </span>
                         </button>
@@ -509,7 +509,7 @@ export function NetFilterControls({
           {/* State filter — only visible when country is US */}
           {filters.country === "US" && (
             <div>
-              <h4 className="text-xs uppercase tracking-widest text-gray-400 mb-2">
+              <h4 className="text-xs uppercase tracking-widest text-su-muted mb-2">
                 State
               </h4>
               <select
@@ -517,17 +517,17 @@ export function NetFilterControls({
                 onChange={(e) =>
                   handleChange("stateOrProvince", e.target.value || null)
                 }
-                className="bg-white/5 border border-white/10 rounded-lg text-sm text-gray-300 px-3 py-2 focus:border-plasma-orange/50 focus:outline-none appearance-none cursor-pointer max-w-xs w-full"
+                className="bg-su-line/10 border border-su-line/40 rounded-lg text-sm text-su-muted px-3 py-2 focus:border-plasma-orange/50 focus:outline-none appearance-none cursor-pointer max-w-xs w-full"
                 aria-label="Filter by state"
               >
-                <option value="" className="bg-deep-space text-white">
+                <option value="" className="bg-deep-space text-su-text">
                   All states
                 </option>
                 {US_STATES.map((state) => (
                   <option
                     key={state.fips}
                     value={state.name}
-                    className="bg-deep-space text-white"
+                    className="bg-deep-space text-su-text"
                   >
                     {state.name}
                   </option>

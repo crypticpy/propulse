@@ -37,9 +37,6 @@ const HOUR_MS = 3_600_000;
 /** Upper bound on hours recomputed in one tick; larger holes need the backfill script. */
 export const MAX_HOURS_PER_TICK = 48;
 
-/** Last (watermark hour) this process already recomputed, ISO 8601. */
-let lastRecomputedHour: string | null = null;
-
 async function computeRecencyForHour(
   db: SupabaseClient,
   hourISO: string,
@@ -86,8 +83,6 @@ export async function computePathRecency(db: SupabaseClient): Promise<number> {
     return 0;
   }
 
-  if (lastRecomputedHour === watermark) return 0;
-
   const watermarkMs = new Date(watermark).getTime();
   if (!Number.isFinite(watermarkMs)) {
     throw new Error(`path_hourly watermark is not a valid time: ${watermark}`);
@@ -113,21 +108,46 @@ export async function computePathRecency(db: SupabaseClient): Promise<number> {
     hours.push(new Date(ms).toISOString());
   }
 
+  // Re-read gaps on every tick. An advanced path watermark is progress, not
+  // proof that intervening hours were observed. Do not synthesize recency from
+  // known-expired raw hours. Missing metadata fails closed.
+  const { data: gaps, error: gapError } = await db
+    .from("collector_aggregation_gaps")
+    .select("start_hour,end_hour")
+    .eq("aggregation", "path_hourly")
+    .lte("start_hour", watermark)
+    .gte("end_hour", hours[0])
+    .limit(100);
+  if (gapError || !Array.isArray(gaps) || gaps.length >= 100) {
+    throw new Error("Cannot verify path aggregation recovery gaps");
+  }
+  const ranges = gaps.map((gap) => {
+    const from = Date.parse(gap.start_hour);
+    const to = Date.parse(gap.end_hour);
+    if (!Number.isFinite(from) || !Number.isFinite(to) || to < from) {
+      throw new Error("Invalid path aggregation recovery gap");
+    }
+    return { from, to };
+  });
   let rowsWritten = 0;
+  let skipped = 0;
   for (const hourISO of hours) {
+    const ms = Date.parse(hourISO);
+    if (ranges.some(({ from, to }) => from <= ms && ms <= to)) {
+      skipped++;
+      continue;
+    }
     rowsWritten += await computeRecencyForHour(db, hourISO);
   }
-
-  lastRecomputedHour = watermark;
+  if (skipped > 0) {
+    throw new Error(`Path recency skipped ${skipped} expired source hours`);
+  }
+  // Always replay the newest stored hour: same-hour path updates can contain
+  // late reports even when the watermark hour has not changed.
   log("info", "Path recency aggregation complete", {
     watermarkHour: watermark,
     hours,
     rowsWritten,
   });
   return rowsWritten;
-}
-
-/** Test seam: clear the in-process cursor between cases. */
-export function resetPathRecencyCursor(): void {
-  lastRecomputedHour = null;
 }

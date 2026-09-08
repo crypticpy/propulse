@@ -422,9 +422,9 @@ export const EQUIPMENT_TYPE_COLORS = {
     glow: "shadow-[0_0_15px_rgba(245,158,11,0.3)]",
   },
   inline: {
-    accent: "bg-gray-500",
-    text: "text-gray-400",
-    border: "border-gray-500/30",
+    accent: "bg-su-line",
+    text: "text-su-muted",
+    border: "border-su-line/30",
     glow: "shadow-[0_0_15px_rgba(107,114,128,0.3)]",
   },
 } as const;

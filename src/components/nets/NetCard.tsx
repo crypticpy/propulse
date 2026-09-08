@@ -50,7 +50,7 @@ export function NetCard({ net, isLive }: NetCardProps) {
     <button
       type="button"
       onClick={() => navigate(`/nets/${net.id}`)}
-      className="w-full text-left bg-white/[0.03] backdrop-blur-md border border-white/10 rounded-2xl p-4 transition-all duration-200 hover:border-white/20 hover:bg-white/[0.05] cursor-pointer group"
+      className="w-full text-left bg-su-line/10 backdrop-blur-md border border-su-line/40 rounded-2xl p-4 transition-all duration-200 hover:border-su-line/50 hover:bg-su-line/20 cursor-pointer group"
     >
       {/* Top row: badge + live indicator */}
       <div className="flex items-center justify-between gap-2 mb-2">
@@ -64,19 +64,19 @@ export function NetCard({ net, isLive }: NetCardProps) {
       </div>
 
       {/* Net name */}
-      <h3 className="text-sm font-bold text-white truncate mb-1 group-hover:text-plasma-orange transition-colors">
+      <h3 className="text-sm font-bold text-su-text truncate mb-1 group-hover:text-plasma-orange transition-colors">
         {net.name}
       </h3>
 
       {/* Summary line */}
       {net.summary && (
-        <p className="text-sm text-gray-300 line-clamp-2 leading-snug mb-1">
+        <p className="text-sm text-su-muted line-clamp-2 leading-snug mb-1">
           {net.summary}
         </p>
       )}
 
       {/* Frequency + mode */}
-      <p className="text-xs text-gray-400 font-mono mb-2">
+      <p className="text-xs text-su-muted font-mono mb-2">
         {net.frequency} &middot; {net.mode}
       </p>
 
@@ -102,19 +102,19 @@ export function NetCard({ net, isLive }: NetCardProps) {
           </span>
         ) : (
           /* UTC schedule fallback when no relative time is available */
-          <span className="text-xs text-gray-400">
+          <span className="text-xs text-su-muted">
             {formatScheduleFallback(net)}
           </span>
         )}
         {locationLabel && (
-          <span className="text-xs text-gray-400 truncate">
+          <span className="text-xs text-su-muted truncate">
             {locationLabel}
           </span>
         )}
       </div>
 
       {/* Bottom row: subscriber count + newcomer label */}
-      <div className="flex items-center gap-2 text-xs text-gray-400">
+      <div className="flex items-center gap-2 text-xs text-su-muted">
         <div className="flex items-center gap-1.5">
           <svg
             className="w-3 h-3"

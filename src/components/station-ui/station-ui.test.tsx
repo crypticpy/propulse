@@ -80,25 +80,21 @@ describe("station design primitives", () => {
     ).toBe("true");
   });
 
-  it("follows the app's complete custom-color predicate without changing preferences", () => {
+  it("follows the app's custom-primary predicate without changing preferences", () => {
     const original = useThemeStore.getState();
     try {
-      for (const [secondary, expected] of [
+      for (const [customPrimary, expected] of [
         [null, "#ff6b35"],
-        ["#ffffff", "#000000"],
+        ["#000000", "#000000"],
       ] as const) {
-        useThemeStore.setState({
-          accentId: "plasma",
-          customPrimary: "#000000",
-          customSecondary: secondary,
-        });
+        useThemeStore.setState({ accentId: "plasma", customPrimary });
         const { getByTestId, unmount } = render(
           <StationProvider data-testid="theme" />,
         );
         expect(getByTestId("theme").style.getPropertyValue("--su-accent")).toBe(
           expected,
         );
-        expect(useThemeStore.getState().customSecondary).toBe(secondary);
+        expect(useThemeStore.getState().customPrimary).toBe(customPrimary);
         unmount();
       }
     } finally {

@@ -164,8 +164,8 @@ export function PropagationForecastModal({
       <div className="space-y-6">
         {/* Current conditions summary */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <div className="bg-white/5 rounded-xl p-4 text-center">
-            <div className="text-xs text-gray-500 mb-1">K-Index</div>
+          <div className="bg-su-line/10 rounded-xl p-4 text-center">
+            <div className="text-xs text-su-muted mb-1">K-Index</div>
             <div
               className={`text-2xl font-mono font-bold ${
                 kp <= 2
@@ -177,12 +177,12 @@ export function PropagationForecastModal({
             >
               {kp}
             </div>
-            <div className="text-[10px] text-gray-400 mt-1">
+            <div className="text-[10px] text-su-muted mt-1">
               {kp <= 2 ? "Quiet" : kp <= 4 ? "Unsettled" : "Stormy"}
             </div>
           </div>
-          <div className="bg-white/5 rounded-xl p-4 text-center">
-            <div className="text-xs text-gray-500 mb-1">Solar Flux</div>
+          <div className="bg-su-line/10 rounded-xl p-4 text-center">
+            <div className="text-xs text-su-muted mb-1">Solar Flux</div>
             <div
               className={`text-2xl font-mono font-bold ${
                 sfi >= 120
@@ -194,19 +194,19 @@ export function PropagationForecastModal({
             >
               {sfi}
             </div>
-            <div className="text-[10px] text-gray-400 mt-1">
+            <div className="text-[10px] text-su-muted mt-1">
               {sfi >= 150 ? "Excellent" : sfi >= 100 ? "Good" : "Low"}
             </div>
           </div>
-          <div className="bg-white/5 rounded-xl p-4 text-center">
-            <div className="text-xs text-gray-500 mb-1">Current Time</div>
+          <div className="bg-su-line/10 rounded-xl p-4 text-center">
+            <div className="text-xs text-su-muted mb-1">Current Time</div>
             <div className="text-2xl font-mono font-bold text-plasma-orange">
               {currentHour.toString().padStart(2, "0")}:00z
             </div>
-            <div className="text-[10px] text-gray-400 mt-1">UTC</div>
+            <div className="text-[10px] text-su-muted mt-1">UTC</div>
           </div>
-          <div className="bg-white/5 rounded-xl p-4 text-center">
-            <div className="text-xs text-gray-500 mb-1">Best Band Now</div>
+          <div className="bg-su-line/10 rounded-xl p-4 text-center">
+            <div className="text-xs text-su-muted mb-1">Best Band Now</div>
             <div
               className={`text-2xl font-mono font-bold`}
               style={{
@@ -217,7 +217,7 @@ export function PropagationForecastModal({
             >
               {currentBestBand?.band || "---"}
             </div>
-            <div className="text-[10px] text-gray-400 mt-1">
+            <div className="text-[10px] text-su-muted mt-1">
               {currentBestBand
                 ? `${currentBestBand.snrEstimate} dB`
                 : "No opening"}
@@ -226,9 +226,9 @@ export function PropagationForecastModal({
         </div>
 
         {/* Large heatmap */}
-        <div className="bg-white/5 rounded-xl p-4">
+        <div className="bg-su-line/10 rounded-xl p-4">
           <div className="flex items-center justify-between mb-4">
-            <h3 className="text-sm font-medium text-white">
+            <h3 className="text-sm font-medium text-su-text">
               Band Conditions by Hour (UTC)
             </h3>
             <div className="flex items-center gap-4 text-[10px]">
@@ -237,35 +237,35 @@ export function PropagationForecastModal({
                   className="w-3 h-3 rounded"
                   style={{ background: "#00ff88" }}
                 />
-                <span className="text-gray-400">Excellent</span>
+                <span className="text-su-muted">Excellent</span>
               </div>
               <div className="flex items-center gap-1.5">
                 <div
                   className="w-3 h-3 rounded"
                   style={{ background: "#44dd66" }}
                 />
-                <span className="text-gray-400">Good</span>
+                <span className="text-su-muted">Good</span>
               </div>
               <div className="flex items-center gap-1.5">
                 <div
                   className="w-3 h-3 rounded"
                   style={{ background: "#ffaa00" }}
                 />
-                <span className="text-gray-400">Fair</span>
+                <span className="text-su-muted">Fair</span>
               </div>
               <div className="flex items-center gap-1.5">
                 <div
                   className="w-3 h-3 rounded"
                   style={{ background: "#ff4455" }}
                 />
-                <span className="text-gray-400">Poor</span>
+                <span className="text-su-muted">Poor</span>
               </div>
               <div className="flex items-center gap-1.5">
                 <div
                   className="w-3 h-3 rounded"
                   style={{ background: "#374151" }}
                 />
-                <span className="text-gray-400">Closed</span>
+                <span className="text-su-muted">Closed</span>
               </div>
             </div>
           </div>
@@ -311,7 +311,7 @@ export function PropagationForecastModal({
                   x={MARGIN.left - 8}
                   y={MARGIN.top + idx * CELL_HEIGHT + CELL_HEIGHT / 2 + 4}
                   textAnchor="end"
-                  className="fill-gray-200 text-[11px] font-mono"
+                  className="fill-su-text text-[11px] font-mono"
                 >
                   {band}
                 </text>
@@ -324,7 +324,7 @@ export function PropagationForecastModal({
                   x={MARGIN.left + hour * CELL_WIDTH + CELL_WIDTH}
                   y={CHART_HEIGHT - 8}
                   textAnchor="middle"
-                  className="fill-gray-300 text-[10px] font-mono"
+                  className="fill-su-muted text-[10px] font-mono"
                 >
                   {hour.toString().padStart(2, "0")}
                 </text>
@@ -423,8 +423,8 @@ export function PropagationForecastModal({
         {/* Best Windows Recommendations */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {/* Top Recommendations */}
-          <div className="bg-white/5 rounded-xl p-4">
-            <h3 className="text-sm font-medium text-white mb-3 flex items-center gap-2">
+          <div className="bg-su-line/10 rounded-xl p-4">
+            <h3 className="text-sm font-medium text-su-text mb-3 flex items-center gap-2">
               <svg
                 className="w-4 h-4 text-signal-green"
                 fill="currentColor"
@@ -440,7 +440,7 @@ export function PropagationForecastModal({
             </h3>
 
             {bestWindows.length === 0 ? (
-              <p className="text-gray-500 text-sm">
+              <p className="text-su-muted text-sm">
                 No favorable windows found for this path. Consider waiting for
                 better conditions.
               </p>
@@ -452,7 +452,7 @@ export function PropagationForecastModal({
                     className={`flex items-center justify-between p-2 rounded-lg ${
                       idx === 0
                         ? "bg-signal-green/10 border border-signal-green/30"
-                        : "bg-white/5"
+                        : "bg-su-line/10"
                     }`}
                   >
                     <div className="flex items-center gap-3">
@@ -464,7 +464,7 @@ export function PropagationForecastModal({
                       >
                         {window.band}
                       </span>
-                      <span className="text-gray-400 text-xs">
+                      <span className="text-su-muted text-xs">
                         {formatHourRange(window.startHour, window.endHour)}
                       </span>
                     </div>
@@ -478,7 +478,7 @@ export function PropagationForecastModal({
                       >
                         {getStatusLabel(window.peakStatus)}
                       </span>
-                      <span className="font-mono text-xs text-gray-500">
+                      <span className="font-mono text-xs text-su-muted">
                         {window.peakSnr} dB
                       </span>
                     </div>
@@ -489,8 +489,8 @@ export function PropagationForecastModal({
           </div>
 
           {/* Band Groupings */}
-          <div className="bg-white/5 rounded-xl p-4">
-            <h3 className="text-sm font-medium text-white mb-3 flex items-center gap-2">
+          <div className="bg-su-line/10 rounded-xl p-4">
+            <h3 className="text-sm font-medium text-su-text mb-3 flex items-center gap-2">
               <svg
                 className="w-4 h-4 text-plasma-orange"
                 fill="currentColor"
@@ -564,8 +564,8 @@ export function PropagationForecastModal({
               )}
 
               {/* Recommendation */}
-              <div className="pt-2 border-t border-white/10">
-                <p className="text-xs text-gray-400 leading-relaxed">
+              <div className="pt-2 border-t border-su-line/40">
+                <p className="text-xs text-su-muted leading-relaxed">
                   {timeOfDayTip}
                 </p>
               </div>
@@ -574,8 +574,8 @@ export function PropagationForecastModal({
         </div>
 
         {/* Educational Content for Beginners */}
-        <div className="bg-gradient-to-r from-nebula-blue/50 to-void/50 rounded-xl p-4 border border-white/10">
-          <h3 className="text-sm font-medium text-white mb-3 flex items-center gap-2">
+        <div className="bg-gradient-to-r from-nebula-blue/50 to-void/50 rounded-xl p-4 border border-su-line/40">
+          <h3 className="text-sm font-medium text-su-text mb-3 flex items-center gap-2">
             <svg
               className="w-4 h-4 text-cosmic-cyan"
               fill="currentColor"
@@ -586,9 +586,9 @@ export function PropagationForecastModal({
             Understanding the Forecast
           </h3>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs text-gray-400">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs text-su-muted">
             <div>
-              <h4 className="text-white font-medium mb-1">
+              <h4 className="text-su-text font-medium mb-1">
                 How to Read This Chart
               </h4>
               <ul className="space-y-1 list-disc list-inside">
@@ -599,7 +599,7 @@ export function PropagationForecastModal({
               </ul>
             </div>
             <div>
-              <h4 className="text-white font-medium mb-1">
+              <h4 className="text-su-text font-medium mb-1">
                 Two Independent Predictions
               </h4>
               <ul className="space-y-1 list-disc list-inside">
@@ -618,7 +618,7 @@ export function PropagationForecastModal({
               </ul>
             </div>
             <div>
-              <h4 className="text-white font-medium mb-1">
+              <h4 className="text-su-text font-medium mb-1">
                 From Path to Your Mode
               </h4>
               <ul className="space-y-1 list-disc list-inside">
@@ -644,7 +644,7 @@ export function PropagationForecastModal({
               </ul>
             </div>
             <div>
-              <h4 className="text-white font-medium mb-1">Tips for DX</h4>
+              <h4 className="text-su-text font-medium mb-1">Tips for DX</h4>
               <ul className="space-y-1 list-disc list-inside">
                 <li>Higher bands (10-20m) work best during daylight</li>
                 <li>Lower bands (40-160m) are better at night</li>

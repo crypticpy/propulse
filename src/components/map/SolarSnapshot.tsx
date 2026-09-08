@@ -331,7 +331,7 @@ export function SolarSnapshot({
   if (!hasTarget) {
     return (
       <div
-        className={`${className} h-full flex items-center justify-center text-gray-400 text-xs`}
+        className={`${className} h-full flex items-center justify-center text-su-muted text-xs`}
       >
         Select a target to see conditions
       </div>
@@ -342,7 +342,7 @@ export function SolarSnapshot({
   if (isLoading) {
     return (
       <div
-        className={`${className} h-full flex items-center justify-center text-gray-400 text-xs`}
+        className={`${className} h-full flex items-center justify-center text-su-muted text-xs`}
       >
         <div className="animate-pulse">Loading...</div>
       </div>
@@ -351,7 +351,7 @@ export function SolarSnapshot({
 
   if (!indexResult || currentKp === null || currentSfi === null) {
     return (
-      <div className={`${className} h-full flex items-center justify-center text-gray-400 text-xs`}>
+      <div className={`${className} h-full flex items-center justify-center text-su-muted text-xs`}>
         Current solar observations are unavailable
       </div>
     );
@@ -369,7 +369,7 @@ export function SolarSnapshot({
     <div className={`${className} h-full flex flex-col`}>
       {/* Header: Title + Help button */}
       <div className="flex items-center justify-between mb-1.5">
-        <h3 className="text-xs font-medium text-gray-300 uppercase tracking-wide">
+        <h3 className="text-xs font-medium text-su-muted uppercase tracking-wide">
           Solar Snapshot
         </h3>
         <HelpButton onClick={() => setShowHelp(true)} />
@@ -379,7 +379,7 @@ export function SolarSnapshot({
       <div className="flex items-center justify-between gap-2 mb-1">
         {/* Condition label */}
         <div className="flex items-center gap-1.5">
-          <span className="text-[10px] text-gray-400 uppercase">
+          <span className="text-[10px] text-su-muted uppercase">
             Conditions
           </span>
           <span className="text-sm font-semibold" style={{ color: scoreColor }}>
@@ -390,28 +390,28 @@ export function SolarSnapshot({
         {/* Solar metrics pills - compact */}
         <div className="flex items-center gap-1 text-xs">
           <span
-            className="px-1.5 py-0.5 rounded bg-white/10 font-mono"
+            className="px-1.5 py-0.5 rounded bg-su-line/20 font-mono"
             title="Solar Flux Index - higher is better for HF propagation"
           >
-            <span className="text-gray-500">SFI</span>{" "}
+            <span className="text-su-muted">SFI</span>{" "}
             <span style={{ color: getSfiColor(currentSfi) }}>
               {Math.round(currentSfi)}
             </span>
           </span>
           <span
-            className="px-1.5 py-0.5 rounded bg-white/10 font-mono"
+            className="px-1.5 py-0.5 rounded bg-su-line/20 font-mono"
             title="K-index - lower is better for stable propagation"
           >
-            <span className="text-gray-500">Kp</span>{" "}
+            <span className="text-su-muted">Kp</span>{" "}
             <span style={{ color: getKpColor(currentKp) }}>
               {currentKp.toFixed(1)}
             </span>
           </span>
           <span
-            className="px-1 py-0.5 rounded bg-white/10 font-mono"
+            className="px-1 py-0.5 rounded bg-su-line/20 font-mono"
             title="IMF Bz - northward (↑) is favorable"
           >
-            <span className="text-gray-500">Bz</span>{" "}
+            <span className="text-su-muted">Bz</span>{" "}
             <span style={{ color: getBzColor(currentBz) }}>
               {currentBz !== null ? (currentBz > 0 ? "↑" : "↓") : "—"}
             </span>
@@ -430,7 +430,7 @@ export function SolarSnapshot({
       {/* Greyline status indicator */}
       <div className="flex items-center justify-between gap-2 mb-1.5">
         <div className="flex items-center gap-1.5">
-          <span className="text-[10px] text-gray-400 uppercase">Greyline</span>
+          <span className="text-[10px] text-su-muted uppercase">Greyline</span>
           <span
             className={`text-xs font-semibold px-1.5 py-0.5 rounded ${
               greylineStatus.isActive ? "animate-pulse" : ""
@@ -445,7 +445,7 @@ export function SolarSnapshot({
         </div>
         {greylineStatus.minutesToNextEvent !== null && (
           <span
-            className="text-[10px] text-gray-400 font-mono"
+            className="text-[10px] text-su-muted font-mono"
             title={
               greylineStatus.nextEventTime
                 ? `Next: ${greylineStatus.nextEventTime.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: !use24h })}`
@@ -473,19 +473,19 @@ export function SolarSnapshot({
             <>
               {/* Best band + mode + SNR */}
               <div className="flex items-baseline gap-2">
-                <span className="text-[10px] text-gray-500 uppercase">
+                <span className="text-[10px] text-su-muted uppercase">
                   Best for path
                 </span>
-                <span className="text-xl font-bold font-mono text-white leading-none">
+                <span className="text-xl font-bold font-mono text-su-text leading-none">
                   {optimal.band}
                 </span>
                 <span
-                  className={`text-sm font-semibold ${MODE_COLORS_TAILWIND[mode] || "text-white"}`}
+                  className={`text-sm font-semibold ${MODE_COLORS_TAILWIND[mode] || "text-su-text"}`}
                 >
                   {mode}
                 </span>
                 {optimal.snr !== undefined && (
-                  <span className="text-xs font-mono text-gray-400">
+                  <span className="text-xs font-mono text-su-muted">
                     {optimal.snr > 0 ? "+" : ""}
                     {optimal.snr}dB
                   </span>
@@ -500,7 +500,7 @@ export function SolarSnapshot({
 
               {/* Band score indicator */}
               <div className="flex items-center gap-2">
-                <span className="text-[10px] text-gray-500 uppercase">
+                <span className="text-[10px] text-su-muted uppercase">
                   Band Score
                 </span>
                 <span
@@ -509,20 +509,20 @@ export function SolarSnapshot({
                 >
                   {optimal.score}
                 </span>
-                <span className="text-[10px] text-gray-500">/ 100</span>
+                <span className="text-[10px] text-su-muted">/ 100</span>
               </div>
             </>
           ) : (
-            <div className="text-xs text-gray-400">No bands currently open</div>
+            <div className="text-xs text-su-muted">No bands currently open</div>
           )}
         </div>
       </div>
 
       {/* Bottom: Operating tip */}
-      <div className="mt-1 pt-1 border-t border-white/10">
+      <div className="mt-1 pt-1 border-t border-su-line/40">
         <div className="bg-plasma-orange/10 border-l-2 border-plasma-orange rounded-r px-2 py-1 text-xs leading-tight">
-          <span className="text-gray-400">Tip:</span>{" "}
-          <span className="text-gray-300">{operatingTip.tip}</span>
+          <span className="text-su-muted">Tip:</span>{" "}
+          <span className="text-su-muted">{operatingTip.tip}</span>
         </div>
       </div>
 

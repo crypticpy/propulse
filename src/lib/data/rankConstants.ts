@@ -117,9 +117,9 @@ export const RANK_BADGE_STYLES: Record<
   { bg: string; text: string; border: string; font?: string }
 > = {
   novice: {
-    bg: "bg-gray-800",
-    text: "text-gray-400",
-    border: "border-gray-700",
+    bg: "bg-su-panel",
+    text: "text-su-muted",
+    border: "border-su-line/40",
   },
   apprentice: {
     bg: "bg-sky-900/30",

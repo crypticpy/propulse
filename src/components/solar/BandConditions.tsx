@@ -56,7 +56,7 @@ export const BandConditions: React.FC<BandConditionsProps> = ({
   if (kIndex === null || solarFlux === null) {
     return (
       <Card
-        className={`h-full relative ${onExpand ? "cursor-pointer hover:border-white/30 hover:bg-white/[0.05] group" : ""}`}
+        className={`h-full relative ${onExpand ? "cursor-pointer hover:border-su-line/60 hover:bg-su-line/10 group" : ""}`}
         onClick={onExpand}
         role={onExpand ? "button" : undefined}
         tabIndex={onExpand ? 0 : undefined}
@@ -72,7 +72,7 @@ export const BandConditions: React.FC<BandConditionsProps> = ({
         }
       >
         {onExpand && (
-          <div className="absolute top-3 right-3 text-gray-500 opacity-0 group-hover:opacity-100 transition-opacity z-10">
+          <div className="absolute top-3 right-3 text-su-muted opacity-0 group-hover:opacity-100 transition-opacity z-10">
             <svg
               className="w-4 h-4"
               fill="none"
@@ -89,12 +89,12 @@ export const BandConditions: React.FC<BandConditionsProps> = ({
           </div>
         )}
         <div className="flex items-center justify-between mb-4">
-          <h2 className="font-sans text-lg font-semibold text-white tracking-wide flex items-center gap-2">
+          <h2 className="font-sans text-lg font-semibold text-su-text tracking-wide flex items-center gap-2">
             HF BAND CONDITIONS
             <InfoTip content={PROPAGATION_TOOLTIPS.bandCondition} />
           </h2>
         </div>
-        <div className="text-center py-8 text-gray-500 text-sm">
+        <div className="text-center py-8 text-su-muted text-sm">
           Solar data unavailable — cannot calculate band conditions.
         </div>
       </Card>
@@ -107,7 +107,7 @@ export const BandConditions: React.FC<BandConditionsProps> = ({
 
   return (
     <Card
-      className={`h-full relative ${onExpand ? "cursor-pointer hover:border-white/30 hover:bg-white/[0.05] group" : ""}`}
+      className={`h-full relative ${onExpand ? "cursor-pointer hover:border-su-line/60 hover:bg-su-line/10 group" : ""}`}
       onClick={onExpand}
       role={onExpand ? "button" : undefined}
       tabIndex={onExpand ? 0 : undefined}
@@ -124,7 +124,7 @@ export const BandConditions: React.FC<BandConditionsProps> = ({
     >
       {/* Expand icon - hover only */}
       {onExpand && (
-        <div className="absolute top-3 right-3 text-gray-500 opacity-0 group-hover:opacity-100 transition-opacity z-10">
+        <div className="absolute top-3 right-3 text-su-muted opacity-0 group-hover:opacity-100 transition-opacity z-10">
           <svg
             className="w-4 h-4"
             fill="none"
@@ -142,7 +142,7 @@ export const BandConditions: React.FC<BandConditionsProps> = ({
       )}
       {/* Header */}
       <div className="flex items-center justify-between mb-4">
-        <h2 className="font-sans text-lg font-semibold text-white tracking-wide flex items-center gap-2">
+        <h2 className="font-sans text-lg font-semibold text-su-text tracking-wide flex items-center gap-2">
           HF BAND CONDITIONS
           <InfoTip content={PROPAGATION_TOOLTIPS.bandCondition} />
         </h2>
@@ -153,41 +153,41 @@ export const BandConditions: React.FC<BandConditionsProps> = ({
       <div className="space-y-0" role="table" aria-label="HF Band Conditions">
         {/* Column Headers */}
         <div
-          className="grid grid-cols-[50px_1fr_1fr_1fr] md:grid-cols-[60px_80px_90px_90px_1fr] lg:grid-cols-[60px_80px_90px_90px_70px_1fr] gap-3 md:gap-4 pb-2 px-2 border-b border-white/10"
+          className="grid grid-cols-[50px_1fr_1fr_1fr] md:grid-cols-[60px_80px_90px_90px_1fr] lg:grid-cols-[60px_80px_90px_90px_70px_1fr] gap-3 md:gap-4 pb-2 px-2 border-b border-su-line/40"
           role="row"
         >
           <div
-            className="text-xs font-semibold text-gray-400 uppercase tracking-wider"
+            className="text-xs font-semibold text-su-muted uppercase tracking-wider"
             role="columnheader"
           >
             Band
           </div>
           <div
-            className="hidden md:block text-xs font-semibold text-gray-400 uppercase tracking-wider"
+            className="hidden md:block text-xs font-semibold text-su-muted uppercase tracking-wider"
             role="columnheader"
           >
             Freq
           </div>
           <div
-            className="text-xs font-semibold text-gray-400 uppercase tracking-wider text-center"
+            className="text-xs font-semibold text-su-muted uppercase tracking-wider text-center"
             role="columnheader"
           >
             Day
           </div>
           <div
-            className="text-xs font-semibold text-gray-400 uppercase tracking-wider text-center"
+            className="text-xs font-semibold text-su-muted uppercase tracking-wider text-center"
             role="columnheader"
           >
             Night
           </div>
           <div
-            className="hidden lg:block text-xs font-semibold text-gray-400 uppercase tracking-wider text-center"
+            className="hidden lg:block text-xs font-semibold text-su-muted uppercase tracking-wider text-center"
             role="columnheader"
           >
             Spots
           </div>
           <div
-            className="text-xs font-semibold text-gray-400 uppercase tracking-wider text-right md:text-left md:pl-1"
+            className="text-xs font-semibold text-su-muted uppercase tracking-wider text-right md:text-left md:pl-1"
             role="columnheader"
           >
             Best For
@@ -195,7 +195,7 @@ export const BandConditions: React.FC<BandConditionsProps> = ({
         </div>
 
         {/* Band Rows */}
-        <div className="divide-y divide-white/5">
+        <div className="divide-y divide-su-line/20">
           {bands.map((band) => (
             <BandRow
               key={band.name}
@@ -212,12 +212,12 @@ export const BandConditions: React.FC<BandConditionsProps> = ({
       </div>
 
       {/* Legend */}
-      <div className="mt-4 pt-4 border-t border-white/10">
-        <p className="mb-3 text-xs leading-5 text-gray-500">
+      <div className="mt-4 pt-4 border-t border-su-line/40">
+        <p className="mb-3 text-xs leading-5 text-su-muted">
           Global index heuristic only—not a station-to-station forecast. Day and
           night support depends on both ends of the path and the time.
         </p>
-        <div className="flex flex-wrap gap-4 text-xs text-gray-400">
+        <div className="flex flex-wrap gap-4 text-xs text-su-muted">
           <div className="flex items-center gap-1.5">
             <span className="w-2.5 h-2.5 rounded-full bg-signal-green"></span>
             <span>Excellent</span>
@@ -235,7 +235,7 @@ export const BandConditions: React.FC<BandConditionsProps> = ({
             <span>Poor</span>
           </div>
           <div className="flex items-center gap-1.5">
-            <span className="text-gray-500">🌙</span>
+            <span className="text-su-muted">🌙</span>
             <span>Night only</span>
           </div>
         </div>

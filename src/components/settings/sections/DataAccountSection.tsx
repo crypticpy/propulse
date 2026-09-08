@@ -217,7 +217,7 @@ export function DataAccountSection() {
       {/* ── 0. Account ────────────────────────────────────────── */}
       {isSupabaseConfigured && (
         <div className="space-y-4">
-          <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider">
+          <h3 className="text-sm font-semibold text-su-muted uppercase tracking-wider">
             Account
           </h3>
 
@@ -229,7 +229,7 @@ export function DataAccountSection() {
                   {(user?.email?.[0] ?? "U").toUpperCase()}
                 </div>
                 <div className="min-w-0">
-                  <p className="text-sm text-gray-200 truncate">
+                  <p className="text-sm text-su-text truncate">
                     {user?.email}
                   </p>
                   <div className="flex items-center gap-2 mt-0.5">
@@ -240,7 +240,7 @@ export function DataAccountSection() {
                           : syncStatus.state === "syncing"
                             ? "text-plasma-orange"
                             : syncStatus.state === "offline"
-                              ? "text-gray-500"
+                              ? "text-su-muted"
                               : "text-alert-red"
                       }`}
                     >
@@ -251,7 +251,7 @@ export function DataAccountSection() {
                             : syncStatus.state === "syncing"
                               ? "bg-plasma-orange animate-pulse"
                               : syncStatus.state === "offline"
-                                ? "bg-gray-500"
+                                ? "bg-su-line"
                                 : "bg-alert-red"
                         }`}
                       />
@@ -264,13 +264,13 @@ export function DataAccountSection() {
                             : "Sync error"}
                     </span>
                     {syncStatus.pendingCount > 0 && (
-                      <span className="text-xs text-gray-500">
+                      <span className="text-xs text-su-muted">
                         ({syncStatus.pendingCount} pending)
                       </span>
                     )}
                   </div>
                   {syncStatus.lastSyncAt && (
-                    <p className="text-xs text-gray-600 mt-0.5">
+                    <p className="text-xs text-su-muted mt-0.5">
                       Last sync: {formatSyncTime(syncStatus.lastSyncAt)}
                     </p>
                   )}
@@ -288,14 +288,14 @@ export function DataAccountSection() {
               <button
                 type="button"
                 onClick={() => signOut()}
-                className="w-full flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-sm font-medium bg-white/5 border border-white/10 text-gray-300 hover:bg-white/10 transition-colors"
+                className="w-full flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-sm font-medium bg-su-line/10 border border-su-line/40 text-su-muted hover:bg-su-line/20 transition-colors"
               >
                 Sign Out
               </button>
             </div>
           ) : (
             <div className="space-y-3">
-              <p className="text-sm text-gray-400">
+              <p className="text-sm text-su-muted">
                 Sign in to sync your settings, logbook, and profile to the
                 cloud. Everything works offline — an account just adds cloud
                 backup and social features.
@@ -312,16 +312,16 @@ export function DataAccountSection() {
         </div>
       )}
 
-      {isSupabaseConfigured && <div className="border-t border-white/10" />}
+      {isSupabaseConfigured && <div className="border-t border-su-line/40" />}
 
       <ResearchParticipationSettings />
 
       {/* ── 1. Export / Import Settings ─────────────────────────── */}
       <div className="space-y-4">
-        <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider">
+        <h3 className="text-sm font-semibold text-su-muted uppercase tracking-wider">
           Export / Import Settings
         </h3>
-        <p className="text-sm text-gray-400">
+        <p className="text-sm text-su-muted">
           Download all your settings as a JSON file. This includes your station
           profile, preferences, saved targets, watches, pins, and filter
           settings.
@@ -367,8 +367,8 @@ export function DataAccountSection() {
             type="button"
             onClick={() => fileInputRef.current?.click()}
             className="w-full flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-sm font-medium
-                       bg-nebula-blue border border-white/20 text-gray-200
-                       hover:bg-white/10 hover:border-white/30 transition-colors"
+                       bg-nebula-blue border border-su-line/50 text-su-text
+                       hover:bg-su-line/20 hover:border-su-line/60 transition-colors"
           >
             <svg
               className="w-5 h-5"
@@ -389,7 +389,7 @@ export function DataAccountSection() {
 
         {/* Pending import confirmation */}
         {pendingImport && (
-          <div className="p-4 bg-deep-space border border-white/10 rounded-lg space-y-4">
+          <div className="p-4 bg-deep-space border border-su-line/40 rounded-lg space-y-4">
             <div className="flex items-start gap-3">
               <svg
                 className="w-5 h-5 text-plasma-orange flex-shrink-0 mt-0.5"
@@ -405,13 +405,13 @@ export function DataAccountSection() {
                 />
               </svg>
               <div>
-                <p className="text-sm font-medium text-white">
+                <p className="text-sm font-medium text-su-text">
                   Ready to import settings
                 </p>
-                <p className="text-xs text-gray-400 mt-1">
+                <p className="text-xs text-su-muted mt-1">
                   {getBackupSummary(pendingImport.backup)}
                 </p>
-                <p className="text-xs text-gray-500 mt-2">
+                <p className="text-xs text-su-muted mt-2">
                   This will replace your current settings. This action cannot be
                   undone.
                 </p>
@@ -434,8 +434,8 @@ export function DataAccountSection() {
                 onClick={handleCancelImport}
                 disabled={isImporting}
                 className="flex-1 px-4 py-2 rounded-lg text-sm font-medium
-                           bg-white/5 border border-white/10 text-gray-300
-                           hover:bg-white/10 transition-colors
+                           bg-su-line/10 border border-su-line/40 text-su-muted
+                           hover:bg-su-line/20 transition-colors
                            disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Cancel
@@ -447,12 +447,12 @@ export function DataAccountSection() {
 
       {/* ── 1b. Shack LAN Sync (bridge-served devices only) ─────── */}
       {isLan && (
-        <div className="border-t border-white/10 pt-6 mt-6">
+        <div className="border-t border-su-line/40 pt-6 mt-6">
           <div className="space-y-4">
-            <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider">
+            <h3 className="text-sm font-semibold text-su-muted uppercase tracking-wider">
               Shack LAN Sync
             </h3>
-            <p className="text-sm text-gray-400">
+            <p className="text-sm text-su-muted">
               This device is served by your shack bridge. It automatically
               pulls the shared shack settings; publishing makes this device's
               settings the shared blob every device pulls.
@@ -505,12 +505,12 @@ export function DataAccountSection() {
       )}
 
       {/* ── 2. Export Logbook ───────────────────────────────────── */}
-      <div className="border-t border-white/10 pt-6 mt-6">
+      <div className="border-t border-su-line/40 pt-6 mt-6">
         <div className="space-y-4">
-          <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider">
+          <h3 className="text-sm font-semibold text-su-muted uppercase tracking-wider">
             Export Logbook
           </h3>
-          <p className="text-sm text-gray-400">
+          <p className="text-sm text-su-muted">
             Download your logbook as an ADIF file compatible with other amateur
             radio logging software.
           </p>
@@ -522,7 +522,7 @@ export function DataAccountSection() {
                        ${
                          entries.length > 0
                            ? "bg-plasma-orange/20 text-plasma-orange hover:bg-plasma-orange/30 border border-plasma-orange/30"
-                           : "bg-nebula-blue border border-white/10 text-gray-500 cursor-not-allowed"
+                           : "bg-nebula-blue border border-su-line/40 text-su-muted cursor-not-allowed"
                        }`}
           >
             <svg
@@ -544,15 +544,15 @@ export function DataAccountSection() {
       </div>
 
       {/* ── 2b. Map Tile Cache ─────────────────────────────────── */}
-      <div className="border-t border-white/10 pt-6 mt-6">
+      <div className="border-t border-su-line/40 pt-6 mt-6">
         <div className="space-y-4">
-          <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider">
+          <h3 className="text-sm font-semibold text-su-muted uppercase tracking-wider">
             Map Tile Cache
           </h3>
-          <p className="text-sm text-gray-400">
+          <p className="text-sm text-su-muted">
             Cached map tiles for offline viewing.
           </p>
-          <p className="text-sm text-gray-500">
+          <p className="text-sm text-su-muted">
             {tileCacheCount === null
               ? "Loading..."
               : `${tileCacheCount.toLocaleString()} tile${tileCacheCount !== 1 ? "s" : ""} cached`}
@@ -578,7 +578,7 @@ export function DataAccountSection() {
                        ${
                          tileCacheCount !== 0 && !isClearingCache
                            ? "bg-plasma-orange/20 text-plasma-orange hover:bg-plasma-orange/30 border border-plasma-orange/30"
-                           : "bg-nebula-blue border border-white/10 text-gray-500 cursor-not-allowed"
+                           : "bg-nebula-blue border border-su-line/40 text-su-muted cursor-not-allowed"
                        }`}
           >
             <svg
@@ -607,12 +607,12 @@ export function DataAccountSection() {
       </div>
 
       {/* ── 3. Clear Local Data ─────────────────────────────────── */}
-      <div className="border-t border-white/10 pt-6 mt-6">
+      <div className="border-t border-su-line/40 pt-6 mt-6">
         <div className="space-y-4">
-          <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider">
+          <h3 className="text-sm font-semibold text-su-muted uppercase tracking-wider">
             Clear Local Data
           </h3>
-          <p className="text-sm text-gray-400">
+          <p className="text-sm text-su-muted">
             Permanently delete all locally stored data including settings,
             logbook entries, pins, and cached information. This cannot be
             undone.
@@ -657,8 +657,8 @@ export function DataAccountSection() {
               type="button"
               onClick={() => setClearConfirm(false)}
               className="w-full px-4 py-2 rounded-lg text-sm font-medium
-                         bg-white/5 border border-white/10 text-gray-300
-                         hover:bg-white/10 transition-colors"
+                         bg-su-line/10 border border-su-line/40 text-su-muted
+                         hover:bg-su-line/20 transition-colors"
             >
               Cancel
             </button>
@@ -667,15 +667,15 @@ export function DataAccountSection() {
       </div>
 
       {/* ── 4. About ────────────────────────────────────────────── */}
-      <div className="border-t border-white/10 pt-6 mt-6">
+      <div className="border-t border-su-line/40 pt-6 mt-6">
         <div className="space-y-2 text-center">
           <h3 className="text-lg font-orbitron font-bold text-gradient-orange">
             Propulse
           </h3>
-          <p className="text-sm text-gray-400">
+          <p className="text-sm text-su-muted">
             Ham radio propagation dashboard
           </p>
-          <p className="text-xs text-gray-500">Version 0.11.0</p>
+          <p className="text-xs text-su-muted">Version 0.11.0</p>
         </div>
       </div>
 
@@ -689,7 +689,7 @@ export function DataAccountSection() {
                 ? "bg-alert-red/10 border-alert-red/30 text-alert-red"
                 : backupStatus.type === "warning"
                   ? "bg-caution-amber/10 border-caution-amber/30 text-caution-amber"
-                  : "bg-white/5 border-white/10 text-gray-300"
+                  : "bg-su-line/10 border-su-line/40 text-su-muted"
           }`}
         >
           <div className="flex items-start gap-3">
@@ -759,9 +759,9 @@ export function DataAccountSection() {
       )}
 
       {/* Backup note */}
-      <div className="p-3 bg-white/5 border border-white/10 rounded-lg">
-        <p className="text-xs text-gray-500">
-          <strong className="text-gray-400">Note:</strong> Backup files include
+      <div className="p-3 bg-su-line/10 border border-su-line/40 rounded-lg">
+        <p className="text-xs text-su-muted">
+          <strong className="text-su-muted">Note:</strong> Backup files include
           version information for compatibility. You can safely import backups
           from older versions of Propulse.
         </p>

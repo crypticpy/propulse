@@ -45,20 +45,20 @@ function AlertToast({
 
       {/* Content */}
       <div className="flex-1 min-w-0">
-        <p className="text-sm font-bold text-white truncate">{alert.netName}</p>
-        <p className="text-xs text-gray-300 mt-0.5">
+        <p className="text-sm font-bold text-su-text truncate">{alert.netName}</p>
+        <p className="text-xs text-su-muted mt-0.5">
           Starting in{" "}
           <span className="font-semibold text-plasma-orange">
             {alert.minutesBefore} min
           </span>{" "}
-          on <span className="font-mono text-white">{alert.frequency}</span>
+          on <span className="font-mono text-su-text">{alert.frequency}</span>
         </p>
       </div>
 
       {/* Dismiss button */}
       <button
         onClick={onDismiss}
-        className="shrink-0 p-1.5 text-gray-400 hover:text-white hover:bg-white/10 rounded transition-colors"
+        className="shrink-0 p-1.5 text-su-muted hover:text-su-text hover:bg-su-line/20 rounded transition-colors"
         aria-label={`Dismiss alert for ${alert.netName}`}
       >
         <svg

@@ -68,13 +68,13 @@ export function ManagerRoster({
   // ── Render ─────────────────────────────────────────────────────────────────
 
   return (
-    <div className="bg-panel/30 border border-white/5 rounded-2xl p-4">
+    <div className="bg-panel/30 border border-su-line/20 rounded-2xl p-4">
       {/* Header */}
       <div className="flex items-center gap-2 mb-3">
-        <h3 className="text-[10px] uppercase tracking-widest text-gray-500">
+        <h3 className="text-[10px] uppercase tracking-widest text-su-muted">
           Net Managers
         </h3>
-        <span className="text-[10px] tabular-nums text-gray-600 bg-white/5 rounded-full px-1.5 py-0.5">
+        <span className="text-[10px] tabular-nums text-su-muted bg-su-line/10 rounded-full px-1.5 py-0.5">
           {managers.length}
         </span>
       </div>
@@ -82,7 +82,7 @@ export function ManagerRoster({
       {/* Manager list */}
       <div>
         {managers.length === 0 ? (
-          <p className="text-sm text-gray-500 italic">
+          <p className="text-sm text-su-muted italic">
             No managers assigned yet.
           </p>
         ) : (
@@ -94,10 +94,10 @@ export function ManagerRoster({
             return (
               <div
                 key={`${m.netId}-${m.userId}`}
-                className="flex items-center gap-3 py-2 border-b border-white/5 last:border-0"
+                className="flex items-center gap-3 py-2 border-b border-su-line/20 last:border-0"
               >
                 {/* Callsign */}
-                <span className="font-mono text-sm text-white flex-1 truncate">
+                <span className="font-mono text-sm text-su-text flex-1 truncate">
                   {m.callsign || m.userId.slice(0, 8)}
                 </span>
 
@@ -113,7 +113,7 @@ export function ManagerRoster({
                   <>
                     {confirmingId === m.userId ? (
                       <span className="flex items-center gap-1 shrink-0">
-                        <span className="text-[10px] text-gray-400">
+                        <span className="text-[10px] text-su-muted">
                           Remove?
                         </span>
                         <button
@@ -126,7 +126,7 @@ export function ManagerRoster({
                         <button
                           type="button"
                           onClick={() => setConfirmingId(null)}
-                          className="text-[10px] text-gray-500 hover:text-gray-400 font-medium"
+                          className="text-[10px] text-su-muted hover:text-su-text font-medium"
                         >
                           No
                         </button>
@@ -135,7 +135,7 @@ export function ManagerRoster({
                       <button
                         type="button"
                         onClick={() => setConfirmingId(m.userId)}
-                        className="text-gray-600 hover:text-red-400 transition-colors shrink-0"
+                        className="text-su-muted hover:text-red-400 transition-colors shrink-0"
                         aria-label={`Remove ${m.callsign || m.userId}`}
                       >
                         <svg
@@ -163,7 +163,7 @@ export function ManagerRoster({
 
       {/* Add manager form (owner only) */}
       {isOwner && (
-        <div className="mt-4 pt-3 border-t border-white/5 space-y-2">
+        <div className="mt-4 pt-3 border-t border-su-line/20 space-y-2">
           <div className="flex gap-2">
             {/* Callsign input */}
             <input
@@ -177,14 +177,14 @@ export function ManagerRoster({
                 if (e.key === "Enter") handleAdd();
               }}
               placeholder="Callsign"
-              className="flex-1 min-w-0 bg-void/50 border border-white/10 rounded-lg px-3 py-1.5 text-sm font-mono text-white placeholder:text-gray-600 focus:outline-none focus:border-plasma-orange/50"
+              className="flex-1 min-w-0 bg-void/50 border border-su-line/40 rounded-lg px-3 py-1.5 text-sm font-mono text-su-text placeholder:text-su-muted focus:outline-none focus:border-plasma-orange/50"
             />
 
             {/* Role dropdown */}
             <select
               value={role}
               onChange={(e) => setRole(e.target.value as "manager" | "ncs")}
-              className="bg-void/50 border border-white/10 rounded-lg px-2 py-1.5 text-sm text-gray-300 focus:outline-none focus:border-plasma-orange/50 appearance-none cursor-pointer"
+              className="bg-void/50 border border-su-line/40 rounded-lg px-2 py-1.5 text-sm text-su-muted focus:outline-none focus:border-plasma-orange/50 appearance-none cursor-pointer"
             >
               <option value="manager">Manager</option>
               <option value="ncs">NCS</option>

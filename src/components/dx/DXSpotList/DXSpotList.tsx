@@ -8,7 +8,10 @@
  * This is the main orchestrator component that composes the modular pieces.
  */
 
-import { useCallback, useMemo, useState, useRef } from "react";
+import { useCallback, useMemo, useRef } from "react";
+import { useSpotPage } from "./useSpotPage";
+import { useVisibleRows } from "@/components/map/hamclock/wall/useVisibleRows";
+import { HamClockButton } from "@/components/map/hamclock/wall/controls";
 import { Card, LoadingSpinner } from "@/components/ui";
 import { SpotContextMenu } from "@/components/map/SpotContextMenu";
 import { SpotDetailPanel } from "../SpotDetailPanel";
@@ -54,6 +57,7 @@ const SOURCE_BADGE_STYLES: Record<
  */
 export function DXSpotList({
   compact = false,
+  wallPaging = false,
   maxHeight = "400px",
   showFilters = true,
   showHeader = true,
@@ -203,8 +207,14 @@ export function DXSpotList({
   }, []);
 
   // --- QoL1: Keyboard-first DX spot navigation ---
-  const [focusedIndex, setFocusedIndex] = useState(-1);
   const spotListRef = useRef<HTMLDivElement>(null);
+  const [pageRowsRef, measuredSize] = useVisibleRows<HTMLDivElement>(watchSortedSpots.length);
+  const pageSize = Math.max(1, measuredSize);
+  const { start: pageStart, end: pageEnd, focusedIndex, setFocusedIndex, changePage } =
+    useSpotPage(watchSortedSpots, pageSize, selectedSpot?.id, wallPaging);
+  const visibleSpots = wallPaging
+    ? watchSortedSpots.slice(pageStart, pageEnd)
+    : watchSortedSpots;
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
@@ -214,22 +224,22 @@ export function DXSpotList({
       switch (e.key) {
         case "ArrowDown": {
           e.preventDefault();
-          setFocusedIndex((prev) => Math.min(prev + 1, len - 1));
+          setFocusedIndex((prev) => Math.min(prev < 0 && wallPaging ? pageStart : prev + 1, len - 1));
           break;
         }
         case "ArrowUp": {
           e.preventDefault();
-          setFocusedIndex((prev) => Math.max(prev - 1, 0));
+          setFocusedIndex((prev) => prev < 0 && wallPaging ? Math.max(pageStart, pageEnd - 1) : Math.max(prev - 1, 0));
           break;
         }
         case "PageDown": {
           e.preventDefault();
-          setFocusedIndex((prev) => Math.min(prev + 10, len - 1));
+          setFocusedIndex((prev) => Math.min((prev < 0 && wallPaging ? pageStart : prev) + (wallPaging ? pageSize : 10), len - 1));
           break;
         }
         case "PageUp": {
           e.preventDefault();
-          setFocusedIndex((prev) => Math.max(prev - 10, 0));
+          setFocusedIndex((prev) => Math.max((prev < 0 && wallPaging ? pageStart : prev) - (wallPaging ? pageSize : 10), 0));
           break;
         }
         case "Home": {
@@ -293,7 +303,12 @@ export function DXSpotList({
     },
     [
       watchSortedSpots,
+      wallPaging,
+      pageStart,
+      pageEnd,
+      pageSize,
       focusedIndex,
+      setFocusedIndex,
       handleSelectSpot,
       handleSetTarget,
       handleWatchCallsign,
@@ -303,12 +318,12 @@ export function DXSpotList({
 
   // Scroll focused row into view
   const scrollFocusedIntoView = useCallback((index: number) => {
-    if (index < 0 || !spotListRef.current) return;
+    if (wallPaging || index < 0 || !spotListRef.current) return;
     const rows = spotListRef.current.querySelectorAll(
       '[role="row"]:not(:first-child)',
     );
     rows[index]?.scrollIntoView({ block: "nearest", behavior: "smooth" });
-  }, []);
+  }, [wallPaging]);
 
   // Effect: scroll when focused index changes
   const prevFocusedRef = useRef(focusedIndex);
@@ -318,15 +333,15 @@ export function DXSpotList({
   }
 
   return (
-    <Card className={`h-full flex flex-col ${className}`}>
+    <Card className={`h-full ${wallPaging ? "min-h-0" : ""} flex flex-col ${className}`}>
       {/* Header */}
       {showHeader && (
         <div className="flex items-center justify-between mb-2">
           <div className="flex items-center gap-3">
-            <h2 className="font-sans text-lg font-semibold text-white tracking-wide">
+            <h2 className="font-sans text-lg font-semibold text-su-text tracking-wide">
               DX CLUSTER
             </h2>
-            <span className="text-xs text-gray-400">
+            <span className="text-xs text-su-muted">
               {profileFilteredSpots.length}
               {(filters.neededOnly &&
                 profileFilteredSpots.length !== totalSpots) ||
@@ -370,7 +385,7 @@ export function DXSpotList({
             {(isLoading || isFetching) && <LoadingSpinner size="sm" />}
             <button
               onClick={refetch}
-              className="p-1.5 text-gray-400 hover:text-white transition-colors rounded hover:bg-white/5"
+              className="p-1.5 text-su-muted hover:text-su-text transition-colors rounded hover:bg-su-line/10"
               title="Refresh spots"
             >
               <svg
@@ -390,7 +405,7 @@ export function DXSpotList({
             {onExpand && (
               <button
                 onClick={onExpand}
-                className="p-1.5 text-gray-400 hover:text-white transition-colors rounded hover:bg-white/5"
+                className="p-1.5 text-su-muted hover:text-su-text transition-colors rounded hover:bg-su-line/10"
                 title="Expand"
               >
                 <svg
@@ -414,7 +429,7 @@ export function DXSpotList({
 
       {/* Profile filter indicator */}
       {profileFilterActive && (
-        <div className="mb-1.5 px-2 py-1 rounded bg-white/5 border border-white/10 text-[11px] text-gray-300 flex items-center gap-1.5">
+        <div className="mb-1.5 px-2 py-1 rounded bg-su-line/10 border border-su-line/40 text-[11px] text-su-muted flex items-center gap-1.5">
           <svg
             className="w-3 h-3 text-cyan-400 shrink-0"
             fill="none"
@@ -445,14 +460,14 @@ export function DXSpotList({
             {spotFilters.modes.length > 0 && (
               <> — {spotFilters.modes.join(", ")}</>
             )}
-            <span className="text-gray-400 ml-1">
+            <span className="text-su-muted ml-1">
               — Showing {profileFilteredSpots.length} of {displaySpots.length}{" "}
               spots
             </span>
           </span>
           <button
             onClick={() => useMapStore.getState().clearSpotFilters()}
-            className="ml-auto text-white/40 hover:text-white text-[10px]"
+            className="ml-auto text-su-text/80 hover:text-su-text text-[10px]"
             title="Clear filter"
           >
             ✕
@@ -500,8 +515,8 @@ export function DXSpotList({
             spotListRef as React.MutableRefObject<HTMLDivElement | null>
           ).current = el;
         }}
-        className="flex-1 overflow-y-auto divide-y divide-white/5 focus:outline-none"
-        style={{ maxHeight }}
+        className={wallPaging ? "flex-1 min-h-0 flex flex-col overflow-hidden focus:outline-none" : "flex-1 overflow-y-auto divide-y divide-su-line/20 focus:outline-none"}
+        style={wallPaging ? undefined : { maxHeight }}
         role="table"
         aria-label="DX Spots"
         tabIndex={0}
@@ -515,7 +530,7 @@ export function DXSpotList({
         {/* Column Headers - sticky at top of scroll container */}
         {!compact && (
           <div
-            className={`sticky top-0 z-10 bg-nebula-blue grid ${spotAgePrefs.showAgeColumn ? "grid-cols-[46px_40px_52px_66px_1fr_50px_62px_1fr_72px]" : "grid-cols-[46px_52px_66px_1fr_50px_62px_1fr_72px]"} gap-1.5 px-2 py-1.5 border-b border-white/10 text-[10px] font-semibold text-gray-300 uppercase tracking-wider`}
+            className={`sticky top-0 z-10 bg-nebula-blue grid ${spotAgePrefs.showAgeColumn ? "grid-cols-[46px_40px_52px_66px_1fr_50px_62px_1fr_72px]" : "grid-cols-[46px_52px_66px_1fr_50px_62px_1fr_72px]"} gap-1.5 px-2 py-1.5 border-b border-su-line/40 text-[10px] font-semibold text-su-muted uppercase tracking-wider`}
             role="row"
             style={{ borderLeft: "3px solid transparent" }}
           >
@@ -584,18 +599,20 @@ export function DXSpotList({
             </button>
           </div>
         )}
+        <div ref={wallPaging ? pageRowsRef : undefined} className={wallPaging ? "flex-1 min-h-0 overflow-hidden divide-y divide-su-line/20" : undefined}>
         {isLoading && watchSortedSpots.length === 0 ? (
           <div className="flex items-center justify-center py-12">
             <LoadingSpinner size="lg" />
           </div>
         ) : watchSortedSpots.length === 0 ? (
-          <div className="flex items-center justify-center py-12 text-gray-400">
+          <div className="flex items-center justify-center py-12 text-su-muted">
             {profileFilterActive
               ? "No spots match profile filters"
               : "No spots match your filters"}
           </div>
         ) : (
-          watchSortedSpots.map((spot, index) => {
+          visibleSpots.map((spot, localIndex) => {
+            const index = pageStart + localIndex;
             const isWatchMatch =
               watchCriteria !== null && matchedSpotIds.has(spot.id);
             const isNewMult = newMultSpotIds.has(spot.id);
@@ -633,7 +650,7 @@ export function DXSpotList({
                   isAlertMatch={alertMatchSet.has(spot.id)}
                   isNeeded={neededStatusMap.get(spot.id) ?? true}
                   distanceKm={distanceMap.get(spot.id) ?? null}
-                  onSelect={handleSelectSpot}
+                  onSelect={wallPaging ? (selected) => { setFocusedIndex(index); handleSelectSpot(selected); } : handleSelectSpot}
                   onHover={setHoveredSpot}
                   onContextMenu={handleContextMenu}
                   onGridClick={handleGridFilterChange}
@@ -651,20 +668,29 @@ export function DXSpotList({
             );
           })
         )}
+        </div>
       </div>
+
+      {wallPaging && (
+        <div className="hcr-cluster-pages">
+          <HamClockButton disabled={pageStart === 0} onClick={() => changePage(Math.max(0, pageStart - pageSize))}>PREVIOUS</HamClockButton>
+          <span aria-live="polite">ROWS {watchSortedSpots.length ? pageStart + 1 : 0}–{pageEnd} / {watchSortedSpots.length}</span>
+          <HamClockButton disabled={pageEnd >= watchSortedSpots.length} onClick={() => changePage(pageEnd)}>NEXT</HamClockButton>
+        </div>
+      )}
 
       {/* Spot Detail Panel - shows when a spot is selected */}
       <SpotDetailPanel spot={selectedSpot} />
 
       {/* Footer */}
-      <div className="mt-2 pt-2 border-t border-white/10 flex items-center justify-between text-xs text-gray-400">
+      <div className="mt-2 pt-2 border-t border-su-line/40 flex items-center justify-between text-xs text-su-muted">
         <div>
           {lastUpdated && <span>Updated {formatTime(lastUpdated)} UTC</span>}
         </div>
         <div className="flex items-center gap-3">
           <span>{stats.total} total</span>
           {Object.keys(stats.byMode).length > 0 && (
-            <span className="text-gray-400">
+            <span className="text-su-muted">
               Top:{" "}
               {Object.entries(stats.byMode).sort((a, b) => b[1] - a[1])[0]?.[0]}
             </span>

@@ -13,8 +13,8 @@ import type { ReliabilityCell } from "@/lib/hamclock/reliabilityForecast";
 
 // The report is only worth its bytes once an operator opens it.
 const ForecastReport = lazy(() =>
-  import("../reports/ForecastReport").then((m) => ({
-    default: m.ForecastReport,
+  import("../reports/PropagationForecastReport").then((m) => ({
+    default: m.PropagationForecastReport,
   })),
 );
 
@@ -111,6 +111,11 @@ export function ForecastMatrixTile({
 }: WallTileProps) {
   const { status, cells, hourIndex, targetLabel, mode } = useWallReliability();
   const [reportOpen, setReportOpen] = useState(false);
+  const report = reportOpen ? (
+    <Suspense fallback={null}>
+      <ForecastReport open onClose={() => setReportOpen(false)} />
+    </Suspense>
+  ) : null;
 
   const hero = useMemo<Headline | null>(() => {
     if (status !== "ready") return null;
@@ -127,12 +132,19 @@ export function ForecastMatrixTile({
 
   if (status !== "ready" || !hero) {
     return (
-      <HamClockTile title={title}>
-        <TileHero tone="hc-dim-text">—</TileHero>
-        <p className="hcf-idle">
-          {IDLE_COPY[status as Exclude<WallReliabilityStatus, "ready">]}
-        </p>
-      </HamClockTile>
+      <>
+        <HamClockTile
+          title={title}
+          onOpen={() => setReportOpen(true)}
+          openLabel="Open forecast report"
+        >
+          <TileHero tone="hc-dim-text">—</TileHero>
+          <p className="hcf-idle">
+            {IDLE_COPY[status as Exclude<WallReliabilityStatus, "ready">]}
+          </p>
+        </HamClockTile>
+        {report}
+      </>
     );
   }
 
@@ -152,7 +164,7 @@ export function ForecastMatrixTile({
         source={`${mode} · ${targetLabel.toUpperCase()}`}
         state={hero.verdict === "OPENS" ? "var(--hc-good)" : undefined}
         onOpen={() => setReportOpen(true)}
-        openLabel={`${hero.band} ${hero.verdict}. Open the propagation report`}
+        openLabel={`${hero.band} ${hero.verdict}. Open forecast report`}
       >
         <div className="hc-heroline">
           <TileHero tone={hero.tone} flush>
@@ -205,15 +217,7 @@ export function ForecastMatrixTile({
         <p className="sr-only">{summary}</p>
       </HamClockTile>
 
-      {reportOpen && (
-        <Suspense fallback={null}>
-          <ForecastReport
-            open
-            onClose={() => setReportOpen(false)}
-            focus="forecast"
-          />
-        </Suspense>
-      )}
+      {report}
     </>
   );
 }

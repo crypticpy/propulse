@@ -57,12 +57,12 @@ export function QuickLocationControl({
             ? `flex min-h-10 min-w-10 items-center justify-center rounded-lg transition-colors ${
                 isTemporaryActive
                   ? "bg-caution-amber/15 text-caution-amber"
-                  : "text-gray-400 hover:bg-white/5 hover:text-gray-200"
+                  : "text-su-muted hover:bg-su-line/10 hover:text-su-text"
               } ${className}`
             : `inline-flex items-center gap-1 rounded font-mono transition-colors ${
                 isTemporaryActive
                   ? "bg-caution-amber/10 text-caution-amber hover:bg-caution-amber/20"
-                  : "text-gray-400 hover:bg-white/5 hover:text-white"
+                  : "text-su-muted hover:bg-su-line/10 hover:text-su-text"
               } ${variant === "profile" ? "px-0.5 text-sm font-medium" : "px-1 text-[10px]"} ${className}`
         }
         aria-label={label}

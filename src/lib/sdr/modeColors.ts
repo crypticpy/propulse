@@ -58,7 +58,7 @@ export function getModeTextClass(mode: string | null): string {
     case "digital":
       return "text-purple-400";
     case "unknown":
-      return "text-gray-400";
+      return "text-su-muted";
   }
 }
 
@@ -74,7 +74,7 @@ export function getModeBgClass(mode: string | null): string {
     case "digital":
       return "bg-purple-400/15 border-purple-400/30";
     case "unknown":
-      return "bg-gray-400/15 border-gray-400/30";
+      return "bg-su-line/10 border-su-line/60";
   }
 }
 

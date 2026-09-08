@@ -153,7 +153,7 @@ function EmptyState({ message }: EmptyStateProps) {
       <div className="text-4xl mb-3" aria-hidden="true">
         &#x2600;&#xFE0F;
       </div>
-      <p className="text-gray-400">{message}</p>
+      <p className="text-su-muted">{message}</p>
     </div>
   );
 }
@@ -198,7 +198,7 @@ function AlertItem({
         <div className="flex-1 min-w-0">
           {/* Header with title and badges */}
           <div className="flex items-center gap-2 flex-wrap">
-            <h4 className="text-sm font-semibold text-white">{alert.title}</h4>
+            <h4 className="text-sm font-semibold text-su-text">{alert.title}</h4>
 
             {/* Priority badge */}
             <span
@@ -212,23 +212,23 @@ function AlertItem({
 
             {/* Status badge for non-active alerts */}
             {alert.status !== "ACTIVE" && (
-              <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-gray-700 text-gray-300">
+              <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-su-input text-su-muted">
                 {alert.status}
               </span>
             )}
           </div>
 
           {/* Alert message */}
-          <p className="text-sm text-gray-300 mt-1">{alert.message}</p>
+          <p className="text-sm text-su-muted mt-1">{alert.message}</p>
 
           {/* Affected bands */}
           {alert.affectedBands.length > 0 && (
             <div className="mt-2 flex flex-wrap gap-1 items-center">
-              <span className="text-xs text-gray-500">Affected:</span>
+              <span className="text-xs text-su-muted">Affected:</span>
               {alert.affectedBands.map((band) => (
                 <span
                   key={band}
-                  className="px-1.5 py-0.5 text-xs bg-gray-800 text-gray-400 rounded"
+                  className="px-1.5 py-0.5 text-xs bg-su-panel text-su-muted rounded"
                 >
                   {band}
                 </span>
@@ -237,7 +237,7 @@ function AlertItem({
           )}
 
           {/* Timestamps */}
-          <div className="mt-2 flex items-center gap-3 text-xs text-gray-500 flex-wrap">
+          <div className="mt-2 flex items-center gap-3 text-xs text-su-muted flex-wrap">
             <span>Triggered: {formatTimestamp(alert.triggeredAt)}</span>
             {alert.resolvedAt && (
               <span>Resolved: {formatTimestamp(alert.resolvedAt)}</span>
@@ -252,7 +252,7 @@ function AlertItem({
         {showDismissButton && onDismiss && (
           <button
             onClick={handleDismiss}
-            className="p-1.5 text-gray-400 hover:text-white hover:bg-white/10 rounded transition-colors flex-shrink-0"
+            className="p-1.5 text-su-muted hover:text-su-text hover:bg-su-line/20 rounded transition-colors flex-shrink-0"
             aria-label={`Dismiss alert: ${alert.title}`}
           >
             <CloseIcon />
@@ -284,7 +284,7 @@ function TabButton({ tab, isActive, count, onClick }: TabButtonProps) {
       onClick={onClick}
       className={`
         flex-1 px-4 py-3 text-sm font-medium transition-colors duration-200 relative
-        ${isActive ? "text-plasma-orange" : "text-gray-400 hover:text-gray-200"}
+        ${isActive ? "text-plasma-orange" : "text-su-muted hover:text-su-text"}
       `}
       role="tab"
       aria-selected={isActive}
@@ -292,7 +292,7 @@ function TabButton({ tab, isActive, count, onClick }: TabButtonProps) {
     >
       {tab.label}
       {count > 0 && (
-        <span className="ml-2 px-1.5 py-0.5 text-xs bg-white/10 rounded-full">
+        <span className="ml-2 px-1.5 py-0.5 text-xs bg-su-line/20 rounded-full">
           {count}
         </span>
       )}
@@ -434,7 +434,7 @@ export function AlertHistoryModal({ isOpen, onClose }: AlertHistoryModalProps) {
     >
       {/* Tab Navigation */}
       <div
-        className="flex border-b border-white/10 mb-4"
+        className="flex border-b border-su-line/40 mb-4"
         role="tablist"
         aria-label="Alert status tabs"
       >
@@ -471,7 +471,7 @@ export function AlertHistoryModal({ isOpen, onClose }: AlertHistoryModalProps) {
       </div>
 
       {/* Footer */}
-      <div className="flex justify-between items-center mt-6 pt-4 border-t border-white/10">
+      <div className="flex justify-between items-center mt-6 pt-4 border-t border-su-line/40">
         <div>
           {activeTab === "dismissed" && tabCounts.dismissed > 0 && (
             <button
@@ -481,7 +481,7 @@ export function AlertHistoryModal({ isOpen, onClose }: AlertHistoryModalProps) {
                 ${
                   confirmClear
                     ? "bg-alert-red/20 text-alert-red border border-alert-red/50"
-                    : "bg-white/5 text-gray-400 hover:text-white hover:bg-white/10"
+                    : "bg-su-line/10 text-su-muted hover:text-su-text hover:bg-su-line/20"
                 }
               `}
               aria-label={
@@ -496,7 +496,7 @@ export function AlertHistoryModal({ isOpen, onClose }: AlertHistoryModalProps) {
         </div>
         <button
           onClick={onClose}
-          className="px-4 py-2 bg-nebula-blue border border-white/10 rounded-lg text-gray-300 hover:text-white hover:border-white/20 transition-colors duration-200"
+          className="px-4 py-2 bg-nebula-blue border border-su-line/40 rounded-lg text-su-muted hover:text-su-text hover:border-su-line/50 transition-colors duration-200"
         >
           Close
         </button>

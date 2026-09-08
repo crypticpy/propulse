@@ -199,7 +199,7 @@ const MODE_METADATA: Record<PropagationMode, ModeMetadata> = {
     ],
     operationalAdvice:
       "Monitor beacons and cluster spots for real-time propagation indicators. Use FT8 or CW for weak-signal work.",
-    color: "text-gray-500",
+    color: "text-su-muted",
   },
 };
 

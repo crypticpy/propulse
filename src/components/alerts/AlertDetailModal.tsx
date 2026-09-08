@@ -211,7 +211,7 @@ export function AlertDetailModal({
           >
             {priorityMeta.text}
           </span>
-          <span className="text-sm font-semibold text-white">{typeLabel}</span>
+          <span className="text-sm font-semibold text-su-text">{typeLabel}</span>
         </div>
 
         {/* Alert description */}
@@ -224,10 +224,10 @@ export function AlertDetailModal({
                 : "bg-cosmic-cyan/10 border-cosmic-cyan/30"
           }`}
         >
-          <h3 className="text-sm font-bold text-white mb-1">{alert.title}</h3>
-          <p className="text-sm text-gray-300">{alert.message}</p>
+          <h3 className="text-sm font-bold text-su-text mb-1">{alert.title}</h3>
+          <p className="text-sm text-su-muted">{alert.message}</p>
           {alert.currentValue !== undefined && (
-            <p className="text-xs text-gray-400 mt-2 font-mono">
+            <p className="text-xs text-su-muted mt-2 font-mono">
               Current value: {alert.currentValue}
             </p>
           )}
@@ -235,12 +235,12 @@ export function AlertDetailModal({
 
         {/* Radio impact summary */}
         {impact && impact.affectedBands.length > 0 && (
-          <div className="rounded-xl bg-white/[0.03] border border-white/10 p-4">
-            <h3 className="text-sm font-semibold text-gray-300 uppercase tracking-wider mb-3">
+          <div className="rounded-xl bg-su-line/10 border border-su-line/40 p-4">
+            <h3 className="text-sm font-semibold text-su-muted uppercase tracking-wider mb-3">
               Radio Impact
             </h3>
             <div className="mb-3">
-              <span className="text-xs text-gray-500 block mb-1.5">
+              <span className="text-xs text-su-muted block mb-1.5">
                 Affected bands:
               </span>
               <div className="flex flex-wrap gap-1.5">
@@ -258,8 +258,8 @@ export function AlertDetailModal({
                 ))}
               </div>
             </div>
-            <p className="text-sm text-gray-300">{impact.recommendation}</p>
-            <p className="text-xs text-gray-500 mt-2">
+            <p className="text-sm text-su-muted">{impact.recommendation}</p>
+            <p className="text-xs text-su-muted mt-2">
               Estimated duration: {impact.estimatedDuration}
             </p>
           </div>
@@ -270,8 +270,8 @@ export function AlertDetailModal({
 
         {/* Source links */}
         {sources.length > 0 && (
-          <div className="rounded-xl bg-white/[0.03] border border-white/10 p-4">
-            <h3 className="text-sm font-semibold text-gray-300 uppercase tracking-wider mb-3">
+          <div className="rounded-xl bg-su-line/10 border border-su-line/40 p-4">
+            <h3 className="text-sm font-semibold text-su-muted uppercase tracking-wider mb-3">
               Official Sources
             </h3>
             <div className="space-y-2">
@@ -304,12 +304,12 @@ export function AlertDetailModal({
         )}
 
         {/* Timestamp */}
-        <div className="flex items-center justify-between text-xs text-gray-500 pt-2 border-t border-white/10">
+        <div className="flex items-center justify-between text-xs text-su-muted pt-2 border-t border-su-line/40">
           <span>
             Triggered:{" "}
-            <span className="text-gray-400 font-mono">{ts.absolute}</span>
+            <span className="text-su-muted font-mono">{ts.absolute}</span>
           </span>
-          <span className="text-gray-400">{ts.relative}</span>
+          <span className="text-su-muted">{ts.relative}</span>
         </div>
       </div>
     </DetailModal>

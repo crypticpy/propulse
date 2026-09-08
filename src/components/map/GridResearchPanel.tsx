@@ -60,23 +60,23 @@ function LoadingSkeleton() {
   return (
     <div className="animate-pulse space-y-4">
       <div className="space-y-2">
-        <div className="h-6 w-24 rounded bg-white/10" />
-        <div className="h-4 w-48 rounded bg-white/10" />
-        <div className="h-3 w-32 rounded bg-white/10" />
+        <div className="h-6 w-24 rounded bg-su-line/20" />
+        <div className="h-4 w-48 rounded bg-su-line/20" />
+        <div className="h-3 w-32 rounded bg-su-line/20" />
       </div>
-      <div className="h-px bg-white/10" />
+      <div className="h-px bg-su-line/20" />
       <div className="space-y-2">
-        <div className="h-4 w-40 rounded bg-white/10" />
-        <div className="h-4 w-36 rounded bg-white/10" />
+        <div className="h-4 w-40 rounded bg-su-line/20" />
+        <div className="h-4 w-36 rounded bg-su-line/20" />
       </div>
-      <div className="h-px bg-white/10" />
+      <div className="h-px bg-su-line/20" />
       <div className="space-y-2">
-        <div className="h-4 w-32 rounded bg-white/10" />
+        <div className="h-4 w-32 rounded bg-su-line/20" />
         <div className="flex gap-2">
-          <div className="h-12 w-14 rounded bg-white/10" />
-          <div className="h-12 w-14 rounded bg-white/10" />
-          <div className="h-12 w-14 rounded bg-white/10" />
-          <div className="h-12 w-14 rounded bg-white/10" />
+          <div className="h-12 w-14 rounded bg-su-line/20" />
+          <div className="h-12 w-14 rounded bg-su-line/20" />
+          <div className="h-12 w-14 rounded bg-su-line/20" />
+          <div className="h-12 w-14 rounded bg-su-line/20" />
         </div>
       </div>
     </div>
@@ -100,12 +100,12 @@ function BandCard({
       className={`
         flex flex-col items-center justify-center
         rounded-lg border px-3 py-2
-        ${isTop ? "border-amber-500/50 bg-amber-500/10" : "border-white/10 bg-white/5"}
+        ${isTop ? "border-amber-500/50 bg-amber-500/10" : "border-su-line/40 bg-su-line/10"}
       `}
     >
-      <span className="text-xs font-medium text-gray-400">{band}</span>
+      <span className="text-xs font-medium text-su-muted">{band}</span>
       <span
-        className={`text-lg font-bold ${isTop ? "text-amber-400" : "text-white"}`}
+        className={`text-lg font-bold ${isTop ? "text-amber-400" : "text-su-text"}`}
       >
         {count}
       </span>
@@ -157,50 +157,50 @@ function PanelContent({
     <div className="space-y-4">
       {/* Entity Information */}
       <div className="space-y-1">
-        <h3 className="font-mono text-xl font-bold text-white">{data.grid}</h3>
+        <h3 className="font-mono text-xl font-bold text-su-text">{data.grid}</h3>
         {data.entity ? (
           <>
-            <p className="text-sm text-gray-300">
+            <p className="text-sm text-su-muted">
               {data.entity.name}{" "}
-              <span className="text-gray-500">({data.entity.prefix})</span>
+              <span className="text-su-muted">({data.entity.prefix})</span>
             </p>
-            <p className="font-mono text-xs text-gray-500">
+            <p className="font-mono text-xs text-su-muted">
               CQ: {data.entity.cqZone} | ITU: {data.entity.ituZone} |{" "}
               {data.entity.continent}
             </p>
           </>
         ) : (
-          <p className="text-sm text-gray-500">Entity not identified</p>
+          <p className="text-sm text-su-muted">Entity not identified</p>
         )}
       </div>
 
       {/* Divider */}
-      <div className="h-px bg-white/10" />
+      <div className="h-px bg-su-line/20" />
 
       {/* Distance and Bearing */}
       {data.distance && data.bearing ? (
         <div className="space-y-1">
           <div className="flex items-baseline justify-between">
-            <span className="text-sm text-gray-400">Distance</span>
-            <span className="font-mono text-sm text-white">
+            <span className="text-sm text-su-muted">Distance</span>
+            <span className="font-mono text-sm text-su-text">
               {data.distance.km.toLocaleString()} km
             </span>
           </div>
           <div className="flex items-baseline justify-between">
-            <span className="text-sm text-gray-400">Bearing</span>
-            <span className="font-mono text-sm text-white">
+            <span className="text-sm text-su-muted">Bearing</span>
+            <span className="font-mono text-sm text-su-text">
               {formatBearingWithDirection(data.bearing.degrees)}
             </span>
           </div>
           <div className="flex items-baseline justify-between">
-            <span className="text-sm text-gray-400">Reverse</span>
-            <span className="font-mono text-sm text-gray-500">
+            <span className="text-sm text-su-muted">Reverse</span>
+            <span className="font-mono text-sm text-su-muted">
               {formatBearingWithDirection(data.bearing.reverse)}
             </span>
           </div>
         </div>
       ) : (
-        <div className="text-sm text-gray-500">
+        <div className="text-sm text-su-muted">
           {data.homeGrid
             ? "Could not calculate path"
             : "Set home location for distance/bearing"}
@@ -208,15 +208,15 @@ function PanelContent({
       )}
 
       {/* Divider */}
-      <div className="h-px bg-white/10" />
+      <div className="h-px bg-su-line/20" />
 
       {/* Current Activity */}
       <div className="space-y-2">
         <div className="flex items-baseline justify-between">
-          <h4 className="text-sm font-medium text-gray-300">
+          <h4 className="text-sm font-medium text-su-muted">
             Current Activity
           </h4>
-          <span className="text-xs text-gray-500">
+          <span className="text-xs text-su-muted">
             {data.activity.total} spots
           </span>
         </div>
@@ -233,7 +233,7 @@ function PanelContent({
             ))}
           </div>
         ) : (
-          <p className="text-sm text-gray-500">No recent activity detected</p>
+          <p className="text-sm text-su-muted">No recent activity detected</p>
         )}
 
         {sortedModes.length > 0 && (
@@ -241,7 +241,7 @@ function PanelContent({
             {sortedModes.map(([mode, count]) => (
               <span
                 key={mode}
-                className="rounded-full bg-white/5 px-2 py-0.5 text-xs text-gray-400"
+                className="rounded-full bg-su-line/10 px-2 py-0.5 text-xs text-su-muted"
               >
                 {mode}: {count}
               </span>
@@ -251,18 +251,18 @@ function PanelContent({
       </div>
 
       {/* Divider */}
-      <div className="h-px bg-white/10" />
+      <div className="h-px bg-su-line/20" />
 
       {/* Best Contact Time */}
       {data.bestTime ? (
         <div className="space-y-2">
-          <h4 className="text-sm font-medium text-gray-300">Best Time Today</h4>
+          <h4 className="text-sm font-medium text-su-muted">Best Time Today</h4>
           <div className="flex items-center justify-between">
             <div className="space-y-0.5">
-              <p className="font-mono text-sm text-white">
+              <p className="font-mono text-sm text-su-text">
                 {data.bestTime.startUtc} - {data.bestTime.endUtc} UTC
               </p>
-              <p className="text-xs text-gray-500">
+              <p className="text-xs text-su-muted">
                 Optimal band:{" "}
                 <span className="text-amber-400">
                   {data.bestTime.optimalBand}
@@ -274,8 +274,8 @@ function PanelContent({
         </div>
       ) : (
         <div className="space-y-1">
-          <h4 className="text-sm font-medium text-gray-300">Best Time Today</h4>
-          <p className="text-sm text-gray-500">
+          <h4 className="text-sm font-medium text-su-muted">Best Time Today</h4>
+          <p className="text-sm text-su-muted">
             Set home location for predictions
           </p>
         </div>
@@ -284,9 +284,9 @@ function PanelContent({
       {/* Recent Callsigns - clickable for details */}
       {data.activity.recentCallsigns.length > 0 && (
         <>
-          <div className="h-px bg-white/10" />
+          <div className="h-px bg-su-line/20" />
           <div className="space-y-2">
-            <h4 className="text-sm font-medium text-gray-300">
+            <h4 className="text-sm font-medium text-su-muted">
               Recent Callsigns
             </h4>
             <div className="flex flex-wrap gap-1.5">
@@ -295,7 +295,7 @@ function PanelContent({
                   key={callsign}
                   type="button"
                   onClick={() => onCallsignClick?.(callsign)}
-                  className="font-mono text-sm text-cyan-400 transition-colors hover:text-cyan-300 hover:underline focus:outline-none focus:ring-1 focus:ring-cyan-400 focus:ring-offset-1 focus:ring-offset-gray-900 rounded px-0.5"
+                  className="font-mono text-sm text-cyan-400 transition-colors hover:text-cyan-300 hover:underline focus:outline-none focus:ring-1 focus:ring-cyan-400 focus:ring-offset-1 focus:ring-offset-su-canvas rounded px-0.5"
                   aria-label={`View details for ${callsign}`}
                 >
                   {callsign}
@@ -307,12 +307,12 @@ function PanelContent({
       )}
 
       {/* Action Buttons */}
-      <div className="h-px bg-white/10" />
+      <div className="h-px bg-su-line/20" />
       <div className="flex gap-2">
         <button
           type="button"
           onClick={() => handleAction("watch")}
-          className="flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-gray-300 transition-colors hover:bg-white/10"
+          className="flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-su-line/40 bg-su-line/10 px-3 py-2 text-sm text-su-muted transition-colors hover:bg-su-line/20"
           title="Watch this grid for activity"
         >
           <EyeIcon />
@@ -321,7 +321,7 @@ function PanelContent({
         <button
           type="button"
           onClick={() => handleAction("pin")}
-          className="flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-gray-300 transition-colors hover:bg-white/10"
+          className="flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-su-line/40 bg-su-line/10 px-3 py-2 text-sm text-su-muted transition-colors hover:bg-su-line/20"
           title="Add a pin at this location"
         >
           <PinIcon />
@@ -352,7 +352,7 @@ function ConfidenceBadge({
   const colors = {
     high: "bg-green-500/20 text-green-400 border-green-500/30",
     medium: "bg-yellow-500/20 text-yellow-400 border-yellow-500/30",
-    low: "bg-gray-500/20 text-gray-400 border-gray-500/30",
+    low: "bg-su-line/20 text-su-muted border-su-line/30",
   };
 
   return (
@@ -506,20 +506,20 @@ function CallsignLoadingSkeleton() {
   return (
     <div className="animate-pulse space-y-4">
       <div className="space-y-2">
-        <div className="h-8 w-32 rounded bg-white/10" />
-        <div className="h-5 w-48 rounded bg-white/10" />
+        <div className="h-8 w-32 rounded bg-su-line/20" />
+        <div className="h-5 w-48 rounded bg-su-line/20" />
       </div>
-      <div className="h-px bg-white/10" />
+      <div className="h-px bg-su-line/20" />
       <div className="space-y-2">
-        <div className="h-4 w-40 rounded bg-white/10" />
-        <div className="h-4 w-36 rounded bg-white/10" />
-        <div className="h-4 w-44 rounded bg-white/10" />
-        <div className="h-4 w-32 rounded bg-white/10" />
+        <div className="h-4 w-40 rounded bg-su-line/20" />
+        <div className="h-4 w-36 rounded bg-su-line/20" />
+        <div className="h-4 w-44 rounded bg-su-line/20" />
+        <div className="h-4 w-32 rounded bg-su-line/20" />
       </div>
-      <div className="h-px bg-white/10" />
+      <div className="h-px bg-su-line/20" />
       <div className="space-y-2">
-        <div className="h-4 w-28 rounded bg-white/10" />
-        <div className="h-4 w-40 rounded bg-white/10" />
+        <div className="h-4 w-28 rounded bg-su-line/20" />
+        <div className="h-4 w-40 rounded bg-su-line/20" />
       </div>
     </div>
   );
@@ -598,7 +598,7 @@ function CallsignDetailView({
         <button
           type="button"
           onClick={onBack}
-          className="flex items-center gap-1.5 rounded-lg px-2 py-1 text-sm text-gray-400 transition-colors hover:bg-white/10 hover:text-white"
+          className="flex items-center gap-1.5 rounded-lg px-2 py-1 text-sm text-su-muted transition-colors hover:bg-su-line/20 hover:text-su-text"
           aria-label="Back to grid view"
         >
           <BackIcon />
@@ -622,24 +622,24 @@ function CallsignDetailView({
       {/* Error state */}
       {!loading && !hasAnyData && externalError && (
         <div className="space-y-3">
-          <div className="font-mono text-2xl font-bold text-white">
+          <div className="font-mono text-2xl font-bold text-su-text">
             {callsign}
           </div>
           <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2">
             <p className="text-sm text-amber-400">
               Callsign not found in HamQTH database
             </p>
-            <p className="mt-1 text-xs text-gray-400">
+            <p className="mt-1 text-xs text-su-muted">
               Try looking up on QRZ.com using the link above
             </p>
           </div>
           {/* Still show actions even if lookup failed */}
-          <div className="h-px bg-white/10" />
+          <div className="h-px bg-su-line/20" />
           <div className="flex gap-2">
             <button
               type="button"
               onClick={handleWatch}
-              className="flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-gray-300 transition-colors hover:bg-white/10"
+              className="flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-su-line/40 bg-su-line/10 px-3 py-2 text-sm text-su-muted transition-colors hover:bg-su-line/20"
               title="Watch this callsign for activity"
             >
               <EyeIcon />
@@ -654,11 +654,11 @@ function CallsignDetailView({
         <>
           {/* Callsign header */}
           <div className="space-y-1">
-            <div className="font-mono text-2xl font-bold text-white">
+            <div className="font-mono text-2xl font-bold text-su-text">
               {callsign}
             </div>
             {displayName && (
-              <p className="text-lg text-gray-300">{displayName}</p>
+              <p className="text-lg text-su-muted">{displayName}</p>
             )}
             {local?.isWorked && (
               <span className="inline-flex items-center gap-1 rounded-full border border-cyan-500/30 bg-cyan-500/20 px-2 py-0.5 text-xs font-medium text-cyan-400">
@@ -670,26 +670,26 @@ function CallsignDetailView({
           {/* Location info */}
           {(displayGrid || displayCountry || displayQth) && (
             <>
-              <div className="h-px bg-white/10" />
+              <div className="h-px bg-su-line/20" />
               <div className="space-y-2">
                 {displayGrid && (
                   <div className="flex items-baseline justify-between">
-                    <span className="text-sm text-gray-400">Grid</span>
-                    <span className="font-mono text-sm text-white">
+                    <span className="text-sm text-su-muted">Grid</span>
+                    <span className="font-mono text-sm text-su-text">
                       {displayGrid}
                     </span>
                   </div>
                 )}
                 {displayCountry && (
                   <div className="flex items-baseline justify-between">
-                    <span className="text-sm text-gray-400">Country</span>
-                    <span className="text-sm text-white">{displayCountry}</span>
+                    <span className="text-sm text-su-muted">Country</span>
+                    <span className="text-sm text-su-text">{displayCountry}</span>
                   </div>
                 )}
                 {(displayCqZone || displayItuZone) && (
                   <div className="flex items-baseline justify-between">
-                    <span className="text-sm text-gray-400">Zones</span>
-                    <span className="font-mono text-sm text-gray-300">
+                    <span className="text-sm text-su-muted">Zones</span>
+                    <span className="font-mono text-sm text-su-muted">
                       {displayCqZone && `CQ: ${displayCqZone}`}
                       {displayCqZone && displayItuZone && " | "}
                       {displayItuZone && `ITU: ${displayItuZone}`}
@@ -698,8 +698,8 @@ function CallsignDetailView({
                 )}
                 {displayQth && (
                   <div className="flex items-baseline justify-between">
-                    <span className="text-sm text-gray-400">QTH</span>
-                    <span className="text-sm text-white">{displayQth}</span>
+                    <span className="text-sm text-su-muted">QTH</span>
+                    <span className="text-sm text-su-text">{displayQth}</span>
                   </div>
                 )}
               </div>
@@ -709,35 +709,35 @@ function CallsignDetailView({
           {/* QSO History */}
           {local?.isWorked && local.lastQSO && (
             <>
-              <div className="h-px bg-white/10" />
+              <div className="h-px bg-su-line/20" />
               <div className="space-y-2">
-                <h4 className="text-sm font-medium text-gray-300">
+                <h4 className="text-sm font-medium text-su-muted">
                   QSO History
                 </h4>
-                <div className="space-y-1.5 rounded-lg border border-white/10 bg-white/5 px-3 py-2">
+                <div className="space-y-1.5 rounded-lg border border-su-line/40 bg-su-line/10 px-3 py-2">
                   <div className="flex items-baseline justify-between">
-                    <span className="text-xs text-gray-400">Last QSO</span>
-                    <span className="text-sm text-white">
+                    <span className="text-xs text-su-muted">Last QSO</span>
+                    <span className="text-sm text-su-text">
                       {formattedLastQSODate} on {local.lastQSO.band}{" "}
                       {local.lastQSO.mode}
                     </span>
                   </div>
                   <div className="flex items-baseline justify-between">
-                    <span className="text-xs text-gray-400">Total QSOs</span>
-                    <span className="text-sm text-white">{local.qsoCount}</span>
+                    <span className="text-xs text-su-muted">Total QSOs</span>
+                    <span className="text-sm text-su-text">{local.qsoCount}</span>
                   </div>
                   {local.workedBands.length > 0 && (
                     <div className="flex items-baseline justify-between">
-                      <span className="text-xs text-gray-400">Bands</span>
-                      <span className="text-sm text-gray-300">
+                      <span className="text-xs text-su-muted">Bands</span>
+                      <span className="text-sm text-su-muted">
                         {local.workedBands.join(", ")}
                       </span>
                     </div>
                   )}
                   {local.workedModes.length > 0 && (
                     <div className="flex items-baseline justify-between">
-                      <span className="text-xs text-gray-400">Modes</span>
-                      <span className="text-sm text-gray-300">
+                      <span className="text-xs text-su-muted">Modes</span>
+                      <span className="text-sm text-su-muted">
                         {local.workedModes.join(", ")}
                       </span>
                     </div>
@@ -748,12 +748,12 @@ function CallsignDetailView({
           )}
 
           {/* Action Buttons */}
-          <div className="h-px bg-white/10" />
+          <div className="h-px bg-su-line/20" />
           <div className="flex gap-2">
             <button
               type="button"
               onClick={handleWatch}
-              className="flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-gray-300 transition-colors hover:bg-white/10"
+              className="flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-su-line/40 bg-su-line/10 px-3 py-2 text-sm text-su-muted transition-colors hover:bg-su-line/20"
               title="Watch this callsign for activity"
             >
               <EyeIcon />
@@ -766,7 +766,7 @@ function CallsignDetailView({
               className={`flex flex-1 items-center justify-center gap-1.5 rounded-lg border px-3 py-2 text-sm transition-colors ${
                 displayGrid
                   ? "border-amber-500/30 bg-amber-500/10 text-amber-400 hover:bg-amber-500/20"
-                  : "cursor-not-allowed border-white/5 bg-white/5 text-gray-500"
+                  : "cursor-not-allowed border-su-line/20 bg-su-line/10 text-su-muted"
               }`}
               title={
                 displayGrid
@@ -933,8 +933,8 @@ export function GridResearchPanel({
       ref={panelRef}
       className={`
         fixed right-0 top-0 z-50 h-full
-        bg-gray-900/95 backdrop-blur-xl
-        border-l border-white/10
+        bg-su-canvas/95 backdrop-blur-xl
+        border-l border-su-line/40
         shadow-2xl
         transition-transform duration-300 ease-out
         ${visible ? "translate-x-0" : "translate-x-full"}
@@ -946,14 +946,14 @@ export function GridResearchPanel({
       aria-hidden={!visible}
     >
       {/* Header */}
-      <div className="flex items-center justify-between border-b border-white/10 px-4 py-3">
-        <h2 className="text-sm font-medium text-gray-300">
+      <div className="flex items-center justify-between border-b border-su-line/40 px-4 py-3">
+        <h2 className="text-sm font-medium text-su-muted">
           {currentView === "callsign" ? "Operator" : "Grid Research"}
         </h2>
         <button
           type="button"
           onClick={onClose}
-          className="rounded-lg p-1 text-gray-400 transition-colors hover:bg-white/10 hover:text-white"
+          className="rounded-lg p-1 text-su-muted transition-colors hover:bg-su-line/20 hover:text-su-text"
           aria-label="Close panel"
         >
           <CloseIcon />
@@ -970,7 +970,7 @@ export function GridResearchPanel({
           />
         ) : !researchData.isValidGrid ? (
           <div className="flex h-32 items-center justify-center">
-            <p className="text-sm text-gray-500">Invalid grid format</p>
+            <p className="text-sm text-su-muted">Invalid grid format</p>
           </div>
         ) : researchData.isLoading ? (
           <LoadingSkeleton />

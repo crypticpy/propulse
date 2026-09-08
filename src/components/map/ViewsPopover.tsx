@@ -69,20 +69,20 @@ function SavePresetForm({
         onChange={(e) => setName(e.target.value)}
         placeholder="View name..."
         maxLength={32}
-        className="flex-1 min-w-0 px-2 py-1 bg-white/5 border border-white/10 rounded-md text-white text-xs placeholder:text-white/30 focus:outline-none focus:ring-1 focus:ring-white/30 focus:border-white/20"
+        className="flex-1 min-w-0 px-2 py-1 bg-su-line/10 border border-su-line/40 rounded-md text-su-text text-xs placeholder:text-su-text/30 focus:outline-none focus:ring-1 focus:ring-su-line/60 focus:border-su-line/50"
         aria-label="New view name"
       />
       <button
         type="submit"
         disabled={!name.trim()}
-        className="px-2 py-1 bg-signal-green/20 hover:bg-signal-green/30 disabled:bg-white/5 disabled:text-white/20 text-signal-green text-xs font-medium rounded-md transition-colors"
+        className="px-2 py-1 bg-signal-green/20 hover:bg-signal-green/30 disabled:bg-su-line/10 disabled:text-su-text/30 text-signal-green text-xs font-medium rounded-md transition-colors"
       >
         Save
       </button>
       <button
         type="button"
         onClick={onCancel}
-        className="px-1.5 py-1 text-white/40 hover:text-white text-xs rounded-md hover:bg-white/5 transition-colors"
+        className="px-1.5 py-1 text-su-text/80 hover:text-su-text text-xs rounded-md hover:bg-su-line/10 transition-colors"
       >
         Cancel
       </button>
@@ -199,10 +199,10 @@ export function ViewsPopover({
             return !v;
           })
         }
-        className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium transition-colors focus-visible:ring-2 focus-visible:ring-white/30 focus-visible:ring-offset-0 ${
+        className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium transition-colors focus-visible:ring-2 focus-visible:ring-su-line/60 focus-visible:ring-offset-0 ${
           open
-            ? "bg-white/15 text-white"
-            : "text-gray-300 hover:text-white hover:bg-white/10"
+            ? "bg-su-line/30 text-su-text"
+            : "text-su-muted hover:text-su-text hover:bg-su-line/20"
         }`}
         aria-haspopup="true"
         aria-expanded={open}
@@ -234,7 +234,7 @@ export function ViewsPopover({
         {/* Chevron */}
         {!compact && (
           <svg
-            className={`w-2.5 h-2.5 text-white/40 transition-transform duration-150 ${
+            className={`w-2.5 h-2.5 text-su-text/40 transition-transform duration-150 ${
               open ? "rotate-180" : ""
             }`}
             fill="none"
@@ -253,7 +253,7 @@ export function ViewsPopover({
 
       {/* ── Popover panel ── */}
       <div
-        className={`absolute top-full right-0 mt-1.5 w-[280px] z-50 bg-void-black/90 backdrop-blur-md border border-white/10 rounded-xl shadow-xl p-3 max-h-[70vh] overflow-y-auto transition-all duration-150 ${
+        className={`absolute top-full right-0 mt-1.5 w-[280px] z-50 bg-void-black/90 backdrop-blur-md border border-su-line/40 rounded-xl shadow-xl p-3 max-h-[70vh] overflow-y-auto transition-all duration-150 ${
           open
             ? "opacity-100 translate-y-0"
             : "opacity-0 -translate-y-1 pointer-events-none"
@@ -262,7 +262,7 @@ export function ViewsPopover({
         aria-label="Saved views"
       >
         {/* ── Header ── */}
-        <div className="text-[10px] uppercase tracking-wider text-white/40 font-medium mb-1.5 px-0.5">
+        <div className="text-[10px] uppercase tracking-wider text-su-text/80 font-medium mb-1.5 px-0.5">
           Saved Views
         </div>
 
@@ -277,8 +277,8 @@ export function ViewsPopover({
                 key={preset.id}
                 className={`flex items-center gap-2 px-2 py-1.5 rounded-md cursor-pointer transition-colors ${
                   isActive
-                    ? "bg-white/10 text-white"
-                    : "text-white/60 hover:bg-white/5 hover:text-white"
+                    ? "bg-su-line/20 text-su-text"
+                    : "text-su-text/80 hover:bg-su-line/10 hover:text-su-text"
                 }`}
                 onClick={() => handleSelectPreset(preset)}
                 title={preset.name}
@@ -298,7 +298,7 @@ export function ViewsPopover({
 
                 {/* Keyboard shortcut hint */}
                 {shortcutKey && (
-                  <span className="text-[10px] font-mono text-white/30 bg-white/5 w-4 h-4 flex items-center justify-center rounded shrink-0">
+                  <span className="text-[10px] font-mono text-su-text/80 bg-su-line/10 w-4 h-4 flex items-center justify-center rounded shrink-0">
                     {shortcutKey}
                   </span>
                 )}
@@ -308,7 +308,7 @@ export function ViewsPopover({
         </div>
 
         {/* ── Actions ── */}
-        <div className="border-t border-white/5 my-2" />
+        <div className="border-t border-su-line/20 my-2" />
 
         {showSaveForm ? (
           <SavePresetForm
@@ -317,7 +317,7 @@ export function ViewsPopover({
           />
         ) : (
           <div
-            className="flex items-center gap-2 px-2 py-1.5 rounded-md cursor-pointer text-white/50 hover:text-white hover:bg-white/5 transition-colors"
+            className="flex items-center gap-2 px-2 py-1.5 rounded-md cursor-pointer text-su-text/80 hover:text-su-text hover:bg-su-line/10 transition-colors"
             onClick={() => setShowSaveForm(true)}
           >
             {/* Plus icon */}
@@ -339,7 +339,7 @@ export function ViewsPopover({
         )}
 
         <div
-          className="flex items-center gap-2 px-2 py-1.5 rounded-md cursor-pointer text-white/40 hover:text-white hover:bg-white/5 transition-colors"
+          className="flex items-center gap-2 px-2 py-1.5 rounded-md cursor-pointer text-su-text/80 hover:text-su-text hover:bg-su-line/10 transition-colors"
           onClick={handleManage}
         >
           {/* Settings icon */}

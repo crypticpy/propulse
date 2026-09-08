@@ -18,6 +18,8 @@ The approved navy/orange visual direction now has a shared React implementation.
 
 The [visual-comfort contract](VISUAL-COMFORT.md) defines softer reading palettes, text sizing, redundant selection cues and real-operator validation.
 
+This palette is now the app-wide token set: the [design system](../design-system/README.md) documents the `--su-*` tokens on the document root, the `su-` Tailwind utilities, the migration class map and the `check:design-tokens` guard.
+
 ## Component inventory and contracts
 
 | Group | Exports | Consumer contract |

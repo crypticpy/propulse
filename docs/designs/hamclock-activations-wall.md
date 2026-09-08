@@ -17,3 +17,10 @@ The centred report has programme tabs, at most five facts, measured newest rows 
 - Owned local session: `hamclock-activations-wall`, `716519d2-46df-4d2d-b2ee-4602b62981d5`, `http://127.0.0.1:5181/map`, checkout `.worktrees/hamclock-activations-wall`.
 
 [1080p report](../images/hamclock-activations/report-1920.png) · [1080p tile](../images/hamclock-activations/tile-1080p.png)
+
+
+## Current-main release integration — 2026-09-07
+
+Integrated after the tuning, Contacts, Band History and per-source activation freshness prerequisites merged, on main `f81842c8`. Fourteen focused report/measurement/wall/activation tests pass. Eighteen isolated browser cases cover POTA/SOTA/WWFF across Pulse/Classic/Brass at 1080p and 4K with the larger ticker/footer. No tile/report overflow or page errors; report and tile actions stage 7,074,125 Hz plus USB, pin/unpin retains programme selection, and Escape returns focus.
+
+Synthetic feeds distinguish populated POTA, empty SOTA and unavailable WWFF. These fixtures do not establish live provider or physical-radio acceptance. Owner `hamclock-operating-release`, session `cb106b4a-e997-4847-a861-5a997bbac11d`, local http://127.0.0.1:5186, checkout `.worktrees/hamclock-operating-release`; fixture and current captures under `tmp/activation/`. Other user previews remain preserved.

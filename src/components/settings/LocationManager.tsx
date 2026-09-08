@@ -171,7 +171,7 @@ export function LocationManager({ className = "" }: LocationManagerProps) {
   if (!homeLocation) {
     return (
       <div
-        className={`p-4 text-center text-gray-500 text-sm bg-white/[0.03] rounded-lg border border-white/10 ${className}`}
+        className={`p-4 text-center text-su-muted text-sm bg-su-line/10 rounded-lg border border-su-line/40 ${className}`}
       >
         No station configured. Complete station setup first.
       </div>
@@ -183,7 +183,7 @@ export function LocationManager({ className = "" }: LocationManagerProps) {
       {/* Header */}
       <h3
         id="location-group-label"
-        className="text-sm font-semibold text-gray-400 uppercase tracking-wider"
+        className="text-sm font-semibold text-su-muted uppercase tracking-wider"
       >
         Operating Location
       </h3>
@@ -210,7 +210,7 @@ export function LocationManager({ className = "" }: LocationManagerProps) {
           p-3 rounded-lg border transition-colors cursor-pointer
           focus:outline-none focus:ring-2 focus:ring-plasma-orange/50
           ${
-            isTemporaryActive ? "bg-white/[0.03] border-white/10 hover:border-white/20" : "bg-signal-green/10 border-signal-green/30"
+            isTemporaryActive ? "bg-su-line/10 border-su-line/40 hover:border-su-line/50" : "bg-signal-green/10 border-signal-green/30"
           }
         `}
         >
@@ -220,7 +220,7 @@ export function LocationManager({ className = "" }: LocationManagerProps) {
               <div
                 className={`
                 w-4 h-4 rounded-full border-2 flex items-center justify-center
-                ${isTemporaryActive ? "border-gray-500" : "border-signal-green"}
+                ${isTemporaryActive ? "border-su-line" : "border-signal-green"}
               `}
               >
                 {!isTemporaryActive && (
@@ -229,15 +229,15 @@ export function LocationManager({ className = "" }: LocationManagerProps) {
               </div>
               <div>
                 <div className="flex items-center gap-2">
-                  <span className="text-xs font-medium text-gray-400 uppercase">
+                  <span className="text-xs font-medium text-su-muted uppercase">
                     Home
                   </span>
-                  <span className="text-white font-mono font-medium">
+                  <span className="text-su-text font-mono font-medium">
                     {homeLocation.grid}
                   </span>
                 </div>
                 {homeLocation.name && homeLocation.name !== "Home" && (
-                  <div className="text-xs text-gray-500 mt-0.5">
+                  <div className="text-xs text-su-muted mt-0.5">
                     {homeLocation.name}
                   </div>
                 )}
@@ -249,8 +249,8 @@ export function LocationManager({ className = "" }: LocationManagerProps) {
                 e.stopPropagation();
                 openEditHome();
               }}
-              className="px-2 py-1 text-xs rounded bg-white/5 border border-white/10
-                       text-gray-200 hover:text-white hover:border-white/20 transition-colors"
+              className="px-2 py-1 text-xs rounded bg-su-line/10 border border-su-line/40
+                       text-su-text/90 hover:text-su-text hover:border-su-line/50 transition-colors"
             >
               Edit
             </button>
@@ -275,7 +275,7 @@ export function LocationManager({ className = "" }: LocationManagerProps) {
           ${
             isTemporaryActive
               ? "bg-caution-amber/10 border-caution-amber/30"
-              : "bg-white/[0.03] border-white/10 hover:border-white/20"
+              : "bg-su-line/10 border-su-line/40 hover:border-su-line/50"
           }
         `}
         >
@@ -285,7 +285,7 @@ export function LocationManager({ className = "" }: LocationManagerProps) {
               <div
                 className={`
                 w-4 h-4 rounded-full border-2 flex items-center justify-center
-                ${isTemporaryActive ? "border-caution-amber" : "border-gray-500"}
+                ${isTemporaryActive ? "border-caution-amber" : "border-su-line"}
               `}
               >
                 {isTemporaryActive && (
@@ -294,20 +294,20 @@ export function LocationManager({ className = "" }: LocationManagerProps) {
               </div>
               <div>
                 <div className="flex items-center gap-2">
-                  <span className="text-xs font-medium text-gray-400 uppercase">
+                  <span className="text-xs font-medium text-su-muted uppercase">
                     Temporary
                   </span>
                   {temporaryLocation ? (
-                    <span className="text-white font-mono font-medium">
+                    <span className="text-su-text font-mono font-medium">
                       {temporaryLocation.grid}
                     </span>
                   ) : (
-                    <span className="text-gray-500 text-sm">Not set</span>
+                    <span className="text-su-muted text-sm">Not set</span>
                   )}
                 </div>
                 {temporaryLocation?.name &&
                   temporaryLocation.name !== "Temporary" && (
-                    <div className="text-xs text-gray-500 mt-0.5">
+                    <div className="text-xs text-su-muted mt-0.5">
                       {temporaryLocation.name}
                     </div>
                   )}
@@ -343,8 +343,8 @@ export function LocationManager({ className = "" }: LocationManagerProps) {
       </div>
 
       {/* Active Status Indicator */}
-      <div className="flex items-center justify-center gap-2 py-2 px-3 rounded-lg bg-white/[0.02] border border-white/5">
-        <span className="text-xs text-gray-500">Active:</span>
+      <div className="flex items-center justify-center gap-2 py-2 px-3 rounded-lg bg-su-line/10 border border-su-line/20">
+        <span className="text-xs text-su-muted">Active:</span>
         {isTemporaryActive ? (
           <span className="flex items-center gap-1.5 text-xs font-medium text-caution-amber">
             <span className="w-2 h-2 rounded-full bg-caution-amber animate-pulse" />
@@ -357,7 +357,7 @@ export function LocationManager({ className = "" }: LocationManagerProps) {
           </span>
         )}
         {activeLocation && (
-          <span className="text-xs text-gray-500 font-mono ml-2">
+          <span className="text-xs text-su-muted font-mono ml-2">
             {activeLocation.grid}
           </span>
         )}
@@ -380,7 +380,7 @@ export function LocationManager({ className = "" }: LocationManagerProps) {
           )}
 
           <div>
-            <label className="block text-sm font-medium text-gray-200 mb-2">
+            <label className="block text-sm font-medium text-su-text mb-2">
               Grid Square
             </label>
             <LocationInput
@@ -392,7 +392,7 @@ export function LocationManager({ className = "" }: LocationManagerProps) {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-200 mb-1">
+            <label className="block text-sm font-medium text-su-text mb-1">
               Location Name (optional)
             </label>
             <input
@@ -400,8 +400,8 @@ export function LocationManager({ className = "" }: LocationManagerProps) {
               value={editHomeName}
               onChange={(e) => setEditHomeName(e.target.value)}
               placeholder="Home"
-              className="w-full px-3 py-2 bg-deep-space/70 border border-white/10 rounded-lg
-                         text-white placeholder-gray-500 focus:outline-none focus:border-plasma-orange/50"
+              className="w-full px-3 py-2 bg-deep-space/70 border border-su-line/40 rounded-lg
+                         text-su-text placeholder:text-su-muted/80 focus:outline-none focus:border-plasma-orange/50"
             />
           </div>
 
@@ -409,8 +409,8 @@ export function LocationManager({ className = "" }: LocationManagerProps) {
             <button
               type="button"
               onClick={() => setEditHomeOpen(false)}
-              className="flex-1 px-4 py-2 bg-nebula-blue/60 border border-white/10 rounded-lg
-                         text-gray-200 hover:text-white hover:border-white/20 transition-colors font-medium text-sm"
+              className="flex-1 px-4 py-2 bg-nebula-blue/60 border border-su-line/40 rounded-lg
+                         text-su-text/90 hover:text-su-text hover:border-su-line/50 transition-colors font-medium text-sm"
             >
               Cancel
             </button>
@@ -443,7 +443,7 @@ export function LocationManager({ className = "" }: LocationManagerProps) {
           )}
 
           <div>
-            <label className="block text-sm font-medium text-gray-200 mb-2">
+            <label className="block text-sm font-medium text-su-text mb-2">
               Grid Square
             </label>
             <LocationInput
@@ -455,7 +455,7 @@ export function LocationManager({ className = "" }: LocationManagerProps) {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-200 mb-1">
+            <label className="block text-sm font-medium text-su-text mb-1">
               Location Name (optional)
             </label>
             <input
@@ -463,20 +463,20 @@ export function LocationManager({ className = "" }: LocationManagerProps) {
               value={tempName}
               onChange={(e) => setTempName(e.target.value)}
               placeholder="Field Day Site, POTA K-1234, etc."
-              className="w-full px-3 py-2 bg-deep-space/70 border border-white/10 rounded-lg
-                         text-white placeholder-gray-500 focus:outline-none focus:border-plasma-orange/50"
+              className="w-full px-3 py-2 bg-deep-space/70 border border-su-line/40 rounded-lg
+                         text-su-text placeholder:text-su-muted/80 focus:outline-none focus:border-plasma-orange/50"
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-200 mb-1">
+            <label className="block text-sm font-medium text-su-text mb-1">
               Location Type
             </label>
             <select
               value={tempType}
               onChange={(e) => setTempType(e.target.value as LocationType)}
-              className="w-full px-3 py-2 bg-deep-space/70 border border-white/10 rounded-lg
-                         text-white focus:outline-none focus:border-plasma-orange/50"
+              className="w-full px-3 py-2 bg-deep-space/70 border border-su-line/40 rounded-lg
+                         text-su-text focus:outline-none focus:border-plasma-orange/50"
             >
               {LOCATION_TYPES.filter((t) => t.value !== "home").map((type) => (
                 <option key={type.value} value={type.value}>
@@ -490,8 +490,8 @@ export function LocationManager({ className = "" }: LocationManagerProps) {
             <button
               type="button"
               onClick={() => setTempModalOpen(false)}
-              className="flex-1 px-4 py-2 bg-nebula-blue/60 border border-white/10 rounded-lg
-                         text-gray-200 hover:text-white hover:border-white/20 transition-colors font-medium text-sm"
+              className="flex-1 px-4 py-2 bg-nebula-blue/60 border border-su-line/40 rounded-lg
+                         text-su-text/90 hover:text-su-text hover:border-su-line/50 transition-colors font-medium text-sm"
             >
               Cancel
             </button>

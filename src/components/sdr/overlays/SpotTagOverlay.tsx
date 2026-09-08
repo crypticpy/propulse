@@ -221,7 +221,7 @@ export function SpotTagOverlay({
                 className={`px-1 py-px rounded text-[9px] font-mono font-semibold
                   border whitespace-nowrap transition-all
                   ${color.bg} ${color.text}
-                  ${isHovered ? "ring-1 ring-white/20 scale-110" : ""}
+                  ${isHovered ? "ring-1 ring-su-line/50 scale-110" : ""}
                   ${interactive ? "hover:brightness-125" : ""}
                 `}
               >
@@ -232,22 +232,22 @@ export function SpotTagOverlay({
               {isHovered && (
                 <div
                   className={`absolute ${isTop ? "top-full mt-1" : "bottom-full mb-1"} left-1/2 -translate-x-1/2
-                    bg-void-black/95 border border-white/15 rounded px-2 py-1.5
-                    text-[10px] text-gray-300 whitespace-nowrap z-50 shadow-lg`}
+                    bg-void-black/95 border border-su-line/50 rounded px-2 py-1.5
+                    text-[10px] text-su-muted whitespace-nowrap z-50 shadow-lg`}
                 >
-                  <div className="font-semibold text-white">{vs.spot.dx}</div>
-                  <div className="text-gray-400">
+                  <div className="font-semibold text-su-text">{vs.spot.dx}</div>
+                  <div className="text-su-muted">
                     {vs.spot.freq.toFixed(1)} kHz
                     {vs.mode && (
                       <span className={`ml-1 ${color.text}`}>{vs.mode}</span>
                     )}
                   </div>
                   {vs.spot.comment && (
-                    <div className="text-gray-500 max-w-[200px] truncate">
+                    <div className="text-su-muted max-w-[200px] truncate">
                       {vs.spot.comment}
                     </div>
                   )}
-                  <div className="text-gray-600 text-[9px]">
+                  <div className="text-su-muted text-[9px]">
                     by {vs.spot.spotter}
                     {vs.ageMin > 0 && ` · ${Math.round(vs.ageMin)}m ago`}
                   </div>

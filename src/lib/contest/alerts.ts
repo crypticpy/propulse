@@ -453,9 +453,9 @@ export function getAlertPriorityColor(priority: AlertPriority): string {
     case "medium":
       return "text-cosmic-cyan";
     case "low":
-      return "text-gray-400";
+      return "text-su-muted";
     default:
-      return "text-white";
+      return "text-su-text";
   }
 }
 
@@ -469,8 +469,8 @@ export function getAlertPriorityBg(priority: AlertPriority): string {
     case "medium":
       return "bg-cosmic-cyan/20 border-cosmic-cyan/40";
     case "low":
-      return "bg-white/10 border-white/20";
+      return "bg-su-line/20 border-su-line/50";
     default:
-      return "bg-white/5 border-white/10";
+      return "bg-su-line/10 border-su-line/40";
   }
 }

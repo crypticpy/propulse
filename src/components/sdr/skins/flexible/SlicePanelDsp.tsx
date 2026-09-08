@@ -89,7 +89,7 @@ export function SlicePanelDsp({
               disabled:cursor-not-allowed ${
                 btn.active
                   ? "bg-signal-green/20 border-signal-green/30 text-signal-green shadow-[0_0_6px_rgba(0,255,136,0.15)]"
-                  : "bg-white/5 border-white/10 text-gray-400 hover:bg-white/10 hover:text-gray-200 disabled:opacity-40"
+                  : "bg-su-line/10 border-su-line/40 text-su-muted hover:bg-su-line/20 hover:text-su-text disabled:opacity-40"
               }`}
             title={`Toggle ${btn.label}`}
           >
@@ -101,7 +101,7 @@ export function SlicePanelDsp({
       {hasFineControls ? <button
         type="button"
         onClick={() => setShowAdvanced((open) => !open)}
-        className="px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider rounded border bg-white/5 border-white/10 text-gray-400 hover:bg-white/10 hover:text-gray-200"
+        className="px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider rounded border bg-su-line/10 border-su-line/40 text-su-muted hover:bg-su-line/20 hover:text-su-text"
       >
         {showAdvanced ? "Hide DSP Fine Controls" : "Show DSP Fine Controls"}
       </button> : null}
@@ -110,7 +110,7 @@ export function SlicePanelDsp({
         <div className="space-y-2 pt-0.5">
           {supportsAgc && agcEnabled && (
             <div className="space-y-0.5">
-              <div className="text-[9px] text-gray-500 uppercase tracking-wider">
+              <div className="text-[9px] text-su-muted uppercase tracking-wider">
                 AGC Speed
               </div>
               <div className="grid grid-cols-4 gap-0.5">
@@ -124,7 +124,7 @@ export function SlicePanelDsp({
                       disabled:cursor-not-allowed ${
                         agcMode === a.mode
                           ? "bg-cosmic-cyan/20 border-cosmic-cyan/40 text-cosmic-cyan"
-                          : "bg-white/5 border-white/10 text-gray-500 hover:text-gray-300 disabled:opacity-40"
+                          : "bg-su-line/10 border-su-line/40 text-su-muted hover:text-su-text disabled:opacity-40"
                       }`}
                   >
                     {a.label}
@@ -136,10 +136,10 @@ export function SlicePanelDsp({
 
           {supportsSquelch ? <div className="space-y-0.5">
             <div className="flex items-center justify-between">
-              <span className="text-[9px] text-gray-500 uppercase tracking-wider">
+              <span className="text-[9px] text-su-muted uppercase tracking-wider">
                 Squelch
               </span>
-              <span className="text-[10px] font-mono text-gray-400">
+              <span className="text-[10px] font-mono text-su-muted">
                 {Math.round(squelchLevel * 100)}%
               </span>
             </div>

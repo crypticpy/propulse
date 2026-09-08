@@ -109,7 +109,7 @@ export function SlicePanelFilter({
                   disabled:opacity-40 disabled:cursor-not-allowed ${
                     isActive
                       ? colors
-                      : "bg-white/5 border-white/10 text-gray-500 hover:bg-white/10 hover:text-gray-300"
+                      : "bg-su-line/10 border-su-line/40 text-su-muted hover:bg-su-line/20 hover:text-su-text"
                   }`}
               >
                 {entry.display}
@@ -122,7 +122,7 @@ export function SlicePanelFilter({
       {/* Filter width presets */}
       {supportsFilter && (
         <div>
-          <div className="text-[9px] text-gray-500 uppercase tracking-wider mb-1">
+          <div className="text-[9px] text-su-muted uppercase tracking-wider mb-1">
             Filter width
           </div>
           <div className="grid grid-cols-4 gap-1">
@@ -140,7 +140,7 @@ export function SlicePanelFilter({
                   disabled:opacity-40 disabled:cursor-not-allowed ${
                     isActive
                       ? "bg-cosmic-cyan/15 border-cosmic-cyan/30 text-cosmic-cyan"
-                      : "bg-white/5 border-white/10 text-gray-400 hover:bg-white/10 hover:text-gray-200"
+                      : "bg-su-line/10 border-su-line/40 text-su-muted hover:bg-su-line/20 hover:text-su-text"
                   }`}
                 >
                   {preset.label}
@@ -152,7 +152,7 @@ export function SlicePanelFilter({
       )}
 
       {/* Current filter readout */}
-      <div className="flex items-center justify-between text-[9px] text-gray-500 font-mono">
+      <div className="flex items-center justify-between text-[9px] text-su-muted font-mono">
         <span>
           {filterLow}&ndash;{filterHigh} Hz
         </span>

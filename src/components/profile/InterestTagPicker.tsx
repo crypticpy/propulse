@@ -78,13 +78,13 @@ export function InterestTagPicker({
     setCollapsed((prev) => ({ ...prev, [category]: !prev[category] }));
   };
 
-  const counterColor = atMax ? "text-amber-400" : "text-gray-400";
+  const counterColor = atMax ? "text-amber-400" : "text-su-muted";
 
   return (
     <div className="space-y-3">
       {/* Header + counter */}
       <div className="flex items-center justify-between">
-        <span className="text-[10px] uppercase tracking-widest text-gray-500">
+        <span className="text-[10px] uppercase tracking-widest text-su-muted">
           Interests
         </span>
         <span className={`text-xs font-medium ${counterColor}`}>
@@ -98,8 +98,8 @@ export function InterestTagPicker({
         value={search}
         onChange={(e) => setSearch(e.target.value)}
         placeholder="Filter tags..."
-        className="w-full bg-white/[0.04] border border-white/10 rounded-lg px-3 py-1.5 text-xs
-                   text-gray-200 placeholder-gray-600 focus:border-plasma-orange/40 focus:outline-none transition-colors"
+        className="w-full bg-su-line/10 border border-su-line/40 rounded-lg px-3 py-1.5 text-xs
+                   text-su-text placeholder:text-su-muted/80 focus:border-plasma-orange/40 focus:outline-none transition-colors"
       />
 
       {/* Category sections */}
@@ -123,7 +123,7 @@ export function InterestTagPicker({
                 <svg
                   viewBox="0 0 20 20"
                   fill="currentColor"
-                  className={`w-3 h-3 text-gray-500 transition-transform ${
+                  className={`w-3 h-3 text-su-muted transition-transform ${
                     isCollapsed ? "-rotate-90" : ""
                   }`}
                 >
@@ -156,10 +156,10 @@ export function InterestTagPicker({
                         onClick={() => toggleTag(cat, tag)}
                         className={`px-2 py-0.5 text-[10px] font-medium rounded-full border transition-colors ${
                           sel
-                            ? "text-white"
+                            ? "text-su-text"
                             : disabled
-                              ? "bg-white/[0.03] border-white/5 text-gray-600 opacity-50 cursor-not-allowed"
-                              : "bg-white/[0.06] border-white/10 text-gray-400 hover:bg-white/10 hover:border-white/20 cursor-pointer"
+                              ? "bg-su-line/10 border-su-line/20 text-su-muted opacity-50 cursor-not-allowed"
+                              : "bg-su-line/20 border-su-line/40 text-su-muted hover:bg-su-line/30 hover:border-su-line/50 cursor-pointer"
                         }`}
                         style={
                           sel

@@ -33,6 +33,28 @@ describe("SectionHeader", () => {
     expect(container.querySelector("summary.su-section-header")).not.toBeNull();
   });
 
+  it("still renders the action wrapper on a summary band (Home's hand-rolled disclosure glyph)", () => {
+    // src/pages/Home.tsx's station panel uses element="summary" with a fixed-size glyph action
+    // instead of the `toggle` prop. jsdom cannot evaluate the `@container` query that keeps this
+    // band's layout row-only at every width (src/styles/home.css); this only pins the structure
+    // the CSS selector (`div.su-widget-header`, not `summary.su-widget-header`) depends on.
+    const { container } = render(
+      <details>
+        <SectionHeader
+          element="summary"
+          as={null}
+          className="su-widget-header"
+          title="Your station"
+          summary="Setup and log."
+          action={<span className="su-section-glyph" aria-hidden="true" />}
+        />
+      </details>,
+    );
+    const summary = container.querySelector("summary.su-widget-header")!;
+    expect(summary).not.toBeNull();
+    expect(summary.querySelector(".su-section-header__action")).not.toBeNull();
+  });
+
   it("makes the whole band a toggle button with the accent glyph", () => {
     const onToggle = vi.fn();
     const { rerender } = render(

@@ -54,5 +54,8 @@
 .home-panel>summary.su-section-header:focus-visible{outline-offset:-3px}
 /* Issue #640: `.home-panel` is the container (declared above), so a widget header narrower than
  * 28rem stacks its action under the summary instead of overprinting it — the same three
- * declarations `.su-section-header--stack` applies explicitly for a host outside this container. */
-@container (max-width: 28rem){.home-panel .su-widget-header{flex-direction:column;align-items:stretch;min-height:auto}.home-panel .su-widget-header>.su-section-header__action{margin-top:.5rem;align-self:flex-start}}
+ * declarations `.su-section-header--stack` applies explicitly for a host outside this container.
+ * Scoped to `div.su-widget-header` only: the station panel's `<summary class="su-widget-header">`
+ * (src/pages/Home.tsx) carries a fixed 40px glyph action, not a status/action that can overprint
+ * wrapped text, so it keeps the row layout at every width like the toggle band does. */
+@container (max-width: 28rem){.home-panel div.su-widget-header{flex-direction:column;align-items:stretch;min-height:auto}.home-panel div.su-widget-header>.su-section-header__action{margin-top:.5rem;align-self:flex-start}}

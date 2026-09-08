@@ -146,13 +146,13 @@ between them, one watcher per PR.
 
 ## Owner settings that make the process self-enforcing
 
-| Setting                                                                        | Effect                                                           |
-| ------------------------------------------------------------------------------ | ---------------------------------------------------------------- |
-| Repo → General → _Automatically delete head branches_                          | Merged branches stop piling up (109 swept by hand on 2026-09-07) |
-| Project #4 → Workflows → _Item closed → Done_, _Pull request merged → Done_    | Board Done follows `Closes #N` with nobody touching it           |
-| Project #4 → Workflows → _Item added → Backlog_                                | New issues never sit without a status                            |
-| Branch protection on `main`: require `pr-contract` and conversation resolution | A PR without an issue link or with an open thread cannot merge   |
-| Branch protection on `main`: block force pushes                                | Belt and braces                                                  |
+| Setting                                                                                     | Effect                                                                                                              |
+| ------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
+| Repo → General → _Automatically delete head branches_                                       | Merged branches stop piling up (109 swept by hand on 2026-09-07)                                                    |
+| Project #4 → Workflows: leave _Item closed → Done_ and _Pull request merged → Done_ **off** | `Closes #N` closes the issue at merge, before the deploy; Done stays a manual move made with the `**done**` comment |
+| Project #4 → Workflows → _Item added → Backlog_                                             | New issues never sit without a status                                                                               |
+| Branch protection on `main`: require `pr-contract` and conversation resolution              | A PR without an issue link or with an open thread cannot merge                                                      |
+| Branch protection on `main`: block force pushes                                             | Belt and braces                                                                                                     |
 
 ## Why these rules (2026-09-07)
 

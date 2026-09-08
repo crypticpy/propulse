@@ -21,8 +21,10 @@ jobs:
             echo "PR body needs \`Closes #N\` or \`Refs #N\` (see docs/AGENT-CONSTITUTION.md Pull requests)"
             exit 1
           fi
-          if ! printf '%s' "$BODY" | grep -Eiq '^\s*\**Agent:?\**\s*:?\s*\S'; then
-            echo "PR body needs an \`Agent:\` line"
+          # strip HTML comments so the template's examples cannot satisfy the check
+          STRIPPED=$(printf '%s' "$BODY" | perl -0pe 's/<!--.*?-->//gs')
+          if ! printf '%s' "$STRIPPED" | grep -Eiq '^\s*\**Agent\**:\s*\S'; then
+            echo "PR body needs an \`Agent:\` line with a value after the colon (e.g. \`Agent: Codex\`)"
             exit 1
           fi
           if [ "${CHANGED_FILES:-0}" -gt 15 ]; then

@@ -53,22 +53,22 @@ export function SitRepForm({ onClose }: SitRepFormProps) {
   }
 
   return (
-    <div className="p-3 border-b border-white/5 space-y-2">
-      <h2 className="text-[10px] font-mono uppercase tracking-widest text-gray-500">
+    <div className="p-3 border-b border-su-line/20 space-y-2">
+      <h2 className="text-[10px] font-mono uppercase tracking-widest text-su-muted">
         New Situation Report
       </h2>
 
       {/* Author (read-only) */}
       <div>
-        <label className="block text-[10px] text-gray-500 mb-0.5">Author</label>
-        <div className="text-xs text-white font-mono bg-white/5 rounded px-2 py-1 border border-white/10">
+        <label className="block text-[10px] text-su-muted mb-0.5">Author</label>
+        <div className="text-xs text-su-text font-mono bg-su-line/10 rounded px-2 py-1 border border-su-line/40">
           {author}
         </div>
       </div>
 
       {/* Summary */}
       <div>
-        <label className="block text-[10px] text-gray-500 mb-0.5">
+        <label className="block text-[10px] text-su-muted mb-0.5">
           Summary <span className="text-alert-red">*</span>
         </label>
         <textarea
@@ -76,26 +76,26 @@ export function SitRepForm({ onClose }: SitRepFormProps) {
           onChange={(e) => setSummary(e.target.value)}
           rows={2}
           placeholder="Current situation overview..."
-          className="w-full text-xs text-white bg-void-black/60 rounded px-2 py-1.5 border border-white/10 placeholder-gray-600 focus:border-plasma-orange/50 focus:outline-none resize-none"
+          className="w-full text-xs text-su-text bg-void-black/60 rounded px-2 py-1.5 border border-su-line/40 placeholder:text-su-muted/80 focus:border-plasma-orange/50 focus:outline-none resize-none"
         />
       </div>
 
       {/* Conditions (auto-filled from RIM) */}
       <div>
-        <label className="block text-[10px] text-gray-500 mb-0.5">
+        <label className="block text-[10px] text-su-muted mb-0.5">
           Conditions (auto-filled)
         </label>
         <input
           type="text"
           value={conditions}
           onChange={(e) => setConditions(e.target.value)}
-          className="w-full text-xs text-white bg-void-black/60 rounded px-2 py-1.5 border border-white/10 placeholder-gray-600 focus:border-plasma-orange/50 focus:outline-none"
+          className="w-full text-xs text-su-text bg-void-black/60 rounded px-2 py-1.5 border border-su-line/40 placeholder:text-su-muted/80 focus:border-plasma-orange/50 focus:outline-none"
         />
       </div>
 
       {/* Net Activity */}
       <div>
-        <label className="block text-[10px] text-gray-500 mb-0.5">
+        <label className="block text-[10px] text-su-muted mb-0.5">
           Net Activity
         </label>
         <input
@@ -103,13 +103,13 @@ export function SitRepForm({ onClose }: SitRepFormProps) {
           value={netActivity}
           onChange={(e) => setNetActivity(e.target.value)}
           placeholder="Active nets, check-ins, traffic..."
-          className="w-full text-xs text-white bg-void-black/60 rounded px-2 py-1.5 border border-white/10 placeholder-gray-600 focus:border-plasma-orange/50 focus:outline-none"
+          className="w-full text-xs text-su-text bg-void-black/60 rounded px-2 py-1.5 border border-su-line/40 placeholder:text-su-muted/80 focus:border-plasma-orange/50 focus:outline-none"
         />
       </div>
 
       {/* Next Actions */}
       <div>
-        <label className="block text-[10px] text-gray-500 mb-0.5">
+        <label className="block text-[10px] text-su-muted mb-0.5">
           Next Actions
         </label>
         <textarea
@@ -117,7 +117,7 @@ export function SitRepForm({ onClose }: SitRepFormProps) {
           onChange={(e) => setNextActions(e.target.value)}
           rows={2}
           placeholder="Planned follow-up actions..."
-          className="w-full text-xs text-white bg-void-black/60 rounded px-2 py-1.5 border border-white/10 placeholder-gray-600 focus:border-plasma-orange/50 focus:outline-none resize-none"
+          className="w-full text-xs text-su-text bg-void-black/60 rounded px-2 py-1.5 border border-su-line/40 placeholder:text-su-muted/80 focus:border-plasma-orange/50 focus:outline-none resize-none"
         />
       </div>
 
@@ -134,7 +134,7 @@ export function SitRepForm({ onClose }: SitRepFormProps) {
         <button
           type="button"
           onClick={onClose}
-          className="flex-1 px-2 py-1.5 text-[10px] font-mono rounded-md bg-white/5 hover:bg-white/10 text-gray-400 border border-white/10 transition-colors"
+          className="flex-1 px-2 py-1.5 text-[10px] font-mono rounded-md bg-su-line/10 hover:bg-su-line/20 text-su-muted border border-su-line/40 transition-colors"
         >
           Cancel
         </button>

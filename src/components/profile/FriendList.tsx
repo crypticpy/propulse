@@ -114,7 +114,7 @@ function FriendListInner() {
 
   return (
     <div className="space-y-5">
-      <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider">
+      <h3 className="text-sm font-semibold text-su-muted uppercase tracking-wider">
         Friends
       </h3>
 
@@ -124,20 +124,20 @@ function FriendListInner() {
         placeholder="Search by callsign or name..."
         value={search}
         onChange={(e) => setSearch(e.target.value)}
-        className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-gray-200 placeholder-gray-500 focus:outline-none focus:border-plasma-orange/50 focus-visible:ring-2 focus-visible:ring-plasma-orange/50 transition-colors"
+        className="w-full bg-su-line/10 border border-su-line/40 rounded-lg px-3 py-2 text-sm text-su-text placeholder:text-su-muted/80 focus:outline-none focus:border-plasma-orange/50 focus-visible:ring-2 focus-visible:ring-plasma-orange/50 transition-colors"
       />
 
       {actionError && <p className="text-xs text-alert-red">{actionError}</p>}
 
       {isLoading && (
-        <p className="text-sm text-gray-500 animate-pulse motion-reduce:animate-none">
+        <p className="text-sm text-su-muted animate-pulse motion-reduce:animate-none">
           Loading...
         </p>
       )}
 
       {!isLoading && isEmpty && (
         <div className="text-center py-8">
-          <p className="text-sm text-gray-500">
+          <p className="text-sm text-su-muted">
             No friends yet — search for operators to follow
           </p>
         </div>
@@ -146,7 +146,7 @@ function FriendListInner() {
       {/* Following section */}
       {filteredFollowing.length > 0 && (
         <div className="space-y-2">
-          <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
+          <h4 className="text-xs font-semibold text-su-muted uppercase tracking-wider">
             Following ({filteredFollowing.length})
           </h4>
           <div className="space-y-2">
@@ -165,7 +165,7 @@ function FriendListInner() {
       {/* Followers section */}
       {filteredFollowers.length > 0 && (
         <div className="space-y-2">
-          <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
+          <h4 className="text-xs font-semibold text-su-muted uppercase tracking-wider">
             Followers ({filteredFollowers.length})
           </h4>
           <div className="space-y-2">
@@ -216,20 +216,20 @@ function ProfileCard({ profile, isFollowing, onToggle }: ProfileCardProps) {
   const online = isOnline(profile.lastActiveAt);
 
   return (
-    <div className="bg-panel/30 border border-white/5 rounded-lg p-3 flex items-center justify-between gap-3">
+    <div className="bg-panel/30 border border-su-line/20 rounded-lg p-3 flex items-center justify-between gap-3">
       <div className="flex items-center gap-3 min-w-0">
         {/* Status dot */}
         <span
           className={`flex-shrink-0 w-2.5 h-2.5 rounded-full ${
-            online ? "bg-signal-green" : "bg-gray-600"
+            online ? "bg-signal-green" : "bg-su-line"
           }`}
           title={online ? "Active now" : "Offline"}
         />
         <div className="min-w-0">
-          <span className="font-mono text-sm font-bold text-gray-100 tracking-wide">
+          <span className="font-mono text-sm font-bold text-su-text tracking-wide">
             {profile.callsign || "N0CALL"}
           </span>
-          <div className="flex items-center gap-2 text-xs text-gray-500">
+          <div className="flex items-center gap-2 text-xs text-su-muted">
             {profile.operatorName && (
               <span className="truncate">{profile.operatorName}</span>
             )}
@@ -241,7 +241,7 @@ function ProfileCard({ profile, isFollowing, onToggle }: ProfileCardProps) {
         onClick={onToggle}
         className={
           isFollowing
-            ? "bg-white/5 text-gray-400 border border-white/10 rounded-full px-3 py-1 text-xs hover:bg-white/10 transition-colors flex-shrink-0 focus-visible:ring-2 focus-visible:ring-plasma-orange/50 focus-visible:outline-none"
+            ? "bg-su-line/10 text-su-muted border border-su-line/40 rounded-full px-3 py-1 text-xs hover:bg-su-line/20 transition-colors flex-shrink-0 focus-visible:ring-2 focus-visible:ring-plasma-orange/50 focus-visible:outline-none"
             : "bg-plasma-orange/15 text-plasma-orange border border-plasma-orange/30 rounded-full px-3 py-1 text-xs hover:bg-plasma-orange/25 transition-colors flex-shrink-0 focus-visible:ring-2 focus-visible:ring-plasma-orange/50 focus-visible:outline-none"
         }
       >

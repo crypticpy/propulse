@@ -6,7 +6,7 @@ export function ShackSection() {
   return (
     <div className="space-y-6">
       {/* Overview */}
-      <p className="text-sm leading-relaxed text-gray-300">
+      <p className="text-sm leading-relaxed text-su-muted">
         The Radio Shack is your virtual equipment room — catalog your radios,
         antennas, feedlines, and accessories, build signal path diagrams, and
         analyze your station's performance characteristics. The page is
@@ -19,7 +19,7 @@ export function ShackSection() {
         title="Equipment Management"
         summary="Adding and managing radios, antennas, feedlines, and accessories"
       >
-        <div className="space-y-3 text-sm text-gray-300 leading-relaxed">
+        <div className="space-y-3 text-sm text-su-muted leading-relaxed">
           <p>
             The Equipment tab is the default view. It organizes your station
             gear into five categories, each with its own manager panel. A Setup
@@ -74,7 +74,7 @@ export function ShackSection() {
         title="Signal Path Diagram"
         summary="Visual representation of your station's signal chain"
       >
-        <div className="space-y-3 text-sm text-gray-300 leading-relaxed">
+        <div className="space-y-3 text-sm text-su-muted leading-relaxed">
           <p>
             The Diagram tab opens the <strong>Station Builder Lab</strong>, a
             visual canvas where you build signal chains connecting your
@@ -84,7 +84,7 @@ export function ShackSection() {
           </p>
 
           <div>
-            <h4 className="text-white font-semibold mb-1.5">Canvas Controls</h4>
+            <h4 className="text-su-text font-semibold mb-1.5">Canvas Controls</h4>
             <ul className="list-disc list-inside space-y-1 pl-1">
               <li>
                 <strong>Zoom</strong> — Mouse wheel or pinch gesture to zoom in
@@ -102,7 +102,7 @@ export function ShackSection() {
           </div>
 
           <div>
-            <h4 className="text-white font-semibold mb-1.5">Chain Features</h4>
+            <h4 className="text-su-text font-semibold mb-1.5">Chain Features</h4>
             <ul className="list-disc list-inside space-y-1.5 pl-1">
               <li>
                 <strong>Nodes</strong> — Radio, antenna, feedline run, tuner,
@@ -144,7 +144,7 @@ export function ShackSection() {
         title="Performance Analysis"
         summary="Loss budget, ERP, SNR estimation, and band capability"
       >
-        <div className="space-y-4 text-sm text-gray-300 leading-relaxed">
+        <div className="space-y-4 text-sm text-su-muted leading-relaxed">
           <p>
             The Performance tab provides detailed analysis of your station's
             capabilities. It shows calculations for your active radio and
@@ -153,7 +153,7 @@ export function ShackSection() {
 
           {/* Loss Budget */}
           <div>
-            <h4 className="text-white font-semibold mb-1.5">Loss Budget</h4>
+            <h4 className="text-su-text font-semibold mb-1.5">Loss Budget</h4>
             <p>
               Total signal loss from your radio's output to the antenna
               feedpoint, broken down by component:
@@ -181,14 +181,14 @@ export function ShackSection() {
 
           {/* ERP */}
           <div>
-            <h4 className="text-white font-semibold mb-1.5">
+            <h4 className="text-su-text font-semibold mb-1.5">
               Effective Radiated Power (ERP)
             </h4>
             <p>
               ERP represents what your station actually radiates in the
               antenna's favored direction. The formula:
             </p>
-            <p className="mt-1.5 font-mono text-xs bg-white/[0.04] border border-white/5 rounded-lg px-3 py-2">
+            <p className="mt-1.5 font-mono text-xs bg-su-line/10 border border-su-line/20 rounded-lg px-3 py-2">
               ERP = TX Power (dBm) - Total Path Loss (dB) + Antenna Gain (dBi)
             </p>
             <p className="mt-1.5">
@@ -199,7 +199,7 @@ export function ShackSection() {
 
           {/* SNR */}
           <div>
-            <h4 className="text-white font-semibold mb-1.5">SNR at Receiver</h4>
+            <h4 className="text-su-text font-semibold mb-1.5">SNR at Receiver</h4>
             <p>
               Estimated received signal strength for incoming signals. Your
               antenna gain improves receive sensitivity, while feedline loss and
@@ -210,7 +210,7 @@ export function ShackSection() {
 
           {/* Band Capability */}
           <div>
-            <h4 className="text-white font-semibold mb-1.5">
+            <h4 className="text-su-text font-semibold mb-1.5">
               Band Capability Matrix
             </h4>
             <p>
@@ -236,7 +236,7 @@ export function ShackSection() {
         title="What-If Simulator"
         summary="Compare different equipment configurations"
       >
-        <div className="space-y-3 text-sm text-gray-300 leading-relaxed">
+        <div className="space-y-3 text-sm text-su-muted leading-relaxed">
           <p>
             The What-If Simulator lives inside the Performance tab and lets you
             experiment with changes to your station without modifying your
@@ -275,7 +275,7 @@ export function ShackSection() {
         title="Equipment Database"
         summary="Pre-loaded radio and antenna models"
       >
-        <div className="space-y-3 text-sm text-gray-300 leading-relaxed">
+        <div className="space-y-3 text-sm text-su-muted leading-relaxed">
           <p>
             Propulse includes a built-in database of common ham radio equipment
             with manufacturer-provided specifications. When adding gear to your

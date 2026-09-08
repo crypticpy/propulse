@@ -29,19 +29,19 @@ export function PWAUpdatePrompt() {
   if (!needRefresh) return null;
 
   return (
-    <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-[9999] flex items-center gap-3 rounded-lg border border-white/10 bg-void-black/95 px-4 py-3 shadow-lg backdrop-blur-sm">
-      <span className="text-sm text-gray-200">A new version is available</span>
+    <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-[9999] flex items-center gap-3 rounded-lg border border-su-line/40 bg-void-black/95 px-4 py-3 shadow-lg backdrop-blur-sm">
+      <span className="text-sm text-su-text">A new version is available</span>
 
       <button
         onClick={() => updateServiceWorker(true)}
-        className="rounded-md bg-signal-green/90 px-3 py-1 text-xs font-semibold text-void-black transition-colors hover:bg-signal-green"
+        className="rounded-md bg-signal-green/90 px-3 py-1 text-xs font-semibold text-su-canvas transition-colors hover:bg-signal-green"
       >
         Reload
       </button>
 
       <button
         onClick={() => setNeedRefresh(false)}
-        className="rounded-md border border-white/10 px-3 py-1 text-xs text-gray-400 transition-colors hover:text-gray-200"
+        className="rounded-md border border-su-line/40 px-3 py-1 text-xs text-su-muted transition-colors hover:text-su-text"
       >
         Dismiss
       </button>

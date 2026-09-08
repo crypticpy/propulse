@@ -450,8 +450,8 @@ export function PinFlyout({
       ref={flyoutRef}
       className={`
         fixed z-50
-        bg-gray-900/90 backdrop-blur-md
-        border border-white/10 rounded-lg
+        bg-su-canvas/90 backdrop-blur-md
+        border border-su-line/40 rounded-lg
         shadow-xl
         transition-all duration-200
         ${isFading ? "opacity-0 scale-95" : "opacity-100 scale-100"}
@@ -466,13 +466,13 @@ export function PinFlyout({
       aria-label={`Pin info: ${displayName}`}
     >
       {/* ── Header ── */}
-      <div className="px-3 py-2 border-b border-white/10">
+      <div className="px-3 py-2 border-b border-su-line/40">
         <div className="flex items-start justify-between gap-2">
           <div className="flex items-center gap-1.5 min-w-0 flex-1">
             <span className="text-sm flex-shrink-0" aria-hidden="true">
               {categoryMeta.icon}
             </span>
-            <span className="text-white font-semibold text-sm truncate max-w-[130px]">
+            <span className="text-su-text font-semibold text-sm truncate max-w-[130px]">
               {displayName}
             </span>
             {pin.category === "friend" && (
@@ -490,9 +490,9 @@ export function PinFlyout({
           )}
         </div>
         <div className="flex items-center justify-between gap-2 mt-0.5">
-          <div className="text-gray-400 text-xs font-mono">
+          <div className="text-su-muted text-xs font-mono">
             {pin.grid}
-            <span className="text-gray-500 mx-1">&middot;</span>
+            <span className="text-su-muted mx-1">&middot;</span>
             {formattedCoords}
           </div>
         </div>
@@ -512,20 +512,20 @@ export function PinFlyout({
       </div>
 
       {/* ── Notes ── */}
-      <div className="px-3 py-1.5 border-b border-white/10">
+      <div className="px-3 py-1.5 border-b border-su-line/40">
         {truncatedNotes ? (
-          <p className="text-gray-300 text-xs leading-relaxed">
+          <p className="text-su-muted text-xs leading-relaxed">
             {truncatedNotes}
           </p>
         ) : (
-          <p className="text-gray-500 text-xs italic">No notes</p>
+          <p className="text-su-muted text-xs italic">No notes</p>
         )}
       </div>
 
       {/* ── Recent Activity ── */}
-      <div className="px-3 py-1.5 border-b border-white/10">
+      <div className="px-3 py-1.5 border-b border-su-line/40">
         <div className="flex items-center justify-between mb-1">
-          <span className="text-gray-400 text-[10px] font-medium uppercase tracking-wider">
+          <span className="text-su-muted text-[10px] font-medium uppercase tracking-wider">
             Recent Activity
           </span>
           {nearbySpots.length > 0 && (
@@ -545,13 +545,13 @@ export function PinFlyout({
                   onSpotSelect?.(spot, position);
                   onClose();
                 }}
-                className="flex w-full items-center justify-between rounded px-1 py-0.5 text-left text-[11px] leading-tight hover:bg-white/10 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-cyan-400 disabled:pointer-events-none"
+                className="flex w-full items-center justify-between rounded px-1 py-0.5 text-left text-[11px] leading-tight hover:bg-su-line/20 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-cyan-400 disabled:pointer-events-none"
                 aria-label={`Select ${spot.dx} and view details`}
               >
-                <span className="text-white font-mono truncate max-w-[80px]">
+                <span className="text-su-text font-mono truncate max-w-[80px]">
                   {spot.dx}
                 </span>
-                <span className="text-gray-400 font-mono text-[10px]">
+                <span className="text-su-muted font-mono text-[10px]">
                   {formatFrequency(spot.frequency)}
                 </span>
                 <span
@@ -560,21 +560,21 @@ export function PinFlyout({
                 >
                   {spot.mode || "?"}
                 </span>
-                <span className="text-gray-500 text-[10px]">
+                <span className="text-su-muted text-[10px]">
                   {formatSpotAge(spot.time)}
                 </span>
               </button>
             ))}
           </div>
         ) : (
-          <p className="text-gray-500 text-xs italic">No recent activity</p>
+          <p className="text-su-muted text-xs italic">No recent activity</p>
         )}
       </div>
 
       {/* ── Open Bands (only if we have data) ── */}
       {openBands.length > 0 && (
-        <div className="px-3 py-1.5 border-b border-white/10">
-          <span className="text-gray-400 text-[10px] font-medium uppercase tracking-wider block mb-1">
+        <div className="px-3 py-1.5 border-b border-su-line/40">
+          <span className="text-su-muted text-[10px] font-medium uppercase tracking-wider block mb-1">
             Open Bands
           </span>
           <div className="flex flex-wrap gap-1">
@@ -607,7 +607,7 @@ export function PinFlyout({
             transition-colors duration-150
             ${
               isCurrentTarget
-                ? "bg-white/5 text-gray-500 cursor-default"
+                ? "bg-su-line/10 text-su-muted cursor-default"
                 : "bg-cyan-500/10 text-cyan-400 hover:bg-cyan-500/20 border border-cyan-500/20"
             }
           `}
@@ -626,8 +626,8 @@ export function PinFlyout({
             flex-1 flex items-center justify-center gap-1
             px-2 py-1.5 rounded
             text-xs font-medium
-            bg-white/5 text-gray-300 hover:bg-white/10
-            border border-white/10
+            bg-su-line/10 text-su-muted hover:bg-su-line/20
+            border border-su-line/40
             transition-colors duration-150
           "
           title="Edit this pin"

@@ -1,6 +1,10 @@
 /**
  * Zustand store for HamClock layout preferences and view modes.
  * Persists to localStorage with key 'propulse-hamclock-layout'
+ *
+ * HamClock is a separate running view from PropSphere. Enter/leave snapshot
+ * swapping of mapStore is a legacy global writer; SP-03 runtimes bind a
+ * hamclock slot instead. SP-09 removes remaining production enter/leave writes.
  */
 
 import { create } from "zustand";

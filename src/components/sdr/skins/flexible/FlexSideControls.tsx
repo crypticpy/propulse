@@ -104,7 +104,7 @@ const TX_STAGE_NAMES = ["RFPOWER", "MICGAIN", "COMP", "VOXGAIN"] as const;
 
 function SectionHeader({ children }: { children: React.ReactNode }) {
   return (
-    <div className="text-[10px] font-semibold text-gray-500 uppercase tracking-wider mb-1">
+    <div className="text-[10px] font-semibold text-su-muted uppercase tracking-wider mb-1">
       {children}
     </div>
   );
@@ -193,8 +193,8 @@ export const FlexSideControls = memo(function FlexSideControls({
             }}
             disabled={!canControlConnected}
             className="flex-1 px-2 py-0.5 text-[10px] font-medium rounded border
-            bg-white/5 border-white/10 text-gray-300
-            hover:bg-white/10 disabled:opacity-40 disabled:cursor-not-allowed"
+            bg-su-line/10 border-su-line/40 text-su-muted
+            hover:bg-su-line/20 disabled:opacity-40 disabled:cursor-not-allowed"
           >
             {effectiveState?.antenna ?? "\u2014"}
           </button>
@@ -218,7 +218,7 @@ export const FlexSideControls = memo(function FlexSideControls({
               disabled:opacity-40 disabled:cursor-not-allowed ${
                 vfo === v
                   ? "bg-cosmic-cyan/15 border-cosmic-cyan/30 text-cosmic-cyan"
-                  : "bg-white/5 border-white/10 text-gray-500 hover:text-gray-300"
+                  : "bg-su-line/10 border-su-line/40 text-su-muted hover:text-su-text"
               }`}
           >
             VFO {v}
@@ -262,8 +262,8 @@ export const FlexSideControls = memo(function FlexSideControls({
               className={`px-2 py-1.5 text-xs font-semibold rounded border transition-colors
                 disabled:opacity-40 disabled:cursor-not-allowed ${
                   isActive
-                    ? "text-white border-white/20"
-                    : "bg-white/5 text-gray-400 border-white/10 hover:bg-white/10 hover:text-gray-200"
+                    ? "text-white border-su-line/50" // design-tokens: allow
+                    : "bg-su-line/10 text-su-muted border-su-line/40 hover:bg-su-line/20 hover:text-su-text"
                 }`}
               style={isActive ? { backgroundColor: bandColor } : undefined}
               title={band}
@@ -276,7 +276,7 @@ export const FlexSideControls = memo(function FlexSideControls({
 
       {VHF_UHF_BANDS.length > 0 && (
         <>
-          <div className="my-0.5 border-t border-white/10" />
+          <div className="my-0.5 border-t border-su-line/40" />
           <div className="grid grid-cols-2 gap-1">
             {VHF_UHF_BANDS.map((band) => {
               const isActive = activeBand === band;
@@ -290,8 +290,8 @@ export const FlexSideControls = memo(function FlexSideControls({
                   className={`px-2 py-1.5 text-xs font-semibold rounded border transition-colors
                     disabled:opacity-40 disabled:cursor-not-allowed ${
                       isActive
-                        ? "text-white border-white/20"
-                        : "bg-white/5 text-gray-400 border-white/10 hover:bg-white/10 hover:text-gray-200"
+                        ? "text-white border-su-line/50" // design-tokens: allow
+                        : "bg-su-line/10 text-su-muted border-su-line/40 hover:bg-su-line/20 hover:text-su-text"
                     }`}
                   style={isActive ? { backgroundColor: bandColor } : undefined}
                   title={band}
@@ -317,10 +317,10 @@ export const FlexSideControls = memo(function FlexSideControls({
         onChange={(e) => onFreqInputChange(e.target.value)}
         onKeyDown={handleFreqKeyDown}
         placeholder="14.074"
-        className="w-full px-2 py-1 font-mono text-sm text-white
-          bg-black/40 border border-white/10 rounded
+        className="w-full px-2 py-1 font-mono text-sm text-su-text
+          bg-su-input border border-su-line/40 rounded
           focus:border-cosmic-cyan/50 focus:outline-none
-          placeholder:text-gray-600 disabled:opacity-40 disabled:cursor-not-allowed"
+          placeholder:text-su-muted disabled:opacity-40 disabled:cursor-not-allowed"
       />
 
       <div className="flex gap-1">
@@ -331,7 +331,7 @@ export const FlexSideControls = memo(function FlexSideControls({
             className={`flex-1 px-1 py-0.5 text-[10px] font-semibold rounded-full border transition-colors ${
               freqUnit === unit
                 ? "bg-cosmic-cyan/10 border-cosmic-cyan/30 text-cosmic-cyan"
-                : "bg-white/5 border-white/10 text-gray-500 hover:text-gray-300"
+                : "bg-su-line/10 border-su-line/40 text-su-muted hover:text-su-text"
             }`}
           >
             {unit}
@@ -352,7 +352,7 @@ export const FlexSideControls = memo(function FlexSideControls({
           className={`flex-1 px-3 py-2 text-xs font-bold uppercase tracking-wider rounded border transition-all ${
             ft8DecoderEnabled
               ? "bg-signal-green/20 border-signal-green/40 text-signal-green ring-1 ring-signal-green/20"
-              : "bg-white/5 border-white/10 text-gray-400 hover:bg-white/10 hover:text-gray-200"
+              : "bg-su-line/10 border-su-line/40 text-su-muted hover:bg-su-line/20 hover:text-su-text"
           }`}
         >
           {ft8DecoderEnabled ? (
@@ -377,7 +377,7 @@ export const FlexSideControls = memo(function FlexSideControls({
                 ? ft8DecoderEnabled
                   ? "bg-cosmic-cyan/20 text-cosmic-cyan border-cosmic-cyan/40 ring-1 ring-cosmic-cyan/20"
                   : "bg-cosmic-cyan/10 text-cosmic-cyan/70 border-cosmic-cyan/25"
-                : "bg-white/5 text-gray-500 border-white/10 hover:bg-white/10 hover:text-gray-300"
+                : "bg-su-line/10 text-su-muted border-su-line/40 hover:bg-su-line/20 hover:text-su-text"
             }`}
           >
             {m}
@@ -391,14 +391,14 @@ export const FlexSideControls = memo(function FlexSideControls({
           {/* Cycle progress bar */}
           <div className="space-y-0.5">
             <div className="flex items-center justify-between">
-              <span className="text-[9px] text-gray-500 uppercase tracking-wider">
+              <span className="text-[9px] text-su-muted uppercase tracking-wider">
                 Cycle
               </span>
-              <span className="text-[10px] font-mono text-gray-400">
+              <span className="text-[10px] font-mono text-su-muted">
                 {Math.round(ft8CycleProgress * 100)}%
               </span>
             </div>
-            <div className="h-1.5 rounded-full bg-white/5 overflow-hidden">
+            <div className="h-1.5 rounded-full bg-su-line/10 overflow-hidden">
               <div
                 className="h-full rounded-full bg-cosmic-cyan/70 transition-[width] duration-300"
                 style={{ width: `${ft8CycleProgress * 100}%` }}
@@ -415,12 +415,12 @@ export const FlexSideControls = memo(function FlexSideControls({
             ].map((s) => (
               <div
                 key={s.label}
-                className="rounded bg-white/[0.03] px-1.5 py-1 text-center"
+                className="rounded bg-su-line/10 px-1.5 py-1 text-center"
               >
-                <div className="text-sm font-mono font-semibold tabular-nums text-white/80">
+                <div className="text-sm font-mono font-semibold tabular-nums text-su-text/80">
                   {s.value.toLocaleString()}
                 </div>
-                <div className="text-[8px] uppercase tracking-wider text-white/30">
+                <div className="text-[8px] uppercase tracking-wider text-su-text/80">
                   {s.label}
                 </div>
               </div>
@@ -428,7 +428,7 @@ export const FlexSideControls = memo(function FlexSideControls({
           </div>
 
           {/* Status line */}
-          <div className="text-[10px] text-gray-500 leading-snug">
+          <div className="text-[10px] text-su-muted leading-snug">
             {ft8DecoderStats.workerReady
               ? `Decoding ${ft8DecoderMode} — filter auto-set to 0\u20133000 Hz`
               : "Initializing WASM decoder\u2026"}
@@ -457,7 +457,7 @@ export const FlexSideControls = memo(function FlexSideControls({
             className={`px-1.5 py-0.5 text-[10px] font-medium rounded border transition-colors ${
               tuningStepHz === opt.value
                 ? "bg-plasma-orange/15 text-plasma-orange border-plasma-orange/30"
-                : "bg-white/5 text-gray-400 border-white/10 hover:text-gray-200"
+                : "bg-su-line/10 text-su-muted border-su-line/40 hover:text-su-text"
             }`}
           >
             {opt.label}
@@ -482,10 +482,10 @@ export const FlexSideControls = memo(function FlexSideControls({
           return (
             <div key={stage.name} className="space-y-0.5">
               <div className="flex items-center justify-between">
-                <span className="text-[10px] text-gray-500">
+                <span className="text-[10px] text-su-muted">
                   {stage.label ?? stage.name}
                 </span>
-                <span className="text-[10px] text-gray-200 font-mono">
+                <span className="text-[10px] text-su-text font-mono">
                   {stage.max <= 1
                     ? Math.round(currentValue * 100) + "%"
                     : currentValue}
@@ -523,7 +523,7 @@ export const FlexSideControls = memo(function FlexSideControls({
             disabled:opacity-40 disabled:cursor-not-allowed ${
               fftEnabled
                 ? "bg-signal-green/15 border-signal-green/30 text-signal-green"
-                : "bg-white/5 border-white/10 text-gray-400 hover:text-gray-200"
+                : "bg-su-line/10 border-su-line/40 text-su-muted hover:text-su-text"
             }`}
         >
           {fftEnabled ? "Stop FFT" : "Start FFT"}
@@ -536,7 +536,7 @@ export const FlexSideControls = memo(function FlexSideControls({
             disabled:opacity-40 disabled:cursor-not-allowed ${
               audioEnabled
                 ? "bg-plasma-orange/15 border-plasma-orange/30 text-plasma-orange"
-                : "bg-white/5 border-white/10 text-gray-400 hover:text-gray-200"
+                : "bg-su-line/10 border-su-line/40 text-su-muted hover:text-su-text"
             }`}
         >
           {audioEnabled ? "Stop Audio" : "Start Audio"}
@@ -554,7 +554,7 @@ export const FlexSideControls = memo(function FlexSideControls({
         {streamSection}
 
         {/* Separator */}
-        <div className="border-t border-white/5" />
+        <div className="border-t border-su-line/20" />
 
         {/* Accordion sections — primary tuning (default open) */}
         <SidebarAccordion title="Band">{bandSection}</SidebarAccordion>
@@ -588,7 +588,7 @@ export const FlexSideControls = memo(function FlexSideControls({
         </SidebarAccordion>
 
         {/* Separator */}
-        <div className="border-t border-white/5" />
+        <div className="border-t border-su-line/20" />
 
         {/* Accordion sections — secondary (default collapsed) */}
         <SidebarAccordion title="Digital Decoder" defaultOpen={false}>
@@ -615,7 +615,7 @@ export const FlexSideControls = memo(function FlexSideControls({
                 disabled:opacity-40 disabled:cursor-not-allowed ${
                   isRecording
                     ? "bg-alert-red/20 border-alert-red/40 text-alert-red ring-1 ring-alert-red/20"
-                    : "bg-white/5 border-white/10 text-gray-400 hover:bg-white/10 hover:text-gray-200"
+                    : "bg-su-line/10 border-su-line/40 text-su-muted hover:bg-su-line/20 hover:text-su-text"
                 }`}
             >
               {isRecording ? (
@@ -629,7 +629,7 @@ export const FlexSideControls = memo(function FlexSideControls({
             </button>
 
             {!audioEnabled && !isRecording && (
-              <div className="text-[9px] text-gray-600 leading-tight">
+              <div className="text-[9px] text-su-muted leading-tight">
                 Start audio streaming to enable recording.
               </div>
             )}
@@ -637,19 +637,19 @@ export const FlexSideControls = memo(function FlexSideControls({
             {/* Duration + size display — visible during and after recording */}
             {(isRecording || hasRecording) && (
               <div className="grid grid-cols-2 gap-1">
-                <div className="rounded bg-white/[0.03] px-1.5 py-1 text-center">
-                  <div className="text-sm font-mono font-semibold tabular-nums text-white/80">
+                <div className="rounded bg-su-line/10 px-1.5 py-1 text-center">
+                  <div className="text-sm font-mono font-semibold tabular-nums text-su-text/80">
                     {formatDuration(recordingDurationSec)}
                   </div>
-                  <div className="text-[8px] uppercase tracking-wider text-white/30">
+                  <div className="text-[8px] uppercase tracking-wider text-su-text/80">
                     Duration
                   </div>
                 </div>
-                <div className="rounded bg-white/[0.03] px-1.5 py-1 text-center">
-                  <div className="text-sm font-mono font-semibold tabular-nums text-white/80">
+                <div className="rounded bg-su-line/10 px-1.5 py-1 text-center">
+                  <div className="text-sm font-mono font-semibold tabular-nums text-su-text/80">
                     {formatBytes(recordingEstimatedBytes)}
                   </div>
-                  <div className="text-[8px] uppercase tracking-wider text-white/30">
+                  <div className="text-[8px] uppercase tracking-wider text-su-text/80">
                     Size
                   </div>
                 </div>

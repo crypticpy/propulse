@@ -278,3 +278,18 @@ test("ownership/isolation validator fails closed before destructive cleanup", ()
     assert.throws(() => verifyStationContainer({ ...metadata, ...change }, identity));
   }
 });
+
+test("view namespace is explicit and cannot widen station SQL selection", async () => {
+  const root = await mkdtemp(join(tmpdir(), "view-harness-names-"));
+  try {
+    for (const name of ["view_library.sql", "20260907180000_view_library.sql", "view_library_fixture.sql", "station_workbench.sql", "view_libraryother.sql"]) {
+      await writeFile(join(root, name), "select 1;");
+    }
+    const viewFile = [{ kind: "migration", path: "20260907180000_view_library.sql" }];
+    await assert.rejects(readStationSqlFiles(root, viewFile));
+    assert.equal((await readStationSqlFiles(root, viewFile, "views"))[0].path, viewFile[0].path);
+    await assert.rejects(readStationSqlFiles(root, [{ kind: "fixture", path: "station_workbench.sql" }], "views"));
+    await assert.rejects(readStationSqlFiles(root, [{ kind: "fixture", path: "view_libraryother.sql" }], "views"));
+    await assert.rejects(readStationSqlFiles(root, [], "anything"));
+  } finally { await rm(root, { recursive: true, force: true }); }
+});

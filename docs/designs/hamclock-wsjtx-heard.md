@@ -10,4 +10,10 @@ Validation: 369 targeted wall/store/hook tests pass across 34 files. New regress
 
 Evidence: [1080p](../images/hamclock-wsjtx-heard/report-1080p.png), [4K](../images/hamclock-wsjtx-heard/report-4k.png). Fixture script: ignored `tmp/heard/check.mjs`. Owned dev session `b2b707be-bc17-46eb-9c83-cfb32019695a`, owner `hamclock-wsjtx-heard`, URL `http://127.0.0.1:5181`, stopped after testing.
 
-The production PSK cache migration/credentials from #422 remain a maintainer deployment prerequisite. Coordinated map arcs, shared map window and TX/RX glyphs remain outstanding. No model or 3D globe internals are changed; deployed and physical-display acceptance is not inferred from browser fixtures.
+The production PSK cache migration is applied with its service-role-only permissions verified, and the required Vercel environment names are configured. Coordinated map arcs, shared map window and TX/RX glyphs remain outstanding. No model or 3D globe internals are changed; deployed and physical-display acceptance is not inferred from browser fixtures.
+
+## Final operating integration — 2026-09-07
+
+Integrated with merged Band Activity, cluster and WSJT-X reports plus the standalone row-fit prerequisite. The five focused files pass all 16 tests. The owned operating session at 5186 passes 60 populated PSK cases, 18 empty/stale/unavailable cases and 48 HEARING ME cases with no browser errors or overflow. The crowded PSK tile removes rows that cannot fit and restores them when the same mounted tile receives a larger slot. Both fixtures retain five total callsign requests, with no filter-triggered refetch. Current 1080p captures were visually inspected.
+
+The guarded database migration and verified production role permissions are recorded in `hamclock-psk-station.md`; this browser evidence uses synthetic data and blocked hardware transports. Shared map windows/arcs and physical operation remain separate acceptance.

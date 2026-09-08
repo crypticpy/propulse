@@ -1,6 +1,7 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
+  handleFeedsRss,
   decodeEntities,
   parseFeed,
   stripTags,
@@ -204,4 +205,64 @@ describe("parseFeed — hostile/degenerate input", () => {
     expect(feed.items[0].summary).not.toContain("<script>");
     expect(feed.items[0].summary).toContain("hello");
   });
+});
+
+
+describe("feed verification", () => {
+  afterEach(() => vi.unstubAllGlobals());
+  let sequence = 0;
+  const request = (url = "https://example.com/feed") => new Request(
+    `https://propulse.test/api/feeds/rss?verify=1&url=${encodeURIComponent(url)}`,
+    { headers: { "x-forwarded-for": `verify-test-${sequence++}` } },
+  );
+
+  it("returns a parsed title and bounded item count without exposing XML", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(
+      '<rss><channel><title>Club &amp; News</title><item><title>Meeting</title></item></channel></rss>',
+    )));
+    const response = await handleFeedsRss(request());
+    expect(response.headers.get("cache-control")).toBe("no-store");
+    expect(await response.json()).toEqual({ status: "ok", title: "Club & News", itemCount: 1 });
+  });
+
+  it("accepts a titled empty Atom feed but rejects HTML and untitled feeds", async () => {
+    for (const [xml, status] of [
+      ['<feed xmlns="http://www.w3.org/2005/Atom"><title>Club</title></feed>', "ok"],
+      ["<html><title>Sign in</title></html>", "invalid_feed"],
+      ['<html><title>Sign in</title><!-- <rss> --></html>', "invalid_feed"],
+      ['<html><title>Sign in</title><script>const x="<feed>"</script></html>', "invalid_feed"],
+      ['<?xml version="1.0"?><!-- example <rss> --><feed><title>Club</title></feed>', "ok"],
+      ["<rss><channel></channel></rss>", "invalid_feed"],
+    ]) {
+      vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(xml)));
+      expect(await (await handleFeedsRss(request())).json()).toMatchObject({ status, itemCount: 0 });
+    }
+  });
+
+  it("keeps verification behind the existing URL and redirect gate", async () => {
+    const fetch = vi.fn().mockResolvedValue(new Response(null, {
+      status: 302, headers: { location: "http://127.0.0.1/private" },
+    }));
+    vi.stubGlobal("fetch", fetch);
+    expect((await handleFeedsRss(request("http://localhost/feed"))).status).toBe(400);
+    expect(fetch).not.toHaveBeenCalled();
+    const blocked = await handleFeedsRss(request());
+    expect(blocked.headers.get("cache-control")).toBe("no-store");
+    expect(await blocked.json()).toEqual({ status: "unreachable", title: null, itemCount: 0 });
+    expect(fetch).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not cache transient or oversized verification failures", async () => {
+    for (const upstream of [
+      () => Promise.reject(new Error("timeout")),
+      () => Promise.resolve(new Response("down", { status: 503 })),
+      () => Promise.resolve(new Response("large", { headers: { "content-length": "2000000" } })),
+    ]) {
+      vi.stubGlobal("fetch", vi.fn(upstream));
+      const response = await handleFeedsRss(request());
+      expect(response.headers.get("cache-control")).toBe("no-store");
+      expect(await response.json()).toMatchObject({ title: null, itemCount: 0 });
+    }
+  });
+
 });

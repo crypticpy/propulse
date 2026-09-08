@@ -108,7 +108,7 @@ export function SatelliteFilterControls({
       <div className="flex items-center gap-2">
         <div className="relative flex-1">
           <svg
-            className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500"
+            className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-su-muted"
             fill="none"
             stroke="currentColor"
             viewBox="0 0 24 24"
@@ -125,12 +125,12 @@ export function SatelliteFilterControls({
             placeholder="Search satellites by name or NORAD ID..."
             value={filters.search}
             onChange={(e) => onChange("search", e.target.value)}
-            className="w-full bg-white/5 border border-white/10 rounded-lg pl-9 pr-3 py-2 text-sm text-gray-200 placeholder-gray-500 focus:outline-none focus:border-plasma-orange/50"
+            className="w-full bg-su-line/10 border border-su-line/40 rounded-lg pl-9 pr-3 py-2 text-sm text-su-text placeholder:text-su-muted/80 focus:outline-none focus:border-plasma-orange/50"
           />
           {filters.search && (
             <button
               onClick={() => onChange("search", "")}
-              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white"
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-su-muted hover:text-su-text"
               aria-label="Clear search"
             >
               <svg
@@ -156,7 +156,7 @@ export function SatelliteFilterControls({
           className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold transition-all ${
             activeCount > 0
               ? "bg-plasma-orange/15 text-plasma-orange border border-plasma-orange/40 hover:bg-plasma-orange/25"
-              : "bg-white/5 text-gray-300 border border-white/10 hover:bg-white/10 hover:text-white"
+              : "bg-su-line/10 text-su-muted border border-su-line/40 hover:bg-su-line/20 hover:text-su-text"
           }`}
           title={`${activeCount} active filter${activeCount !== 1 ? "s" : ""}`}
         >
@@ -196,9 +196,9 @@ export function SatelliteFilterControls({
       </div>
 
       {/* Category pills -- always visible */}
-      <div className="bg-white/[0.02] border border-white/5 rounded-xl p-4 space-y-4">
+      <div className="bg-su-line/10 border border-su-line/20 rounded-xl p-4 space-y-4">
         <div>
-          <h4 className="text-xs uppercase tracking-widest text-gray-400 mb-2">
+          <h4 className="text-xs uppercase tracking-widest text-su-muted mb-2">
             Category
           </h4>
           <div className="flex flex-wrap gap-1.5">
@@ -212,7 +212,7 @@ export function SatelliteFilterControls({
                   ? `${catMeta.bg} ${catMeta.color} border-current/40`
                   : isActive
                     ? "bg-plasma-orange/20 text-plasma-orange border-plasma-orange/40"
-                    : "bg-white/5 text-gray-300 border-white/10 hover:bg-white/10 hover:text-white";
+                    : "bg-su-line/10 text-su-muted border-su-line/40 hover:bg-su-line/20 hover:text-su-text";
 
               return (
                 <button
@@ -232,7 +232,7 @@ export function SatelliteFilterControls({
       {/* Sort row -- always visible */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-1.5">
-          <span className="text-xs uppercase tracking-widest text-gray-400 mr-1">
+          <span className="text-xs uppercase tracking-widest text-su-muted mr-1">
             Sort
           </span>
           {SORT_OPTIONS.map((opt) => (
@@ -242,8 +242,8 @@ export function SatelliteFilterControls({
               aria-pressed={filters.sortBy === opt.value}
               className={`${pillBase} ${
                 filters.sortBy === opt.value
-                  ? "bg-white/10 text-white border-white/20"
-                  : "bg-white/5 text-gray-400 border-white/10 hover:bg-white/10 hover:text-white"
+                  ? "bg-su-line/20 text-su-text border-su-line/50"
+                  : "bg-su-line/10 text-su-muted border-su-line/40 hover:bg-su-line/20 hover:text-su-text"
               }`}
             >
               {opt.label}
@@ -255,7 +255,7 @@ export function SatelliteFilterControls({
         {activeCount > 0 && (
           <button
             onClick={onReset}
-            className="text-xs text-gray-400 hover:text-white transition-colors"
+            className="text-xs text-su-muted hover:text-su-text transition-colors"
           >
             Reset filters
           </button>
@@ -264,10 +264,10 @@ export function SatelliteFilterControls({
 
       {/* Collapsible "More Filters" panel */}
       {isExpanded && (
-        <div className="bg-white/[0.02] border border-white/5 rounded-xl p-4 space-y-4">
+        <div className="bg-su-line/10 border border-su-line/20 rounded-xl p-4 space-y-4">
           {/* Visible Now toggle */}
           <div>
-            <h4 className="text-xs uppercase tracking-widest text-gray-400 mb-2">
+            <h4 className="text-xs uppercase tracking-widest text-su-muted mb-2">
               Visibility
             </h4>
             <button
@@ -276,7 +276,7 @@ export function SatelliteFilterControls({
               className={`${pillBase} ${
                 filters.visibleOnly
                   ? "bg-signal-green/20 text-signal-green border-signal-green/40"
-                  : "bg-white/5 text-gray-300 border-white/10 hover:bg-white/10 hover:text-white"
+                  : "bg-su-line/10 text-su-muted border-su-line/40 hover:bg-su-line/20 hover:text-su-text"
               }`}
             >
               Visible Now
@@ -285,7 +285,7 @@ export function SatelliteFilterControls({
 
           {/* Custom TLEs Only toggle */}
           <div>
-            <h4 className="text-xs uppercase tracking-widest text-gray-400 mb-2">
+            <h4 className="text-xs uppercase tracking-widest text-su-muted mb-2">
               Source
             </h4>
             <button
@@ -294,7 +294,7 @@ export function SatelliteFilterControls({
               className={`${pillBase} ${
                 filters.customOnly
                   ? "bg-purple-500/20 text-purple-400 border-purple-500/40"
-                  : "bg-white/5 text-gray-300 border-white/10 hover:bg-white/10 hover:text-white"
+                  : "bg-su-line/10 text-su-muted border-su-line/40 hover:bg-su-line/20 hover:text-su-text"
               }`}
             >
               Custom TLEs Only
@@ -303,7 +303,7 @@ export function SatelliteFilterControls({
 
           {/* TLE Age filter */}
           <div>
-            <h4 className="text-xs uppercase tracking-widest text-gray-400 mb-2">
+            <h4 className="text-xs uppercase tracking-widest text-su-muted mb-2">
               TLE Age
             </h4>
             <div className="flex flex-wrap gap-1.5">
@@ -317,7 +317,7 @@ export function SatelliteFilterControls({
                     className={`${pillBase} ${
                       isActive
                         ? "bg-plasma-orange/20 text-plasma-orange border-plasma-orange/40"
-                        : "bg-white/5 text-gray-300 border-white/10 hover:bg-white/10 hover:text-white"
+                        : "bg-su-line/10 text-su-muted border-su-line/40 hover:bg-su-line/20 hover:text-su-text"
                     }`}
                   >
                     {opt.label}

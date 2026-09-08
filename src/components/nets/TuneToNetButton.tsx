@@ -123,7 +123,7 @@ export default function TuneToNetButton({
 
     const copyColors = copied
       ? "bg-signal-green/20 text-signal-green border border-signal-green/30 shadow-[0_0_12px_rgba(34,197,94,0.25)]"
-      : "bg-white/[0.06] text-gray-300 border border-white/15 hover:bg-white/10 hover:text-white cursor-pointer";
+      : "bg-su-line/20 text-su-muted border border-su-line/50 hover:bg-su-line/30 hover:text-su-text cursor-pointer";
 
     return (
       <button
@@ -159,7 +159,7 @@ export default function TuneToNetButton({
   const colors =
     phase === "tuned"
       ? "bg-signal-green/20 text-signal-green border border-signal-green/30 shadow-[0_0_12px_rgba(34,197,94,0.25)]"
-      : "bg-plasma-orange/20 text-plasma-orange hover:bg-plasma-orange/30 hover:shadow-[0_0_12px_rgba(255,107,53,0.25)] border border-white/15 border-plasma-orange/30 focus-visible:ring-2 focus-visible:ring-plasma-orange/70";
+      : "bg-plasma-orange/20 text-plasma-orange hover:bg-plasma-orange/30 hover:shadow-[0_0_12px_rgba(255,107,53,0.25)] border border-su-line/50 border-plasma-orange/30 focus-visible:ring-2 focus-visible:ring-plasma-orange/70";
 
   const transition = "transition-colors duration-200";
 

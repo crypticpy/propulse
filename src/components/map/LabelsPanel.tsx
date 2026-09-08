@@ -52,19 +52,19 @@ export function LabelsPanel({ className = "" }: { className?: string }) {
   return (
     <div
       className={`w-48 rounded-lg bg-deep-space/95 backdrop-blur-sm
-                   border border-white/10 shadow-xl overflow-hidden ${className}`}
+                   border border-su-line/40 shadow-xl overflow-hidden ${className}`}
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
     >
       {/* Header — always visible, acts as collapsed hover target */}
       <div className="flex items-center justify-between px-3 py-2">
-        <span className="text-[10px] font-medium text-gray-400 uppercase tracking-wider">
+        <span className="text-[10px] font-medium text-su-muted uppercase tracking-wider">
           Labels
         </span>
         <svg
           viewBox="0 0 20 20"
           fill="currentColor"
-          className={`w-3 h-3 text-gray-500 transition-transform duration-200 ${
+          className={`w-3 h-3 text-su-muted transition-transform duration-200 ${
             expanded ? "rotate-180" : ""
           }`}
         >
@@ -82,12 +82,12 @@ export function LabelsPanel({ className = "" }: { className?: string }) {
           expanded ? "max-h-[300px] opacity-100" : "max-h-0 opacity-0"
         }`}
       >
-        <div className="border-t border-white/8 p-1.5 space-y-0.5">
+        <div className="border-t border-su-line/20 p-1.5 space-y-0.5">
           {LABEL_OPTIONS.map(({ key, label }) => (
             <label
               key={key}
               className="flex items-center gap-2 px-2 py-1.5 rounded
-                         hover:bg-white/5 cursor-pointer transition-colors"
+                         hover:bg-su-line/10 cursor-pointer transition-colors"
             >
               <input
                 type="checkbox"
@@ -100,13 +100,13 @@ export function LabelsPanel({ className = "" }: { className?: string }) {
                            transition-colors shrink-0 ${
                              labelOptions[key]
                                ? "bg-blue-500/80 border-blue-400"
-                               : "border-white/20 bg-white/5"
+                               : "border-su-line/50 bg-su-line/10"
                            }`}
               >
                 {labelOptions[key] && (
                   <svg
                     viewBox="0 0 12 12"
-                    className="w-2.5 h-2.5 text-white"
+                    className="w-2.5 h-2.5 text-su-text"
                     fill="none"
                     stroke="currentColor"
                     strokeWidth="2"
@@ -115,7 +115,7 @@ export function LabelsPanel({ className = "" }: { className?: string }) {
                   </svg>
                 )}
               </div>
-              <span className="text-[11px] text-gray-300 select-none">
+              <span className="text-[11px] text-su-muted select-none">
                 {label}
               </span>
             </label>

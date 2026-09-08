@@ -18,7 +18,7 @@ export function bandHealthDotClass(entry: BandLadderEntry): string {
   if (entry.stable === "hot") return "bg-plasma-orange";
   if (entry.stable === "verified") return "bg-signal-green";
   if (entry.stable === "stirring") return "bg-caution-amber";
-  return "bg-gray-500";
+  return "bg-su-line";
 }
 
 /**

@@ -43,7 +43,6 @@ export function AppearanceSection() {
   const tickerPositionId = useId();
   const tickerCoverageId = useId();
   const customPrimary = useThemeStore((s) => s.customPrimary);
-  const customSecondary = useThemeStore((s) => s.customSecondary);
   const setCustomColors = useThemeStore((s) => s.setCustomColors);
   const setAccent = useThemeStore((s) => s.setAccent);
   const themeId = useThemeStore((s) => s.themeId);
@@ -56,47 +55,27 @@ export function AppearanceSection() {
   const globeHiResTextures = useSettingsStore((s) => s.globeHiResTextures);
   const updatePreferences = useSettingsStore((s) => s.updatePreferences);
 
-  // Local form state for hex inputs
+  // Local form state for hex input
   const [primaryHex, setPrimaryHex] = useState(customPrimary ?? "#ff6b35");
-  const [secondaryHex, setSecondaryHex] = useState(
-    customSecondary ?? "#00ff88",
-  );
   const [primaryError, setPrimaryError] = useState<string | null>(null);
-  const [secondaryError, setSecondaryError] = useState<string | null>(null);
 
   // Sync local state when store changes externally (e.g., settings backup import)
   useEffect(() => {
     setPrimaryHex(customPrimary ?? "#ff6b35");
-    setSecondaryHex(customSecondary ?? "#00ff88");
-  }, [customPrimary, customSecondary]);
+  }, [customPrimary]);
 
   const handleApply = useCallback(() => {
-    let hasError = false;
-
     if (!isValidHex(primaryHex)) {
       setPrimaryError("Invalid hex (#RGB or #RRGGBB)");
-      hasError = true;
-    } else {
-      setPrimaryError(null);
+      return;
     }
-
-    if (!isValidHex(secondaryHex)) {
-      setSecondaryError("Invalid hex (#RGB or #RRGGBB)");
-      hasError = true;
-    } else {
-      setSecondaryError(null);
-    }
-
-    if (hasError) return;
-
-    setCustomColors(normalizeHex(primaryHex), normalizeHex(secondaryHex));
-  }, [primaryHex, secondaryHex, setCustomColors]);
+    setPrimaryError(null);
+    setCustomColors(normalizeHex(primaryHex));
+  }, [primaryHex, setCustomColors]);
 
   const handleReset = useCallback(() => {
     setPrimaryHex("#ff6b35");
-    setSecondaryHex("#00ff88");
     setPrimaryError(null);
-    setSecondaryError(null);
     // Reset to the default "plasma" preset
     setAccent("plasma");
   }, [setAccent]);
@@ -105,10 +84,10 @@ export function AppearanceSection() {
     <div className="space-y-6">
       <VisualEffectsSettings />
       <div>
-        <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-1">
+        <h3 className="text-sm font-semibold text-su-muted uppercase tracking-wider mb-1">
           Accent Color
         </h3>
-        <p className="text-xs text-gray-500 mb-4">
+        <p className="text-xs text-su-muted mb-4">
           Choose a color theme for the interface
         </p>
         <AppearanceSettings />
@@ -116,7 +95,7 @@ export function AppearanceSection() {
 
       {/* Custom Colors disclosure */}
       <details className="mt-4">
-        <summary className="text-sm font-medium text-gray-400 cursor-pointer hover:text-gray-200 select-none">
+        <summary className="text-sm font-medium text-su-muted cursor-pointer hover:text-su-text select-none">
           Custom Colors
         </summary>
         <div className="mt-3 space-y-3">
@@ -124,13 +103,13 @@ export function AppearanceSection() {
           <div>
             <label
               htmlFor="custom-primary-hex"
-              className="block text-xs font-medium text-gray-400 mb-1"
+              className="block text-xs font-medium text-su-muted mb-1"
             >
               Accent Color
             </label>
             <div className="flex items-center gap-2">
               <span
-                className="w-5 h-5 rounded-full border border-white/20 shrink-0"
+                className="w-5 h-5 rounded-full border border-su-line/50 shrink-0"
                 style={{
                   backgroundColor: isValidHex(primaryHex)
                     ? normalizeHex(primaryHex)
@@ -147,46 +126,11 @@ export function AppearanceSection() {
                 }}
                 placeholder="#ff6b35"
                 maxLength={7}
-                className="w-28 px-2 py-1.5 text-sm bg-void-black border border-white/10 rounded-lg text-gray-200 placeholder-gray-600 focus:border-plasma-orange/50 focus:outline-none"
+                className="w-28 px-2 py-1.5 text-sm bg-void-black border border-su-line/40 rounded-lg text-su-text placeholder:text-su-muted/80 focus:border-plasma-orange/50 focus:outline-none"
               />
             </div>
             {primaryError && (
               <p className="text-xs text-alert-red mt-1">{primaryError}</p>
-            )}
-          </div>
-
-          {/* Background tint (secondary) */}
-          <div>
-            <label
-              htmlFor="custom-secondary-hex"
-              className="block text-xs font-medium text-gray-400 mb-1"
-            >
-              Secondary Color
-            </label>
-            <div className="flex items-center gap-2">
-              <span
-                className="w-5 h-5 rounded-full border border-white/20 shrink-0"
-                style={{
-                  backgroundColor: isValidHex(secondaryHex)
-                    ? normalizeHex(secondaryHex)
-                    : "#333",
-                }}
-              />
-              <input
-                id="custom-secondary-hex"
-                type="text"
-                value={secondaryHex}
-                onChange={(e) => {
-                  setSecondaryHex(e.target.value);
-                  setSecondaryError(null);
-                }}
-                placeholder="#00ff88"
-                maxLength={7}
-                className="w-28 px-2 py-1.5 text-sm bg-void-black border border-white/10 rounded-lg text-gray-200 placeholder-gray-600 focus:border-plasma-orange/50 focus:outline-none"
-              />
-            </div>
-            {secondaryError && (
-              <p className="text-xs text-alert-red mt-1">{secondaryError}</p>
             )}
           </div>
 
@@ -202,7 +146,7 @@ export function AppearanceSection() {
             <button
               type="button"
               onClick={handleReset}
-              className="px-3 py-1.5 text-xs font-medium rounded-lg text-gray-400 border border-white/10 hover:text-gray-200 hover:border-white/20 transition-colors"
+              className="px-3 py-1.5 text-xs font-medium rounded-lg text-su-muted border border-su-line/40 hover:text-su-text hover:border-su-line/50 transition-colors"
             >
               Reset
             </button>
@@ -210,11 +154,11 @@ export function AppearanceSection() {
         </div>
       </details>
 
-      <div className="border-t border-white/10 pt-6">
-        <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-1">
+      <div className="border-t border-su-line/40 pt-6">
+        <h3 className="text-sm font-semibold text-su-muted uppercase tracking-wider mb-1">
           Theme
         </h3>
-        <p className="text-xs text-gray-500 mb-4">
+        <p className="text-xs text-su-muted mb-4">
           Choose a base theme for the interface
         </p>
         <div className="grid grid-cols-2 gap-2">
@@ -226,18 +170,18 @@ export function AppearanceSection() {
                 onClick={() => setTheme(theme.id as ThemeId)}
                 className={`relative px-4 py-3 rounded-lg text-left transition-colors border ${
                   isActive
-                    ? "bg-plasma-orange/15 border-plasma-orange/40 text-white"
-                    : "bg-void-black border-white/10 text-gray-400 hover:border-white/20 hover:text-gray-200"
+                    ? "bg-plasma-orange/15 border-plasma-orange/40 text-su-text"
+                    : "bg-void-black border-su-line/40 text-su-muted hover:border-su-line/50 hover:text-su-text"
                 }`}
               >
                 <div className="flex items-center gap-2">
                   <span
-                    className="w-3 h-3 rounded-full border border-white/20 shrink-0"
+                    className="w-3 h-3 rounded-full border border-su-line/50 shrink-0"
                     style={{ backgroundColor: theme.colors.bgPrimary }}
                   />
                   <span className="text-sm font-medium">{theme.name}</span>
                 </div>
-                <p className="text-[10px] text-gray-500 mt-1 leading-tight">
+                <p className="text-[10px] text-su-muted mt-1 leading-tight">
                   {theme.description}
                 </p>
                 {isActive && (
@@ -251,24 +195,24 @@ export function AppearanceSection() {
         </div>
       </div>
 
-      <div className="border-t border-white/10" />
+      <div className="border-t border-su-line/40" />
 
       <section className="space-y-3">
-        <h3 className="text-xs font-semibold uppercase tracking-wider text-gray-400">
+        <h3 className="text-xs font-semibold uppercase tracking-wider text-su-muted">
           SDR Display Settings
         </h3>
-        <p className="text-sm text-gray-500">
+        <p className="text-sm text-su-muted">
           Spectrum, waterfall, and passband display settings have moved to the
           SDR Console. Open the SDR Console and click the gear icon to
           configure.
         </p>
       </section>
 
-      <div className="border-t border-white/10 pt-6">
-        <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-1">
+      <div className="border-t border-su-line/40 pt-6">
+        <h3 className="text-sm font-semibold text-su-muted uppercase tracking-wider mb-1">
           SDR Console Skin
         </h3>
-        <p className="text-xs text-gray-500 mb-4">
+        <p className="text-xs text-su-muted mb-4">
           Choose a layout for the SDR Console page. Classic is the original
           2-column layout. Flexible is a full-viewport layout inspired by
           FlexRadio SmartSDR (desktop only).
@@ -301,12 +245,12 @@ export function AppearanceSection() {
                 onClick={() => updatePreferences({ sdrSkinName: skin.id })}
                 className={`relative px-4 py-3 rounded-lg text-left transition-colors border ${
                   isActive
-                    ? "bg-plasma-orange/15 border-plasma-orange/40 text-white"
-                    : "bg-void-black border-white/10 text-gray-400 hover:border-white/20 hover:text-gray-200"
+                    ? "bg-plasma-orange/15 border-plasma-orange/40 text-su-text"
+                    : "bg-void-black border-su-line/40 text-su-muted hover:border-su-line/50 hover:text-su-text"
                 }`}
               >
                 <div className="text-sm font-medium">{skin.name}</div>
-                <p className="text-[10px] text-gray-500 mt-1 leading-tight">
+                <p className="text-[10px] text-su-muted mt-1 leading-tight">
                   {skin.desc}
                 </p>
                 {isActive && (
@@ -320,11 +264,11 @@ export function AppearanceSection() {
         </div>
       </div>
 
-      <div className="border-t border-white/10 pt-6">
-        <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-1">
+      <div className="border-t border-su-line/40 pt-6">
+        <h3 className="text-sm font-semibold text-su-muted uppercase tracking-wider mb-1">
           News Ticker
         </h3>
-        <p className="text-xs text-gray-500 mb-4">
+        <p className="text-xs text-su-muted mb-4">
           Position of the live DX news ticker showing propagation data, weather
           alerts, and lightning proximity.
         </p>
@@ -332,7 +276,7 @@ export function AppearanceSection() {
           <div>
             <label
               htmlFor={tickerPositionId}
-              className="block text-xs font-medium text-gray-400 mb-1"
+              className="block text-xs font-medium text-su-muted mb-1"
             >
               Position
             </label>
@@ -347,7 +291,7 @@ export function AppearanceSection() {
                     | "top",
                 })
               }
-              className="w-full px-3 py-2 bg-void-black border border-white/10 rounded-lg text-gray-200 text-sm focus:outline-none focus:border-plasma-orange/50 focus:ring-1 focus:ring-plasma-orange/30"
+              className="w-full px-3 py-2 bg-void-black border border-su-line/40 rounded-lg text-su-text text-sm focus:outline-none focus:border-plasma-orange/50 focus:ring-1 focus:ring-plasma-orange/30"
             >
               <option value="bottom">Below map (default)</option>
               <option value="above-panels">Above map &amp; panels</option>
@@ -357,7 +301,7 @@ export function AppearanceSection() {
           <div>
             <label
               htmlFor={tickerCoverageId}
-              className="block text-xs font-medium text-gray-400 mb-1"
+              className="block text-xs font-medium text-su-muted mb-1"
             >
               Weather &amp; lightning area
             </label>
@@ -369,7 +313,7 @@ export function AppearanceSection() {
                   tickerCoverageArea: e.target.value as TickerCoverageArea,
                 })
               }
-              className="w-full px-3 py-2 bg-void-black border border-white/10 rounded-lg text-gray-200 text-sm focus:outline-none focus:border-plasma-orange/50 focus:ring-1 focus:ring-plasma-orange/30"
+              className="w-full px-3 py-2 bg-void-black border border-su-line/40 rounded-lg text-su-text text-sm focus:outline-none focus:border-plasma-orange/50 focus:ring-1 focus:ring-plasma-orange/30"
             >
               {Object.entries(TICKER_COVERAGE_PRESETS).map(([value, preset]) => (
                 <option key={value} value={value}>
@@ -378,7 +322,7 @@ export function AppearanceSection() {
                 </option>
               ))}
             </select>
-            <p className="mt-1.5 text-[11px] leading-4 text-gray-500">
+            <p className="mt-1.5 text-[11px] leading-4 text-su-muted">
               Centered on your station. Solar indices, space weather, and DX
               activity remain global and live.
             </p>
@@ -386,11 +330,11 @@ export function AppearanceSection() {
         </div>
       </div>
 
-      <div className="border-t border-white/10 pt-6">
-        <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-1">
+      <div className="border-t border-su-line/40 pt-6">
+        <h3 className="text-sm font-semibold text-su-muted uppercase tracking-wider mb-1">
           Map Imagery
         </h3>
-        <p className="text-xs text-gray-500 mb-4">
+        <p className="text-xs text-su-muted mb-4">
           The globe and flat map ship with web-size NASA Blue Marble imagery.
           Opt in to the full-resolution version for sharper close-up zoom.
         </p>
@@ -405,27 +349,27 @@ export function AppearanceSection() {
       </div>
 
       {/* Live Preview */}
-      <div className="border-t border-white/10 pt-6">
-        <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-3">
+      <div className="border-t border-su-line/40 pt-6">
+        <h3 className="text-sm font-semibold text-su-muted uppercase tracking-wider mb-3">
           Preview
         </h3>
-        <div className="bg-void-black rounded-xl border border-white/10 p-4 space-y-3">
+        <div className="bg-void-black rounded-xl border border-su-line/40 p-4 space-y-3">
           <div
             className="h-1 w-16 rounded-full"
             style={{ backgroundColor: "var(--theme-accent-primary)" }}
           />
-          <p className="text-sm text-gray-300">Sample panel content</p>
+          <p className="text-sm text-su-muted">Sample panel content</p>
           <div className="flex items-center gap-3">
             <div
               className="w-9 h-5 rounded-full relative"
               style={{ backgroundColor: "var(--theme-accent-primary)" }}
             >
-              <div className="w-4 h-4 bg-white rounded-full absolute right-0.5 top-0.5" />
+              <div className="w-4 h-4 bg-su-text rounded-full absolute right-0.5 top-0.5" />
             </div>
-            <span className="text-xs text-gray-400">Active setting</span>
+            <span className="text-xs text-su-muted">Active setting</span>
           </div>
           <button
-            className="px-3 py-1.5 rounded-lg text-xs font-medium text-white"
+            className="px-3 py-1.5 rounded-lg text-xs font-medium text-su-on-accent"
             style={{ backgroundColor: "var(--theme-accent-primary)" }}
           >
             Sample Button

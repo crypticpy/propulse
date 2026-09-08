@@ -160,7 +160,7 @@ export function ImageUploadButton({
             <img
               src={imageUrl}
               alt="Preview"
-              className={`object-cover border border-white/10 ${
+              className={`object-cover border border-su-line/40 ${
                 cropShape === "round"
                   ? "w-10 h-10 rounded-full"
                   : "w-12 h-9 rounded-md"
@@ -171,9 +171,9 @@ export function ImageUploadButton({
               type="button"
               onClick={() => setShowRemoveConfirm(true)}
               className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full
-                         bg-void-black border border-white/20
+                         bg-void-black border border-su-line/50
                          flex items-center justify-center
-                         text-red-400 hover:text-red-300
+                         text-alert-red hover:text-alert-red/80
                          opacity-0 group-hover:opacity-100
                          transition-opacity focus:opacity-100
                          focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500/50"
@@ -189,10 +189,10 @@ export function ImageUploadButton({
           <button
             type="button"
             onClick={handleClick}
-            className="bg-black/40 hover:bg-black/60 rounded-lg p-2
-                       text-gray-400 hover:text-gray-200
+            className="bg-su-input hover:bg-su-panel/60 rounded-lg p-2
+                       text-su-muted hover:text-su-text
                        transition-colors focus:outline-none
-                       focus-visible:ring-2 focus-visible:ring-white/30"
+                       focus-visible:ring-2 focus-visible:ring-su-line/60"
             aria-label={imageId ? "Change photo" : label}
           >
             <CameraIcon size={16} />
@@ -201,11 +201,11 @@ export function ImageUploadButton({
           <button
             type="button"
             onClick={handleClick}
-            className="bg-white/5 hover:bg-white/10 border border-white/10
-                       rounded-lg px-4 py-2 text-sm text-gray-300
+            className="bg-su-line/10 hover:bg-su-line/20 border border-su-line/40
+                       rounded-lg px-4 py-2 text-sm text-su-muted
                        inline-flex items-center gap-2
                        transition-colors focus:outline-none
-                       focus-visible:ring-2 focus-visible:ring-white/30"
+                       focus-visible:ring-2 focus-visible:ring-su-line/60"
           >
             <CameraIcon size={16} />
             <span>{imageId ? "Change" : label}</span>

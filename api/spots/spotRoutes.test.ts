@@ -175,7 +175,7 @@ it.each(HISTORY_ROUTES)("%s exposes each bounded window and defaults to 30", asy
 });
 
 it.each(HISTORY_ROUTES)("%s rejects unsupported, malformed and duplicate windows before storage", async (source, handler) => {
-  for (const query of ["0", "360", "1440", "60x", "30.0", "", "30&windowMinutes=60"]) {
+  for (const query of ["0", "360", "1440", "60x", "30.0", "120x", "120.0", "", "30&windowMinutes=60"]) {
     const response = await handler(new Request(`https://propulse.cloud/api/spots/${source}?windowMinutes=${query}`));
     expect(response.status).toBe(400);
     expect(response.headers.get("Cache-Control")).toBe("no-store");
@@ -193,4 +193,19 @@ it.each(HISTORY_ROUTES)("%s carries historical rows without renewing stale sourc
   expect(body.spots).toHaveLength(1);
   expect(body.meta).toMatchObject({ status: "stale", observedAt, windowMinutes: 60, staleAfterSeconds: 1800 });
   expect(response.headers.get("X-Propulse-Spot-Status")).toBe("stale");
+});
+
+
+it("confirms two-hour history only for DX Cluster, without widening PSK or RBN", async () => {
+  const response = await dxClusterHandler(new Request("https://propulse.cloud/api/spots/dxcluster?windowMinutes=120"));
+  expect(response.status).toBe(200);
+  expect((await response.json()).meta.windowMinutes).toBe(120);
+  expect(new URL(String(vi.mocked(fetch).mock.calls.at(-1)![0])).searchParams.get("spotted_at"))
+    .toBe(`gte.${new Date(NOW.getTime() - 120 * 60_000).toISOString()}`);
+  vi.mocked(fetch).mockClear();
+  for (const handler of [pskReporterHandler, rbnHandler]) {
+    const rejected = await handler(new Request("https://propulse.cloud/api/spots/test?windowMinutes=120"));
+    expect(rejected.status).toBe(400);
+  }
+  expect(fetch).not.toHaveBeenCalled();
 });

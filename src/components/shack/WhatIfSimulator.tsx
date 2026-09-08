@@ -99,11 +99,11 @@ export function WhatIfSimulator() {
 
   if (!chain) {
     return (
-      <div className="bg-panel/30 backdrop-blur-sm border border-white/5 rounded-2xl p-4">
-        <h3 className="text-sm font-semibold text-gray-200 uppercase tracking-wider mb-2">
+      <div className="bg-panel/30 backdrop-blur-sm border border-su-line/20 rounded-2xl p-4">
+        <h3 className="text-sm font-semibold text-su-text uppercase tracking-wider mb-2">
           What-If Simulator
         </h3>
-        <p className="text-sm text-gray-500">
+        <p className="text-sm text-su-muted">
           Activate a signal path in the Diagram lab to sandbox upgrades.
         </p>
       </div>
@@ -138,16 +138,16 @@ export function WhatIfSimulator() {
   }
 
   return (
-    <div className="bg-panel/30 backdrop-blur-sm border border-white/5 rounded-2xl p-4 space-y-5">
+    <div className="bg-panel/30 backdrop-blur-sm border border-su-line/20 rounded-2xl p-4 space-y-5">
       <div className="flex items-center justify-between">
-        <h3 className="text-sm font-semibold text-gray-200 uppercase tracking-wider">
+        <h3 className="text-sm font-semibold text-su-text uppercase tracking-wider">
           What-If Simulator
         </h3>
         <div className="flex gap-3">
           <button
             type="button"
             onClick={reset}
-            className="text-[10px] text-gray-400 hover:text-gray-200 uppercase tracking-wider"
+            className="text-[10px] text-su-muted hover:text-su-text uppercase tracking-wider"
           >
             Reset
           </button>
@@ -160,15 +160,15 @@ export function WhatIfSimulator() {
           </button>
         </div>
       </div>
-      <p className="text-xs text-gray-500">
-        Sandbox of <span className="text-gray-300">{liveChain.name}</span>. Apply
+      <p className="text-xs text-su-muted">
+        Sandbox of <span className="text-su-muted">{liveChain.name}</span>. Apply
         writes only the fields you changed.
       </p>
 
       <div className="space-y-4">
         <div>
           <div className="flex items-center justify-between mb-1.5">
-            <label className="text-[10px] font-medium text-gray-400 uppercase tracking-wider">
+            <label className="text-[10px] font-medium text-su-muted uppercase tracking-wider">
               Power
             </label>
             <span className="text-sm font-mono text-plasma-orange">
@@ -182,13 +182,13 @@ export function WhatIfSimulator() {
             step={powerWatts < 10 ? 1 : powerWatts < 100 ? 5 : 10}
             value={powerWatts}
             onChange={(e) => setPowerWatts(Number(e.target.value))}
-            className="w-full h-1.5 rounded-full appearance-none cursor-pointer bg-white/10 accent-plasma-orange"
+            className="w-full h-1.5 rounded-full appearance-none cursor-pointer bg-su-line/20 accent-plasma-orange"
           />
         </div>
         {liveFeedline && (
           <div>
             <div className="flex items-center justify-between mb-1.5">
-              <label className="text-[10px] font-medium text-gray-400 uppercase tracking-wider">
+              <label className="text-[10px] font-medium text-su-muted uppercase tracking-wider">
                 Feedline length
               </label>
               <span className="text-sm font-mono text-plasma-orange">
@@ -202,13 +202,13 @@ export function WhatIfSimulator() {
               step={5}
               value={lengthFeet}
               onChange={(e) => setLengthFeet(Number(e.target.value))}
-              className="w-full h-1.5 rounded-full appearance-none cursor-pointer bg-white/10 accent-plasma-orange"
+              className="w-full h-1.5 rounded-full appearance-none cursor-pointer bg-su-line/20 accent-plasma-orange"
             />
           </div>
         )}
         <div>
           <div className="flex items-center justify-between mb-1.5">
-            <label className="text-[10px] font-medium text-gray-400 uppercase tracking-wider">
+            <label className="text-[10px] font-medium text-su-muted uppercase tracking-wider">
               SWR
             </label>
             <span className="text-sm font-mono text-plasma-orange">
@@ -220,7 +220,7 @@ export function WhatIfSimulator() {
               aria-label="SWR band"
               value={swrBand}
               onChange={(event) => setSwrBand(event.target.value)}
-              className="mb-1.5 w-full rounded-md border border-white/10 bg-white/5 px-2 py-1 font-mono text-[10px] text-gray-300"
+              className="mb-1.5 w-full rounded-md border border-su-line/40 bg-su-line/10 px-2 py-1 font-mono text-[10px] text-su-muted"
             >
               {liveAntenna.bands.map((band) => (
                 <option key={band} value={band}>
@@ -239,7 +239,7 @@ export function WhatIfSimulator() {
               setSwrTouched(true);
               setSwr(Number(e.target.value));
             }}
-            className="w-full h-1.5 rounded-full appearance-none cursor-pointer bg-white/10 accent-plasma-orange"
+            className="w-full h-1.5 rounded-full appearance-none cursor-pointer bg-su-line/20 accent-plasma-orange"
           />
         </div>
       </div>
@@ -250,14 +250,14 @@ export function WhatIfSimulator() {
           <div className="overflow-x-auto -mx-4 px-4">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b border-white/10">
-                  <th className="text-left py-2 pr-3 text-[10px] text-gray-400">
+                <tr className="border-b border-su-line/40">
+                  <th className="text-left py-2 pr-3 text-[10px] text-su-muted">
                     Band
                   </th>
-                  <th className="text-right py-2 px-3 text-[10px] text-gray-400">
+                  <th className="text-right py-2 px-3 text-[10px] text-su-muted">
                     Live ERP
                   </th>
-                  <th className="text-right py-2 pl-3 text-[10px] text-gray-400">
+                  <th className="text-right py-2 pl-3 text-[10px] text-su-muted">
                     Sandbox ERP
                   </th>
                 </tr>
@@ -266,9 +266,9 @@ export function WhatIfSimulator() {
                 {sandbox.bands.map((band) => {
                   const live = baseline.bands.find((item) => item.band === band.band);
                   return (
-                    <tr key={band.band} className="border-b border-white/5">
-                      <td className="py-1.5 pr-3 text-gray-200">{band.band}</td>
-                      <td className="py-1.5 px-3 text-right text-gray-400">
+                    <tr key={band.band} className="border-b border-su-line/20">
+                      <td className="py-1.5 pr-3 text-su-text">{band.band}</td>
+                      <td className="py-1.5 px-3 text-right text-su-muted">
                         {live ? formatWatts(live.erpWatts) : "—"}
                       </td>
                       <td className="py-1.5 pl-3 text-right text-plasma-orange">

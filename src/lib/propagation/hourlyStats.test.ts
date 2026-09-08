@@ -66,7 +66,7 @@ describe("queryBandHourlyStats", () => {
 
     const rows = await queryBandHourlyStats("20m", 24);
 
-    expect(supabaseMocks.from).toHaveBeenCalledWith("band_hourly_stats");
+    expect(supabaseMocks.from).toHaveBeenCalledWith("band_hourly_stats_readable");
     expect(calls).toContainEqual(["eq", ["band", "20m"]]);
     expect(calls).toContainEqual([
       "gte",
@@ -101,7 +101,7 @@ describe("queryBandHourlyStats", () => {
     supabaseMocks.from.mockReturnValue(builder);
 
     await expect(queryBandHourlyStats("20m")).rejects.toThrow(
-      "band_hourly_stats query failed: canceling statement",
+      "band_hourly_stats_readable query failed: canceling statement",
     );
   });
 });

@@ -29,11 +29,11 @@ export interface AqiResponse {
 
 /** EPA AQI category breakpoints → Tailwind text color class. */
 export function aqiSeverityClass(aqi: number | null | undefined): string {
-  if (aqi == null || !Number.isFinite(aqi)) return "text-gray-400";
-  if (aqi <= 50) return "text-signal-green";
-  if (aqi <= 100) return "text-caution-amber";
-  if (aqi <= 150) return "text-plasma-orange";
-  if (aqi <= 200) return "text-alert-red";
+  if (aqi == null || !Number.isFinite(aqi)) return "text-su-muted";
+  if (aqi <= 50) return "text-su-success";
+  if (aqi <= 100) return "text-su-warning";
+  if (aqi <= 150) return "text-su-accent-text";
+  if (aqi <= 200) return "text-su-danger";
   return "text-aurora-purple"; // Very Unhealthy / Hazardous
 }
 

@@ -1,0 +1,326 @@
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
+import { beforeEach, describe, expect, it } from "vitest";
+import {
+  applyThemeToDocument,
+  getAccentPreset,
+  getTheme,
+  type ThemeId,
+} from "./index";
+import {
+  DEFAULT_ACCENT_HEX,
+  hexToChannels,
+  stationContrast,
+  stationPalettes,
+  stationTokens,
+} from "./stationTokens";
+import { DEUTERANOPIA_PALETTE, TRITANOPIA_PALETTE } from "./colorblind";
+import {
+  stationTokens as reExportedStationTokens,
+  stationPalettes as reExportedStationPalettes,
+  stationContrast as reExportedStationContrast,
+} from "@/components/station-ui/tokens";
+
+const COLOR_TOKENS = [
+  "canvas",
+  "panel",
+  "input",
+  "text",
+  "muted",
+  "line",
+  "accent",
+  "on-accent",
+  "accent-edge",
+  "accent-text",
+  "info",
+  "success",
+  "warning",
+  "danger",
+] as const;
+
+function rootTokens() {
+  const style = document.documentElement.style;
+  return (name: string) => style.getPropertyValue(name);
+}
+
+describe("station tokens on the document root", () => {
+  beforeEach(() => {
+    document.documentElement.removeAttribute("style");
+  });
+
+  it("emits the Propulse dark palette and channel triplets on <html>", () => {
+    applyThemeToDocument(getTheme("dark"), getAccentPreset("plasma"));
+    const token = rootTokens();
+    expect(token("--su-text")).toBe("#cad2dc");
+    expect(token("--su-text-rgb")).toBe("202 210 220");
+    expect(token("--su-canvas")).toBe("#141827");
+    expect(token("--su-canvas-rgb")).toBe("20 24 39");
+    expect(token("--su-panel")).toBe("#191e2e");
+    expect(token("--su-muted")).toBe("#a0abba");
+    expect(token("--su-line")).toBe("#637088");
+    expect(token("--su-accent")).toBe("#ff6b35");
+    expect(token("--su-accent-rgb")).toBe("255 107 53");
+  });
+
+  it("sets an -rgb triplet for every colour token in every theme", () => {
+    for (const themeId of Object.keys(stationPalettes) as ThemeId[]) {
+      document.documentElement.removeAttribute("style");
+      applyThemeToDocument(getTheme(themeId), getAccentPreset("cosmic"));
+      const token = rootTokens();
+      for (const name of COLOR_TOKENS) {
+        expect(token(`--su-${name}`)).toMatch(/^#[0-9a-f]{6}$/i);
+        expect(token(`--su-${name}-rgb`)).toMatch(/^\d{1,3} \d{1,3} \d{1,3}$/);
+      }
+    }
+  });
+
+  it("follows the theme and the accent, and leaves the legacy --theme-* vars intact", () => {
+    applyThemeToDocument(getTheme("light"), getAccentPreset("aurora"));
+    const token = rootTokens();
+    expect(token("--su-canvas")).toBe(stationPalettes.light.canvas);
+    expect(token("--su-accent")).toBe("#a855f7");
+    expect(token("--theme-accent-primary")).toBe("#a855f7");
+  });
+
+  it("keeps the station-ui re-export resolving to the same implementation", () => {
+    expect(reExportedStationTokens).toBe(stationTokens);
+    expect(reExportedStationPalettes).toBe(stationPalettes);
+    expect(reExportedStationContrast("#ffffff", "#000000")).toBeCloseTo(21, 5);
+  });
+
+  it("emits an -rgb triplet in the scoped token set itself (StationProvider overrides)", () => {
+    const tokens = stationTokens("dark", "#ff6b35");
+    expect(tokens["--su-text-rgb"]).toBe("202 210 220");
+    expect(tokens["--su-accent-rgb"]).toBe("255 107 53");
+    expect(tokens["--su-on-accent-rgb"]).toBe("0 0 0");
+  });
+
+  it("keeps the globals.css :root fallbacks in sync with the dark palette", () => {
+    const css = readFileSync(
+      resolve(__dirname, "../../styles/globals.css"),
+      "utf8",
+    );
+    const tokens = stationTokens("dark", "#ff6b35");
+    for (const name of COLOR_TOKENS) {
+      const value = tokens[`--su-${name}`];
+      expect(css).toContain(`--su-${name}: ${value};`);
+      const channels = value
+        .replace("#", "")
+        .match(/../g)!
+        .map((pair) => parseInt(pair, 16))
+        .join(" ");
+      expect(css).toContain(`--su-${name}-rgb: ${channels};`);
+    }
+  });
+
+  it("keeps the .su-fixed-dark pre-JS tone fallbacks in sync with the dark palette", () => {
+    // .su-fixed-dark (SDR cockpit skins, rank card back) pins its tone roles
+    // to --su-fixed-dark-*, whose :root fallback must match the dark
+    // palette's un-swapped tones the same way the neutral fallbacks above do.
+    const css = readFileSync(
+      resolve(__dirname, "../../styles/globals.css"),
+      "utf8",
+    );
+    for (const role of ["info", "success", "warning", "danger"] as const) {
+      const value = stationPalettes.dark[role];
+      expect(css).toContain(`--su-fixed-dark-${role}: ${value};`);
+      expect(css).toContain(
+        `--su-fixed-dark-${role}-rgb: ${hexToChannels(value)};`,
+      );
+    }
+  });
+
+  it("keeps Home's high-contrast text override on the high-contrast palette", () => {
+    const css = readFileSync(
+      resolve(__dirname, "../../styles/home.css"),
+      "utf8",
+    );
+    expect(css).toContain(
+      `.dark.contrast-more .home-dashboard{--su-text:${stationPalettes["high-contrast"].text}}`,
+    );
+  });
+
+  it("keeps the HamClock su- pin in sync with the Propulse dark palette", () => {
+    // The wall is standalone dark wall art, so hamclock-themes.css pins the
+    // surface roles under [data-hamclock-theme]. Values live in CSS (one
+    // selector covers the wall and its portalled panels); this keeps them from
+    // drifting away from stationPalettes.dark.
+    const css = readFileSync(
+      resolve(__dirname, "../../styles/hamclock-themes.css"),
+      "utf8",
+    );
+    for (const name of ["canvas", "panel", "input", "text", "muted", "line"]) {
+      const value = stationPalettes.dark[name as "canvas"];
+      expect(css).toContain(`--su-${name}: ${value};`);
+      expect(css).toContain(`--su-${name}-rgb: ${hexToChannels(value)};`);
+    }
+    // The tone roles are not pinned to fixed hexes: they are routed through the
+    // wall's own --hc-*-rgb triples, so they keep their pre-DS-09 values.
+    expect(css).toContain("--su-success-rgb: var(--hc-good-rgb);");
+    expect(css).toContain("--su-warning-rgb: var(--hc-warn-rgb);");
+    expect(css).toContain("--su-danger-rgb: var(--hc-bad-rgb);");
+  });
+
+  it("previews the canvas it applies in the Settings theme swatch", () => {
+    // AppearanceSection.tsx renders theme.colors.bgPrimary as the swatch while
+    // applyThemeToDocument paints stationPalettes[id].canvas; the two used to
+    // be independent hexes and disagreed for all four themes.
+    for (const themeId of Object.keys(stationPalettes) as ThemeId[]) {
+      expect(getTheme(themeId).colors.bgPrimary).toBe(
+        stationPalettes[themeId].canvas,
+      );
+    }
+  });
+});
+
+describe("colour-blind tone tokens", () => {
+  beforeEach(() => {
+    document.documentElement.removeAttribute("style");
+  });
+
+  it("survives a theme change and an accent change", () => {
+    // Regression: the swap used to be layered on after applyThemeToDocument(),
+    // so switching theme or accent silently reverted the tones to the palette.
+    applyThemeToDocument(
+      getTheme("dark"),
+      getAccentPreset("plasma"),
+      "deuteranopia",
+    );
+    const token = rootTokens();
+    // fair already clears the floor on the dark panel, so it is used verbatim.
+    expect(token("--su-warning")).toBe(DEUTERANOPIA_PALETTE.fair);
+    expect(token("--su-success")).not.toBe(stationPalettes.dark.success);
+    expect(token("--su-danger")).not.toBe(stationPalettes.dark.danger);
+
+    applyThemeToDocument(
+      getTheme("light"),
+      getAccentPreset("plasma"),
+      "deuteranopia",
+    );
+    expect(token("--su-success")).not.toBe(stationPalettes.light.success);
+    expect(token("--su-canvas")).toBe(stationPalettes.light.canvas);
+
+    applyThemeToDocument(
+      getTheme("light"),
+      getAccentPreset("aurora"),
+      "deuteranopia",
+    );
+    expect(token("--su-danger")).not.toBe(stationPalettes.light.danger);
+    expect(token("--su-accent")).toBe("#a855f7");
+  });
+
+  it("keeps every swapped tone above the status-text floor on its panel", () => {
+    // The colour-blind palette is one fixed set of hues; the station palettes
+    // are not. Raw tritanopia fair (#DDCC77) is 1.5:1 on the Light panel and
+    // raw deuteranopia good (#0077BB) 3.7:1 on the dark one, so the tones are
+    // blended toward the far pole until they clear 4.5:1.
+    expect(
+      stationContrast(TRITANOPIA_PALETTE.fair, stationPalettes.light.panel),
+    ).toBeLessThan(4.5);
+    for (const mode of ["deuteranopia", "protanopia", "tritanopia"] as const) {
+      for (const themeId of Object.keys(stationPalettes) as ThemeId[]) {
+        const tokens = stationTokens(themeId, "#ff6b35", mode);
+        for (const role of ["success", "warning", "danger"] as const) {
+          expect(
+            stationContrast(
+              tokens[`--su-${role}`],
+              stationPalettes[themeId].panel,
+            ),
+          ).toBeGreaterThanOrEqual(4.5);
+        }
+      }
+    }
+  });
+
+  it("keeps the three swapped tones distinguishable from each other", () => {
+    const tokens = stationTokens("light", "#ff6b35", "tritanopia");
+    const tones = new Set([
+      tokens["--su-success"],
+      tokens["--su-warning"],
+      tokens["--su-danger"],
+    ]);
+    expect(tones.size).toBe(3);
+  });
+
+  it("emits matching -rgb triplets for the swapped tones", () => {
+    applyThemeToDocument(
+      getTheme("dark"),
+      getAccentPreset("plasma"),
+      "tritanopia",
+    );
+    const token = rootTokens();
+    expect(token("--su-warning")).toBe(TRITANOPIA_PALETTE.fair);
+    expect(token("--su-warning-rgb")).toBe("221 204 119");
+  });
+
+  it("swaps the same tones in the scoped token set StationProvider injects", () => {
+    const scoped = stationTokens("dark", "#ff6b35", "protanopia");
+    // Both protanopia tones already clear the dark panel, so they pass through.
+    expect(scoped["--su-warning"]).toBe("#EE7733");
+    expect(scoped["--su-success"]).toBe("#009988");
+    expect(scoped["--su-success-rgb"]).toBe("0 153 136");
+    expect(stationTokens("dark", "#ff6b35")["--su-success"]).toBe(
+      stationPalettes.dark.success,
+    );
+  });
+
+  it("leaves the tones on the palette when no mode is active", () => {
+    applyThemeToDocument(getTheme("dark"), getAccentPreset("plasma"), "none");
+    expect(rootTokens()("--su-danger")).toBe(stationPalettes.dark.danger);
+  });
+});
+
+describe("--su-fixed-dark-* tone triples for .su-fixed-dark", () => {
+  beforeEach(() => {
+    document.documentElement.removeAttribute("style");
+  });
+
+  it("stays on the dark palette's tones regardless of the active theme", () => {
+    // .su-fixed-dark pins its tone roles to these; a pinned SDR/rank-card
+    // subtree must read the dark palette's danger, not Light's, or a fill
+    // (bg-alert-red) and the pinned-dark ink on it (text-su-canvas) come from
+    // different palettes — the bug this token pair exists to fix.
+    applyThemeToDocument(getTheme("light"), getAccentPreset("plasma"));
+    const token = rootTokens();
+    expect(token("--su-fixed-dark-danger")).toBe(stationPalettes.dark.danger);
+    expect(token("--su-fixed-dark-danger-rgb")).toBe(
+      hexToChannels(stationPalettes.dark.danger),
+    );
+    expect(token("--su-fixed-dark-info")).toBe(stationPalettes.dark.info);
+    expect(token("--su-fixed-dark-success")).toBe(stationPalettes.dark.success);
+    expect(token("--su-fixed-dark-warning")).toBe(stationPalettes.dark.warning);
+  });
+
+  it("stays colour-blind-aware even though the theme's own tones are not swapped", () => {
+    applyThemeToDocument(
+      getTheme("light"),
+      getAccentPreset("plasma"),
+      "deuteranopia",
+    );
+    const token = rootTokens();
+    expect(token("--su-fixed-dark-danger")).not.toBe(
+      stationPalettes.dark.danger,
+    );
+    expect(token("--su-fixed-dark-danger")).toBe(
+      stationTokens("dark", DEFAULT_ACCENT_HEX, "deuteranopia")["--su-danger"],
+    );
+  });
+});
+
+describe("hexToChannels", () => {
+  it("expands three-digit hex", () => {
+    expect(hexToChannels("#abc")).toBe("170 187 204");
+  });
+
+  it("reads six-digit hex with or without the hash", () => {
+    expect(hexToChannels("#ff6b35")).toBe("255 107 53");
+    expect(hexToChannels("FF6B35")).toBe("255 107 53");
+  });
+
+  it("falls back to the dark canvas channels for non-hex input", () => {
+    const darkCanvasChannels = hexToChannels(stationPalettes.dark.canvas);
+    expect(hexToChannels("rebeccapurple")).toBe(darkCanvasChannels);
+    expect(hexToChannels("#12345")).toBe(darkCanvasChannels);
+    expect(hexToChannels("")).toBe(darkCanvasChannels);
+  });
+});

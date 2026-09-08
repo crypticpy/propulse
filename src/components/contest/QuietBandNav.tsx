@@ -64,17 +64,17 @@ export function QuietBandNav({ className = "" }: QuietBandNavProps) {
 
   return (
     <div
-      className={`rounded-xl bg-white/[0.03] border border-white/10 p-3 ${className}`}
+      className={`rounded-xl bg-su-line/10 border border-su-line/40 p-3 ${className}`}
       role="navigation"
       aria-label="Contest-free bands"
     >
       {/* Header */}
       <div className="flex items-center gap-1.5 mb-2">
         <span className="w-1.5 h-1.5 rounded-full bg-signal-green" />
-        <span className="text-[10px] font-medium text-gray-400 uppercase tracking-wide">
+        <span className="text-[10px] font-medium text-su-muted uppercase tracking-wide">
           Contest-free bands
         </span>
-        <InfoIcon className="w-3 h-3 text-gray-500" />
+        <InfoIcon className="w-3 h-3 text-su-muted" />
       </div>
 
       {/* Band pills */}
@@ -92,7 +92,7 @@ export function QuietBandNav({ className = "" }: QuietBandNavProps) {
                 ${
                   isWarc
                     ? "bg-signal-green/10 border-signal-green/25 text-signal-green hover:bg-signal-green/20"
-                    : "bg-white/5 border-white/10 text-gray-300 hover:bg-white/10 hover:border-white/20"
+                    : "bg-su-line/10 border-su-line/40 text-su-muted hover:bg-su-line/20 hover:border-su-line/50"
                 }
               `}
               aria-label={`${band}${isWarc ? " (WARC band, always contest-free)" : " (no active contest)"}`}
@@ -109,7 +109,7 @@ export function QuietBandNav({ className = "" }: QuietBandNavProps) {
       </div>
 
       {/* Subtle explainer */}
-      <p className="mt-2 text-[10px] text-gray-600 leading-relaxed">
+      <p className="mt-2 text-[10px] text-su-muted leading-relaxed">
         These bands have no active contest traffic. WARC bands (30m, 17m, 12m)
         are always contest-free.
       </p>

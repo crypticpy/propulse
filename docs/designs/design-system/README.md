@@ -1,0 +1,187 @@
+# ProPulse design system: one token set
+
+Foundation · 7 September 2026 · [DS-02 #483](https://github.com/crypticpy/propulse/issues/483) · child of the unified design-system epic
+
+The app ran four parallel colour systems — the station library's `--su-*`, the app-wide `--theme-*`/`--color-*-rgb` Tailwind theme, Home's private `--home-*` overrides, and HamClock's `--hc-*` — declaring the same orange four times. This document defines the single set that replaces the first three.
+
+The `--color-*-rgb` half of the app-wide theme (and the rest of `src/styles/design-tokens.css`, which declared it) was never imported anywhere; it was deleted as dead code in #533 rather than migrated. The condition colours (`excellent`/`good`/`fair`/`poor`) and colour-blind swapping now come entirely from the `--su-success`/`-warning`/`-danger` tone tokens above. `--theme-accent-secondary` and its `-rgb` fallback were also removed in #533, along with Settings' "Secondary Color" custom-hex control and `themeStore`'s `customSecondary` — the CSS var had no consumer anywhere in Tailwind config or CSS. `AccentColor.secondary` (the accent-preset dual-colour swatch in `AppearanceSettings.tsx`) is unrelated and still live, so the 8 preset `secondary` hexes in `src/lib/themes/index.ts` stayed.
+
+**The station palette is the design system.** Navy canvas, soft off-white text, plasma orange accent, muted cyan for information. The **Propulse (dark)** palette is the default; Light, High Contrast and Midnight are token swaps of the same roles. Theming means changing token values, not component code.
+
+Sources of truth:
+
+- `src/lib/themes/stationTokens.ts` — the palettes and `stationTokens(theme, accent)`.
+- `src/lib/themes/index.ts` — `applyThemeToDocument()` writes every `--su-*` (and its `-rgb` channel triplet) onto `document.documentElement`.
+- `src/styles/globals.css` — the `:root` fallbacks (dark palette, next to the `--theme-*` fallbacks) so utilities render correctly before JS runs and in tests.
+- `tailwind.config.js` — the `su` colour namespace.
+- `src/components/station-ui/StationProvider.tsx` — re-injects the same variables inline on its `.station-ui` element, which wins over the root by specificity, so scoped `theme`/`accent` previews still work.
+
+## Tokens
+
+Dark ("Propulse") values. `--su-accent`, `--su-on-accent`, `--su-accent-edge` and `--su-accent-text` are derived from the user's accent choice: the label colour and the edge/text fallbacks are computed by contrast, so a custom brand colour is never assumed to be legible.
+
+| Token              | Dark value | Role                                                                                 |
+| ------------------ | ---------- | ------------------------------------------------------------------------------------ |
+| `--su-canvas`      | `#141827`  | Page background behind everything.                                                   |
+| `--su-panel`       | `#191e2e`  | Card, panel and surface background.                                                  |
+| `--su-input`       | `#111624`  | Input, well and inset background.                                                    |
+| `--su-text`        | `#cad2dc`  | Primary reading text (11.6:1 on canvas).                                             |
+| `--su-muted`       | `#a0abba`  | Secondary text, labels, captions (7.6:1 on canvas).                                  |
+| `--su-line`        | `#637088`  | Borders, dividers, control outlines.                                                 |
+| `--su-accent`      | `#ff6b35`  | Primary action fill, "now" marker, brand emphasis.                                   |
+| `--su-on-accent`   | `#000000`  | Label on an accent fill (computed per accent).                                       |
+| `--su-accent-edge` | `#ff6b35`  | Accent border/edge; falls back to info when the accent is too low-contrast on panel. |
+| `--su-accent-text` | `#ff6b35`  | Accent as text; falls back to info below 4.5:1 on panel.                             |
+| `--su-info`        | `#85c4d0`  | Information, focus, chart series, neutral emphasis.                                  |
+| `--su-success`     | `#8bdbb0`  | Good/open/nominal status.                                                            |
+| `--su-warning`     | `#f5cf79`  | Caution/degraded status.                                                             |
+| `--su-danger`      | `#fda4af`  | Poor/alert/error status.                                                             |
+
+Every colour token also has a `--su-<name>-rgb` channel triplet (for example `--su-text-rgb: 202 210 220`) so Tailwind opacity modifiers work.
+
+The station library adds non-colour variables (`--su-text-scale`, `--su-radius-*`, `--su-control-height`, `--su-font-*`) inside `.station-ui` only. Those stay scoped; only the colour tokens live on the root.
+
+## Tailwind utilities
+
+The `su` colour namespace generates the usual Tailwind colour utilities (`text-`, `bg-`, `border-`, `ring-`, `fill-`, `stroke-`, `divide-`, `from-`/`via-`/`to-`), each defined as `rgb(var(--su-x-rgb) / <alpha-value>)`, so `/40`-style opacity modifiers work:
+
+```
+text-su-text        text-su-muted       text-su-accent      text-su-accent-text
+text-su-on-accent   text-su-info        text-su-success     text-su-warning
+text-su-danger
+bg-su-canvas        bg-su-panel         bg-su-input         bg-su-accent
+bg-su-info          bg-su-success       bg-su-warning       bg-su-danger
+border-su-line      border-su-accent-edge
+```
+
+Opacity modifiers are the intended way to soften a token: `border-su-line/40`, `text-su-muted/80`, `bg-su-panel/70`. Do not introduce a new near-black or near-white hex to get a softer shade.
+
+The existing app colours (`plasma-orange`, `deep-space`, `panel`, `nebula-blue`, `signal-green`, `caution-amber`, `alert-red`, …) are untouched by this foundation; #DS-09 moves them onto these tokens.
+
+## Section accents
+
+Every container wears one tone, and the same kind of content wears the same tone on every page (DS-14). The tone is declared once, as `data-accent` on the container; the classes below read it through `--su-section-accent-rgb` and never name a tone, so all four palettes and colour-blind mode keep working and no new hex is introduced.
+
+### The header anatomy (DS-15)
+
+Every section is built the same way — **rule → band → content** — and one component paints the band: `SectionHeader` in `src/components/ui/SectionHeader.tsx`. Solar Pulse's disclosures and every Home panel render it, so the two pages cannot drift apart.
+
+1. **Rule** — a 3 px `su-section-rule` element on the container's top edge (`su-section-ruled` only where the DOM cannot hold a full-bleed first child, e.g. a `<details>`, which hides every child except its first `<summary>` while closed).
+2. **Band** — a full-width header, `min-h-16`, holding an Orbitron bold title, one muted line of summary beneath it, and a right-hand slot for the panel's own action (a status chip, a refresh control, a link). It is a `<button aria-expanded>` when the band is the disclosure control, a `<summary>` inside a `<details>`, and a plain heading band otherwise.
+3. **Content** — a bordered area below the band, with the panel's padding.
+
+```html
+<!-- Solar Pulse: the band is the disclosure control -->
+<section data-accent="warning" class="overflow-hidden rounded-2xl ...">
+  <div aria-hidden="true" class="su-section-rule"></div>
+  <button class="su-section-header ..." aria-expanded="false">
+    Impacts <span class="su-section-glyph ...">+</span>
+  </button>
+</section>
+
+<!-- Home: the band is a heading, and the whole panel brightens it on hover -->
+<article data-accent="success" class="home-panel su-section-panel">
+  <div aria-hidden="true" class="su-section-rule"></div>
+  <div class="su-section-header su-widget-header">
+    <div><h3>Local weather</h3><p>Temperature, wind and the hours ahead.</p></div>
+  </div>
+  <div class="home-panel-body">…</div>
+</article>
+```
+
+Home's per-panel summary strings live with the layout model (`homeItemSummary()` in `src/lib/home/layout.ts`), so the dashboard, the panel band and Customize dashboard all print the same sentence.
+
+| Class               | What it paints                                                                                                                                                                                                                     |
+| ------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `[data-accent="…"]` | Sets `--su-section-accent-rgb` for the subtree. Values: `accent`, `info`, `success`, `warning`, `danger`.                                                                                                                          |
+| `su-section-rule`   | The 3 px rule, tone → transparent, as its own first child of a container that clips its corners.                                                                                                                                   |
+| `su-section-ruled`  | The same rule painted by the container itself (`::before`), for a padded card that has no full-bleed child.                                                                                                                        |
+| `su-section-header` | The header band. Its hover is a soft left-to-right tint of the tone, on pointer devices only. Never a flat grey.                                                                                                                  |
+| `su-section-panel`  | On the container: hovering anywhere in the panel brightens its band. For a band that is not itself the control.                                                                                                                   |
+| `su-section-glyph`  | The expand/collapse glyph box: tone on the border and the glyph.                                                                                                                                                                   |
+| `su-widget-header`  | The widget header wash — a 12% tint of the tone fading out by 70%. Inherits the enclosing section's tone.                                                                                                                          |
+| `su-widget-eyebrow` | The header eyebrow in the tone, through `--su-section-accent-text-rgb` (the reading-text variant: `accent` resolves via `--su-accent-text`, so a low-contrast custom accent falls back to `info`). The title stays on `--su-text`. |
+
+`accentForFamily()` in `src/lib/themes/sectionAccent.ts` is the one place the family map lives; `accentForHomeItem()` applies it to Home's panel ids.
+
+| Family                           | Tone      | Examples                                                                                                                                                             |
+| -------------------------------- | --------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Propagation & forecast           | `accent`  | Bands now, Next 24 hours, Official forecast, NowCast                                                                                                                 |
+| Space weather observed & impacts | `warning` | Solar outlook, Impacts, Kp/flux/Bz/X-ray readings                                                                                                                    |
+| Local environment                | `success` | Local weather, Daylight, Tides, UV & air quality, Aviation weather, Imagery                                                                                          |
+| Reference, history & personal    | `info`    | Details and history, Your station, Recent operating, World clocks, Countdowns, News, Contest details, This day in history, Moon, Planets, Volcano watch, DXpeditions |
+
+Do not:
+
+- use `danger` as a section identity — it is reserved for alert states;
+- put the tone on the ink. Headings stay `--su-text` and sub lines stay `--su-muted`; the tone only ever carries the rule, the hover tint, the glyph, the wash and the eyebrow;
+- reintroduce a per-tone class map (`from-su-warning`, `hover:from-su-info/15`, …). One `data-accent` covers the container and everything nested inside it;
+- give a tile its own `data-accent` just to repeat its section's tone — the wash inherits. Override only when a tile genuinely belongs to another family.
+
+**Carrying it to another page.** Pick the family for each container from the table, put `data-accent` on the outermost element of the container, and add `su-section-rule` as its first child (`su-section-ruled` only where a full-bleed first child is impossible). Render the band with `SectionHeader`; add `su-section-panel` to the container when the band is a heading rather than a control, so the whole panel brightens it on hover. Every card header inside then only needs `su-widget-header` (plus `su-widget-eyebrow` on its eyebrow) — `WidgetShell` already carries both, so a Solar-style tile inherits the section tone with no prop at all. A widget with no `[data-accent]` ancestor falls back to `info`.
+
+## Page glow
+
+One background technique per page. `su-page-glow` (globals.css, DS-15) is that technique where a page wants its panels to read as the centrepiece: a single fixed layer paints a canvas darker than the panels, a faint diagonal wash of `--su-accent` (≤ 0.06 alpha) from the top-left, and an image anchored bottom-right that fades out into the canvas. Nothing animates and nothing intercepts a pointer.
+
+```html
+<main class="home-dashboard su-page-glow">
+  <div aria-hidden="true" class="su-page-glow-layer"></div>
+  <div class="su-page-glow-content">…</div>
+</main>
+```
+
+```css
+.home-dashboard {
+  --su-page-glow-image: url("/home/sun-limb.webp");
+}
+```
+
+The canvas is `color-mix(in srgb, var(--su-canvas) 55%, var(--su-input))` — derived from the palette, so no new hex — and the Light palette keeps plain `var(--su-canvas)` with the image blended normally instead of screened. The layer is `position: fixed` rather than `background-attachment: fixed`, which is broken on iOS Safari. Home is the first page on it; carry it into another area by repeating the three classes and pointing `--su-page-glow-image` at that area's still.
+
+Home's still is NASA/SDO's 31 August 2012 “Magnificent Eruption” frame, turned so the prominence climbs out of the corner (public domain, `public/home/sun-limb.webp`, 900 × 1250; `--su-page-glow-ratio` must match the still's height/width); the credit line lives in the Dashboard help section.
+
+## Migration recipe
+
+Replace classes as you migrate a file. This is the whole map:
+
+| Legacy                                                                          | Token utility                                                               |
+| ------------------------------------------------------------------------------- | --------------------------------------------------------------------------- |
+| `text-white`                                                                    | `text-su-text`                                                              |
+| `text-slate-300`, `text-slate-400`, `text-gray-300/400`, `text-neutral-300/400` | `text-su-muted`                                                             |
+| `text-slate-500`, `text-gray-500`                                               | `text-su-muted/80`                                                          |
+| `bg-deep-space`, `bg-space-900`                                                 | `bg-su-canvas`                                                              |
+| `bg-panel`, `bg-nebula-blue`, `bg-black/40`, `bg-slate-800/900`                 | `bg-su-panel`                                                               |
+| `bg-white/5`, inset wells                                                       | `bg-su-input`                                                               |
+| `border-white/10`, `border-slate-700`                                           | `border-su-line/40`                                                         |
+| `text-cyan-300/400`, `text-cosmic-cyan`                                         | `text-su-info`                                                              |
+| `text-caution-amber`, `text-caution-yellow`                                     | `text-su-warning`                                                           |
+| `text-alert-red`                                                                | `text-su-danger`                                                            |
+| `text-signal-green`                                                             | `text-su-success`                                                           |
+| `text-plasma-orange`                                                            | `text-su-accent` (`text-su-accent-text` when it is reading text on a panel) |
+| orange button fill + white label                                                | `bg-su-accent text-su-on-accent`                                            |
+
+Steps for a file: swap the classes, delete any local `--*` colour variable it declared, run `npm run check:design-tokens`, then compare the rendered page against production.
+
+## Rules
+
+1. **No pure white text.** `#fff`/`text-white` is not a text colour in this app. Primary text is `--su-text`; the only exception is a HamClock glow effect, which is out of scope here.
+2. **Status is never colour alone.** Every status carries a word, and notices carry an icon (see [VISUAL-COMFORT](../station-ui/VISUAL-COMFORT.md)). The tone tokens are emphasis, not meaning.
+3. **Contrast floors.** Primary text ≥ 7:1 on canvas, panel and input; secondary and status text ≥ 4.5:1. A new token value has to clear those on all four palettes.
+4. **Charts.** `--su-info` for the default series, `--su-accent` for the "now"/selected marker, the tone tokens for status bands. Do not reach for a raw Tailwind palette colour to add a series.
+5. **No new colour systems.** A feature does not declare its own `--feature-*` colour variables or a private override stylesheet. If a role is missing, add a token here.
+6. **No glow on reading surfaces.** Text shadow, blur and glow stay out of anything you read (a station-design rule, restated so it is not lost in migration).
+
+## Guard
+
+`npm run check:design-tokens` (in `npm run verify`, right after `check:tracked-artifacts`) fails on any colour-bearing utility that names white or a raw grey ramp — `{bg,border,divide,ring,ring-offset,from,via,to,text,fill,stroke,outline,placeholder,decoration,shadow,caret,accent}-white` (with or without an opacity modifier, so `bg-white/5` and `border-white/[0.08]` are caught too) and the same prefixes against `gray|slate|neutral|zinc|stone-*` — plus `#fff` and `#ffffff`, inside the paths listed in the `SCOPE` array of `scripts/check-design-tokens.mjs`. Hex rules apply to CSS and to lines carrying a class attribute, so colour maths in TypeScript stays legal. A deliberate exception carries `// design-tokens: allow` (or `/* design-tokens: allow */`) on the line.
+
+**The guard covers all of `SCOPE` (`src`)**, minus the `EXCLUDE` carve-out for HamClock (`src/components/map/hamclock/`, `src/styles/hamclock-*.css` — see below). DS-12 (#493) swept the remaining raw-colour areas across five stacked PRs plus this one; a migrated area cannot regress once the guard covers it. The DS-09 light-theme bridge (`src/styles/legacy-theme-bridge.css`, remapping fixed white/grey classes under `html.light`) and the `.profile-workspace-legacy` colour remaps in `src/components/profile/profile-workspace.css` were the last stand-ins for unswept markup; both are deleted now that their target classes no longer exist in `src/`.
+
+Solar Pulse note: chart colours in `SolarMiniChart.tsx`/`SolarSeriesChart.tsx` keep the `--hcr-chart-*` indirection (HW-29) so HamClock wall reports can still recolour them, but the fallback is now a station token — `var(--hcr-chart-observed, var(--su-info))` — instead of a hard-coded hex. `hamclock-wall-report.css` defines every `--hcr-chart-*` under `[data-hamclock-theme]`, so the reports are unaffected, while `/solar` follows the app theme and stays legible on the light canvas. Dialog contents on Solar Pulse (and `BandConditionsModal`) pinned `--su-*` to the midnight palette while `AccessibleDialog`'s chrome was a fixed dark panel; DS-09 themed that chrome (`bg-su-panel/95`, `text-su-text`) and removed the pin, so dialog surface and contents now share the active palette.
+
+Not yet migrated: nothing — the guard covers all of `src/` except the HamClock carve-out.
+
+## HamClock stays separate
+
+The HamClock wall (`src/components/map/hamclock/**`, `src/styles/hamclock-*.css`) is deliberately standalone wall art with its own Pulse / Classic / Brass themes. It keeps its `--hc-*` variables and is not migrated to `--su-*`. The only change it takes from this epic is moving the Pulse foreground off pure white (#DS-10).

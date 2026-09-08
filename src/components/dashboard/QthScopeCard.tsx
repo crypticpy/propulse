@@ -253,7 +253,7 @@ export function QthScopeCard({ className = "" }: QthScopeCardProps) {
   return (
     <Card className={className} role="region" aria-label="QTH scope">
       <div className="flex items-center justify-between mb-2">
-        <span className="text-[10px] font-medium text-gray-400 uppercase tracking-wide">
+        <span className="text-sm font-medium text-su-muted uppercase tracking-wide">
           QTH Scope
         </span>
         <div className="flex items-center gap-1.5">
@@ -265,10 +265,10 @@ export function QthScopeCard({ className = "" }: QthScopeCardProps) {
               if (!audioOn) primeProximityAudio();
               setAudioOn((on) => !on);
             }}
-            className={`text-[10px] px-1.5 py-0.5 rounded border transition-colors ${
+            className={`text-sm px-1.5 py-0.5 rounded border transition-colors ${
               audioOn
-                ? "border-signal-green/50 text-signal-green"
-                : "border-white/10 text-gray-500 hover:text-gray-300"
+                ? "border-su-success/50 text-su-success"
+                : "border-su-line/40 text-su-muted/80 hover:text-su-muted"
             }`}
             title="Ping when a new strike lands inside the scope"
             aria-pressed={audioOn}
@@ -278,7 +278,7 @@ export function QthScopeCard({ className = "" }: QthScopeCardProps) {
           <button
             type="button"
             onClick={() => setRangeIndex((i) => (i + 1) % RANGES_KM.length)}
-            className="text-[10px] px-1.5 py-0.5 rounded border border-white/10 text-gray-300 font-mono tabular-nums hover:border-white/25 transition-colors"
+            className="text-sm px-1.5 py-0.5 rounded border border-su-line/40 text-su-muted font-mono tabular-nums hover:border-su-line/60 transition-colors"
             title="Cycle scope range"
           >
             {rangeKm} km
@@ -296,28 +296,28 @@ export function QthScopeCard({ className = "" }: QthScopeCardProps) {
             role="img"
             aria-label={`Range scope, ${rangeKm} kilometers: ${strikeBlips.length} lightning strikes and ${fireBlips.length} fire hotspots in range`}
           />
-          <div className="flex items-center justify-between text-xs pt-2 border-t border-white/10">
+          <div className="flex items-center justify-between text-sm pt-2 border-t border-su-line/40">
             <span>
-              <span className="text-nebula-blue" aria-hidden="true">
+              <span className="text-su-info" aria-hidden="true">
                 ⚡
               </span>{" "}
-              <span className="text-gray-200 font-mono tabular-nums">
+              <span className="text-su-text font-mono tabular-nums">
                 {strikeBlips.length}
               </span>
-              <span className="text-gray-500"> strikes</span>
+              <span className="text-su-muted/80"> strikes</span>
             </span>
             <span>
-              <span className="text-plasma-orange" aria-hidden="true">
+              <span className="text-su-accent" aria-hidden="true">
                 ●
               </span>{" "}
-              <span className="text-gray-200 font-mono tabular-nums">
+              <span className="text-su-text font-mono tabular-nums">
                 {fireBlips.length}
               </span>
-              <span className="text-gray-500"> fires</span>
+              <span className="text-su-muted/80"> fires</span>
             </span>
-            <span className="text-gray-500">
+            <span className="text-su-muted/80">
               nearest{" "}
-              <span className="text-gray-200 font-mono tabular-nums">
+              <span className="text-su-text font-mono tabular-nums">
                 {nearestStrike === null
                   ? "—"
                   : `${Math.round(nearestStrike)} km`}
@@ -326,7 +326,7 @@ export function QthScopeCard({ className = "" }: QthScopeCardProps) {
           </div>
         </>
       ) : (
-        <div className="text-xs text-gray-500 py-6 text-center">
+        <div className="text-sm text-su-muted/80 py-6 text-center">
           Set your grid in Profile to activate the scope
         </div>
       )}

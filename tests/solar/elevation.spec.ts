@@ -11,10 +11,11 @@ test("a blackout overrides quiet background, preserves provenance, and distingui
   await page.goto("/solar");
   const briefing = page.getByRole("region", { name: "HF briefing", exact: true });
   await expect(briefing.getByRole("heading")).toHaveText("Radio-blackout conditions need attention");
+  // DS-05: the notice keeps the headline and scales above the fold; statements
+  // and sources live in the one inline expansion.
+  await briefing.getByRole("button", { name: "Read the briefing" }).click();
   await expect(briefing).toContainText("Sunlit HF paths may be affected");
-  await briefing.getByRole("button", { name: "Why this briefing?" }).click();
   await expect(briefing).toContainText("X-ray flux (B4.0) and the official R1 snapshot differ");
-  await briefing.getByRole("button", { name: "Sources & times" }).click();
   await expect(briefing.getByRole("link", { name: "NOAA weather scales" })).toBeVisible();
   await page.getByRole("button", { name: "Show all 6 bulletins" }).click();
   await expect(page.getByRole("button", { name: /NOAA watch 6/ })).toBeVisible();
@@ -30,6 +31,8 @@ test("unusable X-ray data qualifies supportive inputs instead of silently retain
   await page.goto("/solar");
   const briefing = page.getByRole("region", { name: "HF briefing", exact: true });
   await expect(briefing.getByRole("heading")).toHaveText("Latest Kp shows quiet geomagnetic conditions");
+  await expect(briefing.getByRole("status")).toContainText("Updates pending");
+  await briefing.getByRole("button", { name: "Read the briefing" }).click();
   await expect(briefing).toContainText("Fresh readings aren’t available yet for");
   await expect(page.getByRole("region", { name: "GOES long X-ray", exact: true })).not.toContainText("B4.0");
 });
@@ -96,7 +99,10 @@ test("responsive visual review including larger shared text and reduced motion",
   for (const [name, width, height] of [["phone", 390, 844], ["tablet", 834, 1194], ["desktop", 1440, 1000], ["large", 2560, 1440]] as const) {
     await page.setViewportSize({ width, height });
     await page.goto("/solar");
-    await expect(page.getByRole("region", { name: "HF briefing", exact: true })).toContainText("Sources current");
+    const briefing = page.getByRole("region", { name: "HF briefing", exact: true });
+    await expect(briefing).toContainText("Radio blackout");
+    // Current sources print no pending chip at all in the DS-05 notice.
+    await expect(briefing.getByRole("status")).toHaveCount(0);
     await expect(page.locator("html")).toHaveAttribute("data-text-scale", "lg");
     const widths = await page.evaluate(() => ({ scroll: document.documentElement.scrollWidth, client: document.documentElement.clientWidth }));
     const overflow = await page.locator("body *").evaluateAll((nodes) => nodes.filter((node) => node.getBoundingClientRect().right > document.documentElement.clientWidth + 1 && getComputedStyle(node).position !== "fixed").slice(0, 15).map((node) => ({ tag: node.tagName, class: node.className, right: node.getBoundingClientRect().right })));
@@ -126,6 +132,7 @@ for (const [link, destination] of [["Plan a session", "/planner"], ["Find a band
   test(`operating link opens ${destination} with usable handoff context`, async ({ page }) => {
     await installSolarFixtures(page);
     await page.goto("/solar");
+    await page.getByRole("button", { name: "Read the briefing" }).click();
     await page.getByRole("link", { name: link, exact: true }).click();
     await expect(page).toHaveURL(new RegExp(destination));
     await expect(page.getByText(/From Solar Pulse/)).toBeVisible();

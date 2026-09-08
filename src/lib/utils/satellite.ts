@@ -17,12 +17,12 @@ export const CATEGORY_META: Record<
   SatelliteCategory,
   { label: string; color: string; bg: string }
 > = {
-  iss: { label: "ISS", color: "text-white", bg: "bg-white/20" },
+  iss: { label: "ISS", color: "text-su-text", bg: "bg-su-line/30" },
   fm: { label: "FM", color: "text-green-400", bg: "bg-green-400/20" },
   linear: { label: "LIN", color: "text-cyan-400", bg: "bg-cyan-400/20" },
   digital: { label: "DIG", color: "text-orange-400", bg: "bg-orange-400/20" },
   weather: { label: "WX", color: "text-purple-400", bg: "bg-purple-400/20" },
-  other: { label: "OTH", color: "text-gray-400", bg: "bg-gray-400/20" },
+  other: { label: "OTH", color: "text-su-muted", bg: "bg-su-line/20" },
 };
 
 // ---------------------------------------------------------------------------

@@ -37,45 +37,45 @@ export const FlexBottomBar = memo(function FlexBottomBar({
   }, []);
 
   return (
-    <div className="flex w-full items-center justify-between bg-[#0d0d14] border-t border-white/10 px-3 h-8 shrink-0">
+    <div className="flex w-full items-center justify-between bg-[#0d0d14] border-t border-su-line/40 px-3 h-8 shrink-0">
       {/* Left section -- placeholder buttons */}
       <div className="flex items-center gap-1.5">
         <button
           disabled
           title="Not yet available"
-          className="px-2 py-0.5 text-[10px] font-medium rounded bg-white/5 text-gray-600 opacity-50 cursor-not-allowed"
+          className="px-2 py-0.5 text-[10px] font-medium rounded bg-su-line/10 text-su-muted opacity-50 cursor-not-allowed"
         >
           TNF
         </button>
         <button
           disabled
           title="Not yet available"
-          className="px-2 py-0.5 text-[10px] font-medium rounded bg-white/5 text-gray-600 opacity-50 cursor-not-allowed"
+          className="px-2 py-0.5 text-[10px] font-medium rounded bg-su-line/10 text-su-muted opacity-50 cursor-not-allowed"
         >
           CWX
         </button>
       </div>
 
       {/* Center section -- daemon status */}
-      <div className="flex items-center gap-2 text-[11px] text-gray-400">
+      <div className="flex items-center gap-2 text-[11px] text-su-muted">
         <span
           className={`inline-block h-2 w-2 rounded-full ${
-            daemonConnected ? "bg-green-500" : "bg-gray-600"
+            daemonConnected ? "bg-green-500" : "bg-su-line"
           }`}
         />
         <span>{radioName ?? "No Radio"}</span>
         {vfo && (
-          <span className="px-1.5 py-0.5 text-[10px] font-mono font-medium rounded bg-white/10 text-gray-300">
+          <span className="px-1.5 py-0.5 text-[10px] font-mono font-medium rounded bg-su-line/20 text-su-muted">
             VFO {vfo}
           </span>
         )}
         {activeBand && (
-          <span className="px-1.5 py-0.5 text-[10px] font-mono font-medium rounded bg-white/10 text-gray-300">
+          <span className="px-1.5 py-0.5 text-[10px] font-mono font-medium rounded bg-su-line/20 text-su-muted">
             {activeBand}
           </span>
         )}
         {cpuPercent != null && memoryMb != null && (
-          <span className="font-mono text-[10px] text-gray-500">
+          <span className="font-mono text-[10px] text-su-muted">
             CPU {cpuPercent.toFixed(0)}% &middot; {memoryMb.toFixed(0)} MB
           </span>
         )}
@@ -87,23 +87,23 @@ export const FlexBottomBar = memo(function FlexBottomBar({
         <div className="flex items-center gap-1 text-[10px] font-medium">
           <span
             className={`inline-block h-1.5 w-1.5 rounded-full ${
-              fftEnabled ? "bg-green-500 animate-pulse" : "bg-gray-600"
+              fftEnabled ? "bg-green-500 animate-pulse" : "bg-su-line"
             }`}
           />
-          <span className={fftEnabled ? "text-green-400" : "text-gray-600"}>
+          <span className={fftEnabled ? "text-green-400" : "text-su-muted"}>
             {fftEnabled ? "LIVE" : "IDLE"}
           </span>
         </div>
 
         {/* TX badge */}
         {ptt && (
-          <span className="animate-pulse rounded bg-red-600 px-1.5 py-0.5 text-[10px] font-bold text-white leading-none">
+          <span className="animate-pulse rounded bg-alert-red px-1.5 py-0.5 text-[10px] font-bold text-su-canvas leading-none">
             TX
           </span>
         )}
 
         {/* UTC clock */}
-        <span className="font-mono text-[11px] text-gray-400">{utc}</span>
+        <span className="font-mono text-[11px] text-su-muted">{utc}</span>
       </div>
     </div>
   );

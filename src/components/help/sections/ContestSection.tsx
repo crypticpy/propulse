@@ -7,7 +7,7 @@ export function ContestSection() {
   return (
     <div className="space-y-6">
       {/* Overview */}
-      <p className="text-sm leading-relaxed text-gray-300">
+      <p className="text-sm leading-relaxed text-su-muted">
         The Contest module is a high-speed contest logging system with real-time
         scoring, multiplier tracking, rate analysis, and off-time management —
         designed for keyboard-first operation during contests. It supports
@@ -21,7 +21,7 @@ export function ContestSection() {
         title="Getting Started"
         summary="Selecting a contest, setting exchange, and choosing categories"
       >
-        <div className="space-y-3 text-sm text-gray-300 leading-relaxed">
+        <div className="space-y-3 text-sm text-su-muted leading-relaxed">
           <p>
             Before the contest begins, configure your session so you can start
             logging the moment the contest opens.
@@ -38,11 +38,11 @@ export function ContestSection() {
             </li>
             <li>
               <strong>Set your contest exchange</strong> — for example,{" "}
-              <code className="text-xs bg-white/10 px-1 py-0.5 rounded">
+              <code className="text-xs bg-su-line/20 px-1 py-0.5 rounded">
                 59 OR
               </code>{" "}
               for CQ WW from Oregon, or{" "}
-              <code className="text-xs bg-white/10 px-1 py-0.5 rounded">
+              <code className="text-xs bg-su-line/20 px-1 py-0.5 rounded">
                 1A OR
               </code>{" "}
               for Sweepstakes.
@@ -71,7 +71,7 @@ export function ContestSection() {
         title="One-Line Entry"
         summary="Keyboard-first QSO logging for maximum speed"
       >
-        <div className="space-y-3 text-sm text-gray-300 leading-relaxed">
+        <div className="space-y-3 text-sm text-su-muted leading-relaxed">
           <p>
             The one-line entry field is the core of contest operation. It
             auto-focuses when you open the contest page, so you can start typing
@@ -79,30 +79,30 @@ export function ContestSection() {
           </p>
 
           <div>
-            <h4 className="text-white font-semibold mb-1.5">Entry Format</h4>
+            <h4 className="text-su-text font-semibold mb-1.5">Entry Format</h4>
             <p>
               Type:{" "}
-              <code className="text-xs bg-white/10 px-1.5 py-0.5 rounded">
+              <code className="text-xs bg-su-line/20 px-1.5 py-0.5 rounded">
                 callsign
               </code>{" "}
               +{" "}
-              <kbd className="px-1.5 py-0.5 text-xs bg-white/10 rounded border border-white/10">
+              <kbd className="px-1.5 py-0.5 text-xs bg-su-line/20 rounded border border-su-line/40">
                 Tab
               </kbd>{" "}
               +{" "}
-              <code className="text-xs bg-white/10 px-1.5 py-0.5 rounded">
+              <code className="text-xs bg-su-line/20 px-1.5 py-0.5 rounded">
                 RST
               </code>{" "}
               +{" "}
-              <kbd className="px-1.5 py-0.5 text-xs bg-white/10 rounded border border-white/10">
+              <kbd className="px-1.5 py-0.5 text-xs bg-su-line/20 rounded border border-su-line/40">
                 Tab
               </kbd>{" "}
               +{" "}
-              <code className="text-xs bg-white/10 px-1.5 py-0.5 rounded">
+              <code className="text-xs bg-su-line/20 px-1.5 py-0.5 rounded">
                 exchange
               </code>{" "}
               +{" "}
-              <kbd className="px-1.5 py-0.5 text-xs bg-white/10 rounded border border-white/10">
+              <kbd className="px-1.5 py-0.5 text-xs bg-su-line/20 rounded border border-su-line/40">
                 Enter
               </kbd>
             </p>
@@ -147,7 +147,7 @@ export function ContestSection() {
         title="Keyboard Hotkeys"
         summary="Essential keyboard shortcuts for contest operation"
       >
-        <div className="space-y-3 text-sm text-gray-300 leading-relaxed">
+        <div className="space-y-3 text-sm text-su-muted leading-relaxed">
           <p>
             Contest operation is keyboard-driven. These shortcuts work whenever
             a contest session is active and no modal is open.
@@ -190,7 +190,7 @@ export function ContestSection() {
         title="Live Scoring"
         summary="Real-time QSO count, points, and multiplier tracking"
       >
-        <div className="space-y-3 text-sm text-gray-300 leading-relaxed">
+        <div className="space-y-3 text-sm text-su-muted leading-relaxed">
           <p>
             The scoreboard at the top of the contest page updates instantly as
             each QSO is logged. It provides both summary totals and advanced
@@ -238,7 +238,7 @@ export function ContestSection() {
         title="Rate Sheet"
         summary="Hour-by-hour QSO rates and performance analysis"
       >
-        <div className="space-y-3 text-sm text-gray-300 leading-relaxed">
+        <div className="space-y-3 text-sm text-su-muted leading-relaxed">
           <p>
             The Rate Sheet appears below the QSO table once you have logged at
             least one contact. It provides a classic contest rate analysis in
@@ -279,7 +279,7 @@ export function ContestSection() {
         title="Off-Time Rules"
         summary="Managing operating time limits in 48-hour and 30-hour contests"
       >
-        <div className="space-y-3 text-sm text-gray-300 leading-relaxed">
+        <div className="space-y-3 text-sm text-su-muted leading-relaxed">
           <p>
             Many major contests have operating time limits for single-operator
             categories. The contest timer tracks your operating and off-time
@@ -326,7 +326,7 @@ export function ContestSection() {
         title="CAT Integration"
         summary="Automatic band and mode sync from your radio"
       >
-        <div className="space-y-3 text-sm text-gray-300 leading-relaxed">
+        <div className="space-y-3 text-sm text-su-muted leading-relaxed">
           <p>
             When a rig is connected via CAT (Computer Aided Transceiver)
             control, the contest module automatically syncs band and mode from
@@ -335,7 +335,7 @@ export function ContestSection() {
           </p>
 
           <div>
-            <h4 className="text-white font-semibold mb-1.5">Mode Mapping</h4>
+            <h4 className="text-su-text font-semibold mb-1.5">Mode Mapping</h4>
             <ul className="list-disc list-inside space-y-1 pl-1">
               <li>
                 <strong>LSB / USB / AM / FM</strong> &rarr; SSB
@@ -355,7 +355,7 @@ export function ContestSection() {
           <p>
             When CAT is active, the manual band and mode selectors in the header
             are disabled and display a green{" "}
-            <code className="text-xs bg-white/10 px-1 py-0.5 rounded">CAT</code>{" "}
+            <code className="text-xs bg-su-line/20 px-1 py-0.5 rounded">CAT</code>{" "}
             badge. Band changes on the radio immediately update the contest UI.
           </p>
         </div>
@@ -367,7 +367,7 @@ export function ContestSection() {
         title="Multiplier Panel"
         summary="Tracking needed multipliers for maximum score"
       >
-        <div className="space-y-3 text-sm text-gray-300 leading-relaxed">
+        <div className="space-y-3 text-sm text-su-muted leading-relaxed">
           <p>
             The Multiplier Panel sits alongside the one-line entry and gives you
             a real-time view of your multiplier progress. It updates instantly
@@ -408,7 +408,7 @@ export function ContestSection() {
         title="Score Sharing"
         summary="Export and share your contest results"
       >
-        <div className="space-y-3 text-sm text-gray-300 leading-relaxed">
+        <div className="space-y-3 text-sm text-su-muted leading-relaxed">
           <p>
             The Score Summary panel appears at the bottom of the contest page
             once you have logged at least one QSO. It displays your current

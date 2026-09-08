@@ -97,7 +97,7 @@ export function SpeakerStage({
           <p className="font-orbitron text-2xl font-bold text-signal-green tracking-wide">
             All Stations Complete
           </p>
-          <p className="text-sm text-gray-400">
+          <p className="text-sm text-su-muted">
             All checked-in stations have been served. Ready for closeout.
           </p>
         </div>
@@ -115,7 +115,7 @@ export function SpeakerStage({
     >
       {/* ── Card container with subtle glow ── */}
       <div
-        className="bg-white/[0.05] backdrop-blur-md border border-white/10 rounded-2xl p-6 sm:p-8 flex flex-col items-center gap-4"
+        className="bg-su-line/10 backdrop-blur-md border border-su-line/40 rounded-2xl p-6 sm:p-8 flex flex-col items-center gap-4"
         style={{
           boxShadow:
             "0 0 60px rgba(255,107,53,0.06), inset 0 1px 0 rgba(255,255,255,0.05)",
@@ -137,7 +137,7 @@ export function SpeakerStage({
         <div className="text-center" aria-live="polite" aria-atomic="true">
           <p
             key={currentSpeaker.callsign}
-            className="text-5xl sm:text-6xl font-mono font-black text-white tracking-wider animate-ncs-speaker-entrance"
+            className="text-5xl sm:text-6xl font-mono font-black text-su-text tracking-wider animate-ncs-speaker-entrance"
             style={{
               filter: "drop-shadow(0 0 20px rgba(255,255,255,0.2))",
               textShadow:
@@ -149,7 +149,7 @@ export function SpeakerStage({
 
           {/* Traffic notes */}
           {currentSpeaker.trafficNotes && (
-            <p className="text-base text-gray-300 italic mt-2 bg-white/[0.06] rounded-lg px-3 py-1.5 inline-block">
+            <p className="text-base text-su-muted italic mt-2 bg-su-line/20 rounded-lg px-3 py-1.5 inline-block">
               {currentSpeaker.trafficNotes}
             </p>
           )}
@@ -163,7 +163,7 @@ export function SpeakerStage({
         </div>
 
         {/* ── Timer Ring (display only) ── */}
-        <div className="w-full bg-white/[0.06] border border-white/15 rounded-xl px-5 py-4 flex justify-center">
+        <div className="w-full bg-su-line/20 border border-su-line/50 rounded-xl px-5 py-4 flex justify-center">
           <TurnTimer
             ref={timerRef}
             defaultMinutes={defaultTimerMinutes}
@@ -193,21 +193,21 @@ export function SpeakerStage({
         <div className="flex items-center justify-center gap-2">
           <button
             onClick={handleReset}
-            className="px-3.5 py-2 min-h-[40px] text-xs font-medium rounded-lg bg-white/5 text-gray-300 border border-white/15 hover:bg-white/10 hover:text-white active:scale-[0.98] transition-all focus-visible:ring-2 focus-visible:ring-plasma-orange/70 focus-visible:outline-none"
+            className="px-3.5 py-2 min-h-[40px] text-xs font-medium rounded-lg bg-su-line/10 text-su-muted border border-su-line/50 hover:bg-su-line/20 hover:text-su-text active:scale-[0.98] transition-all focus-visible:ring-2 focus-visible:ring-plasma-orange/70 focus-visible:outline-none"
             aria-label="Reset timer"
           >
             Reset
           </button>
           <button
             onClick={() => handleAddTime(1)}
-            className="px-3 py-2 min-h-[40px] text-xs font-medium rounded-lg bg-white/5 text-gray-300 border border-white/15 hover:bg-white/10 hover:text-white active:scale-[0.98] transition-all focus-visible:ring-2 focus-visible:ring-plasma-orange/70 focus-visible:outline-none"
+            className="px-3 py-2 min-h-[40px] text-xs font-medium rounded-lg bg-su-line/10 text-su-muted border border-su-line/50 hover:bg-su-line/20 hover:text-su-text active:scale-[0.98] transition-all focus-visible:ring-2 focus-visible:ring-plasma-orange/70 focus-visible:outline-none"
             aria-label="Add 1 minute"
           >
             +1m
           </button>
           <button
             onClick={() => handleAddTime(2)}
-            className="px-3 py-2 min-h-[40px] text-xs font-medium rounded-lg bg-white/5 text-gray-300 border border-white/15 hover:bg-white/10 hover:text-white active:scale-[0.98] transition-all focus-visible:ring-2 focus-visible:ring-plasma-orange/70 focus-visible:outline-none"
+            className="px-3 py-2 min-h-[40px] text-xs font-medium rounded-lg bg-su-line/10 text-su-muted border border-su-line/50 hover:bg-su-line/20 hover:text-su-text active:scale-[0.98] transition-all focus-visible:ring-2 focus-visible:ring-plasma-orange/70 focus-visible:outline-none"
             aria-label="Add 2 minutes"
           >
             +2m
@@ -250,16 +250,16 @@ export function SpeakerStage({
         </div>
 
         {/* ── On Deck — proper bottom bar ── */}
-        <div className="w-full bg-white/[0.05] border border-white/15 rounded-xl mt-2 px-4 py-4 flex items-center justify-between">
-          <span className="font-orbitron text-xs uppercase tracking-[0.15em] text-gray-400 font-medium">
+        <div className="w-full bg-su-line/10 border border-su-line/50 rounded-xl mt-2 px-4 py-4 flex items-center justify-between">
+          <span className="font-orbitron text-xs uppercase tracking-[0.15em] text-su-muted font-medium">
             On Deck
           </span>
           {nextSpeaker ? (
-            <span className="font-mono text-white/80 text-sm tracking-wide">
+            <span className="font-mono text-su-text/80 text-sm tracking-wide">
               {nextSpeaker.callsign}
             </span>
           ) : (
-            <span className="text-gray-400 italic text-sm">Queue clear</span>
+            <span className="text-su-muted italic text-sm">Queue clear</span>
           )}
         </div>
       </div>

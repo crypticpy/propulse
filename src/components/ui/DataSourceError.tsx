@@ -133,14 +133,14 @@ export function DataSourceError({
             d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z"
           />
         </svg>
-        <span className="text-sm font-bold text-gray-200 flex-1">
+        <span className="text-sm font-bold text-su-text flex-1">
           {error.shortMessage}
         </span>
         {onRetry && (
           <button
             onClick={onRetry}
             disabled={isRetrying}
-            className="px-2 py-1 text-xs rounded-lg bg-white/5 hover:bg-white/10 text-gray-300 transition-colors disabled:opacity-50 flex items-center gap-1"
+            className="px-2 py-1 text-xs rounded-lg bg-su-line/10 hover:bg-su-line/20 text-su-muted transition-colors disabled:opacity-50 flex items-center gap-1"
             aria-label="Retry"
           >
             {isRetrying ? (
@@ -185,7 +185,7 @@ export function DataSourceError({
 
       {/* Body: userMessage (hidden in compact mode) */}
       {!compact && (
-        <p className="text-xs text-gray-400 leading-relaxed mt-1.5 ml-6">
+        <p className="text-xs text-su-muted leading-relaxed mt-1.5 ml-6">
           {error.userMessage}
         </p>
       )}
@@ -194,14 +194,14 @@ export function DataSourceError({
       {!compact && (error.isUpstream || countdown !== null) && (
         <div className="flex items-center justify-between mt-2 ml-6">
           {error.isUpstream ? (
-            <span className="text-[10px] text-gray-500 bg-white/5 px-1.5 py-0.5 rounded">
+            <span className="text-[10px] text-su-muted bg-su-line/10 px-1.5 py-0.5 rounded">
               upstream issue
             </span>
           ) : (
             <span />
           )}
           {countdown !== null && (
-            <span className="text-[10px] text-gray-500">
+            <span className="text-[10px] text-su-muted">
               Auto-retry in {countdown}s
             </span>
           )}

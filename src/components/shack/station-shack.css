@@ -84,16 +84,6 @@
 /* Compatibility boundary while existing feature controls migrate to primitives. */
 .station-shack
   .shack-legacy
-  :is(.text-white, .text-gray-100, .text-gray-200, .text-gray-300) {
-  color: var(--su-text);
-}
-.station-shack
-  .shack-legacy
-  :is(.text-gray-400, .text-gray-500, .text-gray-600) {
-  color: var(--su-muted);
-}
-.station-shack
-  .shack-legacy
   :is(.bg-panel\/30, .bg-void\/40, .bg-void\/50, .bg-void, .bg-\[\#0f1420\]) {
   background-color: var(--su-panel);
 }

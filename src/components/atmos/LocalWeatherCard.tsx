@@ -17,7 +17,7 @@ export function LocalWeatherCard() {
   if (!hasLocation) {
     return (
       <div className="text-center py-2">
-        <p className="text-[10px] text-gray-600">
+        <p className="text-[10px] text-su-muted">
           Set station location in Profile
         </p>
       </div>
@@ -27,7 +27,7 @@ export function LocalWeatherCard() {
   if (isLoading || !weather) {
     return (
       <div className="flex items-center justify-center py-3">
-        <div className="w-3 h-3 border border-gray-600 border-t-plasma-orange rounded-full animate-spin" />
+        <div className="w-3 h-3 border border-su-line border-t-plasma-orange rounded-full animate-spin" />
       </div>
     );
   }
@@ -42,29 +42,29 @@ export function LocalWeatherCard() {
       <div className="flex items-center gap-2">
         <span className="text-2xl">{icon}</span>
         <div>
-          <div className="text-lg font-orbitron font-bold text-white">
+          <div className="text-lg font-orbitron font-bold text-su-text">
             {Math.round(weather.temperature)}&deg;C
           </div>
-          <div className="text-[10px] text-gray-400">{desc}</div>
+          <div className="text-[10px] text-su-muted">{desc}</div>
         </div>
       </div>
       {/* Details grid */}
       <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-[10px]">
-        <div className="text-gray-500">Wind</div>
-        <div className="text-gray-300 font-mono text-right">
+        <div className="text-su-muted">Wind</div>
+        <div className="text-su-muted font-mono text-right">
           {Math.round(weather.windSpeed)} km/h {windDir}
         </div>
-        <div className="text-gray-500">Humidity</div>
-        <div className="text-gray-300 font-mono text-right">
+        <div className="text-su-muted">Humidity</div>
+        <div className="text-su-muted font-mono text-right">
           {weather.humidity}%
         </div>
-        <div className="text-gray-500">Pressure</div>
-        <div className="text-gray-300 font-mono text-right">
+        <div className="text-su-muted">Pressure</div>
+        <div className="text-su-muted font-mono text-right">
           {Math.round(weather.pressure)} hPa
         </div>
         {weather.precipitation > 0 && (
           <>
-            <div className="text-gray-500">Precip</div>
+            <div className="text-su-muted">Precip</div>
             <div className="text-nebula-blue font-mono text-right">
               {weather.precipitation.toFixed(1)} mm
             </div>

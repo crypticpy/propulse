@@ -1,6 +1,7 @@
 import { useMemo, type HTMLAttributes } from "react";
 import { getAccentPreset, getTheme, type ThemeId } from "@/lib/themes";
 import { useThemeStore } from "@/stores/themeStore";
+import { useColorBlindMode } from "@/stores/settingsStore";
 import { StationThemeContext } from "./context";
 import {
   stationTokens,
@@ -30,25 +31,24 @@ export function StationProvider({
   const appTheme = useThemeStore((s) => s.themeId);
   const appAccent = useThemeStore((s) => s.accentId);
   const customPrimary = useThemeStore((s) => s.customPrimary);
-  const customSecondary = useThemeStore((s) => s.customSecondary);
+  // The tone tokens follow colour-blind mode here as well as on the document
+  // root, so a scoped subtree never disagrees with the rest of the page.
+  const colorBlindMode = useColorBlindMode();
   const resolvedTheme = getTheme(theme ?? appTheme).id;
   const resolvedAccent =
-    accent ??
-    (customPrimary && customSecondary
-      ? customPrimary
-      : getAccentPreset(appAccent).primary);
+    accent ?? (customPrimary || getAccentPreset(appAccent).primary);
   const value = useMemo(
     () => ({
       theme: resolvedTheme,
       density,
       tokens: {
-        ...stationTokens(resolvedTheme, resolvedAccent),
+        ...stationTokens(resolvedTheme, resolvedAccent, colorBlindMode),
         "--su-text-scale": String(
           { standard: 1, large: 1.125, "extra-large": 1.25 }[textSize],
         ),
       },
     }),
-    [resolvedTheme, resolvedAccent, density, textSize],
+    [resolvedTheme, resolvedAccent, colorBlindMode, density, textSize],
   );
   return (
     <StationThemeContext.Provider value={value}>

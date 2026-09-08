@@ -51,7 +51,7 @@ const STATUS_COLORS: Record<string, string> = {
   "semi-active":
     "text-caution-amber bg-caution-amber/15 border-caution-amber/30",
   inactive: "text-alert-red bg-alert-red/15 border-alert-red/30",
-  unknown: "text-gray-400 bg-gray-400/15 border-gray-400/30",
+  unknown: "text-su-muted bg-su-line/10 border-su-line/60",
 };
 
 /** AMSAT operational status badge styles */
@@ -75,8 +75,8 @@ const AMSAT_STATUS_STYLES: Record<
     label: "Inactive",
   },
   unknown: {
-    badge: "bg-gray-500/15 text-gray-400 border-gray-500/30",
-    dot: "bg-gray-400",
+    badge: "bg-su-line/10 text-su-muted border-su-line/30",
+    dot: "bg-su-line",
     label: "Unknown",
   },
 };
@@ -133,10 +133,10 @@ function Section({
 }) {
   return (
     <div>
-      <h4 className="text-[10px] uppercase tracking-widest text-gray-500 mb-1.5">
+      <h4 className="text-[10px] uppercase tracking-widest text-su-muted mb-1.5">
         {title}
       </h4>
-      <div className="bg-white/[0.03] rounded-xl p-3">{children}</div>
+      <div className="bg-su-line/10 rounded-xl p-3">{children}</div>
     </div>
   );
 }
@@ -162,29 +162,29 @@ function SatNOGSTransmitterRow({ tx }: { tx: SatNOGSTransmitter }) {
       ? "bg-signal-green"
       : tx.status === "inactive"
         ? "bg-alert-red"
-        : "bg-gray-500";
+        : "bg-su-line";
 
   const simplex = isSimplex(tx);
 
   return (
-    <div className="bg-white/[0.03] rounded-lg px-2.5 py-2 text-xs">
+    <div className="bg-su-line/10 rounded-lg px-2.5 py-2 text-xs">
       {/* Header: description, mode, status */}
       <div className="flex items-center justify-between mb-1">
         <div className="flex items-center gap-1.5 min-w-0">
           <span
             className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${statusStyle}`}
           />
-          <span className="text-gray-200 font-medium truncate">
+          <span className="text-su-text font-medium truncate">
             {tx.description || "Unnamed"}
           </span>
         </div>
         <div className="flex items-center gap-1.5 flex-shrink-0">
           {tx.mode && (
-            <span className="text-gray-500 uppercase text-[10px]">
+            <span className="text-su-muted uppercase text-[10px]">
               {tx.mode}
             </span>
           )}
-          <span className="text-gray-600 uppercase text-[10px]">{tx.type}</span>
+          <span className="text-su-muted uppercase text-[10px]">{tx.type}</span>
           {tx.invert && (
             <span className="text-caution-amber/70 text-[10px]">inv</span>
           )}
@@ -192,7 +192,7 @@ function SatNOGSTransmitterRow({ tx }: { tx: SatNOGSTransmitter }) {
       </div>
 
       {/* Frequencies */}
-      <div className="flex gap-3 font-mono text-gray-400">
+      <div className="flex gap-3 font-mono text-su-muted">
         {simplex && tx.downlink_low != null ? (
           <span>{formatFreqMHz(tx.downlink_low)} (simplex)</span>
         ) : (
@@ -219,7 +219,7 @@ function SatNOGSTransmitterRow({ tx }: { tx: SatNOGSTransmitter }) {
 
       {/* Baud rate if available */}
       {tx.baud != null && tx.baud > 0 && (
-        <div className="text-gray-500 mt-0.5 text-[10px]">{tx.baud} baud</div>
+        <div className="text-su-muted mt-0.5 text-[10px]">{tx.baud} baud</div>
       )}
     </div>
   );
@@ -229,8 +229,8 @@ function SatNOGSTransmitterRow({ tx }: { tx: SatNOGSTransmitter }) {
 function MiniSpinner() {
   return (
     <div className="flex items-center gap-2 py-2">
-      <div className="w-3 h-3 border border-gray-500 border-t-gray-300 rounded-full animate-spin" />
-      <span className="text-xs text-gray-500">Loading...</span>
+      <div className="w-3 h-3 border border-su-line border-t-plasma-orange rounded-full animate-spin" />
+      <span className="text-xs text-su-muted">Loading...</span>
     </div>
   );
 }
@@ -239,25 +239,25 @@ function MiniSpinner() {
 function AboutSection({ meta }: { meta: SatelliteMetadata }) {
   return (
     <Section title="About">
-      <p className="text-sm text-gray-300 leading-relaxed mb-2">
+      <p className="text-sm text-su-muted leading-relaxed mb-2">
         {meta.description}
       </p>
       <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
         <div>
-          <span className="text-gray-500">Operator: </span>
-          <span className="text-gray-300">{meta.operator}</span>
+          <span className="text-su-muted">Operator: </span>
+          <span className="text-su-muted">{meta.operator}</span>
         </div>
         <div>
-          <span className="text-gray-500">Launch: </span>
-          <span className="text-gray-300">{meta.launchYear}</span>
+          <span className="text-su-muted">Launch: </span>
+          <span className="text-su-muted">{meta.launchYear}</span>
         </div>
         <div>
-          <span className="text-gray-500">Orbit: </span>
-          <span className="text-gray-300">{meta.orbitType}</span>
+          <span className="text-su-muted">Orbit: </span>
+          <span className="text-su-muted">{meta.orbitType}</span>
         </div>
         <div>
-          <span className="text-gray-500">Purpose: </span>
-          <span className="text-gray-300">{meta.purpose}</span>
+          <span className="text-su-muted">Purpose: </span>
+          <span className="text-su-muted">{meta.purpose}</span>
         </div>
       </div>
     </Section>
@@ -335,21 +335,21 @@ export function SatelliteDetailModal({
         aria-modal="true"
         aria-label={`${satellite.name} satellite details`}
       >
-        <div className="bg-deep-space/95 backdrop-blur-xl border border-white/10 rounded-2xl max-w-lg w-full max-h-[85vh] overflow-y-auto">
+        <div className="bg-deep-space/95 backdrop-blur-xl border border-su-line/40 rounded-2xl max-w-lg w-full max-h-[85vh] overflow-y-auto">
           {/* Header */}
-          <div className="sticky top-0 bg-deep-space/95 backdrop-blur-xl rounded-t-2xl border-b border-white/[0.06] p-4 pb-3 z-10">
+          <div className="sticky top-0 bg-deep-space/95 backdrop-blur-xl rounded-t-2xl border-b border-su-line/20 p-4 pb-3 z-10">
             <div className="flex items-start justify-between gap-3">
               <div className="flex-1 min-w-0">
                 {/* Satellite name */}
-                <h2 className="text-xl font-bold text-white truncate">
+                <h2 className="text-xl font-bold text-su-text truncate">
                   {satellite.name}
                 </h2>
                 {/* Subtitle: NORAD + Category + Status */}
                 <div className="flex items-center gap-2 mt-1 flex-wrap">
-                  <span className="text-xs text-gray-400 font-mono">
+                  <span className="text-xs text-su-muted font-mono">
                     NORAD {satellite.noradId}
                   </span>
-                  <span className="text-gray-600">·</span>
+                  <span className="text-su-muted">·</span>
                   <span
                     className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider border ${catMeta.bg} ${catMeta.color}`}
                   >
@@ -357,7 +357,7 @@ export function SatelliteDetailModal({
                   </span>
                   {description && (
                     <>
-                      <span className="text-gray-600">·</span>
+                      <span className="text-su-muted">·</span>
                       <span
                         className={`inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-medium capitalize border ${STATUS_COLORS[description.status] ?? STATUS_COLORS.unknown}`}
                       >
@@ -367,7 +367,7 @@ export function SatelliteDetailModal({
                   )}
                   {satellite.isCustom && (
                     <>
-                      <span className="text-gray-600">·</span>
+                      <span className="text-su-muted">·</span>
                       <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-purple-500/15 text-purple-400 border border-purple-500/30">
                         Custom
                       </span>
@@ -376,15 +376,15 @@ export function SatelliteDetailModal({
                   {/* AMSAT operational status badge */}
                   {amsatLoading && (
                     <>
-                      <span className="text-gray-600">·</span>
-                      <span className="inline-flex items-center px-3 py-0.5 rounded-full bg-white/[0.04] animate-pulse">
-                        <span className="w-8 h-2 rounded bg-gray-700" />
+                      <span className="text-su-muted">·</span>
+                      <span className="inline-flex items-center px-3 py-0.5 rounded-full bg-su-line/10 animate-pulse">
+                        <span className="w-8 h-2 rounded bg-su-input" />
                       </span>
                     </>
                   )}
                   {!amsatLoading && amsatStatus && (
                     <>
-                      <span className="text-gray-600">·</span>
+                      <span className="text-su-muted">·</span>
                       <span
                         className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase border ${AMSAT_STATUS_STYLES[amsatStatus.status].badge}`}
                       >
@@ -417,7 +417,7 @@ export function SatelliteDetailModal({
                     className={`absolute top-[2px] left-[2px] w-[20px] h-[20px] rounded-full transition-transform duration-200 ${
                       isTracked
                         ? "translate-x-[20px] bg-signal-green"
-                        : "translate-x-0 bg-gray-400"
+                        : "translate-x-0 bg-su-line"
                     }`}
                   />
                 </button>
@@ -425,7 +425,7 @@ export function SatelliteDetailModal({
                 {/* Close button */}
                 <button
                   onClick={onClose}
-                  className="text-gray-400 hover:text-white transition-colors p-1 rounded-lg hover:bg-white/[0.06]"
+                  className="text-su-muted hover:text-su-text transition-colors p-1 rounded-lg hover:bg-su-line/20"
                   aria-label="Close"
                 >
                   <svg
@@ -455,8 +455,8 @@ export function SatelliteDetailModal({
             <Section title="Current Position">
               <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-xs">
                 <div>
-                  <span className="text-gray-500">Lat/Lon: </span>
-                  <span className="text-gray-300 font-mono">
+                  <span className="text-su-muted">Lat/Lon: </span>
+                  <span className="text-su-muted font-mono">
                     {formatLatLon(
                       satellite.position.lat,
                       satellite.position.lon,
@@ -464,24 +464,24 @@ export function SatelliteDetailModal({
                   </span>
                 </div>
                 <div>
-                  <span className="text-gray-500">Altitude: </span>
-                  <span className="text-gray-300 font-mono">
+                  <span className="text-su-muted">Altitude: </span>
+                  <span className="text-su-muted font-mono">
                     {satellite.position.alt.toFixed(1)} km
                   </span>
                 </div>
                 <div>
-                  <span className="text-gray-500">Velocity: </span>
-                  <span className="text-gray-300 font-mono">
+                  <span className="text-su-muted">Velocity: </span>
+                  <span className="text-su-muted font-mono">
                     {satellite.position.velocity.toFixed(2)} km/s
                   </span>
                 </div>
                 <div>
-                  <span className="text-gray-500">Visible: </span>
+                  <span className="text-su-muted">Visible: </span>
                   <span
                     className={
                       satellite.isVisible
                         ? "text-signal-green"
-                        : "text-gray-400"
+                        : "text-su-muted"
                     }
                   >
                     {satellite.isVisible ? "Above horizon" : "Below horizon"}
@@ -497,18 +497,18 @@ export function SatelliteDetailModal({
                   {transponder.transponders.map((tx, idx) => (
                     <div
                       key={idx}
-                      className="bg-white/[0.03] rounded-lg px-2.5 py-2 text-xs"
+                      className="bg-su-line/10 rounded-lg px-2.5 py-2 text-xs"
                     >
                       <div className="flex items-center justify-between mb-1">
-                        <span className="text-gray-200 font-medium">
+                        <span className="text-su-text font-medium">
                           {tx.name}
                         </span>
-                        <span className="text-gray-500 uppercase text-[10px]">
+                        <span className="text-su-muted uppercase text-[10px]">
                           {tx.mode}
                           {tx.inverted ? " inv" : ""}
                         </span>
                       </div>
-                      <div className="flex gap-3 font-mono text-gray-400">
+                      <div className="flex gap-3 font-mono text-su-muted">
                         {tx.uplinkRangeHz[0] > 0 && (
                           <span>
                             UP {formatFreqMHz(tx.uplinkRangeHz[0])}
@@ -528,12 +528,12 @@ export function SatelliteDetailModal({
                   ))}
                 </div>
                 {transponder.beaconHz && (
-                  <p className="text-xs text-gray-500 mt-2 font-mono">
+                  <p className="text-xs text-su-muted mt-2 font-mono">
                     Beacon: {formatFreqMHz(transponder.beaconHz)}
                   </p>
                 )}
                 {transponder.notes && (
-                  <p className="text-xs text-gray-500 mt-1.5 italic">
+                  <p className="text-xs text-su-muted mt-1.5 italic">
                     {transponder.notes}
                   </p>
                 )}
@@ -553,7 +553,7 @@ export function SatelliteDetailModal({
                     <SatNOGSTransmitterRow key={tx.uuid} tx={tx} />
                   ))}
                 </div>
-                <p className="text-[10px] text-gray-600 mt-2">
+                <p className="text-[10px] text-su-muted mt-2">
                   Data from SatNOGS DB
                 </p>
               </Section>
@@ -568,26 +568,26 @@ export function SatelliteDetailModal({
                     <span
                       className={`w-2 h-2 rounded-full flex-shrink-0 ${AMSAT_STATUS_STYLES[amsatStatus.status].dot}`}
                     />
-                    <span className="text-gray-300 font-medium">
+                    <span className="text-su-muted font-medium">
                       {AMSAT_STATUS_STYLES[amsatStatus.status].label}
                     </span>
-                    <span className="text-gray-600">·</span>
-                    <span className="text-gray-500">
+                    <span className="text-su-muted">·</span>
+                    <span className="text-su-muted">
                       {amsatStatus.reportCount} report
                       {amsatStatus.reportCount !== 1 ? "s" : ""} in last 24h
                     </span>
                   </div>
                   {/* Latest report */}
                   {amsatStatus.latestReport && (
-                    <div className="text-gray-500 pl-4">
-                      <span className="text-gray-400 font-medium">
+                    <div className="text-su-muted pl-4">
+                      <span className="text-su-muted font-medium">
                         {amsatStatus.latestReport.callsign}
                       </span>
                       {amsatStatus.latestReport.grid_square && (
                         <span>
                           {" "}
                           from{" "}
-                          <span className="text-gray-400 font-mono">
+                          <span className="text-su-muted font-mono">
                             {amsatStatus.latestReport.grid_square}
                           </span>
                         </span>
@@ -596,7 +596,7 @@ export function SatelliteDetailModal({
                         <span>
                           {" "}
                           &mdash; &ldquo;
-                          <span className="text-gray-400 italic">
+                          <span className="text-su-muted italic">
                             {amsatStatus.latestReport.report}
                           </span>
                           &rdquo;
@@ -623,24 +623,24 @@ export function SatelliteDetailModal({
               <Section title="Next Pass">
                 <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-xs">
                   <div className="col-span-2">
-                    <span className="text-gray-500">AOS: </span>
-                    <span className="text-cyan-400 font-medium">
+                    <span className="text-su-muted">AOS: </span>
+                    <span className="text-cosmic-cyan font-medium">
                       {formatPassTime(nextPass)}
                     </span>
-                    <span className="text-gray-600 mx-1.5">·</span>
-                    <span className="text-gray-300 font-mono">
+                    <span className="text-su-muted mx-1.5">·</span>
+                    <span className="text-su-muted font-mono">
                       {formatAzimuth(nextPass.aosAz)}
                     </span>
                   </div>
                   <div>
-                    <span className="text-gray-500">Max El: </span>
-                    <span className="text-gray-300 font-mono">
+                    <span className="text-su-muted">Max El: </span>
+                    <span className="text-su-muted font-mono">
                       {Math.round(nextPass.maxEl)}&deg;
                     </span>
                   </div>
                   <div>
-                    <span className="text-gray-500">LOS Az: </span>
-                    <span className="text-gray-300 font-mono">
+                    <span className="text-su-muted">LOS Az: </span>
+                    <span className="text-su-muted font-mono">
                       {formatAzimuth(nextPass.losAz)}
                     </span>
                   </div>
@@ -650,12 +650,12 @@ export function SatelliteDetailModal({
 
             {/* Orbit Info */}
             <Section title="Orbit Info">
-              <div className="text-xs text-gray-400 space-y-1">
+              <div className="text-xs text-su-muted space-y-1">
                 <div>
-                  <span className="text-gray-500">Category: </span>
+                  <span className="text-su-muted">Category: </span>
                   <span>{catMeta.label}</span>
-                  <span className="mx-2 text-gray-600">·</span>
-                  <span className="text-gray-500">TLE: </span>
+                  <span className="mx-2 text-su-muted">·</span>
+                  <span className="text-su-muted">TLE: </span>
                   <span
                     className={`inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-medium border ${tleAgeBadge.className}`}
                   >
@@ -664,14 +664,14 @@ export function SatelliteDetailModal({
                 </div>
                 {satellite.isCustom && (
                   <div>
-                    <span className="text-gray-500">Source: </span>
-                    <span className="text-purple-400">Custom TLE</span>
+                    <span className="text-su-muted">Source: </span>
+                    <span className="text-aurora-purple">Custom TLE</span>
                   </div>
                 )}
                 {description?.orbitType && (
                   <div>
-                    <span className="text-gray-500">Orbit Type: </span>
-                    <span className="text-gray-300">
+                    <span className="text-su-muted">Orbit Type: </span>
+                    <span className="text-su-muted">
                       {description.orbitType}
                     </span>
                   </div>

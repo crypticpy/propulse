@@ -24,7 +24,7 @@ function getBarColor(status: PathBandCondition["status"]): string {
     case "poor":
       return "bg-red-500";
     case "closed":
-      return "bg-gray-700";
+      return "bg-su-input";
   }
 }
 
@@ -75,7 +75,7 @@ export function BandConditionsBar({
               <span
                 className={[
                   "font-mono text-xs",
-                  isBest ? "text-white font-semibold" : "text-gray-400",
+                  isBest ? "text-su-text font-semibold" : "text-su-muted",
                 ].join(" ")}
               >
                 {c.band}
@@ -83,7 +83,7 @@ export function BandConditionsBar({
             </div>
 
             {/* Bar track */}
-            <div className="flex-1 h-3 bg-white/5 rounded-sm overflow-hidden relative">
+            <div className="flex-1 h-3 bg-su-line/10 rounded-sm overflow-hidden relative">
               <div
                 className={[
                   "h-full rounded-sm transition-all duration-300",
@@ -98,7 +98,7 @@ export function BandConditionsBar({
             <span
               className={[
                 "w-10 text-right font-mono text-[10px] flex-shrink-0",
-                c.status === "closed" ? "text-gray-600" : "text-gray-400",
+                c.status === "closed" ? "text-su-muted" : "text-su-muted",
               ].join(" ")}
             >
               {c.snrEstimate} dB

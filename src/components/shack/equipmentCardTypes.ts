@@ -126,7 +126,7 @@ export const BADGE_STYLES: Record<BadgeColor, string> = {
   amber: "bg-caution-amber/15 text-caution-amber",
   red: "bg-alert-red/15 text-alert-red",
   blue: "bg-blue-500/15 text-blue-400",
-  gray: "bg-gray-700 text-gray-300",
+  gray: "bg-su-input text-su-muted",
 };
 
 /** Band pill colors — HF warm, VHF/UHF cool */
@@ -148,7 +148,7 @@ export const BAND_PILL_COLORS: Record<string, string> = {
 };
 
 export const DEFAULT_BAND_PILL =
-  "bg-gray-800/50 text-gray-400 border-gray-600/40";
+  "bg-su-panel/50 text-su-muted border-su-line/40";
 
 /** Capability category pill styles */
 export const CAPABILITY_STYLES: Record<CapabilityCategory, string> = {

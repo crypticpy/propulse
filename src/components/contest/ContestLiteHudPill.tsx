@@ -30,24 +30,24 @@ export function ContestLiteHudPill({
 
   return (
     <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-[120] pointer-events-auto">
-      <div className="flex items-center gap-2 px-3 py-2 rounded-full bg-black/70 backdrop-blur-md border border-white/10 shadow-lg">
+      <div className="flex items-center gap-2 px-3 py-2 rounded-full bg-su-panel/90 backdrop-blur-md border border-su-line/40 shadow-lg">
         <button
           type="button"
           onClick={onOpen}
-          className="text-xs font-bold text-white hover:text-plasma-orange transition-colors"
+          className="text-xs font-bold text-su-text hover:text-plasma-orange transition-colors"
           title="Open contest entry"
         >
           Contest
         </button>
 
-        <span className="text-[10px] text-gray-400 font-mono">
+        <span className="text-[10px] text-su-muted font-mono">
           {runMode.toUpperCase()}
         </span>
 
         {lastQsoTimestamp && (
-          <span className="text-[10px] text-gray-400">
+          <span className="text-[10px] text-su-muted">
             Last{" "}
-            <span className="text-white font-mono">
+            <span className="text-su-text font-mono">
               {formatDeltaSince(lastQsoTimestamp)}
             </span>
           </span>
@@ -79,7 +79,7 @@ export function ContestLiteHudPill({
         <button
           type="button"
           onClick={onDismiss}
-          className="ml-1 text-gray-400 hover:text-white transition-colors"
+          className="ml-1 text-su-muted hover:text-su-text transition-colors"
           title="Hide contest HUD"
           aria-label="Hide contest HUD"
         >

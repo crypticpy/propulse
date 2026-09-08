@@ -88,14 +88,14 @@ export function ICS213Form({ onClose }: ICS213FormProps) {
     <div className="space-y-4">
       {/* Incident Name */}
       <div>
-        <label className="block text-xs text-gray-400 mb-1">
+        <label className="block text-xs text-su-muted mb-1">
           Incident Name
         </label>
         <input
           type="text"
           value={incidentName}
           onChange={(e) => setIncidentName(e.target.value)}
-          className="w-full rounded bg-void-black border border-white/10 px-3 py-2 text-sm text-white placeholder-gray-500 focus:border-plasma-orange/50 focus:outline-none"
+          className="w-full rounded bg-void-black border border-su-line/40 px-3 py-2 text-sm text-su-text placeholder:text-su-muted/80 focus:border-plasma-orange/50 focus:outline-none"
           placeholder="e.g., 2026 Hurricane Response"
         />
       </div>
@@ -103,16 +103,16 @@ export function ICS213Form({ onClose }: ICS213FormProps) {
       {/* Date/Time + Priority row */}
       <div className="grid grid-cols-2 gap-3">
         <div>
-          <label className="block text-xs text-gray-400 mb-1">Date/Time</label>
+          <label className="block text-xs text-su-muted mb-1">Date/Time</label>
           <input
             type="text"
             value={new Date(dateTime).toLocaleString()}
             readOnly
-            className="w-full rounded bg-void-black border border-white/10 px-3 py-2 text-sm text-gray-300 font-mono cursor-not-allowed"
+            className="w-full rounded bg-void-black border border-su-line/40 px-3 py-2 text-sm text-su-muted font-mono cursor-not-allowed"
           />
         </div>
         <div>
-          <label className="block text-xs text-gray-400 mb-1">Priority</label>
+          <label className="block text-xs text-su-muted mb-1">Priority</label>
           <div className="flex gap-1">
             {PRIORITIES.map((p) => (
               <button
@@ -126,7 +126,7 @@ export function ICS213Form({ onClose }: ICS213FormProps) {
                       : p === "Priority"
                         ? "bg-caution-amber/20 text-caution-amber border border-caution-amber/40"
                         : "bg-signal-green/20 text-signal-green border border-signal-green/40"
-                    : "bg-void-black border border-white/10 text-gray-400 hover:border-white/20"
+                    : "bg-void-black border border-su-line/40 text-su-muted hover:border-su-line/50"
                 }`}
               >
                 {p}
@@ -139,24 +139,24 @@ export function ICS213Form({ onClose }: ICS213FormProps) {
       {/* To / To Position */}
       <div className="grid grid-cols-2 gap-3">
         <div>
-          <label className="block text-xs text-gray-400 mb-1">To</label>
+          <label className="block text-xs text-su-muted mb-1">To</label>
           <input
             type="text"
             value={to}
             onChange={(e) => setTo(e.target.value)}
-            className="w-full rounded bg-void-black border border-white/10 px-3 py-2 text-sm text-white placeholder-gray-500 focus:border-plasma-orange/50 focus:outline-none"
+            className="w-full rounded bg-void-black border border-su-line/40 px-3 py-2 text-sm text-su-text placeholder:text-su-muted/80 focus:border-plasma-orange/50 focus:outline-none"
             placeholder="Name / Callsign"
           />
         </div>
         <div>
-          <label className="block text-xs text-gray-400 mb-1">
+          <label className="block text-xs text-su-muted mb-1">
             To Position/Title
           </label>
           <input
             type="text"
             value={toPosition}
             onChange={(e) => setToPosition(e.target.value)}
-            className="w-full rounded bg-void-black border border-white/10 px-3 py-2 text-sm text-white placeholder-gray-500 focus:border-plasma-orange/50 focus:outline-none"
+            className="w-full rounded bg-void-black border border-su-line/40 px-3 py-2 text-sm text-su-text placeholder:text-su-muted/80 focus:border-plasma-orange/50 focus:outline-none"
             placeholder="e.g., Net Control"
           />
         </div>
@@ -165,24 +165,24 @@ export function ICS213Form({ onClose }: ICS213FormProps) {
       {/* From / From Position */}
       <div className="grid grid-cols-2 gap-3">
         <div>
-          <label className="block text-xs text-gray-400 mb-1">From</label>
+          <label className="block text-xs text-su-muted mb-1">From</label>
           <input
             type="text"
             value={from}
             onChange={(e) => setFrom(e.target.value)}
-            className="w-full rounded bg-void-black border border-white/10 px-3 py-2 text-sm text-white placeholder-gray-500 focus:border-plasma-orange/50 focus:outline-none"
+            className="w-full rounded bg-void-black border border-su-line/40 px-3 py-2 text-sm text-su-text placeholder:text-su-muted/80 focus:border-plasma-orange/50 focus:outline-none"
             placeholder="Name / Callsign"
           />
         </div>
         <div>
-          <label className="block text-xs text-gray-400 mb-1">
+          <label className="block text-xs text-su-muted mb-1">
             From Position/Title
           </label>
           <input
             type="text"
             value={fromPosition}
             onChange={(e) => setFromPosition(e.target.value)}
-            className="w-full rounded bg-void-black border border-white/10 px-3 py-2 text-sm text-white placeholder-gray-500 focus:border-plasma-orange/50 focus:outline-none"
+            className="w-full rounded bg-void-black border border-su-line/40 px-3 py-2 text-sm text-su-text placeholder:text-su-muted/80 focus:border-plasma-orange/50 focus:outline-none"
             placeholder="e.g., Section Emergency Coordinator"
           />
         </div>
@@ -190,24 +190,24 @@ export function ICS213Form({ onClose }: ICS213FormProps) {
 
       {/* Subject */}
       <div>
-        <label className="block text-xs text-gray-400 mb-1">Subject</label>
+        <label className="block text-xs text-su-muted mb-1">Subject</label>
         <input
           type="text"
           value={subject}
           onChange={(e) => setSubject(e.target.value)}
-          className="w-full rounded bg-void-black border border-white/10 px-3 py-2 text-sm text-white placeholder-gray-500 focus:border-plasma-orange/50 focus:outline-none"
+          className="w-full rounded bg-void-black border border-su-line/40 px-3 py-2 text-sm text-su-text placeholder:text-su-muted/80 focus:border-plasma-orange/50 focus:outline-none"
           placeholder="Message subject"
         />
       </div>
 
       {/* Message body */}
       <div>
-        <label className="block text-xs text-gray-400 mb-1">Message</label>
+        <label className="block text-xs text-su-muted mb-1">Message</label>
         <textarea
           value={message}
           onChange={(e) => setMessage(e.target.value)}
           rows={6}
-          className="w-full rounded bg-void-black border border-white/10 px-3 py-2 text-sm text-white placeholder-gray-500 focus:border-plasma-orange/50 focus:outline-none resize-y"
+          className="w-full rounded bg-void-black border border-su-line/40 px-3 py-2 text-sm text-su-text placeholder:text-su-muted/80 focus:border-plasma-orange/50 focus:outline-none resize-y"
           placeholder="Enter message content..."
         />
       </div>
@@ -215,26 +215,26 @@ export function ICS213Form({ onClose }: ICS213FormProps) {
       {/* Approved By / Position */}
       <div className="grid grid-cols-2 gap-3">
         <div>
-          <label className="block text-xs text-gray-400 mb-1">
+          <label className="block text-xs text-su-muted mb-1">
             Approved By
           </label>
           <input
             type="text"
             value={approved}
             onChange={(e) => setApproved(e.target.value)}
-            className="w-full rounded bg-void-black border border-white/10 px-3 py-2 text-sm text-white placeholder-gray-500 focus:border-plasma-orange/50 focus:outline-none"
+            className="w-full rounded bg-void-black border border-su-line/40 px-3 py-2 text-sm text-su-text placeholder:text-su-muted/80 focus:border-plasma-orange/50 focus:outline-none"
             placeholder="Approving official"
           />
         </div>
         <div>
-          <label className="block text-xs text-gray-400 mb-1">
+          <label className="block text-xs text-su-muted mb-1">
             Approved Position
           </label>
           <input
             type="text"
             value={approvedPosition}
             onChange={(e) => setApprovedPosition(e.target.value)}
-            className="w-full rounded bg-void-black border border-white/10 px-3 py-2 text-sm text-white placeholder-gray-500 focus:border-plasma-orange/50 focus:outline-none"
+            className="w-full rounded bg-void-black border border-su-line/40 px-3 py-2 text-sm text-su-text placeholder:text-su-muted/80 focus:border-plasma-orange/50 focus:outline-none"
             placeholder="Position/Title"
           />
         </div>
@@ -248,11 +248,11 @@ export function ICS213Form({ onClose }: ICS213FormProps) {
       )}
 
       {/* Action buttons */}
-      <div className="flex items-center justify-end gap-2 pt-2 border-t border-white/10">
+      <div className="flex items-center justify-end gap-2 pt-2 border-t border-su-line/40">
         <button
           type="button"
           onClick={onClose}
-          className="rounded px-4 py-2 text-sm text-gray-400 hover:text-white hover:bg-white/5 transition-colors"
+          className="rounded px-4 py-2 text-sm text-su-muted hover:text-su-text hover:bg-su-line/10 transition-colors"
         >
           Cancel
         </button>
@@ -260,7 +260,7 @@ export function ICS213Form({ onClose }: ICS213FormProps) {
           type="button"
           onClick={handleSave}
           disabled={!isValid()}
-          className="rounded px-4 py-2 text-sm font-semibold bg-white/10 text-white hover:bg-white/15 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+          className="rounded px-4 py-2 text-sm font-semibold bg-su-line/20 text-su-text hover:bg-su-line/30 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
         >
           Save
         </button>

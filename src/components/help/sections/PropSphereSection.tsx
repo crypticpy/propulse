@@ -22,17 +22,17 @@ import {
  */
 function LayerRegistryTable() {
   return (
-    <div className="overflow-x-auto my-3 rounded-lg border border-white/5">
+    <div className="overflow-x-auto my-3 rounded-lg border border-su-line/20">
       <table className="w-full text-sm">
         <thead>
-          <tr className="border-b border-white/10 bg-white/[0.02]">
-            <th className="text-left px-3 py-2 text-gray-400 font-medium text-xs uppercase tracking-wider whitespace-nowrap">
+          <tr className="border-b border-su-line/40 bg-su-line/10">
+            <th className="text-left px-3 py-2 text-su-muted font-medium text-xs uppercase tracking-wider whitespace-nowrap">
               Layer
             </th>
-            <th className="text-left px-3 py-2 text-gray-400 font-medium text-xs uppercase tracking-wider whitespace-nowrap">
+            <th className="text-left px-3 py-2 text-su-muted font-medium text-xs uppercase tracking-wider whitespace-nowrap">
               Source · Cadence · Coverage
             </th>
-            <th className="text-left px-3 py-2 text-gray-400 font-medium text-xs uppercase tracking-wider whitespace-nowrap">
+            <th className="text-left px-3 py-2 text-su-muted font-medium text-xs uppercase tracking-wider whitespace-nowrap">
               Caveat
             </th>
           </tr>
@@ -42,15 +42,15 @@ function LayerRegistryTable() {
             layersInCategory(category.id).map((entry) => (
               <tr
                 key={entry.key}
-                className="border-b border-white/5 last:border-b-0 hover:bg-white/[0.02] transition-colors"
+                className="border-b border-su-line/20 last:border-b-0 hover:bg-su-line/10 transition-colors"
               >
-                <td className="px-3 py-2 text-gray-200 font-medium whitespace-nowrap">
+                <td className="px-3 py-2 text-su-text font-medium whitespace-nowrap">
                   {entry.name}
                 </td>
-                <td className="px-3 py-2 text-gray-400 font-mono text-xs whitespace-nowrap">
+                <td className="px-3 py-2 text-su-muted font-mono text-xs whitespace-nowrap">
                   {formatLayerProvenance(entry)}
                 </td>
-                <td className="px-3 py-2 text-gray-500 text-xs">
+                <td className="px-3 py-2 text-su-muted text-xs">
                   {registryCaveat(entry) || "-"}
                 </td>
               </tr>
@@ -66,7 +66,7 @@ export function PropSphereSection() {
   return (
     <div className="space-y-6">
       {/* Overview — no accordion */}
-      <p className="text-sm leading-relaxed text-gray-300">
+      <p className="text-sm leading-relaxed text-su-muted">
         PropSphere is your interactive propagation intelligence globe. It
         visualizes live DX spots, propagation paths, and environmental data on a
         3D globe, flat map, or azimuthal projection — giving you a real-time
@@ -87,25 +87,25 @@ export function PropSphereSection() {
         title="Map Views"
         summary="Globe, Flat Map, and Azimuthal projections"
       >
-        <div className="space-y-4 text-sm text-gray-300 leading-relaxed">
+        <div className="space-y-4 text-sm text-su-muted leading-relaxed">
           <p>
             PropSphere offers three distinct map projections, each suited to
             different operating tasks. Switch between them using the tabs above
             the map or the keyboard shortcuts{" "}
-            <kbd className="px-1.5 py-0.5 rounded bg-white/[0.06] border border-white/10 text-xs font-mono">
+            <kbd className="px-1.5 py-0.5 rounded bg-su-line/20 border border-su-line/40 text-xs font-mono">
               1
             </kbd>{" "}
-            <kbd className="px-1.5 py-0.5 rounded bg-white/[0.06] border border-white/10 text-xs font-mono">
+            <kbd className="px-1.5 py-0.5 rounded bg-su-line/20 border border-su-line/40 text-xs font-mono">
               2
             </kbd>{" "}
-            <kbd className="px-1.5 py-0.5 rounded bg-white/[0.06] border border-white/10 text-xs font-mono">
+            <kbd className="px-1.5 py-0.5 rounded bg-su-line/20 border border-su-line/40 text-xs font-mono">
               3
             </kbd>
             .
           </p>
 
           <div>
-            <h4 className="text-white font-semibold mb-1.5">3D Globe</h4>
+            <h4 className="text-su-text font-semibold mb-1.5">3D Globe</h4>
             <p>
               A fully interactive 3D Earth rendered with NASA Blue Marble
               satellite imagery. The globe supports orbit controls — drag to
@@ -119,7 +119,7 @@ export function PropSphereSection() {
           </div>
 
           <div>
-            <h4 className="text-white font-semibold mb-1.5">Flat Map (2D)</h4>
+            <h4 className="text-su-text font-semibold mb-1.5">Flat Map (2D)</h4>
             <p>
               A 2D equirectangular canvas projection showing the entire world at
               once. Renders the same data layers — spots, arcs, terminator,
@@ -132,7 +132,7 @@ export function PropSphereSection() {
           </div>
 
           <div>
-            <h4 className="text-white font-semibold mb-1.5">
+            <h4 className="text-su-text font-semibold mb-1.5">
               Azimuthal Equidistant
             </h4>
             <p>
@@ -168,7 +168,7 @@ export function PropSphereSection() {
         title="Layout Modes"
         summary="Normal, Pro, Lite, and HamClock layouts"
       >
-        <div className="space-y-4 text-sm text-gray-300 leading-relaxed">
+        <div className="space-y-4 text-sm text-su-muted leading-relaxed">
           <p>
             Layout modes control how the interface is arranged around the map.
             Each mode optimizes the screen for a different operating style. Your
@@ -176,7 +176,7 @@ export function PropSphereSection() {
           </p>
 
           <div>
-            <h4 className="text-white font-semibold mb-1.5">Normal</h4>
+            <h4 className="text-su-text font-semibold mb-1.5">Normal</h4>
             <p>
               The classic 3-panel layout. Band Conditions sits on the left, the
               map fills the center, and Path Analysis occupies the right. The DX
@@ -188,7 +188,7 @@ export function PropSphereSection() {
           </div>
 
           <div>
-            <h4 className="text-white font-semibold mb-1.5">Pro</h4>
+            <h4 className="text-su-text font-semibold mb-1.5">Pro</h4>
             <p>
               Fullscreen map with floating panels that can be dragged, resized,
               and docked to screen edges. A ribbon toolbar at the top provides
@@ -200,7 +200,7 @@ export function PropSphereSection() {
           </div>
 
           <div>
-            <h4 className="text-white font-semibold mb-1.5">Lite</h4>
+            <h4 className="text-su-text font-semibold mb-1.5">Lite</h4>
             <p>
               Minimalist layout for maximum map visibility. Band conditions and
               path analysis appear as compact, expandable floating pills
@@ -212,7 +212,7 @@ export function PropSphereSection() {
           </div>
 
           <div>
-            <h4 className="text-white font-semibold mb-1.5">HamClock</h4>
+            <h4 className="text-su-text font-semibold mb-1.5">HamClock</h4>
             <p>
               A dense information dashboard mode inspired by traditional ham
               clock displays. Packs multiple data displays into a compact view
@@ -238,7 +238,7 @@ export function PropSphereSection() {
         title="Observatory Mode"
         summary="Lean-back auto-rotating globe for passive monitoring"
       >
-        <div className="space-y-3 text-sm text-gray-300 leading-relaxed">
+        <div className="space-y-3 text-sm text-su-muted leading-relaxed">
           <p>
             Observatory mode transforms PropSphere into a lean-back display.
             Enter it via the telescope icon in the toolbar (labeled
@@ -283,7 +283,7 @@ export function PropSphereSection() {
         title="Toolbar Reference"
         summary="All toolbar buttons, popovers, and controls"
       >
-        <div className="space-y-4 text-sm text-gray-300 leading-relaxed">
+        <div className="space-y-4 text-sm text-su-muted leading-relaxed">
           <p>
             The toolbar sits directly below the view mode tabs. It provides
             quick access to every map configuration option through a series of
@@ -291,7 +291,7 @@ export function PropSphereSection() {
           </p>
 
           <div>
-            <h4 className="text-white font-semibold mb-1.5">
+            <h4 className="text-su-text font-semibold mb-1.5">
               Map Style Toggle
             </h4>
             <p>
@@ -304,7 +304,7 @@ export function PropSphereSection() {
           </div>
 
           <div>
-            <h4 className="text-white font-semibold mb-1.5">Layers Popover</h4>
+            <h4 className="text-su-text font-semibold mb-1.5">Layers Popover</h4>
             <p>
               Opens the comprehensive layer control panel. Every data layer
               (terminator, aurora, MUF, spots, satellites, hazards, and more)
@@ -315,7 +315,7 @@ export function PropSphereSection() {
           </div>
 
           <div>
-            <h4 className="text-white font-semibold mb-1.5">Colors Popover</h4>
+            <h4 className="text-su-text font-semibold mb-1.5">Colors Popover</h4>
             <p>
               Configure how spot dots and arcs are colored. Options include
               coloring by <strong>band</strong> (each amateur band gets a
@@ -328,7 +328,7 @@ export function PropSphereSection() {
           </div>
 
           <div>
-            <h4 className="text-white font-semibold mb-1.5">Profile Popover</h4>
+            <h4 className="text-su-text font-semibold mb-1.5">Profile Popover</h4>
             <p>
               Operating profiles bundle layer visibility, spot filters, color
               mode, visual style, map style, and panel layout into a single
@@ -372,7 +372,7 @@ export function PropSphereSection() {
           </div>
 
           <div>
-            <h4 className="text-white font-semibold mb-1.5">Watch Popover</h4>
+            <h4 className="text-su-text font-semibold mb-1.5">Watch Popover</h4>
             <p>
               Configure grid watch alerts. Set a Maidenhead grid prefix (2 or 4
               characters) and Propulse will monitor incoming spots for activity
@@ -384,7 +384,7 @@ export function PropSphereSection() {
           </div>
 
           <div>
-            <h4 className="text-white font-semibold mb-1.5">
+            <h4 className="text-su-text font-semibold mb-1.5">
               Observatory Button
             </h4>
             <p>
@@ -394,7 +394,7 @@ export function PropSphereSection() {
           </div>
 
           <div>
-            <h4 className="text-white font-semibold mb-1.5">Views Popover</h4>
+            <h4 className="text-su-text font-semibold mb-1.5">Views Popover</h4>
             <p>
               Region presets for quick navigation. Built-in presets include
               regions like North America, Europe, Asia, Pacific, and more. Click
@@ -419,7 +419,7 @@ export function PropSphereSection() {
         title="Data Layers Reference"
         summary="16+ toggleable data layers for spots, propagation, hazards, and navigation"
       >
-        <div className="space-y-5 text-sm text-gray-300 leading-relaxed">
+        <div className="space-y-5 text-sm text-su-muted leading-relaxed">
           <p>
             Toggle layers on and off in the Layers popover, or in the
             HamClock wall's SETTINGS → Layers tab. Each layer adds a visual
@@ -432,7 +432,7 @@ export function PropSphereSection() {
 
           {/* Terminator */}
           <div>
-            <h4 className="text-white font-semibold mb-1">
+            <h4 className="text-su-text font-semibold mb-1">
               Day/Night Terminator
             </h4>
             <p>
@@ -448,7 +448,7 @@ export function PropSphereSection() {
 
           {/* Greyline */}
           <div>
-            <h4 className="text-white font-semibold mb-1">Greyline</h4>
+            <h4 className="text-su-text font-semibold mb-1">Greyline</h4>
             <p>
               An enhanced propagation zone along the dawn and dusk terminator.
               The greyline is a band approximately 5 degrees wide on either side
@@ -464,7 +464,7 @@ export function PropSphereSection() {
 
           {/* Aurora */}
           <div>
-            <h4 className="text-white font-semibold mb-1">Aurora Oval</h4>
+            <h4 className="text-su-text font-semibold mb-1">Aurora Oval</h4>
             <p>
               Real-time aurora probability overlay from the NOAA OVATION model.
               The aurora oval is drawn over both polar regions showing where
@@ -479,7 +479,7 @@ export function PropSphereSection() {
 
           {/* MUF */}
           <div>
-            <h4 className="text-white font-semibold mb-1">
+            <h4 className="text-su-text font-semibold mb-1">
               MUF (Maximum Usable Frequency)
             </h4>
             <p>
@@ -501,7 +501,7 @@ export function PropSphereSection() {
 
           {/* NVIS */}
           <div>
-            <h4 className="text-white font-semibold mb-1">
+            <h4 className="text-su-text font-semibold mb-1">
               NVIS (Near Vertical Incidence Skywave)
             </h4>
             <p>
@@ -517,7 +517,7 @@ export function PropSphereSection() {
 
           {/* Live Spots */}
           <div>
-            <h4 className="text-white font-semibold mb-1">Live Spots</h4>
+            <h4 className="text-su-text font-semibold mb-1">Live Spots</h4>
             <p>
               Real-time DX spots aggregated from PSKReporter, Reverse Beacon
               Network (RBN), and traditional DX Clusters. Each dot on the map
@@ -532,7 +532,7 @@ export function PropSphereSection() {
 
           {/* Spot Traces */}
           <div>
-            <h4 className="text-white font-semibold mb-1">Spot Traces</h4>
+            <h4 className="text-su-text font-semibold mb-1">Spot Traces</h4>
             <p>
               Animated trace lines showing recent spot activity. Traces flow
               from spotter to spotted station in a "missile command" style
@@ -545,7 +545,7 @@ export function PropSphereSection() {
 
           {/* Night Lights */}
           <div>
-            <h4 className="text-white font-semibold mb-1">Night Lights</h4>
+            <h4 className="text-su-text font-semibold mb-1">Night Lights</h4>
             <p>
               City lights visible on the dark side of Earth, resembling
               satellite-style nighttime imagery. The lights give a visual
@@ -558,7 +558,7 @@ export function PropSphereSection() {
 
           {/* Labels */}
           <div>
-            <h4 className="text-white font-semibold mb-1">Labels</h4>
+            <h4 className="text-su-text font-semibold mb-1">Labels</h4>
             <p>
               A collection of geographic and ham radio reference overlays, each
               independently toggleable via the Labels panel that appears when
@@ -596,7 +596,7 @@ export function PropSphereSection() {
 
           {/* Satellites */}
           <div>
-            <h4 className="text-white font-semibold mb-1">Satellites</h4>
+            <h4 className="text-su-text font-semibold mb-1">Satellites</h4>
             <p>
               Real-time positions of amateur radio satellites and the ISS,
               computed from Two-Line Element (TLE) orbital data provided by
@@ -609,7 +609,7 @@ export function PropSphereSection() {
 
           {/* Earthquakes */}
           <div>
-            <h4 className="text-white font-semibold mb-1">Earthquakes</h4>
+            <h4 className="text-su-text font-semibold mb-1">Earthquakes</h4>
             <p>
               Recent seismic events from USGS real-time earthquake feeds.
               Markers show location, magnitude, and depth. Larger magnitudes are
@@ -621,7 +621,7 @@ export function PropSphereSection() {
 
           {/* Weather */}
           <div>
-            <h4 className="text-white font-semibold mb-1">Weather Alerts</h4>
+            <h4 className="text-su-text font-semibold mb-1">Weather Alerts</h4>
             <p>
               Weather alerts from national weather services showing severe
               weather warnings, watches, and advisories. Alerts are displayed as
@@ -633,7 +633,7 @@ export function PropSphereSection() {
 
           {/* Lightning */}
           <div>
-            <h4 className="text-white font-semibold mb-1">Lightning</h4>
+            <h4 className="text-su-text font-semibold mb-1">Lightning</h4>
             <p>
               Real-time lightning strike positions from the Blitzortung
               crowd-sourced lightning detection network. Strikes appear as flash
@@ -646,7 +646,7 @@ export function PropSphereSection() {
 
           {/* WSPR */}
           <div>
-            <h4 className="text-white font-semibold mb-1">WSPR</h4>
+            <h4 className="text-su-text font-semibold mb-1">WSPR</h4>
             <p>
               Weak Signal Propagation Reporter spots from wspr.live. WSPR
               beacons transmit very low power signals on designated frequencies
@@ -659,7 +659,7 @@ export function PropSphereSection() {
 
           {/* Contest QSOs */}
           <div>
-            <h4 className="text-white font-semibold mb-1">Contest QSOs</h4>
+            <h4 className="text-su-text font-semibold mb-1">Contest QSOs</h4>
             <p>
               When you have an active contest session, this layer displays the
               locations of QSOs from that session on the map. Helps you
@@ -670,7 +670,7 @@ export function PropSphereSection() {
 
           {/* Logged QSOs */}
           <div>
-            <h4 className="text-white font-semibold mb-1">Logged QSOs</h4>
+            <h4 className="text-su-text font-semibold mb-1">Logged QSOs</h4>
             <p>
               Shows locations from your station logbook on the map. Each logged
               contact appears as a marker, letting you see your historical
@@ -680,7 +680,7 @@ export function PropSphereSection() {
 
           {/* Fires */}
           <div>
-            <h4 className="text-white font-semibold mb-1">Fires</h4>
+            <h4 className="text-su-text font-semibold mb-1">Fires</h4>
             <p>
               Active fire hotspots detected by the VIIRS instrument aboard
               NASA's Suomi NPP and NOAA-20 satellites, sourced from NASA FIRMS
@@ -693,7 +693,7 @@ export function PropSphereSection() {
 
           {/* Weather Radar */}
           <div>
-            <h4 className="text-white font-semibold mb-1">Weather Radar</h4>
+            <h4 className="text-su-text font-semibold mb-1">Weather Radar</h4>
             <p>
               Weather radar mosaic overlay showing precipitation patterns. Helps
               identify approaching storms that could affect operations or
@@ -709,7 +709,7 @@ export function PropSphereSection() {
         title="Layer Presets"
         summary="Pre-configured layer combinations for common operating scenarios"
       >
-        <div className="space-y-4 text-sm text-gray-300 leading-relaxed">
+        <div className="space-y-4 text-sm text-su-muted leading-relaxed">
           <p>
             Layer presets apply a curated set of layer toggles with a single
             click. They are independent of operating profiles — presets only
@@ -719,7 +719,7 @@ export function PropSphereSection() {
           </p>
 
           <div>
-            <h4 className="text-white font-semibold mb-1">DX-Hunter</h4>
+            <h4 className="text-su-text font-semibold mb-1">DX-Hunter</h4>
             <p>
               Enables terminator, greyline, MUF heatmap, live spots, and night
               lights. This combination shows you where bands are open, where the
@@ -729,7 +729,7 @@ export function PropSphereSection() {
           </div>
 
           <div>
-            <h4 className="text-white font-semibold mb-1">Contest</h4>
+            <h4 className="text-su-text font-semibold mb-1">Contest</h4>
             <p>
               Enables terminator, live spots, and contest QSOs. All other layers
               are disabled to minimize visual distractions. The focus is on
@@ -739,7 +739,7 @@ export function PropSphereSection() {
           </div>
 
           <div>
-            <h4 className="text-white font-semibold mb-1">VHF</h4>
+            <h4 className="text-su-text font-semibold mb-1">VHF</h4>
             <p>
               Enables terminator, aurora oval, and satellites. These are the
               three key indicators for VHF and UHF propagation — the terminator
@@ -750,7 +750,7 @@ export function PropSphereSection() {
           </div>
 
           <div>
-            <h4 className="text-white font-semibold mb-1">Emergency</h4>
+            <h4 className="text-su-text font-semibold mb-1">Emergency</h4>
             <p>
               Enables terminator, greyline, NVIS, night lights, labels,
               earthquakes, weather alerts, lightning, fires, and weather radar.
@@ -768,7 +768,7 @@ export function PropSphereSection() {
         title="Display Controls"
         summary="Sliders for spot size, pin size, label scale, arc density, and rotation speed"
       >
-        <div className="space-y-4 text-sm text-gray-300 leading-relaxed">
+        <div className="space-y-4 text-sm text-su-muted leading-relaxed">
           <p>
             Display controls are accessible via the size sliders panel at the
             bottom-left of the map area. They let you fine-tune the visual
@@ -776,7 +776,7 @@ export function PropSphereSection() {
           </p>
 
           <div>
-            <h4 className="text-white font-semibold mb-1">
+            <h4 className="text-su-text font-semibold mb-1">
               Spot Dot Scale (0.5x - 2.0x)
             </h4>
             <p>
@@ -788,7 +788,7 @@ export function PropSphereSection() {
           </div>
 
           <div>
-            <h4 className="text-white font-semibold mb-1">
+            <h4 className="text-su-text font-semibold mb-1">
               Pin Size (0.5x - 2.0x)
             </h4>
             <p>
@@ -799,7 +799,7 @@ export function PropSphereSection() {
           </div>
 
           <div>
-            <h4 className="text-white font-semibold mb-1">Label Scale</h4>
+            <h4 className="text-su-text font-semibold mb-1">Label Scale</h4>
             <p>
               Adjusts the text size of country names, city labels, and other
               textual overlays on the map. Larger scale makes labels easier to
@@ -808,7 +808,7 @@ export function PropSphereSection() {
           </div>
 
           <div>
-            <h4 className="text-white font-semibold mb-1">
+            <h4 className="text-su-text font-semibold mb-1">
               Arc Display Density (10 - 200)
             </h4>
             <p>
@@ -825,7 +825,7 @@ export function PropSphereSection() {
           </div>
 
           <div>
-            <h4 className="text-white font-semibold mb-1">
+            <h4 className="text-su-text font-semibold mb-1">
               Auto-Rotate Toggle
             </h4>
             <p>
@@ -836,7 +836,7 @@ export function PropSphereSection() {
           </div>
 
           <div>
-            <h4 className="text-white font-semibold mb-1">
+            <h4 className="text-su-text font-semibold mb-1">
               Auto-Rotate Speed (60 - 86,400 seconds per revolution)
             </h4>
             <p>
@@ -856,14 +856,14 @@ export function PropSphereSection() {
         title="Interactions"
         summary="Click, hover, keyboard shortcuts, and context menus"
       >
-        <div className="space-y-4 text-sm text-gray-300 leading-relaxed">
+        <div className="space-y-4 text-sm text-su-muted leading-relaxed">
           <p>
             PropSphere supports a rich set of mouse, touch, and keyboard
             interactions across all three map views.
           </p>
 
           <div>
-            <h4 className="text-white font-semibold mb-1.5">Mouse / Touch</h4>
+            <h4 className="text-su-text font-semibold mb-1.5">Mouse / Touch</h4>
             <ul className="list-disc list-inside space-y-1.5 pl-1">
               <li>
                 <strong>Click</strong> — Sets a target location on the map and
@@ -912,7 +912,7 @@ export function PropSphereSection() {
           </div>
 
           <div>
-            <h4 className="text-white font-semibold mb-1.5">
+            <h4 className="text-su-text font-semibold mb-1.5">
               Keyboard Shortcuts
             </h4>
             <HelpShortcutTable
@@ -948,7 +948,7 @@ export function PropSphereSection() {
         title="Path Analysis"
         summary="Great circle paths, distance, bearing, hops, illumination, and difficulty"
       >
-        <div className="space-y-4 text-sm text-gray-300 leading-relaxed">
+        <div className="space-y-4 text-sm text-su-muted leading-relaxed">
           <p>
             When you set a target location, PropSphere calculates and displays a
             comprehensive path analysis between your home station and the
@@ -957,12 +957,12 @@ export function PropSphereSection() {
           </p>
 
           <div>
-            <h4 className="text-white font-semibold mb-1">Great Circle Arcs</h4>
+            <h4 className="text-su-text font-semibold mb-1">Great Circle Arcs</h4>
             <p>
               An animated dashed arc is drawn on the map showing the shortest
               path (great circle route) between your station and the target.
               Press{" "}
-              <kbd className="px-1.5 py-0.5 rounded bg-white/[0.06] border border-white/10 text-xs font-mono">
+              <kbd className="px-1.5 py-0.5 rounded bg-su-line/20 border border-su-line/40 text-xs font-mono">
                 T
               </kbd>{" "}
               to toggle between short path and long path display. The arc is
@@ -972,7 +972,7 @@ export function PropSphereSection() {
           </div>
 
           <div>
-            <h4 className="text-white font-semibold mb-1">
+            <h4 className="text-su-text font-semibold mb-1">
               Distance Calculation
             </h4>
             <p>
@@ -985,7 +985,7 @@ export function PropSphereSection() {
           </div>
 
           <div>
-            <h4 className="text-white font-semibold mb-1">Bearing</h4>
+            <h4 className="text-su-text font-semibold mb-1">Bearing</h4>
             <p>
               The initial bearing (forward azimuth) from your station to the
               target — this is the direction to point your antenna. Calculated
@@ -997,7 +997,7 @@ export function PropSphereSection() {
           </div>
 
           <div>
-            <h4 className="text-white font-semibold mb-1">
+            <h4 className="text-su-text font-semibold mb-1">
               F-Layer Hop Estimation
             </h4>
             <p>
@@ -1011,7 +1011,7 @@ export function PropSphereSection() {
           </div>
 
           <div>
-            <h4 className="text-white font-semibold mb-1">Path Illumination</h4>
+            <h4 className="text-su-text font-semibold mb-1">Path Illumination</h4>
             <p>
               The percentage of the great circle path that is currently in
               daylight, calculated by sampling 20 evenly-spaced points along the
@@ -1025,7 +1025,7 @@ export function PropSphereSection() {
           </div>
 
           <div>
-            <h4 className="text-white font-semibold mb-1">Difficulty Rating</h4>
+            <h4 className="text-su-text font-semibold mb-1">Difficulty Rating</h4>
             <p>
               A 1-5 scale based on short path distance, with arcs color-coded by
               difficulty:
@@ -1070,7 +1070,7 @@ export function PropSphereSection() {
         title="Maidenhead Grid System"
         summary="Grid squares for location reference in ham radio"
       >
-        <div className="space-y-4 text-sm text-gray-300 leading-relaxed">
+        <div className="space-y-4 text-sm text-su-muted leading-relaxed">
           <p>
             The Maidenhead Locator System divides the entire surface of the
             Earth into a hierarchy of progressively smaller grid squares,
@@ -1080,7 +1080,7 @@ export function PropSphereSection() {
           </p>
 
           <div>
-            <h4 className="text-white font-semibold mb-1">Grid Hierarchy</h4>
+            <h4 className="text-su-text font-semibold mb-1">Grid Hierarchy</h4>
             <ul className="list-disc list-inside space-y-2 pl-1">
               <li>
                 <strong>Field</strong> (2 letters, e.g., FN): 20 degrees
@@ -1108,7 +1108,7 @@ export function PropSphereSection() {
           </div>
 
           <div>
-            <h4 className="text-white font-semibold mb-1">Grid Overlay</h4>
+            <h4 className="text-su-text font-semibold mb-1">Grid Overlay</h4>
             <p>
               Enable the Maidenhead grid overlay in Labels (toggle it on in the
               Labels panel). The grid lines and labels automatically adapt to
@@ -1120,7 +1120,7 @@ export function PropSphereSection() {
           </div>
 
           <div>
-            <h4 className="text-white font-semibold mb-1">
+            <h4 className="text-su-text font-semibold mb-1">
               Usage in Ham Radio
             </h4>
             <p>
@@ -1149,7 +1149,7 @@ export function PropSphereSection() {
         title="Data Sources"
         summary="APIs feeding real-time data to the map"
       >
-        <div className="space-y-3 text-sm text-gray-300 leading-relaxed">
+        <div className="space-y-3 text-sm text-su-muted leading-relaxed">
           <p>
             PropSphere aggregates data from multiple real-time sources. All
             external data is proxied through Propulse edge functions for CORS
@@ -1240,7 +1240,7 @@ export function PropSphereSection() {
         title="Propagation Modeling"
         summary="How Propulse estimates propagation conditions"
       >
-        <div className="space-y-4 text-sm text-gray-300 leading-relaxed">
+        <div className="space-y-4 text-sm text-su-muted leading-relaxed">
           <p>
             Propulse combines multiple data sources and mathematical models to
             estimate real-time propagation conditions. Here is how each element
@@ -1248,7 +1248,7 @@ export function PropSphereSection() {
           </p>
 
           <div>
-            <h4 className="text-white font-semibold mb-1">MUF Estimation</h4>
+            <h4 className="text-su-text font-semibold mb-1">MUF Estimation</h4>
             <p>
               The Maximum Usable Frequency is estimated based on the current
               Solar Flux Index (SFI), which indicates the level of F-layer
@@ -1261,7 +1261,7 @@ export function PropSphereSection() {
           </div>
 
           <div>
-            <h4 className="text-white font-semibold mb-1">
+            <h4 className="text-su-text font-semibold mb-1">
               Band Condition Derivation
             </h4>
             <p>
@@ -1301,7 +1301,7 @@ export function PropSphereSection() {
           </div>
 
           <div>
-            <h4 className="text-white font-semibold mb-1">Spot Correlation</h4>
+            <h4 className="text-su-text font-semibold mb-1">Spot Correlation</h4>
             <p>
               Propulse compares observed spot patterns with predicted
               propagation to validate the model. When live spots are being
@@ -1313,7 +1313,7 @@ export function PropSphereSection() {
           </div>
 
           <div>
-            <h4 className="text-white font-semibold mb-1">Grid Glow</h4>
+            <h4 className="text-su-text font-semibold mb-1">Grid Glow</h4>
             <p>
               When a new spot appears in a Maidenhead grid field, that field
               briefly "glows" on the map with a 5-second color pulse. This
@@ -1335,7 +1335,7 @@ export function PropSphereSection() {
 
       {/* ─── FAQ ───────────────────────────────────────────────────────────── */}
       <div className="pt-2">
-        <h3 className="text-sm font-semibold text-gray-200 mb-2">
+        <h3 className="text-sm font-semibold text-su-text mb-2">
           Frequently Asked Questions
         </h3>
         <HelpFAQ

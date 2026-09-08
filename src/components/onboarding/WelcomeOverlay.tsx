@@ -294,17 +294,17 @@ function WelcomeSlide({ onNext }: { onNext: () => void }) {
         </h1>
       </div>
 
-      <p className="text-gray-300 text-sm sm:text-base max-w-sm leading-relaxed mb-2">
+      <p className="text-su-muted text-sm sm:text-base max-w-sm leading-relaxed mb-2">
         The complete ham radio propagation platform
       </p>
-      <p className="text-gray-500 text-xs max-w-xs leading-relaxed mb-8">
+      <p className="text-su-muted text-xs max-w-xs leading-relaxed mb-8">
         Real-time solar data, live DX activity, propagation modeling, contest
         tools, and everything you need in one place.
       </p>
 
       <button
         onClick={onNext}
-        className="px-8 py-3 rounded-xl font-semibold text-sm bg-gradient-to-r from-plasma-orange to-amber-500 text-white hover:brightness-110 transition-all focus-visible:ring-2 focus-visible:ring-plasma-orange/50 focus-visible:outline-none"
+        className="px-8 py-3 rounded-xl font-semibold text-sm bg-gradient-to-r from-plasma-orange to-amber-500 text-su-text hover:brightness-110 transition-all focus-visible:ring-2 focus-visible:ring-plasma-orange/50 focus-visible:outline-none"
       >
         See What's Inside
       </button>
@@ -336,10 +336,10 @@ function ViewsSlide({ onNext }: { onNext: () => void }) {
 
   return (
     <div className="flex flex-col px-6 py-6 sm:px-8 sm:py-8">
-      <h2 className="font-orbitron text-lg sm:text-xl font-bold text-white tracking-wide text-center mb-1">
+      <h2 className="font-orbitron text-lg sm:text-xl font-bold text-su-text tracking-wide text-center mb-1">
         Your Radio Command Center
       </h2>
-      <p className="text-xs text-gray-500 text-center mb-5">
+      <p className="text-xs text-su-muted text-center mb-5">
         Three powerful views to monitor the ionosphere
       </p>
 
@@ -347,16 +347,16 @@ function ViewsSlide({ onNext }: { onNext: () => void }) {
         {views.map((v) => (
           <div
             key={v.title}
-            className="flex items-start gap-3 p-3 rounded-xl bg-white/5 border border-white/10"
+            className="flex items-start gap-3 p-3 rounded-xl bg-su-line/10 border border-su-line/40"
           >
             <div className="w-9 h-9 shrink-0 rounded-lg bg-plasma-orange/15 text-plasma-orange flex items-center justify-center mt-0.5">
               {v.icon}
             </div>
             <div className="min-w-0">
-              <h3 className="text-sm font-semibold text-white mb-0.5">
+              <h3 className="text-sm font-semibold text-su-text mb-0.5">
                 {v.title}
               </h3>
-              <p className="text-xs text-gray-400 leading-relaxed">
+              <p className="text-xs text-su-muted leading-relaxed">
                 {v.details}
               </p>
             </div>
@@ -411,10 +411,10 @@ function ToolsSlide({ onNext }: { onNext: () => void }) {
 
   return (
     <div className="flex flex-col px-6 py-6 sm:px-8 sm:py-8">
-      <h2 className="font-orbitron text-lg sm:text-xl font-bold text-white tracking-wide text-center mb-1">
+      <h2 className="font-orbitron text-lg sm:text-xl font-bold text-su-text tracking-wide text-center mb-1">
         Powerful Operating Tools
       </h2>
-      <p className="text-xs text-gray-500 text-center mb-5">
+      <p className="text-xs text-su-muted text-center mb-5">
         Everything an operator needs, built in
       </p>
 
@@ -422,21 +422,21 @@ function ToolsSlide({ onNext }: { onNext: () => void }) {
         {tools.map((t) => (
           <div
             key={t.name}
-            className="flex items-start gap-2.5 p-2.5 rounded-lg bg-white/[0.03] border border-white/5"
+            className="flex items-start gap-2.5 p-2.5 rounded-lg bg-su-line/10 border border-su-line/20"
           >
             <div className="w-7 h-7 shrink-0 rounded-md bg-plasma-orange/10 text-plasma-orange flex items-center justify-center mt-0.5">
               {t.icon}
             </div>
             <div className="min-w-0">
               <div className="flex items-center gap-1.5">
-                <h3 className="text-xs font-semibold text-white">{t.name}</h3>
+                <h3 className="text-xs font-semibold text-su-text">{t.name}</h3>
                 {t.soon && (
                   <span className="text-[9px] font-medium text-teal-400 border border-teal-400/40 bg-teal-400/10 px-1.5 py-0.5 rounded-full">
                     Adapter Coming Soon
                   </span>
                 )}
               </div>
-              <p className="text-[11px] text-gray-500 leading-relaxed">
+              <p className="text-[11px] text-su-muted leading-relaxed">
                 {t.desc}
               </p>
             </div>
@@ -483,11 +483,11 @@ function CommunitySlide({ onFinish }: { onFinish: () => void }) {
     <div className="flex flex-col px-6 py-6 sm:px-8 sm:py-8">
       <div className="flex items-center justify-center gap-2 mb-1">
         <UsersIcon className="w-5 h-5 text-signal-green" />
-        <h2 className="font-orbitron text-lg sm:text-xl font-bold text-white tracking-wide">
+        <h2 className="font-orbitron text-lg sm:text-xl font-bold text-su-text tracking-wide">
           Built for the Community
         </h2>
       </div>
-      <p className="text-xs text-gray-500 text-center mb-5">
+      <p className="text-xs text-su-muted text-center mb-5">
         Everything works free with no account required
       </p>
 
@@ -500,7 +500,7 @@ function CommunitySlide({ onFinish }: { onFinish: () => void }) {
           {freePerks.map((p) => (
             <li
               key={p}
-              className="flex items-start gap-2 text-xs text-gray-300"
+              className="flex items-start gap-2 text-xs text-su-muted"
             >
               <CheckIcon className="w-3.5 h-3.5 text-signal-green shrink-0 mt-0.5" />
               <span>{p}</span>
@@ -518,7 +518,7 @@ function CommunitySlide({ onFinish }: { onFinish: () => void }) {
           {accountPerks.map((p) => (
             <li
               key={p}
-              className="flex items-start gap-2 text-xs text-gray-300"
+              className="flex items-start gap-2 text-xs text-su-muted"
             >
               <CheckIcon className="w-3.5 h-3.5 text-plasma-orange shrink-0 mt-0.5" />
               <span>{p}</span>
@@ -527,14 +527,14 @@ function CommunitySlide({ onFinish }: { onFinish: () => void }) {
         </ul>
       </div>
 
-      <p className="text-[11px] text-gray-600 text-center leading-relaxed mb-6">
+      <p className="text-[11px] text-su-muted text-center leading-relaxed mb-6">
         Cloud features and extended modeling are available for a small monthly
         subscription that helps keep the servers running.
       </p>
 
       <button
         onClick={onFinish}
-        className="self-center px-8 py-3 rounded-xl font-semibold text-sm bg-gradient-to-r from-plasma-orange to-amber-500 text-white hover:brightness-110 transition-all focus-visible:ring-2 focus-visible:ring-plasma-orange/50 focus-visible:outline-none"
+        className="self-center px-8 py-3 rounded-xl font-semibold text-sm bg-gradient-to-r from-plasma-orange to-amber-500 text-su-text hover:brightness-110 transition-all focus-visible:ring-2 focus-visible:ring-plasma-orange/50 focus-visible:outline-none"
       >
         Start Exploring
       </button>
@@ -563,7 +563,7 @@ function ProgressDots({
           className={`w-2 h-2 rounded-full transition-all duration-300 ${
             i === current
               ? "bg-plasma-orange w-5"
-              : "bg-white/20 hover:bg-white/40"
+              : "bg-su-line/30 hover:bg-su-text/30"
           }`}
         />
       ))}
@@ -652,11 +652,11 @@ export function WelcomeOverlay() {
       />
 
       {/* Panel */}
-      <div className="relative w-full max-w-lg bg-gray-900/90 backdrop-blur-xl border border-white/10 rounded-2xl shadow-2xl overflow-hidden max-h-[90vh] overflow-y-auto">
+      <div className="relative w-full max-w-lg bg-su-canvas/95 backdrop-blur-xl border border-su-line/40 rounded-2xl shadow-2xl overflow-hidden max-h-[90vh] overflow-y-auto">
         {/* Close button */}
         <button
           onClick={dismiss}
-          className="absolute top-4 right-4 z-10 w-8 h-8 flex items-center justify-center rounded-lg text-gray-500 hover:text-gray-300 hover:bg-white/5 transition-colors"
+          className="absolute top-4 right-4 z-10 w-8 h-8 flex items-center justify-center rounded-lg text-su-muted hover:text-su-text hover:bg-su-line/10 transition-colors"
           aria-label="Close welcome overlay"
         >
           <CloseIcon className="w-4 h-4" />

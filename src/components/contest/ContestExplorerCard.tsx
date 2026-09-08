@@ -83,13 +83,13 @@ function DifficultyBadge({
   const config = DIFFICULTY_CONFIG[difficulty];
   return (
     <span className="flex items-center gap-1.5 text-xs">
-      <span className="text-gray-400">{config.label}</span>
+      <span className="text-su-muted">{config.label}</span>
       <span className="flex gap-0.5">
         {Array.from({ length: 5 }).map((_, i) => (
           <span
             key={i}
             className={`inline-block w-1.5 h-1.5 rounded-full ${
-              i < config.dots ? config.color + " bg-current" : "bg-white/10"
+              i < config.dots ? config.color + " bg-current" : "bg-su-line/20"
             }`}
           />
         ))}
@@ -108,7 +108,7 @@ function ModePill({ mode }: { mode: string }) {
     FT4: "bg-purple-400/20 text-purple-400 border-purple-400/30",
     FM: "bg-caution-amber/20 text-caution-amber border-caution-amber/30",
   };
-  const cls = colors[mode] ?? "bg-white/10 text-gray-300 border-white/10";
+  const cls = colors[mode] ?? "bg-su-line/20 text-su-muted border-su-line/40";
 
   return (
     <span
@@ -121,7 +121,7 @@ function ModePill({ mode }: { mode: string }) {
 
 function BandPill({ band }: { band: string }) {
   return (
-    <span className="px-1.5 py-0.5 text-[10px] font-mono text-gray-400 bg-white/5 rounded border border-white/5">
+    <span className="px-1.5 py-0.5 text-[10px] font-mono text-su-muted bg-su-line/10 rounded border border-su-line/20">
       {band}
     </span>
   );
@@ -148,7 +148,7 @@ export function ContestExplorerCard({
   return (
     <div
       className={`rounded-xl border transition-all duration-200 cursor-pointer
-        ${expanded ? "border-plasma-orange/30 bg-panel shadow-lg shadow-plasma-orange/5" : "border-white/5 bg-panel hover:border-white/10 hover:shadow-md"}
+        ${expanded ? "border-plasma-orange/30 bg-panel shadow-lg shadow-plasma-orange/5" : "border-su-line/20 bg-panel hover:border-su-line/40 hover:shadow-md"}
       `}
       onClick={() => setExpanded(!expanded)}
       role="button"
@@ -166,13 +166,13 @@ export function ContestExplorerCard({
         {/* Top row: name + expand chevron */}
         <div className="flex items-start justify-between gap-2 mb-2">
           <div className="min-w-0 flex-1">
-            <h3 className="text-sm font-semibold text-white truncate">
+            <h3 className="text-sm font-semibold text-su-text truncate">
               {entry.name}
             </h3>
-            <p className="text-xs text-gray-500 mt-0.5">{entry.sponsor}</p>
+            <p className="text-xs text-su-muted mt-0.5">{entry.sponsor}</p>
           </div>
           <svg
-            className={`w-4 h-4 text-gray-500 flex-shrink-0 mt-1 transition-transform ${expanded ? "rotate-180" : ""}`}
+            className={`w-4 h-4 text-su-muted flex-shrink-0 mt-1 transition-transform ${expanded ? "rotate-180" : ""}`}
             fill="none"
             viewBox="0 0 24 24"
             stroke="currentColor"
@@ -187,9 +187,9 @@ export function ContestExplorerCard({
         </div>
 
         {/* Date + duration */}
-        <div className="flex items-center gap-2 text-xs text-gray-400 mb-2.5">
+        <div className="flex items-center gap-2 text-xs text-su-muted mb-2.5">
           <span>{formatDateRange(entry.startUtc, entry.endUtc)}</span>
-          <span className="text-white/10">|</span>
+          <span className="text-su-text/10">|</span>
           <span>{formatDuration(entry.startUtc, entry.endUtc)}</span>
         </div>
 
@@ -206,7 +206,7 @@ export function ContestExplorerCard({
             <BandPill key={band} band={band} />
           ))}
           {entry.bands.length > 6 && (
-            <span className="px-1.5 py-0.5 text-[10px] text-gray-500">
+            <span className="px-1.5 py-0.5 text-[10px] text-su-muted">
               +{entry.bands.length - 6} more
             </span>
           )}
@@ -215,7 +215,7 @@ export function ContestExplorerCard({
         {/* Bottom row: difficulty + participants */}
         <div className="flex items-center justify-between">
           <DifficultyBadge difficulty={entry.difficulty} />
-          <span className="text-xs text-gray-500">
+          <span className="text-xs text-su-muted">
             ~{formatParticipants(entry.estimatedParticipants)} participants
           </span>
         </div>
@@ -224,18 +224,18 @@ export function ContestExplorerCard({
       {/* Expanded content */}
       {expanded && (
         <div
-          className="px-4 pb-4 space-y-3 border-t border-white/5 pt-3"
+          className="px-4 pb-4 space-y-3 border-t border-su-line/20 pt-3"
           onClick={(e) => e.stopPropagation()}
         >
           {/* Description */}
-          <p className="text-sm text-gray-300 leading-relaxed">
+          <p className="text-sm text-su-muted leading-relaxed">
             {entry.description}
           </p>
 
           {/* Exchange format from definition */}
           {definition && (
-            <div className="text-xs text-gray-400">
-              <span className="font-medium text-gray-300">Exchange: </span>
+            <div className="text-xs text-su-muted">
+              <span className="font-medium text-su-muted">Exchange: </span>
               {entry.exchange}
             </div>
           )}

@@ -285,3 +285,30 @@ it("excludes future rows at storage before they can exhaust the row cap", async 
   expect(result.status).toBe("ok");
   expect(result.rows).toHaveLength(1);
 });
+
+
+it("keeps stale DX history through the inclusive two-hour boundary with the existing request cap", async () => {
+  const at = (minutes: number) => new Date(NOW - minutes * 60_000).toISOString();
+  const fetcher = vi.fn<typeof fetch>(async () => new Response(JSON.stringify([90, 120, 121].map(minutes => row({ source: "dxcluster", spotted_at: at(minutes) })))));
+  const result = await readStoredSpots("dxcluster", { limit: 200, windowMinutes: 120 }, {
+    fetcher, now: () => NOW, storageConfig: () => CONFIG,
+  });
+  expect(result.rows.map(row => row.spotted_at)).toEqual([at(90), at(120)]);
+  expect(result.status).toBe("stale");
+  expect(result.observedAt).toBe(at(90));
+  expect(result.staleAfterSeconds).toBe(1800);
+  const query = new URL(String(fetcher.mock.calls[0][0])).searchParams;
+  expect(query.get("spotted_at")).toBe(`gte.${at(120)}`);
+  expect(query.get("limit")).toBe("800");
+  expect(query.get("and")).toBe(`(spotted_at.lte.${new Date(NOW).toISOString()})`);
+});
+
+
+it.each(["pskreporter", "rbn"] as const)("does not widen %s storage reads to the DX-only window", async source => {
+  const fetcher = vi.fn<typeof fetch>(async () => new Response("[]"));
+  await readStoredSpots(source, { limit: 200, windowMinutes: 120 }, {
+    fetcher, now: () => NOW, storageConfig: () => CONFIG,
+  });
+  expect(new URL(String(fetcher.mock.calls[0][0])).searchParams.get("spotted_at"))
+    .toBe(`gte.${new Date(NOW - 30 * 60_000).toISOString()}`);
+});

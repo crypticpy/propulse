@@ -34,7 +34,7 @@ function VisibilityDot({ isVisible }: { isVisible: boolean }) {
   return (
     <span
       className={`inline-block w-1.5 h-1.5 rounded-full flex-shrink-0 ${
-        isVisible ? "bg-green-400 animate-pulse" : "bg-gray-600"
+        isVisible ? "bg-green-400 animate-pulse" : "bg-su-line"
       }`}
       title={isVisible ? "Above horizon" : "Below horizon"}
     />
@@ -153,12 +153,12 @@ export default function SatelliteFilters() {
               className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-medium transition-colors ${
                 isActive
                   ? "bg-cyan-500/20 text-cyan-400 border border-cyan-500/40"
-                  : "bg-white/[0.06] text-white/50 border border-transparent hover:bg-white/[0.10] hover:text-white/70"
+                  : "bg-su-line/20 text-su-text/80 border border-transparent hover:bg-su-line/30 hover:text-su-text"
               }`}
             >
               {chip.label}
               <span
-                className={`text-[9px] tabular-nums ${isActive ? "text-cyan-400/70" : "text-white/30"}`}
+                className={`text-[9px] tabular-nums ${isActive ? "text-cyan-400/70" : "text-su-text/80"}`}
               >
                 {chip.count}
               </span>
@@ -178,7 +178,7 @@ export default function SatelliteFilters() {
             >
               <path d="M8 1.5l1.85 3.75 4.15.6-3 2.92.71 4.13L8 10.88l-3.71 1.97.71-4.08-3-2.97 4.15-.6L8 1.5z" />
             </svg>
-            <span className="text-[10px] font-semibold text-white/40 uppercase tracking-wider">
+            <span className="text-[10px] font-semibold text-su-text/80 uppercase tracking-wider">
               Popular
             </span>
           </div>
@@ -200,12 +200,12 @@ export default function SatelliteFilters() {
         <button
           type="button"
           onClick={() => setSatelliteShowAll(!satelliteShowAll)}
-          className="flex items-center gap-1 w-full px-0.5 py-0.5 hover:bg-white/[0.04] rounded transition-colors"
+          className="flex items-center gap-1 w-full px-0.5 py-0.5 hover:bg-su-line/10 rounded transition-colors"
         >
           <svg
             viewBox="0 0 10 10"
             fill="none"
-            className={`w-2.5 h-2.5 text-white/40 transition-transform duration-150 ${
+            className={`w-2.5 h-2.5 text-su-text/40 transition-transform duration-150 ${
               satelliteShowAll ? "rotate-90" : ""
             }`}
           >
@@ -217,10 +217,10 @@ export default function SatelliteFilters() {
               strokeLinejoin="round"
             />
           </svg>
-          <span className="text-[10px] font-semibold text-white/40 uppercase tracking-wider">
+          <span className="text-[10px] font-semibold text-su-text/80 uppercase tracking-wider">
             All Satellites
           </span>
-          <span className="text-[9px] text-white/25 tabular-nums">
+          <span className="text-[9px] text-su-text/80 tabular-nums">
             ({remainingSats.length})
           </span>
         </button>
@@ -271,8 +271,8 @@ function TrackingStatusFooter({ totalCount }: { totalCount: number }) {
     : "Tracking all";
 
   return (
-    <div className="flex items-center justify-between px-0.5 pt-1 border-t border-white/[0.06]">
-      <span className="text-[9px] text-white/30">{label}</span>
+    <div className="flex items-center justify-between px-0.5 pt-1 border-t border-su-line/20">
+      <span className="text-[9px] text-su-text/80">{label}</span>
       <Link
         to="/satellites"
         className="text-[9px] text-cyan-400 hover:text-cyan-300 hover:underline transition-colors"
@@ -303,11 +303,11 @@ function SatRow({
       className={`w-full flex items-center gap-1.5 px-1 py-0.5 rounded text-left transition-colors ${
         isSelected
           ? "bg-cyan-500/10 border border-cyan-500/30"
-          : "border border-transparent hover:bg-white/[0.05]"
+          : "border border-transparent hover:bg-su-line/10"
       }`}
     >
       <VisibilityDot isVisible={sat.isVisible} />
-      <span className="flex-1 text-[11px] font-mono text-gray-300 truncate">
+      <span className="flex-1 text-[11px] font-mono text-su-muted truncate">
         {sat.name}
       </span>
       <CategoryBadge category={sat.category} />

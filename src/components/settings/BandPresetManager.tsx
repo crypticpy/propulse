@@ -79,7 +79,7 @@ export function BandPresetManager() {
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between">
-        <h4 className="text-xs font-semibold text-gray-400 uppercase tracking-wider">
+        <h4 className="text-xs font-semibold text-su-muted uppercase tracking-wider">
           Band Presets
         </h4>
         {!isAdding && (
@@ -93,7 +93,7 @@ export function BandPresetManager() {
             }}
             className={`text-xs px-2 py-1 rounded border transition-colors ${
               atLimit
-                ? "text-gray-600 border-white/5 cursor-not-allowed"
+                ? "text-su-muted border-su-line/20 cursor-not-allowed"
                 : "text-plasma-orange border-plasma-orange/30 hover:bg-plasma-orange/10"
             }`}
           >
@@ -103,7 +103,7 @@ export function BandPresetManager() {
       </div>
 
       {atLimit && !isAdding && (
-        <p className="text-xs text-gray-500">
+        <p className="text-xs text-su-muted">
           Maximum of {MAX_PRESETS} presets reached.
         </p>
       )}
@@ -114,11 +114,11 @@ export function BandPresetManager() {
           {presets.map((preset) => (
             <div
               key={preset.id}
-              className="flex items-center justify-between gap-2 px-3 py-2 bg-void-black rounded-lg border border-white/10"
+              className="flex items-center justify-between gap-2 px-3 py-2 bg-void-black rounded-lg border border-su-line/40"
             >
               <div className="min-w-0 flex-1">
-                <span className="text-sm text-gray-200">{preset.name}</span>
-                <span className="ml-2 text-xs text-gray-500">
+                <span className="text-sm text-su-text">{preset.name}</span>
+                <span className="ml-2 text-xs text-su-muted">
                   {preset.bands.length} band
                   {preset.bands.length !== 1 ? "s" : ""}
                 </span>
@@ -127,14 +127,14 @@ export function BandPresetManager() {
                 <button
                   type="button"
                   onClick={() => handleEdit(preset)}
-                  className="text-xs text-gray-400 hover:text-plasma-orange transition-colors"
+                  className="text-xs text-su-muted hover:text-plasma-orange transition-colors"
                 >
                   Edit
                 </button>
                 <button
                   type="button"
                   onClick={() => setDeletePresetId(preset.id)}
-                  className="text-xs text-gray-400 hover:text-alert-red transition-colors"
+                  className="text-xs text-su-muted hover:text-alert-red transition-colors"
                 >
                   Delete
                 </button>
@@ -146,7 +146,7 @@ export function BandPresetManager() {
 
       {/* Inline add/edit form */}
       {isAdding && (
-        <div className="p-3 bg-void-black rounded-lg border border-white/10 space-y-3">
+        <div className="p-3 bg-void-black rounded-lg border border-su-line/40 space-y-3">
           <input
             type="text"
             placeholder="Preset name"
@@ -155,7 +155,7 @@ export function BandPresetManager() {
               setName(e.target.value);
               setError(null);
             }}
-            className="w-full bg-deep-space text-sm text-gray-200 px-3 py-1.5 rounded border border-white/10 focus:border-plasma-orange/50 focus:outline-none"
+            className="w-full bg-deep-space text-sm text-su-text px-3 py-1.5 rounded border border-su-line/40 focus:border-plasma-orange/50 focus:outline-none"
             maxLength={30}
           />
           <div className="grid grid-cols-5 gap-1.5">
@@ -167,7 +167,7 @@ export function BandPresetManager() {
                 className={`px-2 py-1.5 rounded text-xs font-medium transition-colors border ${
                   selectedBands.includes(band)
                     ? "bg-plasma-orange/20 text-plasma-orange border-plasma-orange/50"
-                    : "bg-nebula-blue text-gray-400 border-white/10 hover:text-gray-200"
+                    : "bg-nebula-blue text-su-muted border-su-line/40 hover:text-su-text"
                 }`}
               >
                 {band}
@@ -179,14 +179,14 @@ export function BandPresetManager() {
             <button
               type="button"
               onClick={resetForm}
-              className="text-xs text-gray-400 hover:text-gray-200 px-3 py-1.5 transition-colors"
+              className="text-xs text-su-muted hover:text-su-text px-3 py-1.5 transition-colors"
             >
               Cancel
             </button>
             <button
               type="button"
               onClick={handleSave}
-              className="text-xs text-white bg-plasma-orange hover:bg-plasma-orange/80 px-3 py-1.5 rounded transition-colors"
+              className="text-xs text-su-on-accent bg-plasma-orange hover:bg-plasma-orange/80 px-3 py-1.5 rounded transition-colors"
             >
               {editingId ? "Update" : "Save"}
             </button>

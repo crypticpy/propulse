@@ -474,8 +474,8 @@ function ExpandedChainBody({
           </p>
           {/* Loss Budget Bar */}
           {availableBands.length > 0 && (
-            <div className="bg-panel/30 backdrop-blur-sm border border-white/5 rounded-2xl p-4">
-              <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">
+            <div className="bg-panel/30 backdrop-blur-sm border border-su-line/20 rounded-2xl p-4">
+              <h3 className="text-xs font-semibold text-su-muted uppercase tracking-wider mb-3">
                 Loss Budget
               </h3>
               <LossBudgetBar
@@ -976,7 +976,7 @@ export function AllChainsView({
 
                 {/* Expanded body */}
                 {isExpanded && (
-                  <div className="px-4 pb-4 border-t border-white/5">
+                  <div className="px-4 pb-4 border-t border-su-line/20">
                     <div className="pt-3">
                       <ExpandedChainBody
                         chain={chain}

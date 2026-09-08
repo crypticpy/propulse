@@ -49,7 +49,7 @@ const SOURCE_CONFIG: Record<
 > = {
   bridge: { color: "bg-signal-green", label: "Bridge" },
   supabase: { color: "bg-plasma-orange", label: "Cloud" },
-  none: { color: "bg-gray-500", label: "No Source" },
+  none: { color: "bg-su-line", label: "No Source" },
 };
 
 // ── Compact HF bands for pills ──────────────────────────────────────────────
@@ -94,8 +94,8 @@ export function BandMapControls({
               px-1.5 py-0.5 rounded text-[10px] font-mono font-medium transition-all duration-150
               ${
                 band === b
-                  ? "bg-plasma-orange text-white shadow-sm shadow-plasma-orange/20"
-                  : "bg-white/5 text-gray-400 hover:text-white hover:bg-white/10"
+                  ? "bg-plasma-orange text-su-on-accent shadow-sm shadow-plasma-orange/20"
+                  : "bg-su-line/10 text-su-muted hover:text-su-text hover:bg-su-line/20"
               }
             `}
           >
@@ -105,7 +105,7 @@ export function BandMapControls({
       </div>
 
       {/* Contest filter pills */}
-      <div className="flex items-center gap-0.5 border-l border-white/10 pl-2">
+      <div className="flex items-center gap-0.5 border-l border-su-line/40 pl-2">
         {CONTEST_FILTERS.map((cf) => (
           <button
             key={cf.value}
@@ -116,7 +116,7 @@ export function BandMapControls({
               ${
                 contestFilter === cf.value
                   ? "bg-caution-amber/20 text-caution-amber"
-                  : "text-gray-500 hover:text-gray-300 hover:bg-white/5"
+                  : "text-su-muted hover:text-su-text hover:bg-su-line/10"
               }
             `}
           >
@@ -134,7 +134,7 @@ export function BandMapControls({
             ${
               showSubBands
                 ? "bg-nebula-blue/20 text-nebula-blue"
-                : "text-gray-500 hover:text-gray-300 hover:bg-white/5"
+                : "text-su-muted hover:text-su-text hover:bg-su-line/10"
             }
           `}
         >
@@ -156,8 +156,8 @@ export function BandMapControls({
               px-1.5 py-0.5 rounded text-[10px] font-mono transition-all duration-150
               ${
                 timeRange === tr.value
-                  ? "bg-white/15 text-white"
-                  : "text-gray-500 hover:text-gray-300 hover:bg-white/5"
+                  ? "bg-su-line/30 text-su-text"
+                  : "text-su-muted hover:text-su-text hover:bg-su-line/10"
               }
             `}
           >
@@ -167,7 +167,7 @@ export function BandMapControls({
       </div>
 
       {/* Source badge */}
-      <div className="flex items-center gap-1 text-[10px] text-gray-400 font-mono shrink-0">
+      <div className="flex items-center gap-1 text-[10px] text-su-muted font-mono shrink-0">
         <span
           className={`w-1.5 h-1.5 rounded-full ${sourceConfig.color} ${
             source === "bridge" ? "animate-pulse" : ""

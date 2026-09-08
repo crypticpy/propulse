@@ -6,14 +6,14 @@ export function SettingsSection() {
   return (
     <div className="space-y-6">
       {/* Overview */}
-      <p className="text-sm leading-relaxed text-gray-300">
+      <p className="text-sm leading-relaxed text-su-muted">
         Settings lets you configure every aspect of your Propulse experience
         &mdash; from display preferences and map rendering to notification
         alerts, hardware connections, subscription management, and data control.
         The Settings page is organized into six sections accessible via a
         sidebar on desktop or pill tabs on mobile. All changes are applied
         immediately &mdash; there is no save button. Navigate to{" "}
-        <code className="text-xs bg-white/10 px-1.5 py-0.5 rounded font-mono">
+        <code className="text-xs bg-su-line/20 px-1.5 py-0.5 rounded font-mono">
           /settings
         </code>{" "}
         or use the gear icon in the header. Press <kbd>Esc</kbd> to return to
@@ -26,10 +26,10 @@ export function SettingsSection() {
         title="Preferences"
         summary="Display, accessibility, map & globe, propagation, forecast, interaction, and band settings"
       >
-        <div className="space-y-5 text-sm text-gray-300 leading-relaxed">
+        <div className="space-y-5 text-sm text-su-muted leading-relaxed">
           {/* Display */}
           <div>
-            <h4 className="text-white font-semibold mb-1.5">Display</h4>
+            <h4 className="text-su-text font-semibold mb-1.5">Display</h4>
             <ul className="list-disc list-inside space-y-1.5 pl-1">
               <li>
                 <strong>Time Format</strong> &mdash; Choose between 24-hour and
@@ -53,7 +53,7 @@ export function SettingsSection() {
 
           {/* Accessibility */}
           <div>
-            <h4 className="text-white font-semibold mb-1.5">Accessibility</h4>
+            <h4 className="text-su-text font-semibold mb-1.5">Accessibility</h4>
             <ul className="list-disc list-inside space-y-1.5 pl-1">
               <li>
                 <strong>Color Vision Mode</strong> &mdash; Select from several
@@ -71,7 +71,7 @@ export function SettingsSection() {
             <HelpCallout type="note">
               High Contrast and Color Vision modes can be combined. The app also
               automatically respects your operating system&apos;s{" "}
-              <code className="text-xs bg-white/10 px-1 py-0.5 rounded font-mono">
+              <code className="text-xs bg-su-line/20 px-1 py-0.5 rounded font-mono">
                 prefers-reduced-motion
               </code>{" "}
               and contrast preferences.
@@ -80,7 +80,7 @@ export function SettingsSection() {
 
           {/* Map & Globe */}
           <div>
-            <h4 className="text-white font-semibold mb-1.5">Map &amp; Globe</h4>
+            <h4 className="text-su-text font-semibold mb-1.5">Map &amp; Globe</h4>
             <ul className="list-disc list-inside space-y-1.5 pl-1">
               <li>
                 <strong>Spot Clustering</strong> &mdash; Groups nearby DX spots
@@ -127,7 +127,7 @@ export function SettingsSection() {
 
           {/* Propagation */}
           <div>
-            <h4 className="text-white font-semibold mb-1.5">Propagation</h4>
+            <h4 className="text-su-text font-semibold mb-1.5">Propagation</h4>
             <ul className="list-disc list-inside space-y-1.5 pl-1">
               <li>
                 <strong>Noise Environment</strong> &mdash; Quiet Rural, Rural,
@@ -156,7 +156,7 @@ export function SettingsSection() {
 
           {/* Forecast Display */}
           <div>
-            <h4 className="text-white font-semibold mb-1.5">
+            <h4 className="text-su-text font-semibold mb-1.5">
               Forecast Display
             </h4>
             <ul className="list-disc list-inside space-y-1.5 pl-1">
@@ -182,7 +182,7 @@ export function SettingsSection() {
 
           {/* Interaction */}
           <div>
-            <h4 className="text-white font-semibold mb-1.5">Interaction</h4>
+            <h4 className="text-su-text font-semibold mb-1.5">Interaction</h4>
             <ul className="list-disc list-inside space-y-1.5 pl-1">
               <li>
                 <strong>Hover Info Tips</strong> &mdash; Show brief explanations
@@ -202,7 +202,7 @@ export function SettingsSection() {
 
           {/* Bands */}
           <div>
-            <h4 className="text-white font-semibold mb-1.5">Bands</h4>
+            <h4 className="text-su-text font-semibold mb-1.5">Bands</h4>
             <ul className="list-disc list-inside space-y-1.5 pl-1">
               <li>
                 <strong>Favored Bands</strong> &mdash; Select the bands you
@@ -226,9 +226,9 @@ export function SettingsSection() {
         title="Appearance"
         summary="Theme, accent color, custom colors, and SDR waterfall palette"
       >
-        <div className="space-y-4 text-sm text-gray-300 leading-relaxed">
+        <div className="space-y-4 text-sm text-su-muted leading-relaxed">
           <div>
-            <h4 className="text-white font-semibold mb-1.5">Accent Color</h4>
+            <h4 className="text-su-text font-semibold mb-1.5">Accent Color</h4>
             <p>
               Choose from eight accent color presets that change the primary and
               secondary highlight colors throughout the entire app. The default
@@ -239,16 +239,16 @@ export function SettingsSection() {
           </div>
 
           <div>
-            <h4 className="text-white font-semibold mb-1.5">Custom Colors</h4>
+            <h4 className="text-su-text font-semibold mb-1.5">Custom Colors</h4>
             <p>
               Power users can expand the &ldquo;Custom Colors&rdquo; section to
               enter exact hex values for the accent (primary) and secondary
               colors. Enter any valid{" "}
-              <code className="text-xs bg-white/10 px-1 py-0.5 rounded font-mono">
+              <code className="text-xs bg-su-line/20 px-1 py-0.5 rounded font-mono">
                 #RGB
               </code>{" "}
               or{" "}
-              <code className="text-xs bg-white/10 px-1 py-0.5 rounded font-mono">
+              <code className="text-xs bg-su-line/20 px-1 py-0.5 rounded font-mono">
                 #RRGGBB
               </code>{" "}
               value and click Apply. Use Reset to return to the default Plasma
@@ -257,7 +257,7 @@ export function SettingsSection() {
           </div>
 
           <div>
-            <h4 className="text-white font-semibold mb-1.5">Theme</h4>
+            <h4 className="text-su-text font-semibold mb-1.5">Theme</h4>
             <p>
               Select a base theme for the interface. Multiple themes are
               available, each with different background colors and panel styles.
@@ -267,7 +267,7 @@ export function SettingsSection() {
           </div>
 
           <div>
-            <h4 className="text-white font-semibold mb-1.5">
+            <h4 className="text-su-text font-semibold mb-1.5">
               SDR Waterfall Palette
             </h4>
             <p>
@@ -289,14 +289,14 @@ export function SettingsSection() {
                 good contrast.
               </li>
               <li>
-                <strong>Grayscale</strong> &mdash; Simple black-to-white
+                <strong>Grayscale</strong> &mdash; Simple black to white
                 gradient. Clean and distraction-free.
               </li>
             </ul>
           </div>
 
           <div>
-            <h4 className="text-white font-semibold mb-1.5">Live Preview</h4>
+            <h4 className="text-su-text font-semibold mb-1.5">Live Preview</h4>
             <p>
               A preview panel at the bottom of the Appearance section shows
               sample UI elements with your current accent color and theme so you
@@ -318,9 +318,9 @@ export function SettingsSection() {
         title="Notifications"
         summary="Band alerts, storm warnings, sound controls, watch alerts, and quiet hours"
       >
-        <div className="space-y-4 text-sm text-gray-300 leading-relaxed">
+        <div className="space-y-4 text-sm text-su-muted leading-relaxed">
           <div>
-            <h4 className="text-white font-semibold mb-1.5">Alert Types</h4>
+            <h4 className="text-su-text font-semibold mb-1.5">Alert Types</h4>
             <ul className="list-disc list-inside space-y-1.5 pl-1">
               <li>
                 <strong>Greyline Alerts</strong> &mdash; Notifies you when the
@@ -349,7 +349,7 @@ export function SettingsSection() {
           </div>
 
           <div>
-            <h4 className="text-white font-semibold mb-1.5">Sound Controls</h4>
+            <h4 className="text-su-text font-semibold mb-1.5">Sound Controls</h4>
             <ul className="list-disc list-inside space-y-1.5 pl-1">
               <li>
                 <strong>Sound Enabled</strong> &mdash; Master toggle for audible
@@ -359,7 +359,7 @@ export function SettingsSection() {
           </div>
 
           <div>
-            <h4 className="text-white font-semibold mb-1.5">Watch Alerts</h4>
+            <h4 className="text-su-text font-semibold mb-1.5">Watch Alerts</h4>
             <p>
               Watch alerts are tied to your saved watch targets. When a watched
               grid square, callsign, or region has activity, you receive a
@@ -369,7 +369,7 @@ export function SettingsSection() {
           </div>
 
           <div>
-            <h4 className="text-white font-semibold mb-1.5">Quiet Hours</h4>
+            <h4 className="text-su-text font-semibold mb-1.5">Quiet Hours</h4>
             <p>
               Suppress all audible alerts during specified UTC hours. When
               enabled, configure a start and end hour (0&ndash;23 UTC). During
@@ -393,9 +393,9 @@ export function SettingsSection() {
         title="Connections"
         summary="ProPulse Bridge, DX Cluster, CAT rig control, and hardware integration"
       >
-        <div className="space-y-5 text-sm text-gray-300 leading-relaxed">
+        <div className="space-y-5 text-sm text-su-muted leading-relaxed">
           <div>
-            <h4 className="text-white font-semibold mb-1.5">ProPulse Bridge</h4>
+            <h4 className="text-su-text font-semibold mb-1.5">ProPulse Bridge</h4>
             <p>
               The ProPulse Bridge is a local companion application that connects
               Propulse (running in your browser) to your radio hardware. It
@@ -407,7 +407,7 @@ export function SettingsSection() {
           </div>
 
           <div>
-            <h4 className="text-white font-semibold mb-1.5">DX Cluster</h4>
+            <h4 className="text-su-text font-semibold mb-1.5">DX Cluster</h4>
             <p>
               Connect to a DX cluster node for real-time spot streaming via the
               ProPulse Bridge. Features include:
@@ -445,7 +445,7 @@ export function SettingsSection() {
           </div>
 
           <div>
-            <h4 className="text-white font-semibold mb-1.5">
+            <h4 className="text-su-text font-semibold mb-1.5">
               CAT / Rig Control
             </h4>
             <p>
@@ -497,7 +497,7 @@ export function SettingsSection() {
         title="Subscription"
         summary="Manage your plan, compare features, upgrade, and billing"
       >
-        <div className="space-y-4 text-sm text-gray-300 leading-relaxed">
+        <div className="space-y-4 text-sm text-su-muted leading-relaxed">
           <p>
             Propulse offers two plans: <strong>Free</strong> and{" "}
             <strong>Pro</strong> ($6.99/month). The free plan includes all
@@ -505,7 +505,7 @@ export function SettingsSection() {
           </p>
 
           <div>
-            <h4 className="text-white font-semibold mb-1.5">Plan Comparison</h4>
+            <h4 className="text-su-text font-semibold mb-1.5">Plan Comparison</h4>
             <ul className="list-disc list-inside space-y-1.5 pl-1">
               <li>
                 <strong>Cloud Sync</strong> &mdash; Logbook, settings, and
@@ -539,7 +539,7 @@ export function SettingsSection() {
           </div>
 
           <div>
-            <h4 className="text-white font-semibold mb-1.5">
+            <h4 className="text-su-text font-semibold mb-1.5">
               Managing Your Subscription
             </h4>
             <ul className="list-disc list-inside space-y-1.5 pl-1">
@@ -579,9 +579,9 @@ export function SettingsSection() {
         title="Data & Account"
         summary="Account management, export/import settings, logbook export, and data clearing"
       >
-        <div className="space-y-4 text-sm text-gray-300 leading-relaxed">
+        <div className="space-y-4 text-sm text-su-muted leading-relaxed">
           <div>
-            <h4 className="text-white font-semibold mb-1.5">Account</h4>
+            <h4 className="text-su-text font-semibold mb-1.5">Account</h4>
             <p>
               If Supabase authentication is configured, this section shows your
               account status. When signed in, you see your email, sync status
@@ -593,7 +593,7 @@ export function SettingsSection() {
           </div>
 
           <div>
-            <h4 className="text-white font-semibold mb-1.5">
+            <h4 className="text-su-text font-semibold mb-1.5">
               Export / Import Settings
             </h4>
             <ul className="list-disc list-inside space-y-1.5 pl-1">
@@ -612,7 +612,7 @@ export function SettingsSection() {
           </div>
 
           <div>
-            <h4 className="text-white font-semibold mb-1.5">Export Logbook</h4>
+            <h4 className="text-su-text font-semibold mb-1.5">Export Logbook</h4>
             <p>
               Download your logbook as an ADIF file compatible with other
               amateur radio logging software (Logger32, N1MM, HRD, etc.). The
@@ -622,7 +622,7 @@ export function SettingsSection() {
           </div>
 
           <div>
-            <h4 className="text-white font-semibold mb-1.5">
+            <h4 className="text-su-text font-semibold mb-1.5">
               Clear Local Data
             </h4>
             <p>
@@ -641,7 +641,7 @@ export function SettingsSection() {
           </div>
 
           <div>
-            <h4 className="text-white font-semibold mb-1.5">About</h4>
+            <h4 className="text-su-text font-semibold mb-1.5">About</h4>
             <p>
               Displays the current Propulse version number. Backup files include
               version information for compatibility, so you can safely import

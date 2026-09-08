@@ -192,8 +192,8 @@ export function SpotDetailsFlyout({
     <div
       className={`
         fixed z-50 pointer-events-none
-        bg-gray-900/95 backdrop-blur-md
-        border border-white/10 rounded-lg
+        bg-su-canvas/95 backdrop-blur-md
+        border border-su-line/40 rounded-lg
         shadow-xl
         transition-opacity duration-150
         ${visible ? "opacity-100" : "opacity-0"}
@@ -206,10 +206,10 @@ export function SpotDetailsFlyout({
       }}
     >
       {/* Header with callsign and feasibility */}
-      <div className="px-3 py-2 border-b border-white/10">
+      <div className="px-3 py-2 border-b border-su-line/40">
         <div className="flex items-center justify-between gap-2">
           <div
-            className="text-white font-mono font-bold text-base"
+            className="text-su-text font-mono font-bold text-base"
             style={{ textShadow: `0 0 8px ${modeColor}60` }}
           >
             {spot.callsign}
@@ -223,9 +223,9 @@ export function SpotDetailsFlyout({
           )}
         </div>
         {(spot.dxGrid || spot.dxLocApprox) && (
-          <div className="flex items-center gap-2 text-xs text-gray-400 font-mono">
+          <div className="flex items-center gap-2 text-xs text-su-muted font-mono">
             {spot.dxGrid && <span>{spot.dxGrid}</span>}
-            {spot.dxGrid && <span className="text-gray-600">•</span>}
+            {spot.dxGrid && <span className="text-su-muted">•</span>}
             <span>
               {formatCoord(spot.dxLat, true)}, {formatCoord(spot.dxLon, false)}
             </span>
@@ -245,17 +245,17 @@ export function SpotDetailsFlyout({
       <div className="px-3 py-2 space-y-1.5">
         {/* Frequency and Mode row */}
         <div className="flex items-center gap-2">
-          <span className="text-white font-mono text-sm">
+          <span className="text-su-text font-mono text-sm">
             {formatFrequency(spot.frequency)}
           </span>
           {spot.band && (
-            <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-white/10 text-gray-300">
+            <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-su-line/20 text-su-muted">
               {spot.band}
             </span>
           )}
           {spot.mode && (
             <span
-              className="px-1.5 py-0.5 rounded text-[10px] font-bold text-white"
+              className="px-1.5 py-0.5 rounded text-[10px] font-bold text-su-text"
               style={{ backgroundColor: modeColor }}
             >
               {spot.mode}
@@ -265,7 +265,7 @@ export function SpotDetailsFlyout({
 
         {/* Time and Age row */}
         <div className="flex items-center justify-between">
-          <span className="text-xs text-gray-400">
+          <span className="text-xs text-su-muted">
             {spot.time.toISOString().substring(11, 16)} UTC
           </span>
           {ageInfo && ageBadgeColors && (
@@ -294,12 +294,12 @@ export function SpotDetailsFlyout({
             {spot.source}
           </span>
           {spot.snr !== undefined && (
-            <span className="text-xs text-gray-400">
+            <span className="text-xs text-su-muted">
               SNR: <span className="text-cyan-400">{spot.snr}</span> dB
             </span>
           )}
           {spot.wpm !== undefined && (
-            <span className="text-xs text-gray-400">
+            <span className="text-xs text-su-muted">
               <span className="text-amber-400">{spot.wpm}</span> WPM
             </span>
           )}
@@ -307,12 +307,12 @@ export function SpotDetailsFlyout({
 
         {/* Spotter info */}
         {spot.spotter && (
-          <div className="pt-1 border-t border-white/5">
-            <div className="flex items-center gap-1.5 text-[10px] text-gray-500">
+          <div className="pt-1 border-t border-su-line/20">
+            <div className="flex items-center gap-1.5 text-[10px] text-su-muted">
               <span>Spotted by:</span>
-              <span className="text-gray-400 font-mono">{spot.spotter}</span>
+              <span className="text-su-muted font-mono">{spot.spotter}</span>
               {spot.spotterGrid && (
-                <span className="text-gray-500 font-mono">
+                <span className="text-su-muted font-mono">
                   ({spot.spotterGrid})
                 </span>
               )}
@@ -320,7 +320,7 @@ export function SpotDetailsFlyout({
           </div>
         )}
         {spot.comment && (
-          <div className="border-t border-white/5 pt-1 text-[10px] leading-snug text-gray-400">
+          <div className="border-t border-su-line/20 pt-1 text-[10px] leading-snug text-su-muted">
             {spot.comment}
           </div>
         )}

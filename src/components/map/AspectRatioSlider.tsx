@@ -30,7 +30,7 @@ export function AspectRatioSlider({ className }: AspectRatioSliderProps = {}) {
     <div
       className={
         className ??
-        "absolute bottom-3 right-3 z-30 flex flex-col items-center gap-1 bg-void-black/70 backdrop-blur-sm border border-white/10 rounded-lg px-2 py-2"
+        "absolute bottom-3 right-3 z-30 flex flex-col items-center gap-1 bg-void-black/70 backdrop-blur-sm border border-su-line/40 rounded-lg px-2 py-2"
       }
     >
       {/* Ratio icon */}
@@ -41,7 +41,7 @@ export function AspectRatioSlider({ className }: AspectRatioSliderProps = {}) {
         fill="none"
         stroke="currentColor"
         strokeWidth="1.2"
-        className="text-white/50"
+        className="text-su-text/50"
       >
         <rect x="1" y="3" width="12" height="8" rx="1" />
         <path d="M4 7h6M4 7l1.5-1.5M4 7l1.5 1.5M10 7l-1.5-1.5M10 7l-1.5 1.5" />
@@ -66,7 +66,7 @@ export function AspectRatioSlider({ className }: AspectRatioSliderProps = {}) {
       />
 
       {/* Value label */}
-      <span className="text-[9px] font-mono text-white/40 leading-none">
+      <span className="text-[9px] font-mono text-su-text/80 leading-none">
         {mapAspectRatio.toFixed(1)}
       </span>
 

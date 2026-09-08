@@ -1,8 +1,8 @@
 /**
  * TanStack Query hook for building a band x hour-of-day propagation heatmap.
  *
- * Fetches `band_hourly_stats` over a configurable time window (default 7 days),
- * then aggregates spot counts and average SNR into 24 hourly buckets per band.
+ * Fetches gap-filtered `band_hourly_stats_readable` over a configurable time
+ * window, then aggregates spot counts and average SNR into hourly buckets.
  * The result is a flat array of { band, hour, spotCount, avgSnr } cells
  * suitable for rendering a heatmap grid.
  */
@@ -45,7 +45,7 @@ export function usePropagationHeatmap(days: number = 7) {
       since.setDate(since.getDate() - days);
 
       const { data, error } = await supabase
-        .from("band_hourly_stats")
+        .from("band_hourly_stats_readable")
         .select("band, hour_utc, spot_count, avg_snr")
         .gte("hour_utc", since.toISOString())
         .order("hour_utc", { ascending: true });

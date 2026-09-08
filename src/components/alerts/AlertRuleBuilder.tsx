@@ -285,16 +285,16 @@ export const AlertRuleBuilder: React.FC<AlertRuleBuilderProps> = ({
       />
 
       {/* Modal content */}
-      <div className="relative w-full max-w-lg max-h-[90vh] overflow-y-auto rounded-xl border border-white/10 bg-void-black shadow-2xl">
+      <div className="relative w-full max-w-lg max-h-[90vh] overflow-y-auto rounded-xl border border-su-line/40 bg-void-black shadow-2xl">
         {/* Header */}
-        <div className="sticky top-0 z-10 flex items-center justify-between border-b border-white/10 bg-void-black/95 backdrop-blur-sm px-6 py-4">
-          <h2 className="text-lg font-semibold text-white font-mono">
+        <div className="sticky top-0 z-10 flex items-center justify-between border-b border-su-line/40 bg-void-black/95 backdrop-blur-sm px-6 py-4">
+          <h2 className="text-lg font-semibold text-su-text font-mono">
             {rule ? "Edit Alert Rule" : "New Alert Rule"}
           </h2>
           <button
             type="button"
             onClick={onCancel}
-            className="p-1.5 text-gray-400 hover:text-white hover:bg-white/10 rounded-lg transition-colors"
+            className="p-1.5 text-su-muted hover:text-su-text hover:bg-su-line/20 rounded-lg transition-colors"
             aria-label="Close"
           >
             <svg className="w-5 h-5" viewBox="0 0 20 20" fill="currentColor">
@@ -307,7 +307,7 @@ export const AlertRuleBuilder: React.FC<AlertRuleBuilderProps> = ({
         <div className="px-6 py-4 space-y-5">
           {/* Rule name */}
           <div>
-            <label className="block text-sm font-mono text-gray-300 mb-1.5">
+            <label className="block text-sm font-mono text-su-muted mb-1.5">
               Rule Name <span className="text-alert-red">*</span>
             </label>
             <input
@@ -316,24 +316,24 @@ export const AlertRuleBuilder: React.FC<AlertRuleBuilderProps> = ({
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="e.g., Indonesia on 20m"
-              className="w-full px-3 py-2 rounded-lg bg-deep-space border border-white/10 text-white font-mono text-sm placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-plasma-orange/50 focus:border-plasma-orange/50"
+              className="w-full px-3 py-2 rounded-lg bg-deep-space border border-su-line/40 text-su-text font-mono text-sm placeholder:text-su-muted focus:outline-none focus:ring-2 focus:ring-plasma-orange/50 focus:border-plasma-orange/50"
             />
           </div>
 
           {/* Enabled toggle */}
           <div className="flex items-center justify-between">
-            <span className="text-sm font-mono text-gray-300">Enabled</span>
+            <span className="text-sm font-mono text-su-muted">Enabled</span>
             <button
               type="button"
               role="switch"
               aria-checked={enabled}
               onClick={() => setEnabled(!enabled)}
               className={`relative w-11 h-6 rounded-full transition-colors ${
-                enabled ? "bg-signal-green" : "bg-gray-600"
+                enabled ? "bg-signal-green" : "bg-su-line"
               }`}
             >
               <span
-                className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform ${
+                className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-su-text shadow transition-transform ${
                   enabled ? "translate-x-5" : "translate-x-0"
                 }`}
               />
@@ -341,14 +341,14 @@ export const AlertRuleBuilder: React.FC<AlertRuleBuilderProps> = ({
           </div>
 
           {/* ── Conditions Section ── */}
-          <div className="pt-2 border-t border-white/5">
-            <h3 className="text-xs font-mono text-gray-400 uppercase tracking-wider mb-3">
+          <div className="pt-2 border-t border-su-line/20">
+            <h3 className="text-xs font-mono text-su-muted uppercase tracking-wider mb-3">
               Match Conditions
             </h3>
 
             {/* Callsign pattern */}
             <div className="mb-4">
-              <label className="block text-sm font-mono text-gray-300 mb-1.5">
+              <label className="block text-sm font-mono text-su-muted mb-1.5">
                 Callsign Pattern
               </label>
               <input
@@ -356,16 +356,16 @@ export const AlertRuleBuilder: React.FC<AlertRuleBuilderProps> = ({
                 value={callsignPattern}
                 onChange={(e) => setCallsignPattern(e.target.value)}
                 placeholder="e.g., YB*, VK?ABC, 3Y*"
-                className="w-full px-3 py-2 rounded-lg bg-deep-space border border-white/10 text-white font-mono text-sm placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-plasma-orange/50"
+                className="w-full px-3 py-2 rounded-lg bg-deep-space border border-su-line/40 text-su-text font-mono text-sm placeholder:text-su-muted focus:outline-none focus:ring-2 focus:ring-plasma-orange/50"
               />
-              <p className="text-xs text-gray-500 mt-1">
+              <p className="text-xs text-su-muted mt-1">
                 * = any characters, ? = single character
               </p>
             </div>
 
             {/* DXCC Entity */}
             <div className="mb-4 relative" ref={entityDropdownRef}>
-              <label className="block text-sm font-mono text-gray-300 mb-1.5">
+              <label className="block text-sm font-mono text-su-muted mb-1.5">
                 DXCC Entity
               </label>
               <input
@@ -379,10 +379,10 @@ export const AlertRuleBuilder: React.FC<AlertRuleBuilderProps> = ({
                   if (entitySearch.trim()) setShowEntityDropdown(true);
                 }}
                 placeholder="Search by name or prefix..."
-                className="w-full px-3 py-2 rounded-lg bg-deep-space border border-white/10 text-white font-mono text-sm placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-plasma-orange/50"
+                className="w-full px-3 py-2 rounded-lg bg-deep-space border border-su-line/40 text-su-text font-mono text-sm placeholder:text-su-muted focus:outline-none focus:ring-2 focus:ring-plasma-orange/50"
               />
               {showEntityDropdown && filteredEntities.length > 0 && (
-                <div className="absolute z-20 mt-1 w-full max-h-48 overflow-y-auto rounded-lg border border-white/10 bg-space-900 shadow-xl">
+                <div className="absolute z-20 mt-1 w-full max-h-48 overflow-y-auto rounded-lg border border-su-line/40 bg-space-900 shadow-xl">
                   {filteredEntities.map((entity) => (
                     <button
                       key={`${entity.id}-${entity.prefix}`}
@@ -392,13 +392,13 @@ export const AlertRuleBuilder: React.FC<AlertRuleBuilderProps> = ({
                         setEntitySearch(entity.name);
                         setShowEntityDropdown(false);
                       }}
-                      className="w-full px-3 py-2 text-left text-sm font-mono text-gray-200 hover:bg-white/10 flex items-center gap-2"
+                      className="w-full px-3 py-2 text-left text-sm font-mono text-su-text hover:bg-su-line/20 flex items-center gap-2"
                     >
                       <span className="text-plasma-orange">
                         {entity.prefix}
                       </span>
                       <span>{entity.name}</span>
-                      <span className="text-gray-500 ml-auto text-xs">
+                      <span className="text-su-muted ml-auto text-xs">
                         {entity.continent}
                       </span>
                     </button>
@@ -414,7 +414,7 @@ export const AlertRuleBuilder: React.FC<AlertRuleBuilderProps> = ({
 
             {/* Continents */}
             <div className="mb-4">
-              <label className="block text-sm font-mono text-gray-300 mb-1.5">
+              <label className="block text-sm font-mono text-su-muted mb-1.5">
                 Continents
               </label>
               <div className="flex flex-wrap gap-2">
@@ -425,8 +425,8 @@ export const AlertRuleBuilder: React.FC<AlertRuleBuilderProps> = ({
                     onClick={() => toggleContinent(c.code)}
                     className={`px-3 py-1.5 rounded-lg text-xs font-mono transition-colors border ${
                       selectedContinents.includes(c.code)
-                        ? "bg-nebula-blue/30 border-nebula-blue text-white"
-                        : "bg-deep-space border-white/10 text-gray-400 hover:border-white/20"
+                        ? "bg-nebula-blue/30 border-nebula-blue text-su-text"
+                        : "bg-deep-space border-su-line/40 text-su-muted hover:border-su-line/50"
                     }`}
                   >
                     {c.code}
@@ -437,7 +437,7 @@ export const AlertRuleBuilder: React.FC<AlertRuleBuilderProps> = ({
 
             {/* Bands */}
             <div className="mb-4">
-              <label className="block text-sm font-mono text-gray-300 mb-1.5">
+              <label className="block text-sm font-mono text-su-muted mb-1.5">
                 Bands
               </label>
               <div className="flex flex-wrap gap-2">
@@ -448,8 +448,8 @@ export const AlertRuleBuilder: React.FC<AlertRuleBuilderProps> = ({
                     onClick={() => toggleBand(band)}
                     className={`px-3 py-1.5 rounded-lg text-xs font-mono transition-colors border ${
                       selectedBands.includes(band)
-                        ? "bg-plasma-orange/30 border-plasma-orange text-white"
-                        : "bg-deep-space border-white/10 text-gray-400 hover:border-white/20"
+                        ? "bg-plasma-orange/30 border-plasma-orange text-su-text"
+                        : "bg-deep-space border-su-line/40 text-su-muted hover:border-su-line/50"
                     }`}
                   >
                     {band}
@@ -460,7 +460,7 @@ export const AlertRuleBuilder: React.FC<AlertRuleBuilderProps> = ({
 
             {/* Modes */}
             <div className="mb-4">
-              <label className="block text-sm font-mono text-gray-300 mb-1.5">
+              <label className="block text-sm font-mono text-su-muted mb-1.5">
                 Modes
               </label>
               <div className="flex flex-wrap gap-2">
@@ -471,8 +471,8 @@ export const AlertRuleBuilder: React.FC<AlertRuleBuilderProps> = ({
                     onClick={() => toggleMode(mode)}
                     className={`px-3 py-1.5 rounded-lg text-xs font-mono transition-colors border ${
                       selectedModes.includes(mode)
-                        ? "bg-signal-green/30 border-signal-green text-white"
-                        : "bg-deep-space border-white/10 text-gray-400 hover:border-white/20"
+                        ? "bg-signal-green/30 border-signal-green text-su-text"
+                        : "bg-deep-space border-su-line/40 text-su-muted hover:border-su-line/50"
                     }`}
                   >
                     {mode}
@@ -483,7 +483,7 @@ export const AlertRuleBuilder: React.FC<AlertRuleBuilderProps> = ({
 
             {/* Min SNR */}
             <div className="mb-4">
-              <label className="block text-sm font-mono text-gray-300 mb-1.5">
+              <label className="block text-sm font-mono text-su-muted mb-1.5">
                 Minimum SNR (dB)
               </label>
               <input
@@ -493,17 +493,17 @@ export const AlertRuleBuilder: React.FC<AlertRuleBuilderProps> = ({
                 min={-30}
                 max={40}
                 placeholder="-10"
-                className="w-32 px-3 py-2 rounded-lg bg-deep-space border border-white/10 text-white font-mono text-sm placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-plasma-orange/50"
+                className="w-32 px-3 py-2 rounded-lg bg-deep-space border border-su-line/40 text-su-text font-mono text-sm placeholder:text-su-muted focus:outline-none focus:ring-2 focus:ring-plasma-orange/50"
               />
-              <p className="text-xs text-gray-500 mt-1">
+              <p className="text-xs text-su-muted mt-1">
                 Only triggers if SNR is reported and at or above this value
               </p>
             </div>
           </div>
 
           {/* ── Notification Section ── */}
-          <div className="pt-2 border-t border-white/5">
-            <h3 className="text-xs font-mono text-gray-400 uppercase tracking-wider mb-3">
+          <div className="pt-2 border-t border-su-line/20">
+            <h3 className="text-xs font-mono text-su-muted uppercase tracking-wider mb-3">
               Notifications
             </h3>
 
@@ -513,9 +513,9 @@ export const AlertRuleBuilder: React.FC<AlertRuleBuilderProps> = ({
                   type="checkbox"
                   checked={soundEnabled}
                   onChange={(e) => setSoundEnabled(e.target.checked)}
-                  className="w-4 h-4 rounded border-white/20 bg-deep-space text-plasma-orange focus:ring-plasma-orange/50"
+                  className="w-4 h-4 rounded border-su-line/50 bg-deep-space text-plasma-orange focus:ring-plasma-orange/50"
                 />
-                <span className="text-sm font-mono text-gray-300">
+                <span className="text-sm font-mono text-su-muted">
                   Play sound
                 </span>
               </label>
@@ -525,9 +525,9 @@ export const AlertRuleBuilder: React.FC<AlertRuleBuilderProps> = ({
                   type="checkbox"
                   checked={browserEnabled}
                   onChange={(e) => setBrowserEnabled(e.target.checked)}
-                  className="w-4 h-4 rounded border-white/20 bg-deep-space text-plasma-orange focus:ring-plasma-orange/50"
+                  className="w-4 h-4 rounded border-su-line/50 bg-deep-space text-plasma-orange focus:ring-plasma-orange/50"
                 />
-                <span className="text-sm font-mono text-gray-300">
+                <span className="text-sm font-mono text-su-muted">
                   Browser notification
                 </span>
               </label>
@@ -537,9 +537,9 @@ export const AlertRuleBuilder: React.FC<AlertRuleBuilderProps> = ({
                   type="checkbox"
                   checked={highlightEnabled}
                   onChange={(e) => setHighlightEnabled(e.target.checked)}
-                  className="w-4 h-4 rounded border-white/20 bg-deep-space text-plasma-orange focus:ring-plasma-orange/50"
+                  className="w-4 h-4 rounded border-su-line/50 bg-deep-space text-plasma-orange focus:ring-plasma-orange/50"
                 />
-                <span className="text-sm font-mono text-gray-300">
+                <span className="text-sm font-mono text-su-muted">
                   Highlight in spot list
                 </span>
               </label>
@@ -547,8 +547,8 @@ export const AlertRuleBuilder: React.FC<AlertRuleBuilderProps> = ({
           </div>
 
           {/* ── Contest Behavior Section ── */}
-          <div className="pt-2 border-t border-white/5">
-            <h3 className="text-xs font-mono text-gray-400 uppercase tracking-wider mb-3">
+          <div className="pt-2 border-t border-su-line/20">
+            <h3 className="text-xs font-mono text-su-muted uppercase tracking-wider mb-3">
               Contest Behavior
             </h3>
 
@@ -559,13 +559,13 @@ export const AlertRuleBuilder: React.FC<AlertRuleBuilderProps> = ({
                   name="contestBehavior"
                   checked={contestBehavior === "always"}
                   onChange={() => setContestBehavior("always")}
-                  className="w-4 h-4 border-white/20 bg-deep-space text-plasma-orange focus:ring-plasma-orange/50"
+                  className="w-4 h-4 border-su-line/50 bg-deep-space text-plasma-orange focus:ring-plasma-orange/50"
                 />
                 <div>
-                  <span className="text-sm font-mono text-gray-300">
+                  <span className="text-sm font-mono text-su-muted">
                     Always alert
                   </span>
-                  <p className="text-xs text-gray-500">
+                  <p className="text-xs text-su-muted">
                     Triggers during and outside of contests
                   </p>
                 </div>
@@ -577,13 +577,13 @@ export const AlertRuleBuilder: React.FC<AlertRuleBuilderProps> = ({
                   name="contestBehavior"
                   checked={contestBehavior === "contest_only"}
                   onChange={() => setContestBehavior("contest_only")}
-                  className="w-4 h-4 border-white/20 bg-deep-space text-plasma-orange focus:ring-plasma-orange/50"
+                  className="w-4 h-4 border-su-line/50 bg-deep-space text-plasma-orange focus:ring-plasma-orange/50"
                 />
                 <div>
-                  <span className="text-sm font-mono text-gray-300">
+                  <span className="text-sm font-mono text-su-muted">
                     Only during contests
                   </span>
-                  <p className="text-xs text-gray-500">
+                  <p className="text-xs text-su-muted">
                     Only triggers when a contest is active
                   </p>
                 </div>
@@ -595,13 +595,13 @@ export const AlertRuleBuilder: React.FC<AlertRuleBuilderProps> = ({
                   name="contestBehavior"
                   checked={contestBehavior === "non_contest_only"}
                   onChange={() => setContestBehavior("non_contest_only")}
-                  className="w-4 h-4 border-white/20 bg-deep-space text-plasma-orange focus:ring-plasma-orange/50"
+                  className="w-4 h-4 border-su-line/50 bg-deep-space text-plasma-orange focus:ring-plasma-orange/50"
                 />
                 <div>
-                  <span className="text-sm font-mono text-gray-300">
+                  <span className="text-sm font-mono text-su-muted">
                     Only outside contests
                   </span>
-                  <p className="text-xs text-gray-500">
+                  <p className="text-xs text-su-muted">
                     Paused automatically when a contest is detected
                   </p>
                 </div>
@@ -611,11 +611,11 @@ export const AlertRuleBuilder: React.FC<AlertRuleBuilderProps> = ({
         </div>
 
         {/* Footer buttons */}
-        <div className="sticky bottom-0 z-10 flex items-center justify-end gap-3 border-t border-white/10 bg-void-black/95 backdrop-blur-sm px-6 py-4">
+        <div className="sticky bottom-0 z-10 flex items-center justify-end gap-3 border-t border-su-line/40 bg-void-black/95 backdrop-blur-sm px-6 py-4">
           <button
             type="button"
             onClick={onCancel}
-            className="px-4 py-2 rounded-lg text-sm font-mono text-gray-300 hover:text-white hover:bg-white/10 transition-colors"
+            className="px-4 py-2 rounded-lg text-sm font-mono text-su-muted hover:text-su-text hover:bg-su-line/20 transition-colors"
           >
             Cancel
           </button>
@@ -625,8 +625,8 @@ export const AlertRuleBuilder: React.FC<AlertRuleBuilderProps> = ({
             disabled={!isValid}
             className={`px-5 py-2 rounded-lg text-sm font-mono font-semibold transition-colors ${
               isValid
-                ? "bg-plasma-orange text-black hover:bg-plasma-orange/90"
-                : "bg-gray-700 text-gray-500 cursor-not-allowed"
+                ? "bg-plasma-orange text-su-on-accent hover:bg-plasma-orange/90"
+                : "bg-su-input text-su-muted cursor-not-allowed"
             }`}
           >
             {rule ? "Save Changes" : "Create Rule"}

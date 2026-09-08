@@ -183,7 +183,7 @@ function SettingsSidebar({
             className={`w-full text-left px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
               activeSection === section.id
                 ? "bg-plasma-orange/15 text-plasma-orange"
-                : "text-gray-400 hover:text-gray-200 hover:bg-white/5"
+                : "text-su-muted hover:text-su-text hover:bg-su-line/10"
             }`}
           >
             <span className="mr-2 inline-flex">
@@ -193,7 +193,7 @@ function SettingsSidebar({
           </button>
         ))}
       </div>
-      <div className="mt-auto pt-6 px-3 text-xs text-gray-600">v0.13.1</div>
+      <div className="mt-auto pt-6 px-3 text-xs text-su-muted">v0.13.1</div>
     </nav>
   );
 }
@@ -232,8 +232,8 @@ function SettingsMobileNav({
           onClick={() => onSelect(section.id)}
           className={`flex-shrink-0 px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-colors ${
             activeSection === section.id
-              ? "bg-plasma-orange text-white"
-              : "bg-white/5 text-gray-400 hover:text-gray-200 hover:bg-white/10"
+              ? "bg-plasma-orange text-su-on-accent"
+              : "bg-su-line/10 text-su-muted hover:text-su-text hover:bg-su-line/20"
           }`}
         >
           <span className="mr-1 inline-flex">{SECTION_ICONS[section.id]}</span>
@@ -296,10 +296,10 @@ export default function SettingsPage() {
           onSelect={handleSectionSelect}
         />
         <div className="flex-1 min-w-0 max-w-[720px]">
-          <h1 className="text-2xl font-bold text-gray-100 mb-1">
+          <h1 className="text-2xl font-bold text-su-text mb-1">
             {SECTIONS.find((s) => s.id === activeSection)?.label}
           </h1>
-          <p className="text-sm text-gray-500 mb-6">
+          <p className="text-sm text-su-muted mb-6">
             {getSectionDescription(activeSection)}
           </p>
           {ActiveComponent && <ActiveComponent />}
@@ -313,8 +313,8 @@ export default function SettingsPage() {
 
   return (
     <div className="px-4 py-4">
-      <h1 className="text-xl font-bold text-gray-100 mb-1">Settings</h1>
-      <p className="text-sm text-gray-500 mb-3">Configure your experience</p>
+      <h1 className="text-xl font-bold text-su-text mb-1">Settings</h1>
+      <p className="text-sm text-su-muted mb-3">Configure your experience</p>
 
       <SettingsMobileNav
         activeSection={activeSection}
@@ -326,8 +326,8 @@ export default function SettingsPage() {
         const Component = section ? SECTION_COMPONENTS[section.id] : null;
         if (!Component || !section) return null;
         return (
-          <div className="rounded-2xl bg-panel/30 border border-white/5 p-4">
-            <h2 className="text-lg font-semibold text-gray-200 mb-4">
+          <div className="rounded-2xl bg-panel/30 border border-su-line/20 p-4">
+            <h2 className="text-lg font-semibold text-su-text mb-4">
               {section.label}
             </h2>
             <Component />

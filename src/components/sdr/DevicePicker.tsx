@@ -192,7 +192,7 @@ function DiscoveredDaemonRow({
         />
       ) : null}
       <button
-        className="w-full text-left hover:bg-white/5 transition-colors rounded-md px-2 py-1 -mx-2"
+        className="w-full text-left hover:bg-su-line/10 transition-colors rounded-md px-2 py-1 -mx-2"
         onClick={() => {
           if (!url) return;
           onSelect({ url, deviceId: null });
@@ -201,20 +201,20 @@ function DiscoveredDaemonRow({
         disabled={!url}
       >
         <div className="flex items-center justify-between gap-2">
-          <div className="text-sm text-gray-100 font-medium truncate">
+          <div className="text-sm text-su-text font-medium truncate">
             {daemon.hostname || daemon.fullname}
           </div>
-          <div className="text-xs text-gray-400">{version}</div>
+          <div className="text-xs text-su-muted">{version}</div>
         </div>
-        <div className="text-xs text-gray-400 truncate">{url || "No address"}</div>
+        <div className="text-xs text-su-muted truncate">{url || "No address"}</div>
         {radios ? (
-          <div className="text-xs text-gray-500 truncate mt-0.5">Radios: {radios}</div>
+          <div className="text-xs text-su-muted truncate mt-0.5">Radios: {radios}</div>
         ) : null}
       </button>
 
       <div className="mt-2">
         {fetchState.status === "loading" || fetchState.status === "idle" ? (
-          <div className="text-xs text-gray-500">Loading radios…</div>
+          <div className="text-xs text-su-muted">Loading radios…</div>
         ) : null}
         {fetchState.status === "error" ? (
           <div className="text-xs text-alert-red">
@@ -227,7 +227,7 @@ function DiscoveredDaemonRow({
               {fetchState.devices.map((device) => (
                 <button
                   key={device.device_id}
-                  className="w-full flex items-center justify-between gap-2 px-2 py-1 rounded-md border border-white/10 bg-white/[0.03] hover:bg-white/[0.06] text-left"
+                  className="w-full flex items-center justify-between gap-2 px-2 py-1 rounded-md border border-su-line/40 bg-su-line/10 hover:bg-su-line/20 text-left"
                   onClick={() => {
                     if (!url) return;
                     onSelect({ url, deviceId: device.device_id });
@@ -235,8 +235,8 @@ function DiscoveredDaemonRow({
                   }}
                 >
                   <div className="min-w-0">
-                    <div className="text-xs text-gray-100 font-medium truncate">{device.name}</div>
-                    <div className="text-[11px] text-gray-500 font-mono truncate">
+                    <div className="text-xs text-su-text font-medium truncate">{device.name}</div>
+                    <div className="text-[11px] text-su-muted font-mono truncate">
                       {device.device_id}
                     </div>
                   </div>
@@ -253,7 +253,7 @@ function DiscoveredDaemonRow({
               ))}
             </div>
           ) : (
-            <div className="text-xs text-gray-500">No radios reported by this daemon.</div>
+            <div className="text-xs text-su-muted">No radios reported by this daemon.</div>
           )
         ) : null}
       </div>
@@ -294,12 +294,12 @@ export function DevicePicker({
       <div className="space-y-4">
         <div className="flex items-end gap-2">
           <div className="flex-1">
-            <label className="block text-xs text-gray-400 mb-1">Daemon URL</label>
+            <label className="block text-xs text-su-muted mb-1">Daemon URL</label>
             <input
               value={manual}
               onChange={(e) => setManual(e.target.value)}
               placeholder="ws://127.0.0.1:9867"
-              className="w-full px-3 py-2 rounded-md bg-black/40 border border-white/10 text-gray-200 text-sm"
+              className="w-full px-3 py-2 rounded-md bg-su-input border border-su-line/40 text-su-text text-sm"
             />
           </div>
           <button
@@ -316,7 +316,7 @@ export function DevicePicker({
         </div>
 
         <div>
-          <label className="block text-xs text-gray-400 mb-1">
+          <label className="block text-xs text-su-muted mb-1">
             Daemon auth token
           </label>
           <input
@@ -325,14 +325,14 @@ export function DevicePicker({
             value={authToken}
             onChange={(event) => onAuthTokenChange(event.target.value)}
             placeholder="Required for authenticated LAN daemons"
-            className="w-full px-3 py-2 rounded-md bg-black/40 border border-white/10 text-gray-200 text-sm"
+            className="w-full px-3 py-2 rounded-md bg-su-input border border-su-line/40 text-su-text text-sm"
           />
         </div>
 
         <div className="flex items-center justify-between">
-          <div className="text-xs text-gray-400">Discovered daemons (mDNS)</div>
+          <div className="text-xs text-su-muted">Discovered daemons (mDNS)</div>
           <button
-            className="px-2 py-1 rounded bg-white/5 hover:bg-white/10 text-gray-200 text-xs border border-white/10 disabled:opacity-50"
+            className="px-2 py-1 rounded bg-su-line/10 hover:bg-su-line/20 text-su-text text-xs border border-su-line/40 disabled:opacity-50"
             onClick={onRefresh}
             disabled={!canRefresh}
             title={!canRefresh ? "Connect to a local daemon first" : "Refresh discovery"}
@@ -342,13 +342,13 @@ export function DevicePicker({
         </div>
 
         {sorted.length === 0 ? (
-          <div className="text-sm text-gray-400 bg-white/5 border border-white/10 rounded-md p-3">
+          <div className="text-sm text-su-muted bg-su-line/10 border border-su-line/40 rounded-md p-3">
             No daemons discovered yet. If you have a local daemon running, click{" "}
-            <span className="text-gray-200">Refresh</span>. Otherwise, enter a
+            <span className="text-su-text">Refresh</span>. Otherwise, enter a
             URL manually (VPN/LAN).
           </div>
         ) : (
-          <div className="divide-y divide-white/10 rounded-md border border-white/10 overflow-hidden">
+          <div className="divide-y divide-su-line/40 rounded-md border border-su-line/40 overflow-hidden">
             {sorted.map((daemon) => (
               <DiscoveredDaemonRow
                 key={daemon.fullname}
@@ -362,7 +362,7 @@ export function DevicePicker({
           </div>
         )}
 
-        <div className="text-[11px] text-gray-500">
+        <div className="text-[11px] text-su-muted">
           Tip: remote access is best via VPN (Tailscale/WireGuard). For LAN
           discovery to work, the daemon must bind to <code>0.0.0.0</code>, mDNS
           must be enabled, and an auth token should be configured. Do not expose

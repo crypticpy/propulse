@@ -58,7 +58,7 @@ export function BioSection() {
     return (
       <div>
         <div className="flex items-center justify-between mb-3">
-          <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider">
+          <h3 className="text-sm font-semibold text-su-muted uppercase tracking-wider">
             About
           </h3>
           <button
@@ -80,7 +80,7 @@ export function BioSection() {
             {/* Photo */}
             {displayImageUrl && !imgError && (
               <div className="shrink-0">
-                <div className="w-28 h-28 rounded-xl overflow-hidden border border-white/10 bg-void-black">
+                <div className="w-28 h-28 rounded-xl overflow-hidden border border-su-line/40 bg-void-black">
                   <img
                     src={displayImageUrl}
                     alt="Operator"
@@ -95,10 +95,10 @@ export function BioSection() {
               {bio ? (
                 <MarkdownRenderer
                   text={bio}
-                  className="text-gray-300 leading-relaxed"
+                  className="text-su-muted leading-relaxed"
                 />
               ) : (
-                <p className="text-sm text-gray-500 italic">
+                <p className="text-sm text-su-muted italic">
                   No bio written yet.
                 </p>
               )}
@@ -113,13 +113,13 @@ export function BioSection() {
 
   return (
     <div>
-      <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-3">
+      <h3 className="text-sm font-semibold text-su-muted uppercase tracking-wider mb-3">
         About
       </h3>
 
       {/* Upload photo */}
       <div className="mb-3">
-        <label className="block text-xs text-gray-500 mb-1">Upload Photo</label>
+        <label className="block text-xs text-su-muted mb-1">Upload Photo</label>
         <ImageUploadButton
           imageId={profileImageId}
           onImageChange={(id) => setProfileImageId(id)}
@@ -134,12 +134,12 @@ export function BioSection() {
 
       {/* Photo URL input */}
       <div className="mb-3">
-        <label className="block text-xs text-gray-500 mb-1">
+        <label className="block text-xs text-su-muted mb-1">
           Profile Photo URL (alternative)
         </label>
         <div className="flex gap-3 items-start">
           {/* Preview */}
-          <div className="w-20 h-20 rounded-lg overflow-hidden border border-white/10 bg-void-black shrink-0 flex items-center justify-center">
+          <div className="w-20 h-20 rounded-lg overflow-hidden border border-su-line/40 bg-void-black shrink-0 flex items-center justify-center">
             {imageDraft && !imageError ? (
               <img
                 src={imageDraft}
@@ -151,7 +151,7 @@ export function BioSection() {
               <svg
                 viewBox="0 0 24 24"
                 fill="none"
-                className="w-8 h-8 text-gray-600"
+                className="w-8 h-8 text-su-muted"
               >
                 <path
                   d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"
@@ -168,8 +168,8 @@ export function BioSection() {
               setImageError(false);
             }}
             placeholder="https://example.com/photo.jpg"
-            className="flex-1 bg-void-black border border-white/10 rounded-lg px-3 py-2 text-sm
-                       text-gray-200 placeholder-gray-600 focus:border-plasma-orange/50 focus:outline-none"
+            className="flex-1 bg-void-black border border-su-line/40 rounded-lg px-3 py-2 text-sm
+                       text-su-text placeholder:text-su-muted/80 focus:border-plasma-orange/50 focus:outline-none"
           />
         </div>
         {imageError && (
@@ -182,7 +182,7 @@ export function BioSection() {
       {/* Bio textarea */}
       <label
         htmlFor="bio-textarea"
-        className="block text-xs text-gray-500 mb-1"
+        className="block text-xs text-su-muted mb-1"
       >
         Bio
       </label>
@@ -192,27 +192,27 @@ export function BioSection() {
         onChange={(e) => setDraft(e.target.value.slice(0, MAX_BIO_LENGTH))}
         placeholder="Tell others about your station, operating history, interests, achievements, and antenna farm..."
         rows={8}
-        className="w-full bg-void-black border border-white/10 rounded-lg px-3 py-2 text-sm
-                   text-gray-200 leading-relaxed focus:border-plasma-orange/50 focus:outline-none resize-y"
+        className="w-full bg-void-black border border-su-line/40 rounded-lg px-3 py-2 text-sm
+                   text-su-text leading-relaxed focus:border-plasma-orange/50 focus:outline-none resize-y"
       />
-      <p className="text-xs text-gray-600 mt-1.5">
+      <p className="text-xs text-su-muted mt-1.5">
         Supports **bold**, *italic*, [links](url), and - lists.
       </p>
       <div className="flex items-center justify-between mt-2">
-        <span className="text-xs text-gray-500">
+        <span className="text-xs text-su-muted">
           {draft.length.toLocaleString()}/{MAX_BIO_LENGTH.toLocaleString()}
         </span>
         <div className="flex gap-2">
           <button
             onClick={handleCancel}
-            className="px-3 py-1.5 text-xs rounded-lg bg-white/5 border border-white/10
-                       text-gray-300 hover:text-white transition-colors"
+            className="px-3 py-1.5 text-xs rounded-lg bg-su-line/10 border border-su-line/40
+                       text-su-muted hover:text-su-text transition-colors"
           >
             Cancel
           </button>
           <button
             onClick={handleSave}
-            className="px-4 py-1.5 text-xs rounded-lg bg-plasma-orange text-white
+            className="px-4 py-1.5 text-xs rounded-lg bg-plasma-orange text-su-on-accent
                        hover:bg-plasma-orange/80 font-medium transition-colors"
           >
             Save
@@ -230,23 +230,23 @@ function EmptyState({ onAdd }: { onAdd: () => void }) {
     <button
       type="button"
       onClick={onAdd}
-      className="w-full py-6 rounded-xl border border-dashed border-white/10
+      className="w-full py-6 rounded-xl border border-dashed border-su-line/40
                  hover:border-plasma-orange/30 transition-colors group text-center"
     >
       <svg
         viewBox="0 0 24 24"
         fill="none"
-        className="w-8 h-8 mx-auto text-gray-600 group-hover:text-plasma-orange/60 transition-colors mb-2"
+        className="w-8 h-8 mx-auto text-su-muted group-hover:text-plasma-orange/60 transition-colors mb-2"
       >
         <path
           d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"
           fill="currentColor"
         />
       </svg>
-      <p className="text-sm text-gray-500 group-hover:text-gray-400 transition-colors">
+      <p className="text-sm text-su-muted group-hover:text-su-text transition-colors">
         Add your bio and photo
       </p>
-      <p className="text-xs text-gray-600 mt-0.5">
+      <p className="text-xs text-su-muted mt-0.5">
         Tell others about your station, history, and interests
       </p>
     </button>

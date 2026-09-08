@@ -108,3 +108,18 @@ it("uses UTC rollover for valid time-only CSV reports", async () => {
   vi.stubGlobal("fetch", vi.fn(async () => new Response("W3LPL^14074^EA6EJ^FT8^2359^L^E^EU^20M", { headers: { "Content-Type": "text/plain" } })));
   expect((await fetchClusterFeed()).spots[0].time.toISOString()).toBe("2026-09-06T23:59:00.000Z");
 });
+
+
+it("requests and verifies the DX-only two-hour source contract", async () => {
+  respond({ spots: [clients[2].row], meta: meta("dxcluster", 120) });
+  const feed = await fetchClusterFeed(200, 120);
+  expect(feed.metadata.windowMinutes).toBe(120);
+  expect(feed.spots[0].time.toISOString()).toBe(observedAt);
+  expect(String(vi.mocked(fetch).mock.calls[0][0])).toContain("windowMinutes=120");
+  respond({ spots: [], meta: meta("dxcluster", 60) });
+  await expect(fetchClusterFeed(200, 120)).rejects.toThrow(/does not confirm/);
+  for (const source of ["pskreporter", "rbn"] as const) {
+    expect(() => readSpotFeedMetadata({ meta: meta(source, 120) }, source)).toThrow(/invalid feed metadata/);
+    expect(() => spotFeedWindowParameter(120, source)).toThrow(/Unsupported/);
+  }
+});

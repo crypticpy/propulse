@@ -106,7 +106,7 @@ export function OperationalScopeControl({
 
   return (
     <div
-      className="flex shrink-0 items-center gap-1 rounded-lg border border-white/10 bg-black/50 p-1"
+      className="flex shrink-0 items-center gap-1 rounded-lg border border-su-line/40 bg-su-panel/90 p-1"
       data-map-scope={scope}
       data-public-assistance={String(policy.publicAssistance)}
     >
@@ -125,7 +125,7 @@ export function OperationalScopeControl({
         aria-label="PropSphere operating scope"
         value={manualScope ?? "auto"}
         onChange={(event) => handleScopeChange(event.target.value)}
-        className="max-w-24 rounded border border-white/10 bg-gray-950 px-1.5 py-1 text-[10px] text-gray-200 focus:border-cosmic-cyan/50 focus:outline-none"
+        className="max-w-24 rounded border border-su-line/40 bg-su-canvas px-1.5 py-1 text-[10px] text-su-text focus:border-cosmic-cyan/50 focus:outline-none"
         title={`Automatic scope: ${SCOPE_LABELS[automaticScope]}`}
       >
         <option value="auto">Auto</option>
@@ -142,7 +142,7 @@ export function OperationalScopeControl({
           className={`rounded border px-1.5 py-1 text-[9px] font-bold uppercase tracking-wide transition-colors ${
             policy.publicAssistance
               ? "border-caution-amber/40 bg-caution-amber/15 text-caution-amber"
-              : "border-white/10 bg-white/5 text-gray-400 hover:text-white"
+              : "border-su-line/40 bg-su-line/10 text-su-muted hover:text-su-text"
           }`}
           aria-pressed={policy.publicAssistance}
           title="Permit public spots and multiplier assistance for this contest session"
@@ -154,7 +154,7 @@ export function OperationalScopeControl({
         <button
           type="button"
           onClick={openOperationalWorkspaceWindow}
-          className="rounded border border-white/10 bg-white/5 px-1.5 py-1 text-[9px] text-gray-300 transition-colors hover:border-white/20 hover:text-white"
+          className="rounded border border-su-line/40 bg-su-line/10 px-1.5 py-1 text-[9px] text-su-muted transition-colors hover:border-su-line/50 hover:text-su-text"
           title="Open synchronized operating workspace in a secondary window"
           aria-label="Open operating workspace in secondary window"
         >
@@ -193,20 +193,20 @@ function LoggingDock() {
       </div>
 
       <aside className="min-h-0 min-w-0 space-y-3 overflow-y-auto">
-        <section className="rounded-xl border border-white/10 bg-white/[0.03] p-3">
-          <div className="text-[10px] font-semibold uppercase tracking-wider text-gray-500">
+        <section className="rounded-xl border border-su-line/40 bg-su-line/10 p-3">
+          <div className="text-[10px] font-semibold uppercase tracking-wider text-su-muted">
             Current operation
           </div>
           <div className="mt-2 grid grid-cols-2 gap-2 text-xs">
-            <div className="rounded-md bg-black/20 p-2">
-              <div className="text-[9px] uppercase text-gray-500">Target</div>
-              <div className="truncate font-mono text-white">
+            <div className="rounded-md bg-su-input p-2">
+              <div className="text-[9px] uppercase text-su-muted">Target</div>
+              <div className="truncate font-mono text-su-text">
                 {selectedReport?.callsign ?? target?.name ?? target?.grid ?? "None"}
               </div>
             </div>
-            <div className="rounded-md bg-black/20 p-2">
-              <div className="text-[9px] uppercase text-gray-500">Radio</div>
-              <div className="truncate font-mono text-white">
+            <div className="rounded-md bg-su-input p-2">
+              <div className="text-[9px] uppercase text-su-muted">Radio</div>
+              <div className="truncate font-mono text-su-text">
                 {rigConnected
                   ? `${(rigFrequency / 1_000_000).toFixed(5)} ${rigMode}`
                   : "CAT offline"}
@@ -214,19 +214,19 @@ function LoggingDock() {
             </div>
           </div>
           {selectedReport && (
-            <div className="mt-2 rounded-md border border-cosmic-cyan/20 bg-cosmic-cyan/5 px-2 py-1.5 text-[10px] text-gray-400">
+            <div className="mt-2 rounded-md border border-cosmic-cyan/20 bg-cosmic-cyan/5 px-2 py-1.5 text-[10px] text-su-muted">
               Seeded from {selectedReport.source} · {selectedReport.provenance}{" "}
               report
             </div>
           )}
         </section>
 
-        <section className="rounded-xl border border-white/10 bg-white/[0.03] p-3">
+        <section className="rounded-xl border border-su-line/40 bg-su-line/10 p-3">
           <div className="mb-2 flex items-center justify-between">
-            <span className="text-[10px] font-semibold uppercase tracking-wider text-gray-500">
+            <span className="text-[10px] font-semibold uppercase tracking-wider text-su-muted">
               Recent own QSOs
             </span>
-            <span className="font-mono text-[10px] text-gray-600">
+            <span className="font-mono text-[10px] text-su-muted">
               {entries.length}
             </span>
           </div>
@@ -234,17 +234,17 @@ function LoggingDock() {
             {entries.slice(0, 8).map((entry) => (
               <div
                 key={entry.id}
-                className="flex gap-2 rounded-md bg-black/20 px-2 py-1.5 text-[10px]"
+                className="flex gap-2 rounded-md bg-su-input px-2 py-1.5 text-[10px]"
               >
-                <span className="flex-1 truncate font-mono text-white">
+                <span className="flex-1 truncate font-mono text-su-text">
                   {entry.callsign}
                 </span>
-                <span className="text-gray-400">{entry.band}</span>
-                <span className="text-gray-500">{entry.mode}</span>
+                <span className="text-su-muted">{entry.band}</span>
+                <span className="text-su-muted">{entry.mode}</span>
               </div>
             ))}
             {entries.length === 0 && (
-              <p className="py-3 text-center text-[10px] text-gray-600">
+              <p className="py-3 text-center text-[10px] text-su-muted">
                 No logged contacts yet
               </p>
             )}
@@ -316,12 +316,12 @@ export function OpsConsole({
 
   return (
     <div
-      className={`flex flex-col h-full bg-white/[0.03] backdrop-blur-md border border-white/10 rounded-2xl overflow-hidden ${className}`}
+      className={`flex flex-col h-full bg-su-panel/90 backdrop-blur-md border border-su-line/40 rounded-2xl overflow-hidden ${className}`}
     >
       {/* Header Bar */}
-      <div className="flex items-center justify-between h-12 px-4 border-b border-white/10 flex-shrink-0">
+      <div className="flex items-center justify-between h-12 px-4 border-b border-su-line/40 flex-shrink-0">
         <div className="flex items-center gap-2">
-          <span className="text-xs text-gray-400 uppercase tracking-wide">
+          <span className="text-xs text-su-muted uppercase tracking-wide">
             Ops Console
           </span>
           {hasActiveSession && (
@@ -333,7 +333,7 @@ export function OpsConsole({
         </div>
 
         {/* Tabs */}
-        <div className="flex items-center gap-1 bg-black/20 border border-white/10 rounded-lg p-1">
+        <div className="flex items-center gap-1 bg-su-input border border-su-line/40 rounded-lg p-1">
           {tabs.map((tab) => {
             const isActive = dockTab === tab.id;
             const disabled = Boolean(tab.disabled);
@@ -361,10 +361,10 @@ export function OpsConsole({
                   px-3 py-1 rounded-md text-xs font-bold transition-colors
                   ${
                     disabled
-                      ? "text-gray-600 cursor-not-allowed"
+                      ? "text-su-muted cursor-not-allowed"
                       : isActive
-                        ? "bg-white/10 text-white"
-                        : "text-gray-400 hover:text-white hover:bg-white/5"
+                        ? "bg-su-line/20 text-su-text"
+                        : "text-su-muted hover:text-su-text hover:bg-su-line/10"
                   }
                 `}
               >
@@ -377,7 +377,7 @@ export function OpsConsole({
         {/* Collapse button */}
         <button
           onClick={handleCollapse}
-          className="p-1.5 text-gray-500 hover:text-white transition-colors rounded hover:bg-white/5"
+          className="p-1.5 text-su-muted hover:text-su-text transition-colors rounded hover:bg-su-line/10"
           title="Collapse console"
           aria-label="Collapse ops console"
           type="button"

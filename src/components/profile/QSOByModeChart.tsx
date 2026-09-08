@@ -72,7 +72,7 @@ export function QSOByModeChart({ data }: { data: Record<string, number> }) {
 
   if (total === 0) {
     return (
-      <div className="flex items-center justify-center h-48 text-gray-500 text-sm">
+      <div className="flex items-center justify-center h-48 text-su-muted text-sm">
         No QSOs logged yet
       </div>
     );
@@ -115,10 +115,10 @@ export function QSOByModeChart({ data }: { data: Record<string, number> }) {
         </svg>
         {/* Center text */}
         <div className="absolute inset-0 flex flex-col items-center justify-center">
-          <span className="text-xl font-bold text-white font-mono">
+          <span className="text-xl font-bold text-su-text font-mono">
             {total}
           </span>
-          <span className="text-[10px] text-gray-400 uppercase">QSOs</span>
+          <span className="text-[10px] text-su-muted uppercase">QSOs</span>
         </div>
       </div>
 
@@ -130,11 +130,11 @@ export function QSOByModeChart({ data }: { data: Record<string, number> }) {
               className="inline-block w-2.5 h-2.5 rounded-full shrink-0"
               style={{ backgroundColor: slice.color }}
             />
-            <span className="text-gray-300">{slice.label}</span>
-            <span className="text-gray-500 ml-auto tabular-nums">
+            <span className="text-su-muted">{slice.label}</span>
+            <span className="text-su-muted ml-auto tabular-nums">
               {slice.count}
             </span>
-            <span className="text-gray-600 tabular-nums">
+            <span className="text-su-muted tabular-nums">
               ({slice.percentage.toFixed(0)}%)
             </span>
           </div>

@@ -180,3 +180,24 @@
   margin-top: 0.7vh;
   line-height: 1.4;
 }
+
+/* Keep every reliability band visible when the footer/crawl reserve their
+   readable height. Two equal columns retain all six values at the same size. */
+.hcf-bars--paired {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  column-gap: 1vw;
+}
+.hcf-band-reading {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 0.4vw;
+  align-items: center;
+  min-width: 0;
+}
+@media (max-height: 850px) {
+  .hcf-bars--paired {
+    line-height: 1;
+    margin-top: 0.3vh;
+    row-gap: 0.2vh;
+  }
+}

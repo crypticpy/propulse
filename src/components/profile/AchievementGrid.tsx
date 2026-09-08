@@ -24,12 +24,12 @@ import type {
 
 function BadgeSkeleton() {
   return (
-    <div className="bg-white/5 rounded-xl p-4 animate-pulse motion-reduce:animate-none">
+    <div className="bg-su-line/10 rounded-xl p-4 animate-pulse motion-reduce:animate-none">
       <div className="flex flex-col items-center gap-2">
-        <div className="w-10 h-10 rounded-full bg-white/5" />
-        <div className="w-16 h-3 rounded bg-white/5" />
-        <div className="w-12 h-2 rounded bg-white/5" />
-        <div className="w-full h-1.5 rounded bg-white/5 mt-1" />
+        <div className="w-10 h-10 rounded-full bg-su-line/10" />
+        <div className="w-16 h-3 rounded bg-su-line/10" />
+        <div className="w-12 h-2 rounded bg-su-line/10" />
+        <div className="w-full h-1.5 rounded bg-su-line/10 mt-1" />
       </div>
     </div>
   );
@@ -78,8 +78,8 @@ function BadgeTile({
       className={`
         group relative bg-panel/30 backdrop-blur-sm border rounded-xl p-4
         transition-all duration-200 text-left
-        hover:bg-white/5 hover:border-white/10 focus-visible:ring-2 focus-visible:ring-plasma-orange/50 focus-visible:outline-none
-        ${isEarned ? "border-white/5" : "border-white/3 opacity-50 grayscale"}
+        hover:bg-su-line/10 hover:border-su-line/40 focus-visible:ring-2 focus-visible:ring-plasma-orange/50 focus-visible:outline-none
+        ${isEarned ? "border-su-line/20" : "border-su-line/20 opacity-50 grayscale"}
       `}
       aria-label={`${definition.name}${isEarned ? `, ${TIER_LABELS[earned.tier]} tier` : ", not yet earned"}`}
     >
@@ -90,7 +90,7 @@ function BadgeTile({
         </span>
 
         {/* Name */}
-        <span className="text-xs font-medium text-gray-300 text-center leading-tight line-clamp-2">
+        <span className="text-xs font-medium text-su-muted text-center leading-tight line-clamp-2">
           {definition.name}
         </span>
 
@@ -111,13 +111,13 @@ function BadgeTile({
             {TIER_LABELS[earned.tier]}
           </span>
         ) : (
-          <span className="text-[10px] text-gray-600 uppercase tracking-wider font-semibold">
+          <span className="text-[10px] text-su-muted uppercase tracking-wider font-semibold">
             Locked
           </span>
         )}
 
         {/* Progress bar */}
-        <div className="w-full h-1 rounded-full bg-white/5 overflow-hidden mt-1">
+        <div className="w-full h-1 rounded-full bg-su-line/10 overflow-hidden mt-1">
           <div
             className="h-full rounded-full transition-all duration-500"
             style={{
@@ -161,7 +161,7 @@ export function AchievementGrid() {
   return (
     <>
       {/* Earned count summary */}
-      <p className="text-xs text-gray-500 mb-3">
+      <p className="text-xs text-su-muted mb-3">
         {earnedCount} of {ACHIEVEMENT_DEFINITIONS.length} achievements unlocked
       </p>
 

@@ -13,12 +13,15 @@ function report(attrs = "") {
 }
 const xml = (...rows: string[]) => `<receptionReports>${rows.join("")}</receptionReports>`;
 const request = (call = "N0TEST") => new Request(`https://local/api/spots/psk-station?callsign=${encodeURIComponent(call)}`);
+let warn: ReturnType<typeof vi.spyOn>;
+const categories = () => warn.mock.calls.map(([message]) => JSON.parse(String(message)).category);
 
 beforeEach(() => { vi.mocked(applyRateLimit).mockClear(); vi.useFakeTimers(); vi.setSystemTime(NOW);
+  warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
   vi.mocked(sharedPskStationCache.claim).mockReset().mockImplementation(async () => ({ token: "lease", snapshot: null, retryAt: Date.now() + 310_000 }));
   vi.mocked(sharedPskStationCache.finish).mockReset().mockImplementation(async (_call, _token, snapshot) => snapshot);
 });
-afterEach(() => { vi.useRealTimers(); vi.unstubAllGlobals(); });
+afterEach(() => { warn.mockRestore(); vi.useRealTimers(); vi.unstubAllGlobals(); });
 
 describe("PSK station XML", () => {
   it("preserves exact Hz, direction, UTC, missing SNR and optional valid locators", () => {
@@ -90,6 +93,7 @@ describe("PSK station handler", () => {
     expect(stale.reports).toHaveLength(1);
     await handle(request());
     expect(fetcher).toHaveBeenCalledTimes(2);
+    expect(categories()).toContain("provider_fetch_failed");
   });
 
   it("distinguishes unavailable from a successful zero-report snapshot", async () => {
@@ -98,6 +102,9 @@ describe("PSK station handler", () => {
     const failed = await handle(request());
     expect(failed.status).toBe(502);
     expect(await failed.json()).toMatchObject({ status: "unavailable", fetchedAt: null });
+    expect(JSON.parse(String(warn.mock.calls[0][0]))).toEqual({
+      event: "psk_station_refresh", outcome: "failure", category: "provider_http", upstreamStatus: 503,
+    });
     vi.setSystemTime(NOW + 300_000);
     expect(await (await handle(request())).json()).toMatchObject({ status: "ok", reports: [], fetchedAt: NOW + 300_000 });
   });
@@ -111,6 +118,7 @@ describe("PSK station handler", () => {
     expect((await handle(new Request(request(), { method: "OPTIONS" }))).status).toBe(204);
     expect(fetcher).not.toHaveBeenCalled();
     expect((await handle(request())).status).toBe(502);
+    expect(categories()).toContain("body_read_failed");
   });
 
   it("bounds station cache capacity without evicting entries during their cooldown", async () => {
@@ -157,11 +165,25 @@ describe("PSK station handler", () => {
 
   it("does not call the provider when shared coordination fails or the start deadline has expired", async () => {
     const fetcher = vi.fn(); vi.stubGlobal("fetch", fetcher);
-    vi.mocked(sharedPskStationCache.claim).mockRejectedValueOnce(new Error("cache offline"));
+    vi.mocked(sharedPskStationCache.claim).mockRejectedValueOnce(new Error("cache offline SECRET_CALLSIGN lease-token"));
     expect((await createPskStationHandler()(request())).status).toBe(502);
     vi.mocked(sharedPskStationCache.claim).mockResolvedValueOnce({ token: "lease", snapshot: null, retryAt: NOW + 299_000 });
     expect((await createPskStationHandler()(request())).status).toBe(502);
     expect(fetcher).not.toHaveBeenCalled();
+    expect(categories()).toEqual(["claim_failed", "start_window_expired"]);
+    expect(warn.mock.calls.flat().join(" ")).not.toMatch(/SECRET_CALLSIGN|lease-token|N0TEST/);
+  });
+
+  it("categorizes XML parsing and publication failures without changing their envelopes", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => new Response("<html/>")));
+    expect((await createPskStationHandler()(request())).status).toBe(502);
+    expect(categories()).toContain("xml_parse_failed");
+
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(xml())));
+    vi.mocked(sharedPskStationCache.finish).mockRejectedValueOnce(new Error("finish SECRET_TOKEN"));
+    expect((await createPskStationHandler()(request("W1AW"))).status).toBe(200);
+    expect(categories()).toContain("finish_failed");
+    expect(warn.mock.calls.flat().join(" ")).not.toContain("SECRET_TOKEN");
   });
 
   it("keeps the deadline active while reading the response body", async () => {
@@ -171,5 +193,6 @@ describe("PSK station handler", () => {
     const pending = createPskStationHandler()(request());
     await vi.advanceTimersByTimeAsync(10_000);
     expect((await pending).status).toBe(502);
+    expect(categories()).toContain("provider_timeout");
   });
 });

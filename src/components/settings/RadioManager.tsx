@@ -1163,14 +1163,14 @@ export function RadioManager({
     <div className={compact ? "space-y-3" : "space-y-4"}>
       {/* Section header */}
       <div className="flex items-center gap-2 mb-3">
-        <h2 className="text-sm font-semibold text-gray-400 uppercase tracking-wider">
+        <h2 className="text-sm font-semibold text-su-muted uppercase tracking-wider">
           {sectionLabel ?? "RADIOS"}
         </h2>
-        <span className="text-xs text-gray-500 bg-white/5 px-2 py-0.5 rounded-full">
+        <span className="text-xs text-su-muted bg-su-line/10 px-2 py-0.5 rounded-full">
           {sectionCount ?? userRadios.length}
         </span>
         {customRadios.length > 0 ? (
-          <span className="text-[11px] text-gray-500">
+          <span className="text-[11px] text-su-muted">
             {customRadios.length} reusable custom definition
             {customRadios.length === 1 ? "" : "s"}
           </span>
@@ -1179,8 +1179,8 @@ export function RadioManager({
         <button
           type="button"
           onClick={openNewCustomRadio}
-          className="px-3 py-1 text-sm bg-white/5 border border-white/10
-                     text-gray-300 rounded-lg hover:bg-white/10 transition-colors"
+          className="px-3 py-1 text-sm bg-su-line/10 border border-su-line/40
+                     text-su-muted rounded-lg hover:bg-su-line/20 transition-colors"
         >
           + Custom Definition
         </button>
@@ -1310,7 +1310,7 @@ export function RadioManager({
           })}
         </div>
       ) : (
-        <div className="p-4 text-center text-gray-500 text-sm bg-nebula-blue rounded-lg border border-white/10">
+        <div className="p-4 text-center text-su-muted text-sm bg-nebula-blue rounded-lg border border-su-line/40">
           No radios added yet. Click "+ Add Radio" to get started.
         </div>
       )}
@@ -1808,11 +1808,11 @@ export function RadioManager({
               </div>
             )}
 
-            <div className="p-4 rounded-lg border border-white/10 bg-white/5 space-y-3">
-              <div className="text-sm font-semibold text-white">
+            <div className="p-4 rounded-lg border border-su-line/40 bg-su-line/10 space-y-3">
+              <div className="text-sm font-semibold text-su-text">
                 Start from database (optional)
               </div>
-              <div className="text-xs text-gray-400">
+              <div className="text-xs text-su-muted">
                 Import a base radio from the built-in database, then tweak specs
                 as needed.
               </div>
@@ -1831,10 +1831,10 @@ export function RadioManager({
                   {baseResults.map((r) => (
                     <div
                       key={r.id}
-                      className="flex items-center justify-between gap-3 p-2 rounded-lg bg-nebula-blue/40 border border-white/10"
+                      className="flex items-center justify-between gap-3 p-2 rounded-lg bg-nebula-blue/40 border border-su-line/40"
                     >
                       <div className="min-w-0">
-                        <div className="text-sm font-semibold text-white truncate">
+                        <div className="text-sm font-semibold text-su-text truncate">
                           {r.manufacturer} {r.model}
                           {hasTestedSpecs(r) && (
                             <span className="ml-2 text-[9px] px-1.5 py-0.5 bg-green-500/20 text-green-400 rounded">
@@ -1842,7 +1842,7 @@ export function RadioManager({
                             </span>
                           )}
                         </div>
-                        <div className="text-[10px] text-gray-400 truncate">
+                        <div className="text-[10px] text-su-muted truncate">
                           {r.maxPower}W &bull; Tier: {r.tier} &bull; Bands:{" "}
                           {r.bands.slice(0, 4).join(", ")}
                           {r.bands.length > 4 ? "\u2026" : ""}
@@ -2028,7 +2028,7 @@ export function RadioManager({
 
               <div className="space-y-4">
                 <div>
-                  <div className="text-sm font-semibold text-white mb-2">
+                  <div className="text-sm font-semibold text-su-text mb-2">
                     Receiver metrics (required)
                   </div>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -2062,7 +2062,7 @@ export function RadioManager({
                 </div>
 
                 <div>
-                  <div className="text-sm font-semibold text-white mb-2">
+                  <div className="text-sm font-semibold text-su-text mb-2">
                     Optional RX/TX details
                   </div>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">

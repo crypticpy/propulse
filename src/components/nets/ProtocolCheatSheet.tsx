@@ -23,7 +23,7 @@ export function ProtocolCheatSheet({
   const toggle = useCallback(() => setIsExpanded((prev) => !prev), []);
 
   return (
-    <div className="bg-white/[0.03] border border-white/5 rounded-xl overflow-hidden">
+    <div className="bg-su-line/10 border border-su-line/20 rounded-xl overflow-hidden">
       {/* Header toggle */}
       <button
         type="button"
@@ -34,7 +34,7 @@ export function ProtocolCheatSheet({
         {/* Chevron */}
         <svg
           aria-hidden="true"
-          className={`w-4 h-4 flex-shrink-0 text-gray-500 transition-transform duration-200 ${
+          className={`w-4 h-4 flex-shrink-0 text-su-muted transition-transform duration-200 ${
             isExpanded ? "rotate-90" : "rotate-0"
           }`}
           fill="none"
@@ -53,7 +53,7 @@ export function ProtocolCheatSheet({
           className={`text-sm font-semibold transition-colors ${
             isExpanded
               ? "text-plasma-orange"
-              : "text-gray-200 group-hover:text-gray-100"
+              : "text-su-text/90 group-hover:text-su-text"
           }`}
         >
           What to Expect
@@ -85,7 +85,7 @@ export function ProtocolCheatSheet({
           )}
 
           {/* Protocol notes */}
-          <p className="text-sm text-gray-300 whitespace-pre-wrap leading-relaxed">
+          <p className="text-sm text-su-muted whitespace-pre-wrap leading-relaxed">
             {protocolNotes}
           </p>
         </div>

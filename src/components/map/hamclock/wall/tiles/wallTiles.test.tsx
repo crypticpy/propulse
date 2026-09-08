@@ -85,6 +85,8 @@ function reliabilityState(over: Partial<WallReliability> = {}): WallReliability 
     hourIndex: NOW_INDEX,
     targetLabel: "Tokyo",
     mode: "SSB",
+    updatedAt: null,
+    inputs: { powerWatts: 100, antennaType: "dipole", antennaGainDbi: 2, noiseEnvironment: "residential", distanceKm: 10000, modeThresholdDb: 10, kp: 2, sfi: 140 },
     ...over,
   };
 }

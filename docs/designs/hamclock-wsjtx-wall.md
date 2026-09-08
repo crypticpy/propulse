@@ -11,3 +11,9 @@ Validation: 369 targeted tests across 32 wall/control/store files pass, includin
 Managed local session: owner `hamclock-wsjtx-wall`, id `fcb3d553-f282-498e-8a6b-6213afd66283`, port 5181, worktree `.worktrees/hamclock-wsjtx-wall`. N0TEST / EM38, flat projection, SDR page, DPR 1. No physical or deployed acceptance is claimed.
 
 Remaining #287 scope: PSK Reporter OF/BY-call tile/report and shared age/band controls, source-backed 6/24-hour windows, the who-is-hearing-me view inside the WSJT-X report, and coordinated map-window integration. This slice does not mark the entire issue complete.
+
+## Integrated release verification — 2026-09-07
+
+Rechecked against the current operating release, including the larger ticker, settings changes, activation programmes and rig port migration. The four focused wall/control/store test files pass all 59 tests. The actual-app browser fixture passes 36 combinations of two views, three source states, three themes and 1080p/4K with no browser errors or report overflow. The current 1080p capture was visually inspected. Hardware transports remained blocked; this does not establish physical-radio acceptance.
+
+Owned local session: `hamclock-operating-release`, `cb106b4a-e997-4847-a861-5a997bbac11d`, http://127.0.0.1:5186/map.

@@ -18,3 +18,10 @@ The selected activation dialog adds the same action using its current report fre
 [Activation action at 1080p](../images/hamclock-tuning/activation-tune-1080p.png)
 
 Remaining shared-tuning work includes wall contact/activity/tile actions, decode surfaces, and the adapter-dependent SDR target. Activation programme expansion remains its own later batch; this slice adds the action to the existing selected report only.
+
+
+## Release integration — 2026-09-07
+
+Integrated with the refreshed tuning stack, retaining the current activation footer theme tokens. Thirty-four focused control/activation/favourite/parser tests pass. The isolated hardware-blocked fixture passes compact 320px, 1080p and 4K target checks (44px minimum, no clipped content or page errors). Unknown activation mode still stages frequency only.
+
+Fixture: `tmp/favourites/check.mjs` in `.worktrees/hamclock-operating-release`; owner `hamclock-operating-release`, session `cb106b4a-e997-4847-a861-5a997bbac11d`, local http://127.0.0.1:5186. These are synthetic component checks; no real radio acknowledgement or account acceptance is claimed.

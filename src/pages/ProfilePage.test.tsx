@@ -60,7 +60,7 @@ vi.mock("@/hooks/useProfileCompleteness", () => ({
   useProfileCompleteness: () => ({
     score: 0,
     tier: "Getting started",
-    tierColor: "text-gray-400",
+    tierColor: "text-su-muted",
   }),
 }));
 vi.mock("@/hooks/useOperatorRank", () => ({

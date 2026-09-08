@@ -124,14 +124,14 @@ function BandConditionsStrip({
             >
               {hoveredBand}
             </span>
-            <span className="text-gray-500">&middot;</span>
+            <span className="text-su-muted">&middot;</span>
             <span style={{ color: hoveredColor ?? "#6b7280" }}>
               {hoveredStatus
                 ? hoveredStatus.charAt(0).toUpperCase() + hoveredStatus.slice(1)
                 : "No data"}
             </span>
             {hoveredBand === activeBand && (
-              <span className="text-[8px] text-gray-500 ml-0.5">active</span>
+              <span className="text-[8px] text-su-muted ml-0.5">active</span>
             )}
           </div>
         </div>
@@ -295,9 +295,9 @@ export function OperatorProfile({ className = "" }: OperatorProfileProps) {
       <div
         className={`h-full flex flex-col justify-center items-center gap-2 ${className}`}
       >
-        <div className="w-3 h-3 rounded-full bg-gray-600" />
-        <span className="text-sm text-gray-400">No station configured</span>
-        <span className="text-xs text-gray-400">Set your QTH in Settings</span>
+        <div className="w-3 h-3 rounded-full bg-su-line" />
+        <span className="text-sm text-su-muted">No station configured</span>
+        <span className="text-xs text-su-muted">Set your QTH in Settings</span>
       </div>
     );
   }
@@ -306,7 +306,7 @@ export function OperatorProfile({ className = "" }: OperatorProfileProps) {
     <div className={`h-full flex flex-col ${className}`}>
       {/* Header: Title + Help button */}
       <div className="flex items-center justify-between mb-1.5">
-        <h3 className="text-xs font-medium text-gray-300 uppercase tracking-wide">
+        <h3 className="text-xs font-medium text-su-muted uppercase tracking-wide">
           Operator Profile
         </h3>
         <HelpButton onClick={() => setShowHelp(true)} />
@@ -324,10 +324,10 @@ export function OperatorProfile({ className = "" }: OperatorProfileProps) {
           className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${
             operatorStatus === "ready"
               ? "bg-signal-green animate-pulse"
-              : "bg-gray-600"
+              : "bg-su-line"
           }`}
         />
-        <div className="text-xl font-bold font-mono text-white leading-none">
+        <div className="text-xl font-bold font-mono text-su-text leading-none">
           {operatorCallsign ?? "---"}
         </div>
       </div>
@@ -361,7 +361,7 @@ export function OperatorProfile({ className = "" }: OperatorProfileProps) {
                 ? "bg-red-500/20 text-red-400"
                 : licenseStatus.isExpiringSoon
                   ? "bg-amber-500/20 text-amber-400"
-                  : "bg-white/10 text-gray-300"
+                  : "bg-su-line/20 text-su-muted"
             }`}
           >
             {licenseClass}
@@ -371,7 +371,7 @@ export function OperatorProfile({ className = "" }: OperatorProfileProps) {
 
       {/* Compact sun times - single inline row */}
       {operatorLat !== null && operatorLon !== null && (
-        <div className="flex items-center gap-1 text-xs text-gray-400 mb-2">
+        <div className="flex items-center gap-1 text-xs text-su-muted mb-2">
           <span
             className="flex items-center gap-0.5"
             title={
@@ -409,7 +409,7 @@ export function OperatorProfile({ className = "" }: OperatorProfileProps) {
                 : (getPolarLabel() ?? "--:--")}
             </span>
           </span>
-          <span className="text-gray-600 mx-0.5">&middot;</span>
+          <span className="text-su-muted mx-0.5">&middot;</span>
           <span
             className="flex items-center gap-0.5"
             title={
@@ -454,7 +454,7 @@ export function OperatorProfile({ className = "" }: OperatorProfileProps) {
       {/* ── Active Band section label ──────────────────────────────── */}
       <div className="flex items-center gap-2 mb-2">
         <div className="w-[3px] h-3 rounded-full bg-plasma-orange" />
-        <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-widest">
+        <span className="text-[10px] font-semibold text-su-muted uppercase tracking-widest">
           Active Band
         </span>
         {activeSource === "default" && (
@@ -489,7 +489,7 @@ export function OperatorProfile({ className = "" }: OperatorProfileProps) {
               <div className="text-sm font-medium text-plasma-orange">
                 Start here &mdash; set your operating band
               </div>
-              <div className="text-[10px] text-gray-400 mt-0.5">
+              <div className="text-[10px] text-su-muted mt-0.5">
                 This controls what propagation data you see
               </div>
             </div>
@@ -627,10 +627,10 @@ export function OperatorProfile({ className = "" }: OperatorProfileProps) {
           </div>
 
           {/* Secondary row: Frequency + Segment + Session */}
-          <div className="flex items-center gap-1.5 mt-1.5 text-[10px] font-mono text-gray-500">
+          <div className="flex items-center gap-1.5 mt-1.5 text-[10px] font-mono text-su-muted">
             {(activeSource === "cat" || activeSource === "wsjtx") &&
               activeFrequency > 0 && (
-                <span className="text-gray-400 tracking-wider">
+                <span className="text-su-muted tracking-wider">
                   {formatFrequency(activeFrequency)}
                 </span>
               )}
@@ -638,13 +638,13 @@ export function OperatorProfile({ className = "" }: OperatorProfileProps) {
               <>
                 {(activeSource === "cat" || activeSource === "wsjtx") &&
                   activeFrequency > 0 && (
-                    <span className="text-gray-600">&middot;</span>
+                    <span className="text-su-muted">&middot;</span>
                   )}
                 <span>{subBandSegment}</span>
               </>
             )}
             {sessionElapsed != null && (
-              <span className="ml-auto text-gray-600 tabular-nums">
+              <span className="ml-auto text-su-muted tabular-nums">
                 {sessionElapsed}
               </span>
             )}
@@ -652,7 +652,7 @@ export function OperatorProfile({ className = "" }: OperatorProfileProps) {
 
           {/* Tertiary row: Radio info (integrated into VFO panel) */}
           {activeRadio && (
-            <div className="flex items-center gap-1.5 mt-1.5 text-[10px] text-gray-600">
+            <div className="flex items-center gap-1.5 mt-1.5 text-[10px] text-su-muted">
               <svg
                 className="w-3 h-3 flex-shrink-0"
                 fill="none"
@@ -675,7 +675,7 @@ export function OperatorProfile({ className = "" }: OperatorProfileProps) {
           {/* Watched bands strip */}
           {watchedBands.length > 0 && (
             <div className="flex items-center gap-1.5 mt-1.5">
-              <span className="text-[9px] text-gray-600 uppercase tracking-wider">
+              <span className="text-[9px] text-su-muted uppercase tracking-wider">
                 Watch
               </span>
               <div className="flex items-center gap-1">
@@ -711,7 +711,7 @@ export function OperatorProfile({ className = "" }: OperatorProfileProps) {
           !catOverridden &&
           (activeSource === "manual" || activeSource === "default") && (
             <div
-              className="px-4 pb-2 -mt-1 text-[10px] text-gray-500 transition-opacity duration-300"
+              className="px-4 pb-2 -mt-1 text-[10px] text-su-muted transition-opacity duration-300"
               style={{ opacity: isHovered ? 1 : 0 }}
             >
               Click to change band &amp; mode

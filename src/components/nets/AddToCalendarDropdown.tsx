@@ -243,7 +243,7 @@ export function AddToCalendarDropdown({
           aria-expanded={isOpen}
           aria-haspopup="menu"
           aria-label="Add to calendar"
-          className="p-1.5 text-gray-400 hover:text-plasma-orange rounded-lg hover:bg-white/5 transition-colors"
+          className="p-1.5 text-su-muted hover:text-plasma-orange rounded-lg hover:bg-su-line/10 transition-colors"
         >
           <CalendarIcon className="w-4 h-4" />
         </button>
@@ -253,7 +253,7 @@ export function AddToCalendarDropdown({
           onClick={() => setIsOpen((prev) => !prev)}
           aria-expanded={isOpen}
           aria-haspopup="menu"
-          className="flex items-center gap-2 px-3 py-2 text-sm text-gray-300 bg-white/5 border border-white/10 rounded-xl hover:bg-white/10 transition-colors"
+          className="flex items-center gap-2 px-3 py-2 text-sm text-su-muted bg-su-line/10 border border-su-line/40 rounded-xl hover:bg-su-line/20 transition-colors"
         >
           <CalendarIcon className="w-4 h-4" />
           <span>Add to Calendar</span>
@@ -264,25 +264,25 @@ export function AddToCalendarDropdown({
       {isOpen && (
         <div
           role="menu"
-          className="absolute right-0 top-full mt-1 w-56 bg-void-black/95 backdrop-blur-md border border-white/10 rounded-xl shadow-2xl z-50 py-1"
+          className="absolute right-0 top-full mt-1 w-56 bg-void-black/95 backdrop-blur-md border border-su-line/40 rounded-xl shadow-2xl z-50 py-1"
         >
           {/* Download .ics */}
           <button
             type="button"
             role="menuitem"
             onClick={handleDownloadIcs}
-            className="flex items-center gap-3 w-full px-3 py-2.5 text-sm text-gray-300 hover:bg-white/5 hover:text-white transition-colors cursor-pointer text-left"
+            className="flex items-center gap-3 w-full px-3 py-2.5 text-sm text-su-muted hover:bg-su-line/10 hover:text-su-text transition-colors cursor-pointer text-left"
           >
             <DownloadIcon className="w-5 h-5 flex-shrink-0" />
             <div className="min-w-0">
               <div className="truncate">Download .ics</div>
-              <div className="text-[11px] text-gray-500">
+              <div className="text-[11px] text-su-muted">
                 Works with all calendar apps
               </div>
             </div>
           </button>
 
-          <div className="h-px bg-white/5 my-1" />
+          <div className="h-px bg-su-line/10 my-1" />
 
           {/* Google Calendar */}
           <button
@@ -290,7 +290,7 @@ export function AddToCalendarDropdown({
             role="menuitem"
             onClick={handleGoogle}
             disabled={!googleUrl}
-            className="flex items-center gap-3 w-full px-3 py-2.5 text-sm text-gray-300 hover:bg-white/5 hover:text-white transition-colors cursor-pointer text-left disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent disabled:hover:text-gray-300"
+            className="flex items-center gap-3 w-full px-3 py-2.5 text-sm text-su-muted hover:bg-su-line/10 hover:text-su-text transition-colors cursor-pointer text-left disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent disabled:hover:text-su-muted"
           >
             <GoogleCalendarIcon className="w-5 h-5 flex-shrink-0" />
             <div className="truncate">Google Calendar</div>
@@ -301,13 +301,13 @@ export function AddToCalendarDropdown({
             type="button"
             role="menuitem"
             onClick={handleApple}
-            className="flex items-center gap-3 w-full px-3 py-2.5 text-sm text-gray-300 hover:bg-white/5 hover:text-white transition-colors cursor-pointer text-left"
+            className="flex items-center gap-3 w-full px-3 py-2.5 text-sm text-su-muted hover:bg-su-line/10 hover:text-su-text transition-colors cursor-pointer text-left"
           >
             <AppleCalendarIcon className="w-5 h-5 flex-shrink-0" />
             <div className="min-w-0">
               <div className="truncate">Apple Calendar</div>
               {isRecurring && (
-                <div className="text-[11px] text-gray-500">
+                <div className="text-[11px] text-su-muted">
                   Subscribe to feed
                 </div>
               )}
@@ -320,7 +320,7 @@ export function AddToCalendarDropdown({
             role="menuitem"
             onClick={handleOutlook}
             disabled={!isRecurring && !outlookUrl}
-            className="flex items-center gap-3 w-full px-3 py-2.5 text-sm text-gray-300 hover:bg-white/5 hover:text-white transition-colors cursor-pointer text-left disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent disabled:hover:text-gray-300"
+            className="flex items-center gap-3 w-full px-3 py-2.5 text-sm text-su-muted hover:bg-su-line/10 hover:text-su-text transition-colors cursor-pointer text-left disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent disabled:hover:text-su-muted"
           >
             <OutlookIcon className="w-5 h-5 flex-shrink-0" />
             <div className="truncate">Outlook</div>

@@ -19,7 +19,66 @@ const FOCUSABLE =
  * dialog also needs this stack guard: an outer dialog must yield to a nested
  * dialog instead of consuming the keypress and unmounting both.
  */
-const openDialogStack: symbol[] = [];
+const openDialogStack: { token: symbol; portalRoot: HTMLElement | null }[] = [];
+
+/**
+ * What each background element looked like before this module first hid it.
+ *
+ * Restoring from a per-dialog snapshot instead would chain: a dialog opened on
+ * top of another records the one below as already inert, then re-applies that
+ * on close and leaves the page permanently unreachable.
+ */
+const originalBackgroundState = new Map<
+  HTMLElement,
+  { inert: boolean; ariaHidden: string | null }
+>();
+let previousBodyOverflow: string | null = null;
+
+function restoreOriginal(element: HTMLElement): void {
+  const original = originalBackgroundState.get(element);
+  if (!original) return;
+  element.inert = original.inert;
+  if (original.ariaHidden === null) element.removeAttribute("aria-hidden");
+  else element.setAttribute("aria-hidden", original.ariaHidden);
+}
+
+/**
+ * Only the topmost dialog stays reachable; every other body child — including
+ * the portals of dialogs and popovers below it — is inert and hidden.
+ *
+ * Recomputed from the whole stack on every open and close, so a dialog that
+ * closes while it is not on top can no longer release the background out from
+ * under the dialog that still is.
+ */
+function syncBackgroundInert(): void {
+  const top = openDialogStack[openDialogStack.length - 1];
+  if (!top) {
+    for (const element of originalBackgroundState.keys()) restoreOriginal(element);
+    originalBackgroundState.clear();
+    if (previousBodyOverflow !== null) {
+      document.body.style.overflow = previousBodyOverflow;
+      previousBodyOverflow = null;
+    }
+    return;
+  }
+  if (previousBodyOverflow === null) previousBodyOverflow = document.body.style.overflow;
+  document.body.style.overflow = "hidden";
+  for (const child of document.body.children) {
+    if (!(child instanceof HTMLElement)) continue;
+    if (!originalBackgroundState.has(child)) {
+      originalBackgroundState.set(child, {
+        inert: child.inert,
+        ariaHidden: child.getAttribute("aria-hidden"),
+      });
+    }
+    if (child === top.portalRoot) {
+      restoreOriginal(child);
+      continue;
+    }
+    child.inert = true;
+    child.setAttribute("aria-hidden", "true");
+  }
+}
 
 export interface AccessibleDialogProps {
   open: boolean;
@@ -88,7 +147,7 @@ export function AccessibleDialog({
   const handleKeyDown = useCallback((event: KeyboardEvent) => {
     if (event.key === "Escape") {
       if (
-        openDialogStack[openDialogStack.length - 1] !== dialogTokenRef.current
+        openDialogStack[openDialogStack.length - 1]?.token !== dialogTokenRef.current
       ) {
         return;
       }
@@ -126,23 +185,11 @@ export function AccessibleDialog({
     if (!open) return;
     const dialogToken = dialogTokenRef.current;
     openerRef.current = document.activeElement as HTMLElement | null;
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    const portalRoot = dialogRef.current?.parentElement;
-    const background = [...document.body.children].filter(
-      (element): element is HTMLElement =>
-        element instanceof HTMLElement && element !== portalRoot,
-    );
-    const backgroundState = background.map((element) => ({
-      element,
-      inert: element.inert,
-      ariaHidden: element.getAttribute("aria-hidden"),
-    }));
-    for (const element of background) {
-      element.inert = true;
-      element.setAttribute("aria-hidden", "true");
-    }
-    openDialogStack.push(dialogToken);
+    openDialogStack.push({
+      token: dialogToken,
+      portalRoot: dialogRef.current?.parentElement ?? null,
+    });
+    syncBackgroundInert();
     document.addEventListener("keydown", handleKeyDown, true);
     const frame = requestAnimationFrame(() => {
       const first = dialogRef.current?.querySelector<HTMLElement>(FOCUSABLE);
@@ -151,15 +198,13 @@ export function AccessibleDialog({
     return () => {
       cancelAnimationFrame(frame);
       document.removeEventListener("keydown", handleKeyDown, true);
-      const stackIndex = openDialogStack.lastIndexOf(dialogToken);
+      const stackIndex = openDialogStack.findIndex((entry) => entry.token === dialogToken);
+      const wasTopmost = stackIndex !== -1 && stackIndex === openDialogStack.length - 1;
       if (stackIndex !== -1) openDialogStack.splice(stackIndex, 1);
-      document.body.style.overflow = previousOverflow;
-      for (const { element, inert, ariaHidden } of backgroundState) {
-        element.inert = inert;
-        if (ariaHidden === null) element.removeAttribute("aria-hidden");
-        else element.setAttribute("aria-hidden", ariaHidden);
-      }
-      openerRef.current?.focus();
+      syncBackgroundInert();
+      // Returning focus from a dialog that was not on top would drag focus out
+      // of the dialog that still is.
+      if (wasTopmost) openerRef.current?.focus();
     };
   }, [handleKeyDown, open]);
 

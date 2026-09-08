@@ -163,3 +163,156 @@ describe("AccessibleDialog", () => {
     expect(results.violations).toEqual([]);
   });
 });
+
+describe("AccessibleDialog background inerting across a stack", () => {
+  // jsdom does not implement the `inert` IDL attribute, so an element this
+  // module has never touched reads `undefined` rather than `false`. Assert
+  // truthiness for inert and keep aria-hidden strict — that is the claim.
+  function appRoot(): HTMLElement {
+    const root = document.createElement("div");
+    root.id = "app-root";
+    root.append(document.createElement("button"));
+    document.body.append(root);
+    return root;
+  }
+
+  it("keeps the page inert when a dialog below the top one closes first", () => {
+    const root = appRoot();
+    const { rerender } = render(
+      <>
+        <AccessibleDialog open onClose={vi.fn()} title="Outer">
+          <button type="button">Outer action</button>
+        </AccessibleDialog>
+        <AccessibleDialog open onClose={vi.fn()} title="Inner">
+          <button type="button">Inner action</button>
+        </AccessibleDialog>
+      </>,
+    );
+    expect(root.inert).toBeTruthy();
+
+    // The outer dialog unmounts while the inner one is still modal.
+    rerender(
+      <>
+        <AccessibleDialog open={false} onClose={vi.fn()} title="Outer">
+          <button type="button">Outer action</button>
+        </AccessibleDialog>
+        <AccessibleDialog open onClose={vi.fn()} title="Inner">
+          <button type="button">Inner action</button>
+        </AccessibleDialog>
+      </>,
+    );
+
+    expect(root.inert).toBeTruthy();
+    expect(root.getAttribute("aria-hidden")).toBe("true");
+  });
+
+  it("releases the page once the last dialog closes, even after out-of-order closes", () => {
+    const root = appRoot();
+    const { rerender } = render(
+      <>
+        <AccessibleDialog open onClose={vi.fn()} title="Outer">
+          <button type="button">Outer action</button>
+        </AccessibleDialog>
+        <AccessibleDialog open onClose={vi.fn()} title="Inner">
+          <button type="button">Inner action</button>
+        </AccessibleDialog>
+      </>,
+    );
+    rerender(
+      <>
+        <AccessibleDialog open={false} onClose={vi.fn()} title="Outer">
+          <button type="button">Outer action</button>
+        </AccessibleDialog>
+        <AccessibleDialog open onClose={vi.fn()} title="Inner">
+          <button type="button">Inner action</button>
+        </AccessibleDialog>
+      </>,
+    );
+    rerender(
+      <>
+        <AccessibleDialog open={false} onClose={vi.fn()} title="Outer">
+          <button type="button">Outer action</button>
+        </AccessibleDialog>
+        <AccessibleDialog open={false} onClose={vi.fn()} title="Inner">
+          <button type="button">Inner action</button>
+        </AccessibleDialog>
+      </>,
+    );
+
+    expect(root.inert).toBeFalsy();
+    expect(root.hasAttribute("aria-hidden")).toBe(false);
+    expect(document.body.style.overflow).toBe("");
+  });
+
+  it("hands the page back to the dialog below when the top one closes", () => {
+    const root = appRoot();
+    const { rerender } = render(
+      <>
+        <AccessibleDialog open onClose={vi.fn()} title="Outer">
+          <button type="button">Outer action</button>
+        </AccessibleDialog>
+        <AccessibleDialog open={false} onClose={vi.fn()} title="Inner">
+          <button type="button">Inner action</button>
+        </AccessibleDialog>
+      </>,
+    );
+    // Captured before the inner dialog hides it: an inerted dialog is
+    // aria-hidden, so role queries can no longer reach it.
+    const outerPortal = screen.getByRole("dialog", { name: "Outer" }).parentElement;
+
+    rerender(
+      <>
+        <AccessibleDialog open onClose={vi.fn()} title="Outer">
+          <button type="button">Outer action</button>
+        </AccessibleDialog>
+        <AccessibleDialog open onClose={vi.fn()} title="Inner">
+          <button type="button">Inner action</button>
+        </AccessibleDialog>
+      </>,
+    );
+    expect(outerPortal?.inert).toBeTruthy();
+
+    rerender(
+      <>
+        <AccessibleDialog open onClose={vi.fn()} title="Outer">
+          <button type="button">Outer action</button>
+        </AccessibleDialog>
+        <AccessibleDialog open={false} onClose={vi.fn()} title="Inner">
+          <button type="button">Inner action</button>
+        </AccessibleDialog>
+      </>,
+    );
+
+    expect(outerPortal?.inert).toBeFalsy();
+    expect(root.inert).toBeTruthy();
+  });
+
+  it("does not pull focus out of the top dialog when a lower one closes", () => {
+    appRoot();
+    const { rerender } = render(
+      <>
+        <AccessibleDialog open onClose={vi.fn()} title="Outer">
+          <button type="button">Outer action</button>
+        </AccessibleDialog>
+        <AccessibleDialog open onClose={vi.fn()} title="Inner">
+          <button type="button">Inner action</button>
+        </AccessibleDialog>
+      </>,
+    );
+    const innerAction = screen.getByRole("button", { name: "Inner action" });
+    innerAction.focus();
+
+    rerender(
+      <>
+        <AccessibleDialog open={false} onClose={vi.fn()} title="Outer">
+          <button type="button">Outer action</button>
+        </AccessibleDialog>
+        <AccessibleDialog open onClose={vi.fn()} title="Inner">
+          <button type="button">Inner action</button>
+        </AccessibleDialog>
+      </>,
+    );
+
+    expect(document.activeElement).toBe(innerAction);
+  });
+});

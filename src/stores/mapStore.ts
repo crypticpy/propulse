@@ -1,4 +1,6 @@
 import { create } from "zustand";
+import { normalizeMapSpotAge } from "@/lib/map/spotAge";
+import type { SpotWindowMinutes } from "@/lib/api/spotFeed";
 import { DEFAULT_SPOT_DENSITY, normalizeSpotDensity } from "@/lib/map/spotDensity";
 import { type RegionPreset, DEFAULT_REGION_PRESETS } from "@/types/map";
 import type {
@@ -607,6 +609,8 @@ export interface MapState {
 
   // Arc display density (persisted)
   displayDensity: number;
+  spotAgeMinutes: SpotWindowMinutes;
+  setSpotAgeMinutes: (minutes: number) => void;
   setDisplayDensity: (density: number) => void;
 
   // Grid label detail level (1=field, 2=square, 3=subsquare) — persisted
@@ -1454,6 +1458,10 @@ const initialState = {
 
   // Arc display density
   displayDensity: DEFAULT_SPOT_DENSITY,
+  spotAgeMinutes: (() => {
+    try { return normalizeMapSpotAge(Number(localStorage.getItem("propulse-spot-age-minutes") ?? 30)); }
+    catch { return 30; }
+  })(),
 
   // Grid label detail level (1=field, 2=square, 3=subsquare)
   gridLabelDetail: (() => {
@@ -2250,6 +2258,12 @@ export const useMapStore = create<MapState>((set, get) => ({
   },
 
   // Arc display density
+  setSpotAgeMinutes: (minutes) => {
+    const spotAgeMinutes = normalizeMapSpotAge(minutes);
+    try { localStorage.setItem("propulse-spot-age-minutes", String(spotAgeMinutes)); } catch { /* Storage may be unavailable. */ }
+    set({ spotAgeMinutes });
+  },
+
   setDisplayDensity: (density) =>
     set({ displayDensity: normalizeSpotDensity(density) }),
 

@@ -60,6 +60,7 @@ describe("useResolvedMapSpots", () => {
       sources: undefined,
       spotFilters: undefined,
       fetchLimit: 200,
+      windowMinutes: 30,
     });
     expect(mocks.resolve).toHaveBeenCalledWith([{ id: "raw-1" }]);
     expect(result.current.resolvedSpots.map(({ id }) => id)).toEqual([
@@ -99,6 +100,7 @@ describe("useResolvedMapSpots", () => {
       sources: undefined,
       spotFilters: undefined,
       fetchLimit: 200,
+      windowMinutes: 30,
     });
     expect(mocks.activations).toHaveBeenCalledWith(true);
     expect(mocks.resolveActivations).toHaveBeenCalledWith(

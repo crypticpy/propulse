@@ -13,10 +13,10 @@
  * - Filtering by band/mode/source
  */
 
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { fetchPSKReporterSpots } from "@/lib/api/pskreporter";
-import { fetchRBNSpots } from "@/lib/api/rbn";
+import { fetchPSKReporterFeed } from "@/lib/api/pskreporter";
+import { fetchRBNFeed } from "@/lib/api/rbn";
 import { getBandFromFrequency } from "@/lib/api/dxcluster";
 import { useWSJTXStore } from "@/stores/wsjtxStore";
 import { wsjtxDecodedAt, wsjtxFrequencyHz } from "@/lib/radio/wsjtxIngestion";
@@ -28,6 +28,8 @@ import {
   getSpotFetchLimit,
   MAX_SPOT_FETCH_LIMIT,
 } from "@/lib/map/spotDensity";
+import type { SpotFeedMetadata, SpotWindowMinutes } from "@/lib/api/spotFeed";
+import { spotFeedState, spotWithinAge } from "@/lib/map/spotAge";
 import { selectMapSpotCandidates } from "@/lib/map/spotCandidates";
 
 interface UseLiveSpotsOptions {
@@ -45,6 +47,7 @@ interface UseLiveSpotsOptions {
   deduplicate?: boolean;
   /** Explicit per-source request budget for renderer-independent evidence. */
   fetchLimit?: number;
+  windowMinutes?: SpotWindowMinutes;
 }
 
 interface UseLiveSpotsResult {
@@ -54,6 +57,8 @@ interface UseLiveSpotsResult {
   evidenceSpots: LiveSpot[];
   /** Stable identity for every option that changes the returned feed snapshot. */
   feedScopeKey: string;
+  sourceMetadata: Partial<Record<SpotSource, SpotFeedMetadata>>;
+  sourceStates: Record<"PSKReporter" | "RBN" | "WSJT-X", string>;
   /** Loading state */
   isLoading: boolean;
   /** Every requested remote source has produced an initial successful snapshot. */
@@ -146,6 +151,7 @@ export function useLiveSpots({
   spotFilters,
   deduplicate = true,
   fetchLimit,
+  windowMinutes,
 }: UseLiveSpotsOptions = {}): UseLiveSpotsResult {
   // How many spots each source contributes. Derived from the map's existing
   // display-density setting -- fetching a flat 50 is why raising that slider
@@ -153,6 +159,13 @@ export function useLiveSpots({
   // (band-opening detection, alerts) keep their full feed when the map is
   // turned down. In the query key so changing it refetches rather than waiting
   // for the next interval.
+  const [now, setNow] = useState(Date.now);
+  useEffect(() => {
+    if (!enabled || windowMinutes === undefined) return;
+    setNow(Date.now());
+    const timer = setInterval(() => setNow(Date.now()), 10_000);
+    return () => clearInterval(timer);
+  }, [enabled, windowMinutes]);
   const displayDensity = useMapStore((s) => s.displayDensity);
   const spotLimit =
     fetchLimit === undefined
@@ -166,6 +179,7 @@ export function useLiveSpots({
   const feedScopeKey = JSON.stringify({
     grid: grid ?? null,
     spotLimit,
+    windowMinutes,
     sources: [...sources].sort(),
     bands: [...(spotFilters?.bands ?? [])]
       .map((band) => band.toLowerCase())
@@ -178,8 +192,8 @@ export function useLiveSpots({
 
   // Fetch PSKReporter spots
   const pskQuery = useQuery({
-    queryKey: ["liveSpots", "pskreporter", grid, spotLimit],
-    queryFn: () => fetchPSKReporterSpots(grid, undefined, spotLimit),
+    queryKey: ["liveSpots", "pskreporter", "feed-v1", grid, spotLimit, windowMinutes],
+    queryFn: () => fetchPSKReporterFeed(grid, undefined, spotLimit, windowMinutes),
     enabled: pskEnabled,
     staleTime: 30 * SECOND,
     refetchInterval,
@@ -188,8 +202,8 @@ export function useLiveSpots({
 
   // Fetch RBN spots
   const rbnQuery = useQuery({
-    queryKey: ["liveSpots", "rbn", spotLimit],
-    queryFn: () => fetchRBNSpots(spotLimit),
+    queryKey: ["liveSpots", "rbn", "feed-v1", spotLimit, windowMinutes],
+    queryFn: () => fetchRBNFeed(spotLimit, windowMinutes),
     enabled: rbnEnabled,
     staleTime: 30 * SECOND,
     refetchInterval,
@@ -199,6 +213,12 @@ export function useLiveSpots({
   // WSJT-X decodes from the bridge (via store)
   const wsjtxDecodes = useWSJTXStore((s) => s.decodes);
   const wsjtxConnected = useWSJTXStore((s) => s.connected);
+
+  // Advance immediately on new snapshots/decodes, without destabilizing memoized
+  // spot arrays on unrelated renders or waiting for the periodic expiry tick.
+  useEffect(() => {
+    if (enabled && windowMinutes !== undefined) setNow(Date.now());
+  }, [enabled, windowMinutes, pskQuery.dataUpdatedAt, rbnQuery.dataUpdatedAt, wsjtxDecodes]);
 
   // Convert WSJT-X decodes to LiveSpots
   const wsjtxSpots = useMemo<LiveSpot[]>(() => {
@@ -225,11 +245,11 @@ export function useLiveSpots({
     const allSpots: LiveSpot[] = [];
 
     if (pskQuery.data) {
-      allSpots.push(...pskQuery.data);
+      allSpots.push(...pskQuery.data.spots);
     }
 
     if (rbnQuery.data) {
-      allSpots.push(...rbnQuery.data);
+      allSpots.push(...rbnQuery.data.spots);
     }
 
     // Include WSJT-X spots
@@ -244,7 +264,10 @@ export function useLiveSpots({
       sources,
       spotFilters,
     });
-    return eligibleSpots.sort(
+    const inWindow = windowMinutes === undefined
+      ? eligibleSpots
+      : eligibleSpots.filter(spot => spotWithinAge(spot.time, windowMinutes, now));
+    return inWindow.sort(
       (a, b) => b.time.getTime() - a.time.getTime(),
     );
   }, [
@@ -253,6 +276,8 @@ export function useLiveSpots({
     sources,
     spotFilters,
     wsjtxSpots,
+    windowMinutes,
+    now,
   ]);
 
   // Map renderers prefer one visual per callsign/frequency/minute. Evidence
@@ -300,10 +325,17 @@ export function useLiveSpots({
     rbnQuery.refetch();
   };
 
+  const statusNow = Date.now();
   return {
     spots,
     evidenceSpots,
     feedScopeKey,
+    sourceMetadata: { PSKReporter: pskQuery.data?.metadata, RBN: rbnQuery.data?.metadata },
+    sourceStates: {
+      PSKReporter: spotFeedState(pskQuery.data?.metadata, pskEnabled, pskQuery.isLoading, pskQuery.isError, statusNow),
+      RBN: spotFeedState(rbnQuery.data?.metadata, rbnEnabled, rbnQuery.isLoading, rbnQuery.isError, statusNow),
+      "WSJT-X": !enabled || !sources.includes("WSJT-X") ? "OFF" : wsjtxConnected ? "LOCAL" : "BRIDGE OFF",
+    },
     isLoading,
     isFeedReady,
     isError,

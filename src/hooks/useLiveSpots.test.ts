@@ -1,4 +1,4 @@
-import { renderHook } from "@testing-library/react";
+import { act, renderHook } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { WSJTXDecode } from "@/stores/wsjtxStore";
 import type { LiveSpot } from "@/types/livespot";
@@ -23,8 +23,16 @@ const mocks = vi.hoisted(() => ({
 }));
 
 vi.mock("@tanstack/react-query", () => ({
-  useQuery: (options: { queryKey: readonly unknown[] }) =>
-    options.queryKey[1] === "pskreporter" ? mocks.psk : mocks.rbn,
+  useQuery: (options: { queryKey: readonly unknown[] }) => {
+    const query = options.queryKey[1] === "pskreporter" ? mocks.psk : mocks.rbn;
+    return {
+      ...query,
+      data: query.data ? {
+        spots: query.data,
+        metadata: { source: options.queryKey[1], status: "unknown", observedAt: null, fetchedAt: null, staleAfterSeconds: null, windowMinutes: null },
+      } : undefined,
+    };
+  },
 }));
 vi.mock("@/stores/mapStore", () => ({
   useMapStore: (selector: (state: { displayDensity: number }) => unknown) =>
@@ -176,4 +184,50 @@ it("uses captured RF frequency and status-mode labels without a current status",
   const { result } = renderHook(() => useLiveSpots({ sources: ["WSJT-X"] }));
   expect(result.current.spots).toHaveLength(1);
   expect(result.current.spots[0]).toMatchObject({ frequency: 7075.234, mode: "FT8", band: "40m" });
+});
+
+
+it("expires cached reports on the clock and changes trace scope with the age window", () => {
+  vi.useFakeTimers();
+  vi.setSystemTime(new Date("2026-08-31T12:00:00Z"));
+  mocks.wsjtx.connected = false;
+  mocks.psk.data = [spot("expires", { time: new Date("2026-08-31T11:45:05Z") })];
+  mocks.psk.isError = false;
+  mocks.psk.dataUpdatedAt = Date.now();
+  mocks.rbn.data = [];
+  try {
+    const { result, rerender, unmount } = renderHook(({ windowMinutes }: { windowMinutes: 15 | 30 | 60 }) =>
+      useLiveSpots({ windowMinutes, sources: ["PSKReporter"] }),
+      { initialProps: { windowMinutes: 15 as 15 | 30 | 60 } },
+    );
+    expect(result.current.spots).toHaveLength(1);
+    const scope = result.current.feedScopeKey;
+    act(() => vi.advanceTimersByTime(10_000));
+    expect(result.current.spots).toHaveLength(0);
+    expect(result.current.evidenceSpots).toHaveLength(0);
+    rerender({ windowMinutes: 30 });
+    expect(result.current.spots).toHaveLength(1);
+    expect(result.current.feedScopeKey).not.toBe(scope);
+    expect(result.current.sourceMetadata.PSKReporter?.status).toBe("unknown");
+    unmount();
+    expect(vi.getTimerCount()).toBe(0);
+  } finally { vi.useRealTimers(); }
+});
+
+
+it("accepts a newly fetched observation between expiry ticks", () => {
+  vi.useFakeTimers();
+  const start = Date.parse("2026-08-31T12:00:00Z");
+  vi.setSystemTime(start);
+  mocks.psk.data = [];
+  mocks.rbn.data = [];
+  try {
+    const { result, rerender, unmount } = renderHook(() => useLiveSpots({ windowMinutes: 15, sources: ["PSKReporter"] }));
+    vi.setSystemTime(start + 5000);
+    mocks.psk.data = [spot("new", { time: new Date(start + 5000) })];
+    mocks.psk.dataUpdatedAt = start + 5000;
+    rerender();
+    expect(result.current.spots.map(s => s.id)).toEqual(["new"]);
+    unmount();
+  } finally { vi.useRealTimers(); }
 });

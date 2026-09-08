@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { useActiveLocation } from "@/hooks/useActiveLocation";
 import { useUTCClock } from "@/hooks/useUTCClock";
+import { filterClusterAge } from "@/lib/dx/clusterHistory";
 import { filterBridgeSpotAge } from "@/lib/hamclock/clusterBridge";
 import { filterMapSpots } from "@/lib/map/filterMapSpots";
 import { getBandColor } from "@/lib/utils/spotColors";
@@ -43,6 +44,7 @@ function spotDetail(spot: DXSpot): string {
 export function ClusterTile() {
   const location = useActiveLocation();
   const allSpots = useDXStore((s) => s.spots);
+  const feedState = useDXStore((s) => s.clusterFeed);
   const source = useDXStore((s) => s.spotSource);
   const maxAge = useDXStore((s) => s.filters.maxAge);
   const spotFilters = useMapStore((s) => s.spotFilters);
@@ -53,7 +55,7 @@ export function ClusterTile() {
     () => filterMapSpots(
       source === "bridge"
         ? filterBridgeSpotAge(allSpots ?? [], maxAge, now.getTime())
-        : allSpots ?? [],
+        : filterClusterAge(allSpots ?? [], maxAge, now.getTime()),
       spotFilters,
     ),
     [allSpots, spotFilters, maxAge, now, source],
@@ -76,7 +78,7 @@ export function ClusterTile() {
     <>
       <HamClockTile
         title="DX cluster"
-        source={`${spots.length} · ${feed}`}
+        source={`${spots.length} · ${feed} ${feedState.state}`}
         grow
         onOpen={() => setReportOpen(true)}
         openLabel={`DX cluster: ${spots.length} spots. Open the full spot report`}
@@ -109,7 +111,7 @@ export function ClusterTile() {
             );
           })}
           {rows.length === 0 && (
-            <p className="hc-placeholder">No spots match the active filters</p>
+            <p className="hc-placeholder">{["UNAVAILABLE", "LOADING", "OFF"].includes(feedState.state) ? feedState.state : "No spots match the active filters"}</p>
           )}
         </div>
       </HamClockTile>

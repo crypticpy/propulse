@@ -213,7 +213,7 @@ export function captureLegacyViewsFromSettingsBackup(input: unknown): LegacyBack
 
     const merged = { local: capture.local, session: capture.session, warnings: [...new Set([...capture.warnings, ...warnings])] };
     if (new TextEncoder().encode(JSON.stringify(merged)).length > LIMIT) {
-      return invalid("Legacy capture exceeds 2 MiB; original storage was retained");
+      return invalid("Legacy capture exceeds 2 MiB; nothing was imported from this backup");
     }
     return { status: "ok", capture: merged, warnings: merged.warnings };
   } catch {

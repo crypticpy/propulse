@@ -1,5 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { log } from "../logger.js";
+import type { PathArchiveControls } from "../types.js";
+import { archivableDays } from "./archivePathStats.js";
 import { resolveAggregationWatermark } from "./watermark.js";
 
 /**
@@ -150,4 +152,85 @@ export async function computePathRecency(db: SupabaseClient): Promise<number> {
     rowsWritten,
   });
   return rowsWritten;
+}
+
+export interface PathRecencyPruneResult {
+  daysPruned: number;
+  rowsDeleted: number;
+}
+
+function utcDayOf(hourUtc: string): string | null {
+  const ms = Date.parse(hourUtc);
+  if (!Number.isFinite(ms)) return null;
+  return new Date(ms).toISOString().slice(0, 10);
+}
+
+function nextUtcDayIso(day: string): string {
+  return new Date(Date.parse(`${day}T00:00:00.000Z`) + 86_400_000).toISOString();
+}
+
+async function oldestRecencyDay(db: SupabaseClient): Promise<string | null> {
+  const { data, error } = await db
+    .from("path_recency_hourly")
+    .select("hour_utc")
+    .order("hour_utc", { ascending: true })
+    .limit(1)
+    .maybeSingle();
+  if (error) {
+    throw new Error(`path-recency oldest hour lookup failed: ${error.message}`);
+  }
+  if (!data?.hour_utc) return null;
+  return utcDayOf(String(data.hour_utc));
+}
+
+async function deleteRecencyDay(
+  db: SupabaseClient,
+  day: string,
+): Promise<number> {
+  const start = `${day}T00:00:00.000Z`;
+  const { error, count } = await db
+    .from("path_recency_hourly")
+    .delete({ count: "exact" })
+    .gte("hour_utc", start)
+    .lt("hour_utc", nextUtcDayIso(day));
+  if (error) {
+    throw new Error(`path-recency prune failed for ${day}: ${error.message}`);
+  }
+  return count ?? 0;
+}
+
+/**
+ * Drop derived `path_recency_hourly` days older than the same hot window
+ * `path_hourly_stats` uses. Recency is a pure function of hourly stats, so
+ * it has no archive of its own: restore a day's stats CSV and rerun
+ * `scripts/backfill-path-recency.mjs`. Fail-closed — a no-op unless
+ * `ARCHIVE_PATH_STATS_PRUNE=true`. Work is bounded to `maxDaysPerRun`.
+ */
+export async function prunePathRecency(
+  db: SupabaseClient,
+  controls: PathArchiveControls,
+  nowMs = Date.now(),
+): Promise<PathRecencyPruneResult> {
+  if (!controls.pruneEnabled) {
+    return { daysPruned: 0, rowsDeleted: 0 };
+  }
+
+  const oldestDay = await oldestRecencyDay(db);
+  if (!oldestDay) return { daysPruned: 0, rowsDeleted: 0 };
+
+  const days = archivableDays(oldestDay, nowMs, controls.hotDays).slice(
+    0,
+    controls.maxDaysPerRun,
+  );
+  let daysPruned = 0;
+  let rowsDeleted = 0;
+  for (const day of days) {
+    const deleted = await deleteRecencyDay(db, day);
+    if (deleted > 0) {
+      daysPruned += 1;
+      rowsDeleted += deleted;
+      log("info", "Pruned path_recency_hourly day", { day, rows: deleted });
+    }
+  }
+  return { daysPruned, rowsDeleted };
 }

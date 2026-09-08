@@ -4,7 +4,9 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import {
   PATH_RECENCY_TRANSFORM_VERSION,
   computePathRecency,
+  prunePathRecency,
 } from "./pathRecency.js";
+import type { PathArchiveControls } from "../types.js";
 
 interface RpcCall {
   fn: string;
@@ -172,5 +174,93 @@ describe("path recency aggregator", () => {
 
     const retry = fakeDb("2026-09-06T14:00:00+00:00", { rowsWritten: 1 });
     await expect(computePathRecency(retry.db)).resolves.toBe(2);
+  });
+});
+
+interface RecencyPruneFake {
+  db: SupabaseClient;
+  fromCalls: number;
+  deleted: { start: string; end: string }[];
+}
+
+function fakePruneDb(
+  oldestHour: string | null,
+  options: { deleteError?: string } = {},
+): RecencyPruneFake {
+  const deleted: { start: string; end: string }[] = [];
+  const fake: RecencyPruneFake = {
+    fromCalls: 0,
+    deleted,
+    db: null as unknown as SupabaseClient,
+  };
+  fake.db = {
+    from(table: string) {
+      if (table !== "path_recency_hourly") {
+        throw new Error(`unexpected table ${table}`);
+      }
+      fake.fromCalls += 1;
+      return {
+        select: () => ({
+          order: () => ({
+            limit: () => ({
+              maybeSingle: async () => ({
+                data: oldestHour ? { hour_utc: oldestHour } : null,
+                error: null,
+              }),
+            }),
+          }),
+        }),
+        delete: () => ({
+          gte: (_column: string, start: string) => ({
+            lt: async (_column: string, end: string) => {
+              if (options.deleteError) {
+                return { count: null, error: { message: options.deleteError } };
+              }
+              deleted.push({ start, end });
+              return { count: 12, error: null };
+            },
+          }),
+        }),
+      };
+    },
+  } as unknown as SupabaseClient;
+  return fake;
+}
+
+const HOT: PathArchiveControls = {
+  hotDays: 90,
+  pruneEnabled: true,
+  maxDaysPerRun: 2,
+};
+
+describe("path recency prune", () => {
+  it("does not touch the table until ARCHIVE_PATH_STATS_PRUNE is armed", async () => {
+    const fake = fakePruneDb("2026-04-01T00:00:00.000Z");
+    await expect(
+      prunePathRecency(fake.db, { ...HOT, pruneEnabled: false }),
+    ).resolves.toEqual({ daysPruned: 0, rowsDeleted: 0 });
+    expect(fake.fromCalls).toBe(0);
+    expect(fake.deleted).toEqual([]);
+  });
+
+  it("deletes the oldest complete UTC days, bounded by maxDaysPerRun", async () => {
+    const fake = fakePruneDb("2026-04-01T15:00:00.000Z");
+    const nowMs = Date.parse("2026-09-07T12:00:00.000Z");
+    const result = await prunePathRecency(fake.db, HOT, nowMs);
+    expect(result).toEqual({ daysPruned: 2, rowsDeleted: 24 });
+    expect(fake.deleted).toEqual([
+      { start: "2026-04-01T00:00:00.000Z", end: "2026-04-02T00:00:00.000Z" },
+      { start: "2026-04-02T00:00:00.000Z", end: "2026-04-03T00:00:00.000Z" },
+    ]);
+  });
+
+  it("does nothing when every stored hour is still inside the hot window", async () => {
+    const fake = fakePruneDb("2026-08-01T00:00:00.000Z");
+    const nowMs = Date.parse("2026-09-07T12:00:00.000Z");
+    await expect(prunePathRecency(fake.db, HOT, nowMs)).resolves.toEqual({
+      daysPruned: 0,
+      rowsDeleted: 0,
+    });
+    expect(fake.deleted).toEqual([]);
   });
 });

@@ -21,7 +21,10 @@ import { computeBandActivityClimatology } from "./collectors/bandActivityClimato
 import { computeHourlyStats } from "./aggregator/hourly.js";
 import { computePathHourlyStats } from "./aggregator/pathHourly.js";
 import { computeRegionHourlyStats } from "./aggregator/regionHourly.js";
-import { computePathRecency } from "./aggregator/pathRecency.js";
+import {
+  computePathRecency,
+  prunePathRecency,
+} from "./aggregator/pathRecency.js";
 import { runVerdictLadder } from "./collectors/verdictLadder.js";
 import { pruneOldData } from "./aggregator/prune.js";
 import { checkDbSize } from "./aggregator/dbSizeGuard.js";
@@ -184,10 +187,13 @@ async function main(): Promise<void> {
   );
 
   // path_hourly_stats day archiver — exports days older than the hot window
-  // to storage; deletes them only when ARCHIVE_PATH_STATS_PRUNE=true
-  register("path-archive", pollIntervals.pathArchive, () =>
-    archivePathStats(db, config.archive.pathStats),
-  );
+  // to storage; deletes them (and derived path_recency_hourly) only when
+  // ARCHIVE_PATH_STATS_PRUNE=true. Recency is reconstructable from archived
+  // stats, so it is not exported separately.
+  register("path-archive", pollIntervals.pathArchive, async () => {
+    await archivePathStats(db, config.archive.pathStats);
+    await prunePathRecency(db, config.archive.pathStats);
+  });
 
   // BH1 Activity Index baseline — daily band × hour-of-day percentile
   // recompute from band_hourly_stats (runs once at startup, then daily)

@@ -448,6 +448,19 @@ describe("sanitizeRailLayout (read-time cleanup, wall spec §6)", () => {
     expect(cleaned.right).toEqual([{ pageId: "spots", tileIds: ["bestBand"] }]);
   });
 
+  it("keeps optional catalogue tiles that are not on a shipped page", () => {
+    const cleaned = sanitizeRailLayout({
+      left: [{ pageId: "spots", tileIds: ["cluster", "contests"] }],
+      right: [{ pageId: "spots", tileIds: ["dxpeditions"] }],
+    });
+    expect(cleaned.left).toEqual([
+      { pageId: "spots", tileIds: ["cluster", "contests"] },
+    ]);
+    expect(cleaned.right).toEqual([
+      { pageId: "spots", tileIds: ["dxpeditions"] },
+    ]);
+  });
+
   it("falls back per-side to the shipped composition when a side ends up empty", () => {
     const cleaned = sanitizeRailLayout({
       left: [{ pageId: "retired-page", tileIds: ["moon"] }],

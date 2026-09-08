@@ -1111,7 +1111,10 @@
   gap: 1vw;
   padding: 0.8vh 0;
   border-bottom: 1px solid var(--hc-line);
-
+}
+a.hca-row {
+  color: inherit;
+  text-decoration: none;
 }
 .hca-identity, .hca-detail {
   display: flex;

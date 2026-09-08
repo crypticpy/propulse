@@ -60,9 +60,14 @@ export function useSpotsPreferences(
   useLayoutEffect(() => {
     view.ensureSubscribed();
   }, [view]);
+  // Keyed on the observation's value, not its identity: callers pass an inline
+  // `{ band, mode }` and setRadio always publishes fresh state, so depending on
+  // the object would re-enter on every render.
+  const radioBand = radio?.band ?? null;
+  const radioMode = radio?.mode ?? null;
   useEffect(() => {
-    view.setRadio(radio);
-  }, [view, radio]);
+    view.setRadio(radioBand !== null && radioMode !== null ? { band: radioBand, mode: radioMode } : null);
+  }, [view, radioBand, radioMode]);
 
   const state = useStore(view.store);
   const config = state.config;

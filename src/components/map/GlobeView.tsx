@@ -32,6 +32,7 @@ import { latLonToGrid } from "@/lib/utils/grid";
 import { EarthSphere } from "./EarthSphere";
 import { GlobeDepthDome } from "./GlobeDepthDome";
 import { GlobeUnavailable } from "./GlobeUnavailable";
+import { WebGLContextGuard } from "./useWebGLContextGuard";
 import { probeWebGLSupport } from "@/lib/webgl/webglSupport";
 import { TiledGlobe } from "./TiledGlobe";
 import { TiledLabels } from "./TiledLabels";
@@ -2046,9 +2047,17 @@ export function GlobeView({
   // runtime (post-mount) failure.
   const [webgl, setWebgl] = useState(() => probeWebGLSupport());
   const [attempt, setAttempt] = useState(0);
+  // Set when the browser reports a genuine (post-mount) WebGL context loss —
+  // this can't be caught by GlobeErrorBoundary because it surfaces inside
+  // the rAF render loop, outside React's render/commit phase.
+  const [contextLost, setContextLost] = useState(false);
   const retryWebGL = useCallback(() => {
     setWebgl(probeWebGLSupport());
+    setContextLost(false);
     setAttempt((prev) => prev + 1);
+  }, []);
+  const handleContextLost = useCallback(() => {
+    setContextLost(true);
   }, []);
   const useFlatMap = useCallback(() => {
     if (onUseFlatMap) onUseFlatMap();
@@ -2627,7 +2636,7 @@ export function GlobeView({
 
   return (
     <div className="w-full h-full min-h-[400px] bg-deep-space rounded-xl overflow-hidden relative isolate select-none">
-      {webgl.supported ? (
+      {webgl.supported && !contextLost ? (
         <GlobeErrorBoundary
           key={attempt}
           fallback={
@@ -2639,6 +2648,10 @@ export function GlobeView({
           }
         >
           <Canvas dpr={qualitySettings.renderDevicePixelRatio}>
+            {/* Releases the context on unmount instead of r3f's delayed 500ms
+                teardown, and turns a genuine loss into the GlobeUnavailable
+                fallback whose Retry remounts a fresh context. */}
+            <WebGLContextGuard onLost={handleContextLost} />
             {import.meta.env.DEV && (
               <GlobePerformanceDiagnostics
                 settleDelayMs={qualitySettings.settleDelayMs}

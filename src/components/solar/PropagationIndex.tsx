@@ -252,7 +252,11 @@ export const PropagationIndex: React.FC<PropagationIndexProps> = ({
           <div className="flex flex-col md:flex-row items-center gap-6">
             {/* Gauge + condition pill stack */}
             <div className="flex flex-col items-center gap-3 w-full md:w-auto flex-shrink-0">
-              <div className="relative flex-shrink-0 w-full md:w-auto max-w-[200px] mx-auto md:mx-0">
+              {/* pb-6 reserves room for the 0/100 tick labels, which sit at
+                  y≈178.5 (bottom ≈184) in the overflow-visible svg's 200x160
+                  viewBox — past its 160px allocated box at the 200px basis —
+                  so the pill below doesn't overlap them. */}
+              <div className="relative flex-shrink-0 w-full md:w-auto max-w-[200px] mx-auto md:mx-0 pb-6">
                 <svg
                   viewBox="0 0 200 160"
                   className="w-full h-auto overflow-visible"

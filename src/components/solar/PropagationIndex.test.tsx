@@ -32,6 +32,10 @@ describe("PropagationIndex layout (#641)", () => {
     // new stack wrapper around gauge + pill.
     const gaugeWrapper = svg!.parentElement;
     expect(gaugeWrapper?.className).toContain("max-w-[200px]");
+    // Clearance below the svg's overflow-visible tick labels (0/100, which
+    // sit at y≈178.5-184 in the 200x160 viewBox) so the pill doesn't overlap
+    // them (#644 review follow-up).
+    expect(gaugeWrapper?.className).toContain("pb-6");
     const stack = gaugeWrapper!.parentElement;
     expect(stack).not.toBeNull();
     expect(stack?.className).toContain("flex-col");

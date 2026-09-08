@@ -129,6 +129,56 @@ describe("station design primitives", () => {
     ).toBe("true");
   });
 
+  it("stacks EquipmentTile glyph, name and hint and marks selection with an outline, corner check and colour rail", () => {
+    render(
+      <StationProvider>
+        <EquipmentTile
+          name="Homebrew tuner"
+          kind="tuner"
+          detail="Owned · 2 ports"
+          selected
+          onSelect={() => {}}
+        />
+        <EquipmentTile
+          name="Portable dipole"
+          kind="antenna"
+          detail="Planned · 1 port"
+          selected={false}
+          onSelect={() => {}}
+        />
+      </StationProvider>,
+    );
+
+    const selectedTile = screen.getByRole("button", {
+      name: /Homebrew tuner/,
+    });
+    expect(selectedTile.getAttribute("aria-pressed")).toBe("true");
+    const mark = selectedTile.querySelector(".su-selection-mark");
+    expect(mark).not.toBeNull();
+
+    const selectedChildren = Array.from(selectedTile.children);
+    expect(selectedChildren[0].tagName).toBe("svg");
+    const strong = selectedTile.querySelector("strong");
+    const hint = selectedTile.querySelector(".su-hint");
+    expect(strong?.textContent).toBe("Homebrew tuner");
+    expect(hint?.textContent).toBe("Owned · 2 ports");
+    expect(
+      strong?.compareDocumentPosition(hint as Node),
+    ).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
+    // The mark is a sibling that precedes the name/hint wrapper in the DOM.
+    expect(
+      mark?.compareDocumentPosition(strong as Node),
+    ).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
+
+    const unselectedTile = screen.getByRole("button", {
+      name: /Portable dipole/,
+    });
+    expect(unselectedTile.getAttribute("aria-pressed")).toBe("false");
+    expect(unselectedTile.querySelector(".su-selection-mark")).toBeNull();
+    const unselectedChildren = Array.from(unselectedTile.children);
+    expect(unselectedChildren[0].tagName).toBe("svg");
+  });
+
   it("keeps text and custom accent labels legible across every theme", () => {
     for (const [theme, palette] of Object.entries(stationPalettes)) {
       expect(

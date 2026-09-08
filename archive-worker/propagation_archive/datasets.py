@@ -25,6 +25,7 @@ class Dataset:
     source_count_column: str | None = None
     watermark_sql: str | None = None
     restore_casts: tuple[tuple[str, str], ...] = ()
+    coverage_contract: str | None = None
 
     @property
     def select_sql(self) -> str:
@@ -290,7 +291,7 @@ DATASETS = {
         Dataset(
             "path_hourly_stats_v1", "public.path_hourly_stats", "hour_utc", "id",
             "event", "month", 1, columns(PATH_HOURLY_SCHEMA), PATH_HOURLY_SCHEMA,
-            "band", PATH_WATERMARK_SQL,
+            "band", PATH_WATERMARK_SQL, coverage_contract="spot-known-gaps-v1",
         ),
         Dataset(
             "solar_snapshots_v1", "public.solar_snapshots", "captured_at", "id",

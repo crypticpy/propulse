@@ -8,6 +8,7 @@ permissions: {}
 
 jobs:
   body:
+    name: pr-contract
     if: github.event.pull_request.draft == false
     runs-on: ubuntu-latest
     permissions: {}

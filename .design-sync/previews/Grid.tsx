@@ -46,3 +46,29 @@ export function PurposeCards() {
     </Grid>
   );
 }
+
+export function NarrowSingleColumn() {
+  return (
+    <div style={{ width: 320 }}>
+      <Grid>
+        <Surface>
+          <KeyValueList
+            items={[
+              { label: "Transceiver", value: "IC-7300" },
+              { label: "Antenna", value: "Hexbeam @ 12 m" },
+              { label: "Connection", value: "Radio · ANT 1 → Tuner · RF IN" },
+            ]}
+          />
+        </Surface>
+        <Surface>
+          <KeyValueList
+            items={[
+              { label: "Grid square", value: "EM12ov" },
+              { label: "Bands covered", value: "160 m through 70 cm" },
+            ]}
+          />
+        </Surface>
+      </Grid>
+    </div>
+  );
+}

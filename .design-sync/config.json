@@ -217,7 +217,46 @@
     "WorkStationPanel": "src/components/dx/WorkStationPanel.tsx",
     "WidgetShell": "src/components/solar/WidgetShell.tsx",
     "TrendSparkline": "src/components/solar/TrendSparkline.tsx",
-    "SolarSeriesChart": "src/components/solar/SolarSeriesChart.tsx"
+    "SolarSeriesChart": "src/components/solar/SolarSeriesChart.tsx",
+    "DXSpotList": "src/components/dx/DXSpotList/DXSpotList.tsx",
+    "FilterControls": "src/components/dx/DXSpotList/FilterControls.tsx",
+    "LayoutModeDropdown": "src/components/map/LayoutModeDropdown.tsx",
+    "ProToolbarRibbon": "src/components/map/ProToolbarRibbon.tsx",
+    "RegionPresetSelector": "src/components/map/RegionPresetSelector.tsx",
+    "WatchPopover": "src/components/map/WatchPopover.tsx",
+    "PathPointInspector": "src/components/map/PathPointInspector.tsx",
+    "PathPointList": "src/components/map/PathPointList.tsx",
+    "TargetHoverTooltip": "src/components/map/TargetHoverTooltip.tsx",
+    "ActivationPillButtons": "src/components/map/layers/ActivationPillButtons.tsx",
+    "AzimuthalSpotClusterButtons": "src/components/map/layers/AzimuthalSpotClusterButtons.tsx",
+    "AzimuthalSpotPillButtons": "src/components/map/layers/AzimuthalSpotPillButtons.tsx",
+    "BasemapCategory": "src/components/map/layers/BasemapCategory.tsx",
+    "ColorsPopover": "src/components/map/ColorsPopover.tsx",
+    "CustomTLEDialog": "src/components/map/layers/CustomTLEDialog.tsx",
+    "LayersPopover": "src/components/map/LayersPopover.tsx",
+    "ProfilePopover": "src/components/map/ProfilePopover.tsx",
+    "SatelliteFilters": "src/components/map/layers/SatelliteFilters.tsx",
+    "SatelliteLogButton": "src/components/map/layers/SatelliteLogButton.tsx",
+    "OperatorProfile": "src/components/map/OperatorProfile.tsx",
+    "BandModeModal": "src/components/operating/BandModeModalContent.tsx",
+    "CorrelationIndicator": "src/components/map/CorrelationIndicator.tsx",
+    "NowCastBandPanel": "src/components/propagation/NowCastBandPanel.tsx",
+    "PropagationForecastModal": "src/components/map/modals/PropagationForecastModal.tsx",
+    "ResearchAttemptControl": "src/components/propagation/ResearchAttemptControl.tsx",
+    "FireFlyout": "src/components/map/FireFlyout.tsx",
+    "GlobeWeatherAlertFlow": "src/components/map/GlobeWeatherAlertFlow.tsx",
+    "MapFlyout": "src/components/map/MapFlyout.tsx",
+    "SpotCollectionPopover": "src/components/map/SpotCollectionPopover.tsx",
+    "SpotContextMenu": "src/components/map/SpotContextMenu.tsx",
+    "WeatherAlertFlyout": "src/components/map/WeatherAlertFlyout.tsx",
+    "WeatherAlertModal": "src/components/map/WeatherAlertModal.tsx",
+    "StormImpactPanel": "src/components/alerts/StormImpactPanel.tsx",
+    "AlertBanner": "src/components/alerts/AlertBanner.tsx",
+    "AlertGlowOverlay": "src/components/alerts/AlertGlowOverlay.tsx",
+    "AlertToastContainer": "src/components/alerts/AlertToastContainer.tsx",
+    "SpotAlertToastContainer": "src/components/alerts/SpotAlertToast.tsx",
+    "EmergencyTickerBar": "src/components/alerts/EmergencyTickerBar.tsx",
+    "TickerCrawlSettingsDialog": "src/components/map/TickerCrawlSettingsDialog.tsx"
   },
   "extraFonts": [
     ".design-sync/fonts/fonts.css"
@@ -249,6 +288,31 @@
       "cardMode": "single",
       "primaryStory": "Default",
       "viewport": "1200x200"
+    },
+    "SpotAlertToastContainer": {
+      "cardMode": "single",
+      "primaryStory": "NewDxccStack",
+      "viewport": "900x400"
+    },
+    "PropagationForecastModal": {
+      "cardMode": "single",
+      "primaryStory": "WithNowCast",
+      "viewport": "900x1600"
+    },
+    "EquipmentSection": {
+      "cardMode": "single",
+      "primaryStory": "Default",
+      "viewport": "900x1150"
+    },
+    "EquipmentHeroCard": {
+      "cardMode": "single",
+      "primaryStory": "Transceiver",
+      "viewport": "900x1300"
+    },
+    "ProToolbarRibbon": {
+      "cardMode": "single",
+      "primaryStory": "Expanded",
+      "viewport": "1800x300"
     }
   }
 }

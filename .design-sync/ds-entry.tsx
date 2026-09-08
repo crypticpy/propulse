@@ -229,6 +229,47 @@ export { WidgetShell } from "@/components/solar/WidgetShell";
 export { TrendSparkline } from "@/components/solar/TrendSparkline";
 export { SolarSeriesChart } from "@/components/solar/SolarSeriesChart";
 
+// -- round 3 (2026-09-08): operator profile, forecast/NowCast, band conditions, path info, layers/legends, pro dock, notices, tickers --
+export { DXSpotList } from "@/components/dx/DXSpotList/DXSpotList";
+export { FilterControls } from "@/components/dx/DXSpotList/FilterControls";
+export { LayoutModeDropdown } from "@/components/map/LayoutModeDropdown";
+export { ProToolbarRibbon } from "@/components/map/ProToolbarRibbon";
+export { RegionPresetSelector } from "@/components/map/RegionPresetSelector";
+export { WatchPopover } from "@/components/map/WatchPopover";
+export { PathPointInspector } from "@/components/map/PathPointInspector";
+export { PathPointList } from "@/components/map/PathPointList";
+export { TargetHoverTooltip } from "@/components/map/TargetHoverTooltip";
+export { ActivationPillButtons } from "@/components/map/layers/ActivationPillButtons";
+export { AzimuthalSpotClusterButtons } from "@/components/map/layers/AzimuthalSpotClusterButtons";
+export { AzimuthalSpotPillButtons } from "@/components/map/layers/AzimuthalSpotPillButtons";
+export { default as BasemapCategory } from "@/components/map/layers/BasemapCategory";
+export { ColorsPopover } from "@/components/map/ColorsPopover";
+export { CustomTLEDialog } from "@/components/map/layers/CustomTLEDialog";
+export { LayersPopover } from "@/components/map/LayersPopover";
+export { ProfilePopover } from "@/components/map/ProfilePopover";
+export { default as SatelliteFilters } from "@/components/map/layers/SatelliteFilters";
+export { SatelliteLogButton } from "@/components/map/layers/SatelliteLogButton";
+export { OperatorProfile } from "@/components/map/OperatorProfile";
+export { BandModeModal } from "@/components/operating/BandModeModalContent";
+export { CorrelationIndicator } from "@/components/map/CorrelationIndicator";
+export { NowCastBandPanel } from "@/components/propagation/NowCastBandPanel";
+export { PropagationForecastModal } from "@/components/map/modals/PropagationForecastModal";
+export { ResearchAttemptControl } from "@/components/propagation/ResearchAttemptControl";
+export { FireFlyout } from "@/components/map/FireFlyout";
+export { GlobeWeatherAlertFlow } from "@/components/map/GlobeWeatherAlertFlow";
+export { MapFlyout } from "@/components/map/MapFlyout";
+export { SpotCollectionPopover } from "@/components/map/SpotCollectionPopover";
+export { SpotContextMenu } from "@/components/map/SpotContextMenu";
+export { WeatherAlertFlyout } from "@/components/map/WeatherAlertFlyout";
+export { WeatherAlertModal } from "@/components/map/WeatherAlertModal";
+export { StormImpactPanel } from "@/components/alerts/StormImpactPanel";
+export { AlertBanner } from "@/components/alerts/AlertBanner";
+export { AlertGlowOverlay } from "@/components/alerts/AlertGlowOverlay";
+export { AlertToastContainer } from "@/components/alerts/AlertToastContainer";
+export { SpotAlertToastContainer } from "@/components/alerts/SpotAlertToast";
+export { EmergencyTickerBar } from "@/components/alerts/EmergencyTickerBar";
+export { TickerCrawlSettingsDialog } from "@/components/map/TickerCrawlSettingsDialog";
+
 // -- provider ---------------------------------------------------------------
 /**
  * Wraps every preview with the context PROPULSE components read at render

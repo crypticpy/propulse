@@ -44,3 +44,18 @@ export function Toggle() {
     </Stack>
   );
 }
+
+export function StackedNarrow() {
+  return (
+    <div style={{ width: 300 }}>
+      <Surface>
+        <SectionHeader
+          layout="stack"
+          title="Daylight"
+          summary="Solar altitude through the UTC day, with sunrise and sunset."
+          action={<Badge status="fair">Location needed</Badge>}
+        />
+      </Surface>
+    </div>
+  );
+}

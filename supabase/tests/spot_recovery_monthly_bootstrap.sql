@@ -596,3 +596,29 @@ REVOKE ALL ON FUNCTION public.prune_archived_path_hourly_stats(date, bigint)
   FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.prune_archived_path_hourly_stats(date, bigint)
   TO service_role;
+
+-- Genuine legacy restore proof predating source-coverage activation. The
+-- coverage migration must invalidate this gate for path_hourly_stats_v1.
+UPDATE public.propagation_archive_datasets
+SET archive_enabled = true
+WHERE dataset = 'path_hourly_stats_v1';
+DO $$
+DECLARE m uuid;
+BEGIN
+ m := public.register_propagation_archive_manifest(
+  'path_hourly_stats_v1',1,'2026-04-01','2026-05-01',
+  'path/month=2026-04/legacy-gate.parquet',0,NULL,NULL,'{}',repeat('9',64),0,1,repeat('a',40)
+ );
+ PERFORM public.verify_propagation_archive_manifest(m,jsonb_build_object(
+  'remote_size_verified',true,'remote_sha256_verified',true,'parquet_read_verified',true,
+  'row_count_verified',true,'source_bounds_verified',true,
+  'aggregate_reconciliation_verified',true,'watermark_coverage_verified',true));
+ PERFORM public.seal_propagation_archive_manifest(m);
+ PERFORM public.record_propagation_archive_restore(
+  m,'legacy-fixture',0,repeat('9',64),true,true,true,true
+ );
+ IF (SELECT restore_gate_manifest_id FROM public.propagation_archive_datasets
+     WHERE dataset='path_hourly_stats_v1') IS DISTINCT FROM m THEN
+  RAISE EXCEPTION 'legacy restore gate fixture was not established';
+ END IF;
+END $$;

@@ -64,7 +64,9 @@ snapshot rejects more than 1,000 ranges; it never silently truncates. Empty
    under READ COMMITTED. The gap writer takes the corresponding exclusive lock.
    Stale evidence cannot authorize guarded state transitions or pruning.
 5. Reuse, isolated restore and replica verification reconcile current evidence.
-   Passing receipts must carry the verified evidence. Database receipt guards
+   Passing receipts must carry the verified evidence. Contract activation clears
+   the path dataset's legacy restore approval; a new guarded restore must pass.
+   Database receipt guards
    close the interval between client validation and receipt insertion.
 
 An older manifest without evidence remains historical evidence of its rows; it

@@ -1,5 +1,13 @@
 CREATE TEMP TABLE monthly_test_ids (label text PRIMARY KEY, id uuid NOT NULL);
 
+DO $$ BEGIN
+ IF EXISTS (SELECT 1 FROM public.propagation_archive_datasets
+  WHERE dataset='path_hourly_stats_v1'
+    AND (restore_gate_passed_at IS NOT NULL OR restore_gate_manifest_id IS NOT NULL)) THEN
+  RAISE EXCEPTION 'coverage activation retained a legacy restore gate';
+ END IF;
+END $$;
+
 CREATE FUNCTION pg_temp.verification(evidence jsonb) RETURNS jsonb
 LANGUAGE sql IMMUTABLE AS $$ SELECT jsonb_build_object(
  'remote_size_verified',true,'remote_sha256_verified',true,'parquet_read_verified',true,
@@ -28,6 +36,10 @@ BEGIN
   jsonb_build_object('checks',jsonb_build_object('coverage_metadata_verified',true,'coverage_evidence',e)));
  IF NOT EXISTS (SELECT 1 FROM public.propagation_archive_restore_receipts WHERE manifest_id=m) THEN
   RAISE EXCEPTION 'valid restore receipt absent';
+ END IF;
+ IF (SELECT restore_gate_manifest_id FROM public.propagation_archive_datasets
+     WHERE dataset='path_hourly_stats_v1') IS DISTINCT FROM m THEN
+  RAISE EXCEPTION 'guarded restore did not restore the dataset gate';
  END IF;
 END $$;
 ROLLBACK;

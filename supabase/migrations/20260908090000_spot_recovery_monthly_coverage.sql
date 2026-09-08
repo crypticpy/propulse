@@ -9,8 +9,24 @@ ALTER TABLE public.propagation_archive_manifests
   ADD COLUMN coverage_evidence jsonb;
 
 UPDATE public.propagation_archive_datasets
-SET coverage_contract = 'spot-known-gaps-v1', updated_at = now()
+SET coverage_contract = 'spot-known-gaps-v1',
+    restore_gate_passed_at = NULL,
+    restore_gate_manifest_id = NULL,
+    updated_at = now()
 WHERE dataset = 'path_hourly_stats_v1';
+
+INSERT INTO public.propagation_archive_lifecycle_audit (
+  manifest_id, dataset, action, details
+) VALUES (
+  NULL,
+  'path_hourly_stats_v1',
+  'control_changed',
+  jsonb_build_object(
+    'coverage_contract', 'spot-known-gaps-v1',
+    'restore_gate_cleared', true,
+    'reason', 'coverage contract activation requires a new passing restore receipt'
+  )
+);
 
 CREATE FUNCTION public.spot_archive_path_gap_snapshot_range(
   p_range_start timestamptz,

@@ -2,6 +2,8 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+Process — how work is claimed, branched, reviewed, merged, and marked done — is defined in `docs/AGENT-CONSTITUTION.md`. Read it before starting any task. This file covers the code.
+
 ## Build & Development Commands
 
 ```bash
@@ -9,7 +11,7 @@ npm run dev              # Vite dev server at http://localhost:5173
 npm run build            # tsc -b && vite build (typecheck + bundle)
 npm run lint             # eslint . --max-warnings 0 (zero tolerance)
 npm run check:bundles    # Enforce bundle size budgets
-npm run verify           # Full pipeline: tracked-artifacts + lint + build + bundles
+npm run verify           # Full gate: artifacts, tokens, ML checks, boundaries, lint, tests, build, bundles
 npm run preview          # Serve production build locally
 npm run hooks:install    # One-time git hook setup (pre-commit + pre-push)
 ```
@@ -20,7 +22,7 @@ Bridge server (optional, for rig control):
 cd bridge && npm install && npm run dev   # WebSocket on ws://localhost:9867
 ```
 
-There is no test framework (no Vitest/Jest). Quality relies on `npm run verify` + manual UI checks.
+Vitest is the test runner (`npm run test`; focused runs via `npx vitest run <path>`). `npm run verify` is the push gate.
 
 ## Architecture Overview
 
@@ -131,7 +133,7 @@ For visual builder / flowchart views (Station Builder Lab):
 All checks must pass before push. Fix issues immediately — do not defer.
 
 ```bash
-npm run verify   # Runs: tracked-artifacts + lint + build + bundle check
+npm run verify   # Runs: artifacts + tokens + ML preregistration/archive + production-boundaries + view-library types + lint + test + test:bridge + test:radio-daemon + build + bundles
 ```
 
 Git hooks (install with `npm run hooks:install`):
@@ -155,7 +157,7 @@ Do not commit generated/build artifacts: `node_modules/`, `dist/`, `dev-dist/`, 
 
 ### Local-First Development
 
-Local iterative development without PRs is allowed while prototyping. Use short-lived feature branches and small commits. Move to PR-first for integration and release branches.
+Local prototyping without a PR is fine, in a worktree. Anything that reaches `main` goes through one issue → one PR per `docs/AGENT-CONSTITUTION.md`. No stacked PRs. The primary checkout is shared scratch — never commit from it.
 
 ## Environment Variables
 

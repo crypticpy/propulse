@@ -65,3 +65,45 @@ export function formatSpotAge(
   }
   return `${minutes}:${seconds.toString().padStart(2, "0")}`;
 }
+
+// getAgeBadgeColors: verbatim port of LiveSpotArcs.tsx lines ~213-252 (added 2026-09-08 for SpotDetailsModal / SpotCollectionPopover).
+export function getAgeBadgeColors(ageCategory: SpotAgeCategory): {
+  bg: string;
+  text: string;
+  border: string;
+} {
+  switch (ageCategory) {
+    case "fresh":
+      return {
+        bg: "bg-green-500/20",
+        text: "text-green-400",
+        border: "border-green-500/30",
+      };
+    case "recent":
+      return {
+        bg: "bg-cyan-500/20",
+        text: "text-cyan-400",
+        border: "border-cyan-500/30",
+      };
+    case "aging":
+      return {
+        bg: "bg-yellow-500/20",
+        text: "text-yellow-400",
+        border: "border-yellow-500/30",
+      };
+    case "stale":
+      return {
+        bg: "bg-orange-500/20",
+        text: "text-orange-400",
+        border: "border-orange-500/30",
+      };
+    case "old":
+      return {
+        bg: "bg-su-line/20",
+        text: "text-su-muted",
+        border: "border-su-line/30",
+      };
+  }
+}
+
+// ==========================================================================

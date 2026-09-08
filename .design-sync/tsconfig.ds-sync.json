@@ -146,6 +146,21 @@
       "@/components/map/LiveSpotArcs": [
         "./.design-sync/shims/live-spot-arcs-age.ts"
       ],
+      "./LiveSpotArcs": [
+        "./.design-sync/shims/live-spot-arcs-age.ts"
+      ],
+      "./LocationMarker": [
+        "./.design-sync/shims/location-marker-difficulty.ts"
+      ],
+      "@/components/map/LocationMarker": [
+        "./.design-sync/shims/location-marker-difficulty.ts"
+      ],
+      "./IonosphericShells": [
+        "./.design-sync/shims/ionospheric-shells-legend.ts"
+      ],
+      "@/components/map/layers/Ft8DecodeLayer3D": [
+        "./.design-sync/shims/ft8-decode-colors.ts"
+      ],
       "@/*": [
         "./src/*"
       ]

@@ -14,6 +14,7 @@ from uuid import UUID
 from .database import ArchiveDatabase, closed_boundary, floor_partition, next_partition
 from .datasets import DATASETS, Dataset
 from .parquet import ArchiveStats, export_partition, verify_parquet
+from .coverage import canonical_coverage
 from .storage import BUCKET, SupabaseArchiveStorage
 
 
@@ -102,6 +103,9 @@ def archive_partition(
     with database.partition_lock(dataset, start, end):
         existing = database.existing_manifest(dataset, start, end)
         if existing and existing["status"] in {"sealed", "restored"}:
+            if dataset.coverage_contract:
+                evidence = database.reconcile_coverage(existing["id"])
+                canonical_coverage(evidence, dataset.coverage_contract, start, end)
             if not storage.verify(
                 existing["object_path"],
                 int(existing["object_bytes"]),
@@ -121,6 +125,7 @@ def archive_partition(
         if not database.watermarks_cover(dataset, start, end):
             raise RuntimeError("aggregation or feature watermarks do not cover partition")
         source_before = database.source_summary(dataset, start, end)
+        coverage_before = database.coverage_snapshot(dataset, start, end)
         manifest_id: UUID | None = None
         with tempfile.TemporaryDirectory(dir=temp_root) as directory:
             archive_path = Path(directory) / "partition.parquet.zst"
@@ -133,6 +138,7 @@ def archive_partition(
                     archive_path,
                     batch_rows=batch_rows,
                     row_group_rows=row_group_rows,
+                    coverage_evidence=coverage_before,
                 )
                 local_verification = verify_parquet(
                     archive_path,
@@ -142,6 +148,9 @@ def archive_partition(
                     expected_min_time=stats.min_source_time,
                     expected_max_time=stats.max_source_time,
                     expected_source_counts=stats.source_counts,
+                    expected_coverage_evidence=coverage_before,
+                    expected_range_start=start,
+                    expected_range_end=end,
                 )
                 source_after = database.source_summary(dataset, start, end)
                 if not _summaries_match(stats, source_before) or not _summaries_match(
@@ -150,6 +159,12 @@ def archive_partition(
                     raise RuntimeError("source partition changed or failed reconciliation")
                 if not database.watermarks_cover(dataset, start, end):
                     raise RuntimeError("watermark coverage changed during export")
+                coverage_after = database.coverage_snapshot(dataset, start, end)
+                if dataset.coverage_contract:
+                    before = canonical_coverage(coverage_before, dataset.coverage_contract, start, end)
+                    after = canonical_coverage(coverage_after, dataset.coverage_contract, start, end)
+                    if before != after:
+                        raise RuntimeError("coverage evidence changed during export")
 
                 remote_path = object_path(dataset, start, stats.content_sha256)
                 manifest_id = database.register_manifest(
@@ -160,6 +175,7 @@ def archive_partition(
                     stats,
                     exporter_commit,
                     lifecycle_class,
+                    coverage_after,
                 )
                 storage.upload(archive_path, remote_path)
                 if not storage.verify(
@@ -179,6 +195,9 @@ def archive_partition(
                     expected_min_time=stats.min_source_time,
                     expected_max_time=stats.max_source_time,
                     expected_source_counts=stats.source_counts,
+                    expected_coverage_evidence=coverage_after,
+                    expected_range_start=start,
+                    expected_range_end=end,
                 )
                 verification = {
                     **local_verification,

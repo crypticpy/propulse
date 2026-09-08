@@ -11,6 +11,7 @@ import pyarrow.parquet as pq
 
 from .datasets import DATASETS
 from .parquet import verify_parquet
+from .coverage import PARQUET_COVERAGE_KEY, coverage_bytes
 from .storage import sha256_file
 
 
@@ -70,7 +71,16 @@ def run_fixture_gate(root: Path | None = None) -> list[dict[str, object]]:
         for dataset_name, row in FIXTURES.items():
             dataset = DATASETS[dataset_name]
             path = directory / f"{dataset_name}.parquet.zst"
-            table = pa.Table.from_pylist([row], schema=dataset.schema)
+            coverage = None
+            schema = dataset.schema
+            if dataset.coverage_contract:
+                coverage = {
+                    "version": 1, "scope": "known-gaps-only",
+                    "range_start": "2026-07-01T00:00:00.000000Z",
+                    "range_end": "2026-08-01T00:00:00.000000Z", "gaps": [],
+                }
+                schema = schema.with_metadata({PARQUET_COVERAGE_KEY: coverage_bytes(coverage)})
+            table = pa.Table.from_pylist([row], schema=schema)
             pq.write_table(
                 table,
                 path,
@@ -91,6 +101,9 @@ def run_fixture_gate(root: Path | None = None) -> list[dict[str, object]]:
                 expected_min_time=AT,
                 expected_max_time=AT,
                 expected_source_counts=source_counts,
+                expected_coverage_evidence=coverage,
+                expected_range_start=(AT if coverage else None),
+                expected_range_end=(datetime(2026, 8, 1, tzinfo=timezone.utc) if coverage else None),
             )
             receipts.append({
                 "dataset": dataset_name,

@@ -70,6 +70,8 @@ Every section is built the same way — **rule → band → content** — and on
 2. **Band** — a full-width header, `min-h-16`, holding an Orbitron bold title, one muted line of summary beneath it, and a right-hand slot for the panel's own action (a status chip, a refresh control, a link). It is a `<button aria-expanded>` when the band is the disclosure control, a `<summary>` inside a `<details>`, and a plain heading band otherwise.
 3. **Content** — a bordered area below the band, with the panel's padding.
 
+**Row vs. stack (issue #640).** The band's default `row` layout puts the title/summary and the action side by side, which only has room once the band is wide — otherwise the action overprints a wrapped summary. A non-toggle band (never the disclosure control, whose right slot is a fixed 40 px glyph) has two ways to switch to `stack`, which drops the action to its own left-aligned row under a full-width summary: automatically, when the band sits inside a `.home-panel` narrower than 28rem (a `container-type: inline-size` container query in `src/styles/home.css`), or explicitly via `<SectionHeader layout="stack">` for a host outside that container. Both apply the same declarations through `su-section-header--stack` / the container query in globals.css and home.css respectively.
+
 ```html
 <!-- Solar Pulse: the band is the disclosure control -->
 <section data-accent="warning" class="overflow-hidden rounded-2xl ...">
@@ -99,6 +101,7 @@ Home's per-panel summary strings live with the layout model (`homeItemSummary()`
 | `su-section-header` | The header band. Its hover is a soft left-to-right tint of the tone, on pointer devices only. Never a flat grey.                                                                                                                  |
 | `su-section-panel`  | On the container: hovering anywhere in the panel brightens its band. For a band that is not itself the control.                                                                                                                   |
 | `su-section-glyph`  | The expand/collapse glyph box: tone on the border and the glyph.                                                                                                                                                                   |
+| `su-section-header--stack` | Row → stack layout switch on a non-toggle band (`layout="stack"`): action drops below the summary instead of beside it. `su-section-header__action` marks the action wrapper both this and the `.home-panel` container query target. |
 | `su-widget-header`  | The widget header wash — a 12% tint of the tone fading out by 70%. Inherits the enclosing section's tone.                                                                                                                          |
 | `su-widget-eyebrow` | The header eyebrow in the tone, through `--su-section-accent-text-rgb` (the reading-text variant: `accent` resolves via `--su-accent-text`, so a low-contrast custom accent falls back to `info`). The title stays on `--su-text`. |
 

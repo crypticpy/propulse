@@ -70,4 +70,38 @@ describe("SectionHeader", () => {
     expect(band.children).toHaveLength(1);
     expect(band.firstElementChild!.children).toHaveLength(1);
   });
+
+  it("adds the stack class only when layout='stack' is passed (issue #640)", () => {
+    const { container: rowContainer } = render(
+      <SectionHeader title="Local weather" summary="Temperature and wind." action={<span>Fresh</span>} />,
+    );
+    expect(rowContainer.firstElementChild!.className).not.toContain("su-section-header--stack");
+
+    const { container: stackContainer } = render(
+      <SectionHeader
+        title="Local weather"
+        summary="Temperature and wind."
+        action={<span>Fresh</span>}
+        layout="stack"
+      />,
+    );
+    const stackBand = stackContainer.firstElementChild!;
+    expect(stackBand.className).toContain("su-section-header--stack");
+    // The action wrapper carries the CSS hook both the class and the
+    // `.home-panel` container query in home.css target.
+    expect(stackContainer.querySelector(".su-section-header__action")).not.toBeNull();
+  });
+
+  it("ignores layout='stack' on a toggle band: its markup stays pinned", () => {
+    const onToggle = vi.fn();
+    const { getByRole } = render(
+      <SectionHeader
+        title="Details and history"
+        summary="Explore solar history"
+        toggle={{ open: false, onToggle, controls: "details-content" }}
+        layout="stack"
+      />,
+    );
+    expect(getByRole("button").className).not.toContain("su-section-header--stack");
+  });
 });

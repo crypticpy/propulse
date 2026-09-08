@@ -1,0 +1,32 @@
+name: pr-contract
+
+on:
+  pull_request:
+    types: [opened, edited, synchronize, reopened, ready_for_review]
+
+permissions: {}
+
+jobs:
+  body:
+    if: github.event.pull_request.draft == false
+    runs-on: ubuntu-latest
+    permissions: {}
+    steps:
+      - name: Check PR body contract
+        env:
+          BODY: ${{ github.event.pull_request.body }}
+          CHANGED_FILES: ${{ github.event.pull_request.changed_files }}
+        run: |
+          if ! printf '%s' "$BODY" | grep -Eiq '(closes|fixes|resolves|refs|part of)\s+#[0-9]+'; then
+            echo "PR body needs \`Closes #N\` or \`Refs #N\` (see docs/AGENT-CONSTITUTION.md Pull requests)"
+            exit 1
+          fi
+          # strip HTML comments so the template's examples cannot satisfy the check
+          STRIPPED=$(printf '%s' "$BODY" | perl -0pe 's/<!--.*?-->//gs')
+          if ! printf '%s' "$STRIPPED" | grep -Eiq '^\s*\**Agent\**:\s*\S'; then
+            echo "PR body needs an \`Agent:\` line with a value after the colon (e.g. \`Agent: Codex\`)"
+            exit 1
+          fi
+          if [ "${CHANGED_FILES:-0}" -gt 15 ]; then
+            echo "::warning::PR touches ${CHANGED_FILES} files, over the 15-file guideline"
+          fi

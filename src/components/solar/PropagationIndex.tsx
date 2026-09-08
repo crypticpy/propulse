@@ -272,7 +272,7 @@ export const PropagationIndex: React.FC<PropagationIndexProps> = ({
                       <stop offset="75%" stopColor="#44dd66" />
                       <stop offset="100%" stopColor="#00ff88" />
                     </linearGradient>
-  
+
                     {/* Glow filter */}
                     <filter
                       id="gaugeGlow"
@@ -288,7 +288,7 @@ export const PropagationIndex: React.FC<PropagationIndexProps> = ({
                       </feMerge>
                     </filter>
                   </defs>
-  
+
                   {/* Background track */}
                   <path
                     d={gaugePath}
@@ -297,7 +297,7 @@ export const PropagationIndex: React.FC<PropagationIndexProps> = ({
                     strokeWidth={gaugeStrokeWidth}
                     strokeLinecap="round"
                   />
-  
+
                   {/* Colored track */}
                   <path
                     d={gaugePath}
@@ -307,7 +307,7 @@ export const PropagationIndex: React.FC<PropagationIndexProps> = ({
                     strokeLinecap="round"
                     opacity="0.3"
                   />
-  
+
                   {/* Active score arc */}
                   <path
                     d={gaugePath}
@@ -320,7 +320,7 @@ export const PropagationIndex: React.FC<PropagationIndexProps> = ({
                     filter="url(#gaugeGlow)"
                     className="transition-all duration-1000 ease-out motion-reduce:transition-none"
                   />
-  
+
                   {/* Tick marks */}
                   {ticks.map((tick) => (
                     <g key={tick.value}>
@@ -345,7 +345,7 @@ export const PropagationIndex: React.FC<PropagationIndexProps> = ({
                       </text>
                     </g>
                   ))}
-  
+
                   {/* Score marker */}
                   <line
                     x1={markerX1}
@@ -370,7 +370,7 @@ export const PropagationIndex: React.FC<PropagationIndexProps> = ({
                       filter: `drop-shadow(0 0 8px ${scoreColor})`,
                     }}
                   />
-  
+
                   {/* Center score display */}
                   <text
                     x={gaugeCenter}

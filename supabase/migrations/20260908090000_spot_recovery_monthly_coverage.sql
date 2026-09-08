@@ -15,6 +15,13 @@ SET coverage_contract = 'spot-known-gaps-v1',
     updated_at = now()
 WHERE dataset = 'path_hourly_stats_v1';
 
+ALTER TABLE public.propagation_archive_datasets
+  ADD CONSTRAINT propagation_archive_path_coverage_contract_check
+  CHECK (
+    dataset <> 'path_hourly_stats_v1'
+    OR coverage_contract IS NOT DISTINCT FROM 'spot-known-gaps-v1'
+  );
+
 INSERT INTO public.propagation_archive_lifecycle_audit (
   manifest_id, dataset, action, details
 ) VALUES (

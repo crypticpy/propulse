@@ -23,7 +23,8 @@ watermark establishes a processing frontier, not uninterrupted interior coverage
 | Parquet `propulse.coverage.evidence` metadata | Canonical JSON evidence included in the object's SHA-256. It must equal manifest evidence. |
 | Verification and receipt `checks` | Record that embedded evidence was checked; the database also reconciles against current authoritative evidence. |
 
-`path_hourly_stats_v1` uses `spot-known-gaps-v1`. Other registered datasets keep
+`path_hourly_stats_v1` uses `spot-known-gaps-v1`; a database constraint prevents
+clearing or downgrading that assignment. Other registered datasets keep
 their existing behavior; they do not inherit a claim of coverage from this path
 adapter. In particular, do not infer a raw-spot or WSPR completeness contract
 from path aggregate evidence.

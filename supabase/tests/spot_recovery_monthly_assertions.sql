@@ -8,6 +8,23 @@ DO $$ BEGIN
  END IF;
 END $$;
 
+DO $$ BEGIN
+ BEGIN
+  UPDATE public.propagation_archive_datasets SET coverage_contract=NULL
+  WHERE dataset='path_hourly_stats_v1';
+  RAISE EXCEPTION 'path coverage contract cleared';
+ EXCEPTION WHEN check_violation THEN NULL; END;
+ BEGIN
+  UPDATE public.propagation_archive_datasets SET coverage_contract='other-v1'
+  WHERE dataset='path_hourly_stats_v1';
+  RAISE EXCEPTION 'path coverage contract changed';
+ EXCEPTION WHEN check_violation THEN NULL; END;
+ IF (SELECT coverage_contract FROM public.propagation_archive_datasets
+     WHERE dataset='path_hourly_stats_v1') <> 'spot-known-gaps-v1' THEN
+  RAISE EXCEPTION 'path coverage contract invariant changed';
+ END IF;
+END $$;
+
 CREATE FUNCTION pg_temp.verification(evidence jsonb) RETURNS jsonb
 LANGUAGE sql IMMUTABLE AS $$ SELECT jsonb_build_object(
  'remote_size_verified',true,'remote_sha256_verified',true,'parquet_read_verified',true,
@@ -100,7 +117,12 @@ DO $$ DECLARE m uuid; BEGIN
  BEGIN PERFORM public.verify_propagation_archive_manifest(m,pg_temp.verification(NULL));
   RAISE EXCEPTION 'legacy evidence accepted';
  EXCEPTION WHEN OTHERS THEN IF SQLERRM <> 'archive coverage verification is missing or stale' THEN RAISE; END IF; END;
- UPDATE public.propagation_archive_datasets SET coverage_contract='unknown-v9' WHERE dataset='path_hourly_stats_v1';
+ UPDATE public.propagation_archive_datasets
+ SET archive_enabled=true WHERE dataset='solar_snapshots_v1';
+ m := public.register_propagation_archive_manifest('solar_snapshots_v1',1,'2026-05-01','2026-06-01',
+  'solar/month=2026-05/unknown.parquet',0,NULL,NULL,'{}',repeat('0',64),0,1,repeat('1',40));
+ UPDATE public.propagation_archive_datasets
+ SET coverage_contract='unknown-v9' WHERE dataset='solar_snapshots_v1';
  BEGIN PERFORM public.reconcile_propagation_archive_coverage(m); RAISE EXCEPTION 'unknown contract accepted';
  EXCEPTION WHEN OTHERS THEN IF SQLERRM NOT LIKE 'unknown archive coverage contract:%' THEN RAISE; END IF; END;
 END $$;

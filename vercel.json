@@ -9,7 +9,7 @@
       "schedule": "17 5 * * *"
     }
   ],
-  "rewrites": [{ "source": "/((?!api/).*)", "destination": "/index.html" }],
+  "rewrites": [{ "source": "/((?!api/|assets/).*)", "destination": "/index.html" }],
   "headers": [
     {
       "source": "/(.*)",

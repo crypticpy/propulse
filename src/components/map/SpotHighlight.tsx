@@ -11,7 +11,7 @@
 import { useRef, useMemo } from "react";
 import { useFrame } from "@react-three/fiber";
 import * as THREE from "three";
-import { useSpotFocus, latLonToPosition3D } from "@/hooks/useSpotFocus";
+import { useViewSpotFocus, latLonToPosition3D } from "@/hooks/useSpotFocus";
 import { GLOBE_LAYER_ORDER } from "@/lib/map/globeRenderOrder";
 
 /** Plasma orange color for the highlight effect */
@@ -47,7 +47,7 @@ export function SpotHighlight({
   color = PLASMA_ORANGE,
   visible: visibleOverride,
 }: SpotHighlightProps) {
-  const { isFocusing, focusedSpot } = useSpotFocus();
+  const { isFocusing, focusedSpot } = useViewSpotFocus([]);
 
   const isVisible = visibleOverride ?? isFocusing;
 

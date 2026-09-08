@@ -134,8 +134,9 @@ import { useTropicalCyclones } from "@/hooks/useTropicalCyclones";
 import { useContestQsoLocations } from "@/hooks/useContestQsoLocations";
 import { useLoggedQsoLocations } from "@/hooks/useLoggedQsoLocations";
 import { useWeatherRadar } from "@/hooks/useWeatherRadar";
-import { useSpotFocus } from "@/hooks/useSpotFocus";
-import { useMapSpotSelection } from "@/hooks/useMapSpotSelection";
+import { useViewSpotFocus } from "@/hooks/useSpotFocus";
+import { useViewSpotSelection } from "@/hooks/useMapSpotSelection";
+import { useBoundVisualTarget } from "@/hooks/useBoundMapSelection";
 import {
   useMapOperationalContext,
   useScopedMapLayers,
@@ -357,7 +358,7 @@ function CameraController() {
   const hamclockObservatoryCamera = useRef<THREE.Vector3 | null>(null);
   const controlsRef = useRef<OrbitControlsType>(null);
   const { camera, gl, size } = useThree();
-  const { targetPosition, isFocusing } = useSpotFocus();
+  const { targetPosition, isFocusing } = useViewSpotFocus([]);
   const centerLocation = useMapStore((state) => state.centerLocation);
   const clearCenterLocation = useMapStore((state) => state.clearCenterLocation);
   const activePresetId = useMapStore((state) => state.activePresetId);
@@ -1126,8 +1127,9 @@ const GlobeScene = React.memo(function GlobeScene({
 }: GlobeSceneProps) {
   const layoutMode = useMapStore((s) => s.layoutMode);
   const layers = useScopedMapLayers();
-  const target = useMapStore((s) => s.target);
-  const selectedSpot = useDXStore((s) => s.selectedSpot);
+  const mapTarget = useMapStore((s) => s.target);
+  const target = useBoundVisualTarget(mapTarget);
+  const { focusedSpot: selectedSpot } = useViewSpotFocus([]);
   const mapStyle = useMapStore((s) => s.mapStyle);
   const nightDarkness = useMapStore((s) => s.nightDarkness);
   const rotation = useMapStore((s) => s.rotation);
@@ -2014,7 +2016,8 @@ export function GlobeView({
   const zoom = useMapStore((s) => s.zoom);
   const displayQuality = useDisplayQualityStore((s) => s.displayQuality);
   const qualitySettings = useResolvedDisplayQuality(displayQuality);
-  const target = useMapStore((s) => s.target);
+  const mapTarget = useMapStore((s) => s.target);
+  const target = useBoundVisualTarget(mapTarget);
   const tooltipPosition = useMapStore((s) => s.tooltipPosition);
   const setTooltipPosition = useMapStore((s) => s.setTooltipPosition);
   const flyoutPosition = useMapStore((s) => s.flyoutPosition);
@@ -2062,7 +2065,7 @@ export function GlobeView({
   const getPinById = usePinStore((s) => s.getPinById);
   const { pushAction } = useUndoStore();
   const updateFilter = useDXStore((s) => s.updateFilter);
-  const selectMapSpot = useMapSpotSelection();
+  const selectMapSpot = useViewSpotSelection();
   const {
     hoveredSpotData,
     handleSpotHover,

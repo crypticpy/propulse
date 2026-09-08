@@ -92,6 +92,8 @@ import { Card } from "@/components/ui/Card";
 import { HelpModal, HELP_CONTENT } from "@/components/ui/HelpModal";
 import { ShareModal } from "@/components/ui/ShareModal";
 import { OnboardingTour } from "@/components/ui/OnboardingTour";
+import { BoundViewHost } from "@/components/views/BoundViewHost";
+import { usePropSphereFamilySlot } from "@/components/views/usePropSphereFamilySlot";
 import { useMapStore } from "@/stores/mapStore";
 import { useDisplayFit } from "@/hooks/useDisplayFit";
 import { useMapDisplayTime } from "@/hooks/useUTCClock";
@@ -197,6 +199,7 @@ export function PropSphere() {
   );
   const activePreset = useMapStore((s) => s.activePreset);
   const layoutMode = useMapStore((s) => s.layoutMode);
+  const familySlot = usePropSphereFamilySlot(layoutMode);
   const isLiteMode = useMapStore((s) => s.isLiteMode);
   const opsPosture = useOpsPostureStore((s) => s.posture);
   const showOpsLoggerStrip =
@@ -788,6 +791,7 @@ export function PropSphere() {
   );
 
   return (
+    <BoundViewHost slot={familySlot}>
     <div
       className={`h-[calc(100dvh-4rem)] flex flex-col overflow-y-auto ${
         compactFit ? "" : "lg:overflow-hidden"
@@ -1952,5 +1956,6 @@ export function PropSphere() {
       {/* Satellite Detail Modal (portal-based, triggered by store selection) */}
       <SatelliteDetailModal />
     </div>
+    </BoundViewHost>
   );
 }

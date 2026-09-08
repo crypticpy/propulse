@@ -78,9 +78,10 @@ import { MapSizeSliders } from "./MapSizeSliders";
 import { SpotHoverPreview } from "./SpotHoverPreview";
 import { SelectedSpotCard } from "./SelectedSpotCard";
 import { SpotCollectionPopover } from "./SpotCollectionPopover";
-import { useSpotFocus } from "@/hooks/useSpotFocus";
+import { useViewSpotFocus } from "@/hooks/useSpotFocus";
 import { FLASH_POINT_DURATION_MS, useFlashPoint } from "./hooks/useFlashPoint";
-import { useMapSpotSelection } from "@/hooks/useMapSpotSelection";
+import { useViewSpotSelection } from "@/hooks/useMapSpotSelection";
+import { useBoundVisualTarget } from "@/hooks/useBoundMapSelection";
 import { useTargetPathPresentation } from "@/hooks/useTargetPathPresentation";
 import type { BounceMarker } from "@/lib/map/targetPathPresentation";
 import { pathEmphasis } from "@/lib/map/targetPathPresentation";
@@ -3488,7 +3489,8 @@ export function FlatMapView({
   const labelOptions = useMapStore((s) => s.labelOptions);
   const mapStyle = useMapStore((s) => s.mapStyle);
   const nightDarkness = useMapStore((s) => s.nightDarkness);
-  const target = useMapStore((s) => s.target);
+  const mapTarget = useMapStore((s) => s.target);
+  const target = useBoundVisualTarget(mapTarget);
   const displayQuality = useDisplayQualityStore((s) => s.displayQuality);
   const hiResTexturesEnabled = useSettingsStore((s) => s.globeHiResTextures);
   const themeId = useThemeStore((s) => s.themeId);
@@ -3601,7 +3603,7 @@ export function FlatMapView({
   const currentSFI = useCurrentSFI();
 
   // Spot focus for pulsing ring effect
-  const { isFocusing, focusedSpot } = useSpotFocus();
+  const { isFocusing, focusedSpot } = useViewSpotFocus([]);
 
   // User preferences for compass rose and callsign labels
   const compassRoseEnabled = preferences?.compassRose?.enabled ?? false;
@@ -3628,7 +3630,7 @@ export function FlatMapView({
 
   // DX stores
   const { updateFilter } = useDXStore();
-  const selectedSpot = useDXStore((s) => s.selectedSpot);
+  const selectedSpot = focusedSpot;
   const spotSourceFilters = useDXStore(
     (s) => s.filters.sources as SpotSource[] | undefined,
   );
@@ -3657,7 +3659,7 @@ export function FlatMapView({
       target,
     ],
   );
-  const selectMapSpot = useMapSpotSelection();
+  const selectMapSpot = useViewSpotSelection();
   const { allSpots } = useDXCluster(undefined, { enabled: publicDxEnabled });
 
   // Satellite positions for 2D overlay

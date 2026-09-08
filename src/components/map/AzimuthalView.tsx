@@ -12,7 +12,6 @@
 import { useRef, useEffect, useCallback, useMemo, useState } from "react";
 import { useMapStore } from "@/stores/mapStore";
 import { useUserStore, useUIInteractionPrefs } from "@/stores/userStore";
-import { useDXStore } from "@/stores/dxStore";
 import { getSubsolarPoint } from "@/lib/utils/sun";
 import { getPathMetrics, getPathPoints, getLongPathPoints } from "@/lib/utils/path";
 import {
@@ -87,7 +86,9 @@ import {
   spotDestinationMatchesTarget,
   type AzimuthalSpotPillScreenPlacement,
 } from "@/lib/map/azimuthalSpotPillPlacement";
-import { useMapSpotSelection } from "@/hooks/useMapSpotSelection";
+import { useViewSpotSelection } from "@/hooks/useMapSpotSelection";
+import { useViewSpotFocus } from "@/hooks/useSpotFocus";
+import { useBoundVisualTarget } from "@/hooks/useBoundMapSelection";
 import { useTargetPathPresentation } from "@/hooks/useTargetPathPresentation";
 import type { BounceMarker } from "@/lib/map/targetPathPresentation";
 import { pathEmphasis } from "@/lib/map/targetPathPresentation";
@@ -1685,7 +1686,7 @@ export function AzimuthalView({
   } | null>(null);
   const spotHoverDismissRef = useRef<number | null>(null);
   const hoveredSpotOwnerRef = useRef<string | null>(null);
-  const selectMapSpot = useMapSpotSelection();
+  const selectMapSpot = useViewSpotSelection();
   const glowRafRef = useRef<number>(0);
   const layers = useScopedMapLayers();
   const gridActivityEndpoint = useMapStore((s) => s.gridActivityEndpoint);
@@ -1752,7 +1753,8 @@ export function AzimuthalView({
   useEffect(() => {
     glowRendererRef.current.persistEdges = false;
   }, []);
-  const target = useMapStore((s) => s.target);
+  const mapTarget = useMapStore((s) => s.target);
+  const target = useBoundVisualTarget(mapTarget);
   const pathPresentation = useTargetPathPresentation(displayTime);
   const mapStyle = useMapStore((s) => s.mapStyle);
   const nightDarkness = useMapStore((s) => s.nightDarkness);
@@ -1760,7 +1762,7 @@ export function AzimuthalView({
   const labelOptions = useMapStore((s) => s.labelOptions);
   const overlayLayers = useMapStore((s) => s.overlayLayers);
   const { station } = useUserStore();
-  const selectedSpot = useDXStore((s) => s.selectedSpot);
+  const { focusedSpot: selectedSpot } = useViewSpotFocus([]);
   const uiPrefs = useUIInteractionPrefs();
   const spotColorMode: SpotColorMode = uiPrefs.spotColorMode ?? "mode";
   const spotDotScale = uiPrefs.spotDotScale ?? 1.0;

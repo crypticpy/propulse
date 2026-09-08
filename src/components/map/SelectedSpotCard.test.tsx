@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render as rtlRender, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { LiveSpot } from "@/types/livespot";
@@ -8,6 +8,9 @@ import { useMapStore } from "@/stores/mapStore";
 import { useOpsPostureStore } from "@/stores/opsPostureStore";
 import { useQSOStore } from "@/stores/qsoStore";
 import { SelectedSpotCard } from "./SelectedSpotCard";
+import { ViewProvider } from "@/components/views/ViewProvider";
+import { createMemoryWorkingStorage } from "@/lib/views/runtime";
+import type { ReactElement, ReactNode } from "react";
 
 const { selectMapSpot, navigate } = vi.hoisted(() => ({
   selectMapSpot: vi.fn(),
@@ -20,6 +23,7 @@ vi.mock("@/hooks/useMapSpotSelection", async (importOriginal) => {
   return {
     ...actual,
     useMapSpotSelection: () => selectMapSpot,
+    useViewSpotSelection: () => selectMapSpot,
   };
 });
 
@@ -76,6 +80,20 @@ const spot: LiveSpot = {
   source: "PSKReporter",
   snr: -8,
 };
+
+const viewStorage = createMemoryWorkingStorage();
+
+function ViewWrap({ children }: { children: ReactNode }) {
+  return (
+    <ViewProvider ownerId="test" slot="normal" storage={viewStorage}>
+      {children}
+    </ViewProvider>
+  );
+}
+
+function render(ui: ReactElement) {
+  return rtlRender(ui, { wrapper: ViewWrap });
+}
 
 describe("SelectedSpotCard", () => {
   beforeEach(() => {

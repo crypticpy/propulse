@@ -56,7 +56,8 @@ function sanitize(value: unknown, warnings: Set<string>, depth = 0): unknown {
         warnings.add("Credentials and transient state were omitted from the migration backup");
         return null;
       }
-      return sanitize(descriptor.value, warnings, depth + 1);
+      const sanitized = sanitize(descriptor.value, warnings, depth + 1);
+      return sanitized === undefined ? null : sanitized;
     });
   }
   if (value && typeof value === "object") {
@@ -76,9 +77,15 @@ function sanitize(value: unknown, warnings: Set<string>, depth = 0): unknown {
         warnings.add("Credentials and transient state were omitted from the migration backup");
         continue;
       }
-      result[key] = sanitize(descriptor.value, warnings, depth + 1);
+      const sanitized = sanitize(descriptor.value, warnings, depth + 1);
+      if (sanitized === undefined) continue;
+      result[key] = sanitized;
     }
     return result;
+  }
+  if (typeof value === "bigint" || typeof value === "function" || typeof value === "symbol") {
+    warnings.add("Credentials and transient state were omitted from the migration backup");
+    return undefined;
   }
   return value;
 }
@@ -117,6 +124,10 @@ export function captureLegacyViewsFromSettingsBackup(input: unknown): LegacyBack
   if (!input || typeof input !== "object" || Array.isArray(input)) {
     return invalid("Invalid file format: expected JSON object");
   }
+  const rootPrototype = Object.getPrototypeOf(input);
+  if (rootPrototype !== Object.prototype && rootPrototype !== null) {
+    return invalid("Invalid file format: expected JSON object");
+  }
   const backup = input as Record<string, unknown>;
   const appName = dataProp(backup, "appName");
   const version = dataProp(backup, "version");
@@ -143,65 +154,69 @@ export function captureLegacyViewsFromSettingsBackup(input: unknown): LegacyBack
     }
   }
 
-  const sanitizedBackup = sanitize(backup, warnings);
-  if (!isPlainObject(sanitizedBackup)) return invalid("Invalid file format: expected JSON object");
-
-  const user = isPlainObject(sanitizedBackup.userPreferences) ? sanitizedBackup.userPreferences : {};
-  if ("station" in user || "savedTargets" in user) {
-    warnings.add("Station, equipment, live targets and runtime observations were omitted from view drafts");
-  }
-  const preferences = partitionRecord(user.preferences, VISUAL_PREFERENCE_KEYS, warnings);
-  const unknownUser = partitionRecord(
-    Object.fromEntries(Object.entries(user).filter(([key]) => key !== "preferences")),
-    new Set(),
-    warnings,
-  );
-  const mapSettings = isPlainObject(sanitizedBackup.mapSettings) ? sanitizedBackup.mapSettings : {};
-  if ("recentTargets" in mapSettings) {
-    warnings.add("Station, equipment, live targets and runtime observations were omitted from view drafts");
-  }
-  const panelStates = mapSettings.panelStates;
-  const unknownMap = partitionRecord(
-    Object.fromEntries(Object.entries(mapSettings).filter(([key]) => key !== "panelStates" && key !== "recentTargets")),
-    null,
-    warnings,
-  );
-  const dxMapped = sanitizedBackup.dxFilters === undefined ? undefined : sanitizedBackup.dxFilters;
-
-  const entries: Record<string, string> = {};
-  const settingsState = { ...preferences.mapped, ...preferences.recovery };
-  if (Object.keys(settingsState).length > 0) entries["propulse-settings"] = JSON.stringify(settingsState);
-  if (panelStates !== undefined) entries["propulse-panel-states"] = JSON.stringify(panelStates);
-  if (dxMapped !== undefined) entries["propulse-dx-filters"] = JSON.stringify({ filters: dxMapped });
-
-  let capture: LegacyViewCapture;
   try {
-    capture = captureLegacyViews(memoryReader(entries), memoryReader({}));
-  } catch (error) {
-    return invalid(error instanceof Error ? error.message : "Legacy capture failed");
-  }
+    const sanitizedBackup = sanitize(backup, warnings);
+    if (!isPlainObject(sanitizedBackup)) return invalid("Invalid file format: expected JSON object");
 
-  const recovery: Record<string, unknown> = {
-    ...unknownUser.recovery,
-    ...unknownMap.mapped,
-    ...unknownMap.recovery,
-  };
-  for (const [key, value] of Object.entries(sanitizedBackup)) {
-    if (["appName", "version", "exportedAt", "userPreferences", "mapSettings", "dxFilters"].includes(key)) continue;
-    if (OMIT_FROM_VIEWS.has(key)) {
+    const user = isPlainObject(sanitizedBackup.userPreferences) ? sanitizedBackup.userPreferences : {};
+    if ("station" in user || "savedTargets" in user) {
       warnings.add("Station, equipment, live targets and runtime observations were omitted from view drafts");
-      continue;
     }
-    recovery[key] = value;
-  }
-  for (const [key, value] of Object.entries(recovery)) {
-    if (key in capture.local) continue;
-    capture.local[key] = value;
-  }
+    const preferences = partitionRecord(user.preferences, VISUAL_PREFERENCE_KEYS, warnings);
+    const unknownUser = partitionRecord(
+      Object.fromEntries(Object.entries(user).filter(([key]) => key !== "preferences")),
+      new Set(),
+      warnings,
+    );
+    const mapSettings = isPlainObject(sanitizedBackup.mapSettings) ? sanitizedBackup.mapSettings : {};
+    if ("recentTargets" in mapSettings) {
+      warnings.add("Station, equipment, live targets and runtime observations were omitted from view drafts");
+    }
+    const panelStates = mapSettings.panelStates;
+    const unknownMap = partitionRecord(
+      Object.fromEntries(Object.entries(mapSettings).filter(([key]) => key !== "panelStates" && key !== "recentTargets")),
+      null,
+      warnings,
+    );
+    const dxMapped = sanitizedBackup.dxFilters === undefined ? undefined : sanitizedBackup.dxFilters;
 
-  const merged = { local: capture.local, session: capture.session, warnings: [...new Set([...capture.warnings, ...warnings])] };
-  if (new TextEncoder().encode(JSON.stringify(merged)).length > LIMIT) {
-    return invalid("Legacy capture exceeds 2 MiB; original storage was retained");
+    const entries: Record<string, string> = {};
+    const settingsState = { ...preferences.mapped, ...preferences.recovery };
+    if (Object.keys(settingsState).length > 0) entries["propulse-settings"] = JSON.stringify(settingsState);
+    if (panelStates !== undefined) entries["propulse-panel-states"] = JSON.stringify(panelStates);
+    if (dxMapped !== undefined) entries["propulse-dx-filters"] = JSON.stringify({ filters: dxMapped });
+
+    let capture: LegacyViewCapture;
+    try {
+      capture = captureLegacyViews(memoryReader(entries), memoryReader({}));
+    } catch (error) {
+      return invalid(error instanceof Error ? error.message : "Legacy capture failed");
+    }
+
+    const recovery: Record<string, unknown> = {
+      ...unknownUser.recovery,
+      ...unknownMap.mapped,
+      ...unknownMap.recovery,
+    };
+    for (const [key, value] of Object.entries(sanitizedBackup)) {
+      if (["appName", "version", "exportedAt", "userPreferences", "mapSettings", "dxFilters"].includes(key)) continue;
+      if (OMIT_FROM_VIEWS.has(key)) {
+        warnings.add("Station, equipment, live targets and runtime observations were omitted from view drafts");
+        continue;
+      }
+      recovery[key] = value;
+    }
+    for (const [key, value] of Object.entries(recovery)) {
+      if (Object.prototype.hasOwnProperty.call(capture.local, key)) continue;
+      capture.local[key] = value;
+    }
+
+    const merged = { local: capture.local, session: capture.session, warnings: [...new Set([...capture.warnings, ...warnings])] };
+    if (new TextEncoder().encode(JSON.stringify(merged)).length > LIMIT) {
+      return invalid("Legacy capture exceeds 2 MiB; original storage was retained");
+    }
+    return { status: "ok", capture: merged, warnings: merged.warnings };
+  } catch {
+    return invalid("Backup could not be sanitized");
   }
-  return { status: "ok", capture: merged, warnings: merged.warnings };
 }

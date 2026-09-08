@@ -3,6 +3,11 @@ import { captureLegacyViewsFromSettingsBackup } from "./legacyBackupCapture";
 import { convertLegacyViewCapture } from "./legacyViewConversion";
 
 const exportedAt = "2026-09-07T00:00:00.000Z";
+function nestedUnknown(depth: number): unknown {
+  let value: unknown = { leaf: true };
+  for (let i = 0; i < depth; i++) value = { child: value };
+  return value;
+}
 function backup(overrides: Record<string, unknown> = {}) {
   return {
     version: 1,
@@ -117,5 +122,38 @@ describe("legacy settings backup capture", () => {
     expect(result.status).toBe("ok");
     if (result.status !== "ok") throw new Error("capture");
     expect(JSON.stringify(result.capture)).not.toContain("getter ran");
+  });
+
+  it("fails closed without throwing when an unknown field nests past the sanitize depth limit", () => {
+    const source = backup({ futureSection: nestedUnknown(25) });
+    expect(() => captureLegacyViewsFromSettingsBackup(source)).not.toThrow();
+    expect(captureLegacyViewsFromSettingsBackup(source)).toMatchObject({ status: "invalid" });
+  });
+
+  it("fails closed without throwing when the backup contains a BigInt value", () => {
+    const source = backup({ version: 1n as unknown as number });
+    expect(() => captureLegacyViewsFromSettingsBackup(source)).not.toThrow();
+    expect(captureLegacyViewsFromSettingsBackup(source)).toMatchObject({ status: "invalid" });
+  });
+
+  it("preserves a top-level toString key when merging into local recovery data", () => {
+    const source = backup({ toString: { note: "keep me" } });
+    const result = captureLegacyViewsFromSettingsBackup(source);
+    expect(result.status).toBe("ok");
+    if (result.status !== "ok") throw new Error("capture");
+    expect(result.capture.local.toString).toEqual({ note: "keep me" });
+  });
+
+  it("rejects a backup root whose prototype is not a plain object", () => {
+    class BackupLike {
+      appName = "propulse";
+      version = 1;
+      exportedAt = "2026-09-07T00:00:00.000Z";
+      userPreferences = {};
+      mapSettings = {};
+      dxFilters = {};
+    }
+    const result = captureLegacyViewsFromSettingsBackup(new BackupLike());
+    expect(result).toMatchObject({ status: "invalid" });
   });
 });

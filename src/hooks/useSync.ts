@@ -10,54 +10,53 @@
  * - User is not authenticated
  */
 
-import { useEffect, useRef } from "react";
+import { useEffect } from "react";
 import { useAuthStore, selectIsAuthenticated } from "@/stores/authStore";
 import { isSupabaseConfigured } from "@/lib/supabase";
 import { SyncManager } from "@/lib/sync";
 import { registerAllModules } from "@/lib/sync/modules";
+import { useViewLibrarySession } from "./useViewLibrarySession";
+import { useViewLibrarySessionStore } from "@/stores/viewLibrarySessionStore";
 
 /** Track whether modules have been registered (app-lifetime singleton) */
 let modulesRegistered = false;
 
 export function useSync(): void {
+  // Capture the original device settings before legacy account sync can replace them.
+  useViewLibrarySession();
   const initialized = useAuthStore((s) => s.initialized);
   const isAuthenticated = useAuthStore(selectIsAuthenticated);
   const userId = useAuthStore((s) => s.user?.id ?? null);
-  const startedForUser = useRef<string | null>(null);
+  const session = useAuthStore((s) => s.session);
+  const libraryPhase = useViewLibrarySessionStore((s) => s.phase);
+  const libraryEpoch = useViewLibrarySessionStore((s) => s.epoch);
 
   useEffect(() => {
-    if (!isSupabaseConfigured || !initialized) return;
+    const library = useViewLibrarySessionStore.getState();
+    if (!isSupabaseConfigured || !initialized || !isAuthenticated || !userId ||
+      library.phase !== "ready" || library.ownerId !== userId || library.epoch !== libraryEpoch) return;
 
-    if (isAuthenticated && userId) {
-      // Already started for this user — no-op
-      if (startedForUser.current === userId) return;
-
-      // Register sync modules once on first auth
-      if (!modulesRegistered) {
-        registerAllModules();
-        modulesRegistered = true;
-      }
-
-      startedForUser.current = userId;
-      const manager = SyncManager.getInstance();
-      void manager.start(userId);
-    } else {
-      // Not authenticated — stop sync if running
-      if (startedForUser.current) {
-        startedForUser.current = null;
-        if (SyncManager.hasInstance()) {
-          void SyncManager.getInstance().stop();
-        }
-      }
+    if (!modulesRegistered) {
+      registerAllModules();
+      modulesRegistered = true;
     }
-  }, [initialized, isAuthenticated, userId]);
-
-  // Cleanup on unmount
-  useEffect(() => {
-    return () => {
-      if (SyncManager.hasInstance()) {
-        void SyncManager.getInstance().stop();
-      }
+    const manager = SyncManager.getInstance();
+    // Invalidate synchronously at the store transition, before React's passive cleanup.
+    let stopped = false;
+    const stop = () => {
+      if (stopped) return;
+      stopped = true;
+      void manager.stop();
     };
-  }, []);
+    const invalidate = () => {
+      const auth = useAuthStore.getState();
+      const current = useViewLibrarySessionStore.getState();
+      if (!auth.initialized || auth.session !== session || auth.user?.id !== userId ||
+        current.phase !== "ready" || current.epoch !== libraryEpoch || current.ownerId !== userId) stop();
+    };
+    const unsubscribeAuth = useAuthStore.subscribe(invalidate);
+    const unsubscribeLibrary = useViewLibrarySessionStore.subscribe(invalidate);
+    void manager.start(userId);
+    return () => { unsubscribeAuth(); unsubscribeLibrary(); stop(); };
+  }, [initialized, isAuthenticated, userId, session, libraryPhase, libraryEpoch]);
 }

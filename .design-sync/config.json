@@ -1,5 +1,9 @@
 {
   "projectId": "b5bd52bb-3dae-49e3-a9d9-0ee4fd4feae6",
+  "mirrorProjects": {
+    "aboveearthproductions": "b5bd52bb-3dae-49e3-a9d9-0ee4fd4feae6",
+    "propulsetecnologies": "30f79cc2-2a71-411b-91a2-6cce7ede8afd"
+  },
   "shape": "package",
   "pkg": "propulse",
   "globalName": "Propulse",

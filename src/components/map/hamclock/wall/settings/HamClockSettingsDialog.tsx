@@ -5,6 +5,7 @@ import { KioskTab } from "./KioskTab";
 import { LayersTab } from "./LayersTab";
 import { MapTab } from "./MapTab";
 import { PagesTilesTab } from "./PagesTilesTab";
+import { SpotsTab } from "./SpotsTab";
 import { ThemeTab } from "./ThemeTab";
 
 export interface HamClockSettingsDialogProps {
@@ -30,7 +31,7 @@ export function HamClockSettingsDialog({
       open={open}
       onClose={onClose}
       title="SETTINGS"
-      purpose="View, display, pages, layers, map and theme for this HamClock wall."
+      purpose="View, display, pages, layers, spots, map and theme for this HamClock wall."
       size="settings"
     >
       <HamClockTabs
@@ -45,6 +46,7 @@ export function HamClockSettingsDialog({
             content: <PagesTilesTab />,
           },
           { id: "layers", label: "Layers", content: <LayersTab /> },
+          { id: "spots", label: "Spots", content: <SpotsTab /> },
           { id: "map", label: "Map", content: <MapTab onClose={onClose} /> },
           { id: "theme", label: "Theme", content: <ThemeTab /> },
           { id: "kiosk", label: "Kiosk", content: <KioskTab /> },

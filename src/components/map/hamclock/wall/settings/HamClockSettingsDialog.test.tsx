@@ -30,6 +30,7 @@ describe("HamClockSettingsDialog", () => {
       "Display",
       "Pages & Tiles",
       "Layers",
+      "Spots",
       "Map",
       "Theme",
       "Kiosk",

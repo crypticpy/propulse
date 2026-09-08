@@ -226,6 +226,53 @@ describe("ladder verdict", () => {
     const c = cell(cells, "20m", "NA");
     expect(c.ladder).toBe("hot");
   });
+
+  it("obs20m is observation identity (tx, rx, 5-min bucket), not distinct DX count: 2 DX x 3 reporters = 6 obs, 3 reporters", () => {
+    // Only 2 distinct DX callsigns (count would be 2 under the old, wrong
+    // obs20m=count identity — never enough to clear the verified floor of
+    // 6). Each is heard by the same 3 reporters, so there are 2*3=6 distinct
+    // (tx, rx, bucket) observations behind only 2 DX and 3 reporters.
+    const dxCalls = ["W1AAA", "W2BBB"];
+    const reporterCalls = ["K1A", "K2A", "K3A"];
+    const spots: HeatmapSpotInput[] = [];
+    for (const dx of dxCalls) {
+      for (const rx of reporterCalls) {
+        // All older than 10 min (falling trend) but within the fixed 20-min
+        // ladder window, so this isolates the obs-identity fix from trend.
+        spots.push(spot({ dx, spotter: rx, band: "20m", time: new Date(NOW - 15 * MIN) }));
+      }
+    }
+    const cells = computeHeatmap(spots, { now: NOW });
+    const c = cell(cells, "20m", "NA");
+    // Display fields still read distinct-DX / distinct-spotter.
+    expect(c.count).toBe(2);
+    expect(c.reporters).toBe(3);
+    // But the ladder verdict needed obs20m=6 / reporters20m=3 to reach
+    // verified, which only observation-identity dedup provides.
+    expect(c.ladder).toBe("verified");
+  });
+
+  it("ladder windows are fixed at 20/10/10 min regardless of a wider windowMs", () => {
+    // Six spots 50 min old: well outside the ladder's fixed 20-min obs
+    // window, but inside a 60-min display window, so `count` still sees
+    // them even though the ladder must not.
+    const dxCalls = ["W1AAA", "W2BBB", "W3CCC", "W4DDD", "W5EEE", "W6FFF"];
+    const reporterCalls = ["K1A", "K2A", "K3A"];
+    const spots = dxCalls.map((dx, i) =>
+      spot({
+        dx,
+        spotter: reporterCalls[i % reporterCalls.length],
+        band: "20m",
+        time: new Date(NOW - 50 * MIN),
+      }),
+    );
+    const cells = computeHeatmap(spots, { now: NOW, windowMs: 60 * MIN });
+    const c = cell(cells, "20m", "NA");
+    expect(c.count).toBe(6); // display window (60 min) still includes them
+    expect(c.reporters).toBe(3);
+    expect(c.ladder).not.toBe("verified"); // but the fixed 20-min ladder window does not
+    expect(c.ladder).toBe("closed"); // no obs within the trailing 20 min at all
+  });
 });
 
 describe("baseline ratio and crowded flag", () => {

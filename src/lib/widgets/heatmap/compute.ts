@@ -5,19 +5,24 @@
  * are always computed on every cell; which one renders is a display
  * setting made by a later PR (`WORKSPACE-CONCEPT.md` §8/§10).
  *
- * Dedup (per cell, within the window): the same DX callsign counts once
- * toward `count` no matter how many spotters reported it; each distinct
- * spotter callsign increments `reporters`.
+ * Display dedup (per cell, within `windowMs`, default 20 min): the same DX
+ * callsign counts once toward `count` no matter how many spotters reported
+ * it; each distinct spotter callsign increments `reporters`. `windowMs` only
+ * ever widens or narrows this display window — it never affects the ladder
+ * inputs below.
  *
  * Ladder verdict: this lib has no physics forecast of its own (it is fed
  * plain arrays, never a network call), so `evaluateLadder` from
  * `@/lib/verdict/ladder` — reused, not reimplemented — is called with
  * `physicsScore` from the optional `physicsScores` lookup, defaulting to 0
- * (closed) when the caller has no forecast for that cell. `obs20m` /
- * `reporters20m` come from the dedup above; the window is split at its
- * midpoint for `count10mRecent` / `count10mPrior` so a 20-minute window
- * (the default, matching the ladder's own trailing-20-min convention)
- * yields the ladder's expected two 10-minute trend halves.
+ * (closed) when the caller has no forecast for that cell. Per ladder.ts §3,
+ * `obs20m` is deduplicated (tx, rx, band, 5-min bucket) observations — NOT
+ * distinct DX callsigns — and `reporters20m` is the distinct rx (spotter)
+ * callsigns behind those observations; a spot with no reporter still counts
+ * as one pseudo-reporter rather than being dropped. `count10mRecent` /
+ * `count10mPrior` are raw (non-deduplicated) spot counts in the trailing
+ * 10 min and the 10 min before that. All three ladder windows are fixed at
+ * 20 min / 10 min / 10 min, anchored at `now`, regardless of `windowMs`.
  */
 
 import { BAND_ORDER } from "@/lib/data/bandRanges";
@@ -42,6 +47,16 @@ import {
 /** Matches the ladder's own "trailing 20 min" obs window (see ladder.ts). */
 export const DEFAULT_HEATMAP_WINDOW_MS = 20 * 60 * 1000;
 
+/** Fixed ladder obs window (ladder.ts §3) — independent of `windowMs`. */
+const LADDER_OBS_WINDOW_MS = 20 * 60 * 1000;
+/** Fixed ladder trend half-window (ladder.ts's own 10 vs prior 10 min). */
+const LADDER_TREND_HALF_MS = 10 * 60 * 1000;
+/** Observation identity bucket width (ladder.ts §3: "5-min bucket"). */
+const FIVE_MIN_BUCKET_MS = 5 * 60 * 1000;
+/** Sentinel rx identity for a spot with no reporter, so it still forms one
+ * observation instead of being dropped from `obs20m`. */
+const NO_REPORTER = "__NO_REPORTER__";
+
 export interface ComputeHeatmapOptions {
   /** End of the analysis window, epoch ms. Defaults to `Date.now()`. */
   now?: number;
@@ -61,10 +76,19 @@ export function physicsScoreKey(band: string, continent: Continent): string {
 }
 
 interface CellAccumulator {
+  /** Display: distinct DX callsigns within `windowMs` -> `count`. */
   dx: Set<string>;
+  /** Display: distinct spotter callsigns within `windowMs` -> `reporters`. */
   spotters: Set<string>;
-  recentDx: Set<string>;
-  priorDx: Set<string>;
+  /** Ladder obs20m: deduplicated (tx, rx, 5-min bucket) tuples within the
+   * fixed trailing 20 min. */
+  obsTuples: Set<string>;
+  /** Ladder reporters20m: distinct rx behind `obsTuples`. */
+  obsReporters: Set<string>;
+  /** Ladder count10mRecent: raw spot count in the fixed trailing 10 min. */
+  recentRaw: number;
+  /** Ladder count10mPrior: raw spot count in the fixed 10 min before that. */
+  priorRaw: number;
 }
 
 function toEpochMs(time: Date | string): number {
@@ -84,16 +108,21 @@ export function computeHeatmap(
   const now = options.now ?? Date.now();
   const windowMs = options.windowMs ?? DEFAULT_HEATMAP_WINDOW_MS;
   const startMs = now - windowMs;
-  const midMs = now - windowMs / 2;
   const window = { startMs, endMs: now };
   const utcHour = new Date(now).getUTCHours();
+
+  // The ladder's fixed 20-min obs window can outlast a narrower display
+  // `windowMs` (or vice versa) — iterate far enough back to feed both.
+  const ladderStartMs = now - LADDER_OBS_WINDOW_MS;
+  const ladderRecentStartMs = now - LADDER_TREND_HALF_MS;
+  const scanStartMs = Math.min(startMs, ladderStartMs);
 
   const cells = new Map<string, CellAccumulator>();
   const cellKey = (band: string, continent: Continent) => `${band}|${continent}`;
 
   for (const spot of spots) {
     const t = toEpochMs(spot.time);
-    if (!Number.isFinite(t) || t < startMs || t > now) continue;
+    if (!Number.isFinite(t) || t < scanStartMs || t > now) continue;
 
     const continent = spot.dxContinent ?? getContinent(spot.dx);
     if (!continent) continue;
@@ -101,22 +130,47 @@ export function computeHeatmap(
     const key = cellKey(spot.band, continent);
     let acc = cells.get(key);
     if (!acc) {
-      acc = { dx: new Set(), spotters: new Set(), recentDx: new Set(), priorDx: new Set() };
+      acc = {
+        dx: new Set(),
+        spotters: new Set(),
+        obsTuples: new Set(),
+        obsReporters: new Set(),
+        recentRaw: 0,
+        priorRaw: 0,
+      };
       cells.set(key, acc);
     }
 
     const dxCall = spot.dx.toUpperCase();
-    acc.dx.add(dxCall);
-    acc.spotters.add(spot.spotter.toUpperCase());
-    if (t >= midMs) acc.recentDx.add(dxCall);
-    else acc.priorDx.add(dxCall);
+    const reporterCall = spot.spotter?.trim()
+      ? spot.spotter.toUpperCase()
+      : NO_REPORTER;
+
+    // Display aggregates honor the caller's `windowMs` and are unaffected by
+    // the ladder's pseudo-reporter sentinel.
+    if (t >= startMs) {
+      acc.dx.add(dxCall);
+      acc.spotters.add(spot.spotter.toUpperCase());
+    }
+
+    // Ladder aggregates are always fixed 20 min / 10 min / 10 min, anchored
+    // at `now`, independent of `windowMs`.
+    if (t >= ladderStartMs) {
+      const bucket5m = Math.floor(t / FIVE_MIN_BUCKET_MS);
+      acc.obsTuples.add(`${dxCall}|${reporterCall}|${bucket5m}`);
+      acc.obsReporters.add(reporterCall);
+      if (t >= ladderRecentStartMs) acc.recentRaw += 1;
+      else acc.priorRaw += 1;
+    }
   }
 
   const empty = (): CellAccumulator => ({
     dx: new Set(),
     spotters: new Set(),
-    recentDx: new Set(),
-    priorDx: new Set(),
+    obsTuples: new Set(),
+    obsReporters: new Set(),
+    recentRaw: 0,
+    priorRaw: 0,
   });
 
   const result: HeatmapCell[] = [];
@@ -135,10 +189,10 @@ export function computeHeatmap(
       const physicsScore = options.physicsScores?.[physicsScoreKey(band, continent)] ?? 0;
       const ladder = evaluateLadder({
         physicsScore,
-        obs20m: count,
-        reporters20m: reporters,
-        count10mRecent: acc.recentDx.size,
-        count10mPrior: acc.priorDx.size,
+        obs20m: acc.obsTuples.size,
+        reporters20m: acc.obsReporters.size,
+        count10mRecent: acc.recentRaw,
+        count10mPrior: acc.priorRaw,
       }).state;
 
       result.push({ band, continent, count, reporters, ladder, ratio, crowded, window });

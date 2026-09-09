@@ -1,5 +1,6 @@
 import { useUTCClock } from "@/hooks/useUTCClock";
 import {
+  isLaunchCurrent,
   launchPad,
   launchProvider,
   launchTimingLabel,
@@ -19,7 +20,8 @@ export function LaunchesReport({ open, onClose }: LaunchesReportProps) {
   const { launches, next, status, stale, retrievedAt, isLoading } =
     useLaunches();
   const now = useUTCClock(60_000);
-  const [listRef, visible] = useVisibleRows<HTMLDivElement>(launches.length);
+  const current = launches.filter((row) => isLaunchCurrent(row, now));
+  const [listRef, visible] = useVisibleRows<HTMLDivElement>(current.length);
 
   const idle = reportFooter(
     "LAUNCH LIBRARY 2 · THESPACEDEVS",
@@ -57,7 +59,7 @@ export function LaunchesReport({ open, onClose }: LaunchesReportProps) {
     { label: "STATUS", value: next ? next.status.toUpperCase() || "—" : "—" },
     {
       label: "WINDOW",
-      value: launches.length ? `${visible} OF ${launches.length}` : "—",
+      value: current.length ? `${visible} OF ${current.length}` : "—",
     },
     { label: "FEED", value: stale ? "STALE" : status.toUpperCase() },
   ];
@@ -87,15 +89,15 @@ export function LaunchesReport({ open, onClose }: LaunchesReportProps) {
       <div className="hcr-box hcr-box--fill">
         <h4>
           NEXT LAUNCHES ·{" "}
-          {visible < launches.length
-            ? `top ${visible} of ${launches.length}`
-            : launches.length || "—"}
+          {visible < current.length
+            ? `top ${visible} of ${current.length}`
+            : current.length || "—"}
         </h4>
         {isLoading && launches.length === 0 ? (
           <p className="hcr-note">Loading upcoming launches…</p>
         ) : (
           <div className="hcr-list" ref={listRef}>
-            {launches.slice(0, visible).map((row) => (
+            {current.slice(0, visible).map((row) => (
               <div key={row.id} className="hcr-item">
                 <b>{row.name}</b>
                 <span>
@@ -121,7 +123,7 @@ export function LaunchesReport({ open, onClose }: LaunchesReportProps) {
             </tr>
           </thead>
           <tbody>
-            {launches.map((row) => (
+            {current.map((row) => (
               <tr key={row.id}>
                 <td>{row.name}</td>
                 <td>{launchProvider(row)}</td>

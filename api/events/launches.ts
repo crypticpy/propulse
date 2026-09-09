@@ -30,8 +30,7 @@ const CACHE_SECONDS = 900;
 const STALE_WHILE_REVALIDATE_SECONDS = 3600;
 const FRESH_CACHE_MS = CACHE_SECONDS * 1000;
 export const LAST_GOOD_MAX_AGE_MS = 6 * 60 * 60 * 1000;
-const LAST_GOOD_CACHE_URL =
-  "https://propulse.internal/api/events/launches/last-good";
+const LAST_GOOD_CACHE_MAX_AGE_SECONDS = 21_600;
 const USER_AGENT =
   "Propulse/1.0 (https://propulse.vercel.app; ham radio dashboard)";
 
@@ -91,6 +90,13 @@ export function seedLastGoodForTests(entry: CachedLaunches | null): void {
   lastGood = entry;
 }
 
+function lastGoodCacheUrl(request: Request): string {
+  const url = new URL(request.url);
+  url.search = "";
+  url.hash = "";
+  return url.toString();
+}
+
 function runtimeCache(): Cache | undefined {
   const stores = (globalThis as { caches?: { default?: Cache } }).caches;
   return stores?.default;
@@ -110,11 +116,11 @@ function isCachedLaunches(value: unknown): value is CachedLaunches {
   );
 }
 
-async function readRuntimeLastGood(): Promise<CachedLaunches | null> {
+async function readRuntimeLastGood(request: Request): Promise<CachedLaunches | null> {
   try {
     const cache = runtimeCache();
     if (!cache) return null;
-    const hit = await cache.match(LAST_GOOD_CACHE_URL);
+    const hit = await cache.match(lastGoodCacheUrl(request));
     if (!hit) return null;
     const parsed: unknown = await hit.json();
     return isCachedLaunches(parsed) ? parsed : null;
@@ -123,14 +129,20 @@ async function readRuntimeLastGood(): Promise<CachedLaunches | null> {
   }
 }
 
-async function writeRuntimeLastGood(entry: CachedLaunches): Promise<void> {
+async function writeRuntimeLastGood(
+  request: Request,
+  entry: CachedLaunches,
+): Promise<void> {
   try {
     const cache = runtimeCache();
     if (!cache) return;
     await cache.put(
-      LAST_GOOD_CACHE_URL,
+      lastGoodCacheUrl(request),
       new Response(JSON.stringify(entry), {
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          "Cache-Control": `max-age=${LAST_GOOD_CACHE_MAX_AGE_SECONDS}`,
+        },
       }),
     );
   } catch {
@@ -144,18 +156,21 @@ function stillUsable(entry: CachedLaunches | null, now: number): CachedLaunches 
   return entry;
 }
 
-async function loadLastGood(now: number): Promise<CachedLaunches | null> {
+async function loadLastGood(request: Request, now: number): Promise<CachedLaunches | null> {
   const memory = stillUsable(lastGood, now);
   if (memory) return memory;
   lastGood = null;
-  const stored = stillUsable(await readRuntimeLastGood(), now);
+  const stored = stillUsable(await readRuntimeLastGood(request), now);
   if (stored) lastGood = stored;
   return stored;
 }
 
-async function rememberLastGood(entry: CachedLaunches): Promise<void> {
+async function rememberLastGood(
+  request: Request,
+  entry: CachedLaunches,
+): Promise<void> {
   lastGood = entry;
-  await writeRuntimeLastGood(entry);
+  await writeRuntimeLastGood(request, entry);
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -377,7 +392,7 @@ export async function handleEventsLaunches(
   if (limited) return limited;
 
   const now = Date.now();
-  const cachedEntry = await loadLastGood(now);
+  const cachedEntry = await loadLastGood(request, now);
   const cached = cachedEntry?.payload ?? null;
   const ageMs = cachedEntry ? now - cachedEntry.storedAt : Number.POSITIVE_INFINITY;
 
@@ -396,7 +411,7 @@ export async function handleEventsLaunches(
   const upstream = await fetchUpstream();
   const { payload, remember } = resolveLaunchesPayload(upstream, cached, now);
   if (remember) {
-    await rememberLastGood({ payload, storedAt: now });
+    await rememberLastGood(request, { payload, storedAt: now });
   }
 
   const cacheControl =

@@ -311,6 +311,7 @@ describe("handleEventsLaunches", () => {
 
   it("reads last-good from caches.default after a cold isolate", async () => {
     const store = new Map<string, Response>();
+    let lastPut: { url: string; cacheControl: string | null } | null = null;
     vi.stubGlobal("caches", {
       default: {
         match: async (info: RequestInfo | URL) => {
@@ -330,6 +331,10 @@ describe("handleEventsLaunches", () => {
               : info instanceof URL
                 ? info.href
                 : info.url;
+          lastPut = {
+            url,
+            cacheControl: response.headers.get("cache-control"),
+          };
           store.set(url, response);
         },
       },
@@ -339,6 +344,8 @@ describe("handleEventsLaunches", () => {
       vi.fn().mockResolvedValue(upstreamOk({ results: [rawLaunch()] })),
     );
     await handleEventsLaunches(launchesRequest("GET", "203.0.113.16"));
+    expect(lastPut?.url).toBe("https://propulse.test/api/events/launches");
+    expect(lastPut?.cacheControl).toBe("max-age=21600");
     resetLaunchCacheForTests();
     vi.setSystemTime(new Date("2026-09-08T21:16:00Z"));
     vi.stubGlobal(

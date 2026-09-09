@@ -68,7 +68,7 @@ it("shows T-minus for a Go launch with minute precision", () => {
     error: null,
   });
   render(<LaunchesTile />);
-  expect(screen.getByText("3h 0m")).toBeTruthy();
+  expect(screen.getByText("T- 3h 0m")).toBeTruthy();
   expect(screen.getByText("SpX")).toBeTruthy();
   expect(screen.getByText("SLC-40")).toBeTruthy();
 });

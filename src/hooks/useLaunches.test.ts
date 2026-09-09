@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createElement, type ReactNode } from "react";
 import { renderHook, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -80,7 +80,7 @@ describe("launchTimingLabel and pickNextLaunch", () => {
   it("counts down before NET and uses T+ for a two-hour window after", () => {
     expect(
       launchTimingLabel(launch({ net: "2026-09-08T16:00:00.000Z", precision: "minute" }), now),
-    ).toBe("3h 0m");
+    ).toBe("T- 3h 0m");
     expect(
       launchTimingLabel(launch({ net: "2026-09-08T12:15:00.000Z", precision: "minute" }), now),
     ).toBe("T+ 45m");
@@ -96,6 +96,17 @@ describe("launchTimingLabel and pickNextLaunch", () => {
     const flown = launch({ id: "old", net: "2026-09-08T10:00:00.000Z" });
     const upcoming = launch({ id: "next", net: "2026-09-08T16:00:00.000Z" });
     expect(pickNextLaunch([flown, upcoming], now)?.id).toBe("next");
+  });
+
+  it("does not keep LIVE once the webcast is outside the two-hour window", () => {
+    const staleLive = launch({
+      webcastLive: true,
+      status: "In Flight",
+      net: "2026-09-08T07:00:00.000Z",
+      precision: "minute",
+    });
+    expect(launchTimingLabel(staleLive, now)).toBe("8 SEP");
+    expect(pickNextLaunch([staleLive], now)).toBeNull();
   });
 });
 
@@ -120,8 +131,13 @@ describe("parseLaunchesPayload", () => {
 });
 
 describe("useLaunches", () => {
+  beforeEach(() => {
+    vi.setSystemTime(new Date("2026-09-08T13:00:00Z"));
+  });
+
   afterEach(() => {
     vi.unstubAllGlobals();
+    vi.useRealTimers();
   });
 
   function wrapper() {
@@ -136,6 +152,7 @@ describe("useLaunches", () => {
   }
 
   it("exposes a fetch error when the proxy is down", async () => {
+    vi.useRealTimers();
     vi.stubGlobal(
       "fetch",
       vi.fn().mockResolvedValue(new Response("nope", { status: 502 })),

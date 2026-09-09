@@ -147,7 +147,12 @@ export function launchPad(launch: LaunchRecord): string {
 
 export function isLaunchCurrent(launch: LaunchRecord, now: Date): boolean {
   const status = launch.status.toUpperCase();
-  if (launch.webcastLive || status === "IN FLIGHT") return true;
+  if (launch.webcastLive || status === "IN FLIGHT") {
+    return (
+      !launch.net ||
+      now.getTime() - Date.parse(launch.net) <= POST_NET_WINDOW_MS
+    );
+  }
   if (!launch.net) return true;
   const net = Date.parse(launch.net);
   if (!Number.isFinite(net)) return true;
@@ -163,12 +168,18 @@ export function pickNextLaunch(
 
 export function launchTimingLabel(launch: LaunchRecord, now: Date): string {
   const status = launch.status.toUpperCase();
-  if (launch.webcastLive || status === "IN FLIGHT") return "LIVE";
+  if (
+    (launch.webcastLive || status === "IN FLIGHT") &&
+    (!launch.net ||
+      now.getTime() - Date.parse(launch.net) <= POST_NET_WINDOW_MS)
+  ) {
+    return "LIVE";
+  }
   if (!countdownAllowed(launch) || !launch.net) {
     return launch.net ? netDateLabel(launch.net, now) : status || "TBD";
   }
   const minutes = (Date.parse(launch.net) - now.getTime()) / 60_000;
-  if (minutes > 0) return formatSpan(minutes);
+  if (minutes > 0) return `T- ${formatSpan(minutes)}`;
   if (now.getTime() - Date.parse(launch.net) <= POST_NET_WINDOW_MS) {
     return `T+ ${formatSpan(-minutes)}`;
   }

@@ -41,6 +41,7 @@ describe("AzimuthalRenderer texture policy", () => {
         deleteTexture,
         deleteBuffer: vi.fn(),
         deleteProgram: vi.fn(),
+        getExtension: vi.fn(() => null),
       } as unknown as WebGLRenderingContext,
       dayTexture,
       nightTexture,
@@ -49,6 +50,30 @@ describe("AzimuthalRenderer texture policy", () => {
     expect(deleteTexture).toHaveBeenCalledTimes(2);
     expect(deleteTexture).toHaveBeenCalledWith(dayTexture);
     expect(deleteTexture).toHaveBeenCalledWith(nightTexture);
+  });
+
+  it("releases the WebGL context when disposing a live renderer", () => {
+    const loseContext = vi.fn();
+    const getExtension = vi.fn((name: string) =>
+      name === "WEBGL_lose_context" ? { loseContext } : null,
+    );
+    const renderer = new AzimuthalRenderer();
+    Object.assign(renderer, {
+      gl: {
+        deleteTexture: vi.fn(),
+        deleteBuffer: vi.fn(),
+        deleteProgram: vi.fn(),
+        getExtension,
+      } as unknown as WebGLRenderingContext,
+    });
+
+    renderer.dispose();
+
+    expect(getExtension).toHaveBeenCalledWith("WEBGL_lose_context");
+    expect(loseContext).toHaveBeenCalledTimes(1);
+
+    renderer.dispose();
+    expect(loseContext).toHaveBeenCalledTimes(1);
   });
 
   it("cancels pending image callbacks before disposing the GL context", () => {

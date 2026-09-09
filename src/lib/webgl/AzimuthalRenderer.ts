@@ -670,6 +670,10 @@ export class AzimuthalRenderer {
       this.gl.deleteProgram(this.program);
     }
 
+    // Deleting objects does not free the context slot; browsers cap concurrent
+    // WebGL contexts (~16), so leaving the azimuthal view without this leaks one.
+    this.gl.getExtension("WEBGL_lose_context")?.loseContext();
+
     this.gl = null;
     this.program = null;
     this.dayTexture = null;

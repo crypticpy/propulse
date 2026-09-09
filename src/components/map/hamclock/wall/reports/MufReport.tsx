@@ -27,6 +27,7 @@ import {
 import { latLonToGrid } from "@/lib/utils/grid";
 import { useHamClockStore } from "@/stores/hamclockStore";
 import { useMapStore } from "@/stores/mapStore";
+import { useBoundVisualTarget } from "@/hooks/useBoundMapSelection";
 import type { EngineReading } from "@/lib/hamclock/engineComparison";
 import {
   bandFrequencyStepClassifier,
@@ -316,7 +317,8 @@ export function MufReport({ open, onClose }: MufReportProps) {
   const sfi = useCurrentSFI();
   const now = useUTCClock(60_000);
   const timeOffset = useMapStore((s) => s.timeOffset);
-  const target = useMapStore((s) => s.target);
+  const mapTarget = useMapStore((s) => s.target);
+  const target = useBoundVisualTarget(mapTarget);
   const setCenterLocation = useMapStore((s) => s.setCenterLocation);
   const setFlashPoint = useMapStore((s) => s.setFlashPoint);
   const reliability = useHamClockStore((s) => s.reliability);

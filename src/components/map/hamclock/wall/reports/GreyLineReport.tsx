@@ -13,6 +13,7 @@ import {
   type MutualGreylineWindow,
 } from "@/lib/utils/greyline";
 import { useMapStore } from "@/stores/mapStore";
+import { useBoundVisualTarget } from "@/hooks/useBoundMapSelection";
 import { formatClock, formatCountdown, reportFooter } from "../tokens";
 import { useElementSize } from "../useElementSize";
 import { WallReport, type WallReportFact } from "./WallReport";
@@ -365,7 +366,8 @@ export function GreyLineReport({
   onCloseAll,
 }: GreyLineReportProps) {
   const location = useActiveLocation();
-  const target = useMapStore((s) => s.target);
+  const mapTarget = useMapStore((s) => s.target);
+  const target = useBoundVisualTarget(mapTarget);
   const terminatorEnabled = useMapStore((s) => s.layers.terminator);
   const toggleLayer = useMapStore((s) => s.toggleLayer);
   const now = useUTCClock(TICK_MS);

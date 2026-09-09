@@ -17,6 +17,7 @@ import {
   type HamClockReliabilityMode,
 } from "@/stores/hamclockStore";
 import { useMapStore } from "@/stores/mapStore";
+import { useBoundVisualTarget } from "@/hooks/useBoundMapSelection";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { useActiveChain, useUserAntennas } from "@/stores/shackStore";
 
@@ -108,7 +109,8 @@ function cellKey(band: string, hourIndex: number): string {
 
 export function useWallReliability(): WallReliability {
   const origin = useActiveLocation();
-  const target = useMapStore((state) => state.target);
+  const mapTarget = useMapStore((state) => state.target);
+  const target = useBoundVisualTarget(mapTarget);
   const timeOffset = useMapStore((state) => state.timeOffset);
   const absoluteTime = useMapStore((state) => state.absoluteTime);
   const reliability = useHamClockStore((state) => state.reliability);

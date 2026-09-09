@@ -11,6 +11,7 @@ import { latLonToGrid } from "@/lib/utils/grid";
 import { formatDistance, getPathMetrics } from "@/lib/utils/path";
 import { useHamClockDisplayStore } from "@/stores/hamclockDisplayStore";
 import { useMapStore } from "@/stores/mapStore";
+import { useBoundVisualTarget } from "@/hooks/useBoundMapSelection";
 import { WeatherGlyph, type WeatherGlyphKind } from "../tiles/WeatherTile";
 import { WallReport, type WallReportFact } from "./WallReport";
 
@@ -42,7 +43,8 @@ export interface DxTargetReportProps {
  * panel used, so nothing here can disagree with the map.
  */
 export function DxTargetReport({ open, onClose }: DxTargetReportProps) {
-  const target = useMapStore((s) => s.target);
+  const mapTarget = useMapStore((s) => s.target);
+  const target = useBoundVisualTarget(mapTarget);
   const location = useActiveLocation();
   const units = useHamClockDisplayStore((s) => s.units);
   const { weather, isLoading, error, hasLocation } = useLocationWeather(

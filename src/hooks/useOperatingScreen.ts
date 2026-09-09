@@ -15,9 +15,11 @@
  */
 
 import { useEffect } from "react";
-import { queueTune } from "@/lib/radio/tune";
+import { queueTune, tuneDisabledReason } from "@/lib/radio/tune";
+import { useKioskStore } from "@/stores/kioskStore";
 import { useOperatingStateStore } from "@/stores/operatingStateStore";
 import { useRigStore } from "@/stores/rigStore";
+import { useSettingsStore } from "@/stores/settingsStore";
 import { useActiveWorkspace, useEffectiveCanvasType, useWorkspaceStore } from "@/stores/workspaceStore";
 
 export function useOperatingScreen(): void {
@@ -70,13 +72,44 @@ export function useOperatingScreen(): void {
         }
 
         if (received.command.type === "tune") {
-          // Only the screen the phone actually named acts on it — the same
-          // registration record (`capabilities.canTune`) it read to enable
-          // its TUNE button names this workspace id.
-          if (received.command.workspaceId !== workspaceId) return;
-          queueTune(received.command.frequencyKHz, received.command.mode);
+          // Only the exact screen the phone named acts on it (PR #694
+          // review, item 1/8): `workspaceId` alone is not unique — every
+          // non-phone canvas that hasn't picked a workspace defaults to the
+          // same id — so both the device and workspace id must match the
+          // registration the phone actually chose.
+          const ownDeviceId = useOperatingStateStore.getState().deviceId;
+          if (
+            received.command.deviceId !== ownDeviceId ||
+            received.command.workspaceId !== workspaceId
+          ) {
+            return;
+          }
+          // A wall never acts on a command (item 4), mirroring the
+          // `capabilities.canCommand` filter the phone applies when it
+          // picks a workspace to tune.
+          if (!canCommand) {
+            useOperatingStateStore
+              .getState()
+              .reportTuneResult(ownDeviceId, workspaceId, false, "This screen cannot act on commands.");
+            return;
+          }
+
+          const ok = queueTune(received.command.frequencyKHz, received.command.mode);
+          const reason = ok
+            ? null
+            : tuneDisabledReason(
+                {
+                  ...useRigStore.getState(),
+                  bridgeEnabled: useSettingsStore.getState().bridgeEnabled,
+                  kiosk: useKioskStore.getState().active,
+                },
+                received.command.frequencyKHz,
+              );
+          // PR #694 review, item 2(a): TUNE was fire-and-forget; report back
+          // so the phone can show an honest SENT/FAILED result.
+          useOperatingStateStore.getState().reportTuneResult(ownDeviceId, workspaceId, ok, reason);
         }
       }),
-    [workspaceId],
+    [workspaceId, canCommand],
   );
 }

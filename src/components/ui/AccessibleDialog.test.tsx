@@ -2,7 +2,10 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import axe from "axe-core";
-import { AccessibleDialog } from "./AccessibleDialog";
+import {
+  AccessibleDialog,
+  countDetachedBackgroundStateEntriesForTest,
+} from "./AccessibleDialog";
 
 describe("AccessibleDialog", () => {
   it("moves focus inside, traps Tab, closes with Escape, and restores focus", async () => {
@@ -342,6 +345,49 @@ describe("AccessibleDialog background inerting across a stack", () => {
     fireEvent.keyDown(document, { key: "Escape" });
     expect(closeA).toHaveBeenCalledOnce();
     expect(closeB).not.toHaveBeenCalled();
+  });
+
+  it("focuses the still-open parent panel when a data-push child closes", () => {
+    appRoot();
+    const renderStack = (parentOpen: boolean, childOpen: boolean) => (
+      <>
+        <AccessibleDialog open={parentOpen} onClose={vi.fn()} title="Parent">
+          <button type="button">Parent action</button>
+        </AccessibleDialog>
+        <AccessibleDialog open={childOpen} onClose={vi.fn()} title="Child alert">
+          <button type="button">Child action</button>
+        </AccessibleDialog>
+      </>
+    );
+
+    const { rerender } = render(renderStack(true, false));
+    document.body.focus();
+    rerender(renderStack(true, true));
+    rerender(renderStack(true, false));
+
+    const parentDialog = screen.getByRole("dialog", { name: "Parent" });
+    expect(parentDialog.contains(document.activeElement)).toBe(true);
+  });
+
+  it("drops detached portal nodes from originalBackgroundState under a long-lived dialog", () => {
+    appRoot();
+    const renderStack = (wallOpen: boolean, transientOpen: boolean) => (
+      <>
+        <AccessibleDialog open={wallOpen} onClose={vi.fn()} title="Wall report" chrome="bare">
+          <div>Wall surface</div>
+        </AccessibleDialog>
+        <AccessibleDialog open={transientOpen} onClose={vi.fn()} title="Transient">
+          <button type="button">Transient action</button>
+        </AccessibleDialog>
+      </>
+    );
+
+    const { rerender } = render(renderStack(true, false));
+    for (let cycle = 0; cycle < 3; cycle += 1) {
+      rerender(renderStack(true, true));
+      rerender(renderStack(true, false));
+      expect(countDetachedBackgroundStateEntriesForTest()).toBe(0);
+    }
   });
 
   it("restores focus to the deepest surviving opener when a top dialog closes after out-of-order lower close", () => {

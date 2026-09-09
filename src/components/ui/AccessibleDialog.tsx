@@ -85,14 +85,44 @@ function syncBackgroundInert(): void {
     child.inert = true;
     child.setAttribute("aria-hidden", "true");
   }
+  for (const element of [...originalBackgroundState.keys()]) {
+    if (!element.isConnected) originalBackgroundState.delete(element);
+  }
 }
 
-function getDeepestSurvivingOpener(): HTMLElement | null {
+function isViableOpener(opener: HTMLElement): boolean {
+  return opener.isConnected && opener !== document.body && !opener.inert;
+}
+
+function indexOfTopmostOpenEntry(): number {
   for (let i = openDialogStack.length - 1; i >= 0; i -= 1) {
-    const opener = openDialogStack[i].opener;
-    if (opener?.isConnected) return opener;
+    if (openDialogStack[i].isOpen) return i;
   }
-  return null;
+  return -1;
+}
+
+function focusAfterTopmostClose(): void {
+  const topOpenIndex = indexOfTopmostOpenEntry();
+  if (topOpenIndex === -1) {
+    for (let i = openDialogStack.length - 1; i >= 0; i -= 1) {
+      const opener = openDialogStack[i].opener;
+      if (opener && isViableOpener(opener)) {
+        opener.focus();
+        return;
+      }
+    }
+    return;
+  }
+  for (let i = openDialogStack.length - 1; i > topOpenIndex; i -= 1) {
+    const opener = openDialogStack[i].opener;
+    if (opener && isViableOpener(opener)) {
+      opener.focus();
+      return;
+    }
+  }
+  const topEntry = openDialogStack[topOpenIndex];
+  const panel = topEntry.portalRoot?.querySelector<HTMLElement>('[role="dialog"]');
+  (panel ?? topEntry.portalRoot)?.focus();
 }
 
 function isTopmostOpen(token: symbol): boolean {
@@ -180,6 +210,7 @@ export function AccessibleDialog({
       return;
     }
     if (event.key !== "Tab" || !dialogRef.current) return;
+    if (!isTopmostOpen(dialogTokenRef.current)) return;
     const controls = [...dialogRef.current.querySelectorAll<HTMLElement>(FOCUSABLE)].filter(
       (element) => !element.hasAttribute("hidden") && !element.closest("[hidden]"),
     );
@@ -228,7 +259,7 @@ export function AccessibleDialog({
       const stackEntry = openDialogStack.find((entry) => entry.token === dialogToken);
       if (stackEntry) stackEntry.isOpen = false;
       syncBackgroundInert();
-      if (wasTopmost) getDeepestSurvivingOpener()?.focus();
+      if (wasTopmost) focusAfterTopmostClose();
       if (!openDialogStack.some((entry) => entry.isOpen)) {
         openDialogStack.length = 0;
       } else {
@@ -308,4 +339,14 @@ export function AccessibleDialog({
     </div>,
     document.body,
   );
+}
+
+/** @internal Counts map entries whose nodes were removed from the document. */
+// eslint-disable-next-line react-refresh/only-export-components -- test-only introspection
+export function countDetachedBackgroundStateEntriesForTest(): number {
+  let detached = 0;
+  for (const element of originalBackgroundState.keys()) {
+    if (!element.isConnected) detached += 1;
+  }
+  return detached;
 }

@@ -1,6 +1,10 @@
 import { useEffect, useRef } from "react";
 import { useThree } from "@react-three/fiber";
 
+type PendingRelease = ReturnType<typeof setTimeout>;
+
+const pendingContextLossByCanvas = new WeakMap<HTMLCanvasElement, PendingRelease>();
+
 export interface UseWebGLContextGuardOptions {
   /** Called when the GPU genuinely loses the WebGL context (crash, driver reset, cap eviction). */
   onLost?: () => void;
@@ -34,16 +38,16 @@ export function useWebGLContextGuard({
   // StrictMode runs mount → cleanup → mount synchronously in development. A
   // release fired straight from cleanup would kill a canvas that is about to
   // be reattached, so it is deferred one task and withdrawn if the effect
-  // runs again first. A real unmount never re-runs it, so the context still
-  // goes within a few milliseconds rather than r3f's 500.
-  const pendingReleaseRef = useRef<number | null>(null);
+  // runs again first. A real unmount never re-runs it, so this preserves
+  // the ~500ms behavior that R3F normally uses.
 
   useEffect(() => {
-    if (pendingReleaseRef.current !== null) {
-      window.clearTimeout(pendingReleaseRef.current);
-      pendingReleaseRef.current = null;
-    }
     const canvas = gl.domElement;
+    const priorPendingRelease = pendingContextLossByCanvas.get(canvas);
+    if (priorPendingRelease !== undefined) {
+      clearTimeout(priorPendingRelease);
+      pendingContextLossByCanvas.delete(canvas);
+    }
 
     const handleContextLost = (event: Event) => {
       // three.js's own handler already prevents the default; doing it here
@@ -58,12 +62,13 @@ export function useWebGLContextGuard({
       // Removed before the release below, so the loss we cause ourselves
       // never reaches onLost.
       canvas.removeEventListener("webglcontextlost", handleContextLost);
-      pendingReleaseRef.current = window.setTimeout(() => {
-        pendingReleaseRef.current = null;
+      const pendingRelease = setTimeout(() => {
+        pendingContextLossByCanvas.delete(canvas);
         // r3f will call this again later inside its own try/catch; losing an
         // already-lost context is a no-op.
         gl.forceContextLoss?.();
-      }, 0);
+      }, 500);
+      pendingContextLossByCanvas.set(canvas, pendingRelease);
     };
   }, [gl]);
 }

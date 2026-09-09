@@ -285,31 +285,30 @@ function TourTooltip({
       "right-0 top-1/2 translate-x-full -translate-y-1/2 border-t-transparent border-b-transparent border-r-transparent border-l-nebula-blue",
   };
 
-  const tooltipStyle: React.CSSProperties = isModal
-    ? {
-        position: "fixed",
-        top: "50%",
-        left: "50%",
-        transform: "translate(-50%, -50%)",
-        width: TOOLTIP_WIDTH,
-      }
-    : {
-        position: "fixed",
-        top: position.top,
-        left: position.left,
-        width: TOOLTIP_WIDTH,
-        transform:
-          position.arrowPosition === "left" ||
-          position.arrowPosition === "right"
-            ? "translateY(-50%)"
-            : undefined,
-      };
+  const tooltipStyle: React.CSSProperties = {
+    position: "fixed",
+    top: position.top,
+    left: position.left,
+    width: TOOLTIP_WIDTH,
+    transform:
+      position.arrowPosition === "left" || position.arrowPosition === "right"
+        ? "translateY(-50%)"
+        : undefined,
+  };
 
-  return (
-    <div
-      className="bg-nebula-blue/95 backdrop-blur-md border border-su-line/50 rounded-xl shadow-2xl p-5 animate-fade-in-up z-[1000]"
-      style={tooltipStyle}
-    >
+  const modalWrapperStyle: React.CSSProperties = {
+    position: "fixed",
+    top: "50%",
+    left: "50%",
+    transform: "translate(-50%, -50%)",
+    width: TOOLTIP_WIDTH,
+  };
+
+  const panelClassName =
+    "bg-nebula-blue/95 backdrop-blur-md border border-su-line/50 rounded-xl shadow-2xl p-5 animate-fade-in-up";
+
+  const panel = (
+    <>
       {/* Arrow (only for non-modal steps) */}
       {!isModal && (
         <div
@@ -409,6 +408,20 @@ function TourTooltip({
           </button>
         </div>
       )}
+    </>
+  );
+
+  if (isModal) {
+    return (
+      <div className="fixed z-[1000]" style={modalWrapperStyle}>
+        <div className={panelClassName}>{panel}</div>
+      </div>
+    );
+  }
+
+  return (
+    <div className={`${panelClassName} z-[1000]`} style={tooltipStyle}>
+      {panel}
     </div>
   );
 }

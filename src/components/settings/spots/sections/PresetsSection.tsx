@@ -71,7 +71,12 @@ function CatalogRow({
       >
         <span className="text-sm font-medium text-su-text">{recipe.name}</span>
         <span className="text-xs text-su-muted">{summary}</span>
-        <span className="font-mono text-[10px] text-su-muted/70">{recipe.id}</span>
+        {/* recipe.id must stay visible: PRESET-01 in PresetsSection.test.tsx
+            asserts every ACTIVITY_PRESET_IDS/DISPLAY_PRESET_IDS entry renders
+            as text, so a catalog entry that's deferred from the UI fails the
+            test. text-xs/full text-su-muted meets the DS-16 legibility floor
+            (was text-[10px] text-su-muted/70). */}
+        <span className="font-mono text-xs text-su-muted">{recipe.id}</span>
       </button>
     </div>
   );
@@ -124,8 +129,8 @@ function CustomPresetRow({
           </button>
         </div>
       </div>
-      <span className="font-mono text-[10px] text-su-muted/70">
-        {entry.value.kind} · {entry.id} · rev {entry.revision}
+      <span className="text-xs text-su-muted">
+        {entry.value.kind === "activity" ? "Activity recipe" : "Display template"}
       </span>
     </div>
   );

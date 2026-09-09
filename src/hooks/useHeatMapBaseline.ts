@@ -30,6 +30,9 @@ export function buildHeatMapBaseline(rows: unknown[]): BaselineLookup {
       utcHour: row.hour_of_day,
       // The existing 90-day climatology supplies a median, not an arithmetic
       // mean. The smoothed log2 ratio accepts p50 through the meanCount field.
+      // Its hourly, all-source/either-endpoint population differs from the
+      // displayed 20-minute distinct-DX feed: this is the owner's #668 proxy,
+      // not a matched-population climatology.
       meanCount: row.p50,
     });
   }

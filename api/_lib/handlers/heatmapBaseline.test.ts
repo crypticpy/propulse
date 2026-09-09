@@ -4,6 +4,7 @@ import { handleSpotsHeatmapBaseline, parseHeatmapBaselineRow } from "./heatmapBa
 const ROW = {
   band: "20m", continent: "EU", hour_of_day: 13,
   p25: 2, p50: 4, p75: 8, p95: 16, sample_count: 14,
+  computed_at: "2026-09-08T00:00:00Z",
 };
 let client = 0;
 const request = (method = "GET", ip = String(++client)) => new Request(
@@ -31,6 +32,11 @@ describe("heatmap baseline handler", () => {
       continent: ["NA", "SA", "EU", "AF", "AS", "OC", "AN"][Math.floor(index / 24) % 7],
     }));
     const fetcher = vi.fn(async (input: URL, init: RequestInit) => {
+      if (input.pathname === "/rest/v1/rpc/spot_aggregation_baseline_current") {
+        expect(init.method).toBe("POST");
+        expect(JSON.parse(init.body as string)).toEqual({ p_aggregation: "region_hourly", p_computed_at: ROW.computed_at });
+        return json(true);
+      }
       expect(input.pathname).toBe("/rest/v1/region_activity_climatology");
       expect(input.searchParams.get("order")).toBe("band.asc,continent.asc,hour_of_day.asc");
       expect(input.searchParams.get("limit")).toBe("1000");
@@ -45,13 +51,14 @@ describe("heatmap baseline handler", () => {
     expect(response.headers.get("Cache-Control")).toBe("public, max-age=3600, s-maxage=3600");
     expect(response.headers.get("Access-Control-Allow-Origin")).toBe("https://allowed.example");
     expect((await response.json()).rows).toEqual(rows);
-    expect(fetcher).toHaveBeenCalledTimes(2);
+    expect(fetcher).toHaveBeenCalledTimes(3);
   });
 
   it("continues a short page when Content-Range reports more rows", async () => {
     const fetcher = vi.fn()
       .mockResolvedValueOnce(json([ROW], 200, { "Content-Range": "0-0/2" }))
-      .mockResolvedValueOnce(json([{ ...ROW, hour_of_day: 14 }], 200, { "Content-Range": "1-1/2" }));
+      .mockResolvedValueOnce(json([{ ...ROW, hour_of_day: 14 }], 200, { "Content-Range": "1-1/2" }))
+      .mockResolvedValueOnce(json(true));
     vi.stubGlobal("fetch", fetcher);
     const response = await handleSpotsHeatmapBaseline(request());
     expect((await response.json()).rows).toHaveLength(2);
@@ -67,12 +74,37 @@ describe("heatmap baseline handler", () => {
     { ...ROW, hour_of_day: 24 }, { ...ROW, hour_of_day: 1.5 },
     { ...ROW, continent: "XX" }, { ...ROW, p50: NaN },
     { ...ROW, sample_count: -1 }, { ...ROW, p50: "4" }, null,
+    { ...ROW, computed_at: null }, { ...ROW, computed_at: "invalid" },
   ])("rejects malformed data: %j", (row) => {
     expect(parseHeatmapBaselineRow(row)).toBeNull();
   });
 
   it("retains low-sample rows for the client to qualify", () => {
     expect(parseHeatmapBaselineRow({ ...ROW, sample_count: 13 })?.sample_count).toBe(13);
+  });
+
+  it("suppresses a snapshot invalidated by a newer aggregation gap", async () => {
+    const older = { ...ROW, hour_of_day: 12, computed_at: "2026-09-07T00:00:00Z" };
+    const fetcher = vi.fn()
+      .mockResolvedValueOnce(json([ROW, older]))
+      .mockResolvedValueOnce(json(false));
+    vi.stubGlobal("fetch", fetcher);
+    const response = await handleSpotsHeatmapBaseline(request());
+    expect(response.status).toBe(200);
+    expect((await response.json()).rows).toEqual([]);
+    expect(JSON.parse(fetcher.mock.calls[1][1].body)).toEqual({
+      p_aggregation: "region_hourly", p_computed_at: older.computed_at,
+    });
+  });
+
+  it.each([false, true])("fails closed when the guard fails (malformed=%s)", async (malformed) => {
+    vi.stubGlobal("fetch", vi.fn()
+      .mockResolvedValueOnce(json([ROW]))
+      .mockResolvedValueOnce(malformed ? json({ current: true }) : json({}, 500)));
+    const response = await handleSpotsHeatmapBaseline(request());
+    expect(response.status).toBe(502);
+    expect(response.headers.get("Cache-Control")).toBe("no-store");
+    expect((await response.json()).rows).toEqual([]);
   });
 
   it("handles OPTIONS and rejects non-GET requests before querying", async () => {

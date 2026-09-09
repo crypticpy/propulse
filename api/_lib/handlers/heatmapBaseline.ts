@@ -17,9 +17,34 @@ export interface HeatmapBaselineRow {
   p75: number;
   p95: number;
   sample_count: number;
+  computed_at: string;
 }
 
-function baselineResponse(rows: HeatmapBaselineRow[]): Response {
+async function baselineResponse(
+  rows: HeatmapBaselineRow[],
+  storage: { baseUrl: string; anonKey: string },
+  signal: AbortSignal,
+): Promise<Response> {
+  if (rows.length > 0) {
+    const oldest = rows.reduce((a, b) => Date.parse(a.computed_at) < Date.parse(b.computed_at) ? a : b);
+    const response = await fetch(new URL(`${storage.baseUrl}/rest/v1/rpc/spot_aggregation_baseline_current`), {
+      method: "POST",
+      headers: {
+        apikey: storage.anonKey,
+        Authorization: `Bearer ${storage.anonKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ p_aggregation: "region_hourly", p_computed_at: oldest.computed_at }),
+      signal,
+    });
+    if (!response.ok) throw new Error("Baseline validity check failed");
+    const current = await readBoundedJson(response, 1024);
+    if (typeof current !== "boolean") throw new Error("Invalid baseline validity response");
+    // A gap invalidates every older snapshot. Checking the oldest timestamp
+    // protects all returned rows with one RPC, without exposing the gap ledger.
+    // Mixed rebuild snapshots fail closed until the next successful refresh.
+    if (!current) rows = [];
+  }
   return spotJsonResponse({
     rows,
     meta: { schemaVersion: 1, fetchedAt: new Date().toISOString() },
@@ -35,7 +60,8 @@ export function parseHeatmapBaselineRow(value: unknown): HeatmapBaselineRow | nu
     typeof row.hour_of_day !== "number" || !Number.isInteger(row.hour_of_day) ||
     row.hour_of_day < 0 || row.hour_of_day > 23 ||
     typeof row.sample_count !== "number" || !Number.isInteger(row.sample_count) ||
-    row.sample_count < 0
+    row.sample_count < 0 ||
+    typeof row.computed_at !== "string" || !Number.isFinite(Date.parse(row.computed_at))
   ) return null;
   for (const key of ["p25", "p50", "p75", "p95"] as const) {
     if (typeof row[key] !== "number" || !Number.isFinite(row[key]) || row[key] < 0) {
@@ -51,6 +77,7 @@ export function parseHeatmapBaselineRow(value: unknown): HeatmapBaselineRow | nu
     p75: row.p75 as number,
     p95: row.p95 as number,
     sample_count: row.sample_count,
+    computed_at: row.computed_at,
   };
 }
 
@@ -81,7 +108,7 @@ export async function handleSpotsHeatmapBaseline(req: Request): Promise<Response
     // Count/range metadata also lets us handle a server with a lower page cap.
     for (let page = 0; page < MAX_PAGES; page += 1) {
       const url = new URL(`${storage.baseUrl}/rest/v1/region_activity_climatology`);
-      url.searchParams.set("select", "band,continent,hour_of_day,p25,p50,p75,p95,sample_count");
+      url.searchParams.set("select", "band,continent,hour_of_day,p25,p50,p75,p95,sample_count,computed_at");
       url.searchParams.set("order", "band.asc,continent.asc,hour_of_day.asc");
       url.searchParams.set("limit", String(PAGE_SIZE));
       url.searchParams.set("offset", String(offset));
@@ -102,7 +129,7 @@ export async function handleSpotsHeatmapBaseline(req: Request): Promise<Response
       const payload = await readBoundedJson(response, RESPONSE_BYTE_LIMIT);
       if (!Array.isArray(payload)) throw new Error("Invalid baseline response");
       if (payload.length === 0) {
-        return baselineResponse(rows);
+        return await baselineResponse(rows, storage, controller.signal);
       }
       for (const raw of payload) {
         const row = parseHeatmapBaselineRow(raw);
@@ -111,7 +138,7 @@ export async function handleSpotsHeatmapBaseline(req: Request): Promise<Response
       offset += payload.length;
       const totalMatch = response.headers.get("content-range")?.match(/\/(\d+)$/);
       if (totalMatch ? offset >= Number(totalMatch[1]) : payload.length < PAGE_SIZE) {
-        return baselineResponse(rows);
+        return await baselineResponse(rows, storage, controller.signal);
       }
     }
     throw new Error("Baseline pagination limit exceeded");

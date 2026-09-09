@@ -12,7 +12,7 @@ import { WallStatus } from "./WallStatus";
  * a report. */
 function shouldIgnoreKey(event: KeyboardEvent): boolean {
   if (event.ctrlKey || event.metaKey || event.altKey) return true;
-  if (document.querySelector('[role="dialog"]')) return true;
+  if (document.querySelector('[role="dialog"], [role="alertdialog"]')) return true;
   const target = event.target as HTMLElement | null;
   if (!target) return false;
   if (target.isContentEditable) return true;

@@ -165,6 +165,54 @@ describe("AccessibleDialog", () => {
     const results = await axe.run(screen.getByRole("dialog"));
     expect(results.violations).toEqual([]);
   });
+
+  it("defaults to role=\"dialog\" and switches to role=\"alertdialog\" when requested (#773)", () => {
+    const { rerender } = render(
+      <AccessibleDialog open onClose={vi.fn()} title="Delete item">
+        <button type="button">Delete</button>
+      </AccessibleDialog>,
+    );
+    expect(screen.getByRole("dialog", { name: "Delete item" })).toBeTruthy();
+    expect(screen.queryByRole("alertdialog")).toBeNull();
+
+    rerender(
+      <AccessibleDialog open onClose={vi.fn()} title="Delete item" role="alertdialog">
+        <button type="button">Delete</button>
+      </AccessibleDialog>,
+    );
+    expect(screen.getByRole("alertdialog", { name: "Delete item" })).toBeTruthy();
+    expect(screen.queryByRole("dialog")).toBeNull();
+  });
+
+  it("labelledBy points aria-labelledby at the caller's own heading and suppresses the sr-only heading, preventing the double announcement it exists to fix (#773)", () => {
+    const { rerender } = render(
+      <AccessibleDialog open onClose={vi.fn()} title="Equipment name" chrome="bare">
+        <h2 id="caller-heading">Equipment name</h2>
+      </AccessibleDialog>,
+    );
+    // Default (no labelledBy): the auto-generated sr-only heading supplies
+    // the accessible name, so it coexists with the caller's own visible
+    // heading — two headings sharing one name, which is exactly the double
+    // announcement `labelledBy` exists to prevent.
+    expect(screen.getAllByRole("heading", { name: "Equipment name" })).toHaveLength(2);
+    let panel = screen.getByRole("dialog", { name: "Equipment name" });
+    expect(panel.getAttribute("aria-labelledby")).not.toBe("caller-heading");
+
+    rerender(
+      <AccessibleDialog
+        open
+        onClose={vi.fn()}
+        title="Equipment name"
+        chrome="bare"
+        labelledBy="caller-heading"
+      >
+        <h2 id="caller-heading">Equipment name</h2>
+      </AccessibleDialog>,
+    );
+    panel = screen.getByRole("dialog", { name: "Equipment name" });
+    expect(panel.getAttribute("aria-labelledby")).toBe("caller-heading");
+    expect(screen.getAllByRole("heading", { name: "Equipment name" })).toHaveLength(1);
+  });
 });
 
 describe("AccessibleDialog background inerting across a stack", () => {
@@ -373,6 +421,42 @@ describe("AccessibleDialog background inerting across a stack", () => {
 
     const parentDialog = screen.getByRole("dialog", { name: "Parent" });
     expect(parentDialog.contains(document.activeElement)).toBe(true);
+  });
+
+  it("restores focus onto a still-open alertdialog's own panel when the dialog above it closes (#773 — the focus-restore selector must match alertdialog, not just dialog)", () => {
+    appRoot();
+    // The outer entry (the one focus restoration falls back to) is the
+    // alertdialog here, not the inner one — that is the shape that actually
+    // exercises `focusAfterTopmostClose`'s querySelector. If it only matched
+    // `[role="dialog"]`, this would find nothing for the alertdialog panel,
+    // fall back to the unfocusable portal wrapper div, and leave focus on
+    // `document.body` instead of moving onto the outer panel.
+    const renderStack = (outerOpen: boolean, innerOpen: boolean) => (
+      <>
+        <AccessibleDialog
+          open={outerOpen}
+          onClose={vi.fn()}
+          title="Confirm risky action"
+          role="alertdialog"
+        >
+          <button type="button">Confirm</button>
+        </AccessibleDialog>
+        <AccessibleDialog open={innerOpen} onClose={vi.fn()} title="Details">
+          <button type="button">Detail action</button>
+        </AccessibleDialog>
+      </>
+    );
+
+    const { rerender } = render(renderStack(true, false));
+    // Invalidate the inner dialog's captured opener (document.body is never
+    // a viable opener) so the restore logic is forced past the opener loop
+    // and down into the querySelector fallback on the still-open outer entry.
+    document.body.focus();
+    rerender(renderStack(true, true));
+    rerender(renderStack(true, false));
+
+    const outerPanel = screen.getByRole("alertdialog", { name: "Confirm risky action" });
+    expect(document.activeElement).toBe(outerPanel);
   });
 
   it("drops detached portal nodes from originalBackgroundState under a long-lived dialog", () => {

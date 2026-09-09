@@ -8,6 +8,10 @@
  * confirmation. `ConfirmDialog`'s own `document`-level Escape listener does
  * not participate in that stack, so a bare `ConfirmDialog` nested here loses
  * the race and the whole preferences panel closes instead.
+ *
+ * Uses `role="alertdialog"` (#773), same as `ConfirmDialog`: every use of
+ * this component is a confirmation the app deliberately interrupts the
+ * user's workflow with.
  */
 import { AccessibleDialog } from "@/components/ui/AccessibleDialog";
 
@@ -38,7 +42,13 @@ export function LibraryConfirmDialog({
       ? `min-h-[40px] rounded-lg border border-alert-red/30 bg-alert-red/20 px-4 py-2 text-sm font-medium text-alert-red transition-colors hover:bg-alert-red/30 ${FOCUS_RING}`
       : `min-h-[40px] rounded-lg border border-caution-amber/30 bg-caution-amber/20 px-4 py-2 text-sm font-medium text-caution-amber transition-colors hover:bg-caution-amber/30 ${FOCUS_RING}`;
   return (
-    <AccessibleDialog open={open} onClose={onCancel} title={title} size="md">
+    <AccessibleDialog
+      open={open}
+      onClose={onCancel}
+      title={title}
+      size="md"
+      role="alertdialog"
+    >
       <div className="flex flex-col gap-4">
         <p className="text-sm text-su-muted">{message}</p>
         <div className="flex justify-end gap-2">

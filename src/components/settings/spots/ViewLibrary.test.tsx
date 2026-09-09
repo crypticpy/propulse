@@ -220,7 +220,7 @@ describe("ViewLibrary", () => {
     await renderHarness({ port });
 
     await user.click(screen.getByRole("button", { name: "Delete Keep Me" }));
-    expect(screen.getByRole("dialog", { name: "Delete saved view" })).toBeTruthy();
+    expect(screen.getByRole("alertdialog", { name: "Delete saved view" })).toBeTruthy();
     await user.click(screen.getByRole("button", { name: "Cancel" }));
     expect(port.calls.some((call) => call.kind === "delete:view")).toBe(false);
     expect(screen.getByText("Keep Me")).toBeTruthy();
@@ -310,11 +310,11 @@ describe("ViewLibrary", () => {
     );
 
     await user.click(screen.getByRole("button", { name: "Load Loadable" }));
-    expect(screen.getByRole("dialog", { name: "Discard working changes?" })).toBeTruthy();
+    expect(screen.getByRole("alertdialog", { name: "Discard working changes?" })).toBeTruthy();
     expect(onLoadView).not.toHaveBeenCalled();
 
     await user.click(screen.getByRole("button", { name: "Cancel" }));
-    expect(screen.queryByRole("dialog", { name: "Discard working changes?" })).toBeNull();
+    expect(screen.queryByRole("alertdialog", { name: "Discard working changes?" })).toBeNull();
     expect(onLoadView).not.toHaveBeenCalled();
 
     await user.click(screen.getByRole("button", { name: "Load Loadable" }));
@@ -330,7 +330,7 @@ describe("ViewLibrary", () => {
     const { onLoadView } = await renderHarness({ port });
 
     await user.click(screen.getByRole("button", { name: "Load Loadable" }));
-    expect(screen.queryByRole("dialog", { name: "Discard working changes?" })).toBeNull();
+    expect(screen.queryByRole("alertdialog", { name: "Discard working changes?" })).toBeNull();
     expect(onLoadView).toHaveBeenCalledWith(fixture);
   });
 
@@ -357,9 +357,9 @@ describe("ViewLibrary", () => {
     expect(document.activeElement?.getAttribute("aria-label")).toBe("Delete Keyboard View");
 
     await user.keyboard("{Enter}");
-    expect(screen.getByRole("dialog", { name: "Delete saved view" })).toBeTruthy();
+    expect(screen.getByRole("alertdialog", { name: "Delete saved view" })).toBeTruthy();
     await user.keyboard("{Escape}");
-    expect(screen.queryByRole("dialog", { name: "Delete saved view" })).toBeNull();
+    expect(screen.queryByRole("alertdialog", { name: "Delete saved view" })).toBeNull();
   });
 
   it("keeps two harnesses behaviourally isolated: saving in one does not touch the other", async () => {

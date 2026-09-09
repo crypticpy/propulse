@@ -210,7 +210,13 @@ function focusAfterTopmostClose(): void {
     }
   }
   const topEntry = openDialogStack[topOpenIndex];
-  const panel = topEntry.portalRoot?.querySelector<HTMLElement>('[role="dialog"]');
+  // Matches both roles this component can render (see the `role` prop) — an
+  // `alertdialog` (e.g. a destructive `ConfirmDialog`) must restore focus the
+  // same way a plain `dialog` does, or this silently breaks for every caller
+  // that opts into the stronger semantic.
+  const panel = topEntry.portalRoot?.querySelector<HTMLElement>(
+    '[role="dialog"], [role="alertdialog"]',
+  );
   (panel ?? topEntry.portalRoot)?.focus();
 }
 
@@ -235,12 +241,30 @@ export interface AccessibleDialogProps {
   /** Tailwind z-index class for the portal overlay. */
   zIndexClassName?: string;
   /**
+   * ARIA role for the panel. Defaults to `"dialog"`. Use `"alertdialog"` for
+   * a destructive confirmation or other interruption that demands an
+   * immediate response — the shared dialog stack's focus-restore logic
+   * matches both roles, so switching this is safe on its own.
+   */
+  role?: "dialog" | "alertdialog";
+  /**
    * `bare` drops the built-in header and scroll body so the caller can draw
    * its own panel (the HamClock wall reports own their whole surface). The
    * title still ships as a visually hidden heading, so the dialog keeps its
-   * accessible name either way.
+   * accessible name either way — unless `labelledBy` is set, see below.
    */
   chrome?: "default" | "bare";
+  /**
+   * Points the panel's `aria-labelledby` at a heading the caller renders
+   * itself (typically a visible `<h2>`) instead of the auto-generated
+   * sr-only heading, and suppresses that sr-only heading so the name isn't
+   * announced twice. Only meaningful with `chrome="bare"` — with default
+   * chrome the built-in header already supplies the panel's accessible name
+   * via its own heading, so `labelledBy` is ignored (a no-op) there.
+   * `description`, when set, still drives `aria-describedby` independently
+   * of this prop either way.
+   */
+  labelledBy?: string;
   /**
    * Attributes merged onto the dialog panel before its own: class, style
    * custom properties, `data-*` theme hooks. The panel's role, ARIA wiring
@@ -265,7 +289,9 @@ export function AccessibleDialog({
   children,
   size = "lg",
   zIndexClassName = "z-[500]",
+  role = "dialog",
   chrome = "default",
+  labelledBy,
   panelProps,
 }: AccessibleDialogProps) {
   const titleId = useId();
@@ -372,9 +398,9 @@ export function AccessibleDialog({
       <div
         {...panelProps}
         ref={dialogRef}
-        role="dialog"
+        role={role}
         aria-modal="true"
-        aria-labelledby={titleId}
+        aria-labelledby={chrome === "bare" && labelledBy ? labelledBy : titleId}
         aria-describedby={description ? descriptionId : undefined}
         tabIndex={-1}
         className={
@@ -385,9 +411,11 @@ export function AccessibleDialog({
       >
         {chrome === "bare" ? (
           <>
-            <h2 id={titleId} className="sr-only">
-              {title}
-            </h2>
+            {!labelledBy && (
+              <h2 id={titleId} className="sr-only">
+                {title}
+              </h2>
+            )}
             {description && (
               <p id={descriptionId} className="sr-only">
                 {description}

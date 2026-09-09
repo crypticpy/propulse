@@ -30,13 +30,14 @@ const confirmStyles: Record<
  * another `AccessibleDialog` let Escape fall through to the dialog beneath
  * it instead of closing this one.
  *
- * Two deliberate consequences of that move, same as `LibraryConfirmDialog`
- * (#605): the panel role becomes `dialog` instead of `alertdialog` — the
- * wrapper always sets `role="dialog"` and does not expose a way to override
- * it — and initial focus lands on `AccessibleDialog`'s own header Close
- * button (the first focusable element in this subtree) instead of the
- * Confirm button. That is arguably safer for a destructive action, since
- * pressing Enter immediately after open no longer confirms.
+ * Uses `role="alertdialog"` (#773) since every use of this component is a
+ * confirmation the app deliberately interrupts the user's workflow with.
+ *
+ * One remaining deliberate consequence of the `AccessibleDialog` move, same
+ * as `LibraryConfirmDialog` (#605): initial focus lands on `AccessibleDialog`'s
+ * own header Close button (the first focusable element in this subtree)
+ * instead of the Confirm button. That is arguably safer for a destructive
+ * action, since pressing Enter immediately after open no longer confirms.
  */
 export function ConfirmDialog({
   open,
@@ -49,7 +50,13 @@ export function ConfirmDialog({
   variant = "destructive",
 }: ConfirmDialogProps) {
   return (
-    <AccessibleDialog open={open} onClose={onCancel} title={title} size="md">
+    <AccessibleDialog
+      open={open}
+      onClose={onCancel}
+      title={title}
+      size="md"
+      role="alertdialog"
+    >
       <div className="flex flex-col gap-4">
         <p className="text-sm text-su-muted">{message}</p>
         <div className="flex items-center justify-end gap-3">

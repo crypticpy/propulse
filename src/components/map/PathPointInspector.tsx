@@ -83,6 +83,17 @@ export function PathPointInspector({
     if (!showPanel) return;
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key !== "Escape") return;
+      // A modal dialog opened above this inspector (e.g. a weather-alert
+      // flow reachable through the drei `Html` wrapper's pointer-events-none
+      // area) must get Escape instead of this window-capture handler
+      // swallowing it before `document` capture listeners ever see it.
+      if (
+        document.querySelector(
+          '[role="dialog"][aria-modal="true"], [role="alertdialog"][aria-modal="true"]',
+        )
+      ) {
+        return;
+      }
       event.preventDefault();
       event.stopPropagation();
       event.stopImmediatePropagation();

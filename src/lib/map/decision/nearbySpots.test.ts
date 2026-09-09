@@ -123,6 +123,25 @@ describe("nearbySpots", () => {
     expect(result.evidence.basis).toMatch(/4-char locators use square centres/);
   });
 
+  it("notes square-centre uncertainty when a 4-char grid positions a non-finite coordinate row", () => {
+    const result = nearbySpots({
+      targetLat: AUSTIN.lat,
+      targetLon: AUSTIN.lon,
+      radiusKm: 250,
+      spots: [
+        spot({
+          id: "nan-coords",
+          dx: "W5AA",
+          dxGrid: "EM10",
+          dxLat: Number.NaN,
+          dxLon: Number.NaN,
+        }),
+      ],
+    });
+    expect(result.count).toBe(1);
+    expect(result.evidence.basis).toMatch(/square centres/);
+  });
+
   it("does not note 4-char uncertainty for distant grid-only spots", () => {
     const result = nearbySpots({
       targetLat: AUSTIN.lat,

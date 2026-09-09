@@ -22,6 +22,32 @@ const LOW_BANDS = new Set(["160m", "80m", "40m"]);
 export const MIN_NOWCAST_SCORE = 0.35;
 const GREYLINE_HORIZON_MS = 2 * 60 * 60 * 1000;
 
+export const SPOTS_EXCLUDED_TIME_SHIFT =
+  "spots excluded (time shift)" as const;
+
+const EXCLUDED_NEARBY_EVIDENCE_BASIS =
+  "Live spot evidence excluded (time shift)";
+
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+/** Strip the time-shift spot disclaimer for compact PathAnalysis display. */
+export function stripTimeShiftFromVerdictLine(line: string): {
+  hasTimeShift: boolean;
+  body: string;
+} {
+  if (!line.includes(SPOTS_EXCLUDED_TIME_SHIFT)) {
+    return { hasTimeShift: false, body: line };
+  }
+  const label = escapeRegExp(SPOTS_EXCLUDED_TIME_SHIFT);
+  const body = line
+    .replace(new RegExp(`;\\s*${label}`, "g"), "")
+    .replace(new RegExp(`\\s*\\(\\s*${label}\\s*\\)\\s*`, "g"), "")
+    .trim();
+  return { hasTimeShift: true, body };
+}
+
 export interface NowCastHint {
   band: string;
   issueTime: string | null;
@@ -216,7 +242,7 @@ function buildLine(args: {
   } = args;
   const mufBit = pathMuf ? `path MUF ${pathMuf.muf.toFixed(1)} MHz` : "no path MUF";
   const spotBit = !evidenceLive
-    ? "spots excluded (time shift)"
+    ? SPOTS_EXCLUDED_TIME_SHIFT
     : nearby.count === 0
       ? "no nearby spots"
       : `${nearby.count} spot${nearby.count === 1 ? "" : "s"} within ${nearby.radiusKm} km`;
@@ -313,11 +339,13 @@ export function buildVerdict(
       `NowCast ${nowCastBand}${input.nowCast?.issueTime ? ` issue ${input.nowCast.issueTime}` : ""}`,
     );
   }
-  parts.push(nearby.evidence.basis);
+  parts.push(
+    evidenceLive ? nearby.evidence.basis : EXCLUDED_NEARBY_EVIDENCE_BASIS,
+  );
 
   const observedAt =
     pathMuf?.evidence.observedAt ??
-    nearby.evidence.observedAt ??
+    (evidenceLive ? nearby.evidence.observedAt : null) ??
     input.nowCast?.issueTime ??
     null;
   const fetchedAt =

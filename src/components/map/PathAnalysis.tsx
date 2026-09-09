@@ -53,6 +53,7 @@ import {
   formatUtcHm,
   NEARBY_RADIUS_KM_OPTIONS,
   DEFAULT_NEARBY_RADIUS_KM,
+  stripTimeShiftFromVerdictLine,
   type DecisionReport,
   type DecisionTone,
   type EndAlmanac,
@@ -108,23 +109,6 @@ const DIFFICULTY_COLORS = [
   "text-plasma-orange",
   "text-alert-red",
 ];
-
-const SPOTS_TIME_SHIFT_LABEL = "spots excluded (time shift)";
-
-function collapsedVerdictDisplay(line: string): {
-  chip: string | null;
-  body: string;
-} {
-  if (!line.includes(SPOTS_TIME_SHIFT_LABEL)) {
-    return { chip: null, body: line };
-  }
-  const body = line
-    .replace(/;\s*spots excluded \(time shift\)/g, "")
-    .replace(/\(\s*spots excluded \(time shift\)\s*\)/g, "")
-    .replace(/\s{2,}/g, " ")
-    .trim();
-  return { chip: "time shift", body };
-}
 
 /**
  * Get color class for distance based on difficulty level
@@ -1041,12 +1025,14 @@ export function PathAnalysis({
               </>
             )}
             {decision && (() => {
-              const { chip, body } = collapsedVerdictDisplay(decision.verdict.line);
+              const { hasTimeShift, body } = stripTimeShiftFromVerdictLine(
+                decision.verdict.line,
+              );
               return (
                 <>
                   <div className="w-px h-3 bg-su-line/20" />
                   <div className="flex items-center gap-1 min-w-0 max-w-[280px]">
-                    {chip && (
+                    {hasTimeShift && (
                       <span className="text-xs text-su-muted flex-shrink-0 rounded bg-su-line/10 px-1 py-0.5">
                         {chip}
                       </span>

@@ -24,10 +24,12 @@ function gridForLatLon(grid: string): string {
   return upper.length >= 8 ? upper.slice(0, 6) : upper;
 }
 
+export type DxLocatorSource = "coordinates" | "fourCharGrid" | "subsquareGrid";
+
 /** Locator-derived DX position only. Prefix/continent centroids are skipped. */
 export function dxLocatorPosition(
   spot: DXSpot,
-): { lat: number; lon: number } | null {
+): { lat: number; lon: number; source: DxLocatorSource } | null {
   if (spot.dxLocApprox) return null;
   if (
     spot.dxLat != null &&
@@ -35,12 +37,16 @@ export function dxLocatorPosition(
     Number.isFinite(spot.dxLat) &&
     Number.isFinite(spot.dxLon)
   ) {
-    return { lat: spot.dxLat, lon: spot.dxLon };
+    return { lat: spot.dxLat, lon: spot.dxLon, source: "coordinates" };
   }
   const grid = spot.dxGrid?.trim();
   if (!grid || grid.length < 4 || !isValidGrid(grid)) return null;
   try {
-    return gridToLatLon(gridForLatLon(grid));
+    const normalized = gridForLatLon(grid);
+    const source: DxLocatorSource =
+      normalized.length >= 6 ? "subsquareGrid" : "fourCharGrid";
+    const { lat, lon } = gridToLatLon(normalized);
+    return { lat, lon, source };
   } catch {
     return null;
   }
@@ -72,23 +78,16 @@ export function nearbySpots(input: NearbySpotsInput): NearbySpotsResult {
   let usedFourCharGrid = false;
 
   for (const spot of input.spots) {
-    const position = dxLocatorPosition(spot);
-    if (!position) continue;
+    const located = dxLocatorPosition(spot);
+    if (!located) continue;
     const distanceKm = getDistance(
       input.targetLat,
       input.targetLon,
-      position.lat,
-      position.lon,
+      located.lat,
+      located.lon,
     );
     if (distanceKm > radiusKm) continue;
-    const grid = spot.dxGrid?.trim();
-    if (
-      grid &&
-      grid.length >= 4 &&
-      grid.length < 6 &&
-      isValidGrid(grid) &&
-      (spot.dxLat == null || spot.dxLon == null)
-    ) {
+    if (located.source === "fourCharGrid") {
       usedFourCharGrid = true;
     }
     const observedMs = spotObservedMs(spot);

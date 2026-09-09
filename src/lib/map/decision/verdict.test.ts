@@ -7,6 +7,8 @@ import {
   favoredNowCastHint,
   highestBandInWindow,
   MIN_NOWCAST_SCORE,
+  SPOTS_EXCLUDED_TIME_SHIFT,
+  stripTimeShiftFromVerdictLine,
 } from "./verdict";
 import type { GreylineSummary, NearbySpotsResult, PathMufSample } from "./types";
 
@@ -257,6 +259,9 @@ describe("buildVerdict", () => {
     expect(verdict.line).not.toMatch(/spotted, not modeled/);
     expect(verdict.bestBand).toBe(highestBandInWindow(5, 19));
     expect(verdict.bestBand).not.toBe("20m");
+    expect(verdict.evidence.basis).not.toMatch(/Observed spots/);
+    expect(verdict.evidence.basis).toMatch(/Live spot evidence excluded/);
+    expect(verdict.evidence.observedAt).toBe("2026-06-21T15:00:00.000Z");
   });
 
   it("marks a spotted-band override as not modeled on the path", () => {
@@ -318,6 +323,24 @@ describe("buildVerdict", () => {
     );
     expect(far.tone).toBe("open");
     expect(far.line).toMatch(/Workable now/);
+  });
+});
+
+describe("stripTimeShiftFromVerdictLine", () => {
+  it("removes a standalone time-shift parenthetical without stray whitespace", () => {
+    const line = `Need solar flux to judge this path (${SPOTS_EXCLUDED_TIME_SHIFT}).`;
+    expect(stripTimeShiftFromVerdictLine(line)).toEqual({
+      hasTimeShift: true,
+      body: "Need solar flux to judge this path.",
+    });
+  });
+
+  it("removes an inline time-shift clause from workable verdicts", () => {
+    const line = `Workable now on 20m (path MUF 14.5 MHz; ${SPOTS_EXCLUDED_TIME_SHIFT}).`;
+    expect(stripTimeShiftFromVerdictLine(line)).toEqual({
+      hasTimeShift: true,
+      body: "Workable now on 20m (path MUF 14.5 MHz).",
+    });
   });
 });
 

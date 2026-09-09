@@ -390,6 +390,68 @@ describe("map surface focus home", () => {
     );
   });
 
+  it("does not take focus from a control the user moved to before closing", async () => {
+    const { FlatMapView } = await import("@/components/map/FlatMapView");
+    const { container } = render(
+      <Wrap>
+        <FlatMapView displayTime={displayTime} />
+        <button type="button" aria-label="page chrome">
+          elsewhere
+        </button>
+      </Wrap>,
+    );
+
+    const anchor = toCanvas(
+      grouped.clusters[0].center.lat,
+      grouped.clusters[0].center.lon,
+    );
+    const canvas = screen.getByRole("img", {
+      name: /Interactive propagation map/i,
+    });
+    fireEvent.pointerDown(canvas, {
+      clientX: anchor.x,
+      clientY: anchor.y,
+      pointerId: 1,
+      button: 0,
+    });
+    fireEvent.pointerUp(document, {
+      clientX: anchor.x,
+      clientY: anchor.y,
+      pointerId: 1,
+      button: 0,
+    });
+
+    const user = userEvent.setup();
+    await user.click(
+      await screen.findByRole("button", {
+        name: /Select EA1AAA and view details/i,
+      }),
+    );
+    const cardName = /Spot details for EA1AAA/i;
+    const card = await screen.findByRole("dialog", { name: cardName });
+    await waitFor(() => expect(document.activeElement).toBe(card));
+
+    // The user moves to something else on the page and closes the card from
+    // there. The fallback must stay out of the way: it exists for the case
+    // where the card's removal drops focus on `<body>`, not to claim focus
+    // that another element already holds. Stealing it here would be a worse
+    // bug than the one #797 fixes, and it is the common path — every close
+    // that starts with a click outside the card lands in this shape.
+    const elsewhere = screen.getByRole("button", { name: "page chrome" });
+    elsewhere.focus();
+    expect(focusHolder()).toBe('button[aria-label="page chrome"]');
+
+    fireEvent.keyDown(document, { key: "Escape" });
+    await waitFor(() =>
+      expect(screen.queryByRole("dialog", { name: cardName })).toBeNull(),
+    );
+
+    expect(focusHolder()).toBe('button[aria-label="page chrome"]');
+    expect(document.activeElement).not.toBe(
+      container.querySelector("[data-map-surface]"),
+    );
+  });
+
   it("AzimuthalView: focus goes home after a cluster row's card closes", async () => {
     const { AzimuthalView } = await import("@/components/map/AzimuthalView");
     const { container } = render(

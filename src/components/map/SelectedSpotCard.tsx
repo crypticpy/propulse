@@ -197,9 +197,15 @@ export function SelectedSpotCard({
         previousFocus.focus();
         return;
       }
-      // The surface outlives every overlay, so it is still mounted when the
-      // opener is not. Null off a map host — leave focus where it landed.
-      focusMapSurface?.();
+      // Only when nothing else has focus. Passive cleanup runs after React
+      // has already detached the card, so `<body>` here means "the card held
+      // focus and its removal dropped it" — the case #797 is about. Anything
+      // else means the user moved to another control before closing (a click
+      // outside the card focuses that control first, then triggers the close),
+      // and the surface must not take it back. The surface outlives every
+      // overlay, so it is still mounted when the opener is not; null off a
+      // map host, where there is no home to go to.
+      if (document.activeElement === document.body) focusMapSurface?.();
     };
   }, [focusMapSurface, spot]);
 

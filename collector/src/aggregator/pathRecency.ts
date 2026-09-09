@@ -2,6 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { log } from "../logger.js";
 import type { PathArchiveControls } from "../types.js";
 import { resolveAggregationWatermark } from "./watermark.js";
+import { rewindScanCursorTo } from "./archivePathStats.js";
 
 /**
  * Field-grain path recency aggregator (#297 — NowCast N2).
@@ -227,12 +228,31 @@ export async function prunePathRecency(
   let daysPruned = 0;
   let rowsDeleted = 0;
   for (const day of days) {
-    const deleted = await deleteRecencyDay(db, day);
+    let deleted: number;
+    try {
+      deleted = await deleteRecencyDay(db, day);
+    } catch (error) {
+      // This day's prune did not finish, so nothing after it in sealedDays
+      // did either. Rewind archivePathStats's scan cursor to it: the
+      // manifest is already sealed, so the next pass free-walks straight
+      // back to this day and only retries the prune step — it does not
+      // re-export (#711 F1).
+      rewindScanCursorTo(day);
+      throw error;
+    }
     if (deleted > 0) {
       daysPruned += 1;
       rowsDeleted += deleted;
       log("info", "Pruned path_recency_hourly day", { day, rows: deleted });
     }
+  }
+  if (days.length < sealedDays.length) {
+    // The per-run budget capped this call before the rest of sealedDays.
+    // Already-sealed days cost the archive pass no budget, so a restart or
+    // an idle deploy can seal far more days in one pass than
+    // maxDaysPerRun; the un-pruned remainder must not be left behind a
+    // cursor that already raced past it (#711 F1).
+    rewindScanCursorTo(sealedDays[days.length]);
   }
   return { daysPruned, rowsDeleted };
 }

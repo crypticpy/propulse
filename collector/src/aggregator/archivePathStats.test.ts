@@ -8,6 +8,7 @@ import {
   archiveObjectPath,
   archivePathStats,
   csvField,
+  getScanCursorDayForTest,
   manifestObjectPath,
   resetScanCursor,
   runArchivePass,
@@ -331,6 +332,43 @@ function makeDb(storage: FakeStorage, opts: FakeDbOptions): SupabaseClient {
   return db as unknown as SupabaseClient;
 }
 
+interface FakeRecencyDb {
+  db: SupabaseClient;
+  fromCalls: number;
+  deleted: { start: string; end: string }[];
+}
+
+/** A minimal path_recency_hourly fake for tests that exercise the real
+ * runArchivePass -> prunePathRecency composition collector/src/index.ts
+ * uses. */
+function fakeRecencyDb(): FakeRecencyDb {
+  const deleted: { start: string; end: string }[] = [];
+  const fake: FakeRecencyDb = {
+    fromCalls: 0,
+    deleted,
+    db: null as unknown as SupabaseClient,
+  };
+  fake.db = {
+    from(table: string) {
+      if (table !== "path_recency_hourly") {
+        throw new Error(`unexpected table ${table}`);
+      }
+      fake.fromCalls += 1;
+      return {
+        delete: () => ({
+          gte: (_column: string, start: string) => ({
+            lt: async (_column: string, end: string) => {
+              deleted.push({ start, end });
+              return { count: 2900, error: null };
+            },
+          }),
+        }),
+      };
+    },
+  } as unknown as SupabaseClient;
+  return fake;
+}
+
 describe("runArchivePass", () => {
   beforeEach(() => {
     resetScanCursor();
@@ -511,11 +549,18 @@ describe("runArchivePass", () => {
     expect(rpcCalls).toEqual([]);
   });
 
+  // F2 (#711): pruneDay's object-verify must still run when live === 0 (an
+  // already-pruned day), so the archive object backing this test has to
+  // actually hash-match its manifest now — a no-op prune is no longer
+  // exempt from verification.
   it("treats an already-pruned sealed day as a no-op", async () => {
     const storage = new FakeStorage();
+    const gzBytes = new Uint8Array([5, 5, 5, 5]);
+    const realSha = createHash("sha256").update(gzBytes).digest("hex");
+    storage.objects.set(archiveObjectPath("2026-05-01"), gzBytes);
     storage.objects.set(
       manifestObjectPath("2026-05-01"),
-      sealedManifest("2026-05-01"),
+      sealedManifest("2026-05-01", realSha),
     );
     const rpcCalls: { name: string; args: Record<string, unknown> }[] = [];
     const db = makeDb(storage, { liveCount: () => 0, rpcCalls });
@@ -533,6 +578,48 @@ describe("runArchivePass", () => {
       sealedDays: ["2026-05-01"],
     });
     expect(rpcCalls).toEqual([]);
+    // The object was actually downloaded and hash-checked, not skipped.
+    expect(storage.downloads).toContain(archiveObjectPath("2026-05-01"));
+  });
+
+  // F2 (#711): before the fix, pruneDay's object-verify sat below the
+  // `live === 0` early return, so an already-pruned day (the common
+  // steady-state case) never had its archived object re-checked at all —
+  // yet the day still entered `sealedDays` and prunePathRecency deleted its
+  // recency rows on that strength alone. This is the corrupted-object twin
+  // of the happy-path test above: same live === 0, but the stored object no
+  // longer matches the manifest.
+  it("refuses to seal a live===0 day whose archived object no longer matches its manifest, and the failure blocks any recency delete", async () => {
+    const storage = new FakeStorage();
+    storage.objects.set(
+      archiveObjectPath("2026-05-01"),
+      new Uint8Array([9, 9, 9]), // does not hash to FAKE_SHA below
+    );
+    storage.objects.set(
+      manifestObjectPath("2026-05-01"),
+      sealedManifest("2026-05-01", FAKE_SHA),
+    );
+    const rpcCalls: { name: string; args: Record<string, unknown> }[] = [];
+    const db = makeDb(storage, { liveCount: () => 0, rpcCalls });
+    const oneDayWindow = Date.parse("2026-07-31T12:00:00Z");
+
+    // Mirrors collector/src/index.ts's composition exactly: prunePathRecency
+    // is only ever called with what archivePathStats resolved with.
+    const recency = fakeRecencyDb();
+    const runComposedPass = async () => {
+      const archived = await runArchivePass(db, CONTROLS, oneDayWindow);
+      return prunePathRecency(recency.db, CONTROLS, archived.sealedDays);
+    };
+
+    await expect(runComposedPass()).rejects.toThrow(
+      /archived object SHA-256 mismatch vs manifest for 2026-05-01 — refusing to prune/,
+    );
+    // The prune RPC (path_hourly_stats side) was never reached.
+    expect(rpcCalls).toEqual([]);
+    // Nor was a single path_recency_hourly delete ever issued: the archive
+    // pass rejected before returning a sealedDays for prunePathRecency to
+    // act on at all.
+    expect(recency.deleted).toEqual([]);
   });
 
   it("keeps exporting past sealed days while pruning is disabled", async () => {
@@ -691,6 +778,132 @@ describe("runArchivePass", () => {
     expect(second.daysArchived).toBe(1);
     expect(storage.objects.has(archiveObjectPath("2026-05-03"))).toBe(true);
   });
+
+  // F1 (#711): archivePathStats used to advance scanCursorDay past every
+  // day it sealed regardless of whether prunePathRecency actually finished
+  // deleting that day's recency rows. A transient failure mid-day (a 57014
+  // statement timeout, a network blip) left the cursor past a day whose
+  // recency rows were only partially deleted, and — because the day's
+  // manifest was already sealed — the day never appeared in an
+  // archivableDays() list again, so hours 7-23 stayed in
+  // path_recency_hourly for the rest of the process lifetime.
+  it("rewinds the scan cursor to a day whose recency prune failed mid-day, so the next pass re-lists it", async () => {
+    // A two-day window: cutoffDay = 2026-05-03, so exactly 2026-05-01 and
+    // 2026-05-02 are archivable, and maxDaysPerRun=2 lets both get exported
+    // and sealed in one pass.
+    const twoDayWindow = Date.parse("2026-08-01T12:00:00Z");
+    const storage = new FakeStorage();
+    const controls: PathArchiveControls = {
+      ...CONTROLS,
+      pruneEnabled: false, // path_hourly_stats-side prune is not this test's concern
+      maxDaysPerRun: 2,
+    };
+    const archiveDb = makeDb(storage, { liveCount: () => 0 });
+
+    const first = await runArchivePass(archiveDb, controls, twoDayWindow);
+    expect(first.sealedDays).toEqual(["2026-05-01", "2026-05-02"]);
+
+    // deleteRecencyHour fails on hour 7 (07:00 UTC) of day 1 — a stand-in
+    // for a transient 57014 statement timeout mid-day. Hours 0-6 succeed.
+    let hourCalls = 0;
+    const recencyDb = {
+      from(table: string) {
+        if (table !== "path_recency_hourly") {
+          throw new Error(`unexpected table ${table}`);
+        }
+        return {
+          delete: () => ({
+            gte: (_column: string, start: string) => ({
+              lt: async () => {
+                hourCalls += 1;
+                if (start === "2026-05-01T07:00:00.000Z") {
+                  return {
+                    count: null,
+                    error: { message: "57014 statement timeout" },
+                  };
+                }
+                return { count: 5, error: null };
+              },
+            }),
+          }),
+        };
+      },
+    } as unknown as SupabaseClient;
+
+    await expect(
+      prunePathRecency(
+        recencyDb,
+        { ...controls, pruneEnabled: true },
+        first.sealedDays,
+      ),
+    ).rejects.toThrow(
+      /path-recency prune failed for hour 2026-05-01T07:00:00\.000Z: 57014 statement timeout/,
+    );
+    // Hours 0-6 (7 calls) succeeded, hour 7 (the 8th call) failed and
+    // aborted the pass before reaching hour 8 or day 2 at all.
+    expect(hourCalls).toBe(8);
+
+    // The cursor must be rewound to the failed day itself, not left at
+    // 2026-05-03 (where runArchivePass would otherwise have advanced it
+    // after sealing both days for free).
+    expect(getScanCursorDayForTest()).toBe("2026-05-01");
+
+    // The next tick's archive pass re-lists 2026-05-01 first: it does not
+    // silently move on to 2026-05-03 and abandon 2026-05-01's stale
+    // recency rows for the rest of the process lifetime.
+    const second = await runArchivePass(archiveDb, controls, twoDayWindow);
+    expect(second.sealedDays[0]).toBe("2026-05-01");
+    expect(second.sealedDays).toContain("2026-05-01");
+  });
+
+  // F1 (#711): the same defect, without any error at all. Already-sealed
+  // days cost the archive pass no budget, so in one pass sealedDays can
+  // grow past maxDaysPerRun (a restart walking a backlog of already-sealed,
+  // already-stats-pruned days). prunePathRecency only prunes the first
+  // maxDaysPerRun of that list — the remainder must not be abandoned by a
+  // cursor that already raced past all of sealedDays.
+  it("rewinds the scan cursor to the first sealed day prunePathRecency's budget did not reach", async () => {
+    const storage = new FakeStorage();
+    // Both days already sealed by an earlier process lifetime; with
+    // pruneEnabled: false during THIS archive pass, sealing them costs no
+    // budget, so both land in sealedDays for free in a single pass.
+    storage.objects.set(
+      manifestObjectPath("2026-05-01"),
+      sealedManifest("2026-05-01"),
+    );
+    storage.objects.set(
+      manifestObjectPath("2026-05-02"),
+      sealedManifest("2026-05-02"),
+    );
+    const twoDayWindow = Date.parse("2026-08-01T12:00:00Z");
+    const controls: PathArchiveControls = {
+      ...CONTROLS,
+      pruneEnabled: false,
+      maxDaysPerRun: 1, // recency prune's own budget: only 1 day per tick
+    };
+    const archiveDb = makeDb(storage, { liveCount: () => 3 });
+
+    const archived = await runArchivePass(archiveDb, controls, twoDayWindow);
+    expect(archived.sealedDays).toEqual(["2026-05-01", "2026-05-02"]);
+
+    const recency = fakeRecencyDb();
+    const result = await prunePathRecency(
+      recency.db,
+      { ...controls, pruneEnabled: true },
+      archived.sealedDays,
+    );
+
+    // Budget-capped to the first day only.
+    expect(result.daysPruned).toBe(1);
+    expect(recency.deleted.every((d) => d.start.startsWith("2026-05-01"))).toBe(
+      true,
+    );
+
+    // The cursor must be rewound to 2026-05-02 — the first sealed day the
+    // budget did not reach — not left at whatever runArchivePass advanced
+    // it to on its own.
+    expect(getScanCursorDayForTest()).toBe("2026-05-02");
+  });
 });
 
 describe("archivePathStats", () => {
@@ -738,40 +951,6 @@ describe("prunePathRecency consumes runArchivePass.sealedDays (N1/N3)", () => {
   beforeEach(() => {
     resetScanCursor();
   });
-
-  interface FakeRecencyDb {
-    db: SupabaseClient;
-    fromCalls: number;
-    deleted: { start: string; end: string }[];
-  }
-
-  function fakeRecencyDb(): FakeRecencyDb {
-    const deleted: { start: string; end: string }[] = [];
-    const fake: FakeRecencyDb = {
-      fromCalls: 0,
-      deleted,
-      db: null as unknown as SupabaseClient,
-    };
-    fake.db = {
-      from(table: string) {
-        if (table !== "path_recency_hourly") {
-          throw new Error(`unexpected table ${table}`);
-        }
-        fake.fromCalls += 1;
-        return {
-          delete: () => ({
-            gte: (_column: string, start: string) => ({
-              lt: async (_column: string, end: string) => {
-                deleted.push({ start, end });
-                return { count: 2900, error: null };
-              },
-            }),
-          }),
-        };
-      },
-    } as unknown as SupabaseClient;
-    return fake;
-  }
 
   it("deletes nothing when recency's own oldest day would differ from what the archive sealed", async () => {
     // Archive-side: only 2026-05-01 is old enough (single-day window) and

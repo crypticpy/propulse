@@ -455,18 +455,15 @@ async function pruneDay(
   db: SupabaseClient,
   manifest: DayManifest,
 ): Promise<number> {
-  const live = await fetchLiveDayCount(db, manifest.day);
-  if (live === 0) return 0; // already pruned
-  if (
-    manifest.manifestVersion !== 2 ||
-    manifest.knownGapSnapshot === undefined
-  ) {
-    throw new Error(
-      `legacy path archive manifest for ${manifest.day} has no known-gap snapshot — refusing to prune`,
-    );
-  }
-  // Last look before the destructive step: the archived object must still
-  // hash to what its manifest sealed, or the hot rows are the only copy.
+  // Verify the archived object still hashes to what its manifest sealed
+  // before anything else, unconditionally — every day this function
+  // returns from, early or not, is a day the caller has already added to
+  // `sealedDays`, and `prunePathRecency` deletes `path_recency_hourly` rows
+  // on the strength of that set alone. A day whose `path_hourly_stats` rows
+  // were already pruned by an earlier pass (live === 0) must not skip this
+  // check: that is exactly the day whose hot-table copy is gone, so the
+  // archived object is the only remaining proof the data still exists
+  // anywhere (#711 F2).
   const stored = await downloadObjectBytes(
     db.storage.from(BUCKET),
     archiveObjectPath(manifest.day),
@@ -475,6 +472,16 @@ async function pruneDay(
   if (sha256Hex(stored) !== manifest.sha256) {
     throw new Error(
       `archived object SHA-256 mismatch vs manifest for ${manifest.day} — refusing to prune`,
+    );
+  }
+  const live = await fetchLiveDayCount(db, manifest.day);
+  if (live === 0) return 0; // already pruned
+  if (
+    manifest.manifestVersion !== 2 ||
+    manifest.knownGapSnapshot === undefined
+  ) {
+    throw new Error(
+      `legacy path archive manifest for ${manifest.day} has no known-gap snapshot — refusing to prune`,
     );
   }
   const { data, error } = await db.rpc(
@@ -498,12 +505,37 @@ async function pruneDay(
 // lifetime, so steady-state passes skip straight past the sealed backlog
 // instead of re-downloading every manifest hourly. Purely in-memory by
 // design: changing any archive control implies a process restart (Railway
-// env change), which resets the cursor and forces one full rescan.
+// env change), which resets the cursor and forces one full rescan. Can also
+// be rewound below the day this loop last advanced to — see
+// `rewindScanCursorTo`.
 let scanCursorDay: string | null = null;
 
 /** Test hook: forget the skip-ahead cursor. */
 export function resetScanCursor(): void {
   scanCursorDay = null;
+}
+
+/**
+ * Rewinds the cursor to `day` if the cursor is currently ahead of it. This
+ * loop advances `scanCursorDay` past every day it iterates as soon as the
+ * day's manifest is sealed (see the loop below), before `prunePathRecency`
+ * (pathRecency.ts) has had a chance to delete that day's derived
+ * `path_recency_hourly` rows. `prunePathRecency` calls this when a day it
+ * was handed did not have its recency rows fully pruned this pass — either
+ * a mid-day failure or the per-run budget not reaching it — so the next
+ * pass re-lists `day` (the manifest already exists, so only the prune step
+ * re-runs) instead of leaving the cursor past a day recency never finished
+ * converging (#711 F1). A no-op if `day` is not before the current cursor.
+ */
+export function rewindScanCursorTo(day: string): void {
+  if (scanCursorDay === null || day < scanCursorDay) {
+    scanCursorDay = day;
+  }
+}
+
+/** Test hook: read the in-memory skip-ahead cursor. */
+export function getScanCursorDayForTest(): string | null {
+  return scanCursorDay;
 }
 
 export interface ArchivePassResult {

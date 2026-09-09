@@ -42,10 +42,12 @@ const originalBackgroundState = new Map<
 let previousBodyOverflow: string | null = null;
 
 /**
- * Watches for body-level portals (Tooltip, ConfirmDialog, CommandPalette, and
- * ~20 other `createPortal(..., document.body)` surfaces) that mount *after* a
- * dialog is already open. `syncBackgroundInert` only runs on dialog open/close,
- * so without this a late-mounted portal would stay reachable behind a modal.
+ * Watches for body-level portals (Tooltip, CommandPalette, and ~20 other
+ * `createPortal(..., document.body)` surfaces — ConfirmDialog, ImageCropDialog
+ * and EquipmentHeroCard registered on the stack directly instead, see #727)
+ * that mount *after* a dialog is already open. `syncBackgroundInert` only
+ * runs on dialog open/close, so without this a late-mounted portal would stay
+ * reachable behind a modal.
  *
  * `childList`-only, no `subtree`: portals are always direct body children, and
  * subtree observation would fire on every DOM change in the whole app. No
@@ -133,12 +135,20 @@ function syncBackgroundInert(): void {
       continue;
     }
     // A body portal that arrived after this dialog started watching, isn't
-    // on this module's stack, and is itself a modal (ConfirmDialog,
-    // ImageCropDialog, EquipmentHeroCard's bare `createPortal`) was
-    // deliberately layered above the dialog by the app, not left behind by
-    // it. Inerting it would make it paint on top while being completely
-    // dead — unreachable by Tab/click, invisible to screen readers, and
-    // Escape would fall through to this dialog instead.
+    // on this module's stack, and is itself a modal (CommandPalette,
+    // ShortcutsHelpModal, and ~20 other bare `createPortal`-based modals not
+    // yet routed through this component) was deliberately layered above the
+    // dialog by the app, not left behind by it. Inerting it would make it
+    // paint on top while being completely dead — unreachable by Tab/click,
+    // invisible to screen readers, and Escape would fall through to this
+    // dialog instead.
+    //
+    // ConfirmDialog, ImageCropDialog and EquipmentHeroCard used to need this
+    // exemption but don't anymore (#727): they register on `openDialogStack`
+    // directly now, so `stackRoots` alone keeps them out of this branch. This
+    // exemption stays for the surfaces that haven't made that move yet — removing
+    // it would silently break every one of them the next time it opens above
+    // an already-open AccessibleDialog.
     //
     // The late-arrival check is load-bearing, not incidental: `#root` is a
     // direct body child whose subtree is the entire app, and it always

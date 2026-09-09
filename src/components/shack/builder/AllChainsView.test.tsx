@@ -115,25 +115,38 @@ it("replaces the inspector with removal confirmation so one Escape cancels witho
   fireEvent.click(
     within(inspector).getByRole("button", { name: "Remove from path" }),
   );
-  expect(screen.queryByRole("dialog")).toBeNull();
-  const confirmation = screen.getByRole("alertdialog", {
+  // The inspector is gone — replaced by the removal confirmation, which is
+  // also `role="dialog"` now that ConfirmDialog is AccessibleDialog-based
+  // (#727), so assert on name rather than a bare role query.
+  expect(
+    screen.queryByRole("dialog", { name: "Radio in this path" }),
+  ).toBeNull();
+  const confirmation = screen.getByRole("dialog", {
     name: "Remove from Signal Path?",
   });
-  act(() => vi.advanceTimersByTime(0));
+  act(() => vi.advanceTimersByTime(20));
+  // ConfirmDialog is now built on AccessibleDialog (#727), which focuses its
+  // own header Close button on open instead of the confirm action — see the
+  // doc comment on ConfirmDialog for why that's the deliberate choice.
   expect(document.activeElement).toBe(
-    within(confirmation).getByRole("button", { name: "Remove" }),
+    within(confirmation).getByRole("button", { name: "Close dialog" }),
   );
   fireEvent.keyDown(document.activeElement!, { key: "Escape" });
-  expect(screen.queryByRole("alertdialog")).toBeNull();
-  expect(screen.queryByRole("dialog")).toBeNull();
+  expect(
+    screen.queryByRole("dialog", { name: "Remove from Signal Path?" }),
+  ).toBeNull();
   expect(useShackStore.getState().stationChains[0].nodes).toEqual(chain.nodes);
 
   fireEvent.click(screen.getByRole("button", { name: "Inspect first radio" }));
   fireEvent.click(screen.getByRole("button", { name: "Remove from path" }));
   fireEvent.click(
-    within(screen.getByRole("alertdialog")).getByRole("button", { name: "Remove" }),
+    within(
+      screen.getByRole("dialog", { name: "Remove from Signal Path?" }),
+    ).getByRole("button", { name: "Remove" }),
   );
-  expect(screen.queryByRole("alertdialog")).toBeNull();
+  expect(
+    screen.queryByRole("dialog", { name: "Remove from Signal Path?" }),
+  ).toBeNull();
   expect(useShackStore.getState().stationChains[0].nodes).toEqual(
     chain.nodes.slice(1),
   );

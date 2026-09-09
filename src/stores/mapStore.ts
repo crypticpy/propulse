@@ -588,6 +588,12 @@ export interface MapState {
   regionPresets: RegionPreset[];
   activePresetId: string | null;
   setActivePreset: (id: string) => void;
+  // Re-marks a preset active (and bumps its `lastUsed`) without writing its
+  // stored `rotation`/`zoom`/`viewMode` — for restoring the active-preset
+  // indicator after a temporary state (e.g. HamClockView's hero-projection
+  // force) ends, so it does not clobber framing the operator changed while
+  // that state was in effect (#691 M2).
+  restoreActivePresetId: (id: string) => void;
   clearActivePreset: () => void;
   addRegionPreset: (
     preset: Omit<RegionPreset, "id" | "isBuiltIn" | "createdAt">,
@@ -2115,6 +2121,24 @@ export const useMapStore = create<MapState>((set, get) => ({
         },
         zoom: preset.zoom,
         ...(preset.viewMode ? { viewMode: preset.viewMode } : {}),
+      };
+    }),
+
+  restoreActivePresetId: (id) =>
+    set((state) => {
+      const preset = state.regionPresets.find((p) => p.id === id);
+      if (!preset) {
+        return {};
+      }
+      const now = new Date().toISOString();
+      const updatedPresets = state.regionPresets.map((p) =>
+        p.id === id ? { ...p, lastUsed: now } : p,
+      );
+      saveRegionPresets(updatedPresets);
+      saveActivePresetId(id);
+      return {
+        regionPresets: updatedPresets,
+        activePresetId: id,
       };
     }),
 

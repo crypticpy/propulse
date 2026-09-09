@@ -110,6 +110,12 @@
       "@/lib/dxwizard": [
         "./src/lib/dxwizard/index.ts"
       ],
+      "@/lib/map/decision": [
+        "./src/lib/map/decision/index.ts"
+      ],
+      "@/lib/widgets/heatmap": [
+        "./src/lib/widgets/heatmap/index.ts"
+      ],
       "@/lib/sync": [
         "./src/lib/sync/index.ts"
       ],

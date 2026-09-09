@@ -270,6 +270,15 @@ export { SpotAlertToastContainer } from "@/components/alerts/SpotAlertToast";
 export { EmergencyTickerBar } from "@/components/alerts/EmergencyTickerBar";
 export { TickerCrawlSettingsDialog } from "@/components/map/TickerCrawlSettingsDialog";
 
+// -- workspace/ (2026-09-09, #699): phone canvas cards + tablet heat-map widgets --
+export { ContactScreen } from "@/components/workspace/phone/ContactScreen";
+export { PhoneBandLadder } from "@/components/workspace/phone/PhoneBandLadder";
+export { PhoneContactList } from "@/components/workspace/phone/PhoneContactList";
+export { PhoneStateStrip } from "@/components/workspace/phone/PhoneStateStrip";
+export { PhoneSetupMenu } from "@/components/workspace/phone/PhoneSetupMenu";
+export { HeatMapStrip } from "@/components/workspace/widgets/HeatMapStrip";
+export { HeatMapPanel } from "@/components/workspace/widgets/HeatMapPanel";
+
 // -- provider ---------------------------------------------------------------
 /**
  * Wraps every preview with the context PROPULSE components read at render

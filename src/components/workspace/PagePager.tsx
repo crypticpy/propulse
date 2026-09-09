@@ -34,10 +34,23 @@ export function PagePager() {
 
   useEffect(() => {
     if (!workspace.autoPage.enabled || pages.length < 2) return;
-    const id = window.setInterval(() => step(1), Math.max(1, workspace.autoPage.dwellSeconds) * 1000);
+    const id = window.setInterval(() => {
+      // Read the current page order and active page fresh from the store on
+      // every tick, rather than closing over this render's `pages`/
+      // `currentIndex`: a reorder that doesn't change the active page's
+      // *index* (e.g. [A, B, C] -> [A, C, B] while A is active) wouldn't
+      // otherwise re-run this effect, and the interval would keep advancing
+      // through the stale order (PR #676 review).
+      const state = useWorkspaceStore.getState();
+      const ws = state.workspaces.find((w) => w.id === state.activeWorkspaceId);
+      if (!ws || ws.pages.length < 2) return;
+      const activeIndex = ws.pages.findIndex((p) => p.id === ws.activePageId);
+      const from = activeIndex === -1 ? 0 : activeIndex;
+      const next = ws.pages[(from + 1) % ws.pages.length];
+      state.setActivePage(next.id);
+    }, Math.max(1, workspace.autoPage.dwellSeconds) * 1000);
     return () => window.clearInterval(id);
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- re-arm on dwell/enabled/page-count change only; `step` closes over live state via `currentIndex`/`pages` each render.
-  }, [workspace.autoPage.enabled, workspace.autoPage.dwellSeconds, pages.length, currentIndex]);
+  }, [workspace.autoPage.enabled, workspace.autoPage.dwellSeconds, pages.length]);
 
   return (
     <div className="su-inline workspace-pager" aria-label="Page">

@@ -60,5 +60,24 @@ describe("PagePager", () => {
       act(() => vi.advanceTimersByTime(30_000));
       expect(useWorkspaceStore.getState().workspaces[0].activePageId).toBe(DEFAULT_PAGE_ID);
     });
+
+    it("advances against the current page order after a reorder that doesn't change the active index (PR #676 review)", () => {
+      const second = useWorkspaceStore.getState().addPage("Second");
+      const third = useWorkspaceStore.getState().addPage("Third");
+      if (!second.ok || !third.ok) throw new Error("test setup: addPage failed");
+      useWorkspaceStore.getState().setActivePage(DEFAULT_PAGE_ID);
+      useWorkspaceStore.getState().setAutoPage({ enabled: true, dwellSeconds: 10 });
+      render(<PagePager />);
+
+      // [A, B, C] -> [A, C, B]; A (index 0) stays active, so nothing the
+      // effect depends on (enabled/dwellSeconds/pages.length) changes. The
+      // timer must still advance to C — A's new neighbour — not the stale B.
+      act(() => {
+        useWorkspaceStore.getState().movePage(third.pageId, "up");
+      });
+
+      act(() => vi.advanceTimersByTime(10_000));
+      expect(useWorkspaceStore.getState().workspaces[0].activePageId).toBe(third.pageId);
+    });
   });
 });

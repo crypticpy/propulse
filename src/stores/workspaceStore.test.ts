@@ -142,6 +142,20 @@ describe("workspaceStore", () => {
       expect(rails.find((r) => r.side === "right")?.collapsed).toBe(true);
       expect(rails.find((r) => r.side === "bottom")?.collapsed).toBe(false);
     });
+
+    it("setRailWidth uncollapses the rail it targets, even if it was already collapsed (PR #676 review)", () => {
+      // Wide the left rail (collapses the right rail per the policy above),
+      // then pick a width for the now-collapsed right rail: it must reopen
+      // rather than staying hidden.
+      useWorkspaceStore.getState().setRailWidth("left", "wide");
+      expect(activeWorkspace().rails.find((r) => r.side === "right")?.collapsed).toBe(true);
+
+      useWorkspaceStore.getState().setRailWidth("right", "normal");
+      const rails = activeWorkspace().rails;
+      expect(rails.find((r) => r.side === "right")).toEqual({ side: "right", collapsed: false, width: "normal" });
+      // Right going normal (not wide) uncollapses the opposite (left) per policy.
+      expect(rails.find((r) => r.side === "left")?.collapsed).toBe(false);
+    });
   });
 
   it("setActivePage updates the active workspace's activePageId", () => {
@@ -166,6 +180,33 @@ describe("workspaceStore", () => {
       // mapHero fell back to a rail — reordering promotes it instead.
       useWorkspaceStore.getState().setWidgetOrder(DEFAULT_PAGE_ID, ["mapHero", "cluster"]);
       expect(activePage().widgetIds).toEqual(["mapHero", "cluster"]);
+    });
+
+    it("refuses a reorder that would push the page over its rail budget (PR #676 review)", () => {
+      // mapHero (weight 3) is hero first; cluster (weight 2) falls back to a
+      // rail. Fill the remaining 15 of the workstation's 17 rail slots so the
+      // rails are exactly full with cluster's 2 slots already counted.
+      useWorkspaceStore.getState().addWidget(DEFAULT_PAGE_ID, "mapHero");
+      useWorkspaceStore.getState().addWidget(DEFAULT_PAGE_ID, "cluster");
+      const oneWeightIds = ONE_WEIGHT_RAIL_IDS.slice(0, 15);
+      expect(oneWeightIds).toHaveLength(15);
+      for (const id of oneWeightIds) {
+        expect(useWorkspaceStore.getState().addWidget(DEFAULT_PAGE_ID, id)).toEqual({ ok: true });
+      }
+      const before = activePage().widgetIds;
+      expect(before).toEqual(["mapHero", "cluster", ...oneWeightIds]);
+
+      // Promoting cluster to hero demotes mapHero back into the rails, where
+      // it now needs 3 slots the already-full rails don't have. Without this
+      // check the reorder would persist and a widget would silently vanish
+      // on the next render.
+      const result = useWorkspaceStore
+        .getState()
+        .setWidgetOrder(DEFAULT_PAGE_ID, ["cluster", "mapHero", ...oneWeightIds]);
+      expect(result.ok).toBe(false);
+      expect(result.ok === false && result.reason).toMatch(/full/i);
+      // Refused: the previous order is left untouched.
+      expect(activePage().widgetIds).toEqual(before);
     });
   });
 

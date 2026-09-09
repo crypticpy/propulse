@@ -144,8 +144,14 @@ export interface WorkspaceStoreActions {
   /** Runs `autoDock` for the page's widgets plus `widgetId`; stores the id on success, returns the refusal otherwise. */
   addWidget: (pageId: string, widgetId: string) => AddWidgetResult;
   removeWidget: (pageId: string, widgetId: string) => void;
-  /** Replaces a page's widget id order wholesale — the primitive `WidgetsTab`'s MAKE HERO / MOVE TO RAIL build on (see file docblock). */
-  setWidgetOrder: (pageId: string, widgetIds: string[]) => void;
+  /**
+   * Replaces a page's widget id order wholesale — the primitive `WidgetsTab`'s
+   * MAKE HERO / MOVE TO RAIL build on (see file docblock). Reruns `autoDock`
+   * over the full reordered list first and refuses (leaving the page
+   * untouched) if any widget would no longer fit, same refuse-honestly shape
+   * as `addWidget`.
+   */
+  setWidgetOrder: (pageId: string, widgetIds: string[]) => AddWidgetResult;
   /** Toggles one rail's drawer state on the active workspace. */
   setRailCollapsed: (side: RailSide, collapsed: boolean) => void;
   /** Steps one rail's width on the active workspace via `applyRailWidth` (enforces the canvas's collapse-opposite policy). */
@@ -243,12 +249,25 @@ export const useWorkspaceStore = create<WorkspaceStore>()(
       },
 
       setWidgetOrder: (pageId, widgetIds) => {
+        const found = findWorkspaceAndPage(get().workspaces, pageId);
+        if (!found) {
+          return { ok: false, reason: `"${pageId}" is not a page in any workspace.` };
+        }
+        const { workspace } = found;
+        const rules = canvasRulesFor(workspace.canvasType);
+        const result = autoDock(widgetIds, rules);
+        if (result.refusals.length > 0) {
+          return { ok: false, reason: result.refusals.map((r) => r.reason).join(" ") };
+        }
+
         set((state) => ({
-          workspaces: state.workspaces.map((ws) => ({
-            ...ws,
-            pages: ws.pages.map((p) => (p.id !== pageId ? p : { ...p, widgetIds })),
-          })),
+          workspaces: state.workspaces.map((ws) =>
+            ws.id !== workspace.id
+              ? ws
+              : { ...ws, pages: ws.pages.map((p) => (p.id !== pageId ? p : { ...p, widgetIds })) },
+          ),
         }));
+        return { ok: true };
       },
 
       setRailCollapsed: (side, collapsed) => {
@@ -266,7 +285,18 @@ export const useWorkspaceStore = create<WorkspaceStore>()(
           workspaces: state.workspaces.map((ws) => {
             if (ws.id !== state.activeWorkspaceId) return ws;
             const rules = canvasRulesFor(ws.canvasType);
-            return { ...ws, rails: applyRailWidth(rules, ws.rails, side, width) };
+            // `applyRailWidth` only sets `width` on `side` and (per the
+            // canvas's opposite-collapses policy) may collapse the opposite
+            // rail; it never uncollapses `side` itself. Picking a width is
+            // an implicit "show this rail" action for every caller, so that
+            // happens here — otherwise choosing a width for an
+            // already-collapsed rail would leave both side rails hidden
+            // (PR #676 review).
+            const withWidth = applyRailWidth(rules, ws.rails, side, width);
+            return {
+              ...ws,
+              rails: withWidth.map((rail) => (rail.side === side ? { ...rail, collapsed: false } : rail)),
+            };
           }),
         }));
       },

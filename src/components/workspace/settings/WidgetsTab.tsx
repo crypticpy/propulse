@@ -60,10 +60,12 @@ export function WidgetsTab() {
   const [addPageIndex, setAddPageIndex] = useState(0);
 
   function moveToFront(widgetId: string) {
-    setWidgetOrder(page.id, [widgetId, ...page.widgetIds.filter((id) => id !== widgetId)]);
+    const result = setWidgetOrder(page.id, [widgetId, ...page.widgetIds.filter((id) => id !== widgetId)]);
+    setRefusal(result.ok ? null : result.reason);
   }
   function moveToEnd(widgetId: string) {
-    setWidgetOrder(page.id, [...page.widgetIds.filter((id) => id !== widgetId), widgetId]);
+    const result = setWidgetOrder(page.id, [...page.widgetIds.filter((id) => id !== widgetId), widgetId]);
+    setRefusal(result.ok ? null : result.reason);
   }
 
   const placeableEntries = Object.values(WIDGET_REGISTRY).filter(
@@ -92,6 +94,11 @@ export function WidgetsTab() {
 
       {section === "page" && (
         <div className="su-stack workspace-settings-widget-list">
+          {refusal && (
+            <p className="su-hint" role="alert">
+              {refusal}
+            </p>
+          )}
           {page.widgetIds.length === 0 && <p className="su-hint">This page has no widgets yet. Add one from the ADD WIDGET section.</p>}
           {page.widgetIds.map((widgetId) => {
             const entry = getRegistryEntry(widgetId);

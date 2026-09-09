@@ -47,15 +47,18 @@ const CATEGORY_ORDER: ShortcutCategory[] = [
  * />
  * ```
  */
+// Derived from a module constant, so it never changes. Computed once here
+// rather than per render: without the old `if (!isOpen) return null`, the
+// component body now runs on every render of its host whether it is open or
+// not.
+const GROUPED_SHORTCUTS = groupShortcutsByCategory(DEFAULT_SHORTCUTS);
+
 export function KeyboardShortcutsOverlay({
   isOpen,
   onClose,
 }: KeyboardShortcutsOverlayProps) {
   const titleId = useId();
   const descriptionId = useId();
-
-  // Group shortcuts by category
-  const groupedShortcuts = groupShortcutsByCategory(DEFAULT_SHORTCUTS);
 
   return (
     <AccessibleDialog
@@ -126,7 +129,7 @@ export function KeyboardShortcutsOverlay({
         {/* Shortcut Categories */}
         <div className="space-y-5 max-h-[60vh] overflow-y-auto pr-2 -mr-2">
           {CATEGORY_ORDER.map((category) => {
-            const shortcuts = groupedShortcuts.get(category);
+            const shortcuts = GROUPED_SHORTCUTS.get(category);
             if (!shortcuts || shortcuts.length === 0) {
               return null;
             }

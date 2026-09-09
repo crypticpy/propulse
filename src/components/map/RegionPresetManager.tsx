@@ -651,7 +651,9 @@ export function RegionPresetManager({
             <span className="text-lg" aria-hidden="true">
               {"\u{1F30D}"}
             </span>
-            <h2 id={titleId} className="text-lg font-semibold text-su-text">Region Presets</h2>
+            <h2 id={titleId} className="text-lg font-semibold text-su-text">
+              Region Presets
+            </h2>
           </div>
           <button
             onClick={onClose}

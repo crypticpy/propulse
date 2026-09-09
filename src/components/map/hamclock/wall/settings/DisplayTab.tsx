@@ -1,5 +1,6 @@
 import { useActiveLocation } from "@/hooks/useActiveLocation";
 import { useHeatMapBaseline } from "@/hooks/useHeatMapBaseline";
+import { LiveRegion } from "@/components/ui/LiveRegion";
 import {
   hamClockHomeRegion,
   hamClockProjectionContent,
@@ -135,11 +136,11 @@ function DisplayTabContent({ baselineState }: { baselineState?: ReturnType<typeo
             ? { ...option, disabled: heatmapPreset === "ratioDiverging" && !available }
             : option)}
         />
-        {heatmapPreset === "ratioDiverging" && unavailableLabel && (
-          <p className="hcc-row-caveat" role="status">
-            {unavailableLabel}. Band health ladder is shown until regional data is available.
-          </p>
-        )}
+        <LiveRegion as="p" className="hcc-row-caveat" role="status">
+          {heatmapPreset === "ratioDiverging" && unavailableLabel
+            ? `${unavailableLabel}. Band health ladder is shown until regional data is available.`
+            : null}
+        </LiveRegion>
       </div>
       <HamClockToggleRow
         label="Smart scaling"

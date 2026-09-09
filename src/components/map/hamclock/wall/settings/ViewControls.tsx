@@ -1,3 +1,4 @@
+import { LiveRegion } from "@/components/ui/LiveRegion";
 import { useHamClockStore, type HamClockMode } from "@/stores/hamclockStore";
 import { useMapStore, type ViewMode } from "@/stores/mapStore";
 import { HamClockSegmented, HamClockToggleRow } from "../controls";
@@ -51,7 +52,7 @@ export function ViewControls() {
     <HamClockSegmented label="HamClock mode" value={mode === "bands" ? "traffic" : mode} options={MODES} onChange={setMode} />
     <div className="hcc-seg-wrap-group">
       <HamClockSegmented label="Map projection" value={projection} options={PROJECTIONS} onChange={value => { setProjection(value); setPreferredView(value); }} />
-      {heroProjectionReason && <p className="hcc-seg-caveat" role="status">{heroProjectionReason}</p>}
+      <LiveRegion as="p" className="hcc-seg-caveat" role="status">{heroProjectionReason || null}</LiveRegion>
     </div>
   </div>
     <HamClockToggleRow label="Auto-rotate" checked={autoRotate} disabled={projection !== "globe"} onChange={setAutoRotate}

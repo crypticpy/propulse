@@ -49,7 +49,11 @@ describe("DisplayTab", () => {
   it("spells the smart scaling state as ON or OFF", () => {
     render(<DisplayTab />);
     expect(baseline).not.toHaveBeenCalled();
-    expect(screen.queryByRole("status")).toBeNull();
+    // The caveat region stays mounted (empty) even when there is nothing to
+    // say, so a later baseline-unavailable state has something already in
+    // the accessibility tree to announce into.
+    const explanation = screen.getByRole("status");
+    expect(explanation.textContent).toBe("");
     expect((screen.getByRole("radio", { name: "BASELINE RATIO" }) as HTMLButtonElement).disabled).toBe(false);
     const toggle = screen.getByRole("switch", { name: "Smart scaling" });
     expect(toggle.textContent).toBe("ON");
@@ -66,6 +70,24 @@ describe("DisplayTab", () => {
 
     fireEvent.click(screen.getByRole("radio", { name: "METRIC" }));
     expect(useHamClockDisplayStore.getState().units).toBe("metric");
+  });
+
+  it("mutates the same caveat region when an already-selected baseline goes from qualified to unavailable", () => {
+    // Preset is already "ratioDiverging" for both renders, so this exercises
+    // the caveat's own conditional (unavailableLabel appearing), not the
+    // preset-routing remount between DisplayTabContent and RegionalDisplayTab.
+    useHamClockDisplayStore.getState().setHeatmapPreset("ratioDiverging");
+    baseline.mockReturnValue({ available: true, unavailableLabel: null });
+    const { rerender } = render(<DisplayTab />);
+    const before = screen.getByRole("status");
+    expect(before.textContent).toBe("");
+
+    baseline.mockReturnValue({ available: false, unavailableLabel: "REGIONAL DATA UNAVAILABLE" });
+    rerender(<DisplayTab />);
+
+    const after = screen.getByRole("status");
+    expect(after).toBe(before);
+    expect(after.textContent).toContain("REGIONAL DATA UNAVAILABLE");
   });
 
   it("disables non-activity map content options in azimuthal projection", () => {

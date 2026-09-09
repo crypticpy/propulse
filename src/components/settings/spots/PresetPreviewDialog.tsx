@@ -5,6 +5,7 @@
  * `ApplyPresetResult` and this dialog only relays the two button intents.
  */
 import { AccessibleDialog } from "@/components/ui/AccessibleDialog";
+import { LiveRegion } from "@/components/ui/LiveRegion";
 import type { PresetRecipe } from "@/lib/views/contracts";
 import type { ApplyPresetResult, PresetFieldChange } from "@/lib/views/presets";
 
@@ -118,15 +119,20 @@ export function PresetPreviewDialog({
             </p>
           )}
 
-          {result.changes.length === 0 ? (
-            <p
-              role="status"
-              className="rounded-lg border border-su-line/40 bg-void-black/40 px-3 py-2 text-sm text-su-muted"
-            >
-              This recipe matches your current settings. Applying it changes
-              nothing.
-            </p>
-          ) : (
+          <LiveRegion
+            as="p"
+            role="status"
+            className={
+              result.changes.length === 0
+                ? "rounded-lg border border-su-line/40 bg-void-black/40 px-3 py-2 text-sm text-su-muted"
+                : undefined
+            }
+          >
+            {result.changes.length === 0
+              ? "This recipe matches your current settings. Applying it changes nothing."
+              : null}
+          </LiveRegion>
+          {result.changes.length > 0 && (
             <div>
               <h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-su-muted">
                 What will change

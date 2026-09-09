@@ -2,6 +2,7 @@ import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useUTCClock } from "@/hooks/useUTCClock";
 import { useActiveLocation } from "@/hooks/useActiveLocation";
+import { LiveRegion } from "@/components/ui/LiveRegion";
 import { subscribeLogEntries } from "@/lib/db/logStore";
 import {
   buildContactHistory,
@@ -130,12 +131,14 @@ export function RecentContactsReport({
           : []
       }
     >
-      {query.isError && (
-        <p className="hcr-note" role="status">
-          Could not refresh the local logbook.
-          {loaded ? " Showing the last successful read." : " Try again below."}
-        </p>
-      )}
+      <LiveRegion as="p" className="hcr-note" role="status">
+        {query.isError ? (
+          <>
+            Could not refresh the local logbook.
+            {loaded ? " Showing the last successful read." : " Try again below."}
+          </>
+        ) : null}
+      </LiveRegion>
       {!loaded ? (
         <div className="hcr-box">
           <p className="hcr-note">

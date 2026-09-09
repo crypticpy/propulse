@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { LiveRegion } from "@/components/ui/LiveRegion";
 import { ToggleSwitch } from "@/components/ui/ToggleSwitch";
 import { useResearchParticipation } from "@/hooks/useResearchParticipation";
 import type { ResearchAllowedUse } from "@/lib/propagation/researchParticipation";
@@ -177,11 +178,11 @@ export function ResearchParticipationSettings() {
             </div>
           )}
 
-          {(status || research.error) && (
-            <p className="text-xs text-su-muted" role="status">
-              {status ?? "Research participation status is unavailable."}
-            </p>
-          )}
+          <LiveRegion as="p" className="text-xs text-su-muted" role="status">
+            {status || research.error
+              ? (status ?? "Research participation status is unavailable.")
+              : null}
+          </LiveRegion>
         </>
       )}
     </div>

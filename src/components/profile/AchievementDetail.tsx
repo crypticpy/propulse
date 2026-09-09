@@ -11,6 +11,7 @@ import {
   TIER_LABELS,
   ICON_EMOJI,
 } from "@/lib/data/achievementConstants";
+import { inkOnFill } from "@/lib/utils/spotColors";
 import type {
   AchievementDefinition,
   EarnedAchievement,
@@ -103,9 +104,9 @@ export function AchievementDetail({
             <span
               className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider"
               style={{
-                backgroundColor: `${TIER_COLORS[currentTier]}20`,
-                color: TIER_COLORS[currentTier],
-                border: `1px solid ${TIER_COLORS[currentTier]}40`,
+                backgroundColor: TIER_COLORS[currentTier],
+                color: inkOnFill(TIER_COLORS[currentTier]),
+                border: `1px solid ${TIER_COLORS[currentTier]}`,
               }}
             >
               <span
@@ -179,12 +180,8 @@ export function AchievementDetail({
                       }}
                     />
                     <span
-                      className="font-medium"
-                      style={{
-                        color: isAchieved
-                          ? TIER_COLORS[tierDef.tier]
-                          : "#6b7280",
-                      }}
+                      className={`font-medium ${isAchieved ? "text-su-text" : ""}`}
+                      style={isAchieved ? undefined : { color: "#6b7280" }}
                     >
                       {TIER_LABELS[tierDef.tier]}
                     </span>

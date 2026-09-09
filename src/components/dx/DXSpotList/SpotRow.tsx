@@ -10,7 +10,11 @@
 
 import { memo, useMemo, useCallback, useState, useEffect, useRef } from "react";
 import { getBandColor } from "@/lib/api/dxcluster";
-import { getBandColor as getBandHexColor, withAlpha } from "@/lib/utils/spotColors";
+import {
+  getBandColor as getBandHexColor,
+  withAlpha,
+  inkOnFill,
+} from "@/lib/utils/spotColors";
 import { getSpotAgeInfo, formatSpotAge } from "@/components/map/LiveSpotArcs";
 import {
   parseSplitFromComment,
@@ -238,7 +242,7 @@ export const SpotRow = memo(function SpotRow({
 
     // Q8: Highlight animation for scroll-to-selected (brief cyan glow)
     const highlightClass = isHighlighted
-      ? "ring-2 ring-cyan-400/60 ring-inset animate-pulse"
+      ? "ring-2 ring-su-accent-edge ring-inset animate-pulse"
       : "";
 
     // QoL1: Keyboard focus ring
@@ -465,8 +469,8 @@ export const SpotRow = memo(function SpotRow({
               : "hover:scale-105 hover:ring-1 hover:ring-su-line/60"
           }`}
           style={{
-            backgroundColor: bandColor.bgColor,
-            color: bandColor.color,
+            backgroundColor: bandColor.color,
+            color: inkOnFill(bandColor.color),
           }}
           title={
             isBandActive

@@ -8,6 +8,7 @@
 
 import { useState } from "react";
 import { useAchievements } from "@/hooks/useAchievements";
+import { inkOnFill } from "@/lib/utils/spotColors";
 import { ACHIEVEMENT_DEFINITIONS } from "@/lib/data/achievementDefinitions";
 import {
   TIER_COLORS,
@@ -99,9 +100,9 @@ function BadgeTile({
           <span
             className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider"
             style={{
-              backgroundColor: `${tierColor}20`,
-              color: tierColor,
-              border: `1px solid ${tierColor}40`,
+              backgroundColor: tierColor,
+              color: inkOnFill(tierColor),
+              border: `1px solid ${tierColor}`,
             }}
           >
             <span

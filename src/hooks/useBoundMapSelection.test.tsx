@@ -53,16 +53,18 @@ describe("useBoundMapSelection", () => {
     );
   });
 
-  it("reads this runtime's selected report and prefers the bound spot target", async () => {
+  it("reads this runtime's selected report id but leaves mapTarget as the visual target (#707)", async () => {
+    // useBoundVisualTarget is a pass-through to mapTarget until #707 restores
+    // bound-selection precedence — see useBoundMapSelection.ts.
     const user = userEvent.setup();
     render(<VisualProbe />, { wrapper: wrapper() });
     expect(screen.getByTestId("bound-id").textContent).toBe("none");
     expect(screen.getByTestId("bound-lat").textContent).toBe("10");
+    expect(screen.getByTestId("bound-grid").textContent).toBe("JJ00");
     await user.click(screen.getByRole("button", { name: "select" }));
     expect(screen.getByTestId("bound-id").textContent).toBe("grid-1");
-    expect(screen.getByTestId("bound-lat").textContent).toBe("35");
-    expect(screen.getByTestId("bound-grid").textContent).toMatch(/^PM95/);
-    expect(screen.getByTestId("bound-grid").textContent).not.toBe("JJ00");
+    expect(screen.getByTestId("bound-lat").textContent).toBe("10");
+    expect(screen.getByTestId("bound-grid").textContent).toBe("JJ00");
   });
 
   it("falls back to the manual map target when this view has no selection", () => {

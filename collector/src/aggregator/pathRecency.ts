@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { log } from "../logger.js";
+import type { PathArchiveControls } from "../types.js";
 import { resolveAggregationWatermark } from "./watermark.js";
 
 /**
@@ -150,4 +151,88 @@ export async function computePathRecency(db: SupabaseClient): Promise<number> {
     rowsWritten,
   });
   return rowsWritten;
+}
+
+export interface PathRecencyPruneResult {
+  daysPruned: number;
+  rowsDeleted: number;
+}
+
+/**
+ * Delete one hour of `path_recency_hourly`. Deletes go hour-by-hour rather
+ * than day-wide: `path_recency_hourly` is ~70k rows/day, and every other
+ * delete on these tables (`prune_archived_path_hourly_stats`,
+ * `compute_path_recency_hourly`) is a `SECURITY DEFINER` RPC with
+ * `SET statement_timeout = '120s'` for exactly this reason — a range delete
+ * of this shape does not reliably finish inside the default 8s PostgREST
+ * role timeout (#609 review N2). 24 bounded statements per day instead of
+ * one day-wide one.
+ */
+async function deleteRecencyHour(
+  db: SupabaseClient,
+  hourStartIso: string,
+  hourEndIso: string,
+): Promise<number> {
+  const { error, count } = await db
+    .from("path_recency_hourly")
+    .delete({ count: "exact" })
+    .gte("hour_utc", hourStartIso)
+    .lt("hour_utc", hourEndIso);
+  if (error) {
+    throw new Error(
+      `path-recency prune failed for hour ${hourStartIso}: ${error.message}`,
+    );
+  }
+  return count ?? 0;
+}
+
+async function deleteRecencyDay(
+  db: SupabaseClient,
+  day: string,
+): Promise<number> {
+  const dayStartMs = Date.parse(`${day}T00:00:00.000Z`);
+  let deleted = 0;
+  for (let hour = 0; hour < 24; hour++) {
+    const hourStartIso = new Date(dayStartMs + hour * HOUR_MS).toISOString();
+    const hourEndIso = new Date(
+      dayStartMs + (hour + 1) * HOUR_MS,
+    ).toISOString();
+    deleted += await deleteRecencyHour(db, hourStartIso, hourEndIso);
+  }
+  return deleted;
+}
+
+/**
+ * Drop derived `path_recency_hourly` days the archive pass just confirmed
+ * sealed (a verified `path_hourly_stats` manifest exists for that day).
+ * Recency is a pure function of hourly stats and has no archive of its own:
+ * restore a day's stats CSV and rerun `scripts/backfill-path-recency.mjs`
+ * to reconstruct it. `sealedDays` must come from the same archive pass
+ * (`ArchivePassResult.sealedDays`, collector/src/index.ts) that ran this
+ * tick — the prune must be a subset of confirmed-sealed days by
+ * construction, not by a separately computed window (#609 review N1/N3).
+ * Fail-closed — a no-op unless `ARCHIVE_PATH_STATS_PRUNE=true`. Work is
+ * bounded to `maxDaysPerRun`.
+ */
+export async function prunePathRecency(
+  db: SupabaseClient,
+  controls: PathArchiveControls,
+  sealedDays: string[],
+): Promise<PathRecencyPruneResult> {
+  if (!controls.pruneEnabled) {
+    return { daysPruned: 0, rowsDeleted: 0 };
+  }
+
+  const days = sealedDays.slice(0, controls.maxDaysPerRun);
+  let daysPruned = 0;
+  let rowsDeleted = 0;
+  for (const day of days) {
+    const deleted = await deleteRecencyDay(db, day);
+    if (deleted > 0) {
+      daysPruned += 1;
+      rowsDeleted += deleted;
+      log("info", "Pruned path_recency_hourly day", { day, rows: deleted });
+    }
+  }
+  return { daysPruned, rowsDeleted };
 }

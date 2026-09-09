@@ -26,6 +26,7 @@ import { useMapStore } from "@/stores/mapStore";
 import { useDXStore } from "@/stores/dxStore";
 import { getContestById } from "@/lib/data/contests";
 import { useSpotEntryBehavior } from "@/hooks/useSpotEntryBehavior";
+import { useOptionalViewRuntime } from "@/components/views/ViewRuntimeContext";
 import { formatDeltaSince } from "@/lib/utils/time";
 
 export interface ContestDockProps {
@@ -100,6 +101,7 @@ export function ContestDock({ className = "" }: ContestDockProps) {
     : null;
 
   const runMode = activeSession?.runMode ?? "run";
+  const runtime = useOptionalViewRuntime();
 
   const handleStartContest = useCallback(
     (config: ContestConfig) => {
@@ -131,6 +133,7 @@ export function ContestDock({ className = "" }: ContestDockProps) {
     setDraft,
     requestEntryFocus,
     requestDraftReplace,
+    runtime,
   });
 
   if (!activeSession) {

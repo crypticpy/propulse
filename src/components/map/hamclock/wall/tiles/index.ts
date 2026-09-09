@@ -10,12 +10,16 @@ import { AlertsTile } from "./AlertsTile";
 import { BandActivityTile } from "./BandActivityTile";
 import { BestBandTile } from "./BestBandTile";
 import { ClusterTile } from "./ClusterTile";
+import { ContestsTile } from "./ContestsTile";
+import { DxpeditionsTile } from "./DxpeditionsTile";
 import { DxTargetTile } from "./DxTargetTile";
 import { EmcommTile } from "./EmcommTile";
 import { ForecastMatrixTile } from "./ForecastMatrixTile";
 import { GreyLineTile } from "./GreyLineTile";
+import { HeatMapTile } from "./HeatMapTile";
 import { MoonTile } from "./MoonTile";
 import { MufTile } from "./MufTile";
+import { LaunchesTile } from "./LaunchesTile";
 import { RecentContactsTile } from "./RecentContactsTile";
 import { ReliabilityTile } from "./ReliabilityTile";
 import { SdrDecodesTile } from "./SdrDecodesTile";
@@ -36,6 +40,7 @@ export type TileId =
   | "bestBand"
   | "cluster"
   | "bandActivity"
+  | "heatMap"
   | "greyLine"
   | "xray"
   | "solarWind"
@@ -43,6 +48,7 @@ export type TileId =
   | "sun"
   | "weather"
   | "moon"
+  | "launches"
   | "forecastMatrix"
   | "reliability"
   | "muf"
@@ -52,7 +58,9 @@ export type TileId =
   | "wsjtx"
   | "sdrDecodes"
   | "recentContacts"
-  | "dxTarget";
+  | "dxTarget"
+  | "contests"
+  | "dxpeditions";
 
 export interface WallTile {
   title: string;
@@ -67,6 +75,7 @@ export const WALL_TILES: Record<TileId, WallTile> = {
   bestBand: { title: "Best band now", Component: BestBandTile },
   cluster: { title: "DX cluster", Component: ClusterTile },
   bandActivity: { title: "Band activity", Component: BandActivityTile },
+  heatMap: { title: "Band heat map", Component: HeatMapTile },
   greyLine: { title: "Grey line", Component: GreyLineTile },
   xray: { title: "X-ray flux", Component: XrayTile },
   solarWind: { title: "Solar wind", Component: SolarWindTile },
@@ -74,6 +83,7 @@ export const WALL_TILES: Record<TileId, WallTile> = {
   sun: { title: "Sunrise / sunset", Component: SunTile },
   weather: { title: "Local weather", Component: WeatherTile },
   moon: { title: "Moon", Component: MoonTile },
+  launches: { title: "Launches", Component: LaunchesTile },
   forecastMatrix: { title: "24h band forecast", Component: ForecastMatrixTile },
   reliability: { title: "24h reliability", Component: ReliabilityTile },
   muf: { title: "MUF", Component: MufTile },
@@ -88,4 +98,6 @@ export const WALL_TILES: Record<TileId, WallTile> = {
     config: registerWidgetConfig(recentContactsConfig),
   },
   dxTarget: { title: "DX target", Component: DxTargetTile },
+  contests: { title: "Contests", Component: ContestsTile },
+  dxpeditions: { title: "DXpeditions", Component: DxpeditionsTile },
 };

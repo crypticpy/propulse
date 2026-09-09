@@ -21,6 +21,7 @@ from .crypto import receipt_hmac_key_bytes
 from .database import ArchiveDatabase
 from .datasets import DATASETS, Dataset
 from .parquet import verify_parquet
+from .coverage import canonical_coverage
 from .storage import SupabaseArchiveStorage
 
 
@@ -102,6 +103,21 @@ def restore_manifest(
     dataset = DATASETS.get(manifest["dataset"])
     if dataset is None or dataset.schema_version != manifest["schema_version"]:
         raise RuntimeError("restore reader does not support the manifest schema")
+    coverage_evidence = manifest.get("coverage_evidence")
+    current_coverage = source_database.reconcile_coverage(manifest_id)
+    if dataset.coverage_contract:
+        manifest_coverage = canonical_coverage(
+            coverage_evidence, dataset.coverage_contract,
+            manifest["range_start"], manifest["range_end"],
+        )
+        reconciled_coverage = canonical_coverage(
+            current_coverage, dataset.coverage_contract,
+            manifest["range_start"], manifest["range_end"],
+        )
+        if manifest_coverage != reconciled_coverage:
+            raise RuntimeError("archive coverage evidence is stale")
+    elif current_coverage is not None or coverage_evidence is not None:
+        raise RuntimeError("unexpected archive coverage evidence")
 
     with tempfile.TemporaryDirectory(dir=temp_root) as directory:
         archive_path = Path(directory) / "restore.parquet.zst"
@@ -121,6 +137,9 @@ def restore_manifest(
             expected_min_time=manifest["min_source_time"],
             expected_max_time=manifest["max_source_time"],
             expected_source_counts=dict(manifest["source_counts"]),
+            expected_coverage_evidence=coverage_evidence,
+            expected_range_start=manifest["range_start"],
+            expected_range_end=manifest["range_end"],
         )
 
         schema_name = f"propagation_restore_{manifest_id.hex[:16]}"
@@ -191,6 +210,7 @@ def restore_manifest(
             "counts_verified": True,
             "aggregates_verified": True,
             "read_verified": True,
+            "coverage_reconciled": dataset.coverage_contract is not None,
         },
     }
     signature = _signature(details, receipt_hmac_key)

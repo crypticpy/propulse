@@ -11,6 +11,13 @@ import { createPortal } from "react-dom";
 const FOCUSABLE =
   'a[href], button:not([disabled]):not([tabindex="-1"]), input:not([disabled]):not([tabindex="-1"]), select:not([disabled]):not([tabindex="-1"]), textarea:not([disabled]):not([tabindex="-1"]), [tabindex]:not([tabindex="-1"])';
 
+type OpenDialogStackEntry = {
+  token: symbol;
+  portalRoot: HTMLElement | null;
+  opener: HTMLElement | null;
+  isOpen: boolean;
+};
+
 /**
  * Open dialogs in mounting order, with the active/topmost dialog last.
  *
@@ -19,7 +26,113 @@ const FOCUSABLE =
  * dialog also needs this stack guard: an outer dialog must yield to a nested
  * dialog instead of consuming the keypress and unmounting both.
  */
-const openDialogStack: symbol[] = [];
+const openDialogStack: OpenDialogStackEntry[] = [];
+
+/**
+ * What each background element looked like before this module first hid it.
+ *
+ * Restoring from a per-dialog snapshot instead would chain: a dialog opened on
+ * top of another records the one below as already inert, then re-applies that
+ * on close and leaves the page permanently unreachable.
+ */
+const originalBackgroundState = new Map<
+  HTMLElement,
+  { inert: boolean; ariaHidden: string | null }
+>();
+let previousBodyOverflow: string | null = null;
+
+function restoreOriginal(element: HTMLElement): void {
+  const original = originalBackgroundState.get(element);
+  if (!original) return;
+  element.inert = original.inert;
+  if (original.ariaHidden === null) element.removeAttribute("aria-hidden");
+  else element.setAttribute("aria-hidden", original.ariaHidden);
+}
+
+/**
+ * Only the topmost dialog stays reachable; every other body child — including
+ * the portals of dialogs and popovers below it — is inert and hidden.
+ *
+ * Recomputed from the whole stack on every open and close, so a dialog that
+ * closes while it is not on top can no longer release the background out from
+ * under the dialog that still is.
+ */
+function syncBackgroundInert(): void {
+  const top = openDialogStack[indexOfTopmostOpenEntry()];
+  if (!top) {
+    for (const element of originalBackgroundState.keys()) restoreOriginal(element);
+    originalBackgroundState.clear();
+    if (previousBodyOverflow !== null) {
+      document.body.style.overflow = previousBodyOverflow;
+      previousBodyOverflow = null;
+    }
+    return;
+  }
+  if (previousBodyOverflow === null) previousBodyOverflow = document.body.style.overflow;
+  document.body.style.overflow = "hidden";
+  for (const child of document.body.children) {
+    if (!(child instanceof HTMLElement)) continue;
+    if (!originalBackgroundState.has(child)) {
+      originalBackgroundState.set(child, {
+        inert: child.inert,
+        ariaHidden: child.getAttribute("aria-hidden"),
+      });
+    }
+    if (child === top.portalRoot) {
+      restoreOriginal(child);
+      continue;
+    }
+    child.inert = true;
+    child.setAttribute("aria-hidden", "true");
+  }
+  for (const element of [...originalBackgroundState.keys()]) {
+    if (!element.isConnected) originalBackgroundState.delete(element);
+  }
+}
+
+function isViableOpener(opener: HTMLElement): boolean {
+  return (
+    opener.isConnected &&
+    opener !== document.body &&
+    !opener.inert &&
+    opener.closest("[inert]") === null
+  );
+}
+
+function indexOfTopmostOpenEntry(): number {
+  for (let i = openDialogStack.length - 1; i >= 0; i -= 1) {
+    if (openDialogStack[i].isOpen) return i;
+  }
+  return -1;
+}
+
+function focusAfterTopmostClose(): void {
+  const topOpenIndex = indexOfTopmostOpenEntry();
+  if (topOpenIndex === -1) {
+    for (let i = openDialogStack.length - 1; i >= 0; i -= 1) {
+      const opener = openDialogStack[i].opener;
+      if (opener && isViableOpener(opener)) {
+        opener.focus();
+        return;
+      }
+    }
+    return;
+  }
+  for (let i = openDialogStack.length - 1; i > topOpenIndex; i -= 1) {
+    const opener = openDialogStack[i].opener;
+    if (opener && isViableOpener(opener)) {
+      opener.focus();
+      return;
+    }
+  }
+  const topEntry = openDialogStack[topOpenIndex];
+  const panel = topEntry.portalRoot?.querySelector<HTMLElement>('[role="dialog"]');
+  (panel ?? topEntry.portalRoot)?.focus();
+}
+
+function isTopmostOpen(token: symbol): boolean {
+  return openDialogStack[indexOfTopmostOpenEntry()]?.token === token;
+}
 
 export interface AccessibleDialogProps {
   open: boolean;
@@ -74,7 +187,6 @@ export function AccessibleDialog({
   const titleId = useId();
   const descriptionId = useId();
   const dialogRef = useRef<HTMLDivElement>(null);
-  const openerRef = useRef<HTMLElement | null>(null);
   const dialogTokenRef = useRef(Symbol("AccessibleDialog"));
   // Keep the listener registered for the entire open lifetime even when a
   // parent passes a freshly-created callback on rerender. Re-registering an
@@ -87,11 +199,7 @@ export function AccessibleDialog({
 
   const handleKeyDown = useCallback((event: KeyboardEvent) => {
     if (event.key === "Escape") {
-      if (
-        openDialogStack[openDialogStack.length - 1] !== dialogTokenRef.current
-      ) {
-        return;
-      }
+      if (!isTopmostOpen(dialogTokenRef.current)) return;
       event.preventDefault();
       // A modal owns Escape while it is open. Capture the event before
       // page-level shortcuts (for example FullscreenPropSphere's exit
@@ -103,6 +211,7 @@ export function AccessibleDialog({
       return;
     }
     if (event.key !== "Tab" || !dialogRef.current) return;
+    if (!isTopmostOpen(dialogTokenRef.current)) return;
     const controls = [...dialogRef.current.querySelectorAll<HTMLElement>(FOCUSABLE)].filter(
       (element) => !element.hasAttribute("hidden") && !element.closest("[hidden]"),
     );
@@ -125,24 +234,20 @@ export function AccessibleDialog({
   useEffect(() => {
     if (!open) return;
     const dialogToken = dialogTokenRef.current;
-    openerRef.current = document.activeElement as HTMLElement | null;
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    const portalRoot = dialogRef.current?.parentElement;
-    const background = [...document.body.children].filter(
-      (element): element is HTMLElement =>
-        element instanceof HTMLElement && element !== portalRoot,
+    const nextStackEntry: OpenDialogStackEntry = {
+      token: dialogToken,
+      portalRoot: dialogRef.current?.parentElement ?? null,
+      opener: document.activeElement as HTMLElement | null,
+      isOpen: true,
+    };
+    const existingStackIndex = openDialogStack.findIndex(
+      (entry) => entry.token === dialogToken,
     );
-    const backgroundState = background.map((element) => ({
-      element,
-      inert: element.inert,
-      ariaHidden: element.getAttribute("aria-hidden"),
-    }));
-    for (const element of background) {
-      element.inert = true;
-      element.setAttribute("aria-hidden", "true");
+    if (existingStackIndex !== -1) {
+      openDialogStack.splice(existingStackIndex, 1);
     }
-    openDialogStack.push(dialogToken);
+    openDialogStack.push(nextStackEntry);
+    syncBackgroundInert();
     document.addEventListener("keydown", handleKeyDown, true);
     const frame = requestAnimationFrame(() => {
       const first = dialogRef.current?.querySelector<HTMLElement>(FOCUSABLE);
@@ -151,15 +256,21 @@ export function AccessibleDialog({
     return () => {
       cancelAnimationFrame(frame);
       document.removeEventListener("keydown", handleKeyDown, true);
-      const stackIndex = openDialogStack.lastIndexOf(dialogToken);
-      if (stackIndex !== -1) openDialogStack.splice(stackIndex, 1);
-      document.body.style.overflow = previousOverflow;
-      for (const { element, inert, ariaHidden } of backgroundState) {
-        element.inert = inert;
-        if (ariaHidden === null) element.removeAttribute("aria-hidden");
-        else element.setAttribute("aria-hidden", ariaHidden);
+      const wasTopmost = isTopmostOpen(dialogToken);
+      const stackEntry = openDialogStack.find((entry) => entry.token === dialogToken);
+      if (stackEntry) stackEntry.isOpen = false;
+      syncBackgroundInert();
+      if (wasTopmost) focusAfterTopmostClose();
+      if (!openDialogStack.some((entry) => entry.isOpen)) {
+        openDialogStack.length = 0;
+      } else {
+        while (
+          openDialogStack.length > 0 &&
+          !openDialogStack[openDialogStack.length - 1].isOpen
+        ) {
+          openDialogStack.pop();
+        }
       }
-      openerRef.current?.focus();
     };
   }, [handleKeyDown, open]);
 
@@ -229,4 +340,14 @@ export function AccessibleDialog({
     </div>,
     document.body,
   );
+}
+
+/** @internal Counts map entries whose nodes were removed from the document. */
+// eslint-disable-next-line react-refresh/only-export-components -- test-only introspection
+export function countDetachedBackgroundStateEntriesForTest(): number {
+  let detached = 0;
+  for (const element of originalBackgroundState.keys()) {
+    if (!element.isConnected) detached += 1;
+  }
+  return detached;
 }

@@ -1,3 +1,5 @@
+import { stationContrast } from "@/lib/themes/stationTokens";
+
 // ==========================================================================
 // Spot Color Utilities
 // Consolidated module for all spot color logic (mode-based and band-based).
@@ -30,6 +32,11 @@ export const MODE_COLORS: Record<string, string> = {
   DATA: "#44DDFF", // Cosmic cyan (generic data)
   default: "#888888", // Gray fallback
 };
+
+/** Dark ink for light mode fills. Matches void-black / DS canvas ink. */
+export const MODE_INK_DARK = "#0a0a0a";
+/** Light ink when the fill is dark enough for AA. Station `su-text`, not pure white. */
+export const MODE_INK_LIGHT = "#cad2dc";
 
 /** Historical replay routes deliberately avoid the live mode/band palettes. */
 export const SPOT_REPLAY_COLOR = "#8B7355";
@@ -92,6 +99,46 @@ export function getModeColor(mode: string | undefined): string {
   }
 
   return MODE_COLORS.default;
+}
+
+const AA_TEXT = 4.5;
+
+/**
+ * Ink that meets WCAG AA (≥ 4.5:1) against `fill`. Prefers dark ink on light
+ * fills (FT8 cyan, CW yellow, SSB green) and light ink only when the fill is
+ * dark enough to support it. Contrast math lives in `stationContrast`.
+ */
+/**
+ * Appends a 2-digit hex alpha to a hex colour (replacing an existing one).
+ *
+ * Preferred over wrapping an element in `opacity` when only one colour should
+ * fade: CSS opacity multiplies down the tree, so an ancestor's fade cannot be
+ * undone by a descendant's own opacity. `SpotRow` learned that the hard way
+ * (#683/#709) — fading the whole row made an old row's revealed toolbar
+ * unreadable.
+ */
+export function withAlpha(hex: string, alpha: number): string {
+  const base = hex.length === 9 ? hex.slice(0, 7) : hex;
+  const a = Math.round(Math.min(1, Math.max(0, alpha)) * 255)
+    .toString(16)
+    .padStart(2, "0");
+  return `${base}${a}`;
+}
+
+export function inkOnFill(fill: string): string {
+  const dark = stationContrast(MODE_INK_DARK, fill);
+  const light = stationContrast(MODE_INK_LIGHT, fill);
+  if (dark >= AA_TEXT && dark >= light) return MODE_INK_DARK;
+  if (light >= AA_TEXT) return MODE_INK_LIGHT;
+  return dark >= light ? MODE_INK_DARK : MODE_INK_LIGHT;
+}
+
+/**
+ * Label ink for a mode-colour fill. Use at every `backgroundColor: modeColor`
+ * badge so components do not hardcode white or black.
+ */
+export function modeInk(mode: string | undefined): string {
+  return inkOnFill(getModeColor(mode));
 }
 
 /**

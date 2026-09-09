@@ -232,14 +232,16 @@ describe("PagesTilesTab (B4/HW-27, HW-50, HW-52)", () => {
   it("pages through the tile list with PREV/NEXT", () => {
     render(<PagesTilesTab />);
     goToTilesSubPage();
-    expect(screen.getByText("1 / 3")).toBeTruthy();
+    // 26 tiles, 8 per page -> 4 pages (contests/dxpeditions added a 3rd
+    // page's worth since this comment was last accurate).
+    expect(screen.getByText("1 / 4")).toBeTruthy();
     expect(
       (screen.getByRole("button", { name: "PREV" }) as HTMLButtonElement)
         .disabled,
     ).toBe(true);
 
     fireEvent.click(screen.getByRole("button", { name: "NEXT" }));
-    expect(screen.getByText("2 / 3")).toBeTruthy();
+    expect(screen.getByText("2 / 4")).toBeTruthy();
   });
 
   it("renders saved presets as SAVED-tagged cards and applies their layout/autoPage when selected", () => {

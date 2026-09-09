@@ -11,7 +11,7 @@ import {
   placeAnchoredOverlay,
   type ScreenAnchor,
 } from "@/lib/map/anchoredOverlay";
-import { getModeColor } from "@/lib/utils/spotColors";
+import { getModeColor, modeInk } from "@/lib/utils/spotColors";
 import {
   formatSpotAge,
   getAgeBadgeColors,
@@ -179,6 +179,7 @@ export function SpotCollectionPopover({
           const time =
             spot.time instanceof Date ? spot.time : new Date(spot.time);
           const modeColor = getModeColor(spot.mode);
+          const modeInkColor = modeInk(spot.mode);
           const ageColors = getAgeBadgeColors(
             getSpotAgeInfo(time).ageCategory,
           );
@@ -210,8 +211,8 @@ export function SpotCollectionPopover({
                 )}
                 {spot.mode && (
                   <span
-                    className="rounded px-1 py-0.5 text-[9px] font-bold text-su-text"
-                    style={{ backgroundColor: modeColor }}
+                    className="rounded px-1 py-0.5 text-[9px] font-bold"
+                    style={{ backgroundColor: modeColor, color: modeInkColor }}
                   >
                     {spot.mode}
                   </span>

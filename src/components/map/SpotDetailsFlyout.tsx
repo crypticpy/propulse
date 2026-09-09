@@ -21,7 +21,7 @@ import {
   formatSpotAge,
   getAgeBadgeColors,
 } from "./LiveSpotArcs";
-import { getModeColor } from "@/lib/utils/spotColors";
+import { getModeColor, modeInk } from "@/lib/utils/spotColors";
 import { SPOT_SOURCE_COLORS, type SpotSource } from "@/types/livespot";
 
 /** Data structure for spot details */
@@ -186,6 +186,7 @@ export function SpotDetailsFlyout({
   }
 
   const modeColor = getModeColor(spot.mode);
+  const modeInkColor = modeInk(spot.mode);
   const sourceColors = SPOT_SOURCE_COLORS[spot.source];
 
   const flyoutContent = (
@@ -255,8 +256,8 @@ export function SpotDetailsFlyout({
           )}
           {spot.mode && (
             <span
-              className="px-1.5 py-0.5 rounded text-[10px] font-bold text-su-text"
-              style={{ backgroundColor: modeColor }}
+              className="px-1.5 py-0.5 rounded text-[10px] font-bold"
+              style={{ backgroundColor: modeColor, color: modeInkColor }}
             >
               {spot.mode}
             </span>

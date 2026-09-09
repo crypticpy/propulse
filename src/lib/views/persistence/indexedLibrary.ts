@@ -305,6 +305,14 @@ export class IndexedViewLibrary {
     }
   }
 
+  /** Inspect only the device capture owner, never another owner's backup or records. */
+  async deviceMigrationOwner(): Promise<string | null> {
+    const journal = await (await this.db()).get("migrations", legacyMigrationKey(this.ownerId, "device"));
+    if (!journal) return null;
+    legacyMigrationPlanSchema.parse(journal.plan);
+    return journal.plan.ownerId;
+  }
+
   /** Read the original conversion/rollback data only within the capture's owner namespace. */
   async legacyMigration(source: LegacyMigrationPlan["source"]): Promise<LegacyMigrationJournal | null> {
     if (source !== "device" && source !== "account") throw new Error("Invalid migration source");

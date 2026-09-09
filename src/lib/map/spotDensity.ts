@@ -1,12 +1,13 @@
-/**
- * Spot fetch budget.
- *
- * `mapStore.displayDensity` (10-200, default 50) is the map's render cap and
- * already has a slider in the Layers popover, but every source was fetched with
- * a hardcoded limit of 50 -- so raising the slider past 50 could never show
- * more spots, because more were never requested. This derives the fetch limit
- * from the same setting so the control works end to end.
- */
+/** Shared limits for spot rendering and bounded source requests. */
+export const DEFAULT_SPOT_DENSITY = 150;
+export const MIN_SPOT_DENSITY = 10;
+export const MAX_SPOT_DENSITY = 200;
+
+/** Invalid persisted/integration values must never disable rendering with NaN. */
+export function normalizeSpotDensity(value: number): number {
+  if (!Number.isFinite(value)) return DEFAULT_SPOT_DENSITY;
+  return Math.max(MIN_SPOT_DENSITY, Math.min(MAX_SPOT_DENSITY, Math.floor(value)));
+}
 
 /**
  * Spots every source must supply regardless of the display setting.
@@ -37,6 +38,6 @@ export function getSpotFetchLimit(displayDensity: number | undefined): number {
   }
   return Math.min(
     MAX_SPOT_FETCH_LIMIT,
-    Math.max(MIN_SPOT_FETCH_LIMIT, displayDensity as number),
+    Math.max(MIN_SPOT_FETCH_LIMIT, Math.floor(displayDensity as number)),
   );
 }

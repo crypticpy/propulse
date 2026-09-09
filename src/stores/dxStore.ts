@@ -27,7 +27,16 @@ export interface ClusterLinkStatus {
   lastSpotTime?: string;
 }
 
+export interface ClusterFeedState {
+  state: string;
+  windowMinutes: number | null;
+  fetchedAt: number | null;
+  observedAt: number | null;
+}
+
 interface DXState {
+  clusterFeed: ClusterFeedState;
+  setClusterFeed: (feed: ClusterFeedState) => void;
   // Spot data
   spots: DXSpot[];
   setSpots: (spots: DXSpot[]) => void;
@@ -117,6 +126,9 @@ export const useDXStore = create<DXState>()(
   persist(
     (set, get) => ({
       // Spot data
+      clusterFeed: { state: "UNKNOWN", windowMinutes: null, fetchedAt: null, observedAt: null },
+      setClusterFeed: (clusterFeed) => set((state) =>
+        Object.keys(clusterFeed).every(key => clusterFeed[key as keyof ClusterFeedState] === state.clusterFeed[key as keyof ClusterFeedState]) ? state : { clusterFeed }),
       spots: [],
       spotSource: "rest",
       setSpotSource: (source) => set({ spotSource: source }),

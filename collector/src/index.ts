@@ -21,7 +21,10 @@ import { computeBandActivityClimatology } from "./collectors/bandActivityClimato
 import { computeHourlyStats } from "./aggregator/hourly.js";
 import { computePathHourlyStats } from "./aggregator/pathHourly.js";
 import { computeRegionHourlyStats } from "./aggregator/regionHourly.js";
-import { computePathRecency } from "./aggregator/pathRecency.js";
+import {
+  computePathRecency,
+  prunePathRecency,
+} from "./aggregator/pathRecency.js";
 import { runVerdictLadder } from "./collectors/verdictLadder.js";
 import { pruneOldData } from "./aggregator/prune.js";
 import { checkDbSize } from "./aggregator/dbSizeGuard.js";
@@ -38,7 +41,8 @@ async function runTrackedAggregation(
     | "aggregator"
     | "path-aggregator"
     | "region-aggregator"
-    | "path-recency",
+    | "path-recency"
+    | "path-archive",
   fn: () => Promise<number>,
 ): Promise<void> {
   const started = Date.now();
@@ -184,9 +188,41 @@ async function main(): Promise<void> {
   );
 
   // path_hourly_stats day archiver — exports days older than the hot window
-  // to storage; deletes them only when ARCHIVE_PATH_STATS_PRUNE=true
+  // to storage; deletes them only when ARCHIVE_PATH_STATS_PRUNE=true.
+  // Recency is reconstructable from archived stats, so it is not exported
+  // separately, but it has no seal of its own: prunePathRecency is only
+  // allowed to delete `path_recency_hourly` days that THIS SAME PASS
+  // returned in `archived.sealedDays` (a verified manifest exists), never a
+  // window it computes on its own — that is what makes the delete a subset
+  // of confirmed-sealed days by construction (#609 review N1/N3). Both
+  // steps share one `nowMs` reading and are tracked as one "path-archive"
+  // health source: prunePathRecency only runs when the archive/export step
+  // (and its verification) is confirmed to have succeeded, and
+  // "path-archive" is only reported healthy once BOTH steps complete — a
+  // failure in either one is reported as unhealthy, so a stuck recency
+  // prune can never hide behind an archive step that already reported "ok".
   register("path-archive", pollIntervals.pathArchive, () =>
-    archivePathStats(db, config.archive.pathStats),
+    runTrackedAggregation(db, "path-archive", async () => {
+      const nowMs = Date.now();
+      const archived = await archivePathStats(
+        db,
+        config.archive.pathStats,
+        nowMs,
+      );
+      const pruned = await prunePathRecency(
+        db,
+        config.archive.pathStats,
+        archived.sealedDays,
+      );
+      log("info", "Path recency prune complete", {
+        daysPruned: pruned.daysPruned,
+        rowsDeleted: pruned.rowsDeleted,
+      });
+      // Tracked row count is rows written to storage only — rowsDeleted is
+      // rows destroyed from a different table and would make this metric
+      // uninterpretable if summed in (#609 review N4).
+      return archived.rowsArchived;
+    }),
   );
 
   // BH1 Activity Index baseline — daily band × hour-of-day percentile

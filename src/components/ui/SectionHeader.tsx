@@ -34,6 +34,14 @@ export interface SectionHeaderProps {
   /** Present only on a disclosure band: makes the whole band the toggle. */
   toggle?: { open: boolean; onToggle: () => void; controls: string };
   className?: string;
+  /**
+   * `row` (default) keeps the title/summary and the action side by side.
+   * `stack` drops the action below the summary as its own left-aligned row,
+   * so it never overprints wrapped text — for a host that cannot rely on the
+   * `.home-panel` container query (see `src/styles/home.css`) to switch
+   * automatically. Has no effect on a `toggle` band, whose markup is pinned.
+   */
+  layout?: "row" | "stack";
 }
 
 const BAND =
@@ -49,6 +57,7 @@ export function SectionHeader({
   element = "div",
   toggle,
   className,
+  layout = "row",
 }: SectionHeaderProps) {
   // The interactive band keeps a flat span/span/span title block: its
   // accessible name comes from the button, so a heading there would announce
@@ -56,7 +65,11 @@ export function SectionHeader({
   const Wrapper = toggle ? "span" : "div";
   const Title = toggle ? "span" : (as ?? "h2");
   const Summary = toggle ? "span" : "p";
-  const band = className ? `${BAND} ${className}` : BAND;
+  // `layout="stack"` never touches the toggle band: its right slot is a
+  // fixed-size glyph, not a status/action that can overprint text.
+  const band = [BAND, className, !toggle && layout === "stack" ? "su-section-header--stack" : null]
+    .filter(Boolean)
+    .join(" ");
 
   const block = (
     <Wrapper className="min-w-0">
@@ -89,7 +102,7 @@ export function SectionHeader({
   return (
     <Band className={band}>
       {block}
-      {action !== undefined && <div className="shrink-0">{action}</div>}
+      {action !== undefined && <div className="su-section-header__action shrink-0">{action}</div>}
     </Band>
   );
 }

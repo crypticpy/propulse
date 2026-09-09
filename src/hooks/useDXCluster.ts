@@ -14,16 +14,22 @@
  */
 
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useCallback, useEffect, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { fetchClusterFeed } from "@/lib/api/dxcluster";
 import { useBridge } from "@/hooks/useBridge";
 import { useClusterLink } from "@/hooks/useClusterLink";
+import {
+  clusterObservedAt,
+  clusterRequestWindow,
+  filterClusterAge,
+} from "@/lib/dx/clusterHistory";
 import {
   CLUSTER_BRIDGE_FUTURE_TOLERANCE_MS,
   filterBridgeSpotAge,
   mergeClusterBridgeSpot,
   readClusterBridgeSpot,
 } from "@/lib/hamclock/clusterBridge";
+import { spotFeedState } from "@/lib/map/spotAge";
 import { useUserStore } from "@/stores/userStore";
 import {
   useDXStore,
@@ -162,6 +168,7 @@ export function useDXCluster(
   const {
     spots,
     setSpots,
+    setClusterFeed,
     filters: storeFilters,
     maxSpots,
     spotSource,
@@ -204,6 +211,36 @@ export function useDXCluster(
   // Use external filters if provided, otherwise use store filters
   const filters = externalFilters || storeFilters;
 
+  // The existing age choices select a supported source-history window, and the
+  // request scope (contract, row cap, window) keys the cache so one window's
+  // rows are never reused for another.
+  const requestWindow = clusterRequestWindow(filters.maxAge);
+  const restScope = `${maxSpots}:${requestWindow}`;
+
+  // Only a default consumer speaks for the shared wall snapshot. External
+  // filters and disabled consumers read without publishing.
+  const publishesSnapshot = dataEnabled && externalFilters === undefined;
+
+  // Cached rows expire on the wall's ten-second clock rather than on refetch.
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    if (!dataEnabled) return;
+    const tick = () => {
+      const at = Date.now();
+      setNow(at);
+      // Prune on a tick only: the snapshot present at mount stays whole, so a
+      // failed refresh still shows its last good rows.
+      if (!publishesSnapshot) return;
+      useDXStore.setState((state) => {
+        if (state.spotSource === "bridge") return state;
+        const eligible = filterClusterAge(state.spots, state.filters.maxAge, at);
+        return eligible.length === state.spots.length ? state : { spots: eligible };
+      });
+    };
+    const timer = window.setInterval(tick, 10_000);
+    return () => window.clearInterval(timer);
+  }, [dataEnabled, publishesSnapshot]);
+
   // ─── Tier 1: Bridge WebSocket ─────────────────────────────────────────────
 
   // Mirror the bridge's cluster link status into the store. Without this the
@@ -242,26 +279,39 @@ export function useDXCluster(
   // ─── Tier 2: REST proxy ───────────────────────────────────────────────────
 
   const restQuery = useQuery({
-    queryKey: DX_QUERY_KEYS.restSpots,
-    queryFn: () => fetchClusterFeed(maxSpots).then((feed) => feed.spots),
+    queryKey: [...DX_QUERY_KEYS.restSpots, "feed-v1", maxSpots, requestWindow],
+    queryFn: () => fetchClusterFeed(maxSpots, requestWindow),
     enabled: dataEnabled && spotSource !== "bridge",
     staleTime: 30 * SECOND,
     refetchInterval: 30 * SECOND,
     retry: 2,
   });
+  const metadata = restQuery.data?.metadata;
+  const restSpots = useMemo(
+    () => filterClusterAge(restQuery.data?.spots ?? [], filters.maxAge, now),
+    [restQuery.data, filters.maxAge, now],
+  );
 
   // Publish REST only while REST still owns the source. A bridge packet can
   // arrive between this render and this effect, and must win that race.
+  const publishedScopeRef = useRef(restScope);
   useEffect(() => {
-    if (!dataEnabled || restQuery.data === undefined) return;
+    if (!publishesSnapshot) return;
+    const scopeChanged = publishedScopeRef.current !== restScope;
+    publishedScopeRef.current = restScope;
+    // A valid response — including an empty one — replaces the rows, and a new
+    // scope clears them. A failed request publishes nothing, so the last good
+    // snapshot survives while `feedState` reports the failure.
+    if (!scopeChanged && restQuery.data === undefined) return;
+    const rows = restQuery.data?.spots ?? [];
     useDXStore.setState((state) => state.spotSource === "bridge"
       ? state
-      : { spots: restQuery.data, spotSource: "rest" });
-  }, [dataEnabled, restQuery.data, spotSource]);
+      : { spots: rows, spotSource: "rest" });
+  }, [publishesSnapshot, restScope, restQuery.data, spotSource]);
 
   // Expire a quiet bridge snapshot on the same cadence as the passive tile.
   useEffect(() => {
-    if (!dataEnabled || spotSource !== "bridge") return;
+    if (!publishesSnapshot || spotSource !== "bridge") return;
     const expire = () => useDXStore.setState((state) => {
       if (state.spotSource !== "bridge") return state;
       const eligible = filterBridgeSpotAge(state.spots, state.filters.maxAge, Date.now());
@@ -270,12 +320,42 @@ export function useDXCluster(
     expire();
     const timer = window.setInterval(expire, 10_000);
     return () => window.clearInterval(timer);
-  }, [dataEnabled, spotSource]);
+  }, [publishesSnapshot, spotSource]);
+
+  // Bridge reports live in the shared store; REST rows come from this
+  // consumer's own scoped request, so an external filter reads its own window
+  // without disturbing the wall snapshot.
+  const allSpots = useMemo<DXSpot[]>(() => {
+    if (!dataEnabled) return [];
+    return spotSource === "bridge" ? spots : restSpots;
+  }, [dataEnabled, spotSource, spots, restSpots]);
 
   // Apply filters to spots
   const filteredSpots = dataEnabled
-    ? filterSpots(spots, filters, spotSource === "bridge" ? CLUSTER_BRIDGE_FUTURE_TOLERANCE_MS : 0)
+    ? filterSpots(allSpots, filters, spotSource === "bridge" ? CLUSTER_BRIDGE_FUTURE_TOLERANCE_MS : 0)
     : [];
+
+  // Source state travels with the rows: a request that failed after a cached
+  // read stays STALE, an initial failure is UNAVAILABLE, and a disconnected
+  // observer never relabels a live owner's transport.
+  const sourceState = spotSource === "bridge"
+    ? !dataEnabled
+      ? "OFF"
+      : bridgeConnected || connectedBridgeOwners.size > 0 ? "BRIDGE" : "BRIDGE OFF"
+    : spotFeedState(metadata, dataEnabled, restQuery.isLoading, restQuery.isError, now);
+  const feedState = useMemo(() => ({
+    state: sourceState,
+    windowMinutes: spotSource === "bridge" ? null : metadata?.windowMinutes ?? requestWindow,
+    fetchedAt: spotSource === "bridge" ? null : metadata?.fetchedAt ?? null,
+    observedAt: spotSource === "bridge"
+      ? clusterObservedAt(spots)
+      : metadata?.observedAt ?? null,
+  }), [sourceState, spotSource, metadata, requestWindow, spots]);
+  useEffect(() => {
+    if (!publishesSnapshot) return;
+    if (spotSource === "bridge" && !bridgeConnected && connectedBridgeOwners.size > 0) return;
+    setClusterFeed(feedState);
+  }, [publishesSnapshot, spotSource, bridgeConnected, feedState, setClusterFeed]);
 
   // ─── Cluster link control ─────────────────────────────────────────────────
 
@@ -301,21 +381,14 @@ export function useDXCluster(
   const error = dataEnabled && spotSource === "rest" ? restQuery.error : null;
   const isError = dataEnabled && spotSource === "rest" && restQuery.isError;
 
-  // Get last updated time
-  const lastUpdated =
-    !dataEnabled
-      ? null
-      : spotSource === "bridge"
-      ? spots.length > 0
-        ? spots[0].time
-        : null
-      : restQuery.dataUpdatedAt
-        ? new Date(restQuery.dataUpdatedAt)
-        : null;
+  // Retrieval time is server evidence, not the client cache's update time.
+  const timestamp = spotSource === "bridge" ? feedState.observedAt : feedState.fetchedAt;
+  const lastUpdated = dataEnabled && timestamp !== null ? new Date(timestamp) : null;
 
   return {
     spots: filteredSpots,
-    allSpots: dataEnabled ? spots : [],
+    allSpots,
+    feedState,
     isLoading,
     isFetching,
     isError,

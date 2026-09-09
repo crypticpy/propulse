@@ -106,6 +106,17 @@ export const useAuthStore = create<AuthState>()((set, get) => ({
             session: session ?? null,
           });
 
+          // #698: private Realtime channels (the account operating-state
+          // transport) authorize off this call, not off the anon key — keep
+          // it current on every sign-in, refresh and sign-out so a channel
+          // opened right after this listener runs is never using a stale or
+          // absent token. `.catch()` because a rejection here (e.g. no
+          // Realtime socket yet) must not become an unhandled rejection —
+          // supabase-js already forwards the session to Realtime on its own
+          // auth-change listener, so this is a belt-and-braces call, not the
+          // only thing keeping it current.
+          supabase.realtime.setAuth(session?.access_token ?? undefined).catch(() => {});
+
           if (event === "PASSWORD_RECOVERY") {
             set({ isRecoveryMode: true });
           }

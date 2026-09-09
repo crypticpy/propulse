@@ -8,6 +8,7 @@
 import { useMemo, useCallback, useState, useEffect, useRef } from "react";
 import { useDXCluster, useDXSpotStats } from "@/hooks/useDXCluster";
 import { useLogbook } from "@/hooks/useLogbook";
+import { useOptionalViewRuntime } from "@/components/views/ViewRuntimeContext";
 import {
   useDXStore,
   selectAvailableBands,
@@ -47,6 +48,7 @@ export interface DXSpotListState {
   isLoading: boolean;
   isFetching: boolean;
   lastUpdated: Date | null;
+  feedState: ReturnType<typeof useDXCluster>["feedState"];
   stats: ReturnType<typeof useDXSpotStats>;
 
   // Selection state
@@ -115,7 +117,7 @@ export interface DXSpotListState {
 export function useDXSpotListState(
   onResearchGrid?: (grid: string) => void,
 ): DXSpotListState {
-  const { spots, isLoading, isFetching, refetch, lastUpdated } = useDXCluster();
+  const { spots, isLoading, isFetching, refetch, lastUpdated, feedState } = useDXCluster();
   const {
     selectedSpot,
     setSelectedSpot,
@@ -126,6 +128,9 @@ export function useDXSpotListState(
     hideSpot,
   } = useDXStore();
   const stats = useDXSpotStats();
+  // Optional: DXSpotList is also mounted provider-less on OpsConsole/DXConsole
+  // (neither renders a map), so this stays store-only there.
+  const runtime = useOptionalViewRuntime();
 
   // Context menu state (Feature 2.6)
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
@@ -459,12 +464,19 @@ export function useDXSpotListState(
     (spot: DXSpot | null) => {
       if (!spot) {
         setSelectedSpot(null);
+        runtime?.clearSelection();
         return;
       }
       const isDeselecting = selectedSpot?.id === spot.id;
-      setSelectedSpot(isDeselecting ? null : spot);
+      if (isDeselecting) {
+        setSelectedSpot(null);
+        runtime?.clearSelection();
+      } else {
+        setSelectedSpot(spot);
+        runtime?.selectSpot(spot.id, null);
+      }
     },
-    [selectedSpot, setSelectedSpot],
+    [selectedSpot, setSelectedSpot, runtime],
   );
 
   const handleNeededOnlyToggle = useCallback(() => {
@@ -609,6 +621,7 @@ export function useDXSpotListState(
     isLoading,
     isFetching,
     lastUpdated,
+    feedState,
     stats,
 
     // Selection state

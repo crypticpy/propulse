@@ -2,13 +2,15 @@ import { afterEach, expect, it, vi } from "vitest";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useProfileStore } from "@/stores/profileStore";
+import { useHamClockDisplayStore } from "@/stores/hamclockDisplayStore";
+import { useMapStore } from "@/stores/mapStore";
 import { usePskStationView } from "@/hooks/usePskStation";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { useRigStore } from "@/stores/rigStore";
 import { PskStationReport } from "./PskStationReport";
 import type { PskStationSnapshot } from "@/lib/hamclock/pskStation";
-const original = { profile: useProfileStore.getState(), rig: useRigStore.getState(), settings: useSettingsStore.getState() };
-afterEach(() => { useProfileStore.setState(original.profile); useRigStore.setState(original.rig); useSettingsStore.setState(original.settings); usePskStationView.setState({ direction: "of", minutes: 15, band: "all" }); vi.unstubAllGlobals(); });
+const original = { display: useHamClockDisplayStore.getState(), map: useMapStore.getState(), profile: useProfileStore.getState(), rig: useRigStore.getState(), settings: useSettingsStore.getState() };
+afterEach(() => { useHamClockDisplayStore.setState(original.display); useMapStore.setState(original.map); useProfileStore.setState(original.profile); useRigStore.setState(original.rig); useSettingsStore.setState(original.settings); usePskStationView.setState({ direction: "of", minutes: 15, band: "all" }); vi.unstubAllGlobals(); });
 
 it("switches direction, age and band locally and tunes only through the explicit action", () => {
   const now = Date.now();
@@ -22,11 +24,19 @@ it("switches direction, age and band locally and tunes only through the explicit
   useRigStore.setState({ catEnabled: true, bridgeConnected: true, connected: true, pendingFrequency: null, pendingMode: null });
   const client = new QueryClient(); client.setQueryData(["pskStation", "N0TEST"], data);
   const fetcher = vi.fn(); vi.stubGlobal("fetch", fetcher);
-  const rendered = render(<QueryClientProvider client={client}><PskStationReport open onClose={() => {}} /></QueryClientProvider>);
+  const close = vi.fn();
+  const rendered = render(<QueryClientProvider client={client}><PskStationReport open onClose={close} /></QueryClientProvider>);
   const table = () => screen.getByRole("table", { name: "All loaded PSK receptions" });
   expect(table().textContent).toContain("W1AW");
   expect(table().textContent).not.toContain("K2ABC");
   expect(screen.getByText(/ROW LIMIT REACHED/)).toBeTruthy();
+  expect(useRigStore.getState().pendingFrequency).toBeNull();
+  useHamClockDisplayStore.setState({ mapContent: "contacts" });
+  fireEvent.click(screen.getByRole("button", { name: "SHOW ON MAP" }));
+  expect(useHamClockDisplayStore.getState().mapContent).toBe("both");
+  expect(close).toHaveBeenCalledOnce();
+  expect(useMapStore.getState().spotFeedScope).toBe("psk-station");
+  expect(useMapStore.getState().layers.spots).toBe(true);
   expect(useRigStore.getState().pendingFrequency).toBeNull();
   fireEvent.click(screen.getByRole("radio", { name: /BY MY CALL/ }));
   expect(table().textContent).not.toContain("K2ABC");

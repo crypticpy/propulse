@@ -27,6 +27,8 @@ import { useMapStore } from "@/stores/mapStore";
 import { useWatchStore, formatCriteriaSummary } from "@/stores/watchStore";
 import { useContestWatch } from "@/hooks/useContestWatch";
 import { applyLogIntent } from "@/lib/qso/logIntent";
+import { resolveMapSpotSelection } from "@/hooks/useMapSpotSelection";
+import { useOptionalViewRuntime } from "@/components/views/ViewRuntimeContext";
 
 /** Source badge styling map */
 const SOURCE_BADGE_STYLES: Record<
@@ -74,6 +76,7 @@ export function DXSpotList({
   const clearWatch = useWatchStore((s) => s.clearWatch);
   // ── Contest watch integration ──
   const contestWatch = useContestWatch();
+  const runtime = useOptionalViewRuntime();
 
   const state = useDXSpotListState(onResearchGrid);
 
@@ -82,6 +85,7 @@ export function DXSpotList({
     isLoading,
     isFetching,
     lastUpdated,
+    feedState,
     stats,
     selectedSpot,
     hoveredSpot,
@@ -202,9 +206,18 @@ export function DXSpotList({
     [handleContextAction],
   );
 
-  const handleWorkSpot = useCallback((spot: DXSpot) => {
-    applyLogIntent("work", spot);
-  }, []);
+  const handleWorkSpot = useCallback(
+    (spot: DXSpot) => {
+      const result = applyLogIntent("work", spot);
+      if (result.status === "ignored") return;
+      const resolved = resolveMapSpotSelection(spot);
+      runtime?.selectSpot(
+        spot.id,
+        resolved ? { lat: resolved.target.lat, lon: resolved.target.lon } : null,
+      );
+    },
+    [runtime],
+  );
 
   // --- QoL1: Keyboard-first DX spot navigation ---
   const spotListRef = useRef<HTMLDivElement>(null);
@@ -360,7 +373,7 @@ export function DXSpotList({
                   <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-green-400" />
                 </span>
               )}
-              {SOURCE_BADGE_STYLES[spotSource].label}
+              {SOURCE_BADGE_STYLES[spotSource].label} · {feedState.state}
             </span>
             {alertMatchCount > 0 && (
               <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-alert-red/20 text-alert-red border border-alert-red/30 animate-pulse">
@@ -685,7 +698,8 @@ export function DXSpotList({
       {/* Footer */}
       <div className="mt-2 pt-2 border-t border-su-line/40 flex items-center justify-between text-xs text-su-muted">
         <div>
-          {lastUpdated && <span>Updated {formatTime(lastUpdated)} UTC</span>}
+          <span aria-label="Cluster source status">{feedState.state}{feedState.windowMinutes !== null ? ` · ${feedState.windowMinutes} MIN LOADED SAMPLE` : ""}</span>
+          {lastUpdated && <span> · {spotSource === "bridge" ? "Last spot" : "Fetched"} {formatTime(lastUpdated)} UTC</span>}
         </div>
         <div className="flex items-center gap-3">
           <span>{stats.total} total</span>

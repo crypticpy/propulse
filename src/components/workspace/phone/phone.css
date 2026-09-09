@@ -1,0 +1,215 @@
+/**
+ * Phone canvas layout (#659). Tokens only — every color/spacing value below
+ * is a `--su-*` station-ui variable, never a raw hex or a hardcoded white
+ * (DS-16, legibility standard). Page bodies scroll at the page level
+ * (`.phone-page-body`); no widget scrolls internally (owner UI rule).
+ */
+
+.phone-page {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+  gap: var(--su-space-3);
+  max-width: 390px;
+  width: 100%;
+  margin: 0 auto;
+  padding: var(--su-space-3);
+  box-sizing: border-box;
+}
+
+.phone-state-strip {
+  display: flex;
+  flex-direction: column;
+  gap: var(--su-space-1);
+  padding: var(--su-space-3);
+  border-radius: var(--su-radius-panel);
+}
+
+.phone-state-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--su-space-2);
+}
+
+.phone-screens-row {
+  align-items: center;
+}
+
+.phone-screens-controls {
+  display: flex;
+  align-items: center;
+  gap: var(--su-space-2);
+}
+
+.phone-screens-reason,
+.phone-screens-label {
+  text-align: end;
+}
+
+/* The absolute page number this phone will command; see PhoneStateStrip's docblock. */
+.phone-screens-page {
+  color: var(--su-text-muted);
+  white-space: nowrap;
+}
+
+.phone-page-body {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  min-height: 0;
+}
+
+.phone-band-ladder,
+.phone-contact-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--su-space-2);
+}
+
+.phone-band-row,
+.phone-contact-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--su-space-2);
+  min-height: var(--su-control-height);
+  padding: var(--su-space-2) var(--su-space-3);
+  background: var(--su-panel);
+  border: 1px solid var(--su-line);
+  border-inline-start-width: 0.5rem;
+  border-radius: var(--su-radius-control);
+  text-align: start;
+  cursor: pointer;
+}
+
+.phone-band-row[data-selected="true"],
+.phone-contact-row[data-selected="true"] {
+  outline: 2px solid rgb(var(--su-accent-rgb));
+  outline-offset: -2px;
+}
+
+.phone-band-row-name {
+  font-weight: 600;
+}
+
+.phone-band-row-verdict {
+  color: var(--su-muted);
+}
+
+.phone-contact-row {
+  border-inline-start-width: 1px;
+  flex-wrap: wrap;
+}
+
+.phone-contact-row-call {
+  font-weight: 600;
+}
+
+.phone-page-nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--su-space-2);
+}
+
+.phone-page-dots {
+  display: flex;
+  align-items: center;
+  gap: var(--su-space-1);
+}
+
+.phone-page-dot {
+  min-width: var(--su-control-height);
+  min-height: var(--su-control-height);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+}
+
+.phone-page-dot::before {
+  content: "";
+  display: block;
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 999px;
+  background: var(--su-muted);
+}
+
+.phone-page-dot[data-active="true"]::before {
+  background: rgb(var(--su-accent-rgb));
+}
+
+.phone-setup-open {
+  align-self: center;
+}
+
+.phone-setup-bands {
+  flex-wrap: wrap;
+}
+
+.phone-selection-call {
+  font-size: 1.5rem;
+}
+
+.phone-contact-screen {
+  gap: var(--su-space-3);
+}
+
+.phone-contact-header {
+  display: flex;
+  flex-direction: column;
+  gap: var(--su-space-1);
+}
+
+.phone-contact-path {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--su-space-2) var(--su-space-4);
+}
+
+.phone-contact-window,
+.phone-contact-nearby {
+  display: flex;
+  flex-direction: column;
+  gap: var(--su-space-1);
+}
+
+.phone-contact-nearby-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--su-space-2);
+  min-height: var(--su-control-height);
+  padding: var(--su-space-1) var(--su-space-2);
+  background: var(--su-panel);
+  border: 1px solid var(--su-line);
+  border-radius: var(--su-radius-control);
+}
+
+.phone-tune-button {
+  min-height: 3rem;
+  width: 100%;
+  font-size: 1.05rem;
+  font-weight: 700;
+}
+
+.phone-tune-reason {
+  text-align: center;
+}
+
+.phone-tune-preview {
+  text-align: center;
+}
+
+.phone-tune-feedback {
+  text-align: center;
+  font-weight: 600;
+}
+
+.phone-tune-feedback-error {
+  color: var(--su-danger);
+}

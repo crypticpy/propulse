@@ -1,6 +1,5 @@
-import { useMemo, useSyncExternalStore } from "react";
+import { useSyncExternalStore } from "react";
 import { useViewRuntime } from "@/components/views/ViewRuntimeContext";
-import { latLonToGrid } from "@/lib/utils/grid";
 import type { DXSpot } from "@/types/dxcluster";
 import type { TargetLocation } from "@/stores/mapStore";
 
@@ -16,33 +15,16 @@ export function useBoundSelectedReportId(): string | undefined {
   );
 }
 
-function gridFromCoordinates(lat: number, lon: number): string | undefined {
-  try {
-    return latLonToGrid(lat, lon, 6);
-  } catch {
-    return undefined;
-  }
-}
-
 /**
- * Visual target for this view: bound spot selection first, then a manual
- * mapStore pin/grid target. Bound metadata is derived from this runtime's
- * coordinates, never copied from an unrelated global pin.
+ * Visual target for this view. `mapStore` remains the single visual target
+ * for now — the runtime-bound selection is written in parallel
+ * (`commitViewSpotSelection`) but is not yet read here, because ~14 other
+ * consumers still read `mapStore.target` directly and would disagree with a
+ * view that preferred the bound value. Restoring bound-selection precedence
+ * (and removing this pass-through) is tracked in #707.
  */
 export function useBoundVisualTarget(
   mapTarget: TargetLocation | null,
 ): TargetLocation | null {
-  const runtime = useViewRuntime();
-  const bound = useSyncExternalStore(
-    runtime.subscribe,
-    () => runtime.getSnapshot().interaction.target,
-  );
-  return useMemo(() => {
-    if (!bound) return mapTarget;
-    return {
-      lat: bound.lat,
-      lon: bound.lon,
-      grid: gridFromCoordinates(bound.lat, bound.lon),
-    };
-  }, [bound, mapTarget]);
+  return mapTarget;
 }

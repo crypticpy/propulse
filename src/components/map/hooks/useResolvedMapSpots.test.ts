@@ -2,9 +2,11 @@ import { renderHook } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { buildMapDataPolicy } from "@/lib/map/operationalScope";
 import type { MapDataPolicy } from "@/lib/map/operationalScope";
+import { useMapStore } from "@/stores/mapStore";
 import { useResolvedMapSpots } from "./useResolvedMapSpots";
 
 const mocks = vi.hoisted(() => ({
+  station: vi.fn(),
   live: vi.fn(),
   resolve: vi.fn(),
   activations: vi.fn(),
@@ -12,6 +14,7 @@ const mocks = vi.hoisted(() => ({
   policy: null as unknown as MapDataPolicy,
 }));
 
+vi.mock("@/hooks/usePskStation", () => ({ usePskStationData: mocks.station }));
 vi.mock("@/hooks/useLiveSpots", () => ({ useLiveSpots: mocks.live }));
 vi.mock("@/hooks/useActivationSpots", () => ({
   useActivationSpots: mocks.activations,
@@ -26,6 +29,8 @@ vi.mock("@/hooks/useMapOperationalContext", () => ({
 
 describe("useResolvedMapSpots", () => {
   beforeEach(() => {
+    useMapStore.setState({ spotFeedScope: "global" });
+    mocks.station.mockReturnValue({ rows: [], feed: { dataUpdatedAt: 0 }, view: { direction: "of", minutes: 15, band: "all" }, state: "UNAVAILABLE" });
     const rawSpot = { id: "raw-1" };
     mocks.policy = buildMapDataPolicy("observe", false);
     mocks.live.mockReturnValue({
@@ -60,6 +65,7 @@ describe("useResolvedMapSpots", () => {
       sources: undefined,
       spotFilters: undefined,
       fetchLimit: 200,
+      windowMinutes: 30,
     });
     expect(mocks.resolve).toHaveBeenCalledWith([{ id: "raw-1" }]);
     expect(result.current.resolvedSpots.map(({ id }) => id)).toEqual([
@@ -99,6 +105,7 @@ describe("useResolvedMapSpots", () => {
       sources: undefined,
       spotFilters: undefined,
       fetchLimit: 200,
+      windowMinutes: 30,
     });
     expect(mocks.activations).toHaveBeenCalledWith(true);
     expect(mocks.resolveActivations).toHaveBeenCalledWith(

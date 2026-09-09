@@ -288,14 +288,22 @@ export function projectLiveSpotsForView(
   nowMs: number,
 ): ViewLiveSpotProjection {
   const usedIds = new Map<string, string>();
+  // Raw `spot.id` values are not guaranteed unique across sources/observations.
+  // Only adopt one as the renderer id when it hasn't already been claimed by
+  // an earlier spot in this batch, otherwise `byReportId` below silently
+  // collapses two distinct spots onto one map entry. Falling back to the
+  // collision-safe generated id keeps every spot addressable.
+  const usedRawIds = new Set<string>();
   const mapped: { spot: LiveSpot; report: NormalizedSpotReport }[] = [];
   for (const spot of spots) {
     const report = normalizeLiveSpot(spot, usedIds);
     if (!report) continue;
     const parsedId = contractIdSchema.safeParse(spot.id);
+    const rawId = parsedId.success && !usedRawIds.has(parsedId.data) ? parsedId.data : null;
+    if (rawId) usedRawIds.add(rawId);
     mapped.push({
       spot,
-      report: parsedId.success ? { ...report, id: parsedId.data } : report,
+      report: rawId ? { ...report, id: rawId } : report,
     });
   }
   const matchingEntries = mapped.filter(({ report }) =>

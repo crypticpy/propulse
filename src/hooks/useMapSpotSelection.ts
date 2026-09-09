@@ -172,8 +172,11 @@ export function commitMapSpotSelection(
 }
 
 /**
- * Bound-runtime selection. Updates only the injected view; never tunes a radio
- * and never writes the legacy dx/map singletons.
+ * Bound-runtime selection. Updates the injected view and, additively, the
+ * legacy dx/map singletons — until the remaining `mapStore.target` /
+ * `dxStore.selectedSpot` / `mapOperationalStore.selectedReport` consumers
+ * migrate to the view runtime (#707), those readers must keep seeing the
+ * same selection this view just made. Never tunes a radio.
  */
 export function commitViewSpotSelection(
   runtime: ViewRuntime,
@@ -188,6 +191,11 @@ export function commitViewSpotSelection(
   } else {
     runtime.selectSpot(spot.id, null);
   }
+  commitMapSpotSelection(spot, {
+    setSelectedSpot: useDXStore.getState().setSelectedSpot,
+    setTarget: useMapStore.getState().setTarget,
+    setSelectedReport: useMapOperationalStore.getState().setSelectedReport,
+  });
   return resolved;
 }
 

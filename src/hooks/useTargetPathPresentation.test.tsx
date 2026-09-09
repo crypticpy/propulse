@@ -5,6 +5,7 @@ import type { ReactNode } from "react";
 import { ViewProvider } from "@/components/views/ViewProvider";
 import { createMemoryWorkingStorage } from "@/lib/views/runtime";
 import { useViewRuntime } from "@/components/views/ViewRuntimeContext";
+import { useActiveFrequency } from "@/hooks/useActiveBandMode";
 import { useDXStore } from "@/stores/dxStore";
 import { useMapStore } from "@/stores/mapStore";
 import { useUserStore } from "@/stores/userStore";
@@ -21,7 +22,7 @@ vi.mock("@/hooks/useSolarData", () => ({
   useKIndex: () => ({ data: [{ kp_index: 2 }] }),
 }));
 vi.mock("@/hooks/useActiveBandMode", () => ({
-  useActiveFrequency: () => 7_074_000,
+  useActiveFrequency: vi.fn(() => 7_074_000),
 }));
 vi.mock("@/lib/utils/rayTrace", () => ({
   traceRayPath: (args: {
@@ -98,25 +99,60 @@ describe("useTargetPathPresentation", () => {
     useDXStore.setState(originalDx);
     useMapStore.setState(originalMap);
     useUserStore.getState().setStation(null);
+    vi.mocked(useActiveFrequency).mockReturnValue(7_074_000);
   });
 
-  it("traces the bound report instead of a leftover global pin", () => {
+  it("traces the map store target, not a stale runtime-bound selection (#707)", () => {
+    // mapStore remains the single visual target for now — see
+    // useBoundVisualTarget in useBoundMapSelection.ts. A runtime-only bound
+    // selection (simulated here without the additive mapStore write that
+    // commitViewSpotSelection now performs) must not shadow the London pin
+    // already on mapStore, or PathAnalysis would draw to the wrong place.
     renderHook(() => usePathWithSelection(true), { wrapper: wrapper() });
     expect(traces.at(-1)).toMatchObject({
-      endLat: 35,
-      endLon: 139,
-      frequencyMHz: 14.074,
+      endLat: 51.5,
+      endLon: -0.1,
     });
     expect(useMapStore.getState().target).toMatchObject({ lat: 51.5, lon: -0.1 });
     expect(useDXStore.getState().selectedSpot).toBeNull();
   });
 
-  it("traces a bound selection when the global target is empty", () => {
+  it("does not trace when the global target is empty, even with a bound selection (#707)", () => {
     useMapStore.setState({ target: null });
     const rendered = renderHook(() => usePathWithSelection(true), {
       wrapper: wrapper(),
     });
+    expect(rendered.result.current.showRayPath).toBe(false);
+    expect(traces.length).toBe(0);
+  });
+
+  it("traces the clicked spot's own band, not the rig's dial frequency (NEW-1 regression)", () => {
+    // Every clickable spot on the globe/flat/azimuthal comes from
+    // useLiveSpots (PSKReporter/RBN/WSJT-X), not dxStore.spots (DX-cluster
+    // only). Resolving the selected spot by id from dxStore.spots silently
+    // misses those spots and falls through to the rig's dial frequency —
+    // wrong hops, wrong MUF verdict, wrong label. The selected spot must be
+    // read from dxStore.selectedSpot (already resolved by the click
+    // handler), not re-resolved by id.
+    vi.mocked(useActiveFrequency).mockReturnValue(14_074_000);
+    useDXStore.setState({
+      ...useDXStore.getState(),
+      selectedSpot: {
+        id: "live-1",
+        spotter: "K1ABC",
+        dx: "JA1XYZ",
+        frequency: 7074,
+        comment: "",
+        time: new Date("2026-09-07T12:00:00Z"),
+        dxLat: 51.5,
+        dxLon: -0.1,
+      },
+    });
+    const rendered = renderHook(
+      () => useTargetPathPresentation(new Date("2026-09-07T12:00:00Z")),
+      { wrapper: wrapper() },
+    );
     expect(rendered.result.current.showRayPath).toBe(true);
-    expect(traces.at(-1)).toMatchObject({ endLat: 35, endLon: 139 });
+    expect(traces.at(-1)).toMatchObject({ frequencyMHz: 7.074 });
   });
 });

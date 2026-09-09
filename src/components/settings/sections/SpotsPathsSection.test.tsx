@@ -20,11 +20,17 @@ import {
 } from "@/components/settings/spots/testing";
 import {
   createMemoryWorkingStorage,
+  getAnonymousInstallId,
   WORKING_SLOT_PREFIX,
   type ScopedViewRuntime,
 } from "@/lib/views/runtime";
+import type { IndexedViewLibrary } from "@/lib/views/persistence/indexedLibrary";
+import type { RevisionedViewRepository } from "@/lib/views/persistence/repository";
+import { useAuthStore } from "@/stores/authStore";
+import { useMapStore } from "@/stores/mapStore";
+import { useViewLibrarySessionStore } from "@/stores/viewLibrarySessionStore";
 import type { LiveSpot } from "@/types/livespot";
-import { SpotsPathsPreferences } from "./SpotsPathsSection";
+import { SpotsPathsPreferences, SpotsPathsSection } from "./SpotsPathsSection";
 import { familySlotForLayout } from "./spotsPathsTarget";
 
 const mocks = vi.hoisted(() => ({ live: vi.fn() }));
@@ -74,6 +80,17 @@ beforeEach(() => {
     liveSpotsResult(Array.from({ length: 25 }, (_, index) => liveSpot(index, now))),
   );
   sessionStorage.clear();
+  // jsdom ships no matchMedia; `useIsMobile` (folded into the target slot
+  // derivation) needs one. Desktop viewport, so the target follows layoutMode.
+  vi.stubGlobal(
+    "matchMedia",
+    vi.fn((media: string) => ({
+      matches: false,
+      media,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+    })),
+  );
   client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   libraryPort = createMemoryLibraryPort();
 });
@@ -129,10 +146,19 @@ function Tree({
 
 describe("familySlotForLayout", () => {
   it("routes Lite to the Normal mount point's slot and keeps the others", () => {
-    expect(familySlotForLayout("lite")).toBe("normal");
-    expect(familySlotForLayout("normal")).toBe("normal");
-    expect(familySlotForLayout("pro")).toBe("pro");
-    expect(familySlotForLayout("hamclock")).toBe("hamclock");
+    expect(familySlotForLayout("lite", false)).toBe("normal");
+    expect(familySlotForLayout("normal", false)).toBe("normal");
+    expect(familySlotForLayout("pro", false)).toBe("pro");
+    expect(familySlotForLayout("hamclock", false)).toBe("hamclock");
+  });
+
+  it("pins every mobile layout to normal, the only slot MobileMap mounts", () => {
+    // `MobileMap` hard-codes `<BoundViewHost slot="normal">`, and layoutMode is
+    // persisted per profile, so a phone carrying a Pro layout must still be
+    // offered the slot its own host reads.
+    expect(familySlotForLayout("pro", true)).toBe("normal");
+    expect(familySlotForLayout("hamclock", true)).toBe("normal");
+    expect(familySlotForLayout("lite", true)).toBe("normal");
   });
 });
 
@@ -182,6 +208,11 @@ describe("SpotsPaths settings entry point", () => {
     // Settings mounted second. If it took the host's registry key
     // (`ownerId\0slotId\0kind`), `registerRuntimeWriter` would have disposed
     // the host and this read would throw "View runtime has been disposed".
+    //
+    // On revert the assertion that moves is not this `not.toThrow()` — the
+    // render above throws first, because `useViewMapSpots` reads the disposed
+    // runtime during the host's re-render. This line is the backstop that
+    // names the failure when the crash is somewhere less obvious.
     expect(() => host!.getSnapshot()).not.toThrow();
 
     // Drop Settings, read the host again.
@@ -209,5 +240,69 @@ describe("SpotsPaths settings entry point", () => {
     await screen.findByRole("button", { name: /Open Spots & paths preferences/i });
 
     expect(workingSlotKeys()).toEqual([]);
+  });
+});
+
+/**
+ * Acceptance item (b) through the path production actually takes: no host is
+ * mounted (Settings and the map are separate routes), so the commit has to
+ * land in the working-slot record the next host recovers. The owner value the
+ * section derives is the whole point — `BoundViewHost` binds the raw auth id,
+ * and `ViewProvider` derives the storage namespace itself, so a section that
+ * passes an already-namespaced owner writes to a key no host ever reads.
+ */
+describe("SpotsPathsSection storage handoff", () => {
+  const repository = {
+    saveView: vi.fn(),
+    savePreset: vi.fn(),
+    deleteEntry: vi.fn(),
+  } as unknown as RevisionedViewRepository;
+  const library = { list: async () => [] } as unknown as IndexedViewLibrary;
+
+  it("applies into the slot a signed-out production host reads on its next mount", async () => {
+    const user = userEvent.setup();
+    // Signed out: `BoundViewHost` will pass ownerId null.
+    useAuthStore.setState({ user: null, session: null });
+    // What `useViewLibrarySession` puts in the store for that same session.
+    useViewLibrarySessionStore.setState({
+      epoch: {},
+      phase: "ready",
+      ownerId: `anon:${getAnonymousInstallId()}`,
+      repository,
+      library,
+      message: null,
+    });
+    useMapStore.setState({ layoutMode: "normal" });
+
+    const settings = render(
+      <QueryClientProvider client={client}>
+        <SpotsPathsSection />
+      </QueryClientProvider>,
+    );
+
+    await user.click(
+      await screen.findByRole("button", { name: /Open Spots & paths preferences/i }),
+    );
+    const slider = await screen.findByRole("slider", { name: "Maximum reports shown" });
+    fireEvent.change(slider, { target: { value: "10" } });
+    await user.click(screen.getByRole("button", { name: "Close dialog" }));
+    await user.click(screen.getByRole("button", { name: /Apply to Standard map/i }));
+    expect(
+      screen.getByText(/will use these settings the next time you open it\./),
+    ).toBeTruthy();
+    settings.unmount();
+
+    // Bound exactly as `BoundViewHost` binds a Standard map for this session:
+    // the raw auth id (null), the family slot, and the default session-backed
+    // working storage. Nothing is injected, so the handoff is observable.
+    render(
+      <QueryClientProvider client={client}>
+        <ViewProvider ownerId={null} slot="normal">
+          <MapHostProbe />
+        </ViewProvider>
+      </QueryClientProvider>,
+    );
+    const mapped = await screen.findByTestId("host-mapped");
+    expect(mapped.textContent).toBe("10");
   });
 });

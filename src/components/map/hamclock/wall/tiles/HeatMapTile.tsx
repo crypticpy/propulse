@@ -28,6 +28,7 @@ import {
   heatmapBucketColor,
   heatmapSpotAgeMinutes,
   heatmapWindowLabel,
+  NO_BASELINE_BACKGROUND,
 } from "./heatMapBuckets";
 
 // The report is only worth its bytes once an operator opens it.
@@ -62,8 +63,6 @@ function RegionalHeatMapTile(props: WallTileProps) {
   const baselineState = useHeatMapBaseline();
   return <HeatMapTileContent {...props} baselineState={baselineState} />;
 }
-
-const NO_BASELINE_BACKGROUND = "repeating-linear-gradient(135deg, var(--hc-bg) 0 3px, var(--hc-dim2) 3px 4px)";
 
 function HeatMapTileContent({ title = "Band heat map", baselineState }: WallTileProps & { baselineState?: ReturnType<typeof useHeatMapBaseline> }) {
   const now = useUTCClock(10_000);
@@ -191,7 +190,9 @@ function HeatMapTileContent({ title = "Band heat map", baselineState }: WallTile
   const sentence = `${formatBandLabel(hottest.band)} → ${hottest.continent} is the hottest cell`;
   const summary = cells
     .filter((cell) => cell.count > 0)
-    .map((cell) => `${cell.band} ${cell.continent} ${cell.count}`)
+    .map((cell) => ratioActive && cell.ratio === null
+      ? `${cell.band} ${cell.continent} no baseline`
+      : `${cell.band} ${cell.continent} ${cell.count}`)
     .join(", ");
 
   return (

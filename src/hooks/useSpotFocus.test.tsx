@@ -1,10 +1,11 @@
 import { render, screen } from "@testing-library/react";
-import { useLayoutEffect } from "react";
+import { useEffect, useLayoutEffect } from "react";
 import { describe, expect, it } from "vitest";
 import type { DXSpot } from "@/types/dxcluster";
 import { ViewProvider } from "@/components/views/ViewProvider";
 import { useViewRuntime } from "@/components/views/ViewRuntimeContext";
 import { createMemoryWorkingStorage } from "@/lib/views/runtime";
+import { EMPTY_VIEW_SPOTS } from "./useBoundMapSelection";
 import { commitViewSpotSelection } from "./useMapSpotSelection";
 import { hasValidSpotCoordinates, useViewSpotFocus } from "./useSpotFocus";
 
@@ -98,5 +99,54 @@ describe("useViewSpotFocus", () => {
       </ViewProvider>,
     );
     expect(screen.getByTestId("focus").textContent).toBe("none");
+  });
+});
+
+describe("useViewSpotFocus with a stable spots reference", () => {
+  it("does not refire the focus effect on unrelated re-renders (regression: inline [] retriggered focus every render)", () => {
+    const grid = dxSpot({ id: "grid-1", dxGrid: "GG87" });
+    const storage = createMemoryWorkingStorage();
+    let effectRuns = 0;
+
+    function FocusEffectProbe() {
+      // Passing the module-level stable EMPTY_VIEW_SPOTS constant, exactly
+      // like every production renderer, instead of an inline `[]` literal.
+      const { focusedSpot } = useViewSpotFocus(EMPTY_VIEW_SPOTS);
+      useEffect(() => {
+        effectRuns += 1;
+      }, [focusedSpot]);
+      return (
+        <span data-testid="focus">{focusedSpot ? focusedSpot.id : "none"}</span>
+      );
+    }
+
+    function Host() {
+      const runtime = useViewRuntime();
+      useLayoutEffect(() => {
+        commitViewSpotSelection(runtime, grid);
+      }, [runtime]);
+      return <FocusEffectProbe />;
+    }
+
+    const tree = (
+      <ViewProvider ownerId="owner-a" slot="normal" storage={storage}>
+        <Host />
+      </ViewProvider>
+    );
+    const { rerender } = render(tree);
+    expect(screen.getByTestId("focus").textContent).toBe("grid-1");
+
+    // Force five unrelated parent re-renders. With a stable spots reference
+    // the focused-spot identity must not change, so the effect keyed on it
+    // must not run again.
+    for (let i = 0; i < 5; i++) {
+      rerender(tree);
+    }
+
+    expect(screen.getByTestId("focus").textContent).toBe("grid-1");
+    // One run for the initial null focus, one for the resolved selection.
+    // Additional runs would mean the focus effect (and its 5s timer) is
+    // re-firing on every render, reproducing the infinite-loop regression.
+    expect(effectRuns).toBe(2);
   });
 });

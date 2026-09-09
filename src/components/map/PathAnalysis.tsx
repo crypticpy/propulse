@@ -19,6 +19,7 @@ import {
   type ReactNode,
 } from "react";
 import { useMapStore, type TargetLocation } from "@/stores/mapStore";
+import { useBoundVisualTarget } from "@/hooks/useBoundMapSelection";
 import {
   useUserStore,
   useActiveRadio,
@@ -497,7 +498,8 @@ export function PathAnalysis({
   onMinimize: _onMinimize,
   onClose,
 }: PathAnalysisProps) {
-  const target = useMapStore((s) => s.target);
+  const mapTarget = useMapStore((s) => s.target);
+  const target = useBoundVisualTarget(mapTarget);
   const timeOffset = useMapStore((s) => s.timeOffset);
   const absoluteTime = useMapStore((s) => s.absoluteTime);
   const isLive = timeOffset === 0 && !absoluteTime;

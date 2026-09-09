@@ -27,6 +27,7 @@ import "@/styles/hamclock-wall.css";
 import "@/styles/hamclock-wall-forecast.css";
 import "@/styles/hamclock-wall-report.css";
 import "@/styles/hamclock-wall-controls.css";
+import { BoundViewHost } from "@/components/views/BoundViewHost";
 import { useHamClockRadioFollow } from "@/hooks/useHamClockRadioFollow";
 import { useHamClockWallOperatingState } from "@/hooks/useHamClockWallOperatingState";
 import { useHamClockDisplayStore } from "@/stores/hamclockDisplayStore";
@@ -401,7 +402,7 @@ export function HamClockView({
   );
 
   return (
-    <>
+    <BoundViewHost slot="hamclock">
       <div
         data-hamclock-root
         data-hamclock-theme={display.theme}
@@ -412,7 +413,7 @@ export function HamClockView({
         </HamClockWall>
       </div>
       {settingsDialog}
-    </>
+    </BoundViewHost>
   );
 }
 

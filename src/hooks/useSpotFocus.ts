@@ -6,7 +6,6 @@
  */
 
 import { useEffect, useMemo, useRef, useCallback, useState, useSyncExternalStore } from "react";
-import { useDXStore } from "@/stores/dxStore";
 import type { DXSpot } from "@/types/dxcluster";
 import { useViewRuntime } from "@/components/views/ViewRuntimeContext";
 
@@ -202,13 +201,6 @@ function useSpotFocusState(
   };
 }
 
-export function useSpotFocus(): SpotFocusState {
-  const selectedSpot = useDXStore((state) => state.selectedSpot);
-  const setSelectedSpot = useDXStore((state) => state.setSelectedSpot);
-  const onClear = useCallback(() => setSelectedSpot(null), [setSelectedSpot]);
-  return useSpotFocusState(selectedSpot, onClear);
-}
-
 /** Camera focus for this view's selection only. Shared DX rows stay shared. */
 export function useViewSpotFocus(spots: readonly DXSpot[]): SpotFocusState {
   const runtime = useViewRuntime();
@@ -220,10 +212,17 @@ export function useViewSpotFocus(spots: readonly DXSpot[]): SpotFocusState {
     runtime.subscribe,
     () => runtime.getSnapshot().interaction.target,
   );
+  // Resolved outside the memo so the memo keys on the row itself, not on
+  // `spots`' array identity — a cluster poll produces a new `spots` array
+  // every cycle even when the selected row is unchanged, and keying on the
+  // array previously rebuilt `selectedSpot` (and re-armed the focus timer,
+  // see useSpotFocusState's [selectedSpot] effect) on every poll.
+  const row = selectedId
+    ? spots.find((spot) => spot.id === selectedId)
+    : undefined;
   const selectedSpot = useMemo(() => {
     if (!selectedId) return null;
     if (!target || (target.reportId !== null && target.reportId !== selectedId)) return null;
-    const row = spots.find((spot) => spot.id === selectedId);
     const hadCoordinates = hasValidSpotCoordinates(row);
     return {
       ...(row ?? {
@@ -238,7 +237,7 @@ export function useViewSpotFocus(spots: readonly DXSpot[]): SpotFocusState {
       dxLon: target.lon,
       dxLocApprox: hadCoordinates ? row?.dxLocApprox === true : !row?.dxGrid,
     };
-  }, [spots, selectedId, target]);
+  }, [row, selectedId, target]);
   const onClear = useCallback(() => runtime.clearSelection(), [runtime]);
   return useSpotFocusState(selectedSpot, onClear);
 }

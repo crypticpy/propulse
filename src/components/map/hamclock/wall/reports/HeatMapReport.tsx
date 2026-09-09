@@ -28,6 +28,7 @@ import {
   heatmapBucketLabel,
   heatmapSpotAgeMinutes,
   heatmapWindowLabel,
+  NO_BASELINE_BACKGROUND,
 } from "../tiles/heatMapBuckets";
 import { reportFooter } from "../tokens";
 import { WallReport, type WallReportFact, type WallReportTone } from "./WallReport";
@@ -61,8 +62,6 @@ function RegionalHeatMapReport(props: HeatMapReportProps) {
   const baselineState = useHeatMapBaseline();
   return <HeatMapReportContent {...props} baselineState={baselineState} />;
 }
-
-const NO_BASELINE_BACKGROUND = "repeating-linear-gradient(135deg, var(--hc-bg) 0 3px, var(--hc-dim2) 3px 4px)";
 
 function HeatMapReportContent({
   open,
@@ -225,13 +224,11 @@ function HeatMapReportContent({
               return (
                 <span
                   key={continent}
-                  className="hcr-heatgrid-cell"
+                  className={`hcr-heatgrid-cell${ratioActive ? " hcr-heatgrid-cell--ratio" : ""}`}
                   data-no-baseline={noBaseline || undefined}
                   style={{
                     background: noBaseline ? NO_BASELINE_BACKGROUND : heatmapBucketColor(preset.id, cellBucket),
                     color: noBaseline ? "var(--hc-fg)" : undefined,
-                    whiteSpace: "nowrap", minWidth: 0, overflow: "hidden",
-                    fontSize: ratioActive ? "1.1vh" : undefined,
                   }}
                   title={`${formatBandLabel(band)} · ${continent} · ${cell?.count ?? 0} ${ratioActive ? `SPOTS · ${formatHeatmapRatio(cell?.ratio ?? null)} LOG2 RATIO` : "DX"}`}
                 >

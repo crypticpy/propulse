@@ -12,6 +12,7 @@ function git(args, options = {}) {
     return execFileSync("git", args, {
       encoding: "utf8",
       stdio: ["ignore", "pipe", options.quiet ? "ignore" : "inherit"],
+      cwd: options.cwd,
     }).trim();
   } catch (error) {
     if (options.allowFailure) return "";
@@ -147,7 +148,7 @@ function fallbackBase(localOid, remoteName) {
   ).split(/\r?\n/)[0] ?? "";
 }
 
-function pushRanges(remoteName) {
+export function pushRanges(remoteName) {
   const updates = parseRefUpdates(process.env.PROPULSE_PUSH_REF_UPDATES ?? "");
   const ranges = updates
     .filter((update) => !ZERO_OID.test(update.localOid))
@@ -156,33 +157,123 @@ function pushRanges(remoteName) {
         ? fallbackBase(update.localOid, remoteName)
         : update.remoteOid,
       head: update.localOid,
+      remoteRef: update.remoteRef,
     }))
     .filter((range) => range.base && range.head && range.base !== range.head);
 
   if (ranges.length > 0) return ranges;
 
+  const currentRef = git(["symbolic-ref", "--quiet", "HEAD"], {
+    allowFailure: true,
+    quiet: true,
+  });
+
   const upstream = git(
     ["rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{u}"],
     { allowFailure: true, quiet: true },
   );
-  if (upstream) return [{ base: upstream, head: "HEAD" }];
+  if (upstream) return [{ base: upstream, head: "HEAD", remoteRef: currentRef }];
 
   const parent = git(["rev-parse", "HEAD^"], {
     allowFailure: true,
     quiet: true,
   });
-  return parent ? [{ base: parent, head: "HEAD" }] : [];
+  return parent ? [{ base: parent, head: "HEAD", remoteRef: currentRef }] : [];
 }
 
-function changedPaths(ranges) {
+const MAIN_BRANCH = "main";
+
+function isMainPush(remoteRef) {
+  return remoteRef === `refs/heads/${MAIN_BRANCH}` || remoteRef === MAIN_BRANCH;
+}
+
+function resolveMainRef(remoteName, cwd) {
+  return git(["rev-parse", `refs/remotes/${remoteName}/${MAIN_BRANCH}`], {
+    allowFailure: true,
+    quiet: true,
+    cwd,
+  });
+}
+
+function gitIsAncestor(ancestor, descendant, cwd) {
+  const result = spawnSync(
+    "git",
+    ["merge-base", "--is-ancestor", ancestor, descendant],
+    { cwd, stdio: "ignore" },
+  );
+  // A failed invocation (missing binary, bad OID, etc.) is treated the same
+  // as "not an ancestor": selectDiffBase then widens to the merge-base
+  // rather than silently trusting an unproven `base`. Fail toward the wider
+  // diff, never toward skipping.
+  return !result.error && result.status === 0;
+}
+
+// Decides the base commit used to diff a single pushed range for
+// classification. Pure function of its inputs — `mainRef` is already
+// resolved (or "" if unavailable), `mergeBase`/`isAncestor` are callbacks —
+// so the branch-selection decision can be unit tested without a git
+// fixture. The git calls that produce those inputs live in `diffRangeFor`
+// below for production, and directly in the git-fixture tests.
+//
+// A plain `base..head` two-dot diff is correct for an ordinary push, but is
+// wrong when `head` is a merge of `main` into a feature branch: it then
+// lists every file that differs between the branch's old remote tip and the
+// merge commit, which includes content that arrived purely through
+// ancestry from `main` and was never introduced by the branch itself. So
+// when `head` has actually merged from `main`, we diff from where the
+// branch diverges from `main` (`merge-base(head, mainRef)`) instead, so
+// only the branch's own contribution is classified. A later merge from a
+// further-advanced `main`, and a conflict resolution made inside the merge
+// commit itself, both remain visible in that range either way — both land
+// as content that differs between the merge-base and `head`, so narrowing
+// never hides them.
+//
+// Critically, we only widen to that merge-base when `range.base` does not
+// already cover it (`isAncestor(mergeBase, range.base)`). For an ordinary
+// push whose branch has never merged `main`, the merge-base is the fork
+// point — older than the stale remote tip in `range.base` — and switching
+// to it would resurface the branch's entire history on every subsequent
+// push instead of just the new commits.
+export function selectDiffBase(range, mainRef, mergeBase, isAncestor) {
+  if (!mainRef) return range.base;
+  const mainMergeBase = mergeBase(range.head, mainRef);
+  if (!mainMergeBase) return range.base;
+  return isAncestor(mainMergeBase, range.base) ? range.base : mainMergeBase;
+}
+
+// Picks the diff range used to classify a single pushed range. Pushes to
+// `main` itself keep the original two-dot behaviour unconditionally —
+// merge-base against origin/main can trivially equal `head` there
+// (origin/main is often already the direct parent of what's being pushed),
+// which would produce an empty diff and silently skip verification.
+function diffRangeFor({ base, head, remoteRef }, remoteName, cwd) {
+  if (!isMainPush(remoteRef)) {
+    const mainRef = resolveMainRef(remoteName, cwd);
+    const selectedBase = selectDiffBase(
+      { base, head },
+      mainRef,
+      (rangeHead, ref) =>
+        git(["merge-base", rangeHead, ref], { allowFailure: true, quiet: true, cwd }),
+      (ancestor, descendant) => gitIsAncestor(ancestor, descendant, cwd),
+    );
+    return `${selectedBase}..${head}`;
+  }
+  return `${base}..${head}`;
+}
+
+export function changedPaths(ranges, options = {}) {
+  const { remoteName = "origin", cwd } = options;
   const paths = new Set();
-  for (const { base, head } of ranges) {
-    const output = git([
-      "diff",
-      "--name-only",
-      "--diff-filter=ACMRTUXB",
-      `${base}..${head}`,
-    ]);
+  for (const range of ranges) {
+    const output = git(
+      [
+        "diff",
+        "--name-only",
+        "--diff-filter=ACMRTUXB",
+        diffRangeFor(range, remoteName, cwd),
+      ],
+      { cwd },
+    );
     output.split(/\r?\n/).filter(Boolean).forEach((path) => paths.add(path));
   }
   return [...paths];
@@ -222,7 +313,7 @@ function printPlan(plan) {
 function main() {
   const remoteName = process.argv[2] ?? "origin";
   const ranges = pushRanges(remoteName);
-  const plan = classifyPushPaths(changedPaths(ranges));
+  const plan = classifyPushPaths(changedPaths(ranges, { remoteName }));
   printPlan(plan);
   checkDiffWhitespace(ranges);
   run(

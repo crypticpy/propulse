@@ -2,7 +2,7 @@
  * SelectedSpotArc Component
  *
  * Renders a highlighted arc from spotter to DX station for the currently
- * selected DX spot. Stays visible as long as a spot is selected in dxStore.
+ * selected DX spot. Stays visible while this view's runtime has a selection.
  *
  * Uses plasma-orange color with a subtle breathing animation and glow effect.
  */
@@ -12,6 +12,7 @@ import { Line } from "@react-three/drei";
 import { useFrame } from "@react-three/fiber";
 import * as THREE from "three";
 import { getPathPoints } from "@/lib/utils/path";
+import { useViewSpotFocus } from "@/hooks/useSpotFocus";
 import { useDXStore } from "@/stores/dxStore";
 import { gridToLatLon, isValidGrid } from "@/lib/utils/grid";
 import {
@@ -79,7 +80,8 @@ function getLocationFromCallsign(
  * - Endpoint spheres at spotter and DX positions
  */
 export function SelectedSpotArc() {
-  const selectedSpot = useDXStore((s) => s.selectedSpot);
+  const spots = useDXStore((s) => s.spots);
+  const { focusedSpot: selectedSpot } = useViewSpotFocus(spots);
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const mainLineRef = useRef<any>(null);

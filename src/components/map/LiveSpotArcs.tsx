@@ -18,6 +18,7 @@ import { Line } from "@react-three/drei";
 import { getPathPoints } from "@/lib/utils/path";
 import { gridToLatLon, isValidGrid } from "@/lib/utils/grid";
 import { useLiveSpots } from "@/hooks/useLiveSpots";
+import { useBoundSelectedReportId } from "@/hooks/useBoundMapSelection";
 import { useDXStore } from "@/stores/dxStore";
 import { useMapStore } from "@/stores/mapStore";
 import {
@@ -752,7 +753,7 @@ export function LiveSpotArcs({
   const maxArcs = maxArcsProp ?? displayDensity ?? 50;
   // Get source filter from dxStore - shared with DXSpotList
   const filters = useDXStore((state) => state.filters);
-  const selectedSpotId = useDXStore((state) => state.selectedSpot?.id);
+  const selectedSpotId = useBoundSelectedReportId();
   const sourcesFilter = filters.sources as SpotSource[] | undefined;
 
   // Get profile-based spot filters from mapStore

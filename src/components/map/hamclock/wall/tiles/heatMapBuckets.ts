@@ -68,6 +68,15 @@ export const HEATMAP_BUCKET_LABEL: Record<string, string[]> = {
   ],
 };
 
+/**
+ * The "no qualified baseline" hatch, shared by the tile's small grid and the
+ * report's larger one (both are vh-scaled). The stripe pitch is expressed in
+ * vh, not px, so it scales with the grid instead of going hairline-thin on
+ * the tile or coarse on the report.
+ */
+export const NO_BASELINE_BACKGROUND =
+  "repeating-linear-gradient(135deg, var(--hc-bg) 0 0.3vh, var(--hc-dim2) 0.3vh 0.4vh)";
+
 const DEFAULT_BUCKET_CLASS = "hc-dim-text";
 
 export function heatmapBucketClass(presetId: string, bucket: number): string {

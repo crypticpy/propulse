@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render as rtlRender, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { LiveSpot } from "@/types/livespot";
@@ -8,6 +8,12 @@ import { useMapStore } from "@/stores/mapStore";
 import { useOpsPostureStore } from "@/stores/opsPostureStore";
 import { useQSOStore } from "@/stores/qsoStore";
 import { SelectedSpotCard } from "./SelectedSpotCard";
+import { ViewProvider } from "@/components/views/ViewProvider";
+import { useViewRuntime } from "@/components/views/ViewRuntimeContext";
+import { commitViewSpotSelection } from "@/hooks/useMapSpotSelection";
+import { createMemoryWorkingStorage } from "@/lib/views/runtime";
+import type { ReactElement, ReactNode } from "react";
+import { useLayoutEffect } from "react";
 
 const { selectMapSpot, navigate } = vi.hoisted(() => ({
   selectMapSpot: vi.fn(),
@@ -20,6 +26,7 @@ vi.mock("@/hooks/useMapSpotSelection", async (importOriginal) => {
   return {
     ...actual,
     useMapSpotSelection: () => selectMapSpot,
+    useViewSpotSelection: () => selectMapSpot,
   };
 });
 
@@ -76,6 +83,20 @@ const spot: LiveSpot = {
   source: "PSKReporter",
   snr: -8,
 };
+
+const viewStorage = createMemoryWorkingStorage();
+
+function ViewWrap({ children }: { children: ReactNode }) {
+  return (
+    <ViewProvider ownerId="test" slot="normal" storage={viewStorage}>
+      {children}
+    </ViewProvider>
+  );
+}
+
+function render(ui: ReactElement) {
+  return rtlRender(ui, { wrapper: ViewWrap });
+}
 
 describe("SelectedSpotCard", () => {
   beforeEach(() => {
@@ -276,5 +297,36 @@ describe("SelectedSpotCard", () => {
     expect(screen.getByText("POTA US-1234")).toBeTruthy();
     expect(screen.getByText("Test Park")).toBeTruthy();
     expect(screen.getByText("Parks on the Air")).toBeTruthy();
+  });
+
+  it("marks the report as the active target once the bound selection also lands on mapStore", () => {
+    // `useBoundVisualTarget` is a pass-through to `mapTarget` until #707
+    // (see useBoundMapSelection.ts) — a runtime-only selection must not be
+    // enough to flip this button; the additive `mapStore.setTarget` write
+    // from `commitViewSpotSelection` is what other panels on screen agree on.
+    function SelectHost({ children }: { children: ReactNode }) {
+      const runtime = useViewRuntime();
+      useLayoutEffect(() => {
+        commitViewSpotSelection(runtime, spot);
+      }, [runtime]);
+      return children;
+    }
+
+    render(
+      <SelectHost>
+        <SelectedSpotCard
+          spot={spot}
+          position={{ x: 10, y: 10 }}
+          onOperator={vi.fn()}
+          onClose={vi.fn()}
+        />
+      </SelectHost>,
+    );
+
+    expect(screen.getByRole("button", { name: "Target selected" })).toBeTruthy();
+    expect(useMapStore.getState().target).toMatchObject({
+      lat: spot.dxLat,
+      lon: spot.dxLon,
+    });
   });
 });

@@ -32,6 +32,7 @@ import { latLonToGrid } from "@/lib/utils/grid";
 import { EarthSphere } from "./EarthSphere";
 import { GlobeDepthDome } from "./GlobeDepthDome";
 import { GlobeUnavailable } from "./GlobeUnavailable";
+import { WebGLContextGuard } from "./useWebGLContextGuard";
 import { probeWebGLSupport } from "@/lib/webgl/webglSupport";
 import { TiledGlobe } from "./TiledGlobe";
 import { TiledLabels } from "./TiledLabels";
@@ -134,8 +135,12 @@ import { useTropicalCyclones } from "@/hooks/useTropicalCyclones";
 import { useContestQsoLocations } from "@/hooks/useContestQsoLocations";
 import { useLoggedQsoLocations } from "@/hooks/useLoggedQsoLocations";
 import { useWeatherRadar } from "@/hooks/useWeatherRadar";
-import { useSpotFocus } from "@/hooks/useSpotFocus";
-import { useMapSpotSelection } from "@/hooks/useMapSpotSelection";
+import { useViewSpotFocus } from "@/hooks/useSpotFocus";
+import { useViewSpotSelection } from "@/hooks/useMapSpotSelection";
+import {
+  EMPTY_VIEW_SPOTS,
+  useBoundVisualTarget,
+} from "@/hooks/useBoundMapSelection";
 import {
   useMapOperationalContext,
   useScopedMapLayers,
@@ -357,7 +362,7 @@ function CameraController() {
   const hamclockObservatoryCamera = useRef<THREE.Vector3 | null>(null);
   const controlsRef = useRef<OrbitControlsType>(null);
   const { camera, gl, size } = useThree();
-  const { targetPosition, isFocusing } = useSpotFocus();
+  const { targetPosition, isFocusing } = useViewSpotFocus(EMPTY_VIEW_SPOTS);
   const centerLocation = useMapStore((state) => state.centerLocation);
   const clearCenterLocation = useMapStore((state) => state.clearCenterLocation);
   const activePresetId = useMapStore((state) => state.activePresetId);
@@ -1126,8 +1131,9 @@ const GlobeScene = React.memo(function GlobeScene({
 }: GlobeSceneProps) {
   const layoutMode = useMapStore((s) => s.layoutMode);
   const layers = useScopedMapLayers();
-  const target = useMapStore((s) => s.target);
-  const selectedSpot = useDXStore((s) => s.selectedSpot);
+  const mapTarget = useMapStore((s) => s.target);
+  const target = useBoundVisualTarget(mapTarget);
+  const { focusedSpot: selectedSpot } = useViewSpotFocus(EMPTY_VIEW_SPOTS);
   const mapStyle = useMapStore((s) => s.mapStyle);
   const nightDarkness = useMapStore((s) => s.nightDarkness);
   const rotation = useMapStore((s) => s.rotation);
@@ -2014,7 +2020,8 @@ export function GlobeView({
   const zoom = useMapStore((s) => s.zoom);
   const displayQuality = useDisplayQualityStore((s) => s.displayQuality);
   const qualitySettings = useResolvedDisplayQuality(displayQuality);
-  const target = useMapStore((s) => s.target);
+  const mapTarget = useMapStore((s) => s.target);
+  const target = useBoundVisualTarget(mapTarget);
   const tooltipPosition = useMapStore((s) => s.tooltipPosition);
   const setTooltipPosition = useMapStore((s) => s.setTooltipPosition);
   const flyoutPosition = useMapStore((s) => s.flyoutPosition);
@@ -2046,9 +2053,17 @@ export function GlobeView({
   // runtime (post-mount) failure.
   const [webgl, setWebgl] = useState(() => probeWebGLSupport());
   const [attempt, setAttempt] = useState(0);
+  // Set when the browser reports a genuine (post-mount) WebGL context loss —
+  // this can't be caught by GlobeErrorBoundary because it surfaces inside
+  // the rAF render loop, outside React's render/commit phase.
+  const [contextLost, setContextLost] = useState(false);
   const retryWebGL = useCallback(() => {
     setWebgl(probeWebGLSupport());
+    setContextLost(false);
     setAttempt((prev) => prev + 1);
+  }, []);
+  const handleContextLost = useCallback(() => {
+    setContextLost(true);
   }, []);
   const useFlatMap = useCallback(() => {
     if (onUseFlatMap) onUseFlatMap();
@@ -2062,7 +2077,7 @@ export function GlobeView({
   const getPinById = usePinStore((s) => s.getPinById);
   const { pushAction } = useUndoStore();
   const updateFilter = useDXStore((s) => s.updateFilter);
-  const selectMapSpot = useMapSpotSelection();
+  const selectMapSpot = useViewSpotSelection();
   const {
     hoveredSpotData,
     handleSpotHover,
@@ -2627,7 +2642,7 @@ export function GlobeView({
 
   return (
     <div className="w-full h-full min-h-[400px] bg-deep-space rounded-xl overflow-hidden relative isolate select-none">
-      {webgl.supported ? (
+      {webgl.supported && !contextLost ? (
         <GlobeErrorBoundary
           key={attempt}
           fallback={
@@ -2639,6 +2654,10 @@ export function GlobeView({
           }
         >
           <Canvas dpr={qualitySettings.renderDevicePixelRatio}>
+            {/* Releases the context on unmount instead of r3f's delayed 500ms
+                teardown, and turns a genuine loss into the GlobeUnavailable
+                fallback whose Retry remounts a fresh context. */}
+            <WebGLContextGuard onLost={handleContextLost} />
             {import.meta.env.DEV && (
               <GlobePerformanceDiagnostics
                 settleDelayMs={qualitySettings.settleDelayMs}

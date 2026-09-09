@@ -54,9 +54,28 @@ let previousBodyOverflow: string | null = null;
  */
 let bodyPortalObserver: MutationObserver | null = null;
 
+/**
+ * Body children the observer has actually watched arrive, as opposed to
+ * ones that were already present when it started observing.
+ *
+ * This is what lets the foreign-modal exemption in `syncBackgroundInert`
+ * single out portals the app deliberately layered above a dialog (see the
+ * comment there) without also exempting `#root`: `#root` is a direct body
+ * child mounted at page bootstrap, long before any dialog's observer
+ * connects, so it can never be added to this set.
+ */
+const lateBodyPortals = new WeakSet<HTMLElement>();
+
 function ensureBodyPortalObserverConnected(): void {
   if (bodyPortalObserver) return;
-  bodyPortalObserver = new MutationObserver(() => syncBackgroundInert());
+  bodyPortalObserver = new MutationObserver((records) => {
+    for (const record of records) {
+      for (const node of record.addedNodes) {
+        if (node instanceof HTMLElement) lateBodyPortals.add(node);
+      }
+    }
+    syncBackgroundInert();
+  });
   bodyPortalObserver.observe(document.body, { childList: true });
 }
 
@@ -113,13 +132,28 @@ function syncBackgroundInert(): void {
       restoreOriginal(child);
       continue;
     }
-    // A body portal that isn't on this module's stack but is itself a modal
-    // (ConfirmDialog, ImageCropDialog, EquipmentHeroCard's bare
-    // `createPortal`) was deliberately layered above the dialog by the app,
-    // not left behind by it. Inerting it would make it paint on top while
-    // being completely dead — unreachable by Tab/click, invisible to
-    // screen readers, and Escape would fall through to this dialog instead.
-    if (!stackRoots.has(child) && child.querySelector('[aria-modal="true"]')) continue;
+    // A body portal that arrived after this dialog started watching, isn't
+    // on this module's stack, and is itself a modal (ConfirmDialog,
+    // ImageCropDialog, EquipmentHeroCard's bare `createPortal`) was
+    // deliberately layered above the dialog by the app, not left behind by
+    // it. Inerting it would make it paint on top while being completely
+    // dead — unreachable by Tab/click, invisible to screen readers, and
+    // Escape would fall through to this dialog instead.
+    //
+    // The late-arrival check is load-bearing, not incidental: `#root` is a
+    // direct body child whose subtree is the entire app, and it always
+    // predates the observer (this component only ever portals to
+    // `document.body`, never into `#root`). Several components render
+    // `aria-modal="true"` inline rather than through a body portal —
+    // without requiring lateness, `#root.querySelector('[aria-modal="true"]')`
+    // would match whenever any of those is mounted and turn off background
+    // inert app-wide.
+    if (
+      lateBodyPortals.has(child) &&
+      !stackRoots.has(child) &&
+      child.querySelector('[aria-modal="true"]')
+    )
+      continue;
     child.inert = true;
     child.setAttribute("aria-hidden", "true");
   }

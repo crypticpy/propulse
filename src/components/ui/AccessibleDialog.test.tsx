@@ -517,29 +517,21 @@ describe("AccessibleDialog late-mounted body portals (#693)", () => {
     expect(late.hasAttribute("aria-hidden")).toBe(false);
   });
 
-  it("never constructs the body portal observer when no dialog is open", async () => {
-    const observeSpy = vi.spyOn(MutationObserver.prototype, "observe");
-
-    appendLatePortal();
-    await new Promise((resolve) => setTimeout(resolve, 0));
-
-    // This is the only load-bearing assertion here: it goes red if
-    // `ensureBodyPortalObserverConnected()` is ever hoisted above the `!top`
-    // guard (or to module scope). A bare body child with no dialog open is
-    // never inerted either way, with or without that bug, so asserting
-    // `inert`/`aria-hidden` here would be unfalsifiable.
-    expect(observeSpy).not.toHaveBeenCalled();
-
-    observeSpy.mockRestore();
-  });
-
-  it("does not inert a body child mounted after the dialog that was watching it has closed", async () => {
-    // Regression coverage for a leaked observer: `disconnectBodyPortalObserver()`
-    // must actually run in the `!top` branch of `syncBackgroundInert`, not
-    // just get called (that's already covered below). A leaked observer
-    // would still fire on this append, take the `!top` branch, inert
-    // nothing, and disconnect — every other assertion in this file would
-    // stay green, which is why this needs its own test.
+  it("stops inerting new body children once the last dialog has closed", async () => {
+    // A black-box leak test is structurally impossible here: with an empty
+    // stack, `syncBackgroundInert()` is a total DOM no-op, and the next
+    // dialog open just reuses whatever observer is still attached — so a
+    // leaked observer and a correctly-disconnected one both leave every
+    // assertion in this file green. (The disconnect call itself is pinned
+    // by the prototype spy in the test below, which is the only place a
+    // leak is actually observable.)
+    //
+    // What this test does pin, and nothing else does: once
+    // `indexOfTopmostOpenEntry()` finds no open entry, a body child that
+    // arrives afterward must not be inerted. Break the stack reset at the
+    // end of the dialog's cleanup effect, or regress
+    // `indexOfTopmostOpenEntry()` to report a stale `top`, and this goes
+    // red while every other test here stays green.
     const { rerender } = render(
       <AccessibleDialog open onClose={vi.fn()} title="Host">
         <button type="button">Host action</button>
@@ -602,6 +594,34 @@ describe("AccessibleDialog late-mounted body portals (#693)", () => {
     expect(nonModal.getAttribute("aria-hidden")).toBe("true");
     expect(foreignModal.inert).toBeFalsy();
     expect(foreignModal.hasAttribute("aria-hidden")).toBe(false);
+  });
+
+  it("inerts a pre-existing body child with a nested aria-modal descendant (the #root shape)", async () => {
+    // RTL's render container is always empty, so no other test in this file
+    // can see the bug this regresses: `#root` is a direct body child whose
+    // subtree is the whole app, it's mounted long before any dialog opens,
+    // and several components render `aria-modal="true"` inline rather than
+    // through a body portal. The foreign-modal-exemption check must not
+    // match this shape — an ordinary content node that merely predates the
+    // dialog and happens to contain unrelated `aria-modal` markup deep
+    // inside it — or background inert turns off app-wide the moment one of
+    // those inline modals is mounted.
+    const appRoot = document.createElement("div");
+    appRoot.innerHTML =
+      '<div class="app-shell">Ordinary app content' +
+      '<div role="dialog" aria-modal="true">Unrelated inline modal</div>' +
+      "</div>";
+    document.body.append(appRoot);
+    lateNodes.push(appRoot);
+
+    render(
+      <AccessibleDialog open onClose={vi.fn()} title="Host">
+        <button type="button">Host action</button>
+      </AccessibleDialog>,
+    );
+
+    await waitFor(() => expect(appRoot.inert).toBeTruthy());
+    expect(appRoot.getAttribute("aria-hidden")).toBe("true");
   });
 
   it("still inerts a lower dialog's own portal even though its panel also carries aria-modal", () => {

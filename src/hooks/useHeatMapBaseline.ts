@@ -48,6 +48,9 @@ export interface HeatMapSnapshot {
   unavailableLabel: string | null;
 }
 
+const NEEDS_MORE_SAMPLES = "NEEDS 14 BASELINE SAMPLES";
+const NO_BASELINE_THIS_HOUR = "NO BASELINE FOR THIS UTC HOUR";
+
 /**
  * @param ageMs CDN `Age` header (seconds -> ms) at receipt time. The origin's
  * `fetchedAt` is stamped when the edge function computed the body, but the
@@ -94,8 +97,8 @@ export function buildHeatMapSnapshot(payload: unknown, ageMs = 0): HeatMapSnapsh
     : payload.current.length === 0 ? "NO COMPLETE-HOUR DATA (COLLECTOR GAP)"
     : current.size === 0 ? "NO COMPATIBLE REGIONAL DATA"
     : payload.baseline.length === 0 ? "NO BASELINE DATA"
-    : baseline.size === 0 ? compatibleSamples ? "NEEDS 14 BASELINE SAMPLES" : "NO COMPATIBLE BASELINE DATA"
-    : !matchedHour ? "NO BASELINE FOR THIS UTC HOUR"
+    : baseline.size === 0 ? compatibleSamples ? NEEDS_MORE_SAMPLES : "NO COMPATIBLE BASELINE DATA"
+    : !matchedHour ? NO_BASELINE_THIS_HOUR
     : !computedAt ? "BASELINE AGE UNAVAILABLE" : null;
   return { baseline, current, hourUtc, fetchedAt, computedAt, unavailableLabel };
 }
@@ -109,8 +112,13 @@ async function fetchHeatMapBaseline(signal: AbortSignal): Promise<HeatMapSnapsho
 
 /** The two "waiting on the collector's climatology job" states resolve only
  * at the next UTC hour, same as the healthy case; every other unavailable
- * state (including the collector-gap read) keeps the 60 s poll. */
-const HOUR_BOUNDARY_LABELS = new Set(["NEEDS 14 BASELINE SAMPLES", "NO BASELINE FOR THIS UTC HOUR"]);
+ * state (including the collector-gap read) keeps the 60 s poll. Named rather
+ * than repeated as literals so rewording the operator-facing copy cannot
+ * silently drop a state back to the 60 s poll. */
+const HOUR_BOUNDARY_LABELS: ReadonlySet<string> = new Set([
+  NEEDS_MORE_SAMPLES,
+  NO_BASELINE_THIS_HOUR,
+]);
 
 /** Pure so item 4's back-off can be asserted without driving react-query's
  * own refetch scheduler. `fetchedAt` already carries the CDN `Age`

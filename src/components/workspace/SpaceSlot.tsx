@@ -1,26 +1,38 @@
+import { Suspense } from "react";
 import { getRegistryEntry } from "@/lib/workspace/registry";
 import { EmptyRailButton } from "./EmptyRailButton";
+import { getWidgetComponent } from "./widgetLoaders";
+
+/** The "coming soon" card shown for a widget id with no live form yet, and as
+ * the Suspense fallback while a live tile's chunk is still loading (#670). */
+function PlaceholderBody({ title }: { title: string }) {
+  return (
+    <div className="workspace-widget-placeholder">
+      <p className="su-eyebrow">{title}</p>
+      <p className="su-hint">Coming soon</p>
+    </div>
+  );
+}
 
 /**
- * One placed widget, wherever it lands (space or a rail). Mounting the real
- * wall-tile component here would pull the entire `wall/tiles` barrel (every
- * tile module) into this route's bundle — that barrel is already reachable
- * from the wall route, and a second reachability path makes the bundler
- * split it into a new shared chunk that collides with the app-shell precache
- * glob. Live content wiring is out of scope for the shell (#656); every
- * placed widget shows its registry title in a plain placeholder card for
- * now.
+ * One placed widget, wherever it lands (space or a rail). Densities other
+ * than "work" have no live form yet (`widgetLoaders.ts`), so most ids still
+ * fall back to a plain placeholder card showing the registry title.
  */
 export function WidgetCard({ widgetId }: { widgetId: string }) {
   const entry = getRegistryEntry(widgetId);
   const title = entry?.title ?? widgetId;
+  const LiveTile = getWidgetComponent(widgetId, "work");
 
   return (
     <div className="su-surface workspace-widget-card" data-testid={`workspace-widget-${widgetId}`}>
-      <div className="workspace-widget-placeholder">
-        <p className="su-eyebrow">{title}</p>
-        <p className="su-hint">Coming soon</p>
-      </div>
+      {LiveTile ? (
+        <Suspense fallback={<PlaceholderBody title={title} />}>
+          <LiveTile />
+        </Suspense>
+      ) : (
+        <PlaceholderBody title={title} />
+      )}
     </div>
   );
 }

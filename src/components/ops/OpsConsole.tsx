@@ -12,6 +12,7 @@ import { DXConsole, DXSpotList } from "@/components/dx";
 import { ContestDock } from "@/components/contest/ContestDock";
 import { WSJTXStatusPanel } from "@/components/dx/WSJTXStatusPanel";
 import { OpsLoggerStrip } from "@/components/ops/OpsLoggerStrip";
+import { HeatMapStrip } from "@/components/workspace/widgets/HeatMapStrip";
 import { useMapStore } from "@/stores/mapStore";
 import { useMapOperationalStore } from "@/stores/mapOperationalStore";
 import { useOpsPostureStore } from "@/stores/opsPostureStore";
@@ -330,6 +331,11 @@ export function OpsConsole({
             </span>
           )}
           <OperationalScopeControl compact showPopout={false} />
+          {/* Glance density, #661: reads the shared `useDXStore` feed
+              directly (no own fetch) so it stays visible across every tab,
+              not just Observe — mount only, whichever tab last drove the DX
+              cluster feed keeps this current. */}
+          <HeatMapStrip />
         </div>
 
         {/* Tabs */}

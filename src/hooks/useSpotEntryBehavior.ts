@@ -25,7 +25,7 @@ interface UseSpotEntryBehaviorArgs {
     nextText: string;
     source: "spot";
   }) => void;
-  runtime?: ScopedViewRuntime | null;
+  runtime: ScopedViewRuntime | null;
 }
 
 export function useSpotEntryBehavior(args: UseSpotEntryBehaviorArgs) {
@@ -52,8 +52,11 @@ export function useSpotEntryBehavior(args: UseSpotEntryBehaviorArgs) {
   return useCallback(
     (spot: DXSpot) => {
       // Map targeting + selection are always safe
-      commitMapSpotSelection(spot, { setSelectedSpot, setTarget });
-      runtime?.selectSpot(spot.id, null);
+      const resolved = commitMapSpotSelection(spot, { setSelectedSpot, setTarget });
+      runtime?.selectSpot(
+        spot.id,
+        resolved ? { lat: resolved.target.lat, lon: resolved.target.lon } : null,
+      );
 
       if (!sessionId) {
         return;

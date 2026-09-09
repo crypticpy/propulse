@@ -27,6 +27,7 @@ import { useMapStore } from "@/stores/mapStore";
 import { useWatchStore, formatCriteriaSummary } from "@/stores/watchStore";
 import { useContestWatch } from "@/hooks/useContestWatch";
 import { applyLogIntent } from "@/lib/qso/logIntent";
+import { resolveMapSpotSelection } from "@/hooks/useMapSpotSelection";
 import { useOptionalViewRuntime } from "@/components/views/ViewRuntimeContext";
 
 /** Source badge styling map */
@@ -207,8 +208,13 @@ export function DXSpotList({
 
   const handleWorkSpot = useCallback(
     (spot: DXSpot) => {
-      applyLogIntent("work", spot);
-      runtime?.selectSpot(spot.id, null);
+      const result = applyLogIntent("work", spot);
+      if (result.status === "ignored") return;
+      const resolved = resolveMapSpotSelection(spot);
+      runtime?.selectSpot(
+        spot.id,
+        resolved ? { lat: resolved.target.lat, lon: resolved.target.lon } : null,
+      );
     },
     [runtime],
   );

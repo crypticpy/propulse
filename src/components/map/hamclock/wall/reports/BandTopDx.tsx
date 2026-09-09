@@ -50,7 +50,7 @@ export function BandTopDx() {
                 map.setTarget({ ...target, name: spot.dx, grid: spot.dxGrid });
                 map.setCenterLocation(target.lat, target.lon);
                 useDXStore.getState().setSelectedSpot(spot);
-                runtime?.selectSpot(spot.id, null);
+                runtime?.selectSpot(spot.id, { lat: target.lat, lon: target.lon });
               }}
             >
               {spot.dx} · {spot.band ?? "—"} · {distance(km)} ·{" "}

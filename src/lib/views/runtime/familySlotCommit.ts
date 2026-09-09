@@ -16,8 +16,8 @@ import {
  * runtime and then commits explicitly into one family slot. There are two
  * places that slot's configuration can live, and both have to be covered:
  *
- * - a mounted host owns it in memory (`registry.ts`), so the commit is
- *   `replaceWorkingView` on that runtime and the host re-renders at once;
+ * - a mounted host owns it in memory (`registry.ts`), so the commit patches
+ *   that runtime and the host re-renders at once;
  * - no host is mounted (the usual case: Settings and the map are separate
  *   routes), so the commit is a working-slot record the host recovers on its
  *   next mount (`createViewRuntime` -> `shouldRecoverWorking`).
@@ -44,12 +44,12 @@ export function readFamilySlotConfig(
   return record.config;
 }
 
-export type FamilySlotCommitTarget = "runtime" | "storage";
+export type FamilySlotCommitTarget = "runtime" | "storage" | "failed";
 
 /**
  * Writes `config` into one family slot for one owner. Returns where it landed
- * so the caller can tell the user whether a mounted map changed now or will
- * change when it next opens.
+ * so the caller can tell the user whether a mounted map changed now, will
+ * change when it next opens, or did not change at all.
  */
 export function commitViewToFamilySlot(options: {
   ownerId: string | null;
@@ -65,18 +65,28 @@ export function commitViewToFamilySlot(options: {
   };
   const live = getRuntimeWriter(address);
   if (live && !live.isDisposed()) {
+    // A patch, not `replaceWorkingView`: that commits EMPTY_INTERACTION and
+    // would wipe the selection, target and expanded groups of the map the user
+    // is looking at. These three fields are the whole persisted configuration.
+    live.updateWorkingView({
+      spots: config.spots,
+      presentation: config.presentation,
+      context: config.context,
+    });
     // The host persists its own working slot on write, so this covers both
     // the live render and the next mount.
-    live.replaceWorkingView(config);
     return "runtime";
   }
   const storage = options.storage ?? defaultStorage();
   const namespace = ownerNamespace(ownerId);
   const previous = storage.read(namespace, slotId);
-  storage.write(namespace, slotId, {
-    config,
-    workingRevision: (previous?.workingRevision ?? 0) + 1,
-    sourceView: null,
-  });
+  const workingRevision = (previous?.workingRevision ?? 0) + 1;
+  storage.write(namespace, slotId, { config, workingRevision, sourceView: null });
+  // Session-storage writes swallow quota and private-mode failures, and no
+  // runtime is holding the value either, so a write that does not read back is
+  // a preference that simply vanished. Read it back rather than report an
+  // applied change that never happened.
+  const stored = storage.read(namespace, slotId);
+  if (!stored || stored.workingRevision !== workingRevision) return "failed";
   return "storage";
 }

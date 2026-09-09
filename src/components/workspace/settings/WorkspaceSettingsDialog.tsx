@@ -1,4 +1,5 @@
 import { HamClockTabs } from "@/components/map/hamclock/wall/controls";
+import { StationProvider } from "@/components/station-ui";
 import "../workspace-settings.css";
 import { CentreOverlay } from "../CentreOverlay";
 import { DisplayTab } from "./DisplayTab";
@@ -33,17 +34,24 @@ export function WorkspaceSettingsDialog({ open, onClose, defaultTab = "pages" }:
       title="WORKSPACE SETTINGS"
       purpose="Pages, widgets, recipes and display for this workspace."
     >
-      <HamClockTabs
-        label="Workspace settings"
-        orientation="vertical"
-        defaultActive={defaultTab}
-        tabs={[
-          { id: "pages", label: "Pages", content: <PagesTab /> },
-          { id: "widgets", label: "Widgets", content: <WidgetsTab /> },
-          { id: "recipes", label: "Recipes", content: <RecipesTab /> },
-          { id: "display", label: "Display", content: <DisplayTab /> },
-        ]}
-      />
+      {/* `CentreOverlay` renders via `HamClockDialog`, which portals to
+          `document.body` — outside the app's `.station-ui` tree, so the tabs'
+          `su-*` tokens (`--su-control-height`, `--su-gap`, `--su-text-scale`)
+          are undefined there and controls drop under the 44pt minimum target.
+          Re-scope them locally, the same way `PhoneSetupMenu` does (#685 P2). */}
+      <StationProvider>
+        <HamClockTabs
+          label="Workspace settings"
+          orientation="vertical"
+          defaultActive={defaultTab}
+          tabs={[
+            { id: "pages", label: "Pages", content: <PagesTab /> },
+            { id: "widgets", label: "Widgets", content: <WidgetsTab /> },
+            { id: "recipes", label: "Recipes", content: <RecipesTab /> },
+            { id: "display", label: "Display", content: <DisplayTab /> },
+          ]}
+        />
+      </StationProvider>
     </CentreOverlay>
   );
 }

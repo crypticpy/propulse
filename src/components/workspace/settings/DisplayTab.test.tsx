@@ -11,6 +11,8 @@ describe("DisplayTab", () => {
     localStorage.clear();
     useWorkspaceStore.setState(originalWorkspaceState, true);
     useOperatingStateStore.getState().reset();
+    // `reset()` deliberately leaves `followScreens` alone; pin the ON precondition.
+    useOperatingStateStore.setState({ followScreens: true });
   });
 
   it("mounts the SHARING follow-screens toggle in the layout section", () => {

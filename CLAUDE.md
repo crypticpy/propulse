@@ -24,6 +24,13 @@ cd bridge && npm install && npm run dev   # WebSocket on ws://localhost:9867
 
 Vitest is the test runner (`npm run test`; focused runs via `npx vitest run <path>`). `npm run verify` is the push gate.
 
+## Shared-machine rules (several agents run here at once)
+
+- Tests: use `npm test` (`vitest run`). Never `vitest` watch mode in an agent session. The config caps workers at 4; set `VITEST_MAX_WORKERS` only when the machine has nothing else running.
+- Dev servers: run `npm run dev:session status` first. Reuse a live session for your owner/task; start a new one only if none fits, and stop it (Ctrl-C) when your check is done. Never start plain `npm run dev` from an agent.
+- One `npm run verify` at a time per machine: check `pgrep -fl vitest` and `pgrep -fl "tsc -b"` before starting; wait if another run is in progress.
+- Prefer Vercel preview deployments over local servers for visual checks (owner rule, 2026-08-30).
+
 ## Architecture Overview
 
 **Stack**: React 18 + TypeScript 5.7 (strict) + Vite 6 + Tailwind 3 + Three.js + Zustand 5

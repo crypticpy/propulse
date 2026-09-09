@@ -295,6 +295,11 @@ export interface SettingsState {
    * the public storage CDN (~2.5 MB, current month only). Default off.
    */
   globeHiResTextures: boolean;
+
+  // ─── Workspace (persisted) ─────────────────────────────────────────────────
+
+  /** Gates `/workspace` (the rails + space container, #656). Default off — nothing changes until this flips. */
+  workspaceEnabled: boolean;
 }
 
 // ─── Store interface ─────────────────────────────────────────────────────────
@@ -460,6 +465,7 @@ const defaultSettings: SettingsState = {
   tileMaxCacheMB: 512,
   tileFadeEnabled: true,
   globeHiResTextures: false,
+  workspaceEnabled: false,
 };
 
 // ─── Store ───────────────────────────────────────────────────────────────────
@@ -699,7 +705,7 @@ export const useSettingsStore = create<SettingsStore>()(
     }),
     {
       name: "propulse-settings",
-      version: 37,
+      version: 38,
       storage: createJSONStorage(() => localStorage),
       partialize: (state) => {
         const persisted: Partial<SettingsStore> = { ...state };
@@ -1069,6 +1075,10 @@ export const useSettingsStore = create<SettingsStore>()(
           if (state.catHamlibPort === undefined || state.catHamlibPort === 4533) {
             state.catHamlibPort = 4532;
           }
+        }
+        if (version < 38) {
+          // Add the workspace shell flag (#656). Default off.
+          if (state.workspaceEnabled === undefined) state.workspaceEnabled = false;
         }
         return state as unknown as SettingsState & SettingsStore;
       },

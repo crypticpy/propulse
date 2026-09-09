@@ -10,8 +10,8 @@
  * Portal-based rendering, escape/backdrop close, forgot passphrase with data loss warning.
  */
 
-import { useState, useEffect, useRef, useCallback } from "react";
-import { createPortal } from "react-dom";
+import { useState, useEffect, useId, useRef } from "react";
+import { AccessibleDialog } from "@/components/ui/AccessibleDialog";
 import {
   setupPassphrase,
   unlock as unlockStore,
@@ -179,7 +179,8 @@ export function CredentialUnlockDialog({
 
   // Refs for focus management
   const passphraseRef = useRef<HTMLInputElement>(null);
-  const modalRef = useRef<HTMLDivElement>(null);
+  const titleId = useId();
+  const descriptionId = useId();
 
   // Store actions
   const setCredentialStoreSetup = useProfileStore(
@@ -225,51 +226,6 @@ export function CredentialUnlockDialog({
       });
     }
   }, [isOpen]);
-
-  // Escape key handler
-  useEffect(() => {
-    if (!isOpen) return;
-
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
-        onClose();
-      }
-    };
-
-    document.addEventListener("keydown", handleKeyDown);
-    return () => document.removeEventListener("keydown", handleKeyDown);
-  }, [isOpen, onClose]);
-
-  // Prevent background scroll
-  useEffect(() => {
-    if (!isOpen) return;
-    const prev = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    return () => {
-      document.body.style.overflow = prev;
-    };
-  }, [isOpen]);
-
-  // Focus trap
-  const handleTabTrap = useCallback((e: React.KeyboardEvent) => {
-    if (e.key !== "Tab" || !modalRef.current) return;
-
-    const focusable = modalRef.current.querySelectorAll<HTMLElement>(
-      'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])',
-    );
-    if (focusable.length === 0) return;
-
-    const first = focusable[0];
-    const last = focusable[focusable.length - 1];
-
-    if (e.shiftKey && document.activeElement === first) {
-      e.preventDefault();
-      last.focus();
-    } else if (!e.shiftKey && document.activeElement === last) {
-      e.preventDefault();
-      first.focus();
-    }
-  }, []);
 
   // ---------------------------------------------------------------------------
   // Handlers
@@ -335,35 +291,25 @@ export function CredentialUnlockDialog({
   // Render
   // ---------------------------------------------------------------------------
 
-  if (!isOpen || typeof document === "undefined") return null;
-
   const serviceLabel = getServiceLabel(requestingService);
 
-  return createPortal(
-    <div
-      className="fixed inset-0 z-[500] flex items-center justify-center p-4 md:p-6"
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="credential-unlock-title"
+  return (
+    <AccessibleDialog
+      open={isOpen}
+      onClose={onClose}
+      title={
+        mode === "setup"
+          ? "Secure Your Credentials"
+          : "Unlock Credential Vault"
+      }
+      chrome="bare"
+      labelledBy={titleId}
+      describedBy={descriptionId}
+      panelProps={{
+        className: `w-full max-w-md p-6 bg-deep-space border border-su-line/40 rounded-xl shadow-2xl animate-in zoom-in-95 ${shaking ? "animate-shake" : ""}`,
+      }}
     >
-      {/* Backdrop */}
-      <div
-        className="absolute inset-0 bg-black/70 backdrop-blur-sm animate-in fade-in"
-        onClick={onClose}
-      />
-
-      {/* Modal */}
-      <div
-        ref={modalRef}
-        className={`
-          relative z-10 w-full max-w-md p-6
-          bg-deep-space border border-su-line/40
-          rounded-xl shadow-2xl
-          animate-in zoom-in-95
-          ${shaking ? "animate-shake" : ""}
-        `}
-        onKeyDown={handleTabTrap}
-      >
+      <>
         {/* Header */}
         <div className="flex items-center gap-3 mb-5">
           {/* Lock icon */}
@@ -384,15 +330,12 @@ export function CredentialUnlockDialog({
           </div>
 
           <div className="flex-1 min-w-0">
-            <h2
-              id="credential-unlock-title"
-              className="text-lg font-bold text-su-text"
-            >
+            <h2 id={titleId} className="text-lg font-bold text-su-text">
               {mode === "setup"
                 ? "Secure Your Credentials"
                 : "Unlock Credential Vault"}
             </h2>
-            <p className="text-xs text-su-muted mt-0.5">
+            <p id={descriptionId} className="text-xs text-su-muted mt-0.5">
               {mode === "setup" ? (
                 "Create a passphrase to encrypt your QSL service credentials"
               ) : serviceLabel ? (
@@ -708,9 +651,8 @@ export function CredentialUnlockDialog({
             )}
           </div>
         )}
-      </div>
-    </div>,
-    document.body,
+      </>
+    </AccessibleDialog>
   );
 }
 

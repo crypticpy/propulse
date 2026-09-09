@@ -7,8 +7,8 @@
  * Detects recovery mode to auto-show the reset password view.
  */
 
-import { useState, useEffect, useCallback, useRef, useMemo } from "react";
-import { createPortal } from "react-dom";
+import { useState, useEffect, useCallback, useId, useRef, useMemo } from "react";
+import { AccessibleDialog } from "@/components/ui/AccessibleDialog";
 import { useAuthStore, selectIsAuthenticated } from "@/stores/authStore";
 import { useAuthUIStore } from "@/stores/authUIStore";
 import { isSupabaseConfigured } from "@/lib/supabase";
@@ -191,6 +191,8 @@ export function AuthModal() {
   const [displayView, setDisplayView] = useState<ModalView>("signin");
 
   const inputRef = useRef<HTMLInputElement | null>(null);
+  const titleId = useId();
+  const descriptionId = useId();
 
   // Password strength for current password value
   const strength = useMemo(
@@ -226,16 +228,6 @@ export function AuthModal() {
     }
   }, [isOpen, displayView]);
 
-  // ── Body scroll lock ─────────────────────────────────────────────
-  useEffect(() => {
-    if (isOpen) {
-      document.body.style.overflow = "hidden";
-      return () => {
-        document.body.style.overflow = "";
-      };
-    }
-  }, [isOpen]);
-
   // ── Reset state when modal closes ────────────────────────────────
   useEffect(() => {
     if (!isOpen) {
@@ -249,16 +241,6 @@ export function AuthModal() {
       clearError();
     }
   }, [isOpen, clearError]);
-
-  // ── Escape key ───────────────────────────────────────────────────
-  useEffect(() => {
-    if (!isOpen) return;
-    const handler = (e: KeyboardEvent) => {
-      if (e.key === "Escape") closeAuthModal();
-    };
-    window.addEventListener("keydown", handler);
-    return () => window.removeEventListener("keydown", handler);
-  }, [isOpen, closeAuthModal]);
 
   // ── View transition helper ───────────────────────────────────────
   const switchView = useCallback(
@@ -378,30 +360,37 @@ export function AuthModal() {
     reset_password: "Set New Password",
   };
 
-  if (!isOpen || !isSupabaseConfigured) return null;
+  // The contextual prompt is the only body copy that names this dialog's
+  // purpose, and it renders on exactly one view. `describedBy` must track it:
+  // AccessibleDialog uses the id verbatim and suppresses its own description
+  // node, so passing it unconditionally would point `aria-describedby` at an
+  // element that does not exist on every other view and on the common
+  // no-prompt sign-in.
+  const showPrompt = Boolean(prompt) && displayView === "signin";
 
-  const modal = (
-    <div
-      className="fixed inset-0 z-[400] flex items-center justify-center p-4"
-      role="dialog"
-      aria-modal="true"
-      aria-label={viewTitles[displayView]}
+  return (
+    <AccessibleDialog
+      open={isOpen && isSupabaseConfigured}
+      onClose={closeAuthModal}
+      title={viewTitles[displayView]}
+      chrome="bare"
+      labelledBy={titleId}
+      describedBy={showPrompt ? descriptionId : undefined}
+      panelProps={{
+        className:
+          "w-full max-w-sm bg-void-black/95 border border-su-line/50 rounded-2xl shadow-2xl overflow-hidden",
+      }}
     >
-      {/* Backdrop */}
-      <div
-        className="absolute inset-0 bg-black/60 backdrop-blur-sm"
-        onClick={closeAuthModal}
-      />
-
-      {/* Panel */}
-      <div className="relative w-full max-w-sm bg-void-black/95 border border-su-line/50 rounded-2xl shadow-2xl overflow-hidden">
+      <>
         {/* Header */}
         <div className="px-6 pt-6 pb-2">
-          <h2 className="text-lg font-semibold text-su-text">
+          <h2 id={titleId} className="text-lg font-semibold text-su-text">
             {viewTitles[displayView]}
           </h2>
-          {prompt && displayView === "signin" && (
-            <p className="text-sm text-su-muted mt-1">{prompt}</p>
+          {showPrompt && (
+            <p id={descriptionId} className="text-sm text-su-muted mt-1">
+              {prompt}
+            </p>
           )}
         </div>
 
@@ -762,9 +751,7 @@ export function AuthModal() {
             No account needed -- the app works fully offline.
           </p>
         </div>
-      </div>
-    </div>
+      </>
+    </AccessibleDialog>
   );
-
-  return createPortal(modal, document.body);
 }

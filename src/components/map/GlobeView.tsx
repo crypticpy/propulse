@@ -116,6 +116,7 @@ import { useResolvedDisplayQuality } from "@/hooks/useResolvedDisplayQuality";
 import { useProfileStore } from "@/stores/profileStore";
 import { useWatchStore } from "@/stores/watchStore";
 import { resolveGridResearchActionIntent } from "@/lib/map/gridResearchActions";
+import { isScreenSpaceBeaconId } from "@/lib/map/spotClusteringLayout";
 import {
   useUserStore,
   useCompassRosePrefs,
@@ -2876,7 +2877,7 @@ export function GlobeView({
         onClose={handleClusterClose}
         onSpotSelect={handleClusterSpotSelect}
         onMapTheseSpots={
-          selectedCluster
+          selectedCluster && !isScreenSpaceBeaconId(selectedCluster.id)
             ? () => {
                 expandGroup(selectedCluster.id);
                 handleClusterClose();

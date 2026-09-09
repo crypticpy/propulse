@@ -9,8 +9,24 @@ import type { SpotCluster as SpotClusterData } from "@/hooks/useSpotClustering";
 import type { GlobeSpotLayoutPayload } from "@/lib/map/globeSpotLayout";
 import type { SpotLayoutAggregate } from "@/lib/map/screenSpaceSpotLayout";
 import { normalizePresentableSpot } from "@/lib/map/spotPresentation";
+import { getModeColor } from "@/lib/utils/spotColors";
 import type { LiveSpot } from "@/types/livespot";
 import type { SpotClusteringPreferences } from "@/types/user";
+
+/** Id prefix screen-space aggregate beacons are given so they never collide
+ * with a geographic cluster's id. */
+const SCREEN_SPACE_BEACON_ID_PREFIX = "screen:";
+
+/**
+ * True when `id` belongs to a screen-space aggregate beacon rather than a
+ * geographic cluster (SP-05 grouping). Screen-space aggregate ids are
+ * camera-dependent and unknown to `clusterSpots`'s `liveGroupIds`, so callers
+ * that expand/map a geographic group must exclude them (PR #615 round 6
+ * blocking finding 2: "Map these spots" was a reachable no-op otherwise).
+ */
+export function isScreenSpaceBeaconId(id: string): boolean {
+  return id.startsWith(SCREEN_SPACE_BEACON_ID_PREFIX);
+}
 
 /**
  * When clustering is off, the threshold is set above any realistic report
@@ -69,7 +85,7 @@ function screenSpaceAggregateToBeacon(
     }
   }
   return {
-    id: `screen:${aggregate.id}`,
+    id: `${SCREEN_SPACE_BEACON_ID_PREFIX}${aggregate.id}`,
     center: aggregate.center,
     spots: [...uniqueMembers.values()],
     count: aggregate.count,
@@ -77,19 +93,38 @@ function screenSpaceAggregateToBeacon(
   };
 }
 
+/** One beacon plus the render overrides `SpotCluster` accepts for it. */
+export interface SpotBeaconRenderEntry {
+  cluster: SpotClusterData;
+  color: string;
+  sizeScale?: number;
+}
+
 /**
  * Merges geographic clusters (SP-05 grouping) with screen-space aggregates
- * (collision-driven, camera-dependent) into one beacon list for rendering.
- * Screen-space aggregate members are drawn from `resolvedSingles`, which
- * already excludes geographic-cluster membership, so the two sets cannot
- * double-count a spot.
+ * (collision-driven, camera-dependent) into one render list, preserving each
+ * source's color/size semantics (PR #615 round 6 blocking finding 1):
+ * geographic clusters use the primary spot's mode color, while screen-space
+ * aggregates carry the layout payload's color (honours `spotColorMode` plus
+ * activation/replay semantic colors, see `globeSpotLayout.ts`) and the
+ * `aggregateBeaconScale` log2 size curve the layout engine already reserved
+ * screen space for. Screen-space aggregate members are drawn from
+ * `resolvedSingles`, which already excludes geographic-cluster membership, so
+ * the two sets cannot double-count a spot.
  */
 export function mergeSpotBeacons(
   aggregates: readonly SpotLayoutAggregate<GlobeSpotLayoutPayload>[],
   geographicClusters: readonly SpotClusterData[],
-): SpotClusterData[] {
+): SpotBeaconRenderEntry[] {
   return [
-    ...geographicClusters,
-    ...aggregates.map(screenSpaceAggregateToBeacon),
+    ...geographicClusters.map((cluster) => ({
+      cluster,
+      color: getModeColor(cluster.primarySpot.mode),
+    })),
+    ...aggregates.map((aggregate) => ({
+      cluster: screenSpaceAggregateToBeacon(aggregate),
+      color: aggregate.primary.payload.color,
+      sizeScale: aggregate.sizeScale,
+    })),
   ];
 }

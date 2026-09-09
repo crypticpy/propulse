@@ -165,7 +165,7 @@ export function BandActivityReport({ open, onClose, initialGlobalCounts = false,
                       disabled={bandChipsDisabled}
                       title={
                         bandChipsDisabled
-                          ? "Band filter follows the wall view; unpin to change it"
+                          ? "Not bound to a view — open this report from the wall to filter by band"
                           : undefined
                       }
                       onClick={() => {

@@ -213,9 +213,12 @@ describe("wall reports", () => {
     expect(dialog).toBeTruthy();
   });
 
-  // PR #615 round 5 review nb3: with no runtime above, a band chip click is a
-  // no-op (`useOptionalViewSpotFilterPatch` no-ops there), so it must not
-  // look live.
+  // PR #615 round 5 review nb3: with no runtime above, `patchSpotFilters`
+  // (the view-scoped filter) is a no-op, so the chip is disabled instead of
+  // looking live. The click handler's other write,
+  // `useHamClockStore.getState().setBandFocus`, still lands on the
+  // persisted global store (read on wall Bands-mode entry) — leaving the
+  // chip clickable would make that an invisible deferred side effect.
   it("disables the band chips when re-hosted with no ViewProvider", () => {
     render(<BandActivityReport open onClose={vi.fn()} />);
 

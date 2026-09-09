@@ -7,18 +7,20 @@ import type {
 } from "@/lib/map/screenSpaceSpotLayout";
 import type { PresentableSpot } from "@/lib/map/spotPresentation";
 import {
+  isScreenSpaceBeaconId,
   mergeSpotBeacons,
   resolveAggregateReportThreshold,
   resolveCollisionPaddingPx,
   resolveMaxStackOffsetPx,
 } from "./spotClusteringLayout";
 
-function presentableSpot(id: string): PresentableSpot {
+function presentableSpot(id: string, mode?: string): PresentableSpot {
   return {
     id,
     spotter: `SPOTTER-${id}`,
     dx: `DX-${id}`,
     frequency: 14074,
+    mode,
     comment: "",
     time: new Date("2026-09-09T00:00:00Z"),
   };
@@ -41,9 +43,12 @@ function member(
     clipZ: 0,
     visible: true,
     payload: {
-      spot: presentableSpot(reportId),
+      // Distinct from `getModeColor("FT8")` (used by the member's mode
+      // below) so a test can tell the aggregate's payload color apart from
+      // a mode-derived fallback (PR #615 round 6 blocking finding 1).
+      spot: presentableSpot(reportId, "FT8"),
       role: "dx",
-      color: "#ffffff",
+      color: "#a020f0",
     },
   };
 }
@@ -66,7 +71,7 @@ function aggregate(
 }
 
 function geographicCluster(id: string): SpotClusterData {
-  const spot = { ...presentableSpot(id), source: "Cluster" as const };
+  const spot = { ...presentableSpot(id, "CW"), source: "Cluster" as const };
   return {
     id,
     center: { lat: 10, lon: 10 },
@@ -136,15 +141,15 @@ describe("mergeSpotBeacons (PR #615 round 5 blocking finding)", () => {
     const result = mergeSpotBeacons([agg], []);
 
     expect(result).toHaveLength(1);
-    expect(result[0].id).toBe("screen:screen-agg-1");
-    expect(result[0].center).toEqual({ lat: 40, lon: -75 });
-    expect(result[0].count).toBe(3);
-    expect(result[0].spots.map((spot) => spot.id)).toEqual([
+    expect(result[0].cluster.id).toBe("screen:screen-agg-1");
+    expect(result[0].cluster.center).toEqual({ lat: 40, lon: -75 });
+    expect(result[0].cluster.count).toBe(3);
+    expect(result[0].cluster.spots.map((spot) => spot.id)).toEqual([
       "r1",
       "r2",
       "r3",
     ]);
-    expect(result[0].primarySpot.id).toBe("r1");
+    expect(result[0].cluster.primarySpot.id).toBe("r1");
   });
 
   it("lists geographic clusters first, then screen-space aggregates, with no id collision", () => {
@@ -152,7 +157,7 @@ describe("mergeSpotBeacons (PR #615 round 5 blocking finding)", () => {
     const agg = aggregate("geo-1", ["r1", "r2"]);
     const result = mergeSpotBeacons([agg], [geo]);
 
-    expect(result.map((cluster) => cluster.id)).toEqual([
+    expect(result.map((entry) => entry.cluster.id)).toEqual([
       "geo-1",
       "screen:geo-1",
     ]);
@@ -160,5 +165,34 @@ describe("mergeSpotBeacons (PR #615 round 5 blocking finding)", () => {
 
   it("returns an empty list when both inputs are empty", () => {
     expect(mergeSpotBeacons([], [])).toEqual([]);
+  });
+
+  // PR #615 round 6 blocking finding 1: screen-space aggregates lost the
+  // `spotColorMode`-aware payload color and the `aggregateBeaconScale`
+  // `sizeScale` main draws them with. A screen-space beacon must carry the
+  // aggregate's own payload color (not a mode-derived fallback) and its
+  // `sizeScale`, while a geographic cluster keeps the mode-color default and
+  // no `sizeScale` override.
+  it("gives a screen-space aggregate its own payload color and sizeScale, not a mode-derived fallback", () => {
+    const agg = aggregate("screen-agg-1", ["r1"]);
+    const result = mergeSpotBeacons([agg], []);
+
+    expect(result[0].color).toBe("#a020f0");
+    expect(result[0].sizeScale).toBe(1.2);
+  });
+
+  it("gives a geographic cluster its mode color and no sizeScale override", () => {
+    const geo = geographicCluster("geo-1");
+    const result = mergeSpotBeacons([], [geo]);
+
+    expect(result[0].color).toBe("#FFD23F"); // getModeColor("CW")
+    expect(result[0].sizeScale).toBeUndefined();
+  });
+});
+
+describe("isScreenSpaceBeaconId (PR #615 round 6 blocking finding 2)", () => {
+  it("recognizes a screen-space aggregate id and rejects a geographic cluster id", () => {
+    expect(isScreenSpaceBeaconId("screen:spot-layout-abc123")).toBe(true);
+    expect(isScreenSpaceBeaconId("g:EM10")).toBe(false);
   });
 });

@@ -37,7 +37,6 @@ import {
   resolveCollisionPaddingPx,
   resolveMaxStackOffsetPx,
 } from "@/lib/map/spotClusteringLayout";
-import { getModeColor } from "@/lib/utils/spotColors";
 import { useBoundSelectedReportId } from "@/hooks/useBoundMapSelection";
 import { useMapStore } from "@/stores/mapStore";
 import { useSpotClusteringPrefs } from "@/stores/settingsStore";
@@ -318,23 +317,18 @@ export function SpotActivityLayout3D({
   });
 
   const renderAggregates = useMemo(
-    () =>
-      mergeSpotBeacons(layout.aggregates, geographicClusters).map(
-        (cluster) => ({
-          cluster,
-          color: getModeColor(cluster.primarySpot.mode),
-        }),
-      ),
+    () => mergeSpotBeacons(layout.aggregates, geographicClusters),
     [layout.aggregates, geographicClusters],
   );
 
   return (
     <group ref={groupRef} name="shared-spot-activity-layout">
-      {renderAggregates.map(({ cluster, color }) => (
+      {renderAggregates.map(({ cluster, color, sizeScale }) => (
         <SpotCluster
           key={cluster.id}
           cluster={cluster}
           color={color}
+          sizeScale={sizeScale}
           ariaLabel={`Open ${cluster.count} active reports near ${cluster.center.lat.toFixed(1)}, ${cluster.center.lon.toFixed(1)}`}
           onClick={onClusterClick}
         />

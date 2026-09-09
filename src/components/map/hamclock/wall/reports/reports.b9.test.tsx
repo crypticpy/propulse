@@ -398,24 +398,45 @@ describe("BestBandReport (HW-31)", () => {
     expect(captions.some((c) => c?.includes("1 surprise"))).toBe(true);
   });
 
-  it("renders and takes a row click without a ViewProvider, since it also mounts bare via the workspace canvas widget loader", async () => {
+  it("renders without a ViewProvider, since it also mounts bare via the workspace canvas widget loader", () => {
     // `BestBandTile`/`BestBandReport` are reachable from
     // `workspace/widgetLoaders.ts` via `SpaceSlot`, which renders widgets
     // with no bound view. `useOptionalViewSpotFilterPatch` must no-op
     // instead of throwing `useViewRuntime requires ViewProvider`.
+    expect(() =>
+      render(<BestBandReport open onClose={vi.fn()} />),
+    ).not.toThrow();
+
+    const dialog = screen.getByRole("dialog");
+    expect(dialog.querySelector(".hcr-hero")?.textContent).toBe("20M");
+  });
+
+  it("disables the ranked rows when re-hosted with no ViewProvider (PR #615 round 6 review, mirrors BandActivityReport)", async () => {
+    // With no runtime above, `patchSpotFilters` is a no-op, so the row is
+    // disabled instead of looking live. Disabling the native <button>
+    // prevents the click from firing at all, so the unconditional
+    // `useHamClockStore.setBandFocus` write is inert here too.
     const user = userEvent.setup();
     render(<BestBandReport open onClose={vi.fn()} />);
 
     const dialog = screen.getByRole("dialog");
-    expect(dialog.querySelector(".hcr-hero")?.textContent).toBe("20M");
+    const rows = dialog.querySelectorAll<HTMLButtonElement>(
+      ".hcr-bandtable button.hcr-bandrow",
+    );
+    expect(rows[1].disabled).toBe(true);
 
-    const rows = dialog.querySelectorAll(".hcr-bandtable button.hcr-bandrow");
     await user.click(rows[1]);
+    expect(mocks.setBandFocus).not.toHaveBeenCalled();
+  });
 
-    // The hamclockStore band-focus write is unconditional and still fires...
-    expect(mocks.setBandFocus).toHaveBeenCalledWith(["17m"]);
-    // ...but with no runtime to patch, the click must not crash the canvas.
-    expect(screen.getByRole("dialog")).toBeTruthy();
+  it("keeps the ranked rows enabled when bound to a view runtime", () => {
+    renderInView(<BestBandReport open onClose={vi.fn()} />);
+
+    const dialog = screen.getByRole("dialog");
+    const rows = dialog.querySelectorAll<HTMLButtonElement>(
+      ".hcr-bandtable button.hcr-bandrow",
+    );
+    expect(rows[1].disabled).toBe(false);
   });
 
   it("prints the numeric rank for every row, not just an em dash below the leader", () => {

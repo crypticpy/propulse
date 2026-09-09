@@ -58,7 +58,7 @@ function restoreOriginal(element: HTMLElement): void {
  * under the dialog that still is.
  */
 function syncBackgroundInert(): void {
-  const top = openDialogStack.slice().reverse().find((entry) => entry.isOpen);
+  const top = openDialogStack[indexOfTopmostOpenEntry()];
   if (!top) {
     for (const element of originalBackgroundState.keys()) restoreOriginal(element);
     originalBackgroundState.clear();
@@ -91,7 +91,12 @@ function syncBackgroundInert(): void {
 }
 
 function isViableOpener(opener: HTMLElement): boolean {
-  return opener.isConnected && opener !== document.body && !opener.inert;
+  return (
+    opener.isConnected &&
+    opener !== document.body &&
+    !opener.inert &&
+    opener.closest("[inert]") === null
+  );
 }
 
 function indexOfTopmostOpenEntry(): number {
@@ -126,7 +131,7 @@ function focusAfterTopmostClose(): void {
 }
 
 function isTopmostOpen(token: symbol): boolean {
-  return openDialogStack.slice().reverse().find((entry) => entry.isOpen)?.token === token;
+  return openDialogStack[indexOfTopmostOpenEntry()]?.token === token;
 }
 
 export interface AccessibleDialogProps {
@@ -194,11 +199,7 @@ export function AccessibleDialog({
 
   const handleKeyDown = useCallback((event: KeyboardEvent) => {
     if (event.key === "Escape") {
-      if (
-        !isTopmostOpen(dialogTokenRef.current)
-      ) {
-        return;
-      }
+      if (!isTopmostOpen(dialogTokenRef.current)) return;
       event.preventDefault();
       // A modal owns Escape while it is open. Capture the event before
       // page-level shortcuts (for example FullscreenPropSphere's exit

@@ -16,6 +16,9 @@ const { mapState, hamclockState, setViewMode, setActivePreset } = vi.hoisted(
       activePresetId: null as string | null,
       setActivePreset,
       target: null,
+      // Read/written by `useHamClockWallOperatingState` (#712), mounted
+      // unconditionally by `HamClockView`.
+      setTarget: vi.fn(),
       layers: {
       muf: false,
       aurora: false,

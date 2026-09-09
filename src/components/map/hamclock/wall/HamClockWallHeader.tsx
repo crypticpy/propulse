@@ -2,6 +2,7 @@ import { useActiveLocation } from "@/hooks/useActiveLocation";
 import { useUTCClock } from "@/hooks/useUTCClock";
 import { useUserStore } from "@/stores/userStore";
 import { HamClockWallControls } from "./HamClockWallControls";
+import { HamClockWallCursorChip } from "./HamClockWallCursorChip";
 import { HamClockPinnedReportHost } from "./reports/WallReport";
 
 const WEEKDAYS = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"];
@@ -97,6 +98,7 @@ export function HamClockWallHeader({
       <div className="hc-call hc-accent-text hc-glow">
         {station?.callsign?.toUpperCase() || "NO CALL"}
         <small>{identity.join(" · ") || "Station not configured"}</small>
+        <HamClockWallCursorChip />
       </div>
       <WallClocks />
       <HamClockWallControls onOpenSettings={onOpenSettings} />

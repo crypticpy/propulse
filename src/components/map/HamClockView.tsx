@@ -41,11 +41,13 @@ import {
   applyHamClockModeLayers,
 } from "@/lib/hamclock/modePresets";
 import {
+  enabledHeroCriticalLayers,
   formatHeroProjectionChip,
   normalizeExclusiveLayers,
-  PROP_SPHERE_LAYER_KEYS,
   resolveHeroProjection,
+  type PropSphereViewMode,
 } from "@/lib/map/layerCapabilities";
+import { LAYER_REGISTRY } from "@/lib/map/layerRegistry";
 import { useActiveLocation } from "@/hooks/useActiveLocation";
 import { FlatMapView } from "./FlatMapView";
 import { WatchStatusPill } from "@/components/map/WatchStatusPill";
@@ -125,7 +127,7 @@ export function HamClockView({
   const mapContent = hamClockProjectionContent(viewMode, display.mapContent);
 
   const requestedHeroLayers = useMemo(
-    () => PROP_SPHERE_LAYER_KEYS.filter((key) => layers[key]),
+    () => enabledHeroCriticalLayers(layers),
     [layers],
   );
   const heroProjection = useMemo(
@@ -135,12 +137,30 @@ export function HamClockView({
   const projectionChip = formatHeroProjectionChip(
     heroProjection,
     preferredViewMode,
+    (key) => LAYER_REGISTRY[key as keyof typeof LAYER_REGISTRY]?.name ?? key,
   );
 
+  const preSwitchViewModeRef = useRef<PropSphereViewMode | null>(null);
+  const resolvedProjection = heroProjection.projection;
+  const blockerKey = heroProjection.forcedBy.join(",");
+
   useEffect(() => {
-    if (viewMode === heroProjection.projection) return;
-    useMapStore.getState().setViewMode(heroProjection.projection);
-  }, [viewMode, heroProjection.projection]);
+    const map = useMapStore.getState();
+    if (blockerKey.length > 0) {
+      if (preSwitchViewModeRef.current === null) {
+        preSwitchViewModeRef.current = viewMode;
+      }
+      if (viewMode !== resolvedProjection) {
+        map.setViewMode(resolvedProjection);
+      }
+      return;
+    }
+    const restore = preSwitchViewModeRef.current;
+    preSwitchViewModeRef.current = null;
+    if (restore != null && viewMode !== restore) {
+      map.setViewMode(restore);
+    }
+  }, [viewMode, resolvedProjection, blockerKey]);
 
   const hamclockMode = useHamClockStore((s) => s.hamclockMode);
   const setFiltersBeforeBands = useHamClockStore(
@@ -222,7 +242,14 @@ export function HamClockView({
         {projectionChip && (
           <div
             role="status"
-            className="rounded bg-void-black/90 px-2 py-1 text-xs text-su-text"
+            className="rounded"
+            style={{
+              fontSize: "var(--hc-t-small)",
+              color: "var(--hc-fg)",
+              background: "var(--hc-bg)",
+              padding: "0.4vh 0.8vh",
+              letterSpacing: "0.04em",
+            }}
           >
             {projectionChip}
           </div>

@@ -88,7 +88,10 @@ vi.mock("./hamclock/wall/HamClockWall", () => ({
 
 describe("HamClockView", () => {
   beforeEach(() => {
-    setViewMode.mockClear();
+    setViewMode.mockReset();
+    setViewMode.mockImplementation((mode: typeof mapState.viewMode) => {
+      mapState.viewMode = mode;
+    });
     mapState.viewMode = "flat";
     mapState.layers = {
       muf: false,
@@ -99,6 +102,8 @@ describe("HamClockView", () => {
       goesCloud: false,
       ducting: false,
       sporadicE: false,
+      greyline: false,
+      issTracker: false,
     };
     hamclockState.preferredViewMode = "flat";
     hamclockState.hamclockMode = "traffic";
@@ -164,7 +169,7 @@ describe("HamClockView", () => {
 
     expect(setViewMode).toHaveBeenCalledWith("globe");
     expect(screen.getByRole("status").textContent).toBe(
-      "Switched to 3D globe because the flat map cannot draw DRAP",
+      "Switched to 3D globe because the flat map cannot draw D-RAP Absorption",
     );
   });
 
@@ -192,5 +197,77 @@ describe("HamClockView", () => {
 
     expect(setViewMode).not.toHaveBeenCalled();
     expect(screen.queryByRole("status")).toBeNull();
+  });
+
+  it("does not flip a flat Satellites wall just because ISS is on", () => {
+    mapState.layers = { ...mapState.layers, issTracker: true };
+    render(
+      <MemoryRouter initialEntries={["/map"]}>
+        <HamClockView displayTime={new Date(0)} />
+      </MemoryRouter>,
+    );
+    expect(setViewMode).not.toHaveBeenCalled();
+  });
+
+  it("does not yank azimuthal off wall defaults like greyline and MUF", () => {
+    hamclockState.preferredViewMode = "azimuthal";
+    mapState.viewMode = "azimuthal";
+    mapState.layers = {
+      ...mapState.layers,
+      greyline: true,
+      muf: true,
+    };
+    render(
+      <MemoryRouter initialEntries={["/map"]}>
+        <HamClockView displayTime={new Date(0)} />
+      </MemoryRouter>,
+    );
+
+    expect(setViewMode).not.toHaveBeenCalled();
+    expect(screen.queryByRole("status")).toBeNull();
+  });
+
+  it("does not clobber an external viewMode when nothing is blocking", () => {
+    hamclockState.preferredViewMode = "globe";
+    mapState.viewMode = "flat";
+    render(
+      <MemoryRouter initialEntries={["/map"]}>
+        <HamClockView displayTime={new Date(0)} />
+      </MemoryRouter>,
+    );
+    expect(setViewMode).not.toHaveBeenCalled();
+  });
+
+  it("restores the pre-switch projection when DRAP turns off", () => {
+    mapState.layers = { ...mapState.layers, drap: true };
+    const { rerender } = render(
+      <MemoryRouter initialEntries={["/map"]}>
+        <HamClockView displayTime={new Date(0)} />
+      </MemoryRouter>,
+    );
+    expect(setViewMode).toHaveBeenCalledWith("globe");
+    setViewMode.mockClear();
+
+    mapState.layers = { ...mapState.layers, drap: false };
+    rerender(
+      <MemoryRouter initialEntries={["/map"]}>
+        <HamClockView displayTime={new Date(0)} />
+      </MemoryRouter>,
+    );
+    expect(setViewMode).toHaveBeenCalledWith("flat");
+  });
+
+  it("does not thrash viewMode across rerenders when nothing is blocking", () => {
+    hamclockState.preferredViewMode = "globe";
+    mapState.viewMode = "flat";
+    const ui = (
+      <MemoryRouter initialEntries={["/map"]}>
+        <HamClockView displayTime={new Date(0)} />
+      </MemoryRouter>
+    );
+    const { rerender } = render(ui);
+    rerender(ui);
+    rerender(ui);
+    expect(setViewMode).not.toHaveBeenCalled();
   });
 });

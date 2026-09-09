@@ -120,6 +120,24 @@ const AZIMUTHAL_SUPPORTED_LAYERS = new Set<PropSphereLayerKey>(
   AZIMUTHAL_SUPPORTED_LAYER_KEYS,
 );
 
+/**
+ * Globe-only hero overlays from #625. Radar drapes on the flat canvas, so it
+ * is not in this set — enabling it must not yank a wall off the operator's
+ * projection. The host passes only these keys into `resolveHeroProjection`.
+ */
+export const HERO_CRITICAL_LAYER_KEYS = [
+  "drap",
+  "goesCloud",
+  "ducting",
+  "sporadicE",
+] as const satisfies readonly PropSphereLayerKey[];
+
+export function enabledHeroCriticalLayers(
+  layers: Partial<Record<PropSphereLayerKey, boolean>>,
+): PropSphereLayerKey[] {
+  return HERO_CRITICAL_LAYER_KEYS.filter((key) => layers[key] === true);
+}
+
 export const EXCLUSIVE_SURFACE_LAYERS = [
   "radar",
   "goesCloud",
@@ -200,17 +218,15 @@ export const HERO_PROJECTION_FALLBACKS = [
 
 export interface HeroProjectionResolution {
   projection: PropSphereViewMode;
-  forcedBy: PropSphereLayerKey[];
+  forcedBy: string[];
 }
 
 function layersBlockingProjection(
-  requestedLayers: readonly PropSphereLayerKey[],
+  requestedLayers: readonly string[],
   projection: PropSphereViewMode,
-): PropSphereLayerKey[] {
+): string[] {
   return requestedLayers.filter(
-    (layer) =>
-      PROP_SPHERE_LAYER_KEY_SET.has(layer) &&
-      !getLayerAvailability(layer, projection).available,
+    (layer) => !getLayerAvailability(layer, projection).available,
   );
 }
 
@@ -221,7 +237,7 @@ function layersBlockingProjection(
  * preferred projection cannot draw (empty when preferred already works).
  */
 export function resolveHeroProjection(
-  requestedLayers: readonly PropSphereLayerKey[],
+  requestedLayers: readonly string[],
   preferredProjection: PropSphereViewMode,
 ): HeroProjectionResolution {
   const forcedBy = layersBlockingProjection(
@@ -242,41 +258,38 @@ export function resolveHeroProjection(
   return { projection, forcedBy };
 }
 
-const HERO_LAYER_LABELS: Partial<Record<PropSphereLayerKey, string>> = {
-  drap: "DRAP",
-  radar: "radar",
-  goesCloud: "GOES",
-  ducting: "ducting",
-  sporadicE: "sporadic-E",
-};
-
 function projectionPhrase(mode: PropSphereViewMode): string {
   if (mode === "globe") return "3D globe";
   if (mode === "flat") return "the flat map";
   return "azimuthal view";
 }
 
-function formatLayerList(layers: readonly PropSphereLayerKey[]): string {
-  const names = layers.map((layer) => HERO_LAYER_LABELS[layer] ?? layer);
+function formatLayerList(
+  layers: readonly string[],
+  labelFor: (layer: string) => string,
+): string {
+  const names = layers.map(labelFor);
   if (names.length <= 2) return names.join(" and ");
   return `${names.slice(0, -1).join(", ")}, and ${names[names.length - 1]}`;
 }
 
-/** One-line chip copy, or `undefined` when preferred projection already works. */
+/**
+ * One-line chip copy whenever something in the set cannot draw on the
+ * preferred projection. Silent only when `forcedBy` is empty.
+ */
 export function formatHeroProjectionChip(
   resolution: HeroProjectionResolution,
   preferredProjection: PropSphereViewMode,
+  labelFor: (layer: string) => string = (layer) => layer,
 ): string | undefined {
-  if (
-    resolution.projection === preferredProjection ||
-    resolution.forcedBy.length === 0
-  ) {
-    return undefined;
+  if (resolution.forcedBy.length === 0) return undefined;
+  const blockers = formatLayerList(resolution.forcedBy, labelFor);
+  if (resolution.projection === preferredProjection) {
+    return `${projectionPhrase(preferredProjection)} cannot draw ${blockers}`;
   }
   return (
     `Switched to ${projectionPhrase(resolution.projection)} because ` +
-    `${projectionPhrase(preferredProjection)} cannot draw ` +
-    `${formatLayerList(resolution.forcedBy)}`
+    `${projectionPhrase(preferredProjection)} cannot draw ${blockers}`
   );
 }
 

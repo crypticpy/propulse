@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
+import { LAYER_REGISTRY } from "./layerRegistry";
 import {
-  AZIMUTHAL_SUPPORTED_LAYER_KEYS,
-  FLAT_UNSUPPORTED_LAYER_KEYS,
   PROP_SPHERE_LAYER_KEYS,
+  enabledHeroCriticalLayers,
   formatHeroProjectionChip,
   getLayerAvailability,
   normalizeExclusiveLayers,
@@ -15,32 +15,69 @@ import {
 
 const VIEW_MODES = ["globe", "flat", "azimuthal"] as const;
 
-const AZIMUTHAL_SUPPORTED = new Set<PropSphereLayerKey>(
-  AZIMUTHAL_SUPPORTED_LAYER_KEYS,
-);
-const FLAT_UNSUPPORTED = new Set<PropSphereLayerKey>(
-  FLAT_UNSUPPORTED_LAYER_KEYS,
-);
-
-function expectedAvailable(
-  layer: PropSphereLayerKey,
-  projection: PropSphereViewMode,
-): boolean {
-  if (projection === "globe") return true;
-  if (projection === "flat") return !FLAT_UNSUPPORTED.has(layer);
-  return AZIMUTHAL_SUPPORTED.has(layer);
-}
+/** Hardcoded expected matrix — not derived from the production sets. */
+const EXPECTED_LAYER_PROJECTION = {
+  terminator: { globe: true, flat: true, azimuthal: true },
+  greyline: { globe: true, flat: true, azimuthal: false },
+  aurora: { globe: true, flat: true, azimuthal: false },
+  muf: { globe: true, flat: true, azimuthal: false },
+  nvis: { globe: true, flat: false, azimuthal: false },
+  spots: { globe: true, flat: true, azimuthal: true },
+  activations: { globe: true, flat: true, azimuthal: true },
+  spotTraces: { globe: true, flat: true, azimuthal: true },
+  nightLights: { globe: true, flat: true, azimuthal: true },
+  lunarSubpoint: { globe: true, flat: true, azimuthal: true },
+  labels: { globe: true, flat: true, azimuthal: true },
+  satellites: { globe: true, flat: true, azimuthal: false },
+  earthquakes: { globe: true, flat: true, azimuthal: true },
+  weather: { globe: true, flat: true, azimuthal: true },
+  lightning: { globe: true, flat: true, azimuthal: true },
+  wspr: { globe: true, flat: true, azimuthal: false },
+  contestQsos: { globe: true, flat: true, azimuthal: false },
+  loggedQsos: { globe: true, flat: true, azimuthal: false },
+  fires: { globe: true, flat: true, azimuthal: true },
+  radar: { globe: true, flat: true, azimuthal: false },
+  issTracker: { globe: true, flat: false, azimuthal: false },
+  gridActivity: { globe: true, flat: true, azimuthal: true },
+  ionosphere: { globe: true, flat: false, azimuthal: false },
+  rayPath: { globe: true, flat: false, azimuthal: false },
+  drap: { globe: true, flat: false, azimuthal: false },
+  geomagField: { globe: true, flat: false, azimuthal: false },
+  noiseFloor: { globe: true, flat: false, azimuthal: false },
+  meteorShowers: { globe: true, flat: false, azimuthal: false },
+  beacons: { globe: true, flat: false, azimuthal: false },
+  spectrumRing: { globe: true, flat: false, azimuthal: false },
+  ducting: { globe: true, flat: false, azimuthal: false },
+  sporadicE: { globe: true, flat: false, azimuthal: false },
+  satelliteFootprints: { globe: true, flat: true, azimuthal: false },
+  ft8Spotter: { globe: true, flat: true, azimuthal: false },
+  goesCloud: { globe: true, flat: false, azimuthal: false },
+  tec: { globe: true, flat: false, azimuthal: false },
+  repeaters: { globe: true, flat: false, azimuthal: false },
+  riverGauges: { globe: true, flat: false, azimuthal: false },
+  aprs: { globe: true, flat: false, azimuthal: false },
+  tropical: { globe: true, flat: false, azimuthal: false },
+  sst: { globe: true, flat: false, azimuthal: false },
+  timeStations: { globe: true, flat: false, azimuthal: false },
+} as const satisfies Record<
+  PropSphereLayerKey,
+  Record<PropSphereViewMode, boolean>
+>;
 
 const LAYER_PROJECTION_CASES = PROP_SPHERE_LAYER_KEYS.flatMap((layer) =>
   VIEW_MODES.map((projection) => ({ layer, projection })),
 );
+
+function registryLabel(layer: string): string {
+  return LAYER_REGISTRY[layer as PropSphereLayerKey]?.name ?? layer;
+}
 
 describe("PropSphere renderer capability matrix", () => {
   it.each(LAYER_PROJECTION_CASES)(
     "$layer × $projection",
     ({ layer, projection }) => {
       expect(getLayerAvailability(layer, projection).available).toBe(
-        expectedAvailable(layer, projection),
+        EXPECTED_LAYER_PROJECTION[layer][projection],
       );
     },
   );
@@ -127,27 +164,18 @@ describe("PropSphere renderer capability matrix", () => {
   });
 });
 
-/** Hero-truthfulness layers from issue #625. Radar drapes on flat; the
- * others are globe-only. Azimuthal draws none of them. */
-const HERO_LAYER_TRUTH = [
-  ["drap", { globe: true, flat: false, azimuthal: false }],
-  ["radar", { globe: true, flat: true, azimuthal: false }],
-  ["goesCloud", { globe: true, flat: false, azimuthal: false }],
-  ["ducting", { globe: true, flat: false, azimuthal: false }],
-  ["sporadicE", { globe: true, flat: false, azimuthal: false }],
-] as const;
-
-describe("hero layer × projection truth (#625)", () => {
-  it.each(
-    HERO_LAYER_TRUTH.flatMap(([layer, expected]) =>
-      VIEW_MODES.map((projection) => ({
-        layer,
-        projection,
-        available: expected[projection],
-      })),
-    ),
-  )("$layer on $projection → $available", ({ layer, projection, available }) => {
-    expect(getLayerAvailability(layer, projection).available).toBe(available);
+describe("enabledHeroCriticalLayers", () => {
+  it("returns only the #625 family that is actually on", () => {
+    expect(
+      enabledHeroCriticalLayers({
+        drap: true,
+        radar: true,
+        muf: true,
+        goesCloud: false,
+        ducting: true,
+        greyline: true,
+      }),
+    ).toEqual(["drap", "ducting"]);
   });
 });
 
@@ -222,6 +250,13 @@ describe("resolveHeroProjection", () => {
       forcedBy,
     });
   });
+
+  it("keeps preferred and reports unknown ids that no projection can draw", () => {
+    expect(resolveHeroProjection(["not-a-layer"], "flat")).toEqual({
+      projection: "flat",
+      forcedBy: ["not-a-layer"],
+    });
+  });
 });
 
 describe("formatHeroProjectionChip", () => {
@@ -230,18 +265,20 @@ describe("formatHeroProjectionChip", () => {
       formatHeroProjectionChip(
         resolveHeroProjection(["radar"], "flat"),
         "flat",
+        registryLabel,
       ),
     ).toBeUndefined();
   });
 
-  it("explains a flat → globe switch for DRAP", () => {
+  it("explains a flat → globe switch using registry names", () => {
     expect(
       formatHeroProjectionChip(
         resolveHeroProjection(["drap"], "flat"),
         "flat",
+        registryLabel,
       ),
     ).toBe(
-      "Switched to 3D globe because the flat map cannot draw DRAP",
+      "Switched to 3D globe because the flat map cannot draw D-RAP Absorption",
     );
   });
 
@@ -250,10 +287,21 @@ describe("formatHeroProjectionChip", () => {
       formatHeroProjectionChip(
         resolveHeroProjection(["drap", "goesCloud", "ducting"], "flat"),
         "flat",
+        registryLabel,
       ),
     ).toBe(
-      "Switched to 3D globe because the flat map cannot draw DRAP, GOES, and ducting",
+      "Switched to 3D globe because the flat map cannot draw D-RAP Absorption, GOES-East Cloud, and Ducting Climatology",
     );
+  });
+
+  it("still speaks when no projection can draw the set", () => {
+    expect(
+      formatHeroProjectionChip(
+        resolveHeroProjection(["not-a-layer"], "flat"),
+        "flat",
+        registryLabel,
+      ),
+    ).toBe("the flat map cannot draw not-a-layer");
   });
 });
 

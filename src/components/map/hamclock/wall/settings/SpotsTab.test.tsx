@@ -8,6 +8,7 @@ import { ViewProvider } from "@/components/views/ViewProvider";
 import { useViewRuntime } from "@/components/views/ViewRuntimeContext";
 import { createViewConfiguration } from "@/lib/views/defaults";
 import { createMemoryWorkingStorage, type ScopedViewRuntime } from "@/lib/views/runtime";
+import type { SpotSource } from "@/types/livespot";
 vi.mock("@/hooks/useMapSpotFeed", () => ({
   useMapSpotFeed: vi.fn(() => ({ station: { view: usePskStationView(), feed: { callsign: "N0TEST" } }, sourceStates: { PSKReporter: "STALE", RBN: "UNAVAILABLE", "WSJT-X": "BRIDGE OFF" } })),
 }));
@@ -107,6 +108,32 @@ it("selects personal scope and shares its longer age without changing global age
   usePskStationView.setState({ direction: "of", minutes: 15, band: "all" });
 });
 
+
+// PR #615 round 5 review nb2: `sources` derives from `viewSpots.filters.sources`
+// (SpotsTab.tsx line 32-33), which the mocked `useMapSpotFeed` factory never
+// observed. Drive it through a seeded view configuration the way `renderTab`
+// seeds `spotLimit`, and assert the derivation reaches the feed hook.
+function renderTabWithSources(sources: SpotSource[]) {
+  const seed = createViewConfiguration("hamclock");
+  seed.spots.filters.sources = sources;
+  render(
+    <ViewProvider ownerId="test-owner" slot="hamclock" seed={seed} storage={createMemoryWorkingStorage()}>
+      <SpotsTab />
+    </ViewProvider>,
+  );
+}
+
+it("passes the bound view's non-empty sources filter to the feed hook", () => {
+  renderTabWithSources(["RBN"]);
+  const lastCall = vi.mocked(useMapSpotFeed).mock.calls.at(-1)!;
+  expect(lastCall[0].sources).toEqual(["RBN"]);
+});
+
+it("passes undefined to the feed hook when the sources filter is empty", () => {
+  renderTabWithSources([]);
+  const lastCall = vi.mocked(useMapSpotFeed).mock.calls.at(-1)!;
+  expect(lastCall[0].sources).toBeUndefined();
+});
 
 it("observes source status when only the globe spectrum ring needs live spots", () => {
   useMapStore.setState({ layers: { ...initial.layers, spots: false, spotTraces: false, gridActivity: false, spectrumRing: true } });

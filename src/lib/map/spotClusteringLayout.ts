@@ -5,6 +5,11 @@
  * preference types, and from `SpotActivityLayout3D.tsx`, so the mapping is
  * testable without a React Three Fiber render.
  */
+import type { SpotCluster as SpotClusterData } from "@/hooks/useSpotClustering";
+import type { GlobeSpotLayoutPayload } from "@/lib/map/globeSpotLayout";
+import type { SpotLayoutAggregate } from "@/lib/map/screenSpaceSpotLayout";
+import { normalizePresentableSpot } from "@/lib/map/spotPresentation";
+import type { LiveSpot } from "@/types/livespot";
 import type { SpotClusteringPreferences } from "@/types/user";
 
 /**
@@ -42,4 +47,49 @@ export function resolveCollisionPaddingPx(
   prefs: SpotClusteringPreferences,
 ): number {
   return Math.max(4, prefs.gridSize ?? 6);
+}
+
+/**
+ * Converts one screen-space aggregate (produced when 3+ overlapping reports
+ * collide in a viewport region) into the same beacon shape geographic
+ * clustering renders, so `SpotCluster` draws it instead of the region going
+ * blank. Ids are prefixed to guarantee no collision with a geographic
+ * cluster's id.
+ */
+function screenSpaceAggregateToBeacon(
+  aggregate: SpotLayoutAggregate<GlobeSpotLayoutPayload>,
+): SpotClusterData {
+  const uniqueMembers = new Map<string, LiveSpot>();
+  for (const member of aggregate.members) {
+    if (!uniqueMembers.has(member.reportId)) {
+      uniqueMembers.set(
+        member.reportId,
+        normalizePresentableSpot(member.payload.spot),
+      );
+    }
+  }
+  return {
+    id: `screen:${aggregate.id}`,
+    center: aggregate.center,
+    spots: [...uniqueMembers.values()],
+    count: aggregate.count,
+    primarySpot: normalizePresentableSpot(aggregate.primary.payload.spot),
+  };
+}
+
+/**
+ * Merges geographic clusters (SP-05 grouping) with screen-space aggregates
+ * (collision-driven, camera-dependent) into one beacon list for rendering.
+ * Screen-space aggregate members are drawn from `resolvedSingles`, which
+ * already excludes geographic-cluster membership, so the two sets cannot
+ * double-count a spot.
+ */
+export function mergeSpotBeacons(
+  aggregates: readonly SpotLayoutAggregate<GlobeSpotLayoutPayload>[],
+  geographicClusters: readonly SpotClusterData[],
+): SpotClusterData[] {
+  return [
+    ...geographicClusters,
+    ...aggregates.map(screenSpaceAggregateToBeacon),
+  ];
 }

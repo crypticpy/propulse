@@ -32,6 +32,7 @@ import {
   type SpotLayoutCandidate,
 } from "@/lib/map/screenSpaceSpotLayout";
 import {
+  mergeSpotBeacons,
   resolveAggregateReportThreshold,
   resolveCollisionPaddingPx,
   resolveMaxStackOffsetPx,
@@ -277,9 +278,10 @@ export function SpotActivityLayout3D({
         };
       });
     // Screen-space aggregation (distinct from the PR's geographic clustering
-    // pass rendered via `renderAggregates`/`SpotCluster` above): gate it on
-    // the user's clustering preference so a disabled toggle keeps every spot
-    // drawn individually, and an enabled toggle restores an aggregate once a
+    // pass — both are merged into `renderAggregates`/`SpotCluster` below so
+    // neither collapses a dense region to nothing): gate it on the user's
+    // clustering preference so a disabled toggle keeps every spot drawn
+    // individually, and an enabled toggle restores an aggregate once a
     // screen region holds at least `minClusterSize` distinct reports.
     const minAggregateReportCount = resolveAggregateReportThreshold(
       spotClusteringPrefsRef.current,
@@ -317,11 +319,13 @@ export function SpotActivityLayout3D({
 
   const renderAggregates = useMemo(
     () =>
-      geographicClusters.map((cluster) => ({
-        cluster,
-        color: getModeColor(cluster.primarySpot.mode),
-      })),
-    [geographicClusters],
+      mergeSpotBeacons(layout.aggregates, geographicClusters).map(
+        (cluster) => ({
+          cluster,
+          color: getModeColor(cluster.primarySpot.mode),
+        }),
+      ),
+    [layout.aggregates, geographicClusters],
   );
 
   return (

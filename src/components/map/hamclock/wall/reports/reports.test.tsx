@@ -212,6 +212,35 @@ describe("wall reports", () => {
     });
     expect(dialog).toBeTruthy();
   });
+
+  // PR #615 round 5 review nb3: with no runtime above, a band chip click is a
+  // no-op (`useOptionalViewSpotFilterPatch` no-ops there), so it must not
+  // look live.
+  it("disables the band chips when re-hosted with no ViewProvider", () => {
+    render(<BandActivityReport open onClose={vi.fn()} />);
+
+    expect(
+      (screen.getByRole("button", { name: /20M/ }) as HTMLButtonElement)
+        .disabled,
+    ).toBe(true);
+    expect(
+      (screen.getByRole("button", { name: /40M/ }) as HTMLButtonElement)
+        .disabled,
+    ).toBe(true);
+  });
+
+  it("keeps the band chips enabled when bound to a view runtime", () => {
+    renderInView(<BandActivityReport open onClose={vi.fn()} />);
+
+    expect(
+      (screen.getByRole("button", { name: /20M/ }) as HTMLButtonElement)
+        .disabled,
+    ).toBe(false);
+    expect(
+      (screen.getByRole("button", { name: /40M/ }) as HTMLButtonElement)
+        .disabled,
+    ).toBe(false);
+  });
 });
 
 describe("WeatherReport focus", () => {

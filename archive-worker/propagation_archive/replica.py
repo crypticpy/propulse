@@ -9,6 +9,7 @@ from pathlib import Path
 from uuid import UUID
 
 from .crypto import receipt_hmac_key_bytes
+from .coverage import canonical_coverage
 from .database import ArchiveDatabase
 from .datasets import DATASETS
 from .parquet import verify_parquet
@@ -33,6 +34,21 @@ def verify_replica(
     dataset = DATASETS.get(manifest["dataset"])
     if dataset is None or dataset.schema_version != manifest["schema_version"]:
         raise RuntimeError("replica reader does not support the manifest schema")
+    coverage_evidence = manifest.get("coverage_evidence")
+    current_coverage = database.reconcile_coverage(manifest_id)
+    if dataset.coverage_contract:
+        manifest_coverage = canonical_coverage(
+            coverage_evidence, dataset.coverage_contract,
+            manifest["range_start"], manifest["range_end"],
+        )
+        reconciled_coverage = canonical_coverage(
+            current_coverage, dataset.coverage_contract,
+            manifest["range_start"], manifest["range_end"],
+        )
+        if manifest_coverage != reconciled_coverage:
+            raise RuntimeError("archive coverage evidence is stale")
+    elif current_coverage is not None or coverage_evidence is not None:
+        raise RuntimeError("unexpected archive coverage evidence")
     digest = sha256_file(path)
     byte_count = path.stat().st_size
     if digest != manifest["content_sha256"] or byte_count != manifest["object_bytes"]:
@@ -45,6 +61,9 @@ def verify_replica(
         expected_min_time=manifest["min_source_time"],
         expected_max_time=manifest["max_source_time"],
         expected_source_counts=dict(manifest["source_counts"]),
+        expected_coverage_evidence=coverage_evidence,
+        expected_range_start=manifest["range_start"],
+        expected_range_end=manifest["range_end"],
     )
     details: dict[str, object] = {
         "schema_version": 1,

@@ -1,0 +1,190 @@
+/**
+ * Workstation workspace shell (#656) layout. Colour and typography come from
+ * the shared `--su-*` tokens (`src/components/station-ui/tokens.ts`) — this
+ * file only ever reads them, it never sets a raw colour. It assumes the
+ * whole tree sits inside `StationProvider` (`WorkspacePage.tsx`), matching
+ * every other station-ui page.
+ *
+ * `su-surface` / `su-stack` / `su-inline` / `su-eyebrow` / `su-hint` (from
+ * `station-ui.css`) already supply background, padding, border and generic
+ * flex layout wherever they are paired with a `workspace-*` class below;
+ * this file adds the parts specific to the rails + space container itself.
+ */
+
+/* ─── Page shell ────────────────────────────────────────────────────────── */
+
+.workspace-page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--su-space-3);
+  padding: var(--su-space-4);
+  /* Same offset convention as `station-shack.css`'s `.station-shack`: the
+     app header sits above this page and is not part of this height. */
+  min-height: calc(100dvh - 5rem);
+  box-sizing: border-box;
+}
+
+.workspace-phone-placeholder {
+  margin: var(--su-space-4);
+}
+
+/* ─── Bar ───────────────────────────────────────────────────────────────── */
+
+.workspace-bar {
+  flex: 0 0 auto;
+  justify-content: space-between;
+}
+
+.workspace-bar-name {
+  margin: 0;
+}
+
+.workspace-bar-pager {
+  display: flex;
+  align-items: center;
+  gap: var(--su-space-2);
+  color: var(--su-muted);
+  font-family: var(--su-font-mono);
+}
+
+.workspace-bar-actions {
+  flex: 0 0 auto;
+}
+
+/* ─── Canvas (rails + space grid) ──────────────────────────────────────── */
+
+/*
+ * `WorkspaceCanvas.tsx` sets `gridTemplateColumns` / `gridTemplateRows`
+ * inline (they depend on live rail collapse/width state), including a `1fr`
+ * row for the space. `1fr` only has meaning once the grid itself has a
+ * height to divide, so this floor is the explicit height: viewport minus
+ * the app header (~5rem, same figure as `.workspace-page` above) and this
+ * page's own bar + state strip + their gaps (~6rem combined).
+ */
+.workspace-canvas {
+  flex: 1 1 auto;
+  min-height: calc(100dvh - 11rem);
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.workspace-space {
+  display: flex;
+  height: 100%;
+  box-sizing: border-box;
+  align-items: center;
+  justify-content: center;
+}
+
+/* ─── Rails ─────────────────────────────────────────────────────────────── */
+
+.workspace-rail {
+  display: flex;
+  flex-direction: column;
+  gap: var(--su-space-3);
+  height: 100%;
+  box-sizing: border-box;
+  overflow: hidden;
+}
+
+.workspace-rail--collapsed {
+  align-items: center;
+  justify-content: center;
+}
+
+.workspace-rail--left {
+  border-right: 1px solid color-mix(in srgb, var(--su-line) 45%, transparent);
+}
+
+.workspace-rail--right {
+  border-left: 1px solid color-mix(in srgb, var(--su-line) 45%, transparent);
+}
+
+.workspace-rail--bottom {
+  border-top: 1px solid color-mix(in srgb, var(--su-line) 45%, transparent);
+}
+
+.workspace-rail-head {
+  flex: 0 0 auto;
+  justify-content: space-between;
+}
+
+.workspace-rail-width {
+  flex: 0 0 auto;
+}
+
+.workspace-rail-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
+}
+
+/* The bottom rail lays its widgets out left to right instead of stacked. */
+.workspace-rail--horizontal .workspace-rail-body {
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: stretch;
+}
+
+/* ─── Widget card (placeholder content) ────────────────────────────────── */
+
+.workspace-widget-card {
+  display: flex;
+  min-width: 0;
+}
+
+.workspace-widget-placeholder {
+  display: flex;
+  flex-direction: column;
+  gap: var(--su-space-1);
+  align-items: flex-start;
+  justify-content: center;
+}
+
+/* ─── State strip ───────────────────────────────────────────────────────── */
+
+.workspace-state-strip {
+  flex: 0 0 auto;
+  justify-content: flex-start;
+}
+
+/* ─── "+ ADD WIDGET" picker overlay ─────────────────────────────────────── */
+
+/* Full-width only where it is the slot's sole control (space / empty rail);
+   the bar's copy of this same button sits beside PAGES/SETTINGS and keeps
+   its natural width. */
+.workspace-space .workspace-add-widget-button,
+.workspace-rail-body .workspace-add-widget-button {
+  width: 100%;
+}
+
+.workspace-add-widget-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--su-space-3);
+}
+
+.workspace-add-widget-row-text {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  min-width: 0;
+}
+
+.workspace-add-widget-row-title {
+  margin: 0;
+  color: var(--su-text);
+  font-weight: 600;
+}
+
+.workspace-add-widget-row-desc {
+  margin: 0;
+}
+
+.workspace-add-widget-pager {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--su-space-3);
+}

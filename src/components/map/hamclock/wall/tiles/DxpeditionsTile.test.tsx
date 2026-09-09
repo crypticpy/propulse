@@ -67,6 +67,23 @@ describe("DxpeditionsTile", () => {
     expect(screen.queryByText("No announced operations")).toBeNull();
   });
 
+  // #726: an "empty" schedule loaded fine and parsed to zero operations
+  // (an ordinary quiet week) and must not collapse into the same
+  // "UNAVAILABLE" state as an unreachable/too-large schedule.
+  it("treats an empty schedule as zero operations, not unavailable", () => {
+    mocks.dxpeditions.mockReturnValue({
+      entries: [],
+      status: "empty",
+      isLoading: false,
+      error: null,
+    });
+
+    render(<DxpeditionsTile />);
+
+    expect(screen.queryByText("DXPEDITION SCHEDULE UNAVAILABLE")).toBeNull();
+    expect(screen.getByText("NO ANNOUNCED OPERATIONS")).toBeTruthy();
+  });
+
   it("opens the report with the NG3K ADXO source link", async () => {
     mocks.dxpeditions.mockReturnValue({
       entries: [

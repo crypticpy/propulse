@@ -1,5 +1,6 @@
 import { Fragment, lazy, Suspense, useMemo, useState } from "react";
 import { useBandVerdicts } from "@/hooks/useBandVerdicts";
+import { useHeatMapBaseline } from "@/hooks/useHeatMapBaseline";
 import { useUTCClock } from "@/hooks/useUTCClock";
 import { BAND_ORDER } from "@/lib/data/bandRanges";
 import { filterClusterAge } from "@/lib/dx/clusterHistory";
@@ -48,20 +49,34 @@ const HeatMapReport = lazy(() =>
  *   (the Band Health arm has no per-continent forecast); that score is
  *   applied to every continent for its band, per `computeHeatmap`'s own
  *   fallback contract.
- * - Baseline ratio: no aggregate in this codebase keys same-UTC-hour spot
- *   counts by band AND continent (`band_hourly_stats` has no continent
- *   column; `path_hourly_stats` keys by grid square, not continent) — no
- *   baseline is passed, so `ratio` is always null and the `ratioDiverging`
- *   preset stays disabled in Settings -> Display until that aggregate ships.
+ * - Baseline ratio: the last complete regional hour against its qualified
+ *   same-UTC-hour regional climatology medians, never client feed counts,
+ *   shared with the report and Settings -> Display through React Query.
  */
-export function HeatMapTile({ title = "Band heat map" }: WallTileProps) {
+export function HeatMapTile(props: WallTileProps) {
+  const preset = useHamClockDisplayStore((s) => s.heatmapPreset);
+  return preset === "ratioDiverging" ? <RegionalHeatMapTile {...props} /> : <HeatMapTileContent {...props} />;
+}
+
+function RegionalHeatMapTile(props: WallTileProps) {
+  const baselineState = useHeatMapBaseline();
+  return <HeatMapTileContent {...props} baselineState={baselineState} />;
+}
+
+const NO_BASELINE_BACKGROUND = "repeating-linear-gradient(135deg, var(--hc-bg) 0 3px, var(--hc-dim2) 3px 4px)";
+
+function HeatMapTileContent({ title = "Band heat map", baselineState }: WallTileProps & { baselineState?: ReturnType<typeof useHeatMapBaseline> }) {
   const now = useUTCClock(10_000);
   const allSpots = useDXStore((s) => s.spots);
   const feedState = useDXStore((s) => s.clusterFeed);
   const source = useDXStore((s) => s.spotSource);
   const maxAge = useDXStore((s) => s.filters.maxAge);
   const { bands } = useBandVerdicts();
+  const { regionalCells, available, unavailableLabel, basisLabel, baselineAgeLabel } = baselineState ?? {
+    regionalCells: [], available: false, unavailableLabel: null, basisLabel: "", baselineAgeLabel: "",
+  };
   const heatmapPresetId = useHamClockDisplayStore((s) => s.heatmapPreset);
+  const ratioActive = heatmapPresetId === "ratioDiverging" && available;
   const [reportOpen, setReportOpen] = useState(false);
 
   // The operator's spot-age setting still governs the DX cluster LIST
@@ -93,6 +108,7 @@ export function HeatMapTile({ title = "Band heat map" }: WallTileProps) {
   }, [bands]);
 
   const cells = useMemo(() => {
+    if (ratioActive) return regionalCells;
     const inputs: HeatmapSpotInput[] = [];
     for (const spot of spots) {
       const input = dxSpotToHeatmapInput(spot);
@@ -101,11 +117,13 @@ export function HeatMapTile({ title = "Band heat map" }: WallTileProps) {
     return computeHeatmap(inputs, { now: now.getTime(), physicsScores }).map((cell) =>
       clampInsufficientHistory(cell, availableMs),
     );
-  }, [spots, physicsScores, now, availableMs]);
+  }, [spots, physicsScores, now, availableMs, ratioActive, regionalCells]);
 
   const preset = useMemo(
-    () => PRESETS.find((p) => p.id === heatmapPresetId) ?? LADDER_HUE_PRESET,
-    [heatmapPresetId],
+    () => heatmapPresetId === "ratioDiverging" && !available
+      ? LADDER_HUE_PRESET
+      : PRESETS.find((p) => p.id === heatmapPresetId) ?? LADDER_HUE_PRESET,
+    [heatmapPresetId, available],
   );
 
   const cellMap = useMemo(
@@ -120,6 +138,7 @@ export function HeatMapTile({ title = "Band heat map" }: WallTileProps) {
     let total = 0;
     for (const cell of cells) {
       total += cell.count;
+      if (ratioActive && cell.ratio === null) continue;
       if (cell.count === 0) continue;
       const bucket = bucketFor(cell, preset.scale);
       if (
@@ -131,7 +150,7 @@ export function HeatMapTile({ title = "Band heat map" }: WallTileProps) {
       }
     }
     return { hottest, totalCount: total };
-  }, [cells, preset]);
+  }, [cells, preset, ratioActive]);
 
   const report = reportOpen ? (
     <Suspense fallback={null}>
@@ -144,19 +163,22 @@ export function HeatMapTile({ title = "Band heat map" }: WallTileProps) {
   // itself is the reason (unavailable, loading, off) — never a fabricated
   // "ALL CLEAR".
   if (!hottest) {
-    const idle = ["UNAVAILABLE", "LOADING", "OFF"].includes(feedState.state)
+    const idle = ratioActive ? totalCount > 0 ? "NO ACTIVITY WITH A QUALIFIED BASELINE" : "NO SPOTS IN LAST FULL HOUR" : ["UNAVAILABLE", "LOADING", "OFF"].includes(feedState.state)
       ? feedState.state
       : "NO SPOTS IN WINDOW";
     return (
       <>
         <HamClockTile
           title={title}
+          source={ratioActive ? basisLabel : undefined}
           onOpen={() => setReportOpen(true)}
           openLabel="Band heat map: no activity in the window. Open the full grid report"
         >
           <TileHero tone="hc-dim-text">—</TileHero>
           <TileSub>
             <span>{idle}</span>
+            {ratioActive && <span>{baselineAgeLabel}</span>}
+            {heatmapPresetId === "ratioDiverging" && unavailableLabel && <span>{unavailableLabel}</span>}
           </TileSub>
         </HamClockTile>
         {report}
@@ -177,7 +199,7 @@ export function HeatMapTile({ title = "Band heat map" }: WallTileProps) {
       <HamClockTile
         title={title}
         source={
-          availableMs < DEFAULT_HEATMAP_WINDOW_MS
+          ratioActive ? basisLabel : availableMs < DEFAULT_HEATMAP_WINDOW_MS
             ? `${totalCount} DX · ${heatmapWindowLabel(availableMs)}`
             : `${totalCount} DX · ${preset.label.toUpperCase()}`
         }
@@ -193,6 +215,9 @@ export function HeatMapTile({ title = "Band heat map" }: WallTileProps) {
         </div>
         <TileSub>
           <span>{sentence}</span>
+          {ratioActive && <span>{baselineAgeLabel}</span>}
+          {ratioActive && <span>HATCHED: NO BASELINE</span>}
+          {heatmapPresetId === "ratioDiverging" && unavailableLabel && <span>{unavailableLabel}</span>}
         </TileSub>
 
         <div
@@ -214,11 +239,13 @@ export function HeatMapTile({ title = "Band heat map" }: WallTileProps) {
               {HEATMAP_CONTINENTS.map((continent) => {
                 const cell = cellMap.get(physicsScoreKey(band, continent));
                 const cellBucket = cell ? bucketFor(cell, preset.scale) : 0;
+                const noBaseline = ratioActive && cell?.ratio == null;
                 return (
                   <span
                     key={continent}
                     className="hcf-heatgrid-cell"
-                    style={{ background: heatmapBucketColor(preset.id, cellBucket) }}
+                    data-no-baseline={noBaseline || undefined}
+                    style={{ background: noBaseline ? NO_BASELINE_BACKGROUND : heatmapBucketColor(preset.id, cellBucket) }}
                   />
                 );
               })}

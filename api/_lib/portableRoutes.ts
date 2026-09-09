@@ -41,6 +41,7 @@ import {
 import { handleContestScp } from "./handlers/contest";
 import { handleDxDxpeditions } from "./handlers/dxpeditions";
 import { handleFiresHotspots } from "./handlers/fires";
+import { handleSpotsHeatmapBaseline } from "./handlers/heatmapBaseline";
 import { handleLightningStrikes } from "./handlers/lightning";
 import { handleAtmosMetar } from "./handlers/metar";
 import {
@@ -108,6 +109,7 @@ export const PORTABLE_ROUTES: Readonly<Record<string, EdgeHandler>> = {
   "/api/spots/band-history": handleSpotsBandHistory,
   "/api/spots/band-ladder": handleSpotsBandLadder,
   "/api/spots/dxcluster": handleSpotsDxcluster,
+  "/api/spots/heatmap-baseline": handleSpotsHeatmapBaseline,
   "/api/spots/psk-station": handlePskStation,
   "/api/spots/pskreporter": handleSpotsPskreporter,
   "/api/spots/rbn": handleSpotsRbn,

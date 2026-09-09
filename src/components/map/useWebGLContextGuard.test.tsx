@@ -78,6 +78,17 @@ describe("useWebGLContextGuard", () => {
     expect(gl.forceContextLoss).toHaveBeenCalledTimes(1);
   });
 
+  it("cancels a pending release when a fresh guard instance remounts on the same canvas within 500ms", () => {
+    const gl = mocks.gl!;
+    const first = render(<Harness />);
+    first.unmount();
+    vi.advanceTimersByTime(250);
+    const second = render(<Harness />);
+    second.unmount();
+    vi.advanceTimersByTime(250);
+    expect(gl.forceContextLoss).not.toHaveBeenCalled();
+  });
+
   it("does not release a canvas that StrictMode is about to reattach", () => {
     const gl = mocks.gl!;
     const view = render(

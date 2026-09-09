@@ -3682,10 +3682,11 @@ export function FlatMapView({
     enabled: layers.spots || layers.spotTraces || layers.gridActivity,
     activationsEnabled: layers.activations,
   });
-  // Endpoint dots, callsign/spotter tags and endpoint hit-testing represent a
-  // grouped member with the cluster glyph instead, so those consumers read
-  // `resolvedSingles`. Paths, the glow grid, grid highlights and the grid
-  // collection popover keep the full `resolvedSpots` — see #746.
+  // Endpoint dots, callsign/spotter tags, endpoint hit-testing and the
+  // arrival-pulse glow (#778) represent a grouped member with the cluster
+  // glyph instead, so those consumers read `resolvedSingles`. Paths, grid
+  // highlights and the grid collection popover keep the full
+  // `resolvedSpots` — see #746.
   const ungroupedResolvedSpots = groupingEnabled
     ? resolvedSingles
     : resolvedSpots;
@@ -3894,7 +3895,14 @@ export function FlatMapView({
   }, [selectedSpot, target]);
 
   // Feed new spots into the grid glow renderer when spots arrive.
-  // Uses resolvedSpots (not raw spots) so the glow grid matches where the dot lands.
+  // Two different feeds here, deliberately (#778):
+  //   - which spots may glow: ungroupedResolvedSpots, so the pulse follows the
+  //     dot layer. A grouped member's dot is replaced by the cluster glyph at
+  //     the group anchor, so it must not pulse at its own location either.
+  //   - which spots count as already seen: the whole resolvedSpots feed. A spot
+  //     absorbed into a cluster is still on the map; dropping it from the seen
+  //     set would replay every member as a fresh arrival the moment the cluster
+  //     dissolves (grouping toggled off, or "Map these spots").
   useEffect(() => {
     const currentIds = new Set(resolvedSpots.map((spot) => spot.id));
     if (layers.gridActivity) {
@@ -3907,10 +3915,11 @@ export function FlatMapView({
     if (!layers.spots && !layers.spotTraces) return;
     const now = Date.now();
     const prevIds = prevGlowSpotIdsRef.current;
-    const isInitialLoad = prevIds.size === 0 && resolvedSpots.length > 0;
+    const isInitialLoad =
+      prevIds.size === 0 && ungroupedResolvedSpots.length > 0;
 
     let newCount = 0;
-    for (const spot of resolvedSpots) {
+    for (const spot of ungroupedResolvedSpots) {
       if (prevIds.has(spot.id)) continue;
 
       const color = getSpotColor(spot, spotColorMode);
@@ -3943,6 +3952,7 @@ export function FlatMapView({
     if (newCount > 0) startGlowLoopRef.current();
   }, [
     resolvedSpots,
+    ungroupedResolvedSpots,
     layers.spots,
     layers.spotTraces,
     layers.gridActivity,

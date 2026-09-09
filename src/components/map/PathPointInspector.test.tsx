@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import { calculateLayerHeights } from "@/lib/utils/ionosphere";
@@ -9,6 +9,7 @@ import {
   builtinRayTraceProvenance,
   buildPathPointSet,
 } from "@/lib/spots/pathPoints";
+import { AccessibleDialog } from "@/components/ui/AccessibleDialog";
 import { PathPointInspector } from "./PathPointInspector";
 
 const DATE = new Date("2026-06-21T18:00:00Z");
@@ -119,6 +120,53 @@ describe("PathPointInspector", () => {
     expect(onClose).toHaveBeenCalledTimes(1);
     expect(onGlobeEscape).not.toHaveBeenCalled();
     document.removeEventListener("keydown", onGlobeEscape, true);
+  });
+
+  it("yields Escape to a modal AccessibleDialog opened above it instead of consuming it", async () => {
+    const user = userEvent.setup();
+    const onClose = vi.fn();
+    const dialogClose = vi.fn();
+    const set = pointSet();
+    const apex = set.points.find((point) => point.role === "ray-apex")!;
+
+    // `inline` matches the only production caller (RayPathArc.tsx), which
+    // mounts this inspector through a drei `Html` wrapper rather than this
+    // component's own `createPortal` branch.
+    render(
+      <>
+        <PathPointInspector
+          inline
+          pointSet={set}
+          selectedId={apex.id}
+          hoveredId={null}
+          open="card"
+          anchor={{ x: 200, y: 200 }}
+          onSelect={vi.fn()}
+          onClose={onClose}
+        />
+        <AccessibleDialog open onClose={dialogClose} title="Weather alert">
+          <p>A severe weather alert is active along this path.</p>
+        </AccessibleDialog>
+      </>,
+    );
+
+    // AccessibleDialog's inert-background sync marks every other body child
+    // `aria-hidden` once it mounts, so the inspector's own panel is
+    // deliberately unreachable to `getByRole` here — that inerting is the
+    // correct real behavior; assert its presence via the DOM directly.
+    expect(
+      document.querySelector('[role="dialog"][aria-label="Path point details"]'),
+    ).toBeTruthy();
+    await waitFor(() =>
+      expect(document.activeElement).toBe(
+        screen.getByRole("button", { name: "Close dialog" }),
+      ),
+    );
+
+    await user.keyboard("{Escape}");
+
+    expect(dialogClose).toHaveBeenCalledTimes(1);
+    expect(onClose).not.toHaveBeenCalled();
   });
 
   it("labels shell highlights as decorative, not modeled reflection height", () => {

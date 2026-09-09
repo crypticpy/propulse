@@ -8,11 +8,22 @@ const DOC_EXTENSION = /\.(?:md|mdx|rst|adoc|txt)$/i;
 const DOC_BASENAME = /^(?:LICENSE|CHANGELOG|CONTRIBUTING|CODE_OF_CONDUCT)(?:\..+)?$/i;
 
 function git(args, options = {}) {
+  // When an explicit cwd is given (only tests do this, to point git at a
+  // scratch repo), drop any inherited GIT_DIR/GIT_WORK_TREE/GIT_INDEX_FILE
+  // from the environment first. This script itself runs inside a git hook,
+  // which sets those vars for the repo being pushed; left in place, they
+  // would override cwd and redirect git back to that repo.
+  const env = options.cwd
+    ? Object.fromEntries(
+        Object.entries(process.env).filter(([key]) => !key.startsWith("GIT_")),
+      )
+    : undefined;
   try {
     return execFileSync("git", args, {
       encoding: "utf8",
       stdio: ["ignore", "pipe", options.quiet ? "ignore" : "inherit"],
       cwd: options.cwd,
+      env,
     }).trim();
   } catch (error) {
     if (options.allowFailure) return "";

@@ -19,11 +19,24 @@ const COMMIT_ENV = {
   GIT_COMMITTER_EMAIL: "test@example.com",
 };
 
+// Git hooks (this test can itself run inside the pre-push hook) set
+// GIT_DIR/GIT_WORK_TREE/GIT_INDEX_FILE etc. in the process environment so
+// the hook operates on the pushing repo. Child `git` calls that inherit
+// process.env unchanged would then target that repo instead of the scratch
+// directory below, so strip every GIT_* var before layering in our own.
+function cleanGitEnv() {
+  const env = { ...process.env };
+  for (const key of Object.keys(env)) {
+    if (key.startsWith("GIT_")) delete env[key];
+  }
+  return env;
+}
+
 function scratchGit(cwd, args) {
   return execFileSync("git", args, {
     cwd,
     encoding: "utf8",
-    env: { ...process.env, ...COMMIT_ENV },
+    env: { ...cleanGitEnv(), ...COMMIT_ENV },
   }).trim();
 }
 

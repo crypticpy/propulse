@@ -8,7 +8,12 @@ import { PRESETS } from "@/lib/widgets/heatmap";
 import type { HeatMapMetric } from "@/lib/widgets/heatmap";
 import type { RailWidth } from "@/lib/workspace/types";
 import type { TextScale } from "@/types/user";
-import { useActiveWorkspace, useWorkspaceStore, type HeatMapPresetId } from "@/stores/workspaceStore";
+import {
+  useActiveWorkspace,
+  useEffectiveCanvasType,
+  useWorkspaceStore,
+  type HeatMapPresetId,
+} from "@/stores/workspaceStore";
 
 const PRESET_OPTIONS: { value: HeatMapPresetId; label: string }[] = PRESETS.map((preset) => ({
   value: preset.id,
@@ -87,7 +92,12 @@ export function DisplayTab() {
   const { heatMap, headlineRule, visibleBands } = workspace.display;
   const preset = PRESETS.find((p) => p.id === heatMap.presetId) ?? PRESETS[0];
   const bounds = thresholdBounds(preset.scale.metric);
-  const rules = canvasRulesFor(workspace.canvasType);
+  // #686 review item 8 (Codex PRRT_kwDORFr4R86ggBm7): the rail-width
+  // steppers below must offer the same rails `WorkspaceCanvas` actually
+  // renders, or a narrower-viewport operator sees width controls for a
+  // rail that doesn't exist under the canvas they're looking at.
+  const canvasType = useEffectiveCanvasType();
+  const rules = canvasRulesFor(canvasType);
 
   function toggleBand(band: string) {
     setVisibleBands(visibleBands.includes(band) ? visibleBands.filter((b) => b !== band) : [...visibleBands, band]);

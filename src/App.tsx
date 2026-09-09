@@ -15,6 +15,7 @@ import { useTextScale } from "@/hooks/useTextScale";
 import { useHighContrast } from "@/hooks/useHighContrast";
 import { useColorBlindMode } from "@/hooks/useColorBlindMode";
 import { useIsMobile } from "@/hooks/useIsMobile";
+import { useOperatingTransport } from "@/hooks/useOperatingTransport";
 import { useSync } from "@/hooks/useSync";
 import { isSupabaseConfigured } from "@/lib/supabase";
 import { useAuthStore, selectIsAuthenticated } from "@/stores/authStore";
@@ -227,6 +228,18 @@ function PersonalMonitorHost() {
   return null;
 }
 
+/**
+ * Holds the shared operating-state channel open for the whole session (#658).
+ * App-level rather than route-level because the workflow cursor is written
+ * from every canvas — a contact entered on the map goes through
+ * `opsPostureStore` — so a connection scoped to `/workspace` would drop those
+ * writes whenever the operator was anywhere else.
+ */
+function OperatingTransportHost() {
+  useOperatingTransport();
+  return null;
+}
+
 function Application() {
   // Apply text scale preference to DOM
   useTextScale();
@@ -272,6 +285,7 @@ function Application() {
     <ErrorBoundary>
       <AuthGate>
         {personalSession && <PersonalMonitorHost />}
+        {personalSession && <OperatingTransportHost />}
         <Suspense fallback={null}>
           {personalSession && <RankPersistenceHost />}
         </Suspense>

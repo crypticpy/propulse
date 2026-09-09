@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import axe from "axe-core";
@@ -464,5 +464,224 @@ describe("AccessibleDialog background inerting across a stack", () => {
     expect(document.activeElement).toBe(outerPanel);
 
     popoverPortal.remove();
+  });
+});
+
+describe("AccessibleDialog late-mounted body portals (#693)", () => {
+  // jsdom does not reflect the `inert` IDL property to the content attribute,
+  // so assert truthiness on the property (as the rest of this file does) and
+  // keep aria-hidden strict via the attribute.
+  const lateNodes: HTMLElement[] = [];
+  function appendLatePortal(): HTMLElement {
+    const node = document.createElement("div");
+    node.textContent = "Late portal content";
+    document.body.append(node);
+    lateNodes.push(node);
+    return node;
+  }
+
+  afterEach(() => {
+    for (const node of lateNodes.splice(0)) node.remove();
+  });
+
+  it("inerts a body child that mounts after the dialog is already open", async () => {
+    render(
+      <AccessibleDialog open onClose={vi.fn()} title="Host">
+        <button type="button">Host action</button>
+      </AccessibleDialog>,
+    );
+
+    const late = appendLatePortal();
+
+    await waitFor(() => expect(late.inert).toBeTruthy());
+    expect(late.getAttribute("aria-hidden")).toBe("true");
+  });
+
+  it("restores a late-mounted portal instead of leaving it inert once the dialog closes", async () => {
+    const { rerender } = render(
+      <AccessibleDialog open onClose={vi.fn()} title="Host">
+        <button type="button">Host action</button>
+      </AccessibleDialog>,
+    );
+
+    const late = appendLatePortal();
+    await waitFor(() => expect(late.inert).toBeTruthy());
+
+    rerender(
+      <AccessibleDialog open={false} onClose={vi.fn()} title="Host">
+        <button type="button">Host action</button>
+      </AccessibleDialog>,
+    );
+
+    expect(late.inert).toBeFalsy();
+    expect(late.hasAttribute("aria-hidden")).toBe(false);
+  });
+
+  it("stops inerting new body children once the last dialog has closed", async () => {
+    // A leaked observer is now independently observable — see "does not
+    // treat a body child that arrives while no dialog is open as late"
+    // below, which pins it via the lateness state a leaked observer would
+    // wrongly attach to a node arriving after the last dialog closed.
+    // (The disconnect call itself is also pinned directly by the prototype
+    // spy in "disconnects the body observer once the last open dialog
+    // closes".)
+    //
+    // What this test pins, and nothing else does: once
+    // `indexOfTopmostOpenEntry()` finds no open entry, a body child that
+    // arrives afterward must not be inerted. Regress the cleanup effect's
+    // `stackEntry.isOpen = false` write, or regress
+    // `indexOfTopmostOpenEntry()` to report a stale `top`, and this goes
+    // red.
+    const { rerender } = render(
+      <AccessibleDialog open onClose={vi.fn()} title="Host">
+        <button type="button">Host action</button>
+      </AccessibleDialog>,
+    );
+
+    rerender(
+      <AccessibleDialog open={false} onClose={vi.fn()} title="Host">
+        <button type="button">Host action</button>
+      </AccessibleDialog>,
+    );
+
+    const late = appendLatePortal();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    expect(late.inert).toBeFalsy();
+    expect(late.hasAttribute("aria-hidden")).toBe(false);
+  });
+
+  it("disconnects the body observer once the last open dialog closes", () => {
+    // `disconnectSpy` is a prototype-level spy: it counts every
+    // `MutationObserver#disconnect` call in this render tree, not just this
+    // module's. `toHaveBeenCalledOnce()` only holds because nothing else
+    // here constructs a MutationObserver; it will start over- or
+    // under-counting the moment that changes.
+    const disconnectSpy = vi.spyOn(MutationObserver.prototype, "disconnect");
+
+    const { rerender } = render(
+      <AccessibleDialog open onClose={vi.fn()} title="Host">
+        <button type="button">Host action</button>
+      </AccessibleDialog>,
+    );
+    expect(disconnectSpy).not.toHaveBeenCalled();
+
+    rerender(
+      <AccessibleDialog open={false} onClose={vi.fn()} title="Host">
+        <button type="button">Host action</button>
+      </AccessibleDialog>,
+    );
+
+    expect(disconnectSpy).toHaveBeenCalledOnce();
+    disconnectSpy.mockRestore();
+  });
+
+  it("does not treat a body child that arrives while no dialog is open as late", async () => {
+    // Lateness became state under round 3 (`lateBodyPortals`), so a leaked
+    // `bodyPortalObserver` — one that keeps recording arrivals after the
+    // last dialog closes instead of disconnecting — is now observable: it
+    // would wrongly mark a node that mounted while nothing was open as
+    // "late", making the next dialog's foreign-modal exemption match it
+    // and leave it reachable behind the modal. This was structurally
+    // impossible to catch in round 2, when lateness was purely structural.
+    const { rerender } = render(
+      <AccessibleDialog open onClose={vi.fn()} title="First">
+        <button type="button">First action</button>
+      </AccessibleDialog>,
+    );
+    rerender(
+      <AccessibleDialog open={false} onClose={vi.fn()} title="First">
+        <button type="button">First action</button>
+      </AccessibleDialog>,
+    );
+
+    const foreignModal = document.createElement("div");
+    foreignModal.innerHTML = '<div role="dialog" aria-modal="true">Foreign modal content</div>';
+    document.body.append(foreignModal);
+    lateNodes.push(foreignModal);
+
+    render(
+      <AccessibleDialog open onClose={vi.fn()} title="Second">
+        <button type="button">Second action</button>
+      </AccessibleDialog>,
+    );
+
+    // One macrotask lets the pending MutationObserver microtask — and the
+    // resync it triggers — run, so this asserts the settled state instead of
+    // sampling it mid-flight.
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(foreignModal.inert).toBeTruthy();
+    expect(foreignModal.getAttribute("aria-hidden")).toBe("true");
+  });
+
+  it("exempts a foreign modal portal from inert, but still inerts a non-modal late portal", async () => {
+    render(
+      <AccessibleDialog open onClose={vi.fn()} title="Host">
+        <button type="button">Host action</button>
+      </AccessibleDialog>,
+    );
+
+    const foreignModal = document.createElement("div");
+    foreignModal.innerHTML = '<div role="dialog" aria-modal="true">Foreign modal content</div>';
+    document.body.append(foreignModal);
+    lateNodes.push(foreignModal);
+
+    const nonModal = appendLatePortal();
+
+    await waitFor(() => expect(nonModal.inert).toBeTruthy());
+    expect(nonModal.getAttribute("aria-hidden")).toBe("true");
+    expect(foreignModal.inert).toBeFalsy();
+    expect(foreignModal.hasAttribute("aria-hidden")).toBe(false);
+  });
+
+  it("inerts a pre-existing body child with a nested aria-modal descendant (the #root shape)", async () => {
+    // RTL's render container is always empty, so no other test in this file
+    // can see the bug this regresses: `#root` is a direct body child whose
+    // subtree is the whole app, it's mounted long before any dialog opens,
+    // and several components render `aria-modal="true"` inline rather than
+    // through a body portal. The foreign-modal-exemption check must not
+    // match this shape — an ordinary content node that merely predates the
+    // dialog and happens to contain unrelated `aria-modal` markup deep
+    // inside it — or background inert turns off app-wide the moment one of
+    // those inline modals is mounted.
+    const appRoot = document.createElement("div");
+    appRoot.innerHTML =
+      '<div class="app-shell">Ordinary app content' +
+      '<div role="dialog" aria-modal="true">Unrelated inline modal</div>' +
+      "</div>";
+    document.body.append(appRoot);
+    lateNodes.push(appRoot);
+
+    render(
+      <AccessibleDialog open onClose={vi.fn()} title="Host">
+        <button type="button">Host action</button>
+      </AccessibleDialog>,
+    );
+
+    await waitFor(() => expect(appRoot.inert).toBeTruthy());
+    expect(appRoot.getAttribute("aria-hidden")).toBe("true");
+  });
+
+  it("still inerts a lower dialog's own portal even though its panel also carries aria-modal", () => {
+    const renderStack = (outerOpen: boolean, innerOpen: boolean) => (
+      <>
+        <AccessibleDialog open={outerOpen} onClose={vi.fn()} title="Outer">
+          <button type="button">Outer action</button>
+        </AccessibleDialog>
+        <AccessibleDialog open={innerOpen} onClose={vi.fn()} title="Inner">
+          <button type="button">Inner action</button>
+        </AccessibleDialog>
+      </>
+    );
+
+    const { rerender } = render(renderStack(true, false));
+    // Capture the outer portal while it's still reachable — once the inner
+    // dialog opens and inerts it, role-based queries can no longer find it.
+    const outerPortal = screen.getByRole("dialog", { name: "Outer" }).parentElement;
+
+    rerender(renderStack(true, true));
+
+    expect(outerPortal?.inert).toBeTruthy();
+    expect(outerPortal?.getAttribute("aria-hidden")).toBe("true");
   });
 });

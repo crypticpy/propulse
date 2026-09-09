@@ -41,6 +41,49 @@ const originalBackgroundState = new Map<
 >();
 let previousBodyOverflow: string | null = null;
 
+/**
+ * Watches for body-level portals (Tooltip, ConfirmDialog, CommandPalette, and
+ * ~20 other `createPortal(..., document.body)` surfaces) that mount *after* a
+ * dialog is already open. `syncBackgroundInert` only runs on dialog open/close,
+ * so without this a late-mounted portal would stay reachable behind a modal.
+ *
+ * `childList`-only, no `subtree`: portals are always direct body children, and
+ * subtree observation would fire on every DOM change in the whole app. No
+ * `attributes`: this module writes `inert`/`aria-hidden` on body children
+ * itself, so observing attributes would retrigger the sync in a loop.
+ */
+let bodyPortalObserver: MutationObserver | null = null;
+
+/**
+ * Body children the observer has actually watched arrive, as opposed to
+ * ones that were already present when it started observing.
+ *
+ * This is what lets the foreign-modal exemption in `syncBackgroundInert`
+ * single out portals the app deliberately layered above a dialog (see the
+ * comment there) without also exempting `#root`: `#root` is a direct body
+ * child mounted at page bootstrap, long before any dialog's observer
+ * connects, so it can never be added to this set.
+ */
+const lateBodyPortals = new WeakSet<HTMLElement>();
+
+function ensureBodyPortalObserverConnected(): void {
+  if (bodyPortalObserver) return;
+  bodyPortalObserver = new MutationObserver((records) => {
+    for (const record of records) {
+      for (const node of record.addedNodes) {
+        if (node instanceof HTMLElement) lateBodyPortals.add(node);
+      }
+    }
+    syncBackgroundInert();
+  });
+  bodyPortalObserver.observe(document.body, { childList: true });
+}
+
+function disconnectBodyPortalObserver(): void {
+  bodyPortalObserver?.disconnect();
+  bodyPortalObserver = null;
+}
+
 function restoreOriginal(element: HTMLElement): void {
   const original = originalBackgroundState.get(element);
   if (!original) return;
@@ -66,10 +109,17 @@ function syncBackgroundInert(): void {
       document.body.style.overflow = previousBodyOverflow;
       previousBodyOverflow = null;
     }
+    disconnectBodyPortalObserver();
     return;
   }
+  ensureBodyPortalObserverConnected();
   if (previousBodyOverflow === null) previousBodyOverflow = document.body.style.overflow;
   document.body.style.overflow = "hidden";
+  // Every portalRoot on the stack (not just `top`'s) is exempt from the
+  // foreign-modal check below: a dialog lower in the stack still needs to be
+  // inerted while it isn't topmost, and it also carries `aria-modal="true"`
+  // on its panel, so without this it would wrongly match the exemption too.
+  const stackRoots = new Set(openDialogStack.map((entry) => entry.portalRoot));
   for (const child of document.body.children) {
     if (!(child instanceof HTMLElement)) continue;
     if (!originalBackgroundState.has(child)) {
@@ -79,6 +129,30 @@ function syncBackgroundInert(): void {
       });
     }
     if (child === top.portalRoot) {
+      restoreOriginal(child);
+      continue;
+    }
+    // A body portal that arrived after this dialog started watching, isn't
+    // on this module's stack, and is itself a modal (ConfirmDialog,
+    // ImageCropDialog, EquipmentHeroCard's bare `createPortal`) was
+    // deliberately layered above the dialog by the app, not left behind by
+    // it. Inerting it would make it paint on top while being completely
+    // dead — unreachable by Tab/click, invisible to screen readers, and
+    // Escape would fall through to this dialog instead.
+    //
+    // The late-arrival check is load-bearing, not incidental: `#root` is a
+    // direct body child whose subtree is the entire app, and it always
+    // predates the observer (this component only ever portals to
+    // `document.body`, never into `#root`). Several components render
+    // `aria-modal="true"` inline rather than through a body portal —
+    // without requiring lateness, `#root.querySelector('[aria-modal="true"]')`
+    // would match whenever any of those is mounted and turn off background
+    // inert app-wide.
+    if (
+      lateBodyPortals.has(child) &&
+      !stackRoots.has(child) &&
+      child.querySelector('[aria-modal="true"]')
+    ) {
       restoreOriginal(child);
       continue;
     }

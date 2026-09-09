@@ -1,4 +1,5 @@
 import { act, render } from "@testing-library/react";
+import { StrictMode, useEffect } from "react";
 import { afterEach, describe, expect, it } from "vitest";
 import { ViewProvider } from "@/components/views/ViewProvider";
 import { useViewRuntime } from "@/components/views/ViewRuntimeContext";
@@ -176,5 +177,51 @@ describe("HamClockBoundModeFilters (SP-09 round 2, 1c)", () => {
       "15m",
     ]);
     expect(useHamClockStore.getState().filtersBeforeBands).toBeNull();
+  });
+
+  it("survives a StrictMode double-invoke of the mount effects when landing already in Bands mode (#770 review)", () => {
+    // StrictMode double-invokes effects on mount in dev: setup, cleanup,
+    // setup again. Without resetting `prevModeRef`/`pendingRestoreRef` in
+    // the unmount cleanup, the replayed setup sees `prev === "bands"`
+    // (untouched) and takes neither branch, leaving Bands mode selected
+    // while the runtime shows the just-restored pre-Bands filters.
+    let mountEffectRuns = 0;
+    function MountEffectProbe() {
+      // Same shape as the component's own unmount-only effect ([] deps, no
+      // cleanup needed here), used only to prove this test environment and
+      // React version actually double-invoke effects on mount -- if this
+      // count were 1, the assertions below would pass for the wrong reason.
+      useEffect(() => {
+        mountEffectRuns += 1;
+      }, []);
+      return null;
+    }
+
+    const storage = createMemoryWorkingStorage();
+    useHamClockStore.setState({
+      hamclockMode: "bands",
+      bandFocus: ["40m"],
+      filtersBeforeBands: null,
+    });
+
+    capturedRuntime = null;
+    render(
+      <StrictMode>
+        <ViewProvider ownerId="owner-test" slot="hamclock" storage={storage}>
+          <RuntimeCapture />
+          <MountEffectProbe />
+          <HamClockBoundModeFilters />
+        </ViewProvider>
+      </StrictMode>,
+    );
+
+    // Proves the double-invoke path actually ran in this environment.
+    expect(mountEffectRuns).toBe(2);
+
+    const runtime = capturedRuntime!;
+    // The Bands patch must be applied -- not left at the pre-Bands filters
+    // the StrictMode replay's cleanup restores in between the two setups.
+    expect(runtime.getSnapshot().config.spots.filters.bands).toEqual(["40m"]);
+    expect(useHamClockStore.getState().filtersBeforeBands?.bands).toEqual([]);
   });
 });

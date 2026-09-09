@@ -220,6 +220,19 @@ export function HamClockBoundModeFilters() {
         });
       }
       setFiltersBeforeBands(null);
+      // React StrictMode double-invokes effects in development: setup →
+      // this cleanup → setup again, on the same mount. Without resetting
+      // these, the replayed setup sees `prevModeRef.current === "bands"`
+      // (untouched by this cleanup) and takes neither the entry nor the
+      // exit branch above, leaving Bands mode selected with the runtime
+      // showing the just-restored pre-Bands filters. Resetting both lets
+      // the replay see `prev === null` with `hamclockMode` still "bands"
+      // and re-enter cleanly, re-capturing from the snapshot this cleanup
+      // just restored (so the recapture is correct) and re-patching the
+      // runtime. On a genuine unmount these refs are about to be garbage
+      // anyway, so resetting them here is harmless.
+      prevModeRef.current = null;
+      pendingRestoreRef.current = null;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- unmount-only cleanup; runtime/setFiltersBeforeBands are stable for this mount's lifetime
   }, []);

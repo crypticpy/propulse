@@ -28,6 +28,28 @@ export const DEFAULT_ACCENT_HEX = "#ff6b35";
  */
 const DARK_CANVAS_HEX = "#141827";
 
+/**
+ * The roles every station palette must define. Spelling the keys out (rather
+ * than `Record<string, string>`) is what makes a role missing from one of the
+ * four palettes a compile error instead of an `undefined` token at runtime.
+ * `purple` (Tailwind's `aurora-purple`) is a decorative accent hue, not a
+ * status tone — see the colour-blind swap in `stationTokens` below.
+ */
+type StationPalette = Record<
+  | "canvas"
+  | "panel"
+  | "input"
+  | "text"
+  | "muted"
+  | "line"
+  | "info"
+  | "success"
+  | "warning"
+  | "danger"
+  | "purple",
+  string
+>;
+
 /** Canonical palette; components only consume semantic --su-* properties. */
 export const stationPalettes = {
   dark: {
@@ -41,6 +63,7 @@ export const stationPalettes = {
     success: "#8bdbb0",
     warning: "#f5cf79",
     danger: "#fda4af",
+    purple: "#b975f0",
   },
   light: {
     canvas: "#e9ece7",
@@ -53,6 +76,7 @@ export const stationPalettes = {
     success: "#166534",
     warning: "#854d0e",
     danger: "#9f1239",
+    purple: "#8719e1",
   },
   "high-contrast": {
     canvas: "#000000",
@@ -65,6 +89,7 @@ export const stationPalettes = {
     success: "#aaffbb",
     warning: "#ffdd88",
     danger: "#ffb4c0",
+    purple: "#ad5eed",
   },
   midnight: {
     canvas: "#090b16",
@@ -77,8 +102,9 @@ export const stationPalettes = {
     success: "#97dfb7",
     warning: "#efd29a",
     danger: "#f5b2c4",
+    purple: "#b268ee",
   },
-} satisfies Record<ThemeId, Record<string, string>>;
+} satisfies Record<ThemeId, StationPalette>;
 
 function luminance(hex: string) {
   const values = [1, 3, 5].map((start) => {
@@ -164,6 +190,11 @@ export function stationTokens(
   // a CSS rule or a second pass) so the document root and every scoped
   // `.station-ui` subtree agree, and so a later theme/accent change cannot
   // silently overwrite the swap.
+  // `purple` is deliberately not in this swap: the three roles below carry
+  // status meaning (good/fair/poor), which is what a colour-blind operator
+  // needs kept distinguishable. `purple` is a decorative accent hue (Pro
+  // badges, RTTY, hazardous AQI), so remapping it would spend one of the
+  // palette's distinguishable hues on a colour that carries no state.
   const colorBlind = COLOR_BLIND_PALETTES[colorBlindMode];
   if (colorBlind) {
     colors["--su-success"] = toneOnPanel(colorBlind.good, palette.panel);

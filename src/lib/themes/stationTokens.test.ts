@@ -36,6 +36,7 @@ const COLOR_TOKENS = [
   "success",
   "warning",
   "danger",
+  "purple",
 ] as const;
 
 function rootTokens() {
@@ -128,6 +129,17 @@ describe("station tokens on the document root", () => {
         `--su-fixed-dark-${role}-rgb: ${hexToChannels(value)};`,
       );
     }
+    // `purple` takes no colour-blind swap, so `.su-fixed-dark` pins it
+    // directly rather than through a --su-fixed-dark-* triple. Read the block
+    // itself: the same declaration also appears in the :root fallbacks above.
+    const fixedDark = css.slice(
+      css.indexOf(".su-fixed-dark {"),
+      css.indexOf("}", css.indexOf(".su-fixed-dark {")),
+    );
+    expect(fixedDark).toContain(`--su-purple: ${stationPalettes.dark.purple};`);
+    expect(fixedDark).toContain(
+      `--su-purple-rgb: ${hexToChannels(stationPalettes.dark.purple)};`,
+    );
   });
 
   it("keeps Home's high-contrast text override on the high-contrast palette", () => {
@@ -159,6 +171,12 @@ describe("station tokens on the document root", () => {
     expect(css).toContain("--su-success-rgb: var(--hc-good-rgb);");
     expect(css).toContain("--su-warning-rgb: var(--hc-warn-rgb);");
     expect(css).toContain("--su-danger-rgb: var(--hc-bad-rgb);");
+    // `purple` has no --hc-* triple to route through and is not a tone role,
+    // so the wall pins it to the dark palette's violet like the surfaces.
+    expect(css).toContain(`--su-purple: ${stationPalettes.dark.purple};`);
+    expect(css).toContain(
+      `--su-purple-rgb: ${hexToChannels(stationPalettes.dark.purple)};`,
+    );
   });
 
   it("previews the canvas it applies in the Settings theme swatch", () => {
@@ -170,6 +188,65 @@ describe("station tokens on the document root", () => {
         stationPalettes[themeId].canvas,
       );
     }
+  });
+});
+
+describe("the aurora-purple token (--su-purple)", () => {
+  // #787: `aurora-purple` was the only station accent still bound to a fixed
+  // hex in tailwind.config.js, so it could not follow the palette and measured
+  // 3.93:1 on the dark panel, 3.81:1 on the light panel and 4.30:1 on the
+  // midnight panel as bare foreground text — under the 4.5:1 AA floor in three
+  // of four themes, and identical in all four because it never moved. Every
+  // palette now carries its own violet and Tailwind reads --su-purple-rgb.
+  const surfaces = ["panel", "canvas"] as const;
+  const cases = (Object.keys(stationPalettes) as ThemeId[]).flatMap((themeId) =>
+    surfaces.map((surface) => [themeId, surface] as const),
+  );
+
+  it.each(cases)(
+    "clears the status-text floor as bare text on %s %s",
+    (themeId, surface) => {
+      const palette = stationPalettes[themeId];
+      expect(
+        stationContrast(palette.purple, palette[surface]),
+      ).toBeGreaterThanOrEqual(4.5);
+    },
+  );
+
+  it("stays a violet in every theme rather than being greyed to pass", () => {
+    // The cheap way to clear the floor is to drain the hue, which would cost
+    // the app the colour this token exists to carry. Violet means blue is the
+    // dominant channel and red leads green, and the chroma has to be real.
+    for (const themeId of Object.keys(stationPalettes) as ThemeId[]) {
+      const [red, green, blue] = hexToChannels(stationPalettes[themeId].purple)
+        .split(" ")
+        .map(Number);
+      expect(blue).toBeGreaterThan(red);
+      expect(red).toBeGreaterThan(green);
+      expect(blue - green).toBeGreaterThan(80);
+    }
+  });
+
+  it("is not remapped by colour-blind mode", () => {
+    // The swap is for the status roles (good/fair/poor). `purple` is a
+    // decorative accent — Pro badges, RTTY, hazardous AQI — so it keeps its
+    // palette value and does not spend one of the distinguishable hues.
+    for (const mode of ["deuteranopia", "protanopia", "tritanopia"] as const) {
+      for (const themeId of Object.keys(stationPalettes) as ThemeId[]) {
+        expect(stationTokens(themeId, "#ff6b35", mode)["--su-purple"]).toBe(
+          stationPalettes[themeId].purple,
+        );
+      }
+    }
+  });
+
+  it("emits the channel triplet Tailwind's aurora-purple utilities read", () => {
+    applyThemeToDocument(getTheme("light"), getAccentPreset("plasma"));
+    const token = rootTokens();
+    expect(token("--su-purple")).toBe(stationPalettes.light.purple);
+    expect(token("--su-purple-rgb")).toBe(
+      hexToChannels(stationPalettes.light.purple),
+    );
   });
 });
 

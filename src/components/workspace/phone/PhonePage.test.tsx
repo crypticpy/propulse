@@ -1,10 +1,11 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { OPERATING_PROTOCOL_VERSION } from "@/lib/workspace/operatingChannel";
 import { useDXStore } from "@/stores/dxStore";
 import { useOperatingStateStore } from "@/stores/operatingStateStore";
 import { useWorkspaceStore } from "@/stores/workspaceStore";
 import type { DXSpot } from "@/types/dxcluster";
-import { PhonePage } from "./PhonePage";
+import { PhonePage, PHONE_WORKSPACE_ID } from "./PhonePage";
 
 const mocks = vi.hoisted(() => ({ cluster: vi.fn() }));
 vi.mock("@/hooks/useDXCluster", () => ({ useDXCluster: mocks.cluster }));
@@ -117,6 +118,83 @@ describe("PhonePage", () => {
     expect(
       screen.getByRole("tab", { selected: true }).getAttribute("aria-label"),
     ).toContain("SELECTION");
+  });
+
+  it("renders the band ladder and contact list without hanging when a spot is hidden", () => {
+    // Regression for #685 P1: `useDXStore(selectVisibleSpots)` returns a
+    // fresh array on every call once `hiddenSpotIds` is non-empty, which is
+    // not a stable useSyncExternalStore snapshot and re-renders forever. If
+    // either page still reads it directly, this `render` call hangs/throws
+    // "Maximum update depth exceeded" instead of returning.
+    useDXStore.setState({
+      spots: [spot({ id: "a", band: "20m" }), spot({ id: "b", band: "40m" })],
+      hiddenSpotIds: new Set(["b"]),
+    });
+    useOperatingStateStore.getState().setBand("20m");
+    render(<PhonePage />);
+
+    expect(screen.getByRole("button", { name: /20M/ })).toBeTruthy();
+
+    fireEvent.click(screen.getByRole("button", { name: "Next page" }));
+    expect(screen.getByRole("list", { name: /Spots on 20M/ })).toBeTruthy();
+  });
+
+  it("applies a foreign flipPage command for this workspace but ignores one for another", () => {
+    render(<PhonePage />);
+    expect(
+      screen.getByRole("tab", { selected: true }).getAttribute("aria-label"),
+    ).toContain("BAND LADDER");
+
+    act(() => {
+      useOperatingStateStore.getState().applyMessage({
+        v: OPERATING_PROTOCOL_VERSION,
+        senderId: "foreign-device",
+        sentAt: Date.now(),
+        kind: "command",
+        command: {
+          type: "flipPage",
+          workspaceId: PHONE_WORKSPACE_ID,
+          pageIndex: 2,
+        },
+      });
+    });
+    expect(
+      screen.getByRole("tab", { selected: true }).getAttribute("aria-label"),
+    ).toContain("SELECTION");
+
+    act(() => {
+      useOperatingStateStore.getState().applyMessage({
+        v: OPERATING_PROTOCOL_VERSION,
+        senderId: "foreign-device",
+        sentAt: Date.now(),
+        kind: "command",
+        command: {
+          type: "flipPage",
+          workspaceId: "some-other-workspace",
+          pageIndex: 0,
+        },
+      });
+    });
+    expect(
+      screen.getByRole("tab", { selected: true }).getAttribute("aria-label"),
+    ).toContain("SELECTION");
+  });
+
+  it("registers exactly one phone entry while mounted, never a workstation one, and unregisters on unmount", () => {
+    const { unmount } = render(<PhonePage />);
+
+    const registrations = Object.values(
+      useOperatingStateStore.getState().registrations,
+    );
+    expect(registrations).toHaveLength(1);
+    expect(registrations[0]?.canvasType).toBe("phone");
+    expect(registrations.some((r) => r.canvasType === "workstation")).toBe(
+      false,
+    );
+
+    unmount();
+
+    expect(useOperatingStateStore.getState().registrations).toEqual({});
   });
 
   // The phone canvas's page budget (`CANVAS_RULES.phone.phone`:

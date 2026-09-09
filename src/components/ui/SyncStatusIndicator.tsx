@@ -115,7 +115,7 @@ export function SyncStatusIndicator(): JSX.Element | null {
   const hasFailed = failedCount > 0;
   const pillColor = hasFailed
     ? "bg-alert-red/20 text-alert-red border-alert-red/30"
-    : "bg-plasma-orange/20 text-plasma-orange border-plasma-orange/30";
+    : "bg-plasma-orange/20 text-su-text border-plasma-orange/30";
   const pillDotColor = hasFailed ? "bg-alert-red" : "bg-plasma-orange";
 
   return (
@@ -178,8 +178,8 @@ export function SyncStatusIndicator(): JSX.Element | null {
                   onClick={() => {
                     retryAll();
                   }}
-                  className="text-[10px] px-2 py-0.5 rounded bg-plasma-orange/20 text-plasma-orange
-                             hover:bg-plasma-orange/30 transition-colors font-medium"
+                  className="text-[10px] px-2 py-0.5 rounded bg-plasma-orange/15 text-su-text
+                             hover:bg-plasma-orange/20 transition-colors font-medium"
                   type="button"
                 >
                   Retry All

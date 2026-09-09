@@ -59,7 +59,7 @@ export default function ReferencePanel() {
               onClick={() => setSelectedBand(band)}
               className={`px-2 py-0.5 rounded text-xs font-mono border transition-colors ${
                 band === selectedBand
-                  ? "bg-plasma-orange/20 border-plasma-orange/60 text-plasma-orange"
+                  ? "bg-plasma-orange/20 border-plasma-orange/60 text-su-text"
                   : "bg-su-line/10 border-su-line/40 text-su-muted hover:bg-su-line/20"
               }`}
             >

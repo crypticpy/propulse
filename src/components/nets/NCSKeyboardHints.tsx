@@ -7,8 +7,8 @@
  * Escape or clicking outside dismisses the overlay.
  */
 
-import { useEffect, useCallback } from "react";
-import { createPortal } from "react-dom";
+import { useId } from "react";
+import { AccessibleDialog } from "@/components/ui/AccessibleDialog";
 
 interface NCSKeyboardHintsProps {
   onClose: () => void;
@@ -60,110 +60,77 @@ function ShortcutRow({
 }
 
 export function NCSKeyboardHints({ onClose }: NCSKeyboardHintsProps) {
-  // Body scroll lock
-  useEffect(() => {
-    const prev = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    return () => {
-      document.body.style.overflow = prev;
-    };
-  }, []);
+  const titleId = useId();
 
-  // Escape to close
-  useEffect(() => {
-    const handler = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
-        e.preventDefault();
-        e.stopPropagation();
-        onClose();
-      }
-    };
-    window.addEventListener("keydown", handler, { capture: true });
-    return () =>
-      window.removeEventListener("keydown", handler, { capture: true });
-  }, [onClose]);
-
-  const handleCardClick = useCallback((e: React.MouseEvent) => {
-    e.stopPropagation();
-  }, []);
-
-  return createPortal(
-    <div
-      className="fixed inset-0 z-[500] flex items-center justify-center p-4"
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="ncs-keyboard-hints-title"
+  return (
+    <AccessibleDialog
+      open
+      onClose={onClose}
+      title="Keyboard Shortcuts"
+      chrome="bare"
+      labelledBy={titleId}
+      panelProps={{
+        className:
+          "w-full max-w-sm bg-deep-space border border-su-line/40 rounded-2xl p-6 shadow-2xl animate-in zoom-in-95",
+      }}
     >
-      {/* Backdrop */}
-      <div
-        className="absolute inset-0 bg-void-black/80 animate-in fade-in"
-        onClick={onClose}
-      />
-
-      {/* Card */}
-      <div
-        className="relative z-10 w-full max-w-sm bg-deep-space border border-su-line/40 rounded-2xl p-6 shadow-2xl animate-in zoom-in-95"
-        onClick={handleCardClick}
-      >
-        {/* Header */}
-        <div className="flex items-center justify-between mb-4">
-          <h2
-            id="ncs-keyboard-hints-title"
-            className="text-sm font-orbitron font-bold text-su-text uppercase tracking-wider"
+      {/* Header */}
+      <div className="flex items-center justify-between mb-4">
+        <h2
+          id={titleId}
+          className="text-sm font-orbitron font-bold text-su-text uppercase tracking-wider"
+        >
+          Keyboard Shortcuts
+        </h2>
+        <button
+          type="button"
+          onClick={onClose}
+          className="p-1 rounded-lg text-su-muted hover:text-su-text hover:bg-su-line/20 transition-colors focus-visible:ring-2 focus-visible:ring-plasma-orange/50"
+          aria-label="Close keyboard shortcuts"
+        >
+          <svg
+            className="w-4 h-4"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
           >
-            Keyboard Shortcuts
-          </h2>
-          <button
-            type="button"
-            onClick={onClose}
-            className="p-1 rounded-lg text-su-muted hover:text-su-text hover:bg-su-line/20 transition-colors focus-visible:ring-2 focus-visible:ring-plasma-orange/50"
-            aria-label="Close keyboard shortcuts"
-          >
-            <svg
-              className="w-4 h-4"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M6 18L18 6M6 6l12 12"
-              />
-            </svg>
-          </button>
-        </div>
-
-        {/* Shortcut rows */}
-        <div className="space-y-0">
-          {/* Phase navigation */}
-          {PHASE_SHORTCUTS.map((shortcut, i) => (
-            <ShortcutRow
-              key={i}
-              shortcut={shortcut}
-              isLast={i === PHASE_SHORTCUTS.length - 1}
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M6 18L18 6M6 6l12 12"
             />
-          ))}
-
-          {/* Section divider */}
-          <div className="pt-2 pb-1">
-            <span className="text-[10px] uppercase tracking-widest text-su-muted font-medium">
-              Actions
-            </span>
-          </div>
-
-          {/* Action shortcuts */}
-          {ACTION_SHORTCUTS.map((shortcut, i) => (
-            <ShortcutRow
-              key={i}
-              shortcut={shortcut}
-              isLast={i === ACTION_SHORTCUTS.length - 1}
-            />
-          ))}
-        </div>
+          </svg>
+        </button>
       </div>
-    </div>,
-    document.body,
+
+      {/* Shortcut rows */}
+      <div className="space-y-0">
+        {/* Phase navigation */}
+        {PHASE_SHORTCUTS.map((shortcut, i) => (
+          <ShortcutRow
+            key={i}
+            shortcut={shortcut}
+            isLast={i === PHASE_SHORTCUTS.length - 1}
+          />
+        ))}
+
+        {/* Section divider */}
+        <div className="pt-2 pb-1">
+          <span className="text-[10px] uppercase tracking-widest text-su-muted font-medium">
+            Actions
+          </span>
+        </div>
+
+        {/* Action shortcuts */}
+        {ACTION_SHORTCUTS.map((shortcut, i) => (
+          <ShortcutRow
+            key={i}
+            shortcut={shortcut}
+            isLast={i === ACTION_SHORTCUTS.length - 1}
+          />
+        ))}
+      </div>
+    </AccessibleDialog>
   );
 }

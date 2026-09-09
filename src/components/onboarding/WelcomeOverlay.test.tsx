@@ -1,4 +1,4 @@
-import { act, fireEvent, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import type { Session, User } from "@supabase/supabase-js";
 import { beforeEach, describe, expect, it } from "vitest";
@@ -44,5 +44,27 @@ describe("Welcome overlay", () => {
     first.unmount();
     renderWelcome();
     expect(welcome()).toBeNull();
+  });
+
+  it("is a modal dialog that AccessibleDialog closes on Escape, persisting dismissal (#773)", () => {
+    renderWelcome();
+    const panel = welcome();
+    expect(panel).not.toBeNull();
+    expect(panel?.getAttribute("aria-modal")).toBe("true");
+    fireEvent.keyDown(document, { key: "Escape" });
+    expect(welcome()).toBeNull();
+    // The overlay's own Escape branch was removed in the AccessibleDialog
+    // migration (#773); this only passes if AccessibleDialog's own Escape
+    // handler is now calling `dismiss` (which persists to localStorage).
+    expect(localStorage.getItem("propulse-welcome-seen")).toBe("true");
+  });
+
+  it("still navigates slides with ArrowRight, unaffected by the migration", async () => {
+    renderWelcome();
+    expect(screen.getByText("See What's Inside")).toBeTruthy();
+    fireEvent.keyDown(window, { key: "ArrowRight" });
+    await waitFor(() =>
+      expect(screen.getByText("Your Radio Command Center")).toBeTruthy(),
+    );
   });
 });

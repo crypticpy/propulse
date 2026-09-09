@@ -6,8 +6,8 @@
  * rendered preamble with placeholder values.
  */
 
-import { useState, useRef, useEffect, useCallback } from "react";
-import { createPortal } from "react-dom";
+import { useState, useRef, useCallback, useId } from "react";
+import { AccessibleDialog } from "@/components/ui/AccessibleDialog";
 import type { Net } from "@/types/net";
 
 // ── Template variable definitions ────────────────────────────────────────────
@@ -60,33 +60,7 @@ interface PreambleEditorProps {
 export function PreambleEditor({ net, onClose, onSave }: PreambleEditorProps) {
   const [template, setTemplate] = useState(net.preambleTemplate ?? "");
   const textareaRef = useRef<HTMLTextAreaElement>(null);
-
-  // Body scroll lock
-  useEffect(() => {
-    const original = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    return () => {
-      document.body.style.overflow = original;
-    };
-  }, []);
-
-  // Escape key closes
-  useEffect(() => {
-    function handleKeyDown(e: KeyboardEvent) {
-      if (e.key === "Escape") {
-        e.preventDefault();
-        e.stopPropagation();
-        onClose();
-      }
-    }
-    window.addEventListener("keydown", handleKeyDown, { capture: true });
-    return () =>
-      window.removeEventListener("keydown", handleKeyDown, { capture: true });
-  }, [onClose]);
-
-  const handleCardClick = useCallback((e: React.MouseEvent) => {
-    e.stopPropagation();
-  }, []);
+  const titleId = useId();
 
   /** Insert a template variable at the current cursor position. */
   const insertVariable = useCallback((token: string) => {
@@ -112,112 +86,101 @@ export function PreambleEditor({ net, onClose, onSave }: PreambleEditorProps) {
     onClose();
   }, [template, onSave, onClose]);
 
-  return createPortal(
-    <div
-      className="fixed inset-0 z-[500] flex items-center justify-center p-4"
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="preamble-editor-title"
+  return (
+    <AccessibleDialog
+      open
+      onClose={onClose}
+      title="Edit Preamble Template"
+      chrome="bare"
+      labelledBy={titleId}
+      panelProps={{
+        className:
+          "bg-deep-space border border-su-line/50 rounded-2xl p-6 max-w-lg w-full shadow-2xl animate-in zoom-in-95",
+      }}
     >
-      {/* Backdrop */}
-      <div
-        className="absolute inset-0 bg-void-black/80 animate-in fade-in"
-        onClick={onClose}
+      {/* Header */}
+      <div className="flex items-center justify-between mb-4">
+        <h3 id={titleId} className="text-base font-semibold text-su-text">
+          Edit Preamble Template
+        </h3>
+        <button
+          onClick={onClose}
+          className="p-1 rounded-lg text-su-muted hover:text-su-text hover:bg-su-line/30 transition-colors focus-visible:ring-2 focus-visible:ring-plasma-orange/70"
+          aria-label="Close"
+        >
+          <svg
+            className="w-5 h-5"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M6 18L18 6M6 6l12 12"
+            />
+          </svg>
+        </button>
+      </div>
+
+      {/* Textarea */}
+      <textarea
+        ref={textareaRef}
+        value={template}
+        onChange={(e) => setTemplate(e.target.value)}
+        rows={8}
+        placeholder="Enter your preamble template..."
+        className="w-full bg-void border border-su-line/50 rounded-lg p-3 text-sm text-su-text font-mono placeholder:text-su-muted focus:outline-none focus:ring-1 focus:ring-plasma-orange/70 resize-none"
       />
 
-      {/* Card */}
-      <div
-        className="relative z-10 bg-deep-space border border-su-line/50 rounded-2xl p-6 max-w-lg w-full shadow-2xl animate-in zoom-in-95"
-        onClick={handleCardClick}
-      >
-        {/* Header */}
-        <div className="flex items-center justify-between mb-4">
-          <h3
-            id="preamble-editor-title"
-            className="text-base font-semibold text-su-text"
-          >
-            Edit Preamble Template
-          </h3>
-          <button
-            onClick={onClose}
-            className="p-1 rounded-lg text-su-muted hover:text-su-text hover:bg-su-line/30 transition-colors focus-visible:ring-2 focus-visible:ring-plasma-orange/70"
-            aria-label="Close"
-          >
-            <svg
-              className="w-5 h-5"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
+      {/* Variable chips */}
+      <div className="mt-3">
+        <p className="text-[10px] uppercase tracking-widest text-su-muted mb-1.5">
+          Insert variable
+        </p>
+        <div className="flex flex-wrap gap-1.5">
+          {TEMPLATE_VARIABLES.map((v) => (
+            <button
+              key={v.token}
+              onClick={() => insertVariable(v.token)}
+              className="px-2.5 py-1 text-xs font-mono rounded-full bg-su-line/10 text-su-muted border border-su-line/50 hover:bg-plasma-orange/20 hover:text-plasma-orange hover:border-plasma-orange/40 hover:shadow-[0_0_8px_rgba(255,107,53,0.2)] active:scale-[0.98] transition-all will-change-transform focus-visible:ring-2 focus-visible:ring-plasma-orange/70 focus-visible:outline-none"
             >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M6 18L18 6M6 6l12 12"
-              />
-            </svg>
-          </button>
-        </div>
-
-        {/* Textarea */}
-        <textarea
-          ref={textareaRef}
-          value={template}
-          onChange={(e) => setTemplate(e.target.value)}
-          rows={8}
-          placeholder="Enter your preamble template..."
-          className="w-full bg-void border border-su-line/50 rounded-lg p-3 text-sm text-su-text font-mono placeholder:text-su-muted focus:outline-none focus:ring-1 focus:ring-plasma-orange/70 resize-none"
-        />
-
-        {/* Variable chips */}
-        <div className="mt-3">
-          <p className="text-[10px] uppercase tracking-widest text-su-muted mb-1.5">
-            Insert variable
-          </p>
-          <div className="flex flex-wrap gap-1.5">
-            {TEMPLATE_VARIABLES.map((v) => (
-              <button
-                key={v.token}
-                onClick={() => insertVariable(v.token)}
-                className="px-2.5 py-1 text-xs font-mono rounded-full bg-su-line/10 text-su-muted border border-su-line/50 hover:bg-plasma-orange/20 hover:text-plasma-orange hover:border-plasma-orange/40 hover:shadow-[0_0_8px_rgba(255,107,53,0.2)] active:scale-[0.98] transition-all will-change-transform focus-visible:ring-2 focus-visible:ring-plasma-orange/70 focus-visible:outline-none"
-              >
-                {v.label}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* Preview */}
-        {template.trim() && (
-          <div className="mt-4">
-            <p className="text-[10px] uppercase tracking-widest text-su-muted mb-1.5">
-              Preview
-            </p>
-            <div className="bg-su-line/20 border border-su-line/50 rounded-lg p-3">
-              <p className="text-sm text-su-muted whitespace-pre-wrap leading-relaxed">
-                {renderPreview(template)}
-              </p>
-            </div>
-          </div>
-        )}
-
-        {/* Footer */}
-        <div className="flex items-center justify-end gap-2 mt-5">
-          <button
-            onClick={onClose}
-            className="px-4 py-2 text-sm font-medium rounded-lg text-su-muted hover:text-su-text hover:bg-su-line/20 transition-colors"
-          >
-            Cancel
-          </button>
-          <button
-            onClick={handleSave}
-            className="px-4 py-2 text-sm font-semibold rounded-lg bg-plasma-orange text-su-on-accent hover:bg-plasma-orange/90 active:scale-[0.98] focus-visible:ring-2 focus-visible:ring-plasma-orange/70 focus-visible:ring-offset-2 focus-visible:ring-offset-deep-space transition-colors"
-          >
-            Save
-          </button>
+              {v.label}
+            </button>
+          ))}
         </div>
       </div>
-    </div>,
-    document.body,
+
+      {/* Preview */}
+      {template.trim() && (
+        <div className="mt-4">
+          <p className="text-[10px] uppercase tracking-widest text-su-muted mb-1.5">
+            Preview
+          </p>
+          <div className="bg-su-line/20 border border-su-line/50 rounded-lg p-3">
+            <p className="text-sm text-su-muted whitespace-pre-wrap leading-relaxed">
+              {renderPreview(template)}
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* Footer */}
+      <div className="flex items-center justify-end gap-2 mt-5">
+        <button
+          onClick={onClose}
+          className="px-4 py-2 text-sm font-medium rounded-lg text-su-muted hover:text-su-text hover:bg-su-line/20 transition-colors"
+        >
+          Cancel
+        </button>
+        <button
+          onClick={handleSave}
+          className="px-4 py-2 text-sm font-semibold rounded-lg bg-plasma-orange text-su-on-accent hover:bg-plasma-orange/90 active:scale-[0.98] focus-visible:ring-2 focus-visible:ring-plasma-orange/70 focus-visible:ring-offset-2 focus-visible:ring-offset-deep-space transition-colors"
+        >
+          Save
+        </button>
+      </div>
+    </AccessibleDialog>
   );
 }

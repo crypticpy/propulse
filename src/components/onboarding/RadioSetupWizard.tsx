@@ -17,7 +17,7 @@
  */
 
 import { useState, useEffect, useRef, useMemo } from "react";
-import { createPortal } from "react-dom";
+import { AccessibleDialog } from "@/components/ui/AccessibleDialog";
 import { useNavigate } from "react-router-dom";
 import {
   useRadioSetup,
@@ -1467,28 +1467,6 @@ export function RadioSetupWizard() {
 
   const visible = !radioSetupCompleted && welcomeSeen.current;
 
-  // Body scroll lock
-  useEffect(() => {
-    if (visible) {
-      document.body.style.overflow = "hidden";
-      return () => {
-        document.body.style.overflow = "";
-      };
-    }
-  }, [visible]);
-
-  // Keyboard: Escape to skip
-  useEffect(() => {
-    if (!visible) return;
-    const handler = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
-        setup.skipSetup();
-      }
-    };
-    window.addEventListener("keydown", handler);
-    return () => window.removeEventListener("keydown", handler);
-  }, [visible, setup]);
-
   // Transition wrapper for step changes
   const prevStepRef = useRef(setup.step);
   useEffect(() => {
@@ -1502,48 +1480,41 @@ export function RadioSetupWizard() {
     }
   }, [setup.step]);
 
-  if (!visible) return null;
-
-  const modal = (
-    <div
-      className="fixed inset-0 z-[500] flex items-center justify-center p-4"
-      role="dialog"
-      aria-modal="true"
-      aria-label="Radio Setup Wizard"
+  return (
+    <AccessibleDialog
+      open={visible}
+      onClose={setup.skipSetup}
+      title="Radio Setup Wizard"
+      chrome="bare"
+      panelProps={{
+        className:
+          "w-full max-w-xl bg-su-canvas/95 backdrop-blur-xl border border-su-line/40 rounded-2xl shadow-2xl overflow-hidden max-h-[90vh] overflow-y-auto",
+      }}
     >
-      {/* Backdrop */}
-      <div
-        className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+      {/* Close button */}
+      <button
         onClick={setup.skipSetup}
-      />
+        className="absolute top-4 right-4 z-30 w-8 h-8 flex items-center justify-center rounded-lg text-su-muted hover:text-su-text hover:bg-su-line/10 transition-colors"
+        aria-label="Close setup wizard"
+      >
+        <CloseIcon className="w-4 h-4" />
+      </button>
 
-      {/* Panel */}
-      <div className="relative w-full max-w-xl bg-su-canvas/95 backdrop-blur-xl border border-su-line/40 rounded-2xl shadow-2xl overflow-hidden max-h-[90vh] overflow-y-auto">
-        {/* Close button */}
-        <button
-          onClick={setup.skipSetup}
-          className="absolute top-4 right-4 z-30 w-8 h-8 flex items-center justify-center rounded-lg text-su-muted hover:text-su-text hover:bg-su-line/10 transition-colors"
-          aria-label="Close setup wizard"
-        >
-          <CloseIcon className="w-4 h-4" />
-        </button>
+      {/* Step progress bar */}
+      <StepProgressBar current={setup.step} />
 
-        {/* Step progress bar */}
-        <StepProgressBar current={setup.step} />
-
-        {/* Step content with fade transition */}
-        <div
-          className={`transition-all duration-150 ${
-            transitioning
-              ? "opacity-0 translate-y-1"
-              : "opacity-100 translate-y-0"
-          }`}
-        >
-          {setup.step === "detecting" && <DetectionStep setup={setup} />}
-          {setup.step === "configuring" && <ConfigurationStep setup={setup} />}
-          {setup.step === "testing" && <TestingStep setup={setup} />}
-          {setup.step === "complete" && <SuccessStep setup={setup} />}
-        </div>
+      {/* Step content with fade transition */}
+      <div
+        className={`transition-all duration-150 ${
+          transitioning
+            ? "opacity-0 translate-y-1"
+            : "opacity-100 translate-y-0"
+        }`}
+      >
+        {setup.step === "detecting" && <DetectionStep setup={setup} />}
+        {setup.step === "configuring" && <ConfigurationStep setup={setup} />}
+        {setup.step === "testing" && <TestingStep setup={setup} />}
+        {setup.step === "complete" && <SuccessStep setup={setup} />}
       </div>
 
       {/* Global keyframe styles */}
@@ -1585,10 +1556,8 @@ export function RadioSetupWizard() {
           animation: fadeSlideIn 0.3s ease-out both;
         }
       `}</style>
-    </div>
+    </AccessibleDialog>
   );
-
-  return createPortal(modal, document.body);
 }
 
 export default RadioSetupWizard;

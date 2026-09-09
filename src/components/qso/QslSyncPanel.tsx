@@ -7,8 +7,8 @@
  * Props: { isOpen, onClose }
  */
 
-import { useState, useCallback, useEffect } from "react";
-import { createPortal } from "react-dom";
+import { useState, useCallback, useEffect, useId } from "react";
+import { AccessibleDialog } from "@/components/ui/AccessibleDialog";
 import { useQSOStore } from "@/stores/qsoStore";
 import { useLotwSync } from "@/hooks/useLotwSync";
 import { useEqslSync } from "@/hooks/useEqslSync";
@@ -542,105 +542,76 @@ function QrzTab() {
 
 export function QslSyncPanel({ isOpen, onClose }: QslSyncPanelProps) {
   const [activeTab, setActiveTab] = useState<SyncTab>("lotw");
+  const titleId = useId();
 
-  // Close on Escape
-  useEffect(() => {
-    if (!isOpen) return;
-
-    function handleKeyDown(e: KeyboardEvent) {
-      if (e.key === "Escape") {
-        onClose();
-      }
-    }
-
-    document.addEventListener("keydown", handleKeyDown);
-    return () => document.removeEventListener("keydown", handleKeyDown);
-  }, [isOpen, onClose]);
-
-  // Lock body scroll when open
-  useEffect(() => {
-    if (!isOpen) return;
-
-    const originalOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    return () => {
-      document.body.style.overflow = originalOverflow;
-    };
-  }, [isOpen]);
-
-  if (!isOpen) return null;
-
-  return createPortal(
-    <div
-      className="fixed inset-0 z-[9000] flex items-center justify-center"
-      role="dialog"
-      aria-modal="true"
-      aria-label="QSL Sync"
+  return (
+    <AccessibleDialog
+      open={isOpen}
+      onClose={onClose}
+      title="QSL Sync"
+      chrome="bare"
+      labelledBy={titleId}
+      panelProps={{
+        className:
+          "w-full max-w-md bg-deep-space border border-su-line/50 rounded-2xl shadow-2xl overflow-hidden",
+      }}
     >
-      {/* Backdrop */}
-      <div
-        className="absolute inset-0 bg-black/60 backdrop-blur-sm"
-        onClick={onClose}
-      />
-
-      {/* Modal */}
-      <div className="relative w-full max-w-md mx-4 bg-deep-space border border-su-line/50 rounded-2xl shadow-2xl overflow-hidden">
-        {/* Header */}
-        <div className="flex items-center justify-between px-5 py-4 border-b border-su-line/40">
-          <h2 className="text-base font-semibold text-su-text">QSL Sync</h2>
-          <button
-            type="button"
-            onClick={onClose}
-            className="p-1 rounded-lg hover:bg-su-line/20 transition-colors text-su-muted hover:text-su-text"
-            aria-label="Close"
-          >
-            <svg
-              className="w-5 h-5"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M6 18L18 6M6 6l12 12"
-              />
-            </svg>
-          </button>
-        </div>
-
-        {/* Tabs */}
-        <div
-          className="flex border-b border-su-line/40"
-          role="tablist"
-          aria-label="QSL services"
+      {/* Header */}
+      <div className="flex items-center justify-between px-5 py-4 border-b border-su-line/40">
+        <h2 id={titleId} className="text-base font-semibold text-su-text">
+          QSL Sync
+        </h2>
+        <button
+          type="button"
+          onClick={onClose}
+          className="p-1 rounded-lg hover:bg-su-line/20 transition-colors text-su-muted hover:text-su-text"
+          aria-label="Close"
         >
-          <TabButton
-            label="LoTW"
-            active={activeTab === "lotw"}
-            onClick={() => setActiveTab("lotw")}
-          />
-          <TabButton
-            label="eQSL"
-            active={activeTab === "eqsl"}
-            onClick={() => setActiveTab("eqsl")}
-          />
-          <TabButton
-            label="QRZ"
-            active={activeTab === "qrz"}
-            onClick={() => setActiveTab("qrz")}
-          />
-        </div>
-
-        {/* Tab Content */}
-        <div role="tabpanel" className="max-h-[60vh] overflow-y-auto">
-          {activeTab === "lotw" && <LotwTab />}
-          {activeTab === "eqsl" && <EqslTab />}
-          {activeTab === "qrz" && <QrzTab />}
-        </div>
+          <svg
+            className="w-5 h-5"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M6 18L18 6M6 6l12 12"
+            />
+          </svg>
+        </button>
       </div>
-    </div>,
-    document.body,
+
+      {/* Tabs */}
+      <div
+        className="flex border-b border-su-line/40"
+        role="tablist"
+        aria-label="QSL services"
+      >
+        <TabButton
+          label="LoTW"
+          active={activeTab === "lotw"}
+          onClick={() => setActiveTab("lotw")}
+        />
+        <TabButton
+          label="eQSL"
+          active={activeTab === "eqsl"}
+          onClick={() => setActiveTab("eqsl")}
+        />
+        <TabButton
+          label="QRZ"
+          active={activeTab === "qrz"}
+          onClick={() => setActiveTab("qrz")}
+        />
+      </div>
+
+      {/* Tab Content */}
+      <div role="tabpanel" className="max-h-[60vh] overflow-y-auto">
+        {activeTab === "lotw" && <LotwTab />}
+        {activeTab === "eqsl" && <EqslTab />}
+        {activeTab === "qrz" && <QrzTab />}
+      </div>
+    </AccessibleDialog>
   );
 }

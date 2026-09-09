@@ -1,8 +1,9 @@
 /**
  * BandModeModal — Premium centered modal for selecting band and mode.
  *
- * Triggered by tapping the BandModePill. Uses createPortal to render into
- * document.body with backdrop blur, body scroll lock, and escape-to-close.
+ * Triggered by tapping the BandModePill. Renders via the shared
+ * AccessibleDialog primitive (backdrop blur, body scroll lock, focus trap,
+ * and escape-to-close all inherited from there).
  *
  * Reads hidden bands from settingsStore to dim unavailable selections.
  * Source indicator shows CAT/WSJT-X follow state with override controls.
@@ -18,8 +19,8 @@
  * - MODE_COLORS for per-mode accent when active
  */
 
-import { useEffect, useCallback, useState, useRef } from "react";
-import { createPortal } from "react-dom";
+import { useEffect, useCallback, useState, useRef, useMemo, useId } from "react";
+import { AccessibleDialog } from "@/components/ui/AccessibleDialog";
 import { useNavigate } from "react-router-dom";
 import { useOperatingStore, SOURCE_DISPLAY } from "@/stores/operatingStore";
 import { useSettingsStore } from "@/stores/settingsStore";
@@ -164,29 +165,21 @@ export function BandModeModal({ isOpen, onClose }: BandModeModalProps) {
   // No-radio warning dismiss (session-scoped)
   const [radioWarningDismissed, setRadioWarningDismissed] = useState(false);
 
-  // ── Escape key ───────────────────────────────────────────────────────────
-  const handleKeyDown = useCallback(
-    (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
-    },
-    [onClose],
-  );
+  const titleId = useId();
 
-  useEffect(() => {
-    if (!isOpen) return;
-    document.addEventListener("keydown", handleKeyDown);
-    return () => document.removeEventListener("keydown", handleKeyDown);
-  }, [isOpen, handleKeyDown]);
-
-  // ── Body scroll lock ─────────────────────────────────────────────────────
-  useEffect(() => {
-    if (!isOpen) return;
-    const prev = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    return () => {
-      document.body.style.overflow = prev;
-    };
-  }, [isOpen]);
+  // Escape cancels the inline "add preset" editor instead of closing the
+  // whole dialog while the operator is mid-name-entry. AccessibleDialog's
+  // document-capture Escape handler runs before the preset input's own
+  // onKeyDown ever could, so this is the only place that can still express
+  // "cancel this, don't close the dialog" (see #773).
+  const handleEscape = useCallback(() => {
+    if (isAddingPreset) {
+      setIsAddingPreset(false);
+      setPresetName("");
+      return true;
+    }
+    return false;
+  }, [isAddingPreset]);
 
   // Focus preset input when it appears
   useEffect(() => {
@@ -271,15 +264,23 @@ export function BandModeModal({ isOpen, onClose }: BandModeModalProps) {
   };
 
   // ── Deduplicated history ─────────────────────────────────────────────────
-  const uniqueHistory = bandModeHistory
-    .filter(
-      (entry, idx, arr) =>
-        arr.findIndex((e) => e.band === entry.band && e.mode === entry.mode) ===
-        idx,
-    )
-    .slice(0, 5);
-
-  if (!isOpen) return null;
+  // BandModeModal.tsx (the lazy-loading wrapper that actually mounts this
+  // component) already gates on `isOpen`, so this only ever runs while the
+  // dialog is displayed — but it still recomputes on every re-render while
+  // open (e.g. toggling a watched band), so memoize it rather than run the
+  // O(n^2) filter/findIndex every time.
+  const uniqueHistory = useMemo(
+    () =>
+      bandModeHistory
+        .filter(
+          (entry, idx, arr) =>
+            arr.findIndex(
+              (e) => e.band === entry.band && e.mode === entry.mode,
+            ) === idx,
+        )
+        .slice(0, 5),
+    [bandModeHistory],
+  );
 
   // ── Derived colors ───────────────────────────────────────────────────────
   const bandColor = BAND_COLORS[activeBand] ?? BAND_COLORS.default;
@@ -287,37 +288,41 @@ export function BandModeModal({ isOpen, onClose }: BandModeModalProps) {
   const sourceColor = sourceInfo?.color ?? "#888888";
   const sourceLabel = sourceInfo?.label ?? "Manual";
 
-  return createPortal(
-    <div
-      className="fixed inset-0 z-[350] flex items-center justify-center p-4"
-      onClick={onClose}
-      role="dialog"
-      aria-modal="true"
-      aria-label="Select Band and Mode"
+  return (
+    <AccessibleDialog
+      open={isOpen}
+      onClose={onClose}
+      onEscape={handleEscape}
+      title="Band & Mode"
+      chrome="bare"
+      labelledBy={titleId}
+      // Shared "detail/content modal" tier (see DetailModal, HamClockDialog,
+      // WallReport) — sits below account-level modals (AuthModal z-[400]+)
+      // and above map-embedded content (SatelliteDetailModal z-[300]).
+      zIndexClassName="z-[350]"
+      panelProps={{
+        className:
+          "bg-su-panel/80 backdrop-blur-md border border-su-line/50 rounded-2xl shadow-2xl max-w-md w-full max-h-[calc(100vh-2rem)] overflow-hidden animate-in zoom-in-95 fade-in flex flex-col",
+      }}
     >
-      {/* Backdrop */}
-      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
-
-      {/* Modal card */}
-      <div
-        className="relative z-10 bg-su-panel/80 backdrop-blur-md border border-su-line/50 rounded-2xl shadow-2xl max-w-md w-full max-h-[calc(100vh-2rem)] overflow-hidden animate-in zoom-in-95 fade-in flex flex-col"
-        onClick={(e) => e.stopPropagation()}
-      >
-        {/* ── Header ────────────────────────────────────────────────── */}
-        <div className="flex items-start justify-between p-5 pb-0 flex-shrink-0">
-          <div>
-            <h2 className="font-orbitron text-lg font-bold text-gradient-orange">
-              Band &amp; Mode
-            </h2>
-            <p className="text-[11px] text-su-muted mt-0.5">
-              Choose your operating band and mode{" "}
-              <span className="text-su-muted">
-                (<kbd className="font-mono">B</kbd> /{" "}
-                <kbd className="font-mono">M</kbd> keys)
-              </span>
-            </p>
-          </div>
-          <div className="flex items-center gap-1 ml-2">
+      {/* ── Header ────────────────────────────────────────────────── */}
+      <div className="flex items-start justify-between p-5 pb-0 flex-shrink-0">
+        <div>
+          <h2
+            id={titleId}
+            className="font-orbitron text-lg font-bold text-gradient-orange"
+          >
+            Band &amp; Mode
+          </h2>
+          <p className="text-[11px] text-su-muted mt-0.5">
+            Choose your operating band and mode{" "}
+            <span className="text-su-muted">
+              (<kbd className="font-mono">B</kbd> /{" "}
+              <kbd className="font-mono">M</kbd> keys)
+            </span>
+          </p>
+        </div>
+        <div className="flex items-center gap-1 ml-2">
             {/* Contest lock toggle */}
             {contestSessionId && (
               <button
@@ -811,12 +816,6 @@ export function BandModeModal({ isOpen, onClose }: BandModeModalProps) {
                         onChange={(e) => setPresetName(e.target.value)}
                         placeholder="Name this preset..."
                         className="flex-1 px-2.5 py-1.5 rounded-lg bg-su-line/10 border border-su-line/40 text-[11px] font-mono text-su-text placeholder:text-su-muted outline-none focus:border-su-line/50 transition-colors"
-                        onKeyDown={(e) => {
-                          if (e.key === "Escape") {
-                            setIsAddingPreset(false);
-                            setPresetName("");
-                          }
-                        }}
                         onBlur={() => {
                           if (!presetName.trim()) {
                             setIsAddingPreset(false);
@@ -1038,8 +1037,6 @@ export function BandModeModal({ isOpen, onClose }: BandModeModalProps) {
             Done
           </button>
         </div>
-      </div>
-    </div>,
-    document.body,
+    </AccessibleDialog>
   );
 }

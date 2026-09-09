@@ -50,7 +50,13 @@ export const MODE_COLORS_TAILWIND: Record<string, string> = {
   FT8: "text-cosmic-cyan",
   CW: "text-caution-amber",
   SSB: "text-signal-green",
-  RTTY: "text-aurora-purple",
+  // text-aurora-purple measures below 4.5:1 AA as bare text in every theme
+  // (dark 3.93:1, light 3.81:1, midnight 4.30:1 on panel) since aurora-purple
+  // is a fixed, non-themed hex, not a `--su-*` token (issue #774). Badge.tsx's
+  // "quiet" status hit the same fill and keeps the hue as a decorative
+  // fill/border accent, moving only the text to the always-AA station token.
+  // This map has no accompanying fill, so RTTY gets the safe token directly.
+  RTTY: "text-su-text",
   default: "text-su-muted",
 };
 

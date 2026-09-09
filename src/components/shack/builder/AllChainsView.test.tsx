@@ -116,12 +116,12 @@ it("replaces the inspector with removal confirmation so one Escape cancels witho
     within(inspector).getByRole("button", { name: "Remove from path" }),
   );
   // The inspector is gone — replaced by the removal confirmation, which is
-  // also `role="dialog"` now that ConfirmDialog is AccessibleDialog-based
-  // (#727), so assert on name rather than a bare role query.
+  // an `alertdialog` now that ConfirmDialog is AccessibleDialog-based with
+  // `role="alertdialog"` (#727, #773), so assert on name and role together.
   expect(
     screen.queryByRole("dialog", { name: "Radio in this path" }),
   ).toBeNull();
-  const confirmation = screen.getByRole("dialog", {
+  const confirmation = screen.getByRole("alertdialog", {
     name: "Remove from Signal Path?",
   });
   act(() => vi.advanceTimersByTime(20));
@@ -133,7 +133,7 @@ it("replaces the inspector with removal confirmation so one Escape cancels witho
   );
   fireEvent.keyDown(document.activeElement!, { key: "Escape" });
   expect(
-    screen.queryByRole("dialog", { name: "Remove from Signal Path?" }),
+    screen.queryByRole("alertdialog", { name: "Remove from Signal Path?" }),
   ).toBeNull();
   expect(useShackStore.getState().stationChains[0].nodes).toEqual(chain.nodes);
 
@@ -141,11 +141,11 @@ it("replaces the inspector with removal confirmation so one Escape cancels witho
   fireEvent.click(screen.getByRole("button", { name: "Remove from path" }));
   fireEvent.click(
     within(
-      screen.getByRole("dialog", { name: "Remove from Signal Path?" }),
+      screen.getByRole("alertdialog", { name: "Remove from Signal Path?" }),
     ).getByRole("button", { name: "Remove" }),
   );
   expect(
-    screen.queryByRole("dialog", { name: "Remove from Signal Path?" }),
+    screen.queryByRole("alertdialog", { name: "Remove from Signal Path?" }),
   ).toBeNull();
   expect(useShackStore.getState().stationChains[0].nodes).toEqual(
     chain.nodes.slice(1),

@@ -213,7 +213,7 @@ describe("PresetsSection", () => {
 
     const renamedRow = screen.getByText("Renamed Preset").closest('[role="listitem"]') as HTMLElement;
     await userEvent.click(within(renamedRow).getByRole("button", { name: "Delete" }));
-    const confirmDialog = await screen.findByRole("dialog", { name: "Delete preset" });
+    const confirmDialog = await screen.findByRole("alertdialog", { name: "Delete preset" });
     await userEvent.click(within(confirmDialog).getByRole("button", { name: "Delete" }));
 
     await waitFor(() => expect(screen.queryByText("Renamed Preset")).toBeNull());
@@ -290,11 +290,11 @@ describe("PresetsSection", () => {
 
     const row = screen.getByText("Escape Target").closest('[role="listitem"]') as HTMLElement;
     await userEvent.click(within(row).getByRole("button", { name: "Delete" }));
-    expect(screen.getByRole("dialog", { name: "Delete preset" })).toBeTruthy();
+    expect(screen.getByRole("alertdialog", { name: "Delete preset" })).toBeTruthy();
 
     await userEvent.keyboard("{Escape}");
 
-    expect(screen.queryByRole("dialog", { name: "Delete preset" })).toBeNull();
+    expect(screen.queryByRole("alertdialog", { name: "Delete preset" })).toBeNull();
     expect(screen.getByRole("dialog", { name: "Spots & paths preferences" })).toBeTruthy();
     expect(onClosePanel).not.toHaveBeenCalled();
     // The preset survived the cancelled delete.

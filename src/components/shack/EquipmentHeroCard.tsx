@@ -10,7 +10,7 @@ import { useVisualEffects } from "@/hooks/useVisualEffects";
  * Replaces EquipmentDetailModal with a far more immersive experience.
  */
 
-import { useState, useEffect, useMemo, type ReactNode } from "react";
+import { useId, useState, useEffect, useMemo, type ReactNode } from "react";
 import { AccessibleDialog } from "@/components/ui/AccessibleDialog";
 import { getEquipmentSymbol } from "./EquipmentSymbols";
 import { StatIconSvg, ArtZonePattern } from "./EquipmentCard";
@@ -319,6 +319,7 @@ export function EquipmentHeroCard({
   onSetActive,
   isActive,
 }: EquipmentHeroCardProps) {
+  const titleId = useId();
   const [activeImageId, setActiveImageId] = useState<string | undefined>(
     undefined,
   );
@@ -391,6 +392,7 @@ export function EquipmentHeroCard({
       onClose={onClose}
       title={title}
       chrome="bare"
+      labelledBy={titleId}
       panelProps={{
         className: "hero-entrance z-10 w-full max-w-xl max-h-[85vh] flex flex-col",
         style: {
@@ -698,11 +700,12 @@ export function EquipmentHeroCard({
             )}
           </div>
 
-          {/* Title — display font, responsive. AccessibleDialog owns the
-              accessible name via a hidden heading, so this drawn title is
-              decoration and must not be read twice. */}
+          {/* Title — display font, responsive. Wired as AccessibleDialog's
+              `labelledBy` target (#773), so this is the dialog's one and
+              only accessible name — a screen-reader user navigating by
+              heading lands on the title they can see. */}
           <h2
-            aria-hidden="true"
+            id={titleId}
             className="text-xl sm:text-2xl font-display font-bold text-su-text leading-tight mt-1"
           >
             {title}

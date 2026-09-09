@@ -1,22 +1,92 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import type { DXSpot } from "@/types/dxcluster";
 import { useDXStore } from "@/stores/dxStore";
+import { useHamClockDisplayStore } from "@/stores/hamclockDisplayStore";
+import { regionalHeatmapCells } from "@/lib/widgets/heatmap/baseline";
 import { HeatMapTile } from "./HeatMapTile";
 
-const mocks = vi.hoisted(() => ({ verdicts: vi.fn() }));
+const mocks = vi.hoisted(() => ({ verdicts: vi.fn(), baseline: vi.fn() }));
 vi.mock("@/hooks/useBandVerdicts", () => ({ useBandVerdicts: mocks.verdicts }));
+vi.mock("@/hooks/useHeatMapBaseline", () => ({ useHeatMapBaseline: mocks.baseline }));
 
 const previousDX = useDXStore.getState();
+const previousDisplay = useHamClockDisplayStore.getState();
 
 beforeEach(() => {
   vi.setSystemTime(new Date("2026-09-08T13:00:00Z"));
   mocks.verdicts.mockReturnValue({ bands: [] });
+  mocks.baseline.mockClear();
+  mocks.baseline.mockReturnValue({ regionalCells: [], available: false, unavailableLabel: "NEEDS 14 BASELINE SAMPLES" });
 });
 
 afterEach(() => {
   useDXStore.setState(previousDX, true);
+  useHamClockDisplayStore.setState(previousDisplay, true);
   vi.useRealTimers();
+});
+
+it("does not collapse the grid when the client feed is 1000x smaller; only genuinely quiet regional counts read quiet", async () => {
+  useDXStore.setState({ spots: [spot({})] });
+  useHamClockDisplayStore.getState().setHeatmapPreset("ratioDiverging");
+  const hourUtc = "2026-09-08T12:00:00.000Z";
+  mocks.baseline.mockReturnValue({
+    regionalCells: regionalHeatmapCells(
+      new Map([["20m|EU|12", 1000], ["20m|NA|12", 1000]]),
+      new Map([["20m|EU|12", 1000], ["20m|NA|12", 1]]),
+      hourUtc,
+    ),
+    available: true, unavailableLabel: null, hourUtc,
+    basisLabel: "LAST FULL HOUR vs 90-DAY MEDIAN · as of 2026-09-08 12:00 UTC",
+    baselineAgeLabel: "BASELINE AS OF 2026-09-08 00:00 UTC (13 H AGO)",
+  });
+  const { container } = render(<HeatMapTile />);
+  const tile = container.querySelector(".hc-tile") as HTMLElement;
+  expect(tile.style.getPropertyValue("--hc-state")).toBe("var(--hc-good)");
+  fireEvent.click(screen.getByRole("button", { name: /Band heat map:.*Open the full grid report/ }));
+  await screen.findByRole("dialog", { name: "Band heat map report" });
+  expect(screen.getByText("1000 / 0.00")).toBeTruthy();
+  expect(screen.getByText("1 / \u2264-3.00")).toBeTruthy();
+  expect(screen.getAllByText("0 / NO BASELINE").length).toBeGreaterThan(0);
+  const noData = screen.getAllByText("0 / NO BASELINE")[0];
+  expect(noData.getAttribute("data-no-baseline")).toBe("true");
+  expect(noData.style.background).toContain("repeating-linear-gradient");
+  expect(screen.getByText("1 / \u2264-3.00").hasAttribute("data-no-baseline")).toBe(false);
+  expect(container.querySelector(".hcf-heatgrid-cell[data-no-baseline]")?.getAttribute("style")).toContain("repeating-linear-gradient");
+  expect(screen.getByText("NO BASELINE (not measured quiet)")).toBeTruthy();
+  expect(screen.getByText("1000 / 0.00").style.whiteSpace).toBe("nowrap");
+  expect(screen.getByText("1000 / 0.00").style.fontSize).toBe("1.1vh");
+  expect(screen.getAllByText(/LAST FULL HOUR vs 90-DAY MEDIAN/).length).toBeGreaterThan(0);
+  expect(screen.getAllByText("BASELINE AS OF 2026-09-08 00:00 UTC (13 H AGO)").length).toBeGreaterThan(0);
+  expect(screen.queryByText("SAME UTC HOUR MEDIAN")).toBeNull();
+});
+
+it.each(["NEEDS 14 BASELINE SAMPLES", "REGIONAL DATA UNAVAILABLE", "NO COMPLETE-HOUR DATA (COLLECTOR GAP)"])(
+  "falls back to the ladder and explains %s for a saved ratio selection",
+  (unavailableLabel) => {
+    useDXStore.setState({ spots: [spot({})] });
+    useHamClockDisplayStore.getState().setHeatmapPreset("ratioDiverging");
+    mocks.baseline.mockReturnValue({ regionalCells: [], available: false, unavailableLabel });
+    const { container } = render(<HeatMapTile />);
+    expect(screen.getByText(unavailableLabel)).toBeTruthy();
+    const tile = container.querySelector(".hc-tile") as HTMLElement;
+    expect(tile.style.getPropertyValue("--hc-state")).not.toBe("var(--hc-good)");
+    expect(useHamClockDisplayStore.getState().heatmapPreset).toBe("ratioDiverging");
+  },
+);
+
+it("keeps regional ratios available when the client feed is empty or unavailable", () => {
+  useDXStore.setState({ spots: [], clusterFeed: { ...previousDX.clusterFeed, state: "UNAVAILABLE" } });
+  useHamClockDisplayStore.getState().setHeatmapPreset("ratioDiverging");
+  mocks.baseline.mockReturnValue({
+    regionalCells: regionalHeatmapCells(new Map([["20m|EU|12", 1000]]), new Map([["20m|EU|12", 1000]]), "2026-09-08T12:00:00Z"),
+    available: true, unavailableLabel: null,
+    basisLabel: "LAST FULL HOUR vs 90-DAY MEDIAN · as of 2026-09-08 12:00 UTC",
+    baselineAgeLabel: "BASELINE AS OF 2026-09-08 00:00 UTC (13 H AGO)",
+  });
+  render(<HeatMapTile />);
+  expect(screen.getByText("20 m → EU is the hottest cell")).toBeTruthy();
+  expect(screen.queryByText("UNAVAILABLE")).toBeNull();
 });
 
 function spot(overrides: Partial<DXSpot>): DXSpot {
@@ -54,6 +124,22 @@ it("opens the centred report on click, nothing else", async () => {
     name: "Band heat map report",
   });
   expect(dialog).toBeTruthy();
+  expect(mocks.baseline).not.toHaveBeenCalled();
+  expect(screen.queryByText("BASELINE")).toBeNull();
+  expect(screen.queryByText("NEEDS 14 BASELINE SAMPLES")).toBeNull();
+});
+
+it("mounts the regional hook only while ratio mode is selected", () => {
+  useDXStore.setState({ spots: [spot({})] });
+  useHamClockDisplayStore.getState().setHeatmapPreset("ladderHue");
+  render(<HeatMapTile />);
+  expect(mocks.baseline).not.toHaveBeenCalled();
+  act(() => useHamClockDisplayStore.getState().setHeatmapPreset("ratioDiverging"));
+  expect(mocks.baseline).toHaveBeenCalled();
+  mocks.baseline.mockClear();
+  act(() => useHamClockDisplayStore.getState().setHeatmapPreset("ladderHue"));
+  expect(mocks.baseline).not.toHaveBeenCalled();
+  expect(screen.queryByText("NEEDS 14 BASELINE SAMPLES")).toBeNull();
 });
 
 it("keeps the ladder's 20-minute window even when the operator's DX spot age is 5 minutes", () => {

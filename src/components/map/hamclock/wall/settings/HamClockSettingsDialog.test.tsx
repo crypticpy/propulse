@@ -1,10 +1,17 @@
 import { useState } from "react";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { useHamClockStore } from "@/stores/hamclockStore";
 import { useMapStore } from "@/stores/mapStore";
 import { HamClockSettingsDialog } from "./HamClockSettingsDialog";
+
+vi.mock("@/hooks/useHeatMapBaseline", () => ({
+  useHeatMapBaseline: () => ({
+    available: false,
+    unavailableLabel: "NEEDS 14 BASELINE SAMPLES",
+  }),
+}));
 
 function Harness() {
   const [open, setOpen] = useState(false);

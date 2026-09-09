@@ -31,7 +31,6 @@ import {
 } from "./handlers/atmosSpace";
 import { handleAuroraIndex } from "./handlers/aurora";
 import { handleSpotsBandActivity } from "./handlers/bandActivity";
-import { handleSpotsHeatmapBaseline } from "./handlers/heatmapBaseline";
 import { handleSpotsBandHistory } from "./handlers/bandHistory";
 import { handlePskStation } from "./handlers/pskStation";
 import { handleSpotsBandLadder } from "./handlers/bandLadder";
@@ -42,6 +41,7 @@ import {
 import { handleContestScp } from "./handlers/contest";
 import { handleDxDxpeditions } from "./handlers/dxpeditions";
 import { handleFiresHotspots } from "./handlers/fires";
+import { handleSpotsHeatmapBaseline } from "./handlers/heatmapBaseline";
 import { handleLightningStrikes } from "./handlers/lightning";
 import { handleAtmosMetar } from "./handlers/metar";
 import {
@@ -104,10 +104,10 @@ export const PORTABLE_ROUTES: Readonly<Record<string, EdgeHandler>> = {
   "/api/satellites/tle": handleSatellitesTle,
   "/api/satellites/transponders": handleSatellitesTransponders,
   "/api/spots/band-activity": handleSpotsBandActivity,
-  "/api/spots/heatmap-baseline": handleSpotsHeatmapBaseline,
   "/api/spots/band-history": handleSpotsBandHistory,
   "/api/spots/band-ladder": handleSpotsBandLadder,
   "/api/spots/dxcluster": handleSpotsDxcluster,
+  "/api/spots/heatmap-baseline": handleSpotsHeatmapBaseline,
   "/api/spots/psk-station": handlePskStation,
   "/api/spots/pskreporter": handleSpotsPskreporter,
   "/api/spots/rbn": handleSpotsRbn,

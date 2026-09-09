@@ -3,6 +3,7 @@ import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import type { DXSpot } from "@/types/dxcluster";
 import { useDXStore } from "@/stores/dxStore";
 import { useHamClockDisplayStore } from "@/stores/hamclockDisplayStore";
+import { regionalHeatmapCells } from "@/lib/widgets/heatmap/baseline";
 import { HeatMapTile } from "./HeatMapTile";
 
 const mocks = vi.hoisted(() => ({ verdicts: vi.fn(), baseline: vi.fn() }));
@@ -15,7 +16,7 @@ const previousDisplay = useHamClockDisplayStore.getState();
 beforeEach(() => {
   vi.setSystemTime(new Date("2026-09-08T13:00:00Z"));
   mocks.verdicts.mockReturnValue({ bands: [] });
-  mocks.baseline.mockReturnValue({ baseline: new Map(), unavailableLabel: "NEEDS 14 BASELINE SAMPLES" });
+  mocks.baseline.mockReturnValue({ regionalCells: [], available: false, unavailableLabel: "NEEDS 14 BASELINE SAMPLES" });
 });
 
 afterEach(() => {
@@ -24,25 +25,39 @@ afterEach(() => {
   vi.useRealTimers();
 });
 
-it("populates the selected ratio in the tile and centred report", async () => {
+it("does not collapse the grid when the client feed is 1000x smaller; only genuinely quiet regional counts read quiet", async () => {
   useDXStore.setState({ spots: [spot({})] });
   useHamClockDisplayStore.getState().setHeatmapPreset("ratioDiverging");
-  mocks.baseline.mockReturnValue({ baseline: new Map([["20m|EU|13", 1]]), unavailableLabel: null });
+  const hourUtc = "2026-09-08T12:00:00.000Z";
+  mocks.baseline.mockReturnValue({
+    regionalCells: regionalHeatmapCells(
+      new Map([["20m|EU|12", 1000], ["20m|NA|12", 1000]]),
+      new Map([["20m|EU|12", 1000], ["20m|NA|12", 1]]),
+      hourUtc,
+    ),
+    available: true, unavailableLabel: null, hourUtc,
+    basisLabel: "LAST FULL HOUR vs 90-DAY MEDIAN · as of 2026-09-08 12:00 UTC",
+    baselineAgeLabel: "BASELINE AS OF 2026-09-08 00:00 UTC (13 H AGO)",
+  });
   const { container } = render(<HeatMapTile />);
   const tile = container.querySelector(".hc-tile") as HTMLElement;
   expect(tile.style.getPropertyValue("--hc-state")).toBe("var(--hc-good)");
   fireEvent.click(screen.getByRole("button", { name: /Band heat map:.*Open the full grid report/ }));
   await screen.findByRole("dialog", { name: "Band heat map report" });
-  expect(screen.getByTitle("20 m · EU · 1 DX · 0.00 LOG2 RATIO")).toBeTruthy();
-  expect(screen.getByText("SAME UTC HOUR MEDIAN")).toBeTruthy();
+  expect(screen.getByText("1000 / 0.00")).toBeTruthy();
+  expect(screen.getByText("1 / \u2264-3.00")).toBeTruthy();
+  expect(screen.getAllByText("0 / NO BASELINE").length).toBeGreaterThan(0);
+  expect(screen.getAllByText(/LAST FULL HOUR vs 90-DAY MEDIAN/).length).toBeGreaterThan(0);
+  expect(screen.getAllByText("BASELINE AS OF 2026-09-08 00:00 UTC (13 H AGO)").length).toBeGreaterThan(0);
+  expect(screen.queryByText("SAME UTC HOUR MEDIAN")).toBeNull();
 });
 
-it.each(["NEEDS 14 BASELINE SAMPLES", "BASELINE UNAVAILABLE"])(
+it.each(["NEEDS 14 BASELINE SAMPLES", "REGIONAL DATA UNAVAILABLE", "NO COMPLETE-HOUR DATA (COLLECTOR GAP)"])(
   "falls back to the ladder and explains %s for a saved ratio selection",
   (unavailableLabel) => {
     useDXStore.setState({ spots: [spot({})] });
     useHamClockDisplayStore.getState().setHeatmapPreset("ratioDiverging");
-    mocks.baseline.mockReturnValue({ baseline: new Map(), unavailableLabel });
+    mocks.baseline.mockReturnValue({ regionalCells: [], available: false, unavailableLabel });
     const { container } = render(<HeatMapTile />);
     expect(screen.getByText(unavailableLabel)).toBeTruthy();
     const tile = container.querySelector(".hc-tile") as HTMLElement;
@@ -50,6 +65,20 @@ it.each(["NEEDS 14 BASELINE SAMPLES", "BASELINE UNAVAILABLE"])(
     expect(useHamClockDisplayStore.getState().heatmapPreset).toBe("ratioDiverging");
   },
 );
+
+it("keeps regional ratios available when the client feed is empty or unavailable", () => {
+  useDXStore.setState({ spots: [], clusterFeed: { ...previousDX.clusterFeed, state: "UNAVAILABLE" } });
+  useHamClockDisplayStore.getState().setHeatmapPreset("ratioDiverging");
+  mocks.baseline.mockReturnValue({
+    regionalCells: regionalHeatmapCells(new Map([["20m|EU|12", 1000]]), new Map([["20m|EU|12", 1000]]), "2026-09-08T12:00:00Z"),
+    available: true, unavailableLabel: null,
+    basisLabel: "LAST FULL HOUR vs 90-DAY MEDIAN · as of 2026-09-08 12:00 UTC",
+    baselineAgeLabel: "BASELINE AS OF 2026-09-08 00:00 UTC (13 H AGO)",
+  });
+  render(<HeatMapTile />);
+  expect(screen.getByText("20 m → EU is the hottest cell")).toBeTruthy();
+  expect(screen.queryByText("UNAVAILABLE")).toBeNull();
+});
 
 function spot(overrides: Partial<DXSpot>): DXSpot {
   return {

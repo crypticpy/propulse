@@ -8,7 +8,7 @@ import { HamClockSettingsDialog } from "./HamClockSettingsDialog";
 
 vi.mock("@/hooks/useHeatMapBaseline", () => ({
   useHeatMapBaseline: () => ({
-    baseline: new Map(),
+    available: false,
     unavailableLabel: "NEEDS 14 BASELINE SAMPLES",
   }),
 }));

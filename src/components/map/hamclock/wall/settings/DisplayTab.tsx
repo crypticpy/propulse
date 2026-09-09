@@ -73,7 +73,7 @@ const DWELL_OPTIONS: { value: DwellSeconds; label: string }[] = [
  * same reason: a third toggle on this tab overflows the panel.
  */
 export function DisplayTab() {
-  const { baseline, unavailableLabel } = useHeatMapBaseline();
+  const { available, unavailableLabel } = useHeatMapBaseline();
   const density = useHamClockDisplayStore((s) => s.density);
   const setDensity = useHamClockDisplayStore((s) => s.setDensity);
   const units = useHamClockDisplayStore((s) => s.units);
@@ -116,14 +116,21 @@ export function DisplayTab() {
           disabled: viewMode === "azimuthal" && value !== "activity",
         }))}
       />
-      <HamClockSegmented
-        label="Heat map colours"
-        value={heatmapPreset === "ratioDiverging" && baseline.size === 0 ? "ladderHue" : heatmapPreset}
-        onChange={setHeatmapPreset}
-        options={HEATMAP_PRESET_OPTIONS.map((option) => option.value === "ratioDiverging"
-          ? { ...option, disabled: baseline.size === 0, detail: unavailableLabel ?? undefined }
-          : option)}
-      />
+      <div>
+        <HamClockSegmented
+          label="Heat map colours"
+          value={heatmapPreset}
+          onChange={setHeatmapPreset}
+          options={HEATMAP_PRESET_OPTIONS.map((option) => option.value === "ratioDiverging"
+            ? { ...option, disabled: !available }
+            : option)}
+        />
+        {unavailableLabel && (
+          <p className="hcc-row-detail" style={{ color: "var(--hc-fg)" }} role="status">
+            {unavailableLabel}. Band health ladder is shown until regional data is available.
+          </p>
+        )}
+      </div>
       <HamClockToggleRow
         label="Smart scaling"
         detail="Fits panel widths and spacing to the desk text size"

@@ -15,11 +15,11 @@ describe("DisplayTab", () => {
     useHamClockDisplayStore.getState().resetDisplay();
     useMapStore.getState().setViewMode("flat");
     vi.mocked(useActiveLocation).mockReturnValue(null);
-    baseline.mockReturnValue({ baseline: new Map(), unavailableLabel: "NEEDS 14 BASELINE SAMPLES" });
+    baseline.mockReturnValue({ available: false, unavailableLabel: "NEEDS 14 BASELINE SAMPLES" });
   });
 
   it("enables the ratio preset with qualified data", () => {
-    baseline.mockReturnValue({ baseline: new Map([["20m|EU|13", 4]]), unavailableLabel: null });
+    baseline.mockReturnValue({ available: true, unavailableLabel: null });
     render(<DisplayTab />);
     const option = screen.getByRole("radio", { name: "BASELINE RATIO" }) as HTMLButtonElement;
     expect(option.disabled).toBe(false);
@@ -27,15 +27,20 @@ describe("DisplayTab", () => {
     expect(useHamClockDisplayStore.getState().heatmapPreset).toBe("ratioDiverging");
   });
 
-  it.each(["NEEDS 14 BASELINE SAMPLES", "BASELINE UNAVAILABLE", "BASELINE LOADING"])(
+  it.each(["NEEDS 14 BASELINE SAMPLES", "REGIONAL DATA UNAVAILABLE", "REGIONAL DATA LOADING", "NO COMPLETE-HOUR DATA (COLLECTOR GAP)"])(
     "disables the ratio preset with the explanation %s", (unavailableLabel) => {
-      baseline.mockReturnValue({ baseline: new Map(), unavailableLabel });
+      baseline.mockReturnValue({ available: false, unavailableLabel });
       useHamClockDisplayStore.getState().setHeatmapPreset("ratioDiverging");
       render(<DisplayTab />);
       const option = screen.getByRole("radio", { name: /BASELINE RATIO/ }) as HTMLButtonElement;
       expect(option.disabled).toBe(true);
-      expect(screen.getByText(unavailableLabel)).toBeTruthy();
-      expect(screen.getByRole("radio", { name: "BAND HEALTH LADDER" }).getAttribute("aria-checked")).toBe("true");
+      const explanation = screen.getByRole("status");
+      expect(explanation.textContent).toContain(unavailableLabel);
+      expect(explanation.closest("button")).toBeNull();
+      expect(explanation.style.color).toBe("var(--hc-fg)");
+      expect(option.getAttribute("aria-checked")).toBe("true");
+      expect(screen.getByRole("radio", { name: "BAND HEALTH LADDER" }).getAttribute("aria-checked")).toBe("false");
+      expect(useHamClockDisplayStore.getState().heatmapPreset).toBe("ratioDiverging");
     },
   );
 

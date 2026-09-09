@@ -49,7 +49,8 @@ const HeatMapReport = lazy(() =>
  *   (the Band Health arm has no per-continent forecast); that score is
  *   applied to every continent for its band, per `computeHeatmap`'s own
  *   fallback contract.
- * - Baseline ratio: qualified same-UTC-hour regional climatology medians,
+ * - Baseline ratio: the last complete regional hour against its qualified
+ *   same-UTC-hour regional climatology medians, never client feed counts,
  *   shared with the report and Settings -> Display through React Query.
  */
 export function HeatMapTile({ title = "Band heat map" }: WallTileProps) {
@@ -59,8 +60,9 @@ export function HeatMapTile({ title = "Band heat map" }: WallTileProps) {
   const source = useDXStore((s) => s.spotSource);
   const maxAge = useDXStore((s) => s.filters.maxAge);
   const { bands } = useBandVerdicts();
-  const { baseline, unavailableLabel } = useHeatMapBaseline();
+  const { regionalCells, available, unavailableLabel, basisLabel, baselineAgeLabel } = useHeatMapBaseline();
   const heatmapPresetId = useHamClockDisplayStore((s) => s.heatmapPreset);
+  const ratioActive = heatmapPresetId === "ratioDiverging" && available;
   const [reportOpen, setReportOpen] = useState(false);
 
   // The operator's spot-age setting still governs the DX cluster LIST
@@ -92,21 +94,22 @@ export function HeatMapTile({ title = "Band heat map" }: WallTileProps) {
   }, [bands]);
 
   const cells = useMemo(() => {
+    if (ratioActive) return regionalCells;
     const inputs: HeatmapSpotInput[] = [];
     for (const spot of spots) {
       const input = dxSpotToHeatmapInput(spot);
       if (input) inputs.push(input);
     }
-    return computeHeatmap(inputs, { now: now.getTime(), physicsScores, baseline }).map((cell) =>
+    return computeHeatmap(inputs, { now: now.getTime(), physicsScores }).map((cell) =>
       clampInsufficientHistory(cell, availableMs),
     );
-  }, [spots, physicsScores, now, availableMs, baseline]);
+  }, [spots, physicsScores, now, availableMs, ratioActive, regionalCells]);
 
   const preset = useMemo(
-    () => heatmapPresetId === "ratioDiverging" && baseline.size === 0
+    () => heatmapPresetId === "ratioDiverging" && !available
       ? LADDER_HUE_PRESET
       : PRESETS.find((p) => p.id === heatmapPresetId) ?? LADDER_HUE_PRESET,
-    [heatmapPresetId, baseline],
+    [heatmapPresetId, available],
   );
 
   const cellMap = useMemo(
@@ -145,19 +148,21 @@ export function HeatMapTile({ title = "Band heat map" }: WallTileProps) {
   // itself is the reason (unavailable, loading, off) — never a fabricated
   // "ALL CLEAR".
   if (!hottest) {
-    const idle = ["UNAVAILABLE", "LOADING", "OFF"].includes(feedState.state)
+    const idle = ratioActive ? "NO SPOTS IN LAST FULL HOUR" : ["UNAVAILABLE", "LOADING", "OFF"].includes(feedState.state)
       ? feedState.state
       : "NO SPOTS IN WINDOW";
     return (
       <>
         <HamClockTile
           title={title}
+          source={ratioActive ? basisLabel : undefined}
           onOpen={() => setReportOpen(true)}
           openLabel="Band heat map: no activity in the window. Open the full grid report"
         >
           <TileHero tone="hc-dim-text">—</TileHero>
           <TileSub>
             <span>{idle}</span>
+            {ratioActive && <span>{baselineAgeLabel}</span>}
             {unavailableLabel && <span>{unavailableLabel}</span>}
           </TileSub>
         </HamClockTile>
@@ -179,7 +184,7 @@ export function HeatMapTile({ title = "Band heat map" }: WallTileProps) {
       <HamClockTile
         title={title}
         source={
-          availableMs < DEFAULT_HEATMAP_WINDOW_MS
+          ratioActive ? basisLabel : availableMs < DEFAULT_HEATMAP_WINDOW_MS
             ? `${totalCount} DX · ${heatmapWindowLabel(availableMs)}`
             : `${totalCount} DX · ${preset.label.toUpperCase()}`
         }
@@ -195,6 +200,7 @@ export function HeatMapTile({ title = "Band heat map" }: WallTileProps) {
         </div>
         <TileSub>
           <span>{sentence}</span>
+          {ratioActive && <span>{baselineAgeLabel}</span>}
           {unavailableLabel && <span>{unavailableLabel}</span>}
         </TileSub>
 

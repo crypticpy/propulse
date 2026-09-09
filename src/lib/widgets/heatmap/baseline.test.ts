@@ -6,13 +6,38 @@ import {
   CROWDED_MIN_COUNT,
   CROWDED_RATIO_THRESHOLD,
   isCrowded,
+  formatHeatmapRatio,
+  latestCompleteHour,
   lookupBaseline,
+  regionalHeatmapCells,
   type BaselineInput,
 } from "./baseline";
 
 describe("baselineKey", () => {
   it("joins band, continent and hour", () => {
     expect(baselineKey("20m", "EU", 14)).toBe("20m|EU|14");
+  });
+});
+
+describe("complete regional hour ratios", () => {
+  it("uses the hour being measured, never the current wall-clock hour", () => {
+    const hour = latestCompleteHour(Date.parse("2026-09-09T00:15:00Z"));
+    expect(hour).toBe("2026-09-08T23:00:00.000Z");
+    const baseline = new Map([["20m|EU|23", 1000], ["20m|EU|0", 1], ["20m|NA|23", 1000]]);
+    const cells = regionalHeatmapCells(baseline, new Map([["20m|EU|23", 1000], ["20m|NA|23", 1]]), hour);
+    expect(cells.find((cell) => cell.band === "20m" && cell.continent === "EU")).toMatchObject({ count: 1000, ratio: 0 });
+    expect(cells.find((cell) => cell.band === "20m" && cell.continent === "NA")).toMatchObject({ count: 1, ratio: -3 });
+  });
+
+  it("does not fabricate zero counts for a wholly missing hour", () => {
+    expect(regionalHeatmapCells(new Map([["20m|EU|12", 1000]]), new Map(), "2026-09-09T12:00:00Z")).toEqual([]);
+  });
+
+  it("renders bounds and missing medians visibly instead of pretending they are exact", () => {
+    expect(formatHeatmapRatio(computeRatio(999, 0))).toBe("\u22653.00");
+    expect(formatHeatmapRatio(computeRatio(0, 999))).toBe("\u2264-3.00");
+    expect(formatHeatmapRatio(0)).toBe("0.00");
+    expect(formatHeatmapRatio(null)).toBe("NO BASELINE");
   });
 });
 

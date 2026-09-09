@@ -3767,10 +3767,20 @@ export function FlatMapView({
   // Hover feedback for a cluster glyph. Without this the one new clickable
   // affordance on the flat map falls through to the Maidenhead grid tooltip,
   // which then contradicts what the click does (#746).
-  const [hoveredClusterGlyph, setHoveredClusterGlyph] = useState<{
-    label: string;
+  //
+  // Only the group id is stored, never a resolved label: the glyph can vanish
+  // under a motionless pointer (a feed refresh drops the group below
+  // `minGroupSize`, or grouping is switched off), and a cached label would
+  // outlive it. Resolving against `clusterGlyphs` at render makes the tooltip
+  // disappear with the glyph without adding an effect to watch for it.
+  const [hoveredClusterGlyphHit, setHoveredClusterGlyphHit] = useState<{
+    id: string;
     screenPos: { x: number; y: number };
   } | null>(null);
+  const hoveredClusterGlyph = hoveredClusterGlyphHit
+    ? (clusterGlyphs.find((glyph) => glyph.id === hoveredClusterGlyphHit.id) ??
+      null)
+    : null;
 
   const spotHoverDismissRef = useRef<number | null>(null);
   const hoveredSpotOwnerRef = useRef<string | null>(null);
@@ -4360,7 +4370,7 @@ export function FlatMapView({
       const clusterHit = findClusterGlyphAtScreenPos(screenPos);
       if (clusterHit) {
         hoveredSpotOwnerRef.current = null;
-        setHoveredClusterGlyph(null);
+        setHoveredClusterGlyphHit(null);
         setOpenSpotCollection({
           groupId: clusterHit.glyph.id,
           spots: clusterHit.glyph.cluster.spots,
@@ -4452,16 +4462,13 @@ export function FlatMapView({
       // endpoint layers, so nothing below can also claim this point.
       const hitGlyph = findClusterGlyphAtScreenPos(screenPos);
       if (hitGlyph) {
-        setHoveredClusterGlyph({
-          label: flatClusterGlyphTooltip(hitGlyph.glyph),
-          screenPos,
-        });
+        setHoveredClusterGlyphHit({ id: hitGlyph.glyph.id, screenPos });
         setTooltipPosition(null);
         setHoveredTargetPos(null);
         return;
       }
-      if (hoveredClusterGlyph) {
-        setHoveredClusterGlyph(null);
+      if (hoveredClusterGlyphHit) {
+        setHoveredClusterGlyphHit(null);
       }
 
       // Check spot label hover (between pin and target checks)
@@ -4509,7 +4516,7 @@ export function FlatMapView({
       scheduleSpotHoverDismiss,
       hoveredTargetPos,
       findClusterGlyphAtScreenPos,
-      hoveredClusterGlyph,
+      hoveredClusterGlyphHit,
     ],
   );
 
@@ -4518,7 +4525,7 @@ export function FlatMapView({
     setTooltipPosition(null);
     setHoveredPinData(null);
     setHoveredTargetPos(null);
-    setHoveredClusterGlyph(null);
+    setHoveredClusterGlyphHit(null);
     scheduleSpotHoverDismiss();
     setHoverCoords(null);
   }, [scheduleSpotHoverDismiss, setTooltipPosition]);
@@ -6609,16 +6616,16 @@ export function FlatMapView({
         />
       )}
 
-      {hoveredClusterGlyph && !openSpotCollection && (
+      {hoveredClusterGlyph && hoveredClusterGlyphHit && !openSpotCollection && (
         <div
           role="tooltip"
           className="pointer-events-none fixed z-50 -translate-x-1/2 -translate-y-full rounded-md border border-su-line/60 bg-panel px-2 py-1 font-mono text-xs text-su-text shadow-lg"
           style={{
-            left: hoveredClusterGlyph.screenPos.x,
-            top: hoveredClusterGlyph.screenPos.y - 10,
+            left: hoveredClusterGlyphHit.screenPos.x,
+            top: hoveredClusterGlyphHit.screenPos.y - 10,
           }}
         >
-          {hoveredClusterGlyph.label}
+          {flatClusterGlyphTooltip(hoveredClusterGlyph)}
         </div>
       )}
 

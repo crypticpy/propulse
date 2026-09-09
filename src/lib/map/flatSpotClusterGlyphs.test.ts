@@ -127,11 +127,11 @@ describe("buildFlatClusterGlyphs", () => {
     expect(at(3, 0.25)).toBeCloseTo(at(3, 1), 6);
   });
 
-  it("caps the drawn radius so the worst realistic group stays bounded", () => {
-    // Feed budget 500 at the top of the dot-size slider is the realistic
-    // ceiling; uncapped this curve yields ~59px.
+  it("caps the drawn radius so the worst reachable group stays bounded", () => {
+    // `spotLimit` is clamped to 200, so a 200-member group at the top of the
+    // dot-size slider is the ceiling; uncapped this curve yields ~53.6px.
     const [huge] = buildFlatClusterGlyphs(
-      [cluster("g:1:big", 0, 0, 500)],
+      [cluster("g:1:big", 0, 0, 200)],
       project,
       { width: WIDTH, height: HEIGHT, spotDotScale: 2 },
     );
@@ -157,6 +157,25 @@ describe("buildFlatClusterGlyphs", () => {
     );
     // The floor is screen space, so it damps like every other size.
     expect(zoomed.fontPx).toBeCloseTo(tiny.fontPx / 4, 6);
+  });
+
+  it("keeps a three-digit count inside its disc", () => {
+    // Above the 11px floor the font tracks the radius, so without a digit
+    // term a three-digit numeral reaches the disc edge with no padding.
+    const corner = (glyph: { count: number; fontPx: number; radius: number }) =>
+      Math.hypot(
+        (glyph.fontPx * 0.6 * String(glyph.count).length) / 2,
+        glyph.fontPx / 2,
+      ) / glyph.radius;
+    for (const spotDotScale of [1, 2]) {
+      const [glyph] = buildFlatClusterGlyphs(
+        [cluster("g:1:big", 0, 0, 200)],
+        project,
+        { width: WIDTH, height: HEIGHT, spotDotScale },
+      );
+      expect(glyph.fontPx).toBeGreaterThanOrEqual(11);
+      expect(corner(glyph)).toBeLessThan(0.9);
+    }
   });
 
   it("names the group for the hover tooltip", () => {

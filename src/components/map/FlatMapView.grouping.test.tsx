@@ -240,7 +240,9 @@ async function mount() {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   });
-  return render(
+  // A fresh element per render so `rerender` cannot bail out on reference
+  // equality — the feed the mocked hook returns is what changes between them.
+  const tree = () => (
     <QueryClientProvider client={client}>
       <ViewProvider
         ownerId="flat-grouping-test"
@@ -249,8 +251,19 @@ async function mount() {
       >
         <FlatMapView displayTime={new Date("2026-09-09T12:00:00Z")} />
       </ViewProvider>
-    </QueryClientProvider>,
+    </QueryClientProvider>
   );
+  const result = render(tree());
+  return { ...result, rerenderTree: () => result.rerender(tree()) };
+}
+
+async function hoverGlyph(anchor: { x: number; y: number }) {
+  fireEvent.pointerMove(interactiveCanvas(), {
+    clientX: anchor.x,
+    clientY: anchor.y,
+    pointerId: 1,
+  });
+  return waitFor(() => screen.getByRole("tooltip"));
 }
 
 function interactiveCanvas() {
@@ -353,16 +366,39 @@ describe("FlatMapView geographic grouping", () => {
   it("names the group on hover instead of falling through to the grid tooltip", async () => {
     await mount();
     const cluster = grouped.clusters[0];
-    const anchor = toCanvas(cluster.center.lat, cluster.center.lon);
+    const tooltip = await hoverGlyph(
+      toCanvas(cluster.center.lat, cluster.center.lon),
+    );
+    expect(tooltip.textContent).toBe("3 spots · Spain");
+  });
 
+  it("clears the hover tooltip when the pointer moves off the glyph", async () => {
+    await mount();
+    const cluster = grouped.clusters[0];
+    await hoverGlyph(toCanvas(cluster.center.lat, cluster.center.lon));
+
+    // Open mid-Atlantic: no glyph, no label, no endpoint.
+    const ocean = toCanvas(0, -40);
     fireEvent.pointerMove(interactiveCanvas(), {
-      clientX: anchor.x,
-      clientY: anchor.y,
+      clientX: ocean.x,
+      clientY: ocean.y,
       pointerId: 1,
     });
 
-    const tooltip = await waitFor(() => screen.getByRole("tooltip"));
-    expect(tooltip.textContent).toBe(`3 spots · ${cluster.label}`);
+    await waitFor(() => expect(screen.queryByRole("tooltip")).toBeNull());
+  });
+
+  it("clears the hover tooltip when the glyph disappears under a motionless pointer", async () => {
+    const { rerenderTree } = await mount();
+    const cluster = grouped.clusters[0];
+    await hoverGlyph(toCanvas(cluster.center.lat, cluster.center.lon));
+
+    // The feed settles with grouping off — the group is gone, but the pointer
+    // never moved, so nothing fires a hover event to clear a cached label.
+    currentFeed = GROUPING_OFF_FEED;
+    rerenderTree();
+
+    expect(screen.queryByRole("tooltip")).toBeNull();
   });
 
   it("opens the group's collection popover and expands the group from it", async () => {

@@ -80,11 +80,11 @@ const MIN_HIT_RADIUS_PX = 18;
 const MIN_COUNT_FONT_PX = 11;
 
 /**
- * Screen-space cap on the drawn radius. The map budget caps the feed at
- * `spotLimit` (default 500) and the dot-size slider tops out at 2.0, so the
- * uncapped worst case is a single 500-member group at ~59px radius / 119px
- * diameter — a fifth of the height of a 1024x512 map. This holds the worst
- * case to 68px across.
+ * Screen-space cap on the drawn radius. `spotLimit` is clamped to 200
+ * (`spotContracts.ts`, re-clamped in `dxFilters.ts`; default 150), and the
+ * dot-size slider tops out at 2.0, so the reachable worst case is a single
+ * 200-member group at ~53.6px radius / 107px diameter. This holds it to 68px
+ * across.
  */
 const MAX_GLYPH_RADIUS_PX = 34;
 
@@ -97,6 +97,23 @@ const AA_CONTRAST = 4.5;
 function minRadiusForCount(count: number): number {
   // Monospace advance is ~0.6em; leave a ~2px ring of fill around the number.
   return (MIN_COUNT_FONT_PX * 0.6 * String(count).length) / 2 + 2;
+}
+
+/**
+ * Count text size for a disc of `radiusPx`.
+ *
+ * `radiusPx * 1.05` alone tracks the disc but never reconsiders how many
+ * digits have to fit, so a three-digit count reaches the disc edge with no
+ * padding. The digit term keeps the numeral inside; the 11px legibility floor
+ * still wins over both, and the disc floor below is sized to hold a numeral
+ * drawn at it.
+ */
+function countFontPx(count: number, radiusPx: number): number {
+  const digits = String(count).length;
+  return Math.max(
+    MIN_COUNT_FONT_PX,
+    Math.min(radiusPx * 1.05, (radiusPx * 1.6) / digits),
+  );
 }
 
 function glyphRadiusPx(count: number, spotDotScale: number): number {
@@ -206,7 +223,7 @@ export function buildFlatClusterGlyphs(
       radius: radiusPx / zoomDamp,
       hitRadius:
         Math.max(radiusPx, MIN_HIT_RADIUS_PX * spotDotScale) / zoomDamp,
-      fontPx: Math.max(MIN_COUNT_FONT_PX, radiusPx * 1.05) / zoomDamp,
+      fontPx: countFontPx(cluster.count, radiusPx) / zoomDamp,
       color: fill,
       ink,
       cluster,

@@ -53,7 +53,28 @@ describe("useWebGLContextGuard", () => {
     const view = render(<Harness />);
     expect(gl.forceContextLoss).not.toHaveBeenCalled();
     view.unmount();
-    vi.advanceTimersByTime(0);
+    vi.advanceTimersByTime(499);
+    expect(gl.forceContextLoss).not.toHaveBeenCalled();
+    vi.advanceTimersByTime(1);
+    expect(gl.forceContextLoss).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not release when remounted before the 500ms context-loss grace window", () => {
+    const gl = mocks.gl!;
+    const View = ({ isMounted }: { isMounted: boolean }) =>
+      isMounted ? <Harness /> : null;
+    const view = render(<View isMounted />);
+
+    view.rerender(<View isMounted={false} />);
+    vi.advanceTimersByTime(250);
+    view.rerender(<View isMounted />);
+    vi.advanceTimersByTime(250);
+    expect(gl.forceContextLoss).not.toHaveBeenCalled();
+
+    view.rerender(<View isMounted={false} />);
+    vi.advanceTimersByTime(499);
+    expect(gl.forceContextLoss).not.toHaveBeenCalled();
+    vi.advanceTimersByTime(1);
     expect(gl.forceContextLoss).toHaveBeenCalledTimes(1);
   });
 
@@ -65,7 +86,7 @@ describe("useWebGLContextGuard", () => {
       </StrictMode>,
     );
     // StrictMode's simulated mount → cleanup → mount has already happened.
-    vi.advanceTimersByTime(0);
+    vi.advanceTimersByTime(500);
     expect(gl.forceContextLoss).not.toHaveBeenCalled();
     // The canvas still responds as a live one.
     const onLost = vi.fn();
@@ -78,7 +99,7 @@ describe("useWebGLContextGuard", () => {
     expect(onLost).toHaveBeenCalledTimes(1);
     // A real unmount still releases it.
     view.unmount();
-    vi.advanceTimersByTime(0);
+    vi.advanceTimersByTime(500);
     expect(gl.forceContextLoss).toHaveBeenCalledTimes(1);
   });
 
@@ -102,7 +123,7 @@ describe("useWebGLContextGuard", () => {
     const onLost = vi.fn();
     const view = render(<Harness onLost={onLost} />);
     view.unmount();
-    vi.advanceTimersByTime(0);
+    vi.advanceTimersByTime(500);
     // The loss our own forceContextLoss() call triggers.
     dispatchLost(gl.domElement);
     expect(onLost).not.toHaveBeenCalled();
@@ -114,7 +135,7 @@ describe("useWebGLContextGuard", () => {
     const second = vi.fn();
     const view = render(<Harness onLost={first} />);
     view.rerender(<Harness onLost={second} />);
-    vi.advanceTimersByTime(0);
+    vi.advanceTimersByTime(500);
     expect(gl.forceContextLoss).not.toHaveBeenCalled();
     dispatchLost(gl.domElement);
     expect(first).not.toHaveBeenCalled();

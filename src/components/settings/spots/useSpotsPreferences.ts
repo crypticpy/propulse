@@ -99,6 +99,13 @@ export function useSpotsPreferences(
 
   const writeSpots = useCallback(
     (spots: ViewConfiguration["spots"]) => {
+      // `useDebouncedSliderCommit` flushes its pending value from an unmount
+      // cleanup, and `registerRuntimeWriter` disposes a runtime synchronously
+      // when another provider claims its `ownerId\0slotId\0kind` key. That
+      // flush can therefore land on a disposed runtime, where `assertActive`
+      // would throw out of the commit phase. Dropping a slider value the user
+      // abandoned by closing the surface is correct; a thrown cleanup is not.
+      if (view.isDisposed()) return;
       setRevertPoint(null);
       view.updateWorkingView({ spots });
     },

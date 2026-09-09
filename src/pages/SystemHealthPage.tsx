@@ -587,9 +587,11 @@ function StatusArc({
   // CSS-variable string, not a stable identity (#802).
   //
   // Idle/loading are the two non-status greys: loading is transient
-  // ("still fetching", should stay legible) so it takes `--su-muted`;
-  // idle is "nothing to report" and should recede, so it takes the
-  // dimmer `--su-line` structural token instead of a second muted tone.
+  // ("still fetching", should stay legible) so it takes full `--su-muted`;
+  // idle is "nothing to report" and should recede, but at full `--su-line`
+  // it measured 2.96:1 against the light-theme card — below the 3:1
+  // graphical floor. `--su-muted` at 0.75 alpha stays lighter than the
+  // loading segment while clearing 3:1 in every theme.
   const segments: Array<{
     count: number;
     color: string;
@@ -599,7 +601,7 @@ function StatusArc({
     { count: degraded, color: "rgb(var(--su-warning-rgb))", kind: "degraded" },
     { count: errored, color: "rgb(var(--su-danger-rgb))", kind: "error" },
     { count: loading, color: "rgb(var(--su-muted-rgb))", kind: "loading" },
-    { count: idle, color: "rgb(var(--su-line-rgb))", kind: "idle" },
+    { count: idle, color: "rgb(var(--su-muted-rgb) / 0.75)", kind: "idle" },
   ];
 
   let offset = 0;
@@ -639,6 +641,7 @@ function StatusArc({
       viewBox="0 0 128 128"
       className="w-28 h-28 md:w-32 md:h-32 -rotate-90"
       aria-hidden="true"
+      data-testid="status-arc"
     >
       {/* background track */}
       <circle

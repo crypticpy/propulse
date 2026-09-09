@@ -10,15 +10,8 @@ import { useVisualEffects } from "@/hooks/useVisualEffects";
  * Replaces EquipmentDetailModal with a far more immersive experience.
  */
 
-import {
-  useState,
-  useEffect,
-  useRef,
-  useCallback,
-  useMemo,
-  type ReactNode,
-} from "react";
-import { createPortal } from "react-dom";
+import { useState, useEffect, useMemo, type ReactNode } from "react";
+import { AccessibleDialog } from "@/components/ui/AccessibleDialog";
 import { getEquipmentSymbol } from "./EquipmentSymbols";
 import { StatIconSvg, ArtZonePattern } from "./EquipmentCard";
 import { useImageUrl } from "@/hooks/useImageUrl";
@@ -326,7 +319,6 @@ export function EquipmentHeroCard({
   onSetActive,
   isActive,
 }: EquipmentHeroCardProps) {
-  const closeBtnRef = useRef<HTMLButtonElement>(null);
   const [activeImageId, setActiveImageId] = useState<string | undefined>(
     undefined,
   );
@@ -376,36 +368,11 @@ export function EquipmentHeroCard({
     ).filter(([, caps]) => caps.length > 0);
   }, [capabilities]);
 
-  // ── Escape key ──
-  const handleKeyDown = useCallback(
-    (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
-    },
-    [onClose],
-  );
-
-  useEffect(() => {
-    if (!open) return;
-    document.addEventListener("keydown", handleKeyDown);
-    return () => document.removeEventListener("keydown", handleKeyDown);
-  }, [open, handleKeyDown]);
-
-  // ── Body scroll lock ──
-  useEffect(() => {
-    if (!open) return;
-    const prev = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    return () => {
-      document.body.style.overflow = prev;
-    };
-  }, [open]);
-
-  // ── Auto-focus close button ──
-  useEffect(() => {
-    if (!open) return;
-    const timer = setTimeout(() => closeBtnRef.current?.focus(), 0);
-    return () => clearTimeout(timer);
-  }, [open]);
+  // Escape handling, body scroll lock, focus trap and initial focus are all
+  // owned by `AccessibleDialog` now (see the return statement below) — it
+  // also registers this card on the shared dialog stack so Escape and
+  // background inerting are stack-aware instead of racing a dialog beneath
+  // it (issue #727).
 
   // ── Inject keyframe styles ──
   useEffect(() => {
@@ -413,274 +380,242 @@ export function EquipmentHeroCard({
   }, []);
 
   if (!open) return null;
-  if (typeof document === "undefined") return null;
 
-  const titleId = "equipment-hero-title";
   const hasActions = onEdit || onDelete || onSetActive;
   const hasGroups = groups && groups.length > 0;
   const hasFields = fields && fields.length > 0;
 
-  return createPortal(
-    <div className="fixed inset-0 z-[500] flex items-center justify-center p-4">
-      {/* ── Backdrop ── */}
-      <div
-        className="absolute inset-0 bg-black/70 backdrop-blur-md hero-backdrop-in"
-        style={{ animation: effects.motion ? "heroBackdropIn 200ms ease-out both" : "none" }}
-        onClick={onClose}
-      />
-
-      {/* ── Hero Card ── */}
-      <div
-        className="hero-entrance relative z-10 w-full max-w-xl max-h-[85vh] flex flex-col"
-        style={{
+  return (
+    <AccessibleDialog
+      open={open}
+      onClose={onClose}
+      title={title}
+      chrome="bare"
+      panelProps={{
+        className: "hero-entrance z-10 w-full max-w-xl max-h-[85vh] flex flex-col",
+        style: {
           animation:
             effects.motion ? "heroEntrance 300ms cubic-bezier(0.34, 1.56, 0.64, 1) both" : "none",
+        },
+      }}
+    >
+      {/* ══ Top Accent Bar (6px) ══ */}
+      <div
+        className="h-1.5 w-full rounded-t-2xl flex-shrink-0 hero-shimmer"
+        style={{
+          backgroundColor: accentHex,
+          backgroundImage: rankState.hasChromaticEffects
+            ? `linear-gradient(90deg, #38BDF8, #A78BFA, #F472B6, #34D399, #38BDF8)`
+            : `linear-gradient(90deg, transparent 0%, ${accentHex}80 25%, white 50%, ${accentHex}80 75%, transparent 100%)`,
+          backgroundSize: "200% 100%",
+          animation: effects.animatedBadges ? "heroShimmer 3s ease-in-out infinite" : "none",
         }}
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby={titleId}
-      >
-        {/* ══ Top Accent Bar (6px) ══ */}
-        <div
-          className="h-1.5 w-full rounded-t-2xl flex-shrink-0 hero-shimmer"
-          style={{
-            backgroundColor: accentHex,
-            backgroundImage: rankState.hasChromaticEffects
-              ? `linear-gradient(90deg, #38BDF8, #A78BFA, #F472B6, #34D399, #38BDF8)`
-              : `linear-gradient(90deg, transparent 0%, ${accentHex}80 25%, white 50%, ${accentHex}80 75%, transparent 100%)`,
-            backgroundSize: "200% 100%",
-            animation: effects.animatedBadges ? "heroShimmer 3s ease-in-out infinite" : "none",
-          }}
-        />
+      />
 
-        {/* ══ Card Body (scrollable) ══ */}
+      {/* ══ Card Body (scrollable) ══ */}
+      <div
+        className="overflow-y-auto flex-1 min-h-0 rounded-b-2xl"
+        style={{
+          backgroundColor: "#0a0e18",
+          ...(rankBorderStyle.border
+            ? {
+                ...rankBorderStyle,
+                border: undefined,
+                borderLeft: rankBorderStyle.border,
+                borderRight: rankBorderStyle.border,
+                borderBottom: rankBorderStyle.border,
+              }
+            : rankBorderStyle),
+          backgroundImage: `linear-gradient(160deg, rgba(255,255,255,0.03) 0%, transparent 30%, rgba(0,0,0,0.2) 100%)`,
+        }}
+      >
+        {/* ── Hero Art Zone ── */}
         <div
-          className="overflow-y-auto flex-1 min-h-0 rounded-b-2xl"
+          className="relative overflow-hidden"
           style={{
-            backgroundColor: "#0a0e18",
-            ...(rankBorderStyle.border
-              ? {
-                  ...rankBorderStyle,
-                  border: undefined,
-                  borderLeft: rankBorderStyle.border,
-                  borderRight: rankBorderStyle.border,
-                  borderBottom: rankBorderStyle.border,
-                }
-              : rankBorderStyle),
-            backgroundImage: `linear-gradient(160deg, rgba(255,255,255,0.03) 0%, transparent 30%, rgba(0,0,0,0.2) 100%)`,
+            minHeight: 160,
+            background: `linear-gradient(180deg, ${accentHex}0D 0%, transparent 60%, ${accentHex}05 100%)`,
           }}
         >
-          {/* ── Hero Art Zone ── */}
-          <div
-            className="relative overflow-hidden"
-            style={{
-              minHeight: 160,
-              background: `linear-gradient(180deg, ${accentHex}0D 0%, transparent 60%, ${accentHex}05 100%)`,
-            }}
+          {/* Close button — top-right */}
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Close"
+            className="absolute top-3 right-3 z-20 p-1.5 rounded-lg text-su-muted hover:text-su-text
+                       hover:bg-su-line/20 transition-colors focus:outline-none
+                       focus-visible:ring-2 focus-visible:ring-su-line/60"
           >
-            {/* Close button — top-right */}
-            <button
-              ref={closeBtnRef}
-              type="button"
-              onClick={onClose}
-              aria-label="Close"
-              className="absolute top-3 right-3 z-20 p-1.5 rounded-lg text-su-muted hover:text-su-text
-                         hover:bg-su-line/20 transition-colors focus:outline-none
-                         focus-visible:ring-2 focus-visible:ring-su-line/60"
-            >
-              <CloseIcon />
-            </button>
+            <CloseIcon />
+          </button>
 
-            {/* Corner decorations */}
-            {rankState.hasChromaticEffects ? (
-              <RuneCorners enabled={true} />
-            ) : rankState.hasFiligreeCorners ? (
-              <FiligreeCorners enabled={true} accentHex={accentHex} />
-            ) : (
-              <>
-                <svg
-                  className="absolute top-2 left-2 w-5 h-5 pointer-events-none"
-                  viewBox="0 0 20 20"
-                  fill="none"
-                  stroke={`${accentHex}40`}
-                  strokeWidth={1.5}
-                  aria-hidden="true"
-                >
-                  <path d="M1 8V2a1 1 0 011-1h6" />
-                </svg>
-                <svg
-                  className="absolute top-2 right-10 w-5 h-5 pointer-events-none"
-                  viewBox="0 0 20 20"
-                  fill="none"
-                  stroke={`${accentHex}40`}
-                  strokeWidth={1.5}
-                  aria-hidden="true"
-                >
-                  <path d="M19 8V2a1 1 0 00-1-1h-6" />
-                </svg>
-              </>
-            )}
+          {/* Corner decorations */}
+          {rankState.hasChromaticEffects ? (
+            <RuneCorners enabled={true} />
+          ) : rankState.hasFiligreeCorners ? (
+            <FiligreeCorners enabled={true} accentHex={accentHex} />
+          ) : (
+            <>
+              <svg
+                className="absolute top-2 left-2 w-5 h-5 pointer-events-none"
+                viewBox="0 0 20 20"
+                fill="none"
+                stroke={`${accentHex}40`}
+                strokeWidth={1.5}
+                aria-hidden="true"
+              >
+                <path d="M1 8V2a1 1 0 011-1h6" />
+              </svg>
+              <svg
+                className="absolute top-2 right-10 w-5 h-5 pointer-events-none"
+                viewBox="0 0 20 20"
+                fill="none"
+                stroke={`${accentHex}40`}
+                strokeWidth={1.5}
+                aria-hidden="true"
+              >
+                <path d="M19 8V2a1 1 0 00-1-1h-6" />
+              </svg>
+            </>
+          )}
 
-            {visualization ? (
-              <div className="flex items-center justify-center py-6 sm:py-8 px-6 min-h-[160px] sm:min-h-[200px]">
-                {visualization}
+          {visualization ? (
+            <div className="flex items-center justify-center py-6 sm:py-8 px-6 min-h-[160px] sm:min-h-[200px]">
+              {visualization}
+            </div>
+          ) : imageUrl ? (
+            <>
+              <img
+                src={imageUrl}
+                alt=""
+                className="absolute inset-0 w-full h-full object-cover z-[5]"
+              />
+              <div className="absolute inset-0 bg-gradient-to-b from-transparent to-black/40 pointer-events-none z-[5]" />
+              {/* Spacer to maintain art zone height */}
+              <div className="py-6 sm:py-8 min-h-[160px] sm:min-h-[200px]" />
+            </>
+          ) : (
+            <>
+              {/* Animated background pattern */}
+              <div
+                className={`absolute inset-0 pointer-events-none opacity-[0.04] ${ACCENT_TEXT[equipmentType]} hero-drift`}
+                style={{ animation: effects.particles ? "heroDrift 20s ease-in-out infinite" : "none" }}
+              >
+                <ArtZonePattern type={equipmentType} />
               </div>
-            ) : imageUrl ? (
-              <>
-                <img
-                  src={imageUrl}
-                  alt=""
-                  className="absolute inset-0 w-full h-full object-cover z-[5]"
-                />
-                <div className="absolute inset-0 bg-gradient-to-b from-transparent to-black/40 pointer-events-none z-[5]" />
-                {/* Spacer to maintain art zone height */}
-                <div className="py-6 sm:py-8 min-h-[160px] sm:min-h-[200px]" />
-              </>
-            ) : (
-              <>
-                {/* Animated background pattern */}
-                <div
-                  className={`absolute inset-0 pointer-events-none opacity-[0.04] ${ACCENT_TEXT[equipmentType]} hero-drift`}
-                  style={{ animation: effects.particles ? "heroDrift 20s ease-in-out infinite" : "none" }}
-                >
-                  <ArtZonePattern type={equipmentType} />
-                </div>
 
-                {/* Secondary pattern layer (offset, slower) */}
-                <div
-                  className={`absolute inset-0 pointer-events-none opacity-[0.02] ${ACCENT_TEXT[equipmentType]} hero-drift`}
-                  style={{
-                    animation: effects.particles ? "heroDrift 28s ease-in-out infinite reverse" : "none",
-                    transform: "scale(1.15) rotate(5deg)",
-                  }}
-                >
-                  <ArtZonePattern type={equipmentType} />
-                </div>
-
-                {/* Pulsing radial glow */}
-                <div
-                  className="absolute inset-0 pointer-events-none hero-pulse"
-                  style={{
-                    background: effects.glow ? `radial-gradient(circle at 50% 55%, ${accentHex}25 0%, ${accentHex}08 40%, transparent 70%)` : "none",
-                    animation: effects.motion && effects.glow ? "heroPulse 4s ease-in-out infinite" : "none",
-                  }}
-                />
-
-                {/* Outer glow ring */}
-                <div
-                  className="absolute inset-0 pointer-events-none"
-                  style={{
-                    background: effects.glow ? `radial-gradient(circle at 50% 55%, transparent 30%, ${accentHex}06 60%, transparent 80%)` : "none",
-                  }}
-                />
-
-                {/* Giant equipment symbol — responsive sizing */}
-                <div className="relative flex items-center justify-center py-6 sm:py-8 z-10">
-                  <div
-                    className={ACCENT_TEXT[equipmentType]}
-                    style={{
-                      filter: effects.glow ? `drop-shadow(0 0 20px ${accentHex}40)` : "none",
-                    }}
-                  >
-                    <SymbolComponent className="w-24 h-24 sm:w-[140px] sm:h-[140px]" />
-                  </div>
-                </div>
-              </>
-            )}
-
-            {/* Image upload button overlay */}
-            {onImageChange && (
-              <div className="absolute bottom-3 right-3 z-10">
-                <ImageUploadButton
-                  imageId={imageId}
-                  onImageChange={onImageChange}
-                  aspect={4 / 3}
-                  cropShape="rect"
-                  maxOutputWidth={1200}
-                  maxOutputHeight={900}
-                  quality={0.8}
-                  compact
-                />
+              {/* Secondary pattern layer (offset, slower) */}
+              <div
+                className={`absolute inset-0 pointer-events-none opacity-[0.02] ${ACCENT_TEXT[equipmentType]} hero-drift`}
+                style={{
+                  animation: effects.particles ? "heroDrift 28s ease-in-out infinite reverse" : "none",
+                  transform: "scale(1.15) rotate(5deg)",
+                }}
+              >
+                <ArtZonePattern type={equipmentType} />
               </div>
-            )}
 
-            {/* Rank particle effects */}
-            <ParticleAurora
-              enabled={
-                rankState.hasParticles && rankState.preferences.enableParticles
-              }
-              rank={rankState.rank}
-              accentHex={accentHex}
-            />
-            {rankState.hasChromaticEffects && !imageUrl && (
-              <DimensionalRift enabled={true} accentHex={accentHex} />
-            )}
+              {/* Pulsing radial glow */}
+              <div
+                className="absolute inset-0 pointer-events-none hero-pulse"
+                style={{
+                  background: effects.glow ? `radial-gradient(circle at 50% 55%, ${accentHex}25 0%, ${accentHex}08 40%, transparent 70%)` : "none",
+                  animation: effects.motion && effects.glow ? "heroPulse 4s ease-in-out infinite" : "none",
+                }}
+              />
 
-            {/* Rank border overlays */}
-            {rankState.hasEnergyBorders && !rankState.hasChromaticEffects && (
-              <EnergyBorderOverlay enabled={true} accentHex={accentHex} />
-            )}
-            {rankState.hasChromaticEffects && (
-              <ChromaticBorderOverlay enabled={true} />
-            )}
-          </div>
+              {/* Outer glow ring */}
+              <div
+                className="absolute inset-0 pointer-events-none"
+                style={{
+                  background: effects.glow ? `radial-gradient(circle at 50% 55%, transparent 30%, ${accentHex}06 60%, transparent 80%)` : "none",
+                }}
+              />
 
-          {/* ── Gallery Strip ── */}
-          {hasGallery && galleryCount > 0 && (
-            <div className="px-4 py-2 flex items-center gap-2 overflow-x-auto bg-su-line/10">
-              {/* Hero image as first thumbnail */}
-              {imageId && (
-                <GalleryThumbnail
-                  imageId={imageId}
-                  isActive={activeImageId === undefined}
-                  onClick={() => setActiveImageId(undefined)}
-                />
-              )}
-              {/* Gallery thumbnails */}
-              {galleryImageIds?.map((gid) => (
-                <GalleryThumbnail
-                  key={gid}
-                  imageId={gid}
-                  isActive={activeImageId === gid}
-                  onClick={() => setActiveImageId(gid)}
-                  onRemove={
-                    onGalleryRemove
-                      ? () => {
-                          // If removing the active image, reset to hero
-                          if (activeImageId === gid) {
-                            setActiveImageId(undefined);
-                          }
-                          onGalleryRemove(gid);
-                        }
-                      : undefined
-                  }
-                />
-              ))}
-              {/* Add button */}
-              {canAddMore && onGalleryAdd && (
-                <div className="flex-shrink-0">
-                  <ImageUploadButton
-                    onImageChange={(newId) => {
-                      if (newId) onGalleryAdd(newId);
-                    }}
-                    aspect={4 / 3}
-                    cropShape="rect"
-                    maxOutputWidth={1200}
-                    maxOutputHeight={900}
-                    quality={0.8}
-                    compact
-                    label="Add"
-                    className="h-16 w-16 rounded-lg border border-dashed border-su-line/50
-                               bg-su-line/10 hover:bg-su-line/20 transition-colors
-                               flex items-center justify-center text-su-muted hover:text-su-text"
-                  />
+              {/* Giant equipment symbol — responsive sizing */}
+              <div className="relative flex items-center justify-center py-6 sm:py-8 z-10">
+                <div
+                  className={ACCENT_TEXT[equipmentType]}
+                  style={{
+                    filter: effects.glow ? `drop-shadow(0 0 20px ${accentHex}40)` : "none",
+                  }}
+                >
+                  <SymbolComponent className="w-24 h-24 sm:w-[140px] sm:h-[140px]" />
                 </div>
-              )}
+              </div>
+            </>
+          )}
+
+          {/* Image upload button overlay */}
+          {onImageChange && (
+            <div className="absolute bottom-3 right-3 z-10">
+              <ImageUploadButton
+                imageId={imageId}
+                onImageChange={onImageChange}
+                aspect={4 / 3}
+                cropShape="rect"
+                maxOutputWidth={1200}
+                maxOutputHeight={900}
+                quality={0.8}
+                compact
+              />
             </div>
           )}
-          {/* Gallery strip — show add button when no gallery images yet but gallery is supported */}
-          {hasGallery && galleryCount === 0 && canAddMore && onGalleryAdd && (
-            <div className="px-4 py-2 flex items-center gap-2 bg-su-line/10">
+
+          {/* Rank particle effects */}
+          <ParticleAurora
+            enabled={
+              rankState.hasParticles && rankState.preferences.enableParticles
+            }
+            rank={rankState.rank}
+            accentHex={accentHex}
+          />
+          {rankState.hasChromaticEffects && !imageUrl && (
+            <DimensionalRift enabled={true} accentHex={accentHex} />
+          )}
+
+          {/* Rank border overlays */}
+          {rankState.hasEnergyBorders && !rankState.hasChromaticEffects && (
+            <EnergyBorderOverlay enabled={true} accentHex={accentHex} />
+          )}
+          {rankState.hasChromaticEffects && (
+            <ChromaticBorderOverlay enabled={true} />
+          )}
+        </div>
+
+        {/* ── Gallery Strip ── */}
+        {hasGallery && galleryCount > 0 && (
+          <div className="px-4 py-2 flex items-center gap-2 overflow-x-auto bg-su-line/10">
+            {/* Hero image as first thumbnail */}
+            {imageId && (
+              <GalleryThumbnail
+                imageId={imageId}
+                isActive={activeImageId === undefined}
+                onClick={() => setActiveImageId(undefined)}
+              />
+            )}
+            {/* Gallery thumbnails */}
+            {galleryImageIds?.map((gid) => (
+              <GalleryThumbnail
+                key={gid}
+                imageId={gid}
+                isActive={activeImageId === gid}
+                onClick={() => setActiveImageId(gid)}
+                onRemove={
+                  onGalleryRemove
+                    ? () => {
+                        // If removing the active image, reset to hero
+                        if (activeImageId === gid) {
+                          setActiveImageId(undefined);
+                        }
+                        onGalleryRemove(gid);
+                      }
+                    : undefined
+                }
+              />
+            ))}
+            {/* Add button */}
+            {canAddMore && onGalleryAdd && (
               <div className="flex-shrink-0">
                 <ImageUploadButton
                   onImageChange={(newId) => {
@@ -693,301 +628,324 @@ export function EquipmentHeroCard({
                   quality={0.8}
                   compact
                   label="Add"
-                  className="h-12 px-3 rounded-lg border border-dashed border-su-line/50
+                  className="h-16 w-16 rounded-lg border border-dashed border-su-line/50
                              bg-su-line/10 hover:bg-su-line/20 transition-colors
-                             flex items-center gap-2 text-su-muted hover:text-su-text text-xs"
+                             flex items-center justify-center text-su-muted hover:text-su-text"
                 />
-              </div>
-              <span className="text-[11px] text-su-muted">
-                Add more photos ({maxGalleryImages} max)
-              </span>
-            </div>
-          )}
-
-          {/* ── Decorative gradient divider ── */}
-          <div
-            className="h-px mx-5"
-            style={{
-              background: `linear-gradient(90deg, transparent 0%, ${accentHex}60 30%, ${accentHex} 50%, ${accentHex}60 70%, transparent 100%)`,
-            }}
-          />
-
-          {/* ── Title Area ── */}
-          <div className="px-5 pt-4 pb-3">
-            {/* Type label + tier */}
-            <div className="flex items-center gap-1.5">
-              <span
-                className="text-[11px] uppercase tracking-[0.15em] font-semibold"
-                style={{ color: accentHex }}
-              >
-                {resolvedTypeLabel}
-              </span>
-              {tier && (
-                <>
-                  <span
-                    className="text-[11px] uppercase tracking-wider font-semibold opacity-50"
-                    style={{ color: accentHex }}
-                  >
-                    &middot;
-                  </span>
-                  <span
-                    className="text-[11px] uppercase tracking-[0.15em] font-semibold opacity-60"
-                    style={{ color: accentHex }}
-                  >
-                    {TIER_LABELS[tier]}
-                  </span>
-                </>
-              )}
-            </div>
-
-            {/* Title — display font, responsive */}
-            <h2
-              id={titleId}
-              className="text-xl sm:text-2xl font-display font-bold text-su-text leading-tight mt-1"
-            >
-              {title}
-            </h2>
-
-            {/* Subtitle */}
-            {subtitle && (
-              <p className="text-sm text-su-muted leading-snug mt-1">
-                {subtitle}
-              </p>
-            )}
-
-            {/* Badges */}
-            {badges && badges.length > 0 && (
-              <div className="flex items-center gap-2 mt-2.5 flex-wrap">
-                {badges.map((badge) => (
-                  <span
-                    key={badge.label}
-                    className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px]
-                               font-semibold uppercase tracking-wider"
-                    style={{
-                      backgroundColor: `${badge.color ?? accentHex}18`,
-                      color: badge.color ?? accentHex,
-                      border: `1px solid ${badge.color ?? accentHex}30`,
-                    }}
-                  >
-                    {badge.label}
-                  </span>
-                ))}
               </div>
             )}
           </div>
-
-          {/* ── Hero Stats Bar ── */}
-          {stats && stats.length > 0 && (
-            <div
-              className="mx-5 mb-4 rounded-xl px-4 py-3.5"
-              style={{
-                backgroundColor: "rgba(255,255,255,0.03)",
-                border: `1px solid ${accentHex}15`,
-              }}
-            >
-              <div className="flex flex-wrap items-start justify-around gap-y-3">
-                {stats.map((stat) => (
-                  <div
-                    key={`${stat.icon}-${stat.label}`}
-                    className="flex flex-col items-center gap-1 min-w-0 px-2 sm:px-1"
-                  >
-                    {/* Enlarged icon via wrapper override */}
-                    <span
-                      className="[&_svg]:w-4 [&_svg]:h-4 sm:[&_svg]:w-5 sm:[&_svg]:h-5"
-                      style={{ color: `${accentHex}aa` }}
-                    >
-                      <StatIconSvg icon={stat.icon} />
-                    </span>
-                    <span
-                      className="text-base sm:text-lg font-mono font-bold text-su-text leading-none"
-                      style={{
-                        textShadow: `0 0 12px ${accentHex}30`,
-                      }}
-                    >
-                      <StatCountUp
-                        value={stat.value}
-                        enabled={rankState.hasStatCountUp}
-                        duration={600}
-                      />
-                    </span>
-                    <span className="text-[9px] sm:text-[10px] text-su-muted uppercase tracking-wider">
-                      {stat.label}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* ── Grouped Spec Sections ── */}
-          {hasGroups && (
-            <div>
-              {groups!.map((group, idx) => (
-                <div key={group.heading}>
-                  {idx > 0 && (
-                    <div
-                      className="mx-5 h-px"
-                      style={{ backgroundColor: `${accentHex}10` }}
-                    />
-                  )}
-                  <HeroGroupSection group={group} accentHex={accentHex} />
-                </div>
-              ))}
-            </div>
-          )}
-
-          {/* ── Flat Fields Fallback ── */}
-          {!hasGroups && hasFields && (
-            <div className="px-5 py-3">
-              <dl className="grid grid-cols-2 gap-x-6 gap-y-2.5">
-                {fields!.map((field) => (
-                  <HeroFieldCell
-                    key={field.label}
-                    field={field}
-                    accentHex={accentHex}
-                  />
-                ))}
-              </dl>
-            </div>
-          )}
-
-          {/* ── Capabilities (grouped by category) ── */}
-          {groupedCapabilities && groupedCapabilities.length > 0 && (
-            <div className="px-5 pb-3 pt-1">
-              {/* Divider before capabilities */}
-              <div
-                className="h-px mb-3"
-                style={{ backgroundColor: `${accentHex}10` }}
+        )}
+        {/* Gallery strip — show add button when no gallery images yet but gallery is supported */}
+        {hasGallery && galleryCount === 0 && canAddMore && onGalleryAdd && (
+          <div className="px-4 py-2 flex items-center gap-2 bg-su-line/10">
+            <div className="flex-shrink-0">
+              <ImageUploadButton
+                onImageChange={(newId) => {
+                  if (newId) onGalleryAdd(newId);
+                }}
+                aspect={4 / 3}
+                cropShape="rect"
+                maxOutputWidth={1200}
+                maxOutputHeight={900}
+                quality={0.8}
+                compact
+                label="Add"
+                className="h-12 px-3 rounded-lg border border-dashed border-su-line/50
+                           bg-su-line/10 hover:bg-su-line/20 transition-colors
+                           flex items-center gap-2 text-su-muted hover:text-su-text text-xs"
               />
-
-              {groupedCapabilities.map(([category, caps]) => (
-                <div key={category} className="mb-3 last:mb-0">
-                  {/* Category label */}
-                  <div className="flex items-center gap-2 mb-1.5">
-                    <span
-                      className="w-[3px] h-3 rounded-full flex-shrink-0"
-                      style={{ backgroundColor: `${accentHex}80` }}
-                    />
-                    <span
-                      className="text-[10px] font-semibold uppercase tracking-wider"
-                      style={{ color: `${accentHex}99` }}
-                    >
-                      {CATEGORY_LABELS[category]}
-                    </span>
-                  </div>
-
-                  {/* Pills */}
-                  <div className="flex flex-wrap gap-1.5 pl-3">
-                    {caps.map((cap) => {
-                      let pillStyle: string;
-                      if (cap.category === "band") {
-                        pillStyle =
-                          BAND_PILL_COLORS[cap.label] ?? DEFAULT_BAND_PILL;
-                      } else {
-                        pillStyle = CAPABILITY_STYLES[cap.category];
-                      }
-                      return (
-                        <span
-                          key={`${cap.category}-${cap.label}`}
-                          className={`px-2 py-0.5 text-[11px] font-mono font-medium rounded border ${pillStyle}`}
-                        >
-                          {cap.label}
-                        </span>
-                      );
-                    })}
-                  </div>
-                </div>
-              ))}
             </div>
-          )}
+            <span className="text-[11px] text-su-muted">
+              Add more photos ({maxGalleryImages} max)
+            </span>
+          </div>
+        )}
 
-          {/* ── Card Signature ── */}
-          <CardSignature
-            signature={rankState.cardSignature}
-            enabled={rankState.hasCardSignature}
-            className="px-5 pb-2"
-          />
-
-          {/* ── Action Buttons ── */}
-          {hasActions && (
-            <>
-              <div
-                className="mx-5 h-px mt-1"
-                style={{ backgroundColor: `${accentHex}15` }}
-              />
-              <div className="flex gap-3 px-5 pb-5 pt-3">
-                {onEdit && (
-                  <button
-                    type="button"
-                    onClick={onEdit}
-                    className="flex-1 py-2.5 rounded-lg text-sm font-medium text-center
-                               transition-colors min-h-[44px]
-                               bg-blue-500/10 text-blue-400 border border-blue-500/20
-                               hover:bg-blue-500/20 focus:outline-none
-                               focus-visible:ring-2 focus-visible:ring-blue-500/50"
-                  >
-                    Edit
-                  </button>
-                )}
-                {onDelete && (
-                  <button
-                    type="button"
-                    onClick={onDelete}
-                    className="flex-1 py-2.5 rounded-lg text-sm font-medium text-center
-                               transition-colors min-h-[44px]
-                               bg-red-500/10 text-red-400 border border-red-500/20
-                               hover:bg-red-500/20 focus:outline-none
-                               focus-visible:ring-2 focus-visible:ring-red-500/50"
-                  >
-                    Delete
-                  </button>
-                )}
-                {onSetActive && (
-                  <button
-                    type="button"
-                    onClick={onSetActive}
-                    className={`flex-1 py-2.5 rounded-lg text-sm font-medium text-center
-                               transition-all duration-200 min-h-[44px]
-                               focus:outline-none focus-visible:ring-2
-                               ${
-                                 isActive
-                                   ? "bg-signal-green/20 border border-signal-green/40 text-signal-green focus-visible:ring-signal-green/50 shadow-[0_0_12px_rgba(34,197,94,0.15)]"
-                                   : "bg-su-line/10 border border-su-line/40 text-su-muted hover:bg-su-line/20 hover:text-su-text hover:border-su-line/50 focus-visible:ring-su-line/60"
-                               }`}
-                  >
-                    {isActive ? (
-                      <span className="inline-flex items-center gap-1.5">
-                        <span className="w-2 h-2 rounded-full bg-signal-green animate-pulse" />
-                        Active
-                      </span>
-                    ) : (
-                      "Set Active"
-                    )}
-                  </button>
-                )}
-              </div>
-            </>
-          )}
-
-          {/* Bottom spacing when no actions */}
-          {!hasActions && <div className="pb-5" />}
-        </div>
-
-        {/* ══ Bottom Accent Bar (6px) ══ */}
+        {/* ── Decorative gradient divider ── */}
         <div
-          className="h-1.5 w-full rounded-b-2xl flex-shrink-0 hero-shimmer"
+          className="h-px mx-5"
           style={{
-            backgroundColor: accentHex,
-            backgroundImage: rankState.hasChromaticEffects
-              ? `linear-gradient(90deg, #38BDF8, #A78BFA, #F472B6, #34D399, #38BDF8)`
-              : `linear-gradient(90deg, transparent 0%, ${accentHex}80 25%, white 50%, ${accentHex}80 75%, transparent 100%)`,
-            backgroundSize: "200% 100%",
-            animation: effects.animatedBadges ? "heroShimmer 3s ease-in-out infinite 1.5s" : "none",
+            background: `linear-gradient(90deg, transparent 0%, ${accentHex}60 30%, ${accentHex} 50%, ${accentHex}60 70%, transparent 100%)`,
           }}
         />
+
+        {/* ── Title Area ── */}
+        <div className="px-5 pt-4 pb-3">
+          {/* Type label + tier */}
+          <div className="flex items-center gap-1.5">
+            <span
+              className="text-[11px] uppercase tracking-[0.15em] font-semibold"
+              style={{ color: accentHex }}
+            >
+              {resolvedTypeLabel}
+            </span>
+            {tier && (
+              <>
+                <span
+                  className="text-[11px] uppercase tracking-wider font-semibold opacity-50"
+                  style={{ color: accentHex }}
+                >
+                  &middot;
+                </span>
+                <span
+                  className="text-[11px] uppercase tracking-[0.15em] font-semibold opacity-60"
+                  style={{ color: accentHex }}
+                >
+                  {TIER_LABELS[tier]}
+                </span>
+              </>
+            )}
+          </div>
+
+          {/* Title — display font, responsive. AccessibleDialog owns the
+              accessible name via a hidden heading, so this drawn title is
+              decoration and must not be read twice. */}
+          <h2
+            aria-hidden="true"
+            className="text-xl sm:text-2xl font-display font-bold text-su-text leading-tight mt-1"
+          >
+            {title}
+          </h2>
+
+          {/* Subtitle */}
+          {subtitle && (
+            <p className="text-sm text-su-muted leading-snug mt-1">
+              {subtitle}
+            </p>
+          )}
+
+          {/* Badges */}
+          {badges && badges.length > 0 && (
+            <div className="flex items-center gap-2 mt-2.5 flex-wrap">
+              {badges.map((badge) => (
+                <span
+                  key={badge.label}
+                  className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px]
+                             font-semibold uppercase tracking-wider"
+                  style={{
+                    backgroundColor: `${badge.color ?? accentHex}18`,
+                    color: badge.color ?? accentHex,
+                    border: `1px solid ${badge.color ?? accentHex}30`,
+                  }}
+                >
+                  {badge.label}
+                </span>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* ── Hero Stats Bar ── */}
+        {stats && stats.length > 0 && (
+          <div
+            className="mx-5 mb-4 rounded-xl px-4 py-3.5"
+            style={{
+              backgroundColor: "rgba(255,255,255,0.03)",
+              border: `1px solid ${accentHex}15`,
+            }}
+          >
+            <div className="flex flex-wrap items-start justify-around gap-y-3">
+              {stats.map((stat) => (
+                <div
+                  key={`${stat.icon}-${stat.label}`}
+                  className="flex flex-col items-center gap-1 min-w-0 px-2 sm:px-1"
+                >
+                  {/* Enlarged icon via wrapper override */}
+                  <span
+                    className="[&_svg]:w-4 [&_svg]:h-4 sm:[&_svg]:w-5 sm:[&_svg]:h-5"
+                    style={{ color: `${accentHex}aa` }}
+                  >
+                    <StatIconSvg icon={stat.icon} />
+                  </span>
+                  <span
+                    className="text-base sm:text-lg font-mono font-bold text-su-text leading-none"
+                    style={{
+                      textShadow: `0 0 12px ${accentHex}30`,
+                    }}
+                  >
+                    <StatCountUp
+                      value={stat.value}
+                      enabled={rankState.hasStatCountUp}
+                      duration={600}
+                    />
+                  </span>
+                  <span className="text-[9px] sm:text-[10px] text-su-muted uppercase tracking-wider">
+                    {stat.label}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* ── Grouped Spec Sections ── */}
+        {hasGroups && (
+          <div>
+            {groups!.map((group, idx) => (
+              <div key={group.heading}>
+                {idx > 0 && (
+                  <div
+                    className="mx-5 h-px"
+                    style={{ backgroundColor: `${accentHex}10` }}
+                  />
+                )}
+                <HeroGroupSection group={group} accentHex={accentHex} />
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* ── Flat Fields Fallback ── */}
+        {!hasGroups && hasFields && (
+          <div className="px-5 py-3">
+            <dl className="grid grid-cols-2 gap-x-6 gap-y-2.5">
+              {fields!.map((field) => (
+                <HeroFieldCell
+                  key={field.label}
+                  field={field}
+                  accentHex={accentHex}
+                />
+              ))}
+            </dl>
+          </div>
+        )}
+
+        {/* ── Capabilities (grouped by category) ── */}
+        {groupedCapabilities && groupedCapabilities.length > 0 && (
+          <div className="px-5 pb-3 pt-1">
+            {/* Divider before capabilities */}
+            <div
+              className="h-px mb-3"
+              style={{ backgroundColor: `${accentHex}10` }}
+            />
+
+            {groupedCapabilities.map(([category, caps]) => (
+              <div key={category} className="mb-3 last:mb-0">
+                {/* Category label */}
+                <div className="flex items-center gap-2 mb-1.5">
+                  <span
+                    className="w-[3px] h-3 rounded-full flex-shrink-0"
+                    style={{ backgroundColor: `${accentHex}80` }}
+                  />
+                  <span
+                    className="text-[10px] font-semibold uppercase tracking-wider"
+                    style={{ color: `${accentHex}99` }}
+                  >
+                    {CATEGORY_LABELS[category]}
+                  </span>
+                </div>
+
+                {/* Pills */}
+                <div className="flex flex-wrap gap-1.5 pl-3">
+                  {caps.map((cap) => {
+                    let pillStyle: string;
+                    if (cap.category === "band") {
+                      pillStyle =
+                        BAND_PILL_COLORS[cap.label] ?? DEFAULT_BAND_PILL;
+                    } else {
+                      pillStyle = CAPABILITY_STYLES[cap.category];
+                    }
+                    return (
+                      <span
+                        key={`${cap.category}-${cap.label}`}
+                        className={`px-2 py-0.5 text-[11px] font-mono font-medium rounded border ${pillStyle}`}
+                      >
+                        {cap.label}
+                      </span>
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* ── Card Signature ── */}
+        <CardSignature
+          signature={rankState.cardSignature}
+          enabled={rankState.hasCardSignature}
+          className="px-5 pb-2"
+        />
+
+        {/* ── Action Buttons ── */}
+        {hasActions && (
+          <>
+            <div
+              className="mx-5 h-px mt-1"
+              style={{ backgroundColor: `${accentHex}15` }}
+            />
+            <div className="flex gap-3 px-5 pb-5 pt-3">
+              {onEdit && (
+                <button
+                  type="button"
+                  onClick={onEdit}
+                  className="flex-1 py-2.5 rounded-lg text-sm font-medium text-center
+                             transition-colors min-h-[44px]
+                             bg-blue-500/10 text-blue-400 border border-blue-500/20
+                             hover:bg-blue-500/20 focus:outline-none
+                             focus-visible:ring-2 focus-visible:ring-blue-500/50"
+                >
+                  Edit
+                </button>
+              )}
+              {onDelete && (
+                <button
+                  type="button"
+                  onClick={onDelete}
+                  className="flex-1 py-2.5 rounded-lg text-sm font-medium text-center
+                             transition-colors min-h-[44px]
+                             bg-red-500/10 text-red-400 border border-red-500/20
+                             hover:bg-red-500/20 focus:outline-none
+                             focus-visible:ring-2 focus-visible:ring-red-500/50"
+                >
+                  Delete
+                </button>
+              )}
+              {onSetActive && (
+                <button
+                  type="button"
+                  onClick={onSetActive}
+                  className={`flex-1 py-2.5 rounded-lg text-sm font-medium text-center
+                             transition-all duration-200 min-h-[44px]
+                             focus:outline-none focus-visible:ring-2
+                             ${
+                               isActive
+                                 ? "bg-signal-green/20 border border-signal-green/40 text-signal-green focus-visible:ring-signal-green/50 shadow-[0_0_12px_rgba(34,197,94,0.15)]"
+                                 : "bg-su-line/10 border border-su-line/40 text-su-muted hover:bg-su-line/20 hover:text-su-text hover:border-su-line/50 focus-visible:ring-su-line/60"
+                             }`}
+                >
+                  {isActive ? (
+                    <span className="inline-flex items-center gap-1.5">
+                      <span className="w-2 h-2 rounded-full bg-signal-green animate-pulse" />
+                      Active
+                    </span>
+                  ) : (
+                    "Set Active"
+                  )}
+                </button>
+              )}
+            </div>
+          </>
+        )}
+
+        {/* Bottom spacing when no actions */}
+        {!hasActions && <div className="pb-5" />}
       </div>
-    </div>,
-    document.body,
+
+      {/* ══ Bottom Accent Bar (6px) ══ */}
+      <div
+        className="h-1.5 w-full rounded-b-2xl flex-shrink-0 hero-shimmer"
+        style={{
+          backgroundColor: accentHex,
+          backgroundImage: rankState.hasChromaticEffects
+            ? `linear-gradient(90deg, #38BDF8, #A78BFA, #F472B6, #34D399, #38BDF8)`
+            : `linear-gradient(90deg, transparent 0%, ${accentHex}80 25%, white 50%, ${accentHex}80 75%, transparent 100%)`,
+          backgroundSize: "200% 100%",
+          animation: effects.animatedBadges ? "heroShimmer 3s ease-in-out infinite 1.5s" : "none",
+        }}
+      />
+    </AccessibleDialog>
   );
 }
 

@@ -1,15 +1,17 @@
 /**
- * ImageCropDialog — Centered portal modal with react-easy-crop for cropping
- * images before upload. Crops, compresses via canvas, and stores to IndexedDB.
+ * ImageCropDialog — Centered modal with react-easy-crop for cropping images
+ * before upload. Crops, compresses via canvas, and stores to IndexedDB.
  *
- * Follows ConfirmDialog modal pattern: portal to body, z-[500], backdrop,
- * escape key, body scroll lock, auto-focus.
+ * Built on `AccessibleDialog` (issue #727) so it registers on the shared
+ * dialog stack instead of a bare `createPortal`: Escape, the focus trap,
+ * body scroll lock and background inerting are stack-aware instead of
+ * racing a dialog beneath it.
  */
 
 import { useState, useEffect, useRef, useCallback } from "react";
-import { createPortal } from "react-dom";
 import Cropper from "react-easy-crop";
 import type { Area, Point } from "react-easy-crop";
+import { AccessibleDialog } from "@/components/ui/AccessibleDialog";
 import { storeImage } from "@/lib/db/imageStore";
 
 // ─── Zoom Slider Styles (injected once) ──────────────────────────────────────
@@ -199,36 +201,31 @@ export function ImageCropDialog({
     ensureCropStyles();
   }, []);
 
-  // Auto-focus cancel button on open
+  // Auto-focus the Cancel button on open. `AccessibleDialog` also focuses
+  // the first focusable descendant via `requestAnimationFrame` on mount,
+  // which would otherwise land on the zoom slider (it renders before the
+  // button row). That rAF callback runs before this `setTimeout(0)` in every
+  // browser we support, so this effect's focus call wins last and Cancel
+  // ends up focused, matching this dialog's pre-AccessibleDialog behavior.
   useEffect(() => {
     if (!open) return;
     const timer = setTimeout(() => cancelRef.current?.focus(), 0);
     return () => clearTimeout(timer);
   }, [open]);
 
-  // Escape key closes
-  const handleKeyDown = useCallback(
-    (e: KeyboardEvent) => {
-      if (e.key === "Escape" && !saving) onClose();
-    },
-    [onClose, saving],
-  );
+  // Body scroll lock, the focus trap and Escape's stack routing are owned by
+  // `AccessibleDialog` now.
 
-  useEffect(() => {
-    if (!open) return;
-    document.addEventListener("keydown", handleKeyDown);
-    return () => document.removeEventListener("keydown", handleKeyDown);
-  }, [open, handleKeyDown]);
-
-  // Body scroll lock
-  useEffect(() => {
-    if (!open) return;
-    const prev = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    return () => {
-      document.body.style.overflow = prev;
-    };
-  }, [open]);
+  // Dismissal stays blocked while a save is in flight, as it was before #727.
+  // `AccessibleDialog` routes *both* Escape and a backdrop click through
+  // `onClose`, so the guard belongs here rather than on `onEscape`: guarding
+  // only Escape would leave the backdrop as an unguarded third way out. The
+  // Cancel button is separately `disabled={saving}`, and `handleSave` calls
+  // the raw `onClose` prop on success, so this guard cannot swallow that.
+  const handleDismiss = useCallback(() => {
+    if (saving) return;
+    onClose();
+  }, [saving, onClose]);
 
   // react-easy-crop callback
   const onCropComplete = useCallback((_croppedArea: Area, pixels: Area) => {
@@ -268,133 +265,125 @@ export function ImageCropDialog({
   ]);
 
   if (!open) return null;
-  if (typeof document === "undefined") return null;
 
-  return createPortal(
-    <div className="fixed inset-0 z-[500] flex items-center justify-center p-4">
-      {/* Backdrop */}
-      <div
-        className="absolute inset-0 bg-black/70 backdrop-blur-sm animate-in fade-in"
-        onClick={saving ? undefined : onClose}
-      />
-
-      {/* Modal panel */}
-      <div
-        className="relative z-10 w-full max-w-lg bg-deep-space border border-su-line/40 rounded-2xl shadow-2xl animate-in zoom-in-95 flex flex-col overflow-hidden"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="image-crop-dialog-title"
-      >
-        {/* Title */}
-        <div className="px-5 pt-5 pb-3">
-          <h2
-            id="image-crop-dialog-title"
-            className="text-lg font-bold text-su-text"
-          >
-            {title}
-          </h2>
-        </div>
-
-        {/* Crop area */}
-        <div
-          className="relative mx-5 rounded-lg overflow-hidden"
-          style={{
-            height: 320,
-            backgroundColor: "#0a0e18",
-          }}
-        >
-          <Cropper
-            image={imageSrc}
-            crop={crop}
-            zoom={zoom}
-            aspect={aspect}
-            cropShape={cropShape}
-            showGrid={cropShape === "rect"}
-            onCropChange={setCrop}
-            onZoomChange={setZoom}
-            onCropComplete={onCropComplete}
-            style={{
-              containerStyle: {
-                borderRadius: "0.5rem",
-              },
-              mediaStyle: {},
-              cropAreaStyle: {
-                border: "2px solid rgba(249, 115, 22, 0.6)",
-              },
-            }}
-          />
-        </div>
-
-        {/* Zoom slider */}
-        <div className="px-5 pt-4 pb-2">
-          <label className="block">
-            <span className="text-xs font-medium text-su-muted uppercase tracking-wider">
-              Zoom
-            </span>
-            <input
-              type="range"
-              min={1}
-              max={3}
-              step={0.01}
-              value={zoom}
-              onChange={(e) => setZoom(Number(e.target.value))}
-              className="image-crop-zoom-slider mt-2 block w-full"
-              aria-label="Zoom level"
-            />
-          </label>
-        </div>
-
-        {/* Action buttons */}
-        <div className="flex items-center justify-end gap-3 px-5 pt-3 pb-5">
-          <button
-            ref={cancelRef}
-            type="button"
-            onClick={onClose}
-            disabled={saving}
-            className="px-4 py-2 text-sm font-medium rounded-lg transition-colors
-                       bg-su-line/10 hover:bg-su-line/20 text-su-muted border border-su-line/40
-                       disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            Cancel
-          </button>
-          <button
-            type="button"
-            onClick={handleSave}
-            disabled={saving || !croppedAreaPixels}
-            className="px-4 py-2 text-sm font-medium rounded-lg transition-colors
-                       bg-plasma-orange/20 hover:bg-plasma-orange/30 text-plasma-orange
-                       border border-plasma-orange/30
-                       disabled:opacity-50 disabled:cursor-not-allowed
-                       inline-flex items-center gap-2"
-          >
-            {saving && (
-              <svg
-                className="animate-spin h-4 w-4"
-                viewBox="0 0 24 24"
-                fill="none"
-                aria-hidden="true"
-              >
-                <circle
-                  className="opacity-25"
-                  cx="12"
-                  cy="12"
-                  r="10"
-                  stroke="currentColor"
-                  strokeWidth="4"
-                />
-                <path
-                  className="opacity-75"
-                  fill="currentColor"
-                  d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
-                />
-              </svg>
-            )}
-            {saving ? "Saving\u2026" : "Save"}
-          </button>
-        </div>
+  return (
+    <AccessibleDialog
+      open={open}
+      onClose={handleDismiss}
+      title={title}
+      chrome="bare"
+      panelProps={{
+        className:
+          "w-full max-w-lg bg-deep-space border border-su-line/40 rounded-2xl shadow-2xl animate-in zoom-in-95 flex flex-col overflow-hidden",
+      }}
+    >
+      {/* Title \u2014 AccessibleDialog owns the accessible name via a hidden
+          heading, so this drawn title is decoration and must not be read
+          twice. */}
+      <div className="px-5 pt-5 pb-3">
+        <h2 aria-hidden="true" className="text-lg font-bold text-su-text">
+          {title}
+        </h2>
       </div>
-    </div>,
-    document.body,
+
+      {/* Crop area */}
+      <div
+        className="relative mx-5 rounded-lg overflow-hidden"
+        style={{
+          height: 320,
+          backgroundColor: "#0a0e18",
+        }}
+      >
+        <Cropper
+          image={imageSrc}
+          crop={crop}
+          zoom={zoom}
+          aspect={aspect}
+          cropShape={cropShape}
+          showGrid={cropShape === "rect"}
+          onCropChange={setCrop}
+          onZoomChange={setZoom}
+          onCropComplete={onCropComplete}
+          style={{
+            containerStyle: {
+              borderRadius: "0.5rem",
+            },
+            mediaStyle: {},
+            cropAreaStyle: {
+              border: "2px solid rgba(249, 115, 22, 0.6)",
+            },
+          }}
+        />
+      </div>
+
+      {/* Zoom slider */}
+      <div className="px-5 pt-4 pb-2">
+        <label className="block">
+          <span className="text-xs font-medium text-su-muted uppercase tracking-wider">
+            Zoom
+          </span>
+          <input
+            type="range"
+            min={1}
+            max={3}
+            step={0.01}
+            value={zoom}
+            onChange={(e) => setZoom(Number(e.target.value))}
+            className="image-crop-zoom-slider mt-2 block w-full"
+            aria-label="Zoom level"
+          />
+        </label>
+      </div>
+
+      {/* Action buttons */}
+      <div className="flex items-center justify-end gap-3 px-5 pt-3 pb-5">
+        <button
+          ref={cancelRef}
+          type="button"
+          onClick={onClose}
+          disabled={saving}
+          className="px-4 py-2 text-sm font-medium rounded-lg transition-colors
+                     bg-su-line/10 hover:bg-su-line/20 text-su-muted border border-su-line/40
+                     disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          Cancel
+        </button>
+        <button
+          type="button"
+          onClick={handleSave}
+          disabled={saving || !croppedAreaPixels}
+          className="px-4 py-2 text-sm font-medium rounded-lg transition-colors
+                     bg-plasma-orange/20 hover:bg-plasma-orange/30 text-plasma-orange
+                     border border-plasma-orange/30
+                     disabled:opacity-50 disabled:cursor-not-allowed
+                     inline-flex items-center gap-2"
+        >
+          {saving && (
+            <svg
+              className="animate-spin h-4 w-4"
+              viewBox="0 0 24 24"
+              fill="none"
+              aria-hidden="true"
+            >
+              <circle
+                className="opacity-25"
+                cx="12"
+                cy="12"
+                r="10"
+                stroke="currentColor"
+                strokeWidth="4"
+              />
+              <path
+                className="opacity-75"
+                fill="currentColor"
+                d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
+              />
+            </svg>
+          )}
+          {saving ? "Saving\u2026" : "Save"}
+        </button>
+      </div>
+    </AccessibleDialog>
   );
 }
 

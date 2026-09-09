@@ -113,3 +113,9 @@
 - Upload order was the documented one: sentinel `_ds_needs_recompile` → components → `_preview` → base files → sentinel again → `_ds_sync.json` alone last.
 - **`ds-bundle/` is gitignored but was not eslint-ignored**, so the pre-commit lint hook linted the bundled React vendor copy and the generated `.d.ts` files and refused every commit made from a worktree that had built a bundle (60 errors, none of them ours). Fixed in the same PR as this note: `eslint.config.js` now ignores `ds-bundle/` and `.design-sync/.cache/`.
 - `_screenshots/` and the build dotfiles (`.ds-build-meta.json`, `.render-check.json`, `.review.html`, `.stories-map.json`, `.ds-bundle`) are local-only and stay out of the plan globs; the remote has never carried them.
+
+## 2026-09-09 orphan deletion (#753)
+
+- Removed `HamClockReliabilityPanel` and `HamClockSpotsSidebar` from `componentSrcMap` (242 → 240) and deleted their two preview files under `.design-sync/previews/`; both source components were confirmed fully unreferenced in `src` (superseded by `wall/tiles/useWallReliability.ts` and the wall's spot tiles respectively) and deleted from the repo in the same commit.
+- Both still have live cards in the **propulsetecnologies** (`30f79cc2-…`) and **aboveearthproductions** (`b5bd52bb-…`) projects from prior pushes, so the next `ds-bundle` build/push needs a `delete_files` pass against both mirrors before it re-syncs, or `report_validate` will flag two remote-only components.
+- `HamClockRecentContacts`/`HamClockBandFocus` were left in `componentSrcMap` and in the repo: deleting `HamClockSpotsSidebar` orphaned both (no other importer), but that deletion was out of this issue's stated scope and the harness blocked it — flagged for the owner as a follow-up rather than acted on.

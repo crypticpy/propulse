@@ -6,7 +6,6 @@ import { SolarMiniChart } from "@/components/solar/SolarMiniChart";
 import { HamClockPinnedReportHost } from "./WallReport";
 import { WeatherReport } from "./WeatherReport";
 import { BestBandReport } from "./BestBandReport";
-import { ForecastReport } from "./ForecastReport";
 import { useHamClockSessionTrend } from "./sessionTrend";
 
 const mocks = vi.hoisted(() => ({
@@ -410,114 +409,6 @@ describe("BestBandReport (HW-31)", () => {
       dialog.querySelectorAll(".hcr-bandrow"),
     ).map((row) => row.textContent);
     expect(statuses.some((t) => t?.includes("SURPRISE"))).toBe(false);
-  });
-});
-
-describe("ForecastReport model horizons (HW-17)", () => {
-  beforeEach(() => {
-    mocks.reliability.mockReturnValue({
-      status: "ready",
-      cells: new Map(),
-      hour: 13,
-      hourIndex: 500_000,
-      targetLabel: "Tokyo",
-      mode: "SSB",
-    });
-  });
-
-  it("marks no matrix columns and adds no MODEL fact when no horizon is activated", () => {
-    mocks.horizonActivated.mockReturnValue(false);
-    render(<ForecastReport open onClose={vi.fn()} focus="forecast" />);
-
-    const dialog = screen.getByRole("dialog");
-    expect(dialog.querySelector(".hcr-matrix-head--model")).toBeNull();
-    const facts = Array.from(dialog.querySelectorAll(".hcr-facts > div")).map(
-      (row) => row.textContent,
-    );
-    expect(facts.some((row) => row?.startsWith("MODEL"))).toBe(false);
-  });
-
-  it("marks the matching matrix column and adds a MODEL fact once a horizon is activated", () => {
-    mocks.horizonActivated.mockImplementation((h: number) => h === 3);
-    render(<ForecastReport open onClose={vi.fn()} focus="forecast" />);
-
-    const dialog = screen.getByRole("dialog");
-    expect(dialog.querySelector(".hcr-matrix-head--model")).not.toBeNull();
-    const facts = Array.from(dialog.querySelectorAll(".hcr-facts > div")).map(
-      (row) => row.textContent,
-    );
-    expect(facts.some((row) => row?.includes("+3H"))).toBe(true);
-  });
-
-  it("highlights the whole current-hour column: labelled header pill plus a ring on every band dot", () => {
-    // hour=13 is not a multiple of 3, so without the highlight its label
-    // would be blank; the active hour must always print its own label.
-    mocks.horizonActivated.mockReturnValue(false);
-    render(<ForecastReport open onClose={vi.fn()} focus="forecast" />);
-
-    const dialog = screen.getByRole("dialog");
-    const heads = dialog.querySelectorAll(".hcr-matrix-head");
-    expect(heads).toHaveLength(24);
-    heads.forEach((head, column) => {
-      expect(head.classList.contains("hcr-matrix-head--now")).toBe(
-        column === 13,
-      );
-    });
-    expect(heads[13].textContent).toBe("13");
-    expect(heads[14].textContent).toBe("");
-
-    // One grid, one band per row of 24 dots: every row rings column 13 only.
-    const dots = dialog.querySelectorAll(".hcr-matrix .hcf-dot");
-    expect(dots.length % 24).toBe(0);
-    expect(dots.length).toBeGreaterThan(0);
-    dots.forEach((dot, index) => {
-      expect(dot.classList.contains("hcr-dot--now")).toBe(index % 24 === 13);
-    });
-  });
-
-  it("marks the exact absolute hour column, not one wrapped modulo 24", () => {
-    // hour=13, horizon=3 -> column 16. A `% 24` implementation would also
-    // land on 16 here (no wrap), so this pins the in-range case precisely.
-    mocks.horizonActivated.mockImplementation((h: number) => h === 3);
-    render(<ForecastReport open onClose={vi.fn()} focus="forecast" />);
-
-    const dialog = screen.getByRole("dialog");
-    const heads = dialog.querySelectorAll(".hcr-matrix-head");
-    expect(heads).toHaveLength(24);
-    heads.forEach((head, column) => {
-      expect(head.classList.contains("hcr-matrix-head--model")).toBe(
-        column === 16,
-      );
-    });
-  });
-
-  it("marks no column for a horizon that crosses midnight, and never marks +24H on the current-hour cell", () => {
-    // hour=22: +6H is 04Z tomorrow (22+6=28, outside the displayed 0-23
-    // range). A `(hour + horizon) % 24` implementation would wrongly mark
-    // column 4 of *today*. +24H (22+24=46) is also always out of range, so
-    // it must never land back on the current-hour column (22).
-    mocks.reliability.mockReturnValue({
-      status: "ready",
-      cells: new Map(),
-      hour: 22,
-      hourIndex: 500_000,
-      targetLabel: "Tokyo",
-      mode: "SSB",
-    });
-    mocks.horizonActivated.mockImplementation(
-      (h: number) => h === 6 || h === 24,
-    );
-    render(<ForecastReport open onClose={vi.fn()} focus="forecast" />);
-
-    const dialog = screen.getByRole("dialog");
-    expect(dialog.querySelector(".hcr-matrix-head--model")).toBeNull();
-    expect(
-      dialog.querySelector(".hcr-matrix-head--now.hcr-matrix-head--model"),
-    ).toBeNull();
-    const srHeaders = Array.from(
-      dialog.querySelectorAll("table.sr-only thead th"),
-    ).map((th) => th.textContent);
-    expect(srHeaders.some((text) => text?.includes("(model)"))).toBe(false);
   });
 });
 

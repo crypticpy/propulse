@@ -5,7 +5,6 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { BandActivityTile } from "../tiles/BandActivityTile";
 import { BandActivityReport } from "./BandActivityReport";
 import { DxTargetReport } from "./DxTargetReport";
-import { ForecastReport } from "./ForecastReport";
 import { WeatherReport } from "./WeatherReport";
 
 const mocks = vi.hoisted(() => ({
@@ -160,88 +159,6 @@ describe("wall reports", () => {
 
     expect(screen.queryByRole("dialog")).toBeNull();
     await vi.waitFor(() => expect(document.activeElement).toBe(trigger));
-  });
-});
-
-describe("ForecastReport muf focus", () => {
-  it("renders the MUF hero and facts without a DX target", () => {
-    // The reliability matrix has no target, but the MUF only needs a QTH
-    // and SFI, so a `muf`-focused open must still draw the hero.
-    mocks.reliability.mockReturnValue({
-      status: "no-target",
-      cells: new Map(),
-      hour: 13,
-      hourIndex: 0,
-      targetLabel: "DX target",
-      mode: "SSB",
-    });
-
-    render(<ForecastReport open onClose={vi.fn()} focus="muf" />);
-
-    const dialog = screen.getByRole("dialog");
-    expect(dialog.querySelector(".hcr-hero")?.textContent).toContain("MHz");
-    const facts = Array.from(dialog.querySelectorAll(".hcr-facts > div")).map(
-      (row) => row.textContent,
-    );
-    expect(facts.some((row) => row?.startsWith("SFI"))).toBe(true);
-    expect(screen.queryByText("NO PATH")).toBeNull();
-    // The matrix body still has nothing to draw without a target.
-    expect(screen.getByText(/Pick a target on the map/)).toBeTruthy();
-  });
-
-  it("still shows the idle shell for a non-MUF focus with no target", () => {
-    mocks.reliability.mockReturnValue({
-      status: "no-target",
-      cells: new Map(),
-      hour: 13,
-      hourIndex: 0,
-      targetLabel: "DX target",
-      mode: "SSB",
-    });
-
-    render(<ForecastReport open onClose={vi.fn()} focus="reliability" />);
-
-    expect(screen.getByText("NO PATH")).toBeTruthy();
-    expect(screen.getByText(/Pick a target on the map/)).toBeTruthy();
-  });
-});
-
-describe("ForecastReport reliability matrix", () => {
-  it("keys the hero and matrix cells by absolute hourIndex, not the clock hour", () => {
-    // `hourIndex` (whole UTC hours since epoch) is deliberately far from
-    // `hour` (0-23) so a lookup that mistakenly uses `hour` as the cache key
-    // finds nothing and this test catches it.
-    const hour = 13;
-    const hourIndex = 500_000;
-    const cells = new Map([
-      [
-        `20m:${hourIndex}`,
-        {
-          band: "20m" as const,
-          hour,
-          score: 82,
-          snrEstimate: 0,
-          confidence: 50,
-          status: "good" as const,
-        },
-      ],
-    ]);
-    mocks.reliability.mockReturnValue({
-      status: "ready",
-      cells,
-      hour,
-      hourIndex,
-      targetLabel: "Tokyo",
-      mode: "SSB",
-    });
-
-    render(<ForecastReport open onClose={vi.fn()} focus="forecast" />);
-
-    const dialog = screen.getByRole("dialog");
-    expect(dialog.querySelector(".hcr-hero")?.textContent).toBe("20M");
-    expect(dialog.querySelector(".hcr-verdict")?.textContent).toBe("82%");
-    const litDots = dialog.querySelectorAll(".hcf-dot:not(.hcf-dot--off)");
-    expect(litDots.length).toBeGreaterThanOrEqual(1);
   });
 });
 

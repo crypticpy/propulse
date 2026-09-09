@@ -17,7 +17,7 @@ import { useUserStore, useUIInteractionPrefs } from "@/stores/userStore";
 import type { MapPin } from "@/types/pin";
 import { getCategoryMeta } from "@/types/pin";
 import type { DXSpot } from "@/types/dxcluster";
-import { getModeColor } from "@/lib/utils/spotColors";
+import { getModeColor, inkOnFill } from "@/lib/utils/spotColors";
 
 // ---------------------------------------------------------------------------
 // Props
@@ -555,8 +555,11 @@ export function PinFlyout({
                   {formatFrequency(spot.frequency)}
                 </span>
                 <span
-                  className="text-[10px] font-medium"
-                  style={{ color: getModeColor(spot.mode) }}
+                  className="rounded px-1 text-[10px] font-bold"
+                  style={{
+                    backgroundColor: getModeColor(spot.mode),
+                    color: inkOnFill(getModeColor(spot.mode)),
+                  }}
                 >
                   {spot.mode || "?"}
                 </span>

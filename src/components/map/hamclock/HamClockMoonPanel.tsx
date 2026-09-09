@@ -53,7 +53,7 @@ export function HamClockMoonPanel({
           {snapshot.emoji}
         </span>
         <div className="min-w-0">
-          <div className="truncate text-sm font-semibold text-white">
+          <div className="truncate text-sm font-semibold text-su-text">
             {snapshot.phaseName}
           </div>
           <div className="font-mono text-[11px] tabular-nums text-cosmic-cyan">

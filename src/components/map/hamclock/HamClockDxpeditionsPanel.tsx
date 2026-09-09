@@ -49,13 +49,13 @@ export function HamClockDxpeditionsPanel() {
   );
 
   if (isLoading) {
-    return <p className="font-mono text-[10px] text-white/35">Loading operations…</p>;
+    return <p className="font-mono text-[10px] text-su-muted">Loading operations…</p>;
   }
   if (error != null || status !== "ok") {
-    return <p className="font-mono text-[10px] text-white/35">DXpedition schedule unavailable</p>;
+    return <p className="font-mono text-[10px] text-su-muted">DXpedition schedule unavailable</p>;
   }
   if (rows.length === 0) {
-    return <p className="font-mono text-[10px] text-white/35">No announced operations</p>;
+    return <p className="font-mono text-[10px] text-su-muted">No announced operations</p>;
   }
 
   return (
@@ -76,13 +76,13 @@ export function HamClockDxpeditionsPanel() {
               <span className="shrink-0 font-mono text-[11px] font-bold text-nebula-blue">
                 {entry.callsign}
               </span>
-              <span className="truncate text-[10px] text-white/45">{entry.entity}</span>
+              <span className="truncate text-[10px] text-su-muted">{entry.entity}</span>
             </span>
             <span className="mt-0.5 flex items-center justify-between gap-2 font-mono text-[9px]">
               <span className={active ? "text-signal-green" : "text-plasma-orange"}>
                 {scheduleCountdown(window, now)}
               </span>
-              <span className="text-white/30">
+              <span className="text-su-muted">
                 {formatDateRange(entry.startDate, entry.endDate)}
               </span>
             </span>
@@ -93,7 +93,7 @@ export function HamClockDxpeditionsPanel() {
         href={NG3K_ADXO_URL}
         target="_blank"
         rel="noreferrer"
-        className="block text-right font-mono text-[8px] uppercase tracking-wider text-white/25 hover:text-plasma-orange"
+        className="block text-right font-mono text-[8px] uppercase tracking-wider text-su-muted hover:text-plasma-orange"
       >
         NG3K ADXO ↗
       </a>

@@ -30,7 +30,6 @@ import {
   formatDistance,
   getPathIllumination,
 } from "@/lib/utils/path";
-import { getFrequencyLimits } from "@/lib/api/muf";
 import { useActiveMode } from "@/hooks/useActiveBandMode";
 import { useActiveStationGain } from "@/hooks/useActiveStationGain";
 import { useChainPerformance } from "@/hooks/useChainPerformance";
@@ -41,9 +40,23 @@ import { useStationCastContext } from "@/hooks/useStationCastContext";
 import { useResearchParticipation } from "@/hooks/useResearchParticipation";
 import { HF_MODEL_BANDS } from "@/lib/propagation/coreFeatureBuilder";
 import { latLonToGrid } from "@/lib/utils/grid";
+import { getTimeAgo } from "@/lib/utils/time";
 import { Card } from "@/components/ui/Card";
+import { Badge } from "@/components/ui/Badge";
 import { DetailModal } from "@/components/ui/DetailModal";
 import { HelpButton, HelpModal, HELP_CONTENT } from "@/components/ui/HelpModal";
+import { Link } from "react-router-dom";
+import { useDXStore } from "@/stores/dxStore";
+import {
+  buildDecisionReport,
+  favoredNowCastHint,
+  formatUtcHm,
+  NEARBY_RADIUS_KM_OPTIONS,
+  DEFAULT_NEARBY_RADIUS_KM,
+  type DecisionReport,
+  type DecisionTone,
+  type EndAlmanac,
+} from "@/lib/map/decision";
 import { RadioPickerModal } from "@/components/radio/RadioPickerModal";
 import { calculateReceiverScore } from "@/types/radio";
 import type { FrequencyLimits } from "@/types/propagation";
@@ -301,6 +314,179 @@ function HopStrip({
   );
 }
 
+const TONE_BADGE: Record<DecisionTone, "excellent" | "good" | "fair" | "poor" | "quiet"> = {
+  open: "excellent",
+  window: "fair",
+  closed: "poor",
+  unknown: "quiet",
+};
+
+const TONE_WORD: Record<DecisionTone, string> = {
+  open: "Open",
+  window: "Window",
+  closed: "Closed",
+  unknown: "Unknown",
+};
+
+function isoClock(iso: string | null): string {
+  if (!iso) return "—";
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return "—";
+  return `${formatUtcHm(date)}z`;
+}
+
+function stampAge(iso: string | null): string {
+  if (!iso) return "no observation";
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return "no observation";
+  return getTimeAgo(date);
+}
+
+function EndSunTimes({ end, heading }: { end: EndAlmanac; heading: string }) {
+  const sun =
+    end.polar === "night"
+      ? "Polar night — no sunrise/sunset"
+      : end.polar === "day"
+        ? "Polar day — no sunrise/sunset"
+        : `SR ${isoClock(end.sunriseUtc)}  SS ${isoClock(end.sunsetUtc)}`;
+  return (
+    <div className="min-w-0">
+      <div className="text-xs font-medium uppercase tracking-wide text-su-muted">
+        {heading}
+      </div>
+      <div className="font-mono text-sm text-su-text">
+        {end.localMeanTime} LMT
+      </div>
+      <div className="font-mono text-xs text-su-muted">{end.utcTime}z</div>
+      <div className="text-xs text-su-muted">{sun}</div>
+    </div>
+  );
+}
+
+const DecisionLayer = memo(function DecisionLayer({
+  report,
+  radiusKm,
+  onRadiusChange,
+  liveEvidence,
+}: {
+  report: DecisionReport;
+  radiusKm: number;
+  onRadiusChange: (km: number) => void;
+  liveEvidence: boolean;
+}) {
+  const { verdict, almanac, nearby, pathMuf } = report;
+  return (
+    <section
+      aria-label="Decision"
+      className="mb-3 space-y-2 rounded-lg border border-su-line/40 bg-su-input p-2"
+    >
+      <div className="flex items-start gap-2">
+        <Badge status={TONE_BADGE[verdict.tone]} size="sm">
+          {TONE_WORD[verdict.tone]}
+        </Badge>
+        <p className="text-sm font-medium leading-snug text-su-text">
+          {verdict.line}
+        </p>
+      </div>
+      <p className="text-xs leading-snug text-su-muted">
+        {verdict.evidence.basis}. Observed {stampAge(verdict.evidence.observedAt)};
+        fetched {stampAge(verdict.evidence.fetchedAt)}.
+      </p>
+
+      <div className="grid grid-cols-2 gap-2">
+        <EndSunTimes end={almanac.qth} heading="QTH" />
+        <EndSunTimes end={almanac.target} heading="Target" />
+      </div>
+      <p className="text-xs text-su-muted">
+        {almanac.qth.evidence.basis}. Fetched {stampAge(almanac.qth.evidence.fetchedAt)}.
+      </p>
+      <p className="text-xs text-su-text">{almanac.greyline.label}</p>
+      <p className="text-xs text-su-muted">
+        {almanac.greyline.evidence.basis}. Fetched{" "}
+        {stampAge(almanac.greyline.evidence.fetchedAt)}.
+      </p>
+
+      {pathMuf && (
+        <p className="text-xs text-su-muted">
+          Path MUF {pathMuf.muf.toFixed(1)} MHz · {pathMuf.evidence.basis}.
+          Observed {stampAge(pathMuf.evidence.observedAt)}; fetched{" "}
+          {stampAge(pathMuf.evidence.fetchedAt)}.
+        </p>
+      )}
+
+      <div>
+        <div className="text-xs font-medium uppercase tracking-wide text-su-muted">
+          Nearby spots
+        </div>
+        <div
+          role="group"
+          aria-label="Nearby spot radius"
+          className="mt-1 flex flex-wrap gap-1"
+        >
+          {NEARBY_RADIUS_KM_OPTIONS.map((km) => (
+            <button
+              key={km}
+              type="button"
+              onClick={() => onRadiusChange(km)}
+              aria-pressed={radiusKm === km}
+              className={`min-h-11 min-w-11 px-2 rounded-md border text-xs font-medium ${
+                radiusKm === km
+                  ? "border-su-accent-edge bg-su-accent/20 text-su-accent-text"
+                  : "border-su-line/40 bg-su-panel text-su-text"
+              }`}
+            >
+              {km} km
+            </button>
+          ))}
+        </div>
+        {!liveEvidence ? (
+          <p className="mt-1 text-xs text-su-muted">
+            Nearby spots and NowCast are live-only; time control is offset from now.
+          </p>
+        ) : nearby.count === 0 ? (
+          <p className="mt-1 text-xs text-su-muted">
+            No spots within {nearby.radiusKm} km. {nearby.evidence.basis}. Observed{" "}
+            {stampAge(nearby.evidence.observedAt)}; fetched{" "}
+            {stampAge(nearby.evidence.fetchedAt)}.
+          </p>
+        ) : (
+          <ul className="mt-1 space-y-1">
+            {nearby.hits.map((hit) => (
+              <li
+                key={hit.id}
+                className="flex min-h-11 items-center justify-between gap-2 rounded-md border border-su-line/40 bg-su-panel px-2 text-sm"
+              >
+                <span className="font-mono text-su-text">
+                  {hit.dx}
+                  {hit.band ? ` · ${hit.band}` : ""}
+                </span>
+                <span className="font-mono text-xs text-su-muted">
+                  {hit.distanceKm} km · {stampAge(hit.observedAt)}
+                </span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+
+      <div className="flex flex-wrap gap-2">
+        <Link
+          to={verdict.wizardHref}
+          className="inline-flex min-h-11 items-center justify-center rounded-md border border-su-line/40 bg-su-panel px-3 text-sm font-medium text-su-text"
+        >
+          DX Wizard
+        </Link>
+        <Link
+          to={verdict.plannerHref}
+          className="inline-flex min-h-11 items-center justify-center rounded-md border border-su-line/40 bg-su-panel px-3 text-sm font-medium text-su-text"
+        >
+          Band Planner
+        </Link>
+      </div>
+    </section>
+  );
+});
+
 export function PathAnalysis({
   displayTime,
   className = "",
@@ -311,6 +497,9 @@ export function PathAnalysis({
   onClose,
 }: PathAnalysisProps) {
   const target = useMapStore((s) => s.target);
+  const timeOffset = useMapStore((s) => s.timeOffset);
+  const absoluteTime = useMapStore((s) => s.absoluteTime);
+  const isLive = timeOffset === 0 && !absoluteTime;
   const pathMode = useMapStore((s) => s.pathMode);
   const setPathMode = useMapStore((s) => s.setPathMode);
   const isolateTargetPath = useMapStore((s) => s.isolateTargetPath);
@@ -344,6 +533,9 @@ export function PathAnalysis({
   // Recent targets dropdown state
   const [showRecentTargets, setShowRecentTargets] = useState(false);
   const recentDropdownRef = useRef<HTMLDivElement>(null);
+  const [nearbyRadiusKm, setNearbyRadiusKm] = useState(DEFAULT_NEARBY_RADIUS_KM);
+  const spots = useDXStore((s) => s.spots);
+  const clusterFeed = useDXStore((s) => s.clusterFeed);
 
   // Check if content overflows and handle scroll position
   const checkScroll = useCallback(() => {
@@ -533,27 +725,89 @@ export function PathAnalysis({
     );
   }, [station, target, displayTime]);
 
-  // Map live mode onto the physics trio for frequency-limit modeling
-  const freqLimitMode = physicsMode;
+  const lastFlux = solarFluxData?.[solarFluxData.length - 1];
+  const hasObservedSfi = Boolean(lastFlux);
+  const nowCastIdentity = modelNowCast.nowcastBands
+    .map((band) => {
+      const pred = modelNowCast.predictions.get(band);
+      return `${band}:${pred?.issue_time}:${pred?.personalized_probability}:${pred?.core_probability}:${pred?.profile}`;
+    })
+    .join("|");
+  const nowCastHint = useMemo(
+    () => {
+      if (!isLive || !modelNowCast.available) return null;
+      return favoredNowCastHint(
+        modelNowCast.nowcastBands,
+        modelNowCast.predictions,
+      );
+    },
+    // predictions is a new Map every hook call; nowCastIdentity is the content key
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [isLive, modelNowCast.available, nowCastIdentity],
+  );
 
-  // Calculate frequency limits (MUF, FOT, LUF, HPF) at path midpoint
-  const frequencyLimits = useMemo((): FrequencyLimits | null => {
-    if (!station || !target || !metrics) {
+  const decision = useMemo((): DecisionReport | null => {
+    if (!station || !target) {
+      return null;
+    }
+    if (Number.isNaN(displayTime.getTime())) {
       return null;
     }
     try {
-      return getFrequencyLimits(
-        metrics.midpoint.lat,
-        metrics.midpoint.lon,
-        currentSfi,
-        displayTime,
+      return buildDecisionReport({
+        qth: { lat: station.lat, lon: station.lon, grid: station.grid },
+        target: {
+          lat: target.lat,
+          lon: target.lon,
+          name: target.name,
+          grid: target.grid,
+        },
+        date: displayTime,
+        pathMode: pathMode === "long" ? "long" : "short",
+        sfi: hasObservedSfi ? currentSfi : null,
+        sfiObservedAt: lastFlux?.time_tag ?? null,
+        sfiFetchedAt: fluxUpdatedAt
+          ? new Date(fluxUpdatedAt).toISOString()
+          : null,
+        kp: currentKp,
         txPowerWatts,
-        freqLimitMode,
-      );
+        mode: physicsMode,
+        spots: isLive ? spots : [],
+        spotsObservedAt: isLive ? clusterFeed.observedAt : null,
+        spotsFetchedAt: isLive ? clusterFeed.fetchedAt : null,
+        radiusKm: nearbyRadiusKm,
+        nowCast: isLive ? nowCastHint : null,
+      });
     } catch {
       return null;
     }
-  }, [station, target, metrics, currentSfi, displayTime, txPowerWatts, freqLimitMode]);
+  }, [
+    station,
+    target,
+    displayTime,
+    pathMode,
+    hasObservedSfi,
+    currentSfi,
+    lastFlux?.time_tag,
+    fluxUpdatedAt,
+    currentKp,
+    txPowerWatts,
+    physicsMode,
+    isLive,
+    spots,
+    clusterFeed.observedAt,
+    clusterFeed.fetchedAt,
+    nearbyRadiusKm,
+    nowCastHint,
+  ]);
+
+  const frequencyLimits = useMemo((): FrequencyLimits | null => {
+    if (!decision?.pathMuf) {
+      return null;
+    }
+    const { muf, fot, luf, hpf } = decision.pathMuf;
+    return { muf, fot, luf, hpf };
+  }, [decision]);
 
   // No station configured
   if (!station) {
@@ -768,6 +1022,14 @@ export function PathAnalysis({
                 </span>
               </>
             )}
+            {decision && (
+              <>
+                <div className="w-px h-3 bg-su-line/20" />
+                <span className="text-[10px] text-su-text truncate max-w-[240px]">
+                  {decision.verdict.line}
+                </span>
+              </>
+            )}
           </div>
         ) : (
           /* EXPANDED: Restructured header with title top-left, icons top-right */
@@ -973,6 +1235,15 @@ export function PathAnalysis({
           ref={scrollRef}
           className="h-full flex flex-col overflow-y-auto scrollbar-hide pt-3"
         >
+          {decision && (
+            <DecisionLayer
+              report={decision}
+              radiusKm={nearbyRadiusKm}
+              onRadiusChange={setNearbyRadiusKm}
+              liveEvidence={isLive}
+            />
+          )}
+
           {/* Path Mode Toggle */}
           <div className="flex items-center justify-between mb-2">
             <span className="text-xs font-medium text-su-muted">
@@ -1190,7 +1461,10 @@ export function PathAnalysis({
           </div>
 
           {/* Frequency Limits Section */}
-          <FrequencyLimitsDisplay limits={frequencyLimits} />
+          <FrequencyLimitsDisplay
+            limits={frequencyLimits}
+            pathBasis={decision?.pathMuf?.evidence.basis ?? null}
+          />
 
           {/* NowCast Model Section */}
           {modelNowCast.visible && (
@@ -1364,8 +1638,10 @@ const MetricItem = memo(function MetricItem({
  */
 const FrequencyLimitsDisplay = memo(function FrequencyLimitsDisplay({
   limits,
+  pathBasis,
 }: {
   limits: FrequencyLimits | null;
+  pathBasis: string | null;
 }) {
   if (!limits) {
     return (
@@ -1440,6 +1716,9 @@ const FrequencyLimitsDisplay = memo(function FrequencyLimitsDisplay({
         </div>
         {/* Compact frequency window bar */}
         <FrequencyWindowBar limits={limits} />
+        {pathBasis && (
+          <p className="mt-1 text-[10px] leading-snug text-su-muted">{pathBasis}</p>
+        )}
       </div>
     </div>
   );

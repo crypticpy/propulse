@@ -2,14 +2,16 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+Process — how work is claimed, branched, reviewed, merged, and marked done — is defined in `docs/AGENT-CONSTITUTION.md`. Read it before starting any task. This file covers the code.
+
 ## Build & Development Commands
 
 ```bash
-npm run dev              # Vite dev server at http://localhost:5173
+npm run dev              # Vite dev server at http://localhost:5173 (owner, manual use; agents use dev:session)
 npm run build            # tsc -b && vite build (typecheck + bundle)
 npm run lint             # eslint . --max-warnings 0 (zero tolerance)
 npm run check:bundles    # Enforce bundle size budgets
-npm run verify           # Full pipeline: tracked-artifacts + lint + build + bundles
+npm run verify           # Full gate: artifacts, tokens, ML checks, boundaries, lint, tests, build, bundles
 npm run preview          # Serve production build locally
 npm run hooks:install    # One-time git hook setup (pre-commit + pre-push)
 ```
@@ -20,7 +22,14 @@ Bridge server (optional, for rig control):
 cd bridge && npm install && npm run dev   # WebSocket on ws://localhost:9867
 ```
 
-There is no test framework (no Vitest/Jest). Quality relies on `npm run verify` + manual UI checks.
+Vitest is the test runner (`npm run test`; focused runs via `npx vitest run <path>`). `npm run verify` is the push gate.
+
+## Shared-machine rules (several agents run here at once)
+
+- Tests: use `npm test` (`vitest run`). Never `vitest` watch mode in an agent session. The config caps workers at 4; set `VITEST_MAX_WORKERS` only when the machine has nothing else running.
+- Dev servers: run `npm run dev:session status` first. Reuse a live session for your owner/task; start a new one only if none fits, and stop it (Ctrl-C) when your check is done. Plain `npm run dev` is for the owner's manual use only; agents never start it (it does not register ownership).
+- One `npm run verify` at a time per machine: check `pgrep -fl "[v]itest"` and `pgrep -fl "[t]sc -b"` before starting (the bracket keeps the probe from matching its own shell); wait if another run is in progress.
+- Prefer Vercel preview deployments over local servers for visual checks (owner rule, 2026-08-30).
 
 ## Architecture Overview
 
@@ -131,7 +140,7 @@ For visual builder / flowchart views (Station Builder Lab):
 All checks must pass before push. Fix issues immediately — do not defer.
 
 ```bash
-npm run verify   # Runs: tracked-artifacts + lint + build + bundle check
+npm run verify   # Runs: artifacts + tokens + ML preregistration/archive + production-boundaries + view-library types + lint + test + test:bridge + test:radio-daemon + build + bundles
 ```
 
 Git hooks (install with `npm run hooks:install`):
@@ -155,7 +164,25 @@ Do not commit generated/build artifacts: `node_modules/`, `dist/`, `dev-dist/`, 
 
 ### Local-First Development
 
-Local iterative development without PRs is allowed while prototyping. Use short-lived feature branches and small commits. Move to PR-first for integration and release branches.
+Local prototyping without a PR is fine, in a worktree. Anything that reaches `main` goes through one issue → one PR per `docs/AGENT-CONSTITUTION.md`. No stacked PRs. The primary checkout is shared scratch — never commit from it.
+
+## Design system (Claude Design)
+
+The shared component library is synced to **Claude Design** so design work is done with the real PROPULSE components (station-ui, Home widgets, Solar charts, HamClock wall tiles and chrome). A Claude Design project is visible only to the account that owns it, and the team works on two accounts, so the design system lives in **two mirrored projects**:
+
+| Account                         | Project                                                                                                    |
+| ------------------------------- | ---------------------------------------------------------------------------------------------------------- |
+| aboveearthproductions@gmail.com | `b5bd52bb-3dae-49e3-a9d9-0ee4fd4feae6` — <https://claude.ai/design/p/b5bd52bb-3dae-49e3-a9d9-0ee4fd4feae6> |
+| propulsetecnologies@gmail.com   | `30f79cc2-2a71-411b-91a2-6cce7ede8afd` — <https://claude.ai/design/p/30f79cc2-2a71-411b-91a2-6cce7ede8afd> |
+
+Rules:
+
+- **Every sync close-out pushes to both projects.** A sync plan is per account and per session: finish one account, then `/design-login` as the other, `finalize_plan` against that account's project id, and push the same `ds-bundle/` in the same order. If only one account is reachable, push there and leave a note in `.design-sync/NOTES.md` so the next session on the other account catches up.
+- **Pick the target from the account you are on.** `.design-sync/config.json` holds `projectId` (the current run) and `mirrorProjects` (account → project id). `get_project` on the other account's id returns 404; that is expected, not an error.
+- **The app and the design system stay aligned.** Every UI fix goes through the shared component (`src/components/ui/*`, `station-ui`, wall tiles), never a one-off in a page; narrow layouts get a discrete stacked variant instead of a compressed two-column row; after the fix merges, the affected cards are re-graded so the project shows what ships.
+- Never delete the app-managed files `_ds_manifest.json` and `_adherence.oxlintrc.json` from a project.
+
+Where things live: the sync config, notes, entry barrel, shims and authored previews are in `.design-sync/` (on main since PR #662) and the converter in `.ds-sync/` (gitignored, staged by `/design-sync`). The build recipe and re-sync driver (`resync.mjs --remote <project's _ds_sync.json>`) are documented in `.design-sync/NOTES.md`; read its "Re-sync risks" and "second-account mirror" sections before running `/design-sync`. The component README is `docs/designs/design-system/README.md`. Its "Rules" section carries the legibility standard (high contrast, no pure white text, no halo or fringe) that every new UI part must meet.
 
 ## Environment Variables
 

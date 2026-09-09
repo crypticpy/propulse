@@ -70,6 +70,8 @@ Every section is built the same way — **rule → band → content** — and on
 2. **Band** — a full-width header, `min-h-16`, holding an Orbitron bold title, one muted line of summary beneath it, and a right-hand slot for the panel's own action (a status chip, a refresh control, a link). It is a `<button aria-expanded>` when the band is the disclosure control, a `<summary>` inside a `<details>`, and a plain heading band otherwise.
 3. **Content** — a bordered area below the band, with the panel's padding.
 
+**Row vs. stack (issue #640).** The band's default `row` layout puts the title/summary and the action side by side, which only has room once the band is wide — otherwise the action overprints a wrapped summary. A non-toggle `<div>` band has two ways to switch to `stack`, which drops the action to its own left-aligned row under a full-width summary: automatically, when the band sits inside a `.home-panel` narrower than 28rem (a `container-type: inline-size` container query in `src/styles/home.css`, scoped to `div.su-widget-header`), or explicitly via `<SectionHeader layout="stack">` for a host outside that container. Both apply the same declarations through `su-section-header--stack` / the container query in globals.css and home.css respectively. A band whose action is a fixed-size glyph rather than variable-width content — the `<button aria-expanded>` toggle band and Home's `<summary element="summary">` disclosure band (its own hand-rolled `su-section-glyph`) — never stacks, at any width: both keep the row layout the disclosure control needs.
+
 ```html
 <!-- Solar Pulse: the band is the disclosure control -->
 <section data-accent="warning" class="overflow-hidden rounded-2xl ...">
@@ -99,6 +101,7 @@ Home's per-panel summary strings live with the layout model (`homeItemSummary()`
 | `su-section-header` | The header band. Its hover is a soft left-to-right tint of the tone, on pointer devices only. Never a flat grey.                                                                                                                  |
 | `su-section-panel`  | On the container: hovering anywhere in the panel brightens its band. For a band that is not itself the control.                                                                                                                   |
 | `su-section-glyph`  | The expand/collapse glyph box: tone on the border and the glyph.                                                                                                                                                                   |
+| `su-section-header--stack` | Row → stack layout switch on a non-toggle band (`layout="stack"`): action drops below the summary instead of beside it. `su-section-header__action` marks the action wrapper both this and the `.home-panel` container query target. |
 | `su-widget-header`  | The widget header wash — a 12% tint of the tone fading out by 70%. Inherits the enclosing section's tone.                                                                                                                          |
 | `su-widget-eyebrow` | The header eyebrow in the tone, through `--su-section-accent-text-rgb` (the reading-text variant: `accent` resolves via `--su-accent-text`, so a low-contrast custom accent falls back to `info`). The title stays on `--su-text`. |
 
@@ -171,6 +174,7 @@ Steps for a file: swap the classes, delete any local `--*` colour variable it de
 4. **Charts.** `--su-info` for the default series, `--su-accent` for the "now"/selected marker, the tone tokens for status bands. Do not reach for a raw Tailwind palette colour to add a series.
 5. **No new colour systems.** A feature does not declare its own `--feature-*` colour variables or a private override stylesheet. If a role is missing, add a token here.
 6. **No glow on reading surfaces.** Text shadow, blur and glow stay out of anything you read (a station-design rule, restated so it is not lost in migration).
+7. **Legibility first (owner rule, 2026-09-08).** Many operators wear glasses or have astigmatism; they read walls from across the room and phones in daylight. So: high contrast by default (rules 1 and 3 are floors, not targets), body and data text in the sharp faces already in the system (Inter for body, JetBrains Mono for data; Orbitron only for headings), no thin weights below 400 for anything read, and nothing that halos or fringes text: no glow, no blur, no text shadow, no low-alpha text on a busy surface, no saturated text on a saturated background. When a colour, weight or size choice is in doubt, pick the one that reads more clearly, and give the user a text-size control rather than shrinking the type.
 
 ## Guard
 

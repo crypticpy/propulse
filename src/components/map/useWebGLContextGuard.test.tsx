@@ -49,6 +49,12 @@ function Harness(props: UseWebGLContextGuardOptions) {
 
 describe("useWebGLContextGuard", () => {
   it("releases the context on unmount ahead of r3f's 500ms teardown", () => {
+    // Every other timing assertion advances by CONTEXT_RELEASE_DELAY_MS itself,
+    // so they hold for any value of it. Pin the one property that matters: the
+    // release must land before r3f's own 500ms forceContextLoss, or the guard
+    // buys nothing. Regression 16d85e87 was exactly this constant set to 500.
+    expect(CONTEXT_RELEASE_DELAY_MS).toBeLessThan(500);
+
     const gl = mocks.gl!;
     const view = render(<Harness />);
     expect(gl.forceContextLoss).not.toHaveBeenCalled();

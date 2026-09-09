@@ -1,6 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import {
   OPERATING_PROTOCOL_VERSION,
+  createAccountTransport,
   createBroadcastTransport,
   createCompositeTransport,
   createMemoryBus,
@@ -339,5 +341,107 @@ describe("createNullTransport", () => {
     unsubscribe();
     transport.close();
     expect(heard).toHaveLength(0);
+  });
+});
+
+/**
+ * A minimal, duck-typed stand-in for a Supabase `RealtimeChannel` — enough
+ * of `.on` / `.subscribe` / `.send` / `.unsubscribe` for
+ * `createAccountTransport` to drive, plus test-only hooks (`emit`,
+ * `triggerStatus`, `sent`) to simulate the wire and inspect what was posted.
+ */
+function makeFakeChannel() {
+  let broadcastHandler: ((message: { payload: unknown }) => void) | null = null;
+  let statusHandler: ((status: string, err?: Error) => void) | null = null;
+  const sent: unknown[] = [];
+
+  const channel = {
+    on(_type: string, _filter: { event: string }, cb: (message: { payload: unknown }) => void) {
+      broadcastHandler = cb;
+      return channel;
+    },
+    subscribe(cb?: (status: string, err?: Error) => void) {
+      statusHandler = cb ?? null;
+      return channel;
+    },
+    async send(args: { payload: unknown }) {
+      sent.push(args.payload);
+      return { ok: true };
+    },
+    async unsubscribe() {
+      return "ok" as const;
+    },
+    emit(payload: unknown) {
+      broadcastHandler?.({ payload });
+    },
+    triggerStatus(status: string, err?: Error) {
+      statusHandler?.(status, err);
+    },
+    sent,
+  };
+  return channel;
+}
+
+function makeFakeClient(channel: ReturnType<typeof makeFakeChannel> = makeFakeChannel()) {
+  const channelSpy = vi.fn(() => channel);
+  const client = { channel: channelSpy } as unknown as SupabaseClient;
+  return { client, channelSpy, channel };
+}
+
+describe("createAccountTransport", () => {
+  it("opens a private, self-excluding channel named for the account and posts through send", () => {
+    const { client, channelSpy, channel } = makeFakeClient();
+    const transport = createAccountTransport({ accountId: "uid-1", client });
+
+    expect(channelSpy).toHaveBeenCalledWith("operating:uid-1", {
+      config: { private: true, broadcast: { self: false } },
+    });
+
+    const message = { ...envelope(), kind: "hello" } as const;
+    transport.post(message);
+    expect(channel.sent).toEqual([message]);
+    transport.close();
+  });
+
+  it("validates inbound broadcast payloads and drops anything malformed", () => {
+    const { client, channel } = makeFakeClient();
+    const transport = createAccountTransport({ accountId: "uid-1", client });
+    const heard: OperatingMessage[] = [];
+    transport.subscribe((m) => heard.push(m));
+
+    channel.emit({ hostile: true });
+    channel.emit({ ...envelope("other"), kind: "hello" });
+
+    expect(heard).toHaveLength(1);
+    expect(heard[0].senderId).toBe("other");
+    transport.close();
+  });
+
+  it("closes and stops posting after a subscribe error, logging once", () => {
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const { client, channel } = makeFakeClient();
+    const transport = createAccountTransport({ accountId: "uid-1", client });
+
+    channel.triggerStatus("CHANNEL_ERROR", new Error("denied"));
+    channel.triggerStatus("CHANNEL_ERROR", new Error("denied again"));
+
+    expect(consoleError).toHaveBeenCalledTimes(1);
+    transport.post({ ...envelope(), kind: "hello" });
+    expect(channel.sent).toHaveLength(0);
+    transport.close();
+    consoleError.mockRestore();
+  });
+
+  it("falls back to a null transport when opening the channel throws", () => {
+    const client = {
+      channel: () => {
+        throw new Error("realtime unavailable");
+      },
+    } as unknown as SupabaseClient;
+    const transport = createAccountTransport({ accountId: "uid-1", client });
+
+    expect(transport.name).toBe("account-unavailable");
+    expect(() => transport.post({ ...envelope(), kind: "hello" })).not.toThrow();
+    transport.close();
   });
 });

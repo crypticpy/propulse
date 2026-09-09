@@ -31,6 +31,14 @@
  * departs from the issue's literal action list; broadening them to take an
  * explicit workspace id is left to whichever PR introduces workspace
  * switching.
+ *
+ * `phoneVisibleBands` (#659) is the one field the phone canvas needed that
+ * this store did not already have: a band-visibility list scoped to the
+ * phone, distinct from `WorkspaceDisplaySettings.visibleBands` (the
+ * workstation's own). It lives at the top level, not inside a `Workspace`
+ * object, because the phone canvas has no `Workspace` entity yet — its three
+ * pages are fixed (`PhonePage`), not built from the operator's own widget
+ * picks the way the workstation's are.
  */
 
 import { create } from "zustand";
@@ -124,7 +132,10 @@ function defaultAutoPage(): WorkspaceAutoPage {
  * every other field is passed through untouched.
  */
 export function migrateWorkspaceState(persisted: unknown, version: number): WorkspaceStoreState {
-  const state = persisted as { workspaces?: Array<Record<string, unknown>> } & Record<string, unknown>;
+  const state = persisted as { workspaces?: Array<Record<string, unknown>>; phoneVisibleBands?: unknown } & Record<
+    string,
+    unknown
+  >;
   if (version < 2 && Array.isArray(state.workspaces)) {
     state.workspaces = state.workspaces.map((ws) => ({
       display: defaultDisplaySettings(),
@@ -132,12 +143,17 @@ export function migrateWorkspaceState(persisted: unknown, version: number): Work
       ...ws,
     }));
   }
+  if (version < 3 && !Array.isArray(state.phoneVisibleBands)) {
+    state.phoneVisibleBands = [...BAND_ORDER];
+  }
   return state as unknown as WorkspaceStoreState;
 }
 
 export interface WorkspaceStoreState {
   workspaces: Workspace[];
   activeWorkspaceId: string;
+  /** Band visibility for the phone canvas (#659) — its own setting, separate from any workstation's `display.visibleBands`. */
+  phoneVisibleBands: string[];
 }
 
 export interface WorkspaceStoreActions {
@@ -173,6 +189,8 @@ export interface WorkspaceStoreActions {
   setHeatMapColor: (index: number, color: string) => void;
   setHeadlineRule: (rule: HeatMapMetric) => void;
   setVisibleBands: (bands: string[]) => void;
+  /** The phone canvas's own band visibility (#659), read by `PhoneBandLadder` / set by `PhoneSetupMenu`. */
+  setPhoneVisibleBands: (bands: string[]) => void;
 }
 
 export type WorkspaceStore = WorkspaceStoreState & WorkspaceStoreActions;
@@ -211,6 +229,7 @@ export const useWorkspaceStore = create<WorkspaceStore>()(
     (set, get) => ({
       workspaces: [createDefaultWorkspace()],
       activeWorkspaceId: DEFAULT_WORKSPACE_ID,
+      phoneVisibleBands: [...BAND_ORDER],
 
       addWidget: (pageId, widgetId) => {
         const found = findWorkspaceAndPage(get().workspaces, pageId);
@@ -458,10 +477,14 @@ export const useWorkspaceStore = create<WorkspaceStore>()(
           ),
         }));
       },
+
+      setPhoneVisibleBands: (bands) => {
+        set({ phoneVisibleBands: bands });
+      },
     }),
     {
       name: "propulse-workspace-store",
-      version: 2,
+      version: 3,
       storage: createJSONStorage(() => localStorage),
       migrate: migrateWorkspaceState,
     },

@@ -9,8 +9,33 @@ import {
   changedPaths,
   classifyPushPaths,
   parseRefUpdates,
+  pushRanges,
+  selectDiffBase,
   selectFallbackBase,
 } from "./pre-push-checks.mjs";
+
+// Git hooks (this test can itself run inside the pre-push hook) set
+// GIT_DIR/GIT_WORK_TREE/GIT_INDEX_FILE etc. in the process environment so
+// the hook operates on the pushing repo. Child `git` calls that inherit
+// process.env unchanged would then target that repo instead of the scratch
+// directories below — `git add` fails with "this operation must be run in a
+// work tree", and `changedPaths` would silently interrogate the real
+// repository instead of the fixture. Strip them once, for this process
+// only, rather than filtering on every call (`git()` in the production
+// module carries no such conditional behaviour on purpose — this is the
+// delete-path gate).
+for (const name of [
+  "GIT_DIR",
+  "GIT_WORK_TREE",
+  "GIT_COMMON_DIR",
+  "GIT_INDEX_FILE",
+  "GIT_OBJECT_DIRECTORY",
+  "GIT_ALTERNATE_OBJECT_DIRECTORIES",
+  "GIT_PREFIX",
+  "GIT_REFLOG_ACTION",
+]) {
+  delete process.env[name];
+}
 
 const COMMIT_ENV = {
   GIT_AUTHOR_NAME: "Test",
@@ -19,24 +44,11 @@ const COMMIT_ENV = {
   GIT_COMMITTER_EMAIL: "test@example.com",
 };
 
-// Git hooks (this test can itself run inside the pre-push hook) set
-// GIT_DIR/GIT_WORK_TREE/GIT_INDEX_FILE etc. in the process environment so
-// the hook operates on the pushing repo. Child `git` calls that inherit
-// process.env unchanged would then target that repo instead of the scratch
-// directory below, so strip every GIT_* var before layering in our own.
-function cleanGitEnv() {
-  const env = { ...process.env };
-  for (const key of Object.keys(env)) {
-    if (key.startsWith("GIT_")) delete env[key];
-  }
-  return env;
-}
-
 function scratchGit(cwd, args) {
   return execFileSync("git", args, {
     cwd,
     encoding: "utf8",
-    env: { ...cleanGitEnv(), ...COMMIT_ENV },
+    env: { ...process.env, ...COMMIT_ENV },
   }).trim();
 }
 
@@ -151,6 +163,54 @@ test("new branch base selection skips unavailable candidates", () => {
   assert.equal(base, "remote-common");
 });
 
+// --- selectDiffBase: pure logic, no git involved ---
+
+test("selectDiffBase falls back to range.base when mainRef is unresolved (origin/main not fetched or missing)", () => {
+  const base = selectDiffBase(
+    { base: "own-tip", head: "own-head" },
+    "",
+    () => {
+      throw new Error("mergeBase should not be called without a resolved mainRef");
+    },
+    () => {
+      throw new Error("isAncestor should not be called without a resolved mainRef");
+    },
+  );
+  assert.equal(base, "own-tip");
+});
+
+test("selectDiffBase falls back to range.base when the merge-base itself cannot be computed", () => {
+  const base = selectDiffBase(
+    { base: "own-tip", head: "own-head" },
+    "origin-main",
+    () => "",
+    () => {
+      throw new Error("isAncestor should not be called when merge-base computation failed");
+    },
+  );
+  assert.equal(base, "own-tip");
+});
+
+test("selectDiffBase keeps range.base for an ordinary push that already covers the upstream merge-base", () => {
+  const base = selectDiffBase(
+    { base: "own-tip", head: "own-head" },
+    "origin-main",
+    () => "origin-main",
+    (ancestor, descendant) => ancestor === "origin-main" && descendant === "own-tip",
+  );
+  assert.equal(base, "own-tip");
+});
+
+test("selectDiffBase switches to the upstream merge-base for a merge-from-main commit", () => {
+  const base = selectDiffBase(
+    { base: "pre-merge-tip", head: "merge-commit" },
+    "origin-main",
+    () => "origin-main",
+    () => false,
+  );
+  assert.equal(base, "origin-main");
+});
+
 test("merging main into a feature branch does not resurrect main's ml/migration content as the branch's own diff", () => {
   const dir = initScratchRepo();
   try {
@@ -254,6 +314,88 @@ test("a direct push to main keeps two-dot classification even when origin/main a
     assert.equal(plan.profile, "full");
     assert.equal(plan.ml, true);
     assert.deepEqual(plan.paths, ["ml/model.py"]);
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+// Regression test for the #738 review finding: `diffRangeFor` must not
+// widen the classification base for an *ordinary* push just because the
+// branch touched ml/ on some earlier push. The old (unguarded) version
+// unconditionally replaced `base` with `merge-base(head, origin/main)` for
+// every non-main push, which for a branch that has never merged main is the
+// fork point — older than the stale remote tip in `base` — so a second,
+// docs-only push would re-diff the branch's entire history and resurrect
+// the earlier ml/ commit, forcing the full ML profile on a markdown fix.
+test("a second, docs-only push to a branch that previously touched ml/ does not re-escalate to full", () => {
+  const dir = initScratchRepo();
+  try {
+    const root = scratchGit(dir, ["rev-parse", "HEAD"]);
+    scratchGit(dir, ["update-ref", "refs/remotes/origin/main", root]);
+
+    scratchGit(dir, ["checkout", "-q", "-b", "feature"]);
+    writeScratchFile(dir, "ml/x.py", "# x\n");
+    commitScratch(dir, "feat: add ml/x.py");
+    // This is the OID that was the branch's head on its first push, so it
+    // becomes `base` (the stale remote tip) for the second push below.
+    const firstPushHead = scratchGit(dir, ["rev-parse", "HEAD"]);
+
+    writeScratchFile(dir, "NOTES.md", "notes\n");
+    commitScratch(dir, "docs: add notes");
+    const secondPushHead = scratchGit(dir, ["rev-parse", "HEAD"]);
+
+    const plan = classifyPushPaths(
+      changedPaths(
+        [{ base: firstPushHead, head: secondPushHead, remoteRef: "refs/heads/feature" }],
+        { cwd: dir },
+      ),
+    );
+
+    assert.notEqual(plan.profile, "full");
+    assert.deepEqual(plan.paths, ["NOTES.md"]);
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+function withCwd(dir, fn) {
+  const original = process.cwd();
+  process.chdir(dir);
+  try {
+    return fn();
+  } finally {
+    process.chdir(original);
+  }
+}
+
+test("first push of a new branch does not crash and excludes main-only history", () => {
+  const dir = initScratchRepo();
+  try {
+    const mainTip = scratchGit(dir, ["rev-parse", "HEAD"]);
+    scratchGit(dir, ["update-ref", "refs/remotes/origin/main", mainTip]);
+    scratchGit(dir, ["symbolic-ref", "refs/remotes/origin/HEAD", "refs/remotes/origin/main"]);
+
+    scratchGit(dir, ["checkout", "-q", "-b", "newfeature"]);
+    writeScratchFile(dir, "collector/newfeature.ts", "new feature\n");
+    commitScratch(dir, "newfeature: initial work");
+    const localOid = scratchGit(dir, ["rev-parse", "HEAD"]);
+
+    withCwd(dir, () => {
+      const zeroOid = "0".repeat(40);
+      process.env.PROPULSE_PUSH_REF_UPDATES =
+        `refs/heads/newfeature ${localOid} refs/heads/newfeature ${zeroOid}\n`;
+      try {
+        const ranges = pushRanges("origin");
+        assert.equal(ranges.length, 1);
+        assert.equal(ranges[0].head, localOid);
+
+        const paths = changedPaths(ranges, { remoteName: "origin", cwd: dir });
+        assert.deepEqual(paths, ["collector/newfeature.ts"]);
+        assert.equal(classifyPushPaths(paths).ml, false);
+      } finally {
+        delete process.env.PROPULSE_PUSH_REF_UPDATES;
+      }
+    });
   } finally {
     fs.rmSync(dir, { recursive: true, force: true });
   }

@@ -8,22 +8,11 @@ const DOC_EXTENSION = /\.(?:md|mdx|rst|adoc|txt)$/i;
 const DOC_BASENAME = /^(?:LICENSE|CHANGELOG|CONTRIBUTING|CODE_OF_CONDUCT)(?:\..+)?$/i;
 
 function git(args, options = {}) {
-  // When an explicit cwd is given (only tests do this, to point git at a
-  // scratch repo), drop any inherited GIT_DIR/GIT_WORK_TREE/GIT_INDEX_FILE
-  // from the environment first. This script itself runs inside a git hook,
-  // which sets those vars for the repo being pushed; left in place, they
-  // would override cwd and redirect git back to that repo.
-  const env = options.cwd
-    ? Object.fromEntries(
-        Object.entries(process.env).filter(([key]) => !key.startsWith("GIT_")),
-      )
-    : undefined;
   try {
     return execFileSync("git", args, {
       encoding: "utf8",
       stdio: ["ignore", "pipe", options.quiet ? "ignore" : "inherit"],
       cwd: options.cwd,
-      env,
     }).trim();
   } catch (error) {
     if (options.allowFailure) return "";
@@ -159,7 +148,7 @@ function fallbackBase(localOid, remoteName) {
   ).split(/\r?\n/)[0] ?? "";
 }
 
-function pushRanges(remoteName) {
+export function pushRanges(remoteName) {
   const updates = parseRefUpdates(process.env.PROPULSE_PUSH_REF_UPDATES ?? "");
   const ranges = updates
     .filter((update) => !ZERO_OID.test(update.localOid))
@@ -198,29 +187,76 @@ function isMainPush(remoteRef) {
   return remoteRef === `refs/heads/${MAIN_BRANCH}` || remoteRef === MAIN_BRANCH;
 }
 
-// Picks the diff range used to classify a single pushed range. A plain
-// `base..head` two-dot diff is correct for an ordinary push, but is wrong
-// when `head` is a merge of `main` into a feature branch: it then lists
-// every file that differs between the branch's old remote tip and the
-// merge commit, which includes content that arrived purely through
-// ancestry from `main` and was never introduced by the branch itself.
+function resolveMainRef(remoteName, cwd) {
+  return git(["rev-parse", `refs/remotes/${remoteName}/${MAIN_BRANCH}`], {
+    allowFailure: true,
+    quiet: true,
+    cwd,
+  });
+}
+
+function gitIsAncestor(ancestor, descendant, cwd) {
+  const result = spawnSync(
+    "git",
+    ["merge-base", "--is-ancestor", ancestor, descendant],
+    { cwd, stdio: "ignore" },
+  );
+  // A failed invocation (missing binary, bad OID, etc.) is treated the same
+  // as "not an ancestor": selectDiffBase then widens to the merge-base
+  // rather than silently trusting an unproven `base`. Fail toward the wider
+  // diff, never toward skipping.
+  return !result.error && result.status === 0;
+}
+
+// Decides the base commit used to diff a single pushed range for
+// classification. Pure function of its inputs — `mainRef` is already
+// resolved (or "" if unavailable), `mergeBase`/`isAncestor` are callbacks —
+// so the branch-selection decision can be unit tested without a git
+// fixture. The git calls that produce those inputs live in `diffRangeFor`
+// below for production, and directly in the git-fixture tests.
 //
-// For non-main pushes we instead diff from where the branch actually
-// diverges from `main` (`merge-base(head, origin/main)`) so only the
-// branch's own contribution is classified. Pushes to `main` itself keep
-// the original two-dot behaviour unconditionally — merge-base against
-// origin/main can trivially equal `head` there (origin/main is often
-// already the direct parent of what's being pushed), which would produce
-// an empty diff and silently skip verification.
+// A plain `base..head` two-dot diff is correct for an ordinary push, but is
+// wrong when `head` is a merge of `main` into a feature branch: it then
+// lists every file that differs between the branch's old remote tip and the
+// merge commit, which includes content that arrived purely through
+// ancestry from `main` and was never introduced by the branch itself. So
+// when `head` has actually merged from `main`, we diff from where the
+// branch diverges from `main` (`merge-base(head, mainRef)`) instead, so
+// only the branch's own contribution is classified. A later merge from a
+// further-advanced `main`, and a conflict resolution made inside the merge
+// commit itself, both remain visible in that range either way — both land
+// as content that differs between the merge-base and `head`, so narrowing
+// never hides them.
+//
+// Critically, we only widen to that merge-base when `range.base` does not
+// already cover it (`isAncestor(mergeBase, range.base)`). For an ordinary
+// push whose branch has never merged `main`, the merge-base is the fork
+// point — older than the stale remote tip in `range.base` — and switching
+// to it would resurface the branch's entire history on every subsequent
+// push instead of just the new commits.
+export function selectDiffBase(range, mainRef, mergeBase, isAncestor) {
+  if (!mainRef) return range.base;
+  const mainMergeBase = mergeBase(range.head, mainRef);
+  if (!mainMergeBase) return range.base;
+  return isAncestor(mainMergeBase, range.base) ? range.base : mainMergeBase;
+}
+
+// Picks the diff range used to classify a single pushed range. Pushes to
+// `main` itself keep the original two-dot behaviour unconditionally —
+// merge-base against origin/main can trivially equal `head` there
+// (origin/main is often already the direct parent of what's being pushed),
+// which would produce an empty diff and silently skip verification.
 function diffRangeFor({ base, head, remoteRef }, remoteName, cwd) {
   if (!isMainPush(remoteRef)) {
-    const mainMergeBase = git(
-      ["merge-base", head, `refs/remotes/${remoteName}/${MAIN_BRANCH}`],
-      { allowFailure: true, quiet: true, cwd },
+    const mainRef = resolveMainRef(remoteName, cwd);
+    const selectedBase = selectDiffBase(
+      { base, head },
+      mainRef,
+      (rangeHead, ref) =>
+        git(["merge-base", rangeHead, ref], { allowFailure: true, quiet: true, cwd }),
+      (ancestor, descendant) => gitIsAncestor(ancestor, descendant, cwd),
     );
-    if (mainMergeBase) return `${mainMergeBase}..${head}`;
-    // origin/main isn't fetched or doesn't exist locally: fail closed to
-    // the wider two-dot diff rather than silently under-classifying.
+    return `${selectedBase}..${head}`;
   }
   return `${base}..${head}`;
 }

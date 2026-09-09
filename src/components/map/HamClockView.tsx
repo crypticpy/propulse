@@ -40,6 +40,7 @@ import {
 import { HamClockSettingsDialog } from "./hamclock/wall/settings/HamClockSettingsDialog";
 import { useMapStore } from "@/stores/mapStore";
 import { useHamClockStore, type HamClockMode } from "@/stores/hamclockStore";
+import type { SpotPresentationPreferences } from "@/lib/views/spotContracts";
 import {
   HAMCLOCK_MODE_LAYERS,
   applyHamClockModeLayers,
@@ -155,6 +156,20 @@ export function HamClockBoundModeFilters() {
   // hamclock layout with a stale in-memory mode, or a kiosk scene's
   // `applySceneToMap.ts` setting `hamclockMode` before `setLayoutMode`.
   const prevModeRef = useRef<HamClockMode | null>(null);
+  // Local mirror of the captured pre-Bands filters, set alongside the store
+  // write below and cleared alongside it. #747: this component — not the
+  // store — owns restoring the runtime when a Bands session ends, including
+  // when it ends by unmounting rather than by a mode change (see the
+  // unmount effect below). The unmount cleanup restores from this ref
+  // rather than re-reading `filtersBeforeBands` from the store, because
+  // `mapStore.setLayoutMode`'s hamclock-exit path also clears that field
+  // (independently, before this component ever unmounts) as a leftover
+  // belt-and-suspenders reset from before SP-09 moved ownership here; this
+  // ref keeps the restore correct regardless of what else touches the
+  // shared field in between.
+  const pendingRestoreRef = useRef<
+    SpotPresentationPreferences["filters"] | null
+  >(null);
 
   useEffect(() => {
     const prev = prevModeRef.current;
@@ -162,7 +177,9 @@ export function HamClockBoundModeFilters() {
 
     const snapshot = runtime.getSnapshot();
     if (hamclockMode === "bands" && prev !== "bands") {
-      setFiltersBeforeBands({ ...snapshot.config.spots.filters });
+      const captured = { ...snapshot.config.spots.filters };
+      setFiltersBeforeBands(captured);
+      pendingRestoreRef.current = captured;
       runtime.updateWorkingView({
         spots: {
           ...snapshot.config.spots,
@@ -180,10 +197,32 @@ export function HamClockBoundModeFilters() {
         });
       }
       setFiltersBeforeBands(null);
+      pendingRestoreRef.current = null;
     }
 
     prevModeRef.current = hamclockMode;
   }, [hamclockMode, runtime, setFiltersBeforeBands]);
+
+  // Unmount-only cleanup, symmetric with the exit-Bands branch above: if
+  // this component tears down (layout exit, or a `ViewProvider` identity
+  // change from e.g. a sign-in/out mid-session) while a Bands session is
+  // still open, restore the runtime's pre-Bands filters instead of leaving
+  // the Bands patch stuck in the persisted working view for the next mount
+  // to mistake for the operator's real baseline (#747). `[]` deps: this
+  // must run once, on final unmount, not on every `hamclockMode` change —
+  // the effect above already handles in-place mode transitions.
+  useEffect(() => {
+    return () => {
+      const restore = pendingRestoreRef.current;
+      if (restore) {
+        runtime.updateWorkingView({
+          spots: { ...runtime.getSnapshot().config.spots, filters: restore },
+        });
+      }
+      setFiltersBeforeBands(null);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- unmount-only cleanup; runtime/setFiltersBeforeBands are stable for this mount's lifetime
+  }, []);
 
   return null;
 }

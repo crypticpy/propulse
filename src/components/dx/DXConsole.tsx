@@ -178,7 +178,7 @@ export function DXConsole({
                     className={`flex items-center gap-1 px-2 py-0.5 rounded ${kIndexColors.bg}`}
                     title={`K-index: ${currentKIndex} - Geomagnetic activity indicator`}
                   >
-                    <span className="text-[10px] text-su-muted uppercase">
+                    <span className="text-xs text-su-muted uppercase">
                       K
                     </span>
                     <span className={`text-xs font-bold ${kIndexColors.text}`}>
@@ -205,7 +205,7 @@ export function DXConsole({
                     className={`flex items-center gap-1 px-2 py-0.5 rounded ${sfiColors.bg}`}
                     title={`Solar Flux Index: ${currentSFI} - Higher values indicate better HF propagation`}
                   >
-                    <span className="text-[10px] text-su-muted uppercase">
+                    <span className="text-xs text-su-muted uppercase">
                       SFI
                     </span>
                     <span className={`text-xs font-bold ${sfiColors.text}`}>

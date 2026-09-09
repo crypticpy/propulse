@@ -15,7 +15,11 @@ import { HamClockButton } from "@/components/map/hamclock/wall/controls";
 import { Card, LoadingSpinner } from "@/components/ui";
 import { SpotContextMenu } from "@/components/map/SpotContextMenu";
 import { SpotDetailPanel } from "../SpotDetailPanel";
-import { SpotRow } from "./SpotRow";
+import {
+  SPOT_GRID_COLS,
+  SPOT_GRID_COLS_WITH_AGE,
+  SpotRow,
+} from "./SpotRow";
 import { FilterControls } from "./FilterControls";
 import { useDXSpotListState } from "./useDXSpotListState";
 import { formatTime } from "./utils";
@@ -413,7 +417,7 @@ export function DXSpotList({
             </span>
             {/* Data source indicator badge */}
             <span
-              className="px-1.5 py-0.5 text-[10px] font-bold rounded-full flex items-center gap-1"
+              className="px-1.5 py-0.5 text-xs font-bold rounded-full flex items-center gap-1"
               style={{
                 backgroundColor: SOURCE_BADGE_STYLES[spotSource].fill,
                 color: inkOnFill(SOURCE_BADGE_STYLES[spotSource].fill),
@@ -428,13 +432,13 @@ export function DXSpotList({
               {SOURCE_BADGE_STYLES[spotSource].label} · {feedState.state}
             </span>
             {alertMatchCount > 0 && (
-              <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-alert-red/20 text-alert-red border border-alert-red/30 animate-pulse">
+              <span className="px-1.5 py-0.5 rounded text-xs font-bold bg-alert-red/20 text-alert-red border border-alert-red/30 animate-pulse">
                 {alertMatchCount} alert{alertMatchCount !== 1 ? "s" : ""}
               </span>
             )}
             {neededCount > 0 && (
               <span
-                className="px-1.5 py-0.5 rounded text-[10px] font-bold flex items-center gap-1"
+                className="px-1.5 py-0.5 rounded text-xs font-bold flex items-center gap-1"
                 style={{
                   backgroundColor: NEEDED_BADGE_FILL,
                   color: inkOnFill(NEEDED_BADGE_FILL),
@@ -500,7 +504,7 @@ export function DXSpotList({
 
       {/* Profile filter indicator */}
       {profileFilterActive && (
-        <div className="mb-1.5 px-2 py-1 rounded bg-su-line/10 border border-su-line/40 text-[11px] text-su-muted flex items-center gap-1.5">
+        <div className="mb-1.5 px-2 py-1 rounded bg-su-line/10 border border-su-line/40 text-xs text-su-muted flex items-center gap-1.5">
           <svg
             className="w-3 h-3 text-cyan-400 shrink-0"
             fill="none"
@@ -538,7 +542,7 @@ export function DXSpotList({
           </span>
           <button
             onClick={handleClearFilter}
-            className="ml-auto text-su-text/80 hover:text-su-text text-[10px]"
+            className="ml-auto text-su-text/80 hover:text-su-text text-xs"
             title="Clear filter"
           >
             ✕
@@ -601,7 +605,7 @@ export function DXSpotList({
         {/* Column Headers - sticky at top of scroll container */}
         {!compact && (
           <div
-            className={`sticky top-0 z-10 bg-nebula-blue grid ${spotAgePrefs.showAgeColumn ? "grid-cols-[46px_40px_52px_66px_1fr_50px_62px_1fr_72px]" : "grid-cols-[46px_52px_66px_1fr_50px_62px_1fr_72px]"} gap-1.5 px-2 py-1.5 border-b border-su-line/40 text-[10px] font-semibold text-su-muted uppercase tracking-wider`}
+            className={`sticky top-0 z-10 bg-nebula-blue grid ${spotAgePrefs.showAgeColumn ? SPOT_GRID_COLS_WITH_AGE : SPOT_GRID_COLS} gap-1.5 px-2 py-1.5 border-b border-su-line/40 text-xs font-semibold text-su-muted uppercase tracking-wider`}
             role="row"
             style={{ borderLeft: "3px solid transparent" }}
           >
@@ -618,7 +622,7 @@ export function DXSpotList({
         )}
         {/* Watch filter banner — sticky below column headers */}
         {watchCriteria !== null && (
-          <div className={`sticky ${compact ? "top-0" : "top-[29px]"} z-10 bg-signal-green/10 border-b border-signal-green/20 px-2 py-1.5 flex items-center justify-between text-[11px]`}>
+          <div className={`sticky ${compact ? "top-0" : "top-[29px]"} z-10 bg-signal-green/10 border-b border-signal-green/20 px-2 py-1.5 flex items-center justify-between text-xs`}>
             <div className="flex items-center gap-1.5 text-signal-green min-w-0">
               <svg
                 className="w-3.5 h-3.5 shrink-0"
@@ -699,7 +703,7 @@ export function DXSpotList({
                 }`}
               >
                 {isNewMult && (
-                  <span className="absolute top-1 right-1 z-10 px-1 py-0.5 rounded bg-caution-amber/20 text-caution-amber text-[8px] font-bold leading-none uppercase tracking-wider">
+                  <span className="absolute top-1 right-1 z-10 px-1 py-0.5 rounded bg-caution-amber/20 text-caution-amber text-xs font-bold leading-none uppercase tracking-wider">
                     NEW MULT
                   </span>
                 )}

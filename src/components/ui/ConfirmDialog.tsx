@@ -1,3 +1,4 @@
+import { useId } from "react";
 import { AccessibleDialog } from "@/components/ui/AccessibleDialog";
 
 export interface ConfirmDialogProps {
@@ -49,6 +50,7 @@ export function ConfirmDialog({
   cancelLabel = "Cancel",
   variant = "destructive",
 }: ConfirmDialogProps) {
+  const messageId = useId();
   return (
     <AccessibleDialog
       open={open}
@@ -56,9 +58,10 @@ export function ConfirmDialog({
       title={title}
       size="md"
       role="alertdialog"
+      describedBy={messageId}
     >
       <div className="flex flex-col gap-4">
-        <p className="text-sm text-su-muted">{message}</p>
+        <p id={messageId} className="text-sm text-su-muted">{message}</p>
         <div className="flex items-center justify-end gap-3">
           <button
             type="button"

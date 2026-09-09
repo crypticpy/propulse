@@ -213,6 +213,53 @@ describe("AccessibleDialog", () => {
     expect(panel.getAttribute("aria-labelledby")).toBe("caller-heading");
     expect(screen.getAllByRole("heading", { name: "Equipment name" })).toHaveLength(1);
   });
+
+  it("describedBy points aria-describedby at the caller's own element under default chrome (#779)", () => {
+    render(
+      <AccessibleDialog open onClose={vi.fn()} title="Delete item" describedBy="caller-message">
+        <p id="caller-message">This cannot be undone.</p>
+      </AccessibleDialog>,
+    );
+    const panel = screen.getByRole("dialog", { name: "Delete item" });
+    const describedBy = panel.getAttribute("aria-describedby");
+    expect(describedBy).toBe("caller-message");
+    expect(document.getElementById(describedBy as string)?.textContent).toBe(
+      "This cannot be undone.",
+    );
+  });
+
+  it("describedBy takes precedence over description when both are set (#779)", () => {
+    render(
+      <AccessibleDialog
+        open
+        onClose={vi.fn()}
+        title="Delete item"
+        description="Internal description text"
+        describedBy="caller-message"
+      >
+        <p id="caller-message">This cannot be undone.</p>
+      </AccessibleDialog>,
+    );
+    const panel = screen.getByRole("dialog", { name: "Delete item" });
+    expect(panel.getAttribute("aria-describedby")).toBe("caller-message");
+    // The internal description node must not render at all once describedBy
+    // wins, or a screen reader would announce both.
+    expect(screen.queryByText("Internal description text")).toBeNull();
+  });
+
+  it("without describedBy, aria-describedby still points at the internal description element (#779)", () => {
+    render(
+      <AccessibleDialog open onClose={vi.fn()} title="Delete item" description="Internal description text">
+        <button type="button">Delete</button>
+      </AccessibleDialog>,
+    );
+    const panel = screen.getByRole("dialog", { name: "Delete item" });
+    const describedBy = panel.getAttribute("aria-describedby");
+    expect(describedBy).not.toBeNull();
+    expect(document.getElementById(describedBy as string)?.textContent).toBe(
+      "Internal description text",
+    );
+  });
 });
 
 describe("AccessibleDialog background inerting across a stack", () => {

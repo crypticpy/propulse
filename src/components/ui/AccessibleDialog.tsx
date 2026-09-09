@@ -266,6 +266,19 @@ export interface AccessibleDialogProps {
    */
   labelledBy?: string;
   /**
+   * Points the panel's `aria-describedby` at an element the caller renders
+   * itself instead of the auto-generated `description` node, and suppresses
+   * that node so the message isn't announced twice. Takes precedence over
+   * `description` when both are set. Unlike `labelledBy`, this is not gated
+   * to `chrome="bare"` — it works under default chrome too, since a caller
+   * drawing its own message body (e.g. `ConfirmDialog`'s `<p>`) is exactly
+   * the case this exists for. This is also the general answer for callers
+   * migrating to `AccessibleDialog` (#773) that already render their own
+   * body copy: point `describedBy` at it instead of duplicating the text
+   * into `description`.
+   */
+  describedBy?: string;
+  /**
    * Attributes merged onto the dialog panel before its own: class, style
    * custom properties, `data-*` theme hooks. The panel's role, ARIA wiring
    * and tab index are applied afterwards and always win.
@@ -292,6 +305,7 @@ export function AccessibleDialog({
   role = "dialog",
   chrome = "default",
   labelledBy,
+  describedBy,
   panelProps,
 }: AccessibleDialogProps) {
   const titleId = useId();
@@ -401,7 +415,7 @@ export function AccessibleDialog({
         role={role}
         aria-modal="true"
         aria-labelledby={chrome === "bare" && labelledBy ? labelledBy : titleId}
-        aria-describedby={description ? descriptionId : undefined}
+        aria-describedby={describedBy ?? (description ? descriptionId : undefined)}
         tabIndex={-1}
         className={
           chrome === "bare"
@@ -416,7 +430,7 @@ export function AccessibleDialog({
                 {title}
               </h2>
             )}
-            {description && (
+            {description && !describedBy && (
               <p id={descriptionId} className="sr-only">
                 {description}
               </p>
@@ -430,7 +444,7 @@ export function AccessibleDialog({
                 <h2 id={titleId} className="font-orbitron text-lg font-bold text-su-text sm:text-xl">
                   {title}
                 </h2>
-                {description && (
+                {description && !describedBy && (
                   <p id={descriptionId} className="mt-1 text-sm leading-6 text-su-muted">
                     {description}
                   </p>

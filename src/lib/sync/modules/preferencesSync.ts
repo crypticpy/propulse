@@ -21,7 +21,7 @@ import { useProfileStore } from "@/stores/profileStore";
 import { useThemeStore } from "@/stores/themeStore";
 import { useMapStore } from "@/stores/mapStore";
 import { useDXStore } from "@/stores/dxStore";
-import type { SyncModule, SyncableTable } from "../types";
+import type { SyncModule, SyncableTable, SyncLifecycle } from "../types";
 import type { UserPreferences } from "@/types/user";
 import type { Json } from "@/types/supabase";
 
@@ -33,7 +33,8 @@ export const preferencesSync: SyncModule = {
   tier: "eager",
   tables: ["user_preferences"] as SyncableTable[],
 
-  async pull(userId: string, since: string | null): Promise<string | null> {
+  async pull(userId: string, since: string | null, lifecycle?: SyncLifecycle): Promise<string | null> {
+    if (lifecycle && !lifecycle.isActive()) return null;
     const supabase = getSupabase();
 
     let query = supabase
@@ -46,6 +47,7 @@ export const preferencesSync: SyncModule = {
     }
 
     const { data, error } = await query.maybeSingle();
+    if (lifecycle && !lifecycle.isActive()) return null;
 
     if (error) {
       throw new Error(`Preferences pull failed: ${error.message}`);

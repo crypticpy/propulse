@@ -1,0 +1,5 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Agent constitution
+    url: https://github.com/crypticpy/propulse/blob/main/docs/AGENT-CONSTITUTION.md
+    about: How work is claimed, reviewed, merged and marked done

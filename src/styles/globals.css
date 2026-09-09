@@ -200,6 +200,24 @@
   }
 }
 
+/* Issue #640: the band is a row (title+summary left, action right) by
+ * default, which overprints the action on the summary once the host is
+ * narrower than title-block + action. `layout="stack"` on `SectionHeader`
+ * (never the toggle band — its right slot is a fixed glyph) drops the action
+ * to its own left-aligned row under the full-width summary instead. The
+ * `.home-panel` container query in home.css applies the same three
+ * declarations automatically; this class is the explicit escape for a host
+ * outside that container. */
+.su-section-header--stack {
+  flex-direction: column;
+  align-items: stretch;
+  min-height: auto;
+}
+.su-section-header--stack > .su-section-header__action {
+  margin-top: 0.5rem;
+  align-self: flex-start;
+}
+
 /* Expand/collapse glyph box: tone on the border and the glyph only. */
 .su-section-glyph {
   border-color: rgb(var(--su-section-accent-rgb) / 0.5);

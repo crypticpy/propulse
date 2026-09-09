@@ -52,10 +52,7 @@ export const PATH_STATS_COLUMNS = [
   "backfilled_count",
 ] as const;
 
-export type PathStatsRow = Record<
-  (typeof PATH_STATS_COLUMNS)[number],
-  unknown
->;
+export type PathStatsRow = Record<(typeof PATH_STATS_COLUMNS)[number], unknown>;
 
 export interface DayManifest {
   dataset: string;
@@ -66,6 +63,23 @@ export interface DayManifest {
   sizeBytes: number;
   columns: readonly string[];
   exportedAt: string;
+  manifestVersion?: 2;
+  knownGapSnapshot?: KnownGapSnapshot;
+  knownGapSnapshotCapturedAt?: string;
+}
+
+export interface KnownGapRange {
+  start_hour: string;
+  end_hour: string;
+  recorded_at: string;
+  reason: "raw_expired";
+}
+
+export interface KnownGapSnapshot {
+  version: 1;
+  scope: "known-gaps-only";
+  day: string;
+  gaps: KnownGapRange[];
 }
 
 // ── Pure helpers (exported for tests) ───────────────────────────────────────
@@ -128,6 +142,99 @@ function sha256Hex(bytes: Uint8Array): string {
   return createHash("sha256").update(bytes).digest("hex");
 }
 
+function isUtcTimestamp(value: unknown): value is string {
+  if (
+    typeof value !== "string" ||
+    !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{6}Z$/.test(value)
+  )
+    return false;
+  const parsed = new Date(value);
+  return (
+    Number.isFinite(parsed.getTime()) &&
+    parsed.toISOString() === `${value.slice(0, 23)}Z`
+  );
+}
+
+function isUtcHour(value: unknown): value is string {
+  return isUtcTimestamp(value) && /T\d{2}:00:00\.000000Z$/.test(value);
+}
+
+function isCapturedAt(value: unknown): value is string {
+  if (
+    typeof value !== "string" ||
+    !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/.test(value)
+  )
+    return false;
+  const parsed = new Date(value);
+  return Number.isFinite(parsed.getTime()) && parsed.toISOString() === value;
+}
+
+export function parseKnownGapSnapshot(
+  value: unknown,
+  day: string,
+): KnownGapSnapshot {
+  if (typeof value !== "object" || value === null) {
+    throw new Error("path archive gap snapshot RPC returned a non-object");
+  }
+  const snapshot = value as Partial<KnownGapSnapshot>;
+  if (
+    snapshot.version !== 1 ||
+    snapshot.scope !== "known-gaps-only" ||
+    snapshot.day !== day ||
+    !Array.isArray(snapshot.gaps) ||
+    snapshot.gaps.length > 1000
+  ) {
+    throw new Error("path archive gap snapshot RPC returned an invalid shape");
+  }
+  const dayStart = `${day}T00:00:00.000000Z`;
+  const dayEnd = `${addDays(day, 1)}T00:00:00.000000Z`;
+  let previousStart: string | null = null;
+  for (const gap of snapshot.gaps) {
+    if (
+      typeof gap !== "object" ||
+      gap === null ||
+      !isUtcHour(gap.start_hour) ||
+      !isUtcHour(gap.end_hour) ||
+      !isUtcTimestamp(gap.recorded_at) ||
+      gap.reason !== "raw_expired" ||
+      gap.end_hour < gap.start_hour ||
+      gap.start_hour >= dayEnd ||
+      gap.end_hour < dayStart ||
+      (previousStart !== null && gap.start_hour <= previousStart)
+    ) {
+      throw new Error("path archive gap snapshot RPC returned an invalid gap");
+    }
+    previousStart = gap.start_hour;
+  }
+  return snapshot as KnownGapSnapshot;
+}
+
+function canonicalGapSnapshot(snapshot: KnownGapSnapshot): string {
+  return JSON.stringify({
+    version: snapshot.version,
+    scope: snapshot.scope,
+    day: snapshot.day,
+    gaps: snapshot.gaps.map((gap) => ({
+      start_hour: gap.start_hour,
+      end_hour: gap.end_hour,
+      recorded_at: gap.recorded_at,
+      reason: gap.reason,
+    })),
+  });
+}
+
+async function fetchKnownGapSnapshot(
+  db: SupabaseClient,
+  day: string,
+): Promise<KnownGapSnapshot> {
+  const { data, error } = await db.rpc("spot_archive_path_gap_snapshot", {
+    p_day: day,
+  });
+  if (error)
+    throw new Error(`path archive gap snapshot failed: ${error.message}`);
+  return parseKnownGapSnapshot(data, day);
+}
+
 // ── Database / storage steps ─────────────────────────────────────────────────
 
 async function fetchOldestDay(db: SupabaseClient): Promise<string | null> {
@@ -181,20 +288,41 @@ async function fetchLiveDayCount(
   return count ?? 0;
 }
 
-/** A day is sealed only by a manifest with the exact expected shape. */
-function isSealedManifest(value: unknown, day: string): value is DayManifest {
-  if (typeof value !== "object" || value === null) return false;
+/** Parse a sealed legacy or v2 manifest; malformed/unknown versions fail closed. */
+function parseSealedManifest(value: unknown, day: string): DayManifest {
+  if (typeof value !== "object" || value === null) {
+    throw new Error(`invalid path archive manifest for ${day}`);
+  }
   const m = value as Partial<DayManifest>;
-  return (
+  const baseValid =
     m.dataset === DATASET &&
     m.schemaVersion === SCHEMA_VERSION &&
     m.day === day &&
     typeof m.rowCount === "number" &&
-    Number.isInteger(m.rowCount) &&
+    Number.isSafeInteger(m.rowCount) &&
     m.rowCount >= 0 &&
     typeof m.sha256 === "string" &&
-    /^[0-9a-f]{64}$/.test(m.sha256)
-  );
+    /^[0-9a-f]{64}$/.test(m.sha256);
+  const columnsValid =
+    Array.isArray(m.columns) &&
+    m.columns.length === PATH_STATS_COLUMNS.length &&
+    m.columns.every((column, index) => column === PATH_STATS_COLUMNS[index]);
+  if (
+    !baseValid ||
+    !columnsValid ||
+    typeof m.sizeBytes !== "number" ||
+    !Number.isSafeInteger(m.sizeBytes) ||
+    m.sizeBytes < 0 ||
+    !isCapturedAt(m.exportedAt)
+  ) {
+    throw new Error(`invalid path archive manifest for ${day}`);
+  }
+  if (m.manifestVersion === undefined) return m as DayManifest;
+  if (m.manifestVersion !== 2 || !isCapturedAt(m.knownGapSnapshotCapturedAt)) {
+    throw new Error(`unsupported or invalid path archive manifest for ${day}`);
+  }
+  parseKnownGapSnapshot(m.knownGapSnapshot, day);
+  return m as DayManifest;
 }
 
 async function downloadManifest(
@@ -204,21 +332,18 @@ async function downloadManifest(
   const { data, error } = await db.storage
     .from(BUCKET)
     .download(manifestObjectPath(day));
-  if (error || !data) return null;
-  // A malformed or wrong-shape manifest does not seal a day. Treating it as
-  // unsealed routes the day back through exportDay, which re-verifies the
-  // data object and re-seals the manifest (both uploads tolerate existing
-  // objects), instead of wedging every subsequent pass on a JSON.parse throw.
+  if (error) {
+    if (error.message.toLowerCase().includes("object not found")) return null;
+    throw new Error(`manifest download failed for ${day}: ${error.message}`);
+  }
+  if (!data) throw new Error(`manifest download returned no body for ${day}`);
   try {
     const parsed: unknown = JSON.parse(await data.text());
-    if (isSealedManifest(parsed, day)) return parsed;
-  } catch {
-    // fall through to the invalid-manifest path
+    return parseSealedManifest(parsed, day);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    throw new Error(`manifest validation failed for ${day}: ${message}`);
   }
-  log("warn", "Ignoring invalid path-archive manifest; day treated as unsealed", {
-    day,
-  });
-  return null;
 }
 
 async function downloadObjectBytes(
@@ -240,6 +365,7 @@ async function exportDay(
   db: SupabaseClient,
   day: string,
 ): Promise<DayManifest> {
+  const gapSnapshotBefore = await fetchKnownGapSnapshot(db, day);
   const rows = await fetchDayRows(db, day);
   const gz = gzipSync(Buffer.from(toCsv(rows), "utf8"));
   const sha256 = sha256Hex(gz);
@@ -253,29 +379,22 @@ async function exportDay(
     cacheControl: "31536000",
     upsert: false,
   };
-  const { error: uploadError } = await bucket.upload(objectPath, gz, uploadOpts);
+  const { error: uploadError } = await bucket.upload(
+    objectPath,
+    gz,
+    uploadOpts,
+  );
   const preExisting =
     uploadError?.message.toLowerCase().includes("already exists") ?? false;
   if (uploadError && !preExisting) {
     throw new Error(`archive upload failed for ${day}: ${uploadError.message}`);
   }
 
-  // Verify what storage actually holds. A pre-existing object can only come
-  // from an interrupted prior run (a sealed day never reaches exportDay), so
-  // on mismatch it is safe to overwrite once and re-verify.
-  let storedBytes = await downloadObjectBytes(bucket, objectPath, day);
-  if (sha256Hex(storedBytes) !== sha256 && preExisting) {
-    const { error: replaceError } = await bucket.upload(objectPath, gz, {
-      ...uploadOpts,
-      upsert: true,
-    });
-    if (replaceError) {
-      throw new Error(
-        `archive re-upload failed for ${day}: ${replaceError.message}`,
-      );
-    }
-    storedBytes = await downloadObjectBytes(bucket, objectPath, day);
-  }
+  // Verify what storage actually holds. An identical pre-existing object is
+  // an interrupted upload and can be sealed. Conflicting bytes are preserved
+  // for operator reconciliation because the current live rows may no longer
+  // be authoritative for this historical day.
+  const storedBytes = await downloadObjectBytes(bucket, objectPath, day);
   if (sha256Hex(storedBytes) !== sha256) {
     throw new Error(
       `archive SHA-256 mismatch for ${day} — stored object differs from export; not sealing`,
@@ -289,6 +408,16 @@ async function exportDay(
     );
   }
 
+  const gapSnapshotAfter = await fetchKnownGapSnapshot(db, day);
+  if (
+    canonicalGapSnapshot(gapSnapshotBefore) !==
+    canonicalGapSnapshot(gapSnapshotAfter)
+  ) {
+    throw new Error(
+      `path archive known-gap snapshot changed during export for ${day} — not sealing`,
+    );
+  }
+
   const manifest: DayManifest = {
     dataset: DATASET,
     schemaVersion: SCHEMA_VERSION,
@@ -298,6 +427,9 @@ async function exportDay(
     sizeBytes: gz.length,
     columns: PATH_STATS_COLUMNS,
     exportedAt: new Date().toISOString(),
+    manifestVersion: 2,
+    knownGapSnapshot: gapSnapshotAfter,
+    knownGapSnapshotCapturedAt: new Date().toISOString(),
   };
   const { error: manifestError } = await bucket.upload(
     manifestObjectPath(day),
@@ -305,9 +437,20 @@ async function exportDay(
     { contentType: "application/json", cacheControl: "3600", upsert: true },
   );
   if (manifestError) {
-    throw new Error(`manifest upload failed for ${day}: ${manifestError.message}`);
+    throw new Error(
+      `manifest upload failed for ${day}: ${manifestError.message}`,
+    );
   }
-  return manifest;
+  const storedManifest = await downloadManifest(db, day);
+  if (
+    !storedManifest ||
+    JSON.stringify(storedManifest) !== JSON.stringify(manifest)
+  ) {
+    throw new Error(
+      `manifest verification failed for ${day} — stored manifest differs`,
+    );
+  }
+  return storedManifest;
 }
 
 async function pruneDay(
@@ -316,6 +459,14 @@ async function pruneDay(
 ): Promise<number> {
   const live = await fetchLiveDayCount(db, manifest.day);
   if (live === 0) return 0; // already pruned
+  if (
+    manifest.manifestVersion !== 2 ||
+    manifest.knownGapSnapshot === undefined
+  ) {
+    throw new Error(
+      `legacy path archive manifest for ${manifest.day} has no known-gap snapshot — refusing to prune`,
+    );
+  }
   // Last look before the destructive step: the archived object must still
   // hash to what its manifest sealed, or the hot rows are the only copy.
   const stored = await downloadObjectBytes(
@@ -328,10 +479,14 @@ async function pruneDay(
       `archived object SHA-256 mismatch vs manifest for ${manifest.day} — refusing to prune`,
     );
   }
-  const { data, error } = await db.rpc("prune_archived_path_hourly_stats", {
-    p_day: manifest.day,
-    p_expected_rows: manifest.rowCount,
-  });
+  const { data, error } = await db.rpc(
+    "prune_archived_path_hourly_stats_with_coverage",
+    {
+      p_day: manifest.day,
+      p_expected_rows: manifest.rowCount,
+      p_gap_snapshot: manifest.knownGapSnapshot,
+    },
+  );
   if (error) {
     throw new Error(`prune refused for ${manifest.day}: ${error.message}`);
   }
@@ -432,15 +587,12 @@ export async function archivePathStats(
     const result = await runArchivePass(db, controls, start);
     const durationMs = Date.now() - start;
     reportHealth("path-archive", "ok", result.rowsArchived);
-    await reportToDb(
-      db,
-      "path-archive",
-      "ok",
-      result.rowsArchived,
-      durationMs,
-    );
+    await reportToDb(db, "path-archive", "ok", result.rowsArchived, durationMs);
     if (result.daysArchived > 0 || result.daysPruned > 0) {
-      log("info", "Path stats archive pass complete", { ...result, durationMs });
+      log("info", "Path stats archive pass complete", {
+        ...result,
+        durationMs,
+      });
     }
   } catch (err) {
     const durationMs = Date.now() - start;

@@ -21,12 +21,28 @@
  * TUNE looks up the tapped spot's frequency/mode from the shared `useDXStore`
  * feed by `target.spotId` (the same store `PhoneContactList` reads), and
  * sends a `tune` command (#660) to the first live registration on the
- * shared operating-state roster (#658) whose `capabilities.canTune` is true
- * — today, a workstation with a bridge-connected rig
- * (`useOperatingScreen`). Disabled with a spelled-out reason otherwise.
+ * shared operating-state roster (#658) whose `capabilities.canTune` and
+ * `capabilities.canCommand` are both true — today, a non-wall canvas with a
+ * bridge-connected rig (`useOperatingScreen`). The command names that exact
+ * registration's `deviceId` + `workspaceId` (PR #694 review), so exactly one
+ * screen acts even when several share a workspace id. TUNE is disabled with
+ * a spelled-out reason when: the kill switch is off, no such registration is
+ * live, the contact has no live spot to source a frequency from, or the
+ * contact's band does not match the phone's own ladder selection (so a stale
+ * cursor cannot send a frequency off the operator's selected band). A short
+ * "SENT" / "FAILED: <reason>" line follows the button once the tuned screen
+ * reports back (`tuneResult`) — TUNE was fire-and-forget before the review;
+ * this makes the outcome honest instead of assuming success.
+ *
+ * The decision report's physics `mode` (PR #694 review, Codex thread
+ * PRRT_kwDORFr4R86ggtq8) comes from the *contact's* live spot mode when it
+ * has one — `calculateLUF`'s thresholds differ per mode, so building the
+ * report with the phone's own station mode could show the wrong open/closed
+ * call for a CW or FT8 contact. Falls back to the phone's own `physicsMode`
+ * only when the spot carries no mode.
  */
 
-import { useMemo } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useActiveLocation } from "@/hooks/useActiveLocation";
 import { useActiveStationGain } from "@/hooks/useActiveStationGain";
 import { useKIndex, useSolarFlux } from "@/hooks/useSolarData";
@@ -37,6 +53,7 @@ import {
   type DecisionReport,
   type DecisionTone,
 } from "@/lib/map/decision";
+import { toPhysicsMode } from "@/lib/station/stationPhysics";
 import { gridToLatLon, isValidGrid } from "@/lib/utils/grid";
 import { formatBearing, formatDistance, getPathMetrics } from "@/lib/utils/path";
 import type { WorkspaceRegistration } from "@/lib/workspace/operatingChannel";
@@ -48,6 +65,9 @@ import {
   useOperatingStateStore,
 } from "@/stores/operatingStateStore";
 import { usePhoneTick } from "./usePhoneTick";
+
+/** How long the "SENT" / "FAILED: <reason>" line stays up after a tuneResult. */
+const TUNE_FEEDBACK_MS = 5_000;
 
 const TONE_BADGE: Record<DecisionTone, "success" | "warning" | "danger" | "neutral"> = {
   open: "success",
@@ -79,14 +99,15 @@ function resolveTargetLatLon(target: {
   }
 }
 
-/** The first live, canTune registration on the roster — the phone's remote target. */
+/** The first live, canTune + canCommand registration on the roster — the phone's remote target. */
 function pickTuneWorkspace(
   registrations: Record<string, WorkspaceRegistration>,
   now: number,
 ): WorkspaceRegistration | null {
   for (const registration of Object.values(registrations)) {
     if (now - registration.lastSeen >= REGISTRATION_TTL_MS) continue;
-    if (registration.capabilities.canTune) return registration;
+    if (!registration.capabilities.canTune || !registration.capabilities.canCommand) continue;
+    return registration;
   }
   return null;
 }
@@ -99,9 +120,17 @@ function spotAge(observedAt: string | null): string {
   return `${minutes}m ago`;
 }
 
+/** "14195" kHz -> "14.195" MHz, matching the precision a rig actually tunes to. */
+function formatFrequencyMhz(frequencyKHz: number): string {
+  return (frequencyKHz / 1000).toFixed(3);
+}
+
 export function ContactScreen() {
   const target = useOperatingStateStore((state) => state.cursor.target);
+  const ladderBand = useOperatingStateStore((state) => state.cursor.band);
   const registrations = useOperatingStateStore((state) => state.registrations);
+  const followScreens = useOperatingStateStore((state) => state.followScreens);
+  const lastCommand = useOperatingStateStore((state) => state.lastCommand);
   const spots = useDXStore((state) => state.spots);
   const hiddenSpotIds = useDXStore((state) => state.hiddenSpotIds);
   const clusterFeed = useDXStore((state) => state.clusterFeed);
@@ -113,6 +142,11 @@ export function ContactScreen() {
   // Refreshes the report and the tune-eligible roster every 60s so neither
   // freezes at first-render values (pattern: PhoneBandLadder/PhoneContactList, #685 P3).
   const tick = usePhoneTick();
+
+  const pendingTuneRef = useRef<{ deviceId: string; workspaceId: string } | null>(null);
+  const [tuneFeedback, setTuneFeedback] = useState<{ ok: boolean; reason: string | null } | null>(
+    null,
+  );
 
   const tuneWorkspace = useMemo(
     () => pickTuneWorkspace(registrations, Date.now()),
@@ -127,10 +161,36 @@ export function ContactScreen() {
     [spots, target?.spotId],
   );
 
+  // A tuneResult addressed to the exact screen this phone last sent a tune
+  // to (PR #694 review): TUNE was fire-and-forget before this, so the button
+  // could lie about whether the rig actually moved.
+  useEffect(() => {
+    if (!lastCommand || lastCommand.command.type !== "tuneResult") return;
+    const pending = pendingTuneRef.current;
+    if (!pending) return;
+    const { command } = lastCommand;
+    if (command.deviceId !== pending.deviceId || command.workspaceId !== pending.workspaceId) return;
+    pendingTuneRef.current = null;
+    setTuneFeedback({ ok: command.ok, reason: command.reason });
+  }, [lastCommand]);
+
+  useEffect(() => {
+    if (!tuneFeedback) return;
+    const timer = setTimeout(() => setTuneFeedback(null), TUNE_FEEDBACK_MS);
+    return () => clearTimeout(timer);
+  }, [tuneFeedback]);
+
   const targetLatLon = useMemo(
     () => (target ? resolveTargetLatLon(target) : null),
     [target],
   );
+
+  // PR #694 review (Codex): the contact's own live spot mode drives the
+  // report's physics mode when it has one — `calculateLUF`'s thresholds are
+  // per-mode, so building the report with the phone's own station mode could
+  // show the wrong open/closed call for a CW or FT8 contact. Only the
+  // phone's own station mode is a fallback, for a target with no live spot.
+  const reportMode = targetSpot?.mode ? toPhysicsMode(targetSpot.mode) : physicsMode;
 
   const decision = useMemo((): DecisionReport | null => {
     if (!target || !location || !targetLatLon) return null;
@@ -154,7 +214,7 @@ export function ContactScreen() {
         sfiFetchedAt: fluxUpdatedAt ? new Date(fluxUpdatedAt).toISOString() : null,
         kp: lastKp ? lastKp.kp_index : null,
         txPowerWatts,
-        mode: physicsMode,
+        mode: reportMode,
         spots: visibleSpots,
         spotsObservedAt: clusterFeed.observedAt,
         spotsFetchedAt: clusterFeed.fetchedAt,
@@ -174,7 +234,7 @@ export function ContactScreen() {
     fluxUpdatedAt,
     kIndexData,
     txPowerWatts,
-    physicsMode,
+    reportMode,
     spots,
     hiddenSpotIds,
     clusterFeed.observedAt,
@@ -197,17 +257,28 @@ export function ContactScreen() {
     );
   }
 
-  const tuneReason = !tuneWorkspace
-    ? "No workstation with a rig connected is on this session."
-    : !targetSpot
-      ? "No live frequency for this contact."
+  const bandMismatch =
+    targetSpot?.band != null && ladderBand != null && targetSpot.band !== ladderBand
+      ? { contactBand: targetSpot.band, ladderBand }
       : null;
+
+  const tuneReason = !followScreens
+    ? "Follow screens is off on this phone."
+    : !tuneWorkspace
+      ? "No workstation with a rig connected is on this session."
+      : !targetSpot
+        ? "No live frequency for this contact."
+        : bandMismatch
+          ? `Contact is on ${bandMismatch.contactBand}, ladder is on ${bandMismatch.ladderBand}.`
+          : null;
 
   function handleTune() {
     if (!tuneWorkspace || !targetSpot) return;
+    pendingTuneRef.current = { deviceId: tuneWorkspace.deviceId, workspaceId: tuneWorkspace.workspaceId };
+    setTuneFeedback(null);
     useOperatingStateStore
       .getState()
-      .tune(tuneWorkspace.workspaceId, targetSpot.frequency, targetSpot.mode ?? null);
+      .tune(tuneWorkspace.deviceId, tuneWorkspace.workspaceId, targetSpot.frequency, targetSpot.mode ?? null);
   }
 
   return (
@@ -261,18 +332,20 @@ export function ContactScreen() {
             )}
           </div>
 
-          <div className="phone-contact-nearby" role="list" aria-label="Nearby spots">
+          <div className="phone-contact-nearby">
             <p className="su-eyebrow">NEARBY SPOTS ({decision.nearby.count})</p>
             {decision.nearby.hits.length === 0 ? (
               <p className="su-hint">No spots within {decision.nearby.radiusKm} km.</p>
             ) : (
-              decision.nearby.hits.map((hit) => (
-                <div key={hit.id} role="listitem" className="phone-contact-nearby-row su-mono">
-                  <span>{hit.dx}</span>
-                  <span>{hit.band ?? "—"}</span>
-                  <span className="su-hint">{spotAge(hit.observedAt)}</span>
-                </div>
-              ))
+              <div role="list" aria-label="Nearby spots">
+                {decision.nearby.hits.map((hit) => (
+                  <div key={hit.id} role="listitem" className="phone-contact-nearby-row su-mono">
+                    <span>{hit.dx}</span>
+                    <span>{hit.band ?? "—"}</span>
+                    <span className="su-hint">{spotAge(hit.observedAt)}</span>
+                  </div>
+                ))}
+              </div>
             )}
           </div>
         </>
@@ -282,6 +355,11 @@ export function ContactScreen() {
         </Notice>
       )}
 
+      {targetSpot && (
+        <p className="su-mono su-hint phone-tune-preview">
+          {formatFrequencyMhz(targetSpot.frequency)} MHz {targetSpot.mode ?? "—"}
+        </p>
+      )}
       <Button
         variant="primary"
         className="phone-tune-button"
@@ -292,6 +370,17 @@ export function ContactScreen() {
         {tuneWorkspace ? `TUNE ON ${tuneWorkspace.label.toUpperCase()}` : "TUNE"}
       </Button>
       {tuneReason && <p className="su-hint phone-tune-reason">{tuneReason}</p>}
+      {tuneFeedback && (
+        <p
+          className={
+            tuneFeedback.ok
+              ? "su-hint phone-tune-feedback"
+              : "phone-tune-feedback phone-tune-feedback-error"
+          }
+        >
+          {tuneFeedback.ok ? "SENT" : `FAILED: ${tuneFeedback.reason ?? "Unknown reason."}`}
+        </p>
+      )}
     </div>
   );
 }

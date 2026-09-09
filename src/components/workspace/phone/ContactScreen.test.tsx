@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { DecisionReport } from "@/lib/map/decision";
 import { useDXStore } from "@/stores/dxStore";
@@ -204,9 +204,169 @@ describe("ContactScreen", () => {
 
     expect(useOperatingStateStore.getState().lastCommand?.command).toEqual({
       type: "tune",
+      deviceId: useOperatingStateStore.getState().deviceId,
       workspaceId: "workstation-default",
       frequencyKHz: 14195,
       mode: "USB",
     });
+  });
+
+  it("disables TUNE with a reason when follow screens is off on this phone", () => {
+    useOperatingStateStore.getState().registerWorkspace({
+      workspaceId: "workstation-default",
+      canvasType: "workstation",
+      label: "Workstation",
+      capabilities: { canTune: true, canCommand: true },
+    });
+    useDXStore.setState({ spots: [spot({ id: "s1", frequency: 14195, mode: "USB" })] });
+    useOperatingStateStore.getState().setTarget({
+      callsign: "PY2ABC",
+      grid: "GG66",
+      lat: null,
+      lon: null,
+      spotId: "s1",
+    });
+    useOperatingStateStore.setState({ followScreens: false });
+
+    render(<ContactScreen />);
+
+    const button = screen.getByRole("button", { name: /Tune:/ }) as HTMLButtonElement;
+    expect(button.disabled).toBe(true);
+    expect(screen.getByText("Follow screens is off on this phone.")).toBeTruthy();
+  });
+
+  it("disables TUNE with a reason when the contact's band does not match the phone's ladder band", () => {
+    useOperatingStateStore.getState().registerWorkspace({
+      workspaceId: "workstation-default",
+      canvasType: "workstation",
+      label: "Workstation",
+      capabilities: { canTune: true, canCommand: true },
+    });
+    useDXStore.setState({ spots: [spot({ id: "s1", frequency: 7074, mode: "USB", band: "40m" })] });
+    useOperatingStateStore.getState().setTarget({
+      callsign: "PY2ABC",
+      grid: "GG66",
+      lat: null,
+      lon: null,
+      spotId: "s1",
+    });
+    useOperatingStateStore.getState().setBand("20m");
+
+    render(<ContactScreen />);
+
+    const button = screen.getByRole("button", { name: /Tune:/ }) as HTMLButtonElement;
+    expect(button.disabled).toBe(true);
+    expect(screen.getByText("Contact is on 40m, ladder is on 20m.")).toBeTruthy();
+  });
+
+  it("does not pick a registration that can tune but cannot command", () => {
+    useOperatingStateStore.getState().registerWorkspace({
+      workspaceId: "workstation-default",
+      canvasType: "wall",
+      label: "Wall",
+      capabilities: { canTune: true, canCommand: false },
+    });
+    useDXStore.setState({ spots: [spot({ id: "s1", frequency: 14195, mode: "USB" })] });
+    useOperatingStateStore.getState().setTarget({
+      callsign: "PY2ABC",
+      grid: "GG66",
+      lat: null,
+      lon: null,
+      spotId: "s1",
+    });
+
+    render(<ContactScreen />);
+
+    const button = screen.getByRole("button", { name: /Tune:/ }) as HTMLButtonElement;
+    expect(button.disabled).toBe(true);
+    expect(
+      screen.getByText("No workstation with a rig connected is on this session."),
+    ).toBeTruthy();
+  });
+
+  it("shows SENT after a matching tuneResult arrives", () => {
+    useOperatingStateStore.getState().registerWorkspace({
+      workspaceId: "workstation-default",
+      canvasType: "workstation",
+      label: "Workstation",
+      capabilities: { canTune: true, canCommand: true },
+    });
+    useDXStore.setState({ spots: [spot({ id: "s1", frequency: 14195, mode: "USB" })] });
+    useOperatingStateStore.getState().setTarget({
+      callsign: "PY2ABC",
+      grid: "GG66",
+      lat: null,
+      lon: null,
+      spotId: "s1",
+    });
+
+    render(<ContactScreen />);
+
+    const button = screen.getByRole("button", { name: "TUNE ON WORKSTATION" }) as HTMLButtonElement;
+    fireEvent.click(button);
+
+    const ownDeviceId = useOperatingStateStore.getState().deviceId;
+    act(() => {
+      useOperatingStateStore
+        .getState()
+        .reportTuneResult(ownDeviceId, "workstation-default", true, null);
+    });
+
+    expect(screen.getByText("SENT")).toBeTruthy();
+  });
+
+  it("shows FAILED with a reason after a matching tuneResult reports failure", () => {
+    useOperatingStateStore.getState().registerWorkspace({
+      workspaceId: "workstation-default",
+      canvasType: "workstation",
+      label: "Workstation",
+      capabilities: { canTune: true, canCommand: true },
+    });
+    useDXStore.setState({ spots: [spot({ id: "s1", frequency: 14195, mode: "USB" })] });
+    useOperatingStateStore.getState().setTarget({
+      callsign: "PY2ABC",
+      grid: "GG66",
+      lat: null,
+      lon: null,
+      spotId: "s1",
+    });
+
+    render(<ContactScreen />);
+
+    const button = screen.getByRole("button", { name: "TUNE ON WORKSTATION" }) as HTMLButtonElement;
+    fireEvent.click(button);
+
+    const ownDeviceId = useOperatingStateStore.getState().deviceId;
+    act(() => {
+      useOperatingStateStore
+        .getState()
+        .reportTuneResult(ownDeviceId, "workstation-default", false, "RIG WAITING");
+    });
+
+    expect(screen.getByText("FAILED: RIG WAITING")).toBeTruthy();
+  });
+
+  it("builds the decision report with the contact's own live spot mode, not the phone's station mode", () => {
+    mocks.useActiveStationGain.mockReset().mockReturnValue({
+      antennaType: "dipole",
+      systemLossDb: 0,
+      txPowerWatts: 100,
+      erpWatts: 100,
+      physicsMode: "SSB",
+    });
+    useDXStore.setState({ spots: [spot({ id: "s1", frequency: 14195074, mode: "FT8" })] });
+    useOperatingStateStore.getState().setTarget({
+      callsign: "PY2ABC",
+      grid: "GG66",
+      lat: null,
+      lon: null,
+      spotId: "s1",
+    });
+
+    render(<ContactScreen />);
+
+    expect(mocks.buildDecisionReport).toHaveBeenCalledWith(
+      expect.objectContaining({ mode: "FT8" }),
+    );
   });
 });

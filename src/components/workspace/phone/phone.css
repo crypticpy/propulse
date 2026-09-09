@@ -179,3 +179,16 @@
 .phone-tune-reason {
   text-align: center;
 }
+
+.phone-tune-preview {
+  text-align: center;
+}
+
+.phone-tune-feedback {
+  text-align: center;
+  font-weight: 600;
+}
+
+.phone-tune-feedback-error {
+  color: var(--su-danger);
+}

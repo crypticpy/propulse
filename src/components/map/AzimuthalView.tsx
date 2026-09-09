@@ -1651,7 +1651,6 @@ export function AzimuthalView({
   hideSizeSliders = false,
 }: AzimuthalViewProps) {
   const containerRef = useRef<HTMLDivElement>(null);
-  const webglCanvasRef = useRef<HTMLCanvasElement>(null);
   const overlayCanvasRef = useRef<HTMLCanvasElement>(null);
   const contestOverlayCanvasRef = useRef<HTMLCanvasElement>(null);
   const rendererRef = useRef<AzimuthalRenderer | null>(null);
@@ -1803,10 +1802,11 @@ export function AzimuthalView({
     y: number;
   } | null>(null);
 
-  // Initialize WebGL renderer
+  // Initialize WebGL renderer. The renderer owns its <canvas> so dispose() can
+  // lose the context and remove the node; a successor always gets a virgin element.
   useEffect(() => {
-    const canvas = webglCanvasRef.current;
-    if (!canvas) {
+    const host = containerRef.current;
+    if (!host) {
       return;
     }
 
@@ -1839,7 +1839,7 @@ export function AzimuthalView({
       },
     });
 
-    renderer.initialize(canvas).then((success) => {
+    renderer.initialize(host).then((success) => {
       if (success && !cancelled) {
         rendererRef.current = renderer;
       }
@@ -2568,7 +2568,7 @@ export function AzimuthalView({
     const backingSize = Math.round(
       displaySize * qualitySettings.renderDevicePixelRatio,
     );
-    renderer.resize(backingSize, backingSize);
+    renderer.resize(backingSize, backingSize, displaySize);
     renderer.setMapStyle(mapStyle);
     renderer.render({
       centerLat: center.lat,
@@ -2903,18 +2903,7 @@ export function AzimuthalView({
       ref={containerRef}
       className="w-full h-full min-h-[400px] bg-deep-space rounded-xl overflow-hidden relative flex items-center justify-center select-none"
     >
-      {/* WebGL canvas for map background */}
-      <canvas
-        ref={webglCanvasRef}
-        width={CANVAS_SIZE}
-        height={CANVAS_SIZE}
-        className="absolute"
-        style={{
-          imageRendering: "auto",
-          width: displaySize,
-          height: displaySize,
-        }}
-      />
+      {/* WebGL canvas is created and owned by AzimuthalRenderer. */}
       {/* Renderer-agnostic overlay canvas (contest overlays, etc.) — sits
           below the UI overlay canvas so it doesn't occlude the home marker
           and target label, which must stay on top. */}

@@ -184,8 +184,7 @@ interface RecencyPruneFake {
 }
 
 function fakePruneDb(
-  oldestHour: string | null,
-  options: { deleteError?: string } = {},
+  options: { deleteError?: string; countPerHour?: number } = {},
 ): RecencyPruneFake {
   const deleted: { start: string; end: string }[] = [];
   const fake: RecencyPruneFake = {
@@ -200,16 +199,6 @@ function fakePruneDb(
       }
       fake.fromCalls += 1;
       return {
-        select: () => ({
-          order: () => ({
-            limit: () => ({
-              maybeSingle: async () => ({
-                data: oldestHour ? { hour_utc: oldestHour } : null,
-                error: null,
-              }),
-            }),
-          }),
-        }),
         delete: () => ({
           gte: (_column: string, start: string) => ({
             lt: async (_column: string, end: string) => {
@@ -217,7 +206,7 @@ function fakePruneDb(
                 return { count: null, error: { message: options.deleteError } };
               }
               deleted.push({ start, end });
-              return { count: 12, error: null };
+              return { count: options.countPerHour ?? 12, error: null };
             },
           }),
         }),
@@ -235,32 +224,69 @@ const HOT: PathArchiveControls = {
 
 describe("path recency prune", () => {
   it("does not touch the table until ARCHIVE_PATH_STATS_PRUNE is armed", async () => {
-    const fake = fakePruneDb("2026-04-01T00:00:00.000Z");
+    const fake = fakePruneDb();
     await expect(
-      prunePathRecency(fake.db, { ...HOT, pruneEnabled: false }),
+      prunePathRecency(fake.db, { ...HOT, pruneEnabled: false }, [
+        "2026-04-01",
+      ]),
     ).resolves.toEqual({ daysPruned: 0, rowsDeleted: 0 });
     expect(fake.fromCalls).toBe(0);
     expect(fake.deleted).toEqual([]);
   });
 
-  it("deletes the oldest complete UTC days, bounded by maxDaysPerRun", async () => {
-    const fake = fakePruneDb("2026-04-01T15:00:00.000Z");
-    const nowMs = Date.parse("2026-09-07T12:00:00.000Z");
-    const result = await prunePathRecency(fake.db, HOT, nowMs);
-    expect(result).toEqual({ daysPruned: 2, rowsDeleted: 24 });
-    expect(fake.deleted).toEqual([
-      { start: "2026-04-01T00:00:00.000Z", end: "2026-04-02T00:00:00.000Z" },
-      { start: "2026-04-02T00:00:00.000Z", end: "2026-04-03T00:00:00.000Z" },
-    ]);
+  // N1 (#609 review): prunePathRecency used to compute its own window from
+  // path_recency_hourly's own oldest row, which could run ahead of what the
+  // archive pass actually confirmed archived. It must now only ever delete
+  // exactly the days it is handed.
+  it("deletes only the days passed in, never a self-computed window", async () => {
+    const fake = fakePruneDb();
+    const result = await prunePathRecency(fake.db, HOT, ["2026-04-01"]);
+    expect(result).toEqual({ daysPruned: 1, rowsDeleted: 12 * 24 });
+    // Every delete stays within 2026-04-01's 24 hours.
+    expect(fake.deleted).toHaveLength(24);
+    expect(fake.deleted[0]).toEqual({
+      start: "2026-04-01T00:00:00.000Z",
+      end: "2026-04-01T01:00:00.000Z",
+    });
+    expect(fake.deleted[23]).toEqual({
+      start: "2026-04-01T23:00:00.000Z",
+      end: "2026-04-02T00:00:00.000Z",
+    });
   });
 
-  it("does nothing when every stored hour is still inside the hot window", async () => {
-    const fake = fakePruneDb("2026-08-01T00:00:00.000Z");
-    const nowMs = Date.parse("2026-09-07T12:00:00.000Z");
-    await expect(prunePathRecency(fake.db, HOT, nowMs)).resolves.toEqual({
+  // N2 (#609 review): a day-wide DELETE on ~70k rows/day risks the default
+  // 8s PostgREST statement timeout. Deletes must be hour-by-hour instead.
+  it("deletes hour-by-hour rather than one day-wide statement", async () => {
+    const fake = fakePruneDb();
+    await prunePathRecency(fake.db, HOT, ["2026-04-01", "2026-04-02"]);
+    // 2 days * 24 bounded hourly statements, never a single day-wide one.
+    expect(fake.deleted).toHaveLength(48);
+    for (const { start, end } of fake.deleted) {
+      const spanMs = Date.parse(end) - Date.parse(start);
+      expect(spanMs).toBe(3_600_000);
+    }
+  });
+
+  it("bounds work to maxDaysPerRun, oldest first", async () => {
+    const fake = fakePruneDb();
+    const result = await prunePathRecency(fake.db, HOT, [
+      "2026-04-01",
+      "2026-04-02",
+      "2026-04-03",
+    ]);
+    expect(result.daysPruned).toBe(2); // HOT.maxDaysPerRun = 2
+    expect(fake.deleted.every((d) => !d.start.startsWith("2026-04-03"))).toBe(
+      true,
+    );
+  });
+
+  it("does nothing when handed no sealed days", async () => {
+    const fake = fakePruneDb();
+    await expect(prunePathRecency(fake.db, HOT, [])).resolves.toEqual({
       daysPruned: 0,
       rowsDeleted: 0,
     });
+    expect(fake.fromCalls).toBe(0);
     expect(fake.deleted).toEqual([]);
   });
 });

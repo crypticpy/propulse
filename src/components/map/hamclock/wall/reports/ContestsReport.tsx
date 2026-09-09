@@ -35,9 +35,14 @@ export function ContestsReport({
     [items, now, reference],
   );
   const live = activeCount(rows, now);
-  const unavailable = error != null || status !== "ok";
+  // "empty" is a feed that loaded fine and parsed to zero items — a
+  // different condition from unreachable/too-large, and not a load failure
+  // (#609 review N7). The zero-rows branch below already has the correct
+  // copy for it ("No contests in the current feed window").
+  const unavailable =
+    error != null || (status !== "ok" && status !== "empty");
   const { footer, updated } = reportFooter(
-    "WA7BNM CONTEST CALENDAR",
+    "WA7BNM CONTEST CALENDAR · RETRIEVED",
     unavailable ? null : dataUpdatedAt > 0 ? dataUpdatedAt : null,
     now,
   );

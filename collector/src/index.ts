@@ -188,20 +188,40 @@ async function main(): Promise<void> {
   );
 
   // path_hourly_stats day archiver — exports days older than the hot window
-  // to storage; deletes them (and derived path_recency_hourly) only when
-  // ARCHIVE_PATH_STATS_PRUNE=true. Recency is reconstructable from archived
-  // stats, so it is not exported separately. Both steps are tracked as one
-  // "path-archive" health source: prunePathRecency only runs when the
-  // archive/export step (and its verification) is confirmed to have
-  // succeeded, and "path-archive" is only reported healthy once BOTH steps
-  // complete — a failure in either one is reported as unhealthy, so a
-  // stuck recency prune can never hide behind an archive step that already
-  // reported "ok".
+  // to storage; deletes them only when ARCHIVE_PATH_STATS_PRUNE=true.
+  // Recency is reconstructable from archived stats, so it is not exported
+  // separately, but it has no seal of its own: prunePathRecency is only
+  // allowed to delete `path_recency_hourly` days that THIS SAME PASS
+  // returned in `archived.sealedDays` (a verified manifest exists), never a
+  // window it computes on its own — that is what makes the delete a subset
+  // of confirmed-sealed days by construction (#609 review N1/N3). Both
+  // steps share one `nowMs` reading and are tracked as one "path-archive"
+  // health source: prunePathRecency only runs when the archive/export step
+  // (and its verification) is confirmed to have succeeded, and
+  // "path-archive" is only reported healthy once BOTH steps complete — a
+  // failure in either one is reported as unhealthy, so a stuck recency
+  // prune can never hide behind an archive step that already reported "ok".
   register("path-archive", pollIntervals.pathArchive, () =>
     runTrackedAggregation(db, "path-archive", async () => {
-      const archived = await archivePathStats(db, config.archive.pathStats);
-      const pruned = await prunePathRecency(db, config.archive.pathStats);
-      return archived.rowsArchived + pruned.rowsDeleted;
+      const nowMs = Date.now();
+      const archived = await archivePathStats(
+        db,
+        config.archive.pathStats,
+        nowMs,
+      );
+      const pruned = await prunePathRecency(
+        db,
+        config.archive.pathStats,
+        archived.sealedDays,
+      );
+      log("info", "Path recency prune complete", {
+        daysPruned: pruned.daysPruned,
+        rowsDeleted: pruned.rowsDeleted,
+      });
+      // Tracked row count is rows written to storage only — rowsDeleted is
+      // rows destroyed from a different table and would make this metric
+      // uninterpretable if summed in (#609 review N4).
+      return archived.rowsArchived;
     }),
   );
 

@@ -34,7 +34,7 @@ export function DxpeditionsReport({
   const live = activeCount(rows, now);
   const unavailable = error != null || status !== "ok";
   const { footer, updated } = reportFooter(
-    "NG3K ADXO",
+    "NG3K ADXO · RETRIEVED",
     unavailable ? null : dataUpdatedAt > 0 ? dataUpdatedAt : null,
     now,
   );

@@ -48,4 +48,48 @@ describe("ContestsReport footer timestamp", () => {
       "WAITING",
     );
   });
+
+  // N5 (#609 review): the "UPDATED" badge is a client fetch time, not a
+  // source-truth time, so the footer must name that basis explicitly
+  // rather than let the generic "UPDATED" wording imply the feed content
+  // itself changed.
+  it("names RETRIEVED as the footer basis, not just UPDATED", () => {
+    mocks.rss.mockReturnValue({
+      items: [],
+      status: "ok",
+      dataUpdatedAt: Date.parse("2026-09-09T13:04:00.000Z"),
+      isLoading: false,
+      error: null,
+    });
+
+    render(<ContestsReport open onClose={() => {}} />);
+
+    expect(document.querySelector(".hcr-foot")?.textContent).toContain(
+      "RETRIEVED",
+    );
+  });
+});
+
+// N7 (#609 review): "empty" is a feed that loaded fine and parsed to zero
+// items — a different condition from unreachable/too-large, and not a load
+// failure.
+describe("ContestsReport empty-feed status", () => {
+  it("treats status \"empty\" as zero contests, not an unavailable feed", () => {
+    mocks.rss.mockReturnValue({
+      items: [],
+      status: "empty",
+      dataUpdatedAt: Date.parse("2026-09-09T13:04:00.000Z"),
+      isLoading: false,
+      error: null,
+    });
+
+    render(<ContestsReport open onClose={() => {}} />);
+
+    expect(document.body.textContent).not.toContain(
+      "The WA7BNM feed did not load.",
+    );
+    expect(document.body.textContent).toContain(
+      "No contests in the current feed window.",
+    );
+  });
 });

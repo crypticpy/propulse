@@ -1,7 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { log } from "../logger.js";
 import type { PathArchiveControls } from "../types.js";
-import { archivableDays } from "./archivePathStats.js";
 import { resolveAggregationWatermark } from "./watermark.js";
 
 /**
@@ -159,69 +158,72 @@ export interface PathRecencyPruneResult {
   rowsDeleted: number;
 }
 
-function utcDayOf(hourUtc: string): string | null {
-  const ms = Date.parse(hourUtc);
-  if (!Number.isFinite(ms)) return null;
-  return new Date(ms).toISOString().slice(0, 10);
-}
-
-function nextUtcDayIso(day: string): string {
-  return new Date(Date.parse(`${day}T00:00:00.000Z`) + 86_400_000).toISOString();
-}
-
-async function oldestRecencyDay(db: SupabaseClient): Promise<string | null> {
-  const { data, error } = await db
+/**
+ * Delete one hour of `path_recency_hourly`. Deletes go hour-by-hour rather
+ * than day-wide: `path_recency_hourly` is ~70k rows/day, and every other
+ * delete on these tables (`prune_archived_path_hourly_stats`,
+ * `compute_path_recency_hourly`) is a `SECURITY DEFINER` RPC with
+ * `SET statement_timeout = '120s'` for exactly this reason — a range delete
+ * of this shape does not reliably finish inside the default 8s PostgREST
+ * role timeout (#609 review N2). 24 bounded statements per day instead of
+ * one day-wide one.
+ */
+async function deleteRecencyHour(
+  db: SupabaseClient,
+  hourStartIso: string,
+  hourEndIso: string,
+): Promise<number> {
+  const { error, count } = await db
     .from("path_recency_hourly")
-    .select("hour_utc")
-    .order("hour_utc", { ascending: true })
-    .limit(1)
-    .maybeSingle();
+    .delete({ count: "exact" })
+    .gte("hour_utc", hourStartIso)
+    .lt("hour_utc", hourEndIso);
   if (error) {
-    throw new Error(`path-recency oldest hour lookup failed: ${error.message}`);
+    throw new Error(
+      `path-recency prune failed for hour ${hourStartIso}: ${error.message}`,
+    );
   }
-  if (!data?.hour_utc) return null;
-  return utcDayOf(String(data.hour_utc));
+  return count ?? 0;
 }
 
 async function deleteRecencyDay(
   db: SupabaseClient,
   day: string,
 ): Promise<number> {
-  const start = `${day}T00:00:00.000Z`;
-  const { error, count } = await db
-    .from("path_recency_hourly")
-    .delete({ count: "exact" })
-    .gte("hour_utc", start)
-    .lt("hour_utc", nextUtcDayIso(day));
-  if (error) {
-    throw new Error(`path-recency prune failed for ${day}: ${error.message}`);
+  const dayStartMs = Date.parse(`${day}T00:00:00.000Z`);
+  let deleted = 0;
+  for (let hour = 0; hour < 24; hour++) {
+    const hourStartIso = new Date(dayStartMs + hour * HOUR_MS).toISOString();
+    const hourEndIso = new Date(
+      dayStartMs + (hour + 1) * HOUR_MS,
+    ).toISOString();
+    deleted += await deleteRecencyHour(db, hourStartIso, hourEndIso);
   }
-  return count ?? 0;
+  return deleted;
 }
 
 /**
- * Drop derived `path_recency_hourly` days older than the same hot window
- * `path_hourly_stats` uses. Recency is a pure function of hourly stats, so
- * it has no archive of its own: restore a day's stats CSV and rerun
- * `scripts/backfill-path-recency.mjs`. Fail-closed — a no-op unless
- * `ARCHIVE_PATH_STATS_PRUNE=true`. Work is bounded to `maxDaysPerRun`.
+ * Drop derived `path_recency_hourly` days the archive pass just confirmed
+ * sealed (a verified `path_hourly_stats` manifest exists for that day).
+ * Recency is a pure function of hourly stats and has no archive of its own:
+ * restore a day's stats CSV and rerun `scripts/backfill-path-recency.mjs`
+ * to reconstruct it. `sealedDays` must come from the same archive pass
+ * (`ArchivePassResult.sealedDays`, collector/src/index.ts) that ran this
+ * tick — the prune must be a subset of confirmed-sealed days by
+ * construction, not by a separately computed window (#609 review N1/N3).
+ * Fail-closed — a no-op unless `ARCHIVE_PATH_STATS_PRUNE=true`. Work is
+ * bounded to `maxDaysPerRun`.
  */
 export async function prunePathRecency(
   db: SupabaseClient,
   controls: PathArchiveControls,
-  nowMs = Date.now(),
+  sealedDays: string[],
 ): Promise<PathRecencyPruneResult> {
   if (!controls.pruneEnabled) {
     return { daysPruned: 0, rowsDeleted: 0 };
   }
 
-  const oldestDay = await oldestRecencyDay(db);
-  if (!oldestDay) return { daysPruned: 0, rowsDeleted: 0 };
-
-  const days = archivableDays(oldestDay, nowMs, controls.hotDays).slice(
-    0,
-    controls.maxDaysPerRun,
-  );
+  const days = sealedDays.slice(0, controls.maxDaysPerRun);
   let daysPruned = 0;
   let rowsDeleted = 0;
   for (const day of days) {

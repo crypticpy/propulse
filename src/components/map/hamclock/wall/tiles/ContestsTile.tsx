@@ -35,7 +35,10 @@ export function ContestsTile() {
   const [ref, visible] = useVisibleRows<HTMLDivElement>(rows.length);
   const [reportOpen, setReportOpen] = useState(false);
   const live = activeCount(rows, now);
-  const unavailable = error != null || status !== "ok";
+  // "empty" is a feed that loaded fine and parsed to zero items — not a
+  // load failure, and distinct from unreachable/too-large (#609 review N7).
+  const unavailable =
+    error != null || (status !== "ok" && status !== "empty");
 
   if (isLoading) {
     return (

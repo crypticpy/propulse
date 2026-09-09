@@ -59,6 +59,25 @@ describe("ContestsTile", () => {
     expect(screen.queryByText("ON AIR")).toBeNull();
   });
 
+  // N7 (#609 review): a feed that loaded fine and parsed to zero items
+  // ("empty") is not a load failure and must not collapse into the same
+  // "UNAVAILABLE" state as an unreachable/too-large feed.
+  it("treats an empty feed as zero contests, not unavailable", () => {
+    mocks.rss.mockReturnValue({
+      items: [],
+      status: "empty",
+      isLoading: false,
+      error: null,
+    });
+
+    render(<ContestsTile />);
+
+    expect(screen.queryByText("CONTEST CALENDAR UNAVAILABLE")).toBeNull();
+    expect(
+      screen.getByText("NO CONTESTS IN THE CURRENT FEED WINDOW"),
+    ).toBeTruthy();
+  });
+
   it("opens the report with the WA7BNM source link", async () => {
     mocks.rss.mockReturnValue({
       items: [

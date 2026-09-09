@@ -1116,6 +1116,13 @@ a.hca-row {
   color: inherit;
   text-decoration: none;
 }
+a.hca-row .hca-identity strong {
+  color: var(--hc-accent, var(--hc-fg));
+}
+a.hca-row:focus-visible {
+  outline: 0.25vh solid var(--hc-accent);
+  outline-offset: 0.2vh;
+}
 .hca-identity, .hca-detail {
   display: flex;
   flex-direction: column;

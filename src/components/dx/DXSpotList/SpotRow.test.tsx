@@ -102,4 +102,21 @@ describe("SpotRow trailing toolbar", () => {
     expect(useRigStore.getState().pendingFrequency).toBe(14_074_000);
     expect(onSelect).not.toHaveBeenCalled();
   });
+
+  it("stays visible without hover on coarse-pointer / no-hover devices", () => {
+    renderRow();
+    const toolbar = screen.getByRole("button", { name: /Tune 14.074 MHz FT8/ })
+      .parentElement;
+    expect(toolbar).toBeTruthy();
+    // Hover/focus-only reveal (fine-pointer default) stays intact...
+    expect(toolbar!.className).toContain("opacity-0");
+    expect(toolbar!.className).toContain("group-hover:opacity-100");
+    expect(toolbar!.className).toContain("focus-within:opacity-100");
+    // ...but a coarse pointer or no-hover device forces it permanently
+    // visible, since jsdom can't evaluate the media query itself.
+    expect(toolbar!.className).toContain("[@media(hover:none)]:opacity-100");
+    expect(toolbar!.className).toContain(
+      "[@media(pointer:coarse)]:opacity-100",
+    );
+  });
 });

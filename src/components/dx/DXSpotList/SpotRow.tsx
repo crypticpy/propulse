@@ -527,7 +527,7 @@ export const SpotRow = memo(function SpotRow({
 
       {/* Trailing toolbar: tune chip + outlined quick actions */}
       <div className="relative flex min-h-8 items-center justify-end">
-        <div className="absolute right-0 z-10 flex items-center gap-1.5 rounded-md border border-su-line/40 bg-su-panel/95 px-1 py-0.5 opacity-0 shadow-sm backdrop-blur-sm transition-opacity duration-150 group-hover:opacity-100 focus-within:opacity-100">
+        <div className="absolute right-0 z-10 flex items-center gap-1.5 rounded-md border border-su-line/40 bg-su-panel/95 px-1 py-0.5 opacity-0 shadow-sm backdrop-blur-sm transition-opacity duration-150 group-hover:opacity-100 focus-within:opacity-100 [@media(hover:none)]:opacity-100 [@media(pointer:coarse)]:opacity-100">
           <TuneButton
             variant="chip"
             frequencyKHz={spot.frequency}

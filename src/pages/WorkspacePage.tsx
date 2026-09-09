@@ -1,4 +1,5 @@
 import { useIsMobile } from "@/hooks/useIsMobile";
+import { useOperatingScreen } from "@/hooks/useOperatingScreen";
 import { useDXCluster } from "@/hooks/useDXCluster";
 import { StationProvider, Surface } from "@/components/station-ui";
 import { HamClockPinnedReportHost } from "@/components/map/hamclock/wall/reports/WallReport";
@@ -31,6 +32,10 @@ function WorkspaceDxFeedHost() {
  */
 export default function WorkspacePage() {
   const isMobile = useIsMobile();
+  // #658: registers this workspace with the shared operating state and
+  // applies inbound page-flip commands. One self-contained call — the
+  // channel itself is held open app-wide by `OperatingTransportHost`.
+  useOperatingScreen();
   const activePage = useActivePage();
   const needsDxFeed = activePage.widgetIds.some((id) => DX_SOURCED_WIDGET_IDS.has(id));
 

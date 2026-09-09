@@ -18,7 +18,9 @@
 -- the interesting part; the interesting part is that nobody else's uid
 -- satisfies these policies.
 
-ALTER TABLE realtime.messages ENABLE ROW LEVEL SECURITY;
+-- RLS is already enabled on realtime.messages by Supabase; an ALTER TABLE
+-- here would be redundant at best and fails on projects where the migration
+-- role lacks ownership of that table (owner review, #698 fix round).
 
 DROP POLICY IF EXISTS operating_channel_select_own ON realtime.messages;
 CREATE POLICY operating_channel_select_own ON realtime.messages

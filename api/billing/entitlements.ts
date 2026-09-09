@@ -36,10 +36,22 @@ function jsonError(message: string, status: number): Response {
   });
 }
 
+/** Reject browser requests from unauthorized origins (matches api/billing/create-checkout.ts). */
+function validateOrigin(request: Request): Response | null {
+  const origin = request.headers.get("origin");
+  if (origin && origin !== getAllowedOrigin()) {
+    return jsonError("Forbidden", 403);
+  }
+  return null;
+}
+
 export default async function handler(request: Request): Promise<Response> {
   if (request.method === "OPTIONS") {
     return new Response(null, { status: 204, headers: corsHeaders() });
   }
+
+  const originError = validateOrigin(request);
+  if (originError) return originError;
 
   if (request.method !== "GET") {
     return jsonError("Method not allowed", 405);

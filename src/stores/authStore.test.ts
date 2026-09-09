@@ -5,7 +5,7 @@ const authMocks = vi.hoisted(() => ({
   getSession: vi.fn(),
   onAuthStateChange: vi.fn(),
   unsubscribe: vi.fn(),
-  setAuth: vi.fn(),
+  setAuth: vi.fn().mockResolvedValue(undefined),
 }));
 
 vi.mock("@/lib/supabase", () => ({
@@ -105,5 +105,26 @@ describe("authStore.initialize", () => {
       sessionExpired: true,
     });
     expect(authMocks.setAuth).toHaveBeenLastCalledWith(undefined);
+  });
+
+  it("swallows a realtime.setAuth rejection rather than leaving it unhandled", async () => {
+    let listener: AuthListener | undefined;
+    authMocks.onAuthStateChange.mockImplementation((callback: AuthListener) => {
+      listener = callback;
+      return { data: { subscription: { unsubscribe: authMocks.unsubscribe } } };
+    });
+    authMocks.getSession.mockResolvedValue({ data: { session: null } });
+    authMocks.setAuth.mockRejectedValueOnce(new Error("no realtime socket yet"));
+
+    await useAuthStore.getState().initialize();
+
+    const user = { id: "owner" } as Session["user"];
+    const session = { user, access_token: "token-2" } as Session;
+    // If this rejection were left unhandled, vitest would fail the test run
+    // via an unhandledRejection, independent of any assertion below.
+    listener?.("SIGNED_IN", session);
+    await Promise.resolve();
+
+    expect(authMocks.setAuth).toHaveBeenCalledWith("token-2");
   });
 });

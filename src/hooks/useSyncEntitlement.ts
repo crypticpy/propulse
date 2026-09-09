@@ -28,11 +28,16 @@ async function fetchSyncEntitlement(): Promise<SyncEntitlement> {
 
 export function useSyncEntitlement() {
   const isAuthenticated = useAuthStore(selectIsAuthenticated);
+  const userId = useAuthStore((state) => state.user?.id ?? null);
 
   return useQuery({
-    queryKey: ["sync-entitlement"],
+    // Keyed on the user id (owner review, #698 fix round): without it, an
+    // account-A answer cached within staleTime would be served to account B
+    // after a sign-out/sign-in — the query key must change with the account,
+    // not just the endpoint.
+    queryKey: ["sync-entitlement", userId],
     queryFn: fetchSyncEntitlement,
-    enabled: isAuthenticated,
+    enabled: isAuthenticated && userId !== null,
     staleTime: 5 * 60 * 1000,
     retry: 1,
   });

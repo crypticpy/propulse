@@ -78,4 +78,23 @@ describe("GET /api/billing/entitlements", () => {
     expect(response.status).toBe(405);
     expect(verifyAuthMock).not.toHaveBeenCalled();
   });
+
+  it("rejects a request from an unauthorized origin before touching auth or entitlements", async () => {
+    const response = await handler(
+      request({ headers: { origin: "https://evil.example.com" } }),
+    );
+
+    expect(response.status).toBe(403);
+    expect(verifyAuthMock).not.toHaveBeenCalled();
+    expect(hasProEntitlementMock).not.toHaveBeenCalled();
+  });
+
+  it("allows a request with no origin header (non-browser clients, e.g. curl or a mobile client)", async () => {
+    verifyAuthMock.mockResolvedValue({ user: { id: "user-4" } });
+    hasProEntitlementMock.mockResolvedValue(true);
+
+    const response = await handler(request());
+
+    expect(response.status).toBe(200);
+  });
 });

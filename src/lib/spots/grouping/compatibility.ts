@@ -52,7 +52,11 @@ export interface ClusteringResult {
   clusters: SpotCluster[];
   /** Spots that don't need clustering (isolated or in small groups) */
   singles: LiveSpot[];
-  /** Total number of spots processed */
+  /**
+   * Count of spots passed in, not surviving rows. Duplicate reports of the
+   * same observation (same spotter/frequency/mode/time/dx) collapse into one
+   * cluster/single, so totalSpots can exceed clusters+singles membership.
+   */
   totalSpots: number;
   /** Reachable group IDs for expansion sync, including hidden expanded parents. */
   liveGroupIds: string[];

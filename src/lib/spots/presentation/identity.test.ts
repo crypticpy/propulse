@@ -2,10 +2,12 @@ import { describe, expect, it } from "vitest";
 import { createNormalizedSpot } from "@/lib/views/fixtures";
 import type { NormalizedSpotReport } from "@/lib/views/spotContracts";
 import {
+  hashStableString,
   mergeDuplicateGroup,
   mergeDuplicateReports,
   SOURCE_PRECEDENCE,
   SOURCE_REF_LIMIT,
+  stableReportId,
 } from "./identity";
 
 function permutations<T>(items: readonly T[]): T[][] {
@@ -168,5 +170,62 @@ describe("duplicate report merge", () => {
         ref.source === merged.source && ref.sourceReportId === merged.sourceReportId,
       )).toBe(true);
     }
+  });
+});
+
+describe("stableReportId", () => {
+  it("returns the same id for the same key against the same `used` map, with no -2 suffix", () => {
+    const used = new Map<string, string>();
+    const key = "rx|K1ABC|EA1AAA|1756641600000|14074|FT8";
+
+    const first = stableReportId(key, used);
+    const second = stableReportId(key, used);
+
+    expect(first).toBe(`r${hashStableString(key)}`);
+    expect(second).toBe(first);
+    expect(first).not.toContain("-2");
+  });
+
+  it("suffixes with -2 when the natural candidate is already held by a different key", () => {
+    const key = "rx|LA1BBB|OZ1CCC|1756641660000|7074|FT8";
+    const hash = hashStableString(key);
+    const used = new Map<string, string>([[`r${hash}`, "some-other-key"]]);
+
+    const result = stableReportId(key, used);
+
+    expect(result).toBe(`r${hash}-2`);
+    expect(used.get(`r${hash}`)).toBe("some-other-key");
+    expect(used.get(`r${hash}-2`)).toBe(key);
+  });
+
+  it("continues the walk past a taken -2 suffix to -3", () => {
+    const key = "rx|G1DDD|F1EEE|1756641720000|3573|FT8";
+    const hash = hashStableString(key);
+    const used = new Map<string, string>([
+      [`r${hash}`, "occupant-1"],
+      [`r${hash}-2`, "occupant-2"],
+    ]);
+
+    const result = stableReportId(key, used);
+
+    expect(result).toBe(`r${hash}-3`);
+    expect(used.get(`r${hash}-3`)).toBe(key);
+  });
+});
+
+describe("hashStableString", () => {
+  it("is deterministic and returns a zero-padded 16-character lowercase hex string", () => {
+    const a = hashStableString("some-observation-key");
+    const b = hashStableString("some-observation-key");
+
+    expect(a).toBe(b);
+    expect(a).toMatch(/^[0-9a-f]{16}$/);
+  });
+
+  it("produces different hashes for different inputs", () => {
+    const a = hashStableString("input-a");
+    const b = hashStableString("input-b");
+
+    expect(a).not.toBe(b);
   });
 });

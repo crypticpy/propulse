@@ -140,12 +140,20 @@ function utcLabel(timestamp: string): string {
   return `${new Date(timestamp).toISOString().slice(0, 16).replace("T", " ")} UTC`;
 }
 
-export function useHeatMapBaseline() {
+/**
+ * @param options.enabled Defaults to `true`. Pass `false` to call the hook
+ * unconditionally from a component that only needs the baseline for one of
+ * several rendered states (e.g. a preset switch), without triggering the
+ * fetch until that state is actually selected.
+ */
+export function useHeatMapBaseline(options?: { enabled?: boolean }) {
+  const enabled = options?.enabled ?? true;
   const now = useUTCClock(60_000);
   const query = useQuery({
     queryKey: ["heatmap-baseline"],
     queryFn: ({ signal }) => fetchHeatMapBaseline(signal),
     staleTime: HOUR_MS,
+    enabled,
     // Server boundary plus elapsed client time, not the client's UTC hour.
     refetchInterval: (entry) => heatMapRefetchDelayMs(entry.state.data, entry.state.dataUpdatedAt, Date.now()),
     retry: 1,

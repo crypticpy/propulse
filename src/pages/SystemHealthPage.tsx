@@ -49,10 +49,17 @@ type AccentToken =
 // `--su-*-rgb` variable tailwind.config.js binds the token to. Used for both
 // the card's top rule and its icon so they can never drift from each other
 // or from the theme (see #787/#788/#789).
+//
+// `nebula-blue` is not one of these: tailwind.config.js files it under
+// "Background colors" (it resolves to `--su-panel`, a surface token), so
+// there is no accent role to preserve parity with — the old `#1a1a2e`
+// literal only ever read as a rule/icon colour on Light by accident. It
+// maps to `--su-muted` instead: the only free, non-status role that clears
+// ≥6:1 against the composited card surface in all four themes (#796).
 const ACCENT_TOKEN_COLORS: Record<AccentToken, string> = {
   "plasma-orange": "rgb(var(--su-accent-rgb))",
   "signal-green": "rgb(var(--su-success-rgb))",
-  "nebula-blue": "rgb(var(--su-panel-rgb))",
+  "nebula-blue": "rgb(var(--su-muted-rgb))",
   "cosmic-cyan": "rgb(var(--su-info-rgb))",
   "aurora-purple": "rgb(var(--su-purple-rgb))",
 };
@@ -652,36 +659,40 @@ function ArchitectureDiagram({
         ? "#ffd23f"
         : "#ff4455";
 
+  // Same five accents as the category cards above — derived from the one
+  // ACCENT_TOKEN_COLORS map so this diagram can never drift from CATEGORIES
+  // again (it previously collided "Callsign DBs" and "Logbook Sync" on the
+  // same literal cyan; see #796).
   const groups = [
     {
       label: "Space Weather",
       sublabel: "NOAA / DSCOVR",
       y: 24,
-      color: "#ff6b35",
+      color: ACCENT_TOKEN_COLORS["plasma-orange"],
     },
     {
       label: "Spot Networks",
       sublabel: "DX Cluster / RBN / PSK",
       y: 76,
-      color: "#00ff88",
+      color: ACCENT_TOKEN_COLORS["signal-green"],
     },
     {
       label: "Callsign DBs",
       sublabel: "QRZ / HamQTH / Callook",
       y: 128,
-      color: "#44ddff",
+      color: ACCENT_TOKEN_COLORS["nebula-blue"],
     },
     {
       label: "Logbook Sync",
       sublabel: "LoTW / eQSL / Club Log",
       y: 180,
-      color: "#44ddff",
+      color: ACCENT_TOKEN_COLORS["cosmic-cyan"],
     },
     {
       label: "Satellites",
       sublabel: "NORAD / Space-Track",
       y: 232,
-      color: "#aa44ff",
+      color: ACCENT_TOKEN_COLORS["aurora-purple"],
     },
   ];
 
@@ -720,7 +731,7 @@ function ArchitectureDiagram({
           height="60"
           rx="10"
           fill="rgba(255,107,53,0.08)"
-          stroke="#ff6b35"
+          stroke={ACCENT_TOKEN_COLORS["plasma-orange"]}
           strokeWidth="1.2"
         />
         <text
@@ -749,7 +760,7 @@ function ArchitectureDiagram({
           height="60"
           rx="10"
           fill="rgba(68,221,255,0.06)"
-          stroke="#44ddff"
+          stroke={ACCENT_TOKEN_COLORS["cosmic-cyan"]}
           strokeWidth="1.2"
         />
         <text
@@ -1113,11 +1124,13 @@ export function SystemHealthPage() {
                     className="text-[10px] font-mono px-2 py-0.5 rounded-full border"
                     style={{
                       borderColor: allHealthy
-                        ? "rgba(0,255,136,0.3)"
+                        ? "rgb(var(--su-success-rgb) / 0.3)"
                         : "rgba(255,255,255,0.1)",
-                      color: allHealthy ? "#00ff88" : "#9ca3af",
+                      color: allHealthy
+                        ? "rgb(var(--su-success-rgb))"
+                        : "rgb(var(--su-muted-rgb))",
                       background: allHealthy
-                        ? "rgba(0,255,136,0.06)"
+                        ? "rgb(var(--su-success-rgb) / 0.06)"
                         : "transparent",
                     }}
                   >

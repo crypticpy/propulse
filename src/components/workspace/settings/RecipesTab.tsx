@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Button } from "@/components/station-ui";
 import { RECIPES } from "@/lib/workspace/recipes";
 import { getRegistryEntry } from "@/lib/workspace/registry";
-import { useActiveWorkspace, useWorkspaceStore } from "@/stores/workspaceStore";
+import { useEffectiveCanvasType, useWorkspaceStore } from "@/stores/workspaceStore";
 
 /**
  * Starter pages (#657, recipes A/B from #655's `lib/workspace/recipes.ts`).
@@ -15,7 +15,12 @@ import { useActiveWorkspace, useWorkspaceStore } from "@/stores/workspaceStore";
  * refused honestly rather than partially applied.
  */
 export function RecipesTab() {
-  const workspace = useActiveWorkspace();
+  // #696: preview against the effective canvas type, not the workspace's
+  // stored `canvasType` — `addRecipePage` already resolves through
+  // `resolveCanvasType` (see `workspaceStore.ts`), so a tablet-width
+  // viewport override must preview the same tablet layout it will seed
+  // (matches `WidgetsTab.tsx`'s/`DisplayTab.tsx`'s own resolution).
+  const canvasType = useEffectiveCanvasType();
   const addRecipePage = useWorkspaceStore((s) => s.addRecipePage);
   const [message, setMessage] = useState<string | null>(null);
 
@@ -23,7 +28,7 @@ export function RecipesTab() {
     <div className="su-stack workspace-settings-recipes">
       {message && <p className="su-hint">{message}</p>}
       {RECIPES.map((recipe) => {
-        const layout = workspace.canvasType === "phone" ? [] : recipe.layouts[workspace.canvasType];
+        const layout = canvasType === "phone" ? [] : recipe.layouts[canvasType];
         const titles = layout.map((id) => getRegistryEntry(id)?.title ?? id);
         return (
           <div key={recipe.id} className="workspace-settings-recipe-card">
@@ -31,7 +36,7 @@ export function RecipesTab() {
             <p className="su-hint">{titles.length > 0 ? titles.join(" · ") : "Not available on this canvas."}</p>
             <Button
               variant="primary"
-              disabled={workspace.canvasType === "phone"}
+              disabled={canvasType === "phone"}
               onClick={() => {
                 const result = addRecipePage(recipe.id);
                 setMessage(result.ok ? `Added as a new page: "${recipe.title}".` : result.reason);

@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it } from "vitest";
+import { BAND_ORDER } from "@/lib/data/bandRanges";
 import { canvasRulesFor, defaultRailStates } from "@/lib/workspace/canvasRules";
 import { PRESETS } from "@/lib/widgets/heatmap";
 import { RECIPE_CHASE_DX } from "@/lib/workspace/recipes";
@@ -327,6 +328,17 @@ describe("workspaceStore", () => {
     });
   });
 
+  describe("phoneVisibleBands (#659)", () => {
+    it("defaults to every band, and is set independently of the workstation's display.visibleBands", () => {
+      expect(useWorkspaceStore.getState().phoneVisibleBands).toEqual([...BAND_ORDER]);
+
+      useWorkspaceStore.getState().setPhoneVisibleBands(["20m", "40m"]);
+      expect(useWorkspaceStore.getState().phoneVisibleBands).toEqual(["20m", "40m"]);
+      // The workstation's own visible-bands setting is untouched.
+      expect(activeWorkspace().display.visibleBands).toEqual([...BAND_ORDER]);
+    });
+  });
+
   describe("migrateWorkspaceState", () => {
     it("adds display and autoPage defaults to a pre-#657 (version 1) persisted workspace", () => {
       const legacyWorkspace = {
@@ -340,18 +352,36 @@ describe("workspaceStore", () => {
       const migrated = migrateWorkspaceState(
         { workspaces: [legacyWorkspace], activeWorkspaceId: DEFAULT_WORKSPACE_ID },
         1,
-      ) as unknown as { workspaces: Array<Record<string, unknown>> };
+      ) as unknown as { workspaces: Array<Record<string, unknown>>; phoneVisibleBands: string[] };
 
       expect(migrated.workspaces[0].display).toBeTruthy();
       expect(migrated.workspaces[0].autoPage).toEqual({ enabled: false, dwellSeconds: 30 });
       // Everything else about the legacy workspace is preserved untouched.
       expect(migrated.workspaces[0].id).toBe(DEFAULT_WORKSPACE_ID);
       expect(migrated.workspaces[0].pages).toEqual(legacyWorkspace.pages);
+      // #659: a pre-#659 (version < 3) state also gains the phone's own band visibility.
+      expect(migrated.phoneVisibleBands).toEqual([...BAND_ORDER]);
     });
 
-    it("passes a version-2 state through unchanged", () => {
+    it("adds phoneVisibleBands to a version-2 (pre-#659) persisted state, unchanged otherwise", () => {
       const state = { workspaces: [{ id: "x", display: "already-set" }], activeWorkspaceId: "x" };
-      expect(migrateWorkspaceState(state, 2)).toEqual(state);
+      const migrated = migrateWorkspaceState(state, 2) as unknown as {
+        workspaces: unknown;
+        activeWorkspaceId: unknown;
+        phoneVisibleBands: string[];
+      };
+      expect(migrated.workspaces).toEqual(state.workspaces);
+      expect(migrated.activeWorkspaceId).toEqual(state.activeWorkspaceId);
+      expect(migrated.phoneVisibleBands).toEqual([...BAND_ORDER]);
+    });
+
+    it("passes a version-3 state through unchanged", () => {
+      const state = {
+        workspaces: [{ id: "x", display: "already-set" }],
+        activeWorkspaceId: "x",
+        phoneVisibleBands: ["20m"],
+      };
+      expect(migrateWorkspaceState(state, 3)).toEqual(state);
     });
   });
 });

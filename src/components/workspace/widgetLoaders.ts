@@ -2,11 +2,9 @@ import { lazy, type ComponentType } from "react";
 import type { WallTileProps } from "@/components/map/hamclock/wall/HamClockTile";
 import type { WidgetDensity } from "@/lib/workspace/types";
 import "@/styles/hamclock-wall.css";
-// `HeatMapTile` renders its `.hcf-heatgrid*` matrix directly (not just in its
-// report), and all three live tiles' report dialogs draw `.hcr-*` chrome.
-// Both sheets otherwise load only via the separately lazy `HamClockView`, so
-// a cold `/workspace` load needs them imported on this path too (#670 review).
-import "@/styles/hamclock-wall-forecast.css";
+// `ClusterTile`'s report dialog draws `.hcr-*` chrome, which otherwise loads
+// only via the separately lazy `HamClockView`, so a cold `/workspace` load
+// needs it imported on this path too (#670 review).
 import "@/styles/hamclock-wall-report.css";
 
 type WidgetComponent = ComponentType<WallTileProps>;
@@ -15,7 +13,7 @@ type WidgetComponent = ComponentType<WallTileProps>;
  * Registry widget id -> lazily loaded live component, one map per workspace
  * density (#670).
  *
- * Each entry dynamically imports the SPECIFIC tile file, never the
+ * Each wall-tile entry dynamically imports the SPECIFIC tile file, never the
  * `wall/tiles/index.ts` barrel (#656 postmortem): that barrel's facade
  * module is literally named `index.ts`, and a second reachable path into it
  * makes Rollup name the resulting shared chunk `index-*.js`, which collides
@@ -24,16 +22,21 @@ type WidgetComponent = ComponentType<WallTileProps>;
  * makes that file's module a shared chunk between the wall route and this
  * one (both statically-in-the-wall-chunk and dynamically-imported-here), but
  * its facade is `<TileName>.tsx`, so the resulting chunk is named after the
- * tile and never matches the `index-*` glob.
+ * tile and never matches the `index-*` glob. `HeatMapStrip`/`HeatMapPanel`
+ * are workspace-native (`components/workspace/widgets/`) and never touch
+ * this barrel-avoidance concern at all.
  *
- * Only "work" is populated: `WorkspacePage` ships the workstation canvas
- * only today (phone is #659), and the workstation canvas's rails and hero
- * read the "work" density exclusively (`canvasRules.ts`). `wall` and
- * `glance` are declared so this map's shape matches `WidgetDensity` and a
- * later canvas can add to it without a type change.
+ * `heatMap`'s "work" entry was `HeatMapTile` (the wall's tile, reused as a
+ * shim) through #670; #661 replaces it with `HeatMapPanel`, the
+ * workspace-native "work" density implementation (a rail/hero panel sized by
+ * its CSS grid container, not the wall's fixed vh-scaled hero+sub layout).
+ * `glance` gains its first entry here too: `HeatMapStrip`, mounted directly
+ * by `OpsConsole` and available to any future glance surface. `wall` stays
+ * empty — no canvas reads "wall" density widgets outside the wall itself,
+ * which has its own tile tree.
  *
  * `BestBandTile` and `ClusterTile` ignore the `title` prop (they source their
- * own headline), while `HeatMapTile` reads and renders it. The loaders render
+ * own headline), and so do `HeatMapStrip`/`HeatMapPanel`. The loaders render
  * these with no props, matching the wall's title-less read.
  */
 const WORK_LOADERS: Readonly<Partial<Record<string, WidgetComponent>>> = {
@@ -44,13 +47,17 @@ const WORK_LOADERS: Readonly<Partial<Record<string, WidgetComponent>>> = {
     import("@/components/map/hamclock/wall/tiles/ClusterTile").then((m) => ({ default: m.ClusterTile })),
   ),
   heatMap: lazy(() =>
-    import("@/components/map/hamclock/wall/tiles/HeatMapTile").then((m) => ({ default: m.HeatMapTile })),
+    import("./widgets/HeatMapPanel").then((m) => ({ default: m.HeatMapPanel })),
   ),
+};
+
+const GLANCE_LOADERS: Readonly<Partial<Record<string, WidgetComponent>>> = {
+  heatMap: lazy(() => import("./widgets/HeatMapStrip").then((m) => ({ default: m.HeatMapStrip }))),
 };
 
 const LOADERS_BY_DENSITY: Readonly<Record<WidgetDensity, Readonly<Partial<Record<string, WidgetComponent>>>>> = {
   wall: {},
-  glance: {},
+  glance: GLANCE_LOADERS,
   work: WORK_LOADERS,
 };
 

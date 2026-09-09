@@ -12,6 +12,19 @@ interface State {
 }
 
 /**
+ * A chunk this build asked for is no longer on the server, which is what a
+ * deploy landing under an open tab looks like. Retrying in place can never
+ * work: React.lazy caches the failed loader for the lifetime of the module, so
+ * only a real navigation picks up the new build.
+ */
+export function isStaleChunkError(error: Error | null): boolean {
+  if (!error) return false;
+  return /dynamically imported module|module script failed|importing a module script|ChunkLoadError/i.test(
+    error.message,
+  );
+}
+
+/**
  * ErrorBoundary - Catches JavaScript errors in child components
  * and displays a fallback UI instead of crashing the whole app.
  */
@@ -48,29 +61,37 @@ export class ErrorBoundary extends Component<Props, State> {
     this.setState({ hasError: false, error: null });
   };
 
+  private handleReload = () => {
+    window.location.reload();
+  };
+
   public render() {
     if (this.state.hasError) {
       if (this.props.fallback) {
         return this.props.fallback;
       }
 
+      const staleChunk = isStaleChunkError(this.state.error);
+
       return (
         <div className="min-h-[400px] flex items-center justify-center p-6">
           <Card className="max-w-md p-8 text-center" variant="alert">
             <div className="text-4xl mb-4">⚠️</div>
             <h2 className="font-orbitron text-xl font-bold text-alert-red mb-2">
-              Something went wrong
+              {staleChunk ? "A newer version is available" : "Something went wrong"}
             </h2>
             <p className="text-su-muted mb-4">
-              {this.state.error?.message || "An unexpected error occurred"}
+              {staleChunk
+                ? "This page was updated while the tab was open. Reload to pick up the new version."
+                : this.state.error?.message || "An unexpected error occurred"}
             </p>
             <button
-              onClick={this.handleRetry}
+              onClick={staleChunk ? this.handleReload : this.handleRetry}
               className="px-6 py-2 bg-plasma-orange/20 border border-plasma-orange/50 rounded-lg
                          text-plasma-orange hover:bg-plasma-orange/30
                          transition-colors font-medium"
             >
-              Try Again
+              {staleChunk ? "Reload" : "Try Again"}
             </button>
           </Card>
         </div>

@@ -5,6 +5,7 @@ const authMocks = vi.hoisted(() => ({
   getSession: vi.fn(),
   onAuthStateChange: vi.fn(),
   unsubscribe: vi.fn(),
+  setAuth: vi.fn(),
 }));
 
 vi.mock("@/lib/supabase", () => ({
@@ -13,6 +14,9 @@ vi.mock("@/lib/supabase", () => ({
     auth: {
       getSession: authMocks.getSession,
       onAuthStateChange: authMocks.onAuthStateChange,
+    },
+    realtime: {
+      setAuth: authMocks.setAuth,
     },
   }),
 }));
@@ -84,6 +88,14 @@ describe("authStore.initialize", () => {
       isRecoveryMode: true,
     });
 
+    // #698: Realtime authorization for the private account channel is kept
+    // current off every auth event, not just sign-in.
+    expect(authMocks.setAuth).toHaveBeenCalledWith(undefined);
+
+    const signedInSession = { user, access_token: "token-1" } as Session;
+    listener?.("SIGNED_IN", signedInSession);
+    expect(authMocks.setAuth).toHaveBeenCalledWith("token-1");
+
     listener?.("SIGNED_OUT", null);
 
     expect(useAuthStore.getState()).toMatchObject({
@@ -92,5 +104,6 @@ describe("authStore.initialize", () => {
       isRecoveryMode: false,
       sessionExpired: true,
     });
+    expect(authMocks.setAuth).toHaveBeenLastCalledWith(undefined);
   });
 });

@@ -106,6 +106,13 @@ export const useAuthStore = create<AuthState>()((set, get) => ({
             session: session ?? null,
           });
 
+          // #698: private Realtime channels (the account operating-state
+          // transport) authorize off this call, not off the anon key — keep
+          // it current on every sign-in, refresh and sign-out so a channel
+          // opened right after this listener runs is never using a stale or
+          // absent token.
+          void supabase.realtime.setAuth(session?.access_token ?? undefined);
+
           if (event === "PASSWORD_RECOVERY") {
             set({ isRecoveryMode: true });
           }

@@ -35,7 +35,7 @@ export function HamClockLayerChips() {
             className={`rounded px-1.5 py-0.5 font-mono text-[9px] font-semibold uppercase tracking-wide transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-plasma-orange ${
               active
                 ? "bg-plasma-orange/90 text-void-black"
-                : "bg-white/5 text-gray-500 hover:bg-white/10 hover:text-white"
+                : "bg-white/5 text-su-muted hover:bg-white/10 hover:text-su-text"
             }`}
           >
             {label}

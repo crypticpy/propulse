@@ -81,11 +81,11 @@ function formatUtc(value: Date) {
 function DetailValue({ label, value }: { label: string; value: string }) {
   return (
     <div className="min-w-0 rounded-md border border-su-line/40 bg-su-line/10 px-2 py-1.5">
-      <div className="text-[9px] font-medium uppercase tracking-wider text-su-muted">
+      <div className="text-xs font-medium uppercase tracking-wider text-su-muted">
         {label}
       </div>
       <div
-        className="mt-0.5 truncate font-mono text-[11px] text-su-text"
+        className="mt-0.5 truncate font-mono text-xs text-su-text"
         title={value}
       >
         {value}
@@ -113,7 +113,7 @@ function ActionButton({
       onClick={onClick}
       disabled={disabled}
       title={title}
-      className={`rounded-md border px-2 py-1.5 text-[10px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-cyan-300 disabled:cursor-default disabled:opacity-70 ${
+      className={`rounded-md border px-2 py-1.5 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-cyan-300 disabled:cursor-default disabled:opacity-70 ${
         active
           ? "border-signal-green/35 bg-signal-green/10 text-signal-green"
           : "border-su-line/40 bg-su-line/10 text-su-muted hover:border-cyan-400/30 hover:bg-cyan-400/10 hover:text-su-text"
@@ -360,12 +360,12 @@ export function SelectedSpotCard({
               {spot.dx}
             </h3>
             {spot.dxLocApprox && (
-              <span className="rounded border border-caution-amber/30 bg-caution-amber/10 px-1.5 py-0.5 text-[9px] font-medium uppercase tracking-wide text-caution-amber">
+              <span className="rounded border border-caution-amber/30 bg-caution-amber/10 px-1.5 py-0.5 text-xs font-medium uppercase tracking-wide text-caution-amber">
                 Approx
               </span>
             )}
           </div>
-          <div className="mt-0.5 truncate text-[10px] text-su-muted">
+          <div className="mt-0.5 truncate text-xs text-su-muted">
             {entity?.name || "Station location"}
             {entity?.continent ? ` · ${entity.continent}` : ""}
           </div>
@@ -395,20 +395,20 @@ export function SelectedSpotCard({
               {formatFrequency(spot.frequency)}
             </span>
             {spot.band && (
-              <span className="rounded bg-su-line/20 px-1.5 py-0.5 text-[10px] font-semibold text-su-muted">
+              <span className="rounded bg-su-line/20 px-1.5 py-0.5 text-xs font-semibold text-su-muted">
                 {spot.band}
               </span>
             )}
             {spot.mode && (
               <span
-                className="rounded px-1.5 py-0.5 text-[10px] font-bold"
+                className="rounded px-1.5 py-0.5 text-xs font-bold"
                 style={{ backgroundColor: modeColor, color: modeInkColor }}
               >
                 {spot.mode}
               </span>
             )}
             <span
-              className="rounded px-1.5 py-0.5 text-[10px] font-medium"
+              className="rounded px-1.5 py-0.5 text-xs font-medium"
               style={{
                 backgroundColor: sourcePresentation.bgColor,
                 color: sourcePresentation.color,
@@ -417,7 +417,7 @@ export function SelectedSpotCard({
               {sourcePresentation.label}
             </span>
             <span
-              className={`rounded border px-1.5 py-0.5 text-[9px] ${ageColors.bg} ${ageColors.text} ${ageColors.border}`}
+              className={`rounded border px-1.5 py-0.5 text-xs ${ageColors.bg} ${ageColors.text} ${ageColors.border}`}
             >
               {formatSpotAge(spotTime)}
             </span>
@@ -425,12 +425,12 @@ export function SelectedSpotCard({
 
           <div className="rounded-lg border border-su-line/40 bg-su-line/10 px-2.5 py-2">
             <div className="flex items-center justify-between gap-2">
-              <span className="text-[10px] uppercase tracking-wide text-su-muted">
+              <span className="text-xs uppercase tracking-wide text-su-muted">
                 Path outlook
               </span>
               {difficulty && difficultyColor && (
                 <span
-                  className="rounded border px-1.5 py-0.5 text-[10px] font-semibold"
+                  className="rounded border px-1.5 py-0.5 text-xs font-semibold"
                   style={{
                     color: difficultyColor,
                     borderColor: `${difficultyColor}70`,
@@ -442,7 +442,7 @@ export function SelectedSpotCard({
               )}
             </div>
             {pathMetrics && (
-              <div className="mt-1 flex items-center justify-between font-mono text-[10px] text-su-muted">
+              <div className="mt-1 flex items-center justify-between font-mono text-xs text-su-muted">
                 <span>{formatDistance(pathMetrics.shortPath.distance)}</span>
                 <span>
                   {Math.round(pathMetrics.shortPath.bearing)}° {formatBearing(pathMetrics.shortPath.bearing)}
@@ -453,11 +453,11 @@ export function SelectedSpotCard({
               <>
                 <div className="mt-1.5 flex items-center justify-between gap-3">
                   <div className="flex items-center gap-1.5">
-                    <span className="rounded bg-su-line/20 px-1.5 py-0.5 font-mono text-[10px] text-su-text">
+                    <span className="rounded bg-su-line/20 px-1.5 py-0.5 font-mono text-xs text-su-text">
                       {optimalSignal.band}
                     </span>
                     <span
-                      className={`rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase ${getPathStatusBgColor(optimalSignal.status)} ${getPathStatusColor(optimalSignal.status)}`}
+                      className={`rounded px-1.5 py-0.5 text-xs font-semibold uppercase ${getPathStatusBgColor(optimalSignal.status)} ${getPathStatusColor(optimalSignal.status)}`}
                     >
                       {optimalSignal.status}
                     </span>
@@ -476,7 +476,7 @@ export function SelectedSpotCard({
                 </div>
               </>
             ) : (
-              <p className="mt-1.5 text-[10px] text-su-muted">
+              <p className="mt-1.5 text-xs text-su-muted">
                 {signalUnavailableReason || "No viable modeled HF band right now"}
               </p>
             )}
@@ -516,7 +516,7 @@ export function SelectedSpotCard({
 
           {spot.comment && (
             <div className="rounded-md border border-su-line/40 bg-su-line/10 px-2.5 py-2">
-              <div className="text-[9px] font-medium uppercase tracking-wider text-su-muted">
+              <div className="text-xs font-medium uppercase tracking-wider text-su-muted">
                 Spot comment
               </div>
               <p className="mt-1 text-xs leading-relaxed text-su-muted">

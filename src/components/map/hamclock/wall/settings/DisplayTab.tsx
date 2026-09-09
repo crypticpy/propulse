@@ -73,6 +73,16 @@ const DWELL_OPTIONS: { value: DwellSeconds; label: string }[] = [
  * anything else at 1366×768. Follow radio (#160) is on the Kiosk tab for the
  * same reason: a third toggle on this tab overflows the panel.
  */
+/**
+ * Known limitation (PR #772 review): switching between these two branches
+ * changes the rendered component TYPE, so React remounts the whole subtree
+ * — including the `hcc-row-caveat` LiveRegion inside it — whenever the user
+ * flips the preset directly (not just when baseline data arrives while
+ * already on "ratioDiverging", which is what #754's LiveRegion fix covers).
+ * Lifting the region above this switch would require calling
+ * `useHeatMapBaseline()` unconditionally, defeating its lazy
+ * fetch-only-when-selected design; left as a tracked follow-up.
+ */
 export function DisplayTab() {
   const preset = useHamClockDisplayStore((s) => s.heatmapPreset);
   return preset === "ratioDiverging" ? <RegionalDisplayTab /> : <DisplayTabContent />;

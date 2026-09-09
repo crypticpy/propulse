@@ -90,6 +90,26 @@ describe("DisplayTab", () => {
     expect(after.textContent).toContain("REGIONAL DATA UNAVAILABLE");
   });
 
+  it("known limitation: a user-driven preset switch still remounts the caveat region", () => {
+    // DisplayTab routes between two different component TYPES depending on
+    // heatmapPreset (DisplayTabContent vs. RegionalDisplayTab), so React
+    // remounts the whole subtree — including the caveat region — whenever
+    // the user flips the preset directly. This PR only fixed the async
+    // transition (baseline data arriving while already on "ratioDiverging",
+    // see the test above); this one is a known, tracked gap (PR #772
+    // review), not desired behaviour. It would need useHeatMapBaseline to
+    // be called unconditionally (defeating its lazy-fetch-on-select design)
+    // to lift the region above the type switch.
+    baseline.mockReturnValue({ available: true, unavailableLabel: null });
+    render(<DisplayTab />);
+    const before = screen.getByRole("status");
+
+    fireEvent.click(screen.getByRole("radio", { name: "BASELINE RATIO" }));
+
+    expect(useHamClockDisplayStore.getState().heatmapPreset).toBe("ratioDiverging");
+    expect(screen.getByRole("status")).not.toBe(before);
+  });
+
   it("disables non-activity map content options in azimuthal projection", () => {
     useMapStore.getState().setViewMode("azimuthal");
     render(<DisplayTab />);

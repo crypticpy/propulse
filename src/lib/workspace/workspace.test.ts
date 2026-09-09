@@ -35,7 +35,7 @@ describe("canvasRules", () => {
     const tablet = CANVAS_RULES.tablet;
     expect(tablet.rails).toEqual([{ side: "right", weightBudget: 6 }]);
     expect(tablet.railWidthPolicy).toBe("fixed");
-    expect(tablet.scaleRange).toEqual([0.85, 1.25]);
+    expect(tablet.scaleRange).toEqual([0.6, 0.95]);
   });
 
   it("phone: no rails, no hero, fixed-width canvas with a page budget", () => {
@@ -198,6 +198,15 @@ describe("autoDock", () => {
     ]);
     expect(result.refusals).toEqual([
       { widgetId: "c", reason: "Both rails are full (5 of 5 left, 6 of 6 right). Remove a widget first." },
+    ]);
+  });
+
+  it("docks a hero and its single rail together on tablet", () => {
+    const result = autoDock(["recentContacts", "cluster"], CANVAS_RULES.tablet);
+    expect(result.refusals).toEqual([]);
+    expect(result.placements).toEqual([
+      { widgetId: "recentContacts", slot: { kind: "space" } },
+      { widgetId: "cluster", slot: { kind: "rail", side: "right" } },
     ]);
   });
 

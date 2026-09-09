@@ -53,9 +53,19 @@ function removeRecoveryQueryParam(): void {
 export function installStaleChunkRecovery(): void {
   removeRecoveryQueryParam();
 
-  window.addEventListener("vite:preloadError", (event) => {
-    event.preventDefault();
-
+  // Deliberately does not call event.preventDefault(). Vite's preload helper
+  // re-throws the load failure only while the default is not prevented:
+  //
+  //   window.dispatchEvent(e);
+  //   if (!e.defaultPrevented) throw err;
+  //
+  // Preventing it makes the failed dynamic import *resolve with `undefined`*
+  // instead of rejecting, so the app's standard lazy idiom —
+  // `import("…").then((m) => ({ default: m.Thing }))` — reads a property off
+  // undefined and reports "Cannot read properties of undefined (reading
+  // 'Thing')" from whichever chunk happened to fail. Letting it reject keeps
+  // the real error, which React.lazy and the error boundary already handle.
+  window.addEventListener("vite:preloadError", () => {
     const now = Date.now();
     if (now - readLastRecovery() < RECOVERY_WINDOW_MS) {
       console.error(

@@ -18,12 +18,18 @@ import { useEffect } from "react";
 import { queueTune } from "@/lib/radio/tune";
 import { useOperatingStateStore } from "@/stores/operatingStateStore";
 import { useRigStore } from "@/stores/rigStore";
-import { useActiveWorkspace, useWorkspaceStore } from "@/stores/workspaceStore";
+import { useActiveWorkspace, useEffectiveCanvasType, useWorkspaceStore } from "@/stores/workspaceStore";
 
 export function useOperatingScreen(): void {
   const workspace = useActiveWorkspace();
   const workspaceId = workspace.id;
-  const canvasType = workspace.canvasType;
+  // `useEffectiveCanvasType()`, not `workspace.canvasType` directly (#686
+  // review item 7): every stored workspace is `"workstation"` today, but
+  // `WorkspacePage` sets a `"tablet"` override on a narrower viewport
+  // (`workspaceStore.ts`'s `canvasTypeOverride`) so this registration — the
+  // operating-state roster another screen's cursor UI reads — agrees with
+  // what is actually rendered, rather than always claiming "workstation".
+  const canvasType = useEffectiveCanvasType();
   const label = workspace.name;
   const canTune = useRigStore(
     (state) => state.catEnabled && state.bridgeConnected && state.connected,

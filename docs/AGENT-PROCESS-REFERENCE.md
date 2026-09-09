@@ -129,6 +129,69 @@ git push origin --delete <branch>          # until auto-delete is on
 GitHub's secondary rate limit punishes bursts: one call at a time, a beat
 between them, one watcher per PR.
 
+## Self-service queue (from 2026-09-09)
+
+The orchestrator is not a work dispatcher. It reviews, fixes and merges.
+Agents take their own work off the board.
+
+**Taking work.** Ask for the top item in **Status = Ready** carrying the size
+label you were told to take (`size:S`, `size:M`, `size:L`). Highest priority
+first (`P1 bug` before `P2 core` before `P3 expansion`), oldest first inside a
+priority. Then:
+
+```bash
+gh issue list --label ready --label "size:M" --state open \
+  --json number,title,labels --jq '.[] | "\(.number) \(.title)"'
+```
+
+Claim it before you write a line of code: set **Agent** to yourself and
+**Status = Claimed** on Project #4, and post the claim comment. If two agents
+race, the earlier claim comment wins and the later one picks the next item.
+
+**The labels.**
+
+| Label               | Means                                                          |
+| ------------------- | -------------------------------------------------------------- |
+| `size:S`            | One file cluster, one sitting                                   |
+| `size:M`            | A few modules; still one PR of at most 15 files                 |
+| `size:L`            | Multi-area; expect to split into sequential PRs                 |
+| `size:XL`           | Must be split before anyone claims it — do not take one         |
+| `difficulty:easy`   | Spec is unambiguous and there are patterns to copy              |
+| `difficulty:medium` | Needs judgement inside a known area                             |
+| `difficulty:hard`   | Design decisions or cross-cutting risk; pair with a review pass |
+| `ready`             | Unblocked and specified — claimable now                         |
+| `blocked`           | Waiting on another issue or PR; the body names it               |
+| `needs-owner`       | Waiting on an owner decision; do not start                      |
+
+An item is `ready` only when it is both unblocked and specified well enough to
+work from the body alone. If you claim a `ready` item and find it is neither,
+say so in a comment, put it back (`Status = Backlog`, swap `ready` for
+`blocked` or `needs-owner`), and take the next one. That is a normal outcome,
+not a failure.
+
+**Dependencies** are recorded natively — `blocked_by` on the issue, visible in
+the GitHub UI — and mirrored as a "**Blocked by** …" line in the body when the
+blocker is a *pull request* (the API rejects PRs as dependency targets):
+
+```bash
+gh api repos/crypticpy/propulse/issues/<N>/dependencies/blocked_by
+gh api --method POST repos/crypticpy/propulse/issues/<N>/dependencies/blocked_by -F issue_id=<BLOCKER_DB_ID>
+```
+
+**Working it.** Fresh worktree off `origin/main`, never the primary checkout.
+One PR, at most 15 files, `Closes #N` (or `Refs #N`) plus the `Agent:` line in
+the body. **Commit only** — you do not push, open PRs, or merge. Post a
+**progress** comment before you stop for any reason.
+
+**What the reviewer does.** The Opus reviewer posts the second-opinion review,
+**fixes what is broken itself** rather than handing the branch back, resolves
+every thread, merges once checks are green, and prunes the worktree. Work only
+comes back to you if the whole approach was wrong.
+
+Sizing exists so several agents can run at once without a human deciding who
+gets what: four to six coding agents on `size:S`/`size:M` items keep one
+reviewer busy, which is the intended ratio.
+
 ## Deploys
 
 - App (`src/`, `api/`): Vercel builds production from `main` automatically.

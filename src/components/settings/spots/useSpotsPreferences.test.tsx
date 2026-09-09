@@ -68,6 +68,36 @@ describe("scoped working copy", () => {
   });
 });
 
+describe("rebinding to a different running view", () => {
+  it("clears revert, baseline and preset state when rebound to a different unsaved runtime", () => {
+    const first = view();
+    const second = view();
+    const { result, rerender } = renderHook(
+      ({ v }) => useSpotsPreferences({ view: v }),
+      { initialProps: { v: first.view } },
+    );
+
+    act(() => result.current.applyPreset(getActivityRecipe("activity-ft8-v1")));
+    expect(result.current.canRevert).toBe(true);
+    expect(result.current.customization.presetId).toBe("activity-ft8-v1");
+    expect(result.current.appliedPreset?.id).toBe("activity-ft8-v1");
+
+    // Both runtimes are unsaved, so `savedView` is null on both sides of the
+    // rebind — only the runtime's own instanceId can distinguish them.
+    rerender({ v: second.view });
+
+    expect(result.current.canRevert).toBe(false);
+    expect(result.current.customization.presetId).toBeNull();
+    expect(result.current.appliedPreset).toBeNull();
+    expect(result.current.status).toBe("saved");
+
+    // The stale revert point must not be replayable onto the new runtime.
+    const beforeRevertCall = JSON.stringify(second.runtime.getSnapshot().config);
+    act(() => result.current.revert());
+    expect(JSON.stringify(second.runtime.getSnapshot().config)).toBe(beforeRevertCall);
+  });
+});
+
 describe("working changes and saved state (UX-02)", () => {
   it("reports Saved until the first edit when no record is loaded", () => {
     const handle = view();

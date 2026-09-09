@@ -73,20 +73,29 @@ export function useSpotsPreferences(
   const config = state.config;
 
   const [baseline, setBaseline] = useState<ViewConfiguration | null>(savedView?.config ?? null);
-  const [appliedPresetId, setAppliedPresetId] = useState<string | null>(
-    savedView?.sourcePreset?.id ?? null,
+  const [appliedPreset, setAppliedPreset] = useState<SavedView["sourcePreset"]>(
+    savedView?.sourcePreset ?? null,
   );
   const [revertPoint, setRevertPoint] = useState<ViewConfiguration | null>(null);
   const lastSavedId = useRef<string | null>(savedView?.id ?? null);
+  // Identifies which running view this controller is currently bound to. Two
+  // unsaved runtimes both report `savedView.id === null`, so the record id
+  // alone cannot detect a rebind between them; the runtime's own instanceId
+  // can, since it is fixed for the life of that runtime.
+  const lastInstanceId = useRef<string>(state.instanceId);
 
-  // A different library record became the edit target: rebase status, drop revert.
+  // A different library record became the edit target, or the provider was
+  // rebound to a different running view: rebase status, drop revert.
   useEffect(() => {
-    if (savedView?.id === lastSavedId.current) return;
+    if (savedView?.id === lastSavedId.current && state.instanceId === lastInstanceId.current) {
+      return;
+    }
     lastSavedId.current = savedView?.id ?? null;
+    lastInstanceId.current = state.instanceId;
     setBaseline(savedView?.config ?? null);
-    setAppliedPresetId(savedView?.sourcePreset?.id ?? null);
+    setAppliedPreset(savedView?.sourcePreset ?? null);
     setRevertPoint(null);
-  }, [savedView]);
+  }, [savedView, state.instanceId]);
 
   const writeSpots = useCallback(
     (spots: ViewConfiguration["spots"]) => {
@@ -141,11 +150,11 @@ export function useSpotsPreferences(
       const result = applyPresetRecipe(recipe, before, { feedAvailability });
       if (result.changes.length === 0) {
         // No-op application must not create a phantom revert point or edit.
-        setAppliedPresetId(recipe.id);
+        setAppliedPreset({ id: recipe.id, version: recipe.version });
         return;
       }
       setRevertPoint(before);
-      setAppliedPresetId(recipe.id);
+      setAppliedPreset({ id: recipe.id, version: recipe.version });
       view.applyPreset(recipe);
     },
     [config, feedAvailability, view],
@@ -167,21 +176,22 @@ export function useSpotsPreferences(
   const markSaved = useCallback((saved: SavedView) => {
     lastSavedId.current = saved.id;
     setBaseline(saved.config);
-    setAppliedPresetId(saved.sourcePreset?.id ?? null);
+    setAppliedPreset(saved.sourcePreset ?? null);
     setRevertPoint(null);
   }, []);
 
   const customization = useMemo<PresetCustomization>(() => {
-    if (!appliedPresetId || !isBuiltInPresetId(appliedPresetId)) {
+    const presetId = appliedPreset?.id ?? null;
+    if (!presetId || !isBuiltInPresetId(presetId)) {
       return { presetId: null, presetName: null, customized: false };
     }
-    const recipe = getBuiltInRecipeIfKnown(appliedPresetId);
+    const recipe = getBuiltInRecipeIfKnown(presetId);
     if (!recipe) return { presetId: null, presetName: null, customized: false };
     const customized = recipe.kind === "activity"
       ? isActivityCustomized(config.spots, recipe)
       : isDisplayCustomized(config, recipe);
-    return { presetId: appliedPresetId, presetName: recipe.name, customized };
-  }, [appliedPresetId, config]);
+    return { presetId, presetName: recipe.name, customized };
+  }, [appliedPreset, config]);
 
   const sourceNotes = useMemo(
     () => explainSourceAvailability(config.spots.filters.sources, feedAvailability),
@@ -195,6 +205,10 @@ export function useSpotsPreferences(
   return {
     instanceId: state.instanceId,
     viewName: viewName ?? savedView?.name ?? "Unsaved view",
+    /** Library record this working copy is currently bound to, when it has one. */
+    savedViewId: lastSavedId.current,
+    /** Recipe (built-in or custom) last applied to this working copy, when any. */
+    appliedPreset,
     config,
     spots: config.spots,
     effectiveSpots: state.effectiveSpots,

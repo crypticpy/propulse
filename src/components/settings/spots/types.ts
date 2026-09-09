@@ -67,6 +67,10 @@ export interface SpotsPreferencesController {
   instanceId: string;
   /** Human name of the edit target; "Unsaved view" when nothing is loaded. */
   viewName: string;
+  /** Library record this working copy is currently bound to, when it has one. */
+  savedViewId: string | null;
+  /** Recipe (built-in or custom) last applied to this working copy, when any. */
+  appliedPreset: SavedView["sourcePreset"];
   config: ViewConfiguration;
   /** Configured preferences — what the user chose and what saves. */
   spots: SpotPresentationPreferences;

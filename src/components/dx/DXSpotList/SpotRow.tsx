@@ -19,7 +19,6 @@ import {
 } from "@/lib/utils/spotParser";
 import { SpotBadge } from "../SpotBadge";
 import { TuneButton } from "@/components/radio/TuneButton";
-import { useRigStore } from "@/stores/rigStore";
 import type { SpotRowProps } from "./types";
 import {
   formatTime,
@@ -199,8 +198,6 @@ export const SpotRow = memo(function SpotRow({
     [spot, onHideSpot],
   );
 
-  // Rig store for tune action
-  const catEnabled = useRigStore((s) => s.catEnabled);
   // Check if this band is the active filter
   const isBandActive = activeBandFilter === spot.band;
 
@@ -528,94 +525,97 @@ export const SpotRow = memo(function SpotRow({
         </span>
       </div>
 
-      {/* Quick action buttons - visible on hover */}
-      <div className="flex items-center justify-end gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity duration-150">
-        {onWork && (
+      {/* Trailing toolbar: tune chip + outlined quick actions */}
+      <div className="relative flex min-h-8 items-center justify-end">
+        <div className="absolute right-0 z-10 flex items-center gap-1.5 rounded-md border border-su-line/40 bg-su-panel/95 px-1 py-0.5 opacity-0 shadow-sm backdrop-blur-sm transition-opacity duration-150 group-hover:opacity-100 focus-within:opacity-100">
+          <TuneButton
+            variant="chip"
+            frequencyKHz={spot.frequency}
+            mode={spot.mode}
+          />
           <button
-            onClick={handleWork}
-            className="p-0.5 rounded text-su-muted hover:text-signal-green hover:bg-signal-green/10 transition-colors"
-            title="Work this station (L)"
-            aria-label={`Work ${spot.dx}`}
+            type="button"
+            onClick={handleSetTarget}
+            className="inline-flex h-8 w-8 min-h-8 min-w-8 shrink-0 items-center justify-center rounded-md border border-su-line/50 bg-su-input text-su-muted transition-colors hover:border-su-info hover:text-su-info focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-su-info"
+            title="Set as map target"
+            aria-label="Set as map target"
           >
-            <span className="px-0.5 text-[9px] font-bold leading-none">L</span>
+            <svg
+              className="h-3.5 w-3.5"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <circle cx="12" cy="12" r="10" strokeWidth={1.5} />
+              <circle cx="12" cy="12" r="3" strokeWidth={1.5} />
+              <path
+                strokeLinecap="round"
+                strokeWidth={1.5}
+                d="M12 2v4m0 12v4M2 12h4m12 0h4"
+              />
+            </svg>
           </button>
-        )}
-        {/* Target (crosshair) */}
-        <button
-          onClick={handleSetTarget}
-          className="p-0.5 rounded text-su-muted hover:text-cyan-400 hover:bg-cyan-500/10 transition-colors"
-          title="Set as map target"
-          aria-label="Set as map target"
-        >
-          <svg
-            className="w-3.5 h-3.5"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
+          {onWork && (
+            <button
+              type="button"
+              onClick={handleWork}
+              className="inline-flex h-8 w-8 min-h-8 min-w-8 shrink-0 items-center justify-center rounded-md border border-su-line/50 bg-su-input text-su-muted transition-colors hover:border-su-success hover:text-su-success focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-su-info"
+              title="Work this station (L)"
+              aria-label={`Work ${spot.dx}`}
+            >
+              <span className="text-[9px] font-bold leading-none">L</span>
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={handleWatchCallsign}
+            className="inline-flex h-8 w-8 min-h-8 min-w-8 shrink-0 items-center justify-center rounded-md border border-su-line/50 bg-su-input text-su-muted transition-colors hover:border-su-warning hover:text-su-warning focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-su-info"
+            title="Watch this callsign"
+            aria-label="Watch this callsign"
           >
-            <circle cx="12" cy="12" r="10" strokeWidth={1.5} />
-            <circle cx="12" cy="12" r="3" strokeWidth={1.5} />
-            <path
-              strokeLinecap="round"
-              strokeWidth={1.5}
-              d="M12 2v4m0 12v4M2 12h4m12 0h4"
-            />
-          </svg>
-        </button>
-        {/* Watch (eye) */}
-        <button
-          onClick={handleWatchCallsign}
-          className="p-0.5 rounded text-su-muted hover:text-yellow-400 hover:bg-yellow-500/10 transition-colors"
-          title="Watch this callsign"
-          aria-label="Watch this callsign"
-        >
-          <svg
-            className="w-3.5 h-3.5"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
+            <svg
+              className="h-3.5 w-3.5"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={1.5}
+                d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+              />
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={1.5}
+                d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
+              />
+            </svg>
+          </button>
+          <button
+            type="button"
+            onClick={handleHideSpot}
+            className="inline-flex h-8 w-8 min-h-8 min-w-8 shrink-0 items-center justify-center rounded-md border border-su-line/50 bg-su-input text-su-muted transition-colors hover:border-su-danger hover:text-su-danger focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-su-info"
+            title="Hide this spot"
+            aria-label="Hide this spot"
           >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={1.5}
-              d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
-            />
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={1.5}
-              d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
-            />
-          </svg>
-        </button>
-        {/* Hide (x) */}
-        <button
-          onClick={handleHideSpot}
-          className="p-0.5 rounded text-su-muted hover:text-red-400 hover:bg-red-500/10 transition-colors"
-          title="Hide this spot"
-          aria-label="Hide this spot"
-        >
-          <svg
-            className="w-3.5 h-3.5"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={1.5}
-              d="M6 18L18 6M6 6l12 12"
-            />
-          </svg>
-        </button>
-      </div>
-      {catEnabled && (
-        <div className="col-span-full flex justify-end">
-          <TuneButton frequencyKHz={spot.frequency} mode={spot.mode} />
+            <svg
+              className="h-3.5 w-3.5"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={1.5}
+                d="M6 18L18 6M6 6l12 12"
+              />
+            </svg>
+          </button>
         </div>
-      )}
+      </div>
     </div>
   );
 }, spotRowPropsAreEqual);

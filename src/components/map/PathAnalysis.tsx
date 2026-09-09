@@ -1034,7 +1034,7 @@ export function PathAnalysis({
                   <div className="flex items-center gap-1 min-w-0 max-w-[280px]">
                     {hasTimeShift && (
                       <span className="text-xs text-su-muted flex-shrink-0 rounded bg-su-line/10 px-1 py-0.5">
-                        {chip}
+                        time shift
                       </span>
                     )}
                     <span className="text-xs text-su-text truncate min-w-0">

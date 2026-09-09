@@ -14,8 +14,7 @@
  * - The Home dashboard widgets, `src/lib/home/layout.ts` (`HOME_LAYOUT_ITEMS`).
  * - Two new, additive families the plan calls for: the map hero (no wall
  *   tile — it is the wall's fixed background, never a picked widget) and the
- *   band x continent heat map (#632/#653/#654), which does not exist yet and
- *   is marked `status: "planned"` so recipes can still reference it.
+ *   band x continent heat map (#632/#653/#654), live since #654/#670.
  *
  * The "remaining wall tiles" the plan calls out as wall-only until a page
  * asks for more (§3) are: pskStation, wsjtx, sdrScope, sdrDecodes, muf,
@@ -380,7 +379,6 @@ export const WIDGET_REGISTRY: Readonly<Record<string, WidgetRegistryEntry>> = {
     phoneSize: "full",
     scope: "band",
     bindings: ["band", "continent"],
-    status: "planned",
   },
 
   // -- Home-only widgets (glance density, `src/lib/home/layout.ts`) ----

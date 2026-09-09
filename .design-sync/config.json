@@ -200,8 +200,6 @@
     "HamClockMoonPanel": "src/components/map/hamclock/HamClockMoonPanel.tsx",
     "HamClockProjectionSwitch": "src/components/map/hamclock/HamClockProjectionSwitch.tsx",
     "HamClockRecentContacts": "src/components/map/hamclock/HamClockRecentContacts.tsx",
-    "HamClockReliabilityPanel": "src/components/map/hamclock/HamClockReliabilityPanel.tsx",
-    "HamClockSpotsSidebar": "src/components/map/hamclock/HamClockSpotsSidebar.tsx",
     "HamClockButton": "src/components/map/hamclock/wall/controls/HamClockButton.tsx",
     "HamClockDialog": "src/components/map/hamclock/wall/controls/HamClockDialog.tsx",
     "HamClockSegmented": "src/components/map/hamclock/wall/controls/HamClockSegmented.tsx",

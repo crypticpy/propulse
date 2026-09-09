@@ -62,10 +62,16 @@ sealed backlog while pruning is disabled. Per day:
 3. **Seal** — only after verification, write
    `path_hourly_stats-<day>.manifest.json` beside it (`rowCount`, `sha256`,
    `sizeBytes`, `columns`, `exportedAt`). A sealed day is never re-exported.
-4. **Prune (gated)** — only when `ARCHIVE_PATH_STATS_PRUNE=true`. The
-   collector first re-downloads the archived object and checks it still
-   hashes to the manifest's SHA-256, then calls the RPC
-   `prune_archived_path_hourly_stats(day, manifest.rowCount)`. The function
+4. **Prune (gated)** — only when `ARCHIVE_PATH_STATS_PRUNE=true`. For every
+   sealed day the pass reaches, the collector unconditionally re-downloads
+   the archived object and checks it still hashes to the manifest's
+   SHA-256 first — including a day whose `path_hourly_stats` rows were
+   already removed by an earlier pass, where the archived object is the
+   only remaining proof the data still exists anywhere. Only after that
+   check passes does it look at the live row count: an already-pruned day
+   (live count zero) is a no-op from there, otherwise it calls the RPC
+   `prune_archived_path_hourly_stats_with_coverage(p_day, p_expected_rows,
+   p_gap_snapshot)`. The function
    re-counts live rows inside the database and **refuses to delete unless
    the live count exactly equals the manifest count** (rows added after
    archiving, a partial prior delete, or a wrong manifest all abort), and
@@ -156,9 +162,28 @@ node scripts/backfill-path-recency.mjs --from 2026-07-16T00:00:00Z \
   is likewise treated as unsealed: the day is re-exported, re-verified, and
   re-sealed.
 - **Archived object corrupted after sealing** → the pre-prune hash check
-  fails and nothing is deleted; the hot rows remain the copy of record until
-  the archive is repaired (delete the bad object + manifest and let the day
-  re-export).
+  fails and nothing is deleted. **Check the live row count before you touch
+  anything.** If the day still has live rows, they are the copy of record:
+  delete the bad object + manifest and let the day re-export. If the day's
+  live rows are already gone (`live === 0`), do **not** delete the manifest.
+  An unsealed day with no rows re-exports as an empty object that passes its
+  own verification, seals a `rowCount: 0` manifest, hash-verifies cleanly on
+  the next prune, and takes `path_recency_hourly` with it — the exact loss
+  the pre-prune check exists to prevent, reached by following this runbook.
+  Recover the object from a bucket-level backup instead (see the
+  `archive verification download failed` entry below).
+- **`archive verification download failed for <day>`** → the archived
+  object is missing or unreadable in storage. The throw propagates out of
+  `runArchivePass`, so **the whole pass aborts**: no day's recency rows are
+  pruned and no later day is exported until the object is repaired — not
+  just this day. That is deliberate; the collector will not delete the last
+  live trace of a day it cannot re-verify. This check runs even for a day
+  whose `path_hourly_stats` rows are already gone. `path_recency_hourly`
+  has no archive of its own; it is reconstructed by restoring the day's
+  stats CSV and rerunning `scripts/backfill-path-recency.mjs` (see
+  "Restoring a day for training" above). If the archived object itself is
+  gone, the underlying data is gone — recover it from a bucket-level backup
+  before anything downstream can be rebuilt.
 - **Prune RPC count mismatch** → the RPC raises and deletes nothing; the day
   stays hot and sealed. Investigate whether rows were backfilled after
   sealing (should be impossible: the aggregator catch-up window is 7 days,

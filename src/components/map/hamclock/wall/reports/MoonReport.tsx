@@ -24,6 +24,7 @@ import {
   getSublunarPoint,
 } from "@/lib/utils/moon";
 import { useMapStore } from "@/stores/mapStore";
+import { useBoundVisualTarget } from "@/hooks/useBoundMapSelection";
 import { HamClockSegmented } from "../controls/HamClockSegmented";
 import { HamClockTabs } from "../controls/HamClockTabs";
 import { MoonGlyph } from "../tiles/MoonTile";
@@ -541,7 +542,8 @@ export interface MoonReportProps {
  */
 export function MoonReport({ open, onClose }: MoonReportProps) {
   const location = useActiveLocation();
-  const target = useMapStore((s) => s.target);
+  const mapTarget = useMapStore((s) => s.target);
+  const target = useBoundVisualTarget(mapTarget);
   const setCenterLocation = useMapStore((s) => s.setCenterLocation);
   const now = useUTCClock(TICK_MS);
   const [band, setBand] = useState<EmeBand>("2m");

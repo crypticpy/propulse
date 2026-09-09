@@ -3,6 +3,7 @@ import { useActiveLocation } from "@/hooks/useActiveLocation";
 import { latLonToGrid } from "@/lib/utils/grid";
 import { formatDistance, getPathMetrics } from "@/lib/utils/path";
 import { useMapStore } from "@/stores/mapStore";
+import { useBoundVisualTarget } from "@/hooks/useBoundMapSelection";
 import { HamClockTile, TileHero, TileSub } from "../HamClockTile";
 
 // The report is only worth its bytes once an operator opens it.
@@ -19,7 +20,8 @@ const DxTargetReport = lazy(() =>
  * this tile deliberately leaves out (wall spec §15, HW-25).
  */
 export function DxTargetTile() {
-  const target = useMapStore((s) => s.target);
+  const mapTarget = useMapStore((s) => s.target);
+  const target = useBoundVisualTarget(mapTarget);
   const location = useActiveLocation();
   const [reportOpen, setReportOpen] = useState(false);
 

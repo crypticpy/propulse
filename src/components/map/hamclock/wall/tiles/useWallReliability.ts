@@ -17,6 +17,7 @@ import {
   type HamClockReliabilityMode,
 } from "@/stores/hamclockStore";
 import { useMapStore } from "@/stores/mapStore";
+import { useBoundVisualTarget } from "@/hooks/useBoundMapSelection";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { useActiveChain, useUserAntennas } from "@/stores/shackStore";
 
@@ -108,7 +109,8 @@ function cellKey(band: string, hourIndex: number): string {
 
 export function useWallReliability(): WallReliability {
   const origin = useActiveLocation();
-  const target = useMapStore((state) => state.target);
+  const mapTarget = useMapStore((state) => state.target);
+  const target = useBoundVisualTarget(mapTarget);
   const timeOffset = useMapStore((state) => state.timeOffset);
   const absoluteTime = useMapStore((state) => state.absoluteTime);
   const reliability = useHamClockStore((state) => state.reliability);
@@ -133,8 +135,8 @@ export function useWallReliability(): WallReliability {
   const sfiAt = parseUtcInstant(solarFluxQuery.data?.at(-1)?.time_tag);
   const updatedAt = kpAt !== null && sfiAt !== null ? Math.min(kpAt, sfiAt) : null;
 
-  // Mirror HamClockReliabilityPanel exactly so the wall and the desk panel
-  // never disagree about the same path.
+  // Derive chain power/antenna the same way every consumer does so
+  // nothing disagrees about the same path.
   const chainNode = activeChain?.nodes.find((node) => node.type === "antenna");
   const chainAntenna =
     chainNode?.type === "antenna"

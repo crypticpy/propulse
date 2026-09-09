@@ -4,22 +4,29 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { useHamClockDisplayStore } from "@/stores/hamclockDisplayStore";
 import { HamClockView } from "./HamClockView";
 
-const { mapState, hamclockState, setViewMode, setActivePreset } = vi.hoisted(
-  () => {
-    const setViewMode = vi.fn();
-    const setActivePreset = vi.fn();
-    const mapState = {
-      layoutMode: "hamclock",
-      setLayoutMode: vi.fn(),
-      viewMode: "flat" as "flat" | "globe" | "azimuthal",
-      setViewMode,
-      activePresetId: null as string | null,
-      setActivePreset,
-      target: null,
-      // Read/written by `useHamClockWallOperatingState` (#712), mounted
-      // unconditionally by `HamClockView`.
-      setTarget: vi.fn(),
-      layers: {
+const {
+  mapState,
+  hamclockState,
+  setViewMode,
+  setActivePreset,
+  restoreActivePresetId,
+} = vi.hoisted(() => {
+  const setViewMode = vi.fn();
+  const setActivePreset = vi.fn();
+  const restoreActivePresetId = vi.fn();
+  const mapState = {
+    layoutMode: "hamclock",
+    setLayoutMode: vi.fn(),
+    viewMode: "flat" as "flat" | "globe" | "azimuthal",
+    setViewMode,
+    activePresetId: null as string | null,
+    setActivePreset,
+    restoreActivePresetId,
+    target: null,
+    // Read/written by `useHamClockWallOperatingState` (#712), mounted
+    // unconditionally by `HamClockView`.
+    setTarget: vi.fn(),
+    layers: {
       muf: false,
       aurora: false,
       drap: false,
@@ -42,9 +49,14 @@ const { mapState, hamclockState, setViewMode, setActivePreset } = vi.hoisted(
     filtersBeforeBands: null,
     preferredViewMode: "flat" as "flat" | "globe" | "azimuthal",
   };
-    return { mapState, hamclockState, setViewMode, setActivePreset };
-  },
-);
+  return {
+    mapState,
+    hamclockState,
+    setViewMode,
+    setActivePreset,
+    restoreActivePresetId,
+  };
+});
 
 vi.mock("@/stores/mapStore", () => ({
   useMapStore: Object.assign(
@@ -107,6 +119,10 @@ describe("HamClockView", () => {
     });
     setActivePreset.mockReset();
     setActivePreset.mockImplementation((id: string) => {
+      mapState.activePresetId = id;
+    });
+    restoreActivePresetId.mockReset();
+    restoreActivePresetId.mockImplementation((id: string) => {
       mapState.activePresetId = id;
     });
     mapState.viewMode = "flat";
@@ -387,7 +403,7 @@ describe("HamClockView", () => {
     expect(setViewMode).toHaveBeenCalledWith("globe");
     expect(mapState.activePresetId).toBeNull();
     setViewMode.mockClear();
-    setActivePreset.mockClear();
+    restoreActivePresetId.mockClear();
 
     mapState.layers = { ...mapState.layers, drap: false };
     rerender(
@@ -396,15 +412,11 @@ describe("HamClockView", () => {
       </MemoryRouter>,
     );
     expect(setViewMode).toHaveBeenCalledWith("flat");
-    expect(setActivePreset).toHaveBeenCalledWith("kiosk-scene");
+    expect(restoreActivePresetId).toHaveBeenCalledWith("kiosk-scene");
     expect(mapState.activePresetId).toBe("kiosk-scene");
   });
 
-  it("does not let a restored preset's viewMode override preferred projection", () => {
-    setActivePreset.mockImplementation((id: string) => {
-      mapState.activePresetId = id;
-      mapState.viewMode = "globe";
-    });
+  it("restores the preset via restoreActivePresetId, never the framing-clobbering setActivePreset (#691 M2)", () => {
     mapState.activePresetId = "kiosk-scene";
     mapState.layers = { ...mapState.layers, drap: true };
     const { rerender } = render(
@@ -415,6 +427,7 @@ describe("HamClockView", () => {
     expect(setViewMode).toHaveBeenCalledWith("globe");
     setViewMode.mockClear();
     setActivePreset.mockClear();
+    restoreActivePresetId.mockClear();
 
     mapState.layers = { ...mapState.layers, drap: false };
     rerender(
@@ -422,7 +435,8 @@ describe("HamClockView", () => {
         <HamClockView displayTime={new Date(1)} />
       </MemoryRouter>,
     );
-    expect(setActivePreset).toHaveBeenCalledWith("kiosk-scene");
+    expect(restoreActivePresetId).toHaveBeenCalledWith("kiosk-scene");
+    expect(setActivePreset).not.toHaveBeenCalled();
     expect(setViewMode).toHaveBeenCalledWith("flat");
     expect(mapState.viewMode).toBe("flat");
     expect(mapState.activePresetId).toBe("kiosk-scene");

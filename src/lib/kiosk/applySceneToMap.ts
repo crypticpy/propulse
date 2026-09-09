@@ -17,6 +17,10 @@ import {
 import { useHamClockStore } from "@/stores/hamclockStore";
 import { useMapStore } from "@/stores/mapStore";
 import { useThemeStore } from "@/stores/themeStore";
+import {
+  enabledHeroCriticalLayers,
+  resolveHeroProjection,
+} from "@/lib/map/layerCapabilities";
 
 interface HamClockDisplaySnapshot {
   density: HamClockDensity;
@@ -162,9 +166,6 @@ export function applySceneToMap(scene: KioskScene): void {
 
   const map = useMapStore.getState();
   if (capabilities.layoutMode) map.setLayoutMode(scene.map.layoutMode);
-  if (capabilities.viewMode && scene.map.viewMode) {
-    map.setViewMode(scene.map.viewMode);
-  }
   if (capabilities.preset && scene.map.preset) {
     map.applyPreset(scene.map.preset);
   }
@@ -201,6 +202,31 @@ export function applySceneToMap(scene: KioskScene): void {
     if (useMapStore.getState().layers.goesCloud !== desiredClouds) {
       map.toggleLayer("goesCloud");
     }
+  }
+
+  // Resolved last, once every layer-affecting step above has landed: a
+  // pinned scene that requests a globe-only layer (DRAP, GOES, ducting,
+  // sporadic-E) switches projection the same way the interactive HamClock
+  // wall does (#625), instead of leaving that layer unable to draw. Kiosk
+  // and Launch Wall both apply scenes through this function, so wiring it
+  // here covers both (#691 M5).
+  if (capabilities.viewMode && scene.map.viewMode) {
+    // Record the scene's request as the *preference* before resolving.
+    // `preferredViewMode` is what the hero machinery reports as "what you
+    // asked for" — HamClockView derives its chip from it, so leaving it on
+    // a stale operator preference makes a scene that asked for 3D announce
+    // "Switched to 3D because flat cannot draw DRAP", naming a projection
+    // this scene never requested. Writing only the resolved `viewMode`
+    // below stores the outcome and throws the intent away.
+    useHamClockStore.getState().setPreferredViewMode(scene.map.viewMode);
+    const requestedHeroLayers = enabledHeroCriticalLayers(
+      useMapStore.getState().layers,
+    );
+    const resolution = resolveHeroProjection(
+      requestedHeroLayers,
+      scene.map.viewMode,
+    );
+    map.setViewMode(resolution.projection);
   }
 
   if (capabilities.theme && scene.map.theme) {

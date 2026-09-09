@@ -3,7 +3,10 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { ReactNode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { baselineKey, computeRatio } from "@/lib/widgets/heatmap/baseline";
-import { buildHeatMapBaseline, buildHeatMapSnapshot, useHeatMapBaseline } from "./useHeatMapBaseline";
+import {
+  buildHeatMapBaseline, buildHeatMapSnapshot, heatMapRefetchDelayMs, useHeatMapBaseline,
+  type HeatMapSnapshot,
+} from "./useHeatMapBaseline";
 
 vi.mock("./useUTCClock", () => ({ useUTCClock: () => new Date() }));
 const HOUR = "2026-09-09T12:00:00.000Z";
@@ -133,4 +136,59 @@ it.each([-6, 6])("accepts the server hour with a client clock skew of %i hours",
   unmount();
   expect(client.getQueryCache().getAll()[0].getObserversCount()).toBe(0);
   client.clear();
+});
+
+describe("CDN Age correction (#695 item 1)", () => {
+  // PAYLOAD.meta.fetchedAt (13:00:00Z) sits exactly on the hour the origin
+  // computed, one hour after HOUR (12:00:00Z) — a fresh, valid snapshot.
+  it("applies the Age offset to fetchedAt before validating the hour", () => {
+    const fresh = buildHeatMapSnapshot(PAYLOAD);
+    expect(fresh.fetchedAt).toBe("2026-09-09T13:00:00.000Z");
+    expect(fresh.unavailableLabel).toBeNull();
+
+    // A body cached at the CDN for a full hour (Age: 3600) is really being
+    // read at 14:00, one hour past the origin's own hour boundary — the
+    // snapshot's meta.hour_utc (12:00) is then stale.
+    const stale = buildHeatMapSnapshot(PAYLOAD, 3_600_000);
+    expect(stale.fetchedAt).toBe("2026-09-09T14:00:00.000Z");
+    expect(stale.unavailableLabel).toBe("REGIONAL HOUR OUT OF DATE");
+  });
+
+  it("reads the response's Age header and folds it into the served snapshot", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(new Response(JSON.stringify(PAYLOAD), { headers: { Age: "3600" } })),
+    );
+    const client = new QueryClient();
+    const wrapper = ({ children }: { children: ReactNode }) =>
+      <QueryClientProvider client={client}>{children}</QueryClientProvider>;
+    const { result, unmount } = renderHook(() => useHeatMapBaseline(), { wrapper });
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(result.current.unavailableLabel).toBe("REGIONAL HOUR OUT OF DATE");
+    unmount();
+    client.clear();
+  });
+});
+
+describe("polling back-off (#695 item 4)", () => {
+  const fetchedAt = "2026-09-09T13:15:00.000Z";
+  const dataUpdatedAt = Date.parse(fetchedAt);
+  // 5 minutes after the data landed, 40 minutes short of the 14:00 boundary.
+  const now = dataUpdatedAt + 5 * 60_000;
+  const snapshotWith = (unavailableLabel: string | null): HeatMapSnapshot => ({
+    baseline: new Map(), current: new Map(), hourUtc: HOUR, computedAt: null, fetchedAt, unavailableLabel,
+  });
+
+  it("backs the two baseline-pending states off to the hour boundary, same as the healthy state", () => {
+    const healthy = heatMapRefetchDelayMs(snapshotWith(null), dataUpdatedAt, now);
+    expect(healthy).toBe(40 * 60_000);
+    expect(heatMapRefetchDelayMs(snapshotWith("NEEDS 14 BASELINE SAMPLES"), dataUpdatedAt, now)).toBe(healthy);
+    expect(heatMapRefetchDelayMs(snapshotWith("NO BASELINE FOR THIS UTC HOUR"), dataUpdatedAt, now)).toBe(healthy);
+  });
+
+  it("keeps the collector-gap state (and other unavailable reasons) on the 60 s poll", () => {
+    expect(heatMapRefetchDelayMs(snapshotWith("NO COMPLETE-HOUR DATA (COLLECTOR GAP)"), dataUpdatedAt, now)).toBe(60_000);
+    expect(heatMapRefetchDelayMs(snapshotWith("REGIONAL HOUR OUT OF DATE"), dataUpdatedAt, now)).toBe(60_000);
+    expect(heatMapRefetchDelayMs(undefined, dataUpdatedAt, now)).toBe(60_000);
+  });
 });

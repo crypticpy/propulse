@@ -48,7 +48,18 @@ export interface HeatMapSnapshot {
   unavailableLabel: string | null;
 }
 
-export function buildHeatMapSnapshot(payload: unknown): HeatMapSnapshot {
+const NEEDS_MORE_SAMPLES = "NEEDS 14 BASELINE SAMPLES";
+const NO_BASELINE_THIS_HOUR = "NO BASELINE FOR THIS UTC HOUR";
+
+/**
+ * @param ageMs CDN `Age` header (seconds -> ms) at receipt time. The origin's
+ * `fetchedAt` is stamped when the edge function computed the body, but the
+ * response carries `s-maxage`, so a client can receive a body up to an hour
+ * old. Without this correction the hour-validity check below compares the
+ * *origin's* position in the hour instead of the client's, and a stale cache
+ * hit can never trip `REGIONAL HOUR OUT OF DATE`.
+ */
+export function buildHeatMapSnapshot(payload: unknown, ageMs = 0): HeatMapSnapshot {
   if (!payload || typeof payload !== "object" || !("baseline" in payload) ||
     !Array.isArray(payload.baseline) || !("current" in payload) || !Array.isArray(payload.current) ||
     !("meta" in payload) || !payload.meta || typeof payload.meta !== "object") {
@@ -58,8 +69,9 @@ export function buildHeatMapSnapshot(payload: unknown): HeatMapSnapshot {
   const hourMs = typeof meta.hour_utc === "string" ? Date.parse(meta.hour_utc) : NaN;
   if (!Number.isFinite(hourMs) || hourMs % HOUR_MS !== 0) throw new Error("Invalid regional hour");
   const hourUtc = new Date(hourMs).toISOString();
-  const fetchedMs = typeof meta.fetchedAt === "string" ? Date.parse(meta.fetchedAt) : NaN;
-  if (!Number.isFinite(fetchedMs)) throw new Error("Invalid regional fetch timestamp");
+  const originFetchedMs = typeof meta.fetchedAt === "string" ? Date.parse(meta.fetchedAt) : NaN;
+  if (!Number.isFinite(originFetchedMs)) throw new Error("Invalid regional fetch timestamp");
+  const fetchedMs = originFetchedMs + Math.max(0, ageMs);
   const fetchedAt = new Date(fetchedMs).toISOString();
   const utcHour = new Date(hourMs).getUTCHours();
   const baseline = buildHeatMapBaseline(payload.baseline);
@@ -85,8 +97,8 @@ export function buildHeatMapSnapshot(payload: unknown): HeatMapSnapshot {
     : payload.current.length === 0 ? "NO COMPLETE-HOUR DATA (COLLECTOR GAP)"
     : current.size === 0 ? "NO COMPATIBLE REGIONAL DATA"
     : payload.baseline.length === 0 ? "NO BASELINE DATA"
-    : baseline.size === 0 ? compatibleSamples ? "NEEDS 14 BASELINE SAMPLES" : "NO COMPATIBLE BASELINE DATA"
-    : !matchedHour ? "NO BASELINE FOR THIS UTC HOUR"
+    : baseline.size === 0 ? compatibleSamples ? NEEDS_MORE_SAMPLES : "NO COMPATIBLE BASELINE DATA"
+    : !matchedHour ? NO_BASELINE_THIS_HOUR
     : !computedAt ? "BASELINE AGE UNAVAILABLE" : null;
   return { baseline, current, hourUtc, fetchedAt, computedAt, unavailableLabel };
 }
@@ -94,7 +106,34 @@ export function buildHeatMapSnapshot(payload: unknown): HeatMapSnapshot {
 async function fetchHeatMapBaseline(signal: AbortSignal): Promise<HeatMapSnapshot> {
   const response = await fetch("/api/spots/heatmap-baseline", { signal });
   if (!response.ok) throw new Error(`heatmap-baseline request failed (${response.status})`);
-  return buildHeatMapSnapshot(await response.json());
+  const ageMs = Number(response.headers.get("age") ?? 0) * 1000;
+  return buildHeatMapSnapshot(await response.json(), ageMs);
+}
+
+/** The two "waiting on the collector's climatology job" states resolve only
+ * at the next UTC hour, same as the healthy case; every other unavailable
+ * state (including the collector-gap read) keeps the 60 s poll. Named rather
+ * than repeated as literals so rewording the operator-facing copy cannot
+ * silently drop a state back to the 60 s poll. */
+const HOUR_BOUNDARY_LABELS: ReadonlySet<string> = new Set([
+  NEEDS_MORE_SAMPLES,
+  NO_BASELINE_THIS_HOUR,
+]);
+
+/** Pure so item 4's back-off can be asserted without driving react-query's
+ * own refetch scheduler. `fetchedAt` already carries the CDN `Age`
+ * correction (see `buildHeatMapSnapshot`), so adding client-side elapsed
+ * time here lands on the true next hour boundary. */
+export function heatMapRefetchDelayMs(
+  snapshot: HeatMapSnapshot | undefined,
+  dataUpdatedAt: number,
+  now: number,
+): number {
+  if (!snapshot) return 60_000;
+  if (snapshot.unavailableLabel && !HOUR_BOUNDARY_LABELS.has(snapshot.unavailableLabel)) return 60_000;
+  const elapsed = Math.max(0, now - dataUpdatedAt);
+  const serverNow = Date.parse(snapshot.fetchedAt) + elapsed;
+  return Math.max(1000, HOUR_MS - (serverNow % HOUR_MS));
 }
 
 function utcLabel(timestamp: string): string {
@@ -107,13 +146,8 @@ export function useHeatMapBaseline() {
     queryKey: ["heatmap-baseline"],
     queryFn: ({ signal }) => fetchHeatMapBaseline(signal),
     staleTime: HOUR_MS,
-    refetchInterval: (entry) => {
-      const snapshot = entry.state.data;
-      if (!snapshot || snapshot.unavailableLabel) return 60_000;
-      // Server boundary plus elapsed client time, not the client's UTC hour.
-      const elapsed = Math.max(0, Date.now() - entry.state.dataUpdatedAt);
-      return Math.max(1000, HOUR_MS - Date.parse(snapshot.fetchedAt) % HOUR_MS - elapsed);
-    },
+    // Server boundary plus elapsed client time, not the client's UTC hour.
+    refetchInterval: (entry) => heatMapRefetchDelayMs(entry.state.data, entry.state.dataUpdatedAt, Date.now()),
     retry: 1,
   });
   const snapshot = query.isError ? undefined : query.data;

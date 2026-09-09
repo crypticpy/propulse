@@ -54,8 +54,9 @@ it("does not collapse the grid when the client feed is 1000x smaller; only genui
   expect(screen.getByText("1 / \u2264-3.00").hasAttribute("data-no-baseline")).toBe(false);
   expect(container.querySelector(".hcf-heatgrid-cell[data-no-baseline]")?.getAttribute("style")).toContain("repeating-linear-gradient");
   expect(screen.getByText("NO BASELINE (not measured quiet)")).toBeTruthy();
-  expect(screen.getByText("1000 / 0.00").style.whiteSpace).toBe("nowrap");
-  expect(screen.getByText("1000 / 0.00").style.fontSize).toBe("1.1vh");
+  // Nowrap and the ratio-mode font floor live in hamclock-wall-report.css
+  // (DS-16, >=1.3vh) rather than inline styles now (#695 item 2).
+  expect(screen.getByText("1000 / 0.00").className).toContain("hcr-heatgrid-cell--ratio");
   expect(screen.getAllByText(/LAST FULL HOUR vs 90-DAY MEDIAN/).length).toBeGreaterThan(0);
   expect(screen.getAllByText("BASELINE AS OF 2026-09-08 00:00 UTC (13 H AGO)").length).toBeGreaterThan(0);
   expect(screen.queryByText("SAME UTC HOUR MEDIAN")).toBeNull();

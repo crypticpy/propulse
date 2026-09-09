@@ -34,6 +34,8 @@ const originalSpots = useDXStore.getState().spots;
 const originalSource = useDXStore.getState().spotSource;
 const originalSelected = useDXStore.getState().selectedSpot;
 const originalFilters = useMapStore.getState().spotFilters;
+const originalTarget = useMapStore.getState().target;
+const originalCenterLocation = useMapStore.getState().centerLocation;
 
 describe("BandTopDx", () => {
   afterEach(() => {
@@ -42,7 +44,11 @@ describe("BandTopDx", () => {
       spotSource: originalSource,
       selectedSpot: originalSelected,
     });
-    useMapStore.setState({ spotFilters: originalFilters });
+    useMapStore.setState({
+      spotFilters: originalFilters,
+      target: originalTarget,
+      centerLocation: originalCenterLocation,
+    });
   });
 
   it("routes the wall row click through the runtime, so a later selection overrides an earlier one (PR #603 B1)", async () => {

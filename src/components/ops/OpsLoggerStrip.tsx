@@ -17,6 +17,7 @@ import { useMapStore } from "@/stores/mapStore";
 import { useOpsPostureStore } from "@/stores/opsPostureStore";
 import { useShackStore } from "@/stores/shackStore";
 import { useUserStore } from "@/stores/userStore";
+import { useOptionalViewRuntime } from "@/components/views/ViewRuntimeContext";
 
 const TurnBeamControl = lazy(() =>
   import("@/components/ops/TurnBeamControl").then((m) => ({
@@ -44,6 +45,7 @@ export function OpsLoggerStrip() {
   const setPendingReplace = useOpsPostureStore((s) => s.setPendingReplace);
   const exitContact = useOpsPostureStore((s) => s.exitContact);
   const target = useMapStore((s) => s.target);
+  const runtime = useOptionalViewRuntime();
   const station = useUserStore((s) => s.station);
   const shackKey = useShackStore(
     (s) =>
@@ -143,7 +145,10 @@ export function OpsLoggerStrip() {
           <div className="ml-auto flex items-center gap-2">
             <button
               type="button"
-              onClick={() => applyLogIntent("work", pendingReplace, { replace: true })}
+              onClick={() => {
+                applyLogIntent("work", pendingReplace, { replace: true });
+                runtime?.selectSpot(pendingReplace.id, null);
+              }}
               className="rounded border border-plasma-orange/40 bg-plasma-orange/25 px-2 py-1 text-xs font-bold text-plasma-orange"
             >
               Replace

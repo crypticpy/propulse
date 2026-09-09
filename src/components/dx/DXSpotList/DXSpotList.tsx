@@ -27,6 +27,7 @@ import { useMapStore } from "@/stores/mapStore";
 import { useWatchStore, formatCriteriaSummary } from "@/stores/watchStore";
 import { useContestWatch } from "@/hooks/useContestWatch";
 import { applyLogIntent } from "@/lib/qso/logIntent";
+import { useOptionalViewRuntime } from "@/components/views/ViewRuntimeContext";
 
 /** Source badge styling map */
 const SOURCE_BADGE_STYLES: Record<
@@ -74,6 +75,7 @@ export function DXSpotList({
   const clearWatch = useWatchStore((s) => s.clearWatch);
   // ── Contest watch integration ──
   const contestWatch = useContestWatch();
+  const runtime = useOptionalViewRuntime();
 
   const state = useDXSpotListState(onResearchGrid);
 
@@ -203,9 +205,13 @@ export function DXSpotList({
     [handleContextAction],
   );
 
-  const handleWorkSpot = useCallback((spot: DXSpot) => {
-    applyLogIntent("work", spot);
-  }, []);
+  const handleWorkSpot = useCallback(
+    (spot: DXSpot) => {
+      applyLogIntent("work", spot);
+      runtime?.selectSpot(spot.id, null);
+    },
+    [runtime],
+  );
 
   // --- QoL1: Keyboard-first DX spot navigation ---
   const spotListRef = useRef<HTMLDivElement>(null);

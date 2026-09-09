@@ -2,6 +2,7 @@ import { useCallback } from "react";
 import type { DXSpot } from "@/types/dxcluster";
 import type { TargetLocation } from "@/stores/mapStore";
 import { commitMapSpotSelection } from "@/hooks/useMapSpotSelection";
+import type { ScopedViewRuntime } from "@/lib/views/runtime";
 
 interface UseSpotEntryBehaviorArgs {
   sessionId: string | null;
@@ -24,6 +25,7 @@ interface UseSpotEntryBehaviorArgs {
     nextText: string;
     source: "spot";
   }) => void;
+  runtime?: ScopedViewRuntime | null;
 }
 
 export function useSpotEntryBehavior(args: UseSpotEntryBehaviorArgs) {
@@ -44,12 +46,14 @@ export function useSpotEntryBehavior(args: UseSpotEntryBehaviorArgs) {
     setDraft,
     requestEntryFocus,
     requestDraftReplace,
+    runtime,
   } = args;
 
   return useCallback(
     (spot: DXSpot) => {
       // Map targeting + selection are always safe
       commitMapSpotSelection(spot, { setSelectedSpot, setTarget });
+      runtime?.selectSpot(spot.id, null);
 
       if (!sessionId) {
         return;
@@ -101,6 +105,7 @@ export function useSpotEntryBehavior(args: UseSpotEntryBehaviorArgs) {
       requestDraftReplace,
       requestEntryFocus,
       runMode,
+      runtime,
       sessionId,
       setBand,
       setDraft,

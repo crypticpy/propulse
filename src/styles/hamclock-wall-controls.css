@@ -196,6 +196,22 @@
   flex-direction: column;
   gap: 0.6vh;
 }
+/* Groups a segmented control with a caveat line explaining a value the
+ * control itself can't show is being overruled (e.g. a hero-projection
+ * force, #691 M3) — kept as one grid cell so the caveat lands directly
+ * under its control instead of wrapping to the next row. */
+.hcc-seg-wrap-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6vh;
+}
+.hcc-seg-caveat {
+  margin: 0;
+  font-family: var(--hc-font-mono);
+  font-size: var(--hcc-t-caption);
+  letter-spacing: 0.04em;
+  color: var(--hc-warn);
+}
 .hcc-seg-label {
   margin: 0;
   font-family: var(--hc-font-mono);

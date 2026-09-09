@@ -8,6 +8,7 @@ import test from "node:test";
 import {
   changedPaths,
   classifyPushPaths,
+  noopPushSummary,
   parseRefUpdates,
   pushRanges,
   selectDiffBase,
@@ -139,6 +140,78 @@ test("parses Git pre-push ref update lines", () => {
     remoteRef: "refs/heads/topic",
     remoteOid: "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
   }]);
+});
+
+// --- noopPushSummary: #764 — a no-op push must short-circuit before any
+// check runs, but only when EVERY ref update is a no-op. ---
+
+test("noopPushSummary: no ref-update lines at all is not a no-op (conservative — do not skip)", () => {
+  assert.equal(noopPushSummary([]), null);
+});
+
+test("noopPushSummary: every ref already up to date is a no-op", () => {
+  const sameOid = "a".repeat(40);
+  const summary = noopPushSummary([
+    { localRef: "refs/heads/main", localOid: sameOid, remoteRef: "refs/heads/main", remoteOid: sameOid },
+  ]);
+  assert.deepEqual(summary, ["refs/heads/main already up to date"]);
+});
+
+test("noopPushSummary: a branch deletion (all-zero local oid) is a no-op — nothing to verify", () => {
+  const zeroOid = "0".repeat(40);
+  const oldOid = "b".repeat(40);
+  const summary = noopPushSummary([
+    { localRef: "(delete)", localOid: zeroOid, remoteRef: "refs/heads/topic", remoteOid: oldOid },
+  ]);
+  assert.deepEqual(summary, ["refs/heads/topic deleted"]);
+});
+
+test("noopPushSummary: a real push (new commits) is not a no-op", () => {
+  const oldOid = "a".repeat(40);
+  const newOid = "b".repeat(40);
+  const summary = noopPushSummary([
+    { localRef: "refs/heads/main", localOid: newOid, remoteRef: "refs/heads/main", remoteOid: oldOid },
+  ]);
+  assert.equal(summary, null);
+});
+
+// The case that silently breaks the gate if the loop's early-return is
+// wrong: one no-op ref alongside one ref with real content in the same
+// invocation (e.g. `git push origin :old-branch new-branch`). Must NOT be
+// treated as a no-op just because the first (or last) ref checked was.
+test("noopPushSummary: a mixed push (one no-op ref, one real ref) is not a no-op", () => {
+  const zeroOid = "0".repeat(40);
+  const deletedRemoteOid = "c".repeat(40);
+  const oldOid = "a".repeat(40);
+  const newOid = "b".repeat(40);
+  const summary = noopPushSummary([
+    { localRef: "(delete)", localOid: zeroOid, remoteRef: "refs/heads/old-branch", remoteOid: deletedRemoteOid },
+    { localRef: "refs/heads/new-branch", localOid: newOid, remoteRef: "refs/heads/new-branch", remoteOid: oldOid },
+  ]);
+  assert.equal(summary, null);
+});
+
+test("noopPushSummary: a mixed push with the real ref listed first is still not a no-op", () => {
+  const zeroOid = "0".repeat(40);
+  const deletedRemoteOid = "c".repeat(40);
+  const oldOid = "a".repeat(40);
+  const newOid = "b".repeat(40);
+  const summary = noopPushSummary([
+    { localRef: "refs/heads/new-branch", localOid: newOid, remoteRef: "refs/heads/new-branch", remoteOid: oldOid },
+    { localRef: "(delete)", localOid: zeroOid, remoteRef: "refs/heads/old-branch", remoteOid: deletedRemoteOid },
+  ]);
+  assert.equal(summary, null);
+});
+
+test("noopPushSummary: multiple no-op refs (deletion + up-to-date) are both summarized", () => {
+  const zeroOid = "0".repeat(40);
+  const deletedRemoteOid = "c".repeat(40);
+  const sameOid = "a".repeat(40);
+  const summary = noopPushSummary([
+    { localRef: "(delete)", localOid: zeroOid, remoteRef: "refs/heads/old-branch", remoteOid: deletedRemoteOid },
+    { localRef: "refs/heads/main", localOid: sameOid, remoteRef: "refs/heads/main", remoteOid: sameOid },
+  ]);
+  assert.deepEqual(summary, ["refs/heads/old-branch deleted", "refs/heads/main already up to date"]);
 });
 
 test("new branches compare against their upstream merge base first", () => {

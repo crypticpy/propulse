@@ -10,20 +10,24 @@
  *   refused with "This phone page is full. Add a new page." — the operator
  *   is expected to start a new page, never spill or evict.
  * - **Wall in `heroOnly` mode** (`{ heroOnly: true }`, only when
- *   `CanvasRules.heroOnly` is set) places the first widget in the space and
- *   refuses every other widget: a wall page can be one giant widget with
- *   rails off, or the normal paged-rail layout, never both.
+ *   `CanvasRules.heroOnly` is set) places the first widget in the space —
+ *   subject to the same eligibility a normal hero placement requires
+ *   (declares the wall density, `canSpace`) — and refuses every other
+ *   widget: a wall page can be one giant widget with rails off, or the
+ *   normal paged-rail layout, never both.
  * - **Everything else** (wall's normal rail pages, workstation, tablet):
  *   1. If the canvas allows a hero and the widget list has a `canSpace`
  *      widget whose densities include the canvas's hero density, the first
  *      such widget (in list order) fills the space.
- *   2. Every other widget is tried against ALL of its eligible rails — a
- *      rail is eligible when its orientation matches the widget's `aspect`
- *      (or the widget is `transposable`, which may take a slot on a rail of
- *      the other orientation, plan §3) and it has enough remaining weight
- *      budget. The first eligible rail with room takes it (left, then
- *      right, then bottom — the order `CanvasRules.rails` lists them), so a
- *      full left rail already falls back to right, and vice versa, before
+ *   2. Every other widget is eligible for every rail whose density it
+ *      declares — a widget may only be refused for density, weight budget,
+ *      or full rails, never for orientation (Codex finding, #655). Aspect
+ *      vs. rail orientation is a *preference* used to order the candidate
+ *      rails: rails whose orientation matches the widget's `aspect` (or any
+ *      rail, if the widget is `transposable`, `any`, or `square`) are tried
+ *      first, then the rest, in the canvas's declared rail order (left,
+ *      then right, then bottom). The first candidate with room takes it, so
+ *      a full left rail already falls back to right, and vice versa, before
  *      anything is refused.
  *   3. A widget that fits no eligible rail is refused with a sentence
  *      naming every eligible rail's fullness (owner decision, plan §10 Q3:
@@ -61,7 +65,14 @@ function eligibleRails(entry: WidgetRegistryEntry, rules: CanvasRules): RailSpec
   if (entry.densities.length === 0) return [];
   const densityOk = entry.densities.some((d) => rules.railDensities.includes(d));
   if (!densityOk) return [];
-  return rules.rails.filter((rail) => aspectFitsOrientation(entry, rail.side));
+  // Aspect vs. rail orientation is a preference used for ordering (and for
+  // whether a widget transposes), never a hard rejection: a widget that
+  // declares the canvas's density is eligible for every rail. Rails whose
+  // orientation matches the widget's aspect are tried first; the rest are a
+  // fallback, in the canvas's declared rail order (Codex finding, #655).
+  const preferred = rules.rails.filter((rail) => aspectFitsOrientation(entry, rail.side));
+  const fallback = rules.rails.filter((rail) => !aspectFitsOrientation(entry, rail.side));
+  return [...preferred, ...fallback];
 }
 
 /** Human sentence naming every full rail a widget was eligible for. */
@@ -131,6 +142,18 @@ function autoDockHeroOnly(
       return;
     }
     if (i === 0) {
+      // Same eligibility a normal hero placement requires: the widget must
+      // declare the wall density and be able to take the space (Codex
+      // finding, #655) — heroOnly relaxes the *page layout*, not the
+      // widget's own placement rules.
+      if (!entry.densities.includes("wall")) {
+        refusals.push({ widgetId, reason: `"${entry.title}" has no wall form.` });
+        return;
+      }
+      if (!entry.canSpace) {
+        refusals.push({ widgetId, reason: `"${entry.title}" cannot fill the space.` });
+        return;
+      }
       placements.push({ widgetId, slot: { kind: "space" } });
       return;
     }

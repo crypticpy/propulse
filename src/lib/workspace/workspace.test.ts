@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { applyRailWidth, CANVAS_RULES, defaultRailStates, PHONE_SIZE_WEIGHT } from "./canvasRules";
 import { getRegistryEntry, HOME_ONLY_IDS, WALL_SEEDED_IDS, WIDGET_REGISTRY } from "./registry";
 import { autoDock } from "./autoDock";
-import { RECIPES } from "./recipes";
+import { RECIPE_RUN_THE_PILEUP, RECIPES } from "./recipes";
 import type { CanvasRules, WidgetRegistryEntry } from "./types";
 
 describe("canvasRules", () => {
@@ -171,12 +171,26 @@ describe("autoDock", () => {
   });
 
   it("refuses with a sentence naming both full rails, never evicting or spilling", () => {
+    const rules: CanvasRules = {
+      canvasType: "workstation",
+      rails: [
+        { side: "left", weightBudget: 5 },
+        { side: "right", weightBudget: 6 },
+      ],
+      heroAllowed: false,
+      heroDensity: null,
+      minDensity: "work",
+      railDensities: ["work"],
+      railWidthPolicy: "fixed",
+      tapTargetPt: 44,
+      scaleRange: [0.55, 0.85],
+    };
     const registry: Record<string, WidgetRegistryEntry> = {
       a: mkEntry("a", { aspect: "tall", weight: 5 }),
       b: mkEntry("b", { aspect: "tall", weight: 6 }),
       c: mkEntry("c", { aspect: "tall", weight: 1 }),
     };
-    const result = autoDock(["a", "b", "c"], CANVAS_RULES.workstation, registry);
+    const result = autoDock(["a", "b", "c"], rules, registry);
     expect(result.placements).toEqual([
       { widgetId: "a", slot: { kind: "rail", side: "left" } },
       { widgetId: "b", slot: { kind: "rail", side: "right" } },
@@ -198,7 +212,32 @@ describe("autoDock", () => {
     ]);
   });
 
-  it("transposes: a tall widget with no vertical rail is refused unless transposable", () => {
+  it("aspect prefers a matching-orientation rail over a mismatched one when both have room", () => {
+    const rules: CanvasRules = {
+      canvasType: "workstation",
+      rails: [
+        { side: "bottom", weightBudget: 5 },
+        { side: "left", weightBudget: 5 },
+      ],
+      heroAllowed: false,
+      heroDensity: null,
+      minDensity: "work",
+      railDensities: ["work"],
+      railWidthPolicy: "fixed",
+      tapTargetPt: 44,
+      scaleRange: [0.55, 0.85],
+    };
+    const registry: Record<string, WidgetRegistryEntry> = {
+      tall: mkEntry("tall", { aspect: "tall", weight: 2, transposable: false }),
+    };
+    // Left is vertical (matches "tall") and is listed second, bottom is
+    // horizontal and is listed first: aspect preference wins the ordering.
+    const result = autoDock(["tall"], rules, registry);
+    expect(result.refusals).toEqual([]);
+    expect(result.placements).toEqual([{ widgetId: "tall", slot: { kind: "rail", side: "left" } }]);
+  });
+
+  it("aspect is never a hard gate: a non-transposable widget docks on an orientation-mismatched rail when it's the only one available", () => {
     const rules: CanvasRules = {
       canvasType: "workstation",
       rails: [{ side: "bottom", weightBudget: 5 }],
@@ -212,23 +251,36 @@ describe("autoDock", () => {
     };
     const registry: Record<string, WidgetRegistryEntry> = {
       rigid: mkEntry("rigid", { aspect: "tall", weight: 2, transposable: false }),
-      flexible: mkEntry("flexible", { aspect: "tall", weight: 2, transposable: true }),
     };
+    const result = autoDock(["rigid"], rules, registry);
+    expect(result.refusals).toEqual([]);
+    expect(result.placements).toEqual([{ widgetId: "rigid", slot: { kind: "rail", side: "bottom" } }]);
+  });
 
-    const refused = autoDock(["rigid"], rules, registry);
-    expect(refused.placements).toEqual([]);
-    expect(refused.refusals).toEqual([{ widgetId: "rigid", reason: '"Rigid" has no workstation rail form.' }]);
-
-    const placed = autoDock(["flexible"], rules, registry);
-    expect(placed.refusals).toEqual([]);
-    expect(placed.placements).toEqual([{ widgetId: "flexible", slot: { kind: "rail", side: "bottom" } }]);
+  it("refuses a widget only for density mismatch, never for aspect", () => {
+    const registry: Record<string, WidgetRegistryEntry> = {
+      wallOnly: mkEntry("wallOnly", { aspect: "any", weight: 1, densities: ["wall"] }),
+    };
+    const result = autoDock(["wallOnly"], CANVAS_RULES.workstation, registry);
+    expect(result.placements).toEqual([]);
+    expect(result.refusals).toEqual([
+      { widgetId: "wallOnly", reason: '"WallOnly" has no workstation rail form.' },
+    ]);
   });
 
   it("wall hero-only page places one widget and refuses the rest", () => {
-    const result = autoDock(["bestBand", "sun"], CANVAS_RULES.wall, WIDGET_REGISTRY, { heroOnly: true });
-    expect(result.placements).toEqual([{ widgetId: "bestBand", slot: { kind: "space" } }]);
+    const result = autoDock(["cluster", "sun"], CANVAS_RULES.wall, WIDGET_REGISTRY, { heroOnly: true });
+    expect(result.placements).toEqual([{ widgetId: "cluster", slot: { kind: "space" } }]);
     expect(result.refusals).toHaveLength(1);
     expect(result.refusals[0].reason).toMatch(/hero-only/);
+  });
+
+  it("wall hero-only refuses a widget that has no wall form, even as the sole widget", () => {
+    const result = autoDock(["activity"], CANVAS_RULES.wall, WIDGET_REGISTRY, { heroOnly: true });
+    expect(result.placements).toEqual([]);
+    expect(result.refusals).toEqual([
+      { widgetId: "activity", reason: '"Bands now" has no wall form.' },
+    ]);
   });
 
   describe("phone", () => {
@@ -298,15 +350,19 @@ describe("recipes", () => {
     }
   });
 
-  it("docks without an 'unknown widget' refusal on wall, workstation and tablet", () => {
+  it("docks with zero refusals on every recipe x canvas combination (the invariant recipes must satisfy)", () => {
     for (const recipe of RECIPES) {
       for (const canvas of flatCanvases) {
         const result = autoDock(recipe.layouts[canvas], CANVAS_RULES[canvas]);
-        for (const refusal of result.refusals) {
-          expect(refusal.reason, `${recipe.id}.${canvas}`).not.toMatch(/not in the widget registry/);
-        }
+        expect(result.refusals, `${recipe.id}.${canvas}`).toEqual([]);
       }
     }
+  });
+
+  it("runThePileup docks on the wall with zero refusals (wide, non-transposable tiles included)", () => {
+    const result = autoDock(RECIPE_RUN_THE_PILEUP.layouts.wall, CANVAS_RULES.wall);
+    expect(result.refusals).toEqual([]);
+    expect(result.placements).toHaveLength(RECIPE_RUN_THE_PILEUP.layouts.wall.length);
   });
 });
 

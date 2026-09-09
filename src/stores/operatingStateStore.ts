@@ -103,6 +103,8 @@ export interface OperatingStateStoreActions {
   selectSpot: (spot: SpotRef) => void;
   flipPage: (workspaceId: string, pageIndex: number) => void;
   setView: (workspaceId: string, viewId: string) => void;
+  /** Owner round 2 (#660): phone remote-tunes whichever screen published `canTune`. */
+  tune: (workspaceId: string, frequencyKHz: number, mode: string | null) => void;
   setFollowScreens: (next: boolean) => void;
   /** Announces this screen; the returned function withdraws it. */
   registerWorkspace: (input: RegisterWorkspaceInput) => () => void;
@@ -307,6 +309,12 @@ export const useOperatingStateStore = create<OperatingStateStore>()(
 
       setView: (workspaceId, viewId) => {
         const command: OperatingCommand = { type: "setView", workspaceId, viewId };
+        recordCommand(command, get().deviceId);
+        post({ kind: "command", command });
+      },
+
+      tune: (workspaceId, frequencyKHz, mode) => {
+        const command: OperatingCommand = { type: "tune", workspaceId, frequencyKHz, mode };
         recordCommand(command, get().deviceId);
         post({ kind: "command", command });
       },

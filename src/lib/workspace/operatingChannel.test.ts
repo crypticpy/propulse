@@ -66,6 +66,18 @@ describe("parseOperatingMessage", () => {
       { ...envelope(), kind: "command", command: { type: "selectSpot", spot: { id: null } } },
     ],
     [
+      "a tune with a zero frequency",
+      { ...envelope(), kind: "command", command: { type: "tune", workspaceId: "w", frequencyKHz: 0, mode: null } },
+    ],
+    [
+      "a tune with no workspaceId",
+      { ...envelope(), kind: "command", command: { type: "tune", frequencyKHz: 14195, mode: null } },
+    ],
+    [
+      "a tune with a non-string mode",
+      { ...envelope(), kind: "command", command: { type: "tune", workspaceId: "w", frequencyKHz: 14195, mode: 7 } },
+    ],
+    [
       "a registration with an unknown canvas type",
       {
         ...envelope(),
@@ -89,6 +101,19 @@ describe("parseOperatingMessage", () => {
     ],
   ])("drops %s", (_label, raw) => {
     expect(parseOperatingMessage(raw)).toBeNull();
+  });
+
+  it("accepts a well-formed tune command with a null mode", () => {
+    const message = parseOperatingMessage({
+      ...envelope(),
+      kind: "command",
+      command: { type: "tune", workspaceId: "workstation-default", frequencyKHz: 14195, mode: null },
+    });
+    expect(message).toEqual({
+      ...envelope(),
+      kind: "command",
+      command: { type: "tune", workspaceId: "workstation-default", frequencyKHz: 14195, mode: null },
+    });
   });
 
   it("drops the whole patch when one field is malformed, rather than half-applying it", () => {

@@ -102,7 +102,15 @@ export interface WorkspaceRegistration {
 export type OperatingCommand =
   | { type: "flipPage"; workspaceId: string; pageIndex: number }
   | { type: "selectSpot"; spot: SpotRef }
-  | { type: "setView"; workspaceId: string; viewId: string };
+  | { type: "setView"; workspaceId: string; viewId: string }
+  /**
+   * #660: the phone acts as a remote for whichever screen published
+   * `capabilities.canTune`. Carries a resolved frequency/mode rather than a
+   * `SpotRef` — the sender (`ContactScreen`) already looked the spot up in
+   * its own `useDXStore` to get one, and the receiving screen's bridge path
+   * (`queueTune`) takes frequency + mode directly.
+   */
+  | { type: "tune"; workspaceId: string; frequencyKHz: number; mode: string | null };
 
 /** One field's proposed value plus the stamp that resolves the race. */
 export type CursorPatch = {
@@ -260,6 +268,14 @@ function parseCommand(raw: unknown): OperatingCommand | null {
       const viewId = asString(raw.viewId);
       if (workspaceId === null || viewId === null) return null;
       return { type: "setView", workspaceId, viewId };
+    }
+    case "tune": {
+      const workspaceId = asString(raw.workspaceId);
+      const frequencyKHz = asFiniteNumber(raw.frequencyKHz);
+      const mode = asNullableString(raw.mode);
+      if (workspaceId === null || frequencyKHz === null || frequencyKHz <= 0) return null;
+      if (mode === undefined) return null;
+      return { type: "tune", workspaceId, frequencyKHz, mode };
     }
     default:
       return null;

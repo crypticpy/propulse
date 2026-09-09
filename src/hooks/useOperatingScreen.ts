@@ -15,6 +15,7 @@
  */
 
 import { useEffect } from "react";
+import { queueTune } from "@/lib/radio/tune";
 import { useOperatingStateStore } from "@/stores/operatingStateStore";
 import { useRigStore } from "@/stores/rigStore";
 import { useActiveWorkspace, useWorkspaceStore } from "@/stores/workspaceStore";
@@ -46,19 +47,30 @@ export function useOperatingScreen(): void {
       useOperatingStateStore.subscribe((state, previous) => {
         const received = state.lastCommand;
         if (!received || received === previous.lastCommand) return;
-        if (received.command.type !== "flipPage") return;
-        const { workspaceId: target, pageIndex } = received.command;
 
-        // `workspaceStore.setActivePage` moves the *active* workspace only
-        // (#656), so a command aimed at a background workspace is ignored
-        // here rather than silently flipping the wrong one; per-workspace
-        // paging arrives with workspace switching (#657).
-        const workspaceState = useWorkspaceStore.getState();
-        if (workspaceState.activeWorkspaceId !== target) return;
-        const page = workspaceState.workspaces.find((ws) => ws.id === target)?.pages[pageIndex];
-        if (!page) return;
-        workspaceState.setActivePage(page.id);
+        if (received.command.type === "flipPage") {
+          const { workspaceId: target, pageIndex } = received.command;
+
+          // `workspaceStore.setActivePage` moves the *active* workspace only
+          // (#656), so a command aimed at a background workspace is ignored
+          // here rather than silently flipping the wrong one; per-workspace
+          // paging arrives with workspace switching (#657).
+          const workspaceState = useWorkspaceStore.getState();
+          if (workspaceState.activeWorkspaceId !== target) return;
+          const page = workspaceState.workspaces.find((ws) => ws.id === target)?.pages[pageIndex];
+          if (!page) return;
+          workspaceState.setActivePage(page.id);
+          return;
+        }
+
+        if (received.command.type === "tune") {
+          // Only the screen the phone actually named acts on it — the same
+          // registration record (`capabilities.canTune`) it read to enable
+          // its TUNE button names this workspace id.
+          if (received.command.workspaceId !== workspaceId) return;
+          queueTune(received.command.frequencyKHz, received.command.mode);
+        }
       }),
-    [],
+    [workspaceId],
   );
 }

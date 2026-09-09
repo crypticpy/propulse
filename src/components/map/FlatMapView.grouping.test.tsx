@@ -266,6 +266,28 @@ async function hoverGlyph(anchor: { x: number; y: number }) {
   return waitFor(() => screen.getByRole("tooltip"));
 }
 
+/**
+ * `useFlatMapClickHandler` debounces hover by `HOVER_DEBOUNCE_MS` (100ms), so
+ * an "overlay did not appear" assertion has to outlast that timer to mean
+ * anything. Real timers: the component's own repaint effects run on them too.
+ */
+const HOVER_FLUSH_MS = 250;
+
+async function movePointerTo(point: { x: number; y: number }) {
+  fireEvent.pointerMove(interactiveCanvas(), {
+    clientX: point.x,
+    clientY: point.y,
+    pointerId: 1,
+  });
+  await new Promise((resolve) => setTimeout(resolve, HOVER_FLUSH_MS));
+}
+
+function hoverPreviewFor(callsign: string) {
+  return screen.queryByRole("button", {
+    name: new RegExp(`Open spot details for ${callsign}`, "i"),
+  });
+}
+
 function interactiveCanvas() {
   return screen.getByRole("img", { name: /Interactive propagation map/i });
 }
@@ -426,5 +448,53 @@ describe("FlatMapView geographic grouping", () => {
 
     expect(expandGroup).toHaveBeenCalledWith(cluster.id);
     expect(screen.queryByText("3 active spots")).toBeNull();
+  });
+
+  it("suppresses background hover overlays while the group popover is open", async () => {
+    await mount();
+    const canvas = interactiveCanvas();
+    const ja = toCanvas(SINGLE.dxLat!, SINGLE.dxLon!);
+    const ocean = toCanvas(0, -40);
+
+    // Positive control: with nothing open, both overlays this test is about
+    // do reach the screen from these two pointer positions. The grid tooltip
+    // goes first because `hoveredSpotData` lingers past a pointer move (it is
+    // dismissed on a delay so the preview can be moused into) and the tooltip
+    // predicate already excludes it.
+    await movePointerTo(ocean);
+    expect(screen.getByText("No active spots")).toBeTruthy();
+    await movePointerTo(ja);
+    expect(hoverPreviewFor("JA1DDD")).not.toBeNull();
+
+    const anchor = toCanvas(
+      grouped.clusters[0].center.lat,
+      grouped.clusters[0].center.lon,
+    );
+    fireEvent.pointerDown(canvas, {
+      clientX: anchor.x,
+      clientY: anchor.y,
+      pointerId: 1,
+      button: 0,
+    });
+    fireEvent.pointerUp(canvas, {
+      clientX: anchor.x,
+      clientY: anchor.y,
+      pointerId: 1,
+      button: 0,
+    });
+    expect(screen.getByText("3 active spots")).toBeTruthy();
+
+    // The pointer moves back across the canvas with the group dialog open.
+    // `selectedGridCollection` suppresses both overlays in this situation;
+    // the cluster collection has to do the same, or the spot preview
+    // (z-100) paints over the dialog (z-65).
+    await movePointerTo(ocean);
+    expect(screen.queryByText("No active spots")).toBeNull();
+    await movePointerTo(ja);
+    expect(hoverPreviewFor("JA1DDD")).toBeNull();
+
+    // ...and the dialog itself is still up, so the assertions above are not
+    // passing because everything unmounted.
+    expect(screen.getByText("3 active spots")).toBeTruthy();
   });
 });

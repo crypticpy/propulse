@@ -6507,7 +6507,8 @@ export function FlatMapView({
           !hoveredTargetPos &&
           !hoveredSpotData &&
           !selectedMapSpotData &&
-          !selectedGridCollection
+          !selectedGridCollection &&
+          !openSpotCollection
         }
         position={tooltipPosition || { x: 0, y: 0 }}
         grid={tooltipPosition?.grid || ""}
@@ -6587,19 +6588,25 @@ export function FlatMapView({
       )}
 
       {/* Canonical propagation preview for every visible tag and endpoint. */}
-      {hoveredSpotData && !selectedMapSpotData && !selectedGridCollection && (
-        <SpotHoverPreview
-          visible
-          position={hoveredSpotData.screenPos}
-          displayTime={displayTime}
-          spot={hoveredSpotData.spot}
-          onInteractStart={cancelSpotHoverDismiss}
-          onInteractEnd={() => scheduleSpotHoverDismiss()}
-          onActivate={() =>
-            handleMapSpotSelect(hoveredSpotData.spot, hoveredSpotData.screenPos)
-          }
-        />
-      )}
+      {hoveredSpotData &&
+        !selectedMapSpotData &&
+        !selectedGridCollection &&
+        !openSpotCollection && (
+          <SpotHoverPreview
+            visible
+            position={hoveredSpotData.screenPos}
+            displayTime={displayTime}
+            spot={hoveredSpotData.spot}
+            onInteractStart={cancelSpotHoverDismiss}
+            onInteractEnd={() => scheduleSpotHoverDismiss()}
+            onActivate={() =>
+              handleMapSpotSelect(
+                hoveredSpotData.spot,
+                hoveredSpotData.screenPos,
+              )
+            }
+          />
+        )}
 
       {selectedMapSpotData && (
         <SelectedSpotCard

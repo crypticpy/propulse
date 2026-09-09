@@ -455,18 +455,15 @@ async function pruneDay(
   db: SupabaseClient,
   manifest: DayManifest,
 ): Promise<number> {
-  const live = await fetchLiveDayCount(db, manifest.day);
-  if (live === 0) return 0; // already pruned
-  if (
-    manifest.manifestVersion !== 2 ||
-    manifest.knownGapSnapshot === undefined
-  ) {
-    throw new Error(
-      `legacy path archive manifest for ${manifest.day} has no known-gap snapshot — refusing to prune`,
-    );
-  }
-  // Last look before the destructive step: the archived object must still
-  // hash to what its manifest sealed, or the hot rows are the only copy.
+  // Verify the archived object still hashes to what its manifest sealed
+  // before anything else, unconditionally — every day this function
+  // returns from, early or not, is a day the caller has already added to
+  // `sealedDays`, and `prunePathRecency` deletes `path_recency_hourly` rows
+  // on the strength of that set alone. A day whose `path_hourly_stats` rows
+  // were already pruned by an earlier pass (live === 0) must not skip this
+  // check: that is exactly the day whose hot-table copy is gone, so the
+  // archived object is the only remaining proof the data still exists
+  // anywhere (#711 F2).
   const stored = await downloadObjectBytes(
     db.storage.from(BUCKET),
     archiveObjectPath(manifest.day),
@@ -475,6 +472,16 @@ async function pruneDay(
   if (sha256Hex(stored) !== manifest.sha256) {
     throw new Error(
       `archived object SHA-256 mismatch vs manifest for ${manifest.day} — refusing to prune`,
+    );
+  }
+  const live = await fetchLiveDayCount(db, manifest.day);
+  if (live === 0) return 0; // already pruned
+  if (
+    manifest.manifestVersion !== 2 ||
+    manifest.knownGapSnapshot === undefined
+  ) {
+    throw new Error(
+      `legacy path archive manifest for ${manifest.day} has no known-gap snapshot — refusing to prune`,
     );
   }
   const { data, error } = await db.rpc(
@@ -512,12 +519,16 @@ export interface ArchivePassResult {
   rowsArchived: number;
   rowsPruned: number;
   /**
-   * Days this pass confirmed sealed (a verified manifest exists), oldest
-   * first. This is the only day set `prunePathRecency` is allowed to delete
-   * from — recency has no archive of its own, so a day must appear here,
-   * proving `path_hourly_stats` for that day is durably reconstructable,
-   * before its derived `path_recency_hourly` rows can be destroyed (#609
-   * review N1/N3).
+   * Days this pass confirmed sealed, oldest first: a sealed manifest exists
+   * AND the archived object was re-downloaded and hash-verified against it
+   * in `pruneDay` during this pass (#711 review blocking #3 — a day only
+   * enters this list from inside the `pruneEnabled` branch, never before).
+   * This is the only day set `prunePathRecency` is allowed to delete from —
+   * recency has no archive of its own, so a day must appear here, proving
+   * `path_hourly_stats` for that day is durably reconstructable, before its
+   * derived `path_recency_hourly` rows can be destroyed (#609 review N1/N3).
+   * Always empty when `pruneEnabled` is false, since verification only runs
+   * as part of the prune step.
    */
   sealedDays: string[];
 }
@@ -563,14 +574,14 @@ export async function runArchivePass(
         bytes: manifest.sizeBytes,
       });
     }
-    // A verified manifest exists for `day` at this point, either freshly
-    // sealed above or already sealed by an earlier pass. That is the only
-    // fact `prunePathRecency` is allowed to rely on before deleting the
-    // day's derived recency rows.
-    result.sealedDays.push(day);
-
     if (controls.pruneEnabled) {
       const deleted = await pruneDay(db, manifest);
+      // sealedDays must contain a day iff pruneDay hash-verified its
+      // archived object in this pass — that is the only fact
+      // prunePathRecency is allowed to rely on before deleting the day's
+      // derived recency rows, so the push cannot happen outside this
+      // branch (#711 review blocking #3).
+      result.sealedDays.push(day);
       if (deleted > 0) {
         worked = true;
         result.daysPruned += 1;

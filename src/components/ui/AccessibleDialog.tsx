@@ -41,6 +41,30 @@ const originalBackgroundState = new Map<
 >();
 let previousBodyOverflow: string | null = null;
 
+/**
+ * Watches for body-level portals (Tooltip, ConfirmDialog, CommandPalette, and
+ * ~20 other `createPortal(..., document.body)` surfaces) that mount *after* a
+ * dialog is already open. `syncBackgroundInert` only runs on dialog open/close,
+ * so without this a late-mounted portal would stay reachable behind a modal.
+ *
+ * `childList`-only, no `subtree`: portals are always direct body children, and
+ * subtree observation would fire on every DOM change in the whole app. No
+ * `attributes`: this module writes `inert`/`aria-hidden` on body children
+ * itself, so observing attributes would retrigger the sync in a loop.
+ */
+let bodyPortalObserver: MutationObserver | null = null;
+
+function ensureBodyPortalObserverConnected(): void {
+  if (bodyPortalObserver) return;
+  bodyPortalObserver = new MutationObserver(() => syncBackgroundInert());
+  bodyPortalObserver.observe(document.body, { childList: true });
+}
+
+function disconnectBodyPortalObserver(): void {
+  bodyPortalObserver?.disconnect();
+  bodyPortalObserver = null;
+}
+
 function restoreOriginal(element: HTMLElement): void {
   const original = originalBackgroundState.get(element);
   if (!original) return;
@@ -66,8 +90,10 @@ function syncBackgroundInert(): void {
       document.body.style.overflow = previousBodyOverflow;
       previousBodyOverflow = null;
     }
+    disconnectBodyPortalObserver();
     return;
   }
+  ensureBodyPortalObserverConnected();
   if (previousBodyOverflow === null) previousBodyOverflow = document.body.style.overflow;
   document.body.style.overflow = "hidden";
   for (const child of document.body.children) {

@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import axe from "axe-core";
@@ -464,5 +464,89 @@ describe("AccessibleDialog background inerting across a stack", () => {
     expect(document.activeElement).toBe(outerPanel);
 
     popoverPortal.remove();
+  });
+});
+
+describe("AccessibleDialog late-mounted body portals (#693)", () => {
+  // jsdom does not reflect the `inert` IDL property to the content attribute,
+  // so assert truthiness on the property (as the rest of this file does) and
+  // keep aria-hidden strict via the attribute.
+  const lateNodes: HTMLElement[] = [];
+  function appendLatePortal(): HTMLElement {
+    const node = document.createElement("div");
+    node.textContent = "Late portal content";
+    document.body.append(node);
+    lateNodes.push(node);
+    return node;
+  }
+
+  afterEach(() => {
+    for (const node of lateNodes.splice(0)) node.remove();
+  });
+
+  it("inerts a body child that mounts after the dialog is already open", async () => {
+    render(
+      <AccessibleDialog open onClose={vi.fn()} title="Host">
+        <button type="button">Host action</button>
+      </AccessibleDialog>,
+    );
+
+    const late = appendLatePortal();
+
+    await waitFor(() => expect(late.inert).toBeTruthy());
+    expect(late.getAttribute("aria-hidden")).toBe("true");
+  });
+
+  it("restores a late-mounted portal instead of leaving it inert once the dialog closes", async () => {
+    const { rerender } = render(
+      <AccessibleDialog open onClose={vi.fn()} title="Host">
+        <button type="button">Host action</button>
+      </AccessibleDialog>,
+    );
+
+    const late = appendLatePortal();
+    await waitFor(() => expect(late.inert).toBeTruthy());
+
+    rerender(
+      <AccessibleDialog open={false} onClose={vi.fn()} title="Host">
+        <button type="button">Host action</button>
+      </AccessibleDialog>,
+    );
+
+    expect(late.inert).toBeFalsy();
+    expect(late.hasAttribute("aria-hidden")).toBe(false);
+  });
+
+  it("leaves a newly mounted body child alone, and the observer disconnected, when no dialog is open", async () => {
+    const observeSpy = vi.spyOn(MutationObserver.prototype, "observe");
+
+    const late = appendLatePortal();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    expect(late.inert).toBeFalsy();
+    expect(late.hasAttribute("aria-hidden")).toBe(false);
+    expect(observeSpy).not.toHaveBeenCalled();
+
+    observeSpy.mockRestore();
+  });
+
+  it("disconnects the body observer once the last open dialog closes", () => {
+    const disconnectSpy = vi.spyOn(MutationObserver.prototype, "disconnect");
+
+    const { rerender } = render(
+      <AccessibleDialog open onClose={vi.fn()} title="Host">
+        <button type="button">Host action</button>
+      </AccessibleDialog>,
+    );
+    expect(disconnectSpy).not.toHaveBeenCalled();
+
+    rerender(
+      <AccessibleDialog open={false} onClose={vi.fn()} title="Host">
+        <button type="button">Host action</button>
+      </AccessibleDialog>,
+    );
+
+    expect(disconnectSpy).toHaveBeenCalledOnce();
+    disconnectSpy.mockRestore();
   });
 });

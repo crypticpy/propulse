@@ -1,6 +1,6 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import axe from "axe-core";
 import {
   AccessibleDialog,
@@ -171,13 +171,19 @@ describe("AccessibleDialog background inerting across a stack", () => {
   // jsdom does not implement the `inert` IDL attribute, so an element this
   // module has never touched reads `undefined` rather than `false`. Assert
   // truthiness for inert and keep aria-hidden strict — that is the claim.
+  const appRoots: HTMLElement[] = [];
   function appRoot(): HTMLElement {
     const root = document.createElement("div");
     root.id = "app-root";
     root.append(document.createElement("button"));
     document.body.append(root);
+    appRoots.push(root);
     return root;
   }
+
+  afterEach(() => {
+    for (const root of appRoots.splice(0)) root.remove();
+  });
 
   it("keeps the page inert when a dialog below the top one closes first", () => {
     const root = appRoot();
@@ -418,5 +424,45 @@ describe("AccessibleDialog background inerting across a stack", () => {
     rerender(renderStack(false, false));
 
     expect(document.activeElement).toBe(opener);
+  });
+
+  it("falls back to the parent panel when a closing dialog's opener sits in an inerted portal", () => {
+    // Simulates a body-portaled popover (LayersPopover, SpotCollectionPopover,
+    // EqBandContextMenu): the inner dialog's opener lives outside any
+    // AccessibleDialog portal, so the outer dialog's syncBackgroundInert marks
+    // it inert while the inner dialog is topmost.
+    const popoverPortal = document.createElement("div");
+    const innerOpener = document.createElement("button");
+    innerOpener.textContent = "Open inner from popover";
+    popoverPortal.append(innerOpener);
+    document.body.append(popoverPortal);
+    innerOpener.focus();
+
+    const renderStack = (outerOpen: boolean, innerOpen: boolean) => (
+      <>
+        <AccessibleDialog open={outerOpen} onClose={vi.fn()} title="Outer">
+          <button type="button">Outer action</button>
+        </AccessibleDialog>
+        <AccessibleDialog open={innerOpen} onClose={vi.fn()} title="Inner">
+          <button type="button">Inner action</button>
+        </AccessibleDialog>
+      </>
+    );
+
+    const { rerender } = render(renderStack(true, false));
+    rerender(renderStack(true, true));
+
+    // jsdom does not reflect the `inert` IDL property to the content
+    // attribute the way browsers do, so `closest("[inert]")` would silently
+    // miss it if we relied on the property the component just set. Set the
+    // attribute explicitly to match real browser behavior.
+    popoverPortal.setAttribute("inert", "");
+
+    rerender(renderStack(true, false));
+
+    const outerPanel = screen.getByRole("dialog", { name: "Outer" });
+    expect(document.activeElement).toBe(outerPanel);
+
+    popoverPortal.remove();
   });
 });

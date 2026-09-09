@@ -299,7 +299,10 @@ export function projectLiveSpotsForView(
     const report = normalizeLiveSpot(spot, usedIds);
     if (!report) continue;
     const parsedId = contractIdSchema.safeParse(spot.id);
-    const rawId = parsedId.success && !usedRawIds.has(parsedId.data) ? parsedId.data : null;
+    const rawId =
+      parsedId.success && !usedRawIds.has(parsedId.data) && !usedIds.has(parsedId.data)
+        ? parsedId.data
+        : null;
     if (rawId) usedRawIds.add(rawId);
     mapped.push({
       spot,

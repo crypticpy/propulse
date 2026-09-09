@@ -12,6 +12,11 @@
 import { useRef, useState, type KeyboardEvent } from "react";
 import { filterMapSpots } from "@/lib/map/filterMapSpots";
 import { useHamClockDisplayStore } from "@/stores/hamclockDisplayStore";
+import { useViewFollowRadioControl } from "@/hooks/useHamClockRadioFollow";
+import {
+  useViewEffectiveSpots,
+  useViewSpotFilterPatch,
+} from "@/hooks/useViewClusterSpots";
 import { useOperatingMonitor } from "@/hooks/useOperatingMonitor";
 import { HamClockRecentContacts } from "./HamClockRecentContacts";
 import { DXSpotList } from "@/components/dx/DXSpotList/DXSpotList";
@@ -232,31 +237,36 @@ export function HamClockSpotsSidebar({
   // Current DX/activation target (if any)
   const target = useMapStore((s) => s.target);
   const setTarget = useMapStore((s) => s.setTarget);
-  const setSpotFilters = useMapStore((s) => s.setSpotFilters);
   const expanded = useHamClockDisplayStore(
     (s) => !(s.panelCollapsed.spots ?? false),
   );
   const setBandFocus = useHamClockStore((s) => s.setBandFocus);
 
   const display = useHamClockDisplayStore();
-  const followRadio = display.followRadio;
+  // The bound view's own filters — what the globe/flat/azimuthal renderers
+  // actually match spots against, not `mapStore.spotFilters` (nothing reads
+  // that any more).
+  const viewSpots = useViewEffectiveSpots();
+  const patchViewFilters = useViewSpotFilterPatch();
+  const { followRadio, setFollowRadio } = useViewFollowRadioControl();
   const radio = useOperatingMonitor();
   const showBandFocus =
     (mode === "bands" || mode === "traffic") && activeTab === "DX";
   const spotsHidden = display.hiddenPanels.includes("spots");
   const handleToggleBand = (band: string) => {
-    const next = spotFilters.bands.includes(band)
-      ? spotFilters.bands.filter((b) => b !== band)
-      : [...spotFilters.bands, band];
-    display.setFollowRadio(false);
+    const bands = viewSpots.filters.bands;
+    const next = bands.includes(band)
+      ? bands.filter((b) => b !== band)
+      : [...bands, band];
+    setFollowRadio(false);
     setBandFocus(next);
-    setSpotFilters({ ...spotFilters, bands: next });
+    patchViewFilters({ bands: next });
   };
 
   const handleClearBands = () => {
-    display.setFollowRadio(false);
+    setFollowRadio(false);
     setBandFocus([]);
-    setSpotFilters({ ...spotFilters, bands: [] });
+    patchViewFilters({ bands: [] });
   };
 
   const selectActivation = (spot: ActivationSpot) => {
@@ -364,7 +374,7 @@ export function HamClockSpotsSidebar({
                     type="checkbox"
                     checked={followRadio}
                     disabled={!radio && !followRadio}
-                    onChange={(e) => display.setFollowRadio(e.target.checked)}
+                    onChange={(e) => setFollowRadio(e.target.checked)}
                   />
                   Follow radio
                   <span className="ml-auto text-gray-500">
@@ -378,7 +388,7 @@ export function HamClockSpotsSidebar({
               )}
               {showBandFocus && (
                 <HamClockBandFocus
-                  selected={spotFilters.bands}
+                  selected={viewSpots.filters.bands}
                   onToggle={handleToggleBand}
                   onClear={handleClearBands}
                 />

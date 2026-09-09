@@ -4,6 +4,10 @@ import { PSK_WINDOWS, type PskWindowMinutes } from "@/lib/hamclock/pskStation";
 import { MAP_SPOT_AGES } from "@/lib/map/spotAge";
 import { useMapSpotFeed } from "@/hooks/useMapSpotFeed";
 import { useMapStore } from "@/stores/mapStore";
+import {
+  useViewEffectiveSpots,
+  useViewSpotFilterPatch,
+} from "@/hooks/useViewClusterSpots";
 import { HamClockSegmented } from "../controls";
 
 const DENSITIES = [10, 50, 100, 150, 200];
@@ -13,8 +17,11 @@ export function SpotsTab() {
   const scope = useMapStore(s => s.spotFeedScope);
   const setScope = useMapStore(s => s.setSpotFeedScope);
   const personal = scope === "psk-station";
-  const density = useMapStore((s) => s.displayDensity);
-  const setDensity = useMapStore((s) => s.setDisplayDensity);
+  // The bound view's own spot budget — nothing reads `mapStore.displayDensity`
+  // for the map's spot cap any more; renderers cap on `prefs.filters.spotLimit`.
+  const viewSpots = useViewEffectiveSpots();
+  const patchViewFilters = useViewSpotFilterPatch();
+  const density = viewSpots.filters.spotLimit;
   const age = useMapStore((s) => s.spotAgeMinutes);
   const setAge = useMapStore((s) => s.setSpotAgeMinutes);
   const layers = useMapStore((s) => s.layers);
@@ -40,7 +47,7 @@ export function SpotsTab() {
       <HamClockSegmented
         label="Map spot limit"
         value={String(density)}
-        onChange={(value) => setDensity(Number(value))}
+        onChange={(value) => patchViewFilters({ spotLimit: Number(value) })}
         options={choices.map((value) => ({ value: String(value), label: String(value) }))}
       />
       <HamClockSegmented

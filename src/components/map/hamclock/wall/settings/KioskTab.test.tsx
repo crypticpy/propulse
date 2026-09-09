@@ -2,9 +2,13 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import { MemoryRouter, useLocation } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { useOperatingMonitor } from "@/hooks/useOperatingMonitor";
+import { useViewFollowRadioControl } from "@/hooks/useHamClockRadioFollow";
 import { useHamClockDisplayStore } from "@/stores/hamclockDisplayStore";
 import { useKioskStore } from "@/stores/kioskStore";
 import { useOperatingStateStore } from "@/stores/operatingStateStore";
+import { ViewProvider } from "@/components/views/ViewProvider";
+import { createViewConfiguration } from "@/lib/views/defaults";
+import { createMemoryWorkingStorage } from "@/lib/views/runtime";
 import { KioskTab } from "./KioskTab";
 
 vi.mock("@/hooks/useOperatingMonitor", () => ({ useOperatingMonitor: vi.fn() }));
@@ -14,10 +18,23 @@ function LocationProbe() {
   return <div data-testid="location">{location.pathname}</div>;
 }
 
-function renderTab() {
+// Exposes the bound runtime's `config.context.followRadio` — the field
+// `useViewEffectiveSpots` reads — so tests can assert the toggle actually
+// drives the view runtime, not a legacy store nothing reads any more.
+function FollowRadioProbe() {
+  const { followRadio } = useViewFollowRadioControl();
+  return <div data-testid="follow-radio-state">{String(followRadio)}</div>;
+}
+
+function renderTab({ followRadioSeed = false } = {}) {
+  const seed = createViewConfiguration("hamclock");
+  seed.context.followRadio = followRadioSeed;
   return render(
     <MemoryRouter initialEntries={["/map"]}>
-      <KioskTab />
+      <ViewProvider ownerId="test-owner" slot="hamclock" seed={seed} storage={createMemoryWorkingStorage()}>
+        <KioskTab />
+        <FollowRadioProbe />
+      </ViewProvider>
       <LocationProbe />
     </MemoryRouter>,
   );
@@ -191,17 +208,16 @@ describe("KioskTab", () => {
     const toggle = screen.getByRole("switch", { name: "Follow radio" });
     expect(screen.getByText("Locks spots to 20m FT8")).toBeTruthy();
     fireEvent.click(toggle);
-    expect(useHamClockDisplayStore.getState().followRadio).toBe(true);
+    expect(screen.getByTestId("follow-radio-state").textContent).toBe("true");
     expect(toggle.textContent).toBe("ON");
   });
 
   it("lets the operator turn Follow radio off after the radio drops", () => {
-    useHamClockDisplayStore.setState({ followRadio: true });
-    renderTab();
+    renderTab({ followRadioSeed: true });
     const toggle = screen.getByRole("switch", { name: "Follow radio" });
     expect((toggle as HTMLButtonElement).disabled).toBe(false);
     expect(screen.getByText("Paused · no live radio")).toBeTruthy();
     fireEvent.click(toggle);
-    expect(useHamClockDisplayStore.getState().followRadio).toBe(false);
+    expect(screen.getByTestId("follow-radio-state").textContent).toBe("false");
   });
 });

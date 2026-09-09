@@ -1,7 +1,7 @@
 import { renderHook } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { ReactNode } from "react";
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ViewProvider } from "@/components/views/ViewProvider";
 import { createSpotPreferences } from "@/lib/views/defaults";
 import { createMemoryWorkingStorage } from "@/lib/views/runtime";
@@ -12,6 +12,28 @@ import {
   useViewMapSpots,
 } from "./useViewMapSpots";
 import { clusterSpots } from "@/lib/spots/grouping";
+
+const mocks = vi.hoisted(() => ({ live: vi.fn() }));
+vi.mock("./useLiveSpots", () => ({ useLiveSpots: mocks.live }));
+
+function emptyLiveSpotsResult() {
+  return {
+    spots: [],
+    evidenceSpots: [],
+    feedScopeKey: "empty",
+    sourceMetadata: {},
+    sourceStates: { PSKReporter: "OFF", RBN: "OFF", "WSJT-X": "OFF" },
+    isLoading: false,
+    isFeedReady: false,
+    isError: false,
+    spotsBySource: { PSKReporter: [], RBN: [], Cluster: [], "WSJT-X": [] },
+    refetch: vi.fn(),
+  };
+}
+
+beforeEach(() => {
+  mocks.live.mockReturnValue(emptyLiveSpotsResult());
+});
 
 function liveSpot(id: string, overrides: Partial<LiveSpot> = {}): LiveSpot {
   return {
@@ -120,5 +142,67 @@ describe("useViewMapSpots", () => {
     expect(result.current.mapBudget).toBe(50);
     expect(result.current.listTotal).toBe(0);
     expect(result.current.clusters).toEqual([]);
+  });
+
+  it("resolves budgeted spots by originalSpot identity, not raw id, when upstream reports share an id", () => {
+    // Some upstream RBN rows historically share a raw id across receivers
+    // observed in the same second. Six skimmers copy one transmission here;
+    // dedup collapses them to one candidate, but all six evidence rows still
+    // carry that same shared id.
+    const rawId = "shared-rbn-id";
+    const now = new Date();
+    const skimmers: LiveSpot[] = Array.from({ length: 6 }, (_, i) =>
+      liveSpot(rawId, {
+        source: "RBN",
+        dx: "K1XYZ",
+        dxLat: 41.5,
+        dxLon: -71.3,
+        spotter: `SKIM${i}`,
+        receiverCallsign: `SKIM${i}`,
+        spotterLat: 40 + i,
+        spotterLon: -74 + i,
+        frequency: 14025.3,
+        mode: "CW",
+        time: now,
+      }),
+    );
+    const dedupedSpot = skimmers[0]!;
+
+    mocks.live.mockReturnValue({
+      ...emptyLiveSpotsResult(),
+      spots: [dedupedSpot],
+      evidenceSpots: skimmers,
+      feedScopeKey: "shared-id",
+      isFeedReady: true,
+      sourceStates: { PSKReporter: "OFF", RBN: "LIVE", "WSJT-X": "OFF" },
+      spotsBySource: { PSKReporter: [], RBN: [dedupedSpot], Cluster: [], "WSJT-X": [] },
+    });
+
+    const client = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    });
+    const wrapper = ({ children }: { children: ReactNode }) => (
+      <QueryClientProvider client={client}>
+        <ViewProvider
+          ownerId="owner-shared-id"
+          slot="normal"
+          storage={createMemoryWorkingStorage()}
+        >
+          {children}
+        </ViewProvider>
+      </QueryClientProvider>
+    );
+
+    const { result } = renderHook(
+      () => useViewMapSpots({ enabled: true, grid: "EM10aa" }),
+      { wrapper },
+    );
+
+    expect(result.current.resolvedSpots).toHaveLength(1);
+    expect(result.current.resolvedSpots.length).toBeLessThanOrEqual(
+      result.current.mapBudget,
+    );
+    expect(result.current.resolvedSpots[0]?.originalSpot).toBe(dedupedSpot);
+    expect(result.current.resolvedSingles).toHaveLength(1);
   });
 });

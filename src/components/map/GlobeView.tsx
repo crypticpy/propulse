@@ -229,6 +229,10 @@ import { useMapHazardData } from "./hooks/useMapHazardData";
 import { useOptimalMapSignal } from "./hooks/useOptimalMapSignal";
 import { LunarSubpointMarker3D } from "./layers/LunarSubpointMarker3D";
 
+// Stable identity so SpotActivityLayout3D's aggregate memo does not
+// re-derive on every render while grouping is off.
+const EMPTY_GEOGRAPHIC_CLUSTERS: SpotClusterData[] = [];
+
 interface GlobeViewProps {
   /** Current display time (current time + offset) */
   displayTime: Date;
@@ -1787,7 +1791,7 @@ const GlobeScene = React.memo(function GlobeScene({
             traceFeedSpots={liveSpots}
             liveSpots={singles}
             resolvedLiveSpots={resolvedSingles}
-            geographicClusters={groupingEnabled ? clusters : []}
+            geographicClusters={groupingEnabled ? clusters : EMPTY_GEOGRAPHIC_CLUSTERS}
             liveSpotsLoading={liveSpotsLoading}
             liveSpotsFeedReady={liveSpotsFeedReady}
             liveSpotsFeedScopeKey={liveSpotsFeedScopeKey}

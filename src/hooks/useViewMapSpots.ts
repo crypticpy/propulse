@@ -4,6 +4,7 @@ import { useViewEffectiveSpots } from "@/hooks/useViewClusterSpots";
 import { useViewInteraction } from "@/hooks/useViewPresentation";
 import { clusterSpots, reduceExpansion } from "@/lib/spots/grouping";
 import { projectLiveSpotsForView } from "@/lib/spots/presentation/pipeline";
+import type { ResolvedSpot } from "@/components/map/LiveSpotArcs";
 import {
   useResolvedMapSpots,
   type UseResolvedMapSpotsOptions,
@@ -64,29 +65,39 @@ export function useViewMapSpots(options: ViewMapSpotsOptions) {
     }
   }, [grouped.liveGroupIds, interaction.expandedGroupIds, runtime]);
 
-  const budgetIds = useMemo(
-    () => new Set(projection.mapBudgeted.map((spot) => spot.id)),
-    [projection.mapBudgeted],
-  );
-  const matchingIds = useMemo(
-    () => new Set(projection.matching.map((spot) => spot.id)),
-    [projection.matching],
+  // The resolver retains the exact source object; some upstream RBN rows
+  // historically share a raw id across receivers/frequencies observed in the
+  // same second, so id-set membership can silently multiply a single
+  // deduplicated spot. Key on `originalSpot` identity instead, mirroring
+  // useResolvedMapSpots. `feed.candidateSpots` and `feed.resolvedSpots` are
+  // built pairwise in that hook, so zipping them is safe.
+  const resolvedByOriginalSpot = useMemo(
+    () =>
+      new Map(
+        feed.candidateSpots.map(
+          (spot, index) => [spot, feed.resolvedSpots[index]] as const,
+        ),
+      ),
+    [feed.candidateSpots, feed.resolvedSpots],
   );
   const resolvedSpots = useMemo(
-    () => feed.allResolvedSpots.filter((spot) => budgetIds.has(spot.id)),
-    [budgetIds, feed.allResolvedSpots],
+    () =>
+      projection.mapBudgeted
+        .map((spot) => resolvedByOriginalSpot.get(spot))
+        .filter((spot): spot is ResolvedSpot => Boolean(spot)),
+    [projection.mapBudgeted, resolvedByOriginalSpot],
   );
-  const allResolvedSpots = useMemo(
-    () => feed.allResolvedSpots.filter((spot) => matchingIds.has(spot.id)),
-    [feed.allResolvedSpots, matchingIds],
-  );
+  // The whole eligible feed, so a crowded region cannot disappear from
+  // aggregate facts (grid activity etc.) — deliberately not narrowed to the
+  // current band/mode match or map budget. See useResolvedMapSpots.ts.
+  const allResolvedSpots = feed.allResolvedSpots;
 
   const resolvedSingles = useMemo(
     () =>
-      feed.allResolvedSpots.filter((spot) =>
-        grouped.singles.some((single) => single.id === spot.id),
-      ),
-    [feed.allResolvedSpots, grouped.singles],
+      grouped.singles
+        .map((spot) => resolvedByOriginalSpot.get(spot))
+        .filter((spot): spot is ResolvedSpot => Boolean(spot)),
+    [grouped.singles, resolvedByOriginalSpot],
   );
 
   const expandGroup = (groupId: string) => {

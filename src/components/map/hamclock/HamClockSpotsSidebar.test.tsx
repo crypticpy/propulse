@@ -2,6 +2,15 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { HamClockSpotsSidebar } from "./HamClockSpotsSidebar";
 import type { ActivationSpotsResponse } from "@/types/activationSpots";
+import { ViewProvider } from "@/components/views/ViewProvider";
+import { useViewRuntime } from "@/components/views/ViewRuntimeContext";
+import { createViewConfiguration } from "@/lib/views/defaults";
+import { createMemoryWorkingStorage, type ScopedViewRuntime } from "@/lib/views/runtime";
+import { useViewEffectiveSpots } from "@/hooks/useViewClusterSpots";
+import {
+  ingestOperatingMonitorReportForTests,
+  resetOperatingMonitorForTests,
+} from "@/hooks/useOperatingMonitor";
 
 const mocks = vi.hoisted(() => ({
   activationSpots: vi.fn(),
@@ -32,6 +41,36 @@ vi.mock("@/stores/mapStore", () => ({
 vi.mock("./HamClockRecentContacts", () => ({
   HamClockRecentContacts: () => <div>Recent contacts</div>,
 }));
+
+// Exposes the bound runtime and its effective spot filters (the field the
+// globe/flat/azimuthal renderers actually read) so tests can assert the
+// wall's "Follow radio" toggle and band chips drive the view runtime, not
+// `hamclockDisplayStore`/`mapStore` (nothing reads those any more).
+let capturedRuntime: ScopedViewRuntime | null = null;
+function RuntimeCapture() {
+  capturedRuntime = useViewRuntime();
+  const effective = useViewEffectiveSpots();
+  return (
+    <div data-testid="effective-bands">
+      {effective.filters.bands.join(",") || "none"}
+    </div>
+  );
+}
+
+function renderSidebar(props?: { mode?: "traffic" | "bands" | "satellites" }) {
+  const utils = render(
+    <ViewProvider
+      ownerId="test-owner"
+      slot="hamclock"
+      seed={createViewConfiguration("hamclock")}
+      storage={createMemoryWorkingStorage()}
+    >
+      <RuntimeCapture />
+      <HamClockSpotsSidebar {...props} />
+    </ViewProvider>,
+  );
+  return { ...utils, get runtime() { return capturedRuntime!; } };
+}
 
 const response: ActivationSpotsResponse = {
   fetchedAt: "2026-08-31T14:00:00.000Z",
@@ -78,6 +117,8 @@ const response: ActivationSpotsResponse = {
 };
 
 beforeEach(() => {
+  capturedRuntime = null;
+  resetOperatingMonitorForTests();
   mocks.setTarget.mockReset();
   mocks.target = null;
   mocks.dxCluster.mockReturnValue({ allSpots: [{ id: 1 }, { id: 2 }] });
@@ -98,7 +139,7 @@ beforeEach(() => {
 
 describe("HamClockSpotsSidebar", () => {
   it("keeps the DX list and exposes activation feed counts as tabs", () => {
-    render(<HamClockSpotsSidebar />);
+    renderSidebar();
 
     expect(screen.getByText("DX list")).toBeTruthy();
     expect(screen.getByRole("tab", { name: "DX 2" }).tabIndex).toBe(0);
@@ -106,7 +147,7 @@ describe("HamClockSpotsSidebar", () => {
   });
 
   it("supports roving focus and automatic activation with tab keys", () => {
-    render(<HamClockSpotsSidebar />);
+    renderSidebar();
     const dxTab = screen.getByRole("tab", { name: "DX 2" });
     dxTab.focus();
 
@@ -123,7 +164,7 @@ describe("HamClockSpotsSidebar", () => {
   });
 
   it("renders a POTA activation and targets coordinate-bearing rows", () => {
-    render(<HamClockSpotsSidebar />);
+    renderSidebar();
     fireEvent.click(screen.getByRole("tab", { name: "POTA 1" }));
 
     expect(screen.getByText("K5ABC")).toBeTruthy();
@@ -145,7 +186,7 @@ describe("HamClockSpotsSidebar", () => {
   });
 
   it("distinguishes an unavailable provider from a healthy empty feed", () => {
-    render(<HamClockSpotsSidebar />);
+    renderSidebar();
     fireEvent.click(screen.getByRole("tab", { name: "SOTA 0" }));
     expect(screen.getByText("SOTA feed unavailable")).toBeTruthy();
 
@@ -163,10 +204,52 @@ describe("HamClockSpotsSidebar", () => {
       refetch: vi.fn(),
     });
 
-    render(<HamClockSpotsSidebar />);
+    renderSidebar();
     fireEvent.click(screen.getByRole("tab", { name: "POTA 1" }));
 
     expect(screen.getByText("K5ABC")).toBeTruthy();
     expect(screen.queryByText("POTA feed unavailable")).toBeNull();
+  });
+
+  it("drives the effective spot set from the 'Follow radio' toggle, not hamclockDisplayStore", () => {
+    ingestOperatingMonitorReportForTests({
+      sender: "test-rig",
+      band: "17m",
+      mode: "FT8",
+      frequency: 18.1,
+    });
+    const { runtime } = renderSidebar();
+    const toggle = screen.getByRole("checkbox", { name: /Follow radio/ });
+
+    // Off by default: the runtime's own configured (empty) band filter is
+    // what reaches the renderers, not the live radio's band.
+    expect(runtime.getSnapshot().config.context.followRadio).toBe(false);
+    expect(screen.getByTestId("effective-bands").textContent).toBe("none");
+
+    fireEvent.click(toggle);
+
+    expect(runtime.getSnapshot().config.context.followRadio).toBe(true);
+    expect(screen.getByTestId("effective-bands").textContent).toBe("17m");
+  });
+
+  it("patches the view's own band filter from a band chip, clearing follow radio", () => {
+    ingestOperatingMonitorReportForTests({
+      sender: "test-rig",
+      band: "17m",
+      mode: "FT8",
+      frequency: 18.1,
+    });
+    const { runtime } = renderSidebar();
+    fireEvent.click(screen.getByRole("checkbox", { name: /Follow radio/ }));
+    expect(runtime.getSnapshot().config.context.followRadio).toBe(true);
+
+    // Toggling a chip while follow is active starts from the effective
+    // (radio-overlaid) band set, so the operator's click adds to what they
+    // can already see selected rather than silently discarding it.
+    fireEvent.click(screen.getByRole("button", { name: "20m" }));
+
+    expect(runtime.getSnapshot().config.context.followRadio).toBe(false);
+    expect(runtime.getSnapshot().config.spots.filters.bands).toEqual(["17m", "20m"]);
+    expect(screen.getByTestId("effective-bands").textContent).toBe("17m,20m");
   });
 });

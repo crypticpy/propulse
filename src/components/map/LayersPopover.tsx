@@ -26,6 +26,10 @@ import { createPortal } from "react-dom";
 import { useMapStore } from "@/stores/mapStore";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { useUIInteractionPrefs } from "@/stores/userStore";
+import {
+  useViewEffectiveSpots,
+  useViewSpotFilterPatch,
+} from "@/hooks/useViewClusterSpots";
 import BasemapCategory from "./layers/BasemapCategory";
 import SatelliteFilters from "./layers/SatelliteFilters";
 import {
@@ -395,8 +399,12 @@ export function LayersPopover({ compact = false }: LayersPopoverProps) {
   const setAutoRotateSpeed = useMapStore((s) => s.setAutoRotateSpeed);
   const globeOrientation = useMapStore((s) => s.globeOrientation);
   const setGlobeOrientation = useMapStore((s) => s.setGlobeOrientation);
-  const displayDensity = useMapStore((s) => s.displayDensity);
-  const setDisplayDensity = useMapStore((s) => s.setDisplayDensity);
+  // The bound view's own spot budget — nothing reads `mapStore.displayDensity`
+  // for the map's spot cap any more; both map fetch paths pass a fixed
+  // fetch limit and the renderers cap on `prefs.filters.spotLimit` instead.
+  const viewSpots = useViewEffectiveSpots();
+  const patchViewFilters = useViewSpotFilterPatch();
+  const displayDensity = viewSpots.filters.spotLimit;
   const labelOptions = useMapStore((s) => s.labelOptions);
   const setLabelOption = useMapStore((s) => s.setLabelOption);
   const gridLabelDetail = useMapStore((s) => s.gridLabelDetail);
@@ -450,9 +458,9 @@ export function LayersPopover({ compact = false }: LayersPopoverProps) {
 
   const handleDensityChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
-      setDisplayDensity(parseInt(e.target.value, 10));
+      patchViewFilters({ spotLimit: parseInt(e.target.value, 10) });
     },
-    [setDisplayDensity],
+    [patchViewFilters],
   );
 
   // ── Category definitions ──

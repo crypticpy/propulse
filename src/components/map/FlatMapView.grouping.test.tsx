@@ -16,10 +16,12 @@
  */
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ViewProvider } from "@/components/views/ViewProvider";
 import { createMemoryWorkingStorage } from "@/lib/views/runtime";
 import { clusterSpots } from "@/lib/spots/grouping";
+import { GridGlowRenderer } from "@/components/map/GridGlowCanvas";
+import { latLonToGrid } from "@/lib/utils/grid";
 import type { ResolvedSpot } from "@/components/map/LiveSpotArcs";
 import type { LiveSpot } from "@/types/livespot";
 
@@ -496,5 +498,123 @@ describe("FlatMapView geographic grouping", () => {
     // ...and the dialog itself is still up, so the assertions above are not
     // passing because everything unmounted.
     expect(screen.getByText("3 active spots")).toBeTruthy();
+  });
+});
+
+// A spot arriving after the initial mount, located in Spain. The production
+// `clusterSpots` (region detail, minClusterSize 3) folds it into the
+// existing 3-member Spain group — confirmed by calling `clusterSpots`
+// directly on `[...ALL, ARRIVAL_JOINS_GROUP]` (count goes 3 -> 4, `singles`
+// unchanged). With grouping on, its dot is replaced by the cluster glyph, so
+// per #778 it must not glow at its own location either.
+const ARRIVAL_JOINS_GROUP = liveSpot("ea-4", "EA4FFF", 40.9, -3.0);
+
+// A spot arriving after the initial mount with no other report in its
+// region — `clusterSpots` leaves it a single regardless of the grouping
+// preference, so it must glow in every scenario below.
+const ARRIVAL_STAYS_SINGLE = liveSpot("us-1", "W1AW", 41.7, -72.7);
+
+/** Spy factory so `addGlowSpy`'s declared type is the real call signature,
+ * not a bare `MockInstance` that would need casting at every call site. */
+function spyOnAddGlow() {
+  return vi.spyOn(GridGlowRenderer.prototype, "addGlow");
+}
+
+describe("FlatMapView arrival-pulse glow follows the dot layer (#778)", () => {
+  let addGlowSpy: ReturnType<typeof spyOnAddGlow>;
+
+  beforeEach(() => {
+    expandGroup.mockClear();
+    currentFeed = DEFAULT_FEED;
+    (globalThis as unknown as { ResizeObserver: unknown }).ResizeObserver =
+      StubResizeObserver;
+    Element.prototype.getBoundingClientRect = () => STUB_RECT;
+    // No mock implementation: the real GridGlowRenderer keeps doing its own
+    // activity-cell bookkeeping, so nothing else the component drives off it
+    // (setActivityCells, the RAF loop) silently no-ops.
+    addGlowSpy = spyOnAddGlow();
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  // The effect diffs against `prevGlowSpotIdsRef`, so a fresh mount treats
+  // every spot in the feed as "new" — asserting on a mount-only render would
+  // pass even for an effect reading the wrong feed entirely, because mount
+  // always looks like initial load. Every case below mounts on a baseline
+  // feed first, discards the calls that baseline produced, then rerenders
+  // with exactly one additional spot and asserts on what that second pass
+  // alone sent to `addGlow`. Do not collapse this back to a single mount.
+
+  it("does not glow a newly arrived spot that clusterSpots places inside a group", async () => {
+    currentFeed = DEFAULT_FEED;
+    const { rerenderTree } = await mount();
+    addGlowSpy.mockClear();
+
+    const { feed: joinedFeed } = buildFeed([...ALL, ARRIVAL_JOINS_GROUP]);
+    currentFeed = joinedFeed;
+    rerenderTree();
+
+    const joinerGrid = latLonToGrid(
+      ARRIVAL_JOINS_GROUP.dxLat!,
+      ARRIVAL_JOINS_GROUP.dxLon!,
+      4,
+    ).toUpperCase();
+    const joinerCalls = addGlowSpy.mock.calls.filter(
+      ([spot]) => spot.gridSquare.toUpperCase() === joinerGrid,
+    );
+    expect(joinerCalls).toEqual([]);
+  });
+
+  it("still glows a newly arrived spot that stays a single", async () => {
+    currentFeed = DEFAULT_FEED;
+    const { rerenderTree } = await mount();
+    addGlowSpy.mockClear();
+
+    const { feed: singleArrivalFeed } = buildFeed([
+      ...ALL,
+      ARRIVAL_STAYS_SINGLE,
+    ]);
+    currentFeed = singleArrivalFeed;
+    rerenderTree();
+
+    const singleGrid = latLonToGrid(
+      ARRIVAL_STAYS_SINGLE.dxLat!,
+      ARRIVAL_STAYS_SINGLE.dxLon!,
+      4,
+    ).toUpperCase();
+    const singleCalls = addGlowSpy.mock.calls.filter(
+      ([spot]) => spot.gridSquare.toUpperCase() === singleGrid,
+    );
+    expect(singleCalls.length).toBeGreaterThan(0);
+  });
+
+  it("glows a newly arrived spot even when clusterSpots groups it, once grouping is disabled", async () => {
+    // `ungroupedResolvedSpots` falls back to `resolvedSpots` (the full feed)
+    // when the grouping preference is off, regardless of what `clusterSpots`
+    // itself would still compute — this is the case an over-eager edit to
+    // `resolvedSingles` (ignoring the preference) would break.
+    const { feed: initialOffFeed } = buildFeed(ALL, false);
+    currentFeed = initialOffFeed;
+    const { rerenderTree } = await mount();
+    addGlowSpy.mockClear();
+
+    const { feed: joinedOffFeed } = buildFeed(
+      [...ALL, ARRIVAL_JOINS_GROUP],
+      false,
+    );
+    currentFeed = joinedOffFeed;
+    rerenderTree();
+
+    const joinerGrid = latLonToGrid(
+      ARRIVAL_JOINS_GROUP.dxLat!,
+      ARRIVAL_JOINS_GROUP.dxLon!,
+      4,
+    ).toUpperCase();
+    const joinerCalls = addGlowSpy.mock.calls.filter(
+      ([spot]) => spot.gridSquare.toUpperCase() === joinerGrid,
+    );
+    expect(joinerCalls.length).toBeGreaterThan(0);
   });
 });

@@ -211,14 +211,10 @@ export function AccessibleDialog({
     const existingStackIndex = openDialogStack.findIndex(
       (entry) => entry.token === dialogToken,
     );
-    if (existingStackIndex === -1) {
-      openDialogStack.push(nextStackEntry);
-    } else {
-      openDialogStack[existingStackIndex] = {
-        ...openDialogStack[existingStackIndex],
-        ...nextStackEntry,
-      };
+    if (existingStackIndex !== -1) {
+      openDialogStack.splice(existingStackIndex, 1);
     }
+    openDialogStack.push(nextStackEntry);
     syncBackgroundInert();
     document.addEventListener("keydown", handleKeyDown, true);
     const frame = requestAnimationFrame(() => {
@@ -235,6 +231,13 @@ export function AccessibleDialog({
       if (wasTopmost) getDeepestSurvivingOpener()?.focus();
       if (!openDialogStack.some((entry) => entry.isOpen)) {
         openDialogStack.length = 0;
+      } else {
+        while (
+          openDialogStack.length > 0 &&
+          !openDialogStack[openDialogStack.length - 1].isOpen
+        ) {
+          openDialogStack.pop();
+        }
       }
     };
   }, [handleKeyDown, open]);

@@ -316,6 +316,34 @@ describe("AccessibleDialog background inerting across a stack", () => {
     expect(document.activeElement).toBe(innerAction);
   });
 
+  it("moves a reopened dialog back to the top so its portal is reachable", () => {
+    const root = appRoot();
+    const closeA = vi.fn();
+    const closeB = vi.fn();
+    const renderStack = (aOpen: boolean, bOpen: boolean) => (
+      <>
+        <AccessibleDialog open={aOpen} onClose={closeA} title="Dialog A">
+          <button type="button">A action</button>
+        </AccessibleDialog>
+        <AccessibleDialog open={bOpen} onClose={closeB} title="Dialog B">
+          <button type="button">B action</button>
+        </AccessibleDialog>
+      </>
+    );
+
+    const { rerender } = render(renderStack(true, true));
+    rerender(renderStack(false, true));
+    rerender(renderStack(true, true));
+
+    const aPortal = screen.getByRole("dialog", { name: "Dialog A" }).parentElement;
+    expect(aPortal?.inert).toBeFalsy();
+    expect(root.inert).toBeTruthy();
+
+    fireEvent.keyDown(document, { key: "Escape" });
+    expect(closeA).toHaveBeenCalledOnce();
+    expect(closeB).not.toHaveBeenCalled();
+  });
+
   it("restores focus to the deepest surviving opener when a top dialog closes after out-of-order lower close", () => {
     const root = appRoot();
     const opener = root.querySelector("button");

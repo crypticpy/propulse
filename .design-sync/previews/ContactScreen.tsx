@@ -2,25 +2,31 @@ import { useEffect } from "react";
 import { ContactScreen, StationProvider } from "propulse";
 import { useDXStore } from "@/stores/dxStore";
 import { useOperatingStateStore } from "@/stores/operatingStateStore";
+import { useProfileStore } from "@/stores/profileStore";
 import type { DXSpot } from "@/types/dxcluster";
+import type { UserStation } from "@/types/user";
 
-// ContactScreen takes no props: target/roster/spot come entirely from the
-// shared operating-state cursor + `useDXStore`. `useActiveLocation()` reads
-// `useUserStore().station`, which IS persisted (localStorage) — seeding it
-// here would leak a fake QTH into every later capture in the same browser
-// session (NOTES.md "Persisted-store leak between captures"), so both cells
-// below leave it unset and show the component's own real "Set your QTH in
-// Settings" branch. That still renders a populated card: target header,
-// TUNE button state + reason, and the live-frequency preview line all come
-// from the two stores that are safe to seed (`useDXStore.spots`,
-// `useOperatingStateStore`, neither persists the fields written here).
+// Single-story card (Opus review, #699 fix round): this file originally
+// exported both TuneEnabled and TuneDisabled, but both cells share one
+// page-lifetime Zustand singleton — a second cell's `reset()` wipes the
+// first cell's already-rendered seed via the live store subscription, not
+// just its initial props, so a two-cell capture showed the wrong state on
+// whichever cell mounted first. There is no existing `config.json` shape
+// for splitting one preview file's stories into isolated single-story
+// cards (see the multi-export barrels there — those are distinct named
+// components, not one component's story variants), so the TuneDisabled
+// cell was dropped rather than invented one. It can come back once that
+// override shape exists — see `.design-sync/NOTES.md`'s 2026-09-09 wave
+// entry for the state it showed.
 //
-// `useOperatingStateStore.getState().reset()` runs first in BOTH cells
-// (matches `ContactScreen.test.tsx`'s own `beforeEach`) so the "disabled"
-// cell can never inherit the "enabled" cell's registration if a capture run
-// mounts both stories in one page/session — cursor/registrations are not
-// persisted, but they are one page-lifetime JS singleton across every story
-// in this file.
+// `useActiveLocation()` (via the `useUserStore` bridge) reads
+// `useProfileStore().station`, which IS persisted (localStorage) — without
+// it the decision layer's verdict/reason line renders nothing (`location`
+// is null), so per review direction this preview seeds a fixture station
+// directly with `useProfileStore.setState` (not the `setStation` action,
+// which layers on extra derived-field side effects we don't want here) and
+// restores the exact previous value on unmount, keeping the mutation
+// scoped to this capture's mount lifetime.
 function seedSpot(): DXSpot {
   return {
     id: "contact-s1",
@@ -34,11 +40,35 @@ function seedSpot(): DXSpot {
   };
 }
 
+function fixtureStation(): UserStation {
+  return {
+    callsign: "K5ABC",
+    homeLocationId: "home",
+    activeLocationId: null,
+    savedLocations: [
+      {
+        id: "home",
+        name: "Home",
+        grid: "EM12",
+        lat: 32.7,
+        lon: -97.3,
+        type: "home",
+        createdAt: new Date().toISOString(),
+      },
+    ],
+    grid: "EM12",
+    lat: 32.7,
+    lon: -97.3,
+  };
+}
+
 export function TuneEnabled() {
   useEffect(() => {
     const store = useOperatingStateStore.getState();
     store.reset();
     useDXStore.setState({ spots: [seedSpot()] });
+    const prevStation = useProfileStore.getState().station;
+    useProfileStore.setState({ station: fixtureStation() });
     const unregister = store.registerWorkspace({
       workspaceId: "workstation-default",
       canvasType: "workstation",
@@ -53,32 +83,10 @@ export function TuneEnabled() {
       lon: null,
       spotId: "contact-s1",
     });
-    return unregister;
-  }, []);
-
-  return (
-    <StationProvider className="workspace-page workspace-page-phone" style={{ width: 390 }}>
-      <ContactScreen />
-    </StationProvider>
-  );
-}
-
-export function TuneDisabled() {
-  useEffect(() => {
-    const store = useOperatingStateStore.getState();
-    // No `registerWorkspace` call — reset() guarantees no stale roster from
-    // another story in this file, so TUNE reads "no workstation with a rig
-    // connected", the reason a phone alone on a session actually sees.
-    store.reset();
-    useDXStore.setState({ spots: [seedSpot()] });
-    store.setBand("20m");
-    store.setTarget({
-      callsign: "PY2ABC",
-      grid: "GG66",
-      lat: null,
-      lon: null,
-      spotId: "contact-s1",
-    });
+    return () => {
+      unregister();
+      useProfileStore.setState({ station: prevStation });
+    };
   }, []);
 
   return (

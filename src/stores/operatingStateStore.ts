@@ -414,6 +414,17 @@ export const useOperatingStateStore = create<OperatingStateStore>()(
           post({ kind: "register", registration });
           startHeartbeat(key);
         }
+        // Same reasoning as `setFollowScreens(true)`: this pipe may be brand
+        // new to every peer on it — most notably the account transport
+        // (#698), which `useOperatingTransport` attaches only once sign-in +
+        // `sync` + follow all line up, well after the cursor may already
+        // have local edits. Those edits carry a newer stamp than a signed-in
+        // peer's own answer, so without this publish this screen would keep
+        // rejecting the peer's state and never offer its own — the two would
+        // stay divergent until the next local write (owner review, #698 fix
+        // round, Codex finding).
+        const patch = currentPatch(get());
+        if (Object.keys(patch).length > 0) post({ kind: "state", patch });
 
         return () => {
           stopAllHeartbeats();

@@ -17,6 +17,15 @@
 -- authenticated user could otherwise guess `operating:<their-uid>` is not
 -- the interesting part; the interesting part is that nobody else's uid
 -- satisfies these policies.
+--
+-- The paid `sync` gate belongs in these policies, not just in the client
+-- (owner review, #698 fix round, Codex finding): `useSyncEntitlement` only
+-- decides whether *this app* opens the channel, and a client that skipped
+-- that check would otherwise still be let in by RLS on nothing but its own
+-- uid. The `profiles.subscription_tier = 'pro'` predicate below must be kept
+-- in lockstep with api/_lib/entitlements.ts's `hasProEntitlement` — if that
+-- function's tier check ever changes (a distinct `sync` add-on, a new column,
+-- etc.), update both policies here to match in the same change.
 
 -- RLS is already enabled on realtime.messages by Supabase; an ALTER TABLE
 -- here would be redundant at best and fails on projects where the migration
@@ -30,6 +39,11 @@ CREATE POLICY operating_channel_select_own ON realtime.messages
     extension = 'broadcast'
     AND realtime.topic() LIKE 'operating:%'
     AND split_part(realtime.topic(), ':', 2) = auth.uid()::text
+    AND EXISTS (
+      SELECT 1 FROM public.profiles p
+      WHERE p.id = auth.uid()
+        AND p.subscription_tier = 'pro'
+    )
   );
 
 DROP POLICY IF EXISTS operating_channel_insert_own ON realtime.messages;
@@ -40,4 +54,9 @@ CREATE POLICY operating_channel_insert_own ON realtime.messages
     extension = 'broadcast'
     AND realtime.topic() LIKE 'operating:%'
     AND split_part(realtime.topic(), ':', 2) = auth.uid()::text
+    AND EXISTS (
+      SELECT 1 FROM public.profiles p
+      WHERE p.id = auth.uid()
+        AND p.subscription_tier = 'pro'
+    )
   );

@@ -39,6 +39,12 @@ export function useSyncEntitlement() {
     queryFn: fetchSyncEntitlement,
     enabled: isAuthenticated && userId !== null,
     staleTime: 5 * 60 * 1000,
+    // staleTime alone never refetches while the host stays mounted (owner
+    // review, #698 fix round, Codex finding): without an active refetch, an
+    // upgrade never flips the account transport on and a downgrade never
+    // flips it off for an operator who just leaves the app open.
+    refetchInterval: 5 * 60 * 1000,
+    refetchOnWindowFocus: true,
     retry: 1,
   });
 }

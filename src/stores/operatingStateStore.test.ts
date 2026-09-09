@@ -282,6 +282,43 @@ describe("operatingStateStore", () => {
       a.disconnect();
       b.disconnect();
     });
+
+    it("drops a replayed tune no newer than the last one accepted from that sender", async () => {
+      // PR #694 review, item 5: a re-delivered/replayed `tune` must not be
+      // able to re-key the rig after the operator moved on. Scoped to
+      // `tune`/`tuneResult` — `parseOperatingMessage` already rejects a
+      // command older than 30s outright; this is the in-window replay case.
+      const bus = createMemoryBus();
+      const a = await openScreen(bus, "a");
+
+      const tuneAt = (sentAt: number, frequencyKHz: number) =>
+        a.store.getState().applyMessage({
+          v: 1,
+          senderId: "other-screen",
+          sentAt,
+          kind: "command",
+          command: {
+            type: "tune",
+            deviceId: a.deviceId,
+            workspaceId: "workstation-default",
+            frequencyKHz,
+            mode: null,
+          },
+        });
+
+      tuneAt(1_000, 14195);
+      expect(a.store.getState().lastCommand?.command).toMatchObject({ frequencyKHz: 14195 });
+
+      // A replay of the same (or an older) message must be dropped.
+      tuneAt(1_000, 21_000);
+      expect(a.store.getState().lastCommand?.command).toMatchObject({ frequencyKHz: 14195 });
+
+      // A genuinely newer tune from the same sender still applies.
+      tuneAt(2_000, 7_074);
+      expect(a.store.getState().lastCommand?.command).toMatchObject({ frequencyKHz: 7_074 });
+
+      a.disconnect();
+    });
   });
 
   describe("workspace registration", () => {

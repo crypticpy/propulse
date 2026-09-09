@@ -29,6 +29,17 @@ import type { CanvasType } from "@/lib/workspace/types";
 /** Bumped only for a breaking wire change; mismatched versions are dropped. */
 export const OPERATING_PROTOCOL_VERSION = 1;
 
+/**
+ * A command older than this is dropped rather than applied (PR #694 review,
+ * item 5): a `tune` replayed off a stale channel snapshot must not be able
+ * to re-key the rig long after the operator moved on. Scoped to commands
+ * only — state/register/hello messages have no comparable "acting on a
+ * replay" risk, and giving them the same 30 s window would make a screen
+ * that reconnects after a short network blip drop its own recent cursor
+ * writes for no safety benefit.
+ */
+const COMMAND_MAX_AGE_MS = 30_000;
+
 /** `BroadcastChannel` name for same-browser screens. Versioned with the protocol. */
 export const OPERATING_CHANNEL_NAME = "propulse-operating-state-v1";
 
@@ -102,7 +113,37 @@ export interface WorkspaceRegistration {
 export type OperatingCommand =
   | { type: "flipPage"; workspaceId: string; pageIndex: number }
   | { type: "selectSpot"; spot: SpotRef }
-  | { type: "setView"; workspaceId: string; viewId: string };
+  | { type: "setView"; workspaceId: string; viewId: string }
+  /**
+   * #660 / PR #694 review: the phone acts as a remote for whichever screen
+   * published `capabilities.canTune`. Carries a resolved frequency/mode
+   * rather than a `SpotRef` — the sender (`ContactScreen`) already looked the
+   * spot up in its own `useDXStore` to get one, and the receiving screen's
+   * bridge path (`queueTune`) takes frequency + mode directly.
+   *
+   * `deviceId` names the exact registration (`deviceId` + `workspaceId`)
+   * `pickTuneWorkspace` chose. `workspaceId` alone is not unique: every
+   * non-phone canvas defaults to the same `DEFAULT_WORKSPACE_ID`, so two
+   * bridge-connected tabs sharing that id would both retune on a
+   * `workspaceId`-only match. The receiver in `useOperatingScreen` requires
+   * both fields to equal its own before it acts. This does not bump
+   * `OPERATING_PROTOCOL_VERSION`: that constant gates every message kind on
+   * this channel (state, register, hello — not just commands), and a stray
+   * old-shape `tune` (missing `deviceId`) is already dropped on its own by
+   * `parseCommand` below, exactly like any other malformed message — no
+   * whole-channel version bump is needed to make that safe.
+   */
+  | { type: "tune"; deviceId: string; workspaceId: string; frequencyKHz: number; mode: string | null }
+  /**
+   * PR #694 review: TUNE was fire-and-forget. The screen that handled (or
+   * refused) a `tune` reports back so the requesting phone can show an
+   * honest "SENT" / "FAILED: <reason>" instead of assuming success.
+   * `deviceId`/`workspaceId` here name the *reporting* screen — the same
+   * pair the phone read off `pickTuneWorkspace` when it sent the `tune`, so
+   * the phone can match this result to the attempt it is currently showing
+   * feedback for.
+   */
+  | { type: "tuneResult"; deviceId: string; workspaceId: string; ok: boolean; reason: string | null };
 
 /** One field's proposed value plus the stamp that resolves the race. */
 export type CursorPatch = {
@@ -261,9 +302,33 @@ function parseCommand(raw: unknown): OperatingCommand | null {
       if (workspaceId === null || viewId === null) return null;
       return { type: "setView", workspaceId, viewId };
     }
+    case "tune": {
+      const deviceId = asString(raw.deviceId);
+      const workspaceId = asString(raw.workspaceId);
+      const frequencyKHz = asFiniteNumber(raw.frequencyKHz);
+      const mode = asNullableString(raw.mode);
+      if (deviceId === null || workspaceId === null) return null;
+      if (frequencyKHz === null || frequencyKHz <= 0) return null;
+      if (mode === undefined) return null;
+      return { type: "tune", deviceId, workspaceId, frequencyKHz, mode };
+    }
+    case "tuneResult": {
+      const deviceId = asString(raw.deviceId);
+      const workspaceId = asString(raw.workspaceId);
+      const ok = typeof raw.ok === "boolean" ? raw.ok : null;
+      const reason = parseTuneResultReason(raw.reason);
+      if (deviceId === null || workspaceId === null || ok === null || reason === undefined) return null;
+      return { type: "tuneResult", deviceId, workspaceId, ok, reason };
+    }
     default:
       return null;
   }
+}
+
+/** `reason` is optional on the wire: absent or explicit `null` both mean "no reason given". */
+function parseTuneResultReason(value: unknown): string | null | undefined {
+  if (value === undefined || value === null) return null;
+  return typeof value === "string" ? value : undefined;
 }
 
 const CANVAS_TYPES: readonly CanvasType[] = ["phone", "tablet", "workstation", "wall"];
@@ -309,6 +374,7 @@ export function parseOperatingMessage(raw: unknown): OperatingMessage | null {
       return patch === null ? null : { ...envelope, kind: "state", patch };
     }
     case "command": {
+      if (Date.now() - sentAt > COMMAND_MAX_AGE_MS) return null;
       const command = parseCommand(raw.command);
       return command === null ? null : { ...envelope, kind: "command", command };
     }

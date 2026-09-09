@@ -29,12 +29,6 @@ const mocks = vi.hoisted(() => ({
     gainPatternType: "hex_beam";
   }>,
   updateChain: vi.fn(),
-  // `undefined` = no override (real pass-through); an explicit value stands
-  // in for the scoped runtime's bound target.
-  boundTargetOverride: undefined as
-    | { name?: string; grid?: string; lat: number; lon: number }
-    | null
-    | undefined,
 }));
 
 vi.mock("@/hooks/useActiveLocation", () => ({
@@ -100,18 +94,6 @@ vi.mock("@/lib/hamclock/reliabilityForecast", async (importOriginal) => {
   >();
   return { ...actual, buildReliabilityForecast: mocks.build };
 });
-vi.mock("@/hooks/useBoundMapSelection", async (importOriginal) => {
-  const actual = await importOriginal<
-    typeof import("@/hooks/useBoundMapSelection")
-  >();
-  return {
-    ...actual,
-    useBoundVisualTarget: (mapTarget: unknown) =>
-      mocks.boundTargetOverride === undefined
-        ? mapTarget
-        : mocks.boundTargetOverride,
-  };
-});
 import { HamClockReliabilityPanel } from "./HamClockReliabilityPanel";
 
 describe("HamClockReliabilityPanel", () => {
@@ -125,7 +107,6 @@ describe("HamClockReliabilityPanel", () => {
     mocks.chain = null;
     mocks.antennas = [];
     mocks.updateChain.mockReset();
-    mocks.boundTargetOverride = undefined;
     mocks.build.mockReturnValue([
       {
         band: "20m",
@@ -261,16 +242,5 @@ describe("HamClockReliabilityPanel", () => {
     expect(screen.queryByLabelText("Reliability antenna")).toBeNull();
     expect(screen.getByText("Hexbeam")).toBeTruthy();
     expect(screen.getByText(/Live path Home at 75 W/)).toBeTruthy();
-  });
-
-  it("reads the scoped view runtime's bound target, not the raw mapStore target (#707)", () => {
-    // mapStore reports "London" in every test here; a bound host overrides
-    // that via useBoundVisualTarget, and the panel must follow it.
-    mocks.boundTargetOverride = { name: "Nairobi", grid: "KI88", lat: -1.3, lon: 36.8 };
-
-    render(<HamClockReliabilityPanel />);
-
-    expect(screen.getByText("to Nairobi")).toBeTruthy();
-    expect(screen.queryByText("to London")).toBeNull();
   });
 });

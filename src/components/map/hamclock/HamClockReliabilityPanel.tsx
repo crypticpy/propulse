@@ -15,7 +15,6 @@ import {
 } from "@/lib/themes/colorblind";
 import { useHamClockStore } from "@/stores/hamclockStore";
 import { useMapStore } from "@/stores/mapStore";
-import { useBoundVisualTarget } from "@/hooks/useBoundMapSelection";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { useActiveChain, useUserAntennas } from "@/stores/shackStore";
 import { nearestHamClockPower } from "@/lib/station/stationPhysics";
@@ -94,8 +93,7 @@ function targetLabel(target: { name?: string; grid?: string }): string {
  */
 export function HamClockReliabilityPanel() {
   const origin = useActiveLocation();
-  const mapTarget = useMapStore((state) => state.target);
-  const target = useBoundVisualTarget(mapTarget);
+  const target = useMapStore((state) => state.target);
   const timeOffset = useMapStore((state) => state.timeOffset);
   const reliability = useHamClockStore((state) => state.reliability);
   const setReliability = useHamClockStore((state) => state.setReliability);

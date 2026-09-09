@@ -21,6 +21,8 @@ const { mapState, hamclockState, setViewMode } = vi.hoisted(() => {
       goesCloud: false,
       ducting: false,
       sporadicE: false,
+      greyline: false,
+      issTracker: false,
     },
     toggleLayer: vi.fn(),
     spotFilters: { bands: [] as string[] },

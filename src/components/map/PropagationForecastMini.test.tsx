@@ -6,13 +6,21 @@ import type { PropagationPrediction } from "@/lib/propagation/modelClient";
 import type { BandId, UserStation } from "@/types/user";
 import type { TargetLocation } from "@/stores/mapStore";
 
-// #809: the NowCast chip row (`flex items-center gap-1.5 mt-1 text-xs
-// overflow-hidden`, no `flex-wrap`, every child `flex-shrink-0`) hard-clipped
-// in narrow hosts because `displayBands` is uncapped and user-configurable
-// (Common/All/Custom). jsdom has no layout engine, so nothing here can
-// observe an actual clip or wrap — these assertions target what the
-// component controls directly: the row's own class list, and whether the
-// full configured band set survives into the DOM.
+// #809: the NowCast chip row was `flex items-center gap-1.5 mt-1 text-xs
+// overflow-hidden` — no `flex-wrap`, every child `flex-shrink-0` — so it
+// clipped rather than wrapped once the chips outran the row. `displayBands`
+// is user-configurable (Common/All/Custom, `ALL_BANDS_ORDERED` = 8 bands),
+// so the chip count moves from 5 to 8 without any code change.
+//
+// The issue's original claim that this clips at a specific measured width in
+// the PropSphere rail is WRONG and was corrected on #809: the Card lands in
+// the grid's flexible `1fr` track, not a fixed 220px one. What these tests
+// defend is the width-independent property — a flex row of non-shrinking
+// children must wrap, not clip.
+//
+// jsdom has no layout engine, so nothing here can observe an actual clip or
+// wrap. The assertion targets the only thing the component controls and a
+// jsdom test can see: the row's own class list.
 
 const SIX_BANDS: BandId[] = ["10m", "12m", "15m", "17m", "20m", "30m"];
 
@@ -153,18 +161,20 @@ describe("PropagationForecastMini NowCast chip row (#809)", () => {
       />,
     );
 
-    // Probe: confirm the fixture actually reaches the chip row before
-    // trusting the assertions below.
     const label = screen.getByText("NowCast");
     const row = label.parentElement;
-    console.log("[probe #809] chip row className:", row?.className);
 
     expect(row).not.toBeNull();
     expect(row!.className).toContain("flex-wrap");
     expect(row!.className).not.toContain("overflow-hidden");
   });
 
-  it("keeps all six configured bands as chips rather than a truncated subset", () => {
+  // Composition guard, NOT coverage of the fix: this stays green with the
+  // `flex-wrap` change reverted, because chip count does not depend on the
+  // row's class list. Its job is to prove the fixture actually reaches the
+  // chip row with the full configured band set, so the assertion above is
+  // reading a real production render and not an empty branch.
+  it("composition guard: the fixture renders all six configured bands as chips", () => {
     render(
       <PropagationForecastMini
         displayTime={new Date("2026-01-01T12:00:00Z")}
@@ -173,7 +183,6 @@ describe("PropagationForecastMini NowCast chip row (#809)", () => {
     );
 
     const chips = document.querySelectorAll('[title^="NOWCAST MODEL —"]');
-    console.log("[probe #809] chip count:", chips.length);
 
     expect(chips.length).toBe(SIX_BANDS.length);
     for (const band of SIX_BANDS) {

@@ -5,26 +5,31 @@
  * page refreshes and browser restarts. Deduplicates by (table, data.id)
  * keeping only the most recent entry.
  *
- * Storage key: 'propulse-sync-queue'
+ * Storage key: owner-scoped propulse-account-write-queue-v1:<encoded owner>.
+ * Ownerless instances are memory-only; legacy ownerless data is never imported.
  * Max entries: 2000 (POTA activations can produce 100+ QSOs offline)
  */
 
 import type { SyncableTable, WriteQueueEntry } from "./types";
 
-const STORAGE_KEY = "propulse-sync-queue";
+const STORAGE_PREFIX = "propulse-account-write-queue-v1:";
 const MAX_ENTRIES = 2000;
 
 export class WriteQueue {
   private entries: WriteQueueEntry[] = [];
 
-  constructor() {
+  private readonly storageKey: string | null;
+
+  constructor(ownerId?: string | null) {
+    this.storageKey = ownerId ? `${STORAGE_PREFIX}${encodeURIComponent(ownerId)}` : null;
     this.load();
   }
 
   /** Load queue from localStorage */
   private load(): void {
+    if (!this.storageKey) return;
     try {
-      const raw = localStorage.getItem(STORAGE_KEY);
+      const raw = localStorage.getItem(this.storageKey);
       if (raw) {
         const parsed = JSON.parse(raw);
         this.entries = Array.isArray(parsed) ? parsed : [];
@@ -36,8 +41,9 @@ export class WriteQueue {
 
   /** Persist queue to localStorage */
   private save(): void {
+    if (!this.storageKey) return;
     try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(this.entries));
+      localStorage.setItem(this.storageKey, JSON.stringify(this.entries));
     } catch {
       console.warn(
         "[WriteQueue] localStorage full, queue persisted in memory only",

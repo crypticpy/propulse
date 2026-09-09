@@ -76,6 +76,11 @@ export interface WriteQueueEntry {
  * Sync module interface — each module handles one logical data group.
  * Modules are registered with SyncManager and called at tier-appropriate cadences.
  */
+export interface SyncLifecycle {
+  /** False after stop or any newer authenticated sync session starts. */
+  isActive(): boolean;
+}
+
 export interface SyncModule {
   /** Human-readable name for logging */
   name: string;
@@ -88,9 +93,10 @@ export interface SyncModule {
    * Pull data from Supabase into local state.
    * @param userId - Authenticated user's UUID
    * @param since - ISO timestamp for delta sync (null = full pull)
+   * @param lifecycle - Check after awaited I/O and before applying local state.
    * @returns Newest `updated_at` timestamp seen, or null if no data
    */
-  pull(userId: string, since: string | null): Promise<string | null>;
+  pull(userId: string, since: string | null, lifecycle?: SyncLifecycle): Promise<string | null>;
 
   /**
    * Push current local state to Supabase (full blob push).

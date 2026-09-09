@@ -78,7 +78,7 @@ files prevent simultaneous allocation of the same port. Both loopback address
 families are checked, and Vite `strictPort` handles a listener appearing after
 the initial check. Each port has its own Vite dependency cache under
 `node_modules/.vite-sessions/` to avoid connected/local profile cache collisions.
-`npm run dev` remains available for manual use but does not register ownership.
+`npm run dev` remains available for the owner's manual use only; agents must not start it because it does not register ownership.
 
 The helper deliberately has no takeover/kill command and does not automatically
 reclaim stale claims. If an owner crashes, inspect the exact recorded PID, its

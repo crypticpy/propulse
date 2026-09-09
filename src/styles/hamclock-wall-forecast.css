@@ -62,6 +62,40 @@
   );
 }
 
+/* ---------- band × continent grid (heat map) ---------- */
+
+.hcf-heatgrid {
+  display: grid;
+  gap: 0.3vh 0.3vw;
+  align-items: center;
+  margin-top: 0.9vh;
+  font-family: var(--hc-font-mono);
+  font-size: var(--hc-t-small);
+}
+.hcf-heatgrid-corner {
+  min-width: 0;
+}
+.hcf-heatgrid-head {
+  font-family: var(--hc-font-display);
+  font-weight: 700;
+  font-size: calc(var(--hc-t-title) * 0.85);
+  letter-spacing: 0.14em;
+  color: var(--hc-dim2);
+  text-align: center;
+  white-space: nowrap;
+}
+.hcf-heatgrid-band {
+  color: var(--hc-dim);
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+  font-size: calc(var(--hc-t-small) * 0.9);
+}
+.hcf-heatgrid-cell {
+  height: 1.3vh;
+  border-radius: calc(var(--hc-radius) * 0.35);
+  background: rgba(255, 255, 255, 0.07);
+}
+
 /* ---------- per-band bars (reliability) ---------- */
 
 .hcf-bars {

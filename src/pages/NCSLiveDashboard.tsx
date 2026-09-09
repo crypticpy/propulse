@@ -369,19 +369,19 @@ export function NCSLiveDashboard() {
           setShowKeyboardHints((prev) => !prev);
           break;
 
-        // Escape: close overlays
-        case "Escape":
-          if (showKeyboardHints) {
-            setShowKeyboardHints(false);
-            e.preventDefault();
-          }
-          break;
+        // No Escape branch here on purpose. `showKeyboardHints` is only true
+        // while NCSKeyboardHints is mounted, which always puts a
+        // `[role="dialog"][aria-modal="true"]` node in the DOM
+        // (AccessibleDialog:416, unconditional), so the modal guard above
+        // returns before this switch is ever reached with Escape. The dialog
+        // closes itself and calls `onClose`. A branch here would be dead
+        // code that misdescribes who owns Escape on this page.
       }
     };
 
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, [currentSession, phase, completedPhases, showKeyboardHints]);
+  }, [currentSession, phase, completedPhases]);
 
   // ── Loading state ──────────────────────────────────────────────────────
 

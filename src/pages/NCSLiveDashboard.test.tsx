@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { NCSLiveDashboard } from "./NCSLiveDashboard";
@@ -184,5 +184,36 @@ describe("NCSLiveDashboard keyboard shortcuts vs. open modal (#817)", () => {
     fireEvent.keyDown(document, { key: " " });
 
     expect(roundsFixture.advanceSpy).not.toHaveBeenCalled();
+  });
+
+  // Positive control. Without this, a guard that returned early on EVERY
+  // keypress would pass both tests above. This is the test that fails if the
+  // guard is ever broadened past "a modal is open".
+  it("still skips the current station when no modal is open", async () => {
+    renderDashboard();
+    await screen.findByText("RoundsPhase");
+
+    expect(screen.queryByRole("dialog")).toBeNull();
+    fireEvent.keyDown(document, { key: "s" });
+
+    expect(roundsFixture.skipSpy).toHaveBeenCalledTimes(1);
+  });
+
+  // The dashboard used to carry its own `case "Escape"` closing the hints.
+  // The modal guard made that branch unreachable, so it was deleted; this
+  // proves the behaviour survives the deletion because AccessibleDialog owns
+  // Escape via its document capture-phase listener.
+  it("closes the hints modal on Escape with no dashboard Escape branch", async () => {
+    renderDashboard();
+    await screen.findByText("RoundsPhase");
+
+    fireEvent.keyDown(document, { key: "?" });
+    await screen.findByRole("dialog", { name: "Keyboard Shortcuts" });
+
+    fireEvent.keyDown(document, { key: "Escape" });
+
+    await waitFor(() => {
+      expect(screen.queryByRole("dialog")).toBeNull();
+    });
   });
 });

@@ -132,8 +132,26 @@ export function parseRefUpdates(raw) {
 //     e.g. `git push origin :old-branch new-branch` deletes one ref while
 //     pushing real commits to another — and must never be treated as a
 //     no-op just because some other ref in the same invocation was.
-export function noopPushSummary(updates) {
-  if (updates.length === 0) return null;
+export function noopPushSummary(updates, rawRefUpdates) {
+  // Git runs the pre-push hook even when there is nothing to push: the
+  // "Everything up-to-date" path still invokes it, with *empty* stdin. Stdin
+  // carries one line per ref that will be updated, so zero refs means zero
+  // lines — Git never emits a line whose local and remote OIDs are equal.
+  // Empty hook input is therefore the real no-op push this check exists for,
+  // and the equal-OID branch below only ever fires for a hand-set
+  // PROPULSE_PUSH_REF_UPDATES (the node test drives it that way).
+  //
+  // `rawRefUpdates === undefined` means the script was run directly rather
+  // than from `.githooks/pre-push`, which always exports the variable even
+  // when the value is empty. A direct run has no ref-update information at
+  // all, so it must keep verifying rather than skip. Non-empty input that
+  // parses to nothing is malformed, not a no-op, and also keeps verifying.
+  if (updates.length === 0) {
+    if (rawRefUpdates !== undefined && rawRefUpdates.trim() === "") {
+      return ["no refs to update"];
+    }
+    return null;
+  }
   const summary = [];
   for (const update of updates) {
     if (ZERO_OID.test(update.localOid)) {
@@ -361,8 +379,9 @@ function printPlan(plan) {
 function main() {
   const remoteName = process.argv[2] ?? "origin";
 
-  const updates = parseRefUpdates(process.env.PROPULSE_PUSH_REF_UPDATES ?? "");
-  const noop = noopPushSummary(updates);
+  const rawRefUpdates = process.env.PROPULSE_PUSH_REF_UPDATES;
+  const updates = parseRefUpdates(rawRefUpdates ?? "");
+  const noop = noopPushSummary(updates, rawRefUpdates);
   if (noop) {
     console.log(
       `[pre-push] No-op push (${noop.join("; ")}); nothing to verify — skipping checks.`,

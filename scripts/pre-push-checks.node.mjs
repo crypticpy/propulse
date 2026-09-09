@@ -145,8 +145,30 @@ test("parses Git pre-push ref update lines", () => {
 // --- noopPushSummary: #764 — a no-op push must short-circuit before any
 // check runs, but only when EVERY ref update is a no-op. ---
 
-test("noopPushSummary: no ref-update lines at all is not a no-op (conservative — do not skip)", () => {
+// Git invokes the pre-push hook even when there is nothing to push, and
+// stdin is empty in that case — verified against a scratch repo: an
+// "Everything up-to-date" push still ran the hook and delivered zero lines.
+// Empty *hook* input is the no-op this whole check exists for; the equal-OID
+// lines below never occur in a real push and are only reachable by setting
+// PROPULSE_PUSH_REF_UPDATES by hand.
+test("noopPushSummary: empty hook input is the real no-op push", () => {
+  assert.deepEqual(noopPushSummary([], ""), ["no refs to update"]);
+  assert.deepEqual(noopPushSummary([], "\n  \n"), ["no refs to update"]);
+});
+
+// A direct `node scripts/pre-push-checks.mjs` run has no ref-update
+// information at all. `.githooks/pre-push` always exports the variable (even
+// empty), so `undefined` means "not invoked from the hook" and must keep
+// verifying rather than skip everything.
+test("noopPushSummary: absent ref-update input (direct run, not the hook) is not a no-op", () => {
   assert.equal(noopPushSummary([]), null);
+  assert.equal(noopPushSummary([], undefined), null);
+});
+
+// Malformed input parses to zero updates but is not empty. Skipping there
+// would turn a parser bug into a silently disabled gate.
+test("noopPushSummary: unparseable non-empty input is not a no-op", () => {
+  assert.equal(noopPushSummary([], "garbage-with-no-oids"), null);
 });
 
 test("noopPushSummary: every ref already up to date is a no-op", () => {

@@ -138,4 +138,35 @@ describe("clusterSpots totalSpots vs. collapsed duplicates (#769)", () => {
     expect(survivorSpots).toHaveLength(1);
     expect(result.totalSpots).toBe(2);
   });
+
+  it("keeps both spots when the same observation carries distinct contract-valid raw ids", () => {
+    // The other half of the documented condition. A shared observationKey is
+    // not sufficient: `reportFromLiveSpot` overrides the derived id with
+    // `spot.id` whenever that parses as a contract id and is still free, so
+    // these two survive as separate reports even though every field the key is
+    // built from is identical. Same fixtures as the test above apart from the
+    // ids, which here match `contractIdSchema`.
+    const shared = {
+      spotter: "K1ABC",
+      dx: "EA1AAA",
+      dxLat: 40.4,
+      dxLon: -3.7,
+      frequency: 14074,
+      mode: "FT8",
+      time: new Date("2026-08-31T12:00:00Z"),
+    };
+    const spots = [
+      liveSpot("psk_dup_observation_a", shared),
+      liveSpot("psk_dup_observation_b", shared),
+    ];
+
+    const result = clusterSpots(spots, { enabled: false, minClusterSize: 2 });
+
+    const survivorSpots = [
+      ...result.clusters.flatMap((cluster) => cluster.spots),
+      ...result.singles,
+    ];
+    expect(survivorSpots).toHaveLength(2);
+    expect(result.totalSpots).toBe(2);
+  });
 });

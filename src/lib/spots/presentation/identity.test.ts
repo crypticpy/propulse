@@ -214,12 +214,24 @@ describe("stableReportId", () => {
 });
 
 describe("hashStableString", () => {
-  it("is deterministic and returns a zero-padded 16-character lowercase hex string", () => {
+  it("is deterministic and returns a 16-character lowercase hex string", () => {
     const a = hashStableString("some-observation-key");
     const b = hashStableString("some-observation-key");
 
     expect(a).toBe(b);
     expect(a).toMatch(/^[0-9a-f]{16}$/);
+  });
+
+  it("zero-pads a hash whose raw hex is shorter than 16 digits", () => {
+    // Most inputs hash to a full 16 hex digits, so a width assertion alone
+    // stays green with `padStart` removed. This key is chosen because its raw
+    // FNV-1a output is 15 digits (`7b2b4d39731bf26`) — the leading zero exists
+    // only because of the pad. The golden value is asserted outright: report
+    // ids derived from this hash are persisted, so a change to the hash is a
+    // breaking change and should fail loudly rather than silently renumber.
+    expect(hashStableString("rx|PY2III|K1ABC|1756641600009|14074|FT8")).toBe(
+      "07b2b4d39731bf26",
+    );
   });
 
   it("produces different hashes for different inputs", () => {

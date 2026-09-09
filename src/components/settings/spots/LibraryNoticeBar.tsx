@@ -19,11 +19,7 @@ export function LibraryNoticeBar({
   return (
     <LiveRegion
       role="status"
-      className={
-        notice
-          ? `flex items-start justify-between gap-3 rounded-lg border bg-void-black/60 px-3 py-2 text-xs ${TONE[notice.kind]}`
-          : undefined
-      }
+      className={`flex items-start justify-between gap-3 rounded-lg border bg-void-black/60 px-3 py-2 text-xs ${notice ? TONE[notice.kind] : ""}`}
     >
       {notice ? (
         <>

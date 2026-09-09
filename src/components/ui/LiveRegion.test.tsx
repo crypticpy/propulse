@@ -64,4 +64,28 @@ describe("LiveRegion", () => {
     );
     expect(container.querySelector("p[role=status]")).not.toBeNull();
   });
+
+  it("treats the number 0 as content, not empty", () => {
+    const { container } = render(
+      <LiveRegion role="status" className="count-caveat">
+        {0}
+      </LiveRegion>,
+    );
+    const node = container.querySelector('[role="status"]');
+    expect(node?.className).toBe("count-caveat");
+    expect(node?.textContent).toBe("0");
+  });
+
+  it("treats an array of only null/false/undefined as empty, not a styled box with nothing in it", () => {
+    const items: Array<string | null> = [];
+    const { container } = render(
+      <LiveRegion role="status" className="list-caveat">
+        {[null, false, undefined, ...items.map((item) => item)]}
+      </LiveRegion>,
+    );
+    const node = container.querySelector('[role="status"]');
+    expect(node?.className).toContain("sr-only");
+    expect(node?.className).not.toContain("list-caveat");
+    expect(node?.textContent).toBe("");
+  });
 });

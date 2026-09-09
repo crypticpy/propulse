@@ -26,7 +26,7 @@ import type { ElementType, HTMLAttributes, ReactNode } from "react";
 export type LiveRegionRole = "status" | "alert";
 
 export interface LiveRegionProps
-  extends Omit<HTMLAttributes<HTMLElement>, "role"> {
+  extends Omit<HTMLAttributes<HTMLElement>, "role" | "aria-live"> {
   /** Host element to render. Defaults to "div". */
   as?: ElementType;
   /** "status" (polite) by default, "alert" (assertive) opt-in. */
@@ -39,7 +39,16 @@ const ARIA_LIVE: Record<LiveRegionRole, "polite" | "assertive"> = {
   alert: "assertive",
 };
 
+/**
+ * `0` is content (a caller may legitimately render the number zero) but an
+ * array that renders nothing — `[]`, or a `.map()` result made only of
+ * `null`/`false`/`undefined` — is empty. Recurse into arrays so those
+ * callers don't paint a styled box with nothing visible inside it.
+ */
 function isEmptyContent(children: ReactNode): boolean {
+  if (Array.isArray(children)) {
+    return children.length === 0 || children.every(isEmptyContent);
+  }
   return children === null || children === undefined || children === "" || children === false;
 }
 

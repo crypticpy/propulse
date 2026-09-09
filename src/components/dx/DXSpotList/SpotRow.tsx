@@ -10,7 +10,7 @@
 
 import { memo, useMemo, useCallback, useState, useEffect, useRef } from "react";
 import { getBandColor } from "@/lib/api/dxcluster";
-import { getBandColor as getBandHexColor } from "@/lib/utils/spotColors";
+import { getBandColor as getBandHexColor, withAlpha } from "@/lib/utils/spotColors";
 import { getSpotAgeInfo, formatSpotAge } from "@/components/map/LiveSpotArcs";
 import {
   parseSplitFromComment,
@@ -291,18 +291,28 @@ export const SpotRow = memo(function SpotRow({
     return style;
   }, [ageVisualizationEnabled, ageInfo.opacity, bandHexColor]);
 
-  // Border-only variant of rowStyle for the non-compact row: the age opacity
-  // is applied per-cell instead (see cellFadeStyle) so the trailing toolbar
-  // — a descendant of the row — never inherits the fade. CSS opacity on an
-  // ancestor cannot be undone by a descendant's own opacity (nested opacity
-  // multiplies), so keeping the fade on the row wrapper would leave the
-  // toolbar's status text unreadable regardless of its own opacity.
-  const rowBorderStyle = useMemo<React.CSSProperties>(
-    () => ({ borderLeft: `3px solid ${bandHexColor}` }),
-    [bandHexColor],
-  );
+  // Border-only variant of rowStyle for the non-compact row: age fades the
+  // band-colour stripe by folding the age opacity into the border's own
+  // alpha channel instead of the row wrapper's opacity. Opacity on the row
+  // wrapper would cascade to the trailing toolbar — a descendant of the row
+  // — and CSS opacity on an ancestor cannot be undone by a descendant's own
+  // opacity (nested opacity multiplies), so that would leave the toolbar's
+  // status text unreadable regardless of its own opacity. Alpha on a single
+  // color property has no such inheritance problem.
+  const rowBorderStyle = useMemo<React.CSSProperties>(() => {
+    const alpha = ageVisualizationEnabled ? ageInfo.opacity : 1;
+    return { borderLeft: `3px solid ${withAlpha(bandHexColor, alpha)}` };
+  }, [ageVisualizationEnabled, ageInfo.opacity, bandHexColor]);
+  // Per-cell age opacity (see rowBorderStyle above for why this isn't on the
+  // row wrapper). The transition lives here — rather than relying on the
+  // wrapper's `transition-all` class, which doesn't reach these descendant
+  // elements' own inline styles — so the fade animates smoothly across an
+  // age-category threshold instead of snapping in one frame.
   const cellFadeStyle = useMemo<React.CSSProperties>(
-    () => (ageVisualizationEnabled ? { opacity: ageInfo.opacity } : {}),
+    () => ({
+      transition: "opacity 500ms ease",
+      ...(ageVisualizationEnabled ? { opacity: ageInfo.opacity } : {}),
+    }),
     [ageVisualizationEnabled, ageInfo.opacity],
   );
 

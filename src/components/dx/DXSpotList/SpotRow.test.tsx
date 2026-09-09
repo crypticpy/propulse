@@ -188,6 +188,63 @@ describe("SpotRow trailing toolbar", () => {
     ).toBeTruthy();
   });
 
+  it("fades the band-colour border alpha with spot age instead of leaving it static", () => {
+    const freshSpot: DXSpot = { ...spot, time: new Date() };
+    const { unmount } = renderRow({ spot: freshSpot });
+    const freshRow = screen.getByRole("row");
+    // Fresh spot: full alpha, band hex "#66ff99" for 20m -> "#66ff99ff".
+    expect(freshRow.style.borderLeft).toContain("102, 255, 153");
+    unmount();
+
+    const oldSpot: DXSpot = {
+      ...spot,
+      time: new Date(Date.now() - 20 * 60 * 1000), // 20 min old -> "old" category, opacity 0.4
+    };
+    renderRow({ spot: oldSpot });
+    const oldRow = screen.getByRole("row");
+    // Same band hue, but the alpha channel should reflect the 0.4 age opacity
+    // (round(0.4 * 255) = 102 = 0x66) rather than matching the fresh row.
+    expect(oldRow.style.borderLeft).toContain("rgba(102, 255, 153,");
+    expect(oldRow.style.borderLeft).not.toBe(freshRow.style.borderLeft);
+    // Regression guard: the fade must live in the border colour, not as
+    // opacity on the row wrapper (that was the #683 regression — wrapper
+    // opacity cascades to descendants and washes out the revealed toolbar).
+    expect(oldRow.style.opacity).toBe("");
+  });
+
+  it("keeps an old, focused row's toolbar fully opaque while its border still fades (the combination that broke last time)", () => {
+    const oldSpot: DXSpot = {
+      ...spot,
+      time: new Date(Date.now() - 20 * 60 * 1000),
+    };
+    renderRow({ spot: oldSpot, isFocused: true });
+
+    const row = screen.getByRole("row");
+    // Border still carries the age fade.
+    expect(row.style.borderLeft).toContain("rgba(102, 255, 153,");
+    // The row wrapper itself is never given an opacity — otherwise it would
+    // cascade onto the focused toolbar below and wash out its labels.
+    expect(row.style.opacity).toBe("");
+
+    const toolbar = screen.getByRole("button", { name: /Tune 14.074 MHz FT8/ })
+      .parentElement!;
+    expect(toolbar.className).toContain("opacity-100");
+    expect(toolbar.className).not.toContain("opacity-0");
+  });
+
+  it("applies a transition to the per-cell age fade so it animates instead of snapping", () => {
+    const oldSpot: DXSpot = {
+      ...spot,
+      time: new Date(Date.now() - 20 * 60 * 1000),
+    };
+    renderRow({ spot: oldSpot });
+
+    const timeCell = document.querySelector('[title$="m ago"]') as HTMLElement;
+    expect(timeCell).toBeTruthy();
+    expect(timeCell.style.opacity).toBe("0.4");
+    expect(timeCell.style.transition).toContain("opacity");
+  });
+
   it("actually reduces useRigStore subscriptions when CAT control is disabled", () => {
     // The chip-absence assertion above also passes if the catEnabled gate at
     // SpotRow.tsx were reverted, because TuneButton itself early-returns

@@ -1,4 +1,5 @@
 import { useNavigate } from "react-router-dom";
+import { FollowScreensToggle } from "@/components/workspace/FollowScreensToggle";
 import { useOperatingMonitor } from "@/hooks/useOperatingMonitor";
 import { pageTitle } from "@/lib/hamclock/wallPages";
 import { useHamClockDisplayStore } from "@/stores/hamclockDisplayStore";
@@ -9,6 +10,11 @@ import { HamClockButton, HamClockToggleRow } from "../controls";
  * Follow radio lives here rather than Display because a third toggle on
  * Display overflows the non-scrolling panel at 1366×768 (#160). The kiosk
  * pin summary stays read-only; editing a scene's pin is kiosk work.
+ *
+ * The wall's "Follow my other screens" switch (#712) lands here for the same
+ * space reason — it's the one `followScreens` field on `operatingStateStore`
+ * the workstation's Display tab and `StateStrip` already read and write, via
+ * the same shared `FollowScreensToggle`, never a second copy of the field.
  */
 export function KioskTab() {
   const navigate = useNavigate();
@@ -62,6 +68,7 @@ export function KioskTab() {
       />
       <p className="hcc-kiosk-summary">{summary}</p>
       <HamClockButton onClick={openEditor}>OPEN KIOSK EDITOR</HamClockButton>
+      <FollowScreensToggle />
     </div>
   );
 }

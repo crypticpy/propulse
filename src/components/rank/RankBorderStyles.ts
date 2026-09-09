@@ -9,6 +9,7 @@
 import type { CSSProperties } from "react";
 import type { RankTier } from "@/types/rank";
 import { RANK_COLORS, isRankAtLeast } from "@/lib/data/rankConstants";
+import { withAlpha } from "@/lib/utils/spotColors";
 // Keyframes + .animate-rank-* utilities ship with the chunks that use them.
 import "@/styles/rank-animations.css";
 
@@ -21,15 +22,6 @@ const fullPresentation: RankPresentation = { glow: true, animatedBadges: true };
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
-
-/** Append a 2-digit hex alpha to a hex color string (strips existing alpha). */
-function withAlpha(hex: string, alpha: number): string {
-  const base = hex.length === 9 ? hex.slice(0, 7) : hex;
-  const a = Math.round(Math.min(1, Math.max(0, alpha)) * 255)
-    .toString(16)
-    .padStart(2, "0");
-  return `${base}${a}`;
-}
 
 // ---------------------------------------------------------------------------
 // 1. getRankBorderStyle

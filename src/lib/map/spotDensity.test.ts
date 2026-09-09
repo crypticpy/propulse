@@ -12,6 +12,7 @@ describe("getSpotFetchLimit", () => {
     // nothing above its midpoint.
     expect(getSpotFetchLimit(200)).toBe(200);
     expect(getSpotFetchLimit(120)).toBe(120);
+    expect(getSpotFetchLimit(120.9)).toBe(120);
   });
 
   it("never starves the analysis consumers when the map is turned down", () => {

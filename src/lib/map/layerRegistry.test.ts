@@ -64,12 +64,12 @@ describe("LAYER_REGISTRY", () => {
     }
   });
 
-  it("blocks exactly the sources the audit marks Blocked — WSPR, lightning, TEC", () => {
+  it("blocks exactly the sources the audit marks Blocked — WSPR, TEC", () => {
     const blockedKeys = Object.values(LAYER_REGISTRY)
       .filter((entry) => entry.availability === "blocked")
       .map((entry) => entry.key)
       .sort();
-    expect(blockedKeys).toEqual(["lightning", "tec", "wspr"]);
+    expect(blockedKeys).toEqual(["tec", "wspr"]);
   });
 });
 

@@ -20,7 +20,7 @@ import {
   formatDistance,
   getPathMetrics,
 } from "@/lib/utils/path";
-import { getModeColor } from "@/lib/utils/spotColors";
+import { getModeColor, modeInk } from "@/lib/utils/spotColors";
 import {
   getPathStatusBgColor,
   getPathStatusColor,
@@ -291,6 +291,7 @@ export function SelectedSpotCard({
   if (!spot) return null;
 
   const modeColor = getModeColor(spot.mode);
+  const modeInkColor = modeInk(spot.mode);
   const sourcePresentation = getSpotPresentationSource(spot);
   const difficultyColor = difficulty ? DIFFICULTY_COLORS[difficulty] : null;
   const spotTime = spot.time instanceof Date ? spot.time : new Date(spot.time);
@@ -369,8 +370,8 @@ export function SelectedSpotCard({
             )}
             {spot.mode && (
               <span
-                className="rounded px-1.5 py-0.5 text-[10px] font-bold text-su-text"
-                style={{ backgroundColor: modeColor }}
+                className="rounded px-1.5 py-0.5 text-[10px] font-bold"
+                style={{ backgroundColor: modeColor, color: modeInkColor }}
               >
                 {spot.mode}
               </span>

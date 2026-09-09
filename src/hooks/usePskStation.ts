@@ -1,3 +1,4 @@
+import { useMemo } from "react";
 import { create } from "zustand";
 import { useProfileStore } from "@/stores/profileStore";
 import { useUTCClock } from "@/hooks/useUTCClock";
@@ -69,8 +70,9 @@ export function usePskStationData(enabled = true, directionOverride?: PskDirecti
   const feed = usePskStation(call, enabled);
   const view = usePskStationView();
   const now = useUTCClock(10_000).getTime();
-  const rows = selectPskStationReports(feed.data, directionOverride ?? view.direction, view.minutes, now)
-    .filter(row => view.band === "all" || bandFromFreq(row.frequencyHz / 1_000) === view.band);
+  const rows = useMemo(() => selectPskStationReports(feed.data, directionOverride ?? view.direction, view.minutes, now)
+    .filter(row => view.band === "all" || bandFromFreq(row.frequencyHz / 1_000) === view.band),
+  [feed.data, directionOverride, view.direction, view.minutes, view.band, now]);
   const state = !feed.callsign ? "SET STATION CALL" : feed.isLoading ? "LOADING" :
     feed.error ? (feed.data?.fetchedAt ? "STALE" : "UNAVAILABLE") : pskStationState(feed.data, now);
   return { feed, view, rows, now, state };

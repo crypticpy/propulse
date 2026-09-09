@@ -8,7 +8,7 @@ export function SolarPulseSection() {
     <HelpCallout type="note">Data freshness and weather severity are separate. “Data current” means the product is within its freshness window, even during a major storm. Delayed evidence qualifies the briefing; unavailable evidence never becomes zero or an all-clear.</HelpCallout>
     <HelpAccordion id="solar-briefing" title="Read the HF briefing" summary="Current impacts, background conditions, and what to watch">
       <p>The briefing considers observed or estimated Kp, solar flux, IMF Bz, long-channel X-ray flux, official NOAA R/S/G scales, and recent bulletins. Radio-blackout, radiation-storm, and geomagnetic impacts appear separately, ahead of otherwise supportive background conditions.</p>
-      <p className="mt-3">Open “Read the briefing” for supporting context and for product identities, observation times, and missing inputs under “Sources &amp; times.” X-ray activity and an official scale can differ because their snapshots update at different times; both remain visible.</p>
+      <p className="mt-3">Open “Read the briefing” for the supporting statements and any delayed or missing inputs. X-ray activity and an official scale can differ because their snapshots update at different times; both remain visible.</p>
       <p className="mt-3">Southward Bz at L1 is an upstream condition to watch. A single sample does not prove a geomagnetic storm at Earth. No fixed confidence percentage or global best-band recommendation is inferred from these inputs.</p>
     </HelpAccordion>
     <HelpAccordion id="solar-readings" title="Understand the readings" summary="Kp, SFI, Bz, and X-ray flux">

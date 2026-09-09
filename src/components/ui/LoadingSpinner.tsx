@@ -33,7 +33,7 @@ export const LoadingSpinner: React.FC<LoadingSpinnerProps> = ({
       text: "text-sm mt-3",
     },
     lg: {
-      spinner: "w-12 h-12 border-3",
+      spinner: "w-12 h-12 border-4",
       text: "text-base mt-4",
     },
   };

@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { createHash } from "node:crypto";
-import { gunzipSync } from "node:zlib";
+import { gzipSync, gunzipSync } from "node:zlib";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import {
   PATH_STATS_COLUMNS,
@@ -11,6 +11,7 @@ import {
   resetScanCursor,
   runArchivePass,
   toCsv,
+  parseKnownGapSnapshot,
   type PathStatsRow,
 } from "./archivePathStats.js";
 import type { PathArchiveControls } from "../types.js";
@@ -75,6 +76,36 @@ describe("archivableDays", () => {
   });
 });
 
+describe("parseKnownGapSnapshot", () => {
+  it("accepts an empty known-gaps-only snapshot", () => {
+    expect(parseKnownGapSnapshot(emptyGapSnapshot(), "2026-05-01")).toEqual(
+      emptyGapSnapshot(),
+    );
+  });
+
+  it("rejects malformed snapshots and timestamps", () => {
+    expect(() => parseKnownGapSnapshot(null, "2026-05-01")).toThrow(
+      /non-object/,
+    );
+    expect(() =>
+      parseKnownGapSnapshot(
+        {
+          ...emptyGapSnapshot(),
+          gaps: [
+            {
+              start_hour: "2026-05-01T00:00:00Z",
+              end_hour: "2026-05-01T01:00:00.000000Z",
+              recorded_at: "2026-09-07T00:00:00.000000Z",
+              reason: "raw_expired",
+            },
+          ],
+        },
+        "2026-05-01",
+      ),
+    ).toThrow(/invalid gap/);
+  });
+});
+
 // ── Archive pass against a fake Supabase client ──────────────────────────────
 
 function emptyRow(): PathStatsRow {
@@ -95,9 +126,43 @@ function emptyRow(): PathStatsRow {
 }
 
 const DAY_ROWS: PathStatsRow[] = [
-  { ...emptyRow(), id: 1, band: "20m", mode_class: "digital", tx_field: "FN", rx_field: "IO", spot_count: 5, unique_tx: 3, unique_rx: 2, avg_snr: -8.5, median_snr: -9 },
-  { ...emptyRow(), id: 2, band: "40m", mode_class: "cw", tx_field: "EM", rx_field: "JN", spot_count: 2, unique_tx: 1, unique_rx: 2, avg_snr: 12, median_snr: 12 },
-  { ...emptyRow(), id: 3, band: "15m", mode_class: "digital", tx_field: "PM", rx_field: "FN", spot_count: 1, unique_tx: 1, unique_rx: 1 },
+  {
+    ...emptyRow(),
+    id: 1,
+    band: "20m",
+    mode_class: "digital",
+    tx_field: "FN",
+    rx_field: "IO",
+    spot_count: 5,
+    unique_tx: 3,
+    unique_rx: 2,
+    avg_snr: -8.5,
+    median_snr: -9,
+  },
+  {
+    ...emptyRow(),
+    id: 2,
+    band: "40m",
+    mode_class: "cw",
+    tx_field: "EM",
+    rx_field: "JN",
+    spot_count: 2,
+    unique_tx: 1,
+    unique_rx: 2,
+    avg_snr: 12,
+    median_snr: 12,
+  },
+  {
+    ...emptyRow(),
+    id: 3,
+    band: "15m",
+    mode_class: "digital",
+    tx_field: "PM",
+    rx_field: "FN",
+    spot_count: 1,
+    unique_tx: 1,
+    unique_rx: 1,
+  },
 ];
 
 const NOW = Date.parse("2026-08-29T00:00:00Z");
@@ -121,7 +186,7 @@ function sealedManifest(day: string, sha256 = FAKE_SHA): Uint8Array {
         sha256,
         sizeBytes: 100,
         columns: PATH_STATS_COLUMNS,
-        exportedAt: "2026-08-01T00:00:00Z",
+        exportedAt: "2026-08-01T00:00:00.000Z",
       }),
       "utf8",
     ),
@@ -146,6 +211,7 @@ class FakeStorage {
   uploads: { path: string; opts?: UploadOpts }[] = [];
   downloads: string[] = [];
   corruptOnDownload: string | null = null;
+  downloadError: { path: string; message: string } | null = null;
 
   async upload(
     path: string,
@@ -164,6 +230,9 @@ class FakeStorage {
     path: string,
   ): Promise<{ data: Blob | null; error: { message: string } | null }> {
     this.downloads.push(path);
+    if (this.downloadError?.path === path) {
+      return { data: null, error: { message: this.downloadError.message } };
+    }
     const bytes = this.objects.get(path);
     if (!bytes) return { data: null, error: { message: "Object not found" } };
     const served =
@@ -177,6 +246,11 @@ interface FakeDbOptions {
   pageQueries?: QueryRecord[];
   rpcCalls?: { name: string; args: Record<string, unknown> }[];
   rpcResult?: { data: unknown; error: { message: string } | null };
+  rpcResults?: Array<{ data: unknown; error: { message: string } | null }>;
+}
+
+function emptyGapSnapshot(day = "2026-05-01") {
+  return { version: 1, scope: "known-gaps-only", day, gaps: [] };
 }
 
 function makeDb(storage: FakeStorage, opts: FakeDbOptions): SupabaseClient {
@@ -238,7 +312,14 @@ function makeDb(storage: FakeStorage, opts: FakeDbOptions): SupabaseClient {
     storage: { from: () => storage },
     rpc(name: string, args: Record<string, unknown>) {
       opts.rpcCalls?.push({ name, args });
-      return Promise.resolve(opts.rpcResult ?? { data: 3, error: null });
+      if (opts.rpcResults?.length)
+        return Promise.resolve(opts.rpcResults.shift()!);
+      if (opts.rpcResult) return Promise.resolve(opts.rpcResult);
+      return Promise.resolve(
+        name === "spot_archive_path_gap_snapshot"
+          ? { data: emptyGapSnapshot(String(args.p_day)), error: null }
+          : { data: 3, error: null },
+      );
     },
   };
   return db as unknown as SupabaseClient;
@@ -265,9 +346,7 @@ describe("runArchivePass", () => {
 
     const gz = storage.objects.get(archiveObjectPath("2026-05-01"));
     expect(gz).toBeDefined();
-    expect(gunzipSync(Buffer.from(gz!)).toString("utf8")).toBe(
-      toCsv(DAY_ROWS),
-    );
+    expect(gunzipSync(Buffer.from(gz!)).toString("utf8")).toBe(toCsv(DAY_ROWS));
 
     // The bucket only allows octet-stream/parquet/json/text uploads.
     const csvUpload = storage.uploads.find(
@@ -275,17 +354,23 @@ describe("runArchivePass", () => {
     );
     expect(csvUpload?.opts?.contentType).toBe("application/octet-stream");
 
-    const manifestBytes = storage.objects.get(
-      manifestObjectPath("2026-05-01"),
-    );
+    const manifestBytes = storage.objects.get(manifestObjectPath("2026-05-01"));
     const manifest = JSON.parse(Buffer.from(manifestBytes!).toString("utf8"));
     expect(manifest.rowCount).toBe(3);
     expect(manifest.day).toBe("2026-05-01");
+    expect(manifest.manifestVersion).toBe(2);
+    expect(manifest.knownGapSnapshot).toEqual(emptyGapSnapshot());
 
     expect(rpcCalls).toEqual([
+      { name: "spot_archive_path_gap_snapshot", args: { p_day: "2026-05-01" } },
+      { name: "spot_archive_path_gap_snapshot", args: { p_day: "2026-05-01" } },
       {
-        name: "prune_archived_path_hourly_stats",
-        args: { p_day: "2026-05-01", p_expected_rows: 3 },
+        name: "prune_archived_path_hourly_stats_with_coverage",
+        args: {
+          p_day: "2026-05-01",
+          p_expected_rows: 3,
+          p_gap_snapshot: emptyGapSnapshot(),
+        },
       },
     ]);
   });
@@ -303,7 +388,10 @@ describe("runArchivePass", () => {
 
     expect(result.daysArchived).toBe(1);
     expect(result.daysPruned).toBe(0);
-    expect(rpcCalls).toEqual([]);
+    expect(rpcCalls.map((call) => call.name)).toEqual([
+      "spot_archive_path_gap_snapshot",
+      "spot_archive_path_gap_snapshot",
+    ]);
     // Export still sealed
     expect(storage.objects.has(manifestObjectPath("2026-05-01"))).toBe(true);
   });
@@ -318,10 +406,76 @@ describe("runArchivePass", () => {
       /SHA-256 mismatch/,
     );
     expect(storage.objects.has(manifestObjectPath("2026-05-01"))).toBe(false);
-    expect(rpcCalls).toEqual([]);
+    expect(rpcCalls.map((call) => call.name)).toEqual([
+      "spot_archive_path_gap_snapshot",
+    ]);
   });
 
-  it("skips re-export for sealed days and only retries the prune", async () => {
+  it("fails closed when the gap snapshot RPC errors", async () => {
+    const storage = new FakeStorage();
+    const db = makeDb(storage, {
+      liveCount: () => 3,
+      rpcResult: { data: null, error: { message: "snapshot unavailable" } },
+    });
+
+    await expect(runArchivePass(db, CONTROLS, NOW)).rejects.toThrow(
+      /gap snapshot failed: snapshot unavailable/,
+    );
+    expect(storage.uploads).toEqual([]);
+  });
+
+  it("does not treat a manifest storage error as a missing manifest", async () => {
+    const storage = new FakeStorage();
+    storage.downloadError = {
+      path: manifestObjectPath("2026-05-01"),
+      message: "permission denied",
+    };
+    const db = makeDb(storage, { liveCount: () => 3 });
+
+    await expect(runArchivePass(db, CONTROLS, NOW)).rejects.toThrow(
+      /manifest download failed.*permission denied/,
+    );
+    expect(storage.uploads).toEqual([]);
+  });
+
+  it("does not seal when known gaps change during export", async () => {
+    const storage = new FakeStorage();
+    const changed = {
+      ...emptyGapSnapshot(),
+      gaps: [
+        {
+          start_hour: "2026-04-30T23:00:00.000000Z",
+          end_hour: "2026-05-01T02:00:00.000000Z",
+          recorded_at: "2026-09-07T01:02:03.000000Z",
+          reason: "raw_expired",
+        },
+      ],
+    };
+    const db = makeDb(storage, {
+      liveCount: () => 3,
+      rpcResults: [
+        { data: emptyGapSnapshot(), error: null },
+        { data: changed, error: null },
+      ],
+    });
+
+    await expect(runArchivePass(db, CONTROLS, NOW)).rejects.toThrow(
+      /snapshot changed during export/,
+    );
+    expect(storage.objects.has(manifestObjectPath("2026-05-01"))).toBe(false);
+  });
+
+  it("fails closed when the uploaded manifest cannot be read back exactly", async () => {
+    const storage = new FakeStorage();
+    storage.corruptOnDownload = manifestObjectPath("2026-05-01");
+    const db = makeDb(storage, { liveCount: () => 3 });
+
+    await expect(runArchivePass(db, CONTROLS, NOW)).rejects.toThrow(
+      /manifest validation failed/,
+    );
+  });
+
+  it("preserves a legacy sealed blob but refuses to prune it", async () => {
     const storage = new FakeStorage();
     // The sealed object must be present and hash-match its manifest for the
     // prune to proceed.
@@ -336,15 +490,18 @@ describe("runArchivePass", () => {
     const rpcCalls: { name: string; args: Record<string, unknown> }[] = [];
     const db = makeDb(storage, { liveCount: () => 3, pageQueries, rpcCalls });
 
-    const result = await runArchivePass(db, CONTROLS, NOW);
+    const originalManifest = storage.objects.get(
+      manifestObjectPath("2026-05-01"),
+    );
+    await expect(runArchivePass(db, CONTROLS, NOW)).rejects.toThrow(
+      /legacy path archive manifest.*refusing to prune/,
+    );
 
     expect(pageQueries).toEqual([]); // no re-export
-    expect(result.daysArchived).toBe(0);
-    expect(result.daysPruned).toBe(1);
-    expect(rpcCalls[0].args).toEqual({
-      p_day: "2026-05-01",
-      p_expected_rows: 3,
-    });
+    expect(storage.objects.get(manifestObjectPath("2026-05-01"))).toBe(
+      originalManifest,
+    );
+    expect(rpcCalls).toEqual([]);
   });
 
   it("treats an already-pruned sealed day as a no-op", async () => {
@@ -390,16 +547,42 @@ describe("runArchivePass", () => {
     expect(result.daysArchived).toBe(1);
     expect(storage.objects.has(archiveObjectPath("2026-05-02"))).toBe(true);
     expect(storage.objects.has(manifestObjectPath("2026-05-02"))).toBe(true);
-    expect(rpcCalls).toEqual([]);
+    expect(rpcCalls.map((call) => call.name)).toEqual([
+      "spot_archive_path_gap_snapshot",
+      "spot_archive_path_gap_snapshot",
+    ]);
   });
 
-  it("replaces an unsealed leftover object from an interrupted run", async () => {
+  it("preserves a conflicting unsealed object and refuses to seal or prune", async () => {
     const storage = new FakeStorage();
-    // Crash artifact: the object exists with stale bytes but was never sealed.
-    storage.objects.set(
-      archiveObjectPath("2026-05-01"),
-      new Uint8Array([9, 9, 9]),
+    const original = new Uint8Array([9, 9, 9]);
+    storage.objects.set(archiveObjectPath("2026-05-01"), original);
+    const rpcCalls: { name: string; args: Record<string, unknown> }[] = [];
+    const db = makeDb(storage, { liveCount: () => 3, rpcCalls });
+
+    await expect(runArchivePass(db, CONTROLS, NOW)).rejects.toThrow(
+      /stored object differs from export; not sealing/,
     );
+
+    expect(storage.objects.get(archiveObjectPath("2026-05-01"))).toBe(original);
+    expect(storage.objects.has(manifestObjectPath("2026-05-01"))).toBe(false);
+    expect(storage.uploads).toEqual([
+      expect.objectContaining({
+        path: archiveObjectPath("2026-05-01"),
+        opts: expect.objectContaining({ upsert: false }),
+      }),
+    ]);
+    expect(rpcCalls.map((call) => call.name)).toEqual([
+      "spot_archive_path_gap_snapshot",
+    ]);
+  });
+
+  it("seals an identical object left by an interrupted upload", async () => {
+    const storage = new FakeStorage();
+    const original = new Uint8Array(
+      gzipSync(Buffer.from(toCsv(DAY_ROWS), "utf8")),
+    );
+    storage.objects.set(archiveObjectPath("2026-05-01"), original);
     const db = makeDb(storage, { liveCount: () => 3 });
 
     const result = await runArchivePass(
@@ -409,14 +592,16 @@ describe("runArchivePass", () => {
     );
 
     expect(result.daysArchived).toBe(1);
-    const gz = storage.objects.get(archiveObjectPath("2026-05-01"));
-    expect(gunzipSync(Buffer.from(gz!)).toString("utf8")).toBe(
-      toCsv(DAY_ROWS),
-    );
+    expect(storage.objects.get(archiveObjectPath("2026-05-01"))).toBe(original);
     expect(storage.objects.has(manifestObjectPath("2026-05-01"))).toBe(true);
+    expect(
+      storage.uploads
+        .filter((upload) => upload.path === archiveObjectPath("2026-05-01"))
+        .every((upload) => upload.opts?.upsert !== true),
+    ).toBe(true);
   });
 
-  it("treats a corrupt manifest as unsealed and re-seals the day", async () => {
+  it("refuses a malformed existing manifest without overwriting it", async () => {
     const storage = new FakeStorage();
     storage.objects.set(
       manifestObjectPath("2026-05-01"),
@@ -424,19 +609,34 @@ describe("runArchivePass", () => {
     );
     const db = makeDb(storage, { liveCount: () => 3 });
 
-    const result = await runArchivePass(
-      db,
-      { ...CONTROLS, pruneEnabled: false },
-      NOW,
-    );
+    await expect(
+      runArchivePass(db, { ...CONTROLS, pruneEnabled: false }, NOW),
+    ).rejects.toThrow(/manifest validation failed/);
+    expect(
+      Buffer.from(
+        storage.objects.get(manifestObjectPath("2026-05-01"))!,
+      ).toString("utf8"),
+    ).toBe("not json{");
+    expect(storage.uploads).toEqual([]);
+  });
 
-    expect(result.daysArchived).toBe(1);
-    const manifestBytes = storage.objects.get(
-      manifestObjectPath("2026-05-01"),
+  it("refuses an unknown manifest version without re-exporting", async () => {
+    const storage = new FakeStorage();
+    const value = JSON.parse(
+      Buffer.from(sealedManifest("2026-05-01")).toString("utf8"),
     );
-    const manifest = JSON.parse(Buffer.from(manifestBytes!).toString("utf8"));
-    expect(manifest.rowCount).toBe(3);
-    expect(manifest.dataset).toBe("path_hourly_stats");
+    value.manifestVersion = 3;
+    storage.objects.set(
+      manifestObjectPath("2026-05-01"),
+      new Uint8Array(Buffer.from(JSON.stringify(value), "utf8")),
+    );
+    const pageQueries: QueryRecord[] = [];
+    const db = makeDb(storage, { liveCount: () => 3, pageQueries });
+
+    await expect(
+      runArchivePass(db, { ...CONTROLS, pruneEnabled: false }, NOW),
+    ).rejects.toThrow(/unsupported or invalid/);
+    expect(pageQueries).toEqual([]);
   });
 
   it("refuses to prune when the archived object no longer matches its manifest", async () => {

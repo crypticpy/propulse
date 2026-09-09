@@ -87,7 +87,7 @@ export const WALL_PAGES: readonly WallPageData[] = [
     title: "Solar & Space Wx",
     shortLabel: "Solar",
     left: ["xray", "solarWind", "spaceWx", "sun"],
-    right: ["moon", "greyLine", "muf", "reliability"],
+    right: ["moon", "greyLine", "muf", "reliability", "launches"],
   },
   {
     id: "forecast",
@@ -108,7 +108,7 @@ export const WALL_PAGES: readonly WallPageData[] = [
     title: "SDR",
     shortLabel: "SDR",
     left: ["sdrScope", "sdrDecodes", "wsjtx"],
-    right: ["bandActivity", "cluster", "bestBand", "pskStation"],
+    right: ["bandActivity", "cluster", "bestBand", "pskStation", "heatMap"],
   },
 ];
 

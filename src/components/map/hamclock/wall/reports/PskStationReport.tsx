@@ -3,7 +3,9 @@ import { PSK_WINDOWS, type PskDirection, type PskStationReport as Reception, typ
 import { bandFromFreq } from "@/lib/utils/bandFromFreq";
 import { activationAge } from "@/lib/hamclock/activations";
 import { TuneButton } from "@/components/radio/TuneButton";
-import { HamClockSegmented } from "../controls";
+import { useHamClockDisplayStore } from "@/stores/hamclockDisplayStore";
+import { useMapStore } from "@/stores/mapStore";
+import { HamClockButton, HamClockSegmented } from "../controls";
 import { useVisibleRows } from "../useVisibleRows";
 import { reportFooter } from "../tokens";
 import { WallReport } from "./WallReport";
@@ -25,6 +27,12 @@ export function PskStationReport({ open, onClose }: { open: boolean; onClose: ()
     ]} footer={footer} updated={updated} pinId="psk-station" pinElement={<PskStationReport open onClose={onClose} />}>
     <div className="hcp-report">
       <PskStationControls data={data} />
+      <HamClockButton disabled={!feed.callsign} onClick={() => {
+        useMapStore.getState().setSpotFeedScope("psk-station");
+        const display = useHamClockDisplayStore.getState();
+        if (display.mapContent === "contacts") display.setMapContent("both");
+        onClose();
+      }}>SHOW ON MAP</HamClockButton>
       <p className="hcr-note">{feed.data?.limited ? "ROW LIMIT REACHED · " : ""}Loaded reports only · history may be incomplete · refresh 5 min.</p>
       <PskReceptionRows rows={rows} direction={view.direction} state={state} now={now} />
     </div>

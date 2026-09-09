@@ -1,6 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
 import type { ViewBinding, ViewConfiguration, ViewRepository } from "../contracts";
 import { createSpotPreferences, createViewConfiguration } from "../defaults";
+import { applyPresetRecipe } from "../presets/apply";
+import { getActivityRecipe, getDisplayRecipe } from "../presets/catalog";
 import { createViewRuntime } from "./createViewRuntime";
 import { saveWorkingViewCopy } from "./saveWorkingView";
 import { createMemoryWorkingStorage, workingSlotKey } from "./workingStorage";
@@ -418,6 +420,52 @@ describe("createViewRuntime", () => {
     expect(next.context.scope).toBe("logging");
     expect(next.spots.filters.bands).toEqual(["40m"]);
     expect(next.presentation.projection).toBe(projection);
+    runtime.dispose();
+  });
+
+  it("delegates preset application to applyPresetRecipe and preserves activity interaction", () => {
+    const runtime = createViewRuntime({ binding: binding(), persistWorking: false });
+    runtime.updateWorkingView({
+      context: {
+        ...runtime.getSnapshot().config.context,
+        followRadio: true,
+        followOperatingSession: true,
+        stationId: "station-9",
+      },
+      presentation: { ...presentation(runtime.getSnapshot().config), projection: "azimuthal", textScale: "xl" },
+    });
+    runtime.selectSpot("report-keep", { lat: 41.2, lon: -74.1 });
+    runtime.setExpandedGroups(["group-keep"]);
+    const before = runtime.getSnapshot().config;
+    const activity = getActivityRecipe("activity-cw-v1");
+    const expected = applyPresetRecipe(activity, before).config;
+    runtime.applyPreset(activity);
+    const afterActivity = runtime.getSnapshot();
+    expect(afterActivity.config).toEqual(expected);
+    expect(afterActivity.config.spots).toEqual(activity.spots);
+    expect(afterActivity.config.presentation.projection).toBe("azimuthal");
+    expect(afterActivity.config.presentation.textScale).toBe("xl");
+    expect(afterActivity.config.context.followRadio).toBe(false);
+    expect(afterActivity.config.context.followOperatingSession).toBe(false);
+    expect(afterActivity.config.context.stationId).toBe("station-9");
+    expect(afterActivity.interaction.selectedReportId).toBe("report-keep");
+    expect(afterActivity.interaction.target).toEqual({
+      lat: 41.2, lon: -74.1, origin: "spot", reportId: "report-keep",
+    });
+    expect(afterActivity.interaction.expandedGroupIds).toEqual(["group-keep"]);
+
+    const display = getDisplayRecipe("display-hamclock-v1");
+    const expectedDisplay = applyPresetRecipe(display, afterActivity.config).config;
+    runtime.applyPreset(display);
+    const afterDisplay = runtime.getSnapshot();
+    expect(afterDisplay.config).toEqual(expectedDisplay);
+    expect(afterDisplay.config).toEqual(display.config);
+    expect(afterDisplay.interaction).toEqual({
+      selectedReportId: null,
+      selectedPathPointId: null,
+      target: null,
+      expandedGroupIds: [],
+    });
     runtime.dispose();
   });
 });

@@ -51,6 +51,13 @@ describe("bare MODE_COLORS text (no inkOnFill) vs station surfaces", () => {
   // use a MODE_COLORS value directly as a text color. A `true` cell going
   // red means a palette or MODE_COLORS edit silently made bare accent text
   // newly safe (or newly unsafe) and this table is stale.
+  //
+  // #787 gave `aurora-purple` a per-theme `--su-purple` token, which moved
+  // the *Tailwind* class `MODE_COLORS_TAILWIND.RTTY` (now AA in all four
+  // themes) but not this table: `MODE_COLORS` is the raw-hex map for
+  // canvas/SVG rendering, deliberately independent of the tokens, and no
+  // palette surface changed. No cell moved, and RTTY's `false` cells still
+  // describe `MODE_COLORS.RTTY` (`#AA44FF`), not the class.
   const AA = 4.5;
   const expectedPass: Record<ThemeId, Record<string, boolean>> = {
     dark: {

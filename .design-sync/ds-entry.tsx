@@ -195,7 +195,6 @@ export { SpotDetailsModal } from "@/components/map/SpotDetailsModal";
 export { SpotHoverPreview } from "@/components/map/SpotHoverPreview";
 export { TimeControl } from "@/components/map/TimeControl";
 export { WatchStatusPill } from "@/components/map/WatchStatusPill";
-export { HamClockBandFocus } from "@/components/map/hamclock/HamClockBandFocus";
 export { HamClockBestBandHero } from "@/components/map/hamclock/HamClockBestBandHero";
 export { HamClockContestsPanel } from "@/components/map/hamclock/HamClockContestsPanel";
 export { HamClockDensitySwitch } from "@/components/map/hamclock/HamClockDensitySwitch";
@@ -205,7 +204,6 @@ export { HamClockLayerChips } from "@/components/map/hamclock/HamClockLayerChips
 export { HamClockModeSwitch } from "@/components/map/hamclock/HamClockModeSwitch";
 export { HamClockMoonPanel } from "@/components/map/hamclock/HamClockMoonPanel";
 export { HamClockProjectionSwitch } from "@/components/map/hamclock/HamClockProjectionSwitch";
-export { HamClockRecentContacts } from "@/components/map/hamclock/HamClockRecentContacts";
 export { HamClockButton } from "@/components/map/hamclock/wall/controls/HamClockButton";
 export { HamClockDialog } from "@/components/map/hamclock/wall/controls/HamClockDialog";
 export { HamClockSegmented } from "@/components/map/hamclock/wall/controls/HamClockSegmented";

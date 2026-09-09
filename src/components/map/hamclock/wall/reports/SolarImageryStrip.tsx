@@ -12,10 +12,36 @@ interface FrameSpec {
   label: string;
 }
 
+/** Two slots stay on screen; the catalogue pages through all five products. */
+const VISIBLE_FRAME_SLOTS = 2;
+const IMAGERY_PAGE_MS = 20_000;
+
 const FRAMES: readonly FrameSpec[] = [
   { productId: "aia-193", label: "AIA 193 · CORONA" },
   { productId: "hmi-magnetogram", label: "HMI · MAGNETOGRAM" },
+  { productId: "aia-304", label: "AIA 304 · CHROMOSPHERE" },
+  { productId: "aia-171", label: "AIA 171 · CORONA" },
+  { productId: "aia-211", label: "AIA 211 · ACTIVE REGIONS" },
 ];
+
+function visibleImageryFrames(
+  frames: readonly FrameSpec[],
+  pageIndex: number,
+  slots = VISIBLE_FRAME_SLOTS,
+): FrameSpec[] {
+  const start = (pageIndex * slots) % frames.length;
+  return Array.from(
+    { length: slots },
+    (_, offset) => frames[(start + offset) % frames.length]!,
+  );
+}
+
+function imageryPageCount(
+  frameCount: number,
+  slots = VISIBLE_FRAME_SLOTS,
+): number {
+  return Math.max(1, Math.ceil(frameCount / slots));
+}
 
 /** One-shot fetch of the image's own `observedAt`, for the frame caption. */
 function useImageObservedAt(metadataUrl: string): string | null {
@@ -115,16 +141,29 @@ function SolarImageFrame({ productId, label }: FrameSpec) {
 
 /**
  * NOW-tab imagery for the Solar report (wall spec section 26.5 imagery
- * follow-up): the AIA 193 Å coronal-hole frame and the HMI magnetogram side
- * by side, each with its own last-frame timestamp. Sized by height (not
- * width) so the pair sits above the SFI chart without the report ever
- * scrolling. `aside` fills the strip's spare right-hand width (the sub-solar
- * link) instead of adding a row the tab panel has no room for at 1080p.
+ * follow-up): five SDO AIA/HMI frames cycle two at a time above the SFI
+ * chart, each with its own last-frame timestamp. Sized by height (not width)
+ * so the pair sits above the SFI chart without the report ever scrolling.
+ * `aside` fills the strip's spare right-hand width (the sub-solar link)
+ * instead of adding a row the tab panel has no room for at 1080p.
  */
 export function SolarImageryStrip({ aside }: { aside?: ReactNode }) {
+  const [pageIndex, setPageIndex] = useState(0);
+  const pageCount = imageryPageCount(FRAMES.length);
+
+  useEffect(() => {
+    if (pageCount <= 1) return undefined;
+    const timer = setInterval(() => {
+      setPageIndex((current) => (current + 1) % pageCount);
+    }, IMAGERY_PAGE_MS);
+    return () => clearInterval(timer);
+  }, [pageCount]);
+
+  const visibleFrames = visibleImageryFrames(FRAMES, pageIndex);
+
   return (
     <div className="hcr-imagery-strip">
-      {FRAMES.map((frame) => (
+      {visibleFrames.map((frame) => (
         <SolarImageFrame key={frame.productId} {...frame} />
       ))}
       {aside ? <div className="hcr-imagery-aside">{aside}</div> : null}

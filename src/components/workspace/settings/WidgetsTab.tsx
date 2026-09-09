@@ -5,7 +5,7 @@ import { autoDock } from "@/lib/workspace/autoDock";
 import { canvasRulesFor, railOrientation } from "@/lib/workspace/canvasRules";
 import { getRegistryEntry, WIDGET_REGISTRY } from "@/lib/workspace/registry";
 import type { CanvasRules, WidgetRegistryEntry } from "@/lib/workspace/types";
-import { useActivePage, useActiveWorkspace, useWorkspaceStore } from "@/stores/workspaceStore";
+import { useActivePage, useActiveWorkspace, useEffectiveCanvasType, useWorkspaceStore } from "@/stores/workspaceStore";
 
 /** Matches `EmptyRailButton`'s own eligibility check (context "any") — every widget that could dock somewhere on this canvas, hero or rail. */
 function isPlaceable(entry: WidgetRegistryEntry, rules: CanvasRules): boolean {
@@ -53,8 +53,15 @@ export function WidgetsTab() {
   const removeWidget = useWorkspaceStore((s) => s.removeWidget);
   const setWidgetOrder = useWorkspaceStore((s) => s.setWidgetOrder);
   const setRailCollapsed = useWorkspaceStore((s) => s.setRailCollapsed);
+  // #686 review item 8 (Codex PRRT_kwDORFr4R86ggBm7): must agree with
+  // `WorkspaceCanvas`'s own rules resolution, or the picker/EDIT mode here
+  // would validate placements against the stored `workspace.canvasType`
+  // ("workstation") while the canvas itself renders under a narrower
+  // viewport's rules, so a widget added here could be silently refused at
+  // render time.
+  const canvasType = useEffectiveCanvasType();
 
-  const rules = canvasRulesFor(workspace.canvasType);
+  const rules = canvasRulesFor(canvasType);
   const dock = autoDock(page.widgetIds, rules);
   const [refusal, setRefusal] = useState<string | null>(null);
   const [addPageIndex, setAddPageIndex] = useState(0);

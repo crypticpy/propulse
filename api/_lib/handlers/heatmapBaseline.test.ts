@@ -32,6 +32,7 @@ function upstream({ baseline = [ROW] as unknown[], current = [CURRENT] as unknow
     const isBaseline = input.pathname === "/rest/v1/region_activity_climatology";
     expect(input.pathname).toBe(isBaseline ? "/rest/v1/region_activity_climatology" : "/rest/v1/region_hourly_stats");
     expect(input.searchParams.get("order")).toBe(isBaseline ? "band.asc,continent.asc,hour_of_day.asc" : "band.asc,continent.asc");
+    if (isBaseline) expect(input.searchParams.get("hour_of_day")).toBe("eq.12");
     if (!isBaseline) expect(input.searchParams.get("hour_utc")).toBe(`eq.${HOUR}`);
     expect(input.searchParams.get("limit")).toBe("1000");
     expect(init.headers).toMatchObject({ Prefer: "count=exact" });
@@ -57,10 +58,10 @@ afterEach(() => {
 });
 
 describe("heatmap regional snapshot handler", () => {
-  it("reads both regional populations, paginates all climatology, and returns their timestamps", async () => {
-    const rows = Array.from({ length: 1848 }, (_, index) => ({
-      ...ROW, band: `band-${Math.floor(index / 168)}`, hour_of_day: index % 24,
-      continent: ["NA", "SA", "EU", "AF", "AS", "OC", "AN"][Math.floor(index / 24) % 7],
+  it("filters climatology to the measured UTC hour and reads at most one 77-row page", async () => {
+    const rows = Array.from({ length: 77 }, (_, index) => ({
+      ...ROW, band: `band-${Math.floor(index / 7)}`,
+      continent: ["NA", "SA", "EU", "AF", "AS", "OC", "AN"][index % 7],
     }));
     const fetcher = upstream({ baseline: rows });
     const response = await handleSpotsHeatmapBaseline(request());
@@ -71,11 +72,11 @@ describe("heatmap regional snapshot handler", () => {
       baseline: rows, current: [CURRENT],
       meta: { schemaVersion: 2, hour_utc: HOUR, computedAt: ROW.computed_at, fetchedAt: NOW },
     });
-    expect(fetcher).toHaveBeenCalledTimes(5);
+    expect(fetcher).toHaveBeenCalledTimes(4);
   });
 
   it("continues short pages when Content-Range reports more rows", async () => {
-    const fetcher = upstream({ baseline: [ROW, { ...ROW, hour_of_day: 14 }], pageSize: 1 });
+    const fetcher = upstream({ baseline: [ROW, { ...ROW, band: "40m" }], pageSize: 1 });
     expect((await (await handleSpotsHeatmapBaseline(request())).json()).baseline).toHaveLength(2);
     expect(fetcher.mock.calls[1][0].searchParams.get("offset")).toBe("1");
   });
@@ -121,7 +122,7 @@ describe("heatmap regional snapshot handler", () => {
   });
 
   it("uses the oldest baseline timestamp and suppresses invalidated climatology", async () => {
-    const older = { ...ROW, hour_of_day: 11, computed_at: "2026-09-08T00:00:00Z" };
+    const older = { ...ROW, band: "40m", computed_at: "2026-09-08T00:00:00Z" };
     const fetcher = upstream({ baseline: [ROW, older], baselineGuard: false });
     const response = await handleSpotsHeatmapBaseline(request());
     expect(response.status).toBe(200);

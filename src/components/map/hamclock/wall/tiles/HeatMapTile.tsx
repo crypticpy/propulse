@@ -53,14 +53,28 @@ const HeatMapReport = lazy(() =>
  *   same-UTC-hour regional climatology medians, never client feed counts,
  *   shared with the report and Settings -> Display through React Query.
  */
-export function HeatMapTile({ title = "Band heat map" }: WallTileProps) {
+export function HeatMapTile(props: WallTileProps) {
+  const preset = useHamClockDisplayStore((s) => s.heatmapPreset);
+  return preset === "ratioDiverging" ? <RegionalHeatMapTile {...props} /> : <HeatMapTileContent {...props} />;
+}
+
+function RegionalHeatMapTile(props: WallTileProps) {
+  const baselineState = useHeatMapBaseline();
+  return <HeatMapTileContent {...props} baselineState={baselineState} />;
+}
+
+const NO_BASELINE_BACKGROUND = "repeating-linear-gradient(135deg, var(--hc-bg) 0 3px, var(--hc-dim2) 3px 4px)";
+
+function HeatMapTileContent({ title = "Band heat map", baselineState }: WallTileProps & { baselineState?: ReturnType<typeof useHeatMapBaseline> }) {
   const now = useUTCClock(10_000);
   const allSpots = useDXStore((s) => s.spots);
   const feedState = useDXStore((s) => s.clusterFeed);
   const source = useDXStore((s) => s.spotSource);
   const maxAge = useDXStore((s) => s.filters.maxAge);
   const { bands } = useBandVerdicts();
-  const { regionalCells, available, unavailableLabel, basisLabel, baselineAgeLabel } = useHeatMapBaseline();
+  const { regionalCells, available, unavailableLabel, basisLabel, baselineAgeLabel } = baselineState ?? {
+    regionalCells: [], available: false, unavailableLabel: null, basisLabel: "", baselineAgeLabel: "",
+  };
   const heatmapPresetId = useHamClockDisplayStore((s) => s.heatmapPreset);
   const ratioActive = heatmapPresetId === "ratioDiverging" && available;
   const [reportOpen, setReportOpen] = useState(false);
@@ -124,6 +138,7 @@ export function HeatMapTile({ title = "Band heat map" }: WallTileProps) {
     let total = 0;
     for (const cell of cells) {
       total += cell.count;
+      if (ratioActive && cell.ratio === null) continue;
       if (cell.count === 0) continue;
       const bucket = bucketFor(cell, preset.scale);
       if (
@@ -135,7 +150,7 @@ export function HeatMapTile({ title = "Band heat map" }: WallTileProps) {
       }
     }
     return { hottest, totalCount: total };
-  }, [cells, preset]);
+  }, [cells, preset, ratioActive]);
 
   const report = reportOpen ? (
     <Suspense fallback={null}>
@@ -148,7 +163,7 @@ export function HeatMapTile({ title = "Band heat map" }: WallTileProps) {
   // itself is the reason (unavailable, loading, off) — never a fabricated
   // "ALL CLEAR".
   if (!hottest) {
-    const idle = ratioActive ? "NO SPOTS IN LAST FULL HOUR" : ["UNAVAILABLE", "LOADING", "OFF"].includes(feedState.state)
+    const idle = ratioActive ? totalCount > 0 ? "NO ACTIVITY WITH A QUALIFIED BASELINE" : "NO SPOTS IN LAST FULL HOUR" : ["UNAVAILABLE", "LOADING", "OFF"].includes(feedState.state)
       ? feedState.state
       : "NO SPOTS IN WINDOW";
     return (
@@ -163,7 +178,7 @@ export function HeatMapTile({ title = "Band heat map" }: WallTileProps) {
           <TileSub>
             <span>{idle}</span>
             {ratioActive && <span>{baselineAgeLabel}</span>}
-            {unavailableLabel && <span>{unavailableLabel}</span>}
+            {heatmapPresetId === "ratioDiverging" && unavailableLabel && <span>{unavailableLabel}</span>}
           </TileSub>
         </HamClockTile>
         {report}
@@ -201,7 +216,8 @@ export function HeatMapTile({ title = "Band heat map" }: WallTileProps) {
         <TileSub>
           <span>{sentence}</span>
           {ratioActive && <span>{baselineAgeLabel}</span>}
-          {unavailableLabel && <span>{unavailableLabel}</span>}
+          {ratioActive && <span>HATCHED: NO BASELINE</span>}
+          {heatmapPresetId === "ratioDiverging" && unavailableLabel && <span>{unavailableLabel}</span>}
         </TileSub>
 
         <div
@@ -223,11 +239,13 @@ export function HeatMapTile({ title = "Band heat map" }: WallTileProps) {
               {HEATMAP_CONTINENTS.map((continent) => {
                 const cell = cellMap.get(physicsScoreKey(band, continent));
                 const cellBucket = cell ? bucketFor(cell, preset.scale) : 0;
+                const noBaseline = ratioActive && cell?.ratio == null;
                 return (
                   <span
                     key={continent}
                     className="hcf-heatgrid-cell"
-                    style={{ background: heatmapBucketColor(preset.id, cellBucket) }}
+                    data-no-baseline={noBaseline || undefined}
+                    style={{ background: noBaseline ? NO_BASELINE_BACKGROUND : heatmapBucketColor(preset.id, cellBucket) }}
                   />
                 );
               })}

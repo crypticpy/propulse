@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import type { DXSpot } from "@/types/dxcluster";
 import { useDXStore } from "@/stores/dxStore";
@@ -16,6 +16,7 @@ const previousDisplay = useHamClockDisplayStore.getState();
 beforeEach(() => {
   vi.setSystemTime(new Date("2026-09-08T13:00:00Z"));
   mocks.verdicts.mockReturnValue({ bands: [] });
+  mocks.baseline.mockClear();
   mocks.baseline.mockReturnValue({ regionalCells: [], available: false, unavailableLabel: "NEEDS 14 BASELINE SAMPLES" });
 });
 
@@ -47,6 +48,14 @@ it("does not collapse the grid when the client feed is 1000x smaller; only genui
   expect(screen.getByText("1000 / 0.00")).toBeTruthy();
   expect(screen.getByText("1 / \u2264-3.00")).toBeTruthy();
   expect(screen.getAllByText("0 / NO BASELINE").length).toBeGreaterThan(0);
+  const noData = screen.getAllByText("0 / NO BASELINE")[0];
+  expect(noData.getAttribute("data-no-baseline")).toBe("true");
+  expect(noData.style.background).toContain("repeating-linear-gradient");
+  expect(screen.getByText("1 / \u2264-3.00").hasAttribute("data-no-baseline")).toBe(false);
+  expect(container.querySelector(".hcf-heatgrid-cell[data-no-baseline]")?.getAttribute("style")).toContain("repeating-linear-gradient");
+  expect(screen.getByText("NO BASELINE (not measured quiet)")).toBeTruthy();
+  expect(screen.getByText("1000 / 0.00").style.whiteSpace).toBe("nowrap");
+  expect(screen.getByText("1000 / 0.00").style.fontSize).toBe("1.1vh");
   expect(screen.getAllByText(/LAST FULL HOUR vs 90-DAY MEDIAN/).length).toBeGreaterThan(0);
   expect(screen.getAllByText("BASELINE AS OF 2026-09-08 00:00 UTC (13 H AGO)").length).toBeGreaterThan(0);
   expect(screen.queryByText("SAME UTC HOUR MEDIAN")).toBeNull();
@@ -115,6 +124,22 @@ it("opens the centred report on click, nothing else", async () => {
     name: "Band heat map report",
   });
   expect(dialog).toBeTruthy();
+  expect(mocks.baseline).not.toHaveBeenCalled();
+  expect(screen.queryByText("BASELINE")).toBeNull();
+  expect(screen.queryByText("NEEDS 14 BASELINE SAMPLES")).toBeNull();
+});
+
+it("mounts the regional hook only while ratio mode is selected", () => {
+  useDXStore.setState({ spots: [spot({})] });
+  useHamClockDisplayStore.getState().setHeatmapPreset("ladderHue");
+  render(<HeatMapTile />);
+  expect(mocks.baseline).not.toHaveBeenCalled();
+  act(() => useHamClockDisplayStore.getState().setHeatmapPreset("ratioDiverging"));
+  expect(mocks.baseline).toHaveBeenCalled();
+  mocks.baseline.mockClear();
+  act(() => useHamClockDisplayStore.getState().setHeatmapPreset("ladderHue"));
+  expect(mocks.baseline).not.toHaveBeenCalled();
+  expect(screen.queryByText("NEEDS 14 BASELINE SAMPLES")).toBeNull();
 });
 
 it("keeps the ladder's 20-minute window even when the operator's DX spot age is 5 minutes", () => {

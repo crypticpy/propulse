@@ -43,6 +43,7 @@ export interface HeatMapSnapshot {
   baseline: BaselineLookup;
   current: ReadonlyMap<string, number>;
   hourUtc: string;
+  fetchedAt: string;
   computedAt: string | null;
   unavailableLabel: string | null;
 }
@@ -57,6 +58,9 @@ export function buildHeatMapSnapshot(payload: unknown): HeatMapSnapshot {
   const hourMs = typeof meta.hour_utc === "string" ? Date.parse(meta.hour_utc) : NaN;
   if (!Number.isFinite(hourMs) || hourMs % HOUR_MS !== 0) throw new Error("Invalid regional hour");
   const hourUtc = new Date(hourMs).toISOString();
+  const fetchedMs = typeof meta.fetchedAt === "string" ? Date.parse(meta.fetchedAt) : NaN;
+  if (!Number.isFinite(fetchedMs)) throw new Error("Invalid regional fetch timestamp");
+  const fetchedAt = new Date(fetchedMs).toISOString();
   const utcHour = new Date(hourMs).getUTCHours();
   const baseline = buildHeatMapBaseline(payload.baseline);
   const current = new Map<string, number>();
@@ -77,13 +81,14 @@ export function buildHeatMapSnapshot(payload: unknown): HeatMapSnapshot {
       Number.isInteger(row.sample_count) && row.sample_count >= 0 && row.sample_count < 14;
   });
   const matchedHour = [...baseline.keys()].some((key) => key.endsWith(`|${utcHour}`));
-  const unavailableLabel = payload.current.length === 0 ? "NO COMPLETE-HOUR DATA (COLLECTOR GAP)"
+  const unavailableLabel = hourUtc !== latestCompleteHour(fetchedMs) ? "REGIONAL HOUR OUT OF DATE"
+    : payload.current.length === 0 ? "NO COMPLETE-HOUR DATA (COLLECTOR GAP)"
     : current.size === 0 ? "NO COMPATIBLE REGIONAL DATA"
     : payload.baseline.length === 0 ? "NO BASELINE DATA"
     : baseline.size === 0 ? compatibleSamples ? "NEEDS 14 BASELINE SAMPLES" : "NO COMPATIBLE BASELINE DATA"
     : !matchedHour ? "NO BASELINE FOR THIS UTC HOUR"
     : !computedAt ? "BASELINE AGE UNAVAILABLE" : null;
-  return { baseline, current, hourUtc, computedAt, unavailableLabel };
+  return { baseline, current, hourUtc, fetchedAt, computedAt, unavailableLabel };
 }
 
 async function fetchHeatMapBaseline(signal: AbortSignal): Promise<HeatMapSnapshot> {
@@ -98,28 +103,33 @@ function utcLabel(timestamp: string): string {
 
 export function useHeatMapBaseline() {
   const now = useUTCClock(60_000);
-  const expectedHour = latestCompleteHour(now.getTime());
   const query = useQuery({
-    queryKey: ["heatmap-baseline", expectedHour],
+    queryKey: ["heatmap-baseline"],
     queryFn: ({ signal }) => fetchHeatMapBaseline(signal),
     staleTime: HOUR_MS,
-    refetchInterval: (entry) => entry.state.data?.unavailableLabel || entry.state.data?.hourUtc !== expectedHour ? 60_000 : HOUR_MS,
+    refetchInterval: (entry) => {
+      const snapshot = entry.state.data;
+      if (!snapshot || snapshot.unavailableLabel) return 60_000;
+      // Server boundary plus elapsed client time, not the client's UTC hour.
+      const elapsed = Math.max(0, Date.now() - entry.state.dataUpdatedAt);
+      return Math.max(1000, HOUR_MS - Date.parse(snapshot.fetchedAt) % HOUR_MS - elapsed);
+    },
     retry: 1,
   });
   const snapshot = query.isError ? undefined : query.data;
   const unavailableLabel = query.isError ? "REGIONAL DATA UNAVAILABLE"
     : query.isPending ? "REGIONAL DATA LOADING"
-    : snapshot?.hourUtc !== expectedHour ? "REGIONAL HOUR OUT OF DATE"
-    : snapshot.unavailableLabel;
+    : snapshot?.unavailableLabel ?? null;
   const available = unavailableLabel === null;
   const regionalCells = useMemo(() => available && snapshot
     ? regionalHeatmapCells(snapshot.baseline, snapshot.current, snapshot.hourUtc) : [], [available, snapshot]);
-  const ageMinutes = snapshot?.computedAt ? Math.max(0, Math.floor((now.getTime() - Date.parse(snapshot.computedAt)) / 60_000)) : null;
+  const serverNow = snapshot ? Date.parse(snapshot.fetchedAt) + Math.max(0, now.getTime() - query.dataUpdatedAt) : null;
+  const ageMinutes = snapshot?.computedAt && serverNow !== null ? Math.max(0, Math.floor((serverNow - Date.parse(snapshot.computedAt)) / 60_000)) : null;
   const age = ageMinutes === null ? "" : ageMinutes < 60 ? `${ageMinutes} MIN AGO` : `${Math.floor(ageMinutes / 60)} H AGO`;
   return {
     ...query, baseline: snapshot?.baseline ?? EMPTY_BASELINE, regionalCells,
     available, unavailableLabel, hourUtc: snapshot?.hourUtc ?? null,
-    basisLabel: `${REGIONAL_RATIO_LABEL} \u00b7 as of ${utcLabel(snapshot?.hourUtc ?? expectedHour)}`,
+    basisLabel: snapshot ? `${REGIONAL_RATIO_LABEL} \u00b7 as of ${utcLabel(snapshot.hourUtc)}` : REGIONAL_RATIO_LABEL,
     baselineAgeLabel: snapshot?.computedAt ? `BASELINE AS OF ${utcLabel(snapshot.computedAt)} (${age})` : "BASELINE AGE UNAVAILABLE",
   };
 }

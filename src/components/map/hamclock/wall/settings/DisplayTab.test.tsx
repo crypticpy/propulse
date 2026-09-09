@@ -15,6 +15,7 @@ describe("DisplayTab", () => {
     useHamClockDisplayStore.getState().resetDisplay();
     useMapStore.getState().setViewMode("flat");
     vi.mocked(useActiveLocation).mockReturnValue(null);
+    baseline.mockClear();
     baseline.mockReturnValue({ available: false, unavailableLabel: "NEEDS 14 BASELINE SAMPLES" });
   });
 
@@ -37,7 +38,8 @@ describe("DisplayTab", () => {
       const explanation = screen.getByRole("status");
       expect(explanation.textContent).toContain(unavailableLabel);
       expect(explanation.closest("button")).toBeNull();
-      expect(explanation.style.color).toBe("var(--hc-fg)");
+      expect(explanation.className).toBe("hcc-row-caveat");
+      expect(explanation.hasAttribute("style")).toBe(false);
       expect(option.getAttribute("aria-checked")).toBe("true");
       expect(screen.getByRole("radio", { name: "BAND HEALTH LADDER" }).getAttribute("aria-checked")).toBe("false");
       expect(useHamClockDisplayStore.getState().heatmapPreset).toBe("ratioDiverging");
@@ -46,6 +48,9 @@ describe("DisplayTab", () => {
 
   it("spells the smart scaling state as ON or OFF", () => {
     render(<DisplayTab />);
+    expect(baseline).not.toHaveBeenCalled();
+    expect(screen.queryByRole("status")).toBeNull();
+    expect((screen.getByRole("radio", { name: "BASELINE RATIO" }) as HTMLButtonElement).disabled).toBe(false);
     const toggle = screen.getByRole("switch", { name: "Smart scaling" });
     expect(toggle.textContent).toBe("ON");
 

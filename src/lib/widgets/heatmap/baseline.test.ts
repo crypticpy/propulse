@@ -1,4 +1,6 @@
 import { describe, expect, it } from "vitest";
+import { metricValue as publicMetricValue } from "./index";
+import { computeHeatmap, metricValue } from "./compute";
 import {
   baselineKey,
   buildBaselineLookup,
@@ -14,6 +16,10 @@ import {
 } from "./baseline";
 
 describe("baselineKey", () => {
+  it("exposes metricValue through the public index without changing its result", () => {
+    const cell = computeHeatmap([], { now: 0 })[0];
+    expect(publicMetricValue(cell, "count")).toBe(metricValue(cell, "count"));
+  });
   it("joins band, continent and hour", () => {
     expect(baselineKey("20m", "EU", 14)).toBe("20m|EU|14");
   });

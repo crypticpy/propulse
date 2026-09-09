@@ -1,16 +1,17 @@
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { ReactNode } from "react";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { baselineKey, computeRatio } from "@/lib/widgets/heatmap/baseline";
 import { buildHeatMapBaseline, buildHeatMapSnapshot, useHeatMapBaseline } from "./useHeatMapBaseline";
 
-vi.mock("./useUTCClock", () => ({ useUTCClock: () => new Date("2026-09-09T13:00:00Z") }));
+vi.mock("./useUTCClock", () => ({ useUTCClock: () => new Date() }));
 const HOUR = "2026-09-09T12:00:00.000Z";
 const ROW = { band: "20m", continent: "EU", hour_of_day: 12, p50: 1000, sample_count: 14 };
 const CURRENT = { band: "20m", continent: "EU", hour_utc: HOUR, spot_count: 1000 };
-const PAYLOAD = { baseline: [ROW], current: [CURRENT], meta: { hour_utc: HOUR, computedAt: "2026-09-09T00:00:00Z" } };
-afterEach(() => vi.unstubAllGlobals());
+const PAYLOAD = { baseline: [ROW], current: [CURRENT], meta: { hour_utc: HOUR, computedAt: "2026-09-09T00:00:00Z", fetchedAt: "2026-09-09T13:00:00Z" } };
+beforeEach(() => vi.setSystemTime(new Date(PAYLOAD.meta.fetchedAt)));
+afterEach(() => { vi.unstubAllGlobals(); vi.useRealTimers(); });
 
 describe("baseline lookup", () => {
   it("maps p50 into meanCount at the correct UTC hour, including zero", () => {
@@ -58,7 +59,7 @@ describe("regional snapshot qualification", () => {
     expect(snapshot.current.get("20m|EU|12")).toBe(0);
     expect(snapshot.computedAt).toBe(PAYLOAD.meta.computedAt);
     expect(snapshot.unavailableLabel).toBeNull();
-    expect(buildHeatMapSnapshot({ ...PAYLOAD, meta: { hour_utc: HOUR } }).unavailableLabel).toBe("BASELINE AGE UNAVAILABLE");
+    expect(buildHeatMapSnapshot({ ...PAYLOAD, meta: { ...PAYLOAD.meta, computedAt: null } }).unavailableLabel).toBe("BASELINE AGE UNAVAILABLE");
   });
 
   it.each([null, { rows: [ROW] }, { ...PAYLOAD, meta: { hour_utc: "bad" } }, { ...PAYLOAD, meta: { hour_utc: "2026-09-09T12:30:00Z" } }])("rejects incompatible snapshot envelopes", (payload) => {
@@ -77,7 +78,7 @@ it("shares an hourly cache, uses only regional counts, and disables retained dat
   expect(first.result.current.regionalCells.find((cell) => cell.band === "20m" && cell.continent === "EU")).toMatchObject({ count: 1000, ratio: 0 });
   expect(first.result.current.basisLabel).toBe("LAST FULL HOUR vs 90-DAY MEDIAN · as of 2026-09-09 12:00 UTC");
   expect(first.result.current.baselineAgeLabel).toBe("BASELINE AS OF 2026-09-09 00:00 UTC (13 H AGO)");
-  expect(client.getQueryCache().find({ queryKey: ["heatmap-baseline", HOUR] })?.isStaleByTime(3600000)).toBe(false);
+  expect(client.getQueryCache().find({ queryKey: ["heatmap-baseline"] })?.isStaleByTime(3600000)).toBe(false);
   const second = renderHook(() => useHeatMapBaseline(), { wrapper });
   expect(second.result.current.available).toBe(true);
   expect(fetcher).toHaveBeenCalledTimes(1);
@@ -115,5 +116,21 @@ it.each([
   expect(result.current.regionalCells).toEqual([]);
   expect(result.current.unavailableLabel).toBe(explanation);
   unmount();
+  client.clear();
+});
+
+it.each([-6, 6])("accepts the server hour with a client clock skew of %i hours", async (offset) => {
+  vi.setSystemTime(new Date(Date.parse(PAYLOAD.meta.fetchedAt) + offset * 3_600_000));
+  vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(JSON.stringify(PAYLOAD))));
+  const client = new QueryClient();
+  const wrapper = ({ children }: { children: ReactNode }) =>
+    <QueryClientProvider client={client}>{children}</QueryClientProvider>;
+  const { result, unmount } = renderHook(() => useHeatMapBaseline(), { wrapper });
+  await waitFor(() => expect(result.current.available).toBe(true));
+  expect(result.current.hourUtc).toBe(HOUR);
+  expect(result.current.baselineAgeLabel).toBe("BASELINE AS OF 2026-09-09 00:00 UTC (13 H AGO)");
+  expect(client.getQueryCache().getAll()).toHaveLength(1);
+  unmount();
+  expect(client.getQueryCache().getAll()[0].getObserversCount()).toBe(0);
   client.clear();
 });

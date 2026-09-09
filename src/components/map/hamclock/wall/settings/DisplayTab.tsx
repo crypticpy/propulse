@@ -73,7 +73,17 @@ const DWELL_OPTIONS: { value: DwellSeconds; label: string }[] = [
  * same reason: a third toggle on this tab overflows the panel.
  */
 export function DisplayTab() {
-  const { available, unavailableLabel } = useHeatMapBaseline();
+  const preset = useHamClockDisplayStore((s) => s.heatmapPreset);
+  return preset === "ratioDiverging" ? <RegionalDisplayTab /> : <DisplayTabContent />;
+}
+
+function RegionalDisplayTab() {
+  const baselineState = useHeatMapBaseline();
+  return <DisplayTabContent baselineState={baselineState} />;
+}
+
+function DisplayTabContent({ baselineState }: { baselineState?: ReturnType<typeof useHeatMapBaseline> }) {
+  const { available, unavailableLabel } = baselineState ?? { available: false, unavailableLabel: null };
   const density = useHamClockDisplayStore((s) => s.density);
   const setDensity = useHamClockDisplayStore((s) => s.setDensity);
   const units = useHamClockDisplayStore((s) => s.units);
@@ -122,11 +132,11 @@ export function DisplayTab() {
           value={heatmapPreset}
           onChange={setHeatmapPreset}
           options={HEATMAP_PRESET_OPTIONS.map((option) => option.value === "ratioDiverging"
-            ? { ...option, disabled: !available }
+            ? { ...option, disabled: heatmapPreset === "ratioDiverging" && !available }
             : option)}
         />
-        {unavailableLabel && (
-          <p className="hcc-row-detail" style={{ color: "var(--hc-fg)" }} role="status">
+        {heatmapPreset === "ratioDiverging" && unavailableLabel && (
+          <p className="hcc-row-caveat" role="status">
             {unavailableLabel}. Band health ladder is shown until regional data is available.
           </p>
         )}

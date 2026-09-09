@@ -122,6 +122,7 @@ export async function handleSpotsHeatmapBaseline(req: Request): Promise<Response
   try {
     const rawBaseline = await readTable(storage, controller.signal, "region_activity_climatology", {
       select: "band,continent,hour_of_day,p25,p50,p75,p95,sample_count,computed_at",
+      hour_of_day: `eq.${new Date(hourUtc).getUTCHours()}`,
       order: "band.asc,continent.asc,hour_of_day.asc",
     });
     let baseline = rawBaseline.map(parseHeatmapBaselineRow).filter((row): row is HeatmapBaselineRow => row !== null);

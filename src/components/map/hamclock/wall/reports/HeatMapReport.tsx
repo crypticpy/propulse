@@ -50,12 +50,28 @@ const CLASS_TO_TONE: Record<string, WallReportTone> = {
  * the data-source contract) rather than reading it back from the tile, since
  * the report can outlive its tile once pinned (`WallReport`'s pin contract).
  */
-export function HeatMapReport({
+type HeatMapReportProps = { open: boolean; onClose: () => void };
+
+export function HeatMapReport(props: HeatMapReportProps) {
+  const preset = useHamClockDisplayStore((s) => s.heatmapPreset);
+  return preset === "ratioDiverging" ? <RegionalHeatMapReport {...props} /> : <HeatMapReportContent {...props} />;
+}
+
+function RegionalHeatMapReport(props: HeatMapReportProps) {
+  const baselineState = useHeatMapBaseline();
+  return <HeatMapReportContent {...props} baselineState={baselineState} />;
+}
+
+const NO_BASELINE_BACKGROUND = "repeating-linear-gradient(135deg, var(--hc-bg) 0 3px, var(--hc-dim2) 3px 4px)";
+
+function HeatMapReportContent({
   open,
   onClose,
+  baselineState,
 }: {
   open: boolean;
   onClose: () => void;
+  baselineState?: ReturnType<typeof useHeatMapBaseline>;
 }) {
   const now = useUTCClock(10_000);
   const allSpots = useDXStore((s) => s.spots);
@@ -63,7 +79,9 @@ export function HeatMapReport({
   const source = useDXStore((s) => s.spotSource);
   const maxAge = useDXStore((s) => s.filters.maxAge);
   const { bands } = useBandVerdicts();
-  const { regionalCells, available, unavailableLabel, basisLabel, baselineAgeLabel, hourUtc } = useHeatMapBaseline();
+  const { regionalCells, available, unavailableLabel, basisLabel, baselineAgeLabel, hourUtc } = baselineState ?? {
+    regionalCells: [], available: false, unavailableLabel: null, basisLabel: "", baselineAgeLabel: "", hourUtc: null,
+  };
   const heatmapPresetId = useHamClockDisplayStore((s) => s.heatmapPreset);
   const ratioActive = heatmapPresetId === "ratioDiverging" && available;
 
@@ -127,6 +145,7 @@ export function HeatMapReport({
     let active = 0;
     for (const cell of cells) {
       total += cell.count;
+      if (ratioActive && cell.ratio === null) continue;
       if (cell.count === 0) continue;
       active += 1;
       const bucket = bucketFor(cell, preset.scale);
@@ -139,7 +158,7 @@ export function HeatMapReport({
       }
     }
     return { hottest, totalCount: total, activeCells: active };
-  }, [cells, preset]);
+  }, [cells, preset, ratioActive]);
 
   const latestSpot = useMemo(() => {
     const times = spots
@@ -164,7 +183,7 @@ export function HeatMapReport({
     { label: ratioActive ? "TOTAL SPOTS" : "TOTAL DX", value: totalCount },
     { label: "WINDOW", value: ratioActive ? "1 COMPLETE UTC HOUR" : heatmapWindowLabel(availableMs) },
     { label: "COLOURS", value: preset.label.toUpperCase() },
-    { label: "BASELINE", value: unavailableLabel ?? baselineAgeLabel },
+    ...(heatmapPresetId === "ratioDiverging" ? [{ label: "BASELINE", value: unavailableLabel ?? baselineAgeLabel }] : []),
   ];
 
   const bucketCount = preset.scale.thresholds.length + 1;
@@ -177,7 +196,7 @@ export function HeatMapReport({
       title="Band heat map report"
       tone={tone}
       hero={hottest ? formatBandLabel(hottest.band).toUpperCase() : "—"}
-      verdict={hottest ? hottest.continent : "NO SPOTS"}
+      verdict={hottest ? hottest.continent : ratioActive && totalCount > 0 ? "NO QUALIFIED ACTIVITY" : "NO SPOTS"}
       facts={facts}
       footer={footer}
       updated={updated}
@@ -202,11 +221,18 @@ export function HeatMapReport({
             {HEATMAP_CONTINENTS.map((continent) => {
               const cell = cellMap.get(physicsScoreKey(band, continent));
               const cellBucket = cell ? bucketFor(cell, preset.scale) : 0;
+              const noBaseline = ratioActive && cell?.ratio == null;
               return (
                 <span
                   key={continent}
                   className="hcr-heatgrid-cell"
-                  style={{ background: heatmapBucketColor(preset.id, cellBucket) }}
+                  data-no-baseline={noBaseline || undefined}
+                  style={{
+                    background: noBaseline ? NO_BASELINE_BACKGROUND : heatmapBucketColor(preset.id, cellBucket),
+                    color: noBaseline ? "var(--hc-fg)" : undefined,
+                    whiteSpace: "nowrap", minWidth: 0, overflow: "hidden",
+                    fontSize: ratioActive ? "1.1vh" : undefined,
+                  }}
                   title={`${formatBandLabel(band)} · ${continent} · ${cell?.count ?? 0} ${ratioActive ? `SPOTS · ${formatHeatmapRatio(cell?.ratio ?? null)} LOG2 RATIO` : "DX"}`}
                 >
                   {ratioActive ? `${cell?.count ?? 0} / ${formatHeatmapRatio(cell?.ratio ?? null)}` : cell && cell.count > 0 ? cell.count : ""}
@@ -218,6 +244,7 @@ export function HeatMapReport({
       </div>
 
       <div className="hcr-heatgrid-legend">
+        {ratioActive && <span className="hcr-heatgrid-swatch-row"><span className="hcr-heatgrid-swatch" style={{ background: NO_BASELINE_BACKGROUND }} />NO BASELINE (not measured quiet)</span>}
         {ratioActive && <span>Cells: regional spots / log2 ratio. {"\u2264 / \u2265"} mark the display limits; NO BASELINE means no qualified median.</span>}
         {legend.map((index) => (
           <span key={index} className="hcr-heatgrid-swatch-row">

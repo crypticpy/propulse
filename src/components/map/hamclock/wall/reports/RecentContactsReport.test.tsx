@@ -130,6 +130,25 @@ it("reacts to log deletion and does not draw a fabricated empty chart", async ()
   await screen.findByText("NO CONTACTS LOGGED");
   expect(screen.queryByRole("table")).toBeNull();
 });
+it("mounts the refresh-note region empty, then mutates the same node once a later read fails (#754/#772)", async () => {
+  draw();
+  await screen.findByRole("table");
+  const before = screen.getByRole("status");
+  expect(before.textContent).toBe("");
+
+  mocks.read.mockRejectedValue(new Error("unavailable"));
+  mocks.listener?.();
+
+  await waitFor(() =>
+    expect(
+      screen.getByText(
+        "Could not refresh the local logbook. Showing the last successful read.",
+      ),
+    ).toBeTruthy(),
+  );
+  const after = screen.getByRole("status");
+  expect(after).toBe(before);
+});
 it("distinguishes failed log access from an empty log", async () => {
   mocks.read.mockRejectedValue(new Error("unavailable"));
   draw();

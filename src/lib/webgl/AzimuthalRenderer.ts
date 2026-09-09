@@ -23,7 +23,7 @@ const NIGHT_TEXTURE_URL = "/textures/earth-night.jpg";
 const DAY_TEXTURE_URL_SMALL = "/textures/earth-day.jpg";
 
 /** Logical canvas size; matches AzimuthalView overlays. */
-const CANVAS_SIZE = 600;
+export const CANVAS_SIZE = 600;
 
 interface UniformLocations {
   uDayTexture: WebGLUniformLocation | null;
@@ -129,6 +129,10 @@ export class AzimuthalRenderer {
       return false;
     }
 
+    if (this.canvas) {
+      return false;
+    }
+
     const canvas = document.createElement("canvas");
     canvas.width = CANVAS_SIZE;
     canvas.height = CANVAS_SIZE;
@@ -173,6 +177,10 @@ export class AzimuthalRenderer {
     // Create shader program
     const program = this.createShaderProgram(gl);
     if (!program) {
+      gl.getExtension("WEBGL_lose_context")?.loseContext();
+      canvas.remove();
+      this.canvas = null;
+      this.gl = null;
       this.options.onError?.(new Error("Failed to create shader program"));
       return false;
     }
@@ -197,6 +205,10 @@ export class AzimuthalRenderer {
 
     // Load textures
     await this.loadTextures();
+
+    if (this.disposed) {
+      return false;
+    }
 
     return true;
   }

@@ -1,4 +1,5 @@
 import { useIsMobile } from "@/hooks/useIsMobile";
+import { useOperatingScreen } from "@/hooks/useOperatingScreen";
 import { StationProvider, Surface } from "@/components/station-ui";
 import { StateStrip } from "@/components/workspace/StateStrip";
 import { WorkspaceBar } from "@/components/workspace/WorkspaceBar";
@@ -16,6 +17,9 @@ import { WorkspaceCanvas } from "@/components/workspace/WorkspaceCanvas";
  */
 export default function WorkspacePage() {
   const isMobile = useIsMobile();
+  // #658: attaches the shared-operating-state transport, registers this
+  // screen, and applies inbound page-flip commands. One self-contained call.
+  useOperatingScreen();
 
   if (isMobile) {
     return (

@@ -136,6 +136,7 @@ export function SelectedSpotCard({
   onClose,
 }: SelectedSpotCardProps) {
   const cardRef = useRef<HTMLElement>(null);
+  const previousFocusRef = useRef<HTMLElement | null>(null);
   const [copied, setCopied] = useState(false);
   const navigate = useNavigate();
   const selectMapSpot = useViewSpotSelection();
@@ -164,6 +165,21 @@ export function SelectedSpotCard({
       { axis: "horizontal", gap: 14, padding: EDGE_PADDING },
     );
   }, [position]);
+
+  useEffect(() => {
+    if (!spot) return;
+    previousFocusRef.current =
+      document.activeElement instanceof HTMLElement
+        ? document.activeElement
+        : null;
+    const timeout = window.setTimeout(() => cardRef.current?.focus(), 0);
+    return () => {
+      window.clearTimeout(timeout);
+      const previousFocus = previousFocusRef.current;
+      previousFocusRef.current = null;
+      if (previousFocus?.isConnected) previousFocus.focus();
+    };
+  }, [spot]);
 
   useEffect(() => {
     if (!spot) return;
@@ -308,6 +324,7 @@ export function SelectedSpotCard({
   return createPortal(
     <section
       ref={cardRef}
+      tabIndex={-1}
       role="dialog"
       aria-modal="false"
       aria-label={`Spot details for ${spot.dx}`}

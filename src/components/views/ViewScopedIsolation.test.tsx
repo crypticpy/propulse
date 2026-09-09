@@ -126,7 +126,10 @@ describe("ViewProvider scoped adapters", () => {
           <IsolationProbe id="monitor" spots={spots} />
         </ViewProvider>
         <ViewProvider ownerId="owner-a" slot="hamclock" storage={storage}>
-          <IsolationProbe id="wall" spots={spots} />
+          {/* Empty on purpose: this probe must prove focus isolation from
+              its own runtime's selectedReportId/target, not from a `spots`
+              row that happens to lack coordinates and would mask a leak. */}
+          <IsolationProbe id="wall" spots={[]} />
         </ViewProvider>
       </>,
     );

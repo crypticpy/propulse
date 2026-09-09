@@ -6,7 +6,6 @@
  */
 
 import { useEffect, useMemo, useRef, useCallback, useState, useSyncExternalStore } from "react";
-import { useDXStore } from "@/stores/dxStore";
 import type { DXSpot } from "@/types/dxcluster";
 import { useViewRuntime } from "@/components/views/ViewRuntimeContext";
 
@@ -205,7 +204,7 @@ function useSpotFocusState(
 /** Camera focus for this view's selection only. Shared DX rows stay shared. */
 export function useViewSpotFocus(spots: readonly DXSpot[]): SpotFocusState {
   const runtime = useViewRuntime();
-  const runtimeSelectedId = useSyncExternalStore(
+  const selectedId = useSyncExternalStore(
     runtime.subscribe,
     () => runtime.getSnapshot().interaction.selectedReportId,
   );
@@ -213,12 +212,6 @@ export function useViewSpotFocus(spots: readonly DXSpot[]): SpotFocusState {
     runtime.subscribe,
     () => runtime.getSnapshot().interaction.target,
   );
-  // Legacy writers (DXSpotList row click, BandMap, wall BandTopDx) still set
-  // dxStore.selectedSpot directly without touching the runtime. The runtime
-  // is the authority when it has a value; otherwise fall back to the store
-  // so those clicks keep working (see PR #603 NEW-2).
-  const dxSelectedSpot = useDXStore((s) => s.selectedSpot);
-  const selectedId = runtimeSelectedId ?? dxSelectedSpot?.id;
   // Resolved outside the memo so the memo keys on the row itself, not on
   // `spots`' array identity — a cluster poll produces a new `spots` array
   // every cycle even when the selected row is unchanged, and keying on the
@@ -229,11 +222,6 @@ export function useViewSpotFocus(spots: readonly DXSpot[]): SpotFocusState {
     : undefined;
   const selectedSpot = useMemo(() => {
     if (!selectedId) return null;
-    if (!runtimeSelectedId) {
-      // No runtime-bound selection for this view — use the legacy store
-      // write as-is, including its own coordinates.
-      return row ?? dxSelectedSpot ?? null;
-    }
     if (!target || (target.reportId !== null && target.reportId !== selectedId)) return null;
     const hadCoordinates = hasValidSpotCoordinates(row);
     return {
@@ -249,7 +237,7 @@ export function useViewSpotFocus(spots: readonly DXSpot[]): SpotFocusState {
       dxLon: target.lon,
       dxLocApprox: hadCoordinates ? row?.dxLocApprox === true : !row?.dxGrid,
     };
-  }, [row, runtimeSelectedId, selectedId, target, dxSelectedSpot]);
+  }, [row, selectedId, target]);
   const onClear = useCallback(() => runtime.clearSelection(), [runtime]);
   return useSpotFocusState(selectedSpot, onClear);
 }

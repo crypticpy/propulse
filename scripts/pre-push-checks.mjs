@@ -109,6 +109,62 @@ export function parseRefUpdates(raw) {
     );
 }
 
+// Decides whether a push is a genuine no-op, purely from the parsed
+// ref-update lines — no git calls, so `main` can call this before
+// `pushRanges`/`changedPaths` spawn a single process (#764). Three outcomes:
+//
+//   - `updates` is empty: this run received no ref-update lines at all, so
+//     it is not under a real push (e.g. the script invoked directly while
+//     iterating on the hook, or a hook wrapper that doesn't forward stdin).
+//     Returns null — the existing `@{u}`/`HEAD^` own-branch fallback in
+//     `pushRanges` still needs to run. Treating an empty read as "nothing to
+//     verify" would be the failure mode that silently turns the gate off for
+//     everyone, so this case is deliberately NOT a skip.
+//
+//   - every update is a no-op — `localOid` is the all-zero delete sentinel
+//     (a branch deletion has no new content to verify) or equals `remoteOid`
+//     (the ref is already up to date): returns a human-readable line per ref
+//     describing why it was skipped, so the caller can print it and exit
+//     before running any check.
+//
+//   - at least one update has real content (`localOid` is neither all-zero
+//     nor equal to `remoteOid`): returns null. This is the mixed-push case —
+//     e.g. `git push origin :old-branch new-branch` deletes one ref while
+//     pushing real commits to another — and must never be treated as a
+//     no-op just because some other ref in the same invocation was.
+export function noopPushSummary(updates, rawRefUpdates) {
+  // Git runs the pre-push hook even when there is nothing to push: the
+  // "Everything up-to-date" path still invokes it, with *empty* stdin. Stdin
+  // carries one line per ref that will be updated, so zero refs means zero
+  // lines — Git never emits a line whose local and remote OIDs are equal.
+  // Empty hook input is therefore the real no-op push this check exists for,
+  // and the equal-OID branch below only ever fires for a hand-set
+  // PROPULSE_PUSH_REF_UPDATES (the node test drives it that way).
+  //
+  // `rawRefUpdates === undefined` means the script was run directly rather
+  // than from `.githooks/pre-push`, which always exports the variable even
+  // when the value is empty. A direct run has no ref-update information at
+  // all, so it must keep verifying rather than skip. Non-empty input that
+  // parses to nothing is malformed, not a no-op, and also keeps verifying.
+  if (updates.length === 0) {
+    if (rawRefUpdates !== undefined && rawRefUpdates.trim() === "") {
+      return ["no refs to update"];
+    }
+    return null;
+  }
+  const summary = [];
+  for (const update of updates) {
+    if (ZERO_OID.test(update.localOid)) {
+      summary.push(`${update.remoteRef} deleted`);
+    } else if (update.localOid === update.remoteOid) {
+      summary.push(`${update.remoteRef} already up to date`);
+    } else {
+      return null;
+    }
+  }
+  return summary;
+}
+
 export function selectFallbackBase(localOid, candidates, mergeBase) {
   for (const candidate of candidates.filter(Boolean)) {
     const common = mergeBase(localOid, candidate);
@@ -322,6 +378,17 @@ function printPlan(plan) {
 
 function main() {
   const remoteName = process.argv[2] ?? "origin";
+
+  const rawRefUpdates = process.env.PROPULSE_PUSH_REF_UPDATES;
+  const updates = parseRefUpdates(rawRefUpdates ?? "");
+  const noop = noopPushSummary(updates, rawRefUpdates);
+  if (noop) {
+    console.log(
+      `[pre-push] No-op push (${noop.join("; ")}); nothing to verify — skipping checks.`,
+    );
+    return;
+  }
+
   const ranges = pushRanges(remoteName);
   const plan = classifyPushPaths(changedPaths(ranges, { remoteName }));
   printPlan(plan);

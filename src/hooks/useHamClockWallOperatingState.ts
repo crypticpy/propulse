@@ -76,7 +76,13 @@ export function useHamClockWallOperatingState(): void {
   useEffect(() => {
     // Pick up whatever the cursor already holds (a `hello` reply may have
     // arrived before this hook mounted), then track every later change.
-    useMapStore.getState().setTarget(toMapTarget(useOperatingStateStore.getState().cursor.target));
+    // Only when it actually holds something: an empty cursor means "nothing
+    // shared yet", not "clear the map". Writing `null` here would wipe a
+    // target the wall's own reports set (`BandTopDx`, `RecentContactsReport`,
+    // `QuickTargets` all write `mapStore.target`) and, because `setTarget`
+    // also resets `isolateTargetPath` on a null, silently drop that setting.
+    const initial = useOperatingStateStore.getState().cursor.target;
+    if (initial) useMapStore.getState().setTarget(toMapTarget(initial));
 
     return useOperatingStateStore.subscribe((state, previous) => {
       if (state.cursor.target === previous.cursor.target) return;

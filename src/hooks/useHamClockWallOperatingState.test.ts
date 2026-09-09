@@ -37,6 +37,19 @@ beforeEach(() => {
 });
 
 describe("useHamClockWallOperatingState", () => {
+  it("does not clear a locally set map target when nothing has been shared yet", () => {
+    // The wall's own reports write `mapStore.target` (BandTopDx,
+    // RecentContactsReport, QuickTargets). An empty shared cursor means
+    // "nothing shared", not "clear the map" — and `setTarget(null)` would
+    // also reset `isolateTargetPath`.
+    useMapStore.setState({ target: { lat: 40, lon: -80, name: "W3ABC" }, isolateTargetPath: true });
+
+    renderHook(() => useHamClockWallOperatingState());
+
+    expect(useMapStore.getState().target).toMatchObject({ name: "W3ABC" });
+    expect(useMapStore.getState().isolateTargetPath).toBe(true);
+  });
+
   it("registers the wall on the roster as unable to act, and withdraws on unmount", () => {
     const { unmount } = renderHook(() => useHamClockWallOperatingState());
     const deviceId = useOperatingStateStore.getState().deviceId;

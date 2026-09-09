@@ -15,8 +15,11 @@
  */
 
 import { useEffect } from "react";
+import { queueTune, tuneDisabledReason } from "@/lib/radio/tune";
+import { useKioskStore } from "@/stores/kioskStore";
 import { useOperatingStateStore } from "@/stores/operatingStateStore";
 import { useRigStore } from "@/stores/rigStore";
+import { useSettingsStore } from "@/stores/settingsStore";
 import { useActiveWorkspace, useEffectiveCanvasType, useWorkspaceStore } from "@/stores/workspaceStore";
 
 export function useOperatingScreen(): void {
@@ -52,19 +55,61 @@ export function useOperatingScreen(): void {
       useOperatingStateStore.subscribe((state, previous) => {
         const received = state.lastCommand;
         if (!received || received === previous.lastCommand) return;
-        if (received.command.type !== "flipPage") return;
-        const { workspaceId: target, pageIndex } = received.command;
 
-        // `workspaceStore.setActivePage` moves the *active* workspace only
-        // (#656), so a command aimed at a background workspace is ignored
-        // here rather than silently flipping the wrong one; per-workspace
-        // paging arrives with workspace switching (#657).
-        const workspaceState = useWorkspaceStore.getState();
-        if (workspaceState.activeWorkspaceId !== target) return;
-        const page = workspaceState.workspaces.find((ws) => ws.id === target)?.pages[pageIndex];
-        if (!page) return;
-        workspaceState.setActivePage(page.id);
+        if (received.command.type === "flipPage") {
+          const { workspaceId: target, pageIndex } = received.command;
+
+          // `workspaceStore.setActivePage` moves the *active* workspace only
+          // (#656), so a command aimed at a background workspace is ignored
+          // here rather than silently flipping the wrong one; per-workspace
+          // paging arrives with workspace switching (#657).
+          const workspaceState = useWorkspaceStore.getState();
+          if (workspaceState.activeWorkspaceId !== target) return;
+          const page = workspaceState.workspaces.find((ws) => ws.id === target)?.pages[pageIndex];
+          if (!page) return;
+          workspaceState.setActivePage(page.id);
+          return;
+        }
+
+        if (received.command.type === "tune") {
+          // Only the exact screen the phone named acts on it (PR #694
+          // review, item 1/8): `workspaceId` alone is not unique — every
+          // non-phone canvas that hasn't picked a workspace defaults to the
+          // same id — so both the device and workspace id must match the
+          // registration the phone actually chose.
+          const ownDeviceId = useOperatingStateStore.getState().deviceId;
+          if (
+            received.command.deviceId !== ownDeviceId ||
+            received.command.workspaceId !== workspaceId
+          ) {
+            return;
+          }
+          // A wall never acts on a command (item 4), mirroring the
+          // `capabilities.canCommand` filter the phone applies when it
+          // picks a workspace to tune.
+          if (!canCommand) {
+            useOperatingStateStore
+              .getState()
+              .reportTuneResult(ownDeviceId, workspaceId, false, "This screen cannot act on commands.");
+            return;
+          }
+
+          const ok = queueTune(received.command.frequencyKHz, received.command.mode);
+          const reason = ok
+            ? null
+            : tuneDisabledReason(
+                {
+                  ...useRigStore.getState(),
+                  bridgeEnabled: useSettingsStore.getState().bridgeEnabled,
+                  kiosk: useKioskStore.getState().active,
+                },
+                received.command.frequencyKHz,
+              );
+          // PR #694 review, item 2(a): TUNE was fire-and-forget; report back
+          // so the phone can show an honest SENT/FAILED result.
+          useOperatingStateStore.getState().reportTuneResult(ownDeviceId, workspaceId, ok, reason);
+        }
       }),
-    [],
+    [workspaceId, canCommand],
   );
 }

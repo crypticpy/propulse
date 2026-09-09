@@ -26,6 +26,7 @@ import { useEffect, useState } from "react";
 import { Button } from "@/components/station-ui";
 import { useDXCluster } from "@/hooks/useDXCluster";
 import { useOperatingStateStore } from "@/stores/operatingStateStore";
+import { ContactScreen } from "./ContactScreen";
 import "./phone.css";
 import { PhoneBandLadder } from "./PhoneBandLadder";
 import { PhoneContactList } from "./PhoneContactList";
@@ -40,6 +41,11 @@ const PHONE_PAGES = [
   { id: "band", title: "BAND LADDER", render: () => <PhoneBandLadder /> },
   { id: "contacts", title: "CONTACTS", render: () => <PhoneContactList /> },
   { id: "selection", title: "SELECTION", render: () => <PhoneSelectionPage /> },
+  // #660: the full decision-layer report + TUNE. Reached with NEXT/dots like
+  // every other phone page — `selectSpot` (page 2) only writes the cursor,
+  // it does not auto-advance, matching the band ladder's tap-then-flip
+  // pattern on page 1.
+  { id: "contact", title: "CONTACT", render: () => <ContactScreen /> },
 ] as const;
 
 /**

@@ -2,17 +2,16 @@ import { useMemo } from "react";
 import { useBandVerdicts } from "@/hooks/useBandVerdicts";
 import { useUTCClock } from "@/hooks/useUTCClock";
 import { filterClusterAge } from "@/lib/dx/clusterHistory";
-import { LADDER_RANK } from "@/lib/verdict/ladder";
 import {
   bucketFor,
   computeHeatmap,
   dxSpotToHeatmapInput,
   HEATMAP_CONTINENTS,
   LADDER_HUE_PRESET,
+  metricValue,
   physicsScoreKey,
   PRESETS,
   type HeatmapCell,
-  type HeatMapMetric,
   type HeatMapScale,
   type HeatmapSpotInput,
 } from "@/lib/widgets/heatmap";
@@ -38,26 +37,6 @@ const LIVE_FEED_STATES: ReadonlySet<string> = new Set(["CURRENT", "BRIDGE"]);
 
 function feedStateLabel(state: string): string {
   return state === "UNKNOWN" ? "FEED NOT STARTED" : state;
-}
-
-/**
- * Rank a cell by the workspace's `display.headlineRule` metric (#661). A
- * small local equivalent of `compute.ts`'s private `metricValue()`, which is
- * not exported — this is derived only from `HeatmapCell`'s public fields
- * plus the exported `LADDER_RANK`, so it does not touch the reserved
- * heat-map lib (read-only here; #668 tracks its rework).
- */
-function headlineValue(cell: HeatmapCell, metric: HeatMapMetric): number {
-  switch (metric) {
-    case "count":
-      return cell.count;
-    case "reporters":
-      return cell.reporters;
-    case "ratio":
-      return cell.ratio ?? Number.NEGATIVE_INFINITY;
-    case "ladder":
-      return LADDER_RANK[cell.ladder];
-  }
 }
 
 export interface HeatMapStripProps {
@@ -142,7 +121,7 @@ export function HeatMapStrip(_props: HeatMapStripProps = {}) {
     for (const cell of cells) {
       total += cell.count;
       if (cell.count === 0) continue;
-      const value = headlineValue(cell, display.headlineRule);
+      const value = metricValue(cell, display.headlineRule);
       // `!headline` seeds from the first counted cell (#686 review item 4,
       // Codex): with `headlineRule: "ratio"` and no baseline, every cell's
       // value is the same `Number.NEGATIVE_INFINITY` sentinel, so

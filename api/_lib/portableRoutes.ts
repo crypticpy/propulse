@@ -41,6 +41,7 @@ import {
 import { handleContestScp } from "./handlers/contest";
 import { handleDxDxpeditions } from "./handlers/dxpeditions";
 import { handleFiresHotspots } from "./handlers/fires";
+import { handleSpotsHeatmapBaseline } from "./handlers/heatmapBaseline";
 import { handleLightningStrikes } from "./handlers/lightning";
 import { handleAtmosMetar } from "./handlers/metar";
 import {
@@ -61,6 +62,7 @@ import {
 import { handleAtmosVolcanoes } from "./handlers/volcanoes";
 import { handleWeatherAlerts } from "./handlers/weather";
 import { handleWsprSpots } from "./handlers/wspr";
+import handleEventsLaunches from "../events/launches";
 // Not extracted (kept whole in its wrapper) but fully portable: Supabase TLE
 // cache is optional with a direct Celestrak/AMSAT fallback.
 import handleSatellitesTle from "../satellites/tle";
@@ -89,6 +91,7 @@ export const PORTABLE_ROUTES: Readonly<Record<string, EdgeHandler>> = {
   "/api/callsign/lookup": handleCallsignLookup,
   "/api/contest/scp": handleContestScp,
   "/api/dx/dxpeditions": handleDxDxpeditions,
+  "/api/events/launches": handleEventsLaunches,
   "/api/feeds/rss": handleFeedsRss,
   "/api/fires/hotspots": handleFiresHotspots,
   "/api/lightning/strikes": handleLightningStrikes,
@@ -106,6 +109,7 @@ export const PORTABLE_ROUTES: Readonly<Record<string, EdgeHandler>> = {
   "/api/spots/band-history": handleSpotsBandHistory,
   "/api/spots/band-ladder": handleSpotsBandLadder,
   "/api/spots/dxcluster": handleSpotsDxcluster,
+  "/api/spots/heatmap-baseline": handleSpotsHeatmapBaseline,
   "/api/spots/psk-station": handlePskStation,
   "/api/spots/pskreporter": handleSpotsPskreporter,
   "/api/spots/rbn": handleSpotsRbn,

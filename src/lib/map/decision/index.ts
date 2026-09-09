@@ -24,15 +24,20 @@ export {
 } from "./almanac";
 export { samplePathMuf } from "./pathMuf";
 export type { SamplePathMufInput } from "./pathMuf";
-export { nearbySpots, dxLocatorPosition } from "./nearbySpots";
+export {
+  nearbySpots,
+  dxLocatorPosition,
+  type DxLocatorSource,
+} from "./nearbySpots";
 export {
   bandIntersectsWindow,
   buildDecisionReport,
   buildVerdict,
   favoredNowCastHint,
-  highestBandBelow,
   highestBandInWindow,
   MIN_NOWCAST_SCORE,
+  SPOTS_EXCLUDED_TIME_SHIFT,
+  stripTimeShiftFromVerdictLine,
 } from "./verdict";
 export type {
   BuildDecisionInput,

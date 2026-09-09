@@ -90,6 +90,14 @@ export interface OperatingStateStoreState {
   registrations: Record<string, WorkspaceRegistration>;
   /** The most recent command heard (local or remote), for widgets that act on one. */
   lastCommand: ReceivedCommand | null;
+  /**
+   * The `sentAt` of the last accepted `tune`/`tuneResult` from each sender
+   * (PR #694 review, item 5): a replayed retune must not be able to re-key
+   * the rig long after the operator moved on, so a `tune`/`tuneResult` no
+   * newer than the sender's last one is dropped in `applyMessage`. Scoped to
+   * these two command types — see `applyMessage`'s doc comment.
+   */
+  lastAppliedTuneSentAt: Record<string, number>;
   /** Whether a transport is currently attached. */
   connected: boolean;
 }
@@ -103,6 +111,15 @@ export interface OperatingStateStoreActions {
   selectSpot: (spot: SpotRef) => void;
   flipPage: (workspaceId: string, pageIndex: number) => void;
   setView: (workspaceId: string, viewId: string) => void;
+  /**
+   * Owner round 2 (#660): phone remote-tunes whichever screen published
+   * `canTune`. `deviceId` + `workspaceId` name the exact registration the
+   * phone picked (PR #694 review) — `workspaceId` alone is not unique across
+   * devices.
+   */
+  tune: (deviceId: string, workspaceId: string, frequencyKHz: number, mode: string | null) => void;
+  /** PR #694 review: the tuned screen reports back so TUNE is no longer fire-and-forget. */
+  reportTuneResult: (deviceId: string, workspaceId: string, ok: boolean, reason: string | null) => void;
   setFollowScreens: (next: boolean) => void;
   /** Announces this screen; the returned function withdraws it. */
   registerWorkspace: (input: RegisterWorkspaceInput) => () => void;
@@ -277,6 +294,7 @@ export const useOperatingStateStore = create<OperatingStateStore>()(
       stamps: emptyStamps(),
       registrations: {},
       lastCommand: null,
+      lastAppliedTuneSentAt: {},
       connected: false,
 
       setSessionId: (sessionId) => writeField("sessionId", sessionId),
@@ -307,6 +325,18 @@ export const useOperatingStateStore = create<OperatingStateStore>()(
 
       setView: (workspaceId, viewId) => {
         const command: OperatingCommand = { type: "setView", workspaceId, viewId };
+        recordCommand(command, get().deviceId);
+        post({ kind: "command", command });
+      },
+
+      tune: (deviceId, workspaceId, frequencyKHz, mode) => {
+        const command: OperatingCommand = { type: "tune", deviceId, workspaceId, frequencyKHz, mode };
+        recordCommand(command, get().deviceId);
+        post({ kind: "command", command });
+      },
+
+      reportTuneResult: (deviceId, workspaceId, ok, reason) => {
+        const command: OperatingCommand = { type: "tuneResult", deviceId, workspaceId, ok, reason };
         recordCommand(command, get().deviceId);
         post({ kind: "command", command });
       },
@@ -417,6 +447,24 @@ export const useOperatingStateStore = create<OperatingStateStore>()(
             break;
           }
           case "command": {
+            // PR #694 review, item 5: a `tune`/`tuneResult` no newer than the
+            // last one accepted from this sender is dropped, so a replayed
+            // message cannot re-key the rig after the operator moved on.
+            // `parseOperatingMessage` already rejects a command older than
+            // 30 s outright; this catches an in-window replay or re-delivery
+            // that arrives out of order. Scoped to these two types: the
+            // other commands (`flipPage`, `selectSpot`, `setView`) have no
+            // comparable "acting twice on a stale replay" risk.
+            if (message.command.type === "tune" || message.command.type === "tuneResult") {
+              const lastSentAt = state.lastAppliedTuneSentAt[message.senderId] ?? 0;
+              if (message.sentAt <= lastSentAt) break;
+              set((current) => ({
+                lastAppliedTuneSentAt: {
+                  ...current.lastAppliedTuneSentAt,
+                  [message.senderId]: message.sentAt,
+                },
+              }));
+            }
             if (message.command.type === "selectSpot") {
               const spot = message.command.spot;
               const merged = mergePatch(
@@ -479,6 +527,7 @@ export const useOperatingStateStore = create<OperatingStateStore>()(
           stamps: emptyStamps(),
           registrations: {},
           lastCommand: null,
+          lastAppliedTuneSentAt: {},
         });
       },
     }),

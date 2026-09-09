@@ -13,6 +13,17 @@ function envelope(senderId = "screen-a", sentAt = 1_000) {
   return { v: OPERATING_PROTOCOL_VERSION, senderId, sentAt };
 }
 
+/**
+ * A command message must carry a recent `sentAt` (PR #694 review, item 5) or
+ * `parseOperatingMessage` drops it regardless of the command's own shape.
+ * Every "kind: command" fixture below that expects to be *accepted*, or
+ * rejected for a reason other than staleness, uses this instead of the
+ * fixed-epoch default so the test exercises the condition it names.
+ */
+function freshEnvelope(senderId = "screen-a") {
+  return envelope(senderId, Date.now());
+}
+
 describe("parseOperatingMessage", () => {
   it("accepts a well-formed state patch", () => {
     const message = parseOperatingMessage({
@@ -52,18 +63,74 @@ describe("parseOperatingMessage", () => {
       "a target missing its callsign",
       { ...envelope(), kind: "state", patch: { target: { value: { grid: "FN31" }, at: 1 } } },
     ],
-    ["a command with no type", { ...envelope(), kind: "command", command: {} }],
+    ["a command with no type", { ...freshEnvelope(), kind: "command", command: {} }],
     [
       "a negative page index",
-      { ...envelope(), kind: "command", command: { type: "flipPage", workspaceId: "w", pageIndex: -1 } },
+      { ...freshEnvelope(), kind: "command", command: { type: "flipPage", workspaceId: "w", pageIndex: -1 } },
     ],
     [
       "a fractional page index",
-      { ...envelope(), kind: "command", command: { type: "flipPage", workspaceId: "w", pageIndex: 1.5 } },
+      { ...freshEnvelope(), kind: "command", command: { type: "flipPage", workspaceId: "w", pageIndex: 1.5 } },
     ],
     [
       "a selectSpot with no callsign",
-      { ...envelope(), kind: "command", command: { type: "selectSpot", spot: { id: null } } },
+      { ...freshEnvelope(), kind: "command", command: { type: "selectSpot", spot: { id: null } } },
+    ],
+    [
+      "a tune with a zero frequency",
+      {
+        ...freshEnvelope(),
+        kind: "command",
+        command: { type: "tune", deviceId: "d1", workspaceId: "w", frequencyKHz: 0, mode: null },
+      },
+    ],
+    [
+      "a tune with no deviceId",
+      {
+        ...freshEnvelope(),
+        kind: "command",
+        command: { type: "tune", workspaceId: "w", frequencyKHz: 14195, mode: null },
+      },
+    ],
+    [
+      "a tune with no workspaceId",
+      {
+        ...freshEnvelope(),
+        kind: "command",
+        command: { type: "tune", deviceId: "d1", frequencyKHz: 14195, mode: null },
+      },
+    ],
+    [
+      "a tune with a non-string mode",
+      {
+        ...freshEnvelope(),
+        kind: "command",
+        command: { type: "tune", deviceId: "d1", workspaceId: "w", frequencyKHz: 14195, mode: 7 },
+      },
+    ],
+    [
+      "a tuneResult with a non-boolean ok",
+      {
+        ...freshEnvelope(),
+        kind: "command",
+        command: { type: "tuneResult", deviceId: "d1", workspaceId: "w", ok: "yes", reason: null },
+      },
+    ],
+    [
+      "a tuneResult with a non-string reason",
+      {
+        ...freshEnvelope(),
+        kind: "command",
+        command: { type: "tuneResult", deviceId: "d1", workspaceId: "w", ok: false, reason: 7 },
+      },
+    ],
+    [
+      "a stale command (sentAt more than 30s old)",
+      {
+        ...envelope("screen-a", Date.now() - 40_000),
+        kind: "command",
+        command: { type: "flipPage", workspaceId: "w", pageIndex: 0 },
+      },
     ],
     [
       "a registration with an unknown canvas type",
@@ -89,6 +156,52 @@ describe("parseOperatingMessage", () => {
     ],
   ])("drops %s", (_label, raw) => {
     expect(parseOperatingMessage(raw)).toBeNull();
+  });
+
+  it("accepts a well-formed tune command with a null mode", () => {
+    const envelopeFields = freshEnvelope();
+    const command = {
+      type: "tune" as const,
+      deviceId: "device-workstation",
+      workspaceId: "workstation-default",
+      frequencyKHz: 14195,
+      mode: null,
+    };
+    const message = parseOperatingMessage({ ...envelopeFields, kind: "command", command });
+    expect(message).toEqual({ ...envelopeFields, kind: "command", command });
+  });
+
+  it("accepts a well-formed tuneResult with a reason", () => {
+    const envelopeFields = freshEnvelope();
+    const command = {
+      type: "tuneResult" as const,
+      deviceId: "device-workstation",
+      workspaceId: "workstation-default",
+      ok: false,
+      reason: "RIG WAITING",
+    };
+    const message = parseOperatingMessage({ ...envelopeFields, kind: "command", command });
+    expect(message).toEqual({ ...envelopeFields, kind: "command", command });
+  });
+
+  it("accepts a tuneResult with no reason field, defaulting it to null", () => {
+    const envelopeFields = freshEnvelope();
+    const message = parseOperatingMessage({
+      ...envelopeFields,
+      kind: "command",
+      command: { type: "tuneResult", deviceId: "device-workstation", workspaceId: "workstation-default", ok: true },
+    });
+    expect(message).toEqual({
+      ...envelopeFields,
+      kind: "command",
+      command: {
+        type: "tuneResult",
+        deviceId: "device-workstation",
+        workspaceId: "workstation-default",
+        ok: true,
+        reason: null,
+      },
+    });
   });
 
   it("drops the whole patch when one field is malformed, rather than half-applying it", () => {

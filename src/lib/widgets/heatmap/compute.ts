@@ -234,15 +234,15 @@ export function bucketFor(cell: HeatmapCell, scale: HeatMapScale): number {
   return scale.thresholds.filter((threshold) => value >= threshold).length;
 }
 
-function metricValue(cell: HeatmapCell, metric: HeatMapMetric): number {
+export function metricValue(cell: HeatmapCell, metric: HeatMapMetric): number {
   switch (metric) {
     case "count":
       return cell.count;
     case "reporters":
       return cell.reporters;
     case "ratio":
-      // No baseline for this cell reads as the quietest possible value, so
-      // it always lands in bucket 0 rather than an arbitrary middle bucket.
+      // Sentinel for numeric bucketing only. Renderers must distinguish a
+      // missing ratio from measured quiet activity before using its bucket.
       return cell.ratio ?? Number.NEGATIVE_INFINITY;
     case "ladder":
       return LADDER_RANK[cell.ladder];

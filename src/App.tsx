@@ -19,6 +19,7 @@ import { useSync } from "@/hooks/useSync";
 import { isSupabaseConfigured } from "@/lib/supabase";
 import { useAuthStore, selectIsAuthenticated } from "@/stores/authStore";
 import { useKioskStore } from "@/stores/kioskStore";
+import { useSettingsStore } from "@/stores/settingsStore";
 import { useProfileStore } from "@/stores/profileStore";
 import { WelcomeOverlay } from "@/components/onboarding";
 
@@ -183,6 +184,7 @@ const PairClaimPage = lazy(() =>
 const DisplaysPage = lazy(() =>
   import("@/pages/DisplaysPage").then((m) => ({ default: m.DisplaysPage })),
 );
+const WorkspacePage = lazy(() => import("@/pages/WorkspacePage"));
 
 /** Redirect helper for old /nets/:netId/* routes that moved to /ncs/:netId/* */
 function NcsRedirect({ suffix }: { suffix: string }) {
@@ -193,6 +195,12 @@ function NcsRedirect({ suffix }: { suffix: string }) {
 function MapRoute() {
   const isMobile = useIsMobile();
   return isMobile ? <MobileMap /> : <PropSphere />;
+}
+
+/** `/workspace` is inert (404) until `workspaceEnabled` flips on (#656). */
+function WorkspaceRoute() {
+  const workspaceEnabled = useSettingsStore((s) => s.workspaceEnabled);
+  return workspaceEnabled ? <WorkspacePage /> : <NotFound />;
 }
 
 function NotFound() {
@@ -319,6 +327,7 @@ function Application() {
             <Route path="/display/:id" element={<DisplayViewPage />} />
             <Route path="/pair" element={<PairClaimPage />} />
             <Route path="/displays" element={<DisplaysPage />} />
+            <Route path="/workspace" element={<WorkspaceRoute />} />
             <Route path="/map" element={<MapRoute />} />
             <Route
               path="/map/explorer"

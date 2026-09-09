@@ -87,10 +87,11 @@ describe("registry", () => {
     for (const id of HOME_ONLY_IDS) expect(getRegistryEntry(id), id).toBeDefined();
   });
 
-  it("includes the additive map-hero and planned heat-map families", () => {
+  it("includes the additive map-hero and heat-map families as pickable", () => {
     expect(getRegistryEntry("mapHero")).toBeDefined();
     const heatMap = getRegistryEntry("heatMap");
-    expect(heatMap?.status).toBe("planned");
+    expect(heatMap).toBeDefined();
+    expect(heatMap?.status).toBeUndefined();
   });
 
   it("every entry has an integer weight >= 1", () => {

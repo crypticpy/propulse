@@ -777,6 +777,7 @@ export function PathAnalysis({
         spotsFetchedAt: isLive ? clusterFeed.fetchedAt : null,
         radiusKm: nearbyRadiusKm,
         nowCast: isLive ? nowCastHint : null,
+        evidenceLive: isLive,
       });
     } catch {
       return null;
@@ -1717,7 +1718,7 @@ const FrequencyLimitsDisplay = memo(function FrequencyLimitsDisplay({
         {/* Compact frequency window bar */}
         <FrequencyWindowBar limits={limits} />
         {pathBasis && (
-          <p className="mt-1 text-[10px] leading-snug text-su-muted">{pathBasis}</p>
+          <p className="mt-1 text-xs leading-snug text-su-muted">{pathBasis}</p>
         )}
       </div>
     </div>

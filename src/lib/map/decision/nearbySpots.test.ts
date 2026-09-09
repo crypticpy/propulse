@@ -112,6 +112,17 @@ describe("nearbySpots", () => {
     expect(result.count).toBe(2);
   });
 
+  it("notes 4-char grid centre uncertainty in basis", () => {
+    const result = nearbySpots({
+      targetLat: AUSTIN.lat,
+      targetLon: AUSTIN.lon,
+      radiusKm: 250,
+      spots: [spot({ id: "four", dx: "W5AA", dxGrid: "EM10" })],
+    });
+    expect(result.count).toBe(1);
+    expect(result.evidence.basis).toMatch(/4-char locators use field centres/);
+  });
+
   it("leaves observedAt null for unparseable spot times and excludes them from newest", () => {
     const result = nearbySpots({
       targetLat: AUSTIN.lat,

@@ -5,7 +5,6 @@ import {
   buildDecisionReport,
   buildVerdict,
   favoredNowCastHint,
-  highestBandBelow,
   highestBandInWindow,
   MIN_NOWCAST_SCORE,
 } from "./verdict";
@@ -95,15 +94,6 @@ function baseInput(
     ...overrides,
   };
 }
-
-describe("highestBandBelow", () => {
-  it("returns the highest band whose lower edge is under the MUF", () => {
-    expect(highestBandBelow(21.5)).toBe("15m");
-    expect(highestBandBelow(14.2)).toBe("20m");
-    expect(highestBandBelow(3)).toBe("160m");
-    expect(highestBandBelow(1)).toBeNull();
-  });
-});
 
 describe("highestBandInWindow", () => {
   it("picks the highest band that intersects (LUF, MUF)", () => {
@@ -225,6 +215,48 @@ describe("buildVerdict", () => {
     expect(verdict.line).toMatch(/NowCast favors 40m/);
   });
 
+  it("labels replay mode when live spot evidence is excluded", () => {
+    const verdict = buildVerdict(
+      baseInput({ evidenceLive: false, nowCast: null, spots: [] }),
+      fakeMuf(),
+      emptyNearby,
+      quietGreyline,
+    );
+    expect(verdict.line).toMatch(/spots excluded \(replay\)/);
+    expect(verdict.line).not.toMatch(/no nearby spots/);
+  });
+
+  it("marks a spotted-band override as not modeled on the path", () => {
+    const nearby: NearbySpotsResult = {
+      radiusKm: 500,
+      count: 1,
+      byBand: { "20m": 1 },
+      hits: [
+        {
+          id: "s20",
+          dx: "G4ABC",
+          band: "20m",
+          frequencyKHz: 14074,
+          distanceKm: 40,
+          observedAt: "2026-06-21T15:50:00.000Z",
+        },
+      ],
+      evidence: {
+        basis: "Observed spots within 500 km of the target (spot store)",
+        observedAt: "2026-06-21T15:50:00.000Z",
+        fetchedAt: COMPUTED.toISOString(),
+      },
+    };
+    const verdict = buildVerdict(
+      baseInput({ nowCast: null, spots: [nearbySpot] }),
+      fakeMuf({ muf: 19, luf: 5 }),
+      nearby,
+      quietGreyline,
+    );
+    expect(verdict.bestBand).toBe("20m");
+    expect(verdict.line).toMatch(/20m spotted, not modeled/);
+  });
+
   it("uses window tone only when greyline starts within two hours", () => {
     const soon = buildVerdict(
       baseInput({ nowCast: null, spots: [] }),
@@ -291,5 +323,10 @@ describe("buildDecisionReport", () => {
     expect(report.pathMuf).toBeNull();
     expect(report.almanac.qth.utcTime).toBe("—");
     expect(report.generatedAt).toBe(COMPUTED.toISOString());
+  });
+
+  it("labels assumed Kp in path MUF basis when Kp is missing", () => {
+    const report = buildDecisionReport(baseInput({ kp: null }));
+    expect(report.pathMuf?.evidence.basis).toMatch(/Kp 0 assumed/);
   });
 });

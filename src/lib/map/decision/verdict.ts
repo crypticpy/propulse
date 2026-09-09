@@ -54,6 +54,8 @@ export interface BuildDecisionInput {
   spotsFetchedAt?: number | null;
   radiusKm: number;
   nowCast?: NowCastHint | null;
+  /** When false, live spot evidence was excluded (e.g. time-control replay). */
+  evidenceLive?: boolean;
 }
 
 function wizardMode(mode: "SSB" | "CW" | "FT8"): WizardMode {
@@ -89,18 +91,6 @@ function hrefs(
 
 function isoStamp(date: Date): string | null {
   return isValidClock(date) ? date.toISOString() : null;
-}
-
-/** Highest HF band whose lower edge is still below `mufMHz`. */
-export function highestBandBelow(mufMHz: number): string | null {
-  for (let i = BAND_ORDER.length - 1; i >= 0; i--) {
-    const band = BAND_ORDER[i];
-    const range = BAND_RANGES[band];
-    if (range && range.startKHz / 1000 < mufMHz) {
-      return band;
-    }
-  }
-  return null;
 }
 
 /** True when any frequency in the band lies strictly inside (luf, muf). */
@@ -208,6 +198,8 @@ function buildLine(args: {
   physicsBand: string | null;
   nowCastBand: string | null;
   nowCastInWindow: boolean;
+  evidenceLive: boolean;
+  spottedNotModeled: boolean;
 }): string {
   const {
     tone,
@@ -219,10 +211,13 @@ function buildLine(args: {
     physicsBand,
     nowCastBand,
     nowCastInWindow,
+    evidenceLive,
+    spottedNotModeled,
   } = args;
   const mufBit = pathMuf ? `path MUF ${pathMuf.muf.toFixed(1)} MHz` : "no path MUF";
-  const spotBit =
-    nearby.count === 0
+  const spotBit = !evidenceLive
+    ? "spots excluded (replay)"
+    : nearby.count === 0
       ? "no nearby spots"
       : `${nearby.count} spot${nearby.count === 1 ? "" : "s"} within ${nearby.radiusKm} km`;
 
@@ -243,7 +238,8 @@ function buildLine(args: {
     nowCastInWindow,
   });
   const greyBit = greylineActive ? `; ${greylineLabel}` : "";
-  return `Workable now on ${band} (${mufBit}; ${spotBit}${nowCastBit}${greyBit}).`;
+  const spottedBit = spottedNotModeled && band ? `; ${band} spotted, not modeled` : "";
+  return `Workable now on ${band} (${mufBit}; ${spotBit}${nowCastBit}${spottedBit}${greyBit}).`;
 }
 
 export function buildVerdict(
@@ -271,6 +267,7 @@ export function buildVerdict(
 
   let tone: DecisionTone = "unknown";
   let bestBand: string | null = null;
+  let spottedNotModeled = false;
 
   if (pathMuf) {
     bestBand = physicsBand;
@@ -290,9 +287,14 @@ export function buildVerdict(
     if (nowCastInWindow && nowCastBand) {
       bestBand = nowCastBand;
     } else if (spottedInWindow && spottedBand && !nowCastBand) {
+      if (spottedBand !== physicsBand) {
+        spottedNotModeled = true;
+      }
       bestBand = spottedBand;
     }
   }
+
+  const evidenceLive = input.evidenceLive ?? true;
 
   const computedAt = input.computedAt ?? new Date();
   const parts: string[] = [];
@@ -327,6 +329,8 @@ export function buildVerdict(
       physicsBand,
       nowCastBand,
       nowCastInWindow,
+      evidenceLive,
+      spottedNotModeled,
     }),
     tone,
     bestBand,
@@ -357,6 +361,7 @@ export function buildDecisionReport(input: BuildDecisionInput): DecisionReport {
           date: input.date,
           sfi: input.sfi,
           kp: input.kp ?? 0,
+          kpAssumed: input.kp == null,
           txPowerWatts: input.txPowerWatts,
           mode: input.mode,
           pathMode: input.pathMode,

@@ -21,6 +21,8 @@ export interface SamplePathMufInput {
   date: Date;
   sfi: number;
   kp: number;
+  /** When true, Kp was defaulted (not supplied by the caller). */
+  kpAssumed?: boolean;
   txPowerWatts?: number;
   mode?: "SSB" | "CW" | "FT8";
   pathMode?: "short" | "long";
@@ -116,7 +118,10 @@ export function samplePathMuf(input: SamplePathMufInput): PathMufSample {
   const luf = lufs.length > 0 ? Math.max(...lufs) : 1.8;
   const limiting = hops[limitingHop] ?? hops[0];
 
-  const basis = `ITU-R P.533 ray-trace, ${numHops} hop${numHops === 1 ? "" : "s"}, limiting hop ${limitingHop + 1} at ${limiting.lat.toFixed(1)}°, ${limiting.lon.toFixed(1)}° (SFI ${input.sfi})`;
+  const kpLabel = input.kpAssumed
+    ? `Kp ${input.kp} assumed`
+    : `Kp ${input.kp}`;
+  const basis = `ITU-R P.533 ray-trace, ${numHops} hop${numHops === 1 ? "" : "s"}, limiting hop ${limitingHop + 1} at ${limiting.lat.toFixed(1)}°, ${limiting.lon.toFixed(1)}° (SFI ${input.sfi}, ${kpLabel})`;
   const computedAt = input.computedAt;
   const computedIso =
     computedAt && !Number.isNaN(computedAt.getTime())

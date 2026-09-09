@@ -42,7 +42,7 @@ describe("samplePathMuf", () => {
     expect(sampled.hpf).toBeCloseTo(sampled.muf * 1.15, 5);
   });
 
-  it("defaults missing Kp to an unlabelled zero and stamps computation time", () => {
+  it("labels assumed Kp in basis and stamps computation time", () => {
     const sampled = samplePathMuf({
       startLat: AUSTIN.lat,
       startLon: AUSTIN.lon,
@@ -51,9 +51,10 @@ describe("samplePathMuf", () => {
       date: NOON,
       sfi: 100,
       kp: 0,
+      kpAssumed: true,
       computedAt: NOON,
     });
-    expect(sampled.evidence.basis).toContain("SFI 100");
+    expect(sampled.evidence.basis).toContain("SFI 100, Kp 0 assumed");
     expect(sampled.evidence.observedAt).toBeNull();
     expect(sampled.hopCount).toBe(1);
     expect(sampled.evidence.fetchedAt).toBe(NOON.toISOString());

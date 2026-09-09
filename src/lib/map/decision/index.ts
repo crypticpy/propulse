@@ -30,7 +30,6 @@ export {
   buildDecisionReport,
   buildVerdict,
   favoredNowCastHint,
-  highestBandBelow,
   highestBandInWindow,
   MIN_NOWCAST_SCORE,
 } from "./verdict";

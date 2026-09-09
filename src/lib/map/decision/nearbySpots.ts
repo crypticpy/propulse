@@ -69,8 +69,19 @@ function isoOrNull(ms: number | null | undefined): string | null {
 export function nearbySpots(input: NearbySpotsInput): NearbySpotsResult {
   const radiusKm = input.radiusKm ?? DEFAULT_NEARBY_RADIUS_KM;
   const ranked: NearbySpotHit[] = [];
+  let usedFourCharGrid = false;
 
   for (const spot of input.spots) {
+    const grid = spot.dxGrid?.trim();
+    if (
+      grid &&
+      grid.length >= 4 &&
+      grid.length < 6 &&
+      isValidGrid(grid) &&
+      (spot.dxLat == null || spot.dxLon == null)
+    ) {
+      usedFourCharGrid = true;
+    }
     const position = dxLocatorPosition(spot);
     if (!position) continue;
     const distanceKm = getDistance(
@@ -109,13 +120,19 @@ export function nearbySpots(input: NearbySpotsInput): NearbySpotsResult {
     return acc;
   }, null);
 
+  let basis = `Observed spots within ${radiusKm} km of the target (spot store)`;
+  if (usedFourCharGrid) {
+    basis +=
+      "; 4-char locators use field centres (±~125 km)";
+  }
+
   return {
     radiusKm,
     count: ranked.length,
     byBand,
     hits: ranked.slice(0, MAX_HITS),
     evidence: {
-      basis: `Observed spots within ${radiusKm} km of the target (spot store)`,
+      basis,
       observedAt: newest ?? isoOrNull(input.spotsObservedAt),
       fetchedAt:
         isoOrNull(input.spotsFetchedAt) ?? input.now?.toISOString() ?? null,

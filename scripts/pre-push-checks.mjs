@@ -12,6 +12,7 @@ function git(args, options = {}) {
     return execFileSync("git", args, {
       encoding: "utf8",
       stdio: ["ignore", "pipe", options.quiet ? "ignore" : "inherit"],
+      cwd: options.cwd,
     }).trim();
   } catch (error) {
     if (options.allowFailure) return "";
@@ -156,33 +157,76 @@ function pushRanges(remoteName) {
         ? fallbackBase(update.localOid, remoteName)
         : update.remoteOid,
       head: update.localOid,
+      remoteRef: update.remoteRef,
     }))
     .filter((range) => range.base && range.head && range.base !== range.head);
 
   if (ranges.length > 0) return ranges;
 
+  const currentRef = git(["symbolic-ref", "--quiet", "HEAD"], {
+    allowFailure: true,
+    quiet: true,
+  });
+
   const upstream = git(
     ["rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{u}"],
     { allowFailure: true, quiet: true },
   );
-  if (upstream) return [{ base: upstream, head: "HEAD" }];
+  if (upstream) return [{ base: upstream, head: "HEAD", remoteRef: currentRef }];
 
   const parent = git(["rev-parse", "HEAD^"], {
     allowFailure: true,
     quiet: true,
   });
-  return parent ? [{ base: parent, head: "HEAD" }] : [];
+  return parent ? [{ base: parent, head: "HEAD", remoteRef: currentRef }] : [];
 }
 
-function changedPaths(ranges) {
+const MAIN_BRANCH = "main";
+
+function isMainPush(remoteRef) {
+  return remoteRef === `refs/heads/${MAIN_BRANCH}` || remoteRef === MAIN_BRANCH;
+}
+
+// Picks the diff range used to classify a single pushed range. A plain
+// `base..head` two-dot diff is correct for an ordinary push, but is wrong
+// when `head` is a merge of `main` into a feature branch: it then lists
+// every file that differs between the branch's old remote tip and the
+// merge commit, which includes content that arrived purely through
+// ancestry from `main` and was never introduced by the branch itself.
+//
+// For non-main pushes we instead diff from where the branch actually
+// diverges from `main` (`merge-base(head, origin/main)`) so only the
+// branch's own contribution is classified. Pushes to `main` itself keep
+// the original two-dot behaviour unconditionally — merge-base against
+// origin/main can trivially equal `head` there (origin/main is often
+// already the direct parent of what's being pushed), which would produce
+// an empty diff and silently skip verification.
+function diffRangeFor({ base, head, remoteRef }, remoteName, cwd) {
+  if (!isMainPush(remoteRef)) {
+    const mainMergeBase = git(
+      ["merge-base", head, `refs/remotes/${remoteName}/${MAIN_BRANCH}`],
+      { allowFailure: true, quiet: true, cwd },
+    );
+    if (mainMergeBase) return `${mainMergeBase}..${head}`;
+    // origin/main isn't fetched or doesn't exist locally: fail closed to
+    // the wider two-dot diff rather than silently under-classifying.
+  }
+  return `${base}..${head}`;
+}
+
+export function changedPaths(ranges, options = {}) {
+  const { remoteName = "origin", cwd } = options;
   const paths = new Set();
-  for (const { base, head } of ranges) {
-    const output = git([
-      "diff",
-      "--name-only",
-      "--diff-filter=ACMRTUXB",
-      `${base}..${head}`,
-    ]);
+  for (const range of ranges) {
+    const output = git(
+      [
+        "diff",
+        "--name-only",
+        "--diff-filter=ACMRTUXB",
+        diffRangeFor(range, remoteName, cwd),
+      ],
+      { cwd },
+    );
     output.split(/\r?\n/).filter(Boolean).forEach((path) => paths.add(path));
   }
   return [...paths];
@@ -222,7 +266,7 @@ function printPlan(plan) {
 function main() {
   const remoteName = process.argv[2] ?? "origin";
   const ranges = pushRanges(remoteName);
-  const plan = classifyPushPaths(changedPaths(ranges));
+  const plan = classifyPushPaths(changedPaths(ranges, { remoteName }));
   printPlan(plan);
   checkDiffWhitespace(ranges);
   run(

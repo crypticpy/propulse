@@ -108,6 +108,23 @@ const AA_TEXT = 4.5;
  * fills (FT8 cyan, CW yellow, SSB green) and light ink only when the fill is
  * dark enough to support it. Contrast math lives in `stationContrast`.
  */
+/**
+ * Appends a 2-digit hex alpha to a hex colour (replacing an existing one).
+ *
+ * Preferred over wrapping an element in `opacity` when only one colour should
+ * fade: CSS opacity multiplies down the tree, so an ancestor's fade cannot be
+ * undone by a descendant's own opacity. `SpotRow` learned that the hard way
+ * (#683/#709) — fading the whole row made an old row's revealed toolbar
+ * unreadable.
+ */
+export function withAlpha(hex: string, alpha: number): string {
+  const base = hex.length === 9 ? hex.slice(0, 7) : hex;
+  const a = Math.round(Math.min(1, Math.max(0, alpha)) * 255)
+    .toString(16)
+    .padStart(2, "0");
+  return `${base}${a}`;
+}
+
 export function inkOnFill(fill: string): string {
   const dark = stationContrast(MODE_INK_DARK, fill);
   const light = stationContrast(MODE_INK_LIGHT, fill);

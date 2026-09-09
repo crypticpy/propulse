@@ -20,6 +20,7 @@ import { useOperatorRank } from "@/hooks/useOperatorRank";
 import { getRankBorderStyle } from "@/components/rank/RankBorderStyles";
 import { ParticleAurora } from "@/components/rank/ParticleAurora";
 import { StatCountUp } from "@/components/rank/StatCountUp";
+import { inkOnFill } from "@/lib/utils/spotColors";
 import {
   EnergyBorderOverlay,
   FiligreeCorners,
@@ -132,10 +133,8 @@ function ensureStyles() {
 /** Single spec field cell — label on top, value below */
 function HeroFieldCell({
   field,
-  accentHex,
 }: {
   field: EquipmentDetailField;
-  accentHex: string;
 }) {
   const numeric = isNumericValue(field.value);
   const formatted = formatFieldValue(field.value, field.unit);
@@ -149,7 +148,6 @@ function HeroFieldCell({
         className={`mt-0.5 text-sm truncate ${
           numeric ? "font-mono font-bold text-su-text" : "font-mono text-su-text"
         }`}
-        style={numeric ? { color: `${accentHex}dd` } : undefined}
       >
         {formatted}
       </dd>
@@ -171,10 +169,7 @@ function HeroGroupSection({
 
   return (
     <div className="px-4 sm:px-5 py-3">
-      <h3
-        className="text-[11px] font-semibold uppercase tracking-wider text-su-muted pb-2 mb-2.5 flex items-center gap-2"
-        style={{ color: `${accentHex}cc` }}
-      >
+      <h3 className="text-[11px] font-semibold uppercase tracking-wider text-su-muted pb-2 mb-2.5 flex items-center gap-2">
         <span
           className="w-[3px] h-3.5 rounded-full flex-shrink-0"
           style={{ backgroundColor: accentHex }}
@@ -183,11 +178,7 @@ function HeroGroupSection({
       </h3>
       <dl className={`grid ${cols} gap-x-4 sm:gap-x-6 gap-y-2.5`}>
         {group.fields.map((field) => (
-          <HeroFieldCell
-            key={field.label}
-            field={field}
-            accentHex={accentHex}
-          />
+          <HeroFieldCell key={field.label} field={field} />
         ))}
       </dl>
     </div>
@@ -676,24 +667,15 @@ export function EquipmentHeroCard({
         <div className="px-5 pt-4 pb-3">
           {/* Type label + tier */}
           <div className="flex items-center gap-1.5">
-            <span
-              className="text-[11px] uppercase tracking-[0.15em] font-semibold"
-              style={{ color: accentHex }}
-            >
+            <span className="text-[11px] uppercase tracking-[0.15em] font-semibold text-su-muted">
               {resolvedTypeLabel}
             </span>
             {tier && (
               <>
-                <span
-                  className="text-[11px] uppercase tracking-wider font-semibold opacity-50"
-                  style={{ color: accentHex }}
-                >
+                <span className="text-[11px] uppercase tracking-wider font-semibold text-su-muted opacity-50">
                   &middot;
                 </span>
-                <span
-                  className="text-[11px] uppercase tracking-[0.15em] font-semibold opacity-60"
-                  style={{ color: accentHex }}
-                >
+                <span className="text-[11px] uppercase tracking-[0.15em] font-semibold text-su-muted opacity-60">
                   {TIER_LABELS[tier]}
                 </span>
               </>
@@ -721,20 +703,22 @@ export function EquipmentHeroCard({
           {/* Badges */}
           {badges && badges.length > 0 && (
             <div className="flex items-center gap-2 mt-2.5 flex-wrap">
-              {badges.map((badge) => (
-                <span
-                  key={badge.label}
-                  className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px]
-                             font-semibold uppercase tracking-wider"
-                  style={{
-                    backgroundColor: `${badge.color ?? accentHex}18`,
-                    color: badge.color ?? accentHex,
-                    border: `1px solid ${badge.color ?? accentHex}30`,
-                  }}
-                >
-                  {badge.label}
-                </span>
-              ))}
+              {badges.map((badge) => {
+                const badgeFill = badge.color ?? accentHex;
+                return (
+                  <span
+                    key={badge.label}
+                    className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px]
+                               font-semibold uppercase tracking-wider"
+                    style={{
+                      backgroundColor: badgeFill,
+                      color: inkOnFill(badgeFill),
+                    }}
+                  >
+                    {badge.label}
+                  </span>
+                );
+              })}
             </div>
           )}
         </div>
@@ -804,11 +788,7 @@ export function EquipmentHeroCard({
           <div className="px-5 py-3">
             <dl className="grid grid-cols-2 gap-x-6 gap-y-2.5">
               {fields!.map((field) => (
-                <HeroFieldCell
-                  key={field.label}
-                  field={field}
-                  accentHex={accentHex}
-                />
+                <HeroFieldCell key={field.label} field={field} />
               ))}
             </dl>
           </div>
@@ -831,10 +811,7 @@ export function EquipmentHeroCard({
                     className="w-[3px] h-3 rounded-full flex-shrink-0"
                     style={{ backgroundColor: `${accentHex}80` }}
                   />
-                  <span
-                    className="text-[10px] font-semibold uppercase tracking-wider"
-                    style={{ color: `${accentHex}99` }}
-                  >
+                  <span className="text-[10px] font-semibold uppercase tracking-wider text-su-muted">
                     {CATEGORY_LABELS[category]}
                   </span>
                 </div>

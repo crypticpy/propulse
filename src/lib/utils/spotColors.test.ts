@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { stationContrast } from "@/lib/themes/stationTokens";
+import { stationContrast, stationPalettes } from "@/lib/themes/stationTokens";
+import type { ThemeId } from "@/lib/themes";
 import {
   AGE_COLOR_STOPS,
   getAgeColor,
@@ -37,6 +38,93 @@ describe("modeInk", () => {
       stationContrast(MODE_INK_DARK, getModeColor("FT8")),
     ).toBeGreaterThanOrEqual(4.5);
   });
+});
+
+describe("bare MODE_COLORS text (no inkOnFill) vs station surfaces", () => {
+  // `modeInk`'s own tests above prove the *fill+ink pair* clears 4.5:1. This
+  // table is the other half (issue #774): it measures the fill by itself, as
+  // bare foreground text, against the four station themes' `panel`/`canvas`
+  // surfaces -- the mistake every fixed #774 call site was making
+  // (`style={{ color: getModeColor(mode) }}` with no ink at all). Where a
+  // cell is `false` that failure is expected and documented, not a bug: the
+  // fix is to route through `inkOnFill(fill)` / `modeInk(mode)`, never to
+  // use a MODE_COLORS value directly as a text color. A `true` cell going
+  // red means a palette or MODE_COLORS edit silently made bare accent text
+  // newly safe (or newly unsafe) and this table is stale.
+  const AA = 4.5;
+  const expectedPass: Record<ThemeId, Record<string, boolean>> = {
+    dark: {
+      FT8: true,
+      FT4: true,
+      CW: true,
+      SSB: true,
+      RTTY: false,
+      DIGI: true,
+      DATA: true,
+      default: true,
+    },
+    light: {
+      FT8: false,
+      FT4: false,
+      CW: false,
+      SSB: false,
+      RTTY: false,
+      DIGI: false,
+      DATA: false,
+      default: false,
+    },
+    "high-contrast": {
+      FT8: true,
+      FT4: true,
+      CW: true,
+      SSB: true,
+      RTTY: true,
+      DIGI: true,
+      DATA: true,
+      default: true,
+    },
+    midnight: {
+      FT8: true,
+      FT4: true,
+      CW: true,
+      SSB: true,
+      RTTY: false,
+      DIGI: true,
+      DATA: true,
+      default: true,
+    },
+  };
+  // midnight/RTTY passes against the darker canvas but not the lighter
+  // panel -- the one cell where panel and canvas disagree.
+  const canvasOverrides: Partial<Record<ThemeId, Record<string, boolean>>> = {
+    midnight: { RTTY: true },
+  };
+
+  for (const theme of Object.keys(stationPalettes) as ThemeId[]) {
+    const palette = stationPalettes[theme];
+    for (const [mode, fill] of Object.entries(MODE_COLORS)) {
+      const passes = expectedPass[theme][mode];
+      const canvasPasses = canvasOverrides[theme]?.[mode] ?? passes;
+
+      it(`${theme}/${mode} bare text on panel ${passes ? "clears" : "misses"} AA -- use inkOnFill/modeInk instead`, () => {
+        const ratio = stationContrast(fill, palette.panel);
+        if (passes) {
+          expect(ratio).toBeGreaterThanOrEqual(AA);
+        } else {
+          expect(ratio).toBeLessThan(AA);
+        }
+      });
+
+      it(`${theme}/${mode} bare text on canvas ${canvasPasses ? "clears" : "misses"} AA -- use inkOnFill/modeInk instead`, () => {
+        const ratio = stationContrast(fill, palette.canvas);
+        if (canvasPasses) {
+          expect(ratio).toBeGreaterThanOrEqual(AA);
+        } else {
+          expect(ratio).toBeLessThan(AA);
+        }
+      });
+    }
+  }
 });
 
 describe("getSnrColor", () => {

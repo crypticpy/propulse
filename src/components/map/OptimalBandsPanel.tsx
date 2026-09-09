@@ -8,6 +8,7 @@
 
 import { useMemo, useState, useRef, useCallback, useEffect } from "react";
 import { useMapStore } from "@/stores/mapStore";
+import { useBoundVisualTarget } from "@/hooks/useBoundMapSelection";
 import { useUserStore } from "@/stores/userStore";
 import { useActiveStationGain } from "@/hooks/useActiveStationGain";
 import { physicsArgsForPath } from "@/lib/station/stationPhysics";
@@ -67,7 +68,8 @@ export function OptimalBandsPanel({
   displayTime,
   className = "",
 }: OptimalBandsPanelProps) {
-  const target = useMapStore((s) => s.target);
+  const mapTarget = useMapStore((s) => s.target);
+  const target = useBoundVisualTarget(mapTarget);
   const { station } = useUserStore();
   const { antennaType, txPowerWatts, systemLossDb, physicsMode } =
     useActiveStationGain();

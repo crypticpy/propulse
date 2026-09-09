@@ -16,6 +16,7 @@ import { ObservatoryTiltSlider } from "@/components/map/ObservatoryTiltSlider";
 import { ReachMapControl } from "@/components/map/ReachMapControl";
 import { BoundViewHost } from "@/components/views/BoundViewHost";
 import { useMapStore } from "@/stores/mapStore";
+import { useBoundVisualTarget } from "@/hooks/useBoundMapSelection";
 import { useUserStore } from "@/stores/userStore";
 import { useLiveSpots } from "@/hooks/useLiveSpots";
 import { useKIndex, useSolarFlux } from "@/hooks/useSolarData";
@@ -26,6 +27,7 @@ import {
   calculateGreatCircleDistance,
 } from "@/lib/utils/bands";
 import type { BandStatus } from "@/types/solar";
+import type { UserStation } from "@/types/user";
 
 const GlobeView = lazy(() =>
   import("@/components/map/GlobeView").then((m) => ({ default: m.GlobeView })),
@@ -57,6 +59,94 @@ function GlobeLoadingFallback() {
   );
 }
 
+/**
+ * Path tab content. Rendered inside <BoundViewHost>, so it can read the
+ * scoped view runtime's bound target instead of the parent's stale copy —
+ * MobileMap itself sits above the provider and cannot.
+ */
+export function MobileMapPathTab({ station }: { station: UserStation | null }) {
+  const mapTarget = useMapStore((s) => s.target);
+  const target = useBoundVisualTarget(mapTarget);
+
+  const pathInfo = useMemo(() => {
+    if (!station || !target) return null;
+    const distance = calculateGreatCircleDistance(
+      station.lat,
+      station.lon,
+      target.lat,
+      target.lon,
+    );
+    // Calculate bearing
+    const lat1 = (station.lat * Math.PI) / 180;
+    const lat2 = (target.lat * Math.PI) / 180;
+    const dLon = ((target.lon - station.lon) * Math.PI) / 180;
+    const y = Math.sin(dLon) * Math.cos(lat2);
+    const x =
+      Math.cos(lat1) * Math.sin(lat2) -
+      Math.sin(lat1) * Math.cos(lat2) * Math.cos(dLon);
+    const bearing = ((Math.atan2(y, x) * 180) / Math.PI + 360) % 360;
+
+    return { distance: Math.round(distance), bearing: Math.round(bearing) };
+  }, [station, target]);
+
+  if (!target) {
+    return (
+      <div className="space-y-3">
+        <div className="text-center py-6">
+          <p className="text-xs text-su-muted">
+            No target selected. Tap a location on the map to set a target.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-3">
+      <div className="bg-su-line/10 border border-su-line/40 rounded-xl p-3 space-y-2">
+        <div className="flex items-center justify-between">
+          <span className="text-xs text-su-muted">Target</span>
+          <span className="font-mono text-sm text-signal-green">
+            {target.grid || target.name || "Custom"}
+          </span>
+        </div>
+        <div className="flex items-center justify-between">
+          <span className="text-xs text-su-muted">Position</span>
+          <span className="font-mono text-xs text-su-muted">
+            {target.lat.toFixed(2)}, {target.lon.toFixed(2)}
+          </span>
+        </div>
+      </div>
+      {pathInfo && (
+        <div className="bg-su-line/10 border border-su-line/40 rounded-xl p-3 space-y-2">
+          <div className="flex items-center justify-between">
+            <span className="text-xs text-su-muted">Distance</span>
+            <span className="font-mono text-sm text-su-text">
+              {pathInfo.distance.toLocaleString()} km
+            </span>
+          </div>
+          <div className="flex items-center justify-between">
+            <span className="text-xs text-su-muted">Bearing</span>
+            <span className="font-mono text-sm text-su-text">
+              {pathInfo.bearing}°
+            </span>
+          </div>
+        </div>
+      )}
+      {station && (
+        <div className="bg-su-line/10 border border-su-line/40 rounded-xl p-3">
+          <div className="flex items-center justify-between">
+            <span className="text-xs text-su-muted">Your QTH</span>
+            <span className="font-mono text-xs text-su-muted">
+              {station.grid}
+            </span>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function MobileMap() {
   useApplySolarMapHandoff();
   const [activeTab, setActiveTab] = useState<MobileMapTab>("bands");
@@ -68,7 +158,6 @@ export function MobileMap() {
   // Map store
   const viewMode = useMapStore((s) => s.viewMode);
   const setViewMode = useMapStore((s) => s.setViewMode);
-  const target = useMapStore((s) => s.target);
   const timeOffset = useMapStore((s) => s.timeOffset);
   const absoluteTime = useMapStore((s) => s.absoluteTime);
 
@@ -144,28 +233,6 @@ export function MobileMap() {
     if (currentKp === null || currentFlux === null) return [];
     return calculateBandConditions(currentKp, currentFlux);
   }, [currentKp, currentFlux]);
-
-  // Path info
-  const pathInfo = useMemo(() => {
-    if (!station || !target) return null;
-    const distance = calculateGreatCircleDistance(
-      station.lat,
-      station.lon,
-      target.lat,
-      target.lon,
-    );
-    // Calculate bearing
-    const lat1 = (station.lat * Math.PI) / 180;
-    const lat2 = (target.lat * Math.PI) / 180;
-    const dLon = ((target.lon - station.lon) * Math.PI) / 180;
-    const y = Math.sin(dLon) * Math.cos(lat2);
-    const x =
-      Math.cos(lat1) * Math.sin(lat2) -
-      Math.sin(lat1) * Math.cos(lat2) * Math.cos(dLon);
-    const bearing = ((Math.atan2(y, x) * 180) / Math.PI + 360) % 360;
-
-    return { distance: Math.round(distance), bearing: Math.round(bearing) };
-  }, [station, target]);
 
   // HF bands only (filter out VHF)
   const hfBands = bandConditions.filter(
@@ -414,65 +481,7 @@ export function MobileMap() {
             )}
 
             {/* Path tab */}
-            {activeTab === "path" && (
-              <div className="space-y-3">
-                {!target ? (
-                  <div className="text-center py-6">
-                    <p className="text-xs text-su-muted">
-                      No target selected. Tap a location on the map to set a
-                      target.
-                    </p>
-                  </div>
-                ) : (
-                  <>
-                    <div className="bg-su-line/10 border border-su-line/40 rounded-xl p-3 space-y-2">
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs text-su-muted">Target</span>
-                        <span className="font-mono text-sm text-signal-green">
-                          {target.grid || target.name || "Custom"}
-                        </span>
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs text-su-muted">Position</span>
-                        <span className="font-mono text-xs text-su-muted">
-                          {target.lat.toFixed(2)}, {target.lon.toFixed(2)}
-                        </span>
-                      </div>
-                    </div>
-                    {pathInfo && (
-                      <div className="bg-su-line/10 border border-su-line/40 rounded-xl p-3 space-y-2">
-                        <div className="flex items-center justify-between">
-                          <span className="text-xs text-su-muted">
-                            Distance
-                          </span>
-                          <span className="font-mono text-sm text-su-text">
-                            {pathInfo.distance.toLocaleString()} km
-                          </span>
-                        </div>
-                        <div className="flex items-center justify-between">
-                          <span className="text-xs text-su-muted">Bearing</span>
-                          <span className="font-mono text-sm text-su-text">
-                            {pathInfo.bearing}°
-                          </span>
-                        </div>
-                      </div>
-                    )}
-                    {station && (
-                      <div className="bg-su-line/10 border border-su-line/40 rounded-xl p-3">
-                        <div className="flex items-center justify-between">
-                          <span className="text-xs text-su-muted">
-                            Your QTH
-                          </span>
-                          <span className="font-mono text-xs text-su-muted">
-                            {station.grid}
-                          </span>
-                        </div>
-                      </div>
-                    )}
-                  </>
-                )}
-              </div>
-            )}
+            {activeTab === "path" && <MobileMapPathTab station={station} />}
           </div>
         </div>
       )}

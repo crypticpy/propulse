@@ -15,6 +15,7 @@ import {
 } from "@/lib/verdict/presentation";
 import { BandVerdictDetailsDialog } from "@/components/dx/BandVerdictDetailsDialog";
 import { useMapStore } from "@/stores/mapStore";
+import { useBoundVisualTarget } from "@/hooks/useBoundMapSelection";
 import { useUserStore, useUIInteractionPrefs } from "@/stores/userStore";
 import { useActiveStationGain } from "@/hooks/useActiveStationGain";
 import { physicsArgsForPath } from "@/lib/station/stationPhysics";
@@ -434,7 +435,8 @@ export function BandConditionsPanel({
   onMinimize: _onMinimize,
   onClose,
 }: BandConditionsPanelProps) {
-  const target = useMapStore((s) => s.target);
+  const mapTarget = useMapStore((s) => s.target);
+  const target = useBoundVisualTarget(mapTarget);
   const showCorrelation = useMapStore((s) => s.showCorrelation);
   const station = useUserStore((s) => s.station);
   const { antennaType, txPowerWatts, systemLossDb, physicsMode } =

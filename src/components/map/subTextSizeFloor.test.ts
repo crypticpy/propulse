@@ -39,18 +39,24 @@
  * audited by this round). Of the remaining 22, `WorkStationPanel.tsx` and
  * `DXSpotOverlay.tsx` are dead code (zero importers/render sites outside
  * this barrel and its own re-export) and were left un-raised on purpose --
- * raising unreachable markup proves nothing here. This PR fixes the 15
- * most-mounted files below (117 sites): the `DXSpotList` row family
+ * raising unreachable markup proves nothing here. This PR fixes 14
+ * most-mounted files below (114 sites): the `DXSpotList` row family
  * (`DXSpotList.tsx`, `SpotRow.tsx`, `FilterControls.tsx`, `SpotBadge.tsx`),
  * `SpotDetailPanel.tsx`, the `DXConsole` direct-render family
  * (`DXConsole.tsx`, `BandActivityBar.tsx`, `BandMap.tsx`, `SkedScheduler.tsx`,
- * `InsightsBar.tsx`), and the insights-bar modal/card family
- * (`modals/LogStatsDetailModal.tsx`, `LogStatsCard.tsx`, `HistoryCard.tsx`,
- * `ClusterPulseCard.tsx`, `SpotStatsDashboard.tsx`). Left for a follow-up:
- * `modals/HistoryDetailModal.tsx` (1 site), `BandVerdictPanel.tsx` (7),
+ * `InsightsBar.tsx`), and the insights-bar card family (`LogStatsCard.tsx`,
+ * `HistoryCard.tsx`, `ClusterPulseCard.tsx`, `SpotStatsDashboard.tsx`).
+ * Left for a follow-up (#826): both `modals/` files --
+ * `modals/LogStatsDetailModal.tsx` (3 sites) and
+ * `modals/HistoryDetailModal.tsx` (1) -- plus `BandVerdictPanel.tsx` (7),
  * `BandVerdictDetailsDialog.tsx` (7), `BandScope.tsx` (1),
  * `DxWizardContestNote.tsx` (5), and `WSJTXStatusPanel.tsx` (5) -- all
- * confirmed mounted, just narrower-reach than the 15 above.
+ * confirmed mounted, just narrower-reach than the 14 above.
+ *
+ * `modals/LogStatsDetailModal.tsx` was audited and fixed in this round and
+ * then pulled back out: 14 source files plus this guard is 15, and
+ * `AGENTS.md:7` caps a PR at 15. Its 3 sites are already classified, which
+ * is why #826 carries them with a line count rather than a re-audit.
  */
 
 import { fileURLToPath } from "node:url";
@@ -82,7 +88,6 @@ const FILES = [
   "src/components/dx/BandMap.tsx",
   "src/components/dx/SkedScheduler.tsx",
   "src/components/dx/InsightsBar.tsx",
-  "src/components/dx/modals/LogStatsDetailModal.tsx",
   "src/components/dx/LogStatsCard.tsx",
   "src/components/dx/HistoryCard.tsx",
   "src/components/dx/ClusterPulseCard.tsx",

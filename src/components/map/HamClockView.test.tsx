@@ -48,7 +48,9 @@ vi.mock("@/stores/mapStore", () => ({
     (selector: (state: typeof mapState) => unknown) => selector(mapState),
     {
       getState: () => mapState,
-      setState: vi.fn(),
+      setState: (update: { viewMode?: typeof mapState.viewMode }) => {
+        if (update.viewMode) mapState.viewMode = update.viewMode;
+      },
     },
   ),
 }));
@@ -420,6 +422,7 @@ describe("HamClockView", () => {
     expect(setActivePreset).toHaveBeenCalledWith("kiosk-scene");
     expect(setViewMode).toHaveBeenCalledWith("flat");
     expect(mapState.viewMode).toBe("flat");
+    expect(mapState.activePresetId).toBe("kiosk-scene");
   });
 
   it("restores preferred projection on unmount while still forced", () => {

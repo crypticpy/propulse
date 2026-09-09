@@ -111,7 +111,7 @@ function restoreForcedHeroProjection(latch: HeroForceLatch) {
   if (presetToRestore) {
     map.setActivePreset(presetToRestore);
     if (useMapStore.getState().viewMode !== preferred) {
-      map.setViewMode(preferred);
+      useMapStore.setState({ viewMode: preferred });
     }
   }
 }

@@ -1,4 +1,5 @@
 import { Fragment, useMemo, useState } from "react";
+import { useBandVerdicts } from "@/hooks/useBandVerdicts";
 import { useUTCClock } from "@/hooks/useUTCClock";
 import { BAND_ORDER } from "@/lib/data/bandRanges";
 import { filterClusterAge } from "@/lib/dx/clusterHistory";
@@ -22,6 +23,13 @@ import { useActiveWorkspace } from "@/stores/workspaceStore";
 /** Fixed scan window, independent of the DX cluster list's own age filter —
  * matches the heat-map lib's own 20-min ladder window (`DEFAULT_HEATMAP_WINDOW_MS`). */
 const HEATMAP_PANEL_AGE_MINUTES = 20;
+
+/** See the identical constant + rationale in `HeatMapStrip.tsx` (#686 review item 3). */
+const LIVE_FEED_STATES: ReadonlySet<string> = new Set(["CURRENT", "BRIDGE"]);
+
+function feedStateLabel(state: string): string {
+  return state === "UNKNOWN" ? "FEED NOT STARTED" : state;
+}
 
 /**
  * Rank a cell by the workspace's `display.headlineRule` metric (#661). See
@@ -65,6 +73,7 @@ export function HeatMapPanel(_props: HeatMapPanelProps = {}) {
   const feedState = useDXStore((s) => s.clusterFeed);
   const { display } = useActiveWorkspace();
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
+  const { bands: verdictBands } = useBandVerdicts();
 
   const spots = useMemo(
     () => filterClusterAge(allSpots ?? [], HEATMAP_PANEL_AGE_MINUTES, now.getTime()),
@@ -86,14 +95,30 @@ export function HeatMapPanel(_props: HeatMapPanelProps = {}) {
     [display.visibleBands],
   );
 
+  // One physics score per band, applied to every continent for that band —
+  // same fallback contract `HeatMapTile.tsx` uses (the Band Health arm has
+  // no per-continent forecast). Without this, `computeHeatmap` defaults
+  // every cell's score to 0 ("closed"), so a forecast-open band with no
+  // spots yet always reads Band Health "closed" instead of "forecast"
+  // (#686 review item 9, Codex PRRT_kwDORFr4R86ggBm7).
+  const physicsScores = useMemo(() => {
+    const scores: Record<string, number> = {};
+    for (const entry of verdictBands) {
+      for (const continent of HEATMAP_CONTINENTS) {
+        scores[physicsScoreKey(entry.band, continent)] = entry.result.inputs.physicsScore;
+      }
+    }
+    return scores;
+  }, [verdictBands]);
+
   const cells = useMemo(() => {
     const inputs: HeatmapSpotInput[] = [];
     for (const spot of spots) {
       const input = dxSpotToHeatmapInput(spot);
       if (input) inputs.push(input);
     }
-    return computeHeatmap(inputs, { now: now.getTime() });
-  }, [spots, now]);
+    return computeHeatmap(inputs, { now: now.getTime(), physicsScores });
+  }, [spots, now, physicsScores]);
 
   const cellMap = useMemo(
     () => new Map(cells.map((cell) => [physicsScoreKey(cell.band, cell.continent), cell])),
@@ -109,7 +134,9 @@ export function HeatMapPanel(_props: HeatMapPanelProps = {}) {
       total += cell.count;
       if (cell.count === 0) continue;
       const value = headlineValue(cell, display.headlineRule);
-      if (value > bestValue || (value === bestValue && headline && cell.count > headline.count)) {
+      // `!headline` seeds from the first counted cell (#686 review item 4,
+      // Codex): see the identical fix + rationale in `HeatMapStrip.tsx`.
+      if (!headline || value > bestValue || (value === bestValue && cell.count > headline.count)) {
         bestValue = value;
         headline = cell;
       }
@@ -118,7 +145,7 @@ export function HeatMapPanel(_props: HeatMapPanelProps = {}) {
   }, [cells, display.headlineRule, display.visibleBands]);
 
   const selected = (selectedKey ? cellMap.get(selectedKey) : null) ?? headline;
-  const idle = ["UNAVAILABLE", "LOADING", "OFF"].includes(feedState.state) ? feedState.state : "NO SPOTS IN WINDOW";
+  const idle = LIVE_FEED_STATES.has(feedState.state) ? "NO SPOTS IN WINDOW" : feedStateLabel(feedState.state);
 
   return (
     <div className="su-surface workspace-heatmap-panel" data-testid="heatmap-panel">

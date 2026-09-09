@@ -321,12 +321,12 @@ export function OpsConsole({
     >
       {/* Header Bar */}
       <div className="flex items-center justify-between h-12 px-4 border-b border-su-line/40 flex-shrink-0">
-        <div className="flex items-center gap-2">
-          <span className="text-xs text-su-muted uppercase tracking-wide">
+        <div className="flex items-center gap-2 min-w-0">
+          <span className="text-xs text-su-muted uppercase tracking-wide shrink-0">
             Ops Console
           </span>
           {hasActiveSession && (
-            <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-plasma-orange/15 text-plasma-orange border border-plasma-orange/30">
+            <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-plasma-orange/15 text-plasma-orange border border-plasma-orange/30 shrink-0">
               Contest Active
             </span>
           )}
@@ -334,12 +334,17 @@ export function OpsConsole({
           {/* Glance density, #661: reads the shared `useDXStore` feed
               directly (no own fetch) so it stays visible across every tab,
               not just Observe — mount only, whichever tab last drove the DX
-              cluster feed keeps this current. */}
-          <HeatMapStrip />
+              cluster feed keeps this current. Wrapped `min-w-0` so its own
+              text can truncate instead of overflowing the fixed `h-12`
+              header and getting silently clipped by the panel's own
+              `overflow-hidden` (#686 review item 6). */}
+          <div className="min-w-0 flex-1">
+            <HeatMapStrip />
+          </div>
         </div>
 
         {/* Tabs */}
-        <div className="flex items-center gap-1 bg-su-input border border-su-line/40 rounded-lg p-1">
+        <div className="flex items-center gap-1 bg-su-input border border-su-line/40 rounded-lg p-1 shrink-0">
           {tabs.map((tab) => {
             const isActive = dockTab === tab.id;
             const disabled = Boolean(tab.disabled);

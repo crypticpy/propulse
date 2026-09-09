@@ -1,6 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import {
   OPERATING_PROTOCOL_VERSION,
+  createAccountTransport,
   createBroadcastTransport,
   createCompositeTransport,
   createMemoryBus,
@@ -339,5 +341,182 @@ describe("createNullTransport", () => {
     unsubscribe();
     transport.close();
     expect(heard).toHaveLength(0);
+  });
+});
+
+/**
+ * A minimal, duck-typed stand-in for a Supabase `RealtimeChannel` — enough
+ * of `.on` / `.subscribe` / `.send` / `.unsubscribe` for
+ * `createAccountTransport` to drive, plus test-only hooks (`emit`,
+ * `triggerStatus`, `sent`) to simulate the wire and inspect what was posted.
+ */
+function makeFakeChannel() {
+  let broadcastHandler: ((message: { payload: unknown }) => void) | null = null;
+  let statusHandler: ((status: string, err?: Error) => void) | null = null;
+  const sent: unknown[] = [];
+  let unsubscribeCalls = 0;
+
+  const channel = {
+    on(_type: string, _filter: { event: string }, cb: (message: { payload: unknown }) => void) {
+      broadcastHandler = cb;
+      return channel;
+    },
+    subscribe(cb?: (status: string, err?: Error) => void) {
+      statusHandler = cb ?? null;
+      return channel;
+    },
+    async send(args: { payload: unknown }) {
+      sent.push(args.payload);
+      return { ok: true };
+    },
+    async unsubscribe() {
+      unsubscribeCalls += 1;
+      return "ok" as const;
+    },
+    emit(payload: unknown) {
+      broadcastHandler?.({ payload });
+    },
+    triggerStatus(status: string, err?: Error) {
+      statusHandler?.(status, err);
+    },
+    sent,
+    get unsubscribeCalls() {
+      return unsubscribeCalls;
+    },
+  };
+  return channel;
+}
+
+function makeFakeClient(channel: ReturnType<typeof makeFakeChannel> = makeFakeChannel()) {
+  const channelSpy = vi.fn(() => channel);
+  const client = { channel: channelSpy } as unknown as SupabaseClient;
+  return { client, channelSpy, channel };
+}
+
+describe("createAccountTransport", () => {
+  it("opens a private, self-excluding channel named for the account and posts through send once subscribed", () => {
+    const { client, channelSpy, channel } = makeFakeClient();
+    const transport = createAccountTransport({ accountId: "uid-1", client });
+
+    expect(channelSpy).toHaveBeenCalledWith("operating:uid-1", {
+      config: { private: true, broadcast: { self: false } },
+    });
+
+    channel.triggerStatus("SUBSCRIBED");
+    const message = { ...envelope(), kind: "hello" } as const;
+    transport.post(message);
+    expect(channel.sent).toEqual([message]);
+    transport.close();
+  });
+
+  it("drops a post made before the channel reaches SUBSCRIBED, without buffering or warning", () => {
+    const consoleWarn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    const { client, channel } = makeFakeClient();
+    const transport = createAccountTransport({ accountId: "uid-1", client });
+
+    transport.post({ ...envelope(), kind: "hello" });
+
+    expect(channel.sent).toHaveLength(0);
+    expect(consoleWarn).not.toHaveBeenCalled();
+    transport.close();
+    consoleWarn.mockRestore();
+  });
+
+  it("validates inbound broadcast payloads and drops anything malformed", () => {
+    const { client, channel } = makeFakeClient();
+    const transport = createAccountTransport({ accountId: "uid-1", client });
+    const heard: OperatingMessage[] = [];
+    transport.subscribe((m) => heard.push(m));
+
+    channel.emit({ hostile: true });
+    channel.emit({ ...envelope("other"), kind: "hello" });
+
+    expect(heard).toHaveLength(1);
+    expect(heard[0].senderId).toBe("other");
+    transport.close();
+  });
+
+  it("stays open and never unsubscribes on TIMED_OUT — realtime-js rejoins on its own", () => {
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const { client, channel } = makeFakeClient();
+    const transport = createAccountTransport({ accountId: "uid-1", client });
+
+    channel.triggerStatus("SUBSCRIBED");
+    transport.post({ ...envelope(), kind: "hello" });
+    expect(channel.sent).toHaveLength(1);
+
+    channel.triggerStatus("TIMED_OUT");
+    expect(channel.unsubscribeCalls).toBe(0);
+    expect(consoleError).not.toHaveBeenCalled();
+
+    // realtime-js resolves the join on its own; once it reports SUBSCRIBED
+    // again, posting resumes without this module doing anything to help it.
+    channel.triggerStatus("SUBSCRIBED");
+    transport.post({ ...envelope(), kind: "hello" });
+    expect(channel.sent).toHaveLength(2);
+
+    transport.close();
+    consoleError.mockRestore();
+  });
+
+  it("retries CHANNEL_ERROR with a bounded 1s/3s/9s backoff, then gives up and logs once", () => {
+    vi.useFakeTimers();
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const { client, channel } = makeFakeClient();
+    const transport = createAccountTransport({ accountId: "uid-1", client });
+
+    // Attempt 1 fails immediately.
+    channel.triggerStatus("CHANNEL_ERROR", new Error("denied"));
+    expect(consoleError).not.toHaveBeenCalled();
+    expect(channel.unsubscribeCalls).toBe(0);
+
+    // Retry 1 (after 1s) fails too.
+    vi.advanceTimersByTime(1_000);
+    channel.triggerStatus("CHANNEL_ERROR", new Error("denied again"));
+    expect(consoleError).not.toHaveBeenCalled();
+
+    // Retry 2 (after 3s) fails too.
+    vi.advanceTimersByTime(3_000);
+    channel.triggerStatus("CHANNEL_ERROR", new Error("denied a third time"));
+    expect(consoleError).not.toHaveBeenCalled();
+
+    // Retry 3 (after 9s) fails too — retries exhausted, give up and log once.
+    vi.advanceTimersByTime(9_000);
+    channel.triggerStatus("CHANNEL_ERROR", new Error("denied a fourth time"));
+    expect(consoleError).toHaveBeenCalledTimes(1);
+    expect(channel.unsubscribeCalls).toBe(1);
+
+    transport.post({ ...envelope(), kind: "hello" });
+    expect(channel.sent).toHaveLength(0);
+
+    transport.close();
+    consoleError.mockRestore();
+    vi.useRealTimers();
+  });
+
+  it("closes immediately on CLOSED, without retrying", () => {
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const { client, channel } = makeFakeClient();
+    const transport = createAccountTransport({ accountId: "uid-1", client });
+
+    channel.triggerStatus("CLOSED");
+
+    expect(consoleError).toHaveBeenCalledTimes(1);
+    expect(channel.unsubscribeCalls).toBe(1);
+    transport.close();
+    consoleError.mockRestore();
+  });
+
+  it("falls back to a null transport when opening the channel throws", () => {
+    const client = {
+      channel: () => {
+        throw new Error("realtime unavailable");
+      },
+    } as unknown as SupabaseClient;
+    const transport = createAccountTransport({ accountId: "uid-1", client });
+
+    expect(transport.name).toBe("account-unavailable");
+    expect(() => transport.post({ ...envelope(), kind: "hello" })).not.toThrow();
+    transport.close();
   });
 });

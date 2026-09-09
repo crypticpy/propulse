@@ -507,6 +507,26 @@ describe("operatingStateStore", () => {
     });
   });
 
+  it("publishes a cursor edited before the transport attached, once it does (#698 fix round)", async () => {
+    const bus = createMemoryBus();
+    const listener = await openScreen(bus, "listener");
+    // Simulates the account transport (#698) attaching well after this
+    // screen already has local edits: `late` starts disconnected, so
+    // `setBand` here updates its own state without anything going out —
+    // there is no `activeTransport` yet for `post` to use.
+    const late = await openScreen(bus, "late", { connect: false });
+
+    late.store.getState().setBand("20m");
+    expect(listener.store.getState().cursor.band).toBeNull();
+
+    late.connect();
+
+    expect(listener.store.getState().cursor.band).toBe("20m");
+
+    late.disconnect();
+    listener.disconnect();
+  });
+
   it("never puts anything but state, a sender and a timestamp on the wire", async () => {
     const bus = createMemoryBus();
     const sent: OperatingMessage[] = [];

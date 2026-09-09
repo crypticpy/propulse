@@ -8,10 +8,12 @@
  *
  * Two pipes, one interface:
  * - `createBroadcastTransport()` — same-browser screens, `BroadcastChannel`.
- * - `createAccountTransport()` — the same account on another device, over
- *   Supabase Realtime. **Stubbed today** (see its doc comment for the exact
- *   server pieces it still needs); it returns a transport that accepts and
- *   delivers nothing, so callers need no branch.
+ * - `createAccountTransport()` — the same account on another device, over a
+ *   private Supabase Realtime broadcast channel (#698). The caller decides
+ *   when it is safe to open one — signed in, the paid `sync` entitlement
+ *   reads true, and the "Follow my other screens" kill switch is on (see
+ *   `useOperatingTransport`) — this function does not check any of that
+ *   itself, so a null/composite branch is still the caller's job.
  *
  * Security rules this file enforces, and every future transport must keep:
  * - A message carries state, a command, a registration, a sender id and a
@@ -24,6 +26,7 @@
  *   name is not necessarily this app, let alone this version).
  */
 
+import type { RealtimeChannel, SupabaseClient } from "@supabase/supabase-js";
 import type { CanvasType } from "@/lib/workspace/types";
 
 /** Bumped only for a breaking wire change; mismatched versions are dropped. */
@@ -472,36 +475,171 @@ export function createBroadcastTransport(
 export interface AccountTransportOptions {
   /** Supabase user id. The channel is per account, never per session token. */
   accountId: string;
+  /** The app's Supabase client (`getSupabase()` in `src/lib/supabase.ts`). */
+  client: SupabaseClient;
 }
 
 /**
- * The same account's other devices, over Supabase Realtime broadcast.
+ * The same account's other devices, over Supabase Realtime broadcast (#698).
  *
- * **Not implemented — this returns a null transport.** The client wiring
- * exists (`getSupabase()` in `src/lib/supabase.ts` already opens realtime
- * channels for `spot_history`), but shipping this safely needs server pieces
- * this task is not allowed to invent:
+ * Opens a **private** channel named `operating:<uid>`. Private so Realtime
+ * Authorization checks an RLS policy on `realtime.messages` for this topic —
+ * the migration under `supabase/migrations/` that the owner applies by hand —
+ * instead of treating the channel name as a secret; a public broadcast
+ * channel named after the account id would be guessable and readable by any
+ * other authenticated client. `broadcast.self: false` mirrors
+ * `BroadcastChannel`'s own-echo behaviour so `applyMessage`'s `senderId`
+ * filter stays the only place echoes are handled.
  *
- * 1. **A private channel policy.** A public broadcast channel named after the
- *    account id is guessable by any other authenticated client, so the
- *    operator's cursor would be readable off-account. The fix is Supabase
- *    Realtime Authorization: `channel(name, { config: { private: true } })`
- *    plus an RLS policy on `realtime.messages` restricting the topic
- *    `operating:<uid>` to `auth.uid()`. That policy is a migration, and the
- *    owner decides migrations.
- * 2. **`supabase.realtime.setAuth()`** must be called with the current access
- *    token on sign-in and on every refresh for private channels to
- *    authorize — there is no such call in the app today.
- * 3. **The paid `sync` entitlement gate.** Entitlements are server-side only
- *    (`api/_lib/entitlements.ts`, `profiles.subscription_tier`); the frontend
- *    has no entitlement reader at all. Cross-device sync is the paid value,
- *    so the transport must not open until the client can read that flag.
+ * This function does not itself decide *when* it is safe to call — that is
+ * `useOperatingTransport`'s job (signed in, `sync` entitlement true, "Follow
+ * my other screens" on). It also does not authorize the client: private
+ * channels authorize off `client.realtime.setAuth(accessToken)`, which must
+ * already have been called (on sign-in and on every token refresh — see the
+ * `onAuthStateChange` listener in `src/stores/authStore.ts`) before this
+ * channel's `subscribe()` resolves, or the join is denied.
  *
- * Until those land, the account channel stays closed and same-browser screens
- * still converge over `createBroadcastTransport`.
+ * Every inbound payload is re-validated by `parseOperatingMessage`, exactly
+ * like the `BroadcastChannel` path: an account channel is a fan-out to this
+ * operator's own signed-in screens, not an auth boundary in itself.
+ *
+ * `TIMED_OUT` is not treated as a failure: realtime-js retries a timed-out
+ * join on its own, and tearing the channel down here would fight that for no
+ * benefit (owner review, #698 fix round). `CHANNEL_ERROR` gets a bounded
+ * manual retry instead — 3 attempts at 1s/3s/9s — before this function gives
+ * up, logs once, and closes; a `CLOSED` status (the server or the client
+ * itself ending the join) closes immediately, without retrying. Posts made
+ * while the channel is not in the `SUBSCRIBED` state are dropped rather than
+ * buffered or sent anyway: `channel.send` before `SUBSCRIBED` would otherwise
+ * fall back to realtime-js's own REST path and log its own warning, and the
+ * operating-state cursor's next write supersedes a dropped one regardless.
+ * `useOperatingTransport` rebuilds the composite (including a fresh account
+ * transport) whenever the gating condition changes, so a later sign-in or
+ * migration apply is picked up without this function retrying on its own.
  */
-export function createAccountTransport(_options: AccountTransportOptions): OperatingTransport {
-  return createNullTransport("account-stub");
+export function createAccountTransport(options: AccountTransportOptions): OperatingTransport {
+  const { accountId, client } = options;
+  const name = `account:${accountId}`;
+  /** CHANNEL_ERROR retry backoff, in ms, before giving up (owner review, #698 fix round). */
+  const RETRY_DELAYS_MS = [1_000, 3_000, 9_000];
+
+  let channel: RealtimeChannel;
+  try {
+    channel = client.channel(`operating:${accountId}`, {
+      config: { private: true, broadcast: { self: false } },
+    });
+  } catch {
+    return createNullTransport("account-unavailable");
+  }
+
+  const listeners = new Set<OperatingListener>();
+  let closed = false;
+  let loggedError = false;
+  let subscribed = false;
+  let retryAttempt = 0;
+  let retryTimer: ReturnType<typeof setTimeout> | null = null;
+
+  /** Best-effort teardown: a rejected or throwing unsubscribe must not surface. */
+  const safeUnsubscribe = () => {
+    try {
+      Promise.resolve(channel.unsubscribe()).catch(() => {});
+    } catch {
+      // Already closed.
+    }
+  };
+
+  const clearRetryTimer = () => {
+    if (retryTimer !== null) {
+      clearTimeout(retryTimer);
+      retryTimer = null;
+    }
+  };
+
+  const giveUp = () => {
+    clearRetryTimer();
+    if (!loggedError) {
+      loggedError = true;
+      console.error("[operatingChannel] account transport subscribe failed; closing", {
+        accountId,
+      });
+    }
+    closed = true;
+    safeUnsubscribe();
+  };
+
+  const scheduleRetry = () => {
+    if (closed || retryTimer !== null) return;
+    if (retryAttempt >= RETRY_DELAYS_MS.length) {
+      giveUp();
+      return;
+    }
+    const delay = RETRY_DELAYS_MS[retryAttempt];
+    retryAttempt += 1;
+    retryTimer = setTimeout(() => {
+      retryTimer = null;
+      if (closed) return;
+      channel.subscribe(handleStatus);
+    }, delay);
+  };
+
+  function handleStatus(status: string, _err?: Error) {
+    if (closed) return;
+    if (status === "SUBSCRIBED") {
+      subscribed = true;
+      retryAttempt = 0;
+      return;
+    }
+    subscribed = false;
+    if (status === "TIMED_OUT") return;
+    if (status === "CLOSED") {
+      giveUp();
+      return;
+    }
+    if (status === "CHANNEL_ERROR") {
+      scheduleRetry();
+    }
+  }
+
+  channel.on("broadcast", { event: "operating" }, (message) => {
+    if (closed) return;
+    const parsed = parseOperatingMessage(message.payload);
+    if (!parsed) return;
+    for (const listener of listeners) {
+      try {
+        listener(parsed);
+      } catch {
+        // One bad subscriber must not stop the others.
+      }
+    }
+  });
+
+  channel.subscribe(handleStatus);
+
+  return {
+    name,
+    post: (message) => {
+      if (closed || !subscribed) return;
+      try {
+        Promise.resolve(
+          channel.send({ type: "broadcast", event: "operating", payload: message }),
+        ).catch(() => {});
+      } catch {
+        // A closed channel or a transient send failure: best effort, same
+        // contract as the broadcast transport — never throw into the caller.
+      }
+    },
+    subscribe: (listener) => {
+      listeners.add(listener);
+      return () => listeners.delete(listener);
+    },
+    close: () => {
+      if (closed) return;
+      closed = true;
+      clearRetryTimer();
+      listeners.clear();
+      safeUnsubscribe();
+    },
+  };
 }
 
 /** Fans one message out to several pipes and merges their inbound streams. */

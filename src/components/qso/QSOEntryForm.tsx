@@ -546,7 +546,7 @@ export function QSOEntryForm({ onQSOLogged }: QSOEntryFormProps) {
 
       // Escape clears form (only when within form container)
       if (e.key === "Escape") {
-        if ((e.target as HTMLElement).closest?.('[role="dialog"]')) return;
+        if ((e.target as HTMLElement).closest?.('[role="dialog"], [role="alertdialog"]')) return;
         const container = formContainerRef.current;
         if (container && container.contains(document.activeElement)) {
           e.preventDefault();

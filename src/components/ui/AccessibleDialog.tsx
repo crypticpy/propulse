@@ -210,7 +210,13 @@ function focusAfterTopmostClose(): void {
     }
   }
   const topEntry = openDialogStack[topOpenIndex];
-  const panel = topEntry.portalRoot?.querySelector<HTMLElement>('[role="dialog"]');
+  // Matches both roles this component can render (see the `role` prop) — an
+  // `alertdialog` (e.g. a destructive `ConfirmDialog`) must restore focus the
+  // same way a plain `dialog` does, or this silently breaks for every caller
+  // that opts into the stronger semantic.
+  const panel = topEntry.portalRoot?.querySelector<HTMLElement>(
+    '[role="dialog"], [role="alertdialog"]',
+  );
   (panel ?? topEntry.portalRoot)?.focus();
 }
 
@@ -235,12 +241,43 @@ export interface AccessibleDialogProps {
   /** Tailwind z-index class for the portal overlay. */
   zIndexClassName?: string;
   /**
+   * ARIA role for the panel. Defaults to `"dialog"`. Use `"alertdialog"` for
+   * a destructive confirmation or other interruption that demands an
+   * immediate response — the shared dialog stack's focus-restore logic
+   * matches both roles, so switching this is safe on its own.
+   */
+  role?: "dialog" | "alertdialog";
+  /**
    * `bare` drops the built-in header and scroll body so the caller can draw
    * its own panel (the HamClock wall reports own their whole surface). The
    * title still ships as a visually hidden heading, so the dialog keeps its
-   * accessible name either way.
+   * accessible name either way — unless `labelledBy` is set, see below.
    */
   chrome?: "default" | "bare";
+  /**
+   * Points the panel's `aria-labelledby` at a heading the caller renders
+   * itself (typically a visible `<h2>`) instead of the auto-generated
+   * sr-only heading, and suppresses that sr-only heading so the name isn't
+   * announced twice. Only meaningful with `chrome="bare"` — with default
+   * chrome the built-in header already supplies the panel's accessible name
+   * via its own heading, so `labelledBy` is ignored (a no-op) there.
+   * `description`, when set, still drives `aria-describedby` independently
+   * of this prop either way.
+   */
+  labelledBy?: string;
+  /**
+   * Points the panel's `aria-describedby` at an element the caller renders
+   * itself instead of the auto-generated `description` node, and suppresses
+   * that node so the message isn't announced twice. Takes precedence over
+   * `description` when both are set. Unlike `labelledBy`, this is not gated
+   * to `chrome="bare"` — it works under default chrome too, since a caller
+   * drawing its own message body (e.g. `ConfirmDialog`'s `<p>`) is exactly
+   * the case this exists for. This is also the general answer for callers
+   * migrating to `AccessibleDialog` (#773) that already render their own
+   * body copy: point `describedBy` at it instead of duplicating the text
+   * into `description`.
+   */
+  describedBy?: string;
   /**
    * Attributes merged onto the dialog panel before its own: class, style
    * custom properties, `data-*` theme hooks. The panel's role, ARIA wiring
@@ -265,7 +302,10 @@ export function AccessibleDialog({
   children,
   size = "lg",
   zIndexClassName = "z-[500]",
+  role = "dialog",
   chrome = "default",
+  labelledBy,
+  describedBy,
   panelProps,
 }: AccessibleDialogProps) {
   const titleId = useId();
@@ -372,10 +412,10 @@ export function AccessibleDialog({
       <div
         {...panelProps}
         ref={dialogRef}
-        role="dialog"
+        role={role}
         aria-modal="true"
-        aria-labelledby={titleId}
-        aria-describedby={description ? descriptionId : undefined}
+        aria-labelledby={chrome === "bare" && labelledBy ? labelledBy : titleId}
+        aria-describedby={describedBy ?? (description ? descriptionId : undefined)}
         tabIndex={-1}
         className={
           chrome === "bare"
@@ -385,10 +425,12 @@ export function AccessibleDialog({
       >
         {chrome === "bare" ? (
           <>
-            <h2 id={titleId} className="sr-only">
-              {title}
-            </h2>
-            {description && (
+            {!labelledBy && (
+              <h2 id={titleId} className="sr-only">
+                {title}
+              </h2>
+            )}
+            {description && !describedBy && (
               <p id={descriptionId} className="sr-only">
                 {description}
               </p>
@@ -402,7 +444,7 @@ export function AccessibleDialog({
                 <h2 id={titleId} className="font-orbitron text-lg font-bold text-su-text sm:text-xl">
                   {title}
                 </h2>
-                {description && (
+                {description && !describedBy && (
                   <p id={descriptionId} className="mt-1 text-sm leading-6 text-su-muted">
                     {description}
                   </p>

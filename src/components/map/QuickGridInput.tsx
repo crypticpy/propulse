@@ -6,8 +6,8 @@
  * Triggered by the 'G' keyboard shortcut.
  */
 
-import { useCallback, useEffect, useRef } from "react";
-import { createPortal } from "react-dom";
+import { useCallback, useEffect, useId, useRef } from "react";
+import { AccessibleDialog } from "@/components/ui/AccessibleDialog";
 import { Card } from "@/components/ui/Card";
 import { useGridInput } from "@/hooks/useGridInput";
 
@@ -43,6 +43,8 @@ export function QuickGridInput({
   onSubmit,
 }: QuickGridInputProps) {
   const inputRef = useRef<HTMLInputElement>(null);
+  const titleId = useId();
+  const descriptionId = useId();
   const { value, setValue, isValid, recentGrids, submit, applyGrid, clear } =
     useGridInput();
 
@@ -65,18 +67,6 @@ export function QuickGridInput({
     }
   }, [isOpen, clear]);
 
-  // Prevent background scroll while modal is open
-  useEffect(() => {
-    if (!isOpen) {
-      return;
-    }
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    return () => {
-      document.body.style.overflow = previousOverflow;
-    };
-  }, [isOpen]);
-
   /**
    * Handle form submission
    */
@@ -88,18 +78,14 @@ export function QuickGridInput({
     }
   }, [submit, onSubmit, onClose]);
 
-  // Handle keyboard events
+  // Handle Enter-to-submit. Escape is owned by AccessibleDialog.
   useEffect(() => {
     if (!isOpen) {
       return;
     }
 
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        event.preventDefault();
-        event.stopPropagation();
-        onClose();
-      } else if (event.key === "Enter") {
+      if (event.key === "Enter") {
         event.preventDefault();
         handleSubmit();
       }
@@ -107,7 +93,7 @@ export function QuickGridInput({
 
     document.addEventListener("keydown", handleKeyDown);
     return () => document.removeEventListener("keydown", handleKeyDown);
-  }, [isOpen, onClose, handleSubmit]);
+  }, [isOpen, handleSubmit]);
 
   /**
    * Handle clicking a recent grid
@@ -134,28 +120,16 @@ export function QuickGridInput({
     return "border-alert-crimson focus:border-alert-crimson";
   };
 
-  if (!isOpen) {
-    return null;
-  }
-
-  if (typeof document === "undefined") {
-    return null;
-  }
-
-  return createPortal(
-    <div
-      className="fixed inset-0 z-[400] flex items-center justify-center p-4 md:p-6"
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="quick-grid-input-title"
+  return (
+    <AccessibleDialog
+      open={isOpen}
+      onClose={onClose}
+      title="Quick Grid Input"
+      chrome="bare"
+      labelledBy={titleId}
+      describedBy={descriptionId}
+      panelProps={{ className: "w-full max-w-sm" }}
     >
-      {/* Backdrop */}
-      <div
-        className="absolute inset-0 bg-black/70 backdrop-blur-sm"
-        onClick={onClose}
-        aria-hidden="true"
-      />
-
       {/* Modal */}
       <Card
         className="
@@ -169,7 +143,7 @@ export function QuickGridInput({
         <div className="flex items-start justify-between mb-4">
           <div>
             <h2
-              id="quick-grid-input-title"
+              id={titleId}
               className="font-orbitron text-lg font-bold text-gradient-orange flex items-center gap-2"
             >
               <svg
@@ -193,7 +167,7 @@ export function QuickGridInput({
               </svg>
               Quick Grid Input
             </h2>
-            <p className="mt-0.5 text-xs text-su-muted">
+            <p id={descriptionId} className="mt-0.5 text-xs text-su-muted">
               Enter a Maidenhead grid locator
             </p>
           </div>
@@ -339,8 +313,7 @@ export function QuickGridInput({
           </p>
         </div>
       </Card>
-    </div>,
-    document.body,
+    </AccessibleDialog>
   );
 }
 

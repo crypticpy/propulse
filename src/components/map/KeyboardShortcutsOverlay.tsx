@@ -6,8 +6,8 @@
  * Matches the existing dark theme with glassmorphism styling.
  */
 
-import { useEffect } from "react";
-import { createPortal } from "react-dom";
+import { useId } from "react";
+import { AccessibleDialog } from "@/components/ui/AccessibleDialog";
 import { Card } from "@/components/ui/Card";
 import {
   DEFAULT_SHORTCUTS,
@@ -47,65 +47,29 @@ const CATEGORY_ORDER: ShortcutCategory[] = [
  * />
  * ```
  */
+// Derived from a module constant, so it never changes. Computed once here
+// rather than per render: without the old `if (!isOpen) return null`, the
+// component body now runs on every render of its host whether it is open or
+// not.
+const GROUPED_SHORTCUTS = groupShortcutsByCategory(DEFAULT_SHORTCUTS);
+
 export function KeyboardShortcutsOverlay({
   isOpen,
   onClose,
 }: KeyboardShortcutsOverlayProps) {
-  // Prevent background scroll while modal is open
-  useEffect(() => {
-    if (!isOpen) {
-      return;
-    }
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    return () => {
-      document.body.style.overflow = previousOverflow;
-    };
-  }, [isOpen]);
+  const titleId = useId();
+  const descriptionId = useId();
 
-  // Handle Escape key to close
-  useEffect(() => {
-    if (!isOpen) {
-      return;
-    }
-
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        event.preventDefault();
-        event.stopPropagation();
-        onClose();
-      }
-    };
-
-    document.addEventListener("keydown", handleKeyDown);
-    return () => document.removeEventListener("keydown", handleKeyDown);
-  }, [isOpen, onClose]);
-
-  if (!isOpen) {
-    return null;
-  }
-
-  if (typeof document === "undefined") {
-    return null;
-  }
-
-  // Group shortcuts by category
-  const groupedShortcuts = groupShortcutsByCategory(DEFAULT_SHORTCUTS);
-
-  return createPortal(
-    <div
-      className="fixed inset-0 z-[400] flex items-center justify-center p-4 md:p-6"
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="keyboard-shortcuts-title"
+  return (
+    <AccessibleDialog
+      open={isOpen}
+      onClose={onClose}
+      title="Keyboard Shortcuts"
+      chrome="bare"
+      labelledBy={titleId}
+      describedBy={descriptionId}
+      panelProps={{ className: "w-full max-w-lg" }}
     >
-      {/* Backdrop */}
-      <div
-        className="absolute inset-0 bg-black/70 backdrop-blur-sm"
-        onClick={onClose}
-        aria-hidden="true"
-      />
-
       {/* Modal */}
       <Card
         className="
@@ -119,7 +83,7 @@ export function KeyboardShortcutsOverlay({
         <div className="flex items-start justify-between mb-6">
           <div>
             <h2
-              id="keyboard-shortcuts-title"
+              id={titleId}
               className="font-orbitron text-xl font-bold text-gradient-orange flex items-center gap-2"
             >
               <svg
@@ -137,7 +101,7 @@ export function KeyboardShortcutsOverlay({
               </svg>
               Keyboard Shortcuts
             </h2>
-            <p className="mt-1 text-sm text-su-muted">
+            <p id={descriptionId} className="mt-1 text-sm text-su-muted">
               Quick access to PropSphere features
             </p>
           </div>
@@ -165,7 +129,7 @@ export function KeyboardShortcutsOverlay({
         {/* Shortcut Categories */}
         <div className="space-y-5 max-h-[60vh] overflow-y-auto pr-2 -mr-2">
           {CATEGORY_ORDER.map((category) => {
-            const shortcuts = groupedShortcuts.get(category);
+            const shortcuts = GROUPED_SHORTCUTS.get(category);
             if (!shortcuts || shortcuts.length === 0) {
               return null;
             }
@@ -224,8 +188,7 @@ export function KeyboardShortcutsOverlay({
           </p>
         </div>
       </Card>
-    </div>,
-    document.body,
+    </AccessibleDialog>
   );
 }
 

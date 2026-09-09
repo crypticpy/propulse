@@ -532,13 +532,21 @@ export function BandModeModal({ isOpen, onClose }: BandModeModalProps) {
                         {/* Watched indicator — sibling overlay (see #816 note
                             above). Hit area is padded well past the 2px dot for
                             a real touch target; pointer-events-none while
-                            hidden so an invisible tap can't fire it. */}
+                            hidden so an invisible tap can't fire it.
+                            `hover:none` pins it open on touch-only devices,
+                            which have no way to reach a hover-revealed control
+                            and no other route to `addWatchedBand`. Deliberately
+                            NOT `any-pointer:coarse`, which would also pin it on
+                            a touch laptop for someone driving the mouse. Same
+                            pattern as the SpotRow row toolbar. `focus-visible`
+                            covers the keyboard, which reaches this button by
+                            Tab even while it is pointer-events-none. */}
                         <button
                           type="button"
                           className={`absolute top-0 right-0 z-10 flex items-center justify-center p-2 transition-opacity bg-transparent border-none cursor-pointer ${
                             isWatched
                               ? "opacity-100"
-                              : "opacity-0 pointer-events-none group-hover:opacity-60 group-hover:pointer-events-auto"
+                              : "opacity-0 pointer-events-none group-hover:opacity-60 group-hover:pointer-events-auto focus-visible:opacity-100 focus-visible:pointer-events-auto [@media(hover:none)]:opacity-60 [@media(hover:none)]:pointer-events-auto"
                           }`}
                           onClick={(e) => handleWatchToggle(band, e)}
                           aria-label={

@@ -27,6 +27,7 @@ import "@/styles/hamclock-wall-forecast.css";
 import "@/styles/hamclock-wall-report.css";
 import "@/styles/hamclock-wall-controls.css";
 import { useHamClockRadioFollow } from "@/hooks/useHamClockRadioFollow";
+import { useHamClockWallOperatingState } from "@/hooks/useHamClockWallOperatingState";
 import { useHamClockDisplayStore } from "@/stores/hamclockDisplayStore";
 import { useKioskStore } from "@/stores/kioskStore";
 import {
@@ -125,6 +126,11 @@ export function HamClockView({
   onLocationClick,
 }: HamClockViewProps) {
   useHamClockRadioFollow();
+  // Registers this screen on the shared operating roster and mirrors an
+  // inbound cursor's target onto `mapStore.target` (#712). Wall and desk
+  // density share this one mount, so there is exactly one registration
+  // regardless of which the operator has picked.
+  useHamClockWallOperatingState();
   const display = useHamClockDisplayStore();
   const frameHome = display.frameHome;
   const [settingsOpen, setSettingsOpen] = useState(false);

@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { useOperatingMonitor } from "@/hooks/useOperatingMonitor";
 import { useHamClockDisplayStore } from "@/stores/hamclockDisplayStore";
 import { useKioskStore } from "@/stores/kioskStore";
+import { useOperatingStateStore } from "@/stores/operatingStateStore";
 import { KioskTab } from "./KioskTab";
 
 vi.mock("@/hooks/useOperatingMonitor", () => ({ useOperatingMonitor: vi.fn() }));
@@ -27,6 +28,19 @@ describe("KioskTab", () => {
     useKioskStore.setState({ active: false, activeSceneId: null });
     useHamClockDisplayStore.getState().resetDisplay();
     vi.mocked(useOperatingMonitor).mockReturnValue(null);
+    localStorage.clear();
+    useOperatingStateStore.setState({ followScreens: true });
+    useOperatingStateStore.getState().reset();
+  });
+
+  it("reads and writes the shared 'Follow my other screens' switch (#712)", () => {
+    renderTab();
+    const toggle = screen.getByRole("switch", { name: "Follow my other screens" });
+    expect(toggle.textContent).toBe("ON");
+
+    fireEvent.click(toggle);
+    expect(useOperatingStateStore.getState().followScreens).toBe(false);
+    expect(toggle.textContent).toBe("OFF");
   });
 
   it("says no scene is pinning the wall when kiosk mode is inactive", () => {

@@ -67,11 +67,13 @@ export const Badge = forwardRef<HTMLSpanElement, BadgeProps>(
         "border-alert-red/30",
       ],
       quiet: [
-        // text-aurora-purple measures below 4.5:1 AA on its own tint in
-        // every theme (dark 3.16:1, light 2.95:1, high-contrast 3.99:1,
-        // midnight 3.48:1) since aurora-purple is a fixed, non-themed hex.
-        // Keep the identity hue as the fill/border accent; use the
-        // always-AA station text token for the label itself.
+        // text-aurora-purple measures below 4.5:1 AA on its own /20 tint in
+        // every theme (dark 4.01:1, light 4.16:1, high-contrast 4.35:1,
+        // midnight 4.03:1 against `panel`). #787 gave aurora-purple a
+        // per-theme `--su-purple` token, which lifted every one of those
+        // cells but cleared the floor only at /10 (#791). Keep the identity
+        // hue as the fill/border accent; use the always-AA station text
+        // token for the label itself.
         "bg-aurora-purple/20",
         "text-su-text",
         "border",

@@ -16,7 +16,10 @@ const FLIGHT_CATEGORY_STYLES: Record<string, string> = {
   VFR: "bg-su-success/15 border-su-success/30 text-su-success",
   MVFR: "bg-su-info/15 border-su-info/30 text-su-info",
   IFR: "bg-su-danger/15 border-su-danger/30 text-su-danger",
-  LIFR: "bg-aurora-purple/15 border-aurora-purple/30 text-aurora-purple",
+  // LIFR keeps the aviation-standard magenta as its ink, so its tint drops to
+  // /10 instead: purple-on-purple only clears 4.5:1 there (#791 measured /15
+  // at 4.35:1 on the dark panel and 4.23:1 on the light canvas).
+  LIFR: "bg-aurora-purple/10 border-aurora-purple/30 text-aurora-purple",
 };
 
 function flightCategoryStyle(fltCat: string | null): string {

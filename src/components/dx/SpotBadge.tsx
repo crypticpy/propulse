@@ -82,7 +82,10 @@ const badgeConfig: Record<
   },
   verified: {
     label: "VFD",
-    bgColor: "bg-aurora-purple/20",
+    // #791: `text-aurora-purple` on its own tint only clears 4.5:1 at /10 --
+    // /20 measured 4.01:1 on the dark panel. The hue is the badge-type cue
+    // here, so the tint drops rather than the ink changing.
+    bgColor: "bg-aurora-purple/10",
     textColor: "text-aurora-purple",
     borderColor: "border-aurora-purple/40",
   },

@@ -297,7 +297,9 @@ export function QSOTable({
                   </div>
                 </td>
                 <td className="px-4 py-3 text-sm text-su-muted whitespace-nowrap">
-                  <span className="px-2 py-0.5 bg-aurora-purple/20 text-aurora-purple rounded text-xs font-mono">
+                  {/* #791: /10 is the only aurora-purple tint that keeps
+                      purple ink at 4.5:1 in all four themes. */}
+                  <span className="px-2 py-0.5 bg-aurora-purple/10 text-aurora-purple rounded text-xs font-mono">
                     {entry.band}
                   </span>
                 </td>

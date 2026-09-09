@@ -166,6 +166,13 @@ export function SelectedSpotCard({
     );
   }, [position]);
 
+  // Depends on `spot` keeping a stable identity for the life of the card:
+  // every host holds the selection in `useState` and only ever replaces it
+  // from a select handler (`GlobeView.tsx`, `AzimuthalView.tsx`,
+  // `FlatMapView.tsx` — every other setter passes `null`). Deriving `spot`
+  // inline in a host's render would re-run this on every render, which both
+  // flickers focus and, after the first cycle, captures the card itself as
+  // the element to restore to.
   useEffect(() => {
     if (!spot) return;
     previousFocusRef.current =

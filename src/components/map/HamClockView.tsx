@@ -102,11 +102,17 @@ function restoreForcedHeroProjection(latch: HeroForceLatch) {
   const map = useMapStore.getState();
   if (map.viewMode !== latch.wrote) return;
   const preferred = useHamClockStore.getState().preferredViewMode;
+  const livePresetId = map.activePresetId;
+  const presetToRestore = livePresetId ?? latch.presetId;
+
   if (map.viewMode !== preferred) {
     map.setViewMode(preferred);
   }
-  if (latch.presetId) {
-    map.setActivePreset(latch.presetId);
+  if (presetToRestore) {
+    map.setActivePreset(presetToRestore);
+    if (useMapStore.getState().viewMode !== preferred) {
+      map.setViewMode(preferred);
+    }
   }
 }
 
@@ -155,15 +161,21 @@ export function HamClockView({
     heroProjection,
     preferredViewMode,
     (key) => LAYER_REGISTRY[key as keyof typeof LAYER_REGISTRY]?.name ?? key,
+    viewMode,
   );
 
   const forceLatchRef = useRef<HeroForceLatch | null>(null);
   const yieldedBlockerKeyRef = useRef<string | null>(null);
+  const lastPreferredRef = useRef(preferredViewMode);
   const resolvedProjection = heroProjection.projection;
   const blockerKey = heroProjection.forcedBy.join(",");
 
   useEffect(() => {
     const map = useMapStore.getState();
+    const yieldKey = `${blockerKey}|${preferredViewMode}`;
+    const preferredChanged = lastPreferredRef.current !== preferredViewMode;
+    lastPreferredRef.current = preferredViewMode;
+
     if (blockerKey.length === 0) {
       yieldedBlockerKeyRef.current = null;
       const latch = forceLatchRef.current;
@@ -172,19 +184,32 @@ export function HamClockView({
       return;
     }
 
-    if (yieldedBlockerKeyRef.current === blockerKey) {
+    if (
+      yieldedBlockerKeyRef.current != null &&
+      yieldedBlockerKeyRef.current !== yieldKey
+    ) {
+      yieldedBlockerKeyRef.current = null;
+    }
+
+    if (yieldedBlockerKeyRef.current === yieldKey) {
       return;
     }
-    yieldedBlockerKeyRef.current = null;
 
     const latch = forceLatchRef.current;
-    if (latch && viewMode !== latch.wrote) {
+    if (latch && viewMode !== latch.wrote && !preferredChanged) {
       forceLatchRef.current = null;
-      yieldedBlockerKeyRef.current = blockerKey;
+      yieldedBlockerKeyRef.current = yieldKey;
       return;
     }
 
     if (viewMode === resolvedProjection) {
+      if (
+        latch &&
+        map.activePresetId != null &&
+        map.activePresetId !== latch.presetId
+      ) {
+        forceLatchRef.current = { ...latch, presetId: map.activePresetId };
+      }
       return;
     }
 
@@ -200,7 +225,7 @@ export function HamClockView({
       };
     }
     map.setViewMode(resolvedProjection);
-  }, [viewMode, resolvedProjection, blockerKey]);
+  }, [viewMode, resolvedProjection, blockerKey, preferredViewMode]);
 
   useEffect(() => {
     return () => {

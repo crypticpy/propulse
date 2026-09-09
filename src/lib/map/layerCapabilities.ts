@@ -276,14 +276,21 @@ function formatLayerList(
 /**
  * One-line chip copy whenever something in the set cannot draw on the
  * preferred projection. Silent only when `forcedBy` is empty.
+ * `viewMode` is the projection actually on screen: when it is not the
+ * resolved one (the force yielded), name that surface instead of claiming
+ * a switch that did not happen.
  */
 export function formatHeroProjectionChip(
   resolution: HeroProjectionResolution,
   preferredProjection: PropSphereViewMode,
   labelFor: (layer: string) => string = (layer) => layer,
+  viewMode: PropSphereViewMode = resolution.projection,
 ): string | undefined {
   if (resolution.forcedBy.length === 0) return undefined;
   const blockers = formatLayerList(resolution.forcedBy, labelFor);
+  if (viewMode !== resolution.projection) {
+    return `${projectionPhrase(viewMode)} cannot draw ${blockers}`;
+  }
   if (resolution.projection === preferredProjection) {
     return `${projectionPhrase(preferredProjection)} cannot draw ${blockers}`;
   }

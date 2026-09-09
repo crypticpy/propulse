@@ -174,13 +174,18 @@ describe("HamClockView", () => {
 
   it("switches off a flat wall and explains when DRAP cannot draw", () => {
     mapState.layers = { ...mapState.layers, drap: true };
-    render(
+    const { rerender } = render(
       <MemoryRouter initialEntries={["/map"]}>
         <HamClockView displayTime={new Date(0)} />
       </MemoryRouter>,
     );
 
     expect(setViewMode).toHaveBeenCalledWith("globe");
+    rerender(
+      <MemoryRouter initialEntries={["/map"]}>
+        <HamClockView displayTime={new Date(1)} />
+      </MemoryRouter>,
+    );
     const chip = screen.getByRole("status");
     expect(chip.className).toContain("hc-chip");
     expect(chip.textContent).toBe(
@@ -286,7 +291,7 @@ describe("HamClockView", () => {
     expect(setViewMode).not.toHaveBeenCalled();
   });
 
-  it("yields to a settings projection change while forced and does not restore a stale stash", () => {
+  it("re-arms forcing when settings pick a new preferred projection while DRAP is on", () => {
     mapState.layers = { ...mapState.layers, drap: true };
     const { rerender } = render(
       <MemoryRouter initialEntries={["/map"]}>
@@ -303,7 +308,8 @@ describe("HamClockView", () => {
         <HamClockView displayTime={new Date(1)} />
       </MemoryRouter>,
     );
-    expect(setViewMode).not.toHaveBeenCalled();
+    expect(setViewMode).toHaveBeenCalledWith("globe");
+    setViewMode.mockClear();
 
     mapState.layers = { ...mapState.layers, drap: false };
     rerender(
@@ -311,7 +317,7 @@ describe("HamClockView", () => {
         <HamClockView displayTime={new Date(2)} />
       </MemoryRouter>,
     );
-    expect(setViewMode).not.toHaveBeenCalled();
+    expect(setViewMode).toHaveBeenCalledWith("azimuthal");
     expect(mapState.viewMode).toBe("azimuthal");
   });
 
@@ -333,6 +339,36 @@ describe("HamClockView", () => {
     );
     expect(setViewMode).not.toHaveBeenCalled();
     expect(mapState.viewMode).toBe("flat");
+  });
+
+  it("names the on-screen projection when the force has yielded", () => {
+    mapState.layers = { ...mapState.layers, drap: true };
+    const { rerender } = render(
+      <MemoryRouter initialEntries={["/map"]}>
+        <HamClockView displayTime={new Date(0)} />
+      </MemoryRouter>,
+    );
+    expect(setViewMode).toHaveBeenCalledWith("globe");
+    rerender(
+      <MemoryRouter initialEntries={["/map"]}>
+        <HamClockView displayTime={new Date(1)} />
+      </MemoryRouter>,
+    );
+    expect(screen.getByRole("status").textContent).toBe(
+      "Switched to 3D globe because the flat map cannot draw D-RAP Absorption",
+    );
+    setViewMode.mockClear();
+
+    mapState.viewMode = "flat";
+    rerender(
+      <MemoryRouter initialEntries={["/map"]}>
+        <HamClockView displayTime={new Date(2)} />
+      </MemoryRouter>,
+    );
+    expect(setViewMode).not.toHaveBeenCalled();
+    expect(screen.getByRole("status").textContent).toBe(
+      "the flat map cannot draw D-RAP Absorption",
+    );
   });
 
   it("reapplies the captured region preset when the force is released", () => {
@@ -357,6 +393,33 @@ describe("HamClockView", () => {
     expect(setViewMode).toHaveBeenCalledWith("flat");
     expect(setActivePreset).toHaveBeenCalledWith("kiosk-scene");
     expect(mapState.activePresetId).toBe("kiosk-scene");
+  });
+
+  it("does not let a restored preset's viewMode override preferred projection", () => {
+    setActivePreset.mockImplementation((id: string) => {
+      mapState.activePresetId = id;
+      mapState.viewMode = "globe";
+    });
+    mapState.activePresetId = "kiosk-scene";
+    mapState.layers = { ...mapState.layers, drap: true };
+    const { rerender } = render(
+      <MemoryRouter initialEntries={["/map"]}>
+        <HamClockView displayTime={new Date(0)} />
+      </MemoryRouter>,
+    );
+    expect(setViewMode).toHaveBeenCalledWith("globe");
+    setViewMode.mockClear();
+    setActivePreset.mockClear();
+
+    mapState.layers = { ...mapState.layers, drap: false };
+    rerender(
+      <MemoryRouter initialEntries={["/map"]}>
+        <HamClockView displayTime={new Date(1)} />
+      </MemoryRouter>,
+    );
+    expect(setActivePreset).toHaveBeenCalledWith("kiosk-scene");
+    expect(setViewMode).toHaveBeenCalledWith("flat");
+    expect(mapState.viewMode).toBe("flat");
   });
 
   it("restores preferred projection on unmount while still forced", () => {

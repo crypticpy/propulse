@@ -303,6 +303,17 @@ describe("formatHeroProjectionChip", () => {
       ),
     ).toBe("the flat map cannot draw not-a-layer");
   });
+
+  it("names the on-screen projection when the force was yielded", () => {
+    expect(
+      formatHeroProjectionChip(
+        resolveHeroProjection(["drap"], "flat"),
+        "flat",
+        registryLabel,
+        "flat",
+      ),
+    ).toBe("the flat map cannot draw D-RAP Absorption");
+  });
 });
 
 describe("standardBasemapCaveat (B6 PR #222 fix #1, corrected)", () => {

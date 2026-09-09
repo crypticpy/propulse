@@ -1,14 +1,11 @@
-import { StrictMode } from "react";
 import { render } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
+  CONTEXT_RELEASE_DELAY_MS,
   useWebGLContextGuard,
   WebGLContextGuard,
   type UseWebGLContextGuardOptions,
 } from "./useWebGLContextGuard";
-
-const CONTEXT_RELEASE_DELAY_MS = 50;
-const CONTEXT_LOST_GRACE_MS = 550;
 
 const mocks = vi.hoisted(() => ({
   gl: null as {
@@ -81,36 +78,25 @@ describe("useWebGLContextGuard", () => {
     expect(gl.forceContextLoss).toHaveBeenCalledTimes(1);
   });
 
-  it("does not release a canvas that StrictMode is about to reattach", () => {
+  it("an effect re-run on the same canvas cancels the pending release", () => {
     const sharedCanvas = document.createElement("canvas");
     const glFirst = makeFakeGl(sharedCanvas);
     const glSecond = makeFakeGl(sharedCanvas);
     mocks.gl = glFirst;
 
-    const view = render(
-      <StrictMode>
-        <Harness />
-      </StrictMode>,
-    );
-    // StrictMode's simulated mount → cleanup → mount swaps the renderer while
-    // keeping the same canvas element.
+    const view = render(<Harness />);
+    // A dependency change (gl identity) reruns the effect on the same canvas
+    // element: cleanup schedules a release, but the WeakMap cancels it once
+    // the effect runs again before the delay elapses.
     mocks.gl = glSecond;
-    view.rerender(
-      <StrictMode>
-        <Harness />
-      </StrictMode>,
-    );
+    view.rerender(<Harness />);
 
-    vi.advanceTimersByTime(CONTEXT_LOST_GRACE_MS);
+    vi.advanceTimersByTime(CONTEXT_RELEASE_DELAY_MS);
     expect(glFirst.forceContextLoss).not.toHaveBeenCalled();
     expect(glSecond.forceContextLoss).not.toHaveBeenCalled();
 
     const onLost = vi.fn();
-    view.rerender(
-      <StrictMode>
-        <Harness onLost={onLost} />
-      </StrictMode>,
-    );
+    view.rerender(<Harness onLost={onLost} />);
     dispatchLost(sharedCanvas);
     expect(onLost).toHaveBeenCalledTimes(1);
 
@@ -126,22 +112,10 @@ describe("useWebGLContextGuard", () => {
     expect(event.defaultPrevented).toBe(true);
   });
 
-  it("calls onLost for a genuine context loss after the mount grace window", () => {
+  it("calls onLost for a genuine context loss", () => {
     const gl = mocks.gl!;
     const onLost = vi.fn();
     render(<Harness onLost={onLost} />);
-    vi.advanceTimersByTime(CONTEXT_LOST_GRACE_MS);
-    dispatchLost(gl.domElement);
-    expect(onLost).toHaveBeenCalledTimes(1);
-  });
-
-  it("ignores context loss during the mount grace window", () => {
-    const gl = mocks.gl!;
-    const onLost = vi.fn();
-    render(<Harness onLost={onLost} />);
-    dispatchLost(gl.domElement);
-    expect(onLost).not.toHaveBeenCalled();
-    vi.advanceTimersByTime(CONTEXT_LOST_GRACE_MS);
     dispatchLost(gl.domElement);
     expect(onLost).toHaveBeenCalledTimes(1);
   });
@@ -150,7 +124,6 @@ describe("useWebGLContextGuard", () => {
     const gl = mocks.gl!;
     const onLost = vi.fn();
     const view = render(<Harness onLost={onLost} />);
-    vi.advanceTimersByTime(CONTEXT_LOST_GRACE_MS);
     view.unmount();
     vi.advanceTimersByTime(CONTEXT_RELEASE_DELAY_MS);
     // The loss our own forceContextLoss() call triggers.
@@ -164,7 +137,6 @@ describe("useWebGLContextGuard", () => {
     const second = vi.fn();
     const view = render(<Harness onLost={first} />);
     view.rerender(<Harness onLost={second} />);
-    vi.advanceTimersByTime(CONTEXT_LOST_GRACE_MS);
     expect(gl.forceContextLoss).not.toHaveBeenCalled();
     dispatchLost(gl.domElement);
     expect(first).not.toHaveBeenCalled();
@@ -178,7 +150,6 @@ describe("WebGLContextGuard", () => {
     const onLost = vi.fn();
     const view = render(<WebGLContextGuard onLost={onLost} />);
     expect(view.container.innerHTML).toBe("");
-    vi.advanceTimersByTime(CONTEXT_LOST_GRACE_MS);
     dispatchLost(gl.domElement);
     expect(onLost).toHaveBeenCalledTimes(1);
   });

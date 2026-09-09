@@ -5,14 +5,13 @@ type PendingRelease = ReturnType<typeof setTimeout>;
 
 const pendingContextLossByCanvas = new WeakMap<HTMLCanvasElement, PendingRelease>();
 
-/** Release soon after unmount; the WeakMap cancels if the canvas is reattached first. */
-const CONTEXT_RELEASE_DELAY_MS = 50;
-
 /**
- * r3f schedules its own `forceContextLoss` 500ms after StrictMode's simulated
- * unmount. Ignore spurious losses until that window passes.
+ * Delay before releasing the WebGL context after unmount. Kept short but
+ * non-zero: if this effect re-runs on the same canvas element (a dependency
+ * change) before the delay elapses, the WeakMap-tracked timer is cancelled
+ * so a still-live canvas is never released out from under it.
  */
-const CONTEXT_LOST_GRACE_MS = 550;
+export const CONTEXT_RELEASE_DELAY_MS = 50;
 
 export interface UseWebGLContextGuardOptions {
   /** Called when the GPU genuinely loses the WebGL context (crash, driver reset, cap eviction). */
@@ -53,23 +52,16 @@ export function useWebGLContextGuard({
       pendingContextLossByCanvas.delete(canvas);
     }
 
-    let ignoreLosses = true;
-    const graceTimer = setTimeout(() => {
-      ignoreLosses = false;
-    }, CONTEXT_LOST_GRACE_MS);
-
     const handleContextLost = (event: Event) => {
       // three.js's own handler already prevents the default; doing it here
       // too keeps restoration possible if listener order ever changes.
       event.preventDefault();
-      if (ignoreLosses) return;
       onLostRef.current?.();
     };
 
     canvas.addEventListener("webglcontextlost", handleContextLost);
 
     return () => {
-      clearTimeout(graceTimer);
       // Removed before the release below, so the loss we cause ourselves
       // never reaches onLost.
       canvas.removeEventListener("webglcontextlost", handleContextLost);

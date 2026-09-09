@@ -33,13 +33,19 @@
  * If workspace switching (#657) ever registers more than the active one per
  * device, this filter needs revisiting.
  *
- * There is no shared count of a target's pages — the protocol has no such
- * field, and adding one is out of scope (#721 spends no new wire shape).
- * `pageByTarget` is this phone's own guess, started at 0 per target and
- * bumped by whichever button was pressed; `MAX_PAGE_INDEX` bounds it since
- * nothing here can confirm a page actually exists at that index — a
- * `flipPage` aimed past the target's last page already no-ops safely
- * (`useOperatingScreen`'s `pages[pageIndex]` lookup returns `undefined`).
+ * `flipPage` addresses a page *absolutely*, and nothing on the wire reports a
+ * target's current page — a screen paged at its own keyboard never tells the
+ * channel. So the phone cannot offer a true relative "next page": its first
+ * FORWARD would send page 1 to a workstation already sitting on page 3 and
+ * move it backwards. Rather than let the labels lie, the row shows the page
+ * number it will command (`PAGE 2`), so the control reads as what it is — an
+ * absolute page picker whose counter this phone owns per target. Reporting the
+ * real page back needs a new registration field; filed as a follow-up.
+ *
+ * `MAX_PAGE_INDEX` bounds the counter since nothing here can confirm a page
+ * exists at that index — a `flipPage` past the target's last page already
+ * no-ops safely (`useOperatingScreen`'s `pages[pageIndex]` lookup returns
+ * `undefined`).
  */
 
 import { useMemo, useState } from "react";
@@ -103,6 +109,7 @@ export function PhoneStateStrip() {
     [registrations, ownDeviceId, tick],
   );
   const flipTarget = flipTargets.length > 0 ? flipTargets[selectedIndex % flipTargets.length] : null;
+  const flipPageIndex = flipTarget ? (pageByTarget[registrationKey(flipTarget)] ?? 0) : 0;
 
   function cycleFlipTarget() {
     setSelectedIndex((index) => (index + 1) % flipTargets.length);
@@ -138,7 +145,7 @@ export function PhoneStateStrip() {
             <div className="phone-screens-controls">
               <Button
                 variant="secondary"
-                aria-label={`Flip ${flipTarget.label} to the previous page`}
+                aria-label={`Back: send ${flipTarget.label} to page ${Math.max(1, flipPageIndex)}`}
                 onClick={() => flip(-1)}
               >
                 BACK
@@ -156,11 +163,14 @@ export function PhoneStateStrip() {
               )}
               <Button
                 variant="secondary"
-                aria-label={`Flip ${flipTarget.label} to the next page`}
+                aria-label={`Forward: send ${flipTarget.label} to page ${Math.min(MAX_PAGE_INDEX, flipPageIndex + 1) + 1}`}
                 onClick={() => flip(1)}
               >
                 FORWARD
               </Button>
+              <span className="su-mono phone-screens-page" aria-hidden="true">
+                PAGE {flipPageIndex + 1}
+              </span>
             </div>
           )
         )}

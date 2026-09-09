@@ -75,7 +75,7 @@ describe("PhoneStateStrip screens control", () => {
     });
     render(<PhoneStateStrip />);
 
-    fireEvent.click(screen.getByRole("button", { name: /to the next page/ }));
+    fireEvent.click(screen.getByRole("button", { name: /^Forward: send/ }));
 
     expect(useOperatingStateStore.getState().lastCommand?.command).toEqual({
       type: "flipPage",
@@ -83,11 +83,38 @@ describe("PhoneStateStrip screens control", () => {
       pageIndex: 1,
     });
 
-    fireEvent.click(screen.getByRole("button", { name: /to the next page/ }));
+    fireEvent.click(screen.getByRole("button", { name: /^Forward: send/ }));
     expect(useOperatingStateStore.getState().lastCommand?.command).toEqual({
       type: "flipPage",
       workspaceId: "workstation-default",
       pageIndex: 2,
+    });
+  });
+
+  it("shows the absolute page it will command, because flipPage is not relative", () => {
+    // `flipPage` carries a page index, and a screen paged at its own keyboard
+    // never tells the channel, so this counter is the phone's own. Showing it
+    // keeps BACK/FORWARD honest about where the target will actually land.
+    registerForeignScreen({
+      deviceId: "workstation-1",
+      workspaceId: "workstation-default",
+      canvasType: "workstation",
+      label: "My workstation",
+      canCommand: true,
+    });
+    render(<PhoneStateStrip />);
+
+    expect(screen.getByText("PAGE 1")).toBeTruthy();
+
+    fireEvent.click(screen.getByRole("button", { name: /^Forward: send/ }));
+    expect(screen.getByText("PAGE 2")).toBeTruthy();
+
+    fireEvent.click(screen.getByRole("button", { name: /^Back: send/ }));
+    expect(screen.getByText("PAGE 1")).toBeTruthy();
+    expect(useOperatingStateStore.getState().lastCommand?.command).toEqual({
+      type: "flipPage",
+      workspaceId: "workstation-default",
+      pageIndex: 0,
     });
   });
 
@@ -130,7 +157,7 @@ describe("PhoneStateStrip screens control", () => {
       "MAIN WORKSTATION",
     );
 
-    fireEvent.click(screen.getByRole("button", { name: /to the next page/ }));
+    fireEvent.click(screen.getByRole("button", { name: /^Forward: send/ }));
     expect(useOperatingStateStore.getState().lastCommand?.command).toEqual({
       type: "flipPage",
       workspaceId: "workstation-default",
@@ -150,6 +177,6 @@ describe("PhoneStateStrip screens control", () => {
     render(<PhoneStateStrip />);
 
     expect(screen.getByText("Follow screens is off on this phone.")).toBeTruthy();
-    expect(screen.queryByRole("button", { name: /to the next page/ })).toBeNull();
+    expect(screen.queryByRole("button", { name: /^Forward: send/ })).toBeNull();
   });
 });

@@ -48,6 +48,12 @@
   text-align: end;
 }
 
+/* The absolute page number this phone will command; see PhoneStateStrip's docblock. */
+.phone-screens-page {
+  color: var(--su-text-muted);
+  white-space: nowrap;
+}
+
 .phone-page-body {
   flex: 1 1 auto;
   overflow-y: auto;

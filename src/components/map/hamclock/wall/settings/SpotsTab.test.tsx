@@ -101,3 +101,22 @@ it("observes source status when only the globe spectrum ring needs live spots", 
   renderTab();
   expect(useMapSpotFeed).toHaveBeenLastCalledWith(expect.objectContaining({ enabled: true }));
 });
+
+// B5 (round-4 review): `useViewMapSpots` ingests unfiltered and narrows on the
+// bound view's prefs, so `mapStore.spotFilters` no longer describes any feed a
+// renderer uses. If this tab passed it, opening the wall settings would key a
+// second live-spots query on an abandoned filter set, and the source states
+// printed here could disagree with the map they claim to describe. The
+// hamclock Bands entry path writes `mapStore.spotFilters.bands` (mapStore.ts),
+// so a non-empty value is reachable exactly where this tab is mounted.
+it("does not key its feed on the orphaned mapStore.spotFilters", () => {
+  act(() => {
+    useMapStore.setState({ spotFilters: { bands: ["20m"], modes: [] } });
+  });
+  renderTab();
+  const calls = vi.mocked(useMapSpotFeed).mock.calls;
+  expect(calls.length).toBeGreaterThan(0);
+  for (const [options] of calls) {
+    expect(options).not.toHaveProperty("spotFilters");
+  }
+});

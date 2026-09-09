@@ -144,9 +144,13 @@ export function HamClockBoundModeFilters() {
     (s) => s.setFiltersBeforeBands,
   );
   // Starts at a sentinel, not `hamclockMode`, so landing on this component
-  // already in Bands mode (hamclock layout entered directly into Bands, or
-  // `hamclockMode` restored from persistence as "bands") still counts as an
-  // entry transition below and captures/patches the runtime once.
+  // already in Bands mode still counts as an entry transition below and
+  // captures/patches the runtime once. Persisted "bands" never survives a
+  // reload — `hamclockStore.ts` coerces it back to "traffic" on rehydrate —
+  // but `hamclockMode` can still already be "bands" in memory when this
+  // mounts, e.g. via `LayoutModeDropdown.tsx`'s `selectMode` re-entering the
+  // hamclock layout with a stale in-memory mode, or a kiosk scene's
+  // `applySceneToMap.ts` setting `hamclockMode` before `setLayoutMode`.
   const prevModeRef = useRef<HamClockMode | null>(null);
 
   useEffect(() => {

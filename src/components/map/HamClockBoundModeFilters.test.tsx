@@ -60,9 +60,14 @@ describe("HamClockBoundModeFilters (SP-09 round 2, 1c)", () => {
     expect(useHamClockStore.getState().filtersBeforeBands).toBeNull();
   });
 
-  it("captures and patches on mount when hamclockMode is already 'bands' (layout entered, or restored from persistence, already in Bands mode)", () => {
-    // `hamclockMode` is persisted; a reload can land a fresh mount of this
-    // component directly in Bands mode with no mode *change* to react to.
+  it("captures and patches on mount when hamclockMode is already 'bands' (layout re-entered with a stale in-memory mode, or a kiosk scene pinning Bands)", () => {
+    // `hamclockMode` is persisted, but `hamclockStore.ts` coerces a persisted
+    // "bands" back to "traffic" on every rehydrate, so a reload never lands
+    // here. This component can still mount fresh with `hamclockMode` already
+    // "bands" via `LayoutModeDropdown.tsx`'s `selectMode` re-entering the
+    // hamclock layout while the in-memory mode is still "bands" from an
+    // earlier visit, or `lib/kiosk/applySceneToMap.ts` setting
+    // `hamclockMode` before `setLayoutMode` when a kiosk scene pins Bands.
     // mapStore's `setLayoutMode` used to independently seed
     // `filtersBeforeBands` for this case from its own legacy spotFilters,
     // which no longer type-matches the bound-view filter shape. This

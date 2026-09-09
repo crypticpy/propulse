@@ -106,6 +106,9 @@ export function SpotsQuickPopover({
 
   const { spots, customization } = controller;
   const activeRecipe = listActivityRecipes().find((recipe) => recipe.id === customization.presetId);
+  // The flat map has no cluster rendering yet (SP-09 round 3 B2) — grouping
+  // only ever draws on the globe/azimuthal projections.
+  const isFlatProjection = controller.config.presentation.projection === "flat";
 
   return createPortal(
     <div
@@ -177,15 +180,24 @@ export function SpotsQuickPopover({
         </div>
       </div>
 
-      <label className="mb-3 flex min-h-[40px] items-center justify-between gap-3 text-sm text-su-text">
-        <span>Group nearby spots</span>
-        <input
-          type="checkbox"
-          checked={spots.grouping.enabled}
-          onChange={(event) => controller.patchGrouping({ enabled: event.target.checked })}
-          className="h-5 w-5 accent-plasma-orange focus:outline-none focus:ring-2 focus:ring-plasma-orange/60"
-        />
-      </label>
+      <div className="mb-3">
+        <label className="flex min-h-[40px] items-center justify-between gap-3 text-sm text-su-text">
+          <span>Group nearby spots</span>
+          <input
+            type="checkbox"
+            checked={spots.grouping.enabled}
+            disabled={isFlatProjection}
+            onChange={(event) => controller.patchGrouping({ enabled: event.target.checked })}
+            className="h-5 w-5 accent-plasma-orange focus:outline-none focus:ring-2 focus:ring-plasma-orange/60 disabled:opacity-40 disabled:cursor-not-allowed"
+          />
+        </label>
+        {isFlatProjection && (
+          <p className="mt-1 text-xs text-su-muted">
+            Grouping applies to the globe and azimuthal projections, not the
+            flat map.
+          </p>
+        )}
+      </div>
 
       <div className="mb-3 text-sm text-su-text">
         <div className="flex items-center justify-between">

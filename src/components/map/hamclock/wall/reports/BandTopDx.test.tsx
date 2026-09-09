@@ -1,10 +1,10 @@
-import { render, screen } from "@testing-library/react";
+import { act, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { useLayoutEffect } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { ViewProvider } from "@/components/views/ViewProvider";
 import { useViewRuntime } from "@/components/views/ViewRuntimeContext";
-import { createMemoryWorkingStorage } from "@/lib/views/runtime";
+import { createMemoryWorkingStorage, type ScopedViewRuntime } from "@/lib/views/runtime";
 import { useBoundSelectedReportId } from "@/hooks/useBoundMapSelection";
 import { useDXStore } from "@/stores/dxStore";
 import { useMapStore } from "@/stores/mapStore";
@@ -84,5 +84,48 @@ describe("BandTopDx", () => {
     expect(useDXStore.getState().selectedSpot?.id).toBe("wall-spot-1");
     // ...and the runtime-bound reader must follow it, not the stale preset.
     expect(screen.getByTestId("bound-id").textContent).toBe("wall-spot-1");
+  });
+
+  it("narrows to the bound view runtime's band filter, not mapStore.spotFilters (SP-09 round 3 B1)", () => {
+    const spot20: DXSpot = {
+      id: "spot-20", spotter: "K1ABC", dx: "TWENTY", frequency: 14074,
+      band: "20m", mode: "FT8", comment: "", time: new Date(Date.now() - 60_000),
+      dxGrid: "GG87",
+    };
+    const spot40: DXSpot = {
+      id: "spot-40", spotter: "K1ABC", dx: "FORTY", frequency: 7074,
+      band: "40m", mode: "FT8", comment: "", time: new Date(Date.now() - 60_000),
+      dxGrid: "GG87",
+    };
+    useDXStore.setState({ spots: [spot20, spot40], spotSource: "rest" });
+
+    let runtime: ScopedViewRuntime | null = null;
+    function Capture() {
+      runtime = useViewRuntime();
+      return null;
+    }
+
+    render(
+      <ViewProvider ownerId="owner-b" slot="hamclock" storage={createMemoryWorkingStorage()}>
+        <Capture />
+        <BandTopDx />
+      </ViewProvider>,
+    );
+
+    expect(screen.getByRole("button", { name: /TWENTY/ })).toBeTruthy();
+    expect(screen.getByRole("button", { name: /FORTY/ })).toBeTruthy();
+
+    act(() => {
+      const snapshot = runtime!.getSnapshot();
+      runtime!.updateWorkingView({
+        spots: {
+          ...snapshot.config.spots,
+          filters: { ...snapshot.config.spots.filters, bands: ["20m"] },
+        },
+      });
+    });
+
+    expect(screen.getByRole("button", { name: /TWENTY/ })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: /FORTY/ })).toBeNull();
   });
 });

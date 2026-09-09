@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { act, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { useLayoutEffect, type ReactNode } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -131,5 +131,53 @@ describe("DXSpotList Work quick-action (PR #603 round 7, F-1/F-2)", () => {
 
     expect(capturedRuntime?.getSnapshot().interaction.selectedReportId).toBeNull();
     expect(capturedRuntime?.getSnapshot().interaction.target).toBeNull();
+  });
+});
+
+describe("DXSpotList band filter (SP-09 round 3 B1)", () => {
+  afterEach(() => {
+    useDXStore.setState({ spots: originalSpots });
+    mockClusterSpots = [];
+    capturedRuntime = null;
+  });
+
+  it("narrows to the bound view runtime's band filter, not mapStore.spotFilters", () => {
+    const spot20 = dxSpot({ id: "spot-20", dx: "TWENTY", band: "20m" });
+    const spot40 = dxSpot({ id: "spot-40", dx: "FORTY", band: "40m" });
+    mockClusterSpots = [spot20, spot40];
+    useDXStore.setState({ spots: [spot20, spot40] });
+
+    const storage = createMemoryWorkingStorage();
+    render(<DXSpotList />, { wrapper: makeWrapper(storage) });
+
+    expect(screen.getByText("TWENTY")).toBeTruthy();
+    expect(screen.getByText("FORTY")).toBeTruthy();
+
+    act(() => {
+      const snapshot = capturedRuntime!.getSnapshot();
+      capturedRuntime!.updateWorkingView({
+        spots: {
+          ...snapshot.config.spots,
+          filters: { ...snapshot.config.spots.filters, bands: ["20m"] },
+        },
+      });
+    });
+
+    expect(screen.getByText("TWENTY")).toBeTruthy();
+    expect(screen.queryByText("FORTY")).toBeNull();
+  });
+
+  it("renders without a ViewProvider, since it also mounts bare on the /map/ops popout window", () => {
+    // `DXSpotList` is reachable from `PropSphereOpsWindow` -> `OpsConsole`
+    // with no `ViewProvider` above it. `useOptionalViewEffectiveSpots` must
+    // fall back to unfiltered spots instead of throwing `useViewRuntime
+    // requires ViewProvider`.
+    const spot = dxSpot({ id: "bare-spot", dx: "BARE", band: "20m" });
+    mockClusterSpots = [spot];
+    useDXStore.setState({ spots: [spot] });
+
+    render(<DXSpotList />);
+
+    expect(screen.getByText("BARE")).toBeTruthy();
   });
 });

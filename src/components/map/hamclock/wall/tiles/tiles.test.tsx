@@ -1,8 +1,11 @@
-import { render, screen } from "@testing-library/react";
+import { act, render, screen } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { ReactElement } from "react";
 import SunCalc from "suncalc";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { ViewProvider } from "@/components/views/ViewProvider";
+import { useViewRuntime } from "@/components/views/ViewRuntimeContext";
+import { createMemoryWorkingStorage, type ScopedViewRuntime } from "@/lib/views/runtime";
 import { WALL_TILE_IDS } from "@/lib/hamclock/wallPages";
 import { latLonToGrid } from "@/lib/utils/grid";
 import { formatDistance, getPathMetrics } from "@/lib/utils/path";
@@ -36,9 +39,9 @@ const mocks = vi.hoisted(() => ({
 }));
 
 vi.mock("@/stores/mapStore", () => ({
-  // ClusterTile reads `spotFilters` from the real store; keep its shape so
-  // that tile keeps working now this file also stubs `target` for
-  // DxTargetTile.
+  // ClusterTile no longer reads `spotFilters` from this store (SP-09 round 3
+  // B1 — it reads the bound view runtime instead). This mock stays only for
+  // `target`, which DxTargetTile still reads from here.
   useMapStore: (
     selector: (state: {
       target: unknown;
@@ -260,6 +263,74 @@ describe("ClusterTile", () => {
     expect(screen.getByText("KEPT")).toBeTruthy();
     expect(screen.queryByText("REJECTED")).toBeNull();
     view.unmount();
+    useDXStore.setState(original);
+  });
+
+  it("narrows to the bound view runtime's band filter, not mapStore.spotFilters (SP-09 round 3 B1)", () => {
+    const original = useDXStore.getState();
+    const spot20 = {
+      id: "20M-SPOT", dx: "TWENTY", spotter: "N0TEST", frequency: 14_074,
+      comment: "", time: new Date("2026-09-05T13:10:00Z"), band: "20m",
+    };
+    const spot40 = {
+      id: "40M-SPOT", dx: "FORTY", spotter: "N0TEST", frequency: 7_074,
+      comment: "", time: new Date("2026-09-05T13:10:00Z"), band: "40m",
+    };
+    useDXStore.setState({
+      spots: [spot20, spot40], spotSource: "rest", filters: { maxAge: 30 },
+    });
+
+    let runtime: ScopedViewRuntime | null = null;
+    function Capture() {
+      runtime = useViewRuntime();
+      return null;
+    }
+
+    const view = draw(
+      <ViewProvider ownerId="cluster-tile-test" slot="hamclock" storage={createMemoryWorkingStorage()}>
+        <Capture />
+        <ClusterTile />
+      </ViewProvider>,
+    );
+
+    // Before any filter, both rows show.
+    expect(screen.getByText("TWENTY")).toBeTruthy();
+    expect(screen.getByText("FORTY")).toBeTruthy();
+
+    act(() => {
+      const snapshot = runtime!.getSnapshot();
+      runtime!.updateWorkingView({
+        spots: {
+          ...snapshot.config.spots,
+          filters: { ...snapshot.config.spots.filters, bands: ["20m"] },
+        },
+      });
+    });
+
+    // Narrowed to the runtime's band filter: 40m drops, 20m stays.
+    expect(screen.getByText("TWENTY")).toBeTruthy();
+    expect(screen.queryByText("FORTY")).toBeNull();
+
+    view.unmount();
+    useDXStore.setState(original);
+  });
+
+  it("renders without a ViewProvider, since it also mounts bare via the workspace canvas widget loader", () => {
+    // `ClusterTile` is reachable from `workspace/widgetLoaders.ts` with no
+    // bound view above it. `useOptionalViewEffectiveSpots` must fall back to
+    // unfiltered spots instead of throwing `useViewRuntime requires
+    // ViewProvider`.
+    const original = useDXStore.getState();
+    const spot = {
+      id: "BARE-SPOT", dx: "BARE", spotter: "N0TEST", frequency: 14_074,
+      comment: "", time: new Date("2026-09-05T13:10:00Z"), band: "20m",
+    };
+    useDXStore.setState({ spots: [spot], spotSource: "rest", filters: { maxAge: 30 } });
+
+    draw(<ClusterTile />);
+
+    expect(screen.getByText("BARE")).toBeTruthy();
+
     useDXStore.setState(original);
   });
 });

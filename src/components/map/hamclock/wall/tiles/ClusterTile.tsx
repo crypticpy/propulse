@@ -1,12 +1,12 @@
 import { useMemo, useState } from "react";
 import { useActiveLocation } from "@/hooks/useActiveLocation";
 import { useUTCClock } from "@/hooks/useUTCClock";
+import { useOptionalViewEffectiveSpots } from "@/hooks/useViewClusterSpots";
 import { filterClusterAge } from "@/lib/dx/clusterHistory";
 import { filterBridgeSpotAge } from "@/lib/hamclock/clusterBridge";
 import { filterMapSpots } from "@/lib/map/filterMapSpots";
 import { getBandColor } from "@/lib/utils/spotColors";
 import { useDXStore } from "@/stores/dxStore";
-import { useMapStore } from "@/stores/mapStore";
 import type { DXSpot } from "@/types/dxcluster";
 import { HamClockTile } from "../HamClockTile";
 import { ClusterReport } from "../reports/ClusterReport";
@@ -47,7 +47,12 @@ export function ClusterTile() {
   const feedState = useDXStore((s) => s.clusterFeed);
   const source = useDXStore((s) => s.spotSource);
   const maxAge = useDXStore((s) => s.filters.maxAge);
-  const spotFilters = useMapStore((s) => s.spotFilters);
+  // Band filter comes from the bound view's own runtime (SP-09 round 3), not
+  // the retired `mapStore.spotFilters`. This tile also mounts bare from the
+  // workspace canvas (`widgetLoaders.ts`), which has no bound view above it —
+  // the optional variant falls back to unfiltered spots there instead of
+  // throwing.
+  const viewSpots = useOptionalViewEffectiveSpots();
   const now = useUTCClock(10_000);
   const [reportOpen, setReportOpen] = useState(false);
 
@@ -56,9 +61,9 @@ export function ClusterTile() {
       source === "bridge"
         ? filterBridgeSpotAge(allSpots ?? [], maxAge, now.getTime())
         : filterClusterAge(allSpots ?? [], maxAge, now.getTime()),
-      spotFilters,
+      { bands: viewSpots.filters.bands, modes: [] },
     ),
-    [allSpots, spotFilters, maxAge, now, source],
+    [allSpots, viewSpots.filters.bands, maxAge, now, source],
   );
   const rows = spots.slice(0, MAX_ROWS);
   const feed = source === "bridge" ? "BRIDGE" : "CLUSTER";

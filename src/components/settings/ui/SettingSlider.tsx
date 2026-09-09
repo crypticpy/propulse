@@ -8,6 +8,7 @@ export function SettingSlider({
   step,
   formatValue,
   onChange,
+  disabled,
 }: {
   id: string;
   label: string;
@@ -18,6 +19,7 @@ export function SettingSlider({
   step?: number;
   formatValue?: (value: number) => string;
   onChange: (value: number) => void;
+  disabled?: boolean;
 }) {
   const displayValue = formatValue ? formatValue(value) : String(value);
 
@@ -42,7 +44,8 @@ export function SettingSlider({
         step={step ?? 1}
         value={value}
         onChange={(e) => onChange(Number(e.target.value))}
-        className="w-full h-2 bg-void-black rounded-lg appearance-none cursor-pointer accent-plasma-orange"
+        disabled={disabled}
+        className="w-full h-2 bg-void-black rounded-lg appearance-none cursor-pointer accent-plasma-orange disabled:opacity-40 disabled:cursor-not-allowed"
       />
       {description && (
         <p className="text-xs text-su-muted mt-1">{description}</p>

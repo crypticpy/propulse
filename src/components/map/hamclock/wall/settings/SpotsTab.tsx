@@ -25,14 +25,16 @@ export function SpotsTab() {
   const age = useMapStore((s) => s.spotAgeMinutes);
   const setAge = useMapStore((s) => s.setSpotAgeMinutes);
   const layers = useMapStore((s) => s.layers);
-  const spotFilters = useMapStore((s) => s.spotFilters);
   const station = useUserStore((s) => s.station);
   const sources = useDXStore((s) => s.filters.sources);
+  // No `spotFilters` here on purpose. `useViewMapSpots` ingests unfiltered and
+  // narrows downstream on the bound view's prefs, so passing `mapStore.spotFilters`
+  // would key this on a filter set no renderer uses -- a second live-spots query
+  // whose source states could disagree with the map this tab is describing.
   const feed = useMapSpotFeed({
     grid: station?.grid,
     enabled: layers.spots || layers.spotTraces || layers.gridActivity || layers.spectrumRing,
     sources,
-    spotFilters,
   });
   // Preserve an intermediate value chosen with the existing desktop slider.
   const choices = DENSITIES.includes(density)

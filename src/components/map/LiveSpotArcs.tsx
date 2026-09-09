@@ -774,6 +774,12 @@ export function LiveSpotArcs({
     () => projectLiveSpotsForView(ownedFeed.spots, viewSpots, Date.now()),
     [ownedFeed.spots, viewSpots],
   );
+  // `projectLiveSpotsForView` drops non-matching spots entirely (SP-04); a
+  // spot that fails the band/mode/source/age filter never reaches `spots`
+  // below, so it is not rendered at all. This replaces the old behavior of
+  // still drawing every spot but dimming non-matching ones to ~0.3 opacity
+  // (`filterOpacity`) — that visual dimming is gone deliberately, not a
+  // regression.
   const spots = suppliedSpots ?? ownedProjection.mapBudgeted;
   const isLoading = suppliedIsLoading ?? ownedFeed.isLoading;
 

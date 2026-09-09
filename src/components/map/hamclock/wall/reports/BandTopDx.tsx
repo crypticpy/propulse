@@ -2,6 +2,7 @@ import { useMemo } from "react";
 import { TuneButton } from "@/components/radio/TuneButton";
 import { useUTCClock } from "@/hooks/useUTCClock";
 import { useActiveLocation } from "@/hooks/useActiveLocation";
+import { useViewEffectiveSpots } from "@/hooks/useViewClusterSpots";
 import { rankLoadedDx } from "@/lib/hamclock/topDx";
 import { resolveUnits } from "@/lib/hamclock/units";
 import { filterMapSpots } from "@/lib/map/filterMapSpots";
@@ -19,12 +20,15 @@ export function BandTopDx() {
   const home = useActiveLocation();
   const spots = useDXStore((s) => s.spots);
   const source = useDXStore((s) => s.spotSource);
-  const filters = useMapStore((s) => s.spotFilters);
+  // Band filter comes from the bound view's own runtime (SP-09 round 3), not
+  // the retired `mapStore.spotFilters` — this report is only ever mounted
+  // inside the wall's `BoundViewHost`, so the throwing hook is safe here.
+  const viewSpots = useViewEffectiveSpots();
   const units = useHamClockDisplayStore((s) => s.units);
   const now = useUTCClock(30_000).getTime();
   const rows = useMemo(
-    () => (home ? rankLoadedDx(filterMapSpots(spots, filters), home, now, source === "bridge" ? BRIDGE_CLOCK_TOLERANCE_MS : 0) : []),
-    [home, spots, filters, now, source],
+    () => (home ? rankLoadedDx(filterMapSpots(spots, { bands: viewSpots.filters.bands, modes: [] }), home, now, source === "bridge" ? BRIDGE_CLOCK_TOLERANCE_MS : 0) : []),
+    [home, spots, viewSpots.filters.bands, now, source],
   );
   const [ref, visible] = useVisibleRows<HTMLDivElement>(rows.length);
   const resolved = resolveUnits(units, home?.grid);

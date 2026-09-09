@@ -3895,12 +3895,16 @@ export function FlatMapView({
   }, [selectedSpot, target]);
 
   // Feed new spots into the grid glow renderer when spots arrive.
-  // Uses ungroupedResolvedSpots (not resolvedSpots) so the glow grid matches
-  // where the dot lands: a grouped member's dot is replaced by the cluster
-  // glyph at the group anchor, so it must not pulse at its own location
-  // either (#778).
+  // Two different feeds here, deliberately (#778):
+  //   - which spots may glow: ungroupedResolvedSpots, so the pulse follows the
+  //     dot layer. A grouped member's dot is replaced by the cluster glyph at
+  //     the group anchor, so it must not pulse at its own location either.
+  //   - which spots count as already seen: the whole resolvedSpots feed. A spot
+  //     absorbed into a cluster is still on the map; dropping it from the seen
+  //     set would replay every member as a fresh arrival the moment the cluster
+  //     dissolves (grouping toggled off, or "Map these spots").
   useEffect(() => {
-    const currentIds = new Set(ungroupedResolvedSpots.map((spot) => spot.id));
+    const currentIds = new Set(resolvedSpots.map((spot) => spot.id));
     if (layers.gridActivity) {
       // The canonical density/recency cells replace the unrelated arrival
       // pulse while this layer is active. Advance the seen set so disabling
@@ -3947,6 +3951,7 @@ export function FlatMapView({
 
     if (newCount > 0) startGlowLoopRef.current();
   }, [
+    resolvedSpots,
     ungroupedResolvedSpots,
     layers.spots,
     layers.spotTraces,

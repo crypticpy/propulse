@@ -617,4 +617,29 @@ describe("FlatMapView arrival-pulse glow follows the dot layer (#778)", () => {
     );
     expect(joinerCalls.length).toBeGreaterThan(0);
   });
+
+  it("does not re-pulse a cluster's members when the cluster dissolves", async () => {
+    // The seen set is kept from the full `resolvedSpots` feed, not from the
+    // ungrouped one, precisely so a spot that is hidden inside a cluster is
+    // still remembered. Turning grouping off hands all three Spain members
+    // back to the dot layer at once; they are not new arrivals and must not
+    // pulse. Keeping the seen set on `ungroupedResolvedSpots` would forget
+    // them and glow the whole group here.
+    const { feed: groupedFeed } = buildFeed(ALL, true);
+    currentFeed = groupedFeed;
+    const { rerenderTree } = await mount();
+    addGlowSpy.mockClear();
+
+    const { feed: ungroupedFeed } = buildFeed(ALL, false);
+    currentFeed = ungroupedFeed;
+    rerenderTree();
+
+    const memberGrids = GROUPED.map((spot) =>
+      latLonToGrid(spot.dxLat!, spot.dxLon!, 4).toUpperCase(),
+    );
+    const memberCalls = addGlowSpy.mock.calls.filter(([glow]) =>
+      memberGrids.includes(glow.gridSquare.toUpperCase()),
+    );
+    expect(memberCalls).toEqual([]);
+  });
 });

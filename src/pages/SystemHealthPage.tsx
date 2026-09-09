@@ -36,11 +36,31 @@ interface ServiceDef {
   idleReason?: string; // shown when service has no cache entry
 }
 
+// Tailwind-compatible accent token names, matching the keys the station
+// palette (`tailwind.config.js`) resolves to `rgb(var(--su-*-rgb))`.
+type AccentToken =
+  | "plasma-orange"
+  | "signal-green"
+  | "nebula-blue"
+  | "cosmic-cyan"
+  | "aurora-purple";
+
+// Single source of truth for each accent token's CSS colour, mirroring the
+// `--su-*-rgb` variable tailwind.config.js binds the token to. Used for both
+// the card's top rule and its icon so they can never drift from each other
+// or from the theme (see #787/#788/#789).
+const ACCENT_TOKEN_COLORS: Record<AccentToken, string> = {
+  "plasma-orange": "rgb(var(--su-accent-rgb))",
+  "signal-green": "rgb(var(--su-success-rgb))",
+  "nebula-blue": "rgb(var(--su-panel-rgb))",
+  "cosmic-cyan": "rgb(var(--su-info-rgb))",
+  "aurora-purple": "rgb(var(--su-purple-rgb))",
+};
+
 interface CategoryDef {
   id: string;
   title: string;
-  accentColor: string; // tailwind-compatible color token
-  accentHex: string;
+  accentColor: AccentToken;
   icon: "sun" | "antenna" | "search" | "book" | "satellite" | "model";
   services: ServiceDef[];
 }
@@ -50,7 +70,6 @@ const CATEGORIES: CategoryDef[] = [
     id: "space-weather",
     title: "Space Weather",
     accentColor: "plasma-orange",
-    accentHex: "#ff6b35",
     icon: "sun",
     services: [
       {
@@ -89,7 +108,6 @@ const CATEGORIES: CategoryDef[] = [
     id: "spot-networks",
     title: "Spot Networks",
     accentColor: "signal-green",
-    accentHex: "#00ff88",
     icon: "antenna",
     services: [
       {
@@ -119,7 +137,6 @@ const CATEGORIES: CategoryDef[] = [
     id: "callsign-lookup",
     title: "Callsign Lookup",
     accentColor: "nebula-blue",
-    accentHex: "#1a1a2e",
     icon: "search",
     services: [
       {
@@ -149,7 +166,6 @@ const CATEGORIES: CategoryDef[] = [
     id: "logbook-sync",
     title: "Logbook Sync",
     accentColor: "cosmic-cyan",
-    accentHex: "#44ddff",
     icon: "book",
     services: [
       {
@@ -179,7 +195,6 @@ const CATEGORIES: CategoryDef[] = [
     id: "satellite-data",
     title: "Satellite Data",
     accentColor: "aurora-purple",
-    accentHex: "#aa44ff",
     icon: "satellite",
     services: [
       {
@@ -1079,12 +1094,18 @@ export function SystemHealthPage() {
           return (
             <Card key={cat.id} className="p-0 overflow-hidden">
               {/* Accent top border */}
-              <div className="h-[2px]" style={{ background: cat.accentHex }} />
+              <div
+                className="h-[2px]"
+                style={{ background: ACCENT_TOKEN_COLORS[cat.accentColor] }}
+              />
 
               <div className="p-3 md:p-4 space-y-3">
                 {/* Category header */}
                 <div className="flex items-center gap-2.5">
-                  <CategoryIcon icon={cat.icon} color={cat.accentHex} />
+                  <CategoryIcon
+                    icon={cat.icon}
+                    color={ACCENT_TOKEN_COLORS[cat.accentColor]}
+                  />
                   <span className="text-sm font-semibold text-su-text flex-1">
                     {cat.title}
                   </span>

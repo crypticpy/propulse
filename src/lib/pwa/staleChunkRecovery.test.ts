@@ -121,7 +121,11 @@ describe("installStaleChunkRecovery", () => {
     expect(locationReplace).not.toHaveBeenCalled();
   });
 
-  it("clears the attempt counter once the app boots after a recovery navigation", async () => {
+  it("keeps counting attempts across the recovery navigation so the cap can trip", async () => {
+    // Booting is not evidence that recovery worked: the app shell loaded, but the
+    // lazy chunk that failed is fetched later. Clearing the counter here would
+    // reset it before a second attempt could ever be counted, and the reload loop
+    // this cap exists to bound would run forever.
     window.sessionStorage.setItem(
       STORAGE_KEY,
       JSON.stringify({ at: Date.now(), attempts: 2 }),
@@ -133,12 +137,25 @@ describe("installStaleChunkRecovery", () => {
 
     uninstall = installStaleChunkRecovery();
 
-    expect(window.sessionStorage.getItem(STORAGE_KEY)).toBeNull();
-
-    // With the counter cleared, a fresh failure should be allowed to navigate
-    // again instead of staying suppressed from the prior window.
     dispatchPreloadError();
     await flushRecovery();
+
+    expect(locationReplace).not.toHaveBeenCalled();
+    expect(console.error).toHaveBeenCalledWith(
+      "A deployed application chunk is still unavailable after recovery. Reload suppressed.",
+    );
+  });
+
+  it("allows recovery again once the retry window has elapsed", async () => {
+    window.sessionStorage.setItem(
+      STORAGE_KEY,
+      JSON.stringify({ at: Date.now() - 61_000, attempts: 2 }),
+    );
+    uninstall = installStaleChunkRecovery();
+
+    dispatchPreloadError();
+    await flushRecovery();
+
     expect(locationReplace).toHaveBeenCalledTimes(1);
   });
 });

@@ -27,14 +27,6 @@ function writeRecoveryRecord(record: RecoveryRecord): void {
   }
 }
 
-function clearRecoveryRecord(): void {
-  try {
-    window.sessionStorage.removeItem(RECOVERY_STORAGE_KEY);
-  } catch {
-    // Storage can be unavailable in privacy-restricted browser contexts.
-  }
-}
-
 async function clearStaleAppShell(): Promise<void> {
   const cleanup: Promise<unknown>[] = [];
 
@@ -59,13 +51,12 @@ async function clearStaleAppShell(): Promise<void> {
   await Promise.allSettled(cleanup);
 }
 
-function removeRecoveryQueryParam(): boolean {
+function removeRecoveryQueryParam(): void {
   const url = new URL(window.location.href);
-  if (!url.searchParams.has(RECOVERY_QUERY_PARAM)) return false;
+  if (!url.searchParams.has(RECOVERY_QUERY_PARAM)) return;
 
   url.searchParams.delete(RECOVERY_QUERY_PARAM);
   window.history.replaceState(window.history.state, "", url.toString());
-  return true;
 }
 
 /**
@@ -84,12 +75,13 @@ export function recoverFromStaleChunk(): void {
 }
 
 export function installStaleChunkRecovery(): () => void {
-  const recoveredFromReload = removeRecoveryQueryParam();
-  if (recoveredFromReload) {
-    // The app booted after a recovery navigation, so the deploy is caught up.
-    // Reset the counter instead of letting it linger for the rest of the window.
-    clearRecoveryRecord();
-  }
+  // Deliberately does NOT clear the attempt counter when the app boots after a
+  // recovery navigation. Booting only proves the app *shell* loaded; the lazy
+  // chunk that failed is fetched later, so treating boot as success resets the
+  // counter before a second attempt can ever be counted and the cap below can
+  // never trip. The rolling `RECOVERY_WINDOW_MS` is the reset: 60 s without a
+  // preload error means recovery worked.
+  removeRecoveryQueryParam();
 
   // Deliberately does not call event.preventDefault(). Vite's preload helper
   // re-throws the load failure only while the default is not prevented:

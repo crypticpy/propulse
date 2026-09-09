@@ -42,7 +42,11 @@ function aggregateByBand(cells: HeatmapCell[]): Map<string, BandRow> {
   for (const cell of cells) {
     const existing = rows.get(cell.band);
     if (!existing) {
-      rows.set(cell.band, { band: cell.band, count: cell.count, ladder: cell.ladder });
+      rows.set(cell.band, {
+        band: cell.band,
+        count: cell.count,
+        ladder: cell.ladder,
+      });
       continue;
     }
     existing.count += cell.count;
@@ -58,6 +62,7 @@ export function PhoneBandLadder() {
   const visibleBands = useWorkspaceStore((state) => state.phoneVisibleBands);
   const currentBand = useOperatingStateStore((state) => state.cursor.band);
   const setBand = useOperatingStateStore((state) => state.setBand);
+  const setTarget = useOperatingStateStore((state) => state.setTarget);
 
   const rows = useMemo(() => {
     const inputs = spots
@@ -65,7 +70,8 @@ export function PhoneBandLadder() {
       .filter((input): input is HeatmapSpotInput => input !== null);
     const byBand = aggregateByBand(computeHeatmap(inputs));
     return BAND_ORDER.filter((band) => visibleBands.includes(band)).map(
-      (band) => byBand.get(band) ?? { band, count: 0, ladder: "closed" as LadderState },
+      (band) =>
+        byBand.get(band) ?? { band, count: 0, ladder: "closed" as LadderState },
     );
   }, [spots, visibleBands]);
 
@@ -85,11 +91,25 @@ export function PhoneBandLadder() {
             type="button"
             className="phone-band-row"
             data-selected={row.band === currentBand}
-            style={{ borderInlineStartColor: LADDER_HUE_PRESET.bucketColors[LADDER_RANK[row.ladder]] }}
-            onClick={() => setBand(row.band)}
+            style={{
+              borderInlineStartColor:
+                LADDER_HUE_PRESET.bucketColors[LADDER_RANK[row.ladder]],
+            }}
+            onClick={() => {
+              // A target picked on another band must not carry over as this
+              // band's "current selection" (Codex P2 on #685): per-field
+              // cursor writes leave `target` untouched, so clear it here
+              // whenever the band actually changes.
+              if (row.band !== currentBand) setTarget(null);
+              setBand(row.band);
+            }}
           >
-            <span className="phone-band-row-name">{row.band.toUpperCase()}</span>
-            <span className="phone-band-row-verdict">{row.ladder.toUpperCase()}</span>
+            <span className="phone-band-row-name">
+              {row.band.toUpperCase()}
+            </span>
+            <span className="phone-band-row-verdict">
+              {row.ladder.toUpperCase()}
+            </span>
             <span className="phone-band-row-count su-mono">{row.count}</span>
           </button>
         </div>

@@ -47,8 +47,31 @@ describe("PhonePage", () => {
     expect(useOperatingStateStore.getState().cursor.band).toBe("20m");
   });
 
+  it("switching bands clears a target picked on the previous band", () => {
+    useDXStore.setState({
+      spots: [spot({ band: "20m" }), spot({ id: "b", band: "40m" })],
+    });
+    useOperatingStateStore.getState().setBand("20m");
+    useOperatingStateStore.getState().setTarget({
+      callsign: "PY2ABC",
+      grid: null,
+      lat: null,
+      lon: null,
+      spotId: "a",
+    });
+    render(<PhonePage />);
+
+    fireEvent.click(screen.getByRole("button", { name: /40M/ }));
+
+    const { cursor } = useOperatingStateStore.getState();
+    expect(cursor.band).toBe("40m");
+    expect(cursor.target).toBeNull();
+  });
+
   it("visibleBands filters the ladder to the phone's own setting", () => {
-    useDXStore.setState({ spots: [spot({ band: "20m" }), spot({ id: "b", band: "40m" })] });
+    useDXStore.setState({
+      spots: [spot({ band: "20m" }), spot({ id: "b", band: "40m" })],
+    });
     useWorkspaceStore.getState().setPhoneVisibleBands(["40m"]);
     render(<PhonePage />);
 
@@ -57,12 +80,16 @@ describe("PhonePage", () => {
   });
 
   it("flipping to the contacts page and tapping a spot calls selectSpot", () => {
-    useDXStore.setState({ spots: [spot({ id: "s1", dx: "PY2ABC", band: "20m" })] });
+    useDXStore.setState({
+      spots: [spot({ id: "s1", dx: "PY2ABC", band: "20m" })],
+    });
     useOperatingStateStore.getState().setBand("20m");
     render(<PhonePage />);
 
     fireEvent.click(screen.getByRole("button", { name: "Next page" }));
-    expect(screen.getByRole("tab", { selected: true }).getAttribute("aria-label")).toContain("CONTACTS");
+    expect(
+      screen.getByRole("tab", { selected: true }).getAttribute("aria-label"),
+    ).toContain("CONTACTS");
 
     fireEvent.click(screen.getByRole("button", { name: /PY2ABC/ }));
 
@@ -73,8 +100,12 @@ describe("PhonePage", () => {
   it("page dots flip pages, and PREVIOUS/NEXT are disabled at the ends", () => {
     render(<PhonePage />);
 
-    const previous = screen.getByRole("button", { name: "Previous page" }) as HTMLButtonElement;
-    const next = screen.getByRole("button", { name: "Next page" }) as HTMLButtonElement;
+    const previous = screen.getByRole("button", {
+      name: "Previous page",
+    }) as HTMLButtonElement;
+    const next = screen.getByRole("button", {
+      name: "Next page",
+    }) as HTMLButtonElement;
     expect(previous.disabled).toBe(true);
     expect(next.disabled).toBe(false);
 
@@ -83,7 +114,9 @@ describe("PhonePage", () => {
 
     fireEvent.click(dots[2]);
     expect(next.disabled).toBe(true);
-    expect(screen.getByRole("tab", { selected: true }).getAttribute("aria-label")).toContain("SELECTION");
+    expect(
+      screen.getByRole("tab", { selected: true }).getAttribute("aria-label"),
+    ).toContain("SELECTION");
   });
 
   // The phone canvas's page budget (`CANVAS_RULES.phone.phone`:

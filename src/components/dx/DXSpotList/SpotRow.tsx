@@ -10,7 +10,7 @@
 
 import { memo, useMemo, useCallback, useState, useEffect, useRef } from "react";
 import { getBandColor } from "@/lib/api/dxcluster";
-import { getBandColor as getBandHexColor } from "@/lib/utils/spotColors";
+import { getBandColor as getBandHexColor, withAlpha } from "@/lib/utils/spotColors";
 import { getSpotAgeInfo, formatSpotAge } from "@/components/map/LiveSpotArcs";
 import {
   parseSplitFromComment,
@@ -35,15 +35,6 @@ import { GRID_PREFIX_LENGTH, COPY_FEEDBACK_TIMEOUT_MS } from "./constants";
  * Full width + green = fresh, depleting toward red = stale.
  * Max age is 30 minutes for the bar visualization.
  */
-/** Append a 2-digit hex alpha to a hex color string (strips existing alpha). */
-function withAlpha(hex: string, alpha: number): string {
-  const base = hex.length === 9 ? hex.slice(0, 7) : hex;
-  const a = Math.round(Math.min(1, Math.max(0, alpha)) * 255)
-    .toString(16)
-    .padStart(2, "0");
-  return `${base}${a}`;
-}
-
 function AgeProgressBar({ minutesAgo }: { minutesAgo: number }) {
   const maxAge = 30;
   const pct = Math.max(

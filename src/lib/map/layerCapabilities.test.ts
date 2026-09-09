@@ -169,7 +169,7 @@ describe("resolveHeroProjection", () => {
     },
     {
       name: "keeps preferred azimuthal when the set is in its table",
-      layers: ["spots", "terminator"] as const,
+      layers: ["spots", "terminator", "gridActivity"] as const,
       preferred: "azimuthal" as const,
       projection: "azimuthal",
       forcedBy: [],

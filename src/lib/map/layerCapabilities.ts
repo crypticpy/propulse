@@ -106,6 +106,7 @@ export const AZIMUTHAL_SUPPORTED_LAYER_KEYS = [
   "earthquakes",
   "activations",
   "fires",
+  "gridActivity",
   "labels",
   "lightning",
   "nightLights",

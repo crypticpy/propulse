@@ -22,6 +22,32 @@ const LOW_BANDS = new Set(["160m", "80m", "40m"]);
 export const MIN_NOWCAST_SCORE = 0.35;
 const GREYLINE_HORIZON_MS = 2 * 60 * 60 * 1000;
 
+export const SPOTS_EXCLUDED_TIME_SHIFT =
+  "spots excluded (time shift)" as const;
+
+const EXCLUDED_NEARBY_EVIDENCE_BASIS =
+  "Live spot evidence excluded (time shift)";
+
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+/** Strip the time-shift spot disclaimer for compact PathAnalysis display. */
+export function stripTimeShiftFromVerdictLine(line: string): {
+  hasTimeShift: boolean;
+  body: string;
+} {
+  if (!line.includes(SPOTS_EXCLUDED_TIME_SHIFT)) {
+    return { hasTimeShift: false, body: line };
+  }
+  const label = escapeRegExp(SPOTS_EXCLUDED_TIME_SHIFT);
+  const body = line
+    .replace(new RegExp(`;\\s*${label}`, "g"), "")
+    .replace(new RegExp(`\\s*\\(\\s*${label}\\s*\\)\\s*`, "g"), "")
+    .trim();
+  return { hasTimeShift: true, body };
+}
+
 export interface NowCastHint {
   band: string;
   issueTime: string | null;
@@ -54,6 +80,8 @@ export interface BuildDecisionInput {
   spotsFetchedAt?: number | null;
   radiusKm: number;
   nowCast?: NowCastHint | null;
+  /** When false, live spot evidence was excluded (e.g. time-control replay). */
+  evidenceLive?: boolean;
 }
 
 function wizardMode(mode: "SSB" | "CW" | "FT8"): WizardMode {
@@ -89,18 +117,6 @@ function hrefs(
 
 function isoStamp(date: Date): string | null {
   return isValidClock(date) ? date.toISOString() : null;
-}
-
-/** Highest HF band whose lower edge is still below `mufMHz`. */
-export function highestBandBelow(mufMHz: number): string | null {
-  for (let i = BAND_ORDER.length - 1; i >= 0; i--) {
-    const band = BAND_ORDER[i];
-    const range = BAND_RANGES[band];
-    if (range && range.startKHz / 1000 < mufMHz) {
-      return band;
-    }
-  }
-  return null;
 }
 
 /** True when any frequency in the band lies strictly inside (luf, muf). */
@@ -208,6 +224,8 @@ function buildLine(args: {
   physicsBand: string | null;
   nowCastBand: string | null;
   nowCastInWindow: boolean;
+  evidenceLive: boolean;
+  spottedNotModeled: boolean;
 }): string {
   const {
     tone,
@@ -219,10 +237,13 @@ function buildLine(args: {
     physicsBand,
     nowCastBand,
     nowCastInWindow,
+    evidenceLive,
+    spottedNotModeled,
   } = args;
   const mufBit = pathMuf ? `path MUF ${pathMuf.muf.toFixed(1)} MHz` : "no path MUF";
-  const spotBit =
-    nearby.count === 0
+  const spotBit = !evidenceLive
+    ? SPOTS_EXCLUDED_TIME_SHIFT
+    : nearby.count === 0
       ? "no nearby spots"
       : `${nearby.count} spot${nearby.count === 1 ? "" : "s"} within ${nearby.radiusKm} km`;
 
@@ -243,7 +264,11 @@ function buildLine(args: {
     nowCastInWindow,
   });
   const greyBit = greylineActive ? `; ${greylineLabel}` : "";
-  return `Workable now on ${band} (${mufBit}; ${spotBit}${nowCastBit}${greyBit}).`;
+  const spottedBit =
+    spottedNotModeled && band && physicsBand
+      ? `; ${band} spotted, not modeled (physics: ${physicsBand})`
+      : "";
+  return `Workable now on ${band} (${mufBit}; ${spotBit}${nowCastBit}${spottedBit}${greyBit}).`;
 }
 
 export function buildVerdict(
@@ -269,8 +294,11 @@ export function buildVerdict(
       bandIntersectsWindow(spottedBand, pathMuf.luf, pathMuf.muf),
   );
 
+  const evidenceLive = input.evidenceLive ?? true;
+
   let tone: DecisionTone = "unknown";
   let bestBand: string | null = null;
+  let spottedNotModeled = false;
 
   if (pathMuf) {
     bestBand = physicsBand;
@@ -289,7 +317,15 @@ export function buildVerdict(
   if (tone === "open") {
     if (nowCastInWindow && nowCastBand) {
       bestBand = nowCastBand;
-    } else if (spottedInWindow && spottedBand && !nowCastBand) {
+    } else if (
+      evidenceLive &&
+      spottedInWindow &&
+      spottedBand &&
+      !nowCastBand
+    ) {
+      if (spottedBand !== physicsBand) {
+        spottedNotModeled = true;
+      }
       bestBand = spottedBand;
     }
   }
@@ -303,11 +339,13 @@ export function buildVerdict(
       `NowCast ${nowCastBand}${input.nowCast?.issueTime ? ` issue ${input.nowCast.issueTime}` : ""}`,
     );
   }
-  parts.push(nearby.evidence.basis);
+  parts.push(
+    evidenceLive ? nearby.evidence.basis : EXCLUDED_NEARBY_EVIDENCE_BASIS,
+  );
 
   const observedAt =
     pathMuf?.evidence.observedAt ??
-    nearby.evidence.observedAt ??
+    (evidenceLive ? nearby.evidence.observedAt : null) ??
     input.nowCast?.issueTime ??
     null;
   const fetchedAt =
@@ -327,6 +365,8 @@ export function buildVerdict(
       physicsBand,
       nowCastBand,
       nowCastInWindow,
+      evidenceLive,
+      spottedNotModeled,
     }),
     tone,
     bestBand,
@@ -357,6 +397,7 @@ export function buildDecisionReport(input: BuildDecisionInput): DecisionReport {
           date: input.date,
           sfi: input.sfi,
           kp: input.kp ?? 0,
+          kpAssumed: input.kp == null,
           txPowerWatts: input.txPowerWatts,
           mode: input.mode,
           pathMode: input.pathMode,

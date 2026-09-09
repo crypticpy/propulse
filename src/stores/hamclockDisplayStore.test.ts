@@ -448,6 +448,19 @@ describe("sanitizeRailLayout (read-time cleanup, wall spec §6)", () => {
     expect(cleaned.right).toEqual([{ pageId: "spots", tileIds: ["bestBand"] }]);
   });
 
+  it("keeps optional catalogue tiles that are not on a shipped page", () => {
+    const cleaned = sanitizeRailLayout({
+      left: [{ pageId: "spots", tileIds: ["cluster", "contests"] }],
+      right: [{ pageId: "spots", tileIds: ["dxpeditions"] }],
+    });
+    expect(cleaned.left).toEqual([
+      { pageId: "spots", tileIds: ["cluster", "contests"] },
+    ]);
+    expect(cleaned.right).toEqual([
+      { pageId: "spots", tileIds: ["dxpeditions"] },
+    ]);
+  });
+
   it("falls back per-side to the shipped composition when a side ends up empty", () => {
     const cleaned = sanitizeRailLayout({
       left: [{ pageId: "retired-page", tileIds: ["moon"] }],
@@ -576,6 +589,29 @@ it.each([false, true])("adopts WSJT-X on an unchanged v6 SDR rail while preservi
   await display.persist.rehydrate();
   expect(display.getState().railLayout.left[0].tileIds).toEqual(custom ? tiles : ["sdrScope", "sdrDecodes", "wsjtx"]);
   expect(display.getState().railLayout.right[0].tileIds).toEqual(["cluster"]);
+});
+
+it.each([false, true])("adopts launches on an unchanged v9 Solar rail while preserving custom=$custom", async (custom) => {
+  const tiles = custom
+    ? ["moon", "sun"]
+    : ["moon", "greyLine", "muf", "reliability"];
+  sessionStorage.setItem(
+    "propulse-hamclock-display",
+    JSON.stringify({
+      version: 9,
+      state: {
+        railLayout: {
+          left: [{ pageId: "solar", tileIds: ["xray"] }],
+          right: [{ pageId: "solar", tileIds: tiles }],
+        },
+      },
+    }),
+  );
+  await display.persist.rehydrate();
+  expect(display.getState().railLayout.left[0].tileIds).toEqual(["xray"]);
+  expect(display.getState().railLayout.right[0].tileIds).toEqual(
+    custom ? tiles : ["moon", "greyLine", "muf", "reliability", "launches"],
+  );
 });
 
 it.each([6, 7].flatMap(version => [false, true].map(custom => ({ version, custom }))))("adopts PSK from v$version while preserving custom=$custom rails", async ({ version, custom }) => {

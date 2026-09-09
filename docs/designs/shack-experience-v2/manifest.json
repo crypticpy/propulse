@@ -1,0 +1,55 @@
+{
+  "generator": "built-in image_gen",
+  "status": "proposal, not implementation",
+  "images": [
+    {
+      "id": "01-editor",
+      "title": "Flowchart editor",
+      "image": "concepts/01-editor.png",
+      "prompt": "concepts/01-editor.prompt.txt",
+      "caption": "Named ports, orthogonal cable paths, groups and selection tools make construction direct. The inspector remains a centered dialog."
+    },
+    {
+      "id": "02-presentation",
+      "title": "Station presentation",
+      "image": "concepts/02-presentation.png",
+      "prompt": "concepts/02-presentation.prompt.txt",
+      "caption": "The same station becomes a composed reading view: featured route, quiet alternate branch, story and setup photos."
+    },
+    {
+      "id": "03-profile",
+      "title": "Profile and personal albums",
+      "image": "concepts/03-profile.png",
+      "prompt": "concepts/03-profile.exact.prompt.txt",
+      "caption": "Independent banner and avatar, personal albums and a chosen station showcase, with separate destinations for Photos, My shack and Gear for sale."
+    },
+    {
+      "id": "04-photo-viewer",
+      "title": "Enlarged photo viewer",
+      "image": "concepts/04-photo-viewer.png",
+      "prompt": "concepts/04-photo-viewer.exact.prompt.txt",
+      "caption": "A daylight owner-view example with a large photograph, caption, thumbnails, explicit navigation and zoom. The viewer also serves authorized public albums."
+    },
+    {
+      "id": "05-gear-directory",
+      "title": "Gear for sale",
+      "image": "concepts/05-gear-directory.png",
+      "prompt": "concepts/05-gear-directory.prompt.txt",
+      "caption": "A photo-led directory with search, categories, coarse regions, availability and seller contact. Demo listings; no checkout or protection claim."
+    },
+    {
+      "id": "06-sale-listing",
+      "title": "Sell this gear",
+      "image": "concepts/06-sale-listing.png",
+      "prompt": "concepts/06-sale-listing.prompt.txt",
+      "caption": "Choose public photos, write condition and inclusions, set asking terms, then preview. Private inventory stays distinct from the published snapshot."
+    },
+    {
+      "id": "07-gear-photos",
+      "title": "Gear photo manager",
+      "image": "concepts/07-gear-photos.png",
+      "prompt": "concepts/07-gear-photos.exact.prompt.txt",
+      "caption": "Upload images or paste an image link to preview and import a managed copy. Choose a cover, order photos, write captions and deliberately select where to share."
+    }
+  ]
+}

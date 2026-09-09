@@ -530,7 +530,7 @@ export const useHamClockDisplayStore = create<HamClockDisplayState>()(
     }),
     {
       name: "propulse-hamclock-display",
-      version: 9,
+      version: 10,
       storage: createJSONStorage(() => sessionStorage),
       migrate: (persisted: unknown, version: number) => {
         const state = (persisted ?? {}) as Record<string, unknown>;
@@ -594,6 +594,17 @@ export const useHamClockDisplayStore = create<HamClockDisplayState>()(
             "right",
             "sdr",
             ["bandActivity", "cluster", "bestBand", "pskStation"],
+          );
+        }
+        if (version < 10) {
+          // Launches tile (#627) ships on the Solar right rail. A session
+          // still on the pre-#627 shipped composition adopts the new one;
+          // a rail the operator rearranged is left exactly as it is.
+          state.railLayout = adoptShippedRailPage(
+            state.railLayout,
+            "right",
+            "solar",
+            ["moon", "greyLine", "muf", "reliability"],
           );
         }
         return state as unknown as HamClockDisplayState;

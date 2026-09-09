@@ -260,7 +260,14 @@
     "AlertToastContainer": "src/components/alerts/AlertToastContainer.tsx",
     "SpotAlertToastContainer": "src/components/alerts/SpotAlertToast.tsx",
     "EmergencyTickerBar": "src/components/alerts/EmergencyTickerBar.tsx",
-    "TickerCrawlSettingsDialog": "src/components/map/TickerCrawlSettingsDialog.tsx"
+    "TickerCrawlSettingsDialog": "src/components/map/TickerCrawlSettingsDialog.tsx",
+    "ContactScreen": "src/components/workspace/phone/ContactScreen.tsx",
+    "PhoneBandLadder": "src/components/workspace/phone/PhoneBandLadder.tsx",
+    "PhoneContactList": "src/components/workspace/phone/PhoneContactList.tsx",
+    "PhoneStateStrip": "src/components/workspace/phone/PhoneStateStrip.tsx",
+    "PhoneSetupMenu": "src/components/workspace/phone/PhoneSetupMenu.tsx",
+    "HeatMapStrip": "src/components/workspace/widgets/HeatMapStrip.tsx",
+    "HeatMapPanel": "src/components/workspace/widgets/HeatMapPanel.tsx"
   },
   "extraFonts": [
     ".design-sync/fonts/fonts.css"

@@ -15,6 +15,8 @@ export default tseslint.config(
       "bridge/dist",
       "collector/dist",
       "ml/", // Python ML workspace (venv bundles third-party JS)
+      "ds-bundle/", // design-sync build output: bundled React + generated .d.ts
+      ".design-sync/.cache/",
     ],
   },
   {

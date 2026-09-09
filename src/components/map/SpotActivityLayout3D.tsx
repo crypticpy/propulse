@@ -35,7 +35,7 @@ import {
   normalizePresentableSpot,
   type PresentableSpot,
 } from "@/lib/map/spotPresentation";
-import { useDXStore } from "@/stores/dxStore";
+import { useBoundSelectedReportId } from "@/hooks/useBoundMapSelection";
 import { useMapStore } from "@/stores/mapStore";
 import {
   useSpotClusteringPrefs,
@@ -137,7 +137,7 @@ export function SpotActivityLayout3D({
   onClusterClick,
 }: SpotActivityLayout3DProps) {
   const groupRef = useRef<THREE.Group>(null);
-  const selectedSpotId = useDXStore((state) => state.selectedSpot?.id);
+  const selectedSpotId = useBoundSelectedReportId();
   const matchedSpotIds = useWatchStore((state) => state.matchedSpotIds);
   const uiPrefs = useUIInteractionPrefs();
   const clusteringPrefs = useSpotClusteringPrefs();

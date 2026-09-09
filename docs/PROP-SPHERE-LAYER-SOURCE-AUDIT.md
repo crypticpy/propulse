@@ -105,7 +105,7 @@ Sources are classified as follows:
 | Logged QSOs | no/yes/no | User logbook | on change | C | Flat renderer only; other views disabled |
 | Earthquakes | yes/yes/yes | [USGS M2.5+ day GeoJSON](https://earthquake.usgs.gov/earthquakes/feed/v1.0/geojson.php) | 10 min | A | Healthy; direct client source should move behind shared edge cache before public scale |
 | Weather Alerts | yes/yes/yes | [NWS active alerts API](https://www.weather.gov/documentation/services-web-api) | 10 min | A | Healthy; US-only by source definition |
-| Lightning | yes/yes/yes | Proposed Blitzortung/LightningMaps raw stream | 1 min | Blocked | Disabled. [Raw data requires participant or explicit permission](https://www.blitzortung.org/en/contact.php); collector was intentionally not deployed |
+| Lightning | yes/yes/yes | Blitzortung/LightningMaps stream via the collector relay | 1 min | B | Unblocked by owner decision 2026-09-07 — see Amendment A. Was Blocked at audit date |
 | Active Fires | yes/yes/yes | [NASA FIRMS VIIRS NRT](https://firms.modaps.eosdis.nasa.gov/api/) via keyed edge proxy | 30 min | A | Healthy, server-cached, renderer capped at 5,000 instances |
 | Weather Radar | yes/no/no | [RainViewer public weather maps](https://www.rainviewer.com/api.html) | 10 min | B | Healthy contract; resource budget repaired; globe only |
 | GOES-East Cloud | yes/no/no | [NASA GIBS GOES-East ABI Band 13](https://gibs.earthdata.nasa.gov/layer-metadata/v1.0/GOES-East_ABI_Band13_Clean_Infrared.json) | 10 min latest | A | WMTS contract and coverage limits repaired; label now states GOES-East |
@@ -191,7 +191,7 @@ response, not whether the source has a fallback implementation.
 | Ducting model | Generated `2026-07-18T21:49:22.052Z` | Edge returned `200`, 646 empirical regions | no | 38,010 bytes; computed climatology, not an NWP forecast |
 | NOAA TEC experiment | Probe `Date: 2026-07-18T22:39:01Z`; no usable observation timestamp | Edge returned `200` with `available:false` | yes | 46 bytes; zero grid cells; client source gate prevents requests |
 | SST baseline | Production before merge returned the upstream daily aggregate | Edge returned `200`; compact preview required Vercel authentication | no | 2,427,205-byte/41,472-row baseline; repaired query targets about 2,600 cells before null filtering |
-| Lightning | No authorized collector or source timestamp exists | Client source gate prevents the request | n/a | zero client requests and zero rendered strikes |
+| Lightning | No authorized collector or source timestamp existed at audit date | Client source gate prevented the request | n/a | zero client requests and zero rendered strikes; superseded by Amendment A |
 | WSPR | Permission gate intentionally closed | Client source gate prevents the request | n/a | zero client requests and zero rendered paths |
 
 The exact probe commands are reproducible with `curl`, `stat`, and `jq`; tile
@@ -207,14 +207,43 @@ These are model/product upgrades, not blockers for the repaired layer system:
    pressure, temperature, and humidity profiles from a licensed NWP source.
 3. Add GIRO/DIDBase or another authorized ionosonde pipeline before offering a
    live Sporadic-E observation layer.
-4. Obtain explicit lightning data permission or contract with an operational
-   provider. Do not deploy the current raw WebSocket collector first and ask
-   later.
+4. ~~Obtain explicit lightning data permission or contract with an operational
+   provider.~~ Closed by owner decision 2026-09-07 (Amendment A). A contract with
+   an operational provider remains the right move before public scale, but it no
+   longer gates the layer.
 5. Move remaining direct browser feeds behind shared edge caching before a
    public beta, especially USGS earthquakes and NWS alerts.
 6. Replace build-time source flags with a small server-side capability endpoint
    when source credentials/permissions begin changing independently of product
    deployments.
+
+## Amendment A - lightning unblocked (2026-09-07)
+
+**Decision:** the owner recorded on issue #621 that the lightning data is open
+access and directed that the layer be unblocked. This closes owner decision 1 of
+this audit. The wall layer registry entry moves from `blocked` to `live` in PR
+#622; `src/lib/map/layerRegistry.test.ts` correspondingly asserts the blocked set
+is `["tec", "wspr"]`.
+
+**What was already true before the change.** The block was not a system-wide
+gate. The collector relay and the PropSphere layers popover were already live;
+only the wall Layers tab honoured the `blocked` flag. Production could therefore
+already reach `/api/lightning/strikes`. This change makes the wall consistent
+with the rest of the product rather than opening a new upstream path.
+
+**What this amendment does not claim.** No written permission or participant
+agreement from Blitzortung/LightningMaps is on file in this repository. The
+decision rests on the owner's determination that the feed is open access, and
+the owner carries that call. The status above is therefore **B - public but not
+contractual**, not **A**: proxy it, bound it, attribute it, and monitor it. If
+the upstream ever asserts otherwise, the layer returns to `blocked` and this
+amendment is superseded.
+
+**Still open for this layer.** The audit's original operational points stand:
+the feed exposes no source-observation timestamp we surface, so the layer must
+not imply a freshness it cannot evidence, and item 5 of *Remaining source
+upgrades* (shared edge caching before public beta) applies here as much as to
+the direct browser feeds.
 
 ## Verification contract
 

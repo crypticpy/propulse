@@ -4,7 +4,11 @@
  * aggregates (e.g. from `band_hourly_stats`/`path_hourly_stats`); this
  * module never fetches anything itself.
  *
- * Ratio formula: `log2((count + 1) / (meanCount + 1))`. The +1 smoothing
+ * Ratio formula: `log2((count + 1) / (meanCount + 1))`, clamped to [-3, 3]
+ * for display. Bounds render as <= / >= rather than implying an exact value.
+ * Regional ratio mode compares full-hour raw regional counts with the same
+ * UTC hour's regional 90-day median, never with the live client DX feed.
+ * The +1 smoothing
  * avoids `log2(0)` / divide-by-zero when either side is a true zero and has
  * a negligible effect once counts are in the double digits (the range the
  * "crowded" floor cares about). A ratio of 0 means "exactly at baseline";
@@ -17,6 +21,8 @@
  */
 
 import type { Continent } from "@/lib/utils/multipliers";
+import { BAND_ORDER } from "@/lib/data/bandRanges";
+import { HEATMAP_CONTINENTS, type HeatmapCell } from "./types";
 
 /** One hourly baseline aggregate row supplied by the caller. */
 export interface BaselineInput {
@@ -24,7 +30,7 @@ export interface BaselineInput {
   continent: Continent;
   /** Hour of day in UTC, 0-23. */
   utcHour: number;
-  /** Mean deduplicated DX count for this band/continent/hour. */
+  /** Baseline count for this band/continent/hour; the regional feed uses p50. */
   meanCount: number;
 }
 
@@ -80,7 +86,9 @@ export function lookupBaseline(
 }
 
 /**
- * log2 ratio of `count` against `meanCount`. Null when there is no baseline
+ * Smoothed log2 ratio of matched-population counts, clamped to [-3, 3].
+ * Values at the endpoints are bounds, not exact unsaturated ratios.
+ * Null when there is no baseline
  * to compare against — the caller renders the raw count without a ratio
  * claim, same convention as `classifyActivityLevel` in bandActivity.ts.
  */
@@ -89,7 +97,7 @@ export function computeRatio(
   meanCount: number | null,
 ): number | null {
   if (meanCount === null) return null;
-  return Math.log2((count + 1) / (meanCount + 1));
+  return Math.max(-3, Math.min(3, Math.log2((count + 1) / (meanCount + 1))));
 }
 
 /** Absolute-floor crowded flag: see the module doc for the reasoning. */
@@ -97,4 +105,38 @@ export function isCrowded(ratio: number | null, count: number): boolean {
   return (
     ratio !== null && ratio > CROWDED_RATIO_THRESHOLD && count >= CROWDED_MIN_COUNT
   );
+}
+
+export const REGIONAL_RATIO_LABEL = "LAST FULL HOUR vs 90-DAY MEDIAN";
+
+export function latestCompleteHour(now: number): string {
+  return new Date(Math.floor(now / 3_600_000) * 3_600_000 - 3_600_000).toISOString();
+}
+
+export function formatHeatmapRatio(ratio: number | null): string {
+  if (ratio === null) return "NO BASELINE";
+  if (ratio <= -3) return "\u2264-3.00";
+  if (ratio >= 3) return "\u22653.00";
+  return ratio.toFixed(2);
+}
+
+export function regionalHeatmapCells(
+  baseline: BaselineLookup,
+  current: ReadonlyMap<string, number>,
+  hourUtc: string,
+): HeatmapCell[] {
+  if (current.size === 0) return [];
+  const startMs = Date.parse(hourUtc);
+  const utcHour = new Date(startMs).getUTCHours();
+  return BAND_ORDER.flatMap((band) => HEATMAP_CONTINENTS.map((continent) => {
+    // Once a complete aggregate hour exists, omitted sparse cells mean zero.
+    // An entirely absent hour is a collector gap and never becomes zero data.
+    const count = current.get(baselineKey(band, continent, utcHour)) ?? 0;
+    const ratio = computeRatio(count, lookupBaseline(baseline, band, continent, utcHour));
+    return {
+      band, continent, count, ratio, crowded: isCrowded(ratio, count),
+      reporters: 0, ladder: "closed" as const,
+      window: { startMs, endMs: startMs + 3_600_000 },
+    };
+  }));
 }

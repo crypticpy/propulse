@@ -206,6 +206,18 @@ export function getSchedulePhase(
   return "ended";
 }
 
+/** Active windows first, then soonest start. Shared by contest and DXpedition lists. */
+export function compareActiveThenStart(
+  a: ScheduleWindow,
+  b: ScheduleWindow,
+  now: Date,
+): number {
+  const aActive = getSchedulePhase(a, now) === "active";
+  const bActive = getSchedulePhase(b, now) === "active";
+  if (aActive !== bActive) return aActive ? -1 : 1;
+  return Date.parse(a.startUtc) - Date.parse(b.startUtc);
+}
+
 /** Select the currently active operating segment, or the next real segment.
  * Returns null only after every published segment has ended. */
 export function selectScheduleWindow(

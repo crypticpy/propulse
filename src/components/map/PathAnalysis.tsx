@@ -19,6 +19,7 @@ import {
   type ReactNode,
 } from "react";
 import { useMapStore, type TargetLocation } from "@/stores/mapStore";
+import { useBoundVisualTarget } from "@/hooks/useBoundMapSelection";
 import {
   useUserStore,
   useActiveRadio,
@@ -53,6 +54,7 @@ import {
   formatUtcHm,
   NEARBY_RADIUS_KM_OPTIONS,
   DEFAULT_NEARBY_RADIUS_KM,
+  stripTimeShiftFromVerdictLine,
   type DecisionReport,
   type DecisionTone,
   type EndAlmanac,
@@ -496,7 +498,8 @@ export function PathAnalysis({
   onMinimize: _onMinimize,
   onClose,
 }: PathAnalysisProps) {
-  const target = useMapStore((s) => s.target);
+  const mapTarget = useMapStore((s) => s.target);
+  const target = useBoundVisualTarget(mapTarget);
   const timeOffset = useMapStore((s) => s.timeOffset);
   const absoluteTime = useMapStore((s) => s.absoluteTime);
   const isLive = timeOffset === 0 && !absoluteTime;
@@ -777,6 +780,7 @@ export function PathAnalysis({
         spotsFetchedAt: isLive ? clusterFeed.fetchedAt : null,
         radiusKm: nearbyRadiusKm,
         nowCast: isLive ? nowCastHint : null,
+        evidenceLive: isLive,
       });
     } catch {
       return null;
@@ -1022,14 +1026,26 @@ export function PathAnalysis({
                 </span>
               </>
             )}
-            {decision && (
-              <>
-                <div className="w-px h-3 bg-su-line/20" />
-                <span className="text-[10px] text-su-text truncate max-w-[240px]">
-                  {decision.verdict.line}
-                </span>
-              </>
-            )}
+            {decision && (() => {
+              const { hasTimeShift, body } = stripTimeShiftFromVerdictLine(
+                decision.verdict.line,
+              );
+              return (
+                <>
+                  <div className="w-px h-3 bg-su-line/20" />
+                  <div className="flex items-center gap-1 min-w-0 max-w-[280px]">
+                    {hasTimeShift && (
+                      <span className="text-xs text-su-muted flex-shrink-0 rounded bg-su-line/10 px-1 py-0.5">
+                        time shift
+                      </span>
+                    )}
+                    <span className="text-xs text-su-text truncate min-w-0">
+                      {body}
+                    </span>
+                  </div>
+                </>
+              );
+            })()}
           </div>
         ) : (
           /* EXPANDED: Restructured header with title top-left, icons top-right */
@@ -1717,7 +1733,7 @@ const FrequencyLimitsDisplay = memo(function FrequencyLimitsDisplay({
         {/* Compact frequency window bar */}
         <FrequencyWindowBar limits={limits} />
         {pathBasis && (
-          <p className="mt-1 text-[10px] leading-snug text-su-muted">{pathBasis}</p>
+          <p className="mt-1 text-xs leading-snug text-su-muted">{pathBasis}</p>
         )}
       </div>
     </div>

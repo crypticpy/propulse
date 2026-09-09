@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  compareActiveThenStart,
   dxpeditionWindow,
   getSchedulePhase,
   parseWa7bnmContest,
@@ -107,5 +108,19 @@ describe("HamClock schedule normalization", () => {
     expect(
       dxpeditionWindow({ startDate: "2026-02-01", endDate: "2026-02-30" }),
     ).toBeNull();
+  });
+
+  it("ranks active windows ahead of later starts", () => {
+    const now = new Date("2026-08-31T13:30:00.000Z");
+    const upcoming = {
+      startUtc: "2026-08-31T19:00:00.000Z",
+      endUtc: "2026-08-31T20:00:00.000Z",
+    };
+    const active = {
+      startUtc: "2026-08-31T13:00:00.000Z",
+      endUtc: "2026-08-31T14:00:00.000Z",
+    };
+    expect(compareActiveThenStart(upcoming, active, now)).toBeGreaterThan(0);
+    expect(compareActiveThenStart(active, upcoming, now)).toBeLessThan(0);
   });
 });

@@ -2,8 +2,11 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import type { ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
-import { useMapSpotSelection } from "@/hooks/useMapSpotSelection";
-import { useDXStore } from "@/stores/dxStore";
+import { useViewSpotSelection } from "@/hooks/useMapSpotSelection";
+import {
+  useBoundSelectedReportId,
+  useBoundVisualTarget,
+} from "@/hooks/useBoundMapSelection";
 import { useMapStore } from "@/stores/mapStore";
 import { applyLogIntent } from "@/lib/qso/logIntent";
 import { useKioskStore } from "@/stores/kioskStore";
@@ -17,7 +20,7 @@ import {
   formatDistance,
   getPathMetrics,
 } from "@/lib/utils/path";
-import { getModeColor } from "@/lib/utils/spotColors";
+import { getModeColor, modeInk } from "@/lib/utils/spotColors";
 import {
   getPathStatusBgColor,
   getPathStatusColor,
@@ -135,9 +138,10 @@ export function SelectedSpotCard({
   const cardRef = useRef<HTMLElement>(null);
   const [copied, setCopied] = useState(false);
   const navigate = useNavigate();
-  const selectMapSpot = useMapSpotSelection();
-  const selectedSpotId = useDXStore((state) => state.selectedSpot?.id);
-  const target = useMapStore((state) => state.target);
+  const selectMapSpot = useViewSpotSelection();
+  const selectedSpotId = useBoundSelectedReportId();
+  const mapTarget = useMapStore((state) => state.target);
+  const target = useBoundVisualTarget(mapTarget);
   const setTarget = useMapStore((state) => state.setTarget);
   const setIsolateTargetPath = useMapStore((state) => state.setIsolateTargetPath);
   const isKiosk = useKioskStore((state) => state.active);
@@ -287,6 +291,7 @@ export function SelectedSpotCard({
   if (!spot) return null;
 
   const modeColor = getModeColor(spot.mode);
+  const modeInkColor = modeInk(spot.mode);
   const sourcePresentation = getSpotPresentationSource(spot);
   const difficultyColor = difficulty ? DIFFICULTY_COLORS[difficulty] : null;
   const spotTime = spot.time instanceof Date ? spot.time : new Date(spot.time);
@@ -365,8 +370,8 @@ export function SelectedSpotCard({
             )}
             {spot.mode && (
               <span
-                className="rounded px-1.5 py-0.5 text-[10px] font-bold text-su-text"
-                style={{ backgroundColor: modeColor }}
+                className="rounded px-1.5 py-0.5 text-[10px] font-bold"
+                style={{ backgroundColor: modeColor, color: modeInkColor }}
               >
                 {spot.mode}
               </span>

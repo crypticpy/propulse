@@ -87,7 +87,7 @@ export const WALL_PAGES: readonly WallPageData[] = [
     title: "Solar & Space Wx",
     shortLabel: "Solar",
     left: ["xray", "solarWind", "spaceWx", "sun"],
-    right: ["moon", "greyLine", "muf", "reliability"],
+    right: ["moon", "greyLine", "muf", "reliability", "launches"],
   },
   {
     id: "forecast",
@@ -117,19 +117,28 @@ export const WALL_PAGES: readonly WallPageData[] = [
 assertUniqueTilesPerPage(WALL_PAGES);
 
 /**
- * Every tile id the shipped pages above reference, deduplicated in
- * first-appearance order. `WALL_TILES` (`wall/tiles/index.ts`) is the
- * runtime source of truth for what a tile id *is* (its title and
- * component); this is the plain-data view a dependency-free consumer (the
- * store) can check a persisted id against without importing the tile
- * component registry. This is a derivation from `WALL_PAGES`, not a second
- * hand-copied list, so it cannot drift from the catalogue above by
- * construction — `tiles.test.tsx` still asserts it covers every id
- * `WALL_TILES` registers, which is a registry-completeness check, not a
- * mirror-drift check.
+ * Optional catalogue tiles operators can add in Settings → Pages / Tiles.
+ * They are not on a shipped page (rails are already at density) but they
+ * MUST be in `WALL_TILE_IDS` or `sanitizeRailLayout` strips them on reload.
+ */
+export const OPTIONAL_WALL_TILE_IDS: readonly string[] = [
+  "contests",
+  "dxpeditions",
+];
+
+/**
+ * Every persistable tile id: shipped page tiles plus optional catalogue
+ * tiles. `WALL_TILES` (`wall/tiles/index.ts`) is the runtime source of
+ * truth for what a tile id *is*; this is the plain-data view a
+ * dependency-free consumer (the store) can check a persisted id against
+ * without importing the tile component registry. `tiles.test.tsx` asserts
+ * this set covers every id `WALL_TILES` registers.
  */
 export const WALL_TILE_IDS: readonly string[] = Array.from(
-  new Set(WALL_PAGES.flatMap((page) => [...page.left, ...page.right])),
+  new Set([
+    ...WALL_PAGES.flatMap((page) => [...page.left, ...page.right]),
+    ...OPTIONAL_WALL_TILE_IDS,
+  ]),
 );
 
 /** A page id's shipped title, or the id itself if it names no shipped page

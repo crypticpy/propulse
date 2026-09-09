@@ -11,6 +11,13 @@ import { createPortal } from "react-dom";
 const FOCUSABLE =
   'a[href], button:not([disabled]):not([tabindex="-1"]), input:not([disabled]):not([tabindex="-1"]), select:not([disabled]):not([tabindex="-1"]), textarea:not([disabled]):not([tabindex="-1"]), [tabindex]:not([tabindex="-1"])';
 
+type OpenDialogStackEntry = {
+  token: symbol;
+  portalRoot: HTMLElement | null;
+  opener: HTMLElement | null;
+  isOpen: boolean;
+};
+
 /**
  * Open dialogs in mounting order, with the active/topmost dialog last.
  *
@@ -19,7 +26,187 @@ const FOCUSABLE =
  * dialog also needs this stack guard: an outer dialog must yield to a nested
  * dialog instead of consuming the keypress and unmounting both.
  */
-const openDialogStack: symbol[] = [];
+const openDialogStack: OpenDialogStackEntry[] = [];
+
+/**
+ * What each background element looked like before this module first hid it.
+ *
+ * Restoring from a per-dialog snapshot instead would chain: a dialog opened on
+ * top of another records the one below as already inert, then re-applies that
+ * on close and leaves the page permanently unreachable.
+ */
+const originalBackgroundState = new Map<
+  HTMLElement,
+  { inert: boolean; ariaHidden: string | null }
+>();
+let previousBodyOverflow: string | null = null;
+
+/**
+ * Watches for body-level portals (Tooltip, ConfirmDialog, CommandPalette, and
+ * ~20 other `createPortal(..., document.body)` surfaces) that mount *after* a
+ * dialog is already open. `syncBackgroundInert` only runs on dialog open/close,
+ * so without this a late-mounted portal would stay reachable behind a modal.
+ *
+ * `childList`-only, no `subtree`: portals are always direct body children, and
+ * subtree observation would fire on every DOM change in the whole app. No
+ * `attributes`: this module writes `inert`/`aria-hidden` on body children
+ * itself, so observing attributes would retrigger the sync in a loop.
+ */
+let bodyPortalObserver: MutationObserver | null = null;
+
+/**
+ * Body children the observer has actually watched arrive, as opposed to
+ * ones that were already present when it started observing.
+ *
+ * This is what lets the foreign-modal exemption in `syncBackgroundInert`
+ * single out portals the app deliberately layered above a dialog (see the
+ * comment there) without also exempting `#root`: `#root` is a direct body
+ * child mounted at page bootstrap, long before any dialog's observer
+ * connects, so it can never be added to this set.
+ */
+const lateBodyPortals = new WeakSet<HTMLElement>();
+
+function ensureBodyPortalObserverConnected(): void {
+  if (bodyPortalObserver) return;
+  bodyPortalObserver = new MutationObserver((records) => {
+    for (const record of records) {
+      for (const node of record.addedNodes) {
+        if (node instanceof HTMLElement) lateBodyPortals.add(node);
+      }
+    }
+    syncBackgroundInert();
+  });
+  bodyPortalObserver.observe(document.body, { childList: true });
+}
+
+function disconnectBodyPortalObserver(): void {
+  bodyPortalObserver?.disconnect();
+  bodyPortalObserver = null;
+}
+
+function restoreOriginal(element: HTMLElement): void {
+  const original = originalBackgroundState.get(element);
+  if (!original) return;
+  element.inert = original.inert;
+  if (original.ariaHidden === null) element.removeAttribute("aria-hidden");
+  else element.setAttribute("aria-hidden", original.ariaHidden);
+}
+
+/**
+ * Only the topmost dialog stays reachable; every other body child — including
+ * the portals of dialogs and popovers below it — is inert and hidden.
+ *
+ * Recomputed from the whole stack on every open and close, so a dialog that
+ * closes while it is not on top can no longer release the background out from
+ * under the dialog that still is.
+ */
+function syncBackgroundInert(): void {
+  const top = openDialogStack[indexOfTopmostOpenEntry()];
+  if (!top) {
+    for (const element of originalBackgroundState.keys()) restoreOriginal(element);
+    originalBackgroundState.clear();
+    if (previousBodyOverflow !== null) {
+      document.body.style.overflow = previousBodyOverflow;
+      previousBodyOverflow = null;
+    }
+    disconnectBodyPortalObserver();
+    return;
+  }
+  ensureBodyPortalObserverConnected();
+  if (previousBodyOverflow === null) previousBodyOverflow = document.body.style.overflow;
+  document.body.style.overflow = "hidden";
+  // Every portalRoot on the stack (not just `top`'s) is exempt from the
+  // foreign-modal check below: a dialog lower in the stack still needs to be
+  // inerted while it isn't topmost, and it also carries `aria-modal="true"`
+  // on its panel, so without this it would wrongly match the exemption too.
+  const stackRoots = new Set(openDialogStack.map((entry) => entry.portalRoot));
+  for (const child of document.body.children) {
+    if (!(child instanceof HTMLElement)) continue;
+    if (!originalBackgroundState.has(child)) {
+      originalBackgroundState.set(child, {
+        inert: child.inert,
+        ariaHidden: child.getAttribute("aria-hidden"),
+      });
+    }
+    if (child === top.portalRoot) {
+      restoreOriginal(child);
+      continue;
+    }
+    // A body portal that arrived after this dialog started watching, isn't
+    // on this module's stack, and is itself a modal (ConfirmDialog,
+    // ImageCropDialog, EquipmentHeroCard's bare `createPortal`) was
+    // deliberately layered above the dialog by the app, not left behind by
+    // it. Inerting it would make it paint on top while being completely
+    // dead — unreachable by Tab/click, invisible to screen readers, and
+    // Escape would fall through to this dialog instead.
+    //
+    // The late-arrival check is load-bearing, not incidental: `#root` is a
+    // direct body child whose subtree is the entire app, and it always
+    // predates the observer (this component only ever portals to
+    // `document.body`, never into `#root`). Several components render
+    // `aria-modal="true"` inline rather than through a body portal —
+    // without requiring lateness, `#root.querySelector('[aria-modal="true"]')`
+    // would match whenever any of those is mounted and turn off background
+    // inert app-wide.
+    if (
+      lateBodyPortals.has(child) &&
+      !stackRoots.has(child) &&
+      child.querySelector('[aria-modal="true"]')
+    ) {
+      restoreOriginal(child);
+      continue;
+    }
+    child.inert = true;
+    child.setAttribute("aria-hidden", "true");
+  }
+  for (const element of [...originalBackgroundState.keys()]) {
+    if (!element.isConnected) originalBackgroundState.delete(element);
+  }
+}
+
+function isViableOpener(opener: HTMLElement): boolean {
+  return (
+    opener.isConnected &&
+    opener !== document.body &&
+    !opener.inert &&
+    opener.closest("[inert]") === null
+  );
+}
+
+function indexOfTopmostOpenEntry(): number {
+  for (let i = openDialogStack.length - 1; i >= 0; i -= 1) {
+    if (openDialogStack[i].isOpen) return i;
+  }
+  return -1;
+}
+
+function focusAfterTopmostClose(): void {
+  const topOpenIndex = indexOfTopmostOpenEntry();
+  if (topOpenIndex === -1) {
+    for (let i = openDialogStack.length - 1; i >= 0; i -= 1) {
+      const opener = openDialogStack[i].opener;
+      if (opener && isViableOpener(opener)) {
+        opener.focus();
+        return;
+      }
+    }
+    return;
+  }
+  for (let i = openDialogStack.length - 1; i > topOpenIndex; i -= 1) {
+    const opener = openDialogStack[i].opener;
+    if (opener && isViableOpener(opener)) {
+      opener.focus();
+      return;
+    }
+  }
+  const topEntry = openDialogStack[topOpenIndex];
+  const panel = topEntry.portalRoot?.querySelector<HTMLElement>('[role="dialog"]');
+  (panel ?? topEntry.portalRoot)?.focus();
+}
+
+function isTopmostOpen(token: symbol): boolean {
+  return openDialogStack[indexOfTopmostOpenEntry()]?.token === token;
+}
 
 export interface AccessibleDialogProps {
   open: boolean;
@@ -74,7 +261,6 @@ export function AccessibleDialog({
   const titleId = useId();
   const descriptionId = useId();
   const dialogRef = useRef<HTMLDivElement>(null);
-  const openerRef = useRef<HTMLElement | null>(null);
   const dialogTokenRef = useRef(Symbol("AccessibleDialog"));
   // Keep the listener registered for the entire open lifetime even when a
   // parent passes a freshly-created callback on rerender. Re-registering an
@@ -87,11 +273,7 @@ export function AccessibleDialog({
 
   const handleKeyDown = useCallback((event: KeyboardEvent) => {
     if (event.key === "Escape") {
-      if (
-        openDialogStack[openDialogStack.length - 1] !== dialogTokenRef.current
-      ) {
-        return;
-      }
+      if (!isTopmostOpen(dialogTokenRef.current)) return;
       event.preventDefault();
       // A modal owns Escape while it is open. Capture the event before
       // page-level shortcuts (for example FullscreenPropSphere's exit
@@ -103,6 +285,7 @@ export function AccessibleDialog({
       return;
     }
     if (event.key !== "Tab" || !dialogRef.current) return;
+    if (!isTopmostOpen(dialogTokenRef.current)) return;
     const controls = [...dialogRef.current.querySelectorAll<HTMLElement>(FOCUSABLE)].filter(
       (element) => !element.hasAttribute("hidden") && !element.closest("[hidden]"),
     );
@@ -125,24 +308,20 @@ export function AccessibleDialog({
   useEffect(() => {
     if (!open) return;
     const dialogToken = dialogTokenRef.current;
-    openerRef.current = document.activeElement as HTMLElement | null;
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    const portalRoot = dialogRef.current?.parentElement;
-    const background = [...document.body.children].filter(
-      (element): element is HTMLElement =>
-        element instanceof HTMLElement && element !== portalRoot,
+    const nextStackEntry: OpenDialogStackEntry = {
+      token: dialogToken,
+      portalRoot: dialogRef.current?.parentElement ?? null,
+      opener: document.activeElement as HTMLElement | null,
+      isOpen: true,
+    };
+    const existingStackIndex = openDialogStack.findIndex(
+      (entry) => entry.token === dialogToken,
     );
-    const backgroundState = background.map((element) => ({
-      element,
-      inert: element.inert,
-      ariaHidden: element.getAttribute("aria-hidden"),
-    }));
-    for (const element of background) {
-      element.inert = true;
-      element.setAttribute("aria-hidden", "true");
+    if (existingStackIndex !== -1) {
+      openDialogStack.splice(existingStackIndex, 1);
     }
-    openDialogStack.push(dialogToken);
+    openDialogStack.push(nextStackEntry);
+    syncBackgroundInert();
     document.addEventListener("keydown", handleKeyDown, true);
     const frame = requestAnimationFrame(() => {
       const first = dialogRef.current?.querySelector<HTMLElement>(FOCUSABLE);
@@ -151,15 +330,21 @@ export function AccessibleDialog({
     return () => {
       cancelAnimationFrame(frame);
       document.removeEventListener("keydown", handleKeyDown, true);
-      const stackIndex = openDialogStack.lastIndexOf(dialogToken);
-      if (stackIndex !== -1) openDialogStack.splice(stackIndex, 1);
-      document.body.style.overflow = previousOverflow;
-      for (const { element, inert, ariaHidden } of backgroundState) {
-        element.inert = inert;
-        if (ariaHidden === null) element.removeAttribute("aria-hidden");
-        else element.setAttribute("aria-hidden", ariaHidden);
+      const wasTopmost = isTopmostOpen(dialogToken);
+      const stackEntry = openDialogStack.find((entry) => entry.token === dialogToken);
+      if (stackEntry) stackEntry.isOpen = false;
+      syncBackgroundInert();
+      if (wasTopmost) focusAfterTopmostClose();
+      if (!openDialogStack.some((entry) => entry.isOpen)) {
+        openDialogStack.length = 0;
+      } else {
+        while (
+          openDialogStack.length > 0 &&
+          !openDialogStack[openDialogStack.length - 1].isOpen
+        ) {
+          openDialogStack.pop();
+        }
       }
-      openerRef.current?.focus();
     };
   }, [handleKeyDown, open]);
 
@@ -229,4 +414,14 @@ export function AccessibleDialog({
     </div>,
     document.body,
   );
+}
+
+/** @internal Counts map entries whose nodes were removed from the document. */
+// eslint-disable-next-line react-refresh/only-export-components -- test-only introspection
+export function countDetachedBackgroundStateEntriesForTest(): number {
+  let detached = 0;
+  for (const element of originalBackgroundState.keys()) {
+    if (!element.isConnected) detached += 1;
+  }
+  return detached;
 }

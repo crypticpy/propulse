@@ -406,8 +406,7 @@ export const LAYER_REGISTRY: Record<PropSphereLayerKey, LayerRegistryEntry> = {
   },
   lightning: {
     key: "lightning",
-    availability: "blocked",
-    blockedReason: "Disabled — no authorized lightning data source",
+    availability: "live",
     icon: "LT",
     name: "Lightning",
     category: "weather",

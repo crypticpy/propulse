@@ -24,10 +24,12 @@ function gridForLatLon(grid: string): string {
   return upper.length >= 8 ? upper.slice(0, 6) : upper;
 }
 
+export type DxLocatorSource = "coordinates" | "fourCharGrid" | "subsquareGrid";
+
 /** Locator-derived DX position only. Prefix/continent centroids are skipped. */
 export function dxLocatorPosition(
   spot: DXSpot,
-): { lat: number; lon: number } | null {
+): { lat: number; lon: number; source: DxLocatorSource } | null {
   if (spot.dxLocApprox) return null;
   if (
     spot.dxLat != null &&
@@ -35,12 +37,16 @@ export function dxLocatorPosition(
     Number.isFinite(spot.dxLat) &&
     Number.isFinite(spot.dxLon)
   ) {
-    return { lat: spot.dxLat, lon: spot.dxLon };
+    return { lat: spot.dxLat, lon: spot.dxLon, source: "coordinates" };
   }
   const grid = spot.dxGrid?.trim();
   if (!grid || grid.length < 4 || !isValidGrid(grid)) return null;
   try {
-    return gridToLatLon(gridForLatLon(grid));
+    const normalized = gridForLatLon(grid);
+    const source: DxLocatorSource =
+      normalized.length >= 6 ? "subsquareGrid" : "fourCharGrid";
+    const { lat, lon } = gridToLatLon(normalized);
+    return { lat, lon, source };
   } catch {
     return null;
   }
@@ -69,17 +75,21 @@ function isoOrNull(ms: number | null | undefined): string | null {
 export function nearbySpots(input: NearbySpotsInput): NearbySpotsResult {
   const radiusKm = input.radiusKm ?? DEFAULT_NEARBY_RADIUS_KM;
   const ranked: NearbySpotHit[] = [];
+  let usedFourCharGrid = false;
 
   for (const spot of input.spots) {
-    const position = dxLocatorPosition(spot);
-    if (!position) continue;
+    const located = dxLocatorPosition(spot);
+    if (!located) continue;
     const distanceKm = getDistance(
       input.targetLat,
       input.targetLon,
-      position.lat,
-      position.lon,
+      located.lat,
+      located.lon,
     );
     if (distanceKm > radiusKm) continue;
+    if (located.source === "fourCharGrid") {
+      usedFourCharGrid = true;
+    }
     const observedMs = spotObservedMs(spot);
     ranked.push({
       id: spot.id,
@@ -109,13 +119,19 @@ export function nearbySpots(input: NearbySpotsInput): NearbySpotsResult {
     return acc;
   }, null);
 
+  let basis = `Observed spots within ${radiusKm} km of the target (spot store)`;
+  if (usedFourCharGrid) {
+    basis +=
+      "; 4-char locators use square centres (±~125 km)";
+  }
+
   return {
     radiusKm,
     count: ranked.length,
     byBand,
     hits: ranked.slice(0, MAX_HITS),
     evidence: {
-      basis: `Observed spots within ${radiusKm} km of the target (spot store)`,
+      basis,
       observedAt: newest ?? isoOrNull(input.spotsObservedAt),
       fetchedAt:
         isoOrNull(input.spotsFetchedAt) ?? input.now?.toISOString() ?? null,

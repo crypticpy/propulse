@@ -5,9 +5,10 @@ import {
   buildDecisionReport,
   buildVerdict,
   favoredNowCastHint,
-  highestBandBelow,
   highestBandInWindow,
   MIN_NOWCAST_SCORE,
+  SPOTS_EXCLUDED_TIME_SHIFT,
+  stripTimeShiftFromVerdictLine,
 } from "./verdict";
 import type { GreylineSummary, NearbySpotsResult, PathMufSample } from "./types";
 
@@ -95,15 +96,6 @@ function baseInput(
     ...overrides,
   };
 }
-
-describe("highestBandBelow", () => {
-  it("returns the highest band whose lower edge is under the MUF", () => {
-    expect(highestBandBelow(21.5)).toBe("15m");
-    expect(highestBandBelow(14.2)).toBe("20m");
-    expect(highestBandBelow(3)).toBe("160m");
-    expect(highestBandBelow(1)).toBeNull();
-  });
-});
 
 describe("highestBandInWindow", () => {
   it("picks the highest band that intersects (LUF, MUF)", () => {
@@ -225,6 +217,84 @@ describe("buildVerdict", () => {
     expect(verdict.line).toMatch(/NowCast favors 40m/);
   });
 
+  it("labels time-shift mode when live spot evidence is excluded", () => {
+    const verdict = buildVerdict(
+      baseInput({ evidenceLive: false, nowCast: null, spots: [] }),
+      fakeMuf(),
+      emptyNearby,
+      quietGreyline,
+    );
+    expect(verdict.line).toMatch(/spots excluded \(time shift\)/);
+    expect(verdict.line).not.toMatch(/no nearby spots/);
+  });
+
+  it("does not override the physics band from spots when evidence is excluded", () => {
+    const nearby: NearbySpotsResult = {
+      radiusKm: 500,
+      count: 1,
+      byBand: { "20m": 1 },
+      hits: [
+        {
+          id: "s20",
+          dx: "G4ABC",
+          band: "20m",
+          frequencyKHz: 14074,
+          distanceKm: 40,
+          observedAt: "2026-06-21T15:50:00.000Z",
+        },
+      ],
+      evidence: {
+        basis: "Observed spots within 500 km of the target (spot store)",
+        observedAt: "2026-06-21T15:50:00.000Z",
+        fetchedAt: COMPUTED.toISOString(),
+      },
+    };
+    const verdict = buildVerdict(
+      baseInput({ evidenceLive: false, nowCast: null, spots: [nearbySpot] }),
+      fakeMuf({ muf: 19, luf: 5 }),
+      nearby,
+      quietGreyline,
+    );
+    expect(verdict.line).toMatch(/spots excluded \(time shift\)/);
+    expect(verdict.line).not.toMatch(/spotted, not modeled/);
+    expect(verdict.bestBand).toBe(highestBandInWindow(5, 19));
+    expect(verdict.bestBand).not.toBe("20m");
+    expect(verdict.evidence.basis).not.toMatch(/Observed spots/);
+    expect(verdict.evidence.basis).toMatch(/Live spot evidence excluded/);
+    expect(verdict.evidence.observedAt).toBe("2026-06-21T15:00:00.000Z");
+  });
+
+  it("marks a spotted-band override as not modeled on the path", () => {
+    const nearby: NearbySpotsResult = {
+      radiusKm: 500,
+      count: 1,
+      byBand: { "20m": 1 },
+      hits: [
+        {
+          id: "s20",
+          dx: "G4ABC",
+          band: "20m",
+          frequencyKHz: 14074,
+          distanceKm: 40,
+          observedAt: "2026-06-21T15:50:00.000Z",
+        },
+      ],
+      evidence: {
+        basis: "Observed spots within 500 km of the target (spot store)",
+        observedAt: "2026-06-21T15:50:00.000Z",
+        fetchedAt: COMPUTED.toISOString(),
+      },
+    };
+    const verdict = buildVerdict(
+      baseInput({ nowCast: null, spots: [nearbySpot] }),
+      fakeMuf({ muf: 19, luf: 5 }),
+      nearby,
+      quietGreyline,
+    );
+    expect(verdict.bestBand).toBe("20m");
+    expect(verdict.line).toMatch(/20m spotted, not modeled \(physics: 17m\)/);
+  });
+
   it("uses window tone only when greyline starts within two hours", () => {
     const soon = buildVerdict(
       baseInput({ nowCast: null, spots: [] }),
@@ -253,6 +323,24 @@ describe("buildVerdict", () => {
     );
     expect(far.tone).toBe("open");
     expect(far.line).toMatch(/Workable now/);
+  });
+});
+
+describe("stripTimeShiftFromVerdictLine", () => {
+  it("removes a standalone time-shift parenthetical without stray whitespace", () => {
+    const line = `Need solar flux to judge this path (${SPOTS_EXCLUDED_TIME_SHIFT}).`;
+    expect(stripTimeShiftFromVerdictLine(line)).toEqual({
+      hasTimeShift: true,
+      body: "Need solar flux to judge this path.",
+    });
+  });
+
+  it("removes an inline time-shift clause from workable verdicts", () => {
+    const line = `Workable now on 20m (path MUF 14.5 MHz; ${SPOTS_EXCLUDED_TIME_SHIFT}).`;
+    expect(stripTimeShiftFromVerdictLine(line)).toEqual({
+      hasTimeShift: true,
+      body: "Workable now on 20m (path MUF 14.5 MHz).",
+    });
   });
 });
 
@@ -291,5 +379,16 @@ describe("buildDecisionReport", () => {
     expect(report.pathMuf).toBeNull();
     expect(report.almanac.qth.utcTime).toBe("—");
     expect(report.generatedAt).toBe(COMPUTED.toISOString());
+  });
+
+  it("labels assumed Kp in path MUF basis when Kp is missing", () => {
+    const report = buildDecisionReport(baseInput({ kp: null }));
+    expect(report.pathMuf?.evidence.basis).toMatch(/Kp 0 assumed/);
+  });
+
+  it("omits the assumed label when Kp is supplied", () => {
+    const report = buildDecisionReport(baseInput({ kp: 2 }));
+    expect(report.pathMuf?.evidence.basis).toMatch(/Kp 2\)/);
+    expect(report.pathMuf?.evidence.basis).not.toMatch(/assumed/);
   });
 });

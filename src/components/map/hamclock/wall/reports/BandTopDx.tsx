@@ -8,12 +8,14 @@ import { filterMapSpots } from "@/lib/map/filterMapSpots";
 import { useDXStore } from "@/stores/dxStore";
 import { useMapStore } from "@/stores/mapStore";
 import { useHamClockDisplayStore } from "@/stores/hamclockDisplayStore";
+import { useOptionalViewRuntime } from "@/components/views/ViewRuntimeContext";
 import { HamClockButton } from "../controls";
 import { useVisibleRows } from "../useVisibleRows";
 
 const BRIDGE_CLOCK_TOLERANCE_MS = 60_000;
 
 export function BandTopDx() {
+  const runtime = useOptionalViewRuntime();
   const home = useActiveLocation();
   const spots = useDXStore((s) => s.spots);
   const source = useDXStore((s) => s.spotSource);
@@ -48,6 +50,7 @@ export function BandTopDx() {
                 map.setTarget({ ...target, name: spot.dx, grid: spot.dxGrid });
                 map.setCenterLocation(target.lat, target.lon);
                 useDXStore.getState().setSelectedSpot(spot);
+                runtime?.selectSpot(spot.id, { lat: target.lat, lon: target.lon });
               }}
             >
               {spot.dx} · {spot.band ?? "—"} · {distance(km)} ·{" "}

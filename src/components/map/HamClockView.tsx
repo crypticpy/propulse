@@ -16,6 +16,7 @@ import {
   Suspense,
   useEffect,
   useCallback,
+  useMemo,
   useRef,
   useState,
 } from "react";
@@ -25,7 +26,9 @@ import "@/styles/hamclock-wall.css";
 import "@/styles/hamclock-wall-forecast.css";
 import "@/styles/hamclock-wall-report.css";
 import "@/styles/hamclock-wall-controls.css";
+import { BoundViewHost } from "@/components/views/BoundViewHost";
 import { useHamClockRadioFollow } from "@/hooks/useHamClockRadioFollow";
+import { useHamClockWallOperatingState } from "@/hooks/useHamClockWallOperatingState";
 import { useHamClockDisplayStore } from "@/stores/hamclockDisplayStore";
 import { useKioskStore } from "@/stores/kioskStore";
 import {
@@ -39,7 +42,14 @@ import {
   HAMCLOCK_MODE_LAYERS,
   applyHamClockModeLayers,
 } from "@/lib/hamclock/modePresets";
-import { normalizeExclusiveLayers } from "@/lib/map/layerCapabilities";
+import {
+  enabledHeroCriticalLayers,
+  formatHeroProjectionChip,
+  normalizeExclusiveLayers,
+  resolveHeroProjection,
+  type PropSphereViewMode,
+} from "@/lib/map/layerCapabilities";
+import { LAYER_REGISTRY } from "@/lib/map/layerRegistry";
 import { useActiveLocation } from "@/hooks/useActiveLocation";
 import { FlatMapView } from "./FlatMapView";
 import { WatchStatusPill } from "@/components/map/WatchStatusPill";
@@ -85,6 +95,29 @@ function applyModeLayers(mode: HamClockMode) {
   });
 }
 
+type HeroForceLatch = {
+  wrote: PropSphereViewMode;
+  presetId: string | null;
+};
+
+function restoreForcedHeroProjection(latch: HeroForceLatch) {
+  const map = useMapStore.getState();
+  if (map.viewMode !== latch.wrote) return;
+  const preferred = useHamClockStore.getState().preferredViewMode;
+  const livePresetId = map.activePresetId;
+  const presetToRestore = livePresetId ?? latch.presetId;
+
+  if (map.viewMode !== preferred) {
+    map.setViewMode(preferred);
+  }
+  if (presetToRestore) {
+    map.setActivePreset(presetToRestore);
+    if (useMapStore.getState().viewMode !== preferred) {
+      useMapStore.setState({ viewMode: preferred });
+    }
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Main Component
 // ---------------------------------------------------------------------------
@@ -94,6 +127,11 @@ export function HamClockView({
   onLocationClick,
 }: HamClockViewProps) {
   useHamClockRadioFollow();
+  // Registers this screen on the shared operating roster and mirrors an
+  // inbound cursor's target onto `mapStore.target` (#712). Wall and desk
+  // density share this one mount, so there is exactly one registration
+  // regardless of which the operator has picked.
+  useHamClockWallOperatingState();
   const display = useHamClockDisplayStore();
   const frameHome = display.frameHome;
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -114,7 +152,95 @@ export function HamClockView({
   }, [activeLocation, kiosk, frameHome]);
 
   const viewMode = useMapStore((s) => s.viewMode);
+  const layers = useMapStore((s) => s.layers);
+  const preferredViewMode = useHamClockStore((s) => s.preferredViewMode);
   const mapContent = hamClockProjectionContent(viewMode, display.mapContent);
+
+  const requestedHeroLayers = useMemo(
+    () => enabledHeroCriticalLayers(layers),
+    [layers],
+  );
+  const heroProjection = useMemo(
+    () => resolveHeroProjection(requestedHeroLayers, preferredViewMode),
+    [requestedHeroLayers, preferredViewMode],
+  );
+  const projectionChip = formatHeroProjectionChip(
+    heroProjection,
+    preferredViewMode,
+    (key) => LAYER_REGISTRY[key as keyof typeof LAYER_REGISTRY]?.name ?? key,
+    viewMode,
+  );
+
+  const forceLatchRef = useRef<HeroForceLatch | null>(null);
+  const yieldedBlockerKeyRef = useRef<string | null>(null);
+  const lastPreferredRef = useRef(preferredViewMode);
+  const resolvedProjection = heroProjection.projection;
+  const blockerKey = heroProjection.forcedBy.join(",");
+
+  useEffect(() => {
+    const map = useMapStore.getState();
+    const yieldKey = `${blockerKey}|${preferredViewMode}`;
+    const preferredChanged = lastPreferredRef.current !== preferredViewMode;
+    lastPreferredRef.current = preferredViewMode;
+
+    if (blockerKey.length === 0) {
+      yieldedBlockerKeyRef.current = null;
+      const latch = forceLatchRef.current;
+      forceLatchRef.current = null;
+      if (latch) restoreForcedHeroProjection(latch);
+      return;
+    }
+
+    if (
+      yieldedBlockerKeyRef.current != null &&
+      yieldedBlockerKeyRef.current !== yieldKey
+    ) {
+      yieldedBlockerKeyRef.current = null;
+    }
+
+    if (yieldedBlockerKeyRef.current === yieldKey) {
+      return;
+    }
+
+    const latch = forceLatchRef.current;
+    if (latch && viewMode !== latch.wrote && !preferredChanged) {
+      forceLatchRef.current = null;
+      yieldedBlockerKeyRef.current = yieldKey;
+      return;
+    }
+
+    if (viewMode === resolvedProjection) {
+      if (
+        latch &&
+        map.activePresetId != null &&
+        map.activePresetId !== latch.presetId
+      ) {
+        forceLatchRef.current = { ...latch, presetId: map.activePresetId };
+      }
+      return;
+    }
+
+    if (forceLatchRef.current === null) {
+      forceLatchRef.current = {
+        wrote: resolvedProjection,
+        presetId: map.activePresetId,
+      };
+    } else {
+      forceLatchRef.current = {
+        ...forceLatchRef.current,
+        wrote: resolvedProjection,
+      };
+    }
+    map.setViewMode(resolvedProjection);
+  }, [viewMode, resolvedProjection, blockerKey, preferredViewMode]);
+
+  useEffect(() => {
+    return () => {
+      const latch = forceLatchRef.current;
+      forceLatchRef.current = null;
+      if (latch) restoreForcedHeroProjection(latch);
+    };
+  }, []);
 
   const hamclockMode = useHamClockStore((s) => s.hamclockMode);
   const setFiltersBeforeBands = useHamClockStore(
@@ -192,16 +318,27 @@ export function HamClockView({
         userNavigated.current = true;
       }}
     >
-      {viewMode === "flat" &&
-        display.homeRequest &&
-        Math.abs(display.homeRequest.lon) +
-          display.homeRequest.longitudeSpan / 2 >
-          180 && (
-          <div className="absolute top-2 left-2 z-10 rounded bg-void-black/90 p-2 text-xs text-su-text">
-            Dateline region · world overview. Use 3D for a centered regional
-            view.
+      <div className="absolute top-2 left-2 z-10 flex flex-col gap-1 pointer-events-none">
+        {projectionChip && (
+          <div
+            role="status"
+            className="hc-chip"
+            style={{ background: "var(--hc-fg)", paddingInline: "0.8vh" }}
+          >
+            {projectionChip}
           </div>
         )}
+        {viewMode === "flat" &&
+          display.homeRequest &&
+          Math.abs(display.homeRequest.lon) +
+            display.homeRequest.longitudeSpan / 2 >
+            180 && (
+            <div className="rounded bg-void-black/90 p-2 text-xs text-su-text">
+              Dateline region · world overview. Use 3D for a centered regional
+              view.
+            </div>
+          )}
+      </div>
       <Suspense
         fallback={
           <div className="flex h-full items-center justify-center font-mono text-xs uppercase tracking-widest text-su-text/80">
@@ -257,7 +394,7 @@ export function HamClockView({
   );
 
   return (
-    <>
+    <BoundViewHost slot="hamclock">
       <div
         data-hamclock-root
         data-hamclock-theme={display.theme}
@@ -268,7 +405,7 @@ export function HamClockView({
         </HamClockWall>
       </div>
       {settingsDialog}
-    </>
+    </BoundViewHost>
   );
 }
 

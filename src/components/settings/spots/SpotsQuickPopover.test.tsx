@@ -23,7 +23,7 @@ function Harness({ handle }: { handle: TestViewHandle }) {
   );
 }
 
-describe("SpotsQuickPopover grouping toggle (SP-09 round 3 B2)", () => {
+describe("SpotsQuickPopover grouping toggle (#746)", () => {
   // jsdom has no ResizeObserver; the popover uses one to reposition against
   // its trigger (same stub as SpotsPreferencesPanel.test.tsx).
   beforeEach(() => {
@@ -36,16 +36,17 @@ describe("SpotsQuickPopover grouping toggle (SP-09 round 3 B2)", () => {
     );
   });
 
-  it("disables the grouping checkbox and explains why on the flat projection", () => {
+  // Flat renders groups since #746; the option-B gate is gone.
+  it("keeps the grouping checkbox enabled on the flat projection (#746)", () => {
     const handle = createTestView({ family: "hamclock" });
     render(<Harness handle={handle} />);
 
     expect(
       (screen.getByRole("checkbox", { name: "Group nearby spots" }) as HTMLInputElement).disabled,
-    ).toBe(true);
+    ).toBe(false);
     expect(
-      screen.getByText(/Grouping applies to the globe and azimuthal projections/),
-    ).toBeTruthy();
+      screen.queryByText(/Grouping applies to the globe and azimuthal projections/),
+    ).toBeNull();
     handle.dispose();
   });
 

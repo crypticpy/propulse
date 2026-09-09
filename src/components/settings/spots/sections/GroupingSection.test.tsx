@@ -117,25 +117,27 @@ describe("GroupingSection", () => {
     expect(controllerB?.spots.grouping.enabled).toBe(true);
   });
 
-  it("disables grouping controls on the flat projection and explains why (SP-09 round 3 B2)", () => {
+  // The flat map renders cluster glyphs since #746, so the option-B gate that
+  // #615 added here is gone. `family: "hamclock"` is the flat-projection view.
+  it("keeps grouping controls enabled on the flat projection (#746)", () => {
     const handle = createTestView({ family: "hamclock" });
     render(<Harness handle={handle} />);
 
     expect(
       (screen.getByRole("switch", { name: "Group nearby reports" }) as HTMLButtonElement).disabled,
-    ).toBe(true);
+    ).toBe(false);
     expect((screen.getByRole("radio", { name: "Regions" }) as HTMLButtonElement).disabled).toBe(
-      true,
+      false,
     );
     expect(
       (screen.getByRole("radio", { name: "Maidenhead grids" }) as HTMLButtonElement).disabled,
-    ).toBe(true);
+    ).toBe(false);
     expect(
       (screen.getByRole("slider", { name: "Minimum group size" }) as HTMLInputElement).disabled,
-    ).toBe(true);
+    ).toBe(false);
     expect(
-      screen.getByText(/Grouping applies to the globe and azimuthal projections/),
-    ).toBeTruthy();
+      screen.queryByText(/Grouping applies to the globe and azimuthal projections/),
+    ).toBeNull();
   });
 
   it("keeps grouping controls enabled on the globe projection", () => {

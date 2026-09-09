@@ -18,20 +18,12 @@ export function GroupingSection({ controller }: { controller: SpotsPreferencesCo
   const grouping = controller.spots.grouping;
   const level = levelFromDetail(grouping.detail);
   const enabledId = `${controller.instanceId}-grouping-enabled`;
-  // The flat map has no cluster rendering yet (SP-09 round 3 B2) — grouping
-  // only ever draws on the globe/azimuthal projections, so the controls are
-  // disabled rather than accepting a preference the flat map ignores.
-  const isFlatProjection = controller.config.presentation.projection === "flat";
+  // Every projection renders groups since #746 — the flat map draws cluster
+  // glyphs on its 2D canvas — so these controls are no longer gated.
 
   return (
     <section aria-label="Report grouping" className="space-y-4">
-      {isFlatProjection && (
-        <p className="text-sm text-su-text bg-su-line/10 border border-su-line/40 rounded-lg px-3 py-2">
-          Grouping applies to the globe and azimuthal projections. Switch off
-          the flat map to group nearby reports.
-        </p>
-      )}
-      <fieldset disabled={isFlatProjection} className="space-y-4 m-0 border-0 p-0 min-w-0">
+      <fieldset className="space-y-4 m-0 border-0 p-0 min-w-0">
         <div className="flex items-center justify-between gap-4 min-h-[40px]">
           <div className="flex-1 min-w-0">
             <label htmlFor={enabledId} className="text-sm font-medium text-su-text">
@@ -48,7 +40,6 @@ export function GroupingSection({ controller }: { controller: SpotsPreferencesCo
             role="switch"
             aria-checked={grouping.enabled}
             onClick={() => controller.patchGrouping({ enabled: !grouping.enabled })}
-            disabled={isFlatProjection}
             className={`flex-shrink-0 relative w-11 h-6 min-h-[24px] rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-plasma-orange/60 disabled:opacity-40 disabled:cursor-not-allowed ${
               grouping.enabled ? "bg-plasma-orange" : "bg-su-panel border border-su-line/40"
             }`}
@@ -76,7 +67,6 @@ export function GroupingSection({ controller }: { controller: SpotsPreferencesCo
               { value: "regions", label: "Regions" },
               { value: "grid", label: "Maidenhead grids" },
             ]}
-            disabled={isFlatProjection}
           />
           <p className="text-xs text-su-muted">
             Regions group reports by country, with U.S. states and Canadian
@@ -89,11 +79,7 @@ export function GroupingSection({ controller }: { controller: SpotsPreferencesCo
 
           <ConditionalSubSettings show={level === "grid"}>
             <div role="group" aria-label="Maidenhead grid precision" className="space-y-2">
-              <GridPrecisionToggle
-                controller={controller}
-                grouping={grouping}
-                disabled={isFlatProjection}
-              />
+              <GridPrecisionToggle controller={controller} grouping={grouping} />
             </div>
           </ConditionalSubSettings>
         </div>
@@ -110,7 +96,6 @@ export function GroupingSection({ controller }: { controller: SpotsPreferencesCo
           step={1}
           formatValue={(value) => `${value} reports`}
           onChange={(value) => controller.patchGrouping({ minGroupSize: value })}
-          disabled={isFlatProjection}
         />
       </fieldset>
     </section>

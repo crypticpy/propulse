@@ -66,6 +66,14 @@ import {
   type GridResearchActionSubject,
 } from "./GridResearchPanel";
 import { latLonToGrid } from "@/lib/utils/grid";
+import {
+  buildFlatClusterGlyphs,
+  drawFlatClusterGlyphs,
+  findFlatClusterGlyphAtPoint,
+  flatClusterGlyphAnchor,
+  type FlatClusterGlyph,
+} from "@/lib/map/flatSpotClusterGlyphs";
+import type { SpotCluster } from "@/lib/spots/grouping";
 import { usePinStore } from "@/stores/pinStore";
 import { useUndoStore } from "@/stores/undoStore";
 import { useWatchStore } from "@/stores/watchStore";
@@ -307,6 +315,11 @@ function beginFlatMapCanvasFrame(
   context.scale(zoom.scale, zoom.scale);
   return context;
 }
+
+// Stable identities so the grouping memos below do not re-derive on every
+// render while grouping is off.
+const EMPTY_GEOGRAPHIC_CLUSTERS: SpotCluster[] = [];
+const EMPTY_GROUPED_SPOT_IDS: ReadonlySet<string> = new Set<string>();
 
 // Colors
 const COLORS = {
@@ -1516,6 +1529,12 @@ function drawSpotArc(
   spotDotScale = 1.0,
   opacity = 1,
   zoomScale = 1.0,
+  /**
+   * A grouped member's DX endpoint is represented by the cluster glyph, so its
+   * own marker is suppressed while its path still draws (#746). Mirrors the
+   * globe, where traces read the full feed and endpoints read `singles`.
+   */
+  skipDxEndpoint = false,
 ) {
   const color = getSpotColor(spot, colorMode);
   const zoomDamp = Math.max(1, zoomScale);
@@ -1551,21 +1570,23 @@ function drawSpotArc(
   ctx.stroke();
 
   // The DX station is TX, represented by a filled circle with an outer ring.
-  traceFlatSpotEndpoint(
-    ctx, end.x, end.y,
-    ((highViz ? 5 : 4) * spotDotScale) / zoomDamp,
-    "tx",
-  );
-  ctx.fillStyle = color;
-  ctx.fill();
-  traceFlatSpotEndpoint(
-    ctx, end.x, end.y,
-    ((highViz ? 7 : 5.5) * spotDotScale) / zoomDamp,
-    "tx",
-  );
-  ctx.strokeStyle = "rgba(255, 255, 255, 0.5)";
-  ctx.lineWidth = ((highViz ? 1.5 : 1) * spotDotScale) / zoomDamp;
-  ctx.stroke();
+  if (!skipDxEndpoint) {
+    traceFlatSpotEndpoint(
+      ctx, end.x, end.y,
+      ((highViz ? 5 : 4) * spotDotScale) / zoomDamp,
+      "tx",
+    );
+    ctx.fillStyle = color;
+    ctx.fill();
+    traceFlatSpotEndpoint(
+      ctx, end.x, end.y,
+      ((highViz ? 7 : 5.5) * spotDotScale) / zoomDamp,
+      "tx",
+    );
+    ctx.strokeStyle = "rgba(255, 255, 255, 0.5)";
+    ctx.lineWidth = ((highViz ? 1.5 : 1) * spotDotScale) / zoomDamp;
+    ctx.stroke();
+  }
 
   ctx.restore();
 }
@@ -1586,6 +1607,8 @@ function drawSpotArcs(
   watchActive = false,
   watchMatchedIds?: Set<string>,
   zoomScale = 1.0,
+  /** Ids whose DX endpoint is drawn as a cluster glyph instead (#746). */
+  groupedSpotIds?: ReadonlySet<string>,
 ) {
   for (const spot of spots) {
     const opacity =
@@ -1604,6 +1627,7 @@ function drawSpotArcs(
       spotDotScale,
       opacity,
       zoomScale,
+      groupedSpotIds?.has(spot.id) ?? false,
     );
   }
 }
@@ -3620,12 +3644,64 @@ export function FlatMapView({
 
   // Fetch and resolve the shared live feed, then apply this canvas renderer's
   // draw cap. Source merging and disabled-state behavior live in one hook.
-  const { spots, resolvedSpots, allResolvedSpots, activationSpots } =
-    useViewMapSpots({
-      grid: station?.grid,
-      enabled: layers.spots || layers.spotTraces || layers.gridActivity,
-      activationsEnabled: layers.activations,
-    });
+  const {
+    spots,
+    resolvedSpots,
+    resolvedSingles,
+    allResolvedSpots,
+    activationSpots,
+    clusters,
+    groupingEnabled,
+    expandGroup,
+  } = useViewMapSpots({
+    grid: station?.grid,
+    enabled: layers.spots || layers.spotTraces || layers.gridActivity,
+    activationsEnabled: layers.activations,
+  });
+  // Endpoint dots, callsign/spotter tags and endpoint hit-testing represent a
+  // grouped member with the cluster glyph instead, so those consumers read
+  // `resolvedSingles`. Paths, the glow grid, grid highlights and the grid
+  // collection popover keep the full `resolvedSpots` — see #746.
+  const ungroupedResolvedSpots = groupingEnabled
+    ? resolvedSingles
+    : resolvedSpots;
+  const geographicClusters = groupingEnabled
+    ? clusters
+    : EMPTY_GEOGRAPHIC_CLUSTERS;
+  const groupedSpotIds = useMemo(() => {
+    if (!groupingEnabled) return EMPTY_GROUPED_SPOT_IDS;
+    const ids = new Set<string>();
+    for (const cluster of clusters) {
+      for (const spot of cluster.spots) ids.add(spot.id);
+    }
+    return ids;
+  }, [clusters, groupingEnabled]);
+  // One projection of the geographic groups, shared by the canvas painter and
+  // the pointer hit-test so a glyph is always clickable exactly where it is
+  // drawn.
+  const clusterGlyphs = useMemo(
+    () =>
+      buildFlatClusterGlyphs(
+        geographicClusters,
+        (lat, lon) =>
+          latLonToCanvas(lat, lon, displaySize.width, displaySize.height),
+        {
+          width: displaySize.width,
+          height: displaySize.height,
+          zoomScale: zoom.scale,
+          spotDotScale,
+          colorMode: spotColorMode,
+        },
+      ),
+    [
+      displaySize.height,
+      displaySize.width,
+      geographicClusters,
+      spotColorMode,
+      spotDotScale,
+      zoom.scale,
+    ],
+  );
   const gridActivityResolution = gridActivityResolutionForView(
     "flat",
     zoom.scale,
@@ -3656,6 +3732,11 @@ export function FlatMapView({
   } | null>(null);
   const [selectedGridCollection, setSelectedGridCollection] = useState<{
     grid: string;
+    spots: LiveSpot[];
+    screenPos: ScreenAnchor;
+  } | null>(null);
+  const [openSpotCollection, setOpenSpotCollection] = useState<{
+    groupId: string;
     spots: LiveSpot[];
     screenPos: ScreenAnchor;
   } | null>(null);
@@ -4124,13 +4205,59 @@ export function FlatMapView({
     [spotLayerPolicy.labelsInteractive, viewportSize],
   );
 
+  /**
+   * Geographic group hit-test. Runs before labels and endpoints so a glyph
+   * owns its own pixels; grouped members are excluded from those two layers,
+   * so the three cannot fight over the same click.
+   */
+  const findClusterGlyphAtScreenPos = useCallback(
+    (screenPos: {
+      x: number;
+      y: number;
+    }): { glyph: FlatClusterGlyph; anchor: ScreenAnchor } | null => {
+      const canvas = canvasRef.current;
+      if (
+        !canvas ||
+        !spotLayerPolicy.endpointsInteractive ||
+        clusterGlyphs.length === 0
+      ) {
+        return null;
+      }
+      const rect = canvas.getBoundingClientRect();
+      const z = zoomRef.current;
+      const cssScaleX = rect.width / viewportSize.width;
+      const cssScaleY = rect.height / viewportSize.height;
+      const glyph = findFlatClusterGlyphAtPoint(
+        clusterGlyphs,
+        {
+          x: ((screenPos.x - rect.left) / cssScaleX - z.offsetX) / z.scale,
+          y: ((screenPos.y - rect.top) / cssScaleY - z.offsetY) / z.scale,
+        },
+        z.scale,
+      );
+      if (!glyph) return null;
+      return {
+        glyph,
+        anchor: flatClusterGlyphAnchor(
+          glyph,
+          (x, y) => ({
+            x: rect.left + (x * z.scale + z.offsetX) * cssScaleX,
+            y: rect.top + (y * z.scale + z.offsetY) * cssScaleY,
+          }),
+          glyph.radius * z.scale * cssScaleX,
+        ),
+      };
+    },
+    [clusterGlyphs, spotLayerPolicy.endpointsInteractive, viewportSize],
+  );
+
   const findSpotEndpointAtScreenPos = useCallback(
     (screenPos: { x: number; y: number }): SpotScreenHit | null => {
       const canvas = canvasRef.current;
       if (
         !canvas ||
         !spotLayerPolicy.endpointsInteractive ||
-        resolvedSpots.length === 0
+        ungroupedResolvedSpots.length === 0
       ) {
         return null;
       }
@@ -4140,7 +4267,9 @@ export function FlatMapView({
       const cssScaleY = rect.height / viewportSize.height;
       const hitRadius = Math.max(10, 12 * spotDotScale);
 
-      for (const spot of resolvedSpots) {
+      // A grouped member has no drawn endpoint, so it must not capture the
+      // click that belongs to the cluster glyph (#746).
+      for (const spot of ungroupedResolvedSpots) {
         const point = latLonToCanvas(
           spot.dxLat,
           spot.dxLon,
@@ -4167,9 +4296,9 @@ export function FlatMapView({
     },
     [
       displaySize,
-      resolvedSpots,
-      spotLayerPolicy.endpointsInteractive,
       spotDotScale,
+      spotLayerPolicy.endpointsInteractive,
+      ungroupedResolvedSpots,
       viewportSize,
     ],
   );
@@ -4184,6 +4313,7 @@ export function FlatMapView({
         screenPos,
       });
       setSelectedGridCollection(null);
+      setOpenSpotCollection(null);
       setHoveredSpotData(null);
       setHoveredTargetPos(null);
       setHoveredPinData(null);
@@ -4200,6 +4330,23 @@ export function FlatMapView({
 
   const handleSpotQuickClick = useCallback(
     (screenPos: { x: number; y: number }, lat: number, lon: number) => {
+      const clusterHit = findClusterGlyphAtScreenPos(screenPos);
+      if (clusterHit) {
+        hoveredSpotOwnerRef.current = null;
+        setOpenSpotCollection({
+          groupId: clusterHit.glyph.id,
+          spots: clusterHit.glyph.cluster.spots,
+          screenPos: clusterHit.anchor,
+        });
+        setSelectedGridCollection(null);
+        setSelectedMapSpotData(null);
+        setHoveredSpotData(null);
+        setHoveredTargetPos(null);
+        setHoveredPinData(null);
+        setFlyoutPosition(null);
+        setTooltipPosition(null);
+        return true;
+      }
       const hit =
         findSpotLabelAtScreenPos(screenPos) ??
         findSpotEndpointAtScreenPos(screenPos);
@@ -4224,6 +4371,7 @@ export function FlatMapView({
         if (gridMembers.length === 0) return false;
         hoveredSpotOwnerRef.current = null;
         setSelectedGridCollection({ grid, spots: gridMembers, screenPos });
+        setOpenSpotCollection(null);
         setSelectedMapSpotData(null);
         setHoveredSpotData(null);
         setHoveredTargetPos(null);
@@ -4237,6 +4385,7 @@ export function FlatMapView({
       return true;
     },
     [
+      findClusterGlyphAtScreenPos,
       findSpotEndpointAtScreenPos,
       findSpotLabelAtScreenPos,
       getGridCollectionSpots,
@@ -5677,6 +5826,7 @@ export function FlatMapView({
         watchEnabled && matchedSpotIds.size > 0,
         matchedSpotIds,
         zoom.scale,
+        groupedSpotIds,
       );
     }
 
@@ -5684,11 +5834,11 @@ export function FlatMapView({
     if (
       showCallsignLabels &&
       spotLayerPolicy.labelsInteractive &&
-      resolvedSpots.length > 0
+      ungroupedResolvedSpots.length > 0
     ) {
       placedLabelsRef.current = drawCallsignLabels(
         ctx,
-        resolvedSpots,
+        ungroupedResolvedSpots,
         renderWidth,
         renderHeight,
         spotColorMode,
@@ -5747,11 +5897,11 @@ export function FlatMapView({
       showCallsignLabels &&
       showSpotterLabels &&
       spotLayerPolicy.labelsInteractive &&
-      resolvedSpots.length > 0
+      ungroupedResolvedSpots.length > 0
     ) {
       drawSpotterLabels(
         ctx,
-        resolvedSpots,
+        ungroupedResolvedSpots,
         renderWidth,
         renderHeight,
         spotColorMode,
@@ -5759,6 +5909,15 @@ export function FlatMapView({
         labelScale,
         zoom.scale,
       );
+    }
+
+    // Geographic group glyphs sit above the dots and tags they stand in for,
+    // so the count stays legible and owns the click.
+    if (spotLayerPolicy.pathsVisible && clusterGlyphs.length > 0) {
+      drawFlatClusterGlyphs(ctx, clusterGlyphs, {
+        zoomScale: zoom.scale,
+        highViz,
+      });
     }
 
     // Draw satellite positions (2D canvas markers)
@@ -5969,7 +6128,10 @@ export function FlatMapView({
     labelOptions,
     station,
     target,
+    clusterGlyphs,
+    groupedSpotIds,
     resolvedSpots,
+    ungroupedResolvedSpots,
     activationSpots,
     resolvedSelectedSpot,
     selectedSpotMatchesTarget,
@@ -6394,6 +6556,24 @@ export function FlatMapView({
           onOperator={handleOpenOperatorPanel}
           onViewPath={() => setSelectedMapSpotData(null)}
           onClose={() => setSelectedMapSpotData(null)}
+        />
+      )}
+
+      {openSpotCollection && (
+        <SpotCollectionPopover
+          visible
+          position={openSpotCollection.screenPos}
+          title={`${openSpotCollection.spots.length} active spots`}
+          subtitle="Geographic group on this flat map"
+          spots={openSpotCollection.spots}
+          onClose={() => setOpenSpotCollection(null)}
+          onSpotSelect={(spot) =>
+            handleMapSpotSelect(spot, openSpotCollection.screenPos)
+          }
+          onMapTheseSpots={() => {
+            expandGroup(openSpotCollection.groupId);
+            setOpenSpotCollection(null);
+          }}
         />
       )}
 

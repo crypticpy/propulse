@@ -78,7 +78,8 @@ class ArchiveDatabase:
                    datasets.key_column,
                    datasets.schema_version,
                    datasets.time_basis,
-                   datasets.partition_granularity
+                   datasets.partition_granularity,
+                   datasets.coverage_contract
             FROM public.propagation_archive_controls AS controls
             JOIN public.propagation_archive_datasets AS datasets ON controls.singleton
             WHERE datasets.dataset = %s
@@ -95,12 +96,14 @@ class ArchiveDatabase:
             dataset.schema_version,
             dataset.time_basis,
             dataset.granularity,
+            dataset.coverage_contract,
         )
         actual = tuple(
             row[key]
             for key in (
                 "source_relation", "time_column", "key_column",
                 "schema_version", "time_basis", "partition_granularity",
+                "coverage_contract",
             )
         )
         if actual != expected:
@@ -194,10 +197,17 @@ class ArchiveDatabase:
         stats: ArchiveStats,
         exporter_commit: str,
         lifecycle_class: str,
+        coverage_evidence: dict[str, object] | None = None,
     ) -> UUID:
+        function_name = (
+            "register_propagation_archive_manifest_with_coverage"
+            if dataset.coverage_contract else "register_propagation_archive_manifest"
+        )
+        if bool(dataset.coverage_contract) != bool(coverage_evidence is not None):
+            raise RuntimeError("archive coverage evidence does not match dataset contract")
         row = self.connection.execute(
-            """
-            SELECT public.register_propagation_archive_manifest(
+            f"""
+            SELECT public.{function_name}(
               p_dataset => %s,
               p_schema_version => %s,
               p_range_start => %s,
@@ -211,8 +221,9 @@ class ArchiveDatabase:
               p_uncompressed_bytes => %s,
               p_object_bytes => %s,
               p_exporter_commit => %s,
-              p_quality_flags => '{}'::text[],
+              p_quality_flags => '{{}}'::text[],
               p_lifecycle_class => %s
+              {', p_coverage_evidence => %s::jsonb' if dataset.coverage_contract else ''}
             ) AS id
             """,
             (
@@ -221,10 +232,38 @@ class ArchiveDatabase:
                 stats.max_source_time, psycopg.types.json.Jsonb(stats.source_counts),
                 stats.content_sha256, stats.uncompressed_bytes,
                 stats.object_bytes, exporter_commit, lifecycle_class,
+                *(
+                    (psycopg.types.json.Jsonb(coverage_evidence),)
+                    if dataset.coverage_contract else ()
+                ),
             ),
         ).fetchone()
         self.connection.commit()
         return row["id"]
+
+    def coverage_snapshot(
+        self, dataset: Dataset, range_start: datetime, range_end: datetime
+    ) -> dict[str, object] | None:
+        if dataset.coverage_contract is None:
+            return None
+        if dataset.coverage_contract != "spot-known-gaps-v1":
+            raise RuntimeError(f"unsupported archive coverage contract: {dataset.coverage_contract}")
+        row = self.connection.execute(
+            "SELECT public.spot_archive_path_gap_snapshot_range(%s, %s) AS evidence",
+            (range_start, range_end),
+        ).fetchone()
+        self.connection.rollback()
+        if not row or row["evidence"] is None:
+            raise RuntimeError("archive coverage snapshot returned no evidence")
+        return dict(row["evidence"])
+
+    def reconcile_coverage(self, manifest_id: UUID) -> dict[str, object] | None:
+        row = self.connection.execute(
+            "SELECT public.reconcile_propagation_archive_coverage(%s) AS evidence",
+            (manifest_id,),
+        ).fetchone()
+        self.connection.rollback()
+        return dict(row["evidence"]) if row and row["evidence"] is not None else None
 
     def verify_manifest(self, manifest_id: UUID, verification: dict[str, object]) -> None:
         self.connection.execute(

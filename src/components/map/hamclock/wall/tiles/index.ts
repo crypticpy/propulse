@@ -14,6 +14,7 @@ import { DxTargetTile } from "./DxTargetTile";
 import { EmcommTile } from "./EmcommTile";
 import { ForecastMatrixTile } from "./ForecastMatrixTile";
 import { GreyLineTile } from "./GreyLineTile";
+import { HeatMapTile } from "./HeatMapTile";
 import { MoonTile } from "./MoonTile";
 import { MufTile } from "./MufTile";
 import { RecentContactsTile } from "./RecentContactsTile";
@@ -36,6 +37,7 @@ export type TileId =
   | "bestBand"
   | "cluster"
   | "bandActivity"
+  | "heatMap"
   | "greyLine"
   | "xray"
   | "solarWind"
@@ -67,6 +69,7 @@ export const WALL_TILES: Record<TileId, WallTile> = {
   bestBand: { title: "Best band now", Component: BestBandTile },
   cluster: { title: "DX cluster", Component: ClusterTile },
   bandActivity: { title: "Band activity", Component: BandActivityTile },
+  heatMap: { title: "Band heat map", Component: HeatMapTile },
   greyLine: { title: "Grey line", Component: GreyLineTile },
   xray: { title: "X-ray flux", Component: XrayTile },
   solarWind: { title: "Solar wind", Component: SolarWindTile },

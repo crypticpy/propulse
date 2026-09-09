@@ -22,6 +22,9 @@ const NIGHT_TEXTURE_URL = "/textures/earth-night.jpg";
 // Same as high-res since we're using local files
 const DAY_TEXTURE_URL_SMALL = "/textures/earth-day.jpg";
 
+/** Logical canvas size; matches AzimuthalView overlays. */
+const CANVAS_SIZE = 600;
+
 interface UniformLocations {
   uDayTexture: WebGLUniformLocation | null;
   uNightTexture: WebGLUniformLocation | null;
@@ -88,6 +91,7 @@ export function resolveAzimuthalNightTexture<T>(
 }
 
 export class AzimuthalRenderer {
+  private canvas: HTMLCanvasElement | null = null;
   private gl: WebGLRenderingContext | null = null;
   private program: WebGLProgram | null = null;
   private dayTexture: WebGLTexture | null = null;
@@ -116,9 +120,25 @@ export class AzimuthalRenderer {
   }
 
   /**
-   * Initialize the renderer with a canvas element
+   * Initialize the renderer by creating a canvas inside the host element.
+   * The renderer owns that canvas for its lifetime so dispose() can lose the
+   * context and remove the node without poisoning a successor.
    */
-  async initialize(canvas: HTMLCanvasElement): Promise<boolean> {
+  async initialize(host: HTMLElement): Promise<boolean> {
+    if (this.disposed) {
+      return false;
+    }
+
+    const canvas = document.createElement("canvas");
+    canvas.width = CANVAS_SIZE;
+    canvas.height = CANVAS_SIZE;
+    canvas.className = "absolute";
+    canvas.style.imageRendering = "auto";
+    canvas.style.width = `${CANVAS_SIZE}px`;
+    canvas.style.height = `${CANVAS_SIZE}px`;
+    host.insertBefore(canvas, host.firstChild);
+    this.canvas = canvas;
+
     // Get WebGL context
     const gl = canvas.getContext("webgl", {
       alpha: true,
@@ -127,11 +147,28 @@ export class AzimuthalRenderer {
     });
 
     if (!gl) {
+      canvas.remove();
+      this.canvas = null;
       this.options.onError?.(new Error("WebGL not supported"));
       return false;
     }
 
+    if (gl.isContextLost()) {
+      canvas.remove();
+      this.canvas = null;
+      this.options.onError?.(new Error("WebGL context lost"));
+      return false;
+    }
+
     this.gl = gl;
+
+    if (this.disposed) {
+      gl.getExtension("WEBGL_lose_context")?.loseContext();
+      canvas.remove();
+      this.canvas = null;
+      this.gl = null;
+      return false;
+    }
 
     // Create shader program
     const program = this.createShaderProgram(gl);
@@ -602,9 +639,10 @@ export class AzimuthalRenderer {
   }
 
   /**
-   * Resize the canvas
+   * Resize the canvas backing store. When `cssSize` is set, also update the
+   * element's CSS display size so overlays stay aligned.
    */
-  resize(width: number, height: number): void {
+  resize(width: number, height: number, cssSize?: number): void {
     if (!this.gl) {
       return;
     }
@@ -612,6 +650,10 @@ export class AzimuthalRenderer {
     const canvas = this.gl.canvas as HTMLCanvasElement;
     canvas.width = width;
     canvas.height = height;
+    if (cssSize != null) {
+      canvas.style.width = `${cssSize}px`;
+      canvas.style.height = `${cssSize}px`;
+    }
   }
 
   /**
@@ -649,6 +691,8 @@ export class AzimuthalRenderer {
     this.pendingImages.clear();
 
     if (!this.gl) {
+      this.canvas?.remove();
+      this.canvas = null;
       return;
     }
 
@@ -673,6 +717,8 @@ export class AzimuthalRenderer {
     // Deleting objects does not free the context slot; browsers cap concurrent
     // WebGL contexts (~16), so leaving the azimuthal view without this leaks one.
     this.gl.getExtension("WEBGL_lose_context")?.loseContext();
+    this.canvas?.remove();
+    this.canvas = null;
 
     this.gl = null;
     this.program = null;

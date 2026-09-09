@@ -54,6 +54,7 @@ describe("AzimuthalRenderer texture policy", () => {
 
   it("releases the WebGL context when disposing a live renderer", () => {
     const loseContext = vi.fn();
+    const deleteProgram = vi.fn();
     const getExtension = vi.fn((name: string) =>
       name === "WEBGL_lose_context" ? { loseContext } : null,
     );
@@ -62,15 +63,20 @@ describe("AzimuthalRenderer texture policy", () => {
       gl: {
         deleteTexture: vi.fn(),
         deleteBuffer: vi.fn(),
-        deleteProgram: vi.fn(),
+        deleteProgram,
         getExtension,
       } as unknown as WebGLRenderingContext,
+      program: {} as WebGLProgram,
     });
 
     renderer.dispose();
 
     expect(getExtension).toHaveBeenCalledWith("WEBGL_lose_context");
     expect(loseContext).toHaveBeenCalledTimes(1);
+    expect(deleteProgram).toHaveBeenCalledTimes(1);
+    expect(loseContext.mock.invocationCallOrder[0]).toBeGreaterThan(
+      deleteProgram.mock.invocationCallOrder[0],
+    );
 
     renderer.dispose();
     expect(loseContext).toHaveBeenCalledTimes(1);
@@ -92,5 +98,144 @@ describe("AzimuthalRenderer texture policy", () => {
     expect(image.onerror).toBeNull();
     expect(image.src).toBe("");
     expect(pendingImages.size).toBe(0);
+  });
+});
+
+/** Per-canvas WebGL mock: a lost context stays lost on that element. */
+function installPerCanvasWebGL() {
+  const contexts = new WeakMap<HTMLCanvasElement, WebGLRenderingContext>();
+  const lost = new WeakMap<HTMLCanvasElement, boolean>();
+
+  const createFakeGL = (canvas: HTMLCanvasElement): WebGLRenderingContext => {
+    const loseContext = vi.fn(() => {
+      lost.set(canvas, true);
+    });
+    const isLost = () => lost.get(canvas) === true;
+    return {
+      canvas,
+      VERTEX_SHADER: 0x8b31,
+      FRAGMENT_SHADER: 0x8b30,
+      COMPILE_STATUS: 0x8b81,
+      LINK_STATUS: 0x8b82,
+      ARRAY_BUFFER: 0x8892,
+      STATIC_DRAW: 0x88e4,
+      FLOAT: 5126,
+      TEXTURE_2D: 0x0de1,
+      RGBA: 6408,
+      UNSIGNED_BYTE: 5121,
+      TEXTURE_MIN_FILTER: 0x2801,
+      TEXTURE_MAG_FILTER: 0x2800,
+      TEXTURE_WRAP_S: 0x2802,
+      TEXTURE_WRAP_T: 0x2803,
+      LINEAR_MIPMAP_LINEAR: 0x2703,
+      LINEAR: 0x2601,
+      CLAMP_TO_EDGE: 0x812f,
+      MAX_TEXTURE_SIZE: 0x0d33,
+      getParameter: vi.fn(() => 2048),
+      isContextLost: isLost,
+      createShader: vi.fn(() => (isLost() ? null : {})),
+      shaderSource: vi.fn(),
+      compileShader: vi.fn(),
+      getShaderParameter: vi.fn(() => !isLost()),
+      getShaderInfoLog: vi.fn(() => ""),
+      deleteShader: vi.fn(),
+      createProgram: vi.fn(() => (isLost() ? null : {})),
+      attachShader: vi.fn(),
+      linkProgram: vi.fn(),
+      getProgramParameter: vi.fn(() => !isLost()),
+      getProgramInfoLog: vi.fn(() => ""),
+      deleteProgram: vi.fn(),
+      getUniformLocation: vi.fn(() => ({})),
+      createBuffer: vi.fn(() => ({})),
+      bindBuffer: vi.fn(),
+      bufferData: vi.fn(),
+      getAttribLocation: vi.fn(() => 0),
+      enableVertexAttribArray: vi.fn(),
+      vertexAttribPointer: vi.fn(),
+      createTexture: vi.fn(() => ({})),
+      bindTexture: vi.fn(),
+      texImage2D: vi.fn(),
+      generateMipmap: vi.fn(),
+      texParameteri: vi.fn(),
+      deleteTexture: vi.fn(),
+      deleteBuffer: vi.fn(),
+      getExtension: vi.fn((name: string) =>
+        name === "WEBGL_lose_context" ? { loseContext } : null,
+      ),
+    } as unknown as WebGLRenderingContext;
+  };
+
+  return vi
+    .spyOn(HTMLCanvasElement.prototype, "getContext")
+    .mockImplementation(function (
+      this: HTMLCanvasElement,
+      type?: string,
+    ): RenderingContext | null {
+      if (type !== "webgl") {
+        return null;
+      }
+      const existing = contexts.get(this);
+      if (existing) {
+        return existing;
+      }
+      const gl = createFakeGL(this);
+      contexts.set(this, gl);
+      return gl;
+    } as never);
+}
+
+describe("AzimuthalRenderer context ownership", () => {
+  it("reinitializes on the same host after dispose with a virgin canvas", async () => {
+    installPerCanvasWebGL();
+    const host = document.createElement("div");
+    document.body.appendChild(host);
+
+    const first = new AzimuthalRenderer({ enableNight: false });
+    await expect(first.initialize(host)).resolves.toBe(true);
+    expect(host.querySelectorAll("canvas")).toHaveLength(1);
+    const firstCanvas = host.querySelector("canvas");
+
+    first.dispose();
+    expect(host.querySelectorAll("canvas")).toHaveLength(0);
+
+    const second = new AzimuthalRenderer({ enableNight: false });
+    await expect(second.initialize(host)).resolves.toBe(true);
+    expect(host.querySelectorAll("canvas")).toHaveLength(1);
+    expect(host.querySelector("canvas")).not.toBe(firstCanvas);
+
+    second.dispose();
+    host.remove();
+  });
+
+  it("does not acquire a context after dispose", async () => {
+    installPerCanvasWebGL();
+    const host = document.createElement("div");
+    const renderer = new AzimuthalRenderer();
+    renderer.dispose();
+    await expect(renderer.initialize(host)).resolves.toBe(false);
+    expect(host.querySelectorAll("canvas")).toHaveLength(0);
+  });
+
+  it("reports a lost context instead of a shader-compile failure", async () => {
+    vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockImplementation(
+      function (this: HTMLCanvasElement, type?: string): RenderingContext | null {
+        if (type !== "webgl") {
+          return null;
+        }
+        return {
+          canvas: this,
+          isContextLost: () => true,
+          createShader: vi.fn(() => null),
+        } as unknown as WebGLRenderingContext;
+      } as never,
+    );
+    const onError = vi.fn();
+    const host = document.createElement("div");
+    const renderer = new AzimuthalRenderer({ onError });
+    await expect(renderer.initialize(host)).resolves.toBe(false);
+    expect(onError).toHaveBeenCalledTimes(1);
+    expect(onError.mock.calls[0][0]).toBeInstanceOf(Error);
+    expect(onError.mock.calls[0][0].message).toBe("WebGL context lost");
+    expect(host.querySelectorAll("canvas")).toHaveLength(0);
   });
 });

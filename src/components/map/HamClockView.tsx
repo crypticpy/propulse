@@ -93,6 +93,23 @@ function applyModeLayers(mode: HamClockMode) {
   });
 }
 
+type HeroForceLatch = {
+  wrote: PropSphereViewMode;
+  presetId: string | null;
+};
+
+function restoreForcedHeroProjection(latch: HeroForceLatch) {
+  const map = useMapStore.getState();
+  if (map.viewMode !== latch.wrote) return;
+  const preferred = useHamClockStore.getState().preferredViewMode;
+  if (map.viewMode !== preferred) {
+    map.setViewMode(preferred);
+  }
+  if (latch.presetId) {
+    map.setActivePreset(latch.presetId);
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Main Component
 // ---------------------------------------------------------------------------
@@ -140,27 +157,58 @@ export function HamClockView({
     (key) => LAYER_REGISTRY[key as keyof typeof LAYER_REGISTRY]?.name ?? key,
   );
 
-  const preSwitchViewModeRef = useRef<PropSphereViewMode | null>(null);
+  const forceLatchRef = useRef<HeroForceLatch | null>(null);
+  const yieldedBlockerKeyRef = useRef<string | null>(null);
   const resolvedProjection = heroProjection.projection;
   const blockerKey = heroProjection.forcedBy.join(",");
 
   useEffect(() => {
     const map = useMapStore.getState();
-    if (blockerKey.length > 0) {
-      if (preSwitchViewModeRef.current === null) {
-        preSwitchViewModeRef.current = viewMode;
-      }
-      if (viewMode !== resolvedProjection) {
-        map.setViewMode(resolvedProjection);
-      }
+    if (blockerKey.length === 0) {
+      yieldedBlockerKeyRef.current = null;
+      const latch = forceLatchRef.current;
+      forceLatchRef.current = null;
+      if (latch) restoreForcedHeroProjection(latch);
       return;
     }
-    const restore = preSwitchViewModeRef.current;
-    preSwitchViewModeRef.current = null;
-    if (restore != null && viewMode !== restore) {
-      map.setViewMode(restore);
+
+    if (yieldedBlockerKeyRef.current === blockerKey) {
+      return;
     }
+    yieldedBlockerKeyRef.current = null;
+
+    const latch = forceLatchRef.current;
+    if (latch && viewMode !== latch.wrote) {
+      forceLatchRef.current = null;
+      yieldedBlockerKeyRef.current = blockerKey;
+      return;
+    }
+
+    if (viewMode === resolvedProjection) {
+      return;
+    }
+
+    if (forceLatchRef.current === null) {
+      forceLatchRef.current = {
+        wrote: resolvedProjection,
+        presetId: map.activePresetId,
+      };
+    } else {
+      forceLatchRef.current = {
+        ...forceLatchRef.current,
+        wrote: resolvedProjection,
+      };
+    }
+    map.setViewMode(resolvedProjection);
   }, [viewMode, resolvedProjection, blockerKey]);
+
+  useEffect(() => {
+    return () => {
+      const latch = forceLatchRef.current;
+      forceLatchRef.current = null;
+      if (latch) restoreForcedHeroProjection(latch);
+    };
+  }, []);
 
   const hamclockMode = useHamClockStore((s) => s.hamclockMode);
   const setFiltersBeforeBands = useHamClockStore(
@@ -242,14 +290,8 @@ export function HamClockView({
         {projectionChip && (
           <div
             role="status"
-            className="rounded"
-            style={{
-              fontSize: "var(--hc-t-small)",
-              color: "var(--hc-fg)",
-              background: "var(--hc-bg)",
-              padding: "0.4vh 0.8vh",
-              letterSpacing: "0.04em",
-            }}
+            className="hc-chip"
+            style={{ background: "var(--hc-fg)", paddingInline: "0.8vh" }}
           >
             {projectionChip}
           </div>

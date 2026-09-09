@@ -14,8 +14,8 @@ import {
   useMemo,
   type KeyboardEvent as ReactKeyboardEvent,
 } from "react";
-import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
+import { AccessibleDialog } from "@/components/ui/AccessibleDialog";
 import { useUserStore } from "@/stores/userStore";
 
 // ---------------------------------------------------------------------------
@@ -570,35 +570,6 @@ export function CommandPalette({
   }, [activeIndex]);
 
   // -----------------------------------------------------------------------
-  // Prevent background scroll while open
-  // -----------------------------------------------------------------------
-  useEffect(() => {
-    if (!isOpen) return;
-    const prev = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    return () => {
-      document.body.style.overflow = prev;
-    };
-  }, [isOpen]);
-
-  // -----------------------------------------------------------------------
-  // Global keyboard handler (Escape)
-  // -----------------------------------------------------------------------
-  useEffect(() => {
-    if (!isOpen) return;
-
-    const handleGlobalKey = (e: globalThis.KeyboardEvent) => {
-      if (e.key === "Escape") {
-        e.preventDefault();
-        onClose();
-      }
-    };
-
-    document.addEventListener("keydown", handleGlobalKey);
-    return () => document.removeEventListener("keydown", handleGlobalKey);
-  }, [isOpen, onClose]);
-
-  // -----------------------------------------------------------------------
   // Execute the currently active command
   // -----------------------------------------------------------------------
   const executeActive = useCallback(() => {
@@ -674,24 +645,22 @@ export function CommandPalette({
   // Render
   // -----------------------------------------------------------------------
 
-  if (!isOpen) return null;
-  if (typeof document === "undefined") return null;
-
-  return createPortal(
-    <div className="fixed inset-0 z-[500] flex items-start justify-center">
-      {/* Backdrop */}
-      <div
-        className="absolute inset-0 bg-black/60 backdrop-blur-sm"
-        onClick={onClose}
-      />
-
-      {/* Modal */}
-      <div
-        className="relative z-10 w-full max-w-[32rem] mt-[20vh] mx-4 bg-su-panel/95 backdrop-blur-md border border-su-line/40 rounded-2xl overflow-hidden shadow-2xl animate-in fade-in zoom-in-95"
-        role="dialog"
-        aria-label="Command palette"
-        aria-modal="true"
-      >
+  return (
+    <AccessibleDialog
+      open={isOpen}
+      onClose={onClose}
+      title="Command Palette"
+      chrome="bare"
+      panelProps={{
+        // `self-start` + `mt-[20vh]` override AccessibleDialog's centered
+        // wrapper (`items-center`) to reproduce the palette's original
+        // near-top anchor — a vertically centered command palette reads
+        // wrong compared to the rest of the app.
+        className:
+          "self-start mt-[20vh] w-full max-w-[32rem] bg-su-panel/95 backdrop-blur-md border border-su-line/40 rounded-2xl overflow-hidden shadow-2xl animate-in fade-in zoom-in-95",
+      }}
+    >
+      <>
         {/* Search input */}
         <div className="flex items-center gap-3 px-4 py-3 bg-su-line/10 border-b border-su-line/40">
           <SearchIcon className="w-5 h-5 text-su-muted flex-shrink-0" />
@@ -811,8 +780,7 @@ export function CommandPalette({
             </span>
           </div>
         </div>
-      </div>
-    </div>,
-    document.body,
+      </>
+    </AccessibleDialog>
   );
 }

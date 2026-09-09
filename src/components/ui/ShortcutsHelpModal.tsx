@@ -8,9 +8,9 @@
  * Triggered by the ? key or from the command palette.
  */
 
-import { lazy, Suspense, useEffect, useState } from "react";
-import { createPortal } from "react-dom";
+import { lazy, Suspense, useId, useState } from "react";
 import { useLocation } from "react-router-dom";
+import { AccessibleDialog } from "@/components/ui/AccessibleDialog";
 import {
   DEFAULT_SHORTCUTS,
   CATEGORY_LABELS,
@@ -183,56 +183,28 @@ export function ShortcutsHelpModal({
   const isMapPage = pathname === "/map";
   const isContestPage = pathname === "/contest";
 
-  // Lock background scroll while open
-  useEffect(() => {
-    if (!isOpen) return;
-    const prev = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    return () => {
-      document.body.style.overflow = prev;
-    };
-  }, [isOpen]);
+  const titleId = useId();
+  const descriptionId = useId();
 
-  // Close on Escape
-  useEffect(() => {
-    if (!isOpen) return;
-
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
-        e.preventDefault();
-        e.stopPropagation();
-        onClose();
-      }
-    };
-
-    document.addEventListener("keydown", handleKeyDown);
-    return () => document.removeEventListener("keydown", handleKeyDown);
-  }, [isOpen, onClose]);
-
-  if (!isOpen) return null;
-  if (typeof document === "undefined") return null;
-
-  return createPortal(
-    <div
-      className="fixed inset-0 z-[400] flex items-center justify-center p-4 md:p-6"
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="shortcuts-help-title"
+  return (
+    <AccessibleDialog
+      open={isOpen}
+      onClose={onClose}
+      title={tab === "shortcuts" ? "Keyboard Shortcuts" : "Quick Reference"}
+      chrome="bare"
+      labelledBy={titleId}
+      describedBy={descriptionId}
+      panelProps={{
+        className:
+          "w-full max-w-[36rem] max-h-[80vh] flex flex-col bg-su-panel/95 backdrop-blur-md border border-su-line/40 rounded-2xl shadow-2xl",
+      }}
     >
-      {/* Backdrop */}
-      <div
-        className="absolute inset-0 bg-black/60 backdrop-blur-sm"
-        onClick={onClose}
-        aria-hidden="true"
-      />
-
-      {/* Modal card */}
-      <div className="relative z-10 w-full max-w-[36rem] max-h-[80vh] flex flex-col bg-su-panel/95 backdrop-blur-md border border-su-line/40 rounded-2xl shadow-2xl">
+      <>
         {/* Header */}
         <div className="flex items-start justify-between p-6 pb-0">
           <div>
             <h2
-              id="shortcuts-help-title"
+              id={titleId}
               className="text-lg font-semibold text-su-text flex items-center gap-2"
             >
               <svg
@@ -250,7 +222,7 @@ export function ShortcutsHelpModal({
               </svg>
               {tab === "shortcuts" ? "Keyboard Shortcuts" : "Quick Reference"}
             </h2>
-            <p className="mt-1 text-sm text-su-muted">
+            <p id={descriptionId} className="mt-1 text-sm text-su-muted">
               {tab === "shortcuts"
                 ? "Quick access to Propulse features"
                 : "Band plan, Q-codes, and CW reference"}
@@ -380,9 +352,8 @@ export function ShortcutsHelpModal({
             </p>
           </div>
         </div>
-      </div>
-    </div>,
-    document.body,
+      </>
+    </AccessibleDialog>
   );
 }
 

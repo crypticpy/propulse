@@ -9,14 +9,16 @@
  *   (§3) per this task's brief; the bottom rail budget (6) has no owner
  *   number yet and is a proposed default, same as the rail counts already
  *   flagged as proposed in plan §2's footnote.
- * - Workstation and tablet `scaleRange` here use the *density* scale ranges
- *   from the workspace/heat-map mocks (`glance` 0.85-1.25, `work` 0.55-0.85)
- *   rather than the *canvas* ranges in plan §2's table (workstation
- *   0.70-1.40, tablet proposed 0.60-0.95 "not owner-stated"). Workstation
- *   rails/hero read the "work" density and tablet is grouped with "glance"
- *   in the mock, so those density ranges are used here. The plan's own
- *   tablet canvas proposal (0.60-0.95) is left as a documented follow-up for
- *   the tablet task (#661) to reconcile or override.
+ * - Workstation `scaleRange` uses the *density* scale range from the
+ *   workspace/heat-map mocks (`work` 0.55-0.85) rather than the *canvas*
+ *   range in plan §2's table (workstation 0.70-1.40): workstation rails/hero
+ *   read the "work" density, so that density range is used here.
+ * - Tablet `scaleRange` is 0.60-0.95 (#661 resolution): the issue's 1024x768
+ *   reference canvas states this range explicitly, overriding the
+ *   `glance` 0.85-1.25 density range this file previously borrowed here
+ *   (that borrowing was flagged as an open tension for #661 to reconcile;
+ *   this is that reconciliation, a data-only change with no consumer yet
+ *   per `types.ts`'s `scaleRange` doc comment).
  * - Phone has no scale range: it is a fixed 390 pt reference width (plan §2,
  *   `mobile/*` under `MobileLayout`). Phone stacks 1-3 widgets per page
  *   instead of docking into rails (owner correction, 2026-09-08): a widget's
@@ -86,7 +88,7 @@ export const CANVAS_RULES: Readonly<Record<CanvasType, CanvasRules>> = {
     railDensities: ["work", "glance"],
     railWidthPolicy: "fixed",
     tapTargetPt: 48,
-    scaleRange: [0.85, 1.25],
+    scaleRange: [0.6, 0.95],
   },
   phone: {
     canvasType: "phone",

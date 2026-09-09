@@ -31,6 +31,14 @@
  * departs from the issue's literal action list; broadening them to take an
  * explicit workspace id is left to whichever PR introduces workspace
  * switching.
+ *
+ * `phoneVisibleBands` (#659) is the one field the phone canvas needed that
+ * this store did not already have: a band-visibility list scoped to the
+ * phone, distinct from `WorkspaceDisplaySettings.visibleBands` (the
+ * workstation's own). It lives at the top level, not inside a `Workspace`
+ * object, because the phone canvas has no `Workspace` entity yet — its three
+ * pages are fixed (`PhonePage`), not built from the operator's own widget
+ * picks the way the workstation's are.
  */
 
 import { create } from "zustand";
@@ -124,7 +132,10 @@ function defaultAutoPage(): WorkspaceAutoPage {
  * every other field is passed through untouched.
  */
 export function migrateWorkspaceState(persisted: unknown, version: number): WorkspaceStoreState {
-  const state = persisted as { workspaces?: Array<Record<string, unknown>> } & Record<string, unknown>;
+  const state = persisted as { workspaces?: Array<Record<string, unknown>>; phoneVisibleBands?: unknown } & Record<
+    string,
+    unknown
+  >;
   if (version < 2 && Array.isArray(state.workspaces)) {
     state.workspaces = state.workspaces.map((ws) => ({
       display: defaultDisplaySettings(),
@@ -132,12 +143,32 @@ export function migrateWorkspaceState(persisted: unknown, version: number): Work
       ...ws,
     }));
   }
+  if (version < 3 && !Array.isArray(state.phoneVisibleBands)) {
+    state.phoneVisibleBands = [...BAND_ORDER];
+  }
   return state as unknown as WorkspaceStoreState;
 }
 
 export interface WorkspaceStoreState {
   workspaces: Workspace[];
   activeWorkspaceId: string;
+  /**
+   * The canvas type rules/dock computation should use right now, instead of
+   * the active workspace's stored `canvasType` (#686 review, PR #686 Codex
+   * thread PRRT_kwDORFr4R86ggBm7): every stored workspace is `"workstation"`
+   * today, but `WorkspacePage` renders a different canvas on a narrower
+   * viewport without migrating that stored value. Every mutation path that
+   * runs `autoDock`/`canvasRulesFor` (`addWidget`, `setWidgetOrder`,
+   * `addRecipePage`, `setRailWidth`) and every settings surface that mirrors
+   * that math (`WidgetsTab`, `DisplayTab`'s rail-width section) must resolve
+   * the same canvas type `WorkspaceCanvas` actually renders, or an operator
+   * on a narrower viewport can add/rearrange widgets that fit a wider
+   * canvas's rail budget and then watch them get silently refused at render
+   * time. `null` outside any such override (the common case).
+   */
+  canvasTypeOverride: CanvasType | null;
+  /** Band visibility for the phone canvas (#659) — its own setting, separate from any workstation's `display.visibleBands`. */
+  phoneVisibleBands: string[];
 }
 
 export interface WorkspaceStoreActions {
@@ -173,9 +204,21 @@ export interface WorkspaceStoreActions {
   setHeatMapColor: (index: number, color: string) => void;
   setHeadlineRule: (rule: HeatMapMetric) => void;
   setVisibleBands: (bands: string[]) => void;
+  /** Sets/clears `canvasTypeOverride` (see its doc comment) — `WorkspacePage` is the only caller today. */
+  setCanvasTypeOverride: (override: CanvasType | null) => void;
+  /** The phone canvas's own band visibility (#659), read by `PhoneBandLadder` / set by `PhoneSetupMenu`. */
+  setPhoneVisibleBands: (bands: string[]) => void;
 }
 
 export type WorkspaceStore = WorkspaceStoreState & WorkspaceStoreActions;
+
+/** The canvas type every rules/dock computation should resolve to: the shared override when one is set, else the workspace's own stored `canvasType`. Shared by the store's own mutation actions (via `get()`/`set()`'s `state`) and by `useEffectiveCanvasType()` below. */
+function resolveCanvasType(state: { canvasTypeOverride: CanvasType | null }, workspace: Workspace): CanvasType {
+  return state.canvasTypeOverride ?? workspace.canvasType;
+}
+
+/** What actually reaches `localStorage` — `canvasTypeOverride` is viewport-derived, not real data (see its doc comment), so it is excluded here, same convention as `dxStore.ts`'s own `PersistedState`. */
+type PersistedWorkspaceState = Pick<WorkspaceStoreState, "workspaces" | "activeWorkspaceId">;
 
 export const DEFAULT_WORKSPACE_ID = "workstation-default";
 export const DEFAULT_PAGE_ID = "page-1";
@@ -211,6 +254,8 @@ export const useWorkspaceStore = create<WorkspaceStore>()(
     (set, get) => ({
       workspaces: [createDefaultWorkspace()],
       activeWorkspaceId: DEFAULT_WORKSPACE_ID,
+      canvasTypeOverride: null,
+      phoneVisibleBands: [...BAND_ORDER],
 
       addWidget: (pageId, widgetId) => {
         const found = findWorkspaceAndPage(get().workspaces, pageId);
@@ -218,7 +263,7 @@ export const useWorkspaceStore = create<WorkspaceStore>()(
           return { ok: false, reason: `"${pageId}" is not a page in any workspace.` };
         }
         const { workspace, page } = found;
-        const rules = canvasRulesFor(workspace.canvasType);
+        const rules = canvasRulesFor(resolveCanvasType(get(), workspace));
         const nextIds = [...page.widgetIds, widgetId];
         const result = autoDock(nextIds, rules);
         const refusal = result.refusals.find((r) => r.widgetId === widgetId);
@@ -254,7 +299,7 @@ export const useWorkspaceStore = create<WorkspaceStore>()(
           return { ok: false, reason: `"${pageId}" is not a page in any workspace.` };
         }
         const { workspace } = found;
-        const rules = canvasRulesFor(workspace.canvasType);
+        const rules = canvasRulesFor(resolveCanvasType(get(), workspace));
         const result = autoDock(widgetIds, rules);
         if (result.refusals.length > 0) {
           return { ok: false, reason: result.refusals.map((r) => r.reason).join(" ") };
@@ -284,7 +329,7 @@ export const useWorkspaceStore = create<WorkspaceStore>()(
         set((state) => ({
           workspaces: state.workspaces.map((ws) => {
             if (ws.id !== state.activeWorkspaceId) return ws;
-            const rules = canvasRulesFor(ws.canvasType);
+            const rules = canvasRulesFor(resolveCanvasType(state, ws));
             // `applyRailWidth` only sets `width` on `side` and (per the
             // canvas's opposite-collapses policy) may collapse the opposite
             // rail; it never uncollapses `side` itself. Picking a width is
@@ -377,12 +422,13 @@ export const useWorkspaceStore = create<WorkspaceStore>()(
 
         const workspace = get().workspaces.find((ws) => ws.id === get().activeWorkspaceId);
         if (!workspace) return { ok: false, reason: "No active workspace." };
-        if (workspace.canvasType === "phone") {
+        const effectiveType = resolveCanvasType(get(), workspace);
+        if (effectiveType === "phone") {
           return { ok: false, reason: "Phone recipes are not supported on this workspace yet." };
         }
 
-        const widgetIds = [...recipe.layouts[workspace.canvasType]];
-        const rules = canvasRulesFor(workspace.canvasType);
+        const widgetIds = [...recipe.layouts[effectiveType]];
+        const rules = canvasRulesFor(effectiveType);
         const dock = autoDock(widgetIds, rules);
         if (dock.refusals.length > 0) {
           return { ok: false, reason: dock.refusals.map((r) => r.reason).join(" ") };
@@ -458,12 +504,25 @@ export const useWorkspaceStore = create<WorkspaceStore>()(
           ),
         }));
       },
+
+      setCanvasTypeOverride: (override) =>
+        set((state) => (state.canvasTypeOverride === override ? state : { canvasTypeOverride: override })),
+      setPhoneVisibleBands: (bands) => {
+        set({ phoneVisibleBands: bands });
+      },
     }),
     {
       name: "propulse-workspace-store",
-      version: 2,
+      version: 3,
       storage: createJSONStorage(() => localStorage),
       migrate: migrateWorkspaceState,
+      // `canvasTypeOverride` is viewport-derived and re-established by
+      // `WorkspacePage` on every mount — it must not survive a reload as a
+      // stale value, so it is excluded from the persisted snapshot.
+      partialize: (state): PersistedWorkspaceState => ({
+        workspaces: state.workspaces,
+        activeWorkspaceId: state.activeWorkspaceId,
+      }),
     },
   ),
 );
@@ -477,4 +536,17 @@ export function useActiveWorkspace(): Workspace {
 export function useActivePage(): WorkspacePage {
   const workspace = useActiveWorkspace();
   return workspace.pages.find((p) => p.id === workspace.activePageId) ?? workspace.pages[0];
+}
+
+/**
+ * The canvas type every rules/dock computation should use for the active
+ * workspace right now — `canvasTypeOverride` when set, else the workspace's
+ * own stored `canvasType` (see `resolveCanvasType`'s doc comment). The single
+ * hook `WorkspaceCanvas`, `WidgetsTab`, and `DisplayTab`'s rail-width section
+ * all read, so rendering and mutation validation can never disagree.
+ */
+export function useEffectiveCanvasType(): CanvasType {
+  const canvasType = useActiveWorkspace().canvasType;
+  const override = useWorkspaceStore((s) => s.canvasTypeOverride);
+  return override ?? canvasType;
 }

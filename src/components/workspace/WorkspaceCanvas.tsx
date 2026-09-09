@@ -2,7 +2,12 @@ import "./workspace.css";
 import { autoDock } from "@/lib/workspace/autoDock";
 import { canvasRulesFor } from "@/lib/workspace/canvasRules";
 import type { RailSide, RailState, RailWidth } from "@/lib/workspace/types";
-import { useActivePage, useActiveWorkspace, useWorkspaceStore } from "@/stores/workspaceStore";
+import {
+  useActivePage,
+  useActiveWorkspace,
+  useEffectiveCanvasType,
+  useWorkspaceStore,
+} from "@/stores/workspaceStore";
 import { RailSlot } from "./RailSlot";
 import { SpaceSlot } from "./SpaceSlot";
 
@@ -24,18 +29,30 @@ function bottomRailPx(state: RailState | undefined): number {
 }
 
 /**
- * The workstation shell: applies `canvasRulesFor("workstation")`, runs
- * `autoDock` over the active page's stored widget ids to find out where
- * each one landed, and lays out `SpaceSlot` + `RailSlot`s in a CSS grid
- * sized by each rail's width step / collapsed state.
+ * The workspace shell: applies `canvasRulesFor(useEffectiveCanvasType())`
+ * (#686 review — the override `WorkspacePage` sets on a narrower viewport,
+ * else the workspace's own stored `canvasType`; see `workspaceStore.ts`'s
+ * `resolveCanvasType` doc comment for why this must be the one shared
+ * resolver every rules-consuming surface reads, not a prop threaded only
+ * through this component), runs `autoDock` over the active page's stored
+ * widget ids to find out where each one landed, and lays out `SpaceSlot` +
+ * `RailSlot`s in a CSS grid sized by each rail's width step / collapsed
+ * state. Rail *state* (collapsed/width) still comes from the stored
+ * `workspace.rails`, matched by side — tablet only declares a `right` rail,
+ * which the workstation-shaped store state already has, so no migration is
+ * needed. Trade-off, accepted per `autoDock`'s own "refuse honestly, never
+ * crash" contract: a widget docked under workstation's wider rail budgets
+ * can be refused when re-evaluated here under tablet's narrower
+ * single-rail budget, rather than silently dropped or spilled.
  */
 export function WorkspaceCanvas() {
   const workspace = useActiveWorkspace();
   const page = useActivePage();
   const setRailCollapsed = useWorkspaceStore((s) => s.setRailCollapsed);
   const setRailWidth = useWorkspaceStore((s) => s.setRailWidth);
+  const canvasType = useEffectiveCanvasType();
 
-  const rules = canvasRulesFor(workspace.canvasType);
+  const rules = canvasRulesFor(canvasType);
   const dock = autoDock(page.widgetIds, rules);
 
   const spaceWidgetId = dock.placements.find((p) => p.slot.kind === "space")?.widgetId;
@@ -58,7 +75,13 @@ export function WorkspaceCanvas() {
       style={{
         display: "grid",
         gap: "0.75rem",
-        gridTemplateColumns: `${railPx(leftState)}px 1fr ${railPx(rightState)}px`,
+        // Guard on whether the canvas's rules *declare* the rail, not just
+        // on rail state: tablet's stored rail state is the workstation
+        // shape (left/right/bottom all present, #686 review P1) even though
+        // tablet rules declare only `right`, so gating on state alone left a
+        // dead 280px left gutter on tablet. Mirrors the row template's own
+        // `bottomRail ? ... : 0` guard below.
+        gridTemplateColumns: `${leftRail ? railPx(leftState) : 0}px 1fr ${rightRail ? railPx(rightState) : 0}px`,
         gridTemplateRows: `1fr ${bottomRail ? bottomRailPx(bottomState) : 0}px`,
       }}
     >

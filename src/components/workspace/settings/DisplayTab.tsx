@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Button } from "@/components/station-ui";
 import { HamClockSegmented } from "@/components/map/hamclock/wall/controls";
+import { FollowScreensToggle } from "@/components/workspace/FollowScreensToggle";
 import { useTextScalePreference } from "@/hooks/useTextScale";
 import { BAND_ORDER } from "@/lib/data/bandRanges";
 import { canvasRulesFor } from "@/lib/workspace/canvasRules";
@@ -198,6 +199,9 @@ export function DisplayTab() {
               />
             );
           })}
+
+          <p className="su-eyebrow">SHARING</p>
+          <FollowScreensToggle />
         </div>
       )}
     </div>

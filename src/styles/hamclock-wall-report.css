@@ -788,6 +788,16 @@
 .hcr-bandrow:hover {
   border-color: var(--hc-accent);
 }
+/* A detached (pinned, no view runtime) report disables its rows; `:hover`
+   and the author `cursor` still match a disabled button, so mirror
+   `.hcc-btn:disabled` or the rows read as live. */
+.hcr-bandrow:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+.hcr-bandrow:disabled:hover {
+  border-color: var(--hc-line);
+}
 .hcr-bandrow:focus-visible {
   outline: 0.25vh solid var(--hc-accent);
   outline-offset: -0.2vh;

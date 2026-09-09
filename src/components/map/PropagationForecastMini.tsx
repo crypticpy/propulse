@@ -919,7 +919,7 @@ export function PropagationForecastMini({
         {/* MAIN: Full-width Heatmap */}
         <div className="flex-1 flex flex-col min-h-0">
           {/* Heatmap row: labels + grid */}
-          <div className="flex-1 flex gap-1 min-h-0 relative">
+          <div className="flex-1 flex gap-1 min-h-0 relative" data-accent="accent">
             {/* Current hour caret markers — clip-path triangles (immune to
                 .contrast-more border-color !important overrides) */}
             {currentHourIndex >= 0 && (
@@ -965,8 +965,10 @@ export function PropagationForecastMini({
                 return (
                   <div
                     key={band}
-                    className={`text-xs font-mono flex items-center ${
-                      isSynced ? "text-cyan-400 font-bold" : "text-su-muted"
+                    className={`text-xs font-mono flex items-center border-l-2 pl-1 ${
+                      isSynced
+                        ? "border-su-accent text-su-text font-bold"
+                        : "border-transparent text-su-muted"
                     }`}
                   >
                     {isSynced && (
@@ -1022,7 +1024,7 @@ export function PropagationForecastMini({
                   return (
                     <div
                       key={`${band}-${hour}`}
-                      className={`rounded-sm cursor-pointer transition-all hover:brightness-125 relative flex items-center justify-center ${isCurrentHour ? "-translate-y-0.5 z-10 shadow-[5px_5px_8px_rgba(0,0,0,0.75)]" : ""} ${isSynced ? "ring-1 ring-cyan-400/60" : ""}`}
+                      className={`rounded-sm cursor-pointer transition-all hover:brightness-125 relative flex items-center justify-center ${isCurrentHour ? "-translate-y-0.5 z-10 shadow-[5px_5px_8px_rgba(0,0,0,0.75)]" : ""} ${isSynced ? "ring-2 ring-su-accent-edge" : ""}`}
                       style={{
                         backgroundColor: adjustedColor,
                         opacity:

@@ -26,7 +26,7 @@ import { useSettingsStore } from "@/stores/settingsStore";
 import { useActiveRadio } from "@/stores/shackStore";
 import { ALL_BANDS, type BandId } from "@/types/user";
 import { ALL_UI_MODES, type UIMode } from "@/lib/utils/modeNormalize";
-import { BAND_COLORS, MODE_COLORS } from "@/lib/utils/spotColors";
+import { BAND_COLORS, MODE_COLORS, modeInk } from "@/lib/utils/spotColors";
 import { useBandConditionsTint } from "@/hooks/useBandConditionsTint";
 
 // ---------------------------------------------------------------------------
@@ -590,6 +590,7 @@ export function BandModeModal({ isOpen, onClose }: BandModeModalProps) {
                   {visibleModes.map((mode) => {
                     const isActive = activeMode === mode;
                     const mColor = MODE_COLORS[mode] ?? MODE_COLORS.default;
+                    const ink = modeInk(mode);
 
                     return (
                       <button
@@ -598,12 +599,13 @@ export function BandModeModal({ isOpen, onClose }: BandModeModalProps) {
                         className={`
                           relative px-3 py-2.5 rounded-lg text-sm font-bold transition-all duration-150
                           active:scale-90 active:brightness-125 cursor-pointer
-                          ${isActive ? "ring-[3px] ring-su-text scale-[1.08] z-10 text-black" : "text-su-muted hover:text-su-text"}
+                          ${isActive ? "ring-[3px] ring-su-text scale-[1.08] z-10" : "text-su-muted hover:text-su-text"}
                         `}
                         style={
                           isActive
                             ? {
                                 backgroundColor: mColor,
+                                color: ink,
                                 boxShadow: `0 0 16px ${mColor}60, 0 0 32px ${mColor}25`,
                                 outline: `2px solid ${mColor}`,
                                 outlineOffset: "3px",

@@ -1,12 +1,43 @@
 import { describe, expect, it } from "vitest";
 import {
   AGE_COLOR_STOPS,
+  contrastRatio,
   getAgeColor,
   getBandColor,
+  getModeColor,
   getSnrColor,
   getSpotColor,
+  MODE_COLORS,
+  MODE_INK_DARK,
+  MODE_INK_LIGHT,
+  modeInk,
   SNR_COLOR_STOPS,
 } from "./spotColors";
+
+describe("modeInk", () => {
+  it("puts dark ink on FT8/FT4 cyan, CW yellow, and SSB green", () => {
+    expect(modeInk("FT8")).toBe(MODE_INK_DARK);
+    expect(modeInk("FT4")).toBe(MODE_INK_DARK);
+    expect(modeInk("CW")).toBe(MODE_INK_DARK);
+    expect(modeInk("SSB")).toBe(MODE_INK_DARK);
+  });
+
+  it("meets WCAG AA 4.5:1 against every MODE_COLORS fill", () => {
+    for (const [mode, fill] of Object.entries(MODE_COLORS)) {
+      const ink = modeInk(mode === "default" ? undefined : mode);
+      expect(contrastRatio(ink, fill)).toBeGreaterThanOrEqual(4.5);
+    }
+  });
+
+  it("rejects white on the known-failure fills", () => {
+    expect(contrastRatio(MODE_INK_LIGHT, MODE_COLORS.FT8)).toBeLessThan(4.5);
+    expect(contrastRatio(MODE_INK_LIGHT, MODE_COLORS.CW)).toBeLessThan(4.5);
+    expect(contrastRatio(MODE_INK_LIGHT, MODE_COLORS.SSB)).toBeLessThan(4.5);
+    expect(contrastRatio(MODE_INK_DARK, getModeColor("FT8"))).toBeGreaterThanOrEqual(
+      4.5,
+    );
+  });
+});
 
 describe("getSnrColor", () => {
   it("runs weak-to-strong, the direction the Colors popover describes", () => {

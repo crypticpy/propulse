@@ -19,7 +19,9 @@
  * hypothetical.
  *
  * Measured consequences (production `stationContrast` over the real palettes,
- * glass surfaces composited two layers deep per #787/#788):
+ * glass surfaces composited two layers deep per #787/#788, over the shipped
+ * `ACCEPTED_GAMUT` below -- 6,770 unique accents once the 72x6x19 HSL sweep is
+ * deduped; it collapses hard at saturation 0):
  *
  *   - Raw accent ink on its own tint has **no safe alpha**: the minimum over the
  *     accepted range is 1.00:1 at every alpha, every theme, every surface
@@ -30,8 +32,8 @@
  *     `bg-plasma-orange/20` over the Light panel.
  *   - `--su-accent-text` does not rescue it. It guarantees 4.5 against the bare
  *     panel, and in the branch where the accent clears that gate the token *is*
- *     the raw accent, so the tint eats the margin: 3.48:1 at /20 on the dark
- *     panel over the gamut, 2.42:1 at /30 on Light glass.
+ *     the raw accent, so the tint eats the margin: 3.45:1 at /20 on the dark
+ *     panel over the gamut, 2.33:1 at /30 on Light glass.
  *   - `--su-text` (the `Badge` `quiet` treatment #795 established for purple)
  *     does hold, with a real cap: **>= 5.18:1 for every accepted accent at
  *     alpha <= 0.20**, first failing at 4.37:1 at alpha 0.25 (dark, glass over
@@ -337,8 +339,21 @@ interface TintedSite {
   what: string;
   /** Exact snippet the site ships; binds the table to the source. */
   snippet: string;
-  /** Highest tint alpha the snippet encodes (rest or hover). */
-  alpha: number;
+}
+
+/**
+ * Highest `bg-plasma-orange/N` alpha the snippet itself encodes (rest or
+ * hover) -- parsed from the string that is already proven to be a substring
+ * of the shipped file, instead of a hand-written field that could drift from
+ * it silently. The snippet must include every `bg-plasma-orange/N` class the
+ * site ships (rest and hover), even when the hover class sits on a different
+ * source line than `text-su-text`, or this under-counts the real alpha.
+ */
+function deriveAlpha(snippet: string): number {
+  const alphas = [...snippet.matchAll(/bg-plasma-orange\/(\d+)/g)].map((m) =>
+    Number(m[1]),
+  );
+  return Math.max(...alphas) / 100;
 }
 
 /**
@@ -354,57 +369,48 @@ const FIXED_SITES: TintedSite[] = [
     file: "src/components/ui/SyncStatusIndicator.tsx",
     what: "the sync queue pill",
     snippet: `: "bg-plasma-orange/20 text-su-text border-plasma-orange/30";`,
-    alpha: 0.2,
   },
   {
     file: "src/components/ui/SyncStatusIndicator.tsx",
     what: 'the "Retry All" button',
     snippet: `rounded bg-plasma-orange/15 text-su-text
                              hover:bg-plasma-orange/20 transition-colors font-medium"`,
-    alpha: 0.2,
   },
   {
     file: "src/components/ui/ConfirmDialog.tsx",
     what: "the default confirm button",
     snippet: `"bg-plasma-orange/15 hover:bg-plasma-orange/20 text-su-text border border-plasma-orange/30",`,
-    alpha: 0.2,
   },
   {
     file: "src/components/ui/ImageCropDialog.tsx",
     what: "the crop save button",
     snippet: `bg-plasma-orange/15 hover:bg-plasma-orange/20 text-su-text`,
-    alpha: 0.2,
   },
   {
     file: "src/components/ui/ReferencePanel.tsx",
     what: "the selected band chip",
     snippet: `? "bg-plasma-orange/20 border-plasma-orange/60 text-su-text"`,
-    alpha: 0.2,
   },
   {
     file: "src/components/ui/ShareModal.tsx",
     what: "the copy-link button",
     snippet: `: "bg-plasma-orange/15 text-su-text border border-plasma-orange/50 hover:bg-plasma-orange/20"`,
-    alpha: 0.2,
   },
   {
     file: "src/components/ui/ShortcutsHelpModal.tsx",
     what: "the selected shortcuts tab",
-    snippet: `? "bg-plasma-orange/15 text-su-text border border-plasma-orange/40"`,
-    alpha: 0.15,
+    snippet: `? "bg-plasma-orange/15 text-su-text border border-plasma-orange/40 font-semibold"`,
   },
   {
     file: "src/components/ui/UndoToast.tsx",
     what: "the redo button",
     snippet: `bg-plasma-orange/15 text-su-text
                     hover:bg-plasma-orange/20`,
-    alpha: 0.2,
   },
   {
     file: "src/components/ui/UpgradePrompt.tsx",
     what: 'the "Pro" chip',
     snippet: `rounded bg-plasma-orange/15 text-su-text font-semibold`,
-    alpha: 0.15,
   },
 ];
 
@@ -429,7 +435,7 @@ describe("the src/components/ui accent tints ship the --su-text treatment (#803)
         `${site.what} draws accent ink on its own tint again`,
       ).toBe(false);
       expect(
-        site.alpha,
+        deriveAlpha(site.snippet),
         `${site.what} ships a tint above the measured cap`,
       ).toBeLessThanOrEqual(TINT_CAP);
     },
@@ -447,7 +453,7 @@ describe("the src/components/ui accent tints ship the --su-text treatment (#803)
         const { ratio, accent } = worstOnTint(
           palette.text,
           ACCEPTED_GAMUT,
-          site.alpha,
+          deriveAlpha(site.snippet),
           surface.backdrop(palette),
         );
         expect(
@@ -634,6 +640,8 @@ describe("census guard: no new accent ink on an accent tint (#803)", () => {
   const ABOVE_CAP_TINT_RE = /bg-plasma-orange\/(?:2[5-9]|[3-9]\d|100)\b/;
   const NEUTRAL_INK_RE = /text-su-text\b/;
 
+  // Scans .ts/.tsx only and skips anything matching .test. -- a pairing
+  // parked in a *.test.tsx fixture or a .css file is outside this census.
   function walk(dir: string, files: string[] = []): string[] {
     for (const entry of readdirSync(dir)) {
       const full = join(dir, entry);

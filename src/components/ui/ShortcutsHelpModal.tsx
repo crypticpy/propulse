@@ -265,7 +265,7 @@ export function ShortcutsHelpModal({
               onClick={() => setTab(id)}
               className={`px-3 py-1.5 rounded-lg text-sm transition-colors ${
                 tab === id
-                  ? "bg-plasma-orange/15 text-su-text border border-plasma-orange/40"
+                  ? "bg-plasma-orange/15 text-su-text border border-plasma-orange/40 font-semibold"
                   : "text-su-muted border border-transparent hover:bg-su-line/10 hover:text-su-text"
               }`}
             >

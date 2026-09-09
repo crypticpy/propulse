@@ -33,6 +33,21 @@
   gap: var(--su-space-2);
 }
 
+.phone-screens-row {
+  align-items: center;
+}
+
+.phone-screens-controls {
+  display: flex;
+  align-items: center;
+  gap: var(--su-space-2);
+}
+
+.phone-screens-reason,
+.phone-screens-label {
+  text-align: end;
+}
+
 .phone-page-body {
   flex: 1 1 auto;
   overflow-y: auto;

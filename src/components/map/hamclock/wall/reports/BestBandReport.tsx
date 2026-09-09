@@ -14,8 +14,9 @@ import { getBandColor } from "@/lib/utils/spotColors";
 import { latLonToGrid } from "@/lib/utils/grid";
 import { LADDER_RANK } from "@/lib/verdict/ladder";
 import { useHamClockStore } from "@/stores/hamclockStore";
-import { useMapStore } from "@/stores/mapStore";
 import { useProfileStore } from "@/stores/profileStore";
+import { useOptionalViewSpotFilterPatch } from "@/hooks/useViewClusterSpots";
+import { useOptionalViewRuntime } from "@/components/views/ViewRuntimeContext";
 import { SolarMiniChart } from "@/components/solar/SolarMiniChart";
 import type { EngineReading } from "@/lib/hamclock/engineComparison";
 import {
@@ -113,6 +114,7 @@ function BandRow({
   mufMHz,
   activityFetchedAt,
   onFocus,
+  disabled,
 }: {
   entry: BandLadderEntry;
   rank: number;
@@ -121,6 +123,7 @@ function BandRow({
   mufMHz: number | null;
   activityFetchedAt: number | null;
   onFocus: (band: string) => void;
+  disabled: boolean;
 }) {
   const { band, stable, result } = entry;
   const delta = deltaMufMHz(band, mufMHz);
@@ -129,7 +132,17 @@ function BandRow({
   const scoreValue = Math.round(entry.result.inputs.physicsScore * 100);
 
   return (
-    <button type="button" className="hcr-bandrow" onClick={() => onFocus(band)}>
+    <button
+      type="button"
+      className="hcr-bandrow"
+      disabled={disabled}
+      title={
+        disabled
+          ? "Not bound to a view — open this report from the wall to filter by band"
+          : undefined
+      }
+      onClick={() => onFocus(band)}
+    >
       <span>{rank}</span>
       <span className="hcr-bandrow-band" style={{ color: getBandColor(band) }}>
         {band.toUpperCase()}
@@ -189,8 +202,14 @@ export function BestBandReport({ open, onClose }: BestBandReportProps) {
   const sfi = useCurrentSFI();
   const now = useUTCClock(60_000);
   const setBandFocus = useHamClockStore((s) => s.setBandFocus);
-  const spotFilters = useMapStore((s) => s.spotFilters);
-  const setSpotFilters = useMapStore((s) => s.setSpotFilters);
+  const patchSpotFilters = useOptionalViewSpotFilterPatch();
+  // A pinned report re-mounts inside `HamClockPinnedReportHost` on
+  // `/workspace`, which has no `ViewProvider` above it — `patchSpotFilters`
+  // is a no-op there, so the row's click-to-filter behaviour is disabled
+  // in that state instead of looking live (PR #615 round 6 review,
+  // mirrors BandActivityReport).
+  const runtime = useOptionalViewRuntime();
+  const bandRowsDisabled = runtime === null;
   // The ladder's own DX target (not the map's arbitrary `target`, which can
   // point somewhere else entirely) -- "first saved target" is the same
   // convention useBandVerdicts uses internally to build its "dx" scope.
@@ -323,7 +342,7 @@ export function BestBandReport({ open, onClose }: BestBandReportProps) {
 
   const handleFocus = (band: string) => {
     setBandFocus([band]);
-    setSpotFilters({ ...spotFilters, bands: [band] });
+    patchSpotFilters({ bands: [band] });
   };
 
   const { footer, updated } = reportFooter(
@@ -423,6 +442,7 @@ export function BestBandReport({ open, onClose }: BestBandReportProps) {
               mufMHz={muf}
               activityFetchedAt={activityFetchedAt}
               onFocus={handleFocus}
+              disabled={bandRowsDisabled}
             />
           ))}
         </div>

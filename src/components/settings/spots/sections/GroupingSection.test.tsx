@@ -117,6 +117,42 @@ describe("GroupingSection", () => {
     expect(controllerB?.spots.grouping.enabled).toBe(true);
   });
 
+  it("disables grouping controls on the flat projection and explains why (SP-09 round 3 B2)", () => {
+    const handle = createTestView({ family: "hamclock" });
+    render(<Harness handle={handle} />);
+
+    expect(
+      (screen.getByRole("switch", { name: "Group nearby reports" }) as HTMLButtonElement).disabled,
+    ).toBe(true);
+    expect((screen.getByRole("radio", { name: "Regions" }) as HTMLButtonElement).disabled).toBe(
+      true,
+    );
+    expect(
+      (screen.getByRole("radio", { name: "Maidenhead grids" }) as HTMLButtonElement).disabled,
+    ).toBe(true);
+    expect(
+      (screen.getByRole("slider", { name: "Minimum group size" }) as HTMLInputElement).disabled,
+    ).toBe(true);
+    expect(
+      screen.getByText(/Grouping applies to the globe and azimuthal projections/),
+    ).toBeTruthy();
+  });
+
+  it("keeps grouping controls enabled on the globe projection", () => {
+    const handle = createTestView({ family: "pro" });
+    render(<Harness handle={handle} />);
+
+    expect(
+      (screen.getByRole("switch", { name: "Group nearby reports" }) as HTMLButtonElement).disabled,
+    ).toBe(false);
+    expect(
+      (screen.getByRole("slider", { name: "Minimum group size" }) as HTMLInputElement).disabled,
+    ).toBe(false);
+    expect(
+      screen.queryByText(/Grouping applies to the globe and azimuthal projections/),
+    ).toBeNull();
+  });
+
   it("supports keyboard operation of the grouping level control", async () => {
     const user = userEvent.setup();
     let latest: SpotsPreferencesController | undefined;

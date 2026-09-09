@@ -4,8 +4,9 @@ import { useBandVerdicts } from "@/hooks/useBandVerdicts";
 import { useLiveBandHistory } from "@/hooks/useLiveBandHistory";
 import { useBandHistory } from "@/hooks/useBandHistory";
 import { useHamClockStore } from "@/stores/hamclockStore";
-import { useMapStore } from "@/stores/mapStore";
 import { useDXStore } from "@/stores/dxStore";
+import { useOptionalViewSpotFilterPatch } from "@/hooks/useViewClusterSpots";
+import { useOptionalViewRuntime } from "@/components/views/ViewRuntimeContext";
 import { WallReport, type WallReportFact } from "./WallReport";
 import { reportFooter } from "../tokens";
 import { HamClockButton, HamClockTabs } from "../controls";
@@ -22,6 +23,16 @@ export interface BandActivityReportProps {
 /** Live counters retain their scope and population; historical counts are global only. */
 export function BandActivityReport({ open, onClose, initialGlobalCounts = false, initialView = "bands" }: BandActivityReportProps) {
   const [activeView, setActiveView] = useState(initialView);
+  // A pinned report re-mounts inside `HamClockPinnedReportHost` on
+  // `/workspace`, which has no `ViewProvider` above it (PR #615 review
+  // finding 1) — the optional variant no-ops there instead of throwing.
+  const patchSpotFilters = useOptionalViewSpotFilterPatch();
+  // With no runtime above, `patchSpotFilters` above is a no-op, so a band
+  // chip click would do nothing visible. Disable the chips in that state
+  // instead of leaving a live-looking control that silently does nothing
+  // (PR #615 round 5 review nb3).
+  const runtime = useOptionalViewRuntime();
+  const bandChipsDisabled = runtime === null;
   const clusterSpots = useDXStore((s) => s.spots);
   const clusterSource = useDXStore(s => s.spotSource);
   const isTopDx = activeView === "dx";
@@ -151,13 +162,15 @@ export function BandActivityReport({ open, onClose, initialGlobalCounts = false,
                   {bars.map((entry) => (
                     <HamClockButton
                       key={entry.band}
+                      disabled={bandChipsDisabled}
+                      title={
+                        bandChipsDisabled
+                          ? "Not bound to a view — open this report from the wall to filter by band"
+                          : undefined
+                      }
                       onClick={() => {
                         useHamClockStore.getState().setBandFocus([entry.band]);
-                        const map = useMapStore.getState();
-                        map.setSpotFilters({
-                          ...map.spotFilters,
-                          bands: [entry.band],
-                        });
+                        patchSpotFilters({ bands: [entry.band] });
                       }}
                     >
                       {entry.band.toUpperCase()} ·{" "}

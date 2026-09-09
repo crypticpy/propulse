@@ -8,6 +8,8 @@ export interface AzimuthalSpotClusterCandidate {
 
 export interface AzimuthalSpotCluster {
   key: string;
+  /** Geographic group id for Map these spots. Absent for screen-space hit stacks. */
+  groupId?: string;
   x: number;
   y: number;
   left: number;

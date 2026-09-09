@@ -22,6 +22,8 @@ const DEFAULT_OPTIONS: Required<ClusteringOptions> = {
   enabled: true,
   gridSize: 5,
   minClusterSize: 3,
+  detail: "regions",
+  expandedIds: [],
 };
 
 /**
@@ -31,14 +33,21 @@ export function useSpotClustering(
   spots: LiveSpot[],
   options: ClusteringOptions,
 ): ClusteringResult {
-  const { enabled, gridSize, minClusterSize } = {
+  const { enabled, gridSize, minClusterSize, detail, expandedIds } = {
     ...DEFAULT_OPTIONS,
     ...options,
   };
 
   return useMemo(
-    () => clusterSpots(spots, { enabled, gridSize, minClusterSize }),
-    [spots, enabled, gridSize, minClusterSize],
+    () =>
+      clusterSpots(spots, {
+        enabled,
+        gridSize,
+        minClusterSize,
+        detail,
+        expandedIds,
+      }),
+    [spots, enabled, gridSize, minClusterSize, detail, expandedIds],
   );
 }
 

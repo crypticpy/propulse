@@ -7,6 +7,7 @@ import { usePskStationView } from "./usePskStation";
 import { useMapStore } from "@/stores/mapStore";
 import { useProfileStore } from "@/stores/profileStore";
 import { buildMapDataPolicy, type MapDataPolicy } from "@/lib/map/operationalScope";
+import { MAX_SPOT_FETCH_LIMIT } from "@/lib/map/spotDensity";
 import { PSK_WINDOWS, type PskStationSnapshot } from "@/lib/hamclock/pskStation";
 const mocks = vi.hoisted(() => ({ live: vi.fn(), policy: null as unknown as MapDataPolicy }));
 vi.mock("./useLiveSpots", () => ({ useLiveSpots: mocks.live }));
@@ -78,6 +79,15 @@ it("hides cached personal public reports under restricted policy and restores th
   expect(result.current.spots).toHaveLength(1);
   act(() => useMapStore.getState().setSpotFeedScope("global"));
   expect(mocks.live).toHaveBeenLastCalledWith(expect.objectContaining({ enabled: true }));
+  unmount();
+});
+
+it("requests the map density ceiling rather than the frozen displayDensity default (SP-09 round 3 B4)", () => {
+  useMapStore.setState({ spotFeedScope: "global" });
+  const { unmount } = renderHook(() => useMapSpotFeed({ enabled: true }), { wrapper });
+  expect(mocks.live).toHaveBeenLastCalledWith(
+    expect.objectContaining({ fetchLimit: MAX_SPOT_FETCH_LIMIT }),
+  );
   unmount();
 });
 

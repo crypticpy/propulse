@@ -50,6 +50,10 @@ describe("built-in activity recipes", () => {
       trailSeconds: 1, fadeSeconds: 0.5, repeatSeconds: 3, arrivalPulse: false, bounceGlow: true,
     });
     expect(recipe.spots.paths.animate).toBe("new-spots");
+    // "Balanced activity" hardcodes spotLimit=50 as its own curated design
+    // value (SP-09 round 2: this no longer coincides with the shared
+    // default, 150, so the comparison below overrides just that field).
+    seed.filters.spotLimit = 50;
     expect(recipe.spots).toEqual(seed);
   });
 
@@ -196,7 +200,7 @@ describe("built-in display templates", () => {
     expect(recipe.config.presentation.layers.spotTraces).toBe(false);
     expect(recipe.config.spots.filters.modes).toEqual(ALL_MODE);
     expect(recipe.config.spots.filters.maxAgeMinutes).toBe(30);
-    expect(recipe.config.spots.filters.spotLimit).toBe(50);
+    expect(recipe.config.spots.filters.spotLimit).toBe(150);
     expect(recipe.config.spots.grouping.enabled).toBe(true);
     expect(recipe.config.spots.paths.background.style).toBe("off");
     expect(recipe.config.spots.paths.selected?.style).toBe("off");

@@ -26,6 +26,7 @@ export interface SpotCollectionPopoverProps {
   spots: readonly PresentableSpot[];
   onClose: () => void;
   onSpotSelect: (spot: LiveSpot) => void;
+  onMapTheseSpots?: () => void;
 }
 
 const POPOVER_WIDTH = 330;
@@ -52,6 +53,7 @@ export function SpotCollectionPopover({
   spots,
   onClose,
   onSpotSelect,
+  onMapTheseSpots,
 }: SpotCollectionPopoverProps) {
   const panelRef = useRef<HTMLDivElement>(null);
   const firstSpotRef = useRef<HTMLButtonElement>(null);
@@ -253,9 +255,20 @@ export function SpotCollectionPopover({
             .map(([mode, count]) => `${mode} ${count}`)
             .join(" · ")}
         </span>
-        <span className="shrink-0">
-          {summary.bands} band{summary.bands === 1 ? "" : "s"}
-        </span>
+        <div className="flex shrink-0 items-center gap-2">
+          {onMapTheseSpots && (
+            <button
+              type="button"
+              className="rounded border border-signal-green/40 px-1.5 py-0.5 text-[9px] font-medium uppercase tracking-wide text-signal-green hover:bg-signal-green/10"
+              onClick={onMapTheseSpots}
+            >
+              Map these spots
+            </button>
+          )}
+          <span>
+            {summary.bands} band{summary.bands === 1 ? "" : "s"}
+          </span>
+        </div>
       </div>
     </div>,
     document.body,

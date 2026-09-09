@@ -1,7 +1,7 @@
 import { normalizeLiveSpot } from "@/lib/spots/presentation/pipeline";
 import { contractIdSchema, type NormalizedSpotReport } from "@/lib/views/spotContracts";
 import type { LiveSpot } from "@/types/livespot";
-import { groupMappedReports } from "./grouping";
+import { groupMappedReports, type GroupingDetail } from "./grouping";
 
 /**
  * A cluster of nearby spots
@@ -29,6 +29,10 @@ export interface ClusteringOptions {
   gridSize?: number;
   /** Minimum spots required to form a cluster (clamped 2–50, default 3) */
   minClusterSize?: number;
+  /** Region vs Maidenhead grouping. Camera is never an input. */
+  detail?: GroupingDetail;
+  /** Map these spots: hide these groups and emit members as singles. */
+  expandedIds?: readonly string[];
 }
 
 /**
@@ -41,6 +45,8 @@ export interface ClusteringResult {
   singles: LiveSpot[];
   /** Total number of spots processed */
   totalSpots: number;
+  /** Reachable group IDs for expansion sync, including hidden expanded parents. */
+  liveGroupIds: string[];
 }
 
 const DEFAULT_MIN_GROUP_SIZE = 3;
@@ -89,14 +95,7 @@ export function clusterSpots(
 ): ClusteringResult {
   const enabled = options.enabled;
   const minGroupSize = clampMinGroupSize(options.minClusterSize);
-
-  if (!enabled || spots.length === 0) {
-    return {
-      clusters: [],
-      singles: [...spots].sort(compareSpots),
-      totalSpots: spots.length,
-    };
-  }
+  const detail = options.detail ?? "regions";
 
   const mapped: { spot: LiveSpot; report: NormalizedSpotReport }[] = [];
   const unresolved: LiveSpot[] = [];
@@ -112,7 +111,8 @@ export function clusterSpots(
   const byId = new Map(mapped.map((entry) => [entry.report.id, entry.spot]));
   const grouped = groupMappedReports(
     mapped.map((entry) => entry.report),
-    { enabled: true, detail: "regions", minGroupSize },
+    { enabled, detail, minGroupSize },
+    { expandedIds: options.expandedIds },
   );
 
   const clusters: SpotCluster[] = grouped.groups.map((group) => {
@@ -139,6 +139,7 @@ export function clusterSpots(
     clusters,
     singles,
     totalSpots: spots.length,
+    liveGroupIds: grouped.liveGroupIds,
   };
 }
 

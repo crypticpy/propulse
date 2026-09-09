@@ -1,0 +1,300 @@
+import { renderHook } from "@testing-library/react";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import type { ReactNode } from "react";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { ViewProvider } from "@/components/views/ViewProvider";
+import { createSpotPreferences } from "@/lib/views/defaults";
+import { createMemoryWorkingStorage } from "@/lib/views/runtime";
+import { SPOT_FIXTURE_NOW_MS } from "@/lib/views/fixtures";
+import type { LiveSpot } from "@/types/livespot";
+import {
+  projectLiveSpotsForView,
+  useViewMapSpots,
+} from "./useViewMapSpots";
+import { clusterSpots } from "@/lib/spots/grouping";
+
+const mocks = vi.hoisted(() => ({ live: vi.fn() }));
+vi.mock("./useLiveSpots", () => ({ useLiveSpots: mocks.live }));
+
+function emptyLiveSpotsResult() {
+  return {
+    spots: [],
+    evidenceSpots: [],
+    feedScopeKey: "empty",
+    sourceMetadata: {},
+    sourceStates: { PSKReporter: "OFF", RBN: "OFF", "WSJT-X": "OFF" },
+    isLoading: false,
+    isFeedReady: false,
+    isError: false,
+    spotsBySource: { PSKReporter: [], RBN: [], Cluster: [], "WSJT-X": [] },
+    refetch: vi.fn(),
+  };
+}
+
+beforeEach(() => {
+  mocks.live.mockReturnValue(emptyLiveSpotsResult());
+});
+
+function liveSpot(id: string, overrides: Partial<LiveSpot> = {}): LiveSpot {
+  return {
+    id,
+    spotter: "K1ABC",
+    dx: "EA1AAA",
+    frequency: 14074,
+    mode: "USB",
+    comment: "",
+    time: new Date(SPOT_FIXTURE_NOW_MS),
+    band: "20m",
+    source: "PSKReporter",
+    dxLat: 40.4,
+    dxLon: -3.7,
+    ...overrides,
+  };
+}
+
+describe("projectLiveSpotsForView", () => {
+  it("keeps USB under a phone category and applies the map budget after matching", () => {
+    const prefs = createSpotPreferences();
+    prefs.filters.modes = {
+      all: false,
+      categories: ["phone"],
+      modes: [],
+      includeUnknown: false,
+      includeInferred: true,
+    };
+    prefs.filters.spotLimit = 10;
+    const spots = [
+      liveSpot("usb", { mode: "USB" }),
+      liveSpot("cw", { id: "cw", dx: "EA1CW", mode: "CW" }),
+      ...Array.from({ length: 12 }, (_, n) =>
+        liveSpot(`phone-${n}`, {
+          dx: `EA${n}PH`,
+          mode: "LSB",
+          time: new Date(SPOT_FIXTURE_NOW_MS - n * 1000),
+        }),
+      ),
+    ];
+    const result = projectLiveSpotsForView(spots, prefs, SPOT_FIXTURE_NOW_MS);
+    expect(result.matching.every((spot) => spot.mode !== "CW")).toBe(true);
+    expect(result.matchingCount).toBe(13);
+    expect(result.mapBudgeted).toHaveLength(10);
+    expect(result.budgetOmittedCount).toBe(3);
+    expect(result.mapBudgeted.some((spot) => spot.id === "usb")).toBe(true);
+    expect(result.matching.some((spot) => spot.id === "cw")).toBe(false);
+  });
+});
+
+describe("clusterSpots expansion", () => {
+  it("emits Map-these-spots members as singles without changing group identity", () => {
+    const spots = [
+      liveSpot("es-1", { dx: "EA1AAA" }),
+      liveSpot("es-2", { dx: "EA1BBB" }),
+      liveSpot("es-3", { dx: "EA1CCC" }),
+    ];
+    const grouped = clusterSpots(spots, {
+      enabled: true,
+      minClusterSize: 3,
+      detail: "regions",
+    });
+    expect(grouped.clusters).toHaveLength(1);
+    const expanded = clusterSpots(spots, {
+      enabled: true,
+      minClusterSize: 3,
+      detail: "regions",
+      expandedIds: [grouped.clusters[0]!.id],
+    });
+    expect(expanded.clusters).toHaveLength(0);
+    expect(expanded.singles.map((spot) => spot.id).sort()).toEqual([
+      "es-1",
+      "es-2",
+      "es-3",
+    ]);
+    expect(expanded.liveGroupIds).toEqual(grouped.liveGroupIds);
+  });
+});
+
+describe("useViewMapSpots", () => {
+  it("throws without a provider instead of reading mapStore filters", () => {
+    expect(() =>
+      renderHook(() => useViewMapSpots({ enabled: true })),
+    ).toThrow(/no global active view exists/);
+  });
+
+  it("mounts inside a bound view", () => {
+    const client = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    });
+    const wrapper = ({ children }: { children: ReactNode }) => (
+      <QueryClientProvider client={client}>
+        <ViewProvider
+          ownerId="owner-a"
+          slot="normal"
+          storage={createMemoryWorkingStorage()}
+        >
+          {children}
+        </ViewProvider>
+      </QueryClientProvider>
+    );
+    const { result } = renderHook(
+      () => useViewMapSpots({ enabled: false, grid: "EM10aa" }),
+      { wrapper },
+    );
+    expect(result.current.mapBudget).toBe(150);
+    expect(result.current.listTotal).toBe(0);
+    expect(result.current.clusters).toEqual([]);
+  });
+
+  it("resolves budgeted spots by originalSpot identity, not raw id, when upstream reports share an id", () => {
+    // Some upstream RBN rows historically share a raw id across receivers
+    // observed in the same second. Six skimmers copy one transmission here;
+    // dedup collapses them to one candidate, but all six evidence rows still
+    // carry that same shared id.
+    const rawId = "shared-rbn-id";
+    const now = new Date();
+    const skimmers: LiveSpot[] = Array.from({ length: 6 }, (_, i) =>
+      liveSpot(rawId, {
+        source: "RBN",
+        dx: "K1XYZ",
+        dxLat: 41.5,
+        dxLon: -71.3,
+        spotter: `SKIM${i}`,
+        receiverCallsign: `SKIM${i}`,
+        spotterLat: 40 + i,
+        spotterLon: -74 + i,
+        frequency: 14025.3,
+        mode: "CW",
+        time: now,
+      }),
+    );
+    const dedupedSpot = skimmers[0]!;
+
+    mocks.live.mockReturnValue({
+      ...emptyLiveSpotsResult(),
+      spots: [dedupedSpot],
+      evidenceSpots: skimmers,
+      feedScopeKey: "shared-id",
+      isFeedReady: true,
+      sourceStates: { PSKReporter: "OFF", RBN: "LIVE", "WSJT-X": "OFF" },
+      spotsBySource: { PSKReporter: [], RBN: [dedupedSpot], Cluster: [], "WSJT-X": [] },
+    });
+
+    const client = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    });
+    const wrapper = ({ children }: { children: ReactNode }) => (
+      <QueryClientProvider client={client}>
+        <ViewProvider
+          ownerId="owner-shared-id"
+          slot="normal"
+          storage={createMemoryWorkingStorage()}
+        >
+          {children}
+        </ViewProvider>
+      </QueryClientProvider>
+    );
+
+    const { result } = renderHook(
+      () => useViewMapSpots({ enabled: true, grid: "EM10aa" }),
+      { wrapper },
+    );
+
+    expect(result.current.resolvedSpots).toHaveLength(1);
+    expect(result.current.resolvedSpots.length).toBeLessThanOrEqual(
+      result.current.mapBudget,
+    );
+    expect(result.current.resolvedSpots[0]?.originalSpot).toBe(dedupedSpot);
+    expect(result.current.resolvedSingles).toHaveLength(1);
+  });
+
+  it("keeps a dedup-dropped evidence row in allResolvedSpots even though resolvedSpots narrows it away", () => {
+    // `useLiveSpots` dedupes `spots` for the visible/mapped set but keeps
+    // every eligible report in `evidenceSpots` for semantic aggregation.
+    // `allResolvedSpots` must be `feed.allResolvedSpots` verbatim (all
+    // evidence, resolved), never narrowed by the same dedup/budget that
+    // shrinks `resolvedSpots`/`candidateSpots`.
+    const now = new Date();
+    const kept: LiveSpot = liveSpot("kept", {
+      source: "PSKReporter",
+      dx: "K1XYZ",
+      dxLat: 41.5,
+      dxLon: -71.3,
+      spotter: "SPOTTER-A",
+      spotterLat: 40,
+      spotterLon: -74,
+      frequency: 14025.3,
+      mode: "CW",
+      time: now,
+    });
+    // A distinct receiver report of the same transmission, at a different
+    // grid, that cross-source dedup collapsed out of `spots` but that
+    // `evidenceSpots` still carries.
+    const dedupDropped: LiveSpot = liveSpot("dropped-by-dedup", {
+      source: "RBN",
+      dx: "K1XYZ",
+      dxLat: 41.5,
+      dxLon: -71.3,
+      spotter: "SPOTTER-B",
+      receiverCallsign: "SPOTTER-B",
+      spotterLat: 42,
+      spotterLon: -75,
+      frequency: 14025.3,
+      mode: "CW",
+      time: now,
+    });
+
+    mocks.live.mockReturnValue({
+      ...emptyLiveSpotsResult(),
+      spots: [kept],
+      evidenceSpots: [kept, dedupDropped],
+      feedScopeKey: "dedup-dropped",
+      isFeedReady: true,
+      sourceStates: { PSKReporter: "LIVE", RBN: "LIVE", "WSJT-X": "OFF" },
+      spotsBySource: {
+        PSKReporter: [kept],
+        RBN: [],
+        Cluster: [],
+        "WSJT-X": [],
+      },
+    });
+
+    const client = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    });
+    const wrapper = ({ children }: { children: ReactNode }) => (
+      <QueryClientProvider client={client}>
+        <ViewProvider
+          ownerId="owner-dedup-dropped"
+          slot="normal"
+          storage={createMemoryWorkingStorage()}
+        >
+          {children}
+        </ViewProvider>
+      </QueryClientProvider>
+    );
+
+    const { result } = renderHook(
+      () => useViewMapSpots({ enabled: true, grid: "EM10aa" }),
+      { wrapper },
+    );
+
+    // The deduped/budgeted set only carries the surviving report.
+    expect(result.current.resolvedSpots).toHaveLength(1);
+    expect(result.current.resolvedSpots[0]?.originalSpot).toBe(kept);
+    expect(
+      result.current.resolvedSpots.some(
+        (spot) => spot.originalSpot === dedupDropped,
+      ),
+    ).toBe(false);
+
+    // The evidence-oriented set keeps both, including the row dedup dropped.
+    expect(result.current.allResolvedSpots).toHaveLength(2);
+    expect(
+      result.current.allResolvedSpots.map((spot) => spot.originalSpot),
+    ).toEqual([kept, dedupDropped]);
+    expect(
+      result.current.allResolvedSpots.some(
+        (spot) => spot.originalSpot === dedupDropped,
+      ),
+    ).toBe(true);
+  });
+});

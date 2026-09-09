@@ -135,7 +135,7 @@ describe("catalog and summary", () => {
     expect(summary).toContain("All bands");
     expect(summary).toContain("all available sources");
     expect(summary).toContain("last 30 min");
-    expect(summary).toContain("up to 50 spots");
+    expect(summary).toContain("up to 150 spots");
     expect(summary).not.toMatch(/spotLimit|maxAgeMinutes|schemaVersion/);
   });
 
@@ -163,7 +163,7 @@ describe("filter defaults (FILTER-04)", () => {
     expect(defaultFilters()).toEqual(DEFAULT_SPOT_FILTERS);
     expect(defaultFilters()).not.toBe(defaultFilters());
     expect(defaultFilters().maxAgeMinutes).toBe(30);
-    expect(defaultFilters().spotLimit).toBe(50);
+    expect(defaultFilters().spotLimit).toBe(150);
     expect(defaultFilters().bands).toEqual([]);
     expect(defaultFilters().sources).toEqual([]);
     expect(defaultFilters().modes.all).toBe(true);

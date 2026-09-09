@@ -1,6 +1,8 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { LayersPopover } from "./LayersPopover";
+import { ViewProvider } from "@/components/views/ViewProvider";
+import { createMemoryWorkingStorage } from "@/lib/views/runtime";
 
 /**
  * B1/HW-23: the popover is portalled to `document.body` and positioned with
@@ -30,7 +32,11 @@ describe("LayersPopover viewport clamp", () => {
   });
 
   function openPopover() {
-    render(<LayersPopover />);
+    render(
+      <ViewProvider ownerId="test-owner" slot="normal" storage={createMemoryWorkingStorage()}>
+        <LayersPopover />
+      </ViewProvider>,
+    );
     fireEvent.click(screen.getByRole("button", { name: /layers/i }));
     const trigger = screen.getByRole("button", { name: /layers/i });
     const popover = document.querySelector<HTMLElement>(

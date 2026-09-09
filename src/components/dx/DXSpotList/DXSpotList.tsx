@@ -29,6 +29,10 @@ import { useContestWatch } from "@/hooks/useContestWatch";
 import { applyLogIntent } from "@/lib/qso/logIntent";
 import { resolveMapSpotSelection } from "@/hooks/useMapSpotSelection";
 import { useOptionalViewRuntime } from "@/components/views/ViewRuntimeContext";
+import {
+  useOptionalViewEffectiveSpots,
+  useOptionalViewSpotFilterPatch,
+} from "@/hooks/useViewClusterSpots";
 
 /** Source badge styling map */
 const SOURCE_BADGE_STYLES: Record<
@@ -68,7 +72,17 @@ export function DXSpotList({
   onResearchGrid,
 }: DXSpotListProps) {
   const spotSource = useDXStore((s) => s.spotSource);
-  const spotFilters = useMapStore((s) => s.spotFilters);
+  // Band filter comes from the bound view's own runtime (SP-09 round 3), not
+  // the retired `mapStore.spotFilters`. This list also mounts bare on the
+  // `/map/ops` popout window (no `ViewProvider` above it there), so the
+  // optional variant falls back to unfiltered spots instead of throwing.
+  // Only `bands` is ever patched onto the runtime's filters (mode selection
+  // is a richer object with no equivalent here), so `modes` stays empty.
+  const viewSpots = useOptionalViewEffectiveSpots();
+  const spotFilters = useMemo(
+    () => ({ bands: viewSpots.filters.bands, modes: [] as string[] }),
+    [viewSpots.filters.bands],
+  );
   const activeProfile = useMapStore((s) => s.activeProfile);
   const watchCriteria = useWatchStore((s) => s.criteria);
   const matchedSpotIds = useWatchStore((s) => s.matchedSpotIds);
@@ -77,6 +91,7 @@ export function DXSpotList({
   // ── Contest watch integration ──
   const contestWatch = useContestWatch();
   const runtime = useOptionalViewRuntime();
+  const clearViewSpotFilters = useOptionalViewSpotFilterPatch();
 
   const state = useDXSpotListState(onResearchGrid);
 
@@ -479,7 +494,7 @@ export function DXSpotList({
             </span>
           </span>
           <button
-            onClick={() => useMapStore.getState().clearSpotFilters()}
+            onClick={() => clearViewSpotFilters({ bands: [] })}
             className="ml-auto text-su-text/80 hover:text-su-text text-[10px]"
             title="Clear filter"
           >

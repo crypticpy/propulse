@@ -51,22 +51,16 @@ describe("mapStore HamClock beauty enter/exit", () => {
     expect(useDisplayQualityStore.getState().displayQuality).toBe("auto");
   });
 
-  it("seeds filtersBeforeBands when entering directly in Bands mode", () => {
-    useHamClockStore.setState({ hamclockMode: "bands", bandFocus: ["20m"] });
-    useMapStore.setState({
-      layoutMode: "normal",
-      spotFilters: {
-        ...useMapStore.getState().spotFilters,
-        bands: ["40m"],
-      },
-    });
-    useMapStore.getState().setLayoutMode("hamclock");
-    expect(useHamClockStore.getState().filtersBeforeBands?.bands).toEqual([
-      "40m",
-    ]);
-    expect(useMapStore.getState().spotFilters.bands).toEqual(["20m"]);
-  });
-
+  // Bands-mode filter capture moved off this action in SP-09 round 2: it has to
+  // patch the bound view runtime, which a store action cannot reach. It now
+  // lives in `HamClockBoundModeFilters`, mounted inside `<BoundViewHost>`.
+  // The equivalent assertion — including the "already in Bands mode on mount"
+  // path (reachable via `LayoutModeDropdown`'s re-entry or a kiosk scene
+  // pinning Bands, not via persistence — `hamclockStore.ts` coerces a
+  // persisted "bands" back to "traffic" on rehydrate) — is
+  // `HamClockBoundModeFilters.test.tsx`'s "captures and patches on mount when
+  // hamclockMode is already 'bands'", which goes red if the component's
+  // sentinel ref is reverted to `useRef(hamclockMode)`.
   it("snapshots tileProviderId on HamClock enter and restores it (in memory and persisted) on exit — B6 fix #5", () => {
     localStorage.clear();
     useMapStore.setState({ layoutMode: "normal", tileProviderId: "esri-world" });

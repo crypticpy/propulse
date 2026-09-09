@@ -1,5 +1,6 @@
 import { act, renderHook } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
+import { createViewConfiguration } from "@/lib/views/defaults";
 import { getActivityRecipe, getDisplayRecipe } from "@/lib/views/presets";
 import { createSavedViewFixture, createTestView, type TestViewHandle } from "./testing";
 import { useSpotsPreferences } from "./useSpotsPreferences";
@@ -59,7 +60,7 @@ describe("scoped working copy", () => {
     const after = handle.runtime.getSnapshot().config.spots;
     expect(after.filters.modes.all).toBe(true);
     expect(after.filters.maxAgeMinutes).toBe(30);
-    expect(after.filters.spotLimit).toBe(50);
+    expect(after.filters.spotLimit).toBe(150);
     expect(after.filters.bands).toEqual([]);
     expect(after.filters.sources).toEqual([]);
     expect(after.grouping).toEqual(grouping);
@@ -193,9 +194,18 @@ describe("preset preview, application and revert (PRESET-03)", () => {
   });
 
   it("treats a no-op application as no change and arms no revert", () => {
-    const handle = view();
-    const { result } = renderHook(() => useSpotsPreferences({ view: handle.view }));
+    // The view starts already matching the recipe (SP-09 round 2: the shared
+    // spot-limit default, 150, no longer coincides with the "Balanced
+    // activity" recipe's own curated 50, so a truly fresh view is no longer
+    // a no-op target for it). Seeding the view at the recipe's own spots
+    // config keeps this test's intent — reapplying an already-applied
+    // preset changes nothing and arms no revert.
     const recipe = getActivityRecipe("activity-balanced-v1");
+    const seed = createViewConfiguration("pro");
+    seed.spots = structuredClone(recipe.spots);
+    const handle = createTestView({ seed });
+    open.push(handle);
+    const { result } = renderHook(() => useSpotsPreferences({ view: handle.view }));
 
     act(() => result.current.applyPreset(recipe));
     const revisionAfterFirst = handle.runtime.getSnapshot().workingRevision;

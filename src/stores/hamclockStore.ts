@@ -14,7 +14,7 @@ import type {
   HamClockEnterSnapshot,
   HamClockMode,
 } from "@/lib/hamclock/modePresets";
-import type { SpotFilters } from "@/types/operatingProfile";
+import type { SpotPresentationPreferences } from "@/lib/views/spotContracts";
 
 export type { HamClockMode } from "@/lib/hamclock/modePresets";
 
@@ -66,8 +66,12 @@ export interface HamClockState {
   crawlHamNews: boolean;
   /** Include allowlisted world news headlines after ham news. */
   crawlWorldNews: boolean;
-  /** Spot filters captured when entering Bands mode (restored on leave). */
-  filtersBeforeBands: SpotFilters | null;
+  /**
+   * Bound-view spot filters captured when entering Bands mode (restored on
+   * leave). Shaped like `SpotPresentationPreferences["filters"]`, the
+   * per-view runtime's filter contract, not the legacy `mapStore.SpotFilters`.
+   */
+  filtersBeforeBands: SpotPresentationPreferences["filters"] | null;
   /** Non-persisted snapshot of Normal/Pro map state for exit restore. */
   enterSnapshot: HamClockEnterSnapshot | null;
 
@@ -82,7 +86,9 @@ export interface HamClockState {
   toggleBandFocus: (band: string) => void;
   setCrawlHamNews: (enabled: boolean) => void;
   setCrawlWorldNews: (enabled: boolean) => void;
-  setFiltersBeforeBands: (filters: SpotFilters | null) => void;
+  setFiltersBeforeBands: (
+    filters: SpotPresentationPreferences["filters"] | null,
+  ) => void;
   setEnterSnapshot: (snapshot: HamClockEnterSnapshot | null) => void;
 }
 

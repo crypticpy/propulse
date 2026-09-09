@@ -7,7 +7,7 @@ export function createSpotPreferences(): SpotPresentationPreferences {
   return {
     filters: {
       modes: { all: true, categories: [], modes: [], includeUnknown: true, includeInferred: true },
-      bands: [], sources: [], maxAgeMinutes: 30, spotLimit: 50,
+      bands: [], sources: [], maxAgeMinutes: 30, spotLimit: 150,
     },
     grouping: { enabled: true, detail: "regions", minGroupSize: 3 },
     paths: {

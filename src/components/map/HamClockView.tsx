@@ -28,7 +28,8 @@ import "@/styles/hamclock-wall-forecast.css";
 import "@/styles/hamclock-wall-report.css";
 import "@/styles/hamclock-wall-controls.css";
 import { BoundViewHost } from "@/components/views/BoundViewHost";
-import { useHamClockRadioFollow } from "@/hooks/useHamClockRadioFollow";
+import { useViewRuntime } from "@/components/views/ViewRuntimeContext";
+import { useBoundViewRadioFollow } from "@/hooks/useHamClockRadioFollow";
 import { useHamClockWallOperatingState } from "@/hooks/useHamClockWallOperatingState";
 import { useHamClockDisplayStore } from "@/stores/hamclockDisplayStore";
 import { useKioskStore } from "@/stores/kioskStore";
@@ -125,11 +126,72 @@ function restoreForcedHeroProjection(latch: HeroForceLatch) {
 // Main Component
 // ---------------------------------------------------------------------------
 
+function HamClockBoundFollow() {
+  useBoundViewRadioFollow();
+  return null;
+}
+
+/**
+ * Capture/restore the bound view's spot filters across Bands-mode entry and
+ * exit. Mounted inside `<BoundViewHost slot="hamclock">` (unlike the mode
+ * layer effect in `HamClockView` itself, which runs above the provider and
+ * only touches `mapStore`), because this needs `useViewRuntime()`. Manual
+ * bands changes here go through `updateWorkingView`, which clears
+ * follow-radio on its own when the bands/modes actually change
+ * (`bandModeFiltersEqual`), so no separate follow-radio write is needed.
+ */
+export function HamClockBoundModeFilters() {
+  const runtime = useViewRuntime();
+  const hamclockMode = useHamClockStore((s) => s.hamclockMode);
+  const setFiltersBeforeBands = useHamClockStore(
+    (s) => s.setFiltersBeforeBands,
+  );
+  // Starts at a sentinel, not `hamclockMode`, so landing on this component
+  // already in Bands mode still counts as an entry transition below and
+  // captures/patches the runtime once. Persisted "bands" never survives a
+  // reload — `hamclockStore.ts` coerces it back to "traffic" on rehydrate —
+  // but `hamclockMode` can still already be "bands" in memory when this
+  // mounts, e.g. via `LayoutModeDropdown.tsx`'s `selectMode` re-entering the
+  // hamclock layout with a stale in-memory mode, or a kiosk scene's
+  // `applySceneToMap.ts` setting `hamclockMode` before `setLayoutMode`.
+  const prevModeRef = useRef<HamClockMode | null>(null);
+
+  useEffect(() => {
+    const prev = prevModeRef.current;
+    if (prev === hamclockMode) return;
+
+    const snapshot = runtime.getSnapshot();
+    if (hamclockMode === "bands" && prev !== "bands") {
+      setFiltersBeforeBands({ ...snapshot.config.spots.filters });
+      runtime.updateWorkingView({
+        spots: {
+          ...snapshot.config.spots,
+          filters: {
+            ...snapshot.config.spots.filters,
+            bands: [...useHamClockStore.getState().bandFocus],
+          },
+        },
+      });
+    } else if (prev === "bands" && hamclockMode !== "bands") {
+      const restore = useHamClockStore.getState().filtersBeforeBands;
+      if (restore) {
+        runtime.updateWorkingView({
+          spots: { ...snapshot.config.spots, filters: restore },
+        });
+      }
+      setFiltersBeforeBands(null);
+    }
+
+    prevModeRef.current = hamclockMode;
+  }, [hamclockMode, runtime, setFiltersBeforeBands]);
+
+  return null;
+}
+
 export function HamClockView({
   displayTime,
   onLocationClick,
 }: HamClockViewProps) {
-  useHamClockRadioFollow();
   // Registers this screen on the shared operating roster and mirrors an
   // inbound cursor's target onto `mapStore.target` (#712). Wall and desk
   // density share this one mount, so there is exactly one registration
@@ -275,9 +337,6 @@ export function HamClockView({
   }, []);
 
   const hamclockMode = useHamClockStore((s) => s.hamclockMode);
-  const setFiltersBeforeBands = useHamClockStore(
-    (s) => s.setFiltersBeforeBands,
-  );
 
   const prevModeRef = useRef(hamclockMode);
 
@@ -291,27 +350,16 @@ export function HamClockView({
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, []);
 
-  // Apply mode layer/filter transitions when the operator changes product mode.
+  // Apply mode layer transitions when the operator changes product mode.
+  // Spot-filter capture/restore for Bands mode is handled by
+  // `HamClockBoundModeFilters`, mounted inside `<BoundViewHost>` below, since
+  // it must write the bound view's runtime rather than `mapStore`.
   useEffect(() => {
     const prev = prevModeRef.current;
     if (prev === hamclockMode) return;
-
-    const map = useMapStore.getState();
-    if (hamclockMode === "bands" && prev !== "bands") {
-      setFiltersBeforeBands({ ...map.spotFilters });
-      map.setSpotFilters({
-        ...map.spotFilters,
-        bands: [...useHamClockStore.getState().bandFocus],
-      });
-    } else if (prev === "bands" && hamclockMode !== "bands") {
-      const restore = useHamClockStore.getState().filtersBeforeBands;
-      if (restore) map.setSpotFilters(restore);
-      setFiltersBeforeBands(null);
-    }
-
     applyModeLayers(hamclockMode);
     prevModeRef.current = hamclockMode;
-  }, [hamclockMode, setFiltersBeforeBands]);
+  }, [hamclockMode]);
 
   // Ensure the active mode's layer preset is applied on first mount.
   useEffect(() => {
@@ -427,6 +475,8 @@ export function HamClockView({
 
   return (
     <BoundViewHost slot="hamclock">
+      <HamClockBoundFollow />
+      <HamClockBoundModeFilters />
       <div
         data-hamclock-root
         data-hamclock-theme={display.theme}

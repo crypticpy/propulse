@@ -2,10 +2,12 @@ export function SegmentedButton<T extends string>({
   options,
   value,
   onChange,
+  disabled,
 }: {
   options: { value: T; label: React.ReactNode }[];
   value: T;
   onChange: (value: T) => void;
+  disabled?: boolean;
 }) {
   return (
     <div
@@ -19,7 +21,8 @@ export function SegmentedButton<T extends string>({
           role="radio"
           aria-checked={value === opt.value}
           onClick={() => onChange(opt.value)}
-          className={`flex-1 px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
+          disabled={disabled}
+          className={`flex-1 px-3 py-1.5 rounded-md text-sm font-medium transition-colors disabled:opacity-40 disabled:cursor-not-allowed ${
             value === opt.value
               ? "bg-plasma-orange text-su-on-accent"
               : "text-su-muted hover:text-su-text"

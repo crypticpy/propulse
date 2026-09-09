@@ -127,4 +127,21 @@ describe("ClusterDetailPopover", () => {
     expect(screen.getByText("POTA")).toBeTruthy();
     expect(screen.queryByText("Cluster")).toBeNull();
   });
+
+  it("maps these spots from the collection footer", async () => {
+    const user = userEvent.setup();
+    const onMapTheseSpots = vi.fn();
+    render(
+      <ClusterDetailPopover
+        visible
+        position={{ x: 400, y: 400 }}
+        cluster={cluster}
+        onClose={() => {}}
+        onSpotSelect={() => {}}
+        onMapTheseSpots={onMapTheseSpots}
+      />,
+    );
+    await user.click(screen.getByRole("button", { name: "Map these spots" }));
+    expect(onMapTheseSpots).toHaveBeenCalledOnce();
+  });
 });

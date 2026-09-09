@@ -6,7 +6,7 @@ import {
   createSpotLoadFixture,
   SPOT_FIXTURE_NOW_MS,
 } from "@/lib/views/fixtures";
-import { buildSpotPipelineStages, buildSpotSceneModel, pathDescriptorForReport, applyOperatingScope, reportMatchesFilters } from "./pipeline";
+import { buildSpotPipelineStages, buildSpotSceneModel, pathDescriptorForReport, applyOperatingScope, reportMatchesFilters, projectLiveSpotsForView } from "./pipeline";
 import type { LiveSpot } from "@/types/livespot";
 
 function scene(observations: Parameters<typeof buildSpotSceneModel>[0]["observations"], overrides: Partial<Parameters<typeof buildSpotSceneModel>[0]> = {}) {
@@ -295,5 +295,19 @@ describe("spot presentation pipeline", () => {
     expect(reverse.counts.matching).toBe(1);
     expect(forward.reports[0]?.sourceRefs.some((ref) => ref.source === "RBN")).toBe(true);
     expect(forward.reports.map((report) => report.id)).toEqual(reverse.reports.map((report) => report.id));
+  });
+
+  it("keeps two distinct spots separate when their raw LiveSpot ids collide", () => {
+    const preferences = createSpotPreferences();
+    const spots: LiveSpot[] = [
+      createSpotInput("dup-raw-id", { dx: "TEST1DX", time: new Date(SPOT_FIXTURE_NOW_MS - 60_000) }),
+      createSpotInput("dup-raw-id", { dx: "TEST2DX", time: new Date(SPOT_FIXTURE_NOW_MS - 61_000) }),
+    ];
+    const projection = projectLiveSpotsForView(spots, preferences, SPOT_FIXTURE_NOW_MS);
+    expect(projection.matchingCount).toBe(2);
+    expect(projection.mapBudgeted).toHaveLength(2);
+    expect(new Set(projection.mapBudgeted.map((spot) => spot.dx))).toEqual(
+      new Set(["TEST1DX", "TEST2DX"]),
+    );
   });
 });

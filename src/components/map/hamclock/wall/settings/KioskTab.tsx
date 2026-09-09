@@ -1,8 +1,8 @@
 import { useNavigate } from "react-router-dom";
 import { FollowScreensToggle } from "@/components/workspace/FollowScreensToggle";
+import { useViewFollowRadioControl } from "@/hooks/useHamClockRadioFollow";
 import { useOperatingMonitor } from "@/hooks/useOperatingMonitor";
 import { pageTitle } from "@/lib/hamclock/wallPages";
-import { useHamClockDisplayStore } from "@/stores/hamclockDisplayStore";
 import { useKioskStore } from "@/stores/kioskStore";
 import { HamClockButton, HamClockToggleRow } from "../controls";
 
@@ -22,8 +22,7 @@ export function KioskTab() {
   const activeSceneId = useKioskStore((s) => s.activeSceneId);
   const scenes = useKioskStore((s) => s.scenes);
   const stop = useKioskStore((s) => s.stop);
-  const followRadio = useHamClockDisplayStore((s) => s.followRadio);
-  const setFollowRadio = useHamClockDisplayStore((s) => s.setFollowRadio);
+  const { followRadio, setFollowRadio } = useViewFollowRadioControl();
   const radio = useOperatingMonitor();
   const followDetail = radio
     ? `Locks spots to ${radio.band} ${radio.mode}`

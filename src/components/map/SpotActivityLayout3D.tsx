@@ -32,19 +32,20 @@ import {
   type SpotLayoutCandidate,
 } from "@/lib/map/screenSpaceSpotLayout";
 import {
-  normalizePresentableSpot,
-  type PresentableSpot,
-} from "@/lib/map/spotPresentation";
+  mergeSpotBeacons,
+  resolveAggregateReportThreshold,
+  resolveCollisionPaddingPx,
+  resolveMaxStackOffsetPx,
+} from "@/lib/map/spotClusteringLayout";
 import { useBoundSelectedReportId } from "@/hooks/useBoundMapSelection";
 import { useMapStore } from "@/stores/mapStore";
-import {
-  useSpotClusteringPrefs,
-  useUIInteractionPrefs,
-} from "@/stores/userStore";
+import { useSpotClusteringPrefs } from "@/stores/settingsStore";
+import { useUIInteractionPrefs } from "@/stores/userStore";
 import { useWatchStore } from "@/stores/watchStore";
 import { useReplayStore } from "@/stores/replayStore";
 import type { MappableActivationSpot } from "@/lib/map/activationMarkers";
 import type { ScreenAnchor } from "@/lib/map/anchoredOverlay";
+import type { PresentableSpot } from "@/lib/map/spotPresentation";
 import type { LiveSpot } from "@/types/livespot";
 import { AnimatedSpotTraces } from "./AnimatedSpotTraces";
 import { ActivationMarkers3D } from "./layers/ActivationMarkers3D";
@@ -81,6 +82,7 @@ interface SpotActivityLayout3DProps {
     cluster: SpotClusterData,
     screenPos: { x: number; y: number },
   ) => void;
+  geographicClusters?: SpotClusterData[];
 }
 
 const EMPTY_LAYOUT: GlobeSpotLayoutResult = {
@@ -100,25 +102,6 @@ function latLonToVector(lat: number, lon: number, target: THREE.Vector3) {
   );
 }
 
-function aggregateCluster(
-  aggregate: GlobeSpotLayoutResult["aggregates"][number],
-): SpotClusterData {
-  const unique = new Map<string, LiveSpot>();
-  for (const member of aggregate.members) {
-    if (!unique.has(member.reportId)) {
-      unique.set(member.reportId, normalizePresentableSpot(member.payload.spot));
-    }
-  }
-  const spots = [...unique.values()];
-  return {
-    id: aggregate.id,
-    center: aggregate.center,
-    spots,
-    count: aggregate.count,
-    primarySpot: normalizePresentableSpot(aggregate.primary.payload.spot),
-  };
-}
-
 export function SpotActivityLayout3D({
   showLiveSpots,
   showSpotTraces,
@@ -135,12 +118,13 @@ export function SpotActivityLayout3D({
   onSpotHoverEnd,
   onSpotSelect,
   onClusterClick,
+  geographicClusters = [],
 }: SpotActivityLayout3DProps) {
   const groupRef = useRef<THREE.Group>(null);
   const selectedSpotId = useBoundSelectedReportId();
   const matchedSpotIds = useWatchStore((state) => state.matchedSpotIds);
   const uiPrefs = useUIInteractionPrefs();
-  const clusteringPrefs = useSpotClusteringPrefs();
+  const spotClusteringPrefs = useSpotClusteringPrefs();
   const activeBand = useActiveBand();
   const replayEnabled = useMapStore((state) => state.replayEnabled);
   const replaySpots = useReplayStore((state) => state.replaySpots);
@@ -199,21 +183,24 @@ export function SpotActivityLayout3D({
     () =>
       [
         globeSpotCandidateRevision(candidates),
-        `cluster:${clusteringPrefs.enabled ? 1 : 0}`,
-        `spacing:${clusteringPrefs.gridSize ?? 6}`,
-        `minimum:${clusteringPrefs.minClusterSize ?? 3}`,
+        `geo:${geographicClusters.map((cluster) => cluster.id).join(",")}`,
+        `agg:${spotClusteringPrefs.enabled ? spotClusteringPrefs.minClusterSize : "off"}`,
+        `spacing:${spotClusteringPrefs.gridSize}`,
       ].join("|"),
     [
       candidates,
-      clusteringPrefs.enabled,
-      clusteringPrefs.gridSize,
-      clusteringPrefs.minClusterSize,
+      geographicClusters,
+      spotClusteringPrefs.enabled,
+      spotClusteringPrefs.minClusterSize,
+      spotClusteringPrefs.gridSize,
     ],
   );
   const candidatesRef = useRef(candidates);
   const revisionRef = useRef(revision);
+  const spotClusteringPrefsRef = useRef(spotClusteringPrefs);
   candidatesRef.current = candidates;
   revisionRef.current = revision;
+  spotClusteringPrefsRef.current = spotClusteringPrefs;
 
   const [layout, setLayout] = useState<GlobeSpotLayoutResult>(EMPTY_LAYOUT);
   const layoutSignatureRef = useRef("");
@@ -289,25 +276,27 @@ export function SpotActivityLayout3D({
             ) >= 0.05,
         };
       });
+    // Screen-space aggregation (distinct from the PR's geographic clustering
+    // pass — both are merged into `renderAggregates`/`SpotCluster` below so
+    // neither collapses a dense region to nothing): gate it on the user's
+    // clustering preference so a disabled toggle keeps every spot drawn
+    // individually, and an enabled toggle restores an aggregate once a
+    // screen region holds at least `minClusterSize` distinct reports.
+    const minAggregateReportCount = resolveAggregateReportThreshold(
+      spotClusteringPrefsRef.current,
+    );
     const next = layoutProjectedSpotCandidates(projected, {
       viewport: size,
       viewportMarginPx: 80,
       // Retain the existing user control, but reinterpret its old degree-cell
       // value as visible pixel breathing room now that grouping is correctly
       // projection-aware. Its persisted 5–15 range maps cleanly to pixels.
-      collisionPaddingPx: Math.max(4, clusteringPrefs.gridSize ?? 6),
-      // The UI preference is explicitly a report threshold. A report may own
-      // two endpoint surfaces, so applying it to candidate count creates a
-      // one-report beacon and violates the control's meaning.
-      minAggregateReportCount: clusteringPrefs.enabled
-        ? Math.max(1, clusteringPrefs.minClusterSize ?? 3)
-        : Number.MAX_SAFE_INTEGER,
+      collisionPaddingPx: resolveCollisionPaddingPx(spotClusteringPrefsRef.current),
+      minAggregateReportCount,
       // With clustering explicitly disabled we honor that preference by
       // continuing the deterministic fan instead of capping offsets until
       // labels overlap again.
-      maxStackOffsetPx: clusteringPrefs.enabled
-        ? 40
-        : Number.MAX_SAFE_INTEGER,
+      maxStackOffsetPx: resolveMaxStackOffsetPx(spotClusteringPrefsRef.current),
     });
     const signature = spotLayoutSignature(next);
     if (signature !== layoutSignatureRef.current) {
@@ -328,22 +317,18 @@ export function SpotActivityLayout3D({
   });
 
   const renderAggregates = useMemo(
-    () =>
-      layout.aggregates.map((aggregate) => ({
-        aggregate,
-        cluster: aggregateCluster(aggregate),
-      })),
-    [layout.aggregates],
+    () => mergeSpotBeacons(layout.aggregates, geographicClusters),
+    [layout.aggregates, geographicClusters],
   );
 
   return (
     <group ref={groupRef} name="shared-spot-activity-layout">
-      {renderAggregates.map(({ aggregate, cluster }) => (
+      {renderAggregates.map(({ cluster, color, sizeScale }) => (
         <SpotCluster
-          key={aggregate.id}
+          key={cluster.id}
           cluster={cluster}
-          color={aggregate.primary.payload.color}
-          sizeScale={aggregate.sizeScale}
+          color={color}
+          sizeScale={sizeScale}
           ariaLabel={`Open ${cluster.count} active reports near ${cluster.center.lat.toFixed(1)}, ${cluster.center.lon.toFixed(1)}`}
           onClick={onClusterClick}
         />

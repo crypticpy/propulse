@@ -35,7 +35,7 @@ import {
 } from "@/lib/utils/path";
 import { useAuroraData } from "@/hooks/useAuroraData";
 import { useCurrentSFI } from "@/hooks/useMUFData";
-import type { LiveSpot, SpotSource } from "@/types/livespot";
+import type { LiveSpot } from "@/types/livespot";
 import {
   resolveSpotLocations,
   getGreatCirclePoints,
@@ -164,7 +164,7 @@ import { useFt8DecodeEnricher } from "@/hooks/useFt8DecodeEnricher";
 import { useFt8SessionStore } from "@/stores/ft8SessionStore";
 import { useMapHazardData } from "./hooks/useMapHazardData";
 import { useOptimalMapSignal } from "./hooks/useOptimalMapSignal";
-import { useResolvedMapSpots } from "./hooks/useResolvedMapSpots";
+import { useViewMapSpots } from "@/hooks/useViewMapSpots";
 import { useGridActivitySnapshot } from "@/hooks/useGridActivitySnapshot";
 import {
   gridActivityGridForCoordinate,
@@ -3398,7 +3398,6 @@ export function FlatMapView({
     "public",
   );
   const gridActivityEndpoint = useMapStore((s) => s.gridActivityEndpoint);
-  const spotFilters = useMapStore((s) => s.spotFilters);
   const labelOptions = useMapStore((s) => s.labelOptions);
   const mapStyle = useMapStore((s) => s.mapStyle);
   const nightDarkness = useMapStore((s) => s.nightDarkness);
@@ -3509,7 +3508,6 @@ export function FlatMapView({
   const flashPoint = useFlashPoint();
   const activePresetId = useMapStore((s) => s.activePresetId);
   const regionPresets = useMapStore((s) => s.regionPresets);
-  const displayDensity = useMapStore((s) => s.displayDensity);
   const isLiteMode = useMapStore((s) => s.isLiteMode);
   const { station, preferences } = useUserStore();
   const { data: auroraData } = useAuroraData(layers.aurora);
@@ -3544,9 +3542,6 @@ export function FlatMapView({
   // DX stores
   const { updateFilter } = useDXStore();
   const selectedSpot = focusedSpot;
-  const spotSourceFilters = useDXStore(
-    (s) => s.filters.sources as SpotSource[] | undefined,
-  );
   const pathPresentation = useTargetPathPresentation(displayTime);
   const spotLayerPolicy = useMemo(
     () =>
@@ -3626,13 +3621,10 @@ export function FlatMapView({
   // Fetch and resolve the shared live feed, then apply this canvas renderer's
   // draw cap. Source merging and disabled-state behavior live in one hook.
   const { spots, resolvedSpots, allResolvedSpots, activationSpots } =
-    useResolvedMapSpots({
+    useViewMapSpots({
       grid: station?.grid,
       enabled: layers.spots || layers.spotTraces || layers.gridActivity,
       activationsEnabled: layers.activations,
-      maxSpots: displayDensity,
-      sources: spotSourceFilters,
-      spotFilters,
     });
   const gridActivityResolution = gridActivityResolutionForView(
     "flat",

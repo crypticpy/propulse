@@ -158,7 +158,7 @@ describe("pure legacy adapters", () => {
       modes: ["SSB"],
     });
     expect(recipe.spots.filters.maxAgeMinutes).toBe(30);
-    expect(recipe.spots.filters.spotLimit).toBe(50);
+    expect(recipe.spots.filters.spotLimit).toBe(150);
     expect(recipe.spots.filters.sources).toEqual([]);
     expect(recipe.spots.grouping.enabled).toBe(true);
     expect(recipe.spots.paths.background.style).toBe("quick-sweep");

@@ -116,6 +116,7 @@ import { useResolvedDisplayQuality } from "@/hooks/useResolvedDisplayQuality";
 import { useProfileStore } from "@/stores/profileStore";
 import { useWatchStore } from "@/stores/watchStore";
 import { resolveGridResearchActionIntent } from "@/lib/map/gridResearchActions";
+import { isScreenSpaceBeaconId } from "@/lib/map/spotClusteringLayout";
 import {
   useUserStore,
   useCompassRosePrefs,
@@ -137,6 +138,7 @@ import { useLoggedQsoLocations } from "@/hooks/useLoggedQsoLocations";
 import { useWeatherRadar } from "@/hooks/useWeatherRadar";
 import { useViewSpotFocus } from "@/hooks/useSpotFocus";
 import { useViewSpotSelection } from "@/hooks/useMapSpotSelection";
+import { useViewMapSpots } from "@/hooks/useViewMapSpots";
 import {
   EMPTY_VIEW_SPOTS,
   useBoundVisualTarget,
@@ -173,7 +175,7 @@ import { SelectedSpotCard } from "./SelectedSpotCard";
 import { SpotCollectionPopover } from "./SpotCollectionPopover";
 import { ClusterDetailPopover } from "./ClusterDetailPopover";
 import type { SpotCluster as SpotClusterData } from "@/hooks/useSpotClustering";
-import type { LiveSpot, SpotSource } from "@/types/livespot";
+import type { LiveSpot } from "@/types/livespot";
 import type { ScreenAnchor } from "@/lib/map/anchoredOverlay";
 import { collectGridSpots } from "@/lib/map/gridSpotCollection";
 import {
@@ -227,8 +229,11 @@ import {
 import { useJustLoggedMarker } from "./hooks/useJustLoggedMarker";
 import { useMapHazardData } from "./hooks/useMapHazardData";
 import { useOptimalMapSignal } from "./hooks/useOptimalMapSignal";
-import { useResolvedMapSpots } from "./hooks/useResolvedMapSpots";
 import { LunarSubpointMarker3D } from "./layers/LunarSubpointMarker3D";
+
+// Stable identity so SpotActivityLayout3D's aggregate memo does not
+// re-derive on every render while grouping is off.
+const EMPTY_GEOGRAPHIC_CLUSTERS: SpotClusterData[] = [];
 
 interface GlobeViewProps {
   /** Current display time (current time + offset) */
@@ -1138,13 +1143,8 @@ const GlobeScene = React.memo(function GlobeScene({
   const nightDarkness = useMapStore((s) => s.nightDarkness);
   const rotation = useMapStore((s) => s.rotation);
   const labelOptions = useMapStore((s) => s.labelOptions);
-  const displayDensity = useMapStore((s) => s.displayDensity);
-  const spotFilters = useMapStore((s) => s.spotFilters);
   const gridActivityEndpoint = useMapStore((s) => s.gridActivityEndpoint);
   const globeZoom = useMapStore((s) => s.zoom);
-  const spotSourceFilters = useDXStore(
-    (s) => s.filters.sources as SpotSource[] | undefined,
-  );
   const selectedSatelliteId = useMapStore((s) => s.selectedSatelliteId);
   const isStandard = mapStyle === "standard";
   const subscriptionTier = useProfileStore((s) => s.subscriptionTier);
@@ -1258,21 +1258,20 @@ const GlobeScene = React.memo(function GlobeScene({
     layers.spots || layers.spotTraces || layers.gridActivity;
   const {
     spots: liveSpots,
-    candidateSpots,
-    resolvedSpots,
+    resolvedSingles,
     allResolvedSpots,
     activationSpots,
+    clusters,
+    singles,
+    groupingEnabled,
     isLoading: liveSpotsLoading,
     isFeedReady: liveSpotsFeedReady,
     feedScopeKey: liveSpotsFeedScopeKey,
-  } = useResolvedMapSpots({
+  } = useViewMapSpots({
     grid: station?.grid,
     enabled: resolvedSpotLayersEnabled || layers.spectrumRing,
     resolveEnabled: resolvedSpotLayersEnabled,
     activationsEnabled: layers.activations,
-    maxSpots: displayDensity,
-    sources: spotSourceFilters,
-    spotFilters,
   });
 
   // Grid facts are built from the complete eligible feed before the renderer's
@@ -1296,12 +1295,12 @@ const GlobeScene = React.memo(function GlobeScene({
   const [arrivalGlows, setArrivalGlows] = useState<GridGlowSpot[]>([]);
   useEffect(() => {
     const previousIds = previousArrivalIdsRef.current;
-    const currentIds = new Set(resolvedSpots.map((spot) => spot.id));
+    const currentIds = new Set(resolvedSingles.map((spot) => spot.id));
     previousArrivalIdsRef.current = currentIds;
     if (
       layers.gridActivity ||
       (!layers.spots && !layers.spotTraces) ||
-      resolvedSpots.length === 0
+      resolvedSingles.length === 0
     ) {
       // The pulse renderer unmounts while hidden. Drop the last batch so
       // remounting cannot replay stale arrivals as if they were new.
@@ -1312,7 +1311,7 @@ const GlobeScene = React.memo(function GlobeScene({
     const colorMode: SpotColorMode = uiPrefs.spotColorMode ?? "mode";
     const initialLoad = previousIds.size === 0;
     const arrivals: GridGlowSpot[] = [];
-    for (const spot of resolvedSpots) {
+    for (const spot of resolvedSingles) {
       if (previousIds.has(spot.id)) continue;
       const color = getSpotColor(spot, colorMode);
       const timestamp = Date.now() - (initialLoad ? Math.random() * 1_000 : 0);
@@ -1350,7 +1349,7 @@ const GlobeScene = React.memo(function GlobeScene({
     layers.gridActivity,
     layers.spots,
     layers.spotTraces,
-    resolvedSpots,
+    resolvedSingles,
     uiPrefs.spotColorMode,
   ]);
 
@@ -1792,8 +1791,9 @@ const GlobeScene = React.memo(function GlobeScene({
             showSpotTraces={layers.spotTraces}
             showActivations={layers.activations}
             traceFeedSpots={liveSpots}
-            liveSpots={candidateSpots}
-            resolvedLiveSpots={resolvedSpots}
+            liveSpots={singles}
+            resolvedLiveSpots={resolvedSingles}
+            geographicClusters={groupingEnabled ? clusters : EMPTY_GEOGRAPHIC_CLUSTERS}
             liveSpotsLoading={liveSpotsLoading}
             liveSpotsFeedReady={liveSpotsFeedReady}
             liveSpotsFeedScopeKey={liveSpotsFeedScopeKey}
@@ -2032,10 +2032,6 @@ export function GlobeView({
   const mapStyle = useMapStore((s) => s.mapStyle);
   const gridActivityEnabled = scopedLayers.gridActivity;
   const gridActivityEndpoint = useMapStore((s) => s.gridActivityEndpoint);
-  const spotFilters = useMapStore((s) => s.spotFilters);
-  const spotSourceFilters = useDXStore(
-    (s) => s.filters.sources as SpotSource[] | undefined,
-  );
   const station = useUserStore((s) => s.station);
   const opsPosture = useOpsPostureStore((s) => s.posture);
   const subscriptionTier = useProfileStore((s) => s.subscriptionTier);
@@ -2097,14 +2093,13 @@ export function GlobeView({
   const {
     spots: tooltipLiveSpots,
     allResolvedSpots: tooltipResolvedSpots,
-  } = useResolvedMapSpots({
+    expandGroup,
+  } = useViewMapSpots({
     grid: station?.grid,
     // Grid hover existed before the activity layer and must remain available
     // when that visualization is disabled. React Query dedupes this observer
     // with the scene request, so keeping it live does not duplicate polling.
     enabled: true,
-    sources: spotSourceFilters,
-    spotFilters,
   });
   const tooltipActivity = useGridActivitySnapshot(
     tooltipResolvedSpots,
@@ -2881,6 +2876,14 @@ export function GlobeView({
         cluster={selectedCluster}
         onClose={handleClusterClose}
         onSpotSelect={handleClusterSpotSelect}
+        onMapTheseSpots={
+          selectedCluster && !isScreenSpaceBeaconId(selectedCluster.id)
+            ? () => {
+                expandGroup(selectedCluster.id);
+                handleClusterClose();
+              }
+            : undefined
+        }
       />
 
       {selectedGridCollection && (

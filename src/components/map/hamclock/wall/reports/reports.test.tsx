@@ -1,11 +1,37 @@
 import { useDXStore } from "@/stores/dxStore";
 import { fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import type { ReactElement } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { ViewProvider } from "@/components/views/ViewProvider";
+import { useViewRuntime } from "@/components/views/ViewRuntimeContext";
+import { createMemoryWorkingStorage, type ScopedViewRuntime } from "@/lib/views/runtime";
+import { useHamClockStore } from "@/stores/hamclockStore";
 import { BandActivityTile } from "../tiles/BandActivityTile";
 import { BandActivityReport } from "./BandActivityReport";
 import { DxTargetReport } from "./DxTargetReport";
 import { WeatherReport } from "./WeatherReport";
+
+let capturedRuntime: ScopedViewRuntime | null = null;
+
+function RuntimeCapture() {
+  capturedRuntime = useViewRuntime();
+  return null;
+}
+
+// BandActivityReport/BandActivityTile patch spot filters through the bound
+// view runtime (SP-09 round 2), so they need a `ViewProvider` ancestor just
+// like their production mount inside `<BoundViewHost slot="hamclock">`.
+function renderInView(ui: ReactElement) {
+  capturedRuntime = null;
+  const utils = render(
+    <ViewProvider ownerId="owner-test" slot="hamclock" storage={createMemoryWorkingStorage()}>
+      <RuntimeCapture />
+      {ui}
+    </ViewProvider>,
+  );
+  return { ...utils, get runtime() { return capturedRuntime!; } };
+}
 
 const mocks = vi.hoisted(() => ({
   verdicts: vi.fn(),
@@ -122,7 +148,7 @@ beforeEach(() => {
 
 describe("wall reports", () => {
   it("renders the report shell as a modal dialog", () => {
-    render(<BandActivityReport open onClose={vi.fn()} />);
+    renderInView(<BandActivityReport open onClose={vi.fn()} />);
 
     const dialog = screen.getByRole("dialog");
     expect(dialog.getAttribute("aria-modal")).toBe("true");
@@ -136,7 +162,7 @@ describe("wall reports", () => {
 
   it("closes on Escape", () => {
     const close = vi.fn();
-    render(<BandActivityReport open onClose={close} />);
+    renderInView(<BandActivityReport open onClose={close} />);
 
     fireEvent.keyDown(document, { key: "Escape" });
 
@@ -145,7 +171,7 @@ describe("wall reports", () => {
 
   it("opens from its tile and hands focus back on close", async () => {
     const user = userEvent.setup();
-    render(<BandActivityTile />);
+    renderInView(<BandActivityTile />);
 
     const trigger = screen.getByRole("button", {
       name: /open the band activity report/i,
@@ -159,6 +185,64 @@ describe("wall reports", () => {
 
     expect(screen.queryByRole("dialog")).toBeNull();
     await vi.waitFor(() => expect(document.activeElement).toBe(trigger));
+  });
+
+  it("routes a band button click through the bound view runtime, not mapStore (SP-09 round 2)", async () => {
+    const originalBandFocus = useHamClockStore.getState().bandFocus;
+    try {
+      const user = userEvent.setup();
+      const { runtime } = renderInView(<BandActivityReport open onClose={vi.fn()} />);
+
+      await user.click(screen.getByRole("button", { name: /20M/ }));
+
+      expect(useHamClockStore.getState().bandFocus).toEqual(["20m"]);
+      expect(runtime.getSnapshot().config.spots.filters.bands).toEqual(["20m"]);
+    } finally {
+      useHamClockStore.setState({ bandFocus: originalBandFocus });
+    }
+  });
+
+  it("renders without a ViewProvider (a pinned report re-mounts on /workspace with no bound view, PR #615 review finding 1)", () => {
+    expect(() =>
+      render(<BandActivityReport open onClose={vi.fn()} initialView="dx" />),
+    ).not.toThrow();
+
+    const dialog = screen.getByRole("dialog", {
+      name: "Band activity report · TOP DX FROM HOME",
+    });
+    expect(dialog).toBeTruthy();
+  });
+
+  // PR #615 round 5 review nb3: with no runtime above, `patchSpotFilters`
+  // (the view-scoped filter) is a no-op, so the chip is disabled instead of
+  // looking live. The click handler's other write,
+  // `useHamClockStore.getState().setBandFocus`, still lands on the
+  // persisted global store (read on wall Bands-mode entry) — leaving the
+  // chip clickable would make that an invisible deferred side effect.
+  it("disables the band chips when re-hosted with no ViewProvider", () => {
+    render(<BandActivityReport open onClose={vi.fn()} />);
+
+    expect(
+      (screen.getByRole("button", { name: /20M/ }) as HTMLButtonElement)
+        .disabled,
+    ).toBe(true);
+    expect(
+      (screen.getByRole("button", { name: /40M/ }) as HTMLButtonElement)
+        .disabled,
+    ).toBe(true);
+  });
+
+  it("keeps the band chips enabled when bound to a view runtime", () => {
+    renderInView(<BandActivityReport open onClose={vi.fn()} />);
+
+    expect(
+      (screen.getByRole("button", { name: /20M/ }) as HTMLButtonElement)
+        .disabled,
+    ).toBe(false);
+    expect(
+      (screen.getByRole("button", { name: /40M/ }) as HTMLButtonElement)
+        .disabled,
+    ).toBe(false);
   });
 });
 
@@ -298,7 +382,7 @@ describe("Band history completeness", () => {
     expect(screen.getByText("PARTIAL")).toBeTruthy();
   });
   it("does not turn absent contributing source keys into measured zero", () => {
-    render(<BandActivityReport open onClose={vi.fn()} />);
+    renderInView(<BandActivityReport open onClose={vi.fn()} />);
     expect(screen.getByText(/PSKREPORTER WAITING · RBN WAITING · DXCLUSTER WAITING/)).toBeTruthy();
   });
 });
@@ -322,7 +406,7 @@ it.each(["rest", "bridge"] as const)("TOP DX uses its own %s source timestamp an
     spotSource: source,
   });
   try {
-    render(<BandActivityReport open onClose={vi.fn()} initialView="dx" />);
+    renderInView(<BandActivityReport open onClose={vi.fn()} initialView="dx" />);
     expect(screen.getByRole("dialog", { name: "Band activity report · TOP DX FROM HOME" })).toBeTruthy();
     expect(screen.getByText(new RegExp(`DX CLUSTER · ${source.toUpperCase()} · LOADED · LAST SPOT`))).toBeTruthy();
     expect(screen.getByText(/12:00 UTC/)).toBeTruthy();

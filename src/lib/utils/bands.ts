@@ -335,8 +335,8 @@ export function getOverallCondition(kp: number, sfi: number): OverallCondition {
  * The other four returns are also non-adaptive literals (same hex in every
  * theme) and fail the same floor in the `light` theme once measured -- a
  * pre-existing, broader defect this issue does not cover (it is scoped to
- * the `#aa44ff` repeats from #787/#791/#789). Left as-is; a follow-up should
- * track tokenising `Excellent`/`Good`/`Fair`/`Poor`/the default together.
+ * the `#aa44ff` repeats from #787/#791/#789). Left as-is; #810 tracks
+ * tokenising `Excellent`/`Good`/`Fair`/`Poor`/the default together.
  *
  * @param condition - Band condition rating
  * @returns CSS color: a `rgb(var(--su-*-rgb))` token for `Aurora`, hex for

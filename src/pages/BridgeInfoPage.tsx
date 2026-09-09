@@ -207,8 +207,19 @@ function ConnectionBadge({
  * rule, icon, and callout tint from drifting from the theme or from each
  * other (#787/#791/#789/#799).
  *
- * `base` drives the decorative rule/icon stroke/chip fill -- graphical
- * objects, held to WCAG's 3:1 non-text floor, not 4.5:1.
+ * `edge` drives the decorative rule and icon stroke -- graphical objects,
+ * held to WCAG's 3:1 non-text floor, not 4.5:1. For `orange` this is
+ * `--su-accent-edge`, the token `stationTokens()` derives specifically to
+ * hold that floor when the operator's own customisable `--su-accent` does
+ * not (`src/lib/themes/stationTokens.ts`, #799): the raw accent measures as
+ * low as 1.00-2.32:1 against panel/canvas for the shipped default in the
+ * light theme and for adversarial custom accents in every theme. For the
+ * other three roles `edge` is the same token as `base`, which already
+ * clears 3:1 everywhere.
+ *
+ * `base` drives the low-alpha chip fill and callout tint (the 0.08/0.19/
+ * 0.03/0.09 alphas) -- decorative tints, not graphical objects, so they stay
+ * on the raw accent/tone rather than the edge-adjusted one.
  *
  * `text` drives the callout's actual text colour. For the three fixed
  * palette tones (`success`/`info`/`purple`) that's the same token: they're
@@ -223,13 +234,29 @@ function ConnectionBadge({
  * the default `#ff6b35` accent against `canvas` too and it also clears the
  * floor there in all four themes, but a future custom accent close to the
  * `panel` boundary is not guaranteed safe against `canvas` by the token
- * itself.
+ * itself -- tracked in #811.
  */
 const FEATURE_ACCENTS = {
-  orange: { baseVar: "--su-accent-rgb", textVar: "--su-accent-text-rgb" },
-  green: { baseVar: "--su-success-rgb", textVar: "--su-success-rgb" },
-  cyan: { baseVar: "--su-info-rgb", textVar: "--su-info-rgb" },
-  purple: { baseVar: "--su-purple-rgb", textVar: "--su-purple-rgb" },
+  orange: {
+    baseVar: "--su-accent-rgb",
+    edgeVar: "--su-accent-edge-rgb",
+    textVar: "--su-accent-text-rgb",
+  },
+  green: {
+    baseVar: "--su-success-rgb",
+    edgeVar: "--su-success-rgb",
+    textVar: "--su-success-rgb",
+  },
+  cyan: {
+    baseVar: "--su-info-rgb",
+    edgeVar: "--su-info-rgb",
+    textVar: "--su-info-rgb",
+  },
+  purple: {
+    baseVar: "--su-purple-rgb",
+    edgeVar: "--su-purple-rgb",
+    textVar: "--su-purple-rgb",
+  },
 } as const;
 
 type FeatureAccentKey = keyof typeof FEATURE_ACCENTS;
@@ -249,12 +276,12 @@ function FeatureCard({
   details: string;
   callout: string;
 }) {
-  const { baseVar, textVar } = FEATURE_ACCENTS[accent];
-  const base = `rgb(var(${baseVar}))`;
+  const { baseVar, edgeVar, textVar } = FEATURE_ACCENTS[accent];
+  const edge = `rgb(var(${edgeVar}))`;
   const text = `rgb(var(${textVar}))`;
   return (
     <Card className="p-0 overflow-hidden">
-      <div className="h-1" style={{ background: base }} />
+      <div className="h-1" style={{ background: edge }} />
       <div className="p-4 md:p-5 space-y-3">
         <div className="flex items-center gap-3">
           <div
@@ -987,7 +1014,7 @@ export function BridgeInfoPage() {
           <FeatureCard
             title="CAT Control"
             accent="orange"
-            icon={<RadioIcon color="rgb(var(--su-accent-rgb))" />}
+            icon={<RadioIcon color="rgb(var(--su-accent-edge-rgb))" />}
             description="Control your transceiver directly from the browser. Tune to a DX spot with one click, switch modes for digital or CW, activate PTT for transmit."
             details="Powered by Hamlib, supporting over 2,000 radio models from Icom, Yaesu, Kenwood, Elecraft, FlexRadio, and more."
             callout="Hear a rare DX station on the cluster? One click and your radio is already on frequency."

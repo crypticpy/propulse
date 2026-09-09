@@ -109,7 +109,7 @@ describe("PredictionsCard renders the Aurora badge without a purple-on-purple fi
 
     // With this kp/sfi combo every HF band is Fair or Poor; grab one that
     // isn't the Aurora 6m badge to prove the non-Aurora path is unchanged.
-    const bands = screen.getAllByText(/m$/).filter((el) => el.textContent !== "6m");
+    const bands = screen.getAllByText(/^\d+m$/).filter((el) => el.textContent !== "6m");
     expect(bands.length).toBeGreaterThan(0);
     // getConditionColor("Fair") / ("Poor") are still hex, so the `${hex}20`
     // suffix produces a real (jsdom-normalised) rgba/rgb background.

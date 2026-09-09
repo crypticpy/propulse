@@ -41,8 +41,13 @@ import { render, within } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { describe, expect, it } from "vitest";
 import { BridgeInfoPage } from "@/pages/BridgeInfoPage";
-import { stationContrast, stationPalettes } from "@/lib/themes/stationTokens";
+import {
+  stationContrast,
+  stationPalettes,
+  stationTokens,
+} from "@/lib/themes/stationTokens";
 import type { ThemeId } from "@/lib/themes";
+import type { ColorBlindMode } from "@/lib/themes/colorblind";
 
 // This file lives at src/pages/, two levels under the repo root -- see the
 // identical anchoring comment in auroraPurpleTintContrast.test.ts.
@@ -53,11 +58,30 @@ const THEMES = Object.keys(stationPalettes) as ThemeId[];
 const HEX_COLOR = /#[0-9a-fA-F]{3,8}/;
 const STATION_TOKEN_COLOR = /^rgb\(var\(--su-[a-z-]+-rgb\)(?: \/ [\d.]+)?\)$/;
 
-const EXPECTED: Record<string, { baseVar: string; textVar: string }> = {
-  "CAT Control": { baseVar: "--su-accent-rgb", textVar: "--su-accent-text-rgb" },
-  "DX Cluster Relay": { baseVar: "--su-success-rgb", textVar: "--su-success-rgb" },
-  "WSJT-X Integration": { baseVar: "--su-info-rgb", textVar: "--su-info-rgb" },
-  "Multi-Operator Sync": { baseVar: "--su-purple-rgb", textVar: "--su-purple-rgb" },
+const EXPECTED: Record<
+  string,
+  { edgeVar: string; baseVar: string; textVar: string }
+> = {
+  "CAT Control": {
+    edgeVar: "--su-accent-edge-rgb",
+    baseVar: "--su-accent-rgb",
+    textVar: "--su-accent-text-rgb",
+  },
+  "DX Cluster Relay": {
+    edgeVar: "--su-success-rgb",
+    baseVar: "--su-success-rgb",
+    textVar: "--su-success-rgb",
+  },
+  "WSJT-X Integration": {
+    edgeVar: "--su-info-rgb",
+    baseVar: "--su-info-rgb",
+    textVar: "--su-info-rgb",
+  },
+  "Multi-Operator Sync": {
+    edgeVar: "--su-purple-rgb",
+    baseVar: "--su-purple-rgb",
+    textVar: "--su-purple-rgb",
+  },
 };
 
 function renderPage() {
@@ -121,18 +145,20 @@ describe("FeatureCard accent tokens render as station tokens, never hex (#799)",
 
       const el = card as HTMLElement;
 
-      // Top rule.
+      // Top rule -- a graphical object, held to the 3:1 floor, so it reads
+      // the edge-adjusted token (--su-accent-edge for orange, #799 B1).
       const rule = el.querySelector(".h-1") as HTMLElement | null;
       expect(rule, `rule not found for "${title}"`).not.toBeNull();
       expect(rule!.style.background).not.toMatch(HEX_COLOR);
-      expect(rule!.style.background).toBe(`rgb(var(${expected.baseVar}))`);
+      expect(rule!.style.background).toBe(`rgb(var(${expected.edgeVar}))`);
 
-      // Icon: SVG stroke attribute (never CSSOM-normalised).
+      // Icon: SVG stroke attribute (never CSSOM-normalised). Same edge token
+      // as the rule -- also a graphical object.
       const svg = el.querySelector("svg[width='20']");
       expect(svg, `icon svg not found for "${title}"`).not.toBeNull();
       const stroke = svg!.getAttribute("stroke") ?? "";
       expect(stroke).not.toMatch(HEX_COLOR);
-      expect(stroke).toBe(`rgb(var(${expected.baseVar}))`);
+      expect(stroke).toBe(`rgb(var(${expected.edgeVar}))`);
 
       // Callout text + tint.
       const callout = el.querySelector(".rounded-lg.p-3") as HTMLElement | null;
@@ -173,7 +199,7 @@ describe("FeatureCard callout contrast on the real composite surface (#799)", ()
   );
 
   it.each(THEMES)(
-    "green/cyan/purple clear 4.5:1 on panel/canvas on %s",
+    "green/cyan/purple (station palette tones, colour-blind mode: none) clear 4.5:1 on panel/canvas on %s",
     (theme) => {
       const palette = stationPalettes[theme];
       for (const hex of [palette.success, palette.info, palette.purple]) {
@@ -192,4 +218,71 @@ describe("FeatureCard callout contrast on the real composite surface (#799)", ()
     const calloutBg = compositeOnSurface("#aa44ff", 0.03, glass);
     expect(stationContrast("#aa44ff", calloutBg)).toBeLessThan(AA);
   });
+});
+
+describe("FeatureCard callout contrast: success role across colour-blind modes (#799, S1, tracked #811)", () => {
+  // The test above only measures the bare `stationPalettes[theme].success`
+  // tone in the default (non-colour-blind) mode. `--su-success` is one of
+  // exactly three tokens `stationTokens()` rewrites under colour-blind mode
+  // (`toneOnPanel`, stationTokens.ts), whose guarantee is against bare
+  // `panel` only -- not this callout's triple composite (a 0.03 tint over
+  // Card's glass over canvas/panel). Measured with real
+  // `stationTokens(theme, "#ff6b35", mode)`: 6 of 16 theme x mode
+  // combinations fail 4.5:1 on that composite (dark/deuteranopia,
+  // dark/protanopia, light/deuteranopia, light/protanopia, light/tritanopia,
+  // high-contrast/deuteranopia -- see the exact ratios in the PR body). This
+  // is a systemic `toneOnPanel` gap, not introduced by this PR (the old
+  // `#00ff88` literal measured 1.09 on the light callout, so every one of
+  // these is still a net improvement) -- tracked in #811. The known-failing
+  // combinations are recorded as `it.todo` with the measured ratio in the
+  // title instead of asserted, so this file documents the gap without
+  // blocking on a fix that belongs in `stationTokens`/`toneOnPanel` itself.
+  const MODES: ColorBlindMode[] = [
+    "none",
+    "deuteranopia",
+    "protanopia",
+    "tritanopia",
+  ];
+  const DEFAULT_ACCENT_HEX = "#ff6b35";
+
+  const KNOWN_FAILURES: Partial<
+    Record<ThemeId, Partial<Record<ColorBlindMode, string>>>
+  > = {
+    dark: {
+      deuteranopia: "callout/panel 4.22, callout/canvas 4.49",
+      protanopia: "callout/panel 4.12, callout/canvas 4.34",
+    },
+    light: {
+      deuteranopia: "callout/panel 4.49, callout/canvas 4.16",
+      protanopia: "callout/panel 4.13, callout/canvas 3.83",
+      tritanopia: "callout/panel 4.18, callout/canvas 3.87",
+    },
+    "high-contrast": {
+      deuteranopia: "callout/panel 4.27, callout/canvas 4.56",
+    },
+  };
+
+  for (const theme of THEMES) {
+    for (const mode of MODES) {
+      const known = KNOWN_FAILURES[theme]?.[mode];
+      if (known) {
+        it.todo(
+          `${theme}/${mode} success callout clears 4.5:1 on panel/canvas (measured ${known}, tracked in #811)`,
+        );
+        continue;
+      }
+      it(`${theme}/${mode} success callout clears 4.5:1 on panel/canvas`, () => {
+        const palette = stationPalettes[theme];
+        const tokens = stationTokens(theme, DEFAULT_ACCENT_HEX, mode);
+        const success = tokens["--su-success"] as string;
+        for (const pageBg of [palette.panel, palette.canvas]) {
+          const glass = compositeOnSurface(palette.line, 0.1, pageBg);
+          const calloutBg = compositeOnSurface(success, 0.03, glass);
+          expect(stationContrast(success, calloutBg)).toBeGreaterThanOrEqual(
+            AA,
+          );
+        }
+      });
+    }
+  }
 });

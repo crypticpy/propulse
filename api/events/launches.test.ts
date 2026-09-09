@@ -133,6 +133,30 @@ describe("resolveLaunchesPayload", () => {
     expect(payload.status).toBe("stale");
     expect(payload.stale).toBe(true);
     expect(payload.launches).toEqual(cached.launches);
+    expect(payload.retrievedAt).toBe(cached.retrievedAt);
+  });
+
+  it("does not replace last-good with a 200 that has no results array", () => {
+    const { payload, remember } = resolveLaunchesPayload(
+      { kind: "ok", raw: { count: 0 } },
+      cached,
+      now,
+    );
+    expect(remember).toBe(false);
+    expect(payload.status).toBe("stale");
+    expect(payload.launches).toEqual(cached.launches);
+    expect(payload.retrievedAt).toBe(cached.retrievedAt);
+  });
+
+  it("treats a legitimate empty results list as ok", () => {
+    const { payload, remember } = resolveLaunchesPayload(
+      { kind: "ok", raw: { results: [] } },
+      cached,
+      now,
+    );
+    expect(remember).toBe(true);
+    expect(payload.status).toBe("ok");
+    expect(payload.launches).toEqual([]);
   });
 
   it("marks an empty unavailable result when there is no last-good cache", () => {

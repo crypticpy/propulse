@@ -169,8 +169,12 @@ export function resolveLaunchesPayload(
   nowMs: number,
 ): { payload: LaunchesPayload; remember: boolean } {
   const retrievedAt = new Date(nowMs).toISOString();
+  const bodyOk =
+    upstream.kind === "ok" &&
+    isRecord(upstream.raw) &&
+    Array.isArray(upstream.raw.results);
 
-  if (upstream.kind === "ok") {
+  if (bodyOk && upstream.kind === "ok") {
     const launches = normalizeUpcomingLaunches(upstream.raw);
     return {
       payload: { status: "ok", stale: false, retrievedAt, launches },
@@ -184,7 +188,6 @@ export function resolveLaunchesPayload(
         ...cached,
         status: "stale",
         stale: true,
-        retrievedAt,
       },
       remember: false,
     };

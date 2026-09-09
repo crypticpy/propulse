@@ -9,6 +9,7 @@
 import { useEffect, useState, useCallback, useRef, useMemo } from "react";
 import { useUTCClock } from "@/hooks/useUTCClock";
 import { useMapStore } from "@/stores/mapStore";
+import { useBoundVisualTarget } from "@/hooks/useBoundMapSelection";
 import { useUserStore } from "@/stores/userStore";
 import { useWatchStore } from "@/stores/watchStore";
 import {
@@ -153,7 +154,8 @@ export function FullscreenPropSphere({
 }: FullscreenPropSphereProps) {
   const viewMode = useMapStore((s) => s.viewMode);
   const setFullscreen = useMapStore((s) => s.setFullscreen);
-  const target = useMapStore((s) => s.target);
+  const mapTarget = useMapStore((s) => s.target);
+  const target = useBoundVisualTarget(mapTarget);
   const proPanelLayout = useMapStore((s) => s.proPanelLayout);
   const dockGroups = useMapStore((s) => s.dockGroups);
   const updateProPanelLayout = useMapStore((s) => s.updateProPanelLayout);

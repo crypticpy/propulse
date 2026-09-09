@@ -23,6 +23,7 @@ import {
   getDisplayTime,
   type TargetLocation,
 } from "@/stores/mapStore";
+import { useBoundVisualTarget } from "@/hooks/useBoundMapSelection";
 import { useActiveLocation } from "@/hooks/useActiveLocation";
 import { addHours, format, differenceInHours, nextSaturday } from "date-fns";
 import { HelpButton, HelpModal } from "@/components/ui/HelpModal";
@@ -303,7 +304,8 @@ export function TimeControl({ className = "" }: TimeControlProps) {
   const setTimeOffset = useMapStore((s) => s.setTimeOffset);
   const absoluteTime = useMapStore((s) => s.absoluteTime);
   const setAbsoluteTime = useMapStore((s) => s.setAbsoluteTime);
-  const target = useMapStore((s) => s.target);
+  const mapTarget = useMapStore((s) => s.target);
+  const target = useBoundVisualTarget(mapTarget);
   const timeScenarios = useMapStore((s) => s.timeScenarios);
   const addTimeScenario = useMapStore((s) => s.addTimeScenario);
   const removeTimeScenario = useMapStore((s) => s.removeTimeScenario);

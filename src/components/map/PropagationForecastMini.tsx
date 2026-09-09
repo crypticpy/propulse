@@ -9,6 +9,7 @@
 import { useMemo, useState, useCallback, useRef, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { useMapStore } from "@/stores/mapStore";
+import { useBoundVisualTarget } from "@/hooks/useBoundMapSelection";
 import { useUserStore } from "@/stores/userStore";
 import { useForecastDisplayPrefs } from "@/stores/userStore";
 import { useActiveBand, useActiveMode } from "@/hooks/useActiveBandMode";
@@ -187,7 +188,8 @@ export function PropagationForecastMini({
   displayTime,
   className = "",
 }: PropagationForecastMiniProps) {
-  const target = useMapStore((s) => s.target);
+  const mapTarget = useMapStore((s) => s.target);
+  const target = useBoundVisualTarget(mapTarget);
   const { station } = useUserStore();
   const activeBand = useActiveBand();
   const activeMode = useActiveMode();

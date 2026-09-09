@@ -99,6 +99,14 @@ export function useSpotsPreferences(
 
   const writeSpots = useCallback(
     (spots: ViewConfiguration["spots"]) => {
+      // `useDebouncedSliderCommit` flushes its pending value from an unmount
+      // cleanup, and React 18 runs passive-unmount cleanups parent-first: a
+      // host that disposes this runtime in its own cleanup (or a registry
+      // collision that disposes it synchronously) gets there first, so this
+      // write can land on a disposed runtime and `assertActive` would throw
+      // out of the commit phase. Dropping a slider value the user abandoned
+      // by closing the surface is correct; a thrown cleanup is not.
+      if (view.isDisposed()) return;
       setRevertPoint(null);
       view.updateWorkingView({ spots });
     },

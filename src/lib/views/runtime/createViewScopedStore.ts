@@ -32,6 +32,12 @@ export interface ViewScopedCommands {
 
 export interface ViewScopedStoreHandle extends ViewScopedCommands {
   store: StoreApi<ViewScopedState>;
+  /**
+   * Whether the underlying runtime has been disposed. Commands throw past
+   * that point, and a host owns the runtime's lifetime, so deferred writers
+   * (an unmount flush, a queued commit) must ask before writing.
+   */
+  isDisposed: () => boolean;
   setRadio: (radio: RadioObservation | null) => void;
   /** Re-attach after StrictMode simulated cleanup. Safe to call while already subscribed. */
   ensureSubscribed: () => void;
@@ -113,6 +119,7 @@ export function createViewScopedStore(
   return {
     store,
     ...commandsFor(runtime),
+    isDisposed: () => runtime.isDisposed(),
     setRadio(next) {
       currentRadio = next;
       store.setState(readState(runtime, currentRadio));

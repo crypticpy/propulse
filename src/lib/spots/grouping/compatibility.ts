@@ -76,11 +76,27 @@ function compareSpots(a: LiveSpot, b: LiveSpot): number {
   return a.id.localeCompare(b.id);
 }
 
-function reportFromLiveSpot(spot: LiveSpot): NormalizedSpotReport | null {
-  const report = normalizeLiveSpot(spot, new Map());
+/**
+ * `usedIds`/`usedRawIds` must be threaded across the whole batch (mirrors
+ * `projectLiveSpotsForView` in presentation/pipeline.ts). A per-spot `Map`
+ * defeats `stableReportId`'s collision suffix, and adopting a raw `spot.id`
+ * without checking it against the batch lets two upstream spots collide on
+ * the same id and silently drop one another out of `clusterSpots`' `byId`.
+ */
+function reportFromLiveSpot(
+  spot: LiveSpot,
+  usedIds: Map<string, string>,
+  usedRawIds: Set<string>,
+): NormalizedSpotReport | null {
+  const report = normalizeLiveSpot(spot, usedIds);
   if (!report || report.dx.location.kind === "unavailable") return null;
   const parsedId = contractIdSchema.safeParse(spot.id);
-  return parsedId.success ? { ...report, id: parsedId.data } : report;
+  const rawId =
+    parsedId.success && !usedRawIds.has(parsedId.data) && !usedIds.has(parsedId.data)
+      ? parsedId.data
+      : null;
+  if (rawId) usedRawIds.add(rawId);
+  return rawId ? { ...report, id: rawId } : report;
 }
 
 /**
@@ -97,10 +113,12 @@ export function clusterSpots(
   const minGroupSize = clampMinGroupSize(options.minClusterSize);
   const detail = options.detail ?? "regions";
 
+  const usedIds = new Map<string, string>();
+  const usedRawIds = new Set<string>();
   const mapped: { spot: LiveSpot; report: NormalizedSpotReport }[] = [];
   const unresolved: LiveSpot[] = [];
   for (const spot of spots) {
-    const report = reportFromLiveSpot(spot);
+    const report = reportFromLiveSpot(spot, usedIds, usedRawIds);
     if (!report) {
       unresolved.push(spot);
       continue;

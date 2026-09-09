@@ -20,7 +20,7 @@ import { useTimeFormat } from "@/hooks/useTimeFormat";
 import { HelpButton, HelpModal } from "@/components/ui/HelpModal";
 import { useActiveBandMode } from "@/hooks/useActiveBandMode";
 import { BandModeModal } from "@/components/operating/BandModeModal";
-import { BAND_COLORS, MODE_COLORS } from "@/lib/utils/spotColors";
+import { BAND_COLORS, MODE_COLORS, inkOnFill } from "@/lib/utils/spotColors";
 import { useOperatingStore, SOURCE_DISPLAY } from "@/stores/operatingStore";
 import { useBandConditionsTint } from "@/hooks/useBandConditionsTint";
 import { useSettingsStore } from "@/stores/settingsStore";
@@ -608,9 +608,9 @@ export function OperatorProfile({ className = "" }: OperatorProfileProps) {
             <span
               className="px-1.5 py-0.5 rounded-md text-[11px] font-bold border"
               style={{
-                backgroundColor: `${modeColor}15`,
-                color: modeColor,
-                borderColor: `${modeColor}25`,
+                backgroundColor: modeColor,
+                color: inkOnFill(modeColor),
+                borderColor: `${modeColor}55`,
               }}
             >
               {activeMode}

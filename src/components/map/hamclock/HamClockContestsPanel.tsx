@@ -59,13 +59,13 @@ export function HamClockContestsPanel() {
   }, [parsed, now]);
 
   if (isLoading) {
-    return <p className="font-mono text-[10px] text-white/35">Loading calendar…</p>;
+    return <p className="font-mono text-[10px] text-su-muted">Loading calendar…</p>;
   }
   if (error != null || status !== "ok") {
-    return <p className="font-mono text-[10px] text-white/35">Contest calendar unavailable</p>;
+    return <p className="font-mono text-[10px] text-su-muted">Contest calendar unavailable</p>;
   }
   if (contests.length === 0) {
-    return <p className="font-mono text-[10px] text-white/35">No contests in the current feed window</p>;
+    return <p className="font-mono text-[10px] text-su-muted">No contests in the current feed window</p>;
   }
 
   return (
@@ -88,7 +88,7 @@ export function HamClockContestsPanel() {
               <span className={active ? "text-signal-green" : "text-plasma-orange"}>
                 {scheduleCountdown(window, now)}
               </span>
-              <span className="truncate text-white/30">{contest.scheduleText}</span>
+              <span className="truncate text-su-muted">{contest.scheduleText}</span>
             </span>
           </>
         );
@@ -115,7 +115,7 @@ export function HamClockContestsPanel() {
         href={WA7BNM_SITE_URL}
         target="_blank"
         rel="noreferrer"
-        className="block text-right font-mono text-[8px] uppercase tracking-wider text-white/25 hover:text-plasma-orange"
+        className="block text-right font-mono text-[8px] uppercase tracking-wider text-su-muted hover:text-plasma-orange"
       >
         WA7BNM Contest Calendar ↗
       </a>

@@ -70,6 +70,20 @@ export interface HamClockState {
    * Bound-view spot filters captured when entering Bands mode (restored on
    * leave). Shaped like `SpotPresentationPreferences["filters"]`, the
    * per-view runtime's filter contract, not the legacy `mapStore.SpotFilters`.
+   *
+   * Ownership (#747): despite living here at module scope, this is a value
+   * `HamClockBoundModeFilters` (`components/map/HamClockView.tsx`) owns for
+   * its own lifetime, not one meant to durably outlive the component. A
+   * non-null value here means "a Bands session is open and hasn't been
+   * restored yet"; the component is responsible for ending every such
+   * session it starts, including by restoring on its own unmount (not just
+   * on a hamclockMode change) so a later remount mid-Bands can't recapture
+   * an already-patched runtime as if it were the operator's real baseline.
+   * `mapStore.setLayoutMode`'s hamclock-exit path also nulls this field as a
+   * leftover belt-and-suspenders reset from before SP-09 moved capture/
+   * restore ownership to the component — that reset runs independently and
+   * cannot be relied on for the actual restore, which is why the component
+   * keeps its own ref for it rather than trusting this field to survive.
    */
   filtersBeforeBands: SpotPresentationPreferences["filters"] | null;
   /** Non-persisted snapshot of Normal/Pro map state for exit restore. */

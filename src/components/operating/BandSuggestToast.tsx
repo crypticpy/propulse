@@ -132,7 +132,11 @@ export function BandSuggestToast() {
         {/* Content */}
         <div className="flex-1 min-w-0">
           <div className="text-sm font-medium text-su-text">
-            <span style={{ color: bandColor }} className="font-bold font-mono">
+            {/* Band identity is carried by the indicator bar; the raw band
+                hex fails AA as text against bg-void-black on the light
+                theme (it inverts to a near-white surface), so the label
+                itself uses the always-legible station text token. */}
+            <span className="font-bold font-mono text-su-text">
               {toast.band}
             </span>{" "}
             just opened

@@ -1,5 +1,4 @@
-import { useEffect, useRef, useCallback } from "react";
-import { createPortal } from "react-dom";
+import { AccessibleDialog } from "@/components/ui/AccessibleDialog";
 
 export interface ConfirmDialogProps {
   open: boolean;
@@ -24,6 +23,21 @@ const confirmStyles: Record<
     "bg-plasma-orange/20 hover:bg-plasma-orange/30 text-plasma-orange border border-plasma-orange/30",
 };
 
+/**
+ * Built on `AccessibleDialog` (issue #727) rather than a bare `createPortal`,
+ * following the precedent set by `LibraryConfirmDialog`. Registering on the
+ * shared dialog stack fixes the Escape race where this dialog opened above
+ * another `AccessibleDialog` let Escape fall through to the dialog beneath
+ * it instead of closing this one.
+ *
+ * Two deliberate consequences of that move, same as `LibraryConfirmDialog`
+ * (#605): the panel role becomes `dialog` instead of `alertdialog` — the
+ * wrapper always sets `role="dialog"` and does not expose a way to override
+ * it — and initial focus lands on `AccessibleDialog`'s own header Close
+ * button (the first focusable element in this subtree) instead of the
+ * Confirm button. That is arguably safer for a destructive action, since
+ * pressing Enter immediately after open no longer confirms.
+ */
 export function ConfirmDialog({
   open,
   onConfirm,
@@ -34,68 +48,20 @@ export function ConfirmDialog({
   cancelLabel = "Cancel",
   variant = "destructive",
 }: ConfirmDialogProps) {
-  const confirmRef = useRef<HTMLButtonElement>(null);
-
-  useEffect(() => {
-    if (!open) return;
-    const timer = setTimeout(() => confirmRef.current?.focus(), 0);
-    return () => clearTimeout(timer);
-  }, [open]);
-
-  const handleKeyDown = useCallback(
-    (event: KeyboardEvent) => {
-      if (event.key === "Escape") onCancel();
-    },
-    [onCancel],
-  );
-
-  useEffect(() => {
-    if (!open) return;
-    document.addEventListener("keydown", handleKeyDown);
-    return () => document.removeEventListener("keydown", handleKeyDown);
-  }, [open, handleKeyDown]);
-
-  useEffect(() => {
-    if (!open) return;
-    const prev = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    return () => {
-      document.body.style.overflow = prev;
-    };
-  }, [open]);
-
-  if (!open) return null;
-  if (typeof document === "undefined") return null;
-
-  return createPortal(
-    <div className="fixed inset-0 z-[500] flex items-center justify-center p-4">
-      <div
-        className="absolute inset-0 bg-void-black/80 animate-in fade-in"
-        onClick={onCancel}
-      />
-      <div
-        className="relative z-10 w-full max-w-sm bg-deep-space border border-su-line/40 rounded-xl shadow-2xl p-6 animate-in zoom-in-95"
-        role="alertdialog"
-        aria-modal="true"
-        aria-labelledby="confirm-dialog-title"
-        aria-describedby="confirm-dialog-message"
-      >
-        <h2 id="confirm-dialog-title" className="text-lg font-bold text-su-text">
-          {title}
-        </h2>
-        <p id="confirm-dialog-message" className="mt-2 text-sm text-su-muted">
-          {message}
-        </p>
-        <div className="mt-6 flex items-center justify-end gap-3">
+  return (
+    <AccessibleDialog open={open} onClose={onCancel} title={title} size="md">
+      <div className="flex flex-col gap-4">
+        <p className="text-sm text-su-muted">{message}</p>
+        <div className="flex items-center justify-end gap-3">
           <button
             type="button"
             onClick={onCancel}
-            className="px-4 py-2 text-sm font-medium rounded-lg transition-colors bg-su-line/10 hover:bg-su-line/20 text-su-muted border border-su-line/40"
+            className="px-4 py-2 text-sm font-medium rounded-lg transition-colors
+                       bg-su-line/10 hover:bg-su-line/20 text-su-muted border border-su-line/40"
           >
             {cancelLabel}
           </button>
           <button
-            ref={confirmRef}
             type="button"
             onClick={onConfirm}
             className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors ${confirmStyles[variant]}`}
@@ -104,8 +70,7 @@ export function ConfirmDialog({
           </button>
         </div>
       </div>
-    </div>,
-    document.body,
+    </AccessibleDialog>
   );
 }
 

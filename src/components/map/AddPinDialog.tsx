@@ -6,8 +6,8 @@
  * Uses glassmorphism styling and renders via React portal.
  */
 
-import { useState, useEffect, useRef, useCallback } from "react";
-import { createPortal } from "react-dom";
+import { useState, useEffect, useId, useRef, useCallback } from "react";
+import { AccessibleDialog } from "@/components/ui/AccessibleDialog";
 import type { MapPin, PinCategory } from "../../types/pin";
 import { PIN_CATEGORIES, getCategoryMeta } from "../../types/pin";
 import { usePinStore } from "../../stores/pinStore";
@@ -56,8 +56,8 @@ export function AddPinDialog({
   onClose,
   onSave,
 }: AddPinDialogProps) {
-  const dialogRef = useRef<HTMLDivElement>(null);
   const nameInputRef = useRef<HTMLInputElement>(null);
+  const titleId = useId();
 
   const { addPin, updatePin } = usePinStore();
 
@@ -105,44 +105,6 @@ export function AddPinDialog({
       setColor(catMeta.color);
     }
   }, [category, useCustomColor]);
-
-  // Handle click outside to dismiss
-  useEffect(() => {
-    if (!visible) {
-      return;
-    }
-
-    const handleClickOutside = (e: MouseEvent) => {
-      if (dialogRef.current && !dialogRef.current.contains(e.target as Node)) {
-        onClose();
-      }
-    };
-
-    const timeoutId = setTimeout(() => {
-      document.addEventListener("mousedown", handleClickOutside);
-    }, 0);
-
-    return () => {
-      clearTimeout(timeoutId);
-      document.removeEventListener("mousedown", handleClickOutside);
-    };
-  }, [visible, onClose]);
-
-  // Handle Escape key to dismiss
-  useEffect(() => {
-    if (!visible) {
-      return;
-    }
-
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
-        onClose();
-      }
-    };
-
-    document.addEventListener("keydown", handleKeyDown);
-    return () => document.removeEventListener("keydown", handleKeyDown);
-  }, [visible, onClose]);
 
   // Handle save
   const handleSave = useCallback(() => {
@@ -203,26 +165,26 @@ export function AddPinDialog({
     handleSave();
   };
 
-  if (!visible) {
-    return null;
-  }
-
   const grid = mode === "edit" ? pin?.grid : location?.grid;
   const title = mode === "add" ? "Add Pin" : "Edit Pin";
 
-  const dialogContent = (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
-      <div
-        ref={dialogRef}
-        className="w-full max-w-md mx-4 bg-su-canvas/90 backdrop-blur-md border border-su-line/40 rounded-xl shadow-2xl"
-        role="dialog"
-        aria-labelledby="pin-dialog-title"
-        aria-modal="true"
-      >
+  return (
+    <AccessibleDialog
+      open={visible}
+      onClose={onClose}
+      title={title}
+      chrome="bare"
+      labelledBy={titleId}
+      panelProps={{
+        className:
+          "w-full max-w-md bg-su-canvas/90 backdrop-blur-md border border-su-line/40 rounded-xl shadow-2xl",
+      }}
+    >
+      <>
         {/* Header */}
         <div className="flex items-center justify-between px-4 py-3 border-b border-su-line/40">
           <h2
-            id="pin-dialog-title"
+            id={titleId}
             className="text-lg font-semibold text-su-text"
           >
             {title}
@@ -428,11 +390,9 @@ export function AddPinDialog({
             </button>
           </div>
         </form>
-      </div>
-    </div>
+      </>
+    </AccessibleDialog>
   );
-
-  return createPortal(dialogContent, document.body);
 }
 
 AddPinDialog.displayName = "AddPinDialog";

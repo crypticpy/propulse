@@ -10,8 +10,8 @@
  * User presets can be fully managed.
  */
 
-import { useState, useCallback, useRef, useEffect, useMemo } from "react";
-import { createPortal } from "react-dom";
+import { useState, useCallback, useRef, useEffect, useId, useMemo } from "react";
+import { AccessibleDialog } from "@/components/ui/AccessibleDialog";
 import { useMapStore } from "@/stores/mapStore";
 import type { RegionPreset } from "@/types/map";
 
@@ -518,6 +518,7 @@ export function RegionPresetManager({
 
   const [showImport, setShowImport] = useState(false);
   const [exportFeedback, setExportFeedback] = useState<string | null>(null);
+  const titleId = useId();
 
   // Separate built-in and user presets
   const { builtInPresets, userPresets } = useMemo(() => {
@@ -532,16 +533,6 @@ export function RegionPresetManager({
     }
     return { builtInPresets: builtIn, userPresets: user };
   }, [regionPresets]);
-
-  // Escape key closes the panel
-  const handleKeyDown = useCallback(
-    (e: React.KeyboardEvent) => {
-      if (e.key === "Escape") {
-        onClose();
-      }
-    },
-    [onClose],
-  );
 
   // Activate a preset
   const handleActivate = useCallback(
@@ -632,26 +623,15 @@ export function RegionPresetManager({
     [importRegionPresets],
   );
 
-  if (!visible) {
-    return null;
-  }
-
-  const panelContent = (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center"
-      onClick={onClose}
-      onKeyDown={handleKeyDown}
-      role="dialog"
-      aria-modal="true"
-      aria-label="Region Preset Manager"
-    >
-      {/* Backdrop */}
-      <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" />
-
-      {/* Panel */}
-      <div
-        className={`
-          relative
+  return (
+    <AccessibleDialog
+      open={visible}
+      onClose={onClose}
+      title="Region Presets"
+      chrome="bare"
+      labelledBy={titleId}
+      panelProps={{
+        className: `
           w-full max-w-lg
           max-h-[85vh]
           bg-su-canvas/95 backdrop-blur-md
@@ -660,19 +640,18 @@ export function RegionPresetManager({
           shadow-2xl shadow-black/60
           flex flex-col
           animate-scale-in
-          mx-4
           ${className}
-        `}
-        onClick={(e) => e.stopPropagation()}
-        role="document"
-      >
+        `,
+      }}
+    >
+      <>
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-su-line/40 flex-shrink-0">
           <div className="flex items-center gap-3">
             <span className="text-lg" aria-hidden="true">
               {"\u{1F30D}"}
             </span>
-            <h2 className="text-lg font-semibold text-su-text">Region Presets</h2>
+            <h2 id={titleId} className="text-lg font-semibold text-su-text">Region Presets</h2>
           </div>
           <button
             onClick={onClose}
@@ -885,28 +864,26 @@ export function RegionPresetManager({
             Close
           </button>
         </div>
-      </div>
 
-      {/* Inline animation keyframes */}
-      <style>{`
-        @keyframes scale-in {
-          from {
-            opacity: 0;
-            transform: scale(0.95);
+        {/* Inline animation keyframes */}
+        <style>{`
+          @keyframes scale-in {
+            from {
+              opacity: 0;
+              transform: scale(0.95);
+            }
+            to {
+              opacity: 1;
+              transform: scale(1);
+            }
           }
-          to {
-            opacity: 1;
-            transform: scale(1);
+          .animate-scale-in {
+            animation: scale-in 0.15s ease-out;
           }
-        }
-        .animate-scale-in {
-          animation: scale-in 0.15s ease-out;
-        }
-      `}</style>
-    </div>
+        `}</style>
+      </>
+    </AccessibleDialog>
   );
-
-  return createPortal(panelContent, document.body);
 }
 
 RegionPresetManager.displayName = "RegionPresetManager";

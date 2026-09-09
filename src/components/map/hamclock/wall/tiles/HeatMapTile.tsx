@@ -1,0 +1,214 @@
+import { Fragment, lazy, Suspense, useMemo, useState } from "react";
+import { useBandVerdicts } from "@/hooks/useBandVerdicts";
+import { useUTCClock } from "@/hooks/useUTCClock";
+import { BAND_ORDER } from "@/lib/data/bandRanges";
+import { filterClusterAge } from "@/lib/dx/clusterHistory";
+import { filterBridgeSpotAge } from "@/lib/hamclock/clusterBridge";
+import {
+  bucketFor,
+  computeHeatmap,
+  dxSpotToHeatmapInput,
+  HEATMAP_CONTINENTS,
+  LADDER_HUE_PRESET,
+  physicsScoreKey,
+  PRESETS,
+  type HeatmapCell,
+  type HeatmapSpotInput,
+} from "@/lib/widgets/heatmap";
+import { useDXStore } from "@/stores/dxStore";
+import { useHamClockDisplayStore } from "@/stores/hamclockDisplayStore";
+import { HamClockTile, TileHero, TileSub, type WallTileProps } from "../HamClockTile";
+import {
+  formatBandLabel,
+  heatmapBucketClass,
+  heatmapBucketColor,
+} from "./heatMapBuckets";
+
+// The report is only worth its bytes once an operator opens it.
+const HeatMapReport = lazy(() =>
+  import("../reports/HeatMapReport").then((m) => ({ default: m.HeatMapReport })),
+);
+
+/**
+ * Band x continent heat-map tile (workspace #654). The grid is always the
+ * full `computeHeatmap` matrix — no scroll, no paging inside the tile — at a
+ * size the rail already handles for the forecast dot matrix (`ForecastMatrixTile`).
+ *
+ * Data sources:
+ * - Spots: the same live feed `ClusterTile`/`BandActivityTile` read
+ *   (`useDXStore`), age-filtered the same way `ClusterTile` filters it. The
+ *   map's own `spotFilters` (band/mode) are deliberately NOT applied here —
+ *   the grid means to show every band, not whatever the map is filtered to.
+ * - Ladder verdict: `useBandVerdicts()` gives one physics score per band
+ *   (the Band Health arm has no per-continent forecast); that score is
+ *   applied to every continent for its band, per `computeHeatmap`'s own
+ *   fallback contract.
+ * - Baseline ratio: no aggregate in this codebase keys same-UTC-hour spot
+ *   counts by band AND continent (`band_hourly_stats` has no continent
+ *   column; `path_hourly_stats` keys by grid square, not continent) — no
+ *   baseline is passed, so `ratio` is always null and the `ratioDiverging`
+ *   preset stays disabled in Settings -> Display until that aggregate ships.
+ */
+export function HeatMapTile({ title = "Band heat map" }: WallTileProps) {
+  const now = useUTCClock(10_000);
+  const allSpots = useDXStore((s) => s.spots);
+  const feedState = useDXStore((s) => s.clusterFeed);
+  const source = useDXStore((s) => s.spotSource);
+  const maxAge = useDXStore((s) => s.filters.maxAge);
+  const { bands } = useBandVerdicts();
+  const heatmapPresetId = useHamClockDisplayStore((s) => s.heatmapPreset);
+  const [reportOpen, setReportOpen] = useState(false);
+
+  const spots = useMemo(
+    () =>
+      source === "bridge"
+        ? filterBridgeSpotAge(allSpots ?? [], maxAge, now.getTime())
+        : filterClusterAge(allSpots ?? [], maxAge, now.getTime()),
+    [allSpots, maxAge, now, source],
+  );
+
+  const physicsScores = useMemo(() => {
+    const scores: Record<string, number> = {};
+    for (const entry of bands) {
+      for (const continent of HEATMAP_CONTINENTS) {
+        scores[physicsScoreKey(entry.band, continent)] =
+          entry.result.inputs.physicsScore;
+      }
+    }
+    return scores;
+  }, [bands]);
+
+  const cells = useMemo(() => {
+    const inputs: HeatmapSpotInput[] = [];
+    for (const spot of spots) {
+      const input = dxSpotToHeatmapInput(spot);
+      if (input) inputs.push(input);
+    }
+    return computeHeatmap(inputs, { now: now.getTime(), physicsScores });
+  }, [spots, physicsScores, now]);
+
+  const preset = useMemo(
+    () => PRESETS.find((p) => p.id === heatmapPresetId) ?? LADDER_HUE_PRESET,
+    [heatmapPresetId],
+  );
+
+  const cellMap = useMemo(
+    () =>
+      new Map(cells.map((cell) => [physicsScoreKey(cell.band, cell.continent), cell])),
+    [cells],
+  );
+
+  const { hottest, totalCount } = useMemo(() => {
+    let hottest: HeatmapCell | null = null;
+    let bestBucket = -1;
+    let total = 0;
+    for (const cell of cells) {
+      total += cell.count;
+      if (cell.count === 0) continue;
+      const bucket = bucketFor(cell, preset.scale);
+      if (
+        bucket > bestBucket ||
+        (bucket === bestBucket && hottest && cell.count > hottest.count)
+      ) {
+        bestBucket = bucket;
+        hottest = cell;
+      }
+    }
+    return { hottest, totalCount: total };
+  }, [cells, preset]);
+
+  const report = reportOpen ? (
+    <Suspense fallback={null}>
+      <HeatMapReport open onClose={() => setReportOpen(false)} />
+    </Suspense>
+  ) : null;
+
+  // Honest empty state (wall spec §7): no activity in the window reads as
+  // exactly that, or as the underlying feed's own state when the feed
+  // itself is the reason (unavailable, loading, off) — never a fabricated
+  // "ALL CLEAR".
+  if (!hottest) {
+    const idle = ["UNAVAILABLE", "LOADING", "OFF"].includes(feedState.state)
+      ? feedState.state
+      : "NO SPOTS IN WINDOW";
+    return (
+      <>
+        <HamClockTile
+          title={title}
+          onOpen={() => setReportOpen(true)}
+          openLabel="Band heat map: no activity in the window. Open the full grid report"
+        >
+          <TileHero tone="hc-dim-text">—</TileHero>
+          <TileSub>
+            <span>{idle}</span>
+          </TileSub>
+        </HamClockTile>
+        {report}
+      </>
+    );
+  }
+
+  const bucket = bucketFor(hottest, preset.scale);
+  const toneClass = heatmapBucketClass(preset.id, bucket);
+  const sentence = `${formatBandLabel(hottest.band)} → ${hottest.continent} is the hottest cell`;
+  const summary = cells
+    .filter((cell) => cell.count > 0)
+    .map((cell) => `${cell.band} ${cell.continent} ${cell.count}`)
+    .join(", ");
+
+  return (
+    <>
+      <HamClockTile
+        title={title}
+        source={`${totalCount} DX · ${preset.label.toUpperCase()}`}
+        state={heatmapBucketColor(preset.id, bucket)}
+        onOpen={() => setReportOpen(true)}
+        openLabel={`Band heat map: ${sentence}. Open the full grid report`}
+      >
+        <div className="hc-heroline">
+          <TileHero tone={toneClass} flush>
+            {hottest.band.toUpperCase()}
+          </TileHero>
+          <div className={`hc-verdict hc-glow ${toneClass}`}>{hottest.continent}</div>
+        </div>
+        <TileSub>
+          <span>{sentence}</span>
+        </TileSub>
+
+        <div
+          className="hcf-heatgrid"
+          style={{
+            gridTemplateColumns: `2.6vw repeat(${HEATMAP_CONTINENTS.length}, 1fr)`,
+          }}
+          aria-hidden="true"
+        >
+          <span className="hcf-heatgrid-corner" />
+          {HEATMAP_CONTINENTS.map((continent) => (
+            <span key={continent} className="hcf-heatgrid-head">
+              {continent}
+            </span>
+          ))}
+          {BAND_ORDER.map((band) => (
+            <Fragment key={band}>
+              <span className="hcf-heatgrid-band">{band}</span>
+              {HEATMAP_CONTINENTS.map((continent) => {
+                const cell = cellMap.get(physicsScoreKey(band, continent));
+                const cellBucket = cell ? bucketFor(cell, preset.scale) : 0;
+                return (
+                  <span
+                    key={continent}
+                    className="hcf-heatgrid-cell"
+                    style={{ background: heatmapBucketColor(preset.id, cellBucket) }}
+                  />
+                );
+              })}
+            </Fragment>
+          ))}
+        </div>
+        <p className="sr-only">{summary}</p>
+      </HamClockTile>
+
+      {report}
+    </>
+  );
+}

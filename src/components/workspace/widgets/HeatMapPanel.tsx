@@ -3,17 +3,16 @@ import { useBandVerdicts } from "@/hooks/useBandVerdicts";
 import { useUTCClock } from "@/hooks/useUTCClock";
 import { BAND_ORDER } from "@/lib/data/bandRanges";
 import { filterClusterAge } from "@/lib/dx/clusterHistory";
-import { LADDER_RANK } from "@/lib/verdict/ladder";
 import {
   bucketFor,
   computeHeatmap,
   dxSpotToHeatmapInput,
   HEATMAP_CONTINENTS,
   LADDER_HUE_PRESET,
+  metricValue,
   physicsScoreKey,
   PRESETS,
   type HeatmapCell,
-  type HeatMapMetric,
   type HeatMapScale,
   type HeatmapSpotInput,
 } from "@/lib/widgets/heatmap";
@@ -29,24 +28,6 @@ const LIVE_FEED_STATES: ReadonlySet<string> = new Set(["CURRENT", "BRIDGE"]);
 
 function feedStateLabel(state: string): string {
   return state === "UNKNOWN" ? "FEED NOT STARTED" : state;
-}
-
-/**
- * Rank a cell by the workspace's `display.headlineRule` metric (#661). See
- * the identical helper + rationale in `HeatMapStrip.tsx` (kept local to each
- * file rather than shared, to hold the file budget for this PR).
- */
-function headlineValue(cell: HeatmapCell, metric: HeatMapMetric): number {
-  switch (metric) {
-    case "count":
-      return cell.count;
-    case "reporters":
-      return cell.reporters;
-    case "ratio":
-      return cell.ratio ?? Number.NEGATIVE_INFINITY;
-    case "ladder":
-      return LADDER_RANK[cell.ladder];
-  }
 }
 
 export interface HeatMapPanelProps {
@@ -133,7 +114,7 @@ export function HeatMapPanel(_props: HeatMapPanelProps = {}) {
       if (!display.visibleBands.includes(cell.band)) continue;
       total += cell.count;
       if (cell.count === 0) continue;
-      const value = headlineValue(cell, display.headlineRule);
+      const value = metricValue(cell, display.headlineRule);
       // `!headline` seeds from the first counted cell (#686 review item 4,
       // Codex): see the identical fix + rationale in `HeatMapStrip.tsx`.
       if (!headline || value > bestValue || (value === bestValue && cell.count > headline.count)) {

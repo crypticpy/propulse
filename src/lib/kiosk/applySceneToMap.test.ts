@@ -4,6 +4,7 @@ import type { KioskScene } from "@/stores/kioskStore";
 import { useMapStore } from "@/stores/mapStore";
 import { useThemeStore } from "@/stores/themeStore";
 import { useHamClockDisplayStore } from "@/stores/hamclockDisplayStore";
+import { useHamClockStore } from "@/stores/hamclockStore";
 import {
   __resetHamClockPinForTests,
   applySceneToMap,
@@ -120,6 +121,69 @@ describe("applySceneToMap", () => {
 
     expect(useMapStore.getState().viewMode).toBe("flat");
     expect(useMapStore.getState().layers.goesCloud).toBe(false);
+  });
+
+  // #691 M5 — kiosk and Launch Wall both apply scenes through this function
+  // and never consulted `resolveHeroProjection`, so a pinned scene requesting
+  // a globe-only layer on flat/azimuthal would leave that layer unable to
+  // draw instead of switching projection the way the interactive HamClock
+  // wall does (#625).
+  it("switches projection when a scene's preset turns on a globe-only layer", () => {
+    applySceneToMap({
+      id: "science-wall",
+      name: "Science wall",
+      route: "/map",
+      map: {
+        layoutMode: "pro",
+        viewMode: "flat",
+        // The "science" preset turns on DRAP, which neither flat nor
+        // azimuthal can draw (`FLAT_UNSUPPORTED_LAYER_KEYS` /
+        // `AZIMUTHAL_SUPPORTED_LAYER_KEYS` in layerCapabilities.ts).
+        preset: "science",
+      },
+    });
+
+    expect(useMapStore.getState().layers.drap).toBe(true);
+    expect(useMapStore.getState().viewMode).toBe("globe");
+  });
+
+  // A scene records its request in `preferredViewMode`, not just in the
+  // resolved `viewMode`. Storing only the outcome throws the intent away:
+  // HamClockView derives its chip from the preference, so a scene that asked
+  // for 3D would inherit whatever the operator last picked and announce
+  // "Switched to 3D because flat cannot draw DRAP" — naming a projection the
+  // scene never requested (#691 M5 review).
+  it("records the scene's requested projection as the preference, not the resolved one", () => {
+    useHamClockStore.getState().setPreferredViewMode("flat");
+
+    applySceneToMap({
+      id: "science-wall",
+      name: "Science wall",
+      route: "/map",
+      map: {
+        layoutMode: "pro",
+        viewMode: "globe",
+        preset: "science",
+      },
+    });
+
+    expect(useMapStore.getState().viewMode).toBe("globe");
+    expect(useHamClockStore.getState().preferredViewMode).toBe("globe");
+  });
+
+  it("keeps the scene's requested projection when nothing it enables needs another one", () => {
+    applySceneToMap({
+      id: "dx-wall",
+      name: "DX wall",
+      route: "/map",
+      map: {
+        layoutMode: "pro",
+        viewMode: "flat",
+        preset: "dx-hunter",
+      },
+    });
+
+    expect(useMapStore.getState().viewMode).toBe("flat");
   });
 
   it.each(["/map/explorer", "/map/photorealistic"])(

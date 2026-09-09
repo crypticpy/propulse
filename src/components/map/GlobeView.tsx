@@ -172,6 +172,7 @@ import { TargetHoverTooltip } from "./TargetHoverTooltip";
 import { MapSizeSliders } from "./MapSizeSliders";
 import { SpotHoverPreview } from "./SpotHoverPreview";
 import { SelectedSpotCard } from "./SelectedSpotCard";
+import { MapSurface } from "./MapSurface";
 import { SpotCollectionPopover } from "./SpotCollectionPopover";
 import { ClusterDetailPopover } from "./ClusterDetailPopover";
 import type { SpotCluster as SpotClusterData } from "@/hooks/useSpotClustering";
@@ -2084,6 +2085,8 @@ export function GlobeView({
   } = useSpotHoverArbitration();
   const [mapOverlayPortal, setMapOverlayPortal] =
     useState<HTMLDivElement | null>(null);
+  // Focus home for overlays whose opener is already detached (#797).
+  const mapSurfaceRef = useRef<HTMLDivElement>(null);
   // Use allSpots (unfiltered) for tooltip matching to show all activity in an area
   const { allSpots } = useDXCluster(undefined, { enabled: publicDxEnabled });
 
@@ -2636,7 +2639,10 @@ export function GlobeView({
   );
 
   return (
-    <div className="w-full h-full min-h-[400px] bg-deep-space rounded-xl overflow-hidden relative isolate select-none">
+    <MapSurface
+      surfaceRef={mapSurfaceRef}
+      className="w-full h-full min-h-[400px] bg-deep-space rounded-xl overflow-hidden relative isolate select-none"
+    >
       {webgl.supported && !contextLost ? (
         <GlobeErrorBoundary
           key={attempt}
@@ -3006,6 +3012,6 @@ export function GlobeView({
           setResearchCallsign(null);
         }}
       />
-    </div>
+    </MapSurface>
   );
 }

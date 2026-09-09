@@ -91,6 +91,7 @@ import { PinFlyout } from "./PinFlyout";
 import { MapSizeSliders } from "./MapSizeSliders";
 import { SpotHoverPreview } from "./SpotHoverPreview";
 import { SelectedSpotCard } from "./SelectedSpotCard";
+import { MapSurface } from "./MapSurface";
 import { SpotCollectionPopover } from "./SpotCollectionPopover";
 import { useViewSpotFocus } from "@/hooks/useSpotFocus";
 import { FLASH_POINT_DURATION_MS, useFlashPoint } from "./hooks/useFlashPoint";
@@ -6352,8 +6353,8 @@ export function FlatMapView({
   }, [hoverCoords, station]);
 
   return (
-    <div
-      ref={containerRef}
+    <MapSurface
+      surfaceRef={containerRef}
       className={`w-full h-full bg-deep-space overflow-hidden relative select-none ${
         fillContainer
           ? datelineOverview
@@ -6707,6 +6708,6 @@ export function FlatMapView({
           setResearchCallsign(null);
         }}
       />
-    </div>
+    </MapSurface>
   );
 }

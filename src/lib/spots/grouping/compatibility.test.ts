@@ -10,6 +10,10 @@ import { clusterSpots } from "./compatibility";
 // from the raw-id override (Path 2), which is exercised separately below.
 // `hashStableString` itself can't be mocked this way: `stableReportId` calls
 // it via a same-module binding, which `vi.mock` cannot intercept.
+// The mock re-implements the real suffix contract verbatim (not an
+// approximation of it), so substituting it here does not change what the
+// tests below are asserting. `identity.test.ts` is where the real
+// `stableReportId`/`hashStableString` are asserted directly (#769).
 vi.mock("@/lib/spots/presentation/identity", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/lib/spots/presentation/identity")>();
   return {
@@ -98,6 +102,71 @@ describe("clusterSpots report-id collisions (#736)", () => {
     ];
     expect(survivorSpots).toHaveLength(2);
     expect(survivorSpots.map((spot) => spot.dx).sort()).toEqual(["EA1AAA", "LA1BBB"]);
+    expect(result.totalSpots).toBe(2);
+  });
+});
+
+describe("clusterSpots totalSpots vs. collapsed duplicates (#769)", () => {
+  it("collapses two spots that share an observationKey into one survivor while totalSpots counts both inputs", () => {
+    // Same spotter/frequency/mode/time/dx => identical receiver-role
+    // observationKey (PSKReporter is a reception source, so sourceReportId
+    // is not part of the key). stableReportId then reuses the same candidate
+    // for the second spot instead of suffixing it, so the two collapse to one
+    // normalized report id. Both raw ids are unparseable by contractIdSchema
+    // (they contain spaces/`!`), so the raw-id override never fires and the
+    // observationKey collapse is the only mechanism in play.
+    const shared = {
+      spotter: "K1ABC",
+      dx: "EA1AAA",
+      dxLat: 40.4,
+      dxLon: -3.7,
+      frequency: 14074,
+      mode: "FT8",
+      time: new Date("2026-08-31T12:00:00Z"),
+    };
+    const spots = [
+      liveSpot("dup observation a!", shared),
+      liveSpot("dup observation b!", shared),
+    ];
+
+    const result = clusterSpots(spots, { enabled: false, minClusterSize: 2 });
+
+    const survivorSpots = [
+      ...result.clusters.flatMap((cluster) => cluster.spots),
+      ...result.singles,
+    ];
+    expect(survivorSpots).toHaveLength(1);
+    expect(result.totalSpots).toBe(2);
+  });
+
+  it("keeps both spots when the same observation carries distinct contract-valid raw ids", () => {
+    // The other half of the documented condition. A shared observationKey is
+    // not sufficient: `reportFromLiveSpot` overrides the derived id with
+    // `spot.id` whenever that parses as a contract id and is still free, so
+    // these two survive as separate reports even though every field the key is
+    // built from is identical. Same fixtures as the test above apart from the
+    // ids, which here match `contractIdSchema`.
+    const shared = {
+      spotter: "K1ABC",
+      dx: "EA1AAA",
+      dxLat: 40.4,
+      dxLon: -3.7,
+      frequency: 14074,
+      mode: "FT8",
+      time: new Date("2026-08-31T12:00:00Z"),
+    };
+    const spots = [
+      liveSpot("psk_dup_observation_a", shared),
+      liveSpot("psk_dup_observation_b", shared),
+    ];
+
+    const result = clusterSpots(spots, { enabled: false, minClusterSize: 2 });
+
+    const survivorSpots = [
+      ...result.clusters.flatMap((cluster) => cluster.spots),
+      ...result.singles,
+    ];
+    expect(survivorSpots).toHaveLength(2);
     expect(result.totalSpots).toBe(2);
   });
 });

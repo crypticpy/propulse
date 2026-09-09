@@ -52,7 +52,16 @@ export interface ClusteringResult {
   clusters: SpotCluster[];
   /** Spots that don't need clustering (isolated or in small groups) */
   singles: LiveSpot[];
-  /** Total number of spots processed */
+  /**
+   * Count of spots passed in, not surviving rows. Two spots can collapse into
+   * one cluster/single, so totalSpots can exceed clusters+singles membership.
+   * That needs both halves: a shared `observationKey` (same
+   * spotter/frequency/mode/time/dx, since a receiver-role key omits
+   * `sourceReportId`) AND no raw-id override — `reportFromLiveSpot` replaces
+   * the derived id with `spot.id` whenever that parses as a contract id and is
+   * still free, so two same-observation spots carrying distinct valid ids both
+   * survive.
+   */
   totalSpots: number;
   /** Reachable group IDs for expansion sync, including hidden expanded parents. */
   liveGroupIds: string[];

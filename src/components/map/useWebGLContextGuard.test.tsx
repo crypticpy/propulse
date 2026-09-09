@@ -7,6 +7,9 @@ import {
   type UseWebGLContextGuardOptions,
 } from "./useWebGLContextGuard";
 
+const CONTEXT_RELEASE_DELAY_MS = 50;
+const CONTEXT_LOST_GRACE_MS = 550;
+
 const mocks = vi.hoisted(() => ({
   gl: null as {
     domElement: HTMLCanvasElement;
@@ -19,9 +22,9 @@ vi.mock("@react-three/fiber", () => ({
     selector({ gl: mocks.gl }),
 }));
 
-function makeFakeGl() {
+function makeFakeGl(canvas = document.createElement("canvas")) {
   return {
-    domElement: document.createElement("canvas"),
+    domElement: canvas,
     forceContextLoss: vi.fn(),
   };
 }
@@ -48,70 +51,72 @@ function Harness(props: UseWebGLContextGuardOptions) {
 }
 
 describe("useWebGLContextGuard", () => {
-  it("releases the context on unmount without waiting for r3f's 500ms teardown", () => {
+  it("releases the context on unmount ahead of r3f's 500ms teardown", () => {
     const gl = mocks.gl!;
     const view = render(<Harness />);
     expect(gl.forceContextLoss).not.toHaveBeenCalled();
     view.unmount();
-    vi.advanceTimersByTime(499);
+    vi.advanceTimersByTime(CONTEXT_RELEASE_DELAY_MS - 1);
     expect(gl.forceContextLoss).not.toHaveBeenCalled();
     vi.advanceTimersByTime(1);
     expect(gl.forceContextLoss).toHaveBeenCalledTimes(1);
   });
 
-  it("does not release when remounted before the 500ms context-loss grace window", () => {
+  it("does not release when remounted before the pending release fires", () => {
     const gl = mocks.gl!;
     const View = ({ isMounted }: { isMounted: boolean }) =>
       isMounted ? <Harness /> : null;
     const view = render(<View isMounted />);
 
     view.rerender(<View isMounted={false} />);
-    vi.advanceTimersByTime(250);
+    vi.advanceTimersByTime(25);
     view.rerender(<View isMounted />);
-    vi.advanceTimersByTime(250);
+    vi.advanceTimersByTime(25);
     expect(gl.forceContextLoss).not.toHaveBeenCalled();
 
     view.rerender(<View isMounted={false} />);
-    vi.advanceTimersByTime(499);
+    vi.advanceTimersByTime(CONTEXT_RELEASE_DELAY_MS - 1);
     expect(gl.forceContextLoss).not.toHaveBeenCalled();
     vi.advanceTimersByTime(1);
     expect(gl.forceContextLoss).toHaveBeenCalledTimes(1);
   });
 
-  it("cancels a pending release when a fresh guard instance remounts on the same canvas within 500ms", () => {
-    const gl = mocks.gl!;
-    const first = render(<Harness />);
-    first.unmount();
-    vi.advanceTimersByTime(250);
-    const second = render(<Harness />);
-    second.unmount();
-    vi.advanceTimersByTime(250);
-    expect(gl.forceContextLoss).not.toHaveBeenCalled();
-  });
-
   it("does not release a canvas that StrictMode is about to reattach", () => {
-    const gl = mocks.gl!;
+    const sharedCanvas = document.createElement("canvas");
+    const glFirst = makeFakeGl(sharedCanvas);
+    const glSecond = makeFakeGl(sharedCanvas);
+    mocks.gl = glFirst;
+
     const view = render(
       <StrictMode>
         <Harness />
       </StrictMode>,
     );
-    // StrictMode's simulated mount → cleanup → mount has already happened.
-    vi.advanceTimersByTime(500);
-    expect(gl.forceContextLoss).not.toHaveBeenCalled();
-    // The canvas still responds as a live one.
+    // StrictMode's simulated mount → cleanup → mount swaps the renderer while
+    // keeping the same canvas element.
+    mocks.gl = glSecond;
+    view.rerender(
+      <StrictMode>
+        <Harness />
+      </StrictMode>,
+    );
+
+    vi.advanceTimersByTime(CONTEXT_LOST_GRACE_MS);
+    expect(glFirst.forceContextLoss).not.toHaveBeenCalled();
+    expect(glSecond.forceContextLoss).not.toHaveBeenCalled();
+
     const onLost = vi.fn();
     view.rerender(
       <StrictMode>
         <Harness onLost={onLost} />
       </StrictMode>,
     );
-    dispatchLost(gl.domElement);
+    dispatchLost(sharedCanvas);
     expect(onLost).toHaveBeenCalledTimes(1);
-    // A real unmount still releases it.
+
     view.unmount();
-    vi.advanceTimersByTime(500);
-    expect(gl.forceContextLoss).toHaveBeenCalledTimes(1);
+    vi.advanceTimersByTime(CONTEXT_RELEASE_DELAY_MS);
+    expect(glSecond.forceContextLoss).toHaveBeenCalledTimes(1);
   });
 
   it("preventDefaults a webglcontextlost event so the browser can restore it", () => {
@@ -121,10 +126,22 @@ describe("useWebGLContextGuard", () => {
     expect(event.defaultPrevented).toBe(true);
   });
 
-  it("calls onLost for a genuine context loss", () => {
+  it("calls onLost for a genuine context loss after the mount grace window", () => {
     const gl = mocks.gl!;
     const onLost = vi.fn();
     render(<Harness onLost={onLost} />);
+    vi.advanceTimersByTime(CONTEXT_LOST_GRACE_MS);
+    dispatchLost(gl.domElement);
+    expect(onLost).toHaveBeenCalledTimes(1);
+  });
+
+  it("ignores context loss during the mount grace window", () => {
+    const gl = mocks.gl!;
+    const onLost = vi.fn();
+    render(<Harness onLost={onLost} />);
+    dispatchLost(gl.domElement);
+    expect(onLost).not.toHaveBeenCalled();
+    vi.advanceTimersByTime(CONTEXT_LOST_GRACE_MS);
     dispatchLost(gl.domElement);
     expect(onLost).toHaveBeenCalledTimes(1);
   });
@@ -133,8 +150,9 @@ describe("useWebGLContextGuard", () => {
     const gl = mocks.gl!;
     const onLost = vi.fn();
     const view = render(<Harness onLost={onLost} />);
+    vi.advanceTimersByTime(CONTEXT_LOST_GRACE_MS);
     view.unmount();
-    vi.advanceTimersByTime(500);
+    vi.advanceTimersByTime(CONTEXT_RELEASE_DELAY_MS);
     // The loss our own forceContextLoss() call triggers.
     dispatchLost(gl.domElement);
     expect(onLost).not.toHaveBeenCalled();
@@ -146,7 +164,7 @@ describe("useWebGLContextGuard", () => {
     const second = vi.fn();
     const view = render(<Harness onLost={first} />);
     view.rerender(<Harness onLost={second} />);
-    vi.advanceTimersByTime(500);
+    vi.advanceTimersByTime(CONTEXT_LOST_GRACE_MS);
     expect(gl.forceContextLoss).not.toHaveBeenCalled();
     dispatchLost(gl.domElement);
     expect(first).not.toHaveBeenCalled();
@@ -160,6 +178,7 @@ describe("WebGLContextGuard", () => {
     const onLost = vi.fn();
     const view = render(<WebGLContextGuard onLost={onLost} />);
     expect(view.container.innerHTML).toBe("");
+    vi.advanceTimersByTime(CONTEXT_LOST_GRACE_MS);
     dispatchLost(gl.domElement);
     expect(onLost).toHaveBeenCalledTimes(1);
   });

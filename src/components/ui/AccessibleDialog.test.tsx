@@ -522,15 +522,16 @@ describe("AccessibleDialog late-mounted body portals (#693)", () => {
     // treat a body child that arrives while no dialog is open as late"
     // below, which pins it via the lateness state a leaked observer would
     // wrongly attach to a node arriving after the last dialog closed.
-    // (The disconnect call itself is also pinned directly by the
-    // prototype spy in the test after that one.)
+    // (The disconnect call itself is also pinned directly by the prototype
+    // spy in "disconnects the body observer once the last open dialog
+    // closes".)
     //
     // What this test pins, and nothing else does: once
     // `indexOfTopmostOpenEntry()` finds no open entry, a body child that
     // arrives afterward must not be inerted. Regress the cleanup effect's
     // `stackEntry.isOpen = false` write, or regress
     // `indexOfTopmostOpenEntry()` to report a stale `top`, and this goes
-    // red while every other test here stays green.
+    // red.
     const { rerender } = render(
       <AccessibleDialog open onClose={vi.fn()} title="Host">
         <button type="button">Host action</button>
@@ -605,7 +606,11 @@ describe("AccessibleDialog late-mounted body portals (#693)", () => {
       </AccessibleDialog>,
     );
 
-    await waitFor(() => expect(foreignModal.inert).toBeTruthy());
+    // One macrotask lets the pending MutationObserver microtask — and the
+    // resync it triggers — run, so this asserts the settled state instead of
+    // sampling it mid-flight.
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(foreignModal.inert).toBeTruthy();
     expect(foreignModal.getAttribute("aria-hidden")).toBe("true");
   });
 

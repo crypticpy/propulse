@@ -1,5 +1,8 @@
 import { useCallback, useMemo, useSyncExternalStore } from "react";
-import { useViewRuntime } from "@/components/views/ViewRuntimeContext";
+import {
+  useOptionalViewRuntime,
+  useViewRuntime,
+} from "@/components/views/ViewRuntimeContext";
 import { useDXCluster, type UseDXClusterOptions } from "@/hooks/useDXCluster";
 import { useOperatingMonitor } from "@/hooks/useOperatingMonitor";
 import { CLUSTER_BRIDGE_FUTURE_TOLERANCE_MS } from "@/lib/hamclock/clusterBridge";
@@ -43,6 +46,29 @@ export function useViewSpotFilterPatch() {
   const runtime = useViewRuntime();
   return useCallback(
     (patch: Partial<SpotPresentationPreferences["filters"]>) => {
+      const snapshot = runtime.getSnapshot();
+      runtime.updateWorkingView({
+        spots: {
+          ...snapshot.config.spots,
+          filters: { ...snapshot.config.spots.filters, ...patch },
+        },
+      });
+    },
+    [runtime],
+  );
+}
+
+/**
+ * Same patch as `useViewSpotFilterPatch`, but tolerant of rendering with no
+ * `ViewProvider` above it (e.g. a wall tile also reachable from the
+ * workspace canvas, which mounts widgets without a bound view). Returns a
+ * no-op when there is no runtime to patch, instead of throwing.
+ */
+export function useOptionalViewSpotFilterPatch() {
+  const runtime = useOptionalViewRuntime();
+  return useCallback(
+    (patch: Partial<SpotPresentationPreferences["filters"]>) => {
+      if (!runtime) return;
       const snapshot = runtime.getSnapshot();
       runtime.updateWorkingView({
         spots: {

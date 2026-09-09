@@ -61,7 +61,7 @@ describe("independent view contract", () => {
   it("keeps scene snapshots independent and validates assignment identity", () => {
     const assignment = createDisplayAssignmentFixture();
     assignment.scenes[0].config.spots.filters.spotLimit = 100;
-    expect(assignment.scenes[1].config.spots.filters.spotLimit).toBe(50);
+    expect(assignment.scenes[1].config.spots.filters.spotLimit).toBe(150);
     expect(displayAssignmentSchema.safeParse({ ...assignment, startSceneId: "missing" }).success).toBe(false);
     expect(displayAssignmentSchema.safeParse({ ...assignment, scenes: [assignment.scenes[0], assignment.scenes[0]] }).success).toBe(false);
     assignment.scenes[0].enabled = false;

@@ -4,8 +4,8 @@ import { useBandVerdicts } from "@/hooks/useBandVerdicts";
 import { useLiveBandHistory } from "@/hooks/useLiveBandHistory";
 import { useBandHistory } from "@/hooks/useBandHistory";
 import { useHamClockStore } from "@/stores/hamclockStore";
-import { useMapStore } from "@/stores/mapStore";
 import { useDXStore } from "@/stores/dxStore";
+import { useViewSpotFilterPatch } from "@/hooks/useViewClusterSpots";
 import { WallReport, type WallReportFact } from "./WallReport";
 import { reportFooter } from "../tokens";
 import { HamClockButton, HamClockTabs } from "../controls";
@@ -22,6 +22,7 @@ export interface BandActivityReportProps {
 /** Live counters retain their scope and population; historical counts are global only. */
 export function BandActivityReport({ open, onClose, initialGlobalCounts = false, initialView = "bands" }: BandActivityReportProps) {
   const [activeView, setActiveView] = useState(initialView);
+  const patchSpotFilters = useViewSpotFilterPatch();
   const clusterSpots = useDXStore((s) => s.spots);
   const clusterSource = useDXStore(s => s.spotSource);
   const isTopDx = activeView === "dx";
@@ -153,11 +154,7 @@ export function BandActivityReport({ open, onClose, initialGlobalCounts = false,
                       key={entry.band}
                       onClick={() => {
                         useHamClockStore.getState().setBandFocus([entry.band]);
-                        const map = useMapStore.getState();
-                        map.setSpotFilters({
-                          ...map.spotFilters,
-                          bands: [entry.band],
-                        });
+                        patchSpotFilters({ bands: [entry.band] });
                       }}
                     >
                       {entry.band.toUpperCase()} ·{" "}

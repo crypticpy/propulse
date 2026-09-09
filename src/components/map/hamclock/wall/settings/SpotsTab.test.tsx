@@ -66,14 +66,6 @@ it("represents an intermediate desktop value without silently changing it", () =
   expect(screen.getByRole("radio", { name: "50" }).getAttribute("aria-checked")).toBe("true");
 });
 
-it("normalizes integration values into a finite whole render cap", () => {
-  for (const [input, expected] of [[NaN, 150], [Infinity, 150], [-1, 10], [999, 200], [125.9, 125]]) {
-    useMapStore.getState().setDisplayDensity(input);
-    expect(useMapStore.getState().displayDensity).toBe(expected);
-  }
-});
-
-
 it("changes map age by keyboard, persists it, and exposes source state", () => {
   renderTab();
   const age = screen.getByRole("radio", { name: "30 MIN" });

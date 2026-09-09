@@ -176,6 +176,11 @@ describe("field-change and customization helpers", () => {
   it("reports only changed fields and detects customization against a built-in", () => {
     const recipe = getActivityRecipe("activity-balanced-v1");
     const working = copyViewConfiguration(createViewConfiguration());
+    // Start the working copy already matching the recipe (SP-09 round 2: the
+    // shared spot-limit default, 150, no longer coincides with "Balanced
+    // activity"'s own curated 50), so the baseline below is genuinely
+    // uncustomized before the fields are edited.
+    working.spots = structuredClone(recipe.spots);
     expect(isActivityCustomized(working.spots, recipe)).toBe(false);
     working.spots.filters.spotLimit = 80;
     working.spots.filters.modes.includeInferred = false;

@@ -1,7 +1,7 @@
 import { create } from "zustand";
 import { normalizeMapSpotAge } from "@/lib/map/spotAge";
 import type { SpotWindowMinutes } from "@/lib/api/spotFeed";
-import { DEFAULT_SPOT_DENSITY, normalizeSpotDensity } from "@/lib/map/spotDensity";
+import { DEFAULT_SPOT_DENSITY } from "@/lib/map/spotDensity";
 import { type RegionPreset, DEFAULT_REGION_PRESETS } from "@/types/map";
 import type {
   OverlayLayerModel,
@@ -613,7 +613,6 @@ export interface MapState {
   setSpotFeedScope: (scope: "global" | "psk-station") => void;
   spotAgeMinutes: SpotWindowMinutes;
   setSpotAgeMinutes: (minutes: number) => void;
-  setDisplayDensity: (density: number) => void;
 
   // Grid label detail level (1=field, 2=square, 3=subsquare) — persisted
   gridLabelDetail: number;
@@ -2270,9 +2269,6 @@ export const useMapStore = create<MapState>((set, get) => ({
     try { localStorage.setItem("propulse-spot-age-minutes", String(spotAgeMinutes)); } catch { /* Storage may be unavailable. */ }
     set({ spotAgeMinutes });
   },
-
-  setDisplayDensity: (density) =>
-    set({ displayDensity: normalizeSpotDensity(density) }),
 
   // Grid label detail level
   setGridLabelDetail: (detail) => {

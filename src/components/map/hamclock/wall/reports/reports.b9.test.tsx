@@ -1,13 +1,40 @@
-import { useState } from "react";
+import { useState, type ReactElement } from "react";
 import { render, renderHook, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { SolarMiniChart } from "@/components/solar/SolarMiniChart";
+import { ViewProvider } from "@/components/views/ViewProvider";
+import { useViewRuntime, type ScopedViewRuntime } from "@/components/views/ViewRuntimeContext";
+import { createMemoryWorkingStorage } from "@/lib/views/runtime";
 import { HamClockPinnedReportHost } from "./WallReport";
 import { WeatherReport } from "./WeatherReport";
 import { BestBandReport } from "./BestBandReport";
 import { ForecastReport } from "./ForecastReport";
 import { useHamClockSessionTrend } from "./sessionTrend";
+
+let capturedRuntime: ScopedViewRuntime | null = null;
+
+function RuntimeCapture() {
+  capturedRuntime = useViewRuntime();
+  return null;
+}
+
+/**
+ * `BestBandReport` patches spot filters through the bound view runtime
+ * (SP-09 round 2) when one is available. This mirrors its production mount
+ * inside `<BoundViewHost slot="hamclock">`, so a click can be asserted
+ * against the runtime instead of the retired `mapStore.setSpotFilters`.
+ */
+function renderInView(ui: ReactElement) {
+  capturedRuntime = null;
+  const utils = render(
+    <ViewProvider ownerId="owner-test" slot="hamclock" storage={createMemoryWorkingStorage()}>
+      <RuntimeCapture />
+      {ui}
+    </ViewProvider>,
+  );
+  return { ...utils, get runtime() { return capturedRuntime!; } };
+}
 
 const mocks = vi.hoisted(() => ({
   verdicts: vi.fn(),
@@ -344,7 +371,7 @@ describe("BestBandReport (HW-31)", () => {
 
   it("renders bands ranked by ladder state, sets band focus and spot filters on row click, and marks surprise rows in the ranked table", async () => {
     const user = userEvent.setup();
-    render(<BestBandReport open onClose={vi.fn()} />);
+    const { runtime } = renderInView(<BestBandReport open onClose={vi.fn()} />);
 
     const dialog = screen.getByRole("dialog");
     // 20m (verified) outranks 17m (stirring) outranks 40m (closed).
@@ -358,9 +385,9 @@ describe("BestBandReport (HW-31)", () => {
 
     await user.click(rows[1]);
     expect(mocks.setBandFocus).toHaveBeenCalledWith(["17m"]);
-    expect(mocks.setSpotFilters).toHaveBeenCalledWith(
-      expect.objectContaining({ bands: ["17m"] }),
-    );
+    // SP-09 round 2: the click now patches the bound view runtime instead of
+    // the retired `mapStore.setSpotFilters`.
+    expect(runtime.getSnapshot().config.spots.filters.bands).toEqual(["17m"]);
 
     // Surprise is a status in the ranked row (17m: stirring+ while physics
     // closed) and a count in the caption, not a second table (#250 S6).
@@ -370,6 +397,26 @@ describe("BestBandReport (HW-31)", () => {
       dialog.querySelectorAll(".hcr-bandtable-caption"),
     ).map((el) => el.textContent);
     expect(captions.some((c) => c?.includes("1 surprise"))).toBe(true);
+  });
+
+  it("renders and takes a row click without a ViewProvider, since it also mounts bare via the workspace canvas widget loader", async () => {
+    // `BestBandTile`/`BestBandReport` are reachable from
+    // `workspace/widgetLoaders.ts` via `SpaceSlot`, which renders widgets
+    // with no bound view. `useOptionalViewSpotFilterPatch` must no-op
+    // instead of throwing `useViewRuntime requires ViewProvider`.
+    const user = userEvent.setup();
+    render(<BestBandReport open onClose={vi.fn()} />);
+
+    const dialog = screen.getByRole("dialog");
+    expect(dialog.querySelector(".hcr-hero")?.textContent).toBe("20M");
+
+    const rows = dialog.querySelectorAll(".hcr-bandtable button.hcr-bandrow");
+    await user.click(rows[1]);
+
+    // The hamclockStore band-focus write is unconditional and still fires...
+    expect(mocks.setBandFocus).toHaveBeenCalledWith(["17m"]);
+    // ...but with no runtime to patch, the click must not crash the canvas.
+    expect(screen.getByRole("dialog")).toBeTruthy();
   });
 
   it("prints the numeric rank for every row, not just an em dash below the leader", () => {

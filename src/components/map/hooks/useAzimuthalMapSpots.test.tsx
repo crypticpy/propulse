@@ -43,6 +43,6 @@ describe("useAzimuthalMapSpots", () => {
         }),
       { wrapper },
     );
-    expect(result.current.mapBudget).toBe(50);
+    expect(result.current.mapBudget).toBe(150);
   });
 });

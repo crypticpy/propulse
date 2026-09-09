@@ -139,7 +139,7 @@ describe("useViewMapSpots", () => {
       () => useViewMapSpots({ enabled: false, grid: "EM10aa" }),
       { wrapper },
     );
-    expect(result.current.mapBudget).toBe(50);
+    expect(result.current.mapBudget).toBe(150);
     expect(result.current.listTotal).toBe(0);
     expect(result.current.clusters).toEqual([]);
   });
@@ -204,5 +204,97 @@ describe("useViewMapSpots", () => {
     );
     expect(result.current.resolvedSpots[0]?.originalSpot).toBe(dedupedSpot);
     expect(result.current.resolvedSingles).toHaveLength(1);
+  });
+
+  it("keeps a dedup-dropped evidence row in allResolvedSpots even though resolvedSpots narrows it away", () => {
+    // `useLiveSpots` dedupes `spots` for the visible/mapped set but keeps
+    // every eligible report in `evidenceSpots` for semantic aggregation.
+    // `allResolvedSpots` must be `feed.allResolvedSpots` verbatim (all
+    // evidence, resolved), never narrowed by the same dedup/budget that
+    // shrinks `resolvedSpots`/`candidateSpots`.
+    const now = new Date();
+    const kept: LiveSpot = liveSpot("kept", {
+      source: "PSKReporter",
+      dx: "K1XYZ",
+      dxLat: 41.5,
+      dxLon: -71.3,
+      spotter: "SPOTTER-A",
+      spotterLat: 40,
+      spotterLon: -74,
+      frequency: 14025.3,
+      mode: "CW",
+      time: now,
+    });
+    // A distinct receiver report of the same transmission, at a different
+    // grid, that cross-source dedup collapsed out of `spots` but that
+    // `evidenceSpots` still carries.
+    const dedupDropped: LiveSpot = liveSpot("dropped-by-dedup", {
+      source: "RBN",
+      dx: "K1XYZ",
+      dxLat: 41.5,
+      dxLon: -71.3,
+      spotter: "SPOTTER-B",
+      receiverCallsign: "SPOTTER-B",
+      spotterLat: 42,
+      spotterLon: -75,
+      frequency: 14025.3,
+      mode: "CW",
+      time: now,
+    });
+
+    mocks.live.mockReturnValue({
+      ...emptyLiveSpotsResult(),
+      spots: [kept],
+      evidenceSpots: [kept, dedupDropped],
+      feedScopeKey: "dedup-dropped",
+      isFeedReady: true,
+      sourceStates: { PSKReporter: "LIVE", RBN: "LIVE", "WSJT-X": "OFF" },
+      spotsBySource: {
+        PSKReporter: [kept],
+        RBN: [],
+        Cluster: [],
+        "WSJT-X": [],
+      },
+    });
+
+    const client = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    });
+    const wrapper = ({ children }: { children: ReactNode }) => (
+      <QueryClientProvider client={client}>
+        <ViewProvider
+          ownerId="owner-dedup-dropped"
+          slot="normal"
+          storage={createMemoryWorkingStorage()}
+        >
+          {children}
+        </ViewProvider>
+      </QueryClientProvider>
+    );
+
+    const { result } = renderHook(
+      () => useViewMapSpots({ enabled: true, grid: "EM10aa" }),
+      { wrapper },
+    );
+
+    // The deduped/budgeted set only carries the surviving report.
+    expect(result.current.resolvedSpots).toHaveLength(1);
+    expect(result.current.resolvedSpots[0]?.originalSpot).toBe(kept);
+    expect(
+      result.current.resolvedSpots.some(
+        (spot) => spot.originalSpot === dedupDropped,
+      ),
+    ).toBe(false);
+
+    // The evidence-oriented set keeps both, including the row dedup dropped.
+    expect(result.current.allResolvedSpots).toHaveLength(2);
+    expect(
+      result.current.allResolvedSpots.map((spot) => spot.originalSpot),
+    ).toEqual([kept, dedupDropped]);
+    expect(
+      result.current.allResolvedSpots.some(
+        (spot) => spot.originalSpot === dedupDropped,
+      ),
+    ).toBe(true);
   });
 });

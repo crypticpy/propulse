@@ -2,6 +2,7 @@ import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import { AccessibleDialog } from "@/components/ui/AccessibleDialog";
+import { createViewConfiguration } from "@/lib/views/defaults";
 import {
   ACTIVITY_PRESET_IDS,
   DISPLAY_PRESET_IDS,
@@ -68,7 +69,7 @@ describe("PresetsSection", () => {
     expect(ft8.changes).toEqual(
       expect.arrayContaining([
         { path: "spots.filters.maxAgeMinutes", before: 30, after: 5 },
-        { path: "spots.filters.spotLimit", before: 50, after: 100 },
+        { path: "spots.filters.spotLimit", before: 150, after: 100 },
         { path: "spots.filters.modes.modes", before: [], after: ["FT8"] },
       ]),
     );
@@ -120,7 +121,14 @@ describe("PresetsSection", () => {
   });
 
   it("no-op application: matches current settings, changes nothing, no phantom revert state", async () => {
-    const testView = createTestView();
+    // The view starts already matching the recipe (SP-09 round 2: the shared
+    // spot-limit default, 150, no longer coincides with the "Balanced
+    // activity" recipe's own curated 50), so seed the view at the recipe's
+    // own spots config to keep testing a genuine no-op application.
+    const recipe = getActivityRecipe("activity-balanced-v1");
+    const seed = createViewConfiguration("pro");
+    seed.spots = structuredClone(recipe.spots);
+    const testView = createTestView({ seed });
     const port = createMemoryLibraryPort();
     render(<Harness view={testView.view} library={port} />);
 

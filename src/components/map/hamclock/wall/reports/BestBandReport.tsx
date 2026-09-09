@@ -14,8 +14,8 @@ import { getBandColor } from "@/lib/utils/spotColors";
 import { latLonToGrid } from "@/lib/utils/grid";
 import { LADDER_RANK } from "@/lib/verdict/ladder";
 import { useHamClockStore } from "@/stores/hamclockStore";
-import { useMapStore } from "@/stores/mapStore";
 import { useProfileStore } from "@/stores/profileStore";
+import { useOptionalViewSpotFilterPatch } from "@/hooks/useViewClusterSpots";
 import { SolarMiniChart } from "@/components/solar/SolarMiniChart";
 import type { EngineReading } from "@/lib/hamclock/engineComparison";
 import {
@@ -189,8 +189,7 @@ export function BestBandReport({ open, onClose }: BestBandReportProps) {
   const sfi = useCurrentSFI();
   const now = useUTCClock(60_000);
   const setBandFocus = useHamClockStore((s) => s.setBandFocus);
-  const spotFilters = useMapStore((s) => s.spotFilters);
-  const setSpotFilters = useMapStore((s) => s.setSpotFilters);
+  const patchSpotFilters = useOptionalViewSpotFilterPatch();
   // The ladder's own DX target (not the map's arbitrary `target`, which can
   // point somewhere else entirely) -- "first saved target" is the same
   // convention useBandVerdicts uses internally to build its "dx" scope.
@@ -323,7 +322,7 @@ export function BestBandReport({ open, onClose }: BestBandReportProps) {
 
   const handleFocus = (band: string) => {
     setBandFocus([band]);
-    setSpotFilters({ ...spotFilters, bands: [band] });
+    patchSpotFilters({ bands: [band] });
   };
 
   const { footer, updated } = reportFooter(

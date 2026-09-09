@@ -1,6 +1,6 @@
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { ViewProvider } from "./ViewProvider";
 import { useViewRuntime } from "./ViewRuntimeContext";
 import {
@@ -97,6 +97,9 @@ function IsolationProbe({ id, spots }: { id: string; spots: readonly DXSpot[] })
   );
 }
 
+const originalDx = useDXStore.getState().selectedSpot;
+const originalMapTarget = useMapStore.getState().target;
+
 describe("ViewProvider scoped adapters", () => {
   beforeEach(() => {
     resetOperatingMonitorForTests();
@@ -108,12 +111,15 @@ describe("ViewProvider scoped adapters", () => {
     });
   });
 
+  afterEach(() => {
+    useDXStore.setState({ selectedSpot: originalDx });
+    useMapStore.setState({ target: originalMapTarget });
+  });
+
   it("isolates presentation, follow, manual filters, and focus across two family runtimes", async () => {
     const user = userEvent.setup();
     const storage = createMemoryWorkingStorage();
     const spots = [dxSpot()];
-    const dxSelected = useDXStore.getState().selectedSpot;
-    const mapTarget = useMapStore.getState().target;
     render(
       <>
         <ViewProvider ownerId="owner-a" slot="normal" storage={storage}>
@@ -149,8 +155,6 @@ describe("ViewProvider scoped adapters", () => {
     // them for every host until #707. See BoundViewHost.test.tsx.
     expect(useDXStore.getState().selectedSpot?.id).toBe("grid-1");
     expect(useMapStore.getState().target).toMatchObject({ lat: -22.5, lon: -43 });
-    useDXStore.setState({ selectedSpot: dxSelected });
-    useMapStore.setState({ target: mapTarget });
   });
 
   it("isolates two named copies and two display instances in one tree", async () => {

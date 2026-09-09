@@ -1,5 +1,4 @@
-import { useCallback, useMemo, useSyncExternalStore } from "react";
-import { useViewRuntime } from "@/components/views/ViewRuntimeContext";
+import { useCallback, useMemo } from "react";
 import { useCurrentSFI } from "@/hooks/useMUFData";
 import { useKIndex } from "@/hooks/useSolarData";
 import { useActiveFrequency } from "@/hooks/useActiveBandMode";
@@ -47,11 +46,6 @@ function selectedSpotMatchesTarget(
 
 /** Shared short/long ray traces and isolate flags for every map projection. */
 export function useTargetPathPresentation(displayTime: Date) {
-  const runtime = useViewRuntime();
-  const selectedReportId = useSyncExternalStore(
-    runtime.subscribe,
-    () => runtime.getSnapshot().interaction.selectedReportId,
-  );
   const mapTarget = useMapStore((s) => s.target);
   // mapStore remains the single visual target for now — see
   // useBoundVisualTarget in useBoundMapSelection.ts and #707. The runtime's
@@ -62,11 +56,7 @@ export function useTargetPathPresentation(displayTime: Date) {
   const isolateTargetPath = useMapStore((s) => s.isolateTargetPath);
   const scopedLayers = useScopedMapLayers();
   const station = useUserStore((s) => s.station);
-  const selectedSpot = useDXStore((s) =>
-    selectedReportId
-      ? (s.spots.find((spot) => spot.id === selectedReportId) ?? null)
-      : null,
-  );
+  const selectedSpot = useDXStore((s) => s.selectedSpot);
   const currentSFI = useCurrentSFI();
   const kIndexData = useKIndex();
   const activeFrequencyHz = useActiveFrequency();

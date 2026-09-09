@@ -1,6 +1,6 @@
 import { render, renderHook, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 import { ViewProvider } from "@/components/views/ViewProvider";
 import { useViewRuntime } from "@/components/views/ViewRuntimeContext";
 import {
@@ -8,6 +8,7 @@ import {
   useBoundVisualTarget,
 } from "./useBoundMapSelection";
 import { createMemoryWorkingStorage } from "@/lib/views/runtime";
+import { useDXStore } from "@/stores/dxStore";
 import type { TargetLocation } from "@/stores/mapStore";
 import type { ReactNode } from "react";
 
@@ -46,7 +47,35 @@ function VisualProbe() {
   );
 }
 
+const originalDx = useDXStore.getState().selectedSpot;
+
 describe("useBoundMapSelection", () => {
+  afterEach(() => {
+    useDXStore.setState({ selectedSpot: originalDx });
+  });
+
+  it("falls back to dxStore.selectedSpot when this runtime has no selection of its own (PR #603 NEW-2)", () => {
+    // Legacy writers (DXSpotList row click, BandMap, wall BandTopDx) still
+    // set dxStore.selectedSpot directly without touching the runtime. The
+    // reader must resolve to that id so those clicks keep working.
+    useDXStore.setState({
+      selectedSpot: {
+        id: "legacy-spot",
+        spotter: "K1ABC",
+        dx: "JA1XYZ",
+        frequency: 14074,
+        comment: "",
+        time: new Date("2026-09-07T12:00:00Z"),
+        dxLat: 35,
+        dxLon: 139,
+      },
+    });
+    const { result } = renderHook(() => useBoundSelectedReportId(), {
+      wrapper: wrapper(),
+    });
+    expect(result.current).toBe("legacy-spot");
+  });
+
   it("throws without a provider instead of reading dxStore", () => {
     expect(() => renderHook(() => useBoundSelectedReportId())).toThrow(
       /no global active view exists/,

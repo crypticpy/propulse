@@ -1,18 +1,26 @@
 import { useSyncExternalStore } from "react";
 import { useViewRuntime } from "@/components/views/ViewRuntimeContext";
+import { useDXStore } from "@/stores/dxStore";
 import type { DXSpot } from "@/types/dxcluster";
 import type { TargetLocation } from "@/stores/mapStore";
 
 /** Stable empty input for renderers that only need bound-target camera focus. */
 export const EMPTY_VIEW_SPOTS: readonly DXSpot[] = [];
 
-/** This view's selected report id. Never reads dxStore.selectedSpot. */
+/**
+ * This view's selected report id. The runtime is the authority when it has
+ * a value; otherwise falls back to dxStore.selectedSpot, since legacy
+ * writers (DXSpotList row click, BandMap, wall BandTopDx) still set the
+ * store directly without touching the runtime (see PR #603 NEW-2).
+ */
 export function useBoundSelectedReportId(): string | undefined {
   const runtime = useViewRuntime();
-  return useSyncExternalStore(
+  const runtimeId = useSyncExternalStore(
     runtime.subscribe,
     () => runtime.getSnapshot().interaction.selectedReportId ?? undefined,
   );
+  const dxSelectedId = useDXStore((s) => s.selectedSpot?.id);
+  return runtimeId ?? dxSelectedId;
 }
 
 /**

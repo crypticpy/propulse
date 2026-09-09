@@ -143,7 +143,11 @@ export function HamClockBoundModeFilters() {
   const setFiltersBeforeBands = useHamClockStore(
     (s) => s.setFiltersBeforeBands,
   );
-  const prevModeRef = useRef(hamclockMode);
+  // Starts at a sentinel, not `hamclockMode`, so landing on this component
+  // already in Bands mode (hamclock layout entered directly into Bands, or
+  // `hamclockMode` restored from persistence as "bands") still counts as an
+  // entry transition below and captures/patches the runtime once.
+  const prevModeRef = useRef<HamClockMode | null>(null);
 
   useEffect(() => {
     const prev = prevModeRef.current;

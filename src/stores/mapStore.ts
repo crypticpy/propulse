@@ -1922,9 +1922,11 @@ export const useMapStore = create<MapState>((set, get) => ({
       // Apply beauty in memory only so a mid-HamClock reload does not leave
       // temporary wall defaults stuck on Normal/Pro after layout remaps.
       useDisplayQualityStore.setState({ displayQuality: beautyQuality });
-      if (mode === "bands") {
-        ham.setFiltersBeforeBands({ ...state.spotFilters });
-      }
+      // Capturing/patching the bound view's spots.filters for Bands mode is
+      // `HamClockBoundModeFilters`'s job (mounted inside `<BoundViewHost>`),
+      // including the case where hamclock layout is entered with Bands mode
+      // already selected (its ref starts at a sentinel so that counts as an
+      // entry transition too). This action only owns mapStore/legacy state.
       set({
         layoutMode,
         isFullscreen: false,

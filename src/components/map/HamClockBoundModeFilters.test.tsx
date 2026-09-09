@@ -1,8 +1,8 @@
 import { act, render } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
 import { ViewProvider } from "@/components/views/ViewProvider";
-import { useViewRuntime, type ScopedViewRuntime } from "@/components/views/ViewRuntimeContext";
-import { createMemoryWorkingStorage } from "@/lib/views/runtime";
+import { useViewRuntime } from "@/components/views/ViewRuntimeContext";
+import { createMemoryWorkingStorage, type ScopedViewRuntime } from "@/lib/views/runtime";
 import { useHamClockStore } from "@/stores/hamclockStore";
 import { HamClockBoundModeFilters } from "./HamClockView";
 
@@ -58,5 +58,23 @@ describe("HamClockBoundModeFilters (SP-09 round 2, 1c)", () => {
     // the capture is cleared so a later entry starts fresh.
     expect(runtime.getSnapshot().config.spots.filters.bands).toEqual(beforeBands);
     expect(useHamClockStore.getState().filtersBeforeBands).toBeNull();
+  });
+
+  it("captures and patches on mount when hamclockMode is already 'bands' (layout entered, or restored from persistence, already in Bands mode)", () => {
+    // `hamclockMode` is persisted; a reload can land a fresh mount of this
+    // component directly in Bands mode with no mode *change* to react to.
+    // mapStore's `setLayoutMode` used to independently seed
+    // `filtersBeforeBands` for this case from its own legacy spotFilters,
+    // which no longer type-matches the bound-view filter shape. This
+    // component must cover the case on its own instead.
+    useHamClockStore.setState({
+      hamclockMode: "bands",
+      bandFocus: ["40m"],
+      filtersBeforeBands: null,
+    });
+    const { runtime } = renderInView();
+
+    expect(runtime.getSnapshot().config.spots.filters.bands).toEqual(["40m"]);
+    expect(useHamClockStore.getState().filtersBeforeBands?.bands).toEqual([]);
   });
 });

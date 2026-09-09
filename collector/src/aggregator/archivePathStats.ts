@@ -16,8 +16,8 @@
  *      refuses unless it exactly matches the manifest's row count.
  *
  * A day whose manifest already exists is never re-exported; re-runs only
- * retry the prune step (idempotent — a fully pruned day counts 0 live rows
- * and is skipped). Sealed days that need no work do not count against the
+ * retry the prune step (idempotent — the archived object is re-verified
+ * first, then a fully pruned day counts 0 live rows and is skipped). Sealed days that need no work do not count against the
  * budget, so exports keep advancing past them even while pruning is
  * disabled; work is bounded to maxDaysPerRun exported/pruned days per tick.
  *

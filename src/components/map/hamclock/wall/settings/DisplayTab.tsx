@@ -1,4 +1,5 @@
 import { useActiveLocation } from "@/hooks/useActiveLocation";
+import { useHeatMapBaseline } from "@/hooks/useHeatMapBaseline";
 import {
   hamClockHomeRegion,
   hamClockProjectionContent,
@@ -35,13 +36,7 @@ const MAP_CONTENT_LABELS: Record<(typeof MAP_CONTENT_VALUES)[number], string> =
     both: "BOTH",
   };
 
-/**
- * Heat-map colours (§654): `ratioDiverging` ships in the lib (`PRESETS`) but
- * has no baseline aggregate behind it yet (no table keys same-UTC-hour spot
- * counts by band AND continent), so it stays disabled here with a caption
- * rather than silently rendering every cell "quiet". Threshold sliders and
- * custom colour pickers are a later PR, not this one.
- */
+/** Availability is supplied by the same baseline query as the tile/report. */
 const HEATMAP_PRESET_OPTIONS: {
   value: HeatmapPresetId;
   label: string;
@@ -52,8 +47,6 @@ const HEATMAP_PRESET_OPTIONS: {
   {
     value: "ratioDiverging",
     label: "BASELINE RATIO",
-    detail: "NEEDS 24 H HISTORY",
-    disabled: true,
   },
 ];
 
@@ -80,6 +73,7 @@ const DWELL_OPTIONS: { value: DwellSeconds; label: string }[] = [
  * same reason: a third toggle on this tab overflows the panel.
  */
 export function DisplayTab() {
+  const { baseline, unavailableLabel } = useHeatMapBaseline();
   const density = useHamClockDisplayStore((s) => s.density);
   const setDensity = useHamClockDisplayStore((s) => s.setDensity);
   const units = useHamClockDisplayStore((s) => s.units);
@@ -124,9 +118,11 @@ export function DisplayTab() {
       />
       <HamClockSegmented
         label="Heat map colours"
-        value={heatmapPreset}
+        value={heatmapPreset === "ratioDiverging" && baseline.size === 0 ? "ladderHue" : heatmapPreset}
         onChange={setHeatmapPreset}
-        options={HEATMAP_PRESET_OPTIONS}
+        options={HEATMAP_PRESET_OPTIONS.map((option) => option.value === "ratioDiverging"
+          ? { ...option, disabled: baseline.size === 0, detail: unavailableLabel ?? undefined }
+          : option)}
       />
       <HamClockToggleRow
         label="Smart scaling"

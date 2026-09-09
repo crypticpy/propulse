@@ -1,5 +1,6 @@
 import { Fragment, useMemo } from "react";
 import { useBandVerdicts } from "@/hooks/useBandVerdicts";
+import { useHeatMapBaseline } from "@/hooks/useHeatMapBaseline";
 import { useUTCClock } from "@/hooks/useUTCClock";
 import { BAND_ORDER } from "@/lib/data/bandRanges";
 import { filterClusterAge } from "@/lib/dx/clusterHistory";
@@ -61,6 +62,7 @@ export function HeatMapReport({
   const source = useDXStore((s) => s.spotSource);
   const maxAge = useDXStore((s) => s.filters.maxAge);
   const { bands } = useBandVerdicts();
+  const { baseline, unavailableLabel } = useHeatMapBaseline();
   const heatmapPresetId = useHamClockDisplayStore((s) => s.heatmapPreset);
 
   // The operator's spot-age setting still governs the DX cluster LIST
@@ -97,14 +99,16 @@ export function HeatMapReport({
       const input = dxSpotToHeatmapInput(spot);
       if (input) inputs.push(input);
     }
-    return computeHeatmap(inputs, { now: now.getTime(), physicsScores }).map((cell) =>
+    return computeHeatmap(inputs, { now: now.getTime(), physicsScores, baseline }).map((cell) =>
       clampInsufficientHistory(cell, availableMs),
     );
-  }, [spots, physicsScores, now, availableMs]);
+  }, [spots, physicsScores, now, availableMs, baseline]);
 
   const preset = useMemo(
-    () => PRESETS.find((p) => p.id === heatmapPresetId) ?? LADDER_HUE_PRESET,
-    [heatmapPresetId],
+    () => heatmapPresetId === "ratioDiverging" && baseline.size === 0
+      ? LADDER_HUE_PRESET
+      : PRESETS.find((p) => p.id === heatmapPresetId) ?? LADDER_HUE_PRESET,
+    [heatmapPresetId, baseline],
   );
 
   const cellMap = useMemo(
@@ -157,6 +161,7 @@ export function HeatMapReport({
     { label: "TOTAL DX", value: totalCount },
     { label: "WINDOW", value: heatmapWindowLabel(availableMs) },
     { label: "COLOURS", value: preset.label.toUpperCase() },
+    { label: "BASELINE", value: unavailableLabel ?? "SAME UTC HOUR MEDIAN" },
   ];
 
   const bucketCount = preset.scale.thresholds.length + 1;
@@ -199,7 +204,7 @@ export function HeatMapReport({
                   key={continent}
                   className="hcr-heatgrid-cell"
                   style={{ background: heatmapBucketColor(preset.id, cellBucket) }}
-                  title={`${formatBandLabel(band)} · ${continent} · ${cell?.count ?? 0} DX`}
+                  title={`${formatBandLabel(band)} · ${continent} · ${cell?.count ?? 0} DX${preset.id === "ratioDiverging" ? ` · ${cell?.ratio == null ? "NO BASELINE" : `${cell.ratio.toFixed(2)} LOG2 RATIO`}` : ""}`}
                 >
                   {cell && cell.count > 0 ? cell.count : ""}
                 </span>

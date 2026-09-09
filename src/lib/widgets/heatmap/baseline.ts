@@ -24,7 +24,7 @@ export interface BaselineInput {
   continent: Continent;
   /** Hour of day in UTC, 0-23. */
   utcHour: number;
-  /** Mean deduplicated DX count for this band/continent/hour. */
+  /** Baseline count for this band/continent/hour; the regional feed uses p50. */
   meanCount: number;
 }
 
@@ -89,7 +89,7 @@ export function computeRatio(
   meanCount: number | null,
 ): number | null {
   if (meanCount === null) return null;
-  return Math.log2((count + 1) / (meanCount + 1));
+  return Math.max(-3, Math.min(3, Math.log2((count + 1) / (meanCount + 1))));
 }
 
 /** Absolute-floor crowded flag: see the module doc for the reasoning. */

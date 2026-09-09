@@ -2,22 +2,54 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import type { DXSpot } from "@/types/dxcluster";
 import { useDXStore } from "@/stores/dxStore";
+import { useHamClockDisplayStore } from "@/stores/hamclockDisplayStore";
 import { HeatMapTile } from "./HeatMapTile";
 
-const mocks = vi.hoisted(() => ({ verdicts: vi.fn() }));
+const mocks = vi.hoisted(() => ({ verdicts: vi.fn(), baseline: vi.fn() }));
 vi.mock("@/hooks/useBandVerdicts", () => ({ useBandVerdicts: mocks.verdicts }));
+vi.mock("@/hooks/useHeatMapBaseline", () => ({ useHeatMapBaseline: mocks.baseline }));
 
 const previousDX = useDXStore.getState();
+const previousDisplay = useHamClockDisplayStore.getState();
 
 beforeEach(() => {
   vi.setSystemTime(new Date("2026-09-08T13:00:00Z"));
   mocks.verdicts.mockReturnValue({ bands: [] });
+  mocks.baseline.mockReturnValue({ baseline: new Map(), unavailableLabel: "NEEDS 14 BASELINE SAMPLES" });
 });
 
 afterEach(() => {
   useDXStore.setState(previousDX, true);
+  useHamClockDisplayStore.setState(previousDisplay, true);
   vi.useRealTimers();
 });
+
+it("populates the selected ratio in the tile and centred report", async () => {
+  useDXStore.setState({ spots: [spot({})] });
+  useHamClockDisplayStore.getState().setHeatmapPreset("ratioDiverging");
+  mocks.baseline.mockReturnValue({ baseline: new Map([["20m|EU|13", 1]]), unavailableLabel: null });
+  const { container } = render(<HeatMapTile />);
+  const tile = container.querySelector(".hc-tile") as HTMLElement;
+  expect(tile.style.getPropertyValue("--hc-state")).toBe("var(--hc-good)");
+  fireEvent.click(screen.getByRole("button", { name: /Band heat map:.*Open the full grid report/ }));
+  await screen.findByRole("dialog", { name: "Band heat map report" });
+  expect(screen.getByTitle("20 m · EU · 1 DX · 0.00 LOG2 RATIO")).toBeTruthy();
+  expect(screen.getByText("SAME UTC HOUR MEDIAN")).toBeTruthy();
+});
+
+it.each(["NEEDS 14 BASELINE SAMPLES", "BASELINE UNAVAILABLE"])(
+  "falls back to the ladder and explains %s for a saved ratio selection",
+  (unavailableLabel) => {
+    useDXStore.setState({ spots: [spot({})] });
+    useHamClockDisplayStore.getState().setHeatmapPreset("ratioDiverging");
+    mocks.baseline.mockReturnValue({ baseline: new Map(), unavailableLabel });
+    const { container } = render(<HeatMapTile />);
+    expect(screen.getByText(unavailableLabel)).toBeTruthy();
+    const tile = container.querySelector(".hc-tile") as HTMLElement;
+    expect(tile.style.getPropertyValue("--hc-state")).not.toBe("var(--hc-good)");
+    expect(useHamClockDisplayStore.getState().heatmapPreset).toBe("ratioDiverging");
+  },
+);
 
 function spot(overrides: Partial<DXSpot>): DXSpot {
   return {

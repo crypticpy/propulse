@@ -15,7 +15,11 @@ import { HamClockButton } from "@/components/map/hamclock/wall/controls";
 import { Card, LoadingSpinner } from "@/components/ui";
 import { SpotContextMenu } from "@/components/map/SpotContextMenu";
 import { SpotDetailPanel } from "../SpotDetailPanel";
-import { SpotRow } from "./SpotRow";
+import {
+  SPOT_GRID_COLS,
+  SPOT_GRID_COLS_WITH_AGE,
+  SpotRow,
+} from "./SpotRow";
 import { FilterControls } from "./FilterControls";
 import { useDXSpotListState } from "./useDXSpotListState";
 import { formatTime } from "./utils";
@@ -601,7 +605,7 @@ export function DXSpotList({
         {/* Column Headers - sticky at top of scroll container */}
         {!compact && (
           <div
-            className={`sticky top-0 z-10 bg-nebula-blue grid ${spotAgePrefs.showAgeColumn ? "grid-cols-[46px_40px_52px_66px_1fr_60px_68px_1fr_72px]" : "grid-cols-[46px_52px_66px_1fr_60px_68px_1fr_72px]"} gap-1.5 px-2 py-1.5 border-b border-su-line/40 text-xs font-semibold text-su-muted uppercase tracking-wider`}
+            className={`sticky top-0 z-10 bg-nebula-blue grid ${spotAgePrefs.showAgeColumn ? SPOT_GRID_COLS_WITH_AGE : SPOT_GRID_COLS} gap-1.5 px-2 py-1.5 border-b border-su-line/40 text-xs font-semibold text-su-muted uppercase tracking-wider`}
             role="row"
             style={{ borderLeft: "3px solid transparent" }}
           >

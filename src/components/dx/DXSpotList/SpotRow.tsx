@@ -78,6 +78,21 @@ function AgeProgressBar({ minutesAgo }: { minutesAgo: number }) {
  * Individual spot row component with worked status and alert indicators
  * Memoized to prevent re-renders when other rows in the list change
  */
+/**
+ * Grid track template for a spot row: Time, Age (optional), Band, Freq, DX,
+ * Dist, Spotter, Info, Actions.
+ *
+ * `DXSpotList` renders the sticky header on the same tracks, so the two must
+ * stay identical or the header labels drift out of line with the rows beneath
+ * them. These lived as duplicated literals in both files, kept in sync by
+ * hand; #808 changed the Dist and Spotter widths to fit 12px headers, which is
+ * exactly the edit that would have desynced them.
+ */
+export const SPOT_GRID_COLS_WITH_AGE =
+  "grid-cols-[46px_40px_52px_66px_1fr_60px_68px_1fr_72px]";
+export const SPOT_GRID_COLS =
+  "grid-cols-[46px_52px_66px_1fr_60px_68px_1fr_72px]";
+
 export const SpotRow = memo(function SpotRow({
   spot,
   compact = false,
@@ -233,8 +248,8 @@ export const SpotRow = memo(function SpotRow({
   const rowClasses = useMemo(() => {
     // Grid columns: Time, Age (optional), Band, Freq, DX, Dist, Spotter, Info, Actions
     const gridCols = showAgeColumn
-      ? "grid-cols-[46px_40px_52px_66px_1fr_60px_68px_1fr_72px]"
-      : "grid-cols-[46px_52px_66px_1fr_60px_68px_1fr_72px]";
+      ? SPOT_GRID_COLS_WITH_AGE
+      : SPOT_GRID_COLS;
     const base = `group ${compact ? "flex flex-col" : `grid ${gridCols}`} gap-1.5 px-2 py-1 cursor-pointer transition-all duration-150`;
 
     // Q6: Zebra striping for alternating rows (only applies when no other highlight)

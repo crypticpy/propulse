@@ -19,6 +19,7 @@ import {
   Section,
   Badge,
 } from "@/components/station-ui";
+import { LiveRegion } from "@/components/ui/LiveRegion";
 import "./radio-forms.css";
 import {
   useUserStore,
@@ -1594,13 +1595,11 @@ export function RadioManager({
                     </article>
                   );
                 })}
-                {filteredCustomRadios.length === 0 &&
-                  filteredRadios.length === 0 && (
-                    <p className="su-hint" role="status">
-                      No matching radios. Try another search or create a custom
-                      definition.
-                    </p>
-                  )}
+                <LiveRegion as="p" className="su-hint" role="status">
+                  {filteredCustomRadios.length === 0 && filteredRadios.length === 0
+                    ? "No matching radios. Try another search or create a custom definition."
+                    : null}
+                </LiveRegion>
               </div>
             </Section>
           </div>
@@ -1641,11 +1640,9 @@ export function RadioManager({
               saveInstance();
             }}
           >
-            {instanceModalError && (
-              <div className="su-field-error" role="alert">
-                {instanceModalError}
-              </div>
-            )}
+            <LiveRegion className="su-field-error" role="alert">
+              {instanceModalError || null}
+            </LiveRegion>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
@@ -1802,11 +1799,9 @@ export function RadioManager({
               saveCustomRadio();
             }}
           >
-            {customModalError && (
-              <div className="su-field-error" role="alert">
-                {customModalError}
-              </div>
-            )}
+            <LiveRegion className="su-field-error" role="alert">
+              {customModalError || null}
+            </LiveRegion>
 
             <div className="p-4 rounded-lg border border-su-line/40 bg-su-line/10 space-y-3">
               <div className="text-sm font-semibold text-su-text">

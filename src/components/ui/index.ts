@@ -31,6 +31,13 @@ export {
   type SpinnerSize,
 } from "./LoadingSpinner";
 
+// LiveRegion Component
+export {
+  LiveRegion,
+  type LiveRegionProps,
+  type LiveRegionRole,
+} from "./LiveRegion";
+
 // DetailModal Component
 export { DetailModal, type DetailModalProps } from "./DetailModal";
 

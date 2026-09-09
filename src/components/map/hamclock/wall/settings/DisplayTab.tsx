@@ -1,5 +1,6 @@
 import { useActiveLocation } from "@/hooks/useActiveLocation";
 import { useHeatMapBaseline } from "@/hooks/useHeatMapBaseline";
+import { LiveRegion } from "@/components/ui/LiveRegion";
 import {
   hamClockHomeRegion,
   hamClockProjectionContent,
@@ -71,19 +72,19 @@ const DWELL_OPTIONS: { value: DwellSeconds; label: string }[] = [
  * eleven `HamClockToggleRow`s, which cannot share a non-scrolling tab with
  * anything else at 1366×768. Follow radio (#160) is on the Kiosk tab for the
  * same reason: a third toggle on this tab overflows the panel.
+ *
+ * `useHeatMapBaseline` is called unconditionally (PR #772 review) with
+ * `enabled: preset === "ratioDiverging"`, so the hook's lazy
+ * fetch-only-when-selected behaviour is preserved via react-query's own
+ * `enabled` gate rather than by mounting/unmounting the component that
+ * calls it. That keeps this as a single component tree, so the
+ * `hcc-row-caveat` LiveRegion never remounts — both the async transition
+ * (baseline data arriving) and the user-driven preset switch mutate the
+ * same node.
  */
 export function DisplayTab() {
-  const preset = useHamClockDisplayStore((s) => s.heatmapPreset);
-  return preset === "ratioDiverging" ? <RegionalDisplayTab /> : <DisplayTabContent />;
-}
-
-function RegionalDisplayTab() {
-  const baselineState = useHeatMapBaseline();
-  return <DisplayTabContent baselineState={baselineState} />;
-}
-
-function DisplayTabContent({ baselineState }: { baselineState?: ReturnType<typeof useHeatMapBaseline> }) {
-  const { available, unavailableLabel } = baselineState ?? { available: false, unavailableLabel: null };
+  const heatmapPreset = useHamClockDisplayStore((s) => s.heatmapPreset);
+  const { available, unavailableLabel } = useHeatMapBaseline({ enabled: heatmapPreset === "ratioDiverging" });
   const density = useHamClockDisplayStore((s) => s.density);
   const setDensity = useHamClockDisplayStore((s) => s.setDensity);
   const units = useHamClockDisplayStore((s) => s.units);
@@ -95,7 +96,6 @@ function DisplayTabContent({ baselineState }: { baselineState?: ReturnType<typeo
   const autoPage = useHamClockDisplayStore((s) => s.autoPage);
   const setAutoPage = useHamClockDisplayStore((s) => s.setAutoPage);
   const frameHome = useHamClockDisplayStore((s) => s.frameHome);
-  const heatmapPreset = useHamClockDisplayStore((s) => s.heatmapPreset);
   const setHeatmapPreset = useHamClockDisplayStore((s) => s.setHeatmapPreset);
   const viewMode = useMapStore((s) => s.viewMode);
   const location = useActiveLocation();
@@ -135,11 +135,11 @@ function DisplayTabContent({ baselineState }: { baselineState?: ReturnType<typeo
             ? { ...option, disabled: heatmapPreset === "ratioDiverging" && !available }
             : option)}
         />
-        {heatmapPreset === "ratioDiverging" && unavailableLabel && (
-          <p className="hcc-row-caveat" role="status">
-            {unavailableLabel}. Band health ladder is shown until regional data is available.
-          </p>
-        )}
+        <LiveRegion as="p" className="hcc-row-caveat" role="status">
+          {heatmapPreset === "ratioDiverging" && unavailableLabel
+            ? `${unavailableLabel}. Band health ladder is shown until regional data is available.`
+            : null}
+        </LiveRegion>
       </div>
       <HamClockToggleRow
         label="Smart scaling"

@@ -1,3 +1,4 @@
+import { LiveRegion } from "@/components/ui/LiveRegion";
 import type { LibraryNotice } from "./useSpotsLibrary";
 
 const TONE: Record<LibraryNotice["kind"], string> = {
@@ -15,20 +16,23 @@ export function LibraryNoticeBar({
   notice: LibraryNotice | null;
   onDismiss: () => void;
 }) {
-  if (!notice) return null;
   return (
-    <div
+    <LiveRegion
       role="status"
-      className={`flex items-start justify-between gap-3 rounded-lg border bg-void-black/60 px-3 py-2 text-xs ${TONE[notice.kind]}`}
+      className={`flex items-start justify-between gap-3 rounded-lg border bg-void-black/60 px-3 py-2 text-xs ${notice ? TONE[notice.kind] : ""}`}
     >
-      <span>{notice.message}</span>
-      <button
-        type="button"
-        onClick={onDismiss}
-        className="shrink-0 rounded px-2 py-0.5 text-su-muted hover:text-su-text focus:outline-none focus:ring-2 focus:ring-plasma-orange/60"
-      >
-        Dismiss
-      </button>
-    </div>
+      {notice ? (
+        <>
+          <span>{notice.message}</span>
+          <button
+            type="button"
+            onClick={onDismiss}
+            className="shrink-0 rounded px-2 py-0.5 text-su-muted hover:text-su-text focus:outline-none focus:ring-2 focus:ring-plasma-orange/60"
+          >
+            Dismiss
+          </button>
+        </>
+      ) : null}
+    </LiveRegion>
   );
 }

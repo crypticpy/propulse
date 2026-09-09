@@ -4,14 +4,17 @@
  * `operatingStateStore`'s workflow cursor — read-only, like the rest of the
  * wall: nothing here writes the cursor back.
  *
- * Renders nothing when the cursor has never been shared (no other screen has
- * ever set a target here), so a wall running alone gains no header height at
- * all. Reuses `.hc-call small`'s existing dim styling by staying a plain
- * `<small>`, plus the theme's own `.hc-info-text.hc-glow` for the value —
- * the same pair `WallClocks` already uses for the UTC time — so no new CSS
- * is needed for this to read at a distance (legibility standard).
+ * Renders nothing visible when the cursor has never been shared (no other
+ * screen has ever set a target here), so a wall running alone gains no
+ * header height at all — the region itself stays mounted (empty, via
+ * `LiveRegion`) so a later cursor update announces. Reuses `.hc-call
+ * small`'s existing dim styling by staying a plain `<small>`, plus the
+ * theme's own `.hc-info-text.hc-glow` for the value — the same pair
+ * `WallClocks` already uses for the UTC time — so no new CSS is needed for
+ * this to read at a distance (legibility standard).
  */
 
+import { LiveRegion } from "@/components/ui/LiveRegion";
 import { selectLiveRegistrations, useOperatingStateStore } from "@/stores/operatingStateStore";
 
 /** The canvas type of whichever live screen last wrote the target, if any. */
@@ -29,13 +32,17 @@ export function HamClockWallCursorChip() {
   const band = useOperatingStateStore((state) => state.cursor.band);
   const source = useCursorSourceLabel();
 
-  if (!target && !band) return null;
+  const hasCursor = Boolean(target || band);
 
   return (
-    <small role="status" aria-label="Shared operating cursor">
-      TARGET <span className="hc-info-text hc-glow">{target?.callsign?.toUpperCase() ?? "—"}</span>
-      {band ? ` · ${band.toUpperCase()}` : ""}
-      {source ? ` · FROM ${source.toUpperCase()}` : ""}
-    </small>
+    <LiveRegion as="small" role="status" aria-label="Shared operating cursor">
+      {hasCursor ? (
+        <>
+          TARGET <span className="hc-info-text hc-glow">{target?.callsign?.toUpperCase() ?? "—"}</span>
+          {band ? ` · ${band.toUpperCase()}` : ""}
+          {source ? ` · FROM ${source.toUpperCase()}` : ""}
+        </>
+      ) : null}
+    </LiveRegion>
   );
 }

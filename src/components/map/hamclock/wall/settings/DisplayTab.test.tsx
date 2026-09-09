@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { useActiveLocation } from "@/hooks/useActiveLocation";
 import { useHamClockDisplayStore } from "@/stores/hamclockDisplayStore";
@@ -48,8 +48,16 @@ describe("DisplayTab", () => {
 
   it("spells the smart scaling state as ON or OFF", () => {
     render(<DisplayTab />);
-    expect(baseline).not.toHaveBeenCalled();
-    expect(screen.queryByRole("status")).toBeNull();
+    // useHeatMapBaseline is now called unconditionally (#772 round 2) so the
+    // caveat region never remounts across a preset switch, but it is called
+    // disabled while "ratioDiverging" isn't selected — the fetch itself
+    // stays lazy via react-query's own `enabled` gate, not by mounting.
+    expect(baseline).toHaveBeenCalledWith({ enabled: false });
+    // The caveat region stays mounted (empty) even when there is nothing to
+    // say, so a later baseline-unavailable state has something already in
+    // the accessibility tree to announce into.
+    const explanation = screen.getByRole("status");
+    expect(explanation.textContent).toBe("");
     expect((screen.getByRole("radio", { name: "BASELINE RATIO" }) as HTMLButtonElement).disabled).toBe(false);
     const toggle = screen.getByRole("switch", { name: "Smart scaling" });
     expect(toggle.textContent).toBe("ON");
@@ -66,6 +74,59 @@ describe("DisplayTab", () => {
 
     fireEvent.click(screen.getByRole("radio", { name: "METRIC" }));
     expect(useHamClockDisplayStore.getState().units).toBe("metric");
+  });
+
+  it("mutates the same caveat region when an already-selected baseline goes from qualified to unavailable", () => {
+    // Preset is already "ratioDiverging" for both renders, so this exercises
+    // the caveat's own conditional (unavailableLabel appearing), not the
+    // preset-routing remount between DisplayTabContent and RegionalDisplayTab.
+    useHamClockDisplayStore.getState().setHeatmapPreset("ratioDiverging");
+    baseline.mockReturnValue({ available: true, unavailableLabel: null });
+    const { rerender } = render(<DisplayTab />);
+    const before = screen.getByRole("status");
+    expect(before.textContent).toBe("");
+
+    baseline.mockReturnValue({ available: false, unavailableLabel: "REGIONAL DATA UNAVAILABLE" });
+    rerender(<DisplayTab />);
+
+    const after = screen.getByRole("status");
+    expect(after).toBe(before);
+    expect(after.textContent).toContain("REGIONAL DATA UNAVAILABLE");
+  });
+
+  it("carries the same caveat region across a user-driven preset switch (#772 round 2)", () => {
+    // DisplayTab used to route between two different component TYPES
+    // depending on heatmapPreset (DisplayTabContent vs. RegionalDisplayTab),
+    // remounting the whole subtree — including the caveat region — whenever
+    // the user flipped the preset directly. useHeatMapBaseline now takes an
+    // `enabled` option, so DisplayTab calls it unconditionally with
+    // `enabled: heatmapPreset === "ratioDiverging"` and stays a single
+    // component tree: both the async transition (previous test) and this
+    // user-driven click mutate the same node.
+    baseline.mockReturnValue({ available: true, unavailableLabel: null });
+    render(<DisplayTab />);
+    const before = screen.getByRole("status");
+    expect(before.textContent).toBe("");
+
+    fireEvent.click(screen.getByRole("radio", { name: "BASELINE RATIO" }));
+
+    expect(useHamClockDisplayStore.getState().heatmapPreset).toBe("ratioDiverging");
+    expect(screen.getByRole("status")).toBe(before);
+  });
+
+  it("carries the same caveat region across a store-driven preset switch (#772 round 2)", () => {
+    baseline.mockReturnValue({ available: false, unavailableLabel: "REGIONAL DATA UNAVAILABLE" });
+    render(<DisplayTab />);
+    const before = screen.getByRole("status");
+    expect(before.textContent).toBe("");
+
+    act(() => {
+      useHamClockDisplayStore.getState().setHeatmapPreset("ratioDiverging");
+    });
+
+    const after = screen.getByRole("status");
+    expect(after).toBe(before);
+    expect(after.textContent).toContain("REGIONAL DATA UNAVAILABLE");
   });
 
   it("disables non-activity map content options in azimuthal projection", () => {

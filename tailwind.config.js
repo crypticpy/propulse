@@ -80,6 +80,7 @@ export default {
           success: "rgb(var(--su-success-rgb, 139 219 176) / <alpha-value>)",
           warning: "rgb(var(--su-warning-rgb, 245 207 121) / <alpha-value>)",
           danger: "rgb(var(--su-danger-rgb, 253 164 175) / <alpha-value>)",
+          purple: "rgb(var(--su-purple-rgb, 185 117 240) / <alpha-value>)",
         },
       },
       fontFamily: {

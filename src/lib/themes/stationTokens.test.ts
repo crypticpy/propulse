@@ -39,6 +39,20 @@ const COLOR_TOKENS = [
   "purple",
 ] as const;
 
+/**
+ * The declarations inside the first `selector { ... }` block of a stylesheet.
+ *
+ * A whole-file `toContain` is not an assertion about a block: `globals.css`
+ * declares the same neutral literals in `:root` and again in `.su-fixed-dark`,
+ * so deleting one copy leaves the other satisfying the match and the test
+ * green. Slice the block and assert inside it.
+ */
+function cssBlock(css: string, selector: string) {
+  const start = css.indexOf(selector);
+  expect(start).toBeGreaterThan(-1);
+  return css.slice(start, css.indexOf("}", start));
+}
+
 function rootTokens() {
   const style = document.documentElement.style;
   return (name: string) => style.getPropertyValue(name);
@@ -101,16 +115,22 @@ describe("station tokens on the document root", () => {
       resolve(__dirname, "../../styles/globals.css"),
       "utf8",
     );
+    // The first `:root` block is the token block; `.su-fixed-dark` below it
+    // repeats most of these literals, so a whole-file match would be
+    // satisfied by the wrong block and deleting a `:root` line would stay
+    // green -- which is exactly what a reviewer proved by deleting
+    // `--su-purple-rgb` from `:root`.
+    const root = cssBlock(css, ":root {");
     const tokens = stationTokens("dark", "#ff6b35");
     for (const name of COLOR_TOKENS) {
       const value = tokens[`--su-${name}`];
-      expect(css).toContain(`--su-${name}: ${value};`);
+      expect(root).toContain(`--su-${name}: ${value};`);
       const channels = value
         .replace("#", "")
         .match(/../g)!
         .map((pair) => parseInt(pair, 16))
         .join(" ");
-      expect(css).toContain(`--su-${name}-rgb: ${channels};`);
+      expect(root).toContain(`--su-${name}-rgb: ${channels};`);
     }
   });
 
@@ -122,20 +142,18 @@ describe("station tokens on the document root", () => {
       resolve(__dirname, "../../styles/globals.css"),
       "utf8",
     );
+    const root = cssBlock(css, ":root {");
     for (const role of ["info", "success", "warning", "danger"] as const) {
       const value = stationPalettes.dark[role];
-      expect(css).toContain(`--su-fixed-dark-${role}: ${value};`);
-      expect(css).toContain(
+      expect(root).toContain(`--su-fixed-dark-${role}: ${value};`);
+      expect(root).toContain(
         `--su-fixed-dark-${role}-rgb: ${hexToChannels(value)};`,
       );
     }
     // `purple` takes no colour-blind swap, so `.su-fixed-dark` pins it
     // directly rather than through a --su-fixed-dark-* triple. Read the block
     // itself: the same declaration also appears in the :root fallbacks above.
-    const fixedDark = css.slice(
-      css.indexOf(".su-fixed-dark {"),
-      css.indexOf("}", css.indexOf(".su-fixed-dark {")),
-    );
+    const fixedDark = cssBlock(css, ".su-fixed-dark {");
     expect(fixedDark).toContain(`--su-purple: ${stationPalettes.dark.purple};`);
     expect(fixedDark).toContain(
       `--su-purple-rgb: ${hexToChannels(stationPalettes.dark.purple)};`,

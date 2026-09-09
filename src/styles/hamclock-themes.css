@@ -152,10 +152,14 @@
   --su-warning: rgb(var(--su-warning-rgb));
   --su-danger: rgb(var(--su-danger-rgb));
 
-  /* aurora-purple's token. Not a tone role (no --hc-* triple to route it
-   * through) and not colour-blind-swapped, so it is pinned to the Propulse
-   * dark palette's value like the surface roles above: the wall is dark wall
-   * art, and the Light palette's dark violet would be unreadable on it. */
+  /* aurora-purple's token. Prophylactic, and consistent with the surface
+   * roles pinned above it: no aurora-purple consumer renders under
+   * [data-hamclock-theme] today (checked by mount census, not by grep). It is
+   * pinned so that the day a wall tile does mount one, the wall gets the dark
+   * palette's violet rather than the active theme's -- the Light palette's
+   * #8719e1 measures 2.57:1 on the wall panel. Not a tone role (no --hc-*
+   * triple to route it through) and not colour-blind-swapped, so it takes the
+   * literal the way the surfaces do. */
   --su-purple: #b975f0;
   --su-purple-rgb: 185 117 240;
 }

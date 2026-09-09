@@ -36,6 +36,7 @@ Dark ("Propulse") values. `--su-accent`, `--su-on-accent`, `--su-accent-edge` an
 | `--su-success`     | `#8bdbb0`  | Good/open/nominal status.                                                            |
 | `--su-warning`     | `#f5cf79`  | Caution/degraded status.                                                             |
 | `--su-danger`      | `#fda4af`  | Poor/alert/error status.                                                             |
+| `--su-purple`      | `#b975f0`  | Decorative accent hue (`aurora-purple`); carries no status meaning.                  |
 
 Every colour token also has a `--su-<name>-rgb` channel triplet (for example `--su-text-rgb: 202 210 220`) so Tailwind opacity modifiers work.
 
@@ -48,9 +49,10 @@ The `su` colour namespace generates the usual Tailwind colour utilities (`text-`
 ```
 text-su-text        text-su-muted       text-su-accent      text-su-accent-text
 text-su-on-accent   text-su-info        text-su-success     text-su-warning
-text-su-danger
+text-su-danger      text-su-purple
 bg-su-canvas        bg-su-panel         bg-su-input         bg-su-accent
 bg-su-info          bg-su-success       bg-su-warning       bg-su-danger
+bg-su-purple
 border-su-line      border-su-accent-edge
 ```
 

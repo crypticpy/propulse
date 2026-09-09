@@ -6,6 +6,9 @@ export type SolarImageProductId =
   | "synoptic-map"
   | "sunspot-hmi"
   | "aia-193"
+  | "aia-304"
+  | "aia-171"
+  | "aia-211"
   | "hmi-magnetogram";
 
 export type SolarAnimationProductId = "drap-global" | "aurora-north";
@@ -109,6 +112,48 @@ export const SOLAR_IMAGE_PRODUCTS: Record<SolarImageProductId, SolarImageProduct
     sourceUrl: "https://sdo.gsfc.nasa.gov/data/",
     upstreamUrl:
       "https://sdo.gsfc.nasa.gov/assets/img/latest/latest_512_0193.jpg",
+    softTtlSeconds: 300,
+    hardTtlSeconds: 86_400,
+    maxBytes: 6_000_000,
+  },
+  "aia-304": {
+    id: "aia-304",
+    title: "SDO AIA 304 Å chromosphere",
+    description:
+      "Latest SDO AIA 304 Å extreme-ultraviolet image showing chromospheric structure.",
+    alt: "NASA SDO AIA 304 angstrom full solar disk showing chromospheric structure",
+    provider: "NASA SDO",
+    sourceUrl: "https://sdo.gsfc.nasa.gov/data/",
+    upstreamUrl:
+      "https://sdo.gsfc.nasa.gov/assets/img/latest/latest_512_0304.jpg",
+    softTtlSeconds: 300,
+    hardTtlSeconds: 86_400,
+    maxBytes: 6_000_000,
+  },
+  "aia-171": {
+    id: "aia-171",
+    title: "SDO AIA 171 Å quiet corona",
+    description:
+      "Latest SDO AIA 171 Å extreme-ultraviolet image showing quiet coronal loops.",
+    alt: "NASA SDO AIA 171 angstrom full solar disk showing quiet coronal loops",
+    provider: "NASA SDO",
+    sourceUrl: "https://sdo.gsfc.nasa.gov/data/",
+    upstreamUrl:
+      "https://sdo.gsfc.nasa.gov/assets/img/latest/latest_512_0171.jpg",
+    softTtlSeconds: 300,
+    hardTtlSeconds: 86_400,
+    maxBytes: 6_000_000,
+  },
+  "aia-211": {
+    id: "aia-211",
+    title: "SDO AIA 211 Å active regions",
+    description:
+      "Latest SDO AIA 211 Å extreme-ultraviolet image highlighting active regions.",
+    alt: "NASA SDO AIA 211 angstrom full solar disk highlighting active regions",
+    provider: "NASA SDO",
+    sourceUrl: "https://sdo.gsfc.nasa.gov/data/",
+    upstreamUrl:
+      "https://sdo.gsfc.nasa.gov/assets/img/latest/latest_512_0211.jpg",
     softTtlSeconds: 300,
     hardTtlSeconds: 86_400,
     maxBytes: 6_000_000,

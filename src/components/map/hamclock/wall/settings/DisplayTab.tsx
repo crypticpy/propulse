@@ -7,6 +7,7 @@ import {
   useHamClockDisplayStore,
   type HamClockDensity,
   type HamClockUnits,
+  type HeatmapPresetId,
 } from "@/stores/hamclockDisplayStore";
 import { useMapStore } from "@/stores/mapStore";
 import {
@@ -33,6 +34,28 @@ const MAP_CONTENT_LABELS: Record<(typeof MAP_CONTENT_VALUES)[number], string> =
     contacts: "MY CONTACTS",
     both: "BOTH",
   };
+
+/**
+ * Heat-map colours (§654): `ratioDiverging` ships in the lib (`PRESETS`) but
+ * has no baseline aggregate behind it yet (no table keys same-UTC-hour spot
+ * counts by band AND continent), so it stays disabled here with a caption
+ * rather than silently rendering every cell "quiet". Threshold sliders and
+ * custom colour pickers are a later PR, not this one.
+ */
+const HEATMAP_PRESET_OPTIONS: {
+  value: HeatmapPresetId;
+  label: string;
+  detail?: string;
+  disabled?: boolean;
+}[] = [
+  { value: "ladderHue", label: "BAND HEALTH LADDER" },
+  {
+    value: "ratioDiverging",
+    label: "BASELINE RATIO",
+    detail: "NEEDS 24 H HISTORY",
+    disabled: true,
+  },
+];
 
 type DwellSeconds = "15" | "30" | "45" | "60" | "120";
 const DWELL_OPTIONS: { value: DwellSeconds; label: string }[] = [
@@ -68,6 +91,8 @@ export function DisplayTab() {
   const autoPage = useHamClockDisplayStore((s) => s.autoPage);
   const setAutoPage = useHamClockDisplayStore((s) => s.setAutoPage);
   const frameHome = useHamClockDisplayStore((s) => s.frameHome);
+  const heatmapPreset = useHamClockDisplayStore((s) => s.heatmapPreset);
+  const setHeatmapPreset = useHamClockDisplayStore((s) => s.setHeatmapPreset);
   const viewMode = useMapStore((s) => s.viewMode);
   const location = useActiveLocation();
 
@@ -96,6 +121,12 @@ export function DisplayTab() {
           label: MAP_CONTENT_LABELS[value],
           disabled: viewMode === "azimuthal" && value !== "activity",
         }))}
+      />
+      <HamClockSegmented
+        label="Heat map colours"
+        value={heatmapPreset}
+        onChange={setHeatmapPreset}
+        options={HEATMAP_PRESET_OPTIONS}
       />
       <HamClockToggleRow
         label="Smart scaling"

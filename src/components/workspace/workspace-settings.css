@@ -1,0 +1,124 @@
+/**
+ * Styles for the workspace's page pager and settings dialog (#657):
+ * `PagePager.tsx` and everything under `settings/`. Colour and spacing come
+ * from the shared `--su-*` tokens, same convention as `workspace.css`, which
+ * this file never edits (#670 owns it). `workspace-add-widget-row` /
+ * `-row-text` / `-row-title` / `-row-desc` / `-pager` (defined in
+ * `workspace.css`) are reused as-is by `PagesTab` and `WidgetsTab` rather
+ * than duplicated here.
+ */
+
+/* ─── Page pager (workspace bar) ───────────────────────────────────────── */
+
+.workspace-pager {
+  gap: var(--su-space-2);
+  color: var(--su-muted);
+}
+
+.workspace-pager-arrow {
+  min-width: 2.75rem;
+  min-height: 2.75rem;
+  border: 1px solid var(--su-line);
+  border-radius: 0.5rem;
+  background: transparent;
+  color: var(--su-text);
+  font-size: 1rem;
+  cursor: pointer;
+}
+
+.workspace-pager-arrow:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.workspace-pager-title {
+  font-family: var(--su-font-mono);
+  font-weight: 600;
+  color: var(--su-text);
+}
+
+.workspace-pager-count {
+  font-family: var(--su-font-mono);
+}
+
+.workspace-pager-auto {
+  border: 1px solid var(--su-accent);
+  border-radius: 0.35rem;
+  padding: 0.1rem 0.4rem;
+  color: var(--su-accent);
+}
+
+/* ─── Settings dialog: shared row/list layout ──────────────────────────── */
+
+.workspace-settings-pages,
+.workspace-settings-widgets,
+.workspace-settings-recipes,
+.workspace-settings-display {
+  gap: var(--su-space-3);
+}
+
+.workspace-settings-page-row,
+.workspace-settings-widget-row {
+  display: flex;
+  align-items: center;
+  gap: var(--su-space-3);
+  padding: var(--su-space-2) 0;
+  border-bottom: 1px solid color-mix(in srgb, var(--su-line) 45%, transparent);
+}
+
+.workspace-settings-page-name {
+  flex: 1 1 auto;
+  min-width: 0;
+  background: transparent;
+  border: 1px solid var(--su-line);
+  border-radius: 0.35rem;
+  padding: 0.35rem 0.6rem;
+  color: var(--su-text);
+  font: inherit;
+}
+
+.workspace-settings-recipe-card {
+  border: 1px solid var(--su-line);
+  border-radius: 0.5rem;
+  padding: var(--su-space-3);
+  display: flex;
+  flex-direction: column;
+  gap: var(--su-space-2);
+  align-items: flex-start;
+}
+
+/* ─── DisplayTab: thresholds and bands ─────────────────────────────────── */
+
+.workspace-settings-thresholds {
+  gap: var(--su-space-3);
+}
+
+.workspace-settings-threshold-row {
+  display: flex;
+  align-items: center;
+  gap: var(--su-space-3);
+  flex-wrap: wrap;
+}
+
+.workspace-settings-threshold-row input[type="range"] {
+  flex: 1 1 8rem;
+}
+
+.workspace-settings-swatch {
+  display: inline-block;
+  width: 0.85rem;
+  height: 0.85rem;
+  border-radius: 0.2rem;
+  border: 1px solid color-mix(in srgb, var(--su-line) 60%, transparent);
+}
+
+.workspace-settings-band-grid {
+  display: flex;
+  flex-direction: column;
+  gap: var(--su-space-2);
+}
+
+.workspace-settings-band-chips {
+  flex-wrap: wrap;
+  gap: var(--su-space-2);
+}

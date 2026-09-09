@@ -6,7 +6,6 @@
  */
 import { useState } from "react";
 import { AccessibleDialog } from "@/components/ui/AccessibleDialog";
-import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import {
   activityRecipeFromWorkingSpots,
   copyPresetRecipe,
@@ -16,6 +15,7 @@ import {
 } from "@/lib/views/presets";
 import type { PresetRecipe, ViewConfiguration } from "@/lib/views/contracts";
 import type { PathAppearance, SpotPresentationPreferences } from "@/lib/views/spotContracts";
+import { LibraryConfirmDialog } from "../LibraryConfirmDialog";
 import { LibraryNoticeBar } from "../LibraryNoticeBar";
 import { PresetPreviewDialog } from "../PresetPreviewDialog";
 import { newLibraryId, type SpotsLibraryController } from "../useSpotsLibrary";
@@ -373,7 +373,7 @@ export function PresetsSection({
         </form>
       </AccessibleDialog>
 
-      <ConfirmDialog
+      <LibraryConfirmDialog
         open={deleteTarget !== null}
         onConfirm={() => void confirmDelete()}
         onCancel={() => setDeleteTarget(null)}

@@ -11,6 +11,7 @@ import type { PresetRecipe, SavedView } from "@/lib/views/contracts";
 import { getBuiltInRecipeIfKnown } from "@/lib/views/presets";
 import { AccessibleDialog } from "@/components/ui/AccessibleDialog";
 import { SectionHeader } from "@/components/settings/ui/SectionHeader";
+import { LibraryConfirmDialog } from "./LibraryConfirmDialog";
 import { LibraryNoticeBar } from "./LibraryNoticeBar";
 import { StatusStrip } from "./StatusStrip";
 import type { SpotsLibraryController } from "./useSpotsLibrary";
@@ -92,54 +93,6 @@ function NamePromptDialog({
           </button>
         </div>
       </form>
-    </AccessibleDialog>
-  );
-}
-
-/**
- * Confirmation built on `AccessibleDialog` rather than the bare `ConfirmDialog`
- * primitive. This surface is opened from inside `SpotsPreferencesPanel`'s own
- * `AccessibleDialog`; both then register on the same module-level dialog
- * stack, so Escape closes only the topmost (this confirmation) instead of
- * bubbling to the outer preferences panel. `ConfirmDialog`'s own Escape
- * listener does not participate in that stack.
- */
-function LibraryConfirmDialog({
-  open,
-  onCancel,
-  onConfirm,
-  title,
-  message,
-  confirmLabel,
-  cancelLabel = "Cancel",
-  variant = "destructive",
-}: {
-  open: boolean;
-  onCancel: () => void;
-  onConfirm: () => void;
-  title: string;
-  message: string;
-  confirmLabel: string;
-  cancelLabel?: string;
-  variant?: "destructive" | "warning";
-}) {
-  const confirmClass =
-    variant === "destructive"
-      ? `min-h-[40px] rounded-lg border border-alert-red/30 bg-alert-red/20 px-4 py-2 text-sm font-medium text-alert-red transition-colors hover:bg-alert-red/30 ${FOCUS_RING}`
-      : `min-h-[40px] rounded-lg border border-caution-amber/30 bg-caution-amber/20 px-4 py-2 text-sm font-medium text-caution-amber transition-colors hover:bg-caution-amber/30 ${FOCUS_RING}`;
-  return (
-    <AccessibleDialog open={open} onClose={onCancel} title={title} size="md">
-      <div className="flex flex-col gap-4">
-        <p className="text-sm text-su-muted">{message}</p>
-        <div className="flex justify-end gap-2">
-          <button type="button" onClick={onCancel} className={SECONDARY_BUTTON}>
-            {cancelLabel}
-          </button>
-          <button type="button" onClick={onConfirm} className={confirmClass}>
-            {confirmLabel}
-          </button>
-        </div>
-      </div>
     </AccessibleDialog>
   );
 }

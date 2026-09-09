@@ -1,6 +1,7 @@
 import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+import { AccessibleDialog } from "@/components/ui/AccessibleDialog";
 import {
   ACTIVITY_PRESET_IDS,
   DISPLAY_PRESET_IDS,
@@ -204,7 +205,7 @@ describe("PresetsSection", () => {
 
     const renamedRow = screen.getByText("Renamed Preset").closest('[role="listitem"]') as HTMLElement;
     await userEvent.click(within(renamedRow).getByRole("button", { name: "Delete" }));
-    const confirmDialog = await screen.findByRole("alertdialog");
+    const confirmDialog = await screen.findByRole("dialog", { name: "Delete preset" });
     await userEvent.click(within(confirmDialog).getByRole("button", { name: "Delete" }));
 
     await waitFor(() => expect(screen.queryByText("Renamed Preset")).toBeNull());
@@ -261,5 +262,34 @@ describe("PresetsSection", () => {
 
     expect(viewA.view.store.getState().config.spots.filters.maxAgeMinutes).toBe(5);
     expect(JSON.stringify(viewB.view.store.getState().config)).toBe(beforeSnapshotB);
+  });
+
+  it("Escape on the nested preset-delete confirmation cancels the confirmation, not the enclosing panel", async () => {
+    const testView = createTestView();
+    const port = createMemoryLibraryPort();
+    const onClosePanel = vi.fn();
+
+    render(
+      <AccessibleDialog open onClose={onClosePanel} title="Spots & paths preferences" size="xl">
+        <Harness view={testView.view} library={port} />
+      </AccessibleDialog>,
+    );
+
+    await userEvent.click(screen.getByRole("button", { name: "Save as preset" }));
+    await userEvent.type(screen.getByLabelText("Preset name"), "Escape Target");
+    await userEvent.click(screen.getByRole("button", { name: "Save" }));
+    await screen.findByText("Escape Target");
+
+    const row = screen.getByText("Escape Target").closest('[role="listitem"]') as HTMLElement;
+    await userEvent.click(within(row).getByRole("button", { name: "Delete" }));
+    expect(screen.getByRole("dialog", { name: "Delete preset" })).toBeTruthy();
+
+    await userEvent.keyboard("{Escape}");
+
+    expect(screen.queryByRole("dialog", { name: "Delete preset" })).toBeNull();
+    expect(screen.getByRole("dialog", { name: "Spots & paths preferences" })).toBeTruthy();
+    expect(onClosePanel).not.toHaveBeenCalled();
+    // The preset survived the cancelled delete.
+    expect(screen.getByText("Escape Target")).toBeTruthy();
   });
 });

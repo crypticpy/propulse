@@ -237,41 +237,55 @@ export function PredictionsCard({
         </div>
       ) : (
         <div className="space-y-2">
-          {predictions.map((prediction, index) => (
-            <div
-              key={prediction.band}
-              className={`flex items-center justify-between py-1.5 ${
-                index > 0 ? "border-t border-su-line/20" : ""
-              }`}
-            >
-              {/* Band info */}
-              <div className="flex items-center gap-2">
-                <span
-                  className="text-sm font-bold font-mono px-1.5 py-0.5 rounded"
-                  style={{
-                    backgroundColor: `${getConditionColor(prediction.condition)}20`,
-                    color: getConditionColor(prediction.condition),
-                  }}
-                >
-                  {prediction.band}
-                </span>
-                <span className="text-sm text-su-muted">
-                  {prediction.description}
-                </span>
-              </div>
+          {predictions.map((prediction, index) => {
+            const conditionColor = getConditionColor(prediction.condition);
+            // Aurora's colour is the `--su-purple-rgb` token (#799), not a
+            // hex literal, so it can't take the `${hex}20` alpha-suffix
+            // trick the other (still-hex) conditions use for their tint --
+            // that would emit `rgb(var(--su-purple-rgb))20`, invalid CSS.
+            // Purple text on its own tint also fails the 4.5:1 floor on the
+            // Card's `bg-su-line/10` glass in every theme (measured in the
+            // PR); dropping the fill and keeping the purple text passes
+            // everywhere instead (the #795 "drop the fill" remedy).
+            const isAurora = prediction.condition === "Aurora";
+            return (
+              <div
+                key={prediction.band}
+                className={`flex items-center justify-between py-1.5 ${
+                  index > 0 ? "border-t border-su-line/20" : ""
+                }`}
+              >
+                {/* Band info */}
+                <div className="flex items-center gap-2">
+                  <span
+                    className="text-sm font-bold font-mono px-1.5 py-0.5 rounded"
+                    style={{
+                      backgroundColor: isAurora
+                        ? undefined
+                        : `${conditionColor}20`,
+                      color: conditionColor,
+                    }}
+                  >
+                    {prediction.band}
+                  </span>
+                  <span className="text-sm text-su-muted">
+                    {prediction.description}
+                  </span>
+                </div>
 
-              {/* Signal strength indicator */}
-              <div className="flex items-center gap-1">
-                <SignalIcon
-                  className="w-4 h-4"
-                  strength={prediction.signalStrength}
-                  style={{
-                    color: getConditionColor(prediction.condition),
-                  }}
-                />
+                {/* Signal strength indicator */}
+                <div className="flex items-center gap-1">
+                  <SignalIcon
+                    className="w-4 h-4"
+                    strength={prediction.signalStrength}
+                    style={{
+                      color: conditionColor,
+                    }}
+                  />
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
 
           {/* Context footer */}
           <div className="pt-2 border-t border-su-line/40 mt-2">

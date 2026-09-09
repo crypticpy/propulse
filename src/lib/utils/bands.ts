@@ -322,8 +322,25 @@ export function getOverallCondition(kp: number, sfi: number): OverallCondition {
 /**
  * Get condition color for UI display
  *
+ * Both consumers (`InsightsBar`, `PredictionsCard`) apply this as a CSS
+ * `color`/`backgroundColor`, never a canvas/SVG attribute, so a token string
+ * is a valid return here -- no real hex is needed.
+ *
+ * `Aurora` is the only case driven from a station token (`--su-purple-rgb`,
+ * #799): the old `#aa44ff` literal measured 3.93/3.81/4.30 as bare text on
+ * panel across themes (#787's original numbers), below the 4.5:1 floor. The
+ * per-theme `palette.purple` this token resolves to clears the floor
+ * everywhere it is consumed (see the PR's measured table).
+ *
+ * The other four returns are also non-adaptive literals (same hex in every
+ * theme) and fail the same floor in the `light` theme once measured -- a
+ * pre-existing, broader defect this issue does not cover (it is scoped to
+ * the `#aa44ff` repeats from #787/#791/#789). Left as-is; #810 tracks
+ * tokenising `Excellent`/`Good`/`Fair`/`Poor`/the default together.
+ *
  * @param condition - Band condition rating
- * @returns Hex color code
+ * @returns CSS color: a `rgb(var(--su-*-rgb))` token for `Aurora`, hex for
+ * the rest (see above).
  */
 export function getConditionColor(
   condition: BandCondition | VHFCondition,
@@ -338,7 +355,7 @@ export function getConditionColor(
     case "Poor":
       return "#ff4455";
     case "Aurora":
-      return "#aa44ff";
+      return "rgb(var(--su-purple-rgb))";
     default:
       return "#666666";
   }

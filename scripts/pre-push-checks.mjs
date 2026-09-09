@@ -310,7 +310,7 @@ function printPlan(plan) {
   if (plan.profile === "docs") checks.push("documentation hygiene");
   if (plan.tooling) checks.push("hook tests", "lint");
   if (plan.app) checks.push("frontend test/build/bundles");
-  if (plan.collector) checks.push("collector build");
+  if (plan.collector) checks.push("collector test/build");
   if (plan.bridge) checks.push("bridge build");
   if (plan.daemon) checks.push("Rust workspace tests");
   if (plan.ml) checks.push("complete repository verification");
@@ -367,6 +367,7 @@ function main() {
   }
 
   if (plan.collector) {
+    run("npm", ["--prefix", "collector", "run", "test"], "Testing collector");
     run("npm", ["--prefix", "collector", "run", "build"], "Building collector");
   }
   if (plan.bridge) {

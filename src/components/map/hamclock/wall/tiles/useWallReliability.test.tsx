@@ -9,6 +9,12 @@ const mocks = vi.hoisted(() => ({
   build: vi.fn(),
   timeOffset: 0,
   absoluteTime: null as string | null,
+  // `undefined` = no override (real pass-through behavior); an explicit
+  // value (including `null`) stands in for the scoped runtime's bound target.
+  boundTargetOverride: undefined as
+    | { name: string; grid: string; lat: number; lon: number }
+    | null
+    | undefined,
 }));
 
 vi.mock("@/hooks/useActiveLocation", () => ({
@@ -43,6 +49,18 @@ vi.mock("@/stores/shackStore", () => ({
 vi.mock("@/lib/hamclock/reliabilityForecast", () => ({
   buildReliabilityForecast: mocks.build,
 }));
+vi.mock("@/hooks/useBoundMapSelection", async (importOriginal) => {
+  const actual = await importOriginal<
+    typeof import("@/hooks/useBoundMapSelection")
+  >();
+  return {
+    ...actual,
+    useBoundVisualTarget: (mapTarget: unknown) =>
+      mocks.boundTargetOverride === undefined
+        ? mapTarget
+        : mocks.boundTargetOverride,
+  };
+});
 
 /** Whole UTC hours since the epoch, the key the matrix is built on. */
 function hourIndexOf(iso: string): number {
@@ -53,6 +71,7 @@ describe("useWallReliability", () => {
   beforeEach(() => {
     mocks.timeOffset = 0;
     mocks.absoluteTime = null;
+    mocks.boundTargetOverride = undefined;
     // Every cell's score encodes the UTC day and hour it was built for, so an
     // assertion can tell "tomorrow 02Z" from "today 02Z".
     mocks.build.mockImplementation(({ baseTime }: { baseTime: Date }) =>
@@ -138,5 +157,22 @@ describe("useWallReliability", () => {
     expect(result.current.hourIndex).toBe(
       hourIndexOf("2026-09-06T02:00:00.000Z"),
     );
+  });
+
+  it("reads the scoped view runtime's bound target, not the raw mapStore target (#707)", () => {
+    vi.setSystemTime(new Date("2026-09-05T20:30:00.000Z"));
+    // The mocked mapStore always reports "Tokyo" — a bound host overrides
+    // that via useBoundVisualTarget, and the wall matrix must follow it.
+    mocks.boundTargetOverride = {
+      name: "Sydney",
+      grid: "QF56",
+      lat: -33.87,
+      lon: 151.21,
+    };
+
+    const { result } = renderHook(() => useWallReliability());
+
+    expect(result.current.targetLabel).toBe("Sydney");
+    expect(result.current.targetLabel).not.toBe("Tokyo");
   });
 });

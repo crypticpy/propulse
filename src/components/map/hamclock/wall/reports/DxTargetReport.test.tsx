@@ -1,0 +1,75 @@
+import { render, screen } from "@testing-library/react";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+
+const mocks = vi.hoisted(() => ({
+  mapTarget: null as { name?: string; grid?: string; lat: number; lon: number } | null,
+  // `undefined` = no override (real pass-through); an explicit value stands
+  // in for the scoped runtime's bound target.
+  boundTargetOverride: undefined as
+    | { name?: string; grid?: string; lat: number; lon: number }
+    | null
+    | undefined,
+}));
+
+vi.mock("@/hooks/useActiveLocation", () => ({
+  useActiveLocation: () => ({ lat: 30.27, lon: -97.74 }),
+}));
+vi.mock("@/hooks/useLocalWeather", () => ({
+  useLocationWeather: () => ({
+    weather: null,
+    isLoading: false,
+    error: null,
+    hasLocation: true,
+  }),
+}));
+vi.mock("@/stores/hamclockDisplayStore", () => ({
+  useHamClockDisplayStore: (selector: (state: { units: string }) => unknown) =>
+    selector({ units: "auto" }),
+}));
+vi.mock("@/stores/mapStore", () => ({
+  useMapStore: (selector: (state: { target: typeof mocks.mapTarget }) => unknown) =>
+    selector({ target: mocks.mapTarget }),
+}));
+vi.mock("@/hooks/useBoundMapSelection", async (importOriginal) => {
+  const actual = await importOriginal<
+    typeof import("@/hooks/useBoundMapSelection")
+  >();
+  return {
+    ...actual,
+    useBoundVisualTarget: (mapTarget: unknown) =>
+      mocks.boundTargetOverride === undefined
+        ? mapTarget
+        : mocks.boundTargetOverride,
+  };
+});
+
+import { DxTargetReport } from "./DxTargetReport";
+
+describe("DxTargetReport", () => {
+  beforeEach(() => {
+    mocks.mapTarget = { name: "Tokyo", grid: "PM95", lat: 35.68, lon: 139.65 };
+    mocks.boundTargetOverride = undefined;
+  });
+
+  it("shows the mapStore target's grid when there is no bound override", () => {
+    render(<DxTargetReport open onClose={vi.fn()} />);
+    expect(screen.getAllByText("PM95").length).toBeGreaterThan(0);
+  });
+
+  it("reads the scoped view runtime's bound target, not the raw mapStore target (#707)", () => {
+    mocks.boundTargetOverride = { name: "Sydney", grid: "QF56", lat: -33.87, lon: 151.21 };
+
+    render(<DxTargetReport open onClose={vi.fn()} />);
+
+    expect(screen.getAllByText("QF56").length).toBeGreaterThan(0);
+    expect(screen.queryByText("PM95")).toBeNull();
+  });
+
+  it("falls back to the no-target state when the bound target is null", () => {
+    mocks.boundTargetOverride = null;
+
+    render(<DxTargetReport open onClose={vi.fn()} />);
+
+    expect(screen.getByText("NO TARGET")).toBeTruthy();
+  });
+});

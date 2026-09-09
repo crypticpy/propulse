@@ -218,8 +218,32 @@ export function HamClockView({
     }
 
     if (viewMode === resolvedProjection) {
-      if (
-        latch &&
+      if (latch === null) {
+        // #744: since PR #743, `applySceneToMap` pre-resolves the
+        // projection before this effect ever runs, so `viewMode` can
+        // already equal `resolvedProjection` the first time a blocked
+        // scene is seen — nothing below needs to force anything, and
+        // without this, no latch is ever recorded. Later, when the
+        // blocking layer switches off and `blockerKey` empties, the
+        // `blockerKey.length === 0` branch above finds `latch === null`
+        // and nothing re-asserts the projection the scene actually
+        // requested. Record a latch here too, whenever the live
+        // projection differs from what is actually preferred, so that
+        // restore has the same live-`preferredViewMode` lookup and the
+        // same yield protection (below) that a real force gets. The
+        // `viewMode !== preferredViewMode` guard is what keeps this to
+        // genuinely blocked scenes: `resolveHeroProjection` can also
+        // return a non-empty `forcedBy` with `projection ===
+        // preferredProjection` when no fallback can draw the set
+        // either, and in that case nothing was ever forced, so there is
+        // nothing to latch and nothing to restore.
+        if (viewMode !== preferredViewMode) {
+          forceLatchRef.current = {
+            wrote: resolvedProjection,
+            presetId: map.activePresetId,
+          };
+        }
+      } else if (
         map.activePresetId != null &&
         map.activePresetId !== latch.presetId
       ) {

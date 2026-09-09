@@ -455,4 +455,86 @@ describe("HamClockView", () => {
     expect(setViewMode).toHaveBeenCalledWith("flat");
     expect(mapState.viewMode).toBe("flat");
   });
+
+  // #744 — `applySceneToMap` (PR #743) pre-resolves the projection before
+  // this effect ever runs, so a scene requesting "flat" with DRAP on
+  // arrives with `viewMode` already "globe" (the resolved projection) and
+  // `preferredViewMode` recording the scene's raw "flat" request. The old
+  // early return skipped latch creation whenever `viewMode` already
+  // matched the resolved projection, so `forceLatchRef` never populated
+  // and nothing restored "flat" once DRAP switched off.
+  it("restores a pre-resolved projection once its blocking layer turns off", () => {
+    hamclockState.preferredViewMode = "flat";
+    mapState.viewMode = "globe";
+    mapState.layers = { ...mapState.layers, drap: true };
+    const { rerender } = render(
+      <MemoryRouter initialEntries={["/map"]}>
+        <HamClockView displayTime={new Date(0)} />
+      </MemoryRouter>,
+    );
+    // Already on the resolved projection — nothing to force yet, but a
+    // latch must still be recorded for the restore below.
+    expect(setViewMode).not.toHaveBeenCalled();
+
+    mapState.layers = { ...mapState.layers, drap: false };
+    rerender(
+      <MemoryRouter initialEntries={["/map"]}>
+        <HamClockView displayTime={new Date(1)} />
+      </MemoryRouter>,
+    );
+    expect(setViewMode).toHaveBeenCalledWith("flat");
+  });
+
+  // #744 census: `GlobeView`'s WebGL-failure escape hatch
+  // (`GlobeView.tsx:2070`) writes `viewMode` directly, unpaired with
+  // `preferredViewMode`, on purpose — the operator has not changed their
+  // preference, they have fled a broken globe. A restore that blindly
+  // re-asserts `preferredViewMode` once DRAP clears would throw them
+  // straight back into the globe that just failed. The existing yield
+  // mechanism (a latch whose `wrote` no longer matches the live
+  // `viewMode`) already protects this once the pre-resolved case above
+  // also produces a latch; this proves the combination holds.
+  it("does not force the globe back after the WebGL escape hatch, once its blocking layer clears", () => {
+    hamclockState.preferredViewMode = "flat";
+    mapState.viewMode = "globe";
+    mapState.layers = { ...mapState.layers, drap: true };
+    const { rerender } = render(
+      <MemoryRouter initialEntries={["/map"]}>
+        <HamClockView displayTime={new Date(0)} />
+      </MemoryRouter>,
+    );
+    expect(setViewMode).not.toHaveBeenCalled();
+
+    // The escape hatch writes `viewMode` directly (unpaired), while DRAP
+    // is still on.
+    mapState.viewMode = "flat";
+    rerender(
+      <MemoryRouter initialEntries={["/map"]}>
+        <HamClockView displayTime={new Date(1)} />
+      </MemoryRouter>,
+    );
+    expect(setViewMode).not.toHaveBeenCalled();
+    expect(mapState.viewMode).toBe("flat");
+
+    // DRAP clears. The escaped flat map must not be forced back to globe.
+    mapState.layers = { ...mapState.layers, drap: false };
+    rerender(
+      <MemoryRouter initialEntries={["/map"]}>
+        <HamClockView displayTime={new Date(2)} />
+      </MemoryRouter>,
+    );
+    expect(setViewMode).not.toHaveBeenCalled();
+    expect(mapState.viewMode).toBe("flat");
+  });
+
+  // #744 acceptance: an operator who picks a projection directly in
+  // ViewControls while a blocking layer is active (pairing `setProjection`
+  // with `setPreferredView`, per the #744 census) must see that choice
+  // restored, not the scene's original stale preference, once the
+  // blocking layer clears. This is unchanged by #744 — the pick forces a
+  // latch through the pre-existing bottom branch below, not the
+  // early-return branch this fix touches — and is already proven by
+  // "re-arms forcing when settings pick a new preferred projection while
+  // DRAP is on" above (its last assertion, `setViewMode` called with
+  // "azimuthal" once DRAP clears, is exactly this restore).
 });

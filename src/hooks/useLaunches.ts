@@ -90,7 +90,17 @@ function asLaunch(value: unknown): LaunchRecord | null {
   };
 }
 
-function parsePayload(raw: unknown): LaunchesPayload {
+export const POST_NET_WINDOW_MS = 2 * 60 * 60 * 1000;
+
+function formatSpan(minutes: number): string {
+  const whole = Math.max(0, Math.round(minutes));
+  if (whole < 60) return `${whole}m`;
+  const hours = Math.floor(whole / 60);
+  if (hours >= 24) return `${Math.floor(hours / 24)}d ${hours % 24}h`;
+  return `${hours}h ${whole % 60}m`;
+}
+
+export function parseLaunchesPayload(raw: unknown): LaunchesPayload {
   if (!isRecord(raw)) return EMPTY;
   const launches = Array.isArray(raw.launches)
     ? raw.launches.map(asLaunch).filter((row): row is LaunchRecord => row !== null)
@@ -112,7 +122,7 @@ function parsePayload(raw: unknown): LaunchesPayload {
 async function fetchLaunches(signal?: AbortSignal): Promise<LaunchesPayload> {
   const res = await fetch("/api/events/launches", { signal });
   if (!res.ok) throw new Error(`Launch fetch failed: ${res.status}`);
-  return parsePayload(await res.json());
+  return parseLaunchesPayload(await res.json());
 }
 
 /** Precise enough to count down; TBD/TBC windows never get a ticking T-minus. */
@@ -133,6 +143,36 @@ export function launchProvider(launch: LaunchRecord): string {
 
 export function launchPad(launch: LaunchRecord): string {
   return launch.pad || launch.location || "—";
+}
+
+export function isLaunchCurrent(launch: LaunchRecord, now: Date): boolean {
+  const status = launch.status.toUpperCase();
+  if (launch.webcastLive || status === "IN FLIGHT") return true;
+  if (!launch.net) return true;
+  const net = Date.parse(launch.net);
+  if (!Number.isFinite(net)) return true;
+  return now.getTime() - net <= POST_NET_WINDOW_MS;
+}
+
+export function pickNextLaunch(
+  launches: readonly LaunchRecord[],
+  now: Date,
+): LaunchRecord | null {
+  return launches.find((row) => isLaunchCurrent(row, now)) ?? null;
+}
+
+export function launchTimingLabel(launch: LaunchRecord, now: Date): string {
+  const status = launch.status.toUpperCase();
+  if (launch.webcastLive || status === "IN FLIGHT") return "LIVE";
+  if (!countdownAllowed(launch) || !launch.net) {
+    return launch.net ? netDateLabel(launch.net, now) : status || "TBD";
+  }
+  const minutes = (Date.parse(launch.net) - now.getTime()) / 60_000;
+  if (minutes > 0) return formatSpan(minutes);
+  if (now.getTime() - Date.parse(launch.net) <= POST_NET_WINDOW_MS) {
+    return `T+ ${formatSpan(-minutes)}`;
+  }
+  return netDateLabel(launch.net, now);
 }
 
 const UTC_MONTHS = [
@@ -184,9 +224,10 @@ export function useLaunches(enabled = true): UseLaunchesResult {
   });
 
   const payload = data ?? EMPTY;
+  const next = pickNextLaunch(payload.launches, new Date());
   return {
     launches: payload.launches,
-    next: payload.launches[0] ?? null,
+    next,
     status: payload.status,
     stale: payload.stale,
     retrievedAt: payload.retrievedAt || null,

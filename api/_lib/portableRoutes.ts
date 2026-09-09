@@ -61,6 +61,7 @@ import {
 import { handleAtmosVolcanoes } from "./handlers/volcanoes";
 import { handleWeatherAlerts } from "./handlers/weather";
 import { handleWsprSpots } from "./handlers/wspr";
+import handleEventsLaunches from "../events/launches";
 // Not extracted (kept whole in its wrapper) but fully portable: Supabase TLE
 // cache is optional with a direct Celestrak/AMSAT fallback.
 import handleSatellitesTle from "../satellites/tle";
@@ -89,6 +90,7 @@ export const PORTABLE_ROUTES: Readonly<Record<string, EdgeHandler>> = {
   "/api/callsign/lookup": handleCallsignLookup,
   "/api/contest/scp": handleContestScp,
   "/api/dx/dxpeditions": handleDxDxpeditions,
+  "/api/events/launches": handleEventsLaunches,
   "/api/feeds/rss": handleFeedsRss,
   "/api/fires/hotspots": handleFiresHotspots,
   "/api/lightning/strikes": handleLightningStrikes,

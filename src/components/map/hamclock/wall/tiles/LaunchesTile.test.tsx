@@ -113,3 +113,19 @@ it("does not invent a countdown for a TBD NET", () => {
   expect(screen.getByText("8 SEP")).toBeTruthy();
   expect(screen.queryByText("3h 0m")).toBeNull();
 });
+
+it("shows T+ after NET instead of an unbounded NOW", () => {
+  const next = launch({ net: "2026-09-08T12:30:00.000Z", precision: "minute" });
+  mocks.launches.mockReturnValue({
+    launches: [next],
+    next,
+    status: "ok",
+    stale: false,
+    retrievedAt: "2026-09-08T12:50:00.000Z",
+    isLoading: false,
+    error: null,
+  });
+  render(<LaunchesTile />);
+  expect(screen.getByText("T+ 30m")).toBeTruthy();
+  expect(screen.queryByText("NOW")).toBeNull();
+});

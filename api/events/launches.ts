@@ -4,9 +4,14 @@
  * Proxies Launch Library 2 (thespacedevs). The free tier is 15 requests per
  * hour, so this handler caches 15 minutes at the CDN (`s-maxage=900`) with
  * a long stale-while-revalidate, keeps the last good payload in isolate
- * memory, and never issues more than one upstream fetch per invocation.
+ * memory and in `caches.default` (so a cold isolate can still serve stale),
+ * and never issues more than one upstream fetch per invocation.
  * A 429 from upstream is served from that last-good payload with `stale: true`
- * rather than as an empty error.
+ * rather than as an empty error. Last-good older than six hours is discarded.
+ *
+ * Default (normal) mode is used on purpose: LL2 `mode=list` omits pad,
+ * provider, and `webcast_live`, which the tile and report need. The extra
+ * bytes are worth that payload.
  *
  * Source: https://ll.thespacedevs.com/2.3.0/launches/upcoming/
  * Docs: https://thespacedevs.com/llapi
@@ -24,6 +29,9 @@ const MAX_RESPONSE_BYTES = 1_500_000;
 const CACHE_SECONDS = 900;
 const STALE_WHILE_REVALIDATE_SECONDS = 3600;
 const FRESH_CACHE_MS = CACHE_SECONDS * 1000;
+export const LAST_GOOD_MAX_AGE_MS = 6 * 60 * 60 * 1000;
+const LAST_GOOD_CACHE_URL =
+  "https://propulse.internal/api/events/launches/last-good";
 const USER_AGENT =
   "Propulse/1.0 (https://propulse.vercel.app; ham radio dashboard)";
 
@@ -68,7 +76,7 @@ export type UpstreamResult =
   | { kind: "rate_limited" }
   | { kind: "error" };
 
-interface CachedLaunches {
+export interface CachedLaunches {
   payload: LaunchesPayload;
   storedAt: number;
 }
@@ -77,6 +85,77 @@ let lastGood: CachedLaunches | null = null;
 
 export function resetLaunchCacheForTests(): void {
   lastGood = null;
+}
+
+export function seedLastGoodForTests(entry: CachedLaunches | null): void {
+  lastGood = entry;
+}
+
+function runtimeCache(): Cache | undefined {
+  const stores = (globalThis as { caches?: { default?: Cache } }).caches;
+  return stores?.default;
+}
+
+function isCachedLaunches(value: unknown): value is CachedLaunches {
+  if (!isRecord(value) || typeof value.storedAt !== "number") return false;
+  if (!Number.isFinite(value.storedAt)) return false;
+  const payload = value.payload;
+  return (
+    isRecord(payload) &&
+    (payload.status === "ok" ||
+      payload.status === "stale" ||
+      payload.status === "unavailable") &&
+    typeof payload.retrievedAt === "string" &&
+    Array.isArray(payload.launches)
+  );
+}
+
+async function readRuntimeLastGood(): Promise<CachedLaunches | null> {
+  try {
+    const cache = runtimeCache();
+    if (!cache) return null;
+    const hit = await cache.match(LAST_GOOD_CACHE_URL);
+    if (!hit) return null;
+    const parsed: unknown = await hit.json();
+    return isCachedLaunches(parsed) ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
+async function writeRuntimeLastGood(entry: CachedLaunches): Promise<void> {
+  try {
+    const cache = runtimeCache();
+    if (!cache) return;
+    await cache.put(
+      LAST_GOOD_CACHE_URL,
+      new Response(JSON.stringify(entry), {
+        headers: { "Content-Type": "application/json" },
+      }),
+    );
+  } catch {
+    // Isolate memory still holds last-good for this instance.
+  }
+}
+
+function stillUsable(entry: CachedLaunches | null, now: number): CachedLaunches | null {
+  if (!entry) return null;
+  if (now - entry.storedAt > LAST_GOOD_MAX_AGE_MS) return null;
+  return entry;
+}
+
+async function loadLastGood(now: number): Promise<CachedLaunches | null> {
+  const memory = stillUsable(lastGood, now);
+  if (memory) return memory;
+  lastGood = null;
+  const stored = stillUsable(await readRuntimeLastGood(), now);
+  if (stored) lastGood = stored;
+  return stored;
+}
+
+async function rememberLastGood(entry: CachedLaunches): Promise<void> {
+  lastGood = entry;
+  await writeRuntimeLastGood(entry);
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -284,28 +363,40 @@ export async function handleEventsLaunches(
     return new Response(null, { status: 204, headers: corsHeaders });
   }
 
+  if (request.method !== "GET") {
+    return new Response("Method Not Allowed", {
+      status: 405,
+      headers: {
+        ...corsHeaders,
+        Allow: "GET, OPTIONS",
+      },
+    });
+  }
+
   const limited = applyRateLimit(request, "events/launches", 20, 60);
   if (limited) return limited;
 
   const now = Date.now();
-  const cached = lastGood?.payload ?? null;
-  const cacheIsFresh =
-    lastGood !== null && now - lastGood.storedAt < FRESH_CACHE_MS;
+  const cachedEntry = await loadLastGood(now);
+  const cached = cachedEntry?.payload ?? null;
+  const ageMs = cachedEntry ? now - cachedEntry.storedAt : Number.POSITIVE_INFINITY;
 
-  let upstream: UpstreamResult;
-  if (cacheIsFresh && cached) {
-    return jsonResponse(
-      cached,
-      corsHeaders,
-      `s-maxage=${CACHE_SECONDS}, stale-while-revalidate=${STALE_WHILE_REVALIDATE_SECONDS}`,
+  if (cachedEntry && ageMs < FRESH_CACHE_MS) {
+    const remaining = Math.max(
+      1,
+      Math.ceil((FRESH_CACHE_MS - ageMs) / 1000),
     );
-  } else {
-    upstream = await fetchUpstream();
+    return jsonResponse(
+      cachedEntry.payload,
+      corsHeaders,
+      `s-maxage=${remaining}, stale-while-revalidate=${STALE_WHILE_REVALIDATE_SECONDS}`,
+    );
   }
 
+  const upstream = await fetchUpstream();
   const { payload, remember } = resolveLaunchesPayload(upstream, cached, now);
   if (remember) {
-    lastGood = { payload, storedAt: now };
+    await rememberLastGood({ payload, storedAt: now });
   }
 
   const cacheControl =

@@ -1,15 +1,12 @@
 import { lazy, Suspense, useState } from "react";
 import {
-  countdownAllowed,
   launchPad,
   launchProvider,
-  netDateLabel,
+  launchTimingLabel,
   useLaunches,
-  type LaunchRecord,
 } from "@/hooks/useLaunches";
 import { useUTCClock } from "@/hooks/useUTCClock";
 import { HamClockTile, TileHero, TileSub, type WallTileProps } from "../HamClockTile";
-import { formatCountdown } from "../tokens";
 
 const LaunchesReport = lazy(() =>
   import("../reports/LaunchesReport").then((m) => ({
@@ -28,18 +25,6 @@ function statusTone(status: string): { tone: string; state: string } {
     return { tone: "hc-warn", state: "var(--hc-warn)" };
   }
   return { tone: "hc-info-text", state: "var(--hc-info)" };
-}
-
-function launchHero(launch: LaunchRecord, now: Date): string {
-  const status = launch.status.toUpperCase();
-  if (launch.webcastLive || status === "IN FLIGHT") return "LIVE";
-  if (countdownAllowed(launch) && launch.net) {
-    const minutes = (Date.parse(launch.net) - now.getTime()) / 60_000;
-    if (minutes <= 0) return "NOW";
-    return formatCountdown(minutes);
-  }
-  if (launch.net) return netDateLabel(launch.net, now);
-  return status || "TBD";
 }
 
 export function LaunchesTile({ title = "Launches" }: WallTileProps) {
@@ -97,7 +82,7 @@ export function LaunchesTile({ title = "Launches" }: WallTileProps) {
   }
 
   const { tone, state } = statusTone(next.status);
-  const hero = launchHero(next, now);
+  const hero = launchTimingLabel(next, now);
   const spoken = next.statusName || next.status || "scheduled";
 
   return (

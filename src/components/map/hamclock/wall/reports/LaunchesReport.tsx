@@ -1,31 +1,18 @@
 import { useUTCClock } from "@/hooks/useUTCClock";
 import {
-  countdownAllowed,
   launchPad,
   launchProvider,
+  launchTimingLabel,
   netDateLabel,
   useLaunches,
-  type LaunchRecord,
 } from "@/hooks/useLaunches";
-import { formatCountdown, reportFooter } from "../tokens";
+import { reportFooter } from "../tokens";
 import { useVisibleRows } from "../useVisibleRows";
 import { WallReport, type WallReportFact } from "./WallReport";
 
 export interface LaunchesReportProps {
   open: boolean;
   onClose: () => void;
-}
-
-function tMinus(launch: LaunchRecord, now: Date): string {
-  if (launch.webcastLive || launch.status.toUpperCase() === "IN FLIGHT") {
-    return "LIVE";
-  }
-  if (!countdownAllowed(launch) || !launch.net) {
-    return launch.net ? netDateLabel(launch.net, now) : "TBD";
-  }
-  const minutes = (Date.parse(launch.net) - now.getTime()) / 60_000;
-  if (minutes <= 0) return "NOW";
-  return formatCountdown(minutes);
 }
 
 export function LaunchesReport({ open, onClose }: LaunchesReportProps) {
@@ -89,7 +76,7 @@ export function LaunchesReport({ open, onClose }: LaunchesReportProps) {
       onClose={onClose}
       title="Launch report"
       tone={stale ? "warn" : "info"}
-      hero={next ? tMinus(next, now) : "—"}
+      hero={next ? launchTimingLabel(next, now) : "—"}
       verdict={next ? next.status.toUpperCase() || "NEXT" : "LOADING"}
       facts={facts}
       footer={footer}
@@ -115,7 +102,7 @@ export function LaunchesReport({ open, onClose }: LaunchesReportProps) {
                   {launchProvider(row)} · {launchPad(row)}
                 </span>
                 <span>
-                  {tMinus(row, now)} · {row.status.toUpperCase() || "—"}
+                  {launchTimingLabel(row, now)} · {row.status.toUpperCase() || "—"}
                 </span>
               </div>
             ))}
@@ -140,7 +127,7 @@ export function LaunchesReport({ open, onClose }: LaunchesReportProps) {
                 <td>{launchProvider(row)}</td>
                 <td>{launchPad(row)}</td>
                 <td>{row.net ?? "TBD"}</td>
-                <td>{tMinus(row, now)}</td>
+                <td>{launchTimingLabel(row, now)}</td>
                 <td>{row.statusName || row.status}</td>
               </tr>
             ))}

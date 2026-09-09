@@ -10,6 +10,8 @@ import { AlertsTile } from "./AlertsTile";
 import { BandActivityTile } from "./BandActivityTile";
 import { BestBandTile } from "./BestBandTile";
 import { ClusterTile } from "./ClusterTile";
+import { ContestsTile } from "./ContestsTile";
+import { DxpeditionsTile } from "./DxpeditionsTile";
 import { DxTargetTile } from "./DxTargetTile";
 import { EmcommTile } from "./EmcommTile";
 import { ForecastMatrixTile } from "./ForecastMatrixTile";
@@ -56,7 +58,9 @@ export type TileId =
   | "wsjtx"
   | "sdrDecodes"
   | "recentContacts"
-  | "dxTarget";
+  | "dxTarget"
+  | "contests"
+  | "dxpeditions";
 
 export interface WallTile {
   title: string;
@@ -94,4 +98,6 @@ export const WALL_TILES: Record<TileId, WallTile> = {
     config: registerWidgetConfig(recentContactsConfig),
   },
   dxTarget: { title: "DX target", Component: DxTargetTile },
+  contests: { title: "Contests", Component: ContestsTile },
+  dxpeditions: { title: "DXpeditions", Component: DxpeditionsTile },
 };

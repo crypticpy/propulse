@@ -84,9 +84,9 @@ flag on later prunes already-sealed days with no re-export.
 | --- | --- | --- |
 | `DB_SIZE_BUDGET_MB` | `3072` | `/health` degrades when the DB exceeds this |
 | `POLL_DB_SIZE_GUARD` | `21600` (s) | db-size check interval |
-| `ARCHIVE_PATH_STATS_HOT_DAYS` | `90` | days kept in the hot table |
+| `ARCHIVE_PATH_STATS_HOT_DAYS` | `90` | days kept in the hot table (stats **and** derived recency) |
 | `ARCHIVE_PATH_STATS_PRUNE` | `false` | **fail-closed** delete gate; only the literal string `true` enables |
-| `ARCHIVE_PATH_STATS_MAX_DAYS_PER_RUN` | `2` | archive pass day cap |
+| `ARCHIVE_PATH_STATS_MAX_DAYS_PER_RUN` | `2` | archive/prune pass day cap |
 | `POLL_PATH_ARCHIVE` | `3600` (s) | archive pass interval |
 
 Nothing needs to be set for the safe default behavior (guard on, exports on,
@@ -99,8 +99,9 @@ deletes off).
    manifest against its `.csv.gz` (see restore below).
 2. Set `ARCHIVE_PATH_STATS_PRUNE=true` on the Railway collector service and
    redeploy.
-3. Watch the collector logs for `Pruned archived path_hourly_stats day` lines
-   and `/health` for a healthy `path-archive` source.
+3. Watch the collector logs for `Pruned archived path_hourly_stats day` and
+   `Pruned path_recency_hourly day` lines, and `/health` for a healthy
+   `path-archive` source.
 
 To pause deletion at any time, unset the variable or set it to anything other
 than `true`. Exports continue unaffected.
@@ -131,6 +132,19 @@ SELECT * FROM read_csv_auto('path_hourly_stats-*.csv.gz');
 
 Re-inserting into Postgres is a plain `\copy` per file if ever needed; the
 CSV column order matches the table.
+
+`path_recency_hourly` is derived from `path_hourly_stats` (RPC
+`compute_path_recency_hourly`) and is **not** archived on its own. Serving
+only needs about 24 hours (H-1 / H-2 / H-3 / H-24). When prune is armed it
+shares the 90-day hot window: oldest recency days are deleted in the same
+`path-archive` tick, bounded by `ARCHIVE_PATH_STATS_MAX_DAYS_PER_RUN`. To
+rebuild recency for training or a restored window, `\copy` the day's stats
+CSV back in and run:
+
+```bash
+node scripts/backfill-path-recency.mjs --from 2026-07-16T00:00:00Z \
+  --to 2026-07-17T00:00:00Z
+```
 
 ## Failure modes
 

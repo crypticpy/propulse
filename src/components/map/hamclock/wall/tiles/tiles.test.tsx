@@ -690,10 +690,18 @@ describe("DxTargetTile", () => {
 
 describe("WALL_TILE_IDS (registry check, review pass after B4)", () => {
   it("covers exactly the tile ids WALL_TILES registers", () => {
-    // WALL_TILE_IDS is derived from the shipped page catalogue
-    // (`@/lib/hamclock/wallPages`), not hand-copied from `WALL_TILES`, so
-    // this is a completeness check between two independently-built sources,
-    // not a mirror that can silently drift.
+    // WALL_TILE_IDS is the shipped pages plus OPTIONAL_WALL_TILE_IDS,
+    // not a hand-copy of `WALL_TILES`. This is a completeness check
+    // between two independently-built sources so an optional tile that
+    // is registered but omitted from WALL_TILE_IDS cannot be persisted.
     expect(new Set(WALL_TILE_IDS)).toEqual(new Set(Object.keys(WALL_TILES)));
+  });
+
+  it("keeps contests and dxpeditions persistable without placing them on a shipped page", () => {
+    expect(WALL_TILE_IDS).toEqual(
+      expect.arrayContaining(["contests", "dxpeditions"]),
+    );
+    expect(WALL_TILES.contests.title).toBe("Contests");
+    expect(WALL_TILES.dxpeditions.title).toBe("DXpeditions");
   });
 });

@@ -66,7 +66,7 @@ export function relativeTime(iso: string | null, now: Date): string {
 
 export function useRssFeed(url: string | null) {
   const interval = useRefreshInterval();
-  const { data, isLoading, error } = useQuery<RssFeedResponse>({
+  const { data, dataUpdatedAt, isLoading, error } = useQuery<RssFeedResponse>({
     queryKey: ["rss-feed", url],
     queryFn: ({ signal }) => fetchRssFeed(url as string, signal),
     enabled: !!url,
@@ -81,6 +81,7 @@ export function useRssFeed(url: string | null) {
     feed: data?.feed ?? null,
     items: data?.items ?? [],
     status: data?.status ?? "ok",
+    dataUpdatedAt,
     isLoading,
     error: error as Error | null,
   };

@@ -28,8 +28,6 @@ import { createHash } from "node:crypto";
 import { gzipSync, gunzipSync } from "node:zlib";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { log } from "../logger.js";
-import { reportHealth } from "../health.js";
-import { reportToDb } from "../lib/db-helpers.js";
 import type { PathArchiveControls } from "../types.js";
 
 const BUCKET = "propagation-archives";
@@ -513,6 +511,15 @@ export interface ArchivePassResult {
   daysPruned: number;
   rowsArchived: number;
   rowsPruned: number;
+  /**
+   * Days this pass confirmed sealed (a verified manifest exists), oldest
+   * first. This is the only day set `prunePathRecency` is allowed to delete
+   * from — recency has no archive of its own, so a day must appear here,
+   * proving `path_hourly_stats` for that day is durably reconstructable,
+   * before its derived `path_recency_hourly` rows can be destroyed (#609
+   * review N1/N3).
+   */
+  sealedDays: string[];
 }
 
 export async function runArchivePass(
@@ -525,6 +532,7 @@ export async function runArchivePass(
     daysPruned: 0,
     rowsArchived: 0,
     rowsPruned: 0,
+    sealedDays: [],
   };
 
   const oldestDay = await fetchOldestDay(db);
@@ -555,6 +563,11 @@ export async function runArchivePass(
         bytes: manifest.sizeBytes,
       });
     }
+    // A verified manifest exists for `day` at this point, either freshly
+    // sealed above or already sealed by an earlier pass. That is the only
+    // fact `prunePathRecency` is allowed to rely on before deleting the
+    // day's derived recency rows.
+    result.sealedDays.push(day);
 
     if (controls.pruneEnabled) {
       const deleted = await pruneDay(db, manifest);
@@ -578,27 +591,22 @@ export async function runArchivePass(
   return result;
 }
 
+/**
+ * Runs one archive pass and returns its result, or rethrows on failure.
+ * Deliberately does not report "path-archive" health itself: the caller
+ * (collector/src/index.ts) chains this into `prunePathRecency` and reports
+ * combined health for both steps, so a failure here — confirmed by the
+ * rethrow — must stop the caller from running the recency prune, and a
+ * failure in either step must be reflected as unhealthy, not just this one.
+ */
 export async function archivePathStats(
   db: SupabaseClient,
   controls: PathArchiveControls,
-): Promise<void> {
-  const start = Date.now();
-  try {
-    const result = await runArchivePass(db, controls, start);
-    const durationMs = Date.now() - start;
-    reportHealth("path-archive", "ok", result.rowsArchived);
-    await reportToDb(db, "path-archive", "ok", result.rowsArchived, durationMs);
-    if (result.daysArchived > 0 || result.daysPruned > 0) {
-      log("info", "Path stats archive pass complete", {
-        ...result,
-        durationMs,
-      });
-    }
-  } catch (err) {
-    const durationMs = Date.now() - start;
-    const msg = err instanceof Error ? err.message : String(err);
-    reportHealth("path-archive", "error", 0);
-    await reportToDb(db, "path-archive", "error", 0, durationMs, msg);
-    log("error", "Path stats archive pass failed", { error: msg });
+  nowMs: number = Date.now(),
+): Promise<ArchivePassResult> {
+  const result = await runArchivePass(db, controls, nowMs);
+  if (result.daysArchived > 0 || result.daysPruned > 0) {
+    log("info", "Path stats archive pass complete", { ...result });
   }
+  return result;
 }

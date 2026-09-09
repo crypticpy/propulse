@@ -19,6 +19,11 @@
  *
  * Resumable: on a failure it prints the exact --from to restart with. The
  * default range starts at the first hour path_hourly_stats covers.
+ *
+ * Reconstruction after a hot-table prune: restore the day's
+ * path_hourly_stats CSV.gz from the propagation-archives bucket (see
+ * docs/runbooks/AGGREGATE-ARCHIVAL.md), then rerun this script over that
+ * day's hours. path_recency_hourly is derived and is not archived itself.
  */
 import fs from "node:fs";
 import path from "node:path";

@@ -6,6 +6,7 @@ import {
   PATH_STATS_COLUMNS,
   archivableDays,
   archiveObjectPath,
+  archivePathStats,
   csvField,
   manifestObjectPath,
   resetScanCursor,
@@ -14,6 +15,7 @@ import {
   parseKnownGapSnapshot,
   type PathStatsRow,
 } from "./archivePathStats.js";
+import { prunePathRecency } from "./pathRecency.js";
 import type { PathArchiveControls } from "../types.js";
 
 // ── Pure helpers ─────────────────────────────────────────────────────────────
@@ -246,6 +248,8 @@ interface FakeDbOptions {
   pageQueries?: QueryRecord[];
   rpcCalls?: { name: string; args: Record<string, unknown> }[];
   rpcResult?: { data: unknown; error: { message: string } | null };
+  /** Rows returned for the "oldest hour" lookup; empty means no data yet. */
+  oldestHourRows?: { hour_utc: string }[];
   rpcResults?: Array<{ data: unknown; error: { message: string } | null }>;
 }
 
@@ -294,7 +298,9 @@ function makeDb(storage: FakeStorage, opts: FakeDbOptions): SupabaseClient {
         }
         if (q.select === "hour_utc") {
           return {
-            data: [{ hour_utc: "2026-05-01T02:00:00+00:00" }],
+            data: opts.oldestHourRows ?? [
+              { hour_utc: "2026-05-01T02:00:00+00:00" },
+            ],
             error: null,
           };
         }
@@ -342,6 +348,7 @@ describe("runArchivePass", () => {
       daysPruned: 1,
       rowsArchived: 3,
       rowsPruned: 3,
+      sealedDays: ["2026-05-01"],
     });
 
     const gz = storage.objects.get(archiveObjectPath("2026-05-01"));
@@ -523,6 +530,7 @@ describe("runArchivePass", () => {
       daysPruned: 0,
       rowsArchived: 0,
       rowsPruned: 0,
+      sealedDays: ["2026-05-01"],
     });
     expect(rpcCalls).toEqual([]);
   });
@@ -682,5 +690,156 @@ describe("runArchivePass", () => {
     ).toBe(downloadsAfterFirstPass);
     expect(second.daysArchived).toBe(1);
     expect(storage.objects.has(archiveObjectPath("2026-05-03"))).toBe(true);
+  });
+});
+
+describe("archivePathStats", () => {
+  beforeEach(() => {
+    resetScanCursor();
+  });
+
+  // F1 (#609 review): archivePathStats used to catch its own errors and
+  // resolve, so collector/src/index.ts always reached prunePathRecency even
+  // when the export/verify step failed — pruning a recency day whose
+  // reconstruction source was never confirmed archived. It must now propagate
+  // the failure so the caller can skip the prune on a confirmed failure only.
+  it("rejects instead of swallowing a failed archive pass", async () => {
+    const storage = new FakeStorage();
+    storage.corruptOnDownload = archiveObjectPath("2026-05-01");
+    const db = makeDb(storage, { liveCount: () => 3 });
+
+    await expect(archivePathStats(db, CONTROLS)).rejects.toThrow(
+      /SHA-256 mismatch/,
+    );
+    // Fail-closed: no manifest sealed, so no prune could have followed.
+    expect(storage.objects.has(manifestObjectPath("2026-05-01"))).toBe(false);
+  });
+
+  it("resolves with the pass result on success", async () => {
+    const storage = new FakeStorage();
+    const db = makeDb(storage, { liveCount: () => 3 });
+
+    await expect(archivePathStats(db, CONTROLS)).resolves.toEqual({
+      daysArchived: 1,
+      daysPruned: 1,
+      rowsArchived: 3,
+      rowsPruned: 3,
+      sealedDays: ["2026-05-01"],
+    });
+  });
+});
+
+// ── N1/N2 (#609 review): prunePathRecency must only ever delete days the ──
+// archive pass itself confirmed sealed this tick, and must issue bounded
+// hour-by-hour deletes rather than one day-wide statement. These exercise
+// the real runArchivePass output feeding the real prunePathRecency, the
+// same wiring collector/src/index.ts uses.
+describe("prunePathRecency consumes runArchivePass.sealedDays (N1/N3)", () => {
+  beforeEach(() => {
+    resetScanCursor();
+  });
+
+  interface FakeRecencyDb {
+    db: SupabaseClient;
+    fromCalls: number;
+    deleted: { start: string; end: string }[];
+  }
+
+  function fakeRecencyDb(): FakeRecencyDb {
+    const deleted: { start: string; end: string }[] = [];
+    const fake: FakeRecencyDb = {
+      fromCalls: 0,
+      deleted,
+      db: null as unknown as SupabaseClient,
+    };
+    fake.db = {
+      from(table: string) {
+        if (table !== "path_recency_hourly") {
+          throw new Error(`unexpected table ${table}`);
+        }
+        fake.fromCalls += 1;
+        return {
+          delete: () => ({
+            gte: (_column: string, start: string) => ({
+              lt: async (_column: string, end: string) => {
+                deleted.push({ start, end });
+                return { count: 2900, error: null };
+              },
+            }),
+          }),
+        };
+      },
+    } as unknown as SupabaseClient;
+    return fake;
+  }
+
+  it("deletes nothing when recency's own oldest day would differ from what the archive sealed", async () => {
+    // Archive-side: only 2026-05-01 is old enough (single-day window) and
+    // gets exported+sealed this pass.
+    const storage = new FakeStorage();
+    const archiveDb = makeDb(storage, { liveCount: () => 3 });
+    const oneDayWindow = Date.parse("2026-07-31T12:00:00Z");
+    const archived = await runArchivePass(
+      archiveDb,
+      { ...CONTROLS, pruneEnabled: false },
+      oneDayWindow,
+    );
+    expect(archived.sealedDays).toEqual(["2026-05-01"]);
+
+    // Recency-side: prunePathRecency is never given a chance to compute its
+    // own "oldest day" (no such query exists in this fake at all) — it can
+    // only act on the list handed to it. Feeding it a day the archive pass
+    // never sealed (a stand-in for "recency's true oldest day is Y != X")
+    // must not reach the fake at all beyond the days actually listed.
+    const recency = fakeRecencyDb();
+    const result = await prunePathRecency(
+      recency.db,
+      { ...CONTROLS, pruneEnabled: true },
+      archived.sealedDays,
+    );
+
+    // Every delete issued targets 2026-05-01 only — the confirmed-sealed
+    // day — never any other day recency alone might have picked.
+    expect(recency.deleted.every((d) => d.start.startsWith("2026-05-01"))).toBe(
+      true,
+    );
+    expect(recency.deleted).toHaveLength(24); // hour-by-hour, N2
+    expect(result.rowsDeleted).toBe(24 * 2900);
+  });
+
+  it("deletes nothing when the archive pass has no oldest day (fetchOldestDay returns null)", async () => {
+    const storage = new FakeStorage();
+    const archiveDb = makeDb(storage, {
+      liveCount: () => 0,
+      oldestHourRows: [], // path_hourly_stats is empty
+    });
+    const archived = await runArchivePass(archiveDb, CONTROLS, NOW);
+    expect(archived.sealedDays).toEqual([]);
+
+    const recency = fakeRecencyDb();
+    const result = await prunePathRecency(
+      recency.db,
+      CONTROLS,
+      archived.sealedDays,
+    );
+
+    expect(result).toEqual({ daysPruned: 0, rowsDeleted: 0 });
+    expect(recency.fromCalls).toBe(0);
+    expect(recency.deleted).toEqual([]);
+  });
+
+  it("issues 24 bounded hour-scoped deletes per day instead of one day-wide statement", async () => {
+    const recency = fakeRecencyDb();
+    await prunePathRecency(recency.db, CONTROLS, ["2026-04-01"]);
+
+    expect(recency.deleted).toHaveLength(24);
+    expect(recency.deleted[0]).toEqual({
+      start: "2026-04-01T00:00:00.000Z",
+      end: "2026-04-01T01:00:00.000Z",
+    });
+    expect(recency.deleted[23]).toEqual({
+      start: "2026-04-01T23:00:00.000Z",
+      end: "2026-04-02T00:00:00.000Z",
+    });
   });
 });

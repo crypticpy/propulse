@@ -73,9 +73,9 @@ export interface ArchiveControls {
 }
 
 export interface PathArchiveControls {
-  /** Days of path_hourly_stats kept hot in Postgres; older days archive */
+  /** Days of path_hourly_stats (and derived path_recency_hourly) kept hot */
   hotDays: number;
-  /** Delete archived days from the hot table. Fail closed — default false */
+  /** Delete archived stats days and recency older than hotDays. Fail closed */
   pruneEnabled: boolean;
   /** Bound on days exported/pruned per scheduler tick */
   maxDaysPerRun: number;

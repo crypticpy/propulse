@@ -458,6 +458,7 @@ export function BandModeModal({ isOpen, onClose }: BandModeModalProps) {
                         key={band}
                         className={`
                           relative rounded-lg overflow-hidden transition-all duration-150 group
+                          active:scale-90 active:brightness-125
                           ${isHidden ? "opacity-40" : ""}
                           ${isActive ? "ring-[3px] ring-su-text scale-[1.08] z-10" : ""}
                         `}
@@ -479,7 +480,7 @@ export function BandModeModal({ isOpen, onClose }: BandModeModalProps) {
                         <button
                           type="button"
                           onClick={() => handleBandSelect(band)}
-                          className="absolute inset-0 w-full h-full active:scale-90 active:brightness-125 cursor-pointer"
+                          className="block w-full cursor-pointer"
                         >
                           {/* Top strip — band color identity */}
                           <div

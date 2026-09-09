@@ -159,7 +159,7 @@ export function BandActivityBar({
                 style={{ textShadow: "0 1px 1px rgba(255,255,255,0.3)" }}
               >
                 {seg.band}
-                <span className="ml-1 text-[11px] font-semibold opacity-90">
+                <span className="ml-1 text-xs font-semibold opacity-90">
                   {seg.count}
                 </span>
               </span>

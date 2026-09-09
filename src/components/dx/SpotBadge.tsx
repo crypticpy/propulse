@@ -179,8 +179,8 @@ export const SpotBadge = forwardRef<HTMLSpanElement, SpotBadgeProps>(
     const displayLabel = label ?? config.label;
 
     const sizeStyles = {
-      xs: "text-[9px] px-1 py-0.5",
-      sm: "text-[10px] px-1.5 py-0.5",
+      xs: "text-xs px-1 py-0.5",
+      sm: "text-xs px-1.5 py-0.5",
     };
 
     const baseStyles = [

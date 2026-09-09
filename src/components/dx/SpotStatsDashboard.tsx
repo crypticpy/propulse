@@ -189,7 +189,7 @@ function BandDistribution({ data }: { data: BandStats[] }) {
       {data.slice(0, 8).map((item) => (
         <div key={item.band} className="flex items-center gap-2">
           <span
-            className="w-12 text-[10px] font-bold px-1.5 py-0.5 rounded text-center"
+            className="w-12 text-xs font-bold px-1.5 py-0.5 rounded text-center"
             style={{
               backgroundColor: item.color.bgColor,
               color: item.color.color,
@@ -206,7 +206,7 @@ function BandDistribution({ data }: { data: BandStats[] }) {
               }}
             />
           </div>
-          <span className="text-[10px] text-su-muted w-10 text-right tabular-nums">
+          <span className="text-xs text-su-muted w-10 text-right tabular-nums">
             {item.count}
           </span>
         </div>
@@ -283,7 +283,7 @@ function ModeDistribution({ data }: { data: ModeStats[] }) {
       {/* Legend */}
       <div className="flex-1 space-y-1">
         {segments.map((item) => (
-          <div key={item.mode} className="flex items-center gap-2 text-[10px]">
+          <div key={item.mode} className="flex items-center gap-2 text-xs">
             <span
               className="w-2 h-2 rounded-full"
               style={{ backgroundColor: item.color }}
@@ -325,7 +325,7 @@ function ActivityTimeline({
           />
         ))}
       </div>
-      <div className="flex justify-between text-[8px] text-su-muted">
+      <div className="flex justify-between text-xs text-su-muted">
         <span>00</span>
         <span>06</span>
         <span>12</span>
@@ -359,7 +359,7 @@ function TopList({
     <div>
       <button
         onClick={() => setExpanded(!expanded)}
-        className="w-full flex items-center justify-between text-[10px] text-su-muted uppercase tracking-wide mb-1 hover:text-su-text transition-colors"
+        className="w-full flex items-center justify-between text-xs text-su-muted uppercase tracking-wide mb-1 hover:text-su-text transition-colors"
       >
         <span className="flex items-center gap-1">
           <span>{icon}</span>
@@ -371,7 +371,7 @@ function TopList({
         {displayItems.map((item, i) => (
           <div
             key={item.name}
-            className="flex items-center justify-between text-[10px] px-1 py-0.5 rounded hover:bg-su-line/10"
+            className="flex items-center justify-between text-xs px-1 py-0.5 rounded hover:bg-su-line/10"
           >
             <span className="flex items-center gap-1.5">
               <span className="text-su-muted w-3">{i + 1}.</span>
@@ -395,25 +395,25 @@ function SummaryStats({ stats }: { stats: Stats }) {
         <div className="text-2xl font-bold text-su-text tabular-nums">
           {stats.total}
         </div>
-        <div className="text-[9px] text-su-muted uppercase">Total</div>
+        <div className="text-xs text-su-muted uppercase">Total</div>
       </div>
       <div className="bg-su-line/10 rounded-lg p-2">
         <div className="text-2xl font-bold text-cosmic-cyan tabular-nums">
           {stats.uniqueCallsigns}
         </div>
-        <div className="text-[9px] text-su-muted uppercase">Calls</div>
+        <div className="text-xs text-su-muted uppercase">Calls</div>
       </div>
       <div className="bg-su-line/10 rounded-lg p-2">
         <div className="text-2xl font-bold text-signal-green tabular-nums">
           {stats.uniqueGrids}
         </div>
-        <div className="text-[9px] text-su-muted uppercase">Grids</div>
+        <div className="text-xs text-su-muted uppercase">Grids</div>
       </div>
       <div className="bg-su-line/10 rounded-lg p-2">
         <div className="text-2xl font-bold text-plasma-orange tabular-nums">
           {stats.avgPerHour.toFixed(0)}
         </div>
-        <div className="text-[9px] text-su-muted uppercase">Avg/Hr</div>
+        <div className="text-xs text-su-muted uppercase">Avg/Hr</div>
       </div>
     </div>
   );
@@ -496,7 +496,7 @@ export function SpotStatsDashboard({
           <span>📊</span>
           Spot Statistics
         </h3>
-        <span className="text-[10px] text-su-muted">
+        <span className="text-xs text-su-muted">
           Last {spots.length} spots
         </span>
       </div>
@@ -506,7 +506,7 @@ export function SpotStatsDashboard({
 
       {/* Band Distribution */}
       <div>
-        <div className="text-[10px] text-su-muted uppercase tracking-wide mb-2">
+        <div className="text-xs text-su-muted uppercase tracking-wide mb-2">
           Band Distribution
         </div>
         <BandDistribution data={stats.byBand} />
@@ -514,7 +514,7 @@ export function SpotStatsDashboard({
 
       {/* Mode Distribution */}
       <div>
-        <div className="text-[10px] text-su-muted uppercase tracking-wide mb-2">
+        <div className="text-xs text-su-muted uppercase tracking-wide mb-2">
           Mode Distribution
         </div>
         <ModeDistribution data={stats.byMode} />
@@ -522,7 +522,7 @@ export function SpotStatsDashboard({
 
       {/* Activity Timeline */}
       <div>
-        <div className="text-[10px] text-su-muted uppercase tracking-wide mb-2">
+        <div className="text-xs text-su-muted uppercase tracking-wide mb-2">
           24h Activity (UTC)
         </div>
         <ActivityTimeline data={stats.byHour} currentHour={currentHour} />

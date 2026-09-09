@@ -252,21 +252,21 @@ export function InsightsBar({
         tabIndex={0}
         title="DX Cluster activity"
       >
-        <span className="text-[9px] font-semibold text-su-muted uppercase tracking-wider">
+        <span className="text-xs font-semibold text-su-muted uppercase tracking-wider">
           Cluster
         </span>
         <span className="text-sm font-bold font-mono text-su-text tabular-nums">
           {clusterStats.total}
         </span>
-        <span className="text-[10px] text-su-muted">spots</span>
+        <span className="text-xs text-su-muted">spots</span>
         <span className="text-sm font-bold font-mono text-su-text tabular-nums">
           {clusterStats.uniqueCalls}
         </span>
-        <span className="text-[10px] text-su-muted">calls</span>
+        <span className="text-xs text-su-muted">calls</span>
         <span className="text-sm font-bold font-mono text-su-text tabular-nums">
           {clusterStats.uniqueGrids}
         </span>
-        <span className="text-[10px] text-su-muted">grids</span>
+        <span className="text-xs text-su-muted">grids</span>
         <span
           className={`text-sm font-bold font-mono tabular-nums ${rateColor}`}
         >
@@ -296,17 +296,17 @@ export function InsightsBar({
         tabIndex={0}
         title="Logbook statistics"
       >
-        <span className="text-[9px] font-semibold text-su-muted uppercase tracking-wider">
+        <span className="text-xs font-semibold text-su-muted uppercase tracking-wider">
           Log
         </span>
         <span className="text-sm font-bold font-mono text-su-text tabular-nums">
           {logStats.todayCount}
         </span>
-        <span className="text-[10px] text-su-muted">today</span>
+        <span className="text-xs text-su-muted">today</span>
         <span className="text-sm font-bold font-mono text-su-text tabular-nums">
           {logStats.weekCount}
         </span>
-        <span className="text-[10px] text-su-muted">week</span>
+        <span className="text-xs text-su-muted">week</span>
         <span
           className={`text-sm font-bold font-mono tabular-nums ${
             logStats.entities > 0 ? "text-plasma-orange" : "text-su-text"
@@ -314,7 +314,7 @@ export function InsightsBar({
         >
           {logStats.entities}
         </span>
-        <span className="text-[10px] text-su-muted">DXCC</span>
+        <span className="text-xs text-su-muted">DXCC</span>
       </div>
 
       <Divider />
@@ -330,11 +330,11 @@ export function InsightsBar({
         tabIndex={0}
         title="Band conditions (Good+)"
       >
-        <span className="text-[9px] font-semibold text-su-muted uppercase tracking-wider">
+        <span className="text-xs font-semibold text-su-muted uppercase tracking-wider">
           Bands
         </span>
         {goodBands.length === 0 ? (
-          <span className="text-[10px] text-su-muted italic">
+          <span className="text-xs text-su-muted italic">
             {currentKp === null || currentSfi === null ? "N/A" : "none good"}
           </span>
         ) : (
@@ -352,7 +352,7 @@ export function InsightsBar({
                   {b.name}
                 </span>
                 <span
-                  className="text-[10px] font-medium"
+                  className="text-xs font-medium"
                   style={{ color: getConditionColor(bestCondition) }}
                 >
                   {abbreviateCondition(bestCondition)}
@@ -374,10 +374,10 @@ export function InsightsBar({
         tabIndex={0}
         title="This day in DX history"
       >
-        <span className="text-[9px] font-semibold text-su-muted uppercase tracking-wider">
+        <span className="text-xs font-semibold text-su-muted uppercase tracking-wider">
           History
         </span>
-        <span className="text-[10px] text-su-muted truncate max-w-[200px]">
+        <span className="text-xs text-su-muted truncate max-w-[240px]">
           {historyInfo}
         </span>
       </div>

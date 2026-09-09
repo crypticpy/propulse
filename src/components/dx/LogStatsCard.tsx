@@ -229,7 +229,7 @@ export function LogStatsCard({
       <div className="flex items-center justify-between mb-2">
         <div className="flex items-center gap-1.5">
           <LogIcon className="w-3.5 h-3.5 text-plasma-orange" />
-          <span className="text-[10px] font-medium text-su-muted uppercase tracking-wide">
+          <span className="text-xs font-medium text-su-muted uppercase tracking-wide">
             Log Stats
           </span>
         </div>
@@ -271,7 +271,7 @@ export function LogStatsCard({
               <span className="text-3xl font-bold font-mono text-su-text leading-none">
                 {stats.today}
               </span>
-              <span className="text-[10px] text-su-muted uppercase mt-1">
+              <span className="text-xs text-su-muted uppercase mt-1">
                 Today
               </span>
             </div>
@@ -284,7 +284,7 @@ export function LogStatsCard({
               <span className="text-3xl font-bold font-mono text-su-text leading-none">
                 {stats.week}
               </span>
-              <span className="text-[10px] text-su-muted uppercase mt-1">
+              <span className="text-xs text-su-muted uppercase mt-1">
                 Week
               </span>
             </div>
@@ -297,7 +297,7 @@ export function LogStatsCard({
               <span className="text-3xl font-bold font-mono text-su-text leading-none">
                 {stats.month}
               </span>
-              <span className="text-[10px] text-su-muted uppercase mt-1">
+              <span className="text-xs text-su-muted uppercase mt-1">
                 Month
               </span>
             </div>
@@ -310,7 +310,7 @@ export function LogStatsCard({
               <span className="text-3xl font-bold font-mono text-cosmic-cyan leading-none">
                 {stats.entities}
               </span>
-              <span className="text-[10px] text-su-muted uppercase mt-1">
+              <span className="text-xs text-su-muted uppercase mt-1">
                 DXCC
               </span>
             </div>
@@ -323,7 +323,7 @@ export function LogStatsCard({
               <span className="text-3xl font-bold font-mono text-plasma-orange leading-none">
                 {stats.total.toLocaleString()}
               </span>
-              <span className="text-[10px] text-su-muted uppercase mt-1">
+              <span className="text-xs text-su-muted uppercase mt-1">
                 Total
               </span>
             </div>
@@ -331,10 +331,10 @@ export function LogStatsCard({
 
           {/* 7-day activity bar chart */}
           <div className="mt-3 pt-2 border-t border-su-line/40">
-            <div className="text-[9px] text-su-muted uppercase tracking-wider mb-1.5">
+            <div className="text-xs text-su-muted uppercase tracking-wider mb-1.5">
               Last 7 Days
             </div>
-            <div className="flex items-end gap-1 h-12">
+            <div className="flex items-end gap-1 h-14">
               {dailyActivity.map((day) => (
                 <div
                   key={day.label}
@@ -348,7 +348,7 @@ export function LogStatsCard({
                       minHeight: "2px",
                     }}
                   />
-                  <span className="text-[8px] text-su-muted font-mono">
+                  <span className="text-xs text-su-muted font-mono">
                     {day.label}
                   </span>
                 </div>

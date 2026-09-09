@@ -32,6 +32,25 @@
  * `src/**\/*.tsx` today would either fail on ~1744 un-triaged pre-existing
  * sites or require an allowlist this session cannot back with real per-site
  * judgement.
+ *
+ * #808 dx round: `src/components/dx/` census found 148 sub-floor sites
+ * across 24 files (`PredictionsCard.tsx`'s 2 sites excluded here -- a
+ * concurrent PR #818 owns that file; reported separately, not fixed or
+ * audited by this round). Of the remaining 22, `WorkStationPanel.tsx` and
+ * `DXSpotOverlay.tsx` are dead code (zero importers/render sites outside
+ * this barrel and its own re-export) and were left un-raised on purpose --
+ * raising unreachable markup proves nothing here. This PR fixes the 15
+ * most-mounted files below (117 sites): the `DXSpotList` row family
+ * (`DXSpotList.tsx`, `SpotRow.tsx`, `FilterControls.tsx`, `SpotBadge.tsx`),
+ * `SpotDetailPanel.tsx`, the `DXConsole` direct-render family
+ * (`DXConsole.tsx`, `BandActivityBar.tsx`, `BandMap.tsx`, `SkedScheduler.tsx`,
+ * `InsightsBar.tsx`), and the insights-bar modal/card family
+ * (`modals/LogStatsDetailModal.tsx`, `LogStatsCard.tsx`, `HistoryCard.tsx`,
+ * `ClusterPulseCard.tsx`, `SpotStatsDashboard.tsx`). Left for a follow-up:
+ * `modals/HistoryDetailModal.tsx` (1 site), `BandVerdictPanel.tsx` (7),
+ * `BandVerdictDetailsDialog.tsx` (7), `BandScope.tsx` (1),
+ * `DxWizardContestNote.tsx` (5), and `WSJTXStatusPanel.tsx` (5) -- all
+ * confirmed mounted, just narrower-reach than the 15 above.
  */
 
 import { fileURLToPath } from "node:url";
@@ -52,6 +71,22 @@ const FILES = [
   "src/components/map/hamclock/HamClockLayerChips.tsx",
   "src/components/map/hamclock/HamClockModeSwitch.tsx",
   "src/components/map/hamclock/HamClockProjectionSwitch.tsx",
+  // #808 dx round -- see module doc above for the full census and split.
+  "src/components/dx/DXSpotList/DXSpotList.tsx",
+  "src/components/dx/DXSpotList/SpotRow.tsx",
+  "src/components/dx/DXSpotList/FilterControls.tsx",
+  "src/components/dx/SpotBadge.tsx",
+  "src/components/dx/SpotDetailPanel.tsx",
+  "src/components/dx/DXConsole.tsx",
+  "src/components/dx/BandActivityBar.tsx",
+  "src/components/dx/BandMap.tsx",
+  "src/components/dx/SkedScheduler.tsx",
+  "src/components/dx/InsightsBar.tsx",
+  "src/components/dx/modals/LogStatsDetailModal.tsx",
+  "src/components/dx/LogStatsCard.tsx",
+  "src/components/dx/HistoryCard.tsx",
+  "src/components/dx/ClusterPulseCard.tsx",
+  "src/components/dx/SpotStatsDashboard.tsx",
 ];
 
 interface AllowlistEntry {
@@ -102,7 +137,7 @@ function findSubFloorSites(file: string): SubFloorSite[] {
   return sites;
 }
 
-describe("sub-text-xs sizing stays at the floor in the #783 census set", () => {
+describe("sub-text-xs sizing stays at the floor in the #783/#808 audited set", () => {
   it("has no un-allowlisted text-[Npx] with N < 12 in the audited files", () => {
     const violations: string[] = [];
     for (const file of FILES) {

@@ -139,7 +139,7 @@ export const FilterControls = memo(function FilterControls({
       <div className="flex items-center gap-2 mb-1">
         <button
           onClick={() => setIsCollapsed(false)}
-          className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[11px] font-semibold transition-all ${
+          className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-all ${
             activeFilterCount > 0
               ? "bg-plasma-orange/15 text-plasma-orange border border-plasma-orange/40 hover:bg-plasma-orange/25"
               : "bg-su-line/10 text-su-muted border border-su-line/40 hover:bg-su-line/20 hover:text-su-text"
@@ -161,7 +161,7 @@ export const FilterControls = memo(function FilterControls({
           </svg>
           Filters
           {activeFilterCount > 0 && (
-            <span className="px-1.5 py-0.5 rounded-full text-[9px] font-bold bg-plasma-orange/30 text-plasma-orange min-w-[18px] text-center">
+            <span className="px-1.5 py-0.5 rounded-full text-xs font-bold bg-plasma-orange/30 text-plasma-orange min-w-[18px] text-center">
               {activeFilterCount}
             </span>
           )}
@@ -187,7 +187,7 @@ export const FilterControls = memo(function FilterControls({
             placeholder="Search callsigns..."
             value={searchText}
             onChange={(e) => onSearchChange(e.target.value)}
-            className="w-full bg-su-line/10 border border-su-line/40 rounded px-2 py-1.5 text-[11px] text-su-text placeholder:text-su-muted/80 focus:outline-none focus:border-plasma-orange/50"
+            className="w-full bg-su-line/10 border border-su-line/40 rounded px-2 py-1.5 text-xs text-su-text placeholder:text-su-muted/80 focus:outline-none focus:border-plasma-orange/50"
           />
           {searchText && (
             <button
@@ -220,7 +220,7 @@ export const FilterControls = memo(function FilterControls({
             value={gridFilter}
             onChange={(e) => onGridFilterChange(e.target.value.toUpperCase())}
             maxLength={MAX_GRID_INPUT_LENGTH}
-            className="w-full bg-su-line/10 border border-su-line/40 rounded px-2 py-1.5 text-[11px] text-su-text placeholder:text-su-muted/80 focus:outline-none focus:border-cyan-500/50 font-mono uppercase"
+            className="w-full bg-su-line/10 border border-su-line/40 rounded px-2 py-1.5 text-xs text-su-text placeholder:text-su-muted/80 focus:outline-none focus:border-cyan-500/50 font-mono uppercase"
             title="Filter by Maidenhead grid locator"
           />
           {gridFilter && (
@@ -260,7 +260,7 @@ export const FilterControls = memo(function FilterControls({
             placeholder="Search callsigns..."
             value={searchText}
             onChange={(e) => onSearchChange(e.target.value)}
-            className="w-full bg-su-line/10 border border-su-line/40 rounded px-2 py-1.5 text-[11px] text-su-text placeholder:text-su-muted/80 focus:outline-none focus:border-plasma-orange/50"
+            className="w-full bg-su-line/10 border border-su-line/40 rounded px-2 py-1.5 text-xs text-su-text placeholder:text-su-muted/80 focus:outline-none focus:border-plasma-orange/50"
           />
           {searchText && (
             <button
@@ -293,7 +293,7 @@ export const FilterControls = memo(function FilterControls({
             value={gridFilter}
             onChange={(e) => onGridFilterChange(e.target.value.toUpperCase())}
             maxLength={MAX_GRID_INPUT_LENGTH}
-            className="w-full bg-su-line/10 border border-su-line/40 rounded px-2 py-1.5 text-[11px] text-su-text placeholder:text-su-muted/80 focus:outline-none focus:border-cyan-500/50 font-mono uppercase"
+            className="w-full bg-su-line/10 border border-su-line/40 rounded px-2 py-1.5 text-xs text-su-text placeholder:text-su-muted/80 focus:outline-none focus:border-cyan-500/50 font-mono uppercase"
             title="Filter by Maidenhead grid locator (e.g., CN87, FN31)"
           />
           {gridFilter && (
@@ -322,7 +322,7 @@ export const FilterControls = memo(function FilterControls({
         {/* Needed Only Toggle */}
         <button
           onClick={onNeededOnlyToggle}
-          className={`flex items-center gap-1 px-2 py-1.5 rounded text-[10px] font-medium transition-all ${
+          className={`flex items-center gap-1 px-2 py-1.5 rounded text-xs font-medium transition-all ${
             neededOnly
               ? "bg-yellow-500/20 text-yellow-400 border border-yellow-500/50"
               : "bg-su-line/10 text-su-muted border border-su-line/40 hover:bg-su-line/20 hover:text-su-text"
@@ -350,7 +350,7 @@ export const FilterControls = memo(function FilterControls({
           </svg>
           {neededCount > 0 && (
             <span
-              className={`text-[9px] px-1 py-0.5 rounded ${
+              className={`text-xs px-1 py-0.5 rounded ${
                 neededOnly
                   ? "bg-yellow-500/30"
                   : "bg-yellow-500/20 text-yellow-400"
@@ -385,17 +385,17 @@ export const FilterControls = memo(function FilterControls({
       </div>
 
       {/* Row 2: Time range + sort by needed */}
-      <div className="flex items-center justify-between gap-2">
-        <div className="flex items-center gap-1.5">
-          <span className="text-[9px] text-su-muted uppercase tracking-wide font-semibold">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="flex flex-wrap items-center gap-1.5">
+          <span className="text-xs text-su-muted uppercase tracking-wide font-semibold">
             Time:
           </span>
-          <div className="flex gap-0.5">
+          <div className="flex flex-wrap gap-0.5">
             {TIME_RANGE_OPTIONS.map((option) => (
               <button
                 key={option.value}
                 onClick={() => onMaxAgeChange(option.value)}
-                className={`px-1.5 py-0.5 rounded text-[9px] font-medium transition-all ${
+                className={`px-1.5 py-0.5 rounded text-xs font-medium transition-all ${
                   maxAge === option.value
                     ? "bg-cyan-500/30 text-cyan-400 border border-cyan-500/50"
                     : "bg-su-line/10 text-su-muted border border-su-line/40 hover:bg-su-line/20 hover:text-su-text"
@@ -412,7 +412,7 @@ export const FilterControls = memo(function FilterControls({
         {/* Sort by Needed toggle */}
         <button
           onClick={onSortByNeededToggle}
-          className={`flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-medium transition-all ${
+          className={`flex items-center gap-1 px-1.5 py-0.5 rounded text-xs font-medium transition-all ${
             sortByNeeded
               ? "bg-yellow-500/20 text-yellow-400 border border-yellow-500/40"
               : "bg-su-line/10 text-su-muted border border-su-line/40 hover:bg-su-line/20 hover:text-su-text"
@@ -453,7 +453,7 @@ export const FilterControls = memo(function FilterControls({
             <button
               key={source}
               onClick={() => onSourceToggle(source)}
-              className={`px-1.5 py-0.5 rounded text-[9px] font-medium transition-all ${
+              className={`px-1.5 py-0.5 rounded text-xs font-medium transition-all ${
                 isActive ? "opacity-100" : "opacity-40 hover:opacity-70"
               }`}
               style={{
@@ -477,7 +477,7 @@ export const FilterControls = memo(function FilterControls({
           <div key={preset.id} className="group relative">
             <button
               onClick={() => onApplyPreset(preset.bands)}
-              className="px-1.5 py-0.5 rounded text-[9px] font-medium bg-purple-500/20 text-purple-300 border border-purple-500/40 hover:bg-purple-500/30 hover:border-purple-500/60 transition-all"
+              className="px-1.5 py-0.5 rounded text-xs font-medium bg-purple-500/20 text-purple-300 border border-purple-500/40 hover:bg-purple-500/30 hover:border-purple-500/60 transition-all"
               title={`Apply preset: ${preset.bands.join(", ")}`}
             >
               {preset.name}
@@ -487,7 +487,7 @@ export const FilterControls = memo(function FilterControls({
                 e.stopPropagation();
                 setDeletePresetId(preset.id);
               }}
-              className="absolute -top-1 -right-1 w-3 h-3 rounded-full bg-alert-red text-su-canvas text-[7px] font-bold opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center hover:bg-red-500"
+              className="absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full bg-alert-red text-su-canvas text-xs leading-none font-bold opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center hover:bg-red-500"
               title="Delete preset"
               aria-label={`Delete preset ${preset.name}`}
             >
@@ -507,12 +507,12 @@ export const FilterControls = memo(function FilterControls({
                   onKeyDown={handleSaveKeyDown}
                   placeholder="Name..."
                   maxLength={MAX_PRESET_NAME_LENGTH}
-                  className="w-20 px-1 py-0.5 rounded text-[9px] bg-su-line/20 border border-su-line/50 text-su-text placeholder:text-su-muted/80 focus:outline-none focus:border-purple-500/50"
+                  className="w-20 px-1 py-0.5 rounded text-xs bg-su-line/20 border border-su-line/50 text-su-text placeholder:text-su-muted/80 focus:outline-none focus:border-purple-500/50"
                 />
                 <button
                   onClick={handleSavePreset}
                   disabled={!presetName.trim()}
-                  className="px-1 py-0.5 rounded text-[9px] font-medium bg-purple-500/30 text-purple-300 border border-purple-500/50 hover:bg-purple-500/40 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
+                  className="px-1 py-0.5 rounded text-xs font-medium bg-purple-500/30 text-purple-300 border border-purple-500/50 hover:bg-purple-500/40 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
                 >
                   Save
                 </button>
@@ -521,7 +521,7 @@ export const FilterControls = memo(function FilterControls({
                     setShowSaveInput(false);
                     setPresetName("");
                   }}
-                  className="px-0.5 py-0.5 rounded text-[9px] text-su-muted hover:text-su-text transition-colors"
+                  className="px-0.5 py-0.5 rounded text-xs text-su-muted hover:text-su-text transition-colors"
                 >
                   Cancel
                 </button>
@@ -529,7 +529,7 @@ export const FilterControls = memo(function FilterControls({
             ) : (
               <button
                 onClick={() => setShowSaveInput(true)}
-                className="px-1.5 py-0.5 rounded text-[9px] font-medium text-purple-400/70 border border-dashed border-purple-500/40 hover:text-purple-300 hover:border-purple-500/60 transition-all"
+                className="px-1.5 py-0.5 rounded text-xs font-medium text-purple-400/70 border border-dashed border-purple-500/40 hover:text-purple-300 hover:border-purple-500/60 transition-all"
                 title={`Save current selection (${selectedBands.join(", ")}) as preset`}
               >
                 + Save
@@ -539,7 +539,7 @@ export const FilterControls = memo(function FilterControls({
         )}
         {selectedBands.length > 0 && bandPresets.length >= MAX_BAND_PRESETS && (
           <span
-            className="text-[8px] text-su-muted"
+            className="text-xs text-su-muted"
             title={`Maximum ${MAX_BAND_PRESETS} presets`}
           >
             (max)
@@ -559,7 +559,7 @@ export const FilterControls = memo(function FilterControls({
             <button
               key={band}
               onClick={() => onBandToggle(band)}
-              className="px-1.5 py-0.5 rounded text-[9px] font-bold transition-all"
+              className="px-1.5 py-0.5 rounded text-xs font-bold transition-all"
               style={
                 isActive
                   ? {
@@ -596,7 +596,7 @@ export const FilterControls = memo(function FilterControls({
             <button
               key={mode}
               onClick={() => onModeToggle(mode)}
-              className={`px-1.5 py-0.5 rounded text-[9px] font-medium transition-all border border-su-line/50 ${
+              className={`px-1.5 py-0.5 rounded text-xs font-medium transition-all border border-su-line/50 ${
                 isActive
                   ? "bg-su-line/20 text-su-text"
                   : "bg-transparent text-su-muted opacity-60 hover:text-su-text hover:opacity-80"

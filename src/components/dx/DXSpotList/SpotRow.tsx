@@ -233,8 +233,8 @@ export const SpotRow = memo(function SpotRow({
   const rowClasses = useMemo(() => {
     // Grid columns: Time, Age (optional), Band, Freq, DX, Dist, Spotter, Info, Actions
     const gridCols = showAgeColumn
-      ? "grid-cols-[46px_40px_52px_66px_1fr_50px_62px_1fr_72px]"
-      : "grid-cols-[46px_52px_66px_1fr_50px_62px_1fr_72px]";
+      ? "grid-cols-[46px_40px_52px_66px_1fr_60px_68px_1fr_72px]"
+      : "grid-cols-[46px_52px_66px_1fr_60px_68px_1fr_72px]";
     const base = `group ${compact ? "flex flex-col" : `grid ${gridCols}`} gap-1.5 px-2 py-1 cursor-pointer transition-all duration-150`;
 
     // Q6: Zebra striping for alternating rows (only applies when no other highlight)
@@ -441,7 +441,7 @@ export const SpotRow = memo(function SpotRow({
     >
       {/* Time */}
       <div
-        className="text-su-muted text-[11px] font-mono tabular-nums leading-tight flex items-center"
+        className="text-su-muted text-xs font-mono tabular-nums leading-tight flex items-center"
         title={`${minutesAgo}m ago`}
         style={cellFadeStyle}
       >
@@ -463,7 +463,7 @@ export const SpotRow = memo(function SpotRow({
       <div className="flex items-center" style={cellFadeStyle}>
         <button
           onClick={handleBandClick}
-          className={`px-1 py-0.5 rounded text-[10px] font-bold transition-all leading-none ${
+          className={`px-1 py-0.5 rounded text-xs font-bold transition-all leading-none ${
             isBandActive
               ? "ring-2 ring-su-line/60 ring-offset-1 ring-offset-nebula-blue scale-105"
               : "hover:scale-105 hover:ring-1 hover:ring-su-line/60"
@@ -485,7 +485,7 @@ export const SpotRow = memo(function SpotRow({
       {/* Frequency - clickable to copy */}
       <button
         onClick={handleFrequencyCopy}
-        className={`text-[11px] font-mono tabular-nums text-left transition-all duration-150 rounded px-0.5 leading-tight flex items-center ${
+        className={`text-xs font-mono tabular-nums text-left transition-all duration-150 rounded px-0.5 leading-tight flex items-center ${
           frequencyCopied
             ? "text-green-400 bg-green-500/20"
             : "text-cyan-400/80 hover:text-cyan-400 hover:bg-cyan-500/10"
@@ -498,14 +498,14 @@ export const SpotRow = memo(function SpotRow({
 
       {/* DX Callsign with grid and badges */}
       <div className="flex items-center gap-1 min-w-0" style={cellFadeStyle}>
-        <span className="text-su-text font-mono font-medium text-[11px] truncate leading-tight">
+        <span className="text-su-text font-mono font-medium text-xs truncate leading-tight">
           {spot.dx}
         </span>
         {/* Grid locator - clickable to filter */}
         {spot.dxGrid && (
           <button
             onClick={handleGridClick}
-            className="text-[9px] text-cyan-400/70 hover:text-cyan-400 font-mono px-0.5 rounded hover:bg-cyan-500/10 transition-colors flex-shrink-0 leading-none"
+            className="text-xs text-cyan-400/70 hover:text-cyan-400 font-mono px-0.5 rounded hover:bg-cyan-500/10 transition-colors flex-shrink-0 leading-none"
             title={`Filter by grid ${spot.dxGrid.slice(0, GRID_PREFIX_LENGTH)}`}
           >
             {spot.dxGrid.slice(0, GRID_PREFIX_LENGTH)}
@@ -524,7 +524,7 @@ export const SpotRow = memo(function SpotRow({
 
       {/* Distance */}
       <div
-        className="text-su-muted text-[11px] font-mono text-right tabular-nums leading-tight flex items-center justify-end"
+        className="text-su-muted text-xs font-mono text-right tabular-nums leading-tight flex items-center justify-end"
         title={distanceKm !== null ? `${Math.round(distanceKm)} km` : "Unknown"}
         style={cellFadeStyle}
       >
@@ -533,7 +533,7 @@ export const SpotRow = memo(function SpotRow({
 
       {/* Spotter */}
       <div
-        className="text-su-muted text-[11px] font-mono truncate leading-tight flex items-center"
+        className="text-su-muted text-xs font-mono truncate leading-tight flex items-center"
         title={spot.spotterGrid}
         style={cellFadeStyle}
       >
@@ -542,18 +542,18 @@ export const SpotRow = memo(function SpotRow({
 
       {/* Comment/Mode */}
       <div
-        className="flex items-center gap-1.5 text-[11px] text-su-muted truncate"
+        className="flex items-center gap-1.5 text-xs text-su-muted truncate"
         style={cellFadeStyle}
       >
         {spot.mode && (
-          <span className="px-1 py-0.5 rounded bg-su-line/20 text-su-muted text-[10px] leading-none font-medium">
+          <span className="px-1 py-0.5 rounded bg-su-line/20 text-su-muted text-xs leading-none font-medium">
             {spot.mode}
           </span>
         )}
         {/* Q10: Split indicator badge */}
         {splitInfo.isSplit && (
           <span
-            className="px-0.5 py-0.5 rounded text-[9px] font-bold bg-purple-500/20 text-purple-400 border border-purple-500/40 whitespace-nowrap flex-shrink-0 leading-none"
+            className="px-0.5 py-0.5 rounded text-xs font-bold bg-purple-500/20 text-purple-400 border border-purple-500/40 whitespace-nowrap flex-shrink-0 leading-none"
             title={getSplitTooltip(splitInfo)}
           >
             {formatSplitInfo(splitInfo)}
@@ -606,7 +606,7 @@ export const SpotRow = memo(function SpotRow({
               title="Work this station (L)"
               aria-label={`Work ${spot.dx}`}
             >
-              <span className="text-[9px] font-bold leading-none">L</span>
+              <span className="text-xs font-bold leading-none">L</span>
             </button>
           )}
           <button

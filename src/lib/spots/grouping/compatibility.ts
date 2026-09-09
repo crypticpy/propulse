@@ -1,5 +1,8 @@
 import { normalizeLiveSpot } from "@/lib/spots/presentation/pipeline";
-import { contractIdSchema, type NormalizedSpotReport } from "@/lib/views/spotContracts";
+import {
+  contractIdSchema,
+  type NormalizedSpotReport,
+} from "@/lib/views/spotContracts";
 import type { LiveSpot } from "@/types/livespot";
 import { groupMappedReports, type GroupingDetail } from "./grouping";
 
@@ -17,6 +20,12 @@ export interface SpotCluster {
   count: number;
   /** The most recent spot (used for color/display) */
   primarySpot: LiveSpot;
+  /**
+   * Human-readable group name ("Spain", "IN80"), carried through from
+   * `ClusterGroup.label` so hover surfaces can name the group (#746).
+   * Optional because older callers construct this shape by hand.
+   */
+  label?: string;
 }
 
 /**
@@ -92,7 +101,9 @@ function reportFromLiveSpot(
   if (!report || report.dx.location.kind === "unavailable") return null;
   const parsedId = contractIdSchema.safeParse(spot.id);
   const rawId =
-    parsedId.success && !usedRawIds.has(parsedId.data) && !usedIds.has(parsedId.data)
+    parsedId.success &&
+    !usedRawIds.has(parsedId.data) &&
+    !usedIds.has(parsedId.data)
       ? parsedId.data
       : null;
   if (rawId) usedRawIds.add(rawId);
@@ -143,12 +154,15 @@ export function clusterSpots(
       spots: clusteredSpots,
       count: clusteredSpots.length,
       primarySpot: clusteredSpots[0]!,
+      label: group.label,
     };
   });
 
   const singles = [
     ...unresolved,
-    ...grouped.singles.map((id) => byId.get(id)).filter((spot): spot is LiveSpot => Boolean(spot)),
+    ...grouped.singles
+      .map((id) => byId.get(id))
+      .filter((spot): spot is LiveSpot => Boolean(spot)),
   ].sort(compareSpots);
 
   clusters.sort((a, b) => a.id.localeCompare(b.id));

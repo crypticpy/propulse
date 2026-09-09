@@ -5,7 +5,11 @@
  * changes with zoom or camera rotation, and a group that grows past the
  * maximum size does not split itself in this release.
  */
-import { ConditionalSubSettings, SegmentedButton, SettingSlider } from "../../ui";
+import {
+  ConditionalSubSettings,
+  SegmentedButton,
+  SettingSlider,
+} from "../../ui";
 import type { GroupingPreferences, SpotsPreferencesController } from "../types";
 
 type GroupingLevel = "regions" | "grid";
@@ -14,7 +18,11 @@ function levelFromDetail(detail: GroupingPreferences["detail"]): GroupingLevel {
   return detail === "regions" ? "regions" : "grid";
 }
 
-export function GroupingSection({ controller }: { controller: SpotsPreferencesController }) {
+export function GroupingSection({
+  controller,
+}: {
+  controller: SpotsPreferencesController;
+}) {
   const grouping = controller.spots.grouping;
   const level = levelFromDetail(grouping.detail);
   const enabledId = `${controller.instanceId}-grouping-enabled`;
@@ -26,12 +34,15 @@ export function GroupingSection({ controller }: { controller: SpotsPreferencesCo
       <fieldset className="space-y-4 m-0 border-0 p-0 min-w-0">
         <div className="flex items-center justify-between gap-4 min-h-[40px]">
           <div className="flex-1 min-w-0">
-            <label htmlFor={enabledId} className="text-sm font-medium text-su-text">
+            <label
+              htmlFor={enabledId}
+              className="text-sm font-medium text-su-text"
+            >
               Group nearby reports
             </label>
             <p className="text-xs text-su-muted mt-0.5">
-              When this is off, every mapped report is drawn on its own. Reports at
-              the same approximate location may then visually overlap.
+              When this is off, every mapped report is drawn on its own. Reports
+              at the same approximate location may then visually overlap.
             </p>
           </div>
           <button
@@ -39,9 +50,13 @@ export function GroupingSection({ controller }: { controller: SpotsPreferencesCo
             type="button"
             role="switch"
             aria-checked={grouping.enabled}
-            onClick={() => controller.patchGrouping({ enabled: !grouping.enabled })}
+            onClick={() =>
+              controller.patchGrouping({ enabled: !grouping.enabled })
+            }
             className={`flex-shrink-0 relative w-11 h-6 min-h-[24px] rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-plasma-orange/60 disabled:opacity-40 disabled:cursor-not-allowed ${
-              grouping.enabled ? "bg-plasma-orange" : "bg-su-panel border border-su-line/40"
+              grouping.enabled
+                ? "bg-plasma-orange"
+                : "bg-su-panel border border-su-line/40"
             }`}
           >
             <span
@@ -53,7 +68,9 @@ export function GroupingSection({ controller }: { controller: SpotsPreferencesCo
         </div>
 
         <div role="group" aria-label="Grouping level" className="space-y-2">
-          <span className="block text-sm font-medium text-su-muted">Grouping level</span>
+          <span className="block text-sm font-medium text-su-muted">
+            Grouping level
+          </span>
           <SegmentedButton<GroupingLevel>
             value={level}
             onChange={(next) => {
@@ -78,8 +95,15 @@ export function GroupingSection({ controller }: { controller: SpotsPreferencesCo
           </p>
 
           <ConditionalSubSettings show={level === "grid"}>
-            <div role="group" aria-label="Maidenhead grid precision" className="space-y-2">
-              <GridPrecisionToggle controller={controller} grouping={grouping} />
+            <div
+              role="group"
+              aria-label="Maidenhead grid precision"
+              className="space-y-2"
+            >
+              <GridPrecisionToggle
+                controller={controller}
+                grouping={grouping}
+              />
             </div>
           </ConditionalSubSettings>
         </div>
@@ -95,7 +119,9 @@ export function GroupingSection({ controller }: { controller: SpotsPreferencesCo
           max={50}
           step={1}
           formatValue={(value) => `${value} reports`}
-          onChange={(value) => controller.patchGrouping({ minGroupSize: value })}
+          onChange={(value) =>
+            controller.patchGrouping({ minGroupSize: value })
+          }
         />
       </fieldset>
     </section>
@@ -105,11 +131,9 @@ export function GroupingSection({ controller }: { controller: SpotsPreferencesCo
 function GridPrecisionToggle({
   controller,
   grouping,
-  disabled,
 }: {
   controller: SpotsPreferencesController;
   grouping: GroupingPreferences;
-  disabled?: boolean;
 }) {
   const id = `${controller.instanceId}-grouping-grid6`;
   const checked = grouping.detail === "grid6";
@@ -129,9 +153,10 @@ function GridPrecisionToggle({
         type="button"
         role="switch"
         aria-checked={checked}
-        onClick={() => controller.patchGrouping({ detail: checked ? "grid4" : "grid6" })}
-        disabled={disabled}
-        className={`flex-shrink-0 relative w-11 h-6 min-h-[24px] rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-plasma-orange/60 disabled:opacity-40 disabled:cursor-not-allowed ${
+        onClick={() =>
+          controller.patchGrouping({ detail: checked ? "grid4" : "grid6" })
+        }
+        className={`flex-shrink-0 relative w-11 h-6 min-h-[24px] rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-plasma-orange/60 ${
           checked ? "bg-plasma-orange" : "bg-su-panel border border-su-line/40"
         }`}
       >

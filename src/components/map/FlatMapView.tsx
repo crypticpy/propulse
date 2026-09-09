@@ -1,4 +1,8 @@
-import { flatSpotPath, traceFlatSpotPath, traceFlatSpotEndpoint } from "@/lib/map/flatSpotPath";
+import {
+  flatSpotPath,
+  traceFlatSpotPath,
+  traceFlatSpotEndpoint,
+} from "@/lib/map/flatSpotPath";
 /**
  * FlatMapView Component
  *
@@ -71,6 +75,7 @@ import {
   drawFlatClusterGlyphs,
   findFlatClusterGlyphAtPoint,
   flatClusterGlyphAnchor,
+  flatClusterGlyphTooltip,
   type FlatClusterGlyph,
 } from "@/lib/map/flatSpotClusterGlyphs";
 import type { SpotCluster } from "@/lib/spots/grouping";
@@ -319,7 +324,7 @@ function beginFlatMapCanvasFrame(
 // Stable identities so the grouping memos below do not re-derive on every
 // render while grouping is off.
 const EMPTY_GEOGRAPHIC_CLUSTERS: SpotCluster[] = [];
-const EMPTY_GROUPED_SPOT_IDS: ReadonlySet<string> = new Set<string>();
+const EMPTY_GROUPED_MEMBERS: ReadonlySet<LiveSpot> = new Set<LiveSpot>();
 
 // Colors
 const COLORS = {
@@ -1544,9 +1549,12 @@ function drawSpotArc(
   const end = latLonToCanvas(spot.dxLat, spot.dxLon, width, height);
 
   const path = flatSpotPath(
-    spot.spotterLat, spot.spotterLon,
-    spot.dxLat, spot.dxLon,
-    width, height,
+    spot.spotterLat,
+    spot.spotterLon,
+    spot.dxLat,
+    spot.dxLon,
+    width,
+    height,
   );
   if (path.length === 0) return;
 
@@ -1561,7 +1569,9 @@ function drawSpotArc(
 
   // The reporting station is RX, represented by a hollow square.
   traceFlatSpotEndpoint(
-    ctx, start.x, start.y,
+    ctx,
+    start.x,
+    start.y,
     ((highViz ? 5 : 3.5) * spotDotScale) / zoomDamp,
     "rx",
   );
@@ -1572,14 +1582,18 @@ function drawSpotArc(
   // The DX station is TX, represented by a filled circle with an outer ring.
   if (!skipDxEndpoint) {
     traceFlatSpotEndpoint(
-      ctx, end.x, end.y,
+      ctx,
+      end.x,
+      end.y,
       ((highViz ? 5 : 4) * spotDotScale) / zoomDamp,
       "tx",
     );
     ctx.fillStyle = color;
     ctx.fill();
     traceFlatSpotEndpoint(
-      ctx, end.x, end.y,
+      ctx,
+      end.x,
+      end.y,
       ((highViz ? 7 : 5.5) * spotDotScale) / zoomDamp,
       "tx",
     );
@@ -1607,8 +1621,15 @@ function drawSpotArcs(
   watchActive = false,
   watchMatchedIds?: Set<string>,
   zoomScale = 1.0,
-  /** Ids whose DX endpoint is drawn as a cluster glyph instead (#746). */
-  groupedSpotIds?: ReadonlySet<string>,
+  /**
+   * Source spots whose DX endpoint is drawn as a cluster glyph instead (#746).
+   * Keyed on `originalSpot` identity, not on `spot.id`: some upstream RBN rows
+   * share a raw id, so an id set would suppress the endpoint of an *ungrouped*
+   * single that happens to collide with a clustered member. Mirrors
+   * `AzimuthalView`'s `unclusteredResolvedSpots` and the same warning in
+   * `useViewMapSpots`.
+   */
+  groupedMembers?: ReadonlySet<LiveSpot>,
 ) {
   for (const spot of spots) {
     const opacity =
@@ -1627,7 +1648,7 @@ function drawSpotArcs(
       spotDotScale,
       opacity,
       zoomScale,
-      groupedSpotIds?.has(spot.id) ?? false,
+      groupedMembers?.has(spot.originalSpot) ?? false,
     );
   }
 }
@@ -1654,9 +1675,12 @@ function drawSelectedSpotArc(
   const zoomDamp = Math.max(1, zoomScale);
 
   const path = flatSpotPath(
-    spot.spotterLat, spot.spotterLon,
-    spot.dxLat, spot.dxLon,
-    width, height,
+    spot.spotterLat,
+    spot.spotterLon,
+    spot.dxLat,
+    spot.dxLon,
+    width,
+    height,
   );
   if (path.length === 0) return;
   ctx.save();
@@ -3668,13 +3692,13 @@ export function FlatMapView({
   const geographicClusters = groupingEnabled
     ? clusters
     : EMPTY_GEOGRAPHIC_CLUSTERS;
-  const groupedSpotIds = useMemo(() => {
-    if (!groupingEnabled) return EMPTY_GROUPED_SPOT_IDS;
-    const ids = new Set<string>();
+  const groupedMembers = useMemo(() => {
+    if (!groupingEnabled) return EMPTY_GROUPED_MEMBERS;
+    const members = new Set<LiveSpot>();
     for (const cluster of clusters) {
-      for (const spot of cluster.spots) ids.add(spot.id);
+      for (const spot of cluster.spots) members.add(spot);
     }
-    return ids;
+    return members;
   }, [clusters, groupingEnabled]);
   // One projection of the geographic groups, shared by the canvas painter and
   // the pointer hit-test so a glyph is always clickable exactly where it is
@@ -3739,6 +3763,13 @@ export function FlatMapView({
     groupId: string;
     spots: LiveSpot[];
     screenPos: ScreenAnchor;
+  } | null>(null);
+  // Hover feedback for a cluster glyph. Without this the one new clickable
+  // affordance on the flat map falls through to the Maidenhead grid tooltip,
+  // which then contradicts what the click does (#746).
+  const [hoveredClusterGlyph, setHoveredClusterGlyph] = useState<{
+    label: string;
+    screenPos: { x: number; y: number };
   } | null>(null);
 
   const spotHoverDismissRef = useRef<number | null>(null);
@@ -4227,14 +4258,10 @@ export function FlatMapView({
       const z = zoomRef.current;
       const cssScaleX = rect.width / viewportSize.width;
       const cssScaleY = rect.height / viewportSize.height;
-      const glyph = findFlatClusterGlyphAtPoint(
-        clusterGlyphs,
-        {
-          x: ((screenPos.x - rect.left) / cssScaleX - z.offsetX) / z.scale,
-          y: ((screenPos.y - rect.top) / cssScaleY - z.offsetY) / z.scale,
-        },
-        z.scale,
-      );
+      const glyph = findFlatClusterGlyphAtPoint(clusterGlyphs, {
+        x: ((screenPos.x - rect.left) / cssScaleX - z.offsetX) / z.scale,
+        y: ((screenPos.y - rect.top) / cssScaleY - z.offsetY) / z.scale,
+      });
       if (!glyph) return null;
       return {
         glyph,
@@ -4333,6 +4360,7 @@ export function FlatMapView({
       const clusterHit = findClusterGlyphAtScreenPos(screenPos);
       if (clusterHit) {
         hoveredSpotOwnerRef.current = null;
+        setHoveredClusterGlyph(null);
         setOpenSpotCollection({
           groupId: clusterHit.glyph.id,
           spots: clusterHit.glyph.cluster.spots,
@@ -4419,6 +4447,23 @@ export function FlatMapView({
         setHoveredPinData(null);
       }
 
+      // Geographic group hover, in the same order the click resolves: the
+      // glyph owns its pixels, and its members are absent from the label and
+      // endpoint layers, so nothing below can also claim this point.
+      const hitGlyph = findClusterGlyphAtScreenPos(screenPos);
+      if (hitGlyph) {
+        setHoveredClusterGlyph({
+          label: flatClusterGlyphTooltip(hitGlyph.glyph),
+          screenPos,
+        });
+        setTooltipPosition(null);
+        setHoveredTargetPos(null);
+        return;
+      }
+      if (hoveredClusterGlyph) {
+        setHoveredClusterGlyph(null);
+      }
+
       // Check spot label hover (between pin and target checks)
       const hitSpot =
         findSpotLabelAtScreenPos(screenPos) ??
@@ -4463,6 +4508,8 @@ export function FlatMapView({
       isTargetAtScreenPos,
       scheduleSpotHoverDismiss,
       hoveredTargetPos,
+      findClusterGlyphAtScreenPos,
+      hoveredClusterGlyph,
     ],
   );
 
@@ -4471,6 +4518,7 @@ export function FlatMapView({
     setTooltipPosition(null);
     setHoveredPinData(null);
     setHoveredTargetPos(null);
+    setHoveredClusterGlyph(null);
     scheduleSpotHoverDismiss();
     setHoverCoords(null);
   }, [scheduleSpotHoverDismiss, setTooltipPosition]);
@@ -5826,7 +5874,7 @@ export function FlatMapView({
         watchEnabled && matchedSpotIds.size > 0,
         matchedSpotIds,
         zoom.scale,
-        groupedSpotIds,
+        groupedMembers,
       );
     }
 
@@ -6129,7 +6177,7 @@ export function FlatMapView({
     station,
     target,
     clusterGlyphs,
-    groupedSpotIds,
+    groupedMembers,
     resolvedSpots,
     ungroupedResolvedSpots,
     activationSpots,
@@ -6364,7 +6412,9 @@ export function FlatMapView({
           <canvas
             ref={canvasRef}
             className={`absolute inset-0 ${
-              hoveredPinData ? "cursor-pointer" : "cursor-crosshair"
+              hoveredPinData || hoveredClusterGlyph
+                ? "cursor-pointer"
+                : "cursor-crosshair"
             }`}
             aria-label="Interactive propagation map - click to select target location"
             role="img"
@@ -6557,6 +6607,19 @@ export function FlatMapView({
           onViewPath={() => setSelectedMapSpotData(null)}
           onClose={() => setSelectedMapSpotData(null)}
         />
+      )}
+
+      {hoveredClusterGlyph && !openSpotCollection && (
+        <div
+          role="tooltip"
+          className="pointer-events-none fixed z-50 -translate-x-1/2 -translate-y-full rounded-md border border-su-line/60 bg-panel px-2 py-1 font-mono text-xs text-su-text shadow-lg"
+          style={{
+            left: hoveredClusterGlyph.screenPos.x,
+            top: hoveredClusterGlyph.screenPos.y - 10,
+          }}
+        >
+          {hoveredClusterGlyph.label}
+        </div>
       )}
 
       {openSpotCollection && (

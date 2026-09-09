@@ -7,8 +7,14 @@
  * the assertion surface. The grouping fixture is produced by the production
  * `clusterSpots`, not by hand, so the cluster ids, anchors and membership are
  * the same values the running app would carry.
+ *
+ * This file is also where the module's projection is pinned against production
+ * output: `flatSpotClusterGlyphs.test.ts` can only check its own injected
+ * formula, because `latLonToCanvas` is private to `FlatMapView`. Here the glyph
+ * and the endpoint dots are both drawn by the real component, so comparing
+ * their canvas positions against `toCanvas` below is a genuine parity check.
  */
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ViewProvider } from "@/components/views/ViewProvider";
@@ -60,6 +66,51 @@ function resolve(spot: LiveSpot): ResolvedSpot {
   };
 }
 
+/**
+ * The shape `useViewMapSpots` returns, built the way production builds it.
+ *
+ * The resolution map is keyed by **object identity**, not by `spot.id`: the
+ * hook's own comment (`useViewMapSpots.ts`) records that some upstream RBN
+ * rows share a raw id, and it zips `candidateSpots` with `resolvedSpots`
+ * pairwise for exactly that reason. Keying this fixture by id would make it
+ * convenience-shaped on the one axis these tests are about.
+ */
+function buildFeed(spots: LiveSpot[], groupingEnabled = true) {
+  const grouped = clusterSpots(spots, {
+    enabled: true,
+    minClusterSize: 3,
+    detail: "regions",
+  });
+  const resolvedBySpot = new Map(
+    spots.map((spot) => [spot, resolve(spot)] as const),
+  );
+  const resolvedSpots = spots.map((spot) => resolvedBySpot.get(spot)!);
+  return {
+    grouped,
+    feed: {
+      spots,
+      candidateSpots: spots,
+      resolvedSpots,
+      resolvedSingles: grouped.singles.map((spot) => resolvedBySpot.get(spot)!),
+      allResolvedSpots: resolvedSpots,
+      activationSpots: [],
+      clusters: grouped.clusters,
+      singles: grouped.singles,
+      groupingEnabled,
+      expandGroup,
+      isLoading: false,
+      isFeedReady: true,
+      feedScopeKey: "test",
+      listTotal: spots.length,
+      mapBudget: 500,
+      matchingCount: spots.length,
+      mappedCount: spots.length,
+      unlocatedCount: 0,
+      budgetOmittedCount: 0,
+    },
+  };
+}
+
 // Three reports inside Spain form one region group at the default
 // `minGroupSize: 3`; the Japanese report stays a single.
 const GROUPED = [
@@ -69,37 +120,29 @@ const GROUPED = [
 ];
 const SINGLE = liveSpot("ja-1", "JA1DDD", 35.7, 139.7);
 const ALL = [...GROUPED, SINGLE];
+const { grouped, feed: DEFAULT_FEED } = buildFeed(ALL);
 
-const grouped = clusterSpots(ALL, {
-  enabled: true,
-  minClusterSize: 3,
-  detail: "regions",
-});
+// Same four reports, except the first Spanish member and the Japanese single
+// share one raw upstream id — the collision `stableReportId` exists to absorb
+// and the reason membership cannot be tested with an id set.
+const DUP_ID = "dup-report-id";
+const DUP_GROUPED = [
+  liveSpot(DUP_ID, "EA1AAA", 40.4, -3.7),
+  liveSpot("ea-2", "EA3BBB", 41.4, 2.2),
+  liveSpot("ea-3", "EA7CCC", 37.4, -6.0),
+];
+const DUP_SINGLE = liveSpot(DUP_ID, "JA1DDD", 35.7, 139.7);
+const { grouped: dupGrouped, feed: DUP_FEED } = buildFeed([
+  ...DUP_GROUPED,
+  DUP_SINGLE,
+]);
 
-const resolvedById = new Map(ALL.map((spot) => [spot.id, resolve(spot)]));
+const { feed: GROUPING_OFF_FEED } = buildFeed(ALL, false);
+
+let currentFeed: ReturnType<typeof buildFeed>["feed"] = DEFAULT_FEED;
 
 vi.mock("@/hooks/useViewMapSpots", () => ({
-  useViewMapSpots: () => ({
-    spots: ALL,
-    candidateSpots: ALL,
-    resolvedSpots: ALL.map((spot) => resolvedById.get(spot.id)!),
-    resolvedSingles: grouped.singles.map((spot) => resolvedById.get(spot.id)!),
-    allResolvedSpots: ALL.map((spot) => resolvedById.get(spot.id)!),
-    activationSpots: [],
-    clusters: grouped.clusters,
-    singles: grouped.singles,
-    groupingEnabled: true,
-    expandGroup,
-    isLoading: false,
-    isFeedReady: true,
-    feedScopeKey: "test",
-    listTotal: ALL.length,
-    mapBudget: 500,
-    matchingCount: ALL.length,
-    mappedCount: ALL.length,
-    unlocatedCount: 0,
-    budgetOmittedCount: 0,
-  }),
+  useViewMapSpots: () => currentFeed,
 }));
 
 interface CanvasOp {
@@ -210,9 +253,14 @@ async function mount() {
   );
 }
 
+function interactiveCanvas() {
+  return screen.getByRole("img", { name: /Interactive propagation map/i });
+}
+
 describe("FlatMapView geographic grouping", () => {
   beforeEach(() => {
     expandGroup.mockClear();
+    currentFeed = DEFAULT_FEED;
     (globalThis as unknown as { ResizeObserver: unknown }).ResizeObserver =
       StubResizeObserver;
     Element.prototype.getBoundingClientRect = () => STUB_RECT;
@@ -261,13 +309,67 @@ describe("FlatMapView geographic grouping", () => {
     ).toBeGreaterThan(0);
   });
 
+  it("keeps an ungrouped single's endpoint dot when it shares a raw id with a grouped member", async () => {
+    // Membership must be decided on `originalSpot` identity: an id set would
+    // suppress this single's endpoint because a clustered member happens to
+    // carry the same upstream id, and with labels off it would be invisible.
+    expect(dupGrouped.clusters).toHaveLength(1);
+    expect(dupGrouped.clusters[0].spots.map((spot) => spot.id)).toContain(
+      DUP_ID,
+    );
+    expect(dupGrouped.singles.map((spot) => spot.id)).toEqual([DUP_ID]);
+
+    currentFeed = DUP_FEED;
+    await mount();
+
+    expect(
+      arcsNear(toCanvas(DUP_SINGLE.dxLat!, DUP_SINGLE.dxLon!), {
+        maxRadius: ENDPOINT_MAX_RADIUS,
+      }).length,
+    ).toBeGreaterThan(0);
+  });
+
+  it("draws no glyph and every dot when grouping is off", async () => {
+    // `clusterSpots` output is still supplied — the preference, not the
+    // absence of clusters, is what has to gate the layer.
+    currentFeed = GROUPING_OFF_FEED;
+    await mount();
+    const cluster = grouped.clusters[0];
+    const anchor = toCanvas(cluster.center.lat, cluster.center.lon);
+
+    expect(arcsNear(anchor, { minRadius: GLYPH_MIN_RADIUS })).toEqual([]);
+    expect(
+      ops.filter((op) => op.name === "fillText" && op.text === "3"),
+    ).toEqual([]);
+    for (const spot of ALL) {
+      expect(
+        arcsNear(toCanvas(spot.dxLat!, spot.dxLon!), {
+          maxRadius: ENDPOINT_MAX_RADIUS,
+        }).length,
+      ).toBeGreaterThan(0);
+    }
+  });
+
+  it("names the group on hover instead of falling through to the grid tooltip", async () => {
+    await mount();
+    const cluster = grouped.clusters[0];
+    const anchor = toCanvas(cluster.center.lat, cluster.center.lon);
+
+    fireEvent.pointerMove(interactiveCanvas(), {
+      clientX: anchor.x,
+      clientY: anchor.y,
+      pointerId: 1,
+    });
+
+    const tooltip = await waitFor(() => screen.getByRole("tooltip"));
+    expect(tooltip.textContent).toBe(`3 spots · ${cluster.label}`);
+  });
+
   it("opens the group's collection popover and expands the group from it", async () => {
     await mount();
     const cluster = grouped.clusters[0];
     const anchor = toCanvas(cluster.center.lat, cluster.center.lon);
-    const canvas = screen.getByRole("img", {
-      name: /Interactive propagation map/i,
-    });
+    const canvas = interactiveCanvas();
 
     fireEvent.pointerDown(canvas, {
       clientX: anchor.x,

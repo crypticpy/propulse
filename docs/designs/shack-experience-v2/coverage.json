@@ -36,8 +36,9 @@
     },
     {
       "id": "SX2:Q03",
-      "primaryIssue": 184,
-      "url": "https://github.com/crypticpy/propulse/issues/184"
+      "primaryIssue": 706,
+      "url": "https://github.com/crypticpy/propulse/issues/706",
+      "note": "Cross-cutting gate; owned by the SX2 release gate issue, which is blocked by every implementation package."
     },
     {
       "id": "SX2:C06",
@@ -46,8 +47,9 @@
     },
     {
       "id": "SX2:Q01",
-      "primaryIssue": 185,
-      "url": "https://github.com/crypticpy/propulse/issues/185"
+      "primaryIssue": 706,
+      "url": "https://github.com/crypticpy/propulse/issues/706",
+      "note": "Cross-cutting gate; owned by the SX2 release gate issue, which is blocked by every implementation package."
     },
     {
       "id": "SX2:P01",
@@ -191,18 +193,21 @@
     },
     {
       "id": "SX2:Q02",
-      "primaryIssue": 194,
-      "url": "https://github.com/crypticpy/propulse/issues/194"
+      "primaryIssue": 706,
+      "url": "https://github.com/crypticpy/propulse/issues/706",
+      "note": "Cross-cutting gate; owned by the SX2 release gate issue, which is blocked by every implementation package."
     },
     {
       "id": "SX2:Q04",
-      "primaryIssue": 195,
-      "url": "https://github.com/crypticpy/propulse/issues/195"
+      "primaryIssue": 706,
+      "url": "https://github.com/crypticpy/propulse/issues/706",
+      "note": "Cross-cutting gate; owned by the SX2 release gate issue, which is blocked by every implementation package."
     },
     {
       "id": "SX2:Q05",
-      "primaryIssue": 276,
-      "url": "https://github.com/crypticpy/propulse/issues/276"
+      "primaryIssue": 706,
+      "url": "https://github.com/crypticpy/propulse/issues/706",
+      "note": "Cross-cutting gate; owned by the SX2 release gate issue, which is blocked by every implementation package."
     },
     {
       "id": "SX2:T01",

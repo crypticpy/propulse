@@ -82,6 +82,13 @@ Proposed extension to the existing S01–S17 register; IDs here use the explicit
 
 ## Quality and delivery gates
 
+These five gates are cross-cutting: they apply to the composed programme, not to
+any single work package. They are owned by the SX2 release gate issue
+([#706](https://github.com/crypticpy/propulse/issues/706)), which is blocked by
+every implementation issue in *New work packages* plus the canvas issues #184 and
+#185. Closing any one implementation issue does not discharge them, and no
+implementation issue may claim them as its own acceptance criteria.
+
 | ID | Requirement and acceptance evidence |
 | --- | --- |
 | SX2:Q01 | Every new surface follows shipped semantic station tokens, real header, four themes, comfortable touch targets, 16/18/20 px text preferences, non-color state cues and reduced motion. Verify contrast on real composed nodes/forms/viewers, not just palettes or generated images. |

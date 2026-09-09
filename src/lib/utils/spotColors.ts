@@ -45,18 +45,17 @@ export const SPOT_REPLAY_COLOR = "#8B7355";
  * Tailwind utility class map keyed by canonical operating mode.
  *
  * Used in React components that rely on Tailwind classes instead of raw hex.
+ * Every class here resolves through a `--su-*` token, so these follow the
+ * station palette and stay above the 4.5:1 AA floor as bare text in all four
+ * themes -- including `text-aurora-purple`, which became `--su-purple` in
+ * #787. `MODE_COLORS` above is the raw-hex map for canvas/SVG and is *not*
+ * token-backed; do not use its values as a text colour (see spotColors.test).
  */
 export const MODE_COLORS_TAILWIND: Record<string, string> = {
   FT8: "text-cosmic-cyan",
   CW: "text-caution-amber",
   SSB: "text-signal-green",
-  // text-aurora-purple measures below 4.5:1 AA as bare text in every theme
-  // (dark 3.93:1, light 3.81:1, midnight 4.30:1 on panel) since aurora-purple
-  // is a fixed, non-themed hex, not a `--su-*` token (issue #774). Badge.tsx's
-  // "quiet" status hit the same fill and keeps the hue as a decorative
-  // fill/border accent, moving only the text to the always-AA station token.
-  // This map has no accompanying fill, so RTTY gets the safe token directly.
-  RTTY: "text-su-text",
+  RTTY: "text-aurora-purple",
   default: "text-su-muted",
 };
 

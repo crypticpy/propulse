@@ -25,7 +25,7 @@ export default {
         "caution-amber": "rgb(var(--su-warning-rgb) / <alpha-value>)",
         "caution-yellow": "rgb(var(--su-warning-rgb) / <alpha-value>)",
         "alert-red": "rgb(var(--su-danger-rgb) / <alpha-value>)",
-        "aurora-purple": "#aa44ff",
+        "aurora-purple": "rgb(var(--su-purple-rgb) / <alpha-value>)",
         "cosmic-cyan": "rgb(var(--su-info-rgb) / <alpha-value>)",
 
         // Background colors. Six legacy darks collapse onto the three station
@@ -80,6 +80,7 @@ export default {
           success: "rgb(var(--su-success-rgb, 139 219 176) / <alpha-value>)",
           warning: "rgb(var(--su-warning-rgb, 245 207 121) / <alpha-value>)",
           danger: "rgb(var(--su-danger-rgb, 253 164 175) / <alpha-value>)",
+          purple: "rgb(var(--su-purple-rgb, 185 117 240) / <alpha-value>)",
         },
       },
       fontFamily: {

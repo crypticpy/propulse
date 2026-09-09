@@ -43,6 +43,7 @@
   --su-success: #8bdbb0;
   --su-warning: #f5cf79;
   --su-danger: #fda4af;
+  --su-purple: #b975f0;
 
   /* Channel triplets for Tailwind opacity modifiers (text-su-text/70) */
   --su-canvas-rgb: 20 24 39;
@@ -59,6 +60,7 @@
   --su-success-rgb: 139 219 176;
   --su-warning-rgb: 245 207 121;
   --su-danger-rgb: 253 164 175;
+  --su-purple-rgb: 185 117 240;
 
   /* Dark-palette tone triples for .su-fixed-dark below. Pre-JS fallback only
    * (no colour-blind swap): applyThemeToDocument() overwrites these on <html>
@@ -105,6 +107,15 @@
   --su-warning-rgb: var(--su-fixed-dark-warning-rgb);
   --su-danger: var(--su-fixed-dark-danger);
   --su-danger-rgb: var(--su-fixed-dark-danger-rgb);
+
+  /* `purple` (aurora-purple) is a decorative accent, not a status tone, so it
+   * takes no colour-blind swap and needs no --su-fixed-dark-* indirection:
+   * the dark palette's value is constant. It is pinned for the same reason
+   * the tones are — a theme-following purple would land the Light palette's
+   * dark violet on a near-black shell. Asserted against
+   * stationPalettes.dark.purple in stationTokens.test.ts. */
+  --su-purple: #b975f0;
+  --su-purple-rgb: 185 117 240;
 }
 
 /* ─── Section accents (DS-14) ───────────────────────────────────────────────

@@ -134,13 +134,21 @@ describe("WorkspaceCanvas", () => {
     expect(within(dialog).getByText(lastEntry.title)).toBeTruthy();
   });
 
-  it("canvasType=\"tablet\" renders only the single right rail, no left/bottom", () => {
-    render(<WorkspaceCanvas canvasType="tablet" />);
+  it("canvasTypeOverride=\"tablet\" renders only the single right rail, no left/bottom, and a zero-width left column (#686 review P1)", () => {
+    useWorkspaceStore.getState().setCanvasTypeOverride("tablet");
+    const { container } = render(<WorkspaceCanvas />);
 
     expect(screen.getByTestId("workspace-space")).toBeTruthy();
     expect(screen.getByTestId("workspace-rail-right")).toBeTruthy();
     expect(screen.queryByTestId("workspace-rail-left")).toBeNull();
     expect(screen.queryByTestId("workspace-rail-bottom")).toBeNull();
+
+    // Regression: gating the grid's column widths on rail *state* alone
+    // (rather than on whether tablet's rules declare the rail) left a dead
+    // 280px left gutter, since the stored rail state is still the
+    // workstation shape (left/right/bottom all present).
+    const canvas = container.querySelector(".workspace-canvas") as HTMLElement;
+    expect(canvas.style.gridTemplateColumns).toMatch(/^0px 1fr /);
   });
 
   it("HIDE LEFT RAIL collapses the left rail (drawer), and SHOW LEFT RAIL brings it back", () => {

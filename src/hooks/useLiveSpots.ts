@@ -23,8 +23,8 @@ import { wsjtxDecodedAt, wsjtxFrequencyHz } from "@/lib/radio/wsjtxIngestion";
 import type { WSJTXDecode } from "@/stores/wsjtxStore";
 import type { LiveSpot, SpotSource } from "@/types/livespot";
 import type { SpotFilters } from "@/types/operatingProfile";
-import { useMapStore } from "@/stores/mapStore";
 import {
+  DEFAULT_SPOT_DENSITY,
   getSpotFetchLimit,
   MAX_SPOT_FETCH_LIMIT,
 } from "@/lib/map/spotDensity";
@@ -153,12 +153,12 @@ export function useLiveSpots({
   fetchLimit,
   windowMinutes,
 }: UseLiveSpotsOptions = {}): UseLiveSpotsResult {
-  // How many spots each source contributes. Derived from the map's existing
-  // display-density setting -- fetching a flat 50 is why raising that slider
-  // never showed more spots. Floored so the analysis consumers of this hook
-  // (band-opening detection, alerts) keep their full feed when the map is
-  // turned down. In the query key so changing it refetches rather than waiting
-  // for the next interval.
+  // How many spots each source contributes. `mapStore.displayDensity` (the
+  // map's old spot-density slider) was retired in #756 -- nothing ever wrote
+  // to it, so every caller was already landing on the fixed default here.
+  // An explicit `fetchLimit` still overrides it for callers with their own
+  // budget (e.g. evidence-oriented consumers). In the query key so changing
+  // it refetches rather than waiting for the next interval.
   const [now, setNow] = useState(Date.now);
   useEffect(() => {
     if (!enabled || windowMinutes === undefined) return;
@@ -166,10 +166,9 @@ export function useLiveSpots({
     const timer = setInterval(() => setNow(Date.now()), 10_000);
     return () => clearInterval(timer);
   }, [enabled, windowMinutes]);
-  const displayDensity = useMapStore((s) => s.displayDensity);
   const spotLimit =
     fetchLimit === undefined
-      ? getSpotFetchLimit(displayDensity)
+      ? getSpotFetchLimit(DEFAULT_SPOT_DENSITY)
       : Math.min(
           MAX_SPOT_FETCH_LIMIT,
           Math.max(1, Math.floor(Number.isFinite(fetchLimit) ? fetchLimit : 1)),

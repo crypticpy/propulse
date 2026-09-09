@@ -33,6 +33,13 @@ import {
   useOptionalViewEffectiveSpots,
   useOptionalViewSpotFilterPatch,
 } from "@/hooks/useViewClusterSpots";
+import {
+  allModesSelection,
+  modeMatchesSelection,
+  normalizeMode,
+  normalizeModeSelection,
+  summarizeModeSelection,
+} from "@/lib/spots/presentation/modes";
 
 /** Source badge styling map */
 const SOURCE_BADGE_STYLES: Record<
@@ -72,17 +79,22 @@ export function DXSpotList({
   onResearchGrid,
 }: DXSpotListProps) {
   const spotSource = useDXStore((s) => s.spotSource);
-  // Band filter comes from the bound view's own runtime (SP-09 round 3), not
-  // the retired `mapStore.spotFilters`. This list also mounts bare on the
-  // `/map/ops` popout window (no `ViewProvider` above it there), so the
-  // optional variant falls back to unfiltered spots instead of throwing.
-  // Only `bands` is ever patched onto the runtime's filters (mode selection
-  // is a richer object with no equivalent here), so `modes` stays empty.
+  // Band/mode filters come from the bound view's own runtime (SP-09 round 3),
+  // not the retired `mapStore.spotFilters`. This list also mounts bare on the
+  // `/map/ops` popout window (no `ViewProvider` above it there); that is a
+  // deliberate "unbound reader sees everything" fallback (#615's PR body),
+  // not a gap, so the optional variant falls back to unfiltered spots there
+  // instead of throwing (#756).
   const viewSpots = useOptionalViewEffectiveSpots();
   const spotFilters = useMemo(
-    () => ({ bands: viewSpots.filters.bands, modes: [] as string[] }),
-    [viewSpots.filters.bands],
+    () => ({ bands: viewSpots.filters.bands, modes: viewSpots.filters.modes }),
+    [viewSpots.filters.bands, viewSpots.filters.modes],
   );
+  const modeSelection = useMemo(
+    () => normalizeModeSelection(spotFilters.modes),
+    [spotFilters.modes],
+  );
+  const hasModeFilter = !modeSelection.all;
   const activeProfile = useMapStore((s) => s.activeProfile);
   const watchCriteria = useWatchStore((s) => s.criteria);
   const matchedSpotIds = useWatchStore((s) => s.matchedSpotIds);
@@ -92,6 +104,24 @@ export function DXSpotList({
   const contestWatch = useContestWatch();
   const runtime = useOptionalViewRuntime();
   const clearViewSpotFilters = useOptionalViewSpotFilterPatch();
+  // With follow-radio on, `config.spots.filters` is already `{bands: [],
+  // modes: all}` -- the chip's active filter comes from the radio overlay in
+  // `effectiveSpots()`, not the configured value. Patching bands/modes back
+  // to their already-empty configured values is therefore a no-op that
+  // `updateWorkingView`'s own follow-radio auto-clear never sees (it only
+  // fires when the *configured* filters actually change). Clearing the
+  // filter must also turn follow-radio off directly, or the click does
+  // nothing (#756 group 3).
+  const handleClearFilter = useCallback(() => {
+    clearViewSpotFilters({ bands: [], modes: allModesSelection() });
+    if (!runtime) return;
+    const snapshot = runtime.getSnapshot();
+    if (snapshot.config.context.followRadio) {
+      runtime.updateWorkingView({
+        context: { ...snapshot.config.context, followRadio: false },
+      });
+    }
+  }, [clearViewSpotFilters, runtime]);
 
   const state = useDXSpotListState(onResearchGrid);
 
@@ -143,7 +173,6 @@ export function DXSpotList({
   // ── Profile-based spot filtering ───────────────────────────────────────────
   const profileFilteredSpots = useMemo(() => {
     const hasBandFilter = spotFilters.bands.length > 0;
-    const hasModeFilter = spotFilters.modes.length > 0;
 
     // No profile filters active — pass through all spots
     if (!hasBandFilter && !hasModeFilter) {
@@ -151,18 +180,17 @@ export function DXSpotList({
     }
 
     const bandSet = new Set(spotFilters.bands.map((b) => b.toLowerCase()));
-    const modeSet = new Set(spotFilters.modes.map((m) => m.toLowerCase()));
 
     return displaySpots.filter((spot) => {
       if (hasBandFilter && spot.band) {
         if (!bandSet.has(spot.band.toLowerCase())) return false;
       }
-      if (hasModeFilter && spot.mode) {
-        if (!modeSet.has(spot.mode.toLowerCase())) return false;
+      if (hasModeFilter && !modeMatchesSelection(normalizeMode(spot.mode), modeSelection)) {
+        return false;
       }
       return true;
     });
-  }, [displaySpots, spotFilters]);
+  }, [displaySpots, spotFilters.bands, hasModeFilter, modeSelection]);
 
   // ── New multiplier spot IDs for contest mode ──────────────────────────────
   const newMultSpotIds = useMemo(() => {
@@ -194,8 +222,7 @@ export function DXSpotList({
     return [...newMult, ...matched, ...rest];
   }, [profileFilteredSpots, watchCriteria, matchedSpotIds, newMultSpotIds]);
 
-  const profileFilterActive =
-    spotFilters.bands.length > 0 || spotFilters.modes.length > 0;
+  const profileFilterActive = spotFilters.bands.length > 0 || hasModeFilter;
 
   // Quick action: set map target from row button
   const handleSetTarget = useCallback(
@@ -485,8 +512,8 @@ export function DXSpotList({
             {spotFilters.bands.length > 0 && (
               <> — {spotFilters.bands.join(", ")}</>
             )}
-            {spotFilters.modes.length > 0 && (
-              <> — {spotFilters.modes.join(", ")}</>
+            {hasModeFilter && (
+              <> — {summarizeModeSelection(spotFilters.modes)}</>
             )}
             <span className="text-su-muted ml-1">
               — Showing {profileFilteredSpots.length} of {displaySpots.length}{" "}
@@ -494,7 +521,7 @@ export function DXSpotList({
             </span>
           </span>
           <button
-            onClick={() => clearViewSpotFilters({ bands: [] })}
+            onClick={handleClearFilter}
             className="ml-auto text-su-text/80 hover:text-su-text text-[10px]"
             title="Clear filter"
           >

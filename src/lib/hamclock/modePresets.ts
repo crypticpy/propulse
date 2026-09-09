@@ -5,7 +5,6 @@
 
 import type { DisplayQuality } from "@/stores/displayQualityStore";
 import type { MapState, ViewMode } from "@/stores/mapStore";
-import type { SpotFilters } from "@/types/operatingProfile";
 
 export type HamClockMode = "traffic" | "bands" | "satellites" | "weather";
 
@@ -127,7 +126,6 @@ export interface HamClockEnterSnapshot {
    * session on exit. */
   tileProviderId: MapState["tileProviderId"];
   layers: MapState["layers"];
-  spotFilters: SpotFilters;
   displayQuality: DisplayQuality;
   nightDarkness: number;
 }

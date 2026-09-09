@@ -5,7 +5,6 @@ import type { LiveSpot } from "@/types/livespot";
 
 const mocks = vi.hoisted(() => ({
   wsjtx: { connected: false, decodes: [] as WSJTXDecode[], status: null },
-  displayDensity: 100,
   psk: {
     data: undefined as LiveSpot[] | undefined,
     dataUpdatedAt: 0,
@@ -33,10 +32,6 @@ vi.mock("@tanstack/react-query", () => ({
       } : undefined,
     };
   },
-}));
-vi.mock("@/stores/mapStore", () => ({
-  useMapStore: (selector: (state: { displayDensity: number }) => unknown) =>
-    selector({ displayDensity: mocks.displayDensity }),
 }));
 vi.mock("@/stores/wsjtxStore", () => ({
   useWSJTXStore: (
@@ -68,7 +63,6 @@ function spot(id: string, overrides: Partial<LiveSpot> = {}): LiveSpot {
 describe("useLiveSpots feed readiness", () => {
   beforeEach(() => {
     mocks.wsjtx.connected = false; mocks.wsjtx.decodes = [];
-    mocks.displayDensity = 100;
     mocks.psk.data = undefined;
     mocks.psk.dataUpdatedAt = 0;
     mocks.psk.isError = true;
@@ -149,29 +143,22 @@ describe("useLiveSpots feed readiness", () => {
     ]);
   });
 
-  it("changes feed scope when density changes the effective fetch limit", () => {
-    const { result, rerender } = renderHook(() =>
+  // `mapStore.displayDensity` (the map's old spot-density slider) was removed
+  // entirely in #756 -- nothing ever wrote to it, so every caller was already
+  // landing on this fixed default. These two tests replace the former
+  // "density changes the fetch limit" pair, which tested a knob that no
+  // longer exists.
+  it("uses the fixed default fetch limit when no explicit fetchLimit is given", () => {
+    const { result } = renderHook(() =>
       useLiveSpots({ grid: "EM10aa", sources: ["RBN"] }),
     );
-    const initialScope = result.current.feedScopeKey;
 
-    mocks.displayDensity = 200;
-    rerender();
-
-    expect(result.current.feedScopeKey).not.toBe(initialScope);
-    expect(result.current.feedScopeKey).toContain('"spotLimit":200');
+    expect(result.current.feedScopeKey).toContain('"spotLimit":150');
   });
 
-  it("keeps an explicit evidence request budget independent of display density", () => {
-    const { result, rerender } = renderHook(() =>
-      useLiveSpots({ fetchLimit: 200 }),
-    );
-    const initialScope = result.current.feedScopeKey;
+  it("honors an explicit fetchLimit as the request budget, overriding the default", () => {
+    const { result } = renderHook(() => useLiveSpots({ fetchLimit: 200 }));
 
-    mocks.displayDensity = 10;
-    rerender();
-
-    expect(result.current.feedScopeKey).toBe(initialScope);
     expect(result.current.feedScopeKey).toContain('"spotLimit":200');
   });
 });

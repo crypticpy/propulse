@@ -96,6 +96,11 @@ function syncBackgroundInert(): void {
   ensureBodyPortalObserverConnected();
   if (previousBodyOverflow === null) previousBodyOverflow = document.body.style.overflow;
   document.body.style.overflow = "hidden";
+  // Every portalRoot on the stack (not just `top`'s) is exempt from the
+  // foreign-modal check below: a dialog lower in the stack still needs to be
+  // inerted while it isn't topmost, and it also carries `aria-modal="true"`
+  // on its panel, so without this it would wrongly match the exemption too.
+  const stackRoots = new Set(openDialogStack.map((entry) => entry.portalRoot));
   for (const child of document.body.children) {
     if (!(child instanceof HTMLElement)) continue;
     if (!originalBackgroundState.has(child)) {
@@ -108,6 +113,13 @@ function syncBackgroundInert(): void {
       restoreOriginal(child);
       continue;
     }
+    // A body portal that isn't on this module's stack but is itself a modal
+    // (ConfirmDialog, ImageCropDialog, EquipmentHeroCard's bare
+    // `createPortal`) was deliberately layered above the dialog by the app,
+    // not left behind by it. Inerting it would make it paint on top while
+    // being completely dead — unreachable by Tab/click, invisible to
+    // screen readers, and Escape would fall through to this dialog instead.
+    if (!stackRoots.has(child) && child.querySelector('[aria-modal="true"]')) continue;
     child.inert = true;
     child.setAttribute("aria-hidden", "true");
   }

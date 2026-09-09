@@ -7,6 +7,7 @@ import { filterBridgeSpotAge } from "@/lib/hamclock/clusterBridge";
 import {
   bucketFor,
   computeHeatmap,
+  DEFAULT_HEATMAP_WINDOW_MS,
   dxSpotToHeatmapInput,
   HEATMAP_CONTINENTS,
   LADDER_HUE_PRESET,
@@ -19,9 +20,13 @@ import { useDXStore } from "@/stores/dxStore";
 import { useHamClockDisplayStore } from "@/stores/hamclockDisplayStore";
 import { HamClockTile, TileHero, TileSub, type WallTileProps } from "../HamClockTile";
 import {
+  clampInsufficientHistory,
   formatBandLabel,
+  heatmapAvailableMs,
   heatmapBucketClass,
   heatmapBucketColor,
+  heatmapSpotAgeMinutes,
+  heatmapWindowLabel,
 } from "./heatMapBuckets";
 
 // The report is only worth its bytes once an operator opens it.
@@ -59,12 +64,21 @@ export function HeatMapTile({ title = "Band heat map" }: WallTileProps) {
   const heatmapPresetId = useHamClockDisplayStore((s) => s.heatmapPreset);
   const [reportOpen, setReportOpen] = useState(false);
 
+  // The operator's spot-age setting still governs the DX cluster LIST
+  // (ClusterTile etc.) — it must never narrow what feeds the heat map's
+  // fixed 20-min ladder window (see `heatmapSpotAgeMinutes`).
+  const heatmapAge = heatmapSpotAgeMinutes(maxAge);
   const spots = useMemo(
     () =>
       source === "bridge"
-        ? filterBridgeSpotAge(allSpots ?? [], maxAge, now.getTime())
-        : filterClusterAge(allSpots ?? [], maxAge, now.getTime()),
-    [allSpots, maxAge, now, source],
+        ? filterBridgeSpotAge(allSpots ?? [], heatmapAge, now.getTime())
+        : filterClusterAge(allSpots ?? [], heatmapAge, now.getTime()),
+    [allSpots, heatmapAge, now, source],
+  );
+
+  const availableMs = useMemo(
+    () => heatmapAvailableMs(spots, now.getTime()),
+    [spots, now],
   );
 
   const physicsScores = useMemo(() => {
@@ -84,8 +98,10 @@ export function HeatMapTile({ title = "Band heat map" }: WallTileProps) {
       const input = dxSpotToHeatmapInput(spot);
       if (input) inputs.push(input);
     }
-    return computeHeatmap(inputs, { now: now.getTime(), physicsScores });
-  }, [spots, physicsScores, now]);
+    return computeHeatmap(inputs, { now: now.getTime(), physicsScores }).map((cell) =>
+      clampInsufficientHistory(cell, availableMs),
+    );
+  }, [spots, physicsScores, now, availableMs]);
 
   const preset = useMemo(
     () => PRESETS.find((p) => p.id === heatmapPresetId) ?? LADDER_HUE_PRESET,
@@ -160,7 +176,11 @@ export function HeatMapTile({ title = "Band heat map" }: WallTileProps) {
     <>
       <HamClockTile
         title={title}
-        source={`${totalCount} DX · ${preset.label.toUpperCase()}`}
+        source={
+          availableMs < DEFAULT_HEATMAP_WINDOW_MS
+            ? `${totalCount} DX · ${heatmapWindowLabel(availableMs)}`
+            : `${totalCount} DX · ${preset.label.toUpperCase()}`
+        }
         state={heatmapBucketColor(preset.id, bucket)}
         onOpen={() => setReportOpen(true)}
         openLabel={`Band heat map: ${sentence}. Open the full grid report`}

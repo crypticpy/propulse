@@ -18,10 +18,14 @@ import {
 import { useDXStore } from "@/stores/dxStore";
 import { useHamClockDisplayStore } from "@/stores/hamclockDisplayStore";
 import {
+  clampInsufficientHistory,
   formatBandLabel,
+  heatmapAvailableMs,
   heatmapBucketClass,
   heatmapBucketColor,
   heatmapBucketLabel,
+  heatmapSpotAgeMinutes,
+  heatmapWindowLabel,
 } from "../tiles/heatMapBuckets";
 import { reportFooter } from "../tokens";
 import { WallReport, type WallReportFact, type WallReportTone } from "./WallReport";
@@ -59,12 +63,21 @@ export function HeatMapReport({
   const { bands } = useBandVerdicts();
   const heatmapPresetId = useHamClockDisplayStore((s) => s.heatmapPreset);
 
+  // The operator's spot-age setting still governs the DX cluster LIST
+  // (ClusterTile etc.) — it must never narrow what feeds the heat map's
+  // fixed 20-min ladder window (see `heatmapSpotAgeMinutes`).
+  const heatmapAge = heatmapSpotAgeMinutes(maxAge);
   const spots = useMemo(
     () =>
       source === "bridge"
-        ? filterBridgeSpotAge(allSpots ?? [], maxAge, now.getTime())
-        : filterClusterAge(allSpots ?? [], maxAge, now.getTime()),
-    [allSpots, maxAge, now, source],
+        ? filterBridgeSpotAge(allSpots ?? [], heatmapAge, now.getTime())
+        : filterClusterAge(allSpots ?? [], heatmapAge, now.getTime()),
+    [allSpots, heatmapAge, now, source],
+  );
+
+  const availableMs = useMemo(
+    () => heatmapAvailableMs(spots, now.getTime()),
+    [spots, now],
   );
 
   const physicsScores = useMemo(() => {
@@ -84,8 +97,10 @@ export function HeatMapReport({
       const input = dxSpotToHeatmapInput(spot);
       if (input) inputs.push(input);
     }
-    return computeHeatmap(inputs, { now: now.getTime(), physicsScores });
-  }, [spots, physicsScores, now]);
+    return computeHeatmap(inputs, { now: now.getTime(), physicsScores }).map((cell) =>
+      clampInsufficientHistory(cell, availableMs),
+    );
+  }, [spots, physicsScores, now, availableMs]);
 
   const preset = useMemo(
     () => PRESETS.find((p) => p.id === heatmapPresetId) ?? LADDER_HUE_PRESET,
@@ -140,7 +155,7 @@ export function HeatMapReport({
     { label: "HOTTEST CONTINENT", value: hottest ? hottest.continent : "—" },
     { label: "ACTIVE CELLS", value: activeCells },
     { label: "TOTAL DX", value: totalCount },
-    { label: "WINDOW", value: "20 MIN" },
+    { label: "WINDOW", value: heatmapWindowLabel(availableMs) },
     { label: "COLOURS", value: preset.label.toUpperCase() },
   ];
 

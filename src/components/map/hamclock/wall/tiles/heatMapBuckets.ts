@@ -1,5 +1,7 @@
+import { clusterAgeMinutes } from "@/lib/dx/clusterHistory";
+import { DEFAULT_HEATMAP_WINDOW_MS, type HeatmapCell, type LadderState } from "@/lib/widgets/heatmap";
+import type { DXSpot } from "@/types/dxcluster";
 import { LADDER_WALL_LABEL, TONE_STATE } from "../tokens";
-import type { LadderState } from "@/lib/widgets/heatmap";
 
 /**
  * Bucket-index -> wall-tone lookups for the heat-map tile and report
@@ -89,4 +91,63 @@ export function heatmapBucketLabel(presetId: string, bucket: number): string {
 /** "20m" -> "20 m", matching how the wall reads a band out loud. */
 export function formatBandLabel(band: string): string {
   return band.endsWith("m") ? `${band.slice(0, -1)} m` : band;
+}
+
+/**
+ * `computeHeatmap` always evaluates the ladder over a fixed trailing 20 min
+ * / 10 min / 10 min (its own doc comment) regardless of the `windowMs` the
+ * caller passes in — so the spots array fed to it must cover at least that
+ * 20 min, or the ladder silently sees less history than it assumes. The
+ * operator's DX spot-age setting (`useDXStore.filters.maxAge`, 5/15/30/60/120
+ * min) still floors the cluster LIST elsewhere; it must never *narrow* what
+ * reaches the heat map (workspace #654 P1, Codex review on PR #667).
+ */
+export function heatmapSpotAgeMinutes(maxAge: number | undefined): number {
+  return Math.max(clusterAgeMinutes(maxAge), DEFAULT_HEATMAP_WINDOW_MS / 60_000);
+}
+
+function spotEpochMs(time: DXSpot["time"]): number {
+  return time instanceof Date ? time.getTime() : new Date(time).getTime();
+}
+
+/**
+ * How much trailing history the (already widened) feed actually spans, up
+ * to the ladder's fixed 20-min need — never more, since more doesn't change
+ * anything the ladder reads. This is the honest answer to "does the shared
+ * store actually retain 20 minutes right now", independent of what age we
+ * asked `filterClusterAge`/`filterBridgeSpotAge` for.
+ */
+export function heatmapAvailableMs(spots: readonly DXSpot[], now: number): number {
+  let oldest = now;
+  for (const spot of spots) {
+    const t = spotEpochMs(spot.time);
+    if (Number.isFinite(t) && t < oldest) oldest = t;
+  }
+  return Math.min(DEFAULT_HEATMAP_WINDOW_MS, Math.max(0, now - oldest));
+}
+
+/** "20 MIN" once the feed spans the ladder's full window, else the honest
+ * shorter figure — never claim history the feed doesn't have. */
+export function heatmapWindowLabel(availableMs: number): string {
+  if (availableMs >= DEFAULT_HEATMAP_WINDOW_MS) return "20 MIN";
+  return `${Math.max(1, Math.round(availableMs / 60_000))} MIN`;
+}
+
+/**
+ * With less than the full 20-min window available, the ladder's "prior 10
+ * min" trend half can be missing data rather than genuinely quiet, so any
+ * nonzero recent count reads as a spurious "rising" trend (`computeTrend`'s
+ * zero-prior rule in `@/lib/utils/bandActivity`) and wrongly promotes a cell
+ * to "hot". Rather than touch `evaluateLadder` itself — mirrored server-side
+ * in `collector/src/verdict/ladder.ts` — this clamps the ladder's *output*
+ * at the wall's own call sites: "hot" cannot render until the feed backing
+ * it actually spans the full window (workspace #654 P1, Codex review on
+ * PR #667).
+ */
+export function clampInsufficientHistory(
+  cell: HeatmapCell,
+  availableMs: number,
+): HeatmapCell {
+  if (availableMs >= DEFAULT_HEATMAP_WINDOW_MS || cell.ladder !== "hot") return cell;
+  return { ...cell, ladder: "verified" };
 }

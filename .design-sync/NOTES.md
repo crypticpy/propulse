@@ -119,3 +119,13 @@
 - Removed `HamClockReliabilityPanel` and `HamClockSpotsSidebar` from `componentSrcMap` (242 → 240) and deleted their two preview files under `.design-sync/previews/`; both source components were confirmed fully unreferenced in `src` (superseded by `wall/tiles/useWallReliability.ts` and the wall's spot tiles respectively) and deleted from the repo in the same commit.
 - Both still have live cards in the **propulsetecnologies** (`30f79cc2-…`) and **aboveearthproductions** (`b5bd52bb-…`) projects from prior pushes, so the next `ds-bundle` build/push needs a `delete_files` pass against both mirrors before it re-syncs, or `report_validate` will flag two remote-only components.
 - `HamClockRecentContacts`/`HamClockBandFocus` were left in `componentSrcMap` and in the repo: deleting `HamClockSpotsSidebar` orphaned both (no other importer), but that deletion was out of this issue's stated scope and the harness blocked it — flagged for the owner as a follow-up rather than acted on.
+
+## 2026-09-09 tail of #753 — `ds-entry.tsx` is the third place
+
+- #753 removed the two orphans from `componentSrcMap` and from `.design-sync/previews/`, but left their `export { … } from "@/components/map/hamclock/…"` lines in `.design-sync/ds-entry.tsx` pointing at files deleted in the same commit. `npm run verify` does not catch this — `ds-entry.tsx` is outside the `tsconfig.json` include set, so only a `ds-bundle` build would have failed, and no one built one between the merge and this fix. Both lines removed here.
+- **Deleting a design-sync component touches three places, not two.** Grep the component name and expect exactly these hits before you commit:
+  1. `.design-sync/config.json` → its `componentSrcMap` entry (assert the count goes down by one per component).
+  2. `.design-sync/previews/<Name>.tsx` → the preview file.
+  3. `.design-sync/ds-entry.tsx` → its `export { … }` line.
+  A fourth, remote, step follows on the next push: the `delete_files` pass against **both** mirrors (see the #753 note above).
+- Sweep to prove the fixed point, rather than trusting the three greps: every `from "@/…"` specifier in `ds-entry.tsx` should resolve to a file on disk, every `componentSrcMap` target should exist, and every `previews/*.tsx` stem should have a map entry. After this fix all three hold (240 map entries, 226 previews, 0 dangling).

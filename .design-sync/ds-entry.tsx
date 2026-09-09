@@ -206,8 +206,6 @@ export { HamClockModeSwitch } from "@/components/map/hamclock/HamClockModeSwitch
 export { HamClockMoonPanel } from "@/components/map/hamclock/HamClockMoonPanel";
 export { HamClockProjectionSwitch } from "@/components/map/hamclock/HamClockProjectionSwitch";
 export { HamClockRecentContacts } from "@/components/map/hamclock/HamClockRecentContacts";
-export { HamClockReliabilityPanel } from "@/components/map/hamclock/HamClockReliabilityPanel";
-export { HamClockSpotsSidebar } from "@/components/map/hamclock/HamClockSpotsSidebar";
 export { HamClockButton } from "@/components/map/hamclock/wall/controls/HamClockButton";
 export { HamClockDialog } from "@/components/map/hamclock/wall/controls/HamClockDialog";
 export { HamClockSegmented } from "@/components/map/hamclock/wall/controls/HamClockSegmented";

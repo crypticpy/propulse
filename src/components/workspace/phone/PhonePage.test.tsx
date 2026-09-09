@@ -1,4 +1,5 @@
 import { act, fireEvent, render, screen } from "@testing-library/react";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { OPERATING_PROTOCOL_VERSION } from "@/lib/workspace/operatingChannel";
 import { useDXStore } from "@/stores/dxStore";
@@ -12,6 +13,23 @@ vi.mock("@/hooks/useDXCluster", () => ({ useDXCluster: mocks.cluster }));
 
 const previousDX = useDXStore.getState();
 const previousWorkspace = useWorkspaceStore.getState();
+
+/**
+ * Page 4 (`ContactScreen`, #660) reads `useSolarFlux`/`useKIndex`, which need
+ * a `QueryClientProvider` ancestor — the only page here that does. Every
+ * test renders through this helper so navigating to page 4 doesn't throw,
+ * and stubs `fetch` so `useSolarResource`'s queryFn doesn't reach the
+ * network in a unit test (pattern: `useBandActivity.test.tsx`).
+ */
+function renderPhone() {
+  vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("no network in tests")));
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  return render(
+    <QueryClientProvider client={client}>
+      <PhonePage />
+    </QueryClientProvider>,
+  );
+}
 
 function spot(overrides: Partial<DXSpot>): DXSpot {
   return {
@@ -41,7 +59,7 @@ afterEach(() => {
 describe("PhonePage", () => {
   it("tapping a band row writes the shared cursor's band", () => {
     useDXStore.setState({ spots: [spot({ band: "20m" })] });
-    render(<PhonePage />);
+    renderPhone();
 
     fireEvent.click(screen.getByRole("button", { name: /20M/ }));
 
@@ -60,7 +78,7 @@ describe("PhonePage", () => {
       lon: null,
       spotId: "a",
     });
-    render(<PhonePage />);
+    renderPhone();
 
     fireEvent.click(screen.getByRole("button", { name: /40M/ }));
 
@@ -74,7 +92,7 @@ describe("PhonePage", () => {
       spots: [spot({ band: "20m" }), spot({ id: "b", band: "40m" })],
     });
     useWorkspaceStore.getState().setPhoneVisibleBands(["40m"]);
-    render(<PhonePage />);
+    renderPhone();
 
     expect(screen.queryByRole("button", { name: /20M/ })).toBeNull();
     expect(screen.getByRole("button", { name: /40M/ })).toBeTruthy();
@@ -85,7 +103,7 @@ describe("PhonePage", () => {
       spots: [spot({ id: "s1", dx: "PY2ABC", band: "20m" })],
     });
     useOperatingStateStore.getState().setBand("20m");
-    render(<PhonePage />);
+    renderPhone();
 
     fireEvent.click(screen.getByRole("button", { name: "Next page" }));
     expect(
@@ -99,7 +117,7 @@ describe("PhonePage", () => {
   });
 
   it("page dots flip pages, and PREVIOUS/NEXT are disabled at the ends", () => {
-    render(<PhonePage />);
+    renderPhone();
 
     const previous = screen.getByRole("button", {
       name: "Previous page",
@@ -111,13 +129,19 @@ describe("PhonePage", () => {
     expect(next.disabled).toBe(false);
 
     const dots = screen.getAllByRole("tab");
-    expect(dots).toHaveLength(3);
+    expect(dots).toHaveLength(4);
 
     fireEvent.click(dots[2]);
-    expect(next.disabled).toBe(true);
+    expect(next.disabled).toBe(false);
     expect(
       screen.getByRole("tab", { selected: true }).getAttribute("aria-label"),
     ).toContain("SELECTION");
+
+    fireEvent.click(dots[3]);
+    expect(next.disabled).toBe(true);
+    expect(
+      screen.getByRole("tab", { selected: true }).getAttribute("aria-label"),
+    ).toContain("CONTACT");
   });
 
   it("renders the band ladder and contact list without hanging when a spot is hidden", () => {
@@ -131,7 +155,7 @@ describe("PhonePage", () => {
       hiddenSpotIds: new Set(["b"]),
     });
     useOperatingStateStore.getState().setBand("20m");
-    render(<PhonePage />);
+    renderPhone();
 
     expect(screen.getByRole("button", { name: /20M/ })).toBeTruthy();
 
@@ -140,7 +164,7 @@ describe("PhonePage", () => {
   });
 
   it("applies a foreign flipPage command for this workspace but ignores one for another", () => {
-    render(<PhonePage />);
+    renderPhone();
     expect(
       screen.getByRole("tab", { selected: true }).getAttribute("aria-label"),
     ).toContain("BAND LADDER");
@@ -181,7 +205,7 @@ describe("PhonePage", () => {
   });
 
   it("registers exactly one phone entry while mounted, never a workstation one, and unregisters on unmount", () => {
-    const { unmount } = render(<PhonePage />);
+    const { unmount } = renderPhone();
 
     const registrations = Object.values(
       useOperatingStateStore.getState().registrations,

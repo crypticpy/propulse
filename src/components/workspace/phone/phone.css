@@ -133,3 +133,49 @@
 .phone-selection-call {
   font-size: 1.5rem;
 }
+
+.phone-contact-screen {
+  gap: var(--su-space-3);
+}
+
+.phone-contact-header {
+  display: flex;
+  flex-direction: column;
+  gap: var(--su-space-1);
+}
+
+.phone-contact-path {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--su-space-2) var(--su-space-4);
+}
+
+.phone-contact-window,
+.phone-contact-nearby {
+  display: flex;
+  flex-direction: column;
+  gap: var(--su-space-1);
+}
+
+.phone-contact-nearby-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--su-space-2);
+  min-height: var(--su-control-height);
+  padding: var(--su-space-1) var(--su-space-2);
+  background: var(--su-panel);
+  border: 1px solid var(--su-line);
+  border-radius: var(--su-radius-control);
+}
+
+.phone-tune-button {
+  min-height: 3rem;
+  width: 100%;
+  font-size: 1.05rem;
+  font-weight: 700;
+}
+
+.phone-tune-reason {
+  text-align: center;
+}

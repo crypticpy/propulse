@@ -587,5 +587,5 @@ it.each([6, 7].flatMap(version => [false, true].map(custom => ({ version, custom
   await display.persist.rehydrate();
   expect(display.getState().railLayout.left[0].tileIds).toEqual(["cluster"]);
   expect(display.getState().railLayout.right[0].tileIds).toEqual(custom ? spots : ["bestBand", "greyLine", "pskStation", "reliability", "activations"]);
-  expect(display.getState().railLayout.right[1].tileIds).toEqual(custom ? sdr : [...sdr, "pskStation"]);
+  expect(display.getState().railLayout.right[1].tileIds).toEqual(custom ? sdr : [...sdr, "pskStation", "heatMap"]);
 });

@@ -19,6 +19,7 @@ import {
   type ReactNode,
 } from "react";
 import { useMapStore, type TargetLocation } from "@/stores/mapStore";
+import { useBoundVisualTarget } from "@/hooks/useBoundMapSelection";
 import {
   useUserStore,
   useActiveRadio,
@@ -310,7 +311,8 @@ export function PathAnalysis({
   onMinimize: _onMinimize,
   onClose,
 }: PathAnalysisProps) {
-  const target = useMapStore((s) => s.target);
+  const mapTarget = useMapStore((s) => s.target);
+  const target = useBoundVisualTarget(mapTarget);
   const pathMode = useMapStore((s) => s.pathMode);
   const setPathMode = useMapStore((s) => s.setPathMode);
   const isolateTargetPath = useMapStore((s) => s.isolateTargetPath);

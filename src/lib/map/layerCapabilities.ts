@@ -17,7 +17,7 @@ function requireAllLayerKeys<const Keys extends readonly PropSphereLayerKey[]>(
   return keys;
 }
 
-const PROP_SPHERE_LAYER_KEYS = requireAllLayerKeys([
+export const PROP_SPHERE_LAYER_KEYS = requireAllLayerKeys([
   "terminator",
   "greyline",
   "aurora",
@@ -72,14 +72,17 @@ const PROP_SPHERE_DISPLAY_CONTROL_KEYS = new Set([
   "qthOrientation",
 ]);
 
-const FLAT_UNSUPPORTED_LAYER_KEYS = [
+/** Layers FlatMapView does not draw. Radar and grid activity are omitted
+ * on purpose: the flat canvas drapes radar (`useFlatRadarCanvas`) and paints
+ * grid-activity cells. DRAP, GOES, ducting and sporadic-E stay here — they
+ * have globe implementations only. */
+export const FLAT_UNSUPPORTED_LAYER_KEYS = [
   "aprs",
   "beacons",
   "drap",
   "ducting",
   "geomagField",
   "goesCloud",
-  "gridActivity",
   "ionosphere",
   "issTracker",
   "meteorShowers",
@@ -99,7 +102,7 @@ const FLAT_UNSUPPORTED_LAYERS = new Set<PropSphereLayerKey>(
   FLAT_UNSUPPORTED_LAYER_KEYS,
 );
 
-const AZIMUTHAL_SUPPORTED_LAYER_KEYS = [
+export const AZIMUTHAL_SUPPORTED_LAYER_KEYS = [
   "earthquakes",
   "activations",
   "fires",
@@ -187,6 +190,93 @@ export function getLayerAvailability(
   }
 
   return { available: true };
+}
+
+export const HERO_PROJECTION_FALLBACKS = [
+  "globe",
+  "azimuthal",
+] as const satisfies readonly PropSphereViewMode[];
+
+export interface HeroProjectionResolution {
+  projection: PropSphereViewMode;
+  forcedBy: PropSphereLayerKey[];
+}
+
+function layersBlockingProjection(
+  requestedLayers: readonly PropSphereLayerKey[],
+  projection: PropSphereViewMode,
+): PropSphereLayerKey[] {
+  return requestedLayers.filter(
+    (layer) =>
+      PROP_SPHERE_LAYER_KEY_SET.has(layer) &&
+      !getLayerAvailability(layer, projection).available,
+  );
+}
+
+/**
+ * Pick the projection that can draw every requested hero layer.
+ * The operator's preferred projection wins when it can draw the whole set;
+ * otherwise globe, then azimuthal. `forcedBy` is the subset that the
+ * preferred projection cannot draw (empty when preferred already works).
+ */
+export function resolveHeroProjection(
+  requestedLayers: readonly PropSphereLayerKey[],
+  preferredProjection: PropSphereViewMode,
+): HeroProjectionResolution {
+  const forcedBy = layersBlockingProjection(
+    requestedLayers,
+    preferredProjection,
+  );
+  if (forcedBy.length === 0) {
+    return { projection: preferredProjection, forcedBy };
+  }
+
+  const projection =
+    HERO_PROJECTION_FALLBACKS.find(
+      (candidate) =>
+        candidate !== preferredProjection &&
+        layersBlockingProjection(requestedLayers, candidate).length === 0,
+    ) ?? preferredProjection;
+
+  return { projection, forcedBy };
+}
+
+const HERO_LAYER_LABELS: Partial<Record<PropSphereLayerKey, string>> = {
+  drap: "DRAP",
+  radar: "radar",
+  goesCloud: "GOES",
+  ducting: "ducting",
+  sporadicE: "sporadic-E",
+};
+
+function projectionPhrase(mode: PropSphereViewMode): string {
+  if (mode === "globe") return "3D globe";
+  if (mode === "flat") return "the flat map";
+  return "azimuthal view";
+}
+
+function formatLayerList(layers: readonly PropSphereLayerKey[]): string {
+  const names = layers.map((layer) => HERO_LAYER_LABELS[layer] ?? layer);
+  if (names.length <= 2) return names.join(" and ");
+  return `${names.slice(0, -1).join(", ")}, and ${names[names.length - 1]}`;
+}
+
+/** One-line chip copy, or `undefined` when preferred projection already works. */
+export function formatHeroProjectionChip(
+  resolution: HeroProjectionResolution,
+  preferredProjection: PropSphereViewMode,
+): string | undefined {
+  if (
+    resolution.projection === preferredProjection ||
+    resolution.forcedBy.length === 0
+  ) {
+    return undefined;
+  }
+  return (
+    `Switched to ${projectionPhrase(resolution.projection)} because ` +
+    `${projectionPhrase(preferredProjection)} cannot draw ` +
+    `${formatLayerList(resolution.forcedBy)}`
+  );
 }
 
 /**

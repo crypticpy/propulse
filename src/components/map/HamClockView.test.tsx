@@ -1,40 +1,46 @@
 import { act, fireEvent, render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { useHamClockDisplayStore } from "@/stores/hamclockDisplayStore";
 import { HamClockView } from "./HamClockView";
 
+const { mapState, hamclockState, setViewMode } = vi.hoisted(() => {
+  const setViewMode = vi.fn();
+  const mapState = {
+    layoutMode: "hamclock",
+    setLayoutMode: vi.fn(),
+    viewMode: "flat" as "flat" | "globe" | "azimuthal",
+    setViewMode,
+    target: null,
+    layers: {
+      muf: false,
+      aurora: false,
+      drap: false,
+      weather: false,
+      radar: false,
+      goesCloud: false,
+      ducting: false,
+      sporadicE: false,
+    },
+    toggleLayer: vi.fn(),
+    spotFilters: { bands: [] as string[] },
+    setSpotFilters: vi.fn(),
+  };
+  const hamclockState = {
+    hamclockMode: "traffic",
+    setFiltersBeforeBands: vi.fn(),
+    bandFocus: [] as string[],
+    filtersBeforeBands: null,
+    preferredViewMode: "flat" as "flat" | "globe" | "azimuthal",
+  };
+  return { mapState, hamclockState, setViewMode };
+});
+
 vi.mock("@/stores/mapStore", () => ({
   useMapStore: Object.assign(
-    (selector: (state: Record<string, unknown>) => unknown) =>
-      selector({
-        layoutMode: "hamclock",
-        setLayoutMode: vi.fn(),
-        viewMode: "flat",
-        setViewMode: vi.fn(),
-        target: null,
-        layers: {
-          muf: false,
-          aurora: false,
-          drap: false,
-          weather: false,
-        },
-        toggleLayer: vi.fn(),
-        spotFilters: { bands: [] },
-        setSpotFilters: vi.fn(),
-      }),
+    (selector: (state: typeof mapState) => unknown) => selector(mapState),
     {
-      getState: () => ({
-        setLayoutMode: vi.fn(),
-        layers: {
-          muf: false,
-          aurora: false,
-          drap: false,
-          weather: false,
-        },
-        spotFilters: { bands: [] },
-        setSpotFilters: vi.fn(),
-      }),
+      getState: () => mapState,
       setState: vi.fn(),
     },
   ),
@@ -42,19 +48,10 @@ vi.mock("@/stores/mapStore", () => ({
 
 vi.mock("@/stores/hamclockStore", () => ({
   useHamClockStore: Object.assign(
-    (selector: (state: Record<string, unknown>) => unknown) =>
-      selector({
-        hamclockMode: "traffic",
-        setFiltersBeforeBands: vi.fn(),
-        bandFocus: [],
-        filtersBeforeBands: null,
-      }),
+    (selector: (state: typeof hamclockState) => unknown) =>
+      selector(hamclockState),
     {
-      getState: () => ({
-        hamclockMode: "traffic",
-        bandFocus: [],
-        filtersBeforeBands: null,
-      }),
+      getState: () => hamclockState,
     },
   ),
 }));
@@ -62,6 +59,10 @@ vi.mock("@/stores/hamclockStore", () => ({
 vi.mock("@/hooks/useActiveLocation", () => ({ useActiveLocation: () => null }));
 
 vi.mock("./FlatMapView", () => ({ FlatMapView: () => <div>Flat map</div> }));
+vi.mock("./GlobeView", () => ({ GlobeView: () => <div>Globe map</div> }));
+vi.mock("./AzimuthalView", () => ({
+  AzimuthalView: () => <div>Azimuthal map</div>,
+}));
 vi.mock("@/components/map/WatchStatusPill", () => ({
   WatchStatusPill: () => <div />,
 }));
@@ -86,6 +87,23 @@ vi.mock("./hamclock/wall/HamClockWall", () => ({
 }));
 
 describe("HamClockView", () => {
+  beforeEach(() => {
+    setViewMode.mockClear();
+    mapState.viewMode = "flat";
+    mapState.layers = {
+      muf: false,
+      aurora: false,
+      drap: false,
+      weather: false,
+      radar: false,
+      goesCloud: false,
+      ducting: false,
+      sporadicE: false,
+    };
+    hamclockState.preferredViewMode = "flat";
+    hamclockState.hamclockMode = "traffic";
+  });
+
   it("renders the same wall shell and map stage at both densities", () => {
     for (const density of ["wall", "desk"] as const) {
       useHamClockDisplayStore.getState().setDensity(density);
@@ -134,5 +152,45 @@ describe("HamClockView", () => {
       useHamClockDisplayStore.getState().setDensity("desk");
     });
     expect(screen.queryByRole("dialog")).toBeNull();
+  });
+
+  it("switches off a flat wall and explains when DRAP cannot draw", () => {
+    mapState.layers = { ...mapState.layers, drap: true };
+    render(
+      <MemoryRouter initialEntries={["/map"]}>
+        <HamClockView displayTime={new Date(0)} />
+      </MemoryRouter>,
+    );
+
+    expect(setViewMode).toHaveBeenCalledWith("globe");
+    expect(screen.getByRole("status").textContent).toBe(
+      "Switched to 3D globe because the flat map cannot draw DRAP",
+    );
+  });
+
+  it("keeps a user-chosen flat wall when radar can drape", () => {
+    mapState.layers = { ...mapState.layers, radar: true };
+    render(
+      <MemoryRouter initialEntries={["/map"]}>
+        <HamClockView displayTime={new Date(0)} />
+      </MemoryRouter>,
+    );
+
+    expect(setViewMode).not.toHaveBeenCalled();
+    expect(screen.queryByRole("status")).toBeNull();
+  });
+
+  it("does not show a chip when the preferred projection already draws the set", () => {
+    hamclockState.preferredViewMode = "globe";
+    mapState.viewMode = "globe";
+    mapState.layers = { ...mapState.layers, drap: true };
+    render(
+      <MemoryRouter initialEntries={["/map"]}>
+        <HamClockView displayTime={new Date(0)} />
+      </MemoryRouter>,
+    );
+
+    expect(setViewMode).not.toHaveBeenCalled();
+    expect(screen.queryByRole("status")).toBeNull();
   });
 });

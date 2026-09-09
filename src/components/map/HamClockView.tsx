@@ -16,6 +16,7 @@ import {
   Suspense,
   useEffect,
   useCallback,
+  useMemo,
   useRef,
   useState,
 } from "react";
@@ -39,7 +40,12 @@ import {
   HAMCLOCK_MODE_LAYERS,
   applyHamClockModeLayers,
 } from "@/lib/hamclock/modePresets";
-import { normalizeExclusiveLayers } from "@/lib/map/layerCapabilities";
+import {
+  formatHeroProjectionChip,
+  normalizeExclusiveLayers,
+  PROP_SPHERE_LAYER_KEYS,
+  resolveHeroProjection,
+} from "@/lib/map/layerCapabilities";
 import { useActiveLocation } from "@/hooks/useActiveLocation";
 import { FlatMapView } from "./FlatMapView";
 import { WatchStatusPill } from "@/components/map/WatchStatusPill";
@@ -114,7 +120,27 @@ export function HamClockView({
   }, [activeLocation, kiosk, frameHome]);
 
   const viewMode = useMapStore((s) => s.viewMode);
+  const layers = useMapStore((s) => s.layers);
+  const preferredViewMode = useHamClockStore((s) => s.preferredViewMode);
   const mapContent = hamClockProjectionContent(viewMode, display.mapContent);
+
+  const requestedHeroLayers = useMemo(
+    () => PROP_SPHERE_LAYER_KEYS.filter((key) => layers[key]),
+    [layers],
+  );
+  const heroProjection = useMemo(
+    () => resolveHeroProjection(requestedHeroLayers, preferredViewMode),
+    [requestedHeroLayers, preferredViewMode],
+  );
+  const projectionChip = formatHeroProjectionChip(
+    heroProjection,
+    preferredViewMode,
+  );
+
+  useEffect(() => {
+    if (viewMode === heroProjection.projection) return;
+    useMapStore.getState().setViewMode(heroProjection.projection);
+  }, [viewMode, heroProjection.projection]);
 
   const hamclockMode = useHamClockStore((s) => s.hamclockMode);
   const setFiltersBeforeBands = useHamClockStore(
@@ -192,16 +218,26 @@ export function HamClockView({
         userNavigated.current = true;
       }}
     >
-      {viewMode === "flat" &&
-        display.homeRequest &&
-        Math.abs(display.homeRequest.lon) +
-          display.homeRequest.longitudeSpan / 2 >
-          180 && (
-          <div className="absolute top-2 left-2 z-10 rounded bg-void-black/90 p-2 text-xs text-su-text">
-            Dateline region · world overview. Use 3D for a centered regional
-            view.
+      <div className="absolute top-2 left-2 z-10 flex flex-col gap-1 pointer-events-none">
+        {projectionChip && (
+          <div
+            role="status"
+            className="rounded bg-void-black/90 px-2 py-1 text-xs text-su-text"
+          >
+            {projectionChip}
           </div>
         )}
+        {viewMode === "flat" &&
+          display.homeRequest &&
+          Math.abs(display.homeRequest.lon) +
+            display.homeRequest.longitudeSpan / 2 >
+            180 && (
+            <div className="rounded bg-void-black/90 p-2 text-xs text-su-text">
+              Dateline region · world overview. Use 3D for a centered regional
+              view.
+            </div>
+          )}
+      </div>
       <Suspense
         fallback={
           <div className="flex h-full items-center justify-center font-mono text-xs uppercase tracking-widest text-su-text/80">

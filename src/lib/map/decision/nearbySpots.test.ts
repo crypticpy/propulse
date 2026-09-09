@@ -120,7 +120,18 @@ describe("nearbySpots", () => {
       spots: [spot({ id: "four", dx: "W5AA", dxGrid: "EM10" })],
     });
     expect(result.count).toBe(1);
-    expect(result.evidence.basis).toMatch(/4-char locators use field centres/);
+    expect(result.evidence.basis).toMatch(/4-char locators use square centres/);
+  });
+
+  it("does not note 4-char uncertainty for distant grid-only spots", () => {
+    const result = nearbySpots({
+      targetLat: AUSTIN.lat,
+      targetLon: AUSTIN.lon,
+      radiusKm: 250,
+      spots: [spot({ id: "far-grid", dx: "JA1", dxGrid: "PM95" })],
+    });
+    expect(result.count).toBe(0);
+    expect(result.evidence.basis).not.toMatch(/square centres/);
   });
 
   it("leaves observedAt null for unparseable spot times and excludes them from newest", () => {

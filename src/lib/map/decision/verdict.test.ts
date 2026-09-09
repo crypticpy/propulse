@@ -215,15 +215,48 @@ describe("buildVerdict", () => {
     expect(verdict.line).toMatch(/NowCast favors 40m/);
   });
 
-  it("labels replay mode when live spot evidence is excluded", () => {
+  it("labels time-shift mode when live spot evidence is excluded", () => {
     const verdict = buildVerdict(
       baseInput({ evidenceLive: false, nowCast: null, spots: [] }),
       fakeMuf(),
       emptyNearby,
       quietGreyline,
     );
-    expect(verdict.line).toMatch(/spots excluded \(replay\)/);
+    expect(verdict.line).toMatch(/spots excluded \(time shift\)/);
     expect(verdict.line).not.toMatch(/no nearby spots/);
+  });
+
+  it("does not override the physics band from spots when evidence is excluded", () => {
+    const nearby: NearbySpotsResult = {
+      radiusKm: 500,
+      count: 1,
+      byBand: { "20m": 1 },
+      hits: [
+        {
+          id: "s20",
+          dx: "G4ABC",
+          band: "20m",
+          frequencyKHz: 14074,
+          distanceKm: 40,
+          observedAt: "2026-06-21T15:50:00.000Z",
+        },
+      ],
+      evidence: {
+        basis: "Observed spots within 500 km of the target (spot store)",
+        observedAt: "2026-06-21T15:50:00.000Z",
+        fetchedAt: COMPUTED.toISOString(),
+      },
+    };
+    const verdict = buildVerdict(
+      baseInput({ evidenceLive: false, nowCast: null, spots: [nearbySpot] }),
+      fakeMuf({ muf: 19, luf: 5 }),
+      nearby,
+      quietGreyline,
+    );
+    expect(verdict.line).toMatch(/spots excluded \(time shift\)/);
+    expect(verdict.line).not.toMatch(/spotted, not modeled/);
+    expect(verdict.bestBand).toBe(highestBandInWindow(5, 19));
+    expect(verdict.bestBand).not.toBe("20m");
   });
 
   it("marks a spotted-band override as not modeled on the path", () => {
@@ -254,7 +287,7 @@ describe("buildVerdict", () => {
       quietGreyline,
     );
     expect(verdict.bestBand).toBe("20m");
-    expect(verdict.line).toMatch(/20m spotted, not modeled/);
+    expect(verdict.line).toMatch(/20m spotted, not modeled \(physics: 17m\)/);
   });
 
   it("uses window tone only when greyline starts within two hours", () => {
@@ -328,5 +361,11 @@ describe("buildDecisionReport", () => {
   it("labels assumed Kp in path MUF basis when Kp is missing", () => {
     const report = buildDecisionReport(baseInput({ kp: null }));
     expect(report.pathMuf?.evidence.basis).toMatch(/Kp 0 assumed/);
+  });
+
+  it("omits the assumed label when Kp is supplied", () => {
+    const report = buildDecisionReport(baseInput({ kp: 2 }));
+    expect(report.pathMuf?.evidence.basis).toMatch(/Kp 2\)/);
+    expect(report.pathMuf?.evidence.basis).not.toMatch(/assumed/);
   });
 });

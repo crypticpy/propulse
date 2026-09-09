@@ -72,6 +72,15 @@ export function nearbySpots(input: NearbySpotsInput): NearbySpotsResult {
   let usedFourCharGrid = false;
 
   for (const spot of input.spots) {
+    const position = dxLocatorPosition(spot);
+    if (!position) continue;
+    const distanceKm = getDistance(
+      input.targetLat,
+      input.targetLon,
+      position.lat,
+      position.lon,
+    );
+    if (distanceKm > radiusKm) continue;
     const grid = spot.dxGrid?.trim();
     if (
       grid &&
@@ -82,15 +91,6 @@ export function nearbySpots(input: NearbySpotsInput): NearbySpotsResult {
     ) {
       usedFourCharGrid = true;
     }
-    const position = dxLocatorPosition(spot);
-    if (!position) continue;
-    const distanceKm = getDistance(
-      input.targetLat,
-      input.targetLon,
-      position.lat,
-      position.lon,
-    );
-    if (distanceKm > radiusKm) continue;
     const observedMs = spotObservedMs(spot);
     ranked.push({
       id: spot.id,
@@ -123,7 +123,7 @@ export function nearbySpots(input: NearbySpotsInput): NearbySpotsResult {
   let basis = `Observed spots within ${radiusKm} km of the target (spot store)`;
   if (usedFourCharGrid) {
     basis +=
-      "; 4-char locators use field centres (±~125 km)";
+      "; 4-char locators use square centres (±~125 km)";
   }
 
   return {

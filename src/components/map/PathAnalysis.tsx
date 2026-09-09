@@ -109,6 +109,23 @@ const DIFFICULTY_COLORS = [
   "text-alert-red",
 ];
 
+const SPOTS_TIME_SHIFT_LABEL = "spots excluded (time shift)";
+
+function collapsedVerdictDisplay(line: string): {
+  chip: string | null;
+  body: string;
+} {
+  if (!line.includes(SPOTS_TIME_SHIFT_LABEL)) {
+    return { chip: null, body: line };
+  }
+  const body = line
+    .replace(/;\s*spots excluded \(time shift\)/g, "")
+    .replace(/\(\s*spots excluded \(time shift\)\s*\)/g, "")
+    .replace(/\s{2,}/g, " ")
+    .trim();
+  return { chip: "time shift", body };
+}
+
 /**
  * Get color class for distance based on difficulty level
  * Uses the same color scheme as difficulty ratings
@@ -1023,14 +1040,24 @@ export function PathAnalysis({
                 </span>
               </>
             )}
-            {decision && (
-              <>
-                <div className="w-px h-3 bg-su-line/20" />
-                <span className="text-[10px] text-su-text truncate max-w-[240px]">
-                  {decision.verdict.line}
-                </span>
-              </>
-            )}
+            {decision && (() => {
+              const { chip, body } = collapsedVerdictDisplay(decision.verdict.line);
+              return (
+                <>
+                  <div className="w-px h-3 bg-su-line/20" />
+                  <div className="flex items-center gap-1 min-w-0 max-w-[280px]">
+                    {chip && (
+                      <span className="text-xs text-su-muted flex-shrink-0 rounded bg-su-line/10 px-1 py-0.5">
+                        {chip}
+                      </span>
+                    )}
+                    <span className="text-xs text-su-text truncate min-w-0">
+                      {body}
+                    </span>
+                  </div>
+                </>
+              );
+            })()}
           </div>
         ) : (
           /* EXPANDED: Restructured header with title top-left, icons top-right */

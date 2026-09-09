@@ -216,7 +216,7 @@ function buildLine(args: {
   } = args;
   const mufBit = pathMuf ? `path MUF ${pathMuf.muf.toFixed(1)} MHz` : "no path MUF";
   const spotBit = !evidenceLive
-    ? "spots excluded (replay)"
+    ? "spots excluded (time shift)"
     : nearby.count === 0
       ? "no nearby spots"
       : `${nearby.count} spot${nearby.count === 1 ? "" : "s"} within ${nearby.radiusKm} km`;
@@ -238,7 +238,10 @@ function buildLine(args: {
     nowCastInWindow,
   });
   const greyBit = greylineActive ? `; ${greylineLabel}` : "";
-  const spottedBit = spottedNotModeled && band ? `; ${band} spotted, not modeled` : "";
+  const spottedBit =
+    spottedNotModeled && band && physicsBand
+      ? `; ${band} spotted, not modeled (physics: ${physicsBand})`
+      : "";
   return `Workable now on ${band} (${mufBit}; ${spotBit}${nowCastBit}${spottedBit}${greyBit}).`;
 }
 
@@ -265,6 +268,8 @@ export function buildVerdict(
       bandIntersectsWindow(spottedBand, pathMuf.luf, pathMuf.muf),
   );
 
+  const evidenceLive = input.evidenceLive ?? true;
+
   let tone: DecisionTone = "unknown";
   let bestBand: string | null = null;
   let spottedNotModeled = false;
@@ -286,15 +291,18 @@ export function buildVerdict(
   if (tone === "open") {
     if (nowCastInWindow && nowCastBand) {
       bestBand = nowCastBand;
-    } else if (spottedInWindow && spottedBand && !nowCastBand) {
+    } else if (
+      evidenceLive &&
+      spottedInWindow &&
+      spottedBand &&
+      !nowCastBand
+    ) {
       if (spottedBand !== physicsBand) {
         spottedNotModeled = true;
       }
       bestBand = spottedBand;
     }
   }
-
-  const evidenceLive = input.evidenceLive ?? true;
 
   const computedAt = input.computedAt ?? new Date();
   const parts: string[] = [];

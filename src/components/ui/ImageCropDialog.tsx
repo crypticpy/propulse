@@ -353,7 +353,7 @@ export function ImageCropDialog({
           onClick={handleSave}
           disabled={saving || !croppedAreaPixels}
           className="px-4 py-2 text-sm font-medium rounded-lg transition-colors
-                     bg-plasma-orange/20 hover:bg-plasma-orange/30 text-plasma-orange
+                     bg-plasma-orange/15 hover:bg-plasma-orange/20 text-su-text
                      border border-plasma-orange/30
                      disabled:opacity-50 disabled:cursor-not-allowed
                      inline-flex items-center gap-2"

@@ -418,8 +418,8 @@ export const UndoToast: React.FC<UndoToastProps> = ({ className = "" }) => {
                   className="
                     flex items-center gap-1 px-2 py-1 rounded
                     text-xs font-medium
-                    bg-plasma-orange/20 text-plasma-orange
-                    hover:bg-plasma-orange/30
+                    bg-plasma-orange/15 text-su-text
+                    hover:bg-plasma-orange/20
                     transition-colors duration-150
                     focus:outline-none focus:ring-2 focus:ring-plasma-orange/50
                   "

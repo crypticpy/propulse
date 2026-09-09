@@ -56,15 +56,22 @@ describe("useViewSpotSelection", () => {
       uiInteraction: { ...DEFAULT_UI_INTERACTION, spotClickTunesRadio: false },
     });
     useRigStore.setState({ pendingFrequency: null, pendingMode: null });
+    useDXStore.setState({ selectedSpot: originalDx });
+    useMapStore.setState({ target: originalTarget });
   });
 
-  it("keeps selection scoped and still honors Click to Tune", () => {
+  it("writes the view runtime and, additively, the legacy dx/map stores, and still honors Click to Tune", () => {
+    // #707 removes the legacy writes once every mapStore.target consumer has
+    // migrated to the view runtime; until then this selection must land on
+    // both so panels reading either source agree. See useMapSpotSelection.ts.
     const { result } = renderHook(() => useViewSpotSelection(), { wrapper });
     act(() => {
       result.current(dxSpot());
     });
     expect(useRigStore.getState().pendingFrequency).toBe(14_074_000);
-    expect(useDXStore.getState().selectedSpot).toBe(originalDx);
-    expect(useMapStore.getState().target).toBe(originalTarget);
+    expect(useDXStore.getState().selectedSpot).not.toBe(originalDx);
+    expect(useDXStore.getState().selectedSpot?.id).toBe("spot-1");
+    expect(useMapStore.getState().target).not.toBe(originalTarget);
+    expect(useMapStore.getState().target).toMatchObject({ lat: 35, lon: 139 });
   });
 });

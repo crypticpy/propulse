@@ -10,6 +10,7 @@ import { useQSOStore } from "@/stores/qsoStore";
 import { SelectedSpotCard } from "./SelectedSpotCard";
 import { ViewProvider } from "@/components/views/ViewProvider";
 import { useViewRuntime } from "@/components/views/ViewRuntimeContext";
+import { commitViewSpotSelection } from "@/hooks/useMapSpotSelection";
 import { createMemoryWorkingStorage } from "@/lib/views/runtime";
 import type { ReactElement, ReactNode } from "react";
 import { useLayoutEffect } from "react";
@@ -298,11 +299,15 @@ describe("SelectedSpotCard", () => {
     expect(screen.getByText("Parks on the Air")).toBeTruthy();
   });
 
-  it("marks the bound report as the active target without a global pin", () => {
+  it("marks the report as the active target once the bound selection also lands on mapStore", () => {
+    // `useBoundVisualTarget` is a pass-through to `mapTarget` until #707
+    // (see useBoundMapSelection.ts) — a runtime-only selection must not be
+    // enough to flip this button; the additive `mapStore.setTarget` write
+    // from `commitViewSpotSelection` is what other panels on screen agree on.
     function SelectHost({ children }: { children: ReactNode }) {
       const runtime = useViewRuntime();
       useLayoutEffect(() => {
-        runtime.selectSpot(spot.id, { lat: spot.dxLat!, lon: spot.dxLon! });
+        commitViewSpotSelection(runtime, spot);
       }, [runtime]);
       return children;
     }
@@ -319,6 +324,9 @@ describe("SelectedSpotCard", () => {
     );
 
     expect(screen.getByRole("button", { name: "Target selected" })).toBeTruthy();
-    expect(useMapStore.getState().target).toBeNull();
+    expect(useMapStore.getState().target).toMatchObject({
+      lat: spot.dxLat,
+      lon: spot.dxLon,
+    });
   });
 });

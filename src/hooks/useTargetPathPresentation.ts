@@ -48,16 +48,16 @@ function selectedSpotMatchesTarget(
 /** Shared short/long ray traces and isolate flags for every map projection. */
 export function useTargetPathPresentation(displayTime: Date) {
   const runtime = useViewRuntime();
-  const boundTarget = useSyncExternalStore(
-    runtime.subscribe,
-    () => runtime.getSnapshot().interaction.target,
-  );
   const selectedReportId = useSyncExternalStore(
     runtime.subscribe,
     () => runtime.getSnapshot().interaction.selectedReportId,
   );
   const mapTarget = useMapStore((s) => s.target);
-  const target = boundTarget ?? mapTarget;
+  // mapStore remains the single visual target for now — see
+  // useBoundVisualTarget in useBoundMapSelection.ts and #707. The runtime's
+  // bound target is not read here so a direct mapStore.setTarget (e.g. grid
+  // research "Set Target") is never shadowed by a stale bound spot.
+  const target = mapTarget;
   const pathMode = useMapStore((s) => s.pathMode);
   const isolateTargetPath = useMapStore((s) => s.isolateTargetPath);
   const scopedLayers = useScopedMapLayers();

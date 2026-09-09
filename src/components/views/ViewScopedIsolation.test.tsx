@@ -143,8 +143,14 @@ describe("ViewProvider scoped adapters", () => {
     expect(screen.getByTestId("monitor-focus").textContent).toBe("-22.5");
     expect(screen.getByTestId("wall-sel").textContent).toBe("none");
     expect(screen.getByTestId("wall-focus").textContent).toBe("none");
-    expect(useDXStore.getState().selectedSpot).toBe(dxSelected);
-    expect(useMapStore.getState().target).toBe(mapTarget);
+    // Per-runtime interaction (selectedReportId, focus) stays isolated per
+    // slot above. The legacy dxStore/mapStore writes are additive and
+    // global now — commitViewSpotSelection (useMapSpotSelection.ts) writes
+    // them for every host until #707. See BoundViewHost.test.tsx.
+    expect(useDXStore.getState().selectedSpot?.id).toBe("grid-1");
+    expect(useMapStore.getState().target).toMatchObject({ lat: -22.5, lon: -43 });
+    useDXStore.setState({ selectedSpot: dxSelected });
+    useMapStore.setState({ target: mapTarget });
   });
 
   it("isolates two named copies and two display instances in one tree", async () => {

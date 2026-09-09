@@ -100,23 +100,27 @@ describe("useTargetPathPresentation", () => {
     useUserStore.getState().setStation(null);
   });
 
-  it("traces the bound report instead of a leftover global pin", () => {
+  it("traces the map store target, not a stale runtime-bound selection (#707)", () => {
+    // mapStore remains the single visual target for now — see
+    // useBoundVisualTarget in useBoundMapSelection.ts. A runtime-only bound
+    // selection (simulated here without the additive mapStore write that
+    // commitViewSpotSelection now performs) must not shadow the London pin
+    // already on mapStore, or PathAnalysis would draw to the wrong place.
     renderHook(() => usePathWithSelection(true), { wrapper: wrapper() });
     expect(traces.at(-1)).toMatchObject({
-      endLat: 35,
-      endLon: 139,
-      frequencyMHz: 14.074,
+      endLat: 51.5,
+      endLon: -0.1,
     });
     expect(useMapStore.getState().target).toMatchObject({ lat: 51.5, lon: -0.1 });
     expect(useDXStore.getState().selectedSpot).toBeNull();
   });
 
-  it("traces a bound selection when the global target is empty", () => {
+  it("does not trace when the global target is empty, even with a bound selection (#707)", () => {
     useMapStore.setState({ target: null });
     const rendered = renderHook(() => usePathWithSelection(true), {
       wrapper: wrapper(),
     });
-    expect(rendered.result.current.showRayPath).toBe(true);
-    expect(traces.at(-1)).toMatchObject({ endLat: 35, endLon: 139 });
+    expect(rendered.result.current.showRayPath).toBe(false);
+    expect(traces.length).toBe(0);
   });
 });

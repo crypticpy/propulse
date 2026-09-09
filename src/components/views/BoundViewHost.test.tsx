@@ -54,16 +54,23 @@ function FamilySlotProbe({ layoutMode }: { layoutMode: LayoutMode }) {
   return <span data-testid="family-slot">{slot}</span>;
 }
 
+const originalDx = useDXStore.getState().selectedSpot;
+const originalTarget = useMapStore.getState().target;
+
 afterEach(() => {
   useAuthStore.setState({ user: null, session: null });
+  useDXStore.setState({ selectedSpot: originalDx });
+  useMapStore.setState({ target: originalTarget });
 });
 
 describe("BoundViewHost", () => {
-  it("isolates selection across PropSphere and HamClock hosts without writing globals", async () => {
+  it("isolates each runtime's own selectedReportId per slot, but additively writes the shared legacy dx/map stores (#707)", async () => {
+    // Per-runtime interaction state (selectedReportId) still stays scoped to
+    // its own slot. The legacy dxStore/mapStore writes are no longer scoped
+    // at all — commitViewSpotSelection (useMapSpotSelection.ts) writes them
+    // for every host until #707 migrates the ~14 remaining global readers.
     const user = userEvent.setup();
     const storage = createMemoryWorkingStorage();
-    const dxSelected = useDXStore.getState().selectedSpot;
-    const mapTarget = useMapStore.getState().target;
     render(
       <>
         <BoundViewHost slot="normal" storage={storage}>
@@ -82,13 +89,13 @@ describe("BoundViewHost", () => {
     await user.click(screen.getByRole("button", { name: "monitor-select" }));
     expect(screen.getByTestId("monitor-sel").textContent).toBe("grid-1");
     expect(screen.getByTestId("wall-sel").textContent).toBe("none");
-    expect(useDXStore.getState().selectedSpot).toBe(dxSelected);
-    expect(useMapStore.getState().target).toBe(mapTarget);
+    expect(useDXStore.getState().selectedSpot?.id).toBe("grid-1");
+    expect(useMapStore.getState().target).toMatchObject({ lat: 35, lon: 139 });
     await user.click(screen.getByRole("button", { name: "wall-select" }));
     expect(screen.getByTestId("wall-sel").textContent).toBe("grid-1");
     expect(screen.getByTestId("monitor-sel").textContent).toBe("grid-1");
-    expect(useDXStore.getState().selectedSpot).toBe(dxSelected);
-    expect(useMapStore.getState().target).toBe(mapTarget);
+    expect(useDXStore.getState().selectedSpot?.id).toBe("grid-1");
+    expect(useMapStore.getState().target).toMatchObject({ lat: 35, lon: 139 });
   });
 
   it("binds the signed-in account as owner and remounts on auth change", () => {

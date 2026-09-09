@@ -79,6 +79,18 @@ it("changes map age by keyboard, persists it, and exposes source state", () => {
 });
 
 
+// PR #615 review finding 4: `setAge` alone only widened the ingest window
+// (`mapStore.spotAgeMinutes`); the renderer independently caps at the bound
+// view's own `filters.maxAgeMinutes` (default 30, `spotContracts.ts`), so a
+// 60 MIN choice never surfaced spots older than 30 minutes on the map.
+it("patches the bound view's maxAgeMinutes filter when the map spot age changes", () => {
+  const { runtime } = renderTab();
+  expect(runtime.getSnapshot().config.spots.filters.maxAgeMinutes).toBe(30);
+  fireEvent.click(screen.getByRole("radio", { name: "60 MIN" }));
+  expect(runtime.getSnapshot().config.spots.filters.maxAgeMinutes).toBe(60);
+  expect(useMapStore.getState().spotAgeMinutes).toBe(60);
+});
+
 it("selects personal scope and shares its longer age without changing global age or filters", () => {
   usePskStationView.setState({ direction: "by", minutes: 15, band: "40m" });
   const filters = useMapStore.getState().spotFilters;

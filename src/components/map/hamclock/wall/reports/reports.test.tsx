@@ -202,6 +202,17 @@ describe("wall reports", () => {
       useHamClockStore.setState({ bandFocus: originalBandFocus });
     }
   });
+
+  it("renders without a ViewProvider (a pinned report re-mounts on /workspace with no bound view, PR #615 review finding 1)", () => {
+    expect(() =>
+      render(<BandActivityReport open onClose={vi.fn()} initialView="dx" />),
+    ).not.toThrow();
+
+    const dialog = screen.getByRole("dialog", {
+      name: "Band activity report · TOP DX FROM HOME",
+    });
+    expect(dialog).toBeTruthy();
+  });
 });
 
 describe("ForecastReport muf focus", () => {

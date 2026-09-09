@@ -18,3 +18,28 @@ export function resolveAggregateReportThreshold(
   if (!prefs.enabled) return Number.MAX_SAFE_INTEGER;
   return Math.min(10, Math.max(2, Math.floor(prefs.minClusterSize)));
 }
+
+/**
+ * Caps how far a label may be nudged to avoid overlapping siblings (PR #615
+ * review finding 2). With clustering explicitly disabled, main honored that
+ * preference by continuing the deterministic fan instead of capping offsets
+ * until labels overlap again — `screenSpaceSpotLayout.ts`'s
+ * `layoutProjectedSpotCandidates` otherwise drops any spot that can't find a
+ * slot within the default 36px cap.
+ */
+export function resolveMaxStackOffsetPx(
+  prefs: SpotClusteringPreferences,
+): number {
+  return prefs.enabled ? 40 : Number.MAX_SAFE_INTEGER;
+}
+
+/**
+ * Screen-space collision padding, driven by the "Screen Spacing" slider
+ * (`gridSize`, persisted 5-15) (PR #615 review finding 3). Reinterprets the
+ * old degree-cell value as visible pixel breathing room.
+ */
+export function resolveCollisionPaddingPx(
+  prefs: SpotClusteringPreferences,
+): number {
+  return Math.max(4, prefs.gridSize ?? 6);
+}

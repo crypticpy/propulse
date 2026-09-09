@@ -31,7 +31,11 @@ import {
   type ProjectedSpotLayoutCandidate,
   type SpotLayoutCandidate,
 } from "@/lib/map/screenSpaceSpotLayout";
-import { resolveAggregateReportThreshold } from "@/lib/map/spotClusteringLayout";
+import {
+  resolveAggregateReportThreshold,
+  resolveCollisionPaddingPx,
+  resolveMaxStackOffsetPx,
+} from "@/lib/map/spotClusteringLayout";
 import { getModeColor } from "@/lib/utils/spotColors";
 import { useBoundSelectedReportId } from "@/hooks/useBoundMapSelection";
 import { useMapStore } from "@/stores/mapStore";
@@ -181,12 +185,14 @@ export function SpotActivityLayout3D({
         globeSpotCandidateRevision(candidates),
         `geo:${geographicClusters.map((cluster) => cluster.id).join(",")}`,
         `agg:${spotClusteringPrefs.enabled ? spotClusteringPrefs.minClusterSize : "off"}`,
+        `spacing:${spotClusteringPrefs.gridSize}`,
       ].join("|"),
     [
       candidates,
       geographicClusters,
       spotClusteringPrefs.enabled,
       spotClusteringPrefs.minClusterSize,
+      spotClusteringPrefs.gridSize,
     ],
   );
   const candidatesRef = useRef(candidates);
@@ -284,8 +290,12 @@ export function SpotActivityLayout3D({
       // Retain the existing user control, but reinterpret its old degree-cell
       // value as visible pixel breathing room now that grouping is correctly
       // projection-aware. Its persisted 5–15 range maps cleanly to pixels.
-      collisionPaddingPx: 6,
+      collisionPaddingPx: resolveCollisionPaddingPx(spotClusteringPrefsRef.current),
       minAggregateReportCount,
+      // With clustering explicitly disabled we honor that preference by
+      // continuing the deterministic fan instead of capping offsets until
+      // labels overlap again.
+      maxStackOffsetPx: resolveMaxStackOffsetPx(spotClusteringPrefsRef.current),
     });
     const signature = spotLayoutSignature(next);
     if (signature !== layoutSignatureRef.current) {

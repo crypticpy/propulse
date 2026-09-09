@@ -5,7 +5,7 @@ import { useLiveBandHistory } from "@/hooks/useLiveBandHistory";
 import { useBandHistory } from "@/hooks/useBandHistory";
 import { useHamClockStore } from "@/stores/hamclockStore";
 import { useDXStore } from "@/stores/dxStore";
-import { useViewSpotFilterPatch } from "@/hooks/useViewClusterSpots";
+import { useOptionalViewSpotFilterPatch } from "@/hooks/useViewClusterSpots";
 import { WallReport, type WallReportFact } from "./WallReport";
 import { reportFooter } from "../tokens";
 import { HamClockButton, HamClockTabs } from "../controls";
@@ -22,7 +22,10 @@ export interface BandActivityReportProps {
 /** Live counters retain their scope and population; historical counts are global only. */
 export function BandActivityReport({ open, onClose, initialGlobalCounts = false, initialView = "bands" }: BandActivityReportProps) {
   const [activeView, setActiveView] = useState(initialView);
-  const patchSpotFilters = useViewSpotFilterPatch();
+  // A pinned report re-mounts inside `HamClockPinnedReportHost` on
+  // `/workspace`, which has no `ViewProvider` above it (PR #615 review
+  // finding 1) — the optional variant no-ops there instead of throwing.
+  const patchSpotFilters = useOptionalViewSpotFilterPatch();
   const clusterSpots = useDXStore((s) => s.spots);
   const clusterSource = useDXStore(s => s.spotSource);
   const isTopDx = activeView === "dx";

@@ -2,7 +2,7 @@ import { useMemo } from "react";
 import { TuneButton } from "@/components/radio/TuneButton";
 import { useUTCClock } from "@/hooks/useUTCClock";
 import { useActiveLocation } from "@/hooks/useActiveLocation";
-import { useViewEffectiveSpots } from "@/hooks/useViewClusterSpots";
+import { useOptionalViewEffectiveSpots } from "@/hooks/useViewClusterSpots";
 import { rankLoadedDx } from "@/lib/hamclock/topDx";
 import { resolveUnits } from "@/lib/hamclock/units";
 import { filterMapSpots } from "@/lib/map/filterMapSpots";
@@ -21,9 +21,12 @@ export function BandTopDx() {
   const spots = useDXStore((s) => s.spots);
   const source = useDXStore((s) => s.spotSource);
   // Band filter comes from the bound view's own runtime (SP-09 round 3), not
-  // the retired `mapStore.spotFilters` — this report is only ever mounted
-  // inside the wall's `BoundViewHost`, so the throwing hook is safe here.
-  const viewSpots = useViewEffectiveSpots();
+  // the retired `mapStore.spotFilters`. This report is also reachable
+  // unbound — a report pinned from the wall re-mounts inside
+  // `HamClockPinnedReportHost`, which `WorkspacePage.tsx` mounts with no
+  // `ViewProvider` above it (PR #615 review finding 1) — so this must fall
+  // back to unfiltered defaults instead of throwing.
+  const viewSpots = useOptionalViewEffectiveSpots();
   const units = useHamClockDisplayStore((s) => s.units);
   const now = useUTCClock(30_000).getTime();
   const rows = useMemo(

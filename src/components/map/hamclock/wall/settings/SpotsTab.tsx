@@ -1,5 +1,4 @@
 import { useUserStore } from "@/stores/userStore";
-import { useDXStore } from "@/stores/dxStore";
 import { PSK_WINDOWS, type PskWindowMinutes } from "@/lib/hamclock/pskStation";
 import { MAP_SPOT_AGES } from "@/lib/map/spotAge";
 import { useMapSpotFeed } from "@/hooks/useMapSpotFeed";
@@ -26,11 +25,17 @@ export function SpotsTab() {
   const setAge = useMapStore((s) => s.setSpotAgeMinutes);
   const layers = useMapStore((s) => s.layers);
   const station = useUserStore((s) => s.station);
-  const sources = useDXStore((s) => s.filters.sources);
-  // No `spotFilters` here on purpose. `useViewMapSpots` ingests unfiltered and
-  // narrows downstream on the bound view's prefs, so passing `mapStore.spotFilters`
-  // would key this on a filter set no renderer uses -- a second live-spots query
-  // whose source states could disagree with the map this tab is describing.
+  // Same derivation `useViewMapSpots` uses (empty selection -> undefined, so
+  // an empty list means "no source filter" rather than "no sources"),
+  // instead of the retired `useDXStore` filter, so this status strip
+  // describes the feed the map actually renders (PR #615 review finding 5).
+  const sources =
+    viewSpots.filters.sources.length > 0 ? viewSpots.filters.sources : undefined;
+  // No `spotFilters` here on purpose, but not for the reason previously
+  // claimed: `useLiveSpots`'s query keys never included `spotFilters` (it
+  // only narrows `evidenceSpots`/`spots`, which this tab never renders), so
+  // passing it here would have been inert, not a second live-spots query
+  // (PR #615 review finding 5).
   const feed = useMapSpotFeed({
     grid: station?.grid,
     enabled: layers.spots || layers.spotTraces || layers.gridActivity || layers.spectrumRing,
@@ -55,7 +60,19 @@ export function SpotsTab() {
       <HamClockSegmented
         label="Map spot age"
         value={String(personal ? feed.station.view.minutes : age)}
-        onChange={(value) => personal ? feed.station.view.setMinutes(Number(value) as PskWindowMinutes) : setAge(Number(value))}
+        onChange={(value) => {
+          if (personal) {
+            feed.station.view.setMinutes(Number(value) as PskWindowMinutes);
+            return;
+          }
+          // `setAge` only widens the ingest window (`mapStore.spotAgeMinutes`);
+          // the renderer independently caps at the bound view's own
+          // `filters.maxAgeMinutes` (default 30), so a wider ingest window
+          // alone never surfaces older spots on the map (PR #615 review
+          // finding 4). Patch both together.
+          setAge(Number(value));
+          patchViewFilters({ maxAgeMinutes: Number(value) });
+        }}
         options={(personal ? PSK_WINDOWS : MAP_SPOT_AGES).map(value => ({ value: String(value), label: `${value} MIN` }))}
       />
       <p className="hcc-row-detail">

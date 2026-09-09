@@ -17,6 +17,7 @@ import { GreyLineTile } from "./GreyLineTile";
 import { HeatMapTile } from "./HeatMapTile";
 import { MoonTile } from "./MoonTile";
 import { MufTile } from "./MufTile";
+import { LaunchesTile } from "./LaunchesTile";
 import { RecentContactsTile } from "./RecentContactsTile";
 import { ReliabilityTile } from "./ReliabilityTile";
 import { SdrDecodesTile } from "./SdrDecodesTile";
@@ -45,6 +46,7 @@ export type TileId =
   | "sun"
   | "weather"
   | "moon"
+  | "launches"
   | "forecastMatrix"
   | "reliability"
   | "muf"
@@ -77,6 +79,7 @@ export const WALL_TILES: Record<TileId, WallTile> = {
   sun: { title: "Sunrise / sunset", Component: SunTile },
   weather: { title: "Local weather", Component: WeatherTile },
   moon: { title: "Moon", Component: MoonTile },
+  launches: { title: "Launches", Component: LaunchesTile },
   forecastMatrix: { title: "24h band forecast", Component: ForecastMatrixTile },
   reliability: { title: "24h reliability", Component: ReliabilityTile },
   muf: { title: "MUF", Component: MufTile },

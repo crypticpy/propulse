@@ -30,7 +30,11 @@ export interface SpotsLibraryController {
     config: SavedView["config"];
     sourcePreset?: SavedView["sourcePreset"];
   }) => Promise<SavedView | null>;
-  updateView: (entry: SpotsLibraryEntry<SavedView>, config: SavedView["config"]) => Promise<SavedView | null>;
+  updateView: (
+    entry: SpotsLibraryEntry<SavedView>,
+    config: SavedView["config"],
+    sourcePreset?: SavedView["sourcePreset"],
+  ) => Promise<SavedView | null>;
   renameView: (entry: SpotsLibraryEntry<SavedView>, name: string) => Promise<SavedView | null>;
   duplicateView: (entry: SpotsLibraryEntry<SavedView>, name: string) => Promise<SavedView | null>;
   deleteView: (entry: SpotsLibraryEntry<SavedView>) => Promise<boolean>;
@@ -135,14 +139,14 @@ export function useSpotsLibrary(library: SpotsLibraryPort): SpotsLibraryControll
   );
 
   const updateView = useCallback<SpotsLibraryController["updateView"]>(
-    (entry, config) =>
+    (entry, config, sourcePreset) =>
       commitView(
         {
           id: entry.id,
           name: entry.value.name,
           schemaVersion: 1,
           config: copyViewConfiguration(config),
-          sourcePreset: entry.value.sourcePreset,
+          sourcePreset: sourcePreset !== undefined ? sourcePreset : entry.value.sourcePreset,
         },
         entry.revision,
       ),

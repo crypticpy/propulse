@@ -89,6 +89,19 @@ async function fillNameField(user: ReturnType<typeof userEvent.setup>, name: str
 }
 
 describe("ViewLibrary", () => {
+  it("marks the loaded record as the current edit target when the provider starts with a saved view", async () => {
+    const port = createMemoryLibraryPort();
+    const fixture = createSavedViewFixture({ id: "view-a", revision: 2, name: "Started Here" });
+    port.seedView(fixture);
+    await renderHarness({ port, savedView: fixture });
+
+    const row = screen.getByRole("listitem");
+    expect(within(row).getByText("Current edit target")).toBeTruthy();
+    expect(
+      within(row).getByRole("button", { name: "Save changes to Started Here" }),
+    ).toBeTruthy();
+  });
+
   it("saves the working copy as a new view at revision 0 and flips status to Saved", async () => {
     const user = userEvent.setup();
     const { port } = await renderHarness();
@@ -207,7 +220,7 @@ describe("ViewLibrary", () => {
     await renderHarness({ port });
 
     await user.click(screen.getByRole("button", { name: "Delete Keep Me" }));
-    expect(screen.getByRole("alertdialog")).toBeTruthy();
+    expect(screen.getByRole("dialog", { name: "Delete saved view" })).toBeTruthy();
     await user.click(screen.getByRole("button", { name: "Cancel" }));
     expect(port.calls.some((call) => call.kind === "delete:view")).toBe(false);
     expect(screen.getByText("Keep Me")).toBeTruthy();
@@ -297,11 +310,11 @@ describe("ViewLibrary", () => {
     );
 
     await user.click(screen.getByRole("button", { name: "Load Loadable" }));
-    expect(screen.getByRole("alertdialog")).toBeTruthy();
+    expect(screen.getByRole("dialog", { name: "Discard working changes?" })).toBeTruthy();
     expect(onLoadView).not.toHaveBeenCalled();
 
     await user.click(screen.getByRole("button", { name: "Cancel" }));
-    expect(screen.queryByRole("alertdialog")).toBeNull();
+    expect(screen.queryByRole("dialog", { name: "Discard working changes?" })).toBeNull();
     expect(onLoadView).not.toHaveBeenCalled();
 
     await user.click(screen.getByRole("button", { name: "Load Loadable" }));
@@ -317,7 +330,7 @@ describe("ViewLibrary", () => {
     const { onLoadView } = await renderHarness({ port });
 
     await user.click(screen.getByRole("button", { name: "Load Loadable" }));
-    expect(screen.queryByRole("alertdialog")).toBeNull();
+    expect(screen.queryByRole("dialog", { name: "Discard working changes?" })).toBeNull();
     expect(onLoadView).toHaveBeenCalledWith(fixture);
   });
 
@@ -344,9 +357,9 @@ describe("ViewLibrary", () => {
     expect(document.activeElement?.getAttribute("aria-label")).toBe("Delete Keyboard View");
 
     await user.keyboard("{Enter}");
-    expect(screen.getByRole("alertdialog")).toBeTruthy();
+    expect(screen.getByRole("dialog", { name: "Delete saved view" })).toBeTruthy();
     await user.keyboard("{Escape}");
-    expect(screen.queryByRole("alertdialog")).toBeNull();
+    expect(screen.queryByRole("dialog", { name: "Delete saved view" })).toBeNull();
   });
 
   it("keeps two harnesses behaviourally isolated: saving in one does not touch the other", async () => {

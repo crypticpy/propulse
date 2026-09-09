@@ -6,11 +6,10 @@
  * never reads a store, IndexedDB or HTTP directly, and never marks the
  * working copy saved on a non-"saved" write outcome.
  */
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import type { PresetRecipe, SavedView } from "@/lib/views/contracts";
 import { getBuiltInRecipeIfKnown } from "@/lib/views/presets";
 import { AccessibleDialog } from "@/components/ui/AccessibleDialog";
-import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { SectionHeader } from "@/components/settings/ui/SectionHeader";
 import { LibraryNoticeBar } from "./LibraryNoticeBar";
 import { StatusStrip } from "./StatusStrip";
@@ -97,6 +96,54 @@ function NamePromptDialog({
   );
 }
 
+/**
+ * Confirmation built on `AccessibleDialog` rather than the bare `ConfirmDialog`
+ * primitive. This surface is opened from inside `SpotsPreferencesPanel`'s own
+ * `AccessibleDialog`; both then register on the same module-level dialog
+ * stack, so Escape closes only the topmost (this confirmation) instead of
+ * bubbling to the outer preferences panel. `ConfirmDialog`'s own Escape
+ * listener does not participate in that stack.
+ */
+function LibraryConfirmDialog({
+  open,
+  onCancel,
+  onConfirm,
+  title,
+  message,
+  confirmLabel,
+  cancelLabel = "Cancel",
+  variant = "destructive",
+}: {
+  open: boolean;
+  onCancel: () => void;
+  onConfirm: () => void;
+  title: string;
+  message: string;
+  confirmLabel: string;
+  cancelLabel?: string;
+  variant?: "destructive" | "warning";
+}) {
+  const confirmClass =
+    variant === "destructive"
+      ? `min-h-[40px] rounded-lg border border-alert-red/30 bg-alert-red/20 px-4 py-2 text-sm font-medium text-alert-red transition-colors hover:bg-alert-red/30 ${FOCUS_RING}`
+      : `min-h-[40px] rounded-lg border border-caution-amber/30 bg-caution-amber/20 px-4 py-2 text-sm font-medium text-caution-amber transition-colors hover:bg-caution-amber/30 ${FOCUS_RING}`;
+  return (
+    <AccessibleDialog open={open} onClose={onCancel} title={title} size="md">
+      <div className="flex flex-col gap-4">
+        <p className="text-sm text-su-muted">{message}</p>
+        <div className="flex justify-end gap-2">
+          <button type="button" onClick={onCancel} className={SECONDARY_BUTTON}>
+            {cancelLabel}
+          </button>
+          <button type="button" onClick={onConfirm} className={confirmClass}>
+            {confirmLabel}
+          </button>
+        </div>
+      </div>
+    </AccessibleDialog>
+  );
+}
+
 export function ViewLibrary({
   controller,
   library,
@@ -107,10 +154,17 @@ export function ViewLibrary({
   /** Host-supplied loader: replaces the working copy with a stored view. */
   onLoadView: (view: SavedView) => void;
 }) {
-  const [currentEntryId, setCurrentEntryId] = useState<string | null>(null);
+  const [currentEntryId, setCurrentEntryId] = useState<string | null>(controller.savedViewId);
   const [namePrompt, setNamePrompt] = useState<NamePromptState | null>(null);
   const [pendingDelete, setPendingDelete] = useState<SpotsLibraryEntry<SavedView> | null>(null);
   const [pendingLoad, setPendingLoad] = useState<SpotsLibraryEntry<SavedView> | null>(null);
+
+  // The provider can be initialized with (or rebound to) an existing saved
+  // view; keep the edit-target row in sync with that, not only with this
+  // component's own load/save/create actions.
+  useEffect(() => {
+    setCurrentEntryId(controller.savedViewId);
+  }, [controller.savedViewId]);
 
   const currentEntry = currentEntryId
     ? library.views.find((entry) => entry.id === currentEntryId) ?? null
@@ -127,7 +181,7 @@ export function ViewLibrary({
         const record = await library.createView({
           name,
           config: controller.config,
-          sourcePreset: null,
+          sourcePreset: controller.appliedPreset,
         });
         if (record) {
           controller.markSaved(record);
@@ -145,7 +199,7 @@ export function ViewLibrary({
 
   const handleSaveChanges = useCallback(async () => {
     if (!currentEntry) return;
-    const record = await library.updateView(currentEntry, controller.config);
+    const record = await library.updateView(currentEntry, controller.config, controller.appliedPreset);
     if (record) controller.markSaved(record);
   }, [currentEntry, controller, library]);
 
@@ -311,7 +365,7 @@ export function ViewLibrary({
         />
       )}
 
-      <ConfirmDialog
+      <LibraryConfirmDialog
         open={pendingDelete !== null}
         onCancel={() => setPendingDelete(null)}
         onConfirm={() => {
@@ -323,7 +377,7 @@ export function ViewLibrary({
         variant="destructive"
       />
 
-      <ConfirmDialog
+      <LibraryConfirmDialog
         open={pendingLoad !== null}
         onCancel={() => setPendingLoad(null)}
         onConfirm={confirmLoad}

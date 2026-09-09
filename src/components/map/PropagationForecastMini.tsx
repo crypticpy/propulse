@@ -432,12 +432,12 @@ export function PropagationForecastMini({
   const fadeSpan = Math.max(Math.floor(hoursToShow / 2), 1);
 
   // Caret center-on-column position (CSS calc)
-  // Band label column = w-8 (2rem), flex gap = gap-1 (0.25rem) → 2.25rem offset
+  // Band label column = w-10 (2.5rem), flex gap = gap-1 (0.25rem) → 2.75rem offset
   // Grid gap = 3px (inline, pixel-based), caret width = 24px → center offset = 12px
   const totalGapPx = (hoursToShow - 1) * 3;
   const caretLeft =
     currentHourIndex >= 0
-      ? `calc(2.25rem + ${currentHourIndex * 3}px + ${2 * currentHourIndex + 1} * (100% - 2.25rem - ${totalGapPx}px) / ${2 * hoursToShow} - 12px)`
+      ? `calc(2.75rem + ${currentHourIndex * 3}px + ${2 * currentHourIndex + 1} * (100% - 2.75rem - ${totalGapPx}px) / ${2 * hoursToShow} - 12px)`
       : "0px";
 
   // Calculate target sunrise/sunset times
@@ -919,7 +919,7 @@ export function PropagationForecastMini({
         {/* MAIN: Full-width Heatmap */}
         <div className="flex-1 flex flex-col min-h-0">
           {/* Heatmap row: labels + grid */}
-          <div className="flex-1 flex gap-1 min-h-0 relative" data-accent="accent">
+          <div className="flex-1 flex gap-1 min-h-0 relative">
             {/* Current hour caret markers — clip-path triangles (immune to
                 .contrast-more border-color !important overrides) */}
             {currentHourIndex >= 0 && (
@@ -954,7 +954,7 @@ export function PropagationForecastMini({
             )}
             {/* Band labels - use CSS Grid to match heatmap rows exactly */}
             <div
-              className="w-8 grid"
+              className="w-10 grid"
               style={{
                 gridTemplateRows: `repeat(${displayBands.length}, 1fr)`,
                 gap: "2px",
@@ -1024,7 +1024,7 @@ export function PropagationForecastMini({
                   return (
                     <div
                       key={`${band}-${hour}`}
-                      className={`rounded-sm cursor-pointer transition-all hover:brightness-125 relative flex items-center justify-center ${isCurrentHour ? "-translate-y-0.5 z-10 shadow-[5px_5px_8px_rgba(0,0,0,0.75)]" : ""} ${isSynced ? "ring-2 ring-su-accent-edge" : ""}`}
+                      className={`rounded-sm cursor-pointer transition-all hover:brightness-125 relative flex items-center justify-center ${isCurrentHour ? "-translate-y-0.5 z-10 shadow-[5px_5px_8px_rgba(0,0,0,0.75)]" : ""} ${isSynced ? "ring-2 ring-su-accent-edge ring-offset-1 ring-offset-su-canvas" : ""}`}
                       style={{
                         backgroundColor: adjustedColor,
                         opacity:
@@ -1071,7 +1071,7 @@ export function PropagationForecastMini({
 
           {/* Hour labels - below heatmap, offset to align with grid (skip band label column) */}
           <div className="flex gap-1">
-            <div className="w-8" /> {/* Spacer matching band labels width */}
+            <div className="w-10" /> {/* Spacer matching band labels width */}
             <div
               className="flex-1 grid mt-1 text-xs font-mono"
               style={{ gridTemplateColumns: `repeat(${hoursToShow}, 1fr)` }}

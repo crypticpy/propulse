@@ -1,3 +1,5 @@
+import { stationContrast } from "@/lib/themes/stationTokens";
+
 // ==========================================================================
 // Spot Color Utilities
 // Consolidated module for all spot color logic (mode-based and band-based).
@@ -33,8 +35,8 @@ export const MODE_COLORS: Record<string, string> = {
 
 /** Dark ink for light mode fills. Matches void-black / DS canvas ink. */
 export const MODE_INK_DARK = "#0a0a0a";
-/** Light ink only when the fill itself meets WCAG AA against white. */
-export const MODE_INK_LIGHT = "#ffffff";
+/** Light ink when the fill is dark enough for AA. Station `su-text`, not pure white. */
+export const MODE_INK_LIGHT = "#cad2dc";
 
 /** Historical replay routes deliberately avoid the live mode/band palettes. */
 export const SPOT_REPLAY_COLOR = "#8B7355";
@@ -99,55 +101,16 @@ export function getModeColor(mode: string | undefined): string {
   return MODE_COLORS.default;
 }
 
-function parseHexRgb(hex: string): [number, number, number] {
-  const raw = hex.replace("#", "");
-  const value =
-    raw.length === 3
-      ? raw
-          .split("")
-          .map((ch) => ch + ch)
-          .join("")
-      : raw;
-  const n = Number.parseInt(value, 16);
-  if (!Number.isFinite(n) || value.length !== 6) {
-    return [0, 0, 0];
-  }
-  return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
-}
-
-function srgbChannelToLinear(channel: number): number {
-  const s = channel / 255;
-  return s <= 0.04045 ? s / 12.92 : ((s + 0.055) / 1.055) ** 2.4;
-}
-
-/** Relative luminance per WCAG 2.x. */
-export function relativeLuminance(hex: string): number {
-  const [r, g, b] = parseHexRgb(hex);
-  return (
-    0.2126 * srgbChannelToLinear(r) +
-    0.7152 * srgbChannelToLinear(g) +
-    0.0722 * srgbChannelToLinear(b)
-  );
-}
-
-/** Contrast ratio of two sRGB hex colours. 1 = identical, 21 = max. */
-export function contrastRatio(foreground: string, background: string): number {
-  const l1 = relativeLuminance(foreground);
-  const l2 = relativeLuminance(background);
-  const [hi, lo] = l1 >= l2 ? [l1, l2] : [l2, l1];
-  return (hi + 0.05) / (lo + 0.05);
-}
-
 const AA_TEXT = 4.5;
 
 /**
  * Ink that meets WCAG AA (≥ 4.5:1) against `fill`. Prefers dark ink on light
  * fills (FT8 cyan, CW yellow, SSB green) and light ink only when the fill is
- * dark enough to support it.
+ * dark enough to support it. Contrast math lives in `stationContrast`.
  */
 export function inkOnFill(fill: string): string {
-  const dark = contrastRatio(MODE_INK_DARK, fill);
-  const light = contrastRatio(MODE_INK_LIGHT, fill);
+  const dark = stationContrast(MODE_INK_DARK, fill);
+  const light = stationContrast(MODE_INK_LIGHT, fill);
   if (dark >= AA_TEXT && dark >= light) return MODE_INK_DARK;
   if (light >= AA_TEXT) return MODE_INK_LIGHT;
   return dark >= light ? MODE_INK_DARK : MODE_INK_LIGHT;

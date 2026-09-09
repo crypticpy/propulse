@@ -32,10 +32,10 @@ export function HamClockLayerChips() {
             aria-label={title}
             aria-pressed={active}
             onClick={() => toggleLayer(key)}
-            className={`rounded px-1.5 py-0.5 font-mono text-[9px] font-semibold uppercase tracking-wide transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-plasma-orange ${
+            className={`rounded px-1.5 py-0.5 font-mono text-xs font-semibold uppercase tracking-wide transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-plasma-orange ${
               active
                 ? "bg-plasma-orange/90 text-void-black"
-                : "bg-white/5 text-su-muted hover:bg-white/10 hover:text-su-text"
+                : "bg-white/5 hc-dim-text hover:bg-white/10 hover:text-[var(--hc-fg)]"
             }`}
           >
             {label}

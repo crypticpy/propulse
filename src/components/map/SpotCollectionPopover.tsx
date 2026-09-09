@@ -200,7 +200,7 @@ export function SpotCollectionPopover({
                   {formatFrequency(rawSpot)}
                 </span>
               </div>
-              <div className="mt-1 flex items-center gap-1.5">
+              <div className="mt-1 flex flex-wrap items-center gap-1.5">
                 {spot.band && (
                   <span className="rounded bg-su-line/20 px-1 py-0.5 text-xs font-bold text-su-muted">
                     {spot.band}

@@ -33,10 +33,10 @@ export function HamClockModeSwitch({
             aria-label={label}
             aria-pressed={active}
             title={label}
-            className={`min-h-6 rounded px-1.5 font-mono text-[9px] font-semibold uppercase tracking-wide transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-plasma-orange ${
+            className={`min-h-6 rounded px-1.5 font-mono text-xs font-semibold uppercase tracking-wide transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-plasma-orange ${
               active
                 ? "bg-signal-green text-void-black"
-                : "text-su-muted hover:bg-white/10 hover:text-su-text"
+                : "hc-dim-text hover:bg-white/10 hover:text-[var(--hc-fg)]"
             }`}
           >
             {shortLabel}

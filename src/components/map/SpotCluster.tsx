@@ -20,7 +20,7 @@ import { useFrame, ThreeEvent } from "@react-three/fiber";
 import { Html } from "@react-three/drei";
 import * as THREE from "three";
 import type { SpotCluster as SpotClusterType } from "@/hooks/useSpotClustering";
-import { getModeColor } from "@/lib/utils/spotColors";
+import { getModeColor, inkOnFill } from "@/lib/utils/spotColors";
 import { useGlobeOcclusion } from "@/hooks/useGlobeOcclusion";
 import { getScreenSpaceScale } from "@/lib/map/screenSpaceScale";
 import {
@@ -440,7 +440,7 @@ export function SpotCluster({
             onBlur={() => setIsHovered(false)}
             style={{
               backgroundColor: color,
-              color: "#0A0A1A",
+              color: inkOnFill(color),
               boxShadow: `0 0 10px ${color}80`,
               cursor: "pointer",
               transform: isHovered ? "scale(1.2)" : "scale(1)",
@@ -454,7 +454,7 @@ export function SpotCluster({
             className="px-2 py-0.5 rounded-full text-[12px] font-bold whitespace-nowrap"
             style={{
               backgroundColor: color,
-              color: "#0A0A1A",
+              color: inkOnFill(color),
               boxShadow: `0 0 10px ${color}80`,
               transform: isHovered ? "scale(1.2)" : "scale(1)",
               transition: "all 0.2s ease",

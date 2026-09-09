@@ -586,9 +586,8 @@ export function PinFlyout({
                 key={band}
                 className="px-1.5 py-0.5 rounded text-[10px] font-mono font-medium"
                 style={{
-                  backgroundColor: `${color}22`,
-                  color,
-                  border: `1px solid ${color}44`,
+                  backgroundColor: color,
+                  color: inkOnFill(color),
                 }}
               >
                 {band}

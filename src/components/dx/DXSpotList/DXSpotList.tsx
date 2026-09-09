@@ -41,27 +41,32 @@ import {
   normalizeModeSelection,
   summarizeModeSelection,
 } from "@/lib/spots/presentation/modes";
+import { inkOnFill } from "@/lib/utils/spotColors";
 
-/** Source badge styling map */
+/**
+ * Source badge fill colours. Solid + `inkOnFill` (not a translucent
+ * `bg-color-500/20` tint) because the tint's fixed hue fails AA text
+ * contrast once composited onto the light theme's canvas (measured
+ * ~1.3:1 -- issue #774).
+ */
 const SOURCE_BADGE_STYLES: Record<
   DXSpotSource,
-  { label: string; bg: string; text: string; border: string; pulse: boolean }
+  { label: string; fill: string; pulse: boolean }
 > = {
   bridge: {
     label: "LIVE",
-    bg: "bg-green-500/20",
-    text: "text-green-400",
-    border: "border-green-500/30",
+    fill: "#22c55e",
     pulse: true,
   },
   rest: {
     label: "REST",
-    bg: "bg-blue-500/20",
-    text: "text-blue-400",
-    border: "border-blue-500/30",
+    fill: "#3b82f6",
     pulse: false,
   },
 };
+
+/** Fill for the "needed" count badge -- see `SOURCE_BADGE_STYLES` comment. */
+const NEEDED_BADGE_FILL = "#eab308";
 
 /**
  * DXSpotList Component
@@ -408,7 +413,11 @@ export function DXSpotList({
             </span>
             {/* Data source indicator badge */}
             <span
-              className={`px-1.5 py-0.5 text-[10px] font-bold rounded-full border flex items-center gap-1 ${SOURCE_BADGE_STYLES[spotSource].bg} ${SOURCE_BADGE_STYLES[spotSource].text} ${SOURCE_BADGE_STYLES[spotSource].border}`}
+              className="px-1.5 py-0.5 text-[10px] font-bold rounded-full flex items-center gap-1"
+              style={{
+                backgroundColor: SOURCE_BADGE_STYLES[spotSource].fill,
+                color: inkOnFill(SOURCE_BADGE_STYLES[spotSource].fill),
+              }}
             >
               {SOURCE_BADGE_STYLES[spotSource].pulse && (
                 <span className="relative flex h-1.5 w-1.5">
@@ -424,7 +433,13 @@ export function DXSpotList({
               </span>
             )}
             {neededCount > 0 && (
-              <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-yellow-500/20 text-yellow-400 border border-yellow-500/30 flex items-center gap-1">
+              <span
+                className="px-1.5 py-0.5 rounded text-[10px] font-bold flex items-center gap-1"
+                style={{
+                  backgroundColor: NEEDED_BADGE_FILL,
+                  color: inkOnFill(NEEDED_BADGE_FILL),
+                }}
+              >
                 <svg
                   className="w-3 h-3"
                   fill="currentColor"
@@ -503,12 +518,12 @@ export function DXSpotList({
             {activeProfile ? (
               <>
                 Profile{" "}
-                <span className="text-cyan-400 font-medium">
+                <span className="text-cosmic-cyan font-medium">
                   {activeProfile.name}
                 </span>
               </>
             ) : (
-              <span className="text-cyan-400 font-medium">Custom filter</span>
+              <span className="text-cosmic-cyan font-medium">Custom filter</span>
             )}
             {spotFilters.bands.length > 0 && (
               <> — {spotFilters.bands.join(", ")}</>

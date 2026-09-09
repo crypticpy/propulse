@@ -17,7 +17,7 @@
 
 import { useState, useCallback, useEffect, useMemo, useRef } from "react";
 import { Html } from "@react-three/drei";
-import { getModeColor, getBandColor } from "@/lib/utils/spotColors";
+import { getModeColor, getBandColor, inkOnFill } from "@/lib/utils/spotColors";
 import type { ScreenAnchor } from "@/lib/map/anchoredOverlay";
 import { GLOBE_DOM_LAYER_ORDER } from "@/lib/map/globeRenderOrder";
 
@@ -342,8 +342,8 @@ export function SpotLabel({
           className="ml-1 rounded-sm px-1 py-px"
           style={{
             fontSize: "0.72em",
-            color: underlineColor,
-            backgroundColor: `${underlineColor}1f`,
+            color: inkOnFill(underlineColor),
+            backgroundColor: underlineColor,
           }}
         >
           {badge}

@@ -94,3 +94,24 @@ it("shows a source context reason and refuses tuning an unverified target", () =
   fireEvent.click(button);
   expect(useRigStore.getState().pendingFrequency).toBeNull();
 });
+
+it("renders the chip variant as a compact one-line control that is enabled when ready", () => {
+  render(<TuneButton variant="chip" frequencyKHz={14074} mode="FT8" />);
+  const button = screen.getByRole("button", { name: "Tune 14.074 MHz FT8" });
+  expect(button.textContent?.replace(/\s+/g, " ").trim()).toBe("TUNE 14.074");
+  expect(button.hasAttribute("disabled")).toBe(false);
+  expect(button.className).toContain("h-8");
+});
+
+it("shows the blocked reason as visible chip text, not just a colour dot, when tuning is blocked", () => {
+  useSettingsStore.setState({ bridgeEnabled: false });
+  render(<TuneButton variant="chip" frequencyKHz={14074} mode="FT8" />);
+  const button = screen.getByRole("button", {
+    name: "Tune 14.074 MHz FT8: BRIDGE OFF",
+  });
+  expect(button.hasAttribute("disabled")).toBe(true);
+  expect(button.textContent?.replace(/\s+/g, " ").trim()).toBe(
+    "TUNE 14.074 · BRIDGE OFF",
+  );
+  expect(button.getAttribute("title")).toBe("BRIDGE OFF");
+});

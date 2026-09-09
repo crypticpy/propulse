@@ -83,6 +83,8 @@ export function spotRowPropsAreEqual(
     prevProps.showAgeColumn === nextProps.showAgeColumn &&
     prevProps.ageVisualizationEnabled === nextProps.ageVisualizationEnabled &&
     prevProps.activeBandFilter === nextProps.activeBandFilter &&
-    prevProps.isHighlighted === nextProps.isHighlighted
+    prevProps.isHighlighted === nextProps.isHighlighted &&
+    prevProps.isFocused === nextProps.isFocused &&
+    prevProps.compact === nextProps.compact
   );
 }

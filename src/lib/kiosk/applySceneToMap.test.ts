@@ -4,6 +4,7 @@ import type { KioskScene } from "@/stores/kioskStore";
 import { useMapStore } from "@/stores/mapStore";
 import { useThemeStore } from "@/stores/themeStore";
 import { useHamClockDisplayStore } from "@/stores/hamclockDisplayStore";
+import { useHamClockStore } from "@/stores/hamclockStore";
 import {
   __resetHamClockPinForTests,
   applySceneToMap,
@@ -144,6 +145,30 @@ describe("applySceneToMap", () => {
 
     expect(useMapStore.getState().layers.drap).toBe(true);
     expect(useMapStore.getState().viewMode).toBe("globe");
+  });
+
+  // A scene records its request in `preferredViewMode`, not just in the
+  // resolved `viewMode`. Storing only the outcome throws the intent away:
+  // HamClockView derives its chip from the preference, so a scene that asked
+  // for 3D would inherit whatever the operator last picked and announce
+  // "Switched to 3D because flat cannot draw DRAP" — naming a projection the
+  // scene never requested (#691 M5 review).
+  it("records the scene's requested projection as the preference, not the resolved one", () => {
+    useHamClockStore.getState().setPreferredViewMode("flat");
+
+    applySceneToMap({
+      id: "science-wall",
+      name: "Science wall",
+      route: "/map",
+      map: {
+        layoutMode: "pro",
+        viewMode: "globe",
+        preset: "science",
+      },
+    });
+
+    expect(useMapStore.getState().viewMode).toBe("globe");
+    expect(useHamClockStore.getState().preferredViewMode).toBe("globe");
   });
 
   it("keeps the scene's requested projection when nothing it enables needs another one", () => {

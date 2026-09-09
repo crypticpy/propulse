@@ -211,6 +211,14 @@ export function applySceneToMap(scene: KioskScene): void {
   // and Launch Wall both apply scenes through this function, so wiring it
   // here covers both (#691 M5).
   if (capabilities.viewMode && scene.map.viewMode) {
+    // Record the scene's request as the *preference* before resolving.
+    // `preferredViewMode` is what the hero machinery reports as "what you
+    // asked for" — HamClockView derives its chip from it, so leaving it on
+    // a stale operator preference makes a scene that asked for 3D announce
+    // "Switched to 3D because flat cannot draw DRAP", naming a projection
+    // this scene never requested. Writing only the resolved `viewMode`
+    // below stores the outcome and throws the intent away.
+    useHamClockStore.getState().setPreferredViewMode(scene.map.viewMode);
     const requestedHeroLayers = enabledHeroCriticalLayers(
       useMapStore.getState().layers,
     );

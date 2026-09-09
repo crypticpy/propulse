@@ -344,7 +344,12 @@ describe("handleEventsLaunches", () => {
       vi.fn().mockResolvedValue(upstreamOk({ results: [rawLaunch()] })),
     );
     await handleEventsLaunches(launchesRequest("GET", "203.0.113.16"));
-    expect(lastPut?.url).toBe("https://propulse.test/api/events/launches");
+    expect(lastPut?.url).toBe(
+      "https://propulse.test/api/events/launches/last-good",
+    );
+    expect(lastPut?.url).not.toBe(
+      "https://propulse.test/api/events/launches",
+    );
     expect(lastPut?.cacheControl).toBe("max-age=21600");
     resetLaunchCacheForTests();
     vi.setSystemTime(new Date("2026-09-08T21:16:00Z"));

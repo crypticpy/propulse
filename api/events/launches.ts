@@ -91,10 +91,7 @@ export function seedLastGoodForTests(entry: CachedLaunches | null): void {
 }
 
 function lastGoodCacheUrl(request: Request): string {
-  const url = new URL(request.url);
-  url.search = "";
-  url.hash = "";
-  return url.toString();
+  return new URL("/api/events/launches/last-good", request.url).toString();
 }
 
 function runtimeCache(): Cache | undefined {

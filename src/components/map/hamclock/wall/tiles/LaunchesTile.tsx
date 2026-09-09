@@ -94,7 +94,7 @@ export function LaunchesTile({ title = "Launches" }: WallTileProps) {
         onOpen={() => setReportOpen(true)}
         openLabel={`${next.name}, ${spoken}. Open the launches report`}
       >
-        <TileHero tone={tone} large={hero.length <= 11}>
+        <TileHero tone={tone}>
           {hero}
         </TileHero>
         <TileSub>

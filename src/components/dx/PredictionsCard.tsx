@@ -239,15 +239,18 @@ export function PredictionsCard({
         <div className="space-y-2">
           {predictions.map((prediction, index) => {
             const conditionColor = getConditionColor(prediction.condition);
-            // Aurora's colour is the `--su-purple-rgb` token (#799), not a
-            // hex literal, so it can't take the `${hex}20` alpha-suffix
-            // trick the other (still-hex) conditions use for their tint --
-            // that would emit `rgb(var(--su-purple-rgb))20`, invalid CSS.
-            // Purple text on its own tint also fails the 4.5:1 floor on the
-            // Card's `bg-su-line/10` glass in every theme (measured in the
-            // PR); dropping the fill and keeping the purple text passes
-            // everywhere instead (the #795 "drop the fill" remedy).
-            const isAurora = prediction.condition === "Aurora";
+            // Every getConditionColor branch is now a `rgb(var(--su-*-rgb))`
+            // token (#810), so the badge can't take the old `${hex}20`
+            // alpha-suffix fill trick -- that would emit
+            // `rgb(var(--su-success-rgb))20`, invalid CSS. A token-aware
+            // `rgb(var(...) / alpha)` tint was measured instead (#810 PR
+            // body): it clears 4.5:1 almost everywhere at alpha 0.12, but
+            // the light theme's `warning` role fails on the canvas composite
+            // (4.40:1). Rather than ship a tint that is one theme away from
+            // failing, every badge drops its fill and keeps only the token
+            // ink, matching the Aurora badge's existing #799/#807 treatment
+            // (purple text, no fill) -- one consistent look across all five
+            // conditions instead of four tinted + one bare.
             return (
               <div
                 key={prediction.band}
@@ -260,9 +263,6 @@ export function PredictionsCard({
                   <span
                     className="text-sm font-bold font-mono px-1.5 py-0.5 rounded"
                     style={{
-                      backgroundColor: isAurora
-                        ? undefined
-                        : `${conditionColor}20`,
                       color: conditionColor,
                     }}
                   >

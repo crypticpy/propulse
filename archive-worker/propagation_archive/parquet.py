@@ -15,6 +15,7 @@ import pyarrow.parquet as pq
 from psycopg.rows import dict_row
 
 from .datasets import Dataset
+from .coverage import PARQUET_COVERAGE_KEY, canonical_coverage, coverage_bytes, coverage_from_metadata
 from .storage import sha256_file
 
 
@@ -50,6 +51,7 @@ def export_partition(
     *,
     batch_rows: int = 10_000,
     row_group_rows: int = 50_000,
+    coverage_evidence: object | None = None,
 ) -> ArchiveStats:
     if not 1_000 <= batch_rows <= 100_000:
         raise ValueError("batch_rows must be between 1,000 and 100,000")
@@ -70,9 +72,21 @@ def export_partition(
     ).hexdigest()[:20]
 
     try:
+        write_schema = dataset.schema
+        if dataset.coverage_contract:
+            if coverage_evidence is None:
+                raise RuntimeError("coverage evidence is required for this dataset")
+            canonical = canonical_coverage(
+                coverage_evidence, dataset.coverage_contract, range_start, range_end
+            )
+            metadata = dict(write_schema.metadata or {})
+            metadata[PARQUET_COVERAGE_KEY] = coverage_bytes(canonical)
+            write_schema = write_schema.with_metadata(metadata)
+        elif coverage_evidence is not None:
+            raise RuntimeError("coverage evidence supplied for a dataset without a contract")
         writer = pq.ParquetWriter(
             temporary,
-            dataset.schema,
+            write_schema,
             compression="zstd",
             use_dictionary=True,
             write_statistics=True,
@@ -132,12 +146,39 @@ def verify_parquet(
     expected_min_time: datetime | None,
     expected_max_time: datetime | None,
     expected_source_counts: dict[str, int],
+    expected_coverage_evidence: object | None = None,
+    expected_range_start: datetime | None = None,
+    expected_range_end: datetime | None = None,
 ) -> dict[str, object]:
     if sha256_file(path) != expected_sha256:
         raise RuntimeError("Parquet SHA-256 differs from manifest")
     parquet = pq.ParquetFile(path)
     if not parquet.schema_arrow.equals(dataset.schema, check_metadata=False):
         raise RuntimeError("Parquet schema differs from the versioned dataset schema")
+    embedded = coverage_from_metadata(parquet.schema_arrow.metadata)
+    if dataset.coverage_contract:
+        if expected_coverage_evidence is None:
+            raise RuntimeError("coverage evidence is required for this dataset")
+        if expected_range_start is None or expected_range_end is None:
+            raise RuntimeError("coverage partition bounds are required")
+        expected = canonical_coverage(
+            expected_coverage_evidence, dataset.coverage_contract,
+            expected_range_start, expected_range_end,
+        )
+        embedded_canonical = canonical_coverage(
+            embedded, dataset.coverage_contract,
+            expected_range_start, expected_range_end,
+        )
+        raw_metadata = (parquet.schema_arrow.metadata or {}).get(
+            PARQUET_COVERAGE_KEY
+        )
+        if (
+            embedded_canonical != expected
+            or raw_metadata != coverage_bytes(expected)
+        ):
+            raise RuntimeError("Parquet coverage evidence differs from manifest")
+    elif embedded is not None or expected_coverage_evidence is not None:
+        raise RuntimeError("unexpected Parquet coverage evidence")
     if parquet.metadata.num_rows != expected_rows:
         raise RuntimeError("Parquet row count differs from manifest")
 
@@ -172,5 +213,7 @@ def verify_parquet(
         "row_count_verified": True,
         "source_bounds_verified": True,
         "aggregate_reconciliation_verified": True,
+        "coverage_metadata_verified": dataset.coverage_contract is not None,
+        "coverage_evidence": embedded,
         "row_groups": parquet.num_row_groups,
     }

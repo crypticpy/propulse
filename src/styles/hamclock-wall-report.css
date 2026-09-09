@@ -402,6 +402,63 @@
   outline-offset: 0.25vh;
 }
 
+/* Full band × continent grid (heat map). Cell numbers sit directly on the
+ * bucket fill, so they borrow `.hc-chip`'s dark-on-bright contrast rule
+ * instead of `currentColor`, which would vanish against a light bucket. */
+.hcr-heatgrid {
+  display: grid;
+  gap: 0.4vh 0.5vw;
+  margin-top: 0.6vh;
+  font-family: var(--hc-font-mono);
+  font-size: 1.4vh;
+}
+.hcr-heatgrid-corner {
+  min-width: 0;
+}
+.hcr-heatgrid-head {
+  font-family: var(--hc-font-display);
+  font-weight: 700;
+  font-size: 1.6vh;
+  letter-spacing: 0.14em;
+  color: var(--hc-dim2);
+  text-align: center;
+}
+.hcr-heatgrid-band {
+  color: var(--hc-dim);
+  letter-spacing: 0.05em;
+  white-space: nowrap;
+}
+.hcr-heatgrid-cell {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 3.4vh;
+  border-radius: calc(var(--hc-radius) * 0.4);
+  background: rgba(255, 255, 255, 0.07);
+  color: var(--hc-bg);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.hcr-heatgrid-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6vh 1.4vw;
+  margin-top: 1vh;
+  font-family: var(--hc-font-mono);
+  font-size: 1.3vh;
+  color: var(--hc-dim);
+}
+.hcr-heatgrid-swatch-row {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5vw;
+}
+.hcr-heatgrid-swatch {
+  width: 1.4vh;
+  height: 1.4vh;
+  border-radius: calc(var(--hc-radius) * 0.3);
+}
+
 /* Report-size band bars: readable from ten feet, unlike the tile bars. */
 .hcr-bars {
   display: grid;
@@ -1408,6 +1465,20 @@ a.hca-row:focus-visible {
 .hcr:has(.hcr-forecast-plot) .hcr-facts div { flex-direction: column; align-items: flex-start; }
 .hcr:has(.hcr-forecast-plot) .hcr-facts b { text-align: left; }
 .hcr-forecast-horizons section.hc-warn-text { color: var(--hc-warn); }
+
+/* Eleven band rows × six continents needs the wide report canvas, same as
+ * the forecast plot and reliability grid. */
+.hcr:has(.hcr-heatgrid) {
+  width: 90vw;
+  height: 88vh;
+  gap: 1vh;
+}
+.hcr:has(.hcr-heatgrid) .hcr-facts {
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+}
+.hcr:has(.hcr-heatgrid) .hcr-body {
+  gap: 0.8vh;
+}
 
 .hcr-forecast-hero-note { display: block; max-width: 18vw; font: 1.3vh var(--hc-font-mono); line-height: 1.5; }
 .hcr-forecast-hero-score { margin-left: 1vw; font-size: 3vh; white-space: nowrap; }

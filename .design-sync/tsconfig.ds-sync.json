@@ -1,0 +1,175 @@
+{
+  "compilerOptions": {
+    "baseUrl": "..",
+    "paths": {
+      "@/components/solar/modals": [
+        "./src/components/solar/modals/index.ts"
+      ],
+      "@/components/solar": [
+        "./src/components/solar/index.ts"
+      ],
+      "@/components/ui": [
+        "./src/components/ui/index.ts"
+      ],
+      "@/components/settings/ui": [
+        "./src/components/settings/ui/index.ts"
+      ],
+      "@/components/qso": [
+        "./src/components/qso/index.ts"
+      ],
+      "@/components/logbook": [
+        "./src/components/logbook/index.ts"
+      ],
+      "@/components/sdr/overlays": [
+        "./src/components/sdr/overlays/index.ts"
+      ],
+      "@/components/sdr/skins": [
+        "./src/components/sdr/skins/index.ts"
+      ],
+      "@/components/sdr/shared": [
+        "./src/components/sdr/shared/index.ts"
+      ],
+      "@/components/sdr/primitives": [
+        "./src/components/sdr/primitives/index.ts"
+      ],
+      "@/components/auth": [
+        "./src/components/auth/index.ts"
+      ],
+      "@/components/satellites": [
+        "./src/components/satellites/index.ts"
+      ],
+      "@/components/alerts": [
+        "./src/components/alerts/index.ts"
+      ],
+      "@/components/dashboard": [
+        "./src/components/dashboard/index.ts"
+      ],
+      "@/components/map/layers": [
+        "./src/components/map/layers/index.ts"
+      ],
+      "@/components/map/hamclock/wall/tiles": [
+        "./src/components/map/hamclock/wall/tiles/index.ts"
+      ],
+      "@/components/map/hamclock/wall/controls": [
+        "./src/components/map/hamclock/wall/controls/index.ts"
+      ],
+      "@/components/map": [
+        "./src/components/map/index.ts"
+      ],
+      "@/components/profile": [
+        "./src/components/profile/index.ts"
+      ],
+      "@/components/mobile": [
+        "./src/components/mobile/index.ts"
+      ],
+      "@/components/dx/DXSpotList": [
+        "./src/components/dx/DXSpotList/index.ts"
+      ],
+      "@/components/dx": [
+        "./src/components/dx/index.ts"
+      ],
+      "@/components/guest": [
+        "./src/components/guest/index.ts"
+      ],
+      "@/components/export": [
+        "./src/components/export/index.ts"
+      ],
+      "@/components/station-ui": [
+        "./src/components/station-ui/index.ts"
+      ],
+      "@/components/contest": [
+        "./src/components/contest/index.ts"
+      ],
+      "@/components/onboarding": [
+        "./src/components/onboarding/index.ts"
+      ],
+      "@/lib/ft8": [
+        "./src/lib/ft8/index.ts"
+      ],
+      "@/lib/station/workbench/analysis": [
+        "./src/lib/station/workbench/analysis/index.ts"
+      ],
+      "@/lib/station/workbench/publication": [
+        "./src/lib/station/workbench/publication/index.ts"
+      ],
+      "@/lib/station/workbench": [
+        "./src/lib/station/workbench/index.ts"
+      ],
+      "@/lib/station/workbench/revisions": [
+        "./src/lib/station/workbench/revisions/index.ts"
+      ],
+      "@/lib/station/workbench/equipment": [
+        "./src/lib/station/workbench/equipment/index.ts"
+      ],
+      "@/lib/db": [
+        "./src/lib/db/index.ts"
+      ],
+      "@/lib/dev": [
+        "./src/lib/dev/index.ts"
+      ],
+      "@/lib/dxwizard": [
+        "./src/lib/dxwizard/index.ts"
+      ],
+      "@/lib/map/decision": [
+        "./src/lib/map/decision/index.ts"
+      ],
+      "@/lib/widgets/heatmap": [
+        "./src/lib/widgets/heatmap/index.ts"
+      ],
+      "@/lib/sync": [
+        "./src/lib/sync/index.ts"
+      ],
+      "@/lib/sync/modules": [
+        "./src/lib/sync/modules/index.ts"
+      ],
+      "@/lib/contest": [
+        "./src/lib/contest/index.ts"
+      ],
+      "@/lib/views/runtime": [
+        "./src/lib/views/runtime/index.ts"
+      ],
+      "@/lib/views/presets": [
+        "./src/lib/views/presets/index.ts"
+      ],
+      "@/lib/themes": [
+        "./src/lib/themes/index.ts"
+      ],
+      "@/lib/spots/grouping": [
+        "./src/lib/spots/grouping/index.ts"
+      ],
+      "@/lib/spots/pathPoints": [
+        "./src/lib/spots/pathPoints/index.ts"
+      ],
+      "@/lib/spots/motion": [
+        "./src/lib/spots/motion/index.ts"
+      ],
+      "@/lib/spots/presentation": [
+        "./src/lib/spots/presentation/index.ts"
+      ],
+      "virtual:pwa-register/react": [
+        "./.design-sync/shims/virtual-pwa-register-react.ts"
+      ],
+      "@/components/map/LiveSpotArcs": [
+        "./.design-sync/shims/live-spot-arcs-age.ts"
+      ],
+      "./LiveSpotArcs": [
+        "./.design-sync/shims/live-spot-arcs-age.ts"
+      ],
+      "./LocationMarker": [
+        "./.design-sync/shims/location-marker-difficulty.ts"
+      ],
+      "@/components/map/LocationMarker": [
+        "./.design-sync/shims/location-marker-difficulty.ts"
+      ],
+      "./IonosphericShells": [
+        "./.design-sync/shims/ionospheric-shells-legend.ts"
+      ],
+      "@/components/map/layers/Ft8DecodeLayer3D": [
+        "./.design-sync/shims/ft8-decode-colors.ts"
+      ],
+      "@/*": [
+        "./src/*"
+      ]
+    }
+  }
+}

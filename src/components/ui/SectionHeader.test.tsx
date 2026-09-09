@@ -33,6 +33,28 @@ describe("SectionHeader", () => {
     expect(container.querySelector("summary.su-section-header")).not.toBeNull();
   });
 
+  it("still renders the action wrapper on a summary band (Home's hand-rolled disclosure glyph)", () => {
+    // src/pages/Home.tsx's station panel uses element="summary" with a fixed-size glyph action
+    // instead of the `toggle` prop. jsdom cannot evaluate the `@container` query that keeps this
+    // band's layout row-only at every width (src/styles/home.css); this only pins the structure
+    // the CSS selector (`div.su-widget-header`, not `summary.su-widget-header`) depends on.
+    const { container } = render(
+      <details>
+        <SectionHeader
+          element="summary"
+          as={null}
+          className="su-widget-header"
+          title="Your station"
+          summary="Setup and log."
+          action={<span className="su-section-glyph" aria-hidden="true" />}
+        />
+      </details>,
+    );
+    const summary = container.querySelector("summary.su-widget-header")!;
+    expect(summary).not.toBeNull();
+    expect(summary.querySelector(".su-section-header__action")).not.toBeNull();
+  });
+
   it("makes the whole band a toggle button with the accent glyph", () => {
     const onToggle = vi.fn();
     const { rerender } = render(
@@ -69,5 +91,39 @@ describe("SectionHeader", () => {
     const band = container.firstElementChild!;
     expect(band.children).toHaveLength(1);
     expect(band.firstElementChild!.children).toHaveLength(1);
+  });
+
+  it("adds the stack class only when layout='stack' is passed (issue #640)", () => {
+    const { container: rowContainer } = render(
+      <SectionHeader title="Local weather" summary="Temperature and wind." action={<span>Fresh</span>} />,
+    );
+    expect(rowContainer.firstElementChild!.className).not.toContain("su-section-header--stack");
+
+    const { container: stackContainer } = render(
+      <SectionHeader
+        title="Local weather"
+        summary="Temperature and wind."
+        action={<span>Fresh</span>}
+        layout="stack"
+      />,
+    );
+    const stackBand = stackContainer.firstElementChild!;
+    expect(stackBand.className).toContain("su-section-header--stack");
+    // The action wrapper carries the CSS hook both the class and the
+    // `.home-panel` container query in home.css target.
+    expect(stackContainer.querySelector(".su-section-header__action")).not.toBeNull();
+  });
+
+  it("ignores layout='stack' on a toggle band: its markup stays pinned", () => {
+    const onToggle = vi.fn();
+    const { getByRole } = render(
+      <SectionHeader
+        title="Details and history"
+        summary="Explore solar history"
+        toggle={{ open: false, onToggle, controls: "details-content" }}
+        layout="stack"
+      />,
+    );
+    expect(getByRole("button").className).not.toContain("su-section-header--stack");
   });
 });

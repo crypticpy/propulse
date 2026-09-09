@@ -31,6 +31,12 @@ export type HamClockDensity = "wall" | "desk";
 export type HamClockTheme = "pulse" | "classic" | "brass";
 export type HamClockUnits = "imperial" | "metric" | "auto";
 export type HamClockRailSide = "left" | "right";
+/** Heat-map tile encoding (workspace #654): which `HeatMapPreset` id from
+ * `@/lib/widgets/heatmap` colours the band x continent grid. `ratioDiverging`
+ * is a shipped preset but stays disabled in the Display tab until a baseline
+ * aggregate exists (see `HeatMapTile`'s doc comment), so this only ever
+ * persists `"ladderHue"` today. */
+export type HeatmapPresetId = "ladderHue" | "ratioDiverging";
 export const HAMCLOCK_DENSITIES: readonly HamClockDensity[] = ["wall", "desk"];
 export const HAMCLOCK_THEMES: readonly HamClockTheme[] = [
   "pulse",
@@ -41,6 +47,10 @@ export const HAMCLOCK_UNITS: readonly HamClockUnits[] = [
   "auto",
   "imperial",
   "metric",
+];
+export const HEATMAP_PRESET_IDS: readonly HeatmapPresetId[] = [
+  "ladderHue",
+  "ratioDiverging",
 ];
 export interface HomeRegion {
   lat: number;
@@ -358,6 +368,9 @@ interface HamClockDisplayState {
    * in `wall/presets.ts`, never persisted here. */
   presets: HamClockPreset[];
   autoPage: HamClockAutoPage;
+  /** Which `HeatMapPreset` colours the heat-map tile/report grid (§654). */
+  heatmapPreset: HeatmapPresetId;
+  setHeatmapPreset: (value: HeatmapPresetId) => void;
   /** Rejects (returns `false`, keeps the previous layout) a layout that
    * places the same tile twice on one page, on either rail (HW-50). */
   setRailLayout: (layout: RailLayout) => boolean;
@@ -394,6 +407,7 @@ const defaults = {
   pinnedTile: undefined as PinnedTile | undefined,
   presets: [] as HamClockPreset[],
   autoPage: { ...DEFAULT_AUTO_PAGE },
+  heatmapPreset: "ladderHue" as HeatmapPresetId,
 };
 const validPanels = new Set<string>(HAMCLOCK_PANELS.map(([id]) => id));
 
@@ -481,6 +495,7 @@ export const useHamClockDisplayStore = create<HamClockDisplayState>()(
       },
       setPinnedTile: (pinnedTile) => set({ pinnedTile }),
       setAutoPage: (autoPage) => set({ autoPage }),
+      setHeatmapPreset: (heatmapPreset) => set({ heatmapPreset }),
       savePreset: (name) => {
         const state = get();
         const preset: HamClockPreset = {
@@ -515,7 +530,7 @@ export const useHamClockDisplayStore = create<HamClockDisplayState>()(
     }),
     {
       name: "propulse-hamclock-display",
-      version: 8,
+      version: 10,
       storage: createJSONStorage(() => sessionStorage),
       migrate: (persisted: unknown, version: number) => {
         const state = (persisted ?? {}) as Record<string, unknown>;
@@ -563,6 +578,35 @@ export const useHamClockDisplayStore = create<HamClockDisplayState>()(
           state.railLayout = adoptShippedRailPage(state.railLayout, "right", "spots", ["bestBand", "greyLine", "muf", "reliability", "activations"]);
           state.railLayout = adoptShippedRailPage(state.railLayout, "right", "sdr", ["bandActivity", "cluster", "bestBand"]);
         }
+        if (version < 9) {
+          // Heat-map encoding is new (§654); every pre-existing session
+          // adopts the shipped default rather than starting undefined.
+          state.heatmapPreset = "ladderHue";
+          // The Spots & Activity page's rails are already at the wall's
+          // per-rail cap (4 left / 5 right — see PagesTilesTab's
+          // `SLOT_LIMITS`), so the heat-map tile shipped on the SDR page's
+          // right rail instead, alongside the other activity tiles already
+          // duplicated there. A session still on the pre-#654 shipped
+          // composition adopts the new one, exactly like the prior
+          // per-page migrations above.
+          state.railLayout = adoptShippedRailPage(
+            state.railLayout,
+            "right",
+            "sdr",
+            ["bandActivity", "cluster", "bestBand", "pskStation"],
+          );
+        }
+        if (version < 10) {
+          // Launches tile (#627) ships on the Solar right rail. A session
+          // still on the pre-#627 shipped composition adopts the new one;
+          // a rail the operator rearranged is left exactly as it is.
+          state.railLayout = adoptShippedRailPage(
+            state.railLayout,
+            "right",
+            "solar",
+            ["moon", "greyLine", "muf", "reliability"],
+          );
+        }
         return state as unknown as HamClockDisplayState;
       },
       partialize: ({
@@ -583,6 +627,7 @@ export const useHamClockDisplayStore = create<HamClockDisplayState>()(
         pinnedTile,
         presets,
         autoPage,
+        heatmapPreset,
       }) => ({
         textSize,
         density,
@@ -601,6 +646,7 @@ export const useHamClockDisplayStore = create<HamClockDisplayState>()(
         pinnedTile,
         presets,
         autoPage,
+        heatmapPreset,
       }),
       merge: (persisted, current) => {
         const p = (persisted ?? {}) as Partial<HamClockDisplayState>;
@@ -663,6 +709,11 @@ export const useHamClockDisplayStore = create<HamClockDisplayState>()(
           autoPage: isValidAutoPage(p.autoPage)
             ? p.autoPage
             : { ...DEFAULT_AUTO_PAGE },
+          heatmapPreset: HEATMAP_PRESET_IDS.includes(
+            p.heatmapPreset as HeatmapPresetId,
+          )
+            ? (p.heatmapPreset as HeatmapPresetId)
+            : "ladderHue",
         };
       },
     },

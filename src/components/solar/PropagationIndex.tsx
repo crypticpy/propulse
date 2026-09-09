@@ -250,172 +250,176 @@ export const PropagationIndex: React.FC<PropagationIndexProps> = ({
           </div>
         ) : (
           <div className="flex flex-col md:flex-row items-center gap-6">
-            {/* Gauge */}
-            <div className="relative flex-shrink-0 w-full md:w-auto max-w-[200px] mx-auto md:mx-0">
-              <svg
-                viewBox="0 0 200 160"
-                className="w-full h-auto overflow-visible"
-              >
-                <defs>
-                  {/* Gradient for gauge background */}
-                  <linearGradient
-                    id="gaugeGradient"
-                    x1="0%"
-                    y1="0%"
-                    x2="100%"
-                    y2="0%"
-                  >
-                    <stop offset="0%" stopColor="#ff4455" />
-                    <stop offset="25%" stopColor="#ff7700" />
-                    <stop offset="50%" stopColor="#ffaa00" />
-                    <stop offset="75%" stopColor="#44dd66" />
-                    <stop offset="100%" stopColor="#00ff88" />
-                  </linearGradient>
-
-                  {/* Glow filter */}
-                  <filter
-                    id="gaugeGlow"
-                    x="-50%"
-                    y="-50%"
-                    width="200%"
-                    height="200%"
-                  >
-                    <feGaussianBlur stdDeviation="3" result="coloredBlur" />
-                    <feMerge>
-                      <feMergeNode in="coloredBlur" />
-                      <feMergeNode in="SourceGraphic" />
-                    </feMerge>
-                  </filter>
-                </defs>
-
-                {/* Background track */}
-                <path
-                  d={gaugePath}
-                  fill="none"
-                  stroke="rgba(255,255,255,0.1)"
-                  strokeWidth={gaugeStrokeWidth}
-                  strokeLinecap="round"
-                />
-
-                {/* Colored track */}
-                <path
-                  d={gaugePath}
-                  fill="none"
-                  stroke="url(#gaugeGradient)"
-                  strokeWidth={gaugeStrokeWidth - 4}
-                  strokeLinecap="round"
-                  opacity="0.3"
-                />
-
-                {/* Active score arc */}
-                <path
-                  d={gaugePath}
-                  fill="none"
-                  stroke={scoreColor}
-                  strokeWidth={gaugeStrokeWidth - 4}
-                  strokeLinecap="round"
-                  pathLength={100}
-                  strokeDasharray={`${result.score} 100`}
-                  filter="url(#gaugeGlow)"
-                  className="transition-all duration-1000 ease-out motion-reduce:transition-none"
-                />
-
-                {/* Tick marks */}
-                {ticks.map((tick) => (
-                  <g key={tick.value}>
-                    <line
-                      x1={tick.x1}
-                      y1={tick.y1}
-                      x2={tick.x2}
-                      y2={tick.y2}
-                      stroke="rgba(255,255,255,0.4)"
-                      strokeWidth="2"
-                    />
-                    <text
-                      x={tick.labelX}
-                      y={tick.labelY}
-                      fill="rgba(255,255,255,0.5)"
-                      fontSize="10"
-                      fontFamily="monospace"
-                      textAnchor="middle"
-                      dominantBaseline="middle"
+            {/* Gauge + condition pill stack */}
+            <div className="flex flex-col items-center gap-3 w-full md:w-auto flex-shrink-0">
+              {/* pb-6 reserves room for the 0/100 tick labels, which sit at
+                  y≈178.5 (bottom ≈184) in the overflow-visible svg's 200x160
+                  viewBox — past its 160px allocated box at the 200px basis —
+                  so the pill below doesn't overlap them. */}
+              <div className="relative flex-shrink-0 w-full md:w-auto max-w-[200px] mx-auto md:mx-0 pb-6">
+                <svg
+                  viewBox="0 0 200 160"
+                  className="w-full h-auto overflow-visible"
+                >
+                  <defs>
+                    {/* Gradient for gauge background */}
+                    <linearGradient
+                      id="gaugeGradient"
+                      x1="0%"
+                      y1="0%"
+                      x2="100%"
+                      y2="0%"
                     >
-                      {tick.value}
-                    </text>
-                  </g>
-                ))}
+                      <stop offset="0%" stopColor="#ff4455" />
+                      <stop offset="25%" stopColor="#ff7700" />
+                      <stop offset="50%" stopColor="#ffaa00" />
+                      <stop offset="75%" stopColor="#44dd66" />
+                      <stop offset="100%" stopColor="#00ff88" />
+                    </linearGradient>
 
-                {/* Score marker */}
-                <line
-                  x1={markerX1}
-                  y1={markerY1}
-                  x2={markerX2}
-                  y2={markerY2}
-                  stroke="white"
-                  strokeWidth="3"
-                  strokeLinecap="round"
-                  className="transition-all duration-1000 ease-out motion-reduce:transition-none"
-                  style={{
-                    filter: "drop-shadow(0 0 6px rgba(255,255,255,0.7))",
-                  }}
-                />
-                <circle
-                  cx={markerX2}
-                  cy={markerY2}
-                  r="4"
-                  fill="white"
-                  className="transition-all duration-1000 ease-out motion-reduce:transition-none"
-                  style={{
-                    filter: `drop-shadow(0 0 8px ${scoreColor})`,
-                  }}
-                />
+                    {/* Glow filter */}
+                    <filter
+                      id="gaugeGlow"
+                      x="-50%"
+                      y="-50%"
+                      width="200%"
+                      height="200%"
+                    >
+                      <feGaussianBlur stdDeviation="3" result="coloredBlur" />
+                      <feMerge>
+                        <feMergeNode in="coloredBlur" />
+                        <feMergeNode in="SourceGraphic" />
+                      </feMerge>
+                    </filter>
+                  </defs>
 
-                {/* Center score display */}
-                <text
-                  x={gaugeCenter}
-                  y={gaugeCenter - 5}
-                  fill="white"
-                  fontSize="52"
-                  fontFamily="monospace"
-                  fontWeight="bold"
-                  textAnchor="middle"
-                  dominantBaseline="middle"
-                >
-                  {result.score}
-                </text>
-                {/* Category label below score */}
-                <text
-                  x={gaugeCenter}
-                  y={gaugeCenter + 25}
-                  fill={scoreColor}
-                  fontSize="11"
-                  fontFamily="sans-serif"
-                  fontWeight="600"
-                  textAnchor="middle"
-                  dominantBaseline="middle"
-                  letterSpacing="0.1em"
-                >
-                  {getCategoryLabel(result.category).toUpperCase()}
-                </text>
-              </svg>
+                  {/* Background track */}
+                  <path
+                    d={gaugePath}
+                    fill="none"
+                    stroke="rgba(255,255,255,0.1)"
+                    strokeWidth={gaugeStrokeWidth}
+                    strokeLinecap="round"
+                  />
+
+                  {/* Colored track */}
+                  <path
+                    d={gaugePath}
+                    fill="none"
+                    stroke="url(#gaugeGradient)"
+                    strokeWidth={gaugeStrokeWidth - 4}
+                    strokeLinecap="round"
+                    opacity="0.3"
+                  />
+
+                  {/* Active score arc */}
+                  <path
+                    d={gaugePath}
+                    fill="none"
+                    stroke={scoreColor}
+                    strokeWidth={gaugeStrokeWidth - 4}
+                    strokeLinecap="round"
+                    pathLength={100}
+                    strokeDasharray={`${result.score} 100`}
+                    filter="url(#gaugeGlow)"
+                    className="transition-all duration-1000 ease-out motion-reduce:transition-none"
+                  />
+
+                  {/* Tick marks */}
+                  {ticks.map((tick) => (
+                    <g key={tick.value}>
+                      <line
+                        x1={tick.x1}
+                        y1={tick.y1}
+                        x2={tick.x2}
+                        y2={tick.y2}
+                        stroke="rgba(255,255,255,0.4)"
+                        strokeWidth="2"
+                      />
+                      <text
+                        x={tick.labelX}
+                        y={tick.labelY}
+                        fill="rgba(255,255,255,0.5)"
+                        fontSize="10"
+                        fontFamily="monospace"
+                        textAnchor="middle"
+                        dominantBaseline="middle"
+                      >
+                        {tick.value}
+                      </text>
+                    </g>
+                  ))}
+
+                  {/* Score marker */}
+                  <line
+                    x1={markerX1}
+                    y1={markerY1}
+                    x2={markerX2}
+                    y2={markerY2}
+                    stroke="white"
+                    strokeWidth="3"
+                    strokeLinecap="round"
+                    className="transition-all duration-1000 ease-out motion-reduce:transition-none"
+                    style={{
+                      filter: "drop-shadow(0 0 6px rgba(255,255,255,0.7))",
+                    }}
+                  />
+                  <circle
+                    cx={markerX2}
+                    cy={markerY2}
+                    r="4"
+                    fill="white"
+                    className="transition-all duration-1000 ease-out motion-reduce:transition-none"
+                    style={{
+                      filter: `drop-shadow(0 0 8px ${scoreColor})`,
+                    }}
+                  />
+
+                  {/* Center score display */}
+                  <text
+                    x={gaugeCenter}
+                    y={gaugeCenter - 5}
+                    fill="white"
+                    fontSize="52"
+                    fontFamily="monospace"
+                    fontWeight="bold"
+                    textAnchor="middle"
+                    dominantBaseline="middle"
+                  >
+                    {result.score}
+                  </text>
+                  {/* Category label below score */}
+                  <text
+                    x={gaugeCenter}
+                    y={gaugeCenter + 25}
+                    fill={scoreColor}
+                    fontSize="11"
+                    fontFamily="sans-serif"
+                    fontWeight="600"
+                    textAnchor="middle"
+                    dominantBaseline="middle"
+                    letterSpacing="0.1em"
+                  >
+                    {getCategoryLabel(result.category).toUpperCase()}
+                  </text>
+                </svg>
+              </div>
+
+              {/* Category pill */}
+              <div
+                className="px-4 py-2 rounded-lg font-bold text-lg"
+                style={{
+                  backgroundColor: `${scoreColor}20`,
+                  color: scoreColor,
+                  border: `1px solid ${scoreColor}40`,
+                }}
+              >
+                {getCategoryLabel(result.category)}
+              </div>
             </div>
 
             {/* Status and breakdown */}
             <div className="flex-1 space-y-4">
-              {/* Category badge */}
-              <div className="flex items-center gap-3">
-                <div
-                  className="px-4 py-2 rounded-lg font-bold text-lg"
-                  style={{
-                    backgroundColor: `${scoreColor}20`,
-                    color: scoreColor,
-                    border: `1px solid ${scoreColor}40`,
-                  }}
-                >
-                  {getCategoryLabel(result.category)}
-                </div>
-              </div>
-
               {/* Description */}
               <p className="text-sm text-su-muted">{result.description}</p>
 
@@ -528,36 +532,36 @@ export const PropagationIndex: React.FC<PropagationIndexProps> = ({
               <h3 className="text-sm font-semibold text-su-muted uppercase tracking-wider">
                 General HF context
               </h3>
-              <div className="flex items-center gap-2">
-                <Badge status={conditionBadge.status}>
-                  {conditionBadge.label}
-                </Badge>
-                {onExpandSummary && (
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onExpandSummary();
-                    }}
-                    className="flex min-h-11 min-w-11 items-center justify-center text-su-muted opacity-100 transition-colors hover:text-su-text motion-reduce:transition-none sm:opacity-0 sm:group-hover:opacity-100 sm:focus:opacity-100"
-                    aria-label="Expand general HF context"
+              {onExpandSummary && (
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onExpandSummary();
+                  }}
+                  className="flex min-h-11 min-w-11 items-center justify-center text-su-muted opacity-100 transition-colors hover:text-su-text motion-reduce:transition-none sm:opacity-0 sm:group-hover:opacity-100 sm:focus:opacity-100"
+                  aria-label="Expand general HF context"
+                >
+                  <svg
+                    className="w-4 h-4"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
                   >
-                    <svg
-                      className="w-4 h-4"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4"
-                      />
-                    </svg>
-                  </button>
-                )}
-              </div>
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4"
+                    />
+                  </svg>
+                </button>
+              )}
+            </div>
+            <div className="flex justify-center mb-2">
+              <Badge status={conditionBadge.status}>
+                {conditionBadge.label}
+              </Badge>
             </div>
             <p className="text-sm text-su-muted leading-relaxed mb-3">
               {detailedSummary}

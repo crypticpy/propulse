@@ -7,10 +7,12 @@
  * re-confirms `band`) — the second leg of the #632 trace.
  */
 
+import { useMemo } from "react";
 import { EmptyState } from "@/components/station-ui";
-import { selectVisibleSpots, useDXStore } from "@/stores/dxStore";
+import { useDXStore } from "@/stores/dxStore";
 import { useOperatingStateStore } from "@/stores/operatingStateStore";
 import type { DXSpot } from "@/types/dxcluster";
+import { usePhoneTick } from "./usePhoneTick";
 
 const MAX_ROWS = 50;
 
@@ -24,9 +26,34 @@ function minutesAgo(time: Date | string): number {
 
 export function PhoneContactList() {
   const band = useOperatingStateStore((state) => state.cursor.band);
-  const targetSpotId = useOperatingStateStore((state) => state.cursor.target?.spotId ?? null);
+  const targetSpotId = useOperatingStateStore(
+    (state) => state.cursor.target?.spotId ?? null,
+  );
   const selectSpot = useOperatingStateStore((state) => state.selectSpot);
-  const spots = useDXStore(selectVisibleSpots);
+  // `selectVisibleSpots` allocates a fresh filtered array on every call once
+  // `hiddenSpotIds` is non-empty, which is not a stable useSyncExternalStore
+  // snapshot and re-renders forever. Subscribe to the two raw fields (each a
+  // stable reference until it actually changes) and filter inside the
+  // memo below instead (pattern: `BandConditions.tsx`).
+  const spots = useDXStore((state) => state.spots);
+  const hiddenSpotIds = useDXStore((state) => state.hiddenSpotIds);
+  // Refreshes spot ages every 60s so they don't freeze at first-render values
+  // (#685 P3).
+  const tick = usePhoneTick();
+
+  const bandSpots = useMemo(() => {
+    const visibleSpots =
+      hiddenSpotIds.size === 0
+        ? spots
+        : spots.filter((spot) => !hiddenSpotIds.has(spot.id));
+    return visibleSpots
+      .filter((spot) => spot.band === band)
+      .sort((a, b) => toEpochMs(b.time) - toEpochMs(a.time))
+      .slice(0, MAX_ROWS);
+    // `tick` isn't read above; it's only in the deps to force a periodic
+    // recompute so spot ages don't freeze (#685 P3).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [spots, hiddenSpotIds, band, tick]);
 
   if (!band) {
     return (
@@ -36,14 +63,11 @@ export function PhoneContactList() {
     );
   }
 
-  const bandSpots = spots
-    .filter((spot) => spot.band === band)
-    .sort((a, b) => toEpochMs(b.time) - toEpochMs(a.time))
-    .slice(0, MAX_ROWS);
-
   if (bandSpots.length === 0) {
     return (
-      <EmptyState title="NO SPOTS">No spots on {band.toUpperCase()} in the current window.</EmptyState>
+      <EmptyState title="NO SPOTS">
+        No spots on {band.toUpperCase()} in the current window.
+      </EmptyState>
     );
   }
 
@@ -59,7 +83,11 @@ export function PhoneContactList() {
   }
 
   return (
-    <div className="phone-contact-list" role="list" aria-label={`Spots on ${band.toUpperCase()}`}>
+    <div
+      className="phone-contact-list"
+      role="list"
+      aria-label={`Spots on ${band.toUpperCase()}`}
+    >
       {bandSpots.map((spot) => (
         <div key={spot.id} role="listitem">
           <button
@@ -72,7 +100,9 @@ export function PhoneContactList() {
             <span className="phone-contact-row-detail su-mono">
               {(spot.frequency / 1000).toFixed(3)} · {spot.mode ?? "—"}
             </span>
-            <span className="su-hint phone-contact-row-age">{minutesAgo(spot.time)}m</span>
+            <span className="su-hint phone-contact-row-age">
+              {minutesAgo(spot.time)}m
+            </span>
           </button>
         </div>
       ))}

@@ -24,7 +24,7 @@ export function PhoneSelectionPage() {
   }
 
   return (
-    <div className="su-stack phone-selection">
+    <div className="su-stack">
       <p className="su-eyebrow">SELECTED</p>
       <h2 className="phone-selection-call">{target.callsign}</h2>
       <p className="su-mono">

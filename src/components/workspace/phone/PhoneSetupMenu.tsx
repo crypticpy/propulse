@@ -21,7 +21,7 @@
 
 import { FollowScreensToggle } from "@/components/workspace/FollowScreensToggle";
 import { CentreOverlay } from "@/components/workspace/CentreOverlay";
-import { Button } from "@/components/station-ui";
+import { Button, StationProvider } from "@/components/station-ui";
 import { BAND_ORDER } from "@/lib/data/bandRanges";
 import { useWorkspaceStore } from "@/stores/workspaceStore";
 
@@ -32,11 +32,15 @@ export interface PhoneSetupMenuProps {
 
 export function PhoneSetupMenu({ open, onClose }: PhoneSetupMenuProps) {
   const visibleBands = useWorkspaceStore((state) => state.phoneVisibleBands);
-  const setPhoneVisibleBands = useWorkspaceStore((state) => state.setPhoneVisibleBands);
+  const setPhoneVisibleBands = useWorkspaceStore(
+    (state) => state.setPhoneVisibleBands,
+  );
 
   function toggleBand(band: string) {
     setPhoneVisibleBands(
-      visibleBands.includes(band) ? visibleBands.filter((b) => b !== band) : [...visibleBands, band],
+      visibleBands.includes(band)
+        ? visibleBands.filter((b) => b !== band)
+        : [...visibleBands, band],
     );
   }
 
@@ -47,26 +51,40 @@ export function PhoneSetupMenu({ open, onClose }: PhoneSetupMenuProps) {
       title="PHONE SETUP"
       purpose="Bands shown on this phone, and screen sharing."
     >
-      <div className="su-stack phone-setup">
-        <p className="su-eyebrow">VISIBLE BANDS</p>
-        <div className="su-inline phone-setup-bands">
-          {BAND_ORDER.map((band) => (
-            <Button
-              key={band}
-              variant={visibleBands.includes(band) ? "primary" : "secondary"}
-              onClick={() => toggleBand(band)}
-            >
-              {band.toUpperCase()}
-            </Button>
-          ))}
-        </div>
-        <Button variant="quiet" onClick={() => setPhoneVisibleBands([...BAND_ORDER])}>
-          ALL BANDS
-        </Button>
+      {/* `CentreOverlay` renders via `HamClockDialog`, which portals to
+          `document.body` — outside the app's `.station-ui` tree, so
+          `--su-control-height`/`--su-gap` are undefined there and buttons
+          drop under the 44pt minimum target size (#685 P2). Re-scope those
+          tokens locally rather than editing the shared dialog. */}
+      <StationProvider>
+        <div className="su-stack">
+          <p className="su-eyebrow">VISIBLE BANDS</p>
+          <div className="su-inline phone-setup-bands">
+            {BAND_ORDER.map((band) => {
+              const visible = visibleBands.includes(band);
+              return (
+                <Button
+                  key={band}
+                  variant={visible ? "primary" : "secondary"}
+                  aria-pressed={visible}
+                  onClick={() => toggleBand(band)}
+                >
+                  {band.toUpperCase()}
+                </Button>
+              );
+            })}
+          </div>
+          <Button
+            variant="quiet"
+            onClick={() => setPhoneVisibleBands([...BAND_ORDER])}
+          >
+            ALL BANDS
+          </Button>
 
-        <p className="su-eyebrow">SHARING</p>
-        <FollowScreensToggle />
-      </div>
+          <p className="su-eyebrow">SHARING</p>
+          <FollowScreensToggle />
+        </div>
+      </StationProvider>
     </CentreOverlay>
   );
 }

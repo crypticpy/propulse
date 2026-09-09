@@ -28,6 +28,25 @@
   margin: var(--su-space-4);
 }
 
+/*
+ * The phone canvas (#659) is mounted inside `MobileLayout`'s own
+ * `<main class="flex-1 overflow-y-auto">` (header + tab bar + safe areas
+ * already reserved there), not directly under the viewport like the
+ * workstation's `.workspace-page`. Reusing that rule's `min-height` offset
+ * only grows this element instead of bounding it, so `.phone-page-body`'s
+ * `overflow-y: auto` never engages and the PREVIOUS/NEXT/dots/SETUP nav gets
+ * pushed below the fold. This rule fills the `<main>` it's given instead of
+ * computing its own viewport offset, turning `.phone-page-body` into the
+ * single scroll container.
+ */
+.workspace-page-phone {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  padding: 0;
+}
+
 /* ─── Bar ───────────────────────────────────────────────────────────────── */
 
 .workspace-bar {

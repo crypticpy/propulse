@@ -8,11 +8,14 @@
 .phone-page {
   display: flex;
   flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
   gap: var(--su-space-3);
   max-width: 390px;
+  width: 100%;
   margin: 0 auto;
-  min-height: calc(100dvh - 5rem);
   padding: var(--su-space-3);
+  box-sizing: border-box;
 }
 
 .phone-state-strip {

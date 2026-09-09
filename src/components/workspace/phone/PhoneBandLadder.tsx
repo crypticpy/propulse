@@ -26,9 +26,10 @@ import {
   type HeatmapCell,
   type HeatmapSpotInput,
 } from "@/lib/widgets/heatmap";
-import { selectVisibleSpots, useDXStore } from "@/stores/dxStore";
+import { useDXStore } from "@/stores/dxStore";
 import { useOperatingStateStore } from "@/stores/operatingStateStore";
 import { useWorkspaceStore } from "@/stores/workspaceStore";
+import { usePhoneTick } from "./usePhoneTick";
 
 interface BandRow {
   band: string;
@@ -58,22 +59,41 @@ function aggregateByBand(cells: HeatmapCell[]): Map<string, BandRow> {
 }
 
 export function PhoneBandLadder() {
-  const spots = useDXStore(selectVisibleSpots);
+  // `selectVisibleSpots` allocates a fresh filtered array on every call once
+  // `hiddenSpotIds` is non-empty, which is not a stable useSyncExternalStore
+  // snapshot and re-renders forever. Subscribe to the two raw fields (each a
+  // stable reference until it actually changes) and filter inside the
+  // existing memo instead (pattern: `BandConditions.tsx`).
+  const spots = useDXStore((state) => state.spots);
+  const hiddenSpotIds = useDXStore((state) => state.hiddenSpotIds);
   const visibleBands = useWorkspaceStore((state) => state.phoneVisibleBands);
   const currentBand = useOperatingStateStore((state) => state.cursor.band);
   const setBand = useOperatingStateStore((state) => state.setBand);
   const setTarget = useOperatingStateStore((state) => state.setTarget);
+  // Refreshes ladder verdicts every 60s so they don't freeze at first-render
+  // values (#685 P3) — `computeHeatmap` buckets spots into a moving time
+  // window, so the same spot set can carry a different verdict a minute on.
+  const tick = usePhoneTick();
 
   const rows = useMemo(() => {
-    const inputs = spots
+    const visibleSpots =
+      hiddenSpotIds.size === 0
+        ? spots
+        : spots.filter((spot) => !hiddenSpotIds.has(spot.id));
+    const inputs = visibleSpots
       .map(dxSpotToHeatmapInput)
       .filter((input): input is HeatmapSpotInput => input !== null);
     const byBand = aggregateByBand(computeHeatmap(inputs));
+    // `computeHeatmap` always emits one cell per (band x continent) pair, so
+    // `byBand` is guaranteed an entry for every band in `BAND_ORDER` — no
+    // fallback needed here.
     return BAND_ORDER.filter((band) => visibleBands.includes(band)).map(
-      (band) =>
-        byBand.get(band) ?? { band, count: 0, ladder: "closed" as LadderState },
+      (band) => byBand.get(band)!,
     );
-  }, [spots, visibleBands]);
+    // `tick` isn't read above; it's only in the deps to force a periodic
+    // recompute of the time-relative verdict (#685 P3).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [spots, hiddenSpotIds, visibleBands, tick]);
 
   if (rows.length === 0) {
     return (
@@ -110,7 +130,7 @@ export function PhoneBandLadder() {
             <span className="phone-band-row-verdict">
               {row.ladder.toUpperCase()}
             </span>
-            <span className="phone-band-row-count su-mono">{row.count}</span>
+            <span className="su-mono">{row.count}</span>
           </button>
         </div>
       ))}

@@ -122,6 +122,45 @@ describe("applySceneToMap", () => {
     expect(useMapStore.getState().layers.goesCloud).toBe(false);
   });
 
+  // #691 M5 — kiosk and Launch Wall both apply scenes through this function
+  // and never consulted `resolveHeroProjection`, so a pinned scene requesting
+  // a globe-only layer on flat/azimuthal would leave that layer unable to
+  // draw instead of switching projection the way the interactive HamClock
+  // wall does (#625).
+  it("switches projection when a scene's preset turns on a globe-only layer", () => {
+    applySceneToMap({
+      id: "science-wall",
+      name: "Science wall",
+      route: "/map",
+      map: {
+        layoutMode: "pro",
+        viewMode: "flat",
+        // The "science" preset turns on DRAP, which neither flat nor
+        // azimuthal can draw (`FLAT_UNSUPPORTED_LAYER_KEYS` /
+        // `AZIMUTHAL_SUPPORTED_LAYER_KEYS` in layerCapabilities.ts).
+        preset: "science",
+      },
+    });
+
+    expect(useMapStore.getState().layers.drap).toBe(true);
+    expect(useMapStore.getState().viewMode).toBe("globe");
+  });
+
+  it("keeps the scene's requested projection when nothing it enables needs another one", () => {
+    applySceneToMap({
+      id: "dx-wall",
+      name: "DX wall",
+      route: "/map",
+      map: {
+        layoutMode: "pro",
+        viewMode: "flat",
+        preset: "dx-hunter",
+      },
+    });
+
+    expect(useMapStore.getState().viewMode).toBe("flat");
+  });
+
   it.each(["/map/explorer", "/map/photorealistic"])(
     "applies only presentation controls supported by %s",
     (route) => {

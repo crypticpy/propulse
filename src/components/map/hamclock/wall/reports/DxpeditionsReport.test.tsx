@@ -53,3 +53,30 @@ describe("DxpeditionsReport footer timestamp", () => {
     );
   });
 });
+
+// #726: "empty" is a schedule that loaded fine and parsed to zero
+// operations — a different condition from unreachable/too-large, and not
+// a load failure (mirrors ContestsReport's #609 review N7 exemption).
+describe("DxpeditionsReport empty-schedule status", () => {
+  it('treats status "empty" as zero operations, not an unavailable schedule', () => {
+    mocks.dxpeditions.mockReturnValue({
+      entries: [],
+      status: "empty",
+      dataUpdatedAt: Date.parse("2026-09-09T13:04:00.000Z"),
+      isLoading: false,
+      error: null,
+    });
+
+    render(<DxpeditionsReport open onClose={() => {}} />);
+
+    expect(document.body.textContent).not.toContain(
+      "NG3K ADXO did not load.",
+    );
+    expect(document.body.textContent).toContain(
+      "No announced operations.",
+    );
+    expect(document.querySelector(".hcr-foot")?.textContent).toContain(
+      "UPDATED 13:04 UTC",
+    );
+  });
+});

@@ -42,7 +42,7 @@ describe("samplePathMuf", () => {
     expect(sampled.hpf).toBeCloseTo(sampled.muf * 1.15, 5);
   });
 
-  it("stamps assumed SFI when the observation is missing", () => {
+  it("defaults missing Kp to an unlabelled zero and stamps computation time", () => {
     const sampled = samplePathMuf({
       startLat: AUSTIN.lat,
       startLon: AUSTIN.lon,
@@ -50,11 +50,27 @@ describe("samplePathMuf", () => {
       endLon: AUSTIN.lon + 1,
       date: NOON,
       sfi: 100,
-      kp: 2,
-      sfiAssumed: true,
+      kp: 0,
+      computedAt: NOON,
     });
-    expect(sampled.evidence.basis).toContain("assumed SFI 100");
+    expect(sampled.evidence.basis).toContain("SFI 100");
     expect(sampled.evidence.observedAt).toBeNull();
     expect(sampled.hopCount).toBe(1);
+    expect(sampled.evidence.fetchedAt).toBe(NOON.toISOString());
+  });
+
+  it("samples a short antimeridian path without throwing", () => {
+    const sampled = samplePathMuf({
+      startLat: 51,
+      startLon: 179.5,
+      endLat: 51,
+      endLon: -179.5,
+      date: NOON,
+      sfi: 120,
+      kp: 0,
+      computedAt: NOON,
+    });
+    expect(sampled.hopCount).toBeGreaterThanOrEqual(1);
+    expect(sampled.muf).toBeGreaterThan(0);
   });
 });

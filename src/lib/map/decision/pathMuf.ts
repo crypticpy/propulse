@@ -26,7 +26,8 @@ export interface SamplePathMufInput {
   pathMode?: "short" | "long";
   sfiObservedAt?: string | null;
   sfiFetchedAt?: string | null;
-  sfiAssumed?: boolean;
+  /** Wall-clock of this sample; used for fetchedAt when the flux fetch time is unknown. */
+  computedAt?: Date;
 }
 
 function hopCount(totalDistanceKm: number): number {
@@ -115,10 +116,14 @@ export function samplePathMuf(input: SamplePathMufInput): PathMufSample {
   const luf = lufs.length > 0 ? Math.max(...lufs) : 1.8;
   const limiting = hops[limitingHop] ?? hops[0];
 
-  const sfiLabel = input.sfiAssumed
-    ? `assumed SFI ${input.sfi}`
-    : `SFI ${input.sfi}`;
-  const basis = `ITU-R P.533 ray-trace, ${numHops} hop${numHops === 1 ? "" : "s"}, limiting hop ${limitingHop + 1} at ${limiting.lat.toFixed(1)}°, ${limiting.lon.toFixed(1)}° (${sfiLabel})`;
+  const basis = `ITU-R P.533 ray-trace, ${numHops} hop${numHops === 1 ? "" : "s"}, limiting hop ${limitingHop + 1} at ${limiting.lat.toFixed(1)}°, ${limiting.lon.toFixed(1)}° (SFI ${input.sfi})`;
+  const computedAt = input.computedAt;
+  const computedIso =
+    computedAt && !Number.isNaN(computedAt.getTime())
+      ? computedAt.toISOString()
+      : !Number.isNaN(input.date.getTime())
+        ? input.date.toISOString()
+        : null;
 
   return {
     muf: pathMuf,
@@ -132,8 +137,8 @@ export function samplePathMuf(input: SamplePathMufInput): PathMufSample {
     hops,
     evidence: {
       basis,
-      observedAt: input.sfiAssumed ? null : (input.sfiObservedAt ?? null),
-      fetchedAt: input.sfiFetchedAt ?? input.date.toISOString(),
+      observedAt: input.sfiObservedAt ?? null,
+      fetchedAt: input.sfiFetchedAt ?? computedIso,
     },
   };
 }

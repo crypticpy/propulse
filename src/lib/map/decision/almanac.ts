@@ -3,14 +3,24 @@ import {
   getMutualGreylineWindow,
   GREYLINE_WINDOW_MINUTES,
 } from "@/lib/utils/greyline";
-import type { EndAlmanac, EvidenceStamp, GreylineSummary, PathAlmanac } from "./types";
+import type {
+  EndAlmanac,
+  EvidenceStamp,
+  GreylineSummary,
+  PathAlmanac,
+} from "./types";
 
 function pad2(n: number): string {
   return String(n).padStart(2, "0");
 }
 
+export function isValidClock(date: Date): boolean {
+  return date instanceof Date && !Number.isNaN(date.getTime());
+}
+
 /** HH:MM from the UTC clock of `date`. */
 export function formatUtcHm(date: Date): string {
+  if (!isValidClock(date)) return "—";
   return `${pad2(date.getUTCHours())}:${pad2(date.getUTCMinutes())}`;
 }
 
@@ -19,11 +29,14 @@ function validSunTime(value: Date | undefined): Date | null {
   return value;
 }
 
-function computedStamp(date: Date, basis: string): EvidenceStamp {
+function computedStamp(
+  computedAt: Date,
+  basis: string,
+): EvidenceStamp {
   return {
     basis,
     observedAt: null,
-    fetchedAt: date.toISOString(),
+    fetchedAt: isValidClock(computedAt) ? computedAt.toISOString() : null,
   };
 }
 
@@ -40,7 +53,21 @@ export function endAlmanac(
   lon: number,
   date: Date,
   label: string,
+  computedAt: Date = new Date(),
 ): EndAlmanac {
+  if (!isValidClock(date)) {
+    return {
+      lat,
+      lon,
+      utcTime: "—",
+      localMeanTime: "—",
+      offsetHours: lon / 15,
+      sunriseUtc: null,
+      sunsetUtc: null,
+      polar: null,
+      evidence: computedStamp(computedAt, `SunCalc ${label}; invalid display time`),
+    };
+  }
   const times = SunCalc.getTimes(date, lat, lon);
   const sunrise = validSunTime(times.sunrise);
   const sunset = validSunTime(times.sunset);
@@ -63,7 +90,7 @@ export function endAlmanac(
     sunsetUtc: sunset ? sunset.toISOString() : null,
     polar,
     evidence: computedStamp(
-      date,
+      computedAt,
       `SunCalc ${label}; LMT = UTC + lon/15`,
     ),
   };
@@ -75,7 +102,21 @@ function greylineSummary(
   targetLat: number,
   targetLon: number,
   date: Date,
+  computedAt: Date,
 ): GreylineSummary {
+  const evidence = computedStamp(
+    computedAt,
+    `Mutual ±${GREYLINE_WINDOW_MINUTES} min terminator windows (SunCalc)`,
+  );
+  if (!isValidClock(date)) {
+    return {
+      active: false,
+      start: null,
+      end: null,
+      label: "No mutual grey-line in the next day",
+      evidence,
+    };
+  }
   const window = getMutualGreylineWindow(
     qthLat,
     qthLon,
@@ -83,10 +124,6 @@ function greylineSummary(
     targetLon,
     date,
     GREYLINE_WINDOW_MINUTES,
-  );
-  const evidence = computedStamp(
-    date,
-    `Mutual ±${GREYLINE_WINDOW_MINUTES} min terminator windows (SunCalc)`,
   );
   if (!window) {
     return {
@@ -114,10 +151,18 @@ export function pathAlmanac(
   qth: { lat: number; lon: number },
   target: { lat: number; lon: number },
   date: Date,
+  computedAt: Date = new Date(),
 ): PathAlmanac {
   return {
-    qth: endAlmanac(qth.lat, qth.lon, date, "QTH"),
-    target: endAlmanac(target.lat, target.lon, date, "target"),
-    greyline: greylineSummary(qth.lat, qth.lon, target.lat, target.lon, date),
+    qth: endAlmanac(qth.lat, qth.lon, date, "QTH", computedAt),
+    target: endAlmanac(target.lat, target.lon, date, "target", computedAt),
+    greyline: greylineSummary(
+      qth.lat,
+      qth.lon,
+      target.lat,
+      target.lon,
+      date,
+      computedAt,
+    ),
   };
 }

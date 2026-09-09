@@ -70,7 +70,7 @@ export interface NearbySpotHit {
   band: string | null;
   frequencyKHz: number;
   distanceKm: number;
-  observedAt: string;
+  observedAt: string | null;
 }
 
 export interface NearbySpotsResult {

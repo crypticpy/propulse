@@ -5,7 +5,7 @@ import {
   buildWizardSearchParams,
 } from "@/lib/dxwizard";
 import type { WizardMode, WizardPathMode } from "@/lib/dxwizard";
-import { pathAlmanac } from "./almanac";
+import { isValidClock, pathAlmanac } from "./almanac";
 import { nearbySpots } from "./nearbySpots";
 import { samplePathMuf } from "./pathMuf";
 import type { DXSpot } from "@/types/dxcluster";
@@ -13,11 +13,14 @@ import type {
   DecisionReport,
   DecisionTone,
   DecisionVerdict,
-  PathMufSample,
+  GreylineSummary,
   NearbySpotsResult,
+  PathMufSample,
 } from "./types";
 
 const LOW_BANDS = new Set(["160m", "80m", "40m"]);
+export const MIN_NOWCAST_SCORE = 0.35;
+const GREYLINE_HORIZON_MS = 2 * 60 * 60 * 1000;
 
 export interface NowCastHint {
   band: string;
@@ -25,15 +28,25 @@ export interface NowCastHint {
   fetchedAt: string | null;
 }
 
+export interface NowCastPredictionSlice {
+  band: string;
+  profile: string;
+  personalized_probability: number;
+  core_probability: number;
+  issue_time: string;
+}
+
 export interface BuildDecisionInput {
   qth: { lat: number; lon: number; grid?: string };
   target: { lat: number; lon: number; name?: string; grid?: string };
   date: Date;
+  /** Wall-clock of this computation. Modeled ionosphere/almanac still use `date`. */
+  computedAt?: Date;
   pathMode: "short" | "long";
   sfi: number | null;
   sfiObservedAt?: string | null;
   sfiFetchedAt?: string | null;
-  kp: number;
+  kp: number | null;
   txPowerWatts: number;
   mode: "SSB" | "CW" | "FT8";
   spots: DXSpot[];
@@ -74,6 +87,10 @@ function hrefs(
   };
 }
 
+function isoStamp(date: Date): string | null {
+  return isValidClock(date) ? date.toISOString() : null;
+}
+
 /** Highest HF band whose lower edge is still below `mufMHz`. */
 export function highestBandBelow(mufMHz: number): string | null {
   for (let i = BAND_ORDER.length - 1; i >= 0; i--) {
@@ -84,6 +101,58 @@ export function highestBandBelow(mufMHz: number): string | null {
     }
   }
   return null;
+}
+
+/** True when any frequency in the band lies strictly inside (luf, muf). */
+export function bandIntersectsWindow(
+  band: string,
+  lufMHz: number,
+  mufMHz: number,
+): boolean {
+  if (!(lufMHz < mufMHz)) return false;
+  const range = BAND_RANGES[band];
+  if (!range) return false;
+  return range.startKHz / 1000 < mufMHz && range.endKHz / 1000 > lufMHz;
+}
+
+/** Highest HF band that intersects the open (LUF, MUF) window. */
+export function highestBandInWindow(
+  lufMHz: number,
+  mufMHz: number,
+): string | null {
+  for (let i = BAND_ORDER.length - 1; i >= 0; i--) {
+    const band = BAND_ORDER[i];
+    if (bandIntersectsWindow(band, lufMHz, mufMHz)) return band;
+  }
+  return null;
+}
+
+/**
+ * Best NowCast band: `profile === "nowcast"` only, score at least `minScore`.
+ * Physics fallback rows are ignored.
+ */
+export function favoredNowCastHint(
+  nowcastBands: readonly string[],
+  predictions: ReadonlyMap<string, NowCastPredictionSlice>,
+  minScore = MIN_NOWCAST_SCORE,
+): NowCastHint | null {
+  let best: NowCastHint | null = null;
+  let bestScore = -1;
+  for (const band of nowcastBands) {
+    const pred = predictions.get(band);
+    if (!pred || pred.profile !== "nowcast") continue;
+    const score = pred.personalized_probability ?? pred.core_probability;
+    if (score < minScore) continue;
+    if (score > bestScore) {
+      bestScore = score;
+      best = {
+        band: pred.band,
+        issueTime: pred.issue_time,
+        fetchedAt: pred.issue_time,
+      };
+    }
+  }
+  return best;
 }
 
 function topNearbyBand(nearby: NearbySpotsResult): string | null {
@@ -99,6 +168,36 @@ function topNearbyBand(nearby: NearbySpotsResult): string | null {
   return best;
 }
 
+function greylineWithinHorizon(
+  greyline: GreylineSummary,
+  date: Date,
+): boolean {
+  if (greyline.active) return false;
+  if (!greyline.start || !isValidClock(date)) return false;
+  const start = Date.parse(greyline.start);
+  if (!Number.isFinite(start)) return false;
+  const delta = start - date.getTime();
+  return delta >= 0 && delta <= GREYLINE_HORIZON_MS;
+}
+
+function nowCastPhrase(args: {
+  physicsBand: string | null;
+  nowCastBand: string | null;
+  bestBand: string | null;
+  nowCastInWindow: boolean;
+}): string {
+  const { physicsBand, nowCastBand, bestBand, nowCastInWindow } = args;
+  if (!nowCastBand) return "";
+  if (nowCastBand === physicsBand) return "; NowCast agrees";
+  if (nowCastInWindow && bestBand === nowCastBand) {
+    return `; NowCast favors ${nowCastBand}`;
+  }
+  if (!nowCastInWindow) {
+    return `; NowCast names ${nowCastBand} (outside LUF–MUF)`;
+  }
+  return "";
+}
+
 function buildLine(args: {
   tone: DecisionTone;
   band: string | null;
@@ -106,10 +205,21 @@ function buildLine(args: {
   nearby: NearbySpotsResult;
   greylineLabel: string;
   greylineActive: boolean;
+  physicsBand: string | null;
   nowCastBand: string | null;
+  nowCastInWindow: boolean;
 }): string {
-  const { tone, band, pathMuf, nearby, greylineLabel, greylineActive, nowCastBand } =
-    args;
+  const {
+    tone,
+    band,
+    pathMuf,
+    nearby,
+    greylineLabel,
+    greylineActive,
+    physicsBand,
+    nowCastBand,
+    nowCastInWindow,
+  } = args;
   const mufBit = pathMuf ? `path MUF ${pathMuf.muf.toFixed(1)} MHz` : "no path MUF";
   const spotBit =
     nearby.count === 0
@@ -126,12 +236,12 @@ function buildLine(args: {
     const bandBit = band ? `try ${band}` : "low bands";
     return `${greylineLabel} — ${bandBit} (${mufBit}; ${spotBit}).`;
   }
-  const nowCastBit =
-    nowCastBand && band && nowCastBand !== band
-      ? `; NowCast favors ${nowCastBand}`
-      : nowCastBand
-        ? `; NowCast agrees`
-        : "";
+  const nowCastBit = nowCastPhrase({
+    physicsBand,
+    nowCastBand,
+    bestBand: band,
+    nowCastInWindow,
+  });
   const greyBit = greylineActive ? `; ${greylineLabel}` : "";
   return `Workable now on ${band} (${mufBit}; ${spotBit}${nowCastBit}${greyBit}).`;
 }
@@ -140,57 +250,51 @@ export function buildVerdict(
   input: BuildDecisionInput,
   pathMuf: PathMufSample | null,
   nearby: NearbySpotsResult,
-  greyline: { active: boolean; label: string },
+  greyline: GreylineSummary,
 ): DecisionVerdict {
   const links = hrefs(input.target, input.mode, input.pathMode);
   const nowCastBand = input.nowCast?.band ?? null;
-  const fotBand = pathMuf ? highestBandBelow(pathMuf.fot) : null;
-  const mufBand = pathMuf ? highestBandBelow(pathMuf.muf) : null;
+  const physicsBand = pathMuf
+    ? highestBandInWindow(pathMuf.luf, pathMuf.muf)
+    : null;
   const spottedBand = topNearbyBand(nearby);
+  const nowCastInWindow = Boolean(
+    nowCastBand &&
+      pathMuf &&
+      bandIntersectsWindow(nowCastBand, pathMuf.luf, pathMuf.muf),
+  );
+  const spottedInWindow = Boolean(
+    spottedBand &&
+      pathMuf &&
+      bandIntersectsWindow(spottedBand, pathMuf.luf, pathMuf.muf),
+  );
 
   let tone: DecisionTone = "unknown";
   let bestBand: string | null = null;
 
-  const greylineUpcoming =
-    !greyline.active &&
-    greyline.label.startsWith("Mutual grey-line") &&
-    !greyline.label.startsWith("No mutual");
-
   if (pathMuf) {
-    bestBand = fotBand ?? mufBand;
-    if (!bestBand || pathMuf.muf < 3.5) {
+    bestBand = physicsBand;
+    if (!bestBand) {
       tone = "closed";
-      bestBand = null;
-    } else if (bestBand && LOW_BANDS.has(bestBand) && greylineUpcoming) {
+    } else if (
+      LOW_BANDS.has(bestBand) &&
+      greylineWithinHorizon(greyline, input.date)
+    ) {
       tone = "window";
     } else {
       tone = "open";
     }
-  } else if (nearby.count > 0 && spottedBand) {
-    tone = "open";
-    bestBand = spottedBand;
   }
 
-  if (nowCastBand && tone === "open") {
-    const nowCastUnderMuf =
-      !pathMuf ||
-      (BAND_RANGES[nowCastBand] &&
-        BAND_RANGES[nowCastBand].startKHz / 1000 < pathMuf.muf);
-    if (nowCastUnderMuf) {
+  if (tone === "open") {
+    if (nowCastInWindow && nowCastBand) {
       bestBand = nowCastBand;
-    }
-  }
-
-  if (spottedBand && tone === "open" && !nowCastBand) {
-    const spottedUnderMuf =
-      !pathMuf ||
-      (BAND_RANGES[spottedBand] &&
-        BAND_RANGES[spottedBand].startKHz / 1000 < pathMuf.muf);
-    if (spottedUnderMuf) {
+    } else if (spottedInWindow && spottedBand && !nowCastBand) {
       bestBand = spottedBand;
     }
   }
 
+  const computedAt = input.computedAt ?? new Date();
   const parts: string[] = [];
   if (pathMuf) parts.push(pathMuf.evidence.basis);
   else parts.push("physics unavailable (no SFI)");
@@ -210,7 +314,7 @@ export function buildVerdict(
     pathMuf?.evidence.fetchedAt ??
     nearby.evidence.fetchedAt ??
     input.nowCast?.fetchedAt ??
-    input.date.toISOString();
+    isoStamp(computedAt);
 
   return {
     line: buildLine({
@@ -220,7 +324,9 @@ export function buildVerdict(
       nearby,
       greylineLabel: greyline.label,
       greylineActive: greyline.active,
+      physicsBand,
       nowCastBand,
+      nowCastInWindow,
     }),
     tone,
     bestBand,
@@ -235,35 +341,41 @@ export function buildVerdict(
 }
 
 export function buildDecisionReport(input: BuildDecisionInput): DecisionReport {
-  const almanac = pathAlmanac(input.qth, input.target, input.date);
-  const sfiAssumed = input.sfi == null;
-  const pathMuf = samplePathMuf({
-    startLat: input.qth.lat,
-    startLon: input.qth.lon,
-    endLat: input.target.lat,
-    endLon: input.target.lon,
-    date: input.date,
-    sfi: input.sfi ?? 100,
-    kp: input.kp,
-    txPowerWatts: input.txPowerWatts,
-    mode: input.mode,
-    pathMode: input.pathMode,
-    sfiObservedAt: input.sfiObservedAt,
-    sfiFetchedAt: input.sfiFetchedAt,
-    sfiAssumed,
-  });
+  const computedAt =
+    input.computedAt && isValidClock(input.computedAt)
+      ? input.computedAt
+      : new Date();
+  const almanac = pathAlmanac(input.qth, input.target, input.date, computedAt);
+  const pathMuf =
+    input.sfi == null || !isValidClock(input.date)
+      ? null
+      : samplePathMuf({
+          startLat: input.qth.lat,
+          startLon: input.qth.lon,
+          endLat: input.target.lat,
+          endLon: input.target.lon,
+          date: input.date,
+          sfi: input.sfi,
+          kp: input.kp ?? 0,
+          txPowerWatts: input.txPowerWatts,
+          mode: input.mode,
+          pathMode: input.pathMode,
+          sfiObservedAt: input.sfiObservedAt,
+          sfiFetchedAt: input.sfiFetchedAt,
+          computedAt,
+        });
   const nearby = nearbySpots({
     targetLat: input.target.lat,
     targetLon: input.target.lon,
     spots: input.spots,
     radiusKm: input.radiusKm,
-    now: input.date,
+    now: computedAt,
     spotsObservedAt: input.spotsObservedAt,
     spotsFetchedAt: input.spotsFetchedAt,
   });
   const verdict = buildVerdict(input, pathMuf, nearby, almanac.greyline);
   return {
-    generatedAt: input.date.toISOString(),
+    generatedAt: computedAt.toISOString(),
     almanac,
     pathMuf,
     nearby,

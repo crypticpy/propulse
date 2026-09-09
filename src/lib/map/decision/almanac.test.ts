@@ -26,7 +26,7 @@ describe("localMeanDate", () => {
 
 describe("endAlmanac", () => {
   it("returns sunrise and sunset at mid-latitudes", () => {
-    const almanac = endAlmanac(AUSTIN.lat, AUSTIN.lon, NOON, "QTH");
+    const almanac = endAlmanac(AUSTIN.lat, AUSTIN.lon, NOON, "QTH", NOON);
     expect(almanac.utcTime).toBe("12:00");
     expect(almanac.localMeanTime).toBe("05:29");
     expect(almanac.sunriseUtc).not.toBeNull();
@@ -37,11 +37,38 @@ describe("endAlmanac", () => {
     expect(almanac.evidence.fetchedAt).toBe(NOON.toISOString());
   });
 
+  it("stamps fetchedAt with computation time, not the modeled clock", () => {
+    const computed = new Date("2026-06-21T12:07:00Z");
+    const almanac = endAlmanac(AUSTIN.lat, AUSTIN.lon, NOON, "QTH", computed);
+    expect(almanac.utcTime).toBe("12:00");
+    expect(almanac.evidence.fetchedAt).toBe(computed.toISOString());
+  });
+
   it("marks polar night when the sun never rises", () => {
-    const almanac = endAlmanac(80, 0, POLAR_WINTER, "QTH");
+    const almanac = endAlmanac(80, 0, POLAR_WINTER, "QTH", NOON);
     expect(almanac.sunriseUtc).toBeNull();
     expect(almanac.sunsetUtc).toBeNull();
     expect(almanac.polar).toBe("night");
+  });
+
+  it("marks polar day when the sun never sets", () => {
+    const almanac = endAlmanac(80, 0, NOON, "QTH", NOON);
+    expect(almanac.sunriseUtc).toBeNull();
+    expect(almanac.sunsetUtc).toBeNull();
+    expect(almanac.polar).toBe("day");
+  });
+
+  it("does not throw on an invalid date", () => {
+    const almanac = endAlmanac(
+      AUSTIN.lat,
+      AUSTIN.lon,
+      new Date("invalid"),
+      "QTH",
+      NOON,
+    );
+    expect(almanac.utcTime).toBe("—");
+    expect(almanac.localMeanTime).toBe("—");
+    expect(almanac.evidence.fetchedAt).toBe(NOON.toISOString());
   });
 });
 

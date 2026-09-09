@@ -1,5 +1,6 @@
 import type { DXSpot } from "@/types/dxcluster";
 import { getDistance } from "@/lib/utils/path";
+import { gridToLatLon, isValidGrid } from "@/lib/utils/grid";
 import type { NearbySpotHit, NearbySpotsResult } from "./types";
 import { DEFAULT_NEARBY_RADIUS_KM } from "./types";
 
@@ -16,6 +17,33 @@ function spotObservedMs(spot: DXSpot): number | null {
     return Number.isFinite(ms) ? ms : null;
   }
   return null;
+}
+
+function gridForLatLon(grid: string): string {
+  const upper = grid.toUpperCase();
+  return upper.length >= 8 ? upper.slice(0, 6) : upper;
+}
+
+/** Locator-derived DX position only. Prefix/continent centroids are skipped. */
+export function dxLocatorPosition(
+  spot: DXSpot,
+): { lat: number; lon: number } | null {
+  if (spot.dxLocApprox) return null;
+  if (
+    spot.dxLat != null &&
+    spot.dxLon != null &&
+    Number.isFinite(spot.dxLat) &&
+    Number.isFinite(spot.dxLon)
+  ) {
+    return { lat: spot.dxLat, lon: spot.dxLon };
+  }
+  const grid = spot.dxGrid?.trim();
+  if (!grid || grid.length < 4 || !isValidGrid(grid)) return null;
+  try {
+    return gridToLatLon(gridForLatLon(grid));
+  } catch {
+    return null;
+  }
 }
 
 export interface NearbySpotsInput {
@@ -35,20 +63,21 @@ function isoOrNull(ms: number | null | undefined): string | null {
 
 /**
  * Spots whose DX end falls within `radiusKm` of the target.
- * Configurable radius; default 500 km. Skips spots without a locator-derived position.
+ * Configurable radius; default 500 km. Skips approximate (prefix/continent)
+ * positions and rows with no locator-derived coordinates or 4-char+ grid.
  */
 export function nearbySpots(input: NearbySpotsInput): NearbySpotsResult {
   const radiusKm = input.radiusKm ?? DEFAULT_NEARBY_RADIUS_KM;
   const ranked: NearbySpotHit[] = [];
 
   for (const spot of input.spots) {
-    if (spot.dxLat == null || spot.dxLon == null) continue;
-    if (!Number.isFinite(spot.dxLat) || !Number.isFinite(spot.dxLon)) continue;
+    const position = dxLocatorPosition(spot);
+    if (!position) continue;
     const distanceKm = getDistance(
       input.targetLat,
       input.targetLon,
-      spot.dxLat,
-      spot.dxLon,
+      position.lat,
+      position.lon,
     );
     if (distanceKm > radiusKm) continue;
     const observedMs = spotObservedMs(spot);
@@ -59,15 +88,13 @@ export function nearbySpots(input: NearbySpotsInput): NearbySpotsResult {
       frequencyKHz: spot.frequency,
       distanceKm: Math.round(distanceKm),
       observedAt:
-        observedMs != null
-          ? new Date(observedMs).toISOString()
-          : new Date(0).toISOString(),
+        observedMs != null ? new Date(observedMs).toISOString() : null,
     });
   }
 
   ranked.sort((a, b) => {
     if (a.distanceKm !== b.distanceKm) return a.distanceKm - b.distanceKm;
-    return b.observedAt.localeCompare(a.observedAt);
+    return (b.observedAt ?? "").localeCompare(a.observedAt ?? "");
   });
 
   const byBand: Record<string, number> = {};
@@ -77,6 +104,7 @@ export function nearbySpots(input: NearbySpotsInput): NearbySpotsResult {
   }
 
   const newest = ranked.reduce<string | null>((acc, hit) => {
+    if (!hit.observedAt) return acc;
     if (!acc || hit.observedAt > acc) return hit.observedAt;
     return acc;
   }, null);
@@ -89,7 +117,8 @@ export function nearbySpots(input: NearbySpotsInput): NearbySpotsResult {
     evidence: {
       basis: `Observed spots within ${radiusKm} km of the target (spot store)`,
       observedAt: newest ?? isoOrNull(input.spotsObservedAt),
-      fetchedAt: isoOrNull(input.spotsFetchedAt) ?? input.now?.toISOString() ?? null,
+      fetchedAt:
+        isoOrNull(input.spotsFetchedAt) ?? input.now?.toISOString() ?? null,
     },
   };
 }

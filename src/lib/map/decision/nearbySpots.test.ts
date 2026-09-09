@@ -88,4 +88,46 @@ describe("nearbySpots", () => {
     });
     expect(result.hits[0].observedAt).toBe("2026-06-21T11:40:00.000Z");
   });
+
+  it("resolves production spots from dxGrid and skips prefix/continent centroids", () => {
+    const result = nearbySpots({
+      targetLat: AUSTIN.lat,
+      targetLon: AUSTIN.lon,
+      radiusKm: 500,
+      spots: [
+        spot({ id: "grid", dx: "W5GRID", dxGrid: "EM10fp" }),
+        spot({
+          id: "approx",
+          dx: "K1TEST",
+          dxLat: 30.3,
+          dxLon: -97.7,
+          dxLocApprox: true,
+          dxGrid: "EM10",
+        }),
+        spot({ id: "field", dx: "N0FLD", dxGrid: "EM" }),
+        spot({ id: "ext", dx: "W5EXT", dxGrid: "EM10fp00" }),
+      ],
+    });
+    expect(result.hits.map((hit) => hit.dx).sort()).toEqual(["W5EXT", "W5GRID"]);
+    expect(result.count).toBe(2);
+  });
+
+  it("leaves observedAt null for unparseable spot times and excludes them from newest", () => {
+    const result = nearbySpots({
+      targetLat: AUSTIN.lat,
+      targetLon: AUSTIN.lon,
+      spotsObservedAt: Date.parse("2026-06-21T12:00:00Z"),
+      spots: [
+        spot({
+          id: "bad",
+          dx: "W5BAD",
+          dxLat: 30.3,
+          dxLon: -97.7,
+          time: "not-a-date" as unknown as Date,
+        }),
+      ],
+    });
+    expect(result.hits[0].observedAt).toBeNull();
+    expect(result.evidence.observedAt).toBe("2026-06-21T12:00:00.000Z");
+  });
 });

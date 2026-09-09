@@ -49,6 +49,7 @@ import { Link } from "react-router-dom";
 import { useDXStore } from "@/stores/dxStore";
 import {
   buildDecisionReport,
+  favoredNowCastHint,
   formatUtcHm,
   NEARBY_RADIUS_KM_OPTIONS,
   DEFAULT_NEARBY_RADIUS_KM,
@@ -350,7 +351,7 @@ function EndSunTimes({ end, heading }: { end: EndAlmanac; heading: string }) {
         : `SR ${isoClock(end.sunriseUtc)}  SS ${isoClock(end.sunsetUtc)}`;
   return (
     <div className="min-w-0">
-      <div className="text-[10px] font-medium uppercase tracking-wide text-su-muted">
+      <div className="text-xs font-medium uppercase tracking-wide text-su-muted">
         {heading}
       </div>
       <div className="font-mono text-sm text-su-text">
@@ -366,10 +367,12 @@ const DecisionLayer = memo(function DecisionLayer({
   report,
   radiusKm,
   onRadiusChange,
+  liveEvidence,
 }: {
   report: DecisionReport;
   radiusKm: number;
   onRadiusChange: (km: number) => void;
+  liveEvidence: boolean;
 }) {
   const { verdict, almanac, nearby, pathMuf } = report;
   return (
@@ -385,7 +388,7 @@ const DecisionLayer = memo(function DecisionLayer({
           {verdict.line}
         </p>
       </div>
-      <p className="text-[11px] leading-snug text-su-muted">
+      <p className="text-xs leading-snug text-su-muted">
         {verdict.evidence.basis}. Observed {stampAge(verdict.evidence.observedAt)};
         fetched {stampAge(verdict.evidence.fetchedAt)}.
       </p>
@@ -394,17 +397,17 @@ const DecisionLayer = memo(function DecisionLayer({
         <EndSunTimes end={almanac.qth} heading="QTH" />
         <EndSunTimes end={almanac.target} heading="Target" />
       </div>
-      <p className="text-[11px] text-su-muted">
+      <p className="text-xs text-su-muted">
         {almanac.qth.evidence.basis}. Fetched {stampAge(almanac.qth.evidence.fetchedAt)}.
       </p>
       <p className="text-xs text-su-text">{almanac.greyline.label}</p>
-      <p className="text-[11px] text-su-muted">
+      <p className="text-xs text-su-muted">
         {almanac.greyline.evidence.basis}. Fetched{" "}
         {stampAge(almanac.greyline.evidence.fetchedAt)}.
       </p>
 
       {pathMuf && (
-        <p className="text-[11px] text-su-muted">
+        <p className="text-xs text-su-muted">
           Path MUF {pathMuf.muf.toFixed(1)} MHz · {pathMuf.evidence.basis}.
           Observed {stampAge(pathMuf.evidence.observedAt)}; fetched{" "}
           {stampAge(pathMuf.evidence.fetchedAt)}.
@@ -412,10 +415,14 @@ const DecisionLayer = memo(function DecisionLayer({
       )}
 
       <div>
-        <div className="text-[10px] font-medium uppercase tracking-wide text-su-muted">
+        <div className="text-xs font-medium uppercase tracking-wide text-su-muted">
           Nearby spots
         </div>
-        <div className="mt-1 flex flex-wrap gap-1">
+        <div
+          role="group"
+          aria-label="Nearby spot radius"
+          className="mt-1 flex flex-wrap gap-1"
+        >
           {NEARBY_RADIUS_KM_OPTIONS.map((km) => (
             <button
               key={km}
@@ -432,7 +439,11 @@ const DecisionLayer = memo(function DecisionLayer({
             </button>
           ))}
         </div>
-        {nearby.count === 0 ? (
+        {!liveEvidence ? (
+          <p className="mt-1 text-xs text-su-muted">
+            Nearby spots and NowCast are live-only; time control is offset from now.
+          </p>
+        ) : nearby.count === 0 ? (
           <p className="mt-1 text-xs text-su-muted">
             No spots within {nearby.radiusKm} km. {nearby.evidence.basis}. Observed{" "}
             {stampAge(nearby.evidence.observedAt)}; fetched{" "}
@@ -440,7 +451,7 @@ const DecisionLayer = memo(function DecisionLayer({
           </p>
         ) : (
           <ul className="mt-1 space-y-1">
-            {nearby.hits.slice(0, 4).map((hit) => (
+            {nearby.hits.map((hit) => (
               <li
                 key={hit.id}
                 className="flex min-h-11 items-center justify-between gap-2 rounded-md border border-su-line/40 bg-su-panel px-2 text-sm"
@@ -486,6 +497,9 @@ export function PathAnalysis({
   onClose,
 }: PathAnalysisProps) {
   const target = useMapStore((s) => s.target);
+  const timeOffset = useMapStore((s) => s.timeOffset);
+  const absoluteTime = useMapStore((s) => s.absoluteTime);
+  const isLive = timeOffset === 0 && !absoluteTime;
   const pathMode = useMapStore((s) => s.pathMode);
   const setPathMode = useMapStore((s) => s.setPathMode);
   const isolateTargetPath = useMapStore((s) => s.isolateTargetPath);
@@ -713,53 +727,60 @@ export function PathAnalysis({
 
   const lastFlux = solarFluxData?.[solarFluxData.length - 1];
   const hasObservedSfi = Boolean(lastFlux);
-  const nowCastHint = useMemo(() => {
-    if (!modelNowCast.available || modelNowCast.predictions.size === 0) {
-      return null;
-    }
-    let bestBand: string | null = null;
-    let bestScore = -1;
-    let issueTime: string | null = null;
-    for (const pred of modelNowCast.predictions.values()) {
-      const score = pred.personalized_probability ?? pred.core_probability;
-      if (score > bestScore) {
-        bestScore = score;
-        bestBand = pred.band;
-        issueTime = pred.issue_time;
-      }
-    }
-    if (!bestBand) return null;
-    return { band: bestBand, issueTime, fetchedAt: issueTime };
-  }, [modelNowCast.available, modelNowCast.predictions]);
+  const nowCastIdentity = modelNowCast.nowcastBands
+    .map((band) => {
+      const pred = modelNowCast.predictions.get(band);
+      return `${band}:${pred?.issue_time}:${pred?.personalized_probability}:${pred?.core_probability}:${pred?.profile}`;
+    })
+    .join("|");
+  const nowCastHint = useMemo(
+    () => {
+      if (!isLive || !modelNowCast.available) return null;
+      return favoredNowCastHint(
+        modelNowCast.nowcastBands,
+        modelNowCast.predictions,
+      );
+    },
+    // predictions is a new Map every hook call; nowCastIdentity is the content key
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [isLive, modelNowCast.available, nowCastIdentity],
+  );
 
   const decision = useMemo((): DecisionReport | null => {
     if (!station || !target) {
       return null;
     }
-    return buildDecisionReport({
-      qth: { lat: station.lat, lon: station.lon, grid: station.grid },
-      target: {
-        lat: target.lat,
-        lon: target.lon,
-        name: target.name,
-        grid: target.grid,
-      },
-      date: displayTime,
-      pathMode: pathMode === "long" ? "long" : "short",
-      sfi: hasObservedSfi ? currentSfi : null,
-      sfiObservedAt: lastFlux?.time_tag ?? null,
-      sfiFetchedAt: fluxUpdatedAt
-        ? new Date(fluxUpdatedAt).toISOString()
-        : null,
-      kp: currentKp ?? 2,
-      txPowerWatts,
-      mode: physicsMode,
-      spots,
-      spotsObservedAt: clusterFeed.observedAt,
-      spotsFetchedAt: clusterFeed.fetchedAt,
-      radiusKm: nearbyRadiusKm,
-      nowCast: nowCastHint,
-    });
+    if (Number.isNaN(displayTime.getTime())) {
+      return null;
+    }
+    try {
+      return buildDecisionReport({
+        qth: { lat: station.lat, lon: station.lon, grid: station.grid },
+        target: {
+          lat: target.lat,
+          lon: target.lon,
+          name: target.name,
+          grid: target.grid,
+        },
+        date: displayTime,
+        pathMode: pathMode === "long" ? "long" : "short",
+        sfi: hasObservedSfi ? currentSfi : null,
+        sfiObservedAt: lastFlux?.time_tag ?? null,
+        sfiFetchedAt: fluxUpdatedAt
+          ? new Date(fluxUpdatedAt).toISOString()
+          : null,
+        kp: currentKp,
+        txPowerWatts,
+        mode: physicsMode,
+        spots: isLive ? spots : [],
+        spotsObservedAt: isLive ? clusterFeed.observedAt : null,
+        spotsFetchedAt: isLive ? clusterFeed.fetchedAt : null,
+        radiusKm: nearbyRadiusKm,
+        nowCast: isLive ? nowCastHint : null,
+      });
+    } catch {
+      return null;
+    }
   }, [
     station,
     target,
@@ -772,6 +793,7 @@ export function PathAnalysis({
     currentKp,
     txPowerWatts,
     physicsMode,
+    isLive,
     spots,
     clusterFeed.observedAt,
     clusterFeed.fetchedAt,
@@ -1218,6 +1240,7 @@ export function PathAnalysis({
               report={decision}
               radiusKm={nearbyRadiusKm}
               onRadiusChange={setNearbyRadiusKm}
+              liveEvidence={isLive}
             />
           )}
 

@@ -352,8 +352,24 @@ export function getOverallCondition(kp: number, sfi: number): OverallCondition {
  * (Poor) at 2.76:1, all measured on glass-over-panel; the default `#666666`
  * cleared panel (4.69:1) but failed canvas at 4.35:1. Every token role above
  * clears 4.5:1 as bare text on both panel and canvas in all four themes (see
- * the PR's measured table); colour-blind-mode composites are recorded, not
- * asserted, per the systemic #811 gap.
+ * the PR's measured table).
+ *
+ * This change does have a colour-blind-mode cost, and it is this change's,
+ * not an inherited one: routing Excellent/Good/Fair/Poor onto
+ * `success`/`warning`/`danger` sends them through `toneOnPanel`'s
+ * colour-blind swap for the first time -- the old literals bypassed
+ * colour-blind mode entirely (Excellent and Good were two indistinguishable
+ * greens for protanopia/deuteranopia operators). On the glass composite both
+ * consumers actually render on, protanopia/deuteranopia now measure
+ * 4.12-4.38 against the 4.5:1 floor on dark/high-contrast/midnight (old
+ * literals cleared the same surface at 7.89-11.23, with no colour-blind
+ * adaptation at all), while on `light` the same swap is a clear win
+ * (1.10 -> 4.29 under protanopia). The trade is intentional, but it is a
+ * trade, not a no-op: see #811 for the before/after table and the systemic
+ * fix (`toneOnPanel` fits against bare `palette.panel` today,
+ * `stationTokens.ts` ~:152; fitting it against the `su-line/10` glass
+ * composite instead clears every cell above, but is app-wide and out of
+ * scope here).
  *
  * @param condition - Band condition rating
  * @returns A `rgb(var(--su-*-rgb))` station design token for every branch.

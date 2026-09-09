@@ -155,7 +155,7 @@ describe("PredictionsCard's badges never fill and never carry a hex/suffix colou
   });
 });
 
-describe("Aurora badge contrast on PredictionsCard's real surface (#799)", () => {
+describe("Aurora badge contrast on the Card component's glass surface (#799) -- Aurora only reaches this badge via PredictionsCard, since InsightsBar's bestCondition can never be Aurora", () => {
   it.each(THEMES)(
     "purple text with NO fill clears 4.5:1 on the Card's bg-su-line/10 glass over panel/canvas on %s",
     (theme) => {
@@ -180,12 +180,17 @@ describe("Aurora badge contrast on PredictionsCard's real surface (#799)", () =>
 });
 
 describe("PredictionsCard source no longer carries a fill for any condition (#810)", () => {
-  it("the badge span has no backgroundColor in its style object", () => {
+  it("the source drops the old alpha-suffix trick and the Aurora-only special case", () => {
+    // `backgroundColor` itself is intentionally NOT scanned for here: a
+    // source-wide `not.toContain` trips on any unrelated future
+    // `backgroundColor` anywhere in the file. The badge's own style object
+    // having no `backgroundColor` is proven at the DOM level instead, by
+    // the `band.style.backgroundColor` assertions above (every band, across
+    // an Aurora render and a mixed Poor/Fair/Good/Excellent render).
     const source = readFileSync(
       resolve(REPO_ROOT, "src/components/dx/PredictionsCard.tsx"),
       "utf8",
     );
-    expect(source).not.toContain("backgroundColor");
     expect(source).not.toContain("${conditionColor}20");
     expect(source).not.toContain("isAurora");
   });

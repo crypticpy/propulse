@@ -244,13 +244,21 @@ export function PredictionsCard({
             // alpha-suffix fill trick -- that would emit
             // `rgb(var(--su-success-rgb))20`, invalid CSS. A token-aware
             // `rgb(var(...) / alpha)` tint was measured instead (#810 PR
-            // body): it clears 4.5:1 almost everywhere at alpha 0.12, but
-            // the light theme's `warning` role fails on the canvas composite
-            // (4.40:1). Rather than ship a tint that is one theme away from
-            // failing, every badge drops its fill and keeps only the token
-            // ink, matching the Aurora badge's existing #799/#807 treatment
+            // body) and rejected -- not because one alpha (0.12) happened to
+            // fail, but because design-system README rule 7 forbids
+            // "saturated text on a saturated background," which is exactly
+            // what token ink on a same-hue token tint is. (For the record,
+            // the tint clears 4.5:1 at alpha <= 0.10 on every theme/role/
+            // surface -- the failure at 0.12 was real but is not the reason
+            // to avoid this pattern; lowering the alpha is not the fix.)
+            // Every badge drops its fill and keeps only the token ink,
+            // matching the Aurora badge's existing #799/#807 treatment
             // (purple text, no fill) -- one consistent look across all five
-            // conditions instead of four tinted + one bare.
+            // conditions instead of four tinted + one bare. Rule 2 ("status
+            // is never colour alone") is satisfied separately: `SignalIcon`
+            // below renders a distinct shape per signal strength, and
+            // InsightsBar -- the other consumer of `getConditionColor` --
+            // covers the same rule with `abbreviateCondition`'s text label.
             return (
               <div
                 key={prediction.band}

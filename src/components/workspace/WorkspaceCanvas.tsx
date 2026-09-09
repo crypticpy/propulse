@@ -1,7 +1,7 @@
 import "./workspace.css";
 import { autoDock } from "@/lib/workspace/autoDock";
 import { canvasRulesFor } from "@/lib/workspace/canvasRules";
-import type { RailSide, RailState, RailWidth } from "@/lib/workspace/types";
+import type { CanvasType, RailSide, RailState, RailWidth } from "@/lib/workspace/types";
 import { useActivePage, useActiveWorkspace, useWorkspaceStore } from "@/stores/workspaceStore";
 import { RailSlot } from "./RailSlot";
 import { SpaceSlot } from "./SpaceSlot";
@@ -23,19 +23,37 @@ function bottomRailPx(state: RailState | undefined): number {
   return state.collapsed ? RAIL_COLLAPSED_PX : BOTTOM_RAIL_HEIGHT_PX[state.width];
 }
 
+export interface WorkspaceCanvasProps {
+  /**
+   * Overrides `workspace.canvasType` for rules/dock computation only
+   * (#661): every stored workspace is `"workstation"` today
+   * (`workspaceStore.ts`'s `createDefaultWorkspace()`), so this lets
+   * `WorkspacePage` render the tablet layout on a tablet viewport without a
+   * store change. Rail *state* (collapsed/width) still comes from the
+   * stored `workspace.rails`, matched by side — tablet only declares a
+   * `right` rail, which the workstation-shaped store state already has, so
+   * no migration is needed. Trade-off, accepted per `autoDock`'s own
+   * "refuse honestly, never crash" contract: a widget docked under
+   * workstation's wider rail budgets can be refused when re-evaluated here
+   * under tablet's narrower single-rail budget, rather than silently
+   * dropped or spilled.
+   */
+  canvasType?: CanvasType;
+}
+
 /**
  * The workstation shell: applies `canvasRulesFor("workstation")`, runs
  * `autoDock` over the active page's stored widget ids to find out where
  * each one landed, and lays out `SpaceSlot` + `RailSlot`s in a CSS grid
  * sized by each rail's width step / collapsed state.
  */
-export function WorkspaceCanvas() {
+export function WorkspaceCanvas({ canvasType }: WorkspaceCanvasProps = {}) {
   const workspace = useActiveWorkspace();
   const page = useActivePage();
   const setRailCollapsed = useWorkspaceStore((s) => s.setRailCollapsed);
   const setRailWidth = useWorkspaceStore((s) => s.setRailWidth);
 
-  const rules = canvasRulesFor(workspace.canvasType);
+  const rules = canvasRulesFor(canvasType ?? workspace.canvasType);
   const dock = autoDock(page.widgetIds, rules);
 
   const spaceWidgetId = dock.placements.find((p) => p.slot.kind === "space")?.widgetId;

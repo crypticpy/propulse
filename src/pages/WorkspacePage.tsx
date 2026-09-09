@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import { useOperatingScreen } from "@/hooks/useOperatingScreen";
 import { useDXCluster } from "@/hooks/useDXCluster";
@@ -21,6 +22,25 @@ function WorkspaceDxFeedHost() {
 }
 
 /**
+ * Tablet viewport band (#661): the issue's 1024x768 reference canvas sits
+ * between `useIsMobile`'s phone cutoff (<768px) and the desktop/workstation
+ * width. Matches `useIsMobile`'s own matchMedia pattern, one breakpoint up.
+ */
+function useIsTabletViewport(min = 768, max = 1024): boolean {
+  const [isTablet, setIsTablet] = useState(
+    typeof window !== "undefined" ? window.innerWidth >= min && window.innerWidth < max : false,
+  );
+  useEffect(() => {
+    const mql = window.matchMedia(`(min-width: ${min}px) and (max-width: ${max - 1}px)`);
+    const handler = (e: MediaQueryListEvent) => setIsTablet(e.matches);
+    mql.addEventListener("change", handler);
+    setIsTablet(mql.matches);
+    return () => mql.removeEventListener("change", handler);
+  }, [min, max]);
+  return isTablet;
+}
+
+/**
  * Resolves the canvas type from the device and renders that workspace. This
  * PR ships the workstation canvas only — phone is #659 — so mobile gets a
  * one-line placeholder rather than a broken layout.
@@ -36,6 +56,7 @@ export default function WorkspacePage() {
   // applies inbound page-flip commands. One self-contained call — the
   // channel itself is held open app-wide by `OperatingTransportHost`.
   useOperatingScreen();
+  const isTablet = useIsTabletViewport();
   const activePage = useActivePage();
   const needsDxFeed = activePage.widgetIds.some((id) => DX_SOURCED_WIDGET_IDS.has(id));
 
@@ -55,7 +76,7 @@ export default function WorkspacePage() {
           equivalent header, so it is mounted here directly (#670 review). */}
       <HamClockPinnedReportHost />
       <WorkspaceBar />
-      <WorkspaceCanvas />
+      <WorkspaceCanvas canvasType={isTablet ? "tablet" : undefined} />
       <StateStrip />
     </StationProvider>
   );

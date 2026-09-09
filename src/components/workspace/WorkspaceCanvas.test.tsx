@@ -134,6 +134,15 @@ describe("WorkspaceCanvas", () => {
     expect(within(dialog).getByText(lastEntry.title)).toBeTruthy();
   });
 
+  it("canvasType=\"tablet\" renders only the single right rail, no left/bottom", () => {
+    render(<WorkspaceCanvas canvasType="tablet" />);
+
+    expect(screen.getByTestId("workspace-space")).toBeTruthy();
+    expect(screen.getByTestId("workspace-rail-right")).toBeTruthy();
+    expect(screen.queryByTestId("workspace-rail-left")).toBeNull();
+    expect(screen.queryByTestId("workspace-rail-bottom")).toBeNull();
+  });
+
   it("HIDE LEFT RAIL collapses the left rail (drawer), and SHOW LEFT RAIL brings it back", () => {
     useWorkspaceStore.getState().addWidget(DEFAULT_PAGE_ID, "sun");
     render(<WorkspaceCanvas />);

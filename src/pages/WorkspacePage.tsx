@@ -1,8 +1,9 @@
 import { useIsMobile } from "@/hooks/useIsMobile";
 import { useOperatingScreen } from "@/hooks/useOperatingScreen";
 import { useDXCluster } from "@/hooks/useDXCluster";
-import { StationProvider, Surface } from "@/components/station-ui";
+import { StationProvider } from "@/components/station-ui";
 import { HamClockPinnedReportHost } from "@/components/map/hamclock/wall/reports/WallReport";
+import { PhonePage } from "@/components/workspace/phone/PhonePage";
 import { StateStrip } from "@/components/workspace/StateStrip";
 import { WorkspaceBar } from "@/components/workspace/WorkspaceBar";
 import { WorkspaceCanvas } from "@/components/workspace/WorkspaceCanvas";
@@ -21,14 +22,19 @@ function WorkspaceDxFeedHost() {
 }
 
 /**
- * Resolves the canvas type from the device and renders that workspace. This
- * PR ships the workstation canvas only — phone is #659 — so mobile gets a
- * one-line placeholder rather than a broken layout.
+ * Resolves the canvas type from the device and renders that workspace.
+ * Mobile renders the fixed-page `PhonePage` canvas (#659); everything else
+ * renders the workstation canvas below.
  *
  * The desktop shell is scoped in `StationProvider` (the `.station-ui` root),
  * same as every other station-ui page (`ShackPage.tsx`,
  * `DesignSystemPage.tsx`) — `workspace.css`'s classes are written to be read
- * inside that scope.
+ * inside that scope. `PhonePage` registers its own, canvas-correct entry on
+ * the shared operating-state roster directly (see its own doc comment); the
+ * `useOperatingScreen()` call below still runs unconditionally on mobile too
+ * (pre-existing), which leaves a duplicate "workstation" registration behind
+ * a real phone until that hook becomes canvas-aware — tracked as a #659
+ * follow-up, not fixed here.
  */
 export default function WorkspacePage() {
   const isMobile = useIsMobile();
@@ -41,9 +47,9 @@ export default function WorkspacePage() {
 
   if (isMobile) {
     return (
-      <Surface className="workspace-phone-placeholder">
-        <p>Phone workspace arrives in a later release.</p>
-      </Surface>
+      <StationProvider className="workspace-page workspace-page-phone" role="main">
+        <PhonePage />
+      </StationProvider>
     );
   }
 

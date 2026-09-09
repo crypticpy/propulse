@@ -1,3 +1,4 @@
+import "./workspace.css";
 import { autoDock } from "@/lib/workspace/autoDock";
 import { canvasRulesFor } from "@/lib/workspace/canvasRules";
 import type { RailSide, RailState, RailWidth } from "@/lib/workspace/types";
@@ -5,15 +6,21 @@ import { useActivePage, useActiveWorkspace, useWorkspaceStore } from "@/stores/w
 import { RailSlot } from "./RailSlot";
 import { SpaceSlot } from "./SpaceSlot";
 
-/** Rail pixel width per width step (workstation "desk" numbers have no exact px spec; a proposed default, same spirit as the rail weight budgets in `canvasRules.ts`). */
+/** Left/right rail pixel width per width step (workstation "desk" numbers have no exact px spec; a proposed default, same spirit as the rail weight budgets in `canvasRules.ts`). */
 const RAIL_WIDTH_PX: Record<RailWidth, number> = { narrow: 200, normal: 280, wide: 380 };
-/** A collapsed rail still shows its "SHOW ... RAIL" handle at this width. */
+/** A collapsed rail still shows its "SHOW ... RAIL" handle at this width/height. */
 const RAIL_COLLAPSED_PX = 56;
-const BOTTOM_RAIL_HEIGHT_PX = 180;
+/** Bottom rail row height per width step — same three steps as the side rails, so the width control has a visible effect there too. */
+const BOTTOM_RAIL_HEIGHT_PX: Record<RailWidth, number> = { narrow: 120, normal: 180, wide: 260 };
 
 function railPx(state: RailState | undefined): number {
   if (!state) return 0;
   return state.collapsed ? RAIL_COLLAPSED_PX : RAIL_WIDTH_PX[state.width];
+}
+
+function bottomRailPx(state: RailState | undefined): number {
+  if (!state) return 0;
+  return state.collapsed ? RAIL_COLLAPSED_PX : BOTTOM_RAIL_HEIGHT_PX[state.width];
 }
 
 /**
@@ -52,7 +59,7 @@ export function WorkspaceCanvas() {
         display: "grid",
         gap: "0.75rem",
         gridTemplateColumns: `${railPx(leftState)}px 1fr ${railPx(rightState)}px`,
-        gridTemplateRows: `1fr ${bottomRail ? (bottomState?.collapsed ? RAIL_COLLAPSED_PX : BOTTOM_RAIL_HEIGHT_PX) : 0}px`,
+        gridTemplateRows: `1fr ${bottomRail ? bottomRailPx(bottomState) : 0}px`,
       }}
     >
       {leftRail && leftState && (

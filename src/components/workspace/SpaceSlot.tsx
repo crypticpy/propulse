@@ -36,7 +36,7 @@ export interface SpaceSlotProps {
 export function SpaceSlot({ widgetId, pageId }: SpaceSlotProps) {
   return (
     <div className="su-surface workspace-space" data-testid="workspace-space">
-      {widgetId ? <WidgetCard widgetId={widgetId} /> : <EmptyRailButton pageId={pageId} />}
+      {widgetId ? <WidgetCard widgetId={widgetId} /> : <EmptyRailButton pageId={pageId} context="space" />}
     </div>
   );
 }

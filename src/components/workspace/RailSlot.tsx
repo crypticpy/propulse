@@ -64,7 +64,7 @@ export function RailSlot({ rail, state, widgetIds, pageId, onToggleCollapsed, on
       </div>
       <div className="su-stack workspace-rail-body">
         {widgetIds.length === 0 ? (
-          <EmptyRailButton pageId={pageId} />
+          <EmptyRailButton pageId={pageId} context="rail" />
         ) : (
           widgetIds.map((id) => <WidgetCard key={id} widgetId={id} />)
         )}

@@ -72,10 +72,7 @@ export function TuneButton({
         />
         <span className="whitespace-nowrap">TUNE {target}</span>
         {reason && (
-          <span className="max-w-[9ch] truncate text-su-muted">
-            {" "}
-            · {reason}
-          </span>
+          <span className="whitespace-nowrap text-su-muted"> · {reason}</span>
         )}
       </button>
     );

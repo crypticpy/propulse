@@ -2,6 +2,7 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { DXSpot } from "@/types/dxcluster";
 import { useRigStore } from "@/stores/rigStore";
+import * as rigStoreModule from "@/stores/rigStore";
 import { useSettingsStore } from "@/stores/settingsStore";
 import { SpotRow } from "./SpotRow";
 import type { SpotRowProps } from "./types";
@@ -116,28 +117,64 @@ describe("SpotRow trailing toolbar", () => {
     expect(toolbar!.className).toContain("group-hover:pointer-events-auto");
     expect(toolbar!.className).toContain("focus-within:opacity-100");
     expect(toolbar!.className).toContain("focus-within:pointer-events-auto");
-    // ...but a coarse pointer (any-pointer, so hybrid touch+mouse devices
-    // still match) or no-hover device forces it permanently visible and
-    // clickable, since jsdom can't evaluate the media query itself.
+    // ...and a true no-hover device (touch, no mouse/trackpad attached)
+    // forces it permanently visible and clickable, since jsdom can't
+    // evaluate the media query itself. Deliberately NOT any-pointer:coarse
+    // here: that would also pin the toolbar open on hybrid devices (a touch
+    // laptop, an iPad with a trackpad) for anyone driving the mouse,
+    // permanently covering the Info/Spotter columns.
     expect(toolbar!.className).toContain("[@media(hover:none)]:opacity-100");
     expect(toolbar!.className).toContain(
       "[@media(hover:none)]:pointer-events-auto",
     );
-    expect(toolbar!.className).toContain(
-      "[@media(any-pointer:coarse)]:opacity-100",
-    );
-    expect(toolbar!.className).toContain(
-      "[@media(any-pointer:coarse)]:pointer-events-auto",
-    );
+    expect(toolbar!.className).not.toContain("any-pointer");
   });
 
-  it("reveals the toolbar for the keyboard-focused row even though DOM focus stays on the list container", () => {
-    renderRow({ isFocused: true });
-    const toolbar = screen.getByRole("button", { name: /Tune 14.074 MHz FT8/ })
-      .parentElement;
-    expect(toolbar).toBeTruthy();
-    expect(toolbar!.className).toContain("opacity-100");
-    expect(toolbar!.className).toContain("pointer-events-auto");
+  it("reveals the toolbar for the keyboard-focused row, including across a prop update (memo comparator)", () => {
+    // Word-boundary match: the base class list already contains
+    // group-hover:opacity-100 / group-hover:pointer-events-auto, so a plain
+    // `.toContain("opacity-100")` passes even when isFocused is false. Only
+    // the un-prefixed token proves the focused-state branch actually fired.
+    const hasToken = (className: string, token: string) =>
+      new RegExp(`(^|\\s)${token}(\\s|$)`).test(className);
+
+    const { rerender } = renderRow({ isFocused: false });
+    const getToolbar = () =>
+      screen.getByRole("button", { name: /Tune 14.074 MHz FT8/ })
+        .parentElement!;
+
+    expect(hasToken(getToolbar().className, "opacity-100")).toBe(false);
+    expect(hasToken(getToolbar().className, "pointer-events-auto")).toBe(
+      false,
+    );
+
+    // Rerender through the same <SpotRow> element so the change goes
+    // through spotRowPropsAreEqual (the memo comparator) rather than a
+    // fresh mount — a fresh mount can't detect a comparator bug that skips
+    // a prop update.
+    const props: SpotRowProps = {
+      spot,
+      index: 0,
+      isSelected: false,
+      isHovered: false,
+      workedStatus,
+      isAlertMatch: false,
+      isNeeded: false,
+      distanceKm: 1200,
+      onSelect: vi.fn(),
+      onHover: vi.fn(),
+      onSetTarget: vi.fn(),
+      onWork: vi.fn(),
+      onWatchCallsign: vi.fn(),
+      onHideSpot: vi.fn(),
+      isFocused: true,
+    };
+    rerender(<SpotRow {...props} />);
+
+    expect(hasToken(getToolbar().className, "opacity-100")).toBe(true);
+    expect(hasToken(getToolbar().className, "pointer-events-auto")).toBe(
+      true,
+    );
   });
 
   it("does not mount the tune chip when CAT control is disabled, avoiding extra per-row store subscriptions", () => {
@@ -149,5 +186,28 @@ describe("SpotRow trailing toolbar", () => {
     expect(
       screen.getByRole("button", { name: "Set as map target" }),
     ).toBeTruthy();
+  });
+
+  it("actually reduces useRigStore subscriptions when CAT control is disabled", () => {
+    // The chip-absence assertion above also passes if the catEnabled gate at
+    // SpotRow.tsx were reverted, because TuneButton itself early-returns
+    // null when !catEnabled — that only proves the chip doesn't render, not
+    // that SpotRow avoided mounting it. This test counts useRigStore hook
+    // calls directly: TuneButton's 3 selectors (catEnabled, bridgeConnected,
+    // connected) only fire if TuneButton mounts at all.
+    const spy = vi.spyOn(rigStoreModule, "useRigStore");
+
+    useRigStore.setState({ catEnabled: false });
+    renderRow();
+    const callsWhenDisabled = spy.mock.calls.length;
+    spy.mockClear();
+
+    useRigStore.setState({ catEnabled: true });
+    renderRow();
+    const callsWhenEnabled = spy.mock.calls.length;
+
+    spy.mockRestore();
+
+    expect(callsWhenDisabled).toBeLessThan(callsWhenEnabled);
   });
 });

@@ -291,6 +291,21 @@ export const SpotRow = memo(function SpotRow({
     return style;
   }, [ageVisualizationEnabled, ageInfo.opacity, bandHexColor]);
 
+  // Border-only variant of rowStyle for the non-compact row: the age opacity
+  // is applied per-cell instead (see cellFadeStyle) so the trailing toolbar
+  // — a descendant of the row — never inherits the fade. CSS opacity on an
+  // ancestor cannot be undone by a descendant's own opacity (nested opacity
+  // multiplies), so keeping the fade on the row wrapper would leave the
+  // toolbar's status text unreadable regardless of its own opacity.
+  const rowBorderStyle = useMemo<React.CSSProperties>(
+    () => ({ borderLeft: `3px solid ${bandHexColor}` }),
+    [bandHexColor],
+  );
+  const cellFadeStyle = useMemo<React.CSSProperties>(
+    () => (ageVisualizationEnabled ? { opacity: ageInfo.opacity } : {}),
+    [ageVisualizationEnabled, ageInfo.opacity],
+  );
+
   // Determine ATNO badge (All-Time New One - DXCC entity never worked)
   const atnoBadge = useMemo(() => {
     if (!workedStatus.isATNO) return null;
@@ -400,7 +415,7 @@ export const SpotRow = memo(function SpotRow({
   return (
     <div
       className={rowClasses}
-      style={rowStyle}
+      style={rowBorderStyle}
       onClick={handleClick}
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
@@ -414,6 +429,7 @@ export const SpotRow = memo(function SpotRow({
       <div
         className="text-su-muted text-[11px] font-mono tabular-nums leading-tight flex items-center"
         title={`${minutesAgo}m ago`}
+        style={cellFadeStyle}
       >
         {formatTime(spot.time)}
       </div>
@@ -423,13 +439,14 @@ export const SpotRow = memo(function SpotRow({
         <div
           className="flex items-center"
           title={`Age: ${formatSpotAge(spot.time)}`}
+          style={cellFadeStyle}
         >
           <AgeProgressBar minutesAgo={minutesAgo} />
         </div>
       )}
 
       {/* Band - Q15: Clickable to filter */}
-      <div className="flex items-center">
+      <div className="flex items-center" style={cellFadeStyle}>
         <button
           onClick={handleBandClick}
           className={`px-1 py-0.5 rounded text-[10px] font-bold transition-all leading-none ${
@@ -460,12 +477,13 @@ export const SpotRow = memo(function SpotRow({
             : "text-cyan-400/80 hover:text-cyan-400 hover:bg-cyan-500/10"
         }`}
         title={`Click to copy ${spot.frequency.toFixed(1)} kHz`}
+        style={cellFadeStyle}
       >
         {frequencyCopied ? "Copied!" : formatFrequency(spot.frequency)}
       </button>
 
       {/* DX Callsign with grid and badges */}
-      <div className="flex items-center gap-1 min-w-0">
+      <div className="flex items-center gap-1 min-w-0" style={cellFadeStyle}>
         <span className="text-su-text font-mono font-medium text-[11px] truncate leading-tight">
           {spot.dx}
         </span>
@@ -494,6 +512,7 @@ export const SpotRow = memo(function SpotRow({
       <div
         className="text-su-muted text-[11px] font-mono text-right tabular-nums leading-tight flex items-center justify-end"
         title={distanceKm !== null ? `${Math.round(distanceKm)} km` : "Unknown"}
+        style={cellFadeStyle}
       >
         {formatDistance(distanceKm)}
       </div>
@@ -502,12 +521,16 @@ export const SpotRow = memo(function SpotRow({
       <div
         className="text-su-muted text-[11px] font-mono truncate leading-tight flex items-center"
         title={spot.spotterGrid}
+        style={cellFadeStyle}
       >
         {spot.spotter}
       </div>
 
       {/* Comment/Mode */}
-      <div className="flex items-center gap-1.5 text-[11px] text-su-muted truncate">
+      <div
+        className="flex items-center gap-1.5 text-[11px] text-su-muted truncate"
+        style={cellFadeStyle}
+      >
         {spot.mode && (
           <span className="px-1 py-0.5 rounded bg-su-line/20 text-su-muted text-[10px] leading-none font-medium">
             {spot.mode}
@@ -530,7 +553,7 @@ export const SpotRow = memo(function SpotRow({
       {/* Trailing toolbar: tune chip + outlined quick actions */}
       <div className="relative flex min-h-8 items-center justify-end">
         <div
-          className={`absolute right-0 z-10 flex items-center gap-1.5 rounded-md border border-su-line/40 bg-su-panel/95 px-1 py-0.5 opacity-0 shadow-sm backdrop-blur-sm transition-opacity duration-150 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto focus-within:opacity-100 focus-within:pointer-events-auto [@media(hover:none)]:opacity-100 [@media(hover:none)]:pointer-events-auto [@media(any-pointer:coarse)]:opacity-100 [@media(any-pointer:coarse)]:pointer-events-auto ${isFocused ? "opacity-100 pointer-events-auto" : ""}`}
+          className={`absolute right-0 z-10 flex items-center gap-1.5 rounded-md border border-su-line/40 bg-su-panel/95 px-1 py-0.5 shadow-sm backdrop-blur-sm transition-opacity duration-150 group-hover:opacity-100 group-hover:pointer-events-auto focus-within:opacity-100 focus-within:pointer-events-auto [@media(hover:none)]:opacity-100 [@media(hover:none)]:pointer-events-auto ${isFocused ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none"}`}
         >
           {catEnabled && (
             <TuneButton

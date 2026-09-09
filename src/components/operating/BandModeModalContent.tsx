@@ -454,12 +454,11 @@ export function BandModeModal({ isOpen, onClose }: BandModeModalProps) {
                     const statusColor = statusInfo?.color ?? "#6b7280";
 
                     return (
-                      <button
+                      <div
                         key={band}
-                        onClick={() => handleBandSelect(band)}
                         className={`
                           relative rounded-lg overflow-hidden transition-all duration-150 group
-                          active:scale-90 active:brightness-125 cursor-pointer
+                          active:scale-90 active:brightness-125
                           ${isHidden ? "opacity-40" : ""}
                           ${isActive ? "ring-[3px] ring-su-text scale-[1.08] z-10" : ""}
                         `}
@@ -473,59 +472,81 @@ export function BandModeModal({ isOpen, onClose }: BandModeModalProps) {
                             : {}),
                         }}
                       >
-                        {/* Top strip — band color identity */}
-                        <div
-                          className="relative px-2 py-1.5 text-center"
-                          style={{ backgroundColor: bColor }}
-                        >
-                          {!isActive && (
-                            <div className="absolute inset-0 bg-su-input/50 group-hover:bg-transparent transition-colors duration-150 pointer-events-none" />
-                          )}
-                          <div className="relative text-sm font-black font-mono text-black leading-none">
-                            {band}
-                          </div>
-                        </div>
-
-                        {/* Bottom panel — dark with signal bars + status */}
-                        <div
-                          className="relative px-1.5 py-1.5 flex items-center justify-center gap-1"
-                          style={{
-                            backgroundColor: isActive
-                              ? `${bColor}18`
-                              : "rgba(0,0,0,0.75)",
-                          }}
-                        >
-                          {!isActive && (
-                            <div className="absolute inset-0 group-hover:bg-su-line/10 transition-colors duration-150 pointer-events-none" />
-                          )}
-                          {statusInfo ? (
-                            <>
-                              <SignalBars
-                                bars={statusInfo.bars}
-                                color={statusColor}
-                                className="w-3 h-3 flex-shrink-0 relative"
-                              />
-                              <span
-                                className="text-[8px] font-bold uppercase tracking-wider relative"
-                                style={{ color: statusColor }}
-                              >
-                                {statusInfo.label}
-                              </span>
-                            </>
-                          ) : (
-                            <span className="text-[8px] text-su-muted relative">
-                              --
-                            </span>
-                          )}
-                        </div>
-
-                        {/* Watched indicator */}
+                        {/* Band select — fills the tile. The watch toggle below
+                            is a sibling overlay, not a child: a button nested
+                            inside a button is invalid HTML and folds
+                            "Watch/Unwatch {band}" into this button's computed
+                            accessible name (#816). */}
                         <button
                           type="button"
-                          className={`absolute top-0.5 right-0.5 z-10 transition-opacity p-0 bg-transparent border-none cursor-pointer ${
+                          onClick={() => handleBandSelect(band)}
+                          className="block w-full cursor-pointer"
+                        >
+                          {/* Top strip — band color identity */}
+                          <div
+                            className="relative px-2 py-1.5 text-center"
+                            style={{ backgroundColor: bColor }}
+                          >
+                            {!isActive && (
+                              <div className="absolute inset-0 bg-su-input/50 group-hover:bg-transparent transition-colors duration-150 pointer-events-none" />
+                            )}
+                            <div className="relative text-sm font-black font-mono text-black leading-none">
+                              {band}
+                            </div>
+                          </div>
+
+                          {/* Bottom panel — dark with signal bars + status */}
+                          <div
+                            className="relative px-1.5 py-1.5 flex items-center justify-center gap-1"
+                            style={{
+                              backgroundColor: isActive
+                                ? `${bColor}18`
+                                : "rgba(0,0,0,0.75)",
+                            }}
+                          >
+                            {!isActive && (
+                              <div className="absolute inset-0 group-hover:bg-su-line/10 transition-colors duration-150 pointer-events-none" />
+                            )}
+                            {statusInfo ? (
+                              <>
+                                <SignalBars
+                                  bars={statusInfo.bars}
+                                  color={statusColor}
+                                  className="w-3 h-3 flex-shrink-0 relative"
+                                />
+                                <span
+                                  className="text-[8px] font-bold uppercase tracking-wider relative"
+                                  style={{ color: statusColor }}
+                                >
+                                  {statusInfo.label}
+                                </span>
+                              </>
+                            ) : (
+                              <span className="text-[8px] text-su-muted relative">
+                                --
+                              </span>
+                            )}
+                          </div>
+                        </button>
+
+                        {/* Watched indicator — sibling overlay (see #816 note
+                            above). Hit area is padded well past the 2px dot for
+                            a real touch target; pointer-events-none while
+                            hidden so an invisible tap can't fire it.
+                            `hover:none` pins it open on touch-only devices,
+                            which have no way to reach a hover-revealed control
+                            and no other route to `addWatchedBand`. Deliberately
+                            NOT `any-pointer:coarse`, which would also pin it on
+                            a touch laptop for someone driving the mouse. Same
+                            pattern as the SpotRow row toolbar. `focus-visible`
+                            covers the keyboard, which reaches this button by
+                            Tab even while it is pointer-events-none. */}
+                        <button
+                          type="button"
+                          className={`absolute top-0 right-0 z-10 flex items-center justify-center p-2 transition-opacity bg-transparent border-none cursor-pointer ${
                             isWatched
                               ? "opacity-100"
-                              : "opacity-0 group-hover:opacity-60"
+                              : "opacity-0 pointer-events-none group-hover:opacity-60 group-hover:pointer-events-auto focus-visible:opacity-100 focus-visible:pointer-events-auto [@media(hover:none)]:opacity-60 [@media(hover:none)]:pointer-events-auto"
                           }`}
                           onClick={(e) => handleWatchToggle(band, e)}
                           aria-label={
@@ -538,7 +559,7 @@ export function BandModeModal({ isOpen, onClose }: BandModeModalProps) {
                             <span className="block w-2 h-2 rounded-full border border-black/30" />
                           )}
                         </button>
-                      </button>
+                      </div>
                     );
                   })}
                 </div>

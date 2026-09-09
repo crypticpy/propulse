@@ -360,6 +360,14 @@ export function AuthModal() {
     reset_password: "Set New Password",
   };
 
+  // The contextual prompt is the only body copy that names this dialog's
+  // purpose, and it renders on exactly one view. `describedBy` must track it:
+  // AccessibleDialog uses the id verbatim and suppresses its own description
+  // node, so passing it unconditionally would point `aria-describedby` at an
+  // element that does not exist on every other view and on the common
+  // no-prompt sign-in.
+  const showPrompt = Boolean(prompt) && displayView === "signin";
+
   return (
     <AccessibleDialog
       open={isOpen && isSupabaseConfigured}
@@ -367,7 +375,7 @@ export function AuthModal() {
       title={viewTitles[displayView]}
       chrome="bare"
       labelledBy={titleId}
-      describedBy={descriptionId}
+      describedBy={showPrompt ? descriptionId : undefined}
       panelProps={{
         className:
           "w-full max-w-sm bg-void-black/95 border border-su-line/50 rounded-2xl shadow-2xl overflow-hidden",
@@ -379,7 +387,7 @@ export function AuthModal() {
           <h2 id={titleId} className="text-lg font-semibold text-su-text">
             {viewTitles[displayView]}
           </h2>
-          {prompt && displayView === "signin" && (
+          {showPrompt && (
             <p id={descriptionId} className="text-sm text-su-muted mt-1">
               {prompt}
             </p>

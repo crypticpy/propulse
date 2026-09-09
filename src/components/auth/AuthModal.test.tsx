@@ -64,6 +64,39 @@ describe("AuthModal", () => {
     expect(dialog.getAttribute("aria-describedby")).toBe(description.id);
   });
 
+  it("emits no aria-describedby when there is no contextual prompt", () => {
+    // `openAuthModal()` with no argument is the common path — the header's
+    // Sign In button. The prompt paragraph is the only element carrying the
+    // description id, so a `describedBy` that ignored the prompt would leave
+    // `aria-describedby` pointing at nothing at all.
+    useAuthUIStore.getState().openAuthModal();
+    render(<AuthModal />);
+
+    const dialog = screen.getByRole("dialog");
+    expect(dialog.getAttribute("aria-describedby")).toBeNull();
+  });
+
+  it("drops aria-describedby when a prompted dialog switches off the sign-in view", async () => {
+    // The prompt renders only on `signin`, so every other view is the same
+    // dangling-reference hazard as the no-prompt case, reached from a state
+    // where the description genuinely existed a moment earlier.
+    useAuthUIStore.getState().openAuthModal("Sign in to follow operators");
+    const user = userEvent.setup();
+    render(<AuthModal />);
+
+    const dialog = screen.getByRole("dialog");
+    expect(dialog.getAttribute("aria-describedby")).not.toBeNull();
+
+    await user.click(screen.getByRole("button", { name: "Create account" }));
+
+    await waitFor(() => {
+      expect(
+        screen.getByRole("heading", { name: "Create Account" }),
+      ).toBeTruthy();
+    });
+    expect(dialog.getAttribute("aria-describedby")).toBeNull();
+  });
+
   it("is a modal dialog that closes via the shared Escape handler", async () => {
     useAuthUIStore.getState().openAuthModal();
     const user = userEvent.setup();

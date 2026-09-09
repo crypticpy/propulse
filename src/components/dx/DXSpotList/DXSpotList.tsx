@@ -36,6 +36,7 @@ import {
 import {
   allModesSelection,
   modeMatchesSelection,
+  modeSelectionMatchesEverything,
   normalizeMode,
   normalizeModeSelection,
   summarizeModeSelection,
@@ -94,7 +95,7 @@ export function DXSpotList({
     () => normalizeModeSelection(spotFilters.modes),
     [spotFilters.modes],
   );
-  const hasModeFilter = !modeSelection.all;
+  const hasModeFilter = !modeSelectionMatchesEverything(modeSelection);
   const activeProfile = useMapStore((s) => s.activeProfile);
   const watchCriteria = useWatchStore((s) => s.criteria);
   const matchedSpotIds = useWatchStore((s) => s.matchedSpotIds);

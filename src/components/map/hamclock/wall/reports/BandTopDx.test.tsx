@@ -180,4 +180,60 @@ describe("BandTopDx", () => {
     expect(screen.getByRole("button", { name: /CWCALL/ })).toBeTruthy();
     expect(screen.queryByRole("button", { name: /FT8CALL/ })).toBeNull();
   });
+
+  // Review finding on #756: `all: true` alone was treated as "no restriction",
+  // so `{ all: true, includeUnknown: false }` (reachable from the always-on
+  // "Include unknown modes" toggle in ActivitySection) let unknown-mode spots
+  // through instead of dropping them.
+  it("still drops unknown-mode spots when all is true but includeUnknown is false", () => {
+    const spotCW: DXSpot = {
+      id: "spot-cw", spotter: "K1ABC", dx: "CWCALL", frequency: 14000,
+      band: "20m", mode: "CW", comment: "", time: new Date(Date.now() - 60_000),
+      dxGrid: "GG87",
+    };
+    const spotUnknown: DXSpot = {
+      id: "spot-unknown", spotter: "K1ABC", dx: "UNKCALL", frequency: 14001,
+      band: "20m", comment: "", time: new Date(Date.now() - 60_000),
+      dxGrid: "GG87",
+    };
+    useDXStore.setState({ spots: [spotCW, spotUnknown], spotSource: "rest" });
+
+    let runtime: ScopedViewRuntime | null = null;
+    function Capture() {
+      runtime = useViewRuntime();
+      return null;
+    }
+
+    render(
+      <ViewProvider ownerId="owner-d" slot="hamclock" storage={createMemoryWorkingStorage()}>
+        <Capture />
+        <BandTopDx />
+      </ViewProvider>,
+    );
+
+    expect(screen.getByRole("button", { name: /CWCALL/ })).toBeTruthy();
+    expect(screen.getByRole("button", { name: /UNKCALL/ })).toBeTruthy();
+
+    act(() => {
+      const snapshot = runtime!.getSnapshot();
+      runtime!.updateWorkingView({
+        spots: {
+          ...snapshot.config.spots,
+          filters: {
+            ...snapshot.config.spots.filters,
+            modes: {
+              all: true,
+              categories: [],
+              modes: [],
+              includeUnknown: false,
+              includeInferred: true,
+            },
+          },
+        },
+      });
+    });
+
+    expect(screen.getByRole("button", { name: /CWCALL/ })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: /UNKCALL/ })).toBeNull();
+  });
 });

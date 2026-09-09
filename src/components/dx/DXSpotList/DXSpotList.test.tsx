@@ -222,6 +222,45 @@ describe("DXSpotList band filter (SP-09 round 3 B1)", () => {
     expect(screen.getByText("CWCALL")).toBeTruthy();
     expect(screen.queryByText("FT8CALL")).toBeNull();
   });
+
+  // Review finding on #756: `all: true` alone was treated as "no restriction",
+  // so `{ all: true, includeUnknown: false }` (reachable from the always-on
+  // "Include unknown modes" toggle in ActivitySection) let unknown-mode spots
+  // through instead of dropping them.
+  it("still drops unknown-mode spots when all is true but includeUnknown is false", () => {
+    const spotCW = dxSpot({ id: "spot-cw", dx: "CWCALL", band: "20m", mode: "CW" });
+    const spotUnknown = dxSpot({ id: "spot-unknown", dx: "UNKCALL", band: "20m", mode: undefined });
+    mockClusterSpots = [spotCW, spotUnknown];
+    useDXStore.setState({ spots: [spotCW, spotUnknown] });
+
+    const storage = createMemoryWorkingStorage();
+    render(<DXSpotList />, { wrapper: makeWrapper(storage) });
+
+    expect(screen.getByText("CWCALL")).toBeTruthy();
+    expect(screen.getByText("UNKCALL")).toBeTruthy();
+
+    act(() => {
+      const snapshot = capturedRuntime!.getSnapshot();
+      capturedRuntime!.updateWorkingView({
+        spots: {
+          ...snapshot.config.spots,
+          filters: {
+            ...snapshot.config.spots.filters,
+            modes: {
+              all: true,
+              categories: [],
+              modes: [],
+              includeUnknown: false,
+              includeInferred: true,
+            },
+          },
+        },
+      });
+    });
+
+    expect(screen.getByText("CWCALL")).toBeTruthy();
+    expect(screen.queryByText("UNKCALL")).toBeNull();
+  });
 });
 
 describe("DXSpotList follow-radio mode filter and clear (#756 groups 2 & 3)", () => {

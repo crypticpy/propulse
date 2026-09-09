@@ -7,6 +7,7 @@ import { filterBridgeSpotAge } from "@/lib/hamclock/clusterBridge";
 import { filterMapSpots } from "@/lib/map/filterMapSpots";
 import {
   modeMatchesSelection,
+  modeSelectionMatchesEverything,
   normalizeMode,
   normalizeModeSelection,
 } from "@/lib/spots/presentation/modes";
@@ -75,7 +76,7 @@ export function ClusterTile() {
         : filterClusterAge(allSpots ?? [], maxAge, now.getTime()),
       { bands: viewSpots.filters.bands, modes: [] },
     );
-    if (modeSelection.all) return bandFiltered;
+    if (modeSelectionMatchesEverything(modeSelection)) return bandFiltered;
     return bandFiltered.filter((spot) =>
       modeMatchesSelection(normalizeMode(spot.mode), modeSelection),
     );

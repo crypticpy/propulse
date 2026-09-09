@@ -374,6 +374,66 @@ describe("ClusterTile", () => {
     useDXStore.setState(original);
   });
 
+  // Review finding on #756: `all: true` alone was treated as "no restriction",
+  // so `{ all: true, includeUnknown: false }` (reachable from the always-on
+  // "Include unknown modes" toggle in ActivitySection) let unknown-mode spots
+  // through instead of dropping them.
+  it("still drops unknown-mode spots when all is true but includeUnknown is false", () => {
+    const original = useDXStore.getState();
+    const spotCW = {
+      id: "CW-SPOT", dx: "CWCALL", spotter: "N0TEST", frequency: 14_000,
+      comment: "", time: new Date("2026-09-05T13:10:00Z"), band: "20m", mode: "CW",
+    };
+    const spotUnknown = {
+      id: "UNKNOWN-SPOT", dx: "UNKCALL", spotter: "N0TEST", frequency: 14_001,
+      comment: "", time: new Date("2026-09-05T13:10:00Z"), band: "20m",
+    };
+    useDXStore.setState({
+      spots: [spotCW, spotUnknown], spotSource: "rest", filters: { maxAge: 30 },
+    });
+
+    let runtime: ScopedViewRuntime | null = null;
+    function Capture() {
+      runtime = useViewRuntime();
+      return null;
+    }
+
+    const view = draw(
+      <ViewProvider ownerId="cluster-tile-unknown-test" slot="hamclock" storage={createMemoryWorkingStorage()}>
+        <Capture />
+        <ClusterTile />
+      </ViewProvider>,
+    );
+
+    expect(screen.getByText("CWCALL")).toBeTruthy();
+    expect(screen.getByText("UNKCALL")).toBeTruthy();
+
+    act(() => {
+      const snapshot = runtime!.getSnapshot();
+      runtime!.updateWorkingView({
+        spots: {
+          ...snapshot.config.spots,
+          filters: {
+            ...snapshot.config.spots.filters,
+            modes: {
+              all: true,
+              categories: [],
+              modes: [],
+              includeUnknown: false,
+              includeInferred: true,
+            },
+          },
+        },
+      });
+    });
+
+    expect(screen.getByText("CWCALL")).toBeTruthy();
+    expect(screen.queryByText("UNKCALL")).toBeNull();
+
+    view.unmount();
+    useDXStore.setState(original);
+  });
+
   it("renders without a ViewProvider, since it also mounts bare via the workspace canvas widget loader", () => {
     // `ClusterTile` is reachable from `workspace/widgetLoaders.ts` with no
     // bound view above it. `useOptionalViewEffectiveSpots` must fall back to

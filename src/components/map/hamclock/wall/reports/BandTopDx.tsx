@@ -8,6 +8,7 @@ import { resolveUnits } from "@/lib/hamclock/units";
 import { filterMapSpots } from "@/lib/map/filterMapSpots";
 import {
   modeMatchesSelection,
+  modeSelectionMatchesEverything,
   normalizeMode,
   normalizeModeSelection,
 } from "@/lib/spots/presentation/modes";
@@ -44,7 +45,7 @@ export function BandTopDx() {
     // normalization); apply the bound view's mode selection separately with
     // the same category/alias-aware matcher `DXSpotList` uses.
     const bandFiltered = filterMapSpots(spots, { bands: viewSpots.filters.bands, modes: [] });
-    const eligible = modeSelection.all
+    const eligible = modeSelectionMatchesEverything(modeSelection)
       ? bandFiltered
       : bandFiltered.filter((spot) => modeMatchesSelection(normalizeMode(spot.mode), modeSelection));
     return rankLoadedDx(eligible, home, now, source === "bridge" ? BRIDGE_CLOCK_TOLERANCE_MS : 0);

@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { createMemoryBus, type OperatingMessage } from "@/lib/workspace/operatingChannel";
+import { REGISTRATION_HEARTBEAT_MS, REGISTRATION_TTL_MS } from "./operatingStateStore";
 
 type Bus = ReturnType<typeof createMemoryBus>;
 type StoreModule = typeof import("./operatingStateStore");
@@ -7,6 +8,8 @@ type StoreModule = typeof import("./operatingStateStore");
 interface Screen {
   store: StoreModule["useOperatingStateStore"];
   selectLiveRegistrations: StoreModule["selectLiveRegistrations"];
+  /** Attaches this screen to the bus. Called for you unless `connect: false`. */
+  connect: () => void;
   disconnect: () => void;
   deviceId: string;
 }
@@ -17,15 +20,27 @@ interface Screen {
  * of them in one process. Each gets its own transport off the shared bus,
  * exactly like two tabs on one `BroadcastChannel`.
  */
-async function openScreen(bus: Bus, name: string): Promise<Screen> {
+async function openScreen(
+  bus: Bus,
+  name: string,
+  options: { connect?: boolean } = {},
+): Promise<Screen> {
   vi.resetModules();
   const mod: StoreModule = await import("./operatingStateStore");
   const store = mod.useOperatingStateStore;
-  const disconnect = store.getState().connect(bus.connect(name));
+  let detach: (() => void) | null = null;
+  const connect = () => {
+    detach = store.getState().connect(bus.connect(name));
+  };
+  if (options.connect !== false) connect();
   return {
     store,
     selectLiveRegistrations: mod.selectLiveRegistrations,
-    disconnect,
+    connect,
+    disconnect: () => {
+      detach?.();
+      detach = null;
+    },
     deviceId: store.getState().deviceId,
   };
 }
@@ -340,6 +355,119 @@ describe("operatingStateStore", () => {
     expect(b.store.getState().connected).toBe(false);
 
     a.disconnect();
+  });
+
+  it("publishes what it changed while muted when following is turned back on", async () => {
+    const bus = createMemoryBus();
+    const a = await openScreen(bus, "a");
+    const b = await openScreen(bus, "b");
+
+    // B holds a value with an explicitly older stamp, so the answer it gives
+    // to A's hello loses. If A only asked, the two would stay divergent.
+    b.store.getState().applyMessage({
+      v: 1,
+      senderId: "an-earlier-screen",
+      sentAt: 1_000,
+      kind: "state",
+      patch: { band: { value: "20m", at: 1_000 } },
+    });
+    a.store.getState().setFollowScreens(false);
+    a.store.getState().setBand("17m");
+    expect(b.store.getState().cursor.band).toBe("20m");
+
+    a.store.getState().setFollowScreens(true);
+
+    expect(b.store.getState().cursor.band).toBe("17m");
+    expect(a.store.getState().cursor.band).toBe("17m");
+
+    a.disconnect();
+    b.disconnect();
+  });
+
+  describe("registration heartbeat", () => {
+    it("keeps a long-lived screen on the roster past the TTL", async () => {
+      const bus = createMemoryBus();
+      const a = await openScreen(bus, "a");
+      const b = await openScreen(bus, "b");
+      vi.useFakeTimers();
+
+      b.store.getState().registerWorkspace({
+        workspaceId: "phone-default",
+        canvasType: "phone",
+        label: "Phone",
+        capabilities: { canTune: false, canCommand: true },
+      });
+      const [initial] = Object.values(a.store.getState().registrations);
+      expect(initial).toBeDefined();
+
+      // Well past the TTL: without a heartbeat the roster would be empty.
+      vi.advanceTimersByTime(REGISTRATION_TTL_MS + REGISTRATION_HEARTBEAT_MS);
+
+      const [refreshed] = Object.values(a.store.getState().registrations);
+      expect(refreshed.lastSeen).toBeGreaterThan(initial.lastSeen);
+      expect(a.selectLiveRegistrations(a.store.getState())).toHaveLength(1);
+
+      a.disconnect();
+      b.disconnect();
+    });
+
+    it("stops when the workspace withdraws, and the screen ages off the roster", async () => {
+      const bus = createMemoryBus();
+      const a = await openScreen(bus, "a");
+      const b = await openScreen(bus, "b");
+      vi.useFakeTimers();
+
+      const withdraw = b.store.getState().registerWorkspace({
+        workspaceId: "phone-default",
+        canvasType: "phone",
+        label: "Phone",
+        capabilities: { canTune: false, canCommand: true },
+      });
+      withdraw();
+      // A already dropped it on the unregister; re-seed it so the test is
+      // about the heartbeat stopping, not about the unregister message.
+      const stale = {
+        deviceId: b.deviceId,
+        workspaceId: "phone-default",
+        canvasType: "phone" as const,
+        label: "Phone",
+        capabilities: { canTune: false, canCommand: true },
+        lastSeen: Date.now(),
+      };
+      a.store.setState({ registrations: { [`${b.deviceId}::phone-default`]: stale } });
+
+      vi.advanceTimersByTime(REGISTRATION_TTL_MS + REGISTRATION_HEARTBEAT_MS);
+
+      expect(a.selectLiveRegistrations(a.store.getState())).toHaveLength(0);
+
+      a.disconnect();
+      b.disconnect();
+    });
+
+    it("re-announces a registration made before the transport attached", async () => {
+      const bus = createMemoryBus();
+      const listener = await openScreen(bus, "listener");
+      const late = await openScreen(bus, "late", { connect: false });
+
+      late.store.getState().registerWorkspace({
+        workspaceId: "wall-1",
+        canvasType: "wall",
+        label: "Shack wall",
+        capabilities: { canTune: false, canCommand: false },
+      });
+      expect(listener.store.getState().registrations).toEqual({});
+
+      late.connect();
+
+      expect(Object.values(listener.store.getState().registrations)).toHaveLength(1);
+      expect(Object.values(listener.store.getState().registrations)[0]).toMatchObject({
+        workspaceId: "wall-1",
+        canvasType: "wall",
+      });
+
+      late.disconnect();
+      listener.disconnect();
+    });
   });
 
   it("never puts anything but state, a sender and a timestamp on the wire", async () => {

@@ -51,6 +51,14 @@ import type { CanvasType } from "@/lib/workspace/types";
 /** A screen that has not spoken for this long is no longer shown as live. */
 export const REGISTRATION_TTL_MS = 90_000;
 
+/**
+ * How often a registered screen re-announces itself. A third of the TTL, so
+ * two heartbeats can be lost before the other screens drop it from the
+ * roster — and so a screen left open past the TTL does not silently vanish
+ * from it, which is what happened when `lastSeen` was written only once.
+ */
+export const REGISTRATION_HEARTBEAT_MS = REGISTRATION_TTL_MS / 3;
+
 /** Which write won a field, and when. */
 export interface FieldStamp {
   at: number;
@@ -150,6 +158,42 @@ function registrationKey(deviceId: string, workspaceId: string): string {
 
 /** The transport this store is attached to, if any. Module scope: one per app. */
 let activeTransport: OperatingTransport | null = null;
+
+/** One re-announce timer per locally registered workspace, keyed like `registrations`. */
+const heartbeats = new Map<string, ReturnType<typeof setInterval>>();
+
+function stopHeartbeat(key: string): void {
+  const timer = heartbeats.get(key);
+  if (timer === undefined) return;
+  clearInterval(timer);
+  heartbeats.delete(key);
+}
+
+function stopAllHeartbeats(): void {
+  for (const key of [...heartbeats.keys()]) stopHeartbeat(key);
+}
+
+/** Refreshes one registration's `lastSeen`, locally and on every other screen. */
+function beat(key: string): void {
+  const registration = useOperatingStateStore.getState().registrations[key];
+  if (!registration) {
+    stopHeartbeat(key);
+    return;
+  }
+  const refreshed: WorkspaceRegistration = { ...registration, lastSeen: Date.now() };
+  useOperatingStateStore.setState((state) => ({
+    registrations: { ...state.registrations, [key]: refreshed },
+  }));
+  post({ kind: "register", registration: refreshed });
+}
+
+function startHeartbeat(key: string): void {
+  stopHeartbeat(key);
+  heartbeats.set(
+    key,
+    setInterval(() => beat(key), REGISTRATION_HEARTBEAT_MS),
+  );
+}
 
 function post(payload: OperatingPayload): void {
   const state = useOperatingStateStore.getState();
@@ -270,13 +314,19 @@ export const useOperatingStateStore = create<OperatingStateStore>()(
       setFollowScreens: (next) => {
         set({ followScreens: next });
         if (next) {
-          // Re-announce so screens that opened while this one was muted
-          // learn it exists, and ask them to do the same.
+          // Re-announce so screens that opened while this one was muted learn
+          // it exists, and ask them to do the same.
           post({ kind: "hello" });
           for (const registration of Object.values(get().registrations)) {
             if (registration.deviceId !== get().deviceId) continue;
             post({ kind: "register", registration });
           }
+          // Asking is not enough. Anything edited while muted carries a newer
+          // stamp than the peers' answers, so this screen would reject their
+          // state and never offer its own, and the two would stay divergent
+          // until the next write. Publish the local cursor as well.
+          const patch = currentPatch(get());
+          if (Object.keys(patch).length > 0) post({ kind: "state", patch });
         } else {
           // Forget everyone else: a stale roster is worse than none.
           const deviceId = get().deviceId;
@@ -304,8 +354,10 @@ export const useOperatingStateStore = create<OperatingStateStore>()(
         set((state) => ({ registrations: { ...state.registrations, [key]: registration } }));
         post({ kind: "register", registration });
         post({ kind: "hello" });
+        startHeartbeat(key);
 
         return () => {
+          stopHeartbeat(key);
           set((state) => {
             const { [key]: _removed, ...rest } = state.registrations;
             return { registrations: rest };
@@ -323,12 +375,31 @@ export const useOperatingStateStore = create<OperatingStateStore>()(
         });
         set({ connected: true });
         post({ kind: "hello" });
+        // A registration made before the transport attached (the workspace
+        // route mounts independently of the app-level connection) or held
+        // across a reconnect has to be re-announced, and its heartbeat
+        // restarted.
+        for (const [key, registration] of Object.entries(get().registrations)) {
+          if (registration.deviceId !== get().deviceId) continue;
+          post({ kind: "register", registration });
+          startHeartbeat(key);
+        }
 
         return () => {
+          stopAllHeartbeats();
           unsubscribe();
           next.close();
           if (activeTransport === next) activeTransport = null;
-          set({ connected: false });
+          // The roster is meaningless with no pipe. This screen's own
+          // registrations stay, so a reconnect can re-announce them.
+          set((state) => ({
+            connected: false,
+            registrations: Object.fromEntries(
+              Object.entries(state.registrations).filter(
+                ([, value]) => value.deviceId === state.deviceId,
+              ),
+            ),
+          }));
         };
       },
 
@@ -402,6 +473,7 @@ export const useOperatingStateStore = create<OperatingStateStore>()(
       },
 
       reset: () => {
+        stopAllHeartbeats();
         set({
           cursor: EMPTY_CURSOR,
           stamps: emptyStamps(),

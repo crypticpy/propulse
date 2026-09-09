@@ -17,8 +17,9 @@ import { WorkspaceCanvas } from "@/components/workspace/WorkspaceCanvas";
  */
 export default function WorkspacePage() {
   const isMobile = useIsMobile();
-  // #658: attaches the shared-operating-state transport, registers this
-  // screen, and applies inbound page-flip commands. One self-contained call.
+  // #658: registers this workspace with the shared operating state and
+  // applies inbound page-flip commands. One self-contained call — the
+  // channel itself is held open app-wide by `OperatingTransportHost`.
   useOperatingScreen();
 
   if (isMobile) {

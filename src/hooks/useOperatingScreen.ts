@@ -1,17 +1,17 @@
 /**
- * Joins the screen rendering a workspace to the shared operating state (#658).
+ * Registers the workspace this route is rendering with the shared operating
+ * state (#658), and applies the inbound commands only a workspace host can
+ * carry out — today just `flipPage`.
  *
- * One hook call does three things, in this order:
- * 1. attaches the transport (`BroadcastChannel` today, plus the account
- *    channel once `createAccountTransport` is real),
- * 2. registers this workspace so the operator's other screens know it exists
- *    and what it can do (`canTune`, `canCommand`),
- * 3. applies inbound commands that only a workspace host can carry out —
- *    today just `flipPage`.
+ * Route-scoped on purpose, and only the registration is: the *connection*
+ * lives at the app boundary (`useOperatingTransport`, mounted in `App.tsx`)
+ * so a cursor written from the map or the wall still reaches the operator's
+ * other screens. What is route-specific is which workspace exists here and
+ * what it can do; that record is withdrawn when the route unmounts.
  *
- * It lives outside `operatingStateStore` on purpose: the cursor has to work
- * on canvases that have no workspace at all (the map, the wall), so the store
- * must not depend on `workspaceStore`.
+ * It lives outside `operatingStateStore` on purpose too: the cursor has to
+ * work on canvases that have no workspace at all, so the store must not
+ * depend on `workspaceStore`.
  */
 
 import { useEffect } from "react";
@@ -29,8 +29,6 @@ export function useOperatingScreen(): void {
   );
   // Owner rule (epic #652 #5): a wall shows information, it never acts.
   const canCommand = canvasType !== "wall";
-
-  useEffect(() => useOperatingStateStore.getState().connect(), []);
 
   useEffect(
     () =>

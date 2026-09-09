@@ -1,4 +1,5 @@
 import { Suspense } from "react";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { getRegistryEntry } from "@/lib/workspace/registry";
 import { EmptyRailButton } from "./EmptyRailButton";
 import { getWidgetComponent } from "./widgetLoaders";
@@ -27,9 +28,15 @@ export function WidgetCard({ widgetId }: { widgetId: string }) {
   return (
     <div className="su-surface workspace-widget-card" data-testid={`workspace-widget-${widgetId}`}>
       {LiveTile ? (
-        <Suspense fallback={<PlaceholderBody title={title} />}>
-          <LiveTile />
-        </Suspense>
+        // The boundary sits outside Suspense: Suspense only covers the
+        // pending-chunk state, while a rejected/erroring lazy import
+        // propagates past it and needs a boundary to keep the placeholder
+        // look instead of crashing the workspace (#670 review).
+        <ErrorBoundary fallback={<PlaceholderBody title={title} />}>
+          <Suspense fallback={<PlaceholderBody title={title} />}>
+            <LiveTile />
+          </Suspense>
+        </ErrorBoundary>
       ) : (
         <PlaceholderBody title={title} />
       )}

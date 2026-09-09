@@ -2,6 +2,12 @@ import { lazy, type ComponentType } from "react";
 import type { WallTileProps } from "@/components/map/hamclock/wall/HamClockTile";
 import type { WidgetDensity } from "@/lib/workspace/types";
 import "@/styles/hamclock-wall.css";
+// `HeatMapTile` renders its `.hcf-heatgrid*` matrix directly (not just in its
+// report), and all three live tiles' report dialogs draw `.hcr-*` chrome.
+// Both sheets otherwise load only via the separately lazy `HamClockView`, so
+// a cold `/workspace` load needs them imported on this path too (#670 review).
+import "@/styles/hamclock-wall-forecast.css";
+import "@/styles/hamclock-wall-report.css";
 
 type WidgetComponent = ComponentType<WallTileProps>;
 
@@ -26,10 +32,9 @@ type WidgetComponent = ComponentType<WallTileProps>;
  * `glance` are declared so this map's shape matches `WidgetDensity` and a
  * later canvas can add to it without a type change.
  *
- * Every wall tile ignores the `title` prop it accepts (`WallTileProps`'s own
- * doc comment: "only the placeholder reads title; live tiles source their
- * own headline and ignore it"), so these are rendered with no props, same as
- * the wall itself would for a title-less read.
+ * `BestBandTile` and `ClusterTile` ignore the `title` prop (they source their
+ * own headline), while `HeatMapTile` reads and renders it. The loaders render
+ * these with no props, matching the wall's title-less read.
  */
 const WORK_LOADERS: Readonly<Partial<Record<string, WidgetComponent>>> = {
   bestBand: lazy(() =>
@@ -57,3 +62,11 @@ const LOADERS_BY_DENSITY: Readonly<Record<WidgetDensity, Readonly<Partial<Record
 export function getWidgetComponent(widgetId: string, density: WidgetDensity): WidgetComponent | undefined {
   return LOADERS_BY_DENSITY[density][widgetId];
 }
+
+/**
+ * Widget ids whose live tile reads the shared `useDXStore` cluster feed
+ * (`ClusterTile`, `HeatMapTile`) instead of sourcing their own data. Neither
+ * tile starts the feed itself, so whoever mounts them must also mount a
+ * `useDXCluster()` consumer while one of these ids is placed (#670 review).
+ */
+export const DX_SOURCED_WIDGET_IDS: ReadonlySet<string> = new Set(["cluster", "heatMap"]);

@@ -324,40 +324,71 @@ export function getOverallCondition(kp: number, sfi: number): OverallCondition {
  *
  * Both consumers (`InsightsBar`, `PredictionsCard`) apply this as a CSS
  * `color`/`backgroundColor`, never a canvas/SVG attribute, so a token string
- * is a valid return here -- no real hex is needed.
+ * is a valid return here -- no real hex is needed. #810 census: grepping the
+ * import path (`@/lib/utils/bands`) and the `getConditionColor` symbol across
+ * `src/`, `api/`, and `.design-sync/` turns up exactly those two render-level
+ * consumers; neither does an `===` string comparison on the return value, and
+ * neither is a canvas/SVG surface that would need a raw hex (`MobileMap.tsx`
+ * imports unrelated map-marker colors from a different helper).
  *
- * `Aurora` is the only case driven from a station token (`--su-purple-rgb`,
- * #799): the old `#aa44ff` literal measured 3.93/3.81/4.30 as bare text on
- * panel across themes (#787's original numbers), below the 4.5:1 floor. The
- * per-theme `palette.purple` this token resolves to clears the floor
- * everywhere it is consumed (see the PR's measured table).
+ * Every branch below now returns a `rgb(var(--su-*-rgb))` station token,
+ * finishing what #799 started for `Aurora` alone. Role choice follows the
+ * within-file precedent already set by `getPathStatusColor`/
+ * `getPathStatusBgColor` (excellent/good -> success, fair -> warning,
+ * poor -> danger, closed -> muted) and `colorblind.ts`'s `normalizeStatus`,
+ * which folds the same condition names into the same three status buckets:
+ * - `Excellent` / `Good` -> `--su-success-rgb` (both read as "band is open
+ *   and workable," matching `getPathStatusColor`'s excellent+good -> success)
+ * - `Fair` -> `--su-warning-rgb` (marginal, matching `getPathStatusColor`)
+ * - `Poor` -> `--su-danger-rgb` (matching `getPathStatusColor`)
+ * - `Aurora` -> `--su-purple-rgb`, unchanged from #799
+ * - default (an unrecognized/never condition) -> `--su-muted-rgb`, matching
+ *   `getPathStatusColor`'s `closed` -> `text-su-muted`
  *
- * The other four returns are also non-adaptive literals (same hex in every
- * theme) and fail the same floor in the `light` theme once measured -- a
- * pre-existing, broader defect this issue does not cover (it is scoped to
- * the `#aa44ff` repeats from #787/#791/#789). Left as-is; #810 tracks
- * tokenising `Excellent`/`Good`/`Fair`/`Poor`/the default together.
+ * The old hex literals were non-adaptive (same hex in every theme) and
+ * measured below the 4.5:1 status-text floor as bare text on the `light`
+ * theme's real panel/canvas surfaces: `#00ff88` (Excellent) at 1.10:1,
+ * `#44dd66` (Good) at 1.46:1, `#ffaa00` (Fair) at 1.56:1, and `#ff4455`
+ * (Poor) at 2.76:1, all measured on glass-over-panel; the default `#666666`
+ * cleared panel (4.69:1) but failed canvas at 4.35:1. Every token role above
+ * clears 4.5:1 as bare text on both panel and canvas in all four themes (see
+ * the PR's measured table).
+ *
+ * This change does have a colour-blind-mode cost, and it is this change's,
+ * not an inherited one: routing Excellent/Good/Fair/Poor onto
+ * `success`/`warning`/`danger` sends them through `toneOnPanel`'s
+ * colour-blind swap for the first time -- the old literals bypassed
+ * colour-blind mode entirely (Excellent and Good were two indistinguishable
+ * greens for protanopia/deuteranopia operators). On the glass composite both
+ * consumers actually render on, protanopia/deuteranopia now measure
+ * 4.12-4.38 against the 4.5:1 floor on dark/high-contrast/midnight (old
+ * literals cleared the same surface at 7.89-11.23, with no colour-blind
+ * adaptation at all), while on `light` the same swap is a clear win
+ * (1.10 -> 4.29 under protanopia). The trade is intentional, but it is a
+ * trade, not a no-op: see #811 for the before/after table and the systemic
+ * fix (`toneOnPanel` fits against bare `palette.panel` today,
+ * `stationTokens.ts` ~:152; fitting it against the `su-line/10` glass
+ * composite instead clears every cell above, but is app-wide and out of
+ * scope here).
  *
  * @param condition - Band condition rating
- * @returns CSS color: a `rgb(var(--su-*-rgb))` token for `Aurora`, hex for
- * the rest (see above).
+ * @returns A `rgb(var(--su-*-rgb))` station design token for every branch.
  */
 export function getConditionColor(
   condition: BandCondition | VHFCondition,
 ): string {
   switch (condition) {
     case "Excellent":
-      return "#00ff88";
     case "Good":
-      return "#44dd66";
+      return "rgb(var(--su-success-rgb))";
     case "Fair":
-      return "#ffaa00";
+      return "rgb(var(--su-warning-rgb))";
     case "Poor":
-      return "#ff4455";
+      return "rgb(var(--su-danger-rgb))";
     case "Aurora":
       return "rgb(var(--su-purple-rgb))";
     default:
-      return "#666666";
+      return "rgb(var(--su-muted-rgb))";
   }
 }
 

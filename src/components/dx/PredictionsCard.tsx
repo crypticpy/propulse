@@ -239,15 +239,26 @@ export function PredictionsCard({
         <div className="space-y-2">
           {predictions.map((prediction, index) => {
             const conditionColor = getConditionColor(prediction.condition);
-            // Aurora's colour is the `--su-purple-rgb` token (#799), not a
-            // hex literal, so it can't take the `${hex}20` alpha-suffix
-            // trick the other (still-hex) conditions use for their tint --
-            // that would emit `rgb(var(--su-purple-rgb))20`, invalid CSS.
-            // Purple text on its own tint also fails the 4.5:1 floor on the
-            // Card's `bg-su-line/10` glass in every theme (measured in the
-            // PR); dropping the fill and keeping the purple text passes
-            // everywhere instead (the #795 "drop the fill" remedy).
-            const isAurora = prediction.condition === "Aurora";
+            // Every getConditionColor branch is now a `rgb(var(--su-*-rgb))`
+            // token (#810), so the badge can't take the old `${hex}20`
+            // alpha-suffix fill trick -- that would emit
+            // `rgb(var(--su-success-rgb))20`, invalid CSS. A token-aware
+            // `rgb(var(...) / alpha)` tint was measured instead (#810 PR
+            // body) and rejected -- not because one alpha (0.12) happened to
+            // fail, but because design-system README rule 7 forbids
+            // "saturated text on a saturated background," which is exactly
+            // what token ink on a same-hue token tint is. (For the record,
+            // the tint clears 4.5:1 at alpha <= 0.10 on every theme/role/
+            // surface -- the failure at 0.12 was real but is not the reason
+            // to avoid this pattern; lowering the alpha is not the fix.)
+            // Every badge drops its fill and keeps only the token ink,
+            // matching the Aurora badge's existing #799/#807 treatment
+            // (purple text, no fill) -- one consistent look across all five
+            // conditions instead of four tinted + one bare. Rule 2 ("status
+            // is never colour alone") is satisfied separately: `SignalIcon`
+            // below renders a distinct shape per signal strength, and
+            // InsightsBar -- the other consumer of `getConditionColor` --
+            // covers the same rule with `abbreviateCondition`'s text label.
             return (
               <div
                 key={prediction.band}
@@ -260,9 +271,6 @@ export function PredictionsCard({
                   <span
                     className="text-sm font-bold font-mono px-1.5 py-0.5 rounded"
                     style={{
-                      backgroundColor: isAurora
-                        ? undefined
-                        : `${conditionColor}20`,
                       color: conditionColor,
                     }}
                   >

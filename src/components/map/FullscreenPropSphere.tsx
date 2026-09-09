@@ -30,6 +30,7 @@ import { ContestRatePanel } from "@/components/map/ContestRatePanel";
 import { ObservatoryOverlay } from "@/components/map/ObservatoryOverlay";
 import { ObservatoryTiltSlider } from "@/components/map/ObservatoryTiltSlider";
 import { ISSSkyTracker } from "@/components/map/ISSSkyTracker";
+import { useFullscreenEscape } from "@/components/map/useFullscreenEscape";
 import { DXSpotList } from "@/components/dx/DXSpotList";
 import { usePanelDocking, type PanelRect } from "@/hooks/usePanelDocking";
 import { safeDockGroupY } from "@/lib/map/proDockLayout";
@@ -327,23 +328,12 @@ export function FullscreenPropSphere({
   }, [collapsedPanelIds, proPanelLayout, showPublicActivity]);
 
   // Handle escape key — observatory mode exits observatory, else exits fullscreen
-  useEffect(() => {
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        // An open satellite modal owns Escape (it closes itself).
-        if (useMapStore.getState().satelliteModalId !== null) return;
-        if (observatoryMode) {
-          exitObservatory();
-          setAmbientMode(false);
-        } else {
-          setFullscreen(false);
-        }
-      }
-    };
-
-    document.addEventListener("keydown", handleKeyDown);
-    return () => document.removeEventListener("keydown", handleKeyDown);
-  }, [observatoryMode, exitObservatory, setFullscreen]);
+  useFullscreenEscape({
+    observatoryMode,
+    exitObservatory,
+    setAmbientMode,
+    setFullscreen,
+  });
 
   // Animate in on mount
   useEffect(() => {

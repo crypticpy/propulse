@@ -8,8 +8,8 @@
  * cherry-pick field-level resolutions and save a merged result.
  */
 
-import { useState, useEffect, useCallback, useMemo } from "react";
-import { createPortal } from "react-dom";
+import { useState, useMemo, useId } from "react";
+import { AccessibleDialog } from "@/components/ui/AccessibleDialog";
 import type { SyncConflict } from "@/types/qso";
 import type { LogEntry } from "@/lib/db/types";
 import { useConflicts } from "@/hooks/useConflicts";
@@ -120,27 +120,7 @@ export function ConflictResolutionModal({
   // Resolving state (disable buttons during async)
   const [isResolving, setIsResolving] = useState(false);
 
-  // ── Keyboard / scroll lock ──────────────────────────────────────────────
-
-  const handleKeyDown = useCallback(
-    (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
-    },
-    [onClose],
-  );
-
-  useEffect(() => {
-    document.addEventListener("keydown", handleKeyDown);
-    return () => document.removeEventListener("keydown", handleKeyDown);
-  }, [handleKeyDown]);
-
-  useEffect(() => {
-    const prev = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    return () => {
-      document.body.style.overflow = prev;
-    };
-  }, []);
+  const titleId = useId();
 
   // ── Derived data ────────────────────────────────────────────────────────
 
@@ -214,58 +194,50 @@ export function ConflictResolutionModal({
 
   // ── Render ──────────────────────────────────────────────────────────────
 
-  if (typeof document === "undefined") return null;
-
-  return createPortal(
-    <div className="fixed inset-0 z-[500] flex items-center justify-center p-4">
-      {/* Backdrop */}
-      <div
-        className="absolute inset-0 bg-void-black/80 animate-in fade-in"
-        onClick={onClose}
-      />
-
-      {/* Modal card */}
-      <div
-        className="relative z-10 flex max-h-[90vh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl border border-su-line/40 bg-deep-space shadow-2xl animate-in zoom-in-95"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="conflict-modal-title"
-      >
-        {/* ── Header ──────────────────────────────────────────────────── */}
-        <div className="flex items-start justify-between border-b border-su-line/40 px-6 py-4">
-          <div className="space-y-1">
-            <h2
-              id="conflict-modal-title"
-              className="text-lg font-bold text-su-text"
-            >
-              Resolve Sync Conflict
-            </h2>
-            <p className="text-sm text-su-muted">
-              {formatQsoHeader(conflict.localData)}
-            </p>
-          </div>
-          <button
-            type="button"
-            onClick={onClose}
-            className="shrink-0 rounded-lg p-1.5 text-su-muted transition-colors hover:bg-su-line/20 hover:text-su-text"
-            aria-label="Close"
-          >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              className="h-5 w-5"
-              viewBox="0 0 20 20"
-              fill="currentColor"
-            >
-              <path
-                fillRule="evenodd"
-                d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z"
-                clipRule="evenodd"
-              />
-            </svg>
-          </button>
+  return (
+    <AccessibleDialog
+      open
+      onClose={onClose}
+      title="Resolve Sync Conflict"
+      chrome="bare"
+      labelledBy={titleId}
+      panelProps={{
+        className:
+          "flex max-h-[90vh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl border border-su-line/40 bg-deep-space shadow-2xl animate-in zoom-in-95",
+      }}
+    >
+      {/* ── Header ──────────────────────────────────────────────────── */}
+      <div className="flex items-start justify-between border-b border-su-line/40 px-6 py-4">
+        <div className="space-y-1">
+          <h2 id={titleId} className="text-lg font-bold text-su-text">
+            Resolve Sync Conflict
+          </h2>
+          <p className="text-sm text-su-muted">
+            {formatQsoHeader(conflict.localData)}
+          </p>
         </div>
+        <button
+          type="button"
+          onClick={onClose}
+          className="shrink-0 rounded-lg p-1.5 text-su-muted transition-colors hover:bg-su-line/20 hover:text-su-text"
+          aria-label="Close"
+        >
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            className="h-5 w-5"
+            viewBox="0 0 20 20"
+            fill="currentColor"
+          >
+            <path
+              fillRule="evenodd"
+              d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z"
+              clipRule="evenodd"
+            />
+          </svg>
+        </button>
+      </div>
 
-        {/* ── Scrollable body ─────────────────────────────────────────── */}
+      {/* ── Scrollable body ─────────────────────────────────────────── */}
         <div className="flex-1 overflow-y-auto px-6 py-4 space-y-6">
           {/* Device info */}
           <div className="grid grid-cols-2 gap-3">
@@ -399,8 +371,6 @@ export function ConflictResolutionModal({
             Save Merged
           </button>
         </div>
-      </div>
-    </div>,
-    document.body,
+    </AccessibleDialog>
   );
 }

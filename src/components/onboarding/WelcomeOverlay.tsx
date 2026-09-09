@@ -12,7 +12,7 @@
  */
 
 import { useState, useEffect, useCallback } from "react";
-import { createPortal } from "react-dom";
+import { AccessibleDialog } from "@/components/ui/AccessibleDialog";
 import { useLocation } from "react-router-dom";
 import { useAuthStore, selectIsAuthenticated } from "@/stores/authStore";
 import { useKioskStore } from "@/stores/kioskStore";
@@ -610,13 +610,11 @@ export function WelcomeOverlay() {
   const next = useCallback(() => goToSlide(slide + 1), [goToSlide, slide]);
   const prev = useCallback(() => goToSlide(slide - 1), [goToSlide, slide]);
 
-  // Keyboard navigation
+  // Keyboard navigation. Escape is owned by AccessibleDialog.
   useEffect(() => {
     if (!visible) return;
     const handler = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
-        dismiss();
-      } else if (e.key === "ArrowRight") {
+      if (e.key === "ArrowRight") {
         if (slide < TOTAL_SLIDES - 1) next();
       } else if (e.key === "ArrowLeft") {
         if (slide > 0) prev();
@@ -624,67 +622,44 @@ export function WelcomeOverlay() {
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, [visible, slide, next, prev, dismiss]);
+  }, [visible, slide, next, prev]);
 
-  // Body scroll lock
-  useEffect(() => {
-    if (visible) {
-      document.body.style.overflow = "hidden";
-      return () => {
-        document.body.style.overflow = "";
-      };
-    }
-  }, [visible]);
-
-  if (!visible) return null;
-
-  const modal = (
-    <div
-      className="fixed inset-0 z-[500] flex items-center justify-center p-4"
-      role="dialog"
-      aria-modal="true"
-      aria-label="Welcome to Propulse"
+  return (
+    <AccessibleDialog
+      open={visible}
+      onClose={dismiss}
+      title="Welcome to Propulse"
+      chrome="bare"
+      panelProps={{
+        className:
+          "w-full max-w-lg bg-su-canvas/95 backdrop-blur-xl border border-su-line/40 rounded-2xl shadow-2xl overflow-hidden max-h-[90vh] overflow-y-auto",
+      }}
     >
-      {/* Backdrop */}
-      <div
-        className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+      {/* Close button */}
+      <button
         onClick={dismiss}
-      />
+        className="absolute top-4 right-4 z-10 w-8 h-8 flex items-center justify-center rounded-lg text-su-muted hover:text-su-text hover:bg-su-line/10 transition-colors"
+        aria-label="Close welcome overlay"
+      >
+        <CloseIcon className="w-4 h-4" />
+      </button>
 
-      {/* Panel */}
-      <div className="relative w-full max-w-lg bg-su-canvas/95 backdrop-blur-xl border border-su-line/40 rounded-2xl shadow-2xl overflow-hidden max-h-[90vh] overflow-y-auto">
-        {/* Close button */}
-        <button
-          onClick={dismiss}
-          className="absolute top-4 right-4 z-10 w-8 h-8 flex items-center justify-center rounded-lg text-su-muted hover:text-su-text hover:bg-su-line/10 transition-colors"
-          aria-label="Close welcome overlay"
-        >
-          <CloseIcon className="w-4 h-4" />
-        </button>
-
-        {/* Slide content with fade transition */}
-        <div
-          className={`transition-all duration-150 ${
-            transitioning
-              ? "opacity-0 translate-y-1"
-              : "opacity-100 translate-y-0"
-          }`}
-        >
-          {slide === 0 && <WelcomeSlide onNext={next} />}
-          {slide === 1 && <ViewsSlide onNext={next} />}
-          {slide === 2 && <ToolsSlide onNext={next} />}
-          {slide === 3 && <CommunitySlide onFinish={dismiss} />}
-        </div>
-
-        {/* Progress dots */}
-        <ProgressDots
-          current={slide}
-          total={TOTAL_SLIDES}
-          onDotClick={goToSlide}
-        />
+      {/* Slide content with fade transition */}
+      <div
+        className={`transition-all duration-150 ${
+          transitioning
+            ? "opacity-0 translate-y-1"
+            : "opacity-100 translate-y-0"
+        }`}
+      >
+        {slide === 0 && <WelcomeSlide onNext={next} />}
+        {slide === 1 && <ViewsSlide onNext={next} />}
+        {slide === 2 && <ToolsSlide onNext={next} />}
+        {slide === 3 && <CommunitySlide onFinish={dismiss} />}
       </div>
-    </div>
-  );
 
-  return createPortal(modal, document.body);
+      {/* Progress dots */}
+      <ProgressDots current={slide} total={TOTAL_SLIDES} onDotClick={goToSlide} />
+    </AccessibleDialog>
+  );
 }

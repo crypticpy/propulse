@@ -22,7 +22,8 @@ export function ContestsReport({
   open: boolean;
   onClose: () => void;
 }) {
-  const { items, status, isLoading, error } = useRssFeed(WA7BNM_RSS_URL);
+  const { items, status, dataUpdatedAt, isLoading, error } =
+    useRssFeed(WA7BNM_RSS_URL);
   const now = useUTCClock();
   const calendarDay = now.toISOString().slice(0, 10);
   const reference = useMemo(
@@ -37,7 +38,7 @@ export function ContestsReport({
   const unavailable = error != null || status !== "ok";
   const { footer, updated } = reportFooter(
     "WA7BNM CONTEST CALENDAR",
-    unavailable ? null : now,
+    unavailable ? null : dataUpdatedAt > 0 ? dataUpdatedAt : null,
     now,
   );
   const [ref, visible] = useVisibleRows<HTMLDivElement>(rows.length);

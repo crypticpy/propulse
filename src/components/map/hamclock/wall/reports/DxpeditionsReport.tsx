@@ -24,7 +24,8 @@ export function DxpeditionsReport({
   open: boolean;
   onClose: () => void;
 }) {
-  const { entries, status, isLoading, error } = useDxpeditions();
+  const { entries, status, dataUpdatedAt, isLoading, error } =
+    useDxpeditions();
   const now = useUTCClock();
   const rows = useMemo(
     () => scheduledDxpeditions(entries, now),
@@ -34,7 +35,7 @@ export function DxpeditionsReport({
   const unavailable = error != null || status !== "ok";
   const { footer, updated } = reportFooter(
     "NG3K ADXO",
-    unavailable ? null : now,
+    unavailable ? null : dataUpdatedAt > 0 ? dataUpdatedAt : null,
     now,
   );
   const [ref, visible] = useVisibleRows<HTMLDivElement>(rows.length);

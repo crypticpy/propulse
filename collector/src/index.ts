@@ -41,7 +41,8 @@ async function runTrackedAggregation(
     | "aggregator"
     | "path-aggregator"
     | "region-aggregator"
-    | "path-recency",
+    | "path-recency"
+    | "path-archive",
   fn: () => Promise<number>,
 ): Promise<void> {
   const started = Date.now();
@@ -189,11 +190,20 @@ async function main(): Promise<void> {
   // path_hourly_stats day archiver — exports days older than the hot window
   // to storage; deletes them (and derived path_recency_hourly) only when
   // ARCHIVE_PATH_STATS_PRUNE=true. Recency is reconstructable from archived
-  // stats, so it is not exported separately.
-  register("path-archive", pollIntervals.pathArchive, async () => {
-    await archivePathStats(db, config.archive.pathStats);
-    await prunePathRecency(db, config.archive.pathStats);
-  });
+  // stats, so it is not exported separately. Both steps are tracked as one
+  // "path-archive" health source: prunePathRecency only runs when the
+  // archive/export step (and its verification) is confirmed to have
+  // succeeded, and "path-archive" is only reported healthy once BOTH steps
+  // complete — a failure in either one is reported as unhealthy, so a
+  // stuck recency prune can never hide behind an archive step that already
+  // reported "ok".
+  register("path-archive", pollIntervals.pathArchive, () =>
+    runTrackedAggregation(db, "path-archive", async () => {
+      const archived = await archivePathStats(db, config.archive.pathStats);
+      const pruned = await prunePathRecency(db, config.archive.pathStats);
+      return archived.rowsArchived + pruned.rowsDeleted;
+    }),
+  );
 
   // BH1 Activity Index baseline — daily band × hour-of-day percentile
   // recompute from band_hourly_stats (runs once at startup, then daily)

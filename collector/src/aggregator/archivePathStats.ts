@@ -28,8 +28,6 @@ import { createHash } from "node:crypto";
 import { gzipSync, gunzipSync } from "node:zlib";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { log } from "../logger.js";
-import { reportHealth } from "../health.js";
-import { reportToDb } from "../lib/db-helpers.js";
 import type { PathArchiveControls } from "../types.js";
 
 const BUCKET = "propagation-archives";
@@ -423,30 +421,21 @@ export async function runArchivePass(
   return result;
 }
 
+/**
+ * Runs one archive pass and returns its result, or rethrows on failure.
+ * Deliberately does not report "path-archive" health itself: the caller
+ * (collector/src/index.ts) chains this into `prunePathRecency` and reports
+ * combined health for both steps, so a failure here — confirmed by the
+ * rethrow — must stop the caller from running the recency prune, and a
+ * failure in either step must be reflected as unhealthy, not just this one.
+ */
 export async function archivePathStats(
   db: SupabaseClient,
   controls: PathArchiveControls,
-): Promise<void> {
-  const start = Date.now();
-  try {
-    const result = await runArchivePass(db, controls, start);
-    const durationMs = Date.now() - start;
-    reportHealth("path-archive", "ok", result.rowsArchived);
-    await reportToDb(
-      db,
-      "path-archive",
-      "ok",
-      result.rowsArchived,
-      durationMs,
-    );
-    if (result.daysArchived > 0 || result.daysPruned > 0) {
-      log("info", "Path stats archive pass complete", { ...result, durationMs });
-    }
-  } catch (err) {
-    const durationMs = Date.now() - start;
-    const msg = err instanceof Error ? err.message : String(err);
-    reportHealth("path-archive", "error", 0);
-    await reportToDb(db, "path-archive", "error", 0, durationMs, msg);
-    log("error", "Path stats archive pass failed", { error: msg });
+): Promise<ArchivePassResult> {
+  const result = await runArchivePass(db, controls, Date.now());
+  if (result.daysArchived > 0 || result.daysPruned > 0) {
+    log("info", "Path stats archive pass complete", { ...result });
   }
+  return result;
 }

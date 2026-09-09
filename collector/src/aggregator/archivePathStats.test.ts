@@ -6,6 +6,7 @@ import {
   PATH_STATS_COLUMNS,
   archivableDays,
   archiveObjectPath,
+  archivePathStats,
   csvField,
   manifestObjectPath,
   resetScanCursor,
@@ -482,5 +483,40 @@ describe("runArchivePass", () => {
     ).toBe(downloadsAfterFirstPass);
     expect(second.daysArchived).toBe(1);
     expect(storage.objects.has(archiveObjectPath("2026-05-03"))).toBe(true);
+  });
+});
+
+describe("archivePathStats", () => {
+  beforeEach(() => {
+    resetScanCursor();
+  });
+
+  // F1 (#609 review): archivePathStats used to catch its own errors and
+  // resolve, so collector/src/index.ts always reached prunePathRecency even
+  // when the export/verify step failed — pruning a recency day whose
+  // reconstruction source was never confirmed archived. It must now propagate
+  // the failure so the caller can skip the prune on a confirmed failure only.
+  it("rejects instead of swallowing a failed archive pass", async () => {
+    const storage = new FakeStorage();
+    storage.corruptOnDownload = archiveObjectPath("2026-05-01");
+    const db = makeDb(storage, { liveCount: () => 3 });
+
+    await expect(archivePathStats(db, CONTROLS)).rejects.toThrow(
+      /SHA-256 mismatch/,
+    );
+    // Fail-closed: no manifest sealed, so no prune could have followed.
+    expect(storage.objects.has(manifestObjectPath("2026-05-01"))).toBe(false);
+  });
+
+  it("resolves with the pass result on success", async () => {
+    const storage = new FakeStorage();
+    const db = makeDb(storage, { liveCount: () => 3 });
+
+    await expect(archivePathStats(db, CONTROLS)).resolves.toEqual({
+      daysArchived: 1,
+      daysPruned: 1,
+      rowsArchived: 3,
+      rowsPruned: 3,
+    });
   });
 });

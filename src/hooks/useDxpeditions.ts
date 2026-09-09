@@ -93,23 +93,26 @@ export function partitionActive(
 }
 
 export function useDxpeditions() {
-  const { data, isLoading, error } = useQuery<DxpeditionsResponse>({
-    queryKey: ["dxpeditions"],
-    queryFn: async ({ signal }) => {
-      const res = await fetch("/api/dx/dxpeditions", { signal });
-      if (!res.ok) throw new Error(`DXpeditions fetch failed: ${res.status}`);
-      return res.json();
-    },
-    staleTime: 60 * MINUTE,
-    gcTime: 90 * MINUTE,
-    refetchInterval: 60 * MINUTE,
-    refetchOnWindowFocus: false,
-    retry: 2,
-  });
+  const { data, dataUpdatedAt, isLoading, error } =
+    useQuery<DxpeditionsResponse>({
+      queryKey: ["dxpeditions"],
+      queryFn: async ({ signal }) => {
+        const res = await fetch("/api/dx/dxpeditions", { signal });
+        if (!res.ok)
+          throw new Error(`DXpeditions fetch failed: ${res.status}`);
+        return res.json();
+      },
+      staleTime: 60 * MINUTE,
+      gcTime: 90 * MINUTE,
+      refetchInterval: 60 * MINUTE,
+      refetchOnWindowFocus: false,
+      retry: 2,
+    });
 
   return {
     entries: data?.dxpeditions ?? [],
     status: data?.status ?? "ok",
+    dataUpdatedAt,
     isLoading,
     error: error as Error | null,
   };

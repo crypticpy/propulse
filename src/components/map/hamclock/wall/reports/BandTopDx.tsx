@@ -6,6 +6,12 @@ import { useOptionalViewEffectiveSpots } from "@/hooks/useViewClusterSpots";
 import { rankLoadedDx } from "@/lib/hamclock/topDx";
 import { resolveUnits } from "@/lib/hamclock/units";
 import { filterMapSpots } from "@/lib/map/filterMapSpots";
+import {
+  modeMatchesSelection,
+  modeSelectionMatchesEverything,
+  normalizeMode,
+  normalizeModeSelection,
+} from "@/lib/spots/presentation/modes";
 import { useDXStore } from "@/stores/dxStore";
 import { useMapStore } from "@/stores/mapStore";
 import { useHamClockDisplayStore } from "@/stores/hamclockDisplayStore";
@@ -20,8 +26,8 @@ export function BandTopDx() {
   const home = useActiveLocation();
   const spots = useDXStore((s) => s.spots);
   const source = useDXStore((s) => s.spotSource);
-  // Band filter comes from the bound view's own runtime (SP-09 round 3), not
-  // the retired `mapStore.spotFilters`. This report is also reachable
+  // Band/mode filters come from the bound view's own runtime (SP-09 round 3),
+  // not the retired `mapStore.spotFilters`. This report is also reachable
   // unbound — a report pinned from the wall re-mounts inside
   // `HamClockPinnedReportHost`, which `WorkspacePage.tsx` mounts with no
   // `ViewProvider` above it (PR #615 review finding 1) — so this must fall
@@ -29,10 +35,21 @@ export function BandTopDx() {
   const viewSpots = useOptionalViewEffectiveSpots();
   const units = useHamClockDisplayStore((s) => s.units);
   const now = useUTCClock(30_000).getTime();
-  const rows = useMemo(
-    () => (home ? rankLoadedDx(filterMapSpots(spots, { bands: viewSpots.filters.bands, modes: [] }), home, now, source === "bridge" ? BRIDGE_CLOCK_TOLERANCE_MS : 0) : []),
-    [home, spots, viewSpots.filters.bands, now, source],
+  const modeSelection = useMemo(
+    () => normalizeModeSelection(viewSpots.filters.modes),
+    [viewSpots.filters.modes],
   );
+  const rows = useMemo(() => {
+    if (!home) return [];
+    // `filterMapSpots` only understands a flat mode string[] (no alias
+    // normalization); apply the bound view's mode selection separately with
+    // the same category/alias-aware matcher `DXSpotList` uses.
+    const bandFiltered = filterMapSpots(spots, { bands: viewSpots.filters.bands, modes: [] });
+    const eligible = modeSelectionMatchesEverything(modeSelection)
+      ? bandFiltered
+      : bandFiltered.filter((spot) => modeMatchesSelection(normalizeMode(spot.mode), modeSelection));
+    return rankLoadedDx(eligible, home, now, source === "bridge" ? BRIDGE_CLOCK_TOLERANCE_MS : 0);
+  }, [home, spots, viewSpots.filters.bands, modeSelection, now, source]);
   const [ref, visible] = useVisibleRows<HTMLDivElement>(rows.length);
   const resolved = resolveUnits(units, home?.grid);
   const distance = (km: number) =>

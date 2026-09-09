@@ -105,20 +105,17 @@ describe("mapStore HamClock beauty enter/exit", () => {
   });
 });
 
-it("keeps HamClock panels and projection in Observatory, restoring filters on final exit", () => {
+it("keeps HamClock panels and projection through Observatory, restoring layout on final exit", () => {
   useHamClockStore.setState({
     hamclockMode: "traffic",
     preferredViewMode: "flat",
-    bandFocus: ["20m"],
   });
   useMapStore.setState({
     layoutMode: "normal",
     viewMode: "globe",
-    spotFilters: { bands: ["40m"], modes: ["CW"] },
     observatoryMode: false,
   });
   useMapStore.getState().setLayoutMode("hamclock");
-  expect(useMapStore.getState().spotFilters.bands).toEqual(["20m"]);
   useMapStore.getState().enterObservatory();
   expect(useMapStore.getState()).toMatchObject({
     layoutMode: "hamclock",
@@ -137,7 +134,6 @@ it("keeps HamClock panels and projection in Observatory, restoring filters on fi
     layoutMode: "normal",
     viewMode: "globe",
     observatoryMode: false,
-    spotFilters: { bands: ["40m"], modes: ["CW"] },
   });
 });
 

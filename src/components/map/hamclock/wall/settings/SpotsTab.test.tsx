@@ -92,16 +92,14 @@ it("patches the bound view's maxAgeMinutes filter when the map spot age changes"
   expect(useMapStore.getState().spotAgeMinutes).toBe(60);
 });
 
-it("selects personal scope and shares its longer age without changing global age or filters", () => {
+it("selects personal scope and shares its longer age without changing global age", () => {
   usePskStationView.setState({ direction: "by", minutes: 15, band: "40m" });
-  const filters = useMapStore.getState().spotFilters;
   renderTab();
   fireEvent.click(screen.getByRole("radio", { name: "MY PSK REPORTS" }));
   expect(useMapStore.getState().spotFeedScope).toBe("psk-station");
   fireEvent.click(screen.getByRole("radio", { name: "1440 MIN" }));
   expect(usePskStationView.getState().minutes).toBe(1440);
   expect(useMapStore.getState().spotAgeMinutes).toBe(30);
-  expect(useMapStore.getState().spotFilters).toBe(filters);
   expect(screen.getByText(/BY N0TEST/).textContent).toContain("40M");
   fireEvent.click(screen.getByRole("radio", { name: "GLOBAL SAMPLE" }));
   expect(screen.queryByRole("radio", { name: "1440 MIN" })).toBeNull();
@@ -142,16 +140,10 @@ it("observes source status when only the globe spectrum ring needs live spots", 
 });
 
 // B5 (round-4 review): `useViewMapSpots` ingests unfiltered and narrows on the
-// bound view's prefs, so `mapStore.spotFilters` no longer describes any feed a
-// renderer uses. If this tab passed it, opening the wall settings would key a
-// second live-spots query on an abandoned filter set, and the source states
-// printed here could disagree with the map they claim to describe. The
-// hamclock Bands entry path writes `mapStore.spotFilters.bands` (mapStore.ts),
-// so a non-empty value is reachable exactly where this tab is mounted.
-it("does not key its feed on the orphaned mapStore.spotFilters", () => {
-  act(() => {
-    useMapStore.setState({ spotFilters: { bands: ["20m"], modes: [] } });
-  });
+// bound view's prefs. `mapStore.spotFilters` (the field this test used to
+// prove was ignored) was removed entirely in #756 -- there is no longer a
+// field to accidentally wire into the feed hook's options.
+it("never forwards a spotFilters option to the feed hook", () => {
   renderTab();
   const calls = vi.mocked(useMapSpotFeed).mock.calls;
   expect(calls.length).toBeGreaterThan(0);

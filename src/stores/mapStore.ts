@@ -1,13 +1,12 @@
 import { create } from "zustand";
 import { normalizeMapSpotAge } from "@/lib/map/spotAge";
 import type { SpotWindowMinutes } from "@/lib/api/spotFeed";
-import { DEFAULT_SPOT_DENSITY } from "@/lib/map/spotDensity";
 import { type RegionPreset, DEFAULT_REGION_PRESETS } from "@/types/map";
 import type {
   OverlayLayerModel,
   MapInteractionMode,
 } from "@/types/mapOverlays";
-import type { OperatingProfile, SpotFilters } from "@/types/operatingProfile";
+import type { OperatingProfile } from "@/types/operatingProfile";
 import type { SatelliteCategory } from "@/types/satellite";
 import { useSettingsStore } from "@/stores/settingsStore";
 import {
@@ -490,12 +489,9 @@ export interface MapState {
 
   // Operating profiles
   activeProfile: OperatingProfile | null;
-  spotFilters: SpotFilters;
   customProfiles: OperatingProfile[];
   applyProfile: (profile: OperatingProfile) => void;
   clearProfile: () => void;
-  setSpotFilters: (filters: SpotFilters) => void;
-  clearSpotFilters: () => void;
   saveCustomProfile: (profile: OperatingProfile) => void;
   deleteCustomProfile: (id: string) => void;
 
@@ -613,8 +609,6 @@ export interface MapState {
   exportRegionPresets: () => string;
   importRegionPresets: (json: string) => boolean;
 
-  // Arc display density (persisted)
-  displayDensity: number;
   spotFeedScope: "global" | "psk-station";
   setSpotFeedScope: (scope: "global" | "psk-station") => void;
   spotAgeMinutes: SpotWindowMinutes;
@@ -796,35 +790,6 @@ function loadLabelOptions(): LabelOptions {
 
 function saveLabelOptions(options: LabelOptions) {
   localStorage.setItem("propulse-label-options", JSON.stringify(options));
-}
-
-// Spot filters persistence
-function loadSpotFilters(): SpotFilters {
-  try {
-    const saved = localStorage.getItem("propulse-spot-filters");
-    if (saved) {
-      const parsed = JSON.parse(saved);
-      return {
-        bands: Array.isArray(parsed.bands)
-          ? parsed.bands.filter((v: unknown) => typeof v === "string")
-          : [],
-        modes: Array.isArray(parsed.modes)
-          ? parsed.modes.filter((v: unknown) => typeof v === "string")
-          : [],
-      };
-    }
-  } catch {
-    // Ignore parse errors
-  }
-  return { bands: [], modes: [] };
-}
-
-function saveSpotFilters(filters: SpotFilters): void {
-  try {
-    localStorage.setItem("propulse-spot-filters", JSON.stringify(filters));
-  } catch {
-    // Ignore storage errors
-  }
 }
 
 // Custom profiles persistence
@@ -1439,7 +1404,6 @@ const initialState = {
   nvisEnabled: false,
   activePreset: null as PresetName | null,
   activeProfile: loadActiveProfile(),
-  spotFilters: loadSpotFilters(),
   customProfiles: loadCustomProfiles(),
   isFullscreen: initialLayoutMode === "pro",
   isLiteMode: initialLayoutMode === "lite",
@@ -1463,8 +1427,6 @@ const initialState = {
   regionPresets: loadRegionPresets(),
   activePresetId: loadActivePresetId(),
 
-  // Arc display density
-  displayDensity: DEFAULT_SPOT_DENSITY,
   spotFeedScope: "global" as const,
   spotAgeMinutes: (() => {
     try { return normalizeMapSpotAge(Number(localStorage.getItem("propulse-spot-age-minutes") ?? 30)); }
@@ -1753,14 +1715,10 @@ export const useMapStore = create<MapState>((set, get) => ({
 
   applyProfile: (profile) => {
     // 1. Set layers
-    // 2. Set spot filters (persisted)
-    const spotFilters = { ...profile.spotFilters };
-    saveSpotFilters(spotFilters);
-
-    // 3. Set map style (persisted)
+    // 2. Set map style (persisted)
     saveMapStyle(profile.mapStyle);
 
-    // 4. Set panel states from profile panel config (persisted)
+    // 3. Set panel states from profile panel config (persisted)
     const panelStates: PanelStates = {
       bandConditions: profile.panelConfig.bandConditions.collapsed,
       pathAnalysis: profile.panelConfig.pathAnalysis.collapsed,
@@ -1769,7 +1727,7 @@ export const useMapStore = create<MapState>((set, get) => ({
     };
     savePanelStates(panelStates);
 
-    // 5. Persist active profile
+    // 4. Persist active profile
     saveActiveProfile(profile);
 
     const mergedLayers = {
@@ -1780,10 +1738,9 @@ export const useMapStore = create<MapState>((set, get) => ({
       (layer) => profile.layers[layer],
     );
 
-    // 6. Apply all state at once
+    // 5. Apply all state at once
     set({
       layers: normalizeExclusiveLayers(mergedLayers, preferredSurfaceLayer),
-      spotFilters,
       // profile.autoFollow now handled by watchStore.autoPan
       mapStyle: profile.mapStyle,
       panelStates,
@@ -1791,7 +1748,7 @@ export const useMapStore = create<MapState>((set, get) => ({
       activePreset: null,
     });
 
-    // 7. Set spotColorMode and visualStyle via settingsStore
+    // 6. Set spotColorMode and visualStyle via settingsStore
     useSettingsStore.getState().updateUIInteraction({
       spotColorMode: profile.spotColorMode,
       visualStyle: profile.visualStyle,
@@ -1801,19 +1758,6 @@ export const useMapStore = create<MapState>((set, get) => ({
   clearProfile: () => {
     saveActiveProfile(null);
     set({ activeProfile: null });
-  },
-
-  setSpotFilters: (filters) => {
-    saveSpotFilters(filters);
-    saveActiveProfile(null);
-    set({ spotFilters: filters, activeProfile: null });
-  },
-
-  clearSpotFilters: () => {
-    const empty: SpotFilters = { bands: [], modes: [] };
-    saveSpotFilters(empty);
-    saveActiveProfile(null);
-    set({ spotFilters: empty, activeProfile: null });
   },
 
   saveCustomProfile: (profile) =>
@@ -1908,7 +1852,6 @@ export const useMapStore = create<MapState>((set, get) => ({
         mapStyle: state.mapStyle,
         tileProviderId: state.tileProviderId,
         layers: { ...state.layers },
-        spotFilters: { ...state.spotFilters },
         displayQuality: quality.displayQuality,
         nightDarkness: state.nightDarkness,
       });
@@ -1941,14 +1884,6 @@ export const useMapStore = create<MapState>((set, get) => ({
         mapStyle: HAMCLOCK_BEAUTY_DEFAULTS.mapStyle,
         nightDarkness: HAMCLOCK_BEAUTY_DEFAULTS.nightDarkness,
         layers: nextLayers,
-        ...(mode === "bands" || mode === "traffic"
-          ? {
-              spotFilters: {
-                ...state.spotFilters,
-                bands: [...ham.bandFocus],
-              },
-            }
-          : {}),
       });
       return;
     }
@@ -1964,7 +1899,6 @@ export const useMapStore = create<MapState>((set, get) => ({
           layoutMode === "normal" ? snapshot.layoutMode : layoutMode;
         saveMapStyle(snapshot.mapStyle);
         persistTileProviderId(snapshot.tileProviderId);
-        saveSpotFilters(snapshot.spotFilters);
         quality.setDisplayQuality(snapshot.displayQuality);
         saveStoredNumber(NIGHT_DARKNESS_KEY, snapshot.nightDarkness);
         set({
@@ -1977,7 +1911,6 @@ export const useMapStore = create<MapState>((set, get) => ({
           mapStyle: snapshot.mapStyle,
           tileProviderId: snapshot.tileProviderId,
           layers: snapshot.layers,
-          spotFilters: snapshot.spotFilters,
           nightDarkness: snapshot.nightDarkness,
         });
         return;

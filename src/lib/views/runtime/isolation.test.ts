@@ -14,7 +14,6 @@ import {
 import { createMemoryWorkingStorage } from "./workingStorage";
 import { displaySlotId, namedSlotId } from "./slots";
 import { useDXStore } from "@/stores/dxStore";
-import { useMapStore } from "@/stores/mapStore";
 
 function binding(
   slot: ViewBinding["slotId"],
@@ -84,12 +83,13 @@ describe("view-scoped isolation", () => {
     expect(selectInteraction(monitorStore.store.getState()).selectedReportId).toBe("spot-mon");
     expect(selectInteraction(wallStore.store.getState()).selectedReportId).toBe("spot-wall");
 
-    const mapFilters = useMapStore.getState().spotFilters;
+    // mapStore.spotFilters was the third leg of this cross-store isolation
+    // check; it was removed entirely in #756 (zero live readers), so only the
+    // dxStore leak-check remains here.
     const dxSelected = useDXStore.getState().selectedSpot;
     monitorStore.clearSelection();
     expect(selectInteraction(monitorStore.store.getState()).selectedReportId).toBeNull();
     expect(selectInteraction(wallStore.store.getState()).selectedReportId).toBe("spot-wall");
-    expect(useMapStore.getState().spotFilters).toBe(mapFilters);
     expect(useDXStore.getState().selectedSpot).toBe(dxSelected);
 
     monitor.dispose();

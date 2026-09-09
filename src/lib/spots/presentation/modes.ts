@@ -119,6 +119,17 @@ export function normalizeModeSelection(selection: ModeSelection): ModeSelection 
   });
 }
 
+/**
+ * True only when the selection admits every spot outright. `all` alone is not
+ * enough: `modeMatchesSelection` still drops unknown-provenance/category
+ * modes when `includeUnknown` is false, and inferred-provenance modes when
+ * `includeInferred` is false, even with `all: true`.
+ */
+export function modeSelectionMatchesEverything(selection: ModeSelection): boolean {
+  const normalized = normalizeModeSelection(selection);
+  return normalized.all && normalized.includeUnknown && normalized.includeInferred;
+}
+
 export function modeMatchesSelection(mode: NormalizedMode, selection: ModeSelection): boolean {
   const normalized = normalizeModeSelection(selection);
   if (mode.provenance === "unknown" || mode.category === "unknown") {

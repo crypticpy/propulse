@@ -5,6 +5,12 @@ import { useOptionalViewEffectiveSpots } from "@/hooks/useViewClusterSpots";
 import { filterClusterAge } from "@/lib/dx/clusterHistory";
 import { filterBridgeSpotAge } from "@/lib/hamclock/clusterBridge";
 import { filterMapSpots } from "@/lib/map/filterMapSpots";
+import {
+  modeMatchesSelection,
+  modeSelectionMatchesEverything,
+  normalizeMode,
+  normalizeModeSelection,
+} from "@/lib/spots/presentation/modes";
 import { getBandColor } from "@/lib/utils/spotColors";
 import { useDXStore } from "@/stores/dxStore";
 import type { DXSpot } from "@/types/dxcluster";
@@ -47,24 +53,34 @@ export function ClusterTile() {
   const feedState = useDXStore((s) => s.clusterFeed);
   const source = useDXStore((s) => s.spotSource);
   const maxAge = useDXStore((s) => s.filters.maxAge);
-  // Band filter comes from the bound view's own runtime (SP-09 round 3), not
-  // the retired `mapStore.spotFilters`. This tile also mounts bare from the
-  // workspace canvas (`widgetLoaders.ts`), which has no bound view above it —
-  // the optional variant falls back to unfiltered spots there instead of
+  // Band/mode filters come from the bound view's own runtime (SP-09 round 3),
+  // not the retired `mapStore.spotFilters`. This tile also mounts bare from
+  // the workspace canvas (`widgetLoaders.ts`), which has no bound view above
+  // it — the optional variant falls back to unfiltered spots there instead of
   // throwing.
   const viewSpots = useOptionalViewEffectiveSpots();
   const now = useUTCClock(10_000);
   const [reportOpen, setReportOpen] = useState(false);
+  const modeSelection = useMemo(
+    () => normalizeModeSelection(viewSpots.filters.modes),
+    [viewSpots.filters.modes],
+  );
 
-  const spots = useMemo(
-    () => filterMapSpots(
+  const spots = useMemo(() => {
+    // `filterMapSpots` only understands a flat mode string[] (no alias
+    // normalization); apply the bound view's mode selection separately with
+    // the same category/alias-aware matcher `DXSpotList` uses.
+    const bandFiltered = filterMapSpots(
       source === "bridge"
         ? filterBridgeSpotAge(allSpots ?? [], maxAge, now.getTime())
         : filterClusterAge(allSpots ?? [], maxAge, now.getTime()),
       { bands: viewSpots.filters.bands, modes: [] },
-    ),
-    [allSpots, viewSpots.filters.bands, maxAge, now, source],
-  );
+    );
+    if (modeSelectionMatchesEverything(modeSelection)) return bandFiltered;
+    return bandFiltered.filter((spot) =>
+      modeMatchesSelection(normalizeMode(spot.mode), modeSelection),
+    );
+  }, [allSpots, viewSpots.filters.bands, modeSelection, maxAge, now, source]);
   const rows = spots.slice(0, MAX_ROWS);
   const feed = source === "bridge" ? "BRIDGE" : "CLUSTER";
 

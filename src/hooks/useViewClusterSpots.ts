@@ -69,9 +69,10 @@ export function useOptionalViewEffectiveSpots(): SpotPresentationPreferences {
 /**
  * Patch this view's own configured spot filters (`config.spots.filters`) —
  * the same field `useViewEffectiveSpots` reads when follow-radio is off.
- * Writes only the bound runtime, never `mapStore`/`dxStore`. Does not touch
- * follow-radio; a caller representing a manual band/mode choice must clear
- * it separately via the runtime's follow-radio control.
+ * Writes only the bound runtime, never `mapStore`/`dxStore`. A manual
+ * band/mode patch here goes through `runtime.updateWorkingView`, which
+ * clears follow-radio on its own when the bands/modes actually change
+ * (`bandModeFiltersEqual`), so no separate follow-radio write is needed.
  */
 export function useViewSpotFilterPatch() {
   const runtime = useViewRuntime();

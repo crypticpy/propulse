@@ -33,7 +33,6 @@ function PresetSelection({ id }: { id: string }) {
 const originalSpots = useDXStore.getState().spots;
 const originalSource = useDXStore.getState().spotSource;
 const originalSelected = useDXStore.getState().selectedSpot;
-const originalFilters = useMapStore.getState().spotFilters;
 const originalTarget = useMapStore.getState().target;
 const originalCenterLocation = useMapStore.getState().centerLocation;
 
@@ -45,7 +44,6 @@ describe("BandTopDx", () => {
       selectedSpot: originalSelected,
     });
     useMapStore.setState({
-      spotFilters: originalFilters,
       target: originalTarget,
       centerLocation: originalCenterLocation,
     });
@@ -64,7 +62,6 @@ describe("BandTopDx", () => {
       dxGrid: "GG87",
     };
     useDXStore.setState({ spots: [spot], spotSource: "rest" });
-    useMapStore.setState({ spotFilters: { bands: [], modes: [] } });
 
     const user = userEvent.setup();
     render(
@@ -127,5 +124,116 @@ describe("BandTopDx", () => {
 
     expect(screen.getByRole("button", { name: /TWENTY/ })).toBeTruthy();
     expect(screen.queryByRole("button", { name: /FORTY/ })).toBeNull();
+  });
+
+  // #756 group 2: this site hard-coded `modes: []`, silently dropping the
+  // bound view's mode selection (including the real one follow-radio
+  // overlays from the operating radio).
+  it("narrows to the bound view runtime's mode filter (#756 group 2)", () => {
+    const spotCW: DXSpot = {
+      id: "spot-cw", spotter: "K1ABC", dx: "CWCALL", frequency: 14000,
+      band: "20m", mode: "CW", comment: "", time: new Date(Date.now() - 60_000),
+      dxGrid: "GG87",
+    };
+    const spotFT8: DXSpot = {
+      id: "spot-ft8", spotter: "K1ABC", dx: "FT8CALL", frequency: 14074,
+      band: "20m", mode: "FT8", comment: "", time: new Date(Date.now() - 60_000),
+      dxGrid: "GG87",
+    };
+    useDXStore.setState({ spots: [spotCW, spotFT8], spotSource: "rest" });
+
+    let runtime: ScopedViewRuntime | null = null;
+    function Capture() {
+      runtime = useViewRuntime();
+      return null;
+    }
+
+    render(
+      <ViewProvider ownerId="owner-c" slot="hamclock" storage={createMemoryWorkingStorage()}>
+        <Capture />
+        <BandTopDx />
+      </ViewProvider>,
+    );
+
+    expect(screen.getByRole("button", { name: /CWCALL/ })).toBeTruthy();
+    expect(screen.getByRole("button", { name: /FT8CALL/ })).toBeTruthy();
+
+    act(() => {
+      const snapshot = runtime!.getSnapshot();
+      runtime!.updateWorkingView({
+        spots: {
+          ...snapshot.config.spots,
+          filters: {
+            ...snapshot.config.spots.filters,
+            modes: {
+              all: false,
+              categories: [],
+              modes: ["CW"],
+              includeUnknown: true,
+              includeInferred: true,
+            },
+          },
+        },
+      });
+    });
+
+    expect(screen.getByRole("button", { name: /CWCALL/ })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: /FT8CALL/ })).toBeNull();
+  });
+
+  // Review finding on #756: `all: true` alone was treated as "no restriction",
+  // so `{ all: true, includeUnknown: false }` (reachable from the always-on
+  // "Include unknown modes" toggle in ActivitySection) let unknown-mode spots
+  // through instead of dropping them.
+  it("still drops unknown-mode spots when all is true but includeUnknown is false", () => {
+    const spotCW: DXSpot = {
+      id: "spot-cw", spotter: "K1ABC", dx: "CWCALL", frequency: 14000,
+      band: "20m", mode: "CW", comment: "", time: new Date(Date.now() - 60_000),
+      dxGrid: "GG87",
+    };
+    const spotUnknown: DXSpot = {
+      id: "spot-unknown", spotter: "K1ABC", dx: "UNKCALL", frequency: 14001,
+      band: "20m", comment: "", time: new Date(Date.now() - 60_000),
+      dxGrid: "GG87",
+    };
+    useDXStore.setState({ spots: [spotCW, spotUnknown], spotSource: "rest" });
+
+    let runtime: ScopedViewRuntime | null = null;
+    function Capture() {
+      runtime = useViewRuntime();
+      return null;
+    }
+
+    render(
+      <ViewProvider ownerId="owner-d" slot="hamclock" storage={createMemoryWorkingStorage()}>
+        <Capture />
+        <BandTopDx />
+      </ViewProvider>,
+    );
+
+    expect(screen.getByRole("button", { name: /CWCALL/ })).toBeTruthy();
+    expect(screen.getByRole("button", { name: /UNKCALL/ })).toBeTruthy();
+
+    act(() => {
+      const snapshot = runtime!.getSnapshot();
+      runtime!.updateWorkingView({
+        spots: {
+          ...snapshot.config.spots,
+          filters: {
+            ...snapshot.config.spots.filters,
+            modes: {
+              all: true,
+              categories: [],
+              modes: [],
+              includeUnknown: false,
+              includeInferred: true,
+            },
+          },
+        },
+      });
+    });
+
+    expect(screen.getByRole("button", { name: /CWCALL/ })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: /UNKCALL/ })).toBeNull();
   });
 });

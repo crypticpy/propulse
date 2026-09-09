@@ -9,6 +9,10 @@ import {
   type ScopedViewRuntime,
   type WorkingSlotStorage,
 } from "@/lib/views/runtime";
+import {
+  ingestOperatingMonitorReportForTests,
+  resetOperatingMonitorForTests,
+} from "@/hooks/useOperatingMonitor";
 import { useDXStore } from "@/stores/dxStore";
 import { useKioskStore } from "@/stores/kioskStore";
 import type { DXSpot } from "@/types/dxcluster";
@@ -179,5 +183,158 @@ describe("DXSpotList band filter (SP-09 round 3 B1)", () => {
     render(<DXSpotList />);
 
     expect(screen.getByText("BARE")).toBeTruthy();
+  });
+
+  // #756 group 2: the three `modes: []` half-bindings dropped a REAL, live
+  // mode restriction whenever follow-radio is active (`followSpotsFromRadio`
+  // overlays a real mode selection derived from the radio, not just bands).
+  it("narrows to the bound view runtime's mode filter", () => {
+    const spotCW = dxSpot({ id: "spot-cw", dx: "CWCALL", band: "20m", mode: "CW" });
+    const spotFT8 = dxSpot({ id: "spot-ft8", dx: "FT8CALL", band: "20m", mode: "FT8" });
+    mockClusterSpots = [spotCW, spotFT8];
+    useDXStore.setState({ spots: [spotCW, spotFT8] });
+
+    const storage = createMemoryWorkingStorage();
+    render(<DXSpotList />, { wrapper: makeWrapper(storage) });
+
+    expect(screen.getByText("CWCALL")).toBeTruthy();
+    expect(screen.getByText("FT8CALL")).toBeTruthy();
+
+    act(() => {
+      const snapshot = capturedRuntime!.getSnapshot();
+      capturedRuntime!.updateWorkingView({
+        spots: {
+          ...snapshot.config.spots,
+          filters: {
+            ...snapshot.config.spots.filters,
+            modes: {
+              all: false,
+              categories: [],
+              modes: ["CW"],
+              includeUnknown: true,
+              includeInferred: true,
+            },
+          },
+        },
+      });
+    });
+
+    expect(screen.getByText("CWCALL")).toBeTruthy();
+    expect(screen.queryByText("FT8CALL")).toBeNull();
+  });
+
+  // Review finding on #756: `all: true` alone was treated as "no restriction",
+  // so `{ all: true, includeUnknown: false }` (reachable from the always-on
+  // "Include unknown modes" toggle in ActivitySection) let unknown-mode spots
+  // through instead of dropping them.
+  it("still drops unknown-mode spots when all is true but includeUnknown is false", () => {
+    const spotCW = dxSpot({ id: "spot-cw", dx: "CWCALL", band: "20m", mode: "CW" });
+    const spotUnknown = dxSpot({ id: "spot-unknown", dx: "UNKCALL", band: "20m", mode: undefined });
+    mockClusterSpots = [spotCW, spotUnknown];
+    useDXStore.setState({ spots: [spotCW, spotUnknown] });
+
+    const storage = createMemoryWorkingStorage();
+    render(<DXSpotList />, { wrapper: makeWrapper(storage) });
+
+    expect(screen.getByText("CWCALL")).toBeTruthy();
+    expect(screen.getByText("UNKCALL")).toBeTruthy();
+
+    act(() => {
+      const snapshot = capturedRuntime!.getSnapshot();
+      capturedRuntime!.updateWorkingView({
+        spots: {
+          ...snapshot.config.spots,
+          filters: {
+            ...snapshot.config.spots.filters,
+            modes: {
+              all: true,
+              categories: [],
+              modes: [],
+              includeUnknown: false,
+              includeInferred: true,
+            },
+          },
+        },
+      });
+    });
+
+    expect(screen.getByText("CWCALL")).toBeTruthy();
+    expect(screen.queryByText("UNKCALL")).toBeNull();
+  });
+});
+
+describe("DXSpotList follow-radio mode filter and clear (#756 groups 2 & 3)", () => {
+  afterEach(() => {
+    useDXStore.setState({ spots: originalSpots });
+    mockClusterSpots = [];
+    capturedRuntime = null;
+    resetOperatingMonitorForTests();
+  });
+
+  it("drops off-mode spots while following the radio, not just off-band ones", () => {
+    const spotCW20 = dxSpot({ id: "spot-cw-20", dx: "CWCALL", band: "20m", mode: "CW" });
+    const spotFT820 = dxSpot({ id: "spot-ft8-20", dx: "FT8CALL", band: "20m", mode: "FT8" });
+    mockClusterSpots = [spotCW20, spotFT820];
+    useDXStore.setState({ spots: [spotCW20, spotFT820] });
+
+    const storage = createMemoryWorkingStorage();
+    render(<DXSpotList />, { wrapper: makeWrapper(storage) });
+
+    act(() => {
+      ingestOperatingMonitorReportForTests({
+        sender: "radio-1",
+        band: "20m",
+        mode: "CW",
+        frequency: 14_000,
+      });
+      const snapshot = capturedRuntime!.getSnapshot();
+      capturedRuntime!.updateWorkingView({
+        context: { ...snapshot.config.context, followRadio: true },
+      });
+    });
+
+    // Both spots are on the followed band (20m); only the followed mode (CW)
+    // should survive. Before the fix, the hard-coded `modes: []` let the
+    // off-mode FT8 spot through.
+    expect(screen.getByText("CWCALL")).toBeTruthy();
+    expect(screen.queryByText("FT8CALL")).toBeNull();
+  });
+
+  it("clearing the filter also turns off follow-radio, instead of no-oping", async () => {
+    const spotCW20 = dxSpot({ id: "spot-cw-20", dx: "CWCALL", band: "20m", mode: "CW" });
+    const spotFT840 = dxSpot({ id: "spot-ft8-40", dx: "FT8CALL", band: "40m", mode: "FT8" });
+    mockClusterSpots = [spotCW20, spotFT840];
+    useDXStore.setState({ spots: [spotCW20, spotFT840] });
+
+    const storage = createMemoryWorkingStorage();
+    render(<DXSpotList />, { wrapper: makeWrapper(storage) });
+
+    act(() => {
+      ingestOperatingMonitorReportForTests({
+        sender: "radio-1",
+        band: "20m",
+        mode: "CW",
+        frequency: 14_000,
+      });
+      const snapshot = capturedRuntime!.getSnapshot();
+      capturedRuntime!.updateWorkingView({
+        context: { ...snapshot.config.context, followRadio: true },
+      });
+    });
+
+    // Follow-radio is active: only the 20m/CW spot is visible.
+    expect(screen.getByText("CWCALL")).toBeTruthy();
+    expect(screen.queryByText("FT8CALL")).toBeNull();
+
+    const user = userEvent.setup();
+    await user.click(screen.getByTitle("Clear filter"));
+
+    // The bug: `config.spots.filters` was already `{bands: [], modes: all}`
+    // (follow never wrote to it), so patching it back to the same value was
+    // a no-op, and follow-radio stayed on -- the click did nothing. The fix
+    // must turn follow-radio off directly.
+    expect(capturedRuntime!.getSnapshot().config.context.followRadio).toBe(false);
+    expect(screen.getByText("CWCALL")).toBeTruthy();
+    expect(screen.getByText("FT8CALL")).toBeTruthy();
   });
 });

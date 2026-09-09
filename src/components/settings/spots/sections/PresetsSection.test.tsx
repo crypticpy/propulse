@@ -300,4 +300,32 @@ describe("PresetsSection", () => {
     // The preset survived the cancelled delete.
     expect(screen.getByText("Escape Target")).toBeTruthy();
   });
+
+  it("#754/#772 layout: the always-mounted notice bar does not push margin onto the content below in the default no-notice state", async () => {
+    const testView = createTestView();
+    const port = createMemoryLibraryPort();
+    render(<Harness view={testView.view} library={port} />);
+
+    // LibraryNoticeBar (a LiveRegion) is the section's first child so it can
+    // announce; it is no longer inside the content wrapper's own space-y-6,
+    // since Tailwind's space-y sibling selector only checks `[hidden]` (not
+    // visual emptiness) and would otherwise put a permanent margin-top on
+    // "Activity recipes" even with no notice showing.
+    const notice = screen.getByRole("status");
+    const content = notice.nextElementSibling as HTMLElement;
+    expect(content).not.toBeNull();
+    expect(content.className.split(" ")).toContain("space-y-6");
+    expect(content.className).not.toMatch(/\bmt-6\b/);
+    expect(content.contains(screen.getByText("Activity recipes"))).toBe(true);
+
+    // Once a notice is showing, the explicit gap is applied instead.
+    await userEvent.click(screen.getByRole("button", { name: "Save as preset" }));
+    await userEvent.type(screen.getByLabelText("Preset name"), "Layout Check");
+    await userEvent.click(screen.getByRole("button", { name: "Save" }));
+    await screen.findByText("Layout Check");
+
+    await waitFor(() => {
+      expect(content.className.split(" ")).toContain("mt-6");
+    });
+  });
 });

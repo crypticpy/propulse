@@ -204,106 +204,118 @@ export function PresetsSection({
   }
 
   return (
-    <section aria-label="Presets" className="space-y-6">
+    <section aria-label="Presets">
+      {/*
+       * LibraryNoticeBar (LiveRegion) always mounts an element now, even
+       * with no notice (#754/#772) — so it can no longer be `section`'s
+       * `space-y-6` first child: the space-y sibling selector only checks
+       * `[hidden]`, not visual emptiness, and would put a permanent
+       * margin-top on the content below regardless of whether a notice is
+       * showing. `section` carries no automatic spacing; the gap to the
+       * content is applied explicitly, only when a notice is actually
+       * shown, matching the old space-y-6 result exactly.
+       */}
       <LibraryNoticeBar notice={library.notice} onDismiss={library.dismissNotice} />
 
-      <div className="flex flex-wrap items-center gap-3 text-xs text-su-muted">
-        {controller.customization.presetName && (
-          <span data-testid="active-preset">
-            {controller.customization.customized
-              ? `${controller.customization.presetName} (Customized)`
-              : controller.customization.presetName}
-          </span>
-        )}
-        {controller.canRevert && (
-          <button
-            type="button"
-            onClick={controller.revert}
-            className={`min-h-[40px] rounded-lg border border-su-line/40 bg-void-black px-3 py-1.5 text-sm font-medium text-su-text hover:text-plasma-orange ${FOCUS_RING}`}
-          >
-            Revert last preset application
-          </button>
-        )}
-        {controller.customization.presetId && (
-          <button
-            type="button"
-            onClick={() => controller.resetToBuiltIn(controller.customization.presetId!)}
-            className={`min-h-[40px] rounded-lg border border-su-line/40 bg-void-black px-3 py-1.5 text-sm font-medium text-su-text hover:text-plasma-orange ${FOCUS_RING}`}
-          >
-            Reset to the built-in version
-          </button>
-        )}
-      </div>
-
-      <div className="space-y-2">
-        <h4 className="text-sm font-semibold uppercase tracking-wider text-su-muted">
-          Activity recipes
-        </h4>
-        <p className="text-xs text-su-muted">
-          An activity recipe changes Spots &amp; Paths only — your current
-          layout, projection and camera stay the same.
-        </p>
-        <div role="list" aria-label="Activity recipes" className="space-y-2">
-          {activityRecipes.map((recipe) => (
-            <CatalogRow
-              key={recipe.id}
-              recipe={recipe}
-              summary={summarizeActivitySpots(recipe.spots)}
-              onSelect={() => openPreview(recipe)}
-            />
-          ))}
+      <div className={library.notice ? "space-y-6 mt-6" : "space-y-6"}>
+        <div className="flex flex-wrap items-center gap-3 text-xs text-su-muted">
+          {controller.customization.presetName && (
+            <span data-testid="active-preset">
+              {controller.customization.customized
+                ? `${controller.customization.presetName} (Customized)`
+                : controller.customization.presetName}
+            </span>
+          )}
+          {controller.canRevert && (
+            <button
+              type="button"
+              onClick={controller.revert}
+              className={`min-h-[40px] rounded-lg border border-su-line/40 bg-void-black px-3 py-1.5 text-sm font-medium text-su-text hover:text-plasma-orange ${FOCUS_RING}`}
+            >
+              Revert last preset application
+            </button>
+          )}
+          {controller.customization.presetId && (
+            <button
+              type="button"
+              onClick={() => controller.resetToBuiltIn(controller.customization.presetId!)}
+              className={`min-h-[40px] rounded-lg border border-su-line/40 bg-void-black px-3 py-1.5 text-sm font-medium text-su-text hover:text-plasma-orange ${FOCUS_RING}`}
+            >
+              Reset to the built-in version
+            </button>
+          )}
         </div>
-      </div>
 
-      <div className="space-y-2">
-        <h4 className="text-sm font-semibold uppercase tracking-wider text-su-muted">
-          Display templates
-        </h4>
-        <p className="text-xs text-su-muted">
-          A display template replaces the whole view — layout, panels, text
-          and presentation, not only Spots &amp; Paths.
-        </p>
-        <div role="list" aria-label="Display templates" className="space-y-2">
-          {displayRecipes.map((recipe) => (
-            <CatalogRow
-              key={recipe.id}
-              recipe={recipe}
-              summary={summarizeDisplayConfig(recipe.config)}
-              onSelect={() => openPreview(recipe)}
-            />
-          ))}
-        </div>
-      </div>
-
-      <div className="space-y-2 border-t border-su-line/40 pt-4">
-        <div className="flex items-center justify-between gap-3">
+        <div className="space-y-2">
           <h4 className="text-sm font-semibold uppercase tracking-wider text-su-muted">
-            Custom presets
+            Activity recipes
           </h4>
-          <button
-            type="button"
-            onClick={openSavePrompt}
-            className={`min-h-[40px] rounded-lg bg-plasma-orange px-3 py-1.5 text-sm font-medium text-su-on-accent transition-colors hover:bg-plasma-orange/90 ${FOCUS_RING}`}
-          >
-            Save as preset
-          </button>
-        </div>
-        {library.presets.length === 0 ? (
-          <p className="text-xs text-su-muted">No custom presets saved yet.</p>
-        ) : (
-          <div role="list" aria-label="Custom presets" className="space-y-2">
-            {library.presets.map((entry) => (
-              <CustomPresetRow
-                key={entry.id}
-                entry={entry}
-                onSelect={() => openPreview(entry.value)}
-                onDuplicate={() => void handleDuplicate(entry)}
-                onRename={() => openRenamePrompt(entry)}
-                onDelete={() => setDeleteTarget(entry)}
+          <p className="text-xs text-su-muted">
+            An activity recipe changes Spots &amp; Paths only — your current
+            layout, projection and camera stay the same.
+          </p>
+          <div role="list" aria-label="Activity recipes" className="space-y-2">
+            {activityRecipes.map((recipe) => (
+              <CatalogRow
+                key={recipe.id}
+                recipe={recipe}
+                summary={summarizeActivitySpots(recipe.spots)}
+                onSelect={() => openPreview(recipe)}
               />
             ))}
           </div>
-        )}
+        </div>
+
+        <div className="space-y-2">
+          <h4 className="text-sm font-semibold uppercase tracking-wider text-su-muted">
+            Display templates
+          </h4>
+          <p className="text-xs text-su-muted">
+            A display template replaces the whole view — layout, panels, text
+            and presentation, not only Spots &amp; Paths.
+          </p>
+          <div role="list" aria-label="Display templates" className="space-y-2">
+            {displayRecipes.map((recipe) => (
+              <CatalogRow
+                key={recipe.id}
+                recipe={recipe}
+                summary={summarizeDisplayConfig(recipe.config)}
+                onSelect={() => openPreview(recipe)}
+              />
+            ))}
+          </div>
+        </div>
+
+        <div className="space-y-2 border-t border-su-line/40 pt-4">
+          <div className="flex items-center justify-between gap-3">
+            <h4 className="text-sm font-semibold uppercase tracking-wider text-su-muted">
+              Custom presets
+            </h4>
+            <button
+              type="button"
+              onClick={openSavePrompt}
+              className={`min-h-[40px] rounded-lg bg-plasma-orange px-3 py-1.5 text-sm font-medium text-su-on-accent transition-colors hover:bg-plasma-orange/90 ${FOCUS_RING}`}
+            >
+              Save as preset
+            </button>
+          </div>
+          {library.presets.length === 0 ? (
+            <p className="text-xs text-su-muted">No custom presets saved yet.</p>
+          ) : (
+            <div role="list" aria-label="Custom presets" className="space-y-2">
+              {library.presets.map((entry) => (
+                <CustomPresetRow
+                  key={entry.id}
+                  entry={entry}
+                  onSelect={() => openPreview(entry.value)}
+                  onDuplicate={() => void handleDuplicate(entry)}
+                  onRename={() => openRenamePrompt(entry)}
+                  onDelete={() => setDeleteTarget(entry)}
+                />
+              ))}
+            </div>
+          )}
+        </div>
       </div>
 
       <PresetPreviewDialog

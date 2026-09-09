@@ -70,20 +70,32 @@ function statusLine(args: {
   outcome: ApplyOutcome | null;
 }): string {
   const target = FAMILY_SLOT_LABEL[args.targetSlot];
-  if (args.liveTargetSlot !== args.targetSlot) {
-    const live = FAMILY_SLOT_LABEL[args.liveTargetSlot];
-    return `Your map switched to the ${live} while this section was open. These settings still go to your ${target}; leave and reopen this section to edit the ${live}.`;
-  }
+  let outcome: string | null;
   switch (args.outcome) {
     case "runtime":
-      return `Applied. Your ${target} is showing these settings now.`;
+      outcome = `Applied. Your ${target} is showing these settings now.`;
+      break;
     case "storage":
-      return `Applied. Your ${target} will use these settings the next time you open it.`;
+      outcome = `Applied. Your ${target} will use these settings the next time you open it.`;
+      break;
     case "failed":
-      return `Not applied. This device would not store the change, so your ${target} is unchanged. Try again, or open the map and apply from there.`;
+      outcome = `Not applied. This device would not store the change, so your ${target} is unchanged. Try again, or open the map and apply from there.`;
+      break;
     default:
-      return `These settings will be applied to your ${target}, the map layout you are currently using.`;
+      outcome = null;
   }
+  if (args.liveTargetSlot !== args.targetSlot) {
+    const live = FAMILY_SLOT_LABEL[args.liveTargetSlot];
+    const divergence = `Your map switched to the ${live} while this section was open. These settings still go to your ${target}; leave and reopen this section to edit the ${live}.`;
+    // Appended, not returned early: a diverged target must not swallow the
+    // Apply outcome, least of all a "failed" one — silence there is exactly
+    // what the third outcome exists to prevent.
+    return outcome ? `${divergence} ${outcome}` : divergence;
+  }
+  return (
+    outcome ??
+    `These settings will be applied to your ${target}, the map layout you are currently using.`
+  );
 }
 
 function SpotsPathsControls({

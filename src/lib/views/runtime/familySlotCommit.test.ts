@@ -78,4 +78,30 @@ describe("commitViewToFamilySlot", () => {
       }),
     ).toBe("storage");
   });
+
+  it("reports the memory fallback as failed: a store discarded with the call is not storage", () => {
+    // `defaultSessionStorage()` swallows an access throw and returns null, and
+    // `defaultStorage()` then hands back a per-call in-memory map. The write
+    // and the read-back both hit that map, so the read-back alone cannot tell
+    // the difference — durability has to be reported, not inferred.
+    const own = Object.getOwnPropertyDescriptor(globalThis, "sessionStorage");
+    Object.defineProperty(globalThis, "sessionStorage", {
+      configurable: true,
+      get() {
+        throw new Error("sessionStorage is not available in this context");
+      },
+    });
+    try {
+      expect(
+        commitViewToFamilySlot({
+          ownerId: "owner-c",
+          slotId: "normal",
+          config: configWithLimit(10),
+        }),
+      ).toBe("failed");
+    } finally {
+      if (own) Object.defineProperty(globalThis, "sessionStorage", own);
+      else Reflect.deleteProperty(globalThis, "sessionStorage");
+    }
+  });
 });

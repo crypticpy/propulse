@@ -7,7 +7,7 @@
  * production code.
  */
 import { useEffect } from "react";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -21,6 +21,7 @@ import {
 import {
   createMemoryWorkingStorage,
   getAnonymousInstallId,
+  workingSlotKey,
   WORKING_SLOT_PREFIX,
   type ScopedViewRuntime,
 } from "@/lib/views/runtime";
@@ -304,5 +305,66 @@ describe("SpotsPathsSection storage handoff", () => {
     );
     const mapped = await screen.findByTestId("host-mapped");
     expect(mapped.textContent).toBe("10");
+  });
+
+  /**
+   * The second event on the target: the map layout moves while the section is
+   * open. The mount keeps editing the slot its seed came from — remounting
+   * would silently discard unapplied edits — so the three things that have to
+   * hold together are that the frozen slot is what gets written, that the
+   * button names it, and that the user is told both that the map moved and
+   * what Apply did.
+   */
+  it("keeps writing to the slot it was seeded from when the layout diverges, and still reports the outcome", async () => {
+    const user = userEvent.setup();
+    useAuthStore.setState({ user: null, session: null });
+    useViewLibrarySessionStore.setState({
+      epoch: {},
+      phase: "ready",
+      ownerId: `anon:${getAnonymousInstallId()}`,
+      repository,
+      library,
+      message: null,
+    });
+    useMapStore.setState({ layoutMode: "normal" });
+
+    render(
+      <QueryClientProvider client={client}>
+        <SpotsPathsSection />
+      </QueryClientProvider>,
+    );
+
+    await user.click(
+      await screen.findByRole("button", { name: /Open Spots & paths preferences/i }),
+    );
+    const slider = await screen.findByRole("slider", { name: "Maximum reports shown" });
+    fireEvent.change(slider, { target: { value: "10" } });
+    await user.click(screen.getByRole("button", { name: "Close dialog" }));
+
+    act(() => {
+      useMapStore.setState({ layoutMode: "pro" });
+    });
+
+    expect(
+      screen.getByText(/Your map switched to the Pro map while this section was open\./),
+    ).toBeTruthy();
+    // The label still names the slot that will actually be written, and Apply
+    // is live again because what was applied no longer describes this map.
+    const apply = screen.getByRole("button", {
+      name: /Apply to Standard map/i,
+    }) as HTMLButtonElement;
+    expect(apply.disabled).toBe(false);
+
+    await user.click(apply);
+
+    // The frozen slot, never the new live one.
+    expect(workingSlotKeys()).toEqual([
+      workingSlotKey(`anon:${getAnonymousInstallId()}`, "normal"),
+    ]);
+    // Divergence must not swallow the outcome: both sentences are present.
+    const status = screen.getByText(/Your map switched to the Pro map/);
+    expect(status.textContent).toMatch(
+      /will use these settings the next time you open it\./,
+    );
   });
 });

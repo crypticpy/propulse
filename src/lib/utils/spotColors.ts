@@ -1,3 +1,5 @@
+import { stationContrast } from "@/lib/themes/stationTokens";
+
 // ==========================================================================
 // Spot Color Utilities
 // Consolidated module for all spot color logic (mode-based and band-based).
@@ -30,6 +32,11 @@ export const MODE_COLORS: Record<string, string> = {
   DATA: "#44DDFF", // Cosmic cyan (generic data)
   default: "#888888", // Gray fallback
 };
+
+/** Dark ink for light mode fills. Matches void-black / DS canvas ink. */
+export const MODE_INK_DARK = "#0a0a0a";
+/** Light ink when the fill is dark enough for AA. Station `su-text`, not pure white. */
+export const MODE_INK_LIGHT = "#cad2dc";
 
 /** Historical replay routes deliberately avoid the live mode/band palettes. */
 export const SPOT_REPLAY_COLOR = "#8B7355";
@@ -92,6 +99,29 @@ export function getModeColor(mode: string | undefined): string {
   }
 
   return MODE_COLORS.default;
+}
+
+const AA_TEXT = 4.5;
+
+/**
+ * Ink that meets WCAG AA (≥ 4.5:1) against `fill`. Prefers dark ink on light
+ * fills (FT8 cyan, CW yellow, SSB green) and light ink only when the fill is
+ * dark enough to support it. Contrast math lives in `stationContrast`.
+ */
+export function inkOnFill(fill: string): string {
+  const dark = stationContrast(MODE_INK_DARK, fill);
+  const light = stationContrast(MODE_INK_LIGHT, fill);
+  if (dark >= AA_TEXT && dark >= light) return MODE_INK_DARK;
+  if (light >= AA_TEXT) return MODE_INK_LIGHT;
+  return dark >= light ? MODE_INK_DARK : MODE_INK_LIGHT;
+}
+
+/**
+ * Label ink for a mode-colour fill. Use at every `backgroundColor: modeColor`
+ * badge so components do not hardcode white or black.
+ */
+export function modeInk(mode: string | undefined): string {
+  return inkOnFill(getModeColor(mode));
 }
 
 /**

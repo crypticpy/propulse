@@ -11,7 +11,7 @@
 import { AccessibleDialog } from "@/components/ui/AccessibleDialog";
 import type { LiveSpot } from "@/types/livespot";
 import { SPOT_SOURCE_COLORS } from "@/types/livespot";
-import { getModeColor } from "@/lib/utils/spotColors";
+import { getModeColor, modeInk } from "@/lib/utils/spotColors";
 import {
   formatSpotAge,
   getAgeBadgeColors,
@@ -73,6 +73,7 @@ export function SpotDetailsModal({ spot, onClose }: SpotDetailsModalProps) {
   const spotTime =
     spot.time instanceof Date ? spot.time : new Date(spot.time);
   const modeColor = getModeColor(spot.mode);
+  const modeInkColor = modeInk(spot.mode);
   const sourceColors = SPOT_SOURCE_COLORS[spot.source];
   const ageColors = getAgeBadgeColors(getSpotAgeInfo(spotTime).ageCategory);
   const hasDxCoordinates =
@@ -95,8 +96,8 @@ export function SpotDetailsModal({ spot, onClose }: SpotDetailsModalProps) {
         <div className="flex flex-wrap items-center gap-2 px-5 py-4">
           {spot.mode && (
             <span
-              className="rounded px-2 py-0.5 text-[10px] font-bold text-su-text"
-              style={{ backgroundColor: modeColor }}
+              className="rounded px-2 py-0.5 text-[10px] font-bold"
+              style={{ backgroundColor: modeColor, color: modeInkColor }}
             >
               {spot.mode}
             </span>

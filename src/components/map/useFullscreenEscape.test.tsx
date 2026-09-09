@@ -1,13 +1,50 @@
 import { useEffect } from "react";
-import { render, waitFor } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { MemoryRouter } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { AccessibleDialog } from "@/components/ui/AccessibleDialog";
 import { useMapStore } from "@/stores/mapStore";
+import type { SatelliteInfoExtended } from "@/types/satellite";
+import SatelliteDetailModal from "./layers/SatelliteDetailModal";
 import {
   useFullscreenEscape,
   type UseFullscreenEscapeOptions,
 } from "./useFullscreenEscape";
+
+const { useSatellitesMock } = vi.hoisted(() => ({
+  useSatellitesMock: vi.fn(),
+}));
+
+// SatelliteDetailModal's own data hooks fetch (TLE query, SatNOGS proxy);
+// mocked here for the same reason as SatelliteDetailModal.test.tsx — this
+// file is only exercising the interaction between the real, migrated dialog
+// and useFullscreenEscape's document-level guard.
+vi.mock("@/hooks/useSatellites", () => ({
+  useSatellites: useSatellitesMock,
+}));
+vi.mock("@/hooks/useSatelliteTransponders", () => ({
+  useSatelliteTransponders: () => ({
+    transponders: [],
+    isLoading: false,
+    error: null,
+    isAvailable: false,
+  }),
+}));
+
+const FAKE_SATELLITE: SatelliteInfoExtended = {
+  name: "TEST-SAT-1",
+  line1:
+    "1 99999U 00000A   26001.00000000  .00000000  00000-0  00000-0 0  9990",
+  line2:
+    "2 99999  00.0000 000.0000 0000000 000.0000 000.0000 15.00000000000010",
+  noradId: 99999,
+  position: { lat: 10, lon: 20, alt: 500, velocity: 7.5 },
+  isVisible: false,
+  category: "other",
+  tleAge: "fresh",
+  isCustom: false,
+};
 
 /**
  * Stand-in for the ~11 modals issue #801 describes as still affected until
@@ -53,6 +90,7 @@ function Harness(props: UseFullscreenEscapeOptions) {
 describe("useFullscreenEscape", () => {
   afterEach(() => {
     useMapStore.setState({ satelliteModalId: null });
+    useSatellitesMock.mockReset();
   });
 
   it("exits fullscreen on Escape when no dialog is open", async () => {
@@ -173,21 +211,44 @@ describe("useFullscreenEscape", () => {
     expect(setFullscreen).not.toHaveBeenCalled();
   });
 
-  it("does not exit fullscreen while the satellite detail modal owns satelliteModalId", async () => {
+  it("does not exit fullscreen while the real, migrated SatelliteDetailModal is open, and does once it closes (#805)", async () => {
     const user = userEvent.setup();
     const setFullscreen = vi.fn();
-    useMapStore.setState({ satelliteModalId: 25544 });
+    useSatellitesMock.mockReturnValue({
+      selectedSatellite: FAKE_SATELLITE,
+      nextPasses: [],
+    });
+    useMapStore.setState({ satelliteModalId: FAKE_SATELLITE.noradId });
+
     render(
-      <Harness
-        observatoryMode={false}
-        exitObservatory={vi.fn()}
-        setAmbientMode={vi.fn()}
-        setFullscreen={setFullscreen}
-      />,
+      <MemoryRouter>
+        <Harness
+          observatoryMode={false}
+          exitObservatory={vi.fn()}
+          setAmbientMode={vi.fn()}
+          setFullscreen={setFullscreen}
+        />
+        <SatelliteDetailModal />
+      </MemoryRouter>,
     );
+    await screen.findByRole("dialog", { name: FAKE_SATELLITE.name });
 
+    // Blocked: the satellite modal is open and carries aria-modal="true"
+    // itself now (migrated to AccessibleDialog in #805) — this hook no
+    // longer needs any satelliteModalId-specific knowledge to yield to it;
+    // the general dialog predicate above covers it like every other dialog.
     await user.keyboard("{Escape}");
-
     expect(setFullscreen).not.toHaveBeenCalled();
+    // That same Escape also closed the satellite modal — it owns Escape via
+    // AccessibleDialog's capture-phase handler.
+    expect(useMapStore.getState().satelliteModalId).toBeNull();
+
+    // Positive control: with the modal gone, the same key now reaches the
+    // fullscreen handler. Without this, a guard that swallowed every Escape
+    // unconditionally (or a modal stuck open) would also satisfy the
+    // assertion above.
+    await user.keyboard("{Escape}");
+    expect(setFullscreen).toHaveBeenCalledTimes(1);
+    expect(setFullscreen).toHaveBeenCalledWith(false);
   });
 });

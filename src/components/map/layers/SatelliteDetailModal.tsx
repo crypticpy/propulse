@@ -4,12 +4,12 @@
  * Opens when `satelliteModalId` is set in mapStore (independent of the
  * follower popup's `selectedSatelliteId`). Shows satellite position data,
  * transponder info with Doppler correction, and pass predictions. Rendered
- * via createPortal to document.body.
+ * through `AccessibleDialog`, which portals to document.body itself.
  */
 
-import { useMemo, useEffect, useCallback } from "react";
-import { createPortal } from "react-dom";
+import { useMemo, useCallback, useId } from "react";
 import { format, formatDistanceToNow } from "date-fns";
+import { AccessibleDialog } from "@/components/ui/AccessibleDialog";
 import { useMapStore } from "@/stores/mapStore";
 import { useSatellites } from "@/hooks/useSatellites";
 import { useSatelliteTransponders } from "@/hooks/useSatelliteTransponders";
@@ -393,10 +393,12 @@ function SatelliteDetailContent({
   satellite,
   passes,
   onClose,
+  titleId,
 }: {
   satellite: SatelliteInfo;
   passes: PassPrediction[];
   onClose: () => void;
+  titleId: string;
 }) {
   const { lat, lon, alt, velocity } = satellite.position;
   const { station } = useUserStore();
@@ -458,9 +460,12 @@ function SatelliteDetailContent({
       <div className="flex items-center gap-2 mb-3 flex-shrink-0">
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
-            <span className="text-sm font-medium text-su-text truncate">
+            <h2
+              id={titleId}
+              className="text-sm font-medium text-su-text truncate"
+            >
               {satellite.name}
-            </span>
+            </h2>
             <CategoryBadge category={satellite.category} />
             <VisibilityDot isVisible={satellite.isVisible} />
           </div>
@@ -612,48 +617,59 @@ function SatelliteDetailContent({
 // ---------------------------------------------------------------------------
 
 export default function SatelliteDetailModal() {
+  // Reading only `satelliteModalId` here (instead of also calling
+  // useSatellites unconditionally) keeps the expensive TLE query, position
+  // timer and satellite-list useMemo in `SatelliteDetailModalInner` out of
+  // every PropSphere render — they only run while a satellite modal is
+  // actually open. See #805.
   const satelliteModalId = useMapStore((s) => s.satelliteModalId);
-  const setSatelliteModalId = useMapStore((s) => s.setSatelliteModalId);
 
-  const { selectedSatellite, nextPasses } = useSatellites(true, satelliteModalId);
+  if (satelliteModalId === null) return null;
+
+  return <SatelliteDetailModalInner satelliteModalId={satelliteModalId} />;
+}
+
+function SatelliteDetailModalInner({
+  satelliteModalId,
+}: {
+  satelliteModalId: number;
+}) {
+  const setSatelliteModalId = useMapStore((s) => s.setSatelliteModalId);
+  const { selectedSatellite, nextPasses } = useSatellites(
+    true,
+    satelliteModalId,
+  );
+  const titleId = useId();
 
   const handleClose = useCallback(() => {
     setSatelliteModalId(null);
   }, [setSatelliteModalId]);
 
-  // Escape key handler
-  useEffect(() => {
-    if (satelliteModalId === null) return;
-    function handleKey(e: KeyboardEvent) {
-      if (e.key === "Escape") handleClose();
-    }
-    document.addEventListener("keydown", handleKey);
-    return () => document.removeEventListener("keydown", handleKey);
-  }, [satelliteModalId, handleClose]);
+  // Render nothing until the satellite behind satelliteModalId resolves.
+  // AccessibleDialog supplies role="dialog", aria-modal, capture-phase
+  // Escape (with stopImmediatePropagation), the backdrop button, background
+  // inerting, scroll lock and initial focus.
+  if (!selectedSatellite) return null;
 
-  // Render nothing when no satellite is selected
-  if (satelliteModalId === null || !selectedSatellite) return null;
-
-  return createPortal(
-    <div
-      className="fixed inset-0 z-[300] flex items-center justify-center"
-      onClick={handleClose}
+  return (
+    <AccessibleDialog
+      open
+      onClose={handleClose}
+      title={selectedSatellite.name}
+      chrome="bare"
+      labelledBy={titleId}
+      zIndexClassName="z-[300]"
+      panelProps={{
+        className:
+          "w-full max-w-md mx-4 bg-su-canvas border border-su-line/40 rounded-xl shadow-2xl shadow-black/60 p-4",
+      }}
     >
-      {/* Backdrop */}
-      <div className="absolute inset-0 bg-black/50" />
-
-      {/* Modal content */}
-      <div
-        className="relative w-full max-w-md mx-4 bg-su-canvas border border-su-line/40 rounded-xl shadow-2xl shadow-black/60 p-4"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <SatelliteDetailContent
-          satellite={selectedSatellite}
-          passes={nextPasses}
-          onClose={handleClose}
-        />
-      </div>
-    </div>,
-    document.body,
+      <SatelliteDetailContent
+        satellite={selectedSatellite}
+        passes={nextPasses}
+        onClose={handleClose}
+        titleId={titleId}
+      />
+    </AccessibleDialog>
   );
 }

@@ -19,7 +19,6 @@ import { ConnectionsSection } from "@/components/settings/sections/ConnectionsSe
 import { CredentialsSection } from "@/components/settings/sections/CredentialsSection";
 import { DataAccountSection } from "@/components/settings/sections/DataAccountSection";
 import { SubscriptionSection } from "@/components/settings/sections/SubscriptionSection";
-import { SpotsPathsSection } from "@/components/settings/sections/SpotsPathsSection";
 import { ContestAlertProfiles } from "@/components/alerts";
 
 // ─── Section definitions ─────────────────────────────────────────────────────
@@ -141,26 +140,6 @@ const SECTION_ICONS: Record<string, React.ReactNode> = {
       />
     </svg>
   ),
-  spotsPaths: (
-    <svg
-      className="w-4 h-4"
-      fill="none"
-      viewBox="0 0 24 24"
-      stroke="currentColor"
-      strokeWidth={1.5}
-    >
-      <path
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        d="M15 10.5a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z"
-      />
-      <path
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1 1 15 0Z"
-      />
-    </svg>
-  ),
 };
 
 const SECTIONS: SectionDef[] = [
@@ -168,7 +147,6 @@ const SECTIONS: SectionDef[] = [
   { id: "appearance", label: "Appearance", icon: "appearance" },
   { id: "notifications", label: "Notifications", icon: "notifications" },
   { id: "connections", label: "Connections", icon: "connections" },
-  { id: "spots-paths", label: "Spots & Paths", icon: "spotsPaths" },
   { id: "credentials", label: "QSL Credentials", icon: "credentials" },
   { id: "subscription", label: "Subscription", icon: "subscription" },
   { id: "data", label: "Data & Account", icon: "data" },
@@ -181,7 +159,6 @@ const SECTION_COMPONENTS: Record<string, React.FC> = {
   appearance: AppearanceSection,
   notifications: NotificationsSection,
   connections: ConnectionsSection,
-  "spots-paths": SpotsPathsSection,
   credentials: CredentialsSection,
   subscription: SubscriptionSection,
   data: DataAccountSection,
@@ -374,8 +351,6 @@ function getSectionDescription(sectionId: string): string {
       return "Propagation alerts, audio, and watch notifications";
     case "connections":
       return "DX Cluster and CAT rig control connections";
-    case "spots-paths":
-      return "Spot filters, grouping, path motion, and saved views";
     case "credentials":
       return "Encrypted QSL service credentials for LoTW, eQSL, QRZ, and Club Log";
     case "subscription":

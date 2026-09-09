@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, within } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it } from "vitest";
 import {
@@ -176,7 +176,7 @@ describe("ActivitySection", () => {
     handleB.dispose();
   });
 
-  it("writes spot-limit and max-age sliders within their documented ranges", () => {
+  it("writes spot-limit and max-age sliders within their documented ranges", async () => {
     const handle = createTestView();
     render(<Harness view={handle.view} />);
 
@@ -187,9 +187,13 @@ describe("ActivitySection", () => {
       target: { value: "120" },
     });
 
-    const filters = handle.view.store.getState().config.spots.filters;
-    expect(filters.maxAgeMinutes).toBe(45);
-    expect(filters.spotLimit).toBe(120);
+    // Slider commits are debounced (N4 perf fix); wait for the trailing-edge
+    // write to land in the store instead of asserting synchronously.
+    await waitFor(() => {
+      const filters = handle.view.store.getState().config.spots.filters;
+      expect(filters.maxAgeMinutes).toBe(45);
+      expect(filters.spotLimit).toBe(120);
+    });
     handle.dispose();
   });
 

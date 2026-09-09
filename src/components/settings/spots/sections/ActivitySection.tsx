@@ -22,6 +22,7 @@ import {
   type ModeCategoryKey,
 } from "@/components/settings/spots/modeSelection";
 import type { SpotsPreferencesController } from "@/components/settings/spots/types";
+import { useDebouncedSliderCommit } from "@/components/settings/spots/useDebouncedSliderCommit";
 import { SettingSlider } from "@/components/settings/ui";
 import { normalizeModeSelection } from "@/lib/spots/presentation/modes";
 import type { FollowStatus } from "@/lib/views/runtime";
@@ -140,6 +141,14 @@ export function ActivitySection({
   controller: SpotsPreferencesController;
 }) {
   const filters = controller.spots.filters;
+  const [maxAgeMinutes, commitMaxAgeMinutes] = useDebouncedSliderCommit(
+    filters.maxAgeMinutes,
+    (maxAgeMinutes) => controller.patchFilters({ maxAgeMinutes }),
+  );
+  const [spotLimit, commitSpotLimit] = useDebouncedSliderCommit(
+    filters.spotLimit,
+    (spotLimit) => controller.patchFilters({ spotLimit }),
+  );
   const modes = filters.modes;
   const normalized = normalizeModeSelection(modes);
   const catalog = modeCatalog();
@@ -341,11 +350,11 @@ export function ActivitySection({
           id={uid("max-age")}
           label="Maximum report age"
           description="Reports older than this are hidden. Increasing this cannot recover reports a source did not supply."
-          value={filters.maxAgeMinutes}
+          value={maxAgeMinutes}
           min={1}
           max={60}
           formatValue={(value) => `${value} min`}
-          onChange={(value) => controller.patchFilters({ maxAgeMinutes: value })}
+          onChange={commitMaxAgeMinutes}
         />
 
         {/* FILTER-03: follow radio */}
@@ -368,11 +377,11 @@ export function ActivitySection({
           id={uid("spot-limit")}
           label="Maximum reports shown"
           description="Counts individual reports, including reports inside clusters, not map hexagons. Raising this cannot recover reports a source did not supply."
-          value={filters.spotLimit}
+          value={spotLimit}
           min={10}
           max={200}
           formatValue={(value) => `${value} reports`}
-          onChange={(value) => controller.patchFilters({ spotLimit: value })}
+          onChange={commitSpotLimit}
         />
 
         {/* FILTER-04: summary and reset */}

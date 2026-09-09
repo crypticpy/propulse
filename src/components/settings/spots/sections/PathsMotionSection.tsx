@@ -6,6 +6,7 @@
  * the background appearance whenever `paths.selected` is null (MOTION-02).
  */
 import { ConditionalSubSettings, SegmentedButton, SettingSlider } from "../../ui";
+import { useDebouncedSliderCommit } from "../useDebouncedSliderCommit";
 import type { PathPreferences, SpotsPreferencesController } from "../types";
 
 type PathAppearance = PathPreferences["background"];
@@ -83,34 +84,7 @@ export function PathsMotionSection({ controller }: { controller: SpotsPreference
         </ConditionalSubSettings>
       </div>
 
-      <div role="group" aria-label="Animation budget" className="space-y-3">
-        <SettingSlider
-          id={`${controller.instanceId}-paths-max-active`}
-          label="Maximum simultaneous animations"
-          description="Turn this down on slower devices. When the budget runs out the
-            oldest pending animation is dropped — report data is never
-            dropped — and 'All displayed paths' keeps its static paths once
-            the budget is exhausted."
-          value={paths.maxActive}
-          min={1}
-          max={12}
-          step={1}
-          formatValue={(value) => `${value}`}
-          onChange={(maxActive) => controller.patchPaths({ maxActive })}
-        />
-        <SettingSlider
-          id={`${controller.instanceId}-paths-max-pending`}
-          label="Pending animation queue"
-          description="How many animations can wait their turn before the oldest
-            pending one is dropped. Report data is never dropped."
-          value={paths.maxPending}
-          min={0}
-          max={100}
-          step={1}
-          formatValue={(value) => `${value}`}
-          onChange={(maxPending) => controller.patchPaths({ maxPending })}
-        />
-      </div>
+      <AnimationBudgetControls controller={controller} paths={paths} />
 
       <Toggle
         id={reduceMotionId}
@@ -125,6 +99,53 @@ export function PathsMotionSection({ controller }: { controller: SpotsPreference
   );
 }
 
+function AnimationBudgetControls({
+  controller,
+  paths,
+}: {
+  controller: SpotsPreferencesController;
+  paths: PathPreferences;
+}) {
+  const [maxActive, commitMaxActive] = useDebouncedSliderCommit(
+    paths.maxActive,
+    (maxActive) => controller.patchPaths({ maxActive }),
+  );
+  const [maxPending, commitMaxPending] = useDebouncedSliderCommit(
+    paths.maxPending,
+    (maxPending) => controller.patchPaths({ maxPending }),
+  );
+  return (
+    <div role="group" aria-label="Animation budget" className="space-y-3">
+      <SettingSlider
+        id={`${controller.instanceId}-paths-max-active`}
+        label="Maximum simultaneous animations"
+        description="Turn this down on slower devices. When the budget runs out the
+          oldest pending animation is dropped — report data is never
+          dropped — and 'All displayed paths' keeps its static paths once
+          the budget is exhausted."
+        value={maxActive}
+        min={1}
+        max={12}
+        step={1}
+        formatValue={(value) => `${value}`}
+        onChange={commitMaxActive}
+      />
+      <SettingSlider
+        id={`${controller.instanceId}-paths-max-pending`}
+        label="Pending animation queue"
+        description="How many animations can wait their turn before the oldest
+          pending one is dropped. Report data is never dropped."
+        value={maxPending}
+        min={0}
+        max={100}
+        step={1}
+        formatValue={(value) => `${value}`}
+        onChange={commitMaxPending}
+      />
+    </div>
+  );
+}
+
 function PathAppearanceControls({
   idPrefix,
   ariaLabel,
@@ -136,6 +157,22 @@ function PathAppearanceControls({
   value: PathAppearance;
   onChange: (patch: Partial<PathAppearance>) => void;
 }) {
+  const [travelSeconds, commitTravelSeconds] = useDebouncedSliderCommit(
+    value.travelSeconds,
+    (travelSeconds) => onChange({ travelSeconds }),
+  );
+  const [trailSeconds, commitTrailSeconds] = useDebouncedSliderCommit(
+    value.trailSeconds,
+    (trailSeconds) => onChange({ trailSeconds }),
+  );
+  const [fadeSeconds, commitFadeSeconds] = useDebouncedSliderCommit(
+    value.fadeSeconds,
+    (fadeSeconds) => onChange({ fadeSeconds }),
+  );
+  const [repeatSeconds, commitRepeatSeconds] = useDebouncedSliderCommit(
+    value.repeatSeconds,
+    (repeatSeconds) => onChange({ repeatSeconds }),
+  );
   return (
     <div role="group" aria-label={ariaLabel} className="space-y-3">
       <div className="space-y-2">
@@ -174,44 +211,44 @@ function PathAppearanceControls({
             id={`${idPrefix}-travel`}
             label="Travel duration"
             description="Visual pacing only — not physical radio travel time."
-            value={value.travelSeconds}
+            value={travelSeconds}
             min={0.25}
             max={5}
             step={0.05}
             formatValue={(v) => `${v.toFixed(2)} s`}
-            onChange={(travelSeconds) => onChange({ travelSeconds })}
+            onChange={commitTravelSeconds}
           />
           <SettingSlider
             id={`${idPrefix}-trail`}
             label="Trail persistence"
-            value={value.trailSeconds}
+            value={trailSeconds}
             min={0}
             max={30}
             step={0.5}
             formatValue={(v) => `${v.toFixed(1)} s`}
-            onChange={(trailSeconds) => onChange({ trailSeconds })}
+            onChange={commitTrailSeconds}
           />
           <SettingSlider
             id={`${idPrefix}-fade`}
             label="Fade time"
-            value={value.fadeSeconds}
+            value={fadeSeconds}
             min={0}
             max={5}
             step={0.05}
             formatValue={(v) => `${v.toFixed(2)} s`}
-            onChange={(fadeSeconds) => onChange({ fadeSeconds })}
+            onChange={commitFadeSeconds}
           />
           <SettingSlider
             id={`${idPrefix}-repeat`}
             label="Repeat interval"
             description="Only applies to styles that repeat continuously; it has no
               effect once a style's animation completes just once."
-            value={value.repeatSeconds}
+            value={repeatSeconds}
             min={1}
             max={10}
             step={0.5}
             formatValue={(v) => `${v.toFixed(1)} s`}
-            onChange={(repeatSeconds) => onChange({ repeatSeconds })}
+            onChange={commitRepeatSeconds}
           />
           <Toggle
             id={`${idPrefix}-arrival-pulse`}

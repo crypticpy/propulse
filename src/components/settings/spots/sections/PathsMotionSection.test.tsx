@@ -1,4 +1,4 @@
-import { render, screen, within } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it } from "vitest";
 import { useSpotsPreferences } from "../useSpotsPreferences";
@@ -91,33 +91,43 @@ describe("PathsMotionSection", () => {
     expect(latest?.spots.paths.selected).toEqual(latest?.spots.paths.background);
   });
 
-  it("writes each background timing slider within its documented range and shows units", () => {
+  it("writes each background timing slider within its documented range and shows units", async () => {
     let latest: SpotsPreferencesController | undefined;
     mount((controller) => {
       latest = controller;
     });
     const group = screen.getByRole("group", { name: "Background path timing" });
 
+    // Slider commits are debounced (N4 perf fix); wait for the trailing-edge
+    // write to land in the store instead of asserting synchronously.
     const travel = within(group).getByRole("slider", { name: "Travel duration" });
     expect(travel.getAttribute("aria-valuetext")).toContain("s");
     fireSlider(travel, 3);
-    expect(latest?.spots.paths.background.travelSeconds).toBeGreaterThanOrEqual(0.25);
-    expect(latest?.spots.paths.background.travelSeconds).toBeLessThanOrEqual(5);
+    await waitFor(() => {
+      expect(latest?.spots.paths.background.travelSeconds).toBeGreaterThanOrEqual(0.25);
+      expect(latest?.spots.paths.background.travelSeconds).toBeLessThanOrEqual(5);
+    });
 
     const trail = within(group).getByRole("slider", { name: "Trail persistence" });
     fireSlider(trail, 20);
-    expect(latest?.spots.paths.background.trailSeconds).toBeGreaterThanOrEqual(0);
-    expect(latest?.spots.paths.background.trailSeconds).toBeLessThanOrEqual(30);
+    await waitFor(() => {
+      expect(latest?.spots.paths.background.trailSeconds).toBeGreaterThanOrEqual(0);
+      expect(latest?.spots.paths.background.trailSeconds).toBeLessThanOrEqual(30);
+    });
 
     const fade = within(group).getByRole("slider", { name: "Fade time" });
     fireSlider(fade, 2);
-    expect(latest?.spots.paths.background.fadeSeconds).toBeGreaterThanOrEqual(0);
-    expect(latest?.spots.paths.background.fadeSeconds).toBeLessThanOrEqual(5);
+    await waitFor(() => {
+      expect(latest?.spots.paths.background.fadeSeconds).toBeGreaterThanOrEqual(0);
+      expect(latest?.spots.paths.background.fadeSeconds).toBeLessThanOrEqual(5);
+    });
 
     const repeat = within(group).getByRole("slider", { name: "Repeat interval" });
     fireSlider(repeat, 8);
-    expect(latest?.spots.paths.background.repeatSeconds).toBeGreaterThanOrEqual(1);
-    expect(latest?.spots.paths.background.repeatSeconds).toBeLessThanOrEqual(10);
+    await waitFor(() => {
+      expect(latest?.spots.paths.background.repeatSeconds).toBeGreaterThanOrEqual(1);
+      expect(latest?.spots.paths.background.repeatSeconds).toBeLessThanOrEqual(10);
+    });
   });
 
   it("toggles reduce motion", async () => {
@@ -131,20 +141,24 @@ describe("PathsMotionSection", () => {
     expect(latest?.spots.paths.reduceMotion).toBe(true);
   });
 
-  it("writes max active and max pending within range", () => {
+  it("writes max active and max pending within range", async () => {
     let latest: SpotsPreferencesController | undefined;
     mount((controller) => {
       latest = controller;
     });
     const maxActive = screen.getByRole("slider", { name: "Maximum simultaneous animations" });
     fireSlider(maxActive, 6);
-    expect(latest?.spots.paths.maxActive).toBeGreaterThanOrEqual(1);
-    expect(latest?.spots.paths.maxActive).toBeLessThanOrEqual(12);
+    await waitFor(() => {
+      expect(latest?.spots.paths.maxActive).toBeGreaterThanOrEqual(1);
+      expect(latest?.spots.paths.maxActive).toBeLessThanOrEqual(12);
+    });
 
     const maxPending = screen.getByRole("slider", { name: "Pending animation queue" });
     fireSlider(maxPending, 30);
-    expect(latest?.spots.paths.maxPending).toBeGreaterThanOrEqual(0);
-    expect(latest?.spots.paths.maxPending).toBeLessThanOrEqual(100);
+    await waitFor(() => {
+      expect(latest?.spots.paths.maxPending).toBeGreaterThanOrEqual(0);
+      expect(latest?.spots.paths.maxPending).toBeLessThanOrEqual(100);
+    });
   });
 
   it("does not touch filters or grouping when motion changes", async () => {

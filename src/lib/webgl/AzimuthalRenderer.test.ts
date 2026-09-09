@@ -238,4 +238,93 @@ describe("AzimuthalRenderer context ownership", () => {
     expect(onError.mock.calls[0][0].message).toBe("WebGL context lost");
     expect(host.querySelectorAll("canvas")).toHaveLength(0);
   });
+
+  it("releases the canvas and context slot when the shader program fails to link", async () => {
+    const loseContext = vi.fn();
+    const getExtension = vi.fn((name: string) =>
+      name === "WEBGL_lose_context" ? { loseContext } : null,
+    );
+    vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockImplementation(
+      function (this: HTMLCanvasElement, type?: string): RenderingContext | null {
+        if (type !== "webgl") {
+          return null;
+        }
+        // Shader stages compile fine; only program linking fails, so this
+        // exercises the `createShaderProgram` -> null path distinct from the
+        // "no context"/"context lost" exits above it.
+        return {
+          canvas: this,
+          isContextLost: () => false,
+          createShader: vi.fn(() => ({})),
+          shaderSource: vi.fn(),
+          compileShader: vi.fn(),
+          getShaderParameter: vi.fn(() => true),
+          getShaderInfoLog: vi.fn(() => ""),
+          deleteShader: vi.fn(),
+          createProgram: vi.fn(() => ({})),
+          attachShader: vi.fn(),
+          linkProgram: vi.fn(),
+          getProgramParameter: vi.fn(() => false),
+          getProgramInfoLog: vi.fn(() => "mock link failure"),
+          deleteProgram: vi.fn(),
+          getExtension,
+        } as unknown as WebGLRenderingContext;
+      } as never,
+    );
+
+    const onError = vi.fn();
+    const host = document.createElement("div");
+    const renderer = new AzimuthalRenderer({ onError });
+
+    await expect(renderer.initialize(host)).resolves.toBe(false);
+
+    expect(onError).toHaveBeenCalledTimes(1);
+    expect(onError.mock.calls[0][0]).toBeInstanceOf(Error);
+    expect(onError.mock.calls[0][0].message).toBe(
+      "Failed to create shader program",
+    );
+    // The canvas must not be left orphaned in the DOM...
+    expect(host.querySelectorAll("canvas")).toHaveLength(0);
+    // ...and the context slot must be released, same as the three
+    // neighbouring failure exits (no-context / context-lost / disposed).
+    expect(getExtension).toHaveBeenCalledWith("WEBGL_lose_context");
+    expect(loseContext).toHaveBeenCalledTimes(1);
+  });
+
+  it("rejects a second initialize() call on an already-initialized instance", async () => {
+    installPerCanvasWebGL();
+    const host = document.createElement("div");
+    document.body.appendChild(host);
+
+    const renderer = new AzimuthalRenderer({ enableNight: false });
+    await expect(renderer.initialize(host)).resolves.toBe(true);
+    expect(host.querySelectorAll("canvas")).toHaveLength(1);
+    const firstCanvas = host.querySelector("canvas");
+
+    await expect(renderer.initialize(host)).resolves.toBe(false);
+    // No second canvas was created, and the first is still owned/attached.
+    expect(host.querySelectorAll("canvas")).toHaveLength(1);
+    expect(host.querySelector("canvas")).toBe(firstCanvas);
+
+    renderer.dispose();
+    host.remove();
+  });
+
+  it("resolves false when dispose() lands during the loadTextures() await", async () => {
+    installPerCanvasWebGL();
+    const host = document.createElement("div");
+    document.body.appendChild(host);
+
+    const renderer = new AzimuthalRenderer({ enableNight: false });
+    // initialize() runs synchronously up to `await this.loadTextures()`
+    // before returning this pending promise; dispose() below therefore runs
+    // before that await's continuation gets a turn on the microtask queue.
+    const initPromise = renderer.initialize(host);
+    renderer.dispose();
+
+    await expect(initPromise).resolves.toBe(false);
+    expect(host.querySelectorAll("canvas")).toHaveLength(0);
+
+    host.remove();
+  });
 });

@@ -43,7 +43,7 @@ import {
   type DifficultyLevel,
 } from "./LocationMarker";
 import { getSpotAgeOpacity } from "@/lib/utils/canvas";
-import { AzimuthalRenderer } from "@/lib/webgl/AzimuthalRenderer";
+import { AzimuthalRenderer, CANVAS_SIZE } from "@/lib/webgl/AzimuthalRenderer";
 import { TargetHoverTooltip } from "./TargetHoverTooltip";
 import { SpotHoverPreview } from "./SpotHoverPreview";
 import { SelectedSpotCard } from "./SelectedSpotCard";
@@ -130,7 +130,6 @@ interface AzimuthalViewProps {
 
 // Canvas dimensions (square for circular projection)
 // These are now used as defaults/internal references
-const CANVAS_SIZE = 600;
 const CENTER = CANVAS_SIZE / 2;
 const RADIUS = CANVAS_SIZE / 2 - 40; // Leave margin for labels
 

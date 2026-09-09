@@ -15,6 +15,7 @@ import {
   lazy,
   Suspense,
   useEffect,
+  useLayoutEffect,
   useCallback,
   useMemo,
   useRef,
@@ -109,11 +110,13 @@ function restoreForcedHeroProjection(latch: HeroForceLatch) {
   if (map.viewMode !== preferred) {
     map.setViewMode(preferred);
   }
+  // `restoreActivePresetId` re-marks the preset active without re-applying
+  // its stored rotation/zoom, so any pan/zoom the operator did while the
+  // projection was forced survives the restore (#691 M2). `setViewMode`
+  // above already cleared `activePresetId`, so this always needs to run
+  // when there is a preset to bring back.
   if (presetToRestore) {
-    map.setActivePreset(presetToRestore);
-    if (useMapStore.getState().viewMode !== preferred) {
-      useMapStore.setState({ viewMode: preferred });
-    }
+    map.restoreActivePresetId(presetToRestore);
   }
 }
 
@@ -176,7 +179,12 @@ export function HamClockView({
   const resolvedProjection = heroProjection.projection;
   const blockerKey = heroProjection.forcedBy.join(",");
 
-  useEffect(() => {
+  // Layout effect, not a plain effect: the force must land before the
+  // browser paints, or the first frame renders with the still-unforced
+  // `viewMode` and `formatHeroProjectionChip` reads that as a yield
+  // (`"...cannot draw..."`) for one frame before flipping to the correct
+  // "Switched to..." copy on the next (#691 M4).
+  useLayoutEffect(() => {
     const map = useMapStore.getState();
     const yieldKey = `${blockerKey}|${preferredViewMode}`;
     const preferredChanged = lastPreferredRef.current !== preferredViewMode;

@@ -11,6 +11,13 @@ import { createPortal } from "react-dom";
 const FOCUSABLE =
   'a[href], button:not([disabled]):not([tabindex="-1"]), input:not([disabled]):not([tabindex="-1"]), select:not([disabled]):not([tabindex="-1"]), textarea:not([disabled]):not([tabindex="-1"]), [tabindex]:not([tabindex="-1"])';
 
+type OpenDialogStackEntry = {
+  token: symbol;
+  portalRoot: HTMLElement | null;
+  opener: HTMLElement | null;
+  isOpen: boolean;
+};
+
 /**
  * Open dialogs in mounting order, with the active/topmost dialog last.
  *
@@ -19,7 +26,7 @@ const FOCUSABLE =
  * dialog also needs this stack guard: an outer dialog must yield to a nested
  * dialog instead of consuming the keypress and unmounting both.
  */
-const openDialogStack: { token: symbol; portalRoot: HTMLElement | null }[] = [];
+const openDialogStack: OpenDialogStackEntry[] = [];
 
 /**
  * What each background element looked like before this module first hid it.
@@ -51,7 +58,7 @@ function restoreOriginal(element: HTMLElement): void {
  * under the dialog that still is.
  */
 function syncBackgroundInert(): void {
-  const top = openDialogStack[openDialogStack.length - 1];
+  const top = openDialogStack.slice().reverse().find((entry) => entry.isOpen);
   if (!top) {
     for (const element of originalBackgroundState.keys()) restoreOriginal(element);
     originalBackgroundState.clear();
@@ -78,6 +85,18 @@ function syncBackgroundInert(): void {
     child.inert = true;
     child.setAttribute("aria-hidden", "true");
   }
+}
+
+function getDeepestSurvivingOpener(): HTMLElement | null {
+  for (let i = openDialogStack.length - 1; i >= 0; i -= 1) {
+    const opener = openDialogStack[i].opener;
+    if (opener?.isConnected) return opener;
+  }
+  return null;
+}
+
+function isTopmostOpen(token: symbol): boolean {
+  return openDialogStack.slice().reverse().find((entry) => entry.isOpen)?.token === token;
 }
 
 export interface AccessibleDialogProps {
@@ -133,7 +152,6 @@ export function AccessibleDialog({
   const titleId = useId();
   const descriptionId = useId();
   const dialogRef = useRef<HTMLDivElement>(null);
-  const openerRef = useRef<HTMLElement | null>(null);
   const dialogTokenRef = useRef(Symbol("AccessibleDialog"));
   // Keep the listener registered for the entire open lifetime even when a
   // parent passes a freshly-created callback on rerender. Re-registering an
@@ -147,7 +165,7 @@ export function AccessibleDialog({
   const handleKeyDown = useCallback((event: KeyboardEvent) => {
     if (event.key === "Escape") {
       if (
-        openDialogStack[openDialogStack.length - 1]?.token !== dialogTokenRef.current
+        !isTopmostOpen(dialogTokenRef.current)
       ) {
         return;
       }
@@ -184,11 +202,23 @@ export function AccessibleDialog({
   useEffect(() => {
     if (!open) return;
     const dialogToken = dialogTokenRef.current;
-    openerRef.current = document.activeElement as HTMLElement | null;
-    openDialogStack.push({
+    const nextStackEntry: OpenDialogStackEntry = {
       token: dialogToken,
       portalRoot: dialogRef.current?.parentElement ?? null,
-    });
+      opener: document.activeElement as HTMLElement | null,
+      isOpen: true,
+    };
+    const existingStackIndex = openDialogStack.findIndex(
+      (entry) => entry.token === dialogToken,
+    );
+    if (existingStackIndex === -1) {
+      openDialogStack.push(nextStackEntry);
+    } else {
+      openDialogStack[existingStackIndex] = {
+        ...openDialogStack[existingStackIndex],
+        ...nextStackEntry,
+      };
+    }
     syncBackgroundInert();
     document.addEventListener("keydown", handleKeyDown, true);
     const frame = requestAnimationFrame(() => {
@@ -198,13 +228,14 @@ export function AccessibleDialog({
     return () => {
       cancelAnimationFrame(frame);
       document.removeEventListener("keydown", handleKeyDown, true);
-      const stackIndex = openDialogStack.findIndex((entry) => entry.token === dialogToken);
-      const wasTopmost = stackIndex !== -1 && stackIndex === openDialogStack.length - 1;
-      if (stackIndex !== -1) openDialogStack.splice(stackIndex, 1);
+      const wasTopmost = isTopmostOpen(dialogToken);
+      const stackEntry = openDialogStack.find((entry) => entry.token === dialogToken);
+      if (stackEntry) stackEntry.isOpen = false;
       syncBackgroundInert();
-      // Returning focus from a dialog that was not on top would drag focus out
-      // of the dialog that still is.
-      if (wasTopmost) openerRef.current?.focus();
+      if (wasTopmost) getDeepestSurvivingOpener()?.focus();
+      if (!openDialogStack.some((entry) => entry.isOpen)) {
+        openDialogStack.length = 0;
+      }
     };
   }, [handleKeyDown, open]);
 

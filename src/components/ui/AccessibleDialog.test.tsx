@@ -315,4 +315,34 @@ describe("AccessibleDialog background inerting across a stack", () => {
 
     expect(document.activeElement).toBe(innerAction);
   });
+
+  it("restores focus to the deepest surviving opener when a top dialog closes after out-of-order lower close", () => {
+    const root = appRoot();
+    const opener = root.querySelector("button");
+    if (!opener) {
+      throw new Error("Expected root button");
+    }
+    opener.focus();
+
+    const renderStack = (outerOpen: boolean, innerOpen: boolean) => (
+      <>
+        <AccessibleDialog open={outerOpen} onClose={vi.fn()} title="Outer">
+          <button type="button">Open inner</button>
+        </AccessibleDialog>
+        <AccessibleDialog open={innerOpen} onClose={vi.fn()} title="Inner">
+          <button type="button">Inner action</button>
+        </AccessibleDialog>
+      </>
+    );
+
+    const { rerender } = render(renderStack(true, false));
+    const openInner = screen.getByRole("button", { name: "Open inner" });
+    openInner.focus();
+
+    rerender(renderStack(true, true));
+    rerender(renderStack(false, true));
+    rerender(renderStack(false, false));
+
+    expect(document.activeElement).toBe(opener);
+  });
 });

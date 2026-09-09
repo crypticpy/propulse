@@ -1099,7 +1099,7 @@ export function PropagationForecastMini({
         {nowCastChips.length > 0 && (
           <div className="flex items-center gap-1.5 mt-1 text-xs overflow-hidden">
             <span
-              className="text-[10px] font-mono font-semibold text-cyan-300 uppercase tracking-wide flex-shrink-0 cursor-help"
+              className="text-xs font-mono font-semibold text-cyan-300 uppercase tracking-wide flex-shrink-0 cursor-help"
               title={`${modelNowCast.personalized ? "NOWCAST + STATIONCAST" : "NOWCAST"} MODEL\nLive ML band predictions from the model service.\nPath (WSPR): chance a single WSPR transmission would be decoded on this path.${
                 modelNowCast.personalized
                   ? `\nYour ${activeMode}: that path probability adapted to your equipment and mode threshold.`
@@ -1257,7 +1257,7 @@ export function PropagationForecastMini({
                 className="flex-1 bg-plasma-orange/10 border-l-2 border-plasma-orange rounded-r px-2 py-1 flex items-center min-w-0 cursor-help"
                 title={`PATH FORECAST\n${getRecommendation()}\n\nBased on current solar conditions:\nSFI: ${Math.round(currentSfi)} (${currentSfi >= 150 ? "excellent" : currentSfi >= 100 ? "good" : currentSfi >= 70 ? "fair" : "low"})\nKp: ${currentKp.toFixed(1)} (${currentKp <= 2 ? "quiet" : currentKp <= 4 ? "unsettled" : "storm"})`}
               >
-                <span className="text-[10px] text-su-muted uppercase mr-1.5 flex-shrink-0">
+                <span className="text-xs text-su-muted uppercase mr-1.5 flex-shrink-0">
                   Path:
                 </span>
                 <span className="text-su-text truncate">
@@ -1341,7 +1341,7 @@ export function PropagationForecastMini({
             <div className="bg-su-canvas/95 backdrop-blur-md border border-su-line/40 rounded-lg shadow-2xl p-3 min-w-[200px] max-w-[260px]">
               {/* Band Selection */}
               <div className="mb-3">
-                <div className="text-[10px] uppercase tracking-wide text-su-muted mb-1.5">
+                <div className="text-xs uppercase tracking-wide text-su-muted mb-1.5">
                   Bands
                 </div>
                 {/* Three-way segmented toggle */}
@@ -1349,7 +1349,7 @@ export function PropagationForecastMini({
                   {(["common", "all", "custom"] as const).map((mode) => (
                     <button
                       key={mode}
-                      className={`flex-1 text-[10px] px-2 py-1 rounded border transition-colors ${
+                      className={`flex-1 text-xs px-2 py-1 rounded border transition-colors ${
                         forecastDisplay.bandMode === mode
                           ? "bg-plasma-orange/20 text-plasma-orange border-plasma-orange/50"
                           : "bg-su-line/10 text-su-muted border-su-line/40 hover:border-su-line/50"
@@ -1377,7 +1377,7 @@ export function PropagationForecastMini({
                       return (
                         <button
                           key={band}
-                          className={`text-[10px] px-1.5 py-0.5 rounded border transition-colors font-mono ${
+                          className={`text-xs px-1.5 py-0.5 rounded border transition-colors font-mono ${
                             isActive
                               ? "bg-plasma-orange/20 text-plasma-orange border-plasma-orange/50"
                               : "bg-su-line/10 text-su-muted border-su-line/40 hover:border-su-line/50"
@@ -1413,13 +1413,13 @@ export function PropagationForecastMini({
 
               {/* Display Options */}
               <div>
-                <div className="text-[10px] uppercase tracking-wide text-su-muted mb-1.5">
+                <div className="text-xs uppercase tracking-wide text-su-muted mb-1.5">
                   Display
                 </div>
 
                 {/* SNR on cells toggle */}
                 <div className="flex items-center justify-between mb-1.5">
-                  <span className="text-[11px] text-su-muted">
+                  <span className="text-xs text-su-muted">
                     SNR on cells
                   </span>
                   <button
@@ -1449,7 +1449,7 @@ export function PropagationForecastMini({
 
                 {/* Full details toggle */}
                 <div className="flex items-center justify-between mb-1.5">
-                  <span className="text-[11px] text-su-muted">
+                  <span className="text-xs text-su-muted">
                     Full details
                   </span>
                   <button
@@ -1479,12 +1479,12 @@ export function PropagationForecastMini({
 
                 {/* Hours segmented toggle */}
                 <div className="flex items-center justify-between">
-                  <span className="text-[11px] text-su-muted">Hours</span>
+                  <span className="text-xs text-su-muted">Hours</span>
                   <div className="flex gap-0.5">
                     {([13, 24] as const).map((h) => (
                       <button
                         key={h}
-                        className={`text-[10px] px-2 py-0.5 rounded border transition-colors ${
+                        className={`text-xs px-2 py-0.5 rounded border transition-colors ${
                           forecastDisplay.hoursToShow === h
                             ? "bg-plasma-orange/20 text-plasma-orange border-plasma-orange/50"
                             : "bg-su-line/10 text-su-muted border-su-line/40 hover:border-su-line/50"

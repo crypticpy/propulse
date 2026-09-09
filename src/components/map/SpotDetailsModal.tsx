@@ -57,7 +57,7 @@ function formatUtc(date: Date): string {
 function DetailItem({ label, value }: { label: string; value: string }) {
   return (
     <div className="rounded-lg border border-su-line/40 bg-su-line/10 px-3 py-2">
-      <div className="text-[10px] font-medium uppercase tracking-wider text-su-muted">
+      <div className="text-xs font-medium uppercase tracking-wider text-su-muted">
         {label}
       </div>
       <div className="mt-0.5 break-words font-mono text-sm text-su-text">
@@ -96,14 +96,14 @@ export function SpotDetailsModal({ spot, onClose }: SpotDetailsModalProps) {
         <div className="flex flex-wrap items-center gap-2 px-5 py-4">
           {spot.mode && (
             <span
-              className="rounded px-2 py-0.5 text-[10px] font-bold"
+              className="rounded px-2 py-0.5 text-xs font-bold"
               style={{ backgroundColor: modeColor, color: modeInkColor }}
             >
               {spot.mode}
             </span>
           )}
           {spot.band && (
-            <span className="rounded bg-su-line/20 px-2 py-0.5 text-[10px] font-bold text-su-muted">
+            <span className="rounded bg-su-line/20 px-2 py-0.5 text-xs font-bold text-su-muted">
               {spot.band}
             </span>
           )}
@@ -112,7 +112,7 @@ export function SpotDetailsModal({ spot, onClose }: SpotDetailsModalProps) {
         <div className="border-y border-su-line/40 bg-su-line/10 px-5 py-3">
           <div className="flex flex-wrap items-center gap-2">
             <span
-              className="rounded px-2 py-1 text-[10px] font-medium"
+              className="rounded px-2 py-1 text-xs font-medium"
               style={{
                 backgroundColor: sourceColors.bgColor,
                 color: sourceColors.color,
@@ -121,7 +121,7 @@ export function SpotDetailsModal({ spot, onClose }: SpotDetailsModalProps) {
               {spot.source}
             </span>
             <span
-              className={`rounded border px-2 py-1 text-[10px] font-medium ${ageColors.bg} ${ageColors.text} ${ageColors.border}`}
+              className={`rounded border px-2 py-1 text-xs font-medium ${ageColors.bg} ${ageColors.text} ${ageColors.border}`}
             >
               {formatSpotAge(spotTime)}
             </span>
@@ -163,7 +163,7 @@ export function SpotDetailsModal({ spot, onClose }: SpotDetailsModalProps) {
 
         {spot.comment && (
           <div className="mx-5 mb-4 rounded-lg border border-su-line/40 bg-su-line/10 px-3 py-2">
-            <div className="text-[10px] font-medium uppercase tracking-wider text-su-muted">
+            <div className="text-xs font-medium uppercase tracking-wider text-su-muted">
               Spot comment
             </div>
             <p className="mt-1 text-sm leading-relaxed text-su-muted">

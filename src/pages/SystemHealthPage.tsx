@@ -582,13 +582,24 @@ function StatusArc({
   const circumference = 2 * Math.PI * r;
   const stroke = 8;
 
-  // Proportional arcs
-  const segments = [
-    { count: healthy, color: "#00ff88" },
-    { count: degraded, color: "#ffd23f" },
-    { count: errored, color: "#ff4455" },
-    { count: loading, color: "#6b7280" },
-    { count: idle, color: "#374151" },
+  // Proportional arcs. `kind` is the discriminator for behaviour (e.g. the
+  // errored-arc glow below) — never compare on `color`, which is a themed
+  // CSS-variable string, not a stable identity (#802).
+  //
+  // Idle/loading are the two non-status greys: loading is transient
+  // ("still fetching", should stay legible) so it takes `--su-muted`;
+  // idle is "nothing to report" and should recede, so it takes the
+  // dimmer `--su-line` structural token instead of a second muted tone.
+  const segments: Array<{
+    count: number;
+    color: string;
+    kind: "healthy" | "degraded" | "error" | "loading" | "idle";
+  }> = [
+    { count: healthy, color: "rgb(var(--su-success-rgb))", kind: "healthy" },
+    { count: degraded, color: "rgb(var(--su-warning-rgb))", kind: "degraded" },
+    { count: errored, color: "rgb(var(--su-danger-rgb))", kind: "error" },
+    { count: loading, color: "rgb(var(--su-muted-rgb))", kind: "loading" },
+    { count: idle, color: "rgb(var(--su-line-rgb))", kind: "idle" },
   ];
 
   let offset = 0;
@@ -613,8 +624,8 @@ function StatusArc({
           className="transition-all duration-700 ease-out"
           style={{
             filter:
-              s.color === "#ff4455"
-                ? "drop-shadow(0 0 4px rgba(255,68,85,0.5))"
+              s.kind === "error"
+                ? "drop-shadow(0 0 4px rgb(var(--su-danger-rgb) / 0.5))"
                 : undefined,
           }}
         />
@@ -635,7 +646,7 @@ function StatusArc({
         cy="64"
         r={r}
         fill="none"
-        stroke="rgba(255,255,255,0.05)"
+        stroke="rgb(var(--su-line-rgb) / 0.05)"
         strokeWidth={stroke}
       />
       {arcs}
@@ -654,10 +665,10 @@ function ArchitectureDiagram({
 }) {
   const lineColor =
     overallColor === "green"
-      ? "#00ff88"
+      ? "rgb(var(--su-success-rgb))"
       : overallColor === "yellow"
-        ? "#ffd23f"
-        : "#ff4455";
+        ? "rgb(var(--su-warning-rgb))"
+        : "rgb(var(--su-danger-rgb))";
 
   // Same five accents as the category cards above — derived from the one
   // ACCENT_TOKEN_COLORS map so this diagram can never drift from CATEGORIES
@@ -730,7 +741,7 @@ function ArchitectureDiagram({
           width="140"
           height="60"
           rx="10"
-          fill="rgba(255,107,53,0.08)"
+          fill="rgb(var(--su-accent-rgb) / 0.08)"
           stroke={ACCENT_TOKEN_COLORS["plasma-orange"]}
           strokeWidth="1.2"
         />
@@ -759,7 +770,7 @@ function ArchitectureDiagram({
           width="150"
           height="60"
           rx="10"
-          fill="rgba(68,221,255,0.06)"
+          fill="rgb(var(--su-info-rgb) / 0.06)"
           stroke={ACCENT_TOKEN_COLORS["cosmic-cyan"]}
           strokeWidth="1.2"
         />
@@ -821,7 +832,7 @@ function ArchitectureDiagram({
               width="185"
               height="44"
               rx="8"
-              fill="rgba(255,255,255,0.02)"
+              fill="rgb(var(--su-line-rgb) / 0.02)"
               stroke={g.color}
               strokeWidth="1"
               opacity="0.7"
@@ -1125,7 +1136,7 @@ export function SystemHealthPage() {
                     style={{
                       borderColor: allHealthy
                         ? "rgb(var(--su-success-rgb) / 0.3)"
-                        : "rgba(255,255,255,0.1)",
+                        : "rgb(var(--su-line-rgb) / 0.1)",
                       color: allHealthy
                         ? "rgb(var(--su-success-rgb))"
                         : "rgb(var(--su-muted-rgb))",

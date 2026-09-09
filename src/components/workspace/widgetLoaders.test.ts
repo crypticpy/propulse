@@ -1,5 +1,4 @@
 import { describe, expect, it } from "vitest";
-import type { WidgetDensity } from "@/lib/workspace/types";
 import { getWidgetComponent } from "./widgetLoaders";
 
 describe("getWidgetComponent", () => {
@@ -14,12 +13,15 @@ describe("getWidgetComponent", () => {
     expect(getWidgetComponent("not-a-real-widget-id", "work")).toBeUndefined();
   });
 
-  it("has no live components at wall or glance density yet", () => {
-    const densities: WidgetDensity[] = ["wall", "glance"];
-    for (const density of densities) {
-      for (const id of ["cluster", "bestBand", "heatMap"]) {
-        expect(getWidgetComponent(id, density)).toBeUndefined();
-      }
+  it("has no live components at wall density yet", () => {
+    for (const id of ["cluster", "bestBand", "heatMap"]) {
+      expect(getWidgetComponent(id, "wall")).toBeUndefined();
     }
+  });
+
+  it("heatMap has a live glance-density component (HeatMapStrip, #661); cluster/bestBand still don't", () => {
+    expect(getWidgetComponent("heatMap", "glance")).toBeTruthy();
+    expect(getWidgetComponent("cluster", "glance")).toBeUndefined();
+    expect(getWidgetComponent("bestBand", "glance")).toBeUndefined();
   });
 });

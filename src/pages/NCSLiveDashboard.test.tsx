@@ -216,4 +216,22 @@ describe("NCSLiveDashboard keyboard shortcuts vs. open modal (#817)", () => {
       expect(screen.queryByRole("dialog")).toBeNull();
     });
   });
+
+  // Codex caught this on PR #820: the dialog's own body advertises
+  // "? - Toggle this overlay", and the modal guard blocks the dashboard from
+  // seeing the second press. NCSKeyboardHints now owns the closing half, so
+  // the advertised toggle still works end to end.
+  it("closes the hints modal on a second ? press", async () => {
+    renderDashboard();
+    await screen.findByText("RoundsPhase");
+
+    fireEvent.keyDown(document, { key: "?" });
+    await screen.findByRole("dialog", { name: "Keyboard Shortcuts" });
+
+    fireEvent.keyDown(document, { key: "?" });
+
+    await waitFor(() => {
+      expect(screen.queryByRole("dialog")).toBeNull();
+    });
+  });
 });

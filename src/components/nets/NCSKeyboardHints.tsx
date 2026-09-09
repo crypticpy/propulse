@@ -7,7 +7,7 @@
  * Escape or clicking outside dismisses the overlay.
  */
 
-import { useId } from "react";
+import { useEffect, useId } from "react";
 import { AccessibleDialog } from "@/components/ui/AccessibleDialog";
 
 interface NCSKeyboardHintsProps {
@@ -61,6 +61,23 @@ function ShortcutRow({
 
 export function NCSKeyboardHints({ onClose }: NCSKeyboardHintsProps) {
   const titleId = useId();
+
+  // This dialog advertises "? -- Toggle this overlay" in its own body, so it
+  // has to own the closing half of that toggle. The dashboard's window
+  // handler opens it, but since #817 that handler yields to any open modal
+  // and can no longer see the second press. Escape and the backdrop are
+  // handled by AccessibleDialog; only "?" needs a listener here.
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== "?") return;
+      const tag = (event.target as HTMLElement | null)?.tagName;
+      if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
+      event.preventDefault();
+      onClose();
+    };
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [onClose]);
 
   return (
     <AccessibleDialog

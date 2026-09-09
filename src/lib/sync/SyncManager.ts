@@ -13,7 +13,7 @@
  * 2. Online transition → flush queue + retry failed
  * 3. Offline transition → pause network ops, continue local writes
  * 4. Page hidden → best-effort flush
- * 5. Sign-out → flush + clear + stop
+ * 5. Sign-out → invalidate in-flight work + stop (durable queue retained)
  */
 
 import { isSupabaseConfigured } from "@/lib/supabase";
@@ -43,8 +43,11 @@ export class SyncManager {
 
   private modules = new Map<string, SyncModule>();
   private writeQueue: WriteQueue;
+  // Retain each owner's in-memory queue even when browser storage is unavailable.
+  private ownerQueues = new Map<string, WriteQueue>();
   private userId: string | null = null;
   private running = false;
+  private generation = 0;
   private flushing = false;
   private flushingTables = new Set<SyncableTable>();
 
@@ -95,7 +98,7 @@ export class SyncManager {
   async start(userId: string): Promise<void> {
     if (this.running) {
       if (this.userId === userId) return;
-      await this.stop();
+      void this.stop();
     }
 
     if (!isSupabaseConfigured) {
@@ -103,28 +106,38 @@ export class SyncManager {
       return;
     }
 
+    const generation = ++this.generation;
+    let queue = this.ownerQueues.get(userId);
+    if (!queue) {
+      queue = new WriteQueue(userId);
+      this.ownerQueues.set(userId, queue);
+    }
+    this.writeQueue = queue;
     this.userId = userId;
     this.running = true;
     this.updateStatus({ state: "syncing", error: null });
 
     try {
       // Phase 1: Initial pull (Tier 1 + Tier 3 in parallel, then Tier 2)
-      await this.initialPull();
+      await this.initialPull(generation);
+      if (!this.isActive(generation)) return;
 
       // Phase 2: Flush any pending write queue entries from previous session
-      await this.flushWriteQueue();
+      await this.flushWriteQueue(generation);
+      if (!this.isActive(generation)) return;
 
       // Phase 3: Start periodic Tier 2 flush
-      this.startPeriodicFlush();
+      this.startPeriodicFlush(generation);
 
       // Phase 4: Set up event listeners
-      this.setupEventListeners();
+      this.setupEventListeners(generation);
 
       this.updateStatus({
         state: this.isOnline() ? "idle" : "offline",
         lastSyncAt: new Date().toISOString(),
       });
     } catch (error) {
+      if (!this.isActive(generation)) return;
       const message =
         error instanceof Error ? error.message : "Sync initialization failed";
       console.error("[SyncManager] Start failed:", message);
@@ -132,29 +145,24 @@ export class SyncManager {
     }
   }
 
-  /** Stop sync engine (on sign out or cleanup) */
-  async stop(): Promise<void> {
-    if (!this.running) return;
-
-    // Best-effort flush before stopping
-    try {
-      if (this.isOnline()) {
-        await this.flushWriteQueue();
-      }
-    } catch {
-      // Non-fatal — queue persists in localStorage
-    }
+  /** Stop sync engine; same-owner restart may retain durable sync metadata. */
+  async stop({ preserveMetadata = false }: { preserveMetadata?: boolean } = {}): Promise<void> {
+    // Invalidate synchronously, before any old promise can settle or a new start runs.
+    ++this.generation;
+    this.running = false;
+    this.userId = null;
+    this.writeQueue = new WriteQueue();
+    this.flushing = false;
+    this.flushingTables.clear();
 
     this.teardownEventListeners();
     this.stopPeriodicFlush();
     this.clearEagerDebounce();
     this.clearRetryTimers();
 
-    this.userId = null;
-    this.running = false;
-    syncMeta.clear();
-    // Don't clear the write queue — unsynced entries survive for next session.
-    // The queue persists in localStorage and will be flushed on next start().
+    if (!preserveMetadata) syncMeta.clear();
+    // Retain owner queues; only the same owner can replay its unsynced entries.
+    // The inactive queue exposes no previous account's pending or failed rows.
     useSyncStore.getState().reset();
   }
 
@@ -213,17 +221,22 @@ export class SyncManager {
   async syncNow(): Promise<void> {
     if (!this.running || !this.userId) return;
 
+    const generation = this.generation;
     this.updateStatus({ state: "syncing" });
     try {
-      await this.pushEager();
-      await this.flushWriteQueue();
-      await this.pullAll();
+      await this.pushEager(generation);
+      if (!this.isActive(generation)) return;
+      await this.flushWriteQueue(generation);
+      if (!this.isActive(generation)) return;
+      await this.pullAll(generation);
+      if (!this.isActive(generation)) return;
       this.updateStatus({
         state: this.isOnline() ? "idle" : "offline",
         lastSyncAt: new Date().toISOString(),
         error: null,
       });
     } catch (error) {
+      if (!this.isActive(generation)) return;
       const message = error instanceof Error ? error.message : "Sync failed";
       this.updateStatus({ state: "error", error: message });
     }
@@ -241,6 +254,7 @@ export class SyncManager {
 
   /** Retry all failed entries */
   retryFailed(): void {
+    if (!this.running) return;
     this.writeQueue.retryAll();
     this.updateStatus({ pendingCount: this.writeQueue.pendingCount });
     if (this.isOnline()) {
@@ -250,43 +264,49 @@ export class SyncManager {
 
   // ─── Internal: Pull ─────────────────────────────────────────────────
 
-  private async initialPull(): Promise<void> {
-    if (!this.userId) return;
+  private async initialPull(generation: number): Promise<void> {
+    if (!this.isActive(generation)) return;
 
     // Pull Tier 1 and Tier 3 in parallel (small data, fast)
     const eagerModules = this.getModulesForTier("eager");
     const lazyModules = this.getModulesForTier("lazy");
 
     await Promise.all([
-      ...eagerModules.map((m) => this.pullModule(m)),
-      ...lazyModules.map((m) => this.pullModule(m)),
+      ...eagerModules.map((m) => this.pullModule(m, generation)),
+      ...lazyModules.map((m) => this.pullModule(m, generation)),
     ]);
 
     // Pull Tier 2 after (potentially large, depends on Tier 1 for user context)
     const incrementalModules = this.getModulesForTier("incremental");
     for (const m of incrementalModules) {
-      await this.pullModule(m);
+      if (!this.isActive(generation)) return;
+      await this.pullModule(m, generation);
     }
   }
 
-  private async pullAll(): Promise<void> {
-    if (!this.userId) return;
+  private async pullAll(generation = this.generation): Promise<void> {
+    if (!this.isActive(generation)) return;
     const pullPromises = Array.from(this.modules.values()).map((m) =>
-      this.pullModule(m),
+      this.pullModule(m, generation),
     );
     await Promise.all(pullPromises);
   }
 
-  private async pullModule(module: SyncModule): Promise<void> {
-    if (!this.userId || !this.isOnline()) return;
+  private async pullModule(module: SyncModule, generation: number): Promise<void> {
+    const userId = this.userId;
+    if (!userId || !this.isActive(generation) || !this.isOnline()) return;
 
     try {
       const since = syncMeta.getTimestamp(module.name);
-      const newTimestamp = await module.pull(this.userId, since);
+      const newTimestamp = await module.pull(userId, since, {
+        isActive: () => this.isActive(generation),
+      });
+      if (!this.isActive(generation)) return;
       if (newTimestamp) {
         syncMeta.setTimestamp(module.name, newTimestamp);
       }
     } catch (error) {
+      if (!this.isActive(generation)) return;
       console.error(`[SyncManager] Pull failed for ${module.name}:`, error);
       // Non-fatal — continue with other modules
     }
@@ -295,15 +315,18 @@ export class SyncManager {
   // ─── Internal: Push ─────────────────────────────────────────────────
 
   /** Push all Tier 1 modules (full blob push) */
-  private async pushEager(): Promise<void> {
-    if (!this.userId || !this.isOnline()) return;
+  private async pushEager(generation = this.generation): Promise<void> {
+    const userId = this.userId;
+    if (!userId || !this.isActive(generation) || !this.isOnline()) return;
 
     const modules = this.getModulesForTier("eager");
     await Promise.all(
       modules.map(async (m) => {
+        if (!this.isActive(generation)) return;
         try {
-          await m.push(this.userId!);
+          await m.push(userId);
         } catch (error) {
+          if (!this.isActive(generation)) return;
           console.error(
             `[SyncManager] Eager push failed for ${m.name}:`,
             error,
@@ -314,19 +337,23 @@ export class SyncManager {
   }
 
   /** Flush write queue — process pending entries through their modules */
-  private async flushWriteQueue(): Promise<void> {
-    if (!this.userId || !this.isOnline()) return;
+  private async flushWriteQueue(generation = this.generation): Promise<void> {
+    const userId = this.userId;
+    if (!userId || !this.isActive(generation) || !this.isOnline()) return;
     if (this.flushing) return; // Prevent concurrent flushes
     this.flushing = true;
 
     try {
-      await this.flushWriteQueueInner();
+      await this.flushWriteQueueInner(userId, generation);
     } finally {
-      this.flushing = false;
+      if (this.isActive(generation)) this.flushing = false;
     }
   }
 
-  private async flushWriteQueueInner(): Promise<void> {
+  private async flushWriteQueueInner(
+    userId: string,
+    generation: number,
+  ): Promise<void> {
     const pending = this.writeQueue.getPending();
     if (pending.length === 0) return;
 
@@ -341,10 +368,13 @@ export class SyncManager {
     }
 
     for (const [module, entries] of byModule) {
+      if (!this.isActive(generation)) return;
       try {
-        const processedIds = await module.processQueue!(this.userId!, entries);
+        const processedIds = await module.processQueue!(userId, entries);
+        if (!this.isActive(generation)) return;
         this.writeQueue.dequeue(processedIds);
       } catch (error) {
+        if (!this.isActive(generation)) return;
         console.error(
           `[SyncManager] Queue flush failed for ${module.name}:`,
           error,
@@ -352,7 +382,7 @@ export class SyncManager {
         for (const entry of entries) {
           if (entry.retryCount < MAX_RETRIES) {
             this.writeQueue.markFailed(entry.queueId);
-            this.scheduleRetry(entry);
+            this.scheduleRetry(entry, generation);
           }
         }
       }
@@ -362,8 +392,12 @@ export class SyncManager {
   }
 
   /** Flush write queue entries for specific tables only */
-  private async flushForTables(tables: SyncableTable[]): Promise<void> {
-    if (!this.userId || !this.isOnline()) return;
+  private async flushForTables(
+    tables: SyncableTable[],
+    generation = this.generation,
+  ): Promise<void> {
+    const userId = this.userId;
+    if (!userId || !this.isActive(generation) || !this.isOnline()) return;
 
     // Per-table concurrency guard — skip tables already being flushed
     const remaining = tables.filter((t) => !this.flushingTables.has(t));
@@ -384,13 +418,16 @@ export class SyncManager {
       }
 
       for (const [module, moduleEntries] of byModule) {
+        if (!this.isActive(generation)) return;
         try {
           const processedIds = await module.processQueue!(
-            this.userId!,
+            userId,
             moduleEntries,
           );
+          if (!this.isActive(generation)) return;
           this.writeQueue.dequeue(processedIds);
         } catch (error) {
+          if (!this.isActive(generation)) return;
           console.error(
             `[SyncManager] Table flush failed for ${module.name}:`,
             error,
@@ -398,7 +435,7 @@ export class SyncManager {
           for (const entry of moduleEntries) {
             if (entry.retryCount < MAX_RETRIES) {
               this.writeQueue.markFailed(entry.queueId);
-              this.scheduleRetry(entry);
+              this.scheduleRetry(entry, generation);
             }
           }
         }
@@ -406,18 +443,21 @@ export class SyncManager {
 
       this.updateStatus({ pendingCount: this.writeQueue.pendingCount });
     } finally {
-      for (const t of remaining) this.flushingTables.delete(t);
+      if (this.isActive(generation)) {
+        for (const t of remaining) this.flushingTables.delete(t);
+      }
     }
   }
 
   // ─── Internal: Scheduling ───────────────────────────────────────────
 
   private scheduleEagerFlush(): void {
+    const generation = this.generation;
     this.clearEagerDebounce();
     this.eagerDebounceTimer = setTimeout(() => {
+      if (!this.isActive(generation)) return;
       this.eagerDebounceTimer = null;
-      if (!this.running) return;
-      void this.pushEager();
+      void this.pushEager(generation);
     }, EAGER_DEBOUNCE_MS);
   }
 
@@ -428,10 +468,11 @@ export class SyncManager {
     }
   }
 
-  private startPeriodicFlush(): void {
+  private startPeriodicFlush(generation = this.generation): void {
+    if (!this.isActive(generation)) return;
     this.stopPeriodicFlush();
     this.incrementalFlushInterval = setInterval(() => {
-      void this.flushWriteQueue();
+      if (this.isActive(generation)) void this.flushWriteQueue(generation);
     }, INCREMENTAL_FLUSH_MS);
   }
 
@@ -442,14 +483,17 @@ export class SyncManager {
     }
   }
 
-  private scheduleRetry(entry: WriteQueueEntry): void {
+  private scheduleRetry(entry: WriteQueueEntry, generation: number): void {
     const delayIndex = Math.min(entry.retryCount, RETRY_DELAYS.length - 1);
     const delay = RETRY_DELAYS[delayIndex];
 
+    const previous = this.retryTimers.get(entry.queueId);
+    if (previous) clearTimeout(previous);
     const timer = setTimeout(() => {
+      if (!this.isActive(generation)) return;
       this.retryTimers.delete(entry.queueId);
       this.writeQueue.retry(entry.queueId);
-      void this.flushForTables([entry.table]);
+      void this.flushForTables([entry.table], generation);
     }, delay);
 
     this.retryTimers.set(entry.queueId, timer);
@@ -464,8 +508,9 @@ export class SyncManager {
 
   // ─── Internal: Event Listeners ──────────────────────────────────────
 
-  private setupEventListeners(): void {
+  private setupEventListeners(generation: number): void {
     this.onlineHandler = () => {
+      if (!this.isActive(generation)) return;
       this.updateStatus({ state: "idle" });
       this.writeQueue.retryAll();
       this.startPeriodicFlush();
@@ -473,17 +518,19 @@ export class SyncManager {
     };
 
     this.offlineHandler = () => {
+      if (!this.isActive(generation)) return;
       this.updateStatus({ state: "offline" });
       this.stopPeriodicFlush();
     };
 
     this.visibilityHandler = () => {
+      if (!this.isActive(generation)) return;
       if (document.hidden) {
         // Page going hidden — best-effort flush
         void this.flushWriteQueue();
       } else {
         // Page becoming visible — pull latest + resume periodic
-        void this.pullAll();
+        void this.pullAll(generation);
         if (this.isOnline()) {
           this.startPeriodicFlush();
         }
@@ -511,6 +558,10 @@ export class SyncManager {
   }
 
   // ─── Internal: Helpers ──────────────────────────────────────────────
+
+  private isActive(generation: number): boolean {
+    return this.running && this.userId !== null && this.generation === generation;
+  }
 
   private getModulesForTier(tier: SyncTier): SyncModule[] {
     return Array.from(this.modules.values()).filter((m) => m.tier === tier);

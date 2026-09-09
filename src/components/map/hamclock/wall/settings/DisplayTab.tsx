@@ -1,4 +1,5 @@
 import { useActiveLocation } from "@/hooks/useActiveLocation";
+import { useHeatMapBaseline } from "@/hooks/useHeatMapBaseline";
 import {
   hamClockHomeRegion,
   hamClockProjectionContent,
@@ -7,6 +8,7 @@ import {
   useHamClockDisplayStore,
   type HamClockDensity,
   type HamClockUnits,
+  type HeatmapPresetId,
 } from "@/stores/hamclockDisplayStore";
 import { useMapStore } from "@/stores/mapStore";
 import {
@@ -34,6 +36,20 @@ const MAP_CONTENT_LABELS: Record<(typeof MAP_CONTENT_VALUES)[number], string> =
     both: "BOTH",
   };
 
+/** Availability is supplied by the same baseline query as the tile/report. */
+const HEATMAP_PRESET_OPTIONS: {
+  value: HeatmapPresetId;
+  label: string;
+  detail?: string;
+  disabled?: boolean;
+}[] = [
+  { value: "ladderHue", label: "BAND HEALTH LADDER" },
+  {
+    value: "ratioDiverging",
+    label: "BASELINE RATIO",
+  },
+];
+
 type DwellSeconds = "15" | "30" | "45" | "60" | "120";
 const DWELL_OPTIONS: { value: DwellSeconds; label: string }[] = [
   { value: "15", label: "15 S" },
@@ -57,6 +73,17 @@ const DWELL_OPTIONS: { value: DwellSeconds; label: string }[] = [
  * same reason: a third toggle on this tab overflows the panel.
  */
 export function DisplayTab() {
+  const preset = useHamClockDisplayStore((s) => s.heatmapPreset);
+  return preset === "ratioDiverging" ? <RegionalDisplayTab /> : <DisplayTabContent />;
+}
+
+function RegionalDisplayTab() {
+  const baselineState = useHeatMapBaseline();
+  return <DisplayTabContent baselineState={baselineState} />;
+}
+
+function DisplayTabContent({ baselineState }: { baselineState?: ReturnType<typeof useHeatMapBaseline> }) {
+  const { available, unavailableLabel } = baselineState ?? { available: false, unavailableLabel: null };
   const density = useHamClockDisplayStore((s) => s.density);
   const setDensity = useHamClockDisplayStore((s) => s.setDensity);
   const units = useHamClockDisplayStore((s) => s.units);
@@ -68,6 +95,8 @@ export function DisplayTab() {
   const autoPage = useHamClockDisplayStore((s) => s.autoPage);
   const setAutoPage = useHamClockDisplayStore((s) => s.setAutoPage);
   const frameHome = useHamClockDisplayStore((s) => s.frameHome);
+  const heatmapPreset = useHamClockDisplayStore((s) => s.heatmapPreset);
+  const setHeatmapPreset = useHamClockDisplayStore((s) => s.setHeatmapPreset);
   const viewMode = useMapStore((s) => s.viewMode);
   const location = useActiveLocation();
 
@@ -97,6 +126,21 @@ export function DisplayTab() {
           disabled: viewMode === "azimuthal" && value !== "activity",
         }))}
       />
+      <div>
+        <HamClockSegmented
+          label="Heat map colours"
+          value={heatmapPreset}
+          onChange={setHeatmapPreset}
+          options={HEATMAP_PRESET_OPTIONS.map((option) => option.value === "ratioDiverging"
+            ? { ...option, disabled: heatmapPreset === "ratioDiverging" && !available }
+            : option)}
+        />
+        {heatmapPreset === "ratioDiverging" && unavailableLabel && (
+          <p className="hcc-row-caveat" role="status">
+            {unavailableLabel}. Band health ladder is shown until regional data is available.
+          </p>
+        )}
+      </div>
       <HamClockToggleRow
         label="Smart scaling"
         detail="Fits panel widths and spacing to the desk text size"

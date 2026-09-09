@@ -1,5 +1,6 @@
 import { Component, ErrorInfo, ReactNode } from "react";
 import { Card } from "@/components/ui";
+import { recoverFromStaleChunk } from "@/lib/pwa/staleChunkRecovery";
 
 interface Props {
   children: ReactNode;
@@ -17,11 +18,15 @@ interface State {
  * work: React.lazy caches the failed loader for the lifetime of the module, so
  * only a real navigation picks up the new build.
  */
+const STALE_CHUNK_MESSAGE_PATTERN =
+  /dynamically imported module|module script failed|importing a module script|unable to preload css|failed to fetch dynamically imported/i;
+
 export function isStaleChunkError(error: Error | null): boolean {
   if (!error) return false;
-  return /dynamically imported module|module script failed|importing a module script|ChunkLoadError/i.test(
-    error.message,
-  );
+  // Webpack-style chunk failures set error.name rather than a matchable
+  // message, so classify on the name before falling back to the message.
+  if (error.name === "ChunkLoadError") return true;
+  return STALE_CHUNK_MESSAGE_PATTERN.test(error.message);
 }
 
 /**
@@ -40,6 +45,13 @@ export class ErrorBoundary extends Component<Props, State> {
 
   public componentDidCatch(error: Error, errorInfo: ErrorInfo) {
     console.error("ErrorBoundary caught an error:", error, errorInfo);
+
+    // Classify stale-chunk errors before the database branch below: a chunk
+    // URL that happens to contain the word "database" (e.g. a hashed lazy
+    // route filename) must not be demoted to the generic database-error
+    // message, which would no longer match isStaleChunkError() in render()
+    // and would strand the user on a dead-end "Try Again" retry.
+    if (isStaleChunkError(error)) return;
 
     // Check for IndexedDB-specific errors and provide helpful message
     if (
@@ -62,7 +74,10 @@ export class ErrorBoundary extends Component<Props, State> {
   };
 
   private handleReload = () => {
-    window.location.reload();
+    // Go through the same cache-clearing recovery path as the automatic
+    // handler instead of a bare reload, which would just re-fetch the same
+    // stale service worker / HTTP cache and hit the error again.
+    recoverFromStaleChunk();
   };
 
   public render() {

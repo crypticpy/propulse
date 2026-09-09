@@ -1,11 +1,12 @@
-// SP-08 module: panel, presets, and saved-view library. No production entry
-// point mounts this yet -- nothing renders a ViewConfiguration produced here,
-// since the map hosts still read the legacy dxStore/mapStore-backed
-// useSpotFocus/useMapSpotSelection. #603 (bind runtimes) and #615 (apply
-// bound filters/budget/grouping) are the consumer chain; #708 tracks wiring
-// a real entry point once #615 lands. Do not mount this from Settings again
-// until then -- a visible control that changes nothing is worse than dead
-// code.
+// SP-08 module: panel, presets, and saved-view library. Mounted in production
+// by `src/components/settings/sections/SpotsPathsSection.tsx`
+// (/settings/spots-paths) since #708, now that the consumer chain is complete:
+// #603 binds the scoped runtimes in the map hosts, #615 applies the bound
+// filters/budget/grouping, #776 made grouping real on the flat map. That
+// section edits a non-persisting `preview` slot and commits explicitly into
+// the family slot of the map layout the user is on -- never a hard-coded
+// `normal` interactive runtime, which would collide with a mounted host on
+// the registry key and seed that host's working slot on mere navigation.
 export { SpotsPreferencesProvider, type SpotsPreferencesProviderProps } from "./SpotsPreferencesProvider";
 export { SpotsPreferencesContext, useSpotsPreferencesContext, type SpotsPreferencesContextValue } from "./SpotsPreferencesContext";
 export { SpotsPreferencesPanel, SPOTS_PANEL_SECTIONS, type SpotsPanelSection } from "./SpotsPreferencesPanel";

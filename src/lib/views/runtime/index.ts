@@ -11,7 +11,13 @@ export {
   createViewRuntime, shouldRecoverWorking,
   type CreateViewRuntimeOptions, type ScopedViewRuntime,
 } from "./createViewRuntime";
-export { registerRuntimeWriter, runtimeWriterKey, registeredWriterCount } from "./registry";
+export {
+  registerRuntimeWriter, runtimeWriterKey, registeredWriterCount, getRuntimeWriter,
+  type RuntimeWriterAddress,
+} from "./registry";
+export {
+  commitViewToFamilySlot, readFamilySlotConfig, type FamilySlotCommitTarget,
+} from "./familySlotCommit";
 export {
   followSpotsFromRadio, resolveFollowStatus, bandModeFiltersEqual,
   type FollowStatus, type RadioObservation,

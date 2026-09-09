@@ -836,22 +836,38 @@ describe("AccessibleDialog late-mounted body portals (#693)", () => {
 
     const renderStack = (outerOpen: boolean, innerOpen: boolean) => (
       <>
-        <AccessibleDialog open={outerOpen} onClose={vi.fn()} title="Outer">
+        <AccessibleDialog
+          open={outerOpen}
+          onClose={vi.fn()}
+          title="Outer"
+          panelProps={{ "data-panel": "outer" }}
+        >
           <button type="button">Outer action</button>
         </AccessibleDialog>
-        <AccessibleDialog open={innerOpen} onClose={vi.fn()} title="Inner">
+        <AccessibleDialog
+          open={innerOpen}
+          onClose={vi.fn()}
+          title="Inner"
+          panelProps={{ "data-panel": "inner" }}
+        >
           <button type="button">Inner action</button>
         </AccessibleDialog>
       </>
     );
 
-    const { rerender } = render(renderStack(true, false));
-    // Capture the outer portal while it is still reachable — once the inner
-    // dialog opens, `aria-hidden` takes it out of role-based queries.
-    const outerPortal = screen.getByRole("dialog", { name: "Outer" }).parentElement;
+    // Locate the panels by a data hook rather than by role: `aria-hidden`
+    // takes an inerted portal out of role-based queries, so a regression that
+    // inerts the wrong surface would surface as a query throwing on null
+    // instead of as the assertion that actually names the claim.
+    const portalOf = (panel: string) =>
+      document.querySelector<HTMLElement>(`[data-panel="${panel}"]`)?.parentElement;
 
+    const { rerender } = render(renderStack(true, false));
     rerender(renderStack(true, true));
-    const innerPortal = screen.getByRole("dialog", { name: "Inner" }).parentElement;
+    const outerPortal = portalOf("outer");
+    const innerPortal = portalOf("inner");
+    expect(outerPortal).toBeInstanceOf(HTMLElement);
+    expect(innerPortal).toBeInstanceOf(HTMLElement);
 
     expect(root.inert).toBeTruthy();
     expect(root.getAttribute("aria-hidden")).toBe("true");

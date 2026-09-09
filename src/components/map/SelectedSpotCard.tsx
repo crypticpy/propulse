@@ -136,6 +136,7 @@ export function SelectedSpotCard({
   onClose,
 }: SelectedSpotCardProps) {
   const cardRef = useRef<HTMLElement>(null);
+  const previousFocusRef = useRef<HTMLElement | null>(null);
   const [copied, setCopied] = useState(false);
   const navigate = useNavigate();
   const selectMapSpot = useViewSpotSelection();
@@ -164,6 +165,35 @@ export function SelectedSpotCard({
       { axis: "horizontal", gap: 14, padding: EDGE_PADDING },
     );
   }, [position]);
+
+  // Depends on `spot` keeping a stable identity for the life of the card:
+  // every host holds the selection in `useState` and only ever replaces it
+  // from a select handler (`GlobeView.tsx`, `AzimuthalView.tsx`,
+  // `FlatMapView.tsx` — every other setter passes `null`). Deriving `spot`
+  // inline in a host's render would re-run this on every render, which both
+  // flickers focus and, after the first cycle, captures the card itself as
+  // the element to restore to.
+  useEffect(() => {
+    if (!spot) return;
+    // `document.body` is not a restore target, and it is what this reads on
+    // every path that exists today: each host clears the overlay that opened
+    // the card (SpotCollectionPopover, the hover preview, PinFlyout) in the
+    // same handler that sets the selection, so the opener is already detached
+    // when this runs. Capturing it earlier would not help either — the
+    // captured node fails the `isConnected` check below for the same reason.
+    // The branch stays as the contract for a persistent trigger; giving the
+    // map surface a focus home for the overlay-origin case is #797.
+    const active = document.activeElement;
+    previousFocusRef.current =
+      active instanceof HTMLElement && active !== document.body ? active : null;
+    const timeout = window.setTimeout(() => cardRef.current?.focus(), 0);
+    return () => {
+      window.clearTimeout(timeout);
+      const previousFocus = previousFocusRef.current;
+      previousFocusRef.current = null;
+      if (previousFocus?.isConnected) previousFocus.focus();
+    };
+  }, [spot]);
 
   useEffect(() => {
     if (!spot) return;
@@ -308,6 +338,7 @@ export function SelectedSpotCard({
   return createPortal(
     <section
       ref={cardRef}
+      tabIndex={-1}
       role="dialog"
       aria-modal="false"
       aria-label={`Spot details for ${spot.dx}`}

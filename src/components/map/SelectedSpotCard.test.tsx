@@ -1,5 +1,6 @@
-import { render as rtlRender, screen } from "@testing-library/react";
+import { render as rtlRender, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { StrictMode } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { LiveSpot } from "@/types/livespot";
 import { presentActivationSpot } from "@/lib/map/spotPresentation";
@@ -328,5 +329,34 @@ describe("SelectedSpotCard", () => {
       lat: spot.dxLat,
       lon: spot.dxLon,
     });
+  });
+
+  it("moves focus into the card on open and restores it to the trigger on close, surviving a StrictMode replay", async () => {
+    const trigger = document.createElement("button");
+    trigger.textContent = "Open spot details";
+    document.body.appendChild(trigger);
+    trigger.focus();
+    expect(document.activeElement).toBe(trigger);
+
+    const { unmount } = render(
+      <StrictMode>
+        <SelectedSpotCard
+          spot={spot}
+          position={{ x: 10, y: 10 }}
+          onOperator={vi.fn()}
+          onClose={vi.fn()}
+        />
+      </StrictMode>,
+    );
+
+    const card = screen.getByRole("dialog", {
+      name: "Spot details for PY2ABC",
+    });
+    await waitFor(() => expect(document.activeElement).toBe(card));
+
+    unmount();
+    expect(document.activeElement).toBe(trigger);
+
+    trigger.remove();
   });
 });

@@ -175,10 +175,17 @@ export function SelectedSpotCard({
   // the element to restore to.
   useEffect(() => {
     if (!spot) return;
+    // `document.body` is not a restore target, and it is what this reads on
+    // every path that exists today: each host clears the overlay that opened
+    // the card (SpotCollectionPopover, the hover preview, PinFlyout) in the
+    // same handler that sets the selection, so the opener is already detached
+    // when this runs. Capturing it earlier would not help either — the
+    // captured node fails the `isConnected` check below for the same reason.
+    // The branch stays as the contract for a persistent trigger; giving the
+    // map surface a focus home for the overlay-origin case is #797.
+    const active = document.activeElement;
     previousFocusRef.current =
-      document.activeElement instanceof HTMLElement
-        ? document.activeElement
-        : null;
+      active instanceof HTMLElement && active !== document.body ? active : null;
     const timeout = window.setTimeout(() => cardRef.current?.focus(), 0);
     return () => {
       window.clearTimeout(timeout);

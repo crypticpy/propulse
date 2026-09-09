@@ -18,12 +18,8 @@
  * read by the desktop canvas too, on every device including a real phone,
  * since each device's `workspaceStore` seeds that same single workspace. A
  * real phone must show up on the shared roster as canvasType "phone",
- * `canTune: false`. `WorkspacePage` still calls `useOperatingScreen()`
- * unconditionally on every device (pre-existing since the placeholder era);
- * this registers a second, correct entry alongside it. Deduping that
- * pre-existing "workstation" ghost registration on mobile needs
- * `useOperatingScreen` itself to become canvas-aware — out of this task's
- * owned files, flagged as a follow-up in the #659 handoff.
+ * `canTune: false`. `WorkspacePage` calls `useOperatingScreen()` only in its
+ * workstation branch, so this is the phone's single roster entry.
  */
 
 import { useEffect, useState } from "react";

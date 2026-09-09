@@ -30,20 +30,12 @@ function WorkspaceDxFeedHost() {
  * same as every other station-ui page (`ShackPage.tsx`,
  * `DesignSystemPage.tsx`) — `workspace.css`'s classes are written to be read
  * inside that scope. `PhonePage` registers its own, canvas-correct entry on
- * the shared operating-state roster directly (see its own doc comment); the
- * `useOperatingScreen()` call below still runs unconditionally on mobile too
- * (pre-existing), which leaves a duplicate "workstation" registration behind
- * a real phone until that hook becomes canvas-aware — tracked as a #659
- * follow-up, not fixed here.
+ * the shared operating-state roster directly (see its own doc comment), so
+ * the workstation registration (`useOperatingScreen`) lives in the desktop
+ * branch only; a real phone never carries a ghost "workstation" entry.
  */
 export default function WorkspacePage() {
   const isMobile = useIsMobile();
-  // #658: registers this workspace with the shared operating state and
-  // applies inbound page-flip commands. One self-contained call — the
-  // channel itself is held open app-wide by `OperatingTransportHost`.
-  useOperatingScreen();
-  const activePage = useActivePage();
-  const needsDxFeed = activePage.widgetIds.some((id) => DX_SOURCED_WIDGET_IDS.has(id));
 
   if (isMobile) {
     return (
@@ -52,6 +44,17 @@ export default function WorkspacePage() {
       </StationProvider>
     );
   }
+
+  return <WorkstationWorkspace />;
+}
+
+function WorkstationWorkspace() {
+  // #658: registers this workspace with the shared operating state and
+  // applies inbound page-flip commands. One self-contained call — the
+  // channel itself is held open app-wide by `OperatingTransportHost`.
+  useOperatingScreen();
+  const activePage = useActivePage();
+  const needsDxFeed = activePage.widgetIds.some((id) => DX_SOURCED_WIDGET_IDS.has(id));
 
   return (
     <StationProvider className="workspace-page" role="main">

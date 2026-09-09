@@ -82,10 +82,11 @@ const badgeConfig: Record<
   },
   verified: {
     label: "VFD",
-    // #791: `text-aurora-purple` on its own tint only clears 4.5:1 at /10 --
-    // /20 measured 4.01:1 on the dark panel. The hue is the badge-type cue
-    // here, so the tint drops rather than the ink changing.
-    bgColor: "bg-aurora-purple/10",
+    // #791: this badge renders inside SpotRow's `bg-su-line/10` zebra/hover
+    // striping, so even /10 purple-on-purple misses 4.5:1 on that real
+    // composite (measured 4.24-4.49:1). No fill clears the floor with margin
+    // while keeping the purple hue as the badge-type cue.
+    bgColor: "",
     textColor: "text-aurora-purple",
     borderColor: "border-aurora-purple/40",
   },

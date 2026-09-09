@@ -32,7 +32,13 @@ export function DxpeditionsReport({
     [entries, now],
   );
   const live = activeCount(rows, now);
-  const unavailable = error != null || status !== "ok";
+  // "empty" is a schedule that loaded fine and parsed to zero operations —
+  // a different condition from unreachable/too-large, and not a load
+  // failure (#609 review N7, mirrored from ContestsReport per #726). The
+  // zero-rows branch below already has the correct copy for it ("No
+  // announced operations").
+  const unavailable =
+    error != null || (status !== "ok" && status !== "empty");
   const { footer, updated } = reportFooter(
     "NG3K ADXO · RETRIEVED",
     unavailable ? null : dataUpdatedAt > 0 ? dataUpdatedAt : null,

@@ -29,7 +29,11 @@ export function DxpeditionsTile() {
   const [ref, visible] = useVisibleRows<HTMLDivElement>(rows.length);
   const [reportOpen, setReportOpen] = useState(false);
   const live = activeCount(rows, now);
-  const unavailable = error != null || status !== "ok";
+  // "empty" is a schedule that loaded fine and parsed to zero operations —
+  // not a load failure, and distinct from unreachable/too-large (#609
+  // review N7, mirrored from ContestsTile per #726).
+  const unavailable =
+    error != null || (status !== "ok" && status !== "empty");
 
   if (isLoading) {
     return (

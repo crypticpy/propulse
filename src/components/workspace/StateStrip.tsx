@@ -3,10 +3,9 @@
  * workflow cursor (`operatingStateStore`, #658) that every screen of this
  * operator writes.
  *
- * It also carries the "Follow my other screens" kill switch for now — the
- * workspace SETTINGS dialog that will own it is another task's file (#657),
- * and a sharing switch the operator cannot find is worse than one in an
- * unusual place.
+ * It also carries the "Follow my other screens" kill switch. The settings
+ * dialog's Display tab has the same switch (#700); this copy stays because a
+ * sharing switch the operator cannot find is worse than one shown twice.
  */
 
 import { FollowScreensToggle } from "@/components/workspace/FollowScreensToggle";

@@ -6,9 +6,10 @@
  * per the owner's UI rules, via the shared `HamClockToggleRow` rather than a
  * one-off switch.
  *
- * `StateStrip` mounts it today because the workspace SETTINGS dialog is
- * another task's file (#657). It takes no props so that dialog can drop it in
- * a row list unchanged.
+ * Mounted twice on purpose: in `StateStrip` (always in view on the
+ * workstation) and under SHARING in the settings dialog's Display tab (#700).
+ * Both read the one store field, so they never disagree. It takes no props so
+ * either host can drop it in a row list unchanged.
  */
 
 // Reused outside the wall route, same as `CentreOverlay.tsx` and

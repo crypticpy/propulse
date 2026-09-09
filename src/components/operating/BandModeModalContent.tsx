@@ -26,7 +26,7 @@ import { useSettingsStore } from "@/stores/settingsStore";
 import { useActiveRadio } from "@/stores/shackStore";
 import { ALL_BANDS, type BandId } from "@/types/user";
 import { ALL_UI_MODES, type UIMode } from "@/lib/utils/modeNormalize";
-import { BAND_COLORS, MODE_COLORS, modeInk } from "@/lib/utils/spotColors";
+import { BAND_COLORS, MODE_COLORS, inkOnFill } from "@/lib/utils/spotColors";
 import { useBandConditionsTint } from "@/hooks/useBandConditionsTint";
 
 // ---------------------------------------------------------------------------
@@ -590,7 +590,7 @@ export function BandModeModal({ isOpen, onClose }: BandModeModalProps) {
                   {visibleModes.map((mode) => {
                     const isActive = activeMode === mode;
                     const mColor = MODE_COLORS[mode] ?? MODE_COLORS.default;
-                    const ink = modeInk(mode);
+                    const ink = inkOnFill(mColor);
 
                     return (
                       <button

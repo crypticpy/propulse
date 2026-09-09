@@ -965,10 +965,10 @@ export function PropagationForecastMini({
                 return (
                   <div
                     key={band}
-                    className={`text-xs font-mono flex items-center border-l-2 pl-1 ${
+                    className={`text-xs font-mono flex items-center border-l-2 border-transparent pl-1 ${
                       isSynced
-                        ? "border-su-accent text-su-text font-bold"
-                        : "border-transparent text-su-muted"
+                        ? "shadow-[inset_2px_0_0_0_rgb(var(--su-accent-edge-rgb))] text-su-text font-bold"
+                        : "text-su-muted"
                     }`}
                   >
                     {isSynced && (

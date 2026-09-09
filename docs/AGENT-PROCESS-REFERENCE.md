@@ -60,15 +60,27 @@ reason.
 ## Worktree setup and verification
 
 ```bash
-git fetch origin
-git worktree add .worktrees/<slug> --detach origin/main
-cd .worktrees/<slug> && git checkout -b <type>/<epic-slug>-<task-slug>
-npm ci && (cd bridge && npm ci) && (cd collector && npm ci)
-ln -sfn <path-to-shared>/ml/.venv ml/.venv     # if the ML venv lives in another checkout
-npm run hooks:install
+npm run worktree:new -- <slug> [<type>/<epic-slug>-<task-slug>]   # bootstraps or repairs .worktrees/<slug>; see scripts/new-worktree.sh
 npm run verify                                  # the push gate; doc-only changes take the fast path
 npx vitest run <path>                           # focused tests
 git merge origin/main                           # before opening the PR and whenever main moves
+```
+
+`worktree:new` is idempotent — re-run it against a worktree that already
+exists to fill in whatever a prior run left missing (dependencies, the
+`ml/.venv` symlink, hooks). It also warns when `git worktree list` crosses a
+high count, since abandoned worktrees hide unpushed work from the issue
+board (#160).
+
+Expanded form, for when the script is unavailable (this is what it runs):
+
+```bash
+git fetch origin
+git worktree add -b <type>/<epic-slug>-<task-slug> .worktrees/<slug> origin/main
+cd .worktrees/<slug>
+npm ci && (cd bridge && npm ci) && (cd collector && npm ci)
+ln -sfn <path-to-shared>/ml/.venv ml/.venv     # if the ML venv lives in another checkout
+npm run hooks:install
 ```
 
 Finding open PRs that touch your files:

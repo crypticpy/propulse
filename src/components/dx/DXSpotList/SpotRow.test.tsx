@@ -103,20 +103,51 @@ describe("SpotRow trailing toolbar", () => {
     expect(onSelect).not.toHaveBeenCalled();
   });
 
-  it("stays visible without hover on coarse-pointer / no-hover devices", () => {
+  it("stays visible and interactive without hover on coarse-pointer / no-hover devices", () => {
     renderRow();
     const toolbar = screen.getByRole("button", { name: /Tune 14.074 MHz FT8/ })
       .parentElement;
     expect(toolbar).toBeTruthy();
-    // Hover/focus-only reveal (fine-pointer default) stays intact...
+    // Hidden by default and inert (no pointer events) until revealed...
     expect(toolbar!.className).toContain("opacity-0");
+    expect(toolbar!.className).toContain("pointer-events-none");
+    // ...hover/focus-within reveal (fine-pointer default) stays intact...
     expect(toolbar!.className).toContain("group-hover:opacity-100");
+    expect(toolbar!.className).toContain("group-hover:pointer-events-auto");
     expect(toolbar!.className).toContain("focus-within:opacity-100");
-    // ...but a coarse pointer or no-hover device forces it permanently
-    // visible, since jsdom can't evaluate the media query itself.
+    expect(toolbar!.className).toContain("focus-within:pointer-events-auto");
+    // ...but a coarse pointer (any-pointer, so hybrid touch+mouse devices
+    // still match) or no-hover device forces it permanently visible and
+    // clickable, since jsdom can't evaluate the media query itself.
     expect(toolbar!.className).toContain("[@media(hover:none)]:opacity-100");
     expect(toolbar!.className).toContain(
-      "[@media(pointer:coarse)]:opacity-100",
+      "[@media(hover:none)]:pointer-events-auto",
     );
+    expect(toolbar!.className).toContain(
+      "[@media(any-pointer:coarse)]:opacity-100",
+    );
+    expect(toolbar!.className).toContain(
+      "[@media(any-pointer:coarse)]:pointer-events-auto",
+    );
+  });
+
+  it("reveals the toolbar for the keyboard-focused row even though DOM focus stays on the list container", () => {
+    renderRow({ isFocused: true });
+    const toolbar = screen.getByRole("button", { name: /Tune 14.074 MHz FT8/ })
+      .parentElement;
+    expect(toolbar).toBeTruthy();
+    expect(toolbar!.className).toContain("opacity-100");
+    expect(toolbar!.className).toContain("pointer-events-auto");
+  });
+
+  it("does not mount the tune chip when CAT control is disabled, avoiding extra per-row store subscriptions", () => {
+    useRigStore.setState({ catEnabled: false });
+    renderRow();
+    expect(
+      screen.queryByRole("button", { name: /Tune 14.074 MHz/ }),
+    ).toBeNull();
+    expect(
+      screen.getByRole("button", { name: "Set as map target" }),
+    ).toBeTruthy();
   });
 });

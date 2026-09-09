@@ -64,13 +64,19 @@ export function TuneButton({
         type="button"
         {...buttonProps}
         title={reason ?? `Tune ${target} MHz`}
-        className={`inline-flex h-8 min-h-8 min-w-8 shrink-0 items-center gap-1 rounded-md border border-su-line/50 bg-su-input px-2 font-mono text-[10px] leading-none text-su-text disabled:cursor-not-allowed disabled:text-su-muted ${FOCUS_RING}`}
+        className={`inline-flex h-8 min-h-8 min-w-8 shrink-0 items-center gap-1 rounded-md border border-su-line/50 bg-su-input px-2 font-mono text-xs leading-none text-su-text disabled:cursor-not-allowed disabled:text-su-muted ${FOCUS_RING}`}
       >
         <span
           aria-hidden="true"
           className={`h-1.5 w-1.5 shrink-0 rounded-full ${reason ? "bg-su-muted" : "bg-su-success"}`}
         />
         <span className="whitespace-nowrap">TUNE {target}</span>
+        {reason && (
+          <span className="max-w-[9ch] truncate text-su-muted">
+            {" "}
+            · {reason}
+          </span>
+        )}
       </button>
     );
   }

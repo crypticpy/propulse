@@ -19,6 +19,7 @@ import {
 } from "@/lib/utils/spotParser";
 import { SpotBadge } from "../SpotBadge";
 import { TuneButton } from "@/components/radio/TuneButton";
+import { useRigStore } from "@/stores/rigStore";
 import type { SpotRowProps } from "./types";
 import {
   formatTime,
@@ -101,6 +102,7 @@ export const SpotRow = memo(function SpotRow({
 }: SpotRowProps) {
   const bandColor = getBandColor(spot.band || "");
   const bandHexColor = getBandHexColor(spot.band || "");
+  const catEnabled = useRigStore((state) => state.catEnabled);
   const minutesAgo = getMinutesAgo(spot.time);
   const [frequencyCopied, setFrequencyCopied] = useState(false);
   const copyTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -527,12 +529,16 @@ export const SpotRow = memo(function SpotRow({
 
       {/* Trailing toolbar: tune chip + outlined quick actions */}
       <div className="relative flex min-h-8 items-center justify-end">
-        <div className="absolute right-0 z-10 flex items-center gap-1.5 rounded-md border border-su-line/40 bg-su-panel/95 px-1 py-0.5 opacity-0 shadow-sm backdrop-blur-sm transition-opacity duration-150 group-hover:opacity-100 focus-within:opacity-100 [@media(hover:none)]:opacity-100 [@media(pointer:coarse)]:opacity-100">
-          <TuneButton
-            variant="chip"
-            frequencyKHz={spot.frequency}
-            mode={spot.mode}
-          />
+        <div
+          className={`absolute right-0 z-10 flex items-center gap-1.5 rounded-md border border-su-line/40 bg-su-panel/95 px-1 py-0.5 opacity-0 shadow-sm backdrop-blur-sm transition-opacity duration-150 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto focus-within:opacity-100 focus-within:pointer-events-auto [@media(hover:none)]:opacity-100 [@media(hover:none)]:pointer-events-auto [@media(any-pointer:coarse)]:opacity-100 [@media(any-pointer:coarse)]:pointer-events-auto ${isFocused ? "opacity-100 pointer-events-auto" : ""}`}
+        >
+          {catEnabled && (
+            <TuneButton
+              variant="chip"
+              frequencyKHz={spot.frequency}
+              mode={spot.mode}
+            />
+          )}
           <button
             type="button"
             onClick={handleSetTarget}

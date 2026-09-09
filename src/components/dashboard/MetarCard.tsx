@@ -16,7 +16,12 @@ const FLIGHT_CATEGORY_STYLES: Record<string, string> = {
   VFR: "bg-su-success/15 border-su-success/30 text-su-success",
   MVFR: "bg-su-info/15 border-su-info/30 text-su-info",
   IFR: "bg-su-danger/15 border-su-danger/30 text-su-danger",
-  LIFR: "bg-aurora-purple/15 border-aurora-purple/30 text-aurora-purple",
+  // LIFR keeps the aviation-standard magenta as its ink, so it carries no
+  // purple fill at all: the chip renders inside Card's `bg-su-line/10` glass,
+  // and even /10 purple-on-purple misses 4.5:1 on that real composite (#791
+  // measured 4.24-4.49:1 on the panel-side stack). No tint clears the floor
+  // with margin (4.74-5.29:1) while keeping the aviation magenta as the ink.
+  LIFR: "border-aurora-purple/30 text-aurora-purple",
 };
 
 function flightCategoryStyle(fltCat: string | null): string {

@@ -511,8 +511,10 @@ export function LogUploadModal({
                           Coming Soon
                         </span>
                       )}
+                      {/* #791: /10 is the only aurora-purple tint that keeps
+                          purple ink at 4.5:1 in all four themes. */}
                       {service.exportOnly && (
-                        <span className="px-2 py-0.5 bg-aurora-purple/20 text-aurora-purple rounded text-xs">
+                        <span className="px-2 py-0.5 bg-aurora-purple/10 text-aurora-purple rounded text-xs">
                           Export Only
                         </span>
                       )}
@@ -653,12 +655,16 @@ export function LogUploadModal({
 
         {/* Action Buttons */}
         <div className="flex gap-3">
+          {/* #791: the LoTW fill has a /30 hover state and purple ink misses
+              4.5:1 on every aurora-purple tint above /10, so the identity hue
+              stays in the fill and border (Badge's `quiet` variant does the
+              same) and the label uses the always-AA station text token. */}
           {hasLoTW && (
             <button
               onClick={handleLoTWExport}
               disabled={filteredEntries.length === 0}
               className="flex-1 px-4 py-2.5 bg-aurora-purple/20 border border-aurora-purple/50 rounded-lg
-                       text-aurora-purple hover:bg-aurora-purple/30
+                       text-su-text hover:bg-aurora-purple/30
                        transition-colors font-medium flex items-center justify-center gap-2
                        disabled:opacity-50 disabled:cursor-not-allowed"
             >

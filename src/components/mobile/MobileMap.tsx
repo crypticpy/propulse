@@ -14,6 +14,7 @@ import { FlatMapView } from "@/components/map/FlatMapView";
 import { ActivationDetailPanel } from "@/components/map/ActivationDetailPanel";
 import { ObservatoryTiltSlider } from "@/components/map/ObservatoryTiltSlider";
 import { ReachMapControl } from "@/components/map/ReachMapControl";
+import { BoundViewHost } from "@/components/views/BoundViewHost";
 import { useMapStore } from "@/stores/mapStore";
 import { useUserStore } from "@/stores/userStore";
 import { useLiveSpots } from "@/hooks/useLiveSpots";
@@ -182,6 +183,7 @@ export function MobileMap() {
   }, [spots]);
 
   return (
+    <BoundViewHost slot="normal">
     <div className="flex flex-col h-full relative">
       {/* Map fills available space */}
       <div className="flex-1 relative min-h-0">
@@ -479,5 +481,6 @@ export function MobileMap() {
           dialog as desktop PropSphere for activation-label selections. */}
       <ActivationDetailPanel />
     </div>
+    </BoundViewHost>
   );
 }

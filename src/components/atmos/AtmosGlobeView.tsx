@@ -6,6 +6,12 @@ import { useAtmosStore } from "@/stores/atmosStore";
 import { useNexradAvailable } from "@/hooks/useWeatherRadar";
 import { WeatherLegend } from "@/components/atmos/WeatherLegend";
 import { RadarScrubber3D } from "@/components/atmos/RadarScrubber3D";
+import { BoundViewHost } from "@/components/views/BoundViewHost";
+import { namedSlotId } from "@/lib/views/runtime";
+
+// Dedicated slot so AtmosPulse's runtime never shares state (or a registry
+// key) with PropSphere's "normal" working slot — see PR #603 review N1.
+const ATMOS_VIEW_SLOT = namedSlotId("atmos");
 
 const GlobeView = lazy(() =>
   import("@/components/map/GlobeView").then((m) => ({
@@ -36,26 +42,28 @@ export function AtmosGlobeView() {
   const nexradAvailable = useNexradAvailable(radarOn);
 
   return (
-    <div className="relative w-full h-full">
-      <Suspense
-        fallback={
-          <div className="absolute inset-0 flex items-center justify-center bg-void-black">
-            <span className="text-xs font-mono text-su-muted">
-              Loading weather globe...
-            </span>
-          </div>
-        }
-      >
-        <GlobeView
-          displayTime={displayTime}
-          hideRadarScrubber
-          onUseFlatMap={() => useAtmosStore.getState().setViewMode("2d")}
-        />
-      </Suspense>
+    <BoundViewHost slot={ATMOS_VIEW_SLOT}>
+      <div className="relative w-full h-full">
+        <Suspense
+          fallback={
+            <div className="absolute inset-0 flex items-center justify-center bg-void-black">
+              <span className="text-xs font-mono text-su-muted">
+                Loading weather globe...
+              </span>
+            </div>
+          }
+        >
+          <GlobeView
+            displayTime={displayTime}
+            hideRadarScrubber
+            onUseFlatMap={() => useAtmosStore.getState().setViewMode("2d")}
+          />
+        </Suspense>
 
-      {/* Weather-specific overlays */}
-      <WeatherLegend />
-      {radarOn && <RadarScrubber3D showNexradBadge={nexradAvailable} />}
-    </div>
+        {/* Weather-specific overlays */}
+        <WeatherLegend />
+        {radarOn && <RadarScrubber3D showNexradBadge={nexradAvailable} />}
+      </div>
+    </BoundViewHost>
   );
 }

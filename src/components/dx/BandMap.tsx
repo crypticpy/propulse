@@ -10,6 +10,7 @@
 import { useRef, useEffect, useCallback, useState, useMemo } from "react";
 import { useDXStore } from "@/stores/dxStore";
 import { useActiveBand } from "@/hooks/useActiveBandMode";
+import { useOptionalViewRuntime } from "@/components/views/ViewRuntimeContext";
 import type { DXSpot } from "@/types/dxcluster";
 
 /**
@@ -120,6 +121,7 @@ export function BandMap({
 
   // Get store methods for selection
   const { selectedSpot, setSelectedSpot } = useDXStore();
+  const runtime = useOptionalViewRuntime();
 
   // Filter spots for the selected band and time window
   const filteredSpots = useMemo(() => {
@@ -424,13 +426,20 @@ export function BandMap({
 
         if (distance <= size + 2) {
           // Toggle selection if clicking the same spot
-          setSelectedSpot(selectedSpot?.id === spot.id ? null : spot);
+          const isDeselecting = selectedSpot?.id === spot.id;
+          setSelectedSpot(isDeselecting ? null : spot);
+          if (isDeselecting) {
+            runtime?.clearSelection();
+          } else {
+            runtime?.selectSpot(spot.id, null);
+          }
           return;
         }
       }
 
       // Click on empty area - deselect
       setSelectedSpot(null);
+      runtime?.clearSelection();
     },
     [
       filteredSpots,
@@ -439,6 +448,7 @@ export function BandMap({
       timeToY,
       selectedSpot,
       setSelectedSpot,
+      runtime,
     ],
   );
 

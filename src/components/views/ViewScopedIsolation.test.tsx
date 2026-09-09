@@ -1,6 +1,6 @@
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { ViewProvider } from "./ViewProvider";
 import { useViewRuntime } from "./ViewRuntimeContext";
 import {
@@ -97,6 +97,9 @@ function IsolationProbe({ id, spots }: { id: string; spots: readonly DXSpot[] })
   );
 }
 
+const originalDx = useDXStore.getState().selectedSpot;
+const originalMapTarget = useMapStore.getState().target;
+
 describe("ViewProvider scoped adapters", () => {
   beforeEach(() => {
     resetOperatingMonitorForTests();
@@ -108,19 +111,25 @@ describe("ViewProvider scoped adapters", () => {
     });
   });
 
+  afterEach(() => {
+    useDXStore.setState({ selectedSpot: originalDx });
+    useMapStore.setState({ target: originalMapTarget });
+  });
+
   it("isolates presentation, follow, manual filters, and focus across two family runtimes", async () => {
     const user = userEvent.setup();
     const storage = createMemoryWorkingStorage();
     const spots = [dxSpot()];
-    const dxSelected = useDXStore.getState().selectedSpot;
-    const mapTarget = useMapStore.getState().target;
     render(
       <>
         <ViewProvider ownerId="owner-a" slot="normal" storage={storage}>
           <IsolationProbe id="monitor" spots={spots} />
         </ViewProvider>
         <ViewProvider ownerId="owner-a" slot="hamclock" storage={storage}>
-          <IsolationProbe id="wall" spots={spots} />
+          {/* Empty on purpose: this probe must prove focus isolation from
+              its own runtime's selectedReportId/target, not from a `spots`
+              row that happens to lack coordinates and would mask a leak. */}
+          <IsolationProbe id="wall" spots={[]} />
         </ViewProvider>
       </>,
     );
@@ -143,8 +152,12 @@ describe("ViewProvider scoped adapters", () => {
     expect(screen.getByTestId("monitor-focus").textContent).toBe("-22.5");
     expect(screen.getByTestId("wall-sel").textContent).toBe("none");
     expect(screen.getByTestId("wall-focus").textContent).toBe("none");
-    expect(useDXStore.getState().selectedSpot).toBe(dxSelected);
-    expect(useMapStore.getState().target).toBe(mapTarget);
+    // Per-runtime interaction (selectedReportId, focus) stays isolated per
+    // slot above. The legacy dxStore/mapStore writes are additive and
+    // global now — commitViewSpotSelection (useMapSpotSelection.ts) writes
+    // them for every host until #707. See BoundViewHost.test.tsx.
+    expect(useDXStore.getState().selectedSpot?.id).toBe("grid-1");
+    expect(useMapStore.getState().target).toMatchObject({ lat: -22.5, lon: -43 });
   });
 
   it("isolates two named copies and two display instances in one tree", async () => {

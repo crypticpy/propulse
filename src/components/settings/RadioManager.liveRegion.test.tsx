@@ -2,6 +2,7 @@ import { fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { MemoryRouter } from "react-router-dom";
 import { useUserStore } from "@/stores/userStore";
+import type { UseLogbookResult } from "@/hooks/useLogbook";
 import { RadioManager } from "./RadioManager";
 
 // EquipmentCard (rendered once an instance is added) uses useOperatorRank ->
@@ -9,16 +10,28 @@ import { RadioManager } from "./RadioManager";
 // resolution can fire after jsdom teardown between tests in this file
 // (unhandled `window is not defined` from useLogbook.ts's setLoading, since
 // useStationQsoIndex's own shared-index scan is a separate, already-safe
-// path). Stub it synchronously, matching the DXSpotList.test.tsx convention.
+// path). Stub it synchronously.
+//
+// Shaped against the real `UseLogbookResult` (useLogbook.ts:38-71, the
+// interface `useLogbook()` at useLogbook.ts:97 actually returns): `isWorked`,
+// `getWorkedBands` and `getWorkedModes` are functions there (not the boolean
+// `isWorked` / `workedBands`/`workedModes` arrays that the *different*
+// `useCallsignLookup` hook in the same file returns at useLogbook.ts:395-404
+// — `useLogbookStats.ts:38` only destructures `{ entries, loading }` from
+// `useLogbook()`, not from `useCallsignLookup()`). `satisfies
+// Partial<UseLogbookResult>` below pins the factory to that interface so a
+// future signature change fails typecheck instead of silently drifting, the
+// way `DXSpotList.test.tsx`'s copy of this mock already has.
 vi.mock("@/hooks/useLogbook", () => ({
-  useLogbook: () => ({
-    entries: [],
-    loading: false,
-    error: null,
-    isWorked: () => false,
-    getWorkedBands: () => [],
-    getWorkedModes: () => [],
-  }),
+  useLogbook: () =>
+    ({
+      entries: [],
+      loading: false,
+      error: null,
+      isWorked: () => false,
+      getWorkedBands: () => [],
+      getWorkedModes: () => [],
+    }) satisfies Partial<UseLogbookResult>,
 }));
 
 describe("RadioManager live regions (#754/#772)", () => {

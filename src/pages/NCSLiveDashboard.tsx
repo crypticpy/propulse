@@ -268,6 +268,26 @@ export function NCSLiveDashboard() {
         return;
       }
 
+      // Yield to any open modal covering the dashboard (NCSKeyboardHints,
+      // PreambleEditor, or any future overlay hosted here) instead of
+      // hardcoding `showKeyboardHints` -- the next overlay added would
+      // reintroduce this bug. Same predicate as useFullscreenEscape.ts
+      // (#804); the alertdialog arm is required too (census note, #773).
+      // Escape is included in this early return on purpose: AccessibleDialog
+      // already owns Escape via a document capture-phase listener that calls
+      // stopImmediatePropagation() before this window bubble listener ever
+      // runs (#801), so this branch is defense-in-depth for a modal that
+      // doesn't route through AccessibleDialog, not the live path for Escape
+      // today. Known gap: this can't see body-portal overlays with no dialog
+      // semantics -- #805 tracks one such case.
+      if (
+        document.querySelector(
+          '[role="dialog"][aria-modal="true"], [role="alertdialog"][aria-modal="true"]',
+        )
+      ) {
+        return;
+      }
+
       // No shortcuts without a live session
       if (!currentSession) return;
 

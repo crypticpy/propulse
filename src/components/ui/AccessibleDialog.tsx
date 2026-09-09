@@ -152,8 +152,10 @@ function syncBackgroundInert(): void {
       lateBodyPortals.has(child) &&
       !stackRoots.has(child) &&
       child.querySelector('[aria-modal="true"]')
-    )
+    ) {
+      restoreOriginal(child);
       continue;
+    }
     child.inert = true;
     child.setAttribute("aria-hidden", "true");
   }

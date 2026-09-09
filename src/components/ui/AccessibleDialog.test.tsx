@@ -518,18 +518,17 @@ describe("AccessibleDialog late-mounted body portals (#693)", () => {
   });
 
   it("stops inerting new body children once the last dialog has closed", async () => {
-    // A black-box leak test is structurally impossible here: with an empty
-    // stack, `syncBackgroundInert()` is a total DOM no-op, and the next
-    // dialog open just reuses whatever observer is still attached — so a
-    // leaked observer and a correctly-disconnected one both leave every
-    // assertion in this file green. (The disconnect call itself is pinned
-    // by the prototype spy in the test below, which is the only place a
-    // leak is actually observable.)
+    // A leaked observer is now independently observable — see "does not
+    // treat a body child that arrives while no dialog is open as late"
+    // below, which pins it via the lateness state a leaked observer would
+    // wrongly attach to a node arriving after the last dialog closed.
+    // (The disconnect call itself is also pinned directly by the
+    // prototype spy in the test after that one.)
     //
-    // What this test does pin, and nothing else does: once
+    // What this test pins, and nothing else does: once
     // `indexOfTopmostOpenEntry()` finds no open entry, a body child that
-    // arrives afterward must not be inerted. Break the stack reset at the
-    // end of the dialog's cleanup effect, or regress
+    // arrives afterward must not be inerted. Regress the cleanup effect's
+    // `stackEntry.isOpen = false` write, or regress
     // `indexOfTopmostOpenEntry()` to report a stale `top`, and this goes
     // red while every other test here stays green.
     const { rerender } = render(
@@ -574,6 +573,40 @@ describe("AccessibleDialog late-mounted body portals (#693)", () => {
 
     expect(disconnectSpy).toHaveBeenCalledOnce();
     disconnectSpy.mockRestore();
+  });
+
+  it("does not treat a body child that arrives while no dialog is open as late", async () => {
+    // Lateness became state under round 3 (`lateBodyPortals`), so a leaked
+    // `bodyPortalObserver` — one that keeps recording arrivals after the
+    // last dialog closes instead of disconnecting — is now observable: it
+    // would wrongly mark a node that mounted while nothing was open as
+    // "late", making the next dialog's foreign-modal exemption match it
+    // and leave it reachable behind the modal. This was structurally
+    // impossible to catch in round 2, when lateness was purely structural.
+    const { rerender } = render(
+      <AccessibleDialog open onClose={vi.fn()} title="First">
+        <button type="button">First action</button>
+      </AccessibleDialog>,
+    );
+    rerender(
+      <AccessibleDialog open={false} onClose={vi.fn()} title="First">
+        <button type="button">First action</button>
+      </AccessibleDialog>,
+    );
+
+    const foreignModal = document.createElement("div");
+    foreignModal.innerHTML = '<div role="dialog" aria-modal="true">Foreign modal content</div>';
+    document.body.append(foreignModal);
+    lateNodes.push(foreignModal);
+
+    render(
+      <AccessibleDialog open onClose={vi.fn()} title="Second">
+        <button type="button">Second action</button>
+      </AccessibleDialog>,
+    );
+
+    await waitFor(() => expect(foreignModal.inert).toBeTruthy());
+    expect(foreignModal.getAttribute("aria-hidden")).toBe("true");
   });
 
   it("exempts a foreign modal portal from inert, but still inerts a non-modal late portal", async () => {

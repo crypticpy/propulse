@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { execFileSync } from "node:child_process";
+import { execFileSync, spawnSync } from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -12,6 +12,7 @@ import {
   pushRanges,
   selectDiffBase,
   selectFallbackBase,
+  whitespaceDiffRanges,
 } from "./pre-push-checks.mjs";
 
 // Git hooks (this test can itself run inside the pre-push hook) set
@@ -353,6 +354,134 @@ test("a second, docs-only push to a branch that previously touched ml/ does not 
 
     assert.notEqual(plan.profile, "full");
     assert.deepEqual(plan.paths, ["NOTES.md"]);
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+// --- whitespaceDiffRanges: #740 — checkDiffWhitespace must scan the same
+// narrowed range `changedPaths` classifies, not a re-derived two-dot diff. ---
+
+// Case 1 from #740: a direct push to `main` keeps the two-dot range
+// unconditionally. This is inherited entirely from `diffRangeFor`'s existing
+// `isMainPush` short-circuit (added by #738, unchanged here) — reverting
+// *only* this PR's change (switching `checkDiffWhitespace` from a re-derived
+// `base..head` back to `whitespaceDiffRanges`) cannot turn this test red,
+// because both the narrowed and un-narrowed forms already collapse to the
+// same `base..head` string for a main push. It is kept anyway as a guard
+// against a *future* over-narrowing (e.g. someone dropping `isMainPush`'s
+// special case), which would collapse the range to empty here and silently
+// skip whitespace checking on direct main pushes — strictly worse than the
+// bug #740 fixes.
+test("whitespaceDiffRanges: a direct push to main keeps the two-dot range and still catches its own whitespace error", () => {
+  const dir = initScratchRepo();
+  try {
+    const oldMainTip = scratchGit(dir, ["rev-parse", "HEAD"]);
+    writeScratchFile(dir, "src/trailing.ts", "export const x = 1; \n");
+    commitScratch(dir, "chore: add file with trailing whitespace directly on main");
+    const newMainTip = scratchGit(dir, ["rev-parse", "HEAD"]);
+    scratchGit(dir, ["update-ref", "refs/remotes/origin/main", "main"]);
+
+    const [range] = whitespaceDiffRanges(
+      [{ base: oldMainTip, head: newMainTip, remoteRef: "refs/heads/main" }],
+      { remoteName: "origin", cwd: dir },
+    );
+    assert.equal(range, `${oldMainTip}..${newMainTip}`);
+
+    const result = spawnSync("git", ["diff", "--check", range], {
+      cwd: dir,
+      encoding: "utf8",
+    });
+    assert.notEqual(result.status, 0);
+    assert.match(result.stdout, /src\/trailing\.ts/);
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+// Case 2 from #740: a branch that introduces its own whitespace error must
+// still fail after merging in a `main` that independently has an unrelated
+// one — and the failure must name only the branch's own file, not main's.
+// This is the genuine red-on-revert case: reverting *only* this PR's change
+// (making `checkDiffWhitespace` re-derive `base..head` instead of calling
+// `whitespaceDiffRanges`) widens the diffed range back to include main's
+// merged-in commit, so `git diff --check` would additionally report
+// `src/mainonly.ts` — a file the pusher never touched.
+test("whitespaceDiffRanges: a branch's own whitespace error still fails after merging a main with an unrelated one, without naming main's file", () => {
+  const dir = initScratchRepo();
+  try {
+    // The branch has never been pushed before, so `base` is the fork point —
+    // both its own whitespace-introducing commit and the main merge are new
+    // in this one push (same shape as "a branch that touches ml/ itself
+    // still escalates to full after merging main in").
+    const forkPoint = scratchGit(dir, ["rev-parse", "HEAD"]);
+
+    scratchGit(dir, ["checkout", "-q", "-b", "feature"]);
+    writeScratchFile(dir, "src/feature.ts", "export const feature = 1; \n");
+    commitScratch(dir, "feat: add feature file with trailing whitespace");
+
+    // main moves on with its own, unrelated whitespace error the branch
+    // never touched.
+    scratchGit(dir, ["checkout", "-q", "main"]);
+    writeScratchFile(dir, "src/mainonly.ts", "export const mainOnly = 1; \n");
+    commitScratch(dir, "chore: add main-only file with trailing whitespace");
+    scratchGit(dir, ["update-ref", "refs/remotes/origin/main", "main"]);
+
+    scratchGit(dir, ["checkout", "-q", "feature"]);
+    scratchGit(dir, ["merge", "-q", "--no-ff", "-m", "merge main into feature", "main"]);
+    const mergeCommit = scratchGit(dir, ["rev-parse", "HEAD"]);
+
+    const [range] = whitespaceDiffRanges(
+      [{ base: forkPoint, head: mergeCommit, remoteRef: "refs/heads/feature" }],
+      { remoteName: "origin", cwd: dir },
+    );
+
+    const result = spawnSync("git", ["diff", "--check", range], {
+      cwd: dir,
+      encoding: "utf8",
+    });
+    assert.notEqual(result.status, 0);
+    assert.match(result.stdout, /src\/feature\.ts/);
+    assert.doesNotMatch(result.stdout, /src\/mainonly\.ts/);
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+// Case 3 from #740: fail closed (fall back to the plain two-dot range) when
+// `origin/main` does not resolve, rather than skipping the check. Like case
+// 1, this is inherited from `diffRangeFor`/`selectDiffBase`'s existing
+// fail-closed guard (#738, unchanged here): reverting only this PR's
+// `checkDiffWhitespace` wiring cannot turn this test red, because both forms
+// already collapse to the same `base..head` when `mainRef` is unresolved. It
+// guards the whitespace check's consumption of that guarantee against a
+// future regression in the shared fail-closed logic (e.g. `resolveMainRef`
+// or `selectDiffBase` starting to treat an unresolved `mainRef` as "diff
+// nothing" instead of "diff everything since base") — never skipping is the
+// property #740 explicitly calls out as non-negotiable.
+test("whitespaceDiffRanges: falls back to the two-dot range and still catches the error when origin/main does not resolve", () => {
+  const dir = initScratchRepo();
+  try {
+    // No `refs/remotes/origin/main` is ever created in this repo, so
+    // `resolveMainRef` (inside diffRangeFor) fails to resolve it.
+    scratchGit(dir, ["checkout", "-q", "-b", "feature"]);
+    const oldFeatureTip = scratchGit(dir, ["rev-parse", "HEAD"]);
+    writeScratchFile(dir, "src/feature.ts", "export const feature = 1; \n");
+    commitScratch(dir, "feat: add feature file with trailing whitespace");
+    const newFeatureTip = scratchGit(dir, ["rev-parse", "HEAD"]);
+
+    const [range] = whitespaceDiffRanges(
+      [{ base: oldFeatureTip, head: newFeatureTip, remoteRef: "refs/heads/feature" }],
+      { remoteName: "origin", cwd: dir },
+    );
+    assert.equal(range, `${oldFeatureTip}..${newFeatureTip}`);
+
+    const result = spawnSync("git", ["diff", "--check", range], {
+      cwd: dir,
+      encoding: "utf8",
+    });
+    assert.notEqual(result.status, 0);
+    assert.match(result.stdout, /src\/feature\.ts/);
   } finally {
     fs.rmSync(dir, { recursive: true, force: true });
   }

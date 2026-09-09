@@ -279,9 +279,19 @@ export function changedPaths(ranges, options = {}) {
   return [...paths];
 }
 
-function checkDiffWhitespace(ranges) {
-  for (const { base, head } of ranges) {
-    run("git", ["diff", "--check", `${base}..${head}`], "Checking diff hygiene");
+// Reuses `diffRangeFor` (see above) so whitespace hygiene is checked over
+// exactly the range `changedPaths` classified — not a re-derived `base..head`
+// two-dot diff. Without this, a push whose head merges `main` in would run
+// `git diff --check` over `main`'s content too, hard-failing on a whitespace
+// error the pusher never introduced (#740).
+export function whitespaceDiffRanges(ranges, options = {}) {
+  const { remoteName = "origin", cwd } = options;
+  return ranges.map((range) => diffRangeFor(range, remoteName, cwd));
+}
+
+function checkDiffWhitespace(ranges, options = {}) {
+  for (const range of whitespaceDiffRanges(ranges, options)) {
+    run("git", ["diff", "--check", range], "Checking diff hygiene");
   }
 }
 
@@ -315,7 +325,7 @@ function main() {
   const ranges = pushRanges(remoteName);
   const plan = classifyPushPaths(changedPaths(ranges, { remoteName }));
   printPlan(plan);
-  checkDiffWhitespace(ranges);
+  checkDiffWhitespace(ranges, { remoteName });
   run(
     "node",
     ["scripts/check-tracked-artifacts.mjs"],

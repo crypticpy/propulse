@@ -256,7 +256,7 @@ and receiver performance from the Sherwood Engineering database behind it.
 
 ### Contest engine
 
-Nineteen contest definitions with real-time scoring, per-contest dupe rules, multiplier
+Thirty-six contest definitions with real-time scoring, per-contest dupe rules, multiplier
 tracking, Super Check Partial, rate sheet, band map with one-click QSY, keyboard-first
 entry, Cabrillo and ADIF export, N1MM-compatible UDP broadcast, off-time and QTC handling,
 and multi-tab synchronisation.

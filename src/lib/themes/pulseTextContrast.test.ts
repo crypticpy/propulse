@@ -172,51 +172,77 @@ const AUDITED_SITES: AuditedSite[] = [
 
 /**
  * Rendered sites (outside the 14 above) that still pulse tinted/measured
- * text. Left for #878, past #847's 15-file budget. Each entry is checked
- * below to still contain the pulse class -- when #878 fixes one, delete its
- * entry here, or this file fails and names exactly which one went stale.
+ * text. Left for #878, past #847's 15-file budget. Several of these files
+ * (`OperatorProfile.tsx`, `SolarSnapshot.tsx`, `SpotRow.tsx`,
+ * `FlexBottomBar.tsx`) also carry unrelated, out-of-scope decorative
+ * `animate-pulse` sites -- a plain "does this file still contain the pulse
+ * class" check can't tell those apart from the tracked one, so it stays
+ * green forever even after #878 fixes the tracked site (Codex, PR #874
+ * round 3). Each entry instead carries an `anchor`: a short snippet unique
+ * within its file, taken from right next to (but not containing) the
+ * tracked element's `animate-pulse`. `anchoredSiteStillPulses` below finds
+ * the anchor and checks only the text immediately around it, so fixing the
+ * tracked element turns that entry red even when a decorative pulse
+ * elsewhere in the same file is untouched -- when #878 fixes one, delete
+ * its entry here, or this file fails and names exactly which one went
+ * stale.
  */
 interface KnownRemainingSite {
   file: string;
   why: string;
+  /** Short snippet, unique within `file`, adjacent to the tracked element's
+   * `animate-pulse` but not containing it -- identifies *which* pulse this
+   * entry is about in a file with more than one. */
+  anchor: string;
 }
 
 const KNOWN_REMAINING_SITES: KnownRemainingSite[] = [
   {
     file: "src/components/contest/MultiplierTracker.tsx",
     why: "multiplier badge pulses its own tinted label text",
+    anchor: "isNew ?",
   },
   {
     file: "src/components/contest/ContestOneLineEntry.tsx",
     why: "same TX/multiplier-badge pattern as RigStatusBar/DupeIndicator",
+    anchor: "bg-alert-red/20 text-alert-red border-2 border-alert-red/50",
   },
   {
     file: "src/components/sdr/skins/flexible/FlexBottomBar.tsx",
     why: "TX indicator pulses its tinted label text",
+    anchor:
+      "rounded bg-alert-red px-1.5 py-0.5 text-[10px] font-bold text-su-canvas leading-none",
   },
   {
     file: "src/components/sdr/skins/fate/FateBottomBar.tsx",
     why: "TX indicator pulses its tinted label text",
+    anchor: "shadow-[0_0_8px_rgba(255,68,68,0.5)]",
   },
   {
     file: "src/components/dx/DXSpotList/SpotRow.tsx",
     why: "the whole alert-matched row pulses, including its tinted text",
+    anchor: "${base} bg-alert-red/10",
   },
   {
     file: "src/components/kiosk/KioskChrome.tsx",
     why: "CRITICAL takeover banner pulses its tinted label",
+    anchor: "border-alert-red bg-alert-red/10",
   },
   {
     file: "src/components/map/GlobeView.tsx",
     why: "the \"Logged\" chip pulses its tinted text",
+    anchor: "data-logged-chip",
   },
   {
     file: "src/components/map/OperatorProfile.tsx",
     why: "the \"Start here\" CTA pulses its tinted label",
+    anchor:
+      "bg-plasma-orange/10 border border-plasma-orange/30 px-3 py-2.5 mb-2 text-left",
   },
   {
     file: "src/components/map/SolarSnapshot.tsx",
     why: "tint is applied via inline style backgroundColor, not a class, but the element (and its text) still pulses",
+    anchor: "greylineStatus.isActive ?",
   },
 ];
 
@@ -238,6 +264,48 @@ function readRaw(file: string): string {
 
 function readNormalized(file: string): string {
   return normalize(readRaw(file));
+}
+
+/** How many normalized characters on each side of an anchor match are
+ * searched for the pulse class. Wide enough to reach the farthest
+ * anchor-to-its-own-pulse gap among KNOWN_REMAINING_SITES today (142 chars,
+ * GlobeView's `data-logged-chip` attribute, which sits after the className
+ * it identifies); narrow enough to stay well clear of the closest gap
+ * between two *different* pulses in one of those files (194 chars, between
+ * FlexBottomBar's decorative LIVE dot and its TX badge). See the fixture
+ * proof below for the general case this constant has to hold for. */
+const ANCHOR_WINDOW_RADIUS = 160;
+
+/** Finds `anchor` in already-normalized `content` and reports whether an
+ * `animate-pulse` occurrence sits within `ANCHOR_WINDOW_RADIUS` characters
+ * of it. Operating on a window around a specific anchor -- instead of
+ * scanning the whole file for the pulse class -- is what lets a file with
+ * several `animate-pulse` sites go red when only the anchored one is fixed,
+ * while a decorative pulse elsewhere in the same file (outside the window)
+ * is left alone and can't hide the regression. */
+function findAnchoredPulseState(
+  content: string,
+  anchor: string,
+): { anchorFound: boolean; stillPulses: boolean } {
+  const anchorNorm = normalize(anchor);
+  const idx = content.indexOf(anchorNorm);
+  if (idx === -1) return { anchorFound: false, stillPulses: false };
+  const windowStart = Math.max(0, idx - ANCHOR_WINDOW_RADIUS);
+  const windowEnd = Math.min(
+    content.length,
+    idx + anchorNorm.length + ANCHOR_WINDOW_RADIUS,
+  );
+  return {
+    anchorFound: true,
+    stillPulses: PULSE_CLASS_RE.test(content.slice(windowStart, windowEnd)),
+  };
+}
+
+function anchoredSiteStillPulses(
+  file: string,
+  anchor: string,
+): { anchorFound: boolean; stillPulses: boolean } {
+  return findAnchoredPulseState(readNormalized(file), anchor);
 }
 
 // ─── Structural class-set scanner ───────────────────────────────────────────
@@ -525,16 +593,69 @@ describe("animate-pulse does not ship on tinted/measured text at the audited sit
   });
 });
 
+describe("findAnchoredPulseState pins a specific pulse in a multi-pulse file (#878)", () => {
+  it("stays true while the anchored pulse remains, regardless of a distant decorative one", () => {
+    const filler = "x".repeat(300);
+    const before = `<span aria-hidden className="decorative dot animate-pulse" />${filler}<span data-tracked className="tracked-anchor text-alert-red animate-pulse">CQ</span>`;
+    expect(findAnchoredPulseState(before, "tracked-anchor")).toEqual({
+      anchorFound: true,
+      stillPulses: true,
+    });
+  });
+
+  it("goes false when only the anchored pulse is removed, even though the decorative one is untouched", () => {
+    const filler = "x".repeat(300);
+    const after = `<span aria-hidden className="decorative dot animate-pulse" />${filler}<span data-tracked className="tracked-anchor text-alert-red">CQ</span>`;
+    expect(findAnchoredPulseState(after, "tracked-anchor")).toEqual({
+      anchorFound: true,
+      stillPulses: false,
+    });
+  });
+
+  it("reports the anchor as missing rather than a false pulse when it can't be found", () => {
+    expect(findAnchoredPulseState("no anchor here", "tracked-anchor")).toEqual(
+      { anchorFound: false, stillPulses: false },
+    );
+  });
+});
+
 describe("known-remaining pulse-on-text sites still need #878", () => {
-  it("every KNOWN_REMAINING_SITES file still contains the pulse class", () => {
-    // This is an allowlist-freshness check, not a passing grade: it fails
-    // (and names the file) the moment #878 fixes one of these, so the entry
-    // has to be deleted rather than silently going stale.
+  it("every KNOWN_REMAINING_SITES anchor is unique within its file", () => {
     for (const site of KNOWN_REMAINING_SITES) {
       const content = readNormalized(site.file);
+      const anchorNorm = normalize(site.anchor);
+      const first = content.indexOf(anchorNorm);
+      const last = content.lastIndexOf(anchorNorm);
       expect(
-        content.includes(PULSE_CLASS),
-        `${site.file}: no longer contains "${PULSE_CLASS}" -- ${site.why} -- delete this KNOWN_REMAINING_SITES entry (#878)`,
+        first,
+        `${site.file}: anchor "${site.anchor}" not found -- fix this KNOWN_REMAINING_SITES entry`,
+      ).not.toBe(-1);
+      expect(
+        first === last,
+        `${site.file}: anchor "${site.anchor}" is not unique in the file -- pick a more specific snippet for this KNOWN_REMAINING_SITES entry`,
+      ).toBe(true);
+    }
+  });
+
+  it("every KNOWN_REMAINING_SITES anchored element still pulses", () => {
+    // This is an allowlist-freshness check, not a passing grade. Unlike a
+    // whole-file "does this still contain animate-pulse" check, this looks
+    // only at the text around each entry's own anchor -- so it fails (and
+    // names the file) the moment #878 fixes the SPECIFIC tracked element,
+    // even when the same file still has an unrelated decorative pulse left
+    // untouched. When that happens, delete the entry.
+    for (const site of KNOWN_REMAINING_SITES) {
+      const { anchorFound, stillPulses } = anchoredSiteStillPulses(
+        site.file,
+        site.anchor,
+      );
+      expect(
+        anchorFound,
+        `${site.file}: anchor "${site.anchor}" not found -- ${site.why} -- delete this KNOWN_REMAINING_SITES entry (#878)`,
+      ).toBe(true);
+      expect(
+        stillPulses,
+        `${site.file}: the anchored element ("${site.why}") no longer pulses -- delete this KNOWN_REMAINING_SITES entry (#878)`,
       ).toBe(true);
     }
   });

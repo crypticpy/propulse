@@ -999,9 +999,16 @@ export function Waterfall({
           // namespace in tailwind.config.js), so a same-alpha-layer accent
           // fill on this element can never win the cascade -- it would just
           // be dead CSS. The orange branch carries no `bg-plasma-orange` of
-          // its own for that reason; its color cue comes from
-          // `text-su-accent-text` (the on-system "safe against panel" ink,
-          // falls back to `info` if the accent misses 4.5) instead (#803).
+          // its own for that reason. It uses `text-su-text`, not
+          // `text-su-accent-text`, for its ink: Waterfall's root is scoped
+          // under `.su-fixed-dark`, which pins the actual rendered panel to
+          // the fixed-dark color regardless of the user's active palette,
+          // but `--su-accent-text` is computed against the *active palette's*
+          // panel -- a pale custom accent under the Light palette computes
+          // safe there while still rendering here, on the pinned fixed-dark
+          // panel, at ~2.47:1 (Codex, PR #890). `--su-text` is itself pinned
+          // by `.su-fixed-dark` to a fixed light value, so it stays fitted to
+          // the panel this element actually renders on (#803).
           const lineColorClass =
             o.color === "orange"
               ? "bg-plasma-orange/70"
@@ -1012,7 +1019,7 @@ export function Waterfall({
                   : "bg-cosmic-cyan/70";
           const labelColorClass =
             o.color === "orange"
-              ? "text-su-accent-text"
+              ? "text-su-text"
               : o.color === "red"
                 ? "bg-alert-red/70 text-alert-red"
                 : o.color === "green"

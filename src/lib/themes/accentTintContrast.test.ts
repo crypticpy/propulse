@@ -1241,10 +1241,16 @@ const FIXED_SITES: TintedSite[] = [
   // tailwind.config.js), so an accent fill added to this element can never
   // win the cascade against the panel fill already there -- it would be
   // dead CSS, not a real tint. The orange branch of `labelColorClass`
-  // carries no `bg-plasma-orange` for that reason; its color cue comes from
-  // `text-su-accent-text` ink against the real (panel) backdrop instead, so
-  // there is no accent-tint pairing on this element for `FIXED_SITES` to
-  // certify (Opus review round, PR #890).
+  // carries no `bg-plasma-orange` for that reason; it uses `text-su-text`,
+  // not `text-su-accent-text`, for its ink -- Waterfall's root is scoped
+  // under `.su-fixed-dark`, which pins the rendered panel to the fixed-dark
+  // color regardless of the active palette, but `--su-accent-text` is
+  // computed against the *active palette's* panel, so a pale custom accent
+  // could compute safe there while still rendering unsafe here (Codex,
+  // ~2.47:1 on the pinned panel); `--su-text` is itself pinned fixed-dark,
+  // so it stays fitted to the panel this element actually renders on. There
+  // is no accent-tint pairing on this element for `FIXED_SITES` to certify
+  // either way (Opus review round, PR #890).
   {
     file: "src/components/sdr/primitives/DspBadge.tsx",
     what: 'the "plasma-orange" active-color variant',

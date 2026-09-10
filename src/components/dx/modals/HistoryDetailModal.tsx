@@ -120,7 +120,7 @@ export function HistoryDetailModal({
             {/* Year header with count badge */}
             <div className="flex items-center gap-2 mb-2">
               <span className="text-sm font-bold text-su-text">{group.year}</span>
-              <span className="bg-su-line/20 rounded px-2 py-0.5 text-[10px] text-su-muted">
+              <span className="bg-su-line/20 rounded px-2 py-0.5 text-xs text-su-muted">
                 {group.entries.length} QSO
                 {group.entries.length !== 1 ? "s" : ""}
               </span>

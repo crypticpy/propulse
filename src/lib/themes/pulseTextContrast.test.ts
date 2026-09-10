@@ -569,10 +569,9 @@ interface ClassNameSite {
   /** The opening tag's text (`<input … value={x}`), so a void form control
    * can be recognised as text-bearing by its value/placeholder attributes. */
   openingTag: string | null;
-  /** Raw JSX between this element's opening and closing tag, when both were
-   * found; null for self-closing elements or when the closing tag wasn't
-   * locatable (nested same-name children aren't handled -- not needed for
-   * the audited sites). */
+  /** Raw JSX between this element's opening and its matching closing tag
+   * (same-tag nesting tracked), when both were found; null for self-closing
+   * elements or when the closing tag wasn't locatable. */
   childrenText: string | null;
   /** Character offset of the start of this site's class content (right
    * after the opening `{`/`"`/`'`), *not* the `className=` keyword --
@@ -621,12 +620,11 @@ function findClassNameSites(
     let childrenText: string | null = null;
     let openingTag: string | null = null;
     if (tag && tagMatch) {
-      const gt = source.indexOf(">", afterIndex);
+      const gt = findTagEnd(source, afterIndex);
       const tagStart = m.index - precedingWindow.length + tagMatch.index!;
       openingTag = gt === -1 ? null : source.slice(tagStart, gt);
       if (gt !== -1 && source[gt - 1] !== "/") {
-        const closeTag = `</${tag}>`;
-        const closeAt = source.indexOf(closeTag, gt);
+        const closeAt = findMatchingCloseTag(source, tag, gt + 1);
         if (closeAt !== -1) {
           childrenText = source.slice(gt + 1, closeAt);
         }
@@ -636,6 +634,54 @@ function findClassNameSites(
     sites.push({ raw, tag, openingTag, childrenText, index: contentStart });
   }
   return sites;
+}
+
+/** Index of the `>` that ends the tag whose attributes begin at `from`,
+ * skipping `{...}` attribute expressions (an `onClick={() => …}` arrow
+ * carries a `>` of its own) and quoted strings. -1 when not found. */
+function findTagEnd(source: string, from: number): number {
+  let i = from;
+  while (i < source.length) {
+    const c = source[i];
+    if (c === "{") {
+      i = extractBalanced(source, i, "{", "}").endIndex + 1;
+      continue;
+    }
+    if (c === '"' || c === "'") {
+      const close = source.indexOf(c, i + 1);
+      if (close === -1) return -1;
+      i = close + 1;
+      continue;
+    }
+    if (c === ">") return i;
+    i++;
+  }
+  return -1;
+}
+
+/** Index of the `</tag>` that closes the element whose children start at
+ * `from`, counting nested same-tag opens (self-closing ones excluded) so a
+ * `<div className="animate-pulse"><div /></div>Loading</div>` yields the
+ * whole child range rather than stopping at the inner close (Codex,
+ * PR #874 round 11). -1 when unbalanced. */
+function findMatchingCloseTag(source: string, tag: string, from: number): number {
+  const escaped = tag.replace(/[.$]/g, "\\$&");
+  const re = new RegExp(`<(/?)${escaped}(?=[\\s/>])`, "g");
+  re.lastIndex = from;
+  let depth = 1;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(source))) {
+    if (m[1] === "/") {
+      depth--;
+      if (depth === 0) return m.index;
+      continue;
+    }
+    const gt = findTagEnd(source, m.index + 1);
+    if (gt === -1) return -1;
+    if (source[gt - 1] !== "/") depth++;
+    re.lastIndex = gt + 1;
+  }
+  return -1;
 }
 
 /** Strips every top-level `{...}` expression out of `text`, tracking nested
@@ -980,6 +1026,22 @@ describe("scanSourceForViolations catches every spelling (fixture proofs, #878)"
     expect(
       scanSourceForViolations('<input type="checkbox" className="animate-pulse" checked={armed} />'),
     ).toEqual([]);
+  });
+
+  it("reads the whole child range past a nested same-tag element", () => {
+    for (const fixture of [
+      '<div className="animate-pulse"><div></div>Loading</div>',
+      '<div className="animate-pulse"><div className="h-2" /><div><span /></div>{label}</div>',
+      '<span className="animate-pulse"><span onClick={() => go()}></span>{count} new</span>',
+    ]) {
+      expect(scanSourceForViolations(fixture), fixture).not.toEqual([]);
+    }
+    for (const fixture of [
+      '<div className="animate-pulse"><div className="h-2" /></div><p>Loading</p>',
+      '<div className="animate-pulse"><div><div /></div></div>Loading',
+    ]) {
+      expect(scanSourceForViolations(fixture), fixture).toEqual([]);
+    }
   });
 
   it("catches a value-bearing control under a pulsing parent, direct or mapped", () => {

@@ -1,6 +1,7 @@
 import React from "react";
 import { DetailModal } from "@/components/ui/DetailModal";
 import { Badge, type BadgeStatus } from "@/components/ui/Badge";
+import { BandPill } from "@/components/ui/BandPill";
 import { calculateBandConditions } from "@/lib/utils/bands";
 import { useTimeFormat } from "@/hooks/useTimeFormat";
 import type { BandCondition, VHFCondition } from "@/types/solar";
@@ -322,9 +323,7 @@ export const BandConditionsModal: React.FC<BandConditionsModalProps> = ({
                       }`}
                     >
                       <td className="py-3 px-3">
-                        <span className="font-mono font-bold text-su-text">
-                          {band.name}
-                        </span>
+                        <BandPill band={band.name} size="sm" className="font-bold" />
                         {isRecommended && (
                           <span className="ml-2 text-xs text-su-success">
                             *

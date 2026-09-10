@@ -3,6 +3,7 @@ import { useActiveLocation } from "@/hooks/useActiveLocation";
 import { useBandVerdicts } from "@/hooks/useBandVerdicts";
 import { selectBestBand } from "@/lib/verdict/bestBand";
 import { HamClockTile, TileHero, TileSub } from "../HamClockTile";
+import { BandPill } from "@/components/ui/BandPill";
 import {
   LADDER_WALL_CLASS,
   LADDER_WALL_LABEL,
@@ -75,8 +76,10 @@ export function BestBandTile() {
         openLabel={`Best band now: ${best.band}, ${verdict}. Open band health report`}
       >
         <div className="hc-heroline">
-          <TileHero tone={tone} flush>
-            {best.band.toUpperCase()}
+          <TileHero flush large>
+            <BandPill band={best.band} size="md">
+              {best.band.toUpperCase()}
+            </BandPill>
           </TileHero>
           <div className={`hc-verdict hc-glow ${tone}`}>{verdict}</div>
         </div>
@@ -86,8 +89,11 @@ export function BestBandTile() {
             <b>{best.result.inputs.reporters20m}</b> rx
           </span>
           {second && (
-            <span>
-              {second.band.toUpperCase()} {LADDER_WALL_LABEL[second.stable]}
+            <span className="inline-flex items-center gap-1">
+              <BandPill band={second.band} size="sm">
+                {second.band.toUpperCase()}
+              </BandPill>
+              {LADDER_WALL_LABEL[second.stable]}
             </span>
           )}
         </TileSub>

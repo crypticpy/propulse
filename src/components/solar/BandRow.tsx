@@ -1,5 +1,5 @@
 import React from "react";
-import { Badge, type BadgeStatus } from "@/components/ui";
+import { Badge, BandPill, type BadgeStatus } from "@/components/ui";
 import type { BandCondition, VHFCondition } from "@/types/solar";
 
 export interface BandRowProps {
@@ -73,8 +73,8 @@ export const BandRow: React.FC<BandRowProps> = ({
       role="row"
     >
       {/* Band Name */}
-      <div className="font-mono text-sm text-su-text font-medium" role="cell">
-        {name}
+      <div role="cell">
+        <BandPill band={name} size="sm" className="font-medium" />
       </div>
 
       {/* Frequency - hidden on mobile */}

@@ -14,6 +14,7 @@ import {
   LADDER_LABEL,
 } from "@/lib/verdict/presentation";
 import { BandVerdictDetailsDialog } from "@/components/dx/BandVerdictDetailsDialog";
+import { BandPill } from "@/components/ui/BandPill";
 import { useMapStore } from "@/stores/mapStore";
 import { useBoundVisualTarget } from "@/hooks/useBoundMapSelection";
 import { useUserStore, useUIInteractionPrefs } from "@/stores/userStore";
@@ -308,23 +309,13 @@ export const BandConditionGridCell = memo(function BandConditionGridCell({
         backgroundColor: colors.bg,
         textAlign: "center",
         position: "relative",
-        ...(isSynced
-          ? { boxShadow: "inset 0 0 0 1px rgba(34, 211, 238, 0.5)" }
-          : {}),
       }}
     >
-      <div
-        style={{
-          fontSize: "12px",
-          fontWeight: 700,
-          fontFamily:
-            "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace",
-          color: isSynced ? "#22d3ee" : "var(--su-text)",
-          lineHeight: 1.3,
-        }}
-      >
-        {condition.band}
-      </div>
+      <BandPill
+        band={condition.band}
+        size="sm"
+        className={`justify-center font-bold ${isSynced ? "ring-1 ring-su-info" : ""}`}
+      />
       <div
         style={{
           fontSize: "12px",

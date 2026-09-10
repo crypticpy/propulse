@@ -7,6 +7,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { DetailModal } from "@/components/ui/DetailModal";
+import { BandPill } from "@/components/ui/BandPill";
 import { NowCastBandPanel } from "@/components/propagation/NowCastBandPanel";
 import { HF_MODEL_BANDS } from "@/lib/propagation/coreFeatureBuilder";
 import type { NowCastBandPredictions } from "@/hooks/useNowCastBandPredictions";
@@ -397,16 +398,20 @@ export function PropagationForecastModal({
           </div>
           <div className="bg-su-line/10 rounded-xl p-4 text-center">
             <div className="text-xs text-su-muted mb-1">Best Band Now</div>
-            <div
-              className={`text-2xl font-mono font-bold`}
-              style={{
-                color: currentBestBand
-                  ? getForecastStatusColor(currentBestBand.status)
-                  : "#666",
-              }}
-            >
-              {currentBestBand?.band || "---"}
-            </div>
+            {currentBestBand ? (
+              <BandPill
+                band={currentBestBand.band}
+                size="md"
+                className="justify-center text-2xl font-bold"
+                style={{
+                  boxShadow: `inset 0 0 0 2px ${getForecastStatusColor(currentBestBand.status)}`,
+                }}
+              />
+            ) : (
+              <div className="text-2xl font-mono font-bold text-su-muted">
+                ---
+              </div>
+            )}
             <div className="text-xs text-su-muted mt-1">
               {currentBestBand
                 ? `${currentBestBand.snrEstimate} dB`

@@ -38,6 +38,7 @@ import {
 import { getSunTimes } from "@/lib/utils/time";
 import { PropagationForecastModal } from "./modals/PropagationForecastModal";
 import { HelpButton, HelpModal, HELP_CONTENT } from "@/components/ui/HelpModal";
+import { BandPill } from "@/components/ui/BandPill";
 import type { BandId } from "@/types/user";
 
 interface PropagationForecastMiniProps {
@@ -1017,12 +1018,12 @@ export function PropagationForecastMini({
               {displayBands.map((band) => {
                 const isSynced = activeBand === band;
                 return (
-                  <div
+                  <BandPill
                     key={band}
-                    className={`text-xs font-mono flex items-center border-l-2 border-transparent pl-1 ${
-                      isSynced
-                        ? "shadow-[inset_2px_0_0_0_rgb(var(--su-accent-edge-rgb))] text-su-text font-bold"
-                        : "text-su-muted"
+                    band={band}
+                    variant="rule"
+                    className={`flex items-center ${
+                      isSynced ? "ring-1 ring-su-info font-bold" : ""
                     }`}
                   >
                     {isSynced && (
@@ -1041,7 +1042,7 @@ export function PropagationForecastMini({
                       </svg>
                     )}
                     {band}
-                  </div>
+                  </BandPill>
                 );
               })}
             </div>

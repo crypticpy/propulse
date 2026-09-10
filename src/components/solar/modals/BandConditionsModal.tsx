@@ -1,6 +1,7 @@
 import React from "react";
 import { DetailModal } from "@/components/ui/DetailModal";
 import { Badge, type BadgeStatus } from "@/components/ui/Badge";
+import { BandPill } from "@/components/ui/BandPill";
 import { calculateBandConditions } from "@/lib/utils/bands";
 import { useTimeFormat } from "@/hooks/useTimeFormat";
 import type { BandCondition, VHFCondition } from "@/types/solar";
@@ -322,9 +323,11 @@ export const BandConditionsModal: React.FC<BandConditionsModalProps> = ({
                       }`}
                     >
                       <td className="py-3 px-3">
-                        <span className="font-mono font-bold text-su-text">
-                          {band.name}
-                        </span>
+                        <BandPill
+                          band={band.name}
+                          size="md"
+                          className="font-bold"
+                        />
                         {isRecommended && (
                           <span className="ml-2 text-xs text-su-success">
                             *
@@ -397,9 +400,11 @@ export const BandConditionsModal: React.FC<BandConditionsModalProps> = ({
                   <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
                     <div className="flex-1">
                       <div className="flex items-center gap-3 mb-2">
-                        <span className="font-mono font-bold text-xl text-su-text">
-                          {band.name}
-                        </span>
+                        <BandPill
+                          band={band.name}
+                          size="inherit"
+                          className="font-mono text-xl font-bold"
+                        />
                         <span className="text-sm text-su-muted/80">
                           {band.freq}
                         </span>

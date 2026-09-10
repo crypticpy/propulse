@@ -14,6 +14,14 @@ export { Card, type CardProps } from "./Card";
 // Badge Component
 export { Badge, type BadgeProps, type BadgeStatus } from "./Badge";
 
+// BandPill Component
+export {
+  BandPill,
+  type BandPillProps,
+  type BandPillSize,
+  type BandPillVariant,
+} from "./BandPill";
+
 // Tooltip Component
 export { Tooltip, type TooltipProps } from "./Tooltip";
 

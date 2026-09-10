@@ -32,6 +32,33 @@ baseline-ratio proposal is a candidate, tracked on epic #892 (Phase D2.A).
 
 Epic [#892](https://github.com/crypticpy/propulse/issues/892) is the plan of record for this work.
 
+## References in the sheet
+
+`workspace-contact-sheet.html` cites `WORKSPACE-CONCEPT.md` (§3, §4, §5, §7, §9, §10)
+throughout. That file is an untracked 2026-09-08 planning document under
+`docs/plans.local/` — not part of this repo's tracked tree — so a reader following the
+sheet's citations from GitHub cannot open it directly. The sheet itself is the
+owner-approved record and is not edited here; this section maps each citation to where its
+decision now lives instead. `WORKSPACE-CONCEPT.md`'s decisions were carried into epic #652
+(concept, decisions round 2); its plan is superseded by epic #892.
+
+- **§3** — the widget registry ("one entry, four densities") → epic #892, Phase D3
+  (registry table).
+- **§4** — resolving the wall-report / workstation-action click split by putting
+  "Open report" in every widget header → epic #652 (shared operating state). Note: this
+  citation is about a per-widget interaction convention rather than state itself; flagged
+  as an approximate mapping in the PR discussion.
+- **§5** — recipes A–D ("Recipe D … ships last", depends on the operating-session object)
+  → epic #652 (recipes).
+- **§7** — reusing `HamClockDialog`/`HamClockTabs`/`HamClockToggleRow`/`HamClockSegmented`
+  verbatim, no new dialog shell → superseded by epic #892, Phase B (blocked until D4).
+- **§9** — "PR 1 in WORKSPACE-CONCEPT.md §9 (heat map compute + baseline)" → superseded by
+  epic #892, Phase B (blocked until D4). This is the citation that is literally about PR
+  sequencing.
+- **§10** — pin-by-default vs. recipes-roam for pages → superseded by epic #892, Phase B
+  (blocked until D4). Note: this citation is about page pin/roam behavior rather than PR
+  sequencing itself; flagged as an approximate mapping in the PR discussion.
+
 ## Viewing
 
 These are plain HTML files with inlined styles — open either file directly in a browser

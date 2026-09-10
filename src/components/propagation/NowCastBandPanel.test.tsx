@@ -160,7 +160,7 @@ describe("NowCastBandPanel space-weather ages", () => {
 
     expect(screen.getByText("Solar wind 4m old")).toBeTruthy();
     expect(screen.queryByText(/Space weather/)).toBeNull();
-    expect(screen.queryByText(/Oldest input/)).toBeNull();
+    expect(screen.queryByText(/Oldest fast input/)).toBeNull();
     expect(screen.queryByText(/Slow inputs/)).toBeNull();
   });
 
@@ -175,9 +175,9 @@ describe("NowCastBandPanel space-weather ages", () => {
   it("falls back to an honest aggregate label when per-source ages are absent", () => {
     // What the service sends until the per-source ages are deployed.
     renderFooter({ space_weather: 3480 }, true);
-    expect(screen.getByText("Oldest input 58m old")).toBeTruthy();
+    expect(screen.getByText("Oldest fast input 58m old")).toBeTruthy();
 
     renderFooter({ space_weather: 3480 }, false);
-    expect(screen.getAllByText("Oldest input 58m old")).toHaveLength(2);
+    expect(screen.getAllByText("Oldest fast input 58m old")).toHaveLength(2);
   });
 });

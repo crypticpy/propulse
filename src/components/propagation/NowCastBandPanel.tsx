@@ -65,8 +65,9 @@ const SLOW_AGE_TITLE =
   "Age of the slow space-weather inputs (Dst, Hp60, F10.7, sunspot number) " +
   "behind this prediction.";
 const AGGREGATE_AGE_TITLE =
-  "Oldest space-weather input behind this prediction. The service reports one " +
-  "aggregate age, not a per-source age.";
+  "Oldest of the fast space-weather inputs (Kp, IMF, solar wind, proton flux, " +
+  "Dst) behind this prediction. The service reports that one aggregate age " +
+  "and no per-source age, so the slow inputs cannot be reported here.";
 
 interface WeatherAgeChip {
   text: string;
@@ -110,7 +111,9 @@ function weatherAgeChips(
   }
   const aggregate = formatAge(ages.aggregateSeconds ?? undefined);
   if (!aggregate) return [];
-  return [{ text: `Oldest input ${aggregate}`, title: AGGREGATE_AGE_TITLE }];
+  return [
+    { text: `Oldest fast input ${aggregate}`, title: AGGREGATE_AGE_TITLE },
+  ];
 }
 
 export function NowCastBandPanel({

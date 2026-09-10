@@ -89,10 +89,11 @@ per-user hosting cost. Self-hosting is a supported path, not a grudging one. The
   boundary is the `FREE_FLAGS` / `PRO_FLAGS` table in
   [`src/lib/featureFlags.ts`](src/lib/featureFlags.ts), and the tier is set server-side
   from Stripe and synced to the profile, never decided in the browser. Enforcement is
-  partial today, and we say so: spot replay and contest-aware watch presets check the
-  tier, while custom profile and gear images, per-user propagation modelling and
-  high-resolution satellite tiles are declared in the table but not yet gated, so free
-  accounts can currently use them. The flags also carry 7-day and 30-day replay windows,
+  partial today, and we say so: spot replay, contest-aware watch presets and
+  high-resolution satellite imagery (Mapbox tiles and Google photorealistic 3D, checked
+  both in the client and by the tile proxies server-side) enforce the tier, while custom
+  profile and gear images and per-user propagation modelling are declared in the table
+  but not yet gated, so free accounts can currently use them. The flags also carry 7-day and 30-day replay windows,
   but the raw spot table is trimmed to roughly two hours, so neither window is served.
 - **Unlimited free displays.** Pairing extra screens to your station, the thing a
   commercial product would meter, is deliberately never metered.
@@ -215,8 +216,10 @@ and the two trend windows. Nothing a user clicks can talk a band into looking op
 Every data-bearing widget carries its own provenance: the source's observation time
 (`observedAt`) kept distinct from our fetch time (`fetchedAt`), provider attribution, and
 explicit **stale**, **partial** and **unavailable** states. When a source is down, the
-panel says so. A missing value renders as missing, never as a zero and never as a quietly
-stale number wearing a fresh timestamp.
+panel says so, and a stale number is never dressed in a fresh timestamp. The rule that a
+missing value renders as missing rather than as a zero is the standard every panel is
+held to; a few NOAA scale renderers still show an absent scale as level 0 and are tracked
+as bugs, not accepted behaviour.
 
 ---
 

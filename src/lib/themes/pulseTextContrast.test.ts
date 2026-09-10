@@ -550,9 +550,12 @@ function extractTemplateLiteral(source: string, start: number): string {
  * ternary or object literal is never mistaken for the statement boundary),
  * skipping over quoted strings and template literals whole (a `${...}`
  * section's own braces never affect depth here since `extractTemplateLiteral`
- * consumes the whole literal in one step). Stops at a `;` found at zero
- * depth (not consumed); a missing semicolon falls back to the first `}` that
- * would close an outer block, or the start of the next top-level
+ * consumes the whole literal in one step). Stops at a `;` or a depth-0 `,`
+ * (not consumed) -- the comma stop is what lets a single declarator's
+ * initializer end at the separator in a comma-separated declaration list
+ * (`const pulse = "animate-pulse", classes = pulse;`, Codex, PR #874
+ * round 33); a missing semicolon falls back to the first `}` that would
+ * close an outer block, or the start of the next top-level
  * `const`/`function`/`export`, whichever comes first -- a defensive
  * fallback a real parser wouldn't need (Codex, PR #874 round 15). */
 function findInitializerEnd(source: string, valueStart: number): number {
@@ -587,7 +590,7 @@ function findInitializerEnd(source: string, valueStart: number): number {
       continue;
     }
     if (depth === 0) {
-      if (c === ";") return i;
+      if (c === ";" || c === ",") return i;
       if (
         (c === "c" || c === "f" || c === "e") &&
         !/[\w$]/.test(source[i - 1] ?? "") &&
@@ -796,8 +799,21 @@ function extractObjectEntries(text: string): { entries: Map<string, ConstEntry>;
           literal: bodies.join(" "),
           entries: nested.entries.size > 0 ? nested.entries : undefined,
         });
-      } else if (bodies.length > 0) {
-        entries.set(key, { literal: bodies.join(" ") });
+      } else {
+        // An identifier-only (or identifier-plus-literal) entry value --
+        // `alert: pulse`, `alert: cn(pulse, "text-xs")` -- has no literal
+        // body of its own, which used to drop the entry entirely, the same
+        // "not class-shaped" gap round 29 fixed for a top-level `const`
+        // initializer. Never dropped now: the identifiers/member-access
+        // chains the value references are folded into the entry's own
+        // `literal` via `extractIdentifierRefs`, so `resolveMemberAccess`'s
+        // existing recursive `resolveConstRefs` call on a resolved entry's
+        // `literal` resolves them exactly like any other reference (Codex,
+        // PR #874 round 33).
+        const refs = extractIdentifierRefs(valueText);
+        if (bodies.length > 0 || refs.length > 0) {
+          entries.set(key, { literal: [bodies.join(" "), refs.join(" ")].filter(Boolean).join(" ") });
+        }
       }
     }
     i = valueEnd;
@@ -868,7 +884,12 @@ function skipTypeAnnotation(source: string, colonIndex: number): TypeAnnotationR
       i++;
       continue;
     }
-    if (depth === 0 && c === ";") {
+    // A depth-0 comma also ends the annotation with no initializer -- the
+    // declarator-list separator (`let a: string, classes: string = "x";`),
+    // never a real type's own comma (a union/tuple/generic member's comma
+    // is always inside `<>`/`()`/`[]`/`{}`, so always depth>0 here, Codex,
+    // PR #874 round 33).
+    if (depth === 0 && (c === ";" || c === ",")) {
       return { kind: "none", pos: i };
     }
     if (c === "=") {
@@ -1196,88 +1217,146 @@ function collectConstTemplateMap(source: string): ConstDecl[] {
   // `decls` is fully populated rather than attempted inline (Codex, PR #874
   // round 32).
   const spreadQueue: Array<{ decl: ConstDecl; spreads: string[] }> = [];
-  const declRe = /\b(const|let|var)\s+([A-Za-z_$][\w$]*)\s*/g;
+  const keywordRe = /\b(const|let|var)\s+/g;
   let m: RegExpExecArray | null;
-  while ((m = declRe.exec(source))) {
+  while ((m = keywordRe.exec(source))) {
     const kind = m[1] as "const" | "let" | "var";
-    const name = m[2];
-    const afterName = declRe.lastIndex;
-    let valueStart: number;
-    if (source[afterName] === ":") {
-      const afterType = skipTypeAnnotation(source, afterName);
-      if (afterType === null) {
-        declRe.lastIndex = afterName + 1;
-        continue;
-      }
-      if (afterType.kind === "none" && kind === "const") {
-        // Can't happen in valid code (a const always has an initializer);
-        // skip defensively rather than guess at an initializer that isn't
-        // there.
-        declRe.lastIndex = afterType.pos + 1;
-        continue;
-      }
-      valueStart = afterType.pos;
-    } else if (source[afterName] === "=") {
-      let i = afterName + 1;
-      while (i < source.length && /\s/.test(source[i])) i++;
-      valueStart = i;
-    } else if (kind !== "const" && source[afterName] === ";") {
-      // A `let`/`var` with no type annotation and no initializer at all
-      // (`let classes;`) -- registers with an empty literal set, same as
-      // the typed no-initializer case above (Codex, PR #874 round 26).
-      valueStart = afterName;
-    } else {
-      declRe.lastIndex = afterName;
-      continue;
-    }
-    const firstChar = source[valueStart];
-    const end = findInitializerEnd(source, valueStart);
-    const initializerText = source.slice(valueStart, end);
-    const bodies = extractLiteralBodies(initializerText);
-    // An initializer with no quoted literal of its own -- an identifier-only
-    // (or identifier-plus-literal) alias, `const classes = pulse;`/`const
-    // classes = cn(pulse, "text-xs");`/`const classes = STYLES.alert;` --
-    // used to make a `const` "not class-shaped" and drop it here entirely,
-    // so `classes` was invisible to `visibleDecl` no matter what `pulse`
-    // resolved to. Never dropped now: the identifiers/member-access chains
-    // its initializer references are folded into `literal` alongside any
-    // literal bodies it does have, so the existing recursive
-    // `resolveConstRefs`/`resolveMemberAccess` walk resolves them exactly
-    // like any other reference (including a cyclic one, via its own
-    // visited-set guard) once this decl is looked up (Codex, PR #874
-    // round 29).
-    // Skipped for an object-literal initializer (`firstChar === "{"`):
-    // `extractObjectEntries` already models it precisely, per key -- a bare
-    // scan for identifier-shaped tokens over its raw text would misread its
-    // own unquoted *key names* (`label`, `bg`, `pulse: true`) as if they
-    // were value references, polluting the fail-closed top-level `literal`
-    // with noise that was never a reference to anything (Codex, PR #874
-    // round 29).
-    const refs = firstChar === "{" ? [] : extractIdentifierRefs(initializerText);
-    const objectResult = firstChar === "{" ? extractObjectEntries(initializerText) : undefined;
-    const entries = objectResult?.entries;
-    // `var` (unlike `let`/`const`) is never block-scoped -- a `var` inside
-    // an `if`/`for`/`try` block is visible for the whole enclosing
-    // FUNCTION, not just that block (Codex, PR #874 round 32).
+    const keywordIndex = m.index;
+    // Every declarator in this declaration shares the same scope/kind --
+    // computed once from the keyword's own position, not per declarator
+    // (Codex, PR #874 round 33). `var` (unlike `let`/`const`) is never
+    // block-scoped -- a `var` inside an `if`/`for`/`try` block is visible
+    // for the whole enclosing FUNCTION, not just that block (Codex, PR #874
+    // round 32).
     const scope =
-      kind === "var" ? findEnclosingFunctionScope(source, m.index) : findEnclosingBraceRange(source, m.index);
+      kind === "var"
+        ? findEnclosingFunctionScope(source, keywordIndex)
+        : findEnclosingBraceRange(source, keywordIndex);
     const scopeStart = scope ? scope.start : 0;
     const scopeEnd = scope ? scope.end : source.length;
-    const literal = [bodies.join(" "), refs.join(" ")].filter(Boolean).join(" ");
-    const declObj: ConstDecl = {
-      name,
-      index: m.index,
-      literal,
-      entries,
-      scopeStart,
-      scopeEnd,
-    };
-    decls.push(declObj);
-    if (kind !== "const") reassignQueue.push({ decl: declObj, searchStart: end });
-    if (objectResult && objectResult.spreads.length > 0) {
-      spreadQueue.push({ decl: declObj, spreads: objectResult.spreads });
+    let pos = keywordRe.lastIndex;
+    // Splits the declaration region into declarators at depth-0 commas --
+    // `const pulse = "animate-pulse", classes = pulse;` used to register
+    // only `pulse`: the old single-declarator regex captured just the first
+    // name, and `findInitializerEnd` (not yet comma-aware) ran clean past
+    // the comma to the statement's own terminating `;`, swallowing
+    // `classes = pulse` into `pulse`'s own initializer text instead of ever
+    // registering `classes` as its own declaration -- so a later
+    // `className={classes}` had no declaration to resolve against no
+    // matter what `pulse` itself resolved to (Codex, PR #874 round 33).
+    for (;;) {
+      // A destructuring declarator (`{ a } = …`/`[x] = …`) is skipped
+      // entirely -- its bound names aren't a single identifier this scanner
+      // can register precisely -- but its own type annotation/initializer
+      // still has to be scanned past correctly so a LATER declarator in the
+      // same list isn't lost too.
+      if (source[pos] === "{" || source[pos] === "[") {
+        const open = source[pos];
+        const patternEnd =
+          open === "{" ? extractBalanced(source, pos, "{", "}").endIndex : findBracketClose(source, pos);
+        let after = (patternEnd === -1 ? source.length - 1 : patternEnd) + 1;
+        while (after < source.length && /\s/.test(source[after])) after++;
+        if (source[after] === ":") {
+          const typeResult = skipTypeAnnotation(source, after);
+          after = typeResult === null ? after + 1 : typeResult.pos;
+          if (typeResult?.kind === "initializer") after = findInitializerEnd(source, after);
+        } else if (source[after] === "=") {
+          let i = after + 1;
+          while (i < source.length && /\s/.test(source[i])) i++;
+          after = findInitializerEnd(source, i);
+        }
+        pos = after;
+      } else {
+        const nameMatch = /^[A-Za-z_$][\w$]*/.exec(source.slice(pos));
+        if (!nameMatch) break;
+        const name = nameMatch[0];
+        const nameIndex = pos;
+        let after = pos + name.length;
+        while (after < source.length && /\s/.test(source[after])) after++;
+        let valueStart: number;
+        if (source[after] === ":") {
+          const typeResult = skipTypeAnnotation(source, after);
+          if (typeResult === null) {
+            pos = after + 1;
+            break;
+          }
+          if (typeResult.kind === "none" && kind === "const") {
+            // Can't happen in valid code (a const always has an initializer);
+            // skip defensively rather than guess at an initializer that isn't
+            // there.
+            pos = typeResult.pos + 1;
+            break;
+          }
+          valueStart = typeResult.pos;
+        } else if (source[after] === "=") {
+          let i = after + 1;
+          while (i < source.length && /\s/.test(source[i])) i++;
+          valueStart = i;
+        } else if (kind !== "const" && (source[after] === ";" || source[after] === ",")) {
+          // A `let`/`var` with no type annotation and no initializer at all
+          // (`let classes;`, or a bare `let a, classes = "…";`) -- registers
+          // with an empty literal set, same as the typed no-initializer case
+          // above (Codex, PR #874 round 26).
+          valueStart = after;
+        } else {
+          pos = after;
+          break;
+        }
+        const firstChar = source[valueStart];
+        const end = findInitializerEnd(source, valueStart);
+        const initializerText = source.slice(valueStart, end);
+        const bodies = extractLiteralBodies(initializerText);
+        // An initializer with no quoted literal of its own -- an identifier-only
+        // (or identifier-plus-literal) alias, `const classes = pulse;`/`const
+        // classes = cn(pulse, "text-xs");`/`const classes = STYLES.alert;` --
+        // used to make a `const` "not class-shaped" and drop it here entirely,
+        // so `classes` was invisible to `visibleDecl` no matter what `pulse`
+        // resolved to. Never dropped now: the identifiers/member-access chains
+        // its initializer references are folded into `literal` alongside any
+        // literal bodies it does have, so the existing recursive
+        // `resolveConstRefs`/`resolveMemberAccess` walk resolves them exactly
+        // like any other reference (including a cyclic one, via its own
+        // visited-set guard) once this decl is looked up (Codex, PR #874
+        // round 29).
+        // Skipped for an object-literal initializer (`firstChar === "{"`):
+        // `extractObjectEntries` already models it precisely, per key -- a bare
+        // scan for identifier-shaped tokens over its raw text would misread its
+        // own unquoted *key names* (`label`, `bg`, `pulse: true`) as if they
+        // were value references, polluting the fail-closed top-level `literal`
+        // with noise that was never a reference to anything (Codex, PR #874
+        // round 29).
+        const refs = firstChar === "{" ? [] : extractIdentifierRefs(initializerText);
+        const objectResult = firstChar === "{" ? extractObjectEntries(initializerText) : undefined;
+        const entries = objectResult?.entries;
+        const literal = [bodies.join(" "), refs.join(" ")].filter(Boolean).join(" ");
+        const declObj: ConstDecl = {
+          name,
+          index: nameIndex,
+          literal,
+          entries,
+          scopeStart,
+          scopeEnd,
+        };
+        decls.push(declObj);
+        if (kind !== "const") reassignQueue.push({ decl: declObj, searchStart: end });
+        if (objectResult && objectResult.spreads.length > 0) {
+          spreadQueue.push({ decl: declObj, spreads: objectResult.spreads });
+        }
+        pos = end;
+      }
+      // A depth-0 comma continues to the next declarator in this same
+      // declaration; anything else (a `;`, the end of the source, or an
+      // unrecognized declarator shape already handled by `break` above)
+      // ends it.
+      while (pos < source.length && /\s/.test(source[pos])) pos++;
+      if (source[pos] === ",") {
+        pos++;
+        while (pos < source.length && /\s/.test(source[pos])) pos++;
+        continue;
+      }
+      break;
     }
-    declRe.lastIndex = end;
+    keywordRe.lastIndex = pos;
   }
   for (const { decl, searchStart } of reassignQueue) {
     const reassigned = collectReassignedLiteralBodies(source, decl, decls, searchStart, decl.scopeEnd);
@@ -2522,49 +2601,65 @@ function findConfigMapViolations(normalizedSource: string): Violation[] {
  * fails closed on treating that as a signal (Codex, PR #874 round 23: `//
  * <span className="animate-pulse">Loading</span>` in a comment, or `const
  * doc = "<span className=\"animate-pulse\">Loading</span>";`, both read as
- * a real rendered site before this). Quote-aware throughout -- a `//`
- * inside `"https://…"`, or inside any other quoted string, is consumed
- * whole by the string branch before the comment branches ever see it, so it
- * can never start a false line comment. Delimiters (the `//`, `/*`/`*\/`,
- * and the string's own quote characters) are left in place; only comment
- * bodies and JSX-shaped string bodies are blanked, which is what keeps the
- * total length -- and so every anchor/violation offset computed from the
- * result -- stable. Applied once, by `scanSourceForViolations` and by the
- * census's own `normalize(raw)` call, so a violation's index and the anchor
- * window it's checked against are always computed from the same text. */
-/** Punctuation that puts an immediately-following quote character in
- * JavaScript expression position -- a string/template literal is starting
- * (Codex, PR #874 round 25). */
+ * a real rendered site before this).
+ *
+ * Rounds 25 and 27 made this quote-vs-JSX-text and `//`-vs-JSX-text call with
+ * a pair of preceding-character heuristics (`isQuoteInExpressionPosition`,
+ * `isRealLineCommentStart`), because every character was judged the same way
+ * regardless of where it sat. This is a real mode machine instead: JS mode
+ * (`scanJs`, comments/strings/templates real, a quote always a real string),
+ * JSX-tag mode (`scanJsxElement`, an attribute's quoted value or `{expr}`),
+ * and JSX-text mode (`scanJsxText`, no comments and no quotes at all -- an
+ * apostrophe in `Don't wait` is just a character there, not a string
+ * delimiter, and `//`/`/* *\/` are just text, not comments, e.g. `Visit
+ * https://example.com`). A `//`/`https://` inside a URL, or an apostrophe in
+ * JSX prose, is never ambiguous once its MODE is known, rather than guessed
+ * from the character immediately before it (Codex, PR #874 round 33: `<div>Use
+ * // as a separator <span className="animate-pulse">Loading</span></div>` --
+ * whitespace, not code, before the `//` -- read the rest of the line,
+ * including the real site, as a comment under the old heuristic). Quote-aware
+ * throughout -- a `//` inside `"https://…"`, or inside any other quoted
+ * string, is consumed whole by the string scanner before the comment check
+ * ever sees it, so it can never start a false line comment. Delimiters (the
+ * `//`, `/*`/`*\/`, and a string's own quote characters) are left in place;
+ * only comment bodies and JSX-shaped string bodies are blanked, which is what
+ * keeps the total length -- and so every anchor/violation offset computed
+ * from the result -- stable. Applied once, by `scanSourceForViolations` and
+ * by the census's own `normalize(raw)` call, so a violation's index and the
+ * anchor window it's checked against are always computed from the same
+ * text. */
+/** Punctuation that puts an immediately-following `<` in JavaScript
+ * expression position -- a JSX subtree is starting, not a comparison
+ * (Codex, PR #874 round 25, repurposed from a quote-starts-a-string test to
+ * a `<`-starts-JSX test in round 33 now that a quote in JS mode is always
+ * unambiguously a real string). */
 const EXPRESSION_POSITION_PUNCT = new Set([
   "=", "(", ",", "[", "{", ":", "?", "+", "-", "*", "/", "%", "&", "|", "^", "!", ";", "<", "~",
 ]);
 
-/** Keywords that, immediately before a quote character, also put it in
- * expression position (`return "x"`, `typeof "x"`, `new "x"` never appears
- * but the list errs toward the spec rather than trimming it to only what's
+/** Keywords that, immediately before a `<`, also put it in expression
+ * position (`return <div/>`, `typeof x === <weird>` never appears but the
+ * list errs toward the spec rather than trimming it to only what's
  * plausible). */
 const EXPRESSION_POSITION_KEYWORDS = new Set([
   "return", "case", "typeof", "in", "of", "yield", "await", "throw", "new",
   "else", "do", "delete", "void", "instanceof",
 ]);
 
-/** True when the quote character at `source[quoteIndex]` opens a JavaScript
- * string/template literal, as opposed to sitting in JSX text or an English
- * contraction (Codex, PR #874 round 25: an ASCII apostrophe in JSX prose,
- * `<p>Don't wait</p>`, used to always open a "string" that ran to the next
- * apostrophe or EOF, and since that span could contain real JSX --
- * `<span className="animate-pulse">Loading</span>` right after -- the real
- * site got blanked away with it). Looks at the nearest non-whitespace
- * character before the quote in the *original* `source` (not the
- * already-partly-blanked `out`, whose spaces wouldn't reflect the real
- * preceding token): expression position is the start of the file, one of
- * the punctuation marks above, one of the keywords above, or the
- * two-character exception `=>` -- a bare `>` (closing a JSX tag, or a
- * `)`/`]`-closed value) is deliberately NOT expression position, since
- * `<p>'x'</p>` is JSX text, not an expression, and neither is a quote
- * right after any other completed value (an identifier, `)`, or `]`). */
-function isQuoteInExpressionPosition(source: string, quoteIndex: number): boolean {
-  let i = quoteIndex - 1;
+/** True when `source[index]` sits in JavaScript expression position, as
+ * opposed to right after a completed value -- used only to decide whether a
+ * `<` seen in JS mode starts a JSX subtree (a comparison, `a < b`, never
+ * does) or is a `<`/`<=` operator. Looks at the nearest non-whitespace
+ * character before `index` in the *original* `source` (not the
+ * already-partly-blanked output, whose spaces wouldn't reflect the real
+ * preceding token): expression position is the start of the file, one of the
+ * punctuation marks above, one of the keywords above, or the two-character
+ * exception `=>` -- a bare `>` (closing a JSX tag, or a `)`/`]`-closed value)
+ * is deliberately NOT expression position, since `a > b < c` and `f() < g()`
+ * are comparisons, not JSX (Codex, PR #874 round 25; repurposed for `<` in
+ * round 33). */
+function isExpressionPosition(source: string, index: number): boolean {
+  let i = index - 1;
   while (i >= 0 && /\s/.test(source[i])) i--;
   if (i < 0) return true;
   const prevChar = source[i];
@@ -2579,70 +2674,217 @@ function isQuoteInExpressionPosition(source: string, quoteIndex: number): boolea
   return true;
 }
 
-/** True when `//` at `source[slashIndex]` starts a real line comment, as
- * opposed to sitting inside a URL scheme (`https://example.com`) or right
- * after a word character with no space (`foo//bar` in JSX text) -- neither
- * of which is a comment, even though both contain the two-character `//`
- * token (Codex, PR #874 round 27: `https:` immediately before `//` used to
- * make the whole rest of the line, including a real pulse site further
- * along it, get blanked as if it were a comment). Same conservative
- * "unlisted previous character defaults to comment" fallback as round 25's
- * `isQuoteInExpressionPosition`: a `;`, `}`, `)`, `{`, start-of-line, or any
- * whitespace immediately before `//` (with or without a space) is still a
- * real comment -- only the two carved-out cases below are excluded. */
-function isRealLineCommentStart(source: string, slashIndex: number): boolean {
-  if (slashIndex === 0) return true;
-  const prev = source[slashIndex - 1];
-  // A URL scheme -- the character right before `//` is `:`, and the one
-  // before that is a letter (`https:`, `http:`, `ftp:`, ...).
-  if (prev === ":" && slashIndex >= 2 && /[A-Za-z]/.test(source[slashIndex - 2])) {
-    return false;
-  }
-  // Directly follows a word character with no space (`foo//bar`).
-  if (/[\w$]/.test(prev)) return false;
-  return true;
-}
+/** Shape a `<` must have, immediately after itself, to even be considered
+ * for JSX (an opening tag's name, a fragment's `>`, or a closing tag's
+ * `/`) -- checked before `isExpressionPosition` bothers walking backward. */
+const JSX_START_RE = /^<(?:[A-Za-z]|>|\/)/;
 
 function blankCommentsAndQuotedJsx(source: string): string {
-  let out = "";
-  let i = 0;
-  while (i < source.length) {
-    const c = source[i];
-    const c2 = source[i + 1];
-    if (c === "/" && c2 === "/" && isRealLineCommentStart(source, i)) {
-      const nl = source.indexOf("\n", i);
-      const end = nl === -1 ? source.length : nl;
-      out += " ".repeat(end - i);
-      i = end;
-      continue;
+  const len = source.length;
+  const out: string[] = [];
+
+  /** A `"..."`/`'...'` string starting at `i` (`source[i]` is the opening
+   * quote): pushes its blanked form (JSX-shaped body spaced out, delimiters
+   * and any other body kept verbatim, same rule a template literal's own
+   * static chunks use) and returns the index just past the closing quote (or
+   * end of source if unterminated). Every quote reached in JS mode is
+   * unambiguously a real string -- there is no JSX-text-apostrophe ambiguity
+   * left to resolve, since JSX text is its own mode that never calls this at
+   * all (Codex, PR #874 round 33). */
+  function scanQuotedString(i: number, quote: string): number {
+    let j = i + 1;
+    while (j < len && source[j] !== quote) {
+      j += source[j] === "\\" ? 2 : 1;
     }
-    if (c === "/" && c2 === "*") {
-      const close = source.indexOf("*/", i + 2);
-      const end = close === -1 ? source.length : close + 2;
-      out += " ".repeat(end - i);
-      i = end;
-      continue;
+    const closed = source[j] === quote;
+    const body = source.slice(i + 1, Math.min(j, len));
+    const end = closed ? j + 1 : j;
+    if (/<[A-Za-z]/.test(body)) {
+      out.push(quote, " ".repeat(body.length));
+      if (closed) out.push(quote);
+    } else {
+      out.push(source.slice(i, end));
     }
-    if (isQuoteChar(c) && isQuoteInExpressionPosition(source, i)) {
-      const quote = c;
-      let j = i + 1;
-      while (j < source.length && source[j] !== quote) {
-        j += source[j] === "\\" ? 2 : 1;
-      }
-      const closed = source[j] === quote;
-      const body = source.slice(i + 1, Math.min(j, source.length));
-      if (/<[A-Za-z]/.test(body)) {
-        out += quote + " ".repeat(body.length) + (closed ? quote : "");
-      } else {
-        out += source.slice(i, closed ? j + 1 : j);
-      }
-      i = closed ? j + 1 : j;
-      continue;
-    }
-    out += c;
-    i++;
+    return end;
   }
-  return out;
+
+  /** A template literal starting at `i` (`source[i]` is the backtick): each
+   * static chunk is blanked the same way a plain string's body is (JSX-shaped
+   * -> spaced out); each `${...}` interpolation is hard boundary text (`${`,
+   * `}`) around a full recursive `scanJs` call bounded to that interpolation's
+   * own matching `}` -- so a comment, string, or nested JSX subtree inside an
+   * interpolation is handled by the exact same rules as anywhere else in JS
+   * mode, rather than the whole template being treated as one opaque span
+   * (Codex, PR #874 round 33). Returns the index just past the closing
+   * backtick (or end of source if unterminated). */
+  function scanTemplate(i: number): number {
+    out.push("`");
+    let j = i + 1;
+    let chunkStart = j;
+    const flushChunk = (end: number) => {
+      const body = source.slice(chunkStart, end);
+      out.push(/<[A-Za-z]/.test(body) ? " ".repeat(body.length) : body);
+    };
+    while (j < len) {
+      const c = source[j];
+      if (c === "\\") {
+        j += 2;
+        continue;
+      }
+      if (c === "`") {
+        flushChunk(j);
+        out.push("`");
+        return j + 1;
+      }
+      if (c === "$" && source[j + 1] === "{") {
+        flushChunk(j);
+        out.push("${");
+        const exprEnd = scanJs(j + 2, "}");
+        if (exprEnd < len) {
+          out.push("}");
+          j = exprEnd + 1;
+        } else {
+          j = len;
+        }
+        chunkStart = j;
+        continue;
+      }
+      j++;
+    }
+    flushChunk(len);
+    return len;
+  }
+
+  /** JS-mode text starting at `i`: comments and strings/templates are real;
+   * a `<` in expression position with a JSX-tag shape pushes into
+   * `scanJsxElement`. Runs to end of source (`stopChar === null`, the
+   * top-level call) or stops -- without consuming it -- at a depth-0
+   * occurrence of `stopChar` (used to bound one `{...}` JSX expression
+   * container to its own matching `}`). Returns the index it stopped at. */
+  function scanJs(i: number, stopChar: "}" | null): number {
+    while (i < len) {
+      const c = source[i];
+      if (stopChar !== null && c === stopChar) return i;
+      if (c === "/" && source[i + 1] === "/") {
+        const nl = source.indexOf("\n", i);
+        const end = nl === -1 ? len : nl;
+        out.push(" ".repeat(end - i));
+        i = end;
+        continue;
+      }
+      if (c === "/" && source[i + 1] === "*") {
+        const close = source.indexOf("*/", i + 2);
+        const end = close === -1 ? len : close + 2;
+        out.push(" ".repeat(end - i));
+        i = end;
+        continue;
+      }
+      if (c === '"' || c === "'") {
+        i = scanQuotedString(i, c);
+        continue;
+      }
+      if (c === "`") {
+        i = scanTemplate(i);
+        continue;
+      }
+      if (c === "<" && JSX_START_RE.test(source.slice(i, i + 2)) && isExpressionPosition(source, i)) {
+        i = scanJsxElement(i);
+        continue;
+      }
+      out.push(c);
+      i++;
+    }
+    return i;
+  }
+
+  /** One JSX element or fragment starting at `i` (`source[i]` is `<`, shape
+   * already confirmed by the caller): the opening tag's attributes (a quoted
+   * value scanned like a JS string; a `{expr}` value handed to `scanJs`
+   * bounded by its own matching `}`), then -- unless self-closing (`/>`) --
+   * the element's children via `scanJsxText`, which itself consumes the
+   * matching closing tag before returning. Returns the index just past the
+   * whole element. */
+  function scanJsxElement(i: number): number {
+    out.push("<");
+    i++;
+    const nameMatch = /^[A-Za-z][\w.:-]*/.exec(source.slice(i));
+    if (nameMatch) {
+      out.push(nameMatch[0]);
+      i += nameMatch[0].length;
+    }
+    while (i < len) {
+      const c = source[i];
+      if (c === "/" && source[i + 1] === ">") {
+        out.push("/>");
+        return i + 2;
+      }
+      if (c === ">") {
+        out.push(">");
+        i++;
+        break;
+      }
+      if (c === '"' || c === "'") {
+        i = scanQuotedString(i, c);
+        continue;
+      }
+      if (c === "{") {
+        out.push("{");
+        const exprEnd = scanJs(i + 1, "}");
+        if (exprEnd < len) {
+          out.push("}");
+          i = exprEnd + 1;
+        } else {
+          i = len;
+        }
+        continue;
+      }
+      out.push(c);
+      i++;
+    }
+    return scanJsxText(i);
+  }
+
+  /** JSX children starting at `i`, up to and including the enclosing
+   * element's own closing tag: no quotes and no comments at all (an
+   * apostrophe or a `//` here is just text, Codex, PR #874 round 33) -- only
+   * `{` (a child expression, handed to `scanJs` bounded by its own matching
+   * `}`, which also covers a `{/* … *\/}` JSX comment: the block-comment
+   * check inside `scanJs` fires regardless of what pushed it into JS mode)
+   * and `<` (a nested element, or -- on a following `/` -- the closing tag
+   * that ends this text run) are special. Returns the index just past the
+   * closing tag (or end of source if the element is never closed). */
+  function scanJsxText(i: number): number {
+    while (i < len) {
+      const c = source[i];
+      if (c === "{") {
+        out.push("{");
+        const exprEnd = scanJs(i + 1, "}");
+        if (exprEnd < len) {
+          out.push("}");
+          i = exprEnd + 1;
+        } else {
+          i = len;
+        }
+        continue;
+      }
+      if (c === "<") {
+        if (source[i + 1] === "/") {
+          const close = source.indexOf(">", i);
+          const end = close === -1 ? len : close + 1;
+          out.push(source.slice(i, end));
+          return end;
+        }
+        i = scanJsxElement(i);
+        continue;
+      }
+      out.push(c);
+      i++;
+    }
+    return i;
+  }
+
+  scanJs(0, null);
+  return out.join("");
 }
 
 /** `importedDecls` (Codex, PR #874 round 28) are passed straight through to
@@ -2863,7 +3105,18 @@ const REEXPORT_HINT_RE = /\bexport\s*(?:\*|\{[^}]*\})\s*(?:as\s+[A-Za-z_$][\w$]*
  * re-exporting file's own pulsing map as an object binding whose `entries`
  * mirror the source module's pulsing exports, the same shape a `namespace`
  * *import* already builds in `resolveImportedDecls` (Codex, PR #874
- * round 30). */
+ * round 30).
+ *
+ * A third stage then follows a module's own IMPORTS the same way the second
+ * stage follows a barrel's re-export statements: `a.ts` exports a pulsing
+ * binding, `b.ts` imports it and re-exports a local alias under a new name
+ * (`import { pulse } from "./a"; export const classes = pulse;`) -- not a
+ * re-export statement, so invisible to stage two, and never containing the
+ * pulse class literally in its own text, so invisible to stage one. Every
+ * import+export-bearing file is a candidate, resolved through
+ * `resolveImportedDecls` against the current `byModule` and interleaved into
+ * the same fixpoint loop as stage two, since either stage's addition can
+ * unlock the other's next pass (Codex, PR #874 round 33). */
 function collectExportedPulseBindings(
   sources: Record<string, string>,
 ): Map<string, Map<string, ConstDecl>> {
@@ -2915,6 +3168,51 @@ function collectExportedPulseBindings(
     if (statements.length > 0) reExportsByFile.set(file, statements);
   }
 
+  // Third stage (Codex, PR #874 round 33): a module that only becomes
+  // pulsing by IMPORTING a currently-pulsing binding and re-exporting a
+  // local alias of it under its own name -- `import { pulse } from "./a";
+  // export const classes = pulse;` -- is invisible to both passes above:
+  // it's not a re-export statement (`reExportsByFile` never sees it, since
+  // `collectReExportStatements` only recognizes `export ... from "…"`), and
+  // its own file never contains the pulse class literally (only the
+  // imported alias's name does), so the direct-export loop's own
+  // `rawSource.includes(PULSE_CLASS)` prefilter skips it outright. Every
+  // file with at least one `import` AND one `export` statement is a
+  // candidate for this -- computed once here, since a file's own local
+  // decls/exported names never change across iterations, only whether its
+  // imports currently resolve to something pulsing does. Each iteration
+  // below, a candidate whose imports resolve (via `resolveImportedDecls`,
+  // round 28) to at least one binding in the current `byModule` gets its
+  // own exported names checked against its local decls PLUS those imported
+  // ones, through the same recursive `resolveConstRefs` walk pass 1 already
+  // uses for a file's purely local exports.
+  const importAliasCandidates: Array<{
+    file: string;
+    rawSource: string;
+    exportedNames: Map<string, string>;
+    localDecls: ConstDecl[];
+    moduleLevelByName: Map<string, ConstDecl>;
+  }> = [];
+  for (const [file, rawSource] of Object.entries(sources)) {
+    if (!/\bimport\b/.test(rawSource) || !/\bexport\b/.test(rawSource)) continue;
+    const normalizedSource = normalize(blankCommentsAndQuotedJsx(rawSource));
+    const exportedNames = collectExportedNames(normalizedSource);
+    if (exportedNames.size === 0) continue;
+    const localDecls = collectConstTemplateMap(normalizedSource);
+    const moduleLevelByName = new Map<string, ConstDecl>();
+    for (const decl of localDecls) {
+      if (decl.scopeStart !== 0 || decl.scopeEnd !== normalizedSource.length) continue;
+      const existing = moduleLevelByName.get(decl.name);
+      if (!existing || decl.index < existing.index) moduleLevelByName.set(decl.name, decl);
+    }
+    importAliasCandidates.push({ file, rawSource, exportedNames, localDecls, moduleLevelByName });
+  }
+
+  // Interleaved with the barrel loop below (both run every iteration,
+  // sharing the same `changed` flag and iteration cap): an addition from
+  // either mechanism can unlock the other's next pass -- a barrel
+  // re-exporting an alias only this import mechanism resolves, or this
+  // mechanism resolving something only a prior barrel pass added.
   let changed = true;
   let iterations = 0;
   while (changed && iterations < 10) {
@@ -2964,6 +3262,27 @@ function collectExportedPulseBindings(
           destPulsing.set(stmt.namespaceName, nsDecl);
           changed = true;
         }
+      }
+      if (destPulsing) {
+        for (const key of destKeys) byModule.set(key, destPulsing);
+      }
+    }
+
+    for (const candidate of importAliasCandidates) {
+      const importedDecls = resolveImportedDecls(candidate.file, candidate.rawSource, byModule);
+      if (importedDecls.length === 0) continue;
+      const combinedDecls = [...candidate.localDecls, ...importedDecls];
+      const destKeys = moduleKeysForFile(candidate.file);
+      let destPulsing = byModule.get(destKeys[0]);
+      for (const [exportedName, localName] of candidate.exportedNames) {
+        if (destPulsing?.has(exportedName)) continue;
+        const decl = candidate.moduleLevelByName.get(localName);
+        if (!decl) continue;
+        const resolvedLiteral = resolveConstRefs(decl.literal, combinedDecls, decl.index);
+        if (!PULSE_CLASS_RE.test(resolvedLiteral)) continue;
+        destPulsing ??= new Map();
+        destPulsing.set(exportedName, { ...decl, literal: resolvedLiteral });
+        changed = true;
       }
       if (destPulsing) {
         for (const key of destKeys) byModule.set(key, destPulsing);
@@ -3402,6 +3721,24 @@ describe("scanSourceForViolations catches every spelling (fixture proofs, #878)"
     expect(scanSourceForViolations(fixture)).not.toEqual([]);
   });
 
+  it("registers every declarator in a comma-separated declaration, not just the first", () => {
+    // `const pulse = "animate-pulse", classes = pulse;` used to register
+    // only `pulse` -- `collectConstTemplateMap`'s declarator regex matched
+    // once per `const`/`let`/`var` keyword, so `classes` (the second
+    // declarator) never became a declaration at all, and `classes`'s
+    // reference in the JSX below resolved to nothing (Codex, PR #874 round
+    // 33).
+    const fixture =
+      'const pulse = "animate-pulse", classes = pulse;\nexport function A() { return <span className={classes}>Loading</span>; }';
+    expect(scanSourceForViolations(fixture)).not.toEqual([]);
+  });
+
+  it("registers every declarator in a multi-declarator let statement whose second declarator is the pulsing one", () => {
+    const fixture =
+      'let a = "x", classes = "text-alert-red animate-pulse";\nexport function A() { return <span className={classes}>Loading</span>; }';
+    expect(scanSourceForViolations(fixture)).not.toEqual([]);
+  });
+
   it("resolves an identifier-only const alias through a ternary, fail closed regardless of which branch renders", () => {
     const fixture =
       'const pulse = "animate-pulse";\nconst other = "text-xs";\nconst classes = cond ? pulse : other;\nexport function A() { return <span className={classes}>Loading</span>; }';
@@ -3464,6 +3801,28 @@ describe("scanSourceForViolations catches every spelling (fixture proofs, #878)"
   it("resolves a let alias later reassigned to an identifier, the same union-in-reassignment rule as a literal", () => {
     const fixture =
       'const pulse = "animate-pulse";\nlet classes;\nclasses = pulse;\nexport function A() { return <span className={classes}>Loading</span>; }';
+    expect(scanSourceForViolations(fixture)).not.toEqual([]);
+  });
+
+  it("resolves an object entry whose value is an identifier alias, not just a literal body", () => {
+    // `alert: pulse` used to be dropped entirely by `extractObjectEntries`:
+    // an entry only registered when it had a literal string/template body of
+    // its own, so `styles.alert` (an identifier-only value) had no entry to
+    // resolve through at all (Codex, PR #874 round 33).
+    const fixture =
+      'const pulse = "animate-pulse";\nconst styles = { alert: pulse };\nexport function A() { return <span className={styles.alert}>Loading</span>; }';
+    expect(scanSourceForViolations(fixture)).not.toEqual([]);
+  });
+
+  it("does not flag a sibling object entry with its own plain (non-pulsing) literal, past an identifier-valued neighbor", () => {
+    const fixture =
+      'const pulse = "animate-pulse";\nconst styles = { alert: pulse, safe: "text-xs" };\nexport function A() { return <span className={styles.safe}>Idle</span>; }';
+    expect(scanSourceForViolations(fixture)).toEqual([]);
+  });
+
+  it("resolves an identifier-valued entry nested inside another object entry", () => {
+    const fixture =
+      'const pulse = "animate-pulse";\nconst styles = { alert: { badge: pulse } };\nexport function A() { return <span className={styles.alert.badge}>Loading</span>; }';
     expect(scanSourceForViolations(fixture)).not.toEqual([]);
   });
 
@@ -4105,6 +4464,39 @@ describe("scanSourceForViolations catches every spelling (fixture proofs, #878)"
       expect(scanSourceForViolations(fixture), fixture).toEqual([]);
     }
   });
+
+  it("still catches a real site after whitespace-preceded '//' text inside JSX (not a comment)", () => {
+    // A `//` preceded by whitespace, not code, used to satisfy the old
+    // preceding-character comment heuristic (`isRealLineCommentStart`),
+    // reading the rest of the line -- including the real pulse site further
+    // along it -- as a line comment. In real JSX text, `//` is never a
+    // comment at all; the mode-machine rewrite makes this true by
+    // construction rather than by another preceding-character carve-out
+    // (Codex, PR #874 round 33).
+    const fixture =
+      '<div>Use // as a separator <span className="animate-pulse">Loading</span></div>';
+    const violations = scanSourceForViolations(fixture);
+    expect(violations).not.toEqual([]);
+    const anchor = fixture.indexOf('<span className="animate-pulse">');
+    expect(violations[0].index).toBeGreaterThanOrEqual(anchor);
+  });
+
+  it("does not let a JSX-comment idiom or a quoted literal slash swallow a following real site", () => {
+    const fixture =
+      '<p>{"//"} literal</p><p>{/* c */}x</p><span className="animate-pulse">Loading</span>';
+    expect(scanSourceForViolations(fixture)).not.toEqual([]);
+  });
+
+  it("does not flag a real less-than comparison followed by a commented-out site", () => {
+    const fixture = 'const x = a < b; // <span className="animate-pulse">Loading</span>';
+    expect(scanSourceForViolations(fixture)).toEqual([]);
+  });
+
+  it("does not flag a block comment inside a compound boolean comparison", () => {
+    const fixture =
+      'if (a < b && c > d) { /* <span className="animate-pulse">L</span> */ }';
+    expect(scanSourceForViolations(fixture)).toEqual([]);
+  });
 });
 
 describe("scanModuleForViolations resolves imported animate-pulse class bindings across modules (#874 round 28)", () => {
@@ -4312,6 +4704,56 @@ describe("scanModuleForViolations follows class bindings through barrel re-expor
       "src/lib/b.tsx": bSource,
     });
     expect(scanModuleForViolations("src/lib/b.tsx", bSource, exportsMap)).toEqual([]);
+  });
+});
+
+describe("collectExportedPulseBindings propagates exports through a module's own imported aliases (#874 round 33)", () => {
+  // `a.ts` exports `pulse` directly; `b.ts` never mentions "animate-pulse"
+  // itself, it only imports `pulse` from `a.ts` and re-exports it under a
+  // new name (`classes`) -- pass 1 used to resolve exports only against a
+  // module's OWN declarations (or a re-export statement), so a module that
+  // imports a binding and folds it into a fresh export (rather than
+  // re-exporting the same name via `export { … } from`) was invisible to
+  // the export map entirely (Codex, PR #874 round 33).
+  const aSource = 'export const pulse = "animate-pulse";';
+
+  it("flags a component importing a binding whose value came from an imported alias one module away", () => {
+    const bSource = 'import { pulse } from "./a";\nexport const classes = pulse;';
+    const componentSource =
+      'import { classes } from "./b";\nexport function C() { return <span className={classes}>Loading</span>; }';
+    const exportsMap = collectExportedPulseBindings({
+      "src/lib/a.ts": aSource,
+      "src/lib/b.ts": bSource,
+      "src/lib/component.tsx": componentSource,
+    });
+    expect(scanModuleForViolations("src/lib/component.tsx", componentSource, exportsMap)).not.toEqual([]);
+  });
+
+  it("flags a component through a three-module import-alias chain (a -> b -> c -> component)", () => {
+    const bSource = 'import { pulse } from "./a";\nexport const middle = pulse;';
+    const cSource = 'import { middle } from "./b";\nexport const classes = middle;';
+    const componentSource =
+      'import { classes } from "./c";\nexport function C() { return <span className={classes}>Loading</span>; }';
+    const exportsMap = collectExportedPulseBindings({
+      "src/lib/a.ts": aSource,
+      "src/lib/b.ts": bSource,
+      "src/lib/c.ts": cSource,
+      "src/lib/component.tsx": componentSource,
+    });
+    expect(scanModuleForViolations("src/lib/component.tsx", componentSource, exportsMap)).not.toEqual([]);
+  });
+
+  it("does not flag a component whose import-alias chain never touches a pulsing binding", () => {
+    const plainSource = 'export const labelClasses = "text-xs uppercase";';
+    const bSource = 'import { labelClasses } from "./plain";\nexport const classes = labelClasses;';
+    const componentSource =
+      'import { classes } from "./b";\nexport function C() { return <span className={classes}>Label</span>; }';
+    const exportsMap = collectExportedPulseBindings({
+      "src/lib/plain.ts": plainSource,
+      "src/lib/b.ts": bSource,
+      "src/lib/component.tsx": componentSource,
+    });
+    expect(scanModuleForViolations("src/lib/component.tsx", componentSource, exportsMap)).toEqual([]);
   });
 });
 

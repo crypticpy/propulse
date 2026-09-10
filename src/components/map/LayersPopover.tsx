@@ -1075,14 +1075,19 @@ export function LayersPopover({ compact = false }: LayersPopoverProps) {
 
       {/* Grid Detail slider (visible when grid labels are on).
           Every box on these rows is rem-sized, not px-sized. The labels moved
-          from `text-[11px]`/`text-[10px]` to `text-xs` for the legibility floor
-          (#832), and `text-xs` is 0.75rem, so it follows Settings -> Text Size:
-          16.5px at the xl scale. A `h-[28px]` row with a `w-[60px]` label could
-          not hold that -- "Grid Detail" wrapped to two 22px lines inside a 28px
-          box and painted over the slider (found by Codex on PR #839). `min-h-7`
-          and `w-[4.5rem]` grow with the text instead, `flex-wrap` lets the value
-          chip drop to its own line rather than squeeze the track off the row,
-          and the slider's `min-w-[3rem]` keeps it draggable when it does. */}
+          off their old sub-floor arbitrary sizes and onto `text-xs` for the
+          legibility floor (#832), and `text-xs` is 0.75rem, so it now follows
+          Settings -> Text Size: 16.5px at the xl scale. A `h-[28px]` row with a
+          `w-[60px]` label could not hold that -- "Grid Detail" wrapped to two
+          22px lines inside a 28px box and painted over the slider (found by
+          Codex on PR #839). `min-h-7` and `w-[4.5rem]` grow with the text
+          instead, `flex-wrap` lets the value chip drop to its own line rather
+          than squeeze the track off the row, and the slider's `min-w-[3rem]`
+          keeps it draggable when it does.
+
+          The old spellings are described rather than quoted on purpose: the
+          #832 guard is a line scanner with no notion of comments, so a comment
+          naming a sub-floor size fails it exactly like the code would. */}
       {labelOptions.gridLabels && (
         <>
           <div className="flex flex-wrap items-center min-h-7 px-1 mt-1">

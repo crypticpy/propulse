@@ -342,6 +342,16 @@ interface TintedSite {
   what: string;
   /** Exact snippet the site ships; binds the table to the source. */
   snippet: string;
+  /**
+   * For sites whose class string is assembled outside a `className=`
+   * attribute (a `const x = ...`/ternary, an object-map key line): a unique
+   * snippet on the OPENING line of that declaration, resolved by
+   * `extractClassSourceValue` into the full declaration text. When present,
+   * this -- not `extractClassNameValue` -- is what `measuredAlpha` measures,
+   * so a rogue tint on a sibling branch or entry of the same declaration is
+   * caught even though it never touches `snippet`'s own line.
+   */
+  classSource?: string;
 }
 
 /**
@@ -382,7 +392,9 @@ function deriveAlpha(snippet: string): number {
  * that case -- just not one that actually contains the snippet -- so this
  * validates the snippet's start position actually falls inside the
  * extracted value and throws if not, rather than silently returning an
- * unrelated className from earlier in the file.
+ * unrelated className from earlier in the file. Those rows carry a
+ * `classSource` locator instead, resolved by `extractClassSourceValue`
+ * below, so `measuredAlpha` never calls this function for them.
  */
 function extractClassNameValue(source: string, snippet: string): string {
   const snippetIndex = source.indexOf(snippet);
@@ -475,30 +487,147 @@ function extractClassNameValue(source: string, snippet: string): string {
 }
 
 /**
- * The alpha `FIXED_SITES` measures for a site: read fresh from the whole
- * `className` attribute the snippet lives in (via `extractClassNameValue`)
- * instead of from `site.snippet` alone, so a `hover:bg-plasma-orange/N`
- * wrapped onto a different line or branch of the same className -- the #843
- * round-3 Codex thread, reproduced on `ActivationPanel`'s SOTA selector
- * button -- is not missed. `deriveAlpha` itself is unchanged; this only
- * changes what gets fed to it.
+ * Pulls the full text of the declaration that a `classSource` locator opens
+ * -- the counterpart to `extractClassNameValue` for the handful of sites
+ * whose class string is assembled outside a `className=` attribute (a
+ * `const x = ...`/ternary statement, or an object-map entry keyed by a
+ * literal like `Platinum:` or `"Bold Explorer":`). `locator` must be a
+ * snippet that appears on the OPENING line of that declaration and nowhere
+ * else in the file -- this throws if it is absent or matches more than
+ * once, since a non-unique locator could silently resolve to the wrong
+ * declaration.
  *
- * A handful of `FIXED_SITES` rows are not literally inside a `className=`
- * attribute -- see `extractClassNameValue`'s doc-comment -- and
- * `extractClassNameValue` throws for those. This falls back to measuring
- * `site.snippet` alone for exactly those rows, same as every row was
- * measured before this round (listed in the PR body). Confirmed there: none
- * of the existing 44 `FIXED_SITES` rows' measured alpha actually changes
- * between the old snippet-only measurement and the new whole-className
- * measurement where extraction succeeds -- this is a coverage widening for
- * future regressions, not a correction of a past one.
+ * From the locator's line, this reads forward to the declaration's balanced
+ * close: if the line itself opens a brace (a function whose body assembles
+ * the string across a `switch`, e.g. `NeededMultsPanel`'s
+ * `getTypeBadgeColor`), it walks brace depth to that brace's match, so every
+ * branch of the function -- not just the one the snippet names -- is
+ * captured. Otherwise it reads to the first top-level `;` (a `const`
+ * statement or ternary) or the first top-level `,` (an object-map entry with
+ * a trailing comma), or stops just before a `}`/`)`/`]` that would close an
+ * enclosing scope (an object-map entry that is the last one, with no
+ * trailing comma) -- whichever comes first, skipping over quoted string
+ * contents throughout so a comma or brace inside a class string can't end
+ * the match early.
+ */
+function extractClassSourceValue(source: string, locator: string): string {
+  const firstIndex = source.indexOf(locator);
+  if (firstIndex === -1) {
+    throw new Error(`classSource locator not found in source:\n${locator}`);
+  }
+  if (source.indexOf(locator, firstIndex + 1) !== -1) {
+    throw new Error(
+      `classSource locator matches more than once in source:\n${locator}`,
+    );
+  }
+  const lineStart = source.lastIndexOf("\n", firstIndex) + 1;
+  const nextNewline = source.indexOf("\n", firstIndex);
+  const line = source.slice(lineStart, nextNewline === -1 ? source.length : nextNewline);
+
+  let i = lineStart;
+  let inString: string | null = null;
+
+  if (line.trimEnd().endsWith("{")) {
+    // Balanced-brace declaration: walk `{`/`}` depth from the line's own
+    // opening brace to its match.
+    let depth = 0;
+    for (; i < source.length; i++) {
+      const ch = source[i];
+      if (inString) {
+        if (ch === "\\") {
+          i++;
+        } else if (ch === inString) {
+          inString = null;
+        }
+        continue;
+      }
+      if (ch === '"' || ch === "'" || ch === "`") {
+        inString = ch;
+        continue;
+      }
+      if (ch === "{") {
+        depth++;
+      } else if (ch === "}") {
+        depth--;
+        if (depth === 0) {
+          i++;
+          break;
+        }
+      }
+    }
+    if (depth !== 0) {
+      throw new Error(
+        `unterminated declaration for classSource locator:\n${locator}`,
+      );
+    }
+    return source.slice(lineStart, i);
+  }
+
+  // Statement or object-map-entry declaration: stop at the first top-level
+  // `;` or `,`, or just before a close bracket that would close an
+  // enclosing scope.
+  let depth = 0;
+  for (; i < source.length; i++) {
+    const ch = source[i];
+    if (inString) {
+      if (ch === "\\") {
+        i++;
+      } else if (ch === inString) {
+        inString = null;
+      }
+      continue;
+    }
+    if (ch === '"' || ch === "'" || ch === "`") {
+      inString = ch;
+      continue;
+    }
+    if (ch === "{" || ch === "(" || ch === "[") {
+      depth++;
+      continue;
+    }
+    if (ch === "}" || ch === ")" || ch === "]") {
+      if (depth === 0) {
+        break;
+      }
+      depth--;
+      continue;
+    }
+    if (depth === 0 && (ch === ";" || ch === ",")) {
+      i++;
+      break;
+    }
+  }
+  return source.slice(lineStart, i);
+}
+
+/**
+ * The alpha `FIXED_SITES` measures for a site. For a row with `classSource`,
+ * this reads the full declaration that locator opens (via
+ * `extractClassSourceValue`), so a rogue tint on a sibling branch or entry
+ * of that same declaration is caught even when it never touches `snippet`'s
+ * own line -- the #843 round-4 Codex thread, which named the round-3
+ * snippet-only fallback below as the same blindness the round-3 fix itself
+ * closed for inline classNames. For every other row, this reads the whole
+ * `className` attribute the snippet lives in (via `extractClassNameValue`),
+ * so a `hover:bg-plasma-orange/N` wrapped onto a different line or branch of
+ * the same className -- the #843 round-3 Codex thread, reproduced on
+ * `ActivationPanel`'s SOTA selector button -- is not missed either.
+ * `deriveAlpha` itself is unchanged; this only changes what gets fed to it.
+ *
+ * There is no silent fallback: a row whose class string is not literally
+ * inside a `className=` attribute must carry `classSource`, or
+ * `extractClassNameValue` throws and the row's own test fails, naming it.
+ * The prior round measured such rows against `site.snippet` alone on a
+ * catch -- exactly the hole this round closes. Confirmed there: none of the
+ * existing 44 `FIXED_SITES` rows' measured alpha actually changes under this
+ * rule from what round 3 measured -- this is a coverage widening for future
+ * regressions, not a correction of a past one.
  */
 function measuredAlpha(source: string, site: TintedSite): number {
-  try {
-    return deriveAlpha(extractClassNameValue(source, site.snippet));
-  } catch {
-    return deriveAlpha(site.snippet);
+  if (site.classSource !== undefined) {
+    return deriveAlpha(extractClassSourceValue(source, site.classSource));
   }
+  return deriveAlpha(extractClassNameValue(source, site.snippet));
 }
 
 /**
@@ -512,19 +641,24 @@ function measuredAlpha(source: string, site: TintedSite): number {
  * measured cap and still reads as a step. Reverting any of them to
  * `text-plasma-orange` breaks its snippet assertion here, and a
  * `src/components/ui` entry also breaks the dedicated `src/components/ui`
- * clause of the census guard below. Alpha is measured on the whole
- * containing `className` (`measuredAlpha` above), not just the snippet's own
- * line, so a hover class wrapped onto a different line or branch of the same
- * className is caught here. The per-line census guard further below is
- * NOT upgraded the same way -- it stays a same-line-only regex, exactly as
- * documented at its own describe block, because `FIXED_SITES` is what
- * exists to cover the multi-line case for the sites it lists.
+ * clause of the census guard below. Alpha is measured (`measuredAlpha`
+ * above) on the whole containing `className` for most rows, or on the whole
+ * `classSource` declaration for the rows that carry one -- so a hover class
+ * or sibling branch wrapped onto a different line of the same className or
+ * declaration is caught here either way, and a row with neither a resolvable
+ * `className=` nor a `classSource` fails its own test rather than falling
+ * back to measuring `snippet` alone. The per-line census guard further below
+ * is NOT upgraded the same way -- it stays a same-line-only regex, exactly
+ * as documented at its own describe block, because `FIXED_SITES` is what
+ * exists to cover the multi-line and multi-branch cases for the sites it
+ * lists.
  */
 const FIXED_SITES: TintedSite[] = [
   {
     file: "src/components/ui/SyncStatusIndicator.tsx",
     what: "the sync queue pill",
     snippet: `: "bg-plasma-orange/20 text-su-text border-plasma-orange/30";`,
+    classSource: `const pillColor = hasFailed`,
   },
   {
     file: "src/components/ui/SyncStatusIndicator.tsx",
@@ -536,6 +670,7 @@ const FIXED_SITES: TintedSite[] = [
     file: "src/components/ui/ConfirmDialog.tsx",
     what: "the default confirm button",
     snippet: `"bg-plasma-orange/15 hover:bg-plasma-orange/20 text-su-text border border-plasma-orange/30",`,
+    classSource: `default:`,
   },
   {
     file: "src/components/ui/ImageCropDialog.tsx",
@@ -648,11 +783,13 @@ const FIXED_SITES: TintedSite[] = [
     file: "src/components/contest/NeededMultsPanel.tsx",
     what: "the CQ/ITU zone type badge",
     snippet: `bg-plasma-orange/20 border-plasma-orange/40 text-su-text`,
+    classSource: `function getTypeBadgeColor(type: MultiplierType): string {`,
   },
   {
     file: "src/components/contest/NeededMultsPanel.tsx",
     what: "the top-3 rank indicator",
     snippet: `bg-plasma-orange/20 text-su-text`,
+    classSource: `const rankStyle =`,
   },
   {
     file: "src/components/contest/PendingDraftReplaceBanner.tsx",
@@ -663,6 +800,7 @@ const FIXED_SITES: TintedSite[] = [
     file: "src/components/contest/StationEstimate.tsx",
     what: '"Bold Explorer" tier badge',
     snippet: `text-su-text bg-plasma-orange/15 border-plasma-orange/30`,
+    classSource: `"Bold Explorer":`,
   },
   // Batch 2 (#803): src/components/nets, src/components/cluster,
   // src/components/activation, src/components/activity -- 13 files, 19
@@ -685,6 +823,7 @@ const FIXED_SITES: TintedSite[] = [
     file: "src/components/activation/ActivationPanel.tsx",
     what: "the active-activation type badge (SOTA)",
     snippet: `: "bg-plasma-orange/20 text-su-text";`,
+    classSource: `const typeBadgeClasses =`,
   },
   {
     file: "src/components/activity/NearbyActivityExplorer.tsx",
@@ -740,6 +879,7 @@ const FIXED_SITES: TintedSite[] = [
     file: "src/components/nets/NetMilestoneCard.tsx",
     what: 'the "Platinum" (100th check-in) badge color',
     snippet: `Platinum: "bg-plasma-orange/20 text-su-text border-plasma-orange/30",`,
+    classSource: `Platinum:`,
   },
   {
     file: "src/components/nets/PhaseIndicator.tsx",
@@ -765,6 +905,7 @@ const FIXED_SITES: TintedSite[] = [
     file: "src/components/nets/TuneToNetButton.tsx",
     what: '"Tune to Net" button, idle/tuning state',
     snippet: `bg-plasma-orange/15 text-su-text hover:bg-plasma-orange/20 hover:shadow-[0_0_12px_rgba(255,107,53,0.25)]`,
+    classSource: `const colors =`,
   },
 ];
 

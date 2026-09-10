@@ -5,6 +5,8 @@ import { useMapStore } from "@/stores/mapStore";
 import { useAtmosStore } from "@/stores/atmosStore";
 import { useNexradAvailable } from "@/hooks/useWeatherRadar";
 import { WeatherLegend } from "@/components/atmos/WeatherLegend";
+import { MAP_PAGE_CHROME_Z } from "@/lib/map/globeRenderOrder";
+import { MapSizeSliders } from "@/components/map/MapSizeSliders";
 import { RadarScrubber3D } from "@/components/atmos/RadarScrubber3D";
 import { BoundViewHost } from "@/components/views/BoundViewHost";
 import { namedSlotId } from "@/lib/views/runtime";
@@ -60,12 +62,29 @@ export function AtmosGlobeView() {
           <GlobeView
             displayTime={displayTime}
             hideRadarScrubber
+            hideSizeSliders
             onUseFlatMap={() => useAtmosStore.getState().setViewMode("2d")}
           />
         </Suspense>
 
-        {/* Weather-specific overlays */}
-        <WeatherLegend />
+        {/* Weather-specific overlays. The legend and the shared size control
+            both want the bottom-left corner, so they stack in one column
+            instead of overlapping: the legend reads under the map's overlay
+            portal, the control sits above it (#930). */}
+        <div className="pointer-events-none absolute bottom-4 left-4 flex flex-col items-start gap-2">
+          <div
+            className="relative pointer-events-auto"
+            style={{ zIndex: MAP_PAGE_CHROME_Z.legend }}
+          >
+            <WeatherLegend inline />
+          </div>
+          <div
+            className="relative"
+            style={{ zIndex: MAP_PAGE_CHROME_Z.interactiveChrome }}
+          >
+            <MapSizeSliders inline />
+          </div>
+        </div>
         {radarOn && <RadarScrubber3D showNexradBadge={nexradAvailable} />}
       </div>
     </BoundViewHost>

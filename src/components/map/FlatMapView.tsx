@@ -89,6 +89,7 @@ import { getCategoryMeta } from "@/types/pin";
 import type { MapPin } from "@/types/pin";
 import { PinFlyout } from "./PinFlyout";
 import { MapSizeSliders } from "./MapSizeSliders";
+import { MAP_PAGE_CHROME_Z } from "@/lib/map/globeRenderOrder";
 import { SpotHoverPreview } from "./SpotHoverPreview";
 import { SelectedSpotCard } from "./SelectedSpotCard";
 import { MapSurface } from "./MapSurface";
@@ -6562,27 +6563,40 @@ export function FlatMapView({
         onWatchGrid={handleWatchGrid}
       />
 
-      {/* Spot & pin size sliders - bottom left corner */}
-      {!hideSizeSliders && <MapSizeSliders />}
-
-      {/* Bearing/Distance overlay - shown when hovering over the map */}
-      {hoverBearingDistance && (
-        <div className="absolute bottom-3 left-3 z-10 pointer-events-none">
-          <div className="px-2.5 py-1.5 rounded-lg bg-void-black/80 backdrop-blur-sm border border-su-line/40 text-xs font-mono tabular-nums text-su-muted">
-            <span className="text-plasma-orange font-semibold">
-              {String(hoverBearingDistance.bearing).padStart(3, "0")}°
-            </span>
-            <span className="text-su-muted mx-1">
-              {hoverBearingDistance.compassDir}
-            </span>
-            <span className="text-su-muted mx-1">|</span>
-            <span className="text-cosmic-cyan font-semibold">
-              {hoverBearingDistance.distanceKm.toLocaleString()}
-            </span>
-            <span className="text-su-muted ml-0.5">km</span>
+      {/* Bottom-left corner column. The bearing/distance readout and the
+          shared size control both want this corner; stacking them keeps the
+          readout visible now that the control paints above the map's overlay
+          portal, instead of one covering the other (#930). */}
+      <div className="pointer-events-none absolute bottom-3 left-3 flex flex-col items-start gap-1">
+        {hoverBearingDistance && (
+          <div
+            className="relative"
+            style={{ zIndex: MAP_PAGE_CHROME_Z.legend }}
+          >
+            <div className="px-2.5 py-1.5 rounded-lg bg-void-black/80 backdrop-blur-sm border border-su-line/40 text-xs font-mono tabular-nums text-su-muted">
+              <span className="text-plasma-orange font-semibold">
+                {String(hoverBearingDistance.bearing).padStart(3, "0")}°
+              </span>
+              <span className="text-su-muted mx-1">
+                {hoverBearingDistance.compassDir}
+              </span>
+              <span className="text-su-muted mx-1">|</span>
+              <span className="text-cosmic-cyan font-semibold">
+                {hoverBearingDistance.distanceKm.toLocaleString()}
+              </span>
+              <span className="text-su-muted ml-0.5">km</span>
+            </div>
           </div>
-        </div>
-      )}
+        )}
+        {!hideSizeSliders && (
+          <div
+            className="relative"
+            style={{ zIndex: MAP_PAGE_CHROME_Z.interactiveChrome }}
+          >
+            <MapSizeSliders inline />
+          </div>
+        )}
+      </div>
 
       {/* Pin flyout - shown when hovering over an existing pin */}
       {hoveredPinData && (

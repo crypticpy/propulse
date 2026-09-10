@@ -144,6 +144,17 @@ function openingTag(src: string, start: number): string {
   let quote: string | null = null;
   for (let i = start; i < src.length; i += 1) {
     const char = src[i];
+    // JSX allows comments between attributes, and an apostrophe in one
+    // ("the map's portal") would otherwise open a string that swallows the
+    // rest of the element -- which is how a stack root once looked like a
+    // z-10 wrapper.
+    if (!quote && char === "/" && (src[i + 1] === "/" || src[i + 1] === "*")) {
+      const end =
+        src[i + 1] === "/" ? src.indexOf("\n", i) : src.indexOf("*/", i) + 1;
+      if (end < 1) return src.slice(start);
+      i = end;
+      continue;
+    }
     if (quote) {
       if (char === quote && src[i - 1] !== "\\") quote = null;
     } else if (char === '"' || char === "'" || char === "`") {
@@ -897,5 +908,85 @@ describe("wrappers take the tier of the component they wrap (#930, round 5)", ()
           `${w.host}:${w.line} z=${w.level} wraps ${w.operable.join(", ")}, which ${w.operable.length === 1 ? "takes" : "take"} input -- the whole wrapper belongs on interactiveChrome (${MAP_PAGE_CHROME_Z.interactiveChrome}): ${w.tag}`,
       );
     expect(violations, violations.join("\n")).toEqual([]);
+  });
+});
+
+/**
+ * Raising a control must not bury the chrome beside it (#930, round 6).
+ *
+ * `MapSizeSliders` defaults to `absolute bottom-3 left-3`, and three map
+ * views plus two hosts put passive chrome in that exact corner: the
+ * flat map's bearing/distance readout, the azimuthal legend, HamClock's
+ * contacts key and AtmosPulse's `WeatherLegend`. While everything there was
+ * `z-10` the later sibling won; once the control moved to
+ * `interactiveChrome` it started covering all four.
+ *
+ * The fix is structural, not another tier: each of those corners is now one
+ * flex column holding the readout above `<MapSizeSliders inline />`, so the
+ * two can never overlap whatever their z-index. This guard fails if a file
+ * puts something back on the shared control's anchor without either owning
+ * the column or hiding the control.
+ */
+describe("nothing shares the size control's corner (#930, round 6)", () => {
+  const CORNER_FILES = [
+    "src/components/map/GlobeView.tsx",
+    "src/components/map/FlatMapView.tsx",
+    "src/components/map/AzimuthalView.tsx",
+    "src/pages/PropSphere.tsx",
+    "src/components/map/FullscreenPropSphere.tsx",
+    "src/components/map/HamClockView.tsx",
+    "src/components/mobile/MobileMap.tsx",
+    "src/components/atmos/AtmosGlobeView.tsx",
+  ];
+
+  /** The size control's own anchor, from `MapSizeSliders.tsx`. */
+  const SLIDER_ANCHOR = "absolute bottom-3 left-3";
+
+  it("keeps the shared control on one anchor", () => {
+    // Non-vacuity: the constant above has to still describe the component.
+    expect(readSrc("src/components/map/MapSizeSliders.tsx")).toContain(
+      SLIDER_ANCHOR,
+    );
+  });
+
+  it("leaves that anchor to the control or to a column that holds it", () => {
+    const violations: string[] = [];
+    for (const file of CORNER_FILES) {
+      const src = readSrc(file);
+      for (const match of src.matchAll(/absolute bottom-3 left-3/g)) {
+        const line = src.slice(0, match.index).split("\n").length;
+        const tag = src.slice(
+          src.lastIndexOf("<", match.index),
+          match.index + 400,
+        );
+        const isColumn = /flex flex-col/.test(tag);
+        const hidesControl = src.includes("hideSizeSliders");
+        if (!isColumn && !hidesControl) {
+          violations.push(
+            `${file}:${line} sits on the size control's corner (${SLIDER_ANCHOR}) without stacking it in a column or passing hideSizeSliders`,
+          );
+        }
+      }
+    }
+    expect(violations, violations.join("\n")).toEqual([]);
+  });
+
+  it("stacks the flat map's bearing readout above the control", () => {
+    const src = readSrc("src/components/map/FlatMapView.tsx");
+    // The readout no longer anchors itself to the corner ...
+    expect(src).not.toContain('className="absolute bottom-3 left-3 z-10');
+    // ... it is a legend-tier row in the corner column, and the control is
+    // the row below it.
+    const column = src.indexOf(
+      'className="pointer-events-none absolute bottom-3 left-3 flex flex-col',
+    );
+    expect(column).toBeGreaterThan(-1);
+    const body = src.slice(column, column + 1600);
+    expect(body).toContain("MAP_PAGE_CHROME_Z.legend");
+    expect(body).toContain("hoverBearingDistance");
+    expect(body).toContain("<MapSizeSliders inline />");
+    expect(body.indexOf("hoverBearingDistance")).toBeLessThan(
+      body.indexOf("<MapSizeSliders inline />"),
+    );
   });
 });

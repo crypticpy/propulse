@@ -61,6 +61,7 @@ import { FlatMapView } from "./FlatMapView";
 import { WatchStatusPill } from "@/components/map/WatchStatusPill";
 import { HamClockWall } from "./hamclock/wall/HamClockWall";
 import { MAP_PAGE_CHROME_Z } from "@/lib/map/globeRenderOrder";
+import { MapSizeSliders } from "./MapSizeSliders";
 
 // Keep the WebGL-heavy alternate projections out of the initial HamClock
 // chunk. They load only after the operator selects them in the header.
@@ -498,6 +499,7 @@ export function HamClockView({
             displayTime={displayTime}
             onLocationClick={handleMapClick}
             fillContainer
+            hideSizeSliders
             isWallCanvas={isWallCanvas}
           />
         )}
@@ -505,6 +507,7 @@ export function HamClockView({
           <AzimuthalView
             displayTime={displayTime}
             onLocationClick={handleMapClick}
+            hideSizeSliders
             isWallCanvas={isWallCanvas}
           />
         )}
@@ -512,18 +515,33 @@ export function HamClockView({
           <GlobeView
             displayTime={displayTime}
             onLocationClick={handleMapClick}
+            hideSizeSliders
             isWallCanvas={isWallCanvas}
           />
         )}
       </Suspense>
 
-      {(hamclockMode === "traffic" || hamclockMode === "bands") &&
-        mapContent !== "activity" && (
-          <div className="absolute bottom-3 left-3 rounded bg-void-black/85 px-2 py-1 text-xs text-su-text pointer-events-none">
-            ○ Logged contacts · UTC{" "}
-            {mapContent === "both" && " · • Live activity"}
-          </div>
-        )}
+      {/* Bottom-left corner column: the contacts key reads under the map's
+          overlay portal, the shared size control sits above it, and the two
+          stack instead of sharing the corner (#930). */}
+      <div className="pointer-events-none absolute bottom-3 left-3 flex flex-col items-start gap-1">
+        {(hamclockMode === "traffic" || hamclockMode === "bands") &&
+          mapContent !== "activity" && (
+            <div
+              className="relative rounded bg-void-black/85 px-2 py-1 text-xs text-su-text"
+              style={{ zIndex: MAP_PAGE_CHROME_Z.legend }}
+            >
+              ○ Logged contacts · UTC{" "}
+              {mapContent === "both" && " · • Live activity"}
+            </div>
+          )}
+        <div
+          className="relative"
+          style={{ zIndex: MAP_PAGE_CHROME_Z.interactiveChrome }}
+        >
+          <MapSizeSliders inline />
+        </div>
+      </div>
       <div
         className="absolute bottom-3 left-1/2 -translate-x-1/2 pointer-events-auto"
         style={{ zIndex: MAP_PAGE_CHROME_Z.interactiveChrome }}

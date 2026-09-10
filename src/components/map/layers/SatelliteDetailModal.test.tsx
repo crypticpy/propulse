@@ -156,7 +156,7 @@ describe("SatelliteDetailModal", () => {
 
   describe("Map orbit controls (#994)", () => {
     afterEach(() => {
-      useMapStore.setState({ satelliteTracks: {} });
+      useMapStore.setState({ satelliteTracks: {}, satelliteTrackOrder: [] });
     });
 
     it("shows 'Map orbit' when untracked and creates a default track on click", async () => {
@@ -189,6 +189,7 @@ describe("SatelliteDetailModal", () => {
             showFootprint: false,
           },
         },
+        satelliteTrackOrder: [String(FAKE_SATELLITE.noradId)],
       });
       renderModal();
       await screen.findByRole("dialog", { name: FAKE_SATELLITE.name });
@@ -236,6 +237,7 @@ describe("SatelliteDetailModal", () => {
             showFootprint: false,
           },
         },
+        satelliteTrackOrder: [String(FAKE_SATELLITE.noradId)],
       });
       renderModal();
       await screen.findByRole("dialog", { name: FAKE_SATELLITE.name });
@@ -259,6 +261,7 @@ describe("SatelliteDetailModal", () => {
             showFootprint: false,
           },
         },
+        satelliteTrackOrder: [String(FAKE_SATELLITE.noradId)],
       });
       renderModal();
       await screen.findByRole("dialog", { name: FAKE_SATELLITE.name });
@@ -284,6 +287,7 @@ describe("SatelliteDetailModal", () => {
             showFootprint: false,
           },
         },
+        satelliteTrackOrder: [String(FAKE_SATELLITE.noradId)],
       });
       renderModal();
       await screen.findByRole("dialog", { name: FAKE_SATELLITE.name });
@@ -307,6 +311,7 @@ describe("SatelliteDetailModal", () => {
             showFootprint: false,
           },
         },
+        satelliteTrackOrder: [String(FAKE_SATELLITE.noradId)],
       });
       renderModal();
       await screen.findByRole("dialog", { name: FAKE_SATELLITE.name });

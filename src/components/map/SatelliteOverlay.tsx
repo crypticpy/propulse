@@ -14,12 +14,13 @@
  * Selected satellites show their orbital ground track.
  */
 
-import { useMemo, useRef, useCallback } from "react";
+import { useMemo, useRef, useCallback, useEffect, useState } from "react";
 import { useFrame } from "@react-three/fiber";
 import { Html, Line } from "@react-three/drei";
 import * as THREE from "three";
 import { formatDistanceToNow } from "date-fns";
 import { useGlobeOcclusion } from "@/hooks/useGlobeOcclusion";
+import { useGlobeOcclusionBatch } from "@/hooks/useGlobeOcclusionBatch";
 import { useSatellites } from "@/hooks/useSatellites";
 import { useMapStore } from "@/stores/mapStore";
 import type { SatelliteTrackConfig } from "@/stores/mapStore";
@@ -51,6 +52,19 @@ import type {
 
 /** Size of the diamond marker */
 const MARKER_SIZE = 0.012;
+
+/**
+ * Minimum occlusion opacity for a ground-track time label to be rendered at
+ * all. Far-side labels are dropped (no `Html` portal), not faded, to match
+ * the depthTest-based hiding the lines/dots get for free and to cut the DOM
+ * portal count on a multi-orbit track (#994 review).
+ */
+const LABEL_OCCLUSION_THRESHOLD = 0.05;
+
+/** Re-anchor ground tracks on "now" once a minute without re-propagating
+ * every 5s tick (the satellite position poll cadence). Shared by every
+ * `GroundTrack` instance via a single interval owned by `SatelliteOverlay`. */
+const MINUTE_TICK_MS = 60_000;
 
 /**
  * Category colors for satellite markers.
@@ -554,11 +568,15 @@ interface GroundTrackProps {
   satellite: SatelliteInfoExtended;
   config: SatelliteTrackConfig;
   isSelected: boolean;
+  /** Bumped every 60s by the parent so the track re-anchors on "now". */
+  minuteTick: number;
 }
 
 interface TimeMarkerLabel {
   position: THREE.Vector3;
   minutesFromNow: number;
+  lat: number;
+  lon: number;
 }
 
 /**
@@ -569,7 +587,7 @@ interface TimeMarkerLabel {
  * like it and `ISSGroundTrack`, split again at antimeridian crossings so a
  * `Line` never draws a spurious wrap-around chord.
  */
-function GroundTrack({ satellite, config, isSelected }: GroundTrackProps) {
+function GroundTrack({ satellite, config, isSelected, minuteTick }: GroundTrackProps) {
   const color = CATEGORY_COLORS[satellite.category];
   const lineWidth = isSelected ? 2.5 : 1.5;
 
@@ -611,9 +629,11 @@ function GroundTrack({ satellite, config, isSelected }: GroundTrackProps) {
             currentFuture = [];
           }
         } else if (currentPast.length > 0 && currentFuture.length === 0) {
-          // Bridge: carry the last past point into the future segment so the
-          // line stays continuous across the "now" boundary.
-          currentFuture.push(vec);
+          // Bridge: carry the last past point AND the t=0 point into the
+          // future segment so the line is continuous across the "now"
+          // boundary — otherwise there's a one-step gap between t=-1 and
+          // t=0 right at the satellite.
+          currentFuture.push(currentPast[currentPast.length - 1], vec);
           if (currentPast.length > 1) past.push(currentPast);
           currentPast = [];
         } else {
@@ -624,7 +644,12 @@ function GroundTrack({ satellite, config, isSelected }: GroundTrackProps) {
           dots.push(vec);
         }
         if (point.minutesFromNow % 30 === 0) {
-          labels.push({ position: vec, minutesFromNow: point.minutesFromNow });
+          labels.push({
+            position: vec,
+            minutesFromNow: point.minutesFromNow,
+            lat: point.lat,
+            lon: point.lon,
+          });
         }
       }
 
@@ -637,7 +662,51 @@ function GroundTrack({ satellite, config, isSelected }: GroundTrackProps) {
         tenMinDots: dots,
         thirtyMinLabels: labels,
       };
-    }, [satellite, config.showPast, config.orbitsAhead]);
+      // minuteTick intentionally re-anchors the track on "now" once a minute
+      // without depending on satellite object identity, which changes every
+      // 5s poll (see useSatellites' currentTime interval).
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [
+      satellite.noradId,
+      satellite.line1,
+      satellite.line2,
+      config.showPast,
+      config.orbitsAhead,
+      minuteTick,
+    ]);
+
+  // Shared geometry + material for the 10-min dots (one instance per
+  // GroundTrack, like ISSGroundTrack's dotGeometry/dotMaterial), instead of
+  // allocating a fresh sphereGeometry/meshBasicMaterial per dot per render.
+  const dotGeometry = useMemo(() => new THREE.SphereGeometry(0.003, 8, 8), []);
+  const dotMaterial = useMemo(
+    () =>
+      new THREE.MeshBasicMaterial({
+        color,
+        transparent: true,
+        opacity: 0.5,
+        depthTest: true,
+        depthWrite: false,
+      }),
+    [color],
+  );
+  useEffect(() => {
+    return () => {
+      dotGeometry.dispose();
+      dotMaterial.dispose();
+    };
+  }, [dotGeometry, dotMaterial]);
+
+  // Occlusion-gate the 30-min Html labels the same way every other DOM label
+  // on the globe is gated (useGlobeOcclusion/useGlobeOcclusionBatch). Html is
+  // a DOM portal with no depthTest, so far-side labels would otherwise paint
+  // on top of the near side; they're dropped entirely rather than faded to
+  // also cut the portal count on a multi-orbit track.
+  const labelPositions = useMemo(
+    () => thirtyMinLabels.map((l) => ({ lat: l.lat, lon: l.lon })),
+    [thirtyMinLabels],
+  );
+  const { getOpacity } = useGlobeOcclusionBatch(labelPositions);
 
   return (
     <>
@@ -668,32 +737,32 @@ function GroundTrack({ satellite, config, isSelected }: GroundTrackProps) {
         />
       ))}
       {tenMinDots.map((pos, idx) => (
-        <mesh key={`dot-${idx}`} position={pos} renderOrder={GLOBE_LAYER_ORDER.markers}>
-          <sphereGeometry args={[0.003, 8, 8]} />
-          <meshBasicMaterial
-            color={color}
-            transparent
-            opacity={0.5}
-            depthTest={true}
-            depthWrite={false}
-          />
-        </mesh>
+        <mesh
+          key={`dot-${idx}`}
+          position={pos}
+          geometry={dotGeometry}
+          material={dotMaterial}
+          renderOrder={GLOBE_LAYER_ORDER.markers}
+        />
       ))}
-      {thirtyMinLabels.map(({ position, minutesFromNow }, idx) => (
-        <Html
-          key={`label-${idx}`}
-          position={position}
-          center
-          zIndexRange={GLOBE_DOM_LAYER_ORDER.marker}
-          style={{ pointerEvents: "none" }}
-        >
-          <div className="px-1 py-0.5 rounded text-xs font-mono whitespace-nowrap bg-su-panel text-su-text border border-su-line/40">
-            {minutesFromNow === 0
-              ? "now"
-              : `${minutesFromNow > 0 ? "+" : ""}${minutesFromNow}m`}
-          </div>
-        </Html>
-      ))}
+      {thirtyMinLabels.map(({ position, minutesFromNow, lat, lon }, idx) => {
+        if (getOpacity(lat, lon) < LABEL_OCCLUSION_THRESHOLD) return null;
+        return (
+          <Html
+            key={`label-${idx}`}
+            position={position}
+            center
+            zIndexRange={GLOBE_DOM_LAYER_ORDER.marker}
+            style={{ pointerEvents: "none" }}
+          >
+            <div className="px-1 py-0.5 rounded text-xs font-mono whitespace-nowrap bg-su-panel text-su-text border border-su-line/40">
+              {minutesFromNow === 0
+                ? "now"
+                : `${minutesFromNow > 0 ? "+" : ""}${minutesFromNow}m`}
+            </div>
+          </Html>
+        );
+      })}
     </>
   );
 }
@@ -718,6 +787,14 @@ export function SatelliteOverlay() {
   const satelliteTracks = useMapStore((s) => s.satelliteTracks);
 
   const trackedNoradIds = useSatellitePrefsStore((s) => s.trackedNoradIds);
+
+  // Coarse clock so every GroundTrack re-anchors on "now" once a minute
+  // without re-propagating on the 5s satellite position poll (#994 review).
+  const [minuteTick, setMinuteTick] = useState(0);
+  useEffect(() => {
+    const id = setInterval(() => setMinuteTick((t) => t + 1), MINUTE_TICK_MS);
+    return () => clearInterval(id);
+  }, []);
 
   // Filter satellites: ISS dedup when dedicated tracker is active + user tracking prefs
   const filteredSatellites = useMemo(() => {
@@ -749,18 +826,24 @@ export function SatelliteOverlay() {
   // Store-driven "Map orbit" tracks — one per satellite the user has opted
   // into via the SatelliteDetailModal controls, independent of selection
   // and independent of the marker display prefs above (#994).
+  //
+  // NORAD 25544 (ISS) is skipped here while the dedicated ISS tracker is
+  // active: ISSTrackerOverlay draws its own ground track for the ISS, and
+  // without this carve-out the two would double-draw the same surface path
+  // with different styles.
   const trackedSatellites = useMemo(() => {
     const entries: { satellite: SatelliteInfoExtended; config: SatelliteTrackConfig }[] =
       [];
     for (const [noradIdStr, config] of Object.entries(satelliteTracks)) {
       const noradId = Number(noradIdStr);
+      if (issTrackerActive && noradId === 25544) continue;
       const satellite = satellites.find((s) => s.noradId === noradId);
       if (satellite) {
         entries.push({ satellite, config });
       }
     }
     return entries;
-  }, [satelliteTracks, satellites]);
+  }, [satelliteTracks, satellites, issTrackerActive]);
 
   if (filteredSatellites.length === 0 && trackedSatellites.length === 0) {
     return null;
@@ -775,6 +858,7 @@ export function SatelliteOverlay() {
           satellite={satellite}
           config={config}
           isSelected={satellite.noradId === selectedSatellite?.noradId}
+          minuteTick={minuteTick}
         />
       ))}
 

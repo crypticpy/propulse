@@ -1159,9 +1159,14 @@ const GlobeScene = React.memo(function GlobeScene({
   const globeZoom = useMapStore((s) => s.zoom);
   const selectedSatelliteId = useMapStore((s) => s.selectedSatelliteId);
   const satelliteTracks = useMapStore((s) => s.satelliteTracks);
+  // Tracks are a property of the satellites layer (#994 §7) — gated on
+  // layers.satellites so a persisted footprint track can't fetch TLEs or
+  // render anything while the layer itself is off (#994 review finding 2).
   const hasFootprintTrack = useMemo(
-    () => Object.values(satelliteTracks).some((t) => t.showFootprint),
-    [satelliteTracks],
+    () =>
+      layers.satellites &&
+      Object.values(satelliteTracks).some((t) => t.showFootprint),
+    [layers.satellites, satelliteTracks],
   );
   const isStandard = mapStyle === "standard";
   const subscriptionTier = useProfileStore((s) => s.subscriptionTier);
@@ -1485,6 +1490,20 @@ const GlobeScene = React.memo(function GlobeScene({
     return () => clearInterval(intervalId);
   }, [layers.spectrumRing]);
 
+  // Per-satellite "Footprint" tracks opted into from SatelliteDetailModal
+  // (#994), gated on `layers.satellites` — tracks are a property of the
+  // satellites layer (#994 §7; review finding 2), not an independent
+  // trigger. String ids to match SatelliteFootprintData.satelliteId and the
+  // rescue-slot set SatelliteFootprint3D uses for selectedSatelliteId.
+  const trackedFootprintIds = useMemo(() => {
+    if (!layers.satellites) return new Set<string>();
+    return new Set(
+      Object.entries(satelliteTracks)
+        .filter(([, config]) => config.showFootprint)
+        .map(([noradIdStr]) => noradIdStr),
+    );
+  }, [layers.satellites, satelliteTracks]);
+
   // ── Satellite footprints (derived from satellite positions) ───────────
   // Shown either via the global `satelliteFootprints` layer toggle (visible
   // satellites only, capped at 5) or per-satellite via a "Footprint" track
@@ -1501,21 +1520,19 @@ const GlobeScene = React.memo(function GlobeScene({
       weather: "#cc88ff",
     };
 
-    const trackedFootprintIds = new Set(
-      Object.entries(satelliteTracks)
-        .filter(([, config]) => config.showFootprint)
-        .map(([noradId]) => Number(noradId)),
-    );
-
     const globalSats = layers.satelliteFootprints
       ? satelliteData.filter((s) => s.isVisible && s.position).slice(0, 5)
       : [];
     const trackedSats = satelliteData.filter(
-      (s) => trackedFootprintIds.has(s.noradId) && s.position,
+      (s) => trackedFootprintIds.has(String(s.noradId)) && s.position,
     );
 
     const byId = new Map<number, (typeof satelliteData)[number]>();
-    for (const s of [...globalSats, ...trackedSats]) {
+    // Tracked footprints go in first so SatelliteFootprint3D's
+    // MAX_FOOTPRINTS slice preserves them the same way it preserves
+    // selectedSatelliteId — otherwise ≥5 visible global footprints push
+    // every tracked one past the cap (#994 review finding 1).
+    for (const s of [...trackedSats, ...globalSats]) {
       byId.set(s.noradId, s);
     }
 
@@ -1526,7 +1543,7 @@ const GlobeScene = React.memo(function GlobeScene({
       altitudeKm: s.position.alt,
       color: catColors[s.category] ?? "#aaaaaa",
     }));
-  }, [layers.satelliteFootprints, satelliteData, satelliteTracks]);
+  }, [layers.satelliteFootprints, satelliteData, trackedFootprintIds]);
 
   // Handle click on globe surface
   const handleGlobeClick = useCallback(
@@ -1809,6 +1826,7 @@ const GlobeScene = React.memo(function GlobeScene({
               selectedSatelliteId={
                 selectedSatelliteId != null ? String(selectedSatelliteId) : null
               }
+              trackedSatelliteIds={trackedFootprintIds}
             />
           )}
 

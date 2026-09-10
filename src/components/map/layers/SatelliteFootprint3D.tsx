@@ -33,6 +33,13 @@ interface SatelliteFootprintData {
 interface SatelliteFootprint3DProps {
   footprints: SatelliteFootprintData[];
   selectedSatelliteId?: string | null;
+  /**
+   * Satellite ids with a per-track "Footprint" opt-in (#994). Preserved in
+   * the MAX_FOOTPRINTS-capped slice the same way `selectedSatelliteId` is,
+   * so ≥5 visible global footprints don't silently push a user-tracked
+   * footprint off the render list.
+   */
+  trackedSatelliteIds?: Set<string>;
 }
 
 // ---------------------------------------------------------------------------
@@ -191,22 +198,36 @@ const FootprintDisc = React.memo(function FootprintDisc({
 export const SatelliteFootprint3D = React.memo(function SatelliteFootprint3D({
   footprints,
   selectedSatelliteId,
+  trackedSatelliteIds,
 }: SatelliteFootprint3DProps) {
   if (!footprints || footprints.length === 0) return null;
 
   // Limit to MAX_FOOTPRINTS for performance
   const limited = footprints.slice(0, MAX_FOOTPRINTS);
 
-  // Ensure the selected satellite is always visible in the limited set
-  if (
-    selectedSatelliteId &&
-    !limited.some((fp) => fp.satelliteId === selectedSatelliteId)
-  ) {
-    const selected = footprints.find(
-      (fp) => fp.satelliteId === selectedSatelliteId,
+  // Ensure the selected satellite and any per-track "Footprint" opt-ins
+  // (#994) are always visible in the limited set — the caller (GlobeView)
+  // already orders tracked ids first, but this makes the guarantee hold
+  // regardless of caller ordering, the same way selectedSatelliteId always
+  // did before tracks existed.
+  const mustKeepIds = new Set<string>(trackedSatelliteIds ?? []);
+  if (selectedSatelliteId) mustKeepIds.add(selectedSatelliteId);
+
+  if (mustKeepIds.size > 0) {
+    const missing = Array.from(mustKeepIds).filter(
+      (id) => !limited.some((fp) => fp.satelliteId === id),
     );
-    if (selected && limited.length > 0) {
-      limited[limited.length - 1] = selected;
+    let rescueSlot = limited.length - 1;
+    for (const id of missing) {
+      const found = footprints.find((fp) => fp.satelliteId === id);
+      if (!found) continue;
+      // Don't clobber a slot that already holds another must-keep id.
+      while (rescueSlot >= 0 && mustKeepIds.has(limited[rescueSlot].satelliteId)) {
+        rescueSlot--;
+      }
+      if (rescueSlot < 0) break;
+      limited[rescueSlot] = found;
+      rescueSlot--;
     }
   }
 

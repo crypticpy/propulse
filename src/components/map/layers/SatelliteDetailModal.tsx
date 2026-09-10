@@ -462,7 +462,7 @@ function OrbitTrackControls({ noradId }: { noradId: number }) {
           <button
             type="button"
             onClick={() => clearAllSatelliteTracks()}
-            className="text-xs font-medium text-su-muted hover:text-su-text underline underline-offset-2 focus:outline-none focus-visible:ring-1 focus-visible:ring-su-line/60 rounded"
+            className="rounded-lg border px-3 py-1.5 text-xs font-semibold border-su-line/40 text-su-muted hover:text-su-text hover:bg-su-line/15 transition-colors focus:outline-none focus-visible:ring-1 focus-visible:ring-su-line/60"
           >
             Clear all orbits ({trackCount})
           </button>
@@ -475,7 +475,7 @@ function OrbitTrackControls({ noradId }: { noradId: number }) {
         aria-pressed={isTracked}
         className={`w-full flex items-center justify-center gap-2 rounded-lg px-3 py-2.5 text-sm font-semibold transition-colors focus:outline-none focus-visible:ring-1 focus-visible:ring-su-line/60 ${
           isTracked
-            ? "bg-plasma-orange/15 text-plasma-orange border border-plasma-orange/40 hover:bg-plasma-orange/25"
+            ? "bg-su-accent/15 text-su-accent border border-su-accent/40 hover:bg-su-accent/25"
             : "bg-su-line/15 text-su-text border border-su-line/40 hover:bg-su-line/25"
         }`}
       >

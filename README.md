@@ -586,6 +586,17 @@ published by the Free Software Foundation. It is distributed WITHOUT ANY WARRANT
 even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See
 [LICENSE](LICENSE) for the full text.
 
+### Trademarks
+
+The AGPL covers the code. It does not grant any right to the project's name or marks. The
+name **Propulse**, the **propulse.cloud** service name and the Propulse logo are trademarks
+of the Propulse project. You are welcome to run, modify and redistribute the software under
+the AGPL, but if you operate your own instance or a modified version, please do so under
+your own name and branding and do not present it as Propulse, as propulse.cloud, or as
+endorsed by or affiliated with the project. Plain factual references ("based on Propulse",
+"a fork of Propulse") are fine. If you want to use the marks in another way, ask first
+through an issue on this repository.
+
 ---
 
 <p align="center">

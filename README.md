@@ -434,6 +434,11 @@ npm run dev
 ```
 
 The dev server serves the app at `http://localhost:5173` with hot module replacement.
+That plain `npm run dev` is for a human at the keyboard. Agents and scripted checks on a
+shared machine must instead run `npm run dev:session status` and start through
+`npm run dev:session`, which owns a single shared server on port 5173 and refuses to start
+a second one; see `docs/guides/LOCAL-AGENT-TESTING.md` and the shared-machine rules in
+`CLAUDE.md`.
 Supabase credentials are optional for local development; without them the app runs
 unauthenticated and the physics engine still works.
 
@@ -452,7 +457,8 @@ ml/.venv/bin/pip install -r ml/requirements.txt -r ml/service/requirements-runti
 ### Everyday commands
 
 ```bash
-npm run dev              # Vite dev server
+npm run dev              # Vite dev server (human use)
+npm run dev:session      # shared single dev server for agents and scripted checks
 npm run build            # tsc -b && vite build (typecheck + bundle)
 npm run lint             # eslint . --max-warnings 0 (zero tolerance)
 npm run test             # vitest run

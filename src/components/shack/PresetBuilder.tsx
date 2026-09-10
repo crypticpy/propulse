@@ -115,7 +115,7 @@ function PresetCard({
               {preset.name}
             </span>
             {isActive && (
-              <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-plasma-orange/20 text-plasma-orange border border-plasma-orange/30 uppercase tracking-wider">
+              <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-plasma-orange/20 text-su-text border border-plasma-orange/30 uppercase tracking-wider">
                 Active
               </span>
             )}
@@ -127,7 +127,7 @@ function PresetCard({
             <button
               type="button"
               onClick={onActivate}
-              className="px-2 py-1 text-[10px] rounded bg-plasma-orange/10 border border-plasma-orange/30 text-plasma-orange hover:bg-plasma-orange/20 transition-colors"
+              className="px-2 py-1 text-[10px] rounded bg-plasma-orange/10 border border-plasma-orange/30 text-su-text hover:bg-plasma-orange/20 transition-colors"
             >
               Activate
             </button>
@@ -313,8 +313,8 @@ export function PresetBuilder() {
         <button
           onClick={openAdd}
           disabled={!hasEquipment}
-          className="px-3 py-1 text-sm bg-plasma-orange/20 border border-plasma-orange/50
-                     text-plasma-orange rounded-lg hover:bg-plasma-orange/30 transition-colors
+          className="px-3 py-1 text-sm bg-plasma-orange/15 border border-plasma-orange/50
+                     text-su-text rounded-lg hover:bg-plasma-orange/20 transition-colors
                      disabled:opacity-40 disabled:cursor-not-allowed"
         >
           + Create Preset
@@ -549,8 +549,8 @@ export function PresetBuilder() {
             <button
               type="button"
               onClick={save}
-              className="flex-1 px-4 py-2 bg-plasma-orange/20 border border-plasma-orange/50 rounded-lg
-                         text-plasma-orange hover:bg-plasma-orange/30 transition-colors font-medium text-sm"
+              className="flex-1 px-4 py-2 bg-plasma-orange/15 border border-plasma-orange/50 rounded-lg
+                         text-su-text hover:bg-plasma-orange/20 transition-colors font-medium text-sm"
             >
               {editingId ? "Save Changes" : "Create Preset"}
             </button>

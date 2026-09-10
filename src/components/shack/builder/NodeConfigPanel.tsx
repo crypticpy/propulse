@@ -273,7 +273,7 @@ function AccessorySection({
             Your Inventory
           </span>
         </div>
-        <Badge color="bg-plasma-orange/15 text-plasma-orange">
+        <Badge color="bg-plasma-orange/15 text-su-text">
           {ACCESSORY_CATEGORY_LABELS[acc.category]}
         </Badge>
       </div>

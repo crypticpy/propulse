@@ -1077,7 +1077,7 @@ export function AccessoryManager({
         <div className="flex-1" />
         <button
           onClick={openAdd}
-          className="px-3 py-1.5 rounded-lg text-xs font-medium bg-plasma-orange/20 border border-plasma-orange/50 text-plasma-orange hover:bg-plasma-orange/30 transition-colors"
+          className="px-3 py-1.5 rounded-lg text-xs font-medium bg-plasma-orange/15 border border-plasma-orange/50 text-su-text hover:bg-plasma-orange/20 transition-colors"
         >
           + Add Accessory
         </button>

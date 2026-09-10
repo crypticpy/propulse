@@ -139,7 +139,7 @@ export function ChainSelector({
                       {chain.nodes.length !== 1 ? "s" : ""}
                     </span>
                     {isActive && (
-                      <span className="shrink-0 px-1.5 py-0.5 text-[10px] font-medium rounded-full bg-plasma-orange/20 text-plasma-orange">
+                      <span className="shrink-0 px-1.5 py-0.5 text-[10px] font-medium rounded-full bg-plasma-orange/20 text-su-text">
                         Active
                       </span>
                     )}

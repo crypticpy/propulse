@@ -42,7 +42,7 @@
  * So the treatment is the ink, not the alpha: keep the accent tint as the fill,
  * draw the label in `--su-text`, and keep the tint at or below `/20`. The sites
  * inside `src/components/ui` (this agent's file scope on #803) carry that
- * treatment and are measured individually below. The remaining 147 sites in 98
+ * treatment and are measured individually below. The remaining 136 sites in 90
  * files are sequenced by the orchestrator; the census ledger at the bottom
  * budgets them so no *new* same-line site can land in the meantime.
  */
@@ -1174,6 +1174,78 @@ const FIXED_SITES: TintedSite[] = [
     snippet: `isSelected
                       ? "bg-plasma-orange/20 text-su-text border-plasma-orange/50"`,
   },
+  // Batch 4b (#803): src/components/shack (+ shack/builder), excluding
+  // src/components/sdr (batch 4a, #890). 8 files, 11 ledger sites; 10
+  // certified via FIXED_SITES. The 11th, NodeConfigPanel.tsx's inline
+  // AccessoryDetail Badge (`<Badge color="bg-plasma-orange/15 ...">`), is
+  // fixed in source (ink swapped) but not listed: `color` is a plain JSX
+  // attribute, not `className=`, so extractClassNameValue has nothing to
+  // bind to, and a `classSource` locator on that JSX line would walk
+  // extractClassSourceValue's statement-scan forward through the rest of
+  // the component's returned JSX (balanced braces net to zero across every
+  // sibling conditional block) to the function's closing `);`, capturing
+  // unrelated className values rather than just this Badge -- the same
+  // "no className=/classSource to bind to" shape batch 4a documented for
+  // FateBandAdvisor.tsx. All four managers (AccessoryManager,
+  // AntennaManager, FeedlineManager, InlineComponentManager) share an
+  // identical "+ Add X" header button; PresetBuilder.tsx has no production
+  // mount (fixed anyway, listed for #798). Surfaces argued per-site in the
+  // PR body; --su-text clears every measured surface at /20 regardless.
+  {
+    file: "src/components/shack/AccessoryManager.tsx",
+    what: '"+ Add Accessory" button',
+    snippet: `bg-plasma-orange/15 border border-plasma-orange/50 text-su-text hover:bg-plasma-orange/20 transition-colors"`,
+  },
+  {
+    file: "src/components/shack/AntennaManager.tsx",
+    what: '"+ Add Antenna" button',
+    snippet: `bg-plasma-orange/15 border border-plasma-orange/50
+                     text-su-text rounded-lg hover:bg-plasma-orange/20 transition-colors"`,
+  },
+  {
+    file: "src/components/shack/FeedlineManager.tsx",
+    what: '"+ Add Feedline" button',
+    snippet: `bg-plasma-orange/15 border border-plasma-orange/50 text-su-text hover:bg-plasma-orange/20 transition-colors"`,
+  },
+  {
+    file: "src/components/shack/InlineComponentManager.tsx",
+    what: '"+ Add Inline Component" button',
+    snippet: `bg-plasma-orange/15 border border-plasma-orange/50 text-su-text hover:bg-plasma-orange/20 transition-colors"`,
+  },
+  {
+    file: "src/components/shack/PresetBuilder.tsx",
+    what: '"Active" preset-card badge',
+    snippet: `bg-plasma-orange/20 text-su-text border border-plasma-orange/30 uppercase tracking-wider`,
+  },
+  {
+    file: "src/components/shack/PresetBuilder.tsx",
+    what: '"Activate" button on a preset card',
+    snippet: `bg-plasma-orange/10 border border-plasma-orange/30 text-su-text hover:bg-plasma-orange/20 transition-colors`,
+  },
+  {
+    file: "src/components/shack/PresetBuilder.tsx",
+    what: '"+ Create Preset" header button',
+    snippet: `bg-plasma-orange/15 border border-plasma-orange/50
+                     text-su-text rounded-lg hover:bg-plasma-orange/20 transition-colors
+                     disabled:opacity-40 disabled:cursor-not-allowed"`,
+  },
+  {
+    file: "src/components/shack/PresetBuilder.tsx",
+    what: 'the preset-edit modal "Save Changes" / "Create Preset" button',
+    snippet: `bg-plasma-orange/15 border border-plasma-orange/50 rounded-lg
+                         text-su-text hover:bg-plasma-orange/20 transition-colors font-medium text-sm"`,
+  },
+  {
+    file: "src/components/shack/builder/ChainSelector.tsx",
+    what: 'the active chain\'s "Active" badge',
+    snippet: `shrink-0 px-1.5 py-0.5 text-[10px] font-medium rounded-full bg-plasma-orange/20 text-su-text`,
+  },
+  {
+    file: "src/components/shack/equipmentCardTypes.ts",
+    what: "the orange BADGE_STYLES entry",
+    snippet: `orange: "bg-plasma-orange/15 text-su-text",`,
+    classSource: `orange:`,
+  },
 ];
 
 describe("the fixed accent-tint sites ship the --su-text treatment (#803)", () => {
@@ -1291,13 +1363,13 @@ describe("census guard: no new accent ink on an accent tint (#803)", () => {
    * escapes it by construction -- the `FIXED_SITES` table above is what covers
    * those.
    *
-   * The 147 sites below are the census #803 asks for, as a debt ledger rather
+   * The 136 sites below are the census #803 asks for, as a debt ledger rather
    * than an exemption list: each entry is the number of same-line pairings that
    * file carried at `32cf480c`, minus every batch fixed since, and the
    * assertion is `<=`. A file that gains a pairing fails; a file that is not
    * listed is budgeted at zero, so a brand new site fails; a file whose sites
    * get fixed simply passes with room to spare, so the sequenced follow-up PRs
-   * (the 98 files outside this agent's scope on #803) never have to touch
+   * (the 90 files outside this agent's scope on #803) never have to touch
    * this table to land. `src/components/ui` is deliberately absent -- see the
    * explicit clause below.
    */
@@ -1385,14 +1457,6 @@ describe("census guard: no new accent ink on an accent tint (#803)", () => {
     // not expressed as a ledger budget since there is no longer an
     // ink-on-tint pairing for the census to find.
     ["src/components/settings/sections/SubscriptionSection.tsx", 1],
-    ["src/components/shack/AccessoryManager.tsx", 1],
-    ["src/components/shack/AntennaManager.tsx", 1],
-    ["src/components/shack/FeedlineManager.tsx", 1],
-    ["src/components/shack/InlineComponentManager.tsx", 1],
-    ["src/components/shack/PresetBuilder.tsx", 4],
-    ["src/components/shack/builder/ChainSelector.tsx", 1],
-    ["src/components/shack/builder/NodeConfigPanel.tsx", 1],
-    ["src/components/shack/equipmentCardTypes.ts", 1],
     ["src/components/solar/modals/SolarSummaryModal.tsx", 1],
     ["src/pages/AwardsPage.tsx", 1],
     ["src/pages/BandPlanner.tsx", 1],
@@ -1416,7 +1480,7 @@ describe("census guard: no new accent ink on an accent tint (#803)", () => {
    * (>= 5.19:1), while a near-white or near-black custom accent drops to
    * 3.70-4.21:1. These two `/30` sites predate #803 and sit in
    * `src/components/alerts`, outside this agent's file scope; they go into the
-   * same sequenced follow-up as the 147 above.
+   * same sequenced follow-up as the 136 above.
    */
   const ABOVE_CAP_LEDGER = new Map<string, number>([
     ["src/components/alerts/AlertRuleBuilder.tsx", 1],
@@ -1473,7 +1537,7 @@ describe("census guard: no new accent ink on an accent tint (#803)", () => {
     // The ledger only ever shrinks; a fix that lands must not be able to raise
     // the total past the census this PR measured.
     expect([...counts.values()].reduce((a, b) => a + b, 0)).toBeLessThanOrEqual(
-      147,
+      136,
     );
   });
 

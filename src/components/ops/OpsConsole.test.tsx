@@ -1,4 +1,4 @@
-import { StrictMode } from "react";
+import { StrictMode, type ReactNode } from "react";
 import { act, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -8,6 +8,8 @@ import { useOpsPostureStore } from "@/stores/opsPostureStore";
 import { useContestStore, type ContestSession } from "@/stores/contestStore";
 import { useQSOStore } from "@/stores/qsoStore";
 import { useRigStore } from "@/stores/rigStore";
+import { useContestUIEphemeralStore } from "@/stores/contestUIEphemeralStore";
+import { useDockTabReconciler } from "@/hooks/useDockTabReconciler";
 import { DEFAULT_QSO_FORM } from "@/types/qso";
 import { OpsConsole } from "./OpsConsole";
 
@@ -30,6 +32,23 @@ vi.mock("@/components/workspace/widgets/HeatMapStrip", () => ({
   HeatMapStrip: () => <div data-testid="heat-map-strip" />,
 }));
 
+// #884 round 4: the dock tab has exactly one reconciler and it lives in the
+// page that owns the dock, not in the console. Mounting the console without it
+// would test half the system, so every case renders through this harness — the
+// same shape as `PropSphere` (parent calls the hook, console is a child).
+function DockOwner({ children }: { children: ReactNode }) {
+  useDockTabReconciler();
+  return <>{children}</>;
+}
+
+function renderConsole() {
+  return render(
+    <DockOwner>
+      <OpsConsole displayTime={new Date()} onCollapse={() => {}} />
+    </DockOwner>,
+  );
+}
+
 describe("OpsConsole dock tabs", () => {
   beforeEach(() => {
     useMapOperationalStore.setState({
@@ -42,6 +61,7 @@ describe("OpsConsole dock tabs", () => {
     useRigStore.setState({ connected: false });
     useQSOStore.setState({ form: { ...DEFAULT_QSO_FORM } });
     useContestStore.setState({ activeSession: null });
+    useContestUIEphemeralStore.setState({ explicitDockTab: null });
   });
 
   // #884, owner decision B: a tab click is a "show me this panel" gesture, not
@@ -49,7 +69,7 @@ describe("OpsConsole dock tabs", () => {
   // may write `manualScope`, which `useMapOperationalStore` persists.
   it("leaves manualScope null when a dock tab is clicked", async () => {
     const user = userEvent.setup();
-    render(<OpsConsole displayTime={new Date()} onCollapse={() => {}} />);
+    renderConsole();
 
     for (const label of ["Log", "Contest", "Observe"]) {
       await user.click(screen.getByRole("button", { name: label }));
@@ -63,7 +83,7 @@ describe("OpsConsole dock tabs", () => {
   // scope and put the dock straight back on Observe.
   it("keeps a tab the operator clicked against the automatic scope", async () => {
     const user = userEvent.setup();
-    render(<OpsConsole displayTime={new Date()} onCollapse={() => {}} />);
+    renderConsole();
 
     // Log takes the desk; Contest then calls exitContact, moving the posture.
     await user.click(screen.getByRole("button", { name: "Log" }));
@@ -80,7 +100,7 @@ describe("OpsConsole dock tabs", () => {
   // automatic scope to Log) still reconciles the dock.
   it("hands the dock back when the automatic scope actually changes", async () => {
     const user = userEvent.setup();
-    render(<OpsConsole displayTime={new Date()} onCollapse={() => {}} />);
+    renderConsole();
 
     await user.click(screen.getByRole("button", { name: "Contest" }));
     expect(useContestUIStore.getState().dockTabBySessionId["no-session"]).toBe(
@@ -107,7 +127,7 @@ describe("OpsConsole dock tabs", () => {
     useQSOStore.setState({
       form: { ...DEFAULT_QSO_FORM, callsign: "K1ABC" },
     });
-    render(<OpsConsole displayTime={new Date()} onCollapse={() => {}} />);
+    renderConsole();
 
     await user.click(screen.getByRole("button", { name: "Contest" }));
 
@@ -126,7 +146,7 @@ describe("OpsConsole dock tabs", () => {
     useQSOStore.setState({
       form: { ...DEFAULT_QSO_FORM, callsign: "K1ABC" },
     });
-    render(<OpsConsole displayTime={new Date()} onCollapse={() => {}} />);
+    renderConsole();
 
     await user.click(screen.getByRole("button", { name: "Contest" }));
     expect(useContestUIStore.getState().dockTabBySessionId["no-session"]).toBe(
@@ -152,7 +172,9 @@ describe("OpsConsole dock tabs", () => {
     useContestUIStore.setState({ dockTabBySessionId: { "no-session": "log" } });
     render(
       <StrictMode>
-        <OpsConsole displayTime={new Date()} onCollapse={() => {}} />
+        <DockOwner>
+          <OpsConsole displayTime={new Date()} onCollapse={() => {}} />
+        </DockOwner>
       </StrictMode>,
     );
 
@@ -169,7 +191,7 @@ describe("OpsConsole dock tabs", () => {
 
   it("still opens the workspace and takes the desk on the Log tab", async () => {
     const user = userEvent.setup();
-    render(<OpsConsole displayTime={new Date()} onCollapse={() => {}} />);
+    renderConsole();
 
     await user.click(screen.getByRole("button", { name: "Log" }));
 
@@ -177,6 +199,26 @@ describe("OpsConsole dock tabs", () => {
     expect(useOpsPostureStore.getState().posture).toBe("desk");
     expect(useContestUIStore.getState().dockTabBySessionId["no-session"]).toBe(
       "log",
+    );
+  });
+
+  // #884 round 4 (Codex, OpsConsole.tsx:312): PropSphere kept its own effect
+  // writing the dock tab on any non-Observe scope, so the Observe -> Log change
+  // the click itself caused made the page overwrite the console's decision.
+  // The rule now lives in one place, so the page's reconciler is the same one
+  // that saw the click.
+  it("keeps the clicked tab when the page reconciler runs too", async () => {
+    const user = userEvent.setup();
+    useQSOStore.setState({
+      form: { ...DEFAULT_QSO_FORM, callsign: "K1ABC" },
+    });
+    renderConsole();
+
+    await user.click(screen.getByRole("button", { name: "Contest" }));
+
+    expect(useMapOperationalStore.getState().workspaceOpen).toBe(true);
+    expect(useContestUIStore.getState().dockTabBySessionId["no-session"]).toBe(
+      "contest",
     );
   });
 });

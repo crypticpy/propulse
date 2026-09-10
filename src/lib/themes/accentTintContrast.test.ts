@@ -671,6 +671,55 @@ describe("the fixed accent-tint sites ship the --su-text treatment (#803)", () =
   );
 });
 
+/**
+ * Parents whose own `bg-plasma-orange` wash was neutralised to `bg-su-line/10`
+ * because a `/N` accent child (an active-filter-count badge, a sibling
+ * button with its own rest/hover wash) sits inside them and composites over
+ * their rest/hover tint past `TINT_CAP` -- `effective = child + (1 - child) x
+ * parent`, which stays above 0.20 even with the child itself capped at `/20`
+ * (0.20 + 0.8 x 0.15 = 0.32 rest / 0.20 + 0.8 x 0.20 = 0.36 hover, worse with
+ * the parent's original, pre-fix alpha). The per-line census guard below
+ * cannot see this: it has no notion of nesting, so a parent restored to a
+ * cap-compliant-looking
+ * `bg-plasma-orange/15 hover:bg-plasma-orange/20` reads as fine in isolation
+ * and every other assertion in this file stays green. This table pins the
+ * neutralised treatment by substring instead, so that regression fails loud.
+ */
+const NEUTRALISED_PARENTS: TintedSite[] = [
+  {
+    file: "src/components/contest/PendingDraftReplaceBanner.tsx",
+    what: "the pending-draft-replace banner container (wraps the Replace button's own accent wash)",
+    snippet: `bg-su-line/10 border border-plasma-orange/30`,
+  },
+  {
+    file: "src/components/nets/NetFilterControls.tsx",
+    what: 'the "More Filters" toggle, active-filter state (wraps the count badge)',
+    snippet: `bg-su-line/10 text-su-text border border-plasma-orange/40 hover:bg-su-line/20`,
+  },
+];
+
+describe("neutralised accent-wash parents stay off the accent tint (#803)", () => {
+  it.each(NEUTRALISED_PARENTS.map((site) => [site.what, site] as const))(
+    "%s carries no accent wash of its own",
+    (_what, site) => {
+      const source = readFileSync(resolve(REPO_ROOT, site.file), "utf8");
+      expect(
+        source.includes(site.snippet),
+        `${site.file} no longer contains the neutralised snippet:\n${site.snippet}`,
+      ).toBe(true);
+      // Not "no wash above cap" -- the regression this guards against is a
+      // cap-compliant-looking parent wash (e.g. /15 rest -> hover:/20) that
+      // still composites past the cap once the nested child is accounted
+      // for, which the per-line census guard cannot see. So the rule is: no
+      // bg-plasma-orange/ token on this line at all, any alpha.
+      expect(
+        /bg-plasma-orange\//.test(site.snippet),
+        `${site.what} has regained an accent wash of its own`,
+      ).toBe(false);
+    },
+  );
+});
+
 describe("census guard: no new accent ink on an accent tint (#803)", () => {
   /**
    * A per-line regex guard, not a className parser: it only sees a tint and

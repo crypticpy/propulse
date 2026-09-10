@@ -453,6 +453,121 @@ describe("useHamClockWallOperatingState", () => {
     sync.unmount();
   });
 
+  it("keeps the known cursor when a legacy pop-out answers with an unstamped target", async () => {
+    // #859 round 9, thread 1. A pop-out on a bundle that sends no write time
+    // answers the workspace handshake with whatever target it has had up for
+    // hours. Stamping that with its arrival made it the freshest thing in
+    // this window, so the next remount kept it and threw away a cursor that
+    // really was newer. Unknown freshness loses to known freshness.
+    vi.stubGlobal("BroadcastChannel", TestChannel);
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-09-10T00:00:00Z"));
+
+    const sync = renderHook(() => useOperationalWorkspaceSync());
+    await act(async () => {
+      await Promise.resolve();
+    });
+    const [channel] = TestChannel.instances;
+
+    useOperatingStateStore
+      .getState()
+      .applyMessage(inboundTarget("phone-device", "K1ABC", "EM10"));
+    const wall = renderHook(() => useHamClockWallOperatingState());
+    expect(useMapStore.getState().target?.name).toBe("K1ABC");
+    wall.unmount();
+
+    // The handshake reply lands a minute later, so its *arrival* is the most
+    // recent moment in this window — the trap the old code fell into.
+    vi.advanceTimersByTime(60_000);
+    act(() => {
+      channel.onmessage?.({
+        data: {
+          kind: "snapshot",
+          sender: "legacy-window",
+          domain: "map",
+          revision: 1,
+          state: { target: { lat: 1, lon: 1, name: "OLD" } },
+        },
+      } as MessageEvent);
+    });
+    expect(useMapStore.getState().target?.name).toBe("OLD");
+    expect(useMapStore.getState().targetSetAt).toBeUndefined();
+
+    // Remount: the cursor's age is known, the target's is not.
+    renderHook(() => useHamClockWallOperatingState());
+
+    expect(useMapStore.getState().target).toMatchObject({ name: "K1ABC" });
+    sync.unmount();
+  });
+
+  it("keeps a target picked after the clock stepped backwards", async () => {
+    // #859 round 9, thread 2. `Date.now()` is not monotonic: an NTP
+    // correction mid-session moves it backwards, and then a pick made *after*
+    // a cursor arrival carries the smaller `targetSetAt` and loses to it.
+    // The local write sequence cannot run backwards, so it decides.
+    vi.stubGlobal("BroadcastChannel", TestChannel);
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-09-10T00:00:00Z"));
+
+    const sync = renderHook(() => useOperationalWorkspaceSync());
+    await act(async () => {
+      await Promise.resolve();
+    });
+    const [channel] = TestChannel.instances;
+
+    useOperatingStateStore
+      .getState()
+      .applyMessage(inboundTarget("phone-device", "K1ABC", "EM10"));
+    const cursorAt = useOperatingStateStore.getState().stamps.target.at;
+
+    // The clock steps back a minute, then the operator picks a target.
+    vi.setSystemTime(new Date("2026-09-09T23:59:00Z"));
+    useMapStore.getState().setTarget({ lat: 40, lon: -80, name: "W3ABC" });
+
+    // The later write really does carry the earlier timestamp, or this test
+    // has stopped modelling a backward step.
+    const targetSetAt = useMapStore.getState().targetSetAt;
+    expect(targetSetAt).toBeDefined();
+    expect(targetSetAt as number).toBeLessThan(
+      useOperatingStateStore.getState().stamps.target.appliedAt,
+    );
+
+    renderHook(() => useHamClockWallOperatingState()).unmount();
+    expect(useMapStore.getState().target).toMatchObject({ name: "W3ABC" });
+
+    // Second event: the cursor is relayed again with the same stamp — an
+    // already-held write, which must not re-stamp — and the wall remounts.
+    act(() => {
+      useOperatingStateStore
+        .getState()
+        .applyMessage(
+          relayedTarget("zzz-relay", "phone-device", "K1ABC", "EM10", cursorAt),
+        );
+    });
+    renderHook(() => useHamClockWallOperatingState()).unmount();
+    expect(useMapStore.getState().target).toMatchObject({ name: "W3ABC" });
+
+    // Third event: a legacy handshake reply. The snapshot channel replicates
+    // it either way — that is what the workspace sync is for — but the
+    // unstamped target it installs may not then outrank the cursor, so what
+    // the wall settles on is shared state whose age is known, never the
+    // stale foreign one.
+    act(() => {
+      channel.onmessage?.({
+        data: {
+          kind: "snapshot",
+          sender: "legacy-window",
+          domain: "map",
+          revision: 1,
+          state: { target: { lat: 1, lon: 1, name: "OLD" } },
+        },
+      } as MessageEvent);
+    });
+    renderHook(() => useHamClockWallOperatingState());
+    expect(useMapStore.getState().target).not.toMatchObject({ name: "OLD" });
+    sync.unmount();
+  });
+
   it("does not clear the map target when a newer cursor carries no location", () => {
     // A callsign-only pick from a screen with no location data yet resolves
     // to no map location; that is not an instruction to clear the map (and

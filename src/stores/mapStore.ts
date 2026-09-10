@@ -386,27 +386,37 @@ export interface MapState {
   setTarget: (target: TargetLocation | null) => void;
   /**
    * `Date.now()` of the last write to `target` (`0` before the first one).
-   * This window's clock, so it may only be compared with another stamp taken
+   * A window's own clock, so it may only be compared with another stamp taken
    * on this machine: `operatingStateStore`'s `stamps.target.appliedAt` (when
    * the cursor was applied *here*), never its wire `at` (the originating
    * device's clock, off by the inter-device skew). That lets a screen which
    * mounts late tell whether the shared operating cursor or this map's own
    * target is the newer of the two (#859) instead of guessing from
-   * `target != null`. Written only by the two actions below — and carried
-   * across the workspace sync channel by `useMapOperationalContext`, which is
-   * sound because those windows share one machine's clock. Nothing reads it
-   * for rendering, so it never needs to be in a selector.
+   * `target != null`. Nothing reads it for rendering, so it never needs to be
+   * in a selector.
+   *
+   * `undefined` means *unknown*, not old: a target arrived over the workspace
+   * channel from a window on a bundle that does not send a write time, so
+   * this window has no idea when it was picked (#859 round 9). Guessing —
+   * stamping it with its arrival — is what made an hours-old target from a
+   * stale pop-out outrank a cursor already applied here. A reader must treat
+   * unknown as unknown; see `useHamClockWallOperatingState`.
    */
-  targetSetAt: number;
+  targetSetAt: number | undefined;
   /**
-   * `nextLocalWriteSeq()` of the same write, the tie-break for `targetSetAt`
-   * (#859 round 4). Two writes can share a millisecond — a local pick and an
-   * operating cursor arriving over the transport can be processed in one
-   * event-loop turn — and a strict `>` on the timestamp alone would keep the
-   * older of the two. Compared only when the timestamps are equal, and only
-   * against another sequence number taken in this same window.
+   * `nextLocalWriteSeq()` of the same write, and the *primary* ordering
+   * against another local stamp (#859 rounds 4 and 9). The counter is
+   * monotonic for the life of the window; `Date.now()` is not — an NTP step
+   * or a manual clock change can move it backwards, and then a later pick
+   * carries the smaller timestamp and loses to an earlier cursor.
+   *
+   * `undefined` means this window did not write the target: it arrived over
+   * the workspace channel, and the sender's sequence numbers are meaningless
+   * here. Minting a fresh one on arrival would be a claim that this window
+   * wrote it, which is exactly the guess round 9 removes; the reader falls
+   * back to the timestamps, sound because those windows share a machine.
    */
-  targetSeq: number;
+  targetSeq: number | undefined;
 
   // Recent targets history (max 10)
   recentTargets: TargetLocation[];

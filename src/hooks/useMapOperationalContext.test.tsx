@@ -132,10 +132,19 @@ describe("map target synchronization", () => {
 
     expect(useMapStore.getState().target).toMatchObject({ name: "W3ABC" });
     expect(useMapStore.getState().targetSetAt).toBe(9_000);
+    // The sender's sequence numbers mean nothing here and this window did not
+    // write the target, so it takes no sequence of its own (#859 round 9).
+    expect(useMapStore.getState().targetSeq).toBeUndefined();
     view.unmount();
   });
 
-  it("stamps a legacy snapshot that carries no write time with its arrival", async () => {
+  it("leaves a legacy snapshot that carries no write time unstamped", async () => {
+    // Unknown, not new (#859 round 9). A window on an older bundle answers
+    // the handshake with whatever target it has had up all along; stamping
+    // that with its arrival made an hours-old pick look fresher than a
+    // cursor already applied here, and the next wall remount kept the stale
+    // target. It must not inherit the previous target's stamp either — that
+    // is what round 2 fixed — so the honest value is neither: `undefined`.
     vi.stubGlobal("BroadcastChannel", TestChannel);
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2026-09-10T00:00:00Z"));
@@ -161,7 +170,10 @@ describe("map target synchronization", () => {
       } as MessageEvent);
     });
 
-    expect(useMapStore.getState().targetSetAt).toBe(Date.now());
+    expect(useMapStore.getState().target).toMatchObject({ name: "W3ABC" });
+    expect(useMapStore.getState().targetSetAt).toBeUndefined();
+    // And no fabricated local sequence: this window did not write it.
+    expect(useMapStore.getState().targetSeq).toBeUndefined();
     view.unmount();
   });
 });

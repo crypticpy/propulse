@@ -10,6 +10,21 @@
  * sequence number from here, so a tie on the millisecond is broken by which
  * write actually happened second.
  *
+ * It is also the *primary* ordering, not just a tie-break (#859 round 9).
+ * `Date.now()` is not monotonic: an NTP correction or a manual clock change
+ * can step it backwards mid-session, and then a write made later carries the
+ * smaller timestamp and loses to an earlier one. This counter cannot go
+ * backwards. So the rule for anything ordering two local writes is:
+ *
+ * 1. both sides carry a sequence from this window → the sequence decides;
+ * 2. one side does not → fall back to the timestamps, which is only sound
+ *    because the two windows involved share a machine's clock.
+ *
+ * Case 2 exists only for a value relayed from another window of the same app,
+ * which keeps the stamp it arrived with rather than being re-stamped here —
+ * a fresh local sequence would be a claim that this window wrote it. Keeping
+ * every genuinely local write path stamped is what keeps case 2 rare.
+ *
  * Module scope, one per browsing context, and deliberately never sent on the
  * wire or persisted: the numbers only mean anything within a single window's
  * lifetime, and comparing one window's against another's would be worse than

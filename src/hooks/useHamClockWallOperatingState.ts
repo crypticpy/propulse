@@ -37,10 +37,41 @@ import { gridToLatLon, isValidGrid } from "@/lib/utils/grid";
 import type { OperatingTarget } from "@/lib/workspace/operatingChannel";
 import type { CanvasType } from "@/lib/workspace/types";
 import { useMapStore, type TargetLocation } from "@/stores/mapStore";
-import { useOperatingStateStore } from "@/stores/operatingStateStore";
+import {
+  useOperatingStateStore,
+  type FieldStamp,
+} from "@/stores/operatingStateStore";
 
 /** Fixed: the wall is one screen, not a set of interchangeable workspaces. */
 export const HAMCLOCK_WALL_WORKSPACE_ID = "hamclock-wall";
+
+
+/**
+ * Does the shared operating cursor outrank this window's map target?
+ *
+ * Both stamps are local to this window, so the monotonic local sequence is
+ * the honest ordering and the clock is the fallback (#859 round 9):
+ *
+ * - the map target has **no stamp at all** — it was relayed from a window on
+ *   a bundle that sends no write time, so its age is unknown. A cursor we do
+ *   know the age of wins; guessing an age for the target is what let one
+ *   picked hours ago in a stale pop-out displace a fresh cursor.
+ * - **both carry a sequence** — this window wrote both, so the sequence
+ *   decides. It cannot run backwards; `Date.now()` can.
+ * - **only the timestamps** — the target came from another window of this
+ *   app with its own write time. Sequences do not cross windows, but the
+ *   clock does, because they share a machine.
+ */
+function cursorBeatsMapTarget(
+  stamp: Pick<FieldStamp, "at" | "appliedAt" | "appliedSeq">,
+  map: Pick<ReturnType<typeof useMapStore.getState>, "targetSetAt" | "targetSeq">,
+): boolean {
+  // `at === 0` is "no cursor has ever been written", which loses to anything.
+  if (stamp.at === 0) return false;
+  if (map.targetSetAt === undefined) return true;
+  if (map.targetSeq !== undefined) return stamp.appliedSeq > map.targetSeq;
+  return stamp.appliedAt > map.targetSetAt;
+}
 
 /**
  * Exported so `HamClockView` can pass an `isWallCanvas` prop down to the map
@@ -111,15 +142,17 @@ export function useHamClockWallOperatingState(): void {
     // `useMapOperationalContext`) needs no such treatment: those windows are
     // on one machine and share its clock.
     //
-    // The comparison is lexicographic on `(stamp, sequence)`, because a
-    // millisecond is not fine enough: a local `setTarget` and a cursor
-    // arriving over the transport can be processed in the same event-loop
-    // turn, and on equal timestamps a strict `>` would silently keep the
-    // older map target (round 4). Every local write to either side also
-    // takes a `nextLocalWriteSeq()`, so a tie on the clock is broken by
-    // which one actually happened second. Applying the cursor goes through
-    // `setTarget`, which takes the next sequence, so the map outranks the
-    // cursor it was just built from and a second mount stays a no-op.
+    // The sequence decides, not the clock (round 9). `Date.now()` is not
+    // monotonic — an NTP correction can step it backwards mid-session, and
+    // then a target the operator picks *after* a cursor arrives carries the
+    // smaller timestamp and loses to it. `nextLocalWriteSeq()` cannot go
+    // backwards, and both sides take one on every local write: applying the
+    // cursor goes through `setTarget`, so the map outranks the cursor it was
+    // just built from and a second mount stays a no-op. The clock is only
+    // consulted where there is no sequence to consult — a target relayed
+    // from another window of this app, which keeps the stamp it came with
+    // (see `useMapOperationalContext`) — and that is sound because those
+    // windows share a machine.
     const operating = useOperatingStateStore.getState();
     const initial = operating.cursor.target;
     const resolved = toMapTarget(initial);
@@ -128,11 +161,7 @@ export function useHamClockWallOperatingState(): void {
     // map", and `setTarget(null)` would also reset `isolateTargetPath`.
     const map = useMapStore.getState();
     const stamp = operating.stamps.target;
-    const cursorIsNewer =
-      stamp.appliedAt === map.targetSetAt
-        ? stamp.appliedSeq > map.targetSeq
-        : stamp.appliedAt > map.targetSetAt;
-    if (resolved && cursorIsNewer) {
+    if (resolved && cursorBeatsMapTarget(stamp, map)) {
       map.setTarget(resolved);
     }
 

@@ -1,5 +1,4 @@
 import { hamClockProjectionContent } from "@/lib/hamclock/displayLayout";
-import { nextLocalWriteSeq } from "@/lib/localWriteSequence";
 import { useHamClockDisplayStore } from "@/stores/hamclockDisplayStore";
 import { useHamClockStore } from "@/stores/hamclockStore";
 import { useEffect, useMemo } from "react";
@@ -331,22 +330,26 @@ export function useOperationalWorkspaceSync(): void {
             break;
           case "map": {
             const map = message.state as WorkspaceSnapshot["map"];
-            // A window still on an older bundle sends no stamp; treat the
-            // arrival as the write time rather than leaving this window's
-            // stamp on the target it just replaced.
+            // A relayed target keeps the stamp it came with, and nothing
+            // else. This window did not write it, so it may not stamp it
+            // (#859 round 9): a fresh `Date.now()` would make a target the
+            // sender picked hours ago look brand new here, and a fresh
+            // `nextLocalWriteSeq()` would claim this window wrote it. Both
+            // guesses beat a cursor that really is newer, which is the same
+            // family of bug as crediting a relay with someone else's write.
             //
-            // `targetSeq` is *not* carried: sequence numbers only order
-            // writes within one window's lifetime, so the sender's would be
-            // meaningless here. A fresh one taken at arrival is the right
-            // value anyway — this is the latest local write to `target`, so
-            // it must outrank anything already stamped in this window on the
-            // same millisecond (#859 round 4).
+            // A window on an older bundle sends no write time at all, so the
+            // freshness is simply unknown and stays unknown — `undefined`,
+            // not this window's clock and not the stamp of the target it just
+            // replaced. `useHamClockWallOperatingState` gives an unstamped
+            // target the losing side of the comparison against a cursor it
+            // does know the age of.
             useMapStore.setState({
               target: map.target,
               targetSetAt: Number.isFinite(map.targetSetAt)
                 ? map.targetSetAt
-                : Date.now(),
-              targetSeq: nextLocalWriteSeq(),
+                : undefined,
+              targetSeq: undefined,
             });
             break;
           }

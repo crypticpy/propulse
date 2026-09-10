@@ -3,7 +3,11 @@ import { useHamClockDisplayStore } from "@/stores/hamclockDisplayStore";
 import { useHamClockStore } from "@/stores/hamclockStore";
 import { useEffect, useMemo } from "react";
 import { useContestStore } from "@/stores/contestStore";
-import { useContestUIStore } from "@/stores/contestUIStore";
+import {
+  useContestUIStore,
+  type OpsDockTab,
+} from "@/stores/contestUIStore";
+import { useContestUIEphemeralStore } from "@/stores/contestUIEphemeralStore";
 import { useDXStore } from "@/stores/dxStore";
 import { useMapStore } from "@/stores/mapStore";
 import { useMapOperationalStore } from "@/stores/mapOperationalStore";
@@ -123,7 +127,16 @@ type WorkspaceSnapshot = {
     | "draftSelectionBySessionId"
     | "draftUpdatedAtBySessionId"
     | "publicAssistanceBySessionId"
-  >;
+  > & {
+    /**
+     * The operator's explicit dock-tab choice travels with the tab it explains
+     * (#884 round 6). Without it the receiving window sees only the tab plus
+     * the scope change the click caused, has no marker, and reconciles the
+     * shared tab straight back. Ephemeral in both windows: it is consumed by
+     * the first reconciler run on either side and never persisted.
+     */
+    explicitDockTab: OpsDockTab | null;
+  };
 };
 
 type WorkspaceDomain = keyof WorkspaceSnapshot;
@@ -177,6 +190,7 @@ function createWorkspaceSnapshot(): WorkspaceSnapshot {
       draftSelectionBySessionId: contestUi.draftSelectionBySessionId,
       draftUpdatedAtBySessionId: contestUi.draftUpdatedAtBySessionId,
       publicAssistanceBySessionId: contestUi.publicAssistanceBySessionId,
+      explicitDockTab: useContestUIEphemeralStore.getState().explicitDockTab,
     },
   };
 }
@@ -198,6 +212,11 @@ export function useOperationalWorkspaceSync(): void {
     let publishQueued = false;
     let nextRevision = 0;
     const pendingDomains = new Set<WorkspaceDomain>();
+    // The local reconciler consumes the explicit dock-tab marker in its effect,
+    // which runs before the microtask that publishes. Latch the marker when it
+    // is set so the outgoing message still carries the operator's intent to the
+    // other window (#884 round 6).
+    let pendingExplicitDockTab: OpsDockTab | null = null;
     const receivedRevisions = new Map<
       string,
       Map<WorkspaceDomain, number>
@@ -216,7 +235,19 @@ export function useOperationalWorkspaceSync(): void {
         }
         if (pendingDomains.size === 0) return;
         const snapshot = createWorkspaceSnapshot();
-        const domainsToPublish = [...pendingDomains];
+        if (pendingExplicitDockTab !== null) {
+          snapshot.contestUi = {
+            ...snapshot.contestUi,
+            explicitDockTab: pendingExplicitDockTab,
+          };
+          pendingExplicitDockTab = null;
+        }
+        // `contestUi` carries the explicit dock-tab marker, so it has to be
+        // published before `operational` — the receiving window must have the
+        // marker before it sees the workspace change that moves its scope.
+        const domainsToPublish = [...pendingDomains].sort((a, b) =>
+          a === "contestUi" ? -1 : b === "contestUi" ? 1 : 0,
+        );
         pendingDomains.clear();
         for (const domain of domainsToPublish) {
           channel.postMessage({
@@ -282,6 +313,16 @@ export function useOperationalWorkspaceSync(): void {
           publish("contestUi");
         }
       }),
+      // The explicit dock-tab marker lives in the ephemeral store but belongs
+      // to the same domain as the tab it explains, so it rides the same
+      // message and cannot arrive after it.
+      useContestUIEphemeralStore.subscribe((state, previous) => {
+        if (state.explicitDockTab === previous.explicitDockTab) return;
+        if (state.explicitDockTab !== null) {
+          pendingExplicitDockTab = state.explicitDockTab;
+        }
+        publish("contestUi");
+      }),
     ];
 
     channel.onmessage = (event: MessageEvent<WorkspaceMessage>) => {
@@ -332,11 +373,15 @@ export function useOperationalWorkspaceSync(): void {
               message.state as WorkspaceSnapshot["contest"],
             );
             break;
-          case "contestUi":
-            useContestUIStore.setState(
-              message.state as WorkspaceSnapshot["contestUi"],
-            );
+          case "contestUi": {
+            const { explicitDockTab, ...contestUiState } =
+              message.state as WorkspaceSnapshot["contestUi"];
+            // Set the marker first: the reconciler in this window must see it
+            // on the same run that sees the tab it excuses.
+            useContestUIEphemeralStore.setState({ explicitDockTab });
+            useContestUIStore.setState(contestUiState);
             break;
+          }
         }
       } finally {
         applyingRemote = false;

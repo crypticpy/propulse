@@ -22,6 +22,16 @@ interface ContestUIEphemeralState {
   setExplicitDockTab: (tab: OpsDockTab) => void;
   clearExplicitDockTab: () => void;
 
+  /**
+   * Bumped when the operator picks a scope in `OperationalScopeControl`
+   * (#884 round 6). Choosing Log takes the desk in the same event, and the
+   * reconciler's Contact/Desk gate would otherwise swallow the very scope
+   * change the operator just asked for. An explicit selection outranks the
+   * gate for exactly the next reconciler run.
+   */
+  scopeReconcileRequestId: number;
+  requestScopeReconcile: () => void;
+
   voiceCommand: VoiceCommand | null;
   issueVoiceCommand: (action: "start" | "stop", sessionId: string) => void;
   clearVoiceCommand: () => void;
@@ -36,6 +46,12 @@ export const useContestUIEphemeralStore = create<ContestUIEphemeralState>(
     explicitDockTab: null,
     setExplicitDockTab: (explicitDockTab) => set({ explicitDockTab }),
     clearExplicitDockTab: () => set({ explicitDockTab: null }),
+
+    scopeReconcileRequestId: 0,
+    requestScopeReconcile: () =>
+      set((state) => ({
+        scopeReconcileRequestId: state.scopeReconcileRequestId + 1,
+      })),
 
     voiceCommand: null,
     issueVoiceCommand: (action, sessionId) =>

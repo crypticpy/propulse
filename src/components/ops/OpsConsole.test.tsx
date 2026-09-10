@@ -64,7 +64,10 @@ describe("OpsConsole dock tabs", () => {
     useRigStore.setState({ connected: false });
     useQSOStore.setState({ form: { ...DEFAULT_QSO_FORM } });
     useContestStore.setState({ activeSession: null });
-    useContestUIEphemeralStore.setState({ explicitDockTab: null });
+    useContestUIEphemeralStore.setState({
+      explicitDockTab: null,
+      scopeReconcileRequestId: 0,
+    });
   });
 
   // #884, owner decision B: a tab click is a "show me this panel" gesture, not
@@ -267,5 +270,58 @@ describe("OpsConsole dock tabs", () => {
     expect(useContestUIStore.getState().dockTabBySessionId["session-9"]).toBe(
       "contest",
     );
+  });
+
+  // #884 round 6 (Codex, useDockTabReconciler.ts:65): picking Log in the scope
+  // control calls `setDesk()` in the same event as the scope change, so the
+  // reconciler saw Log + Desk, recorded the pair and returned at the posture
+  // gate — the badge moved, the workspace opened, and the dock stayed on DX.
+  it("writes the Log tab when the scope control picks Log from Observe", async () => {
+    const user = userEvent.setup();
+    renderConsole();
+    expect(useContestUIStore.getState().dockTabBySessionId[NO_SESSION_DOCK_KEY]).toBe(
+      "dx",
+    );
+
+    await user.selectOptions(
+      screen.getByLabelText("PropSphere operating scope"),
+      "log",
+    );
+
+    expect(useOpsPostureStore.getState().posture).toBe("desk");
+    expect(
+      useContestUIStore.getState().dockTabBySessionId[NO_SESSION_DOCK_KEY],
+    ).toBe("log");
+  });
+
+  // Second event: an explicit selection is consumed by the run it schedules,
+  // so the next selection is honoured too and the posture gate is back in
+  // force for everything that is not an operator gesture.
+  it("keeps honouring the scope control after an explicit tab click", async () => {
+    const user = userEvent.setup();
+    renderConsole();
+
+    await user.click(screen.getByRole("button", { name: "Contest" }));
+    expect(
+      useContestUIStore.getState().dockTabBySessionId[NO_SESSION_DOCK_KEY],
+    ).toBe("contest");
+
+    await user.selectOptions(
+      screen.getByLabelText("PropSphere operating scope"),
+      "log",
+    );
+    expect(
+      useContestUIStore.getState().dockTabBySessionId[NO_SESSION_DOCK_KEY],
+    ).toBe("log");
+
+    // Back to Observe: the workspace closes with the scope and the dock
+    // follows the same rule.
+    await user.selectOptions(
+      screen.getByLabelText("PropSphere operating scope"),
+      "observe",
+    );
+    expect(
+      useContestUIStore.getState().dockTabBySessionId[NO_SESSION_DOCK_KEY],
+    ).toBe("dx");
   });
 });

@@ -85,10 +85,17 @@ export function OperationalScopeControl({
   );
   const setDesk = useOpsPostureStore((state) => state.setDesk);
   const exitContact = useOpsPostureStore((state) => state.exitContact);
+  const requestScopeReconcile = useContestUIEphemeralStore(
+    (state) => state.requestScopeReconcile,
+  );
 
   const handleScopeChange = useCallback(
     (value: string) => {
       const next = value === "auto" ? null : (value as MapDataScope);
+      // Declare the selection before touching any store: picking Log takes the
+      // desk in this same event, and the dock-tab reconciler's Contact/Desk
+      // gate must honour the scope the operator just chose (#884 round 6).
+      requestScopeReconcile();
       setManualScope(next);
       const resolved = next ?? automaticScope;
       if (resolved === "observe") {
@@ -103,6 +110,7 @@ export function OperationalScopeControl({
     }, [
       automaticScope,
       exitContact,
+      requestScopeReconcile,
       onWorkspaceRequested,
       setDesk,
       setManualScope,

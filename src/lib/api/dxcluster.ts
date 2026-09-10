@@ -360,6 +360,10 @@ export async function fetchClusterFeed(
         : getBandFromFrequency(frequency),
       spotterGrid: item.spotterGrid as string | undefined,
       dxGrid: item.dxGrid as string | undefined,
+      continent:
+        typeof item.continent === "string" && item.continent.trim()
+          ? item.continent.trim().toUpperCase()
+          : undefined,
     };
   });
   const spots = parsed.filter((spot): spot is DXSpot => spot !== null);

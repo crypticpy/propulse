@@ -2,11 +2,23 @@ import { render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
-  mapTarget: null as { name?: string; grid?: string; lat: number; lon: number } | null,
+  mapTarget: null as {
+    name?: string;
+    grid?: string;
+    lat: number;
+    lon: number;
+    approximate?: boolean;
+  } | null,
   // `undefined` = no override (real pass-through); an explicit value stands
   // in for the scoped runtime's bound target.
   boundTargetOverride: undefined as
-    | { name?: string; grid?: string; lat: number; lon: number }
+    | {
+        name?: string;
+        grid?: string;
+        lat: number;
+        lon: number;
+        approximate?: boolean;
+      }
     | null
     | undefined,
 }));
@@ -71,5 +83,26 @@ describe("DxTargetReport", () => {
     render(<DxTargetReport open onClose={vi.fn()} />);
 
     expect(screen.getByText("NO TARGET")).toBeTruthy();
+  });
+
+  it("labels a prefix-centroid target as approximate (#861)", () => {
+    mocks.mapTarget = {
+      name: "PY2ABC",
+      lat: -15,
+      lon: -47.9,
+      approximate: true,
+    };
+
+    render(<DxTargetReport open onClose={vi.fn()} />);
+
+    expect(screen.getByText("APPROXIMATE")).toBeTruthy();
+    expect(screen.queryByText("REPORTED")).toBeNull();
+  });
+
+  it("labels a reported locator as reported", () => {
+    render(<DxTargetReport open onClose={vi.fn()} />);
+
+    expect(screen.getByText("REPORTED")).toBeTruthy();
+    expect(screen.queryByText("APPROXIMATE")).toBeNull();
   });
 });

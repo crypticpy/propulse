@@ -263,6 +263,8 @@ export interface TargetLocation {
   lon: number;
   name?: string;
   grid?: string;
+  /** True when lat/lon is a prefix or continent centroid, not a reported locator. */
+  approximate?: boolean;
 }
 
 /** Center location for Q2 double-click centering (not a target) */

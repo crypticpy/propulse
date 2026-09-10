@@ -2,6 +2,7 @@ import { useMemo } from "react";
 import { TuneButton } from "@/components/radio/TuneButton";
 import { useUTCClock } from "@/hooks/useUTCClock";
 import { useActiveLocation } from "@/hooks/useActiveLocation";
+import { resolveMapSpotSelection } from "@/hooks/useMapSpotSelection";
 import { useOptionalViewEffectiveSpots } from "@/hooks/useViewClusterSpots";
 import { rankLoadedDx } from "@/lib/hamclock/topDx";
 import { resolveUnits } from "@/lib/hamclock/units";
@@ -66,15 +67,20 @@ export function BandTopDx() {
         <p className="hcr-note">NO LOCATED SPOTS IN WINDOW</p>
       ) : (
         <div ref={ref} className="hcr-top-dx-list">
-          {rows.slice(0, visible).map(({ spot, target, km }) => (
+          {rows.slice(0, visible).map(({ spot, km }) => (
             <div className="hcr-top-dx-row" key={spot.id}>
             <HamClockButton
               onClick={() => {
+                const resolved = resolveMapSpotSelection(spot);
+                if (!resolved) return;
                 const map = useMapStore.getState();
-                map.setTarget({ ...target, name: spot.dx, grid: spot.dxGrid });
-                map.setCenterLocation(target.lat, target.lon);
+                map.setTarget(resolved.target);
+                map.setCenterLocation(resolved.target.lat, resolved.target.lon);
                 useDXStore.getState().setSelectedSpot(spot);
-                runtime?.selectSpot(spot.id, { lat: target.lat, lon: target.lon });
+                runtime?.selectSpot(spot.id, {
+                  lat: resolved.target.lat,
+                  lon: resolved.target.lon,
+                });
               }}
             >
               {spot.dx} · {spot.band ?? "—"} · {distance(km)} ·{" "}

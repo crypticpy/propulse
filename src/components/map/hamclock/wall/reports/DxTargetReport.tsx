@@ -90,6 +90,10 @@ export function DxTargetReport({ open, onClose }: DxTargetReportProps) {
     { label: "GRID", value: grid },
     { label: "COORDINATES", value: coordinates(target.lat, target.lon) },
     {
+      label: "LOCATION",
+      value: target.approximate ? "APPROXIMATE" : "REPORTED",
+    },
+    {
       label: "SHORT PATH",
       value: metrics ? `${Math.round(metrics.shortPath.bearing)}°` : "—",
     },

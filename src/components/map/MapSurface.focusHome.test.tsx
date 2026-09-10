@@ -270,11 +270,20 @@ function Wrap({ children }: { children: ReactNode }) {
 /**
  * Names what holds focus. `expected '<body>' to be 'the map surface'` says
  * the defect is back; a bare `expected null` would not.
+ *
+ * For the surface it also reports the role and accessible name. Focus is
+ * moved there without the user choosing to go there, so what a screen reader
+ * announces on arrival is part of the fix rather than decoration: an
+ * anonymous generic `div` leaves a screen-reader user worse off than the bug
+ * #797 fixes (#823 Codex [P2]).
  */
 function focusHolder(): string {
   const active = document.activeElement as HTMLElement | null;
   if (!active || active === document.body) return "<body>";
-  if (active.hasAttribute("data-map-surface")) return "the map surface";
+  if (active.hasAttribute("data-map-surface")) {
+    const role = active.getAttribute("role");
+    return `the map surface, ${role} "${active.getAttribute("aria-label")}"`;
+  }
   const label = active.getAttribute("aria-label");
   return `${active.tagName.toLowerCase()}${label ? `[aria-label="${label}"]` : ""}`;
 }
@@ -384,9 +393,14 @@ describe("map surface focus home", () => {
 
     await openThenCloseSpotCard("EA1AAA");
 
-    expect(focusHolder()).toBe("the map surface");
+    expect(focusHolder()).toBe('the map surface, region "Flat map"');
     expect(document.activeElement).toBe(
       container.querySelector("[data-map-surface]"),
+    );
+    // Reachable through the accessibility tree under that name, not only by
+    // the test-only data attribute.
+    expect(screen.getByRole("region", { name: "Flat map" })).toBe(
+      document.activeElement,
     );
   });
 
@@ -468,9 +482,14 @@ describe("map surface focus home", () => {
 
     await openThenCloseSpotCard("EA1AAA");
 
-    expect(focusHolder()).toBe("the map surface");
+    expect(focusHolder()).toBe('the map surface, region "Azimuthal map"');
     expect(document.activeElement).toBe(
       container.querySelector("[data-map-surface]"),
+    );
+    // Reachable through the accessibility tree under that name, not only by
+    // the test-only data attribute.
+    expect(screen.getByRole("region", { name: "Azimuthal map" })).toBe(
+      document.activeElement,
     );
   });
 
@@ -486,9 +505,14 @@ describe("map surface focus home", () => {
 
     await openThenCloseSpotCard("EA1AAA");
 
-    expect(focusHolder()).toBe("the map surface");
+    expect(focusHolder()).toBe('the map surface, region "Globe map"');
     expect(document.activeElement).toBe(
       container.querySelector("[data-map-surface]"),
+    );
+    // Reachable through the accessibility tree under that name, not only by
+    // the test-only data attribute.
+    expect(screen.getByRole("region", { name: "Globe map" })).toBe(
+      document.activeElement,
     );
   });
 });

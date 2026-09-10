@@ -2956,6 +2956,7 @@ export function AzimuthalView({
   return (
     <MapSurface
       surfaceRef={containerRef}
+      label="Azimuthal map"
       className="w-full h-full min-h-[400px] bg-deep-space rounded-xl overflow-hidden relative flex items-center justify-center select-none"
     >
       {/* WebGL canvas is created and owned by AzimuthalRenderer. */}

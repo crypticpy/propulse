@@ -9,6 +9,14 @@ export interface MapSurfaceProps {
    * hit-test against this element.
    */
   surfaceRef: RefObject<HTMLDivElement>;
+  /**
+   * Accessible name for the surface. Focus is deliberately moved here when an
+   * overlay closes and its opener is gone, so a screen reader has to be able
+   * to say where focus went — an unnamed generic `div` announces nothing and
+   * would leave a screen-reader user worse off than the bug this fixes. Short
+   * and distinct per host: "Globe map", "Flat map", "Azimuthal map".
+   */
+  label: string;
   className: string;
   children: ReactNode;
 }
@@ -17,13 +25,15 @@ export interface MapSurfaceProps {
  * The map host's root element, plus the focus home its overlays restore to.
  *
  * This renders the same single `<div>` each host already had — it adds no DOM
- * node — and contributes exactly two things: `tabIndex={-1}`, which makes the
- * surface a programmatic focus target without putting it in the tab order,
- * and the `MapSurfaceContext` value that lets a portaled overlay send focus
- * back here when the element that opened it has been unmounted (#797).
+ * node — and contributes three things: `tabIndex={-1}`, which makes the
+ * surface a programmatic focus target without putting it in the tab order; a
+ * named `region` so a screen reader announces where focus landed; and the
+ * `MapSurfaceContext` value that lets a portaled overlay send focus back here
+ * when the element that opened it has been unmounted (#797).
  */
 export function MapSurface({
   surfaceRef,
+  label,
   className,
   children,
 }: MapSurfaceProps) {
@@ -36,6 +46,8 @@ export function MapSurface({
       <div
         ref={surfaceRef}
         tabIndex={-1}
+        role="region"
+        aria-label={label}
         data-map-surface
         className={className}
       >

@@ -6355,6 +6355,7 @@ export function FlatMapView({
   return (
     <MapSurface
       surfaceRef={containerRef}
+      label="Flat map"
       className={`w-full h-full bg-deep-space overflow-hidden relative select-none ${
         fillContainer
           ? datelineOverview

@@ -105,6 +105,15 @@ describe("GLOBE_LAYER_ORDER", () => {
     );
   });
 
+  it("keeps the nearby-activity drawer above mapOverlayPortal (#930)", () => {
+    // The drawer covers nearly the whole map: while it is open it must
+    // paint over the path inspector, the cluster popover and every other
+    // child of the overlay portal, which now shares its stacking context.
+    expect(MAP_PAGE_CHROME_Z.activityDrawer).toBeGreaterThan(
+      GLOBE_DOM_LAYER_ORDER.mapOverlayPortal,
+    );
+  });
+
   it("keeps opaque map previews above every Drei spot label", () => {
     expect(GLOBE_DOM_LAYER_ORDER.mapOverlayPortal).toBeGreaterThan(
       GLOBE_DOM_LAYER_ORDER.pinLabel[0],

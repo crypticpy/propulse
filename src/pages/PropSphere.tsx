@@ -139,6 +139,7 @@ import type { LiveSpot } from "@/types/livespot";
 import { useReachMapSurface } from "@/hooks/useReachMapSurface";
 import { propagationModelVisible } from "@/lib/propagation/modelClient";
 import { NearbyActivityExplorer } from "@/components/activity/NearbyActivityExplorer";
+import { MAP_PAGE_CHROME_Z } from "@/lib/map/globeRenderOrder";
 import {
   useMapOperationalContext,
   useOperationalWorkspaceSync,
@@ -1220,7 +1221,14 @@ export function PropSphere() {
                 {activityPanelOpen && showPublicActivity && (
                   <div
                     id="nearby-activity-map-drawer"
-                    className="absolute inset-x-2 top-2 z-30 max-h-[calc(100%-1rem)] overflow-y-auto rounded-xl shadow-2xl sm:inset-x-3 sm:top-3"
+                    // Above MAP_PAGE_CHROME_Z's portal scale, not a bare
+                    // `z-30`: the map's overlay portal resolves at 11000 in
+                    // this same (Card) stacking context now that MapSurface
+                    // no longer isolates, so this near-full-map drawer has to
+                    // declare itself above it or the path inspector and the
+                    // cluster popover would paint through it (#930).
+                    className="absolute inset-x-2 top-2 max-h-[calc(100%-1rem)] overflow-y-auto rounded-xl shadow-2xl sm:inset-x-3 sm:top-3"
+                    style={{ zIndex: MAP_PAGE_CHROME_Z.activityDrawer }}
                   >
                     <NearbyActivityExplorer
                       className="bg-nebula-blue/95 backdrop-blur-xl"

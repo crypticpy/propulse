@@ -141,7 +141,10 @@ export function getGlobeLayerSlotForRenderOrder(
  * root collapses the whole globe subtree (including `mapOverlayPortal`'s
  * 11000) into one auto-level stacking context that paints below
  * PropSphere's page-level legend stack (`MAP_PAGE_CHROME_Z.legend`, z-10).
- * Only the `<Canvas>` wrapper isolates the in-scene 0-7999 bands.
+ * Only the `<Canvas>` wrapper isolates the in-scene 0-7999 bands. The map
+ * `Card` is what bounds the escape (its `backdrop-blur-md` establishes a
+ * stacking context), so page overlays inside that card — and only those —
+ * now share a scale with the portal: see `MAP_PAGE_CHROME_Z` below.
  *
  *   placeLabel        tile-draped place/city labels and country/state
  *                      names (`LabelsOverlay`) — pure reference text, reads
@@ -211,12 +214,31 @@ export function getGlobeLayerSlotForRenderOrder(
  *   mapOverlayPortal    single top value (not a range): the map's shared
  *                      DOM overlay portal, above all `<Html>` bands.
  */
-/** Page-level map-card chrome outside `GlobeView`/`MapSurface`. Must stay
- * below `mapOverlayPortal` so portaled detail cards (path bounce-point
- * inspector, selected-spot cards, etc.) remain fully interactive above the
- * legend wherever the two overlap (#930). */
+/**
+ * Page-level map-card chrome outside `GlobeView`/`MapSurface` (#930).
+ *
+ * With `MapSurface` un-isolated, `mapOverlayPortal`'s 11000 is resolved in
+ * the map `Card`'s stacking context (the `Card` establishes one through its
+ * `backdrop-blur-md`, so nothing here can escape onto the page: modals,
+ * toasts and the tour still win at the document level). That puts the
+ * portal on the same scale as every page overlay inside the card, so each
+ * one has to declare which side of the portal it belongs on:
+ *
+ *   legend           BELOW the portal. The legend stack paints over the
+ *                    opaque globe, but a portaled detail card (path
+ *                    bounce-point inspector, selected-spot card) must stay
+ *                    fully visible and clickable where the two overlap.
+ *   activityDrawer   ABOVE the portal. The nearby-activity drawer covers
+ *                    nearly the whole map and is a mode of its own; while
+ *                    it is open it outranks the inspector, the cluster
+ *                    popover and every other portal child. Any future
+ *                    near-full-map page overlay belongs here too — give it
+ *                    a value above `mapOverlayPortal` rather than a bare
+ *                    Tailwind `z-*` class, which would silently lose.
+ */
 export const MAP_PAGE_CHROME_Z = {
   legend: 10,
+  activityDrawer: 12000,
 } as const;
 
 export const GLOBE_DOM_LAYER_ORDER = {

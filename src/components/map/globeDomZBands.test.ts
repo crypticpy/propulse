@@ -220,3 +220,72 @@ describe("GlobeView's Canvas wrapper isolates the DOM bands from map chrome (#85
     ).toBeGreaterThan(canvasClose);
   });
 });
+
+/**
+ * Page chrome inside the map Card shares one stacking context with
+ * `mapOverlayPortal` now that `MapSurface` no longer isolates (#930), so
+ * each overlay in `PropSphere` has to sit on the `MAP_PAGE_CHROME_Z` scale
+ * on the correct side of the portal. A bare Tailwind `z-*` class on a
+ * near-full-map overlay silently loses to the portal's 11000.
+ */
+describe("PropSphere page chrome sits on MAP_PAGE_CHROME_Z (#930)", () => {
+  const PROPSPHERE_PATH = "src/pages/PropSphere.tsx";
+  const page = readSrc(PROPSPHERE_PATH);
+
+  /** The opening tag starting at `from`, with `//` line comments stripped
+   * (both tags below carry an explanatory comment whose prose would
+   * otherwise confuse a naive scan for the tag's closing `>`). */
+  function openTagAt(from: number): string {
+    const window = page.slice(from, from + 1200).replace(/\/\/[^\n]*/g, "");
+    const end = window.indexOf(">");
+    expect(
+      end,
+      `no closing > within 1200 chars of:\n${window}`,
+    ).toBeGreaterThan(-1);
+    return window.slice(0, end + 1);
+  }
+
+  it("keeps the legend stack on MAP_PAGE_CHROME_Z.legend, below the portal", () => {
+    const marker = page.indexOf("Legends (bottom of map)");
+    expect(
+      marker,
+      "expected the `Legends (bottom of map)` comment in PropSphere.tsx",
+    ).toBeGreaterThan(-1);
+    const divStart = page.indexOf("<div", marker);
+    expect(divStart).toBeGreaterThan(marker);
+    const tag = openTagAt(divStart);
+    const classNameMatch = tag.match(/className="([^"]*)"/);
+    expect(
+      classNameMatch,
+      `legend wrapper has no className:\n${tag}`,
+    ).not.toBeNull();
+    expect(
+      classNameMatch![1].split(/\s+/),
+      `the legend stack must stay at z-${MAP_PAGE_CHROME_Z.legend} (MAP_PAGE_CHROME_Z.legend) so the path inspector, which portals into mapOverlayPortal at ${GLOBE_DOM_LAYER_ORDER.mapOverlayPortal}, paints above it`,
+    ).toContain(`z-${MAP_PAGE_CHROME_Z.legend}`);
+    expect(MAP_PAGE_CHROME_Z.legend).toBeLessThan(
+      GLOBE_DOM_LAYER_ORDER.mapOverlayPortal,
+    );
+  });
+
+  it("puts the nearby-activity drawer above the portal via the token, not a z-* class", () => {
+    const drawerId = page.indexOf('id="nearby-activity-map-drawer"');
+    expect(
+      drawerId,
+      "expected the nearby-activity drawer element in PropSphere.tsx",
+    ).toBeGreaterThan(-1);
+    const divStart = page.lastIndexOf("<div", drawerId);
+    expect(divStart).toBeGreaterThan(-1);
+    const tag = openTagAt(divStart);
+    expect(
+      tag,
+      "the drawer must take its stack level from MAP_PAGE_CHROME_Z.activityDrawer -- a bare Tailwind z-* class would paint under mapOverlayPortal's 11000 and let the path inspector show through the drawer",
+    ).toContain("MAP_PAGE_CHROME_Z.activityDrawer");
+    const classNameMatch = tag.match(/className="([^"]*)"/);
+    expect(classNameMatch, `drawer has no className:\n${tag}`).not.toBeNull();
+    expect(
+      classNameMatch![1].split(/\s+/).filter((c) => /^z-/.test(c)),
+      "the drawer must not also carry a Tailwind z-* class: the class would win over the inline style only by accident of specificity, and the two would drift",
+    ).toEqual([]);
+  });
+});

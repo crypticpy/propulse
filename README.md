@@ -92,7 +92,9 @@ is a supported path, not a grudging one.
 **The operating app is free to use today.** The map, physics engine, Band Health ladder,
 wall display, logbook, contest engine, nets, shack builder, space weather and bridge are all
 free at propulse.cloud on a free account. The hosted build asks you to sign in for
-everything except the home page and paired wall displays, which are deliberately anonymous;
+everything except the home page and the display-device routes under `/display/`, including
+the anonymous registration page a new wall screen uses to pair, which are deliberately
+anonymous;
 a free account costs nothing and unlocks every feature that does not carry a per-user
 hosting cost. How the hosted service is sustained:
 
@@ -575,14 +577,19 @@ Contributions are welcome, from bug reports to bands of the ionosphere we have m
 badly.
 
 1. Pick or file a tracked issue and claim it there; one issue is one branch and one PR.
-2. Fork, then create a fresh worktree and branch from current `origin/main` (in this repo,
-   `npm run worktree:new -- <slug>`); never work in a shared checkout.
+2. Fork, then create a fresh worktree and branch from current `origin/main` with
+   `npm run worktree:new -- <slug> <type>/<epic-slug>-<task-slug>` (the type is `feat`,
+   `fix`, `docs`, `chore`, `refactor` or `test`; omitting it defaults to `feat/`); never
+   work in a shared checkout.
 3. Follow the existing style: TypeScript strict, 2-space indent, double quotes, Tailwind
    utilities, `@/` import alias.
 4. Run `npm run verify` before pushing.
 5. Commit with [Conventional Commits](https://www.conventionalcommits.org/)
    (`feat:`, `fix:`, `refactor:`, `docs:`, `test:`, `chore:`).
-6. Open a pull request with a summary and testing notes.
+6. Open a pull request with a summary and testing notes, a `Closes #N` (or `Refs #N` for a
+   partial slice) line, and an `Agent:` line naming who or what wrote it; the `pr-contract`
+   check fails without them. UI-touching changes also need an approved design review on
+   the current head before merge.
 
 [AGENTS.md](AGENTS.md) and [docs/AGENT-CONSTITUTION.md](docs/AGENT-CONSTITUTION.md) hold
 the detailed repository rules. Corrections to the physics, the model methodology or the

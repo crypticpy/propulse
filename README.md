@@ -53,8 +53,9 @@ An HF operator asks one question all day: _can I work anyone, on which band, in 
 direction, right now?_ Answering it honestly means three different things at once, and
 Propulse does all three and keeps them visibly separate:
 
-1. **Predict.** A propagation physics engine that runs entirely in the browser and is
-   always available, even offline.
+1. **Predict.** A propagation physics engine that runs entirely in the browser, with no
+   server in the loop, and keeps working offline once its route has been opened and
+   cached by the installed app.
 2. **Observe.** A live ingest of what stations are actually hearing each other, right now,
    from the reporting networks that amateur radio already runs.
 3. **Reconcile.** A published evidence ladder that says plainly whether a band is merely
@@ -174,11 +175,15 @@ scales and alerts, and the D-RAP absorption product. The two paths share sources
 code, so an outage in one does not imply an outage in the other.
 
 Raw spots are deliberately **not** hoarded: `spot_history` is a roughly two-hour sliding
-window trimmed by a scheduled job. What persists are small aggregates rather than raw
-reports: `path_hourly_stats`, `band_hourly_stats`, `region_hourly_stats`,
-`path_recency_hourly`, and the daily `band_activity_climatology` and
-`region_activity_climatology` tables (see `supabase/migrations/` for the full set). Keeping the durable footprint
-small is a design choice about cost and privacy, not an accident.
+window trimmed by a scheduled job. What persists is derived data rather than raw
+reports: hourly and daily aggregates by path, band and region (`path_hourly_stats`,
+`band_hourly_stats`, `region_hourly_stats`, `path_recency_hourly`, the two climatology
+tables), the Band Health verdict states with a 13-month `verdict_events` log, and a
+`callsign_fields` mapping of callsigns to the grid fields they were heard from, which is
+kept without a retention delete today. This list is not exhaustive; `supabase/migrations/`
+is the record. Keeping the durable footprint small is a design choice about cost and
+privacy, not an accident, and the callsign mapping is the piece of it we would most want a
+privacy reviewer to look at.
 
 ### The Band Health verified-state ladder
 
@@ -313,7 +318,8 @@ flare probabilities, proton flux, Dst and D-RAP with cache-stable NOAA and NASA 
 satellite tracking; a client-side audio DSP chain (noise gate, spectral noise reduction,
 EQ); and an installable PWA with dedicated mobile layouts, offline caching and 44px touch
 targets. Because the physics engine runs locally, the core propagation answer survives
-losing the network in the field.
+losing the network in the field, provided the route was opened once while online so the
+installed app has cached its code.
 
 ---
 
@@ -490,7 +496,9 @@ against a model service, as described in [`ml/service/README.md`](ml/service/REA
 
 **Edge functions**: `ALLOWED_ORIGIN` for the CORS allowlist, plus `SUPABASE_URL`,
 `SUPABASE_ANON_KEY` and `SUPABASE_SERVICE_ROLE_KEY` for JWT verification and server-side
-reads and writes.
+reads and writes. The `/api/propagation` proxy also needs `PROPULSE_INFERENCE_URL` and
+`PROPULSE_SERVICE_TOKEN` (server-only) to reach the model service; without both it answers
+503 and the client stays on physics.
 
 **Bridge**: `BRIDGE_PORT` (default 9867), `BRIDGE_HOST` (default 127.0.0.1),
 `BRIDGE_STATIC_PORT` (default 3173).

@@ -456,7 +456,7 @@ export const FlexSideControls = memo(function FlexSideControls({
             onClick={() => onTuningStepChange(opt.value)}
             className={`px-1.5 py-0.5 text-[10px] font-medium rounded border transition-colors ${
               tuningStepHz === opt.value
-                ? "bg-plasma-orange/15 text-plasma-orange border-plasma-orange/30"
+                ? "bg-plasma-orange/15 text-su-text border-plasma-orange/30"
                 : "bg-su-line/10 text-su-muted border-su-line/40 hover:text-su-text"
             }`}
           >
@@ -535,7 +535,7 @@ export const FlexSideControls = memo(function FlexSideControls({
           className={`flex-1 px-1.5 py-1 text-[10px] font-semibold rounded border transition-colors
             disabled:opacity-40 disabled:cursor-not-allowed ${
               audioEnabled
-                ? "bg-plasma-orange/15 border-plasma-orange/30 text-plasma-orange"
+                ? "bg-plasma-orange/15 border-plasma-orange/30 text-su-text"
                 : "bg-su-line/10 border-su-line/40 text-su-muted hover:text-su-text"
             }`}
         >

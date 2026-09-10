@@ -250,7 +250,7 @@ function SpectrumTab() {
               }
               className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors border ${
                 lineColor === "auto"
-                  ? "bg-plasma-orange/15 text-plasma-orange border-plasma-orange/30"
+                  ? "bg-plasma-orange/15 text-su-text border-plasma-orange/30"
                   : "text-su-muted border-su-line/40 hover:text-su-text hover:border-su-line/50"
               }`}
             >
@@ -468,7 +468,7 @@ function WaterfallTab() {
                 <span
                   className={`text-[10px] leading-tight transition-colors ${
                     isActive
-                      ? "text-plasma-orange font-medium"
+                      ? "text-su-text font-medium"
                       : "text-su-muted group-hover:text-su-text"
                   }`}
                 >
@@ -613,7 +613,7 @@ function PassbandTab() {
               onClick={() => update({ sdrPassbandBlendMode: mode })}
               className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors border ${
                 blendMode === mode
-                  ? "bg-plasma-orange/15 text-plasma-orange border-plasma-orange/30"
+                  ? "bg-plasma-orange/15 text-su-text border-plasma-orange/30"
                   : "bg-su-line/10 text-su-muted border-su-line/40 hover:text-su-text hover:border-su-line/50"
               }`}
             >

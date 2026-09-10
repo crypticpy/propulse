@@ -60,6 +60,12 @@ const stationItems = [
 
 const tools = [
   {
+    path: "/workspace",
+    label: "Workspace",
+    description: "Build a custom operating canvas",
+    icon: "🖥️",
+  },
+  {
     path: "/atmos",
     label: "AtmosPulse",
     description: "Weather intelligence & radio impact analysis",

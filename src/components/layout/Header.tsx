@@ -55,6 +55,7 @@ export function Header({
     { path: "/", label: "Home", icon: "🏠" },
     { path: "/solar", label: "Solar Pulse", icon: "☀️" },
     { path: "/map", label: "PropSphere", icon: "🌍" },
+    { path: "/workspace", label: "Workspace", icon: "🖥️" },
   ];
 
   // Tools items (in dropdown on desktop, inline on mobile)

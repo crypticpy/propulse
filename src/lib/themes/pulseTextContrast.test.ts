@@ -1368,7 +1368,7 @@ function extractIdentifierRefs(text: string): string[] {
   return refs;
 }
 
-function collectConstTemplateMap(source: string): ConstDecl[] {
+function collectConstTemplateMap(source: string, importedDecls: ConstDecl[] = []): ConstDecl[] {
   const decls: ConstDecl[] = [];
   // Reassignment sweeps (below) need every declaration in the file already
   // collected -- including one that appears LATER in the text than the
@@ -1583,6 +1583,18 @@ function collectConstTemplateMap(source: string): ConstDecl[] {
   // that later gets a fresh named entry or a resolvable spread's value is
   // removed from `openKeys` again, since it's now precisely known past that
   // point.
+  //
+  // `visibleDecl` is looked up against `decls` PLUS `importedDecls` here --
+  // not `decls` alone -- so `const styles = { safe: "text-green", ...base
+  // };` where `base` only exists as an IMPORTED binding (never declared
+  // locally) can still resolve the spread instead of falling into the
+  // unresolvable-spread `openKeys` fallback just because of where its own
+  // declaration happens to live (Codex, PR #874 round 36). `importedDecls`
+  // are never added to `decls` itself -- they're module-scope
+  // (`scopeStart: 0, scopeEnd: source.length`) placeholders the caller
+  // already appends to its own final `constMap` separately, so adding them
+  // here too would only risk a duplicate, not a new resolution.
+  const declsWithImports = importedDecls.length > 0 ? [...decls, ...importedDecls] : decls;
   for (const { decl, order } of spreadQueue) {
     const entries = new Map<string, ConstEntry>();
     const openKeys = new Set<string>();
@@ -1592,7 +1604,7 @@ function collectConstTemplateMap(source: string): ConstDecl[] {
         openKeys.delete(op.key);
         continue;
       }
-      const spreadDecl = visibleDecl(decls, op.name, decl.index);
+      const spreadDecl = visibleDecl(declsWithImports, op.name, decl.index);
       if (spreadDecl?.entries) {
         for (const [key, value] of spreadDecl.entries) {
           entries.set(key, value);
@@ -1611,9 +1623,12 @@ function collectConstTemplateMap(source: string): ConstDecl[] {
   // Runs after `spreadQueue` so a destructuring source that is itself a
   // spread-merged object (`const styles = { ...base }; const { alert } =
   // styles;`) already has its final, merged `entries` by the time it's
-  // resolved here (Codex, PR #874 round 35).
+  // resolved here (Codex, PR #874 round 35). Also resolved against
+  // `declsWithImports`, same reasoning as the spread merge just above --
+  // `const { alert } = STYLES;` where `STYLES` is only an imported binding
+  // (Codex, PR #874 round 36).
   for (const { pattern, sourceName, scopeStart, scopeEnd, index } of destructureQueue) {
-    const sourceDecl = visibleDecl(decls, sourceName, index);
+    const sourceDecl = visibleDecl(declsWithImports, sourceName, index);
     if (!sourceDecl) continue;
     registerDestructuringBindings(
       parseDestructuringPattern(pattern),
@@ -2790,9 +2805,13 @@ function isTextBearingChildren(children: string | null): boolean {
  * on the control fades it even though the element has no children
  * (Codex, PR #874 round 8). Same prop-boundary lookbehind as `TEXT_PROP_RE`
  * (round 24), so `aria-placeholder=`/`data-value=` don't count as this
- * control's own rendered value or placeholder. */
+ * control's own rendered value or placeholder. Tolerates whitespace on
+ * either side of `=` (`value = "Loading"`), matching `TEXT_PROP_RE`'s and
+ * `className`'s own `attrRe`'s existing `\s*=\s*` -- this one was still
+ * exact-`=` only, so a spaced assignment on a value/defaultValue/placeholder
+ * attribute was missed entirely (Codex, PR #874 round 36). */
 const FORM_VALUE_TAGS = new Set(["input", "textarea"]);
-const VALUE_ATTR_RE = /(?<![\w.:-])(value|defaultValue|placeholder)=/;
+const VALUE_ATTR_RE = /(?<![\w.:-])(value|defaultValue|placeholder)\s*=\s*/;
 const FORM_VALUE_TAG_OPEN_RE = new RegExp(`<(${[...FORM_VALUE_TAGS].join("|")})(?=[\\s/>])`, "y");
 
 /** Every `<input …>`/`<textarea …>` opening tag (self-closing or not) found
@@ -2907,12 +2926,18 @@ interface Violation {
  * declarations so a `className={alertClasses}` bound to an *imported*
  * `export const alertClasses = "…animate-pulse…"` resolves exactly like a
  * local one; empty by default so every existing single-file caller is
- * unaffected. */
+ * unaffected. Also passed into `collectConstTemplateMap` itself (not just
+ * appended after it) -- `const styles = { safe: "text-green", ...base };`
+ * where `base` is one of these imported bindings used to be replayed before
+ * `importedDecls` was ever appended, so the spread's own source was
+ * invisible to `visibleDecl` and treated as unresolvable, leaving
+ * `styles.safe` on its local, non-pulsing value even when `base.safe` really
+ * does carry the pulse class (Codex, PR #874 round 36). */
 function findElementViolations(
   normalizedSource: string,
   importedDecls: ConstDecl[] = [],
 ): Violation[] {
-  const constMap = [...collectConstTemplateMap(normalizedSource), ...importedDecls];
+  const constMap = [...collectConstTemplateMap(normalizedSource, importedDecls), ...importedDecls];
   const violations: Violation[] = [];
   for (const site of findClassNameSites(normalizedSource, constMap)) {
     if (!site.tag) continue;
@@ -3149,11 +3174,23 @@ function blankCommentsAndQuotedJsx(source: string): string {
    * `scanJsxElement`. Runs to end of source (`stopChar === null`, the
    * top-level call) or stops -- without consuming it -- at a depth-0
    * occurrence of `stopChar` (used to bound one `{...}` JSX expression
-   * container to its own matching `}`). Returns the index it stopped at. */
+   * container to its own matching `}`). A literal `{` encountered here
+   * (an object literal, an arrow block body, a template `${}` -- anything
+   * that isn't itself a nested JSX element/expression, which each get their
+   * own independent `scanJs` call with its own fresh `depth`) increments a
+   * local depth counter so `stopChar` only really ends the call at depth
+   * zero -- `{format({}) /* comment *\/}` used to stop at the object
+   * literal's own inner `}`, handing the rest of the JSX expression
+   * (including the comment) back to the caller as raw, unblanked JSX text
+   * (Codex, PR #874 round 36). A string/template's own braces never reach
+   * this counter -- `scanQuotedString`/`scanTemplate` consume their whole
+   * span as a unit before the per-character loop here ever sees them.
+   * Returns the index it stopped at. */
   function scanJs(i: number, stopChar: "}" | null): number {
+    let depth = 0;
     while (i < len) {
       const c = source[i];
-      if (stopChar !== null && c === stopChar) return i;
+      if (stopChar !== null && c === stopChar && depth === 0) return i;
       if (c === "/" && source[i + 1] === "/") {
         const nl = source.indexOf("\n", i);
         const end = nl === -1 ? len : nl;
@@ -3179,6 +3216,11 @@ function blankCommentsAndQuotedJsx(source: string): string {
       if (c === "<" && JSX_START_RE.test(source.slice(i, i + 2)) && isExpressionPosition(source, i)) {
         i = scanJsxElement(i);
         continue;
+      }
+      if (c === "{") {
+        depth++;
+      } else if (c === "}") {
+        depth--;
       }
       out.push(c);
       i++;
@@ -3641,23 +3683,15 @@ function collectExportedPulseBindings(
   const importAliasCandidates: Array<{
     file: string;
     rawSource: string;
+    normalizedSource: string;
     exportedNames: Map<string, string>;
-    localDecls: ConstDecl[];
-    moduleLevelByName: Map<string, ConstDecl>;
   }> = [];
   for (const [file, rawSource] of Object.entries(sources)) {
     if (!/\bimport\b/.test(rawSource) || !/\bexport\b/.test(rawSource)) continue;
     const normalizedSource = normalize(blankCommentsAndQuotedJsx(rawSource));
     const exportedNames = collectExportedNames(normalizedSource);
     if (exportedNames.size === 0) continue;
-    const localDecls = collectConstTemplateMap(normalizedSource);
-    const moduleLevelByName = new Map<string, ConstDecl>();
-    for (const decl of localDecls) {
-      if (decl.scopeStart !== 0 || decl.scopeEnd !== normalizedSource.length) continue;
-      const existing = moduleLevelByName.get(decl.name);
-      if (!existing || decl.index < existing.index) moduleLevelByName.set(decl.name, decl);
-    }
-    importAliasCandidates.push({ file, rawSource, exportedNames, localDecls, moduleLevelByName });
+    importAliasCandidates.push({ file, rawSource, normalizedSource, exportedNames });
   }
 
   // Interleaved with the barrel loop below (both run every iteration,
@@ -3723,12 +3757,32 @@ function collectExportedPulseBindings(
     for (const candidate of importAliasCandidates) {
       const importedDecls = resolveImportedDecls(candidate.file, candidate.rawSource, byModule);
       if (importedDecls.length === 0) continue;
-      const combinedDecls = [...candidate.localDecls, ...importedDecls];
+      // Recomputed fresh every iteration (Codex, PR #874 round 36): a
+      // spread-based object export (`export const styles = { ...importedBase
+      // };`) only picks up an imported source's keys through
+      // `collectConstTemplateMap`'s OWN internal spread-merge step, which
+      // resolves `visibleDecl` lookups against whatever `importedDecls` array
+      // it is given at call time. A `localDecls`/`moduleLevelByName` pair
+      // cached once, before any import resolved, can never see a later
+      // iteration's newly-resolved imports -- an object literal's `.literal`
+      // never contains an identifier ref for `resolveConstRefs` to substitute
+      // after the fact, so the merge must happen inside this call, not after
+      // it. Rebuilding both here, passing this iteration's `importedDecls`
+      // through, lets a newly-unlocked import retroactively complete an
+      // object-valued export's spread merge.
+      const localDecls = collectConstTemplateMap(candidate.normalizedSource, importedDecls);
+      const moduleLevelByName = new Map<string, ConstDecl>();
+      for (const decl of localDecls) {
+        if (decl.scopeStart !== 0 || decl.scopeEnd !== candidate.normalizedSource.length) continue;
+        const existing = moduleLevelByName.get(decl.name);
+        if (!existing || decl.index < existing.index) moduleLevelByName.set(decl.name, decl);
+      }
+      const combinedDecls = [...localDecls, ...importedDecls];
       const destKeys = moduleKeysForFile(candidate.file);
       let destPulsing = byModule.get(destKeys[0]);
       for (const [exportedName, localName] of candidate.exportedNames) {
         if (destPulsing?.has(exportedName)) continue;
-        const decl = candidate.moduleLevelByName.get(localName);
+        const decl = moduleLevelByName.get(localName);
         if (!decl) continue;
         const resolvedLiteral = resolveConstRefs(decl.literal, combinedDecls, decl.index);
         if (!PULSE_CLASS_RE.test(resolvedLiteral)) continue;
@@ -4912,6 +4966,32 @@ describe("scanSourceForViolations catches every spelling (fixture proofs, #878)"
     expect(scanSourceForViolations(fixture)).not.toEqual([]);
   });
 
+  it("still catches a descendant form control's value attribute with whitespace around `=`", () => {
+    // `VALUE_ATTR_RE` matched only an exact `value=` with no whitespace on
+    // either side -- `value = "Loading"` (spaced, but syntactically
+    // identical JSX) was missed entirely, unlike `TEXT_PROP_RE` and the
+    // `className` attribute regex, which already tolerate it (Codex, PR
+    // #874 round 36).
+    const fixture = '<div className="animate-pulse"><input value = "Loading" readOnly /></div>';
+    expect(scanSourceForViolations(fixture)).not.toEqual([]);
+  });
+
+  it("still catches a descendant form control's value attribute in expression form with whitespace around `=`", () => {
+    // Guard, not a `VALUE_ATTR_RE`-specific regression proof: any `{…}`
+    // block found anywhere in a self-closing tag's raw text -- including one
+    // sitting inside an attribute, since `stripBalancedExpressions` scans
+    // the whole tag's text for `{...}` blocks without knowing about
+    // attribute boundaries -- already reads as a rendered child expression
+    // and fails closed, regardless of the attribute name or the `=`
+    // spacing. Confirmed against the pre-round-36 parser too, so this one
+    // doesn't discriminate old vs. new code the way the quoted-value fixture
+    // above does; kept because the dispatch explicitly asked to check this
+    // shape, and it genuinely is still caught, just not through the regex
+    // this round changed (Codex, PR #874 round 36).
+    const fixture = '<div className="animate-pulse"><input value = {label} readOnly /></div>';
+    expect(scanSourceForViolations(fixture)).not.toEqual([]);
+  });
+
   it("reads the whole child range past a nested same-tag element", () => {
     for (const fixture of [
       '<div className="animate-pulse"><div></div>Loading</div>',
@@ -5099,6 +5179,49 @@ describe("scanSourceForViolations catches every spelling (fixture proofs, #878)"
       'if (a < b && c > d) { /* <span className="animate-pulse">L</span> */ }';
     expect(scanSourceForViolations(fixture)).toEqual([]);
   });
+
+  it("does not flag a comment that follows an object-literal expression sharing the same JSX expression container", () => {
+    // `blankCommentsAndQuotedJsx`'s JS-mode scanner used to stop at the
+    // FIRST literal `}` inside a `{...}` JSX expression container, regardless
+    // of nesting -- `{format({}) /* <span className="animate-pulse">Loading
+    // </span> */}` returned control to JSX-text mode right after the empty
+    // object literal's own closing `}`, so the trailing block comment (and
+    // the markup it quotes) was never blanked at all: JSX-text mode has no
+    // comment handling of its own, so a `<` there always starts a real
+    // nested element, meaning the comment's `<span>` was read as genuine
+    // markup (Codex, PR #874 round 36).
+    const fixture = '<div>{format({}) /* <span className="animate-pulse">Loading</span> */}</div>';
+    expect(scanSourceForViolations(fixture)).toEqual([]);
+  });
+
+  it("does not flag a comment that follows an arrow function's block body in the same JSX expression container", () => {
+    // Same root cause as the object-literal case above -- an arrow
+    // function's block body is just another plain brace pair the old,
+    // depth-blind scanner stopped at (Codex, PR #874 round 36).
+    const fixture =
+      '<div>{items.map(x => { return x; }) /* <span className="animate-pulse">Loading</span> */}</div>';
+    expect(scanSourceForViolations(fixture)).toEqual([]);
+  });
+
+  it("does not miscount a template literal's own `}` (inside a string body) as part of the expression's brace depth", () => {
+    // The template's `}` is consumed as a unit by `scanTemplate` before the
+    // per-character loop in `scanJs` ever sees it, so it must never
+    // contribute to (or accidentally satisfy) the depth counter guarding the
+    // trailing comment below -- paired here with an object literal so the
+    // fixture still exercises the round-36 fix itself, not just a case the
+    // old code already handled (Codex, PR #874 round 36).
+    const fixture = '<div>{format({}, `a}b`) /* <span className="animate-pulse">Loading</span> */}</div>';
+    expect(scanSourceForViolations(fixture)).toEqual([]);
+  });
+
+  it("still recognizes a real pulsing site inside a nested JSX expression within an expression (must not regress)", () => {
+    // A nested JSX element inside a `{...}` expression (`{cond && <span>…
+    // </span>}`) is handled by its own, separate recursive `scanJs` call with
+    // an independent depth counter -- the round-36 depth-tracking fix above
+    // must not disturb this existing mode-switching path.
+    const fixture = '<div>{cond && <span className="animate-pulse">Loading</span>}</div>';
+    expect(scanSourceForViolations(fixture)).not.toEqual([]);
+  });
 });
 
 describe("scanModuleForViolations resolves imported animate-pulse class bindings across modules (#874 round 28)", () => {
@@ -5259,6 +5382,71 @@ describe("scanModuleForViolations resolves imported animate-pulse class bindings
       "src/lib/b.tsx": bSource,
     });
     expect(scanModuleForViolations("src/lib/b.tsx", bSource, exportsMap)).toEqual([]);
+  });
+});
+
+describe("resolves a spread whose source is an IMPORTED binding, regardless of replay order (#874 round 36)", () => {
+  // `collectConstTemplateMap`'s own spread-merge step used to look a
+  // spread's source up only against its OWN local `decls` -- never the
+  // `importedDecls` its caller was separately handed -- so `const styles =
+  // { safe: "text-green", ...base };` where `base` only exists as an
+  // IMPORTED binding (never declared locally in this file) always fell into
+  // the round-34 "unresolvable spread" fallback, no matter how genuinely
+  // resolvable `base` was through the import graph. Fixed by threading
+  // `importedDecls` into `collectConstTemplateMap`'s own internal
+  // `visibleDecl` lookups for both the spread queue and the destructure
+  // queue (Codex, PR #874 round 36).
+
+  it("overwrites a local non-pulsing entry with an imported spread source's own value for the same key", () => {
+    const baseSource = 'export const base = { safe: "animate-pulse" };';
+    const bSource =
+      'import { base } from "@/lib/base";\nconst styles = { safe: "text-green", ...base };\nexport function A() { return <span className={styles.safe}>Idle</span>; }';
+    const exportsMap = collectExportedPulseBindings({ "src/lib/base.ts": baseSource, "src/lib/b.tsx": bSource });
+    expect(scanModuleForViolations("src/lib/b.tsx", bSource, exportsMap)).not.toEqual([]);
+  });
+
+  it("does not fail closed on a precise key defined before an imported, resolvable spread that never touches that key", () => {
+    // Round 34's rule: an *unresolvable* spread fails closed and marks every
+    // key defined before it "open" (replaced with the whole object's own
+    // flattened literal). `base` here resolves (it's a real import, pulsing
+    // via its own `banner` key) and never declares `safe`/`noisy`, so
+    // neither should be marked open. Before this round's fix, `base` looked
+    // unresolvable purely because it's only visible through `importedDecls`
+    // -- and the object's own flattened literal (which picks up "animate-
+    // pulse" from the unrelated `noisy` field) would wrongly satisfy the
+    // pulse check for `styles.safe` too. (`noisy`'s value is deliberately
+    // `"text-red animate-pulse"`, not a bare `"animate-pulse"` field, so
+    // this fixture doesn't also trip the separate config-map-mixing
+    // heuristic in `findConfigMapViolations`.)
+    const baseSource = 'export const base = { banner: "animate-pulse" };';
+    const bSource =
+      'import { base } from "@/lib/base";\nconst styles = { safe: "text-green", noisy: "text-red animate-pulse", ...base };\nexport function A() { return <span className={styles.safe}>Idle</span>; }';
+    const exportsMap = collectExportedPulseBindings({ "src/lib/base.ts": baseSource, "src/lib/b.tsx": bSource });
+    expect(scanModuleForViolations("src/lib/b.tsx", bSource, exportsMap)).toEqual([]);
+  });
+
+  it("resolves a scalar export whose value comes from a member access into a spread of an imported map, through the collectExportedPulseBindings fixpoint", () => {
+    // `mid.ts` never mentions "animate-pulse" literally -- it only imports
+    // `base` and spreads it into a local object (`combined`), then exports a
+    // member access into that spread-merged object. Pass 1's per-file
+    // prefilter skips `mid.ts` outright; only the round-33 import-alias
+    // fixpoint (stage 3) even looks at it, and that stage used to recompute
+    // `combined`'s entries ONCE, with no imports known yet -- so `combined`'s
+    // spread of `base` could never resolve no matter how many further
+    // fixpoint iterations ran. Fixed by recomputing `localDecls` fresh each
+    // iteration, with that iteration's own `importedDecls` passed through
+    // (Codex, PR #874 round 36).
+    const baseSource = 'export const base = { alert: "text-alert-red animate-pulse" };';
+    const midSource =
+      'import { base } from "./base";\nconst combined = { ...base };\nexport const midAlert = combined.alert;';
+    const componentSource =
+      'import { midAlert } from "./mid";\nexport function C() { return <span className={midAlert}>Loading</span>; }';
+    const exportsMap = collectExportedPulseBindings({
+      "src/lib/base.ts": baseSource,
+      "src/lib/mid.ts": midSource,
+      "src/lib/component.tsx": componentSource,
+    });
+    expect(scanModuleForViolations("src/lib/component.tsx", componentSource, exportsMap)).not.toEqual([]);
   });
 });
 

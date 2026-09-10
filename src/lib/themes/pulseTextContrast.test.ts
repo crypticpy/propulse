@@ -561,6 +561,9 @@ interface ClassNameSite {
    * `const` template when the attribute was a bare identifier. */
   raw: string;
   tag: string | null;
+  /** The opening tag's text (`<input … value={x}`), so a void form control
+   * can be recognised as text-bearing by its value/placeholder attributes. */
+  openingTag: string | null;
   /** Raw JSX between this element's opening and closing tag, when both were
    * found; null for self-closing elements or when the closing tag wasn't
    * locatable (nested same-name children aren't handled -- not needed for
@@ -611,8 +614,11 @@ function findClassNameSites(
     const tag = tagMatch ? tagMatch[1] : null;
 
     let childrenText: string | null = null;
-    if (tag) {
+    let openingTag: string | null = null;
+    if (tag && tagMatch) {
       const gt = source.indexOf(">", afterIndex);
+      const tagStart = m.index - precedingWindow.length + tagMatch.index!;
+      openingTag = gt === -1 ? null : source.slice(tagStart, gt);
       if (gt !== -1 && source[gt - 1] !== "/") {
         const closeTag = `</${tag}>`;
         const closeAt = source.indexOf(closeTag, gt);
@@ -622,7 +628,7 @@ function findClassNameSites(
       }
     }
 
-    sites.push({ raw, tag, childrenText, index: contentStart });
+    sites.push({ raw, tag, openingTag, childrenText, index: contentStart });
   }
   return sites;
 }
@@ -671,12 +677,28 @@ function isTextBearingChildren(children: string | null): boolean {
   // that emits JSX can be told from one that yields strings.
   return stripBalancedExpressions(children).blocks.some((block) => {
     if (!/\.map\(|=>/.test(block)) return true;
-    // A mapping or arrow that emits JSX (`items.map((i) => <Chip … />)`)
-    // renders child elements, which the scan visits on their own. One that
-    // yields strings (`items.map((i) => i.label).join(", ")`) renders text
-    // right here, so it counts (Codex, PR #874 round 7).
-    return !/<[A-Za-z]/.test(block);
+    // A mapping or arrow that yields strings (`items.map((i) =>
+    // i.label).join(", ")`) renders text right here, so it counts (Codex,
+    // PR #874 round 7). One that emits JSX counts only when an emitted
+    // element has content of its own (`<span>{i.label}</span>`): the
+    // parent's pulse fades that text and the child carries no pulse class
+    // for the scan to find (round 8). A mapping of self-closing elements
+    // (`<Chip … />`, a skeleton `<div … />`) renders nothing of its own.
+    if (!/<[A-Za-z]/.test(block)) return true;
+    return /[^/=]>\s*[^<\s]/.test(block);
   });
+}
+
+/** Void form controls render their value or placeholder as text, so a pulse
+ * on the control fades it even though the element has no children
+ * (Codex, PR #874 round 8). */
+const FORM_VALUE_TAGS = new Set(["input", "textarea"]);
+function isValueBearingControl(site: ClassNameSite): boolean {
+  return (
+    site.tag !== null &&
+    FORM_VALUE_TAGS.has(site.tag) &&
+    /\b(value|defaultValue|placeholder)=/.test(site.openingTag ?? "")
+  );
 }
 
 /** Finds the nearest enclosing `{...}` block around `index`, used only by
@@ -726,10 +748,11 @@ function findElementViolations(normalizedSource: string): Violation[] {
     const pulseMatch = PULSE_CLASS_RE.exec(site.raw);
     if (!pulseMatch) continue;
     const tinted = TEXT_COLOR_CLASS_RE.test(site.raw);
-    const textBearing = isTextBearingChildren(site.childrenText);
+    const textBearing =
+      isTextBearingChildren(site.childrenText) || isValueBearingControl(site);
     if (tinted || textBearing) {
       violations.push({
-        description: `<${site.tag}> pulses with ${tinted ? "a text-color class" : "text-bearing children"} on the same element (className: ${JSON.stringify(normalize(site.raw).slice(0, 100))})`,
+        description: `<${site.tag}> pulses with ${tinted ? "a text-color class" : "text-bearing children or value"} on the same element (className: ${JSON.stringify(normalize(site.raw).slice(0, 100))})`,
         // Offset past the pulse token itself, not the attribute's start --
         // a long template-literal className can put the two hundreds of
         // characters apart, which would otherwise put an anchor picked
@@ -915,10 +938,34 @@ describe("scanSourceForViolations catches every spelling (fixture proofs, #878)"
     expect(scanSourceForViolations(fixture)).not.toEqual([]);
   });
 
-  it("still dismisses a mapping that emits child elements (they are scanned on their own)", () => {
-    const fixture =
-      '<div className="flex gap-1 animate-pulse">{items.map((item) => <Chip key={item.id} label={item.label} />)}</div>';
-    expect(scanSourceForViolations(fixture)).toEqual([]);
+  it("still dismisses a mapping that emits self-closing elements (nothing rendered in place)", () => {
+    for (const fixture of [
+      '<div className="flex gap-1 animate-pulse">{items.map((item) => <Chip key={item.id} label={item.label} />)}</div>',
+      '<div className="space-y-2 animate-pulse">{rows.map((row) => <div key={row} className="h-3 rounded bg-su-line/20" />)}</div>',
+    ]) {
+      expect(scanSourceForViolations(fixture), fixture).toEqual([]);
+    }
+  });
+
+  it("catches text inside the elements a mapping emits (the parent's pulse fades it)", () => {
+    for (const fixture of [
+      '<div className="flex gap-1 animate-pulse">{items.map((item) => <span key={item.id}>{item.label}</span>)}</div>',
+      '<ul className="animate-pulse">{items.map((item) => <li key={item.id}>Pending</li>)}</ul>',
+    ]) {
+      expect(scanSourceForViolations(fixture), fixture).not.toEqual([]);
+    }
+  });
+
+  it("treats a form control's value or placeholder as rendered text", () => {
+    for (const fixture of [
+      '<input className="rounded bg-su-line/10 animate-pulse" value={status} readOnly />',
+      '<textarea className="animate-pulse" placeholder="Waiting for the rig…" />',
+    ]) {
+      expect(scanSourceForViolations(fixture), fixture).not.toEqual([]);
+    }
+    expect(
+      scanSourceForViolations('<input type="checkbox" className="animate-pulse" checked={armed} />'),
+    ).toEqual([]);
   });
 
   it("does not flag graphics or void elements that carry a text-color class for currentColor", () => {

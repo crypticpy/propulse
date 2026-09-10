@@ -253,7 +253,7 @@ const ViewToggle = memo(function ViewToggle({
         onClick={() => onChange("hourly")}
         className={`px-2.5 py-1 text-xs font-medium rounded transition-colors ${
           mode === "hourly"
-            ? "bg-plasma-orange/20 text-plasma-orange"
+            ? "bg-plasma-orange/20 text-su-text"
             : "text-su-muted hover:text-su-text"
         }`}
       >
@@ -263,7 +263,7 @@ const ViewToggle = memo(function ViewToggle({
         onClick={() => onChange("10min")}
         className={`px-2.5 py-1 text-xs font-medium rounded transition-colors ${
           mode === "10min"
-            ? "bg-plasma-orange/20 text-plasma-orange"
+            ? "bg-plasma-orange/20 text-su-text"
             : "text-su-muted hover:text-su-text"
         }`}
       >

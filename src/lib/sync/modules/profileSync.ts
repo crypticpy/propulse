@@ -13,8 +13,9 @@ import {
   CURRENT_LOCATION_ID,
   useProfileStore,
 } from "@/stores/profileStore";
+import { useAuthStore } from "@/stores/authStore";
 import { syncMeta } from "../syncMeta";
-import type { SyncModule, SyncableTable } from "../types";
+import type { SyncModule, SyncableTable, SyncLifecycle } from "../types";
 import type { Json, Tables, TablesInsert } from "@/types/supabase";
 import type { OperatingLocation } from "@/types/user";
 import type { RankTier } from "@/types/rank";
@@ -79,7 +80,11 @@ export const profileSync: SyncModule = {
   tier: "eager",
   tables: ["profiles", "saved_locations"] as SyncableTable[],
 
-  async pull(userId: string, since: string | null): Promise<string | null> {
+  async pull(
+    userId: string,
+    since: string | null,
+    lifecycle?: SyncLifecycle,
+  ): Promise<string | null> {
     const supabase = getSupabase();
     const timestamps: string[] = [];
 
@@ -130,6 +135,25 @@ export const profileSync: SyncModule = {
 
     if (locationError) {
       throw new Error(`Saved locations pull failed: ${locationError.message}`);
+    }
+
+    // #866/#867 Codex round 5: the three queries above are each awaited, so
+    // an account switch (sign-out, or a different account signing in) can
+    // land while this pull is still in flight. `SyncManager` only checks its
+    // generation after `pull()` returns, so without this guard a stale pull
+    // could apply a previous account's profile fields — and, worse,
+    // `setBilling` could resurrect a tier `authStore` already reset for the
+    // new account. Nothing below this point awaits again, so a single check
+    // here covers every store mutation in the rest of this function,
+    // including all billing writes.
+    if (
+      (lifecycle && !lifecycle.isActive()) ||
+      useAuthStore.getState().user?.id !== userId
+    ) {
+      console.warn(
+        `[profileSync] Discarding pull for ${userId} — the session changed while the pull was in flight`,
+      );
+      return null;
     }
 
     // Build merged station in a single pass, then apply one setState

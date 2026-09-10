@@ -5,17 +5,28 @@ import {
   CURRENT_LOCATION_ID,
   useProfileStore,
 } from "@/stores/profileStore";
+import { useAuthStore } from "@/stores/authStore";
+import type { User } from "@supabase/supabase-js";
 import { profileSync } from "./profileSync";
 
 vi.mock("@/lib/supabase", () => ({
   getSupabase: vi.fn(),
+  isSupabaseConfigured: true,
 }));
 
 const originalState = useProfileStore.getState();
+const originalAuthState = useAuthStore.getState();
 
 describe("profileSync location conflict handling", () => {
   beforeEach(() => {
     syncMeta.clear();
+    // The pull guard (#866/#867 Codex round 5) requires the pull's userId to
+    // match the currently signed-in account; these tests all pull as
+    // "user-1", so seed the auth store to match unless a test overrides it.
+    useAuthStore.setState({
+      ...originalAuthState,
+      user: { id: "user-1" } as User,
+    });
     useProfileStore.setState({
       ...originalState,
       station: {
@@ -355,6 +366,177 @@ describe("profileSync location conflict handling", () => {
     );
 
     warnSpy.mockRestore();
+  });
+
+  it("drops billing writes from a pull that outlived its account (#866/#867 Codex round 5)", async () => {
+    useProfileStore.setState({
+      subscriptionTier: "pro",
+      subscriptionStatus: "active",
+      subscriptionPeriodEnd: "2026-10-01T00:00:00.000Z",
+      billingUserId: "user-A",
+    });
+    useAuthStore.setState({
+      ...originalAuthState,
+      user: { id: "user-A" } as User,
+    });
+
+    const profileRow = {
+      id: "user-A",
+      callsign: "N0QA",
+      operator_name: null,
+      grid: "EM10",
+      lat: 30.5,
+      lon: -97,
+      timezone: "America/Chicago",
+      home_location_id: "home",
+      active_location_id: null,
+      bio: null,
+      social_links: null,
+      rank_override: null,
+      interests: null,
+      on_air_status: null,
+      sked_availability: null,
+      favorite_freqs: null,
+      updated_at: "2026-08-31T12:00:00.000Z",
+    };
+
+    let resolveBilling!: (value: unknown) => void;
+    const billingPromise = new Promise((resolve) => {
+      resolveBilling = resolve;
+    });
+
+    vi.mocked(getSupabase).mockReturnValue({
+      from: vi.fn((table: string) => {
+        if (table === "profiles") {
+          const query = {
+            select: vi.fn(() => query),
+            eq: vi.fn(() => query),
+            maybeSingle: vi.fn(async () => ({
+              data: profileRow,
+              error: null,
+            })),
+          };
+          return query;
+        }
+
+        if (table === "profile_billing") {
+          const query = {
+            select: vi.fn(() => query),
+            eq: vi.fn(() => query),
+            maybeSingle: vi.fn(() => billingPromise),
+          };
+          return query;
+        }
+
+        const query = {
+          select: vi.fn(() => query),
+          eq: vi.fn(async () => ({ data: [], error: null })),
+        };
+        return query;
+      }),
+    } as never);
+
+    const pull = profileSync.pull("user-A", null);
+
+    // The account switch (mirroring authStore.onAuthStateChange on
+    // sign-out or a different account signing in) lands while user-A's
+    // billing query is still pending.
+    useAuthStore.setState({
+      ...originalAuthState,
+      user: { id: "user-B" } as User,
+    });
+    useProfileStore.getState().resetBilling();
+
+    // user-A's stale billing query finally resolves with a Pro row.
+    resolveBilling({
+      data: {
+        subscription_tier: "pro",
+        subscription_status: "active",
+        subscription_period_end: "2026-12-01T00:00:00.000Z",
+      },
+      error: null,
+    });
+
+    expect(await pull).toBeNull();
+
+    const state = useProfileStore.getState();
+    expect(state.subscriptionTier).toBe("free");
+    expect(state.subscriptionStatus).toBe("inactive");
+    expect(state.subscriptionPeriodEnd).toBeNull();
+    expect(state.billingUserId).toBeNull();
+  });
+
+  it("still writes billing when no account switch happens during the pull", async () => {
+    useAuthStore.setState({
+      ...originalAuthState,
+      user: { id: "user-A" } as User,
+    });
+
+    const profileRow = {
+      id: "user-A",
+      callsign: "N0QA",
+      operator_name: null,
+      grid: "EM10",
+      lat: 30.5,
+      lon: -97,
+      timezone: "America/Chicago",
+      home_location_id: "home",
+      active_location_id: null,
+      bio: null,
+      social_links: null,
+      rank_override: null,
+      interests: null,
+      on_air_status: null,
+      sked_availability: null,
+      favorite_freqs: null,
+      updated_at: "2026-08-31T12:00:00.000Z",
+    };
+
+    vi.mocked(getSupabase).mockReturnValue({
+      from: vi.fn((table: string) => {
+        if (table === "profiles") {
+          const query = {
+            select: vi.fn(() => query),
+            eq: vi.fn(() => query),
+            maybeSingle: vi.fn(async () => ({
+              data: profileRow,
+              error: null,
+            })),
+          };
+          return query;
+        }
+
+        if (table === "profile_billing") {
+          const query = {
+            select: vi.fn(() => query),
+            eq: vi.fn(() => query),
+            maybeSingle: vi.fn(async () => ({
+              data: {
+                subscription_tier: "pro",
+                subscription_status: "active",
+                subscription_period_end: "2026-12-01T00:00:00.000Z",
+              },
+              error: null,
+            })),
+          };
+          return query;
+        }
+
+        const query = {
+          select: vi.fn(() => query),
+          eq: vi.fn(async () => ({ data: [], error: null })),
+        };
+        return query;
+      }),
+    } as never);
+
+    await profileSync.pull("user-A", null);
+
+    const state = useProfileStore.getState();
+    expect(state.subscriptionTier).toBe("pro");
+    expect(state.subscriptionStatus).toBe("active");
+    expect(state.subscriptionPeriodEnd).toBe("2026-12-01T00:00:00.000Z");
+    expect(state.billingUserId).toBe("user-A");
   });
 
   it("clears only the dirty token that completed its push", () => {

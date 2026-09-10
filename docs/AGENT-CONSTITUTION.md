@@ -111,7 +111,8 @@ is the only statement of the rule; other files point here.
   `src/` as UI, plus the root shell (`index.html`, `public/`, Tailwind and
   PostCSS config), `.design-sync/` and everything under `docs/designs/`
   (design docs, specs, mocks, contact sheets, rendered files). The only
-  exclusions are tests, `src/test/`, `src/types/`, and the non-visual
+  exclusions are tests (including `__snapshots__/` and `.snap` files),
+  `src/test/`, `src/types/`, and the non-visual
   libraries `src/lib/{db,audio,sync,api,adif,export,migrations,errors,dev,pwa,wspr,services}`
   and `src/lib/supabase.ts`; a style, token, colour, layout, font,
   presentation, preset or glyph module counts wherever it lives, excluded

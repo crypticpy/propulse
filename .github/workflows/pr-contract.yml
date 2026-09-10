@@ -61,7 +61,7 @@ jobs:
           # an exclusion list fails closed instead.
           UI=$(printf '%s\n' "$FILES" \
             | grep -E '^(src/|index\.html$|public/|tailwind\.config\.|postcss\.config\.|\.design-sync/|docs/designs/)' \
-            | grep -vE '(\.test\.tsx?$|^src/test/|^src/types/|^src/vite-env\.d\.ts$|^src/lib/(db|audio|sync|api|adif|export|migrations|errors|dev|pwa|wspr|services)/|^src/lib/supabase\.ts$)' \
+            | grep -vE '(\.test\.tsx?$|\.snap$|/__snapshots__/|^src/test/|^src/types/|^src/vite-env\.d\.ts$|^src/lib/(db|audio|sync|api|adif|export|migrations|errors|dev|pwa|wspr|services)/|^src/lib/supabase\.ts$)' \
             || true)
           NAMED=$(printf '%s\n' "$FILES" \
             | grep -E '^src/.*(Colou?rs?|Layout|Tokens?|Fonts?|Styles?|Appearance|[Pp]resentation|[Pp]resets?|[Gg]lyphs?)\.tsx?$' \

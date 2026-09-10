@@ -5,11 +5,10 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { useContestUIStore } from "@/stores/contestUIStore";
 import { useMapOperationalStore } from "@/stores/mapOperationalStore";
 import { useOpsPostureStore } from "@/stores/opsPostureStore";
-import { useContestStore } from "@/stores/contestStore";
+import { useContestStore, type ContestSession } from "@/stores/contestStore";
 import { useQSOStore } from "@/stores/qsoStore";
 import { useRigStore } from "@/stores/rigStore";
 import { DEFAULT_QSO_FORM } from "@/types/qso";
-import type { ContestSession } from "@/types/contest";
 import { OpsConsole } from "./OpsConsole";
 
 // The dock's panels are heavy (globe-adjacent lists, contest engine, WSJT-X);

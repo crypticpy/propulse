@@ -60,6 +60,15 @@ export function SpotCollectionPopover({
   const firstSpotRef = useRef<HTMLButtonElement>(null);
   const previousFocusRef = useRef<HTMLElement | null>(null);
   const fallbackTimerRef = useRef<number | null>(null);
+  // Whether focus actually entered this popover while it was open (#824,
+  // Codex round 3). See `PinFlyout.tsx` for the full reasoning: without this,
+  // the fallback below can't tell "focus died with the popover" from "focus
+  // was never here to die". In practice this popover always focuses its own
+  // first row on open, so the flag is set well before any close path can
+  // reach this cleanup — this exists for uniformity with the other three
+  // overlays (#848 will extract them into one hook), not because this
+  // popover has an observed body-origin-close-without-entering gap.
+  const heldFocusRef = useRef(false);
   const focusMapSurface = useMapSurfaceFocus();
   const sortedSpots = useMemo(
     () =>
@@ -138,9 +147,16 @@ export function SpotCollectionPopover({
     const active = document.activeElement;
     previousFocusRef.current =
       active instanceof HTMLElement && active !== document.body ? active : null;
+    heldFocusRef.current = false;
+    const root = panelRef.current;
+    const handleFocusIn = () => {
+      heldFocusRef.current = true;
+    };
+    root?.addEventListener("focusin", handleFocusIn);
     const timeout = window.setTimeout(() => firstSpotRef.current?.focus(), 0);
     return () => {
       window.clearTimeout(timeout);
+      root?.removeEventListener("focusin", handleFocusIn);
       const previousFocus = previousFocusRef.current;
       previousFocusRef.current = null;
       // Gate the whole restore on focus having actually died with this
@@ -174,6 +190,8 @@ export function SpotCollectionPopover({
       // the surface, and merely hovering changes keyboard focus in dev. Any
       // re-run of setup means the overlay is open again, which makes a
       // pending fallback stale by definition.
+      // You cannot restore what was never taken (#824, Codex round 3).
+      if (!heldFocusRef.current) return;
       fallbackTimerRef.current = window.setTimeout(() => {
         fallbackTimerRef.current = null;
         if (document.activeElement === document.body) focusMapSurface?.();

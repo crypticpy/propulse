@@ -55,6 +55,15 @@ export function PathPointInspector({
   const panelRef = useRef<HTMLDivElement>(null);
   const previousFocusRef = useRef<HTMLElement | null>(null);
   const fallbackTimerRef = useRef<number | null>(null);
+  // Whether focus actually entered this panel while it was open (#824, Codex
+  // round 3). See `PinFlyout.tsx` for the full reasoning. This one has a real
+  // body-origin path where focus never enters: clicking the path trace
+  // itself (`RayPathArc`'s `onTraceClick`) opens the panel in "path" overview
+  // mode with no `selectedId`, so `PathPointList`'s own mount-time focus
+  // effect early-returns and nothing inside ever takes focus unless the user
+  // tabs in. Closing from there without ever having done so must not move
+  // focus to the map surface.
+  const heldFocusRef = useRef(false);
   const focusMapSurface = useMapSurfaceFocus();
   const selected = pointSet.points.find((point) => point.id === selectedId) ?? null;
   const hovered = pointSet.points.find((point) => point.id === hoveredId) ?? null;
@@ -122,7 +131,14 @@ export function PathPointInspector({
     const active = document.activeElement;
     previousFocusRef.current =
       active instanceof HTMLElement && active !== document.body ? active : null;
+    heldFocusRef.current = false;
+    const root = panelRef.current;
+    const handleFocusIn = () => {
+      heldFocusRef.current = true;
+    };
+    root?.addEventListener("focusin", handleFocusIn);
     return () => {
+      root?.removeEventListener("focusin", handleFocusIn);
       const previousFocus = previousFocusRef.current;
       previousFocusRef.current = null;
       // Gate the whole restore on focus having actually died with this
@@ -149,6 +165,10 @@ export function PathPointInspector({
       // the surface, and merely hovering changes keyboard focus in dev. Any
       // re-run of setup means the overlay is open again, which makes a
       // pending fallback stale by definition.
+      // You cannot restore what was never taken (#824, Codex round 3): the
+      // "path" overview mode opens with no `selectedId`, so nothing inside
+      // this panel takes focus unless the user tabs in.
+      if (!heldFocusRef.current) return;
       fallbackTimerRef.current = window.setTimeout(() => {
         fallbackTimerRef.current = null;
         if (document.activeElement === document.body) focusMapSurface?.();

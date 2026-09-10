@@ -33,6 +33,7 @@ import { createMemoryWorkingStorage } from "@/lib/views/runtime";
 import { clusterSpots } from "@/lib/spots/grouping";
 import { useUserStore } from "@/stores/userStore";
 import { usePinStore } from "@/stores/pinStore";
+import { useSettingsStore } from "@/stores/settingsStore";
 import { calculateLayerHeights } from "@/lib/utils/ionosphere";
 import { traceRayPath } from "@/lib/utils/rayTrace";
 import { buildPathPointSet, type PathPointSet } from "@/lib/spots/pathPoints";
@@ -1525,6 +1526,113 @@ describe("map surface focus home", () => {
     );
 
     expect(focusHolder()).toBe('button[aria-label="control b"]');
+    expect(document.activeElement).not.toBe(
+      container.querySelector("[data-map-surface]"),
+    );
+  });
+
+  // -------------------------------------------------------------------------
+  // Focus never entered the overlay (#824 round 3, Codex): "an overlay may
+  // only restore or fall back if it actually held focus at some point while
+  // open. You cannot restore what was never taken." Every case above reaches
+  // the fallback because the overlay took focus itself (`SpotCollectionPopover`,
+  // `SelectedSpotCard`, `PathPointList`'s select-on-mount) or the user tabbed
+  // into it (`PinFlyout`'s own "goes home" cases). These two open an overlay
+  // from a body-origin state and close it again without ever bringing focus
+  // inside — a pointer-only user hovering a pin and moving away, or clicking
+  // straight through to a control with no keyboard involved at all — and
+  // confirm `<body>` is left alone instead of being handed to the map
+  // surface.
+  // -------------------------------------------------------------------------
+
+  it("PinFlyout: a hover-only open and auto-dismiss never moves focus off <body>", async () => {
+    usePinStore.getState().addPin({
+      lat: 10,
+      lon: 10,
+      grid: "JJ00aa",
+      name: "Test Pin",
+    });
+    const originalUiInteraction = useSettingsStore.getState().uiInteraction;
+    // Drives the real auto-dismiss timer instead of faking it, matching this
+    // file's timer style elsewhere — just fast, so the test doesn't spend
+    // real seconds waiting on the production default (2500ms).
+    useSettingsStore.getState().updateUIInteraction({ flyoutAutoDismissMs: 0 });
+    try {
+      const { FlatMapView } = await import("@/components/map/FlatMapView");
+      const { container } = render(
+        <Wrap>
+          <FlatMapView displayTime={displayTime} />
+        </Wrap>,
+      );
+
+      const canvas = screen.getByRole("img", {
+        name: /Interactive propagation map/i,
+      });
+      const pinPos = toCanvas(10, 10);
+      fireEvent.pointerMove(canvas, {
+        clientX: pinPos.x,
+        clientY: pinPos.y,
+        pointerId: 1,
+      });
+
+      // The flyout is open, but a pointer-only user never touches a keyboard,
+      // so nothing inside it — or anywhere else — has been focused.
+      await screen.findByRole("button", { name: "Edit Pin" });
+      expect(document.activeElement).toBe(document.body);
+
+      // Move far outside the flyout's proximity padding (stubbed rect is
+      // 1024x512, `PROXIMITY_PADDING` is 50) to trigger the same ordinary
+      // auto-dismiss a real mouse-leaves-the-flyout gesture would.
+      fireEvent.mouseMove(document, { clientX: 3000, clientY: 3000 });
+      await waitFor(() =>
+        expect(
+          screen.queryByRole("dialog", { name: /Pin info: Test Pin/i }),
+        ).toBeNull(),
+      );
+
+      expect(document.activeElement).toBe(document.body);
+
+      // And after the deferred fallback tick (#824) — the assertion that
+      // fails without the `heldFocusRef` gate: the round-2 code reads
+      // `activeElement === body` here (true, since it always was) and moves
+      // focus to the map surface anyway, even though nothing died with the
+      // flyout.
+      await new Promise((resolve) => setTimeout(resolve, 20));
+      expect(focusHolder()).toBe("<body>");
+      expect(document.activeElement).not.toBe(
+        container.querySelector("[data-map-surface]"),
+      );
+    } finally {
+      useSettingsStore.setState({ uiInteraction: originalUiInteraction });
+    }
+  });
+
+  it("PathPointInspector: a click-through open with no selection never moves focus off <body>", async () => {
+    const pointSet = buildTestPathPointSet();
+    const { container } = render(
+      <PathPointInspectorHost pointSet={pointSet} />,
+    );
+
+    // Mirrors `RayPathArc`'s `onTraceClick` in production: clicking the path
+    // trace itself opens the panel with no `selectedId`, so `PathPointList`'s
+    // own mount-time focus effect early-returns and never takes focus.
+    fireEvent.click(screen.getByTestId("path-point-hit-area-no-select"));
+    await screen.findByRole("dialog", { name: "Path point details" });
+    expect(document.activeElement).toBe(document.body);
+
+    fireEvent.keyDown(window, { key: "Escape" });
+    await waitFor(() =>
+      expect(
+        screen.queryByRole("dialog", { name: "Path point details" }),
+      ).toBeNull(),
+    );
+
+    expect(document.activeElement).toBe(document.body);
+
+    // And after the deferred fallback tick (#824), for the same reason as
+    // the `PinFlyout` case above.
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    expect(focusHolder()).toBe("<body>");
     expect(document.activeElement).not.toBe(
       container.querySelector("[data-map-surface]"),
     );

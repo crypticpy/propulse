@@ -138,6 +138,13 @@ export function SelectedSpotCard({
 }: SelectedSpotCardProps) {
   const cardRef = useRef<HTMLElement>(null);
   const previousFocusRef = useRef<HTMLElement | null>(null);
+  // Whether focus actually entered this card while it was open (#824, Codex
+  // round 3). See `PinFlyout.tsx` for the full reasoning. This card always
+  // focuses itself on open (below), so the flag is set well before any close
+  // path can reach this cleanup — this exists for uniformity with the other
+  // three overlays (#848 will extract them into one hook), not because this
+  // card has an observed body-origin-close-without-entering gap.
+  const heldFocusRef = useRef(false);
   const focusMapSurface = useMapSurfaceFocus();
   const [copied, setCopied] = useState(false);
   const navigate = useNavigate();
@@ -188,9 +195,16 @@ export function SelectedSpotCard({
     const active = document.activeElement;
     previousFocusRef.current =
       active instanceof HTMLElement && active !== document.body ? active : null;
+    heldFocusRef.current = false;
+    const root = cardRef.current;
+    const handleFocusIn = () => {
+      heldFocusRef.current = true;
+    };
+    root?.addEventListener("focusin", handleFocusIn);
     const timeout = window.setTimeout(() => cardRef.current?.focus(), 0);
     return () => {
       window.clearTimeout(timeout);
+      root?.removeEventListener("focusin", handleFocusIn);
       const previousFocus = previousFocusRef.current;
       previousFocusRef.current = null;
       // Gate the whole restore on focus having actually died with this
@@ -213,6 +227,8 @@ export function SelectedSpotCard({
       // and the surface must not take it back. The surface outlives every
       // overlay, so it is still mounted when the opener is not; null off a
       // map host, where there is no home to go to.
+      // You cannot restore what was never taken (#824, Codex round 3).
+      if (!heldFocusRef.current) return;
       if (document.activeElement === document.body) focusMapSurface?.();
     };
   }, [focusMapSurface, spot]);

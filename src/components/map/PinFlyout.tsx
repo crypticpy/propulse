@@ -161,6 +161,19 @@ export function PinFlyout({
   const flyoutRef = useRef<HTMLDivElement>(null);
   const previousFocusRef = useRef<HTMLElement | null>(null);
   const fallbackTimerRef = useRef<number | null>(null);
+  // Whether focus actually entered this flyout while it was open (#824,
+  // Codex round 3). Hovering a pin and letting the ordinary auto-dismiss
+  // (mouse leaves proximity, timer closes it) close the flyout without ever
+  // tabbing into its buttons leaves `previousFocusRef` null — the pre-open
+  // `activeElement` was already `<body>`, since hovering never moves focus —
+  // and the cleanup below still reads `activeElement === body` at close time,
+  // because hovering never moved it off `<body>` in the first place. Without
+  // this flag the fallback cannot distinguish "focus died with the flyout"
+  // from "focus was never here to die", and fires in both cases: merely
+  // hovering a pin and moving away would move keyboard focus to the map
+  // surface. Set by a `focusin` listener on the flyout's own root so it only
+  // reflects focus actually landing inside this overlay's content.
+  const heldFocusRef = useRef(false);
   const focusMapSurface = useMapSurfaceFocus();
   const { station } = useUserStore();
   const homeGrid = station?.grid || "";
@@ -341,7 +354,14 @@ export function PinFlyout({
     const active = document.activeElement;
     previousFocusRef.current =
       active instanceof HTMLElement && active !== document.body ? active : null;
+    heldFocusRef.current = false;
+    const root = flyoutRef.current;
+    const handleFocusIn = () => {
+      heldFocusRef.current = true;
+    };
+    root?.addEventListener("focusin", handleFocusIn);
     return () => {
+      root?.removeEventListener("focusin", handleFocusIn);
       const previousFocus = previousFocusRef.current;
       previousFocusRef.current = null;
       // Gate the whole restore on focus having actually died with this
@@ -384,6 +404,11 @@ export function PinFlyout({
       // the surface, and merely hovering changes keyboard focus in dev. Any
       // re-run of setup means the overlay is open again, which makes a
       // pending fallback stale by definition.
+      // You cannot restore what was never taken (#824, Codex round 3): if
+      // focus never entered this flyout, `<body>` here just means the user
+      // was never focused on anything to begin with (e.g. a pure hover that
+      // auto-dismissed), not that this overlay's removal dropped focus.
+      if (!heldFocusRef.current) return;
       fallbackTimerRef.current = window.setTimeout(() => {
         fallbackTimerRef.current = null;
         if (document.activeElement === document.body) focusMapSurface?.();

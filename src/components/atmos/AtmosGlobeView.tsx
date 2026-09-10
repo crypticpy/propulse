@@ -5,6 +5,7 @@ import { useMapStore } from "@/stores/mapStore";
 import { useAtmosStore } from "@/stores/atmosStore";
 import { useNexradAvailable } from "@/hooks/useWeatherRadar";
 import { WeatherLegend } from "@/components/atmos/WeatherLegend";
+import { MAP_PAGE_CHROME_Z } from "@/lib/map/globeRenderOrder";
 import { RadarScrubber3D } from "@/components/atmos/RadarScrubber3D";
 import { BoundViewHost } from "@/components/views/BoundViewHost";
 import { namedSlotId } from "@/lib/views/runtime";
@@ -41,6 +42,18 @@ export function AtmosGlobeView() {
   const radarOn = useAtmosStore((s) => s.layerVisibility.radar);
   const nexradAvailable = useNexradAvailable(radarOn);
 
+  // The globe owns the bottom-left corner and stacks this row above its size
+  // control, so the two never share the spot (#930). Read-only legend, so it
+  // stays under the map's overlay portal.
+  const weatherCornerSlot = (
+    <div
+      className="relative pointer-events-auto"
+      style={{ zIndex: MAP_PAGE_CHROME_Z.legend }}
+    >
+      <WeatherLegend inline />
+    </div>
+  );
+
   return (
     <BoundViewHost slot={ATMOS_VIEW_SLOT}>
       {/* `isolate` bounds the map's overlay portal (11000) to this wrapper.
@@ -61,11 +74,10 @@ export function AtmosGlobeView() {
             displayTime={displayTime}
             hideRadarScrubber
             onUseFlatMap={() => useAtmosStore.getState().setViewMode("2d")}
+            cornerSlot={weatherCornerSlot}
           />
         </Suspense>
 
-        {/* Weather-specific overlays */}
-        <WeatherLegend />
         {radarOn && <RadarScrubber3D showNexradBadge={nexradAvailable} />}
       </div>
     </BoundViewHost>

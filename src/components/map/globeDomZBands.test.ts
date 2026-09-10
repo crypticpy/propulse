@@ -345,14 +345,17 @@ describe("PropSphere page chrome sits on MAP_PAGE_CHROME_Z (#930)", () => {
   }
 
   it("keeps the legend stack on MAP_PAGE_CHROME_Z.legend, below the portal", () => {
-    const marker = page.indexOf("Legends (bottom of map)");
+    // The legends moved into the map view's corner column as `cornerSlot`
+    // rows (#930, round 7), so the group starts at the slot, not at a
+    // page-level column of its own.
+    const marker = page.indexOf("const mapCornerSlot");
     expect(
       marker,
-      "expected the `Legends (bottom of map)` comment in PropSphere.tsx",
+      "expected the `mapCornerSlot` rows in PropSphere.tsx",
     ).toBeGreaterThan(-1);
     const divStart = page.indexOf("<div", marker);
     expect(divStart).toBeGreaterThan(marker);
-    // The column wrapper takes no z-index at all, so its children resolve on
+    // The group wrapper takes no z-index at all, so its children resolve on
     // the MAP_PAGE_CHROME_Z scale directly; the legends themselves must be on
     // the legend tier, below the portal the inspector renders into.
     const column = openTagAt(divStart);
@@ -361,7 +364,7 @@ describe("PropSphere page chrome sits on MAP_PAGE_CHROME_Z (#930)", () => {
     ).split(/\s+/);
     expect(
       columnClasses.filter((c) => /^z-/.test(c)),
-      "the legend column must not carry its own z-* class: it would become a stacking context and trap the size sliders below the overlay portal",
+      "the legend rows must not carry their own z-* class: a z-* class would make a stacking context and trap the group below the overlay portal",
     ).toEqual([]);
     const legendGroup = page.indexOf("MAP_PAGE_CHROME_Z.legend", divStart);
     expect(
@@ -750,7 +753,11 @@ describe("map chrome components declare a tier (#930, round 4)", () => {
     // Non-vacuity: the walk must actually find the components this round fixed.
     expect(modules.length).toBeGreaterThan(100);
     const files = new Set(roots.map((root) => root.file));
-    expect(files).toContain("src/components/map/MapSizeSliders.tsx");
+    // `MapSizeSliders` was this suite's other anchor until round 7 took its
+    // self-anchor away (the map view's corner column positions it now), so
+    // the walk is pinned to the two components that still position
+    // themselves on the map surface.
+    expect(files).toContain("src/components/map/MiniMapNavigator.tsx");
     expect(files).toContain("src/components/map/OptimalBandsPanel.tsx");
   });
 
@@ -908,5 +915,207 @@ describe("wrappers take the tier of the component they wrap (#930, round 5)", ()
           `${w.host}:${w.line} z=${w.level} wraps ${w.operable.join(", ")}, which ${w.operable.length === 1 ? "takes" : "take"} input -- the whole wrapper belongs on interactiveChrome (${MAP_PAGE_CHROME_Z.interactiveChrome}): ${w.tag}`,
       );
     expect(violations, violations.join("\n")).toEqual([]);
+  });
+});
+
+/**
+ * Raising a control must not bury the chrome beside it (#930, round 6).
+ *
+ * `MapSizeSliders` defaults to `absolute bottom-3 left-3`, and three map
+ * views plus two hosts put passive chrome in that exact corner: the
+ * flat map's bearing/distance readout, the azimuthal legend, HamClock's
+ * contacts key and AtmosPulse's `WeatherLegend`. While everything there was
+ * `z-10` the later sibling won; once the control moved to
+ * `interactiveChrome` it started covering all four.
+ *
+ * The fix is structural, not another tier: each of those corners is now one
+ * flex column holding the readout above `<MapSizeSliders />`, so the
+ * two can never overlap whatever their z-index. This guard fails if a file
+ * puts something back on the shared control's anchor without either owning
+ * the column or hiding the control.
+ */
+describe("nothing shares the size control's corner (#930, round 6)", () => {
+  const CORNER_FILES = [
+    "src/components/map/GlobeView.tsx",
+    "src/components/map/FlatMapView.tsx",
+    "src/components/map/AzimuthalView.tsx",
+    "src/pages/PropSphere.tsx",
+    "src/components/map/FullscreenPropSphere.tsx",
+    "src/components/map/HamClockView.tsx",
+    "src/components/mobile/MobileMap.tsx",
+    "src/components/atmos/AtmosGlobeView.tsx",
+  ];
+
+  /** The corner the size control is placed in, by the column that owns it. */
+  const SLIDER_ANCHOR = "absolute bottom-3 left-3";
+
+  it("keeps the control out of the positioning business entirely", () => {
+    // Round 7: the control no longer anchors itself at all, so it cannot
+    // reappear in a corner some other file already owns.
+    const src = readSrc("src/components/map/MapSizeSliders.tsx");
+    expect(src).not.toContain(SLIDER_ANCHOR);
+    expect(src).not.toMatch(/className=[^\n]*\babsolute\b/);
+  });
+
+  it("leaves that anchor to the control or to a column that holds it", () => {
+    const violations: string[] = [];
+    for (const file of CORNER_FILES) {
+      const src = readSrc(file);
+      for (const match of src.matchAll(/absolute bottom-3 left-3/g)) {
+        const line = src.slice(0, match.index).split("\n").length;
+        const tag = src.slice(
+          src.lastIndexOf("<", match.index),
+          match.index + 400,
+        );
+        const isColumn = /flex flex-col/.test(tag);
+        if (!isColumn) {
+          violations.push(
+            `${file}:${line} sits on the size control's corner (${SLIDER_ANCHOR}) without stacking it in a column`,
+          );
+        }
+      }
+    }
+    expect(violations, violations.join("\n")).toEqual([]);
+  });
+
+  it("stacks the flat map's bearing readout above the control", () => {
+    const src = readSrc("src/components/map/FlatMapView.tsx");
+    // The readout no longer anchors itself to the corner ...
+    expect(src).not.toContain('className="absolute bottom-3 left-3 z-10');
+    // ... it is a legend-tier row in the corner column, and the control is
+    // the row below it.
+    const column = src.indexOf(
+      'className="pointer-events-none absolute bottom-3 left-3 right-3 flex flex-col',
+    );
+    expect(column).toBeGreaterThan(-1);
+    const body = src.slice(column, column + 1600);
+    expect(body).toContain("MAP_PAGE_CHROME_Z.legend");
+    expect(body).toContain("hoverBearingDistance");
+    expect(body).toContain("<MapSizeSliders />");
+    expect(body.indexOf("hoverBearingDistance")).toBeLessThan(
+      body.indexOf("<MapSizeSliders />"),
+    );
+  });
+});
+
+/**
+ * One owner per corner, across the component boundary (#930, round 7).
+ *
+ * Round 6 fixed the corners a single file could see. It could not see the
+ * cross-component case: a host mounted its own `<MapSizeSliders />`
+ * column in the bottom-left corner and passed `hideSizeSliders` to the view
+ * below it, but the view kept rendering its own passive row in that same
+ * corner. The host's control sits on `interactiveChrome` and the view's row
+ * on `legend`, so the control painted over a row it does not even know
+ * exists -- no per-file scan can catch that, because neither file is wrong
+ * on its own.
+ *
+ * The rule is ownership, not tiers: the map view owns its bottom-left
+ * corner and renders the one column there; a host that wants a row in that
+ * corner passes it down as `cornerSlot`. So the guard is:
+ *
+ *   - a host that mounts a map view may not anchor anything in that corner,
+ *     and may not mount the size control itself;
+ *   - each view has exactly one bottom-left column, and it renders
+ *     `cornerSlot` above its own row above the control;
+ *   - `hideSizeSliders` is gone -- an opt-out flag is what let two owners
+ *     coexist.
+ */
+describe("one owner per bottom-left corner (#930, round 7)", () => {
+  const VIEW_FILES = [
+    "src/components/map/GlobeView.tsx",
+    "src/components/map/FlatMapView.tsx",
+    "src/components/map/AzimuthalView.tsx",
+  ];
+  const HOST_FILES = [
+    "src/pages/PropSphere.tsx",
+    "src/components/map/FullscreenPropSphere.tsx",
+    "src/components/map/HamClockView.tsx",
+    "src/components/mobile/MobileMap.tsx",
+    "src/components/atmos/AtmosGlobeView.tsx",
+  ];
+  /** Tailwind spacing close enough to the corner to overlap the column. */
+  const CORNER =
+    /absolute[^"`]*\bbottom-[0-4]\b[^"`]*\bleft-[0-4](?![\d/])[^"`]*/g;
+  /** A full-bleed bottom strip is a bar, not a row in the corner column. */
+  const FULL_BLEED = /\bleft-0\b[^"`]*\bright-0\b/;
+
+  const viewNames = VIEW_FILES.map((f) =>
+    f
+      .split("/")
+      .pop()!
+      .replace(/\.tsx$/, ""),
+  );
+
+  /** Hosts that actually mount one of the three views, derived not listed. */
+  const mountingHosts = HOST_FILES.filter((file) => {
+    const src = readSrc(file);
+    return viewNames.some((name) => src.includes(`<${name}`));
+  });
+
+  it("finds the hosts that mount a map view", () => {
+    // Non-vacuity: if the mounts move, the census below stops meaning
+    // anything, so fail loudly rather than pass on an empty list.
+    expect(mountingHosts).toEqual(HOST_FILES);
+  });
+
+  it("leaves the corner to the view that owns it", () => {
+    const violations: string[] = [];
+    for (const file of mountingHosts) {
+      const src = readSrc(file);
+      for (const match of src.matchAll(CORNER)) {
+        if (FULL_BLEED.test(match[0])) continue;
+        const line = src.slice(0, match.index).split("\n").length;
+        violations.push(
+          `${file}:${line} anchors "${match[0]}" in the map view's corner -- the view owns that column; pass the row down as cornerSlot`,
+        );
+      }
+      if (/<MapSizeSliders\b/.test(src)) {
+        violations.push(
+          `${file} mounts MapSizeSliders itself -- the view already renders one in its corner column`,
+        );
+      }
+    }
+    expect(violations, violations.join("\n")).toEqual([]);
+  });
+
+  it("gives each view one column holding the slot, its row and the control", () => {
+    const violations: string[] = [];
+    for (const file of VIEW_FILES) {
+      const src = readSrc(file);
+      const anchors = [...src.matchAll(CORNER)].filter(
+        (m) => !FULL_BLEED.test(m[0]),
+      );
+      if (anchors.length !== 1) {
+        violations.push(
+          `${file} has ${anchors.length} bottom-left anchors; the corner takes exactly one column`,
+        );
+        continue;
+      }
+      const start = anchors[0].index!;
+      const body = src.slice(start, start + 2000);
+      if (!/flex flex-col/.test(body.slice(0, 200))) {
+        violations.push(`${file} anchors the corner without a flex column`);
+      }
+      const slot = body.indexOf("{cornerSlot}");
+      const control = body.indexOf("<MapSizeSliders />");
+      if (slot < 0) violations.push(`${file} column never renders cornerSlot`);
+      if (control < 0) {
+        violations.push(`${file} column never renders the size control`);
+      }
+      if (slot > -1 && control > -1 && slot > control) {
+        violations.push(
+          `${file} renders cornerSlot below the control; host rows read above it`,
+        );
+      }
+    }
+    expect(violations, violations.join("\n")).toEqual([]);
+  });
+
+  it("keeps no opt-out flag that would let a host own the corner too", () => {
+    const offenders = [...VIEW_FILES, ...HOST_FILES].filter((file) =>
+      readSrc(file).includes("hideSizeSliders"),
+    );
+    expect(offenders, offenders.join("\n")).toEqual([]);
   });
 });

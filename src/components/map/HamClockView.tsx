@@ -451,6 +451,20 @@ export function HamClockView({
     [onLocationClick],
   );
 
+  // The map view owns the bottom-left corner and stacks this row above its
+  // size control, so HamClock contributes the row instead of mounting a
+  // second control in the same spot (#930).
+  const cornerSlot =
+    (hamclockMode === "traffic" || hamclockMode === "bands") &&
+    mapContent !== "activity" ? (
+      <div
+        className="relative rounded bg-void-black/85 px-2 py-1 text-xs text-su-text"
+        style={{ zIndex: MAP_PAGE_CHROME_Z.legend }}
+      >
+        ○ Logged contacts · UTC {mapContent === "both" && " · • Live activity"}
+      </div>
+    ) : null;
+
   const mapStage = (
     <main
       data-map-stack-root
@@ -498,6 +512,7 @@ export function HamClockView({
             displayTime={displayTime}
             onLocationClick={handleMapClick}
             fillContainer
+            cornerSlot={cornerSlot}
             isWallCanvas={isWallCanvas}
           />
         )}
@@ -505,6 +520,7 @@ export function HamClockView({
           <AzimuthalView
             displayTime={displayTime}
             onLocationClick={handleMapClick}
+            cornerSlot={cornerSlot}
             isWallCanvas={isWallCanvas}
           />
         )}
@@ -512,18 +528,12 @@ export function HamClockView({
           <GlobeView
             displayTime={displayTime}
             onLocationClick={handleMapClick}
+            cornerSlot={cornerSlot}
             isWallCanvas={isWallCanvas}
           />
         )}
       </Suspense>
 
-      {(hamclockMode === "traffic" || hamclockMode === "bands") &&
-        mapContent !== "activity" && (
-          <div className="absolute bottom-3 left-3 rounded bg-void-black/85 px-2 py-1 text-xs text-su-text pointer-events-none">
-            ○ Logged contacts · UTC{" "}
-            {mapContent === "both" && " · • Live activity"}
-          </div>
-        )}
       <div
         className="absolute bottom-3 left-1/2 -translate-x-1/2 pointer-events-auto"
         style={{ zIndex: MAP_PAGE_CHROME_Z.interactiveChrome }}

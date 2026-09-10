@@ -262,7 +262,7 @@ describe("SpotLabel visible-face opacity floor (#851)", () => {
     );
     // combinedOpacity = 1 * 0 = 0, below the 0.05 hide threshold: the floor
     // must not resurrect a label that's behind the globe.
-    const overlay = screen.getByTestId("html-overlay");
+    const overlay = screen.getByTestId("spot-label-wrapper");
     expect(overlay.style.opacity).toBe("0");
     expect(overlay.style.pointerEvents).toBe("none");
     expect(
@@ -291,7 +291,7 @@ describe("SpotLabel pop-in fade ramp (#851)", () => {
         occlusionOpacity={0.05}
       />,
     );
-    const overlay = screen.getByTestId("html-overlay");
+    const overlay = screen.getByTestId("spot-label-wrapper");
     expect(Number(overlay.style.opacity)).toBeCloseTo(0, 5);
   });
 
@@ -305,7 +305,7 @@ describe("SpotLabel pop-in fade ramp (#851)", () => {
         occlusionOpacity={0.15}
       />,
     );
-    const overlay = screen.getByTestId("html-overlay");
+    const overlay = screen.getByTestId("spot-label-wrapper");
     expect(Number(overlay.style.opacity)).toBeCloseTo(0.5, 5);
   });
 
@@ -319,7 +319,7 @@ describe("SpotLabel pop-in fade ramp (#851)", () => {
         occlusionOpacity={0.25}
       />,
     );
-    const overlay = screen.getByTestId("html-overlay");
+    const overlay = screen.getByTestId("spot-label-wrapper");
     expect(Number(overlay.style.opacity)).toBeCloseTo(1, 5);
   });
 
@@ -333,7 +333,7 @@ describe("SpotLabel pop-in fade ramp (#851)", () => {
         occlusionOpacity={1}
       />,
     );
-    const overlay = screen.getByTestId("html-overlay");
+    const overlay = screen.getByTestId("spot-label-wrapper");
     expect(Number(overlay.style.opacity)).toBeCloseTo(1, 5);
   });
 
@@ -352,7 +352,7 @@ describe("SpotLabel pop-in fade ramp (#851)", () => {
         occlusionOpacity={1}
       />,
     );
-    const overlay = screen.getByTestId("html-overlay");
+    const overlay = screen.getByTestId("spot-label-wrapper");
     expect(Number(overlay.style.opacity)).toBeCloseTo(1, 5);
   });
 
@@ -369,7 +369,7 @@ describe("SpotLabel pop-in fade ramp (#851)", () => {
         occlusionOpacity={0.15}
       />,
     );
-    const overlay = screen.getByTestId("html-overlay");
+    const overlay = screen.getByTestId("spot-label-wrapper");
     const value = Number(overlay.style.opacity);
     expect(value).toBeGreaterThan(0);
     expect(value).toBeLessThan(1);
@@ -396,7 +396,7 @@ describe("SpotLabel pop-in fade ramp (#851)", () => {
           occlusionOpacity={occlusionOpacity}
         />,
       );
-      const overlay = screen.getByTestId("html-overlay");
+      const overlay = screen.getByTestId("spot-label-wrapper");
       const value = Number(overlay.style.opacity);
       unmount();
       return value;
@@ -439,7 +439,7 @@ describe("SpotLabel pointer hit-testing threshold (#851, round 7)", () => {
           onSelect={vi.fn()}
         />,
       );
-      const overlay = screen.getByTestId("html-overlay");
+      const overlay = screen.getByTestId("spot-label-wrapper");
       const wrapperOpacity = Number(overlay.style.opacity);
       if (occlusionOpacity >= FADE_IN_END) {
         expect(wrapperOpacity).toBeCloseTo(1, 5);
@@ -464,12 +464,170 @@ describe("SpotLabel pointer hit-testing threshold (#851, round 7)", () => {
         onSelect={vi.fn()}
       />,
     );
-    const overlay = screen.getByTestId("html-overlay");
+    const overlay = screen.getByTestId("spot-label-wrapper");
     // isVisible is true here (occlusionOpacity >= HIDE_THRESHOLD), so the
     // label mounts and is present -- but wrapperOpacity is exactly 0 and
     // pointerEvents must be "none": this is precisely the mismatch window
     // the fix closes.
     expect(Number(overlay.style.opacity)).toBeCloseTo(0, 5);
     expect(overlay.style.pointerEvents).toBe("none");
+  });
+});
+
+describe("SpotLabel pointer/keyboard readiness waits for the fade transition (#851, round 8)", () => {
+  // Round 7 closed the gap between isVisible (HIDE_THRESHOLD) and
+  // receivesPointer (POINTER_ENABLE_THRESHOLD). Codex found a residual gap:
+  // receivesPointer flips true the instant occlusionOpacity crosses
+  // POINTER_ENABLE_THRESHOLD, in the SAME render the wrapper's *target*
+  // opacity becomes 1 -- but the wrapper has `opacity 0.3s ease`, so its
+  // *rendered* opacity can stay below 1 (starting at 0) for up to 300ms
+  // after that. `pointerReady` (gated on the wrapper's own `onTransitionEnd`)
+  // closes that: these tests drive it with `fireEvent.transitionEnd`, since
+  // jsdom has no real CSS transition engine to fire it on a timer.
+
+  it("thread 1: keeps pointerEvents 'none' through the transition, then 'auto' once it ends", () => {
+    const { rerender } = render(
+      <SpotLabel
+        lat={35.5}
+        lon={-97.5}
+        callsign="K5ABC"
+        opacity={1}
+        occlusionOpacity={0.1}
+        onSelect={vi.fn()}
+      />,
+    );
+    expect(screen.getByTestId("spot-label-wrapper").style.pointerEvents).toBe(
+      "none",
+    );
+
+    rerender(
+      <SpotLabel
+        lat={35.5}
+        lon={-97.5}
+        callsign="K5ABC"
+        opacity={1}
+        occlusionOpacity={1}
+        onSelect={vi.fn()}
+      />,
+    );
+    // receivesPointer just flipped true (occlusionOpacity=1 >=
+    // POINTER_ENABLE_THRESHOLD), but the opacity transition hasn't fired
+    // its end event yet -- pointerReady must not have caught up.
+    let overlay = screen.getByTestId("spot-label-wrapper");
+    expect(overlay.style.pointerEvents).toBe("none");
+
+    fireEvent.transitionEnd(overlay, { propertyName: "opacity" });
+    overlay = screen.getByTestId("spot-label-wrapper");
+    expect(overlay.style.pointerEvents).toBe("auto");
+  });
+
+  it("thread 1: resets pointerEvents to 'none' immediately when receivesPointer goes false again, with no transition wait", () => {
+    const { rerender } = render(
+      <SpotLabel
+        lat={35.5}
+        lon={-97.5}
+        callsign="K5ABC"
+        opacity={1}
+        occlusionOpacity={1}
+        onSelect={vi.fn()}
+      />,
+    );
+    // Mounts already fully visible: no fade-in transition to wait for.
+    expect(screen.getByTestId("spot-label-wrapper").style.pointerEvents).toBe(
+      "auto",
+    );
+
+    rerender(
+      <SpotLabel
+        lat={35.5}
+        lon={-97.5}
+        callsign="K5ABC"
+        opacity={1}
+        occlusionOpacity={0.1}
+        onSelect={vi.fn()}
+      />,
+    );
+    expect(screen.getByTestId("spot-label-wrapper").style.pointerEvents).toBe(
+      "none",
+    );
+  });
+
+  it("thread 1: a transitionend for an unrelated property does not flip pointerReady early", () => {
+    const { rerender } = render(
+      <SpotLabel
+        lat={35.5}
+        lon={-97.5}
+        callsign="K5ABC"
+        opacity={1}
+        occlusionOpacity={0.1}
+        onSelect={vi.fn()}
+      />,
+    );
+    rerender(
+      <SpotLabel
+        lat={35.5}
+        lon={-97.5}
+        callsign="K5ABC"
+        opacity={1}
+        occlusionOpacity={1}
+        onSelect={vi.fn()}
+      />,
+    );
+    const overlay = screen.getByTestId("spot-label-wrapper");
+    fireEvent.transitionEnd(overlay, { propertyName: "transform" });
+    expect(overlay.style.pointerEvents).toBe("none");
+  });
+
+  it("thread 2: withholds the focusable button while below POINTER_ENABLE_THRESHOLD, even though isVisible", () => {
+    render(
+      <SpotLabel
+        lat={35.5}
+        lon={-97.5}
+        callsign="K5ABC"
+        opacity={1}
+        occlusionOpacity={0.15}
+        onSelect={vi.fn()}
+      />,
+    );
+    // isVisible (HIDE_THRESHOLD=0.05) is true here -- the wrapper is
+    // ramping in -- but the button must not exist/be tabbable yet.
+    expect(
+      screen.queryByRole("button", { name: "Select K5ABC as target" }),
+    ).toBeNull();
+    const overlay = screen.getByTestId("spot-label-wrapper");
+    expect(Number(overlay.style.opacity)).toBeGreaterThan(0);
+  });
+
+  it("thread 2: still withholds the button mid-transition, then renders it once the transition ends", () => {
+    const { rerender } = render(
+      <SpotLabel
+        lat={35.5}
+        lon={-97.5}
+        callsign="K5ABC"
+        opacity={1}
+        occlusionOpacity={0.1}
+        onSelect={vi.fn()}
+      />,
+    );
+    rerender(
+      <SpotLabel
+        lat={35.5}
+        lon={-97.5}
+        callsign="K5ABC"
+        opacity={1}
+        occlusionOpacity={1}
+        onSelect={vi.fn()}
+      />,
+    );
+    expect(
+      screen.queryByRole("button", { name: "Select K5ABC as target" }),
+    ).toBeNull();
+
+    fireEvent.transitionEnd(screen.getByTestId("spot-label-wrapper"), {
+      propertyName: "opacity",
+    });
+    expect(
+      screen.getByRole("button", { name: "Select K5ABC as target" }),
+    ).not.toBeNull();
   });
 });

@@ -39,18 +39,20 @@ const HIDE_THRESHOLD = 0.05;
 /** Combined opacity at/above which the wrapper fade-in reaches full opacity. */
 const FADE_IN_END = 0.25;
 /**
- * Occlusion opacity at/above which mouse/pointer hit-testing turns on
- * (`receivesPointer`). Deliberately NOT the same threshold as `isVisible`
- * (`HIDE_THRESHOLD`): at `occlusionOpacity === HIDE_THRESHOLD`, `isVisible`
- * is already true but `wrapperOpacity` is still exactly 0 -- CSS `opacity`
- * does not remove hit testing, so a label in that window is invisible yet
- * still clickable/draggable, letting it intercept globe interaction the
- * user is aiming at what's underneath. Reusing `FADE_IN_END` (rather than a
- * separate named constant) closes that window completely: pointer events
- * enable exactly when the wrapper reaches full paint opacity
- * (`wrapperOpacity === 1`), so there is never a frame -- including mid-way
- * through the 0.3s opacity transition -- where the label is receiving
- * pointer events while still partially or fully transparent.
+ * Occlusion opacity at/above which the *target* for mouse/pointer
+ * hit-testing (`receivesPointer`) turns on. Deliberately NOT the same
+ * threshold as `isVisible` (`HIDE_THRESHOLD`): at `occlusionOpacity ===
+ * HIDE_THRESHOLD`, `isVisible` is already true but `wrapperOpacity` is
+ * still exactly 0 -- CSS `opacity` does not remove hit testing, so a label
+ * in that window would be invisible yet still clickable/draggable, letting
+ * it intercept globe interaction the user is aiming at what's underneath.
+ * Reusing `FADE_IN_END` (rather than a separate constant) means this
+ * threshold lines up with the exact occlusion value where `wrapperOpacity`
+ * reaches 1. That alone isn't sufficient, though: the wrapper also has a
+ * `opacity 0.3s ease` CSS transition, so the *computed* opacity can stay
+ * below 1 for up to 300ms after `receivesPointer` flips true. See
+ * `pointerReady`'s doc comment (in the component body) for how that
+ * residual gap is closed.
  */
 const POINTER_ENABLE_THRESHOLD = FADE_IN_END;
 
@@ -220,12 +222,8 @@ export function SpotLabel({
   // ramp is already saturated at 1 the instant visibility flips on, and the
   // wrapper pops straight from 0 to a fully-drawn tag instead of fading in.
   const isVisible = occlusionOpacity >= HIDE_THRESHOLD;
-  const isInteractive = Boolean(onSelect || onClick) && isVisible;
   // Gated on POINTER_ENABLE_THRESHOLD, not isVisible/HIDE_THRESHOLD -- see
-  // that constant's doc comment. isInteractive above still governs whether
-  // a <button> (vs. inert <span>) renders and is keyboard-focusable; this
-  // only controls the wrapper's CSS `pointerEvents`, i.e. whether the mouse
-  // can hit-test the label at all.
+  // that constant's doc comment.
   const receivesPointer =
     Boolean(onHover || onHoverEnd || onSelect || onClick) &&
     occlusionOpacity >= POINTER_ENABLE_THRESHOLD;
@@ -248,6 +246,45 @@ export function SpotLabel({
         ),
       )
     : 0;
+
+  // `receivesPointer` flips true the instant occlusionOpacity crosses
+  // POINTER_ENABLE_THRESHOLD, but the wrapper's own `opacity 0.3s ease`
+  // transition (below) means the *rendered* opacity can still be mid-fade
+  // -- possibly starting at 0 -- for up to 300ms after that. CSS opacity
+  // never removes hit testing on its own, so without this, a still-fading
+  // (or still-fully-transparent) label could intercept globe clicks/drags
+  // for that entire window (#851, round 8). `pointerReady` closes it: it
+  // only flips true once the wrapper's own opacity transition actually
+  // finishes (`onTransitionEnd`, filtered to `propertyName === "opacity"`
+  // and to events targeting the wrapper itself, not a bubbled child
+  // transition), and flips false immediately -- no transition wait -- the
+  // instant `receivesPointer` goes false, so hiding is never delayed.
+  // Initialised from `receivesPointer` at mount: a label that mounts
+  // already fully visible has no fade-in transition to wait for.
+  const [pointerReady, setPointerReady] = useState(receivesPointer);
+  const receivesPointerRef = useRef(receivesPointer);
+  receivesPointerRef.current = receivesPointer;
+  useEffect(() => {
+    if (!receivesPointer) {
+      setPointerReady(false);
+    }
+  }, [receivesPointer]);
+  const handleWrapperTransitionEnd = useCallback(
+    (event: React.TransitionEvent<HTMLDivElement>) => {
+      if (event.target !== event.currentTarget) return;
+      if (event.propertyName !== "opacity") return;
+      if (receivesPointerRef.current) {
+        setPointerReady(true);
+      }
+    },
+    [],
+  );
+  // Single combined gate for both mouse hit-testing (`pointerEvents`) and
+  // keyboard reachability (rendering a `<button>` vs. an inert `<span>`):
+  // a label that isn't fully faded in yet must be neither clickable nor
+  // tab-focusable, even though `isVisible` (HIDE_THRESHOLD) already true.
+  const interactionReady = receivesPointer && pointerReady;
+  const isInteractive = Boolean(onSelect || onClick) && interactionReady;
 
   // Size classes - sized for legibility (target audience 50-70 age range)
   const sizeClasses =
@@ -373,7 +410,7 @@ export function SpotLabel({
   const flooredOcclusion = Math.max(occlusionOpacity, TEXT_OCCLUSION_FLOOR);
   const textOpacity = flooredOcclusion * opacity;
   const labelStyle: React.CSSProperties = {
-    cursor: isInteractive ? "pointer" : receivesPointer ? "default" : "inherit",
+    cursor: isInteractive ? "pointer" : interactionReady ? "default" : "inherit",
     color:
       isHovered || selected
         ? "rgba(255, 255, 255, 1)"
@@ -441,55 +478,70 @@ export function SpotLabel({
           ? GLOBE_DOM_LAYER_ORDER.pinLabel
           : GLOBE_DOM_LAYER_ORDER.passiveSpotLabel
       }
-      style={{
-        // Hidden far-side labels must not remain hoverable or clickable through
-        // the globe. Visible labels still accept hover even without onClick.
-        pointerEvents: receivesPointer ? "auto" : "none",
-        userSelect: "none",
-        transition: "opacity 0.3s ease",
-        transform: wrapperTransform || undefined,
-        transformOrigin: "center bottom",
-        // Outer wrapper ramps in across the last band of combined opacity
-        // and only fully hides once occluded past HIDE_THRESHOLD.
-        opacity: wrapperOpacity,
-      }}
     >
-      {isInteractive ? (
-        <button
-          type="button"
-          className={`appearance-none border-0 font-mono font-bold whitespace-nowrap ${sizeClasses}`}
-          onMouseEnter={handleMouseEnter}
-          onMouseLeave={handleMouseLeave}
-          onFocus={handleFocus}
-          onBlur={handleBlur}
-          onPointerDown={stopInteraction}
-          onPointerUp={stopInteraction}
-          onTouchStart={stopInteraction}
-          onTouchEnd={stopInteraction}
-          onClick={handleClick}
-          onDoubleClick={handleDoubleClick}
-          onKeyDown={handleKeyDown}
-          onKeyUp={stopInteraction}
-          aria-label={
-            ariaLabel ??
-            (onSelect ? `Select ${callsign} as target` : `${callsign} spot`)
-          }
-          aria-pressed={onSelect ? selected : undefined}
-          style={labelStyle}
-        >
-          {labelContent}
-        </button>
-      ) : (
-        <span
-          className={`block font-mono font-bold whitespace-nowrap ${sizeClasses}`}
-          onMouseEnter={receivesPointer ? handleMouseEnter : undefined}
-          onMouseLeave={receivesPointer ? handleMouseLeave : undefined}
-          aria-hidden="true"
-          style={labelStyle}
-        >
-          {labelContent}
-        </span>
-      )}
+      {/*
+        drei's Html overlay component only forwards style/className/children
+        to the DOM node it owns, not arbitrary event handlers -- so the
+        opacity ramp and its onTransitionEnd listener (needed for
+        `pointerReady` above) have to live on a real element this component
+        renders itself, not on that overlay's own wrapper. This div is that
+        element; it owns exactly the styles the wrapper's style prop used to
+        carry before this change.
+      */}
+      <div
+        data-testid="spot-label-wrapper"
+        onTransitionEnd={handleWrapperTransitionEnd}
+        style={{
+          // Hidden far-side labels must not remain hoverable or clickable
+          // through the globe. `interactionReady`, not `receivesPointer`
+          // alone -- see `pointerReady`'s doc comment above.
+          pointerEvents: interactionReady ? "auto" : "none",
+          userSelect: "none",
+          transition: "opacity 0.3s ease",
+          transform: wrapperTransform || undefined,
+          transformOrigin: "center bottom",
+          // Ramps in across the last band of OCCLUSION opacity and only
+          // fully hides once occluded past HIDE_THRESHOLD.
+          opacity: wrapperOpacity,
+        }}
+      >
+        {isInteractive ? (
+          <button
+            type="button"
+            className={`appearance-none border-0 font-mono font-bold whitespace-nowrap ${sizeClasses}`}
+            onMouseEnter={handleMouseEnter}
+            onMouseLeave={handleMouseLeave}
+            onFocus={handleFocus}
+            onBlur={handleBlur}
+            onPointerDown={stopInteraction}
+            onPointerUp={stopInteraction}
+            onTouchStart={stopInteraction}
+            onTouchEnd={stopInteraction}
+            onClick={handleClick}
+            onDoubleClick={handleDoubleClick}
+            onKeyDown={handleKeyDown}
+            onKeyUp={stopInteraction}
+            aria-label={
+              ariaLabel ??
+              (onSelect ? `Select ${callsign} as target` : `${callsign} spot`)
+            }
+            aria-pressed={onSelect ? selected : undefined}
+            style={labelStyle}
+          >
+            {labelContent}
+          </button>
+        ) : (
+          <span
+            className={`block font-mono font-bold whitespace-nowrap ${sizeClasses}`}
+            onMouseEnter={interactionReady ? handleMouseEnter : undefined}
+            onMouseLeave={interactionReady ? handleMouseLeave : undefined}
+            aria-hidden="true"
+            style={labelStyle}
+          >
+            {labelContent}
+          </span>
+        )}
+      </div>
     </Html>
   );
 }

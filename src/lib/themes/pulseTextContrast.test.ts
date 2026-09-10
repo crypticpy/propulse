@@ -676,6 +676,12 @@ function stripBalancedExpressions(text: string): {
  * element). */
 function isTextBearingChildren(children: string | null): boolean {
   if (!children) return false;
+  // A value-bearing form control anywhere under this element renders its
+  // value or placeholder as text that this element's pulse fades, whether
+  // it sits directly in the children or inside a mapping's emitted JSX; the
+  // control itself carries no pulse class for the scan to find (Codex,
+  // PR #874 round 10).
+  if (VALUE_BEARING_CONTROL.test(children)) return true;
   const withoutTags = children.replace(/<[^>]*>/g, "");
   if (/\S/.test(stripBalancedExpressions(withoutTags).withoutExpr)) return true;
   // Classify the `{…}` blocks on the raw children (tags intact) so a mapping
@@ -698,6 +704,9 @@ function isTextBearingChildren(children: string | null): boolean {
  * on the control fades it even though the element has no children
  * (Codex, PR #874 round 8). */
 const FORM_VALUE_TAGS = new Set(["input", "textarea"]);
+const VALUE_BEARING_CONTROL = new RegExp(
+  `<(${[...FORM_VALUE_TAGS].join("|")})\\b[^>]*\\b(value|defaultValue|placeholder)=`,
+);
 function isValueBearingControl(site: ClassNameSite): boolean {
   return (
     site.tag !== null &&
@@ -970,6 +979,21 @@ describe("scanSourceForViolations catches every spelling (fixture proofs, #878)"
     }
     expect(
       scanSourceForViolations('<input type="checkbox" className="animate-pulse" checked={armed} />'),
+    ).toEqual([]);
+  });
+
+  it("catches a value-bearing control under a pulsing parent, direct or mapped", () => {
+    for (const fixture of [
+      '<div className="animate-pulse">{items.map((item) => <input key={item.id} value={item.label} readOnly />)}</div>',
+      '<div className="animate-pulse">{fields.map((f) => <textarea key={f.id} placeholder={f.hint} />)}</div>',
+      '<label className="flex gap-2 animate-pulse"><input value={status} readOnly /></label>',
+    ]) {
+      expect(scanSourceForViolations(fixture), fixture).not.toEqual([]);
+    }
+    expect(
+      scanSourceForViolations(
+        '<div className="animate-pulse">{items.map((item) => <input key={item.id} type="checkbox" checked={item.on} />)}</div>',
+      ),
     ).toEqual([]);
   });
 

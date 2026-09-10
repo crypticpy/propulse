@@ -236,9 +236,11 @@ and the two trend windows. Nothing a user clicks can talk a band into looking op
 
 ### Honest provenance
 
-Every data-bearing widget carries its own provenance: the source's observation time
-(`observedAt`) kept distinct from our fetch time (`fetchedAt`), provider attribution, and
-explicit **stale**, **partial** and **unavailable** states. When a source is down, the
+The provenance standard every data-bearing widget is held to: the source's observation
+time (`observedAt`) kept distinct from our fetch time (`fetchedAt`), provider attribution,
+and explicit **stale**, **partial** and **unavailable** states. Most panels meet it; the
+ones that do not yet are tracked as defects (for example the band activity tile, which
+carries only a fetch time and keeps showing its last good counts if a refresh fails). When a source is down, the
 panel says so, and a stale number is never dressed in a fresh timestamp. The rule that a
 missing value renders as missing rather than as a zero is the standard every panel is
 held to; a few NOAA scale renderers still show an absent scale as level 0 and are tracked

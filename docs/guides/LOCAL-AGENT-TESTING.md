@@ -32,8 +32,36 @@ that hands you a URL is the only authorization to use a server session.
 
 `npm run dev:session -- start` itself refuses when any dev server — managed by
 this tool or not — is already listening on this machine, and always binds
-port 5173 (`DEV_SERVER_ALLOW_EXTRA=1` is an owner-only escape hatch for a
-second port; agents must not set it).
+port 5173. A plain `npm run dev` runs the same refusal first, via its
+`predev` script (`npm run dev:session -- guard`), so it fails the same way
+before Vite even starts.
+
+`DEV_SERVER_ALLOW_EXTRA=1` **moves** the one shared server to a different
+port (owner-only escape hatch, for example when 5173 is occupied by something
+outside ProPulse). It never permits a second, simultaneous server — the rule
+stays "exactly one dev server per machine," just not necessarily on 5173.
+Agents must not set it.
+
+### Recovering from a stuck or stale claim
+
+`npm run dev:session -- start` auto-recovers a claim file whose owning
+process has actually died (a crashed or `kill -9`'d session): it detects the
+dead pid, removes that one registry file, and retries once. You do not need
+to intervene for that case.
+
+If `start` still fails after the automatic retry, its error message names the
+exact registry file(s) it checked. Before touching anything:
+
+```sh
+npm run dev:session -- status          # lists every managed claim + its processState
+ps -p <pid-from-the-claim>             # confirm the owning process is actually gone
+```
+
+Only if the owning process is confirmed dead and the automatic retry still
+didn't clear it, delete that **exact** file yourself — never delete the whole
+registry directory, and never do this while another session might legitimately
+be starting up (a claim file mid-write is expected to look "stale" for a
+moment). The registry directory itself is printed by `status`.
 
 ## One server, many worktrees
 
@@ -168,14 +196,25 @@ different workflow. Use a new context for first-visit coverage.
 
 ## Browser test runner
 
-The SolarPulse Playwright configuration (`playwright.config.ts`) defaults to
-the shared server at port 5173 and reuses it if it is already running
-(`reuseExistingServer: true`). It only starts its own server when nothing is
-listening at that origin — do not pre-start one for it.
+Both Playwright configurations (`playwright.config.ts` for SolarPulse,
+`playwright.home.config.ts` for Home) default to the shared server at port
+5173 and never start one on their own: `webServer` is only defined when
+`PROPULSE_E2E_ALLOW_START=1` is explicitly set **and** the port is still 5173
+— that is an opt-in for a deliberate one-off, not routine agent use. A
+shared `globalSetup` (`tests/support/sharedServer.ts`) runs before every
+suite and fails fast if nothing is listening on the target port, or if the
+listener answers `/__propulse_dev_session` with a different worktree's root
+than this one (so a same-port server from another checkout can't silently
+serve stale/different source code to your test run).
 
 ```sh
 npm run test:solar:browser
+npm run test:home:browser
 ```
+
+If the shared server is not running, do not set `PROPULSE_E2E_ALLOW_START=1`
+yourself — report that in your findings and ask the human or orchestrator to
+start it, same as any other local check.
 
 An explicit `PROPULSE_E2E_PORT` overrides the target origin for a one-off
 check against a different, already-running server; it does not itself start

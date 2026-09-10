@@ -31,8 +31,8 @@ export const SINGLE_SERVER_RULE =
 
 export function parseOptions(args) {
   const [command = "status", ...rest] = args;
-  if (!["start", "status", "help"].includes(command)) {
-    throw new Error("Use start, status, or help.");
+  if (!["start", "status", "help", "guard"].includes(command)) {
+    throw new Error("Use start, status, guard, or help.");
   }
   const options = { command, profile: "connected" };
   for (let i = 0; i < rest.length; i += 2) {
@@ -79,7 +79,8 @@ export function parseOptions(args) {
     ) {
       throw new Error(
         `Only port ${SHARED_PORT} is allowed: ${SINGLE_SERVER_RULE} ` +
-          "Set DEV_SERVER_ALLOW_EXTRA=1 to use a different port (owner escape hatch only, not for agents).",
+          "DEV_SERVER_ALLOW_EXTRA=1 moves the single server to a different port " +
+          "(owner-only escape hatch); it never permits a second, simultaneous server.",
       );
     }
   }
@@ -119,6 +120,18 @@ export async function portAvailable(port) {
   return (await canBind(port, "127.0.0.1")) && (await canBind(port, "::1"));
 }
 
+// A claim file whose pid is confirmed dead is safe to reclaim automatically
+// (a crashed/SIGKILLed session, not a race with another process still
+// writing it). An unreadable/unparsable file is ambiguous — never touched.
+async function isStaleClaim(filename) {
+  try {
+    const record = JSON.parse(await readFile(filename, "utf8"));
+    return !isAlive(record.pid);
+  } catch {
+    return false;
+  }
+}
+
 export async function claimSession({
   owner,
   task,
@@ -128,14 +141,25 @@ export async function claimSession({
   registry = REGISTRY,
 }) {
   await mkdir(registry, { recursive: true, mode: 0o700 });
+  const attempted = [];
   for (const port of ports) {
     const filename = path.join(registry, `${port}.json`);
+    attempted.push(filename);
     let handle;
     try {
       handle = await open(filename, "wx", 0o600);
     } catch (error) {
-      if (error.code === "EEXIST") continue;
-      throw error;
+      if (error.code !== "EEXIST") throw error;
+      // Retry once: reclaim a dead-pid claim (crashed session), otherwise
+      // move on to the next requested port.
+      if (!(await isStaleClaim(filename))) continue;
+      await unlink(filename).catch(() => {});
+      try {
+        handle = await open(filename, "wx", 0o600);
+      } catch (retryError) {
+        if (retryError.code === "EEXIST") continue; // lost the race; move on
+        throw retryError;
+      }
     }
     const session = {
       id: randomUUID(),
@@ -163,7 +187,11 @@ export async function claimSession({
     }
   }
   throw new Error(
-    "No requested port is free and unclaimed. Run status; choose another port or coordinate with the owner. No server was stopped.",
+    `No requested port is free and unclaimed (checked: ${attempted.join(", ")}). ` +
+      "A dead-pid claim is reclaimed automatically; if this still fails, run " +
+      "status, confirm the owning pid is actually gone (ps -p <pid>), and " +
+      "delete that exact file yourself — never delete the whole registry " +
+      "while sessions may be active.",
   );
 }
 
@@ -217,29 +245,78 @@ export async function findLiveSession(registry = REGISTRY) {
   );
 }
 
-// Best-effort detection of an unmanaged Vite process (e.g. a plain
-// `npm run dev`), which the registry cannot see. Never throws: pgrep being
-// unavailable or matching nothing must not block a genuinely free machine.
+// Pure filter for `pgrep -fl vite` output: a full-command-line substring
+// match on "vite" also matches vitest workers and any shell whose own
+// command line happens to quote "vite" (e.g. the documented `pgrep -fl vite;
+// npm run dev:session -- start` recipe, run as one shell invocation). Keep
+// only lines that actually exec a vite binary, and never match this
+// process's own pid/ppid (e.g. the zsh wrapper that ran `pgrep`/this script).
+export function filterViteProcessLines(
+  stdout,
+  { ownPid = process.pid, ownPpid = process.ppid } = {},
+) {
+  const exclude = new Set([ownPid, ownPpid]);
+  return stdout
+    .trim()
+    .split("\n")
+    .filter(Boolean)
+    .filter((line) => !/\bvitest\b/.test(line))
+    .filter((line) => {
+      const pid = Number(line.trim().split(/\s+/, 1)[0]);
+      return !exclude.has(pid);
+    })
+    .filter((line) => /\/(?:\.bin\/vite|vite\/bin\/vite\.js)(?:\s|$)/.test(line));
+}
+
+// Best-effort, advisory-only detection of an unmanaged Vite process (e.g. a
+// plain `npm run dev`), which the registry cannot see. Never authoritative
+// and never throws: pgrep being unavailable, or matching nothing (or too
+// much — see filterViteProcessLines), must not block or pass a genuinely
+// free/occupied machine on its own. assertPortFree is the real signal.
 export function findUnmanagedViteProcesses() {
   try {
     const out = execFileSync("pgrep", ["-fl", "vite"], { encoding: "utf8" });
-    return out
-      .trim()
-      .split("\n")
-      .filter(Boolean)
-      .filter((line) => !/dev-session\.mjs/.test(line));
+    return filterViteProcessLines(out);
   } catch {
     return [];
   }
 }
 
 // Registry-only check: unit-testable in isolation from the real machine's
-// process table (see findUnmanagedViteProcesses for the OS-level half).
+// process table (see assertPortFree for the authoritative OS-level check,
+// and findUnmanagedViteProcesses for the advisory-only process-name check).
 export async function assertNoRunningServer(registry = REGISTRY) {
   const live = await findLiveSession(registry);
   if (live) {
     throw new Error(
       `A dev server is already running: owner=${live.owner} task=${live.task} at ${live.url}. ${SINGLE_SERVER_RULE}`,
+    );
+  }
+}
+
+// The authoritative refusal: whatever the registry or pgrep say, an actually
+// occupied port means a server (this tool's or not) is already there.
+export async function assertPortFree(port = SHARED_PORT) {
+  if (!(await portAvailable(port))) {
+    throw new Error(
+      `Port ${port} is already in use by another process. ${SINGLE_SERVER_RULE}`,
+    );
+  }
+}
+
+// Composite guard shared by `start` and `guard`: registry + port are
+// authoritative and throw; pgrep is advisory and only warns.
+export async function refuseIfServerRunning({
+  registry = REGISTRY,
+  port = SHARED_PORT,
+} = {}) {
+  await assertNoRunningServer(registry);
+  await assertPortFree(port);
+  const unmanaged = findUnmanagedViteProcesses();
+  if (unmanaged.length) {
+    console.warn(
+      `Advisory only (the port check above is authoritative): a Vite-looking ` +
+        `process is already running on this machine, unmanaged by this tool:\n${unmanaged.join("\n")}`,
     );
   }
 }
@@ -251,17 +328,13 @@ export async function startSession(options) {
   );
   if (manifest.name !== "propulse")
     throw new Error("Run from the ProPulse checkout/worktree root.");
-  await assertNoRunningServer();
-  const unmanaged = findUnmanagedViteProcesses();
-  if (unmanaged.length) {
-    throw new Error(
-      `A Vite process is already running on this machine, unmanaged by this tool:\n${unmanaged.join("\n")}\n${SINGLE_SERVER_RULE}`,
-    );
-  }
+  const registry = options.registry ?? REGISTRY;
+  await refuseIfServerRunning({ registry, port: options.port ?? SHARED_PORT });
   const session = await claimSession({
     ...options,
     root,
     ports: options.port ? [options.port] : DEFAULT_PORTS,
+    registry,
   });
   let server;
   let shuttingDown = false;
@@ -272,6 +345,7 @@ export async function startSession(options) {
     try {
       await server?.close();
       await releaseSession(session);
+      delete process.env.PROPULSE_DEV_SESSION;
     } catch (error) {
       console.error(
         `Cleanup failed; inspect ${session.filename}: ${error.message}`,
@@ -291,6 +365,12 @@ export async function startSession(options) {
       process.env.VITE_SUPABASE_URL = "";
       process.env.VITE_SUPABASE_ANON_KEY = "";
     }
+    // The identity middleware lives once, in vite.config.ts, so a plain
+    // `npm run dev` answers /__propulse_dev_session too. createServer() below
+    // loads that same config file; this env var lets its plugin tell a
+    // managed session's real identity apart from the plain-`npm run dev`
+    // fallback, without registering a second copy of the middleware here.
+    process.env.PROPULSE_DEV_SESSION = JSON.stringify(session);
     const { createServer } = await import("vite");
     server = await createServer({
       root,
@@ -306,19 +386,6 @@ export async function startSession(options) {
         strictPort: true,
         open: false,
       },
-      plugins: [
-        {
-          name: "propulse-dev-session-identity",
-          configureServer(viteServer) {
-            viteServer.middlewares.use((req, res, next) => {
-              if (req.url !== "/__propulse_dev_session") return next();
-              res.setHeader("Content-Type", "application/json");
-              res.setHeader("Cache-Control", "no-store");
-              res.end(JSON.stringify(session));
-            });
-          },
-        },
-      ],
     });
     if (interrupted) {
       await finish();
@@ -339,10 +406,13 @@ async function main() {
   const options = parseOptions(process.argv.slice(2));
   if (options.command === "help") {
     console.log(
-      `npm run dev:session -- status\nnpm run dev:session -- start --owner <agent-slug> --task <description> [--profile connected|local]\n` +
+      `npm run dev:session -- status\nnpm run dev:session -- start --owner <agent-slug> --task <description> [--profile connected|local]\nnpm run dev:session -- guard\n` +
         `${SINGLE_SERVER_RULE}\n` +
-        "start refuses if any dev server (managed or unmanaged) is already running. Port is always 5173 " +
-        "unless DEV_SERVER_ALLOW_EXTRA=1 (owner escape hatch). See docs/guides/LOCAL-AGENT-TESTING.md.",
+        "start (and guard, run automatically before `npm run dev` via predev) refuses if any dev " +
+        "server is already running: an occupied port 5173 is authoritative, a live registry entry " +
+        "is authoritative, an unmanaged `vite`-looking process is advisory only. Port is always 5173; " +
+        "DEV_SERVER_ALLOW_EXTRA=1 moves the single server to a different port (owner-only escape " +
+        "hatch), it never permits a second server. See docs/guides/LOCAL-AGENT-TESTING.md.",
     );
   } else if (options.command === "status") {
     console.log(
@@ -355,6 +425,9 @@ async function main() {
     console.log(
       "Registry covers managed sessions only. Also inspect listeners with: lsof -nP -iTCP -sTCP:LISTEN",
     );
+  } else if (options.command === "guard") {
+    await refuseIfServerRunning();
+    console.log(`Port ${SHARED_PORT} is free; no managed session is live.`);
   } else {
     await startSession(options);
   }

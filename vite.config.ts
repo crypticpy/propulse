@@ -2,6 +2,7 @@ import { defineConfig, loadEnv } from "vite";
 import react from "@vitejs/plugin-react";
 import { VitePWA } from "vite-plugin-pwa";
 import path from "path";
+import { realpathSync } from "fs";
 import type { Plugin } from "vite";
 import { SOLAR_ROUTES } from "./api/_lib/solarRoutes";
 import { PORTABLE_ROUTES } from "./api/_lib/portableRoutes";
@@ -11,6 +12,46 @@ import {
 } from "./api/_lib/handlers/displays";
 import { handleViewLibrary, handleViewDisplayAssignment } from "./api/_lib/handlers/viewLibrary";
 import { TILE_RUNTIME_CACHING } from "./src/lib/tiles/tileRuntimeCaching";
+
+// ─── Dev session identity plugin ──────────────────────────────────────────
+// Answers /__propulse_dev_session for ANY dev server on this port, managed
+// or a plain `npm run dev`, so browser checks and scripts/dev-session.mjs's
+// worktree-identity guard both work regardless of how the server was
+// started. scripts/dev-session.mjs's startSession() sets PROPULSE_DEV_SESSION
+// (a JSON session record) before importing vite/createServer, which loads
+// this same config file — so a managed session's real owner/task/profile
+// show here too, without a second copy of this middleware in that script.
+// profile is deliberately "manual" (never "local"/"connected") for a plain
+// `npm run dev`, so scripts that require a managed local-profile session
+// keep refusing it.
+function devSessionIdentityPlugin(): Plugin {
+  const manualRoot = realpathSync(process.cwd());
+  return {
+    name: "propulse-dev-session-identity",
+    configureServer(server) {
+      server.middlewares.use((req, res, next) => {
+        if (req.url !== "/__propulse_dev_session") return next();
+        res.setHeader("Content-Type", "application/json");
+        res.setHeader("Cache-Control", "no-store");
+        const managed = process.env.PROPULSE_DEV_SESSION;
+        const identity = managed
+          ? JSON.parse(managed)
+          : {
+              id: null,
+              owner: "manual",
+              task: null,
+              profile: "manual",
+              root: manualRoot,
+              pid: process.pid,
+              port: 5173,
+              url: "http://127.0.0.1:5173",
+              startedAt: null,
+            };
+        res.end(JSON.stringify(identity));
+      });
+    },
+  };
+}
 
 // ─── Solar API parity plugin ──────────────────────────────────────────────
 // Executes the same edge handlers in local development. Exact route matching
@@ -1186,6 +1227,7 @@ export default defineConfig(({ mode }) => {
     },
     plugins: [
       react(),
+      devSessionIdentityPlugin(),
       solarDevApi(),
       displaysDevApi(),
       hamqthDevProxy(),

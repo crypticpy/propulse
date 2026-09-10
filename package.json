@@ -5,6 +5,7 @@
   "description": "Ham radio operator toolset - solar weather and propagation visualization",
   "type": "module",
   "scripts": {
+    "predev": "node scripts/dev-session.mjs guard",
     "dev": "vite",
     "dev:session": "node scripts/dev-session.mjs",
     "test:dev-session": "node --test scripts/dev-session.test.mjs",

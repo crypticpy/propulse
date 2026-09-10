@@ -7,11 +7,13 @@ import test from "node:test";
 import {
   assertNoRunningServer,
   claimSession,
+  filterViteProcessLines,
   listSessions,
   parseOptions,
   portAvailable,
   releaseSession,
   SHARED_PORT,
+  startSession,
 } from "./dev-session.mjs";
 
 async function registry(t) {
@@ -101,23 +103,21 @@ test("allocation skips an occupied port and release is identity guarded", async 
   assert.deepEqual(await listSessions(dir), []);
 });
 
-test("stale and partial records are listed and never automatically taken over", async (t) => {
+test("a partial/unparsable record is listed but never automatically taken over", async (t) => {
+  // Unlike a confirmed-dead-pid claim (see "claimSession reclaims a dead-pid
+  // claim" above), an unparsable file is ambiguous — it may be another
+  // process mid-write — and claimSession must never reclaim it.
   const dir = await registry(t);
   const port = await unusedPort(t);
   const filename = path.join(dir, `${port}.json`);
-  await writeFile(filename, JSON.stringify({ ...base, pid: 0, port }));
-  assert.equal(
-    (await listSessions(dir))[0].processState,
-    "stale-check-before-removing",
-  );
-  await assert.rejects(
-    claimSession({ ...base, registry: dir, ports: [port] }),
-    /No requested port/,
-  );
   await writeFile(filename, "{");
   assert.equal(
     (await listSessions(dir))[0].processState,
     "unreadable-or-being-created-do-not-reclaim",
+  );
+  await assert.rejects(
+    claimSession({ ...base, registry: dir, ports: [port] }),
+    /No requested port/,
   );
 });
 
@@ -199,4 +199,51 @@ test("assertNoRunningServer refuses when a live session is registered", async (t
   );
   await releaseSession(claim);
   await assert.doesNotReject(assertNoRunningServer(dir));
+});
+
+test("claimSession reclaims a dead-pid claim and retries once", async (t) => {
+  const dir = await registry(t);
+  const port = await unusedPort(t);
+  const filename = path.join(dir, `${port}.json`);
+  await writeFile(filename, JSON.stringify({ ...base, pid: 0, port }));
+  assert.equal(
+    (await listSessions(dir))[0].processState,
+    "stale-check-before-removing",
+  );
+  const claim = await claimSession({ ...base, registry: dir, ports: [port] });
+  assert.equal(claim.port, port);
+  assert.equal(claim.pid, process.pid);
+  assert.equal((await listSessions(dir)).length, 1);
+});
+
+test("filterViteProcessLines drops vitest workers and shell wrappers, keeps only a real vite executable", () => {
+  const stdout = [
+    "11111 node /repo/node_modules/.bin/vitest run --pool=threads",
+    "22222 /bin/zsh -c pgrep -fl vite; npm run dev:session -- start",
+    "33333 node /Users/x/propulse/node_modules/.bin/vite",
+  ].join("\n");
+  const result = filterViteProcessLines(stdout, { ownPid: -1, ownPpid: -1 });
+  assert.deepEqual(result, [
+    "33333 node /Users/x/propulse/node_modules/.bin/vite",
+  ]);
+});
+
+test("filterViteProcessLines excludes its own pid and ppid", () => {
+  const stdout = "42 node /repo/node_modules/.bin/vite";
+  assert.deepEqual(filterViteProcessLines(stdout, { ownPid: 42, ownPpid: -1 }), []);
+  assert.deepEqual(filterViteProcessLines(stdout, { ownPid: -1, ownPpid: 42 }), []);
+});
+
+// F10(a): startSession must thread { registry } through to the guard and
+// refuse — with a message matching /already running/ — before it ever
+// imports vite. Uses a throwaway port (never 5173) so this never touches a
+// real shared server.
+test("startSession accepts { registry } and rejects an already-claimed port before importing vite", async (t) => {
+  const dir = await registry(t);
+  const port = await unusedPort(t);
+  await claimSession({ ...base, registry: dir, ports: [port] });
+  await assert.rejects(
+    startSession({ ...base, registry: dir, port }),
+    /already running/,
+  );
 });

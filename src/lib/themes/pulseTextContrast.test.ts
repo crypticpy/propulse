@@ -650,6 +650,18 @@ function extractLiteralBodies(text: string): string[] {
 interface ConstEntry {
   literal: string;
   entries?: Map<string, ConstEntry>;
+  /** Present only when this entry's own value is an object literal that
+   * itself contains at least one unresolved spread (`{ a: { safe:
+   * "text-green", ...base } }`) -- the same raw `order` `extractObjectEntries`
+   * would return for a top-level declaration, carried through so a caller
+   * with scope awareness (`extractObjectEntries` itself has none) can replay
+   * it the same way `collectConstTemplateMap`'s `spreadQueue` replays a
+   * top-level declaration's own `order`: source-order overwrite (round 34)
+   * and import-aware `visibleDecl` resolution (round 36), just at this
+   * nesting depth instead of only the top. Cleared (set back to `undefined`)
+   * once `resolveNestedEntrySpreads` has replayed it into `entries` (Codex,
+   * PR #874 round 36b). */
+  spreadOrder?: ObjectEntryOp[];
 }
 
 /** One named-entry or spread event inside an object literal, in source
@@ -823,6 +835,12 @@ function extractObjectEntries(
         const entry: ConstEntry = {
           literal: bodies.join(" "),
           entries: nested.entries.size > 0 ? nested.entries : undefined,
+          // Round 36b: previously discarded, leaving `{ a: { ...base } }`
+          // unresolved regardless of whether `base` was a local or imported
+          // declaration -- `extractObjectEntries` has no `decls`/scope access
+          // to resolve it here itself, so the raw order is carried up for
+          // `resolveNestedEntrySpreads` to replay once scope is known.
+          spreadOrder: nested.spreads.length > 0 ? nested.order : undefined,
         };
         entries.set(key, entry);
         order.push({ kind: "entry", key, entry });
@@ -1368,6 +1386,59 @@ function extractIdentifierRefs(text: string): string[] {
   return refs;
 }
 
+/** Replays a nested `ConstEntry`'s own `spreadOrder` (round 36b) the exact
+ * same way `collectConstTemplateMap`'s `spreadQueue` loop replays a
+ * top-level declaration's `order` -- a resolvable spread overwrites every
+ * key it carries in source order (round 34), resolved against `decls` PLUS
+ * any imported bindings (round 36); an unresolvable spread fails closed onto
+ * `openKeys`, but with THIS entry's own flattened `literal` as the fallback,
+ * not the enclosing declaration's -- so `{ a: { safe: "text-green", ...bad }
+ * }` only clouds `a.safe`, never a sibling key at the parent level. Recurses
+ * into the (possibly freshly merged) child `entries` afterward so nesting of
+ * any depth resolves, guarded by `visited` against revisiting the same
+ * `ConstEntry` object twice -- spread merging can make two different parents
+ * share one entry by reference, and a spread cycle across declarations
+ * (`a = { ...b }`, `b = { ...a }`) would otherwise recurse forever. */
+function resolveNestedEntrySpreads(
+  entries: Map<string, ConstEntry> | undefined,
+  decls: ConstDecl[],
+  atIndex: number,
+  visited: Set<ConstEntry> = new Set(),
+): void {
+  if (!entries) return;
+  for (const entry of entries.values()) {
+    if (visited.has(entry)) continue;
+    visited.add(entry);
+    if (entry.spreadOrder) {
+      const merged = new Map<string, ConstEntry>();
+      const openKeys = new Set<string>();
+      for (const op of entry.spreadOrder) {
+        if (op.kind === "entry") {
+          merged.set(op.key, op.entry);
+          openKeys.delete(op.key);
+          continue;
+        }
+        const spreadDecl = visibleDecl(decls, op.name, atIndex);
+        if (spreadDecl?.entries) {
+          for (const [key, value] of spreadDecl.entries) {
+            merged.set(key, value);
+            openKeys.delete(key);
+          }
+        } else {
+          for (const key of merged.keys()) openKeys.add(key);
+        }
+      }
+      for (const key of openKeys) {
+        const existing = merged.get(key);
+        merged.set(key, { literal: entry.literal, entries: existing?.entries });
+      }
+      entry.entries = merged;
+      entry.spreadOrder = undefined;
+    }
+    resolveNestedEntrySpreads(entry.entries, decls, atIndex, visited);
+  }
+}
+
 function collectConstTemplateMap(source: string, importedDecls: ConstDecl[] = []): ConstDecl[] {
   const decls: ConstDecl[] = [];
   // Reassignment sweeps (below) need every declaration in the file already
@@ -1619,6 +1690,22 @@ function collectConstTemplateMap(source: string, importedDecls: ConstDecl[] = []
       entries.set(key, { literal: decl.literal, entries: existing?.entries });
     }
     decl.entries = entries;
+  }
+  // A nested object literal's own spread(s) -- `{ a: { safe: "text-green",
+  // ...base } }` -- couldn't be resolved inside `extractObjectEntries` itself
+  // (no `decls`/scope access there), so each nested `ConstEntry` that has one
+  // carries its raw `spreadOrder` up to here instead. Walked for every
+  // top-level declaration now that `spreadQueue` above has finished (a
+  // nested spread's source name is always a plain identifier, so it can only
+  // ever resolve to a top-level/imported declaration, never to another
+  // nested key -- by the time this runs, every such declaration's own
+  // top-level `entries` are already final). Fails closed the same way
+  // `spreadQueue` does, just scoped to that nested object's own flattened
+  // `literal` instead of the whole declaration's -- an unresolvable spread
+  // inside `{ a: { ...unknown } }` only clouds `a`'s own open keys, never a
+  // sibling key at the parent level (Codex, PR #874 round 36b).
+  for (const decl of decls) {
+    resolveNestedEntrySpreads(decl.entries, declsWithImports, decl.index);
   }
   // Runs after `spreadQueue` so a destructuring source that is itself a
   // spread-merged object (`const styles = { ...base }; const { alert } =
@@ -3611,6 +3698,40 @@ const REEXPORT_HINT_RE = /\bexport\s*(?:\*|\{[^}]*\})\s*(?:as\s+[A-Za-z_$][\w$]*
  * `resolveImportedDecls` against the current `byModule` and interleaved into
  * the same fixpoint loop as stage two, since either stage's addition can
  * unlock the other's next pass (Codex, PR #874 round 33). */
+
+/** Round 36b: whether ANY entry in `entries`, at any depth, resolves to a
+ * literal carrying the pulse class -- used alongside a flattened `decl.
+ * literal` check (below) so an object-valued export that is ONLY a spread of
+ * a pulsing source, `export const mid = { ...base };`, is still caught. Its
+ * own `decl.literal` never gets the pulse class folded in: `extractLiteralBodies`
+ * only sees quoted text physically written inside the initializer, and
+ * `{ ...base }` has none of its own -- the pulse class only ever reaches
+ * `mid` through `entries`, since `collectConstTemplateMap`'s spread merge
+ * (round 34/36, and round 36b's nested version) already copied `base`'s own
+ * resolved entries onto `mid`. Each entry's own literal is resolved the same
+ * way a decl's is, so an entry that is itself an identifier-only alias
+ * folded via round 33's ref-folding still resolves through `decls`. Guarded
+ * by `seen` against revisiting the same `ConstEntry` object twice, since
+ * spread merging can make two different parents share one entry by
+ * reference, and a spread cycle across modules (`a = { ...b }`, `b = { ...a
+ * }`) would otherwise recurse forever. */
+function entriesHavePulseClass(
+  entries: Map<string, ConstEntry> | undefined,
+  decls: ConstDecl[],
+  atIndex: number,
+  seen: Set<ConstEntry> = new Set(),
+): boolean {
+  if (!entries) return false;
+  for (const entry of entries.values()) {
+    if (seen.has(entry)) continue;
+    seen.add(entry);
+    const resolved = resolveConstRefs(entry.literal, decls, atIndex);
+    if (PULSE_CLASS_RE.test(resolved)) return true;
+    if (entriesHavePulseClass(entry.entries, decls, atIndex, seen)) return true;
+  }
+  return false;
+}
+
 function collectExportedPulseBindings(
   sources: Record<string, string>,
 ): Map<string, Map<string, ConstDecl>> {
@@ -3644,7 +3765,16 @@ function collectExportedPulseBindings(
       // consumer never needs the exporter's own private `decls` to see
       // through it (Codex, PR #874 round 31).
       const resolvedLiteral = resolveConstRefs(decl.literal, decls, decl.index);
-      if (PULSE_CLASS_RE.test(resolvedLiteral)) {
+      // Round 36b: also checked recursively through `decl.entries`, not just
+      // the flattened `resolvedLiteral` -- an object-valued export that is
+      // ONLY a spread of a local pulsing map (`export const mid = { ...base
+      // };`) never gets the pulse class into its own flattened literal (see
+      // `entriesHavePulseClass`), but this module's own file DOES contain
+      // the pulse class literally (in `base`'s own initializer), so this
+      // file already passed the `rawSource.includes(PULSE_CLASS)` prefilter
+      // above -- this is the case stage one CAN catch, given the gate looks
+      // deep enough.
+      if (PULSE_CLASS_RE.test(resolvedLiteral) || entriesHavePulseClass(decl.entries, decls, decl.index)) {
         pulsing.set(exportedName, { ...decl, literal: resolvedLiteral });
       }
     }
@@ -3785,7 +3915,19 @@ function collectExportedPulseBindings(
         const decl = moduleLevelByName.get(localName);
         if (!decl) continue;
         const resolvedLiteral = resolveConstRefs(decl.literal, combinedDecls, decl.index);
-        if (!PULSE_CLASS_RE.test(resolvedLiteral)) continue;
+        // Round 36b: same recursive `entries` check as stage one's gate,
+        // needed here for the exact case stage one's own
+        // `rawSource.includes(PULSE_CLASS)` prefilter skips outright -- a
+        // module whose only pulsing content comes from an IMPORTED spread
+        // source (`export const mid = { ...importedBase };`) never contains
+        // the pulse class literally in its own text, so it never reaches
+        // this gate at all through stage one; it only ever gets here because
+        // this stage's own candidate list (`importAliasCandidates`, built
+        // from a `/\bimport\b/ && /\bexport\b/` regex) is independent of
+        // that prefilter.
+        if (!PULSE_CLASS_RE.test(resolvedLiteral) && !entriesHavePulseClass(decl.entries, combinedDecls, decl.index)) {
+          continue;
+        }
         destPulsing ??= new Map();
         destPulsing.set(exportedName, { ...decl, literal: resolvedLiteral });
         changed = true;
@@ -4324,6 +4466,60 @@ describe("scanSourceForViolations catches every spelling (fixture proofs, #878)"
   it("does not flag a precise key before an unresolvable spread when the object has no pulse anywhere", () => {
     const fixture =
       'const styles = { safe: "text-green", ok: "text-blue", ...unknownImport };\nexport function A() { return <span className={styles.safe}>Idle</span>; }';
+    expect(scanSourceForViolations(fixture)).toEqual([]);
+  });
+
+  it("resolves a spread inside a NESTED object literal against a LOCAL map, at member-access depth two", () => {
+    // `styles.group` was never given `extractObjectEntries`'s own
+    // `spreads`/`order` for its inner `{ ...base, safe: "text-green" }` --
+    // only `nested.entries` (the group's own precise, non-spread keys) made
+    // it into the parent's `ConstEntry`, discarding the nested spread info
+    // entirely, so `styles.group.alert` (reachable only via the spread of
+    // `base`) could never resolve regardless of `base` being a plain local
+    // const (Codex, PR #874 round 36b).
+    const fixture =
+      'const base = { alert: "text-red animate-pulse" };\nconst styles = { group: { ...base, safe: "text-green" } };\nexport function A() { return <span className={styles.group.alert}>Critical</span>; }';
+    expect(scanSourceForViolations(fixture)).not.toEqual([]);
+  });
+
+  it("keeps a nested spread object's own precise, non-pulsing key clean past a resolvable local spread", () => {
+    const fixture =
+      'const base = { alert: "text-red animate-pulse" };\nconst styles = { group: { ...base, safe: "text-green" } };\nexport function A() { return <span className={styles.group.safe}>Idle</span>; }';
+    expect(scanSourceForViolations(fixture)).toEqual([]);
+  });
+
+  it("overwrites an earlier named entry inside a NESTED object with a later, resolvable spread's own value, in source order", () => {
+    // Round 34's source-order-overwrite rule (`{ safe: "text-green", ...base
+    // }` where `base.safe` is pulsing overwrites the earlier plain entry)
+    // replayed one level deeper: `styles.group`'s own `safe` entry is
+    // defined BEFORE `...base` inside the nested object, so the later
+    // spread's `safe` value must win for `styles.group.safe` (Codex, PR #874
+    // round 36b).
+    const fixture =
+      'const base = { safe: "animate-pulse" };\nconst styles = { group: { safe: "text-green", ...base } };\nexport function A() { return <span className={styles.group.safe}>Idle</span>; }';
+    expect(scanSourceForViolations(fixture)).not.toEqual([]);
+  });
+
+  it("fails closed on a nested object's own key before an unresolvable spread, without touching a sibling key at the parent level", () => {
+    // `styles.group`'s unresolvable `...unknownImport` could, for all this
+    // scanner knows, overwrite `group.safe` with anything -- fails closed on
+    // that key using `group`'s OWN flattened literal, exactly like a
+    // top-level unresolvable spread would (round 34) but scoped to this
+    // nested object only. `styles.parentSafe`, a sibling key one level up
+    // from `group`, is untouched by anything inside `group` and must stay
+    // precise (Codex, PR #874 round 36b). (`alert`'s value is deliberately
+    // `"text-red animate-pulse"`, not a bare `"animate-pulse"` field, so
+    // this fixture doesn't also trip the separate config-map-mixing
+    // heuristic in `findConfigMapViolations` -- the same care round 36's own
+    // imported-spread fixtures took.)
+    const fixture =
+      'const styles = { group: { safe: "text-green", alert: "text-red animate-pulse", ...unknownImport }, parentSafe: "text-blue" };\nexport function A() { return <span className={styles.group.safe}>Idle</span>; }';
+    expect(scanSourceForViolations(fixture)).not.toEqual([]);
+  });
+
+  it("keeps a sibling key at the PARENT level precise when a NESTED object's own unresolvable spread fails closed", () => {
+    const fixture =
+      'const styles = { group: { safe: "text-green", alert: "text-red animate-pulse", ...unknownImport }, parentSafe: "text-blue" };\nexport function A() { return <span className={styles.parentSafe}>Idle</span>; }';
     expect(scanSourceForViolations(fixture)).toEqual([]);
   });
 
@@ -5447,6 +5643,108 @@ describe("resolves a spread whose source is an IMPORTED binding, regardless of r
       "src/lib/component.tsx": componentSource,
     });
     expect(scanModuleForViolations("src/lib/component.tsx", componentSource, exportsMap)).not.toEqual([]);
+  });
+});
+
+describe("resolves a spread inside a NESTED object literal against an IMPORTED map (#874 round 36b)", () => {
+  it("resolves a nested spread whose source is an imported binding, through a member-access chain into the consumer", () => {
+    // Same gap as the local-map fixture above (`extractObjectEntries`'s
+    // recursive call dropped a nested object's own `spreads`/`order`
+    // entirely), but through `b.tsx`'s own IMPORTED `base` rather than a
+    // local one -- exercises `resolveNestedEntrySpreads` against
+    // `declsWithImports`, not just `decls` (Codex, PR #874 round 36b).
+    const baseSource = 'export const base = { alert: "text-red animate-pulse" };';
+    const bSource =
+      'import { base } from "@/lib/base";\nconst styles = { group: { ...base, safe: "text-green" } };\nexport function A() { return <span className={styles.group.alert}>Critical</span>; }';
+    const exportsMap = collectExportedPulseBindings({ "src/lib/base.ts": baseSource, "src/lib/b.tsx": bSource });
+    expect(scanModuleForViolations("src/lib/b.tsx", bSource, exportsMap)).not.toEqual([]);
+  });
+
+  it("keeps the nested spread object's own precise, non-pulsing key clean past a resolvable imported spread", () => {
+    const baseSource = 'export const base = { alert: "text-red animate-pulse" };';
+    const bSource =
+      'import { base } from "@/lib/base";\nconst styles = { group: { ...base, safe: "text-green" } };\nexport function A() { return <span className={styles.group.safe}>Idle</span>; }';
+    const exportsMap = collectExportedPulseBindings({ "src/lib/base.ts": baseSource, "src/lib/b.tsx": bSource });
+    expect(scanModuleForViolations("src/lib/b.tsx", bSource, exportsMap)).toEqual([]);
+  });
+});
+
+describe("collectExportedPulseBindings flags an object export that is pulsing only through a spread's entries (#874 round 36b)", () => {
+  // `collectExportedPulseBindings`'s pulsing gate tested only the flattened
+  // `decl.literal` -- an object-valued export whose entire content comes
+  // from a spread (`export const mid = { ...base };`) never gets the pulse
+  // class folded into that flattened literal (`extractLiteralBodies` only
+  // sees quoted text physically written inside the initializer, and `{
+  // ...base }` has none), so it could never be detected as pulsing by name
+  // no matter how genuinely pulsing its spread source was.
+
+  it("flags an object export that is only a spread of a LOCAL pulsing map", () => {
+    // `mid.ts`'s own file DOES contain the pulse class literally (via
+    // `base`, declared in the same file) so this exercises stage one's own
+    // gate directly.
+    const midSource =
+      'const base = { alert: "text-red animate-pulse" };\nexport const mid = { ...base };';
+    const componentSource =
+      'import { mid } from "./mid";\nexport function C() { return <span className={mid.alert}>Critical</span>; }';
+    const exportsMap = collectExportedPulseBindings({
+      "src/lib/mid.ts": midSource,
+      "src/lib/component.tsx": componentSource,
+    });
+    expect(scanModuleForViolations("src/lib/component.tsx", componentSource, exportsMap)).not.toEqual([]);
+  });
+
+  it("flags the same shape through an IMPORT, where mid.ts's own file never mentions the pulse class literally", () => {
+    // `mid.ts` never contains "animate-pulse" in its own text -- only
+    // `base.ts` does -- so stage one's `rawSource.includes(PULSE_CLASS)`
+    // prefilter skips `mid.ts` outright and its own gate never runs on it at
+    // all. `mid.ts` still qualifies for stage three's independent
+    // `importAliasCandidates` list (built from its own `/\bimport\b/ &&
+    // /\bexport\b/` regex, with no dependency on stage one's prefilter), so
+    // this exercises stage three's gate instead -- confirming stage one's
+    // skip does not drop the module before stage three gets a chance at it.
+    const baseSource = 'export const base = { alert: "text-red animate-pulse" };';
+    const midSource = 'import { base } from "./base";\nexport const mid = { ...base };';
+    const componentSource =
+      'import { mid } from "./mid";\nexport function C() { return <span className={mid.alert}>Critical</span>; }';
+    const exportsMap = collectExportedPulseBindings({
+      "src/lib/base.ts": baseSource,
+      "src/lib/mid.ts": midSource,
+      "src/lib/component.tsx": componentSource,
+    });
+    expect(scanModuleForViolations("src/lib/component.tsx", componentSource, exportsMap)).not.toEqual([]);
+  });
+
+  it("flags a two-hop spread chain across modules (a = {...b}, b = {...c}, c pulsing)", () => {
+    // Neither `a.ts` nor `b.ts` ever mentions the pulse class literally --
+    // only `c.ts` does -- so this needs the entries-recursive gate to hold
+    // through two full fixpoint hops (stage three re-running until `b`
+    // itself resolves to pulsing via `c`'s entries, then `a` resolves via
+    // `b`'s entries), bounded by the existing 10-iteration cap.
+    const cSource = 'export const c = { alert: "text-red animate-pulse" };';
+    const bSource = 'import { c } from "./c";\nexport const b = { ...c };';
+    const aSource = 'import { b } from "./b";\nexport const a = { ...b };';
+    const componentSource =
+      'import { a } from "./a";\nexport function C() { return <span className={a.alert}>Critical</span>; }';
+    const exportsMap = collectExportedPulseBindings({
+      "src/lib/c.ts": cSource,
+      "src/lib/b.ts": bSource,
+      "src/lib/a.ts": aSource,
+      "src/lib/component.tsx": componentSource,
+    });
+    expect(scanModuleForViolations("src/lib/component.tsx", componentSource, exportsMap)).not.toEqual([]);
+  });
+
+  it("does not flag a spread of a non-pulsing map as pulsing", () => {
+    const plainSource = 'export const plain = { label: "text-xs uppercase" };';
+    const midSource = 'import { plain } from "./plain";\nexport const mid = { ...plain };';
+    const componentSource =
+      'import { mid } from "./mid";\nexport function C() { return <span className={mid.label}>Label</span>; }';
+    const exportsMap = collectExportedPulseBindings({
+      "src/lib/plain.ts": plainSource,
+      "src/lib/mid.ts": midSource,
+      "src/lib/component.tsx": componentSource,
+    });
+    expect(scanModuleForViolations("src/lib/component.tsx", componentSource, exportsMap)).toEqual([]);
   });
 });
 

@@ -24,6 +24,9 @@
  * tree that requires a real `<Canvas>` context Testing Library can't supply).
  */
 
+import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
+import { resolve } from "node:path";
 import { render } from "@testing-library/react";
 import { act } from "react";
 import { describe, expect, it, vi } from "vitest";
@@ -34,8 +37,13 @@ import {
 import { TargetHoverTooltip } from "./TargetHoverTooltip";
 import BasemapCategory from "./layers/BasemapCategory";
 import { ISS_INFO_CARD_WIDTH_STYLE } from "./ISSTrackerOverlay";
+import { SATELLITE_INFO_CARD_WIDTH_STYLE } from "./SatelliteOverlay";
+import { PassRow } from "./SatellitePanel";
 import type { PathBandCondition } from "@/lib/utils/bands";
 import type { BandLadderEntry } from "@/hooks/useBandVerdicts";
+import type { PassPrediction } from "@/types/satellite";
+
+const REPO_ROOT = resolve(fileURLToPath(import.meta.url), "../../../..");
 
 vi.mock("@/hooks/useActiveStationGain", () => ({
   useActiveStationGain: () => ({
@@ -176,6 +184,87 @@ describe("TargetHoverTooltip (fix 2: measured-height re-placement)", () => {
   });
 });
 
+describe("TargetHoverTooltip (round-5 fix: signal-summary row wraps instead of overlapping)", () => {
+  it("wraps the SignalMeter band/status/EST group and S-unit/confidence group instead of holding one non-wrapping line", () => {
+    render(
+      <TargetHoverTooltip
+        visible
+        position={{ x: 100, y: 500, width: 10, height: 10 }}
+        label="TEST-WRAP"
+        optimalSignal={{
+          band: "20m",
+          status: "good",
+          sUnit: { value: 7, text: "S7", dBm: -80 },
+          confidence: 82,
+        }}
+      />,
+    );
+    // TargetHoverTooltip renders via createPortal into document.body, so it
+    // is not a descendant of Testing Library's `container`.
+    const bandBadge = Array.from(document.querySelectorAll("span")).find(
+      (el) => el.textContent === "20m",
+    );
+    expect(bandBadge).toBeDefined();
+    // bandBadge -> left group (min-w-0) -> the row that must wrap
+    const row = bandBadge!.parentElement!.parentElement as HTMLElement;
+    expect(row.className).toContain("flex-wrap");
+  });
+
+  it("does not call getBoundingClientRect again on a position-only rerender (no content-shape change)", () => {
+    let rectCalls = 0;
+    const getRectSpy = vi
+      .spyOn(HTMLDivElement.prototype, "getBoundingClientRect")
+      .mockImplementation(function () {
+        rectCalls += 1;
+        return {
+          width: 260,
+          height: 150,
+          top: 0,
+          left: 0,
+          right: 260,
+          bottom: 150,
+          x: 0,
+          y: 0,
+          toJSON() {
+            return {};
+          },
+        } as DOMRect;
+      });
+
+    const { rerender } = render(
+      <TargetHoverTooltip
+        visible
+        position={{ x: 100, y: 500, width: 10, height: 10 }}
+        label="TEST-POSITION-ONLY"
+        optimalSignal={null}
+      />,
+    );
+
+    const callsAfterMount = rectCalls;
+    expect(callsAfterMount).toBeGreaterThan(0);
+
+    // Simulates GlobeView updating `position` on every pointer move while a
+    // target is hovered: only `position` changes, none of the effect's
+    // actual dependencies (notes/distance-bearing/contextLabel/label/
+    // textScale) do. Before the fix, the dependency-free effect reran on
+    // every commit and called getBoundingClientRect here too.
+    act(() => {
+      rerender(
+        <TargetHoverTooltip
+          visible
+          position={{ x: 250, y: 380, width: 10, height: 10 }}
+          label="TEST-POSITION-ONLY"
+          optimalSignal={null}
+        />,
+      );
+    });
+
+    expect(rectCalls).toBe(callsAfterMount);
+
+    getRectSpy.mockRestore();
+  });
+});
+
 describe("BasemapCategory (fix 4: quality-button grid reflow)", () => {
   it("sizes the quality-button grid to reflow columns in rem, not a fixed 4-column track, and lets labels wrap", () => {
     const { container } = render(<BasemapCategory />);
@@ -199,6 +288,70 @@ describe("ISSTrackerOverlay (fix 5: info card width follows its own text)", () =
     expect(ISS_INFO_CARD_WIDTH_STYLE.maxWidth).toContain("rem");
     expect(ISS_INFO_CARD_WIDTH_STYLE.minWidth).not.toBe("240px");
     expect(ISS_INFO_CARD_WIDTH_STYLE.maxWidth).not.toBe("280px");
+  });
+});
+
+describe("SatellitePanel (round-5 sweep: pass-quality row wraps instead of overflowing)", () => {
+  it("wraps both the outer pass row and the star/badge/future-label sub-row, and right-aligns the elevation/azimuth column", () => {
+    const pass: PassPrediction = {
+      aos: new Date(Date.now() + 60 * 60 * 1000),
+      los: new Date(Date.now() + 60 * 60 * 1000 + 10 * 60 * 1000),
+      maxEl: 75,
+      aosAz: 120,
+      losAz: 200,
+    };
+
+    const { container } = render(<PassRow pass={pass} />);
+
+    const outerRow = container.firstElementChild as HTMLElement;
+    expect(outerRow).not.toBeNull();
+    expect(outerRow.className).toContain("flex-wrap");
+
+    const elevationText = Array.from(container.querySelectorAll("div")).find(
+      (el) => el.textContent === "75° max",
+    );
+    expect(elevationText).toBeDefined();
+    const elevationColumn = elevationText!.parentElement as HTMLElement;
+    expect(elevationColumn.className).toContain("ml-auto");
+
+    // Locate the quality sub-row (stars/badge/future-label) via the
+    // future-label text, which is unambiguous.
+    const futureLabel = Array.from(container.querySelectorAll("span")).find(
+      (el) => el.textContent?.startsWith("in "),
+    );
+    expect(futureLabel).toBeDefined();
+    const qualityRow = futureLabel!.parentElement as HTMLElement;
+    expect(qualityRow.className).toContain("flex-wrap");
+  });
+});
+
+describe("SatelliteOverlay (round-5 sweep: info card width follows its own text)", () => {
+  it("sizes the info card's width range in rem instead of a fixed pixel range", () => {
+    expect(SATELLITE_INFO_CARD_WIDTH_STYLE.minWidth).toContain("rem");
+    expect(SATELLITE_INFO_CARD_WIDTH_STYLE.maxWidth).toContain("rem");
+    expect(SATELLITE_INFO_CARD_WIDTH_STYLE.minWidth).not.toBe("200px");
+    expect(SATELLITE_INFO_CARD_WIDTH_STYLE.maxWidth).not.toBe("260px");
+  });
+});
+
+describe("PathAnalysis (round-5 sweep: collapsed header row wraps instead of overflowing)", () => {
+  it("wraps the collapsed row's fields instead of holding one non-wrapping line", () => {
+    const absPath = resolve(REPO_ROOT, "src/components/map/PathAnalysis.tsx");
+    const source = readFileSync(absPath, "utf8");
+    const lines = source.split("\n");
+    const markerIndex = lines.findIndex((line) =>
+      line.includes("COLLAPSED: Clean horizontal layout"),
+    );
+    expect(markerIndex).toBeGreaterThanOrEqual(0);
+
+    // The collapsed-row wrapper div is the first `<div className=` after the
+    // marker comment.
+    const rowLine = lines
+      .slice(markerIndex)
+      .find((line) => line.includes("<div className="));
+    expect(rowLine).toBeDefined();
+    expect(rowLine).toContain("flex-wrap");
+    expect(rowLine).not.toContain('className="flex items-center gap-3 w-full"');
   });
 });
 

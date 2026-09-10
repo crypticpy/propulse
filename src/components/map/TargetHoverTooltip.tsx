@@ -16,6 +16,7 @@ import {
   type PointerEventHandler,
 } from "react";
 import { createPortal } from "react-dom";
+import { useSettingsStore } from "@/stores/settingsStore";
 import type { SUnit } from "@/types/signal";
 import type { PathBandCondition } from "@/lib/utils/bands";
 import { getPathStatusBgColor, getPathStatusColor } from "@/lib/utils/bands";
@@ -107,7 +108,21 @@ function SignalMeter({
 
   return (
     <div className="space-y-1">
-      <div className="flex items-center justify-between gap-2">
+      {/*
+        This row lives inside the tooltip's fixed-pixel content area (the
+        tooltip itself is pinned to a two-hundred-sixty-pixel width, about
+        two hundred thirty-six pixels after its own padding). At the default
+        text scale the band/status/EST group on the left and the S-unit/
+        confidence group on the right both fit on one line with room between
+        them, but at the largest scale the two groups together need more
+        than the available width, and neither group had any way to give up
+        space (the left group could shrink its own box below its content's
+        size, which let its badges run out past it instead of yielding room
+        to the right group). `flex-wrap` lets the two groups drop to their
+        own line instead of overlapping when they no longer both fit,
+        keeping each group intact and readable as its own unit either way.
+      */}
+      <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1">
         <div className="flex items-center gap-2 min-w-0">
           <span className="px-1.5 py-0.5 rounded bg-su-line/20 text-xs font-mono text-su-text">
             {signal.band}
@@ -121,7 +136,7 @@ function SignalMeter({
             <span className="text-xs text-su-muted">EST</span>
           )}
         </div>
-        <div className="flex items-center gap-2 flex-shrink-0">
+        <div className="flex items-center gap-2">
           <span className="text-xs font-mono text-su-text">
             {signal.sUnit?.text ?? "--"}
           </span>
@@ -185,29 +200,41 @@ export function TargetHoverTooltip({
     (contextLabel ? 16 : 0);
   const contentRef = useRef<HTMLDivElement>(null);
   const [measuredHeight, setMeasuredHeight] = useState<number | null>(null);
+  const textScale = useSettingsStore((s) => s.textScale ?? "md");
+  const showsDistanceOrBearing =
+    distanceKm !== undefined || bearing !== undefined;
 
-  // Runs after every commit (not just mount): content can change (a new
-  // target's notes/distance/bearing appear or disappear) while the component
-  // stays mounted, and each shape needs its own measurement. The height guard
-  // is what keeps this from looping -- re-placing only changes this node's
-  // `top`/`left` (via inline style), never its width or content, so a second
-  // measurement after a placement-only re-render always reads back the same
-  // height and the effect stops updating state. Deliberately has no deps
-  // array: must re-measure after every commit, not just when `measuredHeight`
-  // changes, since content shape can change while height coincidentally
-  // repeats -- the `height !== measuredHeight` guard inside (not a deps
-  // array) is what keeps this from looping.
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+  // Re-measures only when something that can change the rendered content's
+  // shape changes: the signal summary (a new target's band, status, S-unit
+  // and notes decide whether the meter row wraps; `useOptimalMapSignal`
+  // memoises it per target, not per pointer move), the distance/bearing row
+  // appearing/disappearing, the context label, the primary label (its
+  // length can wrap to a second line), and the text-scale preference (every
+  // line above scales with it, so the same content measures a different
+  // height at a different scale). `position` is
+  // deliberately NOT a dependency -- GlobeView updates it on every pointer
+  // move while a target is hovered, and a position-only update never
+  // changes this content's shape, so re-measuring on every move would call
+  // `getBoundingClientRect` on that hot WebGL pointer path for nothing.
+  // `setMeasuredHeight`'s updater form reads the previous height instead of
+  // closing over `measuredHeight`, so the effect doesn't need that state
+  // (which this same effect writes) in its own dependency list.
   useLayoutEffect(() => {
     const node = contentRef.current;
     if (!node) {
       return;
     }
     const height = node.getBoundingClientRect().height;
-    if (height > 0 && height !== measuredHeight) {
-      setMeasuredHeight(height);
+    if (height > 0) {
+      setMeasuredHeight((current) => (height !== current ? height : current));
     }
-  });
+  }, [
+    optimalSignal,
+    showsDistanceOrBearing,
+    contextLabel,
+    label,
+    textScale,
+  ]);
 
   const effectiveHeight = measuredHeight ?? estimatedHeight;
   const adjustedPosition = placeAnchoredOverlayInFrame(

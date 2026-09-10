@@ -929,9 +929,19 @@ export function PathAnalysis({
             : undefined
         }
       >
-        {/* COLLAPSED: Clean horizontal layout */}
+        {/* COLLAPSED: Clean horizontal layout.
+            This row packs a Solo button, a difficulty dot, the distance, a
+            difficulty badge, the bearing, an optional target chip, and an
+            optional decision summary into one line with no wrap. Only the
+            last two of those (the target chip and the decision summary)
+            have their own truncating width cap; the earlier fields (Solo,
+            distance, the difficulty badge, bearing) have none, so at the
+            largest text scale their combined width can exceed the panel
+            and run past its edge with nothing to stop them. `flex-wrap`
+            lets the whole set drop extra fields to a second line instead of
+            overflowing past the panel when they no longer all fit. */}
         {collapsed ? (
-          <div className="flex items-center gap-3 w-full">
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 w-full">
             {/* Expand indicator */}
             <svg
               className="w-3.5 h-3.5 text-su-muted flex-shrink-0"

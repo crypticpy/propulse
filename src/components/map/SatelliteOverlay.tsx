@@ -115,6 +115,23 @@ function latLonToSurface(lat: number, lon: number): THREE.Vector3 {
   );
 }
 
+/**
+ * Info popup width range (#832 sweep). Sibling of ISS_INFO_CARD_WIDTH_STYLE
+ * in ISSTrackerOverlay.tsx: this card was pinned to a fixed pixel range
+ * (roughly two hundred to two hundred sixty pixels) while nearly everything
+ * inside it -- the NORAD line, the position/altitude grid, the transponder
+ * rows -- is `text-xs`, which follows Settings -> Text Size. Sizing this
+ * range in rem instead lets the whole card grow with its own text instead of
+ * staying pinned to a box sized for the default scale. Exported so this
+ * geometry is unit-testable without rendering the R3F tree this component
+ * lives in (`<Html>`/`useFrame` require a `<Canvas>` context that jsdom +
+ * Testing Library cannot provide).
+ */
+export const SATELLITE_INFO_CARD_WIDTH_STYLE = {
+  minWidth: "12.5rem",
+  maxWidth: "16.25rem",
+} as const;
+
 // ---------------------------------------------------------------------------
 // Satellite Info Popup (drei Html — appears near marker when selected)
 // ---------------------------------------------------------------------------
@@ -164,8 +181,7 @@ function SatelliteInfoPopup({
           backgroundColor: "rgba(8, 8, 24, 0.94)",
           border: `1px solid ${color}60`,
           boxShadow: `0 0 12px ${color}30`,
-          minWidth: "200px",
-          maxWidth: "260px",
+          ...SATELLITE_INFO_CARD_WIDTH_STYLE,
           color: "#e0e0e8",
         }}
         onClick={(e) => {

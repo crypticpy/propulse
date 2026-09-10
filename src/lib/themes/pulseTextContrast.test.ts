@@ -652,6 +652,13 @@ interface ConstEntry {
   entries?: Map<string, ConstEntry>;
 }
 
+/** One named-entry or spread event inside an object literal, in source
+ * order -- `extractObjectEntries` records these as it scans left to right so
+ * `collectConstTemplateMap` can replay the same order once every declaration
+ * is known and a spread's source can actually be resolved (Codex, PR #874
+ * round 34). */
+type ObjectEntryOp = { kind: "entry"; key: string; entry: ConstEntry } | { kind: "spread"; name: string };
+
 /** Index of the first depth-0 `,` in `text` between `start` and `end`
  * (tracking `(`/`[`/`{` depth as one combined counter and skipping quoted/
  * template spans, same rules `extractObjectEntries`'s own value scan always
@@ -721,10 +728,25 @@ function scanToDepthZeroComma(text: string, start: number, end: number): number 
  * expression -- a call, a ternary, a member access -- contributes nothing to
  * `entries`, fail closed, same as an unrecognized key shape) (Codex, PR #874
  * round 16; round 32 continues past a spread/shorthand/method/computed key
- * instead of stopping there). */
-function extractObjectEntries(text: string): { entries: Map<string, ConstEntry>; spreads: string[] } {
+ * instead of stopping there).
+ *
+ * `order` records the same named-entry/spread events `entries`/`spreads`
+ * already do, but in source order and interleaved -- round 32's merge
+ * applied every spread AFTER every named entry was already set, so `{ safe:
+ * "text-green", ...base }` (where `base.safe` is `"animate-pulse"`) kept the
+ * earlier plain entry instead of the spread's later, overwriting one; `{
+ * safe: "text-green", ...unknown }` (an unresolvable spread) also had no way
+ * to mark `safe` as needing its precise entry replaced by the whole object's
+ * flattened literal, since an unresolvable spread could have overwritten it
+ * with anything. `collectConstTemplateMap` replays `order` once every
+ * declaration is known, so overwrite order matches the object literal's own
+ * source order exactly, later wins (Codex, PR #874 round 34). */
+function extractObjectEntries(
+  text: string,
+): { entries: Map<string, ConstEntry>; spreads: string[]; order: ObjectEntryOp[] } {
   const entries = new Map<string, ConstEntry>();
   const spreads: string[] = [];
+  const order: ObjectEntryOp[] = [];
   // The object's own matching close, not just `text`'s last character --
   // `text` is a `const` initializer slice and may carry trailing
   // whitespace after the object literal (`{ ... } ;`).
@@ -738,7 +760,10 @@ function extractObjectEntries(text: string): { entries: Map<string, ConstEntry>;
       const specStart = i + 3;
       const specEnd = scanToDepthZeroComma(text, specStart, end);
       const spec = text.slice(specStart, specEnd).trim();
-      if (/^[A-Za-z_$][\w$]*$/.test(spec)) spreads.push(spec);
+      if (/^[A-Za-z_$][\w$]*$/.test(spec)) {
+        spreads.push(spec);
+        order.push({ kind: "spread", name: spec });
+      }
       i = specEnd;
       continue;
     }
@@ -795,10 +820,12 @@ function extractObjectEntries(text: string): { entries: Map<string, ConstEntry>;
       if (trimmed.startsWith("{")) {
         const nestedStart = valueStart + (valueText.length - trimmed.length);
         const nested = extractObjectEntries(text.slice(nestedStart));
-        entries.set(key, {
+        const entry: ConstEntry = {
           literal: bodies.join(" "),
           entries: nested.entries.size > 0 ? nested.entries : undefined,
-        });
+        };
+        entries.set(key, entry);
+        order.push({ kind: "entry", key, entry });
       } else {
         // An identifier-only (or identifier-plus-literal) entry value --
         // `alert: pulse`, `alert: cn(pulse, "text-xs")` -- has no literal
@@ -812,13 +839,15 @@ function extractObjectEntries(text: string): { entries: Map<string, ConstEntry>;
         // PR #874 round 33).
         const refs = extractIdentifierRefs(valueText);
         if (bodies.length > 0 || refs.length > 0) {
-          entries.set(key, { literal: [bodies.join(" "), refs.join(" ")].filter(Boolean).join(" ") });
+          const entry: ConstEntry = { literal: [bodies.join(" "), refs.join(" ")].filter(Boolean).join(" ") };
+          entries.set(key, entry);
+          order.push({ kind: "entry", key, entry });
         }
       }
     }
     i = valueEnd;
   }
-  return { entries, spreads };
+  return { entries, spreads, order };
 }
 
 /** Result of `skipTypeAnnotation`: either the position just past the
@@ -1215,8 +1244,9 @@ function collectConstTemplateMap(source: string): ConstDecl[] {
   // (`const styles = { ...base, ... }`) may -- in principle -- be declared
   // anywhere relative to `styles` itself, so merging is deferred until
   // `decls` is fully populated rather than attempted inline (Codex, PR #874
-  // round 32).
-  const spreadQueue: Array<{ decl: ConstDecl; spreads: string[] }> = [];
+  // round 32; round 34 replays the object's full `order`, not just its
+  // spreads, so overwrite order matches the source).
+  const spreadQueue: Array<{ decl: ConstDecl; order: ObjectEntryOp[] }> = [];
   const keywordRe = /\b(const|let|var)\s+/g;
   let m: RegExpExecArray | null;
   while ((m = keywordRe.exec(source))) {
@@ -1340,7 +1370,7 @@ function collectConstTemplateMap(source: string): ConstDecl[] {
         decls.push(declObj);
         if (kind !== "const") reassignQueue.push({ decl: declObj, searchStart: end });
         if (objectResult && objectResult.spreads.length > 0) {
-          spreadQueue.push({ decl: declObj, spreads: objectResult.spreads });
+          spreadQueue.push({ decl: declObj, order: objectResult.order });
         }
         pos = end;
       }
@@ -1366,21 +1396,48 @@ function collectConstTemplateMap(source: string): ConstDecl[] {
     }
   }
   // A spread's source, once resolved, contributes its own entries to the
-  // spreading object -- fail closed for an unresolvable spread (an
-  // expression, a call, a name with no visible declaration, or one with no
-  // `entries` of its own): it contributes nothing precise, but its text
-  // already reached the flattened `literal` above regardless, independent
-  // of entries (Codex, PR #874 round 32). An explicit key on the spreading
-  // object always wins over one merged in from a spread.
-  for (const { decl, spreads } of spreadQueue) {
-    for (const spreadName of spreads) {
-      const spreadDecl = visibleDecl(decls, spreadName, decl.index);
-      if (!spreadDecl?.entries) continue;
-      decl.entries ??= new Map<string, ConstEntry>();
-      for (const [key, value] of spreadDecl.entries) {
-        if (!decl.entries.has(key)) decl.entries.set(key, value);
+  // spreading object at the exact point it appears in `order` -- a
+  // *resolvable* spread overwrites every key it carries (later wins, same as
+  // a repeated named key would), so `{ safe: "text-green", ...base }`
+  // correctly ends up with `base.safe` (Codex, PR #874 round 34; round 32's
+  // "an explicit key always wins" rule only ever held for a spread coming
+  // FIRST, which is why every one of round 32's own fixtures still passes
+  // here). An *unresolvable* spread (an expression, a call, a name with no
+  // visible declaration, or one with no `entries` of its own) contributes
+  // nothing precise, but fails closed on every key set so far: those keys go
+  // into `openKeys` and get their precise entry replaced below with the
+  // object's own flattened `literal` (which already reached every key's text
+  // regardless of `entries`, independent of this loop) -- an unresolvable
+  // spread could, for all this scanner knows, itself carry `animate-pulse`
+  // and overwrite any of them. A key (re)defined AFTER an unresolvable
+  // spread is unaffected -- nothing has overwritten it yet -- and any key
+  // that later gets a fresh named entry or a resolvable spread's value is
+  // removed from `openKeys` again, since it's now precisely known past that
+  // point.
+  for (const { decl, order } of spreadQueue) {
+    const entries = new Map<string, ConstEntry>();
+    const openKeys = new Set<string>();
+    for (const op of order) {
+      if (op.kind === "entry") {
+        entries.set(op.key, op.entry);
+        openKeys.delete(op.key);
+        continue;
+      }
+      const spreadDecl = visibleDecl(decls, op.name, decl.index);
+      if (spreadDecl?.entries) {
+        for (const [key, value] of spreadDecl.entries) {
+          entries.set(key, value);
+          openKeys.delete(key);
+        }
+      } else {
+        for (const key of entries.keys()) openKeys.add(key);
       }
     }
+    for (const key of openKeys) {
+      const existing = entries.get(key);
+      entries.set(key, { literal: decl.literal, entries: existing?.entries });
+    }
+    decl.entries = entries;
   }
   return decls;
 }
@@ -2203,22 +2260,156 @@ function valueOperands(parts: OperandSplit[]): string[] {
   return parts.filter((p) => p.opAfter !== "?" && p.opAfter !== "&&").map((p) => p.text);
 }
 
-/** Every top-level (any nesting depth, quote-aware) arrow function's
- * expression body found in `text` -- a `.map((i) => cond ? <A /> : i.label)`
- * callback's ternary sits inside the map call's own parens, invisible to a
- * depth-0-only split of the whole expression, so its body is extracted and
- * examined on its own, depth reset to 0 for that body alone (Codex, PR #874
- * round 21). A `{ ... }` block body (statements, not a single expression) is
- * skipped -- this scanner can't evaluate arbitrary statements. */
+/** Every `return <expr>;` statement's `<expr>` found at the top level of a
+ * block-bodied callback (`{ … }` after `=>` or `function (…)`) -- a block
+ * body used to be skipped by `findArrowBodies` entirely, so
+ * `{items.map(i => { return i.ready ? <span className="h-2" /> : "Loading";
+ * })}` never had its returned ternary examined at all (Codex, PR #874 round
+ * 34). A nested arrow/`function`'s OWN block body is skipped wholesale (via
+ * `extractBalanced`) since a `return` inside it belongs to that inner
+ * function, not this one; every other `return` -- including one inside a
+ * braced or unbraced `if`/`for`/etc, which introduces no *function* nesting
+ * of its own, only a plain block -- is found by a flat left-to-right scan
+ * (skipping only quoted/template spans and nested-function bodies) and its
+ * expression captured up to its own depth-0 terminating `;` (same
+ * `(`/`[`/`{` depth rule `findInitializerEnd` uses for a declarator). This is
+ * exactly why `function (i) { if (!i) return null; return i.label; }`'s
+ * second `return` is found: the `if` has no braces of its own, so it adds no
+ * depth at all. */
+function extractBlockReturnExpressions(blockInner: string): string[] {
+  const results: string[] = [];
+  const len = blockInner.length;
+  const isWordChar = (ch: string | undefined) => !!ch && /[\w$]/.test(ch);
+  let i = 0;
+  while (i < len) {
+    const c = blockInner[i];
+    if (c === "`") {
+      i += extractTemplateLiteral(blockInner, i).length;
+      continue;
+    }
+    if (c === '"' || c === "'") {
+      let j = i + 1;
+      while (j < len && blockInner[j] !== c) j += blockInner[j] === "\\" ? 2 : 1;
+      i = j + 1;
+      continue;
+    }
+    // A nested arrow function's own block body: skip it wholesale.
+    if (c === "=" && blockInner[i + 1] === ">") {
+      let k = i + 2;
+      while (k < len && /\s/.test(blockInner[k])) k++;
+      if (blockInner[k] === "{") {
+        i = extractBalanced(blockInner, k, "{", "}").endIndex + 1;
+        continue;
+      }
+      i = k;
+      continue;
+    }
+    // A nested `function` declaration/expression's own block body: same
+    // reasoning, skipping past its optional name and parameter list first.
+    if (!isWordChar(blockInner[i - 1]) && /^function(?:[\s(]|$)/.test(blockInner.slice(i, i + 9))) {
+      let k = i + "function".length;
+      while (k < len && /\s/.test(blockInner[k])) k++;
+      const nameMatch = /^[A-Za-z_$][\w$]*/.exec(blockInner.slice(k));
+      if (nameMatch) k += nameMatch[0].length;
+      while (k < len && /\s/.test(blockInner[k])) k++;
+      if (blockInner[k] === "(") {
+        k = extractBalanced(blockInner, k, "(", ")").endIndex + 1;
+        while (k < len && /\s/.test(blockInner[k])) k++;
+      }
+      if (blockInner[k] === "{") {
+        i = extractBalanced(blockInner, k, "{", "}").endIndex + 1;
+        continue;
+      }
+      i = k;
+      continue;
+    }
+    // A `return` statement at this block's own depth.
+    if (!isWordChar(blockInner[i - 1]) && /^return(?:[\s;]|$)/.test(blockInner.slice(i, i + 7))) {
+      let k = i + "return".length;
+      const exprStart = k;
+      let depth = 0;
+      let inStr: string | null = null;
+      for (; k < len; k++) {
+        const rc = blockInner[k];
+        if (inStr) {
+          if (rc === "\\") {
+            k++;
+            continue;
+          }
+          if (rc === inStr) inStr = null;
+          continue;
+        }
+        if (rc === "`") {
+          k += extractTemplateLiteral(blockInner, k).length - 1;
+          continue;
+        }
+        if (rc === '"' || rc === "'") {
+          inStr = rc;
+          continue;
+        }
+        if (rc === "(" || rc === "[" || rc === "{") {
+          depth++;
+          continue;
+        }
+        if (rc === ")" || rc === "]" || rc === "}") {
+          if (depth === 0) break;
+          depth--;
+          continue;
+        }
+        if (depth === 0 && rc === ";") break;
+      }
+      results.push(blockInner.slice(exprStart, k).trim());
+      i = blockInner[k] === ";" ? k + 1 : k;
+      continue;
+    }
+    i++;
+  }
+  return results;
+}
+
+/** Every top-level (any nesting depth, quote-aware) arrow/`function`
+ * callback's rendered body found in `text` -- a `.map((i) => cond ? <A /> :
+ * i.label)` callback's ternary sits inside the map call's own parens,
+ * invisible to a depth-0-only split of the whole expression, so its body is
+ * extracted and examined on its own, depth reset to 0 for that body alone
+ * (Codex, PR #874 round 21). A `{ … }` block body (statements, not a single
+ * expression) can't be evaluated as one expression, but every `return
+ * <expr>;` it contains at its own depth is extracted by
+ * `extractBlockReturnExpressions` and examined the same way an expression
+ * body is -- a block with no `return`, or only `return null/undefined/false;`,
+ * contributes nothing (Codex, PR #874 round 34: `.map(i => { return
+ * i.ready ? <span className="h-2" /> : "Loading"; })` and `.map(function
+ * (i) { if (!i) return null; return i.label; })` were both previously
+ * invisible to this scanner, a `function` callback doubly so since only
+ * `=>` was ever matched at all). */
 function findArrowBodies(text: string): string[] {
   const bodies: string[] = [];
-  const re = /=>/g;
+  const re = /=>|\bfunction\b/g;
   let m: RegExpExecArray | null;
   while ((m = re.exec(text))) {
-    let i = m.index + 2;
-    while (i < text.length && /\s/.test(text[i])) i++;
+    let i: number;
+    if (m[0] === "=>") {
+      i = m.index + 2;
+      while (i < text.length && /\s/.test(text[i])) i++;
+    } else {
+      // `function` keyword: skip an optional name and the parameter list to
+      // reach the body, the same place an arrow's `=>` already points at.
+      let k = m.index + "function".length;
+      while (k < text.length && /\s/.test(text[k])) k++;
+      const nameMatch = /^[A-Za-z_$][\w$]*/.exec(text.slice(k));
+      if (nameMatch) k += nameMatch[0].length;
+      while (k < text.length && /\s/.test(text[k])) k++;
+      if (text[k] === "(") {
+        k = extractBalanced(text, k, "(", ")").endIndex + 1;
+        while (k < text.length && /\s/.test(text[k])) k++;
+      }
+      i = k;
+    }
     if (text[i] === "{") {
-      re.lastIndex = i;
+      const { endIndex } = extractBalanced(text, i, "{", "}");
+      const inner = text.slice(i + 1, endIndex);
+      bodies.push(...extractBlockReturnExpressions(inner));
+      re.lastIndex = endIndex + 1;
       continue;
     }
     let depth = 0;
@@ -3792,6 +3983,35 @@ describe("scanSourceForViolations catches every spelling (fixture proofs, #878)"
     expect(scanSourceForViolations(fixture)).not.toEqual([]);
   });
 
+  it("overwrites an earlier named entry with a later, resolvable spread's own value for the same key", () => {
+    // `base.safe` is `"animate-pulse"` and comes AFTER `styles`'s own plain
+    // `safe: "text-green"` -- the merge used to install a spread's entries
+    // only when the spreading object didn't already have that key, so
+    // `styles.safe` kept the earlier, non-pulsing entry regardless of which
+    // one actually came last in source (Codex, PR #874 round 34).
+    const fixture =
+      'const base = { safe: "animate-pulse" };\nconst styles = { safe: "text-green", ...base };\nexport function A() { return <span className={styles.safe}>Idle</span>; }';
+    expect(scanSourceForViolations(fixture)).not.toEqual([]);
+  });
+
+  it("still keeps a named entry precise when it comes AFTER a leading spread (round 32 shape, unaffected by the ordering fix)", () => {
+    const fixture =
+      'const styles = { ...base, safe: "text-green" };\nexport function A() { return <span className={styles.safe}>Idle</span>; }';
+    expect(scanSourceForViolations(fixture)).toEqual([]);
+  });
+
+  it("fails closed on a precise key defined before an unresolvable spread, since the spread could overwrite it with anything", () => {
+    const fixture =
+      'const styles = { safe: "text-green", alert: "animate-pulse", ...unknownImport };\nexport function A() { return <span className={styles.safe}>Idle</span>; }';
+    expect(scanSourceForViolations(fixture)).not.toEqual([]);
+  });
+
+  it("does not flag a precise key before an unresolvable spread when the object has no pulse anywhere", () => {
+    const fixture =
+      'const styles = { safe: "text-green", ok: "text-blue", ...unknownImport };\nexport function A() { return <span className={styles.safe}>Idle</span>; }';
+    expect(scanSourceForViolations(fixture)).toEqual([]);
+  });
+
   it("resolves an identifier-only const alias concatenated with a literal", () => {
     const fixture =
       'const pulse = "animate-pulse";\nconst classes = pulse + " text-xs";\nexport function A() { return <span className={classes}>Loading</span>; }';
@@ -4144,6 +4364,33 @@ describe("scanSourceForViolations catches every spelling (fixture proofs, #878)"
     ]) {
       expect(scanSourceForViolations(fixture), fixture).not.toEqual([]);
     }
+  });
+
+  it("inspects a block-bodied arrow callback's return statement, not just an expression body", () => {
+    // `i => { return … ; }` used to be skipped outright by `findArrowBodies`
+    // just because it had a `{ … }` block body rather than a single
+    // expression -- the returned ternary's own string branch (`"Loading"`)
+    // never got examined at all (Codex, PR #874 round 34).
+    const fixture =
+      '<div className="animate-pulse">{items.map((i) => { return i.ready ? <span className="h-2" /> : "Loading"; })}</div>';
+    expect(scanSourceForViolations(fixture)).not.toEqual([]);
+  });
+
+  it("still dismisses a block-bodied arrow callback that only returns a decorative element", () => {
+    const fixture = '<div className="animate-pulse">{items.map((i) => { return <span className="h-2" />; })}</div>';
+    expect(scanSourceForViolations(fixture)).toEqual([]);
+  });
+
+  it("inspects every top-level return in a block-bodied `function` callback, not just an arrow", () => {
+    // `function (i) { … }` was invisible to `findArrowBodies` twice over: it
+    // isn't an arrow at all (only `=>` was ever matched), and even a
+    // matching block body was skipped outright. The unbraced `if (!i) return
+    // null;` adds no brace nesting of its own, so the second, text-bearing
+    // `return i.label;` sits at the same depth and must still be found
+    // (Codex, PR #874 round 34).
+    const fixture =
+      '<div className="animate-pulse">{items.map(function (i) { if (!i) return null; return i.label; })}</div>';
+    expect(scanSourceForViolations(fixture)).not.toEqual([]);
   });
 
   it("parses a quoted '>' while stripping child tags, so a decorative wrapper is never falsely read as text", () => {

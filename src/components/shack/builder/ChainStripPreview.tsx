@@ -34,7 +34,7 @@ function getNodeTypeConfig(node: ChainNode): NodeTypeConfig {
     case "radio":
       return {
         abbrev: "Rd",
-        color: "text-plasma-orange",
+        color: "text-su-text",
         bg: "bg-plasma-orange/20",
       };
     case "accessory":

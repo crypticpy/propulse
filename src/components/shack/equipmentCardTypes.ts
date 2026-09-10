@@ -121,7 +121,7 @@ export const GLOW_SHADOW: Record<EquipmentType, string> = {
 
 /** Badge color map — Tailwind classes */
 export const BADGE_STYLES: Record<BadgeColor, string> = {
-  orange: "bg-plasma-orange/15 text-plasma-orange",
+  orange: "bg-plasma-orange/15 text-su-text",
   green: "bg-signal-green/15 text-signal-green",
   amber: "bg-caution-amber/15 text-caution-amber",
   red: "bg-alert-red/15 text-alert-red",

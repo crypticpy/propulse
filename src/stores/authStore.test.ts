@@ -22,6 +22,7 @@ vi.mock("@/lib/supabase", () => ({
 }));
 
 import { useAuthStore } from "@/stores/authStore";
+import { useProfileStore } from "@/stores/profileStore";
 
 type AuthListener = (event: AuthChangeEvent, session: Session | null) => void;
 
@@ -126,5 +127,124 @@ describe("authStore.initialize", () => {
     await Promise.resolve();
 
     expect(authMocks.setAuth).toHaveBeenCalledWith("token-2");
+  });
+});
+
+describe("authStore account-boundary billing reset", () => {
+  function seedProBilling(userId: string) {
+    useProfileStore.getState().setBilling({
+      userId,
+      tier: "pro",
+      status: "active",
+      periodEnd: "2026-10-01T00:00:00.000Z",
+    });
+  }
+
+  afterEach(() => {
+    useProfileStore.getState().resetBilling();
+  });
+
+  it("resets billing when a different account signs in", async () => {
+    seedProBilling("user-A");
+
+    let listener: AuthListener | undefined;
+    authMocks.onAuthStateChange.mockImplementation((callback: AuthListener) => {
+      listener = callback;
+      return { data: { subscription: { unsubscribe: authMocks.unsubscribe } } };
+    });
+    authMocks.getSession.mockResolvedValue({ data: { session: null } });
+    // Global test setup (`src/test/setup.ts`) runs `vi.restoreAllMocks()` after
+    // every test, wiping the hoisted default resolved value once a prior test
+    // consumes/replaces it — re-arm explicitly rather than relying on it.
+    authMocks.setAuth.mockResolvedValue(undefined);
+
+    await useAuthStore.getState().initialize();
+
+    const userB = { id: "user-B" } as Session["user"];
+    const sessionB = { user: userB, access_token: "token-b" } as Session;
+    listener?.("SIGNED_IN", sessionB);
+
+    const state = useProfileStore.getState();
+    expect(state.billingUserId).toBeNull();
+    expect(state.subscriptionTier).toBe("free");
+    expect(state.subscriptionStatus).toBe("inactive");
+    expect(state.subscriptionPeriodEnd).toBeNull();
+  });
+
+  it("resets billing on sign-out", async () => {
+    seedProBilling("user-A");
+
+    let listener: AuthListener | undefined;
+    authMocks.onAuthStateChange.mockImplementation((callback: AuthListener) => {
+      listener = callback;
+      return { data: { subscription: { unsubscribe: authMocks.unsubscribe } } };
+    });
+    authMocks.getSession.mockResolvedValue({ data: { session: null } });
+    // Global test setup (`src/test/setup.ts`) runs `vi.restoreAllMocks()` after
+    // every test, wiping the hoisted default resolved value once a prior test
+    // consumes/replaces it — re-arm explicitly rather than relying on it.
+    authMocks.setAuth.mockResolvedValue(undefined);
+
+    await useAuthStore.getState().initialize();
+
+    listener?.("SIGNED_OUT", null);
+
+    const state = useProfileStore.getState();
+    expect(state.billingUserId).toBeNull();
+    expect(state.subscriptionTier).toBe("free");
+    expect(state.subscriptionStatus).toBe("inactive");
+    expect(state.subscriptionPeriodEnd).toBeNull();
+  });
+
+  it("resets billing when the initial session is null (expired while closed)", async () => {
+    seedProBilling("user-A");
+
+    let listener: AuthListener | undefined;
+    authMocks.onAuthStateChange.mockImplementation((callback: AuthListener) => {
+      listener = callback;
+      return { data: { subscription: { unsubscribe: authMocks.unsubscribe } } };
+    });
+    authMocks.getSession.mockResolvedValue({ data: { session: null } });
+    authMocks.setAuth.mockResolvedValue(undefined);
+
+    await useAuthStore.getState().initialize();
+
+    // supabase-js reports a missing/expired persisted session this way; no
+    // SIGNED_OUT follows, so this event is the only account boundary seen.
+    listener?.("INITIAL_SESSION", null);
+
+    const state = useProfileStore.getState();
+    expect(state.billingUserId).toBeNull();
+    expect(state.subscriptionTier).toBe("free");
+    expect(state.subscriptionStatus).toBe("inactive");
+    expect(state.subscriptionPeriodEnd).toBeNull();
+  });
+
+  it("leaves billing intact when the same account signs in again (reload)", async () => {
+    seedProBilling("user-A");
+
+    let listener: AuthListener | undefined;
+    authMocks.onAuthStateChange.mockImplementation((callback: AuthListener) => {
+      listener = callback;
+      return { data: { subscription: { unsubscribe: authMocks.unsubscribe } } };
+    });
+    authMocks.getSession.mockResolvedValue({ data: { session: null } });
+    // Global test setup (`src/test/setup.ts`) runs `vi.restoreAllMocks()` after
+    // every test, wiping the hoisted default resolved value once a prior test
+    // consumes/replaces it — re-arm explicitly rather than relying on it.
+    authMocks.setAuth.mockResolvedValue(undefined);
+
+    await useAuthStore.getState().initialize();
+
+    const userA = { id: "user-A" } as Session["user"];
+    const sessionA = { user: userA, access_token: "token-a" } as Session;
+    listener?.("SIGNED_IN", sessionA);
+    listener?.("TOKEN_REFRESHED", sessionA);
+
+    const state = useProfileStore.getState();
+    expect(state.billingUserId).toBe("user-A");
+    expect(state.subscriptionTier).toBe("pro");
+    expect(state.subscriptionStatus).toBe("active");
+    expect(state.subscriptionPeriodEnd).toBe("2026-10-01T00:00:00.000Z");
   });
 });

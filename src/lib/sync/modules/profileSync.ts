@@ -1,7 +1,8 @@
 /**
  * Profile sync module — Tier 1 (Eager)
  *
- * Syncs `profiles` and `saved_locations` tables.
+ * Syncs `profiles` and `saved_locations` tables, and reads the account's own
+ * `profile_billing` row (server-authoritative, never pushed).
  * Pushes the full profile blob and all saved locations on every push.
  * Pulls delta on `profiles.updated_at`; saved_locations are always full-pulled
  * (the table has no `updated_at` column).
@@ -12,8 +13,9 @@ import {
   CURRENT_LOCATION_ID,
   useProfileStore,
 } from "@/stores/profileStore";
+import { useAuthStore } from "@/stores/authStore";
 import { syncMeta } from "../syncMeta";
-import type { SyncModule, SyncableTable } from "../types";
+import type { SyncModule, SyncableTable, SyncLifecycle } from "../types";
 import type { Json, Tables, TablesInsert } from "@/types/supabase";
 import type { OperatingLocation } from "@/types/user";
 import type { RankTier } from "@/types/rank";
@@ -78,7 +80,11 @@ export const profileSync: SyncModule = {
   tier: "eager",
   tables: ["profiles", "saved_locations"] as SyncableTable[],
 
-  async pull(userId: string, since: string | null): Promise<string | null> {
+  async pull(
+    userId: string,
+    since: string | null,
+    lifecycle?: SyncLifecycle,
+  ): Promise<string | null> {
     const supabase = getSupabase();
     const timestamps: string[] = [];
 
@@ -96,6 +102,31 @@ export const profileSync: SyncModule = {
       throw new Error(`Profile pull failed: ${profileError.message}`);
     }
 
+    // --- Pull billing state (own row only, server-authoritative) ---
+    // Subscription state moved off `profiles` in 20260909140000 so that
+    // `profiles_select` — which exposes any row marked public — cannot leak it.
+    // Pulled unconditionally rather than behind `since`: a Stripe webhook moves
+    // this row without touching `profiles.updated_at`, so a delta on the
+    // profile cursor would never see the change.
+    //
+    // A failure here must not abort the rest of the pull (saved_locations
+    // etc. below); it's logged and treated as "unknown", which is distinct
+    // from a query that succeeded and found no row (see `billingQueried`
+    // below — that case resets to the free/inactive/null defaults). On a
+    // failure, the persisted billing state is only kept if it is already
+    // tagged (`billingUserId`) to this same account — see the `billingQueried`
+    // handling below for the account-boundary reset.
+    const { data: billingRow, error: billingError } = await supabase
+      .from("profile_billing")
+      .select("subscription_tier, subscription_status, subscription_period_end")
+      .eq("user_id", userId)
+      .maybeSingle();
+
+    if (billingError) {
+      console.warn(`Billing pull failed, skipping billing update: ${billingError.message}`);
+    }
+    const billingQueried = !billingError;
+
     // --- Pull saved locations (always full pull — no updated_at column) ---
     const { data: locationRows, error: locationError } = await supabase
       .from("saved_locations")
@@ -104,6 +135,25 @@ export const profileSync: SyncModule = {
 
     if (locationError) {
       throw new Error(`Saved locations pull failed: ${locationError.message}`);
+    }
+
+    // #866/#867 Codex round 5: the three queries above are each awaited, so
+    // an account switch (sign-out, or a different account signing in) can
+    // land while this pull is still in flight. `SyncManager` only checks its
+    // generation after `pull()` returns, so without this guard a stale pull
+    // could apply a previous account's profile fields — and, worse,
+    // `setBilling` could resurrect a tier `authStore` already reset for the
+    // new account. Nothing below this point awaits again, so a single check
+    // here covers every store mutation in the rest of this function,
+    // including all billing writes.
+    if (
+      (lifecycle && !lifecycle.isActive()) ||
+      useAuthStore.getState().user?.id !== userId
+    ) {
+      console.warn(
+        `[profileSync] Discarding pull for ${userId} — the session changed while the pull was in flight`,
+      );
+      return null;
     }
 
     // Build merged station in a single pass, then apply one setState
@@ -205,18 +255,7 @@ export const profileSync: SyncModule = {
         stateUpdate.socialLinks = profileRows.social_links;
       }
 
-      // Subscription fields (server-authoritative via Stripe webhooks)
       const row = profileRows as Record<string, unknown>;
-      if (row.subscription_tier != null) {
-        stateUpdate.subscriptionTier = row.subscription_tier as string;
-      }
-      if (row.subscription_status != null) {
-        stateUpdate.subscriptionStatus = row.subscription_status as string;
-      }
-      if (row.subscription_period_end != null) {
-        stateUpdate.subscriptionPeriodEnd =
-          row.subscription_period_end as string;
-      }
 
       // Rank override (server-authoritative — admin can set this in Supabase)
       const serverOverride = profileRows.rank_override as string | null;
@@ -248,6 +287,50 @@ export const profileSync: SyncModule = {
       if (row.favorite_freqs != null) {
         stateUpdate.favoriteFreqs = row.favorite_freqs;
       }
+    }
+
+    // Subscription fields (server-authoritative via Stripe webhooks). Outside
+    // the `profileRows` branch: a delta pull can skip the profile row entirely
+    // and still need the current tier.
+    //
+    // Billing state is tagged with the account it belongs to
+    // (`billingUserId`) so a transient read failure can never leak one
+    // account's tier into another account's session. When the query
+    // succeeds — row or no row — we write the fields and stamp
+    // `billingUserId = userId` via `setBilling`: a row is applied as-is, and
+    // no row means this account (e.g. a freshly signed-in free account
+    // reusing a browser that last held a Pro session) has never subscribed
+    // and must read as the documented free/inactive/null defaults
+    // (`src/stores/profileStore.ts`), not whatever the persisted store
+    // happened to have (#866 Codex round 2). When the query fails, we only
+    // preserve the existing state if it already belongs to this same
+    // account; otherwise (an account boundary — sign-out, account switch, or
+    // the first-ever pull in this browser) we reset via `resetBilling()`
+    // rather than risk showing a different account's Pro state (#866/#867
+    // Codex round 4).
+    if (billingQueried) {
+      if (billingRow) {
+        useProfileStore.getState().setBilling({
+          userId,
+          tier: billingRow.subscription_tier as "free" | "pro",
+          status: billingRow.subscription_status as
+            | "active"
+            | "trialing"
+            | "past_due"
+            | "canceled"
+            | "inactive",
+          periodEnd: billingRow.subscription_period_end,
+        });
+      } else {
+        useProfileStore.getState().setBilling({
+          userId,
+          tier: "free",
+          status: "inactive",
+          periodEnd: null,
+        });
+      }
+    } else if (state.billingUserId !== userId) {
+      useProfileStore.getState().resetBilling();
     }
 
     // Single setState call for the entire pull

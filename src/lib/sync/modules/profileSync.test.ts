@@ -5,17 +5,28 @@ import {
   CURRENT_LOCATION_ID,
   useProfileStore,
 } from "@/stores/profileStore";
+import { useAuthStore } from "@/stores/authStore";
+import type { User } from "@supabase/supabase-js";
 import { profileSync } from "./profileSync";
 
 vi.mock("@/lib/supabase", () => ({
   getSupabase: vi.fn(),
+  isSupabaseConfigured: true,
 }));
 
 const originalState = useProfileStore.getState();
+const originalAuthState = useAuthStore.getState();
 
 describe("profileSync location conflict handling", () => {
   beforeEach(() => {
     syncMeta.clear();
+    // The pull guard (#866/#867 Codex round 5) requires the pull's userId to
+    // match the currently signed-in account; these tests all pull as
+    // "user-1", so seed the auth store to match unless a test overrides it.
+    useAuthStore.setState({
+      ...originalAuthState,
+      user: { id: "user-1" } as User,
+    });
     useProfileStore.setState({
       ...originalState,
       station: {
@@ -62,15 +73,17 @@ describe("profileSync location conflict handling", () => {
       active_location_id: CURRENT_LOCATION_ID,
       bio: null,
       social_links: null,
-      subscription_tier: null,
-      subscription_status: null,
-      subscription_period_end: null,
       rank_override: null,
       interests: null,
       on_air_status: null,
       sked_availability: null,
       favorite_freqs: null,
       updated_at: "2026-08-31T12:00:00.000Z",
+    };
+    const billingRow = {
+      subscription_tier: "pro",
+      subscription_status: "active",
+      subscription_period_end: "2026-10-01T00:00:00.000Z",
     };
     const locationRows = [
       {
@@ -113,6 +126,18 @@ describe("profileSync location conflict handling", () => {
           return query;
         }
 
+        if (table === "profile_billing") {
+          const query = {
+            select: vi.fn(() => query),
+            eq: vi.fn(() => query),
+            maybeSingle: vi.fn(async () => ({
+              data: billingRow,
+              error: null,
+            })),
+          };
+          return query;
+        }
+
         const query = {
           select: vi.fn(() => query),
           eq: vi.fn(async () => ({ data: locationRows, error: null })),
@@ -131,6 +156,387 @@ describe("profileSync location conflict handling", () => {
     expect(current?.timezone).toBe("America/Denver");
     expect(station.grid).toBe("DM79");
     expect(station.lon).toBe(-105);
+    // Subscription state comes from `profile_billing`, not the profile row.
+    expect(useProfileStore.getState().subscriptionTier).toBe("pro");
+    expect(useProfileStore.getState().subscriptionPeriodEnd).toBe(
+      "2026-10-01T00:00:00.000Z",
+    );
+    // The success path tags the billing state with the account it belongs to.
+    expect(useProfileStore.getState().billingUserId).toBe("user-1");
+  });
+
+  it("resets billing state to free when the account has no profile_billing row", async () => {
+    useProfileStore.setState({
+      subscriptionTier: "pro",
+      subscriptionStatus: "active",
+      subscriptionPeriodEnd: "2026-10-01T00:00:00.000Z",
+    });
+
+    vi.mocked(getSupabase).mockReturnValue({
+      from: vi.fn((table: string) => {
+        if (table === "profiles") {
+          const query = {
+            select: vi.fn(() => query),
+            eq: vi.fn(() => query),
+            maybeSingle: vi.fn(async () => ({ data: null, error: null })),
+          };
+          return query;
+        }
+
+        if (table === "profile_billing") {
+          const query = {
+            select: vi.fn(() => query),
+            eq: vi.fn(() => query),
+            // Query succeeded; the account (e.g. a fresh free sign-in reusing
+            // a browser that last held a Pro session) has never subscribed.
+            maybeSingle: vi.fn(async () => ({ data: null, error: null })),
+          };
+          return query;
+        }
+
+        const query = {
+          select: vi.fn(() => query),
+          eq: vi.fn(async () => ({ data: [], error: null })),
+        };
+        return query;
+      }),
+    } as never);
+
+    await profileSync.pull("user-1", null);
+
+    const state = useProfileStore.getState();
+    expect(state.subscriptionTier).toBe("free");
+    expect(state.subscriptionStatus).toBe("inactive");
+    expect(state.subscriptionPeriodEnd).toBeNull();
+    expect(state.billingUserId).toBe("user-1");
+  });
+
+  it("keeps existing billing state and still pulls the rest of the profile when the billing query errors for the same account", async () => {
+    useProfileStore.setState({
+      subscriptionTier: "pro",
+      subscriptionStatus: "active",
+      subscriptionPeriodEnd: "2026-10-01T00:00:00.000Z",
+      billingUserId: "user-1",
+    });
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    const profileRow = {
+      id: "user-1",
+      callsign: "N0QA",
+      operator_name: null,
+      grid: "EM10",
+      lat: 30.5,
+      lon: -97,
+      timezone: "America/Chicago",
+      home_location_id: "home",
+      active_location_id: null,
+      bio: "Test bio",
+      social_links: null,
+      rank_override: null,
+      interests: null,
+      on_air_status: null,
+      sked_availability: null,
+      favorite_freqs: null,
+      updated_at: "2026-08-31T12:00:00.000Z",
+    };
+
+    vi.mocked(getSupabase).mockReturnValue({
+      from: vi.fn((table: string) => {
+        if (table === "profiles") {
+          const query = {
+            select: vi.fn(() => query),
+            eq: vi.fn(() => query),
+            maybeSingle: vi.fn(async () => ({ data: profileRow, error: null })),
+          };
+          return query;
+        }
+
+        if (table === "profile_billing") {
+          const query = {
+            select: vi.fn(() => query),
+            eq: vi.fn(() => query),
+            maybeSingle: vi.fn(async () => ({
+              data: null,
+              error: { message: "connection reset" },
+            })),
+          };
+          return query;
+        }
+
+        const query = {
+          select: vi.fn(() => query),
+          eq: vi.fn(async () => ({ data: [], error: null })),
+        };
+        return query;
+      }),
+    } as never);
+
+    await expect(profileSync.pull("user-1", null)).resolves.not.toThrow();
+
+    const state = useProfileStore.getState();
+    // Billing read failed — treated as unknown, not as "no row": the previous
+    // tier is left untouched because it already belongs to this same account.
+    expect(state.subscriptionTier).toBe("pro");
+    expect(state.subscriptionStatus).toBe("active");
+    expect(state.subscriptionPeriodEnd).toBe("2026-10-01T00:00:00.000Z");
+    expect(state.billingUserId).toBe("user-1");
+    // The rest of the pull still ran.
+    expect(state.bio).toBe("Test bio");
+    expect(warnSpy).toHaveBeenCalledWith(
+      expect.stringContaining("Billing pull failed"),
+    );
+
+    warnSpy.mockRestore();
+  });
+
+  it("resets billing state when the billing query errors and the persisted state belongs to a different (or no) account", async () => {
+    useProfileStore.setState({
+      subscriptionTier: "pro",
+      subscriptionStatus: "active",
+      subscriptionPeriodEnd: "2026-10-01T00:00:00.000Z",
+      billingUserId: "user-OLD",
+    });
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    const profileRow = {
+      id: "user-1",
+      callsign: "N0QA",
+      operator_name: null,
+      grid: "EM10",
+      lat: 30.5,
+      lon: -97,
+      timezone: "America/Chicago",
+      home_location_id: "home",
+      active_location_id: null,
+      bio: "Test bio",
+      social_links: null,
+      rank_override: null,
+      interests: null,
+      on_air_status: null,
+      sked_availability: null,
+      favorite_freqs: null,
+      updated_at: "2026-08-31T12:00:00.000Z",
+    };
+
+    vi.mocked(getSupabase).mockReturnValue({
+      from: vi.fn((table: string) => {
+        if (table === "profiles") {
+          const query = {
+            select: vi.fn(() => query),
+            eq: vi.fn(() => query),
+            maybeSingle: vi.fn(async () => ({ data: profileRow, error: null })),
+          };
+          return query;
+        }
+
+        if (table === "profile_billing") {
+          const query = {
+            select: vi.fn(() => query),
+            eq: vi.fn(() => query),
+            maybeSingle: vi.fn(async () => ({
+              data: null,
+              error: { message: "connection reset" },
+            })),
+          };
+          return query;
+        }
+
+        const query = {
+          select: vi.fn(() => query),
+          eq: vi.fn(async () => ({ data: [], error: null })),
+        };
+        return query;
+      }),
+    } as never);
+
+    await expect(profileSync.pull("user-1", null)).resolves.not.toThrow();
+
+    const state = useProfileStore.getState();
+    // Billing read failed AND the persisted state belongs to a different
+    // account than the one being pulled — reset rather than leak it across
+    // the account boundary (#866/#867 Codex round 4).
+    expect(state.subscriptionTier).toBe("free");
+    expect(state.subscriptionStatus).toBe("inactive");
+    expect(state.subscriptionPeriodEnd).toBeNull();
+    expect(state.billingUserId).toBeNull();
+    // The rest of the pull still ran.
+    expect(state.bio).toBe("Test bio");
+    expect(warnSpy).toHaveBeenCalledWith(
+      expect.stringContaining("Billing pull failed"),
+    );
+
+    warnSpy.mockRestore();
+  });
+
+  it("drops billing writes from a pull that outlived its account (#866/#867 Codex round 5)", async () => {
+    useProfileStore.setState({
+      subscriptionTier: "pro",
+      subscriptionStatus: "active",
+      subscriptionPeriodEnd: "2026-10-01T00:00:00.000Z",
+      billingUserId: "user-A",
+    });
+    useAuthStore.setState({
+      ...originalAuthState,
+      user: { id: "user-A" } as User,
+    });
+
+    const profileRow = {
+      id: "user-A",
+      callsign: "N0QA",
+      operator_name: null,
+      grid: "EM10",
+      lat: 30.5,
+      lon: -97,
+      timezone: "America/Chicago",
+      home_location_id: "home",
+      active_location_id: null,
+      bio: null,
+      social_links: null,
+      rank_override: null,
+      interests: null,
+      on_air_status: null,
+      sked_availability: null,
+      favorite_freqs: null,
+      updated_at: "2026-08-31T12:00:00.000Z",
+    };
+
+    let resolveBilling!: (value: unknown) => void;
+    const billingPromise = new Promise((resolve) => {
+      resolveBilling = resolve;
+    });
+
+    vi.mocked(getSupabase).mockReturnValue({
+      from: vi.fn((table: string) => {
+        if (table === "profiles") {
+          const query = {
+            select: vi.fn(() => query),
+            eq: vi.fn(() => query),
+            maybeSingle: vi.fn(async () => ({
+              data: profileRow,
+              error: null,
+            })),
+          };
+          return query;
+        }
+
+        if (table === "profile_billing") {
+          const query = {
+            select: vi.fn(() => query),
+            eq: vi.fn(() => query),
+            maybeSingle: vi.fn(() => billingPromise),
+          };
+          return query;
+        }
+
+        const query = {
+          select: vi.fn(() => query),
+          eq: vi.fn(async () => ({ data: [], error: null })),
+        };
+        return query;
+      }),
+    } as never);
+
+    const pull = profileSync.pull("user-A", null);
+
+    // The account switch (mirroring authStore.onAuthStateChange on
+    // sign-out or a different account signing in) lands while user-A's
+    // billing query is still pending.
+    useAuthStore.setState({
+      ...originalAuthState,
+      user: { id: "user-B" } as User,
+    });
+    useProfileStore.getState().resetBilling();
+
+    // user-A's stale billing query finally resolves with a Pro row.
+    resolveBilling({
+      data: {
+        subscription_tier: "pro",
+        subscription_status: "active",
+        subscription_period_end: "2026-12-01T00:00:00.000Z",
+      },
+      error: null,
+    });
+
+    expect(await pull).toBeNull();
+
+    const state = useProfileStore.getState();
+    expect(state.subscriptionTier).toBe("free");
+    expect(state.subscriptionStatus).toBe("inactive");
+    expect(state.subscriptionPeriodEnd).toBeNull();
+    expect(state.billingUserId).toBeNull();
+  });
+
+  it("still writes billing when no account switch happens during the pull", async () => {
+    useAuthStore.setState({
+      ...originalAuthState,
+      user: { id: "user-A" } as User,
+    });
+
+    const profileRow = {
+      id: "user-A",
+      callsign: "N0QA",
+      operator_name: null,
+      grid: "EM10",
+      lat: 30.5,
+      lon: -97,
+      timezone: "America/Chicago",
+      home_location_id: "home",
+      active_location_id: null,
+      bio: null,
+      social_links: null,
+      rank_override: null,
+      interests: null,
+      on_air_status: null,
+      sked_availability: null,
+      favorite_freqs: null,
+      updated_at: "2026-08-31T12:00:00.000Z",
+    };
+
+    vi.mocked(getSupabase).mockReturnValue({
+      from: vi.fn((table: string) => {
+        if (table === "profiles") {
+          const query = {
+            select: vi.fn(() => query),
+            eq: vi.fn(() => query),
+            maybeSingle: vi.fn(async () => ({
+              data: profileRow,
+              error: null,
+            })),
+          };
+          return query;
+        }
+
+        if (table === "profile_billing") {
+          const query = {
+            select: vi.fn(() => query),
+            eq: vi.fn(() => query),
+            maybeSingle: vi.fn(async () => ({
+              data: {
+                subscription_tier: "pro",
+                subscription_status: "active",
+                subscription_period_end: "2026-12-01T00:00:00.000Z",
+              },
+              error: null,
+            })),
+          };
+          return query;
+        }
+
+        const query = {
+          select: vi.fn(() => query),
+          eq: vi.fn(async () => ({ data: [], error: null })),
+        };
+        return query;
+      }),
+    } as never);
+
+    await profileSync.pull("user-A", null);
+
+    const state = useProfileStore.getState();
+    expect(state.subscriptionTier).toBe("pro");
+    expect(state.subscriptionStatus).toBe("active");
+    expect(state.subscriptionPeriodEnd).toBe("2026-12-01T00:00:00.000Z");
+    expect(state.billingUserId).toBe("user-A");
   });
 
   it("clears only the dirty token that completed its push", () => {

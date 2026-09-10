@@ -715,6 +715,41 @@ export type Database = {
           },
         ];
       };
+      profile_billing: {
+        Row: {
+          stripe_customer_id: string | null;
+          subscription_period_end: string | null;
+          subscription_status: string;
+          subscription_tier: string;
+          updated_at: string;
+          user_id: string;
+        };
+        Insert: {
+          stripe_customer_id?: string | null;
+          subscription_period_end?: string | null;
+          subscription_status?: string;
+          subscription_tier?: string;
+          updated_at?: string;
+          user_id: string;
+        };
+        Update: {
+          stripe_customer_id?: string | null;
+          subscription_period_end?: string | null;
+          subscription_status?: string;
+          subscription_tier?: string;
+          updated_at?: string;
+          user_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "profile_billing_user_id_fkey";
+            columns: ["user_id"];
+            isOneToOne: true;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       profiles: {
         Row: {
           active_location_id: string | null;

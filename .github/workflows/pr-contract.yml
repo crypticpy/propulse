@@ -53,7 +53,20 @@ jobs:
           FILES=$(gh api "repos/${REPO}/pulls/${PR}/files" --paginate \
             --jq '.[] | .filename, (.previous_filename // empty)') \
             || { echo "::error::could not list PR files; the design-review gate cannot be evaluated (re-run the check)"; exit 1; }
-          UI=$(printf '%s\n' "$FILES" | grep -E '^(src/components/|src/pages/|src/styles/|src/lib/themes/|src/lib/widgets/|src/lib/hamclock/|src/lib/home/|src/lib/[^/]+/.*(Colors?|Layout|Tokens?|Fonts?|Styles?|Appearance|[Pp]resentation|[Pp]resets?|[Gg]lyphs?)\.tsx?$|src/constants/|src/stores/(theme|settings|user|hamclockDisplay|hamclockWidgetConfig|hamclock|kiosk|workspace|displayQuality|map|atmos|visualEffects)Store\.ts$|src/stores/[^/]*UI[^/]*Store\.ts$|src/config/|src/hooks/use[^/]*(Layout|Docking|Mobile|TextScale|ColorBlind|Theme|DisplayFit|DisplayQuality|DisplaySync|HighContrast|VisualEffects|Presentation|Tint|Expanded|Disclosure|Gestures|Swipe|PullToRefresh|Tour|OperatingScreen|WallAutoPage)[^/]*\.tsx?$|src/App\.tsx$|src/main\.tsx$|index\.html$|public/|tailwind\.config\.|postcss\.config\.|\.design-sync/|docs/designs/design-system/|docs/designs/.*-(spec|mock)[^/]*$|docs/designs/.*contact-sheet|docs/designs/.*\.(md|html|png|svg|jpg|webp)$)' || true)
+          # Everything under src/ is UI unless it is a test, a type declaration
+          # or one of the non-visual libraries listed here; style, token,
+          # presentation, preset and glyph modules count wherever they live.
+          # A path list of UI directories was a floor Codex kept finding gaps
+          # in (#896 rounds 2-14: stores, hooks, config, constants, data);
+          # an exclusion list fails closed instead.
+          UI=$(printf '%s\n' "$FILES" \
+            | grep -E '^(src/|index\.html$|public/|tailwind\.config\.|postcss\.config\.|\.design-sync/|docs/designs/)' \
+            | grep -vE '(\.test\.tsx?$|^src/test/|^src/types/|^src/vite-env\.d\.ts$|^src/lib/(db|audio|sync|api|adif|export|migrations|errors|dev|pwa|wspr|services)/|^src/lib/supabase\.ts$)' \
+            || true)
+          NAMED=$(printf '%s\n' "$FILES" \
+            | grep -E '^src/.*(Colou?rs?|Layout|Tokens?|Fonts?|Styles?|Appearance|[Pp]resentation|[Pp]resets?|[Gg]lyphs?)\.tsx?$' \
+            | grep -vE '\.test\.tsx?$' || true)
+          UI=$(printf '%s\n%s\n' "$UI" "$NAMED" | grep -v '^$' | sort -u || true)
           if [ -z "$UI" ]; then
             echo "No UI paths changed; design review not required."
             exit 0

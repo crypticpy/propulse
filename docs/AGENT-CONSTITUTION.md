@@ -107,21 +107,18 @@ Composer reviews do not satisfy this; they are additional input. This section
 is the only statement of the rule; other files point here.
 
 - **What counts as UI**: anything a person sees. The merger decides, and when
-  in doubt it is a UI PR. The `pr-contract` check applies a path list
-  (components, pages, styles, theme, token and style emitters (`*Colors`,
-  `*Tokens`, `*Fonts`, `*Style`/`*Styles`, `*Appearance` and `*Layout` modules
-  under `src/lib`), presentation data modules (`src/constants/`, which holds
-  the map preset labels and glyphs, tooltip copy, operating profiles and alert
-  thresholds, and every `*Presentation`, `*Presets` and `*Glyphs` module under
-  `src/lib`, nested paths included, such as `targetPathPresentation.ts`,
-  `spotPresentation.ts` and `modePresets.ts`), widget and wall layout
-  modules, layout and presentation hooks such as `useHomeLayout` and `useDisplayFit`, presentation stores such as `mapStore`, `hamclockDisplayStore`, `kioskStore`, `workspaceStore`, `settingsStore` and `userStore` (they own `theme`, `textScale`, ticker position and the SDR colours) and the `*UI*Store` files (`authUIStore`, `contestUIStore`, `contestUIEphemeralStore`), presentation configs under `src/config/` (`tourSteps.ts` is the onboarding tour's titles, copy and placements), the root shell `src/App.tsx`/`src/main.tsx`/`index.html`, `public/`,
-  Tailwind and PostCSS config, `.design-sync/`, `docs/designs/design-system/`,
-  every Markdown design doc, contact sheet and rendered design file under
-  `docs/designs/`). That list is what CI can see, a floor
-  and not the definition: a change under `src/lib/` that recolours or lays out
-  what renders is UI even when the check stays green. Design proposals (mocks,
-  specs, contact sheets) are reviewed before build starts, not after.
+  in doubt it is a UI PR. The `pr-contract` check treats every file under
+  `src/` as UI, plus the root shell (`index.html`, `public/`, Tailwind and
+  PostCSS config), `.design-sync/` and everything under `docs/designs/`
+  (design docs, specs, mocks, contact sheets, rendered files). The only
+  exclusions are tests, `src/test/`, `src/types/`, and the non-visual
+  libraries `src/lib/{db,audio,sync,api,adif,export,migrations,errors,dev,pwa,wspr,services}`
+  and `src/lib/supabase.ts`; a style, token, colour, layout, font,
+  presentation, preset or glyph module counts wherever it lives, excluded
+  directories included. A change in an excluded directory that alters what
+  renders is still UI even when the check stays green: the exclusion list
+  is a floor, not the definition. Design proposals (mocks, specs, contact
+  sheets) are reviewed before build starts, not after.
 - **Who**: the orchestrator when it is a Fable session, otherwise a Fable
   peer. The worker asks for it with `Design review: requested` in the PR body
   and a `**progress**` line on the epic if there is one.

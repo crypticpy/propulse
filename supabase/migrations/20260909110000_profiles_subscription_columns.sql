@@ -35,3 +35,34 @@ END $$;
 CREATE UNIQUE INDEX IF NOT EXISTS profiles_stripe_customer_id_key
   ON public.profiles (stripe_customer_id)
   WHERE stripe_customer_id IS NOT NULL;
+
+-- Codex on PR #867: `profiles_update_own` (20260210020000_rls_performance.sql)
+-- lets a signed-in client update every column of its own row, so without a
+-- guard any account could set its own tier to 'pro' and both
+-- hasProEntitlement and the operating-channel policy would believe it.
+-- Only the service role (the Stripe webhook) and direct database sessions may
+-- move these four columns; PostgREST runs client requests as `authenticated`
+-- or `anon`, so those two roles are rejected when any of them changes.
+CREATE OR REPLACE FUNCTION public.profiles_guard_subscription_columns()
+RETURNS trigger
+LANGUAGE plpgsql
+AS $$
+BEGIN
+  IF current_user IN ('authenticated', 'anon') AND (
+       NEW.subscription_tier       IS DISTINCT FROM OLD.subscription_tier
+    OR NEW.subscription_status     IS DISTINCT FROM OLD.subscription_status
+    OR NEW.subscription_period_end IS DISTINCT FROM OLD.subscription_period_end
+    OR NEW.stripe_customer_id      IS DISTINCT FROM OLD.stripe_customer_id
+  ) THEN
+    RAISE EXCEPTION 'subscription columns are managed by billing'
+      USING ERRCODE = 'insufficient_privilege';
+  END IF;
+  RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS profiles_guard_subscription_columns ON public.profiles;
+CREATE TRIGGER profiles_guard_subscription_columns
+  BEFORE UPDATE ON public.profiles
+  FOR EACH ROW
+  EXECUTE FUNCTION public.profiles_guard_subscription_columns();

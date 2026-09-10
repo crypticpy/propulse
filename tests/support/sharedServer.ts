@@ -7,10 +7,11 @@ import {
 
 /**
  * One shared machine-wide dev server, not a Playwright-managed one: both
- * browser suites default to it. PROPULSE_E2E_PORT overrides the target
- * origin for a one-off check against a different already-running server;
- * it does not itself start anything (see playwright.config.ts's
- * PROPULSE_E2E_ALLOW_START gate).
+ * browser suites default to it (port 5173). PROPULSE_E2E_PORT is an
+ * orchestrator/human-only override for a one-off check against a different,
+ * already-running server; it does not itself start anything (see
+ * playwright.config.ts's PROPULSE_E2E_ALLOW_START gate). Agents never set
+ * this themselves — ask the orchestrator if the shared server isn't at 5173.
  */
 export function resolveE2EPort(): number {
   const port = Number(process.env.PROPULSE_E2E_PORT ?? 5173);

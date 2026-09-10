@@ -36,18 +36,15 @@ Focused tests cover multiple child callbacks sharing one subscription, current
 callbacks after rerender, disabling/re-enabling, and cleanup. Existing ray tracing
 and spot-layer policy tests cover path geometry and isolation policy.
 
-To repeat the browser check, read `docs/guides/LOCAL-AGENT-TESTING.md`. Check
-`npm run dev:session -- status` for the shared server at `http://127.0.0.1:5173`
-— agents never start one. If it is not running, stop and report that instead of
-starting one. When it is running, run the profile against it from the same
-checkout:
+To repeat the browser check, read `docs/guides/LOCAL-AGENT-TESTING.md`, start an
+owned managed local server, then run from the same checkout:
 
 ```sh
-node scripts/profile-map-animation.mjs http://127.0.0.1:5173
+node scripts/profile-map-animation.mjs http://127.0.0.1:5180
 ```
 
-The script verifies server ownership and requires a real GPU before opening
-the globe. It uses one disposable Chrome context, waits
+Use the exact allocated URL. The script verifies server ownership and requires a
+real GPU before opening the globe. It uses one disposable Chrome context, waits
 one normal feed-refresh interval, samples isolation off/on, and smoke-tests flat
 and azimuthal target context. JSON and screenshots go to ignored
 `tmp/map-animation-check/`. It closes its browser; the server remains owned by

@@ -2,7 +2,7 @@ import { chromium, expect } from "@playwright/test";
 import { mkdir, realpath, writeFile } from "node:fs/promises";
 // Uses disposable contexts and synthetic station/log/radio data. Never connects hardware.
 // Verify a managed local-profile server belonging to this checkout before testing.
-const origin = new URL(process.argv[2] ?? "http://127.0.0.1:5173");
+const origin = new URL(process.argv[2] ?? "http://127.0.0.1:5180");
 if (
   origin.protocol !== "http:" ||
   origin.hostname !== "127.0.0.1" ||
@@ -10,7 +10,7 @@ if (
   origin.username ||
   origin.password
 ) {
-  throw new Error("Pass a managed local URL such as http://127.0.0.1:5173");
+  throw new Error("Pass a managed local URL such as http://127.0.0.1:5180");
 }
 const identityResponse = await fetch(
   new URL("/__propulse_dev_session", origin),

@@ -219,9 +219,12 @@ If the shared server is not running, do not set `PROPULSE_E2E_ALLOW_START=1`
 yourself — report that in your findings and ask the human or orchestrator to
 start it, same as any other local check.
 
-An explicit `PROPULSE_E2E_PORT` overrides the target origin for a one-off
+`PROPULSE_E2E_PORT` is an orchestrator/human-only override for a one-off
 check against a different, already-running server; it does not itself start
-anything on that port. The existing SolarPulse tests seed returning-visitor
+anything on that port. Agents never set `PROPULSE_E2E_PORT` themselves — if
+the shared server isn't at the default port 5173, ask the orchestrator
+rather than pointing your run at another port. The existing SolarPulse tests
+seed returning-visitor
 state and intercept solar requests; their results are not evidence of a
 successful real login or live solar provider availability. Test runner
 configuration changes should not affect the shared dev server.

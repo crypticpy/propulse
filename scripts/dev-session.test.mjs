@@ -15,6 +15,7 @@ import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 import {
+  acquireStartupLock,
   assertNoRunningServer,
   assertSharedServerIdentity,
   claimSession,
@@ -28,6 +29,7 @@ import {
   portAvailable,
   refuseIfServerRunning,
   releaseSession,
+  releaseStartupLock,
   runManagedVite,
   SHARED_PORT,
   startSession,
@@ -37,6 +39,15 @@ async function registry(t) {
   const dir = await mkdtemp(path.join(os.tmpdir(), "propulse-session-test-"));
   t.after(() => rm(dir, { recursive: true, force: true }));
   return dir;
+}
+
+// A throwaway path for the machine-wide startup lock, isolated per test so
+// none of these ever touch the real STARTUP_LOCK_PATH (which a concurrently
+// running real `dev:session start` on the same machine could be holding).
+async function lockFile(t) {
+  const dir = await mkdtemp(path.join(os.tmpdir(), "propulse-lock-test-"));
+  t.after(() => rm(dir, { recursive: true, force: true }));
+  return path.join(dir, "startup.lock");
 }
 
 async function listener(t, host = "127.0.0.1") {
@@ -463,7 +474,12 @@ test("startSession accepts { registry } and rejects an already-claimed port befo
   const port = await unusedPort(t);
   await claimSession({ ...base, registry: dir, ports: [port] });
   await assert.rejects(
-    startSession({ ...base, registry: dir, port }),
+    startSession({
+      ...base,
+      registry: dir,
+      port,
+      lockPath: await lockFile(t),
+    }),
     /already running/,
   );
 });
@@ -519,6 +535,34 @@ test("filterViteProcessLines matches only real vite invocations, not files or to
   );
 });
 
+// PR #894 round 5 P1: the old pre-filter (`!/\bvitest\b/.test(line)`) dropped
+// ANY line mentioning "vitest" as a substring, so a genuine vite process
+// checked out under a "vitest"-containing path (e.g. a fixture app cloned to
+// /tmp/vitest-app) was wrongly excluded. Classification must go through
+// isViteExecutableCommand first, which looks only at the executable token.
+test("filterViteProcessLines keeps a real vite executable even when its path contains the substring 'vitest'", async (t) => {
+  const line = await captureRealProcessLine(
+    t,
+    path.join("vitest-fixture-app", "node_modules", ".bin", "vite"),
+  );
+  const result = filterViteProcessLines(line, { ownPid: -1 });
+  assert.deepEqual(result, [line]);
+});
+
+test("filterViteProcessLines excludes a real vitest invocation with a run argument", async (t) => {
+  const line = await captureRealProcessLine(
+    t,
+    path.join("node_modules", ".bin", "vitest"),
+  );
+  const result = filterViteProcessLines(`${line} run`, { ownPid: -1 });
+  assert.deepEqual(result, []);
+});
+
+test("filterViteProcessLines excludes node (vitest N) worker titles", () => {
+  const stdout = "500 node (vitest 1)\n501 node (vitest 2)";
+  assert.deepEqual(filterViteProcessLines(stdout, { ownPid: -1 }), []);
+});
+
 // PR #894 review thread: `npm run dev -- --port 5180` forwarded the override
 // only to the underlying `vite` script, so predev guarded 5173 while Vite
 // itself bound 5180. findForwardedOverrideFlags is the detector that lets
@@ -557,6 +601,37 @@ test("an IPv6 --host value is detected identically in equals and split form, and
   assert.equal(parseForwardedPort(splitForm), 5180);
 });
 
+// PR #894 round 5 P1: two concurrent DEV_SERVER_ALLOW_EXTRA=1 invocations
+// targeting distinct ports could both pass refuseIfServerRunning's
+// registry/port/process checks before either claimed or spawned anything —
+// a TOCTOU race the per-port claim file cannot see. acquireStartupLock is
+// the machine-wide critical section that closes it.
+test("acquireStartupLock: a second acquire fails while held, and succeeds after release", async (t) => {
+  const lockPath = await lockFile(t);
+  await acquireStartupLock(lockPath);
+  await assert.rejects(acquireStartupLock(lockPath), /already starting up/);
+  await releaseStartupLock(lockPath);
+  await assert.doesNotReject(acquireStartupLock(lockPath));
+  await releaseStartupLock(lockPath);
+});
+
+test("acquireStartupLock reclaims a lock left by a dead pid", async (t) => {
+  const lockPath = await lockFile(t);
+  await writeFile(lockPath, JSON.stringify({ pid: 0, startedAt: Date.now() }));
+  await assert.doesNotReject(acquireStartupLock(lockPath));
+  await releaseStartupLock(lockPath);
+});
+
+test("acquireStartupLock reclaims a lock older than the staleness threshold, even with a live pid", async (t) => {
+  const lockPath = await lockFile(t);
+  await writeFile(
+    lockPath,
+    JSON.stringify({ pid: process.pid, startedAt: Date.now() - 120_000 }),
+  );
+  await assert.doesNotReject(acquireStartupLock(lockPath));
+  await releaseStartupLock(lockPath);
+});
+
 function fakeChildFactory(calls) {
   return (bin, args) => {
     calls.push({ bin, args });
@@ -570,7 +645,7 @@ function fakeChildFactory(calls) {
   };
 }
 
-test("runManagedVite guards, then spawns the real vite binary with a clean arg list", async () => {
+test("runManagedVite guards, then spawns the real vite binary with a clean arg list", async (t) => {
   const calls = [];
   let guardCalls = 0;
   await runManagedVite([], {
@@ -578,6 +653,7 @@ test("runManagedVite guards, then spawns the real vite binary with a clean arg l
     guard: async () => {
       guardCalls++;
     },
+    lockPath: await lockFile(t),
   });
   assert.equal(guardCalls, 1);
   assert.equal(calls.length, 1);
@@ -585,21 +661,23 @@ test("runManagedVite guards, then spawns the real vite binary with a clean arg l
   assert.ok(calls[0].bin.endsWith(path.join("node_modules", ".bin", "vite")));
 });
 
-test("runManagedVite forwards the preview subcommand and strips it before the override check", async () => {
+test("runManagedVite forwards the preview subcommand and strips it before the override check", async (t) => {
   const calls = [];
   await runManagedVite(["preview"], {
     spawnFn: fakeChildFactory(calls),
     guard: async () => {},
+    lockPath: await lockFile(t),
   });
   assert.deepEqual(calls[0].args, ["preview"]);
 });
 
-test("runManagedVite refuses a forwarded port/host/strictPort override and never spawns vite", async () => {
+test("runManagedVite refuses a forwarded port/host/strictPort override and never spawns vite", async (t) => {
   const calls = [];
   await assert.rejects(
     runManagedVite(["--port", "5180"], {
       spawnFn: fakeChildFactory(calls),
       guard: async () => {},
+      lockPath: await lockFile(t),
     }),
     /Refusing to forward --port/,
   );
@@ -617,11 +695,12 @@ test("runManagedVite allows a forwarded override when DEV_SERVER_ALLOW_EXTRA=1",
   await runManagedVite(["--port", "5180"], {
     spawnFn: fakeChildFactory(calls),
     guard: async () => {},
+    lockPath: await lockFile(t),
   });
   assert.deepEqual(calls[0].args, ["--port", "5180"]);
 });
 
-test("runManagedVite propagates the guard's refusal without spawning vite", async () => {
+test("runManagedVite propagates the guard's refusal without spawning vite", async (t) => {
   const calls = [];
   await assert.rejects(
     runManagedVite([], {
@@ -629,6 +708,7 @@ test("runManagedVite propagates the guard's refusal without spawning vite", asyn
       guard: async () => {
         throw new Error("A dev server is already running: fixture");
       },
+      lockPath: await lockFile(t),
     }),
     /already running/,
   );
@@ -683,9 +763,10 @@ test("runManagedVite guards the parsed forwarded port only when the escape hatch
   const guard = async (opts) => {
     guardCalls.push(opts);
   };
+  const lockPath = await lockFile(t);
 
   delete process.env.DEV_SERVER_ALLOW_EXTRA;
-  await runManagedVite([], { spawnFn: fakeChildFactory([]), guard });
+  await runManagedVite([], { spawnFn: fakeChildFactory([]), guard, lockPath });
   assert.deepEqual(guardCalls.at(-1), { port: SHARED_PORT });
 
   // Without the hatch, an override still guards the default port (then
@@ -694,6 +775,7 @@ test("runManagedVite guards the parsed forwarded port only when the escape hatch
     runManagedVite(["--port", "5180"], {
       spawnFn: fakeChildFactory([]),
       guard,
+      lockPath,
     }),
     /Refusing to forward --port/,
   );
@@ -703,12 +785,17 @@ test("runManagedVite guards the parsed forwarded port only when the escape hatch
   await runManagedVite(["--port", "5180"], {
     spawnFn: fakeChildFactory([]),
     guard,
+    lockPath,
   });
   assert.deepEqual(guardCalls.at(-1), { port: 5180 });
 
   // An override with no explicit port value (e.g. bare --host) still has
   // nothing else to guard, so it falls back to the default port.
-  await runManagedVite(["--host"], { spawnFn: fakeChildFactory([]), guard });
+  await runManagedVite(["--host"], {
+    spawnFn: fakeChildFactory([]),
+    guard,
+    lockPath,
+  });
   assert.deepEqual(guardCalls.at(-1), { port: SHARED_PORT });
 });
 
@@ -728,12 +815,14 @@ test("runManagedVite (with the hatch): guards the requested port, not a busy def
   process.env.DEV_SERVER_ALLOW_EXTRA = "1";
   const realGuard = (opts) =>
     refuseIfServerRunning({ ...opts, registry: dir, findUnmanaged: () => [] });
+  const lockPath = await lockFile(t);
 
   // Requesting the already-occupied "default" port must still refuse.
   await assert.rejects(
     runManagedVite(["--port", String(busyOnDefault.address().port)], {
       spawnFn: fakeChildFactory([]),
       guard: realGuard,
+      lockPath,
     }),
     /already in use/,
   );
@@ -743,6 +832,7 @@ test("runManagedVite (with the hatch): guards the requested port, not a busy def
   await runManagedVite(["--port", String(requestedPort)], {
     spawnFn: fakeChildFactory(calls),
     guard: realGuard,
+    lockPath,
   });
   assert.deepEqual(calls[0].args, ["--port", String(requestedPort)]);
 });
@@ -773,6 +863,7 @@ test("runManagedVite (with the hatch): still refuses when an unmanaged vite proc
     runManagedVite(["--port", String(requestedPort)], {
       spawnFn: fakeChildFactory(calls),
       guard,
+      lockPath: await lockFile(t),
     }),
     /already running/,
   );

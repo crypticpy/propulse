@@ -140,18 +140,21 @@ export function assertSharedServerIdentity(
 ) {
   if (identity?.profile !== profile) {
     throw new Error(
-      `The shared dev server is running profile "${identity?.profile ?? "unknown"}"; ` +
-        `this suite requires "${profile}". Restart it with ` +
-        `\`npm run dev:session -- start --profile ${profile} ...\`, or ask its owner to.`,
+      `The shared dev server is running profile "${identity?.profile ?? "unknown"}" ` +
+        `(owner=${identity?.owner ?? "unknown"}, url=${identity?.url ?? "unknown"}); ` +
+        `this suite requires profile "${profile}". Ask the server's owner or ` +
+        "the orchestrator to restart it with the required profile — never " +
+        "start a second server to work around this.",
     );
   }
   if (identity?.root !== root) {
     throw new Error(
-      `The shared dev server is serving a different tree than this one. ` +
+      "The shared dev server is serving a different tree than this one " +
+        `(owner=${identity?.owner ?? "unknown"}, url=${identity?.url ?? "unknown"}). ` +
         `Served: ${identity?.root ?? "unknown"}. This worktree: ${root}. Ask its ` +
-        "owner to restart against this branch, or run these tests from the " +
-        "worktree it already serves — never start a second server to work " +
-        "around this.",
+        "owner or the orchestrator to restart it against this branch, or run " +
+        "these tests from the worktree it already serves — never start a " +
+        "second server to work around this.",
     );
   }
 }
@@ -214,6 +217,73 @@ async function withReclaimLock(filename, fn) {
     `Timed out waiting for the reclaim lock on ${filename} ` +
       `(held by another claimant for over ${MAX_LOCK_ATTEMPTS * LOCK_RETRY_DELAY_MS}ms).`,
   );
+}
+
+// A second, coarser lock than withReclaimLock's per-port critical section:
+// serializes the entire check-then-claim-then-spawn sequence machine-wide, so
+// two concurrent `start`/`vite`/`vite preview` invocations targeting distinct
+// ports (e.g. both with DEV_SERVER_ALLOW_EXTRA=1) cannot both pass
+// refuseIfServerRunning before either has claimed or spawned anything — a
+// TOCTOU race the per-port claim file cannot see, since each invocation
+// checks/claims a *different* port. Recorded as pid+timestamp JSON in a
+// single `wx`-created file; a lock whose pid is dead or whose timestamp is
+// older than STARTUP_LOCK_STALE_MS is stale and is removed then retried once
+// (not the long retry loop withReclaimLock uses — a stuck startup lock should
+// surface immediately as a clear refusal, not silently retry for seconds).
+export const STARTUP_LOCK_PATH = path.join(
+  os.tmpdir(),
+  `propulse-dev-session-${os.userInfo().uid}.lock`,
+);
+const STARTUP_LOCK_STALE_MS = 60_000;
+
+async function readStartupLockRecord(lockPath) {
+  try {
+    return JSON.parse(await readFile(lockPath, "utf8"));
+  } catch {
+    return null;
+  }
+}
+
+async function isStaleStartupLock(lockPath) {
+  const record = await readStartupLockRecord(lockPath);
+  if (!record || typeof record.pid !== "number") return true;
+  if (!isAlive(record.pid)) return true;
+  return (
+    typeof record.startedAt !== "number" ||
+    Date.now() - record.startedAt > STARTUP_LOCK_STALE_MS
+  );
+}
+
+export async function acquireStartupLock(lockPath = STARTUP_LOCK_PATH) {
+  for (let attempt = 0; attempt < 2; attempt++) {
+    let handle;
+    try {
+      handle = await open(lockPath, "wx", 0o600);
+    } catch (error) {
+      if (error.code !== "EEXIST") throw error;
+      if (attempt === 0 && (await isStaleStartupLock(lockPath))) {
+        await unlink(lockPath).catch(() => {});
+        continue;
+      }
+      throw new Error(
+        "Another `dev:session start`/`npm run dev`/`npm run preview` is " +
+          `already starting up on this machine. ${SINGLE_SERVER_RULE} Wait ` +
+          "for it to finish and try again.",
+      );
+    }
+    try {
+      await handle.writeFile(
+        JSON.stringify({ pid: process.pid, startedAt: Date.now() }),
+      );
+    } finally {
+      await handle.close();
+    }
+    return;
+  }
+}
+
+export async function releaseStartupLock(lockPath = STARTUP_LOCK_PATH) {
+  await unlink(lockPath).catch(() => {});
 }
 
 // Attempts to claim `filename` for one port. Returns null when the port is
@@ -369,16 +439,18 @@ export function isViteExecutableCommand(command) {
 // Pure filter over `ps -axo pid=,command=` output (full command line on both
 // macOS and Linux — unlike `pgrep -l`, whose GNU procps build prints only the
 // process *name* ("node"), never the vite path/args, so it could never match
-// "vite" for a `node .../vite` invocation). Drops vitest workers and this
-// process's own pid; the remaining lines are matched against
-// isViteExecutableCommand, not a bare substring, so `vim vite.config.ts` or
-// `tail -f vite.log` cannot be mistaken for a running Vite server.
+// "vite" for a `node .../vite` invocation). Drops this process's own pid; the
+// remaining lines are matched against isViteExecutableCommand, which
+// classifies the executable itself rather than testing the whole line for a
+// substring, so a real vite process under a path that happens to contain
+// "vitest" (e.g. `/tmp/vitest-app/node_modules/.bin/vite`) is kept, while
+// `vim vite.config.ts`, `tail -f vite.log`, a real `node_modules/.bin/vitest
+// run`, and `node (vitest 1)` worker titles are all excluded.
 export function filterViteProcessLines(stdout, { ownPid = process.pid } = {}) {
   return stdout
     .trim()
     .split("\n")
     .filter(Boolean)
-    .filter((line) => !/\bvitest\b/.test(line))
     .filter((line) => {
       const pid = Number(line.trim().split(/\s+/, 1)[0]);
       return pid !== ownPid;
@@ -459,8 +531,9 @@ export async function refuseIfServerRunning({
       .join("\n");
     throw new Error(
       `A dev server is already running (unmanaged by this tool):\n${details}\n` +
-        `${SINGLE_SERVER_RULE} Run \`npm run dev:session -- status\` and use the ` +
-        "existing server, or stop that process yourself.",
+        `${SINGLE_SERVER_RULE} Run \`npm run dev:session -- status\` and ask ` +
+        "the orchestrator to use or stop that process — never stop or start " +
+        "a server yourself.",
     );
   }
 }
@@ -473,76 +546,90 @@ export async function startSession(options) {
   if (manifest.name !== "propulse")
     throw new Error("Run from the ProPulse checkout/worktree root.");
   const registry = options.registry ?? REGISTRY;
-  await refuseIfServerRunning({ registry, port: options.port ?? SHARED_PORT });
-  const session = await claimSession({
-    ...options,
-    root,
-    ports: options.port ? [options.port] : DEFAULT_PORTS,
-    registry,
-  });
-  let server;
-  let shuttingDown = false;
-  let interrupted = false;
-  const finish = async () => {
-    if (shuttingDown) return;
-    shuttingDown = true;
-    try {
-      await server?.close();
-      await releaseSession(session);
-      delete process.env.PROPULSE_DEV_SESSION;
-    } catch (error) {
-      console.error(
-        `Cleanup failed; inspect ${session.filename}: ${error.message}`,
-      );
-      process.exitCode = 1;
-    }
-  };
-  const onSignal = () => {
-    interrupted = true;
-    if (server) void finish().then(() => process.exit(process.exitCode ?? 0));
-  };
-  process.on("SIGINT", onSignal);
-  process.on("SIGTERM", onSignal);
+  const lockPath = options.lockPath ?? STARTUP_LOCK_PATH;
+  // Held from the first check through claim + spawn, released in `finally` —
+  // see the startup-lock comment above claimPort. Not held across the
+  // server's running lifetime: once spawned, refuseIfServerRunning's own
+  // registry/port checks are what keep a later `start` out.
+  await acquireStartupLock(lockPath);
   try {
-    if (options.profile === "local") {
-      // Existing unconfigured-client path, scoped to this process; never edit .env.
-      process.env.VITE_SUPABASE_URL = "";
-      process.env.VITE_SUPABASE_ANON_KEY = "";
-    }
-    // The identity middleware lives once, in vite.config.ts, so a plain
-    // `npm run dev` answers /__propulse_dev_session too. createServer() below
-    // loads that same config file; this env var lets its plugin tell a
-    // managed session's real identity apart from the plain-`npm run dev`
-    // fallback, without registering a second copy of the middleware here.
-    process.env.PROPULSE_DEV_SESSION = JSON.stringify(session);
-    const { createServer } = await import("vite");
-    server = await createServer({
-      root,
-      cacheDir: path.join(
-        root,
-        "node_modules",
-        ".vite-sessions",
-        String(session.port),
-      ),
-      server: {
-        host: "127.0.0.1",
-        port: session.port,
-        strictPort: true,
-        open: false,
-      },
+    await refuseIfServerRunning({
+      registry,
+      port: options.port ?? SHARED_PORT,
     });
-    if (interrupted) {
+    const session = await claimSession({
+      ...options,
+      root,
+      ports: options.port ? [options.port] : DEFAULT_PORTS,
+      registry,
+    });
+    let server;
+    let shuttingDown = false;
+    let interrupted = false;
+    const finish = async () => {
+      if (shuttingDown) return;
+      shuttingDown = true;
+      try {
+        await server?.close();
+        await releaseSession(session);
+        delete process.env.PROPULSE_DEV_SESSION;
+      } catch (error) {
+        console.error(
+          `Cleanup failed; inspect ${session.filename}: ${error.message}`,
+        );
+        process.exitCode = 1;
+      }
+    };
+    const onSignal = () => {
+      interrupted = true;
+      if (server)
+        void finish().then(() => process.exit(process.exitCode ?? 0));
+    };
+    process.on("SIGINT", onSignal);
+    process.on("SIGTERM", onSignal);
+    try {
+      if (options.profile === "local") {
+        // Existing unconfigured-client path, scoped to this process; never edit .env.
+        process.env.VITE_SUPABASE_URL = "";
+        process.env.VITE_SUPABASE_ANON_KEY = "";
+      }
+      // The identity middleware lives once, in vite.config.ts, so a plain
+      // `npm run dev` answers /__propulse_dev_session too. createServer() below
+      // loads that same config file; this env var lets its plugin tell a
+      // managed session's real identity apart from the plain-`npm run dev`
+      // fallback, without registering a second copy of the middleware here.
+      process.env.PROPULSE_DEV_SESSION = JSON.stringify(session);
+      const { createServer } = await import("vite");
+      server = await createServer({
+        root,
+        cacheDir: path.join(
+          root,
+          "node_modules",
+          ".vite-sessions",
+          String(session.port),
+        ),
+        server: {
+          host: "127.0.0.1",
+          port: session.port,
+          strictPort: true,
+          open: false,
+        },
+      });
+      if (interrupted) {
+        await finish();
+        return;
+      }
+      await server.listen();
+      console.log(JSON.stringify({ ...session, state: "ready" }, null, 2));
+      console.log(
+        "Keep this foreground session for handoff. Ctrl-C stops only this server. Never put credentials in owner/task metadata.",
+      );
+    } catch (error) {
       await finish();
-      return;
+      throw error;
     }
-    await server.listen();
-    console.log(JSON.stringify({ ...session, state: "ready" }, null, 2));
-    console.log(
-      "Keep this foreground session for handoff. Ctrl-C stops only this server. Never put credentials in owner/task metadata.",
-    );
-  } catch (error) {
-    await finish();
-    throw error;
+  } finally {
+    await releaseStartupLock(lockPath);
   }
 }
 
@@ -583,7 +670,11 @@ export function parseForwardedPort(args) {
 // process table or actually spawn Vite.
 export async function runManagedVite(
   args,
-  { spawnFn = spawn, guard = refuseIfServerRunning } = {},
+  {
+    spawnFn = spawn,
+    guard = refuseIfServerRunning,
+    lockPath = STARTUP_LOCK_PATH,
+  } = {},
 ) {
   const isPreview = args[0] === "preview";
   const forwarded = isPreview ? args.slice(1) : args;
@@ -601,32 +692,45 @@ export async function runManagedVite(
     overrides.length && hatchSet
       ? (parseForwardedPort(forwarded) ?? SHARED_PORT)
       : SHARED_PORT;
-  await guard({ port: targetPort });
-  if (overrides.length && !hatchSet) {
-    throw new Error(
-      `Refusing to forward ${overrides.join(", ")} to vite: ${SINGLE_SERVER_RULE} ` +
-        "DEV_SERVER_ALLOW_EXTRA=1 is the owner-only escape hatch that moves the " +
-        "single server to a different port/host; it never permits a second, " +
-        "simultaneous server.",
-    );
+  // Held only from the guard check through the spawn call, released before
+  // awaiting the (potentially long-lived, foreground) child — see the
+  // startup-lock comment above claimPort.
+  await acquireStartupLock(lockPath);
+  let child;
+  let exited;
+  try {
+    await guard({ port: targetPort });
+    if (overrides.length && !hatchSet) {
+      throw new Error(
+        `Refusing to forward ${overrides.join(", ")} to vite: ${SINGLE_SERVER_RULE} ` +
+          "DEV_SERVER_ALLOW_EXTRA=1 is the owner-only escape hatch that moves the " +
+          "single server to a different port/host; it never permits a second, " +
+          "simultaneous server.",
+      );
+    }
+    const root = await realpath(process.cwd());
+    const bin = path.join(root, "node_modules", ".bin", "vite");
+    child = spawnFn(bin, isPreview ? ["preview", ...forwarded] : forwarded, {
+      stdio: "inherit",
+    });
+    // Attached synchronously, in the same tick as spawn: releasing the lock
+    // below is async, and a child that exits immediately (e.g. a missing
+    // binary, or a test's fake child) must never be able to fire "exit"
+    // before a listener exists to catch it.
+    exited = new Promise((resolve, reject) => {
+      child.once("error", reject);
+      child.once("exit", (code, signal) => resolve({ code, signal }));
+    });
+  } finally {
+    await releaseStartupLock(lockPath);
   }
-  const root = await realpath(process.cwd());
-  const bin = path.join(root, "node_modules", ".bin", "vite");
-  const child = spawnFn(
-    bin,
-    isPreview ? ["preview", ...forwarded] : forwarded,
-    { stdio: "inherit" },
-  );
   const forwardSignal = (signal) => {
     if (!child.killed) child.kill(signal);
   };
   process.on("SIGINT", forwardSignal);
   process.on("SIGTERM", forwardSignal);
   try {
-    const { code, signal } = await new Promise((resolve, reject) => {
-      child.once("error", reject);
-      child.once("exit", (code, signal) => resolve({ code, signal }));
-    });
+    const { code, signal } = await exited;
     process.exitCode = signal
       ? 128 + (os.constants.signals[signal] ?? 0)
       : (code ?? 1);

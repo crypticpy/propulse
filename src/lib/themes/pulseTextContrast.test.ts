@@ -207,8 +207,13 @@ const AUDITED_SITES: AuditedSite[] = [
   },
   {
     file: "src/components/contest/ContestTimer.tsx",
-    what: "countdown text (compact and full displays)",
-    anchor: "text-alert-red",
+    what: "countdown text (compact display)",
+    anchor: "font-mono text-sm font-bold tabular-nums ${",
+  },
+  {
+    file: "src/components/contest/ContestTimer.tsx",
+    what: "countdown text (full display)",
+    anchor: "font-mono text-2xl font-black tabular-nums tracking-wider ${",
   },
   {
     file: "src/components/contest/ContestTimer.tsx",
@@ -1004,6 +1009,20 @@ describe("animate-pulse does not ship on tinted/measured text at the audited sit
       expect(
         content.includes(normalize(site.anchor)),
         `${site.file}: "${site.what}" anchor not found -- update or remove this entry`,
+      ).toBe(true);
+    }
+  });
+
+  it("every audited site anchor is unique within its file", () => {
+    // An anchor that occurs more than once (ContestTimer's bare
+    // `text-alert-red` matched four sites) keeps the entry green after the
+    // audited element is deleted or rewritten (Codex, PR #874 round 9).
+    for (const site of AUDITED_SITES) {
+      const content = readNormalized(site.file);
+      const anchorNorm = normalize(site.anchor);
+      expect(
+        content.indexOf(anchorNorm) === content.lastIndexOf(anchorNorm),
+        `${site.file}: "${site.what}" anchor "${site.anchor}" is not unique in the file -- pick a snippet specific to that element`,
       ).toBe(true);
     }
   });

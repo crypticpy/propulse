@@ -8,7 +8,9 @@ import {
 } from "@/lib/map/spotPresentation";
 import { formatActivationFrequency } from "@/lib/map/activationMarkers";
 import {
-  placeAnchoredOverlay,
+  placeAnchoredOverlayInFrame,
+  resolveOverlayFrame,
+  type OverlayFrame,
   type ScreenAnchor,
 } from "@/lib/map/anchoredOverlay";
 import { getModeColor, modeInk } from "@/lib/utils/spotColors";
@@ -28,11 +30,39 @@ export interface SpotCollectionPopoverProps {
   onClose: () => void;
   onSpotSelect: (spot: LiveSpot) => void;
   onMapTheseSpots?: () => void;
+  /** Map-owned portal (e.g. GlobeView's `mapOverlayPortal`) to both bound
+   * AND render into, matching `PathPointInspector`'s pattern. When set, the
+   * popover is a DOM child of this element (`position: absolute`). Falls
+   * back to `document.body` — a viewport-sized frame — when omitted. */
+  portalTarget?: Element | null;
+  /** A map-surface container (e.g. `AzimuthalView`/`FlatMapView`'s
+   * `containerRef.current`) to bound the popover by WITHOUT portaling into
+   * it — the popover still renders at `document.body` (`position: fixed`),
+   * clamped to this element's rect instead of the full viewport. Ignored
+   * when `portalTarget` is set. Ineffective for a view whose map host is
+   * shorter than the viewport if neither prop is supplied (#846 rework). */
+  boundsHost?: Element | null;
+  /** True only on the HamClock wall. `HamClockView` mounts the map views
+   * directly and is deliberately outside `WorkspacePage` (see
+   * `useHamClockWallOperatingState.ts`'s doc comment), so
+   * `useEffectiveCanvasType()` — which reads `workspaceStore` — can never
+   * actually resolve to `"wall"` on the production wall mount; it only ever
+   * did in tests that set `canvasTypeOverride("wall")` directly (#846/#871
+   * round 3, same class of bug as PR #868: the predicate was never
+   * reachable from the real mount). Threaded explicitly instead, from the
+   * one literal `HAMCLOCK_WALL_CANVAS_TYPE` in
+   * `useHamClockWallOperatingState.ts`, through `HamClockView` ->
+   * `FlatMapView`/`AzimuthalView`/`GlobeView` ->
+   * `ClusterDetailPopover`/`SpotCollectionPopover`. Defaults to `false`. */
+  isWallCanvas?: boolean;
 }
 
 const POPOVER_WIDTH = 330;
 const POPOVER_HEIGHT = 430;
 const EDGE_PADDING = 10;
+/** No in-widget scrolling on the HamClock wall (owner rule, 2026-09-05): cap
+ * the list and show a "+N more" affordance instead of an internal scrollbar. */
+const WALL_MAX_VISIBLE_SPOTS = 6;
 
 function formatFrequency(spot: PresentableSpot) {
   if (spot.activation) {
@@ -55,6 +85,9 @@ export function SpotCollectionPopover({
   onClose,
   onSpotSelect,
   onMapTheseSpots,
+  portalTarget,
+  boundsHost,
+  isWallCanvas = false,
 }: SpotCollectionPopoverProps) {
   const panelRef = useRef<HTMLDivElement>(null);
   const firstSpotRef = useRef<HTMLButtonElement>(null);
@@ -95,21 +128,14 @@ export function SpotCollectionPopover({
     };
   }, [spots]);
 
-  const adjustedPosition = useMemo(() => {
-    const viewport = {
-      width: typeof window === "undefined" ? 1920 : window.innerWidth,
-      height: typeof window === "undefined" ? 1080 : window.innerHeight,
-    };
-    return placeAnchoredOverlay(
-      position,
-      {
-        width: Math.min(POPOVER_WIDTH, viewport.width - EDGE_PADDING * 2),
-        height: Math.min(POPOVER_HEIGHT, viewport.height - EDGE_PADDING * 2),
-      },
-      viewport,
-      { axis: "horizontal", gap: 12, padding: EDGE_PADDING },
-    );
-  }, [position]);
+  // Rows shown when the wall's no-scroll rule caps the list instead of
+  // scrolling it. `sortedSpots` itself (and its `.length`) is left untouched
+  // — the focus-restore effect below depends on the full count, not the
+  // wall-visible slice (see its dep array note).
+  const visibleSpots = isWallCanvas
+    ? sortedSpots.slice(0, WALL_MAX_VISIBLE_SPOTS)
+    : sortedSpots;
+  const hiddenSpotCount = sortedSpots.length - visibleSpots.length;
 
   const handleKeyDown = useCallback(
     (event: KeyboardEvent) => {
@@ -214,14 +240,58 @@ export function SpotCollectionPopover({
   }, [focusMapSurface, sortedSpots.length, visible]);
   if (!visible || sortedSpots.length === 0) return null;
 
+  // Bound by the map host frame, not the window — a map host shorter than
+  // the viewport still let this popover spill past its own bottom edge
+  // (#846). `portalTarget` (an actual DOM destination) wins over `boundsHost`
+  // (bounds-only, no re-parenting): resolveOverlayFrame returns "absolute"
+  // for either since both are real Elements, but only a real `portalTarget`
+  // means the popover is actually a child of that element — a bounds-only
+  // host must stay `position: fixed` (the popover still portals to
+  // `document.body`) with its frame's own `left`/`top` added back into the
+  // final on-screen position below, since `placeAnchoredOverlayInFrame`
+  // returns coordinates local to the frame's origin.
+  const measuredHost = portalTarget ?? boundsHost;
+  const rawFrame = resolveOverlayFrame(measuredHost);
+  const frame: OverlayFrame =
+    !portalTarget && boundsHost ? { ...rawFrame, position: "fixed" } : rawFrame;
+  const overlaySize = {
+    width: Math.min(POPOVER_WIDTH, frame.width - EDGE_PADDING * 2),
+    height: Math.min(POPOVER_HEIGHT, frame.height - EDGE_PADDING * 2),
+  };
+  const adjustedPosition = placeAnchoredOverlayInFrame(
+    position,
+    overlaySize,
+    frame,
+    { axis: "horizontal", gap: 12, padding: EDGE_PADDING },
+  );
+  // The height the clamp above actually used to place `adjustedPosition.y`,
+  // not `frame.height - padding*2` in isolation — the two disagreed
+  // whenever `overlaySize.height` was clamped smaller than the frame, which
+  // let the rendered box still cross the frame's bottom edge even though
+  // `max-height` looked frame-bound (#871 review, F2).
+  const maxHeight = Math.max(0, frame.height - adjustedPosition.y - EDGE_PADDING);
+  const screenLeft =
+    frame.position === "fixed" ? frame.left + adjustedPosition.x : adjustedPosition.x;
+  const screenTop =
+    frame.position === "fixed" ? frame.top + adjustedPosition.y : adjustedPosition.y;
+  const visibleSpotLabel = isWallCanvas
+    ? `${title}: showing ${visibleSpots.length} of ${sortedSpots.length} spots`
+    : `${title}: ${sortedSpots.length} spots`;
+
   return createPortal(
     <div
       ref={panelRef}
       role="dialog"
       aria-modal="false"
-      aria-label={`${title}: ${sortedSpots.length} spots`}
-      className="fixed z-[65] flex max-h-[calc(100vh-20px)] w-[min(330px,calc(100vw-20px))] flex-col overflow-hidden rounded-xl border border-su-line/50 bg-deep-space/95 text-su-text shadow-2xl backdrop-blur-xl"
-      style={{ left: adjustedPosition.x, top: adjustedPosition.y }}
+      aria-label={visibleSpotLabel}
+      className="pointer-events-auto z-[65] flex flex-col overflow-hidden rounded-xl border border-su-line/50 bg-deep-space/95 text-su-text shadow-2xl backdrop-blur-xl"
+      style={{
+        position: frame.position,
+        left: screenLeft,
+        top: screenTop,
+        width: overlaySize.width,
+        maxHeight,
+      }}
       onPointerDown={(event) => event.stopPropagation()}
       onClick={(event) => event.stopPropagation()}
       onDoubleClick={(event) => event.stopPropagation()}
@@ -245,8 +315,12 @@ export function SpotCollectionPopover({
         </button>
       </div>
 
-      <div className="overflow-y-auto p-1">
-        {sortedSpots.map((rawSpot, index) => {
+      <div
+        className={
+          isWallCanvas ? "min-h-0 overflow-hidden p-1" : "min-h-0 overflow-y-auto p-1"
+        }
+      >
+        {visibleSpots.map((rawSpot, index) => {
           const spot = normalizePresentableSpot(rawSpot);
           // Activation reports retain their provider outside LiveSpot.source
           // so they remain transport-compatible. Resolve presentation from the
@@ -319,6 +393,11 @@ export function SpotCollectionPopover({
             </button>
           );
         })}
+        {isWallCanvas && hiddenSpotCount > 0 && (
+          <div className="px-2.5 py-2 text-center font-mono text-xs font-semibold text-su-muted">
+            +{hiddenSpotCount} more
+          </div>
+        )}
       </div>
 
       <div className="flex items-center justify-between gap-2 border-t border-su-line/40 px-3 py-2 text-xs text-su-muted">
@@ -344,7 +423,7 @@ export function SpotCollectionPopover({
         </div>
       </div>
     </div>,
-    document.body,
+    portalTarget ?? document.body,
   );
 }
 

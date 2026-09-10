@@ -593,8 +593,17 @@ export function OperatorProfile({ className = "" }: OperatorProfileProps) {
         )}
 
         <div className="relative pl-4 pr-8 py-3">
-          {/* Primary row: Pulse dot + Band (large) + Mode badge + Source */}
-          <div className="flex items-center gap-2">
+          {/*
+            Primary row: Pulse dot + Band (large) + Mode badge + Source.
+            This button sits in the Operator Profile's normal fixed-width
+            column and clips overflow (see the wrapping button above). At
+            the xl scale a band such as "160m" plus a mode badge such as
+            "CONTEST" plus a source badge can no longer share this line in
+            that column. `flex-wrap` lets the source badge (pushed right by
+            `ml-auto` while everything fits) drop to its own line instead
+            of being clipped by the button's overflow-hidden.
+          */}
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
             <span
               className="w-1.5 h-1.5 rounded-full flex-shrink-0 animate-pulse"
               style={{ backgroundColor: bandColor }}

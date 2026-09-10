@@ -511,6 +511,238 @@ describe("PathAnalysis (round-5 sweep: collapsed header row wraps instead of ove
   });
 });
 
+/**
+ * Round-9 sweep census (file, line, shape, disposition). Lines are as of
+ * the commit that added this block; later edits may shift them.
+ *
+ *  - TargetHoverTooltip.tsx:228     dependency-tracked measure effect  FIXED (ResizeObserver added)
+ *  - OperatorProfile.tsx:597        flex row, 3 badges, no wrap        FIXED (flex-wrap)
+ *  - SatellitePanel.tsx:285         grid-cols-2 (UP/DN)                FIXED (auto-fit)
+ *  - SatellitePanel.tsx:391         grid-cols-2 (UP/DN, static xpdr)   FIXED (auto-fit)
+ *  - SatellitePanel.tsx:430         grid-cols-2 (TX/RX Doppler)        FIXED (auto-fit)
+ *  - SatellitePanel.tsx:159,264,518,808  truncate, dynamic flex-1     safe: flex-1/min-w-0 truncation, no fixed cap
+ *  - SatellitePanel.tsx:971         whitespace-nowrap chip row         safe: intentional horizontal-scroll tab bar
+ *  - layers/SatelliteDetailModal.tsx:144  grid-cols-2 (UP/DN)          FIXED (auto-fit)
+ *  - layers/SatelliteDetailModal.tsx:252  grid-cols-2 (UP/DN static)  FIXED (auto-fit)
+ *  - layers/SatelliteDetailModal.tsx:291  grid-cols-2 (TX/RX Doppler) FIXED (auto-fit)
+ *  - layers/SatelliteDetailModal.tsx:586  flex row, FSPL/Squint/Margin FIXED (flex-wrap)
+ *  - layers/SatelliteDetailModal.tsx:214  "Transponders"+badge row    safe: only 2 short items
+ *  - layers/SatelliteDetailModal.tsx:355  PassRow                     safe: already flex-wrap (round-6)
+ *  - BandConditionsPanel.tsx:918-932  lite-overlay collapsed summary  FIXED (flex-wrap + Card viewport max-width)
+ *  - BandConditionsPanel.tsx:1149  "Solar inputs" + refresh icon      safe: plain text wraps, single scaling child
+ *  - PathAnalysis.tsx:1033         truncate + fixed max-width chip    FIXED (rem cap)
+ *  - PathAnalysis.tsx:1053         fixed max-width decision group     FIXED (rem cap)
+ *  - PathAnalysis.tsx:398          grid-cols-2 (EndSunTimes)          safe: multi-line stacked block wraps at word breaks
+ *  - PathAnalysis.tsx:1383,1424,1450  grid-cols-3 (MetricItem)        safe: short atomic numeric/word values
+ *  - PathAnalysis.tsx:1713,1904    grid-cols-2 (Freq Limits)          safe: short label:value pairs, ample margin
+ *  - PathAnalysis.tsx:915-1057     collapsed header row               safe: already flex-wrap (prior round)
+ *  - ISSTrackerOverlay.tsx:231     header row (name + status badge)   safe: name is a fixed immune size, one scaling badge, fits the viewport-clamped card
+ *  - ISSTrackerOverlay.tsx:641     globe-anchored label pill          safe: floats unconstrained over the 3D globe
+ *  - LayersPopover.tsx (sliders/rows) already rem-based               safe: prior rounds converted these; category/submenu labels use a fixed immune size
+ *  - LayersPopover.tsx:1303,1333   168/232 column widths              safe: structural columns, content is fixed-size or auto-sizing
+ *  - SatelliteOverlay.tsx (grids, header row)                         safe: grid already auto-fit (round-7); header row same pattern as ISS card
+ *  - WatchPopover.tsx:392,465,740,743  popover width + truncate       safe: already viewport-capped; truncate sites are dynamic flex-1
+ *  - TimeControl.tsx                                                  safe: no scalable text in a fixed-size box found
+ *  - BasemapCategory.tsx:239       grid-cols-2 (thumbnail cards)       safe: 2-up visual card grid, short single-word labels
+ *  - SatelliteFilters.tsx:274,305-311  tracking label + SatRow         safe: short content / dynamic flex-1 truncation
+ */
+describe("TargetHoverTooltip (round-9 fix: ResizeObserver catches shape changes the dependency list misses)", () => {
+  it("remeasures via ResizeObserver when signalUnavailableReason changes without a new optimalSignal reference", () => {
+    let capturedCallback: ResizeObserverCallback | null = null;
+    let observedNode: Element | null = null;
+    class StubResizeObserver {
+      constructor(cb: ResizeObserverCallback) {
+        capturedCallback = cb;
+      }
+      observe(node: Element) {
+        observedNode = node;
+      }
+      unobserve() {}
+      disconnect() {}
+    }
+    vi.stubGlobal("ResizeObserver", StubResizeObserver);
+
+    let rectHeight = 150;
+    const getRectSpy = vi
+      .spyOn(HTMLDivElement.prototype, "getBoundingClientRect")
+      .mockImplementation(function () {
+        return {
+          width: 260,
+          height: rectHeight,
+          top: 0,
+          left: 0,
+          right: 260,
+          bottom: rectHeight,
+          x: 0,
+          y: 0,
+          toJSON() {
+            return {};
+          },
+        } as DOMRect;
+      });
+
+    const { rerender } = render(
+      <TargetHoverTooltip
+        visible
+        position={{ x: 100, y: 500, width: 10, height: 10 }}
+        label="TEST-RO"
+        optimalSignal={null}
+      />,
+    );
+
+    expect(capturedCallback).not.toBeNull();
+    expect(observedNode).not.toBeNull();
+
+    const tooltipRoot = document.querySelector(
+      "div.bg-su-canvas",
+    ) as HTMLElement;
+    const initialTop = Number.parseFloat(tooltipRoot.style.top);
+
+    // `signalUnavailableReason` is not in the dependency-tracked effect's
+    // list (it never was), so that effect does not remeasure here even
+    // though the rendered content (the reason string appearing) changed
+    // shape. `optimalSignal` stays `null` across both renders -- the same
+    // reference -- so this isolates the case the old effect could not see.
+    act(() => {
+      rerender(
+        <TargetHoverTooltip
+          visible
+          position={{ x: 100, y: 500, width: 10, height: 10 }}
+          label="TEST-RO"
+          optimalSignal={null}
+          signalUnavailableReason="No viable propagation on modeled HF bands right now"
+        />,
+      );
+    });
+
+    // Simulate the browser's real resize notification once the new content
+    // has actually changed the box's rendered height.
+    rectHeight = 260;
+    act(() => {
+      capturedCallback!([], {} as ResizeObserver);
+    });
+
+    const viewport = { width: window.innerWidth, height: window.innerHeight };
+    const anchor = { x: 100, y: 500, width: 10, height: 10 };
+    const expected = placeVertical(anchor, rectHeight, viewport);
+    const updatedTop = Number.parseFloat(tooltipRoot.style.top);
+    expect(updatedTop).toBeCloseTo(expected.y, 5);
+    expect(updatedTop).not.toBeCloseTo(initialTop, 5);
+
+    getRectSpy.mockRestore();
+    vi.unstubAllGlobals();
+  });
+
+  it("does not throw when ResizeObserver is unavailable and still measures via the layout effect", () => {
+    // Sanity check for this repo's actual jsdom default (no ResizeObserver
+    // polyfilled in): mounting must not throw, and the pre-existing
+    // dependency-tracked effect must still place the tooltip.
+    expect(() =>
+      render(
+        <TargetHoverTooltip
+          visible
+          position={{ x: 100, y: 500, width: 10, height: 10 }}
+          label="TEST-NO-RO"
+          optimalSignal={null}
+        />,
+      ),
+    ).not.toThrow();
+  });
+});
+
+describe("OperatorProfile (round-9 fix: primary VFO row wraps instead of clipping in the overflow-hidden button)", () => {
+  it("wraps the band/mode/source row so the source badge can drop to its own line", () => {
+    const absPath = resolve(REPO_ROOT, "src/components/map/OperatorProfile.tsx");
+    const source = readFileSync(absPath, "utf8");
+    const lines = source.split("\n");
+    const markerIndex = lines.findIndex((line) =>
+      line.includes("Primary row: Pulse dot + Band"),
+    );
+    expect(markerIndex).toBeGreaterThanOrEqual(0);
+
+    const rowLine = lines
+      .slice(markerIndex)
+      .find((line) => line.includes("<div className="));
+    expect(rowLine).toBeDefined();
+    expect(rowLine).toContain("flex-wrap");
+    expect(rowLine).not.toContain('className="flex items-center gap-2"');
+  });
+});
+
+describe("SatellitePanel + SatelliteDetailModal (round-9 fix: UP/DN and TX/RX grids stack instead of squeezing)", () => {
+  it("SatellitePanel.tsx: all three transponder/Doppler grids are auto-fit, none are a fixed two-column grid", () => {
+    const source = readFileSync(
+      resolve(REPO_ROOT, "src/components/map/SatellitePanel.tsx"),
+      "utf8",
+    );
+    expect(source).not.toContain('className="grid grid-cols-2');
+    const autoFitCount = (
+      source.match(/grid-cols-\[repeat\(auto-fit,minmax\(6\.5rem,1fr\)\)\]/g) ?? []
+    ).length;
+    expect(autoFitCount).toBe(3);
+  });
+
+  it("layers/SatelliteDetailModal.tsx: all three duplicated grids are auto-fit, none are a fixed two-column grid", () => {
+    const source = readFileSync(
+      resolve(REPO_ROOT, "src/components/map/layers/SatelliteDetailModal.tsx"),
+      "utf8",
+    );
+    expect(source).not.toContain('className="grid grid-cols-2');
+    const autoFitCount = (
+      source.match(/grid-cols-\[repeat\(auto-fit,minmax\(6\.5rem,1fr\)\)\]/g) ?? []
+    ).length;
+    expect(autoFitCount).toBe(3);
+  });
+
+  it("layers/SatelliteDetailModal.tsx: the link-budget FSPL/Squint/Margin row wraps instead of overflowing", () => {
+    const source = readFileSync(
+      resolve(REPO_ROOT, "src/components/map/layers/SatelliteDetailModal.tsx"),
+      "utf8",
+    );
+    const lines = source.split("\n");
+    const markerIndex = lines.findIndex((line) => line.includes("FSPL:"));
+    expect(markerIndex).toBeGreaterThanOrEqual(0);
+    const rowLine = lines
+      .slice(0, markerIndex)
+      .reverse()
+      .find((line) => line.includes("<div className="));
+    expect(rowLine).toBeDefined();
+    expect(rowLine).toContain("flex-wrap");
+  });
+});
+
+describe("BandConditionsPanel (round-9 fix: lite-overlay collapsed summary wraps and the panel caps to the viewport)", () => {
+  it("the collapsed Card carries a viewport-relative max-width and the summary row wraps", () => {
+    const source = readFileSync(
+      resolve(REPO_ROOT, "src/components/map/BandConditionsPanel.tsx"),
+      "utf8",
+    );
+    expect(source).toContain("max-w-[calc(100vw-2rem)]");
+
+    const lines = source.split("\n");
+    const markerIndex = lines.findIndex((line) =>
+      line.includes("lite overlay"),
+    );
+    expect(markerIndex).toBeGreaterThanOrEqual(0);
+    const rowLine = lines
+      .slice(markerIndex)
+      .find((line) => line.includes("<div className="));
+    expect(rowLine).toBeDefined();
+    expect(rowLine).toContain("flex-wrap");
+    expect(rowLine).not.toContain('className="flex items-center gap-3 w-full"');
+  });
+});
+
+describe("PathAnalysis (round-9 sweep: fixed-pixel truncation caps converted to rem)", () => {
+  it("the target chip and decision-summary group cap their width in rem, not a fixed pixel value carried over from the old sub-floor size", () => {
+    const source = readFileSync(REPO_ROOT + "/src/components/map/PathAnalysis.tsx", "utf8");
+    expect(source).not.toContain("max-w-[80px]");
+    expect(source).not.toContain("max-w-[280px]");
+    expect(source).toContain("max-w-[5rem]");
+    expect(source).toContain("max-w-[17.5rem]");
+  });
+});
+
 /** Minimal re-implementation of the vertical placement math (mirrors
  * `placeAnchoredOverlay`'s "vertical" branch) used only to independently
  * predict which of two candidate heights the component actually used --

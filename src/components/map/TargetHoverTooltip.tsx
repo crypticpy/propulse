@@ -7,6 +7,7 @@
  */
 
 import {
+  useEffect,
   useLayoutEffect,
   useRef,
   useState,
@@ -242,6 +243,35 @@ export function TargetHoverTooltip({
     textScale,
     visible,
   ]);
+
+  // Round-9: the dependency list above can only re-measure for shape
+  // changes it knows to list, and it has already missed some (e.g.
+  // `signalUnavailableReason` or `grid`/`difficulty` changing without a new
+  // `optimalSignal` object). Rather than keep growing that list, observe
+  // the rendered content's own box directly -- a `ResizeObserver` fires for
+  // any height change regardless of what caused it, so it can't go stale
+  // the way a dependency list can. This supplements the `useLayoutEffect`
+  // above (which still gives a flicker-free measurement on the very first
+  // paint); jsdom has no `ResizeObserver`, so this is a no-op in tests that
+  // don't stub one in, and the dependency-tracked effect still covers the
+  // documented cases there.
+  useEffect(() => {
+    if (!visible || typeof ResizeObserver === "undefined") {
+      return;
+    }
+    const node = contentRef.current;
+    if (!node) {
+      return;
+    }
+    const observer = new ResizeObserver(() => {
+      const height = node.getBoundingClientRect().height;
+      if (height > 0) {
+        setMeasuredHeight((current) => (height !== current ? height : current));
+      }
+    });
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, [visible]);
 
   const effectiveHeight = measuredHeight ?? estimatedHeight;
   const adjustedPosition = placeAnchoredOverlayInFrame(

@@ -1030,7 +1030,14 @@ export function PathAnalysis({
             {target && (
               <>
                 <div className="w-px h-3 bg-su-line/20" />
-                <span className="text-xs text-su-muted truncate max-w-[80px]">
+                {/*
+                  Sweep: this was raised from a fixed sub-floor size to
+                  `text-xs` (#832) but kept its old pixel cap, so the same
+                  character budget that fit the old fixed size now
+                  truncates harder as the text grows with Text Size. A
+                  rem cap grows with the text instead of fighting it.
+                */}
+                <span className="text-xs text-su-muted truncate max-w-[5rem]">
                   {pathMode === "long" ? "← " : "→ "}
                   {target.grid || target.name}
                 </span>
@@ -1043,7 +1050,10 @@ export function PathAnalysis({
               return (
                 <>
                   <div className="w-px h-3 bg-su-line/20" />
-                  <div className="flex items-center gap-1 min-w-0 max-w-[280px]">
+                  {/* Same pixel-cap-vs-rem-text mismatch as the target
+                      chip above; a rem cap keeps the truncation budget
+                      proportional to the now-scaling text. */}
+                  <div className="flex items-center gap-1 min-w-0 max-w-[17.5rem]">
                     {hasTimeShift && (
                       <span className="text-xs text-su-muted flex-shrink-0 rounded bg-su-line/10 px-1 py-0.5">
                         time shift

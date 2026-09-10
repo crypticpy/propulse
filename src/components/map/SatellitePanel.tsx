@@ -282,7 +282,13 @@ function SatNOGSTransponderRow({ tx }: { tx: SatNOGSTransmitter }) {
           )}
         </div>
       </div>
-      <div className="grid grid-cols-2 gap-1 mt-1 text-xs font-mono">
+      {/*
+        Round-9: at the Satellite panel's 220-260px widths and the xl text
+        scale, a fixed two-column grid leaves each cell too narrow for a
+        normal range such as "UP: 145.900 - 145.950". `auto-fit` with a
+        6.5rem minimum lets the UP/DN cells stack instead of squeezing.
+      */}
+      <div className="grid grid-cols-[repeat(auto-fit,minmax(6.5rem,1fr))] gap-1 mt-1 text-xs font-mono">
         {(tx.uplink_low || tx.uplink_high) && (
           <div>
             <span className="text-su-muted">UP: </span>
@@ -388,7 +394,7 @@ function TransponderInfo({
                   {xpdr.inverted ? " INV" : ""}
                 </span>
               </div>
-              <div className="grid grid-cols-2 gap-1 mt-1 text-xs font-mono">
+              <div className="grid grid-cols-[repeat(auto-fit,minmax(6.5rem,1fr))] gap-1 mt-1 text-xs font-mono">
                 <div>
                   <span className="text-su-muted">UP: </span>
                   <span className="text-su-muted">
@@ -427,7 +433,7 @@ function TransponderInfo({
           <div className="text-xs text-cyan-400 uppercase tracking-wider mb-1 font-semibold">
             Doppler-Corrected
           </div>
-          <div className="grid grid-cols-2 gap-1 text-xs font-mono">
+          <div className="grid grid-cols-[repeat(auto-fit,minmax(6.5rem,1fr))] gap-1 text-xs font-mono">
             <div>
               <span className="text-su-muted">TX: </span>
               <span className="text-su-text">

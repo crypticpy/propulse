@@ -910,7 +910,7 @@ export function BandConditionsPanel({
     <>
       <Card
         className={`${className} flex flex-col transition-all duration-300 ease-in-out !rounded-lg ${
-          collapsed ? "h-auto !p-2.5" : "h-full p-2"
+          collapsed ? "h-auto !p-2.5 max-w-[calc(100vw-2rem)]" : "h-full p-2"
         }`}
       >
         {/* Header. Collapsed is a clickable one-line summary strip; expanded is
@@ -928,8 +928,19 @@ export function BandConditionsPanel({
               }
             }}
           >
-            {/* COLLAPSED: Clean horizontal layout */}
-            <div className="flex items-center gap-3 w-full">
+            {/*
+              This strip is used, collapsed, as the "lite overlay" summary
+              docked at the bottom-left of PropSphere's flat/globe view
+              (PropSphere.tsx wraps it in a `w-auto` box with no width cap
+              of its own). At the xl scale a normal summary such as
+              "20m / VERIFIED OPEN / K3 / SFI 120" no longer fits one line
+              in a 320px viewport with nothing to stop it. The Card's own
+              `max-w-[calc(100vw-2rem)]` above caps how wide this strip can
+              grow, and `flex-wrap` here lets the band/status group and the
+              solar-indices group drop to their own line instead of running
+              past the panel edge when they no longer both fit.
+            */}
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 w-full">
               {/* Expand indicator */}
               <svg
                 className="w-3.5 h-3.5 text-su-muted flex-shrink-0"

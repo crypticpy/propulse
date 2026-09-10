@@ -141,7 +141,12 @@ function SatNOGSTransponderRow({ tx }: { tx: SatNOGSTransmitter }) {
           )}
         </div>
       </div>
-      <div className="grid grid-cols-2 gap-1 mt-1 text-xs font-mono">
+      {/*
+        Round-9: the duplicated grid in SatellitePanel.tsx had the same
+        fixed two-column regression at the xl scale; auto-fit stacking
+        fixes both copies the same way.
+      */}
+      <div className="grid grid-cols-[repeat(auto-fit,minmax(6.5rem,1fr))] gap-1 mt-1 text-xs font-mono">
         {(tx.uplink_low || tx.uplink_high) && (
           <div>
             <span className="text-su-muted">UP: </span>
@@ -249,7 +254,7 @@ function TransponderInfo({
                   {xpdr.inverted ? " INV" : ""}
                 </span>
               </div>
-              <div className="grid grid-cols-2 gap-1 mt-1 text-xs font-mono">
+              <div className="grid grid-cols-[repeat(auto-fit,minmax(6.5rem,1fr))] gap-1 mt-1 text-xs font-mono">
                 <div>
                   <span className="text-su-muted">UP: </span>
                   <span className="text-su-muted">
@@ -288,7 +293,7 @@ function TransponderInfo({
           <div className="text-xs text-cyan-400 uppercase tracking-wider mb-1 font-semibold">
             Doppler-Corrected
           </div>
-          <div className="grid grid-cols-2 gap-1 text-xs font-mono">
+          <div className="grid grid-cols-[repeat(auto-fit,minmax(6.5rem,1fr))] gap-1 text-xs font-mono">
             <div>
               <span className="text-su-muted">TX: </span>
               <span className="text-su-text">
@@ -578,7 +583,13 @@ function SatelliteDetailContent({
                 {LINK_QUALITY_STYLE[linkBudget.quality].label}
               </span>
             </div>
-            <div className="flex items-center gap-2 text-xs font-mono text-su-muted">
+            {/*
+              Sweep: three unwrapped metrics (FSPL/Squint/Margin) at the xl
+              scale can exceed this modal's content width the same way the
+              transponder and pass rows above did. `flex-wrap` lets a
+              metric drop to its own line instead of running past the edge.
+            */}
+            <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs font-mono text-su-muted">
               <span title="Free-space path loss">
                 FSPL: {linkBudget.freeSpacePathLossDb.toFixed(1)} dB
               </span>

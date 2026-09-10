@@ -2881,6 +2881,7 @@ export function GlobeView({
         visible={!!selectedCluster}
         position={clusterScreenPos || { x: 0, y: 0 }}
         cluster={selectedCluster}
+        portalTarget={mapOverlayPortal}
         onClose={handleClusterClose}
         onSpotSelect={handleClusterSpotSelect}
         onMapTheseSpots={
@@ -2900,6 +2901,7 @@ export function GlobeView({
           title={`${selectedGridCollection.grid} active spots`}
           subtitle={`${selectedGridCollection.spots.length} report${selectedGridCollection.spots.length === 1 ? "" : "s"} in this highlighted grid`}
           spots={selectedGridCollection.spots}
+          portalTarget={mapOverlayPortal}
           onClose={() => setSelectedGridCollection(null)}
           onSpotSelect={(spot) =>
             handleMapSpotSelect(spot, selectedGridCollection.screenPos)

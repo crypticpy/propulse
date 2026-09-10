@@ -51,7 +51,7 @@ function BandChip({
     normal:
       "bg-nebula-blue text-su-muted border-su-line/40 hover:border-su-line/50 hover:text-su-text",
     favored:
-      "bg-plasma-orange/20 text-plasma-orange border-plasma-orange/50 hover:bg-plasma-orange/30",
+      "bg-plasma-orange/15 text-su-text border-plasma-orange/50 hover:bg-plasma-orange/20",
     hidden:
       "bg-su-line/10 text-su-muted border-su-line/20 line-through opacity-60 hover:opacity-80",
   };

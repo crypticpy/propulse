@@ -665,7 +665,7 @@ export const CATSettings = memo(function CATSettings({
               className={`px-3 py-2 rounded-lg text-xs font-medium transition-colors
                 ${
                   selectedBackend === id
-                    ? "bg-plasma-orange/20 text-plasma-orange border border-plasma-orange/50"
+                    ? "bg-plasma-orange/20 text-su-text border border-plasma-orange/50"
                     : "bg-nebula-blue text-su-muted border border-su-line/40 hover:border-su-line/50"
                 }
                 ${connected ? "opacity-50 cursor-not-allowed" : ""}`}

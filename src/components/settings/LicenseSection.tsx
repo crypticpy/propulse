@@ -347,7 +347,7 @@ export function LicenseSection({ className = "" }: LicenseSectionProps) {
           className={`flex-1 px-4 py-2 rounded-lg text-sm font-medium transition-colors
                      ${
                        isDirty
-                         ? "bg-plasma-orange/20 border border-plasma-orange/50 text-plasma-orange hover:bg-plasma-orange/30"
+                         ? "bg-plasma-orange/15 border border-plasma-orange/50 text-su-text hover:bg-plasma-orange/20"
                          : "bg-nebula-blue border border-su-line/40 text-su-muted cursor-not-allowed"
                      }`}
         >

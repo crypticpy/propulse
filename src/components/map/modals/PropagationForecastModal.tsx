@@ -54,9 +54,13 @@ const DISPLAY_BANDS = [
 // their cells instead of being hidden past `md` (see `snrLabelFits` below).
 const CHART_WIDTH_BASE = 600;
 const CHART_HEIGHT = 300;
+// `MARGIN.top` is the *base* (unscaled) top margin. The chart's actual top
+// margin at render time is `chartTopMargin(rootFontPx)`, which never goes
+// below this but grows past it once the NOW label needs more room than
+// this fits (see that function below). `right`/`bottom`/`left` aren't
+// touched by any of this -- they don't interact with `text-xs` labels the
+// way the NOW label does.
 const MARGIN = { top: 28, right: 16, bottom: 32, left: 48 };
-const CELL_HEIGHT =
-  (CHART_HEIGHT - MARGIN.top - MARGIN.bottom) / DISPLAY_BANDS.length;
 
 const ROOT_FONT_PX_DEFAULT = 16;
 // Tailwind's `text-xs` is 0.75rem at every root size, so this stays a
@@ -69,6 +73,27 @@ const CHAR_WIDTH_EM = 0.6; // rough per-character advance for a monospace numera
  * touching at typical screen densities.
  */
 const LABEL_FIT_MARGIN_PX = 3;
+/**
+ * Fixed vertical offset (in SVG px) from the chart's top margin up to the
+ * flat top edge of the current-time triangle. This is a graphic dimension
+ * -- the triangle itself doesn't grow with Text Size -- unlike the NOW
+ * label positioned above it, which does.
+ */
+const NOW_TRIANGLE_TOP_OFFSET_PX = 12;
+/**
+ * Approximate cap-height of a `text-xs` label as a fraction of its font
+ * size. Used only to reserve enough vertical clearance above/below the
+ * label -- SVG text has no layout-time metrics to measure exactly, so this
+ * is a deliberately rough but scale-aware stand-in.
+ */
+const LABEL_CAP_HEIGHT_EM = 0.7;
+/**
+ * Gap between the NOW label's bottom edge and the top of the current-time
+ * triangle, as a fraction of the label's own font size (not a fixed px
+ * value) so the two stay visibly separated as Text Size grows instead of
+ * the fixed-size triangle eating into a shrinking share of the label.
+ */
+const NOW_LABEL_GAP_EM = 1 / 3;
 
 /**
  * Chart width and per-hour cell width at a given computed root font size.
@@ -95,6 +120,8 @@ const LABEL_FIT_MARGIN_PX = 3;
 export function chartGeometry(rootFontPx: number): {
   chartWidth: number;
   cellWidth: number;
+  marginTop: number;
+  cellHeight: number;
 } {
   const proportionalCellWidth =
     (CHART_WIDTH_BASE * (rootFontPx / ROOT_FONT_PX_DEFAULT) -
@@ -109,7 +136,33 @@ export function chartGeometry(rootFontPx: number): {
     widestLabelPx + 2 * LABEL_FIT_MARGIN_PX,
   );
   const chartWidth = MARGIN.left + MARGIN.right + 24 * cellWidth;
-  return { chartWidth, cellWidth };
+  const marginTop = chartTopMargin(rootFontPx);
+  const cellHeight =
+    (CHART_HEIGHT - marginTop - MARGIN.bottom) / DISPLAY_BANDS.length;
+  return { chartWidth, cellWidth, marginTop, cellHeight };
+}
+
+/**
+ * Top margin for the chart at a given computed root font size.
+ *
+ * Round 5 fix (#870 finding 2): the NOW label sits `nowLabelY(rootFontPx)`
+ * px above the current-time triangle, inside the fixed `MARGIN.top` band of
+ * space above the grid. The label is `text-xs`, so it grows with the root
+ * font size while the triangle (a fixed graphic) and a fixed top margin do
+ * not -- past roughly an 18px root the label's top edge clips off the top
+ * of the SVG. The margin now grows with the label's own font size so
+ * there's always room for the triangle's fixed offset, the label's full
+ * cap height, the label-to-triangle gap, and a `LABEL_FIT_MARGIN_PX` worth
+ * of clearance to the SVG's own top edge -- and never shrinks below the
+ * original 28px base.
+ */
+function chartTopMargin(rootFontPx: number): number {
+  const fontSizePx = rootFontPx * TEXT_XS_REM;
+  const capHeightPx = fontSizePx * LABEL_CAP_HEIGHT_EM;
+  const gapPx = fontSizePx * NOW_LABEL_GAP_EM;
+  const required =
+    NOW_TRIANGLE_TOP_OFFSET_PX + gapPx + capHeightPx + LABEL_FIT_MARGIN_PX;
+  return Math.max(MARGIN.top, required);
 }
 
 /**
@@ -134,15 +187,23 @@ export function snrLabelFits(
 
 /**
  * Vertical center for the "NOW" label above the current-time arrow, paired
- * with `dominantBaseline="central"` in the markup below. The label is
- * `text-xs`, so its rendered size grows with the root font size; anchoring
- * it from that size (instead of a fixed offset tuned for an 8px label)
- * keeps its glyphs from extending above y=0 -- off the top of the SVG --
- * once Text Size grows past its default.
+ * with `dominantBaseline="central"` in the markup below.
+ *
+ * Round 5 fix (#870 finding 2): at the default 16px root this used to place
+ * the label's center only 6px above the triangle's flat top edge, while the
+ * centered 12px label's own glyphs occupy roughly 8px of vertical space --
+ * so the label sat on top of the triangle instead of above it, worse as
+ * Text Size grows. The label is now anchored `NOW_LABEL_GAP_EM` of its own
+ * font size above the triangle's top edge (not a fixed px gap), and
+ * `chartTopMargin` grows in lockstep so the label's top edge never clips
+ * off the top of the SVG either.
  */
 export function nowLabelY(rootFontPx: number): number {
   const fontSizePx = rootFontPx * TEXT_XS_REM;
-  return MARGIN.top - fontSizePx * 0.5;
+  const capHeightPx = fontSizePx * LABEL_CAP_HEIGHT_EM;
+  const gapPx = fontSizePx * NOW_LABEL_GAP_EM;
+  const marginTop = chartTopMargin(rootFontPx);
+  return marginTop - NOW_TRIANGLE_TOP_OFFSET_PX - gapPx - capHeightPx / 2;
 }
 
 /**
@@ -220,7 +281,7 @@ export function PropagationForecastModal({
     return () => observer.disconnect();
   }, [isOpen, textScale]);
 
-  const { chartWidth, cellWidth } = useMemo(
+  const { chartWidth, cellWidth, marginTop, cellHeight } = useMemo(
     () => chartGeometry(rootFontPx),
     [rootFontPx],
   );
@@ -399,20 +460,26 @@ export function PropagationForecastModal({
             </div>
           </div>
 
-          <div className="flex justify-center overflow-x-auto">
+          <div className="overflow-x-auto">
             {/* `shrink-0` (plus an explicit width, not just `min-w`) keeps
-                this SVG from being scaled down as a flex item when the
-                container is narrower than `chartWidth`: a flex item's
-                rendered size otherwise contracts below its intrinsic
-                (`width`/`viewBox`) size, and since `viewBox` doesn't change
-                with it, the whole chart -- labels included -- gets scaled
-                down with it. `overflow-x-auto` above scrolls to the
-                unshrunk width instead. */}
+                this SVG from being scaled down as a flex item if a flex
+                layout is ever reintroduced here, so `overflow-x-auto`
+                scrolls to the unshrunk width instead of the whole chart
+                (labels included) contracting with the `viewBox`. The SVG
+                is `block mx-auto` rather than sitting in a
+                `flex justify-center` parent (round 5, #870 finding 1):
+                with `justify-center`, a chart wider than the container on
+                a narrow viewport puts half the overflow on the *start*
+                side, which the scrollbar can't reach, leaving the band
+                labels and earliest hour columns permanently hidden.
+                `margin: auto` on a block element centers it when it fits
+                and collapses to 0 when it overflows, so the scrollable
+                range always starts at the left edge. */}
             <svg
               width={chartWidth}
               height={CHART_HEIGHT}
               viewBox={`0 0 ${chartWidth} ${CHART_HEIGHT}`}
-              className="shrink-0"
+              className="block shrink-0 mx-auto"
               style={{ width: `${chartWidth}px` }}
             >
               {/* Definitions */}
@@ -447,7 +514,7 @@ export function PropagationForecastModal({
                 <text
                   key={band}
                   x={MARGIN.left - 8}
-                  y={MARGIN.top + idx * CELL_HEIGHT + CELL_HEIGHT / 2 + 4}
+                  y={marginTop + idx * cellHeight + cellHeight / 2 + 4}
                   textAnchor="end"
                   className="fill-su-text text-xs font-mono"
                 >
@@ -475,7 +542,7 @@ export function PropagationForecastModal({
                   const status = bandData?.status || "closed";
                   const color = getForecastStatusColor(status);
                   const x = MARGIN.left + hourData.hour * cellWidth;
-                  const y = MARGIN.top + bandIdx * CELL_HEIGHT;
+                  const y = marginTop + bandIdx * cellHeight;
 
                   return (
                     <g key={`modal-${hourData.hour}-${band}`}>
@@ -483,7 +550,7 @@ export function PropagationForecastModal({
                         x={x + 0.5}
                         y={y + 0.5}
                         width={cellWidth - 1}
-                        height={CELL_HEIGHT - 1}
+                        height={cellHeight - 1}
                         fill={color}
                         opacity={0.9}
                         rx={2}
@@ -493,7 +560,7 @@ export function PropagationForecastModal({
                         x={x + 0.5}
                         y={y + 0.5}
                         width={cellWidth - 1}
-                        height={(CELL_HEIGHT - 1) / 2}
+                        height={(cellHeight - 1) / 2}
                         fill="url(#modalCellShine)"
                         rx={2}
                       />
@@ -509,7 +576,7 @@ export function PropagationForecastModal({
                         ) && (
                           <text
                             x={x + cellWidth / 2}
-                            y={y + CELL_HEIGHT / 2}
+                            y={y + cellHeight / 2}
                             textAnchor="middle"
                             dominantBaseline="central"
                             className="fill-black/40 text-xs font-mono pointer-events-none"
@@ -526,7 +593,7 @@ export function PropagationForecastModal({
               <g filter="url(#modalGlow)">
                 <line
                   x1={MARGIN.left + currentHour * cellWidth + cellWidth / 2}
-                  y1={MARGIN.top - 6}
+                  y1={marginTop - 6}
                   x2={MARGIN.left + currentHour * cellWidth + cellWidth / 2}
                   y2={CHART_HEIGHT - MARGIN.bottom + 6}
                   stroke="#ff6b35"
@@ -535,9 +602,9 @@ export function PropagationForecastModal({
                 />
                 <polygon
                   points={`
-                    ${MARGIN.left + currentHour * cellWidth + cellWidth / 2 - 6},${MARGIN.top - 12}
-                    ${MARGIN.left + currentHour * cellWidth + cellWidth / 2 + 6},${MARGIN.top - 12}
-                    ${MARGIN.left + currentHour * cellWidth + cellWidth / 2},${MARGIN.top - 2}
+                    ${MARGIN.left + currentHour * cellWidth + cellWidth / 2 - 6},${marginTop - NOW_TRIANGLE_TOP_OFFSET_PX}
+                    ${MARGIN.left + currentHour * cellWidth + cellWidth / 2 + 6},${marginTop - NOW_TRIANGLE_TOP_OFFSET_PX}
+                    ${MARGIN.left + currentHour * cellWidth + cellWidth / 2},${marginTop - 2}
                   `}
                   fill="#ff6b35"
                 />

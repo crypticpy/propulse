@@ -359,4 +359,70 @@ describe("PropagationForecastModal SNR label at scale (#854)", () => {
     expect(svg?.getAttribute("class")).not.toContain("min-w-[500px]");
     expect(svg?.style.width).toBe(`${chartWidth}px`);
   });
+
+  // #870 round 5, finding 1 (PropagationForecastModal.tsx:416): the chart's
+  // scroll container was `flex justify-center`, so an oversized chart on a
+  // narrow viewport put half the overflow on the *start* side -- the side
+  // `overflow-x-auto`'s scrollbar can never reach -- permanently hiding the
+  // band labels and the earliest hour columns. `margin: auto` on a block
+  // element centers it when it fits and collapses to 0 when it overflows,
+  // so the scrollable range always starts at the left edge.
+  it("centers the svg with mx-auto instead of a flex justify-center parent that hides the overflow's start side (#870 round 5, finding 1)", () => {
+    mocks.textScale = "md";
+    mockRootFontPx(16);
+    renderModal(forecastWith(-5));
+
+    const svg = document.body.querySelector("svg");
+    expect(svg?.getAttribute("class")).toContain("mx-auto");
+    expect(svg?.getAttribute("class")).toContain("block");
+
+    const scrollContainer = svg?.parentElement;
+    expect(scrollContainer?.className).toContain("overflow-x-auto");
+    expect(scrollContainer?.className).not.toContain("justify-center");
+    expect(scrollContainer?.className).not.toContain("flex");
+  });
+});
+
+// #870 round 5, finding 2 (PropagationForecastModal.tsx:552): at the
+// default 16px root, `nowLabelY(16)` returned 22 while the centered 12px
+// label's own glyphs span roughly y=18-26 -- overlapping the current-time
+// triangle, which spans y=16-26 at the same x. `chartTopMargin` and
+// `nowLabelY` (round 5) are derived together from the same root/scale
+// values so a real, growing gap holds at every text scale.
+describe("nowLabelY vs. the current-time triangle (#870 round 5, finding 2)", () => {
+  // The triangle's top edge sits at `marginTop - 12` in the JSX below (a
+  // fixed graphic offset, independent of text scale). Mirrored as a literal
+  // here -- not imported -- so this test also catches that offset drifting
+  // out from under the gap it's meant to verify.
+  const TRIANGLE_TOP_OFFSET_PX = 12;
+
+  it("keeps the NOW label's bottom edge above the triangle's top edge, with a gap that grows with root size", () => {
+    for (const rootFontPx of [14, 16, 18, 20, 24]) {
+      const { marginTop } = chartGeometry(rootFontPx);
+      const triangleTopY = marginTop - TRIANGLE_TOP_OFFSET_PX;
+      const fontSizePx = rootFontPx * 0.75; // text-xs is 0.75rem everywhere
+      const capHeightPx = fontSizePx * 0.7; // same approximation as the
+      // existing "keeps the label's top edge on-screen" test above
+      const labelBottomY = nowLabelY(rootFontPx) + capHeightPx / 2;
+
+      expect(labelBottomY).toBeLessThan(triangleTopY);
+      if (rootFontPx === 16) {
+        // The brief's own floor: at least ~4px of clearance at the
+        // default root size.
+        expect(triangleTopY - labelBottomY).toBeGreaterThanOrEqual(4);
+      }
+    }
+  });
+
+  it("grows the chart's top margin past its 28px base once the label needs more room, so its top edge never clips", () => {
+    for (const rootFontPx of [14, 16, 18, 20, 24]) {
+      const fontSizePx = rootFontPx * 0.75;
+      const capHeightPx = fontSizePx * 0.7;
+      const y = nowLabelY(rootFontPx);
+      expect(y - capHeightPx / 2).toBeGreaterThanOrEqual(0);
+    }
+    // The 28px base itself is no longer enough at larger scales -- this is
+    // the actual regression the growing margin fixes.
+    expect(chartGeometry(24).marginTop).toBeGreaterThan(28);
+  });
 });

@@ -73,6 +73,9 @@ export default tseslint.config(
             "STORM_CATEGORY_HEX",
             "RIVER_STATUS_HEX",
             "outlookKpToneClass",
+            // Pure fit-check helper for PropagationForecastModal's SNR label
+            // gate (#832 follow-up); unit-tested without rendering.
+            "snrLabelFits",
           ],
         },
       ],

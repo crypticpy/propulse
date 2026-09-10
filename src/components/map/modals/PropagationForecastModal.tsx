@@ -15,6 +15,8 @@ import {
   type HourlyForecast,
   type BestWindow,
 } from "@/lib/utils/bands";
+import { useSettingsStore } from "@/stores/settingsStore";
+import type { TextScale } from "@/types/user";
 
 interface PropagationForecastModalProps {
   isOpen: boolean;
@@ -51,9 +53,49 @@ const DISPLAY_BANDS = [
 const CHART_WIDTH = 600;
 const CHART_HEIGHT = 300;
 const MARGIN = { top: 28, right: 16, bottom: 32, left: 48 };
-const CELL_WIDTH = (CHART_WIDTH - MARGIN.left - MARGIN.right) / 24;
+export const CELL_WIDTH = (CHART_WIDTH - MARGIN.left - MARGIN.right) / 24;
 const CELL_HEIGHT =
   (CHART_HEIGHT - MARGIN.top - MARGIN.bottom) / DISPLAY_BANDS.length;
+
+// `viewBox="0 0 600 300"` with a matching `width`/`height` attribute means
+// one SVG user unit is exactly one CSS pixel here -- there is no scaling to
+// hide an oversized label behind. The per-cell SNR label is `text-xs`
+// (0.75rem), which follows Settings -> Text Size like every other `text-xs`
+// site in this #832 round, so its rendered width grows with the root font
+// size even though `CELL_WIDTH` (a fraction of the fixed 600-unit chart) does
+// not. `Root px * 0.75` reproduces `text-xs`'s computed font size at each
+// scale; `* 0.6` is the same rough per-character width used elsewhere on
+// this branch for a monospace numeral.
+const TEXT_SCALE_ROOT_PX: Record<TextScale, number> = {
+  sm: 14.4,
+  md: 16,
+  lg: 18.4,
+  xl: 22,
+};
+const TEXT_XS_REM = 0.75;
+const CHAR_WIDTH_EM = 0.6;
+/** Small clearance so a label flush against the fit line isn't chosen. */
+const LABEL_FIT_MARGIN_PX = 0.5;
+
+/**
+ * Whether `value`'s rendered `text-xs` label fits inside a chart cell
+ * `cellWidthPx` wide at the given Settings -> Text Size scale, with a small
+ * margin. Pure and exported so the arithmetic is unit-testable without
+ * rendering the SVG (jsdom computes no layout, so a real measurement is not
+ * available here). Replaces the old `CELL_WIDTH > 20 && CELL_HEIGHT > 20`
+ * gate, which was built from two module-level constants and so was always
+ * `true` -- a compile-time constant that gated nothing.
+ */
+export function snrLabelFits(
+  value: number,
+  cellWidthPx: number,
+  textScale: TextScale = "md",
+): boolean {
+  const fontSizePx = TEXT_SCALE_ROOT_PX[textScale] * TEXT_XS_REM;
+  const charWidthPx = fontSizePx * CHAR_WIDTH_EM;
+  const labelWidthPx = String(value).length * charWidthPx;
+  return labelWidthPx + LABEL_FIT_MARGIN_PX <= cellWidthPx;
+}
 
 /**
  * Format hour for display
@@ -96,6 +138,8 @@ export function PropagationForecastModal({
   stationLabel,
   locationLabel,
 }: PropagationForecastModalProps) {
+  const textScale = useSettingsStore((s) => s.textScale ?? "md");
+
   // Group best windows by quality
   const windowsByQuality = useMemo(() => {
     const excellent = bestWindows.filter((w) => w.peakStatus === "excellent");
@@ -177,7 +221,7 @@ export function PropagationForecastModal({
             >
               {kp}
             </div>
-            <div className="text-[10px] text-su-muted mt-1">
+            <div className="text-xs text-su-muted mt-1">
               {kp <= 2 ? "Quiet" : kp <= 4 ? "Unsettled" : "Stormy"}
             </div>
           </div>
@@ -194,7 +238,7 @@ export function PropagationForecastModal({
             >
               {sfi}
             </div>
-            <div className="text-[10px] text-su-muted mt-1">
+            <div className="text-xs text-su-muted mt-1">
               {sfi >= 150 ? "Excellent" : sfi >= 100 ? "Good" : "Low"}
             </div>
           </div>
@@ -203,7 +247,7 @@ export function PropagationForecastModal({
             <div className="text-2xl font-mono font-bold text-plasma-orange">
               {currentHour.toString().padStart(2, "0")}:00z
             </div>
-            <div className="text-[10px] text-su-muted mt-1">UTC</div>
+            <div className="text-xs text-su-muted mt-1">UTC</div>
           </div>
           <div className="bg-su-line/10 rounded-xl p-4 text-center">
             <div className="text-xs text-su-muted mb-1">Best Band Now</div>
@@ -217,7 +261,7 @@ export function PropagationForecastModal({
             >
               {currentBestBand?.band || "---"}
             </div>
-            <div className="text-[10px] text-su-muted mt-1">
+            <div className="text-xs text-su-muted mt-1">
               {currentBestBand
                 ? `${currentBestBand.snrEstimate} dB`
                 : "No opening"}
@@ -231,7 +275,7 @@ export function PropagationForecastModal({
             <h3 className="text-sm font-medium text-su-text">
               Band Conditions by Hour (UTC)
             </h3>
-            <div className="flex items-center gap-4 text-[10px]">
+            <div className="flex items-center gap-4 text-xs">
               <div className="flex items-center gap-1.5">
                 <div
                   className="w-3 h-3 rounded"
@@ -311,7 +355,7 @@ export function PropagationForecastModal({
                   x={MARGIN.left - 8}
                   y={MARGIN.top + idx * CELL_HEIGHT + CELL_HEIGHT / 2 + 4}
                   textAnchor="end"
-                  className="fill-su-text text-[11px] font-mono"
+                  className="fill-su-text text-xs font-mono"
                 >
                   {band}
                 </text>
@@ -324,7 +368,7 @@ export function PropagationForecastModal({
                   x={MARGIN.left + hour * CELL_WIDTH + CELL_WIDTH}
                   y={CHART_HEIGHT - 8}
                   textAnchor="middle"
-                  className="fill-su-muted text-[10px] font-mono"
+                  className="fill-su-muted text-xs font-mono"
                 >
                   {hour.toString().padStart(2, "0")}
                 </text>
@@ -359,17 +403,25 @@ export function PropagationForecastModal({
                         fill="url(#modalCellShine)"
                         rx={2}
                       />
-                      {/* Show SNR on hover area - larger cells */}
-                      {CELL_WIDTH > 20 && CELL_HEIGHT > 20 && bandData && (
-                        <text
-                          x={x + CELL_WIDTH / 2}
-                          y={y + CELL_HEIGHT / 2 + 3}
-                          textAnchor="middle"
-                          className="fill-black/40 text-[8px] font-mono pointer-events-none"
-                        >
-                          {bandData.snrEstimate}
-                        </text>
-                      )}
+                      {/* Show SNR only when its text-xs label actually fits
+                          this cell at the current text scale -- the color
+                          heatmap still carries the information either way,
+                          and no label beats an overlapping one. */}
+                      {bandData &&
+                        snrLabelFits(
+                          bandData.snrEstimate,
+                          CELL_WIDTH,
+                          textScale,
+                        ) && (
+                          <text
+                            x={x + CELL_WIDTH / 2}
+                            y={y + CELL_HEIGHT / 2 + 3}
+                            textAnchor="middle"
+                            className="fill-black/40 text-xs font-mono pointer-events-none"
+                          >
+                            {bandData.snrEstimate}
+                          </text>
+                        )}
                     </g>
                   );
                 }),
@@ -401,7 +453,7 @@ export function PropagationForecastModal({
                 x={MARGIN.left + currentHour * CELL_WIDTH + CELL_WIDTH / 2}
                 y={MARGIN.top - 18}
                 textAnchor="middle"
-                className="fill-plasma-orange text-[10px] font-bold"
+                className="fill-plasma-orange text-xs font-bold"
               >
                 NOW
               </text>

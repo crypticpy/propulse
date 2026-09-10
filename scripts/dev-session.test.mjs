@@ -656,10 +656,50 @@ test("findDisallowedForwardedArgs accepts the safe flag allowlist", () => {
 test("findDisallowedForwardedArgs never re-flags a port/host/strictPort override already handled by the hatch", () => {
   assert.deepEqual(findDisallowedForwardedArgs(["--port", "5180"]), []);
   assert.deepEqual(findDisallowedForwardedArgs(["--host", "0.0.0.0"]), []);
-  assert.deepEqual(
-    findDisallowedForwardedArgs(["--strictPort", "false"]),
-    [],
+  assert.deepEqual(findDisallowedForwardedArgs(["--strictPort"]), []);
+  assert.deepEqual(findDisallowedForwardedArgs(["--no-strictPort"]), []);
+});
+
+// PR #894 round 8 P1: --strictPort is a pure boolean in Vite's own CLI — it
+// never takes a value — but findDisallowedForwardedArgs treated it like
+// --port/--host and unconditionally consumed the next token as "its value",
+// letting a caller smuggle a positional root path in behind it and bypass
+// the positional-argument refusal entirely. This must refuse (red on
+// revert).
+test("findDisallowedForwardedArgs refuses a positional smuggled behind --strictPort", () => {
+  assert.ok(
+    findDisallowedForwardedArgs(["--strictPort", "/tmp/other-root"]).length >
+      0,
   );
+});
+
+test("findDisallowedForwardedArgs refuses a positional smuggled behind a safe boolean flag", () => {
+  assert.ok(findDisallowedForwardedArgs(["--open", "src"]).length > 0);
+});
+
+test("findDisallowedForwardedArgs accepts a genuine value flag's value", () => {
+  assert.deepEqual(findDisallowedForwardedArgs(["--logLevel", "warn"]), []);
+});
+
+test("findDisallowedForwardedArgs accepts --strictPort followed by another boolean flag", () => {
+  assert.deepEqual(findDisallowedForwardedArgs(["--strictPort", "--open"]), []);
+});
+
+// --debug/-d take an *optional* value in Vite's own CLI, which is ambiguous
+// from argv shape alone (the same ambiguity --strictPort's fix above
+// closes). Classified boolean here rather than guessed at: --debug never
+// consumes a following token, so a bare positional after it is still
+// refused on its own.
+test("findDisallowedForwardedArgs treats --debug as boolean and refuses a following bare positional", () => {
+  assert.ok(findDisallowedForwardedArgs(["--debug", "hmr"]).length > 0);
+});
+
+// --host takes a genuine (optional) value in Vite's own CLI and is already
+// gated separately by findForwardedOverrideFlags/the DEV_SERVER_ALLOW_EXTRA
+// hatch, so consuming a following non-flag token as its address value here
+// is correct and does not bypass anything.
+test("findDisallowedForwardedArgs accepts --host with a following value", () => {
+  assert.deepEqual(findDisallowedForwardedArgs(["--host", "/tmp/x"]), []);
 });
 
 // PR #894 round 5 P1: two concurrent DEV_SERVER_ALLOW_EXTRA=1 invocations
@@ -669,28 +709,66 @@ test("findDisallowedForwardedArgs never re-flags a port/host/strictPort override
 // the machine-wide critical section that closes it.
 test("acquireStartupLock: a second acquire fails while held, and succeeds after release", async (t) => {
   const lockPath = await lockFile(t);
-  await acquireStartupLock(lockPath);
+  const token = await acquireStartupLock(lockPath);
   await assert.rejects(acquireStartupLock(lockPath), /already starting up/);
-  await releaseStartupLock(lockPath);
-  await assert.doesNotReject(acquireStartupLock(lockPath));
-  await releaseStartupLock(lockPath);
+  await releaseStartupLock(lockPath, token);
+  const token2 = await acquireStartupLock(lockPath);
+  await releaseStartupLock(lockPath, token2);
 });
 
 test("acquireStartupLock reclaims a lock left by a dead pid", async (t) => {
   const lockPath = await lockFile(t);
   await writeFile(lockPath, JSON.stringify({ pid: 0, startedAt: Date.now() }));
-  await assert.doesNotReject(acquireStartupLock(lockPath));
-  await releaseStartupLock(lockPath);
+  const token = await acquireStartupLock(lockPath);
+  await releaseStartupLock(lockPath, token);
 });
 
-test("acquireStartupLock reclaims a lock older than the staleness threshold, even with a live pid", async (t) => {
+// PR #894 round 8 P2: a valid lock record's staleness is decided by pid
+// liveness alone now, never by age — a live process legitimately holding
+// this lock past any fixed timestamp bound (e.g. a slow `await
+// import("vite")` under load) must not be reclaimed out from under itself,
+// which used to let a second caller into the critical section at the same
+// time as the first, still-running holder. Regression: this must NOT
+// resolve (red on revert, since the old code reclaimed on age alone).
+test("acquireStartupLock does not reclaim a lock with a live pid, no matter how old", async (t) => {
   const lockPath = await lockFile(t);
   await writeFile(
     lockPath,
     JSON.stringify({ pid: process.pid, startedAt: Date.now() - 120_000 }),
   );
-  await assert.doesNotReject(acquireStartupLock(lockPath));
-  await releaseStartupLock(lockPath);
+  await assert.rejects(acquireStartupLock(lockPath), /already starting up/);
+});
+
+// The mtime-based fallback (round 7) still applies, but only to an
+// unreadable/unparsable record, and with a much more generous bound than a
+// valid record's age would ever need — it exists purely to recover from a
+// writer that crashed before finishing content, never to expire a live
+// holder's valid record.
+test("acquireStartupLock reclaims an unreadable record only once it's older than the generous fallback bound", async (t) => {
+  const lockPath = await lockFile(t);
+  await writeFile(lockPath, "");
+  const past = new Date(Date.now() - 11 * 60_000);
+  await utimes(lockPath, past, past);
+  const token = await acquireStartupLock(lockPath);
+  await releaseStartupLock(lockPath, token);
+});
+
+test("acquireStartupLock does not reclaim a recently-written unreadable record", async (t) => {
+  const lockPath = await lockFile(t);
+  await writeFile(lockPath, "");
+  await assert.rejects(acquireStartupLock(lockPath), /already starting up/);
+});
+
+// PR #894 round 8 P2: release used to unlink unconditionally — this call's
+// own release could delete a *different*, later holder's lock (e.g. one
+// that legitimately replaced this one via a stale-pid reclaim). A mismatched
+// token must be a silent no-op, never an unlink.
+test("releaseStartupLock does not unlink when given the wrong token", async (t) => {
+  const lockPath = await lockFile(t);
+  const token = await acquireStartupLock(lockPath);
+  await releaseStartupLock(lockPath, "not-the-real-token");
+  await assert.rejects(acquireStartupLock(lockPath), /already starting up/);
+  await releaseStartupLock(lockPath, token);
 });
 
 // PR #894 round 7 P1: reclaiming a stale startup lock used to be
@@ -716,8 +794,7 @@ test("acquireStartupLock: N=8 concurrent acquisitions against one dead-pid lock 
   async function acquireWithRetry() {
     for (;;) {
       try {
-        await acquireStartupLock(lockPath);
-        return;
+        return await acquireStartupLock(lockPath);
       } catch {
         await new Promise((resolve) =>
           setTimeout(resolve, 2 + Math.random() * 8),
@@ -728,13 +805,13 @@ test("acquireStartupLock: N=8 concurrent acquisitions against one dead-pid lock 
 
   async function run(i) {
     await new Promise((resolve) => setTimeout(resolve, Math.random() * 5));
-    await acquireWithRetry();
+    const token = await acquireWithRetry();
     holders++;
     if (holders > 1) sawOverlap = true;
     await new Promise((resolve) => setTimeout(resolve, Math.random() * 5));
     holders--;
     finished.push(i);
-    await releaseStartupLock(lockPath);
+    await releaseStartupLock(lockPath, token);
   }
 
   await Promise.all(Array.from({ length: N }, (_, i) => run(i)));
@@ -759,9 +836,9 @@ test("acquireStartupLock retries and succeeds after losing a rename race on a st
     }
     return rename(from, to);
   };
-  await assert.doesNotReject(acquireStartupLock(lockPath, { renameFn }));
+  const token = await acquireStartupLock(lockPath, { renameFn });
   assert.ok(calls >= 2, "expected the lost race to trigger a retry");
-  await releaseStartupLock(lockPath);
+  await releaseStartupLock(lockPath, token);
 });
 
 function fakeChildFactory(calls) {

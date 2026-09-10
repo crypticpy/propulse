@@ -236,9 +236,25 @@ async function withReclaimLock(filename, fn) {
 // ports (e.g. both with DEV_SERVER_ALLOW_EXTRA=1) cannot both pass
 // refuseIfServerRunning before either has claimed or spawned anything — a
 // TOCTOU race the per-port claim file cannot see, since each invocation
-// checks/claims a *different* port. Recorded as pid+timestamp JSON in a
-// single `wx`-created file; a lock whose pid is dead or whose timestamp is
-// older than STARTUP_LOCK_STALE_MS is stale and reclaimed.
+// checks/claims a *different* port. Recorded as pid+startedAt+token JSON in a
+// single `wx`-created file. A lock with a parseable, valid record is stale
+// only when its pid is dead; an unreadable/unparsable record (a lock another
+// caller is still in the middle of writing — see isStaleStartupLock) falls
+// back to a generous mtime bound instead, since it has no pid to check.
+//
+// PR #894 round 8 P2: staleness used to also fire on a valid record whose
+// timestamp was merely older than a fixed 60s bound, even when its pid was
+// still alive — a live holder legitimately taking longer than that (e.g. a
+// slow `await import("vite")` under load) got reclaimed out from under
+// itself, letting a second caller into the critical section at the same
+// time. Only a dead pid can't produce that false positive, so a valid
+// record's staleness is decided by pid liveness alone now. That in turn
+// made unconditional release dangerous: acquireStartupLock now writes a
+// random `token` into the record and returns it, and releaseStartupLock
+// requires the matching pid+token before unlinking — so one holder's
+// `finally`-block release can never delete a *different*, later holder's
+// lock that legitimately replaced it (the same ownership check
+// releaseSession already does for per-port claims via `current.id`).
 //
 // PR #894 round 7 P1: reclaiming used to be check-then-unlink — two callers
 // could both observe the same stale lock, and the second caller's unlink
@@ -263,7 +279,9 @@ export const STARTUP_LOCK_PATH = path.join(
   os.tmpdir(),
   `propulse-dev-session-${os.userInfo().uid}.lock`,
 );
-const STARTUP_LOCK_STALE_MS = 60_000;
+// Applies only to an unreadable/unparsable record (see below) — a valid
+// record's staleness is decided by pid liveness alone, never by age.
+const STARTUP_LOCK_UNREADABLE_STALE_MS = 10 * 60_000;
 
 async function readStartupLockRecord(lockPath) {
   try {
@@ -276,11 +294,15 @@ async function readStartupLockRecord(lockPath) {
 async function isStaleStartupLock(lockPath) {
   const record = await readStartupLockRecord(lockPath);
   if (record && typeof record.pid === "number") {
-    if (!isAlive(record.pid)) return true;
-    return (
-      typeof record.startedAt !== "number" ||
-      Date.now() - record.startedAt > STARTUP_LOCK_STALE_MS
-    );
+    // PR #894 round 8 P2: this used to also treat a valid record as stale
+    // once its `startedAt` was older than a fixed 60s bound, even with a
+    // live pid — a legitimately slow holder (e.g. a slow `await
+    // import("vite")` under load) could exceed that bound and get reclaimed
+    // out from under itself, letting a second caller into the critical
+    // section at the same time as the first (reproduced: a live-pid lock
+    // older than the old bound was wrongly reclaimed). A dead pid is the
+    // only signal here that can't produce that false positive.
+    return !isAlive(record.pid);
   }
   // Found during round 7 N=8 stress testing: `open(..., "wx")` and the
   // content `writeFile` that follows it are two separate syscalls, so a
@@ -292,10 +314,14 @@ async function isStaleStartupLock(lockPath) {
   // the double-ownership this lock exists to prevent. Mirror isStaleClaim's
   // safer default for unreadable content — ambiguous, so judge it by the
   // file's own age (like an abandoned reclaim lock dir) instead of content
-  // that may simply not exist yet.
+  // that may simply not exist yet. There's no pid to check liveness of on
+  // this path, so the bound stays timestamp-based — just a much more
+  // generous one (STARTUP_LOCK_UNREADABLE_STALE_MS) than a valid record
+  // would ever need, wide enough that it only fires for a writer that
+  // crashed before finishing, never one still actively writing.
   try {
     const info = await stat(lockPath);
-    return Date.now() - info.mtimeMs > STARTUP_LOCK_STALE_MS;
+    return Date.now() - info.mtimeMs > STARTUP_LOCK_UNREADABLE_STALE_MS;
   } catch {
     return false;
   }
@@ -359,19 +385,37 @@ export async function acquireStartupLock(
       }
       continue;
     }
+    // A random token, not just the pid: releaseStartupLock re-checks this
+    // before unlinking (see below), and a pid alone isn't a safe-enough
+    // ownership check across a reclaim — after a stale reclaim, some other,
+    // later process could in principle reuse the same pid.
+    const token = randomUUID();
     try {
       await handle.writeFile(
-        JSON.stringify({ pid: process.pid, startedAt: Date.now() }),
+        JSON.stringify({ pid: process.pid, startedAt: Date.now(), token }),
       );
     } finally {
       await handle.close();
     }
-    return;
+    return token;
   }
   throw startupLockBusyError();
 }
 
-export async function releaseStartupLock(lockPath = STARTUP_LOCK_PATH) {
+// `token` must be the value acquireStartupLock returned for this same lock
+// acquisition. PR #894 round 8 P2: release used to unlink unconditionally —
+// if this call's own holder ran long enough that a *different* caller's
+// legitimate stale-pid reclaim (see isStaleStartupLock) replaced the file
+// first, this release would delete that replacement's fresh lock instead of
+// its own, letting a third caller in while the second still believed it
+// held exclusive access. Re-reading the record and requiring both the pid
+// and the token to match what this call itself wrote closes that gap —
+// mirroring releaseSession's `current.id === session.id` check for per-port
+// claims. A mismatch (or a missing/unreadable record) means this call no
+// longer owns the lock, so it must not unlink anything.
+export async function releaseStartupLock(lockPath = STARTUP_LOCK_PATH, token) {
+  const record = await readStartupLockRecord(lockPath);
+  if (!record || record.pid !== process.pid || record.token !== token) return;
   await unlink(lockPath).catch(() => {});
 }
 
@@ -663,7 +707,7 @@ export async function startSession(options) {
   // see the startup-lock comment above claimPort. Not held across the
   // server's running lifetime: once spawned, refuseIfServerRunning's own
   // registry/port checks are what keep a later `start` out.
-  await acquireStartupLock(lockPath);
+  const startupLockToken = await acquireStartupLock(lockPath);
   try {
     await refuseIfServerRunning({
       registry,
@@ -741,21 +785,34 @@ export async function startSession(options) {
       throw error;
     }
   } finally {
-    await releaseStartupLock(lockPath);
+    await releaseStartupLock(lockPath, startupLockToken);
   }
 }
 
 // Matches any argv token that would let a forwarded `npm run dev -- ...` (or
 // `npm run preview -- ...`) change which port/host the real Vite binary binds
 // to, in every form Vite/CLI convention accepts it: `-p`, `--port`,
-// `--port=5180`, `--host`, `--host=0.0.0.0`, `--strictPort`, and
-// `--strictPort false` (Vite itself takes `--strictPort` as a bare boolean
-// flag, but a caller could still pass a value; catch that shape too).
-const FORWARDED_OVERRIDE_FLAG = /^(-p|--port|--host|--strictPort)(=.*)?$/;
+// `--port=5180`, `--host`, `--host=0.0.0.0`, `--strictPort`,
+// `--no-strictPort` (cac, Vite's own CLI parser, auto-generates the negated
+// form for every boolean flag), and `--strictPort false` (Vite itself takes
+// `--strictPort`/`--no-strictPort` as bare boolean flags, but a caller could
+// still pass a following value; catch that shape too).
+const FORWARDED_OVERRIDE_FLAG =
+  /^(-p|--port|--host|--strictPort|--no-strictPort)(=.*)?$/;
 
 export function findForwardedOverrideFlags(args) {
   return args.filter((arg) => FORWARDED_OVERRIDE_FLAG.test(arg));
 }
+
+// Of the flags FORWARDED_OVERRIDE_FLAG recognizes, only -p/--port/--host
+// take a value; --strictPort/--no-strictPort are pure booleans in Vite's own
+// CLI. PR #894 round 8 P1: findDisallowedForwardedArgs used to call
+// consumesValue() unconditionally for every FORWARDED_OVERRIDE_FLAG match,
+// so `--strictPort <path>` swallowed the following token as if it were
+// --strictPort's "value" — hiding a smuggled positional root path (which
+// Vite would parse as `vite [root]`, not as anything belonging to
+// --strictPort) from the positional-argument refusal below entirely.
+const FORWARDED_OVERRIDE_VALUE_FLAGS = new Set(["-p", "--port", "--host"]);
 
 // Extracts an explicit `-p <n>`, `--port <n>`, or `--port=<n>` value from a
 // forwarded arg list, or null when none is present (or its value isn't a
@@ -783,6 +840,17 @@ function isFlagToken(token) {
 // forward unconditionally (never gated by DEV_SERVER_ALLOW_EXTRA — that
 // hatch only ever moves the single server to a different port, never its
 // config or working root).
+//
+// --debug/-d take an *optional* value in Vite's own CLI (a feature-filter
+// string, e.g. `--debug hmr`), which makes "does the next token belong to
+// --debug, or is it a smuggled positional/unknown flag" ambiguous from argv
+// shape alone — the same shape of ambiguity --strictPort's fix above closes
+// by never consuming. Rather than guess from the next token's shape (a
+// leading `/`, a `.`, etc.), --debug/-d are classified boolean here: they
+// never consume a following token, so `--debug hmr` forwards only `--debug`
+// and separately refuses the bare positional `hmr` below. --debug's own
+// `=`-value form (`--debug=hmr`) still works, since that never depends on
+// token consumption.
 const ALLOWED_FORWARDED_BOOLEAN_FLAGS = new Set([
   "--open",
   "--force",
@@ -791,12 +859,12 @@ const ALLOWED_FORWARDED_BOOLEAN_FLAGS = new Set([
   "--profile",
   "--cors",
   "--no-cors",
+  "--debug",
+  "-d",
 ]);
 const ALLOWED_FORWARDED_VALUE_FLAGS = new Set([
   "--logLevel",
   "-l",
-  "--debug",
-  "-d",
   "--filter",
   "-f",
 ]);
@@ -827,11 +895,11 @@ export function findDisallowedForwardedArgs(args) {
         i++;
       }
     };
+    const [flag] = arg.split("=");
     if (FORWARDED_OVERRIDE_FLAG.test(arg)) {
-      consumesValue();
+      if (FORWARDED_OVERRIDE_VALUE_FLAGS.has(flag)) consumesValue();
       continue;
     }
-    const [flag] = arg.split("=");
     if (ALLOWED_FORWARDED_BOOLEAN_FLAGS.has(flag)) continue;
     if (ALLOWED_FORWARDED_VALUE_FLAGS.has(flag)) {
       consumesValue();
@@ -891,7 +959,7 @@ export async function runManagedVite(
   // Held only from the guard check through the spawn call, released before
   // awaiting the (potentially long-lived, foreground) child — see the
   // startup-lock comment above claimPort.
-  await acquireStartupLock(lockPath);
+  const startupLockToken = await acquireStartupLock(lockPath);
   let child;
   let exited;
   try {
@@ -918,7 +986,7 @@ export async function runManagedVite(
       child.once("exit", (code, signal) => resolve({ code, signal }));
     });
   } finally {
-    await releaseStartupLock(lockPath);
+    await releaseStartupLock(lockPath, startupLockToken);
   }
   const forwardSignal = (signal) => {
     if (!child.killed) child.kill(signal);

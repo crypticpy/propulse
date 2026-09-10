@@ -1800,8 +1800,19 @@ function visibleDecl(decls: ConstDecl[], name: string, atIndex: number): ConstDe
 
 /** Matches a bare identifier that could name a resolved const, the same
  * hyphen-adjacency exclusion `resolveConstRefs`'s generic pass uses so a
- * hyphenated Tailwind token (`text-red`) is never mistaken for one. */
-const BASE_IDENT_RE = /(?<![\w$-])[A-Za-z_$][\w$]*/g;
+ * hyphenated Tailwind token (`text-red`) is never mistaken for one. Also
+ * excludes a preceding `.` or `]` -- a property name in a member-access
+ * chain (`styles.pulse`, `styles?.pulse` via its trailing `.`, `arr[0].pulse`)
+ * is never itself a candidate base identifier, even when the chain it's
+ * part of fails to resolve: before this exclusion, a chain that failed to
+ * narrow (`styles.alert` where `styles` has no `alert` key) left the tail
+ * name for THIS SAME regex to re-match on its own next iteration, letting
+ * `alert` resolve against a completely unrelated top-level `const alert =
+ * "animate-pulse"` elsewhere in the file -- a false positive, and (in the
+ * opposite direction) what made several round 37 shorthand fixtures pass
+ * even against the unfixed parser, coincidentally, for the wrong reason
+ * (Codex, PR #874 round 37b). */
+const BASE_IDENT_RE = /(?<![\w$.\]-])[A-Za-z_$][\w$]*/g;
 
 /** Index just past the `]` matching a `[` at `source[openIndex]`, tracking
  * nested `[...]` depth and skipping quoted/template text (so a `]` inside a
@@ -1934,7 +1945,18 @@ function resolveMemberAccess(
  * member access is resolved first, by `resolveMemberAccess`, against an
  * object/array const's `entries` (round 16); this pass only ever sees a bare
  * `NAME` left over from that -- unchanged behaviour for a plain
- * string-initialised const. */
+ * string-initialised const. The same `.`/`]` exclusion `BASE_IDENT_RE` now
+ * carries is repeated here (this is a separate regex, not that constant):
+ * `resolveMemberAccess` leaves a member-access chain that failed to narrow
+ * as literal, untouched raw text (`styles.alert`, whole) rather than
+ * consuming any of it, and this pass runs over that leftover text next --
+ * without the exclusion it would treat the trailing property name as its
+ * own unrelated bare identifier and resolve IT instead, the same false
+ * positive `BASE_IDENT_RE`'s own doc explains (Codex, PR #874 round 37b).
+ * The property name is left exactly as `visibleDecl`-miss already leaves
+ * any other unresolvable identifier elsewhere in this function -- unchanged
+ * raw text, which is this file's one fail-closed convention for "no idea
+ * what this refers to" (never a deletion, never a placeholder). */
 function resolveConstRefs(
   raw: string,
   decls: ConstDecl[],
@@ -1943,7 +1965,7 @@ function resolveConstRefs(
 ): string {
   if (decls.length === 0 || seen.size > 8) return raw;
   const withMembers = resolveMemberAccess(raw, decls, atIndex, seen);
-  return withMembers.replace(/(?<![\w$-])[A-Za-z_$][\w$]*(?![\w$-])/g, (id) => {
+  return withMembers.replace(/(?<![\w$.\]-])[A-Za-z_$][\w$]*(?![\w$-])/g, (id) => {
     if (seen.has(id)) return id;
     const decl = visibleDecl(decls, id, atIndex);
     if (!decl) return id;
@@ -4779,33 +4801,42 @@ describe("scanSourceForViolations catches every spelling (fixture proofs, #878)"
     // only via the shorthand) had no entry at all to narrow against, no
     // matter how genuinely pulsing `pulse` itself was (Codex, PR #874
     // round 37).
-    // Honest note (verified via red-on-revert): this particular fixture does
-    // NOT discriminate the shorthand fix on its own -- `styles.pulse` still
-    // fails its precise dot-chain narrow on the UNFIXED parser too (no
-    // "pulse" key in `styles.entries` either way), which falls through to an
-    // unrelated, pre-existing per-identifier fallback in `resolveMemberAccess`
-    // (the trailing property name is re-matched as its own bare identifier,
-    // since `BASE_IDENT_RE` doesn't exclude a preceding `.`) that coincidentally
-    // resolves "pulse" against this SAME file's own top-level `const pulse =
-    // "animate-pulse";` -- true of any `{ x }` shorthand whose value name is a
-    // real, independently-resolvable identifier, since shorthand syntax
-    // requires the property name and the value's name to be identical --
-    // structurally true of every genuine `{ x }` shorthand fixture below too,
-    // not just this one. Kept as a correctness regression test (the fixed
-    // parser now reaches the same answer via the real, precise `entries`
-    // path instead); the actual proof this round's registration exists is
-    // "does not flag an unresolvable shorthand's own key..." below, which
-    // DOES discriminate (a shorthand whose value name has no declaration
-    // anywhere else in the file, so this coincidental fallback can't fire).
+    // Honest note (verified via red-on-revert, UPDATED round 37b): this
+    // fixture used to NOT discriminate the shorthand fix on its own --
+    // `styles.pulse` failed its precise dot-chain narrow on the unfixed
+    // (round-36-and-earlier) parser (no "pulse" key in `styles.entries`
+    // either way), which fell through to an unrelated per-identifier
+    // fallback in `resolveMemberAccess` (the trailing property name was
+    // re-matched as its own bare identifier, since `BASE_IDENT_RE` didn't
+    // exclude a preceding `.`) that coincidentally resolved "pulse" against
+    // this SAME file's own top-level `const pulse = "animate-pulse";` --
+    // true of any `{ x }` shorthand whose value name is a real,
+    // independently-resolvable identifier, since shorthand syntax requires
+    // the property name and the value's name to be identical. Round 37b
+    // closed that fallback (`BASE_IDENT_RE` and `resolveConstRefs`'s own
+    // identifier regex now both exclude a preceding `.`/`]`, so a failed
+    // member-access chain's tail is never re-matched as a bare identifier).
+    // Verified via a three-way hybrid probe: `eade04db`'s original source
+    // (no shorthand-entries registration at all) patched with ONLY the
+    // round-37b regex anchor now makes this exact fixture FAIL (returns
+    // `[]`) -- proving the coincidental path is gone and this fixture now
+    // genuinely requires the round-37 `entries` registration below to pass.
+    // This fixture now discriminates the presence of genuine shorthand
+    // support (Codex, PR #874 round 37 x round 37b).
     const fixture =
       'const pulse = "animate-pulse";\nconst styles = { pulse };\nexport function A() { return <span className={styles.pulse}>Loading</span>; }';
     expect(scanSourceForViolations(fixture)).not.toEqual([]);
   });
 
   it("registers a shorthand object property introduced by destructuring a resolvable config object (round 35 x round 37)", () => {
-    // Same honest caveat as above: `alert` is also independently resolvable
-    // (it's the destructured local binding's own name), so this doesn't
-    // discriminate old vs. new parsing either -- kept as a regression test.
+    // Honest note (verified via red-on-revert, UPDATED round 37b): same
+    // caveat as the LOCAL-const fixture above used to carry -- `alert` here
+    // is also independently resolvable (it's the destructured local
+    // binding's own name), so the pre-37b `BASE_IDENT_RE` fallback masked
+    // whether this fixture actually exercised shorthand support. Round 37b's
+    // anchor fix closes that fallback (see the LOCAL-const fixture's note
+    // above for the mechanism and the hybrid-probe evidence); this fixture
+    // now genuinely requires the round-37 `entries` registration to pass.
     const fixture =
       'const styles = { alert: "text-red animate-pulse" };\nconst { alert } = styles;\nconst wrapper = { alert };\nexport function A() { return <span className={wrapper.alert}>Loading</span>; }';
     expect(scanSourceForViolations(fixture)).not.toEqual([]);
@@ -4816,10 +4847,15 @@ describe("scanSourceForViolations catches every spelling (fixture proofs, #878)"
     // local const -- proves the shorthand's identifier-ref resolves through
     // `resolveConstRefs`'s own imported-decl handling exactly like a
     // long-hand `{ pulse: pulse }` already does, not just a local `const`.
-    // Same honest caveat as the LOCAL-const version above: `pulse` is also
-    // independently resolvable as an imported binding of the same name, so
-    // this doesn't discriminate old vs. new parsing either -- kept as a
-    // regression test for the imported-binding path specifically.
+    // Honest note (verified via red-on-revert, UPDATED round 37b): same
+    // caveat as the LOCAL-const fixture above used to carry -- `pulse` here
+    // is also independently resolvable as an imported binding of the same
+    // name, so the pre-37b `BASE_IDENT_RE` fallback masked whether this
+    // fixture actually exercised shorthand support for the imported-binding
+    // path specifically. Round 37b's anchor fix closes that fallback (see
+    // the LOCAL-const fixture's note above for the mechanism and the
+    // hybrid-probe evidence); this fixture now genuinely requires the
+    // round-37 imported-binding shorthand path to pass.
     const baseSource = 'export const pulse = "animate-pulse";';
     const bSource =
       'import { pulse } from "@/lib/base";\nconst styles = { pulse };\nexport function A() { return <span className={styles.pulse}>Loading</span>; }';
@@ -4872,6 +4908,29 @@ describe("scanSourceForViolations catches every spelling (fixture proofs, #878)"
     // one.
     const fixture =
       'const styles = { pulse() { return "ok"; }, safe: "text-green" };\nexport function A() { return <span className={styles.pulse}>Idle</span>; }';
+    expect(scanSourceForViolations(fixture)).toEqual([]);
+  });
+
+  it("does not flag a dot-chain access whose member doesn't exist, even when an unrelated top-level const shares the property's name", () => {
+    // `styles` has no `alert` key -- `styles.alert`'s chain fails to narrow
+    // against `styles`'s own entries and must resolve to "unresolved" (this
+    // file's one fail-closed convention for an unresolvable reference:
+    // leave it as unchanged, literal raw source text, exactly like
+    // `resolveMemberAccess`'s own `if (!decl) continue;` and
+    // `resolveConstRefs`'s replace callback `if (!decl) return id;` already
+    // do for every other unresolvable identifier). Before round 37b,
+    // `BASE_IDENT_RE` didn't exclude a preceding `.`, so once the chain
+    // walk gave up without consuming `alert`, the SAME regex's own next
+    // `.exec()` re-matched the bare trailing property name "alert" as its
+    // own fresh, unrelated base-identifier candidate -- and this file's
+    // unrelated top-level `const alert = "animate-pulse";` (never referred
+    // to by `styles` at all) was wrongly substituted in, a false positive.
+    // Verified via red-on-revert against d06d87a0 (round 37, pre-37b): this
+    // exact fixture FAILS there (`scanSourceForViolations` returns a
+    // non-empty violation list); after round 37b's anchor fix it correctly
+    // returns `[]` (Codex, PR #874 round 37b).
+    const fixture =
+      'const alert = "animate-pulse";\nconst styles = { safe: "text-green" };\nexport function A() { return <span className={styles.alert}>Idle</span>; }';
     expect(scanSourceForViolations(fixture)).toEqual([]);
   });
 

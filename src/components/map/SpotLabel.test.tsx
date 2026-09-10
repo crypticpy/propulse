@@ -66,7 +66,9 @@ describe("SpotLabel selection", () => {
 
   it.each(["Enter", " "])("selects from the %j key", (key) => {
     const onSelect = vi.fn();
-    render(<SpotLabel lat={0} lon={0} callsign="5N0CALL" onSelect={onSelect} />);
+    render(
+      <SpotLabel lat={0} lon={0} callsign="5N0CALL" onSelect={onSelect} />,
+    );
     fireEvent.keyDown(
       screen.getByRole("button", { name: "Select 5N0CALL as target" }),
       { key },
@@ -79,11 +81,16 @@ describe("SpotLabel selection", () => {
     const onParentDoubleClick = vi.fn();
     const onSelect = vi.fn();
     render(
-      <div onPointerDown={onParentPointerDown} onDoubleClick={onParentDoubleClick}>
+      <div
+        onPointerDown={onParentPointerDown}
+        onDoubleClick={onParentDoubleClick}
+      >
         <SpotLabel lat={35.5} lon={139} callsign="JA1XYZ" onSelect={onSelect} />
       </div>,
     );
-    const button = screen.getByRole("button", { name: "Select JA1XYZ as target" });
+    const button = screen.getByRole("button", {
+      name: "Select JA1XYZ as target",
+    });
     fireEvent.pointerDown(button);
     fireEvent.doubleClick(button);
     expect(onParentPointerDown).not.toHaveBeenCalled();
@@ -190,7 +197,9 @@ describe("SpotLabel visible-face opacity floor (#851)", () => {
     );
     // occlusionOpacity=0.3 is below TEXT_OCCLUSION_FLOOR (0.5); textOpacity
     // should be max(0.3, FLOOR) * opacity = FLOOR * 1.
-    const button = screen.getByRole("button", { name: "Select K5ABC as target" });
+    const button = screen.getByRole("button", {
+      name: "Select K5ABC as target",
+    });
     expect(colorAlpha(button.style.color)).toBeCloseTo(TEXT_OCCLUSION_FLOOR, 5);
   });
 
@@ -212,7 +221,9 @@ describe("SpotLabel visible-face opacity floor (#851)", () => {
     // de-emphasis visible: max(0.3, TEXT_OCCLUSION_FLOOR) * 0.9 = FLOOR *
     // 0.9 = 0.45, comfortably above round 10's FINAL_ALPHA_FLOOR (0.35) so
     // that floor doesn't engage here and mask what this test is proving.
-    const button = screen.getByRole("button", { name: "Select K5ABC as target" });
+    const button = screen.getByRole("button", {
+      name: "Select K5ABC as target",
+    });
     const alpha = colorAlpha(button.style.color);
     expect(alpha).toBeCloseTo(TEXT_OCCLUSION_FLOOR * 0.9, 5);
     expect(alpha).toBeLessThan(0.82);
@@ -229,7 +240,9 @@ describe("SpotLabel visible-face opacity floor (#851)", () => {
         onSelect={vi.fn()}
       />,
     );
-    const button = screen.getByRole("button", { name: "Select K5ABC as target" });
+    const button = screen.getByRole("button", {
+      name: "Select K5ABC as target",
+    });
     expect(colorAlpha(button.style.color)).toBeCloseTo(1, 5);
   });
 
@@ -248,12 +261,14 @@ describe("SpotLabel visible-face opacity floor (#851)", () => {
     const badgeR = badgeAlpha * 10 + (1 - badgeAlpha) * canvasR;
     const badgeG = badgeAlpha * 10 + (1 - badgeAlpha) * canvasG;
     const badgeB = badgeAlpha * 26 + (1 - badgeAlpha) * canvasB;
-    const toHex = (n: number) =>
-      Math.round(n).toString(16).padStart(2, "0");
+    const toHex = (n: number) => Math.round(n).toString(16).padStart(2, "0");
     const effBgHex = `#${toHex(badgeR)}${toHex(badgeG)}${toHex(badgeB)}`;
-    const effTextR = 255 * TEXT_OCCLUSION_FLOOR + badgeR * (1 - TEXT_OCCLUSION_FLOOR);
-    const effTextG = 255 * TEXT_OCCLUSION_FLOOR + badgeG * (1 - TEXT_OCCLUSION_FLOOR);
-    const effTextB = 255 * TEXT_OCCLUSION_FLOOR + badgeB * (1 - TEXT_OCCLUSION_FLOOR);
+    const effTextR =
+      255 * TEXT_OCCLUSION_FLOOR + badgeR * (1 - TEXT_OCCLUSION_FLOOR);
+    const effTextG =
+      255 * TEXT_OCCLUSION_FLOOR + badgeG * (1 - TEXT_OCCLUSION_FLOOR);
+    const effTextB =
+      255 * TEXT_OCCLUSION_FLOOR + badgeB * (1 - TEXT_OCCLUSION_FLOOR);
     const effTextHex = `#${toHex(effTextR)}${toHex(effTextG)}${toHex(effTextB)}`;
 
     expect(DARK_CANVAS_HEX).toBe("#141827"); // sanity: matches stationTokens.ts
@@ -298,7 +313,9 @@ describe("SpotLabel visible-face opacity floor (#851)", () => {
         onSelect={vi.fn()}
       />,
     );
-    const button = screen.getByRole("button", { name: "Select K5ABC as target" });
+    const button = screen.getByRole("button", {
+      name: "Select K5ABC as target",
+    });
     const alpha = colorAlpha(button.style.color);
     expect(alpha).toBeCloseTo(0.35, 5);
     expect(alpha).toBeGreaterThanOrEqual(0.35);
@@ -446,9 +463,7 @@ describe("SpotLabel pop-in fade ramp (#851)", () => {
     const maxRampStep = 0.05 / (0.25 - 0.05); // 0.25, one sample increment
     for (let i = 1; i < values.length; i += 1) {
       expect(values[i]).toBeGreaterThanOrEqual(values[i - 1]);
-      expect(values[i] - values[i - 1]).toBeLessThanOrEqual(
-        maxRampStep + 1e-9,
-      );
+      expect(values[i] - values[i - 1]).toBeLessThanOrEqual(maxRampStep + 1e-9);
     }
     expect(values[0]).toBeCloseTo(0, 5);
     expect(values[values.length - 1]).toBeCloseTo(1, 5);
@@ -703,9 +718,7 @@ describe("SpotLabel pointer/keyboard readiness waits for the fade transition (#8
     fireEvent.transitionEnd(screen.getByTestId("spot-label-wrapper"), {
       propertyName: "opacity",
     });
-    expect(screen.getByTestId("html-overlay").style.pointerEvents).toBe(
-      "auto",
-    );
+    expect(screen.getByTestId("html-overlay").style.pointerEvents).toBe("auto");
   });
 });
 
@@ -794,5 +807,60 @@ describe("SpotLabel releases stale hover ownership when interactionReady drops (
       />,
     );
     expect(onHoverEnd).not.toHaveBeenCalled();
+  });
+});
+
+describe("SpotLabel limb alpha gate (#932)", () => {
+  function alphaAt(occlusionOpacity: number, opacity = 1): number {
+    const { unmount } = render(
+      <SpotLabel
+        lat={35.5}
+        lon={-97.5}
+        callsign="K5ABC"
+        opacity={opacity}
+        occlusionOpacity={occlusionOpacity}
+        onSelect={vi.fn()}
+      />,
+    );
+    const label = screen.getByText("K5ABC").closest("[style]") as HTMLElement;
+    const rgba = label.style.color;
+    const channels = rgba
+      .replace(/rgba?\(|\)/g, "")
+      .split(",")
+      .map((part) => Number(part.trim()));
+    const alpha = channels.length === 4 ? channels[3] : 1;
+    unmount();
+    return alpha;
+  }
+
+  it("renders a label past the limb at exactly zero alpha, not at FINAL_ALPHA_FLOOR", () => {
+    // The shipped floor held a fully hidden back-side tag at 0.35 text alpha,
+    // which composited through the wrapper fade into a visible ghost.
+    expect(alphaAt(0)).toBe(0);
+  });
+
+  it("keeps a partially occluded near-face label at or above TEXT_OCCLUSION_FLOOR", () => {
+    // occlusionOpacity 0.3 is inside the fade band but at/above the gate
+    // window (LIMB_ALPHA_GATE_WINDOW = 0.25), so the gate is exactly 1 and
+    // the occlusion floor is delivered untouched.
+    expect(alphaAt(0.3)).toBeCloseTo(TEXT_OCCLUSION_FLOOR, 5);
+    expect(alphaAt(0.3)).toBeGreaterThanOrEqual(TEXT_OCCLUSION_FLOOR);
+    expect(alphaAt(1)).toBeCloseTo(1, 5);
+  });
+
+  it("still backstops stacked near-face de-emphasis at FINAL_ALPHA_FLOOR", () => {
+    // 0.6 spotter tag * 0.3 active-band * 0.35 contact posture ~= 0.063 raw.
+    expect(alphaAt(1, 0.6 * 0.3 * 0.35)).toBeCloseTo(0.35, 5);
+  });
+
+  it("ramps monotonically from the limb to the near face", () => {
+    const samples = [0, 0.02, 0.05, 0.1, 0.15, 0.2, 0.25, 0.4, 0.7, 1].map(
+      (occ) => alphaAt(occ),
+    );
+    for (let i = 1; i < samples.length; i++) {
+      expect(samples[i]).toBeGreaterThanOrEqual(samples[i - 1]);
+    }
+    expect(samples[0]).toBe(0);
+    expect(samples[samples.length - 1]).toBeCloseTo(1, 5);
   });
 });

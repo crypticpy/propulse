@@ -20,6 +20,7 @@ import { Html } from "@react-three/drei";
 import { getModeColor, getBandColor, inkOnFill } from "@/lib/utils/spotColors";
 import type { ScreenAnchor } from "@/lib/map/anchoredOverlay";
 import { GLOBE_DOM_LAYER_ORDER } from "@/lib/map/globeRenderOrder";
+import { limbAlphaGate } from "@/lib/map/globeOcclusion";
 
 /** Offset from globe surface to prevent z-fighting */
 const SURFACE_OFFSET = 1.000002;
@@ -46,13 +47,14 @@ export const TEXT_OCCLUSION_FLOOR = 0.5;
  * still lets the FINAL alpha collapse toward invisible even fully on the
  * near side (occlusionOpacity === 1, so TEXT_OCCLUSION_FLOOR never engages).
  * Matches the 0.35 value the parent revision used before it was raised to
- * 0.82 and then replaced by the occlusion-only split. Safe to apply
- * unconditionally: this only floors the text/background color ALPHA
- * channel, never the wrapper `<div>`'s own CSS `opacity` (`wrapperOpacity`/
- * `isVisible` below, driven by `occlusionOpacity` alone), which is the
- * mechanism that hides far-side labels and multiplies with this alpha
- * during compositing -- a label with wrapperOpacity 0 still renders fully
- * hidden regardless of this floor.
+ * 0.82 and then replaced by the occlusion-only split. This floors only the
+ * text/background color ALPHA channel, never the wrapper `<div>`'s own CSS
+ * `opacity` (`wrapperOpacity`/`isVisible` below, driven by
+ * `occlusionOpacity` alone), which is the other mechanism that hides
+ * far-side labels and multiplies with this alpha during compositing.
+ * It is NOT applied unconditionally (#932): the floored product is gated by
+ * `limbAlphaGate` at the usage site so a label past the horizon reaches
+ * exactly 0 instead of sitting at this floor while the wrapper fades.
  */
 const FINAL_ALPHA_FLOOR = 0.35;
 
@@ -263,8 +265,7 @@ export function SpotLabel({
         0,
         Math.min(
           1,
-          (occlusionOpacity - HIDE_THRESHOLD) /
-            (FADE_IN_END - HIDE_THRESHOLD),
+          (occlusionOpacity - HIDE_THRESHOLD) / (FADE_IN_END - HIDE_THRESHOLD),
         ),
       )
     : 0;
@@ -419,10 +420,7 @@ export function SpotLabel({
   const handleKeyDown = useCallback(
     (event: React.KeyboardEvent<HTMLButtonElement>) => {
       event.stopPropagation();
-      if (
-        isInteractive &&
-        (event.key === "Enter" || event.key === " ")
-      ) {
+      if (isInteractive && (event.key === "Enter" || event.key === " ")) {
         event.preventDefault();
         selectAtElement(event.currentTarget);
       }
@@ -466,12 +464,27 @@ export function SpotLabel({
   // can still collapse well below the occlusion floor even at full occlusion
   // (occlusionOpacity === 1). `FINAL_ALPHA_FLOOR` backstops the combined
   // product itself so contrast never regresses below what shipped before
-  // round 8 (#851, round 10) — see its doc comment for why this is safe to
-  // apply unconditionally without defeating far-side hiding.
+  // round 8 (#851, round 10) — see its doc comment.
+  // Both floors are then re-coupled to the limb by `limbAlphaGate`. Applied
+  // unconditionally, `FINAL_ALPHA_FLOOR` also held a label that is PAST the
+  // horizon at 0.35 alpha, which composited with the wrapper's own fade into
+  // the translucent back-side "ghost" tags of #932. The gate is exactly 1 for
+  // any label at or above the wrapper's `FADE_IN_END` occlusion (0.25) — so a
+  // near-face label, including one merely de-emphasised or partly occluded,
+  // keeps the full floor — and smoothsteps to 0 as `occlusionOpacity` reaches
+  // 0, so a label the limb has hidden renders at exactly 0. Arcs use the same
+  // gate and window (`src/lib/map/arcLimbFade.ts`) so a tag and its path
+  // disappear together instead of at two different rotations.
   const flooredOcclusion = Math.max(occlusionOpacity, TEXT_OCCLUSION_FLOOR);
-  const textOpacity = Math.max(flooredOcclusion * opacity, FINAL_ALPHA_FLOOR);
+  const textOpacity =
+    Math.max(flooredOcclusion * opacity, FINAL_ALPHA_FLOOR) *
+    limbAlphaGate(occlusionOpacity);
   const labelStyle: React.CSSProperties = {
-    cursor: isInteractive ? "pointer" : interactionReady ? "default" : "inherit",
+    cursor: isInteractive
+      ? "pointer"
+      : interactionReady
+        ? "default"
+        : "inherit",
     color:
       isHovered || selected
         ? "rgba(255, 255, 255, 1)"
@@ -489,11 +502,7 @@ export function SpotLabel({
     textShadow: "0 1px 2px rgba(0,0,0,0.8)",
     letterSpacing: "0.03em",
     lineHeight: 1.2,
-    transform: isHovered
-      ? "scale(1.2)"
-      : selected
-        ? "scale(1.15)"
-        : "scale(1)",
+    transform: isHovered ? "scale(1.2)" : selected ? "scale(1.15)" : "scale(1)",
     transformOrigin: "center bottom",
     transition:
       "transform 0.15s ease-out, box-shadow 0.15s ease-out, background-color 0.15s ease-out, color 0.15s ease-out",

@@ -5,7 +5,7 @@
  * Shows larger heatmap, best window recommendations, and educational content.
  */
 
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { DetailModal } from "@/components/ui/DetailModal";
 import { NowCastBandPanel } from "@/components/propagation/NowCastBandPanel";
 import { HF_MODEL_BANDS } from "@/lib/propagation/coreFeatureBuilder";
@@ -16,7 +16,6 @@ import {
   type BestWindow,
 } from "@/lib/utils/bands";
 import { useSettingsStore } from "@/stores/settingsStore";
-import type { TextScale } from "@/types/user";
 
 interface PropagationForecastModalProps {
   isOpen: boolean;
@@ -49,38 +48,49 @@ const DISPLAY_BANDS = [
   "160m",
 ];
 
-// Modal SVG dimensions (larger)
-const CHART_WIDTH = 600;
+// Modal SVG dimensions (larger). `CHART_WIDTH_BASE` is the chart width at
+// the default 16px root font size; `chartGeometry()` scales it up with the
+// operator's Text Size setting so the heat-map's SNR labels keep fitting
+// their cells instead of being hidden past `md` (see `snrLabelFits` below).
+const CHART_WIDTH_BASE = 600;
 const CHART_HEIGHT = 300;
 const MARGIN = { top: 28, right: 16, bottom: 32, left: 48 };
-export const CELL_WIDTH = (CHART_WIDTH - MARGIN.left - MARGIN.right) / 24;
 const CELL_HEIGHT =
   (CHART_HEIGHT - MARGIN.top - MARGIN.bottom) / DISPLAY_BANDS.length;
 
-// `viewBox="0 0 600 300"` with a matching `width`/`height` attribute means
-// one SVG user unit is exactly one CSS pixel here -- there is no scaling to
-// hide an oversized label behind. The per-cell SNR label is `text-xs`
-// (0.75rem), which follows Settings -> Text Size like every other `text-xs`
-// site in this #832 round, so its rendered width grows with the root font
-// size even though `CELL_WIDTH` (a fraction of the fixed 600-unit chart) does
-// not. `Root px * 0.75` reproduces `text-xs`'s computed font size at each
-// scale; `* 0.6` is the same rough per-character width used elsewhere on
-// this branch for a monospace numeral.
-const TEXT_SCALE_ROOT_PX: Record<TextScale, number> = {
-  sm: 14.4,
-  md: 16,
-  lg: 18.4,
-  xl: 22,
-};
+const ROOT_FONT_PX_DEFAULT = 16;
+// Tailwind's `text-xs` is 0.75rem at every root size, so this stays a
+// constant multiplier of whatever the computed root font size is.
 const TEXT_XS_REM = 0.75;
-const CHAR_WIDTH_EM = 0.6;
-/** Small clearance so a label flush against the fit line isn't chosen. */
-const LABEL_FIT_MARGIN_PX = 0.5;
+const CHAR_WIDTH_EM = 0.6; // rough per-character advance for a monospace numeral
+/**
+ * Clearance so a label flush against the fit line isn't chosen. 3px rather
+ * than a hairline margin, since two labels only 0.73px apart still read as
+ * touching at typical screen densities.
+ */
+const LABEL_FIT_MARGIN_PX = 3;
+
+/**
+ * Chart width and per-hour cell width at a given computed root font size.
+ * `viewBox` and the SVG's `width` attribute are always kept equal (one SVG
+ * user unit is exactly one CSS pixel), so growing `chartWidth` with the
+ * text grows every cell along with it instead of leaving cells fixed while
+ * only the text inside them grows. Pure so it is unit-testable without
+ * rendering the SVG.
+ */
+export function chartGeometry(rootFontPx: number): {
+  chartWidth: number;
+  cellWidth: number;
+} {
+  const chartWidth = CHART_WIDTH_BASE * (rootFontPx / ROOT_FONT_PX_DEFAULT);
+  const cellWidth = (chartWidth - MARGIN.left - MARGIN.right) / 24;
+  return { chartWidth, cellWidth };
+}
 
 /**
  * Whether `value`'s rendered `text-xs` label fits inside a chart cell
- * `cellWidthPx` wide at the given Settings -> Text Size scale, with a small
- * margin. Pure and exported so the arithmetic is unit-testable without
+ * `cellWidthPx` wide, given the page's current computed root font size in
+ * pixels. Pure and exported so the arithmetic is unit-testable without
  * rendering the SVG (jsdom computes no layout, so a real measurement is not
  * available here). Replaces the old `CELL_WIDTH > 20 && CELL_HEIGHT > 20`
  * gate, which was built from two module-level constants and so was always
@@ -89,12 +99,25 @@ const LABEL_FIT_MARGIN_PX = 0.5;
 export function snrLabelFits(
   value: number,
   cellWidthPx: number,
-  textScale: TextScale = "md",
+  rootFontPx: number = ROOT_FONT_PX_DEFAULT,
 ): boolean {
-  const fontSizePx = TEXT_SCALE_ROOT_PX[textScale] * TEXT_XS_REM;
+  const fontSizePx = rootFontPx * TEXT_XS_REM;
   const charWidthPx = fontSizePx * CHAR_WIDTH_EM;
   const labelWidthPx = String(value).length * charWidthPx;
   return labelWidthPx + LABEL_FIT_MARGIN_PX <= cellWidthPx;
+}
+
+/**
+ * Vertical center for the "NOW" label above the current-time arrow, paired
+ * with `dominantBaseline="central"` in the markup below. The label is
+ * `text-xs`, so its rendered size grows with the root font size; anchoring
+ * it from that size (instead of a fixed offset tuned for an 8px label)
+ * keeps its glyphs from extending above y=0 -- off the top of the SVG --
+ * once Text Size grows past its default.
+ */
+export function nowLabelY(rootFontPx: number): number {
+  const fontSizePx = rootFontPx * TEXT_XS_REM;
+  return MARGIN.top - fontSizePx * 0.5;
 }
 
 /**
@@ -139,6 +162,22 @@ export function PropagationForecastModal({
   locationLabel,
 }: PropagationForecastModalProps) {
   const textScale = useSettingsStore((s) => s.textScale ?? "md");
+  // `textScale` is the trigger (a store read); the value used for layout
+  // math is the browser's actual computed root font size, so a user's
+  // browser default other than 16px is honored even at the app's default
+  // `md` setting (Settings -> Text Size leaves the root font unset there).
+  const [rootFontPx, setRootFontPx] = useState(ROOT_FONT_PX_DEFAULT);
+  useEffect(() => {
+    const parsed = parseFloat(
+      getComputedStyle(document.documentElement).fontSize,
+    );
+    setRootFontPx(Number.isFinite(parsed) ? parsed : ROOT_FONT_PX_DEFAULT);
+  }, [textScale]);
+
+  const { chartWidth, cellWidth } = useMemo(
+    () => chartGeometry(rootFontPx),
+    [rootFontPx],
+  );
 
   // Group best windows by quality
   const windowsByQuality = useMemo(() => {
@@ -271,11 +310,11 @@ export function PropagationForecastModal({
 
         {/* Large heatmap */}
         <div className="bg-su-line/10 rounded-xl p-4">
-          <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center justify-between flex-wrap gap-y-1 mb-4">
             <h3 className="text-sm font-medium text-su-text">
               Band Conditions by Hour (UTC)
             </h3>
-            <div className="flex items-center gap-4 text-xs">
+            <div className="flex items-center flex-wrap gap-4 gap-y-1 text-xs">
               <div className="flex items-center gap-1.5">
                 <div
                   className="w-3 h-3 rounded"
@@ -316,9 +355,9 @@ export function PropagationForecastModal({
 
           <div className="flex justify-center overflow-x-auto">
             <svg
-              width={CHART_WIDTH}
+              width={chartWidth}
               height={CHART_HEIGHT}
-              viewBox={`0 0 ${CHART_WIDTH} ${CHART_HEIGHT}`}
+              viewBox={`0 0 ${chartWidth} ${CHART_HEIGHT}`}
               className="min-w-[500px]"
             >
               {/* Definitions */}
@@ -365,7 +404,7 @@ export function PropagationForecastModal({
               {Array.from({ length: 12 }, (_, i) => i * 2).map((hour) => (
                 <text
                   key={hour}
-                  x={MARGIN.left + hour * CELL_WIDTH + CELL_WIDTH}
+                  x={MARGIN.left + hour * cellWidth + cellWidth}
                   y={CHART_HEIGHT - 8}
                   textAnchor="middle"
                   className="fill-su-muted text-xs font-mono"
@@ -380,7 +419,7 @@ export function PropagationForecastModal({
                   const bandData = hourData.bands.find((b) => b.band === band);
                   const status = bandData?.status || "closed";
                   const color = getForecastStatusColor(status);
-                  const x = MARGIN.left + hourData.hour * CELL_WIDTH;
+                  const x = MARGIN.left + hourData.hour * cellWidth;
                   const y = MARGIN.top + bandIdx * CELL_HEIGHT;
 
                   return (
@@ -388,7 +427,7 @@ export function PropagationForecastModal({
                       <rect
                         x={x + 0.5}
                         y={y + 0.5}
-                        width={CELL_WIDTH - 1}
+                        width={cellWidth - 1}
                         height={CELL_HEIGHT - 1}
                         fill={color}
                         opacity={0.9}
@@ -398,25 +437,26 @@ export function PropagationForecastModal({
                       <rect
                         x={x + 0.5}
                         y={y + 0.5}
-                        width={CELL_WIDTH - 1}
+                        width={cellWidth - 1}
                         height={(CELL_HEIGHT - 1) / 2}
                         fill="url(#modalCellShine)"
                         rx={2}
                       />
                       {/* Show SNR only when its text-xs label actually fits
-                          this cell at the current text scale -- the color
-                          heatmap still carries the information either way,
-                          and no label beats an overlapping one. */}
+                          this cell at the current root font size -- the
+                          color heatmap still carries the information either
+                          way, and no label beats an overlapping one. */}
                       {bandData &&
                         snrLabelFits(
                           bandData.snrEstimate,
-                          CELL_WIDTH,
-                          textScale,
+                          cellWidth,
+                          rootFontPx,
                         ) && (
                           <text
-                            x={x + CELL_WIDTH / 2}
-                            y={y + CELL_HEIGHT / 2 + 3}
+                            x={x + cellWidth / 2}
+                            y={y + CELL_HEIGHT / 2}
                             textAnchor="middle"
+                            dominantBaseline="central"
                             className="fill-black/40 text-xs font-mono pointer-events-none"
                           >
                             {bandData.snrEstimate}
@@ -430,9 +470,9 @@ export function PropagationForecastModal({
               {/* Current time indicator */}
               <g filter="url(#modalGlow)">
                 <line
-                  x1={MARGIN.left + currentHour * CELL_WIDTH + CELL_WIDTH / 2}
+                  x1={MARGIN.left + currentHour * cellWidth + cellWidth / 2}
                   y1={MARGIN.top - 6}
-                  x2={MARGIN.left + currentHour * CELL_WIDTH + CELL_WIDTH / 2}
+                  x2={MARGIN.left + currentHour * cellWidth + cellWidth / 2}
                   y2={CHART_HEIGHT - MARGIN.bottom + 6}
                   stroke="#ff6b35"
                   strokeWidth={2.5}
@@ -440,9 +480,9 @@ export function PropagationForecastModal({
                 />
                 <polygon
                   points={`
-                    ${MARGIN.left + currentHour * CELL_WIDTH + CELL_WIDTH / 2 - 6},${MARGIN.top - 12}
-                    ${MARGIN.left + currentHour * CELL_WIDTH + CELL_WIDTH / 2 + 6},${MARGIN.top - 12}
-                    ${MARGIN.left + currentHour * CELL_WIDTH + CELL_WIDTH / 2},${MARGIN.top - 2}
+                    ${MARGIN.left + currentHour * cellWidth + cellWidth / 2 - 6},${MARGIN.top - 12}
+                    ${MARGIN.left + currentHour * cellWidth + cellWidth / 2 + 6},${MARGIN.top - 12}
+                    ${MARGIN.left + currentHour * cellWidth + cellWidth / 2},${MARGIN.top - 2}
                   `}
                   fill="#ff6b35"
                 />
@@ -450,9 +490,10 @@ export function PropagationForecastModal({
 
               {/* NOW label */}
               <text
-                x={MARGIN.left + currentHour * CELL_WIDTH + CELL_WIDTH / 2}
-                y={MARGIN.top - 18}
+                x={MARGIN.left + currentHour * cellWidth + cellWidth / 2}
+                y={nowLabelY(rootFontPx)}
                 textAnchor="middle"
+                dominantBaseline="central"
                 className="fill-plasma-orange text-xs font-bold"
               >
                 NOW

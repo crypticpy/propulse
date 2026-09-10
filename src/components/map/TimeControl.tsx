@@ -557,7 +557,7 @@ export function TimeControl({ className = "" }: TimeControlProps) {
                       <button
                         key={preset.id}
                         onClick={() => handlePresetSelect(preset)}
-                        className="w-full flex items-center gap-2 px-2 py-1.5 text-left text-xs rounded hover:bg-su-line/20 transition-colors group"
+                        className="flex w-full flex-wrap items-center gap-x-2 gap-y-0.5 px-2 py-1.5 text-left text-xs rounded hover:bg-su-line/20 transition-colors group"
                         title={preset.description}
                       >
                         <PresetIcon
@@ -613,7 +613,7 @@ export function TimeControl({ className = "" }: TimeControlProps) {
                   {timeScenarios.map((scenario) => (
                     <div
                       key={scenario.id}
-                      className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-su-line/20 transition-colors group"
+                      className="flex flex-wrap items-center gap-x-2 gap-y-0.5 px-2 py-1.5 rounded hover:bg-su-line/20 transition-colors group"
                     >
                       <button
                         onClick={() => applyTimeScenario(scenario.id)}

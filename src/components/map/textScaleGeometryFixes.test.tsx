@@ -1089,6 +1089,11 @@ describe("round-14 Codex site family: non-wrapping label rows in the narrow colu
     // Round 17: the Watch popover's Grid row (input + shrink-0 TX/RX/Any
     // radio group) at 276px of popover width on a 320px viewport at xl.
     ["src/components/map/WatchPopover.tsx", 'placeholder="e.g., EM73"'],
+    // Round 18: the Time Machine's smart-preset buttons (icon + label +
+    // mono time in a popover only as wide as the 200px column's card
+    // header) and the saved-scenario rows of the same popover.
+    ["src/components/map/TimeControl.tsx", "title={preset.description}"],
+    ["src/components/map/TimeControl.tsx", "onClick={() => applyTimeScenario(scenario.id)}"],
   ];
 
   it.each(SITES)("%s: the row above %j wraps", (file, anchor) => {
@@ -1103,6 +1108,13 @@ describe("round-14 Codex site family: non-wrapping label rows in the narrow colu
       .find((l) => /className="flex /.test(l));
     expect(row, anchor).toBeDefined();
     expect(row, anchor).toContain("flex-wrap");
+  });
+
+  it("the ISS and satellite info cards cap their height to the viewport and scroll (round 18)", () => {
+    for (const style of [ISS_INFO_CARD_WIDTH_STYLE, SATELLITE_INFO_CARD_WIDTH_STYLE]) {
+      expect(style.maxHeight).toContain("100vh");
+      expect(style.overflowY).toBe("auto");
+    }
   });
 
   it("the Watch popover's grid input keeps a min width that fits six mono characters so the row wraps instead of squeezing it", () => {

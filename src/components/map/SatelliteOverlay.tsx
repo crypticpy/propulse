@@ -136,6 +136,10 @@ export const SATELLITE_INFO_CARD_WIDTH_STYLE = {
   // phone, and the drei `Html center` wrapper does no clamping of its own.
   minWidth: "min(12.5rem, calc(100vw - 2rem))",
   maxWidth: "min(16.25rem, calc(100vw - 2rem))",
+  // Same viewport-relative height cap as ISS_INFO_CARD_WIDTH_STYLE (round
+  // 18): the transponder and pass sections stack at the largest scale.
+  maxHeight: "calc(100vh - 2rem)",
+  overflowY: "auto",
 } as const;
 
 // ---------------------------------------------------------------------------

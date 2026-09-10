@@ -115,6 +115,13 @@ function latLonToSurface(lat: number, lon: number): THREE.Vector3 {
 export const ISS_INFO_CARD_WIDTH_STYLE = {
   minWidth: "min(15rem, calc(100vw - 2rem))",
   maxWidth: "min(17.5rem, calc(100vw - 2rem))",
+  // Round 18: once the width clamp stacks the grids to one column at the
+  // largest text scale, the card outgrows a phone viewport and the lower
+  // frequency and SSTV sections sat off-screen with no way to reach them.
+  // The same viewport-relative cap on the height, with the card itself
+  // scrolling, keeps every section reachable.
+  maxHeight: "calc(100vh - 2rem)",
+  overflowY: "auto",
 } as const;
 
 /** Well-known ISS amateur radio frequencies and modes */

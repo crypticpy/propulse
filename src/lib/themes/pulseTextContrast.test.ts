@@ -1941,9 +1941,18 @@ interface Violation {
  * #874 round 21). `normalizedSource` must already be whitespace-normalized
  * (see `normalize`) -- `scanSourceForViolations` does this once for both
  * scans so every `Violation.index` shares one coordinate space with the
- * anchors they're compared against. */
-function findElementViolations(normalizedSource: string): Violation[] {
-  const constMap = collectConstTemplateMap(normalizedSource);
+ * anchors they're compared against. `importedDecls` (Codex, PR #874 round
+ * 28) are extra `ConstDecl`s -- resolved by the census's cross-file import
+ * pass, or supplied directly by a fixture -- appended after this file's own
+ * declarations so a `className={alertClasses}` bound to an *imported*
+ * `export const alertClasses = "…animate-pulse…"` resolves exactly like a
+ * local one; empty by default so every existing single-file caller is
+ * unaffected. */
+function findElementViolations(
+  normalizedSource: string,
+  importedDecls: ConstDecl[] = [],
+): Violation[] {
+  const constMap = [...collectConstTemplateMap(normalizedSource), ...importedDecls];
   const violations: Violation[] = [];
   for (const site of findClassNameSites(normalizedSource, constMap)) {
     if (!site.tag) continue;
@@ -2144,10 +2153,13 @@ function blankCommentsAndQuotedJsx(source: string): string {
   return out;
 }
 
-function scanSourceForViolations(source: string): Violation[] {
+/** `importedDecls` (Codex, PR #874 round 28) are passed straight through to
+ * `findElementViolations`; empty by default, so every existing single-file
+ * call site is unaffected. */
+function scanSourceForViolations(source: string, importedDecls: ConstDecl[] = []): Violation[] {
   const normalized = normalize(blankCommentsAndQuotedJsx(source));
   return [
-    ...findElementViolations(normalized),
+    ...findElementViolations(normalized, importedDecls),
     ...findConfigMapViolations(normalized),
   ];
 }
@@ -2190,6 +2202,243 @@ function listSourceFiles(dir: string): string[] {
     out.push(relative(REPO_ROOT, abs).split(sep).join("/"));
   }
   return out;
+}
+
+// ─── Cross-file import/export resolution (Codex, PR #874 round 28) ────────
+//
+// A `className={alertClasses}` bound to an *imported* `export const
+// alertClasses = "…animate-pulse…"` was invisible to the census: the file
+// that renders it never mentions "animate-pulse" literally (so the
+// prefilter skipped it), and even without that, `collectConstTemplateMap`
+// only ever sees one file's own declarations. Two passes fix this without
+// touching single-file scanning: pass 1 (`collectExportedPulseBindings`)
+// finds every exported binding, in every file, whose resolved literal
+// contains the pulse class, keyed by a module path both sides can agree on;
+// pass 2 (`resolveImportedDecls`) reads one file's `import` statements and,
+// for each imported name that resolves to a pass-1 binding, manufactures a
+// whole-file-scoped `ConstDecl` carrying that binding's literal/entries, so
+// `findElementViolations` resolves it exactly like a local declaration.
+// Both are plain functions over an in-memory `{path: source}`-shaped input
+// (`Record<string, string>` for pass 1, one file's text for pass 2) so the
+// fixture proofs below can drive them without touching disk.
+
+/** The extension-stripped, forward-slash module path for `file` (e.g.
+ * `src/lib/a.tsx` -> `"src/lib/a"`), plus -- when `file` is an index file --
+ * the alias an importer targeting its directory would resolve to instead
+ * (`src/lib/a/index.ts` -> also `"src/lib/a"`), since either spelling can
+ * reach the same module. */
+function moduleKeysForFile(file: string): string[] {
+  const stripped = file.replace(/\.tsx?$/, "");
+  const keys = [stripped];
+  if (/\/index$/.test(stripped)) keys.push(stripped.replace(/\/index$/, ""));
+  return keys;
+}
+
+/** Resolves an import specifier written inside `fromFile` to the same kind
+ * of module-path key `moduleKeysForFile` produces, or `null` when it's a
+ * specifier this scanner doesn't resolve at all -- a bare package name
+ * (`"react"`) or an alias other than `@/` (the only one this repo's
+ * `tsconfig`/`vite.config` map to `src/`). A relative specifier (`./a`,
+ * `../b/c`) is resolved against `fromFile`'s own directory, collapsing `.`/
+ * `..` segments by hand (no `path.resolve` -- everything here is a
+ * forward-slash `src/...`-relative string, not a real filesystem path). */
+function resolveModuleKey(fromFile: string, specifier: string): string | null {
+  let target: string;
+  if (specifier.startsWith("@/")) {
+    target = `src/${specifier.slice(2)}`;
+  } else if (specifier.startsWith("./") || specifier.startsWith("../")) {
+    const fromDir = fromFile.split("/").slice(0, -1).join("/");
+    const parts: string[] = [];
+    for (const part of `${fromDir}/${specifier}`.split("/")) {
+      if (part === "" || part === ".") continue;
+      if (part === "..") parts.pop();
+      else parts.push(part);
+    }
+    target = parts.join("/");
+  } else {
+    return null;
+  }
+  return target.replace(/\.tsx?$/, "");
+}
+
+/** Maps every name a file exports to the local name it refers to --
+ * `export const NAME = …`/`export let|var NAME = …` (name maps to itself),
+ * `export { name }`/`export { name as alias }` (alias maps to `name`), and
+ * `export default name;` (mapped under the reserved key `"default"`).
+ * `source` should already be comment/string-blanked and whitespace-
+ * normalized (same convention `collectConstTemplateMap` expects), so a
+ * `// export { fake }` inside a comment is never picked up. */
+function collectExportedNames(source: string): Map<string, string> {
+  const exported = new Map<string, string>();
+  const directRe = /\bexport\s+(?:const|let|var)\s+([A-Za-z_$][\w$]*)/g;
+  let m: RegExpExecArray | null;
+  while ((m = directRe.exec(source))) {
+    exported.set(m[1], m[1]);
+  }
+  const braceRe = /\bexport\s*\{([^}]*)\}/g;
+  while ((m = braceRe.exec(source))) {
+    for (const rawSpec of m[1].split(",")) {
+      const spec = rawSpec.trim();
+      if (!spec) continue;
+      const asMatch = /^([A-Za-z_$][\w$]*)\s+as\s+([A-Za-z_$][\w$]*)$/.exec(spec);
+      if (asMatch) {
+        exported.set(asMatch[2], asMatch[1]);
+      } else if (/^[A-Za-z_$][\w$]*$/.test(spec)) {
+        exported.set(spec, spec);
+      }
+    }
+  }
+  const defaultRe = /\bexport\s+default\s+([A-Za-z_$][\w$]*)\s*;/g;
+  while ((m = defaultRe.exec(source))) {
+    exported.set("default", m[1]);
+  }
+  return exported;
+}
+
+/** Pass 1: every exported binding, across every file in `sources`, whose
+ * resolved literal contains the pulse class -- keyed first by the
+ * exporting module's path key (`moduleKeysForFile`), then by the exported
+ * name. A file that doesn't literally contain `"animate-pulse"` can't
+ * possibly export a binding that does (the class name has to appear as a
+ * literal *somewhere* in the file for `collectConstTemplateMap` to find
+ * it), so it's skipped outright -- this keeps pass 1 as cheap as the
+ * existing single-file prefilter, just run once up front instead of once
+ * per file that happens to import from it. Only a file's own module-level
+ * declarations (whole-file scope, per `collectConstTemplateMap`) are ever
+ * exportable; a function-local same-named const is never in scope for
+ * `export { name }` to reach. */
+function collectExportedPulseBindings(
+  sources: Record<string, string>,
+): Map<string, Map<string, ConstDecl>> {
+  const byModule = new Map<string, Map<string, ConstDecl>>();
+  for (const [file, rawSource] of Object.entries(sources)) {
+    if (!rawSource.includes(PULSE_CLASS)) continue;
+    const source = normalize(blankCommentsAndQuotedJsx(rawSource));
+    const exportedNames = collectExportedNames(source);
+    if (exportedNames.size === 0) continue;
+    const decls = collectConstTemplateMap(source);
+    const moduleLevelByName = new Map<string, ConstDecl>();
+    for (const decl of decls) {
+      if (decl.scopeStart !== 0 || decl.scopeEnd !== source.length) continue;
+      const existing = moduleLevelByName.get(decl.name);
+      if (!existing || decl.index < existing.index) moduleLevelByName.set(decl.name, decl);
+    }
+    const pulsing = new Map<string, ConstDecl>();
+    for (const [exportedName, localName] of exportedNames) {
+      const decl = moduleLevelByName.get(localName);
+      if (decl && PULSE_CLASS_RE.test(decl.literal)) {
+        pulsing.set(exportedName, decl);
+      }
+    }
+    if (pulsing.size === 0) continue;
+    for (const key of moduleKeysForFile(file)) {
+      byModule.set(key, pulsing);
+    }
+  }
+  return byModule;
+}
+
+/** One `import` statement's clause (everything between `import`/`import
+ * type` and ` from`) and its specifier string, e.g. `{ clause: "{ a, b as
+ * c }", specifier: "@/lib/a" }` for `import { a, b as c } from "@/lib/a"`.
+ * Spans multiple lines (`[\s\S]*?`, non-greedy up to the nearest ` from
+ * "…"`). A leading `type` -- `import type { X } from "…"` -- is a
+ * type-only import; skipped here entirely, since a type is never a
+ * `ConstDecl`. */
+function parseImportClauses(source: string): Array<{ clause: string; specifier: string }> {
+  const results: Array<{ clause: string; specifier: string }> = [];
+  const importRe = /\bimport\s+(type\s+)?([\s\S]*?)\s+from\s+["']([^"']+)["']/g;
+  let m: RegExpExecArray | null;
+  while ((m = importRe.exec(source))) {
+    if (m[1]) continue;
+    results.push({ clause: m[2].trim(), specifier: m[3] });
+  }
+  return results;
+}
+
+/** Pass 2: every extra `ConstDecl` `file`'s own `import` statements bring
+ * into scope, resolved against `exportsMap` (pass 1's output) -- a named
+ * import (`{ a, b as c }`) registers the local name with the exported
+ * binding's literal/entries directly; a default import (`import d from
+ * "…"`) does the same under the reserved `"default"` key; a namespace
+ * import (`* as ns`) registers `ns` as an object decl whose `entries` map
+ * every one of the module's pulsing exports, so `ns.alertClasses` still
+ * resolves through the existing dotted member-access chain
+ * (`resolveMemberAccess`). Every registered decl gets the whole file as its
+ * scope (`scopeStart: 0, scopeEnd: source.length`) and `index: 0` -- an
+ * imported binding has no meaningful declaration offset in *this* file, and
+ * none of the offsets `Violation`/anchor matching use ever come from an
+ * import (Codex, PR #874 round 28). An unresolvable specifier (a package, or
+ * an alias other than `@/`) is ignored, same as one that resolves to a
+ * module with no pulsing exports at all. */
+function resolveImportedDecls(
+  file: string,
+  rawSource: string,
+  exportsMap: Map<string, Map<string, ConstDecl>>,
+): ConstDecl[] {
+  const source = normalize(blankCommentsAndQuotedJsx(rawSource));
+  const extra: ConstDecl[] = [];
+  for (const { clause, specifier } of parseImportClauses(source)) {
+    const moduleKey = resolveModuleKey(file, specifier);
+    if (moduleKey === null) continue;
+    const pulsing = exportsMap.get(moduleKey);
+    if (!pulsing) continue;
+
+    const nsMatch = /^\*\s+as\s+([A-Za-z_$][\w$]*)$/.exec(clause);
+    if (nsMatch) {
+      const entries = new Map<string, ConstEntry>();
+      for (const [exportedName, decl] of pulsing) {
+        entries.set(exportedName, { literal: decl.literal, entries: decl.entries });
+      }
+      extra.push({
+        name: nsMatch[1],
+        index: 0,
+        literal: [...pulsing.values()].map((decl) => decl.literal).join(" "),
+        entries,
+        scopeStart: 0,
+        scopeEnd: source.length,
+      });
+      continue;
+    }
+
+    const braceMatch = /\{([^}]*)\}/.exec(clause);
+    const defaultName = (braceMatch ? clause.slice(0, braceMatch.index) : clause)
+      .replace(/,\s*$/, "")
+      .trim();
+    if (defaultName) {
+      const decl = pulsing.get("default");
+      if (decl) {
+        extra.push({ ...decl, name: defaultName, index: 0, scopeStart: 0, scopeEnd: source.length });
+      }
+    }
+    if (braceMatch) {
+      for (const rawSpec of braceMatch[1].split(",")) {
+        const spec = rawSpec.trim();
+        if (!spec) continue;
+        const asMatch = /^([A-Za-z_$][\w$]*)\s+as\s+([A-Za-z_$][\w$]*)$/.exec(spec);
+        const importedName = asMatch ? asMatch[1] : spec;
+        const localName = asMatch ? asMatch[2] : spec;
+        const decl = pulsing.get(importedName);
+        if (decl) {
+          extra.push({ ...decl, name: localName, index: 0, scopeStart: 0, scopeEnd: source.length });
+        }
+      }
+    }
+  }
+  return extra;
+}
+
+/** The fixture-testable entry point: scans one module's source for
+ * violations with its imported pulse-class bindings (resolved against
+ * `exportsMap`, pass 1's output over some in-memory `{path: source}` set)
+ * merged in, exactly the way the census below merges them in for a real
+ * `src/` file. */
+function scanModuleForViolations(
+  file: string,
+  source: string,
+  exportsMap: Map<string, Map<string, ConstDecl>>,
+): Violation[] {
+  return scanSourceForViolations(source, resolveImportedDecls(file, source, exportsMap));
 }
 
 /** Every anchor registered for `file` across both tables -- the set of
@@ -2346,10 +2595,22 @@ function coveredViolations(
  * covered only by the anchor/window freshness test below. */
 function findUncoveredPulseSites(): string[] {
   const uncovered: string[] = [];
-  for (const file of listSourceFiles(SRC_ROOT)) {
-    const raw = readRaw(file);
-    if (!raw.includes(PULSE_CLASS)) continue;
-    const violations = scanSourceForViolations(raw);
+  const files = listSourceFiles(SRC_ROOT);
+  // Pass 1 (Codex, PR #874 round 28): every exported binding, in every file,
+  // whose literal contains the pulse class -- computed once for the whole
+  // census run (not once per importing file) so a hot export isn't re-parsed
+  // for each of its consumers.
+  const sources: Record<string, string> = {};
+  for (const file of files) sources[file] = readRaw(file);
+  const exportsMap = collectExportedPulseBindings(sources);
+  for (const file of files) {
+    const raw = sources[file];
+    // Pass 2: this file's own imports resolved against pass 1 -- empty for
+    // the overwhelming majority of files (no import reaches a pulsing
+    // export), cheap regex work when it isn't.
+    const extraDecls = resolveImportedDecls(file, raw, exportsMap);
+    if (!raw.includes(PULSE_CLASS) && extraDecls.length === 0) continue;
+    const violations = scanSourceForViolations(raw, extraDecls);
     const covered = coveredViolations(file, raw, violations);
     for (const violation of violations) {
       if (!covered.has(violation)) {
@@ -2977,6 +3238,68 @@ describe("scanSourceForViolations catches every spelling (fixture proofs, #878)"
     ]) {
       expect(scanSourceForViolations(fixture), fixture).toEqual([]);
     }
+  });
+});
+
+describe("scanModuleForViolations resolves imported animate-pulse class bindings across modules (#874 round 28)", () => {
+  // `export const alertClasses = "text-alert-red animate-pulse"` in module A
+  // and `<span className={alertClasses}>Critical</span>` in module B was
+  // invisible to the census: B never mentions "animate-pulse" literally (so
+  // the per-file prefilter skipped it) and even without the prefilter,
+  // `collectConstTemplateMap` only ever sees one file's own declarations.
+  // `collectExportedPulseBindings` (pass 1) + `resolveImportedDecls` (pass 2)
+  // fix this without touching single-file scanning; `scanModuleForViolations`
+  // drives both against an in-memory `{path: source}` map so these fixtures
+  // never touch disk.
+  const aSource = 'export const alertClasses = "text-alert-red animate-pulse";';
+
+  it("flags a named import of a pulsing exported const", () => {
+    const bSource =
+      'import { alertClasses } from "@/lib/a";\nexport function B() { return <span className={alertClasses}>Critical</span>; }';
+    const exportsMap = collectExportedPulseBindings({ "src/lib/a.ts": aSource, "src/lib/b.tsx": bSource });
+    expect(scanModuleForViolations("src/lib/b.tsx", bSource, exportsMap)).not.toEqual([]);
+  });
+
+  it("flags a renamed (`as`) named import of a pulsing exported const", () => {
+    const bSource =
+      'import { alertClasses as ac } from "@/lib/a";\nexport function B() { return <span className={ac}>Critical</span>; }';
+    const exportsMap = collectExportedPulseBindings({ "src/lib/a.ts": aSource, "src/lib/b.tsx": bSource });
+    expect(scanModuleForViolations("src/lib/b.tsx", bSource, exportsMap)).not.toEqual([]);
+  });
+
+  it("flags a namespace import (`import * as ns`) member access into a pulsing export", () => {
+    const bSource =
+      'import * as s from "./a";\nexport function B() { return <span className={s.alertClasses}>Critical</span>; }';
+    const exportsMap = collectExportedPulseBindings({ "src/lib/a.ts": aSource, "src/lib/b.tsx": bSource });
+    expect(scanModuleForViolations("src/lib/b.tsx", bSource, exportsMap)).not.toEqual([]);
+  });
+
+  it("flags a computed member access into an imported object-valued const (fails closed over every key, same as a local one)", () => {
+    const statusSource =
+      'export const STATUS = { alert: "text-alert-red animate-pulse", ok: "text-xs" };';
+    const bSource =
+      'import { STATUS } from "@/lib/status";\nexport function B({ level }) { return <span className={STATUS[level]}>Status</span>; }';
+    const exportsMap = collectExportedPulseBindings({
+      "src/lib/status.ts": statusSource,
+      "src/lib/b.tsx": bSource,
+    });
+    expect(scanModuleForViolations("src/lib/b.tsx", bSource, exportsMap)).not.toEqual([]);
+  });
+
+  it("does not flag an import of a name whose export has no animate-pulse, and does not add it to the census prefilter", () => {
+    const plainSource = 'export const labelClasses = "text-xs uppercase";';
+    const bSource =
+      'import { labelClasses } from "@/lib/a";\nexport function B() { return <span className={labelClasses}>Label</span>; }';
+    const exportsMap = collectExportedPulseBindings({ "src/lib/a.ts": plainSource, "src/lib/b.tsx": bSource });
+    expect(scanModuleForViolations("src/lib/b.tsx", bSource, exportsMap)).toEqual([]);
+    expect(resolveImportedDecls("src/lib/b.tsx", bSource, exportsMap)).toEqual([]);
+  });
+
+  it("ignores a type-only import entirely", () => {
+    const bSource =
+      'import type { AlertClasses } from "@/lib/a";\nexport function B() { return <span>No pulse here</span>; }';
+    const exportsMap = collectExportedPulseBindings({ "src/lib/a.ts": aSource, "src/lib/b.tsx": bSource });
+    expect(resolveImportedDecls("src/lib/b.tsx", bSource, exportsMap)).toEqual([]);
   });
 });
 

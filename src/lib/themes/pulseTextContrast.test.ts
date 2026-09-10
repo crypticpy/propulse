@@ -1350,27 +1350,71 @@ function resolveConstRefs(
   });
 }
 
+/** Backward counterpart to `extractBalanced`'s own quote/template handling:
+ * when `source[j]` is a quote character (`"`, `'`, or a template backtick),
+ * the index to resume a backward scan from -- one before the span's opening
+ * delimiter -- so a `{`/`}`/`>` character inside a quoted value is never
+ * mistaken for real structure by a backward walk. Treats a whole
+ * backtick-delimited span as one opaque unit, same as `extractBalanced`
+ * does forward (neither dives into a template's own `${...}` interpolation).
+ * No escape-sequence awareness, matching the pre-existing quoted-attribute-
+ * *value* skip this now shares a helper with. Returns `-1` when the span's
+ * opening delimiter can't be found (malformed input) (Codex, PR #874
+ * round 30). */
+function skipQuotedSpanBackward(source: string, j: number): number {
+  const openQuote = source.lastIndexOf(source[j], j - 1);
+  return openQuote === -1 ? -1 : openQuote - 1;
+}
+
+/** Backward counterpart to `extractBalanced`: the index of the `{` matching
+ * the `}` at `closeIndex`, skipping quoted/template spans via
+ * `skipQuotedSpanBackward` so a brace character inside one -- an earlier
+ * attribute's own `{...}` expression containing a quoted `"}"`, e.g.
+ * `title={"}"}` -- is never miscounted as real tag structure (Codex, PR
+ * #874 round 30: this used to be a plain, quote-blind depth count, which
+ * returned an unmatched depth -- and so `null` from `findOpeningTag` --
+ * for exactly that shape). Returns `-1` when no matching open brace is
+ * found. */
+function findMatchingOpenBraceBackward(source: string, closeIndex: number): number {
+  let depth = 0;
+  let j = closeIndex;
+  while (j >= 0) {
+    const c = source[j];
+    if (c === '"' || c === "'" || c === "`") {
+      const resume = skipQuotedSpanBackward(source, j);
+      if (resume === -1) return -1;
+      j = resume;
+      continue;
+    }
+    if (c === "}") {
+      depth++;
+    } else if (c === "{") {
+      depth--;
+      if (depth === 0) return j;
+    }
+    j--;
+  }
+  return -1;
+}
+
 /** The opening tag an attribute at `before` belongs to, found by walking
  * backwards structurally: `{…}` attribute expressions are skipped as
- * blocks, a quoted attribute value is skipped whole (so a `>` inside it,
- * e.g. `title="1 > 0"`, is never mistaken for a tag boundary -- Codex, PR
- * #874 round 14), a `>` outside them (other than an arrow's `=>`) means the
- * attribute is not inside a tag, and the first `<Tag` reached is the
- * element. No fixed-width window, so verbose prop lists cannot push the
- * tag out of reach (Codex, PR #874 round 13). */
+ * blocks (quote/template-aware, so a brace character quoted inside one
+ * never miscounts the depth -- Codex, PR #874 round 30), a quoted attribute
+ * value is skipped whole (so a `>` inside it, e.g. `title="1 > 0"`, is
+ * never mistaken for a tag boundary -- Codex, PR #874 round 14), a `>`
+ * outside them (other than an arrow's `=>`) means the attribute is not
+ * inside a tag, and the first `<Tag` reached is the element. No fixed-width
+ * window, so verbose prop lists cannot push the tag out of reach (Codex, PR
+ * #874 round 13). */
 function findOpeningTag(source: string, before: number): { tag: string; index: number } | null {
   let i = before - 1;
   while (i >= 0) {
     const c = source[i];
     if (c === "}") {
-      let depth = 0;
-      let j = i;
-      for (; j >= 0; j--) {
-        if (source[j] === "}") depth++;
-        else if (source[j] === "{" && --depth === 0) break;
-      }
-      if (j < 0) return null;
-      i = j - 1;
+      const openIdx = findMatchingOpenBraceBackward(source, i);
+      if (openIdx === -1) return null;
+      i = openIdx - 1;
       continue;
     }
     if (c === '"' || c === "'") {
@@ -2082,17 +2126,28 @@ function isValueBearingControl(site: ClassNameSite): boolean {
 
 /** Index range of the innermost enclosing `{...}` block containing `index`
  * in `source` (found by scanning backward for a `{` unmatched by an
- * interceding `}`), or `null` when `index` sits at module scope with no
- * enclosing block at all. Shared by `findEnclosingBraceBlock` (the
- * config-map scan) and `collectConstTemplateMap` (a declaration's lexical
- * scope, PR #874 round 14) so both agree on what "innermost block" means. */
+ * interceding `}`, skipping quoted/template spans via
+ * `skipQuotedSpanBackward` so a brace character quoted somewhere earlier in
+ * the file never miscounts the depth -- Codex, PR #874 round 30: this used
+ * to be a plain, quote-blind depth count), or `null` when `index` sits at
+ * module scope with no enclosing block at all. Shared by
+ * `findEnclosingBraceBlock` (the config-map scan) and
+ * `collectConstTemplateMap` (a declaration's lexical scope, PR #874 round
+ * 14) so both agree on what "innermost block" means. */
 function findEnclosingBraceRange(
   source: string,
   index: number,
 ): { start: number; end: number } | null {
   let depth = 0;
-  for (let i = index; i >= 0; i--) {
+  let i = index;
+  while (i >= 0) {
     const c = source[i];
+    if (c === '"' || c === "'" || c === "`") {
+      const resume = skipQuotedSpanBackward(source, i);
+      if (resume === -1) return null;
+      i = resume;
+      continue;
+    }
     if (c === "}") {
       depth++;
     } else if (c === "{") {
@@ -2101,6 +2156,7 @@ function findEnclosingBraceRange(
       }
       depth--;
     }
+    i--;
   }
   return null;
 }
@@ -2494,6 +2550,57 @@ function collectExportedNames(source: string): Map<string, string> {
   return exported;
 }
 
+/** One `export ... from "…"` re-export statement -- a binding this file
+ * forwards without ever declaring it itself: `export { a, b as c } from
+ * "./mod"` (`kind: "named"`, `names` maps the exported-here name to the
+ * name in the source module), `export * from "./mod"` (`kind: "star"`,
+ * every one of the source module's own exports forwarded under its own
+ * name), or `export * as ns from "./mod"` (`kind: "starAs"`, the whole
+ * module re-exported as a single namespace binding named `ns`). `source`
+ * should already be comment/string-blanked and whitespace-normalized, same
+ * convention as `collectExportedNames` (Codex, PR #874 round 30). */
+interface ReExportStatement {
+  kind: "named" | "star" | "starAs";
+  specifier: string;
+  names: Map<string, string>;
+  namespaceName?: string;
+}
+
+function collectReExportStatements(source: string): ReExportStatement[] {
+  const statements: ReExportStatement[] = [];
+  const starAsRe = /\bexport\s*\*\s*as\s+([A-Za-z_$][\w$]*)\s*from\s*["']([^"']+)["']/g;
+  let m: RegExpExecArray | null;
+  while ((m = starAsRe.exec(source))) {
+    statements.push({ kind: "starAs", specifier: m[2], names: new Map(), namespaceName: m[1] });
+  }
+  const starRe = /\bexport\s*\*\s*from\s*["']([^"']+)["']/g;
+  while ((m = starRe.exec(source))) {
+    statements.push({ kind: "star", specifier: m[1], names: new Map() });
+  }
+  const namedRe = /\bexport\s*\{([^}]*)\}\s*from\s*["']([^"']+)["']/g;
+  while ((m = namedRe.exec(source))) {
+    const names = new Map<string, string>();
+    for (const rawSpec of m[1].split(",")) {
+      const spec = rawSpec.trim();
+      if (!spec) continue;
+      const asMatch = /^([A-Za-z_$][\w$]*)\s+as\s+([A-Za-z_$][\w$]*)$/.exec(spec);
+      if (asMatch) names.set(asMatch[2], asMatch[1]);
+      else if (/^[A-Za-z_$][\w$]*$/.test(spec)) names.set(spec, spec);
+    }
+    statements.push({ kind: "named", specifier: m[2], names });
+  }
+  return statements;
+}
+
+/** Cheap, deliberately loose text check for "this file has at least one
+ * `export ... from "…"` re-export statement" -- used only to decide
+ * whether pass 1 below bothers normalizing and parsing a file that doesn't
+ * literally contain the pulse class itself, the same way `rawSource.
+ * includes(PULSE_CLASS)` already does for a direct export; a barrel file
+ * forwarding another module's pulsing export never mentions the class
+ * literally on its own (Codex, PR #874 round 30). */
+const REEXPORT_HINT_RE = /\bexport\s*(?:\*|\{[^}]*\})\s*(?:as\s+[A-Za-z_$][\w$]*\s*)?from\s*["']/;
+
 /** Pass 1: every exported binding, across every file in `sources`, whose
  * resolved literal contains the pulse class -- keyed first by the
  * exporting module's path key (`moduleKeysForFile`), then by the exported
@@ -2505,7 +2612,21 @@ function collectExportedNames(source: string): Map<string, string> {
  * per file that happens to import from it. Only a file's own module-level
  * declarations (whole-file scope, per `collectConstTemplateMap`) are ever
  * exportable; a function-local same-named const is never in scope for
- * `export { name }` to reach. */
+ * `export { name }` to reach.
+ *
+ * A second stage then follows every `export ... from "…"` re-export
+ * statement (a barrel: `styles.ts` declares `alertClasses`, `index.ts` has
+ * `export { alertClasses } from "./styles"`, and a component imports
+ * `alertClasses` from `index`) -- `REEXPORT_HINT_RE` widens the file
+ * prefilter to also cover a barrel with no literal `"animate-pulse"` of its
+ * own, and bindings are propagated to a fixpoint (bounded at 10 passes, a
+ * generous multiple of any real barrel chain depth, so a re-export cycle
+ * can't loop forever) so a two-level barrel chain resolves the same as a
+ * one-level one. `export * as ns from "…"` registers `ns` in the
+ * re-exporting file's own pulsing map as an object binding whose `entries`
+ * mirror the source module's pulsing exports, the same shape a `namespace`
+ * *import* already builds in `resolveImportedDecls` (Codex, PR #874
+ * round 30). */
 function collectExportedPulseBindings(
   sources: Record<string, string>,
 ): Map<string, Map<string, ConstDecl>> {
@@ -2534,6 +2655,71 @@ function collectExportedPulseBindings(
       byModule.set(key, pulsing);
     }
   }
+
+  const reExportsByFile = new Map<string, ReExportStatement[]>();
+  for (const [file, rawSource] of Object.entries(sources)) {
+    if (!rawSource.includes(PULSE_CLASS) && !REEXPORT_HINT_RE.test(rawSource)) continue;
+    const source = normalize(blankCommentsAndQuotedJsx(rawSource));
+    const statements = collectReExportStatements(source);
+    if (statements.length > 0) reExportsByFile.set(file, statements);
+  }
+
+  let changed = true;
+  let iterations = 0;
+  while (changed && iterations < 10) {
+    changed = false;
+    iterations++;
+    for (const [file, statements] of reExportsByFile) {
+      const destKeys = moduleKeysForFile(file);
+      let destPulsing = byModule.get(destKeys[0]);
+      for (const stmt of statements) {
+        const moduleKey = resolveModuleKey(file, stmt.specifier);
+        if (moduleKey === null) continue;
+        const sourcePulsing = byModule.get(moduleKey);
+        if (!sourcePulsing) continue;
+        if (stmt.kind === "star") {
+          for (const [exportedName, decl] of sourcePulsing) {
+            if (destPulsing?.has(exportedName)) continue;
+            destPulsing ??= new Map();
+            destPulsing.set(exportedName, decl);
+            changed = true;
+          }
+        } else if (stmt.kind === "named") {
+          for (const [localName, nameInSource] of stmt.names) {
+            const decl = sourcePulsing.get(nameInSource);
+            if (!decl || destPulsing?.has(localName)) continue;
+            destPulsing ??= new Map();
+            destPulsing.set(localName, decl);
+            changed = true;
+          }
+        } else if (stmt.namespaceName) {
+          const entries = new Map<string, ConstEntry>();
+          for (const [exportedName, decl] of sourcePulsing) {
+            entries.set(exportedName, { literal: decl.literal, entries: decl.entries });
+          }
+          const nsDecl: ConstDecl = {
+            name: stmt.namespaceName,
+            index: 0,
+            literal: [...sourcePulsing.values()].map((decl) => decl.literal).join(" "),
+            entries,
+            scopeStart: 0,
+            scopeEnd: 0,
+          };
+          const existing = destPulsing?.get(stmt.namespaceName);
+          if (existing && existing.literal === nsDecl.literal && existing.entries?.size === entries.size) {
+            continue;
+          }
+          destPulsing ??= new Map();
+          destPulsing.set(stmt.namespaceName, nsDecl);
+          changed = true;
+        }
+      }
+      if (destPulsing) {
+        for (const key of destKeys) byModule.set(key, destPulsing);
+      }
+    }
+  }
+
   return byModule;
 }
 
@@ -3051,6 +3237,31 @@ describe("scanSourceForViolations catches every spelling (fixture proofs, #878)"
 
   it("finds the opening tag past a quoted attribute value containing '>' ", () => {
     const fixture = '<span title="1 > 0" className="text-alert-red animate-pulse">Critical</span>';
+    const violations = scanSourceForViolations(fixture);
+    expect(violations).toHaveLength(1);
+    expect(violations[0].description).toContain("<span>");
+  });
+
+  it("finds the opening tag past an earlier attribute expression whose own quoted string contains a brace character", () => {
+    // `findOpeningTag` walks backward from `className=` looking for the
+    // `<` that starts its tag; an earlier `title={"}"}` attribute's own
+    // `}` used to throw off a plain, quote-blind backward brace-depth
+    // count (the quoted `"}"` inside it got counted as a real close),
+    // leaving the walk unable to find a balanced open brace and returning
+    // `null` -- silently skipping the whole element, including its real
+    // pulsing/tinted `className` (Codex, PR #874 round 30).
+    const fixture = '<span title={"}"} className="text-alert-red animate-pulse">Loading</span>';
+    const violations = scanSourceForViolations(fixture);
+    expect(violations).toHaveLength(1);
+    expect(violations[0].description).toContain("<span>");
+  });
+
+  it("finds the opening tag past an earlier attribute expression whose own template literal contains a brace character", () => {
+    // Same shape as above, with the quoted brace inside a template
+    // literal instead of a plain string -- `findMatchingOpenBraceBackward`
+    // treats a backtick-delimited span as opaque the same way it does a
+    // `"`/`'` one (Codex, PR #874 round 30).
+    const fixture = '<span title={`}`} className="text-alert-red animate-pulse">Loading</span>';
     const violations = scanSourceForViolations(fixture);
     expect(violations).toHaveLength(1);
     expect(violations[0].description).toContain("<span>");
@@ -3617,6 +3828,100 @@ describe("scanModuleForViolations resolves imported animate-pulse class bindings
       'import { alertClasses } from "@/lib/a";\nconst classes = alertClasses;\nexport function B() { return <span className={classes}>Critical</span>; }';
     const exportsMap = collectExportedPulseBindings({ "src/lib/a.ts": aSource, "src/lib/b.tsx": bSource });
     expect(scanModuleForViolations("src/lib/b.tsx", bSource, exportsMap)).not.toEqual([]);
+  });
+});
+
+describe("scanModuleForViolations follows class bindings through barrel re-exports (#874 round 30)", () => {
+  // `styles.ts` declares `alertClasses` directly; `index.ts` never mentions
+  // "animate-pulse" itself, it only forwards `styles.ts`'s export -- pass 1
+  // (`collectExportedPulseBindings`) used to see no literal pulse class in
+  // `index.ts` and skip it outright, so a consumer importing from the
+  // barrel (a common pattern in this repo) resolved nothing.
+  const stylesSource = 'export const alertClasses = "text-alert-red animate-pulse";';
+
+  it("flags a named import from a barrel that re-exports a pulsing binding by name", () => {
+    const indexSource = 'export { alertClasses } from "./styles";';
+    const bSource =
+      'import { alertClasses } from "./index";\nexport function B() { return <span className={alertClasses}>Critical</span>; }';
+    const exportsMap = collectExportedPulseBindings({
+      "src/lib/styles.ts": stylesSource,
+      "src/lib/index.ts": indexSource,
+      "src/lib/b.tsx": bSource,
+    });
+    expect(scanModuleForViolations("src/lib/b.tsx", bSource, exportsMap)).not.toEqual([]);
+  });
+
+  it("flags a named import from a `export * from` barrel", () => {
+    const indexSource = 'export * from "./styles";';
+    const bSource =
+      'import { alertClasses } from "./index";\nexport function B() { return <span className={alertClasses}>Critical</span>; }';
+    const exportsMap = collectExportedPulseBindings({
+      "src/lib/styles.ts": stylesSource,
+      "src/lib/index.ts": indexSource,
+      "src/lib/b.tsx": bSource,
+    });
+    expect(scanModuleForViolations("src/lib/b.tsx", bSource, exportsMap)).not.toEqual([]);
+  });
+
+  it("flags an import of a barrel's renamed (`as`) re-export", () => {
+    const indexSource = 'export { alertClasses as ac } from "./styles";';
+    const bSource =
+      'import { ac } from "./index";\nexport function B() { return <span className={ac}>Critical</span>; }';
+    const exportsMap = collectExportedPulseBindings({
+      "src/lib/styles.ts": stylesSource,
+      "src/lib/index.ts": indexSource,
+      "src/lib/b.tsx": bSource,
+    });
+    expect(scanModuleForViolations("src/lib/b.tsx", bSource, exportsMap)).not.toEqual([]);
+  });
+
+  it("flags an import through a two-level barrel chain", () => {
+    // `outer.ts` re-exports from `inner.ts`, which itself only re-exports
+    // from `styles.ts` -- neither barrel ever mentions the pulse class
+    // literally, so the fixpoint propagation in `collectExportedPulseBindings`
+    // has to run more than one pass for the binding to reach `outer.ts`.
+    const innerSource = 'export { alertClasses } from "./styles";';
+    const outerSource = 'export { alertClasses } from "./inner";';
+    const bSource =
+      'import { alertClasses } from "./outer";\nexport function B() { return <span className={alertClasses}>Critical</span>; }';
+    const exportsMap = collectExportedPulseBindings({
+      "src/lib/styles.ts": stylesSource,
+      "src/lib/inner.ts": innerSource,
+      "src/lib/outer.ts": outerSource,
+      "src/lib/b.tsx": bSource,
+    });
+    expect(scanModuleForViolations("src/lib/b.tsx", bSource, exportsMap)).not.toEqual([]);
+  });
+
+  it("flags a namespace member access through a `export * as ns from` barrel", () => {
+    // `index.ts` re-exports the whole `styles.ts` module as a single `ns`
+    // namespace binding -- registered in `index.ts`'s own pulsing map as an
+    // object decl whose `entries` mirror `styles.ts`'s pulsing exports, the
+    // same shape a namespace *import* already builds (round 28), so
+    // `ns.alertClasses` resolves through the existing dotted member-access
+    // chain exactly as it would for a direct namespace import.
+    const indexSource = 'export * as ns from "./styles";';
+    const bSource =
+      'import { ns } from "./index";\nexport function B() { return <span className={ns.alertClasses}>Critical</span>; }';
+    const exportsMap = collectExportedPulseBindings({
+      "src/lib/styles.ts": stylesSource,
+      "src/lib/index.ts": indexSource,
+      "src/lib/b.tsx": bSource,
+    });
+    expect(scanModuleForViolations("src/lib/b.tsx", bSource, exportsMap)).not.toEqual([]);
+  });
+
+  it("does not flag an import of a barrel-re-exported binding whose export has no animate-pulse", () => {
+    const plainSource = 'export const labelClasses = "text-xs uppercase";';
+    const indexSource = 'export { labelClasses } from "./plain";';
+    const bSource =
+      'import { labelClasses } from "./index";\nexport function B() { return <span className={labelClasses}>Label</span>; }';
+    const exportsMap = collectExportedPulseBindings({
+      "src/lib/plain.ts": plainSource,
+      "src/lib/index.ts": indexSource,
+      "src/lib/b.tsx": bSource,
+    });
+    expect(scanModuleForViolations("src/lib/b.tsx", bSource, exportsMap)).toEqual([]);
   });
 });
 

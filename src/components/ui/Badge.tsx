@@ -96,12 +96,21 @@ export const Badge = forwardRef<HTMLSpanElement, BadgeProps>(
       // correction #795 made for SpotBadge's `verified` variant). The same
       // same-hue defect above applies at /30 too -- 3.57-4.77:1 depending on
       // theme/surface (#827).
+      //
+      // `animate-pulse` is gone with it. Tailwind's pulse fades the WHOLE
+      // element to 50% opacity at the trough, which halves the contrast of
+      // whatever it is applied to: even after the --su-text treatment the
+      // storm label measured roughly 2.3-3.4:1 for half of every cycle. A
+      // guard that measures the class pair while the animation quietly
+      // undoes it certifies a state the user never sees. Fixing the ink and
+      // keeping the fade would have been the worst of both. If this variant
+      // ever needs motion back, pulse a separate decorative element, not the
+      // text (#827, found by Codex on PR #840).
       storm: [
         "bg-alert-red/30",
         "text-su-text",
         "border",
         "border-alert-red/50",
-        "animate-pulse",
       ],
     };
 

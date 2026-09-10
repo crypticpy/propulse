@@ -192,7 +192,8 @@ const FIXED_SITES: TintedSite[] = [
     snippet: `"bg-alert-red/30",
         "text-su-text",
         "border",
-        "border-alert-red/50",`,
+        "border-alert-red/50",
+      ],`,
     tint: "red",
     surfaces: SURFACES,
   },
@@ -252,6 +253,16 @@ describe("the src/components/ui status tints ship the --su-text treatment (#827)
       expect(
         site.snippet.includes(sameHueInk),
         `${site.what} draws ${sameHueInk} on its own tint again`,
+      ).toBe(false);
+      // Every number in the table below assumes the element paints at full
+      // opacity. Tailwind's `animate-pulse` fades the whole element to 50%
+      // at the trough, which roughly halves the measured contrast for half
+      // of every cycle -- the storm badge sat at 2.3-3.4:1 that way even
+      // with the --su-text ink. A measured site may not carry it; pulse a
+      // separate decorative element instead.
+      expect(
+        site.snippet.includes("animate-pulse"),
+        `${site.what} pulses the measured element, so this table's numbers are not what ships`,
       ).toBe(false);
     },
   );

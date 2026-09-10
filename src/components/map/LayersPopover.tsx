@@ -1363,7 +1363,7 @@ export function LayersPopover({ compact = false }: LayersPopoverProps) {
                                 display: "block",
                                 marginBottom: 4,
                                 color: "rgba(255,255,255,0.35)",
-                                fontSize: 10,
+                                fontSize: 12,
                                 letterSpacing: "0.06em",
                                 textTransform: "uppercase",
                               }}
@@ -1388,7 +1388,7 @@ export function LayersPopover({ compact = false }: LayersPopoverProps) {
                                 background: "#111522",
                                 padding: "6px 8px",
                                 color: "rgba(255,255,255,0.8)",
-                                fontSize: 11,
+                                fontSize: 12,
                               }}
                               title="Choose whether highlighted grids represent contact destinations, reporting receivers, or both"
                             >

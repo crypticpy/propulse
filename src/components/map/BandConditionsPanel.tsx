@@ -306,7 +306,7 @@ const BandConditionGridCell = memo(function BandConditionGridCell({
       </div>
       <div
         style={{
-          fontSize: "9px",
+          fontSize: "12px",
           fontWeight: 600,
           color: colors.text,
           lineHeight: 1.4,
@@ -321,7 +321,7 @@ const BandConditionGridCell = memo(function BandConditionGridCell({
             display: "flex",
             justifyContent: "center",
             gap: "4px",
-            fontSize: "8px",
+            fontSize: "12px",
             lineHeight: 1.2,
           }}
         >
@@ -335,7 +335,7 @@ const BandConditionGridCell = memo(function BandConditionGridCell({
         <div
           style={{
             marginTop: "1px",
-            fontSize: "8px",
+            fontSize: "12px",
             color: "#6b7280",
             lineHeight: 1.2,
           }}

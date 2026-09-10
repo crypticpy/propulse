@@ -206,21 +206,44 @@ const ALLOWLIST: AllowlistEntry[] = [
 
 const SIZE_RE = /text-\[(\d+)px\]/g;
 
+/**
+ * The same floor written as an inline style rather than a Tailwind class:
+ * `fontSize: 9`, `fontSize: "9px"`, `fontSize: '9px'`. Codex found five of
+ * these still sitting in `BandConditionsPanel.tsx` and `LayersPopover.tsx`
+ * *after* the #832 round had added both files to `FILES` and both guard tests
+ * were green -- a class-only regex reports a clean file that still renders 8px
+ * text. Any new spelling of the floor has to be added here, not worked around:
+ * the guard is only worth its green when it recognises every form the codebase
+ * actually uses.
+ *
+ * Still unrecognised, and tracked by #833: rem and em arbitrary values
+ * (`text-[0.7rem]`), point sizes, and a `clamp()` whose lower bound is below
+ * the floor. That work lands between rounds, not inside one, because it
+ * touches this shared file.
+ */
+const INLINE_SIZE_RE =
+  /fontSize:\s*["']?(\d+(?:\.\d+)?)(?:px)?["']?(?![\w%.])/g;
+
 interface SubFloorSite {
   file: string;
   line: number;
   text: string;
 }
 
-/** Every `text-[Npx]` site with N < 12 in `file`, read fresh every call. */
+/**
+ * Every sub-floor sizing site in `file`, read fresh every call: `text-[Npx]`
+ * classes and inline `fontSize` values alike, both with N < 12.
+ */
 function findSubFloorSites(file: string): SubFloorSite[] {
   const absPath = resolve(REPO_ROOT, file);
   const lines = readFileSync(absPath, "utf8").split("\n");
   const sites: SubFloorSite[] = [];
   lines.forEach((line, index) => {
-    for (const match of line.matchAll(SIZE_RE)) {
-      if (Number(match[1]) < 12) {
-        sites.push({ file, line: index + 1, text: line });
+    for (const re of [SIZE_RE, INLINE_SIZE_RE]) {
+      for (const match of line.matchAll(re)) {
+        if (Number(match[1]) < 12) {
+          sites.push({ file, line: index + 1, text: line });
+        }
       }
     }
   });
@@ -228,7 +251,7 @@ function findSubFloorSites(file: string): SubFloorSite[] {
 }
 
 describe("sub-text-xs sizing stays at the floor in the #783/#808 audited set", () => {
-  it("has no un-allowlisted text-[Npx] with N < 12 in the audited files", () => {
+  it("has no un-allowlisted sub-floor size (class or inline) in the audited files", () => {
     const violations: string[] = [];
     for (const file of FILES) {
       for (const site of findSubFloorSites(file)) {
@@ -242,8 +265,25 @@ describe("sub-text-xs sizing stays at the floor in the #783/#808 audited set", (
     }
     expect(
       violations,
-      `un-allowlisted sub-floor text-[Npx] sites:\n${violations.join("\n")}`,
+      `un-allowlisted sub-floor sizing sites:\n${violations.join("\n")}`,
     ).toEqual([]);
+  });
+
+  it("recognises every inline spelling it claims to, and no rem value", () => {
+    // Without this the inline half of the guard could be quietly inert and
+    // every file would still report clean, which is the exact failure Codex
+    // caught on the #832 round. The trailing lookahead is what keeps
+    // `fontSize: "0.75rem"` from matching its leading digit and being read as
+    // a 0px violation -- a false positive there would be worse than the miss,
+    // because it would push someone to allowlist a site that is fine.
+    const sizesIn = (text: string) =>
+      [...text.matchAll(INLINE_SIZE_RE)].map((match) => Number(match[1]));
+    expect(sizesIn("fontSize: 9,")).toEqual([9]);
+    expect(sizesIn(`fontSize: "8px",`)).toEqual([8]);
+    expect(sizesIn("fontSize: '10px',")).toEqual([10]);
+    expect(sizesIn("fontSize: 12,")).toEqual([12]);
+    expect(sizesIn(`fontSize: "0.75rem",`)).toEqual([]);
+    expect(sizesIn(`fontSize: "1rem",`)).toEqual([]);
   });
 
   it("every allowlist entry still matches a real sub-floor site in the audited files", () => {

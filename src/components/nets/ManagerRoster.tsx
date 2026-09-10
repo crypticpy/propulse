@@ -194,7 +194,7 @@ export function ManagerRoster({
             <button
               type="button"
               onClick={handleAdd}
-              className="px-3 py-1.5 rounded-lg text-sm font-medium bg-plasma-orange/15 text-plasma-orange border border-plasma-orange/30 hover:bg-plasma-orange/25 transition-colors shrink-0"
+              className="px-3 py-1.5 rounded-lg text-sm font-medium bg-plasma-orange/15 text-su-text border border-plasma-orange/30 hover:bg-plasma-orange/20 transition-colors shrink-0"
             >
               Add
             </button>

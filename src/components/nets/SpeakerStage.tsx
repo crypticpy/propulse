@@ -178,7 +178,7 @@ export function SpeakerStage({
           className={`w-full max-w-sm px-10 py-4 text-lg font-bold rounded-xl border-2 transition-all will-change-transform active:scale-[0.98] focus-visible:ring-2 focus-visible:ring-plasma-orange/70 focus-visible:outline-none ${
             timerState === "running"
               ? "bg-amber-500/15 text-amber-300 border-amber-500/30 hover:bg-amber-500/25 hover:border-amber-400/40 hover:shadow-[0_0_20px_rgba(245,158,11,0.25)]"
-              : "bg-plasma-orange/15 text-plasma-orange border-plasma-orange/30 hover:bg-plasma-orange/25 hover:border-plasma-orange/50 hover:shadow-[0_0_24px_rgba(255,107,53,0.35)]"
+              : "bg-plasma-orange/15 text-su-text border-plasma-orange/30 hover:bg-plasma-orange/20 hover:border-plasma-orange/50 hover:shadow-[0_0_24px_rgba(255,107,53,0.35)]"
           }`}
           aria-label={timerState === "running" ? "Pause timer" : "Start timer"}
         >

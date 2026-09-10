@@ -82,7 +82,7 @@ export function PhaseIndicator({
               "flex-1 relative px-3 py-2.5 text-sm font-medium transition-all select-none",
               // Current phase
               isCurrent
-                ? "bg-plasma-orange/20 text-plasma-orange font-bold animate-ncs-phase-glow"
+                ? "bg-plasma-orange/20 text-su-text font-bold animate-ncs-phase-glow"
                 : "",
               // Completed phase (not current)
               completed && !isCurrent

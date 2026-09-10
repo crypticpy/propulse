@@ -1,5 +1,19 @@
 import { create } from "zustand";
 import type { OpsDockTab } from "@/stores/contestUIStore";
+import type { MapDataScope } from "@/lib/map/operationalScope";
+
+/**
+ * The operator's explicit dock-tab choice, plus the operating scope it is
+ * paired with. `scope` is `null` until the reconciler in the window that made
+ * the choice observes the scope the click produced and stamps it (#884 round
+ * 7); the stamped value is what crosses to a secondary window, where the tab
+ * and the scope change arrive as two separate messages and the intent has to
+ * wait for the second one.
+ */
+export interface DockTabIntent {
+  tab: OpsDockTab;
+  scope: MapDataScope | null;
+}
 
 export interface VoiceCommand {
   action: "start" | "stop";
@@ -13,14 +27,15 @@ interface ContestUIEphemeralState {
 
   /**
    * A dock tab the operator picked by clicking it (#884). The single dock-tab
-   * reconciler (`useDockTabReconciler`) consumes this on its next run and
-   * stands down for that run, so the click is not undone by the scope change
-   * the click itself causes. Ephemeral on purpose: an intent must never
-   * outlive the session that produced it, let alone a reload.
+   * reconciler (`useDockTabReconciler`) stands down while it is set, so the
+   * click is not undone by the scope change the click itself causes. Ephemeral
+   * on purpose: an intent must never outlive the session that produced it, let
+   * alone a reload.
    */
-  explicitDockTab: OpsDockTab | null;
-  setExplicitDockTab: (tab: OpsDockTab) => void;
-  clearExplicitDockTab: () => void;
+  dockTabIntent: DockTabIntent | null;
+  setDockTabIntent: (tab: OpsDockTab) => void;
+  stampDockTabIntent: (scope: MapDataScope) => void;
+  clearDockTabIntent: () => void;
 
   /**
    * Bumped when the operator picks a scope in `OperationalScopeControl`
@@ -43,9 +58,15 @@ export const useContestUIEphemeralStore = create<ContestUIEphemeralState>(
     requestEntryFocus: () =>
       set((state) => ({ entryFocusRequestId: state.entryFocusRequestId + 1 })),
 
-    explicitDockTab: null,
-    setExplicitDockTab: (explicitDockTab) => set({ explicitDockTab }),
-    clearExplicitDockTab: () => set({ explicitDockTab: null }),
+    dockTabIntent: null,
+    setDockTabIntent: (tab) => set({ dockTabIntent: { tab, scope: null } }),
+    stampDockTabIntent: (scope) =>
+      set((state) =>
+        state.dockTabIntent === null
+          ? state
+          : { dockTabIntent: { tab: state.dockTabIntent.tab, scope } },
+      ),
+    clearDockTabIntent: () => set({ dockTabIntent: null }),
 
     scopeReconcileRequestId: 0,
     requestScopeReconcile: () =>

@@ -65,7 +65,7 @@ describe("OpsConsole dock tabs", () => {
     useQSOStore.setState({ form: { ...DEFAULT_QSO_FORM } });
     useContestStore.setState({ activeSession: null });
     useContestUIEphemeralStore.setState({
-      explicitDockTab: null,
+      dockTabIntent: null,
       scopeReconcileRequestId: 0,
     });
   });

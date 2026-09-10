@@ -15,11 +15,21 @@
  *   its own, in a separate document with its own store instances.
  *
  * The rule:
- * 1. An explicit tab click (`explicitDockTab`) is consumed and the reconciler
- *    stands down for that run. The click's own `setWorkspaceOpen(true)` can
- *    move the automatic scope (`workspaceOpen && draft callsign` is one of the
+ * 1. While an explicit tab click (`dockTabIntent`) is outstanding the
+ *    reconciler stands down. The click's own `setWorkspaceOpen(true)` can move
+ *    the automatic scope (`workspaceOpen && draft callsign` is one of the
  *    `stationOperationActive` terms), and answering that with a tab write
- *    would undo the click.
+ *    would undo the click. The intent carries the scope it is paired with, so
+ *    it survives a secondary window receiving the tab and the scope change as
+ *    two separate messages (#884 round 7):
+ *      - unstamped (`scope: null`) — the window that made the click: the first
+ *        run stamps the scope it observes, which is the value that crosses to
+ *        the other window, and the re-render that stamping causes clears it.
+ *      - stamped — consumed by the first run whose scope equals the stamped
+ *        one. Until then the reconciler holds and never writes.
+ *      - expiry, so a click that changes nothing cannot leak: a stamped intent
+ *        is held against at most one other scope, and any dock (session)
+ *        change drops it. The next genuine scope change then reconciles.
  * 2. Otherwise it acts only when the resolved scope or the dock it writes to
  *    actually changed. Both are recorded on every run — including a run the
  *    posture gate rejects — so a later posture change cannot replay a stale
@@ -45,10 +55,16 @@ export function useDockTabReconciler(): void {
   const setDockTab = useContestUIStore((s) => s.setDockTab);
   const posture = useOpsPostureStore((s) => s.posture);
   const { scope } = useMapOperationalContext();
-  const explicitDockTab = useContestUIEphemeralStore((s) => s.explicitDockTab);
-  const clearExplicitDockTab = useContestUIEphemeralStore(
-    (s) => s.clearExplicitDockTab,
+  const dockTabIntent = useContestUIEphemeralStore((s) => s.dockTabIntent);
+  const stampDockTabIntent = useContestUIEphemeralStore(
+    (s) => s.stampDockTabIntent,
   );
+  const clearDockTabIntent = useContestUIEphemeralStore(
+    (s) => s.clearDockTabIntent,
+  );
+  // The one scope a stamped intent has already been held against, so it cannot
+  // outlive the change it belongs to.
+  const heldAgainst = useRef<MapDataScope | null>(null);
   const scopeReconcileRequestId = useContestUIEphemeralStore(
     (s) => s.scopeReconcileRequestId,
   );
@@ -62,10 +78,34 @@ export function useDockTabReconciler(): void {
   );
 
   useEffect(() => {
-    if (explicitDockTab !== null) {
-      clearExplicitDockTab();
-      reconciled.current = { scope, dockKey };
-      return;
+    if (dockTabIntent !== null) {
+      const droppedByDock = reconciled.current?.dockKey !== dockKey;
+      if (dockTabIntent.scope === null) {
+        // This window made the click: stamp the scope the click produced. The
+        // set re-renders, and the next run sees a matching scope and clears.
+        stampDockTabIntent(scope);
+        reconciled.current = { scope, dockKey };
+        heldAgainst.current = null;
+        return;
+      }
+      if (dockTabIntent.scope === scope) {
+        clearDockTabIntent();
+        heldAgainst.current = null;
+        reconciled.current = { scope, dockKey };
+        return;
+      }
+      const alreadyHeld =
+        heldAgainst.current !== null && heldAgainst.current !== scope;
+      if (!droppedByDock && !alreadyHeld) {
+        // The paired scope change has not arrived yet (a secondary window gets
+        // the tab and the scope in two messages). Hold without writing.
+        heldAgainst.current = scope;
+        reconciled.current = { scope, dockKey };
+        return;
+      }
+      // Expired: the pair never came. Release and reconcile normally.
+      clearDockTabIntent();
+      heldAgainst.current = null;
     }
     const previous = reconciled.current;
     reconciled.current = { scope, dockKey };
@@ -90,9 +130,10 @@ export function useDockTabReconciler(): void {
       setDockTab(dockKey, "contest");
     }
   }, [
-    clearExplicitDockTab,
+    clearDockTabIntent,
     dockKey,
-    explicitDockTab,
+    dockTabIntent,
+    stampDockTabIntent,
     posture,
     scope,
     scopeReconcileRequestId,

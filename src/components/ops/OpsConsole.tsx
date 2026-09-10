@@ -285,8 +285,8 @@ export function OpsConsole({
     return s.dockTabBySessionId[dockKey] ?? fallback;
   });
   const setDockTab = useContestUIStore((s) => s.setDockTab);
-  const setExplicitDockTab = useContestUIEphemeralStore(
-    (s) => s.setExplicitDockTab,
+  const setDockTabIntent = useContestUIEphemeralStore(
+    (s) => s.setDockTabIntent,
   );
   const setWorkspaceOpen = useMapOperationalStore(
     (state) => state.setWorkspaceOpen,
@@ -363,7 +363,7 @@ export function OpsConsole({
                   // page) stands down for the run this click schedules — the
                   // click's own `setWorkspaceOpen` can move the automatic
                   // scope, and reconciling that would undo the click.
-                  setExplicitDockTab(tab.id);
+                  setDockTabIntent(tab.id);
                   // #884 (owner decision B): a tab click chooses the visible
                   // panel and the posture, never the persisted operating
                   // scope. Only the explicit scope <select> in

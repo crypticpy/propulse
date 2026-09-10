@@ -3,11 +3,11 @@ import { useHamClockDisplayStore } from "@/stores/hamclockDisplayStore";
 import { useHamClockStore } from "@/stores/hamclockStore";
 import { useEffect, useMemo } from "react";
 import { useContestStore } from "@/stores/contestStore";
+import { useContestUIStore } from "@/stores/contestUIStore";
 import {
-  useContestUIStore,
-  type OpsDockTab,
-} from "@/stores/contestUIStore";
-import { useContestUIEphemeralStore } from "@/stores/contestUIEphemeralStore";
+  useContestUIEphemeralStore,
+  type DockTabIntent,
+} from "@/stores/contestUIEphemeralStore";
 import { useDXStore } from "@/stores/dxStore";
 import { useMapStore } from "@/stores/mapStore";
 import { useMapOperationalStore } from "@/stores/mapOperationalStore";
@@ -131,11 +131,12 @@ type WorkspaceSnapshot = {
     /**
      * The operator's explicit dock-tab choice travels with the tab it explains
      * (#884 round 6). Without it the receiving window sees only the tab plus
-     * the scope change the click caused, has no marker, and reconciles the
-     * shared tab straight back. Ephemeral in both windows: it is consumed by
-     * the first reconciler run on either side and never persisted.
+     * the scope change the click caused, has no intent, and reconciles the
+     * shared tab straight back. It carries the scope it is paired with, so the
+     * receiver can hold it until the separate `operational` message lands
+     * (#884 round 7). Ephemeral in both windows, never persisted.
      */
-    explicitDockTab: OpsDockTab | null;
+    dockTabIntent: DockTabIntent | null;
   };
 };
 
@@ -190,7 +191,7 @@ function createWorkspaceSnapshot(): WorkspaceSnapshot {
       draftSelectionBySessionId: contestUi.draftSelectionBySessionId,
       draftUpdatedAtBySessionId: contestUi.draftUpdatedAtBySessionId,
       publicAssistanceBySessionId: contestUi.publicAssistanceBySessionId,
-      explicitDockTab: useContestUIEphemeralStore.getState().explicitDockTab,
+      dockTabIntent: useContestUIEphemeralStore.getState().dockTabIntent,
     },
   };
 }
@@ -212,11 +213,11 @@ export function useOperationalWorkspaceSync(): void {
     let publishQueued = false;
     let nextRevision = 0;
     const pendingDomains = new Set<WorkspaceDomain>();
-    // The local reconciler consumes the explicit dock-tab marker in its effect,
-    // which runs before the microtask that publishes. Latch the marker when it
-    // is set so the outgoing message still carries the operator's intent to the
-    // other window (#884 round 6).
-    let pendingExplicitDockTab: OpsDockTab | null = null;
+    // The local reconciler stamps and then clears the dock-tab intent in its
+    // effects, which run before the microtask that publishes. Latch the stamped
+    // intent so the outgoing message still carries it to the other window
+    // (#884 rounds 6 and 7).
+    let pendingDockTabIntent: DockTabIntent | null = null;
     const receivedRevisions = new Map<
       string,
       Map<WorkspaceDomain, number>
@@ -235,12 +236,12 @@ export function useOperationalWorkspaceSync(): void {
         }
         if (pendingDomains.size === 0) return;
         const snapshot = createWorkspaceSnapshot();
-        if (pendingExplicitDockTab !== null) {
+        if (pendingDockTabIntent !== null) {
           snapshot.contestUi = {
             ...snapshot.contestUi,
-            explicitDockTab: pendingExplicitDockTab,
+            dockTabIntent: pendingDockTabIntent,
           };
-          pendingExplicitDockTab = null;
+          pendingDockTabIntent = null;
         }
         // `contestUi` carries the explicit dock-tab marker, so it has to be
         // published before `operational` — the receiving window must have the
@@ -317,9 +318,12 @@ export function useOperationalWorkspaceSync(): void {
       // to the same domain as the tab it explains, so it rides the same
       // message and cannot arrive after it.
       useContestUIEphemeralStore.subscribe((state, previous) => {
-        if (state.explicitDockTab === previous.explicitDockTab) return;
-        if (state.explicitDockTab !== null) {
-          pendingExplicitDockTab = state.explicitDockTab;
+        if (state.dockTabIntent === previous.dockTabIntent) return;
+        // Only a stamped intent is worth sending: an unstamped one has no
+        // scope to pair with in the other window, and the stamp follows in the
+        // same task.
+        if (state.dockTabIntent?.scope != null) {
+          pendingDockTabIntent = state.dockTabIntent;
         }
         publish("contestUi");
       }),
@@ -374,11 +378,19 @@ export function useOperationalWorkspaceSync(): void {
             );
             break;
           case "contestUi": {
-            const { explicitDockTab, ...contestUiState } =
+            const { dockTabIntent, ...contestUiState } =
               message.state as WorkspaceSnapshot["contestUi"];
-            // Set the marker first: the reconciler in this window must see it
-            // on the same run that sees the tab it excuses.
-            useContestUIEphemeralStore.setState({ explicitDockTab });
+            // Set the intent first: the reconciler in this window must see it
+            // on the same run that sees the tab it excuses, and it holds there
+            // until the paired `operational` message moves the scope. A null
+            // never clears a locally held intent — the sending window clears
+            // its own copy as soon as it consumes it, and that later message
+            // would otherwise strip the intent here before the paired
+            // `operational` message lands (#884 round 7). The local expiry
+            // rule in useDockTabReconciler is the only thing that releases it.
+            if (dockTabIntent !== null) {
+              useContestUIEphemeralStore.setState({ dockTabIntent });
+            }
             useContestUIStore.setState(contestUiState);
             break;
           }

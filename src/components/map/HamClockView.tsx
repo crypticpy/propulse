@@ -30,7 +30,10 @@ import "@/styles/hamclock-wall-controls.css";
 import { BoundViewHost } from "@/components/views/BoundViewHost";
 import { useViewRuntime } from "@/components/views/ViewRuntimeContext";
 import { useBoundViewRadioFollow } from "@/hooks/useHamClockRadioFollow";
-import { useHamClockWallOperatingState } from "@/hooks/useHamClockWallOperatingState";
+import {
+  HAMCLOCK_WALL_CANVAS_TYPE,
+  useHamClockWallOperatingState,
+} from "@/hooks/useHamClockWallOperatingState";
 import { useHamClockDisplayStore } from "@/stores/hamclockDisplayStore";
 import { useKioskStore } from "@/stores/kioskStore";
 import {
@@ -249,6 +252,13 @@ export function HamClockView({
   // density share this one mount, so there is exactly one registration
   // regardless of which the operator has picked.
   useHamClockWallOperatingState();
+  // Wall and desk density both register as `HAMCLOCK_WALL_CANVAS_TYPE`
+  // above (density is a CSS scale, not a different canvas), so the map
+  // stage's popovers can be told "on the wall, cap rows" from that one
+  // literal instead of `useEffectiveCanvasType()` — this view is
+  // deliberately outside `WorkspacePage` and never sets that store's
+  // `canvasTypeOverride` (#846/#871 round 3).
+  const isWallCanvas = HAMCLOCK_WALL_CANVAS_TYPE === "wall";
   const display = useHamClockDisplayStore();
   const frameHome = display.frameHome;
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -483,18 +493,21 @@ export function HamClockView({
             displayTime={displayTime}
             onLocationClick={handleMapClick}
             fillContainer
+            isWallCanvas={isWallCanvas}
           />
         )}
         {viewMode === "azimuthal" && (
           <AzimuthalView
             displayTime={displayTime}
             onLocationClick={handleMapClick}
+            isWallCanvas={isWallCanvas}
           />
         )}
         {viewMode === "globe" && (
           <GlobeView
             displayTime={displayTime}
             onLocationClick={handleMapClick}
+            isWallCanvas={isWallCanvas}
           />
         )}
       </Suspense>

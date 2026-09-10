@@ -111,8 +111,8 @@ is the only statement of the rule; other files point here.
   (components, pages, styles, theme and token emitters, widget and wall layout
   modules, layout and presentation hooks such as `useHomeLayout` and `useDisplayFit`, presentation stores such as `mapStore`, `hamclockDisplayStore`, `kioskStore`, `workspaceStore` and the `*UIStore` files, the root shell `src/App.tsx`/`src/main.tsx`/`index.html`, `public/`,
   Tailwind and PostCSS config, `.design-sync/`, `docs/designs/design-system/`,
-  any `*-spec`/`*-mock` design doc, contact sheets and rendered design files
-  under `docs/designs/`). That list is what CI can see, a floor
+  every Markdown design doc, contact sheet and rendered design file under
+  `docs/designs/`). That list is what CI can see, a floor
   and not the definition: a change under `src/lib/` that recolours or lays out
   what renders is UI even when the check stays green. Design proposals (mocks,
   specs, contact sheets) are reviewed before build starts, not after.

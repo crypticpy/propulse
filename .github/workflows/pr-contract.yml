@@ -3,13 +3,21 @@ name: pr-contract
 on:
   pull_request:
     types: [opened, edited, synchronize, reopened, ready_for_review]
+  # The design-review gate's evidence is a PR comment. Posting, editing or
+  # deleting one fires no pull_request event, so the last check result would
+  # stay green after an approval is retracted. An issue_comment run attaches
+  # to the default branch, not the PR head, so it cannot report the check
+  # itself; the rerun job below re-runs the latest pull_request run for the
+  # head instead (that run reads comments live), which replaces its result.
+  issue_comment:
+    types: [created, edited, deleted]
 
 permissions: {}
 
 jobs:
   body:
     name: pr-contract
-    if: github.event.pull_request.draft == false
+    if: github.event_name == 'pull_request' && github.event.pull_request.draft == false
     runs-on: ubuntu-latest
     permissions:
       issues: read
@@ -45,7 +53,7 @@ jobs:
           FILES=$(gh api "repos/${REPO}/pulls/${PR}/files" --paginate \
             --jq '.[] | .filename, (.previous_filename // empty)') \
             || { echo "::error::could not list PR files; the design-review gate cannot be evaluated (re-run the check)"; exit 1; }
-          UI=$(printf '%s\n' "$FILES" | grep -E '^(src/components/|src/pages/|src/styles/|src/lib/themes/|src/lib/widgets/|src/lib/hamclock/|src/lib/home/|src/lib/[^/]+/.*(Colors?|Layout|Tokens?|Fonts?)\.tsx?$|src/stores/(theme|hamclockDisplay|hamclockWidgetConfig|hamclock|kiosk|workspace|displayQuality|map|atmos|visualEffects)Store\.ts$|src/stores/[^/]*UIStore\.ts$|src/hooks/use[^/]*(Layout|Docking|Mobile|TextScale|ColorBlind|Theme|DisplayFit|DisplayQuality|DisplaySync|HighContrast|VisualEffects|Presentation|Tint|Expanded|Disclosure|Gestures|Swipe|PullToRefresh|Tour|OperatingScreen|WallAutoPage)[^/]*\.tsx?$|src/App\.tsx$|src/main\.tsx$|index\.html$|public/|tailwind\.config\.|postcss\.config\.|\.design-sync/|docs/designs/design-system/|docs/designs/.*-(spec|mock)[^/]*$|docs/designs/.*contact-sheet|docs/designs/.*\.(html|png|svg|jpg|webp)$)' || true)
+          UI=$(printf '%s\n' "$FILES" | grep -E '^(src/components/|src/pages/|src/styles/|src/lib/themes/|src/lib/widgets/|src/lib/hamclock/|src/lib/home/|src/lib/[^/]+/.*(Colors?|Layout|Tokens?|Fonts?)\.tsx?$|src/stores/(theme|hamclockDisplay|hamclockWidgetConfig|hamclock|kiosk|workspace|displayQuality|map|atmos|visualEffects)Store\.ts$|src/stores/[^/]*UIStore\.ts$|src/hooks/use[^/]*(Layout|Docking|Mobile|TextScale|ColorBlind|Theme|DisplayFit|DisplayQuality|DisplaySync|HighContrast|VisualEffects|Presentation|Tint|Expanded|Disclosure|Gestures|Swipe|PullToRefresh|Tour|OperatingScreen|WallAutoPage)[^/]*\.tsx?$|src/App\.tsx$|src/main\.tsx$|index\.html$|public/|tailwind\.config\.|postcss\.config\.|\.design-sync/|docs/designs/design-system/|docs/designs/.*-(spec|mock)[^/]*$|docs/designs/.*contact-sheet|docs/designs/.*\.(md|html|png|svg|jpg|webp)$)' || true)
           if [ -z "$UI" ]; then
             echo "No UI paths changed; design review not required."
             exit 0
@@ -80,3 +88,36 @@ jobs:
             exit 1
           fi
           echo "Design review approved for ${HEAD7}: ${APPROVED}"
+  rerun-on-design-review-comment:
+    name: re-run pr-contract when a design-review comment changes
+    if: github.event_name == 'issue_comment' && github.event.issue.pull_request
+    runs-on: ubuntu-latest
+    permissions:
+      actions: write
+      pull-requests: read
+    steps:
+      - name: Re-run the latest pr-contract run for the PR head
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          PR: ${{ github.event.issue.number }}
+          COMMENT_BODY: ${{ github.event.comment.body }}
+        run: |
+          if ! printf '%s' "$COMMENT_BODY" | grep -Eiq '\*\*design review\*\*'; then
+            echo "Not a design-review comment; nothing to re-run."
+            exit 0
+          fi
+          HEAD_SHA=$(gh api "repos/${REPO}/pulls/${PR}" --jq '.head.sha')
+          RUN_ID=$(gh api "repos/${REPO}/actions/workflows/pr-contract.yml/runs?event=pull_request&head_sha=${HEAD_SHA}&per_page=1" \
+            --jq '.workflow_runs[0].id // empty')
+          if [ -z "$RUN_ID" ]; then
+            echo "No pull_request run for ${HEAD_SHA} yet; the next push or body edit evaluates the comment."
+            exit 0
+          fi
+          STATUS=$(gh api "repos/${REPO}/actions/runs/${RUN_ID}" --jq '.status')
+          if [ "$STATUS" != "completed" ]; then
+            echo "Run ${RUN_ID} is ${STATUS}; it reads comments live and will see this change."
+            exit 0
+          fi
+          gh api -X POST "repos/${REPO}/actions/runs/${RUN_ID}/rerun" >/dev/null
+          echo "Re-ran pr-contract run ${RUN_ID} for ${HEAD_SHA}"

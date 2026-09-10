@@ -61,7 +61,8 @@ Reviewed: <head sha> at <canvases / text scales checked>
 line, the `Reviewed:` sha (first 7 chars of the head) and a `Verdict:` line that
 ends in `approved` (optionally followed by a parenthesised note); the template's
 `approved | changes needed` placeholder does not pass. A new push needs a new
-comment. Short form for a test-only or doc-only push keeps the heading and the
+comment. Posting, editing or deleting a design-review comment re-runs the
+check for the current head, so a retracted approval takes the green away. Short form for a test-only or doc-only push keeps the heading and the
 `agent:` line and reads `Reviewed: <new sha>` / `Verdict: approved (carries from
 <old sha>)`.
 

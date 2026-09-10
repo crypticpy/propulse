@@ -170,6 +170,15 @@ function openingTag(src: string, start: number): string {
   return src.slice(start);
 }
 
+/** `//` and block comments blanked out, positions preserved. Guards that
+ * read comments certify prose: three of the six pre-fix hits in this suite
+ * were a comment quoting the very class it forbids. */
+function withoutComments(src: string): string {
+  return src
+    .replace(/\/\*[\s\S]*?\*\//g, (m) => m.replace(/[^\n]/g, " "))
+    .replace(/\/\/[^\n]*/g, (m) => " ".repeat(m.length));
+}
+
 describe("globe DOM z-bands stay on the GLOBE_DOM_LAYER_ORDER table (#851)", () => {
   // Positive control: proves the glob actually found the map tree rather
   // than vacuously passing over an empty file list.
@@ -1045,15 +1054,6 @@ describe("map chrome never spells a raw z-index (#930, round 8)", () => {
     expect(violations, violations.join("\n")).toEqual([]);
   });
 
-  /** `//` and block comments blanked out, positions preserved. Guards that
-   * read comments certify prose: three of the six pre-fix hits in this suite
-   * were a comment quoting the very class it forbids. */
-  function withoutComments(src: string): string {
-    return src
-      .replace(/\/\*[\s\S]*?\*\//g, (m) => m.replace(/[^\n]/g, " "))
-      .replace(/\/\/[^\n]*/g, (m) => " ".repeat(m.length));
-  }
-
   it("keeps raw numeric z-indexes out of the hosts' map stacks", () => {
     const violations: string[] = [];
     for (const host of HOSTS) {
@@ -1078,5 +1078,133 @@ describe("map chrome never spells a raw z-index (#930, round 8)", () => {
       }
     }
     expect(violations, violations.join("\n")).toEqual([]);
+  });
+});
+
+describe("one owner per corner, all four (#930, round 9)", () => {
+  /**
+   * Round 7 gave the map's bottom-left corner a single owner. Nothing made
+   * that a rule, so the same defect grew back on the right: the tilt slider,
+   * the simulated-time warning, the labels panel and Lite's docked controls
+   * each anchored themselves at `bottom right`, all on `interactiveChrome`,
+   * and DOM order decided which one painted over the others and took its
+   * input. The fix is not a tier bump -- that rebuilds the ladder this
+   * contract removed -- it is one column per corner, owned by the component
+   * that owns the corner, with the rows in a fixed order.
+   *
+   * So: within one host, two absolutely-positioned siblings may not claim
+   * the same corner, for any of the four corners.
+   */
+  const HOSTS = [
+    "src/pages/PropSphere.tsx",
+    "src/components/map/FullscreenPropSphere.tsx",
+    "src/components/map/HamClockView.tsx",
+    "src/components/mobile/MobileMap.tsx",
+    "src/components/atmos/AtmosGlobeView.tsx",
+    "src/components/map/GlobeView.tsx",
+    "src/components/map/FlatMapView.tsx",
+    "src/components/map/AzimuthalView.tsx",
+  ];
+
+  /**
+   * `bottom-3`, `top-[6px]`, `right-2` -- but never `left-1/2`, which is a
+   * centring anchor, nor `inset-0`/`left-0 right-0`, which are full-bleed
+   * and belong to no corner.
+   */
+  const VERTICAL = /(?<![\w-])(bottom|top)-(?:\d+|\[[^\]]+\])(?![\d/])/;
+  const HORIZONTAL = /(?<![\w-])(left|right)-(?:\d+|\[[^\]]+\])(?![\d/])/;
+
+  /**
+   * Every corner-anchored opening tag in a source, keyed by corner. Note
+   * this reads the *host*: an element that positions itself and a mount the
+   * host positions through `className` both land here, which is the pair
+   * that produced this round's defect.
+   */
+  function cornersIn(file: string, source?: string) {
+    const src = withoutComments(source ?? readSrc(file));
+    const found = new Map<string, string[]>();
+    for (const match of src.matchAll(/<([A-Za-z][A-Za-z0-9.]*)/g)) {
+      const tag = openingTag(src, match.index).replace(/\s+/g, " ");
+      // `fixed` leaves the map stack for the host's own overlay context.
+      if (!/\babsolute\b/.test(tag)) continue;
+      // Full-bleed: a bar or a transparent layer, not a corner.
+      if (/\binset-0\b/.test(tag)) continue;
+      if (/\bleft-0\b[^"`]*\bright-0\b/.test(tag)) continue;
+      const vertical = VERTICAL.exec(tag);
+      const horizontal = HORIZONTAL.exec(tag);
+      if (!vertical || !horizontal) continue;
+      const corner = `${vertical[1]}-${horizontal[1]}`;
+      const line = src.slice(0, match.index).split("\n").length;
+      const hits = found.get(corner) ?? [];
+      hits.push(`${file}:${line} <${match[1]} ${vertical[0]} ${horizontal[0]}`);
+      found.set(corner, hits);
+    }
+    return found;
+  }
+
+  function collisions(file: string, source?: string): string[] {
+    return [...cornersIn(file, source)]
+      .filter(([, hits]) => hits.length > 1)
+      .map(
+        ([corner, hits]) => `${file} ${corner}:\n    ${hits.join("\n    ")}`,
+      );
+  }
+
+  /**
+   * PropSphere's bottom-left corner still holds two anchors at this branch's
+   * head: the page-level column and the Lite HUD's band row. That pair is
+   * the subject of #1034, which is stacked directly on this branch and moves
+   * the Lite row into the column's `cornerSlot`. Listing it here rather than
+   * silently scoping this suite to one corner keeps the rule stated in full;
+   * the entry comes out when #1034 merges.
+   */
+  const PENDING_1034 = "src/pages/PropSphere.tsx bottom-left:";
+
+  it("finds the corners the hosts anchor (non-vacuity)", () => {
+    const all = HOSTS.flatMap((host) => [...cornersIn(host).keys()]);
+    expect(new Set(all)).toContain("bottom-right");
+    expect(new Set(all)).toContain("bottom-left");
+    expect(new Set(all)).toContain("top-left");
+  });
+
+  it("catches two siblings in one corner (positive control)", () => {
+    const synthetic = `
+      const X = () => (
+        <div>
+          <div className="absolute bottom-2 right-2">a</div>
+          <Panel className="absolute bottom-4 right-4" />
+          <div className="absolute top-3 left-3">unique</div>
+        </div>
+      );
+    `;
+    const found = collisions("synthetic.tsx", synthetic);
+    expect(found).toHaveLength(1);
+    expect(found[0]).toContain("bottom-right");
+  });
+
+  it("ignores centring and full-bleed anchors (positive control)", () => {
+    const synthetic = `
+      const X = () => (
+        <div>
+          <div className="absolute bottom-3 left-1/2 -translate-x-1/2">a</div>
+          <div className="absolute bottom-3 left-1/2 -translate-x-1/2">b</div>
+          <div className="absolute bottom-0 left-0 right-0">bar</div>
+          <div className="absolute inset-0">layer</div>
+        </div>
+      );
+    `;
+    expect(collisions("synthetic.tsx", synthetic)).toEqual([]);
+  });
+
+  it("gives every corner in every map host a single owner", () => {
+    const found = HOSTS.flatMap((host) => collisions(host));
+    const unexpected = found.filter((f) => !f.startsWith(PENDING_1034));
+    expect(unexpected, unexpected.join("\n")).toEqual([]);
+    // The exemption has to stay load-bearing: if #1034's fix lands here, the
+    // entry is dead and must be deleted rather than left as cover.
+    expect(
+      found.some((f) => f.startsWith(PENDING_1034)),
+      "PropSphere's bottom-left corner has a single owner now: delete PENDING_1034",
+    ).toBe(true);
   });
 });

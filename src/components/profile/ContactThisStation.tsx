@@ -30,18 +30,33 @@ function isValidLongitude(value: number | undefined): value is number {
   );
 }
 
-function hasContactCoordinates(
+interface ContactCoordinates {
+  viewerLat: number;
+  viewerLon: number;
+  targetLat: number;
+  targetLon: number;
+}
+
+function readContactCoordinates(
   profileLat: number | undefined,
   profileLon: number | undefined,
   viewerLat: number | undefined,
   viewerLon: number | undefined,
-): boolean {
-  return (
-    isValidLatitude(profileLat) &&
-    isValidLongitude(profileLon) &&
-    isValidLatitude(viewerLat) &&
-    isValidLongitude(viewerLon)
-  );
+): ContactCoordinates | null {
+  if (
+    !isValidLatitude(profileLat) ||
+    !isValidLongitude(profileLon) ||
+    !isValidLatitude(viewerLat) ||
+    !isValidLongitude(viewerLon)
+  ) {
+    return null;
+  }
+  return {
+    viewerLat,
+    viewerLon,
+    targetLat: profileLat,
+    targetLon: profileLon,
+  };
 }
 
 interface ContactThisStationProps {
@@ -89,7 +104,7 @@ export function ContactThisStation({
   viewerStats,
   viewerHours,
 }: ContactThisStationProps) {
-  const hasCoords = hasContactCoordinates(
+  const coords = readContactCoordinates(
     profile.lat,
     profile.lon,
     viewerLat,
@@ -99,12 +114,12 @@ export function ContactThisStation({
   const ourPerf = useChainPerformance();
   const stationGain = useActiveStationGain();
   const theirKit = parsePublicEquipmentSummary(profile.statsCache?.equipment);
-  const distanceKm = hasCoords
+  const distanceKm = coords
     ? calculateGreatCircleDistance(
-        viewerLat,
-        viewerLon,
-        profile.lat,
-        profile.lon,
+        coords.viewerLat,
+        coords.viewerLon,
+        coords.targetLat,
+        coords.targetLon,
       )
     : 0;
   const physics = physicsArgsForPath(
@@ -115,10 +130,10 @@ export function ContactThisStation({
     stationGain.physicsMode,
   );
   const analysis = useContactAnalysis({
-    viewerLat: hasCoords ? viewerLat : 0,
-    viewerLon: hasCoords ? viewerLon : 0,
-    targetLat: hasCoords ? profile.lat : 0,
-    targetLon: hasCoords ? profile.lon : 0,
+    viewerLat: coords?.viewerLat ?? 0,
+    viewerLon: coords?.viewerLon ?? 0,
+    targetLat: coords?.targetLat ?? 0,
+    targetLon: coords?.targetLon ?? 0,
     viewerStats,
     targetStats: profile.statsCache,
     viewerHours,
@@ -129,7 +144,7 @@ export function ContactThisStation({
     farEndGainDbi: (band) => farEndGainDbiFromPublicErp(theirKit, band),
   });
 
-  if (!hasCoords || !analysis) return null;
+  if (!coords || !analysis) return null;
 
   const {
     distance,

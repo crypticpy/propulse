@@ -19,7 +19,7 @@ const { useContactAnalysisMock } = vi.hoisted(() => ({
 }));
 
 vi.mock("@/hooks/useContactAnalysis", () => ({
-  useContactAnalysis: (...args: unknown[]) => useContactAnalysisMock(...args),
+  useContactAnalysis: (args: unknown) => useContactAnalysisMock(args),
 }));
 
 vi.mock("@/hooks/useChainPerformance", () => ({

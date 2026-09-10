@@ -46,6 +46,16 @@ Keep each to a few lines.
 ```
 
 ```markdown
+**design review** (Claude Fable only; required on every design and UI PR)
+
+Reviewed: <head sha> at <canvases / text scales checked>
+
+1. **S1 — blocker:** file:line — what a person sees — fix
+2. …
+   Verdict: approved | changes needed
+```
+
+```markdown
 **done**
 
 - merged: <sha> (PR #…)
@@ -198,7 +208,11 @@ the body. **Commit only** — you do not push, open PRs, or merge. Post a
 **What the reviewer does.** The Opus reviewer posts the second-opinion review,
 **fixes what is broken itself** rather than handing the branch back, resolves
 every thread, merges once checks are green, and prunes the worktree. Work only
-comes back to you if the whole approach was wrong.
+comes back to you if the whole approach was wrong. A PR that touches UI also
+needs a `**design review**` from a Claude Fable session with verdict
+`approved` for the current head; the Opus reviewer does not merge before that
+comment exists, and Opus, Sonnet or bot reviews never stand in for it (see the
+constitution, Design and UI review).
 
 Sizing exists so several agents can run at once without a human deciding who
 gets what: four to six coding agents on `size:S`/`size:M` items keep one

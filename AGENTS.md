@@ -50,6 +50,7 @@
 - Commits follow a lightweight Conventional Commits style (seen in history): `feat: …`, `refactor: …`.
 - Branch names: `<type>/<epic-slug>-<task-slug>` (`type` is `feat`, `fix`, `docs`, `chore`, `refactor`, or `test`).
 - PRs follow `.github/PULL_REQUEST_TEMPLATE.md`: `Closes #N` or `Refs #N`, an `Agent:` line, a test plan (commands run + pages verified), and risks/follow-ups. At most 15 files, base `main`, merge `main` in before review, drain every review thread, and workers do not merge their own PRs — see the Pull requests section of `docs/AGENT-CONSTITUTION.md`.
+- Any design, and any PR that touches UI (`src/components/`, `src/pages/`, `src/styles/`, `docs/designs/`, `.design-sync/`, anything a person sees), needs an `approved` **design review** from a Claude Fable session before merge; put `Design review: approved by Fable (<comment URL>)` in the PR body. Opus, Sonnet, Codex, Grok and Composer reviews do not count — see the Design and UI review section of `docs/AGENT-CONSTITUTION.md`.
 
 ## Configuration & API Notes
 

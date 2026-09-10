@@ -11,7 +11,8 @@ jobs:
     name: pr-contract
     if: github.event.pull_request.draft == false
     runs-on: ubuntu-latest
-    permissions: {}
+    permissions:
+      pull-requests: read
     steps:
       - name: Check PR body contract
         env:
@@ -30,4 +31,25 @@ jobs:
           fi
           if [ "${CHANGED_FILES:-0}" -gt 15 ]; then
             echo "::warning::PR touches ${CHANGED_FILES} files, over the 15-file guideline"
+          fi
+      - name: Require a Fable design review on UI changes
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BODY: ${{ github.event.pull_request.body }}
+          REPO: ${{ github.repository }}
+          PR: ${{ github.event.pull_request.number }}
+        run: |
+          FILES=$(gh api "repos/${REPO}/pulls/${PR}/files" --paginate --jq '.[].filename')
+          UI=$(printf '%s\n' "$FILES" | grep -E '^(src/components/|src/pages/|src/styles/|src/index\.css$|tailwind\.config\.|\.design-sync/|docs/designs/)' || true)
+          if [ -z "$UI" ]; then
+            echo "No UI paths changed; design review not required."
+            exit 0
+          fi
+          echo "UI paths changed:"
+          printf '%s\n' "$UI"
+          # strip HTML comments so the template's example cannot satisfy the check
+          STRIPPED=$(printf '%s' "$BODY" | perl -0pe 's/<!--.*?-->//gs')
+          if ! printf '%s' "$STRIPPED" | grep -Eiq '^\s*\**Design review\**:?\**\s*approved'; then
+            echo "This PR touches UI. It needs an approved Claude Fable **design review** comment and a \`Design review: approved by Fable (<comment URL>)\` line in the body (docs/AGENT-CONSTITUTION.md, Design and UI review)."
+            exit 1
           fi

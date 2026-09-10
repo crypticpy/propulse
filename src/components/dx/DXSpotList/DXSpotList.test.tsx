@@ -15,6 +15,8 @@ import {
 } from "@/hooks/useOperatingMonitor";
 import { useDXStore } from "@/stores/dxStore";
 import { useKioskStore } from "@/stores/kioskStore";
+import { useMapStore } from "@/stores/mapStore";
+import { useOperatingStateStore } from "@/stores/operatingStateStore";
 import type { DXSpot } from "@/types/dxcluster";
 import { DXSpotList } from "./DXSpotList";
 
@@ -336,5 +338,41 @@ describe("DXSpotList follow-radio mode filter and clear (#756 groups 2 & 3)", ()
     expect(capturedRuntime!.getSnapshot().config.context.followRadio).toBe(false);
     expect(screen.getByText("CWCALL")).toBeTruthy();
     expect(screen.getByText("FT8CALL")).toBeTruthy();
+  });
+});
+
+describe("DXSpotList set-target quick action (#845)", () => {
+  const originalMapTarget = useMapStore.getState().target;
+
+  afterEach(() => {
+    useDXStore.setState({ spots: originalSpots, selectedSpot: originalSelected });
+    useMapStore.setState({ target: originalMapTarget });
+    useOperatingStateStore.getState().reset();
+    mockClusterSpots = [];
+    capturedRuntime = null;
+  });
+
+  it("moves the map target to the second spot after a first target is already set", async () => {
+    const spot1 = dxSpot({ id: "target-spot-1", dx: "JA1XYZ", dxLat: 35.6, dxLon: 139.7 });
+    const spot2 = dxSpot({ id: "target-spot-2", dx: "VK2ABC", dxLat: -33.9, dxLon: 151.2 });
+    mockClusterSpots = [spot1, spot2];
+    useDXStore.setState({ spots: [spot1, spot2], selectedSpot: null });
+
+    const storage = createMemoryWorkingStorage();
+    render(<DXSpotList />, { wrapper: makeWrapper(storage) });
+
+    const user = userEvent.setup();
+    const setTargetButtons = await screen.findAllByRole("button", { name: "Set as map target" });
+    expect(setTargetButtons).toHaveLength(2);
+
+    // First click: sets the target to spot1. This is the "first target sets
+    // fine" half of the owner's report -- a positive control.
+    await user.click(setTargetButtons[0]);
+    expect(useMapStore.getState().target).toMatchObject({ name: spot1.dx });
+
+    // Second click: a *different* spot's row. The owner reports this does
+    // nothing when a target is already set.
+    await user.click(setTargetButtons[1]);
+    expect(useMapStore.getState().target).toMatchObject({ name: spot2.dx });
   });
 });

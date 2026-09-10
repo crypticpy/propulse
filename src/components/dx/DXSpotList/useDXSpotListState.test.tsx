@@ -105,3 +105,48 @@ describe("useDXSpotListState deselect contract (PR #603 round 5)", () => {
     expect(useDXStore.getState().selectedSpot).toBeNull();
   });
 });
+
+describe("useDXSpotListState set-target repro (#845)", () => {
+  afterEach(() => {
+    useDXStore.setState({ selectedSpot: originalSelected, spots: originalSpots });
+    capturedRuntime = null;
+  });
+
+  it("replaces the map target on the second 'set map target' click, even with an existing operating cursor target", async () => {
+    const { useMapStore } = await import("@/stores/mapStore");
+    const { useOperatingStateStore } = await import("@/stores/operatingStateStore");
+
+    const spot1 = dxSpot({ id: "spot-1", dx: "JA1XYZ", dxGrid: "GG87" });
+    const spot2 = dxSpot({ id: "spot-2", dx: "VK2ABC", dxGrid: "QF56" });
+
+    // Seed an existing map target AND an existing operating cursor target,
+    // as the first "set map target" click would have left behind.
+    useMapStore.getState().setTarget({ lat: 1, lon: 1, name: spot1.dx, grid: spot1.dxGrid });
+    useOperatingStateStore.getState().setTarget({
+      callsign: spot1.dx,
+      grid: spot1.dxGrid ?? null,
+      lat: null,
+      lon: null,
+      spotId: spot1.id,
+    });
+
+    useDXStore.setState({ spots: [spot1, spot2], selectedSpot: null });
+
+    const { result } = renderHook(() => useDXSpotListState());
+
+    act(() => {
+      result.current.handleContextAction("setTarget", spot2);
+    });
+
+    expect(useMapStore.getState().target).toMatchObject({ name: spot2.dx, grid: spot2.dxGrid });
+
+    // The shared operating cursor must agree with the new target too (#845
+    // fix): the wall re-applies `cursor.target` on every remount
+    // (useHamClockWallOperatingState.ts), so a stale cursor would clobber
+    // this exact write the next time the wall mounts.
+    expect(useOperatingStateStore.getState().cursor.target).toMatchObject({
+      callsign: spot2.dx,
+      grid: spot2.dxGrid,
+    });
+  });
+});

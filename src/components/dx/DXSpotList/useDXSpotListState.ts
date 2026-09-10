@@ -15,6 +15,7 @@ import {
   selectAvailableModes,
 } from "@/stores/dxStore";
 import { useMapStore } from "@/stores/mapStore";
+import { useOperatingStateStore } from "@/stores/operatingStateStore";
 import { useDXCCStore } from "@/stores/dxccStore";
 import { lookupEntity } from "@/lib/data/dxccEntities";
 import { useWatchStore } from "@/stores/watchStore";
@@ -529,25 +530,34 @@ export function useDXSpotListState(
     (action: SpotContextAction, spot: DXSpot) => {
       switch (action) {
         case "setTarget": {
-          // Set the spot's location as the map target
-          if (spot.dxLat != null && spot.dxLon != null) {
+          // Set the spot's location as the map target. Resolve lat/lon
+          // once (direct coords, else grid fallback) so both the map's
+          // own target and the shared operating cursor agree.
+          const coords =
+            spot.dxLat != null && spot.dxLon != null
+              ? { lat: spot.dxLat, lon: spot.dxLon }
+              : spot.dxGrid
+                ? gridToLatLon(spot.dxGrid)
+                : null;
+          if (coords) {
             setTarget({
-              lat: spot.dxLat,
-              lon: spot.dxLon,
+              lat: coords.lat,
+              lon: coords.lon,
               grid: spot.dxGrid || undefined,
               name: spot.dx,
             });
-          } else if (spot.dxGrid) {
-            // Fall back to grid conversion
-            const coords = gridToLatLon(spot.dxGrid);
-            if (coords) {
-              setTarget({
-                lat: coords.lat,
-                lon: coords.lon,
-                grid: spot.dxGrid,
-                name: spot.dx,
-              });
-            }
+            // Also write the shared operating cursor (#845): the wall
+            // re-applies `cursor.target` on every mount
+            // (useHamClockWallOperatingState.ts), and that re-apply
+            // clobbers a target this direct `mapStore.setTarget` call just
+            // set unless the cursor agrees with it too.
+            useOperatingStateStore.getState().setTarget({
+              callsign: spot.dx,
+              grid: spot.dxGrid || null,
+              lat: coords.lat,
+              lon: coords.lon,
+              spotId: spot.id,
+            });
           }
           break;
         }

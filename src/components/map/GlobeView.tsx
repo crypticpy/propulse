@@ -2777,10 +2777,12 @@ export function GlobeView({
         </div>
       )}
 
-      {/* Attribution is passive: a detail popup may cover it. */}
+      {/* Attribution carries the provider's required <a href> links, so it
+          is operable chrome even though it reads like a caption: a popup
+          painting over it would swallow the click (#930). */}
       <div
         className="absolute bottom-1 right-1 flex flex-col items-end gap-1"
-        style={{ zIndex: MAP_PAGE_CHROME_Z.legend }}
+        style={{ zIndex: MAP_PAGE_CHROME_Z.interactiveChrome }}
       >
         <CloudImageryAttribution status={cloudImageryStatus} />
         <ImageryAttribution

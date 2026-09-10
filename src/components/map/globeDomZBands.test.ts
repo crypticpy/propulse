@@ -73,6 +73,92 @@ function readSrc(file: string): string {
   return readFileSync(resolve(REPO_ROOT, file), "utf8");
 }
 
+/**
+ * The JSX subtree opened at `openedBy`, ending at the first closing tag
+ * indented to the same column (both files are JSX-formatted, so the
+ * element's own closing tag is the first `</` at its indentation).
+ */
+function scope(src: string, openedBy?: string): string {
+  if (!openedBy) return src;
+  const marker = src.indexOf(openedBy);
+  expect(marker, `no ${openedBy} in this file`).toBeGreaterThan(-1);
+  const tagStart = src.lastIndexOf("<", marker);
+  const lineStart = src.lastIndexOf("\n", tagStart) + 1;
+  const indent = " ".repeat(tagStart - lineStart);
+  const closeAt = src.indexOf(`\n${indent}</`, marker);
+  expect(
+    closeAt,
+    `no closing tag at the opener's indentation for ${openedBy}`,
+  ).toBeGreaterThan(-1);
+  return src.slice(tagStart, closeAt);
+}
+
+function resolveImport(spec: string, from: string): string | null {
+  let base: string;
+  if (spec.startsWith("@/")) base = join("src", spec.slice(2));
+  else if (spec.startsWith(".")) base = join(dirname(from), spec);
+  else return null;
+  for (const candidate of [
+    `${base}.tsx`,
+    `${base}.ts`,
+    join(base, "index.tsx"),
+    join(base, "index.ts"),
+  ]) {
+    try {
+      if (statSync(resolve(REPO_ROOT, candidate)).isFile()) return candidate;
+    } catch {
+      /* not this extension */
+    }
+  }
+  return null;
+}
+
+/**
+ * Reads a whole opening tag from `start`, tracking quotes and braces so an
+ * arrow function in a handler (`onClick={() => ...}`) does not end it early.
+ */
+/**
+ * Follows a barrel: `src/components/map/index.ts` re-exports `LayerLegend`
+ * from `./LayerLegend`, and reading the barrel would show no button at all --
+ * which is exactly how #930 kept certifying a control as a legend.
+ */
+function throughBarrel(name: string, target: string): string {
+  if (!/\/index\.tsx?$/.test(target)) return target;
+  const barrel = readFileSync(resolve(REPO_ROOT, target), "utf8");
+  const named = new RegExp(
+    `export\\s+(?:type\\s+)?\\{[^}]*\\b${name}\\b[^}]*\\}\\s+from\\s+"([^"]+)"`,
+  ).exec(barrel);
+  if (named) return resolveImport(named[1], target) ?? target;
+  for (const star of barrel.matchAll(/export\s+\*\s+from\s+"([^"]+)"/g)) {
+    const next = resolveImport(star[1], target);
+    if (!next) continue;
+    const body = readFileSync(resolve(REPO_ROOT, next), "utf8");
+    if (new RegExp(`(function|const|class)\\s+${name}\\b`).test(body))
+      return next;
+  }
+  return target;
+}
+
+function openingTag(src: string, start: number): string {
+  let depth = 0;
+  let quote: string | null = null;
+  for (let i = start; i < src.length; i += 1) {
+    const char = src[i];
+    if (quote) {
+      if (char === quote && src[i - 1] !== "\\") quote = null;
+    } else if (char === '"' || char === "'" || char === "`") {
+      quote = char;
+    } else if (char === "{") {
+      depth += 1;
+    } else if (char === "}") {
+      depth -= 1;
+    } else if (char === ">" && depth === 0) {
+      return src.slice(start, i + 1);
+    }
+  }
+  return src.slice(start);
+}
+
 describe("globe DOM z-bands stay on the GLOBE_DOM_LAYER_ORDER table (#851)", () => {
   // Positive control: proves the glob actually found the map tree rather
   // than vacuously passing over an empty file list.
@@ -457,26 +543,6 @@ const CHROME_FILES: readonly { file: string; openedBy?: string }[] = [
  * themselves.
  */
 describe("map-host controls sit at or above interactiveChrome (#930, round 3)", () => {
-  /**
-   * The JSX subtree opened at `openedBy`, ending at the first closing tag
-   * indented to the same column (both files are JSX-formatted, so the
-   * element's own closing tag is the first `</` at its indentation).
-   */
-  function scope(src: string, openedBy?: string): string {
-    if (!openedBy) return src;
-    const marker = src.indexOf(openedBy);
-    expect(marker, `no ${openedBy} in this file`).toBeGreaterThan(-1);
-    const tagStart = src.lastIndexOf("<", marker);
-    const lineStart = src.lastIndexOf("\n", tagStart) + 1;
-    const indent = " ".repeat(tagStart - lineStart);
-    const closeAt = src.indexOf(`\n${indent}</`, marker);
-    expect(
-      closeAt,
-      `no closing tag at the opener's indentation for ${openedBy}`,
-    ).toBeGreaterThan(-1);
-    return src.slice(tagStart, closeAt);
-  }
-
   /** `z-30`, `z-[220]` -> 30, 220. Non-numeric utilities (`z-auto`) -> null. */
   function tailwindZ(cls: string): number | null {
     const bare = cls.match(/^z-(\d+)$/);
@@ -597,26 +663,6 @@ describe("map chrome components declare a tier (#930, round 4)", () => {
     "src/pages/PropSphere.tsx",
   ];
 
-  function resolveImport(spec: string, from: string): string | null {
-    let base: string;
-    if (spec.startsWith("@/")) base = join("src", spec.slice(2));
-    else if (spec.startsWith(".")) base = join(dirname(from), spec);
-    else return null;
-    for (const candidate of [
-      `${base}.tsx`,
-      `${base}.ts`,
-      join(base, "index.tsx"),
-      join(base, "index.ts"),
-    ]) {
-      try {
-        if (statSync(resolve(REPO_ROOT, candidate)).isFile()) return candidate;
-      } catch {
-        /* not this extension */
-      }
-    }
-    return null;
-  }
-
   /** Every in-scope module reachable from the hosts. */
   function reachableModules(): string[] {
     const seen = new Set<string>();
@@ -635,30 +681,6 @@ describe("map chrome components declare a tier (#930, round 4)", () => {
       }
     }
     return [...seen].filter((file) => file.endsWith(".tsx")).sort();
-  }
-
-  /**
-   * Reads a whole opening tag from `start`, tracking quotes and braces so an
-   * arrow function in a handler (`onClick={() => ...}`) does not end it early.
-   */
-  function openingTagAt(src: string, start: number): string {
-    let depth = 0;
-    let quote: string | null = null;
-    for (let i = start; i < src.length; i += 1) {
-      const char = src[i];
-      if (quote) {
-        if (char === quote && src[i - 1] !== "\\") quote = null;
-      } else if (char === '"' || char === "'" || char === "`") {
-        quote = char;
-      } else if (char === "{") {
-        depth += 1;
-      } else if (char === "}") {
-        depth -= 1;
-      } else if (char === ">" && depth === 0) {
-        return src.slice(start, i + 1);
-      }
-    }
-    return src.slice(start);
   }
 
   /** The root, or the subtree it opens, takes pointer input. */
@@ -686,7 +708,7 @@ describe("map chrome components declare a tier (#930, round 4)", () => {
     const found: RootTag[] = [];
     for (const match of src.matchAll(RETURN_ROOT_RE)) {
       const start = match.index + match[0].length - match[1].length;
-      const tag = openingTagAt(src, start).replace(/\s+/g, " ");
+      const tag = openingTag(src, start).replace(/\s+/g, " ");
       // `fixed` chrome is page chrome, bounded by the host's own root.
       if (!tag.includes("absolute") || /\bfixed\b/.test(tag)) continue;
       const tier = TIER_RE.exec(tag);
@@ -702,7 +724,9 @@ describe("map chrome components declare a tier (#930, round 4)", () => {
         line: src.slice(0, start).split("\n").length,
         tag: tag.slice(0, 110),
         level,
-        interactive: takesInput(tag, src.slice(start, start + 1500)),
+        // The whole rest of the file, not a truncated window: round 5's
+        // miss was evidence that lived past any fixed slice.
+        interactive: takesInput(tag, src.slice(start)),
       });
     }
     return found;
@@ -757,5 +781,121 @@ describe("map chrome components declare a tier (#930, round 4)", () => {
           `${root.file}:${root.line} z=${root.level} sits in the overlay portal's band: ${root.tag}`,
       );
     expect(violations).toEqual([]);
+  });
+});
+
+/**
+ * A wrapper is classified by the component it wraps (#930, round 5).
+ *
+ * Round 3 read only the wrapper's own tag: `pointer-events-none` on the
+ * wrapper, no handler on it, so `legend`. But `LayerLegend` collapses via a
+ * real `<button>` (`LayerLegend.tsx:52-56`), and a legend you can click is a
+ * control -- it went under the overlay portal for two rounds because the
+ * evidence lives in another file.
+ *
+ * This suite follows the reference: for every z-bearing wrapper inside a
+ * host's map slice it resolves each component element in the wrapper's
+ * subtree through that host's own imports and reads the *whole* referenced
+ * file. One tier per component: a wrapper holding anything operable takes
+ * `interactiveChrome` entire, never a control header above the portal and a
+ * body below it.
+ */
+describe("wrappers take the tier of the component they wrap (#930, round 5)", () => {
+  /** Markers that make a component file operable, anywhere in the file. */
+  const OPERABLE_FILE_RE =
+    /<button\b|<a\s[^>]*href|<input\b|<select\b|<textarea\b|onClick=|onPointerDown=|onMouseDown=|onChange=|draggable\b|role="(button|slider|switch|link|menuitem)"|tabIndex=\{?0/;
+
+  /** `import { A, B } from "x"` / `import X from "x"` -> local name -> file. */
+  function importMap(file: string): Map<string, string> {
+    const src = readFileSync(resolve(REPO_ROOT, file), "utf8");
+    const map = new Map<string, string>();
+    for (const match of src.matchAll(
+      /import\s+(type\s+)?([^;]+?)\s+from\s+"([^"]+)"/g,
+    )) {
+      if (match[1]) continue;
+      const target = resolveImport(match[3], file);
+      if (!target) continue;
+      for (const name of match[2].matchAll(/[A-Z][A-Za-z0-9_]*/g)) {
+        if (!map.has(name[0])) map.set(name[0], target);
+      }
+    }
+    return map;
+  }
+
+  /** The subtree of the element opened at `open`, by its own indentation. */
+  function subtreeAt(src: string, open: number): string {
+    const lineStart = src.lastIndexOf("\n", open) + 1;
+    const indent = " ".repeat(open - lineStart);
+    const close = src.indexOf(`\n${indent}</`, open);
+    const selfClosing = src.indexOf("/>", open);
+    const tagEnd = src.indexOf(">", open);
+    if (selfClosing > -1 && selfClosing === tagEnd - 1)
+      return src.slice(open, tagEnd + 1);
+    return close > -1 ? src.slice(open, close) : src.slice(open, open + 4000);
+  }
+
+  type Wrapper = {
+    host: string;
+    line: number;
+    level: number;
+    operable: string[];
+    tag: string;
+  };
+
+  function wrappersIn(entry: { file: string; openedBy?: string }): Wrapper[] {
+    const src = readSrc(entry.file);
+    const slice = scope(src, entry.openedBy);
+    const offset = src.indexOf(slice);
+    const imports = importMap(entry.file);
+    const out: Wrapper[] = [];
+    for (const match of slice.matchAll(/<[A-Za-z]/g)) {
+      const open = match.index;
+      const tag = openingTag(slice, open).replace(/\s+/g, " ");
+      const tier = /MAP_PAGE_CHROME_Z\.(\w+)/.exec(tag);
+      const cls = /(?<![\w-])z-(\d+|\[\d+\])/.exec(tag);
+      let level: number | undefined;
+      if (tier) level = MAP_PAGE_CHROME_Z[tier[1] as MapChromeTier];
+      else if (cls) level = Number(cls[1].replace(/[[\]]/g, ""));
+      if (level === undefined || Number.isNaN(level)) continue;
+      const subtree = subtreeAt(slice, open);
+      const operable: string[] = [];
+      for (const ref of subtree.matchAll(/<([A-Z][A-Za-z0-9_]*)/g)) {
+        const imported = imports.get(ref[1]);
+        if (!imported) continue;
+        const target = throughBarrel(ref[1], imported);
+        const body = readFileSync(resolve(REPO_ROOT, target), "utf8");
+        if (OPERABLE_FILE_RE.test(body)) operable.push(ref[1]);
+      }
+      out.push({
+        host: entry.file,
+        line:
+          slice.slice(0, open).split("\n").length +
+          src.slice(0, offset).split("\n").length -
+          1,
+        level,
+        operable: [...new Set(operable)],
+        tag: tag.slice(0, 90),
+      });
+    }
+    return out;
+  }
+
+  const wrappers = CHROME_FILES.flatMap(wrappersIn);
+
+  it("resolves the components each wrapper holds (non-vacuity)", () => {
+    expect(wrappers.length).toBeGreaterThan(5);
+    const resolved = wrappers.filter((w) => w.operable.length > 0);
+    expect(resolved.length).toBeGreaterThan(0);
+  });
+
+  it("puts a wrapper holding an operable component on interactiveChrome", () => {
+    const violations = wrappers
+      .filter((w) => w.operable.length > 0)
+      .filter((w) => w.level < MAP_PAGE_CHROME_Z.interactiveChrome)
+      .map(
+        (w) =>
+          `${w.host}:${w.line} z=${w.level} wraps ${w.operable.join(", ")}, which ${w.operable.length === 1 ? "takes" : "take"} input -- the whole wrapper belongs on interactiveChrome (${MAP_PAGE_CHROME_Z.interactiveChrome}): ${w.tag}`,
+      );
+    expect(violations, violations.join("\n")).toEqual([]);
   });
 });

@@ -1183,17 +1183,29 @@ export function PropSphere() {
                 {(hasLayerLegend ||
                   layers.muf ||
                   (layers.ionosphere && target && viewMode === "globe")) && (
-                  <div
-                    className="relative flex flex-col items-start gap-1"
-                    style={{ zIndex: MAP_PAGE_CHROME_Z.legend }}
-                  >
-                    <LayerLegend className="self-start bg-su-panel/90 backdrop-blur-sm rounded-lg px-2 py-1 pointer-events-auto" />
-                    {layers.ionosphere && target && viewMode === "globe" && (
-                      <IonosphereLegend className="self-start bg-su-panel/90 backdrop-blur-sm rounded-lg px-2 py-1 pointer-events-auto" />
-                    )}
-                    {layers.muf && (
-                      <MUFLegend className="bg-su-panel/90 backdrop-blur-sm rounded-lg p-2 pointer-events-auto" />
-                    )}
+                  <div className="relative flex flex-col items-start gap-1">
+                    {/* LayerLegend collapses via a real button, so it is a
+                        control, not a legend, and takes the control tier
+                        whole -- never a header above the portal and a body
+                        below it (#930). */}
+                    <div
+                      className="relative flex flex-col items-start"
+                      style={{ zIndex: MAP_PAGE_CHROME_Z.interactiveChrome }}
+                    >
+                      <LayerLegend className="self-start bg-su-panel/90 backdrop-blur-sm rounded-lg px-2 py-1 pointer-events-auto" />
+                    </div>
+                    {/* The remaining legends are read-only. */}
+                    <div
+                      className="relative flex flex-col items-start gap-1"
+                      style={{ zIndex: MAP_PAGE_CHROME_Z.legend }}
+                    >
+                      {layers.ionosphere && target && viewMode === "globe" && (
+                        <IonosphereLegend className="self-start bg-su-panel/90 backdrop-blur-sm rounded-lg px-2 py-1 pointer-events-auto" />
+                      )}
+                      {layers.muf && (
+                        <MUFLegend className="bg-su-panel/90 backdrop-blur-sm rounded-lg p-2 pointer-events-auto" />
+                      )}
+                    </div>
                   </div>
                 )}
               </div>

@@ -140,6 +140,16 @@
  * total recorded on `fix/sub-text-xs-map-slice1-832`; this entry documents
  * only this file's 9 sites and does not attempt to reconcile that total.
  * Refs #832, #839.
+ *
+ * #833 (between-round hatch, no FILES append): `SIZE_RE` with `N < 12`
+ * could not tell `text-xs` from `text-[12px]` or from rem/em/pt forms.
+ * Census of the 44 audited files at this round: 0 `text-[12px]`, 0
+ * `text-[Nrem|em|pt]`, 0 `text-[clamp(`. Predicted failing-site count on
+ * revert is therefore 0 in source; the two injections named in #833
+ * (`text-[12px]`, `text-[0.6rem]` / 9.6px) are the red-on-revert proof via
+ * the matcher tests below. #925 already walks `src/components/map` for
+ * 12/13px classes; this round still asserts `text-[12px]` over `FILES`
+ * because that list includes `src/components/dx/` files #925 does not.
  */
 
 import { fileURLToPath } from "node:url";
@@ -239,10 +249,9 @@ const SIZE_RE = /text-\[(\d+)px\]/g;
  * the guard is only worth its green when it recognises every form the codebase
  * actually uses.
  *
- * Still unrecognised, and tracked by #833: rem and em arbitrary values
- * (`text-[0.7rem]`), point sizes, and a `clamp()` whose lower bound is below
- * the floor. That work lands between rounds, not inside one, because it
- * touches this shared file.
+ * #833 closed the remaining class spellings: `text-[12px]` (the floor
+ * written as an arbitrary, which does not follow Settings -> Text Size),
+ * rem/em/pt values at or below 12px, and `text-[clamp(` in the audited set.
  */
 const INLINE_SIZE_RE =
   /fontSize:\s*["']?(\d+(?:\.\d+)?)(?:px)?["']?(?![\w%.])/g;
@@ -318,11 +327,94 @@ describe("sub-text-xs sizing stays at the floor in the #783/#808 audited set", (
       const stillPresent = findSubFloorSites(entry.file).some((site) =>
         site.text.includes(entry.match),
       );
-      expect(
-        stillPresent,
-        `${entry.file}: allowlisted content "${entry.match}" is no longer at a sub-floor text-[Npx] site -- remove the stale entry`,
-      ).toBe(true);
+    expect(
+      stillPresent,
+      `${entry.file}: allowlisted content "${entry.match}" is no longer at a sub-floor text-[Npx] site -- remove the stale entry`,
+    ).toBe(true);
     }
+  });
+});
+
+/** `text-[12px]` is the floor as an arbitrary: same rendered size as
+ * `text-xs` at the default root, but it ignores the text-scale multiplier.
+ * `/tight` and other modifiers still match because the class starts with
+ * this token. */
+const FLOOR_PX_RE = /text-\[12px\]/;
+
+/** rem/em/pt arbitrary sizes. 1rem/em = 16px; 1pt = 4/3 px. Values at or
+ * below 12px are the same dodge as `text-[11px]`, just in a unit
+ * `SIZE_RE` cannot see. Larger rem (e.g. `text-[1rem]`) is above the floor
+ * and is not this hatch. */
+const RELATIVE_SIZE_RE = /text-\[(\d+(?:\.\d+)?)(rem|em|pt)\]/g;
+
+/** `text-[clamp(...)]` can hide a sub-floor lower bound. Any clamp() text
+ * class in `FILES` is a hatch; the audited set currently has none. */
+const CLAMP_SIZE_RE = /text-\[clamp\(/;
+
+const FLOOR_PX = 12;
+
+function relativeToPx(value: number, unit: string): number {
+  if (unit === "rem" || unit === "em") return value * 16;
+  if (unit === "pt") return (value * 4) / 3;
+  return Number.POSITIVE_INFINITY;
+}
+
+function isSubFloorRelative(value: number, unit: string): boolean {
+  return relativeToPx(value, unit) <= FLOOR_PX;
+}
+
+function findFloorDodgeSites(file: string): SubFloorSite[] {
+  const absPath = resolve(REPO_ROOT, file);
+  const lines = readFileSync(absPath, "utf8").split("\n");
+  const sites: SubFloorSite[] = [];
+  lines.forEach((line, index) => {
+    if (FLOOR_PX_RE.test(line) || CLAMP_SIZE_RE.test(line)) {
+      sites.push({ file, line: index + 1, text: line });
+      return;
+    }
+    for (const match of line.matchAll(RELATIVE_SIZE_RE)) {
+      if (isSubFloorRelative(Number(match[1]), match[2])) {
+        sites.push({ file, line: index + 1, text: line });
+      }
+    }
+  });
+  return sites;
+}
+
+describe("audited files cannot spell the floor as 12px or rem/em/pt (#833)", () => {
+  it("has no text-[12px], sub-floor rem/em/pt, or clamp() text class in FILES", () => {
+    const violations: string[] = [];
+    for (const file of FILES) {
+      for (const site of findFloorDodgeSites(file)) {
+        violations.push(`${site.file}:${site.line}: ${site.text.trim()}`);
+      }
+    }
+    expect(
+      violations,
+      `use text-xs instead of text-[12px] / rem / em / pt / clamp() in FILES:\n${violations.join("\n")}`,
+    ).toEqual([]);
+  });
+
+  it("flags the #833 injections and clears text-xs", () => {
+    // Red-on-revert proof for the two forms the old SIZE_RE missed.
+    expect(FLOOR_PX_RE.test("text-[12px]")).toBe(true);
+    expect(FLOOR_PX_RE.test("text-[12px]/tight")).toBe(true);
+    expect(FLOOR_PX_RE.test("text-xs")).toBe(false);
+    expect(FLOOR_PX_RE.test("text-[11px]")).toBe(false);
+
+    const relativeHits = (text: string) =>
+      [...text.matchAll(RELATIVE_SIZE_RE)].filter((match) =>
+        isSubFloorRelative(Number(match[1]), match[2]),
+      );
+    expect(relativeHits("text-[0.6rem]").length).toBe(1);
+    expect(relativeHits("text-[0.75rem]").length).toBe(1);
+    expect(relativeHits("text-[0.65em]").length).toBe(1);
+    expect(relativeHits("text-[8pt]").length).toBe(1);
+    expect(relativeHits("text-[9pt]").length).toBe(1);
+    expect(relativeHits("text-[1rem]").length).toBe(0);
+    expect(relativeHits("text-xs").length).toBe(0);
+    expect(CLAMP_SIZE_RE.test("text-[clamp(0.5rem,2vw,1rem)]")).toBe(true);
+    expect(CLAMP_SIZE_RE.test("text-xs")).toBe(false);
   });
 });
 

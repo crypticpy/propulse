@@ -383,9 +383,24 @@ for (let run = 0; run < 10; run++) {
     const filename = path.join(dir, `${port}.json`);
     await writeFile(filename, JSON.stringify({ ...base, pid: 0, port }));
     const claims = await Promise.allSettled([
-      claimSession({ ...base, owner: "agent-one", registry: dir, ports: [port] }),
-      claimSession({ ...base, owner: "agent-two", registry: dir, ports: [port] }),
-      claimSession({ ...base, owner: "agent-three", registry: dir, ports: [port] }),
+      claimSession({
+        ...base,
+        owner: "agent-one",
+        registry: dir,
+        ports: [port],
+      }),
+      claimSession({
+        ...base,
+        owner: "agent-two",
+        registry: dir,
+        ports: [port],
+      }),
+      claimSession({
+        ...base,
+        owner: "agent-three",
+        registry: dir,
+        ports: [port],
+      }),
     ]);
     const fulfilled = claims.filter((claim) => claim.status === "fulfilled");
     const rejected = claims.filter((claim) => claim.status === "rejected");
@@ -416,7 +431,9 @@ test("an abandoned reclaim lock dir is cleared rather than blocking forever", as
   await utimes(lockPath, old, old);
   const session = await claimSession({ ...base, registry: dir, ports: [port] });
   assert.equal(session.port, port);
-  const leftover = (await readdir(dir)).filter((name) => name.endsWith(".lock"));
+  const leftover = (await readdir(dir)).filter((name) =>
+    name.endsWith(".lock"),
+  );
   assert.deepEqual(leftover, []);
 });
 
@@ -622,6 +639,24 @@ test("parseForwardedPort returns null when no explicit port is present or the va
   assert.equal(parseForwardedPort(["--strictPort", "false"]), null);
   assert.equal(parseForwardedPort(["--port", "not-a-number"]), null);
   assert.equal(parseForwardedPort(["--port"]), null);
+});
+
+// Deliberate: `PORT` is NOT part of the resolution order. Neither the vite CLI
+// nor this repo's vite.config.ts (`server.port: 5173, strictPort: true`) reads
+// process.env.PORT, so honouring it here would guard a port vite never binds
+// and let a second server take the shared one — the exact failure this whole
+// PR exists to prevent. Only an explicit forwarded flag moves the guard.
+test("parseForwardedPort ignores PORT in the environment, which vite never reads", (t) => {
+  const prior = process.env.PORT;
+  t.after(() => {
+    if (prior === undefined) delete process.env.PORT;
+    else process.env.PORT = prior;
+  });
+  process.env.PORT = "5180";
+  assert.equal(parseForwardedPort([]), null);
+  assert.equal(parseForwardedPort(["--host"]), null);
+  // An explicit flag still wins, and PORT does not override it.
+  assert.equal(parseForwardedPort(["--port", "5190"]), 5190);
 });
 
 test("runManagedVite guards the parsed forwarded port only when the escape hatch permits the override", async (t) => {

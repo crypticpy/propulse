@@ -10,89 +10,50 @@ import {
   handleDisplayPair,
   handleDisplayState,
 } from "./api/_lib/handlers/displays";
-import { handleViewLibrary, handleViewDisplayAssignment } from "./api/_lib/handlers/viewLibrary";
+import {
+  handleViewLibrary,
+  handleViewDisplayAssignment,
+} from "./api/_lib/handlers/viewLibrary";
 import { TILE_RUNTIME_CACHING } from "./src/lib/tiles/tileRuntimeCaching";
+import {
+  createDevSessionIdentityHandler,
+  type ManualDevSessionProfile,
+} from "./src/lib/dev/devSessionIdentity";
 
 // ─── Dev session identity plugin ──────────────────────────────────────────
-// Answers /__propulse_dev_session for ANY dev or preview server on this
-// port, managed or a plain `npm run dev`/`npm run preview`, so browser checks
-// and scripts/dev-session.mjs's worktree-identity guard both work regardless
-// of how the server was started. scripts/dev-session.mjs's startSession()
-// sets PROPULSE_DEV_SESSION (a JSON session record) before importing
+// Answers /__propulse_dev_session for ANY dev or preview server, managed or a
+// plain `npm run dev` / `npm run preview`, so browser checks and
+// scripts/dev-session.mjs's worktree-identity guard both work regardless of
+// how the server was started. scripts/dev-session.mjs's startSession() sets
+// PROPULSE_DEV_SESSION (a JSON session record) before importing
 // vite/createServer, which loads this same config file — so a managed
 // session's real owner/task/profile show here too, without a second copy of
 // this middleware in that script.
-// profile is deliberately "manual"/"manual-preview" (never "local"/
-// "connected") for a plain `npm run dev`/`npm run preview`, so scripts that
-// require a managed local-profile session keep refusing it.
-
-// The bound host/port are read from the live http server at REQUEST time,
-// not captured once at plugin-setup time: by the time any request reaches
-// this handler the server is guaranteed to already be listening, so this
-// always reports what Vite actually bound — including when
-// DEV_SERVER_ALLOW_EXTRA moved the shared server to a different port, or
-// `--host` changed the bind address — rather than a hard-coded 5173/127.0.0.1
-// that could silently disagree with reality.
-function resolveManualAddress(
-  server: ViteDevServer | PreviewServer,
-): { host: string; port: number } | null {
-  const address = server.httpServer?.address();
-  if (!address || typeof address !== "object") return null;
-  const host = ["::", "0.0.0.0", "::1", "127.0.0.1"].includes(
-    address.address,
-  )
-    ? "127.0.0.1"
-    : address.address;
-  return { host, port: address.port };
-}
-
-function createDevSessionIdentityHandler(
-  server: ViteDevServer | PreviewServer,
-  manualRoot: string,
-  profile: "manual" | "manual-preview",
-): Connect.NextHandleFunction {
-  return (req, res, next) => {
-    if (req.url !== "/__propulse_dev_session") return next();
-    res.setHeader("Content-Type", "application/json");
-    res.setHeader("Cache-Control", "no-store");
-    const managed = process.env.PROPULSE_DEV_SESSION;
-    if (managed) {
-      res.end(managed);
-      return;
-    }
-    const resolved = resolveManualAddress(server) ?? {
-      host: "127.0.0.1",
-      port: 5173,
-    };
-    res.end(
-      JSON.stringify({
-        id: null,
-        owner: "manual",
-        task: null,
+//
+// The payload itself lives in src/lib/dev/devSessionIdentity.ts so it can be
+// unit-tested; both hooks pass a getAddress thunk so the reported port/url are
+// read from the live http server at request time rather than hard-coded.
+function devSessionIdentityPlugin(): Plugin {
+  const root = realpathSync(process.cwd());
+  const attach = (
+    server: ViteDevServer | PreviewServer,
+    profile: ManualDevSessionProfile,
+  ) => {
+    server.middlewares.use(
+      createDevSessionIdentityHandler({
+        getAddress: () => server.httpServer?.address(),
+        root,
         profile,
-        root: manualRoot,
-        pid: process.pid,
-        port: resolved.port,
-        url: `http://${resolved.host}:${resolved.port}`,
-        startedAt: null,
-      }),
+      }) as Connect.NextHandleFunction,
     );
   };
-}
-
-function devSessionIdentityPlugin(): Plugin {
-  const manualRoot = realpathSync(process.cwd());
   return {
     name: "propulse-dev-session-identity",
     configureServer(server) {
-      server.middlewares.use(
-        createDevSessionIdentityHandler(server, manualRoot, "manual"),
-      );
+      attach(server, "manual");
     },
     configurePreviewServer(server) {
-      server.middlewares.use(
-        createDevSessionIdentityHandler(server, manualRoot, "manual-preview"),
-      );
+      attach(server, "manual-preview");
     },
   };
 }
@@ -111,7 +72,8 @@ function solarDevApi(): Plugin {
         try {
           const headers = new Headers();
           for (const [name, value] of Object.entries(req.headers)) {
-            if (Array.isArray(value)) value.forEach((item) => headers.append(name, item));
+            if (Array.isArray(value))
+              value.forEach((item) => headers.append(name, item));
             else if (value !== undefined) headers.set(name, value);
           }
           const origin = `http://${req.headers.host ?? "localhost"}`;
@@ -130,7 +92,10 @@ function solarDevApi(): Plugin {
             JSON.stringify({
               error: {
                 code: "DEV_HANDLER_FAILURE",
-                message: error instanceof Error ? error.message : "Solar dev handler failed",
+                message:
+                  error instanceof Error
+                    ? error.message
+                    : "Solar dev handler failed",
               },
             }),
           );
@@ -156,7 +121,8 @@ function portableDevApi(): Plugin {
         try {
           const headers = new Headers();
           for (const [name, value] of Object.entries(req.headers)) {
-            if (Array.isArray(value)) value.forEach((item) => headers.append(name, item));
+            if (Array.isArray(value))
+              value.forEach((item) => headers.append(name, item));
             else if (value !== undefined) headers.set(name, value);
           }
           const origin = `http://${req.headers.host ?? "localhost"}`;
@@ -183,7 +149,10 @@ function portableDevApi(): Plugin {
             JSON.stringify({
               error: {
                 code: "DEV_HANDLER_FAILURE",
-                message: error instanceof Error ? error.message : "Portable dev handler failed",
+                message:
+                  error instanceof Error
+                    ? error.message
+                    : "Portable dev handler failed",
               },
             }),
           );
@@ -216,7 +185,8 @@ function displaysDevApi(): Plugin {
         try {
           const headers = new Headers();
           for (const [name, value] of Object.entries(req.headers)) {
-            if (Array.isArray(value)) value.forEach((item) => headers.append(name, item));
+            if (Array.isArray(value))
+              value.forEach((item) => headers.append(name, item));
             else if (value !== undefined) headers.set(name, value);
           }
           const origin = `http://${req.headers.host ?? "localhost"}`;
@@ -948,7 +918,8 @@ function layerDevProxy(): Plugin {
         }
 
         try {
-          const bandPredicate = bandCode == null ? "" : ` AND band = ${bandCode}`;
+          const bandPredicate =
+            bandCode == null ? "" : ` AND band = ${bandCode}`;
           const query =
             "SELECT tx_sign, tx_lat, tx_lon, tx_loc, " +
             "rx_sign, rx_lat, rx_lon, rx_loc, band, frequency, snr, power, " +
@@ -1174,7 +1145,9 @@ function layerDevProxy(): Plugin {
 
         const empty = () => {
           res.writeHead(200, { "Content-Type": "application/json" });
-          res.end(JSON.stringify({ grid: [], timestamp: null, available: false }));
+          res.end(
+            JSON.stringify({ grid: [], timestamp: null, available: false }),
+          );
         };
 
         try {
@@ -1190,8 +1163,7 @@ function layerDevProxy(): Plugin {
           if (!indexRes.ok) return empty();
 
           const index = (await indexRes.json()) as
-            | { url?: string; time_tag?: string }[]
-            | undefined;
+            { url?: string; time_tag?: string }[] | undefined;
           const latest = Array.isArray(index)
             ? index[index.length - 1]
             : undefined;
@@ -1232,9 +1204,7 @@ function layerDevProxy(): Plugin {
             JSON.stringify({
               grid,
               timestamp:
-                typeof geojson?.time_tag === "string"
-                  ? geojson.time_tag
-                  : null,
+                typeof geojson?.time_tag === "string" ? geojson.time_tag : null,
               available: grid.length > 0,
             }),
           );
@@ -1335,8 +1305,7 @@ export default defineConfig(({ mode }) => {
             {
               // Stable product and immutable-frame URLs may use transport caching.
               // Widget freshness still comes from provider metadata, not this cache.
-              urlPattern:
-                /\/api\/solar\/(?:image|frame)(?:\?|$)/,
+              urlPattern: /\/api\/solar\/(?:image|frame)(?:\?|$)/,
               handler: "StaleWhileRevalidate",
               options: {
                 cacheName: "solar-media-v1",

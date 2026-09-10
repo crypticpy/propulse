@@ -373,10 +373,7 @@ export function isViteExecutableCommand(command) {
 // process's own pid; the remaining lines are matched against
 // isViteExecutableCommand, not a bare substring, so `vim vite.config.ts` or
 // `tail -f vite.log` cannot be mistaken for a running Vite server.
-export function filterViteProcessLines(
-  stdout,
-  { ownPid = process.pid } = {},
-) {
+export function filterViteProcessLines(stdout, { ownPid = process.pid } = {}) {
   return stdout
     .trim()
     .split("\n")
@@ -456,7 +453,9 @@ export async function refuseIfServerRunning({
   const unmanaged = findUnmanaged();
   if (unmanaged.length) {
     const details = unmanaged
-      .map((p) => `pid=${p.pid} port=${p.port ?? "unknown"} command=${p.command}`)
+      .map(
+        (p) => `pid=${p.pid} port=${p.port ?? "unknown"} command=${p.command}`,
+      )
       .join("\n");
     throw new Error(
       `A dev server is already running (unmanaged by this tool):\n${details}\n` +

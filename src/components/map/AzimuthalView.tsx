@@ -56,7 +56,6 @@ import {
 } from "./GridResearchPanel";
 import { AddPinDialog } from "./AddPinDialog";
 import { MapSizeSliders } from "./MapSizeSliders";
-import { MAP_PAGE_CHROME_Z } from "@/lib/map/globeRenderOrder";
 import { WORLD_COUNTRIES } from "@/lib/data/worldCountries.generated";
 import { US_STATES } from "@/lib/data/usStates.generated";
 import type { EarthquakeEvent } from "@/lib/api/earthquakes";
@@ -3128,6 +3127,9 @@ export function AzimuthalView({
           <div className="text-su-muted text-sm">Loading map...</div>
         </div>
       )}
+      {/* Spot & pin size sliders - bottom left corner */}
+      {!hideSizeSliders && <MapSizeSliders />}
+
       <GridResearchPanel
         visible={researchPanelOpen}
         grid={researchGrid}
@@ -3153,36 +3155,21 @@ export function AzimuthalView({
         }}
       />
 
-      {/* Bottom-left corner column: the legend reads under the map's overlay
-          portal, the shared size control sits above it, and neither can end
-          up covering the other (#930). */}
-      <div className="pointer-events-none absolute bottom-3 left-3 flex flex-col items-start gap-1">
-        <div
-          className="relative text-xs text-su-muted bg-deep-space/80 px-2 py-1 rounded"
-          style={{ zIndex: MAP_PAGE_CHROME_Z.legend }}
-        >
-          <div className="flex items-center gap-2">
-            <span
-              className="w-3 h-0.5 inline-block"
-              style={{ backgroundColor: COLORS.path }}
-            />
-            <span>Great circle path (straight line = beam heading)</span>
-          </div>
-          <div className="flex items-center gap-2 mt-1 text-su-muted">
-            <span>Scroll to zoom</span>
-            {zoom !== 1 && (
-              <span className="text-signal-green">({zoom.toFixed(1)}x)</span>
-            )}
-          </div>
+      {/* Legend overlay */}
+      <div className="absolute bottom-14 left-4 text-xs text-su-muted bg-deep-space/80 px-2 py-1 rounded">
+        <div className="flex items-center gap-2">
+          <span
+            className="w-3 h-0.5 inline-block"
+            style={{ backgroundColor: COLORS.path }}
+          />
+          <span>Great circle path (straight line = beam heading)</span>
         </div>
-        {!hideSizeSliders && (
-          <div
-            className="relative"
-            style={{ zIndex: MAP_PAGE_CHROME_Z.interactiveChrome }}
-          >
-            <MapSizeSliders inline />
-          </div>
-        )}
+        <div className="flex items-center gap-2 mt-1 text-su-muted">
+          <span>Scroll to zoom</span>
+          {zoom !== 1 && (
+            <span className="text-signal-green">({zoom.toFixed(1)}x)</span>
+          )}
+        </div>
       </div>
     </MapSurface>
   );

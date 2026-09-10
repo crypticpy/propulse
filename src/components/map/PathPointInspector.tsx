@@ -11,6 +11,7 @@ import {
 } from "@/lib/map/anchoredOverlay";
 import { PathPointCard } from "./PathPointCard";
 import { PathPointList } from "./PathPointList";
+import { useMapSurfaceFocus } from "./MapSurfaceContext";
 
 const CARD_WIDTH = 340;
 const CARD_HEIGHT = 460;
@@ -52,6 +53,8 @@ export function PathPointInspector({
   onOpenList,
 }: PathPointInspectorProps) {
   const panelRef = useRef<HTMLDivElement>(null);
+  const previousFocusRef = useRef<HTMLElement | null>(null);
+  const focusMapSurface = useMapSurfaceFocus();
   const selected = pointSet.points.find((point) => point.id === selectedId) ?? null;
   const hovered = pointSet.points.find((point) => point.id === hoveredId) ?? null;
   const showPanel = open === "card" || open === "path";
@@ -102,6 +105,35 @@ export function PathPointInspector({
     window.addEventListener("keydown", handleKeyDown, true);
     return () => window.removeEventListener("keydown", handleKeyDown, true);
   }, [onClose, showPanel]);
+
+  // Focus home (#797/#824). The panel opens from a 3D hit-test (never a DOM
+  // focus change) and does not steal focus into itself, but `PathPointList`
+  // and `PathPointCard` render real tabbable content, so a keyboard user can
+  // Tab into the panel while it is open. If `open` then leaves "card"/"path"
+  // while that content holds focus, the panel unmounts and the browser drops
+  // focus to `<body>`.
+  useEffect(() => {
+    if (!showPanel) return;
+    const active = document.activeElement;
+    previousFocusRef.current =
+      active instanceof HTMLElement && active !== document.body ? active : null;
+    return () => {
+      const previousFocus = previousFocusRef.current;
+      previousFocusRef.current = null;
+      if (previousFocus?.isConnected) {
+        previousFocus.focus();
+        return;
+      }
+      // Deferred one tick for the same reason as `SpotCollectionPopover`
+      // (#824): nothing in this component's own close paths chains into
+      // another overlay's mount today, but calling this inline would make
+      // that true for the next caller who wires one up, silently, and the
+      // deferred form costs nothing when nothing else is watching.
+      window.setTimeout(() => {
+        if (document.activeElement === document.body) focusMapSurface?.();
+      }, 0);
+    };
+  }, [focusMapSurface, showPanel]);
 
   const overlay = (
     <>

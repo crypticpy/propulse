@@ -17,6 +17,7 @@ import {
   getAgeBadgeColors,
   getSpotAgeInfo,
 } from "./LiveSpotArcs";
+import { useMapSurfaceFocus } from "./MapSurfaceContext";
 
 export interface SpotCollectionPopoverProps {
   visible: boolean;
@@ -58,6 +59,7 @@ export function SpotCollectionPopover({
   const panelRef = useRef<HTMLDivElement>(null);
   const firstSpotRef = useRef<HTMLButtonElement>(null);
   const previousFocusRef = useRef<HTMLElement | null>(null);
+  const focusMapSurface = useMapSurfaceFocus();
   const sortedSpots = useMemo(
     () =>
       [...spots].sort((a, b) => {
@@ -124,18 +126,39 @@ export function SpotCollectionPopover({
 
   useEffect(() => {
     if (!visible || sortedSpots.length === 0) return;
+    // `document.body` is not a restore target (see `SelectedSpotCard`): every
+    // opener for this popover is a canvas hit-test or a touch tap, neither of
+    // which focuses anything, so the pre-open activeElement is body far more
+    // often than not.
+    const active = document.activeElement;
     previousFocusRef.current =
-      document.activeElement instanceof HTMLElement
-        ? document.activeElement
-        : null;
+      active instanceof HTMLElement && active !== document.body ? active : null;
     const timeout = window.setTimeout(() => firstSpotRef.current?.focus(), 0);
     return () => {
       window.clearTimeout(timeout);
       const previousFocus = previousFocusRef.current;
       previousFocusRef.current = null;
-      if (previousFocus?.isConnected) previousFocus.focus();
+      if (previousFocus?.isConnected) {
+        previousFocus.focus();
+        return;
+      }
+      // Only when nothing else has focus (#797/#824). A row click that opens
+      // `SelectedSpotCard` clears this popover in the same commit, so this
+      // cleanup and the card's own mount effect can both run before either
+      // element repaints. If this fired synchronously here, the map surface
+      // would already hold focus by the time the card's mount effect reads
+      // `document.activeElement`, and the card would wrongly capture the
+      // surface as ITS `previousFocus` — turning its own close-time fallback
+      // guard into an unconditional restore that steals focus from whatever
+      // the user tabs to next. Deferring one tick lets every same-commit
+      // sibling's mount effect capture the real (pre-fallback) activeElement
+      // first; the sibling's own focus-in timer (also `setTimeout(0)`, always
+      // scheduled after this one) then wins.
+      window.setTimeout(() => {
+        if (document.activeElement === document.body) focusMapSurface?.();
+      }, 0);
     };
-  }, [sortedSpots.length, visible]);
+  }, [focusMapSurface, sortedSpots.length, visible]);
   if (!visible || sortedSpots.length === 0) return null;
 
   return createPortal(

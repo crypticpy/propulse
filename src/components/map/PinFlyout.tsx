@@ -18,6 +18,7 @@ import type { MapPin } from "@/types/pin";
 import { getCategoryMeta } from "@/types/pin";
 import type { DXSpot } from "@/types/dxcluster";
 import { getModeColor, inkOnFill } from "@/lib/utils/spotColors";
+import { useMapSurfaceFocus } from "./MapSurfaceContext";
 
 // ---------------------------------------------------------------------------
 // Props
@@ -158,6 +159,8 @@ export function PinFlyout({
   className = "",
 }: PinFlyoutProps) {
   const flyoutRef = useRef<HTMLDivElement>(null);
+  const previousFocusRef = useRef<HTMLElement | null>(null);
+  const focusMapSurface = useMapSurfaceFocus();
   const { station } = useUserStore();
   const homeGrid = station?.grid || "";
 
@@ -321,6 +324,39 @@ export function PinFlyout({
   }, [pin.notes]);
 
   // ------- Dismissal behaviors (matching MapFlyout) -------
+
+  // Focus home (#797/#824). This flyout opens on hover and never steals
+  // focus into itself, but its own buttons are real, tabbable elements — a
+  // keyboard user can Tab into "Set target"/"Edit Pin"/"Delete Pin" while the
+  // mouse keeps it open. If it then closes (auto-dismiss, Escape, or a click
+  // outside) while one of those buttons is focused, the browser drops focus
+  // to `<body>` once the flyout unmounts, which is the gap #797 covers.
+  useEffect(() => {
+    if (!visible) return;
+    const active = document.activeElement;
+    previousFocusRef.current =
+      active instanceof HTMLElement && active !== document.body ? active : null;
+    return () => {
+      const previousFocus = previousFocusRef.current;
+      previousFocusRef.current = null;
+      if (previousFocus?.isConnected) {
+        previousFocus.focus();
+        return;
+      }
+      // Deferred one tick, not called inline: "Edit Pin" closes this flyout
+      // and opens `AddPinDialog` in the same click handler, so this cleanup
+      // and that dialog's own focus-capture effect can land in the same
+      // commit. Calling `focusMapSurface` synchronously here would move
+      // focus to the surface before the dialog's mount effect reads
+      // `document.activeElement`, so the dialog would capture the surface as
+      // ITS restore target instead of correctly finding nothing to restore —
+      // turning ITS close-time fallback into an unconditional steal later
+      // (see the identical hazard fixed in `SpotCollectionPopover`, #824).
+      window.setTimeout(() => {
+        if (document.activeElement === document.body) focusMapSurface?.();
+      }, 0);
+    };
+  }, [focusMapSurface, visible]);
 
   // Click outside to dismiss
   useEffect(() => {

@@ -26,15 +26,25 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MemoryRouter } from "react-router-dom";
-import { isValidElement } from "react";
+import { isValidElement, useRef, useState } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ViewProvider } from "@/components/views/ViewProvider";
 import { createMemoryWorkingStorage } from "@/lib/views/runtime";
 import { clusterSpots } from "@/lib/spots/grouping";
 import { useUserStore } from "@/stores/userStore";
+import { usePinStore } from "@/stores/pinStore";
+import { calculateLayerHeights } from "@/lib/utils/ionosphere";
+import { traceRayPath } from "@/lib/utils/rayTrace";
+import { buildPathPointSet, type PathPointSet } from "@/lib/spots/pathPoints";
+import { MapSurface } from "./MapSurface";
+import {
+  PathPointInspector,
+  type PathPointInspectorOpen,
+} from "./PathPointInspector";
 import type { SpotCluster } from "@/hooks/useSpotClustering";
 import type { ResolvedSpot } from "@/components/map/LiveSpotArcs";
 import type { LiveSpot } from "@/types/livespot";
+import type { PathDescriptor } from "@/lib/views/spotContracts";
 import type { ReactNode } from "react";
 
 // ---------------------------------------------------------------------------
@@ -323,6 +333,112 @@ async function openThenCloseSpotCard(callsign: string) {
 
 const displayTime = new Date("2026-09-09T12:00:00Z");
 
+// ---------------------------------------------------------------------------
+// PathPointInspector fixtures. No shared `PathPointSet` builder exists under
+// `src/test/fixtures` (checked before duplicating this), so this mirrors the
+// fixture in `PathPointInspector.test.tsx` verbatim.
+// ---------------------------------------------------------------------------
+
+const PATH_NOW_MS = new Date("2026-06-21T18:00:00Z").getTime();
+const PATH_NY = { lat: 40.7, lon: -74.0 };
+const PATH_TOKYO = { lat: 35.7, lon: 139.7 };
+
+const PATH_MODEL = {
+  name: "ITU-R P.533 ray trace",
+  version: "propulse-physics",
+  modeledAtMs: PATH_NOW_MS,
+  inputsAsOfMs: PATH_NOW_MS,
+  explanation: "Synthetic focus-home fixture model run.",
+};
+
+const PATH_DESCRIPTOR: PathDescriptor = {
+  id: "path-ny-tokyo",
+  reportIds: [],
+  kind: "modeled",
+  from: {
+    callsign: "W2NYC",
+    role: "transmitter",
+    location: { kind: "reported-coordinate", coordinates: PATH_NY },
+  },
+  to: {
+    callsign: "JA1TYO",
+    role: "receiver",
+    location: { kind: "reported-coordinate", coordinates: PATH_TOKYO },
+  },
+  direction: "from-to",
+  model: PATH_MODEL,
+};
+
+function buildTestPathPointSet(): PathPointSet {
+  return buildPathPointSet({
+    pathId: PATH_DESCRIPTOR.id,
+    path: PATH_DESCRIPTOR,
+    result: traceRayPath({
+      startLat: PATH_NY.lat,
+      startLon: PATH_NY.lon,
+      endLat: PATH_TOKYO.lat,
+      endLon: PATH_TOKYO.lon,
+      frequencyMHz: 14.074,
+      date: new Date(PATH_NOW_MS),
+      sfi: 150,
+      kp: 2,
+      pathMode: "short",
+    }),
+    nowMs: PATH_NOW_MS,
+    startLat: PATH_NY.lat,
+    startLon: PATH_NY.lon,
+    endLat: PATH_TOKYO.lat,
+    endLon: PATH_TOKYO.lon,
+    includeShellHighlights: true,
+    layerHeights: calculateLayerHeights(45, 6, 150),
+  });
+}
+
+/**
+ * Stands in for `RayPathArc` + `<Canvas>`: a real r3f `<Canvas>` renders zero
+ * children under jsdom (see the file comment), so `PathPointInspector`'s only
+ * production caller can't be mounted directly. This combines the real
+ * `MapSurface` and the real `PathPointInspector` with a plain button standing
+ * in for the 3D hit-area, mirroring the `GlobeView` case's own Canvas
+ * substitution above.
+ */
+function PathPointInspectorHost({ pointSet }: { pointSet: PathPointSet }) {
+  const surfaceRef = useRef<HTMLDivElement>(null);
+  const [open, setOpen] = useState<PathPointInspectorOpen>("closed");
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const point = pointSet.points[0];
+  return (
+    <MapSurface surfaceRef={surfaceRef} label="Globe map" className="test-surface">
+      {/* A plain div, not a button: the real hit-area is a 3D raycast against
+          the globe canvas, which is not focusable, matching the `GlobeView`
+          case's own `scene-cluster-click` substitute above. */}
+      <div
+        data-testid="path-point-hit-area"
+        onClick={() => {
+          setSelectedId(point.id);
+          setOpen("card");
+        }}
+      />
+      <PathPointInspector
+        pointSet={pointSet}
+        selectedId={selectedId}
+        hoveredId={null}
+        open={open}
+        anchor={{ x: 200, y: 200 }}
+        inline
+        onSelect={(id) => {
+          setSelectedId(id);
+          setOpen("card");
+        }}
+        onClose={() => {
+          setOpen("closed");
+          setSelectedId(null);
+        }}
+      />
+    </MapSurface>
+  );
+}
+
 describe("map surface focus home", () => {
   beforeEach(() => {
     installCanvas2dStub();
@@ -344,6 +460,7 @@ describe("map surface focus home", () => {
 
   afterEach(() => {
     useUserStore.getState().setStation(null);
+    usePinStore.getState().clearPins();
   });
 
   it("keeps the surface out of the tab order", async () => {
@@ -513,6 +630,313 @@ describe("map surface focus home", () => {
     // the test-only data attribute.
     expect(screen.getByRole("region", { name: "Globe map" })).toBe(
       document.activeElement,
+    );
+  });
+
+  // -------------------------------------------------------------------------
+  // SpotCollectionPopover (#824): the two chain tests above already close it
+  // by picking a spot, which routes into `SelectedSpotCard`. These close it
+  // directly — Escape with no spot picked — to cover the popover's own
+  // restore/fallback in isolation.
+  // -------------------------------------------------------------------------
+
+  it("FlatMapView: focus goes home after the spot collection popover closes without picking a spot", async () => {
+    const { FlatMapView } = await import("@/components/map/FlatMapView");
+    const { container } = render(
+      <Wrap>
+        <FlatMapView displayTime={displayTime} />
+      </Wrap>,
+    );
+
+    const anchor = toCanvas(
+      grouped.clusters[0].center.lat,
+      grouped.clusters[0].center.lon,
+    );
+    const canvas = screen.getByRole("img", {
+      name: /Interactive propagation map/i,
+    });
+    fireEvent.pointerDown(canvas, {
+      clientX: anchor.x,
+      clientY: anchor.y,
+      pointerId: 1,
+      button: 0,
+    });
+    fireEvent.pointerUp(document, {
+      clientX: anchor.x,
+      clientY: anchor.y,
+      pointerId: 1,
+      button: 0,
+    });
+
+    const popoverName = /3 active spots/i;
+    await screen.findByRole("dialog", { name: popoverName });
+    // The popover auto-focuses its first row on a `setTimeout(0)`.
+    const firstRow = await screen.findByRole("button", {
+      name: /Select EA1AAA and view details/i,
+    });
+    await waitFor(() => expect(document.activeElement).toBe(firstRow));
+
+    // Close via the visible "×" control rather than Escape: the popover's
+    // own Escape/click-outside listeners re-register on a `setTimeout(0)`
+    // every time its `onClose` prop changes identity (it is an inline
+    // closure in `FlatMapView`, unrelated to #824), which is a pre-existing
+    // race unrelated to focus homing. The "×" button's `onClick` calls the
+    // same `onClose` directly and exercises the same cleanup this test cares
+    // about without depending on that timing.
+    fireEvent.click(
+      screen.getByRole("button", { name: "Close spot collection" }),
+    );
+    await waitFor(() =>
+      expect(screen.queryByRole("dialog", { name: popoverName })).toBeNull(),
+    );
+
+    // The fallback is deferred by one macrotask tick (#824); `waitFor` polls
+    // past it, which is fine for this positive assertion.
+    await waitFor(() =>
+      expect(focusHolder()).toBe('the map surface, region "Flat map"'),
+    );
+    expect(document.activeElement).toBe(
+      container.querySelector("[data-map-surface]"),
+    );
+  });
+
+  it("does not take focus from a control the user moved to before the spot collection popover closes", async () => {
+    const { FlatMapView } = await import("@/components/map/FlatMapView");
+    const { container } = render(
+      <Wrap>
+        <FlatMapView displayTime={displayTime} />
+        <button type="button" aria-label="page chrome">
+          elsewhere
+        </button>
+      </Wrap>,
+    );
+
+    const anchor = toCanvas(
+      grouped.clusters[0].center.lat,
+      grouped.clusters[0].center.lon,
+    );
+    const canvas = screen.getByRole("img", {
+      name: /Interactive propagation map/i,
+    });
+    fireEvent.pointerDown(canvas, {
+      clientX: anchor.x,
+      clientY: anchor.y,
+      pointerId: 1,
+      button: 0,
+    });
+    fireEvent.pointerUp(document, {
+      clientX: anchor.x,
+      clientY: anchor.y,
+      pointerId: 1,
+      button: 0,
+    });
+
+    const popoverName = /3 active spots/i;
+    await screen.findByRole("dialog", { name: popoverName });
+    const firstRow = await screen.findByRole("button", {
+      name: /Select EA1AAA and view details/i,
+    });
+    await waitFor(() => expect(document.activeElement).toBe(firstRow));
+
+    const elsewhere = screen.getByRole("button", { name: "page chrome" });
+    elsewhere.focus();
+    expect(focusHolder()).toBe('button[aria-label="page chrome"]');
+
+    // See the positive case above for why this closes via the "×" control
+    // instead of Escape.
+    fireEvent.click(
+      screen.getByRole("button", { name: "Close spot collection" }),
+    );
+    await waitFor(() =>
+      expect(screen.queryByRole("dialog", { name: popoverName })).toBeNull(),
+    );
+
+    // Negative assertion: force the deferred fallback tick to actually run
+    // before checking that it did not fire, instead of trusting `waitFor` to
+    // succeed trivially without ever exercising the deferred branch.
+    await new Promise((resolve) => setTimeout(resolve, 20));
+
+    expect(focusHolder()).toBe('button[aria-label="page chrome"]');
+    expect(document.activeElement).not.toBe(
+      container.querySelector("[data-map-surface]"),
+    );
+  });
+
+  // -------------------------------------------------------------------------
+  // PinFlyout (#824): opens on hover, never focuses itself, but a keyboard
+  // user can still tab into its own buttons while the mouse keeps it open.
+  // -------------------------------------------------------------------------
+
+  it("FlatMapView: focus goes home after a pin flyout closes", async () => {
+    usePinStore.getState().addPin({
+      lat: 10,
+      lon: 10,
+      grid: "JJ00aa",
+      name: "Test Pin",
+    });
+    const { FlatMapView } = await import("@/components/map/FlatMapView");
+    const { container } = render(
+      <Wrap>
+        <FlatMapView displayTime={displayTime} />
+      </Wrap>,
+    );
+
+    const canvas = screen.getByRole("img", {
+      name: /Interactive propagation map/i,
+    });
+    const pinPos = toCanvas(10, 10);
+    fireEvent.pointerMove(canvas, {
+      clientX: pinPos.x,
+      clientY: pinPos.y,
+      pointerId: 1,
+    });
+
+    const editButton = await screen.findByRole("button", { name: "Edit Pin" });
+    // A keyboard user tabs into the flyout's own content while the mouse
+    // keeps it open on hover.
+    editButton.focus();
+    expect(document.activeElement).toBe(editButton);
+
+    fireEvent.keyDown(document, { key: "Escape" });
+    await waitFor(() =>
+      expect(
+        screen.queryByRole("dialog", { name: /Pin info: Test Pin/i }),
+      ).toBeNull(),
+    );
+
+    await waitFor(() =>
+      expect(focusHolder()).toBe('the map surface, region "Flat map"'),
+    );
+    expect(document.activeElement).toBe(
+      container.querySelector("[data-map-surface]"),
+    );
+  });
+
+  it("does not take focus from a control the user moved to before a pin flyout closes", async () => {
+    usePinStore.getState().addPin({
+      lat: 10,
+      lon: 10,
+      grid: "JJ00aa",
+      name: "Test Pin",
+    });
+    const { FlatMapView } = await import("@/components/map/FlatMapView");
+    const { container } = render(
+      <Wrap>
+        <FlatMapView displayTime={displayTime} />
+        <button type="button" aria-label="page chrome">
+          elsewhere
+        </button>
+      </Wrap>,
+    );
+
+    const canvas = screen.getByRole("img", {
+      name: /Interactive propagation map/i,
+    });
+    const pinPos = toCanvas(10, 10);
+    fireEvent.pointerMove(canvas, {
+      clientX: pinPos.x,
+      clientY: pinPos.y,
+      pointerId: 1,
+    });
+
+    const editButton = await screen.findByRole("button", { name: "Edit Pin" });
+    editButton.focus();
+    expect(document.activeElement).toBe(editButton);
+
+    // The user tabs back out to something unrelated while the flyout is
+    // still open (the mouse is still hovering the pin, so it hasn't closed).
+    const elsewhere = screen.getByRole("button", { name: "page chrome" });
+    elsewhere.focus();
+    expect(focusHolder()).toBe('button[aria-label="page chrome"]');
+
+    fireEvent.keyDown(document, { key: "Escape" });
+    await waitFor(() =>
+      expect(
+        screen.queryByRole("dialog", { name: /Pin info: Test Pin/i }),
+      ).toBeNull(),
+    );
+
+    await new Promise((resolve) => setTimeout(resolve, 20));
+
+    expect(focusHolder()).toBe('button[aria-label="page chrome"]');
+    expect(document.activeElement).not.toBe(
+      container.querySelector("[data-map-surface]"),
+    );
+  });
+
+  // -------------------------------------------------------------------------
+  // PathPointInspector (#824): only reachable in production through
+  // `RayPathArc` inside a `<Canvas>`, which renders nothing under jsdom (see
+  // the file comment). `PathPointInspectorHost` above substitutes a plain
+  // button for the 3D hit-area around the real `MapSurface` and the real
+  // `PathPointInspector`, the same shape as the `GlobeView` case's own Canvas
+  // substitution.
+  // -------------------------------------------------------------------------
+
+  it("PathPointInspector: focus goes home after the panel closes", async () => {
+    const pointSet = buildTestPathPointSet();
+    const { container } = render(
+      <PathPointInspectorHost pointSet={pointSet} />,
+    );
+
+    fireEvent.click(screen.getByTestId("path-point-hit-area"));
+    await screen.findByRole("dialog", { name: "Path point details" });
+    // `PathPointList` focuses the selected option itself once the panel
+    // opens (pre-existing, unrelated to #824) — this is not the "opened via
+    // a hit-test that never touches focus" case the other three overlays
+    // are. A keyboard user tabbing on to the panel's own close button from
+    // there is still a real path this effect has to cover correctly.
+    const closeButton = await screen.findByRole("button", {
+      name: "Close path point card",
+    });
+    closeButton.focus();
+    expect(document.activeElement).toBe(closeButton);
+
+    fireEvent.keyDown(window, { key: "Escape" });
+    await waitFor(() =>
+      expect(
+        screen.queryByRole("dialog", { name: "Path point details" }),
+      ).toBeNull(),
+    );
+
+    await waitFor(() =>
+      expect(focusHolder()).toBe('the map surface, region "Globe map"'),
+    );
+    expect(document.activeElement).toBe(
+      container.querySelector("[data-map-surface]"),
+    );
+  });
+
+  it("does not take focus from a control the user moved to before the path point panel closes", async () => {
+    const pointSet = buildTestPathPointSet();
+    const { container } = render(
+      <>
+        <PathPointInspectorHost pointSet={pointSet} />
+        <button type="button" aria-label="page chrome">
+          elsewhere
+        </button>
+      </>,
+    );
+
+    fireEvent.click(screen.getByTestId("path-point-hit-area"));
+    await screen.findByRole("dialog", { name: "Path point details" });
+
+    const elsewhere = screen.getByRole("button", { name: "page chrome" });
+    elsewhere.focus();
+    expect(focusHolder()).toBe('button[aria-label="page chrome"]');
+
+    fireEvent.keyDown(window, { key: "Escape" });
+    await waitFor(() =>
+      expect(
+        screen.queryByRole("dialog", { name: "Path point details" }),
+      ).toBeNull(),
+    );
+
+    await new Promise((resolve) => setTimeout(resolve, 20));
+
+    expect(focusHolder()).toBe('button[aria-label="page chrome"]');
+    expect(document.activeElement).not.toBe(
+      container.querySelector("[data-map-surface]"),
     );
   });
 });

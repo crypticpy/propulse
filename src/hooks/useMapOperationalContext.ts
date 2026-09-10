@@ -22,6 +22,11 @@ import {
   type MapDataScope,
 } from "@/lib/map/operationalScope";
 import { resolveMapPolicyScope } from "@/lib/map/contactMapPolicy";
+import {
+  normalizeContestUiState,
+  normalizeDockTabIntent,
+  normalizeOperationalState,
+} from "@/lib/map/workspaceSyncPayload";
 import { useOpsPostureStore } from "@/stores/opsPostureStore";
 
 export interface MapOperationalContext {
@@ -163,6 +168,15 @@ type WorkspaceMessage =
 
 const WORKSPACE_CHANNEL = "propulse-operating-workspace-v2";
 
+/**
+ * Only a *stamped* intent means anything to another window: an unstamped one
+ * has no scope to pair with there, and the stamp follows in the same task.
+ */
+function stampedDockTabIntent(): DockTabIntent | null {
+  const intent = useContestUIEphemeralStore.getState().dockTabIntent;
+  return intent !== null && intent.scope !== null ? intent : null;
+}
+
 function createWorkspaceSnapshot(): WorkspaceSnapshot {
   const operational = useMapOperationalStore.getState();
   const qso = useQSOStore.getState();
@@ -191,7 +205,7 @@ function createWorkspaceSnapshot(): WorkspaceSnapshot {
       draftSelectionBySessionId: contestUi.draftSelectionBySessionId,
       draftUpdatedAtBySessionId: contestUi.draftUpdatedAtBySessionId,
       publicAssistanceBySessionId: contestUi.publicAssistanceBySessionId,
-      dockTabIntent: useContestUIEphemeralStore.getState().dockTabIntent,
+      dockTabIntent: stampedDockTabIntent(),
     },
   };
 }
@@ -319,12 +333,20 @@ export function useOperationalWorkspaceSync(): void {
       // message and cannot arrive after it.
       useContestUIEphemeralStore.subscribe((state, previous) => {
         if (state.dockTabIntent === previous.dockTabIntent) return;
-        // Only a stamped intent is worth sending: an unstamped one has no
-        // scope to pair with in the other window, and the stamp follows in the
-        // same task.
-        if (state.dockTabIntent?.scope != null) {
-          pendingDockTabIntent = state.dockTabIntent;
+        // Only a locally produced intent may populate the latch (#884 round 8,
+        // Codex P1). `publish` checks `applyingRemote`, but the assignment
+        // below happens first, so a remote apply used to leave the intent
+        // latched; the next local publish sent it back to the window it came
+        // from, which consumed it and published again — an endless ping-pong
+        // after any cross-window tab click.
+        if (applyingRemote) return;
+        // Only a stamped intent is worth sending, and a clear carries nothing
+        // a peer can use (a remote null never clears a held intent), so those
+        // transitions publish nothing at all.
+        if (state.dockTabIntent === null || state.dockTabIntent.scope === null) {
+          return;
         }
+        pendingDockTabIntent = state.dockTabIntent;
         publish("contestUi");
       }),
     ];
@@ -359,8 +381,10 @@ export function useOperationalWorkspaceSync(): void {
         // stale contest session, target, or UI snapshot from another window.
         switch (message.domain) {
           case "operational":
+            // Mixed-version windows are the normal state during a deploy, so
+            // every field is validated before it is stored (#884 round 8).
             useMapOperationalStore.setState(
-              message.state as WorkspaceSnapshot["operational"],
+              normalizeOperationalState(message.state),
             );
             break;
           case "qso":
@@ -378,8 +402,13 @@ export function useOperationalWorkspaceSync(): void {
             );
             break;
           case "contestUi": {
-            const { dockTabIntent, ...contestUiState } =
-              message.state as WorkspaceSnapshot["contestUi"];
+            // A window on a bundle that predates the intent sends a payload
+            // without the field at all: `normalizeDockTabIntent` turns that
+            // (and any other malformed marker) into null rather than storing
+            // an `undefined` the reconciler would dereference (#884 round 8).
+            const intent = normalizeDockTabIntent(
+              (message.state as Record<string, unknown>).dockTabIntent,
+            );
             // Set the intent first: the reconciler in this window must see it
             // on the same run that sees the tab it excuses, and it holds there
             // until the paired `operational` message moves the scope. A null
@@ -388,10 +417,10 @@ export function useOperationalWorkspaceSync(): void {
             // would otherwise strip the intent here before the paired
             // `operational` message lands (#884 round 7). The local expiry
             // rule in useDockTabReconciler is the only thing that releases it.
-            if (dockTabIntent !== null) {
-              useContestUIEphemeralStore.setState({ dockTabIntent });
+            if (intent !== null) {
+              useContestUIEphemeralStore.setState({ dockTabIntent: intent });
             }
-            useContestUIStore.setState(contestUiState);
+            useContestUIStore.setState(normalizeContestUiState(message.state));
             break;
           }
         }

@@ -61,6 +61,35 @@ function dockTab(): string | undefined {
   return useContestUIStore.getState().dockTabBySessionId[NO_SESSION_DOCK_KEY];
 }
 
+
+let nextRevision = 100;
+
+/** A snapshot message as another window would put it on the channel. */
+function snapshotMessage(domain: string, state: unknown): Message {
+  return {
+    kind: "snapshot",
+    sender: "other-window",
+    domain,
+    revision: nextRevision++,
+    state,
+  } as Message & { sender: string; revision: number };
+}
+
+const CONTEST_UI_MAPS = {
+  bandBySessionId: {},
+  modeBySessionId: {},
+  draftBySessionId: {},
+  draftSelectionBySessionId: {},
+  draftUpdatedAtBySessionId: {},
+  publicAssistanceBySessionId: {},
+};
+
+function snapshotsSince(channel: TestChannel, from: number): Message[] {
+  return messagesOf(channel)
+    .slice(from)
+    .filter((m) => m.kind === "snapshot");
+}
+
 beforeEach(() => {
   vi.stubGlobal("BroadcastChannel", TestChannel);
   TestChannel.instances = [];
@@ -216,6 +245,99 @@ describe("dock tab across the /map/ops popout", () => {
     });
     await flush();
 
+    expect(dockTab()).toBe("log");
+  });
+
+  // #884 round 8 (Codex P1, useMapOperationalContext.ts:326): the ephemeral
+  // subscriber latched every intent change, including the one a remote apply
+  // had just written, so the marker was published straight back to the window
+  // it came from — which consumed it and published again, forever.
+  it("does not publish anything back after applying a remote intent", async () => {
+    useContestUIStore.setState({
+      dockTabBySessionId: { [NO_SESSION_DOCK_KEY]: "log" },
+    });
+    render(<Window />);
+    await flush();
+    const receiver = TestChannel.instances.at(-1) as TestChannel;
+    const before = messagesOf(receiver).length;
+
+    await act(async () => {
+      deliver(
+        receiver,
+        snapshotMessage("contestUi", {
+          dockTabBySessionId: { [NO_SESSION_DOCK_KEY]: "contest" },
+          ...CONTEST_UI_MAPS,
+          dockTabIntent: { tab: "contest", scope: "log" },
+        }),
+      );
+      await Promise.resolve();
+    });
+    await act(async () => {
+      deliver(
+        receiver,
+        snapshotMessage("operational", {
+          manualScope: null,
+          workspaceOpen: true,
+          selectedReport: null,
+        }),
+      );
+      await Promise.resolve();
+    });
+    // Several microtask turns: a ping-pong would keep producing messages.
+    for (let turn = 0; turn < 5; turn += 1) await flush();
+
+    expect(snapshotsSince(receiver, before)).toEqual([]);
+    expect(dockTab()).toBe("contest");
+    expect(useContestUIEphemeralStore.getState().dockTabIntent).toBeNull();
+
+    // And the marker must not be latched either: the next ordinary local
+    // publish would otherwise carry the remote intent back to its originator,
+    // which consumes it and publishes again.
+    const beforeLocal = messagesOf(receiver).length;
+    act(() => {
+      useContestUIStore.setState({
+        bandBySessionId: { [NO_SESSION_DOCK_KEY]: "20m" },
+      });
+    });
+    await flush();
+    const echoed = snapshotsSince(receiver, beforeLocal).filter(
+      (m) => m.domain === "contestUi",
+    );
+    expect(echoed).toHaveLength(1);
+    expect(echoed[0]?.state).toMatchObject({ dockTabIntent: null });
+  });
+
+  // #884 round 8 (Codex P2, useMapOperationalContext.ts:392): the channel name
+  // has not changed, so during a deploy a window on the previous bundle answers
+  // the startup request with a contestUi snapshot that has no dockTabIntent at
+  // all. Storing that `undefined` made the reconciler dereference it and throw
+  // inside the effect.
+  it("survives a legacy contestUi snapshot with no dock-tab intent", async () => {
+    useContestUIStore.setState({
+      dockTabBySessionId: { [NO_SESSION_DOCK_KEY]: "log" },
+    });
+    render(<Window />);
+    await flush();
+    const receiver = TestChannel.instances.at(-1) as TestChannel;
+
+    await act(async () => {
+      deliver(
+        receiver,
+        snapshotMessage("contestUi", {
+          dockTabBySessionId: { [NO_SESSION_DOCK_KEY]: "contest" },
+          ...CONTEST_UI_MAPS,
+        }),
+      );
+      await Promise.resolve();
+    });
+
+    // No throw, the marker is absent rather than undefined, and the reconciler
+    // keeps reconciling: the scope here is Observe, so the dock goes to DX.
+    expect(useContestUIEphemeralStore.getState().dockTabIntent).toBeNull();
+    await act(async () => {
+      useRigStore.setState({ connected: true });
+      await Promise.resolve();
+    });
     expect(dockTab()).toBe("log");
   });
 });

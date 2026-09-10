@@ -42,7 +42,7 @@
  * So the treatment is the ink, not the alpha: keep the accent tint as the fill,
  * draw the label in `--su-text`, and keep the tint at or below `/20`. The sites
  * inside `src/components/ui` (this agent's file scope on #803) carry that
- * treatment and are measured individually below. The remaining 136 sites in 90
+ * treatment and are measured individually below. The remaining 136 sites in 89
  * files are sequenced by the orchestrator; the census ledger at the bottom
  * budgets them so no *new* same-line site can land in the meantime.
  */
@@ -1175,22 +1175,66 @@ const FIXED_SITES: TintedSite[] = [
                       ? "bg-plasma-orange/20 text-su-text border-plasma-orange/50"`,
   },
   // Batch 4b (#803): src/components/shack (+ shack/builder), excluding
-  // src/components/sdr (batch 4a, #890). 8 files, 11 ledger sites; 10
-  // certified via FIXED_SITES. The 11th, NodeConfigPanel.tsx's inline
-  // AccessoryDetail Badge (`<Badge color="bg-plasma-orange/15 ...">`), is
-  // fixed in source (ink swapped) but not listed: `color` is a plain JSX
-  // attribute, not `className=`, so extractClassNameValue has nothing to
-  // bind to, and a `classSource` locator on that JSX line would walk
-  // extractClassSourceValue's statement-scan forward through the rest of
-  // the component's returned JSX (balanced braces net to zero across every
-  // sibling conditional block) to the function's closing `);`, capturing
-  // unrelated className values rather than just this Badge -- the same
-  // "no className=/classSource to bind to" shape batch 4a documented for
-  // FateBandAdvisor.tsx. All four managers (AccessoryManager,
+  // src/components/sdr (batch 4a, #890). 8 files, 11 ledger sites, all 11
+  // now certified via FIXED_SITES. NodeConfigPanel.tsx's AccessoryDetail
+  // Badge originally shipped as a plain JSX `color="..."` attribute with no
+  // `className=` for extractClassNameValue to bind and no safe
+  // `classSource` locator (a statement-scan on that JSX line would walk
+  // forward through the rest of the component's returned JSX to the
+  // function's closing `);`) -- the same shape batch 4a documented for
+  // FateBandAdvisor.tsx. Fixed round two: the class string is hoisted to a
+  // module-scope `const ACCESSORY_BADGE_CLASS = "...";` declaration and
+  // referenced via `color={ACCESSORY_BADGE_CLASS}`, so `classSource` binds
+  // a single unambiguous statement. All four managers (AccessoryManager,
   // AntennaManager, FeedlineManager, InlineComponentManager) share an
-  // identical "+ Add X" header button; PresetBuilder.tsx has no production
-  // mount (fixed anyway, listed for #798). Surfaces argued per-site in the
-  // PR body; --su-text clears every measured surface at /20 regardless.
+  // identical "+ Add X" header button; PresetBuilder.tsx and
+  // ChainSelector.tsx have no production mount (fixed anyway, both listed
+  // for #798). PresetBuilder's preset cards paint their accent wash on
+  // `bg-panel/30` over the builder canvas -- a 30%-panel-over-canvas blend
+  // sits between the measured panel and canvas endpoints (both clear at
+  // `/20`), so it is bounded but not itself a measured surface. Surfaces
+  // argued per-site in the PR body; --su-text clears every measured surface
+  // at /20 regardless.
+  //
+  // Fix round two (Opus second-opinion review of PR #891) added three more
+  // in-scope #803 sites the per-line census cannot see, and one
+  // nested-wash parent:
+  // - ChainSelector.tsx's active chain-list row button shared its `isActive`
+  //   predicate with the row's own "Active" badge (a /20 accent child), so
+  //   the pre-fix `bg-plasma-orange/10 text-su-text` button composited to
+  //   0.20 + 0.8x0.10 = 0.28 whenever the badge was showing -- a false
+  //   certification the same shape NEUTRALISED_PARENTS already guards
+  //   against elsewhere. The button's own wash was neutralised (no
+  //   bg-plasma-orange/ token left in its className); see
+  //   NEUTRALISED_PARENTS below.
+  // - ShackSchematicView.tsx's "Create Your First Signal Path" empty-state
+  //   button wrapped its ink onto a different physical line of a multi-line
+  //   className than its tint, invisible to the same-line census, and its
+  //   hover value exceeded TINT_CAP; both are fixed and certified below.
+  // - BuilderCanvas.tsx's drag-from-drawer drop-target icon (an <svg> whose
+  //   own className carries the ink) sits inside a sibling <div> whose
+  //   className carries the /20 tint -- a cross-element #873 pairing the
+  //   per-line census and a FIXED_SITES row both miss, because neither one
+  //   judges a child's own className against a parent's. The svg's ink is
+  //   fixed in source; it is deliberately NOT a FIXED_SITES row, because a
+  //   row on the svg's own className would be vacuous (no bg-plasma-orange/
+  //   token in that className for assertInkOnTintedBranches to judge) and
+  //   would falsely read as certifying the parent/child pairing -- shipped
+  //   but uncertifiable, same treatment #890 used for SpotTagOverlay. The
+  //   sibling <p> "Drop here to add" label sits on a DIFFERENT ancestor's
+  //   /10 tint and is untouched (below TINT_CAP), as is the /5 ghost radio
+  //   icon further down -- both left for the general #873 backlog.
+  // - ChainStripPreview.tsx's `getNodeTypeConfig` returns a `{color, bg}`
+  //   pair consumed by two different elements (a circle div for `bg`, an
+  //   abbreviation span for `color`) -- another #873 cross-element shape,
+  //   this time via a config object rather than the DOM. The "radio" case's
+  //   ink is fixed in source; also shipped but uncertifiable, for the same
+  //   reason as BuilderCanvas above (the tint and ink live in separate
+  //   quoted-string branches of the same object literal, so even a clean
+  //   `classSource` bind on `case "radio":` would fail
+  //   assertInkOnTintedBranches, which judges each quoted segment alone).
+  //   The other three cases (accessory/feedline_run/antenna) use non-accent
+  //   tokens and belong to #827, untouched.
   {
     file: "src/components/shack/AccessoryManager.tsx",
     what: '"+ Add Accessory" button',
@@ -1245,6 +1289,18 @@ const FIXED_SITES: TintedSite[] = [
     what: "the orange BADGE_STYLES entry",
     snippet: `orange: "bg-plasma-orange/15 text-su-text",`,
     classSource: `orange:`,
+  },
+  {
+    file: "src/components/shack/builder/ShackSchematicView.tsx",
+    what: '"Create Your First Signal Path" empty-state button',
+    snippet: `rounded-xl text-su-text text-sm font-semibold
+              hover:bg-plasma-orange/20 hover:border-plasma-orange/50`,
+  },
+  {
+    file: "src/components/shack/builder/NodeConfigPanel.tsx",
+    what: "the accessory-detail Badge, hoisted to a module constant so classSource has a single declaration to bind",
+    snippet: `const ACCESSORY_BADGE_CLASS = "bg-plasma-orange/15 text-su-text";`,
+    classSource: `const ACCESSORY_BADGE_CLASS =`,
   },
 ];
 
@@ -1320,6 +1376,11 @@ const NEUTRALISED_PARENTS: TintedSite[] = [
     what: 'the "More Filters" toggle, active-filter state (wraps the count badge)',
     snippet: `bg-su-line/10 text-su-text border border-plasma-orange/40 hover:bg-su-line/20`,
   },
+  {
+    file: "src/components/shack/builder/ChainSelector.tsx",
+    what: "a chain-list row button in its active state (shares the isActive predicate with the sibling Active badge, which carries its own /20 accent wash)",
+    snippet: `\${isActive ? "bg-su-line/10 text-su-text" : "text-su-muted hover:bg-su-line/10"}`,
+  },
 ];
 
 // `extractClassNameValue` (used below) is defined earlier in this file,
@@ -1369,7 +1430,7 @@ describe("census guard: no new accent ink on an accent tint (#803)", () => {
    * assertion is `<=`. A file that gains a pairing fails; a file that is not
    * listed is budgeted at zero, so a brand new site fails; a file whose sites
    * get fixed simply passes with room to spare, so the sequenced follow-up PRs
-   * (the 90 files outside this agent's scope on #803) never have to touch
+   * (the 89 files outside this agent's scope on #803) never have to touch
    * this table to land. `src/components/ui` is deliberately absent -- see the
    * explicit clause below.
    */

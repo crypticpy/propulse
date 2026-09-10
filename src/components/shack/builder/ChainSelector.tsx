@@ -128,7 +128,7 @@ export function ChainSelector({
                     className={`
                       w-full flex items-center gap-2 px-3 py-2 text-left
                       transition-colors duration-100
-                      ${isActive ? "bg-plasma-orange/10 text-su-text" : "text-su-muted hover:bg-su-line/10"}
+                      ${isActive ? "bg-su-line/10 text-su-text" : "text-su-muted hover:bg-su-line/10"}
                     `}
                   >
                     <span className="flex-1 min-w-0 truncate text-sm">

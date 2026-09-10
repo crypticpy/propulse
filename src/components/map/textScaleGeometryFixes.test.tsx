@@ -370,6 +370,36 @@ describe("ISSTrackerOverlay (fix 5: info card width follows its own text)", () =
     expect(rowLine).toBeDefined();
     expect(rowLine).toContain("flex-wrap");
   });
+
+  it("round-8: the orbital/observer/pass grids stack instead of clipping their fixed two-column cells, and the frequency label can wrap", () => {
+    const absPath = resolve(
+      REPO_ROOT,
+      "src/components/map/ISSTrackerOverlay.tsx",
+    );
+    const source = readFileSync(absPath, "utf8");
+    // A fixed two-column grid cannot reflow at the narrow viewport cap;
+    // auto-fit columns stack when the card is narrower than two cells (same
+    // pattern as SatelliteOverlay's round-7 fix above).
+    expect(source).not.toContain('className="grid grid-cols-2');
+    expect(source).toContain("grid-cols-[repeat(auto-fit,minmax(6.5rem,1fr))]");
+
+    const lines = source.split("\n");
+    const labelLineIndex = lines.findIndex((line) =>
+      line.includes("{f.label}"),
+    );
+    expect(labelLineIndex).toBeGreaterThanOrEqual(0);
+    // Grab the whole opening-tag block that precedes {f.label}, not just the
+    // nearest line: the tag's attributes can be spread across several lines
+    // (className on one, style on another), and a search for the single
+    // nearest "<span" line would miss a `truncate`/max-width sitting on a
+    // sibling attribute line.
+    const labelSpanBlock = lines
+      .slice(Math.max(0, labelLineIndex - 6), labelLineIndex)
+      .join("\n");
+    expect(labelSpanBlock).not.toContain("truncate");
+    expect(labelSpanBlock).not.toContain("max-w-[");
+    expect(labelSpanBlock).not.toContain("maxWidth");
+  });
 });
 
 describe("SatellitePanel (round-5 sweep: pass-quality row wraps instead of overflowing)", () => {

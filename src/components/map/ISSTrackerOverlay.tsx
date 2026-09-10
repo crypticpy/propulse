@@ -267,7 +267,7 @@ function ISSInfoCard({ tracker, occlusionOpacity }: ISSInfoCardProps) {
         >
           Position
         </div>
-        <div className="grid grid-cols-2 gap-x-3 gap-y-0.5">
+        <div className="grid grid-cols-[repeat(auto-fit,minmax(6.5rem,1fr))] gap-x-3 gap-y-0.5">
           <div className="flex justify-between">
             <span style={{ color: "#888" }}>Lat:</span>
             <span style={{ color: "#ccc" }}>
@@ -313,7 +313,7 @@ function ISSInfoCard({ tracker, occlusionOpacity }: ISSInfoCardProps) {
             >
               From Your QTH
             </div>
-            <div className="grid grid-cols-2 gap-x-3 gap-y-0.5">
+            <div className="grid grid-cols-[repeat(auto-fit,minmax(6.5rem,1fr))] gap-x-3 gap-y-0.5">
               <div className="flex justify-between">
                 <span style={{ color: "#888" }}>Elev:</span>
                 <span style={{ color: isAboveHorizon ? "#00ff88" : "#ccc" }}>
@@ -341,7 +341,7 @@ function ISSInfoCard({ tracker, occlusionOpacity }: ISSInfoCardProps) {
             >
               {currentPass ? "Current Pass" : "Next Pass"}
             </div>
-            <div className="grid grid-cols-2 gap-x-3 gap-y-0.5">
+            <div className="grid grid-cols-[repeat(auto-fit,minmax(6.5rem,1fr))] gap-x-3 gap-y-0.5">
               {currentPass ? (
                 <>
                   <div className="flex justify-between">
@@ -415,10 +415,7 @@ function ISSInfoCard({ tracker, occlusionOpacity }: ISSInfoCardProps) {
               // drop under the label instead of overflowing the row.
               className="flex flex-wrap items-baseline justify-between gap-1"
             >
-              <span
-                className="text-xs truncate"
-                style={{ color: "#999", maxWidth: "90px" }}
-              >
+              <span className="text-xs" style={{ color: "#999" }}>
                 {f.label}
               </span>
               <span

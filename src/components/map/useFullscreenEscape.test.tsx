@@ -47,15 +47,21 @@ const FAKE_SATELLITE: SatelliteInfoExtended = {
 };
 
 /**
- * Stand-in for the ~11 modals issue #801 describes as still affected until
- * #773 finishes (e.g. `PassphrasePrompt.tsx`, `QslSyncPanel.tsx`,
- * `EquipmentDetailModal.tsx`): `role="dialog" aria-modal="true"`, closes
- * itself from a bubble-phase (non-capture) `document` keydown listener, and
- * calls only `stopPropagation()` — which is a no-op against a sibling
- * bubble-phase listener on the same node. This is the actual bug shape;
- * `AccessibleDialog` (capture phase + `stopImmediatePropagation`) already
- * protects itself independently of the fix under test, so it can't exercise
- * this path — see the note on the AccessibleDialog test below.
+ * Stand-in for the legacy bubble-phase modal shape issue #801 describes:
+ * `role="dialog" aria-modal="true"`, closes itself from a bubble-phase
+ * (non-capture) `document` keydown listener, and calls only
+ * `stopPropagation()` — which is a no-op against a sibling bubble-phase
+ * listener on the same node. This is the actual bug shape; `AccessibleDialog`
+ * (capture phase + `stopImmediatePropagation`) already protects itself
+ * independently of the fix under test, so it can't exercise this path — see
+ * the note on the AccessibleDialog test below.
+ *
+ * The three files this comment used to name as pending #773 work are not
+ * pending any more, for two different reasons. `QslSyncPanel.tsx` is live
+ * (rendered twice from `Logbook.tsx`) and already renders through
+ * `AccessibleDialog`. `PassphrasePrompt.tsx` and `EquipmentDetailModal.tsx`
+ * turned out to have zero render sites, so the #773 finale deleted the inert
+ * exemption rather than migrating them.
  */
 function LegacyBubbleModal({ onClose }: { onClose: () => void }) {
   useEffect(() => {

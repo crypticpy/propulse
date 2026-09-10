@@ -1063,3 +1063,58 @@ describe("round-13 Codex site family: fixed-width labels that grew from sub-floo
     );
   });
 });
+
+describe("round-14 Codex site family: non-wrapping label rows in the narrow columns", () => {
+  // At xl text scale the 200px Time column (PropSphere grid) and the 220px
+  // Operator Profile / Satellite panel minimum leave under 180px of row.
+  // A `flex items-center` row that holds an uppercase tracking-wider label
+  // plus a badge, control group or dot strip must be allowed to wrap, or
+  // the trailing items paint into the neighbouring column or get clipped
+  // by an `overflow-hidden` ancestor.
+  const SITES: Array<[file: string, anchor: string]> = [
+    ["src/components/map/TimeControl.tsx", 'title={isPlaying ? "Pause" : "Play through time"}'],
+    ["src/components/map/OperatorProfile.tsx", "Watch\n"],
+    ["src/components/map/OperatorProfile.tsx", "{watchedBands.map((band) => ("],
+    ["src/components/map/SatellitePanel.tsx", "Transponders\n"],
+    ["src/components/map/PathAnalysis.tsx", "<span className=\"min-w-6 text-xs font-medium uppercase tracking-wider"],
+    ["src/components/map/layers/SatelliteDetailModal.tsx", "Transponders\n"],
+    ["src/components/map/layers/SatelliteDetailModal.tsx", "Signal\n"],
+  ];
+
+  it.each(SITES)("%s: the row above %j wraps", (file, anchor) => {
+    const lines = readFileSync(resolve(REPO_ROOT, file), "utf8").split("\n");
+    const anchorLine = anchor.replace(/\n$/, "");
+    const at = lines.findIndex((l) => l.includes(anchorLine) && (anchor.endsWith("\n") ? l.trim() === anchorLine : true));
+    expect(at, anchor).toBeGreaterThanOrEqual(0);
+    // The nearest `flex` container above the anchor (the row) must wrap.
+    const row = lines
+      .slice(Math.max(0, at - 14), at)
+      .reverse()
+      .find((l) => /className="flex /.test(l));
+    expect(row, anchor).toBeDefined();
+    expect(row, anchor).toContain("flex-wrap");
+  });
+
+  it("no diff file keeps a non-wrapping flex row whose label is uppercase tracking-wider text-xs", () => {
+    const files = [
+      "src/components/map/TimeControl.tsx",
+      "src/components/map/OperatorProfile.tsx",
+      "src/components/map/SatellitePanel.tsx",
+      "src/components/map/PathAnalysis.tsx",
+      "src/components/map/layers/SatelliteDetailModal.tsx",
+      "src/components/map/LayersPopover.tsx",
+      "src/components/map/ISSTrackerOverlay.tsx",
+      "src/components/map/SatelliteOverlay.tsx",
+    ];
+    const offenders: string[] = [];
+    for (const file of files) {
+      const lines = readFileSync(resolve(REPO_ROOT, file), "utf8").split("\n");
+      lines.forEach((line, i) => {
+        if (!line.includes('className="flex items-center') || line.includes("flex-wrap") || line.includes("justify-between")) return;
+        const window = lines.slice(i + 1, i + 4).join("\n");
+        if (window.includes("uppercase tracking-wider") && window.includes("text-xs")) offenders.push(`${file}:${i + 1}`);
+      });
+    }
+    expect(offenders).toEqual([]);
+  });
+});

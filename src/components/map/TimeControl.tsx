@@ -748,7 +748,7 @@ export function TimeControl({ className = "" }: TimeControlProps) {
 
       {/* Time slider with play controls */}
       <div className="relative mt-auto">
-        <div className="flex items-center gap-2 mb-2">
+        <div className="flex flex-wrap items-center gap-x-2 gap-y-1 mb-2">
           <button
             onClick={() => setIsPlaying(!isPlaying)}
             className={`p-1.5 rounded transition-colors ${

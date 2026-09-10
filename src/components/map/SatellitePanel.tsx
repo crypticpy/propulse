@@ -356,7 +356,7 @@ function TransponderInfo({
 
   return (
     <div className="mt-2">
-      <div className="flex items-center gap-1.5 mb-1">
+      <div className="flex flex-wrap items-center gap-x-1.5 gap-y-1 mb-1">
         <span className="text-xs text-su-muted uppercase tracking-wider">
           Transponders
         </span>

@@ -699,11 +699,11 @@ export function OperatorProfile({ className = "" }: OperatorProfileProps) {
 
           {/* Watched bands strip */}
           {watchedBands.length > 0 && (
-            <div className="flex items-center gap-1.5 mt-1.5">
+            <div className="flex flex-wrap items-center gap-x-1.5 gap-y-1 mt-1.5">
               <span className="text-xs text-su-muted uppercase tracking-wider">
                 Watch
               </span>
-              <div className="flex items-center gap-1">
+              <div className="flex flex-wrap items-center gap-1">
                 {watchedBands.map((band) => (
                   <span
                     key={band}

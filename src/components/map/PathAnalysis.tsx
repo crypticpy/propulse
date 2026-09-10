@@ -290,7 +290,7 @@ function HopStrip({
   result: RayTraceResult;
 }) {
   return (
-    <div className="flex items-center gap-1.5">
+    <div className="flex flex-wrap items-center gap-1.5">
       <span className="min-w-6 text-xs font-medium uppercase tracking-wider text-su-muted">
         {label}
       </span>

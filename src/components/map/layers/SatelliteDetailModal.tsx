@@ -216,7 +216,7 @@ function TransponderInfo({
 
   return (
     <div className="mt-3">
-      <div className="flex items-center gap-1.5 mb-1.5">
+      <div className="flex flex-wrap items-center gap-x-1.5 gap-y-1 mb-1.5">
         <span className="text-xs text-su-muted uppercase tracking-wider font-semibold">
           Transponders
         </span>
@@ -571,7 +571,7 @@ function SatelliteDetailContent({
         {/* Link Budget Indicator */}
         {linkBudget && (
           <div className="mt-2 flex items-center gap-2 flex-wrap">
-            <div className="flex items-center gap-1.5">
+            <div className="flex flex-wrap items-center gap-x-1.5 gap-y-1">
               <span className="text-xs text-su-muted uppercase tracking-wider font-semibold">
                 Signal
               </span>

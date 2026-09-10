@@ -103,7 +103,11 @@ jobs:
           echo "Design review approved for ${HEAD7}: ${APPROVED}"
   rerun-on-design-review-comment:
     name: re-run pr-contract when a design-review comment changes
-    if: github.event_name == 'issue_comment' && github.event.issue.pull_request
+    # Only the accounts whose design-review comments the body job accepts
+    # (REVIEWERS above) may trigger the rerun; any other commenter writing
+    # `**design review**` would otherwise be able to re-run the required
+    # check at will (Codex, #896 round 15).
+    if: github.event_name == 'issue_comment' && github.event.issue.pull_request && contains(fromJSON('["crypticpy","propulse-bot[bot]"]'), github.event.comment.user.login)
     runs-on: ubuntu-latest
     permissions:
       actions: write

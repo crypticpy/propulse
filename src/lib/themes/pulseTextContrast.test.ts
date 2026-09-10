@@ -1423,7 +1423,11 @@ function extractJsxElements(text: string): JsxElement[] {
 function isJsxElementTextBearing(el: JsxElement): boolean {
   if (el.selfClosing) {
     if (/^[A-Z]/.test(el.tagName)) return TEXT_PROP_RE.test(el.raw);
-    return VALUE_BEARING_CONTROL.test(el.raw);
+    // `el.raw` is already exactly one bounded tag (via `findTagEnd` in
+    // `extractJsxElements`), so a plain substring test for the attribute
+    // name is safe here -- no `[^>]*` traversal from the tag name to the
+    // attribute is needed (Codex, PR #874 round 20).
+    return FORM_VALUE_TAGS.has(el.tagName) && VALUE_ATTR_RE.test(el.raw);
   }
   return isTextBearingChildren(el.children);
 }
@@ -1457,8 +1461,11 @@ function isTextBearingChildren(children: string | null): boolean {
   // value or placeholder as text that this element's pulse fades, whether
   // it sits directly in the children or inside a mapping's emitted JSX; the
   // control itself carries no pulse class for the scan to find (Codex,
-  // PR #874 round 10).
-  if (VALUE_BEARING_CONTROL.test(children)) return true;
+  // PR #874 round 10). Each control tag is extracted whole via `findTagEnd`
+  // first (round 20) so a quoted `>` in an earlier attribute (`<input
+  // title="1 > 0" value="Loading" />`) can't truncate the search before it
+  // ever reaches `value=`/`defaultValue=`/`placeholder=`.
+  if (findFormValueControlTags(children).some((tag) => VALUE_ATTR_RE.test(tag))) return true;
   // A self-closing component (direct child or emitted by a mapping) that
   // carries a text-shaped prop renders that prop's value as text, even
   // though the tag itself has no children of its own (round 18).
@@ -1475,14 +1482,40 @@ function isTextBearingChildren(children: string | null): boolean {
  * on the control fades it even though the element has no children
  * (Codex, PR #874 round 8). */
 const FORM_VALUE_TAGS = new Set(["input", "textarea"]);
-const VALUE_BEARING_CONTROL = new RegExp(
-  `<(${[...FORM_VALUE_TAGS].join("|")})\\b[^>]*\\b(value|defaultValue|placeholder)=`,
-);
+const VALUE_ATTR_RE = /\b(value|defaultValue|placeholder)=/;
+const FORM_VALUE_TAG_OPEN_RE = new RegExp(`<(${[...FORM_VALUE_TAGS].join("|")})(?=[\\s/>])`, "y");
+
+/** Every `<input …>`/`<textarea …>` opening tag (self-closing or not) found
+ * anywhere in `text`, extracted whole via `findTagEnd` -- unlike the old
+ * `VALUE_BEARING_CONTROL` regex (which used `<tag\b[^>]*\b attr=` to jump
+ * from the tag name to the attribute across arbitrary text), a quoted `>` in
+ * an earlier attribute (`<input title="1 > 0" value="Loading" />`) can never
+ * truncate the scan before it reaches `value=`/`defaultValue=`/`placeholder=`
+ * (Codex, PR #874 round 20: the old regex silently failed to match that
+ * fixture, and the quote-aware `stripTags` then removed the whole tag,
+ * leaving no other signal behind to catch it). */
+function findFormValueControlTags(text: string): string[] {
+  const tags: string[] = [];
+  let i = 0;
+  while (i < text.length) {
+    if (text[i] === "<") {
+      FORM_VALUE_TAG_OPEN_RE.lastIndex = i;
+      if (FORM_VALUE_TAG_OPEN_RE.test(text)) {
+        const gt = findTagEnd(text, i + 1);
+        if (gt === -1) break;
+        tags.push(text.slice(i, gt + 1));
+        i = gt + 1;
+        continue;
+      }
+    }
+    i++;
+  }
+  return tags;
+}
+
 function isValueBearingControl(site: ClassNameSite): boolean {
   return (
-    site.tag !== null &&
-    FORM_VALUE_TAGS.has(site.tag) &&
-    /\b(value|defaultValue|placeholder)=/.test(site.openingTag ?? "")
+    site.tag !== null && FORM_VALUE_TAGS.has(site.tag) && VALUE_ATTR_RE.test(site.openingTag ?? "")
   );
 }
 
@@ -1647,26 +1680,76 @@ function registeredAnchorsFor(file: string): string[] {
   return anchors;
 }
 
-/** True when some anchor registered for `file` sits within
- * `ANCHOR_WINDOW_RADIUS` of `violationIndex` in `normalizedContent` -- the
- * same window `findAnchoredPulseState` uses, so "this violation is the one
- * an entry names" and "this anchor's pulse is still present" agree on what
- * "near" means. A violation with no such anchor nearby is, by definition,
- * unlisted. */
-function violationIsCovered(
-  file: string,
+interface AnchorPosition {
+  anchorIndex: number;
+  windowStart: number;
+  windowEnd: number;
+}
+
+/** Matches each anchor in `anchors` to at most one violation in
+ * `violations` -- nearest pair first, deterministic ties broken by position
+ * -- so a single anchor can no longer vouch for a second, distinct pulsing
+ * element that merely happens to sit in the same `ANCHOR_WINDOW_RADIUS`
+ * window (Codex, PR #874 round 20: a `KNOWN_REMAINING_SITES` entry for one
+ * tracked pulsing text element let an unrelated second one beside it stay
+ * green). Pure/synthetic-input-friendly on purpose, so it can be unit-tested
+ * directly without touching the real `AUDITED_SITES`/`KNOWN_REMAINING_SITES`
+ * tables; `coveredViolations` below is the thin wrapper the census actually
+ * calls. Returns the subset of `violations` that got their own unconsumed
+ * anchor -- every violation NOT in this set is, by definition, unlisted. A
+ * registered anchor that matches no violation (a stale entry) is simply left
+ * unconsumed here; that case is covered separately by the "every
+ * KNOWN_REMAINING_SITES anchored element still pulses" freshness test. */
+function matchAnchorsToViolations(
   normalizedContent: string,
-  violationIndex: number,
-): boolean {
-  for (const anchor of registeredAnchorsFor(file)) {
+  anchors: string[],
+  violations: Violation[],
+): Set<Violation> {
+  const anchorPositions: AnchorPosition[] = [];
+  for (const anchor of anchors) {
     const anchorNorm = normalize(anchor);
     const anchorIndex = normalizedContent.indexOf(anchorNorm);
     if (anchorIndex === -1) continue;
-    const windowStart = Math.max(0, anchorIndex - ANCHOR_WINDOW_RADIUS);
-    const windowEnd = anchorIndex + anchorNorm.length + ANCHOR_WINDOW_RADIUS;
-    if (violationIndex >= windowStart && violationIndex <= windowEnd) return true;
+    anchorPositions.push({
+      anchorIndex,
+      windowStart: Math.max(0, anchorIndex - ANCHOR_WINDOW_RADIUS),
+      windowEnd: anchorIndex + anchorNorm.length + ANCHOR_WINDOW_RADIUS,
+    });
   }
-  return false;
+
+  const pairs: { violation: Violation; anchorPos: AnchorPosition; distance: number }[] = [];
+  for (const violation of violations) {
+    for (const anchorPos of anchorPositions) {
+      if (violation.index >= anchorPos.windowStart && violation.index <= anchorPos.windowEnd) {
+        pairs.push({ violation, anchorPos, distance: Math.abs(violation.index - anchorPos.anchorIndex) });
+      }
+    }
+  }
+  pairs.sort(
+    (a, b) =>
+      a.distance - b.distance ||
+      a.violation.index - b.violation.index ||
+      a.anchorPos.anchorIndex - b.anchorPos.anchorIndex,
+  );
+
+  const consumedAnchors = new Set<AnchorPosition>();
+  const covered = new Set<Violation>();
+  for (const pair of pairs) {
+    if (covered.has(pair.violation) || consumedAnchors.has(pair.anchorPos)) continue;
+    covered.add(pair.violation);
+    consumedAnchors.add(pair.anchorPos);
+  }
+  return covered;
+}
+
+/** Thin wrapper around `matchAnchorsToViolations` for `file`'s registered
+ * anchors -- what the census below actually calls. */
+function coveredViolations(
+  file: string,
+  normalizedContent: string,
+  violations: Violation[],
+): Set<Violation> {
+  return matchAnchorsToViolations(normalizedContent, registeredAnchorsFor(file), violations);
 }
 
 /** Runs the census: every text-bearing `animate-pulse` violation under
@@ -1686,8 +1769,10 @@ function findUncoveredPulseSites(): string[] {
     const raw = readRaw(file);
     if (!raw.includes(PULSE_CLASS)) continue;
     const normalized = normalize(raw);
-    for (const violation of scanSourceForViolations(raw)) {
-      if (!violationIsCovered(file, normalized, violation.index)) {
+    const violations = scanSourceForViolations(raw);
+    const covered = coveredViolations(file, normalized, violations);
+    for (const violation of violations) {
+      if (!covered.has(violation)) {
         uncovered.push(`${file}: ${violation.description}`);
       }
     }
@@ -2019,6 +2104,12 @@ describe("scanSourceForViolations catches every spelling (fixture proofs, #878)"
     ).toEqual([]);
   });
 
+  it("finds a descendant form control's value past a quoted '>' in an earlier attribute", () => {
+    const fixture =
+      '<div className="animate-pulse"><input title="1 > 0" value="Loading" readOnly /></div>';
+    expect(scanSourceForViolations(fixture)).not.toEqual([]);
+  });
+
   it("reads the whole child range past a nested same-tag element", () => {
     for (const fixture of [
       '<div className="animate-pulse"><div></div>Loading</div>',
@@ -2128,6 +2219,38 @@ describe("findAnchoredPulseState pins a specific pulse in a multi-pulse file (#8
     expect(findAnchoredPulseState("no anchor here", "tracked-anchor")).toEqual(
       { anchorFound: false, stillPulses: false },
     );
+  });
+});
+
+describe("matchAnchorsToViolations pairs each anchor to at most one violation (#878 round 20)", () => {
+  it("covers only the nearer of two violations when just one anchor is registered", () => {
+    // Both violations sit inside the single anchor's +/-160-char window, but
+    // only the nearer one (distance 50) may consume it -- the farther one
+    // (distance 100) must come back uncovered, i.e. unlisted.
+    const content = "anchor-one-marker" + "x".repeat(300);
+    const violations: Violation[] = [
+      { description: "near", index: 50 },
+      { description: "far", index: 100 },
+    ];
+    const covered = matchAnchorsToViolations(content, ["anchor-one-marker"], violations);
+    expect(covered.size).toBe(1);
+    expect(covered.has(violations[0])).toBe(true);
+    expect(covered.has(violations[1])).toBe(false);
+  });
+
+  it("covers both violations when each has its own nearby anchor", () => {
+    const content =
+      "anchor-one-marker" + "x".repeat(300) + "anchor-two-marker" + "y".repeat(300);
+    const violations: Violation[] = [
+      { description: "near anchor one", index: 20 },
+      { description: "near anchor two", index: 320 },
+    ];
+    const covered = matchAnchorsToViolations(
+      content,
+      ["anchor-one-marker", "anchor-two-marker"],
+      violations,
+    );
+    expect(covered.size).toBe(2);
   });
 });
 

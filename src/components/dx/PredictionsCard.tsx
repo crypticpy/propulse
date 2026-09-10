@@ -213,7 +213,7 @@ export function PredictionsCard({
             Best Bands Now
           </span>
         </div>
-        <span className="text-[10px] text-su-muted px-1.5 py-0.5 rounded bg-su-line/10 flex items-center gap-1">
+        <span className="text-xs text-su-muted px-1.5 py-0.5 rounded bg-su-line/10 flex items-center gap-1">
           <span
             className={`inline-block w-1.5 h-1.5 rounded-full ${isDay ? "bg-caution-amber" : "bg-cosmic-cyan"}`}
           />
@@ -297,7 +297,7 @@ export function PredictionsCard({
 
           {/* Context footer */}
           <div className="pt-2 border-t border-su-line/40 mt-2">
-            <div className="text-[10px] text-su-muted">
+            <div className="text-xs text-su-muted">
               {isDay
                 ? "Higher bands favored during daylight"
                 : "Lower bands favored at night"}

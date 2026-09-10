@@ -42,12 +42,16 @@ const originalBackgroundState = new Map<
 let previousBodyOverflow: string | null = null;
 
 /**
- * Watches for body-level portals (Tooltip, CommandPalette, and ~20 other
- * `createPortal(..., document.body)` surfaces — ConfirmDialog, ImageCropDialog
- * and EquipmentHeroCard registered on the stack directly instead, see #727)
- * that mount *after* a dialog is already open. `syncBackgroundInert` only
- * runs on dialog open/close, so without this a late-mounted portal would stay
- * reachable behind a modal.
+ * Watches for body-level portals (Tooltip, MapTooltip, SpotContextMenu and the
+ * other `createPortal(..., document.body)` popover surfaces) that mount *after*
+ * a dialog is already open. `syncBackgroundInert` only runs on dialog
+ * open/close, so without this a late-mounted portal would stay reachable
+ * behind a modal (#693).
+ *
+ * This is still needed after the foreign-modal exemption was dropped in #773:
+ * the exemption decided *which* late portals to skip, but the observer is what
+ * makes a late portal visible to the sync at all. Deleting it would put every
+ * popover that opens under a modal back out of reach of the sync.
  *
  * `childList`-only, no `subtree`: portals are always direct body children, and
  * subtree observation would fire on every DOM change in the whole app. No
@@ -56,26 +60,9 @@ let previousBodyOverflow: string | null = null;
  */
 let bodyPortalObserver: MutationObserver | null = null;
 
-/**
- * Body children the observer has actually watched arrive, as opposed to
- * ones that were already present when it started observing.
- *
- * This is what lets the foreign-modal exemption in `syncBackgroundInert`
- * single out portals the app deliberately layered above a dialog (see the
- * comment there) without also exempting `#root`: `#root` is a direct body
- * child mounted at page bootstrap, long before any dialog's observer
- * connects, so it can never be added to this set.
- */
-const lateBodyPortals = new WeakSet<HTMLElement>();
-
 function ensureBodyPortalObserverConnected(): void {
   if (bodyPortalObserver) return;
-  bodyPortalObserver = new MutationObserver((records) => {
-    for (const record of records) {
-      for (const node of record.addedNodes) {
-        if (node instanceof HTMLElement) lateBodyPortals.add(node);
-      }
-    }
+  bodyPortalObserver = new MutationObserver(() => {
     syncBackgroundInert();
   });
   bodyPortalObserver.observe(document.body, { childList: true });
@@ -117,11 +104,6 @@ function syncBackgroundInert(): void {
   ensureBodyPortalObserverConnected();
   if (previousBodyOverflow === null) previousBodyOverflow = document.body.style.overflow;
   document.body.style.overflow = "hidden";
-  // Every portalRoot on the stack (not just `top`'s) is exempt from the
-  // foreign-modal check below: a dialog lower in the stack still needs to be
-  // inerted while it isn't topmost, and it also carries `aria-modal="true"`
-  // on its panel, so without this it would wrongly match the exemption too.
-  const stackRoots = new Set(openDialogStack.map((entry) => entry.portalRoot));
   for (const child of document.body.children) {
     if (!(child instanceof HTMLElement)) continue;
     if (!originalBackgroundState.has(child)) {
@@ -134,38 +116,17 @@ function syncBackgroundInert(): void {
       restoreOriginal(child);
       continue;
     }
-    // A body portal that arrived after this dialog started watching, isn't
-    // on this module's stack, and is itself a modal (CommandPalette,
-    // ShortcutsHelpModal, and ~20 other bare `createPortal`-based modals not
-    // yet routed through this component) was deliberately layered above the
-    // dialog by the app, not left behind by it. Inerting it would make it
-    // paint on top while being completely dead — unreachable by Tab/click,
-    // invisible to screen readers, and Escape would fall through to this
-    // dialog instead.
+    // Nothing below the topmost dialog is exempt. This used to carry a
+    // foreign-modal escape hatch for bare `createPortal` modals the app
+    // layered above an open dialog; #773 removed it, because no such modal is
+    // mounted anywhere in the app any more. Every modal surface that can
+    // appear over a dialog renders through this component and so registers on
+    // `openDialogStack`, which means it arrives as `top.portalRoot` above.
     //
-    // ConfirmDialog, ImageCropDialog and EquipmentHeroCard used to need this
-    // exemption but don't anymore (#727): they register on `openDialogStack`
-    // directly now, so `stackRoots` alone keeps them out of this branch. This
-    // exemption stays for the surfaces that haven't made that move yet — removing
-    // it would silently break every one of them the next time it opens above
-    // an already-open AccessibleDialog.
-    //
-    // The late-arrival check is load-bearing, not incidental: `#root` is a
-    // direct body child whose subtree is the entire app, and it always
-    // predates the observer (this component only ever portals to
-    // `document.body`, never into `#root`). Several components render
-    // `aria-modal="true"` inline rather than through a body portal —
-    // without requiring lateness, `#root.querySelector('[aria-modal="true"]')`
-    // would match whenever any of those is mounted and turn off background
-    // inert app-wide.
-    if (
-      lateBodyPortals.has(child) &&
-      !stackRoots.has(child) &&
-      child.querySelector('[aria-modal="true"]')
-    ) {
-      restoreOriginal(child);
-      continue;
-    }
+    // A new modal must go through `AccessibleDialog` for the same reason. A
+    // bare `createPortal` one will be inerted here and paint on top while
+    // being completely dead — unreachable by Tab and click, invisible to
+    // screen readers, with Escape falling through to the dialog beneath it.
     child.inert = true;
     child.setAttribute("aria-hidden", "true");
   }

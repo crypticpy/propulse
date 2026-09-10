@@ -73,16 +73,26 @@ tracking, space weather, and a local bridge that talks to your radio.
 
 ## Free and open source
 
-Propulse is licensed under the **GNU Affero General Public License v3.0**
-([LICENSE](LICENSE)). The whole application, the physics engine, the edge functions, the
-collector and the bridge are in this repository.
+Propulse is a **nonprofit project**. It is licensed under the **GNU Affero General Public
+License v3.0** ([LICENSE](LICENSE)), and the whole stack is in this repository: the
+application, the physics engine, the edge functions, the collector and the bridge. Anyone
+may download it, run it and serve it themselves, and the AGPL keeps it that way: the
+project builds on other open-source work, and the same licence that lets us use that work
+obliges us, and anyone who runs a modified Propulse as a service, to publish the source.
 
-**The operating app is free.** The map, physics engine, Band Health ladder, wall display,
-logbook, contest engine, nets, shack builder, space weather and bridge are all free to use at
-[propulse.cloud](https://propulse.cloud) on a free account. The hosted build asks you to sign
-in for everything except the home page and paired wall displays, which are deliberately
-anonymous; a free account costs nothing and unlocks every feature that does not carry a
-per-user hosting cost. Self-hosting is a supported path, not a grudging one. The project is run on a nonprofit footing:
+**The software is free. The only thing that has ever cost money, or ever will, is the
+cloud.** Any pricing in Propulse, now or in the future, exists solely to recover the cost
+of delivering the hosted service at [propulse.cloud](https://propulse.cloud): cloud
+resources, third-party data and tile fees, and the upkeep of the online application. There
+is no plan to charge for the software itself or for its core functionality, and self-hosting
+is a supported path, not a grudging one.
+
+**The operating app is free to use today.** The map, physics engine, Band Health ladder,
+wall display, logbook, contest engine, nets, shack builder, space weather and bridge are all
+free at propulse.cloud on a free account. The hosted build asks you to sign in for
+everything except the home page and paired wall displays, which are deliberately anonymous;
+a free account costs nothing and unlocks every feature that does not carry a per-user
+hosting cost. How the hosted service is sustained:
 
 - **Donations** are the primary intended support.
 - **An optional Pro subscription ($6.99 per month)** is intended to cover the hosted
@@ -94,8 +104,9 @@ per-user hosting cost. Self-hosting is a supported path, not a grudging one. The
   high-resolution satellite imagery (Mapbox tiles and Google photorealistic 3D, checked
   both in the client and by the tile proxies server-side) enforce the tier, while custom
   profile and gear images and per-user propagation modelling are declared in the table
-  but not yet gated, so free accounts can currently use them. The flags also carry 7-day and 30-day replay windows,
-  but the raw spot table is trimmed to roughly two hours, so neither window is served.
+  but not yet gated, so free accounts can currently use them. The flags also carry 7-day
+  and 30-day replay windows, but the raw spot table is trimmed to roughly two hours, so
+  neither window is served.
 - **Unlimited free displays.** Pairing extra screens to your station, the thing a
   commercial product would meter, is deliberately never metered.
 

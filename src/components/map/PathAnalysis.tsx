@@ -291,7 +291,7 @@ function HopStrip({
 }) {
   return (
     <div className="flex items-center gap-1.5">
-      <span className="w-6 text-xs font-medium uppercase tracking-wider text-su-muted">
+      <span className="min-w-6 text-xs font-medium uppercase tracking-wider text-su-muted">
         {label}
       </span>
       <div className="flex flex-wrap gap-1">

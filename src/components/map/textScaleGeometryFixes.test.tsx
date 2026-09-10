@@ -1031,3 +1031,35 @@ describe("round-12 Codex sites: implicit grid tracks and a non-wrapping path hea
     }
   });
 });
+
+describe("round-13 Codex site family: fixed-width labels that grew from sub-floor sizes", () => {
+  // Every span in this PR that moved from text-[9px]/text-[10px] to text-xs
+  // kept a fixed `w-N` sized for the old glyphs. A rem width scales with the
+  // root text setting exactly as the glyphs do, so Text Size never restores
+  // the missing character width and the longest values ("0.5x speed",
+  // "Real-time", "10.0×") paint into the neighbouring controls. Each site
+  // now reserves the same width as a minimum and lets the content grow.
+  const FILES = [
+    "src/components/map/LayersPopover.tsx",
+    "src/components/map/PathAnalysis.tsx",
+    "src/components/map/TimeControl.tsx",
+  ];
+
+  it.each(FILES)("%s has no text-xs label with a fixed w-N width", (file) => {
+    const source = readFileSync(resolve(REPO_ROOT, file), "utf8");
+    const offenders = (source.match(/className="[^"]*"/g) ?? []).filter(
+      (cls) => /\btext-xs\b/.test(cls) && /(^|[\s"])w-\d+(\.\d+)?(?=[\s"])/.test(cls),
+    );
+    expect(offenders).toEqual([]);
+  });
+
+  it("the playback-speed label reserves room for its longest value", () => {
+    const source = readFileSync(
+      resolve(REPO_ROOT, "src/components/map/TimeControl.tsx"),
+      "utf8",
+    );
+    expect(source).toContain(
+      'className="text-xs text-su-muted min-w-16 whitespace-nowrap text-center"',
+    );
+  });
+});

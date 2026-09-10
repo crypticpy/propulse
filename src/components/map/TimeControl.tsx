@@ -786,7 +786,7 @@ export function TimeControl({ className = "" }: TimeControlProps) {
               >
                 -
               </button>
-              <span className="text-xs text-su-muted w-12 text-center">
+              <span className="text-xs text-su-muted min-w-16 whitespace-nowrap text-center">
                 {playSpeed}x speed
               </span>
               <button

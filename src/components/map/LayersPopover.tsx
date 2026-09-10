@@ -1117,7 +1117,7 @@ export function LayersPopover({ compact = false }: LayersPopoverProps) {
               className="layers-slider flex-1 min-w-[3rem] mx-2"
               aria-label="Grid label detail level"
             />
-            <span className="text-xs font-mono text-su-text/80 w-14 text-right shrink-0 tabular-nums">
+            <span className="text-xs font-mono text-su-text/80 min-w-14 whitespace-nowrap text-right shrink-0 tabular-nums">
               {gridLabelDetail === 1
                 ? "Field"
                 : gridLabelDetail === 2
@@ -1147,7 +1147,7 @@ export function LayersPopover({ compact = false }: LayersPopoverProps) {
           className="layers-slider flex-1 min-w-[3rem] mx-2"
           aria-label="Spot dot size scale"
         />
-        <span className="text-xs font-mono text-su-text/80 w-7 text-right shrink-0 tabular-nums">
+        <span className="text-xs font-mono text-su-text/80 min-w-9 whitespace-nowrap text-right shrink-0 tabular-nums">
           {spotDotScale.toFixed(1)}&times;
         </span>
       </div>
@@ -1168,7 +1168,7 @@ export function LayersPopover({ compact = false }: LayersPopoverProps) {
           className="layers-slider flex-1 min-w-[3rem] mx-2"
           aria-label="Map pin size scale"
         />
-        <span className="text-xs font-mono text-su-text/80 w-7 text-right shrink-0 tabular-nums">
+        <span className="text-xs font-mono text-su-text/80 min-w-9 whitespace-nowrap text-right shrink-0 tabular-nums">
           {mapPinScale.toFixed(1)}&times;
         </span>
       </div>
@@ -1189,7 +1189,7 @@ export function LayersPopover({ compact = false }: LayersPopoverProps) {
           className="layers-slider flex-1 min-w-[3rem] mx-2"
           aria-label="Spot label size scale"
         />
-        <span className="text-xs font-mono text-su-text/80 w-7 text-right shrink-0 tabular-nums">
+        <span className="text-xs font-mono text-su-text/80 min-w-9 whitespace-nowrap text-right shrink-0 tabular-nums">
           {labelScale.toFixed(1)}&times;
         </span>
       </div>
@@ -1210,7 +1210,7 @@ export function LayersPopover({ compact = false }: LayersPopoverProps) {
           className="layers-slider flex-1 min-w-[3rem] mx-2"
           aria-label="Maximum number of spots to display"
         />
-        <span className="text-xs font-mono text-su-text/80 w-7 text-right shrink-0 tabular-nums">
+        <span className="text-xs font-mono text-su-text/80 min-w-9 whitespace-nowrap text-right shrink-0 tabular-nums">
           {displayDensity}
         </span>
       </div>
@@ -1241,7 +1241,7 @@ export function LayersPopover({ compact = false }: LayersPopoverProps) {
             className="layers-slider flex-1 min-w-[3rem] mx-2"
             aria-label="Auto-rotate speed"
           />
-          <span className="text-xs font-mono text-su-text/80 w-14 text-right shrink-0 tabular-nums">
+          <span className="text-xs font-mono text-su-text/80 min-w-14 whitespace-nowrap text-right shrink-0 tabular-nums">
             {formatRotateSpeed(autoRotateSpeed)}
           </span>
         </div>

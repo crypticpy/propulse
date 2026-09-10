@@ -20,10 +20,10 @@
  *   `createGlobeOcclusionFrame` and uploaded as a uniform. The vertex shader
  *   never sees world space.
  * - Arc vertices are not on the unit sphere: flat arcs sit at radius 1.005 and
- *   band-height (multi-hop) arcs rise well above that. A point at radius r seen
- *   from distance D clears the horizon at `dot(normalize(P), cameraDir) =
- *   1 / (r * D)`, which reduces to the labels' `1 / D` when r is 1. The shader
- *   evaluates that per vertex so raised arcs are not clipped early.
+ *   band-height (multi-hop) arcs rise to about 1.28. A raised vertex stays
+ *   visible well past the surface limb, so the shader compares it against the
+ *   horizon dot for its own radius (see `getArcLimbClearance`) rather than
+ *   against a surface-height threshold.
  *
  * All arcs share ONE uniforms object updated by a single `useFrame` in
  * `LiveSpotArcs`, so adding the fade costs one vector update per frame rather
@@ -44,16 +44,17 @@ import {
 export interface ArcLimbFadeUniforms {
   /** Camera direction rotated into globe-local space (unit length). */
   uLimbCameraDir: { value: THREE.Vector3 };
-  /** `1 / cameraDistance` — the limb dot product for a unit-radius point. */
-  uLimbBaseDot: { value: number };
+  /** Camera distance from the globe centre, in globe radii. */
+  uLimbCameraDistance: { value: number };
 }
 
 export function createArcLimbFadeUniforms(): ArcLimbFadeUniforms {
   return {
     uLimbCameraDir: { value: new THREE.Vector3(0, 0, 1) },
-    // Until the first frame runs, a base dot of 0 keeps the whole visible
-    // hemisphere at full alpha rather than flashing arcs out on mount.
-    uLimbBaseDot: { value: 0 },
+    // Until the first frame runs, a huge camera distance puts the tangency
+    // plane at the equator and the shadow cone at its narrowest, so nothing
+    // flashes out on mount.
+    uLimbCameraDistance: { value: 1e6 },
   };
 }
 
@@ -73,8 +74,44 @@ export function updateArcLimbFadeUniforms(
     frame.localCameraY,
     frame.localCameraZ,
   );
-  uniforms.uLimbBaseDot.value = 1 / frame.cameraDistance;
+  uniforms.uLimbCameraDistance.value = frame.cameraDistance;
   return true;
+}
+
+/**
+ * Signed clearance between an arc vertex and the globe's shadow, expressed in
+ * the same units the labels use: `dot(normalize(P), cameraDir)` minus the dot
+ * at which a vertex of this radius crosses the horizon. Positive is visible,
+ * 0 is the exact boundary, negative is hidden.
+ *
+ * A vertex at radius `r` seen from distance `D` is hidden when it lies inside
+ * the globe's shadow cone, whose surface satisfies `rho * sqrt(D^2 - 1) + z =
+ * D` for `z = r*n`, `rho = r*sqrt(1 - n^2)`. Solving that quadratic for `n`
+ * and keeping the far-side root gives the boundary dot
+ *
+ *     n* = ( 1/r - sqrt(D^2 - 1) * sqrt(1 - 1/r^2) ) / D
+ *
+ * At `r = 1` the second term vanishes and `n* = 1/D`, exactly the threshold
+ * `getGlobeOcclusionOpacity` uses for labels — so `clearance = n - n*` is the
+ * labels' own fade coordinate and the same smoothstep band applies unchanged.
+ * For a band-height arc peak (`r ~= 1.283`, `D = 2.5`) it gives `n* ~= -0.262`:
+ * the peak stays visible tens of degrees past the surface limb, as it does on
+ * screen. The superseded `1 / (r * D)` threshold was the tangency condition
+ * for a point ON a sphere of radius r, not for a point at radius r outside the
+ * unit globe, and zeroed those peaks at `n ~= 0.19`.
+ */
+export function getArcLimbClearance(
+  pointRadius: number,
+  dotNormal: number,
+  cameraDistance: number,
+): number {
+  const silhouette = Math.sqrt(
+    Math.max(0, cameraDistance * cameraDistance - 1),
+  );
+  const inverseRadius = 1 / pointRadius;
+  const rise = Math.sqrt(Math.max(0, 1 - inverseRadius * inverseRadius));
+  const boundaryDot = (inverseRadius - silhouette * rise) / cameraDistance;
+  return dotNormal - boundaryDot;
 }
 
 /**
@@ -90,13 +127,9 @@ export function getArcLimbFadeAlpha(
   dotNormal: number,
   cameraDistance: number,
 ): number {
-  if (!(pointRadius > 0) || !(cameraDistance > 0)) return 1;
-  const limbDot = 1 / (pointRadius * cameraDistance);
-  const occlusion = smoothstep(
-    limbDot - LIMB_FADE_AFTER,
-    limbDot + LIMB_FADE_BEFORE,
-    dotNormal,
-  );
+  if (!(pointRadius > 0) || !(cameraDistance > 1)) return 1;
+  const clearance = getArcLimbClearance(pointRadius, dotNormal, cameraDistance);
+  const occlusion = smoothstep(-LIMB_FADE_AFTER, LIMB_FADE_BEFORE, clearance);
   return limbAlphaGate(occlusion);
 }
 
@@ -104,7 +137,7 @@ const glsl = (value: number) => value.toFixed(6);
 
 const VERTEX_PARS = `
 uniform vec3 uLimbCameraDir;
-uniform float uLimbBaseDot;
+uniform float uLimbCameraDistance;
 varying float vLimbFade;
 `;
 
@@ -114,9 +147,13 @@ varying float vLimbFade;
 const VERTEX_MAIN = `
 	vec3 limbPoint = ( position.y < 0.5 ) ? instanceStart : instanceEnd;
 	float limbRadius = max( length( limbPoint ), 1e-4 );
-	float limbDotN = dot( limbPoint / limbRadius, uLimbCameraDir );
-	float limbThreshold = uLimbBaseDot / limbRadius;
-	float limbOcclusion = smoothstep( limbThreshold - ${glsl(LIMB_FADE_AFTER)}, limbThreshold + ${glsl(LIMB_FADE_BEFORE)}, limbDotN );
+	float limbDotN = dot( limbPoint, uLimbCameraDir ) / limbRadius;
+	float limbSilhouette = sqrt( max( uLimbCameraDistance * uLimbCameraDistance - 1.0, 0.0 ) );
+	float limbInverseRadius = 1.0 / limbRadius;
+	float limbRise = sqrt( max( 1.0 - limbInverseRadius * limbInverseRadius, 0.0 ) );
+	float limbBoundary = ( limbInverseRadius - limbSilhouette * limbRise ) / uLimbCameraDistance;
+	float limbClearance = limbDotN - limbBoundary;
+	float limbOcclusion = smoothstep( ${glsl(-LIMB_FADE_AFTER)}, ${glsl(LIMB_FADE_BEFORE)}, limbClearance );
 	vLimbFade = smoothstep( 0.0, ${glsl(LIMB_ALPHA_GATE_WINDOW)}, limbOcclusion );
 `;
 
@@ -186,7 +223,7 @@ export function applyArcLimbFade(
     const patched = patchArcLimbFadeShader(shader);
     if (!patched) return;
     shader.uniforms.uLimbCameraDir = uniforms.uLimbCameraDir;
-    shader.uniforms.uLimbBaseDot = uniforms.uLimbBaseDot;
+    shader.uniforms.uLimbCameraDistance = uniforms.uLimbCameraDistance;
     shader.vertexShader = patched.vertexShader;
     shader.fragmentShader = patched.fragmentShader;
   };

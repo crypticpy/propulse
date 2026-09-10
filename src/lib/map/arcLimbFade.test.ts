@@ -3,6 +3,7 @@ import { LineMaterial } from "three-stdlib";
 import {
   applyArcLimbFade,
   createArcLimbFadeUniforms,
+  getArcLimbClearance,
   getArcLimbFadeAlpha,
   patchArcLimbFadeShader,
   updateArcLimbFadeUniforms,
@@ -51,19 +52,43 @@ describe("getArcLimbFadeAlpha", () => {
     }
   });
 
-  it("keeps a raised multi-hop arc visible slightly past the surface limb", () => {
-    // A point at radius 1.3 clears the horizon at a lower dot product than a
-    // point on the surface; treating every vertex as surface-height would clip
-    // band-height arcs early.
-    const dot = 1 / CAMERA_DISTANCE - 0.1;
-    expect(getArcLimbFadeAlpha(1.3, dot, CAMERA_DISTANCE)).toBeGreaterThan(
-      getArcLimbFadeAlpha(1.0, dot, CAMERA_DISTANCE),
+  it("keeps a band-height arc peak visible far past the surface limb", () => {
+    // bandHeightArcs vertices reach r ~= 1.283. At D = 2.5 the globe does not
+    // cover such a point until dot ~= -0.26, tens of degrees past the surface
+    // limb at dot = 0.4. The superseded 1/(r*D) threshold zeroed it at
+    // dot ~= 0.19, which erased the peaks of every multi-hop arc.
+    const r = 1.283;
+    expect(getArcLimbFadeAlpha(r, 0.19, CAMERA_DISTANCE)).toBe(1);
+    expect(getArcLimbFadeAlpha(r, -0.2, CAMERA_DISTANCE)).toBe(1);
+    // The boundary itself sits at n* = (1/r - sqrt(D^2-1)*sqrt(1-1/r^2)) / D
+    // = -0.2624 for these inputs: still (just) visible at -0.26, gone below.
+    expect(getArcLimbClearance(r, -0.26, CAMERA_DISTANCE)).toBeGreaterThan(0);
+    expect(getArcLimbClearance(r, -0.26, CAMERA_DISTANCE)).toBeLessThan(0.01);
+    expect(getArcLimbClearance(r, -0.2624, CAMERA_DISTANCE)).toBeCloseTo(0, 3);
+    expect(getArcLimbFadeAlpha(r, -0.45, CAMERA_DISTANCE)).toBe(0);
+    // A surface vertex at the same dot is long gone.
+    expect(getArcLimbFadeAlpha(1.0, -0.2, CAMERA_DISTANCE)).toBe(0);
+  });
+
+  it("reduces to the labels' dot > 1/D threshold at unit radius", () => {
+    // Analytic check: at r = 1 the clearance IS dot - 1/D, so the arc band and
+    // the label band are the same ramp in the same units.
+    for (const dot of [-0.5, 0, 0.2, 0.4, 0.41, 0.6, 1]) {
+      expect(getArcLimbClearance(1, dot, CAMERA_DISTANCE)).toBeCloseTo(
+        dot - 1 / CAMERA_DISTANCE,
+        10,
+      );
+    }
+    expect(getArcLimbClearance(1, 1 / CAMERA_DISTANCE, CAMERA_DISTANCE)).toBe(
+      0,
     );
   });
 
   it("returns full alpha for degenerate inputs rather than blanking arcs", () => {
     expect(getArcLimbFadeAlpha(0, 0.5, CAMERA_DISTANCE)).toBe(1);
     expect(getArcLimbFadeAlpha(SURFACE_RADIUS, 0.5, 0)).toBe(1);
+    // A camera inside the globe has no limb at all.
+    expect(getArcLimbFadeAlpha(SURFACE_RADIUS, -1, 0.5)).toBe(1);
   });
 });
 
@@ -90,7 +115,7 @@ describe("updateArcLimbFadeUniforms", () => {
     expect(
       updateArcLimbFadeUniforms(uniforms, { x: 0, y: 0, z: 4 }, 23.5),
     ).toBe(true);
-    expect(uniforms.uLimbBaseDot.value).toBeCloseTo(0.25, 10);
+    expect(uniforms.uLimbCameraDistance.value).toBeCloseTo(4, 10);
     // Z is the tilt axis, so a camera on +Z is unchanged by the tilt.
     expect(uniforms.uLimbCameraDir.value.toArray()).toEqual([0, 0, 1]);
 
@@ -109,10 +134,11 @@ describe("updateArcLimbFadeUniforms", () => {
 
   it("leaves the uniforms untouched for a degenerate camera", () => {
     const uniforms = createArcLimbFadeUniforms();
+    const before = uniforms.uLimbCameraDistance.value;
     expect(updateArcLimbFadeUniforms(uniforms, { x: 0, y: 0, z: 0 }, 0)).toBe(
       false,
     );
-    expect(uniforms.uLimbBaseDot.value).toBe(0);
+    expect(uniforms.uLimbCameraDistance.value).toBe(before);
   });
 });
 
@@ -129,6 +155,9 @@ describe("patchArcLimbFadeShader", () => {
     expect(patched!.vertexShader).toContain("varying float vLimbFade;");
     expect(patched!.vertexShader).toContain(
       "vec3 limbPoint = ( position.y < 0.5 ) ? instanceStart : instanceEnd;",
+    );
+    expect(patched!.vertexShader).toContain(
+      "float limbClearance = limbDotN - limbBoundary;",
     );
     expect(
       patched!.vertexShader.indexOf("uniform vec3 uLimbCameraDir;"),
@@ -174,7 +203,9 @@ describe("applyArcLimbFade", () => {
     );
     // Same object identity: every arc reads the one block the parent updates.
     expect(shader.uniforms.uLimbCameraDir).toBe(uniforms.uLimbCameraDir);
-    expect(shader.uniforms.uLimbBaseDot).toBe(uniforms.uLimbBaseDot);
+    expect(shader.uniforms.uLimbCameraDistance).toBe(
+      uniforms.uLimbCameraDistance,
+    );
     expect(shader.fragmentShader).toContain("alpha * vLimbFade");
   });
 

@@ -4,6 +4,7 @@ import type { CSSProperties, ReactNode } from "react";
 import { SpotLabel, TEXT_OCCLUSION_FLOOR } from "./SpotLabel";
 import { GLOBE_DOM_LAYER_ORDER } from "@/lib/map/globeRenderOrder";
 import { stationContrast } from "@/lib/themes/stationTokens";
+import { limbAlphaGate } from "@/lib/map/globeOcclusion";
 
 vi.mock("@react-three/drei", () => ({
   Html: ({
@@ -364,7 +365,13 @@ describe("SpotLabel pop-in fade ramp (#851)", () => {
       />,
     );
     const overlay = screen.getByTestId("spot-label-wrapper");
-    expect(Number(overlay.style.opacity)).toBeCloseTo(0.5, 5);
+    // Halfway through the linear fade-in band (0.5), then re-coupled to the
+    // limb by the shared gate (#932): mid-band the label is still climbing out
+    // of the horizon, so the rendered wrapper is the product of the two.
+    expect(Number(overlay.style.opacity)).toBeCloseTo(
+      0.5 * limbAlphaGate(0.15),
+      5,
+    );
   });
 
   it("is fully opaque at and above the top of the fade band", () => {
@@ -460,10 +467,19 @@ describe("SpotLabel pop-in fade ramp (#851)", () => {
       return value;
     });
 
-    const maxRampStep = 0.05 / (0.25 - 0.05); // 0.25, one sample increment
+    // The wrapper is now the linear ramp times the shared limb gate (#932),
+    // which is steeper mid-band than the bare ramp; 0.4 is the composed
+    // curve's steepest 0.05-occlusion step. The property under test is
+    // unchanged: monotone, continuous, no jump from 0 to fully drawn.
+    const maxRampStep = 0.4;
     for (let i = 1; i < values.length; i += 1) {
       expect(values[i]).toBeGreaterThanOrEqual(values[i - 1]);
       expect(values[i] - values[i - 1]).toBeLessThanOrEqual(maxRampStep + 1e-9);
+      expect(values[i]).toBeCloseTo(
+        Math.max(0, Math.min(1, (samples[i] - 0.05) / 0.2)) *
+          limbAlphaGate(samples[i]),
+        5,
+      );
     }
     expect(values[0]).toBeCloseTo(0, 5);
     expect(values[values.length - 1]).toBeCloseTo(1, 5);
@@ -811,8 +827,8 @@ describe("SpotLabel releases stale hover ownership when interactionReady drops (
 });
 
 describe("SpotLabel limb alpha gate (#932)", () => {
-  function alphaAt(occlusionOpacity: number, opacity = 1): number {
-    const { unmount } = render(
+  function renderAt(occlusionOpacity: number, opacity = 1) {
+    const view = render(
       <SpotLabel
         lat={35.5}
         lon={-97.5}
@@ -822,40 +838,74 @@ describe("SpotLabel limb alpha gate (#932)", () => {
         onSelect={vi.fn()}
       />,
     );
+    const wrapper = screen.getByTestId("spot-label-wrapper");
     const label = screen.getByText("K5ABC").closest("[style]") as HTMLElement;
-    const rgba = label.style.color;
-    const channels = rgba
+    const channels = label.style.color
       .replace(/rgba?\(|\)/g, "")
       .split(",")
       .map((part) => Number(part.trim()));
-    const alpha = channels.length === 4 ? channels[3] : 1;
-    unmount();
-    return alpha;
+    return {
+      unmount: view.unmount,
+      wrapperOpacity: Number(wrapper.style.opacity),
+      textAlpha: channels.length === 4 ? channels[3] : 1,
+      underline: label.style.borderBottom,
+    };
   }
 
-  it("renders a label past the limb at exactly zero alpha, not at FINAL_ALPHA_FLOOR", () => {
-    // The shipped floor held a fully hidden back-side tag at 0.35 text alpha,
-    // which composited through the wrapper fade into a visible ghost.
-    expect(alphaAt(0)).toBe(0);
+  function measure(occlusionOpacity: number, opacity = 1) {
+    const result = renderAt(occlusionOpacity, opacity);
+    result.unmount();
+    return result;
+  }
+
+  it("hides the WHOLE label past the limb, not just its text", () => {
+    // The wrapper's CSS opacity scales every channel the label paints: text,
+    // badge background, the band underline and the boxShadow glow, plus the
+    // hover/selected branches that never go through `textOpacity`. Gating the
+    // text alpha alone left underlines and pills as limb ghosts.
+    const past = measure(0);
+    expect(past.wrapperOpacity).toBe(0);
+    // The underline is still declared (colour is never changed); it is the
+    // wrapper that takes it to zero.
+    expect(past.underline).toContain("3px solid");
+    expect(past.wrapperOpacity * past.textAlpha).toBe(0);
   });
 
-  it("keeps a partially occluded near-face label at or above TEXT_OCCLUSION_FLOOR", () => {
-    // occlusionOpacity 0.3 is inside the fade band but at/above the gate
-    // window (LIMB_ALPHA_GATE_WINDOW = 0.25), so the gate is exactly 1 and
-    // the occlusion floor is delivered untouched.
-    expect(alphaAt(0.3)).toBeCloseTo(TEXT_OCCLUSION_FLOOR, 5);
-    expect(alphaAt(0.3)).toBeGreaterThanOrEqual(TEXT_OCCLUSION_FLOOR);
-    expect(alphaAt(1)).toBeCloseTo(1, 5);
+  it("tracks the composed gate through the limb band", () => {
+    // At occlusion 0.1 the old wrapper ramp alone sat at 0.25 — clearly
+    // visible. The gate pulls the whole label down near zero.
+    const mid = measure(0.1);
+    expect(mid.wrapperOpacity).toBeCloseTo(0.25 * limbAlphaGate(0.1), 5);
+    expect(mid.wrapperOpacity).toBeLessThan(0.1);
+    expect(mid.wrapperOpacity).toBeGreaterThan(0);
   });
 
-  it("still backstops stacked near-face de-emphasis at FINAL_ALPHA_FLOOR", () => {
-    // 0.6 spotter tag * 0.3 active-band * 0.35 contact posture ~= 0.063 raw.
-    expect(alphaAt(1, 0.6 * 0.3 * 0.35)).toBeCloseTo(0.35, 5);
+  it("leaves near-face labels untouched: floors and wrapper both hold", () => {
+    // occlusion 0.3 is inside the occlusion fade band but at/above the gate
+    // window (0.25), so the gate is exactly 1: the wrapper is fully opaque and
+    // the front-side occlusion floor is delivered intact.
+    const partial = measure(0.3);
+    expect(partial.wrapperOpacity).toBe(1);
+    expect(partial.textAlpha).toBeCloseTo(TEXT_OCCLUSION_FLOOR, 5);
+    expect(partial.textAlpha).toBeGreaterThanOrEqual(TEXT_OCCLUSION_FLOOR);
+
+    const near = measure(1);
+    expect(near.wrapperOpacity).toBe(1);
+    expect(near.textAlpha).toBeCloseTo(1, 5);
+
+    // Stacked near-face de-emphasis (0.6 spotter tag * 0.3 active-band * 0.35
+    // contact posture ~= 0.063 raw) still backstops at FINAL_ALPHA_FLOOR.
+    const dimmed = measure(1, 0.6 * 0.3 * 0.35);
+    expect(dimmed.wrapperOpacity).toBe(1);
+    expect(dimmed.textAlpha).toBeCloseTo(0.35, 5);
   });
 
-  it("ramps monotonically from the limb to the near face", () => {
+  it("ramps the rendered label monotonically from the limb to the near face", () => {
     const samples = [0, 0.02, 0.05, 0.1, 0.15, 0.2, 0.25, 0.4, 0.7, 1].map(
-      (occ) => alphaAt(occ),
+      (occ) => {
+        const { wrapperOpacity, textAlpha } = measure(occ);
+        return wrapperOpacity * textAlpha;
+      },
     );
     for (let i = 1; i < samples.length; i++) {
       expect(samples[i]).toBeGreaterThanOrEqual(samples[i - 1]);

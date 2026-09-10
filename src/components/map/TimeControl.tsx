@@ -721,7 +721,7 @@ export function TimeControl({ className = "" }: TimeControlProps) {
       )}
 
       {/* Quick offset presets */}
-      <div className="flex gap-1 mb-2">
+      <div className="flex flex-wrap gap-1 mb-2">
         {OFFSET_PRESETS.map((preset) => (
           <button
             key={preset.value}

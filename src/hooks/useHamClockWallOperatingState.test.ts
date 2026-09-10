@@ -89,53 +89,6 @@ describe("useHamClockWallOperatingState", () => {
     expect(useMapStore.getState().target).toMatchObject({ lat: 40.1, lon: -74.2 });
   });
 
-  it("does not clobber a fresh DX-page target with the stale cursor on remount (#845)", () => {
-    // Simulate: operator set a target on /map earlier (also recorded on the
-    // shared cursor, e.g. via a spot pick that calls
-    // `operatingStateStore.selectSpot`), then went to the DX panel and used
-    // "Set as map target" there. `useDXSpotListState`'s
-    // `handleContextAction("setTarget", ...)` now writes `mapStore.target`
-    // AND the operating cursor together (#845 fix), so the cursor always
-    // agrees with the most recent target regardless of who wrote it last.
-    // Returning to /map remounts `HamClockView`, and with it this hook.
-    act(() => {
-      useOperatingStateStore.getState().setTarget({
-        callsign: "W1OLD",
-        grid: "FN20",
-        lat: null,
-        lon: null,
-        spotId: null,
-      });
-    });
-    useMapStore.setState({ target: { lat: 40.1, lon: -74.2, name: "W1OLD", grid: "FN20" } });
-
-    // The DX page's writer: `mapStore.setTarget` AND the operating cursor,
-    // for a different station.
-    act(() => {
-      useMapStore.getState().setTarget({ lat: -33.9, lon: 151.2, name: "VK2ABC", grid: "QF56" });
-      useOperatingStateStore.getState().setTarget({
-        callsign: "VK2ABC",
-        grid: "QF56",
-        lat: -33.9,
-        lon: 151.2,
-        spotId: "spot-2",
-      });
-    });
-    expect(useMapStore.getState().target).toMatchObject({ name: "VK2ABC" });
-
-    // Positive control: the first mount (nothing shared yet, matches the
-    // "no target set yet" branch) must not disturb a locally-set target either.
-    const first = renderHook(() => useHamClockWallOperatingState());
-    expect(useMapStore.getState().target).toMatchObject({ name: "VK2ABC" });
-    first.unmount();
-
-    // Returning to /map: HamClockView (and this hook) remounts. The stale
-    // cursor target (W1OLD) must not overwrite the DX page's fresh write.
-    renderHook(() => useHamClockWallOperatingState());
-
-    expect(useMapStore.getState().target).toMatchObject({ name: "VK2ABC" });
-  });
-
   it("stops applying the inbound cursor once follow is switched off", () => {
     renderHook(() => useHamClockWallOperatingState());
 

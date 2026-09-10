@@ -1175,15 +1175,40 @@ const FIXED_SITES: TintedSite[] = [
                       ? "bg-plasma-orange/20 text-su-text border-plasma-orange/50"`,
   },
   // Batch 4a (#803): src/components/sdr/, excluding primitives/RadioBadge.tsx
-  // (a peer PR's file) and shack/ (the other half of batch 4). 11 files, 12
-  // FIXED_SITES rows -- the ledger's 14-site count includes two sites this
-  // table cannot certify: FateBandAdvisor.tsx's fix is inside a JSDoc
-  // comment (no className= for the guard to locate), and SdrSettingsModal's
-  // color-palette swatch label draws its ink from a *different* element
-  // than the one carrying the `bg-plasma-orange/10` tint (the label's own
-  // className has no tint of its own to measure) -- a cross-element pairing
-  // the same-line census cannot see either (#873) but that this table has no
-  // shape for certifying. Both fixes ship in source; see the PR body.
+  // (a peer PR's file) and shack/ (the other half of batch 4). 11 files, 11
+  // `FIXED_SITES` rows below (Waterfall.tsx's row was pulled this round --
+  // see the note past the SdrSettingsModal rows) -- the ledger's 14-site
+  // count includes three sites this table cannot, or no longer needs to,
+  // certify: FateBandAdvisor.tsx's fix is inside a JSDoc comment (no
+  // className= for the guard to locate); SdrSettingsModal's color-palette
+  // swatch label draws its ink from a *different element* than the one
+  // carrying the `bg-plasma-orange/10` tint (#873); and Waterfall.tsx's
+  // label pill no longer carries a `bg-plasma-orange` tint of its own at
+  // all (see below), so there is nothing left on that element for a row to
+  // certify. All three fixes ship in source; see the PR body.
+  //
+  // Two more files fixed this round sit entirely outside the 11-file/14-site
+  // census above (neither was part of the original sdr/ count, and neither
+  // moves the LEDGER): SpotTagOverlay.tsx's `SPOT_MODE_COLORS.FM` and
+  // `DEFAULT_SPOT_COLOR` entries keep their tint and ink on two *different
+  // properties of the same object* (`bg`/`text`), which a `FIXED_SITES`
+  // `classSource` row cannot certify either -- `assertInkOnTintedBranches`
+  // pairs a tint and its ink only when they sit inside the *same quoted
+  // string*, and the object's separate `line` tint (no ink of its own) trips
+  // that check the same way SdrSettingsModal's cross-element case does; a
+  // row was tried and fails for exactly that reason, so both fixes ship in
+  // source only (Opus review round, PR #890). DevicePicker.tsx's device-type
+  // badge carries a `/10` tint below the census's `/15` floor -- outside the
+  // census either way -- but its tint and ink *do* sit in one string
+  // together, so it gets a normal `FIXED_SITES` row below.
+  //
+  // The Fate and Flexible skin shells also paint hard-coded backdrops
+  // (`#080810`, `#0a0a14`, `#0c0c16`, `#0d0d14`, `black`) under
+  // `.su-fixed-dark` rather than the pinned `--su-panel` color; all of
+  // those literals are darker than the pinned panel, so any contrast
+  // measured against the panel in this table is a safe lower bound there
+  // too (monotonicity: a darker backdrop only raises the same-alpha tint's
+  // contrast against light ink).
   {
     file: "src/components/sdr/EqBandPanel.tsx",
     what: "the active notch-band button",
@@ -1208,12 +1233,18 @@ const FIXED_SITES: TintedSite[] = [
     snippet: `blendMode === mode
                   ? "bg-plasma-orange/15 text-su-text border-plasma-orange/30"`,
   },
-  {
-    file: "src/components/sdr/Waterfall.tsx",
-    what: "the orange frequency-marker label pill",
-    snippet: `? "bg-plasma-orange/20 text-su-text"`,
-    classSource: `const labelColorClass =`,
-  },
+  // Waterfall.tsx's frequency-marker label pill is deliberately NOT a row
+  // here: its static class list already carries `bg-su-panel/90`, and
+  // Tailwind emits `.bg-plasma-orange\/N` before `.bg-su-panel\/90` (theme
+  // key order -- `plasma-orange` is a top-level color, `su.panel` is
+  // declared later, inside the nested `su` namespace, in
+  // tailwind.config.js), so an accent fill added to this element can never
+  // win the cascade against the panel fill already there -- it would be
+  // dead CSS, not a real tint. The orange branch of `labelColorClass`
+  // carries no `bg-plasma-orange` for that reason; its color cue comes from
+  // `text-su-accent-text` ink against the real (panel) backdrop instead, so
+  // there is no accent-tint pairing on this element for `FIXED_SITES` to
+  // certify (Opus review round, PR #890).
   {
     file: "src/components/sdr/primitives/DspBadge.tsx",
     what: 'the "plasma-orange" active-color variant',
@@ -1253,6 +1284,11 @@ const FIXED_SITES: TintedSite[] = [
     what: "the RIT toggle button, enabled state",
     snippet: `ritEnabled
                 ? "bg-plasma-orange/20 border-plasma-orange/30 text-su-text"`,
+  },
+  {
+    file: "src/components/sdr/DevicePicker.tsx",
+    what: "device-type badge, non-SDR device (below the /15 census floor)",
+    snippet: `: "bg-plasma-orange/10 border-plasma-orange/30 text-su-text"`,
   },
 ];
 
@@ -1377,7 +1413,7 @@ describe("census guard: no new accent ink on an accent tint (#803)", () => {
    * assertion is `<=`. A file that gains a pairing fails; a file that is not
    * listed is budgeted at zero, so a brand new site fails; a file whose sites
    * get fixed simply passes with room to spare, so the sequenced follow-up PRs
-   * (the 98 files outside this agent's scope on #803) never have to touch
+   * (the 86 files outside this agent's scope on #803) never have to touch
    * this table to land. `src/components/ui` is deliberately absent -- see the
    * explicit clause below.
    */
@@ -1493,7 +1529,7 @@ describe("census guard: no new accent ink on an accent tint (#803)", () => {
    * (>= 5.19:1), while a near-white or near-black custom accent drops to
    * 3.70-4.21:1. These two `/30` sites predate #803 and sit in
    * `src/components/alerts`, outside this agent's file scope; they go into the
-   * same sequenced follow-up as the 147 above.
+   * same sequenced follow-up as the 134 above.
    */
   const ABOVE_CAP_LEDGER = new Map<string, number>([
     ["src/components/alerts/AlertRuleBuilder.tsx", 1],

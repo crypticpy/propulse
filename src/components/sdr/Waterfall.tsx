@@ -991,9 +991,17 @@ export function Waterfall({
       {effectiveView &&
         overlayPositions.map((o, idx) => {
           // The marker line stays vivid and carries no text-* class (it has
-          // no text content, so it needs no ink), but the label pill draws
-          // text over its own tint and must stay within the measured
-          // accent-ink cap (#803).
+          // no text content, so it needs no ink). The label pill always
+          // renders on the opaque `bg-su-panel/90` fill on its own static
+          // class list -- Tailwind emits `.bg-plasma-orange\/N` before
+          // `.bg-su-panel\/90` (theme-key order: `plasma-orange` is a
+          // top-level color, `su.panel` is declared later in the nested `su`
+          // namespace in tailwind.config.js), so a same-alpha-layer accent
+          // fill on this element can never win the cascade -- it would just
+          // be dead CSS. The orange branch carries no `bg-plasma-orange` of
+          // its own for that reason; its color cue comes from
+          // `text-su-accent-text` (the on-system "safe against panel" ink,
+          // falls back to `info` if the accent misses 4.5) instead (#803).
           const lineColorClass =
             o.color === "orange"
               ? "bg-plasma-orange/70"
@@ -1004,7 +1012,7 @@ export function Waterfall({
                   : "bg-cosmic-cyan/70";
           const labelColorClass =
             o.color === "orange"
-              ? "bg-plasma-orange/20 text-su-text"
+              ? "text-su-accent-text"
               : o.color === "red"
                 ? "bg-alert-red/70 text-alert-red"
                 : o.color === "green"

@@ -125,12 +125,14 @@ export const useAuthStore = create<AuthState>()((set, get) => ({
           // transient `profile_billing` read failure right after can never
           // preserve one account's Pro state into another account's session.
           // Same-user reloads (ids match) are left untouched so Pro state
-          // does not flicker to free while the sync re-pulls it.
+          // does not flicker to free while the sync re-pulls it. A null
+          // session counts as a boundary too (Codex round 6): a browser whose
+          // session expired or was revoked while closed gets INITIAL_SESSION
+          // with session === null and no SIGNED_OUT, and must not keep the
+          // previous account's Pro tier in the anonymous UI.
           const incomingUserId = session?.user?.id ?? null;
-          if (
-            incomingUserId &&
-            incomingUserId !== useProfileStore.getState().billingUserId
-          ) {
+          const { billingUserId } = useProfileStore.getState();
+          if (billingUserId !== null && incomingUserId !== billingUserId) {
             useProfileStore.getState().resetBilling();
           }
 

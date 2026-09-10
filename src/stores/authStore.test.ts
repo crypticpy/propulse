@@ -196,6 +196,30 @@ describe("authStore account-boundary billing reset", () => {
     expect(state.subscriptionPeriodEnd).toBeNull();
   });
 
+  it("resets billing when the initial session is null (expired while closed)", async () => {
+    seedProBilling("user-A");
+
+    let listener: AuthListener | undefined;
+    authMocks.onAuthStateChange.mockImplementation((callback: AuthListener) => {
+      listener = callback;
+      return { data: { subscription: { unsubscribe: authMocks.unsubscribe } } };
+    });
+    authMocks.getSession.mockResolvedValue({ data: { session: null } });
+    authMocks.setAuth.mockResolvedValue(undefined);
+
+    await useAuthStore.getState().initialize();
+
+    // supabase-js reports a missing/expired persisted session this way; no
+    // SIGNED_OUT follows, so this event is the only account boundary seen.
+    listener?.("INITIAL_SESSION", null);
+
+    const state = useProfileStore.getState();
+    expect(state.billingUserId).toBeNull();
+    expect(state.subscriptionTier).toBe("free");
+    expect(state.subscriptionStatus).toBe("inactive");
+    expect(state.subscriptionPeriodEnd).toBeNull();
+  });
+
   it("leaves billing intact when the same account signs in again (reload)", async () => {
     seedProBilling("user-A");
 

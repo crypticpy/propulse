@@ -3,10 +3,27 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { OPERATING_PROTOCOL_VERSION } from "@/lib/workspace/operatingChannel";
 import { useMapStore } from "@/stores/mapStore";
 import { useOperatingStateStore } from "@/stores/operatingStateStore";
+import { useOperationalWorkspaceSync } from "./useMapOperationalContext";
 import {
   HAMCLOCK_WALL_WORKSPACE_ID,
   useHamClockWallOperatingState,
 } from "./useHamClockWallOperatingState";
+
+vi.mock("@/lib/supabase", () => ({
+  getSupabase: vi.fn(),
+  isSupabaseConfigured: false,
+}));
+
+/** Enough of `BroadcastChannel` to hand the sync hook a message. */
+class TestChannel {
+  static instances: TestChannel[] = [];
+  onmessage: ((event: MessageEvent) => void) | null = null;
+  postMessage = vi.fn();
+  constructor() {
+    TestChannel.instances.push(this);
+  }
+  close() {}
+}
 
 function inboundTarget(
   senderId: string,
@@ -38,6 +55,8 @@ beforeEach(() => {
 
 afterEach(() => {
   vi.useRealTimers();
+  vi.unstubAllGlobals();
+  TestChannel.instances = [];
 });
 
 describe("useHamClockWallOperatingState", () => {
@@ -93,6 +112,74 @@ describe("useHamClockWallOperatingState", () => {
     expect(target).toMatchObject({ name: "W2XYZ", grid: "FN20" });
     expect(target?.lat).toBeCloseTo(40.5, 1);
     expect(target?.lon).toBeCloseTo(-75, 1);
+  });
+
+  it("keeps a target synced from a pop-out window over an older cursor", async () => {
+    // The three-step race (#859 round 2): the wall unmounts, the cursor
+    // advances on a phone, and *then* a target is picked in the synchronized
+    // pop-out window. The pop-out's target arrives through
+    // `useOperationalWorkspaceSync`, which applies it with `setState` rather
+    // than `setTarget` — so it has to carry its own `targetSetAt`, or the
+    // wall's remount reconcile reads the previous target's stamp and lets
+    // the older cursor win.
+    vi.stubGlobal("BroadcastChannel", TestChannel);
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-09-10T00:00:00Z"));
+
+    const sync = renderHook(() => useOperationalWorkspaceSync());
+    await act(async () => {
+      await Promise.resolve();
+    });
+    const [channel] = TestChannel.instances;
+
+    useOperatingStateStore
+      .getState()
+      .applyMessage(inboundTarget("phone-device", "K1ABC", "EM10"));
+    const wall = renderHook(() => useHamClockWallOperatingState());
+    expect(useMapStore.getState().target?.name).toBe("K1ABC");
+    const wallTarget = useMapStore.getState().target;
+    const wallStamp = useMapStore.getState().targetSetAt;
+
+    wall.unmount();
+
+    // 1. cursor advances while the wall is unmounted
+    vi.advanceTimersByTime(60_000);
+    act(() => {
+      useOperatingStateStore
+        .getState()
+        .applyMessage(inboundTarget("phone-device", "W2XYZ", "FN20"));
+    });
+
+    // 2. the pop-out picks a target *after* that. Its snapshot is produced by
+    // the real publisher rather than hand-written, so this test fails if the
+    // stamp stops travelling with the target.
+    vi.advanceTimersByTime(60_000);
+    act(() => {
+      useMapStore.getState().setTarget({ lat: -20, lon: -45, name: "PY5DX" });
+    });
+    await act(async () => {
+      await Promise.resolve();
+    });
+    const published = channel.postMessage.mock.calls
+      .map(([message]) => message as { domain: string; sender: string })
+      .findLast((message) => message.domain === "map");
+    expect(published).toBeDefined();
+
+    // Rewind this window to where it stood before that write, so the snapshot
+    // arrives the way the wall's window would actually receive it.
+    useMapStore.setState({ target: wallTarget, targetSetAt: wallStamp });
+    act(() => {
+      channel.onmessage?.({
+        data: { ...published, sender: "pop-out-window" },
+      } as MessageEvent);
+    });
+    expect(useMapStore.getState().target?.name).toBe("PY5DX");
+
+    // 3. the wall remounts and must keep the pop-out's newer pick
+    renderHook(() => useHamClockWallOperatingState());
+
+    expect(useMapStore.getState().target).toMatchObject({ name: "PY5DX" });
+    sync.unmount();
   });
 
   it("does not clear the map target when a newer cursor carries no location", () => {

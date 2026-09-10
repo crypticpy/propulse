@@ -108,7 +108,14 @@ type WorkspaceSnapshot = {
     ReturnType<typeof useQSOStore.getState>,
     "form" | "operatingMode"
   >;
-  map: Pick<ReturnType<typeof useMapStore.getState>, "target">;
+  /**
+   * `targetSetAt` travels with the target so the sending window's own write
+   * time survives the hop. Applying the target alone would leave this
+   * window's stamp on the *previous* target, and the HamClock wall reconciles
+   * against that stamp on mount (#859) — a pop-out's fresh pick would then
+   * lose to an older operating cursor.
+   */
+  map: Pick<ReturnType<typeof useMapStore.getState>, "target" | "targetSetAt">;
   dx: Pick<ReturnType<typeof useDXStore.getState>, "selectedSpot">;
   contest: Pick<
     ReturnType<typeof useContestStore.getState>,
@@ -163,7 +170,7 @@ function createWorkspaceSnapshot(): WorkspaceSnapshot {
       selectedReport: operational.selectedReport,
     },
     qso: { form: qso.form, operatingMode: qso.operatingMode },
-    map: { target: map.target },
+    map: { target: map.target, targetSetAt: map.targetSetAt },
     dx: { selectedSpot: dx.selectedSpot },
     contest: {
       activeSession: contest.activeSession,
@@ -321,9 +328,19 @@ export function useOperationalWorkspaceSync(): void {
           case "qso":
             useQSOStore.setState(message.state as WorkspaceSnapshot["qso"]);
             break;
-          case "map":
-            useMapStore.setState(message.state as WorkspaceSnapshot["map"]);
+          case "map": {
+            const map = message.state as WorkspaceSnapshot["map"];
+            // A window still on an older bundle sends no stamp; treat the
+            // arrival as the write time rather than leaving this window's
+            // stamp on the target it just replaced.
+            useMapStore.setState({
+              target: map.target,
+              targetSetAt: Number.isFinite(map.targetSetAt)
+                ? map.targetSetAt
+                : Date.now(),
+            });
             break;
+          }
           case "dx":
             useDXStore.setState(message.state as WorkspaceSnapshot["dx"]);
             break;

@@ -20,6 +20,7 @@ import {
   assertSharedServerIdentity,
   claimSession,
   filterViteProcessLines,
+  findDisallowedForwardedArgs,
   findForwardedOverrideFlags,
   findUnmanagedViteProcesses,
   isViteExecutableCommand,
@@ -99,6 +100,21 @@ async function captureRealProcessLine(t, relativeBinPath) {
   // query the real process table for this pid again after this returns.
   assert.ok(line, `did not observe pid ${child.pid} in real ps output`);
   return line;
+}
+
+// PR #894 round 6 P2: GNU/Linux `ps -axo pid=,command=` right-justifies the
+// pid column (leading spaces), which stdout.trim() in filterViteProcessLines
+// only strips from the very start/end of the whole blob, not per line — a
+// raw single-line comparison against a captured ps line can pass on macOS
+// (no padding) and fail on Linux. Comparing parsed {pid, command} pairs
+// instead of raw line text is robust to that padding on both platforms.
+function parsePidAndCommand(line) {
+  const trimmed = line.trim();
+  const firstSpace = trimmed.indexOf(" ");
+  return {
+    pid: Number(trimmed.slice(0, firstSpace)),
+    command: trimmed.slice(firstSpace + 1),
+  };
 }
 
 const base = {
@@ -290,7 +306,9 @@ test("filterViteProcessLines keeps a real vite-path process and drops a real vit
   ]);
   const stdout = [vitestLine, viteLine].join("\n");
   const result = filterViteProcessLines(stdout, { ownPid: -1 });
-  assert.deepEqual(result, [viteLine]);
+  assert.deepEqual(result.map(parsePidAndCommand), [
+    parsePidAndCommand(viteLine),
+  ]);
 });
 
 // Integration-level check that the real detection path (ps, not the old
@@ -546,7 +564,7 @@ test("filterViteProcessLines keeps a real vite executable even when its path con
     path.join("vitest-fixture-app", "node_modules", ".bin", "vite"),
   );
   const result = filterViteProcessLines(line, { ownPid: -1 });
-  assert.deepEqual(result, [line]);
+  assert.deepEqual(result.map(parsePidAndCommand), [parsePidAndCommand(line)]);
 });
 
 test("filterViteProcessLines excludes a real vitest invocation with a run argument", async (t) => {
@@ -599,6 +617,48 @@ test("an IPv6 --host value is detected identically in equals and split form, and
   assert.equal(findForwardedOverrideFlags(splitForm).length, 2);
   assert.equal(parseForwardedPort(equalsForm), 5180);
   assert.equal(parseForwardedPort(splitForm), 5180);
+});
+
+// PR #894 round 6 P1: findForwardedOverrideFlags only recognized
+// port/host/strictPort forms, so a forwarded --config, --root, --mode,
+// --filter, or a bare positional root path could still reach the real vite
+// binary and change which config/root Vite loads after the guard had
+// already checked port 5173. findDisallowedForwardedArgs is an allowlist,
+// not a bigger denylist, so an unrecognized flag is refused by default.
+test("findDisallowedForwardedArgs refuses config/root/mode overrides and bare positional paths", () => {
+  const refused = [
+    ["--config", "x"],
+    ["-c", "x"],
+    ["--root", "x"],
+    ["-r", "x"],
+    ["--mode", "x"],
+    ["-m", "x"],
+    ["/tmp/some-other-root"],
+    ["--config=x"],
+  ];
+  for (const args of refused) {
+    assert.ok(
+      findDisallowedForwardedArgs(args).length > 0,
+      `expected a refusal: ${JSON.stringify(args)}`,
+    );
+  }
+});
+
+test("findDisallowedForwardedArgs accepts the safe flag allowlist", () => {
+  assert.deepEqual(
+    findDisallowedForwardedArgs(["--open", "--force", "--logLevel", "warn"]),
+    [],
+  );
+  assert.deepEqual(findDisallowedForwardedArgs([]), []);
+});
+
+test("findDisallowedForwardedArgs never re-flags a port/host/strictPort override already handled by the hatch", () => {
+  assert.deepEqual(findDisallowedForwardedArgs(["--port", "5180"]), []);
+  assert.deepEqual(findDisallowedForwardedArgs(["--host", "0.0.0.0"]), []);
+  assert.deepEqual(
+    findDisallowedForwardedArgs(["--strictPort", "false"]),
+    [],
+  );
 });
 
 // PR #894 round 5 P1: two concurrent DEV_SERVER_ALLOW_EXTRA=1 invocations
@@ -698,6 +758,66 @@ test("runManagedVite allows a forwarded override when DEV_SERVER_ALLOW_EXTRA=1",
     lockPath: await lockFile(t),
   });
   assert.deepEqual(calls[0].args, ["--port", "5180"]);
+});
+
+// PR #894 round 6 P1: unlike the port/host/strictPort hatch above,
+// DEV_SERVER_ALLOW_EXTRA=1 never permits a forwarded flag that could change
+// the config/root Vite loads — the managed server always runs this
+// checkout's checked-in vite.config.ts.
+test("runManagedVite refuses a forwarded --config override even with DEV_SERVER_ALLOW_EXTRA=1, and never spawns vite", async (t) => {
+  const prior = process.env.DEV_SERVER_ALLOW_EXTRA;
+  t.after(() => {
+    if (prior === undefined) delete process.env.DEV_SERVER_ALLOW_EXTRA;
+    else process.env.DEV_SERVER_ALLOW_EXTRA = prior;
+  });
+  process.env.DEV_SERVER_ALLOW_EXTRA = "1";
+  const calls = [];
+  await assert.rejects(
+    runManagedVite(["--config", "/tmp/alternate.ts"], {
+      spawnFn: fakeChildFactory(calls),
+      guard: async () => {},
+      lockPath: await lockFile(t),
+    }),
+    /Refusing to forward --config/,
+  );
+  assert.equal(calls.length, 0);
+});
+
+test("runManagedVite refuses a bare positional root argument", async (t) => {
+  const calls = [];
+  await assert.rejects(
+    runManagedVite(["/tmp/some-other-root"], {
+      spawnFn: fakeChildFactory(calls),
+      guard: async () => {},
+      lockPath: await lockFile(t),
+    }),
+    /Refusing to forward \/tmp\/some-other-root/,
+  );
+  assert.equal(calls.length, 0);
+});
+
+// Sweep: the preview path shares the same allowlist as dev.
+test("runManagedVite refuses a forwarded --config override on the preview path too", async (t) => {
+  const calls = [];
+  await assert.rejects(
+    runManagedVite(["preview", "--config", "/tmp/alternate.ts"], {
+      spawnFn: fakeChildFactory(calls),
+      guard: async () => {},
+      lockPath: await lockFile(t),
+    }),
+    /Refusing to forward --config/,
+  );
+  assert.equal(calls.length, 0);
+});
+
+test("runManagedVite preview accepts the safe flag allowlist", async (t) => {
+  const calls = [];
+  await runManagedVite(["preview", "--open", "--force"], {
+    spawnFn: fakeChildFactory(calls),
+    guard: async () => {},
+    lockPath: await lockFile(t),
+  });
+  assert.deepEqual(calls[0].args, ["preview", "--open", "--force"]);
 });
 
 test("runManagedVite propagates the guard's refusal without spawning vite", async (t) => {

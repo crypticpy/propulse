@@ -4,10 +4,16 @@
  * `start` refuses when any other server (managed or unmanaged) is already
  * running. Agents never start their own; the human or orchestrator owns the
  * single shared session. `npm run dev` / `npm run preview` route through this
- * script's `vite` / `vite preview` subcommands, which run the same guard and
- * then refuse to forward any `--port`/`--host`/`--strictPort` override to the
- * real Vite binary unless DEV_SERVER_ALLOW_EXTRA=1 — otherwise a forwarded
- * `npm run dev -- --port 5180` would guard 5173 and then bind 5180 anyway.
+ * script's `vite` / `vite preview` subcommands, which run the same guard,
+ * refuse to forward any `--port`/`--host`/`--strictPort` override to the real
+ * Vite binary unless DEV_SERVER_ALLOW_EXTRA=1 is set (otherwise a forwarded
+ * `npm run dev -- --port 5180` would guard 5173 and then bind 5180 anyway),
+ * and — regardless of that hatch — refuse any other forwarded flag or
+ * positional argument that isn't on a small allowlist known to be incapable
+ * of changing the port/host/root/config Vite loads
+ * (findDisallowedForwardedArgs; a `--config`/`--root`/`--mode` override, for
+ * example, would let Vite bind a different port after the guard already
+ * checked 5173).
  * See docs/guides/LOCAL-AGENT-TESTING.md.
  */
 import { execFileSync, spawn } from "node:child_process";
@@ -663,6 +669,74 @@ export function parseForwardedPort(args) {
   return null;
 }
 
+function isFlagToken(token) {
+  return token.startsWith("-");
+}
+
+// Flags that cannot change which port/host/root/config Vite loads, safe to
+// forward unconditionally (never gated by DEV_SERVER_ALLOW_EXTRA — that
+// hatch only ever moves the single server to a different port, never its
+// config or working root).
+const ALLOWED_FORWARDED_BOOLEAN_FLAGS = new Set([
+  "--open",
+  "--force",
+  "--clearScreen",
+  "--no-clearScreen",
+  "--profile",
+  "--cors",
+  "--no-cors",
+]);
+const ALLOWED_FORWARDED_VALUE_FLAGS = new Set([
+  "--logLevel",
+  "-l",
+  "--debug",
+  "-d",
+  "--filter",
+  "-f",
+]);
+
+// An allowlist, not a denylist: every forwarded arg must be either a
+// port/host/strictPort flag (handled separately by
+// findForwardedOverrideFlags/parseForwardedPort/the DEV_SERVER_ALLOW_EXTRA
+// hatch above) or one of the flags above known to be incapable of changing
+// the port/host/root/config Vite loads. Anything else — an unrecognized
+// flag such as `--config`/`-c`, `--root`/`-r`, or `--mode`/`-m` (which could
+// point Vite at a different config, working root, or env-loaded
+// `VITE_PORT`-style value), or a bare positional argument (Vite's
+// `vite [root]`) — is refused by default instead of silently forwarded. A
+// value flag consumes exactly one following non-flag token as its value so
+// it's never itself re-examined as a stray positional or unknown flag; an
+// unrecognized flag does the same, so the refusal names the flag once
+// rather than also flagging its argument as a second, confusing positional.
+export function findDisallowedForwardedArgs(args) {
+  const disallowed = [];
+  for (let i = 0; i < args.length; i++) {
+    const arg = args[i];
+    const consumesValue = () => {
+      if (
+        !arg.includes("=") &&
+        args[i + 1] !== undefined &&
+        !isFlagToken(args[i + 1])
+      ) {
+        i++;
+      }
+    };
+    if (FORWARDED_OVERRIDE_FLAG.test(arg)) {
+      consumesValue();
+      continue;
+    }
+    const [flag] = arg.split("=");
+    if (ALLOWED_FORWARDED_BOOLEAN_FLAGS.has(flag)) continue;
+    if (ALLOWED_FORWARDED_VALUE_FLAGS.has(flag)) {
+      consumesValue();
+      continue;
+    }
+    disallowed.push(arg);
+    if (isFlagToken(arg)) consumesValue();
+  }
+  return disallowed;
+}
+
 // Runs `vite` or `vite preview` for real, but only after the same guard
 // `start` uses, and only after confirming the caller isn't trying to sneak a
 // port/host/strictPort override past that guard (see module doc comment).
@@ -678,6 +752,22 @@ export async function runManagedVite(
 ) {
   const isPreview = args[0] === "preview";
   const forwarded = isPreview ? args.slice(1) : args;
+  // Unconditional, and checked before anything else: unlike the
+  // port/host/strictPort override below, no hatch ever permits a forwarded
+  // flag or positional argument that could change the config/root Vite
+  // loads — the managed server always runs this checkout's checked-in
+  // vite.config.ts.
+  const disallowedArgs = findDisallowedForwardedArgs(forwarded);
+  if (disallowedArgs.length) {
+    throw new Error(
+      `Refusing to forward ${disallowedArgs.join(", ")} to vite: the managed ` +
+        `server always runs this checkout's checked-in vite.config.ts on ` +
+        `${SHARED_PORT}. Edit vite.config.ts for a config change, or move the ` +
+        "single server to a different port with DEV_SERVER_ALLOW_EXTRA=1 " +
+        "through dev:session — never a forwarded flag that could change " +
+        "its config, root, or working directory.",
+    );
+  }
   const overrides = findForwardedOverrideFlags(forwarded);
   const hatchSet = process.env.DEV_SERVER_ALLOW_EXTRA === "1";
   // Without the hatch, an override is always refused below regardless of

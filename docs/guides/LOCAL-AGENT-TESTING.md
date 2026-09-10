@@ -37,7 +37,13 @@ same manager (`node scripts/dev-session.mjs vite` / `vite preview`), so it
 runs the same refusal before Vite even starts, and it also refuses to forward
 any `--port`, `--host`, or `--strictPort` override to the real Vite binary —
 for example `npm run dev -- --port 5180` — unless `DEV_SERVER_ALLOW_EXTRA=1`
-is set.
+is set. Every other forwarded flag or positional argument is checked against
+a small allowlist of flags known to be incapable of changing the
+port/host/root/config Vite loads (`--open`, `--force`, `--clearScreen`,
+`--logLevel`, `--debug`, `--filter`, `--profile`, `--cors`, and their short
+forms); anything else — `--config`/`-c`, `--root`/`-r`, `--mode`/`-m`, or a
+bare positional root path — is refused unconditionally, and
+`DEV_SERVER_ALLOW_EXTRA=1` never permits it.
 
 `DEV_SERVER_ALLOW_EXTRA=1` **moves** the one shared server to a different
 port (owner-only escape hatch, for example when 5173 is occupied by something

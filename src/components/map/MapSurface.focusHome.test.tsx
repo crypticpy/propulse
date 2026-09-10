@@ -427,6 +427,20 @@ function PathPointInspectorHost({
   initialOpen?: PathPointInspectorOpen;
 }) {
   const surfaceRef = useRef<HTMLDivElement>(null);
+  // `portalTarget` starts `null` and only becomes the real div once its ref
+  // callback fires on mount, so the very first render's `createPortal` call
+  // (inside `PathPointInspector`) targets `document.body` and only the
+  // second render retargets it at this host's overlay div -- a
+  // `createPortal` *container* swap, not a component unmount/remount
+  // (`PathPointInspector`'s own fiber and effects are unaffected; React
+  // portals move DOM nodes, they don't recreate the tree). That swap lands
+  // on the very first commit, same as every other render here, so it
+  // stacks with -- and is a second, independent reason not to trust
+  // trivially -- the setup -> cleanup -> setup sequence the StrictMode
+  // mount-race test below exercises (`initialOpen="card"`, #842's
+  // stale-timer fix): a naive read could mistake the container swap itself
+  // for a StrictMode replay artifact when in fact they are two different
+  // mechanisms that happen to land in the same commit window.
   const [portalTarget, setPortalTarget] = useState<HTMLDivElement | null>(null);
   const [open, setOpen] = useState<PathPointInspectorOpen>(initialOpen);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -1047,6 +1061,26 @@ describe("map surface focus home", () => {
   // `PathPointInspector`, the same shape as the `GlobeView` case's own Canvas
   // substitution.
   // -------------------------------------------------------------------------
+
+  it("PathPointInspector: portals the open card into the overlay portal, not document.body (#853)", async () => {
+    const pointSet = buildTestPathPointSet();
+    render(<PathPointInspectorHost pointSet={pointSet} />);
+
+    fireEvent.click(screen.getByTestId("path-point-hit-area"));
+    const card = await screen.findByRole("dialog", {
+      name: "Path point details",
+    });
+    const portal = screen.getByTestId("path-point-overlay-portal");
+
+    // The rendered-DOM counterpart to `RayPathArc.mountShape.test.ts`'s
+    // source-contract assertions: this proves the actual DOM shape those
+    // string checks predict -- the card is a descendant of the overlay
+    // portal div (mirroring `GlobeView`'s `mapOverlayPortal`), not of
+    // `document.body` by way of `PathPointInspector`'s own fallback.
+    expect(portal.contains(card)).toBe(true);
+    expect(card.parentElement === document.body).toBe(false);
+  });
+
 
   it("PathPointInspector: focus goes home after the panel closes", async () => {
     const pointSet = buildTestPathPointSet();

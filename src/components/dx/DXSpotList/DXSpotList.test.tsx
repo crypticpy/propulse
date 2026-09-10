@@ -13,6 +13,7 @@ import {
   ingestOperatingMonitorReportForTests,
   resetOperatingMonitorForTests,
 } from "@/hooks/useOperatingMonitor";
+import { getLocationFromPrefix } from "@/lib/data/prefixLocations";
 import { useDXStore } from "@/stores/dxStore";
 import { useKioskStore } from "@/stores/kioskStore";
 import { useMapStore } from "@/stores/mapStore";
@@ -413,5 +414,42 @@ describe("DXSpotList set-target quick action (#845)", () => {
     expect(target?.name).toBe(spot.dx);
     expect(target?.lat).not.toBe(0);
     expect(target?.lon).not.toBe(0);
+  });
+
+  // The real production shape (Opus second-pass review S1/S2): the DX
+  // cluster REST feed (api/_lib/handlers/spots.ts:36-47) maps rows without
+  // ever setting dxGrid or dxLat/dxLon at all -- unlike the malformed-grid
+  // case above, this is not a throw, it is both `if` branches of the old
+  // chain being false, so the button was a silent no-op for every ordinary
+  // DXCluster row on main, not just a junk-grid edge case.
+  it("falls back to the callsign-prefix location for a grid-less, coordinate-less cluster spot", async () => {
+    const spot = dxSpot({
+      id: "cluster-no-location-spot",
+      dx: "DL1ABC",
+      dxLat: undefined,
+      dxLon: undefined,
+      dxGrid: undefined,
+    });
+    mockClusterSpots = [spot];
+    useDXStore.setState({ spots: [spot], selectedSpot: null });
+
+    // Derive the expected centroid from the same data source the fix reads,
+    // rather than hardcoding coordinates from memory.
+    const expectedLocation = getLocationFromPrefix("DL");
+    expect(expectedLocation).not.toBeNull();
+
+    const storage = createMemoryWorkingStorage();
+    render(<DXSpotList />, { wrapper: makeWrapper(storage) });
+
+    const user = userEvent.setup();
+    const setTargetButton = await screen.findByRole("button", { name: "Set as map target" });
+
+    await user.click(setTargetButton);
+
+    const target = useMapStore.getState().target;
+    expect(target).not.toBeNull();
+    expect(target?.name).toBe(spot.dx);
+    expect(target?.lat).toBe(expectedLocation?.lat);
+    expect(target?.lon).toBe(expectedLocation?.lon);
   });
 });

@@ -81,12 +81,13 @@ function relayedTarget(
 }
 
 /**
- * A `hello` reply from a tab still on the v1 bundle: the wire had no way to
- * name an author, so the entry carries only a value and a stamp.
+ * A `hello` reply from a tab on a bundle older than #859 round 5: the wire
+ * had no way to name an author, so the entry carries only a value and a
+ * stamp.
  */
-function v1Relay(relayId: string, callsign: string, grid: string | null, at: number) {
+function authorlessRelay(relayId: string, callsign: string, grid: string | null, at: number) {
   return {
-    v: 1,
+    v: OPERATING_PROTOCOL_VERSION,
     senderId: relayId,
     sentAt: Date.now(),
     kind: "state" as const,
@@ -333,7 +334,7 @@ describe("useHamClockWallOperatingState", () => {
     expect(useMapStore.getState().target).toMatchObject({ name: "W2XYZ", grid: "FN20" });
   });
 
-  it("keeps a local target when a v1 tab relays the cursor without an author", () => {
+  it("keeps a local target when an old tab relays the cursor without an author", () => {
     // A tab left open across a deploy still runs the old bundle and answers
     // `hello` with a patch that cannot say who wrote it. Credited to the
     // sender, a relay from a peer whose id sorts above the real author's
@@ -353,7 +354,7 @@ describe("useHamClockWallOperatingState", () => {
 
     vi.advanceTimersByTime(5_000);
     act(() => {
-      useOperatingStateStore.getState().applyMessage(v1Relay("zzz-peer", "K1ABC", "EM10", cursorAt));
+      useOperatingStateStore.getState().applyMessage(authorlessRelay("zzz-peer", "K1ABC", "EM10", cursorAt));
     });
 
     // Nothing moved: same author, same arrival stamp as the first application.
@@ -365,8 +366,8 @@ describe("useHamClockWallOperatingState", () => {
     expect(useMapStore.getState().target).toMatchObject({ name: "W3ABC", lat: 40, lon: -80 });
   });
 
-  it("still applies a v1 cursor that is strictly newer than the local target", () => {
-    // The v1 rule must cost a genuine write nothing: an old tab that really
+  it("still applies an authorless cursor that is strictly newer than the local target", () => {
+    // The authorless rule must cost a genuine write nothing: an old tab that really
     // does move the cursor after the local pick still wins.
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2026-09-10T00:00:00Z"));
@@ -375,7 +376,7 @@ describe("useHamClockWallOperatingState", () => {
 
     vi.advanceTimersByTime(5_000);
     act(() => {
-      useOperatingStateStore.getState().applyMessage(v1Relay("zzz-peer", "W2XYZ", "FN20", Date.now()));
+      useOperatingStateStore.getState().applyMessage(authorlessRelay("zzz-peer", "W2XYZ", "FN20", Date.now()));
     });
 
     renderHook(() => useHamClockWallOperatingState());

@@ -49,56 +49,28 @@ describe("parseOperatingMessage", () => {
     expect(message?.kind).toBe("state");
   });
 
-  it("drops a v2 patch entry that does not name its author", () => {
-    // From v2 every entry says who wrote it, so one that does not is
-    // malformed — and dropping it is what stops an authorless entry being
-    // credited to whichever peer relayed it (#859 round 6).
-    expect(
-      parseOperatingMessage({
-        ...envelope(),
-        kind: "state",
-        patch: { band: { value: "20m", at: 900 } },
-      }),
-    ).toBeNull();
-    // A non-string author is no better than none.
-    expect(
-      parseOperatingMessage({
-        ...envelope(),
-        kind: "state",
-        patch: { band: { value: "20m", at: 900, by: 7 } },
-      }),
-    ).toBeNull();
-    // One bad entry drops the whole message, as for any other malformed
-    // field: a half-applied patch is worse than a dropped one.
-    expect(
-      parseOperatingMessage({
-        ...envelope(),
-        kind: "state",
-        patch: {
-          band: { value: "20m", at: 900, by: "screen-a" },
-          contact: { value: null, at: 900 },
-        },
-      }),
-    ).toBeNull();
-  });
-
-  it("still reads a v1 peer, which had no author field", () => {
-    // A tab left open across a deploy keeps running the old bundle. Dropping
-    // it outright would split the screens into two islands that see none of
-    // each other's cursor — worse than the replay the bump closes — so v1
-    // stays readable and the merge rule compensates.
+  it("keeps an entry that names no author, rather than dropping it", () => {
+    // A tab left open across a deploy runs a bundle older than #859 round 5,
+    // which cannot name an author. It is still a supported peer: the entry
+    // parses with `by` undefined, and `mergePatch` — not the parser — is what
+    // refuses to let an authorless entry win a same-millisecond tie-break.
     const message = parseOperatingMessage({
-      v: 1,
-      senderId: "screen-a",
-      sentAt: 1_000,
+      ...envelope(),
       kind: "state",
       patch: { band: { value: "20m", at: 900 } },
     });
     expect(message?.kind).toBe("state");
-    // The sender's version survives parsing: what the peer could express is
-    // what the merge rule has to reason about.
-    expect(message?.v).toBe(1);
     expect(message?.kind === "state" ? message.patch.band?.by : "unset").toBeUndefined();
+
+    // A non-string author is no better than none — dropped to undefined, not
+    // rejected, for the same reason.
+    const junk = parseOperatingMessage({
+      ...envelope(),
+      kind: "state",
+      patch: { band: { value: "20m", at: 900, by: 7 } },
+    });
+    expect(junk?.kind).toBe("state");
+    expect(junk?.kind === "state" ? junk.patch.band?.by : "unset").toBeUndefined();
   });
 
   it("drops a version this bundle has never seen", () => {

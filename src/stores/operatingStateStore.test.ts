@@ -49,6 +49,37 @@ async function openScreen(
   };
 }
 
+/**
+ * A copy of the rules `parseOperatingMessage` applies on `main` — the bundle
+ * running in any tab that has not been reloaded since the last deploy. Kept
+ * deliberately dumb and separate from the real parser: its whole job is to
+ * fail if this bundle ever emits something the deployed one would drop.
+ */
+function legacyWouldAccept(message: OperatingMessage): boolean {
+  const raw = JSON.parse(JSON.stringify(message)) as Record<string, unknown>;
+  // `main`: `if (raw.v !== OPERATING_PROTOCOL_VERSION) return null;` with the
+  // constant at 1.
+  if (raw.v !== 1) return false;
+  if (typeof raw.senderId !== "string" || raw.senderId.length === 0) return false;
+  if (typeof raw.sentAt !== "number" || !Number.isFinite(raw.sentAt)) return false;
+  if (raw.kind !== "state") return true;
+  const patch = raw.patch;
+  if (typeof patch !== "object" || patch === null) return false;
+  let count = 0;
+  for (const field of ["sessionId", "band", "target", "contact"]) {
+    if (!(field in patch)) continue;
+    const entry = (patch as Record<string, unknown>)[field];
+    if (typeof entry !== "object" || entry === null) return false;
+    // `main` reads exactly these two keys and never inspects the others, so
+    // an added key can only be ignored — never a reason to reject.
+    const at = (entry as Record<string, unknown>).at;
+    if (typeof at !== "number" || !Number.isFinite(at)) return false;
+    if (!("value" in (entry as Record<string, unknown>))) return false;
+    count += 1;
+  }
+  return count > 0;
+}
+
 describe("operatingStateStore", () => {
   beforeEach(() => {
     localStorage.clear();
@@ -166,11 +197,11 @@ describe("operatingStateStore", () => {
     a.disconnect();
   });
 
-  it("will not let an authorless v1 entry win a same-millisecond tie-break", async () => {
-    // A tab still on the pre-round-6 bundle answers a `hello` with a patch
-    // that cannot name its author. Credited to the sender, a relay from a
-    // peer whose id sorts high would win the tie-break with a write it never
-    // made — re-entering a race already settled, and (before round 5's
+  it("will not let an authorless entry win a same-millisecond tie-break", async () => {
+    // A tab on a bundle older than #859 round 5 answers a `hello` with a
+    // patch that cannot name its author. Credited to the sender, a relay
+    // from a peer whose id sorts high would win the tie-break with a write it
+    // never made — re-entering a race already settled, and (before round 5's
     // structural fix, now belt and braces) re-stamping the local arrival
     // time. An authorless entry is accepted only on a strictly newer `at`.
     const bus = createMemoryBus();
@@ -186,7 +217,7 @@ describe("operatingStateStore", () => {
 
     // Equal `at`, sender id sorts above the held author: rejected.
     a.store.getState().applyMessage({
-      v: 1,
+      v: OPERATING_PROTOCOL_VERSION,
       senderId: "zzz-relay",
       sentAt: 1,
       kind: "state",
@@ -200,9 +231,9 @@ describe("operatingStateStore", () => {
       appliedSeq: 0,
     });
 
-    // Strictly newer: a v1 peer's genuine write still wins.
+    // Strictly newer: an old peer's genuine write still wins.
     a.store.getState().applyMessage({
-      v: 1,
+      v: OPERATING_PROTOCOL_VERSION,
       senderId: "zzz-relay",
       sentAt: 1,
       kind: "state",
@@ -618,6 +649,37 @@ describe("operatingStateStore", () => {
 
     late.disconnect();
     listener.disconnect();
+  });
+
+  it("emits a wire message a bundle already deployed can still read", async () => {
+    // The compatibility direction that cannot be fixed later (#859 round 7).
+    // Every parser already shipped hard-rejects a version it does not know,
+    // so emitting a new one would make this bundle invisible to a tab left
+    // open across the deploy — silently, and until that tab is reloaded.
+    // `by` is therefore additive on v1: the old parser reads `value`/`at` and
+    // ignores the rest.
+    const bus = createMemoryBus();
+    const sent: OperatingMessage[] = [];
+    bus.connect("tap").subscribe((message) => sent.push(message));
+    const a = await openScreen(bus, "a");
+
+    a.store.getState().setBand("20m");
+
+    const states = sent.filter((message) => message.kind === "state");
+    expect(states.length).toBeGreaterThan(0);
+    for (const message of states) {
+      // Mirrors `parseOperatingMessage` as it stands on `main` (the deployed
+      // bundle): a strict version equality, and a patch entry validated on
+      // `at` and `value` alone with no unknown-key rejection.
+      expect(legacyWouldAccept(message)).toBe(true);
+    }
+    // ...and the author really is on the wire, or the round 5 fix travels
+    // nowhere.
+    expect(states.every((message) => message.kind === "state" && message.patch.band?.by)).toBe(
+      true,
+    );
+
+    a.disconnect();
   });
 
   it("never puts anything but state, a sender and a timestamp on the wire", async () => {

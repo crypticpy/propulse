@@ -316,15 +316,21 @@ function mergePatch(
     // what let a replay outrank a map target chosen in between (#859 round 5).
     const current = stamps[field];
     const incoming = { at: entry.at, by: entry.by ?? by };
-    // A v1 peer — a tab still on a pre-#859-round-6 bundle — cannot say who
-    // wrote a field, so an entry with no author may be this sender's own
-    // write or its relay of someone else's. Credited to the sender it would
-    // win the equal-`at` id tie-break with a write it never made, re-entering
-    // a race already settled; so it is accepted only on a strictly newer
-    // `at`. The cost is a rare, self-healing divergence when a v1 and a v2
-    // screen write the same field in the same millisecond — the next write
-    // to that field settles it — which is the cheaper of the two, since the
-    // replay silently discarded an operator's own map target (#859 round 6).
+    // A tab still on a bundle older than #859 round 5 cannot say who wrote a
+    // field, so an entry with no author may be this sender's own write or its
+    // relay of someone else's. Credited to the sender it would win the
+    // equal-`at` id tie-break with a write it never made, re-entering a race
+    // already settled; so it is accepted only on a strictly newer `at`. The
+    // cost is a rare, self-healing divergence when an old and a new screen
+    // write the same field in the same millisecond — the next write to that
+    // field settles it — which is the cheaper of the two, since the replay
+    // silently discarded an operator's own map target (#859 rounds 6-7).
+    //
+    // Note this is the whole compatibility mechanism: the wire version is
+    // *not* bumped for `by`, because every deployed parser drops a version it
+    // does not recognise, so a bump would make this bundle invisible to a tab
+    // left open across the deploy (round 7). An optional field plus a rule
+    // for its absence is bidirectional; a bump is not.
     const accepted =
       entry.by === undefined ? entry.at > current.at : beats(incoming, current);
     if (!accepted) continue;
@@ -349,9 +355,10 @@ function mergePatch(
 function writeField<K extends CursorField>(field: K, value: WorkflowCursor[K]): void {
   const state = useOperatingStateStore.getState();
   const at = nextStamp();
-  // Named explicitly rather than left to the receiver's `senderId` fallback:
-  // from v2 every entry carries its author, so there is exactly one way to
-  // read a patch and no entry whose authorship has to be guessed.
+  // Named explicitly rather than left to the receiver's `senderId` fallback,
+  // so every entry this bundle sends carries its author whether it is
+  // first-hand or relayed, and no entry of ours has to have its authorship
+  // guessed. An older parser ignores the extra key.
   const patch = { [field]: { value, at, by: state.deviceId } } as CursorPatch;
   const next = mergePatch(state, patch, state.deviceId);
   if (next) useOperatingStateStore.setState(next);

@@ -76,15 +76,20 @@ Propulse is licensed under the **GNU Affero General Public License v3.0**
 ([LICENSE](LICENSE)). The whole application, the physics engine, the edge functions, the
 collector and the bridge are in this repository.
 
-**There is no paywall on the app.** Every operating feature described in this README is
-free to use at [propulse.cloud](https://propulse.cloud), and self-hosting is a supported
-path, not a grudging one. The project is run on a nonprofit footing:
+**The operating app is free.** The map, physics engine, Band Health ladder, wall display,
+logbook, contest engine, nets, shack builder, space weather and bridge are all free to use at
+[propulse.cloud](https://propulse.cloud) with or without an account, and self-hosting is a
+supported path, not a grudging one. The project is run on a nonprofit footing:
 
 - **Donations** are the primary intended support.
-- **An optional, small cloud-sync subscription** covers the hosted database costs for
-  operators who want their log and station config synced between devices. The account
-  and billing plumbing is implemented (`api/billing/`, `api/sync/`), and pricing and
-  launch are still being settled.
+- **An optional Pro subscription ($6.99 per month)** covers the hosted costs of the
+  features that consume server storage, history or compute: spot replay from Supabase
+  history and a 30-day rather than 7-day replay window, contest-aware watch presets and
+  a larger saved-watch limit, custom profile and gear images, per-user propagation
+  modelling, and high-resolution satellite tiles. The exact boundary is the
+  `FREE_FLAGS` / `PRO_FLAGS` table in [`src/lib/featureFlags.ts`](src/lib/featureFlags.ts);
+  the tier is set server-side from Stripe and synced to the profile, never decided in the
+  browser.
 - **Unlimited free displays.** Pairing extra screens to your station, the thing a
   commercial product would meter, is deliberately never metered.
 
@@ -320,7 +325,8 @@ Every surface is built from one shared station design system rather than per-pag
   smaller type.
 - **Contrast is enforced by tests, not by review.** Guards such as
   `src/lib/themes/stationTokens.test.ts`, `accentTintContrast.test.ts`,
-  `statusTintContrast.test.ts` and `hamClockHoverChromeContrast.test.ts` compute contrast
+  `statusTintContrast.test.ts` and
+  `src/components/map/hamclock/hamClockHoverChromeContrast.test.ts` compute contrast
   ratios on the real composited surface a token is used on. A tint that fails inside a
   glass card fails the build even if it passes on a bare panel.
 
@@ -396,6 +402,16 @@ The dev server serves the app at `http://localhost:5173` with hot module replace
 Supabase credentials are optional for local development; without them the app runs
 unauthenticated and the physics engine still works.
 
+`npm run verify`, the gate every push must pass, also runs the bridge, collector, radio
+daemon and ML checks, so a contributor who intends to push needs their dependencies too:
+
+```bash
+(cd bridge && npm install)
+(cd collector && npm install)
+python3 -m venv ml/.venv && ml/.venv/bin/pip install -r ml/requirements.txt
+# radio daemon tests need a Rust toolchain: https://rustup.rs
+```
+
 ### Everyday commands
 
 ```bash
@@ -435,8 +451,11 @@ See [bridge/README.md](bridge/README.md) for the protocol and architecture.
 ## Environment variables
 
 **Frontend** (`.env`): `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` (both optional for
-local development), and `VITE_PROPAGATION_MODEL_URL` for the model inference endpoint. If
-the model URL is unset, the physics engine serves every propagation answer.
+local development). Leave `VITE_PROPAGATION_MODEL_URL` unset in production: the client then
+calls the same-origin `/api/propagation` proxy, which enforces JWT, origin, rate and
+response checks before reaching the Railway model service, and falls back to the physics
+engine when the model is unavailable. Set the variable only for direct local development
+against a model service, as described in [`ml/service/README.md`](ml/service/README.md).
 
 **Edge functions**: `ALLOWED_ORIGIN` for the CORS allowlist, plus `SUPABASE_URL`,
 `SUPABASE_ANON_KEY` and `SUPABASE_SERVICE_ROLE_KEY` for JWT verification and server-side

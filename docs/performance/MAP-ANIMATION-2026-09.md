@@ -40,7 +40,7 @@ To repeat the browser check, read `docs/guides/LOCAL-AGENT-TESTING.md`, start an
 owned managed local server, then run from the same checkout:
 
 ```sh
-node scripts/profile-map-animation.mjs http://127.0.0.1:5180
+node scripts/profile-map-animation.mjs http://127.0.0.1:5173
 ```
 
 Use the exact allocated URL. The script verifies server ownership and requires a

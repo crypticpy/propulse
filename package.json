@@ -40,6 +40,7 @@
     "verify:radio": "npm run lint && npm run test && npm run test:bridge && npm run test:radio-daemon && npm run build",
     "hooks:install": "bash scripts/setup-git-hooks.sh",
     "worktree:new": "bash scripts/new-worktree.sh",
+    "prepreview": "node scripts/dev-session.mjs guard",
     "preview": "vite preview",
     "import:sherwood": "node scripts/import-sherwood.mjs",
     "bridge": "cd bridge && npm run dev",

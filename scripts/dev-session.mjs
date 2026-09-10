@@ -520,7 +520,8 @@ async function main() {
     console.log(
       `npm run dev:session -- status\nnpm run dev:session -- start --owner <agent-slug> --task <description> [--profile connected|local]\nnpm run dev:session -- guard\n` +
         `${SINGLE_SERVER_RULE}\n` +
-        "start (and guard, run automatically before `npm run dev` via predev) refuses if any dev " +
+        "start (and guard, run automatically before `npm run dev` via predev and before " +
+        "`npm run preview` via prepreview) refuses if any dev " +
         "server is already running: an occupied port 5173, a live registry entry, or an unmanaged " +
         "`vite`-looking process anywhere on this machine (any port) all refuse. Port is always 5173; " +
         "DEV_SERVER_ALLOW_EXTRA=1 moves the single server to a different port (owner-only escape " +

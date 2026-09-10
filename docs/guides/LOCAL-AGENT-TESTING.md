@@ -32,9 +32,9 @@ that hands you a URL is the only authorization to use a server session.
 
 `npm run dev:session -- start` itself refuses when any dev server — managed by
 this tool or not — is already listening on this machine, and always binds
-port 5173. A plain `npm run dev` runs the same refusal first, via its
-`predev` script (`npm run dev:session -- guard`), so it fails the same way
-before Vite even starts.
+port 5173. A plain `npm run dev` (and `npm run preview`) runs the same
+refusal first, via its `predev` (`prepreview`) script (`npm run dev:session
+-- guard`), so it fails the same way before Vite even starts.
 
 `DEV_SERVER_ALLOW_EXTRA=1` **moves** the one shared server to a different
 port (owner-only escape hatch, for example when 5173 is occupied by something

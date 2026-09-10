@@ -649,19 +649,79 @@ interface ConstEntry {
   entries?: Map<string, ConstEntry>;
 }
 
+/** Index of the first depth-0 `,` in `text` between `start` and `end`
+ * (tracking `(`/`[`/`{` depth as one combined counter and skipping quoted/
+ * template spans, same rules `extractObjectEntries`'s own value scan always
+ * used), or `end` if none is found first -- also returned when a depth-0
+ * closing bracket/paren/brace is reached before any comma, i.e. the
+ * enclosing construct ends right there. Shared by every "I don't know what
+ * this is, skip to the next entry" branch in `extractObjectEntries` (Codex,
+ * PR #874 round 32). */
+function scanToDepthZeroComma(text: string, start: number, end: number): number {
+  let i = start;
+  let depth = 0;
+  while (i < end) {
+    const c = text[i];
+    if (c === "`") {
+      i += extractTemplateLiteral(text, i).length;
+      continue;
+    }
+    if (c === '"' || c === "'") {
+      const close = text.indexOf(c, i + 1);
+      if (close === -1) return end;
+      i = close + 1;
+      continue;
+    }
+    if (c === "(" || c === "[" || c === "{") {
+      depth++;
+      i++;
+      continue;
+    }
+    if (c === ")" || c === "]" || c === "}") {
+      if (depth === 0) return i;
+      depth--;
+      i++;
+      continue;
+    }
+    if (depth === 0 && c === ",") return i;
+    i++;
+  }
+  return end;
+}
+
 /** Top-level `key: <value>` / `"key": <value>` / `'key': <value>` entries of
  * an object-literal initializer `text` (its own braces included -- `text[0]`
- * must be `{` and `text` must end with its matching `}`). A value that is
- * itself an object literal is recursed into via this same function, so its
- * own keys are reachable precisely by `resolveMemberAccess`'s chain walk
- * (round 17 follow-up); any other value (string, template, array, ternary,
- * `cn()` call, ...) is resolved to the space-joined body of every
- * string/template literal found anywhere inside it, same as round 16. A key
- * this simple parser can't make sense of (a computed key, a spread) stops
- * entry collection at that point rather than guessing; whatever entries were
- * already found are still returned (Codex, PR #874 round 16). */
-function extractObjectEntries(text: string): Map<string, ConstEntry> {
+ * must be `{` and `text` must end with its matching `}`), plus every bare-
+ * identifier spread (`...base`) found alongside them. A value that is itself
+ * an object literal is recursed into via this same function, so its own keys
+ * are reachable precisely by `resolveMemberAccess`'s chain walk (round 17
+ * follow-up); any other value (string, template, array, ternary, `cn()`
+ * call, ...) is resolved to the space-joined body of every string/template
+ * literal found anywhere inside it, same as round 16.
+ *
+ * A spread (`...base`), a shorthand property (`safe,`), a method
+ * (`greet() {}`), or a computed key (`[k]: "…"`) is skipped -- scanned past
+ * to the next depth-0 comma via `scanToDepthZeroComma` -- rather than
+ * aborting entry collection outright for every key after it, since a
+ * `const styles = { ...base, safe: "text-green", alert: "text-red
+ * animate-pulse" }` used to lose `safe` and `alert` entirely just because
+ * `...base` came first, leaving `styles.safe` to fall back to the whole
+ * object's flattened literal (which also carries `alert`'s `animate-pulse`)
+ * instead of its own precise, non-pulsing value. A computed key's value
+ * still contributes to that flattened literal (via the caller's own
+ * `extractLiteralBodies` scan over the whole initializer, independent of
+ * this function) but is never added to `entries` -- a computed key can't be
+ * resolved precisely, so `resolveMemberAccess`'s own computed-access branch
+ * already expands to every known entry instead. Each bare-identifier
+ * spread's name is returned in `spreads`, in source order, for
+ * `collectConstTemplateMap` to merge (a spread of an unresolvable
+ * expression -- a call, a ternary, a member access -- contributes nothing to
+ * `entries`, fail closed, same as an unrecognized key shape) (Codex, PR #874
+ * round 16; round 32 continues past a spread/shorthand/method/computed key
+ * instead of stopping there). */
+function extractObjectEntries(text: string): { entries: Map<string, ConstEntry>; spreads: string[] } {
   const entries = new Map<string, ConstEntry>();
+  const spreads: string[] = [];
   // The object's own matching close, not just `text`'s last character --
   // `text` is a `const` initializer slice and may carry trailing
   // whitespace after the object literal (`{ ... } ;`).
@@ -670,66 +730,79 @@ function extractObjectEntries(text: string): Map<string, ConstEntry> {
   while (i < end) {
     while (i < end && /[\s,]/.test(text[i])) i++;
     if (i >= end) break;
-    let key: string;
+
+    if (text.slice(i, i + 3) === "...") {
+      const specStart = i + 3;
+      const specEnd = scanToDepthZeroComma(text, specStart, end);
+      const spec = text.slice(specStart, specEnd).trim();
+      if (/^[A-Za-z_$][\w$]*$/.test(spec)) spreads.push(spec);
+      i = specEnd;
+      continue;
+    }
+
+    let key: string | null = null;
+    let keyEnd = i;
     const c = text[i];
     if (c === '"' || c === "'") {
       const close = text.indexOf(c, i + 1);
-      if (close === -1) break;
-      key = text.slice(i + 1, close);
-      i = close + 1;
+      if (close !== -1) {
+        key = text.slice(i + 1, close);
+        keyEnd = close + 1;
+      }
+    } else if (c === "[") {
+      // Computed key: consumed so parsing can continue past it, but never
+      // recorded precisely -- its value still reaches the flattened literal
+      // through the caller's own whole-initializer `extractLiteralBodies`
+      // scan.
+      const close = findBracketClose(text, i);
+      if (close !== -1) keyEnd = close + 1;
     } else {
       const idMatch = /^[A-Za-z_$][\w$]*/.exec(text.slice(i, i + 200));
-      if (!idMatch) break;
-      key = idMatch[0];
-      i += idMatch[0].length;
+      if (idMatch) {
+        key = idMatch[0];
+        keyEnd = i + idMatch[0].length;
+      }
     }
-    while (i < end && /\s/.test(text[i])) i++;
-    if (text[i] !== ":") break;
-    i++;
-    while (i < end && /\s/.test(text[i])) i++;
-    const valueStart = i;
-    let depth = 0;
-    while (i < end) {
-      const vc = text[i];
-      if (vc === "`") {
-        i += extractTemplateLiteral(text, i).length;
-        continue;
-      }
-      if (vc === '"' || vc === "'") {
-        const close = text.indexOf(vc, i + 1);
-        if (close === -1) {
-          i = end;
-          break;
-        }
-        i = close + 1;
-        continue;
-      }
-      if (vc === "(" || vc === "[" || vc === "{") {
-        depth++;
-        i++;
-        continue;
-      }
-      if (vc === ")" || vc === "]" || vc === "}") {
-        if (depth === 0) break;
-        depth--;
-        i++;
-        continue;
-      }
-      if (depth === 0 && vc === ",") break;
-      i++;
+
+    if (keyEnd === i) {
+      // No recognized key shape at all -- skip past it instead of aborting.
+      const skipTo = scanToDepthZeroComma(text, i, end);
+      i = skipTo > i ? skipTo : i + 1;
+      continue;
     }
-    const valueText = text.slice(valueStart, i);
+
+    let j = keyEnd;
+    while (j < end && /\s/.test(text[j])) j++;
+    if (text[j] !== ":") {
+      // Shorthand (`safe,`), a method (`greet() {}`), or a computed key
+      // that isn't followed by `:` -- not a `key: value` shape. Skipped
+      // rather than aborting every entry after it.
+      const skipTo = scanToDepthZeroComma(text, i, end);
+      i = skipTo > i ? skipTo : i + 1;
+      continue;
+    }
+    j++;
+    while (j < end && /\s/.test(text[j])) j++;
+    const valueStart = j;
+    const valueEnd = scanToDepthZeroComma(text, valueStart, end);
+    const valueText = text.slice(valueStart, valueEnd);
     const trimmed = valueText.trimStart();
     const bodies = extractLiteralBodies(valueText);
-    if (trimmed.startsWith("{")) {
-      const nestedStart = valueStart + (valueText.length - trimmed.length);
-      const nested = extractObjectEntries(text.slice(nestedStart));
-      entries.set(key, { literal: bodies.join(" "), entries: nested.size > 0 ? nested : undefined });
-    } else if (bodies.length > 0) {
-      entries.set(key, { literal: bodies.join(" ") });
+    if (key !== null) {
+      if (trimmed.startsWith("{")) {
+        const nestedStart = valueStart + (valueText.length - trimmed.length);
+        const nested = extractObjectEntries(text.slice(nestedStart));
+        entries.set(key, {
+          literal: bodies.join(" "),
+          entries: nested.entries.size > 0 ? nested.entries : undefined,
+        });
+      } else if (bodies.length > 0) {
+        entries.set(key, { literal: bodies.join(" ") });
+      }
     }
+    i = valueEnd;
   }
-  return entries;
+  return { entries, spreads };
 }
 
 /** Result of `skipTypeAnnotation`: either the position just past the
@@ -1117,6 +1190,12 @@ function collectConstTemplateMap(source: string): ConstDecl[] {
   // it. Queued here and run once the forward scan below finishes populating
   // `decls` completely (Codex, PR #874 round 31).
   const reassignQueue: Array<{ decl: ConstDecl; searchStart: number }> = [];
+  // Same reasoning as `reassignQueue`: a spread's source object
+  // (`const styles = { ...base, ... }`) may -- in principle -- be declared
+  // anywhere relative to `styles` itself, so merging is deferred until
+  // `decls` is fully populated rather than attempted inline (Codex, PR #874
+  // round 32).
+  const spreadQueue: Array<{ decl: ConstDecl; spreads: string[] }> = [];
   const declRe = /\b(const|let|var)\s+([A-Za-z_$][\w$]*)\s*/g;
   let m: RegExpExecArray | null;
   while ((m = declRe.exec(source))) {
@@ -1175,8 +1254,13 @@ function collectConstTemplateMap(source: string): ConstDecl[] {
     // with noise that was never a reference to anything (Codex, PR #874
     // round 29).
     const refs = firstChar === "{" ? [] : extractIdentifierRefs(initializerText);
-    const entries = firstChar === "{" ? extractObjectEntries(initializerText) : undefined;
-    const scope = findEnclosingBraceRange(source, m.index);
+    const objectResult = firstChar === "{" ? extractObjectEntries(initializerText) : undefined;
+    const entries = objectResult?.entries;
+    // `var` (unlike `let`/`const`) is never block-scoped -- a `var` inside
+    // an `if`/`for`/`try` block is visible for the whole enclosing
+    // FUNCTION, not just that block (Codex, PR #874 round 32).
+    const scope =
+      kind === "var" ? findEnclosingFunctionScope(source, m.index) : findEnclosingBraceRange(source, m.index);
     const scopeStart = scope ? scope.start : 0;
     const scopeEnd = scope ? scope.end : source.length;
     const literal = [bodies.join(" "), refs.join(" ")].filter(Boolean).join(" ");
@@ -1190,6 +1274,9 @@ function collectConstTemplateMap(source: string): ConstDecl[] {
     };
     decls.push(declObj);
     if (kind !== "const") reassignQueue.push({ decl: declObj, searchStart: end });
+    if (objectResult && objectResult.spreads.length > 0) {
+      spreadQueue.push({ decl: declObj, spreads: objectResult.spreads });
+    }
     declRe.lastIndex = end;
   }
   for (const { decl, searchStart } of reassignQueue) {
@@ -1197,6 +1284,23 @@ function collectConstTemplateMap(source: string): ConstDecl[] {
     const reassignedRefs = collectReassignedIdentifierRefs(source, decl, decls, searchStart, decl.scopeEnd);
     if (reassigned.length > 0 || reassignedRefs.length > 0) {
       decl.literal = [decl.literal, reassigned.join(" "), reassignedRefs.join(" ")].filter(Boolean).join(" ");
+    }
+  }
+  // A spread's source, once resolved, contributes its own entries to the
+  // spreading object -- fail closed for an unresolvable spread (an
+  // expression, a call, a name with no visible declaration, or one with no
+  // `entries` of its own): it contributes nothing precise, but its text
+  // already reached the flattened `literal` above regardless, independent
+  // of entries (Codex, PR #874 round 32). An explicit key on the spreading
+  // object always wins over one merged in from a spread.
+  for (const { decl, spreads } of spreadQueue) {
+    for (const spreadName of spreads) {
+      const spreadDecl = visibleDecl(decls, spreadName, decl.index);
+      if (!spreadDecl?.entries) continue;
+      decl.entries ??= new Map<string, ConstEntry>();
+      for (const [key, value] of spreadDecl.entries) {
+        if (!decl.entries.has(key)) decl.entries.set(key, value);
+      }
     }
   }
   return decls;
@@ -1429,6 +1533,105 @@ function findMatchingOpenBraceBackward(source: string, closeIndex: number): numb
     j--;
   }
   return -1;
+}
+
+/** Backward counterpart to `extractBalanced`, but for `(`/`)` instead of
+ * `{`/`}`, sharing the same quote/template-aware backward skip: the index
+ * of the `(` matching the `)` at `closeIndex`, or `-1` if none is found.
+ * Used only to find a function/method/control-flow parameter list's own
+ * opening paren, so what comes immediately before IT (a name, the
+ * `function` keyword, or a control-flow keyword like `if`) can decide
+ * whether a `{` that follows is a function's own body (Codex, PR #874
+ * round 32). */
+function findMatchingOpenParenBackward(source: string, closeIndex: number): number {
+  let depth = 0;
+  let j = closeIndex;
+  while (j >= 0) {
+    const c = source[j];
+    if (c === '"' || c === "'" || c === "`") {
+      const resume = skipQuotedSpanBackward(source, j);
+      if (resume === -1) return -1;
+      j = resume;
+      continue;
+    }
+    if (c === ")") {
+      depth++;
+    } else if (c === "(") {
+      depth--;
+      if (depth === 0) return j;
+    }
+    j--;
+  }
+  return -1;
+}
+
+/** Control-flow keywords whose own `(...)  {` looks exactly like a function
+ * signature followed by its body but isn't one -- `if (x) {`, `for (...) {`,
+ * `catch (e) {` -- so `isFunctionBodyOpenBrace` never mistakes one for a
+ * function/method definition (Codex, PR #874 round 32). */
+const CONTROL_FLOW_KEYWORDS_BEFORE_PAREN = new Set(["if", "for", "while", "switch", "catch", "with"]);
+
+/** Whether the `{` at `openBraceIndex` in `source` opens a real JS FUNCTION
+ * body -- `function name(...) {`, an anonymous `function (...) {`, a method
+ * shorthand `name(...) {` in a class or object literal, or an arrow
+ * function's block body (`(...) => {` / a single unparenthesized param,
+ * `x => {`) -- as opposed to any other `{` (an `if`/`for`/`while`/`try`/
+ * `catch`/`switch` block, a bare `{...}` block, an object/array literal's
+ * own braces). `var` (unlike `let`/`const`) has real function scope in JS,
+ * not block scope, so a `var` declaration's own enclosing scope has to walk
+ * outward past every non-function block to find this (Codex, PR #874
+ * round 32).
+ *
+ * An arrow's block body always ends in a literal `=>` immediately before
+ * the `{` regardless of whether its parameter is parenthesized, so that
+ * case is checked first and needs no paren-matching at all. Otherwise, the
+ * `{` must be immediately preceded (past whitespace) by a `)` -- a function/
+ * method signature's parameter list just closed, or a control-flow
+ * construct's condition did -- whose OWN matching `(` is in turn immediately
+ * preceded by an identifier: the function/method's name, the bare
+ * `function` keyword (an anonymous function expression), or a control-flow
+ * keyword to exclude. A TypeScript return-type annotation between the
+ * parameter list's `)` and the body's `{` (`function f(): void {`) is not
+ * handled -- none of this round's required shapes need it, and guessing at
+ * one risked misreading an unrelated `)` further back. */
+function isFunctionBodyOpenBrace(source: string, openBraceIndex: number): boolean {
+  let j = openBraceIndex - 1;
+  while (j >= 0 && /\s/.test(source[j])) j--;
+  if (j < 0) return false;
+  if (source[j] === ">" && source[j - 1] === "=") return true; // arrow: `=> {`
+  if (source[j] !== ")") return false;
+  const openParen = findMatchingOpenParenBackward(source, j);
+  if (openParen === -1) return false;
+  let k = openParen - 1;
+  while (k >= 0 && /\s/.test(source[k])) k--;
+  if (k < 0) return false;
+  const idEnd = k + 1;
+  let idStart = k;
+  while (idStart >= 0 && /[A-Za-z0-9_$]/.test(source[idStart])) idStart--;
+  idStart++;
+  if (idStart >= idEnd) return false; // nothing identifier-shaped right before '('
+  const token = source.slice(idStart, idEnd);
+  return !CONTROL_FLOW_KEYWORDS_BEFORE_PAREN.has(token);
+}
+
+/** The nearest enclosing FUNCTION body's brace range containing `index` in
+ * `source`, walking outward through every non-function block
+ * (`if`/`for`/`while`/`try`/`catch`/`switch`, a bare `{...}` block) via
+ * repeated `findEnclosingBraceRange` calls until `isFunctionBodyOpenBrace`
+ * says the innermost-so-far `{` really opens a function. Returns `null`
+ * when no enclosing function body exists at all -- `index` sits at, or only
+ * inside non-function blocks all the way up to, module/top-level scope --
+ * the same "no scope restriction" result `collectConstTemplateMap` already
+ * falls back to whole-source for. Only ever used for a `var` declaration's
+ * own scope; `let`/`const` keep the innermost block exactly as before
+ * (Codex, PR #874 round 32). */
+function findEnclosingFunctionScope(source: string, index: number): { start: number; end: number } | null {
+  let range = findEnclosingBraceRange(source, index);
+  while (range) {
+    if (isFunctionBodyOpenBrace(source, range.start)) return range;
+    range = findEnclosingBraceRange(source, range.start - 1);
+  }
+  return null;
 }
 
 /** The opening tag an attribute at `before` belongs to, found by walking
@@ -3136,6 +3339,46 @@ describe("scanSourceForViolations catches every spelling (fixture proofs, #878)"
     expect(scanSourceForViolations(fixture)).not.toEqual([]);
   });
 
+  it("resolves a var declared inside an if block at the enclosing function's scope, not the block's", () => {
+    // `var` (unlike `let`/`const`) is never block-scoped in real JS -- a
+    // `var` declared inside an `if` block is visible for the whole
+    // enclosing function (here, the whole file: there's no enclosing
+    // function at all). Giving it the `if` block's own range like `let`/
+    // `const` left the later reference outside the block unable to see it
+    // (Codex, PR #874 round 32).
+    const fixture =
+      'if (active) { var classes = "text-alert-red animate-pulse"; } return <span className={classes}>Loading</span>;';
+    expect(scanSourceForViolations(fixture)).not.toEqual([]);
+  });
+
+  it("keeps a let declared inside an if block scoped to the block, unlike var", () => {
+    // Same shape as the previous fixture but with `let` -- block scope is
+    // correct here, so the outer reference never resolves and stays
+    // unflagged (Codex, PR #874 round 32).
+    const fixture =
+      'if (active) { let classes = "text-alert-red animate-pulse"; } return <span className={classes}>Loading</span>;';
+    expect(scanSourceForViolations(fixture)).toEqual([]);
+  });
+
+  it("gives each of two nested functions' own same-named var its own function scope, shadowing correctly", () => {
+    // `outer`'s own `var classes` is scoped to `outer`'s whole function body
+    // (including `inner`'s definition); `inner`'s own `var classes` is
+    // scoped only to `inner`'s function body, shadowing `outer`'s within
+    // `inner` but not affecting `outer`'s own trailing reference (Codex, PR
+    // #874 round 32).
+    const fixture =
+      'function outer() { var classes = "text-alert-red animate-pulse"; function inner() { var classes = "text-xs"; return <span className={classes}>Inner</span>; } return <span className={classes}>Outer</span>; }';
+    // Only `outer`'s own span can ever be flagged: `inner`'s `classes`
+    // resolves to its own non-pulsing `var`, so exactly one violation means
+    // `inner`'s declaration correctly shadowed `outer`'s within `inner`
+    // without leaking a false positive there, and `outer`'s own trailing
+    // reference still resolved past `inner`'s definition to its own pulsing
+    // `var`.
+    const violations = scanSourceForViolations(fixture);
+    expect(violations).toHaveLength(1);
+    expect(violations[0].description).toContain("text-alert-red animate-pulse");
+  });
+
   it("registers a let declared with a type annotation and no initializer, resolved only once assigned, but still dismisses it when decorative", () => {
     // `let classes: string;` has no initializer to extract a literal from
     // at all -- it must still register (with an empty literal set) so the
@@ -3174,6 +3417,41 @@ describe("scanSourceForViolations catches every spelling (fixture proofs, #878)"
   it("resolves an identifier-only const alias of an object entry's member access, the same as a direct reference", () => {
     const fixture =
       'const STYLES = { alert: "text-alert-red animate-pulse", ok: "text-xs" };\nconst classes = STYLES.alert;\nexport function A() { return <span className={classes}>Loading</span>; }';
+    expect(scanSourceForViolations(fixture)).not.toEqual([]);
+  });
+
+  it("keeps precise per-key entries past a leading spread, instead of falling back to the whole object's flattened literal", () => {
+    // `...base` used to abort `extractObjectEntries` entirely, dropping
+    // `safe` and `alert` both -- `styles.safe`'s member access then failed
+    // to narrow (no `entries` at all) and fell back to `resolveConstRefs`'s
+    // member-access-blind bare-identifier pass substituting `styles`'s
+    // whole flattened literal (which also carries `alert`'s
+    // "animate-pulse"), a false positive on a purely non-pulsing key
+    // (Codex, PR #874 round 32).
+    const fixture =
+      'const styles = { ...base, safe: "text-green", alert: "text-red animate-pulse" };\nexport function A() { return <span className={styles.safe}>Idle</span>; }';
+    expect(scanSourceForViolations(fixture)).toEqual([]);
+  });
+
+  it("still finds the pulsing key on the same spread object, past the leading spread", () => {
+    const fixture =
+      'const styles = { ...base, safe: "text-green", alert: "text-red animate-pulse" };\nexport function A() { return <span className={styles.alert}>Critical</span>; }';
+    expect(scanSourceForViolations(fixture)).not.toEqual([]);
+  });
+
+  it("merges a resolvable spread source's own entries into the spreading object", () => {
+    // `styles` never declares `alert` itself -- it only reaches it by
+    // spreading `base`, whose own `entries` (already precisely resolved) are
+    // merged in for any key `styles` doesn't declare explicitly (Codex, PR
+    // #874 round 32).
+    const fixture =
+      'const base = { alert: "text-red animate-pulse" };\nconst styles = { ...base, safe: "text-green" };\nexport function A() { return <span className={styles.alert}>Critical</span>; }';
+    expect(scanSourceForViolations(fixture)).not.toEqual([]);
+  });
+
+  it("still expands every entry (including a merged one) for a computed-key access on a spread object", () => {
+    const fixture =
+      'const styles = { ...base, safe: "text-green", alert: "text-red animate-pulse" };\nexport function A({ k }) { return <span className={styles[k]}>Status</span>; }';
     expect(scanSourceForViolations(fixture)).not.toEqual([]);
   });
 

@@ -544,13 +544,107 @@ function extractTemplateLiteral(source: string, start: number): string {
   return source.slice(start);
 }
 
-/** Map of `const NAME = \`template\`` / `"string"` / `'string'`
- * declarations in `source`, so a `className={NAME}` (or a NAME used inside
- * a `cn()`/template expression) can be resolved to the classes it actually
- * renders (RadioBadge's `base`), instead of just the identifier text. Quoted
- * strings joined the map in PR #874 round 12: an extraction such as
- * `const statusClasses = "text-alert-red animate-pulse"` is routine and
- * the census must see through it. */
+/** Index just past the end of the `const NAME = <this>` initializer that
+ * starts at `valueStart`, found by scanning forward and tracking
+ * paren/bracket/brace depth (so a `;`, `,` or keyword inside a nested call,
+ * ternary or object literal is never mistaken for the statement boundary),
+ * skipping over quoted strings and template literals whole (a `${...}`
+ * section's own braces never affect depth here since `extractTemplateLiteral`
+ * consumes the whole literal in one step). Stops at a `;` found at zero
+ * depth (not consumed); a missing semicolon falls back to the first `}` that
+ * would close an outer block, or the start of the next top-level
+ * `const`/`function`/`export`, whichever comes first -- a defensive
+ * fallback a real parser wouldn't need (Codex, PR #874 round 15). */
+function findInitializerEnd(source: string, valueStart: number): number {
+  let depth = 0;
+  let i = valueStart;
+  while (i < source.length) {
+    const c = source[i];
+    if (c === "`") {
+      i += extractTemplateLiteral(source, i).length;
+      continue;
+    }
+    if (c === '"' || c === "'") {
+      const close = source.indexOf(c, i + 1);
+      if (close === -1) return source.length;
+      i = close + 1;
+      continue;
+    }
+    if (c === "(" || c === "[" || c === "{") {
+      depth++;
+      i++;
+      continue;
+    }
+    if (c === ")" || c === "]") {
+      if (depth > 0) depth--;
+      i++;
+      continue;
+    }
+    if (c === "}") {
+      if (depth === 0) return i;
+      depth--;
+      i++;
+      continue;
+    }
+    if (depth === 0) {
+      if (c === ";") return i;
+      if (
+        (c === "c" || c === "f" || c === "e") &&
+        !/[\w$]/.test(source[i - 1] ?? "") &&
+        /^(const|function|export)\b/.test(source.slice(i, i + 9))
+      ) {
+        return i;
+      }
+    }
+    i++;
+  }
+  return source.length;
+}
+
+/** Every string-literal or template-literal *body* found anywhere inside
+ * `text`, delimiters stripped, in source order -- a template's `${...}`
+ * section is kept as raw text (so an identifier there is left in place for
+ * `resolveConstRefs` to substitute), and text outside any literal (call
+ * names, operators, ternary punctuation, bare identifiers) is dropped. Used
+ * to compose the resolved class text for a `const` initializer more complex
+ * than a single literal -- `"text-alert-red " + (live ? "animate-pulse" :
+ * "")`, `cn("text-alert-red", live && "animate-pulse")` -- by keeping only
+ * the meaningful string content (Codex, PR #874 round 15). */
+function extractLiteralBodies(text: string): string[] {
+  const bodies: string[] = [];
+  let i = 0;
+  while (i < text.length) {
+    const c = text[i];
+    if (c === "`") {
+      const full = extractTemplateLiteral(text, i);
+      bodies.push(full.slice(1, -1));
+      i += full.length;
+      continue;
+    }
+    if (c === '"' || c === "'") {
+      const close = text.indexOf(c, i + 1);
+      if (close === -1) break;
+      bodies.push(text.slice(i + 1, close));
+      i = close + 1;
+      continue;
+    }
+    i++;
+  }
+  return bodies;
+}
+
+/** Map of `const NAME = <initializer>` declarations in `source`, so a
+ * `className={NAME}` (or a NAME used inside a `cn()`/template expression)
+ * can be resolved to the classes it actually renders (RadioBadge's `base`),
+ * instead of just the identifier text. The initializer can be a single
+ * `"string"`/`'string'`/`` `template` `` (PR #874 round 12), or a more
+ * composed expression -- a concatenation, a ternary, a `cn()`/`clsx()`/
+ * `twMerge()` call -- resolved by extracting every literal body inside it
+ * (round 15); an initializer that is a top-level object or array literal
+ * (`{...}`/`[...]`, e.g. `SpotBadge`'s old `badgeConfig` variant map) is
+ * left to the separate config-map scan below and never added here, and an
+ * initializer with no string/template literal anywhere in it (numbers,
+ * bare references) is skipped as not class-shaped. */
 interface ConstDecl {
   name: string;
   /** Offset of the declaration, used as the tie-break when two visible
@@ -573,28 +667,24 @@ interface ConstDecl {
 
 function collectConstTemplateMap(source: string): ConstDecl[] {
   const decls: ConstDecl[] = [];
-  const declRe = /\bconst\s+([A-Za-z_$][\w$]*)(?:\s*:\s*string)?\s*=\s*(?=[`"'])/g;
+  const declRe = /\bconst\s+([A-Za-z_$][\w$]*)(?:\s*:\s*string)?\s*=\s*/g;
   let m: RegExpExecArray | null;
   while ((m = declRe.exec(source))) {
-    const start = declRe.lastIndex;
-    const quote = source[start];
-    let literal: string;
-    if (quote === "`") {
-      literal = extractTemplateLiteral(source, start);
-    } else {
-      const close = source.indexOf(quote, start + 1);
-      if (close === -1) continue;
-      literal = source.slice(start, close + 1);
-    }
+    const valueStart = declRe.lastIndex;
+    const firstChar = source[valueStart];
+    if (firstChar === "{" || firstChar === "[") continue;
+    const end = findInitializerEnd(source, valueStart);
+    const bodies = extractLiteralBodies(source.slice(valueStart, end));
+    if (bodies.length === 0) continue;
     const scope = findEnclosingBraceRange(source, m.index);
     decls.push({
       name: m[1],
       index: m.index,
-      literal,
+      literal: bodies.join(" "),
       scopeStart: scope ? scope.start : 0,
       scopeEnd: scope ? scope.end : source.length,
     });
-    declRe.lastIndex = start + literal.length;
+    declRe.lastIndex = end;
   }
   return decls;
 }
@@ -1181,6 +1271,34 @@ describe("scanSourceForViolations catches every spelling (fixture proofs, #878)"
     const violations = scanSourceForViolations(fixture);
     expect(violations).toHaveLength(1);
     expect(violations[0].description).toContain("<span>");
+  });
+
+  it("resolves a const built from a string concatenation with a ternary, not just its first literal", () => {
+    const fixture =
+      'const classes = "text-alert-red " + (live ? "animate-pulse" : "");\n' +
+      'export function A() { return <span className={classes}>Critical</span>; }';
+    expect(scanSourceForViolations(fixture)).not.toEqual([]);
+  });
+
+  it("resolves a const built from a cn() call, not just an identifier the collector can't see through", () => {
+    const fixture =
+      'const classes = cn("text-alert-red", live && "animate-pulse");\n' +
+      'export function A() { return <span className={classes}>Critical</span>; }';
+    expect(scanSourceForViolations(fixture)).not.toEqual([]);
+  });
+
+  it("resolves a const template literal with a nested ternary expression, not just its literal text", () => {
+    const fixture =
+      'const classes = `text-alert-red ${live ? "animate-pulse" : ""}`;\n' +
+      'export function A() { return <span className={classes}>Critical</span>; }';
+    expect(scanSourceForViolations(fixture)).not.toEqual([]);
+  });
+
+  it("does not flag a composed const whose branches never include the pulse class", () => {
+    const fixture =
+      'const classes = "text-su-muted " + (live ? "font-bold" : "");\n' +
+      'export function A() { return <span className={classes}>Idle</span>; }';
+    expect(scanSourceForViolations(fixture)).toEqual([]);
   });
 
   it("catches the pulse class paired with a text color in a config-map object literal", () => {

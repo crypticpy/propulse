@@ -35,6 +35,11 @@ import { resolve } from "node:path";
 import { render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { PredictionsCard } from "@/components/dx/PredictionsCard";
+import {
+  getRankedBandPredictions,
+  isDaytime,
+  rankPredictionsForStation,
+} from "@/lib/propagation/bandRanking";
 import { stationContrast, stationPalettes } from "@/lib/themes/stationTokens";
 import type { ThemeId } from "@/lib/themes";
 
@@ -58,10 +63,13 @@ function compositeOnSurface(hex: string, alpha: number, surface: string) {
     .join("")}`;
 }
 
-// kp >= 5 puts the 6m (VHF) band into "Aurora" per getVHFCondition; a low
-// SFI keeps every other band at Fair/Poor (well below the score threshold
-// for Excellent/Good), so "6m" sorts first and survives the default
-// maxPredictions=3 cutoff. See src/lib/propagation/bandRanking.ts.
+// kp >= 5 puts the 6m (VHF) band into "Aurora" per getVHFCondition -- but
+// only on the day branch (calculateBandConditions in src/lib/utils/bands.ts
+// hardcodes 6m's nightCondition to "Poor"; getVHFCondition only feeds
+// dayCondition). A low SFI keeps every other band at Fair/Poor (well below
+// the score threshold for Excellent/Good), so "6m" sorts first and survives
+// the default maxPredictions=3 cutoff -- in daylight only. See
+// src/lib/propagation/bandRanking.ts.
 const mocks = vi.hoisted(() => ({
   longitude: -97,
   solarFlux: [{ flux: 70 }],
@@ -82,11 +90,30 @@ vi.mock("@/hooks/useChainPerformance", () => ({
   useChainPerformance: () => mocks.chain,
 }));
 
+// #834: PredictionsCard.tsx reads `isDay = isDaytime(stationCast.location
+// ?.lon)` off the real wall clock, so every render in this file crossed the
+// day/night branch depending on when the suite happened to run. Fake the
+// clock to one fixed daytime instant by default; the dedicated night-time
+// describe below overrides it for its own test.
+//
+// DAY_INSTANT = 2026-01-15T18:00:00Z at longitude -97:
+//   localSolarHour = (18 + (-97 / 15) + 24) % 24 = 11.5333 -> in [6, 18) -> day
+// NIGHT_INSTANT = 2026-01-15T06:00:00Z at longitude -97:
+//   localSolarHour = (6 + (-97 / 15) + 24) % 24 = 23.5333 -> outside [6, 18) -> night
+const DAY_INSTANT = "2026-01-15T18:00:00Z";
+const NIGHT_INSTANT = "2026-01-15T06:00:00Z";
+
 beforeEach(() => {
+  vi.useFakeTimers();
+  vi.setSystemTime(new Date(DAY_INSTANT));
   mocks.longitude = -97;
   mocks.solarFlux = [{ flux: 70 }];
   mocks.kIndex = [{ kp_index: 5 }];
   mocks.chain = { bands: [] };
+});
+
+afterEach(() => {
+  vi.useRealTimers();
 });
 
 describe("PredictionsCard renders the Aurora badge without a purple-on-purple fill (#799)", () => {
@@ -97,6 +124,42 @@ describe("PredictionsCard renders the Aurora badge without a purple-on-purple fi
     expect(band.style.backgroundColor).toBe("");
     expect(band.style.color).toBe("rgb(var(--su-purple-rgb))");
     expect(band.style.color).not.toMatch(/#[0-9a-fA-F]{3,8}/);
+  });
+});
+
+describe("PredictionsCard's default top-3 tracks getRankedBandPredictions on the night branch too (#834)", () => {
+  beforeEach(() => {
+    vi.setSystemTime(new Date(NIGHT_INSTANT));
+  });
+
+  it("renders exactly the real ranking's top 3 and drops the 6m Aurora badge at night", () => {
+    // 6m's nightCondition is hardcoded "Poor" (see the comment above
+    // `mocks`), so at kp=5/sfi=70 every band scores Poor and the stable
+    // sort keeps BANDS' declared order -- 6m (last in BANDS) falls out of
+    // the default maxPredictions=3 cutoff entirely. Compute the expected
+    // top 3 from the real ranking functions instead of hardcoding a guess.
+    const isDay = isDaytime(mocks.longitude);
+    expect(isDay).toBe(false);
+
+    const ranked = getRankedBandPredictions(
+      mocks.kIndex[0].kp_index,
+      mocks.solarFlux[0].flux,
+      isDay,
+      12,
+    );
+    const expectedTop3 = rankPredictionsForStation(
+      ranked,
+      mocks.chain.bands,
+      3,
+    ).map((prediction) => prediction.band);
+    expect(expectedTop3).not.toContain("6m");
+
+    render(<PredictionsCard />);
+
+    for (const band of expectedTop3) {
+      expect(screen.getByText(band)).toBeTruthy();
+    }
+    expect(screen.queryByText("6m")).toBeNull();
   });
 });
 
@@ -118,19 +181,12 @@ describe("PredictionsCard's badges never fill and never carry a hex/suffix colou
 
   describe("with a strong opening (Excellent/Good present)", () => {
     beforeEach(() => {
-      vi.useFakeTimers();
-      // 2026-01-15T18:00:00Z at longitude -97 resolves to local solar hour
-      // ~11.5 -- daytime -- so this combo is deterministic across CI runs
-      // regardless of when the suite executes. kp=1 keeps the VHF band Poor
-      // (getVHFCondition needs kp>=4), so no Aurora badge competes for the
-      // maxPredictions slots here.
-      vi.setSystemTime(new Date("2026-01-15T18:00:00Z"));
+      // Stays on the file-level DAY_INSTANT set above (deterministic
+      // regardless of when the suite executes). kp=1 keeps the VHF band
+      // Poor (getVHFCondition needs kp>=4), so no Aurora badge competes for
+      // the maxPredictions slots here.
       mocks.solarFlux = [{ flux: 280 }];
       mocks.kIndex = [{ kp_index: 1 }];
-    });
-
-    afterEach(() => {
-      vi.useRealTimers();
     });
 
     it("still gives every badge no backgroundColor and a token color, whatever the condition", () => {

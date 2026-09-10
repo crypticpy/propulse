@@ -7,7 +7,11 @@
 
 import { useCallback, useEffect, useMemo } from "react";
 import { useContestStore } from "@/stores/contestStore";
-import { useContestUIStore, type OpsDockTab } from "@/stores/contestUIStore";
+import {
+  dockKeyForSession,
+  useContestUIStore,
+  type OpsDockTab,
+} from "@/stores/contestUIStore";
 import { useContestUIEphemeralStore } from "@/stores/contestUIEphemeralStore";
 import { DXConsole, DXSpotList } from "@/components/dx";
 import { ContestDock } from "@/components/contest/ContestDock";
@@ -266,7 +270,7 @@ export function OpsConsole({
 }: OpsConsoleProps) {
   const sessionId = useContestStore((s) => s.activeSession?.id ?? null);
   const hasActiveSession = useContestStore((s) => Boolean(s.activeSession));
-  const dockKey = sessionId ?? "no-session";
+  const dockKey = dockKeyForSession(sessionId);
 
   const dockTab = useContestUIStore((s) => {
     const fallback: OpsDockTab = sessionId ? "contest" : "dx";

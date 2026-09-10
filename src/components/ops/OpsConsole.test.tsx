@@ -2,7 +2,10 @@ import { StrictMode, type ReactNode } from "react";
 import { act, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { useContestUIStore } from "@/stores/contestUIStore";
+import {
+  NO_SESSION_DOCK_KEY,
+  useContestUIStore,
+} from "@/stores/contestUIStore";
 import { useMapOperationalStore } from "@/stores/mapOperationalStore";
 import { useOpsPostureStore } from "@/stores/opsPostureStore";
 import { useContestStore, type ContestSession } from "@/stores/contestStore";
@@ -218,6 +221,50 @@ describe("OpsConsole dock tabs", () => {
 
     expect(useMapOperationalStore.getState().workspaceOpen).toBe(true);
     expect(useContestUIStore.getState().dockTabBySessionId["no-session"]).toBe(
+      "contest",
+    );
+  });
+
+  // #884 round 5 (Codex, useDockTabReconciler.ts:63): choosing Contest in the
+  // scope control before a session exists resolves the scope to `contest`, and
+  // the hook skipped the write because there was no session id — so the
+  // pre-session dock kept its old tab and Start Contest was unreachable. The
+  // deleted PropSphere effect wrote `contest` under the `no-session` key.
+  it("puts the pre-session dock on Contest when the scope control picks it", async () => {
+    const user = userEvent.setup();
+    renderConsole();
+
+    await user.selectOptions(
+      screen.getByLabelText("PropSphere operating scope"),
+      "contest",
+    );
+
+    expect(useContestStore.getState().activeSession).toBeNull();
+    expect(
+      useContestUIStore.getState().dockTabBySessionId[NO_SESSION_DOCK_KEY],
+    ).toBe("contest");
+  });
+
+  // The dock the hook writes to is part of what it reconciles: a session
+  // starting is a different dock with its own tab, even when the scope does
+  // not move. PropSphere's effect got this from `contestSessionId` being in
+  // its dependency list.
+  it("reconciles onto the new dock when a session starts under an unchanged scope", async () => {
+    const user = userEvent.setup();
+    renderConsole();
+
+    await user.selectOptions(
+      screen.getByLabelText("PropSphere operating scope"),
+      "contest",
+    );
+
+    await act(async () => {
+      useContestStore.setState({
+        activeSession: { id: "session-9" } as unknown as ContestSession,
+      });
+    });
+
+    expect(useContestUIStore.getState().dockTabBySessionId["session-9"]).toBe(
       "contest",
     );
   });

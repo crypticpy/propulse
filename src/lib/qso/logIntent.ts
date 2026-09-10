@@ -7,7 +7,7 @@ import { getDeviceId } from "@/lib/sync/deviceId";
 import { bandFromFreq } from "@/lib/utils/bandFromFreq";
 import { gridToLatLon, isValidGrid } from "@/lib/utils/grid";
 import { useContestStore } from "@/stores/contestStore";
-import { useContestUIStore } from "@/stores/contestUIStore";
+import { dockKeyForSession, useContestUIStore } from "@/stores/contestUIStore";
 import { useDXStore } from "@/stores/dxStore";
 import { useKioskStore } from "@/stores/kioskStore";
 import { useMapOperationalStore } from "@/stores/mapOperationalStore";
@@ -34,7 +34,7 @@ export type LogIntentResult =
 
 function currentDockTab(): "dx" | "log" | "contest" {
   const sessionId = useContestStore.getState().activeSession?.id ?? null;
-  const dockKey = sessionId ?? "no-session";
+  const dockKey = dockKeyForSession(sessionId);
   const stored = useContestUIStore.getState().dockTabBySessionId[dockKey];
   if (stored) return stored;
   return sessionId ? "contest" : "dx";

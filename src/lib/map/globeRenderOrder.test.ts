@@ -5,6 +5,7 @@ import {
   GLOBE_DOM_LAYER_ORDER,
   GLOBE_LAYER_ORDER,
   GLOBE_LAYER_SLOTS,
+  MAP_PAGE_CHROME_Z,
   GLOBE_MIN_OVERLAY_RADIUS,
   GLOBE_OVERLAY_MATERIAL,
   GLOBE_SURFACE_MARKER_MATERIAL,
@@ -96,6 +97,12 @@ describe("GLOBE_LAYER_ORDER", () => {
     expect(
       getGlobeLayerSlotForRenderOrder(GLOBE_LAYER_ORDER.nightShade - 0.1),
     ).toBe("nightShade");
+  });
+
+  it("keeps mapOverlayPortal above page-level legend chrome (#930)", () => {
+    expect(GLOBE_DOM_LAYER_ORDER.mapOverlayPortal).toBeGreaterThan(
+      MAP_PAGE_CHROME_Z.legend,
+    );
   });
 
   it("keeps opaque map previews above every Drei spot label", () => {

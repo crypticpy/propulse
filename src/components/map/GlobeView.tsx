@@ -2655,7 +2655,7 @@ export function GlobeView({
     <MapSurface
       surfaceRef={mapSurfaceRef}
       label="Globe map"
-      className="w-full h-full min-h-[400px] bg-deep-space rounded-xl overflow-hidden relative isolate select-none"
+      className="w-full h-full min-h-[400px] bg-deep-space rounded-xl overflow-hidden relative select-none"
     >
       {webgl.supported && !contextLost ? (
         <GlobeErrorBoundary

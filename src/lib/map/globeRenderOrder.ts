@@ -137,6 +137,12 @@ export function getGlobeLayerSlotForRenderOrder(
  * outranks every in-scene band -- see `globeDomZBands.test.ts`'s
  * "GlobeView's Canvas wrapper isolates the DOM bands from map chrome" guard.
  *
+ * `MapSurface` itself must NOT carry `isolate` (#930): isolation on the
+ * root collapses the whole globe subtree (including `mapOverlayPortal`'s
+ * 11000) into one auto-level stacking context that paints below
+ * PropSphere's page-level legend stack (`MAP_PAGE_CHROME_Z.legend`, z-10).
+ * Only the `<Canvas>` wrapper isolates the in-scene 0-7999 bands.
+ *
  *   placeLabel        tile-draped place/city labels and country/state
  *                      names (`LabelsOverlay`) — pure reference text, reads
  *                      under everything that represents live data.
@@ -205,6 +211,14 @@ export function getGlobeLayerSlotForRenderOrder(
  *   mapOverlayPortal    single top value (not a range): the map's shared
  *                      DOM overlay portal, above all `<Html>` bands.
  */
+/** Page-level map-card chrome outside `GlobeView`/`MapSurface`. Must stay
+ * below `mapOverlayPortal` so portaled detail cards (path bounce-point
+ * inspector, selected-spot cards, etc.) remain fully interactive above the
+ * legend wherever the two overlap (#930). */
+export const MAP_PAGE_CHROME_Z = {
+  legend: 10,
+} as const;
+
 export const GLOBE_DOM_LAYER_ORDER = {
   placeLabel: [999, 0] as [number, number],
   clusterChip: [1999, 1000] as [number, number],

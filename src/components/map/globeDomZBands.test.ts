@@ -29,7 +29,10 @@ import { fileURLToPath } from "node:url";
 import { readFileSync, readdirSync, statSync } from "node:fs";
 import { resolve, join, relative } from "node:path";
 import { describe, expect, it } from "vitest";
-import { GLOBE_DOM_LAYER_ORDER } from "@/lib/map/globeRenderOrder";
+import {
+  GLOBE_DOM_LAYER_ORDER,
+  MAP_PAGE_CHROME_Z,
+} from "@/lib/map/globeRenderOrder";
 
 const REPO_ROOT = resolve(fileURLToPath(import.meta.url), "../../../..");
 const MAP_DIR = resolve(REPO_ROOT, "src/components/map");
@@ -186,6 +189,19 @@ describe("GlobeView's Canvas wrapper isolates the DOM bands from map chrome (#85
       classes,
       `<Canvas className="${classNameMatch![1]}"> must include "isolate" so its drei <Html> z-index range (0-7999) can't leak into MapSurface's other z-indexed siblings`,
     ).toContain("isolate");
+  });
+
+  it("does not isolate MapSurface itself — only the Canvas wrapper (#930)", () => {
+    const mapSurfaceStart = src.indexOf("<MapSurface");
+    expect(mapSurfaceStart).toBeGreaterThan(-1);
+    const mapSurfaceTag = src.slice(mapSurfaceStart, mapSurfaceStart + 400);
+    const classNameMatch = mapSurfaceTag.match(/className="([^"]*)"/);
+    expect(classNameMatch).not.toBeNull();
+    const classes = classNameMatch![1].split(/\s+/);
+    expect(
+      classes,
+      `MapSurface must not isolate or mapOverlayPortal's z-index is trapped below PropSphere's z-${MAP_PAGE_CHROME_Z.legend} legend`,
+    ).not.toContain("isolate");
   });
 
   it("declares mapOverlayPortal as a sibling of <Canvas>, not a descendant", () => {

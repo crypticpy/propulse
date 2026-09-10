@@ -42,7 +42,7 @@
  * So the treatment is the ink, not the alpha: keep the accent tint as the fill,
  * draw the label in `--su-text`, and keep the tint at or below `/20`. The sites
  * inside `src/components/ui` (this agent's file scope on #803) carry that
- * treatment and are measured individually below. The remaining 192 sites in 124
+ * treatment and are measured individually below. The remaining 173 sites in 111
  * files are sequenced by the orchestrator; the census ledger at the bottom
  * budgets them so no *new* same-line site can land in the meantime.
  */
@@ -342,6 +342,16 @@ interface TintedSite {
   what: string;
   /** Exact snippet the site ships; binds the table to the source. */
   snippet: string;
+  /**
+   * For sites whose class string is assembled outside a `className=`
+   * attribute (a `const x = ...`/ternary, an object-map key line): a unique
+   * snippet on the OPENING line of that declaration, resolved by
+   * `extractClassSourceValue` into the full declaration text. When present,
+   * this -- not `extractClassNameValue` -- is what `measuredAlpha` measures,
+   * so a rogue tint on a sibling branch or entry of the same declaration is
+   * caught even though it never touches `snippet`'s own line.
+   */
+  classSource?: string;
 }
 
 /**
@@ -360,21 +370,381 @@ function deriveAlpha(snippet: string): number {
 }
 
 /**
+ * Pulls the full text of the `className` attribute that contains `snippet`,
+ * not just the source line the snippet's own substring match falls on. A
+ * plain `className="..."` is one line, so this is equivalent to the line for
+ * most sites; but some sites build their className from a template literal
+ * with an interpolated ternary spanning several lines (e.g.
+ * `NetFilterControls`' toggle), or an array literal
+ * (`className={[...].join(" ")}`, e.g. `PhaseIndicator`'s pill) with
+ * branches on separate lines, so a `bg-plasma-orange/N` token appended to a
+ * *different* line or branch of the same className would sit outside the
+ * snippet's own line yet still land in the rendered class list. This walks
+ * back from the snippet to the nearest preceding `className=`, then forward
+ * to that attribute's closing quote, closing backtick, or matching closing
+ * bracket, so the check below sees the whole value either way.
+ *
+ * A handful of sites don't build their class string inside a `className=`
+ * attribute at all -- it's assembled in a separate variable or object map
+ * (e.g. `ActivationPanel`'s `typeBadgeClasses`, `NetMilestoneCard`'s
+ * `BADGE_COLORS` record) and interpolated into the real className elsewhere.
+ * `lastIndexOf` still finds *some* preceding `className=` in the file in
+ * that case -- just not one that actually contains the snippet -- so this
+ * validates the snippet's start position actually falls inside the
+ * extracted value and throws if not, rather than silently returning an
+ * unrelated className from earlier in the file. Those rows carry a
+ * `classSource` locator instead, resolved by `extractClassSourceValue`
+ * below, so `measuredAlpha` never calls this function for them.
+ */
+function extractClassNameValue(source: string, snippet: string): string {
+  const snippetIndex = source.indexOf(snippet);
+  if (snippetIndex === -1) {
+    throw new Error(`snippet not found while locating its className:\n${snippet}`);
+  }
+  const attr = "className=";
+  const attrIndex = source.lastIndexOf(attr, snippetIndex);
+  if (attrIndex === -1) {
+    throw new Error(`no className= attribute precedes snippet:\n${snippet}`);
+  }
+  const valueStart = attrIndex + attr.length;
+  const delimiter = source[valueStart];
+
+  function assertContains(contentStart: number, contentEnd: number): void {
+    if (snippetIndex < contentStart || snippetIndex >= contentEnd) {
+      throw new Error(
+        `nearest className= attribute does not actually contain the snippet -- it is likely assembled in a separate variable and interpolated in:\n${snippet}`,
+      );
+    }
+  }
+
+  if (delimiter === '"' || delimiter === "'") {
+    const closeIndex = source.indexOf(delimiter, valueStart + 1);
+    assertContains(valueStart + 1, closeIndex);
+    return source.slice(valueStart + 1, closeIndex);
+  }
+  if (delimiter === "{") {
+    let i = valueStart + 1;
+    while (source[i] === " " || source[i] === "\n" || source[i] === "\t") {
+      i++;
+    }
+    const shapeChar = source[i];
+    if (shapeChar === "`") {
+      // `className={`...`}` -- the outer backticks bound the value.
+      const backtickEnd = source.indexOf("`", i + 1);
+      if (backtickEnd === -1) {
+        throw new Error(
+          `className={\`...\`} near snippet has no closing backtick:\n${snippet}`,
+        );
+      }
+      assertContains(i + 1, backtickEnd);
+      return source.slice(i + 1, backtickEnd);
+    }
+    if (shapeChar === "[") {
+      // `className={[...].join(" ")}` -- walk bracket depth to the matching
+      // close, skipping over quoted string contents so a `]` inside a class
+      // string can't end the match early.
+      let depth = 0;
+      let j = i;
+      let inString: string | null = null;
+      for (; j < source.length; j++) {
+        const ch = source[j];
+        if (inString) {
+          if (ch === "\\") {
+            j++;
+          } else if (ch === inString) {
+            inString = null;
+          }
+          continue;
+        }
+        if (ch === '"' || ch === "'" || ch === "`") {
+          inString = ch;
+          continue;
+        }
+        if (ch === "[") {
+          depth++;
+        } else if (ch === "]") {
+          depth--;
+          if (depth === 0) {
+            break;
+          }
+        }
+      }
+      if (depth !== 0) {
+        throw new Error(
+          `unterminated array literal in className={[...]} near snippet:\n${snippet}`,
+        );
+      }
+      assertContains(i, j + 1);
+      return source.slice(i, j + 1);
+    }
+    throw new Error(
+      `className={...} near snippet is not a backtick template literal or array literal:\n${snippet}`,
+    );
+  }
+  throw new Error(
+    `unrecognized className= delimiter '${delimiter}' near snippet:\n${snippet}`,
+  );
+}
+
+/**
+ * Pulls the full text of the declaration that a `classSource` locator opens
+ * -- the counterpart to `extractClassNameValue` for the handful of sites
+ * whose class string is assembled outside a `className=` attribute (a
+ * `const x = ...`/ternary statement, or an object-map entry keyed by a
+ * literal like `Platinum:` or `"Bold Explorer":`). `locator` must be a
+ * snippet that appears on the OPENING line of that declaration and nowhere
+ * else in the file -- this throws if it is absent or matches more than
+ * once, since a non-unique locator could silently resolve to the wrong
+ * declaration.
+ *
+ * From the locator's line, this reads forward to the declaration's balanced
+ * close: if the line itself opens a brace (a function whose body assembles
+ * the string across a `switch`, e.g. `NeededMultsPanel`'s
+ * `getTypeBadgeColor`), it walks brace depth to that brace's match, so every
+ * branch of the function -- not just the one the snippet names -- is
+ * captured. Otherwise it reads to the first top-level `;` (a `const`
+ * statement or ternary) or the first top-level `,` (an object-map entry with
+ * a trailing comma), or stops just before a `}`/`)`/`]` that would close an
+ * enclosing scope (an object-map entry that is the last one, with no
+ * trailing comma) -- whichever comes first, skipping over quoted string
+ * contents throughout so a comma or brace inside a class string can't end
+ * the match early.
+ */
+function extractClassSourceValue(source: string, locator: string): string {
+  const firstIndex = source.indexOf(locator);
+  if (firstIndex === -1) {
+    throw new Error(`classSource locator not found in source:\n${locator}`);
+  }
+  if (source.indexOf(locator, firstIndex + 1) !== -1) {
+    throw new Error(
+      `classSource locator matches more than once in source:\n${locator}`,
+    );
+  }
+  const lineStart = source.lastIndexOf("\n", firstIndex) + 1;
+  const nextNewline = source.indexOf("\n", firstIndex);
+  const line = source.slice(lineStart, nextNewline === -1 ? source.length : nextNewline);
+
+  let i = lineStart;
+  let inString: string | null = null;
+
+  if (line.trimEnd().endsWith("{")) {
+    // Balanced-brace declaration: walk `{`/`}` depth from the line's own
+    // opening brace to its match.
+    let depth = 0;
+    for (; i < source.length; i++) {
+      const ch = source[i];
+      if (inString) {
+        if (ch === "\\") {
+          i++;
+        } else if (ch === inString) {
+          inString = null;
+        }
+        continue;
+      }
+      if (ch === '"' || ch === "'" || ch === "`") {
+        inString = ch;
+        continue;
+      }
+      if (ch === "{") {
+        depth++;
+      } else if (ch === "}") {
+        depth--;
+        if (depth === 0) {
+          i++;
+          break;
+        }
+      }
+    }
+    if (depth !== 0) {
+      throw new Error(
+        `unterminated declaration for classSource locator:\n${locator}`,
+      );
+    }
+    return source.slice(lineStart, i);
+  }
+
+  // Statement or object-map-entry declaration: stop at the first top-level
+  // `;` or `,`, or just before a close bracket that would close an
+  // enclosing scope.
+  let depth = 0;
+  for (; i < source.length; i++) {
+    const ch = source[i];
+    if (inString) {
+      if (ch === "\\") {
+        i++;
+      } else if (ch === inString) {
+        inString = null;
+      }
+      continue;
+    }
+    if (ch === '"' || ch === "'" || ch === "`") {
+      inString = ch;
+      continue;
+    }
+    if (ch === "{" || ch === "(" || ch === "[") {
+      depth++;
+      continue;
+    }
+    if (ch === "}" || ch === ")" || ch === "]") {
+      if (depth === 0) {
+        break;
+      }
+      depth--;
+      continue;
+    }
+    if (depth === 0 && (ch === ";" || ch === ",")) {
+      i++;
+      break;
+    }
+  }
+  return source.slice(lineStart, i);
+}
+
+/**
+ * The single source of truth for what a `FIXED_SITES` row is judged against,
+ * for both the alpha derivation below and the ink assertions further down.
+ * For a row with `classSource`, this is the full declaration that locator
+ * opens (via `extractClassSourceValue`), so a rogue tint or a rogue ink class
+ * on a sibling branch or entry of that same declaration is caught even when
+ * it never touches `snippet`'s own line -- the #843 round-4 Codex thread,
+ * which named the round-3 snippet-only fallback as the same blindness the
+ * round-3 fix itself closed for inline classNames. For every other row, this
+ * is the whole `className` attribute the snippet lives in (via
+ * `extractClassNameValue`), so a `hover:bg-plasma-orange/N` or a rogue
+ * `text-plasma-orange` wrapped onto a different line or branch of the same
+ * className -- the #843 round-3 Codex thread, reproduced on
+ * `ActivationPanel`'s SOTA selector button -- is not missed either.
+ *
+ * There is no silent fallback: a row whose class string is not literally
+ * inside a `className=` attribute must carry `classSource`, or
+ * `extractClassNameValue` throws and the row's own test fails, naming it.
+ */
+function locatedClassText(source: string, site: TintedSite): string {
+  if (site.classSource !== undefined) {
+    return extractClassSourceValue(source, site.classSource);
+  }
+  return extractClassNameValue(source, site.snippet);
+}
+
+/**
+ * The alpha `FIXED_SITES` measures for a site: read fresh from
+ * `locatedClassText`, not from `site.snippet` alone. `deriveAlpha` itself is
+ * unchanged; this only changes what gets fed to it. Confirmed when this was
+ * introduced (#843 round 4): none of the existing 44 `FIXED_SITES` rows'
+ * measured alpha actually changed under this rule from what round 3
+ * measured -- this is a coverage widening for future regressions, not a
+ * correction of a past one.
+ */
+function measuredAlpha(source: string, site: TintedSite): number {
+  return deriveAlpha(locatedClassText(source, site));
+}
+
+/**
+ * The quoted string literals inside `text`, in order, with escape sequences
+ * left intact (they never matter for a class-name substring check). A plain
+ * dequoted `className="..."` value (`extractClassNameValue`'s quote-delimited
+ * case) has no quotes of its own, so this returns no segments for it --
+ * `tintedBranches` below treats that as a single implicit branch. A backtick
+ * template with an interpolated ternary, an array literal, or a
+ * `classSource` declaration all carry their alternatives as separate quoted
+ * strings (plus, for a `classSource` declaration, unrelated quoted
+ * identifiers like a switch's `case` labels or a ternary's own comparison
+ * value -- harmless, since nothing downstream judges a segment that carries
+ * no accent tint).
+ */
+function quotedSegments(text: string): string[] {
+  const segments: string[] = [];
+  let i = 0;
+  while (i < text.length) {
+    const quote = text[i];
+    if (quote === '"' || quote === "'" || quote === "`") {
+      let j = i + 1;
+      let content = "";
+      while (j < text.length && text[j] !== quote) {
+        if (text[j] === "\\") {
+          content += text.slice(j, j + 2);
+          j += 2;
+          continue;
+        }
+        content += text[j];
+        j++;
+      }
+      segments.push(content);
+      i = j + 1;
+      continue;
+    }
+    i++;
+  }
+  return segments;
+}
+
+/**
+ * The branches of `text` an ink check should judge separately: each quoted
+ * string literal it carries, or -- when it carries none, i.e. it is already
+ * a single dequoted class-list string -- the whole text as one branch.
+ */
+function tintedBranches(text: string): string[] {
+  const segments = quotedSegments(text);
+  return segments.length > 0 ? segments : [text];
+}
+
+/**
+ * Every branch of `text` that carries a `bg-plasma-orange/N` tint must also
+ * carry `text-su-text` and must not carry `text-plasma-orange` -- branches
+ * without a tint of their own (an untinted sibling in a ternary, a switch
+ * case for another type, a comparison value that happens to be quoted) are
+ * not judged, since they ship no accent ink for the contrast table below to
+ * answer for. Judging `locatedClassText`'s branches, not `site.snippet`,
+ * means a rogue ink class added to a *different* branch of the same
+ * declaration -- one `snippet` never names -- is still caught, matching how
+ * `measuredAlpha` above already reads the whole declaration rather than the
+ * snippet alone.
+ */
+function assertInkOnTintedBranches(text: string, what: string): void {
+  for (const branch of tintedBranches(text)) {
+    if (!/bg-plasma-orange\//.test(branch)) {
+      continue;
+    }
+    expect(
+      branch.includes("text-su-text"),
+      `${what}: a bg-plasma-orange branch does not carry text-su-text:\n${branch}`,
+    ).toBe(true);
+    expect(
+      branch.includes("text-plasma-orange"),
+      `${what}: a bg-plasma-orange branch draws accent ink on its own tint again:\n${branch}`,
+    ).toBe(false);
+  }
+}
+
+/**
  * Sites moved onto the `--su-text` treatment: the original `src/components/ui`
  * sites from #822, plus each sequenced follow-up batch's sites as they land
- * (batch 1: `src/components/contest`, #803). Each ships an accent tint at or
- * below `TINT_CAP` with a neutral label; steps that exceeded the cap at rest
- * came down to `/15` -> `hover:/20` so the hovered state stays inside the
+ * (batch 1: `src/components/contest`; batch 2: `src/components/nets`,
+ * `src/components/cluster`, `src/components/activation`,
+ * `src/components/activity`; #803). Each ships an accent tint at or below
+ * `TINT_CAP` with a neutral label; steps that exceeded the cap at rest came
+ * down to `/15` -> `hover:/20` so the hovered state stays inside the
  * measured cap and still reads as a step. Reverting any of them to
  * `text-plasma-orange` breaks its snippet assertion here, and a
  * `src/components/ui` entry also breaks the dedicated `src/components/ui`
- * clause of the census guard below.
+ * clause of the census guard below. Alpha is measured (`measuredAlpha`
+ * above) on the whole containing `className` for most rows, or on the whole
+ * `classSource` declaration for the rows that carry one -- so a hover class
+ * or sibling branch wrapped onto a different line of the same className or
+ * declaration is caught here either way, and a row with neither a resolvable
+ * `className=` nor a `classSource` fails its own test rather than falling
+ * back to measuring `snippet` alone. The per-line census guard further below
+ * is NOT upgraded the same way -- it stays a same-line-only regex, exactly
+ * as documented at its own describe block, because `FIXED_SITES` is what
+ * exists to cover the multi-line and multi-branch cases for the sites it
+ * lists.
  */
 const FIXED_SITES: TintedSite[] = [
   {
     file: "src/components/ui/SyncStatusIndicator.tsx",
     what: "the sync queue pill",
     snippet: `: "bg-plasma-orange/20 text-su-text border-plasma-orange/30";`,
+    classSource: `const pillColor = hasFailed`,
   },
   {
     file: "src/components/ui/SyncStatusIndicator.tsx",
@@ -386,6 +756,7 @@ const FIXED_SITES: TintedSite[] = [
     file: "src/components/ui/ConfirmDialog.tsx",
     what: "the default confirm button",
     snippet: `"bg-plasma-orange/15 hover:bg-plasma-orange/20 text-su-text border border-plasma-orange/30",`,
+    classSource: `default:`,
   },
   {
     file: "src/components/ui/ImageCropDialog.tsx",
@@ -498,11 +869,13 @@ const FIXED_SITES: TintedSite[] = [
     file: "src/components/contest/NeededMultsPanel.tsx",
     what: "the CQ/ITU zone type badge",
     snippet: `bg-plasma-orange/20 border-plasma-orange/40 text-su-text`,
+    classSource: `function getTypeBadgeColor(type: MultiplierType): string {`,
   },
   {
     file: "src/components/contest/NeededMultsPanel.tsx",
     what: "the top-3 rank indicator",
     snippet: `bg-plasma-orange/20 text-su-text`,
+    classSource: `const rankStyle =`,
   },
   {
     file: "src/components/contest/PendingDraftReplaceBanner.tsx",
@@ -513,6 +886,112 @@ const FIXED_SITES: TintedSite[] = [
     file: "src/components/contest/StationEstimate.tsx",
     what: '"Bold Explorer" tier badge',
     snippet: `text-su-text bg-plasma-orange/15 border-plasma-orange/30`,
+    classSource: `"Bold Explorer":`,
+  },
+  // Batch 2 (#803): src/components/nets, src/components/cluster,
+  // src/components/activation, src/components/activity -- 13 files, 19
+  // sites. One site (NetFilterControls.tsx's "More Filters" toggle) is not
+  // listed here: it nested its own /15->hover:/20 wash around the active
+  // filter-count badge below, an effective 0.32/0.36 alpha above the /20
+  // cap, so its background was neutralised to bg-su-line/10 (border kept
+  // for hue) instead of capped -- it no longer carries any accent tint, so
+  // there is nothing left to measure and the census guard alone protects
+  // it. Surfaces argued per-site in the PR body; --su-text clears every
+  // measured surface (panel, canvas, input, glass-over-panel,
+  // glass-over-canvas) at /20, so the exact backdrop does not change the
+  // outcome for any of these.
+  {
+    file: "src/components/activation/ActivationPanel.tsx",
+    what: "the SOTA type-selector button, selected state",
+    snippet: `bg-plasma-orange/20 text-su-text border-2 border-plasma-orange/40"`,
+  },
+  {
+    file: "src/components/activation/ActivationPanel.tsx",
+    what: "the active-activation type badge (SOTA)",
+    snippet: `: "bg-plasma-orange/20 text-su-text";`,
+    classSource: `const typeBadgeClasses =`,
+  },
+  {
+    file: "src/components/activity/NearbyActivityExplorer.tsx",
+    what: '"Target in PropSphere" button',
+    snippet: `bg-plasma-orange/10 px-3 py-2 font-medium text-su-text transition-colors hover:bg-plasma-orange/20"`,
+  },
+  {
+    file: "src/components/activity/NearbyActivityExplorer.tsx",
+    what: "the band/frequency mode toggle, selected state",
+    snippet: `? "bg-plasma-orange/20 text-su-text"`,
+  },
+  {
+    file: "src/components/cluster/ClusterConnectionForm.tsx",
+    what: "the compact filter-count badge",
+    snippet: `bg-plasma-orange/20 text-su-text text-[10px] leading-none normal-case tracking-normal"`,
+  },
+  {
+    file: "src/components/cluster/ClusterConnectionForm.tsx",
+    what: '"Connect" button, connectable state',
+    snippet: `bg-plasma-orange/15 border border-plasma-orange/50 text-su-text hover:bg-plasma-orange/20"`,
+  },
+  {
+    file: "src/components/cluster/ClusterConnectionForm.tsx",
+    what: "the selected band/mode filter chip",
+    snippet: `bg-plasma-orange/20 text-su-text border border-plasma-orange/50"`,
+  },
+  {
+    file: "src/components/nets/CallsignInput.tsx",
+    what: '"Add" callsign button',
+    snippet: `bg-plasma-orange/15 text-su-text border border-plasma-orange/30 hover:bg-plasma-orange/20 hover:brightness-110`,
+  },
+  {
+    file: "src/components/nets/ManagerRoster.tsx",
+    what: '"Add" manager button',
+    snippet: `bg-plasma-orange/15 text-su-text border border-plasma-orange/30 hover:bg-plasma-orange/20 transition-colors shrink-0"`,
+  },
+  {
+    file: "src/components/nets/NetFilterControls.tsx",
+    what: "the active-filter-count badge inside the More Filters toggle",
+    snippet: `bg-plasma-orange/20 text-su-text min-w-[18px] text-center"`,
+  },
+  {
+    file: "src/components/nets/NetFilterControls.tsx",
+    what: "the Net Type quick-filter pill, selected state",
+    snippet: `? "bg-plasma-orange/20 text-su-text border-plasma-orange/40"`,
+  },
+  {
+    file: "src/components/nets/NetForm.tsx",
+    what: "the selected country option in the country combobox",
+    snippet: `? "bg-plasma-orange/15 text-su-text"`,
+  },
+  {
+    file: "src/components/nets/NetMilestoneCard.tsx",
+    what: 'the "Platinum" (100th check-in) badge color',
+    snippet: `Platinum: "bg-plasma-orange/20 text-su-text border-plasma-orange/30",`,
+    classSource: `Platinum:`,
+  },
+  {
+    file: "src/components/nets/PhaseIndicator.tsx",
+    what: "the current-session-phase pill",
+    snippet: `? "bg-plasma-orange/20 text-su-text font-bold animate-ncs-phase-glow"`,
+  },
+  {
+    file: "src/components/nets/PreambleEditor.tsx",
+    what: "an insert-variable chip, hovered state",
+    snippet: `hover:bg-plasma-orange/20 hover:text-su-text hover:border-plasma-orange/40`,
+  },
+  {
+    file: "src/components/nets/SpeakerStage.tsx",
+    what: '"Start" hero button, idle state',
+    snippet: `bg-plasma-orange/15 text-su-text border-plasma-orange/30 hover:bg-plasma-orange/20 hover:border-plasma-orange/50`,
+  },
+  {
+    file: "src/components/nets/SubscribeButton.tsx",
+    what: '"Subscribe" button, unsubscribed state',
+    snippet: `bg-plasma-orange/15 text-su-text border-plasma-orange/30 hover:bg-plasma-orange/20"`,
+  },
+  {
+    file: "src/components/nets/TuneToNetButton.tsx",
+    what: '"Tune to Net" button, idle/tuning state',
+    snippet: `bg-plasma-orange/15 text-su-text hover:bg-plasma-orange/20 hover:shadow-[0_0_12px_rgba(255,107,53,0.25)]`,
+    classSource: `const colors =`,
   },
 ];
 
@@ -525,19 +1004,14 @@ describe("the fixed accent-tint sites ship the --su-text treatment (#803)", () =
         source.includes(site.snippet),
         `${site.file} no longer contains the measured snippet:\n${site.snippet}`,
       ).toBe(true);
-      // The measurement is only honest if the snippet really carries the ink
-      // the table claims -- checked against the string just proven to be a
-      // substring of the file, not against another field of this object.
+      // The measurement is only honest if every tinted branch of the located
+      // declaration really carries the ink the table claims -- checked
+      // against `locatedClassText`, the same text `measuredAlpha` reads
+      // below, not against `site.snippet` alone. A sibling branch of the
+      // same declaration that `snippet` never names is judged too.
+      assertInkOnTintedBranches(locatedClassText(source, site), site.what);
       expect(
-        site.snippet.includes("text-su-text"),
-        `${site.what}'s measured snippet does not carry text-su-text`,
-      ).toBe(true);
-      expect(
-        site.snippet.includes("text-plasma-orange"),
-        `${site.what} draws accent ink on its own tint again`,
-      ).toBe(false);
-      expect(
-        deriveAlpha(site.snippet),
+        measuredAlpha(source, site),
         `${site.what} ships a tint above the measured cap`,
       ).toBeLessThanOrEqual(TINT_CAP);
     },
@@ -550,12 +1024,13 @@ describe("the fixed accent-tint sites ship the --su-text treatment (#803)", () =
   )(
     "%s clears the floor in %s for every accepted accent",
     (_what, theme, site) => {
+      const source = readFileSync(resolve(REPO_ROOT, site.file), "utf8");
       const palette = stationPalettes[theme];
       for (const surface of SURFACES) {
         const { ratio, accent } = worstOnTint(
           palette.text,
           ACCEPTED_GAMUT,
-          deriveAlpha(site.snippet),
+          measuredAlpha(source, site),
           surface.backdrop(palette),
         );
         expect(
@@ -563,6 +1038,66 @@ describe("the fixed accent-tint sites ship the --su-text treatment (#803)", () =
           `${site.file} on ${surface.name}: worst accent ${accent}`,
         ).toBeGreaterThanOrEqual(AA);
       }
+    },
+  );
+});
+
+/**
+ * Parents whose own `bg-plasma-orange` wash was neutralised to `bg-su-line/10`
+ * because a `/N` accent child (an active-filter-count badge, a sibling
+ * button with its own rest/hover wash) sits inside them and composites over
+ * their rest/hover tint past `TINT_CAP` -- `effective = child + (1 - child) x
+ * parent`, which stays above 0.20 even with the child itself capped at `/20`
+ * (0.20 + 0.8 x 0.15 = 0.32 rest / 0.20 + 0.8 x 0.20 = 0.36 hover, worse with
+ * the parent's original, pre-fix alpha). The per-line census guard below
+ * cannot see this: it has no notion of nesting, so a parent restored to a
+ * cap-compliant-looking
+ * `bg-plasma-orange/15 hover:bg-plasma-orange/20` reads as fine in isolation
+ * and every other assertion in this file stays green. This table pins the
+ * neutralised treatment by substring instead, so that regression fails loud.
+ */
+const NEUTRALISED_PARENTS: TintedSite[] = [
+  {
+    file: "src/components/contest/PendingDraftReplaceBanner.tsx",
+    what: "the pending-draft-replace banner container (wraps the Replace button's own accent wash)",
+    snippet: `bg-su-line/10 border border-plasma-orange/30`,
+  },
+  {
+    file: "src/components/nets/NetFilterControls.tsx",
+    what: 'the "More Filters" toggle, active-filter state (wraps the count badge)',
+    snippet: `bg-su-line/10 text-su-text border border-plasma-orange/40 hover:bg-su-line/20`,
+  },
+];
+
+// `extractClassNameValue` (used below) is defined earlier in this file,
+// right after `deriveAlpha` -- it now also backs the whole-className
+// measurement `FIXED_SITES` uses (#843 round 3), so it lives next to the
+// primitive it wraps rather than down here with its first caller.
+
+describe("neutralised accent-wash parents stay off the accent tint (#803)", () => {
+  it.each(NEUTRALISED_PARENTS.map((site) => [site.what, site] as const))(
+    "%s carries no accent wash of its own",
+    (_what, site) => {
+      const source = readFileSync(resolve(REPO_ROOT, site.file), "utf8");
+      expect(
+        source.includes(site.snippet),
+        `${site.file} no longer contains the neutralised snippet:\n${site.snippet}`,
+      ).toBe(true);
+      // Not "no wash above cap" -- the regression this guards against is a
+      // cap-compliant-looking parent wash (e.g. /15 rest -> hover:/20) that
+      // still composites past the cap once the nested child is accounted
+      // for, which the per-line census guard cannot see. So the rule is: no
+      // bg-plasma-orange/ token anywhere in this element's className -- not
+      // against the `site.snippet` fixture (a constant that can never fail
+      // on its own no matter what the source says) and not just the source
+      // line the snippet happens to match, which a multi-line className can
+      // route an added token around. `extractClassNameValue` resolves the
+      // whole className value the snippet's line belongs to.
+      const classNameValue = extractClassNameValue(source, site.snippet);
+      expect(
+        /bg-plasma-orange\//.test(classNameValue),
+        `${site.what} has regained an accent wash of its own`,
+      ).toBe(false);
     },
   );
 });
@@ -575,20 +1110,19 @@ describe("census guard: no new accent ink on an accent tint (#803)", () => {
    * escapes it by construction -- the `FIXED_SITES` table above is what covers
    * those.
    *
-   * The 192 sites below are the census #803 asks for, as a debt ledger rather
+   * The 173 sites below are the census #803 asks for, as a debt ledger rather
    * than an exemption list: each entry is the number of same-line pairings that
-   * file carried at `32cf480c`, and the assertion is `<=`. A file that gains a
-   * pairing fails; a file that is not listed is budgeted at zero, so a brand
-   * new site fails; a file whose sites get fixed simply passes with room to
-   * spare, so the sequenced follow-up PRs (the 124 files outside this agent's
-   * scope on #803) never have to touch this table to land. `src/components/ui`
-   * is deliberately absent -- see the explicit clause below.
+   * file carried at `32cf480c`, minus every batch fixed since, and the
+   * assertion is `<=`. A file that gains a pairing fails; a file that is not
+   * listed is budgeted at zero, so a brand new site fails; a file whose sites
+   * get fixed simply passes with room to spare, so the sequenced follow-up PRs
+   * (the 111 files outside this agent's scope on #803) never have to touch
+   * this table to land. `src/components/ui` is deliberately absent -- see the
+   * explicit clause below.
    */
   const LEDGER = new Map<string, number>([
     ["src/App.tsx", 1],
     ["src/components/ErrorBoundary.tsx", 1],
-    ["src/components/activation/ActivationPanel.tsx", 2],
-    ["src/components/activity/NearbyActivityExplorer.tsx", 2],
     ["src/components/alerts/StormImpactPanel.tsx", 1],
     ["src/components/alerts/SwpcAlertDetailModal.tsx", 1],
     ["src/components/atmos/AtmosHeader.tsx", 1],
@@ -599,7 +1133,6 @@ describe("census guard: no new accent ink on an accent tint (#803)", () => {
     ["src/components/atmos/emcomm/FrequencyQuickTune.tsx", 1],
     ["src/components/atmos/emcomm/ICS213Form.tsx", 1],
     ["src/components/auth/AuthRequiredPlaceholder.tsx", 1],
-    ["src/components/cluster/ClusterConnectionForm.tsx", 3],
     ["src/components/dx/BandVerdictPanel.tsx", 3],
     ["src/components/dx/ConditionMatchCard.tsx", 1],
     ["src/components/dx/DXConsole.tsx", 1],
@@ -629,16 +1162,6 @@ describe("census guard: no new accent ink on an accent tint (#803)", () => {
     ["src/components/map/ReplayIndicator.tsx", 1],
     ["src/components/map/TimeControl.tsx", 3],
     ["src/components/mobile/MobileDXWizard.tsx", 2],
-    ["src/components/nets/CallsignInput.tsx", 1],
-    ["src/components/nets/ManagerRoster.tsx", 1],
-    ["src/components/nets/NetFilterControls.tsx", 3],
-    ["src/components/nets/NetForm.tsx", 1],
-    ["src/components/nets/NetMilestoneCard.tsx", 1],
-    ["src/components/nets/PhaseIndicator.tsx", 1],
-    ["src/components/nets/PreambleEditor.tsx", 1],
-    ["src/components/nets/SpeakerStage.tsx", 1],
-    ["src/components/nets/SubscribeButton.tsx", 1],
-    ["src/components/nets/TuneToNetButton.tsx", 1],
     ["src/components/onboarding/RadioSetupWizard.tsx", 4],
     ["src/components/onboarding/WelcomeOverlay.tsx", 3],
     ["src/components/operating/BandModeModalContent.tsx", 1],
@@ -717,7 +1240,7 @@ describe("census guard: no new accent ink on an accent tint (#803)", () => {
    * (>= 5.19:1), while a near-white or near-black custom accent drops to
    * 3.70-4.21:1. These two `/30` sites predate #803 and sit in
    * `src/components/alerts`, outside this agent's file scope; they go into the
-   * same sequenced follow-up as the 192 above.
+   * same sequenced follow-up as the 173 above.
    */
   const ABOVE_CAP_LEDGER = new Map<string, number>([
     ["src/components/alerts/AlertRuleBuilder.tsx", 1],
@@ -774,7 +1297,7 @@ describe("census guard: no new accent ink on an accent tint (#803)", () => {
     // The ledger only ever shrinks; a fix that lands must not be able to raise
     // the total past the census this PR measured.
     expect([...counts.values()].reduce((a, b) => a + b, 0)).toBeLessThanOrEqual(
-      192,
+      173,
     );
   });
 

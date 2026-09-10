@@ -113,8 +113,11 @@ export function SyncStatusIndicator(): JSX.Element | null {
   if (totalCount === 0) return null;
 
   const hasFailed = failedCount > 0;
+  // Danger ink on its own /20 tint measures 4.61-5.06:1 depending on
+  // theme/surface -- passes, but only by a hair on Light (#827). Same
+  // --su-text treatment as the sibling plasma-orange branch (#803).
   const pillColor = hasFailed
-    ? "bg-alert-red/20 text-alert-red border-alert-red/30"
+    ? "bg-alert-red/20 text-su-text border-alert-red/30"
     : "bg-plasma-orange/20 text-su-text border-plasma-orange/30";
   const pillDotColor = hasFailed ? "bg-alert-red" : "bg-plasma-orange";
 

@@ -29,6 +29,21 @@ interface SpotHoverPreviewProps {
  * Canonical compact hover treatment for an individual map spot. It deliberately
  * shares the target tooltip's proven visual language while deriving the path
  * from the hovered report instead of whichever target happened to be active.
+ *
+ * No focus home wiring (#824 decision): unlike the other three overlays this
+ * covers, this one is not something a keyboard user closes — it is the
+ * *opener*. When `interactive`, `TargetHoverTooltip` renders it as a real
+ * `tabIndex={0}` control, and activating it (click or Enter/Space) calls
+ * `onActivate`, which every host wires straight into the same
+ * `handleMapSpotSelect` that clears this preview's own state in the same
+ * commit that mounts `SelectedSpotCard` — exactly the opener-detaches-in-the-
+ * same-handler gap #797 already fixes from the card's side. The other close
+ * path (mouse or keyboard moves away without activating) can't reach
+ * `document.body` either: `useSpotHoverArbitration` only schedules the
+ * dismiss once both `pointer` and `focus` interaction flags are false, and a
+ * `blur` from tabbing away always lands on the next focusable element
+ * synchronously, before that dismiss timer ever fires. So there is no path
+ * where this preview unmounts while it still holds focus.
  */
 export function SpotHoverPreview({
   visible,

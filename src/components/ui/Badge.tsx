@@ -54,15 +54,20 @@ export const Badge = forwardRef<HTMLSpanElement, BadgeProps>(
         "border-signal-green/30",
       ],
       good: ["bg-good/20", "text-good", "border", "border-good/30"],
+      // fair/poor carry the same same-hue defect quiet's comment describes
+      // for aurora-purple: warning ink measures 4.22-4.62:1 on its own /20
+      // tint depending on surface (fails on Light Card glass), and danger ink
+      // measures 4.61-5.06:1 (passes, thin margin) (#827). Same treatment as
+      // `quiet`: keep the tint, draw the label in --su-text.
       fair: [
         "bg-caution-amber/20",
-        "text-caution-amber",
+        "text-su-text",
         "border",
         "border-caution-amber/30",
       ],
       poor: [
         "bg-alert-red/20",
-        "text-alert-red",
+        "text-su-text",
         "border",
         "border-alert-red/30",
       ],
@@ -85,12 +90,27 @@ export const Badge = forwardRef<HTMLSpanElement, BadgeProps>(
         "border",
         "border-cosmic-cyan/30",
       ],
+      // No app call site passes status="storm" today, but it is mounted via
+      // `.design-sync/previews/Badge.tsx`, which the design-system alignment
+      // rule re-grades on every fix -- a live site, not a dead one (same
+      // correction #795 made for SpotBadge's `verified` variant). The same
+      // same-hue defect above applies at /30 too -- 3.57-4.77:1 depending on
+      // theme/surface (#827).
+      //
+      // `animate-pulse` is gone with it. Tailwind's pulse fades the WHOLE
+      // element to 50% opacity at the trough, which halves the contrast of
+      // whatever it is applied to: even after the --su-text treatment the
+      // storm label measured roughly 2.3-3.4:1 for half of every cycle. A
+      // guard that measures the class pair while the animation quietly
+      // undoes it certifies a state the user never sees. Fixing the ink and
+      // keeping the fade would have been the worst of both. If this variant
+      // ever needs motion back, pulse a separate decorative element, not the
+      // text (#827, found by Codex on PR #840).
       storm: [
         "bg-alert-red/30",
-        "text-alert-red",
+        "text-su-text",
         "border",
         "border-alert-red/50",
-        "animate-pulse",
       ],
     };
 

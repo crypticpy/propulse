@@ -14,21 +14,37 @@
  * Selected satellites show their orbital ground track.
  */
 
-import { useMemo, useRef, useCallback } from "react";
+import {
+  useMemo,
+  useRef,
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useState,
+} from "react";
 import { useFrame } from "@react-three/fiber";
 import { Html, Line } from "@react-three/drei";
 import * as THREE from "three";
 import { formatDistanceToNow } from "date-fns";
 import { useGlobeOcclusion } from "@/hooks/useGlobeOcclusion";
+import { useGlobeOcclusionBatch } from "@/hooks/useGlobeOcclusionBatch";
 import { useSatellites } from "@/hooks/useSatellites";
 import { useMapStore } from "@/stores/mapStore";
+import type { SatelliteTrackConfig } from "@/stores/mapStore";
 import { useSatellitePrefsStore } from "@/stores/satellitePrefsStore";
-import { calculateGroundTrack } from "@/lib/api/satellites";
+import { buildOrbitTrack } from "@/lib/api/satellites";
 import { getTransponder } from "@/lib/data/satelliteTransponders";
 import {
   GLOBE_DOM_LAYER_ORDER,
   GLOBE_LAYER_ORDER,
 } from "@/lib/map/globeRenderOrder";
+import {
+  latLonAltToVector3,
+  latLonToSurface,
+  MAX_TRACK_DOTS,
+  selectTrackDotIndices,
+  selectTrackLabelIndices,
+} from "@/lib/map/satelliteGeometry";
 import {
   CATEGORY_META,
   formatFreqMHz,
@@ -44,24 +60,21 @@ import type {
 // Constants
 // ---------------------------------------------------------------------------
 
-/** Globe radius (matching EarthSphere) */
-const GLOBE_RADIUS = 1.0;
-
-/** Earth radius in km (for altitude scaling) */
-const EARTH_RADIUS_KM = 6371.0;
-
-/**
- * Visual altitude scale factor.
- * True altitude would place ISS at r = 1 + 408/6371 = ~1.064
- * We scale up a bit so satellites are clearly above the surface.
- */
-const ALT_SCALE = 3.0;
-
-/** Base surface offset to prevent z-fighting */
-const SURFACE_OFFSET = 0.015;
-
 /** Size of the diamond marker */
 const MARKER_SIZE = 0.012;
+
+/**
+ * Minimum occlusion opacity for a ground-track time label to be rendered at
+ * all. Far-side labels are dropped (no `Html` portal), not faded, to match
+ * the depthTest-based hiding the lines/dots get for free and to cut the DOM
+ * portal count on a multi-orbit track (#994 review).
+ */
+const LABEL_OCCLUSION_THRESHOLD = 0.05;
+
+/** Re-anchor ground tracks on "now" once a minute without re-propagating
+ * every 5s tick (the satellite position poll cadence). Shared by every
+ * `GroundTrack` instance via a single interval owned by `SatelliteOverlay`. */
+const MINUTE_TICK_MS = 60_000;
 
 /**
  * Category colors for satellite markers.
@@ -76,47 +89,6 @@ export const CATEGORY_COLORS: Record<SatelliteCategory, string> = {
   weather: "#cc88ff",
   other: "#888888",
 };
-
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
-/**
- * Convert lat/lon/alt to a 3D position on the globe.
- * Uses the same coordinate system as SpotMarker and GlobeView.
- */
-function latLonAltToVector3(
-  lat: number,
-  lon: number,
-  altKm: number,
-): THREE.Vector3 {
-  const visualAlt = (altKm / EARTH_RADIUS_KM) * ALT_SCALE;
-  const radius = GLOBE_RADIUS + SURFACE_OFFSET + visualAlt;
-
-  const phi = (90 - lat) * (Math.PI / 180);
-  const theta = (lon + 180) * (Math.PI / 180);
-
-  return new THREE.Vector3(
-    -radius * Math.sin(phi) * Math.cos(theta),
-    radius * Math.cos(phi),
-    radius * Math.sin(phi) * Math.sin(theta),
-  );
-}
-
-/**
- * Convert lat/lon to surface position (for ground track lines).
- */
-function latLonToSurface(lat: number, lon: number): THREE.Vector3 {
-  const radius = GLOBE_RADIUS + 0.005; // Tiny offset above surface
-  const phi = (90 - lat) * (Math.PI / 180);
-  const theta = (lon + 180) * (Math.PI / 180);
-
-  return new THREE.Vector3(
-    -radius * Math.sin(phi) * Math.cos(theta),
-    radius * Math.cos(phi),
-    radius * Math.sin(phi) * Math.sin(theta),
-  );
-}
 
 /**
  * Info popup width range (#832 sweep). Sibling of ISS_INFO_CARD_WIDTH_STYLE
@@ -599,65 +571,262 @@ function SatelliteMarker({
 }
 
 // ---------------------------------------------------------------------------
-// Ground Track Line
+// Ground Track Line — store-driven per-satellite "Map orbit" track (#994)
 // ---------------------------------------------------------------------------
 
 interface GroundTrackProps {
   satellite: SatelliteInfoExtended;
+  config: SatelliteTrackConfig;
+  isSelected: boolean;
+  /** Bumped every 60s by the parent so the track re-anchors on "now". */
+  minuteTick: number;
 }
 
-function GroundTrack({ satellite }: GroundTrackProps) {
+interface TimeMarkerLabel {
+  position: THREE.Vector3;
+  minutesFromNow: number;
+  lat: number;
+  lon: number;
+}
+
+/**
+ * One satellite's orbit track, built from the shared `buildOrbitTrack` per
+ * that satellite's own `satelliteTracks` config (orbits ahead, whether to
+ * show the past 45 minutes). Past/future segments are split the same way
+ * `ISSOrbitRing` splits its altitude ring (dim past, bright future), and,
+ * like it and `ISSGroundTrack`, split again at antimeridian crossings so a
+ * `Line` never draws a spurious wrap-around chord.
+ */
+function GroundTrack({ satellite, config, isSelected, minuteTick }: GroundTrackProps) {
   const color = CATEGORY_COLORS[satellite.category];
+  const lineWidth = isSelected ? 2.5 : 1.5;
 
-  // Calculate ground track — 90 minutes forward (typical LEO orbit period)
-  const trackPoints = useMemo(() => {
-    const track = calculateGroundTrack(satellite, new Date(), 90, 1);
+  const { pastSegments, futureSegments, tenMinDots, trackLabels } =
+    useMemo(() => {
+      const pastMin = config.showPast ? 45 : 0;
+      const track = buildOrbitTrack(satellite, new Date(), {
+        pastMin,
+        orbitsAhead: config.orbitsAhead,
+        stepMin: 1,
+      });
 
-    // Convert to 3D positions, splitting on large longitude jumps (antimeridian crossing)
-    const segments: THREE.Vector3[][] = [];
-    let currentSegment: THREE.Vector3[] = [];
+      // Bound the label count regardless of track length (#1029 review) — a
+      // geostationary satellite at 3 orbits ahead with a 1-minute step
+      // produces ~4300 points; labeling every 30 minutes there would emit
+      // ~145 Html DOM-portal labels into the per-frame occlusion batch.
+      const labelIndices = new Set(selectTrackLabelIndices(track));
+      // Same bound for the every-10-minute dot markers (#1029 review round
+      // 2) — the same ~4300-point GEO track would otherwise render ~430
+      // one-mesh-per-dot draws; on a short track this reproduces the exact
+      // `minutesFromNow % 10 === 0` set unchanged.
+      const dotIndices = new Set(selectTrackDotIndices(track));
 
-    for (let i = 0; i < track.length; i++) {
-      const point = track[i];
-      const vec = latLonToSurface(point.lat, point.lon);
+      const past: THREE.Vector3[][] = [];
+      const future: THREE.Vector3[][] = [];
+      let currentPast: THREE.Vector3[] = [];
+      let currentFuture: THREE.Vector3[] = [];
+      const dots: THREE.Vector3[] = [];
+      const labels: TimeMarkerLabel[] = [];
 
-      if (i > 0) {
-        const prevLon = track[i - 1].lon;
-        const lonDiff = Math.abs(point.lon - prevLon);
-        // Split at antimeridian crossing
-        if (lonDiff > 180) {
-          if (currentSegment.length > 1) {
-            segments.push(currentSegment);
+      for (let i = 0; i < track.length; i++) {
+        const point = track[i];
+        const vec = latLonToSurface(point.lat, point.lon);
+
+        if (i > 0) {
+          const prevLon = track[i - 1].lon;
+          const lonDiff = Math.abs(point.lon - prevLon);
+          if (lonDiff > 180) {
+            if (currentPast.length > 1) past.push(currentPast);
+            if (currentFuture.length > 1) future.push(currentFuture);
+            currentPast = [];
+            currentFuture = [];
           }
-          currentSegment = [];
+        }
+
+        if (point.minutesFromNow < 0) {
+          currentPast.push(vec);
+          if (currentFuture.length > 1) {
+            future.push(currentFuture);
+            currentFuture = [];
+          }
+        } else if (currentPast.length > 0 && currentFuture.length === 0) {
+          // Bridge: carry the last past point AND the t=0 point into the
+          // future segment so the line is continuous across the "now"
+          // boundary — otherwise there's a one-step gap between t=-1 and
+          // t=0 right at the satellite.
+          currentFuture.push(currentPast[currentPast.length - 1], vec);
+          if (currentPast.length > 1) past.push(currentPast);
+          currentPast = [];
+        } else {
+          currentFuture.push(vec);
+        }
+
+        if (dotIndices.has(i)) {
+          dots.push(vec);
+        }
+        if (labelIndices.has(i)) {
+          labels.push({
+            position: vec,
+            minutesFromNow: point.minutesFromNow,
+            lat: point.lat,
+            lon: point.lon,
+          });
         }
       }
 
-      currentSegment.push(vec);
-    }
+      if (currentPast.length > 1) past.push(currentPast);
+      if (currentFuture.length > 1) future.push(currentFuture);
 
-    if (currentSegment.length > 1) {
-      segments.push(currentSegment);
-    }
+      return {
+        pastSegments: past,
+        futureSegments: future,
+        tenMinDots: dots,
+        trackLabels: labels,
+      };
+      // minuteTick intentionally re-anchors the track on "now" once a minute
+      // without depending on satellite object identity, which changes every
+      // 5s poll (see useSatellites' currentTime interval).
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [
+      satellite.noradId,
+      satellite.line1,
+      satellite.line2,
+      config.showPast,
+      config.orbitsAhead,
+      minuteTick,
+    ]);
 
-    return segments;
-  }, [satellite]);
+  // Shared geometry + material for the 10-min dots (one instance per
+  // GroundTrack, like ISSGroundTrack's dotGeometry/dotMaterial), instead of
+  // allocating a fresh sphereGeometry/meshBasicMaterial per dot per render.
+  const dotGeometry = useMemo(() => new THREE.SphereGeometry(0.003, 8, 8), []);
+  const dotMaterial = useMemo(
+    () =>
+      new THREE.MeshBasicMaterial({
+        color,
+        transparent: true,
+        opacity: 0.5,
+        depthTest: true,
+        depthWrite: false,
+      }),
+    [color],
+  );
+  useEffect(() => {
+    return () => {
+      dotGeometry.dispose();
+      dotMaterial.dispose();
+    };
+  }, [dotGeometry, dotMaterial]);
+
+  // All dots share one color/opacity (dotMaterial doesn't vary by
+  // past/future the way the Line segments do), so a single InstancedMesh
+  // per track — fixed at MAX_TRACK_DOTS capacity, like RepeaterOverlay3D's
+  // MAX_INSTANCES pattern, so the mesh is created once and never rebuilt —
+  // replaces the former one-mesh-per-dot loop (#1029 review round 2). A
+  // ~4300-point GEO track produced ~430 individual mesh draw submissions;
+  // instancing collapses that to one draw call. Position-only, unit-scale
+  // matrices; `selectTrackDotIndices` guarantees dotMatrices.length never
+  // exceeds the MAX_TRACK_DOTS capacity below.
+  const dotMatrices = useMemo(() => {
+    const identityQuat = new THREE.Quaternion();
+    const unitScale = new THREE.Vector3(1, 1, 1);
+    return tenMinDots.map((pos) => {
+      const matrix = new THREE.Matrix4();
+      matrix.compose(pos, identityQuat, unitScale);
+      return matrix;
+    });
+  }, [tenMinDots]);
+
+  const dotMeshRef = useRef<THREE.InstancedMesh>(null);
+  useLayoutEffect(() => {
+    const mesh = dotMeshRef.current;
+    if (!mesh) return;
+    // Defensive clamp (#1029 review round 3): `selectTrackDotIndices` is
+    // relied on to keep `dotMatrices.length <= MAX_TRACK_DOTS`, but the
+    // instancedMesh's fixed-capacity buffer (args below) is what actually
+    // owns that invariant -- never write or report more instances than it
+    // was allocated for, even if the selector's guarantee were ever broken.
+    const count = Math.min(dotMatrices.length, MAX_TRACK_DOTS);
+    for (let i = 0; i < count; i++) {
+      mesh.setMatrixAt(i, dotMatrices[i]);
+    }
+    mesh.count = count;
+    mesh.instanceMatrix.needsUpdate = true;
+  }, [dotMatrices]);
+
+  // Occlusion-gate the time-marker Html labels the same way every other DOM
+  // label on the globe is gated (useGlobeOcclusion/useGlobeOcclusionBatch).
+  // Html is a DOM portal with no depthTest, so far-side labels would
+  // otherwise paint on top of the near side; they're dropped entirely rather
+  // than faded to also cut the portal count on a multi-orbit track.
+  const labelPositions = useMemo(
+    () => trackLabels.map((l) => ({ lat: l.lat, lon: l.lon })),
+    [trackLabels],
+  );
+  const { getOpacity } = useGlobeOcclusionBatch(labelPositions);
 
   return (
     <>
-      {trackPoints.map((segment, idx) => (
+      {pastSegments.map((segment, idx) => (
         <Line
-          key={idx}
+          key={`past-${idx}`}
           points={segment}
           color={color}
-          lineWidth={1.5}
+          lineWidth={lineWidth}
           transparent
-          opacity={0.4}
+          opacity={0.18}
           depthTest={true}
           depthWrite={false}
           renderOrder={GLOBE_LAYER_ORDER.arcs}
         />
       ))}
+      {futureSegments.map((segment, idx) => (
+        <Line
+          key={`future-${idx}`}
+          points={segment}
+          color={color}
+          lineWidth={lineWidth}
+          transparent
+          opacity={0.45}
+          depthTest={true}
+          depthWrite={false}
+          renderOrder={GLOBE_LAYER_ORDER.arcs}
+        />
+      ))}
+      {
+        // Far-side dots were never CPU-occluded before this change either —
+        // depthTest on dotMaterial (above) is what hides them, tested
+        // per-fragment by the GPU against the globe/GlobeDepthDome exactly
+        // like the Line segments. Instancing doesn't change that: every
+        // instance is drawn through the same shared material and depth
+        // tested the same way, so occlusion behavior is unchanged. `count`
+        // (set in the layout effect above) hides unused capacity when
+        // dotMatrices.length < MAX_TRACK_DOTS, including the zero case.
+      }
+      <instancedMesh
+        ref={dotMeshRef}
+        args={[dotGeometry, dotMaterial, MAX_TRACK_DOTS]}
+        renderOrder={GLOBE_LAYER_ORDER.markers}
+        dispose={null}
+      />
+      {trackLabels.map(({ position, minutesFromNow, lat, lon }, idx) => {
+        if (getOpacity(lat, lon) < LABEL_OCCLUSION_THRESHOLD) return null;
+        return (
+          <Html
+            key={`label-${idx}`}
+            position={position}
+            center
+            zIndexRange={GLOBE_DOM_LAYER_ORDER.marker}
+            style={{ pointerEvents: "none" }}
+          >
+            <div className="px-1 py-0.5 rounded text-xs font-mono whitespace-nowrap bg-su-panel text-su-text border border-su-line/40">
+              {minutesFromNow === 0
+                ? "now"
+                : `${minutesFromNow > 0 ? "+" : ""}${minutesFromNow}m`}
+            </div>
+          </Html>
+        );
+      })}
     </>
   );
 }
@@ -679,8 +848,17 @@ export function SatelliteOverlay() {
     useSatellites();
   const issTrackerActive = useMapStore((s) => s.layers.issTracker);
   const setSatelliteModalId = useMapStore((s) => s.setSatelliteModalId);
+  const satelliteTracks = useMapStore((s) => s.satelliteTracks);
 
   const trackedNoradIds = useSatellitePrefsStore((s) => s.trackedNoradIds);
+
+  // Coarse clock so every GroundTrack re-anchors on "now" once a minute
+  // without re-propagating on the 5s satellite position poll (#994 review).
+  const [minuteTick, setMinuteTick] = useState(0);
+  useEffect(() => {
+    const id = setInterval(() => setMinuteTick((t) => t + 1), MINUTE_TICK_MS);
+    return () => clearInterval(id);
+  }, []);
 
   // Filter satellites: ISS dedup when dedicated tracker is active + user tracking prefs
   const filteredSatellites = useMemo(() => {
@@ -709,19 +887,44 @@ export function SatelliteOverlay() {
     [selectedSatellite, selectSatellite],
   );
 
-  if (filteredSatellites.length === 0) {
+  // Store-driven "Map orbit" tracks — one per satellite the user has opted
+  // into via the SatelliteDetailModal controls, independent of selection
+  // and independent of the marker display prefs above (#994).
+  //
+  // NORAD 25544 (ISS) is rendered here like any other satellite, even while
+  // the dedicated ISS tracker is active: the store track wins, and
+  // `ISSTrackerOverlay` suppresses its own fixed ±45-minute ring/track
+  // whenever `satelliteTracks["25544"]` exists (`shouldRenderIssDefaultTrack`,
+  // #1029 review round 4) so the two never double-draw the same path.
+  const trackedSatellites = useMemo(() => {
+    const entries: { satellite: SatelliteInfoExtended; config: SatelliteTrackConfig }[] =
+      [];
+    for (const [noradIdStr, config] of Object.entries(satelliteTracks)) {
+      const noradId = Number(noradIdStr);
+      const satellite = satellites.find((s) => s.noradId === noradId);
+      if (satellite) {
+        entries.push({ satellite, config });
+      }
+    }
+    return entries;
+  }, [satelliteTracks, satellites]);
+
+  if (filteredSatellites.length === 0 && trackedSatellites.length === 0) {
     return null;
   }
 
-  // Skip ISS ground track if issTracker is active and selected satellite is ISS
-  const showGroundTrack =
-    selectedSatellite &&
-    !(issTrackerActive && selectedSatellite.noradId === 25544);
-
   return (
     <group>
-      {/* Ground track for selected satellite */}
-      {showGroundTrack && <GroundTrack satellite={selectedSatellite} />}
+      {/* Store-driven orbit tracks (#994) */}
+      {trackedSatellites.map(({ satellite, config }) => (
+        <GroundTrack
+          key={satellite.noradId}
+          satellite={satellite}
+          config={config}
+          isSelected={satellite.noradId === selectedSatellite?.noradId}
+          minuteTick={minuteTick}
+        />
+      ))}
 
       {/* Satellite markers */}
       {filteredSatellites.map((sat) => (

@@ -123,8 +123,8 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       actions: write
+      checks: write
       pull-requests: read
-      statuses: write
     steps:
       - name: Re-run the latest pr-contract run for the PR head
         env:
@@ -145,10 +145,13 @@ jobs:
           # check on the PR head: a lookup that fails here would leave the
           # last pr-contract result green after an approval was retracted
           # (Codex, #896 round 19). Every lookup therefore retries, and when
-          # the rerun is still lost a failing commit status is published on
-          # the head (cleared by the next successful rerun) so the PR shows
-          # red instead of a stale green.
-          STATUS_CTX='pr-contract (design-review rerun)'
+          # the rerun is still lost a failing check run is published on the
+          # head under the required context itself, `pr-contract`, from the
+          # same GitHub Actions app the ruleset binds it to (integration
+          # 15368): the ruleset reads the newest check run of that name, so
+          # the stale green stops counting (Codex, round 20). The next
+          # successful rerun produces a newer pr-contract run, which
+          # supersedes the failure the same way.
           HEAD_SHA=''
           api() {
             local label=$1 n out; shift
@@ -161,9 +164,11 @@ jobs:
           fail() {
             echo "::error::$1"
             if [ -n "$HEAD_SHA" ]; then
-              gh api -X POST "repos/${REPO}/statuses/${HEAD_SHA}" -f state=failure -f context="$STATUS_CTX" \
-                -f description="$1" -f target_url="${GITHUB_SERVER_URL}/${REPO}/actions/runs/${GITHUB_RUN_ID}" >/dev/null \
-                || echo "::error::could not publish the failing status on ${HEAD_SHA}"
+              gh api -X POST "repos/${REPO}/check-runs" -f name=pr-contract -f head_sha="$HEAD_SHA" \
+                -f status=completed -f conclusion=failure \
+                -f details_url="${GITHUB_SERVER_URL}/${REPO}/actions/runs/${GITHUB_RUN_ID}" \
+                -f 'output[title]=design-review rerun lost' -f "output[summary]=$1" >/dev/null \
+                || echo "::error::could not publish the failing pr-contract check run on ${HEAD_SHA}"
             fi
             exit 1
           }
@@ -191,7 +196,4 @@ jobs:
           [ "$STATUS" = "completed" ] || fail "run ${RUN_ID} still ${STATUS} after 10 minutes; re-run this job"
           api "pr-contract rerun" -X POST "repos/${REPO}/actions/runs/${RUN_ID}/rerun" >/dev/null \
             || fail "could not re-run pr-contract run ${RUN_ID} after 5 attempts; re-run this job"
-          gh api -X POST "repos/${REPO}/statuses/${HEAD_SHA}" -f state=success -f context="$STATUS_CTX" \
-            -f description="pr-contract run ${RUN_ID} re-run for this comment" >/dev/null \
-            || echo "::warning::could not clear the rerun status on ${HEAD_SHA}"
           echo "Re-ran pr-contract run ${RUN_ID} for ${HEAD_SHA}"

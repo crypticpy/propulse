@@ -110,7 +110,11 @@ is the only statement of the rule; other files point here.
   in doubt it is a UI PR. The `pr-contract` check applies a path list
   (components, pages, styles, theme, token and style emitters (`*Colors`,
   `*Tokens`, `*Fonts`, `*Style`/`*Styles`, `*Appearance` and `*Layout` modules
-  under `src/lib`), widget and wall layout
+  under `src/lib`), presentation data modules (`src/constants/`, which holds
+  the map preset labels and glyphs, tooltip copy, operating profiles and alert
+  thresholds, and every `*Presentation`, `*Presets` and `*Glyphs` module under
+  `src/lib`, nested paths included, such as `targetPathPresentation.ts`,
+  `spotPresentation.ts` and `modePresets.ts`), widget and wall layout
   modules, layout and presentation hooks such as `useHomeLayout` and `useDisplayFit`, presentation stores such as `mapStore`, `hamclockDisplayStore`, `kioskStore`, `workspaceStore`, `settingsStore` and `userStore` (they own `theme`, `textScale`, ticker position and the SDR colours) and the `*UI*Store` files (`authUIStore`, `contestUIStore`, `contestUIEphemeralStore`), presentation configs under `src/config/` (`tourSteps.ts` is the onboarding tour's titles, copy and placements), the root shell `src/App.tsx`/`src/main.tsx`/`index.html`, `public/`,
   Tailwind and PostCSS config, `.design-sync/`, `docs/designs/design-system/`,
   every Markdown design doc, contact sheet and rendered design file under

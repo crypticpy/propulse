@@ -479,7 +479,12 @@ export function HamClockView({
         userNavigated.current = true;
       }}
     >
-      <div className="absolute top-2 left-2 z-10 flex flex-col gap-1 pointer-events-none">
+      {/* Read-only chips: the legend tier, so the map's overlay portal and
+          every control still paint above them (#930). */}
+      <div
+        className="absolute top-2 left-2 flex flex-col gap-1 pointer-events-none"
+        style={{ zIndex: MAP_PAGE_CHROME_Z.legend }}
+      >
         {projectionChip && (
           <div
             role="status"

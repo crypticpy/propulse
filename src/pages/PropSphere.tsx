@@ -1289,6 +1289,7 @@ export function PropSphere() {
                   <ObservatoryTiltSlider
                     visible
                     className="absolute bottom-2 right-2"
+                    style={{ zIndex: MAP_PAGE_CHROME_Z.interactiveChrome }}
                   />
                 )}
 

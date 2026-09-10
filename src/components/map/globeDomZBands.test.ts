@@ -629,8 +629,12 @@ describe("map-host controls sit at or above interactiveChrome (#930, round 3)", 
     // Guards against a scan that silently matches nothing: the slices do
     // contain z-bearing tags, and the hosts do name the interactive tier.
     const withZ = CHROME_FILES.filter((entry) =>
-      openTags(scope(readSrc(entry.file), entry.openedBy)).some((t) =>
-        /className=[`"][^`"]*\bz-/.test(t),
+      openTags(scope(readSrc(entry.file), entry.openedBy)).some(
+        (t) =>
+          // Either spelling counts: round 8 converts the raw classes to
+          // tiers, and a scan pinned to `z-*` alone would go vacuous file by
+          // file as it does so.
+          /className=[`"][^`"]*\bz-/.test(t) || /MAP_PAGE_CHROME_Z\./.test(t),
       ),
     );
     expect(withZ.length).toBeGreaterThan(2);
@@ -1117,5 +1121,171 @@ describe("one owner per bottom-left corner (#930, round 7)", () => {
       readSrc(file).includes("hideSizeSliders"),
     );
     expect(offenders, offenders.join("\n")).toEqual([]);
+  });
+});
+
+/**
+ * A raw z-index on map chrome is a bug, whatever its spelling (#930, round 8).
+ *
+ * `ObservatoryTiltSlider` sat at `z-[220]` as a sibling inside PropSphere's
+ * map Card, twenty tiers above the activity drawer (40): it painted through
+ * an open drawer and swallowed clicks at the lower-right edge. Round 4's
+ * census could not see it, because the component does not position itself --
+ * its root reads `className ?? "fixed bottom-16 right-4"`, so the scan saw
+ * `fixed` (page chrome, out of scope) and moved on, while every map host
+ * passed an `absolute` class in and pulled it into the map stack.
+ *
+ * That is the general hole: when the caller supplies the position, the caller
+ * owns the context, so the component may not hardcode a z-index for it. Two
+ * rules follow, and both are checked against the derived component set:
+ *
+ *   - a caller-positioned component may only spell a raw z inside its own
+ *     default placement string (the case where it does position itself);
+ *   - a host that positions such a component into the map stack must hand it
+ *     a `MAP_PAGE_CHROME_Z` tier, and a host's own map-stack element may not
+ *     carry a raw numeric z at all.
+ */
+describe("map chrome never spells a raw z-index (#930, round 8)", () => {
+  const HOSTS = [
+    "src/pages/PropSphere.tsx",
+    "src/components/map/FullscreenPropSphere.tsx",
+    "src/components/map/HamClockView.tsx",
+    "src/components/mobile/MobileMap.tsx",
+    "src/components/atmos/AtmosGlobeView.tsx",
+    "src/components/map/GlobeView.tsx",
+  ];
+  /** Any spelling of a numeric z-index. */
+  const RAW_Z = /(?<![\w-])z-(\d+|\[\d+\])|zIndex:\s*(\d+)/;
+
+  /** The component's root, with line and block comments removed. */
+  function rootTag(file: string): string | null {
+    const src = readSrc(file);
+    const match = /(?:return\s*\(\s*|return\s+)(<[A-Za-z])/.exec(src);
+    if (!match) return null;
+    const start = match.index + match[0].length - match[1].length;
+    return openingTag(src, start).replace(/\s+/g, " ");
+  }
+
+  /** A root that defers its position to the caller's `className`. */
+  function callerPositioned(tag: string): boolean {
+    return /\bclassName\b/.test(tag) && /\$\{[^}]*\bclassName\b/.test(tag);
+  }
+
+  /** `<Name` mounts in `host`, with the host's opening tag for each. */
+  function mountsIn(host: string): { name: string; tag: string }[] {
+    const src = readSrc(host);
+    const found: { name: string; tag: string }[] = [];
+    for (const match of src.matchAll(/<([A-Z][A-Za-z0-9]*)/g)) {
+      found.push({
+        name: match[1],
+        tag: openingTag(src, match.index).replace(/\s+/g, " "),
+      });
+    }
+    return found;
+  }
+
+  /** Import target for `name` in `host`, barrels followed. */
+  function componentFile(host: string, name: string): string | null {
+    const src = readSrc(host);
+    const named = new RegExp(
+      `import\\s+(?:\\{[^}]*\\b${name}\\b[^}]*\\}|${name})\\s+from\\s+"([^"]+)"`,
+    ).exec(src);
+    if (!named) return null;
+    const target = resolveImport(named[1], host);
+    return target ? throughBarrel(name, target) : null;
+  }
+
+  const mounted = HOSTS.flatMap((host) =>
+    mountsIn(host).map((m) => ({ host, ...m })),
+  );
+
+  it("finds the components the hosts position themselves", () => {
+    // Non-vacuity: the walk has to reach the component this round fixed.
+    const names = new Set(mounted.map((m) => m.name));
+    expect(names).toContain("ObservatoryTiltSlider");
+  });
+
+  it("lets a caller-positioned component z-index only its own placement", () => {
+    const violations: string[] = [];
+    const seen = new Set<string>();
+    for (const { host, name } of mounted) {
+      const file = componentFile(host, name);
+      if (!file || seen.has(file)) continue;
+      if (
+        !file.startsWith("src/components/") &&
+        !file.startsWith("src/pages/")
+      ) {
+        continue;
+      }
+      seen.add(file);
+      const tag = rootTag(file);
+      if (!tag || !callerPositioned(tag)) continue;
+      // The default placement string is the one case the component does own
+      // its context, so a raw z is allowed there and nowhere else.
+      const outside = tag.replace(/\?\?\s*(?:\n\s*)?"[^"]*"/g, "");
+      if (RAW_Z.test(outside)) {
+        violations.push(
+          `${file} hardcodes a z-index on a root the caller positions: ${tag.slice(0, 120)}`,
+        );
+      }
+    }
+    expect(violations, violations.join("\n")).toEqual([]);
+  });
+
+  it("hands a tier to every component a host positions on the map", () => {
+    const violations: string[] = [];
+    for (const { host, name, tag } of mounted) {
+      if (
+        !/className="absolute/.test(tag) &&
+        !/className=\{`absolute/.test(tag)
+      ) {
+        continue;
+      }
+      const file = componentFile(host, name);
+      if (!file) continue;
+      const componentTag = rootTag(file);
+      if (!componentTag || !callerPositioned(componentTag)) continue;
+      if (!/MAP_PAGE_CHROME_Z\./.test(tag)) {
+        violations.push(
+          `${host} positions <${name}> on the map without a MAP_PAGE_CHROME_Z tier, so it resolves wherever its own class puts it: ${tag.slice(0, 120)}`,
+        );
+      }
+    }
+    expect(violations, violations.join("\n")).toEqual([]);
+  });
+
+  /** `//` and block comments blanked out, positions preserved. Guards that
+   * read comments certify prose: three of the six pre-fix hits in this suite
+   * were a comment quoting the very class it forbids. */
+  function withoutComments(src: string): string {
+    return src
+      .replace(/\/\*[\s\S]*?\*\//g, (m) => m.replace(/[^\n]/g, " "))
+      .replace(/\/\/[^\n]*/g, (m) => " ".repeat(m.length));
+  }
+
+  it("keeps raw numeric z-indexes out of the hosts' map stacks", () => {
+    const violations: string[] = [];
+    for (const host of HOSTS) {
+      const src = withoutComments(readSrc(host));
+      for (const match of src.matchAll(
+        /(?<![\w-])z-(\d+|\[\d+\])|zIndex:\s*(\d+)/g,
+      )) {
+        const line = src.slice(0, match.index).split("\n").length;
+        const open = src.lastIndexOf("<", match.index);
+        const tag = openingTag(src, open).replace(/\s+/g, " ");
+        // `fixed` chrome escapes the map stack into the host's own overlay
+        // context (the fullscreen and HamClock roots run their own scale).
+        if (/\bfixed\b/.test(tag)) continue;
+        // `isolate` marks a stacking-context root; its own z-0 is the seal
+        // that bounds everything inside it, not chrome on the map's scale.
+        if (/\bisolate\b/.test(tag)) continue;
+        // A full-bleed bar is the host's own furniture, not map chrome.
+        if (/\bleft-0\b[^"`]*\bright-0\b/.test(tag)) continue;
+        violations.push(
+          `${host}:${line} carries a raw z-index in the map stack (${match[0]}); use a MAP_PAGE_CHROME_Z tier: ${tag.slice(0, 100)}`,
+        );
+      }
+    }
+    expect(violations, violations.join("\n")).toEqual([]);
   });
 });

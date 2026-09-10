@@ -547,7 +547,7 @@ export function TimeControl({ className = "" }: TimeControlProps) {
             {/* Smart presets popover */}
             {showPresets && (
               <div className="p-2 bg-void-black/95 backdrop-blur-md rounded-lg border border-su-line/40 shadow-lg shadow-black/50">
-                <div className="text-[10px] text-su-muted uppercase tracking-wide mb-2">
+                <div className="text-xs text-su-muted uppercase tracking-wide mb-2">
                   Smart Presets
                 </div>
                 <div className="space-y-1">
@@ -568,7 +568,7 @@ export function TimeControl({ className = "" }: TimeControlProps) {
                           {preset.label}
                         </span>
                         {time && (
-                          <span className="text-su-muted font-mono text-[10px]">
+                          <span className="text-su-muted font-mono text-xs">
                             {format(time, use24h ? "HH:mm" : "h:mm a")} UTC
                           </span>
                         )}
@@ -587,7 +587,7 @@ export function TimeControl({ className = "" }: TimeControlProps) {
             {/* Scenarios popover */}
             {showScenarios && (
               <div className="p-2 bg-void-black/95 backdrop-blur-md rounded-lg border border-su-line/40 shadow-lg shadow-black/50">
-                <div className="text-[10px] text-su-muted uppercase tracking-wide mb-2">
+                <div className="text-xs text-su-muted uppercase tracking-wide mb-2">
                   Saved Scenarios
                 </div>
 
@@ -622,7 +622,7 @@ export function TimeControl({ className = "" }: TimeControlProps) {
                         <div className="text-xs text-su-muted group-hover:text-su-text">
                           {scenario.name}
                         </div>
-                        <div className="text-[10px] text-su-muted">
+                        <div className="text-xs text-su-muted">
                           {format(
                             new Date(scenario.time),
                             use24h ? "MMM d, HH:mm" : "MMM d, h:mm a",
@@ -782,16 +782,16 @@ export function TimeControl({ className = "" }: TimeControlProps) {
             <div className="flex items-center gap-1">
               <button
                 onClick={() => setPlaySpeed(Math.max(0.5, playSpeed - 0.5))}
-                className="px-1.5 py-0.5 text-[10px] bg-su-line/10 text-su-muted rounded hover:bg-su-line/20"
+                className="px-1.5 py-0.5 text-xs bg-su-line/10 text-su-muted rounded hover:bg-su-line/20"
               >
                 -
               </button>
-              <span className="text-[10px] text-su-muted w-12 text-center">
+              <span className="text-xs text-su-muted w-12 text-center">
                 {playSpeed}x speed
               </span>
               <button
                 onClick={() => setPlaySpeed(Math.min(10, playSpeed + 0.5))}
-                className="px-1.5 py-0.5 text-[10px] bg-su-line/10 text-su-muted rounded hover:bg-su-line/20"
+                className="px-1.5 py-0.5 text-xs bg-su-line/10 text-su-muted rounded hover:bg-su-line/20"
               >
                 +
               </button>
@@ -803,7 +803,7 @@ export function TimeControl({ className = "" }: TimeControlProps) {
             <div className="flex items-center gap-2 ml-auto">
               <button
                 onClick={() => setReplayEnabled(!replayEnabled)}
-                className={`text-[10px] px-2 py-0.5 rounded transition-colors ${
+                className={`text-xs px-2 py-0.5 rounded transition-colors ${
                   replayEnabled
                     ? "bg-amber-900/40 text-amber-400 border border-amber-500/30"
                     : "bg-su-line/10 text-su-muted hover:bg-su-line/20"
@@ -849,7 +849,7 @@ export function TimeControl({ className = "" }: TimeControlProps) {
             [&::-moz-range-thumb]:cursor-grab"
         />
 
-        <div className="flex justify-between mt-1 text-[10px] text-su-muted">
+        <div className="flex justify-between mt-1 text-xs text-su-muted">
           <span>-24h</span>
           <span>-12h</span>
           <span className={isLive ? "text-signal-green font-medium" : ""}>

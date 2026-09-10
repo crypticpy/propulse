@@ -159,7 +159,7 @@ function SatelliteInfoPopup({
       }}
     >
       <div
-        className="flex flex-col gap-1 rounded-md px-3 py-2 text-[10px] font-mono cursor-pointer"
+        className="flex flex-col gap-1 rounded-md px-3 py-2 text-xs font-mono cursor-pointer"
         style={{
           backgroundColor: "rgba(8, 8, 24, 0.94)",
           border: `1px solid ${color}60`,
@@ -184,7 +184,7 @@ function SatelliteInfoPopup({
               {satellite.name}
             </span>
             <span
-              className={`inline-block flex-shrink-0 px-1 py-0.5 rounded text-[8px] font-semibold uppercase tracking-wider ${catMeta.color} ${catMeta.bg}`}
+              className={`inline-block flex-shrink-0 px-1 py-0.5 rounded text-xs font-semibold uppercase tracking-wider ${catMeta.color} ${catMeta.bg}`}
             >
               {catMeta.label}
             </span>
@@ -221,10 +221,10 @@ function SatelliteInfoPopup({
         </div>
 
         {/* NORAD ID */}
-        <div className="text-[9px]" style={{ color: "#777" }}>
+        <div className="text-xs" style={{ color: "#777" }}>
           NORAD {satellite.noradId}
           {satellite.isCustom && (
-            <span className="ml-1.5 px-1 py-0.5 rounded bg-orange-400/15 text-orange-400 text-[8px]">
+            <span className="ml-1.5 px-1 py-0.5 rounded bg-orange-400/15 text-orange-400 text-xs">
               Custom TLE
             </span>
           )}
@@ -269,13 +269,13 @@ function SatelliteInfoPopup({
               className="my-0.5"
               style={{ borderTop: "1px solid rgba(255,255,255,0.08)" }}
             />
-            <div className="text-[9px] text-su-muted uppercase tracking-wider font-semibold">
+            <div className="text-xs text-su-muted uppercase tracking-wider font-semibold">
               Transponders
             </div>
             {transponderData.transponders.slice(0, 2).map((xpdr, idx) => (
               <div key={idx} className="flex items-center gap-1.5">
                 <span
-                  className="px-1 py-0.5 rounded text-[8px] font-semibold uppercase"
+                  className="px-1 py-0.5 rounded text-xs font-semibold uppercase"
                   style={{
                     backgroundColor:
                       xpdr.mode === "FM"
@@ -299,7 +299,7 @@ function SatelliteInfoPopup({
               </div>
             ))}
             {primaryXpdr && (
-              <div className="grid grid-cols-2 gap-x-3 text-[9px]">
+              <div className="grid grid-cols-2 gap-x-3 text-xs">
                 <div>
                   <span style={{ color: "#888" }}>UP: </span>
                   <span style={{ color: "#aaa" }}>
@@ -352,7 +352,7 @@ function SatelliteInfoPopup({
         <div className="flex items-center gap-1.5 mt-0.5">
           <span style={{ color: "#555" }}>TLE:</span>
           <span
-            className="px-1 py-0.5 rounded text-[8px] font-medium"
+            className="px-1 py-0.5 rounded text-xs font-medium"
             style={{
               backgroundColor:
                 satellite.tleAge === "fresh"
@@ -385,7 +385,7 @@ function SatelliteInfoPopup({
             onOpenModal(satellite.noradId);
           }}
           aria-label={`Open full details for ${satellite.name}`}
-          className="flex w-full items-center justify-center gap-1 rounded text-[8px] font-semibold uppercase tracking-wider hover:bg-su-line/10 focus:outline-none focus-visible:ring-1 focus-visible:ring-su-line/60"
+          className="flex w-full items-center justify-center gap-1 rounded text-xs font-semibold uppercase tracking-wider hover:bg-su-line/10 focus:outline-none focus-visible:ring-1 focus-visible:ring-su-line/60"
           style={{ color: `${color}aa` }}
         >
           <span>Tap for full details</span>
@@ -544,7 +544,7 @@ function SatelliteMarker({
         }}
       >
         <div
-          className="px-1.5 py-0.5 rounded text-[10px] font-mono whitespace-nowrap"
+          className="px-1.5 py-0.5 rounded text-xs font-mono whitespace-nowrap"
           style={{
             backgroundColor: "rgba(10, 10, 26, 0.85)",
             color,

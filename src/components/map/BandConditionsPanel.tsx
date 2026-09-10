@@ -942,7 +942,7 @@ export function BandConditionsPanel({
                     {bestHealth?.band ?? bestBand?.band}
                   </span>
                   <span
-                    className={`text-[10px] uppercase tracking-wide px-1.5 py-0.5 rounded ${
+                    className={`text-xs uppercase tracking-wide px-1.5 py-0.5 rounded ${
                       bestHealth
                         ? LADDER_BADGE_CLASSES[bestHealth.stable]
                         : `${statusColors[overallStatus].text} ${statusColors[overallStatus].bg}`
@@ -959,7 +959,7 @@ export function BandConditionsPanel({
               <div className="w-px h-3 bg-su-line/20" />
 
               {/* Solar indices compact */}
-              <div className="flex items-center gap-2 text-[10px] font-mono">
+              <div className="flex items-center gap-2 text-xs font-mono">
                 <span
                   className={
                     currentKp >= 4 ? "text-caution-amber" : "text-su-muted"
@@ -1118,10 +1118,10 @@ export function BandConditionsPanel({
             <div className="flex items-center justify-between text-xs text-su-muted">
               <span>Path illumination: {Math.round(illumination)}%</span>
             </div>
-            <div className="mt-1 text-[10px] text-su-muted">
+            <div className="mt-1 text-xs text-su-muted">
               Live status: {bandHealthScope.label} · signal/SNR: path model
             </div>
-            <div className="mt-1 flex flex-wrap gap-x-2 text-[10px] text-su-muted">
+            <div className="mt-1 flex flex-wrap gap-x-2 text-xs text-su-muted">
               <span>Band evidence: {bandActivityFreshnessText}</span>
               <span
                 className={bandLadderStale ? "font-semibold text-caution-amber" : undefined}
@@ -1131,7 +1131,7 @@ export function BandConditionsPanel({
               </span>
             </div>
             <div className="flex items-center justify-between mt-1.5 pt-1.5 border-t border-su-line/20">
-              <span className="text-[10px] text-su-muted">
+              <span className="text-xs text-su-muted">
                 Solar inputs: {lastUpdatedText}
               </span>
               <button
@@ -1319,7 +1319,7 @@ const BandConditionRow = memo(function BandConditionRow({
           {/* Greyline active indicator for low bands */}
           {isGreylineActive && (
             <span
-              className="px-1 py-0.5 rounded text-[9px] font-medium bg-amber-500/20 text-amber-400 animate-pulse"
+              className="px-1 py-0.5 rounded text-xs font-medium bg-amber-500/20 text-amber-400 animate-pulse"
               title="Greyline propagation enhanced for this band"
             >
               GL
@@ -1328,7 +1328,7 @@ const BandConditionRow = memo(function BandConditionRow({
           {/* Es Active badge for 6m/10m */}
           {esDetection?.active && (
             <span
-              className="px-1 py-0.5 rounded text-[9px] font-semibold bg-purple-500/20 text-purple-400 animate-pulse"
+              className="px-1 py-0.5 rounded text-xs font-semibold bg-purple-500/20 text-purple-400 animate-pulse"
               title={`Sporadic E detected: ${esDetection.spotCount} spots, est. MUF ${esDetection.estimatedMUFMHz} MHz`}
             >
               Es
@@ -1337,7 +1337,7 @@ const BandConditionRow = memo(function BandConditionRow({
           {/* Band opening indicator */}
           {hasBandOpening && (
             <span
-              className="px-1 py-0.5 rounded text-[9px] font-semibold bg-signal-green/20 text-signal-green animate-pulse"
+              className="px-1 py-0.5 rounded text-xs font-semibold bg-signal-green/20 text-signal-green animate-pulse"
               title="Band opening detected"
             >
               OPEN
@@ -1360,7 +1360,7 @@ const BandConditionRow = memo(function BandConditionRow({
           </span>
           {verdict && (
             <span
-              className="text-[9px] text-su-muted"
+              className="text-xs text-su-muted"
               title="Independent path-physics estimate"
             >
               Path {pathStatusLabel}

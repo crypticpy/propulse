@@ -106,16 +106,16 @@ function SignalMeter({
     <div className="space-y-1">
       <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-2 min-w-0">
-          <span className="px-1.5 py-0.5 rounded bg-su-line/20 text-[10px] font-mono text-su-text">
+          <span className="px-1.5 py-0.5 rounded bg-su-line/20 text-xs font-mono text-su-text">
             {signal.band}
           </span>
           <span
-            className={`px-1.5 py-0.5 rounded text-[10px] font-semibold ${statusBgClass} ${statusTextClass}`}
+            className={`px-1.5 py-0.5 rounded text-xs font-semibold ${statusBgClass} ${statusTextClass}`}
           >
             {statusText}
           </span>
           {signal.isEstimated && (
-            <span className="text-[10px] text-su-muted">EST</span>
+            <span className="text-xs text-su-muted">EST</span>
           )}
         </div>
         <div className="flex items-center gap-2 flex-shrink-0">
@@ -123,7 +123,7 @@ function SignalMeter({
             {signal.sUnit?.text ?? "--"}
           </span>
           {confidenceText && (
-            <span className="text-[10px] text-su-muted">{confidenceText}</span>
+            <span className="text-xs text-su-muted">{confidenceText}</span>
           )}
         </div>
       </div>
@@ -137,7 +137,7 @@ function SignalMeter({
       </div>
 
       {signal.notes && (
-        <div className="text-[10px] text-su-muted line-clamp-2">
+        <div className="text-xs text-su-muted line-clamp-2">
           {signal.notes}
         </div>
       )}
@@ -230,17 +230,17 @@ export function TargetHoverTooltip({
               {label}
             </div>
             {grid && (
-              <div className="text-[10px] text-su-muted font-mono">{grid}</div>
+              <div className="text-xs text-su-muted font-mono">{grid}</div>
             )}
             {contextLabel && (
-              <div className="mt-0.5 truncate text-[10px] text-cyan-200/70">
+              <div className="mt-0.5 truncate text-xs text-cyan-200/70">
                 {contextLabel}
               </div>
             )}
           </div>
           {difficultyLabel && difficultyColor && (
             <span
-              className="px-2 py-0.5 rounded text-[10px] font-semibold border"
+              className="px-2 py-0.5 rounded text-xs font-semibold border"
               style={{
                 color: difficultyColor,
                 borderColor: `${difficultyColor}80`,
@@ -255,7 +255,7 @@ export function TargetHoverTooltip({
 
       <div className="px-3 py-2 space-y-1.5">
         {(distanceKm !== undefined || bearing !== undefined) && (
-          <div className="flex items-center justify-between font-mono text-[10px] text-su-muted">
+          <div className="flex items-center justify-between font-mono text-xs text-su-muted">
             <span>
               {distanceKm !== undefined
                 ? `${Math.round(distanceKm).toLocaleString()} km`
@@ -268,7 +268,7 @@ export function TargetHoverTooltip({
             )}
           </div>
         )}
-        <div className="text-[10px] uppercase tracking-wide text-su-muted">
+        <div className="text-xs uppercase tracking-wide text-su-muted">
           Optimal Band Signal ({Math.round(txPowerWatts)}W {physicsMode})
         </div>
         <SignalMeter

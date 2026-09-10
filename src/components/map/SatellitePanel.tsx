@@ -99,7 +99,7 @@ function qualityColor(score: number): string {
 function StarRating({ score }: { score: 1 | 2 | 3 | 4 | 5 }) {
   return (
     <span
-      className={`text-[10px] ${qualityColor(score)}`}
+      className={`text-xs ${qualityColor(score)}`}
       aria-label={`${score} out of 5 stars`}
     >
       {"★".repeat(score)}
@@ -117,7 +117,7 @@ function CategoryBadge({ category }: { category: SatelliteCategory }) {
   const meta = CATEGORY_META[category];
   return (
     <span
-      className={`inline-block px-1.5 py-0.5 rounded text-[9px] font-semibold uppercase tracking-wider ${meta.color} ${meta.bg}`}
+      className={`inline-block px-1.5 py-0.5 rounded text-xs font-semibold uppercase tracking-wider ${meta.color} ${meta.bg}`}
     >
       {meta.label}
     </span>
@@ -200,7 +200,7 @@ function PassRow({ pass }: { pass: PassPrediction }) {
         <div className="flex items-center gap-1.5 mt-0.5">
           <StarRating score={quality.score} />
           <span
-            className={`text-[9px] px-1 py-0.5 rounded font-medium ${qualityColor(quality.score)} ${
+            className={`text-xs px-1 py-0.5 rounded font-medium ${qualityColor(quality.score)} ${
               quality.score >= 4
                 ? "bg-green-400/10"
                 : quality.score === 3
@@ -213,7 +213,7 @@ function PassRow({ pass }: { pass: PassPrediction }) {
             {quality.label}
           </span>
           {isFuture && (
-            <span className="text-[10px] text-su-muted">
+            <span className="text-xs text-su-muted">
               in {formatDistanceToNow(pass.aos)}
             </span>
           )}
@@ -223,7 +223,7 @@ function PassRow({ pass }: { pass: PassPrediction }) {
         <div className="font-mono text-su-muted">
           {Math.round(pass.maxEl)}° max
         </div>
-        <div className="text-[10px] text-su-muted mt-0.5">
+        <div className="text-xs text-su-muted mt-0.5">
           {formatAzimuth(pass.aosAz)} → {formatAzimuth(pass.losAz)}
         </div>
       </div>
@@ -244,12 +244,12 @@ function SatNOGSTransponderRow({ tx }: { tx: SatNOGSTransmitter }) {
   return (
     <div className="bg-su-line/10 rounded-md px-2 py-1.5 mb-1">
       <div className="flex items-center justify-between">
-        <span className="text-[10px] font-medium text-su-muted truncate">
+        <span className="text-xs font-medium text-su-muted truncate">
           {tx.description}
         </span>
         <div className="flex items-center gap-1 flex-shrink-0">
           <span
-            className={`text-[8px] px-1 py-0.5 rounded font-semibold uppercase ${
+            className={`text-xs px-1 py-0.5 rounded font-semibold uppercase ${
               tx.status === "active"
                 ? "bg-green-400/20 text-green-400"
                 : "bg-su-line/20 text-su-muted"
@@ -258,14 +258,14 @@ function SatNOGSTransponderRow({ tx }: { tx: SatNOGSTransmitter }) {
             {tx.status}
           </span>
           {tx.mode && (
-            <span className="text-[9px] px-1 py-0.5 rounded uppercase font-semibold bg-cyan-400/20 text-cyan-400">
+            <span className="text-xs px-1 py-0.5 rounded uppercase font-semibold bg-cyan-400/20 text-cyan-400">
               {tx.mode}
               {tx.invert ? " INV" : ""}
             </span>
           )}
         </div>
       </div>
-      <div className="grid grid-cols-2 gap-1 mt-1 text-[10px] font-mono">
+      <div className="grid grid-cols-2 gap-1 mt-1 text-xs font-mono">
         {(tx.uplink_low || tx.uplink_high) && (
           <div>
             <span className="text-su-muted">UP: </span>
@@ -334,11 +334,11 @@ function TransponderInfo({
   return (
     <div className="mt-2">
       <div className="flex items-center gap-1.5 mb-1">
-        <span className="text-[10px] text-su-muted uppercase tracking-wider">
+        <span className="text-xs text-su-muted uppercase tracking-wider">
           Transponders
         </span>
         {useSatNOGS && (
-          <span className="text-[8px] px-1 py-0.5 rounded bg-cyan-400/10 text-cyan-400 font-medium">
+          <span className="text-xs px-1 py-0.5 rounded bg-cyan-400/10 text-cyan-400 font-medium">
             SatNOGS
           </span>
         )}
@@ -355,11 +355,11 @@ function TransponderInfo({
               className="bg-su-line/10 rounded-md px-2 py-1.5 mb-1"
             >
               <div className="flex items-center justify-between">
-                <span className="text-[10px] font-medium text-su-muted">
+                <span className="text-xs font-medium text-su-muted">
                   {xpdr.name}
                 </span>
                 <span
-                  className={`text-[9px] px-1 py-0.5 rounded uppercase font-semibold ${
+                  className={`text-xs px-1 py-0.5 rounded uppercase font-semibold ${
                     xpdr.mode === "FM"
                       ? "bg-green-400/20 text-green-400"
                       : xpdr.mode === "linear"
@@ -371,7 +371,7 @@ function TransponderInfo({
                   {xpdr.inverted ? " INV" : ""}
                 </span>
               </div>
-              <div className="grid grid-cols-2 gap-1 mt-1 text-[10px] font-mono">
+              <div className="grid grid-cols-2 gap-1 mt-1 text-xs font-mono">
                 <div>
                   <span className="text-su-muted">UP: </span>
                   <span className="text-su-muted">
@@ -393,13 +393,13 @@ function TransponderInfo({
           ))}
 
       {transponderData.beaconHz && (
-        <div className="text-[10px] font-mono text-su-muted mt-1">
+        <div className="text-xs font-mono text-su-muted mt-1">
           Beacon: {formatFreqMHz(transponderData.beaconHz)}
         </div>
       )}
 
       {transponderData.notes && (
-        <div className="text-[10px] text-su-muted mt-1 italic">
+        <div className="text-xs text-su-muted mt-1 italic">
           {transponderData.notes}
         </div>
       )}
@@ -407,10 +407,10 @@ function TransponderInfo({
       {/* Real-time Doppler correction (visible pass only) */}
       {dopplerInfo && (
         <div className="mt-2 bg-cyan-400/5 border border-cyan-400/20 rounded-md px-2 py-1.5">
-          <div className="text-[10px] text-cyan-400 uppercase tracking-wider mb-1 font-semibold">
+          <div className="text-xs text-cyan-400 uppercase tracking-wider mb-1 font-semibold">
             Doppler-Corrected
           </div>
-          <div className="grid grid-cols-2 gap-1 text-[10px] font-mono">
+          <div className="grid grid-cols-2 gap-1 text-xs font-mono">
             <div>
               <span className="text-su-muted">TX: </span>
               <span className="text-su-text">
@@ -503,7 +503,7 @@ function SatelliteDetail({
             </span>
             <CategoryBadge category={satellite.category} />
           </div>
-          <div className="text-[10px] text-su-muted font-mono">
+          <div className="text-xs text-su-muted font-mono">
             NORAD {satellite.noradId}
           </div>
         </div>
@@ -516,7 +516,7 @@ function SatelliteDetail({
         style={{ gridTemplateColumns: "1fr 1fr" }}
       >
         <div className="bg-su-line/10 rounded-md px-2 py-1.5">
-          <div className="text-[10px] text-su-muted uppercase tracking-wider">
+          <div className="text-xs text-su-muted uppercase tracking-wider">
             Position
           </div>
           <div className="text-xs font-mono text-su-text mt-0.5">
@@ -524,7 +524,7 @@ function SatelliteDetail({
           </div>
         </div>
         <div className="bg-su-line/10 rounded-md px-2 py-1.5">
-          <div className="text-[10px] text-su-muted uppercase tracking-wider">
+          <div className="text-xs text-su-muted uppercase tracking-wider">
             Altitude
           </div>
           <div className="text-xs font-mono text-su-text mt-0.5">
@@ -532,7 +532,7 @@ function SatelliteDetail({
           </div>
         </div>
         <div className="bg-su-line/10 rounded-md px-2 py-1.5">
-          <div className="text-[10px] text-su-muted uppercase tracking-wider">
+          <div className="text-xs text-su-muted uppercase tracking-wider">
             Velocity
           </div>
           <div className="text-xs font-mono text-su-text mt-0.5">
@@ -540,7 +540,7 @@ function SatelliteDetail({
           </div>
         </div>
         <div className="bg-su-line/10 rounded-md px-2 py-1.5">
-          <div className="text-[10px] text-su-muted uppercase tracking-wider">
+          <div className="text-xs text-su-muted uppercase tracking-wider">
             Status
           </div>
           <div
@@ -577,7 +577,7 @@ function SatelliteDetail({
 
       {/* Pass predictions */}
       <div className="flex-1 min-h-0">
-        <div className="text-[10px] text-su-muted uppercase tracking-wider mb-1.5">
+        <div className="text-xs text-su-muted uppercase tracking-wider mb-1.5">
           Next Passes (24h)
         </div>
         {passes.length === 0 ? (
@@ -751,7 +751,7 @@ export function SatellitePanel({
           <div className="w-px h-3 bg-su-line/20" />
 
           {/* Summary stats */}
-          <div className="flex items-center gap-2 text-[10px] font-mono">
+          <div className="flex items-center gap-2 text-xs font-mono">
             <span className="text-su-muted">{satellites.length} tracked</span>
             {visibleCount > 0 && (
               <span className="text-green-400">{visibleCount} visible</span>
@@ -805,7 +805,7 @@ export function SatellitePanel({
 
           <Link
             to="/satellites"
-            className="text-[10px] text-cyan-400 hover:text-cyan-300 hover:underline transition-colors"
+            className="text-xs text-cyan-400 hover:text-cyan-300 hover:underline transition-colors"
           >
             Manage
           </Link>
@@ -951,7 +951,7 @@ export function SatellitePanel({
                 <button
                   key={filter.key}
                   onClick={() => setFilterCategory(filter.key)}
-                  className={`px-2 py-0.5 rounded text-[10px] font-medium transition-colors whitespace-nowrap ${
+                  className={`px-2 py-0.5 rounded text-xs font-medium transition-colors whitespace-nowrap ${
                     filterCategory === filter.key
                       ? "bg-su-line/30 text-su-text"
                       : "bg-su-line/10 text-su-muted hover:bg-su-line/20"

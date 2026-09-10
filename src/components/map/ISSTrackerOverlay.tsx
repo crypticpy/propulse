@@ -187,7 +187,7 @@ function ISSInfoCard({ tracker, occlusionOpacity }: ISSInfoCardProps) {
       }}
     >
       <div
-        className="flex flex-col gap-1 rounded-lg px-3 py-2.5 text-[10px] font-mono select-none"
+        className="flex flex-col gap-1 rounded-lg px-3 py-2.5 text-xs font-mono select-none"
         style={{
           backgroundColor: "rgba(8, 8, 24, 0.95)",
           border: "1px solid rgba(100, 180, 255, 0.4)",
@@ -208,7 +208,7 @@ function ISSInfoCard({ tracker, occlusionOpacity }: ISSInfoCardProps) {
             ISS (ZARYA)
           </span>
           <span
-            className="rounded-full px-1.5 py-0.5 text-[8px] font-semibold uppercase"
+            className="rounded-full px-1.5 py-0.5 text-xs font-semibold uppercase"
             style={{
               backgroundColor: isAboveHorizon
                 ? "rgba(0, 255, 136, 0.15)"
@@ -222,7 +222,7 @@ function ISSInfoCard({ tracker, occlusionOpacity }: ISSInfoCardProps) {
         </div>
 
         {/* NORAD ID */}
-        <div className="text-[9px]" style={{ color: "#777" }}>
+        <div className="text-xs" style={{ color: "#777" }}>
           NORAD 25544 &bull; Inclination 51.6&deg;
         </div>
 
@@ -234,7 +234,7 @@ function ISSInfoCard({ tracker, occlusionOpacity }: ISSInfoCardProps) {
 
         {/* Section: Orbital Data */}
         <div
-          className="text-[9px] font-semibold uppercase tracking-wide mb-0.5"
+          className="text-xs font-semibold uppercase tracking-wide mb-0.5"
           style={{ color: "#64B4FF" }}
         >
           Position
@@ -280,7 +280,7 @@ function ISSInfoCard({ tracker, occlusionOpacity }: ISSInfoCardProps) {
               style={{ borderTop: "1px solid rgba(100, 180, 255, 0.12)" }}
             />
             <div
-              className="text-[9px] font-semibold uppercase tracking-wide mb-0.5"
+              className="text-xs font-semibold uppercase tracking-wide mb-0.5"
               style={{ color: "#64B4FF" }}
             >
               From Your QTH
@@ -308,7 +308,7 @@ function ISSInfoCard({ tracker, occlusionOpacity }: ISSInfoCardProps) {
               style={{ borderTop: "1px solid rgba(100, 180, 255, 0.12)" }}
             />
             <div
-              className="text-[9px] font-semibold uppercase tracking-wide mb-0.5"
+              className="text-xs font-semibold uppercase tracking-wide mb-0.5"
               style={{ color: "#64B4FF" }}
             >
               {currentPass ? "Current Pass" : "Next Pass"}
@@ -371,7 +371,7 @@ function ISSInfoCard({ tracker, occlusionOpacity }: ISSInfoCardProps) {
 
         {/* Ham Radio Frequencies */}
         <div
-          className="text-[9px] font-semibold uppercase tracking-wide mb-0.5"
+          className="text-xs font-semibold uppercase tracking-wide mb-0.5"
           style={{ color: "#64B4FF" }}
         >
           Ham Radio Frequencies
@@ -383,18 +383,18 @@ function ISSInfoCard({ tracker, occlusionOpacity }: ISSInfoCardProps) {
               className="flex items-baseline justify-between gap-1"
             >
               <span
-                className="text-[9px] truncate"
+                className="text-xs truncate"
                 style={{ color: "#999", maxWidth: "90px" }}
               >
                 {f.label}
               </span>
               <span
-                className="text-[9px] font-semibold"
+                className="text-xs font-semibold"
                 style={{ color: "#e0e0e8" }}
               >
                 {f.freq}
               </span>
-              <span className="text-[8px]" style={{ color: "#666" }}>
+              <span className="text-xs" style={{ color: "#666" }}>
                 {f.note}
               </span>
             </div>
@@ -403,7 +403,7 @@ function ISSInfoCard({ tracker, occlusionOpacity }: ISSInfoCardProps) {
 
         {/* SSTV note */}
         <div
-          className="mt-1 px-1.5 py-1 rounded text-[8px]"
+          className="mt-1 px-1.5 py-1 rounded text-xs"
           style={{
             backgroundColor: "rgba(100, 180, 255, 0.06)",
             border: "1px solid rgba(100, 180, 255, 0.12)",
@@ -608,7 +608,7 @@ function ISSModel({ iss, isSelected, onToggleSelect, tracker }: ISSModelProps) {
           }}
         >
           <div
-            className="px-2 py-0.5 rounded-full text-[11px] font-bold font-mono whitespace-nowrap"
+            className="px-2 py-0.5 rounded-full text-xs font-bold font-mono whitespace-nowrap"
             style={{
               backgroundColor: "rgba(10, 10, 26, 0.9)",
               color: "#ffffff",

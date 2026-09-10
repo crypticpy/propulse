@@ -300,7 +300,7 @@ function CategoryRow({
 
       {/* Count badge */}
       {enabledCount > 0 && (
-        <span className="px-1 min-w-[18px] h-[16px] flex items-center justify-center rounded-[4px] bg-su-line/20 text-[9px] font-semibold tabular-nums text-su-text/80">
+        <span className="px-1 min-w-[18px] h-[16px] flex items-center justify-center rounded-[4px] bg-su-line/20 text-xs font-semibold tabular-nums text-su-text/80">
           {enabledCount}/{totalCount}
         </span>
       )}
@@ -1077,7 +1077,7 @@ export function LayersPopover({ compact = false }: LayersPopoverProps) {
       {labelOptions.gridLabels && (
         <>
           <div className="flex items-center h-[28px] px-1 mt-1">
-            <span className="text-[11px] text-su-text/80 w-[60px] shrink-0">
+            <span className="text-xs text-su-text/80 w-[60px] shrink-0">
               Grid Detail
             </span>
             <input
@@ -1091,7 +1091,7 @@ export function LayersPopover({ compact = false }: LayersPopoverProps) {
               className="layers-slider flex-1 mx-2"
               aria-label="Grid label detail level"
             />
-            <span className="text-[10px] font-mono text-su-text/80 w-14 text-right shrink-0 tabular-nums">
+            <span className="text-xs font-mono text-su-text/80 w-14 text-right shrink-0 tabular-nums">
               {gridLabelDetail === 1
                 ? "Field"
                 : gridLabelDetail === 2
@@ -1107,7 +1107,7 @@ export function LayersPopover({ compact = false }: LayersPopoverProps) {
 
       {/* Spot Size */}
       <div className="flex items-center h-[28px] px-1">
-        <span className="text-[11px] text-su-text/80 w-[60px] shrink-0">
+        <span className="text-xs text-su-text/80 w-[60px] shrink-0">
           Spot Size
         </span>
         <input
@@ -1121,14 +1121,14 @@ export function LayersPopover({ compact = false }: LayersPopoverProps) {
           className="layers-slider flex-1 mx-2"
           aria-label="Spot dot size scale"
         />
-        <span className="text-[10px] font-mono text-su-text/80 w-7 text-right shrink-0 tabular-nums">
+        <span className="text-xs font-mono text-su-text/80 w-7 text-right shrink-0 tabular-nums">
           {spotDotScale.toFixed(1)}&times;
         </span>
       </div>
 
       {/* Pin Size */}
       <div className="flex items-center h-[28px] px-1">
-        <span className="text-[11px] text-su-text/80 w-[60px] shrink-0">
+        <span className="text-xs text-su-text/80 w-[60px] shrink-0">
           Pin Size
         </span>
         <input
@@ -1142,14 +1142,14 @@ export function LayersPopover({ compact = false }: LayersPopoverProps) {
           className="layers-slider flex-1 mx-2"
           aria-label="Map pin size scale"
         />
-        <span className="text-[10px] font-mono text-su-text/80 w-7 text-right shrink-0 tabular-nums">
+        <span className="text-xs font-mono text-su-text/80 w-7 text-right shrink-0 tabular-nums">
           {mapPinScale.toFixed(1)}&times;
         </span>
       </div>
 
       {/* Label Size */}
       <div className="flex items-center h-[28px] px-1">
-        <span className="text-[11px] text-su-text/80 w-[60px] shrink-0">
+        <span className="text-xs text-su-text/80 w-[60px] shrink-0">
           Labels
         </span>
         <input
@@ -1163,14 +1163,14 @@ export function LayersPopover({ compact = false }: LayersPopoverProps) {
           className="layers-slider flex-1 mx-2"
           aria-label="Spot label size scale"
         />
-        <span className="text-[10px] font-mono text-su-text/80 w-7 text-right shrink-0 tabular-nums">
+        <span className="text-xs font-mono text-su-text/80 w-7 text-right shrink-0 tabular-nums">
           {labelScale.toFixed(1)}&times;
         </span>
       </div>
 
       {/* Arc Density */}
       <div className="flex items-center h-[28px] px-1">
-        <span className="text-[11px] text-su-text/80 w-[60px] shrink-0">
+        <span className="text-xs text-su-text/80 w-[60px] shrink-0">
           Density
         </span>
         <input
@@ -1184,7 +1184,7 @@ export function LayersPopover({ compact = false }: LayersPopoverProps) {
           className="layers-slider flex-1 mx-2"
           aria-label="Maximum number of spots to display"
         />
-        <span className="text-[10px] font-mono text-su-text/80 w-7 text-right shrink-0 tabular-nums">
+        <span className="text-xs font-mono text-su-text/80 w-7 text-right shrink-0 tabular-nums">
           {displayDensity}
         </span>
       </div>
@@ -1198,7 +1198,7 @@ export function LayersPopover({ compact = false }: LayersPopoverProps) {
       <>
         <div className="border-t border-su-line/20 my-1.5" />
         <div className="flex items-center h-[28px] px-1">
-          <span className="text-[11px] text-su-text/80 w-[44px] shrink-0">
+          <span className="text-xs text-su-text/80 w-[44px] shrink-0">
             Speed
           </span>
           <input
@@ -1215,7 +1215,7 @@ export function LayersPopover({ compact = false }: LayersPopoverProps) {
             className="layers-slider flex-1 mx-2"
             aria-label="Auto-rotate speed"
           />
-          <span className="text-[10px] font-mono text-su-text/80 w-14 text-right shrink-0 tabular-nums">
+          <span className="text-xs font-mono text-su-text/80 w-14 text-right shrink-0 tabular-nums">
             {formatRotateSpeed(autoRotateSpeed)}
           </span>
         </div>
@@ -1266,7 +1266,7 @@ export function LayersPopover({ compact = false }: LayersPopoverProps) {
           <path d="M1.5 9.5L7 12.5L12.5 9.5" />
         </svg>
         {!compact && "Layers"}
-        <span className="ml-0.5 px-1.5 py-0.5 rounded-full bg-su-line/20 text-[10px] leading-none font-medium text-su-text/70">
+        <span className="ml-0.5 px-1.5 py-0.5 rounded-full bg-su-line/20 text-xs leading-none font-medium text-su-text/70">
           {activeCount}
         </span>
       </button>
@@ -1318,7 +1318,7 @@ export function LayersPopover({ compact = false }: LayersPopoverProps) {
               {/* ── Submenu panel ── */}
               <div className="w-[232px] min-h-[180px] max-h-[70vh] overflow-y-auto py-2 px-2.5">
                 {/* Category header */}
-                <div className="text-[10px] uppercase tracking-wider text-su-text/80 font-semibold mb-1.5 px-1">
+                <div className="text-xs uppercase tracking-wider text-su-text/80 font-semibold mb-1.5 px-1">
                   {activeCategory === displayCategoryId
                     ? "Display"
                     : (activeCategoryDef?.name ?? "")}

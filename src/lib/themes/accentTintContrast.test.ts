@@ -698,6 +698,52 @@ const NEUTRALISED_PARENTS: TintedSite[] = [
   },
 ];
 
+/**
+ * Pulls the full text of the `className` attribute that contains `snippet`,
+ * not just the source line the snippet's own substring match falls on. A
+ * plain `className="..."` is one line, so this is equivalent to the line for
+ * `PendingDraftReplaceBanner`; but `NetFilterControls`' toggle builds its
+ * className from a template literal with an interpolated ternary spanning
+ * several lines, so a `bg-plasma-orange/N` token appended to a *different*
+ * line of the same className (the static prefix, say) would sit outside the
+ * snippet's own line yet still land in the rendered class list. This walks
+ * back from the snippet to the nearest preceding `className=`, then forward
+ * to that attribute's closing quote or closing backtick, so the check below
+ * sees the whole value either way.
+ */
+function extractClassNameValue(source: string, snippet: string): string {
+  const snippetIndex = source.indexOf(snippet);
+  if (snippetIndex === -1) {
+    throw new Error(`snippet not found while locating its className:\n${snippet}`);
+  }
+  const attr = "className=";
+  const attrIndex = source.lastIndexOf(attr, snippetIndex);
+  if (attrIndex === -1) {
+    throw new Error(`no className= attribute precedes snippet:\n${snippet}`);
+  }
+  const valueStart = attrIndex + attr.length;
+  const delimiter = source[valueStart];
+  if (delimiter === '"' || delimiter === "'") {
+    const closeIndex = source.indexOf(delimiter, valueStart + 1);
+    return source.slice(valueStart + 1, closeIndex);
+  }
+  if (delimiter === "{") {
+    // `className={`...`}` -- a template literal is the only shape this repo
+    // uses for a multi-line className; the outer backticks bound the value.
+    const backtickStart = source.indexOf("`", valueStart);
+    const backtickEnd = source.indexOf("`", backtickStart + 1);
+    if (backtickStart === -1 || backtickEnd === -1) {
+      throw new Error(
+        `className={...} near snippet is not a backtick template literal:\n${snippet}`,
+      );
+    }
+    return source.slice(backtickStart + 1, backtickEnd);
+  }
+  throw new Error(
+    `unrecognized className= delimiter '${delimiter}' near snippet:\n${snippet}`,
+  );
+}
+
 describe("neutralised accent-wash parents stay off the accent tint (#803)", () => {
   it.each(NEUTRALISED_PARENTS.map((site) => [site.what, site] as const))(
     "%s carries no accent wash of its own",
@@ -711,9 +757,15 @@ describe("neutralised accent-wash parents stay off the accent tint (#803)", () =
       // cap-compliant-looking parent wash (e.g. /15 rest -> hover:/20) that
       // still composites past the cap once the nested child is accounted
       // for, which the per-line census guard cannot see. So the rule is: no
-      // bg-plasma-orange/ token on this line at all, any alpha.
+      // bg-plasma-orange/ token anywhere in this element's className -- not
+      // against the `site.snippet` fixture (a constant that can never fail
+      // on its own no matter what the source says) and not just the source
+      // line the snippet happens to match, which a multi-line className can
+      // route an added token around. `extractClassNameValue` resolves the
+      // whole className value the snippet's line belongs to.
+      const classNameValue = extractClassNameValue(source, site.snippet);
       expect(
-        /bg-plasma-orange\//.test(site.snippet),
+        /bg-plasma-orange\//.test(classNameValue),
         `${site.what} has regained an accent wash of its own`,
       ).toBe(false);
     },

@@ -374,4 +374,42 @@ describe("SpotLabel pop-in fade ramp (#851)", () => {
     expect(value).toBeGreaterThan(0);
     expect(value).toBeLessThan(1);
   });
+
+  it("B2: a de-emphasised tag fades smoothly instead of popping (round-5 fix)", () => {
+    // opacity=0.18 mirrors the real off-band-spotter value from LiveSpotArcs.
+    // Before the fix, `isVisible` (and therefore the wrapper) was gated on
+    // combinedOpacity (opacity * occlusionOpacity), which for opacity=0.18
+    // doesn't clear HIDE_THRESHOLD (0.05) until occlusion ~0.278 -- already
+    // past FADE_IN_END (0.25) -- so the wrapper jumped straight from 0 to 1
+    // the instant it became visible. `isVisible` now shares the ramp's
+    // occlusion-only domain, so the sweep below must be monotone and never
+    // jump by more than one ramp step (max step size here is 0.05 / 0.20 =
+    // 0.25, the sweep's own occlusion increment over the ramp width).
+    const samples = [0.05, 0.1, 0.15, 0.2, 0.25, 0.3];
+    const values = samples.map((occlusionOpacity) => {
+      const { unmount } = render(
+        <SpotLabel
+          lat={35.5}
+          lon={-97.5}
+          callsign="K5ABC"
+          opacity={0.18}
+          occlusionOpacity={occlusionOpacity}
+        />,
+      );
+      const overlay = screen.getByTestId("html-overlay");
+      const value = Number(overlay.style.opacity);
+      unmount();
+      return value;
+    });
+
+    const maxRampStep = 0.05 / (0.25 - 0.05); // 0.25, one sample increment
+    for (let i = 1; i < values.length; i += 1) {
+      expect(values[i]).toBeGreaterThanOrEqual(values[i - 1]);
+      expect(values[i] - values[i - 1]).toBeLessThanOrEqual(
+        maxRampStep + 1e-9,
+      );
+    }
+    expect(values[0]).toBeCloseTo(0, 5);
+    expect(values[values.length - 1]).toBeCloseTo(1, 5);
+  });
 });

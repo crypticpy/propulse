@@ -306,7 +306,7 @@ export const SpectrumWaterfallRing3D = React.memo(
               key={bandNames[i]}
               position={pos}
               center
-              zIndexRange={GLOBE_DOM_LAYER_ORDER.hud}
+              zIndexRange={GLOBE_DOM_LAYER_ORDER.marker}
               style={{ pointerEvents: "none" }}
             >
               <div

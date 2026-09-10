@@ -139,9 +139,14 @@ export function getGlobeLayerSlotForRenderOrder(
  *                      callsign labels, `MeteorShowerOverlay3D` radiant
  *                      label, `NVISOverlay3D` distance labels and
  *                      unselected band labels, `ISSTrackerOverlay`'s
- *                      clickable ISS label — passive/clickable labels stay
- *                      here so they can never paint over the detail popup
- *                      they toggle, which stays in `hud`).
+ *                      clickable ISS label, `CompassRose`'s cardinal and
+ *                      bearing-degree labels, `SpectrumWaterfallRing3D`'s
+ *                      band labels — every passive/reference/at-rest label
+ *                      lives here, whether or not it's clickable, so it can
+ *                      never paint over a detail popup/card in `hud`. The
+ *                      test is paint order, not click order: a
+ *                      `pointerEvents: "none"` label can still visually cover
+ *                      popup content if it shares `hud`'s band).
  *   pinLabel            saved pins, and any spot tag that is selected,
  *                      hovered or otherwise promoted above the passive
  *                      pile-up — must outrank every marker/cluster/label
@@ -149,19 +154,20 @@ export function getGlobeLayerSlotForRenderOrder(
  *                      reads as "under" a chip. Also the promoted state
  *                      for `NVISOverlay3D`'s selected band label (its
  *                      unselected siblings live in `marker`, below).
- *   hud                 globe-anchored heads-up widgets that are always
- *                      meant to float above the scene: ISS tracker detail
- *                      popup (its clickable label lives in `marker`, below,
- *                      so it can never occlude the popup it opens),
- *                      satellite detail popup, compass rose,
- *                      `BeaconNetworkOverlay3D`/`TimeStationsOverlay3D`
- *                      info popups, `SpectrumWaterfallRing3D` band labels.
- *                      Every current `hud` site is either non-interactive
- *                      (`pointerEvents: "none"`, e.g. compass labels and
- *                      spectrum-ring band labels) or a detail popup with no
- *                      passive sibling sharing this band — if a future
- *                      clickable passive label needs `hud`, split it into
- *                      the passive-vs-popup pattern used here instead.
+ *   hud                 globe-anchored detail popups/cards only: ISS tracker
+ *                      info card, satellite detail popup,
+ *                      `BeaconNetworkOverlay3D`/`TimeStationsOverlay3D` info
+ *                      popups. Reserved exclusively for this class — every
+ *                      passive/reference label (clickable or not, including
+ *                      the compass rose and the spectrum-ring band labels)
+ *                      lives in `marker` instead, per the paint criterion:
+ *                      a label sharing `hud` with a popup can paint over
+ *                      that popup's content whenever it happens to sit
+ *                      closer to the camera, regardless of pointer-events.
+ *                      If a future widget needs a passive label to float
+ *                      above a popup, split `hud` into a passive-HUD band
+ *                      below a detail-popup band rather than reusing this
+ *                      one for both.
  *   rayPathInspector    the ray-path point inspector portal (`RayPathArc.tsx`,
  *                      `<Html portal={overlayPortal}>`). This band is
  *                      portal-local: it only orders elements against each

@@ -237,7 +237,7 @@ function CardinalLabel({
     <Html
       position={position}
       center
-      zIndexRange={GLOBE_DOM_LAYER_ORDER.hud}
+      zIndexRange={GLOBE_DOM_LAYER_ORDER.marker}
       style={{
         pointerEvents: "none",
         userSelect: "none",
@@ -467,7 +467,7 @@ export function CompassRose({
         <Html
           position={[0, 0.002, 0]}
           center
-          zIndexRange={GLOBE_DOM_LAYER_ORDER.hud}
+          zIndexRange={GLOBE_DOM_LAYER_ORDER.marker}
           style={{
             pointerEvents: "none",
             userSelect: "none",

@@ -197,21 +197,26 @@ export function SpotLabel({
   // Falls back to the general spot color when no frequency is available.
   const underlineColor = frequency ? getBandColor(frequency) : color;
 
-  // Combined opacity: age-based decay multiplied by globe occlusion
-  const combinedOpacity = opacity * occlusionOpacity;
-  const isVisible = combinedOpacity >= HIDE_THRESHOLD;
+  // Visibility is gated on `occlusionOpacity` alone — the same domain the
+  // ramp below runs in. Gating on `opacity * occlusionOpacity` instead (as
+  // this used to) desyncs the two: for a de-emphasised caller opacity (e.g.
+  // 0.18, a real off-band-spotter value), the combined product doesn't clear
+  // HIDE_THRESHOLD until occlusion ~0.278 — past FADE_IN_END (0.25) — so the
+  // ramp is already saturated at 1 the instant visibility flips on, and the
+  // wrapper pops straight from 0 to a fully-drawn tag instead of fading in.
+  const isVisible = occlusionOpacity >= HIDE_THRESHOLD;
   const isInteractive = Boolean(onSelect || onClick) && isVisible;
   const receivesPointer =
     Boolean(onHover || onHoverEnd || onSelect || onClick) && isVisible;
   // Ramp the wrapper in linearly across the last band of OCCLUSION opacity
-  // only, instead of snapping from 0 to 1 at the hide threshold — a tag
-  // crossing the limb now fades in/out instead of popping. This must key on
-  // `occlusionOpacity` alone, not `combinedOpacity`: the caller's `opacity`
-  // (age/band/contact/spotter de-emphasis) is already applied to the text
-  // alpha above, and folding it into the ramp too would double-dim a fully
-  // visible (occlusionOpacity === 1), already de-emphasised tag toward
-  // invisible. pointerEvents gating above still keys off the binary
-  // `isVisible` (which does use the combined value), unchanged.
+  // only -- not multiplied by the caller's `opacity` here. The caller's
+  // de-emphasis is already applied once, to the text alpha, via
+  // `flooredOcclusion * opacity` below; multiplying it into the wrapper too
+  // would square it into the rendered result (e.g. opacity=0.18 would yield
+  // wrapper 0.18 * text alpha 0.18 = 0.032 effective ink for a fully visible
+  // tag) -- exactly the double-dimming the B1 fix (4d812d0) removed. `isVisible`
+  // above now shares this ramp's occlusion-only domain, so the two can never
+  // desync and the wrapper can't jump further than one ramp step.
   const wrapperOpacity = isVisible
     ? Math.max(
         0,

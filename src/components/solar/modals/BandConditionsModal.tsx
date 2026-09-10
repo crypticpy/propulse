@@ -402,8 +402,8 @@ export const BandConditionsModal: React.FC<BandConditionsModalProps> = ({
                       <div className="flex items-center gap-3 mb-2">
                         <BandPill
                           band={band.name}
-                          size="md"
-                          className="font-bold"
+                          size="inherit"
+                          className="font-mono text-xl font-bold"
                         />
                         <span className="text-sm text-su-muted/80">
                           {band.freq}

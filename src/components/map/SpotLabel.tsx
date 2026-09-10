@@ -203,14 +203,23 @@ export function SpotLabel({
   const isInteractive = Boolean(onSelect || onClick) && isVisible;
   const receivesPointer =
     Boolean(onHover || onHoverEnd || onSelect || onClick) && isVisible;
-  // Ramp the wrapper in linearly across the last band of combined opacity
-  // instead of snapping from 0 to 1 at the hide threshold — a tag crossing
-  // the limb now fades in/out instead of popping. pointerEvents gating
-  // above still keys off the binary `isVisible`, unchanged.
+  // Ramp the wrapper in linearly across the last band of OCCLUSION opacity
+  // only, instead of snapping from 0 to 1 at the hide threshold — a tag
+  // crossing the limb now fades in/out instead of popping. This must key on
+  // `occlusionOpacity` alone, not `combinedOpacity`: the caller's `opacity`
+  // (age/band/contact/spotter de-emphasis) is already applied to the text
+  // alpha above, and folding it into the ramp too would double-dim a fully
+  // visible (occlusionOpacity === 1), already de-emphasised tag toward
+  // invisible. pointerEvents gating above still keys off the binary
+  // `isVisible` (which does use the combined value), unchanged.
   const wrapperOpacity = isVisible
-    ? Math.min(
-        1,
-        (combinedOpacity - HIDE_THRESHOLD) / (FADE_IN_END - HIDE_THRESHOLD),
+    ? Math.max(
+        0,
+        Math.min(
+          1,
+          (occlusionOpacity - HIDE_THRESHOLD) /
+            (FADE_IN_END - HIDE_THRESHOLD),
+        ),
       )
     : 0;
 

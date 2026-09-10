@@ -643,7 +643,14 @@ export const NVISOverlay3D = React.memo(function NVISOverlay3D({
           key={label}
           position={pos}
           center
-          zIndexRange={GLOBE_DOM_LAYER_ORDER.hud}
+          // marker (not hud): hud sits ABOVE pinLabel, which would demote
+          // the selected band label below these always-on distance labels.
+          // Keeping distance labels + unselected band labels in `marker`
+          // and promoting the selected band label to `pinLabel` (below)
+          // preserves the one ordering relationship this widget actually
+          // needs -- selected outranks unselected -- the same pattern
+          // SpotLabel itself uses for its own hover/select promotion.
+          zIndexRange={GLOBE_DOM_LAYER_ORDER.marker}
           style={{ pointerEvents: "none" }}
         >
           <div
@@ -671,10 +678,13 @@ export const NVISOverlay3D = React.memo(function NVISOverlay3D({
             key={band}
             position={pos}
             center
+            // Selected must outrank unselected siblings and the distance
+            // labels above -- pinLabel > marker, so promote only when
+            // selected (matches SpotLabel's own selected/hovered promotion).
             zIndexRange={
               isSelected
                 ? GLOBE_DOM_LAYER_ORDER.pinLabel
-                : GLOBE_DOM_LAYER_ORDER.hud
+                : GLOBE_DOM_LAYER_ORDER.marker
             }
             style={{ pointerEvents: "auto" }}
           >

@@ -274,7 +274,13 @@ describe("SpotLabel visible-face opacity floor (#851)", () => {
 describe("SpotLabel pop-in fade ramp (#851)", () => {
   // The wrapper used to snap opacity 0->1 at the 0.05 hide threshold, so a
   // tag crossing the limb visibly popped in instead of fading. It now ramps
-  // linearly across combinedOpacity in [0.05, 0.25].
+  // linearly across OCCLUSION opacity in [0.05, 0.25] -- not the combined
+  // (opacity * occlusionOpacity) value. Keying on the combined value was a
+  // second-pass-review blocker (B1): it re-coupled the caller's de-emphasis
+  // opacity into the wrapper, so a fully-visible (occlusionOpacity===1) but
+  // de-emphasised tag (e.g. an off-band spotter at opacity=0.18) would have
+  // rendered at wrapper 0.65 and effective ink ~0.12 -- far dimmer than
+  // main's flat 0.35 floor. The two tests below pin that down directly.
   it("is fully transparent right at the hide threshold", () => {
     render(
       <SpotLabel
@@ -329,5 +335,43 @@ describe("SpotLabel pop-in fade ramp (#851)", () => {
     );
     const overlay = screen.getByTestId("html-overlay");
     expect(Number(overlay.style.opacity)).toBeCloseTo(1, 5);
+  });
+
+  it("B1: a de-emphasised but fully-unoccluded tag keeps a fully-opaque wrapper", () => {
+    // opacity=0.18 mirrors LiveSpotArcs.tsx's off-band spotter case
+    // (0.6 * filterOpacity where filterOpacity ~= 0.3). occlusionOpacity=1
+    // means the tag is on the fully visible face -- the ramp must not dim
+    // it at all; only the (already floored) text alpha carries the
+    // de-emphasis.
+    render(
+      <SpotLabel
+        lat={35.5}
+        lon={-97.5}
+        callsign="K5ABC"
+        opacity={0.18}
+        occlusionOpacity={1}
+      />,
+    );
+    const overlay = screen.getByTestId("html-overlay");
+    expect(Number(overlay.style.opacity)).toBeCloseTo(1, 5);
+  });
+
+  it("B1: the ramp still varies with occlusion regardless of caller opacity", () => {
+    // occlusionOpacity=0.15 is mid-band (combinedOpacity = 0.15 here, but
+    // the ramp must read occlusionOpacity, not combinedOpacity -- a low
+    // caller opacity must not push the wrapper toward 0 on its own).
+    render(
+      <SpotLabel
+        lat={35.5}
+        lon={-97.5}
+        callsign="K5ABC"
+        opacity={1}
+        occlusionOpacity={0.15}
+      />,
+    );
+    const overlay = screen.getByTestId("html-overlay");
+    const value = Number(overlay.style.opacity);
+    expect(value).toBeGreaterThan(0);
+    expect(value).toBeLessThan(1);
   });
 });

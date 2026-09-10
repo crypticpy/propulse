@@ -134,15 +134,23 @@ export function getGlobeLayerSlotForRenderOrder(
  *                      labels) — the bulk of what's on screen.
  *   marker              location, weather, satellite and other non-spot
  *                      marker glyphs/tooltips (`LocationMarker`,
- *                      `WeatherAlerts3D`, `SatelliteOverlay` name labels).
+ *                      `WeatherAlerts3D`, `SatelliteOverlay` name labels,
+ *                      `BeaconNetworkOverlay3D`/`TimeStationsOverlay3D`
+ *                      callsign labels, `MeteorShowerOverlay3D` radiant
+ *                      label, `NVISOverlay3D` distance labels and
+ *                      unselected band labels).
  *   pinLabel            saved pins, and any spot tag that is selected,
  *                      hovered or otherwise promoted above the passive
  *                      pile-up — must outrank every marker/cluster/label
  *                      band so the thing the user is looking at never
- *                      reads as "under" a chip.
+ *                      reads as "under" a chip. Also the promoted state
+ *                      for `NVISOverlay3D`'s selected band label (its
+ *                      unselected siblings live in `marker`, below).
  *   hud                 globe-anchored heads-up widgets that are always
  *                      meant to float above the scene: ISS tracker panel
- *                      and label, satellite detail popup, compass rose.
+ *                      and label, satellite detail popup, compass rose,
+ *                      `BeaconNetworkOverlay3D`/`TimeStationsOverlay3D`
+ *                      info popups, `SpectrumWaterfallRing3D` band labels.
  *   rayPathInspector    the ray-path point inspector portal (`RayPathArc.tsx`,
  *                      `<Html portal={overlayPortal}>`). This band is
  *                      portal-local: it only orders elements against each

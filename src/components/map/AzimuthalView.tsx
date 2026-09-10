@@ -47,6 +47,7 @@ import { AzimuthalRenderer, CANVAS_SIZE } from "@/lib/webgl/AzimuthalRenderer";
 import { TargetHoverTooltip } from "./TargetHoverTooltip";
 import { SpotHoverPreview } from "./SpotHoverPreview";
 import { SelectedSpotCard } from "./SelectedSpotCard";
+import { MapSurface } from "./MapSurface";
 import { SpotCollectionPopover } from "./SpotCollectionPopover";
 import {
   GridResearchPanel,
@@ -2953,8 +2954,9 @@ export function AzimuthalView({
   ]);
 
   return (
-    <div
-      ref={containerRef}
+    <MapSurface
+      surfaceRef={containerRef}
+      label="Azimuthal map"
       className="w-full h-full min-h-[400px] bg-deep-space rounded-xl overflow-hidden relative flex items-center justify-center select-none"
     >
       {/* WebGL canvas is created and owned by AzimuthalRenderer. */}
@@ -3163,6 +3165,6 @@ export function AzimuthalView({
           )}
         </div>
       </div>
-    </div>
+    </MapSurface>
   );
 }

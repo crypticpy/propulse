@@ -39,6 +39,7 @@ import {
   DIFFICULTY_LABELS,
   type DifficultyLevel,
 } from "./LocationMarker";
+import { useMapSurfaceFocus } from "./MapSurfaceContext";
 import type { OptimalBandSignalSummary } from "./TargetHoverTooltip";
 import {
   formatSpotAge,
@@ -137,6 +138,7 @@ export function SelectedSpotCard({
 }: SelectedSpotCardProps) {
   const cardRef = useRef<HTMLElement>(null);
   const previousFocusRef = useRef<HTMLElement | null>(null);
+  const focusMapSurface = useMapSurfaceFocus();
   const [copied, setCopied] = useState(false);
   const navigate = useNavigate();
   const selectMapSpot = useViewSpotSelection();
@@ -181,8 +183,8 @@ export function SelectedSpotCard({
     // same handler that sets the selection, so the opener is already detached
     // when this runs. Capturing it earlier would not help either — the
     // captured node fails the `isConnected` check below for the same reason.
-    // The branch stays as the contract for a persistent trigger; giving the
-    // map surface a focus home for the overlay-origin case is #797.
+    // The branch stays the contract for a persistent trigger; the map surface
+    // below is the focus home for the overlay-origin case (#797).
     const active = document.activeElement;
     previousFocusRef.current =
       active instanceof HTMLElement && active !== document.body ? active : null;
@@ -191,9 +193,21 @@ export function SelectedSpotCard({
       window.clearTimeout(timeout);
       const previousFocus = previousFocusRef.current;
       previousFocusRef.current = null;
-      if (previousFocus?.isConnected) previousFocus.focus();
+      if (previousFocus?.isConnected) {
+        previousFocus.focus();
+        return;
+      }
+      // Only when nothing else has focus. Passive cleanup runs after React
+      // has already detached the card, so `<body>` here means "the card held
+      // focus and its removal dropped it" — the case #797 is about. Anything
+      // else means the user moved to another control before closing (a click
+      // outside the card focuses that control first, then triggers the close),
+      // and the surface must not take it back. The surface outlives every
+      // overlay, so it is still mounted when the opener is not; null off a
+      // map host, where there is no home to go to.
+      if (document.activeElement === document.body) focusMapSurface?.();
     };
-  }, [spot]);
+  }, [focusMapSurface, spot]);
 
   useEffect(() => {
     if (!spot) return;

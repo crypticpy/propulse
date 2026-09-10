@@ -143,8 +143,13 @@ export function getGlobeLayerSlotForRenderOrder(
  *   hud                 globe-anchored heads-up widgets that are always
  *                      meant to float above the scene: ISS tracker panel
  *                      and label, satellite detail popup, compass rose.
- *   rayPathInspector    the ray-path point inspector portal — a modal-like
- *                      overlay that must sit above every in-scene label.
+ *   rayPathInspector    the ray-path point inspector portal (`RayPathArc.tsx`,
+ *                      `<Html portal={overlayPortal}>`). This band is
+ *                      portal-local: it only orders elements against each
+ *                      other inside `mapOverlayPortal`'s own stacking
+ *                      context, not against in-scene labels directly — its
+ *                      effective position above them comes from
+ *                      `mapOverlayPortal` itself being the top slot.
  *   mapOverlayPortal    single top value (not a range): the map's shared
  *                      DOM overlay portal, above all `<Html>` bands.
  */

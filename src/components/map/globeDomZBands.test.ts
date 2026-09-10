@@ -11,48 +11,28 @@
  * drawn under another layer" bug in #851.
  *
  * `GLOBE_DOM_LAYER_ORDER` in `globeRenderOrder.ts` now gives each overlay
- * family a distinct, non-overlapping 1000-wide band. This guard is a
- * grep-and-classify over the files this session actually migrated to that
- * table -- it fails, naming the file:line, if a literal range creeps back
- * in or a new `<Html>` overlay is added without importing a band.
+ * family a distinct, non-overlapping 1000-wide band. This guard globs every
+ * non-test `.tsx` file under `src/components/map/**` (the fix round's #2
+ * item) so a new `<Html>` overlay anywhere in the tree, not just the files
+ * a past session happened to touch, is caught if it ships with a bare
+ * literal or skips a band entirely.
  *
  * Census at the time of this PR: `git grep -n 'zIndexRange=' -- src/components/map`
- * found 25 sites across 16 files. The 11 files below (17 sites) are the
- * highest-traffic overlays named in #851's own trace (`SpotLabel`,
- * `LabelsOverlay`, `SpotCluster`, `PinMarker`, `SpotMarker`,
- * `LocationMarker`, `WeatherAlerts3D`, `ISSTrackerOverlay`, `RayPathArc`)
- * plus `CompassRose` and `SatelliteOverlay` (HUD-band overlays, same DOM
- * stack). Left for a follow-up: `layers/MeteorShowerOverlay3D.tsx` (1),
- * `layers/TimeStationsOverlay3D.tsx` (2), `layers/BeaconNetworkOverlay3D.tsx`
- * (2), `layers/SpectrumWaterfallRing3D.tsx` (1), `layers/NVISOverlay3D.tsx`
- * (2) -- 8 more literal sites, all opt-in overlay layers, not migrated or
- * audited by this session; widening FILES to those five is the next step,
- * same pattern as this test.
+ * found 25 sites across 16 files, all now migrated. `src/components/dx/DXSpotOverlay.tsx`
+ * has no `zIndexRange` usage and no render-site importers of `DXSpotOverlay3D`
+ * outside its own barrel re-export (dead code) -- it lives outside
+ * `src/components/map` so this glob never reaches it, and it was intentionally
+ * left alone.
  */
 
 import { fileURLToPath } from "node:url";
-import { readFileSync } from "node:fs";
-import { resolve } from "node:path";
+import { readFileSync, readdirSync, statSync } from "node:fs";
+import { resolve, join, relative } from "node:path";
 import { describe, expect, it } from "vitest";
 import { GLOBE_DOM_LAYER_ORDER } from "@/lib/map/globeRenderOrder";
 
 const REPO_ROOT = resolve(fileURLToPath(import.meta.url), "../../../..");
-
-/** The exact set of files this session migrated to `GLOBE_DOM_LAYER_ORDER`.
- * Widen deliberately, file by file, in a follow-up -- see the module doc. */
-const FILES = [
-  "src/components/map/SpotLabel.tsx",
-  "src/components/map/LabelsOverlay.tsx",
-  "src/components/map/SpotCluster.tsx",
-  "src/components/map/PinMarker.tsx",
-  "src/components/map/SpotMarker.tsx",
-  "src/components/map/LocationMarker.tsx",
-  "src/components/map/WeatherAlerts3D.tsx",
-  "src/components/map/ISSTrackerOverlay.tsx",
-  "src/components/map/RayPathArc.tsx",
-  "src/components/map/CompassRose.tsx",
-  "src/components/map/SatelliteOverlay.tsx",
-];
+const MAP_DIR = resolve(REPO_ROOT, "src/components/map");
 
 /** Matches a bare numeric tuple, e.g. `[1, 0]` or `[180, 0]` -- the old
  * unspecified-band literal this guard bans. */
@@ -62,12 +42,40 @@ const LITERAL_RANGE_RE = /zIndexRange=\{\s*\[\s*-?\d+\s*,\s*-?\d+\s*\]/;
  * nested braces, so a non-greedy match to the next `}` is safe). */
 const ZINDEX_ATTR_RE = /zIndexRange=\{([\s\S]*?)\}(?=\s|\/|>)/g;
 
+/** Matches every `<Html` JSX open tag (drei's overlay component). */
+const HTML_TAG_RE = /<Html(?=[\s/>])/g;
+
+/** Every non-test `.tsx` file under `src/components/map/**`, recursively. */
+function listMapTsxFiles(dir: string): string[] {
+  const out: string[] = [];
+  for (const entry of readdirSync(dir)) {
+    const full = join(dir, entry);
+    const stat = statSync(full);
+    if (stat.isDirectory()) {
+      out.push(...listMapTsxFiles(full));
+      continue;
+    }
+    if (!entry.endsWith(".tsx")) continue;
+    if (entry.endsWith(".test.tsx")) continue;
+    out.push(full);
+  }
+  return out;
+}
+
+const FILES = listMapTsxFiles(MAP_DIR).map((f) => relative(REPO_ROOT, f));
+
 function readSrc(file: string): string {
   return readFileSync(resolve(REPO_ROOT, file), "utf8");
 }
 
 describe("globe DOM z-bands stay on the GLOBE_DOM_LAYER_ORDER table (#851)", () => {
-  it("has no bare numeric zIndexRange literal in the migrated files", () => {
+  // Positive control: proves the glob actually found the map tree rather
+  // than vacuously passing over an empty file list.
+  it("globs a non-trivial set of files", () => {
+    expect(FILES.length).toBeGreaterThan(20);
+  });
+
+  it("has no bare numeric zIndexRange literal anywhere under src/components/map", () => {
     const violations: string[] = [];
     for (const file of FILES) {
       const lines = readSrc(file).split("\n");
@@ -83,7 +91,7 @@ describe("globe DOM z-bands stay on the GLOBE_DOM_LAYER_ORDER table (#851)", () 
     ).toEqual([]);
   });
 
-  it("every zIndexRange in the migrated files references GLOBE_DOM_LAYER_ORDER", () => {
+  it("every zIndexRange under src/components/map references GLOBE_DOM_LAYER_ORDER", () => {
     const violations: string[] = [];
     for (const file of FILES) {
       const src = readSrc(file);
@@ -99,16 +107,25 @@ describe("globe DOM z-bands stay on the GLOBE_DOM_LAYER_ORDER table (#851)", () 
     ).toEqual([]);
   });
 
-  it("has at least one zIndexRange site per migrated file (the census stays honest)", () => {
-    // Positive control: proves the regexes above actually match real JSX
-    // rather than vacuously passing because they never found an attribute.
+  it("every <Html> overlay carries a zIndexRange (count parity per file)", () => {
+    // Catches the hole a per-line/per-attribute scan can't: an <Html> site
+    // that never got a zIndexRange prop at all. A file with 3 <Html> tags
+    // and only 2 zIndexRange attributes has one un-banded overlay.
+    const violations: string[] = [];
     for (const file of FILES) {
       const src = readSrc(file);
-      expect(
-        [...src.matchAll(ZINDEX_ATTR_RE)].length,
-        `${file}: expected at least one zIndexRange usage`,
-      ).toBeGreaterThan(0);
+      const htmlCount = [...src.matchAll(HTML_TAG_RE)].length;
+      const zIndexCount = [...src.matchAll(ZINDEX_ATTR_RE)].length;
+      if (htmlCount !== zIndexCount) {
+        violations.push(
+          `${file}: ${htmlCount} <Html> tag(s) but ${zIndexCount} zIndexRange attribute(s)`,
+        );
+      }
     }
+    expect(
+      violations,
+      `mismatched <Html>/zIndexRange counts (an overlay is missing its band):\n${violations.join("\n")}`,
+    ).toEqual([]);
   });
 });
 

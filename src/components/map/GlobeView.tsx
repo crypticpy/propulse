@@ -2705,9 +2705,10 @@ export function GlobeView({
         />
       )}
 
-      {/* Map-owned DOM portal. Drei Html labels reserve z-index values through
-          9000 while hovered/selected, so this sibling stacking layer must sit
-          above that entire range for previews to remain completely opaque. */}
+      {/* Map-owned DOM portal. In-scene drei Html labels top out at the
+          highest DOM z-band (see GLOBE_DOM_LAYER_ORDER in globeRenderOrder.ts),
+          so this sibling stacking layer must sit above that entire range for
+          previews to remain completely opaque. */}
       <div
         ref={setMapOverlayPortal}
         className="pointer-events-none absolute inset-0"

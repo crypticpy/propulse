@@ -17,7 +17,10 @@ import React, { useEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
 import { Html } from "@react-three/drei";
 import { useActiveBand } from "@/hooks/useActiveBandMode";
-import { GLOBE_LAYER_ORDER } from "@/lib/map/globeRenderOrder";
+import {
+  GLOBE_LAYER_ORDER,
+  GLOBE_DOM_LAYER_ORDER,
+} from "@/lib/map/globeRenderOrder";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -303,7 +306,7 @@ export const SpectrumWaterfallRing3D = React.memo(
               key={bandNames[i]}
               position={pos}
               center
-              zIndexRange={[1, 0]}
+              zIndexRange={GLOBE_DOM_LAYER_ORDER.hud}
               style={{ pointerEvents: "none" }}
             >
               <div

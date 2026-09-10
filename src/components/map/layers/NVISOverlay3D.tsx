@@ -34,7 +34,10 @@ import {
 } from "@/components/map/lib/globeCoords";
 import { useActiveBand } from "@/hooks/useActiveBandMode";
 import { useMapStore } from "@/stores/mapStore";
-import { GLOBE_LAYER_ORDER } from "@/lib/map/globeRenderOrder";
+import {
+  GLOBE_LAYER_ORDER,
+  GLOBE_DOM_LAYER_ORDER,
+} from "@/lib/map/globeRenderOrder";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -640,7 +643,7 @@ export const NVISOverlay3D = React.memo(function NVISOverlay3D({
           key={label}
           position={pos}
           center
-          zIndexRange={[1, 0]}
+          zIndexRange={GLOBE_DOM_LAYER_ORDER.hud}
           style={{ pointerEvents: "none" }}
         >
           <div
@@ -668,7 +671,11 @@ export const NVISOverlay3D = React.memo(function NVISOverlay3D({
             key={band}
             position={pos}
             center
-            zIndexRange={isSelected ? [10, 5] : [1, 0]}
+            zIndexRange={
+              isSelected
+                ? GLOBE_DOM_LAYER_ORDER.pinLabel
+                : GLOBE_DOM_LAYER_ORDER.hud
+            }
             style={{ pointerEvents: "auto" }}
           >
             <div className="flex flex-col items-center gap-0">

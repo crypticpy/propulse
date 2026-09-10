@@ -144,11 +144,19 @@ export function SpotCollectionPopover({
       window.clearTimeout(fallbackTimerRef.current);
       fallbackTimerRef.current = null;
     }
-    const active = document.activeElement;
-    previousFocusRef.current =
-      active instanceof HTMLElement && active !== document.body ? active : null;
-    heldFocusRef.current = false;
     const root = panelRef.current;
+    const active = document.activeElement;
+    // Containment check for the same child-before-parent race as
+    // `PathPointInspector.tsx` (#824, Codex round 4). This popover's own
+    // auto-focus below runs in a zero-delay timeout, which always lands
+    // after this synchronous setup, so `active` is never already inside
+    // `root` here — a no-op today, kept for the shape's uniformity ahead of
+    // the #848 hook extraction.
+    previousFocusRef.current =
+      active instanceof HTMLElement && active !== document.body && !root?.contains(active)
+        ? active
+        : null;
+    heldFocusRef.current = root?.contains(active) ?? false;
     const handleFocusIn = () => {
       heldFocusRef.current = true;
     };

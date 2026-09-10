@@ -1037,22 +1037,31 @@ describe("map surface focus home", () => {
 
   it("PathPointInspector: focus goes home after the panel closes", async () => {
     const pointSet = buildTestPathPointSet();
+    const point = pointSet.points[0];
     const { container } = render(
       <PathPointInspectorHost pointSet={pointSet} />,
     );
 
     fireEvent.click(screen.getByTestId("path-point-hit-area"));
     await screen.findByRole("dialog", { name: "Path point details" });
-    // `PathPointList` focuses the selected option itself once the panel
-    // opens (pre-existing, unrelated to #824) — this is not the "opened via
-    // a hit-test that never touches focus" case the other three overlays
-    // are. A keyboard user tabbing on to the panel's own close button from
-    // there is still a real path this effect has to cover correctly.
-    const closeButton = await screen.findByRole("button", {
-      name: "Close path point card",
-    });
-    closeButton.focus();
-    expect(document.activeElement).toBe(closeButton);
+
+    // `PathPointList`'s own mount effect focuses the selected option
+    // synchronously, and React runs that CHILD effect before this parent's
+    // focus-home effect in the same commit (#824, Codex round 4). Asserting
+    // this here — and deliberately not calling `.focus()` on anything else
+    // afterward — is what actually exercises that race: the parent's setup
+    // must recognise focus already living inside the panel at the moment it
+    // runs, both to mark itself as having held focus and to refuse to
+    // capture the in-panel option as a "previous" element to restore to.
+    // (An earlier version of this test called `closeButton.focus()` here,
+    // which masked the round-4 bug — that later, manual focus call reached
+    // the `focusin` listener just fine regardless of when the listener was
+    // attached, so the test passed even when the listener had missed the
+    // child's own auto-focus.)
+    const selectedOption = container.querySelector(
+      `[data-point-id="${point.id}"]`,
+    );
+    expect(document.activeElement).toBe(selectedOption);
 
     fireEvent.keyDown(window, { key: "Escape" });
     await waitFor(() =>

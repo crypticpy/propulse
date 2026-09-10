@@ -351,11 +351,18 @@ export function PinFlyout({
       window.clearTimeout(fallbackTimerRef.current);
       fallbackTimerRef.current = null;
     }
-    const active = document.activeElement;
-    previousFocusRef.current =
-      active instanceof HTMLElement && active !== document.body ? active : null;
-    heldFocusRef.current = false;
     const root = flyoutRef.current;
+    const active = document.activeElement;
+    // Containment check for the same child-before-parent race as
+    // `PathPointInspector.tsx` (#824, Codex round 4). This flyout never
+    // auto-focuses anything of its own, so `active` can never already be
+    // inside `root` when this setup runs — a no-op here, kept for the
+    // shape's uniformity ahead of the #848 hook extraction.
+    previousFocusRef.current =
+      active instanceof HTMLElement && active !== document.body && !root?.contains(active)
+        ? active
+        : null;
+    heldFocusRef.current = root?.contains(active) ?? false;
     const handleFocusIn = () => {
       heldFocusRef.current = true;
     };

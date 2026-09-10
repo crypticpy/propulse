@@ -128,11 +128,20 @@ export function PathPointInspector({
       window.clearTimeout(fallbackTimerRef.current);
       fallbackTimerRef.current = null;
     }
-    const active = document.activeElement;
-    previousFocusRef.current =
-      active instanceof HTMLElement && active !== document.body ? active : null;
-    heldFocusRef.current = false;
     const root = panelRef.current;
+    const active = document.activeElement;
+    // React runs child effects before parent effects in the same commit
+    // (#824, Codex round 4): when this panel opens with a `selectedId`
+    // already set, `PathPointList`'s own mount effect synchronously focuses
+    // the selected option before this effect runs, so `active` here can
+    // already be inside `root`. That is not "where focus came from" — it is
+    // where a child just put it — so it must be excluded from both the
+    // restore capture and the initial held-focus state below.
+    previousFocusRef.current =
+      active instanceof HTMLElement && active !== document.body && !root?.contains(active)
+        ? active
+        : null;
+    heldFocusRef.current = root?.contains(active) ?? false;
     const handleFocusIn = () => {
       heldFocusRef.current = true;
     };

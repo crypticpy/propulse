@@ -160,6 +160,7 @@ export function PinFlyout({
 }: PinFlyoutProps) {
   const flyoutRef = useRef<HTMLDivElement>(null);
   const previousFocusRef = useRef<HTMLElement | null>(null);
+  const fallbackTimerRef = useRef<number | null>(null);
   const focusMapSurface = useMapSurfaceFocus();
   const { station } = useUserStore();
   const homeGrid = station?.grid || "";
@@ -333,6 +334,10 @@ export function PinFlyout({
   // to `<body>` once the flyout unmounts, which is the gap #797 covers.
   useEffect(() => {
     if (!visible) return;
+    if (fallbackTimerRef.current !== null) {
+      window.clearTimeout(fallbackTimerRef.current);
+      fallbackTimerRef.current = null;
+    }
     const active = document.activeElement;
     previousFocusRef.current =
       active instanceof HTMLElement && active !== document.body ? active : null;
@@ -352,7 +357,15 @@ export function PinFlyout({
       // ITS restore target instead of correctly finding nothing to restore —
       // turning ITS close-time fallback into an unconditional steal later
       // (see the identical hazard fixed in `SpotCollectionPopover`, #824).
-      window.setTimeout(() => {
+      // Cancelled if setup runs again (#824, found by Codex on PR #842).
+      // Under StrictMode the effect runs setup -> cleanup -> setup on mount,
+      // so the simulated cleanup schedules this timer while the overlay is
+      // in fact still open; without the cancel it fires and moves focus to
+      // the surface, and merely hovering changes keyboard focus in dev. Any
+      // re-run of setup means the overlay is open again, which makes a
+      // pending fallback stale by definition.
+      fallbackTimerRef.current = window.setTimeout(() => {
+        fallbackTimerRef.current = null;
         if (document.activeElement === document.body) focusMapSurface?.();
       }, 0);
     };

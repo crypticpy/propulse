@@ -26,7 +26,7 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MemoryRouter } from "react-router-dom";
-import { isValidElement, useRef, useState } from "react";
+import { isValidElement, StrictMode, useRef, useState } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ViewProvider } from "@/components/views/ViewProvider";
 import { createMemoryWorkingStorage } from "@/lib/views/runtime";
@@ -402,9 +402,20 @@ function buildTestPathPointSet(): PathPointSet {
  * in for the 3D hit-area, mirroring the `GlobeView` case's own Canvas
  * substitution above.
  */
-function PathPointInspectorHost({ pointSet }: { pointSet: PathPointSet }) {
+function PathPointInspectorHost({
+  pointSet,
+  initialOpen = "closed",
+}: {
+  pointSet: PathPointSet;
+  /**
+   * Lets a StrictMode mount race test start the panel already open, instead
+   * of driving it open through the hit-area click. See the StrictMode test
+   * below for why the two are not interchangeable.
+   */
+  initialOpen?: PathPointInspectorOpen;
+}) {
   const surfaceRef = useRef<HTMLDivElement>(null);
-  const [open, setOpen] = useState<PathPointInspectorOpen>("closed");
+  const [open, setOpen] = useState<PathPointInspectorOpen>(initialOpen);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const point = pointSet.points[0];
   return (
@@ -762,6 +773,63 @@ describe("map surface focus home", () => {
     );
   });
 
+  it("does not steal focus to the map surface when StrictMode replays the spot collection popover's mount", async () => {
+    const { FlatMapView } = await import("@/components/map/FlatMapView");
+    const { container } = render(
+      <StrictMode>
+        <Wrap>
+          <FlatMapView displayTime={displayTime} />
+        </Wrap>
+      </StrictMode>,
+    );
+
+    const surface = container.querySelector<HTMLElement>(
+      "[data-map-surface]",
+    )!;
+    // This effect's own auto-focus of the first row is scheduled inside the
+    // same cleanup/setup cycle as the stale fallback timer and always wins
+    // the real-timer race (it is registered after the fallback, so it fires
+    // after it and overwrites wherever the fallback left focus). A snapshot
+    // of `document.activeElement` after the fact cannot tell a stale
+    // fallback call from a correct one apart — spy on the surface's own
+    // `.focus` to see whether the fallback ever reached it, independent of
+    // what focused the surface afterward.
+    const surfaceFocusSpy = vi.spyOn(surface, "focus");
+
+    const anchor = toCanvas(
+      grouped.clusters[0].center.lat,
+      grouped.clusters[0].center.lon,
+    );
+    const canvas = screen.getByRole("img", {
+      name: /Interactive propagation map/i,
+    });
+    // `SpotCollectionPopover` is only present in the tree once
+    // `openSpotCollection` is set (`{openSpotCollection && (<SpotCollectionPopover
+    // visible ... />)}`), so this click is the popover's own first mount —
+    // the mount React StrictMode replays with setup -> cleanup -> setup, the
+    // sequence the stale-timer fix (#842, Codex) guards against.
+    fireEvent.pointerDown(canvas, {
+      clientX: anchor.x,
+      clientY: anchor.y,
+      pointerId: 1,
+      button: 0,
+    });
+    fireEvent.pointerUp(document, {
+      clientX: anchor.x,
+      clientY: anchor.y,
+      pointerId: 1,
+      button: 0,
+    });
+
+    await screen.findByRole("dialog", { name: /3 active spots/i });
+
+    // Wait past the deferred fallback tick (#824) so this exercises the
+    // branch instead of trivially succeeding before it ever runs.
+    await new Promise((resolve) => setTimeout(resolve, 20));
+
+    expect(surfaceFocusSpy).not.toHaveBeenCalled();
+  });
+
   // -------------------------------------------------------------------------
   // PinFlyout (#824): opens on hover, never focuses itself, but a keyboard
   // user can still tab into its own buttons while the mouse keeps it open.
@@ -864,6 +932,54 @@ describe("map surface focus home", () => {
     );
   });
 
+  it("does not steal focus to the map surface when StrictMode replays a pin flyout's mount", async () => {
+    usePinStore.getState().addPin({
+      lat: 10,
+      lon: 10,
+      grid: "JJ00aa",
+      name: "Test Pin",
+    });
+    const { FlatMapView } = await import("@/components/map/FlatMapView");
+    const { container } = render(
+      <StrictMode>
+        <Wrap>
+          <FlatMapView displayTime={displayTime} />
+        </Wrap>
+      </StrictMode>,
+    );
+
+    const canvas = screen.getByRole("img", {
+      name: /Interactive propagation map/i,
+    });
+    const pinPos = toCanvas(10, 10);
+    // `PinFlyout` is only present in the tree once `hoveredPinData` is
+    // truthy (`{hoveredPinData && <PinFlyout visible ... />}`), so this
+    // hover is the flyout's own first mount — the mount React StrictMode
+    // replays with setup -> cleanup -> setup, the sequence the stale-timer
+    // fix (#842, Codex) guards against.
+    fireEvent.pointerMove(canvas, {
+      clientX: pinPos.x,
+      clientY: pinPos.y,
+      pointerId: 1,
+    });
+
+    await screen.findByRole("button", { name: "Edit Pin" });
+
+    // Wait past the deferred fallback tick (#824) so this exercises the
+    // branch instead of trivially succeeding before it ever runs.
+    await new Promise((resolve) => setTimeout(resolve, 20));
+
+    // The flyout never focuses itself, so nothing should hold focus while it
+    // is open — and the flyout must still be open, since the bug this
+    // guards against moves focus to the map surface while the flyout is
+    // still visible.
+    expect(focusHolder()).toBe("<body>");
+    expect(document.activeElement).not.toBe(
+      container.querySelector("[data-map-surface]"),
+    );
+    screen.getByRole("button", { name: "Edit Pin" });
+  });
+
   // -------------------------------------------------------------------------
   // PathPointInspector (#824): only reachable in production through
   // `RayPathArc` inside a `<Canvas>`, which renders nothing under jsdom (see
@@ -935,6 +1051,42 @@ describe("map surface focus home", () => {
     await new Promise((resolve) => setTimeout(resolve, 20));
 
     expect(focusHolder()).toBe('button[aria-label="page chrome"]');
+    expect(document.activeElement).not.toBe(
+      container.querySelector("[data-map-surface]"),
+    );
+  });
+
+  it("does not steal focus to the map surface when StrictMode replays the path point panel's mount already open", async () => {
+    const pointSet = buildTestPathPointSet();
+    // `initialOpen="card"` starts the panel open on the very first render,
+    // rather than opening it via the hit-area click as the other
+    // `PathPointInspectorHost` cases do. Unlike `PinFlyout` and
+    // `SpotCollectionPopover` — each only added to the tree once its host's
+    // gate turns true, so their own click/hover already produces a fresh
+    // mount — `PathPointInspector` is always mounted here, with only its
+    // `open` prop toggling; opening it after render is a dependency-driven
+    // effect re-run on an already-mounted component, which StrictMode does
+    // not replay. Starting it open is what makes this mount undergo the
+    // setup -> cleanup -> setup sequence the stale-timer fix (#842, Codex)
+    // guards against. No `selectedId` is set, so `PathPointList`'s own
+    // synchronous focus effect (`PathPointList.tsx`, unrelated to #824)
+    // early-returns instead of moving focus itself — otherwise that
+    // sibling effect's own mount would already leave `previousFocusRef`
+    // holding a connected element before this effect's stale-timer bug
+    // could be observed.
+    const { container } = render(
+      <StrictMode>
+        <PathPointInspectorHost pointSet={pointSet} initialOpen="card" />
+      </StrictMode>,
+    );
+
+    await screen.findByRole("dialog", { name: "Path point details" });
+
+    // Wait past the deferred fallback tick (#824) so this exercises the
+    // branch instead of trivially succeeding before it ever runs.
+    await new Promise((resolve) => setTimeout(resolve, 20));
+
+    expect(focusHolder()).toBe("<body>");
     expect(document.activeElement).not.toBe(
       container.querySelector("[data-map-surface]"),
     );

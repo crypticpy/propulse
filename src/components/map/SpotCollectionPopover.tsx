@@ -59,6 +59,7 @@ export function SpotCollectionPopover({
   const panelRef = useRef<HTMLDivElement>(null);
   const firstSpotRef = useRef<HTMLButtonElement>(null);
   const previousFocusRef = useRef<HTMLElement | null>(null);
+  const fallbackTimerRef = useRef<number | null>(null);
   const focusMapSurface = useMapSurfaceFocus();
   const sortedSpots = useMemo(
     () =>
@@ -130,6 +131,10 @@ export function SpotCollectionPopover({
     // opener for this popover is a canvas hit-test or a touch tap, neither of
     // which focuses anything, so the pre-open activeElement is body far more
     // often than not.
+    if (fallbackTimerRef.current !== null) {
+      window.clearTimeout(fallbackTimerRef.current);
+      fallbackTimerRef.current = null;
+    }
     const active = document.activeElement;
     previousFocusRef.current =
       active instanceof HTMLElement && active !== document.body ? active : null;
@@ -154,7 +159,15 @@ export function SpotCollectionPopover({
       // sibling's mount effect capture the real (pre-fallback) activeElement
       // first; the sibling's own focus-in timer (also `setTimeout(0)`, always
       // scheduled after this one) then wins.
-      window.setTimeout(() => {
+      // Cancelled if setup runs again (#824, found by Codex on PR #842).
+      // Under StrictMode the effect runs setup -> cleanup -> setup on mount,
+      // so the simulated cleanup schedules this timer while the overlay is
+      // in fact still open; without the cancel it fires and moves focus to
+      // the surface, and merely hovering changes keyboard focus in dev. Any
+      // re-run of setup means the overlay is open again, which makes a
+      // pending fallback stale by definition.
+      fallbackTimerRef.current = window.setTimeout(() => {
+        fallbackTimerRef.current = null;
         if (document.activeElement === document.body) focusMapSurface?.();
       }, 0);
     };

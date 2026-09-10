@@ -216,6 +216,9 @@ interface FlatMapViewProps {
   fillContainer?: boolean;
   /** Hide the local size panel when the host docks it with other controls */
   hideSizeSliders?: boolean;
+  /** Forwarded to `SpotCollectionPopover` — true only when `HamClockView` is
+   * the host (#846/#871 round 3). */
+  isWallCanvas?: boolean;
 }
 
 // Map dimensions
@@ -3342,6 +3345,7 @@ export function FlatMapView({
   onLocationClick,
   fillContainer = false,
   hideSizeSliders = false,
+  isWallCanvas,
 }: FlatMapViewProps) {
   const mufRasterRef = useRef<FlatMufRaster | null>(null);
   const observatory = useMapStore((s) => s.observatoryMode);
@@ -6655,6 +6659,8 @@ export function FlatMapView({
           title={`${openSpotCollection.spots.length} active spots`}
           subtitle="Geographic group on this flat map"
           spots={openSpotCollection.spots}
+          boundsHost={containerRef.current}
+          isWallCanvas={isWallCanvas}
           onClose={() => setOpenSpotCollection(null)}
           onSpotSelect={(spot) =>
             handleMapSpotSelect(spot, openSpotCollection.screenPos)
@@ -6673,6 +6679,8 @@ export function FlatMapView({
           title={`${selectedGridCollection.grid} active spots`}
           subtitle={`${selectedGridCollection.spots.length} report${selectedGridCollection.spots.length === 1 ? "" : "s"} in this highlighted grid`}
           spots={selectedGridCollection.spots}
+          boundsHost={containerRef.current}
+          isWallCanvas={isWallCanvas}
           onClose={() => setSelectedGridCollection(null)}
           onSpotSelect={(spot) =>
             handleMapSpotSelect(spot, selectedGridCollection.screenPos)

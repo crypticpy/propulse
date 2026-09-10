@@ -144,4 +144,38 @@ describe("ClusterDetailPopover", () => {
     await user.click(screen.getByRole("button", { name: "Map these spots" }));
     expect(onMapTheseSpots).toHaveBeenCalledOnce();
   });
+
+  it("forwards portalTarget to bound itself by the map host, not the window (#846/#871 F9)", () => {
+    // Forwarding proof: a realistic production call site (GlobeView passes
+    // its `mapOverlayPortal`) must actually reach `SpotCollectionPopover`'s
+    // host-bound math, not just typecheck as an unused prop.
+    const host = document.createElement("div");
+    host.getBoundingClientRect = () =>
+      ({
+        left: 0,
+        top: 0,
+        right: 400,
+        bottom: 600,
+        width: 400,
+        height: 600,
+        x: 0,
+        y: 0,
+        toJSON() {},
+      }) as DOMRect;
+    document.body.appendChild(host);
+    render(
+      <ClusterDetailPopover
+        visible
+        position={{ x: 400, y: 400 }}
+        cluster={cluster}
+        onClose={() => {}}
+        onSpotSelect={() => {}}
+        portalTarget={host}
+      />,
+    );
+    const dialog = screen.getByRole("dialog");
+    expect(dialog.style.position).toBe("absolute");
+    expect(host.contains(dialog)).toBe(true);
+    host.remove();
+  });
 });

@@ -127,13 +127,13 @@ function latLonToSurface(lat: number, lon: number): THREE.Vector3 {
  * range in rem instead lets the whole card grow with its own text instead of
  * staying pinned to a box sized for the default scale. Exported so this
  * geometry is unit-testable without rendering the R3F tree this component
- * lives in (`<Html>`/`useFrame` require a `<Canvas>` context that jsdom +
+ * lives in (`Html`/`useFrame` require a `<Canvas>` context that jsdom +
  * Testing Library cannot provide).
  */
 export const SATELLITE_INFO_CARD_WIDTH_STYLE = {
   // Same viewport clamp as ISS_INFO_CARD_WIDTH_STYLE (Codex, PR #839 round
   // 7): at the largest text scale 16.25rem is 357px, wider than a 320px
-  // phone, and the drei `<Html center>` wrapper does no clamping of its own.
+  // phone, and the drei `Html center` wrapper does no clamping of its own.
   minWidth: "min(12.5rem, calc(100vw - 2rem))",
   maxWidth: "min(16.25rem, calc(100vw - 2rem))",
 } as const;

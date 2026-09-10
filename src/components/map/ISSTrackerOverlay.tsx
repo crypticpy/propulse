@@ -102,11 +102,11 @@ function latLonToSurface(lat: number, lon: number): THREE.Vector3 {
  * to the box and keep reading as one row at every scale rather than needing
  * to wrap or stack. Exported (and factored out of the inline style object)
  * so this geometry is unit-testable without rendering the R3F tree this
- * component lives in (`<Html>`/`useFrame` require a `<Canvas>` context that
+ * component lives in (`Html`/`useFrame` require a `<Canvas>` context that
  * jsdom + Testing Library cannot provide).
  *
  * Round-6 follow-up: at the largest text scale, 15rem is 330px -- wider than
- * a 320px phone viewport -- and the drei `<Html center>` wrapper this card
+ * a 320px phone viewport -- and the drei `Html center` wrapper this card
  * renders in does no viewport clamping of its own, so the card clipped at
  * the page edge. `min(..., calc(100vw - 2rem))` caps both bounds at the
  * viewport width minus 1rem of margin on each side, so the card can still

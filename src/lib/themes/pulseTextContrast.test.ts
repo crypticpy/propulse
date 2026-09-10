@@ -1902,20 +1902,33 @@ interface AnchorPosition {
   windowEnd: number;
 }
 
-/** Matches each anchor in `anchors` to at most one violation in
- * `violations` -- nearest pair first, deterministic ties broken by position
- * -- so a single anchor can no longer vouch for a second, distinct pulsing
- * element that merely happens to sit in the same `ANCHOR_WINDOW_RADIUS`
- * window (Codex, PR #874 round 20: a `KNOWN_REMAINING_SITES` entry for one
- * tracked pulsing text element let an unrelated second one beside it stay
- * green). Pure/synthetic-input-friendly on purpose, so it can be unit-tested
- * directly without touching the real `AUDITED_SITES`/`KNOWN_REMAINING_SITES`
- * tables; `coveredViolations` below is the thin wrapper the census actually
- * calls. Returns the subset of `violations` that got their own unconsumed
- * anchor -- every violation NOT in this set is, by definition, unlisted. A
- * registered anchor that matches no violation (a stale entry) is simply left
- * unconsumed here; that case is covered separately by the "every
- * KNOWN_REMAINING_SITES anchored element still pulses" freshness test. */
+/** Matches each anchor in `anchors` to at most one violation in `violations`
+ * by a maximum bipartite matching (Kuhn's augmenting-path algorithm) over
+ * the "anchor window covers violation" edges, so a single anchor can no
+ * longer vouch for a second, distinct pulsing element that merely happens to
+ * sit in the same `ANCHOR_WINDOW_RADIUS` window (Codex, PR #874 round 20),
+ * AND every violation reachable through *some* one-to-one assignment gets
+ * one, even when the nearest-pair-first greedy would have consumed the only
+ * anchor a later violation could reach (Codex, PR #874 round 21: two
+ * ten-character anchors at offsets 0 and 10, violations at 10 and 171 --
+ * violation 1 is nearest to anchor 2, but anchor 1 -> violation 1 and
+ * anchor 2 -> violation 2 covers both, which the greedy's exact-nearest-pair
+ * consumption could never find since it fixed violation 1 to anchor 2 before
+ * violation 2 was ever considered). Deterministic: violations are tried in
+ * source order (`violations` as given), each violation's candidate anchors
+ * (in ledger order from `anchors`) are attempted nearest-distance-first so
+ * an augmenting path explores the same edge order the old greedy would have
+ * preferred. Sizes here are always tiny (a handful of anchors per file), so
+ * a plain O(V*E) Kuhn's is simpler than Hopcroft-Karp and just as fast in
+ * practice. Pure/synthetic-input-friendly on purpose, so it can be
+ * unit-tested directly without touching the real `AUDITED_SITES`/
+ * `KNOWN_REMAINING_SITES` tables; `coveredViolations` below is the thin
+ * wrapper the census actually calls. Returns the subset of `violations`
+ * that got their own unconsumed anchor -- every violation NOT in this set
+ * is, by definition, unlisted. A registered anchor that matches no
+ * violation (a stale entry) is simply left unconsumed here; that case is
+ * covered separately by the "every KNOWN_REMAINING_SITES anchored element
+ * still pulses" freshness test. */
 function matchAnchorsToViolations(
   normalizedContent: string,
   anchors: string[],
@@ -1933,29 +1946,44 @@ function matchAnchorsToViolations(
     });
   }
 
-  const pairs: { violation: Violation; anchorPos: AnchorPosition; distance: number }[] = [];
+  // Each violation's candidate anchors, nearest distance first (ties by
+  // anchor position, matching ledger order for anchors at the same
+  // distance) -- the order an augmenting-path search tries edges in.
+  const candidatesByViolation = new Map<Violation, AnchorPosition[]>();
   for (const violation of violations) {
-    for (const anchorPos of anchorPositions) {
-      if (violation.index >= anchorPos.windowStart && violation.index <= anchorPos.windowEnd) {
-        pairs.push({ violation, anchorPos, distance: Math.abs(violation.index - anchorPos.anchorIndex) });
+    const candidates = anchorPositions
+      .filter(
+        (anchorPos) =>
+          violation.index >= anchorPos.windowStart && violation.index <= anchorPos.windowEnd,
+      )
+      .sort(
+        (a, b) =>
+          Math.abs(violation.index - a.anchorIndex) - Math.abs(violation.index - b.anchorIndex) ||
+          a.anchorIndex - b.anchorIndex,
+      );
+    candidatesByViolation.set(violation, candidates);
+  }
+
+  const matchOfAnchor = new Map<AnchorPosition, Violation>();
+
+  function tryAugment(violation: Violation, visited: Set<AnchorPosition>): boolean {
+    for (const anchorPos of candidatesByViolation.get(violation) ?? []) {
+      if (visited.has(anchorPos)) continue;
+      visited.add(anchorPos);
+      const incumbent = matchOfAnchor.get(anchorPos);
+      if (!incumbent || tryAugment(incumbent, visited)) {
+        matchOfAnchor.set(anchorPos, violation);
+        return true;
       }
     }
+    return false;
   }
-  pairs.sort(
-    (a, b) =>
-      a.distance - b.distance ||
-      a.violation.index - b.violation.index ||
-      a.anchorPos.anchorIndex - b.anchorPos.anchorIndex,
-  );
 
-  const consumedAnchors = new Set<AnchorPosition>();
-  const covered = new Set<Violation>();
-  for (const pair of pairs) {
-    if (covered.has(pair.violation) || consumedAnchors.has(pair.anchorPos)) continue;
-    covered.add(pair.violation);
-    consumedAnchors.add(pair.anchorPos);
+  for (const violation of violations) {
+    tryAugment(violation, new Set());
   }
-  return covered;
+
+  return new Set(matchOfAnchor.values());
 }
 
 /** Thin wrapper around `matchAnchorsToViolations` for `file`'s registered
@@ -2501,6 +2529,32 @@ describe("matchAnchorsToViolations pairs each anchor to at most one violation (#
       violations,
     );
     expect(covered.size).toBe(2);
+  });
+
+  it("finds a one-to-one assignment covering both violations even when the nearest pair alone would strand one", () => {
+    // Two ten-character anchors at offsets 0 and 10. Anchor 1's window is
+    // [0, 170]; anchor 2's window is [0, 180] (its own -160 clamps to 0).
+    // Violation 1 (index 10) is nearest to anchor 2 (distance 0) but is
+    // also inside anchor 1's window (distance 10). Violation 2 (index 171)
+    // is outside anchor 1's window (171 > 170) and reachable only through
+    // anchor 2. The nearest-pair-first greedy fixes violation 1 to anchor 2
+    // immediately (distance 0 is the closest pair overall) and leaves
+    // violation 2 stranded, even though anchor 1 -> violation 1 and
+    // anchor 2 -> violation 2 is a valid one-to-one assignment covering
+    // both (Codex, PR #874 round 22).
+    const content = "aaaaaaaaaa" + "bbbbbbbbbb" + "x".repeat(200);
+    const violations: Violation[] = [
+      { description: "near anchor two, but reachable from anchor one too", index: 10 },
+      { description: "reachable only from anchor two", index: 171 },
+    ];
+    const covered = matchAnchorsToViolations(
+      content,
+      ["aaaaaaaaaa", "bbbbbbbbbb"],
+      violations,
+    );
+    expect(covered.size).toBe(2);
+    expect(covered.has(violations[0])).toBe(true);
+    expect(covered.has(violations[1])).toBe(true);
   });
 });
 

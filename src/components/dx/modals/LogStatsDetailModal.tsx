@@ -159,7 +159,7 @@ export function LogStatsDetailModal({
                 <div className="text-2xl font-bold font-mono tabular-nums text-su-text">
                   {value.toLocaleString()}
                 </div>
-                <div className="text-[10px] text-su-muted uppercase">
+                <div className="text-xs text-su-muted uppercase">
                   {label}
                 </div>
               </div>
@@ -206,7 +206,7 @@ export function LogStatsDetailModal({
             </h3>
             <div className="overflow-x-auto">
               {/* Header */}
-              <div className="grid grid-cols-4 gap-2 px-2 py-1 text-[10px] text-su-muted uppercase">
+              <div className="grid grid-cols-4 gap-2 px-2 py-1 text-xs text-su-muted uppercase">
                 <span>Callsign</span>
                 <span>Band</span>
                 <span>Mode</span>
@@ -246,7 +246,7 @@ export function LogStatsDetailModal({
                     <div className="text-2xl font-bold font-mono tabular-nums text-su-text">
                       {value.toLocaleString()}
                     </div>
-                    <div className="text-[10px] text-su-muted uppercase">
+                    <div className="text-xs text-su-muted uppercase">
                       {label}
                     </div>
                   </div>

@@ -884,7 +884,7 @@ export function ContestBandMap({
                   hoveredSpotStatus === "dupe"
                     ? "bg-su-line/50 text-su-muted"
                     : hoveredSpotStatus === "new-mult"
-                      ? "bg-plasma-orange/30 text-plasma-orange"
+                      ? "bg-plasma-orange/20 text-su-text"
                       : "bg-cosmic-cyan/30 text-cosmic-cyan"
                 }`}
               >

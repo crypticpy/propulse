@@ -337,7 +337,7 @@ export function BandScope({ className = "" }: BandScopeProps) {
       </div>
 
       {/* SNR Legend */}
-      <div className="flex items-center justify-center gap-3 px-4 py-1.5 border-t border-su-line/40 text-[9px]">
+      <div className="flex items-center justify-center gap-3 px-4 py-1.5 border-t border-su-line/40 text-xs">
         {[
           { label: ">0dB", color: "#22c55e" },
           { label: "-5dB", color: "#00d4ff" },

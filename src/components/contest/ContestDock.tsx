@@ -255,7 +255,7 @@ export function ContestDock({ className = "" }: ContestDockProps) {
             onClick={() => setSpotPrefillInRun(!spotPrefillInRun)}
             className={`px-2 py-1 rounded border transition-colors ${
               spotPrefillInRun
-                ? "bg-plasma-orange/20 text-plasma-orange border-plasma-orange/40"
+                ? "bg-plasma-orange/20 text-su-text border-plasma-orange/40"
                 : "bg-su-line/10 text-su-muted border-su-line/40 hover:bg-su-line/20 hover:text-su-text"
             }`}
             title="Allow spot click to prefill even in RUN mode"

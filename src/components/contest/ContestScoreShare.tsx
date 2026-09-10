@@ -28,7 +28,7 @@ export function ContestScoreShare() {
           className={`px-3 py-1 rounded-lg text-xs font-semibold transition-colors ${
             copied
               ? "bg-signal-green/20 text-signal-green"
-              : "bg-plasma-orange/15 text-plasma-orange hover:bg-plasma-orange/25"
+              : "bg-plasma-orange/15 text-su-text hover:bg-plasma-orange/20"
           }`}
         >
           {copied ? "Copied!" : "Share Score"}

@@ -77,12 +77,12 @@ export function BandVerdictDetailsDialog({
               {LADDER_LABEL[entry.stable]}
             </span>
             {entry.fading && (
-              <span className="rounded border border-caution-amber/30 bg-caution-amber/10 px-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-caution-amber">
+              <span className="rounded border border-caution-amber/30 bg-caution-amber/10 px-2 py-1 text-xs font-semibold uppercase tracking-wider text-caution-amber">
                 Fading
               </span>
             )}
             {entry.result.evaluation.surprise && (
-              <span className="rounded border border-plasma-orange/30 bg-plasma-orange/10 px-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-plasma-orange">
+              <span className="rounded border border-plasma-orange/30 bg-plasma-orange/10 px-2 py-1 text-xs font-semibold uppercase tracking-wider text-plasma-orange">
                 Surprise
               </span>
             )}
@@ -94,7 +94,7 @@ export function BandVerdictDetailsDialog({
         </div>
 
         <div className="rounded-xl border border-su-line/40 bg-su-line/10 p-4">
-          <h3 className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-su-text/80">
+          <h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-su-text/80">
             Why this status
           </h3>
           <ul className="space-y-1.5">
@@ -112,7 +112,7 @@ export function BandVerdictDetailsDialog({
 
         {canonical && (
           <section className="rounded-xl border border-su-line/40 bg-su-line/10 p-4">
-            <h3 className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-su-text/80">
+            <h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-su-text/80">
               Server ladder
             </h3>
             <p className="text-sm text-su-text/80">
@@ -120,7 +120,7 @@ export function BandVerdictDetailsDialog({
                 {LADDER_LABEL[canonical.state]}
               </span>
               {canonical.stale && (
-                <span className="ml-1.5 rounded border border-caution-amber/30 bg-caution-amber/10 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-caution-amber">
+                <span className="ml-1.5 rounded border border-caution-amber/30 bg-caution-amber/10 px-1.5 py-0.5 text-xs font-semibold uppercase tracking-wider text-caution-amber">
                   Stale
                 </span>
               )}
@@ -163,7 +163,7 @@ export function BandVerdictDetailsDialog({
 
         {activity && (
           <section className="rounded-xl border border-su-line/40 bg-su-line/10 p-4">
-            <h3 className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-su-text/80">
+            <h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-su-text/80">
               Verified activity
             </h3>
             <p className="text-sm text-su-text/80">
@@ -213,7 +213,7 @@ export function BandVerdictDetailsDialog({
 
         {recent.length > 0 && (
           <section className="rounded-xl border border-su-line/40 bg-su-line/10 p-4">
-            <h3 className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-su-text/80">
+            <h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-su-text/80">
               Recent changes
             </h3>
             <ul className="space-y-1">

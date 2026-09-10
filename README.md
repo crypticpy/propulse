@@ -145,9 +145,11 @@ It is our own model, and it is the baseline everything else must beat.
 
 ### The learned models (trained offline, served with a physics fallback)
 
-We train our own contact-probability models offline and serve them from Railway
-(`VITE_PROPAGATION_MODEL_URL`), with physics as the fallback profile whenever a model is
-unavailable or its inputs fail their freshness contract.
+We train our own contact-probability models offline and serve them from a Railway
+inference service that sits behind the app's authenticated `/api/propagation` edge proxy
+(the browser never talks to Railway directly in production; `VITE_PROPAGATION_MODEL_URL`
+exists only for local development against a model service), with physics as the fallback
+profile whenever a model is unavailable or its inputs fail their freshness contract.
 
 The frozen line is **Personalized Propagation V4.2** (the A6 blend), with a published model
 card, data card and visual report under `ml/results/propagation_v4_2/`. Its status block in
@@ -202,7 +204,8 @@ privacy reviewer to look at.
 
 The reconciliation step lives in [`src/lib/verdict/ladder.ts`](src/lib/verdict/ladder.ts),
 mirrored server-side in `collector/src/verdict/ladder.ts` and served from
-`api/spots/band-ladder.ts`. A band, region or path sits in exactly one of five states,
+`api/spots/band-ladder.ts`. A band, globally or per region, sits in exactly one of five
+states,
 ordered by strength of evidence:
 
 ```
@@ -571,13 +574,15 @@ trust. This is stated plainly because it shapes the codebase a reviewer is looki
 Contributions are welcome, from bug reports to bands of the ionosphere we have modelled
 badly.
 
-1. Fork the repository and create a feature branch (`git checkout -b feat/my-feature`).
-2. Follow the existing style: TypeScript strict, 2-space indent, double quotes, Tailwind
+1. Pick or file a tracked issue and claim it there; one issue is one branch and one PR.
+2. Fork, then create a fresh worktree and branch from current `origin/main` (in this repo,
+   `npm run worktree:new -- <slug>`); never work in a shared checkout.
+3. Follow the existing style: TypeScript strict, 2-space indent, double quotes, Tailwind
    utilities, `@/` import alias.
-3. Run `npm run verify` before pushing.
-4. Commit with [Conventional Commits](https://www.conventionalcommits.org/)
+4. Run `npm run verify` before pushing.
+5. Commit with [Conventional Commits](https://www.conventionalcommits.org/)
    (`feat:`, `fix:`, `refactor:`, `docs:`, `test:`, `chore:`).
-5. Open a pull request with a summary and testing notes.
+6. Open a pull request with a summary and testing notes.
 
 [AGENTS.md](AGENTS.md) and [docs/AGENT-CONSTITUTION.md](docs/AGENT-CONSTITUTION.md) hold
 the detailed repository rules. Corrections to the physics, the model methodology or the

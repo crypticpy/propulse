@@ -109,7 +109,7 @@ is the only statement of the rule; other files point here.
 - **What counts as UI**: anything a person sees. The merger decides, and when
   in doubt it is a UI PR. The `pr-contract` check applies a path list
   (components, pages, styles, theme and token emitters, widget and wall layout
-  modules, the root shell `src/App.tsx`/`src/main.tsx`/`index.html`, `public/`,
+  modules, layout and presentation hooks such as `useHomeLayout`, the root shell `src/App.tsx`/`src/main.tsx`/`index.html`, `public/`,
   Tailwind and PostCSS config, `.design-sync/`, `docs/designs/design-system/`,
   any `*-spec`/`*-mock` design doc, contact sheets and rendered design files
   under `docs/designs/`). That list is what CI can see, a floor

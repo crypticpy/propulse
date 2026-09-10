@@ -142,15 +142,17 @@ limits as written: A6 improved Brier score over the frozen V3/B2 baseline by **2
 October-November development, **2.038%** on December, and **2.134%** across
 **208,372,533** locked 2025 archive rows, every month and every supported HF band
 improving. The same block states the model is **approved for shadow integration only, not
-yet for prospective or learned-personalization claims**, and the served provider status
-stays `unavailable` until its shadow window passes. That boundary is part of the work.
+yet for prospective or learned-personalization claims**; the client may request and show
+it only in an internal mode, and nothing public is claimed from it. That boundary is part of
+the work.
 
 The current line of work is **NowCast N5**, an ionosphere-aware model trained from the
 CEDAR Madrigal amateur radio signal report archive rather than from WSPR alone
 ([`ml/NOWCAST-N5-PLAN.md`](ml/NOWCAST-N5-PLAN.md)). N5 is **in progress and not shipped**,
 written against frozen preregistered gates (Brier skill over a calibrated physics baseline,
 a per-band no-regression bound, a calibration error ceiling, and an ablation that must
-retain most of its skill without recency features). It states its scope precisely: it
+retain most of its skill without recency features), and its served provider status stays
+`unavailable` to the public until its shadow window passes. It states its scope precisely: it
 predicts whether a receiving field's reporter network hears any transmitting station in a
 transmitting field on a band and mode class, which is not one operator's chance of a
 contact.

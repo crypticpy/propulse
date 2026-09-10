@@ -57,9 +57,13 @@ Reviewed: <head sha> at <canvases / text scales checked>
    Verdict: approved | changes needed
 ```
 
-`pr-contract` matches the `Reviewed:` sha (first 7 chars of the head) and the
-`Verdict:` line; a new push needs a new comment. Short form for a test-only or
-doc-only push: `Reviewed: <new sha>` / `Verdict: approved (carries from <old sha>)`.
+`pr-contract` matches the `**design review**` heading, the `agent: Claude Fable`
+line, the `Reviewed:` sha (first 7 chars of the head) and a `Verdict:` line that
+ends in `approved` (optionally followed by a parenthesised note); the template's
+`approved | changes needed` placeholder does not pass. A new push needs a new
+comment. Short form for a test-only or doc-only push keeps the heading and the
+`agent:` line and reads `Reviewed: <new sha>` / `Verdict: approved (carries from
+<old sha>)`.
 
 ```markdown
 **done**

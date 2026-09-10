@@ -45,7 +45,7 @@ jobs:
           FILES=$(gh api "repos/${REPO}/pulls/${PR}/files" --paginate \
             --jq '.[] | .filename, (.previous_filename // empty)') \
             || { echo "::error::could not list PR files; the design-review gate cannot be evaluated (re-run the check)"; exit 1; }
-          UI=$(printf '%s\n' "$FILES" | grep -E '^(src/components/|src/pages/|src/styles/|src/lib/themes/|src/lib/widgets/|src/lib/hamclock/|src/lib/home/|src/lib/[^/]+/.*(Colors?|Layout|Tokens?|Fonts?)\.tsx?$|src/stores/(theme|hamclockDisplay|hamclockWidgetConfig|hamclock|kiosk|workspace|displayQuality|map|atmos|visualEffects)Store\.ts$|src/hooks/use[^/]*(Layout|Docking|Mobile|TextScale|ColorBlind|Theme|DisplayFit|DisplayQuality|DisplaySync|HighContrast|VisualEffects|Presentation|Tint|Expanded|Disclosure|Gestures|Swipe|PullToRefresh|Tour|OperatingScreen|WallAutoPage)[^/]*\.tsx?$|src/App\.tsx$|src/main\.tsx$|index\.html$|public/|tailwind\.config\.|postcss\.config\.|\.design-sync/|docs/designs/design-system/|docs/designs/.*-(spec|mock)[^/]*$|docs/designs/.*contact-sheet|docs/designs/.*\.(html|png|svg|jpg|webp)$)' || true)
+          UI=$(printf '%s\n' "$FILES" | grep -E '^(src/components/|src/pages/|src/styles/|src/lib/themes/|src/lib/widgets/|src/lib/hamclock/|src/lib/home/|src/lib/[^/]+/.*(Colors?|Layout|Tokens?|Fonts?)\.tsx?$|src/stores/(theme|hamclockDisplay|hamclockWidgetConfig|hamclock|kiosk|workspace|displayQuality|map|atmos|visualEffects)Store\.ts$|src/stores/[^/]*UIStore\.ts$|src/hooks/use[^/]*(Layout|Docking|Mobile|TextScale|ColorBlind|Theme|DisplayFit|DisplayQuality|DisplaySync|HighContrast|VisualEffects|Presentation|Tint|Expanded|Disclosure|Gestures|Swipe|PullToRefresh|Tour|OperatingScreen|WallAutoPage)[^/]*\.tsx?$|src/App\.tsx$|src/main\.tsx$|index\.html$|public/|tailwind\.config\.|postcss\.config\.|\.design-sync/|docs/designs/design-system/|docs/designs/.*-(spec|mock)[^/]*$|docs/designs/.*contact-sheet|docs/designs/.*\.(html|png|svg|jpg|webp)$)' || true)
           if [ -z "$UI" ]; then
             echo "No UI paths changed; design review not required."
             exit 0
@@ -71,7 +71,7 @@ jobs:
               if printf '%s' "$body" | grep -Eiq '\*\*design review\*\*' \
                 && printf '%s' "$body" | grep -Eiq '^[[:space:]>*_-]*agent[*_]*:.*Claude Fable' \
                 && printf '%s' "$body" | grep -Eiq "^[[:space:]>*_-]*Reviewed[*_]*:[[:space:]*_\`]*${HEAD7}" \
-                && printf '%s' "$body" | grep -Eiq '^[[:space:]>*_-]*Verdict[*_]*:[[:space:]*_`]*approved'; then
+                && printf '%s' "$body" | grep -Eiq '^[[:space:]>*_-]*Verdict[*_]*:[[:space:]*_`]*approved[*_`]*([[:space:]]*\([^)]*\))?[[:space:]*_`.]*$'; then
                 echo "$url"
               fi
             done)

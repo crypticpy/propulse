@@ -109,7 +109,7 @@ is the only statement of the rule; other files point here.
 - **What counts as UI**: anything a person sees. The merger decides, and when
   in doubt it is a UI PR. The `pr-contract` check applies a path list
   (components, pages, styles, theme and token emitters, widget and wall layout
-  modules, layout and presentation hooks such as `useHomeLayout` and `useDisplayFit`, presentation stores such as `mapStore`, `hamclockDisplayStore`, `kioskStore` and `workspaceStore`, the root shell `src/App.tsx`/`src/main.tsx`/`index.html`, `public/`,
+  modules, layout and presentation hooks such as `useHomeLayout` and `useDisplayFit`, presentation stores such as `mapStore`, `hamclockDisplayStore`, `kioskStore`, `workspaceStore` and the `*UIStore` files, the root shell `src/App.tsx`/`src/main.tsx`/`index.html`, `public/`,
   Tailwind and PostCSS config, `.design-sync/`, `docs/designs/design-system/`,
   any `*-spec`/`*-mock` design doc, contact sheets and rendered design files
   under `docs/designs/`). That list is what CI can see, a floor
@@ -138,8 +138,11 @@ is the only statement of the rule; other files point here.
 - **Gate**: no merge without a `**design review**` comment whose `Reviewed:`
   SHA is the current head and whose verdict is `approved`. A push after
   approval needs a new comment for the new head; for a test-only or doc-only
-  commit the reviewer may post the short form `Reviewed: <new sha>` /
-  `Verdict: approved (carries from <old sha>)`. `pr-contract` fails a UI PR
+  commit the reviewer may post the short form: the `**design review**`
+  heading, the `agent:` line, `Reviewed: <new sha>` and
+  `Verdict: approved (carries from <old sha>)`; the verdict must end the line
+  (a template's `approved | changes needed` is not a verdict). `pr-contract`
+  fails a UI PR
   without such a comment; it is advisory until the owner adds it to the
   `main` ruleset as a required check, so the merger checks it by hand.
 

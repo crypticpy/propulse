@@ -143,8 +143,8 @@
  */
 
 import { fileURLToPath } from "node:url";
-import { readFileSync } from "node:fs";
-import { resolve } from "node:path";
+import { readFileSync, readdirSync, statSync } from "node:fs";
+import { join, resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 
 const REPO_ROOT = resolve(fileURLToPath(import.meta.url), "../../../..");
@@ -323,5 +323,46 @@ describe("sub-text-xs sizing stays at the floor in the #783/#808 audited set", (
         `${entry.file}: allowlisted content "${entry.match}" is no longer at a sub-floor text-[Npx] site -- remove the stale entry`,
       ).toBe(true);
     }
+  });
+});
+
+/** Fixed 12/13 px classes sit at or just above the floor but ignore the root
+ * text-scale multiplier; #925 converts them to `text-xs`/`text-sm`. */
+const FIXED_MAP_TEXT_RE = /text-\[(?:12|13)px\]/;
+
+function walkMapSourceFiles(dir: string): string[] {
+  const results: string[] = [];
+  for (const entry of readdirSync(dir)) {
+    const abs = join(dir, entry);
+    if (statSync(abs).isDirectory()) {
+      results.push(...walkMapSourceFiles(abs));
+    } else if (
+      /\.(tsx|ts)$/.test(entry) &&
+      !entry.endsWith(".test.ts") &&
+      !entry.endsWith(".test.tsx")
+    ) {
+      results.push(abs);
+    }
+  }
+  return results;
+}
+
+describe("map fixed 12/13px text classes respect text scale (#925)", () => {
+  it("has no text-[12px] or text-[13px] under src/components/map", () => {
+    const mapRoot = resolve(REPO_ROOT, "src/components/map");
+    const violations: string[] = [];
+    for (const file of walkMapSourceFiles(mapRoot)) {
+      const rel = file.slice(REPO_ROOT.length + 1);
+      const lines = readFileSync(file, "utf8").split("\n");
+      lines.forEach((line, index) => {
+        if (FIXED_MAP_TEXT_RE.test(line)) {
+          violations.push(`${rel}:${index + 1}: ${line.trim()}`);
+        }
+      });
+    }
+    expect(
+      violations,
+      `fixed 12/13px text classes under src/components/map:\n${violations.join("\n")}`,
+    ).toEqual([]);
   });
 });

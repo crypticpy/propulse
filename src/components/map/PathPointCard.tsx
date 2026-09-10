@@ -103,13 +103,13 @@ export function PathPointCard({
       )}
 
       {(status === "model-unavailable" || status === "no-hops") && (
-        <div role="status" className="px-3 py-3 text-[12px] text-su-muted">
+        <div role="status" className="px-3 py-3 text-xs text-su-muted">
           {unavailableReason ?? "Path point details are unavailable."}
         </div>
       )}
 
       {!point && status === "ready" && (
-        <p className="px-3 py-3 text-[12px] text-su-muted">
+        <p className="px-3 py-3 text-xs text-su-muted">
           {pathSummary
             ? pathSummary
             : "This line is a modeled path. A click on the trace is not a measured bounce. Choose a listed point for hop details."}

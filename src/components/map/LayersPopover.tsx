@@ -302,7 +302,7 @@ function CategoryRow({
 
       {/* Label */}
       <span
-        className={`flex-1 text-[12px] font-medium transition-colors ${
+        className={`flex-1 text-xs font-medium transition-colors ${
           isActive ? "text-su-text" : "text-su-text/70"
         }`}
       >
@@ -371,7 +371,7 @@ function ToggleRow({
         }`}
       />
       <span
-        className={`flex-1 text-[12px] transition-colors ${
+        className={`flex-1 text-xs transition-colors ${
           active ? "text-su-text" : "text-su-text/80"
         }`}
       >
@@ -1066,7 +1066,7 @@ export function LayersPopover({ compact = false }: LayersPopoverProps) {
           }`}
         />
         <span
-          className={`flex-1 text-[12px] transition-colors ${
+          className={`flex-1 text-xs transition-colors ${
             (uiPrefs.bandHeightArcs ?? true) ? "text-su-text" : "text-su-text/80"
           }`}
         >

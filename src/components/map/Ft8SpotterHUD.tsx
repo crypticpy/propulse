@@ -71,7 +71,7 @@ export function Ft8SpotterHUD({
         <div className="bg-void-black/60 backdrop-blur-sm rounded-lg border border-su-line/40 px-5 py-3 min-w-[280px]">
           <div className="flex items-center gap-2.5">
             <span className="ft8-hud-pulse-dot inline-block w-2 h-2 rounded-full bg-su-text/30" />
-            <span className="text-[12px] text-su-muted font-medium tracking-wide">
+            <span className="text-xs text-su-muted font-medium tracking-wide">
               Waiting for FT8 decodes...
             </span>
           </div>
@@ -125,7 +125,7 @@ export function Ft8SpotterHUD({
 
           {/* Unique stations */}
           <div className="flex items-baseline gap-1 min-w-0">
-            <span className="text-[13px] font-semibold text-su-text/80 tabular-nums leading-none">
+            <span className="text-sm font-semibold text-su-text/80 tabular-nums leading-none">
               {uniqueStations}
             </span>
             <span className="text-[10px] text-su-muted font-medium">stns</span>
@@ -139,7 +139,7 @@ export function Ft8SpotterHUD({
           {/* Band */}
           {currentBand && (
             <span
-              className="text-[12px] font-bold tabular-nums leading-none"
+              className="text-xs font-bold tabular-nums leading-none"
               style={{ color: bandColor }}
             >
               {currentBand}
@@ -157,7 +157,7 @@ export function Ft8SpotterHUD({
           )}
 
           {/* Cycle timer */}
-          <span className="text-[12px] font-mono font-semibold text-signal-green/80 tabular-nums leading-none ml-0.5">
+          <span className="text-xs font-mono font-semibold text-signal-green/80 tabular-nums leading-none ml-0.5">
             {timeRemaining}
           </span>
         </div>

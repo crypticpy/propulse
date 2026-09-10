@@ -195,7 +195,7 @@ export function PathPointInspector({
     <>
       <button
         type="button"
-        className="pointer-events-auto sr-only focus:not-sr-only focus:absolute focus:left-2 focus:top-2 focus:z-[80] focus:rounded-md focus:border focus:border-cyan-400/40 focus:bg-su-canvas focus:px-3 focus:py-2 focus:text-[12px] focus:text-su-text"
+        className="pointer-events-auto sr-only focus:not-sr-only focus:absolute focus:left-2 focus:top-2 focus:z-[80] focus:rounded-md focus:border focus:border-cyan-400/40 focus:bg-su-canvas focus:px-3 focus:py-2 focus:text-xs focus:text-su-text"
         onClick={() => onOpenList?.()}
       >
         Path points

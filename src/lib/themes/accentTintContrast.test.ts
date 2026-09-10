@@ -42,7 +42,7 @@
  * So the treatment is the ink, not the alpha: keep the accent tint as the fill,
  * draw the label in `--su-text`, and keep the tint at or below `/20`. The sites
  * inside `src/components/ui` (this agent's file scope on #803) carry that
- * treatment and are measured individually below. The remaining 192 sites in 124
+ * treatment and are measured individually below. The remaining 173 sites in 111
  * files are sequenced by the orchestrator; the census ledger at the bottom
  * budgets them so no *new* same-line site can land in the meantime.
  */
@@ -362,9 +362,11 @@ function deriveAlpha(snippet: string): number {
 /**
  * Sites moved onto the `--su-text` treatment: the original `src/components/ui`
  * sites from #822, plus each sequenced follow-up batch's sites as they land
- * (batch 1: `src/components/contest`, #803). Each ships an accent tint at or
- * below `TINT_CAP` with a neutral label; steps that exceeded the cap at rest
- * came down to `/15` -> `hover:/20` so the hovered state stays inside the
+ * (batch 1: `src/components/contest`; batch 2: `src/components/nets`,
+ * `src/components/cluster`, `src/components/activation`,
+ * `src/components/activity`; #803). Each ships an accent tint at or below
+ * `TINT_CAP` with a neutral label; steps that exceeded the cap at rest came
+ * down to `/15` -> `hover:/20` so the hovered state stays inside the
  * measured cap and still reads as a step. Reverting any of them to
  * `text-plasma-orange` breaks its snippet assertion here, and a
  * `src/components/ui` entry also breaks the dedicated `src/components/ui`
@@ -514,6 +516,108 @@ const FIXED_SITES: TintedSite[] = [
     what: '"Bold Explorer" tier badge',
     snippet: `text-su-text bg-plasma-orange/15 border-plasma-orange/30`,
   },
+  // Batch 2 (#803): src/components/nets, src/components/cluster,
+  // src/components/activation, src/components/activity -- 13 files, 19
+  // sites. One site (NetFilterControls.tsx's "More Filters" toggle) is not
+  // listed here: it nested its own /15->hover:/20 wash around the active
+  // filter-count badge below, an effective 0.32/0.36 alpha above the /20
+  // cap, so its background was neutralised to bg-su-line/10 (border kept
+  // for hue) instead of capped -- it no longer carries any accent tint, so
+  // there is nothing left to measure and the census guard alone protects
+  // it. Surfaces argued per-site in the PR body; --su-text clears every
+  // measured surface (panel, canvas, input, glass-over-panel,
+  // glass-over-canvas) at /20, so the exact backdrop does not change the
+  // outcome for any of these.
+  {
+    file: "src/components/activation/ActivationPanel.tsx",
+    what: "the SOTA type-selector button, selected state",
+    snippet: `bg-plasma-orange/20 text-su-text border-2 border-plasma-orange/40"`,
+  },
+  {
+    file: "src/components/activation/ActivationPanel.tsx",
+    what: "the active-activation type badge (SOTA)",
+    snippet: `: "bg-plasma-orange/20 text-su-text";`,
+  },
+  {
+    file: "src/components/activity/NearbyActivityExplorer.tsx",
+    what: '"Target in PropSphere" button',
+    snippet: `bg-plasma-orange/10 px-3 py-2 font-medium text-su-text transition-colors hover:bg-plasma-orange/20"`,
+  },
+  {
+    file: "src/components/activity/NearbyActivityExplorer.tsx",
+    what: "the band/frequency mode toggle, selected state",
+    snippet: `? "bg-plasma-orange/20 text-su-text"`,
+  },
+  {
+    file: "src/components/cluster/ClusterConnectionForm.tsx",
+    what: "the compact filter-count badge",
+    snippet: `bg-plasma-orange/20 text-su-text text-[10px] leading-none normal-case tracking-normal"`,
+  },
+  {
+    file: "src/components/cluster/ClusterConnectionForm.tsx",
+    what: '"Connect" button, connectable state',
+    snippet: `bg-plasma-orange/15 border border-plasma-orange/50 text-su-text hover:bg-plasma-orange/20"`,
+  },
+  {
+    file: "src/components/cluster/ClusterConnectionForm.tsx",
+    what: "the selected band/mode filter chip",
+    snippet: `bg-plasma-orange/20 text-su-text border border-plasma-orange/50"`,
+  },
+  {
+    file: "src/components/nets/CallsignInput.tsx",
+    what: '"Add" callsign button',
+    snippet: `bg-plasma-orange/15 text-su-text border border-plasma-orange/30 hover:bg-plasma-orange/20 hover:brightness-110`,
+  },
+  {
+    file: "src/components/nets/ManagerRoster.tsx",
+    what: '"Add" manager button',
+    snippet: `bg-plasma-orange/15 text-su-text border border-plasma-orange/30 hover:bg-plasma-orange/20 transition-colors shrink-0"`,
+  },
+  {
+    file: "src/components/nets/NetFilterControls.tsx",
+    what: "the active-filter-count badge inside the More Filters toggle",
+    snippet: `bg-plasma-orange/20 text-su-text min-w-[18px] text-center"`,
+  },
+  {
+    file: "src/components/nets/NetFilterControls.tsx",
+    what: "the Net Type quick-filter pill, selected state",
+    snippet: `? "bg-plasma-orange/20 text-su-text border-plasma-orange/40"`,
+  },
+  {
+    file: "src/components/nets/NetForm.tsx",
+    what: "the selected country option in the country combobox",
+    snippet: `? "bg-plasma-orange/15 text-su-text"`,
+  },
+  {
+    file: "src/components/nets/NetMilestoneCard.tsx",
+    what: 'the "Platinum" (100th check-in) badge color',
+    snippet: `Platinum: "bg-plasma-orange/20 text-su-text border-plasma-orange/30",`,
+  },
+  {
+    file: "src/components/nets/PhaseIndicator.tsx",
+    what: "the current-session-phase pill",
+    snippet: `? "bg-plasma-orange/20 text-su-text font-bold animate-ncs-phase-glow"`,
+  },
+  {
+    file: "src/components/nets/PreambleEditor.tsx",
+    what: "an insert-variable chip, hovered state",
+    snippet: `hover:bg-plasma-orange/20 hover:text-su-text hover:border-plasma-orange/40`,
+  },
+  {
+    file: "src/components/nets/SpeakerStage.tsx",
+    what: '"Start" hero button, idle state',
+    snippet: `bg-plasma-orange/15 text-su-text border-plasma-orange/30 hover:bg-plasma-orange/20 hover:border-plasma-orange/50`,
+  },
+  {
+    file: "src/components/nets/SubscribeButton.tsx",
+    what: '"Subscribe" button, unsubscribed state',
+    snippet: `bg-plasma-orange/15 text-su-text border-plasma-orange/30 hover:bg-plasma-orange/20"`,
+  },
+  {
+    file: "src/components/nets/TuneToNetButton.tsx",
+    what: '"Tune to Net" button, idle/tuning state',
+    snippet: `bg-plasma-orange/15 text-su-text hover:bg-plasma-orange/20 hover:shadow-[0_0_12px_rgba(255,107,53,0.25)]`,
+  },
 ];
 
 describe("the fixed accent-tint sites ship the --su-text treatment (#803)", () => {
@@ -575,20 +679,19 @@ describe("census guard: no new accent ink on an accent tint (#803)", () => {
    * escapes it by construction -- the `FIXED_SITES` table above is what covers
    * those.
    *
-   * The 192 sites below are the census #803 asks for, as a debt ledger rather
+   * The 173 sites below are the census #803 asks for, as a debt ledger rather
    * than an exemption list: each entry is the number of same-line pairings that
-   * file carried at `32cf480c`, and the assertion is `<=`. A file that gains a
-   * pairing fails; a file that is not listed is budgeted at zero, so a brand
-   * new site fails; a file whose sites get fixed simply passes with room to
-   * spare, so the sequenced follow-up PRs (the 124 files outside this agent's
-   * scope on #803) never have to touch this table to land. `src/components/ui`
-   * is deliberately absent -- see the explicit clause below.
+   * file carried at `32cf480c`, minus every batch fixed since, and the
+   * assertion is `<=`. A file that gains a pairing fails; a file that is not
+   * listed is budgeted at zero, so a brand new site fails; a file whose sites
+   * get fixed simply passes with room to spare, so the sequenced follow-up PRs
+   * (the 111 files outside this agent's scope on #803) never have to touch
+   * this table to land. `src/components/ui` is deliberately absent -- see the
+   * explicit clause below.
    */
   const LEDGER = new Map<string, number>([
     ["src/App.tsx", 1],
     ["src/components/ErrorBoundary.tsx", 1],
-    ["src/components/activation/ActivationPanel.tsx", 2],
-    ["src/components/activity/NearbyActivityExplorer.tsx", 2],
     ["src/components/alerts/StormImpactPanel.tsx", 1],
     ["src/components/alerts/SwpcAlertDetailModal.tsx", 1],
     ["src/components/atmos/AtmosHeader.tsx", 1],
@@ -599,7 +702,6 @@ describe("census guard: no new accent ink on an accent tint (#803)", () => {
     ["src/components/atmos/emcomm/FrequencyQuickTune.tsx", 1],
     ["src/components/atmos/emcomm/ICS213Form.tsx", 1],
     ["src/components/auth/AuthRequiredPlaceholder.tsx", 1],
-    ["src/components/cluster/ClusterConnectionForm.tsx", 3],
     ["src/components/dx/BandVerdictPanel.tsx", 3],
     ["src/components/dx/ConditionMatchCard.tsx", 1],
     ["src/components/dx/DXConsole.tsx", 1],
@@ -629,16 +731,6 @@ describe("census guard: no new accent ink on an accent tint (#803)", () => {
     ["src/components/map/ReplayIndicator.tsx", 1],
     ["src/components/map/TimeControl.tsx", 3],
     ["src/components/mobile/MobileDXWizard.tsx", 2],
-    ["src/components/nets/CallsignInput.tsx", 1],
-    ["src/components/nets/ManagerRoster.tsx", 1],
-    ["src/components/nets/NetFilterControls.tsx", 3],
-    ["src/components/nets/NetForm.tsx", 1],
-    ["src/components/nets/NetMilestoneCard.tsx", 1],
-    ["src/components/nets/PhaseIndicator.tsx", 1],
-    ["src/components/nets/PreambleEditor.tsx", 1],
-    ["src/components/nets/SpeakerStage.tsx", 1],
-    ["src/components/nets/SubscribeButton.tsx", 1],
-    ["src/components/nets/TuneToNetButton.tsx", 1],
     ["src/components/onboarding/RadioSetupWizard.tsx", 4],
     ["src/components/onboarding/WelcomeOverlay.tsx", 3],
     ["src/components/operating/BandModeModalContent.tsx", 1],
@@ -717,7 +809,7 @@ describe("census guard: no new accent ink on an accent tint (#803)", () => {
    * (>= 5.19:1), while a near-white or near-black custom accent drops to
    * 3.70-4.21:1. These two `/30` sites predate #803 and sit in
    * `src/components/alerts`, outside this agent's file scope; they go into the
-   * same sequenced follow-up as the 192 above.
+   * same sequenced follow-up as the 173 above.
    */
   const ABOVE_CAP_LEDGER = new Map<string, number>([
     ["src/components/alerts/AlertRuleBuilder.tsx", 1],
@@ -774,7 +866,7 @@ describe("census guard: no new accent ink on an accent tint (#803)", () => {
     // The ledger only ever shrinks; a fix that lands must not be able to raise
     // the total past the census this PR measured.
     expect([...counts.values()].reduce((a, b) => a + b, 0)).toBeLessThanOrEqual(
-      192,
+      173,
     );
   });
 

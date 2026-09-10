@@ -247,7 +247,7 @@ export function CallsignInput({
         type="button"
         onClick={() => handleSubmit()}
         disabled={disabled || !value.trim()}
-        className="shrink-0 px-4 py-3 min-h-[44px] text-sm font-medium rounded-xl bg-plasma-orange/20 text-plasma-orange border border-plasma-orange/30 hover:bg-plasma-orange/30 hover:brightness-110 hover:shadow-[0_0_12px_rgba(255,107,53,0.2)] active:scale-[0.98] transition-all will-change-transform disabled:opacity-60 disabled:cursor-not-allowed focus-visible:ring-2 focus-visible:ring-plasma-orange/70 focus-visible:outline-none"
+        className="shrink-0 px-4 py-3 min-h-[44px] text-sm font-medium rounded-xl bg-plasma-orange/15 text-su-text border border-plasma-orange/30 hover:bg-plasma-orange/20 hover:brightness-110 hover:shadow-[0_0_12px_rgba(255,107,53,0.2)] active:scale-[0.98] transition-all will-change-transform disabled:opacity-60 disabled:cursor-not-allowed focus-visible:ring-2 focus-visible:ring-plasma-orange/70 focus-visible:outline-none"
       >
         Add
       </button>

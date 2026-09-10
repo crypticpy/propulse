@@ -321,7 +321,7 @@ export const ClusterConnectionForm = memo(function ClusterConnectionForm({
             </span>
             Spot filters
             {prefs.filterBands.length + prefs.filterModes.length > 0 && (
-              <span className="px-1.5 py-0.5 rounded-full bg-plasma-orange/20 text-plasma-orange text-[10px] leading-none normal-case tracking-normal">
+              <span className="px-1.5 py-0.5 rounded-full bg-plasma-orange/20 text-su-text text-[10px] leading-none normal-case tracking-normal">
                 {prefs.filterBands.length + prefs.filterModes.length}
               </span>
             )}
@@ -372,7 +372,7 @@ export const ClusterConnectionForm = memo(function ClusterConnectionForm({
           className={`w-full px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
             !connectable || phase === "connecting"
               ? "bg-nebula-blue border border-su-line/40 text-su-muted cursor-not-allowed"
-              : "bg-plasma-orange/20 border border-plasma-orange/50 text-plasma-orange hover:bg-plasma-orange/30"
+              : "bg-plasma-orange/15 border border-plasma-orange/50 text-su-text hover:bg-plasma-orange/20"
           }`}
         >
           {phase === "connecting"
@@ -412,7 +412,7 @@ function FilterChips({ label, options, selected, onToggle }: FilterChipsProps) {
             aria-pressed={selected.includes(option)}
             className={`px-2 py-1 rounded text-xs font-medium transition-all ${
               selected.includes(option)
-                ? "bg-plasma-orange/20 text-plasma-orange border border-plasma-orange/50"
+                ? "bg-plasma-orange/20 text-su-text border border-plasma-orange/50"
                 : "bg-su-line/10 text-su-muted border border-su-line/40 hover:border-su-line/50"
             }`}
           >

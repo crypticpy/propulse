@@ -48,7 +48,7 @@ export function SubscribeButton({
             ? "bg-red-500/15 text-red-400 border-red-500/30 hover:bg-red-500/25"
             : isSubscribed
               ? "bg-signal-green/15 text-signal-green border-signal-green/30"
-              : "bg-plasma-orange/15 text-plasma-orange border-plasma-orange/30 hover:bg-plasma-orange/25"
+              : "bg-plasma-orange/15 text-su-text border-plasma-orange/30 hover:bg-plasma-orange/20"
         }`}
       >
         {showUnsubscribe

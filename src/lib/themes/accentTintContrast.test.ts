@@ -42,7 +42,7 @@
  * So the treatment is the ink, not the alpha: keep the accent tint as the fill,
  * draw the label in `--su-text`, and keep the tint at or below `/20`. The sites
  * inside `src/components/ui` (this agent's file scope on #803) carry that
- * treatment and are measured individually below. The remaining 147 sites in 98
+ * treatment and are measured individually below. The remaining 134 sites in 86
  * files are sequenced by the orchestrator; the census ledger at the bottom
  * budgets them so no *new* same-line site can land in the meantime.
  */
@@ -1174,6 +1174,128 @@ const FIXED_SITES: TintedSite[] = [
     snippet: `isSelected
                       ? "bg-plasma-orange/20 text-su-text border-plasma-orange/50"`,
   },
+  // Batch 4a (#803): src/components/sdr/, excluding primitives/RadioBadge.tsx
+  // (a peer PR's file) and shack/ (the other half of batch 4). 11 files, 11
+  // `FIXED_SITES` rows below (Waterfall.tsx's row was pulled this round --
+  // see the note past the SdrSettingsModal rows) -- the ledger's 14-site
+  // count includes three sites this table cannot, or no longer needs to,
+  // certify: FateBandAdvisor.tsx's fix is inside a JSDoc comment (no
+  // className= for the guard to locate); SdrSettingsModal's color-palette
+  // swatch label draws its ink from a *different element* than the one
+  // carrying the `bg-plasma-orange/10` tint (#873); and Waterfall.tsx's
+  // label pill no longer carries a `bg-plasma-orange` tint of its own at
+  // all (see below), so there is nothing left on that element for a row to
+  // certify. All three fixes ship in source; see the PR body.
+  //
+  // Two more files fixed this round sit entirely outside the 11-file/14-site
+  // census above (neither was part of the original sdr/ count, and neither
+  // moves the LEDGER): SpotTagOverlay.tsx's `SPOT_MODE_COLORS.FM` and
+  // `DEFAULT_SPOT_COLOR` entries keep their tint and ink on two *different
+  // properties of the same object* (`bg`/`text`), which a `FIXED_SITES`
+  // `classSource` row cannot certify either -- `assertInkOnTintedBranches`
+  // pairs a tint and its ink only when they sit inside the *same quoted
+  // string*, and the object's separate `line` tint (no ink of its own) trips
+  // that check the same way SdrSettingsModal's cross-element case does; a
+  // row was tried and fails for exactly that reason, so both fixes ship in
+  // source only (Opus review round, PR #890). DevicePicker.tsx's device-type
+  // badge carries a `/10` tint below the census's `/15` floor -- outside the
+  // census either way -- but its tint and ink *do* sit in one string
+  // together, so it gets a normal `FIXED_SITES` row below.
+  //
+  // The Fate and Flexible skin shells also paint hard-coded backdrops
+  // (`#080810`, `#0a0a14`, `#0c0c16`, `#0d0d14`, `black`) under
+  // `.su-fixed-dark` rather than the pinned `--su-panel` color; all of
+  // those literals are darker than the pinned panel, so any contrast
+  // measured against the panel in this table is a safe lower bound there
+  // too (monotonicity: a darker backdrop only raises the same-alpha tint's
+  // contrast against light ink).
+  {
+    file: "src/components/sdr/EqBandPanel.tsx",
+    what: "the active notch-band button",
+    snippet: `"bg-plasma-orange/20 border-plasma-orange/40 text-su-text"`,
+    classSource: `const activeClasses = isNotch`,
+  },
+  {
+    file: "src/components/sdr/MemoryPanel.tsx",
+    what: "memory bank C's badge color",
+    snippet: `C: "bg-plasma-orange/20 text-su-text border-plasma-orange/30",`,
+    classSource: `C: "bg-plasma-orange/20`,
+  },
+  {
+    file: "src/components/sdr/SdrSettingsModal.tsx",
+    what: '"Auto" line-color button, active state',
+    snippet: `lineColor === "auto"
+                  ? "bg-plasma-orange/15 text-su-text border-plasma-orange/30"`,
+  },
+  {
+    file: "src/components/sdr/SdrSettingsModal.tsx",
+    what: "Blend Mode segmented button, selected state",
+    snippet: `blendMode === mode
+                  ? "bg-plasma-orange/15 text-su-text border-plasma-orange/30"`,
+  },
+  // Waterfall.tsx's frequency-marker label pill is deliberately NOT a row
+  // here: its static class list already carries `bg-su-panel/90`, and
+  // Tailwind emits `.bg-plasma-orange\/N` before `.bg-su-panel\/90` (theme
+  // key order -- `plasma-orange` is a top-level color, `su.panel` is
+  // declared later, inside the nested `su` namespace, in
+  // tailwind.config.js), so an accent fill added to this element can never
+  // win the cascade against the panel fill already there -- it would be
+  // dead CSS, not a real tint. The orange branch of `labelColorClass`
+  // carries no `bg-plasma-orange` for that reason; it uses `text-su-text`,
+  // not `text-su-accent-text`, for its ink -- Waterfall's root is scoped
+  // under `.su-fixed-dark`, which pins the rendered panel to the fixed-dark
+  // color regardless of the active palette, but `--su-accent-text` is
+  // computed against the *active palette's* panel, so a pale custom accent
+  // could compute safe there while still rendering unsafe here (Codex,
+  // ~2.47:1 on the pinned panel); `--su-text` is itself pinned fixed-dark,
+  // so it stays fitted to the panel this element actually renders on. There
+  // is no accent-tint pairing on this element for `FIXED_SITES` to certify
+  // either way (Opus review round, PR #890).
+  {
+    file: "src/components/sdr/primitives/DspBadge.tsx",
+    what: 'the "plasma-orange" active-color variant',
+    snippet: `"bg-plasma-orange/20 text-su-text border-plasma-orange/30 shadow-[0_0_6px_rgba(255,107,53,0.15)]",`,
+    classSource: `"plasma-orange":`,
+  },
+  {
+    file: "src/components/sdr/shared/RadioControlsCard.tsx",
+    what: '"Stop/Start Audio" button, audio-enabled state',
+    snippet: `? "bg-plasma-orange/10 border-plasma-orange/30 text-su-text hover:bg-plasma-orange/20"`,
+  },
+  {
+    file: "src/components/sdr/skins/SkinSwitcher.tsx",
+    what: "the active skin tab",
+    snippet: `activeSkin === skin
+              ? "bg-plasma-orange/15 text-su-text"`,
+  },
+  {
+    file: "src/components/sdr/skins/fate/FateBandActivity.tsx",
+    what: 'the "NEW" station badge',
+    snippet: `bg-plasma-orange/20 text-su-text text-[7px] px-1 rounded font-bold leading-normal"`,
+  },
+  {
+    file: "src/components/sdr/skins/flexible/FlexSideControls.tsx",
+    what: "the selected tuning-step button",
+    snippet: `tuningStepHz === opt.value
+                ? "bg-plasma-orange/15 text-su-text border-plasma-orange/30"`,
+  },
+  {
+    file: "src/components/sdr/skins/flexible/FlexSideControls.tsx",
+    what: '"Stop/Start Audio" button, audio-enabled state',
+    snippet: `audioEnabled
+                ? "bg-plasma-orange/15 border-plasma-orange/30 text-su-text"`,
+  },
+  {
+    file: "src/components/sdr/skins/flexible/SlicePanelTabs.tsx",
+    what: "the RIT toggle button, enabled state",
+    snippet: `ritEnabled
+                ? "bg-plasma-orange/20 border-plasma-orange/30 text-su-text"`,
+  },
+  {
+    file: "src/components/sdr/DevicePicker.tsx",
+    what: "device-type badge, non-SDR device (below the /15 census floor)",
+    snippet: `: "bg-plasma-orange/10 border-plasma-orange/30 text-su-text"`,
+  },
 ];
 
 describe("the fixed accent-tint sites ship the --su-text treatment (#803)", () => {
@@ -1291,13 +1413,13 @@ describe("census guard: no new accent ink on an accent tint (#803)", () => {
    * escapes it by construction -- the `FIXED_SITES` table above is what covers
    * those.
    *
-   * The 147 sites below are the census #803 asks for, as a debt ledger rather
+   * The 134 sites below are the census #803 asks for, as a debt ledger rather
    * than an exemption list: each entry is the number of same-line pairings that
    * file carried at `32cf480c`, minus every batch fixed since, and the
    * assertion is `<=`. A file that gains a pairing fails; a file that is not
    * listed is budgeted at zero, so a brand new site fails; a file whose sites
    * get fixed simply passes with room to spare, so the sequenced follow-up PRs
-   * (the 98 files outside this agent's scope on #803) never have to touch
+   * (the 86 files outside this agent's scope on #803) never have to touch
    * this table to land. `src/components/ui` is deliberately absent -- see the
    * explicit clause below.
    */
@@ -1364,17 +1486,14 @@ describe("census guard: no new accent ink on an accent tint (#803)", () => {
     ["src/components/qso/QSOSyncStatusIndicator.tsx", 2],
     ["src/components/radio/RadioPickerModal.tsx", 4],
     ["src/components/satellites/SatelliteFilterControls.tsx", 4],
-    ["src/components/sdr/EqBandPanel.tsx", 1],
-    ["src/components/sdr/MemoryPanel.tsx", 1],
-    ["src/components/sdr/SdrSettingsModal.tsx", 2],
-    ["src/components/sdr/Waterfall.tsx", 1],
-    ["src/components/sdr/primitives/DspBadge.tsx", 1],
-    ["src/components/sdr/shared/RadioControlsCard.tsx", 1],
-    ["src/components/sdr/skins/SkinSwitcher.tsx", 1],
-    ["src/components/sdr/skins/fate/FateBandActivity.tsx", 1],
-    ["src/components/sdr/skins/fate/FateBandAdvisor.tsx", 1],
-    ["src/components/sdr/skins/flexible/FlexSideControls.tsx", 2],
-    ["src/components/sdr/skins/flexible/SlicePanelTabs.tsx", 1],
+    // Batch 4a (#803) landed all 14 sdr/ sites: EqBandPanel.tsx (1),
+    // MemoryPanel.tsx (1), SdrSettingsModal.tsx (2), Waterfall.tsx (1),
+    // primitives/DspBadge.tsx (1), shared/RadioControlsCard.tsx (1),
+    // skins/SkinSwitcher.tsx (1), skins/fate/FateBandActivity.tsx (1),
+    // skins/fate/FateBandAdvisor.tsx (1, a JSDoc-comment example the census
+    // regex reads like code), skins/flexible/FlexSideControls.tsx (2),
+    // skins/flexible/SlicePanelTabs.tsx (1) -- all down to 0, so none of
+    // those files appear in this ledger anymore.
     // WatchAlertSettings.tsx is not listed: its TestSoundButton fix already
     // ships (capped /30->/20, ink swapped to --su-text), so this file's
     // same-line text-plasma-orange count is 0 -- the census guard only sees
@@ -1416,7 +1535,7 @@ describe("census guard: no new accent ink on an accent tint (#803)", () => {
    * (>= 5.19:1), while a near-white or near-black custom accent drops to
    * 3.70-4.21:1. These two `/30` sites predate #803 and sit in
    * `src/components/alerts`, outside this agent's file scope; they go into the
-   * same sequenced follow-up as the 147 above.
+   * same sequenced follow-up as the 134 above.
    */
   const ABOVE_CAP_LEDGER = new Map<string, number>([
     ["src/components/alerts/AlertRuleBuilder.tsx", 1],
@@ -1473,7 +1592,7 @@ describe("census guard: no new accent ink on an accent tint (#803)", () => {
     // The ledger only ever shrinks; a fix that lands must not be able to raise
     // the total past the census this PR measured.
     expect([...counts.values()].reduce((a, b) => a + b, 0)).toBeLessThanOrEqual(
-      147,
+      134,
     );
   });
 

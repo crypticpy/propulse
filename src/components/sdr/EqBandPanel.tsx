@@ -179,7 +179,7 @@ export function EqBandPanel({
   // ─── Active button style helper ───────────────────────────────────────────
 
   const activeClasses = isNotch
-    ? "bg-plasma-orange/20 border-plasma-orange/40 text-plasma-orange"
+    ? "bg-plasma-orange/20 border-plasma-orange/40 text-su-text"
     : "bg-cosmic-cyan/20 border-cosmic-cyan/40 text-cosmic-cyan";
 
   const inactiveClasses =

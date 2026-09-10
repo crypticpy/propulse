@@ -72,18 +72,43 @@ const LABEL_FIT_MARGIN_PX = 3;
 
 /**
  * Chart width and per-hour cell width at a given computed root font size.
- * `viewBox` and the SVG's `width` attribute are always kept equal (one SVG
- * user unit is exactly one CSS pixel), so growing `chartWidth` with the
- * text grows every cell along with it instead of leaving cells fixed while
- * only the text inside them grows. Pure so it is unit-testable without
+ *
+ * Scaling the chart *proportionally* with the root font size (round 2's
+ * approach) doesn't actually help: both the cell width and the label width
+ * grow at the same rate, so their ratio -- and therefore the fit -- never
+ * changes. A 3-character SNR value (most readings, since `bands.ts` clamps
+ * to [-30, -5]) needs `3 * 0.6 * (rootFontPx * 0.75)` px plus
+ * `LABEL_FIT_MARGIN_PX` of clearance; proportional scaling stays short of
+ * that at every one of the app's text scales.
+ *
+ * Cells are sized from the *widest label they need to hold* instead: each
+ * cell is at least wide enough for a 3-character label plus a full
+ * `2 * LABEL_FIT_MARGIN_PX` of clearance (double `snrLabelFits`'s own
+ * margin, so the fit check below always has slack to spare), falling back
+ * to the proportionally-scaled width on the rare chance that's ever wider.
+ * `chartWidth` is then rebuilt from that cell width so `viewBox` and the
+ * SVG's `width` attribute stay equal (one SVG user unit is exactly one CSS
+ * pixel). The heat map's container is `overflow-x-auto`, so a wider chart
+ * scrolls instead of overflowing. Pure so it is unit-testable without
  * rendering the SVG.
  */
 export function chartGeometry(rootFontPx: number): {
   chartWidth: number;
   cellWidth: number;
 } {
-  const chartWidth = CHART_WIDTH_BASE * (rootFontPx / ROOT_FONT_PX_DEFAULT);
-  const cellWidth = (chartWidth - MARGIN.left - MARGIN.right) / 24;
+  const proportionalCellWidth =
+    (CHART_WIDTH_BASE * (rootFontPx / ROOT_FONT_PX_DEFAULT) -
+      MARGIN.left -
+      MARGIN.right) /
+    24;
+  const fontSizePx = rootFontPx * TEXT_XS_REM;
+  const charWidthPx = fontSizePx * CHAR_WIDTH_EM;
+  const widestLabelPx = 3 * charWidthPx; // "-30".."-10": the widest SNR readings
+  const cellWidth = Math.max(
+    proportionalCellWidth,
+    widestLabelPx + 2 * LABEL_FIT_MARGIN_PX,
+  );
+  const chartWidth = MARGIN.left + MARGIN.right + 24 * cellWidth;
   return { chartWidth, cellWidth };
 }
 

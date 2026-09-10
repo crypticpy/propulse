@@ -21,15 +21,15 @@
  * margin also grew from 0.5px to 3px, since 0.5px let two adjacent labels'
  * rendered edges sit only ~0.73px apart -- close enough to touch.
  *
- * Worked example used throughout (verified against the implementation,
- * not assumed): with `LABEL_FIT_MARGIN_PX = 3`, a 3-character label (most
- * SNR values, since `bands.ts` clamps to [-30, -5]) never has enough
- * clearance to fit at any of this app's four text scales, growth or not --
- * the color heatmap still carries that information. A 2-character label
- * (e.g. "-5") always fits comfortably *given a chart that grows with the
- * text*, but would lose its fit right around `xl` on a chart that stayed a
- * fixed 600px wide. That crossover is what proves the growth fix below,
- * rather than picking a value and asserting it "should" work.
+ * Round 3 (this file): round 2's *proportional* scaling turned out not to
+ * help -- growing the cell width and the label width by the same factor
+ * leaves their ratio, and therefore the fit, unchanged at every scale. A
+ * 3-character label (most SNR values, since `bands.ts` clamps to
+ * [-30, -5]) never had enough clearance to fit at any of the app's four
+ * text scales under that scheme, a real regression versus main. Cells are
+ * now sized from the *widest label they need to hold* (a 3-character
+ * value, plus a full `2 * LABEL_FIT_MARGIN_PX` of clearance) instead of a
+ * fixed 600px base, with `chartWidth` rebuilt from that cell width.
  */
 
 import { render, screen } from "@testing-library/react";
@@ -57,10 +57,14 @@ import {
   snrLabelFits,
 } from "./PropagationForecastModal";
 
-/** The chart's fixed pixel width before round 2, i.e. `chartGeometry(16)`'s
- * cell width -- used below to show what the *old*, non-growing gate would
- * have decided, without duplicating that dead code. */
-const OLD_FIXED_CELL_WIDTH = chartGeometry(16).cellWidth;
+/** The chart's fixed pixel cell width before round 2 ever ran, i.e. the
+ * plain `(600 - MARGIN.left - MARGIN.right) / 24` used when the chart was
+ * a flat 600px regardless of scale -- used below to show what the *old*,
+ * non-growing gate would have decided, without duplicating that dead code.
+ * `chartGeometry(16)` no longer equals this since round 3, because cells
+ * are now sized from the widest label they must hold, not from a fixed
+ * 600px base. */
+const OLD_FIXED_CELL_WIDTH = (600 - 48 - 16) / 24;
 
 const originalGetComputedStyle = window.getComputedStyle.bind(window);
 
@@ -83,26 +87,31 @@ afterEach(() => {
 });
 
 describe("chartGeometry (#854)", () => {
-  it("returns the unscaled 600px chart at the default 16px root", () => {
+  it("sizes the cell from the widest (3-character) SNR label at the default 16px root, not the proportional-only width", () => {
     const { chartWidth, cellWidth } = chartGeometry(16);
-    expect(chartWidth).toBe(600);
-    // (600 - 48 - 16) / 24
-    expect(cellWidth).toBeCloseTo(22.3333, 4);
+    // labelPx = 3 * 0.6 * (16 * 0.75) = 21.6; + 2*3 margin = 27.6, which
+    // beats the proportional (600 - 48 - 16) / 24 = 22.3333.
+    expect(cellWidth).toBeCloseTo(27.6, 4);
+    // MARGIN.left + MARGIN.right + 24 * cellWidth = 48 + 16 + 24*27.6
+    expect(chartWidth).toBeCloseTo(726.4, 4);
+    // The whole point of this round: comfortably under the 800px this
+    // test's caller asked to confirm, at the app's default root size.
+    expect(chartWidth).toBeLessThan(800);
   });
 
-  it("scales both dimensions up together at a 22px root", () => {
+  it("keeps scaling the label-driven width up at a 22px root", () => {
     const { chartWidth, cellWidth } = chartGeometry(22);
-    // 600 * (22 / 16)
-    expect(chartWidth).toBeCloseTo(825, 4);
-    // (825 - 48 - 16) / 24
-    expect(cellWidth).toBeCloseTo(31.7083, 4);
+    // labelPx = 3 * 0.6 * (22 * 0.75) = 29.7; + 6 margin = 35.7, which
+    // still beats the proportional (825 - 48 - 16) / 24 = 31.7083.
+    expect(cellWidth).toBeCloseTo(35.7, 4);
+    expect(chartWidth).toBeCloseTo(920.8, 4);
   });
 
   it("scales an in-between root size (19px) proportionally, not just the four named text scales", () => {
     const { chartWidth, cellWidth } = chartGeometry(19);
-    // 600 * (19 / 16); (712.5 - 48 - 16) / 24
-    expect(chartWidth).toBeCloseTo(712.5, 4);
-    expect(cellWidth).toBeCloseTo(27.0208, 4);
+    // labelPx = 3 * 0.6 * (19 * 0.75) = 25.65; + 6 margin = 31.65.
+    expect(cellWidth).toBeCloseTo(31.65, 4);
+    expect(chartWidth).toBeCloseTo(823.6, 4);
   });
 });
 
@@ -122,11 +131,16 @@ describe("snrLabelFits (#854)", () => {
     expect(snrLabelFits(-20, 5, 22)).toBe(false);
   });
 
-  it("never fits a 3-character value (most SNR readings) at any of the app's text scales", () => {
+  it("fits a 3-character value (most SNR readings, e.g. -20) with the 3px margin at every one of the app's text scales", () => {
     // sm=14.4, md=16, lg=18.4, xl=22 root px; -30..-10 are 3 characters.
+    // This is the round-3 fix: round 2's proportional-only chartGeometry
+    // kept the label/cell ratio constant, so this was false at every
+    // scale (a real regression vs. main). Cells are now sized from the
+    // widest label's own pixel width plus a full 2*margin, so the fit
+    // holds regardless of root size.
     for (const rootFontPx of [14.4, 16, 18.4, 22]) {
       const { cellWidth } = chartGeometry(rootFontPx);
-      expect(snrLabelFits(-20, cellWidth, rootFontPx)).toBe(false);
+      expect(snrLabelFits(-20, cellWidth, rootFontPx)).toBe(true);
     }
   });
 
@@ -225,7 +239,12 @@ describe("PropagationForecastModal SNR label at scale (#854)", () => {
     mockRootFontPx(null); // jsdom reports "" here
     renderModal(forecastWith(-5));
     const svg = document.body.querySelector("svg");
-    expect(Number(svg?.getAttribute("width"))).toBe(600);
+    // chartGeometry(16).chartWidth -- not a bare 600, since round 3 sizes
+    // the chart from the widest label rather than a fixed base.
+    expect(Number(svg?.getAttribute("width"))).toBeCloseTo(
+      chartGeometry(16).chartWidth,
+      4,
+    );
   });
 
   it("centers the SNR label vertically in its cell instead of the old fixed-text baseline offset", () => {

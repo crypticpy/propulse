@@ -239,6 +239,27 @@ interface BandConditionGridCellProps {
   sparklineData?: number[];
 }
 
+/**
+ * Grid view track sizing (#832 follow-up). The status label can render any of
+ * FADING/CLOSED/FORECAST/STIRRING/VERIFIED OPEN/HOT (from `bandHealthLabel`)
+ * or EXCELLENT/GOOD/FAIR/POOR/CLOSED (the bare path-model status) -- the
+ * longest single unbreakable word is "EXCELLENT" (9 chars). The label's
+ * `fontSize` is a literal `"12px"` (not `text-xs`/rem), so unlike the rest of
+ * this #832 round it does not grow with Settings -> Text Size; the overflow
+ * this fixes is present at every scale, not just larger ones. `minmax(50px,
+ * 1fr)` left ~40px of text room after the cell's padding and border, too
+ * narrow for that word, and with no wrap protection on the label a long,
+ * unbreakable status word spilled past its button and over the next cell.
+ * `5rem` gives single-word statuses room to fit at the default scale; the
+ * label's own `overflowWrap` is the hard guarantee against bleeding into a
+ * neighbor if a metric estimate here runs short.
+ */
+export const BAND_GRID_STYLE = {
+  display: "grid",
+  gridTemplateColumns: "repeat(auto-fill, minmax(5rem, 1fr))",
+  gap: "0.375rem",
+} as const;
+
 function gridCellPropsAreEqual(
   prevProps: BandConditionGridCellProps,
   nextProps: BandConditionGridCellProps,
@@ -255,7 +276,7 @@ function gridCellPropsAreEqual(
   );
 }
 
-const BandConditionGridCell = memo(function BandConditionGridCell({
+export const BandConditionGridCell = memo(function BandConditionGridCell({
   condition,
   verdict,
   onSelect,
@@ -306,11 +327,12 @@ const BandConditionGridCell = memo(function BandConditionGridCell({
       </div>
       <div
         style={{
-          fontSize: "9px",
+          fontSize: "12px",
           fontWeight: 600,
           color: colors.text,
           lineHeight: 1.4,
           letterSpacing: "0.03em",
+          overflowWrap: "break-word",
         }}
       >
         {statusLabel}
@@ -321,7 +343,7 @@ const BandConditionGridCell = memo(function BandConditionGridCell({
             display: "flex",
             justifyContent: "center",
             gap: "4px",
-            fontSize: "8px",
+            fontSize: "12px",
             lineHeight: 1.2,
           }}
         >
@@ -335,9 +357,10 @@ const BandConditionGridCell = memo(function BandConditionGridCell({
         <div
           style={{
             marginTop: "1px",
-            fontSize: "8px",
+            fontSize: "12px",
             color: "#6b7280",
             lineHeight: 1.2,
+            overflowWrap: "break-word",
           }}
           title="Independent path-physics estimate"
         >
@@ -887,7 +910,7 @@ export function BandConditionsPanel({
     <>
       <Card
         className={`${className} flex flex-col transition-all duration-300 ease-in-out !rounded-lg ${
-          collapsed ? "h-auto !p-2.5" : "h-full p-2"
+          collapsed ? "h-auto !p-2.5 max-w-[calc(100vw-2rem)]" : "h-full p-2"
         }`}
       >
         {/* Header. Collapsed is a clickable one-line summary strip; expanded is
@@ -905,8 +928,19 @@ export function BandConditionsPanel({
               }
             }}
           >
-            {/* COLLAPSED: Clean horizontal layout */}
-            <div className="flex items-center gap-3 w-full">
+            {/*
+              This strip is used, collapsed, as the "lite overlay" summary
+              docked at the bottom-left of PropSphere's flat/globe view
+              (PropSphere.tsx wraps it in a `w-auto` box with no width cap
+              of its own). At the xl scale a normal summary such as
+              "20m / VERIFIED OPEN / K3 / SFI 120" no longer fits one line
+              in a 320px viewport with nothing to stop it. The Card's own
+              `max-w-[calc(100vw-2rem)]` above caps how wide this strip can
+              grow, and `flex-wrap` here lets the band/status group and the
+              solar-indices group drop to their own line instead of running
+              past the panel edge when they no longer both fit.
+            */}
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 w-full">
               {/* Expand indicator */}
               <svg
                 className="w-3.5 h-3.5 text-su-muted flex-shrink-0"
@@ -942,7 +976,7 @@ export function BandConditionsPanel({
                     {bestHealth?.band ?? bestBand?.band}
                   </span>
                   <span
-                    className={`text-[10px] uppercase tracking-wide px-1.5 py-0.5 rounded ${
+                    className={`text-xs uppercase tracking-wide px-1.5 py-0.5 rounded ${
                       bestHealth
                         ? LADDER_BADGE_CLASSES[bestHealth.stable]
                         : `${statusColors[overallStatus].text} ${statusColors[overallStatus].bg}`
@@ -959,7 +993,7 @@ export function BandConditionsPanel({
               <div className="w-px h-3 bg-su-line/20" />
 
               {/* Solar indices compact */}
-              <div className="flex items-center gap-2 text-[10px] font-mono">
+              <div className="flex items-center gap-2 text-xs font-mono">
                 <span
                   className={
                     currentKp >= 4 ? "text-caution-amber" : "text-su-muted"
@@ -1005,14 +1039,7 @@ export function BandConditionsPanel({
             >
               {isGridView ? (
                 /* Grid View — compact auto-flow grid inspired by OpenHamClock */
-                <div
-                  className="px-1"
-                  style={{
-                    display: "grid",
-                    gridTemplateColumns: "repeat(auto-fill, minmax(50px, 1fr))",
-                    gap: "6px",
-                  }}
-                >
+                <div className="px-1" style={BAND_GRID_STYLE}>
                   {bandConditions.map((condition) => (
                     <BandConditionGridCell
                       key={condition.band}
@@ -1118,10 +1145,10 @@ export function BandConditionsPanel({
             <div className="flex items-center justify-between text-xs text-su-muted">
               <span>Path illumination: {Math.round(illumination)}%</span>
             </div>
-            <div className="mt-1 text-[10px] text-su-muted">
+            <div className="mt-1 text-xs text-su-muted">
               Live status: {bandHealthScope.label} · signal/SNR: path model
             </div>
-            <div className="mt-1 flex flex-wrap gap-x-2 text-[10px] text-su-muted">
+            <div className="mt-1 flex flex-wrap gap-x-2 text-xs text-su-muted">
               <span>Band evidence: {bandActivityFreshnessText}</span>
               <span
                 className={bandLadderStale ? "font-semibold text-caution-amber" : undefined}
@@ -1131,7 +1158,7 @@ export function BandConditionsPanel({
               </span>
             </div>
             <div className="flex items-center justify-between mt-1.5 pt-1.5 border-t border-su-line/20">
-              <span className="text-[10px] text-su-muted">
+              <span className="text-xs text-su-muted">
                 Solar inputs: {lastUpdatedText}
               </span>
               <button
@@ -1281,7 +1308,15 @@ const BandConditionRow = memo(function BandConditionRow({
       } ${isGreylineActive ? "bg-amber-500/5" : ""}`}
     >
       <td className="px-1 py-1">
-        <div className="flex items-center gap-1.5">
+        {/*
+          Table view's first cell, inside the scroll container's
+          `overflow-x-hidden` and the compact floating panel's ~220px
+          width. The GL/Es/OPEN badges are `text-xs` (Settings -> Text
+          Size); at the xl scale a 6m/10m opening with all three badges no
+          longer fits next to the band name on one line. `flex-wrap` lets
+          the badges drop to their own line instead of clipping.
+        */}
+        <div className="flex flex-wrap items-center gap-1.5">
           {isSynced && (
             <svg
               className="w-3 h-3 text-cyan-400 flex-shrink-0"
@@ -1319,7 +1354,7 @@ const BandConditionRow = memo(function BandConditionRow({
           {/* Greyline active indicator for low bands */}
           {isGreylineActive && (
             <span
-              className="px-1 py-0.5 rounded text-[9px] font-medium bg-amber-500/20 text-amber-400 animate-pulse"
+              className="px-1 py-0.5 rounded text-xs font-medium bg-amber-500/20 text-amber-400 animate-pulse"
               title="Greyline propagation enhanced for this band"
             >
               GL
@@ -1328,7 +1363,7 @@ const BandConditionRow = memo(function BandConditionRow({
           {/* Es Active badge for 6m/10m */}
           {esDetection?.active && (
             <span
-              className="px-1 py-0.5 rounded text-[9px] font-semibold bg-purple-500/20 text-purple-400 animate-pulse"
+              className="px-1 py-0.5 rounded text-xs font-semibold bg-purple-500/20 text-purple-400 animate-pulse"
               title={`Sporadic E detected: ${esDetection.spotCount} spots, est. MUF ${esDetection.estimatedMUFMHz} MHz`}
             >
               Es
@@ -1337,7 +1372,7 @@ const BandConditionRow = memo(function BandConditionRow({
           {/* Band opening indicator */}
           {hasBandOpening && (
             <span
-              className="px-1 py-0.5 rounded text-[9px] font-semibold bg-signal-green/20 text-signal-green animate-pulse"
+              className="px-1 py-0.5 rounded text-xs font-semibold bg-signal-green/20 text-signal-green animate-pulse"
               title="Band opening detected"
             >
               OPEN
@@ -1360,7 +1395,7 @@ const BandConditionRow = memo(function BandConditionRow({
           </span>
           {verdict && (
             <span
-              className="text-[9px] text-su-muted"
+              className="text-xs text-su-muted"
               title="Independent path-physics estimate"
             >
               Path {pathStatusLabel}

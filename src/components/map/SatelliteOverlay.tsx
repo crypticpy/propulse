@@ -118,6 +118,30 @@ function latLonToSurface(lat: number, lon: number): THREE.Vector3 {
   );
 }
 
+/**
+ * Info popup width range (#832 sweep). Sibling of ISS_INFO_CARD_WIDTH_STYLE
+ * in ISSTrackerOverlay.tsx: this card was pinned to a fixed pixel range
+ * (roughly two hundred to two hundred sixty pixels) while nearly everything
+ * inside it -- the NORAD line, the position/altitude grid, the transponder
+ * rows -- is `text-xs`, which follows Settings -> Text Size. Sizing this
+ * range in rem instead lets the whole card grow with its own text instead of
+ * staying pinned to a box sized for the default scale. Exported so this
+ * geometry is unit-testable without rendering the R3F tree this component
+ * lives in (`Html`/`useFrame` require a `<Canvas>` context that jsdom +
+ * Testing Library cannot provide).
+ */
+export const SATELLITE_INFO_CARD_WIDTH_STYLE = {
+  // Same viewport clamp as ISS_INFO_CARD_WIDTH_STYLE (Codex, PR #839 round
+  // 7): at the largest text scale 16.25rem is 357px, wider than a 320px
+  // phone, and the drei `Html center` wrapper does no clamping of its own.
+  minWidth: "min(12.5rem, calc(100vw - 2rem))",
+  maxWidth: "min(16.25rem, calc(100vw - 2rem))",
+  // Same viewport-relative height cap as ISS_INFO_CARD_WIDTH_STYLE (round
+  // 18): the transponder and pass sections stack at the largest scale.
+  maxHeight: "calc(100vh - 2rem)",
+  overflowY: "auto",
+} as const;
+
 // ---------------------------------------------------------------------------
 // Satellite Info Popup (drei Html — appears near marker when selected)
 // ---------------------------------------------------------------------------
@@ -162,13 +186,12 @@ function SatelliteInfoPopup({
       }}
     >
       <div
-        className="flex flex-col gap-1 rounded-md px-3 py-2 text-[10px] font-mono cursor-pointer"
+        className="flex flex-col gap-1 rounded-md px-3 py-2 text-xs font-mono cursor-pointer"
         style={{
           backgroundColor: "rgba(8, 8, 24, 0.94)",
           border: `1px solid ${color}60`,
           boxShadow: `0 0 12px ${color}30`,
-          minWidth: "200px",
-          maxWidth: "260px",
+          ...SATELLITE_INFO_CARD_WIDTH_STYLE,
           color: "#e0e0e8",
         }}
         onClick={(e) => {
@@ -187,7 +210,7 @@ function SatelliteInfoPopup({
               {satellite.name}
             </span>
             <span
-              className={`inline-block flex-shrink-0 px-1 py-0.5 rounded text-[8px] font-semibold uppercase tracking-wider ${catMeta.color} ${catMeta.bg}`}
+              className={`inline-block flex-shrink-0 px-1 py-0.5 rounded text-xs font-semibold uppercase tracking-wider ${catMeta.color} ${catMeta.bg}`}
             >
               {catMeta.label}
             </span>
@@ -224,10 +247,10 @@ function SatelliteInfoPopup({
         </div>
 
         {/* NORAD ID */}
-        <div className="text-[9px]" style={{ color: "#777" }}>
+        <div className="text-xs" style={{ color: "#777" }}>
           NORAD {satellite.noradId}
           {satellite.isCustom && (
-            <span className="ml-1.5 px-1 py-0.5 rounded bg-orange-400/15 text-orange-400 text-[8px]">
+            <span className="ml-1.5 px-1 py-0.5 rounded bg-orange-400/15 text-orange-400 text-xs">
               Custom TLE
             </span>
           )}
@@ -240,7 +263,7 @@ function SatelliteInfoPopup({
         />
 
         {/* Position & altitude grid */}
-        <div className="grid grid-cols-2 gap-x-3 gap-y-0.5">
+        <div className="grid grid-cols-[repeat(auto-fit,minmax(6.5rem,1fr))] gap-x-3 gap-y-0.5">
           <div>
             <span style={{ color: "#888" }}>Pos: </span>
             <span style={{ color: "#ccc" }}>{formatLatLon(lat, lon)}</span>
@@ -272,13 +295,13 @@ function SatelliteInfoPopup({
               className="my-0.5"
               style={{ borderTop: "1px solid rgba(255,255,255,0.08)" }}
             />
-            <div className="text-[9px] text-su-muted uppercase tracking-wider font-semibold">
+            <div className="text-xs text-su-muted uppercase tracking-wider font-semibold">
               Transponders
             </div>
             {transponderData.transponders.slice(0, 2).map((xpdr, idx) => (
-              <div key={idx} className="flex items-center gap-1.5">
+              <div key={idx} className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5">
                 <span
-                  className="px-1 py-0.5 rounded text-[8px] font-semibold uppercase"
+                  className="px-1 py-0.5 rounded text-xs font-semibold uppercase"
                   style={{
                     backgroundColor:
                       xpdr.mode === "FM"
@@ -302,7 +325,7 @@ function SatelliteInfoPopup({
               </div>
             ))}
             {primaryXpdr && (
-              <div className="grid grid-cols-2 gap-x-3 text-[9px]">
+              <div className="grid grid-cols-[repeat(auto-fit,minmax(6.5rem,1fr))] gap-x-3 text-xs">
                 <div>
                   <span style={{ color: "#888" }}>UP: </span>
                   <span style={{ color: "#aaa" }}>
@@ -328,7 +351,7 @@ function SatelliteInfoPopup({
               style={{ borderTop: "1px solid rgba(255,255,255,0.08)" }}
             />
             {activePass ? (
-              <div className="flex items-center gap-1.5">
+              <div className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5">
                 <span className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse flex-shrink-0" />
                 <span style={{ color: "#4ade80", fontWeight: 600 }}>
                   PASS NOW
@@ -338,7 +361,7 @@ function SatelliteInfoPopup({
                 </span>
               </div>
             ) : (
-              <div className="flex items-center gap-1.5">
+              <div className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5">
                 <span style={{ color: "#888" }}>Next pass: </span>
                 <span style={{ color: "#ccc" }}>
                   in {formatDistanceToNow(nextPass.aos)}
@@ -352,10 +375,10 @@ function SatelliteInfoPopup({
         )}
 
         {/* TLE age indicator */}
-        <div className="flex items-center gap-1.5 mt-0.5">
+        <div className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 mt-0.5">
           <span style={{ color: "#555" }}>TLE:</span>
           <span
-            className="px-1 py-0.5 rounded text-[8px] font-medium"
+            className="px-1 py-0.5 rounded text-xs font-medium"
             style={{
               backgroundColor:
                 satellite.tleAge === "fresh"
@@ -388,7 +411,7 @@ function SatelliteInfoPopup({
             onOpenModal(satellite.noradId);
           }}
           aria-label={`Open full details for ${satellite.name}`}
-          className="flex w-full items-center justify-center gap-1 rounded text-[8px] font-semibold uppercase tracking-wider hover:bg-su-line/10 focus:outline-none focus-visible:ring-1 focus-visible:ring-su-line/60"
+          className="flex w-full items-center justify-center gap-1 rounded text-xs font-semibold uppercase tracking-wider hover:bg-su-line/10 focus:outline-none focus-visible:ring-1 focus-visible:ring-su-line/60"
           style={{ color: `${color}aa` }}
         >
           <span>Tap for full details</span>
@@ -547,7 +570,7 @@ function SatelliteMarker({
         }}
       >
         <div
-          className="px-1.5 py-0.5 rounded text-[10px] font-mono whitespace-nowrap"
+          className="px-1.5 py-0.5 rounded text-xs font-mono whitespace-nowrap"
           style={{
             backgroundColor: "rgba(10, 10, 26, 0.85)",
             color,

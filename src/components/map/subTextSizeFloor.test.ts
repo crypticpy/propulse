@@ -73,6 +73,58 @@
  * than leaving it out like the dead-code bucket (`WorkStationPanel.tsx`,
  * `DXSpotOverlay.tsx`) from the #825 round. Zero allowlist entries added.
  *
+ * #832 map round (slice 1 of 6): `src/components/map/` census on `16c7bd32`
+ * found 416 sub-floor sites across 83 files (the issue body's top-of-census
+ * table). `PinFlyout.tsx` (10 sites) is owned by a concurrent PR (#824,
+ * wiring the remaining map overlays to the focus home) and was skipped for
+ * the next file down the census, per that issue's collision warning; it is
+ * deferred rather than done, so it stays counted in the follow-up total
+ * below. Each of the 14 files fixed here was confirmed mounted with a
+ * `<ComponentName` render-site grep back to a routed page
+ * (`src/pages/PropSphere.tsx`, itself lazy-routed in `App.tsx`) or a parent
+ * already on that chain (`GlobeView.tsx`, `FlatMapView.tsx`,
+ * `LayersPopover.tsx`, `ProToolbarRibbon.tsx`) -- none were
+ * barrel-export-only, so this slice has no dead-code exclusions.
+ * `layers/SatelliteDetailModal.tsx` is confirmed the component this census
+ * means (not the unrelated `satellites/SatelliteDetailModal.tsx`),
+ * rendered from both `PropSphere.tsx` and `SatellitesPage.tsx`. This PR
+ * fixes 177 sites across 13 of the most-mounted files: `SatellitePanel.tsx`,
+ * `layers/SatelliteDetailModal.tsx`, `PathAnalysis.tsx`, `LayersPopover.tsx`,
+ * `ISSTrackerOverlay.tsx`, `OperatorProfile.tsx`, `WatchPopover.tsx`,
+ * `TargetHoverTooltip.tsx`, `SatelliteOverlay.tsx`,
+ * `layers/SatelliteFilters.tsx`, `layers/BasemapCategory.tsx`,
+ * `TimeControl.tsx`, and `BandConditionsPanel.tsx`.
+ * `modals/PropagationForecastModal.tsx` (9 sites) was audited and fixed in
+ * this round and then pulled back out with its own follow-up in mind (a
+ * `getBoundingClientRect`-measured re-placement fix on `TargetHoverTooltip.tsx`
+ * and a real fit-check gate on the SVG heatmap's SNR label needed a review
+ * round of their own, and 15 source files plus this guard plus that review's
+ * test file was over budget) -- it stays counted in the follow-up total
+ * below, not fixed here. Zero allowlist entries added. 70 files (239
+ * sites) remain in `map/` for slices 2-6, one 15-file PR at a time -- that
+ * total includes `PinFlyout.tsx` (deferred rather than done: it still needs
+ * raising once #824 releases it) and `modals/PropagationForecastModal.tsx`.
+ *
+ * Extending this guard, for whoever runs the next round: `FILES` is
+ * append-only -- never reorder it, never remove an entry, never convert it
+ * to a glob (the no-glob argument is above; don't re-litigate it, just
+ * point at it). Add exactly one census paragraph per round, appended in
+ * round order, so the paragraphs read as a sequence about this file's
+ * history rather than independent claims. Before editing this file, `git
+ * fetch`/merge `origin/main` and re-read it from the merged state -- two
+ * rounds appending to `FILES` in parallel produce a textual merge that
+ * looks valid and that nobody has actually read. Re-run the census with
+ * BOTH pathspecs: the direct-children one, `'src/components/map/*.tsx'`,
+ * and the recursive one written with a doubled star. Git's doubled-star
+ * pathspec needs an actual subdirectory segment, so the recursive pattern
+ * on its own silently skips every direct child of the directory -- on this
+ * round it reported 16 files / 111 sites for a directory that really holds
+ * 83 / 416. (The recursive pattern is not spelled out here because the
+ * sequence that ends it also ends this comment.) Each round's paragraph
+ * records: the directory, the census numbers, which files were fixed,
+ * which were deliberately left un-raised (and why), and the allowlist
+ * count -- zero, ideally.
+ *
  * #854 (carved out of PR #839, part of the #832 map-slice work in flight on
  * a separate branch): fixes the nine sub-floor `text-[Npx]` sites in
  * `modals/PropagationForecastModal.tsx`. That file also drew an SNR-label
@@ -132,6 +184,20 @@ const FILES = [
   "src/components/dx/PredictionsCard.tsx",
   "src/components/dx/modals/HistoryDetailModal.tsx",
   "src/components/dx/BandScope.tsx",
+  // #832 map round -- see module doc above for the full census and split.
+  "src/components/map/SatellitePanel.tsx",
+  "src/components/map/layers/SatelliteDetailModal.tsx",
+  "src/components/map/PathAnalysis.tsx",
+  "src/components/map/LayersPopover.tsx",
+  "src/components/map/ISSTrackerOverlay.tsx",
+  "src/components/map/OperatorProfile.tsx",
+  "src/components/map/WatchPopover.tsx",
+  "src/components/map/TargetHoverTooltip.tsx",
+  "src/components/map/SatelliteOverlay.tsx",
+  "src/components/map/layers/SatelliteFilters.tsx",
+  "src/components/map/layers/BasemapCategory.tsx",
+  "src/components/map/TimeControl.tsx",
+  "src/components/map/BandConditionsPanel.tsx",
   // #854 -- see module doc above.
   "src/components/map/modals/PropagationForecastModal.tsx",
 ];
@@ -163,21 +229,44 @@ const ALLOWLIST: AllowlistEntry[] = [
 
 const SIZE_RE = /text-\[(\d+)px\]/g;
 
+/**
+ * The same floor written as an inline style rather than a Tailwind class:
+ * `fontSize: 9`, `fontSize: "9px"`, `fontSize: '9px'`. Codex found five of
+ * these still sitting in `BandConditionsPanel.tsx` and `LayersPopover.tsx`
+ * *after* the #832 round had added both files to `FILES` and both guard tests
+ * were green -- a class-only regex reports a clean file that still renders 8px
+ * text. Any new spelling of the floor has to be added here, not worked around:
+ * the guard is only worth its green when it recognises every form the codebase
+ * actually uses.
+ *
+ * Still unrecognised, and tracked by #833: rem and em arbitrary values
+ * (`text-[0.7rem]`), point sizes, and a `clamp()` whose lower bound is below
+ * the floor. That work lands between rounds, not inside one, because it
+ * touches this shared file.
+ */
+const INLINE_SIZE_RE =
+  /fontSize:\s*["']?(\d+(?:\.\d+)?)(?:px)?["']?(?![\w%.])/g;
+
 interface SubFloorSite {
   file: string;
   line: number;
   text: string;
 }
 
-/** Every `text-[Npx]` site with N < 12 in `file`, read fresh every call. */
+/**
+ * Every sub-floor sizing site in `file`, read fresh every call: `text-[Npx]`
+ * classes and inline `fontSize` values alike, both with N < 12.
+ */
 function findSubFloorSites(file: string): SubFloorSite[] {
   const absPath = resolve(REPO_ROOT, file);
   const lines = readFileSync(absPath, "utf8").split("\n");
   const sites: SubFloorSite[] = [];
   lines.forEach((line, index) => {
-    for (const match of line.matchAll(SIZE_RE)) {
-      if (Number(match[1]) < 12) {
-        sites.push({ file, line: index + 1, text: line });
+    for (const re of [SIZE_RE, INLINE_SIZE_RE]) {
+      for (const match of line.matchAll(re)) {
+        if (Number(match[1]) < 12) {
+          sites.push({ file, line: index + 1, text: line });
+        }
       }
     }
   });
@@ -185,7 +274,7 @@ function findSubFloorSites(file: string): SubFloorSite[] {
 }
 
 describe("sub-text-xs sizing stays at the floor in the #783/#808 audited set", () => {
-  it("has no un-allowlisted text-[Npx] with N < 12 in the audited files", () => {
+  it("has no un-allowlisted sub-floor size (class or inline) in the audited files", () => {
     const violations: string[] = [];
     for (const file of FILES) {
       for (const site of findSubFloorSites(file)) {
@@ -199,8 +288,25 @@ describe("sub-text-xs sizing stays at the floor in the #783/#808 audited set", (
     }
     expect(
       violations,
-      `un-allowlisted sub-floor text-[Npx] sites:\n${violations.join("\n")}`,
+      `un-allowlisted sub-floor sizing sites:\n${violations.join("\n")}`,
     ).toEqual([]);
+  });
+
+  it("recognises every inline spelling it claims to, and no rem value", () => {
+    // Without this the inline half of the guard could be quietly inert and
+    // every file would still report clean, which is the exact failure Codex
+    // caught on the #832 round. The trailing lookahead is what keeps
+    // `fontSize: "0.75rem"` from matching its leading digit and being read as
+    // a 0px violation -- a false positive there would be worse than the miss,
+    // because it would push someone to allowlist a site that is fine.
+    const sizesIn = (text: string) =>
+      [...text.matchAll(INLINE_SIZE_RE)].map((match) => Number(match[1]));
+    expect(sizesIn("fontSize: 9,")).toEqual([9]);
+    expect(sizesIn(`fontSize: "8px",`)).toEqual([8]);
+    expect(sizesIn("fontSize: '10px',")).toEqual([10]);
+    expect(sizesIn("fontSize: 12,")).toEqual([12]);
+    expect(sizesIn(`fontSize: "0.75rem",`)).toEqual([]);
+    expect(sizesIn(`fontSize: "1rem",`)).toEqual([]);
   });
 
   it("every allowlist entry still matches a real sub-floor site in the audited files", () => {

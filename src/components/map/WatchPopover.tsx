@@ -377,7 +377,7 @@ export function WatchPopover() {
               )}
             </span>
             {matchCount > 0 && (
-              <span className="ml-0.5 px-1.5 py-0.5 rounded-full bg-signal-green/20 text-signal-green text-[10px] leading-none font-medium">
+              <span className="ml-0.5 px-1.5 py-0.5 rounded-full bg-signal-green/20 text-signal-green text-xs leading-none font-medium">
                 {matchCount}
               </span>
             )}
@@ -398,7 +398,7 @@ export function WatchPopover() {
         aria-label="Spot Watch filters"
       >
         {/* ── Quick Start ── */}
-        <div className="text-[10px] uppercase tracking-wider text-su-text/80 font-medium mb-2 px-0.5">
+        <div className="text-xs uppercase tracking-wider text-su-text/80 font-medium mb-2 px-0.5">
           Quick Start
         </div>
         <div className="flex flex-wrap gap-1.5 mb-3">
@@ -440,10 +440,10 @@ export function WatchPopover() {
         {isContestMode && (
           <>
             <div className="border-t border-su-line/20 my-2" />
-            <div className="text-[10px] uppercase tracking-wider text-su-text/80 font-medium mb-2 px-0.5 flex items-center gap-1.5">
+            <div className="text-xs uppercase tracking-wider text-su-text/80 font-medium mb-2 px-0.5 flex items-center gap-1.5">
               <span>Contest</span>
               {!featureFlags.contestWatch && (
-                <span className="px-1 py-0.5 rounded bg-caution-amber/20 text-caution-amber text-[8px] font-bold leading-none">
+                <span className="px-1 py-0.5 rounded bg-caution-amber/20 text-caution-amber text-xs font-bold leading-none">
                   PRO
                 </span>
               )}
@@ -465,7 +465,7 @@ export function WatchPopover() {
                 <div className="font-medium text-xs truncate">
                   {activeContestDef.name}
                 </div>
-                <div className="text-[10px] text-su-text/80 mt-0.5">
+                <div className="text-xs text-su-text/80 mt-0.5">
                   Auto-configure watch for active contest
                 </div>
               </button>
@@ -542,7 +542,7 @@ export function WatchPopover() {
         <div className="border-t border-su-line/20 my-2" />
 
         {/* ── Filter Section ── */}
-        <div className="text-[10px] uppercase tracking-wider text-su-text/80 font-medium mb-2 px-0.5">
+        <div className="text-xs uppercase tracking-wider text-su-text/80 font-medium mb-2 px-0.5">
           Filter
         </div>
 
@@ -563,7 +563,7 @@ export function WatchPopover() {
           {/* Grid + TX/RX */}
           <div>
             <label className="block text-xs text-su-text/80 mb-1">Grid</label>
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               <input
                 type="text"
                 value={form.gridPrefix}
@@ -575,7 +575,7 @@ export function WatchPopover() {
                 }
                 placeholder="e.g., EM73"
                 maxLength={6}
-                className="flex-1 bg-su-line/10 border border-su-line/40 rounded-lg px-3 py-1.5 text-sm text-su-text placeholder:text-su-muted/80 focus:border-signal-green/50 focus:outline-none font-mono"
+                className="flex-1 min-w-[6.5rem] bg-su-line/10 border border-su-line/40 rounded-lg px-3 py-1.5 text-sm text-su-text placeholder:text-su-muted/80 focus:border-signal-green/50 focus:outline-none font-mono"
               />
               <div className="flex items-center gap-2 shrink-0">
                 {(["tx", "rx", "either"] as const).map((dir) => (
@@ -594,7 +594,7 @@ export function WatchPopover() {
                           : "border-su-line/60 bg-transparent"
                       }`}
                     />
-                    <span className="text-[10px] text-su-text/80 uppercase">
+                    <span className="text-xs text-su-text/80 uppercase">
                       {dir === "either" ? "Any" : dir}
                     </span>
                   </label>
@@ -659,7 +659,7 @@ export function WatchPopover() {
         <div className="border-t border-su-line/20 my-3" />
 
         {/* ── Options ── */}
-        <div className="text-[10px] uppercase tracking-wider text-su-text/80 font-medium mb-1.5 px-0.5">
+        <div className="text-xs uppercase tracking-wider text-su-text/80 font-medium mb-1.5 px-0.5">
           Options
         </div>
         <div
@@ -689,7 +689,7 @@ export function WatchPopover() {
         <div className="border-t border-su-line/20 my-3" />
 
         {/* ── Saved Watches ── */}
-        <div className="text-[10px] uppercase tracking-wider text-su-text/80 font-medium mb-1.5 px-0.5">
+        <div className="text-xs uppercase tracking-wider text-su-text/80 font-medium mb-1.5 px-0.5">
           Saved Watches
           {savedWatches.length > 0 && (
             <span className="ml-1 text-su-text/80">
@@ -740,7 +740,7 @@ export function WatchPopover() {
                     <div className="text-xs font-medium truncate">
                       {sw.name}
                     </div>
-                    <div className="text-[10px] text-su-text/80 truncate">
+                    <div className="text-xs text-su-text/80 truncate">
                       {summary}
                     </div>
                   </div>

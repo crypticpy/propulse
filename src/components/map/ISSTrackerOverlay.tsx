@@ -88,6 +88,42 @@ function latLonToSurface(lat: number, lon: number): THREE.Vector3 {
 // ISS Ham Radio Constants
 // ---------------------------------------------------------------------------
 
+/**
+ * Info card width range (#832 follow-up). This card's own width used to be
+ * pinned to a fixed pixel range (roughly two hundred forty to two hundred
+ * eighty pixels) while its text is `text-xs`, which follows Settings ->
+ * Text Size. The three-field frequency rows below (a label, a frequency,
+ * and a short note, laid out with `justify-between` and no wrap) fit that
+ * fixed box at the default scale, but at the largest scale the row's own
+ * content -- e.g. "Voice Downlink" / "145.800 MHz" / "Worldwide" -- needed
+ * more room than the box ever grew to, and the note field spilled past the
+ * card's right edge. Sizing this range in rem instead lets the whole card
+ * grow at the same rate as its text, so the three fields stay proportioned
+ * to the box and keep reading as one row at every scale rather than needing
+ * to wrap or stack. Exported (and factored out of the inline style object)
+ * so this geometry is unit-testable without rendering the R3F tree this
+ * component lives in (`Html`/`useFrame` require a `<Canvas>` context that
+ * jsdom + Testing Library cannot provide).
+ *
+ * Round-6 follow-up: at the largest text scale, 15rem is 330px -- wider than
+ * a 320px phone viewport -- and the drei `Html center` wrapper this card
+ * renders in does no viewport clamping of its own, so the card clipped at
+ * the page edge. `min(..., calc(100vw - 2rem))` caps both bounds at the
+ * viewport width minus 1rem of margin on each side, so the card can still
+ * grow with its text but never past what the screen has room for.
+ */
+export const ISS_INFO_CARD_WIDTH_STYLE = {
+  minWidth: "min(15rem, calc(100vw - 2rem))",
+  maxWidth: "min(17.5rem, calc(100vw - 2rem))",
+  // Round 18: once the width clamp stacks the grids to one column at the
+  // largest text scale, the card outgrows a phone viewport and the lower
+  // frequency and SSTV sections sat off-screen with no way to reach them.
+  // The same viewport-relative cap on the height, with the card itself
+  // scrolling, keeps every section reachable.
+  maxHeight: "calc(100vh - 2rem)",
+  overflowY: "auto",
+} as const;
+
 /** Well-known ISS amateur radio frequencies and modes */
 const ISS_FREQUENCIES = [
   {
@@ -190,14 +226,13 @@ function ISSInfoCard({ tracker, occlusionOpacity }: ISSInfoCardProps) {
       }}
     >
       <div
-        className="flex flex-col gap-1 rounded-lg px-3 py-2.5 text-[10px] font-mono select-none"
+        className="flex flex-col gap-1 rounded-lg px-3 py-2.5 text-xs font-mono select-none"
         style={{
           backgroundColor: "rgba(8, 8, 24, 0.95)",
           border: "1px solid rgba(100, 180, 255, 0.4)",
           boxShadow:
             "0 0 20px rgba(100, 180, 255, 0.2), inset 0 0 30px rgba(100, 180, 255, 0.03)",
-          minWidth: "240px",
-          maxWidth: "280px",
+          ...ISS_INFO_CARD_WIDTH_STYLE,
           color: "#e0e0e8",
         }}
         onClick={(e) => e.stopPropagation()}
@@ -211,7 +246,7 @@ function ISSInfoCard({ tracker, occlusionOpacity }: ISSInfoCardProps) {
             ISS (ZARYA)
           </span>
           <span
-            className="rounded-full px-1.5 py-0.5 text-[8px] font-semibold uppercase"
+            className="rounded-full px-1.5 py-0.5 text-xs font-semibold uppercase"
             style={{
               backgroundColor: isAboveHorizon
                 ? "rgba(0, 255, 136, 0.15)"
@@ -225,7 +260,7 @@ function ISSInfoCard({ tracker, occlusionOpacity }: ISSInfoCardProps) {
         </div>
 
         {/* NORAD ID */}
-        <div className="text-[9px]" style={{ color: "#777" }}>
+        <div className="text-xs" style={{ color: "#777" }}>
           NORAD 25544 &bull; Inclination 51.6&deg;
         </div>
 
@@ -237,12 +272,12 @@ function ISSInfoCard({ tracker, occlusionOpacity }: ISSInfoCardProps) {
 
         {/* Section: Orbital Data */}
         <div
-          className="text-[9px] font-semibold uppercase tracking-wide mb-0.5"
+          className="text-xs font-semibold uppercase tracking-wide mb-0.5"
           style={{ color: "#64B4FF" }}
         >
           Position
         </div>
-        <div className="grid grid-cols-2 gap-x-3 gap-y-0.5">
+        <div className="grid grid-cols-[repeat(auto-fit,minmax(6.5rem,1fr))] gap-x-3 gap-y-0.5">
           <div className="flex justify-between">
             <span style={{ color: "#888" }}>Lat:</span>
             <span style={{ color: "#ccc" }}>
@@ -283,12 +318,12 @@ function ISSInfoCard({ tracker, occlusionOpacity }: ISSInfoCardProps) {
               style={{ borderTop: "1px solid rgba(100, 180, 255, 0.12)" }}
             />
             <div
-              className="text-[9px] font-semibold uppercase tracking-wide mb-0.5"
+              className="text-xs font-semibold uppercase tracking-wide mb-0.5"
               style={{ color: "#64B4FF" }}
             >
               From Your QTH
             </div>
-            <div className="grid grid-cols-2 gap-x-3 gap-y-0.5">
+            <div className="grid grid-cols-[repeat(auto-fit,minmax(6.5rem,1fr))] gap-x-3 gap-y-0.5">
               <div className="flex justify-between">
                 <span style={{ color: "#888" }}>Elev:</span>
                 <span style={{ color: isAboveHorizon ? "#00ff88" : "#ccc" }}>
@@ -311,12 +346,12 @@ function ISSInfoCard({ tracker, occlusionOpacity }: ISSInfoCardProps) {
               style={{ borderTop: "1px solid rgba(100, 180, 255, 0.12)" }}
             />
             <div
-              className="text-[9px] font-semibold uppercase tracking-wide mb-0.5"
+              className="text-xs font-semibold uppercase tracking-wide mb-0.5"
               style={{ color: "#64B4FF" }}
             >
               {currentPass ? "Current Pass" : "Next Pass"}
             </div>
-            <div className="grid grid-cols-2 gap-x-3 gap-y-0.5">
+            <div className="grid grid-cols-[repeat(auto-fit,minmax(6.5rem,1fr))] gap-x-3 gap-y-0.5">
               {currentPass ? (
                 <>
                   <div className="flex justify-between">
@@ -333,7 +368,7 @@ function ISSInfoCard({ tracker, occlusionOpacity }: ISSInfoCardProps) {
                       {formatDegrees(currentPass.maxEl)}
                     </span>
                   </div>
-                  <div className="col-span-2 flex justify-between">
+                  <div className="col-span-full flex justify-between">
                     <span style={{ color: "#888" }}>Direction:</span>
                     <span style={{ color: "#ccc" }}>
                       {currentPass.direction}
@@ -356,7 +391,7 @@ function ISSInfoCard({ tracker, occlusionOpacity }: ISSInfoCardProps) {
                       {formatDegrees(nextPass.maxEl)}
                     </span>
                   </div>
-                  <div className="col-span-2 flex justify-between">
+                  <div className="col-span-full flex justify-between">
                     <span style={{ color: "#888" }}>Direction:</span>
                     <span style={{ color: "#ccc" }}>{nextPass.direction}</span>
                   </div>
@@ -374,7 +409,7 @@ function ISSInfoCard({ tracker, occlusionOpacity }: ISSInfoCardProps) {
 
         {/* Ham Radio Frequencies */}
         <div
-          className="text-[9px] font-semibold uppercase tracking-wide mb-0.5"
+          className="text-xs font-semibold uppercase tracking-wide mb-0.5"
           style={{ color: "#64B4FF" }}
         >
           Ham Radio Frequencies
@@ -383,21 +418,23 @@ function ISSInfoCard({ tracker, occlusionOpacity }: ISSInfoCardProps) {
           {ISS_FREQUENCIES.map((f) => (
             <div
               key={f.label}
-              className="flex items-baseline justify-between gap-1"
+              // Round-6: this row's fixed-pixel card width now clamps to the
+              // viewport at its narrow cap (see ISS_INFO_CARD_WIDTH_STYLE
+              // above), so a long frequency value can no longer count on the
+              // same room it always had. `flex-wrap` lets the value/note
+              // drop under the label instead of overflowing the row.
+              className="flex flex-wrap items-baseline justify-between gap-1"
             >
-              <span
-                className="text-[9px] truncate"
-                style={{ color: "#999", maxWidth: "90px" }}
-              >
+              <span className="text-xs" style={{ color: "#999" }}>
                 {f.label}
               </span>
               <span
-                className="text-[9px] font-semibold"
+                className="text-xs font-semibold"
                 style={{ color: "#e0e0e8" }}
               >
                 {f.freq}
               </span>
-              <span className="text-[8px]" style={{ color: "#666" }}>
+              <span className="text-xs" style={{ color: "#666" }}>
                 {f.note}
               </span>
             </div>
@@ -406,7 +443,7 @@ function ISSInfoCard({ tracker, occlusionOpacity }: ISSInfoCardProps) {
 
         {/* SSTV note */}
         <div
-          className="mt-1 px-1.5 py-1 rounded text-[8px]"
+          className="mt-1 px-1.5 py-1 rounded text-xs"
           style={{
             backgroundColor: "rgba(100, 180, 255, 0.06)",
             border: "1px solid rgba(100, 180, 255, 0.12)",
@@ -611,7 +648,7 @@ function ISSModel({ iss, isSelected, onToggleSelect, tracker }: ISSModelProps) {
           }}
         >
           <div
-            className="px-2 py-0.5 rounded-full text-[11px] font-bold font-mono whitespace-nowrap"
+            className="px-2 py-0.5 rounded-full text-xs font-bold font-mono whitespace-nowrap"
             style={{
               backgroundColor: "rgba(10, 10, 26, 0.9)",
               color: "#ffffff",

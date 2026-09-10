@@ -216,7 +216,7 @@ const RecentTargetsDropdown = memo(function RecentTargetsDropdown({
             e.stopPropagation();
             onClear();
           }}
-          className="text-[10px] text-su-muted hover:text-alert-red transition-colors"
+          className="text-xs text-su-muted hover:text-alert-red transition-colors"
           title="Clear recent targets"
         >
           Clear
@@ -251,13 +251,13 @@ const RecentTargetsDropdown = memo(function RecentTargetsDropdown({
                   {displayName}
                 </div>
                 {target.grid && target.name && (
-                  <div className="text-[10px] text-su-muted font-mono">
+                  <div className="text-xs text-su-muted font-mono">
                     {target.grid}
                   </div>
                 )}
               </div>
               {distance && (
-                <span className="text-[10px] font-mono text-su-muted flex-shrink-0">
+                <span className="text-xs font-mono text-su-muted flex-shrink-0">
                   {distance}
                 </span>
               )}
@@ -290,15 +290,15 @@ function HopStrip({
   result: RayTraceResult;
 }) {
   return (
-    <div className="flex items-center gap-1.5">
-      <span className="w-6 text-[9px] font-medium uppercase tracking-wider text-su-muted">
+    <div className="flex flex-wrap items-center gap-1.5">
+      <span className="min-w-6 text-xs font-medium uppercase tracking-wider text-su-muted">
         {label}
       </span>
       <div className="flex flex-wrap gap-1">
         {result.hops.map((hop, index) => (
           <span
             key={`${label}-${index}`}
-            className="rounded px-1.5 py-0.5 font-mono text-[9px]"
+            className="rounded px-1.5 py-0.5 font-mono text-xs"
             style={{
               color: hopQualityColor(hop.qualityScore),
               backgroundColor: `${hopQualityColor(hop.qualityScore)}22`,
@@ -309,7 +309,7 @@ function HopStrip({
           </span>
         ))}
       </div>
-      <span className="ml-auto font-mono text-[9px] text-su-muted">
+      <span className="ml-auto font-mono text-xs text-su-muted">
         {result.overallScore}/100
       </span>
     </div>
@@ -395,7 +395,7 @@ const DecisionLayer = memo(function DecisionLayer({
         fetched {stampAge(verdict.evidence.fetchedAt)}.
       </p>
 
-      <div className="grid grid-cols-2 gap-2">
+      <div className="grid grid-cols-[repeat(auto-fit,minmax(6.5rem,1fr))] gap-2">
         <EndSunTimes end={almanac.qth} heading="QTH" />
         <EndSunTimes end={almanac.target} heading="Target" />
       </div>
@@ -929,9 +929,19 @@ export function PathAnalysis({
             : undefined
         }
       >
-        {/* COLLAPSED: Clean horizontal layout */}
+        {/* COLLAPSED: Clean horizontal layout.
+            This row packs a Solo button, a difficulty dot, the distance, a
+            difficulty badge, the bearing, an optional target chip, and an
+            optional decision summary into one line with no wrap. Only the
+            last two of those (the target chip and the decision summary)
+            have their own truncating width cap; the earlier fields (Solo,
+            distance, the difficulty badge, bearing) have none, so at the
+            largest text scale their combined width can exceed the panel
+            and run past its edge with nothing to stop them. `flex-wrap`
+            lets the whole set drop extra fields to a second line instead of
+            overflowing past the panel when they no longer all fit. */}
         {collapsed ? (
-          <div className="flex items-center gap-3 w-full">
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 w-full">
             {/* Expand indicator */}
             <svg
               className="w-3.5 h-3.5 text-su-muted flex-shrink-0"
@@ -949,7 +959,7 @@ export function PathAnalysis({
 
             {/* Path mode badge */}
             <span
-              className={`text-[9px] uppercase tracking-wider px-1.5 py-0.5 rounded font-medium ${
+              className={`text-xs uppercase tracking-wider px-1.5 py-0.5 rounded font-medium ${
                 pathMode === "short"
                   ? "bg-su-line/20 text-su-muted"
                   : "bg-plasma-orange/20 text-plasma-orange"
@@ -963,7 +973,7 @@ export function PathAnalysis({
                 e.stopPropagation();
                 toggleIsolateTargetPath();
               }}
-              className={`text-[9px] uppercase tracking-wider px-1.5 py-0.5 rounded font-medium transition-colors ${
+              className={`text-xs uppercase tracking-wider px-1.5 py-0.5 rounded font-medium transition-colors ${
                 isolateTargetPath
                   ? "bg-cyan-500/30 text-cyan-200"
                   : "bg-su-line/20 text-su-muted hover:text-su-text"
@@ -999,7 +1009,7 @@ export function PathAnalysis({
 
             {/* Difficulty badge */}
             <span
-              className={`text-[10px] uppercase tracking-wide px-1.5 py-0.5 rounded ${
+              className={`text-xs uppercase tracking-wide px-1.5 py-0.5 rounded ${
                 DIFFICULTY_COLORS[metrics.difficulty]
               } ${difficultyBgColors[metrics.difficulty] || "bg-su-line/10"}`}
             >
@@ -1010,7 +1020,7 @@ export function PathAnalysis({
             <div className="w-px h-3 bg-su-line/20" />
 
             {/* Bearing compact - show based on path mode */}
-            <span className="text-[10px] font-mono text-su-muted">
+            <span className="text-xs font-mono text-su-muted">
               {activeLeg === "long"
                 ? `${Math.round(metrics.longPath.bearing)}° ${formatBearing(metrics.longPath.bearing)}`
                 : `${Math.round(metrics.shortPath.bearing)}° ${formatBearing(metrics.shortPath.bearing)}`}
@@ -1020,7 +1030,14 @@ export function PathAnalysis({
             {target && (
               <>
                 <div className="w-px h-3 bg-su-line/20" />
-                <span className="text-[10px] text-su-muted truncate max-w-[80px]">
+                {/*
+                  Sweep: this was raised from a fixed sub-floor size to
+                  `text-xs` (#832) but kept its old pixel cap, so the same
+                  character budget that fit the old fixed size now
+                  truncates harder as the text grows with Text Size. A
+                  rem cap grows with the text instead of fighting it.
+                */}
+                <span className="text-xs text-su-muted truncate max-w-[5rem]">
                   {pathMode === "long" ? "← " : "→ "}
                   {target.grid || target.name}
                 </span>
@@ -1033,7 +1050,10 @@ export function PathAnalysis({
               return (
                 <>
                   <div className="w-px h-3 bg-su-line/20" />
-                  <div className="flex items-center gap-1 min-w-0 max-w-[280px]">
+                  {/* Same pixel-cap-vs-rem-text mismatch as the target
+                      chip above; a rem cap keeps the truncation budget
+                      proportional to the now-scaling text. */}
+                  <div className="flex items-center gap-1 min-w-0 max-w-[17.5rem]">
                     {hasTimeShift && (
                       <span className="text-xs text-su-muted flex-shrink-0 rounded bg-su-line/10 px-1 py-0.5">
                         time shift
@@ -1340,7 +1360,7 @@ export function PathAnalysis({
           {pathPresentation.showRayPath &&
             (pathPresentation.shortResult || pathPresentation.longResult) && (
               <div className="mb-3 space-y-1.5 rounded-lg border border-su-line/40 bg-su-line/10 p-2">
-                <div className="text-[9px] font-medium uppercase tracking-wider text-su-muted">
+                <div className="text-xs font-medium uppercase tracking-wider text-su-muted">
                   Modeled hops · {pathPresentation.frequencyMHz.toFixed(3)} MHz
                 </div>
                 {pathPresentation.shortResult && (
@@ -1360,17 +1380,17 @@ export function PathAnalysis({
                 : "bg-su-line/10 border border-transparent"
             }`}
           >
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
               <h4 className="text-xs font-medium text-su-muted inline-flex items-center gap-1">
                 Short Path <InfoTip content={GEOGRAPHY_TOOLTIPS.greatCircle} />
               </h4>
               {(pathMode === "short" || pathMode === "both") && (
-                <span className="text-[9px] uppercase tracking-wider text-plasma-orange bg-plasma-orange/20 px-1.5 py-0.5 rounded">
+                <span className="text-xs uppercase tracking-wider text-plasma-orange bg-plasma-orange/20 px-1.5 py-0.5 rounded">
                   Active
                 </span>
               )}
             </div>
-            <div className="grid grid-cols-3 gap-2">
+            <div className="grid grid-cols-[repeat(auto-fit,minmax(5.5rem,1fr))] gap-2">
               <MetricItem
                 label="Distance"
                 value={formatDistance(metrics.shortPath.distance)}
@@ -1401,17 +1421,17 @@ export function PathAnalysis({
                 : "bg-su-line/10 border border-transparent"
             }`}
           >
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
               <h4 className="text-xs font-medium text-su-muted inline-flex items-center gap-1">
                 Long Path <InfoTip content={GEOGRAPHY_TOOLTIPS.greatCircle} />
               </h4>
               {(pathMode === "long" || pathMode === "both") && (
-                <span className="text-[9px] uppercase tracking-wider text-plasma-orange bg-plasma-orange/20 px-1.5 py-0.5 rounded">
+                <span className="text-xs uppercase tracking-wider text-plasma-orange bg-plasma-orange/20 px-1.5 py-0.5 rounded">
                   Active
                 </span>
               )}
             </div>
-            <div className="grid grid-cols-3 gap-2">
+            <div className="grid grid-cols-[repeat(auto-fit,minmax(5.5rem,1fr))] gap-2">
               <MetricItem
                 label="Distance"
                 value={formatDistance(metrics.longPath.distance)}
@@ -1437,7 +1457,7 @@ export function PathAnalysis({
           {/* Propagation Info */}
           <div className="space-y-2 pt-3 border-t border-su-line/20 mt-3">
             <h4 className="text-xs font-medium text-su-muted">Propagation</h4>
-            <div className="grid grid-cols-3 gap-2">
+            <div className="grid grid-cols-[repeat(auto-fit,minmax(5.5rem,1fr))] gap-2">
               <MetricItem
                 label="Est. Hops"
                 value={`${metrics.hops}`}
@@ -1700,7 +1720,7 @@ const FrequencyLimitsDisplay = memo(function FrequencyLimitsDisplay({
     <div className="space-y-2 pt-3 border-t border-su-line/20 mt-3">
       <h4 className="text-xs font-medium text-su-muted">Freq Limits</h4>
       <div className="p-2 rounded-lg border border-su-line/40 bg-su-line/10">
-        <div className="grid grid-cols-2 gap-x-3 gap-y-1 font-mono text-xs">
+        <div className="grid grid-cols-[repeat(auto-fit,minmax(7rem,1fr))] gap-x-3 gap-y-1 font-mono text-xs">
           <div className="flex justify-between items-center">
             <span className="text-su-muted inline-flex items-center gap-0.5">
               MUF: <InfoTip content={PROPAGATION_TOOLTIPS.muf} />
@@ -1891,7 +1911,7 @@ const RadioSuggestions = memo(function RadioSuggestions({
         {radio.manufacturer} {radio.model}
       </div>
       <div className="p-2 rounded-lg border border-su-line/40 bg-su-line/10">
-        <div className="grid grid-cols-2 gap-x-3 gap-y-1 font-mono text-xs">
+        <div className="grid grid-cols-[repeat(auto-fit,minmax(7rem,1fr))] gap-x-3 gap-y-1 font-mono text-xs">
           <div className="flex justify-between">
             <span className="text-su-muted">Power:</span>
             <span className="text-plasma-orange">{suggestedPower}W</span>
@@ -1961,7 +1981,7 @@ const TerrainBounceDisplay = memo(function TerrainBounceDisplay({
 
   return (
     <div className="mt-2 p-2 rounded-lg border border-su-line/40 bg-su-line/10">
-      <div className="text-[10px] text-su-muted mb-1 uppercase tracking-wide">
+      <div className="text-xs text-su-muted mb-1 uppercase tracking-wide">
         Ground Bounce Terrain
       </div>
       <div className="flex flex-wrap gap-1.5">
@@ -1972,11 +1992,11 @@ const TerrainBounceDisplay = memo(function TerrainBounceDisplay({
             title={`Bounce ${i + 1}: ${getTerrainLabel(t)}`}
           >
             <span>{getTerrainIcon(t)}</span>
-            <span className="font-mono text-[10px]">{getTerrainLabel(t)}</span>
+            <span className="font-mono text-xs">{getTerrainLabel(t)}</span>
           </span>
         ))}
       </div>
-      <div className="flex justify-between text-[10px] font-mono mt-1">
+      <div className="flex justify-between text-xs font-mono mt-1">
         <span className="text-su-muted">Terrain loss:</span>
         <span className="text-caution-amber">
           {terrainData.totalLoss.toFixed(1)} dB

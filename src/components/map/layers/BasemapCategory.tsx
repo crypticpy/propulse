@@ -236,7 +236,10 @@ export default function BasemapCategory() {
 
   return (
     <div>
-      <div className="grid grid-cols-2 gap-2">
+      {/* Two tiles side by side while a tile can hold "OpenStreetMap" on one
+          line (root 16px); at the larger Text Size scales the tiles stack
+          instead of letting the subtitle spill past the tile border. */}
+      <div className="grid grid-cols-[repeat(auto-fit,minmax(6.25rem,1fr))] gap-2">
         {options.map((opt) => {
           const isActive = mapStyle === opt.id;
           return (
@@ -244,7 +247,7 @@ export default function BasemapCategory() {
               key={opt.id}
               type="button"
               onClick={() => setMapStyle(opt.id)}
-              className={`flex flex-col items-center gap-1.5 rounded-lg p-1.5 transition-all duration-150 cursor-pointer border ${
+              className={`flex min-w-0 flex-col items-center gap-1.5 rounded-lg p-1.5 transition-all duration-150 cursor-pointer border ${
                 isActive
                   ? "border-cyan-500 bg-cyan-500/10 ring-1 ring-cyan-500/40"
                   : "border-su-line/40 bg-su-line/10 hover:bg-su-line/20 hover:border-su-line"
@@ -260,20 +263,22 @@ export default function BasemapCategory() {
               </div>
               {/* Label + subtitle */}
               <span
-                className={`text-[11px] font-medium transition-colors ${
+                className={`text-xs font-medium transition-colors ${
                   isActive ? "text-cyan-400" : "text-su-text/80"
                 }`}
               >
                 {opt.label}
               </span>
               {opt.subtitle && (
-                <span className="text-[9px] text-su-text/80">{opt.subtitle}</span>
+                <span className="max-w-full break-words text-center text-xs text-su-text/80">
+                  {opt.subtitle}
+                </span>
               )}
             </button>
           );
         })}
       </div>
-      <p className="mt-2 text-[9px] text-su-text/80 text-center">
+      <p className="mt-2 text-xs text-su-text/80 text-center">
         {mapStyle === "satellite"
           ? subscriptionTier === "pro"
             ? "\u00A9 Mapbox \u00A9 OpenStreetMap"
@@ -282,15 +287,42 @@ export default function BasemapCategory() {
       </p>
 
       <div className="mt-3 border-t border-su-line/40 pt-3">
-        <div className="mb-2 flex items-center justify-between gap-2">
-          <span className="text-[10px] uppercase tracking-wider text-su-text/80">
+        {/*
+          Same fixed-pixel submenu column as the quality-button grid below
+          (tracked by #849). "Image quality" and "Effective: <label>" are
+          both `text-xs`; at the xl scale their combined width no longer
+          fits the column, and this row's only implicit clip guard is the
+          panel's `overflow-y-auto` (which computes `overflow-x: auto` per
+          spec once one axis is non-visible). `flex-wrap` lets the
+          effective-quality value drop to its own line instead.
+        */}
+        <div className="mb-2 flex flex-wrap items-center justify-between gap-x-2 gap-y-0.5">
+          <span className="text-xs uppercase tracking-wider text-su-text/80">
             Image quality
           </span>
-          <span className="text-[9px] text-cyan-400/80">
+          <span className="text-xs text-cyan-400/80">
             Effective: {effectiveQuality.label}
           </span>
         </div>
-        <div className="grid grid-cols-4 gap-1">
+        {/*
+          This submenu panel is a fixed-pixel box (LayersPopover's roughly
+          two-hundred-thirty-pixel-wide submenu column, tracked separately by
+          issue #849 for not following Settings -> Text Size), so the room
+          available here for these buttons never grows past roughly two
+          hundred pixels regardless of scale. Four equal columns at the
+          default text scale left each button only about fifty pixels wide --
+          under forty after its own padding and border -- and the longest
+          label here, "Extreme", could not fit on one line and spilled into
+          its neighbor; the same fixed room gets tighter relative to the
+          buttons at larger text scales, since the label text grows while
+          this box does not. `minmax(5rem, 1fr)` with `auto-fit` sizes each
+          column for the longest label at the current scale and lets the
+          grid fall back to fewer columns (down to a single column at the
+          largest scale) instead of holding four columns and letting one
+          overflow; `break-words` on the label is the backstop if a future
+          label is still too wide for even a single column.
+        */}
+        <div className="grid grid-cols-[repeat(auto-fit,minmax(5rem,1fr))] gap-1">
           {DISPLAY_QUALITY_OPTIONS.map((quality) => (
             <button
               key={quality.id}
@@ -298,7 +330,7 @@ export default function BasemapCategory() {
               onClick={() => setDisplayQuality(quality.id)}
               title={quality.description}
               aria-pressed={displayQuality === quality.id}
-              className={`rounded border px-1 py-1.5 text-[9px] transition-colors ${
+              className={`rounded border px-1 py-1.5 text-xs break-words transition-colors ${
                 displayQuality === quality.id
                   ? "border-cyan-500/60 bg-cyan-500/15 text-cyan-300"
                   : "border-su-line/40 bg-su-line/10 text-su-text/80 hover:bg-su-line/20 hover:text-su-text"
@@ -308,11 +340,11 @@ export default function BasemapCategory() {
             </button>
           ))}
         </div>
-        <p className="mt-1 text-[9px] leading-relaxed text-su-text/80">
+        <p className="mt-1 text-xs leading-relaxed text-su-text/80">
           Controls globe refinement, map tiles, textures, and HiDPI rendering.
         </p>
         {displayQuality === "extreme" && (
-          <p className="mt-2 text-[9px] leading-snug text-amber-400">
+          <p className="mt-2 text-xs leading-snug text-amber-400">
             Extreme can use substantial bandwidth and GPU memory. It refines
             to the provider&apos;s highest useful zoom after movement settles.
           </p>
@@ -322,7 +354,7 @@ export default function BasemapCategory() {
       <div className="mt-3 border-t border-su-line/40 pt-3">
         <label
           htmlFor="basemap-night-darkness"
-          className="flex items-center justify-between text-[10px] text-su-text/80"
+          className="flex items-center justify-between text-xs text-su-text/80"
         >
           <span>Night darkness</span>
           <output htmlFor="basemap-night-darkness" className="font-mono text-cyan-300">
@@ -342,7 +374,7 @@ export default function BasemapCategory() {
         />
         <p
           id="basemap-night-darkness-help"
-          className="mt-1 text-[9px] leading-relaxed text-su-text/80"
+          className="mt-1 text-xs leading-relaxed text-su-text/80"
         >
           Controls dark-side intensity when the Day/Night layer is on.
         </p>

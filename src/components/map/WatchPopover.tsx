@@ -563,7 +563,7 @@ export function WatchPopover() {
           {/* Grid + TX/RX */}
           <div>
             <label className="block text-xs text-su-text/80 mb-1">Grid</label>
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               <input
                 type="text"
                 value={form.gridPrefix}
@@ -575,7 +575,7 @@ export function WatchPopover() {
                 }
                 placeholder="e.g., EM73"
                 maxLength={6}
-                className="flex-1 bg-su-line/10 border border-su-line/40 rounded-lg px-3 py-1.5 text-sm text-su-text placeholder:text-su-muted/80 focus:border-signal-green/50 focus:outline-none font-mono"
+                className="flex-1 min-w-[6.5rem] bg-su-line/10 border border-su-line/40 rounded-lg px-3 py-1.5 text-sm text-su-text placeholder:text-su-muted/80 focus:border-signal-green/50 focus:outline-none font-mono"
               />
               <div className="flex items-center gap-2 shrink-0">
                 {(["tx", "rx", "either"] as const).map((dir) => (

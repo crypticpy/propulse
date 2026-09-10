@@ -1086,6 +1086,9 @@ describe("round-14 Codex site family: non-wrapping label rows in the narrow colu
     ["src/components/map/SatelliteOverlay.tsx", '<span style={{ color: "#888" }}>Next pass: </span>'],
     ["src/components/map/SatelliteOverlay.tsx", '<span style={{ color: "#555" }}>TLE:</span>'],
     ["src/components/map/SatelliteOverlay.tsx", 'xpdr.mode === "FM"'],
+    // Round 17: the Watch popover's Grid row (input + shrink-0 TX/RX/Any
+    // radio group) at 276px of popover width on a 320px viewport at xl.
+    ["src/components/map/WatchPopover.tsx", 'placeholder="e.g., EM73"'],
   ];
 
   it.each(SITES)("%s: the row above %j wraps", (file, anchor) => {
@@ -1100,6 +1103,11 @@ describe("round-14 Codex site family: non-wrapping label rows in the narrow colu
       .find((l) => /className="flex /.test(l));
     expect(row, anchor).toBeDefined();
     expect(row, anchor).toContain("flex-wrap");
+  });
+
+  it("the Watch popover's grid input keeps a min width that fits six mono characters so the row wraps instead of squeezing it", () => {
+    const source = readFileSync(resolve(REPO_ROOT, "src/components/map/WatchPopover.tsx"), "utf8");
+    expect(source).toMatch(/placeholder="e\.g\., EM73"[\s\S]{0,80}className="flex-1 min-w-\[6\.5rem\] /);
   });
 
   it("no diff file keeps a non-wrapping flex row whose label is uppercase tracking-wider text-xs", () => {

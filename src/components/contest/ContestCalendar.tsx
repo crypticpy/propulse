@@ -244,7 +244,7 @@ const ContestEntryCard = memo(function ContestEntryCard({
           <button
             type="button"
             onClick={() => onStartContest(entry.definitionId!)}
-            className="shrink-0 px-3 py-1.5 rounded text-xs font-medium bg-plasma-orange/20 text-su-text border border-plasma-orange/30 hover:bg-plasma-orange/20 transition-colors"
+            className="shrink-0 px-3 py-1.5 rounded text-xs font-medium bg-plasma-orange/15 text-su-text border border-plasma-orange/30 hover:bg-plasma-orange/20 transition-colors"
           >
             Start Contest
           </button>

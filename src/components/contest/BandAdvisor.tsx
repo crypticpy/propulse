@@ -165,7 +165,7 @@ function QSYButton({
     <button
       type="button"
       onClick={handleQSY}
-      className="px-2 py-0.5 rounded text-[10px] font-bold bg-plasma-orange/20 text-su-text hover:bg-plasma-orange/20 transition-colors whitespace-nowrap"
+      className="px-2 py-0.5 rounded text-[10px] font-bold bg-plasma-orange/15 text-su-text hover:bg-plasma-orange/20 transition-colors whitespace-nowrap"
       title={
         connected
           ? `QSY to ${targetBand} (will tune rig)`

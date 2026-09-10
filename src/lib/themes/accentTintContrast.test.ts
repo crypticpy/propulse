@@ -42,7 +42,7 @@
  * So the treatment is the ink, not the alpha: keep the accent tint as the fill,
  * draw the label in `--su-text`, and keep the tint at or below `/20`. The sites
  * inside `src/components/ui` (this agent's file scope on #803) carry that
- * treatment and are measured individually below. The remaining 209 sites in 137
+ * treatment and are measured individually below. The remaining 192 sites in 124
  * files are sequenced by the orchestrator; the census ledger at the bottom
  * budgets them so no *new* same-line site can land in the meantime.
  */
@@ -103,13 +103,16 @@ interface SurfaceSpec {
 
 /**
  * Every backdrop an accent tint composites over in this app: the two station
- * backgrounds, and each of them under `Card`'s default `bg-su-line/10` glass
- * (`src/components/ui/Card.tsx`). Bare-surface tables certified chips that
- * failed inside the glass in #787/#788, so both layers are always measured.
+ * backgrounds, the opaque `--su-input` role (form controls, toggle wells --
+ * `void-black` maps to it, see `tailwind.config.js`), and panel/canvas under
+ * `Card`'s default `bg-su-line/10` glass (`src/components/ui/Card.tsx`).
+ * Bare-surface tables certified chips that failed inside the glass in
+ * #787/#788, so every layer a real site sits on is measured.
  */
 const SURFACES: SurfaceSpec[] = [
   { name: "panel", backdrop: (palette) => palette.panel },
   { name: "canvas", backdrop: (palette) => palette.canvas },
+  { name: "input", backdrop: (palette) => palette.input },
   {
     name: "glass over panel",
     backdrop: (palette) => compositeOnSurface(palette.line, 0.1, palette.panel),
@@ -360,10 +363,12 @@ function deriveAlpha(snippet: string): number {
  * Sites moved onto the `--su-text` treatment: the original `src/components/ui`
  * sites from #822, plus each sequenced follow-up batch's sites as they land
  * (batch 1: `src/components/contest`, #803). Each ships an accent tint at or
- * below `TINT_CAP` with a neutral label; steps that exceeded the cap (rest or
- * hover) came down to `/20`. Reverting any of them to `text-plasma-orange`
- * breaks its snippet assertion here, and a `src/components/ui` entry also
- * breaks the dedicated `src/components/ui` clause of the census guard below.
+ * below `TINT_CAP` with a neutral label; steps that exceeded the cap at rest
+ * came down to `/15` -> `hover:/20` so the hovered state stays inside the
+ * measured cap and still reads as a step. Reverting any of them to
+ * `text-plasma-orange` breaks its snippet assertion here, and a
+ * `src/components/ui` entry also breaks the dedicated `src/components/ui`
+ * clause of the census guard below.
  */
 const FIXED_SITES: TintedSite[] = [
   {
@@ -414,14 +419,18 @@ const FIXED_SITES: TintedSite[] = [
     snippet: `rounded bg-plasma-orange/15 text-su-text font-semibold`,
   },
   // Batch 1 (#803): src/components/contest -- 13 files, 17 sites. Card glass
-  // (bg-su-line/10 backdrop-blur-md) is composited over canvas for every site
-  // reached through the `/map` PropSphere dock (ContestDock and its children)
-  // or the `/contest` page; StationEstimate reads bare `bg-panel` inside
-  // ContestExplorerCard. Argued per-site in the PR body.
+  // (bg-su-line/10 backdrop-blur-md) is composited over canvas or panel for
+  // most sites, reached through the `/map` PropSphere dock (ContestDock and
+  // its children) or the `/contest` page; the two ContestRateSheet
+  // view-mode toggles sit on the opaque `--su-input` role instead --
+  // `ViewToggle`'s own `bg-void-black` container (ContestRateSheet.tsx:251)
+  // occludes the Card glass its ancestor provides. StationEstimate reads
+  // its own root's bare `bg-panel` (StationEstimate.tsx:145). Argued
+  // per-site in the PR body.
   {
     file: "src/components/contest/BandAdvisor.tsx",
     what: "the QSY action button",
-    snippet: `bg-plasma-orange/20 text-su-text hover:bg-plasma-orange/20`,
+    snippet: `bg-plasma-orange/15 text-su-text hover:bg-plasma-orange/20`,
   },
   {
     file: "src/components/contest/ContestBandMap.tsx",
@@ -436,7 +445,7 @@ const FIXED_SITES: TintedSite[] = [
   {
     file: "src/components/contest/ContestCalendar.tsx",
     what: 'the "Start Contest" button',
-    snippet: `bg-plasma-orange/20 text-su-text border border-plasma-orange/30 hover:bg-plasma-orange/20`,
+    snippet: `bg-plasma-orange/15 text-su-text border border-plasma-orange/30 hover:bg-plasma-orange/20`,
   },
   {
     file: "src/components/contest/ContestCalendar.tsx",
@@ -451,12 +460,14 @@ const FIXED_SITES: TintedSite[] = [
   {
     file: "src/components/contest/ContestRateSheet.tsx",
     what: "the Hourly view-mode toggle, active state",
-    snippet: `? "bg-plasma-orange/20 text-su-text"`,
+    snippet: `mode === "hourly"
+            ? "bg-plasma-orange/20 text-su-text"`,
   },
   {
     file: "src/components/contest/ContestRateSheet.tsx",
     what: "the 10-Min view-mode toggle, active state",
-    snippet: `? "bg-plasma-orange/20 text-su-text"`,
+    snippet: `mode === "10min"
+            ? "bg-plasma-orange/20 text-su-text"`,
   },
   {
     file: "src/components/contest/ContestScoreShare.tsx",
@@ -471,7 +482,7 @@ const FIXED_SITES: TintedSite[] = [
   {
     file: "src/components/contest/ContestVoiceControls.tsx",
     what: '"Apply" candidate button',
-    snippet: `bg-plasma-orange/20 text-su-text border border-plasma-orange/40 hover:bg-plasma-orange/20`,
+    snippet: `bg-plasma-orange/15 text-su-text border border-plasma-orange/40 hover:bg-plasma-orange/20`,
   },
   {
     file: "src/components/contest/MobileContestEntry.tsx",
@@ -496,7 +507,7 @@ const FIXED_SITES: TintedSite[] = [
   {
     file: "src/components/contest/PendingDraftReplaceBanner.tsx",
     what: '"Replace" button',
-    snippet: `bg-plasma-orange/20 text-su-text border border-plasma-orange/40 hover:bg-plasma-orange/20`,
+    snippet: `bg-plasma-orange/15 text-su-text border border-plasma-orange/40 hover:bg-plasma-orange/20`,
   },
   {
     file: "src/components/contest/StationEstimate.tsx",
@@ -564,12 +575,12 @@ describe("census guard: no new accent ink on an accent tint (#803)", () => {
    * escapes it by construction -- the `FIXED_SITES` table above is what covers
    * those.
    *
-   * The 209 sites below are the census #803 asks for, as a debt ledger rather
+   * The 192 sites below are the census #803 asks for, as a debt ledger rather
    * than an exemption list: each entry is the number of same-line pairings that
    * file carried at `32cf480c`, and the assertion is `<=`. A file that gains a
    * pairing fails; a file that is not listed is budgeted at zero, so a brand
    * new site fails; a file whose sites get fixed simply passes with room to
-   * spare, so the sequenced follow-up PRs (the 137 files outside this agent's
+   * spare, so the sequenced follow-up PRs (the 124 files outside this agent's
    * scope on #803) never have to touch this table to land. `src/components/ui`
    * is deliberately absent -- see the explicit clause below.
    */
@@ -706,7 +717,7 @@ describe("census guard: no new accent ink on an accent tint (#803)", () => {
    * (>= 5.19:1), while a near-white or near-black custom accent drops to
    * 3.70-4.21:1. These two `/30` sites predate #803 and sit in
    * `src/components/alerts`, outside this agent's file scope; they go into the
-   * same sequenced follow-up as the 209 above.
+   * same sequenced follow-up as the 192 above.
    */
   const ABOVE_CAP_LEDGER = new Map<string, number>([
     ["src/components/alerts/AlertRuleBuilder.tsx", 1],
@@ -763,7 +774,7 @@ describe("census guard: no new accent ink on an accent tint (#803)", () => {
     // The ledger only ever shrinks; a fix that lands must not be able to raise
     // the total past the census this PR measured.
     expect([...counts.values()].reduce((a, b) => a + b, 0)).toBeLessThanOrEqual(
-      209,
+      192,
     );
   });
 

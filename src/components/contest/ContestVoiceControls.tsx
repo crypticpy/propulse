@@ -157,7 +157,7 @@ export function ContestVoiceControls({
                     requestEntryFocus();
                     resetVoiceState(sessionId);
                   }}
-                  className="px-2 py-1 rounded text-[10px] font-bold bg-plasma-orange/20 text-su-text border border-plasma-orange/40 hover:bg-plasma-orange/20 transition-colors"
+                  className="px-2 py-1 rounded text-[10px] font-bold bg-plasma-orange/15 text-su-text border border-plasma-orange/40 hover:bg-plasma-orange/20 transition-colors"
                   title="Apply to entry"
                 >
                   Apply

@@ -20,7 +20,7 @@ export function PendingDraftReplaceBanner({
   }
 
   return (
-    <div className="mt-3 px-3 py-2 rounded-lg bg-plasma-orange/10 border border-plasma-orange/30 flex items-center gap-3">
+    <div className="mt-3 px-3 py-2 rounded-lg bg-su-line/10 border border-plasma-orange/30 flex items-center gap-3">
       <div className="text-xs text-su-text">
         Replace current draft{" "}
         <span className="font-mono text-su-text">{draft || "(empty)"}</span> with{" "}
@@ -33,7 +33,7 @@ export function PendingDraftReplaceBanner({
         <button
           type="button"
           onClick={onConfirm}
-          className="px-2 py-1 rounded bg-plasma-orange/20 text-su-text border border-plasma-orange/40 hover:bg-plasma-orange/20 transition-colors text-xs font-bold"
+          className="px-2 py-1 rounded bg-plasma-orange/15 text-su-text border border-plasma-orange/40 hover:bg-plasma-orange/20 transition-colors text-xs font-bold"
         >
           Replace
         </button>

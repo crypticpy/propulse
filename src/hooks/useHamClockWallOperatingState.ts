@@ -21,9 +21,10 @@
  * with no fallback merge of any kind — the reader/writer seam for a scoped
  * view runtime is `dxStore.selectedSpot` (#707), not this field, and this
  * hook must not anticipate that landing. On mount the two are reconciled by
- * stamp — `operatingStateStore.stamps.target.at` against `mapStore
- * .targetSetAt` — because the wall remounts (layout-mode toggle, navigate
- * back to `/map`) while the app-level `OperatingTransportHost` keeps
+ * stamp — `operatingStateStore.stamps.target.appliedAt` against `mapStore
+ * .targetSetAt`, both this window's own clock — because the wall remounts
+ * (layout-mode toggle, navigate back to `/map`) while the app-level
+ * `OperatingTransportHost` keeps
  * running: a stale phone cursor must not clobber a newer local `setTarget`,
  * and a cursor that advanced during the unmount must not be ignored merely
  * because the map still holds the previous target, which would leave the map
@@ -92,19 +93,29 @@ export function useHamClockWallOperatingState(): void {
     // Reconcile with a cursor that moved while this hook was unmounted (a
     // `hello` reply, or a phone that advanced the cursor through the
     // app-level `OperatingTransportHost` while the wall was off screen).
-    // Both sides carry a millisecond stamp in the same clock domain, so the
-    // newer of the two wins outright: a stale cursor never clobbers a newer
-    // local `setTarget`, and a newer cursor is never ignored just because
-    // the map happens to hold some older target (#859). A tie keeps the map,
-    // which is also what an already-applied cursor produces (`setTarget`
-    // stamps at apply time, so a second mount is a no-op).
+    // The newer of the two wins outright: a stale cursor never clobbers a
+    // newer local `setTarget`, and a newer cursor is never ignored just
+    // because the map happens to hold some older target (#859). A tie keeps
+    // the map, which is also what an already-applied cursor produces
+    // (`setTarget` stamps at apply time, so a second mount is a no-op).
+    //
+    // Compared against `appliedAt`, not the wire `at`: `at` is the
+    // *originating* device's `Date.now()` (a phone, whose clock is its own),
+    // while `targetSetAt` is this browser's, so comparing them would be wrong
+    // by the inter-device skew in either direction — a phone running behind
+    // would have its fresh cursor ignored, one running ahead could clobber a
+    // newer local pick. `appliedAt` is stamped by this window when the cursor
+    // lands here, so both sides of the comparison come off one clock. The
+    // cross-window workspace-sync path that carries `targetSetAt` (round 2,
+    // `useMapOperationalContext`) needs no such treatment: those windows are
+    // on one machine and share its clock.
     const operating = useOperatingStateStore.getState();
     const initial = operating.cursor.target;
     const resolved = toMapTarget(initial);
     // `resolved == null` is a callsign-only cursor with no location yet, and
     // an empty cursor is "nothing shared yet" — neither means "clear the
     // map", and `setTarget(null)` would also reset `isolateTargetPath`.
-    if (resolved && operating.stamps.target.at > useMapStore.getState().targetSetAt) {
+    if (resolved && operating.stamps.target.appliedAt > useMapStore.getState().targetSetAt) {
       useMapStore.getState().setTarget(resolved);
     }
 

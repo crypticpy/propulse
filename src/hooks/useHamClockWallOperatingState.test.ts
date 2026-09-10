@@ -31,6 +31,12 @@ function inboundTarget(
   grid: string | null,
   lat: number | null = null,
   lon: number | null = null,
+  /**
+   * The *sending* device's clock. Defaults to this one's, i.e. no skew; the
+   * skew tests pass a value hours away from it to model a phone whose clock
+   * is wrong.
+   */
+  at: number = Date.now(),
 ) {
   return {
     v: OPERATING_PROTOCOL_VERSION,
@@ -40,11 +46,14 @@ function inboundTarget(
     patch: {
       target: {
         value: { callsign, grid, lat, lon, spotId: null },
-        at: Date.now(),
+        at,
       },
     },
   };
 }
+
+/** A phone whose clock is a full day away from this browser's. */
+const SKEW_MS = 24 * 60 * 60 * 1000;
 
 beforeEach(() => {
   localStorage.clear();
@@ -112,6 +121,52 @@ describe("useHamClockWallOperatingState", () => {
     expect(target).toMatchObject({ name: "W2XYZ", grid: "FN20" });
     expect(target?.lat).toBeCloseTo(40.5, 1);
     expect(target?.lon).toBeCloseTo(-75, 1);
+  });
+
+  it("applies a cursor stamped by a device whose clock runs behind", () => {
+    // The wire `at` is the *sending* device's `Date.now()`. A phone a day
+    // behind stamps a cursor it sent seconds ago with yesterday's time, so a
+    // reconcile against `at` would call the freshest cursor in the session
+    // older than a map target picked minutes ago and ignore it forever
+    // (#859 round 3). What matters here is when the cursor arrived on *this*
+    // screen, which is what `appliedAt` records.
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-09-10T00:00:00Z"));
+
+    useMapStore.getState().setTarget({ lat: 40, lon: -80, name: "W3ABC" });
+
+    vi.advanceTimersByTime(5_000);
+    useOperatingStateStore
+      .getState()
+      .applyMessage(
+        inboundTarget("slow-phone", "K1ABC", "EM10", null, null, Date.now() - SKEW_MS),
+      );
+
+    renderHook(() => useHamClockWallOperatingState());
+
+    expect(useMapStore.getState().target).toMatchObject({ name: "K1ABC", grid: "EM10" });
+  });
+
+  it("keeps a newer local target over a cursor from a device whose clock runs ahead", () => {
+    // The mirror image: a phone a day ahead stamps every cursor with a time
+    // no local write can beat, so a reconcile against `at` would let a cursor
+    // this screen took minutes ago clobber the target the operator just
+    // picked here.
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-09-10T00:00:00Z"));
+
+    useOperatingStateStore
+      .getState()
+      .applyMessage(
+        inboundTarget("fast-phone", "K1ABC", "EM10", null, null, Date.now() + SKEW_MS),
+      );
+
+    vi.advanceTimersByTime(5_000);
+    useMapStore.getState().setTarget({ lat: 40, lon: -80, name: "W3ABC" });
+
+    renderHook(() => useHamClockWallOperatingState());
+
+    expect(useMapStore.getState().target).toMatchObject({ name: "W3ABC", lat: 40, lon: -80 });
   });
 
   it("keeps a target synced from a pop-out window over an older cursor", async () => {

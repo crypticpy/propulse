@@ -61,8 +61,25 @@ export const REGISTRATION_HEARTBEAT_MS = REGISTRATION_TTL_MS / 3;
 
 /** Which write won a field, and when. */
 export interface FieldStamp {
+  /**
+   * The *originating* screen's `Date.now()` at the moment of the write. This
+   * is the wire value: it travels in the patch and orders the last-writer-wins
+   * merge, so every screen resolves a conflict the same way. It is NOT this
+   * screen's clock — a phone whose clock is a day off stamps a day off — so
+   * never compare it against a locally produced timestamp. Use `appliedAt`.
+   */
   at: number;
   by: string;
+  /**
+   * This screen's `Date.now()` at the moment the write was *applied here*
+   * (#859). Local-only: never sent on the wire (`currentPatch` sends `value`
+   * and `at` only) and never persisted (`partialize` keeps `followScreens`
+   * alone), so it is always in the receiving window's clock domain and can be
+   * compared with other locally produced stamps such as
+   * `mapStore.targetSetAt`. A locally originated write applies immediately,
+   * so its `appliedAt` is the same moment as its `at`.
+   */
+  appliedAt: number;
 }
 
 /** A command as it was received, for widgets that need to react to one. */
@@ -149,10 +166,10 @@ function newDeviceId(): string {
 
 function emptyStamps(): Record<CursorField, FieldStamp> {
   return {
-    sessionId: { at: 0, by: "" },
-    band: { at: 0, by: "" },
-    target: { at: 0, by: "" },
-    contact: { at: 0, by: "" },
+    sessionId: { at: 0, by: "", appliedAt: 0 },
+    band: { at: 0, by: "", appliedAt: 0 },
+    target: { at: 0, by: "", appliedAt: 0 },
+    contact: { at: 0, by: "", appliedAt: 0 },
   };
 }
 
@@ -163,7 +180,11 @@ function nextStamp(): number {
   return lastIssuedStamp;
 }
 
-/** Deterministic on every screen: newer wins, and the higher sender id breaks a tie. */
+/**
+ * Deterministic on every screen: newer wins, and the higher sender id breaks a
+ * tie. Compares the wire `at`, never `appliedAt` — arrival order differs per
+ * screen, so merging on it would let two screens disagree about the winner.
+ */
 function beats(incoming: FieldStamp, current: FieldStamp): boolean {
   if (incoming.at !== current.at) return incoming.at > current.at;
   return incoming.by > current.by;
@@ -223,7 +244,12 @@ function post(payload: OperatingPayload): void {
   });
 }
 
-/** The full cursor as a patch, used to answer a `hello` from a screen that just opened. */
+/**
+ * The full cursor as a patch, used to answer a `hello` from a screen that just
+ * opened. Sends `value` and the wire `at` only: `by` is carried by the
+ * envelope's `senderId`, and `appliedAt` is local to whichever screen applied
+ * the write and is meaningless anywhere else.
+ */
 function currentPatch(state: OperatingStateStoreState): CursorPatch {
   const patch: CursorPatch = {};
   for (const field of CURSOR_FIELDS) {
@@ -250,7 +276,11 @@ function mergePatch(
   for (const field of CURSOR_FIELDS) {
     const entry = patch[field];
     if (!entry) continue;
-    const incoming: FieldStamp = { at: entry.at, by };
+    // `appliedAt` is stamped here — the one place a stamp is written — so it
+    // is this screen's clock for every path: a local `writeField` (same
+    // moment as its `nextStamp()`), an inbound `state` patch, a `hello`
+    // reply, and the `selectSpot` command that also moves the cursor.
+    const incoming: FieldStamp = { at: entry.at, by, appliedAt: Date.now() };
     if (!beats(incoming, stamps[field])) continue;
     Object.assign(cursor, { [field]: entry.value });
     stamps[field] = incoming;

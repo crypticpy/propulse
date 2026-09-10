@@ -136,7 +136,7 @@ describe("operatingStateStore", () => {
 
     a.store.setState({
       cursor: { ...a.store.getState().cursor, band: "20m" },
-      stamps: { ...a.store.getState().stamps, band: { at: 5_000, by: "aaa" } },
+      stamps: { ...a.store.getState().stamps, band: { at: 5_000, by: "aaa", appliedAt: 5_000 } },
     });
 
     const patch = (band: string) =>

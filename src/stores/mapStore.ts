@@ -385,11 +385,16 @@ export interface MapState {
   setTarget: (target: TargetLocation | null) => void;
   /**
    * `Date.now()` of the last write to `target` (`0` before the first one).
-   * Same clock domain as `operatingStateStore`'s `stamps.target.at`, so a
-   * screen that mounts late can tell whether the shared operating cursor or
-   * this map's own target is the newer of the two (#859) instead of guessing
-   * from `target != null`. Written only by the two actions below; nothing
-   * reads it for rendering, so it never needs to be in a selector.
+   * This window's clock, so it may only be compared with another stamp taken
+   * on this machine: `operatingStateStore`'s `stamps.target.appliedAt` (when
+   * the cursor was applied *here*), never its wire `at` (the originating
+   * device's clock, off by the inter-device skew). That lets a screen which
+   * mounts late tell whether the shared operating cursor or this map's own
+   * target is the newer of the two (#859) instead of guessing from
+   * `target != null`. Written only by the two actions below — and carried
+   * across the workspace sync channel by `useMapOperationalContext`, which is
+   * sound because those windows share one machine's clock. Nothing reads it
+   * for rendering, so it never needs to be in a selector.
    */
   targetSetAt: number;
 

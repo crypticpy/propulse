@@ -78,12 +78,13 @@
  * table). `PinFlyout.tsx` (10 sites) is owned by a concurrent PR (#824,
  * wiring the remaining map overlays to the focus home) and was skipped for
  * the next file down the census, per that issue's collision warning; it is
- * not counted in the follow-up total below. Each of the 14 files fixed
- * here was confirmed mounted with a `<ComponentName` render-site grep back
- * to a routed page (`src/pages/PropSphere.tsx`, itself lazy-routed in
- * `App.tsx`) or a parent already on that chain (`GlobeView.tsx`,
- * `FlatMapView.tsx`, `LayersPopover.tsx`, `ProToolbarRibbon.tsx`) -- none
- * were barrel-export-only, so this slice has no dead-code exclusions.
+ * deferred rather than done, so it stays counted in the follow-up total
+ * below. Each of the 14 files fixed here was confirmed mounted with a
+ * `<ComponentName` render-site grep back to a routed page
+ * (`src/pages/PropSphere.tsx`, itself lazy-routed in `App.tsx`) or a parent
+ * already on that chain (`GlobeView.tsx`, `FlatMapView.tsx`,
+ * `LayersPopover.tsx`, `ProToolbarRibbon.tsx`) -- none were
+ * barrel-export-only, so this slice has no dead-code exclusions.
  * `layers/SatelliteDetailModal.tsx` is confirmed the component this census
  * means (not the unrelated `satellites/SatelliteDetailModal.tsx`),
  * rendered from both `PropSphere.tsx` and `SatellitesPage.tsx`. This PR
@@ -106,7 +107,14 @@
  * history rather than independent claims. Before editing this file, `git
  * fetch`/merge `origin/main` and re-read it from the merged state -- two
  * rounds appending to `FILES` in parallel produce a textual merge that
- * looks valid and that nobody has actually read. Each round's paragraph
+ * looks valid and that nobody has actually read. Re-run the census with
+ * BOTH pathspecs: the direct-children one, `'src/components/map/*.tsx'`,
+ * and the recursive one written with a doubled star. Git's doubled-star
+ * pathspec needs an actual subdirectory segment, so the recursive pattern
+ * on its own silently skips every direct child of the directory -- on this
+ * round it reported 16 files / 111 sites for a directory that really holds
+ * 83 / 416. (The recursive pattern is not spelled out here because the
+ * sequence that ends it also ends this comment.) Each round's paragraph
  * records: the directory, the census numbers, which files were fixed,
  * which were deliberately left un-raised (and why), and the allowlist
  * count -- zero, ideally.

@@ -850,6 +850,144 @@ function extractObjectEntries(
   return { entries, spreads, order };
 }
 
+/** One binding introduced by an object-destructuring pattern's own syntax --
+ * `{ a, b: renamed, c = default, ...others, d: { e } }`. `localName` is the
+ * name actually bound in scope (the identifier after `:`, or the shorthand
+ * name itself); `sourceKey` is the source object's own key it reads from
+ * (`null` only for a `...rest` binding, which isn't tied to any single key).
+ * `nestedPattern` is set only for `key: { ... }` (nested destructuring) and
+ * holds that inner pattern's own raw text (braces included) for a further,
+ * recursive parse. A default (`c = default`) doesn't change how `c`
+ * resolves -- the destructured value is still the source key's own entry
+ * whenever the source actually has that key, same fail-closed precision as
+ * everywhere else in this scanner (Codex, PR #874 round 35). */
+interface DestructuringBinding {
+  localName: string;
+  sourceKey: string | null;
+  nestedPattern?: string;
+}
+
+/** Parses `{ a, b: renamed, c = default, ...others, d: { e } }` (braces
+ * included) into its own bindings, in source order. This is the pattern-side
+ * mirror of `extractObjectEntries`: same key-shape recognition and the same
+ * `scanToDepthZeroComma` skip-past-what-I-don't-understand rule (a default's
+ * own value, `c = someCall(1, 2)`, may itself contain a comma). A computed
+ * key (`{ [k]: renamed }`) is skipped -- there's no way to know which source
+ * key it reads at scan time, the same fail-closed skip an unresolved key
+ * shape already gets everywhere else in this file (Codex, PR #874
+ * round 35). */
+function parseDestructuringPattern(patternText: string): DestructuringBinding[] {
+  const bindings: DestructuringBinding[] = [];
+  const end = extractBalanced(patternText, 0, "{", "}").endIndex;
+  let i = 1; // past the pattern's own opening '{'
+  while (i < end) {
+    while (i < end && /[\s,]/.test(patternText[i])) i++;
+    if (i >= end) break;
+
+    if (patternText.slice(i, i + 3) === "...") {
+      const specStart = i + 3;
+      const specEnd = scanToDepthZeroComma(patternText, specStart, end);
+      const spec = patternText.slice(specStart, specEnd).trim();
+      if (/^[A-Za-z_$][\w$]*$/.test(spec)) {
+        bindings.push({ localName: spec, sourceKey: null });
+      }
+      i = specEnd;
+      continue;
+    }
+
+    const idMatch = /^[A-Za-z_$][\w$]*/.exec(patternText.slice(i, i + 200));
+    if (!idMatch) {
+      // A computed key or another shape this parser doesn't recognize --
+      // skipped past to the next depth-0 comma rather than aborting the
+      // whole pattern.
+      const skipTo = scanToDepthZeroComma(patternText, i, end);
+      i = skipTo > i ? skipTo : i + 1;
+      continue;
+    }
+    const key = idMatch[0];
+    let j = i + key.length;
+    while (j < end && /\s/.test(patternText[j])) j++;
+    if (patternText[j] === ":") {
+      j++;
+      while (j < end && /\s/.test(patternText[j])) j++;
+      if (patternText[j] === "{") {
+        const nestedEnd = extractBalanced(patternText, j, "{", "}").endIndex;
+        const nestedPattern = patternText.slice(j, nestedEnd + 1);
+        bindings.push({ localName: key, sourceKey: key, nestedPattern });
+        i = scanToDepthZeroComma(patternText, nestedEnd + 1, end);
+        continue;
+      }
+      const renamedMatch = /^[A-Za-z_$][\w$]*/.exec(patternText.slice(j, j + 200));
+      const valueEnd = scanToDepthZeroComma(patternText, j, end);
+      if (renamedMatch) {
+        bindings.push({ localName: renamedMatch[0], sourceKey: key });
+      }
+      i = valueEnd;
+      continue;
+    }
+    // Shorthand, optionally defaulted (`a` or `a = default`) -- the default
+    // itself is scanned past without needing to be examined, same reasoning
+    // as this function's own docstring.
+    const valueEnd = scanToDepthZeroComma(patternText, i, end);
+    bindings.push({ localName: key, sourceKey: key });
+    i = valueEnd;
+  }
+  return bindings;
+}
+
+/** Registers every binding `parseDestructuringPattern` found for one
+ * destructuring declarator as its own `ConstDecl`, so a later
+ * `className={alert}` resolves through `visibleDecl` exactly like a plain
+ * `const alert = "…"` would. `sourceEntries`/`sourceLiteral` are the already-
+ * resolved source object's own `entries`/`literal` (a spread-merged object's
+ * `entries`, from `spreadQueue`, is included -- this runs after that queue).
+ * A key present in `sourceEntries` resolves to that key's own entry,
+ * precisely; a key the source object doesn't have a precise entry for (an
+ * unresolvable spread's open key already replaced with the whole object's
+ * flattened literal, a computed key, or one this scanner never modeled)
+ * falls back to `sourceLiteral`, fail closed. A `...rest` binding is always
+ * "open" -- it could carry any key the pattern didn't destructure by name --
+ * so it always falls back to `sourceLiteral` too. A nested pattern (`d: {
+ * e }`) recurses using `d`'s own entry as the new source, however deep it
+ * goes (Codex, PR #874 round 35). */
+function registerDestructuringBindings(
+  bindings: DestructuringBinding[],
+  sourceEntries: Map<string, ConstEntry> | undefined,
+  sourceLiteral: string,
+  scopeStart: number,
+  scopeEnd: number,
+  index: number,
+  decls: ConstDecl[],
+): void {
+  for (const binding of bindings) {
+    if (binding.sourceKey === null) {
+      decls.push({ name: binding.localName, index, literal: sourceLiteral, scopeStart, scopeEnd });
+      continue;
+    }
+    const entry = sourceEntries?.get(binding.sourceKey);
+    if (binding.nestedPattern) {
+      registerDestructuringBindings(
+        parseDestructuringPattern(binding.nestedPattern),
+        entry?.entries,
+        entry?.literal ?? sourceLiteral,
+        scopeStart,
+        scopeEnd,
+        index,
+        decls,
+      );
+      continue;
+    }
+    decls.push({
+      name: binding.localName,
+      index,
+      literal: entry?.literal ?? sourceLiteral,
+      entries: entry?.entries,
+      scopeStart,
+      scopeEnd,
+    });
+  }
+}
+
 /** Result of `skipTypeAnnotation`: either the position just past the
  * terminating `=` and any following whitespace (`kind: "initializer"`), or --
  * only reachable for `let`/`var`, since a `const` always has an initializer
@@ -1247,6 +1385,17 @@ function collectConstTemplateMap(source: string): ConstDecl[] {
   // round 32; round 34 replays the object's full `order`, not just its
   // spreads, so overwrite order matches the source).
   const spreadQueue: Array<{ decl: ConstDecl; order: ObjectEntryOp[] }> = [];
+  // A destructuring declarator's own bindings (`const { alert } = styles;`)
+  // are deferred the same way -- `styles` may be declared anywhere relative
+  // to this destructure, and (if `styles` is itself spread-merged) needs
+  // `spreadQueue` to have already run (Codex, PR #874 round 35).
+  const destructureQueue: Array<{
+    pattern: string;
+    sourceName: string;
+    scopeStart: number;
+    scopeEnd: number;
+    index: number;
+  }> = [];
   const keywordRe = /\b(const|let|var)\s+/g;
   let m: RegExpExecArray | null;
   while ((m = keywordRe.exec(source))) {
@@ -1275,13 +1424,20 @@ function collectConstTemplateMap(source: string): ConstDecl[] {
     // `className={classes}` had no declaration to resolve against no
     // matter what `pulse` itself resolved to (Codex, PR #874 round 33).
     for (;;) {
-      // A destructuring declarator (`{ a } = …`/`[x] = …`) is skipped
-      // entirely -- its bound names aren't a single identifier this scanner
-      // can register precisely -- but its own type annotation/initializer
-      // still has to be scanned past correctly so a LATER declarator in the
-      // same list isn't lost too.
+      // A destructuring declarator's own type annotation/initializer still
+      // has to be scanned past correctly so a LATER declarator in the same
+      // list isn't lost. An object pattern (`{ a } = …`) destructured from a
+      // bare-identifier RHS is queued to `destructureQueue` and its own
+      // bindings registered once that identifier resolves (below); any other
+      // RHS shape (a call, a member access, a ternary...) can't be resolved
+      // to a declaration at all, and an array pattern (`[x] = …`) has no
+      // registrable shape either -- `ConstEntry` doesn't index an array's own
+      // elements, only flattens its literals same as round 16 -- so both keep
+      // today's prior behaviour: scanned past, but never registered (Codex,
+      // PR #874 round 35).
       if (source[pos] === "{" || source[pos] === "[") {
         const open = source[pos];
+        const patternStart = pos;
         const patternEnd =
           open === "{" ? extractBalanced(source, pos, "{", "}").endIndex : findBracketClose(source, pos);
         let after = (patternEnd === -1 ? source.length - 1 : patternEnd) + 1;
@@ -1293,7 +1449,20 @@ function collectConstTemplateMap(source: string): ConstDecl[] {
         } else if (source[after] === "=") {
           let i = after + 1;
           while (i < source.length && /\s/.test(source[i])) i++;
+          const valueStart = i;
           after = findInitializerEnd(source, i);
+          if (open === "{") {
+            const rhs = source.slice(valueStart, after).trim();
+            if (/^[A-Za-z_$][\w$]*$/.test(rhs) && patternEnd !== -1) {
+              destructureQueue.push({
+                pattern: source.slice(patternStart, patternEnd + 1),
+                sourceName: rhs,
+                scopeStart,
+                scopeEnd,
+                index: patternStart,
+              });
+            }
+          }
         }
         pos = after;
       } else {
@@ -1438,6 +1607,23 @@ function collectConstTemplateMap(source: string): ConstDecl[] {
       entries.set(key, { literal: decl.literal, entries: existing?.entries });
     }
     decl.entries = entries;
+  }
+  // Runs after `spreadQueue` so a destructuring source that is itself a
+  // spread-merged object (`const styles = { ...base }; const { alert } =
+  // styles;`) already has its final, merged `entries` by the time it's
+  // resolved here (Codex, PR #874 round 35).
+  for (const { pattern, sourceName, scopeStart, scopeEnd, index } of destructureQueue) {
+    const sourceDecl = visibleDecl(decls, sourceName, index);
+    if (!sourceDecl) continue;
+    registerDestructuringBindings(
+      parseDestructuringPattern(pattern),
+      sourceDecl.entries,
+      sourceDecl.literal,
+      scopeStart,
+      scopeEnd,
+      index,
+      decls,
+    );
   }
   return decls;
 }
@@ -2554,6 +2740,18 @@ function blankJsxElements(text: string, elements: JsxElement[]): string {
  * `{ready ? <span className="h-2" /> : "Loading"}` both still count. */
 function isExpressionBlockTextBearing(block: string): boolean {
   const inner = block.slice(1, -1);
+  // `inner` has already had every comment blanked to same-length spaces by
+  // the time this runs (`blankCommentsAndQuotedJsx`, applied once during
+  // normalization, before any element-level scanning) -- so a comment-only
+  // block arrives here as nothing but whitespace, not as literally empty
+  // text. Without this check, that whitespace fell into the "no JSX-shaped
+  // content, fail closed to true" path just below, wrongly counting a
+  // decorative comment placeholder (or a literal `{}`) as rendered text. The
+  // rendered-space idiom `{" "}` is unaffected -- its quote characters are
+  // not JSX-shaped text and are never blanked, so `inner` there is `" "`
+  // (quotes included), not whitespace-only, and still falls through to the
+  // same fail-closed `true` below it always has (Codex, PR #874 round 35).
+  if (inner.trim() === "") return false;
   if (!/<(?:[A-Za-z]|>)/.test(inner)) return true;
   const elements = extractJsxElements(inner);
   if (elements.length === 0) return true;
@@ -3195,12 +3393,75 @@ function resolveModuleKey(fromFile: string, specifier: string): string | null {
  * `// export { fake }` inside a comment is never picked up. */
 function collectExportedNames(source: string): Map<string, string> {
   const exported = new Map<string, string>();
-  const directRe = /\bexport\s+(?:const|let|var)\s+([A-Za-z_$][\w$]*)/g;
-  let m: RegExpExecArray | null;
-  while ((m = directRe.exec(source))) {
-    exported.set(m[1], m[1]);
+  // `export const safe = "text-xs", classes = "animate-pulse";` used to
+  // register only `safe` -- the old regex captured just the first name after
+  // the keyword and never looked past it. Every declarator in the statement
+  // is walked instead, reusing `collectConstTemplateMap`'s own round-33
+  // comma-declarator-splitting loop: only the NAME is needed here (not a
+  // literal/entries), so a destructuring declarator's own pattern/initializer
+  // is still scanned past correctly (via the same `extractBalanced`/
+  // `findBracketClose`/`skipTypeAnnotation`/`findInitializerEnd` calls) but,
+  // same as `collectConstTemplateMap` before round 35, contributes no name of
+  // its own -- an exported destructuring binding (`export const { a } =
+  // obj;`) is a rarer shape this pass doesn't resolve (Codex, PR #874
+  // round 35).
+  const keywordRe = /\bexport\s+(?:const|let|var)\s+/g;
+  while (keywordRe.exec(source)) {
+    let pos = keywordRe.lastIndex;
+    for (;;) {
+      if (source[pos] === "{" || source[pos] === "[") {
+        const open = source[pos];
+        const patternEnd =
+          open === "{" ? extractBalanced(source, pos, "{", "}").endIndex : findBracketClose(source, pos);
+        let after = (patternEnd === -1 ? source.length - 1 : patternEnd) + 1;
+        while (after < source.length && /\s/.test(source[after])) after++;
+        if (source[after] === ":") {
+          const typeResult = skipTypeAnnotation(source, after);
+          after = typeResult === null ? after + 1 : typeResult.pos;
+          if (typeResult?.kind === "initializer") after = findInitializerEnd(source, after);
+        } else if (source[after] === "=") {
+          let i = after + 1;
+          while (i < source.length && /\s/.test(source[i])) i++;
+          after = findInitializerEnd(source, i);
+        }
+        pos = after;
+      } else {
+        const nameMatch = /^[A-Za-z_$][\w$]*/.exec(source.slice(pos));
+        if (!nameMatch) break;
+        const name = nameMatch[0];
+        exported.set(name, name);
+        let after = pos + name.length;
+        while (after < source.length && /\s/.test(source[after])) after++;
+        if (source[after] === ":") {
+          const typeResult = skipTypeAnnotation(source, after);
+          if (typeResult === null) {
+            pos = after + 1;
+            break;
+          }
+          pos = typeResult.kind === "initializer" ? findInitializerEnd(source, typeResult.pos) : typeResult.pos;
+        } else if (source[after] === "=") {
+          let i = after + 1;
+          while (i < source.length && /\s/.test(source[i])) i++;
+          pos = findInitializerEnd(source, i);
+        } else if (source[after] === ";" || source[after] === ",") {
+          pos = after;
+        } else {
+          pos = after;
+          break;
+        }
+      }
+      while (pos < source.length && /\s/.test(source[pos])) pos++;
+      if (source[pos] === ",") {
+        pos++;
+        while (pos < source.length && /\s/.test(source[pos])) pos++;
+        continue;
+      }
+      break;
+    }
+    keywordRe.lastIndex = pos;
   }
   const braceRe = /\bexport\s*\{([^}]*)\}/g;
+  let m: RegExpExecArray | null;
   while ((m = braceRe.exec(source))) {
     for (const rawSpec of m[1].split(",")) {
       const spec = rawSpec.trim();
@@ -4012,6 +4273,67 @@ describe("scanSourceForViolations catches every spelling (fixture proofs, #878)"
     expect(scanSourceForViolations(fixture)).toEqual([]);
   });
 
+  it("resolves a class alias introduced by destructuring a resolvable config object", () => {
+    // `alert` is never registered as its own declaration at all -- the
+    // config-map scan never matches the combined object literal (`alert`
+    // isn't a top-level `const`), and alias resolution has no declaration
+    // named `alert` to resolve through either. Destructuring is now
+    // registered the same way a plain `const alert = styles.alert;` would
+    // be (Codex, PR #874 round 35).
+    const fixture =
+      'const styles = { alert: "text-red animate-pulse" };\nconst { alert } = styles;\nexport function A() { return <span className={alert}>Loading</span>; }';
+    expect(scanSourceForViolations(fixture)).not.toEqual([]);
+  });
+
+  it("resolves a renamed destructured binding (`b: renamed`) to its source key's own entry", () => {
+    const fixture =
+      'const styles = { alert: "text-red animate-pulse", ok: "text-xs" };\nconst { alert: tinted } = styles;\nexport function A() { return <span className={tinted}>Loading</span>; }';
+    expect(scanSourceForViolations(fixture)).not.toEqual([]);
+  });
+
+  it("does not flag a destructured binding for a non-pulsing key precisely, even though a sibling key on the same object pulses", () => {
+    const fixture =
+      'const styles = { alert: "text-red animate-pulse", ok: "text-xs" };\nconst { ok } = styles;\nexport function A() { return <span className={ok}>Idle</span>; }';
+    expect(scanSourceForViolations(fixture)).toEqual([]);
+  });
+
+  it("resolves a destructured default (`c = default`) to its source key's own entry when the source key is present", () => {
+    const fixture =
+      'const styles = { alert: "text-red animate-pulse" };\nconst { alert = "text-xs" } = styles;\nexport function A() { return <span className={alert}>Loading</span>; }';
+    expect(scanSourceForViolations(fixture)).not.toEqual([]);
+  });
+
+  it("resolves a nested destructured binding (`{ a: { b } }`) one level deep into the source's own nested entry", () => {
+    const fixture =
+      'const styles = { status: { alert: "text-red animate-pulse", ok: "text-xs" } };\nconst { status: { alert } } = styles;\nexport function A() { return <span className={alert}>Loading</span>; }';
+    expect(scanSourceForViolations(fixture)).not.toEqual([]);
+  });
+
+  it("fails closed on a rest binding (`...others`), since it could carry any key the pattern didn't destructure by name", () => {
+    const fixture =
+      'const styles = { safe: "text-green", alert: "text-red animate-pulse" };\nconst { safe, ...others } = styles;\nexport function A() { return <span className={others}>Idle</span>; }';
+    expect(scanSourceForViolations(fixture)).not.toEqual([]);
+  });
+
+  it("still keeps today's behaviour for a destructuring source this scanner can't resolve (a call), registering nothing", () => {
+    // `getStyles()` isn't a declaration `visibleDecl` can look up, so `alert`
+    // is never registered at all -- same silent no-registration this scanner
+    // already gave a destructuring declarator before round 35, not a new
+    // false negative.
+    const fixture =
+      'const { alert } = getStyles();\nexport function A() { return <span className={alert}>Loading</span>; }';
+    expect(scanSourceForViolations(fixture)).toEqual([]);
+  });
+
+  it("still keeps today's behaviour for array destructuring, since entries are never indexed per-element", () => {
+    // `ConstEntry` only ever flattens an array's own literals (round 16); it
+    // never models per-index access, so `[alert]` can't be resolved
+    // precisely and is left unregistered, same as before round 35.
+    const fixture =
+      'const styles = ["text-green", "text-red animate-pulse"];\nconst [safe, alert] = styles;\nexport function A() { return <span className={alert}>Loading</span>; }';
+    expect(scanSourceForViolations(fixture)).toEqual([]);
+  });
+
   it("resolves an identifier-only const alias concatenated with a literal", () => {
     const fixture =
       'const pulse = "animate-pulse";\nconst classes = pulse + " text-xs";\nexport function A() { return <span className={classes}>Loading</span>; }';
@@ -4487,6 +4809,39 @@ describe("scanSourceForViolations catches every spelling (fixture proofs, #878)"
     expect(scanSourceForViolations(fixture)).toEqual([]);
   });
 
+  it("dismisses a comment-only expression block, since it blanks to whitespace and renders nothing", () => {
+    // `{/* skeleton */}` blanks to `{   }` (comments are blanked to
+    // same-length spaces before any element-level scanning) --
+    // `isExpressionBlockTextBearing`'s "no JSX-shaped content" early return
+    // used to treat that whitespace the same as a real value block
+    // (`{count}`), wrongly counting a decorative comment placeholder as
+    // rendered text (Codex, PR #874 round 35).
+    const fixture =
+      '<div className="animate-pulse">{/* skeleton */}<span className="h-2" /></div>';
+    expect(scanSourceForViolations(fixture)).toEqual([]);
+  });
+
+  it("dismisses a literal empty expression block (`{}`)", () => {
+    const fixture = '<div className="animate-pulse">{}<span className="h-2" /></div>';
+    expect(scanSourceForViolations(fixture)).toEqual([]);
+  });
+
+  it("dismisses two adjacent comment-only expression blocks", () => {
+    const fixture =
+      '<div className="animate-pulse">{/* a */}{/* b */}<span className="h-2" /></div>';
+    expect(scanSourceForViolations(fixture)).toEqual([]);
+  });
+
+  it("still catches a rendered-space idiom (`{\" \"}`), unaffected by the whitespace-only comment fix", () => {
+    // `{" "}`'s inner text is `" "` (quote characters included) -- those
+    // quotes are not JSX-shaped text and are never blanked by
+    // `blankCommentsAndQuotedJsx`, so this is not whitespace-only and keeps
+    // its prior fail-closed `true` (this scanner doesn't special-case a
+    // whitespace-only *string literal* differently from any other string).
+    const fixture = '<div className="animate-pulse">{" "}<span className="h-2" /></div>';
+    expect(scanSourceForViolations(fixture)).not.toEqual([]);
+  });
+
   it("catches a logical-OR fallback's left operand, since both operands of `||` render (not just the condition of `?`/left of `&&`)", () => {
     // Round 21 wrongly treated the operand before every operator (`?`,
     // `&&`, `||`, `??`) as a condition and ignored it -- but `||`/`??` are
@@ -4798,6 +5153,53 @@ describe("scanModuleForViolations resolves imported animate-pulse class bindings
     const exportsMap = collectExportedPulseBindings({ "src/lib/a.ts": plainSource, "src/lib/b.tsx": bSource });
     expect(scanModuleForViolations("src/lib/b.tsx", bSource, exportsMap)).toEqual([]);
     expect(resolveImportedDecls("src/lib/b.tsx", bSource, exportsMap)).toEqual([]);
+  });
+
+  it("flags a named import of an exported statement's second declarator, not just its first", () => {
+    // `export const safe = "text-xs", alertClasses = "text-alert-red
+    // animate-pulse";` used to register only `safe` in the export map --
+    // `collectExportedNames`'s old regex captured just the first name after
+    // `export const` (Codex, PR #874 round 35).
+    const aSource = 'export const safe = "text-xs", alertClasses = "text-alert-red animate-pulse";';
+    const bSource =
+      'import { alertClasses } from "@/lib/a";\nexport function B() { return <span className={alertClasses}>Critical</span>; }';
+    const exportsMap = collectExportedPulseBindings({ "src/lib/a.ts": aSource, "src/lib/b.tsx": bSource });
+    expect(scanModuleForViolations("src/lib/b.tsx", bSource, exportsMap)).not.toEqual([]);
+  });
+
+  it("flags a named import of an `export let` statement's second declarator (same multi-declarator fix, `let` keyword)", () => {
+    const aSource = 'export let safe = "text-xs", alertClasses = "text-alert-red animate-pulse";';
+    const bSource =
+      'import { alertClasses } from "@/lib/a";\nexport function B() { return <span className={alertClasses}>Critical</span>; }';
+    const exportsMap = collectExportedPulseBindings({ "src/lib/a.ts": aSource, "src/lib/b.tsx": bSource });
+    expect(scanModuleForViolations("src/lib/b.tsx", bSource, exportsMap)).not.toEqual([]);
+  });
+
+  it("flags a renamed barrel re-export of a second-position declarator", () => {
+    // Combines the multi-declarator export fix with an existing barrel
+    // rename: `styles.ts` only becomes a pulsing module in `collectExported
+    // PulseBindings`'s pass 1 if `collectExportedNames` finds `alertClasses`
+    // at all -- which it couldn't, being the second declarator, before this
+    // round's fix -- so the barrel's own rename (already correct, unaffected
+    // by this bug) had nothing to propagate.
+    const stylesSource = 'export const safe = "text-xs", alertClasses = "text-alert-red animate-pulse";';
+    const indexSource = 'export { alertClasses as ac } from "./styles";';
+    const bSource =
+      'import { ac } from "./index";\nexport function B() { return <span className={ac}>Critical</span>; }';
+    const exportsMap = collectExportedPulseBindings({
+      "src/lib/styles.ts": stylesSource,
+      "src/lib/index.ts": indexSource,
+      "src/lib/b.tsx": bSource,
+    });
+    expect(scanModuleForViolations("src/lib/b.tsx", bSource, exportsMap)).not.toEqual([]);
+  });
+
+  it("does not flag a second-position declarator's name that never carries the pulse class", () => {
+    const aSource = 'export const alertClasses = "text-alert-red animate-pulse", safe = "text-xs";';
+    const bSource =
+      'import { safe } from "@/lib/a";\nexport function B() { return <span className={safe}>Idle</span>; }';
+    const exportsMap = collectExportedPulseBindings({ "src/lib/a.ts": aSource, "src/lib/b.tsx": bSource });
+    expect(scanModuleForViolations("src/lib/b.tsx", bSource, exportsMap)).toEqual([]);
   });
 
   it("ignores a type-only import entirely", () => {

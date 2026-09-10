@@ -633,18 +633,98 @@ function extractLiteralBodies(text: string): string[] {
   return bodies;
 }
 
+/** Top-level `key: <value>` / `"key": <value>` / `'key': <value>` entries of
+ * an object-literal initializer `text` (its own braces included -- `text[0]`
+ * must be `{` and `text` must end with its matching `}`), each value
+ * resolved to the space-joined body of every string/template literal found
+ * inside it via `extractLiteralBodies`. A nested object value (`alert: {
+ * textColor: "...", animate: "..." }`) has its own literals flattened into
+ * the *parent* key's entry rather than recursed into separate keys -- one
+ * level of member access (`NAME.key`) is what `resolveConstRefs` needs to
+ * resolve, not arbitrary nesting. A key this simple parser can't make sense
+ * of (a computed key, a spread) stops entry collection at that point rather
+ * than guessing; whatever entries were already found are still returned
+ * (Codex, PR #874 round 16). */
+function extractObjectEntries(text: string): Map<string, string> {
+  const entries = new Map<string, string>();
+  // The object's own matching close, not just `text`'s last character --
+  // `text` is a `const` initializer slice and may carry trailing
+  // whitespace after the object literal (`{ ... } ;`).
+  const end = extractBalanced(text, 0, "{", "}").endIndex;
+  let i = 1; // past the object's own opening '{'
+  while (i < end) {
+    while (i < end && /[\s,]/.test(text[i])) i++;
+    if (i >= end) break;
+    let key: string;
+    const c = text[i];
+    if (c === '"' || c === "'") {
+      const close = text.indexOf(c, i + 1);
+      if (close === -1) break;
+      key = text.slice(i + 1, close);
+      i = close + 1;
+    } else {
+      const idMatch = /^[A-Za-z_$][\w$]*/.exec(text.slice(i, i + 200));
+      if (!idMatch) break;
+      key = idMatch[0];
+      i += idMatch[0].length;
+    }
+    while (i < end && /\s/.test(text[i])) i++;
+    if (text[i] !== ":") break;
+    i++;
+    while (i < end && /\s/.test(text[i])) i++;
+    const valueStart = i;
+    let depth = 0;
+    while (i < end) {
+      const vc = text[i];
+      if (vc === "`") {
+        i += extractTemplateLiteral(text, i).length;
+        continue;
+      }
+      if (vc === '"' || vc === "'") {
+        const close = text.indexOf(vc, i + 1);
+        if (close === -1) {
+          i = end;
+          break;
+        }
+        i = close + 1;
+        continue;
+      }
+      if (vc === "(" || vc === "[" || vc === "{") {
+        depth++;
+        i++;
+        continue;
+      }
+      if (vc === ")" || vc === "]" || vc === "}") {
+        if (depth === 0) break;
+        depth--;
+        i++;
+        continue;
+      }
+      if (depth === 0 && vc === ",") break;
+      i++;
+    }
+    const bodies = extractLiteralBodies(text.slice(valueStart, i));
+    if (bodies.length > 0) entries.set(key, bodies.join(" "));
+  }
+  return entries;
+}
+
 /** Map of `const NAME = <initializer>` declarations in `source`, so a
  * `className={NAME}` (or a NAME used inside a `cn()`/template expression)
  * can be resolved to the classes it actually renders (RadioBadge's `base`),
  * instead of just the identifier text. The initializer can be a single
- * `"string"`/`'string'`/`` `template` `` (PR #874 round 12), or a more
- * composed expression -- a concatenation, a ternary, a `cn()`/`clsx()`/
- * `twMerge()` call -- resolved by extracting every literal body inside it
- * (round 15); an initializer that is a top-level object or array literal
- * (`{...}`/`[...]`, e.g. `SpotBadge`'s old `badgeConfig` variant map) is
- * left to the separate config-map scan below and never added here, and an
- * initializer with no string/template literal anywhere in it (numbers,
- * bare references) is skipped as not class-shaped. */
+ * `"string"`/`'string'`/`` `template` `` (PR #874 round 12), a more composed
+ * expression -- a concatenation, a ternary, a `cn()`/`clsx()`/`twMerge()`
+ * call -- resolved by extracting every literal body inside it (round 15), or
+ * a top-level object/array literal (round 16: `SpotBadge`'s old
+ * `badgeConfig` variant-map shape, `{ critical: "text-alert-red
+ * animate-pulse" }` accessed as `badgeClasses.critical`). An object's
+ * `literal` is every literal body anywhere inside it (the fail-closed
+ * fallback for a computed/unrecognised key access) and `entries` maps each
+ * top-level key to just that key's own literals, for `resolveConstRefs` to
+ * substitute precisely on a `NAME.key`/`NAME["key"]` reference. An
+ * initializer with no string/template literal anywhere in it (numbers, bare
+ * references) is skipped as not class-shaped. */
 interface ConstDecl {
   name: string;
   /** Offset of the declaration, used as the tie-break when two visible
@@ -653,6 +733,9 @@ interface ConstDecl {
    * (Codex, PR #874 round 13). */
   index: number;
   literal: string;
+  /** Present only for an object-literal initializer: top-level key to that
+   * key's own resolved literal text (round 16). */
+  entries?: Map<string, string>;
   /** Index range of the innermost enclosing `{...}` block the declaration
    * sits in (module scope = `0..source.length`), so `visibleDecl` can tell
    * a same-named const declared in an unrelated sibling function from the
@@ -672,15 +755,17 @@ function collectConstTemplateMap(source: string): ConstDecl[] {
   while ((m = declRe.exec(source))) {
     const valueStart = declRe.lastIndex;
     const firstChar = source[valueStart];
-    if (firstChar === "{" || firstChar === "[") continue;
     const end = findInitializerEnd(source, valueStart);
-    const bodies = extractLiteralBodies(source.slice(valueStart, end));
+    const initializerText = source.slice(valueStart, end);
+    const bodies = extractLiteralBodies(initializerText);
     if (bodies.length === 0) continue;
+    const entries = firstChar === "{" ? extractObjectEntries(initializerText) : undefined;
     const scope = findEnclosingBraceRange(source, m.index);
     decls.push({
       name: m[1],
       index: m.index,
       literal: bodies.join(" "),
+      entries,
       scopeStart: scope ? scope.start : 0,
       scopeEnd: scope ? scope.end : source.length,
     });
@@ -718,12 +803,56 @@ function visibleDecl(decls: ConstDecl[], name: string, atIndex: number): ConstDe
   return best;
 }
 
+/** Matches `NAME.key`, `NAME["key"]`/`NAME['key']`, or `NAME[expr]` -- a
+ * member access on a resolved object/array const -- so `resolveConstRefs`
+ * can substitute the specific entry a precise key names, rather than the
+ * const's whole literal, before its generic bare-identifier pass (which
+ * doesn't know about accessors) ever sees `NAME`. Alternation order matters:
+ * the quoted-bracket branch must be tried before the generic bracket branch
+ * so `NAME["key"]` resolves to that key precisely rather than falling
+ * through to the computed-access fallback (Codex, PR #874 round 16). */
+const MEMBER_ACCESS_RE =
+  /(?<![\w$-])([A-Za-z_$][\w$]*)(?:(\.[A-Za-z_$][\w$]*)|\[\s*(["'])((?:(?!\3)[\s\S])*)\3\s*\]|(\[[^\]]*\]))/g;
+
+/** Resolves every `NAME.key`/`NAME["key"]`/`NAME[expr]` member access in
+ * `raw` against an object/array const's `entries`: a precise key hit
+ * substitutes just that key's literal; a computed access, an unrecognised
+ * key, or a decl with no `entries` (a plain string/array const) fails
+ * closed and substitutes the whole `literal` instead -- over-approximating
+ * on purpose, so a real pulse hidden behind `obj[state]` is never missed
+ * (Codex, PR #874 round 16). Runs before the generic bare-identifier pass in
+ * `resolveConstRefs` so `NAME` is never left for that pass to resolve on its
+ * own once an accessor has already claimed it. */
+function resolveMemberAccess(
+  raw: string,
+  decls: ConstDecl[],
+  atIndex: number,
+  seen: ReadonlySet<string>,
+): string {
+  return raw.replace(
+    MEMBER_ACCESS_RE,
+    (full: string, name: string, dotKey?: string, _quote?: string, bracketKey?: string) => {
+      if (seen.has(name)) return full;
+      const decl = visibleDecl(decls, name, atIndex);
+      if (!decl) return full;
+      const nextSeen = new Set([...seen, name]);
+      const key = dotKey ? dotKey.slice(1) : bracketKey;
+      const entry = key !== undefined ? decl.entries?.get(key) : undefined;
+      return resolveConstRefs(entry ?? decl.literal, decls, decl.index, nextSeen);
+    },
+  );
+}
+
 /** Replaces every bare identifier in a class expression that names a
  * resolved const with that const's literal, so `cn(statusClasses, x)` and
  * `\`${statusClasses} mt-1\`` are scanned for the classes they render.
  * Resolution recurses through chained consts (`const classes =
  * \`text-alert-red ${pulse}\``) with a cycle guard. Hyphen-adjacent words
- * (`text-xs`) are class tokens, not identifiers. */
+ * (`text-xs`) are class tokens, not identifiers. A `NAME.key`/`NAME["key"]`
+ * member access is resolved first, by `resolveMemberAccess`, against an
+ * object/array const's `entries` (round 16); this pass only ever sees a bare
+ * `NAME` left over from that -- unchanged behaviour for a plain
+ * string-initialised const. */
 function resolveConstRefs(
   raw: string,
   decls: ConstDecl[],
@@ -731,7 +860,8 @@ function resolveConstRefs(
   seen: ReadonlySet<string> = new Set(),
 ): string {
   if (decls.length === 0 || seen.size > 8) return raw;
-  return raw.replace(/(?<![\w$-])[A-Za-z_$][\w$]*(?![\w$-])/g, (id) => {
+  const withMembers = resolveMemberAccess(raw, decls, atIndex, seen);
+  return withMembers.replace(/(?<![\w$-])[A-Za-z_$][\w$]*(?![\w$-])/g, (id) => {
     if (seen.has(id)) return id;
     const decl = visibleDecl(decls, id, atIndex);
     if (!decl) return id;
@@ -1299,6 +1429,34 @@ describe("scanSourceForViolations catches every spelling (fixture proofs, #878)"
       'const classes = "text-su-muted " + (live ? "font-bold" : "");\n' +
       'export function A() { return <span className={classes}>Idle</span>; }';
     expect(scanSourceForViolations(fixture)).toEqual([]);
+  });
+
+  it("resolves a dotted member access into an object-valued const's specific key", () => {
+    const fixture =
+      'const badgeClasses = { critical: "text-alert-red animate-pulse" };\n' +
+      'export function A() { return <span className={badgeClasses.critical}>Critical</span>; }';
+    expect(scanSourceForViolations(fixture)).not.toEqual([]);
+  });
+
+  it("does not flag an object-valued const access through a key that never pulses", () => {
+    const fixture =
+      'const m = { live: "text-alert-red animate-pulse", idle: "text-su-muted" };\n' +
+      'export function A() { return <span className={m.idle}>Idle</span>; }';
+    expect(scanSourceForViolations(fixture)).toEqual([]);
+  });
+
+  it("catches a computed member access into an object-valued const (fails closed over every key)", () => {
+    const fixture =
+      'const m = { live: "text-alert-red animate-pulse", idle: "text-su-muted" };\n' +
+      'export function A() { return <span className={m[state]}>Status</span>; }';
+    expect(scanSourceForViolations(fixture)).not.toEqual([]);
+  });
+
+  it("catches a computed index access into an array-valued const (fails closed over every entry)", () => {
+    const fixture =
+      'const tones = ["text-su-muted", "text-alert-red animate-pulse"];\n' +
+      'export function A() { return <span className={tones[i]}>x</span>; }';
+    expect(scanSourceForViolations(fixture)).not.toEqual([]);
   });
 
   it("catches the pulse class paired with a text color in a config-map object literal", () => {

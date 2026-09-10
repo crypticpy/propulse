@@ -93,7 +93,7 @@ function getTypeBadgeColor(type: MultiplierType): string {
   switch (type) {
     case "CQ_ZONE":
     case "ITU_ZONE":
-      return "bg-plasma-orange/20 border-plasma-orange/40 text-plasma-orange";
+      return "bg-plasma-orange/20 border-plasma-orange/40 text-su-text";
     case "DXCC":
       return "bg-cosmic-cyan/20 border-cosmic-cyan/40 text-cosmic-cyan";
     case "STATE":
@@ -125,7 +125,7 @@ function TargetRow({ target, showBand }: TargetRowProps) {
   // Determine rank indicator style
   const rankStyle =
     rank <= 3
-      ? "bg-plasma-orange/30 text-plasma-orange"
+      ? "bg-plasma-orange/20 text-su-text"
       : rank <= 6
         ? "bg-cosmic-cyan/20 text-cosmic-cyan"
         : "bg-su-line/20 text-su-muted";

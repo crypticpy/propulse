@@ -33,7 +33,7 @@ export function PendingDraftReplaceBanner({
         <button
           type="button"
           onClick={onConfirm}
-          className="px-2 py-1 rounded bg-plasma-orange/25 text-plasma-orange border border-plasma-orange/40 hover:bg-plasma-orange/35 transition-colors text-xs font-bold"
+          className="px-2 py-1 rounded bg-plasma-orange/20 text-su-text border border-plasma-orange/40 hover:bg-plasma-orange/20 transition-colors text-xs font-bold"
         >
           Replace
         </button>

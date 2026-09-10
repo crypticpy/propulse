@@ -205,7 +205,7 @@ export function MobileContestEntry() {
               onClick={() => setMode(m)}
               className={`flex-1 min-h-[44px] rounded-lg font-bold text-sm transition-colors ${
                 mode === m
-                  ? "bg-plasma-orange/30 text-plasma-orange border-2 border-plasma-orange/60"
+                  ? "bg-plasma-orange/20 text-su-text border-2 border-plasma-orange/60"
                   : "bg-su-line/10 text-su-muted border border-su-line/40"
               }`}
             >

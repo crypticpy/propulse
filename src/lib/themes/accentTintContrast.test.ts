@@ -357,12 +357,13 @@ function deriveAlpha(snippet: string): number {
 }
 
 /**
- * The `src/components/ui` sites this PR moved onto the `--su-text` treatment.
- * Each ships an accent tint at or below `TINT_CAP` with a neutral label; the
- * three that had a `hover:bg-plasma-orange/30` step came down to `/15` -> `/20`
- * so the hovered state stays inside the measured cap and still reads as a step.
- * Reverting any of them to `text-plasma-orange` breaks its snippet assertion
- * here and the `src/components/ui` clause of the census guard below.
+ * Sites moved onto the `--su-text` treatment: the original `src/components/ui`
+ * sites from #822, plus each sequenced follow-up batch's sites as they land
+ * (batch 1: `src/components/contest`, #803). Each ships an accent tint at or
+ * below `TINT_CAP` with a neutral label; steps that exceeded the cap (rest or
+ * hover) came down to `/20`. Reverting any of them to `text-plasma-orange`
+ * breaks its snippet assertion here, and a `src/components/ui` entry also
+ * breaks the dedicated `src/components/ui` clause of the census guard below.
  */
 const FIXED_SITES: TintedSite[] = [
   {
@@ -412,9 +413,99 @@ const FIXED_SITES: TintedSite[] = [
     what: 'the "Pro" chip',
     snippet: `rounded bg-plasma-orange/15 text-su-text font-semibold`,
   },
+  // Batch 1 (#803): src/components/contest -- 13 files, 17 sites. Card glass
+  // (bg-su-line/10 backdrop-blur-md) is composited over canvas for every site
+  // reached through the `/map` PropSphere dock (ContestDock and its children)
+  // or the `/contest` page; StationEstimate reads bare `bg-panel` inside
+  // ContestExplorerCard. Argued per-site in the PR body.
+  {
+    file: "src/components/contest/BandAdvisor.tsx",
+    what: "the QSY action button",
+    snippet: `bg-plasma-orange/20 text-su-text hover:bg-plasma-orange/20`,
+  },
+  {
+    file: "src/components/contest/ContestBandMap.tsx",
+    what: "the hovered-spot new-mult status pill",
+    snippet: `? "bg-plasma-orange/20 text-su-text"`,
+  },
+  {
+    file: "src/components/contest/ContestCalendar.tsx",
+    what: "the mode pill",
+    snippet: `bg-plasma-orange/15 text-su-text border border-plasma-orange/25`,
+  },
+  {
+    file: "src/components/contest/ContestCalendar.tsx",
+    what: 'the "Start Contest" button',
+    snippet: `bg-plasma-orange/20 text-su-text border border-plasma-orange/30 hover:bg-plasma-orange/20`,
+  },
+  {
+    file: "src/components/contest/ContestCalendar.tsx",
+    what: "the selected sort key button",
+    snippet: `? "bg-plasma-orange/20 text-su-text border border-plasma-orange/30"`,
+  },
+  {
+    file: "src/components/contest/ContestDock.tsx",
+    what: '"Prefill in RUN" toggle, active state',
+    snippet: `? "bg-plasma-orange/20 text-su-text border-plasma-orange/40"`,
+  },
+  {
+    file: "src/components/contest/ContestRateSheet.tsx",
+    what: "the Hourly view-mode toggle, active state",
+    snippet: `? "bg-plasma-orange/20 text-su-text"`,
+  },
+  {
+    file: "src/components/contest/ContestRateSheet.tsx",
+    what: "the 10-Min view-mode toggle, active state",
+    snippet: `? "bg-plasma-orange/20 text-su-text"`,
+  },
+  {
+    file: "src/components/contest/ContestScoreShare.tsx",
+    what: '"Share Score" button, uncopied state',
+    snippet: `bg-plasma-orange/15 text-su-text hover:bg-plasma-orange/20`,
+  },
+  {
+    file: "src/components/contest/ContestSpotsPanel.tsx",
+    what: "the active band-filter button",
+    snippet: `bg-plasma-orange/20 text-su-text border border-plasma-orange/50`,
+  },
+  {
+    file: "src/components/contest/ContestVoiceControls.tsx",
+    what: '"Apply" candidate button',
+    snippet: `bg-plasma-orange/20 text-su-text border border-plasma-orange/40 hover:bg-plasma-orange/20`,
+  },
+  {
+    file: "src/components/contest/MobileContestEntry.tsx",
+    what: "the selected mode button",
+    snippet: `bg-plasma-orange/20 text-su-text border-2 border-plasma-orange/60`,
+  },
+  {
+    file: "src/components/contest/MultiplierMatrix.tsx",
+    what: '"All bands" selector, selected state',
+    snippet: `bg-plasma-orange/20 text-su-text border border-plasma-orange/50`,
+  },
+  {
+    file: "src/components/contest/NeededMultsPanel.tsx",
+    what: "the CQ/ITU zone type badge",
+    snippet: `bg-plasma-orange/20 border-plasma-orange/40 text-su-text`,
+  },
+  {
+    file: "src/components/contest/NeededMultsPanel.tsx",
+    what: "the top-3 rank indicator",
+    snippet: `bg-plasma-orange/20 text-su-text`,
+  },
+  {
+    file: "src/components/contest/PendingDraftReplaceBanner.tsx",
+    what: '"Replace" button',
+    snippet: `bg-plasma-orange/20 text-su-text border border-plasma-orange/40 hover:bg-plasma-orange/20`,
+  },
+  {
+    file: "src/components/contest/StationEstimate.tsx",
+    what: '"Bold Explorer" tier badge',
+    snippet: `text-su-text bg-plasma-orange/15 border-plasma-orange/30`,
+  },
 ];
 
-describe("the src/components/ui accent tints ship the --su-text treatment (#803)", () => {
+describe("the fixed accent-tint sites ship the --su-text treatment (#803)", () => {
   it.each(FIXED_SITES.map((site) => [site.what, site] as const))(
     "%s still ships the class pair this table measures",
     (_what, site) => {
@@ -498,19 +589,6 @@ describe("census guard: no new accent ink on an accent tint (#803)", () => {
     ["src/components/atmos/emcomm/ICS213Form.tsx", 1],
     ["src/components/auth/AuthRequiredPlaceholder.tsx", 1],
     ["src/components/cluster/ClusterConnectionForm.tsx", 3],
-    ["src/components/contest/BandAdvisor.tsx", 1],
-    ["src/components/contest/ContestBandMap.tsx", 1],
-    ["src/components/contest/ContestCalendar.tsx", 3],
-    ["src/components/contest/ContestDock.tsx", 1],
-    ["src/components/contest/ContestRateSheet.tsx", 2],
-    ["src/components/contest/ContestScoreShare.tsx", 1],
-    ["src/components/contest/ContestSpotsPanel.tsx", 1],
-    ["src/components/contest/ContestVoiceControls.tsx", 1],
-    ["src/components/contest/MobileContestEntry.tsx", 1],
-    ["src/components/contest/MultiplierMatrix.tsx", 1],
-    ["src/components/contest/NeededMultsPanel.tsx", 2],
-    ["src/components/contest/PendingDraftReplaceBanner.tsx", 1],
-    ["src/components/contest/StationEstimate.tsx", 1],
     ["src/components/dx/BandVerdictPanel.tsx", 3],
     ["src/components/dx/ConditionMatchCard.tsx", 1],
     ["src/components/dx/DXConsole.tsx", 1],

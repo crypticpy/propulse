@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { execFileSync, spawn } from "node:child_process";
+import { EventEmitter } from "node:events";
 import {
   mkdir,
   mkdtemp,
@@ -18,12 +19,15 @@ import {
   assertSharedServerIdentity,
   claimSession,
   filterViteProcessLines,
+  findForwardedOverrideFlags,
   findUnmanagedViteProcesses,
+  isViteExecutableCommand,
   listSessions,
   parseOptions,
   portAvailable,
   refuseIfServerRunning,
   releaseSession,
+  runManagedVite,
   SHARED_PORT,
   startSession,
 } from "./dev-session.mjs";
@@ -444,4 +448,157 @@ test("startSession accepts { registry } and rejects an already-claimed port befo
     startSession({ ...base, registry: dir, port }),
     /already running/,
   );
+});
+
+// PR #894 review thread: `\bvite\b` matched any command line containing the
+// standalone word "vite" — including files/args that merely mention it, not
+// an actual Vite invocation. isViteExecutableCommand restricts matching to
+// real executable forms.
+test("isViteExecutableCommand matches only real vite invocations, not lookalikes", () => {
+  const positive = [
+    "vite",
+    "vite preview",
+    "node node_modules/vite/bin/vite.js",
+    "node node_modules/.bin/vite",
+    "node node_modules/.bin/vite --port 5180",
+    "/usr/local/bin/vite preview",
+    "/usr/local/bin/vite",
+    "npm exec vite",
+    "npx vite",
+  ];
+  for (const command of positive) {
+    assert.ok(isViteExecutableCommand(command), `expected match: ${command}`);
+  }
+  const negative = [
+    "vim vite.config.ts",
+    "tail -f vite.log",
+    "vitest run",
+    "grep vite package.json",
+    "node scripts/dev-session.mjs guard",
+    "",
+  ];
+  for (const command of negative) {
+    assert.ok(
+      !isViteExecutableCommand(command),
+      `expected no match: ${command}`,
+    );
+  }
+});
+
+test("filterViteProcessLines matches only real vite invocations, not files or tools that merely mention vite", () => {
+  const lines = [
+    "100 vim vite.config.ts",
+    "101 tail -f vite.log",
+    "102 vitest run",
+    "103 node node_modules/vite/bin/vite.js",
+    "104 /usr/local/bin/vite preview",
+    "105 grep vite package.json",
+  ];
+  const result = filterViteProcessLines(lines.join("\n"), { ownPid: -1 });
+  assert.deepEqual(
+    result.map((line) => Number(line.trim().split(/\s+/, 1)[0])),
+    [103, 104],
+  );
+});
+
+// PR #894 review thread: `npm run dev -- --port 5180` forwarded the override
+// only to the underlying `vite` script, so predev guarded 5173 while Vite
+// itself bound 5180. findForwardedOverrideFlags is the detector that lets
+// runManagedVite refuse that instead of silently bypassing the guard.
+test("findForwardedOverrideFlags catches port/host/strictPort overrides in every form", () => {
+  const matching = [
+    ["--port", "5180"],
+    ["-p", "5180"],
+    ["--port=5180"],
+    ["--host"],
+    ["--host=0.0.0.0"],
+    ["--strictPort"],
+    ["--strictPort", "false"],
+  ];
+  for (const args of matching) {
+    assert.ok(
+      findForwardedOverrideFlags(args).length > 0,
+      `expected a match: ${JSON.stringify(args)}`,
+    );
+  }
+  assert.deepEqual(findForwardedOverrideFlags(["--open"]), []);
+  assert.deepEqual(findForwardedOverrideFlags([]), []);
+});
+
+function fakeChildFactory(calls) {
+  return (bin, args) => {
+    calls.push({ bin, args });
+    const child = new EventEmitter();
+    child.killed = false;
+    child.kill = () => {
+      child.killed = true;
+    };
+    setImmediate(() => child.emit("exit", 0, null));
+    return child;
+  };
+}
+
+test("runManagedVite guards, then spawns the real vite binary with a clean arg list", async () => {
+  const calls = [];
+  let guardCalls = 0;
+  await runManagedVite([], {
+    spawnFn: fakeChildFactory(calls),
+    guard: async () => {
+      guardCalls++;
+    },
+  });
+  assert.equal(guardCalls, 1);
+  assert.equal(calls.length, 1);
+  assert.deepEqual(calls[0].args, []);
+  assert.ok(calls[0].bin.endsWith(path.join("node_modules", ".bin", "vite")));
+});
+
+test("runManagedVite forwards the preview subcommand and strips it before the override check", async () => {
+  const calls = [];
+  await runManagedVite(["preview"], {
+    spawnFn: fakeChildFactory(calls),
+    guard: async () => {},
+  });
+  assert.deepEqual(calls[0].args, ["preview"]);
+});
+
+test("runManagedVite refuses a forwarded port/host/strictPort override and never spawns vite", async () => {
+  const calls = [];
+  await assert.rejects(
+    runManagedVite(["--port", "5180"], {
+      spawnFn: fakeChildFactory(calls),
+      guard: async () => {},
+    }),
+    /Refusing to forward --port/,
+  );
+  assert.equal(calls.length, 0);
+});
+
+test("runManagedVite allows a forwarded override when DEV_SERVER_ALLOW_EXTRA=1", async (t) => {
+  const prior = process.env.DEV_SERVER_ALLOW_EXTRA;
+  t.after(() => {
+    if (prior === undefined) delete process.env.DEV_SERVER_ALLOW_EXTRA;
+    else process.env.DEV_SERVER_ALLOW_EXTRA = prior;
+  });
+  process.env.DEV_SERVER_ALLOW_EXTRA = "1";
+  const calls = [];
+  await runManagedVite(["--port", "5180"], {
+    spawnFn: fakeChildFactory(calls),
+    guard: async () => {},
+  });
+  assert.deepEqual(calls[0].args, ["--port", "5180"]);
+});
+
+test("runManagedVite propagates the guard's refusal without spawning vite", async () => {
+  const calls = [];
+  await assert.rejects(
+    runManagedVite([], {
+      spawnFn: fakeChildFactory(calls),
+      guard: async () => {
+        throw new Error("A dev server is already running: fixture");
+      },
+    }),
+    /already running/,
+  );
+  assert.equal(calls.length, 0);
 });

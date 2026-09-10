@@ -14,7 +14,7 @@ From the checkout/worktree root, check whether the shared server is running:
 
 ```sh
 npm run dev:session -- status
-pgrep -fl vite
+ps -axo pid=,command= | grep '[v]ite'
 ```
 
 If it is running, use the shared origin directly — do not start anything:
@@ -32,9 +32,12 @@ that hands you a URL is the only authorization to use a server session.
 
 `npm run dev:session -- start` itself refuses when any dev server — managed by
 this tool or not — is already listening on this machine, and always binds
-port 5173. A plain `npm run dev` (and `npm run preview`) runs the same
-refusal first, via its `predev` (`prepreview`) script (`npm run dev:session
--- guard`), so it fails the same way before Vite even starts.
+port 5173. A plain `npm run dev` (and `npm run preview`) routes through this
+same manager (`node scripts/dev-session.mjs vite` / `vite preview`), so it
+runs the same refusal before Vite even starts, and it also refuses to forward
+any `--port`, `--host`, or `--strictPort` override to the real Vite binary —
+for example `npm run dev -- --port 5180` — unless `DEV_SERVER_ALLOW_EXTRA=1`
+is set.
 
 `DEV_SERVER_ALLOW_EXTRA=1` **moves** the one shared server to a different
 port (owner-only escape hatch, for example when 5173 is occupied by something

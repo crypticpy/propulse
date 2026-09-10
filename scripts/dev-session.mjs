@@ -3,9 +3,14 @@
  * One shared foreground Vite dev server per machine, on port 5173.
  * `start` refuses when any other server (managed or unmanaged) is already
  * running. Agents never start their own; the human or orchestrator owns the
- * single shared session. See docs/guides/LOCAL-AGENT-TESTING.md.
+ * single shared session. `npm run dev` / `npm run preview` route through this
+ * script's `vite` / `vite preview` subcommands, which run the same guard and
+ * then refuse to forward any `--port`/`--host`/`--strictPort` override to the
+ * real Vite binary unless DEV_SERVER_ALLOW_EXTRA=1 — otherwise a forwarded
+ * `npm run dev -- --port 5180` would guard 5173 and then bind 5180 anyway.
+ * See docs/guides/LOCAL-AGENT-TESTING.md.
  */
-import { execFileSync } from "node:child_process";
+import { execFileSync, spawn } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import {
   mkdir,
@@ -339,12 +344,35 @@ export async function findLiveSession(registry = REGISTRY) {
   );
 }
 
+// Matches only actual Vite invocations, never a command that merely mentions
+// "vite" (`vim vite.config.ts`, `tail -f vite.log`, `grep vite package.json`).
+// `command` is the command line with the leading pid already stripped.
+// Recognized forms: a path segment ending in `/vite` or `/vite.js` (covers
+// `node_modules/.bin/vite` and `vite/bin/vite.js`), a bare `vite` or
+// `vite preview` as the first token, `node <path>/vite[.js] ...`, and
+// `npm exec vite` / `npx vite`.
+export function isViteExecutableCommand(command) {
+  const tokens = command.trim().split(/\s+/).filter(Boolean);
+  if (tokens.length === 0) return false;
+  const isVitePath = (token) => /(^|\/)vite(\.js)?$/.test(token);
+  if (tokens[0] === "node" || /\/node$/.test(tokens[0])) {
+    return tokens.slice(1).some(isVitePath);
+  }
+  if (isVitePath(tokens[0])) return true;
+  if (tokens[0] === "npm" && tokens[1] === "exec" && tokens[2] === "vite") {
+    return true;
+  }
+  if (tokens[0] === "npx" && tokens[1] === "vite") return true;
+  return false;
+}
+
 // Pure filter over `ps -axo pid=,command=` output (full command line on both
 // macOS and Linux — unlike `pgrep -l`, whose GNU procps build prints only the
 // process *name* ("node"), never the vite path/args, so it could never match
 // "vite" for a `node .../vite` invocation). Drops vitest workers and this
-// process's own pid; everything else containing "vite" is reported as an
-// unmanaged Vite-looking process.
+// process's own pid; the remaining lines are matched against
+// isViteExecutableCommand, not a bare substring, so `vim vite.config.ts` or
+// `tail -f vite.log` cannot be mistaken for a running Vite server.
 export function filterViteProcessLines(
   stdout,
   { ownPid = process.pid } = {},
@@ -358,7 +386,12 @@ export function filterViteProcessLines(
       const pid = Number(line.trim().split(/\s+/, 1)[0]);
       return pid !== ownPid;
     })
-    .filter((line) => /\bvite\b/.test(line));
+    .filter((line) => {
+      const trimmed = line.trim();
+      const firstSpace = trimmed.indexOf(" ");
+      const command = firstSpace === -1 ? "" : trimmed.slice(firstSpace + 1);
+      return isViteExecutableCommand(command);
+    });
 }
 
 function parseUnmanagedProcessLine(line) {
@@ -514,18 +547,84 @@ export async function startSession(options) {
   }
 }
 
+// Matches any argv token that would let a forwarded `npm run dev -- ...` (or
+// `npm run preview -- ...`) change which port/host the real Vite binary binds
+// to, in every form Vite/CLI convention accepts it: `-p`, `--port`,
+// `--port=5180`, `--host`, `--host=0.0.0.0`, `--strictPort`, and
+// `--strictPort false` (Vite itself takes `--strictPort` as a bare boolean
+// flag, but a caller could still pass a value; catch that shape too).
+const FORWARDED_OVERRIDE_FLAG = /^(-p|--port|--host|--strictPort)(=.*)?$/;
+
+export function findForwardedOverrideFlags(args) {
+  return args.filter((arg) => FORWARDED_OVERRIDE_FLAG.test(arg));
+}
+
+// Runs `vite` or `vite preview` for real, but only after the same guard
+// `start` uses, and only after confirming the caller isn't trying to sneak a
+// port/host/strictPort override past that guard (see module doc comment).
+// `guard` and `spawnFn` are injectable so tests never touch the real machine's
+// process table or actually spawn Vite.
+export async function runManagedVite(
+  args,
+  { spawnFn = spawn, guard = refuseIfServerRunning } = {},
+) {
+  await guard();
+  const isPreview = args[0] === "preview";
+  const forwarded = isPreview ? args.slice(1) : args;
+  const overrides = findForwardedOverrideFlags(forwarded);
+  if (overrides.length && process.env.DEV_SERVER_ALLOW_EXTRA !== "1") {
+    throw new Error(
+      `Refusing to forward ${overrides.join(", ")} to vite: ${SINGLE_SERVER_RULE} ` +
+        "DEV_SERVER_ALLOW_EXTRA=1 is the owner-only escape hatch that moves the " +
+        "single server to a different port/host; it never permits a second, " +
+        "simultaneous server.",
+    );
+  }
+  const root = await realpath(process.cwd());
+  const bin = path.join(root, "node_modules", ".bin", "vite");
+  const child = spawnFn(
+    bin,
+    isPreview ? ["preview", ...forwarded] : forwarded,
+    { stdio: "inherit" },
+  );
+  const forwardSignal = (signal) => {
+    if (!child.killed) child.kill(signal);
+  };
+  process.on("SIGINT", forwardSignal);
+  process.on("SIGTERM", forwardSignal);
+  try {
+    const { code, signal } = await new Promise((resolve, reject) => {
+      child.once("error", reject);
+      child.once("exit", (code, signal) => resolve({ code, signal }));
+    });
+    process.exitCode = signal
+      ? 128 + (os.constants.signals[signal] ?? 0)
+      : (code ?? 1);
+  } finally {
+    process.off("SIGINT", forwardSignal);
+    process.off("SIGTERM", forwardSignal);
+  }
+}
+
 async function main() {
-  const options = parseOptions(process.argv.slice(2));
+  const argv = process.argv.slice(2);
+  if (argv[0] === "vite") {
+    await runManagedVite(argv.slice(1));
+    return;
+  }
+  const options = parseOptions(argv);
   if (options.command === "help") {
     console.log(
       `npm run dev:session -- status\nnpm run dev:session -- start --owner <agent-slug> --task <description> [--profile connected|local]\nnpm run dev:session -- guard\n` +
         `${SINGLE_SERVER_RULE}\n` +
-        "start (and guard, run automatically before `npm run dev` via predev and before " +
-        "`npm run preview` via prepreview) refuses if any dev " +
+        "start (and guard, run automatically by `npm run dev` and `npm run preview`, which route " +
+        "through this script's `vite` and `vite preview` subcommands) refuses if any dev " +
         "server is already running: an occupied port 5173, a live registry entry, or an unmanaged " +
         "`vite`-looking process anywhere on this machine (any port) all refuse. Port is always 5173; " +
         "DEV_SERVER_ALLOW_EXTRA=1 moves the single server to a different port (owner-only escape " +
-        "hatch); it does not bypass any of these checks and never permits a second server. See " +
+        "hatch); it does not bypass any of these checks and never permits a second server. The " +
+        "`vite`/`vite preview` subcommands additionally refuse to forward a `--port`, `--host`, or " +
+        "`--strictPort` override to the real Vite binary unless DEV_SERVER_ALLOW_EXTRA=1 is set. See " +
         "docs/guides/LOCAL-AGENT-TESTING.md.",
     );
   } else if (options.command === "status") {

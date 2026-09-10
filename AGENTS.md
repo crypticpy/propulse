@@ -43,7 +43,7 @@
 - Vitest is configured: `npm run test` (runs the station-postgres harness, then `vitest run`). Bridge tests: `npm run test:bridge`. Radio daemon tests: `npm run test:radio-daemon`.
 - The gate before pushing is `npm run verify`, which chains tracked-artifact, design-token, ML pre-registration/archive, production-boundary, and view-library type checks with lint, the full test suite, the build, and the bundle budget check.
 - Focused runs: `npx vitest run <path>`.
-- **One dev server per machine, at <http://localhost:5173>, owned by the human or the orchestrator. Agents never start one** — not `npm run dev`, not `npm run dev:session start`, not `vite` or `vite preview`, not a Playwright `webServer`, not any other listener — and never reach the site through another port, a tunnel, or a build. Before a rendered check, run `npm run dev:session -- status` (or `pgrep -fl vite`) and use the shared URL. If it is not running, report that and stop; do not start one. A brief that hands you a URL is the only authorization to use a server. `npm run dev:session -- start` itself refuses when any dev server, managed or not, is already running. See `docs/guides/LOCAL-AGENT-TESTING.md` and the shared-machine rules in `CLAUDE.md`.
+- **One dev server per machine, at <http://localhost:5173>, owned by the human or the orchestrator. Agents never start one** — not `npm run dev`, not `npm run dev:session start`, not `vite` or `vite preview`, not a Playwright `webServer`, not any other listener — and never reach the site through another port, a tunnel, or a build. Before a rendered check, run `npm run dev:session -- status` (or `ps -axo pid=,command= | grep '[v]ite'`) and use the shared URL. If it is not running, report that and stop; do not start one. A brief that hands you a URL is the only authorization to use a server. `npm run dev:session -- start` itself refuses when any dev server, managed or not, is already running. See `docs/guides/LOCAL-AGENT-TESTING.md` and the shared-machine rules in `CLAUDE.md`.
 
 ## Commit & Pull Request Guidelines
 
@@ -59,6 +59,6 @@
 ## Coordinating local browser testing
 
 - Read [Local agent testing](docs/guides/LOCAL-AGENT-TESTING.md) before using a server, including login and first-visit setup.
-- Check `npm run dev:session -- status` (or `pgrep -fl vite`) for the one shared server at <http://localhost:5173>. Agents never start their own — see the single-server rule above.
+- Check `npm run dev:session -- status` (or `ps -axo pid=,command= | grep '[v]ite'`) for the one shared server at <http://localhost:5173>. Agents never start their own — see the single-server rule above.
 - Different code changes still require separate worktrees for source edits; the shared server only covers the checkout it was started from.
 - Verify the printed URL and `/__propulse_dev_session` identity before testing. Never stop or kill the shared server; it is not yours to end.

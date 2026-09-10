@@ -835,9 +835,14 @@ function skipTypeAnnotation(source: string, colonIndex: number): TypeAnnotationR
  * top-level key to just that key's own literals, for `resolveConstRefs` to
  * substitute precisely on a `NAME.key`/`NAME["key"]` reference. An
  * initializer with no string/template literal anywhere in it (numbers, bare
- * references) is skipped as not class-shaped, *unless* it's a `let`/`var`
- * (see below), which registers regardless since a later assignment can add
- * the classes an empty/absent initializer doesn't have. A type annotation
+ * references) registers regardless rather than being skipped as not
+ * class-shaped -- an identifier-only (or identifier-plus-literal) alias
+ * (`const classes = pulse;`, `const classes = cn(pulse, "text-xs");`,
+ * `const classes = STYLES.alert;`) has every identifier/member-access chain
+ * its initializer references folded into `literal` alongside any literal
+ * bodies it does have, via `extractIdentifierRefs`, so the existing
+ * recursive resolution walk resolves them exactly like any other reference
+ * once this decl is looked up (Codex, PR #874 round 29). A type annotation
  * between the name and the initializer -- `Record<State, string>`, a
  * function type, a union, `typeof X` -- is skipped whole by
  * `skipTypeAnnotation` regardless of its shape, not just the literal `:
@@ -904,6 +909,182 @@ function collectReassignedLiteralBodies(
   return bodies;
 }
 
+/** Same walk as `collectReassignedLiteralBodies`, but collecting identifier
+ * references (`extractIdentifierRefs`) from each reassignment's RHS instead
+ * of quoted literal bodies -- a `let`/`var` alias reassigned to another
+ * binding (`let classes; classes = pulse;`) needs the same "no literal body
+ * yet, but reaches one through an identifier" treatment as an aliasing
+ * initializer (Codex, PR #874 round 29). */
+function collectReassignedIdentifierRefs(
+  source: string,
+  name: string,
+  searchStart: number,
+  scopeEnd: number,
+): string[] {
+  const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const assignRe = new RegExp(`(?<![\\w$.])${escaped}\\s*(\\+=|\\|\\|=|\\?\\?=|=)(?!=)`, "g");
+  const scopeText = source.slice(searchStart, scopeEnd);
+  const refs: string[] = [];
+  let am: RegExpExecArray | null;
+  while ((am = assignRe.exec(scopeText))) {
+    const rhsStart = am.index + am[0].length;
+    const rhsEnd = findInitializerEnd(scopeText, rhsStart);
+    refs.push(...extractIdentifierRefs(scopeText.slice(rhsStart, rhsEnd)));
+    assignRe.lastIndex = rhsEnd;
+  }
+  return refs;
+}
+
+/** Keywords that can appear as a bare word in a class expression's non-
+ * string portion (`cond ? pulse : other`, `typeof x === "…"`) but are never
+ * themselves an outer const reference, so `extractIdentifierRefs` never
+ * treats them as one (Codex, PR #874 round 29). */
+const IDENTIFIER_REF_KEYWORDS = new Set(["true", "false", "null", "undefined"]);
+
+/** Call names that build a class string from their own arguments rather
+ * than naming one directly (`cn(pulse, "text-xs")`) -- the call name itself
+ * is never a const reference, though its arguments still are scanned
+ * normally by the same walk (Codex, PR #874 round 29). */
+const CLASS_HELPER_CALL_NAMES = new Set(["cn", "clsx", "twMerge", "classNames"]);
+
+/** Bare identifiers and member-access chains (`NAME` or a dotted/quoted-key
+ * run, `NAME.key1["key2"]`, extended exactly as far as
+ * `resolveMemberAccess`'s own *precise*-key narrowing would walk it) found
+ * anywhere in `text` outside a quoted/template string body -- kept as the
+ * whole chain, not just its head, so a downstream `resolveConstRefs` pass
+ * over the literal this feeds into can walk a `.key` access into an
+ * object-valued const (`STYLES.alert`) exactly as precisely as it would at
+ * the original reference site. A chain that reaches a *computed* (unquoted)
+ * `[...]` segment instead drops the whole reference (not even the bare
+ * head) -- `resolveMemberAccess` only narrows a precise key, so keeping just
+ * the object's bare name would let `resolveConstRefs`'s member-access-blind
+ * second pass substitute that object const's entire flattened literal in
+ * its place with the real computed key left dangling, unrelated to whatever
+ * key the alias's own use site narrows to. Used by `collectConstTemplateMap`
+ * so an identifier-only (or identifier-plus-literal) initializer -- `const
+ * classes = pulse;`, `const classes = cond ? pulse : other;`, `const classes
+ * = cn(pulse, "text-xs");`, `const classes = STYLES.alert;`, `const classes
+ * = pulse + " text-xs";` -- is never "not class-shaped" just because it has
+ * no (or not only) a quoted literal of its own; the identifiers it names are
+ * folded into the declaration's own `literal` text (see
+ * `collectConstTemplateMap`) so the existing recursive
+ * `resolveConstRefs`/`resolveMemberAccess` walk -- visited-set cycle guard
+ * and all -- resolves them exactly like any other reference, including one
+ * that lands on a round-28 imported decl. An arrow function's own parameter
+ * name(s) (`(i) => …`/`i => …`) are bound locally, never an outer const
+ * reference, so they're excluded; a keyword/`true`/`false`/`null`/
+ * `undefined` and a call name that is `cn`/`clsx`/`twMerge`/`classNames`
+ * (only the call name itself -- its arguments are still walked normally)
+ * are excluded too, since none of those can ever resolve to a declaration
+ * (Codex, PR #874 round 29). */
+function extractIdentifierRefs(text: string): string[] {
+  const bound = new Set<string>();
+  const arrowRe = /(?:\(([^()]*)\)|([A-Za-z_$][\w$]*))\s*=>/g;
+  let am: RegExpExecArray | null;
+  while ((am = arrowRe.exec(text))) {
+    const params = am[1] ?? am[2] ?? "";
+    for (const rawParam of params.split(",")) {
+      const paramName = rawParam.trim().split(/[:=]/)[0]?.trim();
+      if (paramName && /^[A-Za-z_$][\w$]*$/.test(paramName)) bound.add(paramName);
+    }
+  }
+
+  const refs: string[] = [];
+  const headRe = /^[A-Za-z_$][\w$]*/;
+  let i = 0;
+  while (i < text.length) {
+    const c = text[i];
+    if (c === "`") {
+      i += extractTemplateLiteral(text, i).length;
+      continue;
+    }
+    if (c === '"' || c === "'") {
+      const close = text.indexOf(c, i + 1);
+      i = close === -1 ? text.length : close + 1;
+      continue;
+    }
+    if (c === "{") {
+      // A nested `{...}` block -- a callback's statement body
+      // (`useMemo(() => { ... })`), an object literal passed as an
+      // argument, a destructuring pattern -- is opaque here: none of the
+      // required alias shapes (bare identifier, ternary, `cn()` call, dot
+      // member access, concatenation, `let` reassignment) ever contain one,
+      // so walking into a block's own local variables (a `.filter`/`.find`
+      // callback's parameter and loop-local names, an unrelated object
+      // literal's own keys) would fold identifiers that were never a class
+      // reference into the outer const's `literal`, only to have
+      // `resolveConstRefs`'s member-access-blind second pass later
+      // substitute unrelated text in for a bare use of the outer const
+      // elsewhere -- e.g. `const breakInAlert = useMemo(() => { ...
+      // several bound/loop-local names... }, [deps]);` lengthening
+      // `breakInAlert`'s folded literal enough to drift a real, already
+      // `KNOWN_REMAINING_SITES`-anchored violation's computed index outside
+      // `ANCHOR_WINDOW_RADIUS` (KioskChrome.tsx, Codex, PR #874 round 29
+      // follow-up). Skipped whole via the same quote/template-aware
+      // brace-matcher `findClassNameSites` itself uses.
+      i = extractBalanced(text, i, "{", "}").endIndex + 1;
+      continue;
+    }
+    const headMatch = headRe.exec(text.slice(i));
+    if (!headMatch) {
+      i++;
+      continue;
+    }
+    const head = headMatch[0];
+    // Extend the chain through `.key` and a *quoted* `["key"]` segment
+    // verbatim -- the same precise-key shape `resolveMemberAccess` narrows
+    // on -- so the resolved literal feeds straight back into that existing
+    // narrowing exactly as if the chain had been written directly at the
+    // reference site instead of behind an alias (Codex, PR #874 round 29).
+    // A *computed* bracket (`STATUS_CONFIG[status]`) stops the chain and
+    // drops the whole reference instead of keeping just the bare head:
+    // `resolveMemberAccess` only narrows a precise key, so an alias whose
+    // own initializer is a computed lookup (`const config =
+    // STATUS_CONFIG[status];`) has no `entries` of its own, and a later
+    // `config.pulse` at the use site fails to narrow for the same reason --
+    // leaving the bare object name as the only folded ref would instead let
+    // `resolveConstRefs`'s member-access-blind second pass substitute the
+    // *entire* object const's own flattened literal (every status's
+    // label/bg/text/border bodies concatenated) in place of `config`, with
+    // the real `.pulse` key left dangling unresolved -- a false "tinted
+    // text" positive on a purely decorative dot (DxccStatusBadge.tsx,
+    // OnAirBadge.tsx) this shape was never asked to cover (Codex, PR #874
+    // round 29 follow-up).
+    let chainEnd = i + head.length;
+    let droppedForComputedKey = false;
+    while (true) {
+      if (text[chainEnd] === ".") {
+        const keyMatch = headRe.exec(text.slice(chainEnd + 1));
+        if (!keyMatch) break;
+        chainEnd += 1 + keyMatch[0].length;
+        continue;
+      }
+      if (text[chainEnd] === "[") {
+        const close = findBracketClose(text, chainEnd);
+        if (close === -1) break;
+        const inner = text.slice(chainEnd + 1, close);
+        const quoted = /^\s*(["'])((?:(?!\1)[\s\S])*)\1\s*$/.test(inner);
+        if (!quoted) {
+          droppedForComputedKey = true;
+          break;
+        }
+        chainEnd = close + 1;
+        continue;
+      }
+      break;
+    }
+    const chain = text.slice(i, chainEnd);
+    const isCallName = chain === head && text[chainEnd] === "(";
+    i = chainEnd;
+    if (droppedForComputedKey) continue;
+    if (bound.has(head)) continue;
+    if (IDENTIFIER_REF_KEYWORDS.has(head)) continue;
+    if (isCallName && CLASS_HELPER_CALL_NAMES.has(head)) continue;
+    refs.push(chain);
+  }
+  return refs;
+}
+
 function collectConstTemplateMap(source: string): ConstDecl[] {
   const decls: ConstDecl[] = [];
   const declRe = /\b(const|let|var)\s+([A-Za-z_$][\w$]*)\s*/g;
@@ -944,17 +1125,35 @@ function collectConstTemplateMap(source: string): ConstDecl[] {
     const end = findInitializerEnd(source, valueStart);
     const initializerText = source.slice(valueStart, end);
     const bodies = extractLiteralBodies(initializerText);
-    if (bodies.length === 0 && kind === "const") continue;
+    // An initializer with no quoted literal of its own -- an identifier-only
+    // (or identifier-plus-literal) alias, `const classes = pulse;`/`const
+    // classes = cn(pulse, "text-xs");`/`const classes = STYLES.alert;` --
+    // used to make a `const` "not class-shaped" and drop it here entirely,
+    // so `classes` was invisible to `visibleDecl` no matter what `pulse`
+    // resolved to. Never dropped now: the identifiers/member-access chains
+    // its initializer references are folded into `literal` alongside any
+    // literal bodies it does have, so the existing recursive
+    // `resolveConstRefs`/`resolveMemberAccess` walk resolves them exactly
+    // like any other reference (including a cyclic one, via its own
+    // visited-set guard) once this decl is looked up (Codex, PR #874
+    // round 29).
+    // Skipped for an object-literal initializer (`firstChar === "{"`):
+    // `extractObjectEntries` already models it precisely, per key -- a bare
+    // scan for identifier-shaped tokens over its raw text would misread its
+    // own unquoted *key names* (`label`, `bg`, `pulse: true`) as if they
+    // were value references, polluting the fail-closed top-level `literal`
+    // with noise that was never a reference to anything (Codex, PR #874
+    // round 29).
+    const refs = firstChar === "{" ? [] : extractIdentifierRefs(initializerText);
     const entries = firstChar === "{" ? extractObjectEntries(initializerText) : undefined;
     const scope = findEnclosingBraceRange(source, m.index);
     const scopeStart = scope ? scope.start : 0;
     const scopeEnd = scope ? scope.end : source.length;
-    let literal = bodies.join(" ");
+    let literal = [bodies.join(" "), refs.join(" ")].filter(Boolean).join(" ");
     if (kind !== "const") {
       const reassigned = collectReassignedLiteralBodies(source, name, end, scopeEnd);
-      if (reassigned.length > 0) {
-        literal = [literal, reassigned.join(" ")].filter(Boolean).join(" ");
-      }
+      const reassignedRefs = collectReassignedIdentifierRefs(source, name, end, scopeEnd);
+      literal = [literal, reassigned.join(" "), reassignedRefs.join(" ")].filter(Boolean).join(" ");
     }
     decls.push({
       name,
@@ -2691,6 +2890,112 @@ describe("scanSourceForViolations catches every spelling (fixture proofs, #878)"
     expect(scanSourceForViolations(fixture)).toEqual([]);
   });
 
+  it("resolves an identifier-only const alias of a pulsing class const (no literal body of its own)", () => {
+    // `classes`'s initializer (`pulse`) has no string/template literal of
+    // its own, which used to make `collectConstTemplateMap` treat the whole
+    // declaration as "not class-shaped" and drop it entirely -- `classes`
+    // was then invisible to `visibleDecl` no matter what `pulse` resolved
+    // to (Codex, PR #874 round 29).
+    const fixture =
+      'const pulse = "animate-pulse";\nconst classes = pulse;\nexport function A() { return <span className={classes}>Loading</span>; }';
+    expect(scanSourceForViolations(fixture)).not.toEqual([]);
+  });
+
+  it("resolves an identifier-only const alias through a ternary, fail closed regardless of which branch renders", () => {
+    const fixture =
+      'const pulse = "animate-pulse";\nconst other = "text-xs";\nconst classes = cond ? pulse : other;\nexport function A() { return <span className={classes}>Loading</span>; }';
+    expect(scanSourceForViolations(fixture)).not.toEqual([]);
+  });
+
+  it("resolves an identifier-only const alias passed through a cn() call alongside a literal", () => {
+    const fixture =
+      'const pulse = "animate-pulse";\nconst classes = cn(pulse, "text-xs");\nexport function A() { return <span className={classes}>Loading</span>; }';
+    expect(scanSourceForViolations(fixture)).not.toEqual([]);
+  });
+
+  it("resolves an identifier-only const alias of an object entry's member access, the same as a direct reference", () => {
+    const fixture =
+      'const STYLES = { alert: "text-alert-red animate-pulse", ok: "text-xs" };\nconst classes = STYLES.alert;\nexport function A() { return <span className={classes}>Loading</span>; }';
+    expect(scanSourceForViolations(fixture)).not.toEqual([]);
+  });
+
+  it("resolves an identifier-only const alias concatenated with a literal", () => {
+    const fixture =
+      'const pulse = "animate-pulse";\nconst classes = pulse + " text-xs";\nexport function A() { return <span className={classes}>Loading</span>; }';
+    expect(scanSourceForViolations(fixture)).not.toEqual([]);
+  });
+
+  it("resolves a let alias later reassigned to an identifier, the same union-in-reassignment rule as a literal", () => {
+    const fixture =
+      'const pulse = "animate-pulse";\nlet classes;\nclasses = pulse;\nexport function A() { return <span className={classes}>Loading</span>; }';
+    expect(scanSourceForViolations(fixture)).not.toEqual([]);
+  });
+
+  it("does not flag an identifier-only const alias of a plain (non-pulsing) const", () => {
+    const fixture =
+      'const other = "text-xs";\nconst classes = other;\nexport function A() { return <span className={classes}>Idle</span>; }';
+    expect(scanSourceForViolations(fixture)).toEqual([]);
+  });
+
+  it("terminates on a self-referential/cyclic pair of identifier-only aliases instead of looping, and does not flag it", () => {
+    // Neither `a` nor `b` ever reaches an actual literal -- each resolves
+    // only to the other -- so the cycle guard must stop the walk rather
+    // than recursing forever, and since no real class text is ever reached,
+    // this is correctly not flagged (Codex, PR #874 round 29).
+    const fixture =
+      'const a = b;\nconst b = a;\nexport function A() { return <span className={a}>x</span>; }';
+    expect(scanSourceForViolations(fixture)).toEqual([]);
+  });
+
+  it("does not flag an identifier-only const alias built from a computed (bracket) lookup into an object-valued const, since only a precise key can be narrowed", () => {
+    // `config`'s own initializer (`STATUS_CONFIG[status]`) is a *computed*
+    // bracket access -- `resolveMemberAccess` only ever narrows a *precise*
+    // key (`.key`/`["key"]`), so `config` reaches this decl with no
+    // `entries` of its own. Folding the bare object name in as `config`'s
+    // ref (instead of dropping the whole reference) would let
+    // `resolveConstRefs`'s member-access-blind second pass later substitute
+    // `STATUS_CONFIG`'s *entire* flattened literal -- every status's own
+    // `text-*` class included -- in place of `config` wherever it's used
+    // bare, with the real `.pulse` narrowing left dangling unresolved: a
+    // false "tinted text" positive on a purely decorative, childless dot
+    // (the real-repo shape in `DxccStatusBadge.tsx`/`OnAirBadge.tsx`,
+    // Codex, PR #874 round 29 follow-up).
+    const source =
+      'const STATUS_CONFIG = { a: { text: "text-alert-red", pulse: true }, b: { text: "text-signal-green", pulse: false } };\n' +
+      'function Dot({ status }: { status: string }) {\n' +
+      '  const config = STATUS_CONFIG[status];\n' +
+      '  return <span className={`w-2 h-2 ${config.pulse ? "animate-pulse" : ""}`} />;\n' +
+      '}';
+    expect(scanSourceForViolations(source)).toEqual([]);
+  });
+
+  it("does not fold identifiers from a nested callback block into an alias's literal, so an unrelated in-scope const's classes are never blindly pulled in through it", () => {
+    // `pulseNow`'s initializer is a `useMemo(() => { ... })` call -- none of
+    // the alias shapes this walk is meant to cover (bare identifier,
+    // ternary, `cn()` call, dot member access, concatenation, `let`
+    // reassignment) ever contain a `{...}` block, so one is treated as
+    // opaque. Without that, the block's own inner (shadowed, out-of-scope-
+    // at-`pulseNow`'s-own-declaration) `dangerClasses` binding would still
+    // get folded in as a bare-token ref; `resolveConstRefs`'s second pass
+    // would then resolve that token against the *outer*, module-level
+    // `dangerClasses` (the only one actually visible at `pulseNow`'s
+    // declaration site) and blindly substitute its `text-alert-red` in
+    // wherever `pulseNow` is referenced -- a false "tinted text" positive on
+    // a purely decorative, childless dot (the same failure mode a nested
+    // block introduced in the real repo's `KioskChrome.tsx`, Codex, PR #874
+    // round 29 follow-up).
+    const source =
+      'const dangerClasses = "text-alert-red";\n' +
+      'function Dot({ level }: { level: string }) {\n' +
+      '  const pulseNow = useMemo(() => {\n' +
+      '    const dangerClasses = level === "critical";\n' +
+      '    return dangerClasses;\n' +
+      '  }, [level]);\n' +
+      '  return <span className={`w-2 h-2 ${pulseNow ? "animate-pulse" : ""}`} />;\n' +
+      '}';
+    expect(scanSourceForViolations(source)).toEqual([]);
+  });
+
   it("resolves chained consts recursively, with a cycle guard", () => {
     expect(
       scanSourceForViolations(
@@ -3300,6 +3605,18 @@ describe("scanModuleForViolations resolves imported animate-pulse class bindings
       'import type { AlertClasses } from "@/lib/a";\nexport function B() { return <span>No pulse here</span>; }';
     const exportsMap = collectExportedPulseBindings({ "src/lib/a.ts": aSource, "src/lib/b.tsx": bSource });
     expect(resolveImportedDecls("src/lib/b.tsx", bSource, exportsMap)).toEqual([]);
+  });
+
+  it("resolves a local identifier-only alias of an imported pulsing binding (round 29 alias fix composes with round 28 imports)", () => {
+    // `classes`'s own initializer (`alertClasses`) has no literal body of
+    // its own -- it only reaches one through the imported decl `resolveImportedDecls`
+    // registers for `alertClasses`, exactly the same "alias with no literal
+    // body" shape round 29 fixes for a purely local const (Codex, PR #874
+    // round 29).
+    const bSource =
+      'import { alertClasses } from "@/lib/a";\nconst classes = alertClasses;\nexport function B() { return <span className={classes}>Critical</span>; }';
+    const exportsMap = collectExportedPulseBindings({ "src/lib/a.ts": aSource, "src/lib/b.tsx": bSource });
+    expect(scanModuleForViolations("src/lib/b.tsx", bSource, exportsMap)).not.toEqual([]);
   });
 });
 

@@ -5,7 +5,7 @@ from __future__ import annotations
 import math
 import os
 import threading
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from typing import Any, Protocol
 
@@ -83,6 +83,10 @@ FIELD_DEFINITIONS = (
     ("dst", "dst_index", "dst"),
     ("hp60", "hp60", "hp60"),
 )
+#: Every source name that can appear in a per-source freshness age. This is
+#: the vocabulary the client reads out of `data_freshness` (#321), so it must
+#: stay in step with FIELD_DEFINITIONS.
+SOURCE_NAMES = tuple(dict.fromkeys(source for _, _, source in FIELD_DEFINITIONS))
 SNAPSHOT_COLUMNS = (
     "captured_at",
     "kp_index",
@@ -329,6 +333,9 @@ class VerifiedOperationalWeather:
     available_at: datetime
     provider: str = "solar-snapshots-v1"
     quality_flags: tuple[str, ...] = ()
+    #: Age in seconds at issue time of each source that supplied a value.
+    #: A source with no usable observation is absent, never zero.
+    source_ages_seconds: dict[str, int] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
         aware_datetime(self.source_watermark)
@@ -339,6 +346,10 @@ class VerifiedOperationalWeather:
             raise ValueError("operational weather contains an unsupported feature")
         if any(not math.isfinite(float(value)) for value in self.values.values()):
             raise ValueError("operational weather values must be finite")
+        if any(name not in SOURCE_NAMES for name in self.source_ages_seconds):
+            raise ValueError("operational weather ages name an unknown source")
+        if any(age < 0 for age in self.source_ages_seconds.values()):
+            raise ValueError("operational weather ages must be non-negative")
 
 
 def build_operational_weather(
@@ -404,6 +415,10 @@ def build_operational_weather(
         values=values,
         source_watermark=min(fast_times),
         available_at=max(receipt_times.values()),
+        source_ages_seconds={
+            source: max(0, math.ceil((issue_time - observed).total_seconds()))
+            for source, observed in observed_times.items()
+        },
     )
 
 

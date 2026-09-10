@@ -143,9 +143,10 @@ class SpyUnavailablePathHistoryProvider(UnavailablePathHistoryProvider):
 class FakeOperationalWeatherProvider:
     name = "solar-snapshots-v1"
 
-    def __init__(self, age_seconds=60, future_available=False):
+    def __init__(self, age_seconds=60, future_available=False, source_ages_seconds=None):
         self.age_seconds = age_seconds
         self.future_available = future_available
+        self.source_ages_seconds = source_ages_seconds or {}
 
     def lookup(self, *, issue_time):
         available_at = issue_time + timedelta(seconds=1) if self.future_available else issue_time
@@ -153,6 +154,7 @@ class FakeOperationalWeatherProvider:
             values={"kp": 2.0, "f107": 155.0, "kp_max_24h": 3.0},
             source_watermark=issue_time - timedelta(seconds=self.age_seconds),
             available_at=available_at,
+            source_ages_seconds=dict(self.source_ages_seconds),
         )
 
 
@@ -793,6 +795,47 @@ class ServiceTests(unittest.TestCase):
         self.assertEqual(self.registry.last_values[-1]["kp"], 2.0)
         self.assertEqual(self.registry.last_values[-1]["kp_missing"], 0)
         self.assertEqual(self.registry.last_values[-1]["f107"], 155.0)
+
+    def test_per_source_weather_ages_are_served_and_client_ages_ignored(self):
+        payload = request_payload()
+        payload["data_freshness_seconds"]["kp"] = 1
+        payload["data_freshness_seconds"]["dst"] = 1
+        client = TestClient(create_app(
+            self.registry,
+            inference_mode="shadow",
+            path_history_provider=UnavailablePathHistoryProvider(),
+            operational_weather_provider=FakeOperationalWeatherProvider(
+                source_ages_seconds={"kp": 240, "solar_wind": 180, "dst": 3_480},
+            ),
+        ))
+
+        response = client.post("/v1/propagation/path", json=payload)
+
+        self.assertEqual(response.status_code, 200)
+        freshness = response.json()["data_freshness"]
+        # The aggregate keeps its old meaning and its old value.
+        self.assertEqual(freshness["space_weather"], 60)
+        self.assertEqual(freshness["kp"], 240)
+        self.assertEqual(freshness["solar_wind"], 180)
+        self.assertEqual(freshness["dst"], 3_480)
+        # A source the snapshot could not supply is absent, never zero.
+        self.assertNotIn("f107", freshness)
+
+    def test_client_supplied_source_ages_are_dropped_without_a_snapshot(self):
+        payload = request_payload()
+        payload["data_freshness_seconds"]["kp"] = 1
+        client = TestClient(create_app(
+            self.registry,
+            inference_mode="shadow",
+            path_history_provider=UnavailablePathHistoryProvider(),
+            operational_weather_provider=RaisingOperationalWeatherProvider(),
+        ))
+
+        with self.assertLogs("uvicorn.error", level="WARNING"):
+            response = client.post("/v1/propagation/path", json=payload)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertNotIn("kp", response.json()["data_freshness"])
 
     def test_future_operational_weather_snapshot_is_rejected(self):
         client = TestClient(create_app(

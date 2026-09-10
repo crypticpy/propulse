@@ -45,6 +45,7 @@ from reference_features import (
 from operational_weather import (
     DERIVED_WEATHER_FEATURES,
     RAW_WEATHER_FEATURES,
+    SOURCE_NAMES,
     OperationalWeatherProvider,
     VerifiedOperationalWeather,
     operational_weather_provider_from_environment,
@@ -819,16 +820,20 @@ def apply_verified_operational_weather(
     client_freshness: dict[str, int],
 ) -> tuple[list[PathFeatures], dict[str, int]]:
     snapshot = verified_operational_weather(provider, issue_time=issue_time)
+    # Every space-weather age is server-authoritative: the aggregate and the
+    # per-source ages the client renders (#321) are stripped from the request
+    # before the snapshot's own are merged in.
     freshness = {
         key: value
         for key, value in client_freshness.items()
-        if key != "space_weather"
+        if key != "space_weather" and key not in SOURCE_NAMES
     }
     if snapshot is not None:
         freshness["space_weather"] = max(
             0,
             math.ceil((issue_time - snapshot.source_watermark).total_seconds()),
         )
+        freshness.update(snapshot.source_ages_seconds)
     verified_cells = []
     for cell in cells:
         values = dict(cell.values)

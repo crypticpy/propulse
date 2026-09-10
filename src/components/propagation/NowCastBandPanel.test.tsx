@@ -116,14 +116,21 @@ function buildPrediction(
   };
 }
 
-/** All fast sources fresh, one slow source an hour old. */
-const MIXED_FRESHNESS = {
-  space_weather: 3_600,
+/**
+ * The `data_freshness` block of a real `/v1/propagation/path` response, copied
+ * verbatim from the service (fast sources minutes old, Dst hourly, F10.7 daily)
+ * rather than hand-invented.
+ */
+const SERVICE_FRESHNESS = {
+  dst: 3480,
+  f107: 25200,
+  hp60: 4200,
   kp: 300,
   magnetic_field: 420,
+  proton_flux_10mev: 360,
   solar_wind: 240,
-  dst: 3_600,
-  f107: 7_200,
+  space_weather: 3480,
+  sunspot_number: 18000,
 };
 
 function renderFooter(dataFreshness: Record<string, number>, compact: boolean) {
@@ -149,7 +156,7 @@ function renderFooter(dataFreshness: Record<string, number>, compact: boolean) {
 
 describe("NowCastBandPanel space-weather ages", () => {
   it("names the freshest fast source on the wall, not the hourly aggregate", () => {
-    renderFooter(MIXED_FRESHNESS, true);
+    renderFooter(SERVICE_FRESHNESS, true);
 
     expect(screen.getByText("Solar wind 4m old")).toBeTruthy();
     expect(screen.queryByText(/Space weather/)).toBeNull();
@@ -158,18 +165,19 @@ describe("NowCastBandPanel space-weather ages", () => {
   });
 
   it("shows one fast age and one slow age in the report modal", () => {
-    renderFooter(MIXED_FRESHNESS, false);
+    renderFooter(SERVICE_FRESHNESS, false);
 
     expect(screen.getByText("Fast inputs: IMF 7m old")).toBeTruthy();
-    expect(screen.getByText("Slow inputs: F10.7 2.0h old")).toBeTruthy();
+    expect(screen.getByText("Slow inputs: F10.7 7.0h old")).toBeTruthy();
     expect(screen.queryByText(/Space weather/)).toBeNull();
   });
 
   it("falls back to an honest aggregate label when per-source ages are absent", () => {
-    renderFooter({ space_weather: 3_600 }, true);
-    expect(screen.getByText("Oldest input 60m old")).toBeTruthy();
+    // What the service sends until the per-source ages are deployed.
+    renderFooter({ space_weather: 3480 }, true);
+    expect(screen.getByText("Oldest input 58m old")).toBeTruthy();
 
-    renderFooter({ space_weather: 3_600 }, false);
-    expect(screen.getAllByText("Oldest input 60m old")).toHaveLength(2);
+    renderFooter({ space_weather: 3480 }, false);
+    expect(screen.getAllByText("Oldest input 58m old")).toHaveLength(2);
   });
 });

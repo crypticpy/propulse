@@ -14,9 +14,12 @@
  * the report modal can print one age per group.
  *
  * Per-source ages are read from `data_freshness` under the service's own
- * source vocabulary (`ml/service/operational_weather.py`). The deployed
- * service does not emit them yet — it only emits the aggregate — so every
- * caller must keep working from `aggregateSeconds` alone, and does.
+ * source vocabulary (`SOURCE_NAMES` in `ml/service/operational_weather.py`):
+ * `kp`, `magnetic_field`, `solar_wind`, `proton_flux_10mev`, `dst`, `hp60`,
+ * `f107`, `sunspot_number`. The service emits an entry only for a source that
+ * supplied a value, and until the inference service is redeployed it emits
+ * none at all, so every caller must keep working from `aggregateSeconds`
+ * alone — and does.
  */
 
 /** Sources published every few minutes. */

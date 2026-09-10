@@ -87,6 +87,54 @@ class OperationalWeatherTests(unittest.TestCase):
         self.assertLessEqual(result.available_at, ISSUE)
         self.assertLessEqual(result.source_watermark, ISSUE)
 
+    def test_builder_reports_an_age_for_every_source_that_supplied_a_value(
+        self,
+    ) -> None:
+        # Fast sources minutes old, Dst an hour old: the case #321 is about.
+        captured = ISSUE - timedelta(minutes=4)
+        snapshot = row(captured, kp=3.0, bz=-2.0, dst=-20.0)
+        snapshot["source_observed_at"]["dst"] = (
+            ISSUE - timedelta(minutes=58)
+        ).isoformat()
+
+        result = build_operational_weather([snapshot], ISSUE)
+
+        assert result is not None
+        self.assertEqual(
+            result.source_ages_seconds,
+            {
+                "kp": 240,
+                "f107": 240,
+                "magnetic_field": 240,
+                "solar_wind": 240,
+                "sunspot_number": 240,
+                "proton_flux_10mev": 240,
+                "dst": 3_480,
+                "hp60": 240,
+            },
+        )
+        # The aggregate keeps its old meaning: the oldest fast source, which
+        # is still hourly Dst.
+        self.assertEqual(
+            math.ceil((ISSUE - result.source_watermark).total_seconds()), 3_480
+        )
+
+    def test_builder_omits_a_source_that_supplied_no_value(self) -> None:
+        captured = ISSUE - timedelta(minutes=4)
+        snapshot = row(captured, kp=3.0, bz=-2.0, dst=-20.0, hp60=None)
+        snapshot["source_observed_at"]["sunspot_number"] = None
+        snapshot["sunspot_number"] = None
+
+        result = build_operational_weather([snapshot], ISSUE)
+
+        assert result is not None
+        self.assertNotIn("hp60", result.source_ages_seconds)
+        self.assertNotIn("sunspot_number", result.source_ages_seconds)
+        self.assertEqual(result.source_ages_seconds["kp"], 240)
+        self.assertEqual(
+            math.ceil((ISSUE - result.source_watermark).total_seconds()), 240
+        )
+
     def test_proton_flux_survives_goes_latency_within_the_hour(self) -> None:
         # Real cadence: the snapshot is captured ~13 min after the GOES
         # observation and requests arrive up to 15 min after capture.

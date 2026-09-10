@@ -17,6 +17,7 @@ import React, { useEffect, useMemo } from "react";
 import * as THREE from "three";
 import { getUpDirection } from "@/components/map/lib/globeCoords";
 import { GLOBE_LAYER_ORDER } from "@/lib/map/globeRenderOrder";
+import { selectLimitedFootprints } from "@/lib/map/satelliteGeometry";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -202,34 +203,18 @@ export const SatelliteFootprint3D = React.memo(function SatelliteFootprint3D({
 }: SatelliteFootprint3DProps) {
   if (!footprints || footprints.length === 0) return null;
 
-  // Limit to MAX_FOOTPRINTS for performance
-  const limited = footprints.slice(0, MAX_FOOTPRINTS);
-
-  // Ensure the selected satellite and any per-track "Footprint" opt-ins
-  // (#994) are always visible in the limited set — the caller (GlobeView)
-  // already orders tracked ids first, but this makes the guarantee hold
-  // regardless of caller ordering, the same way selectedSatelliteId always
-  // did before tracks existed.
-  const mustKeepIds = new Set<string>(trackedSatelliteIds ?? []);
-  if (selectedSatelliteId) mustKeepIds.add(selectedSatelliteId);
-
-  if (mustKeepIds.size > 0) {
-    const missing = Array.from(mustKeepIds).filter(
-      (id) => !limited.some((fp) => fp.satelliteId === id),
-    );
-    let rescueSlot = limited.length - 1;
-    for (const id of missing) {
-      const found = footprints.find((fp) => fp.satelliteId === id);
-      if (!found) continue;
-      // Don't clobber a slot that already holds another must-keep id.
-      while (rescueSlot >= 0 && mustKeepIds.has(limited[rescueSlot].satelliteId)) {
-        rescueSlot--;
-      }
-      if (rescueSlot < 0) break;
-      limited[rescueSlot] = found;
-      rescueSlot--;
-    }
-  }
+  // Limit to MAX_FOOTPRINTS for performance, rescuing the selected satellite
+  // and any per-track "Footprint" opt-ins (#994) that a plain `slice` would
+  // drop — the caller (GlobeView) already orders tracked ids first, but this
+  // makes the guarantee hold regardless of caller ordering, the same way
+  // selectedSatelliteId always did before tracks existed. The selected
+  // satellite always wins even if every slot is already a tracked id
+  // (#1029 review) — see `selectLimitedFootprints` for the tiered priority.
+  const limited = selectLimitedFootprints(footprints, {
+    maxFootprints: MAX_FOOTPRINTS,
+    trackedSatelliteIds,
+    selectedSatelliteId,
+  });
 
   return (
     <group name="satellite-footprints">

@@ -34,6 +34,7 @@ import {
 import {
   latLonAltToVector3,
   latLonToSurface,
+  selectTrackLabelIndices,
 } from "@/lib/map/satelliteGeometry";
 import {
   CATEGORY_META,
@@ -591,7 +592,7 @@ function GroundTrack({ satellite, config, isSelected, minuteTick }: GroundTrackP
   const color = CATEGORY_COLORS[satellite.category];
   const lineWidth = isSelected ? 2.5 : 1.5;
 
-  const { pastSegments, futureSegments, tenMinDots, thirtyMinLabels } =
+  const { pastSegments, futureSegments, tenMinDots, trackLabels } =
     useMemo(() => {
       const pastMin = config.showPast ? 45 : 0;
       const track = buildOrbitTrack(satellite, new Date(), {
@@ -599,6 +600,12 @@ function GroundTrack({ satellite, config, isSelected, minuteTick }: GroundTrackP
         orbitsAhead: config.orbitsAhead,
         stepMin: 1,
       });
+
+      // Bound the label count regardless of track length (#1029 review) — a
+      // geostationary satellite at 3 orbits ahead with a 1-minute step
+      // produces ~4300 points; labeling every 30 minutes there would emit
+      // ~145 Html DOM-portal labels into the per-frame occlusion batch.
+      const labelIndices = new Set(selectTrackLabelIndices(track));
 
       const past: THREE.Vector3[][] = [];
       const future: THREE.Vector3[][] = [];
@@ -643,7 +650,7 @@ function GroundTrack({ satellite, config, isSelected, minuteTick }: GroundTrackP
         if (point.minutesFromNow % 10 === 0) {
           dots.push(vec);
         }
-        if (point.minutesFromNow % 30 === 0) {
+        if (labelIndices.has(i)) {
           labels.push({
             position: vec,
             minutesFromNow: point.minutesFromNow,
@@ -660,7 +667,7 @@ function GroundTrack({ satellite, config, isSelected, minuteTick }: GroundTrackP
         pastSegments: past,
         futureSegments: future,
         tenMinDots: dots,
-        thirtyMinLabels: labels,
+        trackLabels: labels,
       };
       // minuteTick intentionally re-anchors the track on "now" once a minute
       // without depending on satellite object identity, which changes every
@@ -697,14 +704,14 @@ function GroundTrack({ satellite, config, isSelected, minuteTick }: GroundTrackP
     };
   }, [dotGeometry, dotMaterial]);
 
-  // Occlusion-gate the 30-min Html labels the same way every other DOM label
-  // on the globe is gated (useGlobeOcclusion/useGlobeOcclusionBatch). Html is
-  // a DOM portal with no depthTest, so far-side labels would otherwise paint
-  // on top of the near side; they're dropped entirely rather than faded to
-  // also cut the portal count on a multi-orbit track.
+  // Occlusion-gate the time-marker Html labels the same way every other DOM
+  // label on the globe is gated (useGlobeOcclusion/useGlobeOcclusionBatch).
+  // Html is a DOM portal with no depthTest, so far-side labels would
+  // otherwise paint on top of the near side; they're dropped entirely rather
+  // than faded to also cut the portal count on a multi-orbit track.
   const labelPositions = useMemo(
-    () => thirtyMinLabels.map((l) => ({ lat: l.lat, lon: l.lon })),
-    [thirtyMinLabels],
+    () => trackLabels.map((l) => ({ lat: l.lat, lon: l.lon })),
+    [trackLabels],
   );
   const { getOpacity } = useGlobeOcclusionBatch(labelPositions);
 
@@ -745,7 +752,7 @@ function GroundTrack({ satellite, config, isSelected, minuteTick }: GroundTrackP
           renderOrder={GLOBE_LAYER_ORDER.markers}
         />
       ))}
-      {thirtyMinLabels.map(({ position, minutesFromNow, lat, lon }, idx) => {
+      {trackLabels.map(({ position, minutesFromNow, lat, lon }, idx) => {
         if (getOpacity(lat, lon) < LABEL_OCCLUSION_THRESHOLD) return null;
         return (
           <Html

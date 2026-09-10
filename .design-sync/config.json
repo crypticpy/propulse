@@ -271,7 +271,8 @@
   "guidelinesGlob": [
     "docs/designs/*.md",
     "docs/guides/card-design-best-practices.md",
-    "docs/guides/hamclock-tile-system.md"
+    "docs/guides/hamclock-tile-system.md",
+    "docs/designs/workspace/README.md"
   ],
   "overrides": {
     "OnboardingTour": {

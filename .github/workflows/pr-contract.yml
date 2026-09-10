@@ -12,6 +12,7 @@ jobs:
     if: github.event.pull_request.draft == false
     runs-on: ubuntu-latest
     permissions:
+      issues: read
       pull-requests: read
     steps:
       - name: Check PR body contract
@@ -33,23 +34,42 @@ jobs:
             echo "::warning::PR touches ${CHANGED_FILES} files, over the 15-file guideline"
           fi
       - name: Require a Fable design review on UI changes
+        # Rule and path list: docs/AGENT-CONSTITUTION.md, "Design and UI review".
+        # The list here is a floor (what CI can see), not the definition.
         env:
           GH_TOKEN: ${{ github.token }}
-          BODY: ${{ github.event.pull_request.body }}
           REPO: ${{ github.repository }}
           PR: ${{ github.event.pull_request.number }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         run: |
-          FILES=$(gh api "repos/${REPO}/pulls/${PR}/files" --paginate --jq '.[].filename')
-          UI=$(printf '%s\n' "$FILES" | grep -E '^(src/components/|src/pages/|src/styles/|src/index\.css$|tailwind\.config\.|\.design-sync/|docs/designs/)' || true)
+          FILES=$(gh api "repos/${REPO}/pulls/${PR}/files" --paginate \
+            --jq '.[] | .filename, (.previous_filename // empty)') \
+            || { echo "::warning::could not list PR files; design-review check skipped"; exit 0; }
+          UI=$(printf '%s\n' "$FILES" | grep -E '^(src/components/|src/pages/|src/styles/|src/lib/themes/|src/lib/widgets/|src/lib/hamclock/|src/lib/home/|src/lib/[^/]+/.*(Colors?|Layout|Tokens?|Fonts?)\.tsx?$|src/stores/themeStore\.ts$|src/hooks/useColorBlindMode\.ts$|src/App\.tsx$|src/main\.tsx$|index\.html$|public/|tailwind\.config\.|postcss\.config\.|\.design-sync/|docs/designs/design-system/|docs/designs/.*-(spec|mock)[^/]*$)' || true)
           if [ -z "$UI" ]; then
             echo "No UI paths changed; design review not required."
             exit 0
           fi
           echo "UI paths changed:"
           printf '%s\n' "$UI"
-          # strip HTML comments so the template's example cannot satisfy the check
-          STRIPPED=$(printf '%s' "$BODY" | perl -0pe 's/<!--.*?-->//gs')
-          if ! printf '%s' "$STRIPPED" | grep -Eiq '^\s*\**Design review\**:?\**\s*approved'; then
-            echo "This PR touches UI. It needs an approved Claude Fable **design review** comment and a \`Design review: approved by Fable (<comment URL>)\` line in the body (docs/AGENT-CONSTITUTION.md, Design and UI review)."
+          # The proof is the reviewer's **design review** comment, bound to this
+          # head by its `Reviewed: <sha>` line; the PR body is author-controlled
+          # and a later push would leave a stale body line in place.
+          HEAD7=$(printf '%s' "$HEAD_SHA" | cut -c1-7)
+          COMMENTS=$(gh api "repos/${REPO}/issues/${PR}/comments" --paginate \
+            --jq '.[] | [.html_url, (.body | @base64)] | @tsv') \
+            || { echo "::warning::could not list PR comments; design-review check skipped"; exit 0; }
+          APPROVED=$(printf '%s\n' "$COMMENTS" | while IFS=$'\t' read -r url b64; do
+              [ -n "$b64" ] || continue
+              body=$(printf '%s' "$b64" | base64 -d)
+              if printf '%s' "$body" | grep -Eiq '\*\*design review\*\*' \
+                && printf '%s' "$body" | grep -Eiq "^[[:space:]>*_-]*Reviewed[*_]*:[[:space:]*_\`]*${HEAD7}" \
+                && printf '%s' "$body" | grep -Eiq '^[[:space:]>*_-]*Verdict[*_]*:[[:space:]*_`]*approved'; then
+                echo "$url"
+              fi
+            done)
+          if [ -z "$APPROVED" ]; then
+            echo "This PR touches UI. It needs a Claude Fable **design review** comment for head ${HEAD7} with \`Reviewed: ${HEAD7} …\` and \`Verdict: approved\` (docs/AGENT-CONSTITUTION.md, Design and UI review). A review of an earlier head does not carry."
             exit 1
           fi
+          echo "Design review approved for ${HEAD7}: ${APPROVED}"

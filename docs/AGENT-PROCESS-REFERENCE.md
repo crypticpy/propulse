@@ -48,12 +48,18 @@ Keep each to a few lines.
 ```markdown
 **design review** (Claude Fable only; required on every design and UI PR)
 
+- agent: Claude Fable 5 (session https://claude.ai/code/session_…)
+
 Reviewed: <head sha> at <canvases / text scales checked>
 
 1. **S1 — blocker:** file:line — what a person sees — fix
 2. …
    Verdict: approved | changes needed
 ```
+
+`pr-contract` matches the `Reviewed:` sha (first 7 chars of the head) and the
+`Verdict:` line; a new push needs a new comment. Short form for a test-only or
+doc-only push: `Reviewed: <new sha>` / `Verdict: approved (carries from <old sha>)`.
 
 ```markdown
 **done**

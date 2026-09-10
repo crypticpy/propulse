@@ -15,12 +15,12 @@ Agent: Human -->
 
 Agent:
 
-<!-- Required when the PR touches UI (src/components, src/pages, src/styles,
-docs/designs, .design-sync, anything a person sees). A Claude Fable session
-posts a **design review** comment; put its verdict and URL here, e.g.
-Design review: approved by Fable (https://github.com/…#issuecomment-…)
-Use "Design review: requested" until then. pr-contract fails a UI PR whose
-body lacks "Design review: approved". Leave blank for non-UI PRs. -->
+<!-- Required when the PR touches UI (anything a person sees; path list in
+docs/AGENT-CONSTITUTION.md, Design and UI review). A Claude Fable session
+posts a **design review** comment with Reviewed: <head sha> and
+Verdict: approved; put the words approved by Fable and the comment URL after
+the colon below. Write requested until then. pr-contract checks the comment
+itself, so a new push needs a new comment. Leave blank for non-UI PRs. -->
 
 Design review:
 

@@ -115,7 +115,7 @@ export const useMyStore = create<MyStore>()(
 
 ### Fable design review is required
 
-Every design and every change that touches UI (`src/components/`, `src/pages/`, `src/styles/`, `src/index.css`, `tailwind.config.*`, `.design-sync/`, `docs/designs/`, anything a person sees) is reviewed by a **Claude Fable** session before it merges. Designs are reviewed before build; PRs get a `**design review**` comment with verdict `approved` for the current head and a `Design review: approved by Fable (<comment URL>)` line in the body, which `pr-contract` enforces on UI PRs. Opus, Sonnet, Codex, Copilot, Grok and Composer reviews do not satisfy this. Full rule: `docs/AGENT-CONSTITUTION.md`, Design and UI review.
+Every design and every change that touches UI (anything a person sees) is reviewed by a **Claude Fable** session before it merges. Designs are reviewed before build; PRs get a `**design review**` comment (`Reviewed: <head sha>`, `Verdict: approved`) and a `Design review: approved by Fable (<comment URL>)` pointer line in the body. `pr-contract` fails a UI PR with no such comment for the current head. Opus, Sonnet, Codex, Copilot, Sourcery, Grok and Composer reviews do not satisfy this. The rule, the path list and the rendered-check surface are in `docs/AGENT-CONSTITUTION.md`, Design and UI review.
 
 ### No Flyout/Slide-in Panels
 

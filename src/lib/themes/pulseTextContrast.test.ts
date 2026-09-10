@@ -1206,23 +1206,52 @@ function findTagEnd(source: string, from: number): number {
  * `from`, counting nested same-tag opens (self-closing ones excluded) so a
  * `<div className="animate-pulse"><div /></div>Loading</div>` yields the
  * whole child range rather than stopping at the inner close (Codex,
- * PR #874 round 11). -1 when unbalanced. */
+ * PR #874 round 11). Walks the source position-by-position rather than
+ * running a global regex over the raw text, so a same-tag token that isn't a
+ * real sibling can never be miscounted: a `{...}` expression (including a
+ * `{/* comment *\/}`) is skipped whole via `extractBalanced` before its
+ * contents are ever compared against the tag pattern, and every other
+ * element's tag (same-name or not) is skipped whole via `findTagEnd` so a
+ * quoted attribute value containing this tag's own name followed by
+ * whitespace/`/`/`>` can't be mistaken for a real open or close (Codex,
+ * PR #874 round 19: `{/* replace <div> later *\/}Loading` previously left
+ * depth stuck above zero and dropped the visible `Loading` text). -1 when
+ * unbalanced. */
 function findMatchingCloseTag(source: string, tag: string, from: number): number {
   const escaped = tag.replace(/[.$]/g, "\\$&");
-  const re = new RegExp(`<(/?)${escaped}(?=[\\s/>])`, "g");
-  re.lastIndex = from;
+  const openRe = new RegExp(`<${escaped}(?=[\\s/>])`, "y");
+  const closeRe = new RegExp(`</${escaped}(?=[\\s>])`, "y");
   let depth = 1;
-  let m: RegExpExecArray | null;
-  while ((m = re.exec(source))) {
-    if (m[1] === "/") {
-      depth--;
-      if (depth === 0) return m.index;
+  let i = from;
+  while (i < source.length) {
+    const c = source[i];
+    if (c === "{") {
+      i = extractBalanced(source, i, "{", "}").endIndex + 1;
       continue;
     }
-    const gt = findTagEnd(source, m.index + 1);
-    if (gt === -1) return -1;
-    if (source[gt - 1] !== "/") depth++;
-    re.lastIndex = gt + 1;
+    if (c === "<") {
+      closeRe.lastIndex = i;
+      if (closeRe.test(source)) {
+        depth--;
+        if (depth === 0) return i;
+        i += 2 + tag.length;
+        continue;
+      }
+      openRe.lastIndex = i;
+      if (openRe.test(source)) {
+        const gt = findTagEnd(source, i + 1);
+        if (gt === -1) return -1;
+        if (source[gt - 1] !== "/") depth++;
+        i = gt + 1;
+        continue;
+      }
+      const skipFrom = source[i + 1] === "/" ? i + 2 : i + 1;
+      const gt = findTagEnd(source, skipFrom);
+      if (gt === -1) return -1;
+      i = gt + 1;
+      continue;
+    }
+    i++;
   }
   return -1;
 }
@@ -1283,38 +1312,6 @@ function stripTags(text: string): string {
   return out;
 }
 
-/** True when `block` contains a real (non-self-closing) opening tag with
- * content of its own immediately after its `>` -- `<span>{i.label}</span>`
- * or `<span>text</span>`, not `<Chip … />` or a skeleton `<div … />`. Like
- * `stripTags`, walks tag boundaries with `findTagEnd` rather than a blind
- * `>` search, so a quoted `>` in an attribute value can't be mistaken for a
- * tag's own close and produce a false "has content" reading (round 18, the
- * same class of bug as `stripTags` -- Codex asked for every regex in this
- * function that walks tag text to be fixed the same way). */
-function tagHasOwnContent(block: string): boolean {
-  let i = 0;
-  while (i < block.length) {
-    if (block[i] !== "<") {
-      i++;
-      continue;
-    }
-    if (block[i + 1] === "/") {
-      i++;
-      continue;
-    }
-    const gt = findTagEnd(block, i + 1);
-    if (gt === -1) break;
-    const selfClosing = block[gt - 1] === "/";
-    if (!selfClosing) {
-      let j = gt + 1;
-      while (j < block.length && /\s/.test(block[j])) j++;
-      if (j < block.length && block[j] !== "<") return true;
-    }
-    i = gt + 1;
-  }
-  return false;
-}
-
 /** Prop names whose value is rendered as visible text by the component that
  * receives them -- a self-closing PascalCase component carrying one of
  * these (or a spread, which might carry one) still renders text under its
@@ -1346,12 +1343,114 @@ function findSelfClosingComponentTags(text: string): string[] {
   return tags;
 }
 
+/** One JSX element found by `extractJsxElements`: its full source text, tag
+ * name, whether it's self-closing, and (for a non-self-closing element) the
+ * raw text between its opening and closing tags. */
+interface JsxElement {
+  raw: string;
+  tagName: string;
+  selfClosing: boolean;
+  children: string | null;
+}
+
+/** Every named JSX element (`<Tag ...>...</Tag>` or self-closing `<Tag
+ * .../>`) found anywhere in `text`, skipping quoted strings so a `<` inside
+ * one is never mistaken for an element start. Shares `findTagEnd` (attribute
+ * quotes/expressions) and `findMatchingCloseTag` (nested same-tag depth)
+ * with the rest of the file, so an element embedded in a ternary or
+ * logical-AND expression (`cond ? <span>Loading</span> : null`, `ready &&
+ * <span className="h-2" />`) is found the same way a direct child would be
+ * (Codex, PR #874 round 19). Fragments (`<>...</>`) are not recognized here;
+ * callers fail closed on any expression whose only unrecognized content
+ * looks like JSX. */
+function extractJsxElements(text: string): JsxElement[] {
+  const elements: JsxElement[] = [];
+  let i = 0;
+  while (i < text.length) {
+    const c = text[i];
+    if (c === '"' || c === "'" || c === "`") {
+      const close = text.indexOf(c, i + 1);
+      i = close === -1 ? text.length : close + 1;
+      continue;
+    }
+    if (c === "<") {
+      const nameMatch = /^<([A-Za-z][\w.]*)/.exec(text.slice(i));
+      if (nameMatch) {
+        const tagName = nameMatch[1];
+        const gt = findTagEnd(text, i + 1);
+        if (gt === -1) {
+          i++;
+          continue;
+        }
+        if (text[gt - 1] === "/") {
+          elements.push({ raw: text.slice(i, gt + 1), tagName, selfClosing: true, children: null });
+          i = gt + 1;
+          continue;
+        }
+        const closeIndex = findMatchingCloseTag(text, tagName, gt + 1);
+        if (closeIndex === -1) {
+          i = gt + 1;
+          continue;
+        }
+        const closeTagEnd = findTagEnd(text, closeIndex + 2);
+        if (closeTagEnd === -1) {
+          i = gt + 1;
+          continue;
+        }
+        elements.push({
+          raw: text.slice(i, closeTagEnd + 1),
+          tagName,
+          selfClosing: false,
+          children: text.slice(gt + 1, closeIndex),
+        });
+        i = closeTagEnd + 1;
+        continue;
+      }
+    }
+    i++;
+  }
+  return elements;
+}
+
+/** True when a single JSX element found by `extractJsxElements` renders text
+ * under its enclosing pulse: a self-closing component (uppercase tag name)
+ * counts when it carries a text-shaped prop or spread (same rule as
+ * `findSelfClosingComponentTags`/`TEXT_PROP_RE`); a self-closing intrinsic
+ * element counts only as a value-bearing form control; any element with
+ * real children recurses into `isTextBearingChildren` so nested text,
+ * mappings and components are judged by the exact same rules regardless of
+ * how deep they're nested (round 19). */
+function isJsxElementTextBearing(el: JsxElement): boolean {
+  if (el.selfClosing) {
+    if (/^[A-Z]/.test(el.tagName)) return TEXT_PROP_RE.test(el.raw);
+    return VALUE_BEARING_CONTROL.test(el.raw);
+  }
+  return isTextBearingChildren(el.children);
+}
+
+/** Classifies one `{...}` expression block (braces included) from a
+ * child's raw JSX by what it actually emits, replacing the old `.map(`/`=>`
+ * special case (Codex, PR #874 round 19). A block with no JSX in it at all
+ * (`{count}`, `{label}`, `{t("x")}`, `{a ? "Loading" : "Ready"}`, a bare
+ * spread `{...props}`) renders that value as text right here, so it counts
+ * (fail closed -- this scanner can't evaluate the expression). A block that
+ * does contain JSX (a ternary, `&&`, or a `.map()` callback) counts only
+ * when the JSX inside would itself be text-bearing by `isJsxElementTextBearing`
+ * -- so `{ready && <span className="h-2" />}` (decorative) and
+ * `{items.map((i) => <div key={i} className="h-2" />)}` (skeleton) are
+ * dismissed, while `{ready ? <span>Loading</span> : null}` still counts. */
+function isExpressionBlockTextBearing(block: string): boolean {
+  const inner = block.slice(1, -1);
+  if (!/<(?:[A-Za-z]|>)/.test(inner)) return true;
+  const elements = extractJsxElements(inner);
+  if (elements.length === 0) return true;
+  return elements.some(isJsxElementTextBearing);
+}
+
 /** True when `children` (the raw JSX between an opening and closing tag)
  * carries non-whitespace text, a `{...}` expression child that renders a
- * simple value rather than delegating to a `.map()`/arrow-callback
- * sub-render (which produces further elements, not text on *this*
- * element), or a self-closing component that renders a text-shaped prop of
- * its own (round 18). */
+ * simple value or text-bearing JSX (round 19), or a self-closing component
+ * that renders a text-shaped prop of its own (round 18). */
 function isTextBearingChildren(children: string | null): boolean {
   if (!children) return false;
   // A value-bearing form control anywhere under this element renders its
@@ -1366,22 +1465,10 @@ function isTextBearingChildren(children: string | null): boolean {
   if (findSelfClosingComponentTags(children).some((tag) => TEXT_PROP_RE.test(tag))) return true;
   const withoutTags = stripTags(children);
   if (/\S/.test(stripBalancedExpressions(withoutTags).withoutExpr)) return true;
-  // Classify the `{…}` blocks on the raw children (tags intact) so a mapping
-  // that emits JSX can be told from one that yields strings.
-  return stripBalancedExpressions(children).blocks.some((block) => {
-    if (!/\.map\(|=>/.test(block)) return true;
-    // A mapping or arrow that yields strings (`items.map((i) =>
-    // i.label).join(", ")`) renders text right here, so it counts (Codex,
-    // PR #874 round 7). One that emits JSX counts only when an emitted
-    // element has content of its own (`<span>{i.label}</span>`): the
-    // parent's pulse fades that text and the child carries no pulse class
-    // for the scan to find (round 8). A mapping of self-closing elements
-    // (`<Chip … />`, a skeleton `<div … />`) renders nothing of its own,
-    // unless it's a component carrying a text-shaped prop, already caught
-    // above (round 18).
-    if (!/<[A-Za-z]/.test(block)) return true;
-    return tagHasOwnContent(block);
-  });
+  // Classify the `{…}` blocks on the raw children (tags intact) by what
+  // JSX (if any) they emit, so a mapping or conditional that renders text
+  // is told from one that renders only decorative elements (round 19).
+  return stripBalancedExpressions(children).blocks.some(isExpressionBlockTextBearing);
 }
 
 /** Void form controls render their value or placeholder as text, so a pulse
@@ -1896,6 +1983,28 @@ describe("scanSourceForViolations catches every spelling (fixture proofs, #878)"
     // spread on `Badge` is what should trigger this, not the wrapper alone.
     const fixture = '<span className="animate-pulse"><Badge {...props} /></span>';
     expect(scanSourceForViolations(fixture)).not.toEqual([]);
+  });
+
+  it("does not lose the closing tag to a same-tag token inside a JSX comment, so trailing visible text is still seen", () => {
+    const fixture =
+      '<div className="animate-pulse">{/* replace <div> later */}Loading</div>';
+    expect(scanSourceForViolations(fixture)).not.toEqual([]);
+  });
+
+  it("dismisses a decorative conditional child (`cond && <element />`) with no text-shaped prop", () => {
+    const fixture = '<div className="animate-pulse">{ready && <span className="h-2" />}</div>';
+    expect(scanSourceForViolations(fixture)).toEqual([]);
+  });
+
+  it("still catches a conditional child that renders a text-bearing element (`cond ? <span>text</span> : null`)", () => {
+    const fixture = '<div className="animate-pulse">{ready ? <span>Loading</span> : null}</div>';
+    expect(scanSourceForViolations(fixture)).not.toEqual([]);
+  });
+
+  it("still dismisses a mapping that emits a decorative self-closing element (`.map((i) => <div … />)`)", () => {
+    const fixture =
+      '<div className="animate-pulse">{items.map((i) => <div key={i} className="h-2" />)}</div>';
+    expect(scanSourceForViolations(fixture)).toEqual([]);
   });
 
   it("treats a form control's value or placeholder as rendered text", () => {

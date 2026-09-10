@@ -72,6 +72,42 @@
  * `PredictionsCard.tsx` precedent, since #826 named it explicitly rather
  * than leaving it out like the dead-code bucket (`WorkStationPanel.tsx`,
  * `DXSpotOverlay.tsx`) from the #825 round. Zero allowlist entries added.
+ *
+ * #832 map round (slice 1 of 6): `src/components/map/` census on `16c7bd32`
+ * found 416 sub-floor sites across 83 files (the issue body's top-of-census
+ * table). `PinFlyout.tsx` (10 sites) is owned by a concurrent PR (#824,
+ * wiring the remaining map overlays to the focus home) and was skipped for
+ * the next file down the census, per that issue's collision warning; it is
+ * not counted in the follow-up total below. Each of the 14 files fixed
+ * here was confirmed mounted with a `<ComponentName` render-site grep back
+ * to a routed page (`src/pages/PropSphere.tsx`, itself lazy-routed in
+ * `App.tsx`) or a parent already on that chain (`GlobeView.tsx`,
+ * `FlatMapView.tsx`, `LayersPopover.tsx`, `ProToolbarRibbon.tsx`) -- none
+ * were barrel-export-only, so this slice has no dead-code exclusions.
+ * `layers/SatelliteDetailModal.tsx` is confirmed the component this census
+ * means (not the unrelated `satellites/SatelliteDetailModal.tsx`),
+ * rendered from both `PropSphere.tsx` and `SatellitesPage.tsx`. This PR
+ * fixes 186 sites across the 14 most-mounted files: `SatellitePanel.tsx`,
+ * `layers/SatelliteDetailModal.tsx`, `PathAnalysis.tsx`, `LayersPopover.tsx`,
+ * `ISSTrackerOverlay.tsx`, `OperatorProfile.tsx`, `WatchPopover.tsx`,
+ * `TargetHoverTooltip.tsx`, `SatelliteOverlay.tsx`,
+ * `layers/SatelliteFilters.tsx`, `layers/BasemapCategory.tsx`,
+ * `TimeControl.tsx`, `modals/PropagationForecastModal.tsx`, and
+ * `BandConditionsPanel.tsx`. Zero allowlist entries added. 68 files (220
+ * sites) remain in `map/` for slices 2-6, one 15-file PR at a time.
+ *
+ * Extending this guard, for whoever runs the next round: `FILES` is
+ * append-only -- never reorder it, never remove an entry, never convert it
+ * to a glob (the no-glob argument is above; don't re-litigate it, just
+ * point at it). Add exactly one census paragraph per round, appended in
+ * round order, so the paragraphs read as a sequence about this file's
+ * history rather than independent claims. Before editing this file, `git
+ * fetch`/merge `origin/main` and re-read it from the merged state -- two
+ * rounds appending to `FILES` in parallel produce a textual merge that
+ * looks valid and that nobody has actually read. Each round's paragraph
+ * records: the directory, the census numbers, which files were fixed,
+ * which were deliberately left un-raised (and why), and the allowlist
+ * count -- zero, ideally.
  */
 
 import { fileURLToPath } from "node:url";
@@ -116,6 +152,21 @@ const FILES = [
   "src/components/dx/PredictionsCard.tsx",
   "src/components/dx/modals/HistoryDetailModal.tsx",
   "src/components/dx/BandScope.tsx",
+  // #832 map round -- see module doc above for the full census and split.
+  "src/components/map/SatellitePanel.tsx",
+  "src/components/map/layers/SatelliteDetailModal.tsx",
+  "src/components/map/PathAnalysis.tsx",
+  "src/components/map/LayersPopover.tsx",
+  "src/components/map/ISSTrackerOverlay.tsx",
+  "src/components/map/OperatorProfile.tsx",
+  "src/components/map/WatchPopover.tsx",
+  "src/components/map/TargetHoverTooltip.tsx",
+  "src/components/map/SatelliteOverlay.tsx",
+  "src/components/map/layers/SatelliteFilters.tsx",
+  "src/components/map/layers/BasemapCategory.tsx",
+  "src/components/map/TimeControl.tsx",
+  "src/components/map/modals/PropagationForecastModal.tsx",
+  "src/components/map/BandConditionsPanel.tsx",
 ];
 
 interface AllowlistEntry {

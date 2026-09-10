@@ -544,20 +544,43 @@ function extractTemplateLiteral(source: string, start: number): string {
   return source.slice(start);
 }
 
-/** Map of `const NAME = \`template\`` declarations in `source`, so a bare
- * `className={NAME}` can be resolved to the expression it actually renders
- * (RadioBadge's `base`), instead of just the identifier text. */
+/** Map of `const NAME = \`template\`` / `"string"` / `'string'`
+ * declarations in `source`, so a `className={NAME}` (or a NAME used inside
+ * a `cn()`/template expression) can be resolved to the classes it actually
+ * renders (RadioBadge's `base`), instead of just the identifier text. Quoted
+ * strings joined the map in PR #874 round 12: an extraction such as
+ * `const statusClasses = "text-alert-red animate-pulse"` is routine and
+ * the census must see through it. */
 function collectConstTemplateMap(source: string): Map<string, string> {
   const map = new Map<string, string>();
-  const declRe = /\bconst\s+([A-Za-z_$][\w$]*)\s*=\s*(?=`)/g;
+  const declRe = /\bconst\s+([A-Za-z_$][\w$]*)(?:\s*:\s*string)?\s*=\s*(?=[`"'])/g;
   let m: RegExpExecArray | null;
   while ((m = declRe.exec(source))) {
-    const templateStart = declRe.lastIndex;
-    const template = extractTemplateLiteral(source, templateStart);
-    map.set(m[1], template);
-    declRe.lastIndex = templateStart + template.length;
+    const start = declRe.lastIndex;
+    const quote = source[start];
+    let literal: string;
+    if (quote === "`") {
+      literal = extractTemplateLiteral(source, start);
+    } else {
+      const close = source.indexOf(quote, start + 1);
+      if (close === -1) continue;
+      literal = source.slice(start, close + 1);
+    }
+    map.set(m[1], literal);
+    declRe.lastIndex = start + literal.length;
   }
   return map;
+}
+
+/** Replaces every bare identifier in a class expression that names a
+ * resolved const with that const's literal, so `cn(statusClasses, x)` and
+ * `\`${statusClasses} mt-1\`` are scanned for the classes they render.
+ * Hyphen-adjacent words (`text-xs`) are class tokens, not identifiers. */
+function resolveConstRefs(raw: string, constMap: Map<string, string>): string {
+  if (constMap.size === 0) return raw;
+  return raw.replace(/(?<![\w$-])[A-Za-z_$][\w$]*(?![\w$-])/g, (id) =>
+    constMap.has(id) ? constMap.get(id)! : id,
+  );
 }
 
 interface ClassNameSite {
@@ -601,12 +624,8 @@ function findClassNameSites(
     if (delim === "{") {
       const openIndex = contentStart - 1;
       const { text, endIndex } = extractBalanced(source, openIndex, "{", "}");
-      raw = text.slice(1, -1);
+      raw = resolveConstRefs(text.slice(1, -1), constMap);
       afterIndex = endIndex + 1;
-      const bareId = raw.trim();
-      if (/^[A-Za-z_$][\w$]*$/.test(bareId) && constMap.has(bareId)) {
-        raw = constMap.get(bareId)!;
-      }
     } else {
       const closeIndex = source.indexOf(delim, contentStart);
       raw = closeIndex === -1 ? "" : source.slice(contentStart, closeIndex);
@@ -967,6 +986,22 @@ describe("scanSourceForViolations catches every spelling (fixture proofs, #878)"
     const fixture =
       '<span className={cn("bg-amber-500/20 text-amber-400", isLive && "animate-pulse")}>GL</span>';
     expect(scanSourceForViolations(fixture)).not.toEqual([]);
+  });
+
+  it("resolves quoted const class strings, bare or inside cn()/templates", () => {
+    for (const fixture of [
+      'const statusClasses = "text-alert-red animate-pulse";\nexport function A() { return <span className={statusClasses}>Critical</span>; }',
+      "const statusClasses = 'text-alert-red animate-pulse';\nexport function A() { return <span className={statusClasses}>Critical</span>; }",
+      'const pulse: string = "animate-pulse";\nexport function A() { return <span className={cn("text-amber-400", live && pulse)}>GL</span>; }',
+      'const pulse = "animate-pulse text-amber-400";\nexport function A() { return <span className={`${pulse} mt-1`}>GL</span>; }',
+    ]) {
+      expect(scanSourceForViolations(fixture), fixture).not.toEqual([]);
+    }
+    expect(
+      scanSourceForViolations(
+        'const pulse = "animate-pulse";\nexport function A() { return <span className={cn("text-amber-400", live && pulsed)}>GL</span>; }',
+      ),
+    ).toEqual([]);
   });
 
   it("catches the pulse class paired with a text color in a config-map object literal", () => {

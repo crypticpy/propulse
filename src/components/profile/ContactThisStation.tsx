@@ -18,6 +18,32 @@ import {
 import { physicsArgsForPath } from "@/lib/station/stationPhysics";
 import { calculateGreatCircleDistance } from "@/lib/utils/bands";
 
+function isValidLatitude(value: number | undefined): value is number {
+  return (
+    value != null && Number.isFinite(value) && Math.abs(value) <= 90
+  );
+}
+
+function isValidLongitude(value: number | undefined): value is number {
+  return (
+    value != null && Number.isFinite(value) && Math.abs(value) <= 180
+  );
+}
+
+function hasContactCoordinates(
+  profileLat: number | undefined,
+  profileLon: number | undefined,
+  viewerLat: number | undefined,
+  viewerLon: number | undefined,
+): boolean {
+  return (
+    isValidLatitude(profileLat) &&
+    isValidLongitude(profileLon) &&
+    isValidLatitude(viewerLat) &&
+    isValidLongitude(viewerLon)
+  );
+}
+
 interface ContactThisStationProps {
   /** Target station's public profile */
   profile: PublicProfile;
@@ -63,22 +89,24 @@ export function ContactThisStation({
   viewerStats,
   viewerHours,
 }: ContactThisStationProps) {
-  // Hooks must be called unconditionally — guard after the hook call
-  const hasCoords =
-    !!profile.lat && !!profile.lon && !!viewerLat && !!viewerLon;
+  const hasCoords = hasContactCoordinates(
+    profile.lat,
+    profile.lon,
+    viewerLat,
+    viewerLon,
+  );
 
   const ourPerf = useChainPerformance();
   const stationGain = useActiveStationGain();
   const theirKit = parsePublicEquipmentSummary(profile.statsCache?.equipment);
-  const distanceKm =
-    hasCoords && profile.lat != null && profile.lon != null
-      ? calculateGreatCircleDistance(
-          viewerLat ?? 0,
-          viewerLon ?? 0,
-          profile.lat,
-          profile.lon,
-        )
-      : 0;
+  const distanceKm = hasCoords
+    ? calculateGreatCircleDistance(
+        viewerLat,
+        viewerLon,
+        profile.lat,
+        profile.lon,
+      )
+    : 0;
   const physics = physicsArgsForPath(
     stationGain.antennaType,
     distanceKm,
@@ -87,10 +115,10 @@ export function ContactThisStation({
     stationGain.physicsMode,
   );
   const analysis = useContactAnalysis({
-    viewerLat: viewerLat ?? 0,
-    viewerLon: viewerLon ?? 0,
-    targetLat: profile.lat ?? 0,
-    targetLon: profile.lon ?? 0,
+    viewerLat: hasCoords ? viewerLat : 0,
+    viewerLon: hasCoords ? viewerLon : 0,
+    targetLat: hasCoords ? profile.lat : 0,
+    targetLon: hasCoords ? profile.lon : 0,
     viewerStats,
     targetStats: profile.statsCache,
     viewerHours,

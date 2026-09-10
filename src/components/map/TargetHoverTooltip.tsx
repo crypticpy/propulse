@@ -6,11 +6,14 @@
  * existing propagation utilities.
  */
 
-import type {
-  FocusEventHandler,
-  KeyboardEventHandler,
-  MouseEventHandler,
-  PointerEventHandler,
+import {
+  useLayoutEffect,
+  useRef,
+  useState,
+  type FocusEventHandler,
+  type KeyboardEventHandler,
+  type MouseEventHandler,
+  type PointerEventHandler,
 } from "react";
 import { createPortal } from "react-dom";
 import type { SUnit } from "@/types/signal";
@@ -168,13 +171,48 @@ export function TargetHoverTooltip({
 }: TargetHoverTooltipProps) {
   const { txPowerWatts, physicsMode } = useActiveStationGain();
   const overlayFrame = resolveOverlayFrame(portalTarget);
+  // Rough pre-measurement guess, used only for the very first paint (or as a
+  // fallback if the browser ever reports a zero-height rect). These constants
+  // were sized for 12px text; #832 raised this surface's text to `text-xs`
+  // (0.75rem), which follows Settings -> Text Size and no longer matches a
+  // fixed estimate at anything but the default scale. `contentRef` below
+  // measures the real rendered height and corrects the placement before
+  // paint, so this estimate never actually decides what the user sees except
+  // on the first frame a given content shape appears.
   const estimatedHeight =
     (optimalSignal?.notes ? 120 : 102) +
     (distanceKm !== undefined || bearing !== undefined ? 18 : 0) +
     (contextLabel ? 16 : 0);
+  const contentRef = useRef<HTMLDivElement>(null);
+  const [measuredHeight, setMeasuredHeight] = useState<number | null>(null);
+
+  // Runs after every commit (not just mount): content can change (a new
+  // target's notes/distance/bearing appear or disappear) while the component
+  // stays mounted, and each shape needs its own measurement. The height guard
+  // is what keeps this from looping -- re-placing only changes this node's
+  // `top`/`left` (via inline style), never its width or content, so a second
+  // measurement after a placement-only re-render always reads back the same
+  // height and the effect stops updating state. Deliberately has no deps
+  // array: must re-measure after every commit, not just when `measuredHeight`
+  // changes, since content shape can change while height coincidentally
+  // repeats -- the `height !== measuredHeight` guard inside (not a deps
+  // array) is what keeps this from looping.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useLayoutEffect(() => {
+    const node = contentRef.current;
+    if (!node) {
+      return;
+    }
+    const height = node.getBoundingClientRect().height;
+    if (height > 0 && height !== measuredHeight) {
+      setMeasuredHeight(height);
+    }
+  });
+
+  const effectiveHeight = measuredHeight ?? estimatedHeight;
   const adjustedPosition = placeAnchoredOverlayInFrame(
     position,
-    { width: TOOLTIP_WIDTH, height: estimatedHeight },
+    { width: TOOLTIP_WIDTH, height: effectiveHeight },
     overlayFrame,
     { axis: "vertical", gap: 10, padding: EDGE_PADDING },
   );
@@ -188,6 +226,7 @@ export function TargetHoverTooltip({
 
   const tooltipContent = (
     <div
+      ref={contentRef}
       role={interactive ? "button" : undefined}
       tabIndex={interactive ? 0 : undefined}
       aria-label={interactive ? `Open spot details for ${label}` : undefined}

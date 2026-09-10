@@ -239,6 +239,27 @@ interface BandConditionGridCellProps {
   sparklineData?: number[];
 }
 
+/**
+ * Grid view track sizing (#832 follow-up). The status label can render any of
+ * FADING/CLOSED/FORECAST/STIRRING/VERIFIED OPEN/HOT (from `bandHealthLabel`)
+ * or EXCELLENT/GOOD/FAIR/POOR/CLOSED (the bare path-model status) -- the
+ * longest single unbreakable word is "EXCELLENT" (9 chars). The label's
+ * `fontSize` is a literal `"12px"` (not `text-xs`/rem), so unlike the rest of
+ * this #832 round it does not grow with Settings -> Text Size; the overflow
+ * this fixes is present at every scale, not just larger ones. `minmax(50px,
+ * 1fr)` left ~40px of text room after the cell's padding and border, too
+ * narrow for that word, and with no wrap protection on the label a long,
+ * unbreakable status word spilled past its button and over the next cell.
+ * `5rem` gives single-word statuses room to fit at the default scale; the
+ * label's own `overflowWrap` is the hard guarantee against bleeding into a
+ * neighbor if a metric estimate here runs short.
+ */
+export const BAND_GRID_STYLE = {
+  display: "grid",
+  gridTemplateColumns: "repeat(auto-fill, minmax(5rem, 1fr))",
+  gap: "0.375rem",
+} as const;
+
 function gridCellPropsAreEqual(
   prevProps: BandConditionGridCellProps,
   nextProps: BandConditionGridCellProps,
@@ -255,7 +276,7 @@ function gridCellPropsAreEqual(
   );
 }
 
-const BandConditionGridCell = memo(function BandConditionGridCell({
+export const BandConditionGridCell = memo(function BandConditionGridCell({
   condition,
   verdict,
   onSelect,
@@ -311,6 +332,7 @@ const BandConditionGridCell = memo(function BandConditionGridCell({
           color: colors.text,
           lineHeight: 1.4,
           letterSpacing: "0.03em",
+          overflowWrap: "break-word",
         }}
       >
         {statusLabel}
@@ -338,6 +360,7 @@ const BandConditionGridCell = memo(function BandConditionGridCell({
             fontSize: "12px",
             color: "#6b7280",
             lineHeight: 1.2,
+            overflowWrap: "break-word",
           }}
           title="Independent path-physics estimate"
         >
@@ -1005,14 +1028,7 @@ export function BandConditionsPanel({
             >
               {isGridView ? (
                 /* Grid View — compact auto-flow grid inspired by OpenHamClock */
-                <div
-                  className="px-1"
-                  style={{
-                    display: "grid",
-                    gridTemplateColumns: "repeat(auto-fill, minmax(50px, 1fr))",
-                    gap: "6px",
-                  }}
-                >
+                <div className="px-1" style={BAND_GRID_STYLE}>
                   {bandConditions.map((condition) => (
                     <BandConditionGridCell
                       key={condition.band}

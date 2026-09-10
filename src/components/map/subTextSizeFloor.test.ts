@@ -88,16 +88,22 @@
  * `layers/SatelliteDetailModal.tsx` is confirmed the component this census
  * means (not the unrelated `satellites/SatelliteDetailModal.tsx`),
  * rendered from both `PropSphere.tsx` and `SatellitesPage.tsx`. This PR
- * fixes 186 sites across the 14 most-mounted files: `SatellitePanel.tsx`,
+ * fixes 177 sites across 13 of the most-mounted files: `SatellitePanel.tsx`,
  * `layers/SatelliteDetailModal.tsx`, `PathAnalysis.tsx`, `LayersPopover.tsx`,
  * `ISSTrackerOverlay.tsx`, `OperatorProfile.tsx`, `WatchPopover.tsx`,
  * `TargetHoverTooltip.tsx`, `SatelliteOverlay.tsx`,
  * `layers/SatelliteFilters.tsx`, `layers/BasemapCategory.tsx`,
- * `TimeControl.tsx`, `modals/PropagationForecastModal.tsx`, and
- * `BandConditionsPanel.tsx`. Zero allowlist entries added. 69 files (230
+ * `TimeControl.tsx`, and `BandConditionsPanel.tsx`.
+ * `modals/PropagationForecastModal.tsx` (9 sites) was audited and fixed in
+ * this round and then pulled back out with its own follow-up in mind (a
+ * `getBoundingClientRect`-measured re-placement fix on `TargetHoverTooltip.tsx`
+ * and a real fit-check gate on the SVG heatmap's SNR label needed a review
+ * round of their own, and 15 source files plus this guard plus that review's
+ * test file was over budget) -- it stays counted in the follow-up total
+ * below, not fixed here. Zero allowlist entries added. 70 files (239
  * sites) remain in `map/` for slices 2-6, one 15-file PR at a time -- that
- * total includes `PinFlyout.tsx`, which is deferred rather than done: it
- * still needs raising once #824 releases it.
+ * total includes `PinFlyout.tsx` (deferred rather than done: it still needs
+ * raising once #824 releases it) and `modals/PropagationForecastModal.tsx`.
  *
  * Extending this guard, for whoever runs the next round: `FILES` is
  * append-only -- never reorder it, never remove an entry, never convert it
@@ -175,7 +181,6 @@ const FILES = [
   "src/components/map/layers/SatelliteFilters.tsx",
   "src/components/map/layers/BasemapCategory.tsx",
   "src/components/map/TimeControl.tsx",
-  "src/components/map/modals/PropagationForecastModal.tsx",
   "src/components/map/BandConditionsPanel.tsx",
 ];
 

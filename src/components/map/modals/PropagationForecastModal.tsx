@@ -177,7 +177,7 @@ export function PropagationForecastModal({
             >
               {kp}
             </div>
-            <div className="text-xs text-su-muted mt-1">
+            <div className="text-[10px] text-su-muted mt-1">
               {kp <= 2 ? "Quiet" : kp <= 4 ? "Unsettled" : "Stormy"}
             </div>
           </div>
@@ -194,7 +194,7 @@ export function PropagationForecastModal({
             >
               {sfi}
             </div>
-            <div className="text-xs text-su-muted mt-1">
+            <div className="text-[10px] text-su-muted mt-1">
               {sfi >= 150 ? "Excellent" : sfi >= 100 ? "Good" : "Low"}
             </div>
           </div>
@@ -203,7 +203,7 @@ export function PropagationForecastModal({
             <div className="text-2xl font-mono font-bold text-plasma-orange">
               {currentHour.toString().padStart(2, "0")}:00z
             </div>
-            <div className="text-xs text-su-muted mt-1">UTC</div>
+            <div className="text-[10px] text-su-muted mt-1">UTC</div>
           </div>
           <div className="bg-su-line/10 rounded-xl p-4 text-center">
             <div className="text-xs text-su-muted mb-1">Best Band Now</div>
@@ -217,7 +217,7 @@ export function PropagationForecastModal({
             >
               {currentBestBand?.band || "---"}
             </div>
-            <div className="text-xs text-su-muted mt-1">
+            <div className="text-[10px] text-su-muted mt-1">
               {currentBestBand
                 ? `${currentBestBand.snrEstimate} dB`
                 : "No opening"}
@@ -231,7 +231,7 @@ export function PropagationForecastModal({
             <h3 className="text-sm font-medium text-su-text">
               Band Conditions by Hour (UTC)
             </h3>
-            <div className="flex items-center gap-4 text-xs">
+            <div className="flex items-center gap-4 text-[10px]">
               <div className="flex items-center gap-1.5">
                 <div
                   className="w-3 h-3 rounded"
@@ -311,7 +311,7 @@ export function PropagationForecastModal({
                   x={MARGIN.left - 8}
                   y={MARGIN.top + idx * CELL_HEIGHT + CELL_HEIGHT / 2 + 4}
                   textAnchor="end"
-                  className="fill-su-text text-xs font-mono"
+                  className="fill-su-text text-[11px] font-mono"
                 >
                   {band}
                 </text>
@@ -324,7 +324,7 @@ export function PropagationForecastModal({
                   x={MARGIN.left + hour * CELL_WIDTH + CELL_WIDTH}
                   y={CHART_HEIGHT - 8}
                   textAnchor="middle"
-                  className="fill-su-muted text-xs font-mono"
+                  className="fill-su-muted text-[10px] font-mono"
                 >
                   {hour.toString().padStart(2, "0")}
                 </text>
@@ -365,7 +365,7 @@ export function PropagationForecastModal({
                           x={x + CELL_WIDTH / 2}
                           y={y + CELL_HEIGHT / 2 + 3}
                           textAnchor="middle"
-                          className="fill-black/40 text-xs font-mono pointer-events-none"
+                          className="fill-black/40 text-[8px] font-mono pointer-events-none"
                         >
                           {bandData.snrEstimate}
                         </text>
@@ -401,7 +401,7 @@ export function PropagationForecastModal({
                 x={MARGIN.left + currentHour * CELL_WIDTH + CELL_WIDTH / 2}
                 y={MARGIN.top - 18}
                 textAnchor="middle"
-                className="fill-plasma-orange text-xs font-bold"
+                className="fill-plasma-orange text-[10px] font-bold"
               >
                 NOW
               </text>

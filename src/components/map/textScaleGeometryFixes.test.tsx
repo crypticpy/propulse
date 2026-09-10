@@ -544,9 +544,9 @@ describe("PathAnalysis (round-5 sweep: collapsed header row wraps instead of ove
  *  - BandConditionsPanel.tsx:1149  "Solar inputs" + refresh icon      safe: plain text wraps, single scaling child
  *  - PathAnalysis.tsx:1033         truncate + fixed max-width chip    FIXED (rem cap)
  *  - PathAnalysis.tsx:1053         fixed max-width decision group     FIXED (rem cap)
- *  - PathAnalysis.tsx:398          grid-cols-2 (EndSunTimes)          safe: multi-line stacked block wraps at word breaks
- *  - PathAnalysis.tsx:1383,1424,1450  grid-cols-3 (MetricItem)        safe: short atomic numeric/word values
- *  - PathAnalysis.tsx:1713,1904    grid-cols-2 (Freq Limits)          safe: short label:value pairs, ample margin
+ *  - PathAnalysis.tsx:398          grid-cols-2 (EndSunTimes)          FIXED (auto-fit, round 15)
+ *  - PathAnalysis.tsx:1383,1424,1450  grid-cols-3 (MetricItem)        FIXED (auto-fit, round 15: 3 x 65px tiles cannot hold the tracked labels at xl)
+ *  - PathAnalysis.tsx:1713,1904    grid-cols-2 (Freq Limits)          FIXED (auto-fit, round 15)
  *  - PathAnalysis.tsx:915-1057     collapsed header row               safe: already flex-wrap (prior round)
  *  - ISSTrackerOverlay.tsx:231     header row (name + status badge)   safe: name is a fixed immune size, one scaling badge, fits the viewport-clamped card
  *  - ISSTrackerOverlay.tsx:641     globe-anchored label pill          safe: floats unconstrained over the 3D globe
@@ -682,7 +682,7 @@ describe("OperatorProfile (round-9 fix: primary VFO row wraps instead of clippin
 });
 
 describe("SatellitePanel + SatelliteDetailModal (round-9 fix: UP/DN and TX/RX grids stack instead of squeezing)", () => {
-  it("SatellitePanel.tsx: all three transponder/Doppler grids are auto-fit, none are a fixed two-column grid", () => {
+  it("SatellitePanel.tsx: all four transponder/Doppler/position grids are auto-fit, none are a fixed two-column grid", () => {
     const source = readFileSync(
       resolve(REPO_ROOT, "src/components/map/SatellitePanel.tsx"),
       "utf8",
@@ -691,10 +691,10 @@ describe("SatellitePanel + SatelliteDetailModal (round-9 fix: UP/DN and TX/RX gr
     const autoFitCount = (
       source.match(/grid-cols-\[repeat\(auto-fit,minmax\(6\.5rem,1fr\)\)\]/g) ?? []
     ).length;
-    expect(autoFitCount).toBe(3);
+    expect(autoFitCount).toBe(4);
   });
 
-  it("layers/SatelliteDetailModal.tsx: all three duplicated grids are auto-fit, none are a fixed two-column grid", () => {
+  it("layers/SatelliteDetailModal.tsx: all four duplicated grids are auto-fit, none are a fixed two-column grid", () => {
     const source = readFileSync(
       resolve(REPO_ROOT, "src/components/map/layers/SatelliteDetailModal.tsx"),
       "utf8",
@@ -703,7 +703,7 @@ describe("SatellitePanel + SatelliteDetailModal (round-9 fix: UP/DN and TX/RX gr
     const autoFitCount = (
       source.match(/grid-cols-\[repeat\(auto-fit,minmax\(6\.5rem,1fr\)\)\]/g) ?? []
     ).length;
-    expect(autoFitCount).toBe(3);
+    expect(autoFitCount).toBe(4);
   });
 
   it("layers/SatelliteDetailModal.tsx: the link-budget FSPL/Squint/Margin row wraps instead of overflowing", () => {
@@ -1116,5 +1116,34 @@ describe("round-14 Codex site family: non-wrapping label rows in the narrow colu
       });
     }
     expect(offenders).toEqual([]);
+  });
+});
+
+describe("round-15 Codex site family: fixed-column tile grids in the narrow panels", () => {
+  // At xl text scale a 220px panel leaves 65-72px per tile in a two-column
+  // grid and less in a three-column one; the uppercase tracked headings
+  // (POSITION, ALTITUDE, VELOCITY, DISTANCE) cannot break and overflow into
+  // the neighbouring tile. Every labelled-tile grid in the PR's files now
+  // uses the auto-fit geometry the transponder grids already had, so the
+  // tiles stack when a column would drop below the label width.
+  const FILES = [
+    "src/components/map/SatellitePanel.tsx",
+    "src/components/map/layers/SatelliteDetailModal.tsx",
+    "src/components/map/PathAnalysis.tsx",
+  ];
+
+  it.each(FILES)("%s has no fixed two- or three-column grid and no inline 1fr 1fr template", (file) => {
+    const source = readFileSync(resolve(REPO_ROOT, file), "utf8");
+    expect(source.match(/className="[^"]*\bgrid grid-cols-[23]\b[^"]*"/g) ?? []).toEqual([]);
+    expect(source).not.toContain('gridTemplateColumns: "1fr 1fr"');
+  });
+
+  it("the satellite position grids use the auto-fit tile geometry", () => {
+    for (const file of FILES.slice(0, 2)) {
+      const source = readFileSync(resolve(REPO_ROOT, file), "utf8");
+      expect(source, file).toContain(
+        'className="grid grid-cols-[repeat(auto-fit,minmax(6.5rem,1fr))] gap-2 mb-3"',
+      );
+    }
   });
 });

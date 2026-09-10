@@ -515,10 +515,7 @@ function SatelliteDetailContent({
       {/* Scrollable content */}
       <div className="overflow-y-auto flex-1 min-h-0">
         {/* Position data grid */}
-        <div
-          className="grid gap-2 mb-3"
-          style={{ gridTemplateColumns: "1fr 1fr" }}
-        >
+        <div className="grid grid-cols-[repeat(auto-fit,minmax(6.5rem,1fr))] gap-2 mb-3">
           <div className="bg-su-line/10 rounded-md px-2.5 py-2">
             <div className="text-xs text-su-muted uppercase tracking-wider">
               Position

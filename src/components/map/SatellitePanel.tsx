@@ -534,10 +534,7 @@ function SatelliteDetail({
       </div>
 
       {/* Position data grid */}
-      <div
-        className="grid gap-2 mb-3"
-        style={{ gridTemplateColumns: "1fr 1fr" }}
-      >
+      <div className="grid grid-cols-[repeat(auto-fit,minmax(6.5rem,1fr))] gap-2 mb-3">
         <div className="bg-su-line/10 rounded-md px-2 py-1.5">
           <div className="text-xs text-su-muted uppercase tracking-wider">
             Position

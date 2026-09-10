@@ -395,7 +395,7 @@ const DecisionLayer = memo(function DecisionLayer({
         fetched {stampAge(verdict.evidence.fetchedAt)}.
       </p>
 
-      <div className="grid grid-cols-2 gap-2">
+      <div className="grid grid-cols-[repeat(auto-fit,minmax(6.5rem,1fr))] gap-2">
         <EndSunTimes end={almanac.qth} heading="QTH" />
         <EndSunTimes end={almanac.target} heading="Target" />
       </div>
@@ -1390,7 +1390,7 @@ export function PathAnalysis({
                 </span>
               )}
             </div>
-            <div className="grid grid-cols-3 gap-2">
+            <div className="grid grid-cols-[repeat(auto-fit,minmax(5.5rem,1fr))] gap-2">
               <MetricItem
                 label="Distance"
                 value={formatDistance(metrics.shortPath.distance)}
@@ -1431,7 +1431,7 @@ export function PathAnalysis({
                 </span>
               )}
             </div>
-            <div className="grid grid-cols-3 gap-2">
+            <div className="grid grid-cols-[repeat(auto-fit,minmax(5.5rem,1fr))] gap-2">
               <MetricItem
                 label="Distance"
                 value={formatDistance(metrics.longPath.distance)}
@@ -1457,7 +1457,7 @@ export function PathAnalysis({
           {/* Propagation Info */}
           <div className="space-y-2 pt-3 border-t border-su-line/20 mt-3">
             <h4 className="text-xs font-medium text-su-muted">Propagation</h4>
-            <div className="grid grid-cols-3 gap-2">
+            <div className="grid grid-cols-[repeat(auto-fit,minmax(5.5rem,1fr))] gap-2">
               <MetricItem
                 label="Est. Hops"
                 value={`${metrics.hops}`}
@@ -1720,7 +1720,7 @@ const FrequencyLimitsDisplay = memo(function FrequencyLimitsDisplay({
     <div className="space-y-2 pt-3 border-t border-su-line/20 mt-3">
       <h4 className="text-xs font-medium text-su-muted">Freq Limits</h4>
       <div className="p-2 rounded-lg border border-su-line/40 bg-su-line/10">
-        <div className="grid grid-cols-2 gap-x-3 gap-y-1 font-mono text-xs">
+        <div className="grid grid-cols-[repeat(auto-fit,minmax(7rem,1fr))] gap-x-3 gap-y-1 font-mono text-xs">
           <div className="flex justify-between items-center">
             <span className="text-su-muted inline-flex items-center gap-0.5">
               MUF: <InfoTip content={PROPAGATION_TOOLTIPS.muf} />
@@ -1911,7 +1911,7 @@ const RadioSuggestions = memo(function RadioSuggestions({
         {radio.manufacturer} {radio.model}
       </div>
       <div className="p-2 rounded-lg border border-su-line/40 bg-su-line/10">
-        <div className="grid grid-cols-2 gap-x-3 gap-y-1 font-mono text-xs">
+        <div className="grid grid-cols-[repeat(auto-fit,minmax(7rem,1fr))] gap-x-3 gap-y-1 font-mono text-xs">
           <div className="flex justify-between">
             <span className="text-su-muted">Power:</span>
             <span className="text-plasma-orange">{suggestedPower}W</span>

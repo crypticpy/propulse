@@ -28,11 +28,11 @@ describe("BandScope", () => {
     const canvasContainer = canvas?.parentElement;
     expect(canvasContainer).not.toBeNull();
     expect(canvasContainer?.className).toContain("flex-1");
-    expect(canvasContainer?.className).toContain("min-h-");
+    expect(canvasContainer?.className).toContain("min-h-[60px]");
     expect(canvasContainer?.className).not.toContain("h-[200px]");
   });
 
-  it("positive control: paints the SNR legend so it is never clipped out", () => {
+  it("positive control: renders the SNR legend row (presence, not painting; jsdom has no layout)", () => {
     render(<BandScope className="h-[200px]" />);
 
     expect(screen.getByText(">0dB")).toBeTruthy();

@@ -1,17 +1,49 @@
 # Workspace design contact sheets
 
-Owner-approved design record for the workspace canvases (issue #892). These are static,
-self-contained HTML contact sheets — no build step, no external assets — checked into the
-repo so any agent working from GitHub, or the Claude Design project sync, can see the
-approved layouts without digging through local scratch directories.
+Design record for the workspace canvases (issue #892). These are static, self-contained
+HTML contact sheets — no build step, no external assets — checked into the repo so any
+agent working from GitHub, or the Claude Design project sync, can see them without digging
+through local scratch directories.
 
 - [`workspace-contact-sheet.html`](https://github.com/crypticpy/propulse/blob/main/docs/designs/workspace/workspace-contact-sheet.html) —
-  the four workspace canvases: wall (the existing HamClock wall stays the wall canvas),
-  workstation, tablet, and phone.
+  the owner-reviewed design source for the four workspace canvases: wall (the existing
+  HamClock wall stays the wall canvas), workstation, tablet, and phone. It is a review
+  artifact, not a fully owner-approved spec — the sheet itself marks several rules as
+  proposed and lists a set of open decisions; see "Not yet decided" below.
 - [`heatmap-contact-sheet.html`](https://github.com/crypticpy/propulse/blob/main/docs/designs/workspace/heatmap-contact-sheet.html) —
   the heat-map sheet, v2, owner-approved on 2026-09-08. `HeatMapPanel` and `HeatMapStrip`
   (`src/components/workspace/widgets/HeatMapPanel.tsx`,
   `src/components/workspace/widgets/HeatMapStrip.tsx`) were built from it.
+
+### Not yet decided
+
+Items the workspace sheet (and, for the heat map, the heatmap sheet) raises but does not
+resolve. Each is settled on epic #892 (Owner decisions), not in this README:
+
+- **Tablet rules** — proposed defaults (`canvasRules.ts`), not owner-stated; moving them is
+  a data change, not a code change (sheet, "Tablet rules are proposed defaults").
+- **Page roaming** — does a page pin to the workspace, or roam with the operator? (sheet
+  §2 notes, "does a page pin to the workspace, or roam with the operator?").
+- **Auto-docking** — what happens when a rail is already full: refuse, evict, or spill to a
+  new page? (sheet §2 notes, "what does auto-dock do when a rail is already full?").
+- **Band visibility** — does it follow the operator, the placement, or the station profile?
+  (sheet §2 notes; also raised in the heatmap sheet's notes).
+- **Click behavior** — wall click opens a report, workstation click performs an action;
+  confirm that split or add a modifier (sheet §2 notes; also raised in the heatmap sheet's
+  notes as "does a cell click filter, or filter and open the report?").
+- **Headline rule** — which default ships: hottest cell, newest opening, or best workable
+  band? (sheet §2 notes; also raised in the heatmap sheet's notes).
+- **Phone World scope** — a phone at a 44 px tap target cannot fit six columns in World
+  scope; paged matrix, continent picker, or disabling World scope on phones are the three
+  undrawn options (sheet §2 notes; heatmap sheet's notes, "Phone in World scope").
+- **Heat-map encoding** — the workspace sheet's v2 hue/opacity ramp vs. the later
+  baseline-ratio proposal from its own audit note; see "Open decision" below.
+- **Cell tap target** — the 44 px tap-target rule is asserted at each density (wall,
+  desk/workstation, phone) but not drawn as a single settled spec across all three; closest
+  citations are the heatmap sheet's "44 px target rule" notes at desk density and in Phone
+  in World scope. This one is not a separately enumerated open item in either sheet the way
+  the others above are — flagging that here rather than overstating it as a distinct,
+  named decision point.
 
 The HTML sheets live in the repo, not in the Claude Design project — the design-sync
 guidelines glob only carries markdown, so only this README is mirrored there; the sheets
@@ -38,8 +70,8 @@ Epic [#892](https://github.com/crypticpy/propulse/issues/892) is the plan of rec
 throughout. That file is an untracked 2026-09-08 planning document under
 `docs/plans.local/` — not part of this repo's tracked tree — so a reader following the
 sheet's citations from GitHub cannot open it directly. The sheet itself is the
-owner-approved record and is not edited here; this section maps each citation to where its
-decision now lives instead. `WORKSPACE-CONCEPT.md`'s decisions were carried into epic #652
+owner-reviewed design source and is not edited here; this section maps each citation to
+where its decision now lives instead. `WORKSPACE-CONCEPT.md`'s decisions were carried into epic #652
 (concept, decisions round 2); its plan is superseded by epic #892.
 
 - **§3** — the widget registry ("one entry, four densities") → epic #892, Phase D3

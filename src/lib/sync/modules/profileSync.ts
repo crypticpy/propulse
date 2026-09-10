@@ -107,8 +107,10 @@ export const profileSync: SyncModule = {
     // A failure here must not abort the rest of the pull (saved_locations
     // etc. below); it's logged and treated as "unknown", which is distinct
     // from a query that succeeded and found no row (see `billingQueried`
-    // below — that case resets to the free/inactive/null defaults instead of
-    // silently keeping whatever the previous account left behind).
+    // below — that case resets to the free/inactive/null defaults). On a
+    // failure, the persisted billing state is only kept if it is already
+    // tagged (`billingUserId`) to this same account — see the `billingQueried`
+    // handling below for the account-boundary reset.
     const { data: billingRow, error: billingError } = await supabase
       .from("profile_billing")
       .select("subscription_tier, subscription_status, subscription_period_end")
@@ -267,22 +269,44 @@ export const profileSync: SyncModule = {
     // the `profileRows` branch: a delta pull can skip the profile row entirely
     // and still need the current tier.
     //
-    // Only act when the query itself succeeded (`billingQueried`). A row
-    // means apply it as-is; no row means this account (e.g. a freshly signed
-    // in free account reusing a browser that last held a Pro session) has
-    // never subscribed and must read as the documented free/inactive/null
-    // defaults (`src/stores/profileStore.ts`), not whatever the persisted
-    // store happened to have — see #866 Codex round 2.
+    // Billing state is tagged with the account it belongs to
+    // (`billingUserId`) so a transient read failure can never leak one
+    // account's tier into another account's session. When the query
+    // succeeds — row or no row — we write the fields and stamp
+    // `billingUserId = userId` via `setBilling`: a row is applied as-is, and
+    // no row means this account (e.g. a freshly signed-in free account
+    // reusing a browser that last held a Pro session) has never subscribed
+    // and must read as the documented free/inactive/null defaults
+    // (`src/stores/profileStore.ts`), not whatever the persisted store
+    // happened to have (#866 Codex round 2). When the query fails, we only
+    // preserve the existing state if it already belongs to this same
+    // account; otherwise (an account boundary — sign-out, account switch, or
+    // the first-ever pull in this browser) we reset via `resetBilling()`
+    // rather than risk showing a different account's Pro state (#866/#867
+    // Codex round 4).
     if (billingQueried) {
       if (billingRow) {
-        stateUpdate.subscriptionTier = billingRow.subscription_tier;
-        stateUpdate.subscriptionStatus = billingRow.subscription_status;
-        stateUpdate.subscriptionPeriodEnd = billingRow.subscription_period_end;
+        useProfileStore.getState().setBilling({
+          userId,
+          tier: billingRow.subscription_tier as "free" | "pro",
+          status: billingRow.subscription_status as
+            | "active"
+            | "trialing"
+            | "past_due"
+            | "canceled"
+            | "inactive",
+          periodEnd: billingRow.subscription_period_end,
+        });
       } else {
-        stateUpdate.subscriptionTier = "free";
-        stateUpdate.subscriptionStatus = "inactive";
-        stateUpdate.subscriptionPeriodEnd = null;
+        useProfileStore.getState().setBilling({
+          userId,
+          tier: "free",
+          status: "inactive",
+          periodEnd: null,
+        });
       }
+    } else if (state.billingUserId !== userId) {
+      useProfileStore.getState().resetBilling();
     }
 
     // Single setState call for the entire pull

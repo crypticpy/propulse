@@ -171,11 +171,22 @@ interface ProfileStore {
     | "canceled"
     | "inactive";
   subscriptionPeriodEnd: string | null;
+  /** The user id whose billing row is currently reflected in the three fields above; null when unset or reset at an account boundary. */
+  billingUserId: string | null;
   setSubscriptionTier: (tier: "free" | "pro") => void;
   setSubscriptionStatus: (
     status: "active" | "trialing" | "past_due" | "canceled" | "inactive",
   ) => void;
   setSubscriptionPeriodEnd: (periodEnd: string | null) => void;
+  /** Atomically set all billing fields together with the user id they belong to. */
+  setBilling: (billing: {
+    userId: string;
+    tier: "free" | "pro";
+    status: "active" | "trialing" | "past_due" | "canceled" | "inactive";
+    periodEnd: string | null;
+  }) => void;
+  /** Reset billing to the free/inactive/null defaults and clear the owning user id (account boundary). */
+  resetBilling: () => void;
 
   // Rank system
   operatorRank: OperatorRank;
@@ -225,10 +236,25 @@ export const useProfileStore = create<ProfileStore>()(
       subscriptionTier: "free" as const,
       subscriptionStatus: "inactive" as const,
       subscriptionPeriodEnd: null,
+      billingUserId: null,
       setSubscriptionTier: (tier) => set({ subscriptionTier: tier }),
       setSubscriptionStatus: (status) => set({ subscriptionStatus: status }),
       setSubscriptionPeriodEnd: (periodEnd) =>
         set({ subscriptionPeriodEnd: periodEnd }),
+      setBilling: ({ userId, tier, status, periodEnd }) =>
+        set({
+          billingUserId: userId,
+          subscriptionTier: tier,
+          subscriptionStatus: status,
+          subscriptionPeriodEnd: periodEnd,
+        }),
+      resetBilling: () =>
+        set({
+          billingUserId: null,
+          subscriptionTier: "free",
+          subscriptionStatus: "inactive",
+          subscriptionPeriodEnd: null,
+        }),
       operatorRank: DEFAULT_OPERATOR_RANK,
       lastLoginDate: null,
       loginStreakDays: 0,
@@ -711,7 +737,7 @@ export const useProfileStore = create<ProfileStore>()(
     }),
     {
       name: "propulse-profile",
-      version: 12,
+      version: 13,
       storage: createJSONStorage(() => localStorage),
       partialize: (state) => ({
         station: state.station,
@@ -738,6 +764,7 @@ export const useProfileStore = create<ProfileStore>()(
         subscriptionTier: state.subscriptionTier,
         subscriptionStatus: state.subscriptionStatus,
         subscriptionPeriodEnd: state.subscriptionPeriodEnd,
+        billingUserId: state.billingUserId,
         lastQsoSyncAt: state.lastQsoSyncAt,
         syncDeviceId: state.syncDeviceId,
       }),
@@ -802,6 +829,9 @@ export const useProfileStore = create<ProfileStore>()(
         if (version < 12) {
           state.lastQsoSyncAt = state.lastQsoSyncAt ?? undefined;
           state.syncDeviceId = state.syncDeviceId ?? undefined;
+        }
+        if (version < 13) {
+          if (!("billingUserId" in state)) state.billingUserId = null;
         }
         return state as unknown as ProfileStore;
       },

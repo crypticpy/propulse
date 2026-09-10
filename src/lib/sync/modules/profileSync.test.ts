@@ -150,6 +150,8 @@ describe("profileSync location conflict handling", () => {
     expect(useProfileStore.getState().subscriptionPeriodEnd).toBe(
       "2026-10-01T00:00:00.000Z",
     );
+    // The success path tags the billing state with the account it belongs to.
+    expect(useProfileStore.getState().billingUserId).toBe("user-1");
   });
 
   it("resets billing state to free when the account has no profile_billing row", async () => {
@@ -195,13 +197,15 @@ describe("profileSync location conflict handling", () => {
     expect(state.subscriptionTier).toBe("free");
     expect(state.subscriptionStatus).toBe("inactive");
     expect(state.subscriptionPeriodEnd).toBeNull();
+    expect(state.billingUserId).toBe("user-1");
   });
 
-  it("keeps existing billing state and still pulls the rest of the profile when the billing query errors", async () => {
+  it("keeps existing billing state and still pulls the rest of the profile when the billing query errors for the same account", async () => {
     useProfileStore.setState({
       subscriptionTier: "pro",
       subscriptionStatus: "active",
       subscriptionPeriodEnd: "2026-10-01T00:00:00.000Z",
+      billingUserId: "user-1",
     });
     const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
 
@@ -260,10 +264,90 @@ describe("profileSync location conflict handling", () => {
 
     const state = useProfileStore.getState();
     // Billing read failed — treated as unknown, not as "no row": the previous
-    // (unrelated) tier is left untouched rather than being reset to free.
+    // tier is left untouched because it already belongs to this same account.
     expect(state.subscriptionTier).toBe("pro");
     expect(state.subscriptionStatus).toBe("active");
     expect(state.subscriptionPeriodEnd).toBe("2026-10-01T00:00:00.000Z");
+    expect(state.billingUserId).toBe("user-1");
+    // The rest of the pull still ran.
+    expect(state.bio).toBe("Test bio");
+    expect(warnSpy).toHaveBeenCalledWith(
+      expect.stringContaining("Billing pull failed"),
+    );
+
+    warnSpy.mockRestore();
+  });
+
+  it("resets billing state when the billing query errors and the persisted state belongs to a different (or no) account", async () => {
+    useProfileStore.setState({
+      subscriptionTier: "pro",
+      subscriptionStatus: "active",
+      subscriptionPeriodEnd: "2026-10-01T00:00:00.000Z",
+      billingUserId: "user-OLD",
+    });
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    const profileRow = {
+      id: "user-1",
+      callsign: "N0QA",
+      operator_name: null,
+      grid: "EM10",
+      lat: 30.5,
+      lon: -97,
+      timezone: "America/Chicago",
+      home_location_id: "home",
+      active_location_id: null,
+      bio: "Test bio",
+      social_links: null,
+      rank_override: null,
+      interests: null,
+      on_air_status: null,
+      sked_availability: null,
+      favorite_freqs: null,
+      updated_at: "2026-08-31T12:00:00.000Z",
+    };
+
+    vi.mocked(getSupabase).mockReturnValue({
+      from: vi.fn((table: string) => {
+        if (table === "profiles") {
+          const query = {
+            select: vi.fn(() => query),
+            eq: vi.fn(() => query),
+            maybeSingle: vi.fn(async () => ({ data: profileRow, error: null })),
+          };
+          return query;
+        }
+
+        if (table === "profile_billing") {
+          const query = {
+            select: vi.fn(() => query),
+            eq: vi.fn(() => query),
+            maybeSingle: vi.fn(async () => ({
+              data: null,
+              error: { message: "connection reset" },
+            })),
+          };
+          return query;
+        }
+
+        const query = {
+          select: vi.fn(() => query),
+          eq: vi.fn(async () => ({ data: [], error: null })),
+        };
+        return query;
+      }),
+    } as never);
+
+    await expect(profileSync.pull("user-1", null)).resolves.not.toThrow();
+
+    const state = useProfileStore.getState();
+    // Billing read failed AND the persisted state belongs to a different
+    // account than the one being pulled — reset rather than leak it across
+    // the account boundary (#866/#867 Codex round 4).
+    expect(state.subscriptionTier).toBe("free");
+    expect(state.subscriptionStatus).toBe("inactive");
+    expect(state.subscriptionPeriodEnd).toBeNull();
+    expect(state.billingUserId).toBeNull();
     // The rest of the pull still ran.
     expect(state.bio).toBe("Test bio");
     expect(warnSpy).toHaveBeenCalledWith(

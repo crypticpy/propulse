@@ -82,7 +82,7 @@ const DecodeRow = memo(function DecodeRow({ decode }: { decode: WSJTXDecode }) {
       {/* SNR */}
       <div className="w-12 flex-shrink-0 flex items-center gap-1">
         <span
-          className={`font-mono text-[10px] w-7 text-right ${snrColorClass(decode.snr)}`}
+          className={`font-mono text-xs w-7 text-right ${snrColorClass(decode.snr)}`}
         >
           {decode.snr > 0 ? `+${decode.snr}` : decode.snr}
         </span>
@@ -168,7 +168,7 @@ export const WSJTXStatusPanel = memo(function WSJTXStatusPanel({
         </div>
         <div className="flex items-center gap-2">
           {connected && (
-            <span className="text-[10px] text-su-muted">{decodeRate}/min</span>
+            <span className="text-xs text-su-muted">{decodeRate}/min</span>
           )}
           <svg
             className={`w-3.5 h-3.5 text-su-muted transition-transform ${
@@ -213,7 +213,7 @@ export const WSJTXStatusPanel = memo(function WSJTXStatusPanel({
                 {/* TX/RX Status */}
                 <div className="flex items-center gap-1">
                   <span
-                    className={`px-1.5 py-0.5 rounded text-[10px] font-bold
+                    className={`px-1.5 py-0.5 rounded text-xs font-bold
                       ${
                         status.txEnabled
                           ? "bg-alert-red/20 text-alert-red"
@@ -243,13 +243,13 @@ export const WSJTXStatusPanel = memo(function WSJTXStatusPanel({
 
               {/* CQ Filter Toggle */}
               <div className="flex items-center justify-between px-3 py-1.5 border-t border-su-line/20">
-                <span className="text-[10px] text-su-muted uppercase tracking-wider">
+                <span className="text-xs text-su-muted uppercase tracking-wider">
                   Recent Decodes
                 </span>
                 <button
                   type="button"
                   onClick={() => setCqOnly(!cqOnly)}
-                  className={`px-2 py-0.5 rounded text-[10px] font-medium transition-colors
+                  className={`px-2 py-0.5 rounded text-xs font-medium transition-colors
                     ${
                       cqOnly
                         ? "bg-plasma-orange/20 text-plasma-orange border border-plasma-orange/50"

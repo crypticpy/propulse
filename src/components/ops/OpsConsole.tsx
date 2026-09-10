@@ -273,9 +273,6 @@ export function OpsConsole({
   });
   const setDockTab = useContestUIStore((s) => s.setDockTab);
   const { scope } = useMapOperationalContext();
-  const setManualScope = useMapOperationalStore(
-    (state) => state.setManualScope,
-  );
   const setWorkspaceOpen = useMapOperationalStore(
     (state) => state.setWorkspaceOpen,
   );
@@ -354,16 +351,18 @@ export function OpsConsole({
                 type="button"
                 disabled={disabled}
                 onClick={() => {
+                  // #884 (owner decision B): a tab click chooses the visible
+                  // panel and the posture, never the persisted operating
+                  // scope. Only the explicit scope <select> in
+                  // OperationalScopeControl writes `manualScope`, so a tab
+                  // click leaves the automatic scope driving PropSphere.
                   setDockTab(dockKey, tab.id);
                   if (tab.id === "dx") {
-                    setManualScope("observe");
                     exitContact("observe");
                   } else if (tab.id === "log") {
-                    setManualScope("log");
                     setWorkspaceOpen(true);
                     if (posture !== "contact") setDesk();
                   } else {
-                    setManualScope("contest");
                     setWorkspaceOpen(true);
                     exitContact("observe");
                   }

@@ -1553,6 +1553,103 @@ function resolveNestedEntrySpreads(
   }
 }
 
+/** A JSX opening tag (`<div`, `<Foo.Bar`, `<br/>`) -- deliberately requires a
+ * letter immediately after `<` with no space, so a comparison (`a < b`,
+ * `x < 5`) never matches. Used to decide whether a nested function body
+ * `findNestedFunctionBodyRange` finds is a plain helper (safe to recurse
+ * into) or a React component's own render body (Codex, PR #874 round 40
+ * thread 2 follow-up; see the guard at its call site in
+ * `collectConstTemplateMap`). */
+const JSX_OPENING_TAG_RE = /<[A-Za-z][\w.]*(?:[\s/>])/;
+
+/** Locates the first `{` inside `source.slice(rangeStart, rangeEnd)` that
+ * `isFunctionBodyOpenBrace` confirms is an actual function-body brace (not
+ * one belonging to an object literal, destructuring pattern, or type
+ * annotation) -- i.e., the body of a nested arrow function or function
+ * expression assigned as a `const`/`let`/`var` initializer. The forward scan
+ * in `collectConstTemplateMap` never revisits an initializer's own text once
+ * `findInitializerEnd` has measured past it (needed so a nested statement
+ * inside that body isn't mistaken for a sibling declarator of the SAME
+ * statement) -- which means a `var`/`let`/`const` declared *inside* that
+ * nested body, e.g. `const Inner = () => { var classes = "..."; }`, was
+ * never scanned into `decls` at all, unlike an equivalent named `function
+ * inner() {...}` declaration (never swallowed as anyone's initializer, so
+ * naturally revisited by that same forward scan already -- round 32's own
+ * "two nested functions" fixture only ever exercised that named-function
+ * form). Returns the nested body's own `{...}` range so the caller can
+ * recurse its scan into it (Codex, PR #874 round 40 thread 2 follow-up). */
+function findNestedFunctionBodyRange(
+  source: string,
+  rangeStart: number,
+  rangeEnd: number,
+): { start: number; end: number } | null {
+  let i = rangeStart;
+  while (i < rangeEnd) {
+    const c = source[i];
+    if (c === "`") {
+      i += extractTemplateLiteral(source, i).length;
+      continue;
+    }
+    if (c === '"' || c === "'") {
+      const close = source.indexOf(c, i + 1);
+      if (close === -1 || close >= rangeEnd) return null;
+      i = close + 1;
+      continue;
+    }
+    if (c === "{" && isFunctionBodyOpenBrace(source, i)) {
+      return { start: i, end: findMatchingCloseBraceForward(source, i) };
+    }
+    i++;
+  }
+  return null;
+}
+
+/** Same job as `extractBalanced(source, openIndex, "{", "}").endIndex`, but
+ * -- like `findInitializerEnd` -- skips a template literal via
+ * `extractTemplateLiteral` (which tracks `${...}` brace depth explicitly)
+ * rather than treating a backtick as a same-character string delimiter.
+ * `extractBalanced`'s naive backtick handling closes the *string* at the
+ * first backtick it meets, including one belonging to a template literal
+ * NESTED inside another template's own `${...}` (`` `group ${cond ? a :
+ * `grid ${gridCols}`} ...` `` -- a real construct in `SpotRow.tsx`) -- so a
+ * second, later, now-*unmatched* backtick then opens an `inStr` span that
+ * swallows the rest of the file, and every `{`/`}` inside it goes uncounted,
+ * so a function body brace this large ever finds its own close. Used only
+ * for `findNestedFunctionBodyRange`'s forward search, which routinely spans
+ * a whole component body and so is exactly the case most likely to contain a
+ * nested template literal somewhere inside it (Codex, PR #874 round 40
+ * thread 2 follow-up). */
+function findMatchingCloseBraceForward(source: string, openIndex: number): number {
+  let depth = 0;
+  let i = openIndex;
+  while (i < source.length) {
+    const c = source[i];
+    if (c === "`") {
+      i += extractTemplateLiteral(source, i).length;
+      continue;
+    }
+    if (c === '"' || c === "'") {
+      const close = source.indexOf(c, i + 1);
+      if (close === -1) return source.length - 1;
+      i = close + 1;
+      continue;
+    }
+    if (c === "{") {
+      depth++;
+      i++;
+      continue;
+    }
+    if (c === "}") {
+      depth--;
+      if (depth === 0) return i;
+      i++;
+      continue;
+    }
+    i++;
+  }
+  return source.length - 1;
+}
+
 function collectConstTemplateMap(source: string, importedDecls: ConstDecl[] = []): ConstDecl[] {
   const decls: ConstDecl[] = [];
   // Reassignment sweeps (below) need every declaration in the file already
@@ -1581,11 +1678,20 @@ function collectConstTemplateMap(source: string, importedDecls: ConstDecl[] = []
     scopeEnd: number;
     index: number;
   }> = [];
-  const keywordRe = /\b(const|let|var)\s+/g;
-  let m: RegExpExecArray | null;
-  while ((m = keywordRe.exec(source))) {
-    const kind = m[1] as "const" | "let" | "var";
-    const keywordIndex = m.index;
+  // Wrapped in a function (rather than a single flat loop) so a nested
+  // function/arrow body found INSIDE a declarator's own initializer --
+  // swallowed whole by `findInitializerEnd` below so the outer loop can tell
+  // where that declarator's OWN initializer ends -- can still be scanned for
+  // its own `var`/`let`/`const` declarations by recursing into it, same as
+  // `findNestedFunctionBodyRange`'s own doc comment explains (Codex, PR #874
+  // round 40 thread 2 follow-up).
+  function scanRange(rangeStart: number, rangeEnd: number): void {
+    const keywordRe = /\b(const|let|var)\s+/g;
+    keywordRe.lastIndex = rangeStart;
+    let m: RegExpExecArray | null;
+    while ((m = keywordRe.exec(source)) && m.index < rangeEnd) {
+      const kind = m[1] as "const" | "let" | "var";
+      const keywordIndex = m.index;
     // Every declarator in this declaration shares the same scope/kind --
     // computed once from the keyword's own position, not per declarator
     // (Codex, PR #874 round 33). `var` (unlike `let`/`const`) is never
@@ -1688,6 +1794,33 @@ function collectConstTemplateMap(source: string, importedDecls: ConstDecl[] = []
         }
         const firstChar = source[valueStart];
         const end = findInitializerEnd(source, valueStart);
+        // Recurses into a nested arrow-function/function-expression body
+        // this declarator's own initializer swallowed whole (see
+        // `findNestedFunctionBodyRange`'s doc comment) so a `var`/`let`/
+        // `const` declared inside it -- e.g. `const Inner = () => { var
+        // classes = "..."; }` -- still gets its own entry in `decls`. Skipped
+        // when that nested body itself renders JSX (`JSX_OPENING_TAG_RE`):
+        // that shape is a React component, not a plain helper, and this
+        // file's whole architecture already scans a component's own
+        // `<div>`/`<span>` tags directly regardless of whether its local
+        // consts resolve -- recursing into one anyway reaches `SpotRow.tsx`'s
+        // entire ~19,000-character body (it's declared `const SpotRow =
+        // memo(function SpotRow() {...})`, so its own initializer swallows
+        // the whole component the exact same way `Inner`'s does here) and
+        // starts resolving its `rowClasses` local, a site this file's own
+        // header comment documents as a *deliberate* structural-census gap
+        // covered only by the anchor/window freshness check -- a real
+        // finding, but one the anchor-window coverage math (each anchor
+        // must sit within `ANCHOR_WINDOW_RADIUS` of both the pulse text AND
+        // the violation, which are hundreds of characters apart here) has no
+        // slot for without a framework change well past this round's scope
+        // (Codex, PR #874 round 40 thread 2 follow-up; confirmed by
+        // temporarily removing this guard -- census went from 0 to 2
+        // unlisted, both this same already-tracked SpotRow.tsx site).
+        const nestedBody = findNestedFunctionBodyRange(source, valueStart, end);
+        if (nestedBody && !JSX_OPENING_TAG_RE.test(source.slice(nestedBody.start, nestedBody.end))) {
+          scanRange(nestedBody.start, nestedBody.end);
+        }
         const initializerText = source.slice(valueStart, end);
         const bodies = extractLiteralBodies(initializerText);
         // An initializer with no quoted literal of its own -- an identifier-only
@@ -1740,8 +1873,10 @@ function collectConstTemplateMap(source: string, importedDecls: ConstDecl[] = []
       }
       break;
     }
-    keywordRe.lastIndex = pos;
+      keywordRe.lastIndex = pos;
+    }
   }
+  scanRange(0, source.length);
   for (const { decl, searchStart } of reassignQueue) {
     const reassigned = collectReassignedLiteralBodies(source, decl, decls, searchStart, decl.scopeEnd);
     const reassignedRefs = collectReassignedIdentifierRefs(source, decl, decls, searchStart, decl.scopeEnd);
@@ -2131,6 +2266,61 @@ function findMatchingOpenParenBackward(source: string, closeIndex: number): numb
  * function/method definition (Codex, PR #874 round 32). */
 const CONTROL_FLOW_KEYWORDS_BEFORE_PAREN = new Set(["if", "for", "while", "switch", "catch", "with"]);
 
+/** Given the index of a character that MIGHT be the last character of a
+ * TypeScript return-type annotation (`function f(): <this> {`), walks
+ * backward over it -- an identifier/dotted chain (`JSX.Element`), a generic
+ * `<...>` (`Promise<Array<string>>`), an array suffix `[]`, a union `|` /
+ * intersection `&`, a parenthesised or function-type `(...)`, an object-type
+ * literal `{...}`, and a quoted/template literal type -- tracking depth over
+ * `()[]{}<>` (so anything nested, including its own colons and commas, is
+ * skipped whole rather than confused with the annotation's own leading
+ * colon) and over quoted spans via `skipQuotedSpanBackward`. Returns the
+ * index of that leading `:` once depth returns to 0 there, or `null` the
+ * moment a character that isn't part of any of those shapes is reached (an
+ * unmatched opener, or punctuation no type annotation this scanner models
+ * can contain -- e.g. a return type that is itself a function type,
+ * `(): (x: number) => void {`, isn't recognized: its own `=>` isn't inside
+ * any bracket this scanner tracks, so the walk fails closed there rather
+ * than guessing). A `null` here only ever means `isFunctionBodyOpenBrace`
+ * falls through to its prior "not a function body" result -- never a new
+ * false positive, only a possible remaining false negative for a return-type
+ * shape this doesn't model (Codex, PR #874 round 40 thread 2). */
+function findReturnTypeColonBackward(source: string, fromIndex: number): number | null {
+  let i = fromIndex;
+  let depth = 0;
+  while (i >= 0) {
+    const c = source[i];
+    if (c === '"' || c === "'" || c === "`") {
+      const resume = skipQuotedSpanBackward(source, i);
+      if (resume === -1) return null;
+      i = resume;
+      continue;
+    }
+    if (c === ")" || c === "]" || c === "}" || c === ">") {
+      depth++;
+      i--;
+      continue;
+    }
+    if (c === "(" || c === "[" || c === "{" || c === "<") {
+      if (depth === 0) return null; // an unmatched opener -- not a real type
+      depth--;
+      i--;
+      continue;
+    }
+    if (depth > 0) {
+      i--; // inside a balanced group -- any character is part of the type
+      continue;
+    }
+    if (c === ":") return i;
+    if (/[\s\w$.|&?]/.test(c)) {
+      i--;
+      continue;
+    }
+    return null; // not a character this scanner recognizes as part of a type
+  }
+  return null;
+}
+
 /** Whether the `{` at `openBraceIndex` in `source` opens a real JS FUNCTION
  * body -- `function name(...) {`, an anonymous `function (...) {`, a method
  * shorthand `name(...) {` in a class or object literal, or an arrow
@@ -2143,23 +2333,39 @@ const CONTROL_FLOW_KEYWORDS_BEFORE_PAREN = new Set(["if", "for", "while", "switc
  * round 32).
  *
  * An arrow's block body always ends in a literal `=>` immediately before
- * the `{` regardless of whether its parameter is parenthesized, so that
- * case is checked first and needs no paren-matching at all. Otherwise, the
- * `{` must be immediately preceded (past whitespace) by a `)` -- a function/
- * method signature's parameter list just closed, or a control-flow
- * construct's condition did -- whose OWN matching `(` is in turn immediately
- * preceded by an identifier: the function/method's name, the bare
- * `function` keyword (an anonymous function expression), or a control-flow
- * keyword to exclude. A TypeScript return-type annotation between the
- * parameter list's `)` and the body's `{` (`function f(): void {`) is not
- * handled -- none of this round's required shapes need it, and guessing at
- * one risked misreading an unrelated `)` further back. */
+ * the `{` regardless of whether its parameter is parenthesized OR has its
+ * own TypeScript return-type annotation (`(): JSX.Element => {`) -- the
+ * `=>` itself is unaffected either way, so this case is checked first and
+ * needs no paren-matching, return-type-skipping, or `async` handling at all
+ * (an `async` keyword sits further back still, outside anything this
+ * function ever looks at). Otherwise, the `{` must be immediately preceded
+ * (past whitespace) by a `)` -- a function/method signature's parameter list
+ * just closed, or a control-flow construct's condition did -- whose OWN
+ * matching `(` is in turn immediately preceded by an identifier: the
+ * function/method's name, the bare `function` keyword (an anonymous
+ * function expression, `async` or not -- same reasoning as the arrow case),
+ * or a control-flow keyword to exclude. A TypeScript return-type annotation
+ * between the parameter list's `)` and the body's `{` (`function f(): void
+ * {`) -- previously not handled at all, so `findEnclosingFunctionScope`
+ * assigned a `var` inside such a function to the OUTER scope instead,
+ * exactly the shape a typed inner helper component (`function
+ * Inner(): JSX.Element { var pulse = "…"; ... }`) hits -- is skipped via
+ * `findReturnTypeColonBackward`, re-anchoring `j` on the annotation's own
+ * preceding `)` so every check below runs exactly as if the annotation had
+ * never been there (Codex, PR #874 round 40 thread 2). */
 function isFunctionBodyOpenBrace(source: string, openBraceIndex: number): boolean {
   let j = openBraceIndex - 1;
   while (j >= 0 && /\s/.test(source[j])) j--;
   if (j < 0) return false;
   if (source[j] === ">" && source[j - 1] === "=") return true; // arrow: `=> {`
-  if (source[j] !== ")") return false;
+  if (source[j] !== ")") {
+    const colonIndex = findReturnTypeColonBackward(source, j);
+    if (colonIndex === null) return false;
+    let k = colonIndex - 1;
+    while (k >= 0 && /\s/.test(source[k])) k--;
+    if (k < 0 || source[k] !== ")") return false;
+    j = k;
+  }
   const openParen = findMatchingOpenParenBackward(source, j);
   if (openParen === -1) return false;
   let k = openParen - 1;
@@ -2231,21 +2437,88 @@ function findOpeningTag(source: string, before: number): { tag: string; index: n
   return null;
 }
 
-/** A `{...ident}`/`{...ident.chain}` spread that is the *entire* content of
- * its `{}` -- no other key or expression alongside it -- found so
- * `findClassNameSites` can resolve a JSX opening tag's className through an
- * object spread (`const props = { className: "text-alert-red animate-pulse"
- * }; <span {...props}>Critical</span>`) in the same attribute-order pass
- * that also collects a literal `className=` (Codex, PR #874 round 38 thread
- * 1; round 39 folds this into ONE ordered pass with `className=` instead of
- * two independent ones -- see `findClassNameSites`'s own doc for why).
- * Deliberately narrow: a spread mixed with other content in the same braces
- * isn't valid JSX attribute syntax anyway, and a spread that's part of some
- * larger expression -- nested inside an already-matched attribute's own
- * value, e.g. `className={someFn({...base})}` or `style={{...vars}}` -- is
- * filtered out downstream by `isTopLevelAttributePosition`, not by this
- * regex. */
-const SPREAD_ATTR_RE = /\{\s*\.\.\.\s*([A-Za-z_$][\w$]*(?:\.[A-Za-z_$][\w$]*)*)\s*\}/g;
+/** The START of a `{...<expr>}` spread attribute -- just the `{`, whitespace,
+ * and `...`, with no assumption at all about what the spread expression
+ * itself looks like. Used so `findClassNameSites` can resolve a JSX opening
+ * tag's className through an object spread (`const props = { className:
+ * "text-alert-red animate-pulse" }; <span {...props}>Critical</span>`) in the
+ * same attribute-order pass that also collects a literal `className=` (Codex,
+ * PR #874 round 38 thread 1; round 39 folds this into ONE ordered pass with
+ * `className=` instead of two independent ones; round 40 thread 1 widens this
+ * from an identifier/dotted-chain-only match to any expression at all --
+ * `{...getProps()}`, `{...{ className: "…" }}` -- since the ONLY thing this
+ * regex itself needs to find is where a spread starts, not what's inside it.
+ * The actual expression, from just after `...` to this spread's own matching
+ * `}` (found the same brace/quote-aware way `findTagEnd` finds a tag's own
+ * end), is classified separately by `classifySpreadExpression`. A spread
+ * mixed with other content in the same braces isn't valid JSX attribute
+ * syntax anyway, and a spread that's part of some larger expression -- nested
+ * inside an already-matched attribute's own value, e.g.
+ * `className={someFn({...base})}` or `style={{...vars}}` -- is filtered out
+ * downstream by `isTopLevelAttributePosition`, not by this regex. */
+const SPREAD_ATTR_START_RE = /\{\s*\.\.\.\s*/g;
+
+/** Resolves the `className` value of an INLINE JSX spread object literal
+ * (`{...{ className: "…" }}`, `{...{ ...base, className: "…" }}`) the exact
+ * same way a `const styles = { ... }` declaration's own `className` key
+ * already resolves: `extractObjectEntries` for the key/value shapes, then
+ * `resolveNestedEntrySpreads`'s existing, already-tested spread-replay logic
+ * for any spread(s) inside the literal (a resolvable spread's own keys
+ * overwrite everything before them, last wins; an unresolvable one fails
+ * closed onto the whole literal's own flattened text) -- wrapped in a
+ * throwaway single-entry map purely so this reuses that exact replay code
+ * instead of duplicating `collectConstTemplateMap`'s own `spreadQueue` loop
+ * (Codex, PR #874 round 40 thread 1). Falls back to the object's whole
+ * flattened literal when there's no explicit `className` key at all, the
+ * same "resolvable but imprecise" convention every other object-valued
+ * reference in this file already uses. */
+function resolveInlineObjectClassName(objectText: string, constMap: ConstDecl[], atIndex: number): string {
+  const { entries, spreads, order } = extractObjectEntries(objectText);
+  const literal = extractLiteralBodies(objectText).join(" ");
+  const wrapper = new Map<string, ConstEntry>([
+    [
+      "__inlineSpread__",
+      { literal, entries: entries.size > 0 ? entries : undefined, spreadOrder: spreads.length > 0 ? order : undefined },
+    ],
+  ]);
+  resolveNestedEntrySpreads(wrapper, constMap, atIndex);
+  const resolved = wrapper.get("__inlineSpread__")!;
+  const classNameEntry = resolved.entries?.get("className");
+  return resolveConstRefs(classNameEntry?.literal ?? resolved.literal, constMap, atIndex);
+}
+
+/** Classifies one spread attribute's own expression text (everything between
+ * its `...` and its matching `}`) into a resolved-or-fail-closed raw class
+ * string, for `collectSpreadClassSources` (Codex, PR #874 round 40 thread 1):
+ * - An identifier or dotted member chain (`props`, `styles.alert`) -- the
+ *   existing round-38/39 path: resolved through `.className` member access
+ *   when the base has a visible declaration, left as its own raw (inert)
+ *   text otherwise.
+ * - An inline object literal that is the expression's ENTIRE content
+ *   (`{ className: "…" }`, `{ ...base, className: "…" }`) -- resolved via
+ *   `resolveInlineObjectClassName`.
+ * - Anything else at all (a call expression `getProps()`, a conditional
+ *   `cond ? a : b`, a template literal, ...) -- this scanner has no model for
+ *   what such an expression evaluates to, so it fails closed exactly like an
+ *   unresolvable identifier already does: left as its own raw, unresolved
+ *   text, which contributes nothing new rather than fabricating a violation
+ *   (round 38 thread 1's own "no idea what this refers to" convention). */
+function classifySpreadExpression(exprText: string, constMap: ConstDecl[], atIndex: number): string {
+  const trimmed = exprText.trim();
+  if (/^[A-Za-z_$][\w$]*(?:\.[A-Za-z_$][\w$]*)*$/.test(trimmed)) {
+    const baseName = trimmed.split(".")[0];
+    return visibleDecl(constMap, baseName, atIndex)
+      ? resolveConstRefs(`${trimmed}.className`, constMap, atIndex)
+      : trimmed;
+  }
+  if (trimmed.startsWith("{")) {
+    const { endIndex } = extractBalanced(trimmed, 0, "{", "}");
+    if (endIndex === trimmed.length - 1) {
+      return resolveInlineObjectClassName(trimmed, constMap, atIndex);
+    }
+  }
+  return trimmed;
+}
 
 /** True when `index` is the exact start of a top-level attribute of the tag
  * starting at `tagStart` -- a position a forward attribute-by-attribute walk
@@ -2285,7 +2558,7 @@ function isTopLevelAttributePosition(source: string, tagStart: number, index: nu
 }
 
 /** One class source found directly on a JSX opening tag -- a literal
- * `className=` attribute or a top-level `{...ident}` spread -- kept with
+ * `className=` attribute or a top-level `{...<expr>}` spread -- kept with
  * its own position and already-resolved text so `findClassNameSites` can
  * pick whichever source is LAST in source order per tag. JSX applies
  * attributes (including spreads) left to right, so a later source always
@@ -2350,55 +2623,33 @@ function collectExplicitClassSources(source: string, constMap: ConstDecl[]): Cla
   return sources;
 }
 
-/** Every top-level `{...ident}`/`{...ident.chain}` spread attribute in
- * `source` -- see `SPREAD_ATTR_RE`'s and `isTopLevelAttributePosition`'s own
- * docs for the shape and the nested-expression exclusion. */
+/** Every top-level `{...<expr>}` spread attribute in `source` -- see
+ * `SPREAD_ATTR_START_RE`'s, `classifySpreadExpression`'s, and
+ * `isTopLevelAttributePosition`'s own docs for the shape, how the spread
+ * expression itself is resolved/fails closed, and the nested-expression
+ * exclusion. Round 38 thread 1's own reasoning for NOT force-matching an
+ * unresolvable base to `PULSE_CLASS` (a real, non-pulsing
+ * `{...props}`-forwarding call site would otherwise become a false
+ * positive) still applies unchanged here -- `classifySpreadExpression`'s
+ * "anything else" branch is that exact same fail-closed convention, just
+ * reached for a wider set of expression shapes than a bare identifier/chain
+ * (Codex, PR #874 round 40 thread 1: an inline object literal, or an
+ * expression this scanner has no model for at all, e.g. a call
+ * expression). */
 function collectSpreadClassSources(source: string, constMap: ConstDecl[]): ClassSource[] {
   const sources: ClassSource[] = [];
-  SPREAD_ATTR_RE.lastIndex = 0;
+  SPREAD_ATTR_START_RE.lastIndex = 0;
   let sm: RegExpExecArray | null;
-  while ((sm = SPREAD_ATTR_RE.exec(source))) {
+  while ((sm = SPREAD_ATTR_START_RE.exec(source))) {
     const braceIndex = sm.index;
     const opening = findOpeningTag(source, braceIndex);
     if (!opening || !isTopLevelAttributePosition(source, opening.index, braceIndex)) continue;
-    const chain = sm[1];
-    const afterIndex = braceIndex + sm[0].length;
+    const { endIndex } = extractBalanced(source, braceIndex, "{", "}");
+    const contentStart = braceIndex + sm[0].length;
+    const exprText = source.slice(contentStart, endIndex);
+    const afterIndex = endIndex + 1;
 
-    // Reuses the same member-access chain machinery `resolveConstRefs`/
-    // `resolveMemberAccess` use everywhere else in this file: appending
-    // `.className` to the spread's own chain text and resolving that
-    // synthetic access lets a precise per-key narrow (`props.className`),
-    // a nested member spread (`styles.alert.className`), and the
-    // established whole-object fallback (when `.className` doesn't narrow
-    // any further, e.g. the spread's target isn't an object with its own
-    // `className` key) all fall out of existing, already-tested logic with
-    // no new resolution code. A completely unresolvable base identifier (no
-    // `const`/`let`/`var` declaration anywhere this file's own declaration
-    // scan ever tracks -- most commonly a function *parameter*, e.g. a
-    // `{...props}` forwarding spread whose `props` is the component's own
-    // parameter, never a local declaration) is left as its own raw,
-    // unresolved chain text, this file's one general fail-closed convention
-    // for "no idea what this refers to" (`resolveConstRefs`'s own doc, same
-    // rule) -- NOT force-matched to `PULSE_CLASS` the way a first attempt at
-    // round 38 tried, mirroring `TEXT_PROP_RE`'s own spread rule literally.
-    // That stronger reading was tried and reverted: real code forwards props
-    // this way constantly (`<ClusterConnectionForm {...props} link={…} />`
-    // forwarding a parameter that, in its one real call site, never actually
-    // carries a className at all), and unconditionally assuming a pulse for
-    // *every* such unresolvable spread on *every* PascalCase component
-    // flagged that real, non-pulsing call site as a violation -- a false
-    // positive, not a previously-missed real one. This scanner already has a
-    // strictly weaker, well-tested worst-case convention for "resolvable but
-    // imprecise" (the whole-object-literal fallback above, and
-    // `resolveMemberAccess`'s own candidate-union fallback it reuses) that
-    // stays sound because it only ever widens within a KNOWN source's real
-    // content; inventing a violation from a base with no known content at
-    // all had no such anchor and produced a real false positive on the very
-    // first real-codebase run (Codex, PR #874 round 38 thread 1).
-    const baseName = chain.split(".")[0];
-    const raw = visibleDecl(constMap, baseName, braceIndex)
-      ? resolveConstRefs(`${chain}.className`, constMap, braceIndex)
-      : chain;
+    const raw = classifySpreadExpression(exprText, constMap, braceIndex);
 
     sources.push({ index: braceIndex, contentStart: braceIndex, raw, afterIndex });
   }
@@ -4937,6 +5188,58 @@ describe("scanSourceForViolations catches every spelling (fixture proofs, #878)"
     expect(violations[0].description).toContain("text-alert-red animate-pulse");
   });
 
+  it("keeps a typed inner function's own pulsing var out of the outer function's clean scope (#874 round 40 thread 2)", () => {
+    // Before this round, `isFunctionBodyOpenBrace` required the character
+    // immediately before `{` to be `)` -- `function Inner(): JSX.Element {`
+    // fails that (the character before `{` is `t`), so `Inner`'s own body
+    // was never recognized as a function body at all, and
+    // `findEnclosingFunctionScope` kept walking outward past it, landing
+    // `var classes` inside `Inner` on `Outer`'s own whole-body scope instead
+    // -- the exact same scope as `Outer`'s own clean `let classes`. Since
+    // `Inner`'s leaked declaration then has a LATER index than `Outer`'s own
+    // (it's textually declared after it), `visibleDecl`'s own "most recent
+    // declaration wins" tie-break picked `Inner`'s pulsing `var` for
+    // `Outer`'s own render, falsely flagging it. Verified red on revert
+    // against a59fb83b (round 39 head): `scanSourceForViolations` there
+    // returns a violation for this fixture.
+    const fixture =
+      'function Outer() { let classes = "text-green"; function Inner(): JSX.Element { var classes = "text-alert-red animate-pulse"; return null; } return <span className={classes}>Idle</span>; }';
+    expect(scanSourceForViolations(fixture), fixture).toEqual([]);
+  });
+
+  it("keeps the same typed-return-type fix working for an arrow function (round 40 thread 2)", () => {
+    // The arrow-body check (`=> {`) never depended on what precedes the
+    // arrow at all, so this shape was actually already correct before this
+    // round -- included as the requested fixture anyway, to document and
+    // lock in that non-regression rather than leave it unproven.
+    const fixture =
+      'function Outer() { let classes = "text-green"; const Inner = (): JSX.Element => { var classes = "text-alert-red animate-pulse"; return null; }; return <span className={classes}>Idle</span>; }';
+    expect(scanSourceForViolations(fixture), fixture).toEqual([]);
+  });
+
+  it("skips a generic return type (`Promise<Array<string>>`) the same way, including on an async function", () => {
+    // Also exercises the `async` keyword sitting before `function`: it's
+    // further back than anything `isFunctionBodyOpenBrace` looks at (the
+    // identifier check only looks at the token immediately before the
+    // parameter list's own `(`, i.e. `inner`, never `async`), so it was
+    // never the source of the original gap and needs no special-casing.
+    // Verified red on revert against a59fb83b.
+    const fixture =
+      'function Outer() { let classes = "text-green"; async function inner(): Promise<Array<string>> { var classes = "text-alert-red animate-pulse"; return []; } return <span className={classes}>Idle</span>; }';
+    expect(scanSourceForViolations(fixture), fixture).toEqual([]);
+  });
+
+  it("skips an OBJECT return type (`{ a: string }`) without mistaking its own brace for the function body", () => {
+    // The trickiest shape: the return type's own `{ a: string }` has to be
+    // walked as a single balanced unit by `findReturnTypeColonBackward` (its
+    // inner `:` must never be mistaken for the annotation's own leading
+    // colon) so the REAL body brace that follows it is what gets tested.
+    // Verified red on revert against a59fb83b.
+    const fixture =
+      'function Outer() { let classes = "text-green"; function Inner(): { a: string } { var classes = "text-alert-red animate-pulse"; return { a: "x" }; } return <span className={classes}>Idle</span>; }';
+    expect(scanSourceForViolations(fixture), fixture).toEqual([]);
+  });
+
   it("registers a let declared with a type annotation and no initializer, resolved only once assigned, but still dismisses it when decorative", () => {
     // `let classes: string;` has no initializer to extract a literal from
     // at all -- it must still register (with an empty literal set) so the
@@ -6358,6 +6661,45 @@ describe("scanSourceForViolations catches every spelling (fixture proofs, #878)"
     const fixture =
       'const a = { className: "text-green" };\nconst b = { className: "text-alert-red animate-pulse" };\nexport function A() { return <span {...a} {...b}>Loading</span>; }';
     expect(scanSourceForViolations(fixture), fixture).not.toEqual([]);
+  });
+
+  it("resolves an INLINE object literal spread's own className (#874 round 40 thread 1)", () => {
+    // `{...{ className: "…" }}` -- the spread's expression is neither a bare
+    // identifier nor a dotted chain, so the round-38/39 `SPREAD_ATTR_RE`
+    // (identifier-chain-only) never matched it at all, leaving the tag with
+    // no class source whatsoever. Verified red on revert against a59fb83b
+    // (round 39 head): `scanSourceForViolations` returned `[]` there.
+    const fixture = 'export function A() { return <span {...{ className: "text-alert-red animate-pulse" }}>Loading</span>; }';
+    expect(scanSourceForViolations(fixture), fixture).not.toEqual([]);
+  });
+
+  it("still lets an explicit className AFTER an inline-object spread win, even when the spread's own className pulses", () => {
+    // Attribute order still governs: the LATER explicit `className=` here is
+    // clean, so it -- not the earlier pulsing inline-object spread -- is
+    // what actually renders.
+    const fixture =
+      'export function A() { return <span {...{ className: "text-alert-red animate-pulse" }} className="text-green">Loading</span>; }';
+    expect(scanSourceForViolations(fixture), fixture).toEqual([]);
+  });
+
+  it("resolves an inline object spread that itself spreads an identifier (`{...{ ...base, className }}`), last-wins", () => {
+    // The inline object literal's OWN spread of `base` is resolved through
+    // the same `resolveNestedEntrySpreads` replay `resolveInlineObjectClassName`
+    // reuses -- `base.className` pulses and there's no later `className` key
+    // in the inline literal to override it.
+    const fixture =
+      'const base = { className: "text-alert-red animate-pulse" };\nexport function A() { return <span {...{ ...base }}>Loading</span>; }';
+    expect(scanSourceForViolations(fixture), fixture).not.toEqual([]);
+  });
+
+  it("fails closed (does not flag) a spread whose expression is a call, not an identifier or object literal", () => {
+    // `getProps()` isn't a shape this scanner can evaluate at all -- left as
+    // its own raw, unresolved text (the same "no idea what this refers to"
+    // convention as an unresolvable identifier), never fabricating a
+    // violation. Non-regression: the pre-round-40 parser also returned `[]`
+    // here (it never matched a call expression as a spread at all).
+    const fixture = 'export function A() { return <span {...getProps()}>Loading</span>; }';
+    expect(scanSourceForViolations(fixture), fixture).toEqual([]);
   });
 });
 

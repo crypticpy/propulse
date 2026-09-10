@@ -39,6 +39,7 @@ import BasemapCategory from "./layers/BasemapCategory";
 import { ISS_INFO_CARD_WIDTH_STYLE } from "./ISSTrackerOverlay";
 import { SATELLITE_INFO_CARD_WIDTH_STYLE } from "./SatelliteOverlay";
 import { PassRow } from "./SatellitePanel";
+import { PassRow as ModalPassRow } from "./layers/SatelliteDetailModal";
 import type { PathBandCondition } from "@/lib/utils/bands";
 import type { BandLadderEntry } from "@/hooks/useBandVerdicts";
 import type { PassPrediction } from "@/types/satellite";
@@ -265,6 +266,62 @@ describe("TargetHoverTooltip (round-5 fix: signal-summary row wraps instead of o
   });
 });
 
+describe("TargetHoverTooltip (round-6 fix: visible is a measurement dependency)", () => {
+  it("does not measure while hidden, then measures once when it becomes visible", () => {
+    let rectCalls = 0;
+    const getRectSpy = vi
+      .spyOn(HTMLDivElement.prototype, "getBoundingClientRect")
+      .mockImplementation(function () {
+        rectCalls += 1;
+        return {
+          width: 260,
+          height: 150,
+          top: 0,
+          left: 0,
+          right: 260,
+          bottom: 150,
+          x: 0,
+          y: 0,
+          toJSON() {
+            return {};
+          },
+        } as DOMRect;
+      });
+
+    const { rerender } = render(
+      <TargetHoverTooltip
+        visible={false}
+        position={{ x: 100, y: 500, width: 10, height: 10 }}
+        label="TEST-HIDDEN"
+        optimalSignal={null}
+      />,
+    );
+
+    // Hidden: the component returns null, so contentRef never attaches to a
+    // node and the layout effect has nothing to measure.
+    expect(rectCalls).toBe(0);
+
+    act(() => {
+      rerender(
+        <TargetHoverTooltip
+          visible
+          position={{ x: 100, y: 500, width: 10, height: 10 }}
+          label="TEST-HIDDEN"
+          optimalSignal={null}
+        />,
+      );
+    });
+
+    // Visible now, with the content node mounted for the first time: the
+    // effect must re-run even though none of the content-shape dependencies
+    // (optimalSignal/showsDistanceOrBearing/contextLabel/label/textScale)
+    // changed between the two renders.
+    expect(rectCalls).toBe(1);
+
+    getRectSpy.mockRestore();
+  });
+});
+
 describe("BasemapCategory (fix 4: quality-button grid reflow)", () => {
   it("sizes the quality-button grid to reflow columns in rem, not a fixed 4-column track, and lets labels wrap", () => {
     const { container } = render(<BasemapCategory />);
@@ -288,6 +345,30 @@ describe("ISSTrackerOverlay (fix 5: info card width follows its own text)", () =
     expect(ISS_INFO_CARD_WIDTH_STYLE.maxWidth).toContain("rem");
     expect(ISS_INFO_CARD_WIDTH_STYLE.minWidth).not.toBe("240px");
     expect(ISS_INFO_CARD_WIDTH_STYLE.maxWidth).not.toBe("280px");
+  });
+
+  it("round-6: also clamps both bounds to the viewport so the card cannot clip on a narrow phone screen", () => {
+    expect(ISS_INFO_CARD_WIDTH_STYLE.minWidth).toContain("100vw");
+    expect(ISS_INFO_CARD_WIDTH_STYLE.maxWidth).toContain("100vw");
+  });
+
+  it("round-6: the ham-radio frequency rows carry flex-wrap so a long value can drop under its label at the narrow viewport cap", () => {
+    const absPath = resolve(
+      REPO_ROOT,
+      "src/components/map/ISSTrackerOverlay.tsx",
+    );
+    const source = readFileSync(absPath, "utf8");
+    const lines = source.split("\n");
+    const markerIndex = lines.findIndex((line) =>
+      line.includes("ISS_FREQUENCIES.map"),
+    );
+    expect(markerIndex).toBeGreaterThanOrEqual(0);
+
+    const rowLine = lines
+      .slice(markerIndex)
+      .find((line) => line.includes("className="));
+    expect(rowLine).toBeDefined();
+    expect(rowLine).toContain("flex-wrap");
   });
 });
 
@@ -316,6 +397,38 @@ describe("SatellitePanel (round-5 sweep: pass-quality row wraps instead of overf
 
     // Locate the quality sub-row (stars/badge/future-label) via the
     // future-label text, which is unambiguous.
+    const futureLabel = Array.from(container.querySelectorAll("span")).find(
+      (el) => el.textContent?.startsWith("in "),
+    );
+    expect(futureLabel).toBeDefined();
+    const qualityRow = futureLabel!.parentElement as HTMLElement;
+    expect(qualityRow.className).toContain("flex-wrap");
+  });
+});
+
+describe("SatelliteDetailModal (round-6 fix: modal's own pass-quality row copy wraps too)", () => {
+  it("wraps both the outer pass row and the star/badge/future-label sub-row, and right-aligns the elevation/azimuth column", () => {
+    const pass: PassPrediction = {
+      aos: new Date(Date.now() + 60 * 60 * 1000),
+      los: new Date(Date.now() + 60 * 60 * 1000 + 10 * 60 * 1000),
+      maxEl: 75,
+      aosAz: 120,
+      losAz: 200,
+    };
+
+    const { container } = render(<ModalPassRow pass={pass} />);
+
+    const outerRow = container.firstElementChild as HTMLElement;
+    expect(outerRow).not.toBeNull();
+    expect(outerRow.className).toContain("flex-wrap");
+
+    const elevationText = Array.from(container.querySelectorAll("div")).find(
+      (el) => el.textContent === "75° max",
+    );
+    expect(elevationText).toBeDefined();
+    const elevationColumn = elevationText!.parentElement as HTMLElement;
+    expect(elevationColumn.className).toContain("ml-auto");
+
     const futureLabel = Array.from(container.querySelectorAll("span")).find(
       (el) => el.textContent?.startsWith("in "),
     );

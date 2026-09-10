@@ -321,9 +321,12 @@ function TransponderInfo({
 
 // ---------------------------------------------------------------------------
 // PassRow (self-contained copy from SatellitePanel)
+// Exported so its #832-round-6 flex-wrap fix is unit-testable without
+// rendering the whole modal (mirrors why SatellitePanel's PassRow is
+// exported).
 // ---------------------------------------------------------------------------
 
-function PassRow({ pass }: { pass: PassPrediction }) {
+export function PassRow({ pass }: { pass: PassPrediction }) {
   const { use24h } = useTimeFormat();
   const isActive = pass.aos <= new Date() && pass.los >= new Date();
   const isFuture = pass.aos > new Date();
@@ -331,8 +334,18 @@ function PassRow({ pass }: { pass: PassPrediction }) {
   const quality = computePassQuality(pass);
 
   return (
+    /*
+      This modal renders in a `max-w-md` dialog, narrower than the panel
+      `PassRow` in SatellitePanel.tsx sizes for, so the same #832 overflow
+      hits sooner here: at the largest text scale the star rating, quality
+      badge, and "in ..." future-pass label on one line and the elevation/
+      azimuth column on the other no longer fit together. `flex-wrap` on
+      both rows (mirroring SatellitePanel's `PassRow` fix) lets the right-
+      hand column drop to its own line (right-aligned via `ml-auto`) and
+      lets the star/badge/future-label group wrap onto a second line.
+    */
     <div
-      className={`flex items-center gap-2 px-2 py-1.5 rounded text-xs ${
+      className={`flex flex-wrap items-center gap-2 px-2 py-1.5 rounded text-xs ${
         isActive
           ? "bg-green-400/10 border border-green-400/20"
           : "bg-su-line/10"
@@ -351,7 +364,7 @@ function PassRow({ pass }: { pass: PassPrediction }) {
             {format(pass.los, timeFmt)}
           </span>
         </div>
-        <div className="flex items-center gap-1.5 mt-0.5">
+        <div className="flex flex-wrap items-center gap-x-1.5 gap-y-1 mt-0.5">
           <StarRating score={quality.score} />
           <span
             className={`text-xs px-1 py-0.5 rounded font-medium ${qualityColor(quality.score)} ${
@@ -373,7 +386,7 @@ function PassRow({ pass }: { pass: PassPrediction }) {
           )}
         </div>
       </div>
-      <div className="text-right">
+      <div className="text-right ml-auto">
         <div className="font-mono text-su-muted">
           {Math.round(pass.maxEl)}&deg; max
         </div>

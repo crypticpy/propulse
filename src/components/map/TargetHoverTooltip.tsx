@@ -218,7 +218,13 @@ export function TargetHoverTooltip({
   // `getBoundingClientRect` on that hot WebGL pointer path for nothing.
   // `setMeasuredHeight`'s updater form reads the previous height instead of
   // closing over `measuredHeight`, so the effect doesn't need that state
-  // (which this same effect writes) in its own dependency list.
+  // (which this same effect writes) in its own dependency list. `visible` IS
+  // a dependency even though it doesn't affect content shape: the component
+  // returns `null` while hidden (see below), so `contentRef` has no node to
+  // measure until `visible` flips true, and some callers (FlatMapView,
+  // AzimuthalView) keep this component mounted-but-hidden with a stable
+  // `optimalSignal`, so nothing else in this list would re-run the effect
+  // when the tooltip actually appears.
   useLayoutEffect(() => {
     const node = contentRef.current;
     if (!node) {
@@ -234,6 +240,7 @@ export function TargetHoverTooltip({
     contextLabel,
     label,
     textScale,
+    visible,
   ]);
 
   const effectiveHeight = measuredHeight ?? estimatedHeight;

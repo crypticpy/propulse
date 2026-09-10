@@ -101,10 +101,17 @@ function latLonToSurface(lat: number, lon: number): THREE.Vector3 {
  * so this geometry is unit-testable without rendering the R3F tree this
  * component lives in (`<Html>`/`useFrame` require a `<Canvas>` context that
  * jsdom + Testing Library cannot provide).
+ *
+ * Round-6 follow-up: at the largest text scale, 15rem is 330px -- wider than
+ * a 320px phone viewport -- and the drei `<Html center>` wrapper this card
+ * renders in does no viewport clamping of its own, so the card clipped at
+ * the page edge. `min(..., calc(100vw - 2rem))` caps both bounds at the
+ * viewport width minus 1rem of margin on each side, so the card can still
+ * grow with its text but never past what the screen has room for.
  */
 export const ISS_INFO_CARD_WIDTH_STYLE = {
-  minWidth: "15rem",
-  maxWidth: "17.5rem",
+  minWidth: "min(15rem, calc(100vw - 2rem))",
+  maxWidth: "min(17.5rem, calc(100vw - 2rem))",
 } as const;
 
 /** Well-known ISS amateur radio frequencies and modes */
@@ -401,7 +408,12 @@ function ISSInfoCard({ tracker, occlusionOpacity }: ISSInfoCardProps) {
           {ISS_FREQUENCIES.map((f) => (
             <div
               key={f.label}
-              className="flex items-baseline justify-between gap-1"
+              // Round-6: this row's fixed-pixel card width now clamps to the
+              // viewport at its narrow cap (see ISS_INFO_CARD_WIDTH_STYLE
+              // above), so a long frequency value can no longer count on the
+              // same room it always had. `flex-wrap` lets the value/note
+              // drop under the label instead of overflowing the row.
+              className="flex flex-wrap items-baseline justify-between gap-1"
             >
               <span
                 className="text-xs truncate"

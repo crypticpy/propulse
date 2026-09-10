@@ -68,7 +68,7 @@ export function Ft8SpotterHUD({
   if (totalDecodes === 0) {
     return (
       <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-30 pointer-events-none">
-        <div className="bg-void-black/60 backdrop-blur-sm rounded-lg border border-su-line/40 px-5 py-3 min-w-[280px]">
+        <div className="bg-void-black/60 backdrop-blur-sm rounded-lg border border-su-line/40 px-5 py-3 min-w-[17.5rem]">
           <div className="flex items-center gap-2.5">
             <span className="ft8-hud-pulse-dot inline-block w-2 h-2 rounded-full bg-su-text/30" />
             <span className="text-xs text-su-muted font-medium tracking-wide">
@@ -92,7 +92,15 @@ export function Ft8SpotterHUD({
 
   return (
     <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-30 pointer-events-none">
-      <div className="bg-void-black/60 backdrop-blur-sm rounded-lg border border-su-line/40 overflow-hidden min-w-[280px] max-w-[320px]">
+      {/* The width bounds are rem, not px, so the box grows with Settings ->
+          Text Size exactly like the type inside it. The status row's sizes are
+          `text-xs`/`text-sm` (0.75rem/0.875rem), which reach 16.5px/19.25px at
+          the xl scale; against a px-pinned 320px ceiling and `overflow-hidden`
+          the station count, band and cycle timer ran past the right edge and
+          were clipped. `flex-wrap` is the second half of that fix: when a long
+          band plus a mode pill still cannot share one line, the row reflows
+          onto a second line instead of hiding its tail. */}
+      <div className="bg-void-black/60 backdrop-blur-sm rounded-lg border border-su-line/40 overflow-hidden min-w-[17.5rem] max-w-[20rem]">
         {/* Cycle progress bar */}
         <div className="h-[3px] w-full bg-su-line/20 relative overflow-hidden">
           <div
@@ -107,7 +115,7 @@ export function Ft8SpotterHUD({
         </div>
 
         {/* Main content row */}
-        <div className="flex items-center gap-2 px-3 py-2">
+        <div className="flex flex-wrap items-center gap-x-2 gap-y-1 px-3 py-2">
           {/* Decode count */}
           <div className="flex items-baseline gap-1 min-w-0">
             <span className="text-[14px] font-bold text-su-text tabular-nums leading-none">

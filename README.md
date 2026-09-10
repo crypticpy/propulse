@@ -84,7 +84,9 @@ obliges us, and anyone who runs a modified Propulse as a service, to publish the
 cloud.** Any pricing in Propulse, now or in the future, exists solely to recover the cost
 of delivering the hosted service at [propulse.cloud](https://propulse.cloud): cloud
 resources, third-party data and tile fees, and the upkeep of the online application. There
-is no plan to charge for the software itself or for its core functionality, and self-hosting
+is no plan to charge for the software itself or for its core functionality. Anyone who
+would rather not use the hosted service can download Propulse, install it on their own
+cloud stack and run it for themselves, carrying those hosting costs directly; self-hosting
 is a supported path, not a grudging one.
 
 **The operating app is free to use today.** The map, physics engine, Band Health ladder,

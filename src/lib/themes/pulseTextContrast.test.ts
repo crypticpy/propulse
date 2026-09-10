@@ -721,10 +721,10 @@ function scanToDepthZeroComma(text: string, start: number, end: number): number 
  * call, ...) is resolved to the space-joined body of every string/template
  * literal found anywhere inside it, same as round 16.
  *
- * A spread (`...base`), a shorthand property (`safe,`), a method
- * (`greet() {}`), or a computed key (`[k]: "…"`) is skipped -- scanned past
- * to the next depth-0 comma via `scanToDepthZeroComma` -- rather than
- * aborting entry collection outright for every key after it, since a
+ * A spread (`...base`), a method (`greet() {}`), or a computed key (`[k]:
+ * "…"`) is skipped -- scanned past to the next depth-0 comma via
+ * `scanToDepthZeroComma` -- rather than aborting entry collection outright
+ * for every key after it, since a
  * `const styles = { ...base, safe: "text-green", alert: "text-red
  * animate-pulse" }` used to lose `safe` and `alert` entirely just because
  * `...base` came first, leaving `styles.safe` to fall back to the whole
@@ -752,7 +752,23 @@ function scanToDepthZeroComma(text: string, start: number, end: number): number 
  * flattened literal, since an unresolvable spread could have overwritten it
  * with anything. `collectConstTemplateMap` replays `order` once every
  * declaration is known, so overwrite order matches the object literal's own
- * source order exactly, later wins (Codex, PR #874 round 34). */
+ * source order exactly, later wins (Codex, PR #874 round 34).
+ *
+ * A shorthand property (`{ pulse }`, shorthand for `{ pulse: pulse }`) is no
+ * longer skipped (round 18 chose to skip it, alongside a method and a
+ * computed key with no colon, since none of the three share one shape) --
+ * only a bare identifier key immediately followed by a depth-0 `,` or the
+ * object's own closing `}` is a shorthand property; a quoted or computed key
+ * can never be shorthand in real JS (`{ "a" }`/`{ [k] }` are syntax errors),
+ * and anything else immediately after a bare identifier key (most commonly
+ * `(` for a method) still isn't a `key: value` OR a shorthand shape, so it's
+ * still skipped the same way it always was. A shorthand key is registered
+ * through the exact same identifier-ref path as its `{ pulse: pulse }`
+ * long-hand equivalent (round 33's colon-form identifier-only value
+ * handling below) -- its own resolution, including an unresolvable
+ * identifier simply not matching anything (same as that colon form always
+ * has), is entirely local to this one key and never touches a sibling's own
+ * entry (Codex, PR #874 round 37). */
 function extractObjectEntries(
   text: string,
 ): { entries: Map<string, ConstEntry>; spreads: string[]; order: ObjectEntryOp[] } {
@@ -782,6 +798,7 @@ function extractObjectEntries(
 
     let key: string | null = null;
     let keyEnd = i;
+    let isIdentifierKey = false;
     const c = text[i];
     if (c === '"' || c === "'") {
       const close = text.indexOf(c, i + 1);
@@ -801,6 +818,7 @@ function extractObjectEntries(
       if (idMatch) {
         key = idMatch[0];
         keyEnd = i + idMatch[0].length;
+        isIdentifierKey = true;
       }
     }
 
@@ -814,9 +832,30 @@ function extractObjectEntries(
     let j = keyEnd;
     while (j < end && /\s/.test(text[j])) j++;
     if (text[j] !== ":") {
-      // Shorthand (`safe,`), a method (`greet() {}`), or a computed key
-      // that isn't followed by `:` -- not a `key: value` shape. Skipped
-      // rather than aborting every entry after it.
+      // A bare identifier key immediately followed by a depth-0 `,` or the
+      // object's own closing `}` is a shorthand property (`{ pulse }`,
+      // shorthand for `{ pulse: pulse }`) -- registered through the exact
+      // same identifier-ref path as that long-hand colon form uses below,
+      // so `pulse` resolves through `resolveMemberAccess`/`resolveConstRefs`
+      // exactly like any other reference, unresolvable or not (Codex, PR
+      // #874 round 37). A quoted or computed key can never be shorthand in
+      // real JS, and anything else after a bare identifier key -- most
+      // commonly `(` for a method (`greet() {}`) -- is still neither a `key:
+      // value` nor a shorthand shape, so it's skipped exactly as it always
+      // was.
+      if (isIdentifierKey && key !== null && (j >= end || text[j] === "," || text[j] === "}")) {
+        const refs = extractIdentifierRefs(key);
+        if (refs.length > 0) {
+          const entry: ConstEntry = { literal: refs.join(" ") };
+          entries.set(key, entry);
+          order.push({ kind: "entry", key, entry });
+        }
+        i = j;
+        continue;
+      }
+      // A method (`greet() {}`) or a computed key that isn't followed by
+      // `:` -- not a `key: value` shape. Skipped rather than aborting every
+      // entry after it.
       const skipTo = scanToDepthZeroComma(text, i, end);
       i = skipTo > i ? skipTo : i + 1;
       continue;
@@ -2785,6 +2824,130 @@ function isValueOperandTextBearing(operand: string): boolean {
   return isValuePositionTextBearing(unwrapped);
 }
 
+/** Same balanced-scan rule as `extractBalanced`, restricted to a `[`/`]`
+ * pair (an array literal) -- `extractBalanced`'s own type only spans
+ * `{}`/`()`, and every existing call site already commits to one of those
+ * two, so widening its signature for this one new caller isn't worth the
+ * churn (Codex, PR #874 round 37, `isRemainderTextBearing`'s new
+ * array-literal branch below). */
+function extractBalancedBrackets(source: string, openIndex: number): { endIndex: number } {
+  let depth = 0;
+  let inStr: string | null = null;
+  let i = openIndex;
+  for (; i < source.length; i++) {
+    const c = source[i];
+    if (inStr) {
+      if (c === "\\") {
+        i++;
+        continue;
+      }
+      if (c === inStr) inStr = null;
+      continue;
+    }
+    if (isQuoteChar(c)) {
+      inStr = c;
+      continue;
+    }
+    if (c === "[") {
+      depth++;
+    } else if (c === "]") {
+      depth--;
+      if (depth === 0) return { endIndex: i };
+    }
+  }
+  return { endIndex: source.length - 1 };
+}
+
+/** Splits `text` at depth 0 (outside `()`/`[]`/`{}` and quoted strings) on a
+ * bare `,` -- an array literal's own elements (Codex, PR #874 round 37).
+ * Same quote-aware depth-tracking rule as `splitAtTopLevelOperators`, just
+ * splitting on `,` instead of a ternary/logical operator. A part that trims
+ * to nothing is dropped rather than kept as an empty element -- an empty
+ * array (`[]`), a trailing comma (`[a, b,]`), and a sparse hole (`[a, , b]`)
+ * all render nothing at that position, same as `null`/`false` already do. */
+function splitTopLevelCommaList(text: string): string[] {
+  const parts: string[] = [];
+  let depth = 0;
+  let inStr: string | null = null;
+  let start = 0;
+  let i = 0;
+  while (i < text.length) {
+    const c = text[i];
+    if (inStr) {
+      if (c === "\\") {
+        i += 2;
+        continue;
+      }
+      if (c === inStr) inStr = null;
+      i++;
+      continue;
+    }
+    if (isQuoteChar(c)) {
+      inStr = c;
+      i++;
+      continue;
+    }
+    if (c === "(" || c === "[" || c === "{") {
+      depth++;
+      i++;
+      continue;
+    }
+    if (c === ")" || c === "]" || c === "}") {
+      depth--;
+      i++;
+      continue;
+    }
+    if (depth === 0 && c === ",") {
+      parts.push(text.slice(start, i));
+      i++;
+      start = i;
+      continue;
+    }
+    i++;
+  }
+  parts.push(text.slice(start));
+  return parts.map((p) => p.trim()).filter((p) => p !== "");
+}
+
+/** True when a single array-literal element (already isolated by
+ * `splitTopLevelCommaList`) renders text -- the same "value position" rule
+ * `isRemainderTextBearing`/`isValueOperandTextBearing` apply elsewhere, run
+ * on one element instead of a whole block: a `?`/`:`/`&&`/`||`/`??` chain at
+ * this element's own depth 0 recurses through this same rule per operand
+ * (`[cond && "x"]`'s one element is such a chain); a nested array literal
+ * (`[[<span/>, "Loading"]]`) recurses through this same rule per its OWN
+ * element; an arrow/`function` callback embedded in this element
+ * (`...items.map((i) => <div key={i} className="h-2" />)` as one element
+ * among others) is decided ENTIRELY by whether any of its own bodies render
+ * text (`isRemainderTextBearing`, the same rule a block-level callback
+ * already gets) -- unlike the final fallback below, a callback found here is
+ * never ALSO run back through the blunt leaf check, or a purely decorative
+ * one (blanked JSX, no text of its own) would wrongly count via its own
+ * leftover call syntax (`items.map(i =>            )` is not empty text).
+ * Anything else -- a bare identifier, string, or blanked-JSX span with no
+ * operator or callback of its own -- falls through to the same
+ * `isValuePositionTextBearing` fail-closed leaf check every other value
+ * position gets. Known gap, same shape as the file's other documented ones:
+ * an element that is ONLY a non-JSX callback with no ternary of its own
+ * (`items.map(i => i.label)`, no `<...>` anywhere in the whole callback) is
+ * judged solely by its body's own JSX-shaped content, same as a block-level
+ * callback already is -- a callback that never contained JSX to begin with
+ * renders through neither path (Codex, PR #874 round 37). */
+function isArrayElementTextBearing(element: string): boolean {
+  const unwrapped = unwrapGroupingParens(element);
+  const parts = splitAtTopLevelOperators(unwrapped);
+  if (parts.length > 1) return valueOperands(parts).some(isArrayElementTextBearing);
+  if (unwrapped[0] === "[") {
+    const { endIndex } = extractBalancedBrackets(unwrapped, 0);
+    if (endIndex === unwrapped.length - 1) {
+      return splitTopLevelCommaList(unwrapped.slice(1, -1)).some(isArrayElementTextBearing);
+    }
+  }
+  const arrowBodies = findArrowBodies(unwrapped);
+  if (arrowBodies.length > 0) return arrowBodies.some(isRemainderTextBearing);
+  return isValuePositionTextBearing(unwrapped);
+}
+
 /** True when `remainder` -- an expression block's text with every JSX
  * element `extractJsxElements` found already blanked to spaces -- still
  * renders text through a non-JSX alternative: every value operand
@@ -2796,14 +2959,31 @@ function isValueOperandTextBearing(operand: string): boolean {
  * `ready` is false; round 23's `{message || <Spinner />}` -- `message` is a
  * value here, not a condition, and renders whenever it's truthy; round 24:
  * `unwrapGroupingParens` runs first, so a whole block wrapped in its own
- * grouping parens still exposes its chain at depth 0). An arrow function's
- * body (`.map((i) => ...)`) is examined the same way, recursively, since its
- * own ternary/logical operators sit inside the call's parens and are
- * invisible to a depth-0 split of the whole block. */
+ * grouping parens still exposes its chain at depth 0). An array literal
+ * spanning the WHOLE (unwrapped) remainder (`[<span className="h-2" />,
+ * "Loading"]`) is examined elementwise by `isArrayElementTextBearing`,
+ * rather than by the ternary/logical split above -- `splitAtTopLevelOperators`
+ * already treats `[`/`]` as depth-changing brackets, so an operator strictly
+ * INSIDE the array's own elements is invisible to that split at this level
+ * anyway, and the two checks never fire on the same text (Codex, PR #874
+ * round 37: previously, a plain array of JSX + text siblings had no
+ * elementwise inspection at all -- a decorative element blanked to spaces
+ * left nothing behind that either check above could see, and a sibling
+ * literal string was never examined on its own). An arrow function's body
+ * (`.map((i) => ...)`) is examined the same way, recursively, since its own
+ * ternary/logical operators sit inside the call's parens and are invisible
+ * to a depth-0 split of the whole block. */
 function isRemainderTextBearing(remainder: string): boolean {
   const unwrapped = unwrapGroupingParens(remainder);
   const parts = splitAtTopLevelOperators(unwrapped);
   if (parts.length > 1 && valueOperands(parts).some(isValueOperandTextBearing)) return true;
+  if (unwrapped[0] === "[") {
+    const { endIndex } = extractBalancedBrackets(unwrapped, 0);
+    if (endIndex === unwrapped.length - 1) {
+      const elements = splitTopLevelCommaList(unwrapped.slice(1, -1));
+      if (elements.some(isArrayElementTextBearing)) return true;
+    }
+  }
   return findArrowBodies(remainder).some(isRemainderTextBearing);
 }
 
@@ -3520,6 +3700,38 @@ function resolveModuleKey(fromFile: string, specifier: string): string | null {
  * `source` should already be comment/string-blanked and whitespace-
  * normalized (same convention `collectConstTemplateMap` expects), so a
  * `// export { fake }` inside a comment is never picked up. */
+/** Rewrites an inline `export default <expr>;` -- an object literal
+ * (`export default { alert: "animate-pulse" }`), a string
+ * (`export default "animate-pulse"`), or a template literal with no `${}`
+ * -- into a separate `const` declaration followed by `export default
+ * <name>;`, before `collectExportedNames`/`collectConstTemplateMap` ever run
+ * on this source. This lets the EXISTING identifier-form default-export
+ * machinery in both of those (unchanged by this) see and resolve it exactly
+ * the way it already resolves `export default someName;`, including through
+ * the round-36b spread path for `export default { ...base }`. A module has
+ * at most one default export, so this runs at most once per call. `export
+ * default function`/`export default class` are left untouched -- neither
+ * was ever recognized as an export name at all (this doesn't build a class
+ * map), same as before this round -- and the already-correct
+ * bare-identifier form (`export default someIdentifier;`) is left untouched
+ * too, to avoid adding a redundant indirection (Codex, PR #874 round 37). */
+function synthesizeInlineDefaultExports(source: string): string {
+  const m = /\bexport\s+default\s+/.exec(source);
+  if (!m) return source;
+  const exprStart = m.index + m[0].length;
+  const rest = source.slice(exprStart);
+  if (/^(function|class)(?:[\s(*{]|$)/.test(rest)) return source;
+  if (/^[A-Za-z_$][\w$]*\s*;/.test(rest)) return source;
+  const exprEnd = findInitializerEnd(source, exprStart);
+  const expr = source.slice(exprStart, exprEnd);
+  const name = "__round37DefaultExport__";
+  return (
+    source.slice(0, m.index) +
+    `const ${name} = ${expr};\nexport default ${name}` +
+    source.slice(exprEnd)
+  );
+}
+
 function collectExportedNames(source: string): Map<string, string> {
   const exported = new Map<string, string>();
   // `export const safe = "text-xs", classes = "animate-pulse";` used to
@@ -3661,18 +3873,27 @@ function collectReExportStatements(source: string): ReExportStatement[] {
  * literally on its own (Codex, PR #874 round 30). */
 const REEXPORT_HINT_RE = /\bexport\s*(?:\*|\{[^}]*\})\s*(?:as\s+[A-Za-z_$][\w$]*\s*)?from\s*["']/;
 
-/** Pass 1: every exported binding, across every file in `sources`, whose
- * resolved literal contains the pulse class -- keyed first by the
- * exporting module's path key (`moduleKeysForFile`), then by the exported
- * name. A file that doesn't literally contain `"animate-pulse"` can't
- * possibly export a binding that does (the class name has to appear as a
- * literal *somewhere* in the file for `collectConstTemplateMap` to find
- * it), so it's skipped outright -- this keeps pass 1 as cheap as the
- * existing single-file prefilter, just run once up front instead of once
- * per file that happens to import from it. Only a file's own module-level
- * declarations (whole-file scope, per `collectConstTemplateMap`) are ever
- * exportable; a function-local same-named const is never in scope for
- * `export { name }` to reach.
+/** Pass 1: every exported member of every file in `sources` that has AT
+ * LEAST ONE pulsing export -- keyed first by the exporting module's path key
+ * (`moduleKeysForFile`), then by the exported name. A file that doesn't
+ * literally contain `"animate-pulse"` can't possibly export a binding that
+ * does (the class name has to appear as a literal *somewhere* in the file
+ * for `collectConstTemplateMap` to find it), so it's skipped outright --
+ * this keeps pass 1 as cheap as the existing single-file prefilter, just run
+ * once up front instead of once per file that happens to import from it.
+ * Only a file's own module-level declarations (whole-file scope, per
+ * `collectConstTemplateMap`) are ever exportable; a function-local
+ * same-named const is never in scope for `export { name }` to reach.
+ *
+ * Round 37: a qualifying file's map holds EVERY one of its exported members,
+ * not just the pulsing ones -- a non-pulsing sibling's own resolved (clean)
+ * literal has to be here for a namespace import/re-export's per-member
+ * narrowing (`ns.safe`) to resolve precisely instead of falling back to the
+ * namespace's own aggregate literal, which still carries a pulsing sibling's
+ * class and would otherwise flag the clean member too. A plain named import
+ * of a non-pulsing sibling still resolves to that clean literal either way,
+ * so this doesn't change what a direct `import { safe }` flags -- only what
+ * a `* as ns` map has available to narrow against.
  *
  * A second stage then follows every `export ... from "…"` re-export
  * statement (a barrel: `styles.ts` declares `alertClasses`, `index.ts` has
@@ -3682,11 +3903,16 @@ const REEXPORT_HINT_RE = /\bexport\s*(?:\*|\{[^}]*\})\s*(?:as\s+[A-Za-z_$][\w$]*
  * own, and bindings are propagated to a fixpoint (bounded at 10 passes, a
  * generous multiple of any real barrel chain depth, so a re-export cycle
  * can't loop forever) so a two-level barrel chain resolves the same as a
- * one-level one. `export * as ns from "…"` registers `ns` in the
- * re-exporting file's own pulsing map as an object binding whose `entries`
- * mirror the source module's pulsing exports, the same shape a `namespace`
- * *import* already builds in `resolveImportedDecls` (Codex, PR #874
- * round 30).
+ * one-level one, INCLUDING a non-pulsing member riding along (round 37: the
+ * `"star"`/`"named"` branches below have always just copied whatever's in
+ * the source module's map verbatim, with no pulse-ness filter of their own
+ * -- once that map itself carries every member, so does a barrel's copy of
+ * it, with no changes needed to the copy itself). `export * as ns from "…"`
+ * registers `ns` in the re-exporting file's own map as an object binding
+ * whose `entries` mirror EVERY one of the source module's exports (not just
+ * its pulsing ones -- same round-37 fix, and again no change needed to the
+ * copy itself), the same shape a `namespace` *import* already builds in
+ * `resolveImportedDecls` (Codex, PR #874 round 30).
  *
  * A third stage then follows a module's own IMPORTS the same way the second
  * stage follows a barrel's re-export statements: `a.ts` exports a pulsing
@@ -3738,7 +3964,7 @@ function collectExportedPulseBindings(
   const byModule = new Map<string, Map<string, ConstDecl>>();
   for (const [file, rawSource] of Object.entries(sources)) {
     if (!rawSource.includes(PULSE_CLASS)) continue;
-    const source = normalize(blankCommentsAndQuotedJsx(rawSource));
+    const source = synthesizeInlineDefaultExports(normalize(blankCommentsAndQuotedJsx(rawSource)));
     const exportedNames = collectExportedNames(source);
     if (exportedNames.size === 0) continue;
     const decls = collectConstTemplateMap(source);
@@ -3748,7 +3974,24 @@ function collectExportedPulseBindings(
       const existing = moduleLevelByName.get(decl.name);
       if (!existing || decl.index < existing.index) moduleLevelByName.set(decl.name, decl);
     }
-    const pulsing = new Map<string, ConstDecl>();
+    // Round 37: this module's own map (stored into `byModule` below) now
+    // carries EVERY exported member, not just the ones that turn out to be
+    // pulsing -- a namespace import/re-export (`* as ns`, direct or through
+    // `export * as ns from`) builds its own `entries` map by copying
+    // whatever is here verbatim (see `resolveImportedDecls`'s `nsMatch`
+    // branch and the barrel loop's `stmt.namespaceName` branch below, both
+    // unchanged by this round), so a non-pulsing sibling (`ns.safe`) has to
+    // already be here, with its own resolved (clean) literal, for that copy
+    // to narrow precisely instead of falling back to the namespace's
+    // aggregate literal -- which DOES still carry a pulsing sibling's class
+    // and would otherwise flag `ns.safe` as a false positive. A plain named
+    // import of a non-pulsing sibling (`import { safe } from "./m"`) is
+    // unaffected: it now gets its own decl registered too, but that decl's
+    // own resolved literal has no pulse class either, so nothing downstream
+    // that decides a violation by testing the RESOLVED text ever flags it
+    // (Codex, PR #874 round 37).
+    const moduleExports = new Map<string, ConstDecl>();
+    let hasPulsing = false;
     for (const [exportedName, localName] of exportedNames) {
       const decl = moduleLevelByName.get(localName);
       if (!decl) continue;
@@ -3765,6 +4008,7 @@ function collectExportedPulseBindings(
       // consumer never needs the exporter's own private `decls` to see
       // through it (Codex, PR #874 round 31).
       const resolvedLiteral = resolveConstRefs(decl.literal, decls, decl.index);
+      moduleExports.set(exportedName, { ...decl, literal: resolvedLiteral });
       // Round 36b: also checked recursively through `decl.entries`, not just
       // the flattened `resolvedLiteral` -- an object-valued export that is
       // ONLY a spread of a local pulsing map (`export const mid = { ...base
@@ -3773,14 +4017,16 @@ function collectExportedPulseBindings(
       // the pulse class literally (in `base`'s own initializer), so this
       // file already passed the `rawSource.includes(PULSE_CLASS)` prefilter
       // above -- this is the case stage one CAN catch, given the gate looks
-      // deep enough.
+      // deep enough. This flag only decides whether the FILE is worth
+      // keeping at all (below) -- it no longer gates which members make it
+      // into `moduleExports` (round 37).
       if (PULSE_CLASS_RE.test(resolvedLiteral) || entriesHavePulseClass(decl.entries, decls, decl.index)) {
-        pulsing.set(exportedName, { ...decl, literal: resolvedLiteral });
+        hasPulsing = true;
       }
     }
-    if (pulsing.size === 0) continue;
+    if (!hasPulsing) continue;
     for (const key of moduleKeysForFile(file)) {
-      byModule.set(key, pulsing);
+      byModule.set(key, moduleExports);
     }
   }
 
@@ -3818,7 +4064,7 @@ function collectExportedPulseBindings(
   }> = [];
   for (const [file, rawSource] of Object.entries(sources)) {
     if (!/\bimport\b/.test(rawSource) || !/\bexport\b/.test(rawSource)) continue;
-    const normalizedSource = normalize(blankCommentsAndQuotedJsx(rawSource));
+    const normalizedSource = synthesizeInlineDefaultExports(normalize(blankCommentsAndQuotedJsx(rawSource)));
     const exportedNames = collectExportedNames(normalizedSource);
     if (exportedNames.size === 0) continue;
     importAliasCandidates.push({ file, rawSource, normalizedSource, exportedNames });
@@ -3965,9 +4211,13 @@ function parseImportClauses(source: string): Array<{ clause: string; specifier: 
  * binding's literal/entries directly; a default import (`import d from
  * "…"`) does the same under the reserved `"default"` key; a namespace
  * import (`* as ns`) registers `ns` as an object decl whose `entries` map
- * every one of the module's pulsing exports, so `ns.alertClasses` still
+ * EVERY one of the module's exports (not just its pulsing ones -- round 37;
+ * `exportsMap`'s own per-module map already carries every member, and this
+ * branch has always just copied it verbatim), so `ns.alertClasses` still
  * resolves through the existing dotted member-access chain
- * (`resolveMemberAccess`). Every registered decl gets the whole file as its
+ * (`resolveMemberAccess`), and `ns.safe` (a non-pulsing sibling) narrows to
+ * its own clean literal instead of falling back to `ns`'s aggregate one.
+ * Every registered decl gets the whole file as its
  * scope (`scopeStart: 0, scopeEnd: source.length`) and `index: 0` -- an
  * imported binding has no meaningful declaration offset in *this* file, and
  * none of the offsets `Violation`/anchor matching use ever come from an
@@ -4520,6 +4770,108 @@ describe("scanSourceForViolations catches every spelling (fixture proofs, #878)"
   it("keeps a sibling key at the PARENT level precise when a NESTED object's own unresolvable spread fails closed", () => {
     const fixture =
       'const styles = { group: { safe: "text-green", alert: "text-red animate-pulse", ...unknownImport }, parentSafe: "text-blue" };\nexport function A() { return <span className={styles.parentSafe}>Idle</span>; }';
+    expect(scanSourceForViolations(fixture)).toEqual([]);
+  });
+
+  it("registers a shorthand object property (`{ pulse }`) as an identifier-valued entry of a LOCAL const", () => {
+    // Round 18 chose to skip a shorthand property outright alongside a
+    // method and a colon-less computed key -- `styles.pulse` (reachable
+    // only via the shorthand) had no entry at all to narrow against, no
+    // matter how genuinely pulsing `pulse` itself was (Codex, PR #874
+    // round 37).
+    // Honest note (verified via red-on-revert): this particular fixture does
+    // NOT discriminate the shorthand fix on its own -- `styles.pulse` still
+    // fails its precise dot-chain narrow on the UNFIXED parser too (no
+    // "pulse" key in `styles.entries` either way), which falls through to an
+    // unrelated, pre-existing per-identifier fallback in `resolveMemberAccess`
+    // (the trailing property name is re-matched as its own bare identifier,
+    // since `BASE_IDENT_RE` doesn't exclude a preceding `.`) that coincidentally
+    // resolves "pulse" against this SAME file's own top-level `const pulse =
+    // "animate-pulse";` -- true of any `{ x }` shorthand whose value name is a
+    // real, independently-resolvable identifier, since shorthand syntax
+    // requires the property name and the value's name to be identical --
+    // structurally true of every genuine `{ x }` shorthand fixture below too,
+    // not just this one. Kept as a correctness regression test (the fixed
+    // parser now reaches the same answer via the real, precise `entries`
+    // path instead); the actual proof this round's registration exists is
+    // "does not flag an unresolvable shorthand's own key..." below, which
+    // DOES discriminate (a shorthand whose value name has no declaration
+    // anywhere else in the file, so this coincidental fallback can't fire).
+    const fixture =
+      'const pulse = "animate-pulse";\nconst styles = { pulse };\nexport function A() { return <span className={styles.pulse}>Loading</span>; }';
+    expect(scanSourceForViolations(fixture)).not.toEqual([]);
+  });
+
+  it("registers a shorthand object property introduced by destructuring a resolvable config object (round 35 x round 37)", () => {
+    // Same honest caveat as above: `alert` is also independently resolvable
+    // (it's the destructured local binding's own name), so this doesn't
+    // discriminate old vs. new parsing either -- kept as a regression test.
+    const fixture =
+      'const styles = { alert: "text-red animate-pulse" };\nconst { alert } = styles;\nconst wrapper = { alert };\nexport function A() { return <span className={wrapper.alert}>Loading</span>; }';
+    expect(scanSourceForViolations(fixture)).not.toEqual([]);
+  });
+
+  it("registers a shorthand object property of an IMPORTED binding (round 37)", () => {
+    // Same shorthand path, but `pulse` itself is a named import rather than a
+    // local const -- proves the shorthand's identifier-ref resolves through
+    // `resolveConstRefs`'s own imported-decl handling exactly like a
+    // long-hand `{ pulse: pulse }` already does, not just a local `const`.
+    // Same honest caveat as the LOCAL-const version above: `pulse` is also
+    // independently resolvable as an imported binding of the same name, so
+    // this doesn't discriminate old vs. new parsing either -- kept as a
+    // regression test for the imported-binding path specifically.
+    const baseSource = 'export const pulse = "animate-pulse";';
+    const bSource =
+      'import { pulse } from "@/lib/base";\nconst styles = { pulse };\nexport function A() { return <span className={styles.pulse}>Loading</span>; }';
+    const exportsMap = collectExportedPulseBindings({ "src/lib/base.ts": baseSource, "src/lib/b.tsx": bSource });
+    expect(scanModuleForViolations("src/lib/b.tsx", bSource, exportsMap)).not.toEqual([]);
+  });
+
+  it("still resolves a later, resolvable spread's own value over an earlier shorthand entry for the same key, in source order", () => {
+    // Same round-34 source-order-overwrite rule, now exercised with a
+    // shorthand as the EARLIER entry instead of a `key: value` pair --
+    // proves the new shorthand `order.push` participates in replay exactly
+    // like any other named entry.
+    const fixture =
+      'const pulse = "text-green";\nconst base = { pulse: "animate-pulse" };\nconst styles = { pulse, ...base };\nexport function A() { return <span className={styles.pulse}>Idle</span>; }';
+    expect(scanSourceForViolations(fixture)).not.toEqual([]);
+  });
+
+  it("still keeps a shorthand entry precise when it comes AFTER a resolvable spread that never touches that key", () => {
+    const fixture =
+      'const pulse = "text-green";\nconst base = { banner: "animate-pulse" };\nconst styles = { ...base, pulse };\nexport function A() { return <span className={styles.pulse}>Idle</span>; }';
+    expect(scanSourceForViolations(fixture)).toEqual([]);
+  });
+
+  it("does not flag an unresolvable shorthand's own key, and does not let it cloud a sibling key's precise resolution either way", () => {
+    // `pulse` here names no declaration anywhere in the file -- there's
+    // nothing to resolve it against, so `styles.pulse` simply never matches
+    // (same as any other unresolvable identifier-only reference already
+    // doesn't); critically, this must stay entirely local to `pulse`'s own
+    // entry and never touch `alert`, a genuinely pulsing sibling key on the
+    // same object (Codex, PR #874 round 37).
+    const fixture =
+      'const styles = { pulse, alert: "text-red animate-pulse" };\nexport function A() { return <span className={styles.pulse}>Idle</span>; }';
+    expect(scanSourceForViolations(fixture)).toEqual([]);
+  });
+
+  it("still flags the genuinely pulsing sibling key next to an unresolvable shorthand entry", () => {
+    const fixture =
+      'const styles = { pulse, alert: "text-red animate-pulse" };\nexport function A() { return <span className={styles.alert}>Critical</span>; }';
+    expect(scanSourceForViolations(fixture)).not.toEqual([]);
+  });
+
+  it("still skips a shorthand METHOD (`{ pulse() {} }`), since it's a function body, not a value", () => {
+    // Deliberately no "animate-pulse" anywhere in this object at all -- a
+    // method's own body is never scanned for a shorthand-style entry, but
+    // `styles.pulse` (an unregistered key) still falls back to the whole
+    // object's own flattened literal same as any other unmatched precise
+    // access always has (a PRE-EXISTING fallback, independent of this
+    // round); with no pulse anywhere in that fallback text either, this
+    // stays clean either way, proving the method itself never introduces
+    // one.
+    const fixture =
+      'const styles = { pulse() { return "ok"; }, safe: "text-green" };\nexport function A() { return <span className={styles.pulse}>Idle</span>; }';
     expect(scanSourceForViolations(fixture)).toEqual([]);
   });
 
@@ -5134,6 +5486,103 @@ describe("scanSourceForViolations catches every spelling (fixture proofs, #878)"
     expect(scanSourceForViolations(fixture)).toEqual([]);
   });
 
+  it("catches a plain array literal mixing a decorative element with a literal string sibling (round 37)", () => {
+    // `isExpressionBlockTextBearing` used to find the decorative span (one
+    // JSX element, dismissed by `isJsxElementTextBearing`), blank it out,
+    // and hand the remainder to `isRemainderTextBearing` -- which only knew
+    // how to split a `?`/`:`/`&&`/`||`/`??` chain or an arrow-function body
+    // at depth 0, neither of which an `[a, b]` array literal is, so the
+    // sibling string "Loading" was invisible no matter how literally it
+    // rendered (Codex, PR #874 round 37).
+    const fixture =
+      '<div className="animate-pulse">{[<span key="dot" className="h-2" />, "Loading"]}</div>';
+    expect(scanSourceForViolations(fixture)).not.toEqual([]);
+  });
+
+  it("dismisses an array literal whose every element is decorative", () => {
+    const fixture =
+      '<div className="animate-pulse">{[<span key="a" className="h-2" />, <span key="b" className="h-2" />]}</div>';
+    expect(scanSourceForViolations(fixture)).toEqual([]);
+  });
+
+  it("dismisses an array literal whose non-JSX elements are all `null`/`false` (same clean treatment `isValuePositionTextBearing` already gives those elsewhere)", () => {
+    const fixture =
+      '<div className="animate-pulse">{[<span key="a" className="h-2" />, null, false]}</div>';
+    expect(scanSourceForViolations(fixture)).toEqual([]);
+  });
+
+  it("catches an array literal whose `.map()` sibling emits text-bearing JSX (`.map` spread inside the array)", () => {
+    // The map's own returned element (a `<span>` WITH children, not
+    // self-closing) is one of the JSX elements `extractJsxElements` already
+    // finds over the whole block -- `elements.some(isJsxElementTextBearing)`
+    // catches it before this round's new array-elementwise logic is even
+    // reached, so this doesn't discriminate this round's fix on its own;
+    // kept as coverage for "`.map` producing [JSX] inside the array" per the
+    // dispatch, and to document that a map's own text-bearing return value
+    // was never the gap here -- a plain, non-JSX literal SIBLING was.
+    const fixture =
+      '<div className="animate-pulse">{[<span key="dot" className="h-2" />, ...items.map((i) => <span key={i.id}>{i.label}</span>)]}</div>';
+    expect(scanSourceForViolations(fixture)).not.toEqual([]);
+  });
+
+  it("dismisses an array literal whose `.map()` sibling only ever emits a decorative element (round 37)", () => {
+    // Honest note (verified via red-on-revert): does NOT discriminate this
+    // round's fix -- `findArrowBodies` already scans the WHOLE remainder
+    // text for `=>` bodies regardless of surrounding bracket depth (it isn't
+    // scoped to true top-level position), so it already finds this same
+    // `.map()` arrow body and correctly judges it decorative on the UNFIXED
+    // parser too, with no array-elementwise logic involved at all. Kept as
+    // coverage for the dispatch's ".map producing [decorative JSX] inside
+    // the array" case and to document that this shape was already clean
+    // before this round, for a different, pre-existing reason.
+    // The `.map()` call is one array ELEMENT among others, not the whole
+    // remainder -- `isArrayElementTextBearing` has to decide it the same way
+    // `isRemainderTextBearing` decides a block-level callback (by its own
+    // returned JSX), not by treating its leftover call syntax
+    // (`items.map(i =>            )`, once its own decorative JSX is
+    // blanked) as a bare text leaf.
+    const fixture =
+      '<div className="animate-pulse">{[<span key="dot" className="h-2" />, ...items.map((i) => <div key={i.id} className="h-2" />)]}</div>';
+    expect(scanSourceForViolations(fixture)).toEqual([]);
+  });
+
+  it("catches a nested array literal (`[[<span/>, \"Loading\"]]`)", () => {
+    const fixture =
+      '<div className="animate-pulse">{[[<span key="dot" className="h-2" />, "Loading"]]}</div>';
+    expect(scanSourceForViolations(fixture)).not.toEqual([]);
+  });
+
+  it("dismisses a nested array literal whose every element, at every depth, is decorative", () => {
+    const fixture =
+      '<div className="animate-pulse">{[[<span key="a" className="h-2" />], [<span key="b" className="h-2" />]]}</div>';
+    expect(scanSourceForViolations(fixture)).toEqual([]);
+  });
+
+  it("catches a single-element array whose element is a logical-AND expression (`[cond && \"x\"]`)", () => {
+    // Honest note (verified via red-on-revert): does NOT discriminate this
+    // round's fix -- `splitAtTopLevelOperators` never tracked `[`/`]` as a
+    // depth-changing pair, so it already splits `cond && "Loading"` on the
+    // UNFIXED parser exactly as if the surrounding array brackets weren't
+    // there at all, and the pre-existing ternary/logical value-operand check
+    // already flags the quoted string. No array-elementwise logic is
+    // actually exercised by this particular shape (a single top-level
+    // logical expression, not a comma-separated list of elements). Kept as
+    // the dispatch's requested "[cond && \"x\"]" coverage.
+    // The array's own element-split (`splitTopLevelCommaList`) isolates
+    // `cond && "x"` as one element; `isArrayElementTextBearing` then runs
+    // the SAME ternary/logical chain split `isRemainderTextBearing` already
+    // uses at the block level, on this one element, so `&&`'s left operand
+    // (`cond`) is still correctly excluded as a condition, not a value.
+    const fixture = '<div className="animate-pulse">{[cond && "Loading"]}</div>';
+    expect(scanSourceForViolations(fixture)).not.toEqual([]);
+  });
+
+  it("dismisses a single-element array whose logical-AND expression's value operand is decorative", () => {
+    const fixture =
+      '<div className="animate-pulse">{[cond && <span className="h-2" />]}</div>';
+    expect(scanSourceForViolations(fixture)).toEqual([]);
+  });
+
   it("treats a form control's value or placeholder as rendered text", () => {
     for (const fixture of [
       '<input className="rounded bg-su-line/10 animate-pulse" value={status} readOnly />',
@@ -5450,6 +5899,48 @@ describe("scanModuleForViolations resolves imported animate-pulse class bindings
     const bSource =
       'import * as s from "./a";\nexport function B() { return <span className={s.alertClasses}>Critical</span>; }';
     const exportsMap = collectExportedPulseBindings({ "src/lib/a.ts": aSource, "src/lib/b.tsx": bSource });
+    expect(scanModuleForViolations("src/lib/b.tsx", bSource, exportsMap)).not.toEqual([]);
+  });
+
+  it("keeps a namespace import's non-pulsing sibling member (`.safe`) clean instead of falling back to the aggregate (round 37)", () => {
+    // Round 18's namespace map used to carry ONLY the source module's
+    // pulsing exports -- `styles.safe` (a genuinely clean sibling) had no
+    // entry of its own to narrow against, so `resolveMemberAccess` failed
+    // to narrow on its first segment and `resolveConstRefs`'s separate
+    // bare-identifier pass substituted the WHOLE namespace's aggregate
+    // literal (which DOES carry `alert`'s pulse class) instead -- a false
+    // positive on a clean member (Codex, PR #874 round 37).
+    const mSource = 'export const alert = "animate-pulse";\nexport const safe = "text-green";';
+    const bSource =
+      'import * as styles from "./m";\nexport function B() { return <span className={styles.safe}>Idle</span>; }';
+    const exportsMap = collectExportedPulseBindings({ "src/lib/m.ts": mSource, "src/lib/b.tsx": bSource });
+    expect(scanModuleForViolations("src/lib/b.tsx", bSource, exportsMap)).toEqual([]);
+  });
+
+  it("still flags a namespace import's genuinely pulsing member (`.alert`) next to a clean sibling", () => {
+    const mSource = 'export const alert = "animate-pulse";\nexport const safe = "text-green";';
+    const bSource =
+      'import * as styles from "./m";\nexport function B() { return <span className={styles.alert}>Critical</span>; }';
+    const exportsMap = collectExportedPulseBindings({ "src/lib/m.ts": mSource, "src/lib/b.tsx": bSource });
+    expect(scanModuleForViolations("src/lib/b.tsx", bSource, exportsMap)).not.toEqual([]);
+  });
+
+  it("fails OPEN (not closed) on a namespace member the module never exports at all (round 37)", () => {
+    // `styles.missing` names no key in `m`'s export map at all -- same
+    // pre-existing mechanic as any other unmatched precise member access on
+    // any object decl (see Thread 1's shorthand-method fixture): the chain
+    // never narrows on its first segment, so `resolveMemberAccess` leaves it
+    // untouched, and `resolveConstRefs`'s own separate generic
+    // bare-identifier pass then substitutes `styles` with the WHOLE
+    // namespace decl's own flattened literal (every member's literal joined,
+    // including `alert`'s `"animate-pulse"`) -- so this FAILS OPEN (flags a
+    // false positive) rather than failing closed. Not something this round
+    // introduces or fixes; documented here so it isn't mistaken for a gap in
+    // the round-37 namespace fix itself.
+    const mSource = 'export const alert = "animate-pulse";\nexport const safe = "text-green";';
+    const bSource =
+      'import * as styles from "./m";\nexport function B() { return <span className={styles.missing}>Idle</span>; }';
+    const exportsMap = collectExportedPulseBindings({ "src/lib/m.ts": mSource, "src/lib/b.tsx": bSource });
     expect(scanModuleForViolations("src/lib/b.tsx", bSource, exportsMap)).not.toEqual([]);
   });
 
@@ -5840,6 +6331,95 @@ describe("scanModuleForViolations follows class bindings through barrel re-expor
     });
     expect(scanModuleForViolations("src/lib/b.tsx", bSource, exportsMap)).toEqual([]);
   });
+
+  it("keeps a `export { a, b as c }` barrel's renamed non-pulsing re-export clean through a namespace import of the barrel (round 37)", () => {
+    // Round 37's fix isn't just about a DIRECT namespace import -- the
+    // barrel's own map (`index.ts`'s entry in `byModule`) has to carry the
+    // renamed clean sibling `c` too, since the `"named"` branch of the
+    // barrel-propagation loop just copies whatever's in the source module's
+    // map (`styles.ts`, now carrying every member per round 37) verbatim,
+    // with no pulse-ness filter of its own.
+    const mixedSource = 'export const alert = "animate-pulse";\nexport const safe = "text-green";';
+    const indexSource = 'export { alert, safe as c } from "./mixed";';
+    const bSource =
+      'import * as styles from "./index";\nexport function B() { return <span className={styles.c}>Idle</span>; }';
+    const exportsMap = collectExportedPulseBindings({
+      "src/lib/mixed.ts": mixedSource,
+      "src/lib/index.ts": indexSource,
+      "src/lib/b.tsx": bSource,
+    });
+    expect(scanModuleForViolations("src/lib/b.tsx", bSource, exportsMap)).toEqual([]);
+  });
+
+  it("still flags the same barrel's pulsing re-export through the same namespace import", () => {
+    const mixedSource = 'export const alert = "animate-pulse";\nexport const safe = "text-green";';
+    const indexSource = 'export { alert, safe as c } from "./mixed";';
+    const bSource =
+      'import * as styles from "./index";\nexport function B() { return <span className={styles.alert}>Critical</span>; }';
+    const exportsMap = collectExportedPulseBindings({
+      "src/lib/mixed.ts": mixedSource,
+      "src/lib/index.ts": indexSource,
+      "src/lib/b.tsx": bSource,
+    });
+    expect(scanModuleForViolations("src/lib/b.tsx", bSource, exportsMap)).not.toEqual([]);
+  });
+
+  it("keeps a non-pulsing member clean through a namespace import of an `export * from` barrel (round 37)", () => {
+    const mixedSource = 'export const alert = "animate-pulse";\nexport const safe = "text-green";';
+    const indexSource = 'export * from "./mixed";';
+    const bSource =
+      'import * as styles from "./index";\nexport function B() { return <span className={styles.safe}>Idle</span>; }';
+    const exportsMap = collectExportedPulseBindings({
+      "src/lib/mixed.ts": mixedSource,
+      "src/lib/index.ts": indexSource,
+      "src/lib/b.tsx": bSource,
+    });
+    expect(scanModuleForViolations("src/lib/b.tsx", bSource, exportsMap)).toEqual([]);
+  });
+
+  it("still flags the pulsing member through the same `export * from` barrel's namespace import", () => {
+    const mixedSource = 'export const alert = "animate-pulse";\nexport const safe = "text-green";';
+    const indexSource = 'export * from "./mixed";';
+    const bSource =
+      'import * as styles from "./index";\nexport function B() { return <span className={styles.alert}>Critical</span>; }';
+    const exportsMap = collectExportedPulseBindings({
+      "src/lib/mixed.ts": mixedSource,
+      "src/lib/index.ts": indexSource,
+      "src/lib/b.tsx": bSource,
+    });
+    expect(scanModuleForViolations("src/lib/b.tsx", bSource, exportsMap)).not.toEqual([]);
+  });
+
+  it("keeps a non-pulsing member clean through an `export * as ns from` barrel's own re-exported namespace (round 37)", () => {
+    // Same "only pulsing" filter bug the coordinator asked to check for
+    // "anywhere else" -- this `stmt.namespaceName` branch (a DIFFERENT site
+    // than a direct namespace import's `nsMatch` branch) builds `ns`'s own
+    // `entries` map by copying `sourcePulsing` (now carrying every member of
+    // `mixed.ts`, per round 37) verbatim too.
+    const mixedSource = 'export const alert = "animate-pulse";\nexport const safe = "text-green";';
+    const indexSource = 'export * as ns from "./mixed";';
+    const bSource =
+      'import { ns } from "./index";\nexport function B() { return <span className={ns.safe}>Idle</span>; }';
+    const exportsMap = collectExportedPulseBindings({
+      "src/lib/mixed.ts": mixedSource,
+      "src/lib/index.ts": indexSource,
+      "src/lib/b.tsx": bSource,
+    });
+    expect(scanModuleForViolations("src/lib/b.tsx", bSource, exportsMap)).toEqual([]);
+  });
+
+  it("still flags the pulsing member through the same `export * as ns from` barrel's re-exported namespace", () => {
+    const mixedSource = 'export const alert = "animate-pulse";\nexport const safe = "text-green";';
+    const indexSource = 'export * as ns from "./mixed";';
+    const bSource =
+      'import { ns } from "./index";\nexport function B() { return <span className={ns.alert}>Critical</span>; }';
+    const exportsMap = collectExportedPulseBindings({
+      "src/lib/mixed.ts": mixedSource,
+      "src/lib/index.ts": indexSource,
+      "src/lib/b.tsx": bSource,
+    });
+    expect(scanModuleForViolations("src/lib/b.tsx", bSource, exportsMap)).not.toEqual([]);
+  });
 });
 
 describe("collectExportedPulseBindings propagates exports through a module's own imported aliases (#874 round 33)", () => {
@@ -5886,6 +6466,81 @@ describe("collectExportedPulseBindings propagates exports through a module's own
     const exportsMap = collectExportedPulseBindings({
       "src/lib/plain.ts": plainSource,
       "src/lib/b.ts": bSource,
+      "src/lib/component.tsx": componentSource,
+    });
+    expect(scanModuleForViolations("src/lib/component.tsx", componentSource, exportsMap)).toEqual([]);
+  });
+});
+
+describe("collectExportedPulseBindings resolves an inline default export (#874 round 37)", () => {
+  // `export default { alert: "animate-pulse" };`/`export default
+  // "animate-pulse";` used to be invisible: `collectExportedNames`'s
+  // `defaultRe` only matched the bare-identifier form (`export default
+  // name;`). `synthesizeInlineDefaultExports` rewrites the inline
+  // expression into a separate `const` plus `export default <name>;` before
+  // `collectExportedNames`/`collectConstTemplateMap` ever run, so the
+  // EXISTING identifier-form machinery (unchanged) resolves it.
+  it("flags a component consuming an inline OBJECT default export", () => {
+    const mSource = 'export default { alert: "animate-pulse" };';
+    const componentSource =
+      'import Styles from "./m";\nexport function C() { return <span className={Styles.alert}>Loading</span>; }';
+    const exportsMap = collectExportedPulseBindings({
+      "src/lib/m.ts": mSource,
+      "src/lib/component.tsx": componentSource,
+    });
+    expect(scanModuleForViolations("src/lib/component.tsx", componentSource, exportsMap)).not.toEqual([]);
+  });
+
+  it("flags a component consuming an inline STRING default export", () => {
+    const mSource = 'export default "animate-pulse";';
+    const componentSource =
+      'import cls from "./m";\nexport function C() { return <span className={cls}>Loading</span>; }';
+    const exportsMap = collectExportedPulseBindings({
+      "src/lib/m.ts": mSource,
+      "src/lib/component.tsx": componentSource,
+    });
+    expect(scanModuleForViolations("src/lib/component.tsx", componentSource, exportsMap)).not.toEqual([]);
+  });
+
+  it("flags a component consuming an inline TEMPLATE LITERAL default export with no ${}", () => {
+    const mSource = "export default `animate-pulse`;";
+    const componentSource =
+      'import cls from "./m";\nexport function C() { return <span className={cls}>Loading</span>; }';
+    const exportsMap = collectExportedPulseBindings({
+      "src/lib/m.ts": mSource,
+      "src/lib/component.tsx": componentSource,
+    });
+    expect(scanModuleForViolations("src/lib/component.tsx", componentSource, exportsMap)).not.toEqual([]);
+  });
+
+  it("still flags a component consuming a bare-identifier default export (non-regression)", () => {
+    const mSource = 'const pulse = "animate-pulse";\nexport default pulse;';
+    const componentSource =
+      'import cls from "./m";\nexport function C() { return <span className={cls}>Loading</span>; }';
+    const exportsMap = collectExportedPulseBindings({
+      "src/lib/m.ts": mSource,
+      "src/lib/component.tsx": componentSource,
+    });
+    expect(scanModuleForViolations("src/lib/component.tsx", componentSource, exportsMap)).not.toEqual([]);
+  });
+
+  it("flags a component consuming an inline default export that only spreads a local pulsing map", () => {
+    const mSource = 'const base = { alert: "animate-pulse" };\nexport default { ...base };';
+    const componentSource =
+      'import Styles from "./m";\nexport function C() { return <span className={Styles.alert}>Loading</span>; }';
+    const exportsMap = collectExportedPulseBindings({
+      "src/lib/m.ts": mSource,
+      "src/lib/component.tsx": componentSource,
+    });
+    expect(scanModuleForViolations("src/lib/component.tsx", componentSource, exportsMap)).not.toEqual([]);
+  });
+
+  it("still ignores an `export default function`/`export default class` (known gap, unchanged by round 37)", () => {
+    const mSource = 'export default function alert() { return "animate-pulse"; }';
+    const componentSource =
+      'import cls from "./m";\nexport function C() { return <span className={cls}>Loading</span>; }';
+    const exportsMap = collectExportedPulseBindings({
+      "src/lib/m.ts": mSource,
       "src/lib/component.tsx": componentSource,
     });
     expect(scanModuleForViolations("src/lib/component.tsx", componentSource, exportsMap)).toEqual([]);

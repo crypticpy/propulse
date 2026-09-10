@@ -237,7 +237,8 @@ as bugs, not accepted behaviour.
 - **No silent fallbacks.** If a model is unavailable the UI falls back to physics and
   says which profile produced the answer.
 - **No fabricated zeros.** A contaminated or absent upstream value is an outage state,
-  not a data point.
+  not a data point. This is the rule, with one known violation still open: a few NOAA
+  scale renderers show an absent scale as level 0 (see the provenance section above).
 - **No station-to-station promises from band-level evidence.** Guidance derived from
   general conditions is labelled as general conditions.
 
@@ -436,7 +437,8 @@ daemon and ML checks, so a contributor who intends to push needs their dependenc
 (cd collector && npm install)
 python3 -m venv ml/.venv
 ml/.venv/bin/pip install -r ml/requirements.txt -r ml/service/requirements-runtime.txt
-# radio daemon tests need a Rust toolchain: https://rustup.rs
+# radio daemon tests need a Rust toolchain (https://rustup.rs); on Debian/Ubuntu also
+# apt install pkg-config libasound2-dev libudev-dev for the cpal and serialport crates
 ```
 
 ### Everyday commands

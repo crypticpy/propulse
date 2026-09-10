@@ -28,7 +28,10 @@ import {
   MAIDENHEAD_LAT_LINES,
   type ViewportBounds,
 } from "@/lib/utils/maidenheadGrid";
-import { GLOBE_LAYER_ORDER } from "@/lib/map/globeRenderOrder";
+import {
+  GLOBE_DOM_LAYER_ORDER,
+  GLOBE_LAYER_ORDER,
+} from "@/lib/map/globeRenderOrder";
 
 // Major world cities
 const MAJOR_CITIES = [
@@ -333,7 +336,7 @@ function BackfaceLabel({
     <Html
       position={[label.px, label.py, label.pz]}
       center
-      zIndexRange={[1, 0]}
+      zIndexRange={GLOBE_DOM_LAYER_ORDER.placeLabel}
       style={{
         pointerEvents: "none",
         userSelect: "none",

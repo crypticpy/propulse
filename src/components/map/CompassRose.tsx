@@ -10,7 +10,10 @@ import { useMemo, useRef, useEffect } from "react";
 import { useFrame } from "@react-three/fiber";
 import { Html, Line } from "@react-three/drei";
 import * as THREE from "three";
-import { GLOBE_LAYER_ORDER } from "@/lib/map/globeRenderOrder";
+import {
+  GLOBE_DOM_LAYER_ORDER,
+  GLOBE_LAYER_ORDER,
+} from "@/lib/map/globeRenderOrder";
 
 /** Cardinal and intercardinal direction labels */
 const CARDINAL_DIRECTIONS = [
@@ -234,7 +237,7 @@ function CardinalLabel({
     <Html
       position={position}
       center
-      zIndexRange={[1, 0]}
+      zIndexRange={GLOBE_DOM_LAYER_ORDER.hud}
       style={{
         pointerEvents: "none",
         userSelect: "none",
@@ -464,7 +467,7 @@ export function CompassRose({
         <Html
           position={[0, 0.002, 0]}
           center
-          zIndexRange={[1, 0]}
+          zIndexRange={GLOBE_DOM_LAYER_ORDER.hud}
           style={{
             pointerEvents: "none",
             userSelect: "none",

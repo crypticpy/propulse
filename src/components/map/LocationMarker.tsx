@@ -14,7 +14,10 @@ import { useFrame } from "@react-three/fiber";
 import { Html } from "@react-three/drei";
 import * as THREE from "three";
 import { getScreenSpaceScale } from "@/lib/map/screenSpaceScale";
-import { GLOBE_LAYER_ORDER } from "@/lib/map/globeRenderOrder";
+import {
+  GLOBE_DOM_LAYER_ORDER,
+  GLOBE_LAYER_ORDER,
+} from "@/lib/map/globeRenderOrder";
 import { useGlobeOcclusion } from "@/hooks/useGlobeOcclusion";
 
 const SURFACE_OFFSET = 1.000002;
@@ -238,7 +241,7 @@ function LocationMarkerInner({
           <Html
             position={[0, markerSize * 2.5, 0]}
             center
-            zIndexRange={[1, 0]}
+            zIndexRange={GLOBE_DOM_LAYER_ORDER.marker}
             style={{
               pointerEvents: "none",
               opacity: occlusionOpacity,
@@ -265,7 +268,7 @@ function LocationMarkerInner({
             <Html
               position={[0, markerSize * 5, 0]}
               center
-              zIndexRange={[2, 1]}
+              zIndexRange={GLOBE_DOM_LAYER_ORDER.pinLabel}
               style={{
                 pointerEvents: "none",
                 opacity: occlusionOpacity,
@@ -294,7 +297,7 @@ function LocationMarkerInner({
         <Html
           position={[0, markerSize * 3, 0]}
           center
-          zIndexRange={[1, 0]}
+          zIndexRange={GLOBE_DOM_LAYER_ORDER.marker}
           style={{
             pointerEvents: "none",
             opacity: occlusionOpacity,

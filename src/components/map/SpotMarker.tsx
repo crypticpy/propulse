@@ -12,6 +12,7 @@ import * as THREE from "three";
 import { useGlobeOcclusion } from "@/hooks/useGlobeOcclusion";
 import { getScreenSpaceScale } from "@/lib/map/screenSpaceScale";
 import {
+  GLOBE_DOM_LAYER_ORDER,
   GLOBE_LAYER_ORDER,
   GLOBE_SURFACE_MARKER_MATERIAL,
 } from "@/lib/map/globeRenderOrder";
@@ -235,7 +236,7 @@ export function SpotMarker({
         <Html
           position={[0, size * 3, 0]}
           center
-          zIndexRange={[1, 0]}
+          zIndexRange={GLOBE_DOM_LAYER_ORDER.marker}
           style={{
             pointerEvents: "none",
             transition: "opacity 0.2s ease",

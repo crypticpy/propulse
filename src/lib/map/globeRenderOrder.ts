@@ -117,11 +117,63 @@ export function getGlobeLayerSlotForRenderOrder(
  * ranges and the map-owned preview portal in this same contract so a future UI
  * edit cannot accidentally place an opaque tooltip beneath a canvas label.
  */
+/**
+ * DOM stacking bands, lowest first. Every band is 1000 wide so drei's
+ * per-element camera-distance mapping still has room to order elements
+ * within a family; bands never touch, so two overlays from different
+ * families can never land on the same paint order regardless of mount
+ * timing or distance. Add a `<Html>` overlay under `src/components/map`?
+ * Take the band matching its family below — never a bare numeric tuple.
+ *
+ *   placeLabel        tile-draped place/city labels and country/state
+ *                      names (`LabelsOverlay`) — pure reference text, reads
+ *                      under everything that represents live data.
+ *   clusterChip        spot-cluster count chips (`SpotCluster`).
+ *   passiveSpotLabel    at-rest callsign/frequency tags for individual
+ *                      spots and generic markers (`SpotLabel`, `SpotMarker`
+ *                      labels) — the bulk of what's on screen.
+ *   marker              location, weather, satellite and other non-spot
+ *                      marker glyphs/tooltips (`LocationMarker`,
+ *                      `WeatherAlerts3D`, `SatelliteOverlay` name labels).
+ *   pinLabel            saved pins, and any spot tag that is selected,
+ *                      hovered or otherwise promoted above the passive
+ *                      pile-up — must outrank every marker/cluster/label
+ *                      band so the thing the user is looking at never
+ *                      reads as "under" a chip.
+ *   hud                 globe-anchored heads-up widgets that are always
+ *                      meant to float above the scene: ISS tracker panel
+ *                      and label, satellite detail popup, compass rose.
+ *   rayPathInspector    the ray-path point inspector portal — a modal-like
+ *                      overlay that must sit above every in-scene label.
+ *   mapOverlayPortal    single top value (not a range): the map's shared
+ *                      DOM overlay portal, above all `<Html>` bands.
+ */
 export const GLOBE_DOM_LAYER_ORDER = {
-  passiveSpotLabel: [1, 0] as [number, number],
-  activeSpotLabel: [9000, 8999] as [number, number],
+  placeLabel: [999, 0] as [number, number],
+  clusterChip: [1999, 1000] as [number, number],
+  passiveSpotLabel: [2999, 2000] as [number, number],
+  marker: [3999, 3000] as [number, number],
+  pinLabel: [4999, 4000] as [number, number],
+  hud: [5999, 5000] as [number, number],
+  rayPathInspector: [6999, 6000] as [number, number],
   mapOverlayPortal: 10000,
 } as const;
+
+/**
+ * Paint-order sequence for the DOM bands, lowest first. Kept explicit so a
+ * test can assert the ranges stay non-overlapping when bands are added.
+ */
+export const GLOBE_DOM_LAYER_BANDS: readonly (keyof typeof GLOBE_DOM_LAYER_ORDER)[] =
+  [
+    "placeLabel",
+    "clusterChip",
+    "passiveSpotLabel",
+    "marker",
+    "pinLabel",
+    "hud",
+    "rayPathInspector",
+    "mapOverlayPortal",
+  ];
 
 /**
  * Shared material flags for FrontSide full-sphere texture drapes (rule 1c

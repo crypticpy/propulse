@@ -24,6 +24,13 @@ import { GLOBE_DOM_LAYER_ORDER } from "@/lib/map/globeRenderOrder";
 /** Offset from globe surface to prevent z-fighting */
 const SURFACE_OFFSET = 1.000002;
 
+/**
+ * Minimum text/badge opacity on the visible face, regardless of how far
+ * age decay and limb occlusion have pushed `combinedOpacity` down. See the
+ * usage site below for the measured contrast this floor guarantees.
+ */
+const TEXT_OPACITY_FLOOR = 0.82;
+
 export interface SpotLabelProps {
   /** Latitude in decimal degrees */
   lat: number;
@@ -293,8 +300,16 @@ export function SpotLabel({
     .filter(Boolean)
     .join(" ");
 
-  // Text opacity fades with age/occlusion but underline stays fully bright
-  const textOpacity = Math.max(combinedOpacity, 0.35);
+  // Text opacity fades with age/occlusion but underline stays fully bright.
+  // The floor is not cosmetic: below it the white text and the dark badge
+  // it sits on both wash out toward whatever the globe canvas is showing
+  // (bright ocean/cloud tiles worst-case), and the two converge toward each
+  // other faster than either converges toward the canvas. Measured against
+  // a worst-case white canvas backdrop, TEXT_OPACITY_FLOOR = 0.82 keeps
+  // effective text-vs-badge contrast at ~6.16:1 (WCAG floor is 4.5:1); the
+  // previous floor of 0.35 measured ~1.3:1 there, which is what the owner
+  // saw as "faded". See `stationContrast` in `src/lib/themes/stationTokens`.
+  const textOpacity = Math.max(combinedOpacity, TEXT_OPACITY_FLOOR);
   const labelStyle: React.CSSProperties = {
     cursor: isInteractive ? "pointer" : receivesPointer ? "default" : "inherit",
     color:
@@ -356,11 +371,12 @@ export function SpotLabel({
     <Html
       position={position}
       center
-      // When hovered, boost z-index so this label renders above all others
-      // in the stack. Default [1,0] keeps non-hovered labels in paint order.
+      // When hovered or selected, promote to the pin band so this label
+      // renders above every passive tag, cluster chip and marker in the
+      // stack; otherwise it stays in the passive spot-tag band.
       zIndexRange={
         isHovered || selected
-          ? GLOBE_DOM_LAYER_ORDER.activeSpotLabel
+          ? GLOBE_DOM_LAYER_ORDER.pinLabel
           : GLOBE_DOM_LAYER_ORDER.passiveSpotLabel
       }
       style={{

@@ -102,7 +102,7 @@ function StationInfoPopup({ station, occlusionOpacity }: StationInfoPopupProps) 
       >
         <div className="flex items-center justify-between gap-2">
           <span
-            className="text-[12px] font-bold tracking-wider"
+            className="text-xs font-bold tracking-wider"
             style={{ color: MARKER_COLOR }}
           >
             {station.callsign}

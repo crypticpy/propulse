@@ -427,7 +427,7 @@ export function SpotCluster({
         {onClick ? (
           <button
             type="button"
-            className="appearance-none border-0 px-2 py-0.5 rounded-full text-[12px] font-bold whitespace-nowrap"
+            className="appearance-none border-0 px-2 py-0.5 rounded-full text-xs font-bold whitespace-nowrap"
             disabled={occlusionOpacity <= 0.05}
             aria-label={
               ariaLabel ??
@@ -452,7 +452,7 @@ export function SpotCluster({
           </button>
         ) : (
           <div
-            className="px-2 py-0.5 rounded-full text-[12px] font-bold whitespace-nowrap"
+            className="px-2 py-0.5 rounded-full text-xs font-bold whitespace-nowrap"
             style={{
               backgroundColor: color,
               color: inkOnFill(color),

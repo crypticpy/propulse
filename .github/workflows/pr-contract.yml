@@ -60,7 +60,7 @@ jobs:
             fi
           done <<< "$COMMITS"
           if [ -n "$UNSIGNED" ]; then
-            echo "::warning::commits missing Signed-off-by (DCO): ${UNSIGNED}. Re-run \`git commit -s\` or \`git rebase --signoff\` to certify the DCO (docs/AGENT-CONSTITUTION.md, Pull requests; DCO.txt)."
+            echo "::warning::commits missing Signed-off-by (DCO): ${UNSIGNED}. Sign off future commits with \`git commit -s\`. Pushed commits are never rewritten here: to repair, recreate the branch from main with signed-off commits (\`git cherry-pick -s\`) and open a new PR (docs/AGENT-CONSTITUTION.md, Pull requests; DCO.txt)."
           else
             echo "All commits carry a Signed-off-by trailer."
           fi

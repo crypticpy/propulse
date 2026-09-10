@@ -89,10 +89,12 @@ threshold, lint or type rule; never `--no-verify`. Browser checks follow
   the template. Required: `Closes #N` (complete) or `Refs #N` (partial), an
   `Agent:` line, a test plan with commands and results. The `pr-contract` check
   fails without the first two. Opening the PR → In review.
-- Every commit carries a `Signed-off-by: Name <email>` trailer (`git commit -s`
-  or `git rebase --signoff`), certifying the Developer Certificate of Origin
+- Every commit carries a `Signed-off-by: Name <email>` trailer (`git commit -s`),
+  certifying the Developer Certificate of Origin
   (`DCO.txt`). No CLA. `pr-contract` checks every commit in the PR and warns
-  (does not yet fail) on a missing trailer.
+  (does not yet fail) on a missing trailer. Pushed commits are never rewritten
+  to add one: recreate the branch from main with `git cherry-pick -s` and open
+  a new PR.
 - At most 15 files; split larger work into separate issues.
 - **Drain every review thread** before merge: push a fix, or reply with the
   reason and resolve. Silence is not an answer. Wrong bot findings get a reply

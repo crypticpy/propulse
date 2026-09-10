@@ -100,6 +100,24 @@ function GlobeIcon({ className }: { className?: string }) {
   );
 }
 
+function WorkstationIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      className={className}
+      fill="none"
+      viewBox="0 0 24 24"
+      stroke="currentColor"
+      strokeWidth={1.75}
+    >
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M4 4h16v11H4V4zM9 19h6M12 15v4"
+      />
+    </svg>
+  );
+}
+
 function RadioIcon({ className }: { className?: string }) {
   return (
     <svg
@@ -373,6 +391,14 @@ export function CommandPalette({
         category: "navigation",
         icon: GlobeIcon,
         action: nav("/map"),
+      },
+      {
+        id: "nav-workspace",
+        label: "Go to Workspace",
+        keywords: ["workspace", "canvas", "widgets", "layout", "build"],
+        category: "navigation",
+        icon: WorkstationIcon,
+        action: nav("/workspace"),
       },
       {
         id: "nav-atmos",

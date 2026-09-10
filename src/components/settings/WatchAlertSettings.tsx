@@ -121,7 +121,7 @@ function CooldownSelector({
               px-2 py-1 rounded text-xs font-medium transition-all
               ${
                 value === opt.value
-                  ? "bg-plasma-orange/20 text-plasma-orange border border-plasma-orange/50"
+                  ? "bg-plasma-orange/20 text-su-text border border-plasma-orange/50"
                   : "bg-su-line/10 text-su-muted border border-su-line/40 hover:border-su-line/50"
               }
               ${disabled ? "cursor-not-allowed" : "cursor-pointer"}
@@ -185,7 +185,7 @@ function TestSoundButton({
           disabled
             ? "bg-su-line/10 text-su-muted cursor-not-allowed"
             : isPlaying
-              ? "bg-plasma-orange/30 text-plasma-orange cursor-wait"
+              ? "bg-plasma-orange/20 text-su-text cursor-wait"
               : "bg-su-line/10 text-su-muted hover:bg-su-line/20 hover:text-su-text border border-su-line/40"
         }
       `}

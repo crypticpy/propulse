@@ -26,7 +26,7 @@ import {
 } from "@/stores/userStore";
 import { getAllAlertRules } from "@/lib/db/alertStore";
 import { matchesRule } from "@/lib/utils/alertMatcher";
-import { gridToLatLon } from "@/lib/utils/grid";
+import { resolveMapSpotSelection } from "@/hooks/useMapSpotSelection";
 import { calculateGreatCircleDistance } from "@/lib/utils/bands";
 import type { DXSpot, SpotSourceType } from "@/types/dxcluster";
 import type { AlertRule } from "@/lib/db/types";
@@ -529,25 +529,14 @@ export function useDXSpotListState(
     (action: SpotContextAction, spot: DXSpot) => {
       switch (action) {
         case "setTarget": {
-          // Set the spot's location as the map target
-          if (spot.dxLat != null && spot.dxLon != null) {
-            setTarget({
-              lat: spot.dxLat,
-              lon: spot.dxLon,
-              grid: spot.dxGrid || undefined,
-              name: spot.dx,
-            });
-          } else if (spot.dxGrid) {
-            // Fall back to grid conversion
-            const coords = gridToLatLon(spot.dxGrid);
-            if (coords) {
-              setTarget({
-                lat: coords.lat,
-                lon: coords.lon,
-                grid: spot.dxGrid,
-                name: spot.dx,
-              });
-            }
+          // Set the spot's location as the map target. Reuses the canonical
+          // coordinates -> valid-grid -> callsign-prefix fallback chain so a
+          // malformed dxGrid (e.g. a truncated/junk locator from the feed)
+          // can't throw out of gridToLatLon and silently no-op the button
+          // (#845).
+          const resolved = resolveMapSpotSelection(spot);
+          if (resolved) {
+            setTarget(resolved.target);
           }
           break;
         }

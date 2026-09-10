@@ -846,7 +846,6 @@ export function RayPathArc({
           style={{ pointerEvents: "none" }}
         >
           <PathPointInspector
-            inline
             pointSet={pointSet}
             selectedId={selectedId}
             hoveredId={hoveredId}

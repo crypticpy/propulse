@@ -20,7 +20,6 @@ import { useSync } from "@/hooks/useSync";
 import { isSupabaseConfigured } from "@/lib/supabase";
 import { useAuthStore, selectIsAuthenticated } from "@/stores/authStore";
 import { useKioskStore } from "@/stores/kioskStore";
-import { useSettingsStore } from "@/stores/settingsStore";
 import { useProfileStore } from "@/stores/profileStore";
 import { WelcomeOverlay } from "@/components/onboarding";
 
@@ -198,12 +197,6 @@ function MapRoute() {
   return isMobile ? <MobileMap /> : <PropSphere />;
 }
 
-/** `/workspace` is inert (404) until `workspaceEnabled` flips on (#656). */
-function WorkspaceRoute() {
-  const workspaceEnabled = useSettingsStore((s) => s.workspaceEnabled);
-  return workspaceEnabled ? <WorkspacePage /> : <NotFound />;
-}
-
 function NotFound() {
   return (
     <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4 text-center px-4">
@@ -341,7 +334,7 @@ function Application() {
             <Route path="/display/:id" element={<DisplayViewPage />} />
             <Route path="/pair" element={<PairClaimPage />} />
             <Route path="/displays" element={<DisplaysPage />} />
-            <Route path="/workspace" element={<WorkspaceRoute />} />
+            <Route path="/workspace" element={<WorkspacePage />} />
             <Route path="/map" element={<MapRoute />} />
             <Route
               path="/map/explorer"

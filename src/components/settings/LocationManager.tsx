@@ -332,8 +332,8 @@ export function LocationManager({ className = "" }: LocationManagerProps) {
                   e.stopPropagation();
                   openTempModal();
                 }}
-                className="px-2 py-1 text-xs rounded bg-plasma-orange/20 border border-plasma-orange/40
-                         text-plasma-orange hover:bg-plasma-orange/30 transition-colors"
+                className="px-2 py-1 text-xs rounded bg-plasma-orange/15 border border-plasma-orange/40
+                         text-su-text hover:bg-plasma-orange/20 transition-colors"
               >
                 + Set
               </button>
@@ -417,8 +417,8 @@ export function LocationManager({ className = "" }: LocationManagerProps) {
             <button
               type="button"
               onClick={saveHomeEdits}
-              className="flex-1 px-4 py-2 bg-plasma-orange/20 border border-plasma-orange/50 rounded-lg
-                         text-plasma-orange hover:bg-plasma-orange/30 transition-colors font-medium text-sm"
+              className="flex-1 px-4 py-2 bg-plasma-orange/15 border border-plasma-orange/50 rounded-lg
+                         text-su-text hover:bg-plasma-orange/20 transition-colors font-medium text-sm"
             >
               Save
             </button>
@@ -498,8 +498,8 @@ export function LocationManager({ className = "" }: LocationManagerProps) {
             <button
               type="button"
               onClick={saveTempLocation}
-              className="flex-1 px-4 py-2 bg-plasma-orange/20 border border-plasma-orange/50 rounded-lg
-                         text-plasma-orange hover:bg-plasma-orange/30 transition-colors font-medium text-sm"
+              className="flex-1 px-4 py-2 bg-plasma-orange/15 border border-plasma-orange/50 rounded-lg
+                         text-su-text hover:bg-plasma-orange/20 transition-colors font-medium text-sm"
             >
               Set Location
             </button>

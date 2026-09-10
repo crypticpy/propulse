@@ -195,7 +195,7 @@ export function NetFilterControls({
           onClick={() => setIsExpanded((prev) => !prev)}
           className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold transition-all ${
             activeCount > 0
-              ? "bg-plasma-orange/15 text-plasma-orange border border-plasma-orange/40 hover:bg-plasma-orange/25"
+              ? "bg-su-line/10 text-su-text border border-plasma-orange/40 hover:bg-su-line/20"
               : "bg-su-line/10 text-su-muted border border-su-line/40 hover:bg-su-line/20 hover:text-su-text"
           }`}
           title={`${activeCount} active filter${activeCount !== 1 ? "s" : ""}`}
@@ -215,7 +215,7 @@ export function NetFilterControls({
           </svg>
           More Filters
           {activeCount > 0 && (
-            <span className="px-1.5 py-0.5 rounded-full text-[9px] font-bold bg-plasma-orange/30 text-plasma-orange min-w-[18px] text-center">
+            <span className="px-1.5 py-0.5 rounded-full text-[9px] font-bold bg-plasma-orange/20 text-su-text min-w-[18px] text-center">
               {activeCount}
             </span>
           )}
@@ -255,7 +255,7 @@ export function NetFilterControls({
                 aria-pressed={filters.type === opt.value}
                 className={`${pillBase} ${
                   filters.type === opt.value
-                    ? "bg-plasma-orange/20 text-plasma-orange border-plasma-orange/40"
+                    ? "bg-plasma-orange/20 text-su-text border-plasma-orange/40"
                     : "bg-su-line/10 text-su-muted border-su-line/40 hover:bg-su-line/20 hover:text-su-text"
                 }`}
               >

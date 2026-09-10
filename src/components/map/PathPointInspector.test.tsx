@@ -129,13 +129,12 @@ describe("PathPointInspector", () => {
     const set = pointSet();
     const apex = set.points.find((point) => point.role === "ray-apex")!;
 
-    // `inline` matches the only production caller (RayPathArc.tsx), which
-    // mounts this inspector through a drei `Html` wrapper rather than this
-    // component's own `createPortal` branch.
+    // No `inline`: the only production caller (RayPathArc.tsx) mounts this
+    // inspector through its own `createPortal` branch (#853), not inline
+    // inside drei's `Html` wrapper.
     render(
       <>
         <PathPointInspector
-          inline
           pointSet={set}
           selectedId={apex.id}
           hoveredId={null}

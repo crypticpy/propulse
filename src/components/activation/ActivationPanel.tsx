@@ -151,7 +151,7 @@ export function ActivationPanel({ className = "" }: ActivationPanelProps) {
             className={`flex-1 h-12 rounded-lg font-bold text-sm uppercase tracking-wider
                        transition-all duration-150 ${
                          selectedType === "sota"
-                           ? "bg-plasma-orange/20 text-plasma-orange border-2 border-plasma-orange/40"
+                           ? "bg-plasma-orange/20 text-su-text border-2 border-plasma-orange/40"
                            : "bg-space-900 text-su-text/80 border border-su-line/40 hover:text-su-text"
                        }`}
           >
@@ -207,7 +207,7 @@ export function ActivationPanel({ className = "" }: ActivationPanelProps) {
   const typeBadgeClasses =
     activationType === "pota"
       ? "bg-signal-green/20 text-signal-green"
-      : "bg-plasma-orange/20 text-plasma-orange";
+      : "bg-plasma-orange/20 text-su-text";
 
   return (
     <div

@@ -60,6 +60,12 @@ const stationItems = [
 
 const tools = [
   {
+    path: "/workspace",
+    label: "Workspace",
+    description: "Build a custom operating canvas",
+    icon: "🖥️",
+  },
+  {
     path: "/atmos",
     label: "AtmosPulse",
     description: "Weather intelligence & radio impact analysis",
@@ -149,8 +155,12 @@ export function ToolsDrawer({ onClose }: ToolsDrawerProps) {
         aria-hidden
       />
 
-      {/* Drawer */}
-      <div className="fixed bottom-[calc(56px+env(safe-area-inset-bottom,0px))] left-0 right-0 z-50 bg-deep-space/95 backdrop-blur-md border-t border-su-line/40 rounded-t-2xl p-4 space-y-2 animate-in">
+      {/* Drawer. Bottom-anchored above the tab bar, so an unbounded height
+          grows upward and the FIRST entries fall off the top of a short
+          viewport with no way to reach them (found by Codex on PR #857 when
+          Workspace became the first Tools entry). The cap leaves the tab bar
+          and a strip of backdrop visible; the drawer scrolls inside it. */}
+      <div className="fixed bottom-[calc(56px+env(safe-area-inset-bottom,0px))] left-0 right-0 z-50 max-h-[80dvh] overflow-y-auto bg-deep-space/95 backdrop-blur-md border-t border-su-line/40 rounded-t-2xl p-4 space-y-2 animate-in">
         {/* Drag handle */}
         <div className="w-10 h-1 bg-su-line rounded-full mx-auto mb-3" />
 

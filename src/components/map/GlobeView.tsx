@@ -1112,6 +1112,13 @@ interface GlobeSceneProps {
   onRadarAnimState?: (state: RadarAnimationState) => void;
   onTileFallbackChange?: (active: boolean) => void;
   onCloudImageryStatusChange?: (status: CloudImageryStatus) => void;
+  /**
+   * GlobeView's map-owned DOM overlay layer (#853). Threaded down so
+   * RayPathArc's PathPointInspector portals into the same frame
+   * TargetHoverTooltip/SpotHoverPreview already use, instead of falling
+   * back to `document.body` and clamping to the viewport.
+   */
+  mapOverlayPortal?: HTMLDivElement | null;
 }
 
 const GlobeScene = React.memo(function GlobeScene({
@@ -1134,6 +1141,7 @@ const GlobeScene = React.memo(function GlobeScene({
   onRadarAnimState,
   onTileFallbackChange,
   onCloudImageryStatusChange,
+  mapOverlayPortal,
 }: GlobeSceneProps) {
   const layoutMode = useMapStore((s) => s.layoutMode);
   const layers = useScopedMapLayers();
@@ -1941,6 +1949,7 @@ const GlobeScene = React.memo(function GlobeScene({
                         layers.ionosphere || pathPresentation.isolateTargetPath
                       }
                       displayTime={displayTime}
+                      portalTarget={mapOverlayPortal}
                     />
                   );
                 }
@@ -2693,6 +2702,7 @@ export function GlobeView({
                 onRadarAnimState={setRadarAnimState}
                 onTileFallbackChange={setTileFallbackActive}
                 onCloudImageryStatusChange={setCloudImageryStatus}
+                mapOverlayPortal={mapOverlayPortal}
               />
             </Suspense>
           </Canvas>

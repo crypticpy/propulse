@@ -31,7 +31,7 @@ function formatFreqMHz(hz: number): string {
 const BANK_COLORS: Record<string, string> = {
   A: "bg-cosmic-cyan/20 text-cosmic-cyan border-cosmic-cyan/30",
   B: "bg-signal-green/20 text-signal-green border-signal-green/30",
-  C: "bg-plasma-orange/20 text-plasma-orange border-plasma-orange/30",
+  C: "bg-plasma-orange/20 text-su-text border-plasma-orange/30",
   D: "bg-nebula-blue/20 text-nebula-blue border-nebula-blue/30",
   E: "bg-caution-amber/20 text-caution-amber border-caution-amber/30",
   F: "bg-alert-red/20 text-alert-red border-alert-red/30",

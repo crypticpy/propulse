@@ -990,9 +990,20 @@ export function Waterfall({
 
       {effectiveView &&
         overlayPositions.map((o, idx) => {
-          const colorClass =
+          // The marker line stays vivid (no text on it, so no contrast
+          // budget), but the label pill draws text over its own tint and
+          // must stay within the measured accent-ink cap (#803).
+          const lineColorClass =
             o.color === "orange"
-              ? "bg-plasma-orange/70 text-plasma-orange"
+              ? "bg-plasma-orange/70"
+              : o.color === "red"
+                ? "bg-alert-red/70 text-alert-red"
+                : o.color === "green"
+                  ? "bg-signal-green/70 text-signal-green"
+                  : "bg-cosmic-cyan/70 text-cosmic-cyan";
+          const labelColorClass =
+            o.color === "orange"
+              ? "bg-plasma-orange/20 text-su-text"
               : o.color === "red"
                 ? "bg-alert-red/70 text-alert-red"
                 : o.color === "green"
@@ -1004,10 +1015,10 @@ export function Waterfall({
               className="absolute top-0 bottom-0 pointer-events-none"
               style={{ left: `${o.t * 100}%` }}
             >
-              <div className={`w-px h-full ${colorClass}`} />
+              <div className={`w-px h-full ${lineColorClass}`} />
               {o.label ? (
                 <div
-                  className={`absolute top-1 left-0 -translate-x-1/2 px-1 py-0.5 rounded text-[10px] bg-su-panel/90 border border-su-line/40 ${colorClass}`}
+                  className={`absolute top-1 left-0 -translate-x-1/2 px-1 py-0.5 rounded text-[10px] bg-su-panel/90 border border-su-line/40 ${labelColorClass}`}
                 >
                   {o.label}
                 </div>

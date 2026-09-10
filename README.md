@@ -6,374 +6,504 @@
 
 <p align="center">
   <strong>The Ionosphere, Visualized.</strong><br>
-  A real-time ham radio propagation dashboard, DX operations console, and contest logging platform.
+  A free and open source propagation observatory, DX operations console, and contest platform for amateur radio.
 </p>
 
 <p align="center">
-  <a href="#features">Features</a> &bull;
-  <a href="#getting-started">Getting Started</a> &bull;
-  <a href="#architecture">Architecture</a> &bull;
-  <a href="#propsphere-bridge">Bridge Server</a> &bull;
-  <a href="CHANGELOG.md">Changelog</a>
+  <a href="https://propulse.cloud"><img src="https://img.shields.io/badge/Live-propulse.cloud-f97316?style=flat-square" alt="Live at propulse.cloud"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/License-AGPL--3.0-22c55e?style=flat-square" alt="License: AGPL-3.0"></a>
+  <img src="https://img.shields.io/badge/React-18-61dafb?style=flat-square" alt="React 18">
+  <img src="https://img.shields.io/badge/TypeScript-strict-3178c6?style=flat-square" alt="TypeScript strict">
+  <img src="https://img.shields.io/badge/Vite-6-646cff?style=flat-square" alt="Vite 6">
+  <img src="https://img.shields.io/badge/PWA-installable-8b5cf6?style=flat-square" alt="Installable PWA">
+</p>
+
+<p align="center">
+  <a href="https://propulse.cloud"><strong>Try it now at propulse.cloud</strong></a>
 </p>
 
 ---
 
-## Overview
+## Contents
 
-Propulse gives amateur radio operators a single interface for monitoring solar weather, visualizing HF propagation, hunting DX, and running contests. It combines real-time data from NOAA, DX cluster networks, PSK Reporter, and the Reverse Beacon Network with physics-based propagation modeling to deliver actionable operating guidance.
-
-**Key capabilities:**
-
-- **Operational Dashboard** -- Transparent Global Conditions Score, heuristic band guidance with DX cluster spot counts, source-aged solar metrics, cluster pulse, log stats with 7-day activity chart, and operating projections -- all on the home screen
-- **PropSphere** -- Interactive 3D globe, 2D flat map, and azimuthal equidistant projection with live DX spot overlays, great circle paths, day/night terminator, and award overlays
-- **Solar Pulse** -- Source-attributed Kp, solar flux, X-ray, Bz, alert, forecast, and imagery products with explicit freshness and outage states
-- **DX Wizard** -- Enter a target location and get recommended band, power, frequency, and operating tips based on propagation physics with antenna gain modeling
-- **Contest Engine** -- 19 built-in contest definitions with real-time scoring, dupe checking, multiplier tracking, rate sheet, and Cabrillo export
-- **Operator Profile** -- 4-tab profile page with completeness ring, callsign auto-fill, markdown bio, social links, awards progress rings (DXCC/WAS/WAZ), activity heatmap, and QR code sharing
-- **Shack Builder** -- 7-tab equipment manager with antenna/feedline/accessory CRUD, station presets with per-band ERP computation, feedline loss engine, signal chain diagram, and performance dashboard
-- **Settings** -- Full-page settings with 5 sections, high contrast mode, band presets, custom accent colors, and granular propagation/map controls
-- **Logbook** -- QSO logging with DXCC tracking, ADIF import/export, and unified QSL management (LoTW, eQSL, Club Log)
-- **Mobile-First PWA** -- Dedicated mobile layouts for all pages, offline support, install prompt, pull-to-refresh, swipe navigation, and 44px touch targets
-- **ProPulse Bridge** -- Local WebSocket server for rig control (CAT), WSJT-X integration, and DX cluster telnet
-
----
-
-## Features
-
-### Operational Dashboard
-
-The home page is a live operational view designed for at-a-glance situational awareness:
-
-- Transparent Global Conditions Score with evidence coverage and disclosed inputs
-- HF Band Conditions table with live DX cluster spot counts per band
-- Primary solar metrics: observed SFI, official planetary Kp, monthly SSN, and IMF Bz
-- Cluster Pulse showing spot rate, median age, and peak band from the DX cluster
-- Log Stats with today/week/month/DXCC/total and 7-day activity bar chart
-- Band opening predictions based on current solar conditions
-- This Day in History showing past DX contacts on today's date
-- Data freshness indicators with manual refresh buttons
-
-### PropSphere -- Interactive Propagation Map
-
-| View            | Description                                                                                                  |
-| --------------- | ------------------------------------------------------------------------------------------------------------ |
-| **3D Globe**    | Photorealistic Earth with day/night terminator, night lights, country labels, and real-time DX spot plotting |
-| **2D Flat Map** | Mercator projection with full feature parity -- spot overlays, paths, pins, and panels                       |
-| **Azimuthal**   | Hardware-accelerated WebGL projection centered on your QTH showing true bearings and distances               |
-
-- Live DX spots from DXHeat, PSK Reporter, and Reverse Beacon Network
-- Great circle path rendering with bearing and distance
-- MUF overlay, Sporadic-E visualization, and Aurora (OVATION) layer
-- Satellite tracking with orbit traces
-- Band conditions panel with path-aware propagation projections
-- Time scrubber to visualize propagation changes throughout the day
-- Pin markers, spot clustering, compass rose, and mini-map navigator
-- Contest overlay engine showing needed multipliers on the map
-
-### Solar Pulse -- Space Weather Dashboard
-
-- Official planetary Kp observations, estimates, and predictions kept visibly distinct
-- Chronological observed solar-flux, Bz, and monthly sunspot histories
-- Official SWPC scales, alerts, flare probabilities, proton flux, X-ray flux, Dst, and D-RAP context
-- Transparent general HF guidance based only on available evidence—never presented as a station-to-station forecast
-- Cache-stable NOAA and NASA imagery with retry, age limits, and bounded on-demand animations
-- Per-widget observation time, provider attribution, refresh, stale-data, partial-data, and unavailable states
-
-### DX Wizard -- Propagation Analysis
-
-- Target input by grid square, coordinates, city name, or callsign
-- Multi-hop ray trace engine (Martyn's secant law) with D-layer absorption
-- IGRF-13 geomagnetic latitude model
-- ITU-R P.372 noise model for atmospheric and man-made noise floors
-- Antenna pattern library (dipole, vertical, Yagi, loop)
-- Radio-aware recommendations using the Sherwood Engineering database (200+ radios)
-- NVIS analysis for near-vertical incidence skywave
-
-### Contest Engine
-
-- **19 contest definitions** -- ARRL DX, CQ WPX, CQWW, IARU HF, Field Day, Sweepstakes, All Asian, WAE, NAQP, Sprint, and more
-- Real-time scoring with automatic multiplier extraction
-- Automatic dupe checking per contest-specific rules
-- Keyboard-first entry (Tab/Enter flow) and mobile-optimized touch interface
-- Band map with DX cluster integration and one-click QSY
-- Super Check Partial (SCP) for fast callsign lookup
-- Cabrillo export, ADIF export, N1MM-compatible UDP broadcast
-- Voice-driven contest entry via Web Speech API
-- Contest Lite HUD and Contest Dock for map-integrated operation
-- Multi-tab sync via BroadcastChannel
-- Off-time tracking, QTC handling, call history import, and audit queue
-
-### Operator Profile
-
-Your station identity, achievements, and operating statistics in one place:
-
-- Profile completeness ring with weighted scoring (callsign, name, grid, license, photo, bio, social links, radio)
-- Callsign auto-fill via HamQTH lookup with one-click suggestions for name and grid
-- Markdown bio editor with XSS-safe rendering (bold, italic, links, lists)
-- Social links manager for QRZ, HamQTH, Twitter, YouTube, GitHub, and custom URLs
-- License card with class badge, country flag, and expiration progress bar
-- Awards tab with DXCC/WAS/WAZ progress rings showing worked vs. confirmed
-- Stats tab with 365-day activity heatmap, QSO by mode donut chart, and band distribution bars
-- QR code sharing with plasma-orange styling and error correction level H
-
-### Shack Builder
-
-Full equipment inventory, station presets, and RF performance analysis:
-
-- 7-tab interface: Overview, Radios, Antennas, Feedlines, Accessories, Presets, Performance
-- Antenna manager with 22 types, per-installation metadata (height, azimuth, polarization, mounting)
-- Feedline manager with 8 cable types (RG-58 through hardline), inline loss display per band
-- Feedline loss engine using sqrt(f) interpolation, connector loss, condition multipliers, and SWR mismatch modeling
-- Accessory manager for amplifiers, tuners, filters, switches, power supplies, and grounding
-- Station presets combining radio + antenna + feedline + accessories with live per-band ERP preview
-- Performance dashboard with per-band capability matrix and signal chain waterfall
-- SVG signal chain diagram (Radio → Accessories → Feedline → Antenna)
-- Active station gain hook integrating presets into all map propagation calculations
-
-### Settings
-
-Comprehensive configuration with 5 sections:
-
-- Preferences: visual style, high contrast, map/globe sub-settings, propagation projection controls, band presets (up to 5)
-- Appearance: custom accent colors with live preview and 8 theme presets
-- Notifications: sub-group headers, quiet hours with UTC hour selectors
-- Data: settings backup/restore including all shack equipment
-- About: version info and project details
-- Shared UI primitives (SegmentedButton, SettingSlider, SettingRow) with full ARIA compliance
-
-### Logbook & QSL Services
-
-- QSO entry with HamQTH callbook integration
-- DXCC tracking (worked + confirmed per entity/band/mode)
-- ADIF import/export with configurable field mapping
-- Unified QSL Manager for LoTW, eQSL, and Club Log
-- AES-256-GCM encrypted credential vault with PBKDF2 key derivation
-- Guest logging for Field Day and shack visitors
-
-### Band Planner
-
-- Current HF/VHF/UHF band conditions overview
-- License class filtering (Technician, General, Extra)
-- ITU region awareness for international regulatory compliance
-- Favorite bands with star-toggle for quick filtering
-- Modeled SNR ranges plus qualitative evidence coverage
-
-### Mobile & PWA
-
-Propulse is a fully installable Progressive Web App with dedicated mobile experiences:
-
-- **6 mobile page variants** optimized for touch with 44px minimum targets
-- Bottom tab navigation with tools drawer for secondary pages
-- Pull-to-refresh and horizontal swipe navigation between pages
-- Offline support with IndexedDB data caching and offline indicator
-- PWA install prompt with standalone display mode
-- Lazy-loaded routes (main bundle: 435 KB) with Three.js isolated from mobile builds
-
-### Command Palette & Shortcuts
-
-- **Cmd+K command palette** with fuzzy search across navigation, actions, and settings
-- Context-aware keyboard shortcuts per route (press `?` for help)
-- WCAG 2.1 focus indicators with theme-accent outlines
-- Health status indicators for API and bridge connections in the header
-- Sync/retry queue with background upload processing and status display
+- [What Propulse is](#what-propulse-is)
+- [Free and open source](#free-and-open-source)
+- [How NowCast works](#how-nowcast-works)
+- [What we deliberately do not do](#what-we-deliberately-do-not-do)
+- [What makes Propulse different](#what-makes-propulse-different)
+- [Displays, canvases and workspaces](#displays-canvases-and-workspaces)
+- [The station design system](#the-station-design-system)
+- [Architecture](#architecture)
+- [Getting started](#getting-started)
+- [The Propulse Bridge](#the-propulse-bridge)
+- [Environment variables](#environment-variables)
+- [How this project is built](#how-this-project-is-built)
+- [Contributing](#contributing)
+- [License](#license)
 
 ---
 
-## Getting Started
+## What Propulse is
 
-### Prerequisites
+Propulse is a live propagation observatory for HF radio. It runs at
+**[propulse.cloud](https://propulse.cloud)** in any browser, installs as an offline-capable
+app, and drives everything from a phone in the field to a wall-mounted shack display.
 
-- **Node.js** 18 or later
-- **npm** 9 or later
+An HF operator asks one question all day: _can I work anyone, on which band, in which
+direction, right now?_ Answering it honestly means three different things at once, and
+Propulse does all three and keeps them visibly separate:
 
-### Installation
+1. **Predict.** A propagation physics engine that runs entirely in the browser and is
+   always available, even offline.
+2. **Observe.** A live ingest of what stations are actually hearing each other, right now,
+   from the reporting networks that amateur radio already runs.
+3. **Reconcile.** A published evidence ladder that says plainly whether a band is merely
+   _modelled_ open or has been _verified_ open by observation, and flags it when reality
+   and the model disagree.
 
-```bash
-git clone https://github.com/crypticpy/propulse.git
-cd propulse
-npm install
+Most propagation tools do the first and stop. The interesting engineering in this project
+is in the second and third, and in refusing to blur the line between them.
+
+Propulse also carries the working parts of a station: a logbook with QSL services, a
+contest engine, a net control console, an equipment and feedline modeller, satellite
+tracking, space weather, and a local bridge that talks to your radio.
+
+---
+
+## Free and open source
+
+Propulse is licensed under the **GNU Affero General Public License v3.0**
+([LICENSE](LICENSE)). The whole application, the physics engine, the edge functions, the
+collector and the bridge are in this repository.
+
+**There is no paywall on the app.** Every operating feature described in this README is
+free to use at [propulse.cloud](https://propulse.cloud), and self-hosting is a supported
+path, not a grudging one. The project is run on a nonprofit footing:
+
+- **Donations** are the primary intended support.
+- **An optional, small cloud-sync subscription** covers the hosted database costs for
+  operators who want their log and station config synced between devices. The account
+  and billing plumbing is implemented (`api/billing/`, `api/sync/`), and pricing and
+  launch are still being settled.
+- **Unlimited free displays.** Pairing extra screens to your station, the thing a
+  commercial product would meter, is deliberately never metered.
+
+Anything in this README that is not shipped is marked **planned**. We would rather ship a
+shorter, true README than a longer, aspirational one.
+
+---
+
+## How NowCast works
+
+Three independent things produce a propagation answer, and the UI always tells you which
+one you are looking at.
+
+### The physics engine (always available)
+
+A custom **simplified ITU-R P.533 approach with CCIR/ITU-R models**, written in TypeScript
+and run client-side in three modules:
+
+- **[`ionosphere.ts`](src/lib/utils/ionosphere.ts)** estimates layer structure: critical
+  frequencies `f0F2` and `f0E`, heights `hmF2`/`hmF1`/`hmE`, the `M(3000)F2` MUF factor
+  and D-layer absorption, with solar flux converted to a 12-month smoothed sunspot number
+  through the CCIR relation `SFI = 63.7 + 0.728 * R12`.
+- **[`rayTrace.ts`](src/lib/utils/rayTrace.ts)** walks the great circle in up to seven
+  hops: local `f0F2` from a Chapman-style profile, MUF via **Martyn's secant law**,
+  D-layer absorption, free-space path loss, and a hop quality score folding in MUF margin,
+  absorption and Kp.
+- **[`signal.ts`](src/lib/utils/signal.ts)** turns path loss into a signal prediction: an
+  ITU-R P.372 external noise floor, thermal noise at -174 dBm/Hz, and SNR in a **2500 Hz
+  reference bandwidth** so published per-mode thresholds (SSB, CW, FT8) are compared
+  honestly rather than through a per-mode noise floor.
+
+This engine is **not VOACAP**, does not wrap VOACAP, and does not claim VOACAP's accuracy.
+It is our own model, and it is the baseline everything else must beat.
+
+### The learned models (trained offline, served with a physics fallback)
+
+We train our own contact-probability models offline and serve them from Railway
+(`VITE_PROPAGATION_MODEL_URL`), with physics as the fallback profile whenever a model is
+unavailable or its inputs fail their freshness contract.
+
+The frozen line is **Personalized Propagation V4.2** (the A6 blend), with a published model
+card, data card and visual report under `ml/results/propagation_v4_2/`. Its status block in
+[`ml/README.md`](ml/README.md) records both the result and its limits, and we quote the
+limits as written: A6 improved Brier score over the frozen V3/B2 baseline by **2.354%** on
+October-November development, **2.038%** on December, and **2.134%** across
+**208,372,533** locked 2025 archive rows, every month and every supported HF band
+improving. The same block states the model is **approved for shadow integration only, not
+yet for prospective or learned-personalization claims**, and the served provider status
+stays `unavailable` until its shadow window passes. That boundary is part of the work.
+
+The current line of work is **NowCast N5**, an ionosphere-aware model trained from the
+CEDAR Madrigal amateur radio signal report archive rather than from WSPR alone
+([`ml/NOWCAST-N5-PLAN.md`](ml/NOWCAST-N5-PLAN.md)). N5 is **in progress and not shipped**,
+written against frozen preregistered gates (Brier skill over a calibrated physics baseline,
+a per-band no-regression bound, a calibration error ceiling, and an ablation that must
+retain most of its skill without recency features). It states its scope precisely: it
+predicts whether a receiving field's reporter network hears any transmitting station in a
+transmitting field on a band and mode class, which is not one operator's chance of a
+contact.
+
+**FutureCast**, the forecast line at +3, +6, +12 and +24 hours from archived NOAA SWPC
+forecast products, is **planned**; its protocol
+([`ml/FUTURECAST-V1-PROTOCOL.md`](ml/FUTURECAST-V1-PROTOCOL.md)) keeps training and release
+mechanically disabled until enough genuine issuance days have matured to score it.
+
+### The live feature pipeline
+
+The [`collector/`](collector/) service ingests spots from PSK Reporter, the Reverse Beacon
+Network and DX cluster feeds into Supabase, alongside solar and geomagnetic inputs proxied
+from NOAA SWPC through 24 edge endpoints in [`api/solar/`](api/solar/): planetary K index,
+F10.7 and its forecasts, X-ray flux and flares, proton flux, solar wind plasma and
+magnetometer (Bt/Bz), Dst, sunspots, SWPC scales and alerts, and the D-RAP absorption
+product.
+
+Raw spots are deliberately **not** hoarded: `spot_history` is a roughly two-hour sliding
+window trimmed by a scheduled job, and the only durable spot data are the small hourly
+aggregates `path_hourly_stats` and `band_hourly_stats`. Keeping the durable footprint
+small is a design choice about cost and privacy, not an accident.
+
+### The Band Health verified-state ladder
+
+The reconciliation step lives in [`src/lib/verdict/ladder.ts`](src/lib/verdict/ladder.ts),
+mirrored server-side in `collector/src/verdict/ladder.ts` and served from
+`api/spots/band-ladder.ts`. A band, region or path sits in exactly one of five states,
+ordered by strength of evidence:
+
+```
+closed  <  forecast  <  stirring  <  verified  <  hot
 ```
 
-### Development
+- **`forecast`** means the physics engine says open and nothing has been heard. It is a
+  model claim and it is labelled as one.
+- **`stirring`** requires at least one real deduplicated observation.
+- **`verified`** requires **6 deduplicated observations from 3 distinct reporters in the
+  trailing 20 minutes**, and it only drops back out below 2 observations. That asymmetry
+  is deliberate hysteresis: a lull between spots must not flap a verified band off the
+  wall.
+- **`hot`** is `verified` plus a rising trend across two 10-minute windows.
 
-```bash
-npm run dev
-```
+One observation is one deduplicated `(tx, rx, band, 5-minute bucket)` tuple, and reporters
+are distinct receiving callsigns after that dedup, so a single chatty skimmer cannot
+promote a band alone. A **surprise** flag, orthogonal to the ladder, fires when real
+activity appears while the forecast said closed: the honest signal of sporadic-E or TEP,
+logged rather than smoothed away.
 
-Opens the app at `http://localhost:5173` with hot module replacement.
+Operator feedback is collected but is **never an input to the live ladder**. The evaluation
+function takes only the physics score, the deduplicated observation and reporter counts,
+and the two trend windows. Nothing a user clicks can talk a band into looking open.
 
-### Production Build
+### Honest provenance
 
-```bash
-npm run build
-npm run preview   # serve the production build locally
-```
+Every data-bearing widget carries its own provenance: the source's observation time
+(`observedAt`) kept distinct from our fetch time (`fetchedAt`), provider attribution, and
+explicit **stale**, **partial** and **unavailable** states. When a source is down, the
+panel says so. A missing value renders as missing, never as a zero and never as a quietly
+stale number wearing a fresh timestamp.
 
-### Linting
+---
 
-```bash
-npm run lint
-```
+## What we deliberately do not do
 
-### ProPulse Bridge (Optional)
+- **No VOACAP.** The physics engine is our own P.533-style implementation. We do not
+  wrap VOACAP and we do not borrow its reputation.
+- **No live WSPR ingestion.** The live WSPR research pipeline was decommissioned in July
+  2026 and will not be rebuilt. WSPR archives are used for offline training only.
+- **No silent fallbacks.** If a model is unavailable the UI falls back to physics and
+  says which profile produced the answer.
+- **No fabricated zeros.** A contaminated or absent upstream value is an outage state,
+  not a data point.
+- **No station-to-station promises from band-level evidence.** Guidance derived from
+  general conditions is labelled as general conditions.
 
-The bridge server enables rig control, WSJT-X integration, and DX cluster telnet. It runs locally and communicates with the frontend via WebSocket.
+---
 
-```bash
-cd bridge
-npm install
-npm run dev       # starts on ws://localhost:9867
-```
+## What makes Propulse different
 
-See [bridge/README.md](bridge/README.md) for protocol documentation and architecture details.
+### PropSphere, the propagation map
+
+| View            | What it is                                                                                      |
+| --------------- | ----------------------------------------------------------------------------------------------- |
+| **3D globe**    | Tiled, textured Earth with day/night terminator, night lights, labels and live spot plotting    |
+| **2D flat map** | Full feature parity with the globe: overlays, paths, pins and panels                            |
+| **Azimuthal**   | WebGL azimuthal equidistant projection centred on your QTH, showing true bearings and distances |
+
+- Live spot arcs drawn as great circles from DX cluster, PSK Reporter and RBN feeds.
+- **Occlusion-aware labels**: spot and marker labels are hidden when their point is on
+  the far side of the globe, accounting for the 23.5 degree axial tilt of the scene, so
+  the map never shows you a callsign that is physically behind the Earth.
+- MUF, sporadic-E, aurora (OVATION), D-RAP, lightning, radar and satellite layers.
+- Time scrubber, spot clustering, compass rose, mini-map, pins and path analysis.
+
+### The wall display
+
+A dedicated shack-wall view, inspired by HamClock and rebuilt on our own design system:
+
+- Full-height **hero tiles** sized for a monitor across the room rather than a laptop.
+- **Paged rails** of secondary tiles, so a wall shows depth without shrinking type.
+- **Engineered per-tile reports**: clicking any tile opens a centred report built for that
+  specific subject, showing the physics, the model and the observed evidence side by side,
+  rather than a generic drill-down.
+- Selectable themes and a strict no-flyout, no-hover-menu interaction model.
+
+### DX Wizard
+
+Enter a grid square, coordinates, city or callsign and get a worked answer: recommended
+band, power and frequency, with the multi-hop ray trace, D-layer absorption, IGRF-13
+geomagnetic latitude, ITU-R P.372 noise floor, antenna pattern modelling, NVIS analysis
+and receiver performance from the Sherwood Engineering database behind it.
+
+### Contest engine
+
+Nineteen contest definitions with real-time scoring, per-contest dupe rules, multiplier
+tracking, Super Check Partial, rate sheet, band map with one-click QSY, keyboard-first
+entry, Cabrillo and ADIF export, N1MM-compatible UDP broadcast, off-time and QTC handling,
+and multi-tab synchronisation.
+
+### Logbook and QSL
+
+QSO logging in IndexedDB with DXCC tracking, ADIF import and export, and a unified QSL
+manager for LoTW, eQSL and Club Log. Service credentials live in an AES-256-GCM encrypted
+vault with PBKDF2 key derivation and an inactivity auto-lock.
+
+### Shack builder
+
+Full equipment inventory across radios, antennas, feedlines and accessories, with a
+**feedline loss engine** (square-root-of-frequency interpolation, connector loss, cable
+condition and SWR mismatch) and station presets that compute **per-band ERP**. The active
+preset feeds back into the map's propagation calculations, so the predictions reflect your
+actual antenna and coax rather than a generic dipole.
+
+### Nets, space weather and more
+
+A net control console (scheduled nets, check-in roster and rotation, live running order,
+participation logs and post-net analytics); a space weather page that keeps Kp
+observations, estimates and predictions visibly distinct and carries SWPC scales, alerts,
+flare probabilities, proton flux, Dst and D-RAP with cache-stable NOAA and NASA imagery;
+satellite tracking; a client-side audio DSP chain (noise gate, spectral noise reduction,
+EQ); and an installable PWA with dedicated mobile layouts, offline caching and 44px touch
+targets. Because the physics engine runs locally, the core propagation answer survives
+losing the network in the field.
+
+---
+
+## Displays, canvases and workspaces
+
+Propulse is designed around **four canvases**: the wall, the workstation, the tablet and
+the phone. The same modules compose differently on each, rather than each device getting
+its own cut-down product.
+
+**Shipped today:** the wall display, the mobile and tablet layouts, and display pairing.
+Extra screens pair to your station over the `/pair` and `/displays` routes and run as
+view-only displays, with no limit on how many you may pair.
+
+**In design:** the composed workstation, tablet and phone _workspaces_, with rails,
+docking, paged spaces and cross-device operating state so that an action on the phone
+follows you to the wall. A workspace shell exists behind the `/workspace` route, but the
+composition work is an open programme, not a shipped feature.
+
+**Planned:** club mode and QR-joined operating sessions.
+
+---
+
+## The station design system
+
+Every surface is built from one shared station design system rather than per-page styling:
+
+- A **token-driven theme layer** (`src/lib/themes/`) that emits CSS custom properties, so
+  themes, accent colours and density are a data change rather than a restyle.
+- **Colour-blind modes** for deuteranopia, protanopia and tritanopia, applied in the same
+  write as the theme so the two can never disagree.
+- A **legibility standard** written for operators who wear glasses: high contrast, no pure
+  white on black, no halo or fringing effects, and a user text-size control instead of
+  smaller type.
+- **Contrast is enforced by tests, not by review.** Guards such as
+  `src/lib/themes/stationTokens.test.ts`, `accentTintContrast.test.ts`,
+  `statusTintContrast.test.ts` and `hamClockHoverChromeContrast.test.ts` compute contrast
+  ratios on the real composited surface a token is used on. A tint that fails inside a
+  glass card fails the build even if it passes on a bare panel.
 
 ---
 
 ## Architecture
 
+Three tiers plus a serverless edge:
+
 ```
 propulse/
-├── api/                    Vercel Edge Functions (API proxies)
-│   ├── solar/              NOAA SWPC data (K-index, flux, sunspots, Bz)
-│   ├── spots/              DX cluster, PSK Reporter, RBN
-│   ├── callsign/           HamQTH, callook.info, Club Log
-│   ├── log/                LoTW, eQSL, Club Log upload
-│   └── contest/            Super Check Partial lookup
-│
-├── bridge/                 Local WebSocket server (Node.js)
-│   └── src/
-│       ├── server.ts       WebSocket server + message routing
-│       ├── cluster.ts      DX Cluster telnet client
-│       ├── wsjtx.ts        WSJT-X UDP listener
-│       └── rig.ts          Rig control (CAT via Hamlib)
-│
+├── api/          Vercel Edge Functions: CORS-safe proxies and protected endpoints
+│                 solar/ spots/ callsign/ log/ sync/ satellites/ activation/ billing/
+│                 nets/ views/ displays/ weather/ atmos/ tiles/ propagation/ ...
+├── bridge/       Local-only Node.js WebSocket server (CAT, WSJT-X, cluster, CI-V)
+├── collector/    Railway service: spot and solar ingestion into Supabase
+├── ml/           Offline training, model cards, plans and preregistered protocols
 ├── src/
-│   ├── pages/              10 route-level pages
-│   ├── components/         Feature and UI components
-│   │   ├── map/            Globe, flat map, azimuthal, overlays (75 files)
-│   │   ├── contest/        Contest entry, scoring, band map (36 files)
-│   │   ├── dx/             DX console, spots, band scope (24 files)
-│   │   ├── solar/          Charts, metrics, propagation index (22 files)
-│   │   ├── profile/        Operator profile, awards, stats, QR code (19 files)
-│   │   ├── shack/          Equipment managers, presets, performance (10 files)
-│   │   ├── settings/       Settings sections, UI primitives (20 files)
-│   │   ├── ui/             Shared primitives (Badge, Card, Modal)
-│   │   └── ...
-│   ├── hooks/              48 custom hooks (data fetching, UI logic)
-│   ├── stores/             21 Zustand stores (client state)
-│   ├── lib/
-│   │   ├── utils/          Propagation physics, scoring, helpers
-│   │   ├── contest/        Contest engine (scoring, dupes, SCP)
-│   │   ├── api/            API client modules
-│   │   ├── data/           Static data (band plans, DXCC, radios)
-│   │   ├── db/             IndexedDB (credential vault, log store)
-│   │   └── services/       Alert service, band opening detection
-│   └── types/              TypeScript type definitions
-│
-├── public/                 Static assets (textures, icon)
-├── scripts/                Data generation scripts
-└── docs/                   Design documents and PRDs
+│   ├── pages/          Route-level pages, all lazy-loaded
+│   ├── components/     Feature components by domain (map, contest, dx, solar,
+│   │                   shack, nets, station-ui, ui, ...)
+│   ├── stores/         Zustand stores with persistence and versioned migrations
+│   ├── hooks/          Data-fetching and UI hooks
+│   └── lib/
+│       ├── utils/      Propagation physics engine
+│       ├── verdict/    Band Health ladder and verdict engine
+│       ├── contest/    Contest scoring, dupes, multipliers, SCP, Cabrillo
+│       ├── themes/     Design tokens, colour-blind modes, contrast guards
+│       ├── db/         IndexedDB: log store, image store, credential vault
+│       └── audio/      Client-side DSP: noise gate, spectral NR, EQ
+├── docs/         Specifications, design records and the agent constitution
+└── scripts/      Verification gates and data generation
 ```
 
-### Tech Stack
+| Layer      | Technology                                                |
+| ---------- | --------------------------------------------------------- |
+| UI         | React 18, TypeScript 5.7 strict, Tailwind CSS 3           |
+| 3D         | Three.js, @react-three/fiber, @react-three/drei           |
+| State      | Zustand 5 (persisted, versioned), TanStack React Query    |
+| Build      | Vite 6, React Router 7 with lazy routes                   |
+| Backend    | Vercel Edge Functions, Supabase (Postgres), IndexedDB     |
+| Services   | Collector on Railway; models trained offline with XGBoost |
+| Encryption | Web Crypto API (AES-256-GCM, PBKDF2)                      |
 
-| Layer             | Technology                                      |
-| ----------------- | ----------------------------------------------- |
-| **UI**            | React 18, TypeScript, Tailwind CSS              |
-| **3D Rendering**  | Three.js, @react-three/fiber, @react-three/drei |
-| **State**         | Zustand (21 stores)                             |
-| **Server State**  | TanStack React Query                            |
-| **Routing**       | React Router DOM 7                              |
-| **Build**         | Vite 6                                          |
-| **Deployment**    | Vercel (Edge Functions + SPA)                   |
-| **Bridge Server** | Node.js, ws (WebSocket)                         |
-| **Local Storage** | IndexedDB (via idb)                             |
-| **Encryption**    | Web Crypto API (AES-256-GCM, PBKDF2)            |
+### Data sources
 
-### Data Sources
-
-| Source                 | Data                                                         |
-| ---------------------- | ------------------------------------------------------------ |
-| NOAA SWPC              | K-index, solar flux, sunspot number, Bz, flare probabilities |
-| NOAA OVATION           | Aurora oval data                                             |
-| HamQTH DX Cluster      | DX cluster spots                                             |
-| PSK Reporter           | Digital mode reception reports                               |
-| Reverse Beacon Network | CW/digital skimmer spots                                     |
-| HamQTH / callook.info  | Callsign lookup                                              |
-| LoTW / eQSL / Club Log | QSL confirmation services                                    |
-| Sherwood Engineering   | Radio receiver performance data                              |
-
-### Local Integrations (via Bridge)
-
-| System       | Protocol         | Purpose                          |
-| ------------ | ---------------- | -------------------------------- |
-| Hamlib       | CAT (serial/TCP) | Rig frequency, mode, PTT control |
-| WSJT-X       | UDP (port 2237)  | Decode reception, auto-logging   |
-| DX Cluster   | Telnet           | Real-time DX spots               |
-| N1MM Logger+ | UDP broadcast    | Contest interoperability         |
+| Source                            | Data                                                              |
+| --------------------------------- | ----------------------------------------------------------------- |
+| NOAA SWPC                         | Kp, F10.7, X-ray, protons, solar wind, Dst, scales, alerts, D-RAP |
+| NOAA OVATION                      | Aurora oval                                                       |
+| DX cluster feeds                  | DX spots                                                          |
+| PSK Reporter                      | Digital-mode reception reports                                    |
+| Reverse Beacon Network            | CW and digital skimmer spots                                      |
+| CEDAR Madrigal, wspr.live archive | Offline model training corpora only                               |
+| HamQTH, callook.info              | Callsign lookup                                                   |
+| LoTW, eQSL, Club Log              | QSL confirmation                                                  |
+| Sherwood Engineering              | Receiver performance database                                     |
 
 ---
 
-## Deployment
+## Getting started
 
-Propulse is configured for deployment on [Vercel](https://vercel.com):
+Requires Node.js 18 or later and npm 9 or later.
 
 ```bash
-npm run build           # produces dist/
-vercel --prod           # deploy to production
+git clone https://github.com/crypticpy/propulse.git
+cd propulse
+npm install
+npm run dev
 ```
 
-The `api/` directory contains Vercel Edge Functions that proxy external APIs (NOAA, DXHeat, callsign services, QSL services) to avoid CORS restrictions. These functions run at the edge with no cold start.
+The dev server serves the app at `http://localhost:5173` with hot module replacement.
+Supabase credentials are optional for local development; without them the app runs
+unauthenticated and the physics engine still works.
+
+### Everyday commands
+
+```bash
+npm run dev              # Vite dev server
+npm run build            # tsc -b && vite build (typecheck + bundle)
+npm run lint             # eslint . --max-warnings 0 (zero tolerance)
+npm run test             # vitest run
+npm run check:bundles    # enforce bundle size budgets
+npm run verify           # the full gate pipeline used before every push
+npm run preview          # serve the production build locally
+npm run hooks:install    # one-time git hook setup (pre-commit + pre-push)
+```
 
 ---
 
-## Accessibility
+## The Propulse Bridge
 
-- WCAG 2.1 keyboard focus indicators
-- Configurable text scaling (small / medium / large)
-- High contrast mode
-- Colorblind-friendly theme options
-- `prefers-reduced-motion` and `prefers-contrast: more` support
-- 44px minimum touch targets for mobile contest entry
+The bridge is an optional local service that connects the browser app to the hardware on
+your desk. It binds to `127.0.0.1` only and is never exposed to the network.
+
+```bash
+cd bridge && npm install && npm run dev   # WebSocket on ws://localhost:9867
+```
+
+| System       | Protocol         | Purpose                           |
+| ------------ | ---------------- | --------------------------------- |
+| Hamlib       | CAT (serial/TCP) | Frequency, mode and PTT control   |
+| WSJT-X       | UDP              | Decode reception and auto-logging |
+| DX cluster   | Telnet           | Real-time spots                   |
+| ICOM CI-V    | Serial           | Spectrum and waterfall capture    |
+| N1MM Logger+ | UDP broadcast    | Contest interoperability          |
+
+See [bridge/README.md](bridge/README.md) for the protocol and architecture.
 
 ---
 
-## Security
+## Environment variables
 
-- AES-256-GCM encrypted credential vault for QSL service passwords
-- PBKDF2 key derivation with 100,000 iterations
-- Auto-lock after 30 minutes of inactivity
-- Bridge server binds to localhost only (127.0.0.1)
-- All credential-bearing API requests use POST with JSON body
-- CORS-aware Edge Functions with explicit origin allowlist
-- No secrets in client-side code
+**Frontend** (`.env`): `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` (both optional for
+local development), and `VITE_PROPAGATION_MODEL_URL` for the model inference endpoint. If
+the model URL is unset, the physics engine serves every propagation answer.
+
+**Edge functions**: `ALLOWED_ORIGIN` for the CORS allowlist, plus `SUPABASE_URL`,
+`SUPABASE_ANON_KEY` and `SUPABASE_SERVICE_ROLE_KEY` for JWT verification and server-side
+reads and writes.
+
+**Bridge**: `BRIDGE_PORT` (default 9867), `BRIDGE_HOST` (default 127.0.0.1),
+`BRIDGE_STATIC_PORT` (default 3173).
+
+Map tiles, weather, callsign lookup and several research flags have their own keys; see
+[.env.example](.env.example) for the full list.
+
+---
+
+## How this project is built
+
+Propulse is built with heavy agent assistance, under a written rulebook rather than on
+trust. This is stated plainly because it shapes the codebase a reviewer is looking at.
+
+- **A written constitution.** [`docs/AGENT-CONSTITUTION.md`](docs/AGENT-CONSTITUTION.md)
+  is the binding rulebook for any agent or human contributor working here, with
+  [`docs/AGENT-PROCESS-REFERENCE.md`](docs/AGENT-PROCESS-REFERENCE.md) alongside it.
+- **Every pull request is reviewed by machine and by a second opinion.** Automated review
+  threads must be resolved before merge, and a separate second-opinion review is posted on
+  top of them. Unresolved review threads block the merge even when the checks are green.
+- **A single verify pipeline gates every push.** `npm run verify` runs tracked-artifact and
+  design-token checks, preregistration and archive integrity checks, production-boundary
+  checks, lint at zero warnings, the full Vitest suite plus the bridge, radio daemon and
+  collector suites, a typechecked build, and bundle-size budgets. Git hooks run it on
+  pre-push.
+- **Contrast and legibility are tests.** Design rules that would normally live in a style
+  guide are executable assertions, so they cannot rot.
+- **Preregistration for model claims.** Model plans state their gates and their metrics
+  before the runs happen, and failed gates stay published rather than being overwritten.
+  The `ml/` directory contains the record, including the results we did not like.
 
 ---
 
 ## Contributing
 
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feat/my-feature`)
-3. Make your changes following the existing code style (TypeScript strict, 2-space indent, Tailwind CSS)
-4. Verify: `npm run lint && npm run build`
-5. Commit using [Conventional Commits](https://www.conventionalcommits.org/) (`feat:`, `fix:`, `refactor:`, `docs:`)
-6. Open a pull request with a summary, testing notes, and screenshots for UI changes
+Contributions are welcome, from bug reports to bands of the ionosphere we have modelled
+badly.
 
-See [AGENTS.md](AGENTS.md) for detailed repository guidelines.
+1. Fork the repository and create a feature branch (`git checkout -b feat/my-feature`).
+2. Follow the existing style: TypeScript strict, 2-space indent, double quotes, Tailwind
+   utilities, `@/` import alias.
+3. Run `npm run verify` before pushing.
+4. Commit with [Conventional Commits](https://www.conventionalcommits.org/)
+   (`feat:`, `fix:`, `refactor:`, `docs:`, `test:`, `chore:`).
+5. Open a pull request with a summary and testing notes.
+
+[AGENTS.md](AGENTS.md) and [docs/AGENT-CONSTITUTION.md](docs/AGENT-CONSTITUTION.md) hold
+the detailed repository rules. Corrections to the physics, the model methodology or the
+data provenance are especially valued: if we have a claim wrong, we want the issue.
 
 ---
 
 ## License
 
-This project is not yet licensed. All rights reserved.
+Copyright (C) Propulse contributors. This program is free software: you may redistribute
+and modify it under the terms of the **GNU Affero General Public License, version 3**, as
+published by the Free Software Foundation. It is distributed WITHOUT ANY WARRANTY, without
+even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See
+[LICENSE](LICENSE) for the full text.
 
 ---
 
 <p align="center">
+  <a href="https://propulse.cloud"><strong>propulse.cloud</strong></a><br>
   Built for the amateur radio community. 73 de Propulse.
 </p>
-
-### Local testing with multiple agents
-
-See [Local agent testing](docs/guides/LOCAL-AGENT-TESTING.md) for owned dev servers, isolated browser profiles, login/first-visit setup, and the HamClock regression check.

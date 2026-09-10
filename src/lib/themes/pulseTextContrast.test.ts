@@ -1441,13 +1441,26 @@ function isQuoteChar(c: string): boolean {
   return c === '"' || c === "'" || c === "`";
 }
 
+/** One operand of a `?`/`:`/`&&`/`||`/`??` chain, together with the operator
+ * that immediately follows it at depth 0 (`null` for the chain's last
+ * operand) -- what `valueOperands` below needs to tell a condition from a
+ * rendered value. */
+interface OperandSplit {
+  text: string;
+  opAfter: "?" | ":" | "&&" | "||" | "??" | null;
+}
+
 /** Splits `text` at depth 0 (outside `()`/`[]`/`{}` and quoted strings) on
  * the operators `?`, `:`, `&&`, `||`, `??` -- a `?` immediately followed by
  * `.` (optional chaining, `a?.b`) is not a split point. Used to separate a
- * ternary/logical expression's condition from its value-bearing operands
- * (Codex, PR #874 round 21). */
-function splitAtTopLevelOperators(text: string): string[] {
-  const parts: string[] = [];
+ * ternary/logical expression's condition(s) from its value-bearing operands
+ * (Codex, PR #874 round 21); each operand keeps the operator that follows
+ * it so `valueOperands` can classify it correctly per operator, not just by
+ * position (round 22 fixed a wrong assumption that every operand but the
+ * first is a value -- true for `?`/`:`, but `||`/`??` render BOTH operands,
+ * so their left operand is a value too, not a condition). */
+function splitAtTopLevelOperators(text: string): OperandSplit[] {
+  const parts: OperandSplit[] = [];
   let depth = 0;
   let inStr: string | null = null;
   let start = 0;
@@ -1480,31 +1493,31 @@ function splitAtTopLevelOperators(text: string): string[] {
     }
     if (depth === 0) {
       if (c === "?" && text[i + 1] === "?") {
-        parts.push(text.slice(start, i));
+        parts.push({ text: text.slice(start, i), opAfter: "??" });
         i += 2;
         start = i;
         continue;
       }
       if (c === "&" && text[i + 1] === "&") {
-        parts.push(text.slice(start, i));
+        parts.push({ text: text.slice(start, i), opAfter: "&&" });
         i += 2;
         start = i;
         continue;
       }
       if (c === "|" && text[i + 1] === "|") {
-        parts.push(text.slice(start, i));
+        parts.push({ text: text.slice(start, i), opAfter: "||" });
         i += 2;
         start = i;
         continue;
       }
       if (c === "?" && text[i + 1] !== ".") {
-        parts.push(text.slice(start, i));
+        parts.push({ text: text.slice(start, i), opAfter: "?" });
         i += 1;
         start = i;
         continue;
       }
       if (c === ":") {
-        parts.push(text.slice(start, i));
+        parts.push({ text: text.slice(start, i), opAfter: ":" });
         i += 1;
         start = i;
         continue;
@@ -1512,8 +1525,26 @@ function splitAtTopLevelOperators(text: string): string[] {
     }
     i++;
   }
-  parts.push(text.slice(start));
+  parts.push({ text: text.slice(start), opAfter: null });
   return parts;
+}
+
+/** The operands of a `?`/`:`/`&&`/`||`/`??` chain that are actually rendered
+ * values, as opposed to a condition that only decides which value renders
+ * (Codex, PR #874 round 23). An operand is a condition -- excluded -- only
+ * when the operator immediately after it is `?` (the ternary condition) or
+ * `&&` (its LEFT operand only: `cond && value`). Every other operand is a
+ * value: the chain's last operand always is (there's no operator after it
+ * to make it a condition); an operand followed by `:` is a ternary's
+ * true-branch value; and -- the round-21 spec's mistake -- an operand
+ * followed by `||` or `??` is ALSO a value, since both sides of a logical-OR
+ * or nullish-coalescing fallback render (`message || <Spinner />` renders
+ * `message` when it's truthy, not just when it's falsy). A mixed chain
+ * classifies each operand by its own following operator: `a && b || <X />`
+ * treats `a` as a condition (left of `&&`) but `b` as a value (left of
+ * `||`). */
+function valueOperands(parts: OperandSplit[]): string[] {
+  return parts.filter((p) => p.opAfter !== "?" && p.opAfter !== "&&").map((p) => p.text);
 }
 
 /** Every top-level (any nesting depth, quote-aware) arrow function's
@@ -1584,18 +1615,20 @@ function isValuePositionTextBearing(value: string): boolean {
 
 /** True when `remainder` -- an expression block's text with every JSX
  * element `extractJsxElements` found already blanked to spaces -- still
- * renders text through a non-JSX alternative: the first operand of a
- * `?`/`:`/`&&`/`||`/`??` chain at depth 0 is that chain's condition (ignored),
- * every other operand is a value position judged by `isValuePositionTextBearing`
- * (round 21's `{ready ? <span className="h-2" /> : "Loading"}` -- the only
- * JSX is the decorative span, but the ternary's other branch is a literal
- * string that renders when `ready` is false). An arrow function's body
- * (`.map((i) => ...)`) is examined the same way, recursively, since its own
- * ternary/logical operators sit inside the call's parens and are invisible
- * to a depth-0 split of the whole block. */
+ * renders text through a non-JSX alternative: every value operand
+ * (`valueOperands`, which knows `?`'s condition and `&&`'s left operand are
+ * the only non-value positions) of a `?`/`:`/`&&`/`||`/`??` chain at depth 0
+ * is judged by `isValuePositionTextBearing` (round 21's `{ready ? <span
+ * className="h-2" /> : "Loading"}` -- the only JSX is the decorative span,
+ * but the ternary's other branch is a literal string that renders when
+ * `ready` is false; round 23's `{message || <Spinner />}` -- `message` is a
+ * value here, not a condition, and renders whenever it's truthy). An arrow
+ * function's body (`.map((i) => ...)`) is examined the same way,
+ * recursively, since its own ternary/logical operators sit inside the
+ * call's parens and are invisible to a depth-0 split of the whole block. */
 function isRemainderTextBearing(remainder: string): boolean {
   const parts = splitAtTopLevelOperators(remainder);
-  if (parts.length > 1 && parts.slice(1).some(isValuePositionTextBearing)) return true;
+  if (parts.length > 1 && valueOperands(parts).some(isValuePositionTextBearing)) return true;
   return findArrowBodies(remainder).some(isRemainderTextBearing);
 }
 
@@ -1838,8 +1871,71 @@ function findConfigMapViolations(normalizedSource: string): Violation[] {
   return violations;
 }
 
+/** Blanks out (same-length spaces, so total length -- and every downstream
+ * character offset -- is unchanged) every `//` line comment, `/* … *\/`
+ * block comment (a `{/* … *\/}` JSX comment is just one of these sitting
+ * inside ordinary `{}`, not special-cased), and the BODY of any quoted
+ * string or template literal whose contents look like a JSX opening tag
+ * (`<` immediately followed by a letter) -- a real `className`/prop value
+ * never contains a tag, while a comment or doc string illustrating one does,
+ * so this scanner (which can't tell a comment from code any other way)
+ * fails closed on treating that as a signal (Codex, PR #874 round 23: `//
+ * <span className="animate-pulse">Loading</span>` in a comment, or `const
+ * doc = "<span className=\"animate-pulse\">Loading</span>";`, both read as
+ * a real rendered site before this). Quote-aware throughout -- a `//`
+ * inside `"https://…"`, or inside any other quoted string, is consumed
+ * whole by the string branch before the comment branches ever see it, so it
+ * can never start a false line comment. Delimiters (the `//`, `/*`/`*\/`,
+ * and the string's own quote characters) are left in place; only comment
+ * bodies and JSX-shaped string bodies are blanked, which is what keeps the
+ * total length -- and so every anchor/violation offset computed from the
+ * result -- stable. Applied once, by `scanSourceForViolations` and by the
+ * census's own `normalize(raw)` call, so a violation's index and the anchor
+ * window it's checked against are always computed from the same text. */
+function blankCommentsAndQuotedJsx(source: string): string {
+  let out = "";
+  let i = 0;
+  while (i < source.length) {
+    const c = source[i];
+    const c2 = source[i + 1];
+    if (c === "/" && c2 === "/") {
+      const nl = source.indexOf("\n", i);
+      const end = nl === -1 ? source.length : nl;
+      out += " ".repeat(end - i);
+      i = end;
+      continue;
+    }
+    if (c === "/" && c2 === "*") {
+      const close = source.indexOf("*/", i + 2);
+      const end = close === -1 ? source.length : close + 2;
+      out += " ".repeat(end - i);
+      i = end;
+      continue;
+    }
+    if (isQuoteChar(c)) {
+      const quote = c;
+      let j = i + 1;
+      while (j < source.length && source[j] !== quote) {
+        j += source[j] === "\\" ? 2 : 1;
+      }
+      const closed = source[j] === quote;
+      const body = source.slice(i + 1, Math.min(j, source.length));
+      if (/<[A-Za-z]/.test(body)) {
+        out += quote + " ".repeat(body.length) + (closed ? quote : "");
+      } else {
+        out += source.slice(i, closed ? j + 1 : j);
+      }
+      i = closed ? j + 1 : j;
+      continue;
+    }
+    out += c;
+    i++;
+  }
+  return out;
+}
+
 function scanSourceForViolations(source: string): Violation[] {
-  const normalized = normalize(source);
+  const normalized = normalize(blankCommentsAndQuotedJsx(source));
   return [
     ...findElementViolations(normalized),
     ...findConfigMapViolations(normalized),
@@ -1986,14 +2082,45 @@ function matchAnchorsToViolations(
   return new Set(matchOfAnchor.values());
 }
 
+/** Builds the text `matchAnchorsToViolations` searches for `anchors` in:
+ * the same blanked-then-normalized text `scanSourceForViolations` computes
+ * violation indices from, with each anchor's own span spliced back in at
+ * its original (pre-blank) raw position. `blankCommentsAndQuotedJsx` is
+ * same-length at the raw-character level and untouched outside a spliced
+ * span, so every position *before* a splice matches the blanked-normalized
+ * text exactly; the splice only re-lengthens the normalized text from that
+ * point on (a whole blanked comment collapses to one normalized space,
+ * while its restored anchor text does not), which can shift a downstream
+ * violation's apparent distance from the anchor by roughly the anchor's own
+ * length. That's well inside `ANCHOR_WINDOW_RADIUS` for the short
+ * human-written anchors this ledger uses, so the window-based matcher below
+ * still pairs them correctly (Codex, PR #874 round 23: blanking comments to
+ * stop them from being read as real elements also erased the four ledger
+ * anchors written as `{/* descriptive comment *\/}` text; restoring just the
+ * anchor's own span -- not exempting `{/* *\/}` from blanking in general,
+ * and not re-anchoring those four entries -- keeps both fixed). */
+function buildAnchorMatchingContent(raw: string, anchors: string[]): string {
+  let patched = blankCommentsAndQuotedJsx(raw);
+  for (const anchor of anchors) {
+    const rawIndex = raw.indexOf(anchor);
+    if (rawIndex === -1) continue;
+    patched =
+      patched.slice(0, rawIndex) +
+      raw.slice(rawIndex, rawIndex + anchor.length) +
+      patched.slice(rawIndex + anchor.length);
+  }
+  return normalize(patched);
+}
+
 /** Thin wrapper around `matchAnchorsToViolations` for `file`'s registered
  * anchors -- what the census below actually calls. */
 function coveredViolations(
   file: string,
-  normalizedContent: string,
+  raw: string,
   violations: Violation[],
 ): Set<Violation> {
-  return matchAnchorsToViolations(normalizedContent, registeredAnchorsFor(file), violations);
+  const anchors = registeredAnchorsFor(file);
+  return matchAnchorsToViolations(buildAnchorMatchingContent(raw, anchors), anchors, violations);
 }
 
 /** Runs the census: every text-bearing `animate-pulse` violation under
@@ -2012,9 +2139,8 @@ function findUncoveredPulseSites(): string[] {
   for (const file of listSourceFiles(SRC_ROOT)) {
     const raw = readRaw(file);
     if (!raw.includes(PULSE_CLASS)) continue;
-    const normalized = normalize(raw);
     const violations = scanSourceForViolations(raw);
-    const covered = coveredViolations(file, normalized, violations);
+    const covered = coveredViolations(file, raw, violations);
     for (const violation of violations) {
       if (!covered.has(violation)) {
         uncovered.push(`${file}: ${violation.description}`);
@@ -2364,6 +2490,26 @@ describe("scanSourceForViolations catches every spelling (fixture proofs, #878)"
     expect(scanSourceForViolations(fixture)).toEqual([]);
   });
 
+  it("catches a logical-OR fallback's left operand, since both operands of `||` render (not just the condition of `?`/left of `&&`)", () => {
+    // Round 21 wrongly treated the operand before every operator (`?`,
+    // `&&`, `||`, `??`) as a condition and ignored it -- but `||`/`??` are
+    // not conditionals, both operands render depending on truthiness, so
+    // `message` here is a value position, not a condition (Codex, PR #874
+    // round 23).
+    const fixture = '<div className="animate-pulse">{message || <Spinner />}</div>';
+    expect(scanSourceForViolations(fixture)).not.toEqual([]);
+  });
+
+  it("catches a nullish-coalescing fallback's left operand, same reason as `||`", () => {
+    const fixture = '<div className="animate-pulse">{message ?? <Spinner />}</div>';
+    expect(scanSourceForViolations(fixture)).not.toEqual([]);
+  });
+
+  it("still dismisses a decorative `&&` conditional's left operand (the condition, not a value)", () => {
+    const fixture = '<div className="animate-pulse">{ready && <Spinner />}</div>';
+    expect(scanSourceForViolations(fixture)).toEqual([]);
+  });
+
   it("still dismisses a mapping that emits a decorative self-closing element (`.map((i) => <div … />)`)", () => {
     const fixture =
       '<div className="animate-pulse">{items.map((i) => <div key={i} className="h-2" />)}</div>';
@@ -2433,6 +2579,50 @@ describe("scanSourceForViolations catches every spelling (fixture proofs, #878)"
     const fixture =
       '<span className="h-2 w-2 rounded-full bg-alert-red animate-pulse" aria-hidden />';
     expect(scanSourceForViolations(fixture)).toEqual([]);
+  });
+
+  it("does not read a `//` line comment's illustrative markup as a real rendered site", () => {
+    const fixture = '// <span className="animate-pulse">Loading</span>';
+    expect(scanSourceForViolations(fixture)).toEqual([]);
+  });
+
+  it("does not read a `/* … */` block comment's (bare or `{/* … */}` JSX-style) illustrative markup as a real rendered site", () => {
+    for (const fixture of [
+      "/* <span className=\"animate-pulse\">Loading</span> */",
+      "{/* <span className=\"animate-pulse\">Loading</span> */}",
+    ]) {
+      expect(scanSourceForViolations(fixture), fixture).toEqual([]);
+    }
+  });
+
+  it("does not read a doc string quoting JSX markup as a real rendered site", () => {
+    // Single-quoted outer string with unescaped double quotes inside, so
+    // `className="..."` appears in the raw source exactly as it would in a
+    // real element -- unlike a `\"`-escaped variant, this actually fools the
+    // old, non-blanking `className` attribute regex into registering it as
+    // a genuine site (a `\"` breaks that regex's match for an unrelated
+    // reason, so it wouldn't have discriminated old vs. new code here).
+    const fixture =
+      'const doc = \'Example: <span className="animate-pulse">Loading</span>\';';
+    expect(scanSourceForViolations(fixture)).toEqual([]);
+  });
+
+  it("still catches a real site after a line comment, at the offset the comment's own blanking leaves it at", () => {
+    // The comment blanks to a run of spaces that `normalize` then collapses
+    // to one -- so the real element's reported offset is *not* simply "the
+    // comment's raw character count" away from where it appears in the raw
+    // source. What must hold is that the violation's index and the anchor
+    // matcher's coordinate space are the exact same blanked-then-normalized
+    // text (Codex, PR #874 round 23) -- checked here by independently
+    // recomputing that text and confirming the reported index lands right
+    // on the real pulse token, not somewhere a stale/un-blanked offset
+    // would have pointed.
+    const fixture =
+      '// see "https://example.com/x" for background\n<span className="animate-pulse">Loading</span>';
+    const violations = scanSourceForViolations(fixture);
+    expect(violations).toHaveLength(1);
+    const expectedNormalized = normalize(blankCommentsAndQuotedJsx(fixture));
+    expect(violations[0].index).toBe(expectedNormalized.indexOf(PULSE_CLASS));
   });
 });
 
@@ -2555,6 +2745,34 @@ describe("matchAnchorsToViolations pairs each anchor to at most one violation (#
     expect(covered.size).toBe(2);
     expect(covered.has(violations[0])).toBe(true);
     expect(covered.has(violations[1])).toBe(true);
+  });
+});
+
+describe("buildAnchorMatchingContent keeps JSX-comment anchors working after comment-blanking (#874 round 23)", () => {
+  it("still covers a real pulsing element anchored on its own `{/* Marker */}` comment", () => {
+    const fixture =
+      "function Widget() {\n" +
+      "  return (\n" +
+      "    <div>\n" +
+      "      {/* Marker */}\n" +
+      '      <span className="animate-pulse text-alert-red">Critical</span>\n' +
+      "    </div>\n" +
+      "  );\n" +
+      "}\n";
+    const violations = scanSourceForViolations(fixture);
+    expect(violations).toHaveLength(1);
+    const content = buildAnchorMatchingContent(fixture, ["Marker"]);
+    const covered = matchAnchorsToViolations(content, ["Marker"], violations);
+    expect(covered.size).toBe(1);
+  });
+
+  it("finds zero sites (so nothing needs covering) when the only pulsing-looking markup is inside a comment", () => {
+    const fixture = '{/* <span className="animate-pulse">Loading</span> */}';
+    const violations = scanSourceForViolations(fixture);
+    expect(violations).toEqual([]);
+    const content = buildAnchorMatchingContent(fixture, ["Marker"]);
+    const covered = matchAnchorsToViolations(content, ["Marker"], violations);
+    expect(covered.size).toBe(0);
   });
 });
 

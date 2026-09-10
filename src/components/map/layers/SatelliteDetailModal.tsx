@@ -645,11 +645,47 @@ function SatelliteDetailModalInner({
     setSatelliteModalId(null);
   }, [setSatelliteModalId]);
 
-  // Render nothing until the satellite behind satelliteModalId resolves.
   // AccessibleDialog supplies role="dialog", aria-modal, capture-phase
   // Escape (with stopImmediatePropagation), the backdrop button, background
-  // inerting, scroll lock and initial focus.
-  if (!selectedSatellite) return null;
+  // inerting, scroll lock and initial focus. It must stay mounted for the
+  // *entire* time satelliteModalId is non-null — including the window before
+  // selectedSatellite resolves, or if it never resolves (the satellite was
+  // dropped from the enabled groups, or its orbit can't be computed) — or
+  // Escape falls through to useFullscreenEscape's bubble-phase handler
+  // instead of being owned by this dialog, and the id is left stuck set for
+  // the dialog to silently re-open on the next refetch. See #805 Codex
+  // thread PRRT_kwDORFr4R86g3-Vc.
+  if (!selectedSatellite) {
+    return (
+      <AccessibleDialog
+        open
+        onClose={handleClose}
+        title="Satellite unavailable"
+        chrome="bare"
+        labelledBy={titleId}
+        zIndexClassName="z-[300]"
+        panelProps={{
+          className:
+            "w-full max-w-md bg-su-canvas border border-su-line/40 rounded-xl shadow-2xl shadow-black/60 p-4",
+        }}
+      >
+        <h2 id={titleId} className="text-sm font-medium text-su-text">
+          Satellite unavailable
+        </h2>
+        <p className="text-xs text-su-muted mt-2">
+          Satellite data is not available right now. It may have been
+          removed from the enabled groups or its orbit could not be
+          computed.
+        </p>
+        <button
+          onClick={handleClose}
+          className="mt-3 px-3 py-1.5 text-xs font-medium bg-su-line/10 hover:bg-su-line/20 text-su-text rounded-lg transition-colors"
+        >
+          Close
+        </button>
+      </AccessibleDialog>
+    );
+  }
 
   return (
     <AccessibleDialog
@@ -661,7 +697,7 @@ function SatelliteDetailModalInner({
       zIndexClassName="z-[300]"
       panelProps={{
         className:
-          "w-full max-w-md mx-4 bg-su-canvas border border-su-line/40 rounded-xl shadow-2xl shadow-black/60 p-4",
+          "w-full max-w-md bg-su-canvas border border-su-line/40 rounded-xl shadow-2xl shadow-black/60 p-4",
       }}
     >
       <SatelliteDetailContent

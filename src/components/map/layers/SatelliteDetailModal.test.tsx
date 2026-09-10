@@ -86,6 +86,30 @@ describe("SatelliteDetailModal", () => {
       name: FAKE_SATELLITE.name,
     });
     expect(dialog.getAttribute("aria-modal")).toBe("true");
+
+    // labelledBy must actually point at the visible heading (not merely
+    // produce a name that happens to match it — see PR #828 S2).
+    const heading = screen.getByRole("heading", { name: FAKE_SATELLITE.name });
+    expect(dialog.getAttribute("aria-labelledby")).toBe(heading.id);
+    expect(
+      screen.getAllByRole("heading", { name: FAKE_SATELLITE.name }),
+    ).toHaveLength(1);
+  });
+
+  it("keeps the dialog mounted with an 'unavailable' body, and closes on Escape without leaking to fullscreen, when satelliteModalId is set but the satellite hasn't resolved (#828 B1)", async () => {
+    useSatellitesMock.mockReturnValue({ selectedSatellite: null, nextPasses: [] });
+    useMapStore.setState({ satelliteModalId: FAKE_SATELLITE.noradId });
+    renderModal();
+
+    const dialog = await screen.findByRole("dialog", {
+      name: "Satellite unavailable",
+    });
+    expect(dialog.getAttribute("aria-modal")).toBe("true");
+
+    const user = userEvent.setup();
+    await user.keyboard("{Escape}");
+
+    expect(useMapStore.getState().satelliteModalId).toBeNull();
   });
 
   it("closes on Escape via capture-phase, before a bubble-phase document listener sees it", async () => {
@@ -106,7 +130,7 @@ describe("SatelliteDetailModal", () => {
     expect(bubbleListener).not.toHaveBeenCalled();
   });
 
-  it("has a keyboard-reachable backdrop button that closes the dialog on activation", async () => {
+  it("has an AT-exposed backdrop dismiss button that closes the dialog on activation", async () => {
     openModal();
     renderModal();
     await screen.findByRole("dialog", { name: FAKE_SATELLITE.name });

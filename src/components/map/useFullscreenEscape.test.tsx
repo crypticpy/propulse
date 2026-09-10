@@ -233,10 +233,11 @@ describe("useFullscreenEscape", () => {
     );
     await screen.findByRole("dialog", { name: FAKE_SATELLITE.name });
 
-    // Blocked: the satellite modal is open and carries aria-modal="true"
-    // itself now (migrated to AccessibleDialog in #805) — this hook no
-    // longer needs any satelliteModalId-specific knowledge to yield to it;
-    // the general dialog predicate above covers it like every other dialog.
+    // Blocked: the satellite modal is open, migrated to AccessibleDialog in
+    // #805, so its own document capture-phase listener claims Escape via
+    // stopImmediatePropagation() before this bubble-phase listener ever
+    // fires — this hook no longer needs any satelliteModalId-specific
+    // knowledge to yield to it.
     await user.keyboard("{Escape}");
     expect(setFullscreen).not.toHaveBeenCalled();
     // That same Escape also closed the satellite modal — it owns Escape via
@@ -247,6 +248,43 @@ describe("useFullscreenEscape", () => {
     // fullscreen handler. Without this, a guard that swallowed every Escape
     // unconditionally (or a modal stuck open) would also satisfy the
     // assertion above.
+    await user.keyboard("{Escape}");
+    expect(setFullscreen).toHaveBeenCalledTimes(1);
+    expect(setFullscreen).toHaveBeenCalledWith(false);
+  });
+
+  it("does not exit fullscreen while satelliteModalId is set but the satellite hasn't resolved, and does once the id clears (#828 B1)", async () => {
+    const user = userEvent.setup();
+    const setFullscreen = vi.fn();
+    // selectedSatellite unresolved: a refetch dropped it from enabledGroups,
+    // or its orbit couldn't be computed. The dialog must still be mounted
+    // (with an "unavailable" body) so it still owns Escape here — see the
+    // SatelliteDetailModal.tsx fix and its sibling test in
+    // SatelliteDetailModal.test.tsx.
+    useSatellitesMock.mockReturnValue({ selectedSatellite: null, nextPasses: [] });
+    useMapStore.setState({ satelliteModalId: FAKE_SATELLITE.noradId });
+
+    render(
+      <MemoryRouter>
+        <Harness
+          observatoryMode={false}
+          exitObservatory={vi.fn()}
+          setAmbientMode={vi.fn()}
+          setFullscreen={setFullscreen}
+        />
+        <SatelliteDetailModal />
+      </MemoryRouter>,
+    );
+    await screen.findByRole("dialog", { name: "Satellite unavailable" });
+
+    // Blocked: the dialog is still open (unresolved body), so it still owns
+    // Escape via AccessibleDialog's capture-phase handler.
+    await user.keyboard("{Escape}");
+    expect(setFullscreen).not.toHaveBeenCalled();
+    expect(useMapStore.getState().satelliteModalId).toBeNull();
+
+    // Positive control: with the id cleared and no dialog left, the next
+    // Escape reaches the fullscreen handler.
     await user.keyboard("{Escape}");
     expect(setFullscreen).toHaveBeenCalledTimes(1);
     expect(setFullscreen).toHaveBeenCalledWith(false);

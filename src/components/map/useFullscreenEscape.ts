@@ -29,8 +29,10 @@ export interface UseFullscreenEscapeOptions {
  * `SatelliteDetailModal` (`src/components/map/layers/SatelliteDetailModal.tsx`,
  * mounted by `PropSphere.tsx` underneath this view) used to need its own
  * `satelliteModalId` carve-out here because it rendered no `role`/`aria-modal`
- * attributes at all. Migrated to `AccessibleDialog` in #805, so it now
- * matches the predicate below like every other dialog and the carve-out was
+ * attributes at all. Migrated to `AccessibleDialog` in #805, so its Escape is
+ * now owned by that `document` capture-phase listener + `stopImmediatePropagation()`
+ * described above — this bubble-phase listener never fires while it's open,
+ * with or without the querySelector predicate below — so the carve-out was
  * deleted as genuinely redundant.
  */
 export function useFullscreenEscape({

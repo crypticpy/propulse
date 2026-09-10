@@ -1319,7 +1319,7 @@ const BandConditionRow = memo(function BandConditionRow({
           {/* Greyline active indicator for low bands */}
           {isGreylineActive && (
             <span
-              className="px-1 py-0.5 rounded text-[9px] font-medium bg-amber-500/20 text-amber-400 animate-pulse"
+              className="px-1 py-0.5 rounded text-[9px] font-medium bg-amber-500/20 text-amber-400"
               title="Greyline propagation enhanced for this band"
             >
               GL
@@ -1328,7 +1328,7 @@ const BandConditionRow = memo(function BandConditionRow({
           {/* Es Active badge for 6m/10m */}
           {esDetection?.active && (
             <span
-              className="px-1 py-0.5 rounded text-[9px] font-semibold bg-purple-500/20 text-purple-400 animate-pulse"
+              className="px-1 py-0.5 rounded text-[9px] font-semibold bg-purple-500/20 text-purple-400"
               title={`Sporadic E detected: ${esDetection.spotCount} spots, est. MUF ${esDetection.estimatedMUFMHz} MHz`}
             >
               Es
@@ -1337,7 +1337,7 @@ const BandConditionRow = memo(function BandConditionRow({
           {/* Band opening indicator */}
           {hasBandOpening && (
             <span
-              className="px-1 py-0.5 rounded text-[9px] font-semibold bg-signal-green/20 text-signal-green animate-pulse"
+              className="px-1 py-0.5 rounded text-[9px] font-semibold bg-signal-green/20 text-signal-green"
               title="Band opening detected"
             >
               OPEN

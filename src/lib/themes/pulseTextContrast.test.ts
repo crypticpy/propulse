@@ -44,7 +44,8 @@
  * assembled through a `useMemo`-built `rowClasses` value with ternary
  * branches inside a plain `return` template, not a `className=` attribute
  * or a same-file `const x = \`...\`` the element scan can resolve. Its
- * `KNOWN_REMAINING_SITES` entry stays covered only by the anchor/window
+ * `KNOWN_REMAINING_SITES` entries (one per pulsing branch: alert match and
+ * scroll-to-selected highlight) stay covered only by the anchor/window
  * freshness check further down, not by the structural census -- a
  * deliberate, honestly-documented limitation rather than a scanner rewrite
  * to handle arbitrary indirection.
@@ -256,6 +257,11 @@ const KNOWN_REMAINING_SITES: KnownRemainingSite[] = [
     file: "src/components/dx/DXSpotList/SpotRow.tsx",
     why: "the whole alert-matched row pulses, including its tinted text",
     anchor: "${base} bg-alert-red/10",
+  },
+  {
+    file: "src/components/dx/DXSpotList/SpotRow.tsx",
+    why: "the scroll-to-selected highlight pulses the whole selected/needed row, including its tinted text; a second indirect site in the same rowClasses memo, outside the alert-match anchor's window (Codex, PR #874 round 5)",
+    anchor: "ring-2 ring-su-accent-edge ring-inset",
   },
   {
     file: "src/components/kiosk/KioskChrome.tsx",

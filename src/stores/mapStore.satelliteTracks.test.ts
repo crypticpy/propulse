@@ -60,6 +60,38 @@ describe("mapStore satellite orbit tracks (#994)", () => {
     });
   });
 
+  it("persists 5 tracks, reloads the module, and evicts the oldest STORED one when a 6th is added", async () => {
+    localStorage.setItem(
+      SATELLITE_TRACKS_LS_KEY,
+      JSON.stringify({
+        version: 1,
+        order: ["1", "2", "3", "4", "5"],
+        tracks: {
+          "1": { orbitsAhead: 1, showPast: false, showFootprint: false },
+          "2": { orbitsAhead: 1, showPast: false, showFootprint: false },
+          "3": { orbitsAhead: 1, showPast: false, showFootprint: false },
+          "4": { orbitsAhead: 1, showPast: false, showFootprint: false },
+          "5": { orbitsAhead: 1, showPast: false, showFootprint: false },
+        },
+      }),
+    );
+    const useMapStore = await loadFreshStore();
+
+    useMapStore.getState().setSatelliteTrack(6, {});
+
+    const state = useMapStore.getState();
+    expect(Object.keys(state.satelliteTracks).sort()).toEqual([
+      "2",
+      "3",
+      "4",
+      "5",
+      "6",
+    ]);
+    expect(state.satelliteTracks["1"]).toBeUndefined();
+    expect(state.satelliteTrackOrder).toEqual(["2", "3", "4", "5", "6"]);
+    expect(state.satelliteTrackOrder).toHaveLength(5);
+  });
+
   describe("setSatelliteTrack", () => {
     it("creates a track with defaults, merging in the patch", async () => {
       const useMapStore = await loadFreshStore();

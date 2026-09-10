@@ -682,6 +682,12 @@ export interface MapState {
   // is an explicit action from SatelliteDetailModal. Persisted, capped at
   // MAX_SATELLITE_TRACKS with the oldest track dropped on overflow.
   satelliteTracks: Record<string, SatelliteTrackConfig>;
+  // Insertion order for satelliteTracks (oldest first), used for the
+  // oldest-dropped cap. Kept in the store rather than a module-level
+  // variable so `reset()`, a test's direct `setState`, and any future
+  // writer stay consistent with `satelliteTracks` by construction
+  // (#994 review finding 7).
+  satelliteTrackOrder: string[];
   setSatelliteTrack: (
     noradId: number,
     patch: Partial<SatelliteTrackConfig>,
@@ -1015,9 +1021,6 @@ function saveSatelliteTracks(
 }
 
 const persistedSatelliteTracks = loadSatelliteTracks();
-// Module-level insertion-order tracker, seeded from the persisted envelope
-// and mutated only inside the three satellite-track actions below.
-let satelliteTrackOrder: string[] = persistedSatelliteTracks.order;
 
 /** Shared bounded-number persistence for map appearance controls. */
 function loadStoredNumber(
@@ -1581,6 +1584,7 @@ const initialState = {
 
   // Per-satellite orbit track state (persisted, see #994)
   satelliteTracks: persistedSatelliteTracks.tracks,
+  satelliteTrackOrder: persistedSatelliteTracks.order,
 
   // Beacon inactive opacity (persisted)
   beaconInactiveOpacity: loadStoredNumber(
@@ -2521,7 +2525,19 @@ export const useMapStore = create<MapState>((set, get) => ({
         ...patch,
       };
 
-      const order = satelliteTrackOrder.filter((existingId) => existingId !== id);
+      // Defensive: reconcile the order against the actual tracks before
+      // applying the cap. A direct setState (tests) or any writer that
+      // touches satelliteTracks without going through this action can
+      // desync the two; this keeps the cap correct either way
+      // (#994 review finding 7).
+      const reconciled = state.satelliteTrackOrder.filter(
+        (existingId) => existingId in state.satelliteTracks,
+      );
+      for (const key of Object.keys(state.satelliteTracks)) {
+        if (!reconciled.includes(key)) reconciled.push(key);
+      }
+
+      const order = reconciled.filter((existingId) => existingId !== id);
       order.push(id);
       const tracks = { ...state.satelliteTracks, [id]: next };
 
@@ -2529,11 +2545,11 @@ export const useMapStore = create<MapState>((set, get) => ({
       while (order.length > MAX_SATELLITE_TRACKS) {
         const droppedId = order.shift();
         if (droppedId !== undefined) delete tracks[droppedId];
+        // TODO(#994 PR B): status chip on eviction
       }
 
-      satelliteTrackOrder = order;
       saveSatelliteTracks(tracks, order);
-      return { satelliteTracks: tracks };
+      return { satelliteTracks: tracks, satelliteTrackOrder: order };
     }),
 
   clearSatelliteTrack: (noradId) =>
@@ -2543,18 +2559,17 @@ export const useMapStore = create<MapState>((set, get) => ({
 
       const tracks = { ...state.satelliteTracks };
       delete tracks[id];
-      satelliteTrackOrder = satelliteTrackOrder.filter(
+      const order = state.satelliteTrackOrder.filter(
         (existingId) => existingId !== id,
       );
-      saveSatelliteTracks(tracks, satelliteTrackOrder);
-      return { satelliteTracks: tracks };
+      saveSatelliteTracks(tracks, order);
+      return { satelliteTracks: tracks, satelliteTrackOrder: order };
     }),
 
   clearAllSatelliteTracks: () =>
     set(() => {
-      satelliteTrackOrder = [];
       saveSatelliteTracks({}, []);
-      return { satelliteTracks: {} };
+      return { satelliteTracks: {}, satelliteTrackOrder: [] };
     }),
 
   // Beacon inactive opacity

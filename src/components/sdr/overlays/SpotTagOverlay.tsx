@@ -81,7 +81,7 @@ const SPOT_MODE_COLORS: Record<
   FM: {
     line: "bg-plasma-orange/60",
     bg: "bg-plasma-orange/15 border-plasma-orange/30",
-    text: "text-plasma-orange",
+    text: "text-su-text",
   },
   AM: {
     line: "bg-yellow-400/60",
@@ -93,7 +93,7 @@ const SPOT_MODE_COLORS: Record<
 const DEFAULT_SPOT_COLOR = {
   line: "bg-plasma-orange/50",
   bg: "bg-plasma-orange/10 border-plasma-orange/25",
-  text: "text-plasma-orange/80",
+  text: "text-su-text",
 };
 
 function getSpotColor(mode?: string) {

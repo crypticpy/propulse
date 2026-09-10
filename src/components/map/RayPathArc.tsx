@@ -10,7 +10,7 @@
  */
 
 import { useMemo, useRef, useState, useEffect, useCallback } from "react";
-import { Html, Line } from "@react-three/drei";
+import { Line } from "@react-three/drei";
 import { ThreeEvent } from "@react-three/fiber";
 import * as THREE from "three";
 import type { Line2, LineSegments2 } from "three-stdlib";
@@ -23,18 +23,13 @@ import { useCurrentSFI } from "@/hooks/useMUFData";
 import { useGlobeOcclusionBatch } from "@/hooks/useGlobeOcclusionBatch";
 import { ReflectionMarker } from "./ReflectionMarker";
 import { PathPointHitArea } from "./PathPointHitArea";
-import {
-  PathPointInspector,
-  type PathPointInspectorOpen,
-} from "./PathPointInspector";
+import type { PathPointInspectorOpen } from "./PathPointInspector";
 import {
   IONOSPHERE_LAYER_COLORS,
   heightToRadius,
 } from "./IonosphericShells";
-import {
-  GLOBE_DOM_LAYER_ORDER,
-  GLOBE_LAYER_ORDER,
-} from "@/lib/map/globeRenderOrder";
+import { GLOBE_LAYER_ORDER } from "@/lib/map/globeRenderOrder";
+import { useRayPathInspectorStore } from "./rayPathInspectorStore";
 import type { PathDescriptor } from "@/lib/views/spotContracts";
 import { modelProvenanceSchema } from "@/lib/views/spotContracts";
 import type { ScreenAnchor } from "@/lib/map/anchoredOverlay";
@@ -513,7 +508,7 @@ export function RayPathArc({
   osReducedMotion,
   reduceMotion = false,
   onOpenPathAnalysis,
-  portalTarget,
+  portalTarget: _portalTarget,
 }: RayPathArcProps) {
   const mediaReducedMotion = useReducedMotion();
   const reduced = motionIsSuppressed(
@@ -737,9 +732,48 @@ export function RayPathArc({
     onOpenPathAnalysis?.();
   }, [onOpenPathAnalysis]);
 
-  const overlayHost =
-    portalTarget instanceof HTMLElement ? portalTarget : document.body;
-  const overlayPortal = { current: overlayHost };
+  const inspectorOwnerId = path?.id ?? pathId ?? `ray-${pathMode}`;
+  const publishInspector = useRayPathInspectorStore((state) => state.publish);
+
+  useEffect(() => {
+    if (open === "closed") {
+      publishInspector(inspectorOwnerId, null);
+      return;
+    }
+
+    publishInspector(inspectorOwnerId, {
+      pointSet,
+      selectedId,
+      hoveredId,
+      open,
+      anchor,
+      pathSummary: result.summary,
+      onSelect: (id) => handleSelect(id),
+      onClose: handleClose,
+      onOpenPathAnalysis: onOpenPathAnalysis
+        ? handleOpenPathAnalysis
+        : undefined,
+      onOpenList: handleOpenList,
+    });
+
+    return () => publishInspector(inspectorOwnerId, null);
+  }, [
+    anchor,
+    handleClose,
+    handleOpenList,
+    handleOpenPathAnalysis,
+    handleSelect,
+    hoveredId,
+    inspectorOwnerId,
+    onOpenPathAnalysis,
+    open,
+    pointSet,
+    publishInspector,
+    result.summary,
+    selectedId,
+  ]);
+
+  void _portalTarget;
 
   if (hopSegments.length === 0) {
     return null;
@@ -837,31 +871,6 @@ export function RayPathArc({
           onSelect={handleSelect}
         />
       ))}
-
-      {typeof document !== "undefined" && (
-        <Html
-          portal={overlayPortal}
-          fullscreen
-          zIndexRange={GLOBE_DOM_LAYER_ORDER.rayPathInspector}
-          style={{ pointerEvents: "none" }}
-        >
-          <PathPointInspector
-            pointSet={pointSet}
-            selectedId={selectedId}
-            hoveredId={hoveredId}
-            open={open}
-            anchor={anchor}
-            pathSummary={result.summary}
-            portalTarget={portalTarget}
-            onSelect={(id) => handleSelect(id)}
-            onClose={handleClose}
-            onOpenPathAnalysis={
-              onOpenPathAnalysis ? handleOpenPathAnalysis : undefined
-            }
-            onOpenList={handleOpenList}
-          />
-        </Html>
-      )}
     </group>
     </MapAnimationClock>
   );

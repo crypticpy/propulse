@@ -86,6 +86,7 @@ import { GridGlowOverlay, type GridGlowSpot } from "./GridGlowOverlay";
 import { GridPersistOverlay } from "./GridPersistOverlay";
 import { IonosphericShells } from "./IonosphericShells";
 import { RayPathArc } from "./RayPathArc";
+import { RayPathInspectorOverlay } from "./RayPathInspectorOverlay";
 import { useGridActivitySnapshot } from "@/hooks/useGridActivitySnapshot";
 import {
   gridActivityGridForCoordinate,
@@ -2743,6 +2744,8 @@ export function GlobeView({
         className="pointer-events-none absolute inset-0"
         style={{ zIndex: GLOBE_DOM_LAYER_ORDER.mapOverlayPortal }}
       />
+
+      <RayPathInspectorOverlay portalTarget={mapOverlayPortal} />
 
       {(contactPath || justLogged) && (
         <div className="pointer-events-none absolute left-1/2 top-3 z-20 flex -translate-x-1/2 flex-col items-center gap-1">

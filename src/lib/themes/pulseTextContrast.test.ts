@@ -633,20 +633,35 @@ function extractLiteralBodies(text: string): string[] {
   return bodies;
 }
 
+/** One key's resolved value inside an object-literal const: `literal` is
+ * every string/template literal body found anywhere inside that key's value
+ * (the fail-closed fallback once a further access on this entry can't be
+ * narrowed precisely); `entries` is present only when the value is itself an
+ * object literal, mapping *its* top-level keys the same way -- recursively,
+ * so a `NAME.key1.key2` or `NAME[k1][k2]` chain can be walked precisely
+ * however deep the object nests (round 17 follow-up: round 16 flattened one
+ * level into the parent key, which merged unrelated nested fields -- e.g. a
+ * `dot` field's `animate-pulse` leaking into a sibling `badge` field's
+ * resolution -- into false positives). An array value's entries aren't
+ * indexed; its literals are just flattened, same as round 16. */
+interface ConstEntry {
+  literal: string;
+  entries?: Map<string, ConstEntry>;
+}
+
 /** Top-level `key: <value>` / `"key": <value>` / `'key': <value>` entries of
  * an object-literal initializer `text` (its own braces included -- `text[0]`
- * must be `{` and `text` must end with its matching `}`), each value
- * resolved to the space-joined body of every string/template literal found
- * inside it via `extractLiteralBodies`. A nested object value (`alert: {
- * textColor: "...", animate: "..." }`) has its own literals flattened into
- * the *parent* key's entry rather than recursed into separate keys -- one
- * level of member access (`NAME.key`) is what `resolveConstRefs` needs to
- * resolve, not arbitrary nesting. A key this simple parser can't make sense
- * of (a computed key, a spread) stops entry collection at that point rather
- * than guessing; whatever entries were already found are still returned
- * (Codex, PR #874 round 16). */
-function extractObjectEntries(text: string): Map<string, string> {
-  const entries = new Map<string, string>();
+ * must be `{` and `text` must end with its matching `}`). A value that is
+ * itself an object literal is recursed into via this same function, so its
+ * own keys are reachable precisely by `resolveMemberAccess`'s chain walk
+ * (round 17 follow-up); any other value (string, template, array, ternary,
+ * `cn()` call, ...) is resolved to the space-joined body of every
+ * string/template literal found anywhere inside it, same as round 16. A key
+ * this simple parser can't make sense of (a computed key, a spread) stops
+ * entry collection at that point rather than guessing; whatever entries were
+ * already found are still returned (Codex, PR #874 round 16). */
+function extractObjectEntries(text: string): Map<string, ConstEntry> {
+  const entries = new Map<string, ConstEntry>();
   // The object's own matching close, not just `text`'s last character --
   // `text` is a `const` initializer slice and may carry trailing
   // whitespace after the object literal (`{ ... } ;`).
@@ -703,10 +718,86 @@ function extractObjectEntries(text: string): Map<string, string> {
       if (depth === 0 && vc === ",") break;
       i++;
     }
-    const bodies = extractLiteralBodies(text.slice(valueStart, i));
-    if (bodies.length > 0) entries.set(key, bodies.join(" "));
+    const valueText = text.slice(valueStart, i);
+    const trimmed = valueText.trimStart();
+    const bodies = extractLiteralBodies(valueText);
+    if (trimmed.startsWith("{")) {
+      const nestedStart = valueStart + (valueText.length - trimmed.length);
+      const nested = extractObjectEntries(text.slice(nestedStart));
+      entries.set(key, { literal: bodies.join(" "), entries: nested.size > 0 ? nested : undefined });
+    } else if (bodies.length > 0) {
+      entries.set(key, { literal: bodies.join(" ") });
+    }
   }
   return entries;
+}
+
+/** Index just past a `const NAME: <this>` type annotation that starts at
+ * `colonIndex` (the annotation's own colon), i.e. the position right after
+ * the terminating `=` and any following whitespace -- or `null` if no such
+ * `=` is ever found. Scans forward tracking depth over `<>`/`()`/`[]`/`{}`
+ * (so a generic `Record<State, string>`, `Readonly<Record<"a" | "b",
+ * string>>`, `Array<string>`, `string[]`, and an object-type literal `{ foo:
+ * string }` are all skipped whole) and over quoted/template text (a union
+ * member `"a" | "b"` never confuses depth tracking). A depth-0 `=` ends the
+ * annotation, except `=>` (a function type's arrow, e.g. `(live: boolean) =>
+ * string`, is part of the type, not the terminator) and `==`/`===` (skipped
+ * as a run), both of which are stepped over whole before the check for a
+ * bare `=` can fire (a bare `>=`/`<=` can't occur at depth 0 inside a type,
+ * so only the arrow needs an explicit guard). Without this, the collector's
+ * old regex only tolerated a literal `: string` annotation, so any other
+ * annotation made the whole `const` declaration invisible to it (Codex, PR
+ * #874 round 17). */
+function skipTypeAnnotation(source: string, colonIndex: number): number | null {
+  let i = colonIndex + 1;
+  let depth = 0;
+  while (i < source.length) {
+    const c = source[i];
+    if (c === "`") {
+      i += extractTemplateLiteral(source, i).length;
+      continue;
+    }
+    if (c === '"' || c === "'") {
+      const close = source.indexOf(c, i + 1);
+      if (close === -1) return null;
+      i = close + 1;
+      continue;
+    }
+    if (c === "(" || c === "[" || c === "{" || c === "<") {
+      depth++;
+      i++;
+      continue;
+    }
+    if (c === ")" || c === "]" || c === "}") {
+      if (depth > 0) depth--;
+      i++;
+      continue;
+    }
+    if (c === ">") {
+      if (depth > 0) depth--;
+      i++;
+      continue;
+    }
+    if (c === "=") {
+      if (source[i + 1] === ">") {
+        i += 2; // a function type's arrow, part of the annotation
+        continue;
+      }
+      if (source[i + 1] === "=") {
+        i += source[i + 2] === "=" ? 3 : 2; // `==`/`===`, not the terminator
+        continue;
+      }
+      if (depth === 0) {
+        i++;
+        while (i < source.length && /\s/.test(source[i])) i++;
+        return i;
+      }
+      i++;
+      continue;
+    }
+    i++;
+  }
+  return null;
 }
 
 /** Map of `const NAME = <initializer>` declarations in `source`, so a
@@ -724,7 +815,11 @@ function extractObjectEntries(text: string): Map<string, string> {
  * top-level key to just that key's own literals, for `resolveConstRefs` to
  * substitute precisely on a `NAME.key`/`NAME["key"]` reference. An
  * initializer with no string/template literal anywhere in it (numbers, bare
- * references) is skipped as not class-shaped. */
+ * references) is skipped as not class-shaped. A type annotation between
+ * the name and the initializer -- `Record<State, string>`, a function
+ * type, a union, `typeof X` -- is skipped whole by `skipTypeAnnotation`
+ * regardless of its shape, not just the literal `: string` case (round
+ * 17). */
 interface ConstDecl {
   name: string;
   /** Offset of the declaration, used as the tie-break when two visible
@@ -734,8 +829,9 @@ interface ConstDecl {
   index: number;
   literal: string;
   /** Present only for an object-literal initializer: top-level key to that
-   * key's own resolved literal text (round 16). */
-  entries?: Map<string, string>;
+   * key's own resolved entry (a nested `ConstEntry`, round 17 follow-up; a
+   * flat literal for round 16). */
+  entries?: Map<string, ConstEntry>;
   /** Index range of the innermost enclosing `{...}` block the declaration
    * sits in (module scope = `0..source.length`), so `visibleDecl` can tell
    * a same-named const declared in an unrelated sibling function from the
@@ -750,10 +846,26 @@ interface ConstDecl {
 
 function collectConstTemplateMap(source: string): ConstDecl[] {
   const decls: ConstDecl[] = [];
-  const declRe = /\bconst\s+([A-Za-z_$][\w$]*)(?:\s*:\s*string)?\s*=\s*/g;
+  const declRe = /\bconst\s+([A-Za-z_$][\w$]*)\s*/g;
   let m: RegExpExecArray | null;
   while ((m = declRe.exec(source))) {
-    const valueStart = declRe.lastIndex;
+    const afterName = declRe.lastIndex;
+    let valueStart: number;
+    if (source[afterName] === ":") {
+      const afterType = skipTypeAnnotation(source, afterName);
+      if (afterType === null) {
+        declRe.lastIndex = afterName + 1;
+        continue;
+      }
+      valueStart = afterType;
+    } else if (source[afterName] === "=") {
+      let i = afterName + 1;
+      while (i < source.length && /\s/.test(source[i])) i++;
+      valueStart = i;
+    } else {
+      declRe.lastIndex = afterName;
+      continue;
+    }
     const firstChar = source[valueStart];
     const end = findInitializerEnd(source, valueStart);
     const initializerText = source.slice(valueStart, end);
@@ -803,44 +915,131 @@ function visibleDecl(decls: ConstDecl[], name: string, atIndex: number): ConstDe
   return best;
 }
 
-/** Matches `NAME.key`, `NAME["key"]`/`NAME['key']`, or `NAME[expr]` -- a
- * member access on a resolved object/array const -- so `resolveConstRefs`
- * can substitute the specific entry a precise key names, rather than the
- * const's whole literal, before its generic bare-identifier pass (which
- * doesn't know about accessors) ever sees `NAME`. Alternation order matters:
- * the quoted-bracket branch must be tried before the generic bracket branch
- * so `NAME["key"]` resolves to that key precisely rather than falling
- * through to the computed-access fallback (Codex, PR #874 round 16). */
-const MEMBER_ACCESS_RE =
-  /(?<![\w$-])([A-Za-z_$][\w$]*)(?:(\.[A-Za-z_$][\w$]*)|\[\s*(["'])((?:(?!\3)[\s\S])*)\3\s*\]|(\[[^\]]*\]))/g;
+/** Matches a bare identifier that could name a resolved const, the same
+ * hyphen-adjacency exclusion `resolveConstRefs`'s generic pass uses so a
+ * hyphenated Tailwind token (`text-red`) is never mistaken for one. */
+const BASE_IDENT_RE = /(?<![\w$-])[A-Za-z_$][\w$]*/g;
 
-/** Resolves every `NAME.key`/`NAME["key"]`/`NAME[expr]` member access in
- * `raw` against an object/array const's `entries`: a precise key hit
- * substitutes just that key's literal; a computed access, an unrecognised
- * key, or a decl with no `entries` (a plain string/array const) fails
- * closed and substitutes the whole `literal` instead -- over-approximating
- * on purpose, so a real pulse hidden behind `obj[state]` is never missed
- * (Codex, PR #874 round 16). Runs before the generic bare-identifier pass in
- * `resolveConstRefs` so `NAME` is never left for that pass to resolve on its
- * own once an accessor has already claimed it. */
+/** Index just past the `]` matching a `[` at `source[openIndex]`, tracking
+ * nested `[...]` depth and skipping quoted/template text (so a `]` inside a
+ * string, `["a]b"]`, is never mistaken for the close) -- `extractBalanced`
+ * only knows `{}`/`()`, not `[]` (Codex, PR #874 round 17 follow-up). Returns
+ * `-1` if there's no matching close. */
+function findBracketClose(source: string, openIndex: number): number {
+  let depth = 0;
+  for (let i = openIndex; i < source.length; i++) {
+    const c = source[i];
+    if (c === "`") {
+      i += extractTemplateLiteral(source, i).length - 1;
+      continue;
+    }
+    if (c === '"' || c === "'") {
+      const close = source.indexOf(c, i + 1);
+      if (close === -1) return -1;
+      i = close;
+      continue;
+    }
+    if (c === "[") depth++;
+    else if (c === "]") {
+      depth--;
+      if (depth === 0) return i;
+    }
+  }
+  return -1;
+}
+
+/** Resolves every access chain in `raw` that starts at a resolved const's
+ * name -- a run of `.key`, `["key"]`/`['key']`, and `[computed]` segments,
+ * however deep, e.g. `AMSAT_STATUS_STYLES[amsatStatus.status].badge` -- so
+ * `resolveConstRefs`'s generic bare-identifier pass (which doesn't know
+ * about accessors) only ever sees a truly bare `NAME` left over from this.
+ * The walk keeps a *set* of candidate entries, starting from just the decl
+ * itself: a precise key (`.key` or a quoted bracket) narrows every candidate
+ * to its own child entry of that key, and a candidate missing that key drops
+ * out of the set entirely; a computed key can't be resolved precisely, so it
+ * instead *expands* every candidate to all of its own child entries (a
+ * candidate with no `entries` -- a plain string/array leaf -- stays as
+ * itself). If a precise key narrows the set down to nothing, the walk stops
+ * right there and falls back to the union of the candidates as they stood
+ * just before that failed step, rather than guessing -- this is what keeps
+ * `AMSAT_STATUS_STYLES[status].badge` from ever seeing `active.dot`'s
+ * `animate-pulse`: narrowing by `.badge` only keeps candidates that actually
+ * have a `badge` key (round 16 flattened `dot`/`badge`/`label` together into
+ * one literal per status, which is exactly the false positive this chain
+ * walk exists to avoid -- Codex, PR #874 round 17 follow-up). A trailing
+ * call (`f(live)`) is never part of the chain -- `(` matches nothing here,
+ * so the walk simply stops and leaves the call for the generic bare-`f`
+ * pass, same as an identifier with no accessor at all. */
 function resolveMemberAccess(
   raw: string,
   decls: ConstDecl[],
   atIndex: number,
   seen: ReadonlySet<string>,
 ): string {
-  return raw.replace(
-    MEMBER_ACCESS_RE,
-    (full: string, name: string, dotKey?: string, _quote?: string, bracketKey?: string) => {
-      if (seen.has(name)) return full;
-      const decl = visibleDecl(decls, name, atIndex);
-      if (!decl) return full;
-      const nextSeen = new Set([...seen, name]);
-      const key = dotKey ? dotKey.slice(1) : bracketKey;
-      const entry = key !== undefined ? decl.entries?.get(key) : undefined;
-      return resolveConstRefs(entry ?? decl.literal, decls, decl.index, nextSeen);
-    },
-  );
+  let result = "";
+  let cursor = 0;
+  BASE_IDENT_RE.lastIndex = 0;
+  let m: RegExpExecArray | null;
+  while ((m = BASE_IDENT_RE.exec(raw))) {
+    const name = m[0];
+    const start = m.index;
+    if (seen.has(name)) continue;
+    const decl = visibleDecl(decls, name, atIndex);
+    if (!decl) continue;
+
+    let candidates: ConstEntry[] = [{ literal: decl.literal, entries: decl.entries }];
+    let chainEnd = start + name.length;
+    let matchedChain = false;
+    while (true) {
+      if (raw[chainEnd] === ".") {
+        const keyMatch = /^[A-Za-z_$][\w$]*/.exec(raw.slice(chainEnd + 1));
+        if (!keyMatch) break;
+        const key = keyMatch[0];
+        const narrowed = candidates
+          .map((cand) => cand.entries?.get(key))
+          .filter((c): c is ConstEntry => c !== undefined);
+        if (narrowed.length === 0) break;
+        candidates = narrowed;
+        chainEnd += 1 + key.length;
+        matchedChain = true;
+        continue;
+      }
+      if (raw[chainEnd] === "[") {
+        const closeIdx = findBracketClose(raw, chainEnd);
+        if (closeIdx === -1) break;
+        const inner = raw.slice(chainEnd + 1, closeIdx);
+        const quoted = /^\s*(["'])((?:(?!\1)[\s\S])*)\1\s*$/.exec(inner);
+        if (quoted) {
+          const key = quoted[2];
+          const narrowed = candidates
+            .map((cand) => cand.entries?.get(key))
+            .filter((c): c is ConstEntry => c !== undefined);
+          if (narrowed.length === 0) break;
+          candidates = narrowed;
+        } else {
+          candidates = candidates.flatMap((cand) =>
+            cand.entries && cand.entries.size > 0 ? [...cand.entries.values()] : [cand],
+          );
+        }
+        chainEnd = closeIdx + 1;
+        matchedChain = true;
+        continue;
+      }
+      break;
+    }
+
+    if (!matchedChain) continue;
+
+    result += raw.slice(cursor, start);
+    const nextSeen = new Set([...seen, name]);
+    result += candidates
+      .map((cand) => resolveConstRefs(cand.literal, decls, decl.index, nextSeen))
+      .join(" ");
+    cursor = chainEnd;
+    BASE_IDENT_RE.lastIndex = cursor;
+  }
+  result += raw.slice(cursor);
+  return result;
 }
 
 /** Replaces every bare identifier in a class expression that names a
@@ -1457,6 +1656,73 @@ describe("scanSourceForViolations catches every spelling (fixture proofs, #878)"
       'const tones = ["text-su-muted", "text-alert-red animate-pulse"];\n' +
       'export function A() { return <span className={tones[i]}>x</span>; }';
     expect(scanSourceForViolations(fixture)).not.toEqual([]);
+  });
+
+  it("resolves an object-valued const behind a generic type annotation, not just a literal ': string'", () => {
+    const fixture =
+      'const badgeClasses: Record<State, string> = { critical: "text-alert-red animate-pulse" };\n' +
+      'export function A() { return <span className={badgeClasses[state]}>Critical</span>; }';
+    expect(scanSourceForViolations(fixture)).not.toEqual([]);
+  });
+
+  it("does not flag a precise key access through a Readonly<Record<union, string>> annotation", () => {
+    const fixture =
+      'const t: Readonly<Record<"a" | "b", string>> = { a: "text-alert-red animate-pulse", b: "text-su-muted" };\n' +
+      'export function A() { return <span className={t.b}>Idle</span>; }';
+    expect(scanSourceForViolations(fixture)).toEqual([]);
+  });
+
+  it("resolves a const behind a function-type annotation, since a call still references the identifier", () => {
+    const fixture =
+      'const f: (live: boolean) => string = (live) => live ? "text-alert-red animate-pulse" : "";\n' +
+      'export function A() { return <span className={f(live)}>x</span>; }';
+    expect(scanSourceForViolations(fixture)).not.toEqual([]);
+  });
+
+  it("resolves a chained computed-then-precise-key access without merging an unrelated sibling field's pulse", () => {
+    const fixture =
+      'const S: Record<K, { badge: string; dot: string; label: string }> = {\n' +
+      '  active: { badge: "bg-signal-green/15 text-signal-green", dot: "bg-signal-green animate-pulse", label: "Active" },\n' +
+      '  off: { badge: "text-su-muted", dot: "bg-su-line", label: "Off" },\n' +
+      "};\n" +
+      "export function A() {\n" +
+      "  return (\n" +
+      '    <span className={`px-2 text-xs ${S[k].badge}`}>\n' +
+      '      <span className={`w-1.5 h-1.5 rounded-full ${S[k].dot}`} />\n' +
+      "      {S[k].label}\n" +
+      "    </span>\n" +
+      "  );\n" +
+      "}";
+    expect(scanSourceForViolations(fixture)).toEqual([]);
+  });
+
+  it("catches a chained computed-then-precise-key access when the union of its pulsing field is itself text-bearing", () => {
+    const fixture =
+      'const S: Record<K, { badge: string; dot: string; label: string }> = {\n' +
+      '  active: { badge: "bg-signal-green/15 text-signal-green", dot: "bg-signal-green animate-pulse", label: "Active" },\n' +
+      '  off: { badge: "text-su-muted", dot: "bg-su-line", label: "Off" },\n' +
+      "};\n" +
+      'export function A() { return <span className={`text-xs ${S[k].dot}`}>Live</span>; }';
+    expect(scanSourceForViolations(fixture)).not.toEqual([]);
+  });
+
+  it("resolves a two-level dotted chain to the specific status's field, not every status merged together", () => {
+    const fixture =
+      'const S: Record<K, { badge: string; dot: string; label: string }> = {\n' +
+      '  active: { badge: "bg-signal-green/15 text-signal-green", dot: "bg-signal-green animate-pulse", label: "Active" },\n' +
+      '  off: { badge: "text-su-muted", dot: "bg-su-line", label: "Off" },\n' +
+      "};\n" +
+      "export function A() {\n" +
+      "  return (\n" +
+      "    <div>\n" +
+      '      <span className={`text-signal-green ${S.active.dot}`}>Active</span>\n' +
+      '      <span className={`text-su-muted ${S.off.dot}`}>Off</span>\n' +
+      "    </div>\n" +
+      "  );\n" +
+      "}";
+    const violations = scanSourceForViolations(fixture);
+    expect(violations.length).toBe(1);
+    expect(violations[0].description).toContain("text-signal-green");
   });
 
   it("catches the pulse class paired with a text color in a config-map object literal", () => {

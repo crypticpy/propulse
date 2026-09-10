@@ -972,8 +972,12 @@ describe("OperatorProfile (round-11 Codex sites: narrow 220px column overflow)",
 
     fireEvent.mouseEnter(firstBandButton as Element);
 
-    const tooltip = container.querySelector(".absolute.-top-6");
+    // Anchored to the strip's top edge (`bottom-full`), not a fixed
+    // `-top-6` offset: once the tooltip wraps at xl it grows upward instead
+    // of downward over the bars it describes (design review, round 11).
+    const tooltip = container.querySelector(".absolute.bottom-full");
     expect(tooltip).toBeTruthy();
+    expect(container.querySelector(".absolute.-top-6")).toBeNull();
     const tooltipInner = tooltip!.firstElementChild as HTMLElement;
     expect(tooltipInner).toBeTruthy();
     expect(tooltipInner.className).not.toContain("whitespace-nowrap");

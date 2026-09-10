@@ -109,7 +109,7 @@ function BandConditionsStrip({
     <div className="relative mb-1.5">
       {/* Instant tooltip — floats above the strip */}
       {hoveredBand && (
-        <div className="absolute -top-6 left-0 right-0 flex justify-center pointer-events-none z-20">
+        <div className="absolute bottom-full mb-1 left-0 right-0 flex justify-center pointer-events-none z-20">
           <div
             className="flex items-center gap-1.5 px-2 py-0.5 rounded-md text-xs font-medium max-w-full flex-wrap justify-center text-center"
             style={{

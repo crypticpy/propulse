@@ -182,7 +182,7 @@ export function HistoryCard({ className = "", onClick }: HistoryCardProps) {
         <div className="flex items-start gap-2">
           <CalendarIcon className="w-4 h-4 text-su-muted flex-shrink-0 mt-0.5" />
           <div className="flex-1 min-w-0">
-            <span className="text-[10px] font-medium text-su-muted uppercase tracking-wide">
+            <span className="text-xs font-medium text-su-muted uppercase tracking-wide">
               This Day in History
             </span>
             {hasLogbook ? (
@@ -196,7 +196,7 @@ export function HistoryCard({ className = "", onClick }: HistoryCardProps) {
                 </p>
                 <Link
                   to="/log"
-                  className="inline-block mt-1.5 text-[11px] font-medium text-plasma-orange hover:text-plasma-orange/80 transition-colors"
+                  className="inline-block mt-1.5 text-xs font-medium text-plasma-orange hover:text-plasma-orange/80 transition-colors"
                   onClick={(e) => e.stopPropagation()}
                 >
                   Go to Logbook &rarr;
@@ -238,7 +238,7 @@ export function HistoryCard({ className = "", onClick }: HistoryCardProps) {
       <div className="flex items-start gap-2">
         <CalendarIcon className="w-4 h-4 text-plasma-orange flex-shrink-0 mt-0.5" />
         <div className="flex-1 min-w-0">
-          <span className="text-[10px] font-medium text-su-muted uppercase tracking-wide">
+          <span className="text-xs font-medium text-su-muted uppercase tracking-wide">
             This Day in History
           </span>
           <p className="text-xs text-su-muted mt-0.5">
@@ -246,7 +246,7 @@ export function HistoryCard({ className = "", onClick }: HistoryCardProps) {
             <span className="font-mono text-signal-green">{displayText}</span>
           </p>
           {historyEntries.length > 3 && (
-            <p className="text-[10px] text-su-muted mt-0.5">
+            <p className="text-xs text-su-muted mt-0.5">
               +{historyEntries.length - 3} more
             </p>
           )}

@@ -21,7 +21,7 @@ const confirmStyles: Record<
   warning:
     "bg-caution-amber/20 hover:bg-caution-amber/30 text-caution-amber border border-caution-amber/30",
   default:
-    "bg-plasma-orange/20 hover:bg-plasma-orange/30 text-plasma-orange border border-plasma-orange/30",
+    "bg-plasma-orange/15 hover:bg-plasma-orange/20 text-su-text border border-plasma-orange/30",
 };
 
 /**

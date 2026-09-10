@@ -491,7 +491,7 @@ export function BandMap({
             {(hoveredSpot.frequency / 1000).toFixed(3)} MHz
             {hoveredSpot.mode && (
               <span
-                className="ml-2 px-1 py-0.5 rounded text-[10px] text-su-text border"
+                className="ml-2 px-1 py-0.5 rounded text-xs text-su-text border"
                 style={{
                   backgroundColor: getBandMapModeColor(hoveredSpot.mode) + "30",
                   borderColor: getBandMapModeColor(hoveredSpot.mode) + "66",
@@ -501,7 +501,7 @@ export function BandMap({
               </span>
             )}
           </div>
-          <div className="text-su-muted text-[10px] mt-1">
+          <div className="text-su-muted text-xs mt-1">
             Spotted by {hoveredSpot.spotter}
           </div>
         </div>
@@ -519,14 +519,14 @@ export function BandMap({
       )}
 
       {/* Mode legend - below canvas to prevent overlap with spots */}
-      <div className="flex items-center justify-center gap-4 py-2 px-3 border-t border-su-line/20 bg-su-input/50">
+      <div className="flex flex-wrap items-center justify-center gap-4 py-2 px-3 border-t border-su-line/20 bg-su-input/50">
         {["CW", "SSB", "FT8", "FT4", "RTTY"].map((mode) => (
           <div key={mode} className="flex items-center gap-1.5">
             <span
               className="w-2.5 h-2.5 rounded-full"
               style={{ backgroundColor: BANDMAP_MODE_COLORS[mode] }}
             />
-            <span className="text-[10px] text-su-muted font-mono">{mode}</span>
+            <span className="text-xs text-su-muted font-mono">{mode}</span>
           </div>
         ))}
       </div>

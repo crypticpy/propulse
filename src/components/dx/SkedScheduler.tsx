@@ -87,7 +87,7 @@ function SkedForm({ onClose }: { onClose: () => void }) {
                 key={b}
                 type="button"
                 onClick={() => setBand(b)}
-                className={`px-2 py-1 text-[10px] rounded font-bold transition-colors ${
+                className={`px-2 py-1 text-xs rounded font-bold transition-colors ${
                   band === b
                     ? "bg-cosmic-cyan/30 text-cosmic-cyan border border-cosmic-cyan/50"
                     : "bg-su-line/10 text-su-muted border border-su-line/40 hover:bg-su-line/20"
@@ -106,7 +106,7 @@ function SkedForm({ onClose }: { onClose: () => void }) {
                 key={m}
                 type="button"
                 onClick={() => setMode(m)}
-                className={`px-2 py-1 text-[10px] rounded font-bold transition-colors ${
+                className={`px-2 py-1 text-xs rounded font-bold transition-colors ${
                   mode === m
                     ? "bg-plasma-orange/30 text-plasma-orange border border-plasma-orange/50"
                     : "bg-su-line/10 text-su-muted border border-su-line/40 hover:bg-su-line/20"
@@ -190,11 +190,11 @@ function SkedCard({
           <span className="text-sm font-mono font-bold text-su-text">
             {sked.targetCallsign}
           </span>
-          <span className="px-1.5 py-0.5 text-[10px] font-bold rounded bg-su-line/20 text-su-muted">
+          <span className="px-1.5 py-0.5 text-xs font-bold rounded bg-su-line/20 text-su-muted">
             {sked.preferredBand} {sked.preferredMode}
           </span>
           <span
-            className={`text-[10px] font-bold ${statusColors[sked.status]}`}
+            className={`text-xs font-bold ${statusColors[sked.status]}`}
           >
             {sked.status.toUpperCase()}
           </span>
@@ -219,29 +219,29 @@ function SkedCard({
           </svg>
         </button>
       </div>
-      <div className="text-[10px] text-su-muted mb-2">
+      <div className="text-xs text-su-muted mb-2">
         {sked.dateRange[0]} to {sked.dateRange[1]}
         {sked.notes && (
           <span className="ml-2 text-su-muted">— {sked.notes}</span>
         )}
       </div>
       {sked.status === "active" && (
-        <div className="flex gap-1.5">
+        <div className="flex flex-wrap gap-1.5">
           <button
             onClick={() => onStatusChange(sked.id, "worked")}
-            className="px-2 py-1 text-[10px] font-medium bg-signal-green/20 text-signal-green border border-signal-green/30 rounded hover:bg-signal-green/30 transition-colors"
+            className="px-2 py-1 text-xs font-medium bg-signal-green/20 text-signal-green border border-signal-green/30 rounded hover:bg-signal-green/30 transition-colors"
           >
             Worked
           </button>
           <button
             onClick={() => onStatusChange(sked.id, "missed")}
-            className="px-2 py-1 text-[10px] font-medium bg-alert-red/20 text-alert-red border border-alert-red/30 rounded hover:bg-alert-red/30 transition-colors"
+            className="px-2 py-1 text-xs font-medium bg-alert-red/20 text-alert-red border border-alert-red/30 rounded hover:bg-alert-red/30 transition-colors"
           >
             Missed
           </button>
           <button
             onClick={() => onStatusChange(sked.id, "cancelled")}
-            className="px-2 py-1 text-[10px] font-medium bg-su-line/20 text-su-muted border border-su-line/30 rounded hover:bg-su-line/30 transition-colors"
+            className="px-2 py-1 text-xs font-medium bg-su-line/20 text-su-muted border border-su-line/30 rounded hover:bg-su-line/30 transition-colors"
           >
             Cancel
           </button>

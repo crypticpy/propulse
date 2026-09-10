@@ -382,7 +382,7 @@ export function ShareModal({
                     className={`px-4 py-2 rounded-lg font-medium text-sm transition-all ${
                       copied
                         ? "bg-signal-green/20 text-signal-green border border-signal-green/50"
-                        : "bg-plasma-orange/20 text-plasma-orange border border-plasma-orange/50 hover:bg-plasma-orange/30"
+                        : "bg-plasma-orange/15 text-su-text border border-plasma-orange/50 hover:bg-plasma-orange/20"
                     }`}
                   >
                     {copied ? (

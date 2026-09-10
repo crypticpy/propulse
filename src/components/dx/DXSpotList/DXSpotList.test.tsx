@@ -13,8 +13,10 @@ import {
   ingestOperatingMonitorReportForTests,
   resetOperatingMonitorForTests,
 } from "@/hooks/useOperatingMonitor";
+import { getLocationFromPrefix } from "@/lib/data/prefixLocations";
 import { useDXStore } from "@/stores/dxStore";
 import { useKioskStore } from "@/stores/kioskStore";
+import { useMapStore } from "@/stores/mapStore";
 import type { DXSpot } from "@/types/dxcluster";
 import { DXSpotList } from "./DXSpotList";
 
@@ -336,5 +338,118 @@ describe("DXSpotList follow-radio mode filter and clear (#756 groups 2 & 3)", ()
     expect(capturedRuntime!.getSnapshot().config.context.followRadio).toBe(false);
     expect(screen.getByText("CWCALL")).toBeTruthy();
     expect(screen.getByText("FT8CALL")).toBeTruthy();
+  });
+});
+
+describe("DXSpotList set-target quick action (#845)", () => {
+  const originalMapTarget = useMapStore.getState().target;
+
+  afterEach(() => {
+    useDXStore.setState({ spots: originalSpots, selectedSpot: originalSelected });
+    useMapStore.setState({ target: originalMapTarget });
+    mockClusterSpots = [];
+    capturedRuntime = null;
+  });
+
+  // Positive control: with spots that resolve directly from dxLat/dxLon
+  // (no grid-fallback involved), a second "Set as map target" click for a
+  // different spot has always worked -- `mapStore.setTarget` is an
+  // unconditional write (mapStore.ts:1537) and nothing clobbers it in this
+  // harness. This guards against a future regression in that write path,
+  // not the #845 bug itself (see the grid-fallback repro below for that).
+  it("moves the map target to the second spot after a first target is already set", async () => {
+    const spot1 = dxSpot({ id: "target-spot-1", dx: "JA1XYZ", dxLat: 35.6, dxLon: 139.7 });
+    const spot2 = dxSpot({ id: "target-spot-2", dx: "VK2ABC", dxLat: -33.9, dxLon: 151.2 });
+    mockClusterSpots = [spot1, spot2];
+    useDXStore.setState({ spots: [spot1, spot2], selectedSpot: null });
+
+    const storage = createMemoryWorkingStorage();
+    render(<DXSpotList />, { wrapper: makeWrapper(storage) });
+
+    const user = userEvent.setup();
+    const setTargetButtons = await screen.findAllByRole("button", { name: "Set as map target" });
+    expect(setTargetButtons).toHaveLength(2);
+
+    // First click: sets the target to spot1. This is the "first target sets
+    // fine" half of the owner's report -- a positive control.
+    await user.click(setTargetButtons[0]);
+    expect(useMapStore.getState().target).toMatchObject({ name: spot1.dx });
+
+    // Second click: a *different* spot's row. The owner reports this does
+    // nothing when a target is already set.
+    await user.click(setTargetButtons[1]);
+    expect(useMapStore.getState().target).toMatchObject({ name: spot2.dx });
+  });
+
+  // Real #845 repro (Opus review S5): a spot with neither dxLat/dxLon nor a
+  // *valid* Maidenhead grid -- a malformed dxGrid like "JN4" from a cluster
+  // feed. `gridToLatLon` (src/lib/utils/grid.ts:25) throws on a malformed
+  // grid, it never returns null, so the old `if (coords)` guard around it
+  // was dead code: the click handler threw inside `onClick` and the button
+  // visibly did nothing, matching the owner's report with no wall/cursor
+  // involvement at all.
+  it("falls back to the callsign-prefix location instead of throwing when the grid is malformed", async () => {
+    const spot = dxSpot({
+      id: "bad-grid-spot",
+      dx: "JA1XYZ",
+      dxLat: undefined,
+      dxLon: undefined,
+      dxGrid: "JN4",
+    });
+    mockClusterSpots = [spot];
+    useDXStore.setState({ spots: [spot], selectedSpot: null });
+
+    const storage = createMemoryWorkingStorage();
+    render(<DXSpotList />, { wrapper: makeWrapper(storage) });
+
+    const user = userEvent.setup();
+    const setTargetButton = await screen.findByRole("button", { name: "Set as map target" });
+
+    await user.click(setTargetButton);
+
+    // Callsign-prefix fallback for "JA1XYZ" resolves to Japan, not (0, 0)
+    // and not left null by a swallowed throw.
+    const target = useMapStore.getState().target;
+    expect(target).not.toBeNull();
+    expect(target?.name).toBe(spot.dx);
+    expect(target?.lat).not.toBe(0);
+    expect(target?.lon).not.toBe(0);
+  });
+
+  // The real production shape (Opus second-pass review S1/S2): the DX
+  // cluster REST feed (api/_lib/handlers/spots.ts:36-47) maps rows without
+  // ever setting dxGrid or dxLat/dxLon at all -- unlike the malformed-grid
+  // case above, this is not a throw, it is both `if` branches of the old
+  // chain being false, so the button was a silent no-op for every ordinary
+  // DXCluster row on main, not just a junk-grid edge case.
+  it("falls back to the callsign-prefix location for a grid-less, coordinate-less cluster spot", async () => {
+    const spot = dxSpot({
+      id: "cluster-no-location-spot",
+      dx: "DL1ABC",
+      dxLat: undefined,
+      dxLon: undefined,
+      dxGrid: undefined,
+    });
+    mockClusterSpots = [spot];
+    useDXStore.setState({ spots: [spot], selectedSpot: null });
+
+    // Derive the expected centroid from the same data source the fix reads,
+    // rather than hardcoding coordinates from memory.
+    const expectedLocation = getLocationFromPrefix("DL");
+    expect(expectedLocation).not.toBeNull();
+
+    const storage = createMemoryWorkingStorage();
+    render(<DXSpotList />, { wrapper: makeWrapper(storage) });
+
+    const user = userEvent.setup();
+    const setTargetButton = await screen.findByRole("button", { name: "Set as map target" });
+
+    await user.click(setTargetButton);
+
+    const target = useMapStore.getState().target;
+    expect(target).not.toBeNull();
+    expect(target?.name).toBe(spot.dx);
+    expect(target?.lat).toBe(expectedLocation?.lat);
+    expect(target?.lon).toBe(expectedLocation?.lon);
   });
 });

@@ -498,12 +498,17 @@ export function SpotLabel({
     <Html
       position={position}
       center
-      // When hovered or selected, promote to the pin band so this label
-      // renders above every passive tag, cluster chip and marker in the
-      // stack; otherwise it stays in the passive spot-tag band.
+      // When hovered or selected, promote to the dedicated activeSpotLabel
+      // band -- strictly above pinLabel, not the same band pins use -- so
+      // this label renders above every passive tag, cluster chip, marker
+      // AND every saved pin in the stack; otherwise it stays in the passive
+      // spot-tag band. Sharing pinLabel with saved pins (as before) let
+      // drei's per-element camera-distance tie-break put a nearer pin above
+      // a farther promoted tag (#851, round 11) -- see activeSpotLabel's
+      // doc comment in globeRenderOrder.ts.
       zIndexRange={
         isHovered || selected
-          ? GLOBE_DOM_LAYER_ORDER.pinLabel
+          ? GLOBE_DOM_LAYER_ORDER.activeSpotLabel
           : GLOBE_DOM_LAYER_ORDER.passiveSpotLabel
       }
       // drei's Html renders its own outer DOM wrapper (default

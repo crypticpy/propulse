@@ -138,7 +138,7 @@ describe("SpotLabel DOM z-band assignment (#851)", () => {
     );
   });
 
-  it("puts a selected tag in the pin band, not its own dedicated band", () => {
+  it("puts a selected tag in its own dedicated activeSpotLabel band, not pinLabel (#851, round 11)", () => {
     render(
       <SpotLabel
         lat={35.5}
@@ -149,8 +149,17 @@ describe("SpotLabel DOM z-band assignment (#851)", () => {
       />,
     );
     const overlay = screen.getByTestId("html-overlay");
+    // Sharing pinLabel with saved pins let drei's per-element camera-distance
+    // tie-break put a nearer pin above a farther promoted tag. A promoted
+    // spot tag now uses its own band, strictly above pinLabel.
     expect(overlay.dataset.zindexrange).toBe(
-      JSON.stringify(GLOBE_DOM_LAYER_ORDER.pinLabel),
+      JSON.stringify(GLOBE_DOM_LAYER_ORDER.activeSpotLabel),
+    );
+  });
+
+  it("keeps activeSpotLabel strictly above pinLabel (#851, round 11)", () => {
+    expect(GLOBE_DOM_LAYER_ORDER.activeSpotLabel[1]).toBeGreaterThan(
+      GLOBE_DOM_LAYER_ORDER.pinLabel[0],
     );
   });
 });

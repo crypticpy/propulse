@@ -129,11 +129,11 @@ export function getGlobeLayerSlotForRenderOrder(
  * globally meaningful. Drei's `<Html>` renders into `gl.domElement`'s parent
  * div by default (r3f's own Canvas wrapper) -- see `GlobeView.tsx`, which
  * gives that wrapper `className="relative isolate z-0"` specifically so
- * this 0-6999 range is scoped inside it and can never compare directly
+ * this 0-7999 range is scoped inside it and can never compare directly
  * against `MapSurface`'s other z-indexed siblings (the status chip, image
  * attribution, radar scrubber, `Ft8SpotterHUD`, all fixed z-10/z-20/z-30
  * chrome). `mapOverlayPortal` must stay a sibling of that wrapper, not a
- * descendant, so its 10000 keeps outranking the chrome the same way it
+ * descendant, so its 11000 keeps outranking the chrome the same way it
  * outranks every in-scene band -- see `globeDomZBands.test.ts`'s
  * "GlobeView's Canvas wrapper isolates the DOM bands from map chrome" guard.
  *
@@ -159,13 +159,28 @@ export function getGlobeLayerSlotForRenderOrder(
  *                      test is paint order, not click order: a
  *                      `pointerEvents: "none"` label can still visually cover
  *                      popup content if it shares `hud`'s band).
- *   pinLabel            saved pins, and any spot tag that is selected,
- *                      hovered or otherwise promoted above the passive
- *                      pile-up — must outrank every marker/cluster/label
- *                      band so the thing the user is looking at never
- *                      reads as "under" a chip. Also the promoted state
- *                      for `NVISOverlay3D`'s selected band label (its
- *                      unselected siblings live in `marker`, below).
+ *   pinLabel            saved pins (`PinMarker`), `LocationMarker`'s
+ *                      hover/click tooltip, and the promoted state for
+ *                      `NVISOverlay3D`'s selected band label (its
+ *                      unselected siblings live in `marker`, below) —
+ *                      must outrank every marker/cluster/label band so
+ *                      the thing the user is looking at never reads as
+ *                      "under" a chip. A promoted (hovered/selected)
+ *                      spot tag does NOT share this band -- see
+ *                      `activeSpotLabel` below (#851, round 11): drei's
+ *                      per-element camera-distance mapping only breaks
+ *                      ties WITHIN a shared range, so a spot tag promoted
+ *                      into the same range as saved pins could still
+ *                      lose that tie-break to a nearer pin and paint
+ *                      underneath it, even though the user's active
+ *                      selection must always read on top.
+ *   activeSpotLabel     the hovered/selected spot-tag promotion only
+ *                      (`SpotLabel`) -- strictly above `pinLabel` so a
+ *                      promoted tag can never lose drei's camera-distance
+ *                      tie-break to a nearer saved pin. Static/at-rest
+ *                      spot tags stay in `passiveSpotLabel` below; this
+ *                      band exists purely for the promoted state (#851,
+ *                      round 11).
  *   hud                 globe-anchored detail popups/cards only: ISS tracker
  *                      info card, satellite detail popup,
  *                      `BeaconNetworkOverlay3D`/`TimeStationsOverlay3D` info
@@ -196,9 +211,10 @@ export const GLOBE_DOM_LAYER_ORDER = {
   passiveSpotLabel: [2999, 2000] as [number, number],
   marker: [3999, 3000] as [number, number],
   pinLabel: [4999, 4000] as [number, number],
-  hud: [5999, 5000] as [number, number],
-  rayPathInspector: [6999, 6000] as [number, number],
-  mapOverlayPortal: 10000,
+  activeSpotLabel: [5999, 5000] as [number, number],
+  hud: [6999, 6000] as [number, number],
+  rayPathInspector: [7999, 7000] as [number, number],
+  mapOverlayPortal: 11000,
 } as const;
 
 /**
@@ -212,6 +228,7 @@ export const GLOBE_DOM_LAYER_BANDS: readonly (keyof typeof GLOBE_DOM_LAYER_ORDER
     "passiveSpotLabel",
     "marker",
     "pinLabel",
+    "activeSpotLabel",
     "hud",
     "rayPathInspector",
     "mapOverlayPortal",

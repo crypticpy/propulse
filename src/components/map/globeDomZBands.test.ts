@@ -141,7 +141,7 @@ describe("GLOBE_DOM_LAYER_ORDER bands stay distinct (#851)", () => {
 });
 
 describe("GlobeView's Canvas wrapper isolates the DOM bands from map chrome (#851, round 6)", () => {
-  // The bands above (0-6999) only stay under GlobeView's fixed chrome
+  // The bands above (0-7999) only stay under GlobeView's fixed chrome
   // (status chip, attribution, radar scrubber, Ft8SpotterHUD -- all
   // z-10/z-20/z-30) if drei's <Html> elements, which by default portal into
   // r3f's own Canvas-wrapper div, are confined to a stacking context of
@@ -184,7 +184,7 @@ describe("GlobeView's Canvas wrapper isolates the DOM bands from map chrome (#85
     const classes = classNameMatch![1].split(/\s+/);
     expect(
       classes,
-      `<Canvas className="${classNameMatch![1]}"> must include "isolate" so its drei <Html> z-index range (0-6999) can't leak into MapSurface's other z-indexed siblings`,
+      `<Canvas className="${classNameMatch![1]}"> must include "isolate" so its drei <Html> z-index range (0-7999) can't leak into MapSurface's other z-indexed siblings`,
     ).toContain("isolate");
   });
 

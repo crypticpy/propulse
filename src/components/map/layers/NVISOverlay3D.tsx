@@ -680,7 +680,11 @@ export const NVISOverlay3D = React.memo(function NVISOverlay3D({
             center
             // Selected must outrank unselected siblings and the distance
             // labels above -- pinLabel > marker, so promote only when
-            // selected (matches SpotLabel's own selected/hovered promotion).
+            // selected. This stays on pinLabel (not activeSpotLabel): that
+            // band is reserved for SpotLabel's promoted spot tags only
+            // (#851, round 11) -- a band label sharing pinLabel with saved
+            // pins doesn't have the spot-tag-vs-pin ordering bug that
+            // motivated splitting activeSpotLabel out.
             zIndexRange={
               isSelected
                 ? GLOBE_DOM_LAYER_ORDER.pinLabel

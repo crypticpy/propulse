@@ -21,8 +21,9 @@
  * with no fallback merge of any kind — the reader/writer seam for a scoped
  * view runtime is `dxStore.selectedSpot` (#707), not this field, and this
  * hook must not anticipate that landing. On mount the two are reconciled by
- * stamp — `operatingStateStore.stamps.target.appliedAt` against `mapStore
- * .targetSetAt`, both this window's own clock — because the wall remounts
+ * stamp — `operatingStateStore.stamps.target.appliedAt`/`appliedSeq` against
+ * `mapStore.targetSetAt`/`targetSeq`, all four this window's own — because
+ * the wall remounts
  * (layout-mode toggle, navigate back to `/map`) while the app-level
  * `OperatingTransportHost` keeps
  * running: a stale phone cursor must not clobber a newer local `setTarget`,
@@ -109,14 +110,30 @@ export function useHamClockWallOperatingState(): void {
     // cross-window workspace-sync path that carries `targetSetAt` (round 2,
     // `useMapOperationalContext`) needs no such treatment: those windows are
     // on one machine and share its clock.
+    //
+    // The comparison is lexicographic on `(stamp, sequence)`, because a
+    // millisecond is not fine enough: a local `setTarget` and a cursor
+    // arriving over the transport can be processed in the same event-loop
+    // turn, and on equal timestamps a strict `>` would silently keep the
+    // older map target (round 4). Every local write to either side also
+    // takes a `nextLocalWriteSeq()`, so a tie on the clock is broken by
+    // which one actually happened second. Applying the cursor goes through
+    // `setTarget`, which takes the next sequence, so the map outranks the
+    // cursor it was just built from and a second mount stays a no-op.
     const operating = useOperatingStateStore.getState();
     const initial = operating.cursor.target;
     const resolved = toMapTarget(initial);
     // `resolved == null` is a callsign-only cursor with no location yet, and
     // an empty cursor is "nothing shared yet" — neither means "clear the
     // map", and `setTarget(null)` would also reset `isolateTargetPath`.
-    if (resolved && operating.stamps.target.appliedAt > useMapStore.getState().targetSetAt) {
-      useMapStore.getState().setTarget(resolved);
+    const map = useMapStore.getState();
+    const stamp = operating.stamps.target;
+    const cursorIsNewer =
+      stamp.appliedAt === map.targetSetAt
+        ? stamp.appliedSeq > map.targetSeq
+        : stamp.appliedAt > map.targetSetAt;
+    if (resolved && cursorIsNewer) {
+      map.setTarget(resolved);
     }
 
     return useOperatingStateStore.subscribe((state, previous) => {

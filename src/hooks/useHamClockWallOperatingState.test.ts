@@ -59,7 +59,7 @@ beforeEach(() => {
   localStorage.clear();
   useOperatingStateStore.setState({ followScreens: true });
   useOperatingStateStore.getState().reset();
-  useMapStore.setState({ target: null, targetSetAt: 0, isolateTargetPath: false });
+  useMapStore.setState({ target: null, targetSetAt: 0, targetSeq: 0, isolateTargetPath: false });
 });
 
 afterEach(() => {
@@ -167,6 +167,71 @@ describe("useHamClockWallOperatingState", () => {
     renderHook(() => useHamClockWallOperatingState());
 
     expect(useMapStore.getState().target).toMatchObject({ name: "W3ABC", lat: 40, lon: -80 });
+  });
+
+  it("applies a cursor that arrived after a local target write in the same millisecond", () => {
+    // `Date.now()` is not fine enough to order these (#859 round 4): a local
+    // pick and a cursor arriving over the transport can be processed in one
+    // event-loop turn, and on equal stamps a strict `>` keeps the older map
+    // target. The write sequence breaks the tie by what happened second.
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-09-10T00:00:00Z"));
+
+    useMapStore.getState().setTarget({ lat: 40, lon: -80, name: "W3ABC" });
+    useOperatingStateStore
+      .getState()
+      .applyMessage(inboundTarget("phone-device", "K1ABC", "EM10"));
+
+    // Same millisecond on both sides: only the sequence can order them.
+    expect(useOperatingStateStore.getState().stamps.target.appliedAt).toBe(
+      useMapStore.getState().targetSetAt,
+    );
+
+    renderHook(() => useHamClockWallOperatingState());
+
+    expect(useMapStore.getState().target).toMatchObject({ name: "K1ABC", grid: "EM10" });
+  });
+
+  it("keeps a local target written after a cursor arrival in the same millisecond", () => {
+    // The mirror image, which a `>=` would get wrong: the operator's own
+    // pick came second, so it must survive the remount.
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-09-10T00:00:00Z"));
+
+    useOperatingStateStore
+      .getState()
+      .applyMessage(inboundTarget("phone-device", "K1ABC", "EM10"));
+    useMapStore.getState().setTarget({ lat: 40, lon: -80, name: "W3ABC" });
+
+    expect(useOperatingStateStore.getState().stamps.target.appliedAt).toBe(
+      useMapStore.getState().targetSetAt,
+    );
+
+    renderHook(() => useHamClockWallOperatingState());
+
+    expect(useMapStore.getState().target).toMatchObject({ name: "W3ABC", lat: 40, lon: -80 });
+  });
+
+  it("does not re-apply a cursor it already applied in the same millisecond", () => {
+    // Applying the cursor goes through `setTarget`, which takes the next
+    // sequence — so the map outranks the cursor it was just built from and a
+    // remount inside the same millisecond writes nothing.
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-09-10T00:00:00Z"));
+
+    useOperatingStateStore
+      .getState()
+      .applyMessage(inboundTarget("phone-device", "K1ABC", "EM10"));
+
+    const first = renderHook(() => useHamClockWallOperatingState());
+    const appliedSeq = useMapStore.getState().targetSeq;
+    expect(useMapStore.getState().target?.name).toBe("K1ABC");
+    first.unmount();
+
+    renderHook(() => useHamClockWallOperatingState());
+
+    // No second write: the sequence would have advanced.
+    expect(useMapStore.getState().targetSeq).toBe(appliedSeq);
   });
 
   it("keeps a target synced from a pop-out window over an older cursor", async () => {

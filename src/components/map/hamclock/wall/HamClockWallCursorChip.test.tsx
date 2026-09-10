@@ -29,7 +29,12 @@ describe("HamClockWallCursorChip", () => {
           target: { callsign: "K1ABC", grid: "EM10", lat: null, lon: null, spotId: null },
           band: "20m",
         },
-        stamps: { ...state.stamps, target: { at: Date.now(), by: "phone-device", appliedAt: Date.now() } },
+        stamps: { ...state.stamps, target: {
+          at: Date.now(),
+          by: "phone-device",
+          appliedAt: Date.now(),
+          appliedSeq: 1,
+        } },
         registrations: {
           "phone-device::phone-canvas": {
             deviceId: "phone-device",
@@ -59,7 +64,12 @@ describe("HamClockWallCursorChip", () => {
         ...state.cursor,
         target: { callsign: "K1ABC", grid: "EM10", lat: null, lon: null, spotId: null },
       },
-      stamps: { ...state.stamps, target: { at: Date.now(), by: "gone-device", appliedAt: Date.now() } },
+      stamps: { ...state.stamps, target: {
+        at: Date.now(),
+        by: "gone-device",
+        appliedAt: Date.now(),
+        appliedSeq: 1,
+      } },
       registrations: {},
     }));
 

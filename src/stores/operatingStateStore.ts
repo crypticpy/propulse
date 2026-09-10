@@ -28,6 +28,7 @@
  */
 
 import { create } from "zustand";
+import { nextLocalWriteSeq } from "@/lib/localWriteSequence";
 import { persist, createJSONStorage } from "zustand/middleware";
 import {
   CURSOR_FIELDS,
@@ -73,13 +74,22 @@ export interface FieldStamp {
   /**
    * This screen's `Date.now()` at the moment the write was *applied here*
    * (#859). Local-only: never sent on the wire (`currentPatch` sends `value`
-   * and `at` only) and never persisted (`partialize` keeps `followScreens`
-   * alone), so it is always in the receiving window's clock domain and can be
+   * and `at` only, never `appliedSeq`) and never persisted (`partialize` keeps
+   * `followScreens` alone), so it is always in the receiving window's clock domain and can be
    * compared with other locally produced stamps such as
    * `mapStore.targetSetAt`. A locally originated write applies immediately,
    * so its `appliedAt` is the same moment as its `at`.
    */
   appliedAt: number;
+  /**
+   * `nextLocalWriteSeq()` of the same application, the tie-break for
+   * `appliedAt` (#859 round 4): a cursor arriving in the same millisecond as
+   * a local map write is reachable in one event-loop turn, and comparing the
+   * timestamps alone would silently keep the earlier of the two. Local-only
+   * on exactly the same terms as `appliedAt`, and only ever compared with
+   * another sequence number taken in this same window.
+   */
+  appliedSeq: number;
 }
 
 /** A command as it was received, for widgets that need to react to one. */
@@ -166,10 +176,10 @@ function newDeviceId(): string {
 
 function emptyStamps(): Record<CursorField, FieldStamp> {
   return {
-    sessionId: { at: 0, by: "", appliedAt: 0 },
-    band: { at: 0, by: "", appliedAt: 0 },
-    target: { at: 0, by: "", appliedAt: 0 },
-    contact: { at: 0, by: "", appliedAt: 0 },
+    sessionId: { at: 0, by: "", appliedAt: 0, appliedSeq: 0 },
+    band: { at: 0, by: "", appliedAt: 0, appliedSeq: 0 },
+    target: { at: 0, by: "", appliedAt: 0, appliedSeq: 0 },
+    contact: { at: 0, by: "", appliedAt: 0, appliedSeq: 0 },
   };
 }
 
@@ -247,8 +257,8 @@ function post(payload: OperatingPayload): void {
 /**
  * The full cursor as a patch, used to answer a `hello` from a screen that just
  * opened. Sends `value` and the wire `at` only: `by` is carried by the
- * envelope's `senderId`, and `appliedAt` is local to whichever screen applied
- * the write and is meaningless anywhere else.
+ * envelope's `senderId`, and `appliedAt`/`appliedSeq` are local to whichever
+ * screen applied the write and are meaningless anywhere else.
  */
 function currentPatch(state: OperatingStateStoreState): CursorPatch {
   const patch: CursorPatch = {};
@@ -276,11 +286,16 @@ function mergePatch(
   for (const field of CURSOR_FIELDS) {
     const entry = patch[field];
     if (!entry) continue;
-    // `appliedAt` is stamped here — the one place a stamp is written — so it
-    // is this screen's clock for every path: a local `writeField` (same
-    // moment as its `nextStamp()`), an inbound `state` patch, a `hello`
-    // reply, and the `selectSpot` command that also moves the cursor.
-    const incoming: FieldStamp = { at: entry.at, by, appliedAt: Date.now() };
+    // `appliedAt`/`appliedSeq` are stamped here — the one place a stamp is
+    // written — so they cover every path: a local `writeField` (same moment
+    // as its `nextStamp()`), an inbound `state` patch, a `hello` reply, and
+    // the `selectSpot` command that also moves the cursor.
+    const incoming: FieldStamp = {
+      at: entry.at,
+      by,
+      appliedAt: Date.now(),
+      appliedSeq: nextLocalWriteSeq(),
+    };
     if (!beats(incoming, stamps[field])) continue;
     Object.assign(cursor, { [field]: entry.value });
     stamps[field] = incoming;

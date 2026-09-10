@@ -1,4 +1,5 @@
 import { hamClockProjectionContent } from "@/lib/hamclock/displayLayout";
+import { nextLocalWriteSeq } from "@/lib/localWriteSequence";
 import { useHamClockDisplayStore } from "@/stores/hamclockDisplayStore";
 import { useHamClockStore } from "@/stores/hamclockStore";
 import { useEffect, useMemo } from "react";
@@ -333,11 +334,19 @@ export function useOperationalWorkspaceSync(): void {
             // A window still on an older bundle sends no stamp; treat the
             // arrival as the write time rather than leaving this window's
             // stamp on the target it just replaced.
+            //
+            // `targetSeq` is *not* carried: sequence numbers only order
+            // writes within one window's lifetime, so the sender's would be
+            // meaningless here. A fresh one taken at arrival is the right
+            // value anyway — this is the latest local write to `target`, so
+            // it must outrank anything already stamped in this window on the
+            // same millisecond (#859 round 4).
             useMapStore.setState({
               target: map.target,
               targetSetAt: Number.isFinite(map.targetSetAt)
                 ? map.targetSetAt
                 : Date.now(),
+              targetSeq: nextLocalWriteSeq(),
             });
             break;
           }

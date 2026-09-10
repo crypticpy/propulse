@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import { nextLocalWriteSeq } from "@/lib/localWriteSequence";
 import { normalizeMapSpotAge } from "@/lib/map/spotAge";
 import type { SpotWindowMinutes } from "@/lib/api/spotFeed";
 import { type RegionPreset, DEFAULT_REGION_PRESETS } from "@/types/map";
@@ -397,6 +398,15 @@ export interface MapState {
    * for rendering, so it never needs to be in a selector.
    */
   targetSetAt: number;
+  /**
+   * `nextLocalWriteSeq()` of the same write, the tie-break for `targetSetAt`
+   * (#859 round 4). Two writes can share a millisecond — a local pick and an
+   * operating cursor arriving over the transport can be processed in one
+   * event-loop turn — and a strict `>` on the timestamp alone would keep the
+   * older of the two. Compared only when the timestamps are equal, and only
+   * against another sequence number taken in this same window.
+   */
+  targetSeq: number;
 
   // Recent targets history (max 10)
   recentTargets: TargetLocation[];
@@ -1402,6 +1412,7 @@ const initialState = {
   timeScenarios: loadTimeScenarios(),
   target: null,
   targetSetAt: 0,
+  targetSeq: 0,
   recentTargets: loadRecentTargets(),
   rotation: { x: 23.5, y: 0 }, // Earth's axial tilt
   zoom: 1,
@@ -1548,6 +1559,7 @@ export const useMapStore = create<MapState>((set, get) => ({
         target: scenario.target || state.target,
         // Only a scenario that carries its own target is a target write.
         targetSetAt: scenario.target ? Date.now() : state.targetSetAt,
+        targetSeq: scenario.target ? nextLocalWriteSeq() : state.targetSeq,
       };
     }),
 
@@ -1555,7 +1567,12 @@ export const useMapStore = create<MapState>((set, get) => ({
     set((state) => {
       // If target is null, just clear it without affecting recent targets
       if (!target) {
-        return { target: null, targetSetAt: Date.now(), isolateTargetPath: false };
+        return {
+          target: null,
+          targetSetAt: Date.now(),
+          targetSeq: nextLocalWriteSeq(),
+          isolateTargetPath: false,
+        };
       }
 
       // Add to recent targets (avoiding duplicates by lat/lon)
@@ -1579,7 +1596,12 @@ export const useMapStore = create<MapState>((set, get) => ({
       }
 
       saveRecentTargets(updatedRecent);
-      return { target, targetSetAt: Date.now(), recentTargets: updatedRecent };
+      return {
+        target,
+        targetSetAt: Date.now(),
+        targetSeq: nextLocalWriteSeq(),
+        recentTargets: updatedRecent,
+      };
     }),
 
   clearRecentTargets: () =>

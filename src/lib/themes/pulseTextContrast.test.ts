@@ -58,7 +58,8 @@
  *   1. Element scan -- every `className` attribute (string, template
  *      literal, `cn()`/`clsx()`/`twMerge()` call, or a same-file `const x =
  *      \`...\`` template resolved through a bare `className={x}`) on a
- *      `span`/`p`/`div`/`button`. Flags it when the class set contains the
+ *      intrinsic text-bearing element (any lowercase tag except graphics,
+ *      media and void elements). Flags it when the class set contains the
  *      pulse class together with either a `text-<color>` class or actual
  *      text-bearing content (non-whitespace text or a `{...}` child) on that
  *      same element.
@@ -98,7 +99,23 @@ const TEXT_COLOR_CLASS_RE = new RegExp(
  * scope per the module doc above) -- never match it as the Tailwind pulse. */
 const PULSE_CLASS_RE = new RegExp(`${PULSE_CLASS}(?!-glow)`);
 
-const TEXT_BEARING_TAGS = new Set(["span", "p", "div", "button"]);
+/** Intrinsic elements that never carry rendered text of their own (graphics,
+ * media, void and embedded content). Every other lowercase HTML tag is
+ * treated as text-bearing -- `a`, headings, `label`, `li`, `td`, `input`,
+ * `textarea` and the rest -- so a pulsing tinted link or heading is caught
+ * the same way a `span` is (Codex, PR #874 round 6: a four-tag whitelist let
+ * those through unscanned). Capitalised component tags stay skipped: what
+ * they render is not knowable from the call site. */
+const NON_TEXT_TAGS = new Set([
+  "svg", "path", "circle", "ellipse", "rect", "line", "polyline", "polygon",
+  "g", "defs", "use", "mask", "clipPath", "linearGradient", "radialGradient",
+  "stop", "pattern", "filter", "img", "picture", "source", "canvas", "video",
+  "audio", "track", "iframe", "object", "embed", "hr", "br", "wbr", "area",
+  "map", "progress", "meter",
+]);
+function isTextBearingTag(tag: string): boolean {
+  return /^[a-z]/.test(tag) && !NON_TEXT_TAGS.has(tag);
+}
 
 /** Substring (whitespace-insensitive) that must still be present -- proves
  * an audited site wasn't just deleted, so the guard can't pass on a stale
@@ -687,7 +704,7 @@ interface Violation {
   index: number;
 }
 
-/** Element scan: flags a `span`/`p`/`div`/`button` whose className carries
+/** Element scan: flags any intrinsic text-bearing element whose className carries
  * the pulse class together with a text-color class or text-bearing
  * children. `normalizedSource` must already be whitespace-normalized (see
  * `normalize`) -- `scanSourceForViolations` does this once for both scans
@@ -697,7 +714,7 @@ function findElementViolations(normalizedSource: string): Violation[] {
   const constMap = collectConstTemplateMap(normalizedSource);
   const violations: Violation[] = [];
   for (const site of findClassNameSites(normalizedSource, constMap)) {
-    if (!site.tag || !TEXT_BEARING_TAGS.has(site.tag)) continue;
+    if (!site.tag || !isTextBearingTag(site.tag)) continue;
     const pulseMatch = PULSE_CLASS_RE.exec(site.raw);
     if (!pulseMatch) continue;
     const tinted = TEXT_COLOR_CLASS_RE.test(site.raw);
@@ -871,6 +888,27 @@ describe("scanSourceForViolations catches every spelling (fixture proofs, #878)"
       };
     `;
     expect(scanSourceForViolations(fixture)).not.toEqual([]);
+  });
+
+  it("catches a pulsing tinted link, heading and input, not only span/p/div/button", () => {
+    for (const fixture of [
+      '<a href="#" className="text-alert-red animate-pulse">retry</a>',
+      '<h2 className="animate-pulse text-caution-amber">Alert</h2>',
+      '<input className="text-alert-red animate-pulse" value="x" />',
+      '<label className="animate-pulse text-signal-green">TX</label>',
+    ]) {
+      expect(scanSourceForViolations(fixture), fixture).not.toEqual([]);
+    }
+  });
+
+  it("does not flag graphics or void elements that carry a text-color class for currentColor", () => {
+    for (const fixture of [
+      '<svg className="animate-pulse text-alert-red" viewBox="0 0 8 8"><circle r="4" /></svg>',
+      '<img className="animate-pulse text-alert-red" alt="" />',
+      '<hr className="animate-pulse text-alert-red" />',
+    ]) {
+      expect(scanSourceForViolations(fixture), fixture).toEqual([]);
+    }
   });
 
   it("does not flag a decorative sibling with no text-bearing signal", () => {

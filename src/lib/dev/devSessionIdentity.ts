@@ -27,9 +27,23 @@ export const DEV_SESSION_IDENTITY_PATH = "/__propulse_dev_session";
 export const DEV_SESSION_FALLBACK_HOST = "127.0.0.1";
 export const DEV_SESSION_FALLBACK_PORT = 5173;
 
-// Wildcard and IPv6-loopback binds are not dialable as-is by the scripts that
-// consume this identity, which all require a literal 127.0.0.1 origin.
-const LOOPBACK_EQUIVALENT = new Set(["::", "0.0.0.0", "::1", "127.0.0.1"]);
+// Wildcard binds are not dialable as-is, so they are reported as 127.0.0.1:
+// `0.0.0.0` accepts every IPv4 interface including loopback, and node binds
+// `::` dual-stack by default, so 127.0.0.1 reaches both.
+//
+// `::1` is deliberately NOT in this set. A socket bound explicitly to the IPv6
+// loopback refuses connections to 127.0.0.1 — rewriting it would advertise an
+// unreachable URL. It is reported as-is (and bracketed in the url), which is
+// truthful: consumers that require a literal 127.0.0.1 origin then refuse it,
+// which is the correct outcome for a server they genuinely cannot reach.
+const WILDCARD_BIND = new Set(["::", "0.0.0.0"]);
+
+// RFC 3986 requires an IPv6 literal to be bracketed in a URL authority.
+function formatIdentityOrigin(host: string, port: number): string {
+  return host.includes(":")
+    ? `http://[${host}]:${port}`
+    : `http://${host}:${port}`;
+}
 
 /**
  * `profile` is deliberately never "local"/"connected" here: those are reserved
@@ -59,7 +73,7 @@ export function resolveIdentityAddress(
   address: AddressInfo | string | null | undefined,
 ): { host: string; port: number } | null {
   if (!address || typeof address !== "object") return null;
-  const host = LOOPBACK_EQUIVALENT.has(address.address)
+  const host = WILDCARD_BIND.has(address.address)
     ? DEV_SESSION_FALLBACK_HOST
     : address.address;
   return { host, port: address.port };
@@ -84,7 +98,7 @@ export function buildManualDevSessionIdentity(options: {
     root: options.root,
     pid: options.pid,
     port: resolved.port,
-    url: `http://${resolved.host}:${resolved.port}`,
+    url: formatIdentityOrigin(resolved.host, resolved.port),
     startedAt: null,
   };
 }

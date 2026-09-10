@@ -543,6 +543,20 @@ test("findForwardedOverrideFlags catches port/host/strictPort overrides in every
   assert.deepEqual(findForwardedOverrideFlags([]), []);
 });
 
+// PR #894 round 4: an IPv6 --host value must not change how the override is
+// detected or which port gets guarded — findForwardedOverrideFlags only
+// looks at the flag token itself, and parseForwardedPort ignores --host
+// entirely (it only ever extracts a port), so the equals and split forms of
+// an IPv6 --host must behave identically to each other and to an IPv4 one.
+test("an IPv6 --host value is detected identically in equals and split form, and never affects the parsed port", () => {
+  const equalsForm = ["--host=::1", "--port=5180"];
+  const splitForm = ["--host", "::1", "--port", "5180"];
+  assert.equal(findForwardedOverrideFlags(equalsForm).length, 2);
+  assert.equal(findForwardedOverrideFlags(splitForm).length, 2);
+  assert.equal(parseForwardedPort(equalsForm), 5180);
+  assert.equal(parseForwardedPort(splitForm), 5180);
+});
+
 function fakeChildFactory(calls) {
   return (bin, args) => {
     calls.push({ bin, args });

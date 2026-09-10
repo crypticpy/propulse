@@ -49,13 +49,22 @@ describe("resolveIdentityAddress", () => {
     });
   });
 
-  it("normalizes wildcard and IPv6-loopback binds to a dialable 127.0.0.1", () => {
-    for (const wildcard of ["::", "0.0.0.0", "::1"]) {
+  it("normalizes wildcard binds to a dialable 127.0.0.1", () => {
+    // `0.0.0.0` accepts every IPv4 interface and node binds `::` dual-stack,
+    // so 127.0.0.1 genuinely reaches both.
+    for (const wildcard of ["::", "0.0.0.0"]) {
       expect(resolveIdentityAddress(tcp(wildcard, 5173))).toEqual({
         host: "127.0.0.1",
         port: 5173,
       });
     }
+  });
+
+  it("preserves an explicit ::1 bind, which 127.0.0.1 cannot reach", () => {
+    expect(resolveIdentityAddress(tcp("::1", 5173))).toEqual({
+      host: "::1",
+      port: 5173,
+    });
   });
 
   it("passes an explicit non-loopback bind address through unchanged", () => {
@@ -91,6 +100,19 @@ describe("buildManualDevSessionIdentity", () => {
       url: "http://127.0.0.1:5180",
       startedAt: null,
     });
+  });
+
+  it("brackets an IPv6 literal in the url, per RFC 3986", () => {
+    const identity = buildManualDevSessionIdentity({
+      address: tcp("::1", 5180),
+      root: "/repo",
+      profile: "manual",
+      pid: 7,
+    });
+    expect(identity.url).toBe("http://[::1]:5180");
+    // Round-trips through WHATWG URL, which is what every consumer parses with.
+    expect(new URL(identity.url).port).toBe("5180");
+    expect(new URL(identity.url).hostname).toBe("[::1]");
   });
 
   it("falls back to 5173 only when the server reports no address", () => {

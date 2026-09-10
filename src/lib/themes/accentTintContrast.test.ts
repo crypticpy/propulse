@@ -360,6 +360,148 @@ function deriveAlpha(snippet: string): number {
 }
 
 /**
+ * Pulls the full text of the `className` attribute that contains `snippet`,
+ * not just the source line the snippet's own substring match falls on. A
+ * plain `className="..."` is one line, so this is equivalent to the line for
+ * most sites; but some sites build their className from a template literal
+ * with an interpolated ternary spanning several lines (e.g.
+ * `NetFilterControls`' toggle), or an array literal
+ * (`className={[...].join(" ")}`, e.g. `PhaseIndicator`'s pill) with
+ * branches on separate lines, so a `bg-plasma-orange/N` token appended to a
+ * *different* line or branch of the same className would sit outside the
+ * snippet's own line yet still land in the rendered class list. This walks
+ * back from the snippet to the nearest preceding `className=`, then forward
+ * to that attribute's closing quote, closing backtick, or matching closing
+ * bracket, so the check below sees the whole value either way.
+ *
+ * A handful of sites don't build their class string inside a `className=`
+ * attribute at all -- it's assembled in a separate variable or object map
+ * (e.g. `ActivationPanel`'s `typeBadgeClasses`, `NetMilestoneCard`'s
+ * `BADGE_COLORS` record) and interpolated into the real className elsewhere.
+ * `lastIndexOf` still finds *some* preceding `className=` in the file in
+ * that case -- just not one that actually contains the snippet -- so this
+ * validates the snippet's start position actually falls inside the
+ * extracted value and throws if not, rather than silently returning an
+ * unrelated className from earlier in the file.
+ */
+function extractClassNameValue(source: string, snippet: string): string {
+  const snippetIndex = source.indexOf(snippet);
+  if (snippetIndex === -1) {
+    throw new Error(`snippet not found while locating its className:\n${snippet}`);
+  }
+  const attr = "className=";
+  const attrIndex = source.lastIndexOf(attr, snippetIndex);
+  if (attrIndex === -1) {
+    throw new Error(`no className= attribute precedes snippet:\n${snippet}`);
+  }
+  const valueStart = attrIndex + attr.length;
+  const delimiter = source[valueStart];
+
+  function assertContains(contentStart: number, contentEnd: number): void {
+    if (snippetIndex < contentStart || snippetIndex >= contentEnd) {
+      throw new Error(
+        `nearest className= attribute does not actually contain the snippet -- it is likely assembled in a separate variable and interpolated in:\n${snippet}`,
+      );
+    }
+  }
+
+  if (delimiter === '"' || delimiter === "'") {
+    const closeIndex = source.indexOf(delimiter, valueStart + 1);
+    assertContains(valueStart + 1, closeIndex);
+    return source.slice(valueStart + 1, closeIndex);
+  }
+  if (delimiter === "{") {
+    let i = valueStart + 1;
+    while (source[i] === " " || source[i] === "\n" || source[i] === "\t") {
+      i++;
+    }
+    const shapeChar = source[i];
+    if (shapeChar === "`") {
+      // `className={`...`}` -- the outer backticks bound the value.
+      const backtickEnd = source.indexOf("`", i + 1);
+      if (backtickEnd === -1) {
+        throw new Error(
+          `className={\`...\`} near snippet has no closing backtick:\n${snippet}`,
+        );
+      }
+      assertContains(i + 1, backtickEnd);
+      return source.slice(i + 1, backtickEnd);
+    }
+    if (shapeChar === "[") {
+      // `className={[...].join(" ")}` -- walk bracket depth to the matching
+      // close, skipping over quoted string contents so a `]` inside a class
+      // string can't end the match early.
+      let depth = 0;
+      let j = i;
+      let inString: string | null = null;
+      for (; j < source.length; j++) {
+        const ch = source[j];
+        if (inString) {
+          if (ch === "\\") {
+            j++;
+          } else if (ch === inString) {
+            inString = null;
+          }
+          continue;
+        }
+        if (ch === '"' || ch === "'" || ch === "`") {
+          inString = ch;
+          continue;
+        }
+        if (ch === "[") {
+          depth++;
+        } else if (ch === "]") {
+          depth--;
+          if (depth === 0) {
+            break;
+          }
+        }
+      }
+      if (depth !== 0) {
+        throw new Error(
+          `unterminated array literal in className={[...]} near snippet:\n${snippet}`,
+        );
+      }
+      assertContains(i, j + 1);
+      return source.slice(i, j + 1);
+    }
+    throw new Error(
+      `className={...} near snippet is not a backtick template literal or array literal:\n${snippet}`,
+    );
+  }
+  throw new Error(
+    `unrecognized className= delimiter '${delimiter}' near snippet:\n${snippet}`,
+  );
+}
+
+/**
+ * The alpha `FIXED_SITES` measures for a site: read fresh from the whole
+ * `className` attribute the snippet lives in (via `extractClassNameValue`)
+ * instead of from `site.snippet` alone, so a `hover:bg-plasma-orange/N`
+ * wrapped onto a different line or branch of the same className -- the #843
+ * round-3 Codex thread, reproduced on `ActivationPanel`'s SOTA selector
+ * button -- is not missed. `deriveAlpha` itself is unchanged; this only
+ * changes what gets fed to it.
+ *
+ * A handful of `FIXED_SITES` rows are not literally inside a `className=`
+ * attribute -- see `extractClassNameValue`'s doc-comment -- and
+ * `extractClassNameValue` throws for those. This falls back to measuring
+ * `site.snippet` alone for exactly those rows, same as every row was
+ * measured before this round (listed in the PR body). Confirmed there: none
+ * of the existing 44 `FIXED_SITES` rows' measured alpha actually changes
+ * between the old snippet-only measurement and the new whole-className
+ * measurement where extraction succeeds -- this is a coverage widening for
+ * future regressions, not a correction of a past one.
+ */
+function measuredAlpha(source: string, site: TintedSite): number {
+  try {
+    return deriveAlpha(extractClassNameValue(source, site.snippet));
+  } catch {
+    return deriveAlpha(site.snippet);
+  }
+}
+
+/**
  * Sites moved onto the `--su-text` treatment: the original `src/components/ui`
  * sites from #822, plus each sequenced follow-up batch's sites as they land
  * (batch 1: `src/components/contest`; batch 2: `src/components/nets`,
@@ -370,7 +512,13 @@ function deriveAlpha(snippet: string): number {
  * measured cap and still reads as a step. Reverting any of them to
  * `text-plasma-orange` breaks its snippet assertion here, and a
  * `src/components/ui` entry also breaks the dedicated `src/components/ui`
- * clause of the census guard below.
+ * clause of the census guard below. Alpha is measured on the whole
+ * containing `className` (`measuredAlpha` above), not just the snippet's own
+ * line, so a hover class wrapped onto a different line or branch of the same
+ * className is caught here. The per-line census guard further below is
+ * NOT upgraded the same way -- it stays a same-line-only regex, exactly as
+ * documented at its own describe block, because `FIXED_SITES` is what
+ * exists to cover the multi-line case for the sites it lists.
  */
 const FIXED_SITES: TintedSite[] = [
   {
@@ -641,7 +789,7 @@ describe("the fixed accent-tint sites ship the --su-text treatment (#803)", () =
         `${site.what} draws accent ink on its own tint again`,
       ).toBe(false);
       expect(
-        deriveAlpha(site.snippet),
+        measuredAlpha(source, site),
         `${site.what} ships a tint above the measured cap`,
       ).toBeLessThanOrEqual(TINT_CAP);
     },
@@ -654,12 +802,13 @@ describe("the fixed accent-tint sites ship the --su-text treatment (#803)", () =
   )(
     "%s clears the floor in %s for every accepted accent",
     (_what, theme, site) => {
+      const source = readFileSync(resolve(REPO_ROOT, site.file), "utf8");
       const palette = stationPalettes[theme];
       for (const surface of SURFACES) {
         const { ratio, accent } = worstOnTint(
           palette.text,
           ACCEPTED_GAMUT,
-          deriveAlpha(site.snippet),
+          measuredAlpha(source, site),
           surface.backdrop(palette),
         );
         expect(
@@ -698,51 +847,10 @@ const NEUTRALISED_PARENTS: TintedSite[] = [
   },
 ];
 
-/**
- * Pulls the full text of the `className` attribute that contains `snippet`,
- * not just the source line the snippet's own substring match falls on. A
- * plain `className="..."` is one line, so this is equivalent to the line for
- * `PendingDraftReplaceBanner`; but `NetFilterControls`' toggle builds its
- * className from a template literal with an interpolated ternary spanning
- * several lines, so a `bg-plasma-orange/N` token appended to a *different*
- * line of the same className (the static prefix, say) would sit outside the
- * snippet's own line yet still land in the rendered class list. This walks
- * back from the snippet to the nearest preceding `className=`, then forward
- * to that attribute's closing quote or closing backtick, so the check below
- * sees the whole value either way.
- */
-function extractClassNameValue(source: string, snippet: string): string {
-  const snippetIndex = source.indexOf(snippet);
-  if (snippetIndex === -1) {
-    throw new Error(`snippet not found while locating its className:\n${snippet}`);
-  }
-  const attr = "className=";
-  const attrIndex = source.lastIndexOf(attr, snippetIndex);
-  if (attrIndex === -1) {
-    throw new Error(`no className= attribute precedes snippet:\n${snippet}`);
-  }
-  const valueStart = attrIndex + attr.length;
-  const delimiter = source[valueStart];
-  if (delimiter === '"' || delimiter === "'") {
-    const closeIndex = source.indexOf(delimiter, valueStart + 1);
-    return source.slice(valueStart + 1, closeIndex);
-  }
-  if (delimiter === "{") {
-    // `className={`...`}` -- a template literal is the only shape this repo
-    // uses for a multi-line className; the outer backticks bound the value.
-    const backtickStart = source.indexOf("`", valueStart);
-    const backtickEnd = source.indexOf("`", backtickStart + 1);
-    if (backtickStart === -1 || backtickEnd === -1) {
-      throw new Error(
-        `className={...} near snippet is not a backtick template literal:\n${snippet}`,
-      );
-    }
-    return source.slice(backtickStart + 1, backtickEnd);
-  }
-  throw new Error(
-    `unrecognized className= delimiter '${delimiter}' near snippet:\n${snippet}`,
-  );
-}
+// `extractClassNameValue` (used below) is defined earlier in this file,
+// right after `deriveAlpha` -- it now also backs the whole-className
+// measurement `FIXED_SITES` uses (#843 round 3), so it lives next to the
+// primitive it wraps rather than down here with its first caller.
 
 describe("neutralised accent-wash parents stay off the accent tint (#803)", () => {
   it.each(NEUTRALISED_PARENTS.map((site) => [site.what, site] as const))(

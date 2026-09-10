@@ -6,6 +6,7 @@ import {
   mkdtemp,
   readFile,
   readdir,
+  rename,
   rm,
   utimes,
   writeFile,
@@ -689,6 +690,77 @@ test("acquireStartupLock reclaims a lock older than the staleness threshold, eve
     JSON.stringify({ pid: process.pid, startedAt: Date.now() - 120_000 }),
   );
   await assert.doesNotReject(acquireStartupLock(lockPath));
+  await releaseStartupLock(lockPath);
+});
+
+// PR #894 round 7 P1: reclaiming a stale startup lock used to be
+// check-then-unlink, so two callers could both observe the same stale lock
+// and the second caller's unlink could delete the first caller's already
+// fresh (`wx`-recreated) lock, letting both proceed into the critical
+// section at once. Reclaiming now renames the stale lock to a
+// pid+timestamp-unique tombstone first — atomic, and only one racing
+// caller's rename can ever succeed — so ownership is only ever established
+// by a subsequent successful `wx`, never by winning the rename itself.
+test("acquireStartupLock: N=8 concurrent acquisitions against one dead-pid lock — exactly one owner at a time, and every caller eventually acquires after release", async (t) => {
+  const lockPath = await lockFile(t);
+  await writeFile(lockPath, JSON.stringify({ pid: 0, startedAt: Date.now() }));
+  const N = 8;
+  let holders = 0;
+  let sawOverlap = false;
+  const finished = [];
+
+  // acquireStartupLock itself fails fast (by design) against a lock another
+  // caller is legitimately, currently holding — it never spin-waits. A
+  // stress harness proving liveness under contention has to do that
+  // retrying itself, exactly as a real caller who wants to wait would.
+  async function acquireWithRetry() {
+    for (;;) {
+      try {
+        await acquireStartupLock(lockPath);
+        return;
+      } catch {
+        await new Promise((resolve) =>
+          setTimeout(resolve, 2 + Math.random() * 8),
+        );
+      }
+    }
+  }
+
+  async function run(i) {
+    await new Promise((resolve) => setTimeout(resolve, Math.random() * 5));
+    await acquireWithRetry();
+    holders++;
+    if (holders > 1) sawOverlap = true;
+    await new Promise((resolve) => setTimeout(resolve, Math.random() * 5));
+    holders--;
+    finished.push(i);
+    await releaseStartupLock(lockPath);
+  }
+
+  await Promise.all(Array.from({ length: N }, (_, i) => run(i)));
+  assert.equal(sawOverlap, false);
+  assert.equal(finished.length, N);
+});
+
+// PR #894 round 7 P1: a caller that loses the rename race (another caller
+// already renamed the stale lock away first) must see ENOENT, treat it as
+// "the lock is gone either way", and retry `wx` itself rather than
+// propagating the ENOENT or giving up.
+test("acquireStartupLock retries and succeeds after losing a rename race on a stale lock (ENOENT)", async (t) => {
+  const lockPath = await lockFile(t);
+  await writeFile(lockPath, JSON.stringify({ pid: 0, startedAt: Date.now() }));
+  let calls = 0;
+  const renameFn = async (from, to) => {
+    calls++;
+    if (calls === 1) {
+      const error = new Error("simulated: another caller won the rename race");
+      error.code = "ENOENT";
+      throw error;
+    }
+    return rename(from, to);
+  };
+  await assert.doesNotReject(acquireStartupLock(lockPath, { renameFn }));
+  assert.ok(calls >= 2, "expected the lost race to trigger a retry");
   await releaseStartupLock(lockPath);
 });
 

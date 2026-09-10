@@ -24,6 +24,7 @@ import {
   readdir,
   readFile,
   realpath,
+  rename,
   rm,
   stat,
   unlink,
@@ -177,15 +178,19 @@ async function isStaleClaim(filename) {
   }
 }
 
-// A rename-then-create reclaim is atomic per-call but content-blind: a
-// delayed loser's rename can land after the winner already recreated the
-// claim file, silently displacing a live claim (found and fixed once
-// already, empirically, as an intermittent race). Rather than keep chasing
-// that class of bug, the reclaim decision (stale? unlink, then create) is
-// now a true critical section, serialized per port by an exclusive `mkdir`
-// lock directory — `mkdir` with no `recursive` option fails EEXIST if the
-// lock is already held, which is the same atomicity guarantee `open(...,
-// "wx")` gives for file creation.
+// PR #894 round 7 P2: a rename that commits *after* the lock protecting the
+// stale-reclaim decision has already been released is content-blind — a
+// delayed loser's rename can land after the winner already established a
+// live claim, silently displacing it (found and fixed once already,
+// empirically, as an intermittent race). The fix isn't "never rename"; it's
+// never releasing the lock between deciding a claim is stale and committing
+// its replacement. withReclaimLock is a true critical section, serialized
+// per port by an exclusive `mkdir` lock directory — `mkdir` with no
+// `recursive` option fails EEXIST if the lock is already held, which is the
+// same atomicity guarantee `open(..., "wx")` gives for file creation.
+// claimPort (below) performs the *entire* decide-stale + write + commit
+// sequence for a reclaim inside one held lock, so no second caller can ever
+// observe the same stale record and race a commit against this one.
 const LOCK_STALE_MS = 10_000;
 const MAX_LOCK_ATTEMPTS = 40;
 const LOCK_RETRY_DELAY_MS = 50;
@@ -233,9 +238,27 @@ async function withReclaimLock(filename, fn) {
 // TOCTOU race the per-port claim file cannot see, since each invocation
 // checks/claims a *different* port. Recorded as pid+timestamp JSON in a
 // single `wx`-created file; a lock whose pid is dead or whose timestamp is
-// older than STARTUP_LOCK_STALE_MS is stale and is removed then retried once
-// (not the long retry loop withReclaimLock uses — a stuck startup lock should
-// surface immediately as a clear refusal, not silently retry for seconds).
+// older than STARTUP_LOCK_STALE_MS is stale and reclaimed.
+//
+// PR #894 round 7 P1: reclaiming used to be check-then-unlink — two callers
+// could both observe the same stale lock, and the second caller's unlink
+// would delete the *first* caller's already-fresh (`wx`-recreated) lock,
+// letting both proceed into the critical section at once (reproduced under
+// a concurrent stress run). `unlink` is now never used to reclaim a lock
+// this call did not itself rename into place first: on a stale lock,
+// `rename(lockPath, tombstone)` is attempted, where `tombstone` embeds this
+// process's pid and a timestamp so it can never collide with another
+// caller's tombstone. Rename is atomic and the source path exists exactly
+// once, so at most one racing caller's rename can succeed; every other
+// caller's rename fails ENOENT (the source is already gone) and simply
+// loops back to retry `wx` itself, the same as the winner does after
+// unlinking its own tombstone. Ownership is therefore only ever
+// established by a successful `wx`, never by winning the rename race — the
+// rename only clears the way. A genuinely live (non-stale) lock still
+// fails fast with no retry loop, matching the existing "surface immediately"
+// behavior; the bounded retry loop exists only to let racing callers settle
+// a stale-lock reclaim, and fails closed with the same refusal message if
+// it is somehow never able to.
 export const STARTUP_LOCK_PATH = path.join(
   os.tmpdir(),
   `propulse-dev-session-${os.userInfo().uid}.lock`,
@@ -252,30 +275,89 @@ async function readStartupLockRecord(lockPath) {
 
 async function isStaleStartupLock(lockPath) {
   const record = await readStartupLockRecord(lockPath);
-  if (!record || typeof record.pid !== "number") return true;
-  if (!isAlive(record.pid)) return true;
-  return (
-    typeof record.startedAt !== "number" ||
-    Date.now() - record.startedAt > STARTUP_LOCK_STALE_MS
+  if (record && typeof record.pid === "number") {
+    if (!isAlive(record.pid)) return true;
+    return (
+      typeof record.startedAt !== "number" ||
+      Date.now() - record.startedAt > STARTUP_LOCK_STALE_MS
+    );
+  }
+  // Found during round 7 N=8 stress testing: `open(..., "wx")` and the
+  // content `writeFile` that follows it are two separate syscalls, so a
+  // reader can observe an empty/unparsable lock file in the narrow window
+  // between them, for a lock another caller is actively, legitimately
+  // finishing right now — not an abandoned one. Treating "unreadable" as
+  // automatically stale (as this used to) let a second caller reclaim a
+  // lock the first caller hadn't finished writing yet, producing exactly
+  // the double-ownership this lock exists to prevent. Mirror isStaleClaim's
+  // safer default for unreadable content — ambiguous, so judge it by the
+  // file's own age (like an abandoned reclaim lock dir) instead of content
+  // that may simply not exist yet.
+  try {
+    const info = await stat(lockPath);
+    return Date.now() - info.mtimeMs > STARTUP_LOCK_STALE_MS;
+  } catch {
+    return false;
+  }
+}
+
+const STARTUP_LOCK_MAX_ATTEMPTS = 20;
+
+function startupLockBusyError() {
+  return new Error(
+    "Another `dev:session start`/`npm run dev`/`npm run preview` is " +
+      `already starting up on this machine. ${SINGLE_SERVER_RULE} Wait ` +
+      "for it to finish and try again.",
   );
 }
 
-export async function acquireStartupLock(lockPath = STARTUP_LOCK_PATH) {
-  for (let attempt = 0; attempt < 2; attempt++) {
+export async function acquireStartupLock(
+  lockPath = STARTUP_LOCK_PATH,
+  { renameFn = rename } = {},
+) {
+  for (let attempt = 0; attempt < STARTUP_LOCK_MAX_ATTEMPTS; attempt++) {
     let handle;
     try {
       handle = await open(lockPath, "wx", 0o600);
     } catch (error) {
       if (error.code !== "EEXIST") throw error;
-      if (attempt === 0 && (await isStaleStartupLock(lockPath))) {
-        await unlink(lockPath).catch(() => {});
-        continue;
+      // Found during round 7 N=8 stress testing: deciding "stale" and then
+      // renaming are two separate steps, and rename is content-blind — it
+      // replaces whatever currently sits at the path, without checking
+      // it's still the same record the decision was made against. Without
+      // serialization, a caller that read an *earlier* generation of this
+      // file (e.g. the original dead-pid lock) could still rename away a
+      // *different* caller's newer, live lock that had since replaced it,
+      // producing the very double-ownership this lock exists to prevent.
+      // The decision and any resulting reclaim now happen entirely inside
+      // withReclaimLock's per-path critical section (the same mkdir-based
+      // lock claimPort uses for port claims) — never released in between —
+      // so at most one caller can ever be deciding this file's fate at a
+      // time, and by the time it decides, the file it's looking at cannot
+      // be superseded out from under it.
+      const stillLive = await withReclaimLock(lockPath, async () => {
+        if (!(await isStaleStartupLock(lockPath))) return true;
+        const tombstone = `${lockPath}.stale-${process.pid}-${Date.now()}`;
+        try {
+          await renameFn(lockPath, tombstone);
+          // We won the reclaim: the tombstone path is unique to this
+          // pid+timestamp, so no other caller could have produced or be
+          // racing to touch it — always safe to unlink.
+          await unlink(tombstone).catch(() => {});
+        } catch (renameError) {
+          if (renameError.code !== "ENOENT") throw renameError;
+          // Lost a race to something outside this lock's own protection
+          // (e.g. the owner's own concurrent release) — the lock is gone
+          // either way, so fall through and retry `wx`.
+        }
+        return false;
+      });
+      if (stillLive) {
+        // Live lock: fail fast, no retry loop — a genuinely busy startup
+        // should surface immediately as a clear refusal, not retry.
+        throw startupLockBusyError();
       }
-      throw new Error(
-        "Another `dev:session start`/`npm run dev`/`npm run preview` is " +
-          `already starting up on this machine. ${SINGLE_SERVER_RULE} Wait ` +
-          "for it to finish and try again.",
-      );
+      continue;
     }
     try {
       await handle.writeFile(
@@ -286,37 +368,70 @@ export async function acquireStartupLock(lockPath = STARTUP_LOCK_PATH) {
     }
     return;
   }
+  throw startupLockBusyError();
 }
 
 export async function releaseStartupLock(lockPath = STARTUP_LOCK_PATH) {
   await unlink(lockPath).catch(() => {});
 }
 
-// Attempts to claim `filename` for one port. Returns null when the port is
-// held by a live (non-stale) claim — the caller should try the next
-// requested port. Returns { handle } on success: the freshly opened
-// exclusive-create file handle for the new claim.
-async function claimPort(filename) {
-  try {
-    return { handle: await open(filename, "wx", 0o600) };
-  } catch (error) {
-    if (error.code !== "EEXIST") throw error;
-  }
-  // Contended: the fast uncontended path above failed, so re-examine and
-  // (if warranted) reclaim `filename` entirely inside the lock, re-reading
-  // its state fresh rather than trusting anything observed before we held
-  // it.
+// Attempts to claim `filename` for one port, writing `buildSession()`'s
+// result as the claim's content. Returns null when the port is held by a
+// live (non-stale) claim — the caller should try the next requested port.
+// Returns { session, filename } on success.
+//
+// PR #894 round 7 P2: claim creation and reclaim-replacement both happen
+// entirely inside withReclaimLock's per-port critical section — there is no
+// fast `wx` attempt outside the lock. The prior fast path (an unlocked
+// `open(filename, "wx")` tried before ever taking the lock) could win a
+// create in the exact window a *different*, lock-holding caller had just
+// unlinked the same stale claim but not yet recreated it, so the
+// lock-holder's own follow-up `open(..., "wx")` failed with a raw,
+// unhandled EEXIST instead of the normal "unavailable" result (this is
+// what made the `three racing claimants` stress test fail intermittently).
+// Reclaiming a stale claim also no longer unlinks then creates: it writes
+// the replacement to a temp path unique to this pid+call, then commits with
+// one `rename` over the stale file. Because the temp write and the rename
+// both happen without ever releasing the lock in between, no other caller
+// can be mid-decision on the same stale record when the rename lands, so
+// the "content-blind" rename race described above withReclaimLock can't
+// recur even though rename (unlike `wx`) will silently replace a target
+// that changed underneath it — that's the property the lock is protecting.
+async function claimPort(filename, buildSession) {
   return withReclaimLock(filename, async () => {
+    let handle;
     try {
-      return { handle: await open(filename, "wx", 0o600) };
+      handle = await open(filename, "wx", 0o600);
     } catch (error) {
       if (error.code !== "EEXIST") throw error;
+      handle = null;
+    }
+    if (handle) {
+      const session = buildSession();
+      try {
+        await handle.writeFile(`${JSON.stringify(session, null, 2)}\n`);
+        await handle.close();
+      } catch (error) {
+        await handle.close().catch(() => {});
+        await unlink(filename).catch(() => {});
+        throw error;
+      }
+      return { session, filename };
     }
     if (!(await isStaleClaim(filename))) return null;
-    await unlink(filename).catch((error) => {
-      if (error.code !== "ENOENT") throw error;
-    });
-    return { handle: await open(filename, "wx", 0o600) };
+    const tempPath = `${filename}.tmp-${process.pid}-${randomUUID()}`;
+    const tempHandle = await open(tempPath, "wx", 0o600);
+    const session = buildSession();
+    try {
+      await tempHandle.writeFile(`${JSON.stringify(session, null, 2)}\n`);
+      await tempHandle.close();
+      await rename(tempPath, filename);
+    } catch (error) {
+      await tempHandle.close().catch(() => {});
+      await unlink(tempPath).catch(() => {});
+      throw error;
+    }
+    return { session, filename };
   });
 }
 
@@ -333,10 +448,7 @@ export async function claimSession({
   for (const port of ports) {
     const filename = path.join(registry, `${port}.json`);
     attempted.push(filename);
-    const claimed = await claimPort(filename);
-    if (claimed === null) continue;
-    const { handle } = claimed;
-    const session = {
+    const claimed = await claimPort(filename, () => ({
       id: randomUUID(),
       owner,
       task,
@@ -346,20 +458,14 @@ export async function claimSession({
       url: `http://127.0.0.1:${port}`,
       pid: process.pid,
       startedAt: new Date().toISOString(),
-    };
-    try {
-      await handle.writeFile(`${JSON.stringify(session, null, 2)}\n`);
-      await handle.close();
-      if (!(await portAvailable(port))) {
-        await unlink(filename);
-        continue;
-      }
-      return { ...session, filename };
-    } catch (error) {
-      await handle.close().catch(() => {});
-      await unlink(filename).catch(() => {});
-      throw error;
+    }));
+    if (claimed === null) continue;
+    const { session } = claimed;
+    if (!(await portAvailable(port))) {
+      await unlink(filename);
+      continue;
     }
+    return { ...session, filename };
   }
   throw new Error(
     `No requested port is free and unclaimed (checked: ${attempted.join(", ")}). ` +

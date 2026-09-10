@@ -244,6 +244,76 @@ describe("operatingStateStore", () => {
     a.disconnect();
   });
 
+  it("relays a legacy write without inventing an author for it", async () => {
+    // Three tabs (#859 round 8). A is on a bundle too old to name an author,
+    // B is upgraded and relays A's write, C is upgraded and holds its own
+    // authored write at the same `at` with an id that sorts *below* B's.
+    //
+    // If B credits itself for what it merely delivered, that guess goes out
+    // as an explicit `by` on the relay and is indistinguishable from a
+    // first-hand claim — so C loses the equal-`at` tie-break to an id that
+    // never wrote anything, re-stamps, and a locally newer map target is
+    // overwritten on the next remount. Unknown provenance stays unknown.
+    const bus = createMemoryBus();
+    const sent: OperatingMessage[] = [];
+    bus.connect("tap").subscribe((message) => sent.push(message));
+
+    const relay = await openScreen(bus, "relay", { connect: false });
+    relay.store.setState({ deviceId: "zzz-relay" });
+    relay.connect();
+
+    // Tab A, legacy: a patch with no author at all.
+    relay.store.getState().applyMessage({
+      v: OPERATING_PROTOCOL_VERSION,
+      senderId: "mmm-legacy",
+      sentAt: 1,
+      kind: "state",
+      patch: { band: { value: "40m", at: 5_000 } },
+    });
+    expect(relay.store.getState().cursor.band).toBe("40m");
+    // Applied, but not credited to the tab that happened to deliver it.
+    expect(relay.store.getState().stamps.band.by).toBeUndefined();
+
+    // Tab C holds an authored write at the same `at`, lower id than the relay.
+    const held = await openScreen(bus, "held", { connect: false });
+    held.store.setState({
+      deviceId: "aaa-held",
+      cursor: { ...held.store.getState().cursor, band: "20m" },
+      stamps: {
+        ...held.store.getState().stamps,
+        band: { at: 5_000, by: "aaa-held", appliedAt: 5_000, appliedSeq: 0 },
+      },
+    });
+
+    sent.length = 0;
+    // Connecting sends a `hello`; the relay answers with `currentPatch`.
+    held.connect();
+
+    const relayed = sent.filter(
+      (message) => message.kind === "state" && message.senderId === "zzz-relay",
+    );
+    expect(relayed.length).toBeGreaterThan(0);
+    for (const message of relayed) {
+      if (message.kind !== "state") continue;
+      expect(message.patch.band?.value).toBe("40m");
+      // The relay carries no author, so every downstream peer applies the
+      // same authorless rule to it that the relay itself did.
+      expect(message.patch.band?.by).toBeUndefined();
+    }
+
+    // C keeps its own write, and its stamp is untouched — no re-stamp.
+    expect(held.store.getState().cursor.band).toBe("20m");
+    expect(held.store.getState().stamps.band).toEqual({
+      at: 5_000,
+      by: "aaa-held",
+      appliedAt: 5_000,
+      appliedSeq: 0,
+    });
+
+    relay.disconnect();
+    held.disconnect();
+  });
+
   describe("the Follow my other screens kill switch", () => {
     it("stops this screen sending", async () => {
       const bus = createMemoryBus();

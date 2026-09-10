@@ -179,14 +179,19 @@ export type CursorPatch = {
      * The screen that wrote the field. A `hello` reply relays another
      * screen's write verbatim, so it must name the original author or the
      * relay looks like a new write from the relaying peer and re-enters the
-     * last-writer-wins race (#859 round 5). This bundle always sends it,
-     * first-hand or relayed.
+     * last-writer-wins race (#859 round 5). This bundle sends it whenever it
+     * knows the author — which is every write of its own, and every relay of
+     * a write that arrived with one.
      *
      * Optional because a bundle older than that round cannot send it and is
      * still a supported peer — additive is the only way this wire can grow,
      * since the deployed parser drops a version it does not recognise
      * outright (see `OPERATING_PROTOCOL_VERSION`). An entry without it is
      * authorless, which `mergePatch` accepts only on a strictly newer `at`.
+     * Relaying such a write leaves it off again rather than guessing: a
+     * guessed author is indistinguishable downstream from a first-hand claim,
+     * and would win a tie-break for a screen that never wrote anything
+     * (#859 round 8).
      */
     by?: string;
   };

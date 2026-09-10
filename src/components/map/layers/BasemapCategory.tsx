@@ -236,7 +236,10 @@ export default function BasemapCategory() {
 
   return (
     <div>
-      <div className="grid grid-cols-2 gap-2">
+      {/* Two tiles side by side while a tile can hold "OpenStreetMap" on one
+          line (root 16px); at the larger Text Size scales the tiles stack
+          instead of letting the subtitle spill past the tile border. */}
+      <div className="grid grid-cols-[repeat(auto-fit,minmax(6.25rem,1fr))] gap-2">
         {options.map((opt) => {
           const isActive = mapStyle === opt.id;
           return (
@@ -244,7 +247,7 @@ export default function BasemapCategory() {
               key={opt.id}
               type="button"
               onClick={() => setMapStyle(opt.id)}
-              className={`flex flex-col items-center gap-1.5 rounded-lg p-1.5 transition-all duration-150 cursor-pointer border ${
+              className={`flex min-w-0 flex-col items-center gap-1.5 rounded-lg p-1.5 transition-all duration-150 cursor-pointer border ${
                 isActive
                   ? "border-cyan-500 bg-cyan-500/10 ring-1 ring-cyan-500/40"
                   : "border-su-line/40 bg-su-line/10 hover:bg-su-line/20 hover:border-su-line"
@@ -267,7 +270,9 @@ export default function BasemapCategory() {
                 {opt.label}
               </span>
               {opt.subtitle && (
-                <span className="text-xs text-su-text/80">{opt.subtitle}</span>
+                <span className="max-w-full break-words text-center text-xs text-su-text/80">
+                  {opt.subtitle}
+                </span>
               )}
             </button>
           );

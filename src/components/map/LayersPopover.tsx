@@ -309,31 +309,32 @@ function CategoryRow({
         {label}
       </span>
 
-      {/* Count badge */}
-      {enabledCount > 0 && (
-        <span className="px-1 min-w-[1.125rem] min-h-4 flex items-center justify-center rounded-[4px] bg-su-line/20 text-xs font-semibold tabular-nums text-su-text/80">
-          {enabledCount}/{totalCount}
-        </span>
-      )}
-
-      {/* Chevron */}
-      <svg
-        viewBox="0 0 6 10"
-        fill="none"
-        className={`w-[6px] h-[10px] shrink-0 transition-all duration-100 ${
-          isActive
-            ? "text-su-text/60 translate-x-0.5"
-            : "text-su-text/30 group-hover:text-su-text/40"
-        }`}
-      >
-        <path
-          d="M1 1l4 4-4 4"
-          stroke="currentColor"
-          strokeWidth="1.4"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        />
-      </svg>
+      {/* Count badge + chevron wrap as one unit, so a row that breaks puts
+          "3/4 >" on the second line rather than orphaning the chevron. */}
+      <span className="ml-auto flex shrink-0 items-center gap-2">
+        {enabledCount > 0 && (
+          <span className="px-1 min-w-[1.125rem] min-h-4 flex items-center justify-center rounded-[4px] bg-su-line/20 text-xs font-semibold tabular-nums text-su-text/80">
+            {enabledCount}/{totalCount}
+          </span>
+        )}
+        <svg
+          viewBox="0 0 6 10"
+          fill="none"
+          className={`w-[6px] h-[10px] shrink-0 transition-all duration-100 ${
+            isActive
+              ? "text-su-text/60 translate-x-0.5"
+              : "text-su-text/30 group-hover:text-su-text/40"
+          }`}
+        >
+          <path
+            d="M1 1l4 4-4 4"
+            stroke="currentColor"
+            strokeWidth="1.4"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        </svg>
+      </span>
     </div>
   );
 }

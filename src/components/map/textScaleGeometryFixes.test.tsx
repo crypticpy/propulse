@@ -893,3 +893,36 @@ describe("SatelliteFilters (round-10 fix: tracking-status footer wraps in the fi
     );
   });
 });
+
+describe("LayersPopover (round-10 design review: count badge and chevron wrap as one unit)", () => {
+  it("groups the count badge with the chevron so a wrapped row never orphans the chevron", () => {
+    const source = readFileSync(
+      resolve(REPO_ROOT, "src/components/map/LayersPopover.tsx"),
+      "utf8",
+    );
+    const lines = source.split("\n");
+    const groupIndex = lines.findIndex((line) =>
+      line.includes('<span className="ml-auto flex shrink-0 items-center gap-2">'),
+    );
+    expect(groupIndex).toBeGreaterThanOrEqual(0);
+    const after = lines.slice(groupIndex, groupIndex + 30).join("\n");
+    expect(after).toContain("{enabledCount}/{totalCount}");
+    expect(after).toContain('viewBox="0 0 6 10"');
+  });
+});
+
+describe("BasemapCategory (round-10 design review: basemap tiles stack before the subtitle spills)", () => {
+  it("uses auto-fit tile columns and a wrapping subtitle instead of a fixed two-column grid", () => {
+    const source = readFileSync(
+      resolve(REPO_ROOT, "src/components/map/layers/BasemapCategory.tsx"),
+      "utf8",
+    );
+    expect(source).not.toContain('className="grid grid-cols-2 gap-2"');
+    expect(source).toContain(
+      "grid-cols-[repeat(auto-fit,minmax(6.25rem,1fr))]",
+    );
+    expect(source).toContain(
+      'className="max-w-full break-words text-center text-xs text-su-text/80"',
+    );
+  });
+});

@@ -990,17 +990,18 @@ export function Waterfall({
 
       {effectiveView &&
         overlayPositions.map((o, idx) => {
-          // The marker line stays vivid (no text on it, so no contrast
-          // budget), but the label pill draws text over its own tint and
-          // must stay within the measured accent-ink cap (#803).
+          // The marker line stays vivid and carries no text-* class (it has
+          // no text content, so it needs no ink), but the label pill draws
+          // text over its own tint and must stay within the measured
+          // accent-ink cap (#803).
           const lineColorClass =
             o.color === "orange"
               ? "bg-plasma-orange/70"
               : o.color === "red"
-                ? "bg-alert-red/70 text-alert-red"
+                ? "bg-alert-red/70"
                 : o.color === "green"
-                  ? "bg-signal-green/70 text-signal-green"
-                  : "bg-cosmic-cyan/70 text-cosmic-cyan";
+                  ? "bg-signal-green/70"
+                  : "bg-cosmic-cyan/70";
           const labelColorClass =
             o.color === "orange"
               ? "bg-plasma-orange/20 text-su-text"

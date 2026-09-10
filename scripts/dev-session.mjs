@@ -1,5 +1,11 @@
 #!/usr/bin/env node
-/** Foreground Vite sessions with machine-wide, per-user port claims. */
+/**
+ * One shared foreground Vite dev server per machine, on port 5173.
+ * `start` refuses when any other server (managed or unmanaged) is already
+ * running. Agents never start their own; the human or orchestrator owns the
+ * single shared session. See docs/guides/LOCAL-AGENT-TESTING.md.
+ */
+import { execFileSync } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import {
   mkdir,
@@ -18,7 +24,10 @@ export const REGISTRY = path.join(
   os.tmpdir(),
   `propulse-dev-${os.userInfo().uid}`,
 );
-export const DEFAULT_PORTS = Array.from({ length: 20 }, (_, i) => 5180 + i);
+export const SHARED_PORT = 5173;
+export const DEFAULT_PORTS = [SHARED_PORT];
+export const SINGLE_SERVER_RULE =
+  "One dev server per machine. Use http://localhost:5173 (shared). Ask the orchestrator if it is not running.";
 
 export function parseOptions(args) {
   const [command = "status", ...rest] = args;
@@ -61,6 +70,18 @@ export function parseOptions(args) {
     throw new Error(
       "Start requires --owner <short-slug> and --task <description, up to 160 characters>.",
     );
+  }
+  if (command === "start") {
+    if (options.port === undefined) options.port = SHARED_PORT;
+    if (
+      options.port !== SHARED_PORT &&
+      process.env.DEV_SERVER_ALLOW_EXTRA !== "1"
+    ) {
+      throw new Error(
+        `Only port ${SHARED_PORT} is allowed: ${SINGLE_SERVER_RULE} ` +
+          "Set DEV_SERVER_ALLOW_EXTRA=1 to use a different port (owner escape hatch only, not for agents).",
+      );
+    }
   }
   return options;
 }
@@ -186,6 +207,43 @@ export async function listSessions(registry = REGISTRY) {
   );
 }
 
+// Any live managed session, regardless of owner/task/root: this tool enforces
+// exactly one dev server for the whole machine, not just per owner/task.
+export async function findLiveSession(registry = REGISTRY) {
+  const sessions = await listSessions(registry);
+  return (
+    sessions.find((entry) => entry.processState === "running-or-starting") ??
+    null
+  );
+}
+
+// Best-effort detection of an unmanaged Vite process (e.g. a plain
+// `npm run dev`), which the registry cannot see. Never throws: pgrep being
+// unavailable or matching nothing must not block a genuinely free machine.
+export function findUnmanagedViteProcesses() {
+  try {
+    const out = execFileSync("pgrep", ["-fl", "vite"], { encoding: "utf8" });
+    return out
+      .trim()
+      .split("\n")
+      .filter(Boolean)
+      .filter((line) => !/dev-session\.mjs/.test(line));
+  } catch {
+    return [];
+  }
+}
+
+// Registry-only check: unit-testable in isolation from the real machine's
+// process table (see findUnmanagedViteProcesses for the OS-level half).
+export async function assertNoRunningServer(registry = REGISTRY) {
+  const live = await findLiveSession(registry);
+  if (live) {
+    throw new Error(
+      `A dev server is already running: owner=${live.owner} task=${live.task} at ${live.url}. ${SINGLE_SERVER_RULE}`,
+    );
+  }
+}
+
 export async function startSession(options) {
   const root = await realpath(process.cwd());
   const manifest = JSON.parse(
@@ -193,17 +251,11 @@ export async function startSession(options) {
   );
   if (manifest.name !== "propulse")
     throw new Error("Run from the ProPulse checkout/worktree root.");
-  const existing = (await listSessions()).find(
-    (entry) =>
-      entry.root === root &&
-      entry.owner === options.owner &&
-      entry.task === options.task &&
-      entry.profile === options.profile &&
-      entry.processState === "running-or-starting",
-  );
-  if (existing) {
+  await assertNoRunningServer();
+  const unmanaged = findUnmanagedViteProcesses();
+  if (unmanaged.length) {
     throw new Error(
-      `This owner/task already has session ${existing.id} at ${existing.url}. Verify its identity and reuse it; use a distinct task for an independent scenario.`,
+      `A Vite process is already running on this machine, unmanaged by this tool:\n${unmanaged.join("\n")}\n${SINGLE_SERVER_RULE}`,
     );
   }
   const session = await claimSession({
@@ -287,7 +339,10 @@ async function main() {
   const options = parseOptions(process.argv.slice(2));
   if (options.command === "help") {
     console.log(
-      "npm run dev:session -- status\nnpm run dev:session -- start --owner <agent-slug> --task <description> [--profile connected|local] [--port 5180]\nSee docs/guides/LOCAL-AGENT-TESTING.md. Servers run in the foreground; no takeover or automatic stale-claim deletion.",
+      `npm run dev:session -- status\nnpm run dev:session -- start --owner <agent-slug> --task <description> [--profile connected|local]\n` +
+        `${SINGLE_SERVER_RULE}\n` +
+        "start refuses if any dev server (managed or unmanaged) is already running. Port is always 5173 " +
+        "unless DEV_SERVER_ALLOW_EXTRA=1 (owner escape hatch). See docs/guides/LOCAL-AGENT-TESTING.md.",
     );
   } else if (options.command === "status") {
     console.log(

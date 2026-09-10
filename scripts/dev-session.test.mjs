@@ -5,11 +5,13 @@ import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 import {
+  assertNoRunningServer,
   claimSession,
   listSessions,
   parseOptions,
   portAvailable,
   releaseSession,
+  SHARED_PORT,
 } from "./dev-session.mjs";
 
 async function registry(t) {
@@ -146,4 +148,55 @@ test("options validate ownership, profiles and strict numeric ports", () => {
     () => parseOptions(["start", "--profile", "production"]),
     /Profile/,
   );
+});
+
+test("start defaults to the shared port and rejects any other port", (t) => {
+  assert.equal(
+    parseOptions(["start", "--owner", "agent", "--task", "check"]).port,
+    SHARED_PORT,
+  );
+  assert.throws(
+    () =>
+      parseOptions([
+        "start",
+        "--owner",
+        "agent",
+        "--task",
+        "check",
+        "--port",
+        "5180",
+      ]),
+    /Only port 5173 is allowed/,
+  );
+  const priorFlag = process.env.DEV_SERVER_ALLOW_EXTRA;
+  t.after(() => {
+    if (priorFlag === undefined) delete process.env.DEV_SERVER_ALLOW_EXTRA;
+    else process.env.DEV_SERVER_ALLOW_EXTRA = priorFlag;
+  });
+  process.env.DEV_SERVER_ALLOW_EXTRA = "1";
+  assert.equal(
+    parseOptions([
+      "start",
+      "--owner",
+      "agent",
+      "--task",
+      "check",
+      "--port",
+      "5180",
+    ]).port,
+    5180,
+  );
+});
+
+test("assertNoRunningServer refuses when a live session is registered", async (t) => {
+  const dir = await registry(t);
+  await assert.doesNotReject(assertNoRunningServer(dir));
+
+  const claim = await claimSession({ ...base, registry: dir });
+  await assert.rejects(
+    assertNoRunningServer(dir),
+    /A dev server is already running: owner=agent-one task=map-check.*One dev server per machine\. Use http:\/\/localhost:5173 \(shared\)/s,
+  );
+  await releaseSession(claim);
+  await assert.doesNotReject(assertNoRunningServer(dir));
 });

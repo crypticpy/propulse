@@ -53,7 +53,7 @@ jobs:
           FILES=$(gh api "repos/${REPO}/pulls/${PR}/files" --paginate \
             --jq '.[] | .filename, (.previous_filename // empty)') \
             || { echo "::error::could not list PR files; the design-review gate cannot be evaluated (re-run the check)"; exit 1; }
-          UI=$(printf '%s\n' "$FILES" | grep -E '^(src/components/|src/pages/|src/styles/|src/lib/themes/|src/lib/widgets/|src/lib/hamclock/|src/lib/home/|src/lib/[^/]+/.*(Colors?|Layout|Tokens?|Fonts?|Styles?|Appearance)\.tsx?$|src/stores/(theme|hamclockDisplay|hamclockWidgetConfig|hamclock|kiosk|workspace|displayQuality|map|atmos|visualEffects)Store\.ts$|src/stores/[^/]*UIStore\.ts$|src/hooks/use[^/]*(Layout|Docking|Mobile|TextScale|ColorBlind|Theme|DisplayFit|DisplayQuality|DisplaySync|HighContrast|VisualEffects|Presentation|Tint|Expanded|Disclosure|Gestures|Swipe|PullToRefresh|Tour|OperatingScreen|WallAutoPage)[^/]*\.tsx?$|src/App\.tsx$|src/main\.tsx$|index\.html$|public/|tailwind\.config\.|postcss\.config\.|\.design-sync/|docs/designs/design-system/|docs/designs/.*-(spec|mock)[^/]*$|docs/designs/.*contact-sheet|docs/designs/.*\.(md|html|png|svg|jpg|webp)$)' || true)
+          UI=$(printf '%s\n' "$FILES" | grep -E '^(src/components/|src/pages/|src/styles/|src/lib/themes/|src/lib/widgets/|src/lib/hamclock/|src/lib/home/|src/lib/[^/]+/.*(Colors?|Layout|Tokens?|Fonts?|Styles?|Appearance)\.tsx?$|src/stores/(theme|hamclockDisplay|hamclockWidgetConfig|hamclock|kiosk|workspace|displayQuality|map|atmos|visualEffects)Store\.ts$|src/stores/[^/]*UI[^/]*Store\.ts$|src/hooks/use[^/]*(Layout|Docking|Mobile|TextScale|ColorBlind|Theme|DisplayFit|DisplayQuality|DisplaySync|HighContrast|VisualEffects|Presentation|Tint|Expanded|Disclosure|Gestures|Swipe|PullToRefresh|Tour|OperatingScreen|WallAutoPage)[^/]*\.tsx?$|src/App\.tsx$|src/main\.tsx$|index\.html$|public/|tailwind\.config\.|postcss\.config\.|\.design-sync/|docs/designs/design-system/|docs/designs/.*-(spec|mock)[^/]*$|docs/designs/.*contact-sheet|docs/designs/.*\.(md|html|png|svg|jpg|webp)$)' || true)
           if [ -z "$UI" ]; then
             echo "No UI paths changed; design review not required."
             exit 0
@@ -111,17 +111,31 @@ jobs:
             echo "Neither the current nor the previous comment body is a design review; nothing to re-run."
             exit 0
           fi
-          HEAD_SHA=$(gh api "repos/${REPO}/pulls/${PR}" --jq '.head.sha')
+          # Every lookup fails closed: an API error here must not read as
+          # "no run to re-run", or a retracted approval keeps its green.
+          HEAD_SHA=$(gh api "repos/${REPO}/pulls/${PR}" --jq '.head.sha') \
+            || { echo "::error::could not read the PR head; re-run this job"; exit 1; }
+          [ -n "$HEAD_SHA" ] || { echo "::error::empty PR head sha; re-run this job"; exit 1; }
           RUN_ID=$(gh api "repos/${REPO}/actions/workflows/pr-contract.yml/runs?event=pull_request&head_sha=${HEAD_SHA}&per_page=1" \
-            --jq '.workflow_runs[0].id // empty')
+            --jq '.workflow_runs[0].id // empty') \
+            || { echo "::error::could not list pr-contract runs for ${HEAD_SHA}; re-run this job"; exit 1; }
           if [ -z "$RUN_ID" ]; then
             echo "No pull_request run for ${HEAD_SHA} yet; the next push or body edit evaluates the comment."
             exit 0
           fi
-          STATUS=$(gh api "repos/${REPO}/actions/runs/${RUN_ID}" --jq '.status')
+          # A run that is still executing may already have fetched the
+          # comments, so it cannot be trusted to see this change: wait for it
+          # to finish, then re-run it (the check itself takes seconds).
+          for _ in $(seq 1 60); do
+            STATUS=$(gh api "repos/${REPO}/actions/runs/${RUN_ID}" --jq '.status') \
+              || { echo "::error::could not read run ${RUN_ID}; re-run this job"; exit 1; }
+            [ "$STATUS" = "completed" ] && break
+            sleep 10
+          done
           if [ "$STATUS" != "completed" ]; then
-            echo "Run ${RUN_ID} is ${STATUS}; it reads comments live and will see this change."
-            exit 0
+            echo "::error::run ${RUN_ID} still ${STATUS} after 10 minutes; re-run this job"
+            exit 1
           fi
-          gh api -X POST "repos/${REPO}/actions/runs/${RUN_ID}/rerun" >/dev/null
+          gh api -X POST "repos/${REPO}/actions/runs/${RUN_ID}/rerun" >/dev/null \
+            || { echo "::error::could not re-run pr-contract run ${RUN_ID}; re-run this job"; exit 1; }
           echo "Re-ran pr-contract run ${RUN_ID} for ${HEAD_SHA}"

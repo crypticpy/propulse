@@ -748,6 +748,16 @@ describe("operatingStateStore", () => {
     expect(states.every((message) => message.kind === "state" && message.patch.band?.by)).toBe(
       true,
     );
+    // Same for the Lamport sequence (round 10): additive on v1, so the
+    // deployed parser above ignores it, but it has to actually be there or
+    // no peer can order this write against its own.
+    expect(
+      states.every(
+        (message) =>
+          message.kind === "state" &&
+          Number.isFinite(message.patch.band?.seq ?? Number.NaN),
+      ),
+    ).toBe(true);
 
     a.disconnect();
   });

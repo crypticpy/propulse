@@ -28,7 +28,10 @@
  */
 
 import { create } from "zustand";
-import { nextLocalWriteSeq } from "@/lib/localWriteSequence";
+import {
+  nextLocalWriteSeq,
+  observeRemoteWriteSeq,
+} from "@/lib/localWriteSequence";
 import { persist, createJSONStorage } from "zustand/middleware";
 import {
   CURSOR_FIELDS,
@@ -96,14 +99,22 @@ export interface FieldStamp {
    */
   appliedAt: number;
   /**
-   * `nextLocalWriteSeq()` of the same application, the tie-break for
-   * `appliedAt` (#859 round 4): a cursor arriving in the same millisecond as
-   * a local map write is reachable in one event-loop turn, and comparing the
-   * timestamps alone would silently keep the earlier of the two. Local-only
-   * on exactly the same terms as `appliedAt`, and only ever compared with
-   * another sequence number taken in this same window.
+   * The **writer's** Lamport sequence, not this window's clock: minted by
+   * `nextLocalWriteSeq()` for a write made here, and otherwise the one the
+   * write arrived carrying (#859 rounds 4, 9, 10). It travels on the wire
+   * next to `at` and `by`, and a relay passes it through unchanged, so one
+   * logical write has one sequence everywhere.
+   *
+   * That is what makes it comparable against `mapStore.targetSeq` even when
+   * the two were written in different windows: every window calls
+   * `observeRemoteWriteSeq()` before applying, so it can never mint a
+   * sequence below one it has seen. Higher means written later; equal means
+   * "cannot tell", which is treated as a no-op rather than a win.
+   *
+   * `undefined` when the write came from a bundle older than round 10, which
+   * cannot order across windows at all.
    */
-  appliedSeq: number;
+  appliedSeq: number | undefined;
 }
 
 /** A command as it was received, for widgets that need to react to one. */
@@ -315,6 +326,9 @@ function currentPatch(state: OperatingStateStoreState): CursorPatch {
         value: state.cursor[field],
         at: stamp.at,
         ...(stamp.by === undefined ? {} : { by: stamp.by }),
+        // Passed through, never re-minted: the sequence identifies the write,
+        // not the hop that carried it (#859 round 10).
+        ...(stamp.appliedSeq === undefined ? {} : { seq: stamp.appliedSeq }),
       },
     });
   }
@@ -367,11 +381,19 @@ function mergePatch(
     // `nextStamp()`), an inbound `state` patch, a `hello` reply carrying a
     // genuinely newer write, and the `selectSpot` command that also moves
     // the cursor.
+    // Before the write is applied, so this window can never afterwards mint
+    // a sequence below one it has acted on — the whole basis for comparing
+    // sequences that were minted in different windows (#859 round 10).
+    observeRemoteWriteSeq(entry.seq);
     Object.assign(cursor, { [field]: entry.value });
     stamps[field] = {
       ...incoming,
       appliedAt: Date.now(),
-      appliedSeq: nextLocalWriteSeq(),
+      // The writer's, kept as it arrived. Minting a fresh one here would be
+      // this window claiming the write, the same guess round 8 removed from
+      // `by` — and it would make one logical write sort differently on every
+      // screen that received it.
+      appliedSeq: entry.seq,
     };
     changed = true;
   }
@@ -387,7 +409,11 @@ function writeField<K extends CursorField>(field: K, value: WorkflowCursor[K]): 
   // so every entry this bundle sends carries its author whether it is
   // first-hand or relayed, and no entry of ours has to have its authorship
   // guessed. An older parser ignores the extra key.
-  const patch = { [field]: { value, at, by: state.deviceId } } as CursorPatch;
+  // The sequence is minted here, once, and travels with the write: this is
+  // the only kind of site allowed to mint one (#859 round 10).
+  const patch = {
+    [field]: { value, at, by: state.deviceId, seq: nextLocalWriteSeq() },
+  } as CursorPatch;
   const next = mergePatch(state, patch);
   if (next) useOperatingStateStore.setState(next);
   post({ kind: "state", patch });
@@ -618,6 +644,13 @@ export const useOperatingStateStore = create<OperatingStateStore>()(
                     // fallback in `mergePatch` that cannot tell a first-hand
                     // write from a relay (#859 round 8).
                     by: message.senderId,
+                    // The command carries no sequence of its own, so this
+                    // window mints one for the cursor write it is making now.
+                    // Every receiver of the same command mints its own, which
+                    // is harmless: `beats()` settles the value on `(at, by)`,
+                    // and the sequence only has to sort above everything this
+                    // window has already seen (#859 round 10).
+                    seq: nextLocalWriteSeq(),
                   },
                 },
               );

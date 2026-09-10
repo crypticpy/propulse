@@ -14,7 +14,9 @@ class TestChannel {
   static instances: TestChannel[] = [];
   closed = false;
   onmessage: ((event: MessageEvent) => void) | null = null;
-  postMessage = vi.fn(() => {
+  // The parameter is declared so `mock.calls` is typed: a test that reads
+  // what was published cannot index an empty tuple.
+  postMessage = vi.fn((_message: unknown) => {
     if (this.closed) throw new Error("Channel is closed");
   });
   constructor() { TestChannel.instances.push(this); }
@@ -94,8 +96,56 @@ describe("map target synchronization", () => {
         state: {
           target: expect.objectContaining({ name: "W3ABC" }),
           targetSetAt: useMapStore.getState().targetSetAt,
+          targetSeq: useMapStore.getState().targetSeq,
         },
       }),
+    );
+    view.unmount();
+  });
+
+  it("publishes a stamp-only write, where the target object never changed", async () => {
+    // #859 round 10, thread 1. Re-selecting an entry from `recentTargets`
+    // hands `setTarget` the object already held, so only the stamp moves. A
+    // publish predicate watching the target *reference* saw nothing, the
+    // other window kept a stale sequence, and its wall then let a cursor
+    // that was actually older win the remount. The predicate must observe
+    // every field that travels.
+    vi.stubGlobal("BroadcastChannel", TestChannel);
+    const view = render(<SyncOnly />);
+    await act(async () => {
+      await Promise.resolve();
+    });
+    const [channel] = TestChannel.instances;
+
+    const sameTarget = { lat: 40, lon: -80, name: "W3ABC" };
+    act(() => {
+      useMapStore.getState().setTarget(sameTarget);
+    });
+    await act(async () => {
+      await Promise.resolve();
+    });
+    const mapPublishes = () =>
+      channel.postMessage.mock.calls
+        .map(([message]) => message as { domain: string; state: { targetSeq?: number } })
+        .filter((message) => message.domain === "map");
+    const before = mapPublishes().length;
+    const firstSeq = useMapStore.getState().targetSeq;
+
+    act(() => {
+      useMapStore.getState().setTarget(sameTarget);
+    });
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    // The premise: same object, new stamp.
+    expect(useMapStore.getState().target).toBe(sameTarget);
+    expect(useMapStore.getState().targetSeq).not.toBe(firstSeq);
+
+    const mapMessages = mapPublishes();
+    expect(mapMessages.length).toBe(before + 1);
+    expect(mapMessages[mapMessages.length - 1]?.state.targetSeq).toBe(
+      useMapStore.getState().targetSeq,
     );
     view.unmount();
   });

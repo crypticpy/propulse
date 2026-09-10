@@ -410,11 +410,17 @@ export interface MapState {
    * or a manual clock change can move it backwards, and then a later pick
    * carries the smaller timestamp and loses to an earlier cursor.
    *
-   * `undefined` means this window did not write the target: it arrived over
-   * the workspace channel, and the sender's sequence numbers are meaningless
-   * here. Minting a fresh one on arrival would be a claim that this window
-   * wrote it, which is exactly the guess round 9 removes; the reader falls
-   * back to the timestamps, sound because those windows share a machine.
+   * It is a *Lamport* sequence (round 10), so it stays meaningful across the
+   * workspace channel: a synchronized target keeps the sequence the sending
+   * window minted, and the receiver observes it before applying, so nobody
+   * can later mint a number below a write they have acted on. Minting a
+   * fresh one on arrival would be a claim that this window wrote it — the
+   * guess round 9 removed — and clearing it, as round 9 did, put
+   * cross-window ordering back on the clock it was there to replace.
+   *
+   * `undefined` therefore means only one thing: the value came from a bundle
+   * that does not send a sequence, so it cannot be ordered at all. The
+   * reader treats that as losing to anything it *can* order.
    */
   targetSeq: number | undefined;
 
@@ -1422,7 +1428,10 @@ const initialState = {
   timeScenarios: loadTimeScenarios(),
   target: null,
   targetSetAt: 0,
-  targetSeq: 0,
+  // No sequence, because this window has not written a target: `0` would be
+  // a claim that it had, and the reader would rank a peer's legacy target
+  // below it (#859 round 10).
+  targetSeq: undefined,
   recentTargets: loadRecentTargets(),
   rotation: { x: 23.5, y: 0 }, // Earth's axial tilt
   zoom: 1,

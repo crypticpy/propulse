@@ -1,6 +1,7 @@
 import { act, renderHook } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { OPERATING_PROTOCOL_VERSION } from "@/lib/workspace/operatingChannel";
+import { nextLocalWriteSeq } from "@/lib/localWriteSequence";
 import { useMapStore } from "@/stores/mapStore";
 import { useOperatingStateStore } from "@/stores/operatingStateStore";
 import { useOperationalWorkspaceSync } from "./useMapOperationalContext";
@@ -37,6 +38,14 @@ function inboundTarget(
    * is wrong.
    */
   at: number = Date.now(),
+  /**
+   * The writer's Lamport sequence. Minted from the same counter as this
+   * window's own writes, which is what a peer that has seen them would do —
+   * `observeRemoteWriteSeq` keeps every window's counter above every write it
+   * has applied, so "the number a peer would mint right now" is exactly the
+   * next one here. A test that wants a *stale* cursor passes an old one.
+   */
+  seq: number | undefined = nextLocalWriteSeq(),
 ) {
   return {
     v: OPERATING_PROTOCOL_VERSION,
@@ -48,6 +57,7 @@ function inboundTarget(
         value: { callsign, grid, lat, lon, spotId: null },
         at,
         by: senderId,
+        ...(seq === undefined ? {} : { seq }),
       },
     },
   };
@@ -64,6 +74,8 @@ function relayedTarget(
   callsign: string,
   grid: string | null,
   at: number,
+  /** The original write's sequence, passed through unchanged by a relay. */
+  seq?: number,
 ) {
   return {
     v: OPERATING_PROTOCOL_VERSION,
@@ -75,6 +87,7 @@ function relayedTarget(
         value: { callsign, grid, lat: null, lon: null, spotId: null },
         at,
         by: author,
+        ...(seq === undefined ? {} : { seq }),
       },
     },
   };
@@ -104,7 +117,12 @@ beforeEach(() => {
   localStorage.clear();
   useOperatingStateStore.setState({ followScreens: true });
   useOperatingStateStore.getState().reset();
-  useMapStore.setState({ target: null, targetSetAt: 0, targetSeq: 0, isolateTargetPath: false });
+  useMapStore.setState({
+    target: null,
+    targetSetAt: 0,
+    targetSeq: undefined,
+    isolateTargetPath: false,
+  });
 });
 
 afterEach(() => {
@@ -366,9 +384,18 @@ describe("useHamClockWallOperatingState", () => {
     expect(useMapStore.getState().target).toMatchObject({ name: "W3ABC", lat: 40, lon: -80 });
   });
 
-  it("still applies an authorless cursor that is strictly newer than the local target", () => {
-    // The authorless rule must cost a genuine write nothing: an old tab that really
-    // does move the cursor after the local pick still wins.
+  it("keeps a sequenced local target over a cursor that cannot be ordered", () => {
+    // The stated cost of the Lamport rule (#859 round 10). A tab on a bundle
+    // older than this one sends no sequence, so there is no way to place its
+    // write against a local one except by a clock that can step backwards —
+    // and that is what handed a stale cursor the operator's own pick. It
+    // loses the *mount reconcile*, deliberately.
+    //
+    // It costs nothing while the wall is up: the store still applies the
+    // write (the merge rule is unchanged, and is covered in
+    // `operatingStateStore.test.ts`) and the live subscription still moves
+    // the map with it. Only the reconcile after an unmount prefers the write
+    // it can order.
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2026-09-10T00:00:00Z"));
 
@@ -378,10 +405,13 @@ describe("useHamClockWallOperatingState", () => {
     act(() => {
       useOperatingStateStore.getState().applyMessage(authorlessRelay("zzz-peer", "W2XYZ", "FN20", Date.now()));
     });
+    // Applied to the shared cursor either way — this is the reconcile's
+    // choice, not a dropped message.
+    expect(useOperatingStateStore.getState().cursor.target?.callsign).toBe("W2XYZ");
 
     renderHook(() => useHamClockWallOperatingState());
 
-    expect(useMapStore.getState().target).toMatchObject({ name: "W2XYZ", grid: "FN20" });
+    expect(useMapStore.getState().target).toMatchObject({ name: "W3ABC" });
   });
 
   it("keeps a target synced from a pop-out window over an older cursor", async () => {
@@ -566,6 +596,129 @@ describe("useHamClockWallOperatingState", () => {
     renderHook(() => useHamClockWallOperatingState());
     expect(useMapStore.getState().target).not.toMatchObject({ name: "OLD" });
     sync.unmount();
+  });
+
+  it("orders a synchronized target against a cursor by sequence, not the clock", async () => {
+    // #859 round 10, thread 2. Round 9 cleared the sequence on anything that
+    // crossed a window, so cross-window ordering fell back to `Date.now()` —
+    // and a clock step then froze a stale synced target in front of every
+    // later cursor. The sequence is a Lamport clock now: it travels with the
+    // write and is observed on receipt, so it stays comparable between
+    // windows without a clock at all.
+    //
+    // Sequences are written as offsets from a base so the arithmetic is
+    // visible; the base is above anything this process has minted, which is
+    // what a peer that had observed our writes would send.
+    const S = 5_000_000;
+    vi.stubGlobal("BroadcastChannel", TestChannel);
+    vi.useFakeTimers();
+    const t0 = new Date("2026-09-10T00:00:00Z").getTime();
+    vi.setSystemTime(t0);
+
+    const sync = renderHook(() => useOperationalWorkspaceSync());
+    await act(async () => {
+      await Promise.resolve();
+    });
+    const [channel] = TestChannel.instances;
+
+    const syncedTarget = { lat: -20, lon: -45, name: "PY5DX" };
+    const snapshot = (
+      revision: number,
+      state: Record<string, unknown>,
+    ): MessageEvent =>
+      ({
+        data: { kind: "snapshot", sender: "pop-out", domain: "map", revision, state },
+      }) as MessageEvent;
+
+    // 1. the pop-out picks a target and it syncs here, sequence and all.
+    act(() => {
+      channel.onmessage?.(
+        snapshot(1, {
+          target: syncedTarget,
+          targetSetAt: t0,
+          targetSeq: S + 5,
+        }),
+      );
+    });
+    expect(useMapStore.getState().targetSeq).toBe(S + 5);
+
+    // 2. the clock steps backwards a minute, so every later write carries an
+    //    *earlier* timestamp than the pick above.
+    vi.setSystemTime(t0 - 60_000);
+
+    // 3. a cursor written after it arrives. On the clock it looks older; on
+    //    the sequence it is plainly newer, and the sequence decides.
+    act(() => {
+      useOperatingStateStore
+        .getState()
+        .applyMessage(
+          inboundTarget("phone-device", "K1ABC", "EM10", null, null, Date.now(), S + 6),
+        );
+    });
+    expect(useMapStore.getState().targetSetAt as number).toBeGreaterThan(
+      useOperatingStateStore.getState().stamps.target.appliedAt,
+    );
+    renderHook(() => useHamClockWallOperatingState()).unmount();
+    expect(useMapStore.getState().target).toMatchObject({ name: "K1ABC" });
+
+    // 4. the pop-out re-selects the *same object* — a stamp-only write, which
+    //    only reaches this window because the publish predicate watches the
+    //    stamp (thread 1). Its sequence is above the one this window minted
+    //    when the wall applied the cursor, because the pop-out observed that
+    //    write too; that is the Lamport property doing the work.
+    const afterCursor = useMapStore.getState().targetSeq as number;
+    expect(afterCursor).toBeGreaterThan(S + 6);
+    act(() => {
+      channel.onmessage?.(
+        snapshot(2, {
+          target: syncedTarget,
+          targetSetAt: Date.now(),
+          targetSeq: afterCursor + 1,
+        }),
+      );
+    });
+    renderHook(() => useHamClockWallOperatingState()).unmount();
+    expect(useMapStore.getState().target).toMatchObject({ name: "PY5DX" });
+
+    // 5. a legacy snapshot with no stamp at all loses to both: it cannot be
+    //    ordered, and the cursor can.
+    act(() => {
+      channel.onmessage?.(snapshot(3, { target: { lat: 1, lon: 1, name: "OLD" } }));
+    });
+    expect(useMapStore.getState().targetSeq).toBeUndefined();
+    renderHook(() => useHamClockWallOperatingState());
+    expect(useMapStore.getState().target).not.toMatchObject({ name: "OLD" });
+    sync.unmount();
+  });
+
+  it("treats an equal sequence as a no-op, not a win for either side", async () => {
+    // Equality means "cannot tell" — two windows can only reach the same
+    // number without having seen each other. Neither side may claim it, and
+    // in particular the map must not be re-written, which would mint a new
+    // sequence and manufacture an ordering out of nothing.
+    const S = 6_000_000;
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-09-10T00:00:00Z"));
+
+    useMapStore.setState({
+      target: { lat: 40, lon: -80, name: "W3ABC" },
+      targetSetAt: Date.now(),
+      targetSeq: S,
+    });
+    act(() => {
+      useOperatingStateStore
+        .getState()
+        .applyMessage(
+          inboundTarget("phone-device", "K1ABC", "EM10", null, null, Date.now(), S),
+        );
+    });
+    expect(useOperatingStateStore.getState().stamps.target.appliedSeq).toBe(S);
+
+    renderHook(() => useHamClockWallOperatingState());
+
+    expect(useMapStore.getState().target).toMatchObject({ name: "W3ABC" });
+    // Untouched, so no write happened at all.
+    expect(useMapStore.getState().targetSeq).toBe(S);
   });
 
   it("does not clear the map target when a newer cursor carries no location", () => {

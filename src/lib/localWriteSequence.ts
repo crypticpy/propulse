@@ -1,6 +1,6 @@
 /**
- * One monotonic counter for local writes that later have to be ordered
- * against each other (#859 round 4).
+ * A Lamport clock for the writes this app has to order against each other
+ * (#859 rounds 4, 9 and 10).
  *
  * `Date.now()` alone is not enough: two writes can land in the same
  * millisecond — a local `mapStore.setTarget` and an operating cursor
@@ -10,31 +10,56 @@
  * sequence number from here, so a tie on the millisecond is broken by which
  * write actually happened second.
  *
- * It is also the *primary* ordering, not just a tie-break (#859 round 9).
+ * It is the *primary* ordering, not a tie-break (#859 round 9).
  * `Date.now()` is not monotonic: an NTP correction or a manual clock change
  * can step it backwards mid-session, and then a write made later carries the
  * smaller timestamp and loses to an earlier one. This counter cannot go
- * backwards. So the rule for anything ordering two local writes is:
+ * backwards.
  *
- * 1. both sides carry a sequence from this window → the sequence decides;
- * 2. one side does not → fall back to the timestamps, which is only sound
- *    because the two windows involved share a machine's clock.
+ * Round 9 made it local-only, which meant anything crossing a window lost its
+ * sequence and fell back to that same clock — so the fix held inside one
+ * window and nowhere else. It is therefore a **Lamport clock** (round 10),
+ * which is the smallest thing that orders writes across windows without one:
  *
- * Case 2 exists only for a value relayed from another window of the same app,
- * which keeps the stamp it arrived with rather than being re-stamped here —
- * a fresh local sequence would be a claim that this window wrote it. Keeping
- * every genuinely local write path stamped is what keeps case 2 rare.
+ * - a local gesture mints a sequence with `nextLocalWriteSeq()`;
+ * - the sequence travels with the write it stamps — a map target on the
+ *   workspace channel, a cursor field on the operating channel;
+ * - a receiver calls `observeRemoteWriteSeq()` before applying, so its own
+ *   counter is at least as high as anything it has seen, and keeps the
+ *   sender's sequence on the value rather than minting a new one.
  *
- * Module scope, one per browsing context, and deliberately never sent on the
- * wire or persisted: the numbers only mean anything within a single window's
- * lifetime, and comparing one window's against another's would be worse than
- * comparing nothing. Reset to `0` on reload, which is fine — every value it
- * is compared against is reset with it.
+ * A window that has seen a write can therefore never mint a sequence below
+ * it, so "higher sequence" means "written after, as far as anyone here can
+ * tell" no matter which window wrote it. Two sequences are comparable across
+ * windows; only *equality* is ambiguous, and equality is treated as a no-op
+ * rather than a win for either side.
+ *
+ * Not persisted, and reset to `0` on reload — sound because a reload also
+ * drops every value stamped with it, and the first message from any peer
+ * pulls the counter back up.
  */
 let lastLocalWriteSeq = 0;
 
-/** The next sequence number. Strictly increasing for the life of the window. */
+/**
+ * Mints the sequence for a write made *here*. Strictly increasing for the
+ * life of the window, and — because every sequence seen from a peer has been
+ * observed — above every write this window knows about.
+ */
 export function nextLocalWriteSeq(): number {
   lastLocalWriteSeq += 1;
   return lastLocalWriteSeq;
+}
+
+/**
+ * Takes account of a sequence minted elsewhere, before the write carrying it
+ * is applied. The next local write then sorts above it, which is what makes
+ * the numbers comparable between windows at all.
+ *
+ * Ignores anything non-finite: a peer on an older bundle sends no sequence,
+ * and a malformed one must not be able to shove the counter to `Infinity`
+ * and make every later local write unorderable.
+ */
+export function observeRemoteWriteSeq(seq: number | undefined): void {
+  if (typeof seq !== "number" || !Number.isFinite(seq)) return;
+  lastLocalWriteSeq = Math.max(lastLocalWriteSeq, seq);
 }

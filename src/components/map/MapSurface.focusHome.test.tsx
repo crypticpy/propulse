@@ -403,6 +403,16 @@ function buildTestPathPointSet(): PathPointSet {
  * `MapSurface` and the real `PathPointInspector` with a plain button standing
  * in for the 3D hit-area, mirroring the `GlobeView` case's own Canvas
  * substitution above.
+ *
+ * No `inline` (#853): the real `RayPathArc` mount now takes
+ * `PathPointInspector`'s own `createPortal(overlay, portalTarget)` branch
+ * instead of skipping it, so this host wires up a real `portalTarget` node —
+ * rendered inside `MapSurface`, mirroring `GlobeView`'s map-owned overlay
+ * portal div — rather than falling back to `document.body`. Falling back to
+ * `document.body` would still pass these focus assertions (they query the
+ * whole document via `screen`), but it would silently stop testing the
+ * shape production actually uses and would break the one assertion that
+ * reads through `container` (`data-point-id`, below).
  */
 function PathPointInspectorHost({
   pointSet,
@@ -417,6 +427,7 @@ function PathPointInspectorHost({
   initialOpen?: PathPointInspectorOpen;
 }) {
   const surfaceRef = useRef<HTMLDivElement>(null);
+  const [portalTarget, setPortalTarget] = useState<HTMLDivElement | null>(null);
   const [open, setOpen] = useState<PathPointInspectorOpen>(initialOpen);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const point = pointSet.points[0];
@@ -443,13 +454,15 @@ function PathPointInspectorHost({
         data-testid="path-point-hit-area-no-select"
         onClick={() => setOpen("card")}
       />
+      {/* Stands in for `GlobeView`'s `mapOverlayPortal` sibling div. */}
+      <div data-testid="path-point-overlay-portal" ref={setPortalTarget} />
       <PathPointInspector
         pointSet={pointSet}
         selectedId={selectedId}
         hoveredId={null}
         open={open}
         anchor={{ x: 200, y: 200 }}
-        inline
+        portalTarget={portalTarget}
         onSelect={(id) => {
           setSelectedId(id);
           setOpen("card");

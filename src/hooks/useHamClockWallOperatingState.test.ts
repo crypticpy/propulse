@@ -47,6 +47,7 @@ function inboundTarget(
       target: {
         value: { callsign, grid, lat, lon, spotId: null },
         at,
+        by: senderId,
       },
     },
   };
@@ -75,6 +76,22 @@ function relayedTarget(
         at,
         by: author,
       },
+    },
+  };
+}
+
+/**
+ * A `hello` reply from a tab still on the v1 bundle: the wire had no way to
+ * name an author, so the entry carries only a value and a stamp.
+ */
+function v1Relay(relayId: string, callsign: string, grid: string | null, at: number) {
+  return {
+    v: 1,
+    senderId: relayId,
+    sentAt: Date.now(),
+    kind: "state" as const,
+    patch: {
+      target: { value: { callsign, grid, lat: null, lon: null, spotId: null }, at },
     },
   };
 }
@@ -310,6 +327,56 @@ describe("useHamClockWallOperatingState", () => {
     useOperatingStateStore
       .getState()
       .applyMessage(inboundTarget("zzz-peer", "W2XYZ", "FN20"));
+
+    renderHook(() => useHamClockWallOperatingState());
+
+    expect(useMapStore.getState().target).toMatchObject({ name: "W2XYZ", grid: "FN20" });
+  });
+
+  it("keeps a local target when a v1 tab relays the cursor without an author", () => {
+    // A tab left open across a deploy still runs the old bundle and answers
+    // `hello` with a patch that cannot say who wrote it. Credited to the
+    // sender, a relay from a peer whose id sorts above the real author's
+    // would win the equal-`at` tie-break with a write it never made, re-stamp
+    // its local arrival time, and overwrite the target the operator picked in
+    // between (#859 round 6).
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-09-10T00:00:00Z"));
+
+    const cursorAt = Date.now();
+    useOperatingStateStore
+      .getState()
+      .applyMessage(inboundTarget("aaa-phone", "K1ABC", "EM10"));
+
+    vi.advanceTimersByTime(5_000);
+    useMapStore.getState().setTarget({ lat: 40, lon: -80, name: "W3ABC" });
+
+    vi.advanceTimersByTime(5_000);
+    act(() => {
+      useOperatingStateStore.getState().applyMessage(v1Relay("zzz-peer", "K1ABC", "EM10", cursorAt));
+    });
+
+    // Nothing moved: same author, same arrival stamp as the first application.
+    expect(useOperatingStateStore.getState().stamps.target.by).toBe("aaa-phone");
+    expect(useOperatingStateStore.getState().stamps.target.appliedAt).toBe(cursorAt);
+
+    renderHook(() => useHamClockWallOperatingState());
+
+    expect(useMapStore.getState().target).toMatchObject({ name: "W3ABC", lat: 40, lon: -80 });
+  });
+
+  it("still applies a v1 cursor that is strictly newer than the local target", () => {
+    // The v1 rule must cost a genuine write nothing: an old tab that really
+    // does move the cursor after the local pick still wins.
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-09-10T00:00:00Z"));
+
+    useMapStore.getState().setTarget({ lat: 40, lon: -80, name: "W3ABC" });
+
+    vi.advanceTimersByTime(5_000);
+    act(() => {
+      useOperatingStateStore.getState().applyMessage(v1Relay("zzz-peer", "W2XYZ", "FN20", Date.now()));
+    });
 
     renderHook(() => useHamClockWallOperatingState());
 

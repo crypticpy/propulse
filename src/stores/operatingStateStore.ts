@@ -314,8 +314,20 @@ function mergePatch(
     // is minted *below* this check rather than above it, no refresh of
     // `appliedAt`/`appliedSeq` either. Re-stamping a write already held is
     // what let a replay outrank a map target chosen in between (#859 round 5).
+    const current = stamps[field];
     const incoming = { at: entry.at, by: entry.by ?? by };
-    if (!beats(incoming, stamps[field])) continue;
+    // A v1 peer — a tab still on a pre-#859-round-6 bundle — cannot say who
+    // wrote a field, so an entry with no author may be this sender's own
+    // write or its relay of someone else's. Credited to the sender it would
+    // win the equal-`at` id tie-break with a write it never made, re-entering
+    // a race already settled; so it is accepted only on a strictly newer
+    // `at`. The cost is a rare, self-healing divergence when a v1 and a v2
+    // screen write the same field in the same millisecond — the next write
+    // to that field settles it — which is the cheaper of the two, since the
+    // replay silently discarded an operator's own map target (#859 round 6).
+    const accepted =
+      entry.by === undefined ? entry.at > current.at : beats(incoming, current);
+    if (!accepted) continue;
     // Stamped here — the one place a stamp is written — so the local half
     // covers every accepted path: a local `writeField` (same moment as its
     // `nextStamp()`), an inbound `state` patch, a `hello` reply carrying a
@@ -335,9 +347,12 @@ function mergePatch(
 
 /** Writes one field locally and, when following, sends it. */
 function writeField<K extends CursorField>(field: K, value: WorkflowCursor[K]): void {
-  const at = nextStamp();
-  const patch = { [field]: { value, at } } as CursorPatch;
   const state = useOperatingStateStore.getState();
+  const at = nextStamp();
+  // Named explicitly rather than left to the receiver's `senderId` fallback:
+  // from v2 every entry carries its author, so there is exactly one way to
+  // read a patch and no entry whose authorship has to be guessed.
+  const patch = { [field]: { value, at, by: state.deviceId } } as CursorPatch;
   const next = mergePatch(state, patch, state.deviceId);
   if (next) useOperatingStateStore.setState(next);
   post({ kind: "state", patch });

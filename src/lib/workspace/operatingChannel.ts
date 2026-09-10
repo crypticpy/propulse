@@ -29,8 +29,24 @@
 import type { RealtimeChannel, SupabaseClient } from "@supabase/supabase-js";
 import type { CanvasType } from "@/lib/workspace/types";
 
-/** Bumped only for a breaking wire change; mismatched versions are dropped. */
-export const OPERATING_PROTOCOL_VERSION = 1;
+/**
+ * What this bundle *sends*. Bumped for a breaking wire change.
+ *
+ * v2 requires every patch entry to name its author (`by`). v1 did not, so a
+ * v1 relay is of unknown authorship — see `parsePatchEntry` and the merge
+ * rule in `operatingStateStore`.
+ */
+export const OPERATING_PROTOCOL_VERSION = 2;
+
+/**
+ * What this bundle *accepts*. A tab left open across a deploy keeps running
+ * the old bundle — a PWA tab can survive for days — so dropping everything
+ * that is not the current version would split the screens into two islands
+ * that see none of each other's cursor, which is a worse failure than the
+ * one the bump is closing. Older versions stay readable; the merge rule is
+ * what compensates for what they cannot express.
+ */
+const MIN_SUPPORTED_PROTOCOL_VERSION = 1;
 
 /**
  * A command older than this is dropped rather than applied (PR #694 review,
@@ -43,7 +59,14 @@ export const OPERATING_PROTOCOL_VERSION = 1;
  */
 const COMMAND_MAX_AGE_MS = 30_000;
 
-/** `BroadcastChannel` name for same-browser screens. Versioned with the protocol. */
+/**
+ * `BroadcastChannel` name for same-browser screens.
+ *
+ * Deliberately *not* bumped with `OPERATING_PROTOCOL_VERSION`: the name is
+ * the pipe, and renaming it is precisely the two-island split described
+ * above — a pre-deploy tab would post to `…-v1` and hear nothing on `…-v2`.
+ * Cross-version compatibility is handled in `parseOperatingMessage`.
+ */
 export const OPERATING_CHANNEL_NAME = "propulse-operating-state-v1";
 
 /** Cursor fields that merge independently — last writer wins *per field*, not per message. */
@@ -259,14 +282,23 @@ function parseSpotRef(value: unknown): SpotRef | null {
 }
 
 /** One `{ value, at }` entry, validated against the field it claims to set. */
-function parsePatchEntry(field: CursorField, raw: unknown): CursorPatch[CursorField] | null {
+function parsePatchEntry(
+  field: CursorField,
+  raw: unknown,
+  version: number,
+): CursorPatch[CursorField] | null {
   if (!isRecord(raw)) return null;
   const at = asFiniteNumber(raw.at);
   if (at === null) return null;
-  // Optional: a relayed write names its original author. Anything that is
-  // not a non-empty string is dropped rather than rejected, so the receiver
-  // falls back to `senderId` exactly as it did before this field existed.
+  // From v2 every entry names its author, first-hand or relayed, so a v2
+  // entry without one is malformed and drops the message. A v1 sender had no
+  // way to say it: `by` is left undefined, and `operatingStateStore`'s
+  // `mergePatch` treats such an entry as being of unknown authorship —
+  // accepted only on a strictly newer `at`, never on the equal-`at` sender-id
+  // tie-break, because the "sender" may be a peer relaying someone else's
+  // write and would otherwise re-win a race it never entered (#859 round 6).
   const by = asString(raw.by) ?? undefined;
+  if (version >= 2 && by === undefined) return null;
   const value = raw.value;
   switch (field) {
     case "sessionId":
@@ -286,13 +318,13 @@ function parsePatchEntry(field: CursorField, raw: unknown): CursorPatch[CursorFi
 }
 
 /** Returns null when the patch carries no usable field, so an empty message is dropped. */
-function parsePatch(raw: unknown): CursorPatch | null {
+function parsePatch(raw: unknown, version: number): CursorPatch | null {
   if (!isRecord(raw)) return null;
   const patch: CursorPatch = {};
   let count = 0;
   for (const field of CURSOR_FIELDS) {
     if (!(field in raw)) continue;
-    const entry = parsePatchEntry(field, raw[field]);
+    const entry = parsePatchEntry(field, raw[field], version);
     // A malformed entry invalidates the whole message: a half-applied patch
     // is worse than a dropped one.
     if (entry === null) return null;
@@ -378,19 +410,29 @@ function parseRegistration(raw: unknown, senderId: string): WorkspaceRegistratio
 
 /**
  * The single entry point for untrusted input. Returns the typed message, or
- * null for anything malformed, from another protocol version, or empty.
+ * null for anything malformed, from an unsupported protocol version, or
+ * empty. `message.v` on the result is the sender's version.
  */
 export function parseOperatingMessage(raw: unknown): OperatingMessage | null {
   if (!isRecord(raw)) return null;
-  if (raw.v !== OPERATING_PROTOCOL_VERSION) return null;
+  const v = asFiniteNumber(raw.v);
+  // A window either side of a deploy is a supported peer, not a stranger:
+  // accept anything from the oldest version this bundle still understands up
+  // to its own, and drop the future (a newer bundle may mean anything by a
+  // field this one has never seen).
+  if (v === null || v < MIN_SUPPORTED_PROTOCOL_VERSION || v > OPERATING_PROTOCOL_VERSION) {
+    return null;
+  }
   const senderId = asString(raw.senderId);
   const sentAt = asFiniteNumber(raw.sentAt);
   if (senderId === null || sentAt === null) return null;
-  const envelope = { v: OPERATING_PROTOCOL_VERSION, senderId, sentAt };
+  // The *sender's* version, not this bundle's: what the peer could express is
+  // what the merge rule has to reason about.
+  const envelope = { v, senderId, sentAt };
 
   switch (raw.kind) {
     case "state": {
-      const patch = parsePatch(raw.patch);
+      const patch = parsePatch(raw.patch, v);
       return patch === null ? null : { ...envelope, kind: "state", patch };
     }
     case "command": {

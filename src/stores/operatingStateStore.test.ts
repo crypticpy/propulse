@@ -1,5 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { createMemoryBus, type OperatingMessage } from "@/lib/workspace/operatingChannel";
+import {
+  createMemoryBus,
+  OPERATING_PROTOCOL_VERSION,
+  type OperatingMessage,
+} from "@/lib/workspace/operatingChannel";
 import { REGISTRATION_HEARTBEAT_MS, REGISTRATION_TTL_MS } from "./operatingStateStore";
 
 type Bus = ReturnType<typeof createMemoryBus>;
@@ -139,13 +143,71 @@ describe("operatingStateStore", () => {
       stamps: { ...a.store.getState().stamps, band: { at: 5_000, by: "aaa", appliedAt: 5_000, appliedSeq: 0 } },
     });
 
-    const patch = (band: string) =>
-      ({ kind: "state", patch: { band: { value: band, at: 5_000 } } }) as const;
+    // v2: the author is explicit, so the tie-break compares the writers.
+    const patch = (band: string, by: string) =>
+      ({ kind: "state", patch: { band: { value: band, at: 5_000, by } } }) as const;
 
-    a.store.getState().applyMessage({ v: 1, senderId: "aa", sentAt: 1, ...patch("80m") });
+    a.store.getState().applyMessage({
+      v: OPERATING_PROTOCOL_VERSION,
+      senderId: "aa",
+      sentAt: 1,
+      ...patch("80m", "aa"),
+    });
     expect(a.store.getState().cursor.band).toBe("20m");
 
-    a.store.getState().applyMessage({ v: 1, senderId: "zzz", sentAt: 1, ...patch("40m") });
+    a.store.getState().applyMessage({
+      v: OPERATING_PROTOCOL_VERSION,
+      senderId: "zzz",
+      sentAt: 1,
+      ...patch("40m", "zzz"),
+    });
+    expect(a.store.getState().cursor.band).toBe("40m");
+
+    a.disconnect();
+  });
+
+  it("will not let an authorless v1 entry win a same-millisecond tie-break", async () => {
+    // A tab still on the pre-round-6 bundle answers a `hello` with a patch
+    // that cannot name its author. Credited to the sender, a relay from a
+    // peer whose id sorts high would win the tie-break with a write it never
+    // made — re-entering a race already settled, and (before round 5's
+    // structural fix, now belt and braces) re-stamping the local arrival
+    // time. An authorless entry is accepted only on a strictly newer `at`.
+    const bus = createMemoryBus();
+    const a = await openScreen(bus, "a");
+
+    a.store.setState({
+      cursor: { ...a.store.getState().cursor, band: "20m" },
+      stamps: {
+        ...a.store.getState().stamps,
+        band: { at: 5_000, by: "aaa", appliedAt: 5_000, appliedSeq: 0 },
+      },
+    });
+
+    // Equal `at`, sender id sorts above the held author: rejected.
+    a.store.getState().applyMessage({
+      v: 1,
+      senderId: "zzz-relay",
+      sentAt: 1,
+      kind: "state",
+      patch: { band: { value: "40m", at: 5_000 } },
+    });
+    expect(a.store.getState().cursor.band).toBe("20m");
+    expect(a.store.getState().stamps.band).toEqual({
+      at: 5_000,
+      by: "aaa",
+      appliedAt: 5_000,
+      appliedSeq: 0,
+    });
+
+    // Strictly newer: a v1 peer's genuine write still wins.
+    a.store.getState().applyMessage({
+      v: 1,
+      senderId: "zzz-relay",
+      sentAt: 1,
+      kind: "state",
+      patch: { band: { value: "40m", at: 5_001 } },
+    });
     expect(a.store.getState().cursor.band).toBe("40m");
 
     a.disconnect();

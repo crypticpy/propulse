@@ -9,6 +9,7 @@
 import { useMemo, useState, useRef, useCallback, useEffect } from "react";
 import { useMapStore } from "@/stores/mapStore";
 import { MAP_PAGE_CHROME_Z } from "@/lib/map/globeRenderOrder";
+import { BandPill } from "@/components/ui/BandPill";
 import { useBoundVisualTarget } from "@/hooks/useBoundMapSelection";
 import { useUserStore } from "@/stores/userStore";
 import { useActiveStationGain } from "@/hooks/useActiveStationGain";
@@ -439,9 +440,7 @@ export function OptimalBandsPanel({
                         >
                           {index + 1}
                         </span>
-                        <span className="text-sm font-mono text-su-text">
-                          {band.band}
-                        </span>
+                        <BandPill band={band.band} size="md" />
                       </div>
                       <span
                         className={`text-[10px] px-1.5 py-0.5 rounded ${

@@ -12,6 +12,7 @@ import { useUserStore } from "@/stores/userStore";
 import { useForecastStationParams } from "@/hooks/useActiveStationGain";
 import { useKIndex, useSolarFlux } from "@/hooks/useSolarData";
 import { Card } from "@/components/ui/Card";
+import { getBandColor } from "@/lib/utils/spotColors";
 import {
   getForecastForPath,
   getBestWindows,
@@ -299,15 +300,24 @@ export function PropagationForecast({
 
               {/* Y-axis labels (bands) */}
               {DISPLAY_BANDS.map((band, idx) => (
-                <text
-                  key={band}
-                  x={MARGIN.left - 4}
-                  y={MARGIN.top + idx * CELL_HEIGHT + CELL_HEIGHT / 2 + 3}
-                  textAnchor="end"
-                  className="fill-su-muted text-[9px] font-mono"
-                >
-                  {band}
-                </text>
+                <g key={band}>
+                  {/* Band hue rule — shape carries the colour, label ink stays fixed */}
+                  <rect
+                    x={0}
+                    y={MARGIN.top + idx * CELL_HEIGHT}
+                    width={3}
+                    height={CELL_HEIGHT - 1}
+                    fill={getBandColor(band)}
+                  />
+                  <text
+                    x={MARGIN.left - 4}
+                    y={MARGIN.top + idx * CELL_HEIGHT + CELL_HEIGHT / 2 + 3}
+                    textAnchor="end"
+                    className="fill-su-muted text-[9px] font-mono"
+                  >
+                    {band}
+                  </text>
+                </g>
               ))}
 
               {/* X-axis labels (hours) - show every 4 hours */}

@@ -1,6 +1,7 @@
 {
   "name": "propulse-bridge",
   "version": "0.1.0",
+  "license": "AGPL-3.0-only",
   "description": "ProPulse Bridge - WebSocket server for CAT control, multi-op sync, and external integrations",
   "type": "module",
   "main": "dist/server.js",

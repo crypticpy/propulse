@@ -204,7 +204,7 @@ function SatelliteInfoPopup({
         <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-1.5 min-w-0">
             <span
-              className="text-[12px] font-bold tracking-wider truncate"
+              className="text-xs font-bold tracking-wider truncate"
               style={{ color }}
             >
               {satellite.name}

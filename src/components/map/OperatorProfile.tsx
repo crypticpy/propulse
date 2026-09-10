@@ -333,7 +333,7 @@ export function OperatorProfile({ className = "" }: OperatorProfileProps) {
       </div>
 
       {/* Grid + License row */}
-      <div className="flex items-center gap-2 mb-2">
+      <div className="flex flex-wrap items-center gap-x-2 gap-y-1 mb-2">
         {/* Location type indicator + Grid */}
         <QuickLocationControl variant="profile" />
 

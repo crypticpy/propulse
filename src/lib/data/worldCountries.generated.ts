@@ -2,7 +2,9 @@
  * World Countries Boundary Data (Generated)
  *
  * Source: Natural Earth 110m via world-atlas
- * Generated: 2026-02-04T22:52:17.582Z
+ * Metadata: world-countries v5.1.0 (https://www.npmjs.com/package/world-countries)
+ * Metadata licence: ODbL-1.0 — https://opendatacommons.org/licenses/odbl/1-0/
+ * Generated: 2026-09-10T19:40:41.141Z
  * Countries: 177
  *
  * DO NOT EDIT — regenerate with: node scripts/generate-country-data.mjs

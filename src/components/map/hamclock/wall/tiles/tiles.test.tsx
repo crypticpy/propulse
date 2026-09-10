@@ -5,6 +5,7 @@ import SunCalc from "suncalc";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ViewProvider } from "@/components/views/ViewProvider";
 import { useViewRuntime } from "@/components/views/ViewRuntimeContext";
+import type { BandLadderEntry } from "@/hooks/useBandVerdicts";
 import { createMemoryWorkingStorage, type ScopedViewRuntime } from "@/lib/views/runtime";
 import { WALL_TILE_IDS } from "@/lib/hamclock/wallPages";
 import { latLonToGrid } from "@/lib/utils/grid";
@@ -115,6 +116,27 @@ function envelope<T>(data: T) {
 
 const EMPTY = { data: undefined, isError: false, isPending: true };
 const FAILED = { data: undefined, isError: true, isPending: false };
+
+/** A `BandLadderEntry` fixture, same shape as HamClockBestBandHero.test.tsx. */
+function bandVerdict(
+  band: string,
+  stable: BandLadderEntry["stable"],
+  obs20m: number,
+  reporters20m: number,
+  fading = false,
+): BandLadderEntry {
+  return {
+    band,
+    stable,
+    fading,
+    since: 1,
+    result: {
+      scopeId: "regional:NA",
+      band,
+      inputs: { obs20m, reporters20m },
+    },
+  } as BandLadderEntry;
+}
 
 function draw(node: ReactElement) {
   const client = new QueryClient({
@@ -238,6 +260,35 @@ describe("BestBandTile", () => {
     draw(<BestBandTile />);
     expect(screen.getByText("—")).toBeTruthy();
     expect(screen.getByText("SET HOME IN SETTINGS")).toBeTruthy();
+  });
+
+  it("keeps the hero at the wall's large size now that the band renders as a BandPill (finding 1)", () => {
+    mocks.verdicts.mockReturnValue({
+      bands: [bandVerdict("20m", "hot", 5, 3)],
+      ready: true,
+      scope: { id: "regional:NA", label: "North America" },
+      activityScope: { type: "regional", continent: "NA" },
+    });
+    const { container } = draw(<BestBandTile />);
+    const hero = container.querySelector(".hc-hero");
+    expect(hero?.classList.contains("hc-hero--lg")).toBe(true);
+    expect(hero?.querySelector("[data-band]")).toBeTruthy();
+  });
+
+  it("keeps the second band at the wall's sub-line size, not text-xs (finding 2)", () => {
+    mocks.verdicts.mockReturnValue({
+      bands: [
+        bandVerdict("20m", "hot", 5, 3),
+        bandVerdict("40m", "verified", 4, 2),
+      ],
+      ready: true,
+      scope: { id: "regional:NA", label: "North America" },
+      activityScope: { type: "regional", continent: "NA" },
+    });
+    const { container } = draw(<BestBandTile />);
+    const subBand = container.querySelector(".hc-sub [data-band]");
+    expect(subBand).toBeTruthy();
+    expect(subBand?.className).not.toContain("text-xs");
   });
 });
 

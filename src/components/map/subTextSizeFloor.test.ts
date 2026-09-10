@@ -143,8 +143,8 @@
  */
 
 import { fileURLToPath } from "node:url";
-import { readFileSync } from "node:fs";
-import { resolve } from "node:path";
+import { readFileSync, readdirSync, statSync } from "node:fs";
+import { join, resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 
 const REPO_ROOT = resolve(fileURLToPath(import.meta.url), "../../../..");
@@ -322,6 +322,110 @@ describe("sub-text-xs sizing stays at the floor in the #783/#808 audited set", (
         stillPresent,
         `${entry.file}: allowlisted content "${entry.match}" is no longer at a sub-floor text-[Npx] site -- remove the stale entry`,
       ).toBe(true);
+    }
+  });
+});
+
+/** Fixed 12/13 px classes sit at or just above the floor but ignore the root
+ * text-scale multiplier; #925 converts them to `text-xs`/`text-sm`. */
+const FIXED_MAP_TEXT_RE = /text-\[(?:12|13)px\]/;
+
+/** The same defect spelled as an inline style. A class scanner alone would
+ * certify `src/components/map` while `style={{ fontSize: 12 }}` sites kept
+ * ignoring Settings -> Text Size -- #925's own LayersPopover had two of them
+ * (the grid-activity label and its select) that the class sweep walked past.
+ * Numeric and string px forms both count; rem values are the fix, so they do
+ * not match. */
+const FIXED_MAP_INLINE_SIZE_RE =
+  /fontSize:\s*(?:(?:12|13)\s*[,}]|["'](?:12|13)px["'])/;
+
+/** Sites outside #925's file set, left for a follow-up rather than edited by
+ * this PR (BandConditionsPanel is being changed by concurrent work). Listed
+ * by file so the guard still covers everything else under `map/` instead of
+ * being narrowed to the PR's own files. */
+const INLINE_SIZE_FOLLOWUP_FILES = new Set([
+  "src/components/map/BandConditionsPanel.tsx",
+]);
+
+function walkMapSourceFiles(dir: string): string[] {
+  const results: string[] = [];
+  for (const entry of readdirSync(dir)) {
+    const abs = join(dir, entry);
+    if (statSync(abs).isDirectory()) {
+      results.push(...walkMapSourceFiles(abs));
+    } else if (
+      /\.(tsx|ts)$/.test(entry) &&
+      !entry.endsWith(".test.ts") &&
+      !entry.endsWith(".test.tsx")
+    ) {
+      results.push(abs);
+    }
+  }
+  return results;
+}
+
+describe("map fixed 12/13px text classes respect text scale (#925)", () => {
+  it("has no text-[12px] or text-[13px] under src/components/map", () => {
+    const mapRoot = resolve(REPO_ROOT, "src/components/map");
+    const violations: string[] = [];
+    for (const file of walkMapSourceFiles(mapRoot)) {
+      const rel = file.slice(REPO_ROOT.length + 1);
+      const lines = readFileSync(file, "utf8").split("\n");
+      lines.forEach((line, index) => {
+        if (FIXED_MAP_TEXT_RE.test(line)) {
+          violations.push(`${rel}:${index + 1}: ${line.trim()}`);
+        }
+      });
+    }
+    expect(
+      violations,
+      `fixed 12/13px text classes under src/components/map:\n${violations.join("\n")}`,
+    ).toEqual([]);
+  });
+
+  it("has no inline fontSize of 12 or 13 under src/components/map", () => {
+    const mapRoot = resolve(REPO_ROOT, "src/components/map");
+    const violations: string[] = [];
+    for (const file of walkMapSourceFiles(mapRoot)) {
+      const rel = file.slice(REPO_ROOT.length + 1);
+      if (INLINE_SIZE_FOLLOWUP_FILES.has(rel)) continue;
+      const lines = readFileSync(file, "utf8").split("\n");
+      lines.forEach((line, index) => {
+        if (FIXED_MAP_INLINE_SIZE_RE.test(line)) {
+          violations.push(`${rel}:${index + 1}: ${line.trim()}`);
+        }
+      });
+    }
+    expect(
+      violations,
+      `inline fixed 12/13px font sizes under src/components/map:\n${violations.join("\n")}`,
+    ).toEqual([]);
+  });
+
+  it("the inline-size matcher reads both spellings and clears rem", () => {
+    // Guards the guard: a regex that missed the numeric form would have let
+    // #925's two LayersPopover sites through, and one that matched rem would
+    // reject the fix itself.
+    expect(FIXED_MAP_INLINE_SIZE_RE.test("fontSize: 12,")).toBe(true);
+    expect(FIXED_MAP_INLINE_SIZE_RE.test("fontSize: 13 }")).toBe(true);
+    expect(FIXED_MAP_INLINE_SIZE_RE.test(`fontSize: "12px",`)).toBe(true);
+    expect(FIXED_MAP_INLINE_SIZE_RE.test("fontSize: '13px',")).toBe(true);
+    expect(FIXED_MAP_INLINE_SIZE_RE.test(`fontSize: "0.75rem",`)).toBe(false);
+    expect(FIXED_MAP_INLINE_SIZE_RE.test("fontSize: 120,")).toBe(false);
+  });
+
+  it("every follow-up file still has the inline sites it is listed for", () => {
+    // A stale entry would silently shrink this guard's reach once the
+    // follow-up lands, so the list has to keep earning its exemption.
+    for (const rel of INLINE_SIZE_FOLLOWUP_FILES) {
+      const lines = readFileSync(resolve(REPO_ROOT, rel), "utf8").split("\n");
+      const hits = lines.filter((line) =>
+        FIXED_MAP_INLINE_SIZE_RE.test(line),
+      ).length;
+      expect(
+        hits,
+        `${rel}: no inline 12/13px font sizes left -- drop it from INLINE_SIZE_FOLLOWUP_FILES`,
+      ).toBeGreaterThan(0);
     }
   });
 });

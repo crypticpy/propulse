@@ -3,6 +3,7 @@ import { useActiveLocation } from "@/hooks/useActiveLocation";
 import { useBandVerdicts } from "@/hooks/useBandVerdicts";
 import { selectBestBand } from "@/lib/verdict/bestBand";
 import { HamClockTile, TileHero, TileSub } from "../HamClockTile";
+import { BandPill } from "@/components/ui/BandPill";
 import {
   LADDER_WALL_CLASS,
   LADDER_WALL_LABEL,
@@ -34,6 +35,21 @@ export function BestBandTile() {
       second: top ? selectBestBand(bands.filter((b) => b !== top)) : null,
     };
   }, [bands, ready]);
+
+  // Keyed on the band string, not `best`, so the element stays referentially
+  // stable across renders that don't change the band. `TileHero`'s fit
+  // effect is keyed `[children]`; a fresh element every render would tear
+  // down and rebuild its ResizeObserver/font/theme listeners on every tick.
+  const bestBand = best?.band;
+  const heroBand = useMemo(
+    () =>
+      bestBand ? (
+        <BandPill band={bestBand} size="inherit">
+          {bestBand.toUpperCase()}
+        </BandPill>
+      ) : null,
+    [bestBand],
+  );
 
   // No station/home set (wall spec §7, HW-53): a neutral state, never an
   // error or a stalled fetch. The band-verdict hooks above are shared,
@@ -75,8 +91,8 @@ export function BestBandTile() {
         openLabel={`Best band now: ${best.band}, ${verdict}. Open band health report`}
       >
         <div className="hc-heroline">
-          <TileHero tone={tone} flush>
-            {best.band.toUpperCase()}
+          <TileHero flush large>
+            {heroBand}
           </TileHero>
           <div className={`hc-verdict hc-glow ${tone}`}>{verdict}</div>
         </div>
@@ -86,8 +102,11 @@ export function BestBandTile() {
             <b>{best.result.inputs.reporters20m}</b> rx
           </span>
           {second && (
-            <span>
-              {second.band.toUpperCase()} {LADDER_WALL_LABEL[second.stable]}
+            <span className="inline-flex items-center gap-1">
+              <BandPill band={second.band} size="inherit">
+                {second.band.toUpperCase()}
+              </BandPill>
+              {LADDER_WALL_LABEL[second.stable]}
             </span>
           )}
         </TileSub>

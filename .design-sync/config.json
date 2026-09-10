@@ -28,6 +28,7 @@
   "componentSrcMap": {
     "AccessibleDialog": "src/components/ui/AccessibleDialog.tsx",
     "Badge": "src/components/ui/Badge.tsx",
+    "BandPill": "src/components/ui/BandPill.tsx",
     "Card": "src/components/ui/Card.tsx",
     "CommandPalette": "src/components/ui/CommandPalette.tsx",
     "ConfirmDialog": "src/components/ui/ConfirmDialog.tsx",

@@ -16,8 +16,36 @@
  * FADE_BEFORE: how far before the limb to start fading (higher = earlier fade)
  * FADE_AFTER: how far past the limb until fully hidden
  */
-const FADE_BEFORE = 0.05;
-const FADE_AFTER = 0.12;
+export const LIMB_FADE_BEFORE = 0.05;
+export const LIMB_FADE_AFTER = 0.12;
+
+/**
+ * Width of the alpha gate applied on top of `occlusionOpacity` by overlays
+ * that also carry a legibility floor (spot label text alpha, spot arcs).
+ *
+ * Those floors exist so a de-emphasized overlay on the NEAR face never drops
+ * below a readable alpha. Applied unconditionally they also keep an overlay
+ * that is past the horizon painted at the floor value, which is what rendered
+ * as translucent "ghost" spot tags on the back of the globe. Multiplying the
+ * floored value by this gate re-couples the floor to the limb: the gate is 1
+ * everywhere the overlay is comfortably on the near face and ramps to 0 across
+ * the last quarter of the occlusion fade, so the floor cannot resurrect an
+ * overlay the limb has already hidden.
+ *
+ * 0.25 is deliberately the same value as `SpotLabel`'s `FADE_IN_END`, so a
+ * label's text alpha and its wrapper CSS opacity reach full strength at the
+ * same occlusion value instead of crossing in the middle of the ramp. In dot
+ * terms it is roughly the last 0.05 of the ~0.17-wide occlusion band, i.e. a
+ * couple of degrees of rotation rather than a hard cut.
+ *
+ * This gate is for overlays that are NOT depth-tested — labels and markers,
+ * which stay lit up to the limb and fade out just past it. Spot arcs are
+ * depth-tested against the globe, so their fade has to finish before tangency
+ * instead; they use their own window on the visible side
+ * (`ARC_LIMB_FADE_WINDOW` in `src/lib/map/arcLimbFade.ts`, which explains
+ * why).
+ */
+export const LIMB_ALPHA_GATE_WINDOW = 0.25;
 
 interface Vector3Like {
   x: number;
@@ -67,7 +95,7 @@ export function createGlobeOcclusionFrame(
  * Attempt to compute a smoothstep interpolation (Hermite).
  * Maps a value from [edge0, edge1] to [0, 1] with smooth easing.
  */
-function smoothstep(edge0: number, edge1: number, x: number): number {
+export function smoothstep(edge0: number, edge1: number, x: number): number {
   const t = Math.max(0, Math.min(1, (x - edge0) / (edge1 - edge0)));
   return t * t * (3 - 2 * t);
 }
@@ -96,10 +124,22 @@ export function getGlobeOcclusionOpacity(
   // For a unit sphere viewed from distance D, the geometric limb (tangent
   // point) has dot(surfaceNormal, cameraDirection) = 1/D.
   const limbDot = 1 / frame.cameraDistance;
-  const visibleThreshold = limbDot + FADE_BEFORE;
-  const hiddenThreshold = limbDot - FADE_AFTER;
+  const visibleThreshold = limbDot + LIMB_FADE_BEFORE;
+  const hiddenThreshold = limbDot - LIMB_FADE_AFTER;
 
   if (dot > visibleThreshold) return 1;
   if (dot < hiddenThreshold) return 0;
   return smoothstep(hiddenThreshold, visibleThreshold, dot);
+}
+
+/**
+ * Gate a floored overlay alpha by how far the overlay is from the limb.
+ *
+ * Returns 1 while `occlusionOpacity` is at or above `LIMB_ALPHA_GATE_WINDOW`
+ * (so a near-face overlay keeps its full legibility floor) and smoothsteps to
+ * 0 as the occlusion term itself reaches 0. Monotonic in `occlusionOpacity`,
+ * so multiplying a monotonic alpha by it preserves monotonicity.
+ */
+export function limbAlphaGate(occlusionOpacity: number): number {
+  return smoothstep(0, LIMB_ALPHA_GATE_WINDOW, occlusionOpacity);
 }

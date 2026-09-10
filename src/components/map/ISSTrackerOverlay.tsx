@@ -240,7 +240,7 @@ function ISSInfoCard({ tracker, occlusionOpacity }: ISSInfoCardProps) {
         {/* Header */}
         <div className="flex items-center justify-between gap-2 mb-0.5">
           <span
-            className="text-[13px] font-bold tracking-wider"
+            className="text-sm font-bold tracking-wider"
             style={{ color: "#64B4FF" }}
           >
             ISS (ZARYA)

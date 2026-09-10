@@ -7,6 +7,7 @@
  */
 
 import { useRef, useEffect, useMemo, useState, useCallback } from "react";
+import { findHoveredDecodeAtCssPoint } from "@/components/dx/bandScopeHitTest";
 import { useWSJTXStore, type WSJTXDecode } from "@/stores/wsjtxStore";
 
 // ---------------------------------------------------------------------------
@@ -228,27 +229,16 @@ export function BandScope({ className = "" }: BandScopeProps) {
       const rect = canvas.getBoundingClientRect();
       const mx = e.clientX - rect.left;
       const my = e.clientY - rect.top;
-      const now = Date.now();
-      const cutoffMs = now - TIME_WINDOW_S * 1000;
 
-      let closest: WSJTXDecode | null = null;
-      let closestDist = 20; // pixel threshold
-
-      for (const decode of recentDecodes) {
-        if (decode.receivedAt < cutoffMs) continue;
-        const age = (now - decode.receivedAt) / 1000;
-        const x =
-          ((decode.deltaFrequency - PASSBAND_LOW) / PASSBAND_RANGE) *
-          canvas.width;
-        const y = (1 - (TIME_WINDOW_S - age) / TIME_WINDOW_S) * canvas.height;
-        const dist = Math.hypot(mx - x, my - y);
-        if (dist < closestDist) {
-          closestDist = dist;
-          closest = decode;
-        }
-      }
-
-      setHoveredDecode(closest);
+      setHoveredDecode(
+        findHoveredDecodeAtCssPoint(
+          mx,
+          my,
+          recentDecodes,
+          rect.width,
+          rect.height,
+        ),
+      );
     },
     [recentDecodes],
   );

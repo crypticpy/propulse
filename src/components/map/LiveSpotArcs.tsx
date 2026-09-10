@@ -23,10 +23,7 @@ import { useViewEffectiveSpots } from "@/hooks/useViewClusterSpots";
 import { projectLiveSpotsForView } from "@/lib/spots/presentation/pipeline";
 import { useMapStore } from "@/stores/mapStore";
 import { MAX_SPOT_FETCH_LIMIT } from "@/lib/map/spotDensity";
-import {
-  useSpotAgePrefs,
-  useUIInteractionPrefs,
-} from "@/stores/userStore";
+import { useSpotAgePrefs, useUIInteractionPrefs } from "@/stores/userStore";
 import {
   extractPrefixFromCallsign,
   getLocationFromPrefix,
@@ -47,6 +44,12 @@ import { useActiveBand } from "@/hooks/useActiveBandMode";
 import { getScreenSpaceWorldSize } from "@/lib/map/screenSpaceScale";
 import { GLOBE_LAYER_ORDER } from "@/lib/map/globeRenderOrder";
 import { getArcOpacity } from "@/lib/map/arcAppearance";
+import {
+  applyArcLimbFade,
+  createArcLimbFadeUniforms,
+  updateArcLimbFadeUniforms,
+  type ArcLimbFadeUniforms,
+} from "@/lib/map/arcLimbFade";
 import {
   contactSpotOpacity,
   isSameStationCall,
@@ -494,6 +497,7 @@ const SpotArc = React.memo(function SpotArc({
   bandHeightArcs = false,
   band,
   colorOverride,
+  limbFadeUniforms,
 }: {
   spot: ResolvedSpot;
   segments?: number;
@@ -511,6 +515,11 @@ const SpotArc = React.memo(function SpotArc({
   band?: string;
   /** Fixed semantic color for non-live routes such as historical replay. */
   colorOverride?: string;
+  /**
+   * Shared limb-fade uniform block (one per LiveSpotArcs instance, updated by
+   * a single useFrame). Undefined outside the globe, where there is no limb.
+   */
+  limbFadeUniforms?: ArcLimbFadeUniforms;
 }) {
   // Validate coordinates to prevent NaN errors in THREE.js
   const hasValidCoords =
@@ -575,6 +584,14 @@ const SpotArc = React.memo(function SpotArc({
     band,
   ]);
 
+  // Install the limb fade on this arc's own LineMaterial. Runs once per arc
+  // on mount; the per-frame work stays in the parent's single useFrame.
+  const lineRef = useRef<React.ComponentRef<typeof Line>>(null);
+  useLayoutEffect(() => {
+    if (!limbFadeUniforms) return;
+    applyArcLimbFade(lineRef.current?.material, limbFadeUniforms);
+  }, [limbFadeUniforms]);
+
   const color = colorOverride ?? getSpotColor(spot, colorMode);
 
   // Calculate age-based opacity using new getSpotAgeInfo
@@ -603,6 +620,7 @@ const SpotArc = React.memo(function SpotArc({
 
   return (
     <Line
+      ref={lineRef}
       points={points}
       color={color}
       lineWidth={lineWidth}
@@ -754,7 +772,9 @@ export function LiveSpotArcs({
   const maxArcs = maxArcsProp ?? viewSpots.filters.spotLimit;
   const selectedSpotId = useBoundSelectedReportId();
   const sourcesFilter =
-    viewSpots.filters.sources.length > 0 ? viewSpots.filters.sources : undefined;
+    viewSpots.filters.sources.length > 0
+      ? viewSpots.filters.sources
+      : undefined;
 
   // Get spot age visualization preferences
   const spotAgePrefs = useSpotAgePrefs();
@@ -787,7 +807,9 @@ export function LiveSpotArcs({
   // geographic pre-cluster is deliberately gone: layout must be decided after
   // projection and together with activations, not independently in degrees.
   const resolvedSingles = useMemo(() => {
-    return suppliedResolvedSpots ?? resolveSpotLocations(spots.slice(0, maxArcs));
+    return (
+      suppliedResolvedSpots ?? resolveSpotLocations(spots.slice(0, maxArcs))
+    );
   }, [maxArcs, spots, suppliedResolvedSpots]);
 
   // Create a map from spot ID to original LiveSpot for additional data
@@ -856,6 +878,20 @@ export function LiveSpotArcs({
   const { getOpacity: getOcclusionOpacity } = useGlobeOcclusionBatch(
     labelPositionsForOcclusion,
   );
+
+  // ── Shared arc limb fade ────────────────────────────────────────────────
+  // Arcs used to be depth-tested only, so a whole set could pop out over two
+  // or three degrees of rotation (#932). One uniform block, updated once per
+  // frame here, feeds every arc material's shader; the ramp and window are the
+  // same ones SpotLabel applies, so a tag and its path fade out together.
+  const limbFadeUniforms = useMemo(() => createArcLimbFadeUniforms(), []);
+  useFrame(({ camera: frameCamera }) => {
+    updateArcLimbFadeUniforms(
+      limbFadeUniforms,
+      frameCamera.position,
+      useMapStore.getState().rotation.x,
+    );
+  });
 
   if (
     isLoading ||
@@ -931,9 +967,7 @@ export function LiveSpotArcs({
               contactCallsign,
             ),
             matchesContactBand: Boolean(
-              contactBand &&
-                spotBand &&
-                spotBand === contactBand.toLowerCase(),
+              contactBand && spotBand && spotBand === contactBand.toLowerCase(),
             ),
           });
           const filterOpacity = activeBandOpacity * contactOpacity;
@@ -973,6 +1007,7 @@ export function LiveSpotArcs({
                 filterOpacityMultiplier={filterOpacity}
                 bandHeightArcs={uiPrefs.bandHeightArcs ?? true}
                 band={orig?.band || getBandFromFrequency(spot.frequency)}
+                limbFadeUniforms={limbFadeUniforms}
               />
               {dxLabelVisible && (
                 <SpotLabel
@@ -988,10 +1023,7 @@ export function LiveSpotArcs({
                   }}
                   labelScale={uiPrefs.labelScale ?? 1}
                   color={color}
-                  occlusionOpacity={getOcclusionOpacity(
-                    spot.dxLat,
-                    spot.dxLon,
-                  )}
+                  occlusionOpacity={getOcclusionOpacity(spot.dxLat, spot.dxLon)}
                   onHover={
                     onSpotHover
                       ? (screenPos) =>
@@ -1056,8 +1088,7 @@ export function LiveSpotArcs({
                   }
                   onSelect={
                     onSpotSelect
-                      ? (screenPos) =>
-                          onSpotSelect(presentableSpot, screenPos)
+                      ? (screenPos) => onSpotSelect(presentableSpot, screenPos)
                       : undefined
                   }
                 />
@@ -1126,15 +1157,10 @@ export function LiveSpotArcs({
         const replaySlice = resolvedReplay.slice(0, maxArcs);
         const replayEndpoints: EndpointData[] = [];
         const replayArcs = replaySlice.map((spot) => {
-          const reportId = spotLayoutReportId(
-            `replay-${spot.source}`,
-            spot.id,
-          );
+          const reportId = spotLayoutReportId(`replay-${spot.source}`, spot.id);
           const spotterVisible =
             placementById === null ||
-            placementById.has(
-              spotLayoutCandidateId(reportId, "spotter"),
-            );
+            placementById.has(spotLayoutCandidateId(reportId, "spotter"));
           const dxVisible =
             placementById === null ||
             placementById.has(spotLayoutCandidateId(reportId, "dx"));
@@ -1166,6 +1192,7 @@ export function LiveSpotArcs({
                 colorOverride={SPOT_REPLAY_COLOR}
                 sizeScale={uiPrefs.spotDotScale ?? 1.0}
                 filterOpacityMultiplier={0.6}
+                limbFadeUniforms={limbFadeUniforms}
               />
               {canInteract && (
                 <>

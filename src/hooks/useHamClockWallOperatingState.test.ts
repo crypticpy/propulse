@@ -1,5 +1,5 @@
 import { act, renderHook } from "@testing-library/react";
-import { beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { OPERATING_PROTOCOL_VERSION } from "@/lib/workspace/operatingChannel";
 import { useMapStore } from "@/stores/mapStore";
 import { useOperatingStateStore } from "@/stores/operatingStateStore";
@@ -33,22 +33,83 @@ beforeEach(() => {
   localStorage.clear();
   useOperatingStateStore.setState({ followScreens: true });
   useOperatingStateStore.getState().reset();
-  useMapStore.setState({ target: null });
+  useMapStore.setState({ target: null, targetSetAt: 0, isolateTargetPath: false });
+});
+
+afterEach(() => {
+  vi.useRealTimers();
 });
 
 describe("useHamClockWallOperatingState", () => {
   it("does not overwrite a locally set map target with a stale cursor on mount", () => {
-    useMapStore.setState({
-      target: { lat: 40, lon: -80, name: "W3ABC" },
-      isolateTargetPath: true,
-    });
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-09-10T00:00:00Z"));
+
+    // Cursor first, then a *later* local target write: the wall must keep
+    // the local one when it (re)mounts.
     useOperatingStateStore
       .getState()
       .applyMessage(inboundTarget("phone-device", "K1ABC", "EM10"));
+    vi.advanceTimersByTime(60_000);
+    useMapStore.getState().setTarget({ lat: 40, lon: -80, name: "W3ABC" });
+    useMapStore.setState({ isolateTargetPath: true });
 
     renderHook(() => useHamClockWallOperatingState());
 
     expect(useMapStore.getState().target).toMatchObject({ name: "W3ABC", lat: 40, lon: -80 });
+    expect(useMapStore.getState().isolateTargetPath).toBe(true);
+  });
+
+  it("applies a cursor that advanced while the wall was unmounted", () => {
+    // The app-level `OperatingTransportHost` keeps running while HamClock is
+    // off screen (layout-mode toggle, navigate away from `/map`), so another
+    // screen can move the cursor with no subscription here to hear it. On
+    // remount the newer cursor must win, or the map disagrees with
+    // `HamClockWallCursorChip` for the rest of the session (#859).
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-09-10T00:00:00Z"));
+
+    useOperatingStateStore
+      .getState()
+      .applyMessage(inboundTarget("phone-device", "K1ABC", "EM10"));
+
+    const first = renderHook(() => useHamClockWallOperatingState());
+    expect(useMapStore.getState().target?.name).toBe("K1ABC");
+
+    first.unmount();
+
+    vi.advanceTimersByTime(60_000);
+    act(() => {
+      useOperatingStateStore
+        .getState()
+        .applyMessage(inboundTarget("phone-device", "W2XYZ", "FN20"));
+    });
+    // No subscription while unmounted: the map is still on the old target.
+    expect(useMapStore.getState().target?.name).toBe("K1ABC");
+
+    renderHook(() => useHamClockWallOperatingState());
+
+    const target = useMapStore.getState().target;
+    expect(target).toMatchObject({ name: "W2XYZ", grid: "FN20" });
+    expect(target?.lat).toBeCloseTo(40.5, 1);
+    expect(target?.lon).toBeCloseTo(-75, 1);
+  });
+
+  it("does not clear the map target when a newer cursor carries no location", () => {
+    // A callsign-only pick from a screen with no location data yet resolves
+    // to no map location; that is not an instruction to clear the map (and
+    // `setTarget(null)` would reset `isolateTargetPath`).
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-09-10T00:00:00Z"));
+
+    useMapStore.getState().setTarget({ lat: 40, lon: -80, name: "W3ABC" });
+    useMapStore.setState({ isolateTargetPath: true });
+    vi.advanceTimersByTime(60_000);
+    useOperatingStateStore.getState().applyMessage(inboundTarget("phone-device", "K1ABC", null));
+
+    renderHook(() => useHamClockWallOperatingState());
+
+    expect(useMapStore.getState().target).toMatchObject({ name: "W3ABC" });
     expect(useMapStore.getState().isolateTargetPath).toBe(true);
   });
 

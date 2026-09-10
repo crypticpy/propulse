@@ -20,10 +20,14 @@
  * `mapStore.target` is written from `cursor.target` on later cursor changes,
  * with no fallback merge of any kind — the reader/writer seam for a scoped
  * view runtime is `dxStore.selectedSpot` (#707), not this field, and this
- * hook must not anticipate that landing. On mount, a non-null cursor is
- * applied only when the map has no target yet: remount (layout-mode toggle,
- * navigate back to `/map`) must not clobber a newer local `setTarget` with a
- * stale phone cursor (#859).
+ * hook must not anticipate that landing. On mount the two are reconciled by
+ * stamp — `operatingStateStore.stamps.target.at` against `mapStore
+ * .targetSetAt` — because the wall remounts (layout-mode toggle, navigate
+ * back to `/map`) while the app-level `OperatingTransportHost` keeps
+ * running: a stale phone cursor must not clobber a newer local `setTarget`,
+ * and a cursor that advanced during the unmount must not be ignored merely
+ * because the map still holds the previous target, which would leave the map
+ * disagreeing with `HamClockWallCursorChip` indefinitely (#859).
  */
 
 import { useEffect } from "react";
@@ -85,15 +89,23 @@ export function useHamClockWallOperatingState(): void {
   );
 
   useEffect(() => {
-    // Pick up a cursor that arrived before this hook mounted (a `hello`
-    // reply), but only when the map has no target yet. An empty cursor means
-    // "nothing shared yet", not "clear the map"; a stale non-null cursor
-    // must not overwrite a newer local `setTarget` on remount (#859).
-    // Writing `null` here would also reset `isolateTargetPath`. Live cursor
-    // changes still follow via the subscription below.
-    const initial = useOperatingStateStore.getState().cursor.target;
-    if (initial && useMapStore.getState().target == null) {
-      useMapStore.getState().setTarget(toMapTarget(initial));
+    // Reconcile with a cursor that moved while this hook was unmounted (a
+    // `hello` reply, or a phone that advanced the cursor through the
+    // app-level `OperatingTransportHost` while the wall was off screen).
+    // Both sides carry a millisecond stamp in the same clock domain, so the
+    // newer of the two wins outright: a stale cursor never clobbers a newer
+    // local `setTarget`, and a newer cursor is never ignored just because
+    // the map happens to hold some older target (#859). A tie keeps the map,
+    // which is also what an already-applied cursor produces (`setTarget`
+    // stamps at apply time, so a second mount is a no-op).
+    const operating = useOperatingStateStore.getState();
+    const initial = operating.cursor.target;
+    const resolved = toMapTarget(initial);
+    // `resolved == null` is a callsign-only cursor with no location yet, and
+    // an empty cursor is "nothing shared yet" — neither means "clear the
+    // map", and `setTarget(null)` would also reset `isolateTargetPath`.
+    if (resolved && operating.stamps.target.at > useMapStore.getState().targetSetAt) {
+      useMapStore.getState().setTarget(resolved);
     }
 
     return useOperatingStateStore.subscribe((state, previous) => {

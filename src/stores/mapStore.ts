@@ -383,6 +383,15 @@ export interface MapState {
   // Target location for path analysis
   target: TargetLocation | null;
   setTarget: (target: TargetLocation | null) => void;
+  /**
+   * `Date.now()` of the last write to `target` (`0` before the first one).
+   * Same clock domain as `operatingStateStore`'s `stamps.target.at`, so a
+   * screen that mounts late can tell whether the shared operating cursor or
+   * this map's own target is the newer of the two (#859) instead of guessing
+   * from `target != null`. Written only by the two actions below; nothing
+   * reads it for rendering, so it never needs to be in a selector.
+   */
+  targetSetAt: number;
 
   // Recent targets history (max 10)
   recentTargets: TargetLocation[];
@@ -1387,6 +1396,7 @@ const initialState = {
   absoluteTime: null as string | null,
   timeScenarios: loadTimeScenarios(),
   target: null,
+  targetSetAt: 0,
   recentTargets: loadRecentTargets(),
   rotation: { x: 23.5, y: 0 }, // Earth's axial tilt
   zoom: 1,
@@ -1531,6 +1541,8 @@ export const useMapStore = create<MapState>((set, get) => ({
       return {
         absoluteTime: scenario.time,
         target: scenario.target || state.target,
+        // Only a scenario that carries its own target is a target write.
+        targetSetAt: scenario.target ? Date.now() : state.targetSetAt,
       };
     }),
 
@@ -1538,7 +1550,7 @@ export const useMapStore = create<MapState>((set, get) => ({
     set((state) => {
       // If target is null, just clear it without affecting recent targets
       if (!target) {
-        return { target: null, isolateTargetPath: false };
+        return { target: null, targetSetAt: Date.now(), isolateTargetPath: false };
       }
 
       // Add to recent targets (avoiding duplicates by lat/lon)
@@ -1562,7 +1574,7 @@ export const useMapStore = create<MapState>((set, get) => ({
       }
 
       saveRecentTargets(updatedRecent);
-      return { target, recentTargets: updatedRecent };
+      return { target, targetSetAt: Date.now(), recentTargets: updatedRecent };
     }),
 
   clearRecentTargets: () =>

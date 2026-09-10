@@ -788,6 +788,58 @@ export function PropagationForecastMini({
   // Get Bz display values
   const bzDisplay = getBzDisplay(currentBz);
 
+  // NowCast model chips — live ML predictions alongside the physics
+  // forecast. Rendered as a group so it can be merged into whichever
+  // footer row has room, instead of forcing its own row (#936).
+  const nowCastGroup =
+    nowCastChips.length > 0 ? (
+      <div className="flex items-center flex-wrap gap-1.5 min-w-0">
+        <span
+          className="text-xs font-mono font-semibold text-cyan-300 uppercase tracking-wide flex-shrink-0 cursor-help"
+          title={`${modelNowCast.personalized ? "NOWCAST + STATIONCAST" : "NOWCAST"} MODEL\nLive ML band predictions from the model service.\nPath (WSPR): chance a single WSPR transmission would be decoded on this path.${
+            modelNowCast.personalized
+              ? `\nYour ${activeMode}: that path probability adapted to your equipment and mode threshold.`
+              : ""
+          }\nShown alongside the physics forecast above — computed independently from it.`}
+        >
+          NowCast
+        </span>
+        {/* Which profile actually answered. The model serves its
+            physics-trained profile per band when recent path history is
+            unavailable, so this can disagree with the "NowCast" label
+            beside it — that is the point. */}
+        <ModelSourceBadge source={nowCastSource} className="flex-shrink-0" />
+        {nowCastChips.map(({ band, prediction, probability }) => (
+          <div
+            key={band}
+            className="font-mono px-1.5 py-0.5 rounded border border-su-line/40 bg-su-line/20 flex items-center gap-1 flex-shrink-0 cursor-help"
+            title={`NOWCAST MODEL — ${band}\nProfile: ${prediction.profile === "physics" ? "Physics profile (recent path history stale or unavailable)" : "NowCast ML (recent path history)"}\nPath (WSPR): ${(prediction.core_probability * 100).toFixed(1)}%${
+              modelNowCast.personalized
+                ? `\nYour ${activeMode}: ${(prediction.personalized_probability * 100).toFixed(1)}%`
+                : ""
+            }\nConfidence: ${Math.round(prediction.confidence * 100)}%${
+              prediction.ood_flags.length > 0
+                ? `\nModel notes: ${predictionIssueLabels(prediction).join(" · ")}`
+                : ""
+            }`}
+          >
+            <span className="text-su-muted">{band}</span>
+            <span className={`font-semibold ${nowCastTone(probability)}`}>
+              {Math.round(probability * 100)}%
+            </span>
+            {prediction.ood_flags.length > 0 && (
+              <span className="text-caution-amber font-bold">!</span>
+            )}
+          </div>
+        ))}
+        {modelNowCast.pending && (
+          <span className="text-su-muted animate-pulse flex-shrink-0">
+            &hellip;
+          </span>
+        )}
+      </div>
+    ) : null;
+
   return (
     <>
       <div
@@ -1095,64 +1147,12 @@ export function PropagationForecastMini({
           </div>
         </div>
 
-        {/* NowCast model chips — live ML predictions alongside the physics forecast */}
-        {nowCastChips.length > 0 && (
-          <div className="flex items-center flex-wrap gap-1.5 mt-1 text-xs">
-            <span
-              className="text-xs font-mono font-semibold text-cyan-300 uppercase tracking-wide flex-shrink-0 cursor-help"
-              title={`${modelNowCast.personalized ? "NOWCAST + STATIONCAST" : "NOWCAST"} MODEL\nLive ML band predictions from the model service.\nPath (WSPR): chance a single WSPR transmission would be decoded on this path.${
-                modelNowCast.personalized
-                  ? `\nYour ${activeMode}: that path probability adapted to your equipment and mode threshold.`
-                  : ""
-              }\nShown alongside the physics forecast above — computed independently from it.`}
-            >
-              NowCast
-            </span>
-            {/* Which profile actually answered. The model serves its
-                physics-trained profile per band when recent path history is
-                unavailable, so this can disagree with the "NowCast" label
-                beside it — that is the point. */}
-            <ModelSourceBadge
-              source={nowCastSource}
-              className="flex-shrink-0"
-            />
-            {nowCastChips.map(({ band, prediction, probability }) => (
-              <div
-                key={band}
-                className="font-mono px-1.5 py-0.5 rounded border border-su-line/40 bg-su-line/20 flex items-center gap-1 flex-shrink-0 cursor-help"
-                title={`NOWCAST MODEL — ${band}\nProfile: ${prediction.profile === "physics" ? "Physics profile (recent path history stale or unavailable)" : "NowCast ML (recent path history)"}\nPath (WSPR): ${(prediction.core_probability * 100).toFixed(1)}%${
-                  modelNowCast.personalized
-                    ? `\nYour ${activeMode}: ${(prediction.personalized_probability * 100).toFixed(1)}%`
-                    : ""
-                }\nConfidence: ${Math.round(prediction.confidence * 100)}%${
-                  prediction.ood_flags.length > 0
-                    ? `\nModel notes: ${predictionIssueLabels(prediction).join(" · ")}`
-                    : ""
-                }`}
-              >
-                <span className="text-su-muted">{band}</span>
-                <span className={`font-semibold ${nowCastTone(probability)}`}>
-                  {Math.round(probability * 100)}%
-                </span>
-                {prediction.ood_flags.length > 0 && (
-                  <span className="text-caution-amber font-bold">!</span>
-                )}
-              </div>
-            ))}
-            {modelNowCast.pending && (
-              <span className="text-su-muted animate-pulse flex-shrink-0">
-                &hellip;
-              </span>
-            )}
-          </div>
-        )}
-
         {/* BOTTOM: Footer - detailed or compact */}
         {forecastDisplay.detailedFooter ? (
           /* Detailed footer: Two-row layout */
           <div className="flex flex-col gap-1 mt-1 text-xs">
-            {/* Row 1: Best band + alternatives + peak windows */}
-            <div className="flex gap-2 flex-wrap">
+            {/* Row 1: Best band + alternatives + peak windows + NowCast chips */}
+            <div className="flex gap-2 flex-wrap items-center">
               {/* Best band NOW - primary recommendation */}
               {topBandsNow.length > 0 && (
                 <div
@@ -1222,6 +1222,8 @@ export function PropagationForecastMini({
                   <span className="text-su-muted">No windows</span>
                 )}
               </div>
+
+              {nowCastGroup}
             </div>
 
             {/* Row 2: Greyline times + Operating tip */}
@@ -1268,7 +1270,7 @@ export function PropagationForecastMini({
           </div>
         ) : (
           /* Compact footer: Single-line summary */
-          <div className="flex gap-2 items-center mt-1 text-xs">
+          <div className="flex gap-2 items-center flex-wrap mt-1 text-xs">
             {/* Best band now pill */}
             {topBandsNow.length > 0 && (
               <div className="bg-signal-green/20 border border-signal-green/50 rounded px-2 py-0.5 flex items-center gap-1 font-mono flex-shrink-0">
@@ -1322,6 +1324,8 @@ export function PropagationForecastMini({
                 GL in {greylineCountdown.minutesAway}m
               </span>
             )}
+
+            {nowCastGroup}
           </div>
         )}
       </div>
@@ -1419,9 +1423,7 @@ export function PropagationForecastMini({
 
                 {/* SNR on cells toggle */}
                 <div className="flex items-center justify-between mb-1.5">
-                  <span className="text-xs text-su-muted">
-                    SNR on cells
-                  </span>
+                  <span className="text-xs text-su-muted">SNR on cells</span>
                   <button
                     role="switch"
                     aria-checked={forecastDisplay.showSnrValues}
@@ -1449,9 +1451,7 @@ export function PropagationForecastMini({
 
                 {/* Full details toggle */}
                 <div className="flex items-center justify-between mb-1.5">
-                  <span className="text-xs text-su-muted">
-                    Full details
-                  </span>
+                  <span className="text-xs text-su-muted">Full details</span>
                   <button
                     role="switch"
                     aria-checked={forecastDisplay.detailedFooter}

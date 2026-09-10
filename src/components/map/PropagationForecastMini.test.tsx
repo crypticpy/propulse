@@ -191,4 +191,26 @@ describe("PropagationForecastMini NowCast chip row (#809)", () => {
       ).toBe(true);
     }
   });
+
+  // #936: the standalone NowCast chip row was merged into the footer row
+  // that already carries the best-band pill, to reclaim a row of vertical
+  // space. This guards against the row split coming back — the NowCast
+  // label and the best-band pill must share the same flex-wrap ancestor.
+  it("renders the NowCast group inside the same footer row as the best-band pill (#936)", () => {
+    render(
+      <PropagationForecastMini
+        displayTime={new Date("2026-01-01T12:00:00Z")}
+        className="h-full"
+      />,
+    );
+
+    const label = screen.getByText("NowCast");
+    const bestBandArrow = screen.getByText("▶");
+
+    const footerRow = label.closest('[class*="flex-wrap"]')?.parentElement;
+
+    expect(footerRow).not.toBeNull();
+    expect(footerRow!.className).toContain("flex-wrap");
+    expect(footerRow!.contains(bestBandArrow)).toBe(true);
+  });
 });

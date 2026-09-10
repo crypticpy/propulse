@@ -247,6 +247,9 @@ interface GlobeViewProps {
   hideSizeSliders?: boolean;
   /** Host override for the fallback's "Use flat map" action (defaults to switching the map store to flat) */
   onUseFlatMap?: () => void;
+  /** Forwarded to `ClusterDetailPopover`/`SpotCollectionPopover` — true only
+   * when `HamClockView` is the host (#846/#871 round 3). */
+  isWallCanvas?: boolean;
 }
 
 interface ErrorBoundaryState {
@@ -2010,6 +2013,7 @@ export function GlobeView({
   hideRadarScrubber,
   hideSizeSliders = false,
   onUseFlatMap,
+  isWallCanvas,
 }: GlobeViewProps) {
   const scopedLayers = useScopedMapLayers();
   const { policy: operationalPolicy } = useMapOperationalContext();
@@ -2882,6 +2886,7 @@ export function GlobeView({
         position={clusterScreenPos || { x: 0, y: 0 }}
         cluster={selectedCluster}
         portalTarget={mapOverlayPortal}
+        isWallCanvas={isWallCanvas}
         onClose={handleClusterClose}
         onSpotSelect={handleClusterSpotSelect}
         onMapTheseSpots={
@@ -2902,6 +2907,7 @@ export function GlobeView({
           subtitle={`${selectedGridCollection.spots.length} report${selectedGridCollection.spots.length === 1 ? "" : "s"} in this highlighted grid`}
           spots={selectedGridCollection.spots}
           portalTarget={mapOverlayPortal}
+          isWallCanvas={isWallCanvas}
           onClose={() => setSelectedGridCollection(null)}
           onSpotSelect={(spot) =>
             handleMapSpotSelect(spot, selectedGridCollection.screenPos)

@@ -127,6 +127,9 @@ interface AzimuthalViewProps {
   onLocationClick?: (lat: number, lon: number) => void;
   /** Hide the local size panel when the host docks it with other controls */
   hideSizeSliders?: boolean;
+  /** Forwarded to `SpotCollectionPopover` — true only when `HamClockView` is
+   * the host (#846/#871 round 3). */
+  isWallCanvas?: boolean;
 }
 
 // Canvas dimensions (square for circular projection)
@@ -1649,6 +1652,7 @@ export function AzimuthalView({
   displayTime,
   onLocationClick,
   hideSizeSliders = false,
+  isWallCanvas,
 }: AzimuthalViewProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const overlayCanvasRef = useRef<HTMLCanvasElement>(null);
@@ -3088,6 +3092,7 @@ export function AzimuthalView({
         subtitle={openSpotCollection?.subtitle}
         spots={openSpotCollection?.spots ?? []}
         boundsHost={containerRef.current}
+        isWallCanvas={isWallCanvas}
         onClose={() => setOpenSpotCollection(null)}
         onSpotSelect={(spot) => {
           const position = openSpotCollection?.position ?? { x: 0, y: 0 };

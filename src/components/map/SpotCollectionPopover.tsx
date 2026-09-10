@@ -20,7 +20,6 @@ import {
   getSpotAgeInfo,
 } from "./LiveSpotArcs";
 import { useMapSurfaceFocus } from "./MapSurfaceContext";
-import { useEffectiveCanvasType } from "@/stores/workspaceStore";
 
 export interface SpotCollectionPopoverProps {
   visible: boolean;
@@ -43,6 +42,19 @@ export interface SpotCollectionPopoverProps {
    * when `portalTarget` is set. Ineffective for a view whose map host is
    * shorter than the viewport if neither prop is supplied (#846 rework). */
   boundsHost?: Element | null;
+  /** True only on the HamClock wall. `HamClockView` mounts the map views
+   * directly and is deliberately outside `WorkspacePage` (see
+   * `useHamClockWallOperatingState.ts`'s doc comment), so
+   * `useEffectiveCanvasType()` — which reads `workspaceStore` — can never
+   * actually resolve to `"wall"` on the production wall mount; it only ever
+   * did in tests that set `canvasTypeOverride("wall")` directly (#846/#871
+   * round 3, same class of bug as PR #868: the predicate was never
+   * reachable from the real mount). Threaded explicitly instead, from the
+   * one literal `HAMCLOCK_WALL_CANVAS_TYPE` in
+   * `useHamClockWallOperatingState.ts`, through `HamClockView` ->
+   * `FlatMapView`/`AzimuthalView`/`GlobeView` ->
+   * `ClusterDetailPopover`/`SpotCollectionPopover`. Defaults to `false`. */
+  isWallCanvas?: boolean;
 }
 
 const POPOVER_WIDTH = 330;
@@ -75,6 +87,7 @@ export function SpotCollectionPopover({
   onMapTheseSpots,
   portalTarget,
   boundsHost,
+  isWallCanvas = false,
 }: SpotCollectionPopoverProps) {
   const panelRef = useRef<HTMLDivElement>(null);
   const firstSpotRef = useRef<HTMLButtonElement>(null);
@@ -90,8 +103,6 @@ export function SpotCollectionPopover({
   // popover has an observed body-origin-close-without-entering gap.
   const heldFocusRef = useRef(false);
   const focusMapSurface = useMapSurfaceFocus();
-  const canvasType = useEffectiveCanvasType();
-  const isWallCanvas = canvasType === "wall";
   const sortedSpots = useMemo(
     () =>
       [...spots].sort((a, b) => {

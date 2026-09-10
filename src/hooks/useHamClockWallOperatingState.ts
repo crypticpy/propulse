@@ -33,7 +33,15 @@ import { useOperatingStateStore } from "@/stores/operatingStateStore";
 /** Fixed: the wall is one screen, not a set of interchangeable workspaces. */
 export const HAMCLOCK_WALL_WORKSPACE_ID = "hamclock-wall";
 
-const HAMCLOCK_WALL_CANVAS_TYPE: CanvasType = "wall";
+/**
+ * Exported so `HamClockView` can pass an `isWallCanvas` prop down to the map
+ * views (and from there to `SpotCollectionPopover`/`ClusterDetailPopover`)
+ * from this single literal, instead of a second hardcoded `true` that could
+ * drift from the registration above (#846/#871 round 3: those popovers used
+ * to read `useEffectiveCanvasType()`, which this hook's own doc comment
+ * already explains the wall never participates in).
+ */
+export const HAMCLOCK_WALL_CANVAS_TYPE: CanvasType = "wall";
 
 /**
  * Same formula as `useOperatingScreen` (epic #652 rule 5): a wall shows

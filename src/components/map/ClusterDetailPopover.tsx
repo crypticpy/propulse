@@ -16,6 +16,8 @@ export interface ClusterDetailPopoverProps {
   portalTarget?: Element | null;
   /** Forwarded to `SpotCollectionPopover`'s bounds-only host (#846 rework). */
   boundsHost?: Element | null;
+  /** Forwarded to `SpotCollectionPopover` (#846/#871 round 3). */
+  isWallCanvas?: boolean;
 }
 
 function formatCoord(value: number, latitude: boolean) {
@@ -39,6 +41,7 @@ export function ClusterDetailPopover({
   onMapTheseSpots,
   portalTarget,
   boundsHost,
+  isWallCanvas,
 }: ClusterDetailPopoverProps) {
   const grid = useMemo(() => {
     if (!cluster) return "";
@@ -63,6 +66,7 @@ export function ClusterDetailPopover({
       onMapTheseSpots={onMapTheseSpots}
       portalTarget={portalTarget}
       boundsHost={boundsHost}
+      isWallCanvas={isWallCanvas}
     />
   );
 }

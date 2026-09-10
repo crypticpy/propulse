@@ -18,10 +18,21 @@
  * class/row contract that produces scrolling vs. capping.
  */
 import { render, screen } from "@testing-library/react";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { describe, expect, it } from "vitest";
 import type { PresentableSpot } from "@/lib/map/spotPresentation";
 import { useWorkspaceStore } from "@/stores/workspaceStore";
 import { SpotCollectionPopover } from "./SpotCollectionPopover";
+
+// Round 3 (#871 review again): the wall row cap used to be driven by
+// `useEffectiveCanvasType()`, which reads `workspaceStore`. `HamClockView`
+// -- the only production mount that is actually the wall -- is deliberately
+// outside `WorkspacePage` and never sets that store's `canvasTypeOverride`
+// (see `useHamClockWallOperatingState.ts`'s doc comment), so that predicate
+// was unreachable from the real wall mount; it only ever fired in tests
+// that set the override directly. `isWallCanvas` is now an explicit prop
+// threaded from `HamClockView` through the map views, and the "on the
+// HamClock wall" tests below pass it directly instead of touching
+// `workspaceStore` at all.
 
 function makeSpots(count: number): PresentableSpot[] {
   return Array.from({ length: count }, (_, i) => ({
@@ -58,10 +69,6 @@ function makeHost(width: number, height: number, left = 0, top = 0) {
   document.body.appendChild(host);
   return host;
 }
-
-afterEach(() => {
-  useWorkspaceStore.getState().setCanvasTypeOverride(null);
-});
 
 describe("SpotCollectionPopover host-bounded height (#846)", () => {
   it("caps the popover to a 600px-tall map host, not the 100vh window default, and re-enables pointer events", () => {
@@ -152,16 +159,13 @@ describe("SpotCollectionPopover host-bounded height (#846)", () => {
     host.remove();
   });
 
-  describe("on the HamClock wall", () => {
-    beforeEach(() => {
-      useWorkspaceStore.getState().setCanvasTypeOverride("wall");
-    });
-
+  describe("on the HamClock wall (isWallCanvas prop)", () => {
     it("caps rows and shows a +N more affordance instead of scrolling, announcing the capped count", () => {
       const host = makeHost(400, 600);
       render(
         <SpotCollectionPopover
           visible
+          isWallCanvas
           position={{ x: 100, y: 300 }}
           title="Test collection"
           spots={makeSpots(80)}
@@ -190,6 +194,7 @@ describe("SpotCollectionPopover host-bounded height (#846)", () => {
       render(
         <SpotCollectionPopover
           visible
+          isWallCanvas
           position={{ x: 100, y: 300 }}
           title="Test collection"
           spots={makeSpots(3)}
@@ -198,6 +203,58 @@ describe("SpotCollectionPopover host-bounded height (#846)", () => {
         />,
       );
       expect(screen.queryByText(/more$/)).toBeNull();
+    });
+
+    it("caps rows via the isWallCanvas prop with no workspace override set, matching HamClockView's mount (#846/#871 round 3)", () => {
+      // The regression this proves: HamClockView never touches
+      // `workspaceStore` (it is outside `WorkspacePage`), so a fix that
+      // still depended on `canvasTypeOverride` would never actually cap
+      // rows on the production wall even though this same test file's
+      // earlier version passed by setting that override directly.
+      expect(useWorkspaceStore.getState().canvasTypeOverride).toBeNull();
+      const host = makeHost(400, 600);
+      render(
+        <SpotCollectionPopover
+          visible
+          isWallCanvas
+          position={{ x: 100, y: 300 }}
+          title="Test collection"
+          spots={makeSpots(80)}
+          portalTarget={host}
+          onClose={() => {}}
+          onSpotSelect={() => {}}
+        />,
+      );
+      expect(useWorkspaceStore.getState().canvasTypeOverride).toBeNull();
+      expect(
+        screen.getAllByRole("button", { name: /Select K\d+ABC/ }),
+      ).toHaveLength(6);
+      expect(screen.getByText("+74 more")).toBeTruthy();
+      host.remove();
+    });
+
+    it("does not cap rows when isWallCanvas is left at its default (off the wall)", () => {
+      // Negative control for the prop itself: mirrors how the four
+      // non-HamClock mounts (PropSphere page, AtmosGlobeView, MobileMap,
+      // FullscreenPropSphere) call these views today, none of which pass
+      // `isWallCanvas`.
+      const host = makeHost(400, 600);
+      render(
+        <SpotCollectionPopover
+          visible
+          position={{ x: 100, y: 300 }}
+          title="Test collection"
+          spots={makeSpots(80)}
+          portalTarget={host}
+          onClose={() => {}}
+          onSpotSelect={() => {}}
+        />,
+      );
+      expect(
+        screen.getAllByRole("button", { name: /Select K\d+ABC/ }),
+      ).toHaveLength(80);
+      expect(screen.queryByText(/more$/)).toBeNull();
+      host.remove();
     });
   });
 });

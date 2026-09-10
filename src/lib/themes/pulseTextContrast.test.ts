@@ -95,9 +95,26 @@ const TEXT_COLOR_CLASS_RE = new RegExp(
     "5xl\\b|6xl\\b|7xl\\b|8xl\\b|9xl\\b)[A-Za-z0-9-]+",
 );
 
-/** `animate-pulse-glow` is a different, shallower custom keyframe (out of
- * scope per the module doc above) -- never match it as the Tailwind pulse. */
-const PULSE_CLASS_RE = new RegExp(`${PULSE_CLASS}(?!-glow)`);
+/** Class-token boundary on both sides, not just the one `-glow` special
+ * case this used to carry -- a real Tailwind class token is never glued
+ * directly to a neighboring identifier character or hyphenated segment,
+ * whatever punctuation (quote, whitespace, a variant prefix's `:`, or plain
+ * JS syntax like `)`/`&&`/`${…}`) actually surrounds it in a given raw
+ * scanned string. A tried-first, tighter alternative -- requiring a quote,
+ * whitespace, `:`, or string-start/end specifically -- broke three existing
+ * fixtures whose resolved text embeds the class inside unstripped JS syntax
+ * this scanner's own const/template resolution leaves behind (`cn("x", live
+ * && animate-pulse)`, and `` `text-alert-red ${animate-pulse}` `` -- a
+ * resolved reference substituted inside its own `${…}` wrapper, wrapper left
+ * intact). `\w`/`-` are the only characters that can ever extend a Tailwind
+ * class token itself, so excluding just those two on both sides is both
+ * necessary and sufficient: `animate-pulse-glow` (a different, shallower
+ * custom keyframe, out of scope per the module doc above), `animate-pulse-
+ * slow`, and `animate-pulsed` are all excluded (a trailing `-`/word char),
+ * and `not-animate-pulse` is excluded too (a leading `-`, whereas the
+ * previous version had no leading-boundary check at all) (Codex, PR #874
+ * round 38). */
+const PULSE_CLASS_RE = new RegExp(`(?<![\\w-])${PULSE_CLASS}(?![\\w-])`);
 
 /** Intrinsic elements that never carry rendered text of their own (graphics,
  * media, void and embedded content). Every other lowercase HTML tag is
@@ -917,11 +934,22 @@ function extractObjectEntries(
  * recursive parse. A default (`c = default`) doesn't change how `c`
  * resolves -- the destructured value is still the source key's own entry
  * whenever the source actually has that key, same fail-closed precision as
- * everywhere else in this scanner (Codex, PR #874 round 35). */
+ * everywhere else in this scanner (Codex, PR #874 round 35). `defaultLiteral`
+ * (round 38) is the default expression's own literal bodies/identifier refs
+ * (`extractLiteralBodies`/`extractIdentifierRefs`, same as any other
+ * identifier-or-literal value in this file) -- used only when the source has
+ * no precise entry for `sourceKey` at all, since real JS only ever falls
+ * back to a destructuring default when the source key is genuinely
+ * `undefined`, never when it resolves to some other value (`c = "text-xs"`
+ * next to a real, present, pulsing `c` on the source stays on the source's
+ * own value, unchanged). No `defaultLiteral` is collected for a nested
+ * pattern's own default (`d: { e } = fallback`) -- out of scope for this
+ * round, a known gap. */
 interface DestructuringBinding {
   localName: string;
   sourceKey: string | null;
   nestedPattern?: string;
+  defaultLiteral?: string;
 }
 
 /** Parses `{ a, b: renamed, c = default, ...others, d: { e } }` (braces
@@ -933,6 +961,31 @@ interface DestructuringBinding {
  * key it reads at scan time, the same fail-closed skip an unresolved key
  * shape already gets everywhere else in this file (Codex, PR #874
  * round 35). */
+/** If `patternText[pos]` (after skipping leading whitespace) is a default
+ * initializer's own `=` -- not a destructured-then-renamed pattern's `:`,
+ * already handled by the caller before this is ever reached -- returns that
+ * default expression's own literal bodies and identifier refs, joined the
+ * same way any other identifier-or-literal value in this file is
+ * (`extractLiteralBodies`/`extractIdentifierRefs`, e.g. `extractObjectEntries`'s
+ * own identifier-only entry handling), plus the position just past it.
+ * Undefined (no default) when `patternText[pos]` isn't `=` (Codex, PR #874
+ * round 38). */
+function parseDefaultLiteral(
+  patternText: string,
+  pos: number,
+  end: number,
+): { defaultLiteral: string | undefined; after: number } {
+  if (patternText[pos] !== "=") return { defaultLiteral: undefined, after: pos };
+  let dv = pos + 1;
+  while (dv < end && /\s/.test(patternText[dv])) dv++;
+  const defaultEnd = scanToDepthZeroComma(patternText, dv, end);
+  const defaultText = patternText.slice(dv, defaultEnd);
+  const bodies = extractLiteralBodies(defaultText);
+  const refs = extractIdentifierRefs(defaultText);
+  const defaultLiteral = [bodies.join(" "), refs.join(" ")].filter(Boolean).join(" ") || undefined;
+  return { defaultLiteral, after: defaultEnd };
+}
+
 function parseDestructuringPattern(patternText: string): DestructuringBinding[] {
   const bindings: DestructuringBinding[] = [];
   const end = extractBalanced(patternText, 0, "{", "}").endIndex;
@@ -975,18 +1028,24 @@ function parseDestructuringPattern(patternText: string): DestructuringBinding[] 
         continue;
       }
       const renamedMatch = /^[A-Za-z_$][\w$]*/.exec(patternText.slice(j, j + 200));
-      const valueEnd = scanToDepthZeroComma(patternText, j, end);
       if (renamedMatch) {
-        bindings.push({ localName: renamedMatch[0], sourceKey: key });
+        let k = j + renamedMatch[0].length;
+        while (k < end && /\s/.test(patternText[k])) k++;
+        const { defaultLiteral, after } = parseDefaultLiteral(patternText, k, end);
+        bindings.push({ localName: renamedMatch[0], sourceKey: key, defaultLiteral });
+        i = scanToDepthZeroComma(patternText, after, end);
+      } else {
+        i = scanToDepthZeroComma(patternText, j, end);
       }
-      i = valueEnd;
       continue;
     }
-    // Shorthand, optionally defaulted (`a` or `a = default`) -- the default
-    // itself is scanned past without needing to be examined, same reasoning
-    // as this function's own docstring.
-    const valueEnd = scanToDepthZeroComma(patternText, i, end);
-    bindings.push({ localName: key, sourceKey: key });
+    // Shorthand, optionally defaulted (`a` or `a = default`) -- `j` (already
+    // advanced past `key` and any whitespace above) either sits on the `=`
+    // of a default or isn't one at all, either way handled by
+    // `parseDefaultLiteral`.
+    const { defaultLiteral, after } = parseDefaultLiteral(patternText, j, end);
+    const valueEnd = scanToDepthZeroComma(patternText, after, end);
+    bindings.push({ localName: key, sourceKey: key, defaultLiteral });
     i = valueEnd;
   }
   return bindings;
@@ -999,14 +1058,30 @@ function parseDestructuringPattern(patternText: string): DestructuringBinding[] 
  * resolved source object's own `entries`/`literal` (a spread-merged object's
  * `entries`, from `spreadQueue`, is included -- this runs after that queue).
  * A key present in `sourceEntries` resolves to that key's own entry,
- * precisely; a key the source object doesn't have a precise entry for (an
+ * precisely -- real JS destructuring only ever falls back to a default when
+ * the source key is genuinely `undefined`, never when it's present with some
+ * other value, so a present key's own entry always wins over
+ * `binding.defaultLiteral`, unconditionally, exactly like it always has. A
+ * key the source object doesn't have a precise entry for at all (an
  * unresolvable spread's open key already replaced with the whole object's
- * flattened literal, a computed key, or one this scanner never modeled)
- * falls back to `sourceLiteral`, fail closed. A `...rest` binding is always
- * "open" -- it could carry any key the pattern didn't destructure by name --
- * so it always falls back to `sourceLiteral` too. A nested pattern (`d: {
- * e }`) recurses using `d`'s own entry as the new source, however deep it
- * goes (Codex, PR #874 round 35). */
+ * flattened literal, a computed key, or one this scanner never modeled) used
+ * to fall back to `sourceLiteral` alone, discarding `binding.defaultLiteral`
+ * outright even when the source is a plain object literal that provably
+ * lacks the key -- the one case real JS *guarantees* the default applies
+ * (Codex, PR #874 round 38). Now unions the two: `sourceLiteral` alone
+ * already had to stay fail-closed for the genuinely ambiguous case (an
+ * unresolvable spread that might still carry this key at runtime), and
+ * `binding.defaultLiteral` is added alongside it rather than replacing it,
+ * so neither the default's own literal/identifier-ref content nor the
+ * pre-existing conservative fallback is ever lost. A `...rest` binding is
+ * always "open" -- it could carry any key the pattern didn't destructure by
+ * name -- so it always falls back to `sourceLiteral` too (no default is
+ * syntactically possible on a rest binding). A nested pattern (`d: { e }`)
+ * recurses using `d`'s own entry as the new source, however deep it goes;
+ * a default on the nested pattern itself (`d: { e } = fallback`) is not
+ * collected by `parseDestructuringPattern` and so never reaches here, a
+ * known gap out of scope for this round (Codex, PR #874 round 35; round 38
+ * adds the default union). */
 function registerDestructuringBindings(
   bindings: DestructuringBinding[],
   sourceEntries: Map<string, ConstEntry> | undefined,
@@ -1037,7 +1112,7 @@ function registerDestructuringBindings(
     decls.push({
       name: binding.localName,
       index,
-      literal: entry?.literal ?? sourceLiteral,
+      literal: entry?.literal ?? [binding.defaultLiteral, sourceLiteral].filter(Boolean).join(" "),
       entries: entry?.entries,
       scopeStart,
       scopeEnd,
@@ -2156,6 +2231,21 @@ function findOpeningTag(source: string, before: number): { tag: string; index: n
   return null;
 }
 
+/** A `{...ident}`/`{...ident.chain}` spread that is the *entire* content of
+ * its `{}` -- no other key or expression alongside it -- found so
+ * `findClassNameSites` can still scan a JSX opening tag that carries its
+ * className only through an object spread (`const props = { className:
+ * "text-alert-red animate-pulse" }; <span {...props}>Critical</span>`) and
+ * has no literal `className=` of its own for the primary `attrRe` pass
+ * above to find (Codex, PR #874 round 38 thread 1). Deliberately narrow: a
+ * spread mixed with other content in the same braces isn't valid JSX
+ * attribute syntax anyway, and a spread that's part of some larger
+ * expression (inside an already-found `className={...}`, e.g. `className=
+ * {someFn({...base})}`) is filtered out downstream instead, by the same
+ * "does this opening tag already have a literal className=" check that
+ * skips every other already-handled tag. */
+const SPREAD_ATTR_RE = /\{\s*\.\.\.\s*([A-Za-z_$][\w$]*(?:\.[A-Za-z_$][\w$]*)*)\s*\}/g;
+
 interface ClassNameSite {
   /** The class-bearing text for this site: a string literal, a template
    * literal, a `cn()`/`clsx()`/`twMerge()` call's raw text, or a resolved
@@ -2230,6 +2320,77 @@ function findClassNameSites(
 
     sites.push({ raw, tag, openingTag, childrenText, index: contentStart });
   }
+
+  // A pure `{...ident}`/`{...ident.chain}` spread attribute, resolved as a
+  // second, independent pass so a JSX opening tag with NO literal className=
+  // of its own is still scanned for the pulse class its spread's object
+  // binding may carry (Codex, PR #874 round 38 thread 1) -- see
+  // `SPREAD_ATTR_RE`'s own doc for why the shape is this narrow.
+  SPREAD_ATTR_RE.lastIndex = 0;
+  let sm: RegExpExecArray | null;
+  while ((sm = SPREAD_ATTR_RE.exec(source))) {
+    const braceIndex = sm.index;
+    const chain = sm[1];
+    const opening = findOpeningTag(source, braceIndex);
+    if (!opening) continue;
+    const tag = opening.tag;
+    const afterIndex = braceIndex + sm[0].length;
+    const gt = findTagEnd(source, afterIndex);
+    if (gt === -1) continue;
+    const tagStart = opening.index;
+    const openingTag = source.slice(tagStart, gt);
+    // Already handled by the literal-`className=` pass above (the spread
+    // sits inside, or alongside, an attribute that pass already found) --
+    // skip rather than double-process the same tag.
+    if (/(?<![\w.:-])className\s*=/.test(openingTag)) continue;
+
+    let childrenText: string | null = null;
+    if (source[gt - 1] !== "/") {
+      const closeAt = findMatchingCloseTag(source, tag, gt + 1);
+      if (closeAt !== -1) {
+        childrenText = source.slice(gt + 1, closeAt);
+      }
+    }
+
+    // Reuses the same member-access chain machinery `resolveConstRefs`/
+    // `resolveMemberAccess` use everywhere else in this file: appending
+    // `.className` to the spread's own chain text and resolving that
+    // synthetic access lets a precise per-key narrow (`props.className`),
+    // a nested member spread (`styles.alert.className`), and the
+    // established whole-object fallback (when `.className` doesn't narrow
+    // any further, e.g. the spread's target isn't an object with its own
+    // `className` key) all fall out of existing, already-tested logic with
+    // no new resolution code. A completely unresolvable base identifier (no
+    // `const`/`let`/`var` declaration anywhere this file's own declaration
+    // scan ever tracks -- most commonly a function *parameter*, e.g. a
+    // `{...props}` forwarding spread whose `props` is the component's own
+    // parameter, never a local declaration) is left as its own raw,
+    // unresolved chain text, this file's one general fail-closed convention
+    // for "no idea what this refers to" (`resolveConstRefs`'s own doc, same
+    // rule) -- NOT force-matched to `PULSE_CLASS` the way a first attempt at
+    // this round tried, mirroring `TEXT_PROP_RE`'s own spread rule literally.
+    // That stronger reading was tried and reverted: real code forwards props
+    // this way constantly (`<ClusterConnectionForm {...props} link={…} />`
+    // forwarding a parameter that, in its one real call site, never actually
+    // carries a className at all), and unconditionally assuming a pulse for
+    // *every* such unresolvable spread on *every* PascalCase component
+    // flagged that real, non-pulsing call site as a violation -- a false
+    // positive, not a previously-missed real one. This scanner already has a
+    // strictly weaker, well-tested worst-case convention for "resolvable but
+    // imprecise" (the whole-object-literal fallback above, and
+    // `resolveMemberAccess`'s own candidate-union fallback it reuses) that
+    // stays sound because it only ever widens within a KNOWN source's real
+    // content; inventing a violation from a base with no known content at
+    // all had no such anchor and produced a real false positive on the very
+    // first real-codebase run (Codex, PR #874 round 38 thread 1).
+    const baseName = chain.split(".")[0];
+    const raw = visibleDecl(constMap, baseName, braceIndex)
+      ? resolveConstRefs(`${chain}.className`, constMap, braceIndex)
+      : chain;
+
+    sites.push({ raw, tag, openingTag, childrenText, index: braceIndex });
+  }
+
   return sites;
 }
 
@@ -4509,6 +4670,32 @@ describe("scanSourceForViolations catches every spelling (fixture proofs, #878)"
     expect(scanSourceForViolations(fixture)).not.toEqual([]);
   });
 
+  it("never mistakes animate-pulse-slow, animate-pulsed, or not-animate-pulse for the real Tailwind pulse class (#874 round 38 thread 3)", () => {
+    // `PULSE_CLASS_RE` used to only special-case `-glow`, leaving any other
+    // word/hyphen-adjacent suffix or prefix free to match as a substring.
+    // Verified red on revert against d06d87a0: the old regex
+    // (`animate-pulse(?!-glow)`) matches all three of these, so the old
+    // parser flags each as a violation.
+    for (const cls of ["animate-pulse-slow", "animate-pulsed", "not-animate-pulse"]) {
+      const fixture = `<span className="text-alert-red ${cls}">Critical</span>`;
+      expect(scanSourceForViolations(fixture), fixture).toEqual([]);
+    }
+  });
+
+  it("still catches the real pulse class plain and through a variant prefix (round 38 thread 3, non-regression)", () => {
+    // Not red-on-revert by itself (the old regex already caught all three
+    // shapes here, having no leading-boundary check at all) -- proves the
+    // widened boundary that fixes the false positives above didn't cost any
+    // of these true positives.
+    for (const fixture of [
+      '<span className="text-alert-red animate-pulse">Critical</span>',
+      '<span className="text-alert-red md:animate-pulse">Critical</span>',
+      '<span className="text-alert-red group-hover:animate-pulse">Critical</span>',
+    ]) {
+      expect(scanSourceForViolations(fixture), fixture).not.toEqual([]);
+    }
+  });
+
   it("resolves quoted const class strings, bare or inside cn()/templates", () => {
     for (const fixture of [
       'const statusClasses = "text-alert-red animate-pulse";\nexport function A() { return <span className={statusClasses}>Critical</span>; }',
@@ -4861,6 +5048,33 @@ describe("scanSourceForViolations catches every spelling (fixture proofs, #878)"
       'import { pulse } from "@/lib/base";\nconst styles = { pulse };\nexport function A() { return <span className={styles.pulse}>Loading</span>; }';
     const exportsMap = collectExportedPulseBindings({ "src/lib/base.ts": baseSource, "src/lib/b.tsx": bSource });
     expect(scanModuleForViolations("src/lib/b.tsx", bSource, exportsMap)).not.toEqual([]);
+  });
+
+  it("preserves a destructuring default when the source object genuinely lacks that key (#874 round 38 thread 2)", () => {
+    // `styles` has no `alert` key at all, so before this round the default
+    // was discarded and `alert` registered against the whole object's own
+    // flattened literal instead ("text-green", the only string anywhere in
+    // `styles`'s initializer) -- silently losing the default's own
+    // "animate-pulse" entirely. Verified red on revert against d06d87a0: the
+    // old parser resolves `alert` to `styles`'s flattened literal
+    // ("text-green"), so `scanSourceForViolations` there returns `[]`.
+    const fixture =
+      'const styles = { safe: "text-green" };\nconst { alert = "animate-pulse" } = styles;\nexport function A() { return <span className={alert}>Critical</span>; }';
+    expect(scanSourceForViolations(fixture), fixture).not.toEqual([]);
+  });
+
+  it("preserves a RENAMED destructuring default the same way (`{ alert: cls = \"…\" }`) (round 38 thread 2)", () => {
+    const fixture =
+      'const styles = { safe: "text-green" };\nconst { alert: cls = "animate-pulse" } = styles;\nexport function A() { return <span className={cls}>Critical</span>; }';
+    expect(scanSourceForViolations(fixture), fixture).not.toEqual([]);
+  });
+
+  it("still prefers the PRESENT key's own value over its default when the source object does have that key", () => {
+    // The default must never override a genuinely present (even
+    // non-pulsing) key -- only fill in when the key is truly absent.
+    const fixture =
+      'const styles = { alert: "text-green" };\nconst { alert = "animate-pulse" } = styles;\nexport function A() { return <span className={alert}>Idle</span>; }';
+    expect(scanSourceForViolations(fixture), fixture).toEqual([]);
   });
 
   it("still resolves a later, resolvable spread's own value over an earlier shorthand entry for the same key, in source order", () => {
@@ -5926,6 +6140,47 @@ describe("scanSourceForViolations catches every spelling (fixture proofs, #878)"
     const fixture = '<div>{cond && <span className="animate-pulse">Loading</span>}</div>';
     expect(scanSourceForViolations(fixture)).not.toEqual([]);
   });
+
+  it("resolves a JSX spread of an object binding's className (#874 round 38 thread 1)", () => {
+    // `className=` never appears literally, so the primary `attrRe` pass
+    // finds nothing; the config-map scanner also misses it since `className`'s
+    // value isn't *exactly* the pulse class. Verified red on revert against
+    // d06d87a0 (round 37b): `scanSourceForViolations` returned `[]` there.
+    const fixture =
+      'const props = { className: "text-alert-red animate-pulse" };\nexport function A() { return <span {...props}>Critical</span>; }';
+    expect(scanSourceForViolations(fixture), fixture).not.toEqual([]);
+  });
+
+  it("resolves a member-chain spread's className the same way (round 38 thread 1 sweep: {...styles.alert})", () => {
+    // `styles.alert` is itself an object literal value, recursed into by
+    // `extractObjectEntries` the same way any other nested object is, so its
+    // own `className` key narrows precisely -- `safe`'s sibling className
+    // never leaks in. Verified red on revert against d06d87a0.
+    const fixture =
+      'const styles = { alert: { className: "text-alert-red animate-pulse" }, safe: { className: "text-green" } };\nexport function A() { return <span {...styles.alert}>Critical</span>; }';
+    expect(scanSourceForViolations(fixture), fixture).not.toEqual([]);
+  });
+
+  it("does not flag a spread whose source is genuinely unresolvable (e.g. a forwarded function parameter) (round 38 thread 1)", () => {
+    // `props` here is the component's own PARAMETER, never a `const`/`let`/
+    // `var` this file's declaration scan can ever see -- the same shape as
+    // the extremely common `<Child {...props} />` prop-forwarding pattern.
+    // A first attempt at this round unconditionally assumed a genuinely
+    // unresolvable spread on a text-bearing element MIGHT carry the pulse
+    // class, mirroring `TEXT_PROP_RE`'s own spread rule literally -- but that
+    // reading immediately flagged a real, non-pulsing call site in
+    // `src/components/cluster/ClusterConnectionForm.tsx` (`<ClusterConnectionForm
+    // {...props} link={…} />`, whose one real caller never passes a
+    // className at all) as a false positive against the repo-wide census.
+    // Left as this file's one general "no idea what this refers to"
+    // fail-closed convention instead (unresolved raw text, contributes
+    // nothing new) -- consistent with every other unresolvable reference
+    // elsewhere in this file, and does not regress against the pre-round-38
+    // parser either (which also returns `[]` here, since it never looked at
+    // spreads at all).
+    const fixture = 'export function Card(props) { return <span {...props}>Static</span>; }';
+    expect(scanSourceForViolations(fixture), fixture).toEqual([]);
+  });
 });
 
 describe("scanModuleForViolations resolves imported animate-pulse class bindings across modules (#874 round 28)", () => {
@@ -6193,6 +6448,23 @@ describe("resolves a spread whose source is an IMPORTED binding, regardless of r
       "src/lib/component.tsx": componentSource,
     });
     expect(scanModuleForViolations("src/lib/component.tsx", componentSource, exportsMap)).not.toEqual([]);
+  });
+
+  it("resolves a JSX spread whose object binding is an IMPORTED export (round 38 thread 1 sweep)", () => {
+    // Same `{...ident}` spread resolution as the plain local-binding fixture
+    // above, but through the same import-aware `importedDecls` plumbing this
+    // whole describe block exists to cover -- `findClassNameSites`'s new
+    // spread pass is handed the exact same `constMap` (local decls +
+    // `importedDecls` appended) every other resolution path in this file
+    // already uses, so no separate import-awareness code was needed.
+    const stylesSource = 'export const alertStyles = { className: "text-alert-red animate-pulse" };';
+    const componentSource =
+      'import { alertStyles } from "@/lib/alertStyles";\nexport function A() { return <span {...alertStyles}>Critical</span>; }';
+    const exportsMap = collectExportedPulseBindings({
+      "src/lib/alertStyles.ts": stylesSource,
+      "src/components/A.tsx": componentSource,
+    });
+    expect(scanModuleForViolations("src/components/A.tsx", componentSource, exportsMap)).not.toEqual([]);
   });
 });
 

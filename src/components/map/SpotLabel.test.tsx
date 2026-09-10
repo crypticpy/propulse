@@ -413,3 +413,63 @@ describe("SpotLabel pop-in fade ramp (#851)", () => {
     expect(values[values.length - 1]).toBeCloseTo(1, 5);
   });
 });
+
+describe("SpotLabel pointer hit-testing threshold (#851, round 7)", () => {
+  // CSS `opacity` does not remove hit testing. Before this fix, `receivesPointer`
+  // was gated on the same HIDE_THRESHOLD (0.05) as `isVisible`, so right at
+  // occlusionOpacity===HIDE_THRESHOLD -- and briefly during the 0.3s opacity
+  // transition on every threshold crossing -- the wrapper had `pointerEvents:
+  // "auto"` while its rendered opacity was still 0 (or near it): an invisible
+  // label could intercept globe clicks/drags. `receivesPointer` now gates on
+  // POINTER_ENABLE_THRESHOLD (== FADE_IN_END, 0.25), the point at which
+  // wrapperOpacity reaches exactly 1, so pointer events can never turn on
+  // while the label is still fading in.
+  const FADE_IN_END = 0.25;
+
+  it("sweep: pointerEvents is none wherever wrapperOpacity < 1, auto at and above FADE_IN_END", () => {
+    const samples = [0.05, 0.1, 0.15, 0.2, 0.24, 0.25, 0.3];
+    for (const occlusionOpacity of samples) {
+      const { unmount } = render(
+        <SpotLabel
+          lat={35.5}
+          lon={-97.5}
+          callsign="K5ABC"
+          opacity={1}
+          occlusionOpacity={occlusionOpacity}
+          onSelect={vi.fn()}
+        />,
+      );
+      const overlay = screen.getByTestId("html-overlay");
+      const wrapperOpacity = Number(overlay.style.opacity);
+      if (occlusionOpacity >= FADE_IN_END) {
+        expect(wrapperOpacity).toBeCloseTo(1, 5);
+        expect(overlay.style.pointerEvents).toBe("auto");
+      } else {
+        expect(wrapperOpacity).toBeLessThan(1);
+        expect(overlay.style.pointerEvents).toBe("none");
+      }
+      unmount();
+    }
+  });
+
+  it("at exactly HIDE_THRESHOLD the label is isVisible (mounted) but not pointer-reachable", () => {
+    const HIDE_THRESHOLD = 0.05;
+    render(
+      <SpotLabel
+        lat={35.5}
+        lon={-97.5}
+        callsign="K5ABC"
+        opacity={1}
+        occlusionOpacity={HIDE_THRESHOLD}
+        onSelect={vi.fn()}
+      />,
+    );
+    const overlay = screen.getByTestId("html-overlay");
+    // isVisible is true here (occlusionOpacity >= HIDE_THRESHOLD), so the
+    // label mounts and is present -- but wrapperOpacity is exactly 0 and
+    // pointerEvents must be "none": this is precisely the mismatch window
+    // the fix closes.
+    expect(Number(overlay.style.opacity)).toBeCloseTo(0, 5);
+    expect(overlay.style.pointerEvents).toBe("none");
+  });
+});

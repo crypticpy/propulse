@@ -38,6 +38,21 @@ export const TEXT_OCCLUSION_FLOOR = 0.5;
 const HIDE_THRESHOLD = 0.05;
 /** Combined opacity at/above which the wrapper fade-in reaches full opacity. */
 const FADE_IN_END = 0.25;
+/**
+ * Occlusion opacity at/above which mouse/pointer hit-testing turns on
+ * (`receivesPointer`). Deliberately NOT the same threshold as `isVisible`
+ * (`HIDE_THRESHOLD`): at `occlusionOpacity === HIDE_THRESHOLD`, `isVisible`
+ * is already true but `wrapperOpacity` is still exactly 0 -- CSS `opacity`
+ * does not remove hit testing, so a label in that window is invisible yet
+ * still clickable/draggable, letting it intercept globe interaction the
+ * user is aiming at what's underneath. Reusing `FADE_IN_END` (rather than a
+ * separate named constant) closes that window completely: pointer events
+ * enable exactly when the wrapper reaches full paint opacity
+ * (`wrapperOpacity === 1`), so there is never a frame -- including mid-way
+ * through the 0.3s opacity transition -- where the label is receiving
+ * pointer events while still partially or fully transparent.
+ */
+const POINTER_ENABLE_THRESHOLD = FADE_IN_END;
 
 export interface SpotLabelProps {
   /** Latitude in decimal degrees */
@@ -206,8 +221,14 @@ export function SpotLabel({
   // wrapper pops straight from 0 to a fully-drawn tag instead of fading in.
   const isVisible = occlusionOpacity >= HIDE_THRESHOLD;
   const isInteractive = Boolean(onSelect || onClick) && isVisible;
+  // Gated on POINTER_ENABLE_THRESHOLD, not isVisible/HIDE_THRESHOLD -- see
+  // that constant's doc comment. isInteractive above still governs whether
+  // a <button> (vs. inert <span>) renders and is keyboard-focusable; this
+  // only controls the wrapper's CSS `pointerEvents`, i.e. whether the mouse
+  // can hit-test the label at all.
   const receivesPointer =
-    Boolean(onHover || onHoverEnd || onSelect || onClick) && isVisible;
+    Boolean(onHover || onHoverEnd || onSelect || onClick) &&
+    occlusionOpacity >= POINTER_ENABLE_THRESHOLD;
   // Ramp the wrapper in linearly across the last band of OCCLUSION opacity
   // only -- not multiplied by the caller's `opacity` here. The caller's
   // de-emphasis is already applied once, to the text alpha, via

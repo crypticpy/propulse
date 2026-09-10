@@ -136,7 +136,7 @@ function CongestionBadge({
     >
       <span className={`w-2 h-2 rounded-full ${LEVEL_COLORS[level]}`} />
       <span className="text-xs font-mono text-su-muted">{band}</span>
-      <span className={`text-[10px] font-medium ${LEVEL_TEXT_COLORS[level]}`}>
+      <span className={`text-xs font-medium ${LEVEL_TEXT_COLORS[level]}`}>
         {LEVEL_LABELS[level]}
       </span>
     </div>
@@ -248,7 +248,7 @@ export function DxWizardContestNote({
           {/* Alternatives suggestion */}
           {alternatives.length > 0 && (
             <div className="mt-3 p-2.5 rounded-lg bg-su-line/10 border border-su-line/20">
-              <div className="text-[10px] text-su-muted uppercase tracking-wide mb-1.5">
+              <div className="text-xs text-su-muted uppercase tracking-wide mb-1.5">
                 Quieter alternatives
               </div>
               <div className="space-y-1">
@@ -260,7 +260,7 @@ export function DxWizardContestNote({
                     <span className="text-xs font-mono text-su-text">
                       {alt.band}
                     </span>
-                    <span className="text-[10px] text-su-muted truncate">
+                    <span className="text-xs text-su-muted truncate">
                       {alt.reason}
                     </span>
                   </div>
@@ -275,7 +275,7 @@ export function DxWizardContestNote({
               <button
                 type="button"
                 onClick={() => setShowQuietBands((v) => !v)}
-                className="text-[11px] text-signal-green hover:text-signal-green/80 transition-colors flex items-center gap-1"
+                className="text-xs text-signal-green hover:text-signal-green/80 transition-colors flex items-center gap-1"
               >
                 <span className="w-1.5 h-1.5 rounded-full bg-signal-green" />
                 Contest-free bands
@@ -285,7 +285,7 @@ export function DxWizardContestNote({
             <button
               type="button"
               onClick={() => setShowWhy((v) => !v)}
-              className="text-[11px] text-su-muted hover:text-su-text transition-colors flex items-center gap-1"
+              className="text-xs text-su-muted hover:text-su-text transition-colors flex items-center gap-1"
             >
               Why am I seeing this?
               <ChevronIcon expanded={showWhy} />

@@ -57,6 +57,21 @@
  * then pulled back out: 14 source files plus this guard is 15, and
  * `AGENTS.md:7` caps a PR at 15. Its 3 sites are already classified, which
  * is why #826 carries them with a line count rather than a re-audit.
+ *
+ * #826 dx tail: re-grepped (not trusted from #825's table, since #818 had
+ * landed on `PredictionsCard.tsx` in the meantime) the 8 remaining files.
+ * The counts matched #825's table exactly -- 31 sites, all `text-[10px]`
+ * or `text-[11px]` except one `text-[9px]` in `BandScope.tsx` -- and all
+ * raised to `text-xs`. `PredictionsCard.tsx`'s two sites (`:216`, `:300`;
+ * `:292` shifted after #818) are fixed and added here even though the file
+ * is barrel-export only with no render site (per #798). This round's mount
+ * audit also found `BandVerdictPanel.tsx` to be barrel-export only with no
+ * render site anywhere outside its own file and `index.ts` -- #825's
+ * "confirmed mounted" note above and #826's issue text are both wrong
+ * about that file; it was fixed and added anyway, consistent with the
+ * `PredictionsCard.tsx` precedent, since #826 named it explicitly rather
+ * than leaving it out like the dead-code bucket (`WorkStationPanel.tsx`,
+ * `DXSpotOverlay.tsx`) from the #825 round. Zero allowlist entries added.
  */
 
 import { fileURLToPath } from "node:url";
@@ -92,6 +107,15 @@ const FILES = [
   "src/components/dx/HistoryCard.tsx",
   "src/components/dx/ClusterPulseCard.tsx",
   "src/components/dx/SpotStatsDashboard.tsx",
+  // #826 dx tail -- see module doc above.
+  "src/components/dx/BandVerdictPanel.tsx",
+  "src/components/dx/BandVerdictDetailsDialog.tsx",
+  "src/components/dx/DxWizardContestNote.tsx",
+  "src/components/dx/WSJTXStatusPanel.tsx",
+  "src/components/dx/modals/LogStatsDetailModal.tsx",
+  "src/components/dx/PredictionsCard.tsx",
+  "src/components/dx/modals/HistoryDetailModal.tsx",
+  "src/components/dx/BandScope.tsx",
 ];
 
 interface AllowlistEntry {

@@ -87,14 +87,19 @@ export interface PanelCardProps {
 // Badge color mappings
 // ─────────────────────────────────────────────────────────────────────────────
 
+// warning/danger keep the tint as the identity cue but draw the label in
+// --su-text: text-caution-amber/text-alert-red on their own >=20% tint fails
+// or barely clears 4.5:1 once this badge's own bg-su-line/10 card glass is
+// composited underneath (#827), the same same-hue defect #791/#795 fixed for
+// aurora-purple and #803 fixed for the accent role.
 const BADGE_COLORS: Record<
   NonNullable<PanelBadge["color"]>,
   { bg: string; text: string }
 > = {
   default: { bg: "bg-su-line/10", text: "text-su-muted" },
   success: { bg: "bg-signal-green/20", text: "text-signal-green" },
-  warning: { bg: "bg-caution-amber/20", text: "text-caution-amber" },
-  danger: { bg: "bg-alert-red/20", text: "text-alert-red" },
+  warning: { bg: "bg-caution-amber/20", text: "text-su-text" },
+  danger: { bg: "bg-alert-red/20", text: "text-su-text" },
 };
 
 const STATUS_DOT_COLORS: Record<

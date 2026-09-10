@@ -44,7 +44,7 @@ import {
 } from "@/lib/map/imagerySources";
 import { CloudImageryAttribution } from "./CloudImageryAttribution";
 import type { CloudImageryStatus } from "@/lib/map/cloudImageryStatus";
-import { GLOBE_DOM_LAYER_ORDER } from "@/lib/map/globeRenderOrder";
+import { MAP_PAGE_CHROME_Z } from "@/lib/map/globeRenderOrder";
 import { selectTileProvider } from "@/lib/tiles/providers";
 import { CompassRose } from "./CompassRose";
 import { Terminator } from "./Terminator";
@@ -2734,18 +2734,21 @@ export function GlobeView({
         />
       )}
 
-      {/* Map-owned DOM portal. In-scene drei Html labels top out at the
-          highest DOM z-band (see GLOBE_DOM_LAYER_ORDER in globeRenderOrder.ts),
-          so this sibling stacking layer must sit above that entire range for
-          previews to remain completely opaque. */}
+      {/* Map-owned DOM portal. It clears every in-scene drei Html band
+          structurally -- they are sealed inside the <Canvas> wrapper's
+          `isolate` at z-0 -- so it only needs a level above the legend tier
+          and below the host's controls (see MAP_PAGE_CHROME_Z, #930). */}
       <div
         ref={setMapOverlayPortal}
         className="pointer-events-none absolute inset-0"
-        style={{ zIndex: GLOBE_DOM_LAYER_ORDER.mapOverlayPortal }}
+        style={{ zIndex: MAP_PAGE_CHROME_Z.mapOverlayPortal }}
       />
 
       {(contactPath || justLogged) && (
-        <div className="pointer-events-none absolute left-1/2 top-3 z-20 flex -translate-x-1/2 flex-col items-center gap-1">
+        <div
+          className="pointer-events-none absolute left-1/2 top-3 flex -translate-x-1/2 flex-col items-center gap-1"
+          style={{ zIndex: MAP_PAGE_CHROME_Z.legend }}
+        >
           {contactPath && (
             <div
               className="rounded-full border border-plasma-orange/40 bg-void-black/80 px-3 py-1 font-mono text-[11px] text-plasma-orange backdrop-blur-sm"
@@ -2774,7 +2777,11 @@ export function GlobeView({
         </div>
       )}
 
-      <div className="absolute bottom-1 right-1 z-20 flex flex-col items-end gap-1">
+      {/* Attribution is passive: a detail popup may cover it. */}
+      <div
+        className="absolute bottom-1 right-1 flex flex-col items-end gap-1"
+        style={{ zIndex: MAP_PAGE_CHROME_Z.legend }}
+      >
         <CloudImageryAttribution status={cloudImageryStatus} />
         <ImageryAttribution
           baseSource={
@@ -2794,7 +2801,10 @@ export function GlobeView({
         radarLayerEnabled &&
         radarAnimState &&
         radarAnimState.frameCount > 1 && (
-          <div className="absolute bottom-16 left-1/2 -translate-x-1/2 z-10">
+          <div
+            className="absolute bottom-16 left-1/2 -translate-x-1/2"
+            style={{ zIndex: MAP_PAGE_CHROME_Z.interactiveChrome }}
+          >
             <div className="flex items-center gap-1.5 bg-void-black/85 backdrop-blur-sm rounded-full px-3 py-1.5 border border-su-line/40">
               {/* Play/Pause */}
               <button

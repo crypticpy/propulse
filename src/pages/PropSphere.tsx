@@ -1146,7 +1146,8 @@ export function PropSphere() {
 
               {/* Replay indicator (floating below toolbar) */}
               <div
-                className={`absolute ${mapToolbarLayout.stacked ? "top-20" : "top-12"} left-1/2 -translate-x-1/2 z-20`}
+                className={`absolute ${mapToolbarLayout.stacked ? "top-20" : "top-12"} left-1/2 -translate-x-1/2`}
+                style={{ zIndex: MAP_PAGE_CHROME_Z.interactiveChrome }}
               >
                 <ReplayIndicator
                   displayTime={displayTime}
@@ -1157,7 +1158,10 @@ export function PropSphere() {
               </div>
 
               {/* Contest rate panel (floating, right side) */}
-              <div className="absolute top-14 right-3 z-20">
+              <div
+                className="absolute top-14 right-3"
+                style={{ zIndex: MAP_PAGE_CHROME_Z.interactiveChrome }}
+              >
                 <ContestRatePanel />
               </div>
 
@@ -1165,12 +1169,24 @@ export function PropSphere() {
                   ray-path bounce markers, which only exist on the globe with a
                   target set. LayerLegend covers every enabled colored marker
                   layer (spots, satellites, beacons, etc). */}
-              <div className="pointer-events-none absolute bottom-2 left-2 right-2 z-10 flex flex-col items-start gap-1">
-                <MapSizeSliders inline />
+              {/* The column itself takes no z-index, so each child resolves
+                  on the MAP_PAGE_CHROME_Z scale directly: the size sliders are
+                  operable controls and sit above the overlay portal, the
+                  legends read below it (#930). */}
+              <div className="pointer-events-none absolute bottom-2 left-2 right-2 flex flex-col items-start gap-1">
+                <div
+                  className="relative"
+                  style={{ zIndex: MAP_PAGE_CHROME_Z.interactiveChrome }}
+                >
+                  <MapSizeSliders inline />
+                </div>
                 {(hasLayerLegend ||
                   layers.muf ||
                   (layers.ionosphere && target && viewMode === "globe")) && (
-                  <>
+                  <div
+                    className="relative flex flex-col items-start gap-1"
+                    style={{ zIndex: MAP_PAGE_CHROME_Z.legend }}
+                  >
                     <LayerLegend className="self-start bg-su-panel/90 backdrop-blur-sm rounded-lg px-2 py-1 pointer-events-auto" />
                     {layers.ionosphere && target && viewMode === "globe" && (
                       <IonosphereLegend className="self-start bg-su-panel/90 backdrop-blur-sm rounded-lg px-2 py-1 pointer-events-auto" />
@@ -1178,7 +1194,7 @@ export function PropSphere() {
                     {layers.muf && (
                       <MUFLegend className="bg-su-panel/90 backdrop-blur-sm rounded-lg p-2 pointer-events-auto" />
                     )}
-                  </>
+                  </div>
                 )}
               </div>
 
@@ -1250,7 +1266,10 @@ export function PropSphere() {
 
                 {/* Time Offset Warning - bottom right when viewing simulated time */}
                 {timeOffset !== 0 && (
-                  <div className="absolute bottom-4 right-4 z-20 pointer-events-auto">
+                  <div
+                    className="absolute bottom-4 right-4 pointer-events-auto"
+                    style={{ zIndex: MAP_PAGE_CHROME_Z.interactiveChrome }}
+                  >
                     <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-caution-amber/90 backdrop-blur-sm border border-caution-amber shadow-lg">
                       <svg
                         className="w-4 h-4 text-black flex-shrink-0"
@@ -1292,7 +1311,12 @@ export function PropSphere() {
 
                 {/* Labels Panel — appears when labels layer is active */}
                 {layers.labels && (
-                  <LabelsPanel className="absolute bottom-2 right-2 z-10" />
+                  <div
+                    className="absolute bottom-2 right-2"
+                    style={{ zIndex: MAP_PAGE_CHROME_Z.interactiveChrome }}
+                  >
+                    <LabelsPanel />
+                  </div>
                 )}
 
                 {/* ═══════════════════════════════════════════════════════════════
@@ -1300,7 +1324,10 @@ export function PropSphere() {
                   A minimal, professional heads-up display for maximum map visibility
                   ═══════════════════════════════════════════════════════════════ */}
                 {isLiteMode && (
-                  <div className="absolute inset-0 pointer-events-none z-10 hidden lg:block">
+                  <div
+                    className="absolute inset-0 pointer-events-none hidden lg:block"
+                    style={{ zIndex: MAP_PAGE_CHROME_Z.interactiveChrome }}
+                  >
                     {/* ─── TOP HUD BAR ─── */}
                     <div className="absolute top-3 left-3 right-3 flex items-start justify-between gap-4 pointer-events-auto">
                       {/* Left cluster: Layout mode dropdown + Share */}
@@ -1431,7 +1458,10 @@ export function PropSphere() {
                   </div>
                 )}
                 {isLiteMode && showOpsLoggerStrip && (
-                  <div className="absolute bottom-0 left-0 right-0 z-20 hidden lg:block">
+                  <div
+                    className="absolute bottom-0 left-0 right-0 hidden lg:block"
+                    style={{ zIndex: MAP_PAGE_CHROME_Z.interactiveChrome }}
+                  >
                     <OpsLoggerStrip />
                   </div>
                 )}

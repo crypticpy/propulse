@@ -60,6 +60,7 @@ import { useActiveLocation } from "@/hooks/useActiveLocation";
 import { FlatMapView } from "./FlatMapView";
 import { WatchStatusPill } from "@/components/map/WatchStatusPill";
 import { HamClockWall } from "./hamclock/wall/HamClockWall";
+import { MAP_PAGE_CHROME_Z } from "@/lib/map/globeRenderOrder";
 
 // Keep the WebGL-heavy alternate projections out of the initial HamClock
 // chunk. They load only after the operator selects them in the header.
@@ -523,7 +524,10 @@ export function HamClockView({
             {mapContent === "both" && " · • Live activity"}
           </div>
         )}
-      <div className="absolute bottom-3 left-1/2 -translate-x-1/2 z-10 pointer-events-auto">
+      <div
+        className="absolute bottom-3 left-1/2 -translate-x-1/2 pointer-events-auto"
+        style={{ zIndex: MAP_PAGE_CHROME_Z.interactiveChrome }}
+      >
         <WatchStatusPill className="sm:hidden" />
       </div>
     </main>

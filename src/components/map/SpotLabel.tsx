@@ -478,6 +478,13 @@ export function SpotLabel({
           ? GLOBE_DOM_LAYER_ORDER.pinLabel
           : GLOBE_DOM_LAYER_ORDER.passiveSpotLabel
       }
+      // drei's Html renders its own outer DOM wrapper (default
+      // pointer-events: auto) sized to the label's border box, in addition
+      // to the inner div below. Without this, that outer wrapper still
+      // hit-tests even when the inner div is pointer-events: none, so a
+      // hidden/fading label could still block globe drags underneath it
+      // (#851, round 9). Html forwards `style` straight onto that wrapper.
+      style={{ pointerEvents: interactionReady ? "auto" : "none" }}
     >
       {/*
         drei's Html overlay component only forwards style/className/children

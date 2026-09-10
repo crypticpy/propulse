@@ -630,4 +630,40 @@ describe("SpotLabel pointer/keyboard readiness waits for the fade transition (#8
       screen.getByRole("button", { name: "Select K5ABC as target" }),
     ).not.toBeNull();
   });
+
+  it("thread 3: the outer Html wrapper's own pointer-events follows interactionReady, not just the inner div's", () => {
+    const { rerender } = render(
+      <SpotLabel
+        lat={35.5}
+        lon={-97.5}
+        callsign="K5ABC"
+        opacity={1}
+        occlusionOpacity={0.1}
+        onSelect={vi.fn()}
+      />,
+    );
+    // Below POINTER_ENABLE_THRESHOLD: drei's own outer wrapper (mocked as
+    // html-overlay) must also be pointer-events: none, not just the inner
+    // spot-label-wrapper div -- otherwise its default auto still hit-tests
+    // and blocks globe drags underneath a hidden/fading label (#851, r9).
+    const outerWrapper = screen.getByTestId("html-overlay");
+    expect(outerWrapper.style.pointerEvents).toBe("none");
+
+    rerender(
+      <SpotLabel
+        lat={35.5}
+        lon={-97.5}
+        callsign="K5ABC"
+        opacity={1}
+        occlusionOpacity={1}
+        onSelect={vi.fn()}
+      />,
+    );
+    fireEvent.transitionEnd(screen.getByTestId("spot-label-wrapper"), {
+      propertyName: "opacity",
+    });
+    expect(screen.getByTestId("html-overlay").style.pointerEvents).toBe(
+      "auto",
+    );
+  });
 });

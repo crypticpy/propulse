@@ -76,8 +76,8 @@ export function BestBandTile() {
         openLabel={`Best band now: ${best.band}, ${verdict}. Open band health report`}
       >
         <div className="hc-heroline">
-          <TileHero flush large>
-            <BandPill band={best.band} size="md">
+          <TileHero flush>
+            <BandPill band={best.band} size="inherit">
               {best.band.toUpperCase()}
             </BandPill>
           </TileHero>

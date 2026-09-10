@@ -2,7 +2,7 @@ import React, { forwardRef } from "react";
 import type { CSSProperties } from "react";
 import { getBandColor } from "@/lib/utils/spotColors";
 
-export type BandPillSize = "sm" | "md";
+export type BandPillSize = "sm" | "md" | "inherit";
 export type BandPillVariant = "chip" | "rule";
 
 export interface BandPillProps
@@ -13,9 +13,15 @@ export interface BandPillProps
   children?: React.ReactNode;
 }
 
+// `inherit` is for a value that already lives inside a sized element (a
+// wall tile's hero digit, a hero stat) — it sets no font-size class of its
+// own, and the rule width/padding scale in `em` so they track whatever
+// size the parent hero settles on instead of clipping/floating at a fixed
+// px size.
 const SIZE_STYLES: Record<BandPillSize, string[]> = {
-  sm: ["text-xs", "py-0.5"],
-  md: ["text-sm", "py-1"],
+  sm: ["text-xs", "py-0.5", "px-1.5", "border-l-[3px]"],
+  md: ["text-sm", "py-1", "px-1.5", "border-l-[3px]"],
+  inherit: ["py-[0.15em]", "px-[0.4em]", "border-l-[0.12em]"],
 };
 
 /**
@@ -34,6 +40,7 @@ const SIZE_STYLES: Record<BandPillSize, string[]> = {
  * <BandPill band="20m" />
  * <BandPill band="40m" variant="rule" size="md" />
  * <BandPill band={second.band} size="sm" className="ring-1 ring-su-info" />
+ * <TileHero flush><BandPill band={best.band} size="inherit">{best.band.toUpperCase()}</BandPill></TileHero>
  * ```
  */
 export const BandPill = forwardRef<HTMLSpanElement, BandPillProps>(
@@ -49,8 +56,6 @@ export const BandPill = forwardRef<HTMLSpanElement, BandPillProps>(
       "font-mono",
       "rounded-sm",
       "leading-tight",
-      "px-1.5",
-      "border-l-[3px]",
       "text-su-text",
       ...SIZE_STYLES[size],
       className,

@@ -399,14 +399,22 @@ export function PropagationForecastModal({
           <div className="bg-su-line/10 rounded-xl p-4 text-center">
             <div className="text-xs text-su-muted mb-1">Best Band Now</div>
             {currentBestBand ? (
-              <BandPill
-                band={currentBestBand.band}
-                size="md"
-                className="justify-center text-2xl font-bold"
-                style={{
-                  boxShadow: `inset 0 0 0 2px ${getForecastStatusColor(currentBestBand.status)}`,
-                }}
-              />
+              <div className="flex items-center justify-center gap-1.5">
+                <span
+                  aria-hidden="true"
+                  className="h-2 w-2 rounded-full flex-shrink-0"
+                  style={{
+                    backgroundColor: getForecastStatusColor(
+                      currentBestBand.status,
+                    ),
+                  }}
+                />
+                <BandPill
+                  band={currentBestBand.band}
+                  size="md"
+                  className="text-2xl font-bold"
+                />
+              </div>
             ) : (
               <div className="text-2xl font-mono font-bold text-su-muted">
                 ---
@@ -414,7 +422,7 @@ export function PropagationForecastModal({
             )}
             <div className="text-xs text-su-muted mt-1">
               {currentBestBand
-                ? `${currentBestBand.snrEstimate} dB`
+                ? `${getStatusLabel(currentBestBand.status)} · ${currentBestBand.snrEstimate} dB`
                 : "No opening"}
             </div>
           </div>

@@ -55,6 +55,15 @@ describe("BandPill", () => {
     expect(el.style.background).toBe("");
   });
 
+  it("inherit size sets no text-xs/text-sm class, for use inside an already-sized hero", () => {
+    const { container } = render(<BandPill band="20m" size="inherit" />);
+    const el = container.querySelector('[data-band="20m"]') as HTMLElement;
+
+    expect(el.className).not.toContain("text-xs");
+    expect(el.className).not.toContain("text-sm");
+    expect(el.className).toContain("text-su-text");
+  });
+
   it("merges a caller-supplied className with the base classes", () => {
     const { container } = render(
       <BandPill band="20m" className="ring-1 ring-su-info" />,

@@ -92,9 +92,10 @@ is a supported path, not a grudging one.
 **The operating app is free to use today.** The map, physics engine, Band Health ladder,
 wall display, logbook, contest engine, nets, shack builder, space weather and bridge are all
 free at propulse.cloud on a free account. The hosted build asks you to sign in for
-everything except the home page and the display-device routes under `/display/`, including
-the anonymous registration page a new wall screen uses to pair, which are deliberately
-anonymous;
+everything except the home page, the display-device routes under `/display/` (including
+the anonymous registration page a new wall screen uses to pair), and a paired display
+itself, which runs on its device token and can be steered to any view without ever
+seeing a sign-in;
 a free account costs nothing and unlocks every feature that does not carry a per-user
 hosting cost. How the hosted service is sustained:
 

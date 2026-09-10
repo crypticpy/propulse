@@ -1079,6 +1079,13 @@ describe("round-14 Codex site family: non-wrapping label rows in the narrow colu
     ["src/components/map/PathAnalysis.tsx", "<span className=\"min-w-6 text-xs font-medium uppercase tracking-wider"],
     ["src/components/map/layers/SatelliteDetailModal.tsx", "Transponders\n"],
     ["src/components/map/layers/SatelliteDetailModal.tsx", "Signal\n"],
+    // Round 16: the info card's pass, transponder and TLE rows; at xl on a
+    // 320px viewport the card keeps ~243px of inner width and the
+    // `Next pass: / in 3 hours / 47° max` trio is wider than that.
+    ["src/components/map/SatelliteOverlay.tsx", "PASS NOW\n"],
+    ["src/components/map/SatelliteOverlay.tsx", '<span style={{ color: "#888" }}>Next pass: </span>'],
+    ["src/components/map/SatelliteOverlay.tsx", '<span style={{ color: "#555" }}>TLE:</span>'],
+    ["src/components/map/SatelliteOverlay.tsx", 'xpdr.mode === "FM"'],
   ];
 
   it.each(SITES)("%s: the row above %j wraps", (file, anchor) => {

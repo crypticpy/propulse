@@ -295,7 +295,7 @@ function SatelliteInfoPopup({
               Transponders
             </div>
             {transponderData.transponders.slice(0, 2).map((xpdr, idx) => (
-              <div key={idx} className="flex items-center gap-1.5">
+              <div key={idx} className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5">
                 <span
                   className="px-1 py-0.5 rounded text-xs font-semibold uppercase"
                   style={{
@@ -347,7 +347,7 @@ function SatelliteInfoPopup({
               style={{ borderTop: "1px solid rgba(255,255,255,0.08)" }}
             />
             {activePass ? (
-              <div className="flex items-center gap-1.5">
+              <div className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5">
                 <span className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse flex-shrink-0" />
                 <span style={{ color: "#4ade80", fontWeight: 600 }}>
                   PASS NOW
@@ -357,7 +357,7 @@ function SatelliteInfoPopup({
                 </span>
               </div>
             ) : (
-              <div className="flex items-center gap-1.5">
+              <div className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5">
                 <span style={{ color: "#888" }}>Next pass: </span>
                 <span style={{ color: "#ccc" }}>
                   in {formatDistanceToNow(nextPass.aos)}
@@ -371,7 +371,7 @@ function SatelliteInfoPopup({
         )}
 
         {/* TLE age indicator */}
-        <div className="flex items-center gap-1.5 mt-0.5">
+        <div className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 mt-0.5">
           <span style={{ color: "#555" }}>TLE:</span>
           <span
             className="px-1 py-0.5 rounded text-xs font-medium"

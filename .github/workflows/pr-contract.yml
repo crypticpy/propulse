@@ -44,8 +44,8 @@ jobs:
         run: |
           FILES=$(gh api "repos/${REPO}/pulls/${PR}/files" --paginate \
             --jq '.[] | .filename, (.previous_filename // empty)') \
-            || { echo "::warning::could not list PR files; design-review check skipped"; exit 0; }
-          UI=$(printf '%s\n' "$FILES" | grep -E '^(src/components/|src/pages/|src/styles/|src/lib/themes/|src/lib/widgets/|src/lib/hamclock/|src/lib/home/|src/lib/[^/]+/.*(Colors?|Layout|Tokens?|Fonts?)\.tsx?$|src/stores/themeStore\.ts$|src/hooks/useColorBlindMode\.ts$|src/App\.tsx$|src/main\.tsx$|index\.html$|public/|tailwind\.config\.|postcss\.config\.|\.design-sync/|docs/designs/design-system/|docs/designs/.*-(spec|mock)[^/]*$)' || true)
+            || { echo "::error::could not list PR files; the design-review gate cannot be evaluated (re-run the check)"; exit 1; }
+          UI=$(printf '%s\n' "$FILES" | grep -E '^(src/components/|src/pages/|src/styles/|src/lib/themes/|src/lib/widgets/|src/lib/hamclock/|src/lib/home/|src/lib/[^/]+/.*(Colors?|Layout|Tokens?|Fonts?)\.tsx?$|src/stores/themeStore\.ts$|src/hooks/useColorBlindMode\.ts$|src/App\.tsx$|src/main\.tsx$|index\.html$|public/|tailwind\.config\.|postcss\.config\.|\.design-sync/|docs/designs/design-system/|docs/designs/.*-(spec|mock)[^/]*$|docs/designs/.*contact-sheet|docs/designs/.*\.(html|png|svg|jpg|webp)$)' || true)
           if [ -z "$UI" ]; then
             echo "No UI paths changed; design review not required."
             exit 0
@@ -54,22 +54,29 @@ jobs:
           printf '%s\n' "$UI"
           # The proof is the reviewer's **design review** comment, bound to this
           # head by its `Reviewed: <sha>` line; the PR body is author-controlled
-          # and a later push would leave a stale body line in place.
+          # and a later push would leave a stale body line in place. The comment
+          # must come from an account Fable sessions post as (REVIEWERS) and
+          # carry the `agent: Claude Fable` line; GitHub cannot prove which
+          # model wrote a comment, so forging one is a hard-rule violation
+          # (docs/AGENT-CONSTITUTION.md, Hard rules), not a CI gap.
+          REVIEWERS='^(crypticpy|propulse-bot\[bot\])$'
           HEAD7=$(printf '%s' "$HEAD_SHA" | cut -c1-7)
           COMMENTS=$(gh api "repos/${REPO}/issues/${PR}/comments" --paginate \
-            --jq '.[] | [.html_url, (.body | @base64)] | @tsv') \
-            || { echo "::warning::could not list PR comments; design-review check skipped"; exit 0; }
-          APPROVED=$(printf '%s\n' "$COMMENTS" | while IFS=$'\t' read -r url b64; do
+            --jq '.[] | [.html_url, .user.login, (.body | @base64)] | @tsv') \
+            || { echo "::error::could not list PR comments; the design-review gate cannot be evaluated (re-run the check)"; exit 1; }
+          APPROVED=$(printf '%s\n' "$COMMENTS" | while IFS=$'\t' read -r url login b64; do
               [ -n "$b64" ] || continue
+              printf '%s' "$login" | grep -Eq "$REVIEWERS" || continue
               body=$(printf '%s' "$b64" | base64 -d)
               if printf '%s' "$body" | grep -Eiq '\*\*design review\*\*' \
+                && printf '%s' "$body" | grep -Eiq '^[[:space:]>*_-]*agent[*_]*:.*Claude Fable' \
                 && printf '%s' "$body" | grep -Eiq "^[[:space:]>*_-]*Reviewed[*_]*:[[:space:]*_\`]*${HEAD7}" \
                 && printf '%s' "$body" | grep -Eiq '^[[:space:]>*_-]*Verdict[*_]*:[[:space:]*_`]*approved'; then
                 echo "$url"
               fi
             done)
           if [ -z "$APPROVED" ]; then
-            echo "This PR touches UI. It needs a Claude Fable **design review** comment for head ${HEAD7} with \`Reviewed: ${HEAD7} …\` and \`Verdict: approved\` (docs/AGENT-CONSTITUTION.md, Design and UI review). A review of an earlier head does not carry."
+            echo "This PR touches UI. It needs a **design review** comment from a Fable-posting account (crypticpy or propulse-bot) with an \`agent: Claude Fable …\` line, \`Reviewed: ${HEAD7} …\` and \`Verdict: approved\` (docs/AGENT-CONSTITUTION.md, Design and UI review). A review of an earlier head does not carry."
             exit 1
           fi
           echo "Design review approved for ${HEAD7}: ${APPROVED}"

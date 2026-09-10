@@ -93,8 +93,10 @@
  * `TargetHoverTooltip.tsx`, `SatelliteOverlay.tsx`,
  * `layers/SatelliteFilters.tsx`, `layers/BasemapCategory.tsx`,
  * `TimeControl.tsx`, `modals/PropagationForecastModal.tsx`, and
- * `BandConditionsPanel.tsx`. Zero allowlist entries added. 68 files (220
- * sites) remain in `map/` for slices 2-6, one 15-file PR at a time.
+ * `BandConditionsPanel.tsx`. Zero allowlist entries added. 69 files (230
+ * sites) remain in `map/` for slices 2-6, one 15-file PR at a time -- that
+ * total includes `PinFlyout.tsx`, which is deferred rather than done: it
+ * still needs raising once #824 releases it.
  *
  * Extending this guard, for whoever runs the next round: `FILES` is
  * append-only -- never reorder it, never remove an entry, never convert it

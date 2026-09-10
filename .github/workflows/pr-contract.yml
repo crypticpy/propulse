@@ -133,8 +133,10 @@ jobs:
           HEAD_SHA=$(gh api "repos/${REPO}/pulls/${PR}" --jq '.head.sha') \
             || { echo "::error::could not read the PR head; re-run this job"; exit 1; }
           [ -n "$HEAD_SHA" ] || { echo "::error::empty PR head sha; re-run this job"; exit 1; }
-          RUN_ID=$(gh api "repos/${REPO}/actions/workflows/pr-contract.yml/runs?event=pull_request&head_sha=${HEAD_SHA}&per_page=1" \
-            --jq '.workflow_runs[0].id // empty') \
+          # Two open PRs can share a head commit, so the run is selected by
+          # this PR's number, not by head sha alone (Codex, #896 round 17).
+          RUN_ID=$(gh api "repos/${REPO}/actions/workflows/pr-contract.yml/runs?event=pull_request&head_sha=${HEAD_SHA}&per_page=30" \
+            --jq "[.workflow_runs[] | select(any(.pull_requests[]?; .number == ${PR}))] | first | .id // empty") \
             || { echo "::error::could not list pr-contract runs for ${HEAD_SHA}; re-run this job"; exit 1; }
           if [ -z "$RUN_ID" ]; then
             echo "No pull_request run for ${HEAD_SHA} yet; the next push or body edit evaluates the comment."

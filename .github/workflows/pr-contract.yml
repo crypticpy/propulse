@@ -3,15 +3,25 @@ name: pr-contract
 on:
   pull_request:
     types: [opened, edited, synchronize, reopened, ready_for_review]
+  # The design-review gate's evidence is a PR comment. Posting, editing or
+  # deleting one fires no pull_request event, so the last check result would
+  # stay green after an approval is retracted. An issue_comment run attaches
+  # to the default branch, not the PR head, so it cannot report the check
+  # itself; the rerun job below re-runs the latest pull_request run for the
+  # head instead (that run reads comments live), which replaces its result.
+  issue_comment:
+    types: [created, edited, deleted]
 
 permissions: {}
 
 jobs:
   body:
     name: pr-contract
-    if: github.event.pull_request.draft == false
+    if: github.event_name == 'pull_request' && github.event.pull_request.draft == false
     runs-on: ubuntu-latest
-    permissions: {}
+    permissions:
+      issues: read
+      pull-requests: read
     steps:
       - name: Check PR body contract
         env:
@@ -31,3 +41,159 @@ jobs:
           if [ "${CHANGED_FILES:-0}" -gt 15 ]; then
             echo "::warning::PR touches ${CHANGED_FILES} files, over the 15-file guideline"
           fi
+      - name: Require a Fable design review on UI changes
+        # Rule and path list: docs/AGENT-CONSTITUTION.md, "Design and UI review".
+        # The list here is a floor (what CI can see), not the definition.
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          PR: ${{ github.event.pull_request.number }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          FILES=$(gh api "repos/${REPO}/pulls/${PR}/files" --paginate \
+            --jq '.[] | .filename, (.previous_filename // empty)') \
+            || { echo "::error::could not list PR files; the design-review gate cannot be evaluated (re-run the check)"; exit 1; }
+          # Everything under src/ is UI unless it is a test, a type declaration
+          # or one of the non-visual libraries listed here; style, token,
+          # presentation, preset and glyph modules count wherever they live.
+          # A path list of UI directories was a floor Codex kept finding gaps
+          # in (#896 rounds 2-14: stores, hooks, config, constants, data);
+          # an exclusion list fails closed instead.
+          UI=$(printf '%s\n' "$FILES" \
+            | grep -E '^(src/|index\.html$|public/|tailwind\.config\.|postcss\.config\.|\.design-sync/|docs/designs/)' \
+            | grep -vE '(\.test\.tsx?$|\.snap$|/__snapshots__/|^src/test/|^src/types/|^src/vite-env\.d\.ts$|^src/lib/(db|audio|sync|api|adif|export|migrations|errors|dev|pwa|wspr|services)/|^src/lib/supabase\.ts$)' \
+            || true)
+          NAMED=$(printf '%s\n' "$FILES" \
+            | grep -E '^src/.*(Colou?rs?|Layout|Tokens?|Fonts?|Styles?|Appearance|[Pp]resentation|[Pp]resets?|[Gg]lyphs?)\.tsx?$' \
+            | grep -vE '\.test\.tsx?$' || true)
+          # A visual helper can live in an excluded library under a plain
+          # name (Codex, #896 round 18: BAND_COLORS in src/lib/api/dxcluster.ts,
+          # getMUFColor in src/lib/api/muf.ts), so the diff hunks are read
+          # too: any src/ file whose change touches a colour, class name or
+          # other visual token is UI wherever it lives, and a file GitHub
+          # returns no hunk for (binary or oversized) is treated as UI rather
+          # than skipped.
+          HUNKED=$(gh api "repos/${REPO}/pulls/${PR}/files" --paginate \
+            --jq '.[] | select(.filename | test("^src/")) | select((.patch == null) or (.patch | test("#[0-9a-fA-F]{3,8}\\b|rgba?\\(|hsla?\\(|colou?r|className|\\b(font|text|bg|border|shadow|opacity|animate)-"; "i"))) | .filename') \
+            || { echo "::error::could not read PR hunks; the design-review gate cannot be evaluated (re-run the check)"; exit 1; }
+          HUNKED=$(printf '%s\n' "$HUNKED" \
+            | grep -vE '(\.test\.tsx?$|\.snap$|/__snapshots__/|^src/test/|^src/types/)' || true)
+          UI=$(printf '%s\n%s\n%s\n' "$UI" "$NAMED" "$HUNKED" | grep -v '^$' | sort -u || true)
+          if [ -z "$UI" ]; then
+            echo "No UI paths changed; design review not required."
+            exit 0
+          fi
+          echo "UI paths changed:"
+          printf '%s\n' "$UI"
+          # The proof is the reviewer's **design review** comment, bound to this
+          # head by its `Reviewed: <sha>` line; the PR body is author-controlled
+          # and a later push would leave a stale body line in place. The comment
+          # must come from an account Fable sessions post as (REVIEWERS) and
+          # carry the `agent: Claude Fable` line; GitHub cannot prove which
+          # model wrote a comment, so forging one is a hard-rule violation
+          # (docs/AGENT-CONSTITUTION.md, Hard rules), not a CI gap.
+          REVIEWERS='^(crypticpy|propulse-bot\[bot\])$'
+          HEAD7=$(printf '%s' "$HEAD_SHA" | cut -c1-7)
+          COMMENTS=$(gh api "repos/${REPO}/issues/${PR}/comments" --paginate \
+            --jq '.[] | [.html_url, .user.login, (.body | @base64)] | @tsv') \
+            || { echo "::error::could not list PR comments; the design-review gate cannot be evaluated (re-run the check)"; exit 1; }
+          APPROVED=$(printf '%s\n' "$COMMENTS" | while IFS=$'\t' read -r url login b64; do
+              [ -n "$b64" ] || continue
+              printf '%s' "$login" | grep -Eq "$REVIEWERS" || continue
+              body=$(printf '%s' "$b64" | base64 -d)
+              if printf '%s' "$body" | grep -Eiq '\*\*design review\*\*' \
+                && printf '%s' "$body" | grep -Eiq '^[[:space:]>*_-]*agent[*_]*:.*Claude Fable' \
+                && printf '%s' "$body" | grep -Eiq "^[[:space:]>*_-]*Reviewed[*_]*:[[:space:]*_\`]*${HEAD7}" \
+                && printf '%s' "$body" | grep -Eiq '^[[:space:]>*_-]*Verdict[*_]*:[[:space:]*_`]*approved[*_`]*([[:space:]]*\([^)]*\))?[[:space:]*_`.]*$'; then
+                echo "$url"
+              fi
+            done)
+          if [ -z "$APPROVED" ]; then
+            echo "This PR touches UI. It needs a **design review** comment from a Fable-posting account (crypticpy or propulse-bot) with an \`agent: Claude Fable …\` line, \`Reviewed: ${HEAD7} …\` and \`Verdict: approved\` (docs/AGENT-CONSTITUTION.md, Design and UI review). A review of an earlier head does not carry."
+            exit 1
+          fi
+          echo "Design review approved for ${HEAD7}: ${APPROVED}"
+  rerun-on-design-review-comment:
+    name: re-run pr-contract when a design-review comment changes
+    # Only the accounts whose design-review comments the body job accepts
+    # (REVIEWERS above) may trigger the rerun; any other commenter writing
+    # `**design review**` would otherwise be able to re-run the required
+    # check at will (Codex, #896 round 15).
+    if: github.event_name == 'issue_comment' && github.event.issue.pull_request && contains(fromJSON('["crypticpy","propulse-bot[bot]"]'), github.event.comment.user.login)
+    runs-on: ubuntu-latest
+    permissions:
+      actions: write
+      checks: write
+      pull-requests: read
+    steps:
+      - name: Re-run the latest pr-contract run for the PR head
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          PR: ${{ github.event.issue.number }}
+          COMMENT_BODY: ${{ github.event.comment.body }}
+          # On `edited`, the body before the edit: an edit that strips the
+          # heading itself must still re-run, or a retracted approval would
+          # keep its green (empty for created/deleted).
+          PREVIOUS_BODY: ${{ github.event.changes.body.from }}
+        run: |
+          if ! printf '%s\n%s' "$COMMENT_BODY" "$PREVIOUS_BODY" | grep -Eiq '\*\*design review\*\*'; then
+            echo "Neither the current nor the previous comment body is a design review; nothing to re-run."
+            exit 0
+          fi
+          # This job runs on the default branch, so its own failure is not a
+          # check on the PR head: a lookup that fails here would leave the
+          # last pr-contract result green after an approval was retracted
+          # (Codex, #896 round 19). Every lookup therefore retries, and when
+          # the rerun is still lost a failing check run is published on the
+          # head under the required context itself, `pr-contract`, from the
+          # same GitHub Actions app the ruleset binds it to (integration
+          # 15368): the ruleset reads the newest check run of that name, so
+          # the stale green stops counting (Codex, round 20). The next
+          # successful rerun produces a newer pr-contract run, which
+          # supersedes the failure the same way.
+          HEAD_SHA=''
+          api() {
+            local label=$1 n out; shift
+            for n in 1 2 3 4 5; do
+              if out=$(gh api "$@"); then printf '%s' "$out"; return 0; fi
+              echo "::warning::${label} failed (attempt ${n}/5)" >&2; sleep $((n * 10))
+            done
+            return 1
+          }
+          fail() {
+            echo "::error::$1"
+            if [ -n "$HEAD_SHA" ]; then
+              gh api -X POST "repos/${REPO}/check-runs" -f name=pr-contract -f head_sha="$HEAD_SHA" \
+                -f status=completed -f conclusion=failure \
+                -f details_url="${GITHUB_SERVER_URL}/${REPO}/actions/runs/${GITHUB_RUN_ID}" \
+                -f 'output[title]=design-review rerun lost' -f "output[summary]=$1" >/dev/null \
+                || echo "::error::could not publish the failing pr-contract check run on ${HEAD_SHA}"
+            fi
+            exit 1
+          }
+          HEAD_SHA=$(api "PR head lookup" "repos/${REPO}/pulls/${PR}" --jq '.head.sha') \
+            || fail "could not read the PR head after 5 attempts; re-run this job"
+          [ -n "$HEAD_SHA" ] || fail "empty PR head sha; re-run this job"
+          # Two open PRs can share a head commit, so the run is selected by
+          # this PR's number, not by head sha alone (Codex, #896 round 17).
+          RUN_ID=$(api "pr-contract run lookup" "repos/${REPO}/actions/workflows/pr-contract.yml/runs?event=pull_request&head_sha=${HEAD_SHA}&per_page=30" \
+            --jq "[.workflow_runs[] | select(any(.pull_requests[]?; .number == ${PR}))] | first | .id // empty") \
+            || fail "could not list pr-contract runs for ${HEAD_SHA} after 5 attempts; re-run this job"
+          if [ -z "$RUN_ID" ]; then
+            echo "No pull_request run for ${HEAD_SHA} yet; the next push or body edit evaluates the comment."
+            exit 0
+          fi
+          # A run that is still executing may already have fetched the
+          # comments, so it cannot be trusted to see this change: wait for it
+          # to finish, then re-run it (the check itself takes seconds).
+          for _ in $(seq 1 60); do
+            STATUS=$(api "run status lookup" "repos/${REPO}/actions/runs/${RUN_ID}" --jq '.status') \
+              || fail "could not read run ${RUN_ID} after 5 attempts; re-run this job"
+            [ "$STATUS" = "completed" ] && break
+            sleep 10
+          done
+          [ "$STATUS" = "completed" ] || fail "run ${RUN_ID} still ${STATUS} after 10 minutes; re-run this job"
+          api "pr-contract rerun" -X POST "repos/${REPO}/actions/runs/${RUN_ID}/rerun" >/dev/null \
+            || fail "could not re-run pr-contract run ${RUN_ID} after 5 attempts; re-run this job"
+          echo "Re-ran pr-contract run ${RUN_ID} for ${HEAD_SHA}"

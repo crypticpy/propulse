@@ -113,6 +113,10 @@ export const useMyStore = create<MyStore>()(
 
 ## UX Rules
 
+### Fable design review is required
+
+Every design and every change that touches UI (anything a person sees) is reviewed by a **Claude Fable** session before it merges. Designs are reviewed before build; PRs get a `**design review**` comment (`Reviewed: <head sha>`, `Verdict: approved`) and a `Design review: approved by Fable (<comment URL>)` pointer line in the body. `pr-contract` fails a UI PR with no such comment for the current head. Opus, Sonnet, Codex, Copilot, Sourcery, Grok and Composer reviews do not satisfy this. The rule, the path list and the rendered-check surface are in `docs/AGENT-CONSTITUTION.md`, Design and UI review.
+
 ### No Flyout/Slide-in Panels
 
 **NEVER** use side-of-browser flyout panels (position: fixed, slide-in from right/left).
@@ -179,6 +183,7 @@ Rules:
 
 - **Every sync close-out pushes to both projects.** A sync plan is per account and per session: finish one account, then `/design-login` as the other, `finalize_plan` against that account's project id, and push the same `ds-bundle/` in the same order. If only one account is reachable, push there and leave a note in `.design-sync/NOTES.md` so the next session on the other account catches up.
 - **Pick the target from the account you are on.** `.design-sync/config.json` holds `projectId` (the current run) and `mirrorProjects` (account → project id). `get_project` on the other account's id returns 404; that is expected, not an error.
+- **Every design and UI change is Fable-reviewed** before merge (see UX Rules above); the design review is where DS alignment and the legibility standard are checked.
 - **The app and the design system stay aligned.** Every UI fix goes through the shared component (`src/components/ui/*`, `station-ui`, wall tiles), never a one-off in a page; narrow layouts get a discrete stacked variant instead of a compressed two-column row; after the fix merges, the affected cards are re-graded so the project shows what ships.
 - Never delete the app-managed files `_ds_manifest.json` and `_adherence.oxlintrc.json` from a project.
 

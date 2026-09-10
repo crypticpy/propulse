@@ -34,6 +34,12 @@ and setting Agent + Status=Claimed on Project #4. -->
 
 <!-- Commands, pages. -->
 
+## Design review
+
+<!-- Touches UI? yes/no. If yes: link the approved design (mock, spec, contact
+sheet) and note that the PR needs an approved Fable **design review** before
+merge (docs/AGENT-CONSTITUTION.md, Design and UI review). -->
+
 ## Epic
 
 Part of #

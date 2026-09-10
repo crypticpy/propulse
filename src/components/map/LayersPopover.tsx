@@ -300,7 +300,7 @@ function CategoryRow({
 
       {/* Count badge */}
       {enabledCount > 0 && (
-        <span className="px-1 min-w-[18px] h-[16px] flex items-center justify-center rounded-[4px] bg-su-line/20 text-xs font-semibold tabular-nums text-su-text/80">
+        <span className="px-1 min-w-[1.125rem] min-h-4 flex items-center justify-center rounded-[4px] bg-su-line/20 text-xs font-semibold tabular-nums text-su-text/80">
           {enabledCount}/{totalCount}
         </span>
       )}
@@ -1073,11 +1073,20 @@ export function LayersPopover({ compact = false }: LayersPopoverProps) {
         />
       </div>
 
-      {/* Grid Detail slider (visible when grid labels are on) */}
+      {/* Grid Detail slider (visible when grid labels are on).
+          Every box on these rows is rem-sized, not px-sized. The labels moved
+          from `text-[11px]`/`text-[10px]` to `text-xs` for the legibility floor
+          (#832), and `text-xs` is 0.75rem, so it follows Settings -> Text Size:
+          16.5px at the xl scale. A `h-[28px]` row with a `w-[60px]` label could
+          not hold that -- "Grid Detail" wrapped to two 22px lines inside a 28px
+          box and painted over the slider (found by Codex on PR #839). `min-h-7`
+          and `w-[4.5rem]` grow with the text instead, `flex-wrap` lets the value
+          chip drop to its own line rather than squeeze the track off the row,
+          and the slider's `min-w-[3rem]` keeps it draggable when it does. */}
       {labelOptions.gridLabels && (
         <>
-          <div className="flex items-center h-[28px] px-1 mt-1">
-            <span className="text-xs text-su-text/80 w-[60px] shrink-0">
+          <div className="flex flex-wrap items-center min-h-7 px-1 mt-1">
+            <span className="text-xs text-su-text/80 w-[4.5rem] shrink-0">
               Grid Detail
             </span>
             <input
@@ -1088,7 +1097,7 @@ export function LayersPopover({ compact = false }: LayersPopoverProps) {
               value={gridLabelDetail}
               onChange={(e) => setGridLabelDetail(parseInt(e.target.value, 10))}
               onClick={(e) => e.stopPropagation()}
-              className="layers-slider flex-1 mx-2"
+              className="layers-slider flex-1 min-w-[3rem] mx-2"
               aria-label="Grid label detail level"
             />
             <span className="text-xs font-mono text-su-text/80 w-14 text-right shrink-0 tabular-nums">
@@ -1106,8 +1115,8 @@ export function LayersPopover({ compact = false }: LayersPopoverProps) {
       <div className="border-t border-su-line/20 my-1.5" />
 
       {/* Spot Size */}
-      <div className="flex items-center h-[28px] px-1">
-        <span className="text-xs text-su-text/80 w-[60px] shrink-0">
+      <div className="flex flex-wrap items-center min-h-7 px-1">
+        <span className="text-xs text-su-text/80 w-[4.5rem] shrink-0">
           Spot Size
         </span>
         <input
@@ -1118,7 +1127,7 @@ export function LayersPopover({ compact = false }: LayersPopoverProps) {
           value={spotDotScale}
           onChange={handleSpotChange}
           onClick={(e) => e.stopPropagation()}
-          className="layers-slider flex-1 mx-2"
+          className="layers-slider flex-1 min-w-[3rem] mx-2"
           aria-label="Spot dot size scale"
         />
         <span className="text-xs font-mono text-su-text/80 w-7 text-right shrink-0 tabular-nums">
@@ -1127,8 +1136,8 @@ export function LayersPopover({ compact = false }: LayersPopoverProps) {
       </div>
 
       {/* Pin Size */}
-      <div className="flex items-center h-[28px] px-1">
-        <span className="text-xs text-su-text/80 w-[60px] shrink-0">
+      <div className="flex flex-wrap items-center min-h-7 px-1">
+        <span className="text-xs text-su-text/80 w-[4.5rem] shrink-0">
           Pin Size
         </span>
         <input
@@ -1139,7 +1148,7 @@ export function LayersPopover({ compact = false }: LayersPopoverProps) {
           value={mapPinScale}
           onChange={handlePinChange}
           onClick={(e) => e.stopPropagation()}
-          className="layers-slider flex-1 mx-2"
+          className="layers-slider flex-1 min-w-[3rem] mx-2"
           aria-label="Map pin size scale"
         />
         <span className="text-xs font-mono text-su-text/80 w-7 text-right shrink-0 tabular-nums">
@@ -1148,8 +1157,8 @@ export function LayersPopover({ compact = false }: LayersPopoverProps) {
       </div>
 
       {/* Label Size */}
-      <div className="flex items-center h-[28px] px-1">
-        <span className="text-xs text-su-text/80 w-[60px] shrink-0">
+      <div className="flex flex-wrap items-center min-h-7 px-1">
+        <span className="text-xs text-su-text/80 w-[4.5rem] shrink-0">
           Labels
         </span>
         <input
@@ -1160,7 +1169,7 @@ export function LayersPopover({ compact = false }: LayersPopoverProps) {
           value={labelScale}
           onChange={handleLabelChange}
           onClick={(e) => e.stopPropagation()}
-          className="layers-slider flex-1 mx-2"
+          className="layers-slider flex-1 min-w-[3rem] mx-2"
           aria-label="Spot label size scale"
         />
         <span className="text-xs font-mono text-su-text/80 w-7 text-right shrink-0 tabular-nums">
@@ -1169,8 +1178,8 @@ export function LayersPopover({ compact = false }: LayersPopoverProps) {
       </div>
 
       {/* Arc Density */}
-      <div className="flex items-center h-[28px] px-1">
-        <span className="text-xs text-su-text/80 w-[60px] shrink-0">
+      <div className="flex flex-wrap items-center min-h-7 px-1">
+        <span className="text-xs text-su-text/80 w-[4.5rem] shrink-0">
           Density
         </span>
         <input
@@ -1181,7 +1190,7 @@ export function LayersPopover({ compact = false }: LayersPopoverProps) {
           value={displayDensity}
           onChange={handleDensityChange}
           onClick={(e) => e.stopPropagation()}
-          className="layers-slider flex-1 mx-2"
+          className="layers-slider flex-1 min-w-[3rem] mx-2"
           aria-label="Maximum number of spots to display"
         />
         <span className="text-xs font-mono text-su-text/80 w-7 text-right shrink-0 tabular-nums">
@@ -1197,8 +1206,8 @@ export function LayersPopover({ compact = false }: LayersPopoverProps) {
     return (
       <>
         <div className="border-t border-su-line/20 my-1.5" />
-        <div className="flex items-center h-[28px] px-1">
-          <span className="text-xs text-su-text/80 w-[44px] shrink-0">
+        <div className="flex flex-wrap items-center min-h-7 px-1">
+          <span className="text-xs text-su-text/80 w-[3rem] shrink-0">
             Speed
           </span>
           <input
@@ -1212,7 +1221,7 @@ export function LayersPopover({ compact = false }: LayersPopoverProps) {
               setAutoRotateSpeed(seconds);
             }}
             onClick={(e) => e.stopPropagation()}
-            className="layers-slider flex-1 mx-2"
+            className="layers-slider flex-1 min-w-[3rem] mx-2"
             aria-label="Auto-rotate speed"
           />
           <span className="text-xs font-mono text-su-text/80 w-14 text-right shrink-0 tabular-nums">

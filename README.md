@@ -362,13 +362,7 @@ The `api/` directory contains Vercel Edge Functions that proxy external APIs (NO
 
 See [AGENTS.md](AGENTS.md) for detailed repository guidelines.
 
----
 
-## License
-
-This project is not yet licensed. All rights reserved.
-
----
 
 <p align="center">
   Built for the amateur radio community. 73 de Propulse.

@@ -224,8 +224,10 @@ stale number wearing a fresh timestamp.
 
 - **No VOACAP.** The physics engine is our own P.533-style implementation. We do not
   wrap VOACAP and we do not borrow its reputation.
-- **No live WSPR ingestion.** The live WSPR research pipeline was decommissioned in July
-  2026 and will not be rebuilt. WSPR archives are used for offline training only.
+- **No persisted WSPR pipeline.** The map still shows the last 30 minutes of WSPR
+  reports fetched on demand from wspr.live, but the research pipeline that stored live
+  WSPR into our database was decommissioned in July 2026 and will not be rebuilt. WSPR
+  archives are used for offline training only.
 - **No silent fallbacks.** If a model is unavailable the UI falls back to physics and
   says which profile produced the answer.
 - **No fabricated zeros.** A contaminated or absent upstream value is an outage state,
@@ -239,11 +241,11 @@ stale number wearing a fresh timestamp.
 
 ### PropSphere, the propagation map
 
-| View            | What it is                                                                                      |
-| --------------- | ----------------------------------------------------------------------------------------------- |
-| **3D globe**    | Tiled, textured Earth with day/night terminator, night lights, labels and live spot plotting    |
-| **2D flat map** | Full feature parity with the globe: overlays, paths, pins and panels                            |
-| **Azimuthal**   | WebGL azimuthal equidistant projection centred on your QTH, showing true bearings and distances |
+| View            | What it is                                                                                                                                                          |
+| --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **3D globe**    | Tiled, textured Earth with day/night terminator, night lights, labels and live spot plotting                                                                        |
+| **2D flat map** | The same spots, paths, pins and panels on a flat projection; some globe-only layers (D-RAP, sporadic-E, TEC, NVIS and others) say so rather than silently vanishing |
+| **Azimuthal**   | WebGL azimuthal equidistant projection centred on your QTH, showing true bearings and distances                                                                     |
 
 - Live spot arcs drawn as great circles from DX cluster, PSK Reporter and RBN feeds.
 - **Occlusion-aware labels**: spot and marker labels are hidden when their point is on
@@ -334,7 +336,8 @@ Every surface is built from one shared station design system rather than per-pag
 - A **legibility standard** written for operators who wear glasses: high contrast, no pure
   white on black, no halo or fringing effects, and a user text-size control instead of
   smaller type.
-- **Contrast is enforced by tests, not by review.** Guards such as
+- **Contrast is enforced by tests as well as by review.** Every UI-touching change also
+  needs an approved design review before merge, but the numbers are checked by guards such as
   `src/lib/themes/stationTokens.test.ts`, `accentTintContrast.test.ts`,
   `statusTintContrast.test.ts` and
   `src/components/map/hamclock/hamClockHoverChromeContrast.test.ts` compute contrast

@@ -24,10 +24,14 @@ export async function hasProEntitlement(
   const supabase = createClient(supabaseUrl, serviceRoleKey, {
     auth: { persistSession: false, autoRefreshToken: false },
   });
+  // Billing state lives in `profile_billing` (20260909140000), not `profiles`:
+  // no client role can write it, and `profiles_select` cannot leak it on a
+  // public profile lookup. An account that has never subscribed has no row at
+  // all, which reads as free.
   const { data, error } = await supabase
-    .from("profiles")
+    .from("profile_billing")
     .select("subscription_tier")
-    .eq("id", userId)
+    .eq("user_id", userId)
     .maybeSingle();
   if (error) return null;
 

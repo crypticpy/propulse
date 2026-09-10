@@ -42,7 +42,7 @@ const ACTIVE_CLASSES: Record<string, string> = {
   "cosmic-cyan":
     "bg-cosmic-cyan/20 text-cosmic-cyan border-cosmic-cyan/30 shadow-[0_0_6px_rgba(68,221,255,0.15)]",
   "plasma-orange":
-    "bg-plasma-orange/20 text-plasma-orange border-plasma-orange/30 shadow-[0_0_6px_rgba(255,107,53,0.15)]",
+    "bg-plasma-orange/20 text-su-text border-plasma-orange/30 shadow-[0_0_6px_rgba(255,107,53,0.15)]",
   "caution-amber":
     "bg-caution-amber/20 text-caution-amber border-caution-amber/30 shadow-[0_0_6px_rgba(255,210,63,0.15)]",
   "alert-red":

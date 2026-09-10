@@ -144,7 +144,7 @@ export function ResearchParticipationSettings() {
                 type="button"
                 onClick={save}
                 disabled={research.savingConsent || selectedUses.length === 0}
-                className="w-full px-4 py-2 rounded-md text-sm font-medium bg-plasma-orange/20 text-plasma-orange border border-plasma-orange/30 hover:bg-plasma-orange/30 disabled:cursor-not-allowed disabled:opacity-50"
+                className="w-full px-4 py-2 rounded-md text-sm font-medium bg-plasma-orange/15 text-su-text border border-plasma-orange/30 hover:bg-plasma-orange/20 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {research.savingConsent ? "Saving..." : "Save Research Choices"}
               </button>

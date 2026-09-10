@@ -46,6 +46,27 @@ Keep each to a few lines.
 ```
 
 ```markdown
+**design review** (Claude Fable only; required on every design and UI PR)
+
+- agent: Claude Fable 5 (session https://claude.ai/code/session_…)
+
+Reviewed: <head sha> at <canvases / text scales checked>
+
+1. **S1 — blocker:** file:line — what a person sees — fix
+2. …
+   Verdict: approved | changes needed
+```
+
+`pr-contract` matches the `**design review**` heading, the `agent: Claude Fable`
+line, the `Reviewed:` sha (first 7 chars of the head) and a `Verdict:` line that
+ends in `approved` (optionally followed by a parenthesised note); the template's
+`approved | changes needed` placeholder does not pass. A new push needs a new
+comment. Posting, editing or deleting a design-review comment re-runs the
+check for the current head, so a retracted approval takes the green away. Short form for a test-only or doc-only push keeps the heading and the
+`agent:` line and reads `Reviewed: <new sha>` / `Verdict: approved (carries from
+<old sha>)`.
+
+```markdown
 **done**
 
 - merged: <sha> (PR #…)
@@ -198,7 +219,11 @@ the body. **Commit only** — you do not push, open PRs, or merge. Post a
 **What the reviewer does.** The Opus reviewer posts the second-opinion review,
 **fixes what is broken itself** rather than handing the branch back, resolves
 every thread, merges once checks are green, and prunes the worktree. Work only
-comes back to you if the whole approach was wrong.
+comes back to you if the whole approach was wrong. A PR that touches UI also
+needs a `**design review**` from a Claude Fable session with verdict
+`approved` for the current head; the Opus reviewer does not merge before that
+comment exists, and Opus, Sonnet or bot reviews never stand in for it (see the
+constitution, Design and UI review).
 
 Sizing exists so several agents can run at once without a human deciding who
 gets what: four to six coding agents on `size:S`/`size:M` items keep one

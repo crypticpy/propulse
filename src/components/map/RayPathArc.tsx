@@ -31,7 +31,10 @@ import {
   IONOSPHERE_LAYER_COLORS,
   heightToRadius,
 } from "./IonosphericShells";
-import { GLOBE_LAYER_ORDER } from "@/lib/map/globeRenderOrder";
+import {
+  GLOBE_DOM_LAYER_ORDER,
+  GLOBE_LAYER_ORDER,
+} from "@/lib/map/globeRenderOrder";
 import type { PathDescriptor } from "@/lib/views/spotContracts";
 import { modelProvenanceSchema } from "@/lib/views/spotContracts";
 import type { ScreenAnchor } from "@/lib/map/anchoredOverlay";
@@ -839,11 +842,10 @@ export function RayPathArc({
         <Html
           portal={overlayPortal}
           fullscreen
-          zIndexRange={[180, 0]}
+          zIndexRange={GLOBE_DOM_LAYER_ORDER.rayPathInspector}
           style={{ pointerEvents: "none" }}
         >
           <PathPointInspector
-            inline
             pointSet={pointSet}
             selectedId={selectedId}
             hoveredId={hoveredId}

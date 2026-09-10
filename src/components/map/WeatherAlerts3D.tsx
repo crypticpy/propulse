@@ -21,7 +21,10 @@ import { Html } from "@react-three/drei";
 import * as THREE from "three";
 import type { WeatherAlert } from "@/lib/api/weather";
 import { useGlobeOcclusionBatch } from "@/hooks/useGlobeOcclusionBatch";
-import { GLOBE_LAYER_ORDER } from "@/lib/map/globeRenderOrder";
+import {
+  GLOBE_DOM_LAYER_ORDER,
+  GLOBE_LAYER_ORDER,
+} from "@/lib/map/globeRenderOrder";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -384,7 +387,7 @@ function AlertMarker({
       <Html
         position={[0, STEM_HEIGHT + SIZE * 3, 0]}
         center
-        zIndexRange={[1, 0]}
+        zIndexRange={GLOBE_DOM_LAYER_ORDER.marker}
         style={{
           pointerEvents: "none",
           opacity: occlusionOpacity,

@@ -1,0 +1,1659 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PROPULSE — Workspace · design contact sheet</title>
+<style>
+/* ==========================================================================
+   TOKENS — copied from the codebase and from the heat-map contact sheet, not
+   invented. This sheet is the sibling of docs/plans.local/mocks/
+   heatmap-contact-sheet.html and shares its token block verbatim so the two
+   can be read side by side.
+   --hc-*  : src/styles/hamclock-themes.css  (theme "pulse", the wall default)
+   --su-*  : src/styles/globals.css          (station design system, DS-02)
+   band hex: src/lib/utils/spotColors.ts     (BAND_COLORS)
+   ladder  : src/lib/verdict/ladder.ts + presentation.ts
+             closed < forecast < stirring < verified < hot  (+ orthogonal
+             "surprise" flag when real activity beats a closed forecast)
+   ========================================================================== */
+:root{
+  /* HamClock wall theme — pulse */
+  --hc-bg:#0a0e1a; --hc-panel:#0d1527; --hc-glass:rgba(13,21,39,.78);
+  --hc-line:rgba(255,255,255,.09); --hc-fg:#e6ebf2;
+  --hc-dim:rgba(255,255,255,.46); --hc-dim2:rgba(255,255,255,.28);
+  --hc-accent-rgb:255 107 53; --hc-info-rgb:68 221 255;
+  --hc-good-rgb:0 255 136; --hc-warn-rgb:255 210 63; --hc-bad-rgb:255 68 85;
+  --hc-accent:rgb(var(--hc-accent-rgb)); --hc-info:rgb(var(--hc-info-rgb));
+  --hc-good:rgb(var(--hc-good-rgb)); --hc-warn:rgb(var(--hc-warn-rgb));
+  --hc-bad:rgb(var(--hc-bad-rgb));
+
+  /* Station tokens */
+  --su-canvas:#141827; --su-panel:#191e2e; --su-input:#111624;
+  --su-text:#cad2dc; --su-muted:#a0abba; --su-line:#637088;
+  --su-accent:#ff6b35; --su-info:#85c4d0; --su-success:#8bdbb0;
+  --su-warning:#f5cf79; --su-danger:#fda4af;
+  --su-accent-rgb:255 107 53; --su-line-rgb:99 112 136;
+
+  /* Fonts — local fallbacks only, no webfont loads (offline mock). */
+  --f-display:Orbitron,Michroma,Eurostile,"Futura","Century Gothic","Avenir Next",system-ui,sans-serif;
+  --f-mono:"JetBrains Mono",ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+  --f-body:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",system-ui,sans-serif;
+
+  /* Frame fit: --u ≈ (available column width) / 1920. Pure CSS ladder. */
+  --u:.28;
+}
+@media(min-width:720px){:root{--u:.34}}
+@media(min-width:900px){:root{--u:.43}}
+@media(min-width:1100px){:root{--u:.54}}
+@media(min-width:1280px){:root{--u:.63}}
+@media(min-width:1440px){:root{--u:.71}}
+@media(min-width:1600px){:root{--u:.80}}
+@media(min-width:1760px){:root{--u:.86}}
+
+*,*::before,*::after{box-sizing:border-box}
+html,body{margin:0;background:#07090f;color:var(--su-text);font-family:var(--f-body);-webkit-font-smoothing:antialiased}
+.sheet{max-width:1720px;margin:0 auto;padding:0 24px 96px}
+
+/* ---- sheet chrome (not part of the product; the paper the mock sits on) --- */
+.sheet-head{padding:40px 24px 8px;max-width:1720px;margin:0 auto}
+.sheet-head h1{font-family:var(--f-display);font-weight:800;letter-spacing:.14em;font-size:26px;margin:0 0 6px;color:#fff;text-transform:uppercase}
+.sheet-head p{margin:0 0 10px;max-width:82ch;color:var(--su-muted);font-size:14px;line-height:1.6}
+.sheet-head .meta{margin-top:10px;font-family:var(--f-mono);font-size:11px;letter-spacing:.14em;color:var(--su-line);text-transform:uppercase}
+.sec{margin-top:56px}
+.sec-label{display:flex;align-items:baseline;gap:14px;border-top:3px solid rgb(var(--su-accent-rgb));padding-top:12px;margin-bottom:6px}
+.sec-label b{font-family:var(--f-display);font-weight:800;letter-spacing:.18em;font-size:17px;color:#fff;text-transform:uppercase}
+.sec-label i{font-style:normal;font-family:var(--f-mono);font-size:11px;letter-spacing:.16em;color:var(--su-accent);text-transform:uppercase}
+.sec-note{margin:0 0 18px;max-width:96ch;color:var(--su-muted);font-size:13.5px;line-height:1.65}
+.cap{margin:10px 0 22px;font-family:var(--f-mono);font-size:11.5px;letter-spacing:.06em;color:var(--su-line);line-height:1.7;max-width:112ch}
+.cap b{color:var(--su-muted);font-weight:500}
+code{font-family:var(--f-mono);font-size:.94em;color:var(--su-muted)}
+
+/* ---- frame scaling -------------------------------------------------------- */
+.shot{position:relative;overflow:hidden;border-radius:6px;box-shadow:0 24px 60px rgba(0,0,0,.55);width:calc(var(--w)*var(--fit));height:calc(var(--h)*var(--fit))}
+.shot>.frame{position:absolute;top:0;left:0;width:var(--w);height:var(--h);transform:scale(var(--fit));transform-origin:top left}
+.shot--wall{--w:1920px;--h:1080px;--fit:var(--u)}
+.shot--dlg{--w:1280px;--h:760px;--fit:min(1,calc(var(--u)*1.5))}
+.shot--ph5{--w:2070px;--h:844px;--fit:min(1,calc(var(--u)*.93))}
+.shot--ph4{--w:1650px;--h:844px;--fit:min(1,calc(var(--u)*1.16))}
+.shot--phones{--w:1650px;--h:844px;--fit:min(1,calc(var(--u)*1.16))}
+.pair{display:flex;gap:26px;flex-wrap:wrap;align-items:flex-start}
+
+/* ==========================================================================
+   HEAT MAP — carried over unchanged from the heat-map sheet so the encoding
+   is identical in both documents. Tone = Band Health ladder state, fill
+   opacity (--i) = normalised spot count.
+   ========================================================================== */
+.hm{display:grid;gap:var(--hm-gap,6px)}
+.hm-row{display:grid;grid-template-columns:var(--hm-band,120px) repeat(6,minmax(0,1fr));gap:var(--hm-gap,6px)}
+.hm-head{display:grid;grid-template-columns:var(--hm-band,120px) repeat(6,minmax(0,1fr));gap:var(--hm-gap,6px)}
+.hm-head span{font-family:var(--f-display);font-weight:700;letter-spacing:.2em;color:var(--hc-dim);text-align:center;font-size:var(--hm-head,20px)}
+.hm-head span:first-child{text-align:left;letter-spacing:.18em;color:var(--hc-dim2)}
+.hm-band{display:flex;align-items:center;gap:.4em;font-family:var(--f-display);font-weight:900;font-size:var(--hm-bandsize,48px);line-height:1;color:var(--hc-fg);
+  border-left:4px solid var(--bc,var(--hc-line));padding-left:.28em;letter-spacing:.01em}
+.hm-band em{font-style:normal;font-size:.46em;font-family:var(--f-mono);font-weight:400;color:var(--hc-dim);letter-spacing:.12em}
+.hm-c{display:flex;align-items:center;justify-content:center;font-family:var(--f-mono);font-weight:600;font-variant-numeric:tabular-nums;
+  font-size:var(--hm-cell,40px);border-radius:var(--hm-rad,6px);color:var(--ink,var(--hc-fg));position:relative;
+  background:rgb(var(--t) / calc(.10 + .90*var(--i,0)));border:1px solid rgb(var(--t) / calc(.35 + .65*var(--i,0)))}
+.hm-c.hi{--ink:#080c16;font-weight:800}
+.v-hot{--t:var(--hc-accent-rgb)} .v-ver{--t:var(--hc-good-rgb)} .v-stir{--t:var(--hc-warn-rgb)}
+.v-fcst{--t:var(--hc-good-rgb);border-style:dashed}
+.v-clsd{--t:99 112 136;color:var(--hc-dim2)}
+.v-x{--t:var(--hc-accent-rgb);border-width:2px;border-color:rgb(var(--hc-bad-rgb) / .9);
+  background:repeating-linear-gradient(135deg,rgba(8,12,22,.80) 0 4px,rgba(8,12,22,0) 4px 9px),
+             rgb(var(--t) / calc(.10 + .90*var(--i,0)))}
+.s::before{content:"▲";position:absolute;top:.1em;right:.22em;font-size:.36em;color:var(--hc-info);line-height:1}
+.hm-c .z{font-style:normal;color:var(--hc-dim2);opacity:.55}
+.ramp{display:flex;align-items:center;gap:5px;font-family:var(--f-mono);font-size:9px;letter-spacing:.13em;text-transform:uppercase;color:var(--hc-dim2)}
+.ramp i{display:block;width:20px;height:13px;border-radius:2px;background:rgb(var(--t) / calc(.10 + .90*var(--i,0)));
+  border:1px solid rgb(var(--t) / calc(.35 + .65*var(--i,0)))}
+.hm--work{--hm-gap:3px;--hm-band:62px;--hm-bandsize:20px;--hm-cell:15px;--hm-head:10px;--hm-rad:3px;align-content:start}
+.hm--work .hm-c{min-height:29px}
+.hm--work .hm-band{border-left-width:3px}
+.hm--work .hm-band.on{background:rgb(var(--hc-accent-rgb) / .18);border-radius:0 3px 3px 0}
+.hm--rail{--hm-gap:3px;--hm-band:52px;--hm-bandsize:19px;--hm-cell:15px;--hm-head:11px;--hm-rad:3px}
+.hm--rail .hm-band{border-left-width:3px}
+.hm--rail .hm-c{min-height:22px;font-weight:700}
+.hm--mini{--hm-gap:2px;--hm-band:32px;--hm-bandsize:12px;--hm-cell:9px;--hm-head:7px;--hm-rad:2px}
+.hm--mini .hm-c{min-height:15px}
+/* transposed: bands become columns, continents become rows */
+.hm-t{display:grid;grid-template-rows:auto repeat(6,minmax(0,1fr));gap:3px;flex:1 1 auto;min-height:0}
+.hm-t-row{display:grid;grid-template-columns:52px repeat(11,minmax(0,1fr));gap:3px}
+.hm-t-row>.k{font-family:var(--f-display);font-weight:700;font-size:12px;letter-spacing:.14em;color:var(--hc-dim);display:flex;align-items:center}
+.hm-t-head>.k{color:var(--hc-dim2);font-size:9px}
+.hm-t-head>span{font-family:var(--f-display);font-weight:700;font-size:12px;color:var(--hc-fg);text-align:center;letter-spacing:.02em}
+.hm-t .hm-c{font-size:12px;border-radius:2px;min-height:0}
+.hm-t--mini{gap:2px}
+.hm-t--mini .hm-t-row{grid-template-columns:26px repeat(11,minmax(0,1fr));gap:2px}
+.hm-t--mini .hm-c{font-size:8px;min-height:11px}
+.hm-t--mini .hm-t-row>.k{font-size:8px}
+.hm-t--mini .hm-t-head>span{font-size:7.5px}
+
+/* ==========================================================================
+   SHARED WIDGET CHROME — approximations of HamClockTile / WidgetShell /
+   the DS-15 header anatomy. One set of classes, three densities by override.
+   ========================================================================== */
+.hc-tile{position:relative;background:var(--hc-glass);border:1px solid var(--hc-line);border-radius:7px;
+  padding:12px 13px 11px;box-shadow:0 10px 30px rgba(0,0,0,.35);overflow:hidden;display:flex;flex-direction:column;gap:6px;min-height:0}
+.hc-tile::before{content:"";position:absolute;left:0;right:0;top:0;height:2px;background:var(--hc-state,var(--hc-line))}
+.w-t{margin:0;font-family:var(--f-display);font-weight:700;font-size:11px;letter-spacing:.22em;
+  color:var(--hc-dim);text-transform:uppercase;display:flex;justify-content:space-between;align-items:baseline;gap:8px}
+.w-t em{font-style:normal;font-family:var(--f-mono);font-weight:400;letter-spacing:.08em;color:var(--hc-dim2);font-size:10px;text-transform:none}
+.w-hero{font-family:var(--f-display);font-weight:900;line-height:1;letter-spacing:.02em;font-variant-numeric:tabular-nums;font-size:44px}
+.w-sub{font-family:var(--f-mono);font-size:11px;color:var(--hc-dim);letter-spacing:.06em;display:flex;justify-content:space-between;gap:10px}
+.w-sub b{color:var(--hc-fg);font-weight:600}
+.w-foot{font-family:var(--f-mono);font-size:9px;letter-spacing:.14em;color:var(--hc-dim2);text-transform:uppercase;border-top:1px solid var(--hc-line);padding-top:6px;margin-top:auto}
+.t-good{color:var(--hc-good)} .t-warn{color:var(--hc-warn)} .t-bad{color:var(--hc-bad)}
+.t-acc{color:var(--hc-accent)} .t-info{color:var(--hc-info)} .t-dim{color:var(--hc-dim)}
+
+/* segmented big buttons — no dropdowns anywhere in this sheet */
+.seg{display:flex;gap:6px;flex-wrap:wrap}
+.seg button,.seg span{font-family:var(--f-display);font-weight:700;letter-spacing:.16em;text-transform:uppercase;
+  border:1px solid var(--hc-line);border-radius:5px;background:transparent;color:var(--hc-dim);cursor:default;
+  min-height:44px;padding:0 18px;display:inline-flex;align-items:center;font-size:15px;white-space:nowrap}
+.seg .on{background:var(--hc-accent);border-color:var(--hc-accent);color:var(--hc-bg)}
+.seg--sm button,.seg--sm span{min-height:34px;padding:0 12px;font-size:11px;letter-spacing:.12em}
+.seg--xs button,.seg--xs span{min-height:26px;padding:0 8px;font-size:9px;letter-spacing:.1em;border-radius:4px}
+.lbl{font-family:var(--f-mono);font-size:9px;letter-spacing:.18em;color:var(--hc-dim);text-transform:uppercase;display:block;margin-bottom:4px}
+
+.chips{display:flex;gap:6px;align-items:center;flex-wrap:wrap;min-height:28px}
+.chip{display:inline-flex;align-items:center;gap:6px;min-height:28px;padding:0 10px;border-radius:14px;font-family:var(--f-mono);font-size:10px;letter-spacing:.12em;
+  background:rgb(var(--hc-accent-rgb) / .18);border:1px solid rgb(var(--hc-accent-rgb) / .6);color:var(--hc-accent);text-transform:uppercase}
+.chip x{font-style:normal;font-weight:700;font-size:12px}
+.chip--ghost{background:transparent;border-color:var(--hc-line);color:var(--hc-dim2)}
+.chip--good{background:rgb(var(--hc-good-rgb) / .16);border-color:rgb(var(--hc-good-rgb) / .6);color:var(--hc-good)}
+.chip--info{background:rgb(var(--hc-info-rgb) / .16);border-color:rgb(var(--hc-info-rgb) / .6);color:var(--hc-info)}
+
+/* ==========================================================================
+   WIDGET VISUALS — bars, charts, ladders, gauges. Every one is an honest
+   approximation of a component that exists in the design system today.
+   ========================================================================== */
+.bars{display:grid;grid-auto-flow:column;grid-auto-columns:1fr;gap:3px;align-items:end;height:var(--bh,46px)}
+.bars i{display:block;border-radius:2px;background:rgb(var(--t,var(--hc-good-rgb)) / .85);height:calc(8% + 92% * var(--i,0))}
+.bark{display:grid;grid-auto-flow:column;grid-auto-columns:1fr;gap:3px;font-family:var(--f-mono);font-size:8px;color:var(--hc-dim2);text-align:center;margin-top:3px}
+
+/* solar MetricCard / PrimaryMetrics */
+.mcs{display:grid;grid-template-columns:repeat(var(--mcn,4),minmax(0,1fr));gap:7px}
+.mc{border:1px solid var(--hc-line);border-radius:5px;background:rgba(255,255,255,.03);padding:7px 8px 8px;border-top:2px solid var(--mcc,var(--hc-line))}
+.mc .k{font-family:var(--f-mono);font-size:8.5px;letter-spacing:.2em;color:var(--hc-dim2);text-transform:uppercase}
+.mc .v{font-family:var(--f-display);font-weight:900;font-size:var(--mcv,26px);line-height:1.08;font-variant-numeric:tabular-nums;color:var(--mcc,var(--hc-fg))}
+.mc .d{font-family:var(--f-mono);font-size:9px;color:var(--hc-dim);letter-spacing:.04em}
+
+/* SolarSeriesChart / SolarMiniChart — inline SVG, deterministic points */
+.sch{display:block;width:100%;height:var(--chh,120px);border:1px solid var(--hc-line);border-radius:5px;background:rgba(255,255,255,.02)}
+.sch-k{display:flex;gap:14px;font-family:var(--f-mono);font-size:9px;letter-spacing:.14em;color:var(--hc-dim2);text-transform:uppercase;margin-top:4px}
+.sch-k i{display:inline-block;width:14px;height:3px;border-radius:2px;vertical-align:3px;margin-right:5px}
+
+/* PropagationForecast — bands x hours ladder */
+.fc{display:grid;gap:3px}
+.fc-h,.fc-r{display:grid;grid-template-columns:var(--fck,38px) repeat(12,minmax(0,1fr));gap:3px;align-items:center}
+.fc-h{font-family:var(--f-mono);font-size:8px;color:var(--hc-dim2);text-align:center;letter-spacing:.04em}
+.fc-r>.k{font-family:var(--f-display);font-weight:800;font-size:12px;color:var(--hc-fg);border-left:3px solid var(--bc);padding-left:5px;line-height:1}
+.fc-c{height:var(--fch,15px);border-radius:2px;background:rgb(var(--t) / calc(.12 + .88*var(--i,0)));border:1px solid rgb(var(--t) / .38)}
+
+/* NowCastBandPanel */
+.nc{display:flex;flex-direction:column;gap:5px}
+.nc-r{display:grid;grid-template-columns:40px minmax(0,1fr) 44px;gap:9px;align-items:center;font-family:var(--f-mono);font-size:11px}
+.nc-r .b{font-family:var(--f-display);font-weight:800;font-size:14px;border-left:3px solid var(--bc);padding-left:6px;color:var(--hc-fg);line-height:1}
+.nc-r .bar{height:13px;border-radius:3px;background:rgba(99,112,136,.22);position:relative;overflow:hidden}
+.nc-r .bar i{position:absolute;top:0;bottom:0;left:0;background:rgb(var(--t) / .82);width:calc(var(--i,0)*100%)}
+.nc-r .p{text-align:right;color:var(--hc-fg);font-variant-numeric:tabular-nums}
+
+/* grey line / sun / moon / weather small graphics */
+.gl{height:var(--glh,58px);border-radius:4px;border:1px solid var(--hc-line);position:relative;overflow:hidden;
+  background:linear-gradient(90deg,#0b1120 0 24%,rgba(255,107,53,.55) 29% 35%,#1a2740 41% 78%,rgba(255,107,53,.4) 82% 87%,#0b1120 92% 100%)}
+.gl::after{content:"";position:absolute;left:32%;top:0;bottom:0;width:2px;background:rgba(255,255,255,.55)}
+.moon{width:var(--mz,44px);height:var(--mz,44px);border-radius:50%;border:1px solid var(--hc-line);flex:0 0 auto;
+  background:radial-gradient(circle at 68% 50%,#dfe6f0 0 44%,#131a2b 45%)}
+.sunarc{position:relative;height:var(--sah,52px);border-bottom:1px solid var(--hc-line)}
+.sunarc i{position:absolute;left:0;right:0;bottom:0;height:100%;border-radius:100% 100% 0 0/100% 100% 0 0;border:1px dashed rgba(255,210,63,.35);border-bottom:0}
+.sunarc b{position:absolute;left:62%;top:16%;width:12px;height:12px;border-radius:50%;background:var(--hc-warn);box-shadow:0 0 12px rgba(255,210,63,.8)}
+.wxh{display:grid;grid-auto-flow:column;grid-auto-columns:1fr;gap:5px;text-align:center;font-family:var(--f-mono);font-size:9.5px;color:var(--hc-dim)}
+.wxh b{display:block;font-family:var(--f-display);font-weight:800;font-size:15px;color:var(--hc-fg)}
+.wxh span{display:block;color:var(--hc-dim2);font-size:8px;letter-spacing:.14em}
+
+/* spot list — ports DXSpotList/SpotRow.tsx column order */
+.sl{display:flex;flex-direction:column;min-height:0}
+.sl-h,.sl-r{display:grid;grid-template-columns:var(--slc,44px 34px 46px 62px minmax(0,1fr) 46px 58px);gap:6px;align-items:center;
+  font-family:var(--f-mono);font-size:11px;padding:4px 6px;line-height:1.2}
+.sl-h{font-size:9px;letter-spacing:.16em;color:var(--hc-dim2);text-transform:uppercase;border-bottom:1px solid var(--hc-line)}
+.sl-r{border-left:3px solid var(--bc);color:var(--hc-dim)}
+.sl-r:nth-child(odd){background:rgba(99,112,136,.10)}
+.sl-r.sel{background:rgb(var(--hc-accent-rgb) / .2);position:relative}
+.sl-r .dx{color:var(--hc-fg);font-weight:600}
+.sl-r .fq{color:#67e8f9}
+.sl-r .bd{background:var(--bc);color:#0a0e1a;font-weight:700;font-size:9px;border-radius:3px;padding:2px 0;text-align:center}
+.sl-r .age{height:3px;border-radius:2px;background:rgba(99,112,136,.3);position:relative}
+.sl-r .age i{position:absolute;left:0;top:0;bottom:0;border-radius:2px;background:var(--ac,#22c55e);width:var(--aw,80%)}
+.sl-r .nb{font-size:8px;letter-spacing:.06em;color:var(--hc-warn);font-weight:700;font-style:normal}
+.logbtn{min-height:32px;border-radius:4px;border:1px solid rgb(var(--hc-good-rgb) / .75);background:rgb(var(--hc-good-rgb) / .2);
+  color:rgb(var(--hc-good-rgb));font-family:var(--f-display);font-weight:800;font-size:11px;letter-spacing:.14em;
+  display:flex;align-items:center;justify-content:center}
+
+/* recent contacts / activations / alerts ticker */
+.rc{display:flex;flex-direction:column;gap:0}
+.rc .r{display:grid;grid-template-columns:minmax(0,1fr) 58px 46px 60px;gap:8px;align-items:center;font-family:var(--f-mono);font-size:12px;
+  color:var(--hc-dim);padding:6px 4px;border-bottom:1px solid var(--hc-line)}
+.rc .r b{color:var(--hc-fg);font-weight:600;font-size:13px}
+.rc .r .op{color:var(--hc-info);font-size:10px;letter-spacing:.1em}
+.actv{display:flex;flex-direction:column;gap:5px}
+.actv .r{display:grid;grid-template-columns:46px minmax(0,1fr) 56px;gap:8px;align-items:center;min-height:38px;
+  border-left:3px solid var(--pc,var(--hc-good));background:rgba(255,255,255,.03);border-radius:0 5px 5px 0;padding:4px 8px;
+  font-family:var(--f-mono);font-size:11px;color:var(--hc-dim)}
+.actv .r .pr{font-family:var(--f-display);font-weight:800;font-size:11px;letter-spacing:.1em;color:var(--pc,var(--hc-good))}
+.actv .r b{color:var(--hc-fg);font-weight:600;font-size:13px}
+.tick{display:flex;align-items:center;gap:0;overflow:hidden;white-space:nowrap;border:1px solid var(--hc-line);border-radius:5px;background:rgba(255,255,255,.02);min-height:var(--tkh,40px)}
+.tick .lead{background:var(--hc-bad);color:#0a0e1a;font-family:var(--f-display);font-weight:900;font-size:11px;letter-spacing:.18em;padding:0 12px;align-self:stretch;display:flex;align-items:center}
+.tick .items{font-family:var(--f-mono);font-size:11.5px;color:var(--hc-dim);letter-spacing:.06em;padding:0 12px;overflow:hidden;text-overflow:ellipsis}
+.tick .items b{color:var(--hc-fg);font-weight:600}
+
+/* logger */
+.lg{display:grid;grid-template-columns:repeat(4,minmax(0,1fr)) 190px;gap:10px;align-items:end}
+.lg label{display:block;font-family:var(--f-mono);font-size:9px;letter-spacing:.18em;color:var(--hc-dim);text-transform:uppercase;margin-bottom:4px}
+.lg .in{height:52px;border:1px solid var(--hc-line);border-radius:6px;background:rgba(255,255,255,.03);display:flex;align-items:center;padding:0 12px;
+  font-family:var(--f-mono);font-size:22px;letter-spacing:.06em;color:var(--hc-fg);font-variant-numeric:tabular-nums}
+.lg .in.ph{color:var(--hc-dim2)}
+.lg .go{height:52px;border-radius:6px;background:var(--hc-accent);color:var(--hc-bg);display:flex;align-items:center;justify-content:center;
+  font-family:var(--f-display);font-weight:800;font-size:18px;letter-spacing:.18em}
+.ops{display:flex;gap:8px;flex-wrap:wrap}
+.opr{display:flex;align-items:center;gap:8px;min-height:44px;padding:0 14px;border:1px solid var(--hc-line);border-radius:6px;
+  font-family:var(--f-mono);font-size:12px;color:var(--hc-dim);letter-spacing:.08em}
+.opr i{width:10px;height:10px;border-radius:50%;background:var(--hc-good);flex:0 0 auto}
+.opr b{color:var(--hc-fg);font-weight:600}
+.opr.me{border-color:var(--hc-accent);color:var(--hc-fg);background:rgb(var(--hc-accent-rgb) / .12)}
+.sess{display:inline-flex;align-items:center;gap:10px;min-height:36px;padding:0 14px;border-radius:6px;
+  background:rgb(var(--hc-good-rgb) / .16);border:1px solid rgb(var(--hc-good-rgb) / .6);color:rgb(var(--hc-good-rgb));
+  font-family:var(--f-display);font-weight:800;font-size:12px;letter-spacing:.16em}
+.qr{width:46px;height:46px;border:3px solid #e6ebf2;border-radius:3px;flex:0 0 auto;
+  background:repeating-conic-gradient(#e6ebf2 0 25%,#0a0e1a 0 50%);background-size:12px 12px}
+
+/* map heroes — flat, globe, azimuthal, none */
+.mapish{position:absolute;inset:0;background:
+  radial-gradient(60% 80% at 22% 40%,rgba(30,58,96,.85),transparent 60%),
+  radial-gradient(45% 70% at 62% 66%,rgba(26,52,86,.8),transparent 62%),
+  radial-gradient(38% 52% at 78% 32%,rgba(28,55,90,.8),transparent 60%),
+  repeating-linear-gradient(90deg,rgba(255,255,255,.05) 0 1px,transparent 1px 74px),
+  repeating-linear-gradient(0deg,rgba(255,255,255,.05) 0 1px,transparent 1px 74px),#060a12}
+.arc{position:absolute;height:2px;border-radius:2px;background:linear-gradient(90deg,transparent,rgba(255,107,53,.95),transparent);transform-origin:left center}
+.globeish{position:absolute;inset:0;background:#060a12;display:flex;align-items:center;justify-content:center}
+.globeish::after{content:"";width:64%;aspect-ratio:1;border-radius:50%;
+  background:radial-gradient(circle at 36% 30%,rgba(58,110,170,.95),rgba(16,34,60,.96) 58%,rgba(6,12,22,1) 100%),
+    repeating-conic-gradient(from 0deg,rgba(255,255,255,.05) 0 3deg,transparent 3deg 15deg);
+  box-shadow:inset 0 0 60px rgba(68,221,255,.16),0 0 70px rgba(0,0,0,.6)}
+.azim{position:absolute;inset:0;background:#060a12;display:flex;align-items:center;justify-content:center}
+.azim::after{content:"";width:62%;aspect-ratio:1;border-radius:50%;
+  background:repeating-radial-gradient(circle,rgba(133,196,208,.22) 0 1px,transparent 1px 34px),
+    repeating-conic-gradient(rgba(133,196,208,.20) 0 1deg,transparent 1deg 30deg),
+    radial-gradient(circle,rgba(24,44,74,.9),rgba(6,12,22,1));border:1px solid rgba(133,196,208,.35)}
+
+/* ==========================================================================
+   PARITY ADDITIONS — ported verbatim from heatmap-contact-sheet.html so the
+   two sheets share a vocabulary: verdict tone words, the hero-switch control,
+   and the DS-15 Home/glance header (su-rule/su-band/pill).
+   ========================================================================== */
+.t-hot{color:var(--su-accent)} .t-ver{color:var(--su-success)} .t-stir{color:var(--su-warning)} .t-clsd{color:var(--su-line)}
+.hero-switch{position:absolute;top:34px;left:12px;z-index:5;width:250px}
+.hero-switch>button{width:100%;min-height:52px;display:flex;align-items:center;justify-content:space-between;padding:0 14px;
+  font-family:var(--f-display);font-weight:700;font-size:14px;letter-spacing:.12em;text-transform:uppercase;color:var(--hc-fg);
+  background:var(--hc-panel);border:1px solid var(--hc-line);border-radius:6px;cursor:pointer}
+.hero-switch ul{list-style:none;margin:6px 0 0;padding:6px;background:var(--hc-panel);border:1px solid var(--hc-line);border-radius:6px;display:flex;flex-direction:column;gap:4px}
+.hero-switch li{min-height:48px;display:flex;align-items:center;padding:0 12px;font-family:var(--f-display);font-weight:700;font-size:13px;letter-spacing:.14em;
+  text-transform:uppercase;color:var(--hc-dim);border:1px solid transparent;border-radius:4px}
+.hero-switch li[aria-checked="true"]{background:var(--hc-accent);color:var(--hc-bg)}
+.su-rule{height:3px;background:linear-gradient(90deg,var(--su-accent),rgba(255,107,53,.5) 50%,transparent)}
+.su-band{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:6px 10px;min-height:36px}
+.su-band .eyebrow{font-family:var(--f-mono);font-size:8.5px;letter-spacing:.18em;text-transform:uppercase;color:var(--su-accent)}
+.su-band h3{margin:1px 0 0;font-family:var(--f-display);font-weight:700;font-size:12px;letter-spacing:.03em;color:var(--su-text)}
+.su-band p{margin:0;font-size:9px;color:var(--su-muted)}
+.pill{border:1px solid rgb(var(--su-line-rgb) / .35);border-radius:6px;background:var(--su-input);display:flex;flex-direction:column;gap:4px;padding:6px 8px 7px;border-top:2px solid var(--bc,var(--su-line))}
+.pill-top{display:flex;align-items:baseline;justify-content:space-between;gap:4px}
+.pill-b{font-family:var(--f-display);font-weight:800;font-size:14px;letter-spacing:.02em;color:var(--su-text)}
+.pill-n{font-family:var(--f-mono);font-size:11px;font-variant-numeric:tabular-nums;color:var(--su-muted)}
+.pill-v{font-family:var(--f-mono);font-size:8px;letter-spacing:.12em;text-transform:uppercase}
+.pill-mini{display:grid;grid-template-columns:repeat(6,1fr);gap:2px;align-items:end;height:20px}
+.pill-mini i{display:block;border-radius:1px;background:rgb(var(--t,var(--hc-good-rgb)) / .85);height:calc(10% + 90% * var(--i,0))}
+.reg-n u.app{border-color:rgb(var(--su-line-rgb) / .6);color:var(--su-line)}
+
+/* ==========================================================================
+   1 · WIDGET REGISTRY grid
+   ========================================================================== */
+.reg{display:grid;grid-template-columns:154px repeat(3,minmax(0,1fr)) 176px;gap:10px}
+.reg-h{font-family:var(--f-mono);font-size:9.5px;letter-spacing:.2em;text-transform:uppercase;color:var(--su-line);padding:0 2px 2px}
+.reg-h b{color:var(--su-muted);font-weight:500;display:block;font-size:10.5px;letter-spacing:.16em}
+.reg-n{display:flex;flex-direction:column;gap:5px;justify-content:center;border-left:3px solid var(--nc,var(--su-accent));padding:8px 0 8px 11px}
+.reg-n b{font-family:var(--f-display);font-weight:800;font-size:13px;letter-spacing:.06em;color:#fff;text-transform:uppercase;line-height:1.25}
+.reg-n span{font-family:var(--f-mono);font-size:9.5px;letter-spacing:.1em;color:var(--su-line);line-height:1.5}
+.reg-n u{text-decoration:none;font-family:var(--f-mono);font-size:9px;letter-spacing:.16em;text-transform:uppercase;
+  border:1px solid rgb(var(--hc-good-rgb) / .5);color:var(--hc-good);border-radius:3px;padding:2px 5px;align-self:flex-start}
+.reg-n u.new{border-color:rgb(var(--hc-info-rgb) / .5);color:var(--hc-info)}
+.reg-c{position:relative;border:1px solid var(--hc-line);border-radius:6px;background:var(--hc-glass);
+  padding:9px 10px 9px;min-height:158px;overflow:hidden;display:flex;flex-direction:column;gap:6px}
+.reg-c::before{content:"";position:absolute;left:0;right:0;top:0;height:2px;background:var(--hc-state,var(--hc-line))}
+.reg-c.pane{background:var(--hc-panel)}
+.reg-c .w-hero{font-size:32px}
+.reg-c .w-t{font-size:9.5px;letter-spacing:.18em}
+.reg-c .w-t em{font-size:8.5px}
+.reg-c .w-sub{font-size:9.5px}
+.ph-thumb{width:100%;height:100%;min-height:158px;border:1px solid rgb(var(--su-line-rgb) / .45);border-radius:14px 14px 6px 6px;
+  background:var(--su-canvas);overflow:hidden;display:flex;flex-direction:column}
+.ph-thumb .st{display:flex;align-items:center;gap:5px;padding:6px 7px;background:var(--su-input);
+  border-bottom:1px solid rgb(var(--su-line-rgb) / .35);font-family:var(--f-mono);font-size:7.5px;letter-spacing:.06em;color:var(--su-muted)}
+.ph-thumb .st i{width:5px;height:5px;border-radius:50%;background:var(--su-success);flex:0 0 auto}
+.ph-thumb .st .bd{background:var(--su-accent);color:#0a0e1a;font-weight:700;border-radius:2px;padding:1px 4px;font-size:7px}
+.ph-thumb .bd2{padding:7px 8px;display:flex;flex-direction:column;gap:5px;flex:1 1 auto;min-height:0}
+.ph-thumb .eb{font-family:var(--f-mono);font-size:7px;letter-spacing:.18em;text-transform:uppercase;color:var(--su-accent)}
+.ph-thumb h5{margin:0;font-family:var(--f-display);font-weight:700;font-size:11px;letter-spacing:.03em;color:var(--su-text)}
+.reg-note{margin-top:16px;border-top:1px solid rgb(var(--su-line-rgb) / .35);padding-top:12px;
+  font-family:var(--f-mono);font-size:11px;line-height:1.75;color:var(--su-line);letter-spacing:.04em;max-width:118ch}
+.reg-note b{color:var(--su-muted);font-weight:500}
+.reg-note u{text-decoration:none;color:var(--hc-good)}
+.reg-note s{text-decoration:none;color:var(--hc-info)}
+
+/* ==========================================================================
+   2 · WORKSTATION CANVAS
+   ========================================================================== */
+.frame--canvas{background:var(--hc-bg);color:var(--hc-fg);font-family:var(--f-body);display:grid;overflow:hidden;
+  grid-template-rows:64px minmax(0,1fr)}
+.cv-bar{display:flex;align-items:center;justify-content:space-between;gap:20px;padding:0 20px;border-bottom:1px solid var(--hc-line);
+  background:linear-gradient(180deg,rgba(13,21,39,.96),rgba(13,21,39,.82))}
+.cv-bar .nm{font-family:var(--f-display);font-weight:800;font-size:20px;letter-spacing:.16em}
+.cv-bar .sub{font-family:var(--f-mono);font-size:12px;letter-spacing:.16em;color:var(--hc-dim)}
+.cv-bar .sub b{color:var(--hc-fg);font-weight:600}
+.cv-body{display:grid;gap:10px;padding:10px;min-height:0}
+.recipe-a{grid-template-columns:340px minmax(0,1fr) 300px;grid-template-rows:minmax(0,1fr) 250px;
+  grid-template-areas:"left hero right" "left bottom right"}
+.recipe-b{grid-template-columns:300px minmax(0,1fr) 420px;grid-template-rows:minmax(0,1fr) 250px;
+  grid-template-areas:"left hero right" "left bottom right"}
+.recipe-c{grid-template-columns:330px minmax(0,1fr) 360px;grid-template-rows:minmax(0,1fr) 268px;
+  grid-template-areas:"left hero right" "left bottom right"}
+.recipe-d{grid-template-columns:330px minmax(0,1fr) 400px;grid-template-rows:minmax(0,1fr) 244px;
+  grid-template-areas:"left hero right" "left bottom right"}
+.frame--canvas.with-flow{grid-template-rows:64px 42px minmax(0,1fr)}
+.cv-flow{display:flex;align-items:center;gap:12px;padding:0 20px;border-bottom:1px solid var(--hc-line);
+  background:rgba(255,107,53,.08);font-family:var(--f-mono);font-size:12px;letter-spacing:.13em;text-transform:uppercase;color:var(--hc-dim)}
+.cv-flow b{font-family:var(--f-display);font-weight:800;color:var(--hc-accent);letter-spacing:.16em}
+.cv-flow em{font-style:normal;color:var(--hc-dim2)}
+.co{position:absolute;z-index:9;width:34px;height:34px;border-radius:50%;background:var(--hc-accent);color:#0a0e1a;
+  display:flex;align-items:center;justify-content:center;font-family:var(--f-display);font-weight:900;font-size:18px;font-style:normal;
+  box-shadow:0 0 0 4px rgba(255,107,53,.28)}
+.co-t{position:absolute;z-index:9;font-family:var(--f-mono);font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;
+  color:var(--hc-accent);background:rgba(7,10,18,.92);padding:3px 8px;border-radius:4px;border:1px solid rgb(var(--hc-accent-rgb) / .5);white-space:nowrap}
+.ring{outline:3px solid #fff;outline-offset:2px;box-shadow:0 0 0 7px rgba(255,107,53,.4);z-index:5}
+.bigbtn{min-height:56px;border-radius:8px;background:var(--hc-accent);color:#0a0e1a;display:flex;align-items:center;justify-content:center;gap:10px;
+  font-family:var(--f-display);font-weight:900;font-size:18px;letter-spacing:.16em}
+.bigbtn small{font-family:var(--f-mono);font-weight:600;font-size:11px;letter-spacing:.1em;opacity:.75}
+.slot{position:relative;border:2px dashed rgba(255,107,53,.42);border-radius:8px;background:rgba(13,21,39,.55);min-height:0;overflow:hidden}
+.slot>.tag{position:absolute;top:0;left:0;z-index:4;font-family:var(--f-mono);font-size:11px;letter-spacing:.18em;text-transform:uppercase;
+  background:rgba(255,107,53,.9);color:#0a0e1a;padding:3px 9px;border-radius:0 0 6px 0;font-weight:700}
+.slot--hero{grid-area:hero;border-color:rgba(68,221,255,.5)}
+.slot--hero>.tag{background:rgba(68,221,255,.92)}
+.slot--left{grid-area:left} .slot--right{grid-area:right} .slot--bottom{grid-area:bottom}
+.slot-inner{position:absolute;inset:0;padding:30px 12px 12px;display:flex;flex-direction:column;gap:8px;min-height:0}
+.picker{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);display:flex;flex-direction:column;align-items:center;gap:10px;z-index:3}
+.picker button{min-height:64px;min-width:220px;font-family:var(--f-display);font-weight:800;font-size:16px;letter-spacing:.14em;text-transform:uppercase;
+  border:2px solid var(--hc-accent);background:rgb(var(--hc-accent-rgb) / .14);color:var(--hc-accent);border-radius:8px;cursor:default}
+.picker small{font-family:var(--f-mono);font-size:10px;letter-spacing:.14em;color:var(--hc-dim2);text-transform:uppercase}
+.picker--sm button{min-height:52px;min-width:180px;font-size:13px}
+.overlay-slot{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:600px;height:290px;z-index:6;
+  border:2px dashed rgba(255,255,255,.28);border-radius:10px;background:rgba(7,10,18,.55);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;text-align:center;padding:0 22px}
+.overlay-slot b{font-family:var(--f-display);font-weight:800;font-size:17px;letter-spacing:.2em;color:rgba(255,255,255,.7);text-transform:uppercase}
+.overlay-slot span{font-family:var(--f-mono);font-size:11.5px;letter-spacing:.1em;color:var(--hc-dim);max-width:46ch;line-height:1.6}
+.dockhd{display:flex;align-items:center;justify-content:space-between;gap:14px}
+.dockhd .t{font-family:var(--f-display);font-weight:700;font-size:13px;letter-spacing:.22em;color:var(--hc-dim);text-transform:uppercase}
+
+/* ==========================================================================
+   3 · EDIT LAYOUT + WIDGET PICKER
+   ========================================================================== */
+.frame--canvas.edit .slot{border-style:solid;border-color:rgba(68,221,255,.55);background:rgba(9,14,26,.7)}
+.frame--canvas.edit .slot--hero{border-color:rgba(255,107,53,.65)}
+.slot-ops{position:absolute;left:8px;right:8px;bottom:8px;z-index:7;display:grid;grid-auto-flow:column;grid-auto-columns:1fr;gap:6px}
+.opsbtn{min-height:48px;border-radius:6px;border:1px solid rgba(68,221,255,.55);background:rgba(10,16,30,.94);color:var(--hc-info);
+  font-family:var(--f-display);font-weight:800;font-size:12px;letter-spacing:.14em;text-transform:uppercase;
+  display:flex;align-items:center;justify-content:center;text-align:center;line-height:1.15;padding:0 6px}
+.opsbtn.warn{border-color:rgb(var(--hc-bad-rgb) / .6);color:var(--hc-bad)}
+.opsbtn.acc{border-color:rgb(var(--hc-accent-rgb) / .7);color:var(--hc-accent)}
+.slot-ghost{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:4px;
+  font-family:var(--f-display);font-weight:800;font-size:15px;letter-spacing:.18em;color:rgba(255,255,255,.34);text-transform:uppercase}
+.slot-ghost em{font-style:normal;font-family:var(--f-mono);font-weight:400;font-size:10.5px;letter-spacing:.14em;color:var(--hc-dim2)}
+.backdrop{position:absolute;inset:0;background:rgba(4,7,13,.78);z-index:8}
+.pkr{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);z-index:9;width:1160px;max-height:840px;
+  background:var(--hc-panel);border:1px solid var(--hc-line);border-radius:10px;box-shadow:0 40px 100px rgba(0,0,0,.7);
+  display:flex;flex-direction:column;overflow:hidden}
+.pkr::before{content:"";display:block;height:3px;background:var(--hc-accent)}
+.pkr-hd{display:flex;align-items:center;justify-content:space-between;gap:20px;padding:14px 20px 12px;border-bottom:1px solid var(--hc-line)}
+.pkr-hd .eb{font-family:var(--f-mono);font-size:10px;letter-spacing:.24em;text-transform:uppercase;color:var(--hc-accent)}
+.pkr-hd h4{margin:3px 0 0;font-family:var(--f-display);font-weight:800;font-size:20px;letter-spacing:.1em;color:#fff;text-transform:uppercase}
+.pkr-hd p{margin:2px 0 0;font-family:var(--f-mono);font-size:11px;color:var(--hc-dim);letter-spacing:.06em}
+.pkr-body{padding:14px 20px 6px;display:flex;flex-direction:column;gap:12px}
+.pk-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
+.pk-card{border:1px solid var(--hc-line);border-radius:8px;background:rgba(255,255,255,.03);padding:12px 13px;min-height:104px;
+  display:flex;flex-direction:column;gap:6px}
+.pk-card.on{border-color:var(--hc-accent);background:rgb(var(--hc-accent-rgb) / .12)}
+.pk-card.off{opacity:.45}
+.pk-card b{font-family:var(--f-display);font-weight:800;font-size:14px;letter-spacing:.06em;color:var(--hc-fg);text-transform:uppercase}
+.pk-card span{font-family:var(--f-body);font-size:11.5px;line-height:1.5;color:var(--hc-dim)}
+.pk-card .dens{margin-top:auto;display:flex;gap:5px}
+.pk-card .dens i{font-style:normal;font-family:var(--f-mono);font-size:8.5px;letter-spacing:.14em;text-transform:uppercase;
+  border:1px solid var(--hc-line);border-radius:3px;padding:2px 6px;color:var(--hc-dim2)}
+.pk-card .dens i.y{border-color:rgb(var(--hc-good-rgb) / .55);color:var(--hc-good)}
+.pkr-ft{margin-top:auto;display:flex;align-items:center;justify-content:space-between;gap:20px;padding:12px 20px 14px;border-top:1px solid var(--hc-line)}
+.pkr-ft .note{font-family:var(--f-mono);font-size:10.5px;letter-spacing:.1em;color:var(--hc-dim2);text-transform:uppercase}
+
+/* ==========================================================================
+   4 · SETTINGS DIALOG
+   ========================================================================== */
+.frame--stage{position:relative;background:var(--hc-bg);overflow:hidden;color:var(--hc-fg);font-family:var(--f-body)}
+.dlg{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);z-index:9;width:980px;
+  background:var(--hc-panel);border:1px solid var(--hc-line);border-radius:10px;box-shadow:0 40px 100px rgba(0,0,0,.72);
+  display:flex;flex-direction:column;overflow:hidden}
+.dlg::before{content:"";display:block;height:3px;background:var(--hc-accent)}
+.dlg-hd{display:flex;align-items:center;justify-content:space-between;gap:20px;padding:14px 20px 12px}
+.dlg-hd .eb{font-family:var(--f-mono);font-size:10px;letter-spacing:.24em;text-transform:uppercase;color:var(--hc-accent)}
+.dlg-hd h4{margin:3px 0 0;font-family:var(--f-display);font-weight:800;font-size:19px;letter-spacing:.12em;color:#fff;text-transform:uppercase}
+.dlg-hd p{margin:2px 0 0;font-family:var(--f-mono);font-size:11px;color:var(--hc-dim);letter-spacing:.06em}
+.dlg-x{width:48px;height:48px;border:1px solid var(--hc-line);border-radius:6px;background:transparent;color:var(--hc-dim);
+  font-family:var(--f-display);font-weight:800;font-size:18px;display:flex;align-items:center;justify-content:center}
+.dlg-tabs{display:flex;gap:0;border-top:1px solid var(--hc-line);border-bottom:1px solid var(--hc-line);background:rgba(255,255,255,.02)}
+.dlg-tab{flex:1;min-height:56px;display:flex;align-items:center;justify-content:center;gap:8px;
+  font-family:var(--f-display);font-weight:700;font-size:13px;letter-spacing:.2em;text-transform:uppercase;color:var(--hc-dim);
+  border:0;border-right:1px solid var(--hc-line);border-bottom:3px solid transparent;background:transparent}
+.dlg-tab:last-child{border-right:0}
+.dlg-tab[aria-selected="true"]{color:var(--hc-fg);border-bottom-color:var(--hc-accent);background:rgb(var(--hc-accent-rgb) / .10)}
+.dlg-body{padding:14px 20px;display:flex;flex-direction:column;gap:10px}
+.dlg-sec{font-family:var(--f-mono);font-size:9.5px;letter-spacing:.2em;text-transform:uppercase;color:var(--hc-dim2);margin-top:2px}
+.togrow{display:flex;align-items:center;gap:14px;min-height:52px;padding:6px 12px;border:1px solid var(--hc-line);border-radius:6px;background:rgba(255,255,255,.02)}
+.togrow .nm{font-family:var(--f-display);font-weight:700;font-size:13.5px;letter-spacing:.08em;color:var(--hc-fg);text-transform:uppercase}
+.togrow .ds{font-family:var(--f-mono);font-size:10.5px;color:var(--hc-dim);letter-spacing:.05em;margin-top:2px}
+.togrow .sp{margin-left:auto;display:flex;gap:8px;align-items:center}
+.togbtn{min-height:40px;min-width:96px;border-radius:6px;border:1px solid var(--hc-line);background:transparent;color:var(--hc-dim2);
+  font-family:var(--f-display);font-weight:800;font-size:13px;letter-spacing:.18em;display:flex;align-items:center;justify-content:center}
+.togbtn.on{border-color:rgb(var(--hc-good-rgb) / .75);background:rgb(var(--hc-good-rgb) / .18);color:var(--hc-good)}
+.togbtn.off{border-color:rgb(var(--hc-bad-rgb) / .45);color:var(--hc-bad)}
+.gear{min-height:40px;min-width:44px;border-radius:6px;border:1px solid var(--hc-line);color:var(--hc-dim);
+  font-family:var(--f-display);font-weight:800;font-size:12px;display:flex;align-items:center;justify-content:center;letter-spacing:.1em}
+.dlg-ft{display:flex;align-items:center;justify-content:space-between;gap:20px;padding:12px 20px 14px;border-top:1px solid var(--hc-line)}
+.dlg-ft .note{font-family:var(--f-mono);font-size:10.5px;letter-spacing:.1em;color:var(--hc-dim2);text-transform:uppercase}
+.dlgbtn{min-height:52px;min-width:170px;border-radius:8px;background:var(--hc-accent);color:var(--hc-bg);border:0;
+  font-family:var(--f-display);font-weight:900;font-size:16px;letter-spacing:.2em;display:flex;align-items:center;justify-content:center}
+.dlgbtn.ghost{background:transparent;border:1px solid var(--hc-line);color:var(--hc-dim);min-width:140px;font-weight:700;font-size:13px}
+.radio{display:flex;gap:12px;align-items:flex-start;min-height:56px;padding:10px 12px;border:1px solid var(--hc-line);
+  border-radius:6px;background:rgba(255,255,255,.02)}
+.radio i{flex:0 0 auto;width:22px;height:22px;border-radius:50%;border:2px solid var(--hc-line);margin-top:1px}
+.radio[aria-checked="true"]{border-color:var(--hc-accent);background:rgb(var(--hc-accent-rgb) / .10)}
+.radio[aria-checked="true"] i{border-color:var(--hc-accent);background:radial-gradient(circle,var(--hc-accent) 0 46%,transparent 47%)}
+.radio b{display:block;font-family:var(--f-display);font-weight:700;font-size:13px;letter-spacing:.12em;text-transform:uppercase;color:var(--hc-fg)}
+.radio em{font-style:normal;display:block;font-family:var(--f-mono);font-size:11px;color:var(--hc-dim);margin-top:4px;line-height:1.5}
+.radio em u{text-decoration:none;color:var(--hc-accent)}
+.themecards{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.themecard{border:1px solid var(--hc-line);border-radius:8px;padding:10px 12px;background:rgba(255,255,255,.02);min-height:96px;display:flex;flex-direction:column;gap:8px}
+.themecard.on{border-color:var(--hc-accent);background:rgb(var(--hc-accent-rgb) / .12)}
+.themecard b{font-family:var(--f-display);font-weight:800;font-size:13px;letter-spacing:.18em;text-transform:uppercase;color:var(--hc-fg)}
+.themecard .sw{display:flex;gap:5px;margin-top:auto}
+.themecard .sw i{width:26px;height:14px;border-radius:3px;display:block}
+
+/* ==========================================================================
+   5 · PHONE CANVAS
+   ========================================================================== */
+.frame--phones{display:flex;gap:30px;background:transparent}
+.ph{width:390px;height:844px;border-radius:34px;overflow:hidden;background:var(--su-canvas);color:var(--su-text);
+  border:1px solid rgb(var(--su-line-rgb) / .4);display:flex;flex-direction:column;font-family:var(--f-body);position:relative;flex:0 0 auto}
+.ph-state{display:flex;align-items:center;gap:8px;padding:10px 14px;background:var(--su-input);border-bottom:1px solid rgb(var(--su-line-rgb) / .35);
+  font-family:var(--f-mono);font-size:11px;letter-spacing:.1em;color:var(--su-muted);min-height:46px}
+.ph-state b{color:var(--su-text);font-weight:600}
+.ph-state .dot{width:8px;height:8px;border-radius:50%;background:var(--su-success);flex:0 0 auto}
+.ph-state .bd{background:var(--su-accent);color:#0a0e1a;font-weight:700;border-radius:3px;padding:2px 6px;font-size:10px}
+.ph-state .bd.dimbd{background:rgb(var(--su-line-rgb) / .5);color:#0a0e1a}
+.ph-hd{padding:10px 14px 6px}
+.ph-hd .eyebrow{font-family:var(--f-mono);font-size:9px;letter-spacing:.2em;text-transform:uppercase;color:var(--su-accent)}
+.ph-hd h4{margin:2px 0 0;font-family:var(--f-display);font-weight:700;font-size:17px;letter-spacing:.04em;color:var(--su-text)}
+.ph-body{flex:1 1 auto;min-height:0;padding:6px 14px 0;display:flex;flex-direction:column;gap:10px}
+.ph-dots{display:flex;gap:8px;justify-content:center;align-items:center;padding:14px 0 18px}
+.ph-dots i{width:9px;height:9px;border-radius:50%;background:rgb(var(--su-line-rgb) / .5)}
+.ph-dots i.on{background:var(--su-accent);width:22px;border-radius:5px}
+.ph-f label{display:block;font-family:var(--f-mono);font-size:10px;letter-spacing:.2em;color:var(--su-muted);text-transform:uppercase;margin-bottom:5px}
+.ph-f .in{min-height:60px;border:1px solid rgb(var(--su-line-rgb) / .45);border-radius:10px;background:var(--su-input);display:flex;align-items:center;
+  padding:0 14px;font-family:var(--f-mono);font-size:30px;letter-spacing:.06em;color:var(--su-text)}
+.ph-f .in.ph{color:rgb(var(--su-line-rgb) / .9);font-size:22px}
+.ph-2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.ph-go{min-height:78px;border-radius:12px;background:var(--su-accent);color:#0a0e1a;display:flex;align-items:center;justify-content:center;gap:10px;
+  font-family:var(--f-display);font-weight:800;font-size:22px;letter-spacing:.18em}
+.ph-tune{min-height:56px;border-radius:12px;background:var(--su-accent);color:#0a0e1a;display:flex;align-items:center;justify-content:center;gap:12px;
+  font-family:var(--f-display);font-weight:900;font-size:20px;letter-spacing:.14em}
+.ph-tune small{font-family:var(--f-mono);font-weight:600;font-size:12px;letter-spacing:.08em;opacity:.8}
+.ph-recent{border-top:1px solid rgb(var(--su-line-rgb) / .3);padding-top:8px}
+.ph-recent .k{font-family:var(--f-mono);font-size:9px;letter-spacing:.2em;color:var(--su-line);text-transform:uppercase;margin-bottom:5px}
+.ph-recent div.r{display:flex;justify-content:space-between;font-family:var(--f-mono);font-size:13px;padding:5px 0;border-bottom:1px solid rgb(var(--su-line-rgb) / .18)}
+.ph-recent .r b{color:var(--su-text);font-weight:600}
+.ph-sl{display:flex;flex-direction:column;gap:2px}
+.ph-sl .r{display:grid;grid-template-columns:52px 1fr 60px 44px;gap:8px;align-items:center;min-height:56px;padding:6px 8px;
+  border-left:3px solid var(--bc);border-radius:0 6px 6px 0;background:var(--su-input);font-family:var(--f-mono);font-size:12px;color:var(--su-muted)}
+.ph-sl .r.sel{background:rgb(var(--su-accent-rgb) / .18)}
+.ph-sl .r .dx{font-size:17px;color:var(--su-text);font-weight:600}
+.ph-sl .r .bd{font-family:var(--f-display);font-weight:800;font-size:13px;color:#0a0e1a;background:var(--bc);border-radius:4px;text-align:center;padding:4px 0}
+.ph-sl .r .fq{color:#7dd3fc;font-size:13px}
+.ph-hm{display:flex;flex-direction:column;gap:4px}
+.ph-hm .r{display:grid;grid-template-columns:56px minmax(0,1fr) 54px;gap:10px;align-items:center;min-height:54px;padding:0 6px;border-radius:6px}
+.ph-hm .r.sel{background:rgb(var(--su-accent-rgb) / .16)}
+.ph-hm .r .b{font-family:var(--f-display);font-weight:900;font-size:22px;color:var(--su-text);border-left:4px solid var(--bc);padding-left:8px;line-height:1}
+.ph-hm .r .bar{height:20px;border-radius:3px;background:rgb(var(--su-line-rgb) / .18);position:relative;overflow:hidden}
+.ph-hm .r .bar i{position:absolute;left:0;top:0;bottom:0;background:rgb(var(--t) / .8);width:calc(6% + 94% * var(--i,0))}
+.ph-hm .r .n{font-family:var(--f-mono);font-size:16px;text-align:right;font-variant-numeric:tabular-nums;color:var(--su-text)}
+.ph-hm .r .v{grid-column:2 / 4;font-family:var(--f-mono);font-size:9px;letter-spacing:.16em;text-transform:uppercase;margin-top:-6px}
+.ph-scope{display:flex;gap:6px}
+.ph-scope span{flex:1;min-height:44px;display:flex;align-items:center;justify-content:center;border:1px solid rgb(var(--su-line-rgb) / .4);border-radius:8px;
+  font-family:var(--f-display);font-weight:700;font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:var(--su-muted)}
+.ph-scope span.on{background:var(--su-accent);border-color:var(--su-accent);color:#0a0e1a}
+.ph-mc{display:grid;grid-template-columns:1fr 1fr;gap:9px}
+.ph-mc .c{border:1px solid rgb(var(--su-line-rgb) / .4);border-radius:10px;background:var(--su-input);padding:9px 11px 11px;border-top:3px solid var(--mcc,var(--su-line))}
+.ph-mc .c .k{font-family:var(--f-mono);font-size:9.5px;letter-spacing:.2em;color:var(--su-line);text-transform:uppercase}
+.ph-mc .c .v{font-family:var(--f-display);font-weight:900;font-size:34px;line-height:1.1;color:var(--mcc,var(--su-text));font-variant-numeric:tabular-nums}
+.ph-mc .c .d{font-family:var(--f-mono);font-size:10px;color:var(--su-muted)}
+.ph-map{flex:1 1 auto;min-height:0;border-radius:12px;overflow:hidden;position:relative;border:1px solid rgb(var(--su-line-rgb) / .4)}
+.ph-step{position:absolute;left:0;right:0;top:0;z-index:6;display:flex;align-items:center;gap:10px;
+  background:rgba(255,107,53,.92);color:#0a0e1a;padding:7px 12px;font-family:var(--f-display);font-weight:800;font-size:13px;letter-spacing:.14em;text-transform:uppercase}
+.ph-step b{font-family:var(--f-display);font-weight:900;font-size:16px}
+.ph.trace{padding-top:0}
+.ph.trace .ph-state{margin-top:32px}
+
+/* ==========================================================================
+   6 · NOTES
+   ========================================================================== */
+.notes{border-top:3px solid var(--su-warning);padding-top:14px;margin-top:64px}
+.notes ol{margin:12px 0 0;padding-left:22px;max-width:104ch}
+.notes li{margin-bottom:14px;line-height:1.7;font-size:14px;color:var(--su-text)}
+.notes li b{font-family:var(--f-display);font-weight:700;letter-spacing:.06em;color:#fff;display:block;font-size:13.5px;margin-bottom:2px;text-transform:uppercase}
+.notes li span{color:var(--su-muted)}
+
+/* ==========================================================================
+   0 · CANVAS TYPES — the four canvases a workspace can be instantiated on.
+   ========================================================================== */
+.cvs{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px}
+.cvcard{border:1px solid var(--hc-line);border-radius:8px;background:var(--hc-panel);padding:0 0 12px;overflow:hidden;display:flex;flex-direction:column}
+.cvcard::before{content:"";display:block;height:3px;background:var(--cvc,var(--hc-accent))}
+.cvcard h4{margin:0;padding:11px 14px 2px;font-family:var(--f-display);font-weight:800;font-size:15px;letter-spacing:.2em;color:#fff;text-transform:uppercase}
+.cvcard .px{padding:0 14px 10px;font-family:var(--f-mono);font-size:10px;letter-spacing:.14em;color:var(--cvc,var(--hc-accent));text-transform:uppercase}
+.cvdiag{margin:0 14px 11px;height:118px;border:1px solid var(--hc-line);border-radius:5px;background:#070b14;display:grid;gap:4px;padding:5px;position:relative}
+.cvdiag .rail,.cvdiag .space,.cvdiag .bar{border-radius:3px;display:flex;align-items:center;justify-content:center;
+  font-family:var(--f-mono);font-size:8px;letter-spacing:.14em;text-transform:uppercase;color:var(--hc-dim2)}
+.cvdiag .rail{background:rgba(255,107,53,.14);border:1px dashed rgba(255,107,53,.5);color:var(--hc-accent)}
+.cvdiag .space{background:rgba(68,221,255,.10);border:1px dashed rgba(68,221,255,.5);color:var(--hc-info);font-size:9px;letter-spacing:.18em}
+.cvdiag .bar{background:rgba(255,255,255,.05);border:1px solid var(--hc-line);font-size:7px}
+.cvd-phone{grid-template-rows:12px minmax(0,1fr) 12px}
+.cvd-tab{grid-template-rows:11px minmax(0,1fr) 11px;grid-template-columns:minmax(0,1fr) 30%}
+.cvd-tab .bar{grid-column:1 / -1}
+.cvd-work{grid-template-rows:11px minmax(0,1fr) 26px 11px;grid-template-columns:26% minmax(0,1fr) 24%;
+  grid-template-areas:"top top top" "l space r" "l bot r" "ftr ftr ftr"}
+.cvd-wall{grid-template-rows:13px minmax(0,1fr) 11px;grid-template-columns:24% minmax(0,1fr) 24%;
+  grid-template-areas:"top top top" "l space r" "ftr ftr ftr"}
+.cvd-work .t,.cvd-wall .t{grid-area:top} .cvd-work .f,.cvd-wall .f{grid-area:ftr}
+.cvd-work .l,.cvd-wall .l{grid-area:l} .cvd-work .r,.cvd-wall .r{grid-area:r}
+.cvd-work .space,.cvd-wall .space{grid-area:space} .cvd-work .b{grid-area:bot}
+.cvrules{padding:0 14px;display:flex;flex-direction:column;gap:0;margin-top:auto}
+.cvrules div{display:flex;justify-content:space-between;gap:10px;font-family:var(--f-mono);font-size:10.5px;letter-spacing:.06em;
+  color:var(--hc-dim);padding:5px 0;border-bottom:1px solid var(--hc-line)}
+.cvrules div:last-child{border-bottom:0}
+.cvrules div span{color:var(--hc-dim2);text-transform:uppercase;letter-spacing:.14em;font-size:9.5px}
+.cvrules div b{color:var(--hc-fg);font-weight:600;text-align:right}
+
+/* ---- canvas footer pager (same idiom as the wall footer) ----------------- */
+.frame--canvas{grid-template-rows:64px minmax(0,1fr) 46px}
+.frame--canvas.with-flow{grid-template-rows:64px 42px minmax(0,1fr) 46px}
+.cv-ftr{display:flex;align-items:center;justify-content:space-between;gap:20px;padding:0 20px;background:var(--hc-bg);
+  border-top:1px solid var(--hc-line);font-family:var(--f-mono);font-size:12px;letter-spacing:.14em;color:var(--hc-dim);text-transform:uppercase}
+.cv-pager{display:flex;align-items:center;gap:14px}
+.cv-pager .arw{color:var(--hc-accent);font-size:17px}
+.cv-pager b{color:var(--hc-fg);font-family:var(--f-display);font-weight:700;font-size:13px;letter-spacing:.2em}
+.cv-pager .dots{display:flex;gap:6px;align-items:center;margin-left:4px}
+.cv-pager .dots i{width:9px;height:9px;border-radius:50%;background:rgba(255,255,255,.22);display:block}
+.cv-pager .dots i.on{background:var(--hc-accent);width:24px;border-radius:5px}
+.cv-health{display:flex;gap:18px}
+.cv-health span{white-space:nowrap}
+.cv-health i{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:.6ch;vertical-align:baseline}
+.frame--pagerstrip{background:var(--hc-bg);color:var(--hc-fg);font-family:var(--f-body);border:1px solid var(--hc-line);
+  display:flex;flex-direction:column;justify-content:center;gap:12px;padding:14px 20px;overflow:hidden}
+.pgnames{display:flex;gap:8px}
+.pgname{min-height:52px;display:flex;flex-direction:column;justify-content:center;gap:2px;padding:0 16px;border-radius:6px;
+  border:1px solid var(--hc-line);background:rgba(255,255,255,.02)}
+.pgname b{font-family:var(--f-display);font-weight:800;font-size:13px;letter-spacing:.16em;text-transform:uppercase;color:var(--hc-dim)}
+.pgname span{font-family:var(--f-mono);font-size:9.5px;letter-spacing:.14em;color:var(--hc-dim2);text-transform:uppercase}
+.pgname.on{border-color:var(--hc-accent);background:rgb(var(--hc-accent-rgb) / .14)}
+.pgname.on b{color:var(--hc-fg)}
+.pgname.add{border-style:dashed;border-color:rgba(255,107,53,.5)}
+.pgname.add b{color:var(--hc-accent)}
+
+/* ---- tablet canvas ------------------------------------------------------- */
+.shot--tab{--w:1024px;--h:768px;--fit:min(1,calc(var(--u)*1.36))}
+.shot--pager{--w:1200px;--h:150px;--fit:min(1,calc(var(--u)*1.6))}
+.shot--dev{--w:2100px;--h:560px;--fit:min(1,calc(var(--u)*.90))}
+.frame--tablet{background:var(--hc-bg);color:var(--hc-fg);font-family:var(--f-body);display:grid;overflow:hidden;
+  grid-template-rows:56px minmax(0,1fr) 44px}
+.frame--tablet .cv-bar{padding:0 16px}
+.frame--tablet .cv-bar .nm{font-size:17px}
+.frame--tablet .cv-body{grid-template-columns:minmax(0,1fr) 316px;grid-template-areas:"hero right";gap:9px;padding:9px}
+.frame--tablet .seg span,.frame--tablet .seg button{min-height:48px;font-size:13px;padding:0 14px}
+.frame--tablet .cv-ftr{font-size:11px;padding:0 16px}
+
+/* ---- rail configuration row (edit mode) ---------------------------------- */
+.railcfg{display:flex;align-items:center;gap:10px;padding:0 20px;min-height:60px;border-bottom:1px solid var(--hc-line);
+  background:rgba(68,221,255,.07)}
+.railcfg .k{font-family:var(--f-mono);font-size:10px;letter-spacing:.2em;text-transform:uppercase;color:var(--hc-info)}
+.railtog{display:flex;align-items:center;gap:9px;min-height:44px;padding:0 14px;border-radius:6px;border:1px solid var(--hc-line);
+  background:rgba(255,255,255,.02);font-family:var(--f-display);font-weight:700;font-size:12px;letter-spacing:.14em;
+  text-transform:uppercase;color:var(--hc-dim)}
+.railtog u{text-decoration:none;font-family:var(--f-display);font-weight:900;font-size:12px;letter-spacing:.18em;
+  border-radius:4px;padding:4px 9px;border:1px solid var(--hc-line);color:var(--hc-dim2)}
+.railtog.on{border-color:rgb(var(--hc-good-rgb) / .7);color:var(--hc-fg)}
+.railtog.on u{border-color:rgb(var(--hc-good-rgb) / .7);background:rgb(var(--hc-good-rgb) / .2);color:var(--hc-good)}
+.railtog.off u{border-color:rgb(var(--hc-bad-rgb) / .45);color:var(--hc-bad)}
+.wcard{position:relative;border:1px solid rgba(68,221,255,.4);border-radius:6px;background:rgba(255,255,255,.03);
+  padding:9px 10px 8px;display:flex;flex-direction:column;gap:6px;min-height:0}
+.wcard .nm{font-family:var(--f-display);font-weight:800;font-size:13px;letter-spacing:.08em;color:var(--hc-fg);text-transform:uppercase}
+.wcard .mt{font-family:var(--f-mono);font-size:9.5px;letter-spacing:.1em;color:var(--hc-dim2);text-transform:uppercase}
+.wcard .ops3{display:grid;grid-auto-flow:column;grid-auto-columns:1fr;gap:5px;margin-top:auto}
+
+/* ---- device strip (workflow across workspaces) --------------------------- */
+.devs{display:flex;gap:26px;align-items:flex-end;background:transparent}
+.dev{border:1px solid var(--hc-line);border-radius:10px;background:var(--hc-bg);overflow:hidden;display:flex;flex-direction:column;flex:0 0 auto}
+.dev-cap{font-family:var(--f-mono);font-size:12px;letter-spacing:.18em;text-transform:uppercase;color:var(--hc-dim2);
+  padding:9px 2px 0;display:flex;justify-content:space-between;gap:12px}
+.dev-cap b{color:var(--hc-accent);font-weight:600}
+.dev-state{display:flex;align-items:center;gap:9px;min-height:42px;padding:0 12px;background:var(--su-input);
+  border-bottom:1px solid rgb(var(--su-line-rgb) / .35);font-family:var(--f-mono);font-size:12px;letter-spacing:.09em;color:var(--su-muted);white-space:nowrap}
+.dev-state b{color:var(--su-text);font-weight:600}
+.dev-state .dot{width:8px;height:8px;border-radius:50%;background:var(--su-success);flex:0 0 auto}
+.dev-state .bd{background:var(--su-accent);color:#0a0e1a;font-weight:700;border-radius:3px;padding:2px 6px;font-size:11px}
+.dev-body{flex:1 1 auto;min-height:0;display:grid;gap:6px;padding:6px}
+.dev-cell{border:1px dashed rgba(255,107,53,.4);border-radius:4px;background:rgba(13,21,39,.6);display:flex;align-items:center;justify-content:center;
+  font-family:var(--f-mono);font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--hc-dim2);text-align:center;padding:4px}
+.dev-cell.space{border-color:rgba(68,221,255,.45);color:var(--hc-info)}
+.dev-cell.tuned{border-color:var(--hc-accent);background:rgb(var(--hc-accent-rgb) / .16);color:var(--hc-accent);font-weight:600}
+</style>
+</head>
+<body>
+
+<header class="sheet-head">
+  <h1>Workspace — design contact sheet</h1>
+  <p><b>Widgets are nouns, workflows are verbs.</b> A <em>workspace</em> is the container. It is instantiated on one of four
+     canvas types — <b>PHONE · TABLET · WORKSTATION · WALL</b> — and the canvas type decides the rules, not the operator. A
+     workspace is made of two things: <b>configurable rails</b> and a <b>space</b> (the hero area). Widgets are chosen from the
+     picker and <em>auto-dock</em> into the rails or the space by the canvas's own rules; there is no manual slot placement. A
+     workspace holds several <b>pages</b> the operator flips through with the same pager idiom the wall already uses.</p>
+  <p>Everything drawn below is assembled from components that already exist in the design system — the HamClock wall tiles, the
+     solar metric cards and charts, the DX spot list, the NowCast band panel, the propagation forecast, the HamClock dialog and
+     its segmented controls. <b>Nothing in today's app changes.</b> This sheet is the design vehicle, not a build plan: it exists
+     to be read next to <code>heatmap-contact-sheet.html</code>, from which it takes its tokens, its encoding and its voice.</p>
+  <div class="meta">v1 · static mock · no framework, no network assets · sample data for K5ABC / DM79 at 22:14 UTC · tokens from
+     tailwind.config.js · src/styles/globals.css · src/styles/hamclock-themes.css · hamclock-wall.css · hamclock-wall-controls.css ·
+     components from the Claude Design project (ds-bundle) · rules from docs/designs/hamclock-wall-spec.md and
+     docs/designs/design-system/README.md</div>
+</header>
+
+<main class="sheet">
+
+<!-- ======================= 0 · CANVAS TYPES ============================== -->
+<section class="sec">
+  <div class="sec-label"><b>0 · Canvas types</b><i>one workspace concept · four instantiations</i></div>
+  <p class="sec-note">The same workspace definition — the same pages, the same widget list — lands differently on each canvas
+     because each canvas declares its own rails, its own scale range and its own target floor. A widget added on the workstation
+     appears on the phone as a page; a widget added on the phone appears on the wall in a rail. <b>The operator never places a
+     widget in a slot.</b> They add it to a page and the layout engine docks it.</p>
+
+  <div class="cvs">
+    <article class="cvcard" style="--cvc:var(--hc-info)">
+      <h4>Phone</h4>
+      <div class="px">390 pt · portrait · thumb reach</div>
+      <div class="cvdiag cvd-phone">
+        <div class="bar">STATE STRIP</div>
+        <div class="space">SPACE — ONE WIDGET</div>
+        <div class="bar">PAGE DOTS</div>
+      </div>
+      <div class="cvrules">
+        <div><span>Rails</span><b>0</b></div>
+        <div><span>Space</span><b>Full page</b></div>
+        <div><span>Hero</span><b>No — the page is the hero</b></div>
+        <div><span>Scale</span><b>1.00 fixed</b></div>
+        <div><span>Target</span><b>56 px</b></div>
+        <div><span>Pages</span><b>5</b></div>
+      </div>
+    </article>
+
+    <article class="cvcard" style="--cvc:var(--hc-good)">
+      <h4>Tablet</h4>
+      <div class="px">1024 × 768 · landscape · touch</div>
+      <div class="cvdiag cvd-tab">
+        <div class="bar" style="grid-column:1 / -1">HEADER · STATE</div>
+        <div class="space">SPACE</div>
+        <div class="rail">RAIL R</div>
+        <div class="bar" style="grid-column:1 / -1">PAGER</div>
+      </div>
+      <div class="cvrules">
+        <div><span>Rails</span><b>1 · right</b></div>
+        <div><span>Space</span><b>Hero + 3 rail tiles</b></div>
+        <div><span>Hero</span><b>Yes</b></div>
+        <div><span>Scale</span><b>0.85 – 1.10</b></div>
+        <div><span>Target</span><b>48 px</b></div>
+        <div><span>Pages</span><b>3</b></div>
+      </div>
+    </article>
+
+    <article class="cvcard" style="--cvc:var(--hc-accent)">
+      <h4>Workstation</h4>
+      <div class="px">1920 × 1080 · desk · 24 in</div>
+      <div class="cvdiag cvd-work">
+        <div class="bar t">HEADER · STATE · EDIT</div>
+        <div class="rail l">RAIL L</div>
+        <div class="space">SPACE</div>
+        <div class="rail r">RAIL R</div>
+        <div class="rail b">RAIL BOTTOM</div>
+        <div class="bar f">PAGER 2 / 4</div>
+      </div>
+      <div class="cvrules">
+        <div><span>Rails</span><b>Up to 3 · L · R · bottom</b></div>
+        <div><span>Space</span><b>Hero, or docks fill it</b></div>
+        <div><span>Hero</span><b>Optional</b></div>
+        <div><span>Scale</span><b>0.70 – 1.40</b></div>
+        <div><span>Target</span><b>44 px</b></div>
+        <div><span>Pages</span><b>4</b></div>
+      </div>
+    </article>
+
+    <article class="cvcard" style="--cvc:var(--hc-warn)">
+      <h4>Wall</h4>
+      <div class="px">1920 – 3840 · read at 10 ft</div>
+      <div class="cvdiag cvd-wall">
+        <div class="bar t">CALL · CLOCKS · SETTINGS</div>
+        <div class="rail l">RAIL L · 4</div>
+        <div class="space">SPACE — FULL-BLEED</div>
+        <div class="rail r">RAIL R · 5</div>
+        <div class="bar f">PAGER · HEALTH</div>
+      </div>
+      <div class="cvrules">
+        <div><span>Rails</span><b>2 · L 4 tiles · R 5 tiles</b></div>
+        <div><span>Space</span><b>Full-bleed map or hero</b></div>
+        <div><span>Hero</span><b>Yes — one value, read far</b></div>
+        <div><span>Scale</span><b>0.70 – 1.40</b></div>
+        <div><span>Target</span><b>64 px · remote-first</b></div>
+        <div><span>Pages</span><b>5 – 6 · auto-page 30 s</b></div>
+      </div>
+    </article>
+  </div>
+
+  <p class="cap"><b>Read the four columns across, not down.</b> The rails row is the only structural difference; everything else is
+     a number in a range. That is what makes one widget registry sufficient — a widget declares which densities it supports, and
+     the canvas picks. <b>Rail counts</b> follow <code>docs/designs/hamclock-wall-spec.md</code> §3 (wall 4 left / 5 right,
+     desk 5 left / 6 right); the tablet's single rail and the phone's zero rails are the new part of this proposal.</p>
+</section>
+
+<!-- ======================= 1 · WIDGET REGISTRY =========================== -->
+<section class="sec">
+  <div class="sec-label"><b>1 · Widget registry</b><i>one entry, four densities · WORKSPACE-CONCEPT.md §3</i></div>
+  <p class="sec-note">Every widget already ships somewhere in the app. The registry does not draw anything new — it declares which
+     of the four densities a widget family has, so the layout engine can dock it on any canvas. <b>DS</b> = the component has a
+     card in the Claude Design project today; <b>app</b> = it ships but has no DS card yet; <b>new</b> = it does not exist (the
+     band × continent heat map, #632, is the only genuinely new widget in this plan). Tablet reads the <em>work</em> column at
+     touch sizing — it gets no column of its own.</p>
+
+  <div class="reg">
+    <div class="reg-h">Widget family</div>
+    <div class="reg-h"><b>Wall</b> 0.70–1.40</div>
+    <div class="reg-h"><b>Glance</b> 0.85–1.25</div>
+    <div class="reg-h"><b>Work</b> 0.55–0.85 (+tablet)</div>
+    <div class="reg-h"><b>Phone</b> 390 pt</div>
+
+    <!-- 1. Heat map -->
+    <div class="reg-n" style="--nc:var(--hc-accent)"><b>Band × continent heat map</b><span>#632 · all four densities</span><u class="new">NEW</u></div>
+    <div class="reg-c" style="--hc-state:var(--hc-accent)">
+      <p class="w-t">HEAT MAP<em>wall tile</em></p>
+      <div class="hm-t hm-t--mini">
+        <div class="hm-t-row hm-t-head"><span class="k">·</span><span>160</span><span>80</span><span>40</span><span>20</span><span>17</span><span>15</span><span>12</span><span>10</span><span>6</span><span>30</span><span>60</span></div>
+        <div class="hm-t-row"><span class="k">NA</span><b class="hm-c v-stir" style="--i:.18">12</b><b class="hm-c v-ver" style="--i:.35">48</b><b class="hm-c v-hot hi" style="--i:.74">214</b><b class="hm-c v-hot hi" style="--i:1">386</b><b class="hm-c v-ver hi" style="--i:.61">142</b><b class="hm-c v-ver" style="--i:.48">88</b><b class="hm-c v-stir" style="--i:.28">31</b><b class="hm-c v-stir" style="--i:.35">46</b><b class="hm-c v-stir s" style="--i:.26">27</b><b class="hm-c v-ver" style="--i:.5">96</b><b class="hm-c v-clsd"><i class="z">·</i></b></div>
+        <div class="hm-t-row"><span class="k">EU</span><b class="hm-c v-clsd"><i class="z">·</i></b><b class="hm-c v-clsd" style="--i:.05">1</b><b class="hm-c v-stir" style="--i:.22">18</b><b class="hm-c v-hot hi" style="--i:.84">274</b><b class="hm-c v-ver hi" style="--i:.5">96</b><b class="hm-c v-x" style="--i:.33">41</b><b class="hm-c v-fcst" style="--i:.15">9</b><b class="hm-c v-fcst" style="--i:.12">6</b><b class="hm-c v-clsd"><i class="z">·</i></b><b class="hm-c v-ver" style="--i:.34">44</b><b class="hm-c v-clsd"><i class="z">·</i></b></div>
+        <div class="hm-t-row"><span class="k">OC</span><b class="hm-c v-clsd" style="--i:.05">1</b><b class="hm-c v-clsd" style="--i:.07">2</b><b class="hm-c v-stir" style="--i:.13">7</b><b class="hm-c v-ver" style="--i:.33">42</b><b class="hm-c v-ver" style="--i:.29">33</b><b class="hm-c v-ver" style="--i:.26">26</b><b class="hm-c v-stir" style="--i:.19">14</b><b class="hm-c v-ver" style="--i:.22">19</b><b class="hm-c v-clsd"><i class="z">·</i></b><b class="hm-c v-stir" style="--i:.17">11</b><b class="hm-c v-clsd"><i class="z">·</i></b></div>
+      </div>
+    </div>
+    <div class="reg-c pane" style="--hc-state:var(--hc-accent)">
+      <div class="su-rule" style="margin:-9px -10px 0"></div>
+      <div class="su-band" style="padding-top:6px"><div><span class="eyebrow">Propagation</span><h3>Bands × continents</h3></div><span class="chip" style="min-height:20px;padding:0 8px;font-size:8px">World</span></div>
+      <div style="display:flex;gap:5px">
+        <div class="pill" style="--bc:#ffcc66;flex:1"><div class="pill-top"><span class="pill-b">40</span><span class="pill-n">271</span></div><div class="pill-mini"><i style="--t:255 107 53;--i:.74"></i><i style="--t:0 255 136;--i:.26"></i><i style="--t:255 210 63;--i:.22"></i><i style="--t:99 112 136;--i:.07"></i><i style="--t:99 112 136;--i:.1"></i><i style="--t:255 210 63;--i:.13"></i></div><div class="pill-v t-hot">Hot</div></div>
+        <div class="pill" style="--bc:#66ff99;flex:1"><div class="pill-top"><span class="pill-b">20</span><span class="pill-n">904</span></div><div class="pill-mini"><i style="--t:255 107 53;--i:1"></i><i style="--t:255 107 53;--i:.55"></i><i style="--t:255 107 53;--i:.84"></i><i style="--t:0 255 136;--i:.23"></i><i style="--t:0 255 136;--i:.4"></i><i style="--t:0 255 136;--i:.33"></i></div><div class="pill-v t-hot">Hot · 3 cont</div></div>
+        <div class="pill" style="--bc:#66ccff;flex:1"><div class="pill-top"><span class="pill-b">15</span><span class="pill-n">398</span></div><div class="pill-mini"><i style="--t:0 255 136;--i:.48"></i><i style="--t:255 107 53;--i:.65"></i><i style="--t:99 112 136;--i:.33"></i><i style="--t:0 255 136;--i:.24"></i><i style="--t:255 107 53;--i:.38"></i><i style="--t:0 255 136;--i:.26"></i></div><div class="pill-v t-hot">Hot · SA</div></div>
+      </div>
+    </div>
+    <div class="reg-c" style="--hc-state:var(--hc-accent)">
+      <p class="w-t">HEAT MAP<em>work panel</em></p>
+      <div class="hm hm--mini">
+        <div class="hm-head"><span>Band</span><span>NA</span><span>SA</span><span>EU</span><span>AF</span><span>AS</span><span>OC</span></div>
+        <div class="hm-row"><span class="hm-band on" style="--bc:#66ff99">20</span><b class="hm-c v-hot hi" style="--i:1">386</b><b class="hm-c v-hot hi" style="--i:.55">118</b><b class="hm-c v-hot hi" style="--i:.84">274</b><b class="hm-c v-ver" style="--i:.23">21</b><b class="hm-c v-ver" style="--i:.4">63</b><b class="hm-c v-ver" style="--i:.33">42</b></div>
+        <div class="hm-row"><span class="hm-band" style="--bc:#ffcc66">40</span><b class="hm-c v-hot hi" style="--i:.74">214</b><b class="hm-c v-ver" style="--i:.26">26</b><b class="hm-c v-stir" style="--i:.22">18</b><b class="hm-c v-clsd">2</b><b class="hm-c v-clsd">4</b><b class="hm-c v-stir" style="--i:.13">7</b></div>
+        <div class="hm-row"><span class="hm-band" style="--bc:#66ccff">15</span><b class="hm-c v-ver" style="--i:.48">88</b><b class="hm-c v-hot hi" style="--i:.65">164</b><b class="hm-c v-x" style="--i:.33">41</b><b class="hm-c v-ver" style="--i:.24">22</b><b class="hm-c v-hot s" style="--i:.38">57</b><b class="hm-c v-ver" style="--i:.26">26</b></div>
+      </div>
+      <p class="w-sub">Hover fills a fixed inspector column — no floating hover menu.</p>
+    </div>
+    <div class="ph-thumb"><div class="st"><i></i><span>K5ABC</span><span class="bd">20M</span></div>
+      <div class="bd2"><span class="eb">Page 3 · Propagation</span><h5>Bands → North America</h5>
+        <div style="font-family:var(--f-mono);font-size:9px;color:var(--su-text);display:flex;flex-direction:column;gap:3px;margin-top:4px">
+          <span style="color:var(--hc-accent)">20 M ●●●●●●●●●● 386 · hot</span>
+          <span style="color:var(--su-accent)">40 M ●●●●●●● 214 · hot</span>
+          <span style="color:var(--su-success)">17 M ●●●●● 142 · verified</span>
+        </div></div></div>
+
+    <!-- 2. DX spot list -->
+    <div class="reg-n" style="--nc:var(--hc-good)"><b>DX spot list</b><span>dx/DXSpotList · SpotRow.tsx</span><u>DS</u></div>
+    <div class="reg-c" style="--hc-state:var(--hc-good)">
+      <p class="w-t">CLUSTER<em>wall tile</em></p>
+      <div class="sl" style="--slc:34px minmax(0,1fr) 44px">
+        <div class="sl-r" style="--bc:#66ff99"><span>22:13</span><span class="dx">DL8LAS <i class="nb">FT8</i></span><span class="fq">14.074</span></div>
+        <div class="sl-r" style="--bc:#66ff99"><span>22:12</span><span class="dx">SM7GXQ</span><span class="fq">14.185</span></div>
+        <div class="sl-r" style="--bc:#ffcc66"><span>22:11</span><span class="dx">EA3KU</span><span class="fq">7.074</span></div>
+      </div>
+      <p class="w-sub">8 spots <b>· 30 s</b></p>
+    </div>
+    <div class="reg-c" style="--hc-state:var(--su-line)">
+      <p class="w-t">SPOT ROWS<em>OpsConsole</em></p>
+      <div style="display:flex;align-items:center;justify-content:center;flex:1;text-align:center;flex-direction:column;gap:4px">
+        <span style="font-family:var(--f-mono);font-size:9.5px;letter-spacing:.12em;color:var(--hc-dim2);text-transform:uppercase">Gap — backlog #581</span>
+        <span style="font-family:var(--f-mono);font-size:9px;color:var(--hc-dim2)">Glance density has no DS card yet</span>
+      </div>
+    </div>
+    <div class="reg-c" style="--hc-state:var(--hc-good)">
+      <p class="w-t">DX SPOT LIST<em>work panel</em></p>
+      <div class="chips" style="min-height:0"><span class="chip">20 m · EU <x>×</x></span></div>
+      <div class="sl">
+        <div class="sl-h"><span>UTC</span><span>Freq</span><span>DX</span><span>Age</span><span>Act</span></div>
+        <div class="sl-r sel" style="--bc:#66ff99"><span>22:13</span><span class="fq">14.074</span><span class="dx">DL8LAS</span><span class="age"><i style="--aw:92%"></i></span><span class="logbtn" style="min-height:20px;font-size:8px">LOG</span></div>
+        <div class="sl-r" style="--bc:#66ff99"><span>22:13</span><span class="fq">14.021</span><span class="dx">G3TXF</span><span class="age"><i style="--aw:88%"></i></span><span></span></div>
+      </div>
+    </div>
+    <div class="ph-thumb"><div class="st"><i></i><span>K5ABC</span><span class="bd">20M</span></div>
+      <div class="bd2"><span class="eb">Page 2 · Cluster</span><h5>DX spots · 20 m</h5>
+        <div class="ph-sl" style="gap:4px"><div class="r" style="min-height:0;padding:4px 6px;grid-template-columns:38px 1fr 34px" ><span class="bd" style="--bc:#66ff99;font-size:9px">20m</span><span class="dx" style="font-size:11px">DL8LAS</span><span class="fq" style="font-size:9px">14.074</span></div></div></div></div>
+
+    <!-- 3. Logger -->
+    <div class="reg-n" style="--nc:var(--hc-good)"><b>Logger / fast log</b><span>RecentContactsTile · /log</span><u class="app">APP</u></div>
+    <div class="reg-c" style="--hc-state:var(--hc-good)">
+      <p class="w-t">RECENT CONTACTS<em>wall tile</em></p>
+      <div class="rc" style="gap:0">
+        <div class="r" style="padding:4px 2px"><b>DL8LAS</b><span class="op">20M FT8</span><span>599</span><span>22:13</span></div>
+        <div class="r" style="padding:4px 2px;border-bottom:0"><b>G3TXF</b><span class="op">20M CW</span><span>579</span><span>22:11</span></div>
+      </div>
+    </div>
+    <div class="reg-c" style="--hc-state:var(--hc-good)">
+      <p class="w-t">LOGGER STRIP<em>OpsConsole</em></p>
+      <div class="lg" style="grid-template-columns:1fr 1fr 90px;gap:6px">
+        <div><label>Call</label><div class="in" style="height:34px;font-size:13px">DL8LAS</div></div>
+        <div><label>RST</label><div class="in" style="height:34px;font-size:13px">599</div></div>
+        <div class="go" style="height:34px;font-size:11px">LOG</div>
+      </div>
+    </div>
+    <div class="reg-c" style="--hc-state:var(--su-line)">
+      <p class="w-t">FAST LOG<em>route /log</em></p>
+      <div style="display:flex;align-items:center;justify-content:center;flex:1;text-align:center">
+        <span style="font-family:var(--f-mono);font-size:9.5px;letter-spacing:.1em;color:var(--hc-dim2)">Full logbook route — app-only, no rail form</span>
+      </div>
+    </div>
+    <div class="ph-thumb"><div class="st"><i></i><span>K5ABC</span><span class="bd">20M</span></div>
+      <div class="bd2"><span class="eb">Page 1 · Logger</span><h5>Fast log</h5>
+        <div style="font-family:var(--f-mono);font-size:10px;color:var(--su-muted)">Call <b style="color:var(--su-text)">DL8LAS</b></div>
+        <div style="height:22px;border-radius:6px;background:var(--su-accent);color:#0a0e1a;display:flex;align-items:center;justify-content:center;font-family:var(--f-display);font-weight:800;font-size:10px;letter-spacing:.14em;margin-top:4px">LOG QSO</div></div></div>
+
+    <!-- 4. Band activity -->
+    <div class="reg-n" style="--nc:var(--hc-good)"><b>Band activity</b><span>BandActivityTile · BandActivityBar</span><u>DS</u></div>
+    <div class="reg-c" style="--hc-state:var(--hc-good)">
+      <p class="w-t">BAND ACTIVITY<em>wall tile</em></p>
+      <p class="w-hero t-good">386</p>
+      <div class="bars" style="--bh:30px"><i style="--t:255 107 53;--i:1"></i><i style="--t:0 255 136;--i:.5"></i><i style="--t:0 255 136;--i:.61"></i><i style="--t:0 255 136;--i:.48"></i><i style="--t:255 210 63;--i:.28"></i><i style="--t:255 210 63;--i:.35"></i></div>
+      <p class="w-sub">20 m spots <b>· 30 min</b></p>
+    </div>
+    <div class="reg-c" style="--hc-state:var(--hc-good)">
+      <p class="w-t">BAND ACTIVITY BAR<em>Home / dx</em></p>
+      <div class="bars" style="--bh:34px"><i style="--t:255 107 53;--i:1"></i><i style="--t:255 107 53;--i:.74"></i><i style="--t:0 255 136;--i:.61"></i><i style="--t:0 255 136;--i:.5"></i><i style="--t:255 210 63;--i:.28"></i></div>
+      <div class="bark"><span>20</span><span>40</span><span>17</span><span>30</span><span>12</span></div>
+    </div>
+    <div class="reg-c" style="--hc-state:var(--hc-good)">
+      <p class="w-t">BAND ACTIVITY REPORT<em>work panel</em></p>
+      <div class="nc">
+        <div class="nc-r"><span class="b" style="--bc:#66ff99">20</span><span class="bar"><i style="--t:255 107 53;--i:1"></i></span><span class="p">386</span></div>
+        <div class="nc-r"><span class="b" style="--bc:#ffcc66">40</span><span class="bar"><i style="--t:255 107 53;--i:.74"></i></span><span class="p">214</span></div>
+        <div class="nc-r"><span class="b" style="--bc:#66ffcc">17</span><span class="bar"><i style="--t:0 255 136;--i:.61"></i></span><span class="p">142</span></div>
+      </div>
+    </div>
+    <div class="ph-thumb"><div class="st"><i></i><span>K5ABC</span><span class="bd">20M</span></div>
+      <div class="bd2"><span class="eb">Activity</span><h5>Band activity</h5>
+        <div class="bars" style="--bh:52px;flex:1"><i style="--t:255 107 53;--i:1"></i><i style="--t:255 107 53;--i:.74"></i><i style="--t:0 255 136;--i:.61"></i><i style="--t:0 255 136;--i:.5"></i></div>
+        <div class="bark"><span>20</span><span>40</span><span>17</span><span>30</span></div></div></div>
+
+    <!-- 5. Best band -->
+    <div class="reg-n" style="--nc:var(--hc-good)"><b>Best band</b><span>BestBandTile · HomeBandsLadder</span><u>DS</u></div>
+    <div class="reg-c" style="--hc-state:var(--hc-good)">
+      <p class="w-t">BEST BAND NOW<em>wall tile</em></p>
+      <p class="w-hero t-good">20 M</p>
+      <p class="w-sub">Verified open <b>· NA</b></p>
+    </div>
+    <div class="reg-c" style="--hc-state:var(--hc-good)">
+      <p class="w-t">BANDS LADDER<em>Home</em></p>
+      <div class="nc" style="gap:4px">
+        <div class="nc-r" style="grid-template-columns:34px 1fr 46px"><span class="b" style="--bc:#66ff99">20</span><span style="font-family:var(--f-mono);font-size:9.5px;color:var(--hc-good)">Verified open</span><span class="p">386</span></div>
+        <div class="nc-r" style="grid-template-columns:34px 1fr 46px"><span class="b" style="--bc:#ffcc66">40</span><span style="font-family:var(--f-mono);font-size:9.5px;color:var(--hc-accent)">Hot</span><span class="p">214</span></div>
+      </div>
+    </div>
+    <div class="reg-c" style="--hc-state:var(--hc-good)">
+      <p class="w-t">BAND VERDICT PANEL<em>work panel</em></p>
+      <div class="nc">
+        <div class="nc-r"><span class="b" style="--bc:#66ff99">20</span><span class="bar"><i style="--t:0 255 136;--i:.9"></i></span><span class="p t-good">Open</span></div>
+        <div class="nc-r"><span class="b" style="--bc:#ffcc66">40</span><span class="bar"><i style="--t:255 107 53;--i:.85"></i></span><span class="p t-hot">Hot</span></div>
+        <div class="nc-r"><span class="b" style="--bc:#ff6666">160</span><span class="bar"><i style="--t:99 112 136;--i:.1"></i></span><span class="p t-dim">Closed</span></div>
+      </div>
+    </div>
+    <div class="ph-thumb"><div class="st"><i></i><span>K5ABC</span><span class="bd">20M</span></div>
+      <div class="bd2"><span class="eb">Best band</span><h5>20 M</h5>
+        <div style="font-family:var(--f-mono);font-size:9.5px;color:var(--hc-good)">Verified open · NA</div></div></div>
+
+    <!-- 6. Propagation forecast -->
+    <div class="reg-n" style="--nc:var(--hc-info)"><b>Propagation forecast</b><span>ForecastMatrixTile · PropagationForecast</span><u>DS</u></div>
+    <div class="reg-c" style="--hc-state:var(--hc-info)">
+      <p class="w-t">FORECAST MATRIX<em>wall tile</em></p>
+      <div class="fc" style="--fck:22px">
+        <div class="fc-r"><span class="k" style="--bc:#66ff99">20</span><i class="fc-c" style="--t:0 255 136;--i:.8"></i><i class="fc-c" style="--t:0 255 136;--i:.7"></i><i class="fc-c" style="--t:255 210 63;--i:.4"></i><i class="fc-c" style="--t:99 112 136;--i:.1"></i></div>
+        <div class="fc-r"><span class="k" style="--bc:#ffcc66">40</span><i class="fc-c" style="--t:255 107 53;--i:.9"></i><i class="fc-c" style="--t:0 255 136;--i:.6"></i><i class="fc-c" style="--t:0 255 136;--i:.5"></i><i class="fc-c" style="--t:255 210 63;--i:.3"></i></div>
+      </div>
+    </div>
+    <div class="reg-c" style="--hc-state:var(--hc-info)">
+      <p class="w-t">FORECAST MINI<em>map hero</em></p>
+      <div class="fc" style="--fck:0px">
+        <div class="fc-r" style="grid-template-columns:repeat(8,minmax(0,1fr))"><i class="fc-c" style="--t:0 255 136;--i:.8"></i><i class="fc-c" style="--t:0 255 136;--i:.7"></i><i class="fc-c" style="--t:255 210 63;--i:.4"></i><i class="fc-c" style="--t:99 112 136;--i:.1"></i><i class="fc-c" style="--t:255 107 53;--i:.9"></i><i class="fc-c" style="--t:0 255 136;--i:.6"></i><i class="fc-c" style="--t:0 255 136;--i:.5"></i><i class="fc-c" style="--t:255 210 63;--i:.3"></i></div>
+      </div>
+      <p class="w-sub">Next 24 h <b>· 20 m</b></p>
+    </div>
+    <div class="reg-c" style="--hc-state:var(--hc-info)">
+      <p class="w-t">PROPAGATION FORECAST<em>work panel + modal</em></p>
+      <div class="fc" style="--fck:26px">
+        <div class="fc-h"><span></span><span>00</span><span>02</span><span>04</span><span>06</span><span>08</span><span>10</span><span>12</span><span>14</span><span>16</span><span>18</span><span>20</span><span>22</span></div>
+        <div class="fc-r"><span class="k" style="--bc:#66ff99">20</span><i class="fc-c" style="--t:0 255 136;--i:.6"></i><i class="fc-c" style="--t:0 255 136;--i:.7"></i><i class="fc-c" style="--t:0 255 136;--i:.8"></i><i class="fc-c" style="--t:255 107 53;--i:.9"></i><i class="fc-c" style="--t:255 107 53;--i:1"></i><i class="fc-c" style="--t:0 255 136;--i:.7"></i><i class="fc-c" style="--t:0 255 136;--i:.6"></i><i class="fc-c" style="--t:255 210 63;--i:.4"></i><i class="fc-c" style="--t:255 210 63;--i:.3"></i><i class="fc-c" style="--t:99 112 136;--i:.1"></i><i class="fc-c" style="--t:99 112 136;--i:.1"></i><i class="fc-c" style="--t:99 112 136;--i:.1"></i></div>
+      </div>
+    </div>
+    <div class="ph-thumb"><div class="st"><i></i><span>K5ABC</span><span class="bd">20M</span></div>
+      <div class="bd2"><span class="eb">Forecast</span><h5>Next 24 h</h5>
+        <div class="fc" style="--fck:0px"><div class="fc-r" style="grid-template-columns:repeat(6,minmax(0,1fr))"><i class="fc-c" style="--t:0 255 136;--i:.7;--fch:20px"></i><i class="fc-c" style="--t:255 107 53;--i:1;--fch:20px"></i><i class="fc-c" style="--t:255 107 53;--i:.9;--fch:20px"></i><i class="fc-c" style="--t:0 255 136;--i:.6;--fch:20px"></i><i class="fc-c" style="--t:255 210 63;--i:.3;--fch:20px"></i><i class="fc-c" style="--t:99 112 136;--i:.1;--fch:20px"></i></div></div></div></div>
+
+    <!-- 7. NowCast bands -->
+    <div class="reg-n" style="--nc:var(--hc-info)"><b>NowCast bands</b><span>NowCastBandPanel</span><u class="new">NEW</u></div>
+    <div class="reg-c" style="--hc-state:var(--hc-info)">
+      <p class="w-t">NOWCAST<em>wall tile — new</em></p>
+      <p class="w-sub">Chain: <b>N2</b> recency v2 <b class="t-good">live</b></p>
+      <div class="nc" style="gap:3px">
+        <div class="nc-r"><span class="b" style="--bc:#66ff99">20</span><span class="bar"><i style="--t:0 255 136;--i:.8"></i></span><span class="p">92%</span></div>
+      </div>
+    </div>
+    <div class="reg-c" style="--hc-state:var(--hc-info)">
+      <p class="w-t">NOWCAST PANEL<em>solar / dx</em></p>
+      <div class="nc">
+        <div class="nc-r"><span class="b" style="--bc:#66ff99">20</span><span class="bar"><i style="--t:0 255 136;--i:.8"></i></span><span class="p">92%</span></div>
+        <div class="nc-r"><span class="b" style="--bc:#ffcc66">40</span><span class="bar"><i style="--t:255 107 53;--i:.7"></i></span><span class="p">88%</span></div>
+      </div>
+    </div>
+    <div class="reg-c" style="--hc-state:var(--hc-info)">
+      <p class="w-t">NOWCAST BAND PANEL<em>work scale</em></p>
+      <div class="nc">
+        <div class="nc-r"><span class="b" style="--bc:#66ff99">20</span><span class="bar"><i style="--t:0 255 136;--i:.8"></i></span><span class="p">92%</span></div>
+        <div class="nc-r"><span class="b" style="--bc:#ffcc66">40</span><span class="bar"><i style="--t:255 107 53;--i:.7"></i></span><span class="p">88%</span></div>
+        <div class="nc-r"><span class="b" style="--bc:#66ffcc">17</span><span class="bar"><i style="--t:0 255 136;--i:.55"></i></span><span class="p">74%</span></div>
+      </div>
+    </div>
+    <div class="ph-thumb"><div class="st"><i></i><span>K5ABC</span><span class="bd">20M</span></div>
+      <div class="bd2"><span class="eb">NowCast</span><h5>Chain N2 · live</h5>
+        <div class="nc" style="gap:3px"><div class="nc-r"><span class="b" style="--bc:#66ff99">20</span><span class="bar"><i style="--t:0 255 136;--i:.8"></i></span><span class="p">92%</span></div></div></div></div>
+
+    <!-- 8. Solar series / metrics -->
+    <div class="reg-n" style="--nc:var(--hc-warn)"><b>Solar series / metrics</b><span>SunTile · SolarSeriesChart · MetricCard</span><u>DS</u></div>
+    <div class="reg-c" style="--hc-state:var(--hc-warn)">
+      <p class="w-t">X-RAY<em>wall tile</em></p>
+      <p class="w-hero t-warn">B4.2</p>
+      <p class="w-sub">GOES-19 <b>· 22:10Z</b></p>
+    </div>
+    <div class="reg-c" style="--hc-state:var(--hc-warn)">
+      <p class="w-t">PRIMARY METRICS<em>Home / solar</em></p>
+      <div class="mcs" style="--mcn:3;gap:5px">
+        <div class="mc" style="--mcc:var(--hc-warn);padding:5px 6px"><span class="k">SFI</span><span class="v" style="font-size:16px">148</span></div>
+        <div class="mc" style="--mcc:var(--hc-bad);padding:5px 6px"><span class="k">KP</span><span class="v" style="font-size:16px">4</span></div>
+        <div class="mc" style="--mcc:var(--hc-good);padding:5px 6px"><span class="k">SW</span><span class="v" style="font-size:16px">412</span></div>
+      </div>
+    </div>
+    <div class="reg-c" style="--hc-state:var(--hc-warn)">
+      <p class="w-t">SOLAR SERIES CHART<em>work panel</em></p>
+      <svg class="sch" style="--chh:76px" viewBox="0 0 200 60" preserveAspectRatio="none">
+        <polyline points="0,44 20,40 40,36 60,30 80,24 100,20 120,18 140,22 160,26 180,20 200,14" fill="none" stroke="#f5cf79" stroke-width="2"/>
+      </svg>
+    </div>
+    <div class="ph-thumb"><div class="st"><i></i><span>K5ABC</span><span class="bd">20M</span></div>
+      <div class="bd2"><span class="eb">Solar</span><h5>SFI 148 · Kp 4</h5>
+        <div class="ph-mc" style="gap:5px"><div class="c" style="--mcc:#f5cf79;padding:5px 7px"><span class="k" style="font-size:7px">SFI</span><span class="v" style="font-size:18px">148</span></div><div class="c" style="--mcc:#fda4af;padding:5px 7px"><span class="k" style="font-size:7px">KP</span><span class="v" style="font-size:18px">4</span></div></div></div></div>
+
+    <!-- 9. Space-weather strip -->
+    <div class="reg-n" style="--nc:var(--hc-warn)"><b>Space-weather strip</b><span>SpaceWxTile · PropagationIndex</span><u>DS</u></div>
+    <div class="reg-c" style="--hc-state:var(--hc-warn)">
+      <p class="w-t">SPACE WX<em>wall tile</em></p>
+      <div class="wxh" style="grid-auto-columns:1fr"><div><b>148</b><span>SFI</span></div><div><b>4</b><span>KP</span></div><div><b>B4.2</b><span>XRAY</span></div></div>
+    </div>
+    <div class="reg-c" style="--hc-state:var(--hc-warn)">
+      <p class="w-t">PRIMARY METRICS<em>Home</em></p>
+      <div class="wxh"><div><b>148</b><span>SFI</span></div><div><b>4</b><span>KP</span></div></div>
+    </div>
+    <div class="reg-c" style="--hc-state:var(--hc-warn)">
+      <p class="w-t">PROPAGATION INDEX<em>solar report</em></p>
+      <div class="nc"><div class="nc-r"><span class="b" style="--bc:#f5cf79;font-size:10px">SFI</span><span class="bar"><i style="--t:255 210 63;--i:.7"></i></span><span class="p">148</span></div></div>
+    </div>
+    <div class="ph-thumb"><div class="st"><i></i><span>K5ABC</span><span class="bd">20M</span></div>
+      <div class="bd2"><span class="eb">Space wx</span><h5>SFI 148 · Kp 4</h5></div></div>
+
+    <!-- 10. Weather -->
+    <div class="reg-n" style="--nc:var(--su-line)"><b>Weather</b><span>WeatherTile · HomeWeather</span><u>DS</u></div>
+    <div class="reg-c" style="--hc-state:var(--su-line)">
+      <p class="w-t">WEATHER<em>wall tile</em></p>
+      <p class="w-hero">72°</p>
+      <div class="wxh"><div><b>74°</b><span>1P</span></div><div><b>73°</b><span>2P</span></div><div><b>69°</b><span>3P</span></div></div>
+    </div>
+    <div class="reg-c" style="--hc-state:var(--su-line)">
+      <p class="w-t">HOME WEATHER<em>Home</em></p>
+      <div class="wxh"><div><b>72°</b><span>NOW</span></div><div><b>74°</b><span>1P</span></div><div><b>69°</b><span>3P</span></div></div>
+    </div>
+    <div class="reg-c" style="--hc-state:var(--su-line)">
+      <p class="w-t">WEATHER REPORT<em>work panel</em></p>
+      <div style="display:flex;align-items:center;justify-content:center;flex:1;text-align:center">
+        <span style="font-family:var(--f-mono);font-size:9.5px;letter-spacing:.1em;color:var(--hc-dim2)">Report body is a gap — no DS card yet</span>
+      </div>
+    </div>
+    <div class="ph-thumb"><div class="st"><i></i><span>K5ABC</span><span class="bd">20M</span></div>
+      <div class="bd2"><span class="eb">Weather</span><h5>72° · Clear</h5></div></div>
+
+    <!-- 11. Moon / sun / grey line -->
+    <div class="reg-n" style="--nc:var(--hc-info)"><b>Moon / sun / grey line</b><span>MoonTile · SunTile · GreyLineTile</span><u>DS</u></div>
+    <div class="reg-c" style="--hc-state:var(--hc-info)">
+      <p class="w-t">GREY LINE<em>wall tile</em></p>
+      <div class="gl" style="--glh:38px"></div>
+      <div style="display:flex;gap:8px;align-items:center;margin-top:2px"><div class="moon" style="--mz:26px"></div><span class="w-sub" style="margin:0">Waxing gibbous 78%</span></div>
+    </div>
+    <div class="reg-c" style="--hc-state:var(--hc-info)">
+      <p class="w-t">DAYLIGHT<em>Home</em></p>
+      <div class="gl" style="--glh:30px"></div>
+    </div>
+    <div class="reg-c" style="--hc-state:var(--hc-info)">
+      <p class="w-t">MOON PANEL<em>hamclock work</em></p>
+      <div style="display:flex;gap:10px;align-items:center"><div class="moon" style="--mz:52px"></div>
+        <div style="font-family:var(--f-mono);font-size:10px;color:var(--hc-dim)">Rise 14:22Z<br>Set 02:40Z<br>Phase 78%</div></div>
+    </div>
+    <div class="ph-thumb"><div class="st"><i></i><span>K5ABC</span><span class="bd">20M</span></div>
+      <div class="bd2"><span class="eb">Grey line</span><h5>Daylight</h5><div class="gl" style="--glh:26px"></div></div></div>
+
+    <!-- 12. Activations -->
+    <div class="reg-n" style="--nc:var(--hc-good)"><b>Activations</b><span>ActivationsTile · HomeActivity</span><u>DS</u></div>
+    <div class="reg-c" style="--hc-state:var(--hc-good)">
+      <p class="w-t">ACTIVATIONS<em>wall tile</em></p>
+      <div class="actv" style="gap:3px">
+        <div class="r" style="--pc:var(--hc-good)"><span class="pr">POTA</span><b>K-4404</b><span>20M</span></div>
+        <div class="r" style="--pc:var(--hc-warn)"><span class="pr">SOTA</span><b>W5T/SC-014</b><span>40M</span></div>
+      </div>
+    </div>
+    <div class="reg-c" style="--hc-state:var(--hc-good)">
+      <p class="w-t">HOME ACTIVITY<em>Home</em></p>
+      <div class="actv" style="gap:3px"><div class="r" style="--pc:var(--hc-good)"><span class="pr">POTA</span><b>K-4404</b><span>20M</span></div></div>
+    </div>
+    <div class="reg-c" style="--hc-state:var(--hc-good)">
+      <p class="w-t">ACTIVATIONS REPORT<em>work panel</em></p>
+      <div style="display:flex;align-items:center;justify-content:center;flex:1;text-align:center">
+        <span style="font-family:var(--f-mono);font-size:9.5px;letter-spacing:.1em;color:var(--hc-dim2)">Report body is a gap — no DS card yet</span>
+      </div>
+    </div>
+    <div class="ph-thumb"><div class="st"><i></i><span>K5ABC</span><span class="bd">20M</span></div>
+      <div class="bd2"><span class="eb">Activations</span><h5>K-4404 · POTA</h5></div></div>
+
+    <!-- 13. Alerts / news ticker -->
+    <div class="reg-n" style="--nc:var(--hc-bad)"><b>Alerts / news ticker</b><span>AlertsTile · DXNewsTicker</span><u>DS</u></div>
+    <div class="reg-c" style="--hc-state:var(--hc-bad)">
+      <p class="w-t">ALERTS<em>wall tile</em></p>
+      <div class="tick" style="--tkh:26px"><span class="lead" style="font-size:9px">R2</span><span class="items" style="font-size:9px">Radio blackout <b>· 21:40Z</b></span></div>
+    </div>
+    <div class="reg-c" style="--hc-state:var(--hc-bad)">
+      <p class="w-t">TICKER BAR<em>OpsConsole</em></p>
+      <div class="tick" style="--tkh:24px"><span class="lead" style="font-size:8px">R2</span><span class="items" style="font-size:9px">Radio blackout warning issued</span></div>
+    </div>
+    <div class="reg-c" style="--hc-state:var(--hc-bad)">
+      <p class="w-t">ALERT BANNER<em>work modal</em></p>
+      <div style="border:1px solid rgb(var(--hc-bad-rgb) / .5);border-radius:5px;background:rgb(var(--hc-bad-rgb) / .12);padding:8px;font-family:var(--f-mono);font-size:9.5px;color:var(--hc-bad);flex:1">R2 Moderate radio blackout — HF communication degraded on sunlit side.</div>
+    </div>
+    <div class="ph-thumb"><div class="st"><i></i><span>K5ABC</span><span class="bd">20M</span></div>
+      <div class="bd2"><span class="eb">Alerts</span><h5>R2 blackout</h5>
+        <span style="font-family:var(--f-mono);font-size:8.5px;color:var(--hc-dim2)">Phone page is new — no facsimile yet</span></div></div>
+
+    <!-- 14. Target / contact detail -->
+    <div class="reg-n" style="--nc:var(--hc-accent)"><b>Target / contact detail</b><span>#624 · DxTargetTile · PathAnalysis</span><u>DS</u></div>
+    <div class="reg-c" style="--hc-state:var(--hc-accent)">
+      <p class="w-t">TARGET<em>wall tile</em></p>
+      <p class="w-hero" style="font-size:24px">DL8LAS</p>
+      <p class="w-sub">14.074 <b>· 7 950 km</b></p>
+    </div>
+    <div class="reg-c" style="--hc-state:var(--hc-accent)">
+      <p class="w-t">PATH ANALYSIS<em>docked</em></p>
+      <div class="gl" style="--glh:26px"></div>
+      <p class="w-sub">DL8LAS <b>· 26 dB margin</b></p>
+    </div>
+    <div class="reg-c" style="--hc-state:var(--hc-accent)">
+      <p class="w-t">PATH ANALYSIS<em>work scale</em></p>
+      <div class="mcs" style="--mcn:2">
+        <div class="mc" style="--mcc:var(--hc-good)"><span class="k">SNR margin</span><span class="v" style="font-size:20px">+26</span></div>
+        <div class="mc" style="--mcc:var(--hc-info)"><span class="k">Distance</span><span class="v" style="font-size:20px">7 950</span></div>
+      </div>
+    </div>
+    <div class="ph-thumb"><div class="st"><i></i><span>K5ABC</span><span class="bd">20M</span></div>
+      <div class="bd2"><span class="eb">Page 4 · Contact — new</span><h5>DL8LAS</h5>
+        <div class="ph-tune" style="min-height:34px;font-size:12px;margin-top:auto">TUNE <small>14.074</small></div></div></div>
+  </div>
+
+  <p class="reg-note"><b>Unchanged at wall density only:</b> <code>MufTile</code>, <code>ReliabilityTile</code>, <code>EmcommTile</code>,
+     <code>PskStationTile</code>, <code>WsjtxTile</code>, <code>SdrScopeTile</code>, <code>SdrDecodesTile</code> enter the registry as
+     wall-only rows and gain glance/work variants only when a page asks for them — no page in this sheet does yet.
+     <u>DS</u> = card exists in the Claude Design project · <s>NEW</s> = does not exist today · <span style="color:var(--su-line)">APP</span> = ships,
+     no DS card. <b>Auto-dock inputs</b> per entry: <code>densities</code>, <code>canSpace</code>, <code>transposable</code>
+     (the heat map above is the one entry demonstrated at two orientations — wall transposed, work natural), <code>aspect</code>,
+     <code>weight</code>, <code>scope</code>, <code>bindings</code>.</p>
+</section>
+
+<!-- ======================= 2 · WORKSTATION AS ONE WORKSPACE =============== -->
+<section class="sec">
+  <div class="sec-label"><b>2 · Workstation as one workspace</b><i>rails + space · pages 1–4 = recipes A–D</i></div>
+  <p class="sec-note">One workstation workspace, one set of rails and one space. The operator did not build four different apps —
+     they built four <b>pages</b>, each a recipe they started from and then edited. The pager footer is the same idiom as the wall's:
+     arrows, dots, and the page name never move. Page 1 (recipe A, Chase DX) and page 2 (recipe B, Run the pile-up) are shown at full
+     resolution; pages 3–4 (C, D) are shown as placement tables to keep this sheet a reasonable size — see review note 8.</p>
+
+  <div class="shot shot--wall"><div class="frame frame--canvas">
+    <div class="cv-bar">
+      <div style="display:flex;align-items:baseline;gap:18px"><span class="nm">WORKSTATION</span><span class="sub">PAGE 1 OF 4 · A · CHASE DX</span></div>
+      <div class="sub">K5ABC · DM79QX · 20 M · TGT DL8LAS</div>
+      <div class="seg"><span>Edit layout</span><span>Recipes</span><span>Settings</span></div>
+    </div>
+    <div class="cv-body recipe-a">
+      <div class="slot slot--hero"><span class="tag">Space · 2D flat map · spot arcs on</span>
+        <div class="mapish"></div>
+        <div class="arc" style="left:22%;top:44%;width:34%;transform:rotate(-14deg)"></div>
+        <div class="arc" style="left:26%;top:52%;width:44%;transform:rotate(9deg)"></div>
+        <div class="hero-switch"><button>Hero: 2D flat map <span style="color:var(--hc-accent)">▾</span></button></div>
+      </div>
+      <div class="slot slot--left" style="--slc:44px 58px minmax(0,1fr) 34px 46px"><span class="tag">Rail left · DX spot list</span>
+        <div class="slot-inner">
+          <div class="chips" style="margin-bottom:4px"><span class="chip">20 m · EU <x>×</x></span></div>
+          <div class="sl">
+            <div class="sl-h"><span>UTC</span><span>Freq</span><span>DX</span><span>Age</span><span>Act</span></div>
+            <div class="sl-r sel" style="--bc:#66ff99"><span>22:13</span><span class="fq">14.074</span><span class="dx">DL8LAS</span><span class="age"><i style="--aw:92%"></i></span><span class="logbtn">LOG</span></div>
+            <div class="sl-r" style="--bc:#66ff99"><span>22:13</span><span class="fq">14.021</span><span class="dx">G3TXF</span><span class="age"><i style="--aw:88%"></i></span><span></span></div>
+            <div class="sl-r" style="--bc:#66ff99"><span>22:12</span><span class="fq">14.185</span><span class="dx">SM7GXQ</span><span class="age"><i style="--aw:81%"></i></span><span></span></div>
+          </div>
+          <div style="margin-top:auto"><div class="bigbtn">TUNE 20 M <small>14.074 · DL8LAS</small></div></div>
+        </div>
+      </div>
+      <div class="slot slot--right"><span class="tag">Rail right · empty</span>
+        <div class="picker"><button>+ Add widget</button><small>Opens the picker in the centre overlay</small></div>
+      </div>
+      <div class="slot slot--bottom"><span class="tag">Rail bottom · heat map (transposed)</span>
+        <div class="slot-inner">
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:16px">
+            <span style="font-family:var(--f-display);font-weight:700;font-size:13px;letter-spacing:.22em;color:var(--hc-dim);text-transform:uppercase">Bands × continents · world · 30 min</span>
+            <div class="seg seg--sm"><span class="on">World</span><span>My continent</span></div>
+          </div>
+          <div class="hm-t hm-t--mini">
+            <div class="hm-t-row hm-t-head"><span class="k">Cont</span><span>160</span><span>80</span><span>60</span><span>40</span><span>30</span><span>20</span><span>17</span><span>15</span><span>12</span><span>10</span><span>6</span></div>
+            <div class="hm-t-row"><span class="k">NA</span><b class="hm-c v-stir" style="--i:.18">12</b><b class="hm-c v-ver" style="--i:.35">48</b><b class="hm-c v-stir" style="--i:.15">9</b><b class="hm-c v-hot hi" style="--i:.74">214</b><b class="hm-c v-ver hi" style="--i:.5">96</b><b class="hm-c v-hot hi" style="--i:1">386</b><b class="hm-c v-ver hi" style="--i:.61">142</b><b class="hm-c v-ver" style="--i:.48">88</b><b class="hm-c v-stir" style="--i:.28">31</b><b class="hm-c v-stir" style="--i:.35">46</b><b class="hm-c v-stir s" style="--i:.26">27</b></div>
+            <div class="hm-t-row"><span class="k">EU</span><b class="hm-c v-clsd"><i class="z">·</i></b><b class="hm-c v-clsd" style="--i:.05">1</b><b class="hm-c v-clsd"><i class="z">·</i></b><b class="hm-c v-stir" style="--i:.22">18</b><b class="hm-c v-ver" style="--i:.34">44</b><b class="hm-c v-hot hi ring" style="--i:.84">274</b><b class="hm-c v-ver hi" style="--i:.5">96</b><b class="hm-c v-x" style="--i:.33">41</b><b class="hm-c v-fcst" style="--i:.15">9</b><b class="hm-c v-fcst" style="--i:.12">6</b><b class="hm-c v-clsd"><i class="z">·</i></b></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="cv-ftr">
+      <div class="cv-pager"><span class="arw">◄</span><b>A · CHASE DX</b><span class="arw">►</span>
+        <div class="dots"><i class="on"></i><i></i><i></i><i></i></div></div>
+      <div class="cv-health"><span><i style="background:var(--hc-good)"></i>Edit layout available</span><span>Auto-page off</span></div>
+    </div>
+  </div></div>
+
+  <div class="shot shot--pager"><div class="frame frame--pagerstrip">
+    <span class="dockhd"><span class="t">Pages · this workspace</span></span>
+    <div class="pgnames">
+      <div class="pgname on"><b>A · Chase DX</b><span>Recipe · current page</span></div>
+      <div class="pgname"><b>B · Run the pile-up</b><span>Recipe</span></div>
+      <div class="pgname"><b>C · Solar watch</b><span>Recipe</span></div>
+      <div class="pgname"><b>D · Club session</b><span>Recipe · needs session object</span></div>
+      <div class="pgname add"><b>+ New page</b><span>Blank, or start from a recipe</span></div>
+    </div>
+  </div></div>
+  <p class="cap"><b>Recipes are starter pages, not a peer of pages.</b> Choosing one seeds a page's widget set; from that moment it is
+     an ordinary page the operator can edit, rename or delete like any other. The pager strip above is the same control the wall
+     uses today, extended to name pages instead of numbering them.</p>
+
+  <div class="sec-label" style="margin-top:44px"><b>Page 2 · B</b><i>Run the pile-up · no hero — the DX list fills the space</i></div>
+  <div class="shot shot--wall"><div class="frame frame--canvas">
+    <div class="cv-bar">
+      <div style="display:flex;align-items:baseline;gap:18px"><span class="nm">WORKSTATION</span><span class="sub">PAGE 2 OF 4 · B · RUN THE PILE-UP</span></div>
+      <div class="sub">K5ABC · DM79QX · 20 M · TGT DL8LAS</div>
+      <div class="seg"><span>Edit layout</span><span>Recipes</span><span>Settings</span></div>
+    </div>
+    <div class="cv-body recipe-b">
+      <div class="slot slot--left"><span class="tag">Rail left · empty</span>
+        <div class="picker picker--sm"><button>+ Add widget</button><small>Big button, never a hover menu</small></div>
+      </div>
+      <div class="slot slot--hero"><span class="tag">Space · DX spot list, promoted (hero: none)</span>
+        <div class="slot-inner">
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:4px">
+            <div class="hero-switch" style="position:static;width:auto"><button style="min-width:250px">Hero: none — list fills it <span style="color:var(--hc-accent)">▾</span></button></div>
+            <div class="chips"><span class="chip">Band 20 M <x>×</x></span><span class="chip chip--ghost">Needed only</span></div>
+          </div>
+          <div class="sl">
+            <div class="sl-h"><span>UTC</span><span>Age</span><span>Band</span><span>Freq</span><span>DX</span><span>Dist</span></div>
+            <div class="sl-r sel" style="--bc:#66ff99"><span>22:13</span><span class="age"><i style="--aw:96%"></i></span><span class="bd">20m</span><span class="fq">14.074</span><span class="dx">DL8LAS <i class="nb">NEW</i></span><span>7 950</span></div>
+            <div class="sl-r" style="--bc:#66ff99"><span>22:13</span><span class="age"><i style="--aw:94%"></i></span><span class="bd">20m</span><span class="fq">14.021</span><span class="dx">G3TXF</span><span>7 420</span></div>
+            <div class="sl-r" style="--bc:#66ff99"><span>22:12</span><span class="age"><i style="--aw:90%"></i></span><span class="bd">20m</span><span class="fq">14.185</span><span class="dx">SM7GXQ</span><span>7 890</span></div>
+          </div>
+        </div>
+      </div>
+      <div class="slot slot--right"><span class="tag">Rail right · heat map (natural)</span>
+        <div class="slot-inner">
+          <div class="hm hm--work" style="--hm-band:52px;--hm-bandsize:16px;--hm-cell:12px;flex:1 1 auto">
+            <div class="hm-head"><span>Band</span><span>NA</span><span>SA</span><span>EU</span><span>AF</span><span>AS</span><span>OC</span></div>
+            <div class="hm-row"><span class="hm-band on" style="--bc:#66ff99">20</span><b class="hm-c v-hot hi" style="--i:1">386</b><b class="hm-c v-hot hi" style="--i:.55">118</b><b class="hm-c v-hot hi" style="--i:.84">274</b><b class="hm-c v-ver" style="--i:.23">21</b><b class="hm-c v-ver" style="--i:.4">63</b><b class="hm-c v-ver" style="--i:.33">42</b></div>
+            <div class="hm-row"><span class="hm-band" style="--bc:#ffcc66">40</span><b class="hm-c v-hot hi" style="--i:.74">214</b><b class="hm-c v-ver" style="--i:.26">26</b><b class="hm-c v-stir" style="--i:.22">18</b><b class="hm-c v-clsd">2</b><b class="hm-c v-clsd">4</b><b class="hm-c v-stir" style="--i:.13">7</b></div>
+          </div>
+        </div>
+      </div>
+      <div class="slot slot--bottom"><span class="tag">Rail bottom · logger</span>
+        <div class="slot-inner">
+          <div class="lg">
+            <div><label>Callsign</label><div class="in">DL8LAS</div></div>
+            <div><label>RST sent</label><div class="in">599</div></div>
+            <div><label>RST rcvd</label><div class="in">579</div></div>
+            <div><label>Exchange</label><div class="in ph">K-4404</div></div>
+            <div class="go">LOG QSO</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="cv-ftr">
+      <div class="cv-pager"><span class="arw">◄</span><b>B · RUN THE PILE-UP</b><span class="arw">►</span>
+        <div class="dots"><i></i><i class="on"></i><i></i><i></i></div></div>
+      <div class="cv-health"><span>Band, freq and mode read from shared state</span></div>
+    </div>
+  </div></div>
+  <p class="cap"><b>Same canvas, different page.</b> Nothing in <code>WorkspaceCanvas.tsx</code> changed — the operator switched the
+     hero to "none," which promotes the highest-weight rail widget (the DX list) into the space, per the auto-dock rule.</p>
+
+  <div class="sec-label" style="margin-top:44px"><b>Pages 3–4 · C &amp; D</b><i>placement tables, not full frames — see note 8</i></div>
+  <div class="pair">
+    <div class="wcard" style="width:520px;padding:14px 16px">
+      <div class="nm" style="font-size:15px">C · Solar watch</div>
+      <div class="mt">Persona P4 · audit §7 view 1</div>
+      <div class="cvrules" style="padding:0;margin-top:6px">
+        <div><span>Space</span><b>3D globe · DRAP + grey line</b></div>
+        <div><span>Rail left</span><b>Primary metrics + series chart · 72 h</b></div>
+        <div><span>Rail right</span><b>Space-weather strip + X-ray</b></div>
+        <div><span>Rail bottom</span><b>Forecast + NowCast bands · next 24 h</b></div>
+      </div>
+    </div>
+    <div class="wcard" style="width:520px;padding:14px 16px">
+      <div class="nm" style="font-size:15px">D · Club session</div>
+      <div class="mt">Persona P8 · needs the operating-session object</div>
+      <div class="cvrules" style="padding:0;margin-top:6px">
+        <div><span>Space</span><b>2D flat map · session QSOs plotted</b></div>
+        <div><span>Rail left</span><b>Logger · session-tagged</b></div>
+        <div><span>Rail right</span><b>Activations + alerts ticker</b></div>
+        <div><span>Rail bottom</span><b>"Contacts we made" board · host view</b></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="sec-label" style="margin-top:44px"><b>Tablet canvas</b><i>1024 × 768 · one rail</i></div>
+  <p class="sec-note">The tablet gets one rail — bottom in landscape, right in portrait — and reads the <em>work</em> registry column
+     at touch sizing (48 px minimum). Shown here on page 2 of 3, Propagation.</p>
+  <div class="shot shot--tab"><div class="frame frame--tablet">
+    <div class="cv-bar">
+      <div style="display:flex;align-items:baseline;gap:14px"><span class="nm" style="font-size:15px">TABLET</span><span class="sub">PAGE 2 OF 3 · PROPAGATION</span></div>
+      <div class="seg seg--sm"><span>Edit</span><span>Settings</span></div>
+    </div>
+    <div class="cv-body">
+      <div class="slot slot--hero"><span class="tag">Space · azimuthal</span><div class="azim"></div></div>
+      <div class="slot slot--right">
+        <span class="tag">Rail right · 3 tiles</span>
+        <div class="slot-inner" style="gap:6px">
+          <div class="hc-tile" style="--hc-state:var(--hc-good);min-height:0;padding:8px 9px"><p class="w-t" style="font-size:9px">BEST BAND<em style="font-size:8px">NOW</em></p><p class="w-hero" style="font-size:24px">20 M</p></div>
+          <div class="hc-tile" style="--hc-state:var(--hc-warn);min-height:0;padding:8px 9px"><p class="w-t" style="font-size:9px">SPACE WX</p><div class="wxh"><div><b style="font-size:12px">148</b><span>SFI</span></div><div><b style="font-size:12px">4</b><span>KP</span></div></div></div>
+          <div class="hc-tile" style="--hc-state:var(--hc-info);min-height:0;padding:8px 9px"><p class="w-t" style="font-size:9px">MOON</p><div style="display:flex;gap:6px;align-items:center"><div class="moon" style="--mz:22px"></div><span style="font-family:var(--f-mono);font-size:9px;color:var(--hc-dim)">78%</span></div></div>
+        </div>
+      </div>
+    </div>
+    <div class="cv-ftr">
+      <div class="cv-pager"><span class="arw">◄</span><b>PROPAGATION</b><span class="arw">►</span>
+        <div class="dots"><i></i><i class="on"></i><i></i></div></div>
+    </div>
+  </div></div>
+  <p class="cap">Tablet rules are proposed defaults (<code>canvasRules.ts</code>), not owner-stated — a data change, not a code
+     change, if they need to move.</p>
+</section>
+
+<!-- ======================= 3 · EDIT LAYOUT + WIDGET PICKER ================ -->
+<section class="sec">
+  <div class="sec-label"><b>3 · Edit layout + widget picker</b><i>rail toggles · per-widget actions · centre overlay</i></div>
+  <p class="sec-note">Edit mode never reveals controls on pointer entry — every action shown here is a standing button, not a hover
+     reveal. Rail ON/OFF is a row of big spelled-out toggles under the workspace bar. Each placed widget carries three actions on
+     its own header: <b>MAKE HERO</b>, <b>MOVE TO RAIL</b>, <b>REMOVE</b>. An empty rail's single button opens the picker, centred
+     over the space — never a side flyout.</p>
+
+  <div class="shot shot--wall"><div class="frame frame--canvas edit" style="grid-template-rows:64px 60px minmax(0,1fr) 46px">
+    <div class="cv-bar">
+      <div style="display:flex;align-items:baseline;gap:18px"><span class="nm">WORKSTATION</span><span class="sub">EDITING · A · CHASE DX</span></div>
+      <div class="seg"><span class="on">Edit layout</span><span>Recipes</span><span>Settings</span></div>
+    </div>
+    <div class="railcfg">
+      <span class="k">Rails on this page</span>
+      <div class="railtog on">LEFT <u>ON</u></div>
+      <div class="railtog on">RIGHT <u>ON</u></div>
+      <div class="railtog on">BOTTOM <u>ON</u></div>
+      <span style="margin-left:auto;font-family:var(--f-mono);font-size:10px;color:var(--hc-dim2);letter-spacing:.1em">Turning a rail OFF hides it on this page only — widgets in it move to "unplaced," not deleted</span>
+    </div>
+    <div class="cv-body recipe-a">
+      <div class="slot slot--hero"><span class="tag">Space · 2D flat map</span><div class="mapish"></div></div>
+      <div class="slot slot--left" style="--slc:44px 58px minmax(0,1fr) 34px"><span class="tag">Rail left · DX spot list</span>
+        <div class="slot-inner" style="padding-bottom:56px">
+          <div class="sl">
+            <div class="sl-r sel" style="--bc:#66ff99"><span>22:13</span><span class="fq">14.074</span><span class="dx">DL8LAS</span><span class="age"><i style="--aw:92%"></i></span></div>
+            <div class="sl-r" style="--bc:#66ff99"><span>22:13</span><span class="fq">14.021</span><span class="dx">G3TXF</span><span class="age"><i style="--aw:88%"></i></span></div>
+          </div>
+        </div>
+        <div class="slot-ops">
+          <div class="opsbtn acc">MAKE<br>HERO</div>
+          <div class="opsbtn">MOVE TO<br>RAIL</div>
+          <div class="opsbtn warn">REMOVE</div>
+        </div>
+      </div>
+      <div class="slot slot--right"><span class="tag">Rail right · empty</span>
+        <div class="picker"><button>+ Add widget</button></div>
+      </div>
+      <div class="slot slot--bottom"><span class="tag">Rail bottom · heat map</span>
+        <div class="slot-inner"><div class="hm-t hm-t--mini">
+          <div class="hm-t-row"><span class="k">NA</span><b class="hm-c v-hot hi" style="--i:1">386</b><b class="hm-c v-ver" style="--i:.35">48</b><b class="hm-c v-hot hi" style="--i:.74">214</b></div>
+        </div></div>
+      </div>
+    </div>
+    <div class="backdrop"></div>
+    <div class="pkr">
+      <div class="pkr-hd">
+        <div><span class="eb">Add widget · rail right</span><h4>Widget picker</h4><p>Choose what goes here — the layout engine decides where.</p></div>
+        <div class="dlg-x" style="width:40px;height:40px">✕</div>
+      </div>
+      <div class="pkr-body">
+        <div class="pk-grid">
+          <div class="pk-card off"><b>DX spot list</b><span>Already on this page</span><div class="dens"><i class="y">WALL</i><i class="y">WORK</i></div><span style="font-family:var(--f-mono);font-size:9px;color:var(--hc-dim2);text-transform:uppercase">ON RAIL LEFT</span></div>
+          <div class="pk-card off"><b>Heat map</b><span>Already on this page</span><div class="dens"><i class="y">WALL</i><i class="y">GLANCE</i><i class="y">WORK</i></div><span style="font-family:var(--f-mono);font-size:9px;color:var(--hc-dim2);text-transform:uppercase">ON RAIL BOTTOM</span></div>
+          <div class="pk-card on"><b>Space-weather strip</b><span>SFI, Kp, X-ray in one strip</span><div class="dens"><i class="y">WALL</i><i class="y">GLANCE</i><i class="y">WORK</i></div></div>
+          <div class="pk-card"><b>Best band</b><span>Verified-open band right now</span><div class="dens"><i class="y">WALL</i><i class="y">GLANCE</i><i class="y">WORK</i></div></div>
+          <div class="pk-card"><b>NowCast bands</b><span>Model chain + confidence per band</span><div class="dens"><i class="y">GLANCE</i><i class="y">WORK</i></div></div>
+          <div class="pk-card"><b>Weather</b><span>Local conditions and 7-day</span><div class="dens"><i class="y">WALL</i><i class="y">GLANCE</i></div></div>
+          <div class="pk-card"><b>Activations</b><span>POTA / SOTA on the air now</span><div class="dens"><i class="y">WALL</i><i class="y">GLANCE</i></div></div>
+          <div class="pk-card"><b>Alerts ticker</b><span>Space-weather and NWS alerts</span><div class="dens"><i class="y">WALL</i><i class="y">GLANCE</i><i class="y">WORK</i></div></div>
+        </div>
+      </div>
+      <div class="pkr-ft">
+        <span class="note">Rail right · 0 of 5 used</span>
+        <div style="display:flex;gap:10px"><button class="dlgbtn ghost">Cancel</button><button class="dlgbtn">Add to this page</button></div>
+      </div>
+    </div>
+  </div></div>
+  <p class="cap"><b>Auto-dock, not manual placement.</b> The picker lists widgets, not positions — "Space-weather strip" is selected
+     here, and <b>ADD TO THIS PAGE</b> docks it wherever the canvas rules and its registry weight say it fits, which on this page
+     is the empty right rail. Widgets already on the page are greyed with their placement named, mirroring the wall's "one tile,
+     one place" rule.</p>
+</section>
+
+<!-- ======================= 4 · SETTINGS DIALOG ============================ -->
+<section class="sec">
+  <div class="sec-label"><b>4 · Settings dialog</b><i>centred · tabbed · HamClockDialog primitives</i></div>
+  <p class="sec-note">One dialog shell, reused. <b>WIDGETS</b> lists what is on the current page with a big spelled ON/OFF per row
+     and a config gear for inline expansion. <b>DISPLAY</b> holds canvas scale, theme, band visibility and the headline rule.
+     No dropdowns anywhere; rows are full width, minimum 56 px; nothing scrolls inside a tab.</p>
+
+  <div class="pair">
+    <div class="shot shot--dlg"><div class="frame frame--stage">
+      <div class="dlg">
+        <div class="dlg-hd">
+          <div><span class="eb">Workspace settings</span><h4>Chase DX — page 1</h4><p>Which widgets are on this page</p></div>
+          <div class="dlg-x">✕</div>
+        </div>
+        <div class="dlg-tabs">
+          <button class="dlg-tab" aria-selected="true">Widgets</button>
+          <button class="dlg-tab" aria-selected="false">Display</button>
+        </div>
+        <div class="dlg-body">
+          <div class="dlg-sec">On this page · rail left</div>
+          <div class="togrow"><div><div class="nm">DX spot list</div><div class="ds">Filtered by shared operating state</div></div>
+            <div class="sp"><div class="togbtn on">ON</div><div class="gear">⚙</div></div></div>
+          <div class="dlg-sec">On this page · rail bottom</div>
+          <div class="togrow"><div><div class="nm">Heat map</div><div class="ds">Transposed to the slot's aspect</div></div>
+            <div class="sp"><div class="togbtn on">ON</div><div class="gear">⚙</div></div></div>
+          <div class="dlg-sec">Rail right</div>
+          <div class="togrow"><div><div class="nm">Space-weather strip</div><div class="ds">Added just now — see section 3</div></div>
+            <div class="sp"><div class="togbtn on">ON</div><div class="gear">⚙</div></div></div>
+        </div>
+        <div class="dlg-ft"><span class="note">3 of 15 registry widgets placed</span>
+          <div style="display:flex;gap:10px"><button class="dlgbtn ghost">Close</button><button class="dlgbtn">Done</button></div></div>
+      </div>
+    </div></div>
+
+    <div class="shot shot--dlg"><div class="frame frame--stage">
+      <div class="dlg">
+        <div class="dlg-hd">
+          <div><span class="eb">Workspace settings</span><h4>Chase DX — page 1</h4><p>Canvas scale, theme, band visibility, headline rule</p></div>
+          <div class="dlg-x">✕</div>
+        </div>
+        <div class="dlg-tabs">
+          <button class="dlg-tab" aria-selected="false">Widgets</button>
+          <button class="dlg-tab" aria-selected="true">Display</button>
+        </div>
+        <div class="dlg-body">
+          <div class="dlg-sec">Canvas scale</div>
+          <div class="seg"><span>0.85</span><span class="on">1.00</span><span>1.15</span><span>1.30</span></div>
+          <div class="dlg-sec">Theme</div>
+          <div class="themecards">
+            <div class="themecard on"><b>Pulse</b><div class="sw"><i style="background:#0a0e1a"></i><i style="background:#ff6b35"></i><i style="background:#44ddff"></i></div></div>
+            <div class="themecard"><b>Classic</b><div class="sw"><i style="background:#0f1a12"></i><i style="background:#7bd88f"></i><i style="background:#d9c27a"></i></div></div>
+            <div class="themecard"><b>Brass</b><div class="sw"><i style="background:#1a140c"></i><i style="background:#d9a441"></i><i style="background:#e8d5a3"></i></div></div>
+          </div>
+          <div class="dlg-sec">Band visibility</div>
+          <div style="display:flex;gap:5px;flex-wrap:wrap">
+            <div class="togbtn on" style="min-width:48px;font-size:10px">20M</div>
+            <div class="togbtn on" style="min-width:48px;font-size:10px">40M</div>
+            <div class="togbtn on" style="min-width:48px;font-size:10px">17M</div>
+            <div class="togbtn off" style="min-width:48px;font-size:10px">160M</div>
+            <div class="togbtn off" style="min-width:48px;font-size:10px">6M</div>
+          </div>
+          <div class="dlg-sec">Headline rule</div>
+          <div class="radio" aria-checked="true"><i></i><div><b>Hottest cell</b><em>Names the loudest path whether or not you can work it</em></div></div>
+          <div class="radio" aria-checked="false"><i></i><div><b>My best workable band</b><em>Never names a path your station can't take — <u>see review note 5</u></em></div></div>
+        </div>
+        <div class="dlg-ft"><span class="note">Applies to every workspace on this canvas</span>
+          <div style="display:flex;gap:10px"><button class="dlgbtn ghost">Close</button><button class="dlgbtn">Done</button></div></div>
+      </div>
+    </div></div>
+  </div>
+  <p class="cap">Both tabs reuse <code>HamClockDialog</code>, <code>HamClockTabs</code>, <code>HamClockToggleRow</code> and
+     <code>HamClockSegmented</code> verbatim — no new dialog shell, per WORKSPACE-CONCEPT.md §7.</p>
+</section>
+
+<!-- ======================= 5 · PHONE PAGES + #632 TRACE ==================== -->
+<section class="sec">
+  <div class="sec-label"><b>5 · Phone pages + the #632 workflow trace</b><i>390 pt · bands → band → contact → tune</i></div>
+  <p class="sec-note">The phone canvas has no rails; the space is the whole page. Page 4 is new — the Decision layer (#624) at
+     phone density, with <b>TUNE</b> at the foot carrying the frequency it will send. The state strip is byte-identical on all
+     four pages and on every other canvas the operator has open.</p>
+
+  <div class="shot shot--phones"><div class="frame frame--phones">
+    <div class="ph">
+      <div class="ph-state"><i class="dot"></i><span>FIELD DAY 2026</span><span class="bd">20 M</span><span>TGT <b>—</b></span><span style="margin-left:auto">184 Q</span></div>
+      <div class="ph-hd"><div class="eyebrow">Page 1 · Logger</div><h4>Fast log</h4></div>
+      <div class="ph-body">
+        <div class="ph-f"><label>Callsign</label><div class="in ph">Waiting for a contact…</div></div>
+        <div class="ph-go">LOG QSO</div>
+        <div class="ph-recent"><div class="k">Last three</div>
+          <div class="r"><b>OK1RR</b><span>22:12 · 20 m</span></div>
+          <div class="r"><b>G3TXF</b><span>22:11 · 20 m</span></div>
+        </div>
+      </div>
+      <div class="ph-dots"><i class="on"></i><i></i><i></i><i></i></div>
+    </div>
+
+    <div class="ph">
+      <div class="ph-state"><i class="dot"></i><span>FIELD DAY 2026</span><span class="bd">20 M</span><span>TGT <b>—</b></span><span style="margin-left:auto">184 Q</span></div>
+      <div class="ph-step"><b>①</b> Step: bands → tap a band to continue</div>
+      <div class="ph-hd" style="padding-top:38px"><div class="eyebrow">Page 3 · Propagation</div><h4>Bands → North America</h4></div>
+      <div class="ph-body">
+        <div class="ph-scope"><span class="on">My continent</span><span>World</span></div>
+        <div class="ph-hm">
+          <div class="r sel"><span class="b" style="--bc:#66ff99">20</span><span class="bar"><i style="--t:255 107 53;--i:1"></i></span><span class="n">386</span><span class="v t-hot">Hot · rising</span></div>
+          <div class="r"><span class="b" style="--bc:#ffcc66">40</span><span class="bar"><i style="--t:255 107 53;--i:.74"></i></span><span class="n">214</span><span class="v t-hot">Hot</span></div>
+          <div class="r"><span class="b" style="--bc:#66ffcc">17</span><span class="bar"><i style="--t:0 255 136;--i:.61"></i></span><span class="n">142</span><span class="v t-ver">Verified open</span></div>
+        </div>
+      </div>
+      <div class="ph-dots"><i></i><i></i><i class="on"></i><i></i></div>
+    </div>
+
+    <div class="ph">
+      <div class="ph-state"><i class="dot"></i><span>FIELD DAY 2026</span><span class="bd">20 M</span><span>TGT <b>—</b></span><span style="margin-left:auto">184 Q</span></div>
+      <div class="ph-step"><b>②③</b> Band set · list filters · tap a contact</div>
+      <div class="ph-hd" style="padding-top:38px"><div class="eyebrow">Page 2 · Cluster</div><h4>DX spots · 20 m</h4></div>
+      <div class="ph-body">
+        <div class="ph-scope"><span class="on">Band 20 m</span><span>All bands</span></div>
+        <div class="ph-sl">
+          <div class="r sel" style="--bc:#66ff99"><span class="bd">20m</span><span><span class="dx">DL8LAS</span><br>W3LPL · 1 m</span><span class="fq">14.074</span><span>7 950</span></div>
+          <div class="r" style="--bc:#66ff99"><span class="bd">20m</span><span><span class="dx">G3TXF</span><br>K1TTT · 1 m</span><span class="fq">14.021</span><span>7 420</span></div>
+          <div class="r" style="--bc:#66ff99"><span class="bd">20m</span><span><span class="dx">SM7GXQ</span><br>KM3T · 2 m</span><span class="fq">14.185</span><span>7 890</span></div>
+        </div>
+      </div>
+      <div class="ph-dots"><i></i><i class="on"></i><i></i><i></i></div>
+    </div>
+
+    <div class="ph trace">
+      <div class="ph-step" style="top:0"><b>④⑤⑥</b> Contact set · TUNE via bridge host</div>
+      <div class="ph-state"><i class="dot"></i><span>FIELD DAY 2026</span><span class="bd">20 M</span><span>TGT <b>DL8LAS</b></span><span style="margin-left:auto">184 Q</span></div>
+      <div class="ph-hd"><div class="eyebrow">Page 4 · Contact — new</div><h4>DL8LAS · DM79QX</h4></div>
+      <div class="ph-body">
+        <div class="ph-mc">
+          <div class="c" style="--mcc:#8bdbb0"><span class="k">SNR margin</span><span class="v">+26</span></div>
+          <div class="c" style="--mcc:#85c4d0"><span class="k">Distance</span><span class="v">7 950</span></div>
+        </div>
+        <div class="ph-recent"><div class="k">Our log with them</div>
+          <div class="r"><b>2 prior QSOs</b><span>Last: 2026-03-14 · 20 m</span></div>
+        </div>
+        <div class="ph-tune">TUNE 20 M <small>14.074 · via K5ABC bridge</small></div>
+      </div>
+      <div class="ph-dots"><i></i><i></i><i></i><i class="on"></i></div>
+    </div>
+  </div></div>
+  <p class="cap"><b>Tune-from-phone is a per-station toggle.</b> The <code>TUNE</code> button appears only because this session's
+     workstation published <code>canTune</code> in its registration record; with no bridge host in the session the button is
+     absent, not disabled-with-an-explanation.</p>
+
+  <div class="sec-label" style="margin-top:44px"><b>The trace across every open workspace</b><i>#632 acceptance · one workflow, three screens</i></div>
+  <p class="sec-note">The same tap on the phone updates the heat map on the workstation and the best-band tile on the wall, because
+     all three read <code>operatingStateStore</code>, not a per-device copy. The state strip renders byte-identical on every one.</p>
+
+  <div class="shot shot--dev"><div class="frame devs" style="padding:14px">
+    <div class="dev" style="width:230px">
+      <div class="dev-cap"><span>Phone</span><b>Tapped 20 M</b></div>
+      <div class="dev-state"><i class="dot"></i><span>FIELD DAY</span><span class="bd">20 M</span><span>TGT <b>DL8LAS</b></span></div>
+      <div class="dev-body" style="grid-template-rows:1fr">
+        <div class="dev-cell tuned">PAGE 4 · CONTACT<br>TUNE 14.074</div>
+      </div>
+    </div>
+    <div class="dev" style="width:420px">
+      <div class="dev-cap"><span>Workstation</span><b>Heat map follows</b></div>
+      <div class="dev-state"><i class="dot"></i><span>FIELD DAY</span><span class="bd">20 M</span><span>TGT <b>DL8LAS</b></span></div>
+      <div class="dev-body" style="grid-template-columns:100px 1fr 90px;grid-template-rows:1fr 60px;grid-template-areas:'l space r' 'l bot r'">
+        <div class="dev-cell" style="grid-area:l">RAIL LEFT<br>DX LIST · TGT LIT</div>
+        <div class="dev-cell space tuned" style="grid-area:space">SPACE · MAP<br>MARKER ON DL8LAS</div>
+        <div class="dev-cell" style="grid-area:r">RAIL RIGHT</div>
+        <div class="dev-cell" style="grid-area:bot">RAIL BOTTOM · HEAT MAP · 20 M ROW LIT</div>
+      </div>
+    </div>
+    <div class="dev" style="width:300px">
+      <div class="dev-cap"><span>Wall</span><b>Best band follows</b></div>
+      <div class="dev-state"><i class="dot"></i><span>FIELD DAY</span><span class="bd">20 M</span><span>TGT <b>DL8LAS</b></span></div>
+      <div class="dev-body" style="grid-template-rows:1fr">
+        <div class="dev-cell tuned">BEST BAND TILE<br>20 M · VERIFIED OPEN</div>
+      </div>
+    </div>
+  </div></div>
+  <p class="cap"><b>Registration, not a second store.</b> Each workspace announces
+     <code>{ workspaceId, deviceId, canvasType, capabilities, lastSeen }</code>; only the workstation here published
+     <code>canTune</code>, so it is the one that acts when the phone's TUNE fires. <code>opsPostureStore.enterContact</code>
+     becomes a writer into the shared object rather than a second source of truth.</p>
+</section>
+
+<!-- ======================= 6 · REVIEW NOTES ================================ -->
+<section class="notes">
+  <div class="sec-label" style="border-color:var(--su-warning)"><b>Review notes</b><i>what this mock asserts, what it leaves open</i></div>
+  <ol>
+    <li><b>Asserted, not open: one registry, four densities.</b><span> Section 1 is the load-bearing claim — every widget family
+        already has a home at wall/glance/work/phone, or a named gap, without inventing a second component set. The heat map is
+        the only widget with no existing form anywhere.</span></li>
+    <li><b>Open — does a page pin to the workspace, or roam with the operator?</b><span> A workspace is per-screen; pages are the
+        operator's tools. If pages roam, the club shack's wall flips to whatever page someone built on their phone; if they pin,
+        the same page has to be rebuilt on every screen. WORKSPACE-CONCEPT.md §10 proposes pin-by-default, recipes roam — this
+        mock draws pinned pages (section 2) and does not draw the roaming case. Confirm.</span></li>
+    <li><b>Open — what does auto-dock do when a rail is already full?</b><span> Section 3's picker assumes an empty slot. Refuse
+        the add with a spelled-out reason, evict the lowest-weight widget to another rail, or spill onto a new page automatically
+        — refusing is the most honest and the least surprising, but the picker then has to explain itself in one sentence the
+        operator can act on. Not drawn here.</span></li>
+    <li><b>Open — does band visibility follow the operator or the placement?</b><span> Section 4's DISPLAY tab sets it per
+        workspace. Following the operator instead means one club member's band set reaches every screen in the shack; a third
+        option derives it from the station profile (hide bands with no antenna) with a per-workspace override. Undecided.</span></li>
+    <li><b>Open — wall click opens a report, workstation click performs an action.</b><span> Section 2/3 draw the workstation
+        click as an action (filter, no modal) — the same split heatmap-contact-sheet.html section 4 draws for the wall vs.
+        workstation heat map. WORKSPACE-CONCEPT.md §4 resolves it by putting "Open report" in every widget header regardless of
+        canvas; confirm that is sufficient, or a modifier (long-press / secondary target) is needed so both stay reachable
+        everywhere.</span></li>
+    <li><b>Open — default headline rule, and does the phone get World scope?</b><span> Section 4 shows "Hottest cell" selected
+        with "My best workable band" as the alternative that can never name an unworkable path — the least interesting sentence
+        on a club wall but the most honest one on a personal workstation. Separately, a phone at 44 pt cannot fit six columns in
+        World scope; section 5 only draws "my continent." A horizontally paged matrix, a continent picker above the ladder, or
+        disabling World scope on phones are the three options — none drawn.</span></li>
+    <li><b>Blocking — the heat-map encoding itself is two different pictures.</b><span> This mock's heat-map miniatures (section 1,
+        and the transposed/natural grids in sections 2–3) use the v2 hue-by-verdict, opacity-by-traffic ramp from
+        heatmap-contact-sheet.html — hue = Band Health ladder state, opacity = raw count against a 400-spot ceiling. Audit §16,
+        written later the same day, decided per-cell baseline normalisation instead: a log2 ratio against the same-UTC-hour
+        baseline, drawn on a <em>diverging</em> quiet-grey / workable-green / crowded-orange ramp, with an open sub-question of
+        whether "crowded" also needs an absolute floor (ratio &gt; 2× <b>and</b> count ≥ 10). These are not reconcilable by
+        drawing harder — <b>PR 1 in WORKSPACE-CONCEPT.md §9 (heat map compute + baseline) cannot start until the owner picks
+        one.</b></span></li>
+    <li><b>Scope decision made in this mock, stated here rather than left silent.</b><span> Section 2 draws recipes A and B as
+        full pixel frames and C/D as placement tables, to keep this sheet a reasonable size — not because C/D are less real.
+        Recipe D explicitly depends on the operating-session object (WORKSPACE-CONCEPT.md §5, "ships last") so a lighter-weight
+        treatment there also reflects its actual build order.</span></li>
+    <li><b>Non-goals this mock does not draw, on purpose.</b><span> No engine work — the <code>Opportunity</code> object and the
+        callsign-activity aggregate stay out of scope; the registry only has to be able to render one when it exists. No free
+        window manager and no manual slot placement — every "move" action in section 3 is MOVE TO RAIL, never drag-to-slot.
+        Nothing about Home, PropSphere, the wall or Solar Pulse changes; every visual here is a facsimile, not a modified real
+        component.</span></li>
+    <li><b>DS components reused, by section.</b><span>
+        <b>§1</b> — <code>HamClockTile</code>/wall-tile grammar, <code>PrimaryMetrics</code>, <code>MetricCard</code>,
+        <code>SolarSeriesChart</code>, <code>DXSpotList</code>/<code>SpotRow</code>, <code>NowCastBandPanel</code>,
+        <code>BandActivityBar</code>, <code>HomeBandsLadder</code>, the DS-15 <code>SectionHeader</code> band (su-rule/su-band).
+        <b>§2</b> — <code>WorkspaceCanvas</code>/<code>WorkspaceBar</code>/<code>SpaceSlot</code>/<code>RailSlot</code>
+        composition shapes (proposed, §9), <code>HamClockPager</code> footer idiom, hero-switch radiogroup pattern.
+        <b>§3</b> — <code>HamClockToggleRow</code>-style spelled toggles, the centre-overlay picker grammar from
+        heatmap-contact-sheet.html §4/§3c.
+        <b>§4</b> — <code>HamClockDialog</code>, <code>HamClockTabs</code>, <code>HamClockToggleRow</code>,
+        <code>HamClockSegmented</code>, theme cards from the wall settings <code>ThemeTab</code>.
+        <b>§5</b> — <code>MobileLayout</code> phone shell grammar, <code>PathAnalysis</code>/#624 Decision-layer shape, the
+        state-strip idiom carried from every wall header.</span></li>
+  </ol>
+</section>
+
+</main>
+</body>
+</html>

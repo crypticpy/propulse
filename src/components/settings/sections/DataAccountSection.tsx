@@ -225,7 +225,7 @@ export function DataAccountSection() {
             <div className="space-y-4">
               {/* User info */}
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-full bg-plasma-orange/20 flex items-center justify-center text-plasma-orange font-bold">
+                <div className="w-10 h-10 rounded-full bg-plasma-orange/20 flex items-center justify-center text-su-text font-bold">
                   {(user?.email?.[0] ?? "U").toUpperCase()}
                 </div>
                 <div className="min-w-0">
@@ -303,7 +303,7 @@ export function DataAccountSection() {
               <button
                 type="button"
                 onClick={() => openAuthModal()}
-                className="w-full flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-sm font-medium bg-plasma-orange/20 text-plasma-orange hover:bg-plasma-orange/30 border border-plasma-orange/30 transition-colors"
+                className="w-full flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-sm font-medium bg-plasma-orange/15 text-su-text hover:bg-plasma-orange/20 border border-plasma-orange/30 transition-colors"
               >
                 Sign In
               </button>
@@ -332,7 +332,7 @@ export function DataAccountSection() {
           type="button"
           onClick={handleExport}
           className="w-full flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-sm font-medium
-                     bg-plasma-orange/20 text-plasma-orange hover:bg-plasma-orange/30
+                     bg-plasma-orange/15 text-su-text hover:bg-plasma-orange/20
                      border border-plasma-orange/30 transition-colors"
         >
           <svg
@@ -423,7 +423,7 @@ export function DataAccountSection() {
                 onClick={handleConfirmImport}
                 disabled={isImporting}
                 className="flex-1 px-4 py-2 rounded-lg text-sm font-medium
-                           bg-plasma-orange/20 text-plasma-orange hover:bg-plasma-orange/30
+                           bg-plasma-orange/15 text-su-text hover:bg-plasma-orange/20
                            border border-plasma-orange/30 transition-colors
                            disabled:opacity-50 disabled:cursor-not-allowed"
               >
@@ -521,7 +521,7 @@ export function DataAccountSection() {
             className={`w-full flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors
                        ${
                          entries.length > 0
-                           ? "bg-plasma-orange/20 text-plasma-orange hover:bg-plasma-orange/30 border border-plasma-orange/30"
+                           ? "bg-plasma-orange/15 text-su-text hover:bg-plasma-orange/20 border border-plasma-orange/30"
                            : "bg-nebula-blue border border-su-line/40 text-su-muted cursor-not-allowed"
                        }`}
           >
@@ -577,7 +577,7 @@ export function DataAccountSection() {
             className={`w-full flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors
                        ${
                          tileCacheCount !== 0 && !isClearingCache
-                           ? "bg-plasma-orange/20 text-plasma-orange hover:bg-plasma-orange/30 border border-plasma-orange/30"
+                           ? "bg-plasma-orange/15 text-su-text hover:bg-plasma-orange/20 border border-plasma-orange/30"
                            : "bg-nebula-blue border border-su-line/40 text-su-muted cursor-not-allowed"
                        }`}
           >

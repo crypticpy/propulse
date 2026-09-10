@@ -56,7 +56,7 @@ function CategoryBadge({ category }: { category: SatelliteCategory }) {
   const meta = CATEGORY_META[category];
   return (
     <span
-      className={`inline-block px-1.5 py-0.5 rounded text-[9px] font-semibold uppercase tracking-wider ${meta.color} ${meta.bg}`}
+      className={`inline-block px-1.5 py-0.5 rounded text-xs font-semibold uppercase tracking-wider ${meta.color} ${meta.bg}`}
     >
       {meta.label}
     </span>
@@ -88,7 +88,7 @@ function qualityColor(score: number): string {
 function StarRating({ score }: { score: 1 | 2 | 3 | 4 | 5 }) {
   return (
     <span
-      className={`text-[10px] ${qualityColor(score)}`}
+      className={`text-xs ${qualityColor(score)}`}
       aria-label={`${score} out of 5 stars`}
     >
       {"★".repeat(score)}
@@ -120,12 +120,12 @@ function SatNOGSTransponderRow({ tx }: { tx: SatNOGSTransmitter }) {
   return (
     <div className="bg-su-line/10 rounded-md px-2.5 py-2 mb-1">
       <div className="flex items-center justify-between">
-        <span className="text-[11px] font-medium text-su-muted truncate">
+        <span className="text-xs font-medium text-su-muted truncate">
           {tx.description}
         </span>
         <div className="flex items-center gap-1 flex-shrink-0">
           <span
-            className={`text-[8px] px-1 py-0.5 rounded font-semibold uppercase ${
+            className={`text-xs px-1 py-0.5 rounded font-semibold uppercase ${
               tx.status === "active"
                 ? "bg-green-400/20 text-green-400"
                 : "bg-su-line/20 text-su-muted"
@@ -134,14 +134,19 @@ function SatNOGSTransponderRow({ tx }: { tx: SatNOGSTransmitter }) {
             {tx.status}
           </span>
           {tx.mode && (
-            <span className="text-[9px] px-1 py-0.5 rounded uppercase font-semibold bg-cyan-400/20 text-cyan-400">
+            <span className="text-xs px-1 py-0.5 rounded uppercase font-semibold bg-cyan-400/20 text-cyan-400">
               {tx.mode}
               {tx.invert ? " INV" : ""}
             </span>
           )}
         </div>
       </div>
-      <div className="grid grid-cols-2 gap-1 mt-1 text-[10px] font-mono">
+      {/*
+        Round-9: the duplicated grid in SatellitePanel.tsx had the same
+        fixed two-column regression at the xl scale; auto-fit stacking
+        fixes both copies the same way.
+      */}
+      <div className="grid grid-cols-[repeat(auto-fit,minmax(6.5rem,1fr))] gap-1 mt-1 text-xs font-mono">
         {(tx.uplink_low || tx.uplink_high) && (
           <div>
             <span className="text-su-muted">UP: </span>
@@ -211,12 +216,12 @@ function TransponderInfo({
 
   return (
     <div className="mt-3">
-      <div className="flex items-center gap-1.5 mb-1.5">
-        <span className="text-[10px] text-su-muted uppercase tracking-wider font-semibold">
+      <div className="flex flex-wrap items-center gap-x-1.5 gap-y-1 mb-1.5">
+        <span className="text-xs text-su-muted uppercase tracking-wider font-semibold">
           Transponders
         </span>
         {useSatNOGS && (
-          <span className="text-[8px] px-1 py-0.5 rounded bg-cyan-400/10 text-cyan-400 font-medium">
+          <span className="text-xs px-1 py-0.5 rounded bg-cyan-400/10 text-cyan-400 font-medium">
             SatNOGS
           </span>
         )}
@@ -233,11 +238,11 @@ function TransponderInfo({
               className="bg-su-line/10 rounded-md px-2.5 py-2 mb-1"
             >
               <div className="flex items-center justify-between">
-                <span className="text-[11px] font-medium text-su-muted">
+                <span className="text-xs font-medium text-su-muted">
                   {xpdr.name}
                 </span>
                 <span
-                  className={`text-[9px] px-1 py-0.5 rounded uppercase font-semibold ${
+                  className={`text-xs px-1 py-0.5 rounded uppercase font-semibold ${
                     xpdr.mode === "FM"
                       ? "bg-green-400/20 text-green-400"
                       : xpdr.mode === "linear"
@@ -249,7 +254,7 @@ function TransponderInfo({
                   {xpdr.inverted ? " INV" : ""}
                 </span>
               </div>
-              <div className="grid grid-cols-2 gap-1 mt-1 text-[10px] font-mono">
+              <div className="grid grid-cols-[repeat(auto-fit,minmax(6.5rem,1fr))] gap-1 mt-1 text-xs font-mono">
                 <div>
                   <span className="text-su-muted">UP: </span>
                   <span className="text-su-muted">
@@ -271,13 +276,13 @@ function TransponderInfo({
           ))}
 
       {transponderData.beaconHz && (
-        <div className="text-[10px] font-mono text-su-muted mt-1">
+        <div className="text-xs font-mono text-su-muted mt-1">
           Beacon: {formatFreqMHz(transponderData.beaconHz)}
         </div>
       )}
 
       {transponderData.notes && (
-        <div className="text-[10px] text-su-muted mt-1 italic">
+        <div className="text-xs text-su-muted mt-1 italic">
           {transponderData.notes}
         </div>
       )}
@@ -285,10 +290,10 @@ function TransponderInfo({
       {/* Real-time Doppler correction (visible pass only) */}
       {dopplerInfo && (
         <div className="mt-2 bg-cyan-400/5 border border-cyan-400/20 rounded-md px-2.5 py-2">
-          <div className="text-[10px] text-cyan-400 uppercase tracking-wider mb-1 font-semibold">
+          <div className="text-xs text-cyan-400 uppercase tracking-wider mb-1 font-semibold">
             Doppler-Corrected
           </div>
-          <div className="grid grid-cols-2 gap-1 text-[10px] font-mono">
+          <div className="grid grid-cols-[repeat(auto-fit,minmax(6.5rem,1fr))] gap-1 text-xs font-mono">
             <div>
               <span className="text-su-muted">TX: </span>
               <span className="text-su-text">
@@ -321,9 +326,12 @@ function TransponderInfo({
 
 // ---------------------------------------------------------------------------
 // PassRow (self-contained copy from SatellitePanel)
+// Exported so its #832-round-6 flex-wrap fix is unit-testable without
+// rendering the whole modal (mirrors why SatellitePanel's PassRow is
+// exported).
 // ---------------------------------------------------------------------------
 
-function PassRow({ pass }: { pass: PassPrediction }) {
+export function PassRow({ pass }: { pass: PassPrediction }) {
   const { use24h } = useTimeFormat();
   const isActive = pass.aos <= new Date() && pass.los >= new Date();
   const isFuture = pass.aos > new Date();
@@ -331,8 +339,18 @@ function PassRow({ pass }: { pass: PassPrediction }) {
   const quality = computePassQuality(pass);
 
   return (
+    /*
+      This modal renders in a `max-w-md` dialog, narrower than the panel
+      `PassRow` in SatellitePanel.tsx sizes for, so the same #832 overflow
+      hits sooner here: at the largest text scale the star rating, quality
+      badge, and "in ..." future-pass label on one line and the elevation/
+      azimuth column on the other no longer fit together. `flex-wrap` on
+      both rows (mirroring SatellitePanel's `PassRow` fix) lets the right-
+      hand column drop to its own line (right-aligned via `ml-auto`) and
+      lets the star/badge/future-label group wrap onto a second line.
+    */
     <div
-      className={`flex items-center gap-2 px-2 py-1.5 rounded text-xs ${
+      className={`flex flex-wrap items-center gap-2 px-2 py-1.5 rounded text-xs ${
         isActive
           ? "bg-green-400/10 border border-green-400/20"
           : "bg-su-line/10"
@@ -351,10 +369,10 @@ function PassRow({ pass }: { pass: PassPrediction }) {
             {format(pass.los, timeFmt)}
           </span>
         </div>
-        <div className="flex items-center gap-1.5 mt-0.5">
+        <div className="flex flex-wrap items-center gap-x-1.5 gap-y-1 mt-0.5">
           <StarRating score={quality.score} />
           <span
-            className={`text-[9px] px-1 py-0.5 rounded font-medium ${qualityColor(quality.score)} ${
+            className={`text-xs px-1 py-0.5 rounded font-medium ${qualityColor(quality.score)} ${
               quality.score >= 4
                 ? "bg-green-400/10"
                 : quality.score === 3
@@ -367,17 +385,17 @@ function PassRow({ pass }: { pass: PassPrediction }) {
             {quality.label}
           </span>
           {isFuture && (
-            <span className="text-[10px] text-su-muted">
+            <span className="text-xs text-su-muted">
               in {formatDistanceToNow(pass.aos)}
             </span>
           )}
         </div>
       </div>
-      <div className="text-right">
+      <div className="text-right ml-auto">
         <div className="font-mono text-su-muted">
           {Math.round(pass.maxEl)}&deg; max
         </div>
-        <div className="text-[10px] text-su-muted mt-0.5">
+        <div className="text-xs text-su-muted mt-0.5">
           {formatAzimuth(pass.aosAz)} &rarr; {formatAzimuth(pass.losAz)}
         </div>
       </div>
@@ -469,7 +487,7 @@ function SatelliteDetailContent({
             <CategoryBadge category={satellite.category} />
             <VisibilityDot isVisible={satellite.isVisible} />
           </div>
-          <div className="text-[10px] text-su-muted font-mono mt-0.5">
+          <div className="text-xs text-su-muted font-mono mt-0.5">
             NORAD {satellite.noradId}
           </div>
         </div>
@@ -497,12 +515,9 @@ function SatelliteDetailContent({
       {/* Scrollable content */}
       <div className="overflow-y-auto flex-1 min-h-0">
         {/* Position data grid */}
-        <div
-          className="grid gap-2 mb-3"
-          style={{ gridTemplateColumns: "1fr 1fr" }}
-        >
+        <div className="grid grid-cols-[repeat(auto-fit,minmax(6.5rem,1fr))] gap-2 mb-3">
           <div className="bg-su-line/10 rounded-md px-2.5 py-2">
-            <div className="text-[10px] text-su-muted uppercase tracking-wider">
+            <div className="text-xs text-su-muted uppercase tracking-wider">
               Position
             </div>
             <div className="text-xs font-mono text-su-text mt-0.5">
@@ -510,7 +525,7 @@ function SatelliteDetailContent({
             </div>
           </div>
           <div className="bg-su-line/10 rounded-md px-2.5 py-2">
-            <div className="text-[10px] text-su-muted uppercase tracking-wider">
+            <div className="text-xs text-su-muted uppercase tracking-wider">
               Altitude
             </div>
             <div className="text-xs font-mono text-su-text mt-0.5">
@@ -518,7 +533,7 @@ function SatelliteDetailContent({
             </div>
           </div>
           <div className="bg-su-line/10 rounded-md px-2.5 py-2">
-            <div className="text-[10px] text-su-muted uppercase tracking-wider">
+            <div className="text-xs text-su-muted uppercase tracking-wider">
               Velocity
             </div>
             <div className="text-xs font-mono text-su-text mt-0.5">
@@ -526,7 +541,7 @@ function SatelliteDetailContent({
             </div>
           </div>
           <div className="bg-su-line/10 rounded-md px-2.5 py-2">
-            <div className="text-[10px] text-su-muted uppercase tracking-wider">
+            <div className="text-xs text-su-muted uppercase tracking-wider">
               Status
             </div>
             <div
@@ -553,19 +568,25 @@ function SatelliteDetailContent({
         {/* Link Budget Indicator */}
         {linkBudget && (
           <div className="mt-2 flex items-center gap-2 flex-wrap">
-            <div className="flex items-center gap-1.5">
-              <span className="text-[10px] text-su-muted uppercase tracking-wider font-semibold">
+            <div className="flex flex-wrap items-center gap-x-1.5 gap-y-1">
+              <span className="text-xs text-su-muted uppercase tracking-wider font-semibold">
                 Signal
               </span>
               <span
-                className={`text-[9px] px-1.5 py-0.5 rounded-full border font-medium ${
+                className={`text-xs px-1.5 py-0.5 rounded-full border font-medium ${
                   LINK_QUALITY_STYLE[linkBudget.quality].classes
                 }`}
               >
                 {LINK_QUALITY_STYLE[linkBudget.quality].label}
               </span>
             </div>
-            <div className="flex items-center gap-2 text-[10px] font-mono text-su-muted">
+            {/*
+              Sweep: three unwrapped metrics (FSPL/Squint/Margin) at the xl
+              scale can exceed this modal's content width the same way the
+              transponder and pass rows above did. `flex-wrap` lets a
+              metric drop to its own line instead of running past the edge.
+            */}
+            <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs font-mono text-su-muted">
               <span title="Free-space path loss">
                 FSPL: {linkBudget.freeSpacePathLossDb.toFixed(1)} dB
               </span>
@@ -592,7 +613,7 @@ function SatelliteDetailContent({
 
         {/* Pass predictions */}
         <div className="mt-3">
-          <div className="text-[10px] text-su-muted uppercase tracking-wider mb-1.5 font-semibold">
+          <div className="text-xs text-su-muted uppercase tracking-wider mb-1.5 font-semibold">
             Next Passes (24h)
           </div>
           {passes.length === 0 ? (

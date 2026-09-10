@@ -9,6 +9,7 @@
 import { create } from "zustand";
 import type { User, Session } from "@supabase/supabase-js";
 import { getSupabase, isSupabaseConfigured } from "@/lib/supabase";
+import { useProfileStore } from "@/stores/profileStore";
 
 // ── Module-scoped deduplication & cleanup ────────────────────────────
 /** Deduplicates concurrent initialize() calls */
@@ -117,6 +118,24 @@ export const useAuthStore = create<AuthState>()((set, get) => ({
           // only thing keeping it current.
           supabase.realtime.setAuth(session?.access_token ?? undefined).catch(() => {});
 
+          // #866/#867 Codex round 4: persisted billing state (profileStore's
+          // subscriptionTier/Status/PeriodEnd) is tagged with the account it
+          // belongs to (`billingUserId`). Reset it at every account
+          // boundary — sign-out, or a different account signing in — so a
+          // transient `profile_billing` read failure right after can never
+          // preserve one account's Pro state into another account's session.
+          // Same-user reloads (ids match) are left untouched so Pro state
+          // does not flicker to free while the sync re-pulls it. A null
+          // session counts as a boundary too (Codex round 6): a browser whose
+          // session expired or was revoked while closed gets INITIAL_SESSION
+          // with session === null and no SIGNED_OUT, and must not keep the
+          // previous account's Pro tier in the anonymous UI.
+          const incomingUserId = session?.user?.id ?? null;
+          const { billingUserId } = useProfileStore.getState();
+          if (billingUserId !== null && incomingUserId !== billingUserId) {
+            useProfileStore.getState().resetBilling();
+          }
+
           if (event === "PASSWORD_RECOVERY") {
             set({ isRecoveryMode: true });
           }
@@ -130,6 +149,7 @@ export const useAuthStore = create<AuthState>()((set, get) => ({
               isRecoveryMode: false,
               sessionExpired: prevUser !== null,
             });
+            useProfileStore.getState().resetBilling();
           }
         });
         authSubscription = subscription;

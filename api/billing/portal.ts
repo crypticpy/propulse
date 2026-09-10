@@ -92,21 +92,23 @@ export default async function handler(request: Request): Promise<Response> {
       return jsonResponse({ error: "Unauthorized" }, 401);
     }
 
-    // Look up existing Stripe customer ID
-    const { data: profile, error: profileError } = await supabase
-      .from("profiles")
+    // Look up existing Stripe customer ID. `profile_billing` is own-row
+    // readable by `authenticated` (20260909140000), so the caller's JWT is
+    // enough here; an account that never subscribed simply has no row.
+    const { data: billing, error: billingError } = await supabase
+      .from("profile_billing")
       .select("stripe_customer_id")
-      .eq("id", user.id)
-      .single();
+      .eq("user_id", user.id)
+      .maybeSingle();
 
-    if (profileError) {
+    if (billingError) {
       return jsonResponse(
-        { error: `Failed to fetch profile: ${profileError.message}` },
+        { error: `Failed to fetch billing record: ${billingError.message}` },
         500,
       );
     }
 
-    if (!profile?.stripe_customer_id) {
+    if (!billing?.stripe_customer_id) {
       return jsonResponse(
         { error: "No billing account found. Please subscribe first." },
         400,
@@ -126,7 +128,7 @@ export default async function handler(request: Request): Promise<Response> {
           "Content-Type": "application/x-www-form-urlencoded",
         },
         body: new URLSearchParams({
-          customer: profile.stripe_customer_id,
+          customer: billing.stripe_customer_id,
           return_url: returnUrl,
         }),
       },

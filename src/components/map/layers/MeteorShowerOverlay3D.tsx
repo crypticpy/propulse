@@ -22,7 +22,10 @@ import {
   latLonToVector3,
   getUpDirection,
 } from "@/components/map/lib/globeCoords";
-import { GLOBE_LAYER_ORDER } from "@/lib/map/globeRenderOrder";
+import {
+  GLOBE_LAYER_ORDER,
+  GLOBE_DOM_LAYER_ORDER,
+} from "@/lib/map/globeRenderOrder";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -238,7 +241,7 @@ function ShowerMarker({
           SURFACE_RADIUS + 0.025 * scale,
         )}
         center
-        zIndexRange={[1, 0]}
+        zIndexRange={GLOBE_DOM_LAYER_ORDER.marker}
         style={{ pointerEvents: "none" }}
       >
         <div className="flex flex-col items-center gap-0">

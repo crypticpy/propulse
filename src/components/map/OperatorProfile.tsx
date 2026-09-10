@@ -109,9 +109,9 @@ function BandConditionsStrip({
     <div className="relative mb-1.5">
       {/* Instant tooltip — floats above the strip */}
       {hoveredBand && (
-        <div className="absolute -top-6 left-0 right-0 flex justify-center pointer-events-none z-20">
+        <div className="absolute bottom-full mb-1 left-0 right-0 flex justify-center pointer-events-none z-20">
           <div
-            className="flex items-center gap-1.5 px-2 py-0.5 rounded-md text-[9px] font-medium whitespace-nowrap"
+            className="flex items-center gap-1.5 px-2 py-0.5 rounded-md text-xs font-medium max-w-full flex-wrap justify-center text-center"
             style={{
               backgroundColor: "rgba(0,0,0,0.85)",
               border: `1px solid ${hoveredColor}40`,
@@ -131,7 +131,7 @@ function BandConditionsStrip({
                 : "No data"}
             </span>
             {hoveredBand === activeBand && (
-              <span className="text-[8px] text-su-muted ml-0.5">active</span>
+              <span className="text-xs text-su-muted ml-0.5">active</span>
             )}
           </div>
         </div>
@@ -454,7 +454,7 @@ export function OperatorProfile({ className = "" }: OperatorProfileProps) {
       {/* ── Active Band section label ──────────────────────────────── */}
       <div className="flex items-center gap-2 mb-2">
         <div className="w-[3px] h-3 rounded-full bg-plasma-orange" />
-        <span className="text-[10px] font-semibold text-su-muted uppercase tracking-widest">
+        <span className="text-xs font-semibold text-su-muted uppercase tracking-widest">
           Active Band
         </span>
         {activeSource === "default" && (
@@ -489,7 +489,7 @@ export function OperatorProfile({ className = "" }: OperatorProfileProps) {
               <div className="text-sm font-medium text-plasma-orange">
                 Start here &mdash; set your operating band
               </div>
-              <div className="text-[10px] text-su-muted mt-0.5">
+              <div className="text-xs text-su-muted mt-0.5">
                 This controls what propagation data you see
               </div>
             </div>
@@ -593,8 +593,17 @@ export function OperatorProfile({ className = "" }: OperatorProfileProps) {
         )}
 
         <div className="relative pl-4 pr-8 py-3">
-          {/* Primary row: Pulse dot + Band (large) + Mode badge + Source */}
-          <div className="flex items-center gap-2">
+          {/*
+            Primary row: Pulse dot + Band (large) + Mode badge + Source.
+            This button sits in the Operator Profile's normal fixed-width
+            column and clips overflow (see the wrapping button above). At
+            the xl scale a band such as "160m" plus a mode badge such as
+            "CONTEST" plus a source badge can no longer share this line in
+            that column. `flex-wrap` lets the source badge (pushed right by
+            `ml-auto` while everything fits) drop to its own line instead
+            of being clipped by the button's overflow-hidden.
+          */}
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
             <span
               className="w-1.5 h-1.5 rounded-full flex-shrink-0 animate-pulse"
               style={{ backgroundColor: bandColor }}
@@ -606,7 +615,7 @@ export function OperatorProfile({ className = "" }: OperatorProfileProps) {
               {activeBand}
             </span>
             <span
-              className="px-1.5 py-0.5 rounded-md text-[11px] font-bold border"
+              className="px-1.5 py-0.5 rounded-md text-xs font-bold border"
               style={{
                 backgroundColor: modeColor,
                 color: inkOnFill(modeColor),
@@ -619,15 +628,23 @@ export function OperatorProfile({ className = "" }: OperatorProfileProps) {
             {/* Source badge */}
             {sourceLabel && (
               <span
-                className={`ml-auto mr-4 px-1.5 py-0.5 rounded text-[9px] font-semibold uppercase tracking-wider ${sourceStyles}`}
+                className={`ml-auto mr-4 px-1.5 py-0.5 rounded text-xs font-semibold uppercase tracking-wider ${sourceStyles}`}
               >
                 {sourceLabel}
               </span>
             )}
           </div>
 
-          {/* Secondary row: Frequency + Segment + Session */}
-          <div className="flex items-center gap-1.5 mt-1.5 text-[10px] font-mono text-su-muted">
+          {/*
+            Secondary row: Frequency + Segment + Session.
+            Same fixed-width overflow-hidden column and clip risk as the
+            primary row above. The frequency ("14.074.00") and segment
+            ("Digital/FM") strings have no internal wrap points, so at the
+            xl scale they can outgrow the column with nothing to give.
+            `flex-wrap` lets the session timer (pushed right by `ml-auto`)
+            drop to its own line instead of being clipped.
+          */}
+          <div className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 mt-1.5 text-xs font-mono text-su-muted">
             {(activeSource === "cat" || activeSource === "wsjtx") &&
               activeFrequency > 0 && (
                 <span className="text-su-muted tracking-wider">
@@ -650,9 +667,17 @@ export function OperatorProfile({ className = "" }: OperatorProfileProps) {
             )}
           </div>
 
-          {/* Tertiary row: Radio info (integrated into VFO panel) */}
+          {/*
+            Tertiary row: Radio info (integrated into VFO panel).
+            Same fixed-width overflow-hidden column as the rows above. The
+            manufacturer/model string has no internal wrap points, so at the
+            xl scale it can outgrow the column alongside the power reading.
+            `flex-wrap` + `min-w-0` let the label wrap or drop to its own
+            line, and `break-words` stops a single long model name from
+            forcing the row wider than the column.
+          */}
           {activeRadio && (
-            <div className="flex items-center gap-1.5 mt-1.5 text-[10px] text-su-muted">
+            <div className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 mt-1.5 text-xs text-su-muted min-w-0">
               <svg
                 className="w-3 h-3 flex-shrink-0"
                 fill="none"
@@ -663,7 +688,7 @@ export function OperatorProfile({ className = "" }: OperatorProfileProps) {
                 <rect x="2" y="7" width="20" height="14" rx="2" ry="2" />
                 <polyline points="17 2 12 7 7 2" />
               </svg>
-              <span>
+              <span className="min-w-0 break-words">
                 {activeRadio.manufacturer} {activeRadio.model}
               </span>
               <span className="font-mono" style={{ color: `${bandColor}90` }}>
@@ -674,11 +699,11 @@ export function OperatorProfile({ className = "" }: OperatorProfileProps) {
 
           {/* Watched bands strip */}
           {watchedBands.length > 0 && (
-            <div className="flex items-center gap-1.5 mt-1.5">
-              <span className="text-[9px] text-su-muted uppercase tracking-wider">
+            <div className="flex flex-wrap items-center gap-x-1.5 gap-y-1 mt-1.5">
+              <span className="text-xs text-su-muted uppercase tracking-wider">
                 Watch
               </span>
-              <div className="flex items-center gap-1">
+              <div className="flex flex-wrap items-center gap-1">
                 {watchedBands.map((band) => (
                   <span
                     key={band}
@@ -697,7 +722,7 @@ export function OperatorProfile({ className = "" }: OperatorProfileProps) {
         {/* CAT override hint — visible on hover */}
         {!contestLocked && catOverridden && catConnected && (
           <div
-            className="px-4 pb-2 -mt-1 text-[10px] transition-colors duration-300"
+            className="px-4 pb-2 -mt-1 text-xs transition-colors duration-300"
             style={{
               color: isHovered ? "#22c55e" : "rgba(255,255,255,0.2)",
             }}
@@ -711,7 +736,7 @@ export function OperatorProfile({ className = "" }: OperatorProfileProps) {
           !catOverridden &&
           (activeSource === "manual" || activeSource === "default") && (
             <div
-              className="px-4 pb-2 -mt-1 text-[10px] text-su-muted transition-opacity duration-300"
+              className="px-4 pb-2 -mt-1 text-xs text-su-muted transition-opacity duration-300"
               style={{ opacity: isHovered ? 1 : 0 }}
             >
               Click to change band &amp; mode

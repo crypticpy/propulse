@@ -247,6 +247,9 @@ interface GlobeViewProps {
   hideSizeSliders?: boolean;
   /** Host override for the fallback's "Use flat map" action (defaults to switching the map store to flat) */
   onUseFlatMap?: () => void;
+  /** Forwarded to `ClusterDetailPopover`/`SpotCollectionPopover` — true only
+   * when `HamClockView` is the host (#846/#871 round 3). */
+  isWallCanvas?: boolean;
 }
 
 interface ErrorBoundaryState {
@@ -1112,6 +1115,13 @@ interface GlobeSceneProps {
   onRadarAnimState?: (state: RadarAnimationState) => void;
   onTileFallbackChange?: (active: boolean) => void;
   onCloudImageryStatusChange?: (status: CloudImageryStatus) => void;
+  /**
+   * GlobeView's map-owned DOM overlay layer (#853). Threaded down so
+   * RayPathArc's PathPointInspector portals into the same frame
+   * TargetHoverTooltip/SpotHoverPreview already use, instead of falling
+   * back to `document.body` and clamping to the viewport.
+   */
+  mapOverlayPortal?: HTMLDivElement | null;
 }
 
 const GlobeScene = React.memo(function GlobeScene({
@@ -1134,6 +1144,7 @@ const GlobeScene = React.memo(function GlobeScene({
   onRadarAnimState,
   onTileFallbackChange,
   onCloudImageryStatusChange,
+  mapOverlayPortal,
 }: GlobeSceneProps) {
   const layoutMode = useMapStore((s) => s.layoutMode);
   const layers = useScopedMapLayers();
@@ -1941,6 +1952,7 @@ const GlobeScene = React.memo(function GlobeScene({
                         layers.ionosphere || pathPresentation.isolateTargetPath
                       }
                       displayTime={displayTime}
+                      portalTarget={mapOverlayPortal}
                     />
                   );
                 }
@@ -2010,6 +2022,7 @@ export function GlobeView({
   hideRadarScrubber,
   hideSizeSliders = false,
   onUseFlatMap,
+  isWallCanvas,
 }: GlobeViewProps) {
   const scopedLayers = useScopedMapLayers();
   const { policy: operationalPolicy } = useMapOperationalContext();
@@ -2655,7 +2668,22 @@ export function GlobeView({
             />
           }
         >
-          <Canvas dpr={qualitySettings.renderDevicePixelRatio}>
+          <Canvas
+            dpr={qualitySettings.renderDevicePixelRatio}
+            // Isolates every drei Html-overlay z-index (GLOBE_DOM_LAYER_ORDER's
+            // 0-6999 band range) inside this element's own stacking
+            // context. r3f's own wrapper div (the parent those overlay
+            // portals into by default) is otherwise a plain position:relative
+            // box with no isolation, so without this its overlay children's
+            // z-index compared directly against this MapSurface's other
+            // z-indexed siblings below (status chip, attribution, radar
+            // scrubber, Ft8SpotterHUD) -- letting the highest in-scene band
+            // (hud, up to 5999) paint over and intercept clicks meant for
+            // that fixed chrome. `z-0` keeps this wrapper's own stack level
+            // at 0 so it still paints below every sibling below, all of
+            // which use an explicit positive z-index.
+            className="relative isolate z-0"
+          >
             {/* Releases the context on unmount instead of r3f's delayed 500ms
                 teardown, and turns a genuine loss into the GlobeUnavailable
                 fallback whose Retry remounts a fresh context. */}
@@ -2693,6 +2721,7 @@ export function GlobeView({
                 onRadarAnimState={setRadarAnimState}
                 onTileFallbackChange={setTileFallbackActive}
                 onCloudImageryStatusChange={setCloudImageryStatus}
+                mapOverlayPortal={mapOverlayPortal}
               />
             </Suspense>
           </Canvas>
@@ -2705,9 +2734,10 @@ export function GlobeView({
         />
       )}
 
-      {/* Map-owned DOM portal. Drei Html labels reserve z-index values through
-          9000 while hovered/selected, so this sibling stacking layer must sit
-          above that entire range for previews to remain completely opaque. */}
+      {/* Map-owned DOM portal. In-scene drei Html labels top out at the
+          highest DOM z-band (see GLOBE_DOM_LAYER_ORDER in globeRenderOrder.ts),
+          so this sibling stacking layer must sit above that entire range for
+          previews to remain completely opaque. */}
       <div
         ref={setMapOverlayPortal}
         className="pointer-events-none absolute inset-0"
@@ -2881,6 +2911,8 @@ export function GlobeView({
         visible={!!selectedCluster}
         position={clusterScreenPos || { x: 0, y: 0 }}
         cluster={selectedCluster}
+        portalTarget={mapOverlayPortal}
+        isWallCanvas={isWallCanvas}
         onClose={handleClusterClose}
         onSpotSelect={handleClusterSpotSelect}
         onMapTheseSpots={
@@ -2900,6 +2932,8 @@ export function GlobeView({
           title={`${selectedGridCollection.grid} active spots`}
           subtitle={`${selectedGridCollection.spots.length} report${selectedGridCollection.spots.length === 1 ? "" : "s"} in this highlighted grid`}
           spots={selectedGridCollection.spots}
+          portalTarget={mapOverlayPortal}
+          isWallCanvas={isWallCanvas}
           onClose={() => setSelectedGridCollection(null)}
           onSpotSelect={(spot) =>
             handleMapSpotSelect(spot, selectedGridCollection.screenPos)

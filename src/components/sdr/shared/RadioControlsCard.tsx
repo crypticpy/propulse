@@ -425,7 +425,7 @@ export function RadioControlsCard({
           disabled={!canControlConnected || !canStreamAudio}
           className={`px-3 py-2 rounded-lg text-sm font-medium border transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
             audioEnabled
-              ? "bg-plasma-orange/10 border-plasma-orange/30 text-plasma-orange hover:bg-plasma-orange/20"
+              ? "bg-plasma-orange/10 border-plasma-orange/30 text-su-text hover:bg-plasma-orange/20"
               : "bg-su-line/10 border-su-line/40 text-su-text hover:bg-su-line/20"
           }`}
         >

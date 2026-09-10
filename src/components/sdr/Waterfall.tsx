@@ -990,9 +990,36 @@ export function Waterfall({
 
       {effectiveView &&
         overlayPositions.map((o, idx) => {
-          const colorClass =
+          // The marker line stays vivid and carries no text-* class (it has
+          // no text content, so it needs no ink). The label pill always
+          // renders on the opaque `bg-su-panel/90` fill on its own static
+          // class list -- Tailwind emits `.bg-plasma-orange\/N` before
+          // `.bg-su-panel\/90` (theme-key order: `plasma-orange` is a
+          // top-level color, `su.panel` is declared later in the nested `su`
+          // namespace in tailwind.config.js), so a same-alpha-layer accent
+          // fill on this element can never win the cascade -- it would just
+          // be dead CSS. The orange branch carries no `bg-plasma-orange` of
+          // its own for that reason. It uses `text-su-text`, not
+          // `text-su-accent-text`, for its ink: Waterfall's root is scoped
+          // under `.su-fixed-dark`, which pins the actual rendered panel to
+          // the fixed-dark color regardless of the user's active palette,
+          // but `--su-accent-text` is computed against the *active palette's*
+          // panel -- a pale custom accent under the Light palette computes
+          // safe there while still rendering here, on the pinned fixed-dark
+          // panel, at ~2.47:1 (Codex, PR #890). `--su-text` is itself pinned
+          // by `.su-fixed-dark` to a fixed light value, so it stays fitted to
+          // the panel this element actually renders on (#803).
+          const lineColorClass =
             o.color === "orange"
-              ? "bg-plasma-orange/70 text-plasma-orange"
+              ? "bg-plasma-orange/70"
+              : o.color === "red"
+                ? "bg-alert-red/70"
+                : o.color === "green"
+                  ? "bg-signal-green/70"
+                  : "bg-cosmic-cyan/70";
+          const labelColorClass =
+            o.color === "orange"
+              ? "text-su-text"
               : o.color === "red"
                 ? "bg-alert-red/70 text-alert-red"
                 : o.color === "green"
@@ -1004,10 +1031,10 @@ export function Waterfall({
               className="absolute top-0 bottom-0 pointer-events-none"
               style={{ left: `${o.t * 100}%` }}
             >
-              <div className={`w-px h-full ${colorClass}`} />
+              <div className={`w-px h-full ${lineColorClass}`} />
               {o.label ? (
                 <div
-                  className={`absolute top-1 left-0 -translate-x-1/2 px-1 py-0.5 rounded text-[10px] bg-su-panel/90 border border-su-line/40 ${colorClass}`}
+                  className={`absolute top-1 left-0 -translate-x-1/2 px-1 py-0.5 rounded text-[10px] bg-su-panel/90 border border-su-line/40 ${labelColorClass}`}
                 >
                   {o.label}
                 </div>

@@ -244,7 +244,7 @@ function DiscoveredDaemonRow({
                     className={`text-[10px] px-1.5 py-0.5 rounded border ${
                       device.type === "sdr"
                         ? "bg-cosmic-cyan/10 border-cosmic-cyan/30 text-cosmic-cyan"
-                        : "bg-plasma-orange/10 border-plasma-orange/30 text-plasma-orange"
+                        : "bg-plasma-orange/10 border-plasma-orange/30 text-su-text"
                     }`}
                   >
                     {device.type.toUpperCase()}

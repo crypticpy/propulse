@@ -55,6 +55,7 @@ export function Header({
     { path: "/", label: "Home", icon: "🏠" },
     { path: "/solar", label: "Solar Pulse", icon: "☀️" },
     { path: "/map", label: "PropSphere", icon: "🌍" },
+    { path: "/workspace", label: "Workspace", icon: "🖥️" },
   ];
 
   // Tools items (in dropdown on desktop, inline on mobile)
@@ -83,7 +84,11 @@ export function Header({
     <>
       <header className="glass-panel sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 md:px-6">
-          <div className="grid min-h-16 grid-cols-[auto_minmax(0,1fr)] items-center gap-x-3 gap-y-2 py-2 lg:grid-cols-[auto_auto_minmax(0,1fr)]">
+          {/* Two rows (nav underneath) through lg; the single row only fits
+              once the header is xl wide. With Workspace in the nav the
+              labelled links plus the clock and status controls exceed the
+              ~976px inner width at lg for a signed-in operator (Codex, PR #857). */}
+          <div className="grid min-h-16 grid-cols-[auto_minmax(0,1fr)] items-center gap-x-3 gap-y-2 py-2 xl:grid-cols-[auto_auto_minmax(0,1fr)]">
             {/* Logo */}
             <Link to="/" className="flex items-center gap-3">
               <span className="text-2xl md:text-3xl animate-pulse-glow">
@@ -100,7 +105,7 @@ export function Header({
             </Link>
 
             {/* Navigation */}
-            <nav aria-label="Main navigation" className="order-last col-span-2 flex min-w-0 items-center gap-1 overflow-x-auto md:overflow-visible lg:order-none lg:col-span-1">
+            <nav aria-label="Main navigation" className="order-last col-span-2 flex min-w-0 items-center gap-1 overflow-x-auto md:overflow-visible xl:order-none xl:col-span-1">
               {/* Main nav items */}
               {mainNavItems.map((item) => {
                 const isActive = location.pathname === item.path;

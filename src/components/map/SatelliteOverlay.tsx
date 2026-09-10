@@ -25,7 +25,10 @@ import { useMapStore } from "@/stores/mapStore";
 import { useSatellitePrefsStore } from "@/stores/satellitePrefsStore";
 import { calculateGroundTrack } from "@/lib/api/satellites";
 import { getTransponder } from "@/lib/data/satelliteTransponders";
-import { GLOBE_LAYER_ORDER } from "@/lib/map/globeRenderOrder";
+import {
+  GLOBE_DOM_LAYER_ORDER,
+  GLOBE_LAYER_ORDER,
+} from "@/lib/map/globeRenderOrder";
 import {
   CATEGORY_META,
   formatFreqMHz,
@@ -172,7 +175,7 @@ function SatelliteInfoPopup({
     <Html
       position={[0, MARKER_SIZE * 7, 0]}
       center
-      zIndexRange={[10, 5]}
+      zIndexRange={GLOBE_DOM_LAYER_ORDER.hud}
       style={{
         pointerEvents: "auto",
         opacity: Math.max(occlusionOpacity, 0.25),
@@ -555,7 +558,7 @@ function SatelliteMarker({
       <Html
         position={[0, MARKER_SIZE * 4, 0]}
         center
-        zIndexRange={[1, 0]}
+        zIndexRange={GLOBE_DOM_LAYER_ORDER.marker}
         style={{
           pointerEvents: "none",
           transition: "opacity 0.2s ease",

@@ -610,7 +610,7 @@ function SlicePanelXRit({
           className={`px-1.5 py-0.5 text-[10px] font-bold rounded border transition-colors shrink-0
             disabled:opacity-40 disabled:cursor-not-allowed ${
               ritEnabled
-                ? "bg-plasma-orange/20 border-plasma-orange/30 text-plasma-orange"
+                ? "bg-plasma-orange/20 border-plasma-orange/30 text-su-text"
                 : "bg-su-line/10 border-su-line/40 text-su-muted hover:text-su-text"
             }`}
         >

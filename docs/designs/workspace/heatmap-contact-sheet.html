@@ -1,0 +1,1280 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PROPULSE — Band × Continent heat map · design contact sheet</title>
+<style>
+/* ==========================================================================
+   TOKENS — copied from the codebase, not invented.
+   --hc-*  : src/styles/hamclock-themes.css  (theme "pulse", the wall default)
+   --su-*  : src/styles/globals.css          (station design system, DS-02)
+   band hex: src/lib/utils/spotColors.ts     (BAND_COLORS)
+   ladder  : src/lib/verdict/ladder.ts + presentation.ts
+             closed < forecast < stirring < verified < hot  (+ orthogonal
+             "surprise" flag when real activity beats a closed forecast)
+   ========================================================================== */
+:root{
+  /* HamClock wall theme — pulse */
+  --hc-bg:#0a0e1a; --hc-panel:#0d1527; --hc-glass:rgba(13,21,39,.78);
+  --hc-line:rgba(255,255,255,.09); --hc-fg:#e6ebf2;
+  --hc-dim:rgba(255,255,255,.46); --hc-dim2:rgba(255,255,255,.28);
+  --hc-accent-rgb:255 107 53; --hc-info-rgb:68 221 255;
+  --hc-good-rgb:0 255 136; --hc-warn-rgb:255 210 63; --hc-bad-rgb:255 68 85;
+  --hc-accent:rgb(var(--hc-accent-rgb)); --hc-info:rgb(var(--hc-info-rgb));
+  --hc-good:rgb(var(--hc-good-rgb)); --hc-warn:rgb(var(--hc-warn-rgb));
+  --hc-bad:rgb(var(--hc-bad-rgb));
+
+  /* Station tokens */
+  --su-canvas:#141827; --su-panel:#191e2e; --su-input:#111624;
+  --su-text:#cad2dc; --su-muted:#a0abba; --su-line:#637088;
+  --su-accent:#ff6b35; --su-info:#85c4d0; --su-success:#8bdbb0;
+  --su-warning:#f5cf79; --su-danger:#fda4af;
+  --su-accent-rgb:255 107 53; --su-line-rgb:99 112 136;
+
+  /* Fonts — local fallbacks only, no webfont loads (offline mock). */
+  --f-display:Orbitron,Michroma,Eurostile,"Futura","Century Gothic","Avenir Next",system-ui,sans-serif;
+  --f-mono:"JetBrains Mono",ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+  --f-body:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",system-ui,sans-serif;
+
+  /* Frame fit: --u ≈ (available column width) / 1920. Pure CSS ladder. */
+  --u:.28;
+}
+@media(min-width:720px){:root{--u:.34}}
+@media(min-width:900px){:root{--u:.43}}
+@media(min-width:1100px){:root{--u:.54}}
+@media(min-width:1280px){:root{--u:.63}}
+@media(min-width:1440px){:root{--u:.71}}
+@media(min-width:1600px){:root{--u:.80}}
+@media(min-width:1760px){:root{--u:.86}}
+
+*,*::before,*::after{box-sizing:border-box}
+html,body{margin:0;background:#07090f;color:var(--su-text);font-family:var(--f-body);-webkit-font-smoothing:antialiased}
+.sheet{max-width:1720px;margin:0 auto;padding:0 24px 96px}
+
+/* ---- sheet chrome (not part of the product; the paper the mock sits on) --- */
+.sheet-head{padding:40px 24px 8px;max-width:1720px;margin:0 auto}
+.sheet-head h1{font-family:var(--f-display);font-weight:800;letter-spacing:.14em;font-size:26px;margin:0 0 6px;color:#fff;text-transform:uppercase}
+.sheet-head p{margin:0;max-width:78ch;color:var(--su-muted);font-size:14px;line-height:1.6}
+.sheet-head .meta{margin-top:10px;font-family:var(--f-mono);font-size:11px;letter-spacing:.14em;color:var(--su-line);text-transform:uppercase}
+.sec{margin-top:56px}
+.sec-label{display:flex;align-items:baseline;gap:14px;border-top:3px solid rgb(var(--su-accent-rgb));padding-top:12px;margin-bottom:6px}
+.sec-label b{font-family:var(--f-display);font-weight:800;letter-spacing:.18em;font-size:17px;color:#fff;text-transform:uppercase}
+.sec-label i{font-style:normal;font-family:var(--f-mono);font-size:11px;letter-spacing:.16em;color:var(--su-accent);text-transform:uppercase}
+.sec-note{margin:0 0 18px;max-width:96ch;color:var(--su-muted);font-size:13.5px;line-height:1.65}
+.cap{margin:10px 0 22px;font-family:var(--f-mono);font-size:11.5px;letter-spacing:.06em;color:var(--su-line);line-height:1.7;max-width:110ch}
+.cap b{color:var(--su-muted);font-weight:500}
+
+/* ---- frame scaling -------------------------------------------------------- */
+.shot{position:relative;overflow:hidden;border-radius:6px;box-shadow:0 24px 60px rgba(0,0,0,.55);width:calc(var(--w)*var(--fit));height:calc(var(--h)*var(--fit))}
+.shot>.frame{position:absolute;top:0;left:0;width:var(--w);height:var(--h);transform:scale(var(--fit));transform-origin:top left}
+.shot--wall{--w:1920px;--h:1080px;--fit:var(--u)}
+.shot--strip{--w:1200px;--h:160px;--fit:min(1,calc(var(--u)*1.6))}
+.shot--work{--w:900px;--h:600px;--fit:min(1,calc(var(--u)*2.13))}
+.shot--phones{--w:1230px;--h:844px;--fit:min(1,calc(var(--u)*1.56))}
+.shot--mid{--w:1280px;--h:720px;--fit:min(1,calc(var(--u)*1.5))}
+.shot--fp{--w:620px;--h:430px;--fit:min(1,calc(var(--u)*3.1))}
+.shot--hl{--w:900px;--h:280px;--fit:min(1,calc(var(--u)*2.13))}
+.pair{display:flex;gap:26px;flex-wrap:wrap;align-items:flex-start}
+
+/* ==========================================================================
+   WALL SHELL — ports src/styles/hamclock-wall.css. The real tokens are vh
+   based; inside a fixed 1920x1080 frame 1vh = 10.8px, so every size below is
+   the spec value written as calc(N * var(--vh)).
+   ========================================================================== */
+.frame--wall{--vh:10.8px;--vw:19.2px;background:var(--hc-bg);color:var(--hc-fg);font-family:var(--f-body);
+  display:grid;grid-template-rows:calc(7.4*var(--vh)) minmax(0,1fr) max(56px,calc(4.6*var(--vh)));overflow:hidden}
+.hc-hdr{display:flex;align-items:center;justify-content:space-between;gap:calc(1.6*var(--vw));padding:0 calc(1.6*var(--vw));
+  background:linear-gradient(180deg,rgba(13,21,39,.96),rgba(13,21,39,.82));border-bottom:1px solid var(--hc-line)}
+.hc-call{font-family:var(--f-display);font-weight:900;font-size:calc(4.3*var(--vh));letter-spacing:.06em;line-height:1}
+.hc-call small{display:block;font-family:var(--f-mono);font-weight:400;font-size:calc(1.45*var(--vh));letter-spacing:.14em;color:var(--hc-dim);margin-top:calc(.5*var(--vh))}
+.hc-clocks{display:flex;gap:calc(2.6*var(--vw));font-family:var(--f-mono);text-align:right}
+.hc-clock b{display:block;font-family:var(--f-display);font-weight:900;font-size:calc(3.4*var(--vh));letter-spacing:.02em;line-height:1;font-variant-numeric:tabular-nums}
+.hc-clock span{display:block;font-size:calc(1.25*var(--vh));letter-spacing:.2em;color:var(--hc-dim);margin-top:calc(.4*var(--vh))}
+.hc-hdr-ctl{display:flex;gap:calc(.6*var(--vw))}
+.hc-stage{position:relative;display:flex;gap:calc(1*var(--vh));padding:calc(1*var(--vh));min-height:0;
+  background:
+    radial-gradient(120% 90% at 30% 30%,rgba(24,42,72,.55),transparent 65%),
+    repeating-linear-gradient(90deg,rgba(255,255,255,.035) 0 1px,transparent 1px 96px),
+    repeating-linear-gradient(0deg,rgba(255,255,255,.035) 0 1px,transparent 1px 96px),
+    #070b14}
+.hc-ftr{display:flex;align-items:center;justify-content:space-between;gap:calc(1.2*var(--vw));padding:0 calc(1.6*var(--vw));
+  background:var(--hc-bg);border-top:1px solid var(--hc-line);font-family:var(--f-mono);font-size:calc(1.45*var(--vh));letter-spacing:.14em;color:var(--hc-dim)}
+.hc-pager{display:flex;align-items:center;gap:calc(1*var(--vw))}
+.hc-pager b{color:var(--hc-fg);font-family:var(--f-display);font-weight:700;font-size:calc(1.3*var(--vh));letter-spacing:.2em}
+.hc-pager .arw{color:var(--hc-accent);font-size:calc(1.7*var(--vh))}
+.hc-status{display:flex;gap:calc(1.6*var(--vw))}
+.hc-status i{display:inline-block;width:calc(.9*var(--vh));height:calc(.9*var(--vh));border-radius:50%;margin-right:.5ch;vertical-align:baseline}
+
+/* tile chrome — src/components/map/hamclock/wall/HamClockTile.tsx */
+.hc-tile{position:relative;background:var(--hc-glass);border:1px solid var(--hc-line);border-radius:calc(.7*var(--vh));
+  padding:calc(1.25*var(--vh)) calc(1.25*var(--vh)) calc(1.12*var(--vh));box-shadow:0 1vh 3vh rgba(0,0,0,.35);overflow:hidden}
+.hc-tile::before{content:"";position:absolute;left:0;right:0;top:0;height:2px;background:var(--hc-state,var(--hc-line))}
+.hc-tile-title{margin:0;font-family:var(--f-display);font-weight:700;font-size:calc(1.25*var(--vh));letter-spacing:.22em;
+  color:var(--hc-dim);text-transform:uppercase;display:flex;justify-content:space-between;align-items:baseline;gap:.6vw}
+.hc-tile-title em{font-style:normal;font-family:var(--f-mono);font-weight:400;letter-spacing:.08em;color:var(--hc-dim2);font-size:calc(1.19*var(--vh))}
+.hc-hero{font-family:var(--f-display);font-weight:900;line-height:1;letter-spacing:.02em;margin-top:calc(.9*var(--vh));font-variant-numeric:tabular-nums;font-size:calc(4.9*var(--vh))}
+.hc-sub{font-family:var(--f-mono);font-size:calc(1.45*var(--vh));color:var(--hc-dim);margin-top:calc(.7*var(--vh));letter-spacing:.06em;display:flex;justify-content:space-between;gap:1vw}
+.hc-sub b{color:var(--hc-fg);font-weight:600}
+.hc-rail{width:420px;display:flex;flex-direction:column;gap:calc(1*var(--vh));flex:0 0 auto}
+/* the same wall markup at a smaller viewport: only --vh changes, nothing is
+   re-authored. Wall density scales continuously, it is not a fixed size. */
+.frame--wall.mid{--vh:7.2px;--vw:12.8px;grid-template-rows:calc(7.4*var(--vh)) minmax(0,1fr) max(42px,calc(4.6*var(--vh)))}
+.frame--wall.mid .hm--wall{--hm-gap:5px;--hm-band:130px;--hm-bandsize:34px;--hm-cell:28px;--hm-head:15px;--hm-rad:5px}
+.frame--wall.mid .hc-rail{width:280px}
+.frame--wall.mid .seg button,.frame--wall.mid .seg span{min-height:34px;padding:0 12px;font-size:11px}
+
+/* ==========================================================================
+   HEAT MAP — the widget itself. One component, three densities.
+   Tone = Band Health ladder state. Intensity (--i) = normalised spot count.
+   ========================================================================== */
+.hm{display:grid;gap:var(--hm-gap,6px)}
+.hm-row{display:grid;grid-template-columns:var(--hm-band,120px) repeat(6,minmax(0,1fr));gap:var(--hm-gap,6px)}
+.hm-head{display:grid;grid-template-columns:var(--hm-band,120px) repeat(6,minmax(0,1fr));gap:var(--hm-gap,6px)}
+.hm-head span{font-family:var(--f-display);font-weight:700;letter-spacing:.2em;color:var(--hc-dim);text-align:center;font-size:var(--hm-head,20px)}
+.hm-head span:first-child{text-align:left;letter-spacing:.18em;color:var(--hc-dim2)}
+.hm-band{display:flex;align-items:center;gap:.4em;font-family:var(--f-display);font-weight:900;font-size:var(--hm-bandsize,48px);line-height:1;color:var(--hc-fg);
+  border-left:4px solid var(--bc,var(--hc-line));padding-left:.28em;letter-spacing:.01em}
+.hm-band em{font-style:normal;font-size:.46em;font-family:var(--f-mono);font-weight:400;color:var(--hc-dim);letter-spacing:.12em}
+/* ONE encoding everywhere: hue = Band Health verdict, fill opacity = traffic.
+   Quiet cells are translucent, hot cells are solid; over ~50% fill the numeral
+   flips to dark ink (.hi) so it still reads at distance. */
+.hm-c{display:flex;align-items:center;justify-content:center;font-family:var(--f-mono);font-weight:600;font-variant-numeric:tabular-nums;
+  font-size:var(--hm-cell,40px);border-radius:var(--hm-rad,6px);color:var(--ink,var(--hc-fg));position:relative;
+  background:rgb(var(--t) / calc(.10 + .90*var(--i,0)));border:1px solid rgb(var(--t) / calc(.35 + .65*var(--i,0)))}
+.hm-c.hi{--ink:#080c16;font-weight:800}
+.v-hot{--t:var(--hc-accent-rgb)} .v-ver{--t:var(--hc-good-rgb)} .v-stir{--t:var(--hc-warn-rgb)}
+.v-fcst{--t:var(--hc-good-rgb);border-style:dashed}
+.v-clsd{--t:99 112 136;color:var(--hc-dim2)}
+/* Hot but unworkable: keep the heat colour, lay a hatch over it as a second
+   background layer so the tint stays visible and the numeral stays on top. */
+.v-x{--t:var(--hc-accent-rgb);border-width:2px;border-color:rgb(var(--hc-bad-rgb) / .9);
+  background:repeating-linear-gradient(135deg,rgba(8,12,22,.80) 0 4px,rgba(8,12,22,0) 4px 9px),
+             rgb(var(--t) / calc(.10 + .90*var(--i,0)))}
+/* the label ships only at work density; the wall carries the hatch alone */
+.hm--work .v-x::after,.hm--vis .v-x::after,.hm--fp .v-x::after{content:"CAN'T WORK";position:absolute;bottom:.04em;left:0;right:0;
+  text-align:center;font-size:.5em;letter-spacing:.08em;font-weight:800;color:rgb(var(--hc-bad-rgb));text-shadow:0 1px 2px #000}
+/* surprise flag (ladder.ts): activity the forecast said would not happen */
+.s::before{content:"▲";position:absolute;top:.1em;right:.22em;font-size:.36em;color:var(--hc-info);line-height:1}
+/* intensity legend */
+.ramp{display:flex;align-items:center;gap:5px;font-family:var(--f-mono);font-size:9px;letter-spacing:.13em;text-transform:uppercase;color:var(--hc-dim2)}
+.ramp i{display:block;width:20px;height:13px;border-radius:2px;background:rgb(var(--t) / calc(.10 + .90*var(--i,0)));
+  border:1px solid rgb(var(--t) / calc(.35 + .65*var(--i,0)))}
+.ramp i.hx{border-color:rgb(var(--hc-bad-rgb) / .9);
+  background:repeating-linear-gradient(135deg,rgba(8,12,22,.8) 0 3px,rgba(8,12,22,0) 3px 7px),rgb(var(--hc-accent-rgb) / .85)}
+.hm-c .z{font-style:normal;color:var(--hc-dim2);opacity:.55}
+.hm-hl{font-family:var(--f-display);font-weight:900;letter-spacing:.02em;line-height:1;color:var(--hc-fg)}
+.hm-hl u{text-decoration:none;color:var(--hc-accent)}
+.hm-hl s{text-decoration:none;color:var(--hc-good)}
+
+/* wall hero density */
+.hm--wall{--hm-gap:7px;--hm-band:190px;--hm-bandsize:52px;--hm-cell:42px;--hm-head:22px;--hm-rad:8px;flex:1 1 auto;min-height:0}
+.hm--wall .hm-row{align-items:stretch}
+.hero-slot{flex:1 1 auto;min-width:0;display:flex;flex-direction:column;gap:calc(1.1*var(--vh));padding:calc(1.4*var(--vh)) calc(1.6*var(--vh));
+  background:rgba(10,14,26,.72);border:1px solid var(--hc-line);border-radius:calc(.7*var(--vh));backdrop-filter:blur(10px)}
+.hero-slot::before{content:"";display:block;height:2px;margin:calc(-1.4*var(--vh)) calc(-1.6*var(--vh)) 0;background:var(--hc-accent)}
+.hero-top{display:flex;align-items:flex-end;justify-content:space-between;gap:calc(2*var(--vh))}
+.hero-eyebrow{font-family:var(--f-display);font-weight:700;font-size:calc(1.35*var(--vh));letter-spacing:.24em;color:var(--hc-dim);text-transform:uppercase}
+.hero-scope{display:flex;gap:calc(.6*var(--vh));align-items:center}
+.seg{display:flex;gap:6px}
+.seg button,.seg span{font-family:var(--f-display);font-weight:700;letter-spacing:.16em;text-transform:uppercase;
+  border:1px solid var(--hc-line);border-radius:5px;background:transparent;color:var(--hc-dim);cursor:default;
+  min-height:44px;padding:0 18px;display:inline-flex;align-items:center;font-size:15px}
+.seg .on{background:var(--hc-accent);border-color:var(--hc-accent);color:var(--hc-bg)}
+.hm-legend{display:flex;gap:calc(1.4*var(--vh));align-items:center;font-family:var(--f-mono);font-size:calc(1.35*var(--vh));letter-spacing:.12em;color:var(--hc-dim)}
+.hm-legend i{display:inline-block;width:calc(1.3*var(--vh));height:calc(1.3*var(--vh));border-radius:3px;margin-right:.6ch;vertical-align:-1px;background:rgb(var(--t) / .55);border:1px solid rgb(var(--t) / .8)}
+
+/* rail (1/4 width) density */
+.hm--rail{--hm-gap:3px;--hm-band:52px;--hm-bandsize:19px;--hm-cell:15px;--hm-head:11px;--hm-rad:3px;margin-top:calc(.9*var(--vh))}
+.hm--rail .hm-band{border-left-width:3px}
+.hm--rail .hm-c{min-height:22px}
+.hm--rail .hm-c{font-weight:700}
+
+/* ==========================================================================
+   SECTION 2 — glance strip (ops console / Home). Station tokens + the DS-15
+   header anatomy: rule -> band -> content.
+   ========================================================================== */
+.frame--strip{background:var(--su-panel);color:var(--su-text);font-family:var(--f-body);display:flex;flex-direction:column;overflow:hidden;border:1px solid rgb(var(--su-line-rgb) / .35)}
+.su-rule{height:3px;background:linear-gradient(90deg,var(--su-accent),rgba(255,107,53,.5) 50%,transparent)}
+.su-band{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:8px 16px;min-height:44px;
+  background:linear-gradient(90deg,rgba(255,107,53,.12),transparent 70%)}
+.su-band .eyebrow{font-family:var(--f-mono);font-size:10px;letter-spacing:.2em;text-transform:uppercase;color:var(--su-accent)}
+.su-band h3{margin:1px 0 0;font-family:var(--f-display);font-weight:700;font-size:15px;letter-spacing:.04em;color:var(--su-text)}
+.su-band p{margin:0;font-size:11.5px;color:var(--su-muted)}
+.strip-body{flex:1 1 auto;display:grid;grid-template-columns:repeat(11,minmax(0,1fr));gap:6px;padding:8px 16px 10px}
+.pill{border:1px solid rgb(var(--su-line-rgb) / .35);border-radius:6px;background:var(--su-input);display:flex;flex-direction:column;
+  padding:5px 6px 6px;gap:4px;border-top:3px solid var(--bc)}
+.pill-top{display:flex;align-items:baseline;justify-content:space-between;gap:4px}
+.pill-b{font-family:var(--f-display);font-weight:800;font-size:15px;letter-spacing:.02em;color:var(--su-text)}
+.pill-n{font-family:var(--f-mono);font-size:12px;font-variant-numeric:tabular-nums;color:var(--su-muted)}
+.pill-v{font-family:var(--f-mono);font-size:8.5px;letter-spacing:.14em;text-transform:uppercase}
+.mb{display:grid;grid-template-columns:repeat(6,1fr);gap:2px;align-items:end;height:26px}
+.mb i{display:block;border-radius:1px;background:rgb(var(--t) / .85);height:calc(4px + 22px * var(--i,0))}
+.mb i.z0{background:rgb(var(--su-line-rgb) / .3);height:3px}
+.mb-k{display:grid;grid-template-columns:repeat(6,1fr);gap:2px;font-family:var(--f-mono);font-size:7px;letter-spacing:.04em;color:var(--su-line);text-align:center}
+.t-hot{color:var(--su-accent)} .t-ver{color:var(--su-success)} .t-stir{color:var(--su-warning)} .t-clsd{color:var(--su-line)}
+
+/* ==========================================================================
+   SECTION 3 — work density panel (900x600)
+   ========================================================================== */
+.frame--work{background:var(--hc-panel);color:var(--hc-fg);font-family:var(--f-body);border:1px solid var(--hc-line);
+  display:flex;flex-direction:column;gap:10px;padding:14px 16px 12px;overflow:hidden;position:relative}
+.frame--work::before{content:"";position:absolute;left:0;right:0;top:0;height:3px;background:var(--hc-accent)}
+.wk-head{display:flex;align-items:baseline;justify-content:space-between;gap:16px}
+.wk-title{font-family:var(--f-display);font-weight:700;font-size:12px;letter-spacing:.26em;color:var(--hc-dim);text-transform:uppercase}
+.wk-ctl{display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap}
+.wk-ctl .lbl{font-family:var(--f-mono);font-size:9px;letter-spacing:.18em;color:var(--hc-dim);text-transform:uppercase;display:block;margin-bottom:4px}
+.seg--sm button,.seg--sm span{min-height:34px;padding:0 12px;font-size:11px;letter-spacing:.12em}
+.meter{display:flex;gap:10px;align-items:flex-end}
+.meter div{text-align:center}
+.meter b{display:block;font-family:var(--f-display);font-weight:900;font-size:20px;line-height:1;font-variant-numeric:tabular-nums}
+.meter span{display:block;font-family:var(--f-mono);font-size:8px;letter-spacing:.18em;color:var(--hc-dim);margin-top:3px}
+.wk-main{flex:1 1 auto;display:grid;grid-template-columns:minmax(0,1fr) 236px;gap:12px;min-height:0}
+.hm--work{--hm-gap:3px;--hm-band:62px;--hm-bandsize:20px;--hm-cell:15px;--hm-head:10px;--hm-rad:3px;align-content:start}
+.hm--work .hm-c{min-height:29px;cursor:pointer}
+.hm--work .hm-c:hover{outline:2px solid #fff;outline-offset:-2px}
+.hm--work .hm-band{cursor:pointer;border-left-width:3px}
+.hm--work .hm-band.on{background:rgb(var(--hc-accent-rgb) / .18);border-radius:0 3px 3px 0}
+
+/* ---- "my footprint" panel: same widget, sparser data, own frame ---------- */
+.frame--fp{background:var(--hc-panel);color:var(--hc-fg);font-family:var(--f-body);border:1px solid var(--hc-line);
+  display:flex;flex-direction:column;gap:9px;padding:13px 14px 11px;overflow:hidden;position:relative}
+.frame--fp::before{content:"";position:absolute;left:0;right:0;top:0;height:3px;background:var(--hc-info)}
+.hm--fp{--hm-gap:3px;--hm-band:56px;--hm-bandsize:18px;--hm-cell:14px;--hm-head:9px;--hm-rad:3px;align-content:start}
+.hm--fp .hm-c{min-height:26px}
+
+/* ---- band visibility variant: 8 visible rows rescale to fill ------------- */
+.hm--vis{--hm-gap:4px;--hm-band:72px;--hm-bandsize:26px;--hm-cell:19px;--hm-head:12px;--hm-rad:4px;align-content:stretch;flex:1 1 auto;min-height:0}
+.hm--vis .hm-row{align-items:stretch}
+.hm--vis .hm-c{min-height:42px}
+.btogs{display:grid;grid-template-columns:repeat(11,minmax(0,1fr));gap:5px}
+.btog{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;min-height:52px;
+  border:1px solid var(--hc-line);border-radius:6px;background:rgba(255,255,255,.03);color:var(--hc-dim2);cursor:pointer}
+.btog b{font-family:var(--f-display);font-weight:800;font-size:15px;letter-spacing:.02em}
+.btog span{font-family:var(--f-mono);font-size:8.5px;letter-spacing:.2em}
+.btog[data-state="on"]{background:rgb(var(--hc-good-rgb) / .14);border-color:rgb(var(--hc-good-rgb) / .7);color:var(--hc-fg)}
+.btog[data-state="on"] span{color:rgb(var(--hc-good-rgb))}
+.btog[data-state="off"] span{color:var(--hc-dim2)}
+
+/* ---- wall-headline rule picker (big radios, no hover menu) --------------- */
+.frame--hl{background:var(--hc-panel);color:var(--hc-fg);font-family:var(--f-body);border:1px solid var(--hc-line);
+  display:flex;flex-direction:column;gap:10px;padding:13px 15px;overflow:hidden;position:relative}
+.frame--hl::before{content:"";position:absolute;left:0;right:0;top:0;height:3px;background:var(--hc-warn)}
+.radio{display:flex;gap:12px;align-items:flex-start;min-height:56px;padding:10px 12px;border:1px solid var(--hc-line);
+  border-radius:6px;background:rgba(255,255,255,.02)}
+.radio i{flex:0 0 auto;width:22px;height:22px;border-radius:50%;border:2px solid var(--hc-line);margin-top:1px}
+.radio[aria-checked="true"]{border-color:var(--hc-accent);background:rgb(var(--hc-accent-rgb) / .10)}
+.radio[aria-checked="true"] i{border-color:var(--hc-accent);background:radial-gradient(circle,var(--hc-accent) 0 46%,transparent 47%)}
+.radio b{display:block;font-family:var(--f-display);font-weight:700;font-size:13px;letter-spacing:.12em;text-transform:uppercase;color:var(--hc-fg)}
+.radio em{font-style:normal;display:block;font-family:var(--f-mono);font-size:11px;color:var(--hc-dim);margin-top:4px;line-height:1.5}
+.radio em u{text-decoration:none;color:var(--hc-accent)}
+/* the inspector is a fixed slot, never a floating hover menu (spec §2) */
+.insp{border:1px solid var(--hc-line);border-radius:4px;background:rgba(255,255,255,.02);padding:10px;display:flex;flex-direction:column;gap:8px;min-height:0}
+.insp .k{font-family:var(--f-mono);font-size:9px;letter-spacing:.18em;color:var(--hc-dim2);text-transform:uppercase}
+.insp .hero{font-family:var(--f-display);font-weight:900;font-size:30px;line-height:1;font-variant-numeric:tabular-nums}
+.insp .where{font-family:var(--f-display);font-weight:700;font-size:13px;letter-spacing:.14em;color:var(--hc-dim)}
+.insp .verd{font-family:var(--f-display);font-weight:700;font-size:15px;letter-spacing:.1em}
+.insp .why{font-family:var(--f-body);font-size:10.5px;line-height:1.5;color:var(--hc-dim)}
+.insp ol{margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:3px}
+.insp li{display:flex;justify-content:space-between;font-family:var(--f-mono);font-size:11px;border-bottom:1px solid var(--hc-line);padding-bottom:2px}
+.insp li b{color:var(--hc-fg);font-weight:600}
+.insp li span{color:var(--hc-dim)}
+.chips{display:flex;gap:6px;align-items:center;flex-wrap:wrap;min-height:28px}
+.chip{display:inline-flex;align-items:center;gap:6px;min-height:28px;padding:0 10px;border-radius:14px;font-family:var(--f-mono);font-size:10px;letter-spacing:.12em;
+  background:rgb(var(--hc-accent-rgb) / .18);border:1px solid rgb(var(--hc-accent-rgb) / .6);color:var(--hc-accent);text-transform:uppercase}
+.chip x{font-style:normal;font-weight:700;font-size:12px}
+.chip--ghost{background:transparent;border-color:var(--hc-line);color:var(--hc-dim2)}
+.wk-foot{font-family:var(--f-mono);font-size:9.5px;letter-spacing:.14em;color:var(--hc-dim2);text-transform:uppercase;border-top:1px solid var(--hc-line);padding-top:7px}
+
+/* ==========================================================================
+   SECTION 4 — workstation canvas
+   ========================================================================== */
+.frame--canvas{background:var(--hc-bg);color:var(--hc-fg);font-family:var(--f-body);display:grid;overflow:hidden;
+  grid-template-rows:64px minmax(0,1fr);--vh:10.8px}
+.cv-bar{display:flex;align-items:center;justify-content:space-between;gap:20px;padding:0 20px;border-bottom:1px solid var(--hc-line);background:linear-gradient(180deg,rgba(13,21,39,.96),rgba(13,21,39,.82))}
+.cv-bar .nm{font-family:var(--f-display);font-weight:800;font-size:20px;letter-spacing:.16em}
+.cv-bar .sub{font-family:var(--f-mono);font-size:12px;letter-spacing:.16em;color:var(--hc-dim)}
+.cv-body{display:grid;gap:10px;padding:10px;min-height:0}
+.recipe-a{grid-template-columns:340px minmax(0,1fr) 300px;grid-template-rows:minmax(0,1fr) 250px;
+  grid-template-areas:"left hero right" "left bottom right"}
+.recipe-b{grid-template-columns:300px minmax(0,1fr) 420px;grid-template-rows:minmax(0,1fr) 250px;
+  grid-template-areas:"left hero right" "left bottom right"}
+/* ---- action-flow annotation (recipe A) ---------------------------------- */
+.frame--canvas.with-flow{grid-template-rows:64px 42px minmax(0,1fr)}
+.cv-flow{display:flex;align-items:center;gap:12px;padding:0 20px;border-bottom:1px solid var(--hc-line);
+  background:rgba(255,107,53,.08);font-family:var(--f-mono);font-size:12px;letter-spacing:.13em;text-transform:uppercase;color:var(--hc-dim)}
+.cv-flow b{font-family:var(--f-display);font-weight:800;color:var(--hc-accent);letter-spacing:.16em}
+.cv-flow em{font-style:normal;color:var(--hc-dim2)}
+.co{position:absolute;z-index:9;width:34px;height:34px;border-radius:50%;background:var(--hc-accent);color:#0a0e1a;
+  display:flex;align-items:center;justify-content:center;font-family:var(--f-display);font-weight:900;font-size:18px;
+  box-shadow:0 0 0 4px rgba(255,107,53,.28)}
+.co-t{position:absolute;z-index:9;font-family:var(--f-mono);font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;
+  color:var(--hc-accent);background:rgba(7,10,18,.92);padding:3px 8px;border-radius:4px;border:1px solid rgb(var(--hc-accent-rgb) / .5);white-space:nowrap}
+.ring{outline:3px solid #fff;outline-offset:2px;box-shadow:0 0 0 7px rgba(255,107,53,.4);z-index:5}
+.bigbtn{min-height:56px;border-radius:8px;background:var(--hc-accent);color:#0a0e1a;display:flex;align-items:center;justify-content:center;gap:10px;
+  font-family:var(--f-display);font-weight:900;font-size:18px;letter-spacing:.16em}
+.bigbtn small{font-family:var(--f-mono);font-weight:600;font-size:11px;letter-spacing:.1em;opacity:.75}
+.logbtn{min-height:32px;border-radius:4px;border:1px solid rgb(var(--hc-good-rgb) / .75);background:rgb(var(--hc-good-rgb) / .2);
+  color:rgb(var(--hc-good-rgb));font-family:var(--f-display);font-weight:800;font-size:11px;letter-spacing:.14em;
+  display:flex;align-items:center;justify-content:center}
+.slot{position:relative;border:2px dashed rgba(255,107,53,.42);border-radius:8px;background:rgba(13,21,39,.55);min-height:0;overflow:hidden}
+.slot>.tag{position:absolute;top:0;left:0;z-index:4;font-family:var(--f-mono);font-size:11px;letter-spacing:.18em;text-transform:uppercase;
+  background:rgba(255,107,53,.9);color:#0a0e1a;padding:3px 9px;border-radius:0 0 6px 0;font-weight:700}
+.slot--hero{grid-area:hero;border-color:rgba(68,221,255,.5)}
+.slot--hero>.tag{background:rgba(68,221,255,.92)}
+.slot--left{grid-area:left} .slot--right{grid-area:right} .slot--bottom{grid-area:bottom}
+.slot-inner{position:absolute;inset:0;padding:30px 12px 12px;display:flex;flex-direction:column;gap:8px;min-height:0}
+.picker{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);display:flex;flex-direction:column;align-items:center;gap:10px;z-index:3}
+.picker button{min-height:64px;min-width:220px;font-family:var(--f-display);font-weight:800;font-size:16px;letter-spacing:.14em;text-transform:uppercase;
+  border:2px solid var(--hc-accent);background:rgb(var(--hc-accent-rgb) / .14);color:var(--hc-accent);border-radius:8px;cursor:pointer}
+.picker small{font-family:var(--f-mono);font-size:10px;letter-spacing:.14em;color:var(--hc-dim2);text-transform:uppercase}
+.picker--sm button{min-height:52px;min-width:180px;font-size:13px}
+.mapish{position:absolute;inset:0;background:
+  radial-gradient(60% 80% at 22% 40%,rgba(30,58,96,.85),transparent 60%),
+  radial-gradient(45% 70% at 62% 66%,rgba(26,52,86,.8),transparent 62%),
+  radial-gradient(38% 52% at 78% 32%,rgba(28,55,90,.8),transparent 60%),
+  repeating-linear-gradient(90deg,rgba(255,255,255,.05) 0 1px,transparent 1px 74px),
+  repeating-linear-gradient(0deg,rgba(255,255,255,.05) 0 1px,transparent 1px 74px),#060a12}
+.arc{position:absolute;height:2px;border-radius:2px;background:linear-gradient(90deg,transparent,rgba(255,107,53,.95),transparent);transform-origin:left center}
+.hero-switch{position:absolute;top:34px;left:12px;z-index:5;width:250px}
+.hero-switch>button{width:100%;min-height:52px;display:flex;align-items:center;justify-content:space-between;padding:0 14px;
+  font-family:var(--f-display);font-weight:700;font-size:14px;letter-spacing:.12em;text-transform:uppercase;color:var(--hc-fg);
+  background:var(--hc-panel);border:1px solid var(--hc-line);border-radius:6px;cursor:pointer}
+.hero-switch ul{list-style:none;margin:6px 0 0;padding:6px;background:var(--hc-panel);border:1px solid var(--hc-line);border-radius:6px;display:flex;flex-direction:column;gap:4px}
+.hero-switch li{min-height:48px;display:flex;align-items:center;padding:0 12px;font-family:var(--f-display);font-weight:700;font-size:13px;letter-spacing:.14em;
+  text-transform:uppercase;color:var(--hc-dim);border:1px solid transparent;border-radius:4px}
+.hero-switch li[aria-checked="true"]{background:var(--hc-accent);color:var(--hc-bg)}
+.overlay-slot{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:640px;height:330px;z-index:6;
+  border:2px dashed rgba(255,255,255,.28);border-radius:10px;background:rgba(7,10,18,.55);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;text-align:center}
+.overlay-slot b{font-family:var(--f-display);font-weight:800;font-size:17px;letter-spacing:.2em;color:rgba(255,255,255,.7);text-transform:uppercase}
+.overlay-slot span{font-family:var(--f-mono);font-size:11.5px;letter-spacing:.1em;color:var(--hc-dim);max-width:46ch;line-height:1.6}
+
+/* mini spot list — ports src/components/dx/DXSpotList/SpotRow.tsx column order */
+.sl{display:flex;flex-direction:column;min-height:0}
+.sl-h,.sl-r{display:grid;grid-template-columns:var(--slc,44px 34px 46px 62px minmax(0,1fr) 46px 58px);gap:6px;align-items:center;
+  font-family:var(--f-mono);font-size:11px;padding:4px 6px;line-height:1.2}
+.sl-h{font-size:9px;letter-spacing:.16em;color:var(--hc-dim2);text-transform:uppercase;border-bottom:1px solid var(--hc-line)}
+.sl-r{border-left:3px solid var(--bc);color:var(--hc-dim)}
+.sl-r:nth-child(odd){background:rgba(99,112,136,.10)}
+.sl-r.sel{background:rgb(var(--hc-accent-rgb) / .2);position:relative}
+.sl-r .dx{color:var(--hc-fg);font-weight:600}
+.sl-r .fq{color:#67e8f9}
+.sl-r .bd{background:var(--bc);color:#0a0e1a;font-weight:700;font-size:9px;border-radius:3px;padding:2px 0;text-align:center}
+.sl-r .age{height:3px;border-radius:2px;background:rgba(99,112,136,.3);position:relative}
+.sl-r .age i{position:absolute;left:0;top:0;bottom:0;border-radius:2px;background:var(--ac,#22c55e);width:var(--aw,80%)}
+.sl-r .nb{font-size:8px;letter-spacing:.06em;color:var(--hc-warn);font-weight:700}
+
+/* bottom-dock heat map: same widget, transposed to the slot's aspect */
+.hm-t{display:grid;grid-template-rows:auto repeat(6,minmax(0,1fr));gap:3px;flex:1 1 auto;min-height:0}
+.hm-t-row{display:grid;grid-template-columns:52px repeat(11,minmax(0,1fr));gap:3px}
+.hm-t-row>.k{font-family:var(--f-display);font-weight:700;font-size:12px;letter-spacing:.14em;color:var(--hc-dim);display:flex;align-items:center}
+.hm-t-head>.k{color:var(--hc-dim2);font-size:9px}
+.hm-t-head>span{font-family:var(--f-display);font-weight:700;font-size:12px;color:var(--hc-fg);text-align:center;letter-spacing:.02em}
+.hm-t .hm-c{font-size:12px;border-radius:2px;min-height:0}
+
+/* logger dock */
+.lg{display:grid;grid-template-columns:repeat(4,minmax(0,1fr)) 190px;gap:10px;align-items:end}
+.lg label{display:block;font-family:var(--f-mono);font-size:9px;letter-spacing:.18em;color:var(--hc-dim);text-transform:uppercase;margin-bottom:4px}
+.lg .in{height:52px;border:1px solid var(--hc-line);border-radius:6px;background:rgba(255,255,255,.03);display:flex;align-items:center;padding:0 12px;
+  font-family:var(--f-mono);font-size:22px;letter-spacing:.06em;color:var(--hc-fg);font-variant-numeric:tabular-nums}
+.lg .in.ph{color:var(--hc-dim2)}
+.lg .go{height:52px;border-radius:6px;background:var(--hc-accent);color:var(--hc-bg);display:flex;align-items:center;justify-content:center;
+  font-family:var(--f-display);font-weight:800;font-size:18px;letter-spacing:.18em}
+
+/* ==========================================================================
+   SECTION 5 — phone canvas
+   ========================================================================== */
+.frame--phones{display:flex;gap:30px;background:transparent}
+.ph{width:390px;height:844px;border-radius:34px;overflow:hidden;background:var(--su-canvas);color:var(--su-text);
+  border:1px solid rgb(var(--su-line-rgb) / .4);display:flex;flex-direction:column;font-family:var(--f-body);position:relative}
+.ph-state{display:flex;align-items:center;gap:8px;padding:10px 14px;background:var(--su-input);border-bottom:1px solid rgb(var(--su-line-rgb) / .35);
+  font-family:var(--f-mono);font-size:11px;letter-spacing:.1em;color:var(--su-muted);min-height:46px}
+.ph-state b{color:var(--su-text);font-weight:600}
+.ph-state .dot{width:8px;height:8px;border-radius:50%;background:var(--su-success);flex:0 0 auto}
+.ph-state .bd{background:var(--su-accent);color:#0a0e1a;font-weight:700;border-radius:3px;padding:2px 6px;font-size:10px}
+.ph-hd{padding:10px 14px 6px}
+.ph-hd .eyebrow{font-family:var(--f-mono);font-size:9px;letter-spacing:.2em;text-transform:uppercase;color:var(--su-accent)}
+.ph-hd h4{margin:2px 0 0;font-family:var(--f-display);font-weight:700;font-size:17px;letter-spacing:.04em;color:var(--su-text)}
+.ph-body{flex:1 1 auto;min-height:0;padding:6px 14px 0;display:flex;flex-direction:column;gap:10px}
+.ph-dots{display:flex;gap:8px;justify-content:center;align-items:center;padding:14px 0 18px}
+.ph-dots i{width:9px;height:9px;border-radius:50%;background:rgb(var(--su-line-rgb) / .5)}
+.ph-dots i.on{background:var(--su-accent);width:22px;border-radius:5px}
+.ph-f label{display:block;font-family:var(--f-mono);font-size:10px;letter-spacing:.2em;color:var(--su-muted);text-transform:uppercase;margin-bottom:5px}
+.ph-f .in{min-height:60px;border:1px solid rgb(var(--su-line-rgb) / .45);border-radius:10px;background:var(--su-input);display:flex;align-items:center;
+  padding:0 14px;font-family:var(--f-mono);font-size:30px;letter-spacing:.06em;color:var(--su-text)}
+.ph-f .in.ph{color:rgb(var(--su-line-rgb) / .9);font-size:22px}
+.ph-2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.ph-go{min-height:78px;border-radius:12px;background:var(--su-accent);color:#0a0e1a;display:flex;align-items:center;justify-content:center;gap:10px;
+  font-family:var(--f-display);font-weight:800;font-size:22px;letter-spacing:.18em}
+.ph-recent{border-top:1px solid rgb(var(--su-line-rgb) / .3);padding-top:8px}
+.ph-recent .k{font-family:var(--f-mono);font-size:9px;letter-spacing:.2em;color:var(--su-line);text-transform:uppercase;margin-bottom:5px}
+.ph-recent div.r{display:flex;justify-content:space-between;font-family:var(--f-mono);font-size:13px;padding:5px 0;border-bottom:1px solid rgb(var(--su-line-rgb) / .18)}
+.ph-recent .r b{color:var(--su-text);font-weight:600}
+.ph-sl{display:flex;flex-direction:column;gap:2px}
+.ph-sl .r{display:grid;grid-template-columns:52px 1fr 60px 44px;gap:8px;align-items:center;min-height:56px;padding:6px 8px;
+  border-left:3px solid var(--bc);border-radius:0 6px 6px 0;background:var(--su-input);font-family:var(--f-mono);font-size:12px;color:var(--su-muted)}
+.ph-sl .r .dx{font-size:17px;color:var(--su-text);font-weight:600}
+.ph-sl .r .bd{font-family:var(--f-display);font-weight:800;font-size:13px;color:#0a0e1a;background:var(--bc);border-radius:4px;text-align:center;padding:4px 0}
+.ph-sl .r .fq{color:#7dd3fc;font-size:13px}
+.ph-hm{display:flex;flex-direction:column;gap:4px}
+.ph-hm .r{display:grid;grid-template-columns:56px minmax(0,1fr) 54px;gap:10px;align-items:center;min-height:54px;padding:0 6px;border-radius:6px}
+.ph-hm .r .b{font-family:var(--f-display);font-weight:900;font-size:22px;color:var(--su-text);border-left:4px solid var(--bc);padding-left:8px;line-height:1}
+.ph-hm .r .bar{height:20px;border-radius:3px;background:rgb(var(--su-line-rgb) / .18);position:relative;overflow:hidden}
+.ph-hm .r .bar i{position:absolute;left:0;top:0;bottom:0;background:rgb(var(--t) / .8);width:calc(6% + 94% * var(--i,0))}
+.ph-hm .r .n{font-family:var(--f-mono);font-size:16px;text-align:right;font-variant-numeric:tabular-nums;color:var(--su-text)}
+.ph-hm .r .v{grid-column:2 / 4;font-family:var(--f-mono);font-size:9px;letter-spacing:.16em;text-transform:uppercase;margin-top:-6px}
+.ph-scope{display:flex;gap:6px}
+.ph-scope span{flex:1;min-height:44px;display:flex;align-items:center;justify-content:center;border:1px solid rgb(var(--su-line-rgb) / .4);border-radius:8px;
+  font-family:var(--f-display);font-weight:700;font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:var(--su-muted)}
+.ph-scope span.on{background:var(--su-accent);border-color:var(--su-accent);color:#0a0e1a}
+
+/* ==========================================================================
+   SECTION 6 — notes
+   ========================================================================== */
+.notes{border-top:3px solid var(--su-warning);padding-top:14px;margin-top:64px}
+.notes ol{margin:12px 0 0;padding-left:22px;max-width:104ch}
+.notes li{margin-bottom:14px;line-height:1.7;font-size:14px;color:var(--su-text)}
+.notes li b{font-family:var(--f-display);font-weight:700;letter-spacing:.06em;color:#fff;display:block;font-size:13.5px;margin-bottom:2px;text-transform:uppercase}
+.notes li span{color:var(--su-muted)}
+</style>
+</head>
+<body>
+
+<header class="sheet-head">
+  <h1>Band × Continent heat map — design contact sheet</h1>
+  <p>One widget, four densities. Rows are bands, columns are continents, the number is the deduplicated spot count in the window,
+     and the tint is the Band&nbsp;Health ladder verdict for <em>that</em> path from <em>your</em> grid — so a cell can carry a
+     big number and still be closed to you. <b>Fill opacity is traffic and hue is the verdict, at every density</b> — quiet cells
+     are translucent, hot cells are solid, and a hot cell your station can't work keeps its colour under a hatch. Selecting a band
+     or a cell writes band + continent to shared operating state; the spot list, the map and the logger read it back. Every density
+     below is a <em>scale range</em>, not a fixed size: the pixel dimensions named are the point in the range being drawn.</p>
+  <div class="meta">v2 · static mock · no framework, no network assets · sample data for K5ABC / DM79 at 22:14 UTC · tokens taken from
+     tailwind.config.js · src/styles/globals.css · src/styles/hamclock-themes.css · hamclock-wall.css · docs/designs/hamclock-wall-spec.md</div>
+</header>
+
+<main class="sheet">
+
+<!-- ======================= 1 · WALL DENSITY ============================== -->
+<section class="sec">
+  <div class="sec-label"><b>1 · Wall density</b><i>theme pulse · scale range 0.70 – 1.40, continuous</i></div>
+  <p class="sec-note"><b>Nothing here is a fixed size.</b> Every density variant is a scale <em>range</em>, not a pixel spec: the
+     widget is authored in vh units multiplied by <code>--hc-scale</code>, so wall density holds from roughly 0.70 (a 1280-wide
+     panel) to 1.40 (a 4K wall) and re-flows continuously in between — no breakpoint jumps, no second layout to maintain. The
+     first frame below is scale&nbsp;1.00; the second is the <em>same markup</em> at scale&nbsp;0.67 to prove it. Wall density
+     shows the heat map as the hero: no tile chrome competing with the grid, one headline sentence above it, and the same widget
+     repeated in the right rail at rail width so the two ends of the range sit in one frame. Whole tile is the click target; the
+     report opens centred.</p>
+
+  <div class="shot shot--wall"><div class="frame frame--wall">
+
+    <div class="hc-hdr">
+      <div class="hc-call">K5ABC<small>DM79QX · DENVER CO · 100 W · DIPOLE</small></div>
+      <div class="hc-clocks">
+        <div class="hc-clock"><b>16:14</b><span>MDT LOCAL</span></div>
+        <div class="hc-clock"><b>22:14</b><span>UTC</span></div>
+      </div>
+      <div class="hc-hdr-ctl"><div class="seg"><span class="on">Wall</span><span>Desk</span><span>Settings</span></div></div>
+    </div>
+
+    <div class="hc-stage">
+      <!-- HERO SLOT: the heat map, chrome-free -->
+      <div class="hero-slot">
+        <div class="hero-top">
+          <div>
+            <div class="hero-eyebrow">Bands × Continents · Live</div>
+            <div class="hm-hl" style="font-size:54px;margin-top:10px"><s>20 M OPEN TO EU</s> · <u>15 M OPENING TO AS</u></div>
+          </div>
+          <div class="hero-scope">
+            <div class="seg"><span>My continent</span><span class="on">World</span></div>
+            <div class="seg"><span class="on">30 min</span><span>2 h</span></div>
+          </div>
+        </div>
+
+        <div class="hm hm--wall">
+          <div class="hm-head"><span>Band</span><span>NA</span><span>SA</span><span>EU</span><span>AF</span><span>AS</span><span>OC</span></div>
+          <div class="hm-row"><span class="hm-band" style="--bc:#ff6666">160<em>m</em></span><b class="hm-c v-stir" style="--i:.18">12</b><b class="hm-c v-clsd"><i class="z">·</i></b><b class="hm-c v-clsd"><i class="z">·</i></b><b class="hm-c v-clsd"><i class="z">·</i></b><b class="hm-c v-clsd"><i class="z">·</i></b><b class="hm-c v-clsd" style="--i:.05">1</b></div>
+          <div class="hm-row"><span class="hm-band" style="--bc:#ff9966">80<em>m</em></span><b class="hm-c v-ver" style="--i:.35">48</b><b class="hm-c v-stir" style="--i:.09">3</b><b class="hm-c v-clsd" style="--i:.05">1</b><b class="hm-c v-clsd"><i class="z">·</i></b><b class="hm-c v-clsd"><i class="z">·</i></b><b class="hm-c v-clsd" style="--i:.07">2</b></div>
+          <div class="hm-row"><span class="hm-band" style="--bc:#e8963c">60<em>m</em></span><b class="hm-c v-stir" style="--i:.15">9</b><b class="hm-c v-clsd"><i class="z">·</i></b><b class="hm-c v-clsd"><i class="z">·</i></b><b class="hm-c v-clsd"><i class="z">·</i></b><b class="hm-c v-clsd"><i class="z">·</i></b><b class="hm-c v-clsd"><i class="z">·</i></b></div>
+          <div class="hm-row"><span class="hm-band" style="--bc:#ffcc66">40<em>m</em></span><b class="hm-c v-hot hi" style="--i:.74">214</b><b class="hm-c v-ver" style="--i:.26">26</b><b class="hm-c v-stir" style="--i:.22">18</b><b class="hm-c v-clsd" style="--i:.07">2</b><b class="hm-c v-clsd" style="--i:.10">4</b><b class="hm-c v-stir" style="--i:.13">7</b></div>
+          <div class="hm-row"><span class="hm-band" style="--bc:#99ff66">30<em>m</em></span><b class="hm-c v-ver hi" style="--i:.50">96</b><b class="hm-c v-ver" style="--i:.28">31</b><b class="hm-c v-ver" style="--i:.34">44</b><b class="hm-c v-stir" style="--i:.09">3</b><b class="hm-c v-stir" style="--i:.12">6</b><b class="hm-c v-stir" style="--i:.17">11</b></div>
+          <div class="hm-row"><span class="hm-band" style="--bc:#66ff99">20<em>m</em></span><b class="hm-c v-hot hi" style="--i:1">386</b><b class="hm-c v-hot hi" style="--i:.55">118</b><b class="hm-c v-hot hi" style="--i:.84">274</b><b class="hm-c v-ver" style="--i:.23">21</b><b class="hm-c v-ver" style="--i:.40">63</b><b class="hm-c v-ver" style="--i:.33">42</b></div>
+          <div class="hm-row"><span class="hm-band" style="--bc:#66ffcc">17<em>m</em></span><b class="hm-c v-ver hi" style="--i:.61">142</b><b class="hm-c v-hot" style="--i:.48">88</b><b class="hm-c v-ver hi" style="--i:.50">96</b><b class="hm-c v-stir" style="--i:.19">14</b><b class="hm-c v-ver" style="--i:.27">29</b><b class="hm-c v-ver" style="--i:.29">33</b></div>
+          <div class="hm-row"><span class="hm-band" style="--bc:#66ccff">15<em>m</em></span><b class="hm-c v-ver" style="--i:.48">88</b><b class="hm-c v-hot hi" style="--i:.65">164</b><b class="hm-c v-x" style="--i:.33">41</b><b class="hm-c v-ver" style="--i:.24">22</b><b class="hm-c v-hot s" style="--i:.38">57</b><b class="hm-c v-ver" style="--i:.26">26</b></div>
+          <div class="hm-row"><span class="hm-band" style="--bc:#6699ff">12<em>m</em></span><b class="hm-c v-stir" style="--i:.28">31</b><b class="hm-c v-ver" style="--i:.44">74</b><b class="hm-c v-fcst" style="--i:.15">9</b><b class="hm-c v-stir" style="--i:.18">12</b><b class="hm-c v-stir" style="--i:.14">8</b><b class="hm-c v-stir" style="--i:.19">14</b></div>
+          <div class="hm-row"><span class="hm-band" style="--bc:#9966ff">10<em>m</em></span><b class="hm-c v-stir" style="--i:.35">46</b><b class="hm-c v-hot hi" style="--i:.56">121</b><b class="hm-c v-fcst" style="--i:.12">6</b><b class="hm-c v-ver" style="--i:.22">18</b><b class="hm-c v-clsd" style="--i:.09">3</b><b class="hm-c v-ver" style="--i:.22">19</b></div>
+          <div class="hm-row"><span class="hm-band" style="--bc:#ff66ff">6<em>m</em></span><b class="hm-c v-stir s" style="--i:.26">27</b><b class="hm-c v-clsd" style="--i:.07">2</b><b class="hm-c v-clsd"><i class="z">·</i></b><b class="hm-c v-clsd"><i class="z">·</i></b><b class="hm-c v-clsd"><i class="z">·</i></b><b class="hm-c v-clsd"><i class="z">·</i></b></div>
+        </div>
+
+        <div class="hm-legend">
+          <span style="--t:var(--hc-accent-rgb)"><i></i>HOT</span>
+          <span style="--t:var(--hc-good-rgb)"><i></i>VERIFIED OPEN</span>
+          <span style="--t:var(--hc-warn-rgb)"><i></i>STIRRING</span>
+          <span style="--t:var(--hc-good-rgb)"><i style="background:transparent;border-style:dashed"></i>FORECAST ONLY</span>
+          <span style="--t:99 112 136"><i></i>CLOSED</span>
+          <span style="--t:var(--hc-accent-rgb)"><i style="border-color:rgb(var(--hc-bad-rgb) / .9);background:repeating-linear-gradient(135deg,rgba(8,12,22,.8) 0 3px,rgba(8,12,22,0) 3px 7px),rgb(var(--hc-accent-rgb) / .85)"></i>HATCHED = HOT, NOT WORKABLE</span>
+          <span style="color:var(--hc-info)">▲ SURPRISE — BEAT THE FORECAST</span>
+          <span class="ramp" style="margin-left:auto"><b style="font-family:var(--f-mono);font-weight:400">1</b>
+            <i style="--t:var(--hc-accent-rgb);--i:.08"></i><i style="--t:var(--hc-accent-rgb);--i:.22"></i><i style="--t:var(--hc-accent-rgb);--i:.42"></i><i style="--t:var(--hc-accent-rgb);--i:.68"></i><i style="--t:var(--hc-accent-rgb);--i:1"></i>
+            <b style="font-family:var(--f-mono);font-weight:400">400 SPOTS / 30 MIN</b></span>
+          <span>2,632 SPOTS · DEDUPED</span>
+        </div>
+      </div>
+
+      <!-- RAIL: same widget, 1/4 width -->
+      <div class="hc-rail">
+        <section class="hc-tile" style="--hc-state:var(--hc-accent)">
+          <h3 class="hc-tile-title"><span>Bands × Continents</span><em>WORLD · 30 MIN</em></h3>
+          <div class="hc-hero" style="font-size:34px">20 M → EU</div>
+          <div class="hm hm--rail">
+            <div class="hm-head"><span></span><span>NA</span><span>SA</span><span>EU</span><span>AF</span><span>AS</span><span>OC</span></div>
+            <div class="hm-row"><span class="hm-band" style="--bc:#ff6666">160</span><b class="hm-c v-stir" style="--i:.18">12</b><b class="hm-c v-clsd"><i class="z">·</i></b><b class="hm-c v-clsd"><i class="z">·</i></b><b class="hm-c v-clsd"><i class="z">·</i></b><b class="hm-c v-clsd"><i class="z">·</i></b><b class="hm-c v-clsd">1</b></div>
+            <div class="hm-row"><span class="hm-band" style="--bc:#ff9966">80</span><b class="hm-c v-ver" style="--i:.35">48</b><b class="hm-c v-stir" style="--i:.09">3</b><b class="hm-c v-clsd">1</b><b class="hm-c v-clsd"><i class="z">·</i></b><b class="hm-c v-clsd"><i class="z">·</i></b><b class="hm-c v-clsd">2</b></div>
+            <div class="hm-row"><span class="hm-band" style="--bc:#e8963c">60</span><b class="hm-c v-stir" style="--i:.15">9</b><b class="hm-c v-clsd"><i class="z">·</i></b><b class="hm-c v-clsd"><i class="z">·</i></b><b class="hm-c v-clsd"><i class="z">·</i></b><b class="hm-c v-clsd"><i class="z">·</i></b><b class="hm-c v-clsd"><i class="z">·</i></b></div>
+            <div class="hm-row"><span class="hm-band" style="--bc:#ffcc66">40</span><b class="hm-c v-hot hi" style="--i:.74">214</b><b class="hm-c v-ver" style="--i:.26">26</b><b class="hm-c v-stir" style="--i:.22">18</b><b class="hm-c v-clsd">2</b><b class="hm-c v-clsd">4</b><b class="hm-c v-stir" style="--i:.13">7</b></div>
+            <div class="hm-row"><span class="hm-band" style="--bc:#99ff66">30</span><b class="hm-c v-ver hi" style="--i:.50">96</b><b class="hm-c v-ver" style="--i:.28">31</b><b class="hm-c v-ver" style="--i:.34">44</b><b class="hm-c v-stir" style="--i:.09">3</b><b class="hm-c v-stir" style="--i:.12">6</b><b class="hm-c v-stir" style="--i:.17">11</b></div>
+            <div class="hm-row"><span class="hm-band" style="--bc:#66ff99">20</span><b class="hm-c v-hot hi" style="--i:1">386</b><b class="hm-c v-hot hi" style="--i:.55">118</b><b class="hm-c v-hot hi" style="--i:.84">274</b><b class="hm-c v-ver" style="--i:.23">21</b><b class="hm-c v-ver" style="--i:.40">63</b><b class="hm-c v-ver" style="--i:.33">42</b></div>
+            <div class="hm-row"><span class="hm-band" style="--bc:#66ffcc">17</span><b class="hm-c v-ver hi" style="--i:.61">142</b><b class="hm-c v-hot" style="--i:.48">88</b><b class="hm-c v-ver hi" style="--i:.50">96</b><b class="hm-c v-stir" style="--i:.19">14</b><b class="hm-c v-ver" style="--i:.27">29</b><b class="hm-c v-ver" style="--i:.29">33</b></div>
+            <div class="hm-row"><span class="hm-band" style="--bc:#66ccff">15</span><b class="hm-c v-ver" style="--i:.48">88</b><b class="hm-c v-hot hi" style="--i:.65">164</b><b class="hm-c v-x" style="--i:.33">41</b><b class="hm-c v-ver" style="--i:.24">22</b><b class="hm-c v-hot s" style="--i:.38">57</b><b class="hm-c v-ver" style="--i:.26">26</b></div>
+            <div class="hm-row"><span class="hm-band" style="--bc:#6699ff">12</span><b class="hm-c v-stir" style="--i:.28">31</b><b class="hm-c v-ver" style="--i:.44">74</b><b class="hm-c v-fcst" style="--i:.15">9</b><b class="hm-c v-stir" style="--i:.18">12</b><b class="hm-c v-stir" style="--i:.14">8</b><b class="hm-c v-stir" style="--i:.19">14</b></div>
+            <div class="hm-row"><span class="hm-band" style="--bc:#9966ff">10</span><b class="hm-c v-stir" style="--i:.35">46</b><b class="hm-c v-hot hi" style="--i:.56">121</b><b class="hm-c v-fcst" style="--i:.12">6</b><b class="hm-c v-ver" style="--i:.22">18</b><b class="hm-c v-clsd">3</b><b class="hm-c v-ver" style="--i:.22">19</b></div>
+            <div class="hm-row"><span class="hm-band" style="--bc:#ff66ff">6</span><b class="hm-c v-stir s" style="--i:.26">27</b><b class="hm-c v-clsd">2</b><b class="hm-c v-clsd"><i class="z">·</i></b><b class="hm-c v-clsd"><i class="z">·</i></b><b class="hm-c v-clsd"><i class="z">·</i></b><b class="hm-c v-clsd"><i class="z">·</i></b></div>
+          </div>
+          <div class="hc-sub"><span><b>2,632</b> spots · 11 bands</span><span>DEDUPED · 22:14Z</span></div>
+        </section>
+
+        <section class="hc-tile" style="--hc-state:var(--hc-good)">
+          <h3 class="hc-tile-title"><span>Best band now</span><em>DM79 · REGIONAL</em></h3>
+          <div class="hc-hero" style="font-size:44px">20 M</div>
+          <div class="hc-sub"><span><b>VERIFIED OPEN</b> · 386 obs / 74 rx</span><span>↗ RISING</span></div>
+        </section>
+      </div>
+    </div>
+
+    <div class="hc-ftr">
+      <div class="hc-pager"><span class="arw">‹</span><b>PROPAGATION</b><span class="arw">›</span><span>2 / 5</span><span>AUTO ON</span></div>
+      <div class="hc-status">
+        <span><i style="background:var(--hc-good)"></i>CLUSTER 2 S</span>
+        <span><i style="background:var(--hc-good)"></i>PSKREPORTER 41 S</span>
+        <span><i style="background:var(--hc-warn)"></i>RBN 3 M</span>
+        <span><i style="background:var(--hc-good)"></i>NOAA 5 M</span>
+      </div>
+      <div>SFI 142 · A 8 · K 3 · BZ −2.1 NT</div>
+    </div>
+
+  </div></div>
+  <p class="cap"><b>At scale 1.00 (above):</b> band label 52 px · count 42 px · headline 54 px · legend 15 px. <b>Fill opacity carries
+     traffic</b> — 1 spot is a 10% wash, 400 spots is solid; hue stays the Band Health verdict, so a solid orange cell is
+     "hot <em>and</em> workable" and a hatched one is "hot and not yours". <b>Rail variant</b> keeps every cell and drops the
+     headline; the hero line carries the sentence instead.</p>
+
+  <div class="sec-label" style="border-top-color:rgb(var(--su-line-rgb) / .6);margin-top:34px"><b>1b · Same markup, scale 0.67</b><i>an intermediate point in the range, not a second design</i></div>
+  <p class="sec-note">Identical DOM, identical classes. Only <code>--hc-scale</code> moves (1.00 → 0.67), which moves every vh-derived
+     token together. Below scale ~0.70 the widget hands off to work density; above ~1.40 it hands off to a 4K wall variant that
+     adds a seventh column for Antarctica-adjacent paths if the owner ever wants it.</p>
+
+<div class="shot shot--mid"><div class="frame frame--wall mid">
+
+    <div class="hc-hdr">
+      <div class="hc-call">K5ABC<small>DM79QX · DENVER CO · 100 W · DIPOLE</small></div>
+      <div class="hc-clocks">
+        <div class="hc-clock"><b>16:14</b><span>MDT LOCAL</span></div>
+        <div class="hc-clock"><b>22:14</b><span>UTC</span></div>
+      </div>
+      <div class="hc-hdr-ctl"><div class="seg"><span class="on">Wall</span><span>Desk</span><span>Settings</span></div></div>
+    </div>
+
+    <div class="hc-stage">
+      <!-- HERO SLOT: the heat map, chrome-free -->
+      <div class="hero-slot">
+        <div class="hero-top">
+          <div>
+            <div class="hero-eyebrow">Bands × Continents · Live</div>
+            <div class="hm-hl" style="font-size:34px;margin-top:10px"><s>20 M OPEN TO EU</s> · <u>15 M OPENING TO AS</u></div>
+          </div>
+          <div class="hero-scope">
+            <div class="seg"><span>My continent</span><span class="on">World</span></div>
+            <div class="seg"><span class="on">30 min</span><span>2 h</span></div>
+          </div>
+        </div>
+
+        <div class="hm hm--wall">
+          <div class="hm-head"><span>Band</span><span>NA</span><span>SA</span><span>EU</span><span>AF</span><span>AS</span><span>OC</span></div>
+          <div class="hm-row"><span class="hm-band" style="--bc:#ff6666">160<em>m</em></span><b class="hm-c v-stir" style="--i:.18">12</b><b class="hm-c v-clsd"><i class="z">·</i></b><b class="hm-c v-clsd"><i class="z">·</i></b><b class="hm-c v-clsd"><i class="z">·</i></b><b class="hm-c v-clsd"><i class="z">·</i></b><b class="hm-c v-clsd" style="--i:.05">1</b></div>
+          <div class="hm-row"><span class="hm-band" style="--bc:#ff9966">80<em>m</em></span><b class="hm-c v-ver" style="--i:.35">48</b><b class="hm-c v-stir" style="--i:.09">3</b><b class="hm-c v-clsd" style="--i:.05">1</b><b class="hm-c v-clsd"><i class="z">·</i></b><b class="hm-c v-clsd"><i class="z">·</i></b><b class="hm-c v-clsd" style="--i:.07">2</b></div>
+          <div class="hm-row"><span class="hm-band" style="--bc:#e8963c">60<em>m</em></span><b class="hm-c v-stir" style="--i:.15">9</b><b class="hm-c v-clsd"><i class="z">·</i></b><b class="hm-c v-clsd"><i class="z">·</i></b><b class="hm-c v-clsd"><i class="z">·</i></b><b class="hm-c v-clsd"><i class="z">·</i></b><b class="hm-c v-clsd"><i class="z">·</i></b></div>
+          <div class="hm-row"><span class="hm-band" style="--bc:#ffcc66">40<em>m</em></span><b class="hm-c v-hot hi" style="--i:.74">214</b><b class="hm-c v-ver" style="--i:.26">26</b><b class="hm-c v-stir" style="--i:.22">18</b><b class="hm-c v-clsd" style="--i:.07">2</b><b class="hm-c v-clsd" style="--i:.10">4</b><b class="hm-c v-stir" style="--i:.13">7</b></div>
+          <div class="hm-row"><span class="hm-band" style="--bc:#99ff66">30<em>m</em></span><b class="hm-c v-ver hi" style="--i:.50">96</b><b class="hm-c v-ver" style="--i:.28">31</b><b class="hm-c v-ver" style="--i:.34">44</b><b class="hm-c v-stir" style="--i:.09">3</b><b class="hm-c v-stir" style="--i:.12">6</b><b class="hm-c v-stir" style="--i:.17">11</b></div>
+          <div class="hm-row"><span class="hm-band" style="--bc:#66ff99">20<em>m</em></span><b class="hm-c v-hot hi" style="--i:1">386</b><b class="hm-c v-hot hi" style="--i:.55">118</b><b class="hm-c v-hot hi" style="--i:.84">274</b><b class="hm-c v-ver" style="--i:.23">21</b><b class="hm-c v-ver" style="--i:.40">63</b><b class="hm-c v-ver" style="--i:.33">42</b></div>
+          <div class="hm-row"><span class="hm-band" style="--bc:#66ffcc">17<em>m</em></span><b class="hm-c v-ver hi" style="--i:.61">142</b><b class="hm-c v-hot" style="--i:.48">88</b><b class="hm-c v-ver hi" style="--i:.50">96</b><b class="hm-c v-stir" style="--i:.19">14</b><b class="hm-c v-ver" style="--i:.27">29</b><b class="hm-c v-ver" style="--i:.29">33</b></div>
+          <div class="hm-row"><span class="hm-band" style="--bc:#66ccff">15<em>m</em></span><b class="hm-c v-ver" style="--i:.48">88</b><b class="hm-c v-hot hi" style="--i:.65">164</b><b class="hm-c v-x" style="--i:.33">41</b><b class="hm-c v-ver" style="--i:.24">22</b><b class="hm-c v-hot s" style="--i:.38">57</b><b class="hm-c v-ver" style="--i:.26">26</b></div>
+          <div class="hm-row"><span class="hm-band" style="--bc:#6699ff">12<em>m</em></span><b class="hm-c v-stir" style="--i:.28">31</b><b class="hm-c v-ver" style="--i:.44">74</b><b class="hm-c v-fcst" style="--i:.15">9</b><b class="hm-c v-stir" style="--i:.18">12</b><b class="hm-c v-stir" style="--i:.14">8</b><b class="hm-c v-stir" style="--i:.19">14</b></div>
+          <div class="hm-row"><span class="hm-band" style="--bc:#9966ff">10<em>m</em></span><b class="hm-c v-stir" style="--i:.35">46</b><b class="hm-c v-hot hi" style="--i:.56">121</b><b class="hm-c v-fcst" style="--i:.12">6</b><b class="hm-c v-ver" style="--i:.22">18</b><b class="hm-c v-clsd" style="--i:.09">3</b><b class="hm-c v-ver" style="--i:.22">19</b></div>
+          <div class="hm-row"><span class="hm-band" style="--bc:#ff66ff">6<em>m</em></span><b class="hm-c v-stir s" style="--i:.26">27</b><b class="hm-c v-clsd" style="--i:.07">2</b><b class="hm-c v-clsd"><i class="z">·</i></b><b class="hm-c v-clsd"><i class="z">·</i></b><b class="hm-c v-clsd"><i class="z">·</i></b><b class="hm-c v-clsd"><i class="z">·</i></b></div>
+        </div>
+
+        <div class="hm-legend">
+          <span style="--t:var(--hc-accent-rgb)"><i></i>HOT</span>
+          <span style="--t:var(--hc-good-rgb)"><i></i>VERIFIED OPEN</span>
+          <span style="--t:var(--hc-warn-rgb)"><i></i>STIRRING</span>
+          <span style="--t:var(--hc-good-rgb)"><i style="background:transparent;border-style:dashed"></i>FORECAST ONLY</span>
+          <span style="--t:99 112 136"><i></i>CLOSED</span>
+          <span style="--t:var(--hc-accent-rgb)"><i style="border-color:rgb(var(--hc-bad-rgb) / .9);background:repeating-linear-gradient(135deg,rgba(8,12,22,.8) 0 3px,rgba(8,12,22,0) 3px 7px),rgb(var(--hc-accent-rgb) / .85)"></i>HATCHED = HOT, NOT WORKABLE</span>
+          <span style="color:var(--hc-info)">▲ SURPRISE — BEAT THE FORECAST</span>
+          <span class="ramp" style="margin-left:auto"><b style="font-family:var(--f-mono);font-weight:400">1</b>
+            <i style="--t:var(--hc-accent-rgb);--i:.08"></i><i style="--t:var(--hc-accent-rgb);--i:.22"></i><i style="--t:var(--hc-accent-rgb);--i:.42"></i><i style="--t:var(--hc-accent-rgb);--i:.68"></i><i style="--t:var(--hc-accent-rgb);--i:1"></i>
+            <b style="font-family:var(--f-mono);font-weight:400">400 SPOTS / 30 MIN</b></span>
+          <span>2,632 SPOTS · DEDUPED</span>
+        </div>
+      </div>
+
+      <!-- RAIL: same widget, 1/4 width -->
+      <div class="hc-rail">
+        <section class="hc-tile" style="--hc-state:var(--hc-accent)">
+          <h3 class="hc-tile-title"><span>Bands × Continents</span><em>WORLD · 30 MIN</em></h3>
+          <div class="hc-hero" style="font-size:22px">20 M → EU</div>
+          <div class="hm hm--rail">
+            <div class="hm-head"><span></span><span>NA</span><span>SA</span><span>EU</span><span>AF</span><span>AS</span><span>OC</span></div>
+            <div class="hm-row"><span class="hm-band" style="--bc:#ff6666">160</span><b class="hm-c v-stir" style="--i:.18">12</b><b class="hm-c v-clsd"><i class="z">·</i></b><b class="hm-c v-clsd"><i class="z">·</i></b><b class="hm-c v-clsd"><i class="z">·</i></b><b class="hm-c v-clsd"><i class="z">·</i></b><b class="hm-c v-clsd">1</b></div>
+            <div class="hm-row"><span class="hm-band" style="--bc:#ff9966">80</span><b class="hm-c v-ver" style="--i:.35">48</b><b class="hm-c v-stir" style="--i:.09">3</b><b class="hm-c v-clsd">1</b><b class="hm-c v-clsd"><i class="z">·</i></b><b class="hm-c v-clsd"><i class="z">·</i></b><b class="hm-c v-clsd">2</b></div>
+            <div class="hm-row"><span class="hm-band" style="--bc:#e8963c">60</span><b class="hm-c v-stir" style="--i:.15">9</b><b class="hm-c v-clsd"><i class="z">·</i></b><b class="hm-c v-clsd"><i class="z">·</i></b><b class="hm-c v-clsd"><i class="z">·</i></b><b class="hm-c v-clsd"><i class="z">·</i></b><b class="hm-c v-clsd"><i class="z">·</i></b></div>
+            <div class="hm-row"><span class="hm-band" style="--bc:#ffcc66">40</span><b class="hm-c v-hot hi" style="--i:.74">214</b><b class="hm-c v-ver" style="--i:.26">26</b><b class="hm-c v-stir" style="--i:.22">18</b><b class="hm-c v-clsd">2</b><b class="hm-c v-clsd">4</b><b class="hm-c v-stir" style="--i:.13">7</b></div>
+            <div class="hm-row"><span class="hm-band" style="--bc:#99ff66">30</span><b class="hm-c v-ver hi" style="--i:.50">96</b><b class="hm-c v-ver" style="--i:.28">31</b><b class="hm-c v-ver" style="--i:.34">44</b><b class="hm-c v-stir" style="--i:.09">3</b><b class="hm-c v-stir" style="--i:.12">6</b><b class="hm-c v-stir" style="--i:.17">11</b></div>
+            <div class="hm-row"><span class="hm-band" style="--bc:#66ff99">20</span><b class="hm-c v-hot hi" style="--i:1">386</b><b class="hm-c v-hot hi" style="--i:.55">118</b><b class="hm-c v-hot hi" style="--i:.84">274</b><b class="hm-c v-ver" style="--i:.23">21</b><b class="hm-c v-ver" style="--i:.40">63</b><b class="hm-c v-ver" style="--i:.33">42</b></div>
+            <div class="hm-row"><span class="hm-band" style="--bc:#66ffcc">17</span><b class="hm-c v-ver hi" style="--i:.61">142</b><b class="hm-c v-hot" style="--i:.48">88</b><b class="hm-c v-ver hi" style="--i:.50">96</b><b class="hm-c v-stir" style="--i:.19">14</b><b class="hm-c v-ver" style="--i:.27">29</b><b class="hm-c v-ver" style="--i:.29">33</b></div>
+            <div class="hm-row"><span class="hm-band" style="--bc:#66ccff">15</span><b class="hm-c v-ver" style="--i:.48">88</b><b class="hm-c v-hot hi" style="--i:.65">164</b><b class="hm-c v-x" style="--i:.33">41</b><b class="hm-c v-ver" style="--i:.24">22</b><b class="hm-c v-hot s" style="--i:.38">57</b><b class="hm-c v-ver" style="--i:.26">26</b></div>
+            <div class="hm-row"><span class="hm-band" style="--bc:#6699ff">12</span><b class="hm-c v-stir" style="--i:.28">31</b><b class="hm-c v-ver" style="--i:.44">74</b><b class="hm-c v-fcst" style="--i:.15">9</b><b class="hm-c v-stir" style="--i:.18">12</b><b class="hm-c v-stir" style="--i:.14">8</b><b class="hm-c v-stir" style="--i:.19">14</b></div>
+            <div class="hm-row"><span class="hm-band" style="--bc:#9966ff">10</span><b class="hm-c v-stir" style="--i:.35">46</b><b class="hm-c v-hot hi" style="--i:.56">121</b><b class="hm-c v-fcst" style="--i:.12">6</b><b class="hm-c v-ver" style="--i:.22">18</b><b class="hm-c v-clsd">3</b><b class="hm-c v-ver" style="--i:.22">19</b></div>
+            <div class="hm-row"><span class="hm-band" style="--bc:#ff66ff">6</span><b class="hm-c v-stir s" style="--i:.26">27</b><b class="hm-c v-clsd">2</b><b class="hm-c v-clsd"><i class="z">·</i></b><b class="hm-c v-clsd"><i class="z">·</i></b><b class="hm-c v-clsd"><i class="z">·</i></b><b class="hm-c v-clsd"><i class="z">·</i></b></div>
+          </div>
+          <div class="hc-sub"><span><b>2,632</b> spots · 11 bands</span><span>DEDUPED · 22:14Z</span></div>
+        </section>
+
+        <section class="hc-tile" style="--hc-state:var(--hc-good)">
+          <h3 class="hc-tile-title"><span>Best band now</span><em>DM79 · REGIONAL</em></h3>
+          <div class="hc-hero" style="font-size:28px">20 M</div>
+          <div class="hc-sub"><span><b>VERIFIED OPEN</b> · 386 obs / 74 rx</span><span>↗ RISING</span></div>
+        </section>
+      </div>
+    </div>
+
+    <div class="hc-ftr">
+      <div class="hc-pager"><span class="arw">‹</span><b>PROPAGATION</b><span class="arw">›</span><span>2 / 5</span><span>AUTO ON</span></div>
+      <div class="hc-status">
+        <span><i style="background:var(--hc-good)"></i>CLUSTER 2 S</span>
+        <span><i style="background:var(--hc-good)"></i>PSKREPORTER 41 S</span>
+        <span><i style="background:var(--hc-warn)"></i>RBN 3 M</span>
+        <span><i style="background:var(--hc-good)"></i>NOAA 5 M</span>
+      </div>
+      <div>SFI 142 · A 8 · K 3 · BZ −2.1 NT</div>
+    </div>
+
+  </div></div>
+  <p class="cap"><b>What did not change:</b> the encoding. Same hue ladder, same opacity ramp, same hatch. What changed: 52 px band
+     labels became 34 px, the rail narrowed 420 → 280 px, and the segmented controls dropped from 44 px to 34 px min-height —
+     still above the 44 px target rule at desk viewing distance because the desk variant is read at 24 in, not 10 ft.</p>
+</section>
+
+<!-- ======================= 2 · GLANCE DENSITY ============================ -->
+<section class="sec">
+  <div class="sec-label"><b>2 · Glance density</b><i>scale range 0.85 – 1.25 · a strip, any width ≥ 900 px</i></div>
+  <p class="sec-note">A console strip. Eleven band pills; each carries six micro-bars, one per continent, coloured by verdict and
+     scaled by count. Wears the DS-15 header anatomy — 3&nbsp;px rule, then the band (eyebrow, Orbitron title, one muted summary
+     line, right-hand action slot), then content — so it drops into Home beside the other panels without a second grammar.</p>
+
+  <div class="shot shot--strip"><div class="frame frame--strip">
+    <div class="su-rule"></div>
+    <div class="su-band">
+      <div>
+        <div class="eyebrow">Propagation · live</div>
+        <h3>Bands × continents</h3>
+        <p>Where each band is being heard right now, and whether the path works from DM79.</p>
+      </div>
+      <div style="display:flex;gap:8px;align-items:center">
+        <span class="chip" style="background:rgba(255,107,53,.14);border-color:rgba(255,107,53,.5)">World · 30 min</span>
+        <span class="chip chip--ghost" style="color:var(--su-muted);border-color:rgba(99,112,136,.5)">Open report</span>
+      </div>
+    </div>
+    <div class="strip-body">
+      <div class="pill" style="--bc:#ff6666"><div class="pill-top"><span class="pill-b">160</span><span class="pill-n">13</span></div><div class="mb"><i style="--t:255 210 63;--i:.18"></i><i class="z0"></i><i class="z0"></i><i class="z0"></i><i class="z0"></i><i style="--t:99 112 136;--i:.05"></i></div><div class="mb-k"><span>NA</span><span>SA</span><span>EU</span><span>AF</span><span>AS</span><span>OC</span></div><div class="pill-v t-stir">Stirring</div></div>
+      <div class="pill" style="--bc:#ff9966"><div class="pill-top"><span class="pill-b">80</span><span class="pill-n">54</span></div><div class="mb"><i style="--t:0 255 136;--i:.35"></i><i style="--t:255 210 63;--i:.09"></i><i style="--t:99 112 136;--i:.05"></i><i class="z0"></i><i class="z0"></i><i style="--t:99 112 136;--i:.07"></i></div><div class="mb-k"><span>NA</span><span>SA</span><span>EU</span><span>AF</span><span>AS</span><span>OC</span></div><div class="pill-v t-ver">Verified</div></div>
+      <div class="pill" style="--bc:#e8963c"><div class="pill-top"><span class="pill-b">60</span><span class="pill-n">9</span></div><div class="mb"><i style="--t:255 210 63;--i:.15"></i><i class="z0"></i><i class="z0"></i><i class="z0"></i><i class="z0"></i><i class="z0"></i></div><div class="mb-k"><span>NA</span><span>SA</span><span>EU</span><span>AF</span><span>AS</span><span>OC</span></div><div class="pill-v t-stir">Stirring</div></div>
+      <div class="pill" style="--bc:#ffcc66"><div class="pill-top"><span class="pill-b">40</span><span class="pill-n">271</span></div><div class="mb"><i style="--t:255 107 53;--i:.74"></i><i style="--t:0 255 136;--i:.26"></i><i style="--t:255 210 63;--i:.22"></i><i style="--t:99 112 136;--i:.07"></i><i style="--t:99 112 136;--i:.10"></i><i style="--t:255 210 63;--i:.13"></i></div><div class="mb-k"><span>NA</span><span>SA</span><span>EU</span><span>AF</span><span>AS</span><span>OC</span></div><div class="pill-v t-hot">Hot · NA</div></div>
+      <div class="pill" style="--bc:#99ff66"><div class="pill-top"><span class="pill-b">30</span><span class="pill-n">191</span></div><div class="mb"><i style="--t:0 255 136;--i:.50"></i><i style="--t:0 255 136;--i:.28"></i><i style="--t:0 255 136;--i:.34"></i><i style="--t:255 210 63;--i:.09"></i><i style="--t:255 210 63;--i:.12"></i><i style="--t:255 210 63;--i:.17"></i></div><div class="mb-k"><span>NA</span><span>SA</span><span>EU</span><span>AF</span><span>AS</span><span>OC</span></div><div class="pill-v t-ver">Verified</div></div>
+      <div class="pill" style="--bc:#66ff99"><div class="pill-top"><span class="pill-b">20</span><span class="pill-n">904</span></div><div class="mb"><i style="--t:255 107 53;--i:1"></i><i style="--t:255 107 53;--i:.55"></i><i style="--t:255 107 53;--i:.84"></i><i style="--t:0 255 136;--i:.23"></i><i style="--t:0 255 136;--i:.40"></i><i style="--t:0 255 136;--i:.33"></i></div><div class="mb-k"><span>NA</span><span>SA</span><span>EU</span><span>AF</span><span>AS</span><span>OC</span></div><div class="pill-v t-hot">Hot · 3 cont</div></div>
+      <div class="pill" style="--bc:#66ffcc"><div class="pill-top"><span class="pill-b">17</span><span class="pill-n">402</span></div><div class="mb"><i style="--t:0 255 136;--i:.61"></i><i style="--t:255 107 53;--i:.48"></i><i style="--t:0 255 136;--i:.50"></i><i style="--t:255 210 63;--i:.19"></i><i style="--t:0 255 136;--i:.27"></i><i style="--t:0 255 136;--i:.29"></i></div><div class="mb-k"><span>NA</span><span>SA</span><span>EU</span><span>AF</span><span>AS</span><span>OC</span></div><div class="pill-v t-ver">Verified</div></div>
+      <div class="pill" style="--bc:#66ccff"><div class="pill-top"><span class="pill-b">15</span><span class="pill-n">398</span></div><div class="mb"><i style="--t:0 255 136;--i:.48"></i><i style="--t:255 107 53;--i:.65"></i><i style="--t:99 112 136;--i:.33"></i><i style="--t:0 255 136;--i:.24"></i><i style="--t:255 107 53;--i:.38"></i><i style="--t:0 255 136;--i:.26"></i></div><div class="mb-k"><span>NA</span><span>SA</span><span>EU</span><span>AF</span><span>AS</span><span>OC</span></div><div class="pill-v t-hot">Hot · SA ▲AS</div></div>
+      <div class="pill" style="--bc:#6699ff"><div class="pill-top"><span class="pill-b">12</span><span class="pill-n">148</span></div><div class="mb"><i style="--t:255 210 63;--i:.28"></i><i style="--t:0 255 136;--i:.44"></i><i style="--t:0 255 136;--i:.15"></i><i style="--t:255 210 63;--i:.18"></i><i style="--t:255 210 63;--i:.14"></i><i style="--t:255 210 63;--i:.19"></i></div><div class="mb-k"><span>NA</span><span>SA</span><span>EU</span><span>AF</span><span>AS</span><span>OC</span></div><div class="pill-v t-ver">Verified · SA</div></div>
+      <div class="pill" style="--bc:#9966ff"><div class="pill-top"><span class="pill-b">10</span><span class="pill-n">213</span></div><div class="mb"><i style="--t:255 210 63;--i:.35"></i><i style="--t:255 107 53;--i:.56"></i><i style="--t:0 255 136;--i:.12"></i><i style="--t:0 255 136;--i:.22"></i><i style="--t:99 112 136;--i:.09"></i><i style="--t:0 255 136;--i:.22"></i></div><div class="mb-k"><span>NA</span><span>SA</span><span>EU</span><span>AF</span><span>AS</span><span>OC</span></div><div class="pill-v t-hot">Hot · SA</div></div>
+      <div class="pill" style="--bc:#ff66ff"><div class="pill-top"><span class="pill-b">6</span><span class="pill-n">29</span></div><div class="mb"><i style="--t:255 210 63;--i:.26"></i><i style="--t:99 112 136;--i:.07"></i><i class="z0"></i><i class="z0"></i><i class="z0"></i><i class="z0"></i></div><div class="mb-k"><span>NA</span><span>SA</span><span>EU</span><span>AF</span><span>AS</span><span>OC</span></div><div class="pill-v t-stir">▲ Es NA</div></div>
+    </div>
+  </div></div>
+  <p class="cap"><b>Trade:</b> at this height the count belongs to the band, not the cell — per-continent numbers are traded for
+     six bars and a one-word verdict. The strip is still a single click target per pill (band filter) and a single click on the
+     header (open report). Nothing scrolls; eleven pills is the fixed width budget.</p>
+</section>
+
+<!-- ======================= 3 · WORK DENSITY ============================== -->
+<section class="sec">
+  <div class="sec-label"><b>3 · Work density</b><i>scale range 0.55 – 0.85 · shown at 0.72 · hover the matrix</i></div>
+  <p class="sec-note">The working panel, at the desk. <b>Same saturated encoding as every other density</b> — hue is the Band
+     Health verdict, fill opacity is traffic, so a quiet cell is a 10% wash and a hot one is solid with dark ink. Nothing is
+     desaturated for being small. Scope, window and mode are segmented big buttons, never a dropdown. Hovering a cell fills the
+     inspector column on the right — a fixed slot, not a floating hover menu (wall spec §2). Clicking a band label writes the
+     band filter to shared operating state; clicking a cell writes band + continent. This panel holds from about scale 0.55
+     (a 700-wide dock) to 0.85 and re-flows continuously.</p>
+
+  <div class="shot shot--work"><div class="frame frame--work">
+    <div class="wk-head">
+      <span class="wk-title">Bands × Continents</span>
+      <span style="font-family:var(--f-mono);font-size:10px;letter-spacing:.16em;color:var(--hc-dim)">2,632 SPOTS · DEDUPED · DM79QX</span>
+    </div>
+
+    <div class="wk-ctl">
+      <div><span class="lbl">Scope</span><div class="seg seg--sm"><span>My continent</span><span class="on">World</span></div></div>
+      <div><span class="lbl">Window</span><div class="seg seg--sm"><span class="on">30 min</span><span>2 h</span></div></div>
+      <div><span class="lbl">Mode</span><div class="seg seg--sm"><span class="on">World activity</span><span>My footprint</span></div></div>
+      <div style="margin-left:auto"><span class="lbl">Space weather</span>
+        <div class="meter">
+          <div><b style="color:var(--hc-good)">142</b><span>SFI</span></div>
+          <div><b style="color:var(--hc-warn)">8</b><span>A</span></div>
+          <div><b style="color:var(--hc-warn)">3</b><span>K</span></div>
+          <div><b style="color:var(--hc-dim)">−2.1</b><span>BZ NT</span></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="wk-main">
+      <div class="hm hm--work" id="wk-matrix">
+        <div class="hm-head"><span>Band</span><span>NA</span><span>SA</span><span>EU</span><span>AF</span><span>AS</span><span>OC</span></div>
+        <div class="hm-row"><span class="hm-band" style="--bc:#ff6666">160<em>m</em></span><b class="hm-c v-stir" style="--i:.18" data-b="160 m" data-k="NA" data-v="stirring" data-rx="7" data-calls="W0AIH · K9CT · N0NI">12</b><b class="hm-c v-clsd" data-b="160 m" data-k="SA" data-v="closed" data-rx="0" data-calls="—"><i class="z">·</i></b><b class="hm-c v-clsd" data-b="160 m" data-k="EU" data-v="closed" data-rx="0" data-calls="—"><i class="z">·</i></b><b class="hm-c v-clsd" data-b="160 m" data-k="AF" data-v="closed" data-rx="0" data-calls="—"><i class="z">·</i></b><b class="hm-c v-clsd" data-b="160 m" data-k="AS" data-v="closed" data-rx="0" data-calls="—"><i class="z">·</i></b><b class="hm-c v-clsd" style="--i:.05" data-b="160 m" data-k="OC" data-v="closed" data-rx="1" data-calls="VK6HD">1</b></div>
+        <div class="hm-row"><span class="hm-band" style="--bc:#ff9966">80<em>m</em></span><b class="hm-c v-ver" style="--i:.35" data-b="80 m" data-k="NA" data-v="verified" data-rx="19" data-calls="K3LR · W3LPL · VE3EJ">48</b><b class="hm-c v-stir" style="--i:.09" data-b="80 m" data-k="SA" data-v="stirring" data-rx="2" data-calls="PY2NY · LU5FF">3</b><b class="hm-c v-clsd" style="--i:.05" data-b="80 m" data-k="EU" data-v="closed" data-rx="1" data-calls="OH8X">1</b><b class="hm-c v-clsd" data-b="80 m" data-k="AF" data-v="closed" data-rx="0" data-calls="—"><i class="z">·</i></b><b class="hm-c v-clsd" data-b="80 m" data-k="AS" data-v="closed" data-rx="0" data-calls="—"><i class="z">·</i></b><b class="hm-c v-clsd" style="--i:.07" data-b="80 m" data-k="OC" data-v="closed" data-rx="2" data-calls="VK4CT · ZL3X">2</b></div>
+        <div class="hm-row"><span class="hm-band" style="--bc:#e8963c">60<em>m</em></span><b class="hm-c v-stir" style="--i:.15" data-b="60 m" data-k="NA" data-v="stirring" data-rx="5" data-calls="W1AW · K4RO · N4ZR">9</b><b class="hm-c v-clsd" data-b="60 m" data-k="SA" data-v="closed" data-rx="0" data-calls="—"><i class="z">·</i></b><b class="hm-c v-clsd" data-b="60 m" data-k="EU" data-v="closed" data-rx="0" data-calls="—"><i class="z">·</i></b><b class="hm-c v-clsd" data-b="60 m" data-k="AF" data-v="closed" data-rx="0" data-calls="—"><i class="z">·</i></b><b class="hm-c v-clsd" data-b="60 m" data-k="AS" data-v="closed" data-rx="0" data-calls="—"><i class="z">·</i></b><b class="hm-c v-clsd" data-b="60 m" data-k="OC" data-v="closed" data-rx="0" data-calls="—"><i class="z">·</i></b></div>
+        <div class="hm-row"><span class="hm-band" style="--bc:#ffcc66">40<em>m</em></span><b class="hm-c v-hot hi" style="--i:.74" data-b="40 m" data-k="NA" data-v="hot" data-rx="61" data-calls="K1TTT · W3LPL · N5DX">214</b><b class="hm-c v-ver" style="--i:.26" data-b="40 m" data-k="SA" data-v="verified" data-rx="11" data-calls="PY5EG · CE3CT · LU1FM">26</b><b class="hm-c v-stir" style="--i:.22" data-b="40 m" data-k="EU" data-v="stirring" data-rx="5" data-calls="DL1AA · G4IRN · SM5AJV">18</b><b class="hm-c v-clsd" style="--i:.07" data-b="40 m" data-k="AF" data-v="closed" data-rx="2" data-calls="ZS6EZ · CN8KD">2</b><b class="hm-c v-clsd" style="--i:.10" data-b="40 m" data-k="AS" data-v="closed" data-rx="3" data-calls="JA1NUT · BA4TB">4</b><b class="hm-c v-stir" style="--i:.13" data-b="40 m" data-k="OC" data-v="stirring" data-rx="4" data-calls="VK2GGC · ZL1BYZ">7</b></div>
+        <div class="hm-row"><span class="hm-band" style="--bc:#99ff66">30<em>m</em></span><b class="hm-c v-ver hi" style="--i:.50" data-b="30 m" data-k="NA" data-v="verified" data-rx="34" data-calls="K9IMM · W6RW · VE6WZ">96</b><b class="hm-c v-ver" style="--i:.28" data-b="30 m" data-k="SA" data-v="verified" data-rx="12" data-calls="PY2XB · HK3TU">31</b><b class="hm-c v-ver" style="--i:.34" data-b="30 m" data-k="EU" data-v="verified" data-rx="17" data-calls="OK1RR · EA3KU · F5IN">44</b><b class="hm-c v-stir" style="--i:.09" data-b="30 m" data-k="AF" data-v="stirring" data-rx="2" data-calls="ZS1EL · 5H3EE">3</b><b class="hm-c v-stir" style="--i:.12" data-b="30 m" data-k="AS" data-v="stirring" data-rx="4" data-calls="JH1AJT · 9V1YC">6</b><b class="hm-c v-stir" style="--i:.17" data-b="30 m" data-k="OC" data-v="stirring" data-rx="5" data-calls="VK6LC · ZL4TT">11</b></div>
+        <div class="hm-row"><span class="hm-band" style="--bc:#66ff99">20<em>m</em></span><b class="hm-c v-hot hi" style="--i:1" data-b="20 m" data-k="NA" data-v="hot" data-rx="74" data-calls="W3LPL · K1TTT · KM3T">386</b><b class="hm-c v-hot hi" style="--i:.55" data-b="20 m" data-k="SA" data-v="hot" data-rx="38" data-calls="PY2NY · LU8EOT · CE2MVF">118</b><b class="hm-c v-hot hi" style="--i:.84" data-b="20 m" data-k="EU" data-v="hot" data-rx="66" data-calls="DL8LAS · G3TXF · SM7GXQ">274</b><b class="hm-c v-ver" style="--i:.23" data-b="20 m" data-k="AF" data-v="verified" data-rx="9" data-calls="ZS6WN · EA8DBM">21</b><b class="hm-c v-ver" style="--i:.40" data-b="20 m" data-k="AS" data-v="verified" data-rx="21" data-calls="JA7QVI · UA9CDC · BG2AUE">63</b><b class="hm-c v-ver" style="--i:.33" data-b="20 m" data-k="OC" data-v="verified" data-rx="16" data-calls="VK7BO · ZL2IFB · KH6LC">42</b></div>
+        <div class="hm-row"><span class="hm-band" style="--bc:#66ffcc">17<em>m</em></span><b class="hm-c v-ver hi" style="--i:.61" data-b="17 m" data-k="NA" data-v="verified" data-rx="41" data-calls="N7TR · W7RN · K6MM">142</b><b class="hm-c v-hot" style="--i:.48" data-b="17 m" data-k="SA" data-v="hot" data-rx="29" data-calls="PP5JR · LU7HN · PY4OG">88</b><b class="hm-c v-ver hi" style="--i:.50" data-b="17 m" data-k="EU" data-v="verified" data-rx="31" data-calls="ON5KQ · I2WIJ · OZ1AA">96</b><b class="hm-c v-stir" style="--i:.19" data-b="17 m" data-k="AF" data-v="stirring" data-rx="4" data-calls="CN8YR · ZS4TX">14</b><b class="hm-c v-ver" style="--i:.27" data-b="17 m" data-k="AS" data-v="verified" data-rx="12" data-calls="JA5FDJ · HL2WA">29</b><b class="hm-c v-ver" style="--i:.29" data-b="17 m" data-k="OC" data-v="verified" data-rx="13" data-calls="VK3HJ · ZL3RIK">33</b></div>
+        <div class="hm-row"><span class="hm-band" style="--bc:#66ccff">15<em>m</em></span><b class="hm-c v-ver" style="--i:.48" data-b="15 m" data-k="NA" data-v="verified" data-rx="27" data-calls="K5TR · W5ZN · VE7CC">88</b><b class="hm-c v-hot hi" style="--i:.65" data-b="15 m" data-k="SA" data-v="hot" data-rx="44" data-calls="PY1NX · LU3DR · CX2AQ">164</b><b class="hm-c v-x" style="--i:.33" data-b="15 m" data-k="EU" data-v="closed-elsewhere" data-rx="16" data-calls="DK8NE · OH2BH · SP4Z">41</b><b class="hm-c v-ver" style="--i:.24" data-b="15 m" data-k="AF" data-v="verified" data-rx="9" data-calls="D4C · ZS2EZ">22</b><b class="hm-c v-hot s" style="--i:.38" data-b="15 m" data-k="AS" data-v="hot-surprise" data-rx="18" data-calls="JA3YBK · BA7IO · HS0ZAR">57</b><b class="hm-c v-ver" style="--i:.26" data-b="15 m" data-k="OC" data-v="verified" data-rx="11" data-calls="VK4KW · ZL1AZE">26</b></div>
+        <div class="hm-row"><span class="hm-band" style="--bc:#6699ff">12<em>m</em></span><b class="hm-c v-stir" style="--i:.28" data-b="12 m" data-k="NA" data-v="stirring" data-rx="5" data-calls="W7IUV · K7CO">31</b><b class="hm-c v-ver" style="--i:.44" data-b="12 m" data-k="SA" data-v="verified" data-rx="22" data-calls="PY2SEX · LU9HS · ZP9MCE">74</b><b class="hm-c v-fcst" style="--i:.15" data-b="12 m" data-k="EU" data-v="forecast" data-rx="3" data-calls="EA5RM · IK4ZHH">9</b><b class="hm-c v-stir" style="--i:.18" data-b="12 m" data-k="AF" data-v="stirring" data-rx="4" data-calls="CN2AA · 3B8CW">12</b><b class="hm-c v-stir" style="--i:.14" data-b="12 m" data-k="AS" data-v="stirring" data-rx="3" data-calls="JA0GZZ · 4X4DK">8</b><b class="hm-c v-stir" style="--i:.19" data-b="12 m" data-k="OC" data-v="stirring" data-rx="5" data-calls="VK5PAS · ZL2AGY">14</b></div>
+        <div class="hm-row"><span class="hm-band" style="--bc:#9966ff">10<em>m</em></span><b class="hm-c v-stir" style="--i:.35" data-b="10 m" data-k="NA" data-v="stirring" data-rx="6" data-calls="W5KI · N5NA · K0GU">46</b><b class="hm-c v-hot hi" style="--i:.56" data-b="10 m" data-k="SA" data-v="hot" data-rx="33" data-calls="PY6TS · LU2FA · OA4SS">121</b><b class="hm-c v-fcst" style="--i:.12" data-b="10 m" data-k="EU" data-v="forecast" data-rx="2" data-calls="CT1BOH · EA7HG">6</b><b class="hm-c v-ver" style="--i:.22" data-b="10 m" data-k="AF" data-v="verified" data-rx="8" data-calls="EA8CQW · ZS1C">18</b><b class="hm-c v-clsd" style="--i:.09" data-b="10 m" data-k="AS" data-v="closed" data-rx="2" data-calls="JA2FSM · VU2PTT">3</b><b class="hm-c v-ver" style="--i:.22" data-b="10 m" data-k="OC" data-v="verified" data-rx="7" data-calls="VK4AFU · ZL3TE">19</b></div>
+        <div class="hm-row"><span class="hm-band" style="--bc:#ff66ff">6<em>m</em></span><b class="hm-c v-stir s" style="--i:.26" data-b="6 m" data-k="NA" data-v="stirring-surprise" data-rx="9" data-calls="K5QE · W7JW · N0LL">27</b><b class="hm-c v-clsd" style="--i:.07" data-b="6 m" data-k="SA" data-v="closed" data-rx="1" data-calls="PY2XU">2</b><b class="hm-c v-clsd" data-b="6 m" data-k="EU" data-v="closed" data-rx="0" data-calls="—"><i class="z">·</i></b><b class="hm-c v-clsd" data-b="6 m" data-k="AF" data-v="closed" data-rx="0" data-calls="—"><i class="z">·</i></b><b class="hm-c v-clsd" data-b="6 m" data-k="AS" data-v="closed" data-rx="0" data-calls="—"><i class="z">·</i></b><b class="hm-c v-clsd" data-b="6 m" data-k="OC" data-v="closed" data-rx="0" data-calls="—"><i class="z">·</i></b></div>
+      </div>
+
+      <aside class="insp">
+        <div><span class="k">Cell</span><div class="where" id="i-where">20 M → EU</div></div>
+        <div style="display:flex;align-items:baseline;gap:10px">
+          <span class="hero" id="i-count">274</span>
+          <span style="font-family:var(--f-mono);font-size:10px;letter-spacing:.14em;color:var(--hc-dim)" id="i-rx">66 RX · 30 MIN</span>
+        </div>
+        <div class="verd" id="i-verd" style="color:var(--hc-accent)">HOT</div>
+        <div class="why" id="i-why">Count rose across both 10-minute windows and the verified bar has held for 25 minutes. Physics p_open 0.78 from DM79.</div>
+        <div><span class="k">Top spotted</span><ol id="i-calls">
+          <li><b>DL8LAS</b><span>14.074 · FT8</span></li><li><b>G3TXF</b><span>14.021 · CW</span></li><li><b>SM7GXQ</b><span>14.185 · SSB</span></li>
+        </ol></div>
+        <div style="margin-top:auto"><span class="k">Click behaviour</span>
+          <div class="why"><b>Wall:</b> cell click opens the centred report. <b>Workstation:</b> cell click is an action — it writes
+            band + continent to shared operating state and every docked widget re-filters (see section 4). Hatched cells still open;
+            the report leads with <em>why</em> your station can't work this one.</div>
+        </div>
+      </aside>
+    </div>
+
+    <div class="chips" style="min-height:20px;gap:14px">
+      <span class="ramp"><b style="font-family:var(--f-mono);font-weight:400">1</b>
+        <i style="--t:var(--hc-accent-rgb);--i:.08"></i><i style="--t:var(--hc-accent-rgb);--i:.22"></i><i style="--t:var(--hc-accent-rgb);--i:.42"></i><i style="--t:var(--hc-accent-rgb);--i:.68"></i><i style="--t:var(--hc-accent-rgb);--i:1"></i>
+        <b style="font-family:var(--f-mono);font-weight:400">400 spots / 30 min — fill opacity</b></span>
+      <span class="ramp"><i class="hx"></i><b style="font-family:var(--f-mono);font-weight:400;color:rgb(var(--hc-bad-rgb))">hatched = your station can't work this</b>
+        <b style="font-family:var(--f-mono);font-weight:400">(band capability + Band Health)</b></span>
+      <span class="ramp" style="color:var(--hc-info)">▲ surprise — beat the forecast</span>
+    </div>
+
+    <div class="chips">
+      <span class="k" style="font-family:var(--f-mono);font-size:9px;letter-spacing:.18em;color:var(--hc-dim2);text-transform:uppercase">Shared operating state</span>
+      <span class="chip">Band 20 M <x>×</x></span>
+      <span class="chip">Continent EU <x>×</x></span>
+      <span class="chip chip--ghost">Target VK3ABC</span>
+      <span class="chip chip--ghost">Session Field Day 2026</span>
+    </div>
+
+    <div class="wk-foot">Data: DX cluster (DXHeat) + PSKReporter + RBN, deduplicated server-side to (tx, rx, band, 5-min bucket) · verdict: Band Health ladder v2 + ITU-R P.533 physics arm · observed 22:14 UTC · 2 min ago</div>
+  </div></div>
+  <p class="cap"><b>Try it:</b> hover any cell in the matrix above — the inspector on the right updates in place. <b>15 m × EU</b>
+     is the hatched case: 41 real spots (so the heat colour stays) but no workable path from DM79 with 100 W and a dipole.
+     <b>Ladder vocabulary</b> is the shipped one (closed · forecast · stirring · verified open · hot, plus the orthogonal surprise
+     flag), not a new open/marginal/closed scale; see review note 1.</p>
+
+  <div class="sec-label" style="border-top-color:var(--hc-info);margin-top:40px"><b>3b · Mode: my footprint</b><i>work density, small end of the range · "where am I being spotted"</i></div>
+  <p class="sec-note">The <b>Mode</b> segment flips the same matrix from "who is being heard by anyone" to "who is hearing <em>me</em>".
+     Same rows, same columns, same encoding — but the numbers are receptions of my own transmissions, so the matrix is an order of
+     magnitude sparser and normalises to its own maximum (34, not 386). That is the honest comparison: my 34 into NA is a solid
+     cell because it is <em>my</em> best path, not because it rivals the world's traffic. Shown here as a separate panel so both
+     modes can be compared side by side; in the product it is one panel with a toggle.</p>
+
+  <div class="pair">
+    <div class="shot shot--fp"><div class="frame frame--fp">
+      <div class="wk-head">
+        <span class="wk-title" style="color:var(--hc-info)">My footprint · K5ABC</span>
+        <span style="font-family:var(--f-mono);font-size:9px;letter-spacing:.16em;color:var(--hc-dim)">94 RECEPTIONS · 30 MIN</span>
+      </div>
+      <div class="wk-ctl">
+        <div><span class="lbl">Mode</span><div class="seg seg--sm"><span>World activity</span><span class="on">My footprint</span></div></div>
+        <div style="margin-left:auto"><span class="lbl">Normalised to</span>
+          <div class="meter"><div><b style="color:var(--hc-info)">34</b><span>MY MAX</span></div><div><b style="color:var(--hc-dim)">18</b><span>RX SITES</span></div></div>
+        </div>
+      </div>
+      <div class="hm hm--fp">
+              <div class="hm-head"><span>Band</span><span>NA</span><span>SA</span><span>EU</span><span>AF</span><span>AS</span><span>OC</span></div>
+              <div class="hm-row"><span class="hm-band" style="--bc:#ff6666">160<em>m</em></span><b class="hm-c v-clsd"><i class="z">·</i></b><b class="hm-c v-clsd"><i class="z">·</i></b><b class="hm-c v-clsd"><i class="z">·</i></b><b class="hm-c v-clsd"><i class="z">·</i></b><b class="hm-c v-clsd"><i class="z">·</i></b><b class="hm-c v-clsd"><i class="z">·</i></b></div>
+              <div class="hm-row"><span class="hm-band" style="--bc:#ff9966">80<em>m</em></span><b class="hm-c v-stir" style="--i:0.12">4</b><b class="hm-c v-clsd"><i class="z">·</i></b><b class="hm-c v-clsd"><i class="z">·</i></b><b class="hm-c v-clsd"><i class="z">·</i></b><b class="hm-c v-clsd"><i class="z">·</i></b><b class="hm-c v-clsd"><i class="z">·</i></b></div>
+              <div class="hm-row"><span class="hm-band" style="--bc:#e8963c">60<em>m</em></span><b class="hm-c v-clsd"><i class="z">·</i></b><b class="hm-c v-clsd"><i class="z">·</i></b><b class="hm-c v-clsd"><i class="z">·</i></b><b class="hm-c v-clsd"><i class="z">·</i></b><b class="hm-c v-clsd"><i class="z">·</i></b><b class="hm-c v-clsd"><i class="z">·</i></b></div>
+              <div class="hm-row"><span class="hm-band" style="--bc:#ffcc66">40<em>m</em></span><b class="hm-c v-ver" style="--i:0.35">12</b><b class="hm-c v-clsd" style="--i:0.05">1</b><b class="hm-c v-clsd"><i class="z">·</i></b><b class="hm-c v-clsd"><i class="z">·</i></b><b class="hm-c v-clsd"><i class="z">·</i></b><b class="hm-c v-clsd"><i class="z">·</i></b></div>
+              <div class="hm-row"><span class="hm-band" style="--bc:#99ff66">30<em>m</em></span><b class="hm-c v-stir" style="--i:0.18">6</b><b class="hm-c v-clsd"><i class="z">·</i></b><b class="hm-c v-clsd" style="--i:0.05">1</b><b class="hm-c v-clsd"><i class="z">·</i></b><b class="hm-c v-clsd"><i class="z">·</i></b><b class="hm-c v-clsd"><i class="z">·</i></b></div>
+              <div class="hm-row"><span class="hm-band" style="--bc:#66ff99">20<em>m</em></span><b class="hm-c v-hot hi" style="--i:1">34</b><b class="hm-c v-stir" style="--i:0.1">3</b><b class="hm-c v-ver" style="--i:0.18">6</b><b class="hm-c v-clsd"><i class="z">·</i></b><b class="hm-c v-clsd" style="--i:0.05">1</b><b class="hm-c v-clsd" style="--i:0.07">2</b></div>
+              <div class="hm-row"><span class="hm-band" style="--bc:#66ffcc">17<em>m</em></span><b class="hm-c v-ver" style="--i:0.24">8</b><b class="hm-c v-stir" style="--i:0.07">2</b><b class="hm-c v-clsd" style="--i:0.05">1</b><b class="hm-c v-clsd"><i class="z">·</i></b><b class="hm-c v-clsd"><i class="z">·</i></b><b class="hm-c v-clsd"><i class="z">·</i></b></div>
+              <div class="hm-row"><span class="hm-band" style="--bc:#66ccff">15<em>m</em></span><b class="hm-c v-stir" style="--i:0.15">5</b><b class="hm-c v-stir" style="--i:0.12">4</b><b class="hm-c v-clsd"><i class="z">·</i></b><b class="hm-c v-clsd"><i class="z">·</i></b><b class="hm-c v-clsd" style="--i:0.05">1</b><b class="hm-c v-clsd"><i class="z">·</i></b></div>
+              <div class="hm-row"><span class="hm-band" style="--bc:#6699ff">12<em>m</em></span><b class="hm-c v-clsd"><i class="z">·</i></b><b class="hm-c v-clsd"><i class="z">·</i></b><b class="hm-c v-clsd"><i class="z">·</i></b><b class="hm-c v-clsd"><i class="z">·</i></b><b class="hm-c v-clsd"><i class="z">·</i></b><b class="hm-c v-clsd"><i class="z">·</i></b></div>
+              <div class="hm-row"><span class="hm-band" style="--bc:#9966ff">10<em>m</em></span><b class="hm-c v-stir" style="--i:0.07">2</b><b class="hm-c v-clsd" style="--i:0.05">1</b><b class="hm-c v-clsd"><i class="z">·</i></b><b class="hm-c v-clsd"><i class="z">·</i></b><b class="hm-c v-clsd"><i class="z">·</i></b><b class="hm-c v-clsd"><i class="z">·</i></b></div>
+              <div class="hm-row"><span class="hm-band" style="--bc:#ff66ff">6<em>m</em></span><b class="hm-c v-clsd"><i class="z">·</i></b><b class="hm-c v-clsd"><i class="z">·</i></b><b class="hm-c v-clsd"><i class="z">·</i></b><b class="hm-c v-clsd"><i class="z">·</i></b><b class="hm-c v-clsd"><i class="z">·</i></b><b class="hm-c v-clsd"><i class="z">·</i></b></div>
+            </div>
+      <div class="chips" style="min-height:18px"><span class="ramp"><b style="font-family:var(--f-mono);font-weight:400">1</b>
+        <i style="--t:var(--hc-info-rgb);--i:.10"></i><i style="--t:var(--hc-info-rgb);--i:.35"></i><i style="--t:var(--hc-info-rgb);--i:.70"></i><i style="--t:var(--hc-info-rgb);--i:1"></i>
+        <b style="font-family:var(--f-mono);font-weight:400">34 receptions — my own scale</b></span></div>
+      <div class="wk-foot" style="font-size:8.5px">Data: PSKReporter reception reports for K5ABC · deduped (rx, band, 5-min) · 22:14 UTC</div>
+    </div></div>
+
+    <div class="shot shot--hl"><div class="frame frame--hl">
+      <div class="wk-head"><span class="wk-title" style="color:var(--hc-warn)">Wall headline — which rule picks the sentence?</span>
+        <span style="font-family:var(--f-mono);font-size:9px;letter-spacing:.16em;color:var(--hc-dim)">SETTINGS · PER STATION</span></div>
+      <div style="display:flex;flex-direction:column;gap:7px">
+        <div class="radio" aria-checked="true" role="radio"><i></i><div><b>Hottest cell</b>
+          <em>&rarr; <u>20 M OPEN TO EU</u> · 274 spots. Loudest thing on the band, whether or not you can work it.</em></div></div>
+        <div class="radio" aria-checked="false" role="radio"><i></i><div><b>Newest opening</b>
+          <em>&rarr; <u>15 M OPENING TO AS</u> · closed 20 min ago, verified now. Rewards change over magnitude.</em></div></div>
+        <div class="radio" aria-checked="false" role="radio"><i></i><div><b>My best workable band</b>
+          <em>&rarr; <u>WORK 20 M TO EU NOW</u> · filtered by band capability first, so it never names a path you can't take.</em></div></div>
+      </div>
+    </div></div>
+  </div>
+  <p class="cap"><b>The headline is auto-picked, not typed.</b> One rule, chosen once in settings, applied every refresh. The three
+     candidates disagree on this data — which is the point of showing them together; see review note 6.</p>
+
+  <div class="sec-label" style="border-top-color:var(--hc-good);margin-top:40px"><b>3c · Band visibility</b><i>work density · big toggles, no hover menu</i></div>
+  <p class="sec-note">Per-user band visibility lives on the panel as a row of spelled-out ON/OFF toggles — 52 px targets, no menu,
+     no flyout, nothing that appears on hover. Here 12 / 10 / 6 m are OFF (no antenna for them at this station), so the matrix
+     drops to eight rows and <b>rescales to fill the same space</b>: rows grow from 29 px to 42 px and the numerals from 15 px to
+     19 px. The widget never scrolls and never leaves dead space where a hidden band was.</p>
+
+  <div class="shot shot--work"><div class="frame frame--work">
+    <div class="wk-head"><span class="wk-title">Bands × Continents</span>
+      <span style="font-family:var(--f-mono);font-size:10px;letter-spacing:.16em;color:var(--hc-dim)">8 OF 11 BANDS SHOWN · 2,461 SPOTS</span></div>
+    <div><span class="lbl" style="font-family:var(--f-mono);font-size:9px;letter-spacing:.18em;color:var(--hc-dim);text-transform:uppercase;display:block;margin-bottom:5px">Show band</span>
+      <div class="btogs">
+        <button class="btog" data-state="on"><b>160</b><span>ON</span></button>
+        <button class="btog" data-state="on"><b>80</b><span>ON</span></button>
+        <button class="btog" data-state="on"><b>60</b><span>ON</span></button>
+        <button class="btog" data-state="on"><b>40</b><span>ON</span></button>
+        <button class="btog" data-state="on"><b>30</b><span>ON</span></button>
+        <button class="btog" data-state="on"><b>20</b><span>ON</span></button>
+        <button class="btog" data-state="on"><b>17</b><span>ON</span></button>
+        <button class="btog" data-state="on"><b>15</b><span>ON</span></button>
+        <button class="btog" data-state="off"><b>12</b><span>OFF</span></button>
+        <button class="btog" data-state="off"><b>10</b><span>OFF</span></button>
+        <button class="btog" data-state="off"><b>6</b><span>OFF</span></button>
+      </div>
+    </div>
+    <div style="flex:1 1 auto;display:flex;min-height:0">
+            <div class="hm hm--vis">
+              <div class="hm-head"><span>Band</span><span>NA</span><span>SA</span><span>EU</span><span>AF</span><span>AS</span><span>OC</span></div>
+              <div class="hm-row"><span class="hm-band" style="--bc:#ff6666">160<em>m</em></span><b class="hm-c v-stir" style="--i:0.18">12</b><b class="hm-c v-clsd"><i class="z">·</i></b><b class="hm-c v-clsd"><i class="z">·</i></b><b class="hm-c v-clsd"><i class="z">·</i></b><b class="hm-c v-clsd"><i class="z">·</i></b><b class="hm-c v-clsd" style="--i:0.05">1</b></div>
+              <div class="hm-row"><span class="hm-band" style="--bc:#ff9966">80<em>m</em></span><b class="hm-c v-ver" style="--i:0.35">48</b><b class="hm-c v-stir" style="--i:0.09">3</b><b class="hm-c v-clsd" style="--i:0.05">1</b><b class="hm-c v-clsd"><i class="z">·</i></b><b class="hm-c v-clsd"><i class="z">·</i></b><b class="hm-c v-clsd" style="--i:0.07">2</b></div>
+              <div class="hm-row"><span class="hm-band" style="--bc:#e8963c">60<em>m</em></span><b class="hm-c v-stir" style="--i:0.15">9</b><b class="hm-c v-clsd"><i class="z">·</i></b><b class="hm-c v-clsd"><i class="z">·</i></b><b class="hm-c v-clsd"><i class="z">·</i></b><b class="hm-c v-clsd"><i class="z">·</i></b><b class="hm-c v-clsd"><i class="z">·</i></b></div>
+              <div class="hm-row"><span class="hm-band" style="--bc:#ffcc66">40<em>m</em></span><b class="hm-c v-hot hi" style="--i:0.74">214</b><b class="hm-c v-ver" style="--i:0.26">26</b><b class="hm-c v-stir" style="--i:0.22">18</b><b class="hm-c v-clsd" style="--i:0.07">2</b><b class="hm-c v-clsd" style="--i:0.1">4</b><b class="hm-c v-stir" style="--i:0.13">7</b></div>
+              <div class="hm-row"><span class="hm-band" style="--bc:#99ff66">30<em>m</em></span><b class="hm-c v-ver hi" style="--i:0.5">96</b><b class="hm-c v-ver" style="--i:0.28">31</b><b class="hm-c v-ver" style="--i:0.34">44</b><b class="hm-c v-stir" style="--i:0.09">3</b><b class="hm-c v-stir" style="--i:0.12">6</b><b class="hm-c v-stir" style="--i:0.17">11</b></div>
+              <div class="hm-row"><span class="hm-band" style="--bc:#66ff99">20<em>m</em></span><b class="hm-c v-hot hi" style="--i:1">386</b><b class="hm-c v-hot hi" style="--i:0.55">118</b><b class="hm-c v-hot hi" style="--i:0.84">274</b><b class="hm-c v-ver" style="--i:0.23">21</b><b class="hm-c v-ver" style="--i:0.4">63</b><b class="hm-c v-ver" style="--i:0.33">42</b></div>
+              <div class="hm-row"><span class="hm-band" style="--bc:#66ffcc">17<em>m</em></span><b class="hm-c v-ver hi" style="--i:0.61">142</b><b class="hm-c v-hot" style="--i:0.48">88</b><b class="hm-c v-ver hi" style="--i:0.5">96</b><b class="hm-c v-stir" style="--i:0.19">14</b><b class="hm-c v-ver" style="--i:0.27">29</b><b class="hm-c v-ver" style="--i:0.29">33</b></div>
+              <div class="hm-row"><span class="hm-band" style="--bc:#66ccff">15<em>m</em></span><b class="hm-c v-ver" style="--i:0.48">88</b><b class="hm-c v-hot hi" style="--i:0.65">164</b><b class="hm-c v-x" style="--i:0.33">41</b><b class="hm-c v-ver" style="--i:0.24">22</b><b class="hm-c v-hot s" style="--i:0.38">57</b><b class="hm-c v-ver" style="--i:0.26">26</b></div>
+            </div>
+    </div>
+    <div class="wk-foot">Hidden bands are still ingested and still counted in shared operating state — they are only removed from this
+      view, per user, per device. Data: cluster + PSKReporter + RBN · 22:14 UTC</div>
+  </div></div>
+  <p class="cap"><b>Open question:</b> does band visibility follow the operator across densities (wall, desk, phone) or is it set per
+     placement? Review note 7.</p>
+</section>
+
+<!-- ======================= 4 · WORKSTATION CANVAS ======================== -->
+<section class="sec">
+  <div class="sec-label"><b>4 · Workstation canvas</b><i>recipe A · the click is an ACTION, not a report</i></div>
+  <p class="sec-note">Hero slot plus four dock slots, drawn at canvas scale 1.00 (the canvas has the same continuous range as the
+     wall, 0.70&nbsp;–&nbsp;1.40). Recipe A: 2D flat map in the hero, DX spot list in the left dock, heat map in the bottom dock
+     (transposed to the slot's aspect — bands become columns), right dock empty and offering its widget picker.
+     <b>This frame is annotated with the action flow.</b> On the wall a cell click opens a report. On the workstation it does
+     work: clicking <b>20 m × EU</b> writes <code>band=20m, continent=EU</code> to shared operating state, the DX list re-filters
+     to that cell, and the operator picks a contact and tunes or logs it. Follow the numbered callouts.</p>
+
+  <div class="shot shot--wall"><div class="frame frame--canvas with-flow">
+    <div class="cv-bar">
+      <div style="display:flex;align-items:baseline;gap:18px"><span class="nm">WORKSTATION</span><span class="sub">RECIPE A · CHASE DX</span></div>
+      <div class="sub">K5ABC · DM79QX · 20 M · TGT VK3ABC</div>
+      <div class="seg"><span class="on">Edit layout</span><span>Recipes</span><span>Settings</span></div>
+    </div>
+
+    <div class="cv-flow">
+      <span><b>①</b> Click the cell</span><em>&rarr;</em>
+      <span><b>②</b> DX list filters to 20 m · EU</span><em>&rarr;</em>
+      <span><b>③</b> Pick a contact</span><em>&rarr;</em>
+      <span><b>④</b> Tune the rig / log the QSO</span>
+      <span style="margin-left:auto;color:var(--hc-dim2)">Shared operating state: BAND 20 M · CONTINENT EU · 4 widgets reading</span>
+    </div>
+
+    <div class="cv-body recipe-a">
+      <!-- HERO -->
+      <div class="slot slot--hero"><span class="tag">Hero slot · 2D flat map</span>
+        <div class="mapish"></div>
+        <div class="arc" style="left:22%;top:44%;width:34%;transform:rotate(-14deg)"></div>
+        <div class="arc" style="left:26%;top:52%;width:44%;transform:rotate(9deg)"></div>
+        <div class="arc" style="left:24%;top:47%;width:26%;transform:rotate(-32deg);background:linear-gradient(90deg,transparent,rgba(0,255,136,.9),transparent)"></div>
+        <div class="hero-switch">
+          <button>Hero: 2D flat map <span style="color:var(--hc-accent)">▾</span></button>
+          <ul role="radiogroup" aria-label="Hero widget">
+            <li role="radio" aria-checked="true">2D flat map</li>
+            <li role="radio" aria-checked="false">3D globe</li>
+            <li role="radio" aria-checked="false">Azimuthal</li>
+            <li role="radio" aria-checked="false">None — docks fill the canvas</li>
+          </ul>
+        </div>
+        <div class="overlay-slot"><b>Centre overlay slot</b>
+          <span>Reports, the widget picker and every confirmation open here, centred over the hero. Escape / backdrop closes;
+                focus returns to the tile that opened it. No side flyouts anywhere in the canvas.</span></div>
+      </div>
+
+      <!-- LEFT DOCK -->
+      <div class="slot slot--left" style="--slc:44px 58px minmax(0,1fr) 34px 46px"><span class="tag">Dock · left · DX spot list</span>
+        <i class="co" style="top:4px;right:6px;font-style:normal">2</i>
+        <span class="co-t" style="top:9px;right:46px">List filtered by the cell</span>
+        <div class="slot-inner">
+          <div class="chips" style="margin-bottom:6px">
+            <span class="chip">20 m · EU <x>×</x></span>
+            <span class="chip chip--ghost">8 of 214</span>
+          </div>
+          <div class="sl">
+            <div class="sl-h"><span>UTC</span><span>Freq</span><span>DX</span><span>Age</span><span>Act</span></div>
+            <div class="sl-r sel" style="--bc:#66ff99"><span>22:13</span><span class="fq">14.074</span><span class="dx">DL8LAS <i class="nb">FT8</i><i class="co" style="top:-7px;left:-11px;font-style:normal">3</i></span><span class="age"><i style="--aw:92%;--ac:#22c55e"></i></span><span class="logbtn">LOG</span></div>
+            <div class="sl-r" style="--bc:#66ff99"><span>22:13</span><span class="fq">14.021</span><span class="dx">G3TXF <i class="nb">CW</i></span><span class="age"><i style="--aw:88%;--ac:#22c55e"></i></span><span style="color:var(--hc-dim2);text-align:center">·</span></div>
+            <div class="sl-r" style="--bc:#66ff99"><span>22:12</span><span class="fq">14.185</span><span class="dx">SM7GXQ <i class="nb">SSB</i></span><span class="age"><i style="--aw:81%;--ac:#22c55e"></i></span><span style="color:var(--hc-dim2);text-align:center">·</span></div>
+            <div class="sl-r" style="--bc:#66ff99"><span>22:12</span><span class="fq">14.032</span><span class="dx">OK1RR <i class="nb">CW</i></span><span class="age"><i style="--aw:78%;--ac:#eab308"></i></span><span style="color:var(--hc-dim2);text-align:center">·</span></div>
+            <div class="sl-r" style="--bc:#66ff99"><span>22:11</span><span class="fq">14.074</span><span class="dx">EA3KU <i class="nb">FT8</i></span><span class="age"><i style="--aw:70%;--ac:#eab308"></i></span><span style="color:var(--hc-dim2);text-align:center">·</span></div>
+            <div class="sl-r" style="--bc:#66ff99"><span>22:10</span><span class="fq">14.244</span><span class="dx">OZ1AA <i class="nb">SSB</i></span><span class="age"><i style="--aw:62%;--ac:#eab308"></i></span><span style="color:var(--hc-dim2);text-align:center">·</span></div>
+            <div class="sl-r" style="--bc:#66ff99"><span>22:09</span><span class="fq">14.018</span><span class="dx">I2WIJ <i class="nb">CW</i></span><span class="age"><i style="--aw:54%;--ac:#eab308"></i></span><span style="color:var(--hc-dim2);text-align:center">·</span></div>
+            <div class="sl-r" style="--bc:#66ff99"><span>22:07</span><span class="fq">14.076</span><span class="dx">ON5KQ <i class="nb">FT4</i></span><span class="age"><i style="--aw:36%;--ac:#ef4444"></i></span><span style="color:var(--hc-dim2);text-align:center">·</span></div>
+          </div>
+          <div style="margin-top:auto;position:relative">
+            <i class="co" style="top:-14px;left:-8px;font-style:normal">4</i>
+            <div class="bigbtn">TUNE 20 M <small>14.074 · DL8LAS</small></div>
+            <div style="font-family:var(--f-mono);font-size:10px;letter-spacing:.12em;color:var(--hc-dim2);text-transform:uppercase;margin-top:6px;text-align:center">
+              Sends CAT via the bridge · LOG writes the QSO to the logbook</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- RIGHT DOCK -->
+      <div class="slot slot--right"><span class="tag">Dock · right · empty</span>
+        <div class="picker">
+          <button>+ Add widget</button>
+          <small>Opens the picker in the centre overlay</small>
+        </div>
+      </div>
+
+      <!-- BOTTOM DOCK -->
+      <div class="slot slot--bottom"><span class="tag">Dock · bottom · heat map (transposed)</span>
+        <div class="slot-inner">
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:16px">
+            <span style="font-family:var(--f-display);font-weight:700;font-size:13px;letter-spacing:.22em;color:var(--hc-dim);text-transform:uppercase">Bands × Continents · world · 30 min</span>
+            <div class="seg seg--sm"><span class="on">World</span><span>My continent</span><span style="border-color:rgba(255,107,53,.6);color:var(--hc-accent)">Report</span></div>
+          </div>
+          <div class="hm-t">
+            <div class="hm-t-row hm-t-head"><span class="k">Cont</span><span>160</span><span>80</span><span>60</span><span>40</span><span>30</span><span>20</span><span>17</span><span>15</span><span>12</span><span>10</span><span>6</span></div>
+            <div class="hm-t-row"><span class="k">NA</span><b class="hm-c v-stir" style="--i:.18">12</b><b class="hm-c v-ver" style="--i:.35">48</b><b class="hm-c v-stir" style="--i:.15">9</b><b class="hm-c v-hot hi" style="--i:.74">214</b><b class="hm-c v-ver hi" style="--i:.50">96</b><b class="hm-c v-hot hi" style="--i:1">386</b><b class="hm-c v-ver hi" style="--i:.61">142</b><b class="hm-c v-ver" style="--i:.48">88</b><b class="hm-c v-stir" style="--i:.28">31</b><b class="hm-c v-stir" style="--i:.35">46</b><b class="hm-c v-stir s" style="--i:.26">27</b></div>
+            <div class="hm-t-row"><span class="k">SA</span><b class="hm-c v-clsd"><i class="z">·</i></b><b class="hm-c v-stir" style="--i:.09">3</b><b class="hm-c v-clsd"><i class="z">·</i></b><b class="hm-c v-ver" style="--i:.26">26</b><b class="hm-c v-ver" style="--i:.28">31</b><b class="hm-c v-hot hi" style="--i:.55">118</b><b class="hm-c v-hot" style="--i:.48">88</b><b class="hm-c v-hot hi" style="--i:.65">164</b><b class="hm-c v-ver" style="--i:.44">74</b><b class="hm-c v-hot hi" style="--i:.56">121</b><b class="hm-c v-clsd" style="--i:.07">2</b></div>
+            <div class="hm-t-row"><span class="k">EU</span><b class="hm-c v-clsd"><i class="z">·</i></b><b class="hm-c v-clsd" style="--i:.05">1</b><b class="hm-c v-clsd"><i class="z">·</i></b><b class="hm-c v-stir" style="--i:.22">18</b><b class="hm-c v-ver" style="--i:.34">44</b><b class="hm-c v-hot hi ring" style="--i:.84">274<i class="co" style="top:-15px;left:-15px;font-style:normal">1</i></b><b class="hm-c v-ver hi" style="--i:.50">96</b><b class="hm-c v-x" style="--i:.33">41</b><b class="hm-c v-fcst" style="--i:.15">9</b><b class="hm-c v-fcst" style="--i:.12">6</b><b class="hm-c v-clsd"><i class="z">·</i></b></div>
+            <div class="hm-t-row"><span class="k">AF</span><b class="hm-c v-clsd"><i class="z">·</i></b><b class="hm-c v-clsd"><i class="z">·</i></b><b class="hm-c v-clsd"><i class="z">·</i></b><b class="hm-c v-clsd" style="--i:.07">2</b><b class="hm-c v-stir" style="--i:.09">3</b><b class="hm-c v-ver" style="--i:.23">21</b><b class="hm-c v-stir" style="--i:.19">14</b><b class="hm-c v-ver" style="--i:.24">22</b><b class="hm-c v-stir" style="--i:.18">12</b><b class="hm-c v-ver" style="--i:.22">18</b><b class="hm-c v-clsd"><i class="z">·</i></b></div>
+            <div class="hm-t-row"><span class="k">AS</span><b class="hm-c v-clsd"><i class="z">·</i></b><b class="hm-c v-clsd"><i class="z">·</i></b><b class="hm-c v-clsd"><i class="z">·</i></b><b class="hm-c v-clsd" style="--i:.10">4</b><b class="hm-c v-stir" style="--i:.12">6</b><b class="hm-c v-ver" style="--i:.40">63</b><b class="hm-c v-ver" style="--i:.27">29</b><b class="hm-c v-hot s" style="--i:.38">57</b><b class="hm-c v-stir" style="--i:.14">8</b><b class="hm-c v-clsd" style="--i:.09">3</b><b class="hm-c v-clsd"><i class="z">·</i></b></div>
+            <div class="hm-t-row"><span class="k">OC</span><b class="hm-c v-clsd" style="--i:.05">1</b><b class="hm-c v-clsd" style="--i:.07">2</b><b class="hm-c v-clsd"><i class="z">·</i></b><b class="hm-c v-stir" style="--i:.13">7</b><b class="hm-c v-stir" style="--i:.17">11</b><b class="hm-c v-ver" style="--i:.33">42</b><b class="hm-c v-ver" style="--i:.29">33</b><b class="hm-c v-ver" style="--i:.26">26</b><b class="hm-c v-stir" style="--i:.19">14</b><b class="hm-c v-ver" style="--i:.22">19</b><b class="hm-c v-clsd"><i class="z">·</i></b></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div></div>
+  <p class="cap"><b>One click, four widgets move.</b> ① writes <code>{band:"20m", continent:"EU"}</code> to shared operating state.
+     ② the DX list re-filters and shows the filter as a removable chip — the operator can always see why the list is short, and
+     always undo it in one tap. ③ selecting a row sets the target and puts <b>LOG</b> on that row only. ④ <b>TUNE 20 M</b> is a
+     56 px button carrying the frequency it will send, so nothing is sent blind. The map hero and the space-weather strip read the
+     same state. <b>Transposition:</b> the same widget flips its axes to match the slot — 11 × 6 in a tall dock, 6 × 11 in a wide
+     one. One registry entry, one data shape, two layouts. See review note 4.</p>
+
+  <div class="sec-label" style="margin-top:44px"><b>Recipe B</b><i>no hero · DX list fills the hero slot</i></div>
+  <p class="sec-note">Same canvas, hero switched to <em>None</em>: the DX spot list is promoted into the hero slot, the heat map takes
+     the right dock at its natural orientation, and the logger takes the bottom dock. The left dock is empty and shows the picker.</p>
+
+  <div class="shot shot--wall"><div class="frame frame--canvas">
+    <div class="cv-bar">
+      <div style="display:flex;align-items:baseline;gap:18px"><span class="nm">WORKSTATION</span><span class="sub">RECIPE B · RUN THE PILE-UP</span></div>
+      <div class="sub">K5ABC · DM79QX · 20 M · TGT VK3ABC</div>
+      <div class="seg"><span class="on">Edit layout</span><span>Recipes</span><span>Settings</span></div>
+    </div>
+
+    <div class="cv-body recipe-b">
+      <div class="slot slot--left"><span class="tag">Dock · left · empty</span>
+        <div class="picker picker--sm"><button>+ Add widget</button><small>Big button, never a hover menu</small></div>
+      </div>
+
+      <div class="slot slot--hero"><span class="tag">Hero slot · DX spot list (no map)</span>
+        <div class="slot-inner">
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:4px">
+            <div class="hero-switch" style="position:static;width:auto"><button style="min-width:260px">Hero: none — list fills it <span style="color:var(--hc-accent)">▾</span></button></div>
+            <div class="chips"><span class="chip">Band 20 M <x>×</x></span><span class="chip">Continent EU <x>×</x></span><span class="chip chip--ghost">Needed only</span></div>
+          </div>
+          <div class="sl">
+            <div class="sl-h"><span>UTC</span><span>Age</span><span>Band</span><span>Freq</span><span>DX</span><span>Dist</span><span>Spotter</span></div>
+            <div class="sl-r sel" style="--bc:#66ff99"><span>22:13</span><span class="age"><i style="--aw:96%"></i></span><span class="bd">20m</span><span class="fq">14.074</span><span class="dx">DL8LAS <i class="nb">NEW</i></span><span>7 950</span><span>W3LPL</span></div>
+            <div class="sl-r" style="--bc:#66ff99"><span>22:13</span><span class="age"><i style="--aw:94%"></i></span><span class="bd">20m</span><span class="fq">14.021</span><span class="dx">G3TXF</span><span>7 420</span><span>K1TTT</span></div>
+            <div class="sl-r" style="--bc:#66ff99"><span>22:12</span><span class="age"><i style="--aw:90%"></i></span><span class="bd">20m</span><span class="fq">14.185</span><span class="dx">SM7GXQ</span><span>7 890</span><span>KM3T</span></div>
+            <div class="sl-r" style="--bc:#66ff99"><span>22:12</span><span class="age"><i style="--aw:86%"></i></span><span class="bd">20m</span><span class="fq">14.032</span><span class="dx">OK1RR</span><span>8 240</span><span>VE3EJ</span></div>
+            <div class="sl-r" style="--bc:#66ff99"><span>22:11</span><span class="age"><i style="--aw:80%;--ac:#eab308"></i></span><span class="bd">20m</span><span class="fq">14.244</span><span class="dx">EA3KU <i class="nb">BAND</i></span><span>8 570</span><span>K9CT</span></div>
+            <div class="sl-r" style="--bc:#66ff99"><span>22:10</span><span class="age"><i style="--aw:70%;--ac:#eab308"></i></span><span class="bd">20m</span><span class="fq">14.008</span><span class="dx">OZ1AA</span><span>7 610</span><span>N4ZR</span></div>
+            <div class="sl-r" style="--bc:#66ff99"><span>22:10</span><span class="age"><i style="--aw:66%;--ac:#eab308"></i></span><span class="bd">20m</span><span class="fq">14.190</span><span class="dx">I2WIJ</span><span>8 830</span><span>W6RW</span></div>
+            <div class="sl-r" style="--bc:#66ff99"><span>22:09</span><span class="age"><i style="--aw:58%;--ac:#eab308"></i></span><span class="bd">20m</span><span class="fq">14.076</span><span class="dx">ON5KQ</span><span>7 700</span><span>KM3T</span></div>
+            <div class="sl-r" style="--bc:#66ff99"><span>22:08</span><span class="age"><i style="--aw:46%;--ac:#eab308"></i></span><span class="bd">20m</span><span class="fq">14.025</span><span class="dx">SP4Z</span><span>8 460</span><span>K1TTT</span></div>
+            <div class="sl-r" style="--bc:#66ff99"><span>22:07</span><span class="age"><i style="--aw:36%;--ac:#ef4444"></i></span><span class="bd">20m</span><span class="fq">14.180</span><span class="dx">F5IN</span><span>7 980</span><span>W3LPL</span></div>
+            <div class="sl-r" style="--bc:#66ff99"><span>22:06</span><span class="age"><i style="--aw:28%;--ac:#ef4444"></i></span><span class="bd">20m</span><span class="fq">14.070</span><span class="dx">OH2BH</span><span>7 300</span><span>KM3T</span></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="slot slot--right"><span class="tag">Dock · right · heat map</span>
+        <div class="slot-inner">
+          <div class="seg seg--sm" style="margin-bottom:6px"><span class="on">World</span><span>30 min</span></div>
+          <div class="hm hm--work" style="--hm-band:54px;--hm-bandsize:17px;--hm-cell:13px;flex:1 1 auto">
+            <div class="hm-head"><span>Band</span><span>NA</span><span>SA</span><span>EU</span><span>AF</span><span>AS</span><span>OC</span></div>
+            <div class="hm-row"><span class="hm-band" style="--bc:#ff6666">160</span><b class="hm-c v-stir" style="--i:.18">12</b><b class="hm-c v-clsd"><i class="z">·</i></b><b class="hm-c v-clsd"><i class="z">·</i></b><b class="hm-c v-clsd"><i class="z">·</i></b><b class="hm-c v-clsd"><i class="z">·</i></b><b class="hm-c v-clsd">1</b></div>
+            <div class="hm-row"><span class="hm-band" style="--bc:#ff9966">80</span><b class="hm-c v-ver" style="--i:.35">48</b><b class="hm-c v-stir" style="--i:.09">3</b><b class="hm-c v-clsd">1</b><b class="hm-c v-clsd"><i class="z">·</i></b><b class="hm-c v-clsd"><i class="z">·</i></b><b class="hm-c v-clsd">2</b></div>
+            <div class="hm-row"><span class="hm-band" style="--bc:#e8963c">60</span><b class="hm-c v-stir" style="--i:.15">9</b><b class="hm-c v-clsd"><i class="z">·</i></b><b class="hm-c v-clsd"><i class="z">·</i></b><b class="hm-c v-clsd"><i class="z">·</i></b><b class="hm-c v-clsd"><i class="z">·</i></b><b class="hm-c v-clsd"><i class="z">·</i></b></div>
+            <div class="hm-row"><span class="hm-band" style="--bc:#ffcc66">40</span><b class="hm-c v-hot hi" style="--i:.74">214</b><b class="hm-c v-ver" style="--i:.26">26</b><b class="hm-c v-stir" style="--i:.22">18</b><b class="hm-c v-clsd">2</b><b class="hm-c v-clsd">4</b><b class="hm-c v-stir" style="--i:.13">7</b></div>
+            <div class="hm-row"><span class="hm-band" style="--bc:#99ff66">30</span><b class="hm-c v-ver hi" style="--i:.50">96</b><b class="hm-c v-ver" style="--i:.28">31</b><b class="hm-c v-ver" style="--i:.34">44</b><b class="hm-c v-stir" style="--i:.09">3</b><b class="hm-c v-stir" style="--i:.12">6</b><b class="hm-c v-stir" style="--i:.17">11</b></div>
+            <div class="hm-row"><span class="hm-band on" style="--bc:#66ff99">20</span><b class="hm-c v-hot hi" style="--i:1">386</b><b class="hm-c v-hot hi" style="--i:.55">118</b><b class="hm-c v-hot hi" style="--i:.84">274</b><b class="hm-c v-ver" style="--i:.23">21</b><b class="hm-c v-ver" style="--i:.40">63</b><b class="hm-c v-ver" style="--i:.33">42</b></div>
+            <div class="hm-row"><span class="hm-band" style="--bc:#66ffcc">17</span><b class="hm-c v-ver hi" style="--i:.61">142</b><b class="hm-c v-hot" style="--i:.48">88</b><b class="hm-c v-ver hi" style="--i:.50">96</b><b class="hm-c v-stir" style="--i:.19">14</b><b class="hm-c v-ver" style="--i:.27">29</b><b class="hm-c v-ver" style="--i:.29">33</b></div>
+            <div class="hm-row"><span class="hm-band" style="--bc:#66ccff">15</span><b class="hm-c v-ver" style="--i:.48">88</b><b class="hm-c v-hot hi" style="--i:.65">164</b><b class="hm-c v-x" style="--i:.33">41</b><b class="hm-c v-ver" style="--i:.24">22</b><b class="hm-c v-hot s" style="--i:.38">57</b><b class="hm-c v-ver" style="--i:.26">26</b></div>
+            <div class="hm-row"><span class="hm-band" style="--bc:#6699ff">12</span><b class="hm-c v-stir" style="--i:.28">31</b><b class="hm-c v-ver" style="--i:.44">74</b><b class="hm-c v-fcst" style="--i:.15">9</b><b class="hm-c v-stir" style="--i:.18">12</b><b class="hm-c v-stir" style="--i:.14">8</b><b class="hm-c v-stir" style="--i:.19">14</b></div>
+            <div class="hm-row"><span class="hm-band" style="--bc:#9966ff">10</span><b class="hm-c v-stir" style="--i:.35">46</b><b class="hm-c v-hot hi" style="--i:.56">121</b><b class="hm-c v-fcst" style="--i:.12">6</b><b class="hm-c v-ver" style="--i:.22">18</b><b class="hm-c v-clsd">3</b><b class="hm-c v-ver" style="--i:.22">19</b></div>
+            <div class="hm-row"><span class="hm-band" style="--bc:#ff66ff">6</span><b class="hm-c v-stir s" style="--i:.26">27</b><b class="hm-c v-clsd">2</b><b class="hm-c v-clsd"><i class="z">·</i></b><b class="hm-c v-clsd"><i class="z">·</i></b><b class="hm-c v-clsd"><i class="z">·</i></b><b class="hm-c v-clsd"><i class="z">·</i></b></div>
+          </div>
+          <div style="font-family:var(--f-mono);font-size:9px;letter-spacing:.14em;color:var(--hc-dim2);text-transform:uppercase;margin-top:6px">20 M row selected → band filter live</div>
+        </div>
+      </div>
+
+      <div class="slot slot--bottom"><span class="tag">Dock · bottom · logger</span>
+        <div class="slot-inner">
+          <div class="lg">
+            <div><label>Callsign</label><div class="in">DL8LAS</div></div>
+            <div><label>RST sent</label><div class="in">599</div></div>
+            <div><label>RST rcvd</label><div class="in">579</div></div>
+            <div><label>Exchange / park</label><div class="in ph">K-4404</div></div>
+            <div class="go">LOG QSO</div>
+          </div>
+          <div style="display:flex;gap:26px;margin-top:12px;font-family:var(--f-mono);font-size:12px;color:var(--hc-dim)">
+            <span>BAND <b style="color:var(--hc-fg)">20 M</b> — from shared state</span>
+            <span>FREQ <b style="color:var(--hc-fg)">14.074</b></span>
+            <span>MODE <b style="color:var(--hc-fg)">FT8</b></span>
+            <span>SESSION <b style="color:var(--hc-fg)">FIELD DAY 2026</b></span>
+            <span>QSOS <b style="color:var(--hc-fg)">184</b></span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div></div>
+  <p class="cap"><b>Slot affordance:</b> an empty dock shows one big "+ ADD WIDGET" button in its centre. It is a button, not a hover
+     zone — the picker opens in the centre overlay, and slots never reveal controls on pointer entry.</p>
+</section>
+
+<!-- ======================= 5 · PHONE CANVAS ============================== -->
+<section class="sec">
+  <div class="sec-label"><b>5 · Phone canvas</b><i>390 pt reference · unchanged from v1</i></div>
+  <p class="sec-note">On a phone the canvas degrades to one widget per page. The state strip at the top is byte-identical on all three
+     pages — session, band, target — which is how the operator can see that the logger, the spot list and the heat map are all
+     talking about the same thing. Page dots at the bottom; nothing inside a page scrolls except the spot list.</p>
+
+  <div class="shot shot--phones"><div class="frame frame--phones">
+
+    <!-- PAGE 1 — fast logger -->
+    <div class="ph">
+      <div class="ph-state"><i class="dot"></i><span>FIELD DAY 2026</span><span class="bd">20 M</span><span>TGT <b>VK3ABC</b></span><span style="margin-left:auto">184 Q</span></div>
+      <div class="ph-hd"><div class="eyebrow">Page 1 · Logger</div><h4>Fast log</h4></div>
+      <div class="ph-body">
+        <div class="ph-f"><label>Callsign</label><div class="in">DL8LAS</div></div>
+        <div class="ph-2">
+          <div class="ph-f"><label>RST sent</label><div class="in">599</div></div>
+          <div class="ph-f"><label>RST rcvd</label><div class="in">579</div></div>
+        </div>
+        <div class="ph-f"><label>Park / reference</label><div class="in ph">K-4404 · Roosevelt NF</div></div>
+        <div class="ph-go">LOG QSO</div>
+        <div class="ph-recent">
+          <div class="k">Last three</div>
+          <div class="r"><b>OK1RR</b><span>22:12 · 20 m · 599/599</span></div>
+          <div class="r"><b>G3TXF</b><span>22:11 · 20 m · 599/579</span></div>
+          <div class="r"><b>PY1NX</b><span>22:08 · 15 m · 59/59</span></div>
+        </div>
+      </div>
+      <div class="ph-dots"><i class="on"></i><i></i><i></i></div>
+    </div>
+
+    <!-- PAGE 2 — DX spot list -->
+    <div class="ph">
+      <div class="ph-state"><i class="dot"></i><span>FIELD DAY 2026</span><span class="bd">20 M</span><span>TGT <b>VK3ABC</b></span><span style="margin-left:auto">184 Q</span></div>
+      <div class="ph-hd"><div class="eyebrow">Page 2 · Cluster</div><h4>DX spots · 20 m</h4></div>
+      <div class="ph-body">
+        <div class="ph-scope"><span class="on">Band 20 m</span><span>All bands</span><span>Needed</span></div>
+        <div class="ph-sl">
+          <div class="r" style="--bc:#66ff99"><span class="bd">20m</span><span><span class="dx">DL8LAS</span><br>W3LPL · 1 m</span><span class="fq">14.074</span><span>7 950</span></div>
+          <div class="r" style="--bc:#66ff99"><span class="bd">20m</span><span><span class="dx">G3TXF</span><br>K1TTT · 1 m</span><span class="fq">14.021</span><span>7 420</span></div>
+          <div class="r" style="--bc:#66ff99"><span class="bd">20m</span><span><span class="dx">SM7GXQ</span><br>KM3T · 2 m</span><span class="fq">14.185</span><span>7 890</span></div>
+          <div class="r" style="--bc:#66ff99"><span class="bd">20m</span><span><span class="dx">OK1RR</span><br>VE3EJ · 2 m</span><span class="fq">14.032</span><span>8 240</span></div>
+          <div class="r" style="--bc:#66ff99"><span class="bd">20m</span><span><span class="dx">EA3KU</span><br>K9CT · 3 m</span><span class="fq">14.244</span><span>8 570</span></div>
+          <div class="r" style="--bc:#66ff99"><span class="bd">20m</span><span><span class="dx">OZ1AA</span><br>N4ZR · 4 m</span><span class="fq">14.008</span><span>7 610</span></div>
+          <div class="r" style="--bc:#66ff99"><span class="bd">20m</span><span><span class="dx">I2WIJ</span><br>W6RW · 4 m</span><span class="fq">14.190</span><span>8 830</span></div>
+          <div class="r" style="--bc:#66ff99"><span class="bd">20m</span><span><span class="dx">ON5KQ</span><br>KM3T · 5 m</span><span class="fq">14.076</span><span>7 700</span></div>
+          <div class="r" style="--bc:#66ff99"><span class="bd">20m</span><span><span class="dx">SP4Z</span><br>K1TTT · 6 m</span><span class="fq">14.025</span><span>8 460</span></div>
+        </div>
+      </div>
+      <div class="ph-dots"><i></i><i class="on"></i><i></i></div>
+    </div>
+
+    <!-- PAGE 3 — heat map, my-continent scope -->
+    <div class="ph">
+      <div class="ph-state"><i class="dot"></i><span>FIELD DAY 2026</span><span class="bd">20 M</span><span>TGT <b>VK3ABC</b></span><span style="margin-left:auto">184 Q</span></div>
+      <div class="ph-hd"><div class="eyebrow">Page 3 · Propagation</div><h4>Bands → North America</h4></div>
+      <div class="ph-body">
+        <div class="ph-scope"><span class="on">My continent</span><span>World</span></div>
+        <div class="ph-scope" style="margin-top:-2px"><span class="on">30 min</span><span>2 h</span></div>
+        <div class="ph-hm">
+          <div class="r"><span class="b" style="--bc:#66ff99">20</span><span class="bar"><i style="--t:255 107 53;--i:1"></i></span><span class="n">386</span><span class="v t-hot">Hot · rising</span></div>
+          <div class="r"><span class="b" style="--bc:#ffcc66">40</span><span class="bar"><i style="--t:255 107 53;--i:.74"></i></span><span class="n">214</span><span class="v t-hot">Hot</span></div>
+          <div class="r"><span class="b" style="--bc:#66ffcc">17</span><span class="bar"><i style="--t:0 255 136;--i:.61"></i></span><span class="n">142</span><span class="v t-ver">Verified open</span></div>
+          <div class="r"><span class="b" style="--bc:#99ff66">30</span><span class="bar"><i style="--t:0 255 136;--i:.50"></i></span><span class="n">96</span><span class="v t-ver">Verified open</span></div>
+          <div class="r"><span class="b" style="--bc:#66ccff">15</span><span class="bar"><i style="--t:0 255 136;--i:.48"></i></span><span class="n">88</span><span class="v t-ver">Verified open</span></div>
+          <div class="r"><span class="b" style="--bc:#ff9966">80</span><span class="bar"><i style="--t:0 255 136;--i:.35"></i></span><span class="n">48</span><span class="v t-ver">Verified open</span></div>
+          <div class="r"><span class="b" style="--bc:#9966ff">10</span><span class="bar"><i style="--t:255 210 63;--i:.35"></i></span><span class="n">46</span><span class="v t-stir">Stirring</span></div>
+          <div class="r"><span class="b" style="--bc:#6699ff">12</span><span class="bar"><i style="--t:255 210 63;--i:.28"></i></span><span class="n">31</span><span class="v t-stir">Stirring</span></div>
+          <div class="r"><span class="b" style="--bc:#ff66ff">6</span><span class="bar"><i style="--t:255 210 63;--i:.26"></i></span><span class="n">27</span><span class="v t-stir">▲ Es · beat forecast</span></div>
+          <div class="r"><span class="b" style="--bc:#ff6666">160</span><span class="bar"><i style="--t:255 210 63;--i:.18"></i></span><span class="n">12</span><span class="v t-stir">Stirring</span></div>
+          <div class="r"><span class="b" style="--bc:#e8963c">60</span><span class="bar"><i style="--t:255 210 63;--i:.15"></i></span><span class="n">9</span><span class="v t-stir">Stirring</span></div>
+        </div>
+      </div>
+      <div class="ph-dots"><i></i><i></i><i class="on"></i></div>
+    </div>
+
+  </div></div>
+  <p class="cap"><b>Collapse rule:</b> at phone width the matrix loses its columns. "My continent" scope means one column, so the widget
+     renders as a sorted band ladder (hottest first) rather than a 6-wide grid that would need 54 px cells. Switching to "World"
+     on a phone is an unanswered case — see review note 6.</p>
+</section>
+
+<!-- ======================= 6 · NOTES ==================================== -->
+<section class="notes">
+  <div class="sec-label" style="border-color:var(--su-warning)"><b>Notes for review</b><i>questions this mock raises</i></div>
+  <ol>
+    <li><b>Resolved in v2 — recorded here so the decision is not re-litigated.</b><span> Cells now carry one saturated ramp at every
+        density (opacity = traffic, hue = verdict). The hot-but-unworkable case keeps its heat colour with a hatch laid over it,
+        labelled <em>"your station can't work this"</em> at work density and left unlabelled on the wall. Wall click opens a report;
+        workstation click performs the filter action. Each density is a continuous scale range, not a fixed size.</span></li>
+    <li><b>One verdict vocabulary, or two?</b><span> The brief says open / marginal / closed; the shipped ladder is
+        closed &lt; forecast &lt; stirring &lt; verified open &lt; hot with an orthogonal surprise flag
+        (<code>src/lib/verdict/ladder.ts</code>). This mock uses the shipped five so the heat map, Best Band Now and the Home
+        ladder cannot disagree. Confirm — or define the three-state reduction once, centrally, and let every surface use it.</span></li>
+    <li><b>Is the opacity ramp linear or logarithmic?</b><span> Drawn linear here against a 400-spot ceiling, which makes 20 m × NA
+        (386) and 20 m × EU (274) look nearly identical and flattens everything under 40 spots into a wash. A log ramp would
+        separate the quiet end, which is where openings <em>start</em> — but it also makes the wall harder to read at a glance,
+        because the eye reads area and opacity linearly. Also unresolved: is the ceiling fixed at 400, or the current maximum
+        (so the picture rescales every refresh)?</span></li>
+    <li><b>What counts as "can't work this"?</b><span> The hatch fires on band capability AND Band Health. Band capability is
+        knowable (antenna and power from the station profile). Band Health from-my-grid is a model output with a confidence.
+        Should a low-confidence "closed" hatch a cell at all, or only a high-confidence one? Hatching a cell the operator could
+        actually work is the worse error — it tells them not to try.</span></li>
+    <li><b>Does a cell click filter, or filter <em>and</em> open the report?</b><span> Section 4 makes the workstation click an
+        action (filter, no modal) and the wall click a report. That split is deliberate but it means the same widget behaves
+        differently in two placements. Confirm that is wanted, or add a modifier (long-press / secondary target) so both are
+        reachable everywhere.</span></li>
+    <li><b>Which headline rule ships as the default?</b><span> Section 3b shows the three candidates disagreeing on the same data:
+        hottest cell says 20 m → EU, newest opening says 15 m → AS, best workable says work 20 m → EU. "My best workable band" is
+        the only one that can never name a path the operator can't take, which argues for it as the default — but it is also the
+        least interesting sentence on a club wall where the operators are not all the same station.</span></li>
+    <li><b>Does band visibility follow the operator or the placement?</b><span> Section 3c hides 12 / 10 / 6 m per user. If that
+        follows the operator, the wall in a club shack shows one member's band set to everyone. If it follows the placement, an
+        operator has to set it three times (wall, desk, phone). A third option: station-profile-derived (hide bands with no
+        antenna) with a per-placement override.</span></li>
+    <li><b>Does "My footprint" need its own ladder?</b><span> Footprint counts are receptions of me, so "verified open" and "hot"
+        are measuring a different thing — one loud reporter can carry a cell. Either the ladder thresholds change in footprint
+        mode, or footprint drops the verdict hue entirely and uses a single tone with opacity only. The mock currently reuses the
+        verdict hues, which may be quietly dishonest.</span></li>
+    <li><b>Window choice: 30 min / 2 h — or does the verdict window differ from the count window?</b><span> The ladder's verified bar
+        is defined on a trailing 20 minutes (<code>VERIFIED_OBS_ENTER</code>, 6 obs / 3 reporters). If the operator selects a 2 h
+        count window, the tint is still describing 20 minutes. Either the ladder window follows the selector, or the footer has to
+        say plainly that the number and the colour are measured over different spans.</span></li>
+    <li><b>Phone in World scope.</b><span> Page 3 collapses to a band ladder because the scope is "my continent". In World scope the
+        phone needs either a horizontally paged matrix (6 columns will not fit at a 44 px target), a continent picker above the
+        ladder, or the World scope disabled on phones altogether. (Phone canvas is unchanged from v1.)</span></li>
+  </ol>
+</section>
+
+</main>
+
+<script>
+/* Hover only: the work-density inspector. No routing, no state, no framework. */
+(function () {
+  var why = {
+    hot: "Count rose across both 10-minute windows and the verified bar has held. Physics p_open above the open threshold from DM79.",
+    verified: "At or above the verified bar: ≥6 deduplicated observations from ≥3 distinct reporters in the trailing 20 minutes.",
+    stirring: "Real spots on this path, but below the verified bar (≥6 obs from ≥3 reporters).",
+    forecast: "Forecast only. The physics arm says the path should be open; nothing has been observed on it yet.",
+    closed: "Closed. The physics arm is below its exit threshold from DM79 and nothing meaningful has been spotted.",
+    "closed-elsewhere": "Your station can't work this. 41 real spots exist (DX↔DX and intra-region), but the DM79→EU path is below the physics exit threshold at 100 W into a dipole. Band capability + Band Health both say no.",
+    "hot-surprise": "Hot — and a surprise: activity appeared while the blended forecast still said closed. Logged as a surprise event.",
+    "stirring-surprise": "Stirring — and a surprise: sporadic-E the forecast did not predict. Logged as a surprise event."
+  };
+  var tone = {
+    hot: "var(--hc-accent)", "hot-surprise": "var(--hc-accent)",
+    verified: "var(--hc-good)",
+    stirring: "var(--hc-warn)", "stirring-surprise": "var(--hc-warn)",
+    forecast: "var(--hc-dim)", closed: "var(--hc-dim2)", "closed-elsewhere": "var(--hc-bad)"
+  };
+  var label = {
+    hot: "HOT", "hot-surprise": "HOT ▲ SURPRISE", verified: "VERIFIED OPEN",
+    stirring: "STIRRING", "stirring-surprise": "STIRRING ▲ SURPRISE",
+    forecast: "FORECAST ONLY", closed: "CLOSED", "closed-elsewhere": "HOT — YOU CAN'T WORK IT"
+  };
+  var freqs = { "160 m": "1.826", "80 m": "3.573", "60 m": "5.357", "40 m": "7.041", "30 m": "10.136",
+                "20 m": "14.074", "17 m": "18.100", "15 m": "21.074", "12 m": "24.915", "10 m": "28.074", "6 m": "50.313" };
+  var modes = ["FT8", "CW", "SSB"];
+  var m = document.getElementById("wk-matrix");
+  if (!m) return;
+  m.addEventListener("mouseover", function (e) {
+    var c = e.target.closest(".hm-c");
+    if (!c || !c.dataset.b) return;
+    var v = c.dataset.v, n = (c.textContent || "").trim();
+    if (n === "·") n = "0";
+    document.getElementById("i-where").textContent = c.dataset.b.toUpperCase() + " → " + c.dataset.k;
+    document.getElementById("i-count").textContent = n;
+    document.getElementById("i-rx").textContent = c.dataset.rx + " RX · 30 MIN";
+    var verd = document.getElementById("i-verd");
+    verd.textContent = label[v] || v.toUpperCase();
+    verd.style.color = tone[v] || "var(--hc-dim)";
+    document.getElementById("i-why").textContent = why[v] || "";
+    var calls = (c.dataset.calls || "—").split(" · ");
+    document.getElementById("i-calls").innerHTML = calls.map(function (call, i) {
+      if (call === "—") return "<li><b>—</b><span>nothing spotted</span></li>";
+      return "<li><b>" + call + "</b><span>" + (freqs[c.dataset.b] || "") + " · " + modes[i % 3] + "</span></li>";
+    }).join("");
+  });
+})();
+</script>
+</body>
+</html>

@@ -309,10 +309,10 @@ export function BandScope({ className = "" }: BandScopeProps) {
 
   return (
     <div
-      className={`rounded-2xl border border-su-line/40 bg-su-line/10 backdrop-blur-md overflow-hidden ${className}`}
+      className={`flex flex-col rounded-2xl border border-su-line/40 bg-su-line/10 backdrop-blur-md overflow-hidden ${className}`}
     >
       {/* Header */}
-      <div className="flex items-center justify-between px-4 py-2 border-b border-su-line/40">
+      <div className="flex flex-shrink-0 items-center justify-between px-4 py-2 border-b border-su-line/40">
         <h2 className="font-sans text-sm font-semibold text-su-text uppercase tracking-wide">
           Band Scope
         </h2>
@@ -327,7 +327,7 @@ export function BandScope({ className = "" }: BandScopeProps) {
       </div>
 
       {/* Canvas */}
-      <div ref={containerRef} className="h-[200px] relative">
+      <div ref={containerRef} className="flex-1 min-h-[60px] relative">
         <canvas
           ref={canvasRef}
           className="absolute inset-0 w-full h-full cursor-crosshair"
@@ -337,7 +337,7 @@ export function BandScope({ className = "" }: BandScopeProps) {
       </div>
 
       {/* SNR Legend */}
-      <div className="flex items-center justify-center gap-3 px-4 py-1.5 border-t border-su-line/40 text-xs">
+      <div className="flex flex-shrink-0 items-center justify-center gap-3 px-4 py-1.5 border-t border-su-line/40 text-xs">
         {[
           { label: ">0dB", color: "#22c55e" },
           { label: "-5dB", color: "#00d4ff" },

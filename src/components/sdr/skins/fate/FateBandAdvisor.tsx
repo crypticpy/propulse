@@ -52,7 +52,7 @@
  *        </span>
  *      )}
  *      {d.isNewStation && d.parsedCallsign && !isNewEntity && (
- *        <span className="shrink-0 bg-plasma-orange/20 text-plasma-orange ...">NEW</span>
+ *        <span className="shrink-0 bg-plasma-orange/20 text-su-text ...">NEW</span>
  *      )}
  *
  * 4. BADGE STYLE:

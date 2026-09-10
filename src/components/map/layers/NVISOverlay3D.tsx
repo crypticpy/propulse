@@ -34,7 +34,10 @@ import {
 } from "@/components/map/lib/globeCoords";
 import { useActiveBand } from "@/hooks/useActiveBandMode";
 import { useMapStore } from "@/stores/mapStore";
-import { GLOBE_LAYER_ORDER } from "@/lib/map/globeRenderOrder";
+import {
+  GLOBE_LAYER_ORDER,
+  GLOBE_DOM_LAYER_ORDER,
+} from "@/lib/map/globeRenderOrder";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -640,7 +643,14 @@ export const NVISOverlay3D = React.memo(function NVISOverlay3D({
           key={label}
           position={pos}
           center
-          zIndexRange={[1, 0]}
+          // marker (not hud): hud sits ABOVE pinLabel, which would demote
+          // the selected band label below these always-on distance labels.
+          // Keeping distance labels + unselected band labels in `marker`
+          // and promoting the selected band label to `pinLabel` (below)
+          // preserves the one ordering relationship this widget actually
+          // needs -- selected outranks unselected -- the same pattern
+          // SpotLabel itself uses for its own hover/select promotion.
+          zIndexRange={GLOBE_DOM_LAYER_ORDER.marker}
           style={{ pointerEvents: "none" }}
         >
           <div
@@ -668,7 +678,18 @@ export const NVISOverlay3D = React.memo(function NVISOverlay3D({
             key={band}
             position={pos}
             center
-            zIndexRange={isSelected ? [10, 5] : [1, 0]}
+            // Selected must outrank unselected siblings and the distance
+            // labels above -- pinLabel > marker, so promote only when
+            // selected. This stays on pinLabel (not activeSpotLabel): that
+            // band is reserved for SpotLabel's promoted spot tags only
+            // (#851, round 11) -- a band label sharing pinLabel with saved
+            // pins doesn't have the spot-tag-vs-pin ordering bug that
+            // motivated splitting activeSpotLabel out.
+            zIndexRange={
+              isSelected
+                ? GLOBE_DOM_LAYER_ORDER.pinLabel
+                : GLOBE_DOM_LAYER_ORDER.marker
+            }
             style={{ pointerEvents: "auto" }}
           >
             <div className="flex flex-col items-center gap-0">

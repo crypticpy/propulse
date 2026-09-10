@@ -83,7 +83,7 @@ const BADGE_COLORS: Record<string, string> = {
   Bronze: "bg-amber-700/30 text-amber-400 border-amber-500/30",
   Silver: "bg-su-line/20 text-su-muted border-su-line/60",
   Gold: "bg-yellow-600/20 text-yellow-400 border-yellow-500/30",
-  Platinum: "bg-plasma-orange/20 text-plasma-orange border-plasma-orange/30",
+  Platinum: "bg-plasma-orange/20 text-su-text border-plasma-orange/30",
   Diamond: "bg-red-500/20 text-red-400 border-red-500/30",
   Anniversary: "bg-nebula-blue/30 text-blue-300 border-blue-400/30",
 };

@@ -16,10 +16,16 @@ const confirmStyles: Record<
   NonNullable<ConfirmDialogProps["variant"]>,
   string
 > = {
+  // Same-hue ink on a same-hue tint fails the 4.5:1 floor once the dialog's
+  // own composited surface is accounted for (#827): danger ink on its own
+  // /20 tint measures 4.61:1 on Light (a hair above the floor) and warning
+  // ink measures 4.22:1 (below it). Keep the tint as the identity cue; draw
+  // the label in --su-text, same treatment as Badge's `quiet` variant
+  // (#791/#795) and the `default` variant below (#803).
   destructive:
-    "bg-alert-red/20 hover:bg-alert-red/30 text-alert-red border border-alert-red/30",
+    "bg-alert-red/20 hover:bg-alert-red/30 text-su-text border border-alert-red/30",
   warning:
-    "bg-caution-amber/20 hover:bg-caution-amber/30 text-caution-amber border border-caution-amber/30",
+    "bg-caution-amber/20 hover:bg-caution-amber/30 text-su-text border border-caution-amber/30",
   default:
     "bg-plasma-orange/15 hover:bg-plasma-orange/20 text-su-text border border-plasma-orange/30",
 };

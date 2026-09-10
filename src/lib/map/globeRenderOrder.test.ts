@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   GLOBE_DEPTH_DOME_RADIUS,
+  GLOBE_DOM_LAYER_BANDS,
   GLOBE_DOM_LAYER_ORDER,
   GLOBE_LAYER_ORDER,
   GLOBE_LAYER_SLOTS,
@@ -99,10 +100,37 @@ describe("GLOBE_LAYER_ORDER", () => {
 
   it("keeps opaque map previews above every Drei spot label", () => {
     expect(GLOBE_DOM_LAYER_ORDER.mapOverlayPortal).toBeGreaterThan(
-      GLOBE_DOM_LAYER_ORDER.activeSpotLabel[0],
+      GLOBE_DOM_LAYER_ORDER.pinLabel[0],
     );
-    expect(GLOBE_DOM_LAYER_ORDER.activeSpotLabel[1]).toBeGreaterThan(
+    expect(GLOBE_DOM_LAYER_ORDER.pinLabel[1]).toBeGreaterThan(
       GLOBE_DOM_LAYER_ORDER.passiveSpotLabel[0],
     );
+  });
+
+  it("covers every DOM band exactly once in the paint sequence", () => {
+    expect([...GLOBE_DOM_LAYER_BANDS].sort()).toEqual(
+      Object.keys(GLOBE_DOM_LAYER_ORDER).sort(),
+    );
+    expect(new Set(GLOBE_DOM_LAYER_BANDS).size).toBe(
+      GLOBE_DOM_LAYER_BANDS.length,
+    );
+  });
+
+  it("keeps every DOM band non-overlapping and in ascending paint order", () => {
+    // Each range band's low bound must clear the previous band's high bound;
+    // the trailing mapOverlayPortal is a single top value, not a range.
+    let previousHigh = -Infinity;
+    for (const band of GLOBE_DOM_LAYER_BANDS) {
+      const value = GLOBE_DOM_LAYER_ORDER[band];
+      if (Array.isArray(value)) {
+        const [high, low] = value;
+        expect(high).toBeGreaterThan(low);
+        expect(low).toBeGreaterThan(previousHigh);
+        previousHigh = high;
+      } else {
+        expect(value).toBeGreaterThan(previousHigh);
+        previousHigh = value;
+      }
+    }
   });
 });

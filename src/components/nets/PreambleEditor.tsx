@@ -144,7 +144,7 @@ export function PreambleEditor({ net, onClose, onSave }: PreambleEditorProps) {
             <button
               key={v.token}
               onClick={() => insertVariable(v.token)}
-              className="px-2.5 py-1 text-xs font-mono rounded-full bg-su-line/10 text-su-muted border border-su-line/50 hover:bg-plasma-orange/20 hover:text-plasma-orange hover:border-plasma-orange/40 hover:shadow-[0_0_8px_rgba(255,107,53,0.2)] active:scale-[0.98] transition-all will-change-transform focus-visible:ring-2 focus-visible:ring-plasma-orange/70 focus-visible:outline-none"
+              className="px-2.5 py-1 text-xs font-mono rounded-full bg-su-line/10 text-su-muted border border-su-line/50 hover:bg-plasma-orange/20 hover:text-su-text hover:border-plasma-orange/40 hover:shadow-[0_0_8px_rgba(255,107,53,0.2)] active:scale-[0.98] transition-all will-change-transform focus-visible:ring-2 focus-visible:ring-plasma-orange/70 focus-visible:outline-none"
             >
               {v.label}
             </button>

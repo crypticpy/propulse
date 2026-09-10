@@ -492,7 +492,7 @@ function BandTabs({
           px-2 py-1 text-[10px] font-bold uppercase rounded transition-colors whitespace-nowrap
           ${
             selectedBand === null
-              ? "bg-plasma-orange/20 text-plasma-orange border border-plasma-orange/50"
+              ? "bg-plasma-orange/20 text-su-text border border-plasma-orange/50"
               : "bg-su-line/10 text-su-muted border border-su-line/40 hover:bg-su-line/20"
           }
         `}

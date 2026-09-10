@@ -24,6 +24,7 @@ import { getModeColor, inkOnFill } from "@/lib/utils/spotColors";
 import { useGlobeOcclusion } from "@/hooks/useGlobeOcclusion";
 import { getScreenSpaceScale } from "@/lib/map/screenSpaceScale";
 import {
+  GLOBE_DOM_LAYER_ORDER,
   GLOBE_LAYER_ORDER,
   GLOBE_SURFACE_MARKER_MATERIAL,
 } from "@/lib/map/globeRenderOrder";
@@ -416,7 +417,7 @@ export function SpotCluster({
       <Html
         position={[0, STEM_HEIGHT + HEAD_SIZE * 3, 0]}
         center
-        zIndexRange={[1, 0]}
+        zIndexRange={GLOBE_DOM_LAYER_ORDER.clusterChip}
         style={{
           pointerEvents: onClick && occlusionOpacity > 0.05 ? "auto" : "none",
           transition: "opacity 0.2s ease",

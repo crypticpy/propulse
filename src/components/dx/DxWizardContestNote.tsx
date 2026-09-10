@@ -260,7 +260,10 @@ export function DxWizardContestNote({
                     <span className="text-xs font-mono text-su-text">
                       {alt.band}
                     </span>
-                    <span className="text-xs text-su-muted truncate">
+                    <span
+                      className="text-xs text-su-muted truncate"
+                      title={alt.reason}
+                    >
                       {alt.reason}
                     </span>
                   </div>

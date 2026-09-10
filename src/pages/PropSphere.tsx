@@ -1632,7 +1632,7 @@ export function PropSphere() {
               {wsjtxConnected && !isDXConsoleExpanded && !compactFit && (
                 <div className="hidden xl:block flex-shrink-0 space-y-2">
                   <WSJTXStatusPanel defaultCollapsed className="" />
-                  <BandScope className="h-40" />
+                  <BandScope className="h-[200px]" />
                 </div>
               )}
 

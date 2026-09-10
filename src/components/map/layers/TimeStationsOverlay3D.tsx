@@ -24,7 +24,10 @@ import { Html } from "@react-three/drei";
 import * as THREE from "three";
 import { useGlobeOcclusionBatch } from "@/hooks/useGlobeOcclusionBatch";
 import { TIME_STATIONS, type TimeStation } from "@/lib/data/timeStations";
-import { GLOBE_LAYER_ORDER } from "@/lib/map/globeRenderOrder";
+import {
+  GLOBE_LAYER_ORDER,
+  GLOBE_DOM_LAYER_ORDER,
+} from "@/lib/map/globeRenderOrder";
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -80,7 +83,7 @@ function StationInfoPopup({ station, occlusionOpacity }: StationInfoPopupProps) 
     <Html
       position={[0, MARKER_SIZE * 6, 0]}
       center
-      zIndexRange={[10, 5]}
+      zIndexRange={GLOBE_DOM_LAYER_ORDER.hud}
       style={{
         pointerEvents: "auto",
         opacity: Math.max(occlusionOpacity, 0.25),
@@ -195,7 +198,7 @@ function StationMarker({
       <Html
         position={[0, MARKER_SIZE * 3, 0]}
         center
-        zIndexRange={[1, 0]}
+        zIndexRange={GLOBE_DOM_LAYER_ORDER.marker}
         style={{
           pointerEvents: "none",
           transition: "opacity 0.2s ease",

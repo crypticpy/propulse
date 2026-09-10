@@ -199,7 +199,7 @@ function FilterControls({
                 onClick={() => onBandFilterChange(opt)}
                 className={`px-1.5 py-0.5 rounded text-[10px] font-medium transition-all ${
                   bandFilter === opt
-                    ? "bg-plasma-orange/30 text-plasma-orange border border-plasma-orange/50"
+                    ? "bg-plasma-orange/20 text-su-text border border-plasma-orange/50"
                     : "bg-su-line/10 text-su-muted border border-su-line/40 hover:bg-su-line/20"
                 }`}
               >

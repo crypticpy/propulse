@@ -80,6 +80,54 @@ interface StripeEvent {
   };
 }
 
+// ─── Billing writes ─────────────────────────────────────────────────────────
+
+function billingErrorResponse(eventType: string, detail: string): Response {
+  return new Response(
+    JSON.stringify({ error: `${eventType} billing update failed: ${detail}` }),
+    { status: 500, headers: { "Content-Type": "application/json" } },
+  );
+}
+
+/**
+ * Apply a billing update by Stripe customer id and fail loudly.
+ *
+ * Logging an error and still returning 200 tells Stripe to stop retrying, so
+ * a write lost to the async PostgREST schema-cache reload this table
+ * introduces (or any other transient failure) would leave the customer on
+ * their old tier forever. `.update().eq(...)` also returns no error when it
+ * matches zero rows (e.g. a `stripe_customer_id` created outside
+ * create-checkout), so request an exact count and treat zero as a failure
+ * too. Returns a Response to send immediately on failure, or null to
+ * continue processing.
+ */
+async function applyBillingUpdate(
+  supabase: ReturnType<typeof createClient>,
+  eventType: string,
+  customerId: string,
+  updates: Record<string, string>,
+): Promise<Response | null> {
+  const { error, count } = await supabase
+    .from("profile_billing")
+    .update(updates, { count: "exact" })
+    .eq("stripe_customer_id", customerId);
+
+  if (error) {
+    console.error(`${eventType} update failed:`, error.message);
+    return billingErrorResponse(eventType, error.message);
+  }
+
+  if (count === 0) {
+    console.error(
+      `${eventType}: no profile_billing row for stripe_customer_id`,
+      customerId,
+    );
+    return billingErrorResponse(eventType, "no matching billing row");
+  }
+
+  return null;
+}
+
 // ─── Handler ────────────────────────────────────────────────────────────────
 
 export default async function handler(request: Request): Promise<Response> {
@@ -128,7 +176,8 @@ export default async function handler(request: Request): Promise<Response> {
 
     const event = JSON.parse(body) as StripeEvent;
 
-    // Use service role key to bypass RLS
+    // Use service role key to bypass RLS. `profile_billing` (20260909140000)
+    // grants writes to nobody else, so this is the only path that moves a tier.
     const supabase = createClient(supabaseUrl, supabaseServiceRoleKey);
 
     const customerId = event.data.object.customer;
@@ -147,17 +196,13 @@ export default async function handler(request: Request): Promise<Response> {
           ).toISOString();
         }
 
-        const { error } = await supabase
-          .from("profiles")
-          .update(checkoutUpdates)
-          .eq("stripe_customer_id", customerId);
-
-        if (error) {
-          console.error(
-            "checkout.session.completed update failed:",
-            error.message,
-          );
-        }
+        const failure = await applyBillingUpdate(
+          supabase,
+          "checkout.session.completed",
+          customerId,
+          checkoutUpdates,
+        );
+        if (failure) return failure;
         break;
       }
 
@@ -177,17 +222,13 @@ export default async function handler(request: Request): Promise<Response> {
         }
 
         if (Object.keys(updates).length > 0) {
-          const { error } = await supabase
-            .from("profiles")
-            .update(updates)
-            .eq("stripe_customer_id", customerId);
-
-          if (error) {
-            console.error(
-              "customer.subscription.updated failed:",
-              error.message,
-            );
-          }
+          const failure = await applyBillingUpdate(
+            supabase,
+            "customer.subscription.updated",
+            customerId,
+            updates,
+          );
+          if (failure) return failure;
         }
         break;
       }
@@ -195,33 +236,26 @@ export default async function handler(request: Request): Promise<Response> {
       case "customer.subscription.deleted": {
         if (!customerId) break;
 
-        const { error } = await supabase
-          .from("profiles")
-          .update({
-            subscription_tier: "free",
-            subscription_status: "inactive",
-          })
-          .eq("stripe_customer_id", customerId);
-
-        if (error) {
-          console.error("customer.subscription.deleted failed:", error.message);
-        }
+        const failure = await applyBillingUpdate(
+          supabase,
+          "customer.subscription.deleted",
+          customerId,
+          { subscription_tier: "free", subscription_status: "inactive" },
+        );
+        if (failure) return failure;
         break;
       }
 
       case "invoice.payment_failed": {
         if (!customerId) break;
 
-        const { error } = await supabase
-          .from("profiles")
-          .update({
-            subscription_status: "past_due",
-          })
-          .eq("stripe_customer_id", customerId);
-
-        if (error) {
-          console.error("invoice.payment_failed update failed:", error.message);
-        }
+        const failure = await applyBillingUpdate(
+          supabase,
+          "invoice.payment_failed",
+          customerId,
+          { subscription_status: "past_due" },
+        );
+        if (failure) return failure;
         break;
       }
 

@@ -126,7 +126,7 @@ function ActivityRow({
             <button
               type="button"
               onClick={onTarget}
-              className="min-h-10 rounded-lg border border-plasma-orange/40 bg-plasma-orange/10 px-3 py-2 font-medium text-plasma-orange transition-colors hover:bg-plasma-orange/20"
+              className="min-h-10 rounded-lg border border-plasma-orange/40 bg-plasma-orange/10 px-3 py-2 font-medium text-su-text transition-colors hover:bg-plasma-orange/20"
             >
               Target in PropSphere
             </button>
@@ -296,7 +296,7 @@ export function NearbyActivityExplorer({
                 aria-pressed={mode === value}
                 className={`min-h-9 rounded-md px-3 text-xs font-medium transition-colors ${
                   mode === value
-                    ? "bg-plasma-orange/20 text-plasma-orange"
+                    ? "bg-plasma-orange/20 text-su-text"
                     : "text-su-muted hover:text-su-text"
                 }`}
               >

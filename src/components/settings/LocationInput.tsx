@@ -66,7 +66,7 @@ function ModeButton({
         flex items-center gap-1.5 px-2 py-1.5 rounded-lg text-xs font-medium transition-colors
         ${
           isActive
-            ? "bg-plasma-orange/20 text-plasma-orange border border-plasma-orange/50"
+            ? "bg-plasma-orange/20 text-su-text border border-plasma-orange/50"
             : "bg-nebula-blue text-su-muted border border-su-line/40 hover:border-su-line/50 hover:text-su-text"
         }
       `}
@@ -349,8 +349,8 @@ export function LocationInput({
               type="button"
               onClick={handleGeolocation}
               disabled={lookupState.status === "loading"}
-              className="shrink-0 px-3 py-2 bg-plasma-orange/20 border border-plasma-orange/50 rounded-lg
-                         text-plasma-orange hover:bg-plasma-orange/30
+              className="shrink-0 px-3 py-2 bg-plasma-orange/15 border border-plasma-orange/50 rounded-lg
+                         text-su-text hover:bg-plasma-orange/20
                          transition-colors text-sm font-medium
                          disabled:opacity-50 disabled:cursor-wait flex items-center gap-2"
               title="Get Location"
@@ -393,8 +393,8 @@ export function LocationInput({
             <button
               type="button"
               onClick={handleCoordSubmit}
-              className="shrink-0 px-3 py-2 bg-plasma-orange/20 border border-plasma-orange/50 rounded-lg
-                         text-plasma-orange hover:bg-plasma-orange/30
+              className="shrink-0 px-3 py-2 bg-plasma-orange/15 border border-plasma-orange/50 rounded-lg
+                         text-su-text hover:bg-plasma-orange/20
                          transition-colors text-sm font-medium"
               title="Convert coordinates to grid"
             >

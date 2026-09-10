@@ -243,7 +243,7 @@ function CountryCombobox({
                   aria-selected={c.iso === value}
                   className={`w-full text-left px-3 py-2 text-sm transition-colors ${
                     c.iso === value
-                      ? "bg-plasma-orange/15 text-plasma-orange"
+                      ? "bg-plasma-orange/15 text-su-text"
                       : "text-su-muted hover:bg-su-line/20"
                   }`}
                   onClick={() => {

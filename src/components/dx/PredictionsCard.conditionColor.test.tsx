@@ -58,10 +58,12 @@ function compositeOnSurface(hex: string, alpha: number, surface: string) {
     .join("")}`;
 }
 
-// kp >= 5 puts the 6m (VHF) band into "Aurora" per getVHFCondition; a low
-// SFI keeps every other band at Fair/Poor (well below the score threshold
-// for Excellent/Good), so "6m" sorts first and survives the default
-// maxPredictions=3 cutoff. See src/lib/propagation/bandRanking.ts.
+// kp >= 5 puts the 6m (VHF) band into "Aurora" -- but only by day.
+// `calculateBandConditions` hands VHF bands `getVHFCondition(kp)` as their
+// dayCondition and a hard-coded "Poor" as their nightCondition
+// (src/lib/utils/bands.ts:226-227), so Aurora is unreachable at night for
+// any Kp. A low SFI keeps every other band at Fair/Poor, well below the
+// score threshold for Excellent/Good. See src/lib/propagation/bandRanking.ts.
 const mocks = vi.hoisted(() => ({
   longitude: -97,
   solarFlux: [{ flux: 70 }],
@@ -89,21 +91,74 @@ beforeEach(() => {
   mocks.chain = { bands: [] };
 });
 
+// Local solar hour at the mocked longitude (-97 => UTC-6.47): 18:00Z is
+// ~11.5 (day), 06:00Z is ~23.5 (night). Every render below pins one of the
+// two, because both the band ranking and the VHF condition itself differ
+// between them.
+const DAY = "2026-01-15T18:00:00Z";
+const NIGHT = "2026-01-15T06:00:00Z";
+
 describe("PredictionsCard renders the Aurora badge without a purple-on-purple fill (#799)", () => {
-  it("gives the 6m Aurora badge no backgroundColor and purple token text", () => {
-    render(<PredictionsCard />);
+  // #834: this used to render at the default maxPredictions=3 and reach for
+  // "6m" on a real clock, so it was red for roughly half of every UTC day.
+  // Two independent causes, both fixed here:
+  //
+  //   1. Whether 6m survives a 3-slot cutoff depends on the band ranking,
+  //      which depends on day vs night. maxPredictions=12 renders the badge
+  //      either way -- the claim is about how the badge is *styled*, and was
+  //      never about where 6m ranks.
+  //   2. At night 6m is not Aurora at all. VHF bands get a hard-coded "Poor"
+  //      nightCondition regardless of Kp, so the purple assertion was
+  //      unsatisfiable on a night run, not merely unreached.
+  //
+  // Cause 2 is why this is two tests rather than one parametrised over both
+  // instants: the styling rule is the same on both sides, the condition is
+  // not.
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("by day, gives the 6m Aurora badge no backgroundColor and purple token text", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date(DAY));
+
+    render(<PredictionsCard maxPredictions={12} />);
 
     const band = screen.getByText("6m");
     expect(band.style.backgroundColor).toBe("");
     expect(band.style.color).toBe("rgb(var(--su-purple-rgb))");
     expect(band.style.color).not.toMatch(/#[0-9a-fA-F]{3,8}/);
   });
+
+  it("by night the same 6m badge is Poor, still with no fill and a token colour", () => {
+    // Not a duplicate of the day case: it pins the day-only nature of VHF
+    // Aurora that made this file clock-dependent, and it puts a second
+    // condition through the same styling path.
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date(NIGHT));
+
+    render(<PredictionsCard maxPredictions={12} />);
+
+    const band = screen.getByText("6m");
+    expect(band.style.backgroundColor).toBe("");
+    expect(band.style.color).toBe("rgb(var(--su-danger-rgb))");
+    expect(band.style.color).not.toMatch(/#[0-9a-fA-F]{3,8}/);
+  });
 });
 
 describe("PredictionsCard's badges never fill and never carry a hex/suffix colour, for any condition (#810)", () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
   it("every badge in a Poor/Fair-heavy render has no backgroundColor and a token color", () => {
-    // sfi=70, kp=5, day or night: every HF band scores well under the Fair
-    // threshold (0.3), so this render is Poor/Fair plus the Aurora 6m badge.
+    // sfi=70, kp=5: every HF band scores well under the Fair threshold
+    // (0.3), so this render is Poor/Fair plus the Aurora 6m badge. The
+    // assertions hold on either side of the terminator, but the clock is
+    // pinned anyway so that no test in this file reads the wall clock (#834).
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date(DAY));
+
     render(<PredictionsCard maxPredictions={12} />);
 
     const bands = screen.getAllByText(/^\d+m$/);
@@ -119,12 +174,11 @@ describe("PredictionsCard's badges never fill and never carry a hex/suffix colou
   describe("with a strong opening (Excellent/Good present)", () => {
     beforeEach(() => {
       vi.useFakeTimers();
-      // 2026-01-15T18:00:00Z at longitude -97 resolves to local solar hour
-      // ~11.5 -- daytime -- so this combo is deterministic across CI runs
-      // regardless of when the suite executes. kp=1 keeps the VHF band Poor
+      // Daytime, so this combo is deterministic across runs regardless of
+      // when the suite executes. kp=1 keeps the VHF band Poor
       // (getVHFCondition needs kp>=4), so no Aurora badge competes for the
       // maxPredictions slots here.
-      vi.setSystemTime(new Date("2026-01-15T18:00:00Z"));
+      vi.setSystemTime(new Date(DAY));
       mocks.solarFlux = [{ flux: 280 }];
       mocks.kIndex = [{ kp_index: 1 }];
     });

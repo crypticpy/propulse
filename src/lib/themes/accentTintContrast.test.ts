@@ -42,7 +42,7 @@
  * So the treatment is the ink, not the alpha: keep the accent tint as the fill,
  * draw the label in `--su-text`, and keep the tint at or below `/20`. The sites
  * inside `src/components/ui` (this agent's file scope on #803) carry that
- * treatment and are measured individually below. The remaining 148 sites in 98
+ * treatment and are measured individually below. The remaining 147 sites in 98
  * files are sequenced by the orchestrator; the census ledger at the bottom
  * budgets them so no *new* same-line site can land in the meantime.
  */
@@ -1058,19 +1058,36 @@ const FIXED_SITES: TintedSite[] = [
                          text-su-text hover:bg-plasma-orange/20 transition-colors"`,
   },
   {
-    // Both the edit-home modal's "Save" button (onClick={saveHomeEdits}) and
-    // the temporary-location modal's "Set Location" button
-    // (onClick={saveTempLocation}) ship this exact class string -- a plain
-    // quoted className= attribute has no text of its own to discriminate
-    // them by (unlike the DataAccountSection pair below, whose backtick
-    // template carries its ternary condition inside the className value
-    // itself). One row certifies both textually-identical instances; grep
-    // confirms the string appears exactly twice in the file, at both
-    // onClick sites.
+    // The edit-home modal's "Save" button (onClick={saveHomeEdits}) and the
+    // temporary-location modal's "Set Location" button
+    // (onClick={saveTempLocation}) ship the identical class string -- a
+    // plain quoted className= attribute has no text of its own to
+    // discriminate them by (unlike the DataAccountSection pair below, whose
+    // backtick template carries its ternary condition inside the className
+    // value itself), and the onClick prop is a sibling JSX attribute
+    // outside the className value, so a prefix locator doesn't work either
+    // (extractClassNameValue throws if the snippet start doesn't fall
+    // inside the located className). Each row instead uses a SUFFIX
+    // discriminator: the snippet starts inside the className (so
+    // `snippetIndex`/`lastIndexOf("className=")` resolve the right
+    // attribute and `measuredAlpha` reads the correct value) and continues
+    // past the closing quote into the button's own label text, which is
+    // unique per button -- `indexOf` then lands on the right occurrence for
+    // each row.
     file: "src/components/settings/LocationManager.tsx",
-    what: 'the modal "Save" / "Set Location" buttons (identical class pair, two sites)',
+    what: 'the edit-home modal "Save" button',
     snippet: `bg-plasma-orange/15 border border-plasma-orange/50 rounded-lg
-                         text-su-text hover:bg-plasma-orange/20 transition-colors font-medium text-sm"`,
+                         text-su-text hover:bg-plasma-orange/20 transition-colors font-medium text-sm"
+            >
+              Save`,
+  },
+  {
+    file: "src/components/settings/LocationManager.tsx",
+    what: 'the temporary-location modal "Set Location" button',
+    snippet: `bg-plasma-orange/15 border border-plasma-orange/50 rounded-lg
+                         text-su-text hover:bg-plasma-orange/20 transition-colors font-medium text-sm"
+            >
+              Set Location`,
   },
   {
     file: "src/components/settings/NotificationSettings.tsx",
@@ -1274,7 +1291,7 @@ describe("census guard: no new accent ink on an accent tint (#803)", () => {
    * escapes it by construction -- the `FIXED_SITES` table above is what covers
    * those.
    *
-   * The 148 sites below are the census #803 asks for, as a debt ledger rather
+   * The 147 sites below are the census #803 asks for, as a debt ledger rather
    * than an exemption list: each entry is the number of same-line pairings that
    * file carried at `32cf480c`, minus every batch fixed since, and the
    * assertion is `<=`. A file that gains a pairing fails; a file that is not
@@ -1358,12 +1375,15 @@ describe("census guard: no new accent ink on an accent tint (#803)", () => {
     ["src/components/sdr/skins/fate/FateBandAdvisor.tsx", 1],
     ["src/components/sdr/skins/flexible/FlexSideControls.tsx", 2],
     ["src/components/sdr/skins/flexible/SlicePanelTabs.tsx", 1],
-    // WatchAlertSettings.tsx keeps 1: its TestSoundButton fix ships but is
-    // not FIXED_SITES-certified because the button's icon carries
-    // animate-pulse on the same --su-text ink while isPlaying, which
-    // invalidates certified contrast for half of every cycle (deferred to
-    // #847).
-    ["src/components/settings/WatchAlertSettings.tsx", 1],
+    // WatchAlertSettings.tsx is not listed: its TestSoundButton fix already
+    // ships (capped /30->/20, ink swapped to --su-text), so this file's
+    // same-line text-plasma-orange count is 0 -- the census guard only sees
+    // classes, not animation. The site is not FIXED_SITES-certified because
+    // the button's icon carries animate-pulse on that same --su-text ink
+    // while isPlaying, which invalidates certified contrast for half of
+    // every cycle; that certification gap is deferred to #847, but it is
+    // not expressed as a ledger budget since there is no longer an
+    // ink-on-tint pairing for the census to find.
     ["src/components/settings/sections/SubscriptionSection.tsx", 1],
     ["src/components/shack/AccessoryManager.tsx", 1],
     ["src/components/shack/AntennaManager.tsx", 1],
@@ -1396,7 +1416,7 @@ describe("census guard: no new accent ink on an accent tint (#803)", () => {
    * (>= 5.19:1), while a near-white or near-black custom accent drops to
    * 3.70-4.21:1. These two `/30` sites predate #803 and sit in
    * `src/components/alerts`, outside this agent's file scope; they go into the
-   * same sequenced follow-up as the 173 above.
+   * same sequenced follow-up as the 147 above.
    */
   const ABOVE_CAP_LEDGER = new Map<string, number>([
     ["src/components/alerts/AlertRuleBuilder.tsx", 1],
@@ -1453,7 +1473,7 @@ describe("census guard: no new accent ink on an accent tint (#803)", () => {
     // The ledger only ever shrinks; a fix that lands must not be able to raise
     // the total past the census this PR measured.
     expect([...counts.values()].reduce((a, b) => a + b, 0)).toBeLessThanOrEqual(
-      148,
+      147,
     );
   });
 

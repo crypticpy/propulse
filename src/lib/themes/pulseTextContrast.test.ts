@@ -2233,18 +2233,177 @@ function findOpeningTag(source: string, before: number): { tag: string; index: n
 
 /** A `{...ident}`/`{...ident.chain}` spread that is the *entire* content of
  * its `{}` -- no other key or expression alongside it -- found so
- * `findClassNameSites` can still scan a JSX opening tag that carries its
- * className only through an object spread (`const props = { className:
- * "text-alert-red animate-pulse" }; <span {...props}>Critical</span>`) and
- * has no literal `className=` of its own for the primary `attrRe` pass
- * above to find (Codex, PR #874 round 38 thread 1). Deliberately narrow: a
- * spread mixed with other content in the same braces isn't valid JSX
- * attribute syntax anyway, and a spread that's part of some larger
- * expression (inside an already-found `className={...}`, e.g. `className=
- * {someFn({...base})}`) is filtered out downstream instead, by the same
- * "does this opening tag already have a literal className=" check that
- * skips every other already-handled tag. */
+ * `findClassNameSites` can resolve a JSX opening tag's className through an
+ * object spread (`const props = { className: "text-alert-red animate-pulse"
+ * }; <span {...props}>Critical</span>`) in the same attribute-order pass
+ * that also collects a literal `className=` (Codex, PR #874 round 38 thread
+ * 1; round 39 folds this into ONE ordered pass with `className=` instead of
+ * two independent ones -- see `findClassNameSites`'s own doc for why).
+ * Deliberately narrow: a spread mixed with other content in the same braces
+ * isn't valid JSX attribute syntax anyway, and a spread that's part of some
+ * larger expression -- nested inside an already-matched attribute's own
+ * value, e.g. `className={someFn({...base})}` or `style={{...vars}}` -- is
+ * filtered out downstream by `isTopLevelAttributePosition`, not by this
+ * regex. */
 const SPREAD_ATTR_RE = /\{\s*\.\.\.\s*([A-Za-z_$][\w$]*(?:\.[A-Za-z_$][\w$]*)*)\s*\}/g;
+
+/** True when `index` is the exact start of a top-level attribute of the tag
+ * starting at `tagStart` -- a position a forward attribute-by-attribute walk
+ * lands ON, not one buried INSIDE a previous attribute's own `{...}`/quoted
+ * value. Walks forward the same way `findTagEnd` does (a `{` is skipped
+ * whole via `extractBalanced`, a quoted value skipped to its closing quote,
+ * anything else one character at a time), but checks position equality at
+ * each attribute boundary instead of only looking for the tag's own `>` --
+ * so a spread nested inside another attribute's already-matched value
+ * (`className={someFn({...base})}`, `style={{...vars}}`) is never mistaken
+ * for its own separate, top-level attribute the way a standalone
+ * `SPREAD_ATTR_RE` match alone can't tell apart (Codex, PR #874 round 39
+ * thread 1). */
+function isTopLevelAttributePosition(source: string, tagStart: number, index: number): boolean {
+  const nameMatch = /^<[A-Za-z][\w.]*/.exec(source.slice(tagStart));
+  if (!nameMatch) return false;
+  let i = tagStart + nameMatch[0].length;
+  while (i <= index) {
+    while (i < source.length && /\s/.test(source[i])) i++;
+    if (i === index) return true;
+    if (i > index) return false;
+    const c = source[i];
+    if (c === undefined || c === ">") return false;
+    if (c === "{") {
+      i = extractBalanced(source, i, "{", "}").endIndex + 1;
+      continue;
+    }
+    if (c === '"' || c === "'") {
+      const close = source.indexOf(c, i + 1);
+      if (close === -1) return false;
+      i = close + 1;
+      continue;
+    }
+    i++;
+  }
+  return false;
+}
+
+/** One class source found directly on a JSX opening tag -- a literal
+ * `className=` attribute or a top-level `{...ident}` spread -- kept with
+ * its own position and already-resolved text so `findClassNameSites` can
+ * pick whichever source is LAST in source order per tag. JSX applies
+ * attributes (including spreads) left to right, so a later source always
+ * overrides an earlier one at runtime; a scanner that just picks the first
+ * `className=` it sees regardless of what comes after it, or resolves a
+ * spread only when there's no OTHER `className=` anywhere on the tag
+ * (round 38's own rule), makes the wrong call whenever the two are mixed
+ * (Codex, PR #874 round 39 thread 1): `<span className="text-green"
+ * {...props}>` really renders whatever `props.className` is, not
+ * `"text-green"`, and the reverse -- an explicit `className=` AFTER a
+ * spread -- really does win over the spread. */
+interface ClassSource {
+  /** Position used to order this source against every other one on the
+   * same tag -- the attribute's own start (`className=`'s `m.index`, or the
+   * spread's own `{`). */
+  index: number;
+  /** Where this source's resolved class content actually starts, carried
+   * through to the emitted `ClassNameSite.index` when this source wins. */
+  contentStart: number;
+  raw: string;
+  /** Position right after this source's own attribute -- valid as the
+   * starting point for `findTagEnd` from ANY source on the tag, not just
+   * the winning one, since `findTagEnd` skips forward through every later
+   * attribute/expression regardless of where it starts. */
+  afterIndex: number;
+}
+
+/** Every literal `className=` attribute in `source`, resolved through
+ * `resolveConstRefs` exactly as the single pre-round-39 pass always did --
+ * this is that same logic, just returning `ClassSource`s instead of
+ * `ClassNameSite`s directly, so `findClassNameSites` can order them against
+ * spreads before deciding which one actually applies to each tag. */
+function collectExplicitClassSources(source: string, constMap: ConstDecl[]): ClassSource[] {
+  const sources: ClassSource[] = [];
+  // The negative lookbehind requires `className` to start a prop name (only
+  // preceded by whitespace, a tag's `<Name`, or other prop-boundary
+  // punctuation) -- without it, a differently-named prop that merely ends in
+  // "className" (`labelClassName="..."`, a common forwarding-prop pattern)
+  // would be misread as the element's own `className` (Codex, PR #874
+  // round 24 regex sweep).
+  const attrRe = /(?<![\w.:-])className\s*=\s*(\{|"|')/g;
+  let m: RegExpExecArray | null;
+  while ((m = attrRe.exec(source))) {
+    const delim = m[1];
+    const contentStart = attrRe.lastIndex;
+    let raw: string;
+    let afterIndex: number;
+
+    if (delim === "{") {
+      const openIndex = contentStart - 1;
+      const { text, endIndex } = extractBalanced(source, openIndex, "{", "}");
+      raw = resolveConstRefs(text.slice(1, -1), constMap, m.index);
+      afterIndex = endIndex + 1;
+    } else {
+      const closeIndex = source.indexOf(delim, contentStart);
+      raw = closeIndex === -1 ? "" : source.slice(contentStart, closeIndex);
+      afterIndex = closeIndex === -1 ? contentStart : closeIndex + 1;
+    }
+
+    sources.push({ index: m.index, contentStart, raw, afterIndex });
+  }
+  return sources;
+}
+
+/** Every top-level `{...ident}`/`{...ident.chain}` spread attribute in
+ * `source` -- see `SPREAD_ATTR_RE`'s and `isTopLevelAttributePosition`'s own
+ * docs for the shape and the nested-expression exclusion. */
+function collectSpreadClassSources(source: string, constMap: ConstDecl[]): ClassSource[] {
+  const sources: ClassSource[] = [];
+  SPREAD_ATTR_RE.lastIndex = 0;
+  let sm: RegExpExecArray | null;
+  while ((sm = SPREAD_ATTR_RE.exec(source))) {
+    const braceIndex = sm.index;
+    const opening = findOpeningTag(source, braceIndex);
+    if (!opening || !isTopLevelAttributePosition(source, opening.index, braceIndex)) continue;
+    const chain = sm[1];
+    const afterIndex = braceIndex + sm[0].length;
+
+    // Reuses the same member-access chain machinery `resolveConstRefs`/
+    // `resolveMemberAccess` use everywhere else in this file: appending
+    // `.className` to the spread's own chain text and resolving that
+    // synthetic access lets a precise per-key narrow (`props.className`),
+    // a nested member spread (`styles.alert.className`), and the
+    // established whole-object fallback (when `.className` doesn't narrow
+    // any further, e.g. the spread's target isn't an object with its own
+    // `className` key) all fall out of existing, already-tested logic with
+    // no new resolution code. A completely unresolvable base identifier (no
+    // `const`/`let`/`var` declaration anywhere this file's own declaration
+    // scan ever tracks -- most commonly a function *parameter*, e.g. a
+    // `{...props}` forwarding spread whose `props` is the component's own
+    // parameter, never a local declaration) is left as its own raw,
+    // unresolved chain text, this file's one general fail-closed convention
+    // for "no idea what this refers to" (`resolveConstRefs`'s own doc, same
+    // rule) -- NOT force-matched to `PULSE_CLASS` the way a first attempt at
+    // round 38 tried, mirroring `TEXT_PROP_RE`'s own spread rule literally.
+    // That stronger reading was tried and reverted: real code forwards props
+    // this way constantly (`<ClusterConnectionForm {...props} link={…} />`
+    // forwarding a parameter that, in its one real call site, never actually
+    // carries a className at all), and unconditionally assuming a pulse for
+    // *every* such unresolvable spread on *every* PascalCase component
+    // flagged that real, non-pulsing call site as a violation -- a false
+    // positive, not a previously-missed real one. This scanner already has a
+    // strictly weaker, well-tested worst-case convention for "resolvable but
+    // imprecise" (the whole-object-literal fallback above, and
+    // `resolveMemberAccess`'s own candidate-union fallback it reuses) that
+    // stays sound because it only ever widens within a KNOWN source's real
+    // content; inventing a violation from a base with no known content at
+    // all had no such anchor and produced a real false positive on the very
+    // first real-codebase run (Codex, PR #874 round 38 thread 1).
+    const baseName = chain.split(".")[0];
+    const raw = visibleDecl(constMap, baseName, braceIndex)
+      ? resolveConstRefs(`${chain}.className`, constMap, braceIndex)
+      : chain;
+
+    sources.push({ index: braceIndex, contentStart: braceIndex, raw, afterIndex });
+  }
+  return sources;
+}
 
 interface ClassNameSite {
   /** The class-bearing text for this site: a string literal, a template
@@ -2271,46 +2430,52 @@ interface ClassNameSite {
   index: number;
 }
 
+/** One `ClassNameSite` per JSX opening tag, chosen from every `className=`/
+ * spread `ClassSource` found on that tag by keeping only the LAST one in
+ * source order (Codex, PR #874 round 39 thread 1) -- see `ClassSource`'s own
+ * doc for why last-wins is the correct rule (it's exactly what JSX itself
+ * does). Sources are grouped by `findOpeningTag`'s own tag-start position,
+ * the same backward walk every earlier single-source version of this
+ * function already used, so a nested element's own attribute is never
+ * mistaken for an outer element's (the walk always finds the NEAREST
+ * enclosing `<Tag`, however deep). A source whose tag can't be found
+ * (`findOpeningTag` returns `null` -- not real JSX, e.g. a `className`
+ * inside a plain string/object comparison) is silently dropped, the same
+ * outcome the old code reached by pushing a `tag: null` site that
+ * `findElementViolations`'s own `if (!site.tag) continue;` immediately
+ * discarded anyway. */
 function findClassNameSites(
   source: string,
   constMap: ConstDecl[],
 ): ClassNameSite[] {
   const sites: ClassNameSite[] = [];
-  // The negative lookbehind requires `className` to start a prop name (only
-  // preceded by whitespace, a tag's `<Name`, or other prop-boundary
-  // punctuation) -- without it, a differently-named prop that merely ends in
-  // "className" (`labelClassName="..."`, a common forwarding-prop pattern)
-  // would be misread as the element's own `className` (Codex, PR #874
-  // round 24 regex sweep).
-  const attrRe = /(?<![\w.:-])className\s*=\s*(\{|"|')/g;
-  let m: RegExpExecArray | null;
-  while ((m = attrRe.exec(source))) {
-    const delim = m[1];
-    const contentStart = attrRe.lastIndex;
-    let raw: string;
-    let afterIndex: number;
+  const allSources = [
+    ...collectExplicitClassSources(source, constMap),
+    ...collectSpreadClassSources(source, constMap),
+  ];
 
-    if (delim === "{") {
-      const openIndex = contentStart - 1;
-      const { text, endIndex } = extractBalanced(source, openIndex, "{", "}");
-      raw = resolveConstRefs(text.slice(1, -1), constMap, m.index);
-      afterIndex = endIndex + 1;
-    } else {
-      const closeIndex = source.indexOf(delim, contentStart);
-      raw = closeIndex === -1 ? "" : source.slice(contentStart, closeIndex);
-      afterIndex = closeIndex === -1 ? contentStart : closeIndex + 1;
+  const byTag = new Map<number, { tag: string; sources: ClassSource[] }>();
+  for (const src of allSources) {
+    const opening = findOpeningTag(source, src.index);
+    if (!opening) continue;
+    let group = byTag.get(opening.index);
+    if (!group) {
+      group = { tag: opening.tag, sources: [] };
+      byTag.set(opening.index, group);
     }
+    group.sources.push(src);
+  }
 
-    const opening = findOpeningTag(source, m.index);
-    const tag = opening ? opening.tag : null;
+  for (const [tagStart, { tag, sources }] of byTag) {
+    sources.sort((a, b) => a.index - b.index);
+    const winner = sources[sources.length - 1];
 
     let childrenText: string | null = null;
     let openingTag: string | null = null;
-    if (tag && opening) {
-      const gt = findTagEnd(source, afterIndex);
-      const tagStart = opening.index;
-      openingTag = gt === -1 ? null : source.slice(tagStart, gt);
-      if (gt !== -1 && source[gt - 1] !== "/") {
+    const gt = findTagEnd(source, winner.afterIndex);
+    if (gt !== -1) {
+      openingTag = source.slice(tagStart, gt);
+      if (source[gt - 1] !== "/") {
         const closeAt = findMatchingCloseTag(source, tag, gt + 1);
         if (closeAt !== -1) {
           childrenText = source.slice(gt + 1, closeAt);
@@ -2318,77 +2483,7 @@ function findClassNameSites(
       }
     }
 
-    sites.push({ raw, tag, openingTag, childrenText, index: contentStart });
-  }
-
-  // A pure `{...ident}`/`{...ident.chain}` spread attribute, resolved as a
-  // second, independent pass so a JSX opening tag with NO literal className=
-  // of its own is still scanned for the pulse class its spread's object
-  // binding may carry (Codex, PR #874 round 38 thread 1) -- see
-  // `SPREAD_ATTR_RE`'s own doc for why the shape is this narrow.
-  SPREAD_ATTR_RE.lastIndex = 0;
-  let sm: RegExpExecArray | null;
-  while ((sm = SPREAD_ATTR_RE.exec(source))) {
-    const braceIndex = sm.index;
-    const chain = sm[1];
-    const opening = findOpeningTag(source, braceIndex);
-    if (!opening) continue;
-    const tag = opening.tag;
-    const afterIndex = braceIndex + sm[0].length;
-    const gt = findTagEnd(source, afterIndex);
-    if (gt === -1) continue;
-    const tagStart = opening.index;
-    const openingTag = source.slice(tagStart, gt);
-    // Already handled by the literal-`className=` pass above (the spread
-    // sits inside, or alongside, an attribute that pass already found) --
-    // skip rather than double-process the same tag.
-    if (/(?<![\w.:-])className\s*=/.test(openingTag)) continue;
-
-    let childrenText: string | null = null;
-    if (source[gt - 1] !== "/") {
-      const closeAt = findMatchingCloseTag(source, tag, gt + 1);
-      if (closeAt !== -1) {
-        childrenText = source.slice(gt + 1, closeAt);
-      }
-    }
-
-    // Reuses the same member-access chain machinery `resolveConstRefs`/
-    // `resolveMemberAccess` use everywhere else in this file: appending
-    // `.className` to the spread's own chain text and resolving that
-    // synthetic access lets a precise per-key narrow (`props.className`),
-    // a nested member spread (`styles.alert.className`), and the
-    // established whole-object fallback (when `.className` doesn't narrow
-    // any further, e.g. the spread's target isn't an object with its own
-    // `className` key) all fall out of existing, already-tested logic with
-    // no new resolution code. A completely unresolvable base identifier (no
-    // `const`/`let`/`var` declaration anywhere this file's own declaration
-    // scan ever tracks -- most commonly a function *parameter*, e.g. a
-    // `{...props}` forwarding spread whose `props` is the component's own
-    // parameter, never a local declaration) is left as its own raw,
-    // unresolved chain text, this file's one general fail-closed convention
-    // for "no idea what this refers to" (`resolveConstRefs`'s own doc, same
-    // rule) -- NOT force-matched to `PULSE_CLASS` the way a first attempt at
-    // this round tried, mirroring `TEXT_PROP_RE`'s own spread rule literally.
-    // That stronger reading was tried and reverted: real code forwards props
-    // this way constantly (`<ClusterConnectionForm {...props} link={…} />`
-    // forwarding a parameter that, in its one real call site, never actually
-    // carries a className at all), and unconditionally assuming a pulse for
-    // *every* such unresolvable spread on *every* PascalCase component
-    // flagged that real, non-pulsing call site as a violation -- a false
-    // positive, not a previously-missed real one. This scanner already has a
-    // strictly weaker, well-tested worst-case convention for "resolvable but
-    // imprecise" (the whole-object-literal fallback above, and
-    // `resolveMemberAccess`'s own candidate-union fallback it reuses) that
-    // stays sound because it only ever widens within a KNOWN source's real
-    // content; inventing a violation from a base with no known content at
-    // all had no such anchor and produced a real false positive on the very
-    // first real-codebase run (Codex, PR #874 round 38 thread 1).
-    const baseName = chain.split(".")[0];
-    const raw = visibleDecl(constMap, baseName, braceIndex)
-      ? resolveConstRefs(`${chain}.className`, constMap, braceIndex)
-      : chain;
-
-    sites.push({ raw, tag, openingTag, childrenText, index: braceIndex });
+    sites.push({ raw: winner.raw, tag, openingTag, childrenText, index: winner.contentStart });
   }
 
   return sites;
@@ -3915,6 +4010,31 @@ function synthesizeInlineDefaultExports(source: string): string {
   );
 }
 
+/** Every local name a destructuring pattern (as already parsed by
+ * `parseDestructuringPattern`) introduces, flattened through a nested
+ * pattern (`{ a: { b } }`) however deep, in the same source order
+ * `parseDestructuringPattern` returns them in. Used by `collectExportedNames`
+ * to register each name an EXPORTED destructuring declarator (`export const
+ * { alert } = styles;`, `export const { alert: cls } = styles;`) introduces,
+ * the same way a plain `export const NAME = …` already registers `NAME` --
+ * an exported destructuring binding used to advance past its own pattern
+ * without registering anything at all, so a consumer's `import { alert }
+ * from "./m"` had no export entry to resolve against no matter what `styles`
+ * itself resolved to (Codex, PR #874 round 39 thread 2). A `...rest` binding
+ * (`sourceKey: null`, no `nestedPattern`) falls through to the same
+ * `localName` push as any other leaf binding. */
+function collectPatternLocalNames(bindings: DestructuringBinding[]): string[] {
+  const names: string[] = [];
+  for (const binding of bindings) {
+    if (binding.nestedPattern) {
+      names.push(...collectPatternLocalNames(parseDestructuringPattern(binding.nestedPattern)));
+    } else {
+      names.push(binding.localName);
+    }
+  }
+  return names;
+}
+
 function collectExportedNames(source: string): Map<string, string> {
   const exported = new Map<string, string>();
   // `export const safe = "text-xs", classes = "animate-pulse";` used to
@@ -3924,19 +4044,31 @@ function collectExportedNames(source: string): Map<string, string> {
   // comma-declarator-splitting loop: only the NAME is needed here (not a
   // literal/entries), so a destructuring declarator's own pattern/initializer
   // is still scanned past correctly (via the same `extractBalanced`/
-  // `findBracketClose`/`skipTypeAnnotation`/`findInitializerEnd` calls) but,
-  // same as `collectConstTemplateMap` before round 35, contributes no name of
-  // its own -- an exported destructuring binding (`export const { a } =
-  // obj;`) is a rarer shape this pass doesn't resolve (Codex, PR #874
-  // round 35).
+  // `findBracketClose`/`skipTypeAnnotation`/`findInitializerEnd` calls). An
+  // OBJECT pattern's own bindings (plain, renamed, defaulted, nested one
+  // level) are now also registered via `collectPatternLocalNames`, same as
+  // `export const NAME = …` registers `NAME` itself -- the value each one
+  // resolves to is found later, through the module's own `decls` map, the
+  // same way a plain exported name already is (Codex, PR #874 round 35;
+  // round 39 thread 2 adds destructuring). An ARRAY pattern (`export const
+  // [a] = …`) is still left unregistered -- `ConstEntry` doesn't index an
+  // array's own elements at all, the same fail-closed gap round 35 already
+  // documented for a non-exported array destructure.
   const keywordRe = /\bexport\s+(?:const|let|var)\s+/g;
   while (keywordRe.exec(source)) {
     let pos = keywordRe.lastIndex;
     for (;;) {
       if (source[pos] === "{" || source[pos] === "[") {
         const open = source[pos];
+        const patternStart = pos;
         const patternEnd =
           open === "{" ? extractBalanced(source, pos, "{", "}").endIndex : findBracketClose(source, pos);
+        if (open === "{" && patternEnd !== -1) {
+          const patternText = source.slice(patternStart, patternEnd + 1);
+          for (const name of collectPatternLocalNames(parseDestructuringPattern(patternText))) {
+            exported.set(name, name);
+          }
+        }
         let after = (patternEnd === -1 ? source.length - 1 : patternEnd) + 1;
         while (after < source.length && /\s/.test(source[after])) after++;
         if (source[after] === ":") {
@@ -6181,6 +6313,52 @@ describe("scanSourceForViolations catches every spelling (fixture proofs, #878)"
     const fixture = 'export function Card(props) { return <span {...props}>Static</span>; }';
     expect(scanSourceForViolations(fixture), fixture).toEqual([]);
   });
+
+  it("flags a spread AFTER an explicit className, since JSX applies the later source (#874 round 39 thread 1)", () => {
+    // `props.className` pulses; JSX applies attributes/spreads left to
+    // right, so the spread -- being LAST on the tag -- is what actually
+    // renders, not the earlier explicit "text-green". The pre-round-39
+    // "skip the spread entirely once any className= exists on the tag" rule
+    // stopped at the first explicit source and never even looked at this
+    // spread, so it stayed false-green. Verified red on revert against
+    // 74bb7a0f (round 38): `scanSourceForViolations` returned `[]` there.
+    const fixture =
+      'const props = { className: "text-alert-red animate-pulse" };\nexport function A() { return <span className="text-green" {...props}>Loading</span>; }';
+    expect(scanSourceForViolations(fixture), fixture).not.toEqual([]);
+  });
+
+  it("does not flag an explicit className AFTER a spread when the explicit one is clean (round 39 thread 1)", () => {
+    // Same `props` as above, but the explicit `className=` now comes AFTER
+    // the spread, so it wins instead -- the tag really renders "text-green"
+    // at runtime, never `props.className`. A scanner that resolves the
+    // spread unconditionally whenever one exists on the tag (the naive fix
+    // for the fixture above) would wrongly flag this one.
+    const fixture =
+      'const props = { className: "text-alert-red animate-pulse" };\nexport function A() { return <span {...props} className="text-green">Loading</span>; }';
+    expect(scanSourceForViolations(fixture), fixture).toEqual([]);
+  });
+
+  it("flags an explicit className AFTER a spread when the explicit one itself pulses (round 39 thread 1)", () => {
+    // The LAST source wins regardless of what kind it is -- here that's an
+    // explicit `className=` that pulses on its own, irrespective of
+    // whatever `props` carries (deliberately given a clean className, to
+    // isolate that the explicit source -- not just "any explicit source
+    // exists" -- is what's being read).
+    const fixture =
+      'const props = { className: "text-green" };\nexport function A() { return <span {...props} className="text-alert-red animate-pulse">Loading</span>; }';
+    expect(scanSourceForViolations(fixture), fixture).not.toEqual([]);
+  });
+
+  it("resolves two spreads on the same tag, keeping the LAST one when only it pulses (round 39 thread 1)", () => {
+    // Neither spread is a literal className=, so this also exercises that
+    // `collectSpreadClassSources`/`isTopLevelAttributePosition` correctly
+    // treats two independent top-level spreads on the same tag as two
+    // separate ordered sources rather than merging or only ever seeing the
+    // first.
+    const fixture =
+      'const a = { className: "text-green" };\nconst b = { className: "text-alert-red animate-pulse" };\nexport function A() { return <span {...a} {...b}>Loading</span>; }';
+    expect(scanSourceForViolations(fixture), fixture).not.toEqual([]);
+  });
 });
 
 describe("scanModuleForViolations resolves imported animate-pulse class bindings across modules (#874 round 28)", () => {
@@ -6465,6 +6643,85 @@ describe("resolves a spread whose source is an IMPORTED binding, regardless of r
       "src/components/A.tsx": componentSource,
     });
     expect(scanModuleForViolations("src/components/A.tsx", componentSource, exportsMap)).not.toEqual([]);
+  });
+});
+
+describe("registers an EXPORTED destructuring declarator's own bindings in the export map (#874 round 39 thread 2)", () => {
+  it("resolves a plain exported destructure (`export const { alert } = styles;`) across modules", () => {
+    // Before this round, `collectExportedNames` advanced past a `{`/`[`
+    // pattern after `export const/let/var` without registering any of the
+    // names it introduces -- `alert` never made it into the `exported` map
+    // at all, even though the plain (non-exported) destructuring machinery
+    // already registered it as a normal module-level `ConstDecl` (the
+    // `\b(const|let|var)\s+` scan in `collectConstTemplateMap` matches
+    // "const" inside "export const" too). So a consumer's `import { alert }
+    // from "./styles"` had no export entry to resolve against, no matter
+    // what `styles` itself resolved to. Verified red on revert against
+    // 74bb7a0f (round 38 head): `scanModuleForViolations` returned `[]`
+    // there.
+    const stylesSource = 'const styles = { alert: "text-alert-red animate-pulse" };\nexport const { alert } = styles;';
+    const componentSource =
+      'import { alert } from "@/lib/styles";\nexport function A() { return <span className={alert}>Critical</span>; }';
+    const exportsMap = collectExportedPulseBindings({
+      "src/lib/styles.ts": stylesSource,
+      "src/components/A.tsx": componentSource,
+    });
+    expect(scanModuleForViolations("src/components/A.tsx", componentSource, exportsMap), componentSource).not.toEqual(
+      [],
+    );
+  });
+
+  it("resolves a RENAMED exported destructure (`export const { alert: cls } = styles;`) across modules", () => {
+    // Same gap, through the renamed-binding shape: the local/exported name
+    // is `cls`, not `alert` -- `collectPatternLocalNames` must register the
+    // LOCAL (renamed) name, since that's the only name a consumer can ever
+    // import. Verified red on revert against 74bb7a0f.
+    const stylesSource =
+      'const styles = { alert: "text-alert-red animate-pulse" };\nexport const { alert: cls } = styles;';
+    const componentSource =
+      'import { cls } from "@/lib/styles";\nexport function A() { return <span className={cls}>Critical</span>; }';
+    const exportsMap = collectExportedPulseBindings({
+      "src/lib/styles.ts": stylesSource,
+      "src/components/A.tsx": componentSource,
+    });
+    expect(scanModuleForViolations("src/components/A.tsx", componentSource, exportsMap), componentSource).not.toEqual(
+      [],
+    );
+  });
+
+  it("carries round 38's destructuring-default handling through an EXPORTED destructure too", () => {
+    // `styles` genuinely lacks a `cls` key, so the default itself
+    // ("animate-pulse") is what has to reach the consumer through the
+    // export map -- proves `collectExportedNames`'s new pattern parse reuses
+    // `parseDestructuringPattern`'s existing default-literal handling
+    // (`defaultLiteral`), not just the plain/renamed key path. Verified red
+    // on revert against 74bb7a0f: the pattern was skipped entirely there, so
+    // `cls` never resolved to anything and `scanModuleForViolations`
+    // returned `[]`.
+    const stylesSource =
+      'const styles = { safe: "text-green" };\nexport const { cls = "animate-pulse" } = styles;';
+    const componentSource =
+      'import { cls } from "@/lib/styles";\nexport function A() { return <span className={cls}>Critical</span>; }';
+    const exportsMap = collectExportedPulseBindings({
+      "src/lib/styles.ts": stylesSource,
+      "src/components/A.tsx": componentSource,
+    });
+    expect(scanModuleForViolations("src/components/A.tsx", componentSource, exportsMap), componentSource).not.toEqual(
+      [],
+    );
+  });
+
+  it("does not flag a consumer of an exported destructure whose resolved value is genuinely clean", () => {
+    // Precision check: the export map must carry the PRESENT key's own
+    // value, not just "the pattern exists" -- `alert` here never pulses.
+    const stylesSource = 'const styles = { alert: "text-green" };\nexport const { alert } = styles;';
+    const componentSource =
+      'import { alert } from "@/lib/styles";\nexport function A() { return <span className={alert}>Idle</span>; }';
+    const exportsMap = collectExportedPulseBindings({
+      "src/lib/styles.ts": stylesSource,
+      "src/components/A.tsx": componentSource,
+    });
+    expect(scanModuleForViolations("src/components/A.tsx", componentSource, exportsMap)).toEqual([]);
   });
 });
 

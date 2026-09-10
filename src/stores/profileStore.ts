@@ -831,7 +831,15 @@ export const useProfileStore = create<ProfileStore>()(
           state.syncDeviceId = state.syncDeviceId ?? undefined;
         }
         if (version < 13) {
-          if (!("billingUserId" in state)) state.billingUserId = null;
+          // A pre-v13 store never recorded which account its billing fields
+          // belonged to, so they cannot be trusted: reset them and let the
+          // next profile sync restore the real entitlement.
+          if (!("billingUserId" in state)) {
+            state.billingUserId = null;
+            state.subscriptionTier = "free";
+            state.subscriptionStatus = "inactive";
+            state.subscriptionPeriodEnd = null;
+          }
         }
         return state as unknown as ProfileStore;
       },

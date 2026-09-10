@@ -18,7 +18,7 @@
  * class/row contract that produces scrolling vs. capping.
  */
 import { render, screen } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import type { PresentableSpot } from "@/lib/map/spotPresentation";
 import { useWorkspaceStore } from "@/stores/workspaceStore";
 import { SpotCollectionPopover } from "./SpotCollectionPopover";
@@ -230,6 +230,97 @@ describe("SpotCollectionPopover host-bounded height (#846)", () => {
         screen.getAllByRole("button", { name: /Select K\d+ABC/ }),
       ).toHaveLength(6);
       expect(screen.getByText("+74 more")).toBeTruthy();
+      host.remove();
+    });
+
+    it("derives the wall row cap from maxHeight instead of a fixed count (#879)", () => {
+      const host = makeHost(400, 260);
+      render(
+        <SpotCollectionPopover
+          visible
+          isWallCanvas
+          position={{ x: 100, y: 120 }}
+          title="Test collection"
+          spots={makeSpots(80)}
+          portalTarget={host}
+          onClose={() => {}}
+          onSpotSelect={() => {}}
+        />,
+      );
+
+      const rows = screen.getAllByRole("button", { name: /Select K\d+ABC/ });
+      expect(rows.length).toBeLessThan(6);
+      expect(rows.length).toBeGreaterThan(0);
+      expect(screen.getByText(/\+\d+ more/)).toBeTruthy();
+      host.remove();
+    });
+
+    it("keeps the +N more row outside the clipped list body (#879)", () => {
+      const host = makeHost(400, 600);
+      render(
+        <SpotCollectionPopover
+          visible
+          isWallCanvas
+          position={{ x: 100, y: 300 }}
+          title="Test collection"
+          spots={makeSpots(80)}
+          portalTarget={host}
+          onClose={() => {}}
+          onSpotSelect={() => {}}
+        />,
+      );
+
+      const panel = screen.getByRole("dialog");
+      const moreRow = screen.getByText("+74 more");
+      const listBody = panel.querySelector(":scope > div:nth-child(2)");
+      const clippedRows = listBody?.querySelector(":scope > div:first-child");
+
+      expect(listBody?.className).toContain("flex-col");
+      expect(clippedRows?.className).toContain("overflow-hidden");
+      expect(clippedRows?.contains(moreRow)).toBe(false);
+      expect(moreRow.className).toContain("shrink-0");
+      host.remove();
+    });
+
+    it("recomputes layout when the host rect changes (#879)", async () => {
+      const host = makeHost(400, 600);
+      render(
+        <SpotCollectionPopover
+          visible
+          isWallCanvas
+          position={{ x: 100, y: 300 }}
+          title="Test collection"
+          spots={makeSpots(80)}
+          portalTarget={host}
+          onClose={() => {}}
+          onSpotSelect={() => {}}
+        />,
+      );
+
+      expect(
+        screen.getAllByRole("button", { name: /Select K\d+ABC/ }),
+      ).toHaveLength(6);
+
+      host.getBoundingClientRect = () =>
+        ({
+          left: 0,
+          top: 0,
+          right: 400,
+          bottom: 260,
+          width: 400,
+          height: 260,
+          x: 0,
+          y: 0,
+          toJSON() {},
+        }) as DOMRect;
+
+      window.dispatchEvent(new Event("resize"));
+
+      await vi.waitFor(() => {
+        expect(
+          screen.getAllByRole("button", { name: /Select K\d+ABC/ }).length,
+        ).toBeLessThan(6);
+      });
       host.remove();
     });
 

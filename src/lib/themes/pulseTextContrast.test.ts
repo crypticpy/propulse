@@ -553,12 +553,22 @@ function extractTemplateLiteral(source: string, start: number): string {
  * the census must see through it. */
 interface ConstDecl {
   name: string;
-  /** Offset of the declaration, so a reference resolves to the declaration
-   * visible where it is used (the nearest preceding one, else the first
-   * following one for a hoisted module-level const) rather than to the
-   * last same-named const anywhere in the file (Codex, PR #874 round 13). */
+  /** Offset of the declaration, used as the tie-break when two visible
+   * declarations sit in the same-size scope: the nearest preceding one,
+   * else the first following one for a hoisted module-level const
+   * (Codex, PR #874 round 13). */
   index: number;
   literal: string;
+  /** Index range of the innermost enclosing `{...}` block the declaration
+   * sits in (module scope = `0..source.length`), so `visibleDecl` can tell
+   * a same-named const declared in an unrelated sibling function from the
+   * one actually in scope at a given reference -- `const` is block-scoped
+   * in real JS, and "nearest preceding declaration in the file" ignores
+   * that, resolving to whichever same-named const happens to sit closest by
+   * character offset even when it belongs to a different function entirely
+   * (Codex, PR #874 round 14). */
+  scopeStart: number;
+  scopeEnd: number;
 }
 
 function collectConstTemplateMap(source: string): ConstDecl[] {
@@ -576,18 +586,44 @@ function collectConstTemplateMap(source: string): ConstDecl[] {
       if (close === -1) continue;
       literal = source.slice(start, close + 1);
     }
-    decls.push({ name: m[1], index: m.index, literal });
+    const scope = findEnclosingBraceRange(source, m.index);
+    decls.push({
+      name: m[1],
+      index: m.index,
+      literal,
+      scopeStart: scope ? scope.start : 0,
+      scopeEnd: scope ? scope.end : source.length,
+    });
     declRe.lastIndex = start + literal.length;
   }
   return decls;
 }
 
+/** Among the declarations of `name` whose scope contains `atIndex`, the one
+ * actually visible there: the innermost scope (smallest range) wins over an
+ * outer one of the same name, since an inner block's own declaration shadows
+ * it; a tie (same scope, i.e. two declarations in the same block) falls back
+ * to the previous nearest-preceding/first-following rule. */
 function visibleDecl(decls: ConstDecl[], name: string, atIndex: number): ConstDecl | undefined {
   let best: ConstDecl | undefined;
   for (const d of decls) {
     if (d.name !== name) continue;
-    if (d.index < atIndex) best = d;
-    else if (!best) return d;
+    if (atIndex < d.scopeStart || atIndex > d.scopeEnd) continue;
+    if (!best) {
+      best = d;
+      continue;
+    }
+    const dSize = d.scopeEnd - d.scopeStart;
+    const bestSize = best.scopeEnd - best.scopeStart;
+    if (dSize !== bestSize) {
+      if (dSize < bestSize) best = d;
+      continue;
+    }
+    if (d.index < atIndex && (best.index >= atIndex || d.index > best.index)) {
+      best = d;
+    } else if (d.index >= atIndex && best.index >= atIndex && d.index < best.index) {
+      best = d;
+    }
   }
   return best;
 }
@@ -615,7 +651,9 @@ function resolveConstRefs(
 
 /** The opening tag an attribute at `before` belongs to, found by walking
  * backwards structurally: `{…}` attribute expressions are skipped as
- * blocks, a `>` outside them (other than an arrow's `=>`) means the
+ * blocks, a quoted attribute value is skipped whole (so a `>` inside it,
+ * e.g. `title="1 > 0"`, is never mistaken for a tag boundary -- Codex, PR
+ * #874 round 14), a `>` outside them (other than an arrow's `=>`) means the
  * attribute is not inside a tag, and the first `<Tag` reached is the
  * element. No fixed-width window, so verbose prop lists cannot push the
  * tag out of reach (Codex, PR #874 round 13). */
@@ -632,6 +670,12 @@ function findOpeningTag(source: string, before: number): { tag: string; index: n
       }
       if (j < 0) return null;
       i = j - 1;
+      continue;
+    }
+    if (c === '"' || c === "'") {
+      const openQuote = source.lastIndexOf(c, i - 1);
+      if (openQuote === -1) return null;
+      i = openQuote - 1;
       continue;
     }
     if (c === ">" && source[i - 1] !== "=") return null;
@@ -841,11 +885,16 @@ function isValueBearingControl(site: ClassNameSite): boolean {
   );
 }
 
-/** Finds the nearest enclosing `{...}` block around `index`, used only by
- * the config-map scan below, where the caller has already confirmed `index`
- * sits inside a `key: "animate-pulse"` field (not arbitrary JSX/prose), so
- * the block found is the object literal that field belongs to. */
-function findEnclosingBraceBlock(source: string, index: number): string | null {
+/** Index range of the innermost enclosing `{...}` block containing `index`
+ * in `source` (found by scanning backward for a `{` unmatched by an
+ * interceding `}`), or `null` when `index` sits at module scope with no
+ * enclosing block at all. Shared by `findEnclosingBraceBlock` (the
+ * config-map scan) and `collectConstTemplateMap` (a declaration's lexical
+ * scope, PR #874 round 14) so both agree on what "innermost block" means. */
+function findEnclosingBraceRange(
+  source: string,
+  index: number,
+): { start: number; end: number } | null {
   let depth = 0;
   for (let i = index; i >= 0; i--) {
     const c = source[i];
@@ -853,12 +902,21 @@ function findEnclosingBraceBlock(source: string, index: number): string | null {
       depth++;
     } else if (c === "{") {
       if (depth === 0) {
-        return extractBalanced(source, i, "{", "}").text;
+        return { start: i, end: extractBalanced(source, i, "{", "}").endIndex };
       }
       depth--;
     }
   }
   return null;
+}
+
+/** Finds the nearest enclosing `{...}` block around `index`, used only by
+ * the config-map scan below, where the caller has already confirmed `index`
+ * sits inside a `key: "animate-pulse"` field (not arbitrary JSX/prose), so
+ * the block found is the object literal that field belongs to. */
+function findEnclosingBraceBlock(source: string, index: number): string | null {
+  const range = findEnclosingBraceRange(source, index);
+  return range ? source.slice(range.start, range.end + 1) : null;
 }
 
 /** One instance of the pulse-on-text defect found by the structural
@@ -1089,6 +1147,21 @@ describe("scanSourceForViolations catches every spelling (fixture proofs, #878)"
     expect(scanSourceForViolations(second)).toHaveLength(1);
   });
 
+  it("resolves a module-level const, not a same-named local const declared in an unrelated function that happens to sit nearer the usage", () => {
+    const fixture =
+      'const classes = "text-alert-red animate-pulse";\n' +
+      'function unrelated() { const classes = ""; return classes; }\n' +
+      'export function A() { return <span className={classes}>Critical</span>; }';
+    expect(scanSourceForViolations(fixture)).toHaveLength(1);
+  });
+
+  it("resolves a function-local const used inside that function, even though a module-level const of the same name pulses", () => {
+    const fixture =
+      'const classes = "text-alert-red animate-pulse";\n' +
+      'export function A() { const classes = ""; return <span className={classes}>Idle</span>; }';
+    expect(scanSourceForViolations(fixture)).toEqual([]);
+  });
+
   it("finds the opening tag past any length of props, and not across a closed tag", () => {
     const props = Array.from({ length: 12 }, (_, i) => `data-prop-${i}="${"x".repeat(40)}"`).join(" ");
     expect(
@@ -1101,6 +1174,13 @@ describe("scanSourceForViolations catches every spelling (fixture proofs, #878)"
     expect(
       scanSourceForViolations('<span>text</span>{/* className="text-alert-red animate-pulse" */}'),
     ).toEqual([]);
+  });
+
+  it("finds the opening tag past a quoted attribute value containing '>' ", () => {
+    const fixture = '<span title="1 > 0" className="text-alert-red animate-pulse">Critical</span>';
+    const violations = scanSourceForViolations(fixture);
+    expect(violations).toHaveLength(1);
+    expect(violations[0].description).toContain("<span>");
   });
 
   it("catches the pulse class paired with a text color in a config-map object literal", () => {

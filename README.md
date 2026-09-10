@@ -266,7 +266,9 @@ A dedicated shack-wall view, inspired by HamClock and rebuilt on our own design 
 
 - Full-height **hero tiles** sized for a monitor across the room rather than a laptop.
 - **Paged rails** of secondary tiles, so a wall shows depth without shrinking type.
-- **Engineered per-tile reports**: clicking any tile opens a centred report built for that
+- **Engineered per-tile reports**: clicking a supported tile (all of the propagation,
+  solar and activity tiles; the SDR scope and decode tiles do not open one yet) opens a
+  centred report built for that
   specific subject, showing the physics, the model and the observed evidence side by side,
   rather than a generic drill-down.
 - Selectable themes and a strict no-flyout, no-hover-menu interaction model.
@@ -339,7 +341,9 @@ Every surface is built from one shared station design system rather than per-pag
 - A **token-driven theme layer** (`src/lib/themes/`) that emits CSS custom properties, so
   themes, accent colours and density are a data change rather than a restyle.
 - **Colour-blind modes** for deuteranopia, protanopia and tritanopia, applied in the same
-  write as the theme so the two can never disagree.
+  write as the theme so the two can never disagree. The HamClock wall's own status tones
+  still resolve to fixed fallbacks and do not yet follow the colour-blind selection; that
+  gap is tracked as a defect.
 - A **legibility standard** written for operators who wear glasses: high contrast, no pure
   white on black, no halo or fringing effects, and a user text-size control instead of
   smaller type.
@@ -488,7 +492,10 @@ reads and writes.
 `BRIDGE_STATIC_PORT` (default 3173).
 
 Map tiles, weather, callsign lookup and several research flags have their own keys; see
-[.env.example](.env.example) for the full list.
+[.env.example](.env.example). A self-hosted deployment that enables the Pro subscription
+also needs the server-only Stripe settings read by [`api/billing/`](api/billing/):
+`STRIPE_SECRET_KEY`, `STRIPE_PRICE_ID`, `STRIPE_WEBHOOK_SECRET`, `STRIPE_SUCCESS_URL`,
+`STRIPE_CANCEL_URL` and `STRIPE_PORTAL_RETURN_URL`.
 
 ---
 

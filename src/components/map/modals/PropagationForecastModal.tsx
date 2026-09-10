@@ -187,17 +187,38 @@ export function PropagationForecastModal({
   locationLabel,
 }: PropagationForecastModalProps) {
   const textScale = useSettingsStore((s) => s.textScale ?? "md");
-  // `textScale` is the trigger (a store read); the value used for layout
-  // math is the browser's actual computed root font size, so a user's
-  // browser default other than 16px is honored even at the app's default
-  // `md` setting (Settings -> Text Size leaves the root font unset there).
+  // The value used for layout math is the browser's actual computed root
+  // font size, not `textScale` itself, so a user's browser default other
+  // than 16px is honored even at the app's default `md` setting (Settings
+  // -> Text Size leaves the root font unset there). `textScale` still
+  // triggers a re-read (and the effect re-reads on `isOpen` too, for a
+  // caller that keeps this modal mounted while closed), but a
+  // `MutationObserver` on `data-text-scale` is what actually keeps the
+  // value correct: descendant effects run before `useTextScale()`'s own
+  // effect applies that attribute to `<html>`, so a persisted `lg`/`xl`
+  // preference reads as 16px on the first pass here and, since `textScale`
+  // itself never changes again for an already-hydrated store, a
+  // `[textScale]`-only effect would never get a second chance to fix it.
   const [rootFontPx, setRootFontPx] = useState(ROOT_FONT_PX_DEFAULT);
   useEffect(() => {
-    const parsed = parseFloat(
-      getComputedStyle(document.documentElement).fontSize,
-    );
-    setRootFontPx(Number.isFinite(parsed) ? parsed : ROOT_FONT_PX_DEFAULT);
-  }, [textScale]);
+    const measureRootFontPx = () => {
+      const parsed = parseFloat(
+        getComputedStyle(document.documentElement).fontSize,
+      );
+      setRootFontPx(Number.isFinite(parsed) ? parsed : ROOT_FONT_PX_DEFAULT);
+    };
+    measureRootFontPx();
+
+    if (typeof MutationObserver === "undefined") {
+      return;
+    }
+    const observer = new MutationObserver(measureRootFontPx);
+    observer.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ["data-text-scale"],
+    });
+    return () => observer.disconnect();
+  }, [isOpen, textScale]);
 
   const { chartWidth, cellWidth } = useMemo(
     () => chartGeometry(rootFontPx),
@@ -379,11 +400,20 @@ export function PropagationForecastModal({
           </div>
 
           <div className="flex justify-center overflow-x-auto">
+            {/* `shrink-0` (plus an explicit width, not just `min-w`) keeps
+                this SVG from being scaled down as a flex item when the
+                container is narrower than `chartWidth`: a flex item's
+                rendered size otherwise contracts below its intrinsic
+                (`width`/`viewBox`) size, and since `viewBox` doesn't change
+                with it, the whole chart -- labels included -- gets scaled
+                down with it. `overflow-x-auto` above scrolls to the
+                unshrunk width instead. */}
             <svg
               width={chartWidth}
               height={CHART_HEIGHT}
               viewBox={`0 0 ${chartWidth} ${CHART_HEIGHT}`}
-              className="min-w-[500px]"
+              className="shrink-0"
+              style={{ width: `${chartWidth}px` }}
             >
               {/* Definitions */}
               <defs>

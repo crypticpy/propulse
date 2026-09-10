@@ -32,7 +32,7 @@
  * fixed 600px base, with `chartWidth` rebuilt from that cell width.
  */
 
-import { render, screen } from "@testing-library/react";
+import { act, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { HourlyForecast } from "@/lib/utils/bands";
 import type { TextScale } from "@/types/user";
@@ -84,6 +84,8 @@ function mockRootFontPx(px: number | null) {
 afterEach(() => {
   mocks.textScale = "md";
   mocks.rootFontPxOverride = null;
+  document.documentElement.removeAttribute("data-text-scale");
+  document.documentElement.style.removeProperty("font-size");
 });
 
 describe("chartGeometry (#854)", () => {
@@ -173,10 +175,10 @@ describe("PropagationForecastModal SNR label at scale (#854)", () => {
     return [{ hour: 0, bands: [{ band: "20m", status: "good", snrEstimate }] }];
   }
 
-  function renderModal(forecast: HourlyForecast[]) {
+  function renderModal(forecast: HourlyForecast[], isOpen = true) {
     return render(
       <PropagationForecastModal
-        isOpen
+        isOpen={isOpen}
         onClose={() => {}}
         forecast={forecast}
         bestWindows={[]}
@@ -273,5 +275,88 @@ describe("PropagationForecastModal SNR label at scale (#854)", () => {
     // beside the "Band Conditions..." h3 (`gap-4`, unique to that row).
     const legendRow = legendLabel.closest("div.gap-4");
     expect(legendRow?.className).toContain("flex-wrap");
+  });
+
+  // #870 Codex round 4, finding 1 (PropagationForecastModal.tsx:200): a
+  // descendant effect keyed only on the `textScale` store value reads
+  // `rootFontPx` before `useTextScale()`'s own effect (further up the tree)
+  // applies `data-text-scale` to `<html>` -- so a persisted `lg`/`xl`
+  // preference read 16px on the very first pass, and since `textScale`
+  // itself never changes again for an already-hydrated store, the effect
+  // never got a second chance to correct it. Both forecast callers keep this
+  // modal mounted while closed, which rules out remount as a fix too.
+  it("re-measures the root font size via MutationObserver when data-text-scale changes after mount, not only when textScale changes (#870 finding 1)", async () => {
+    mocks.textScale = "xl";
+    mockRootFontPx(16); // simulates useTextScale()'s effect not having run yet
+    renderModal(forecastWith(-5));
+
+    let svg = document.body.querySelector("svg");
+    expect(Number(svg?.getAttribute("width"))).toBeCloseTo(
+      chartGeometry(16).chartWidth,
+      4,
+    );
+
+    // useTextScale()'s effect applies the attribute; `mocks.textScale` (the
+    // store value read by this component) is already "xl" and does not
+    // change again, so only a live DOM observation can catch this.
+    mockRootFontPx(22);
+    await act(async () => {
+      document.documentElement.setAttribute("data-text-scale", "xl");
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+
+    svg = document.body.querySelector("svg");
+    expect(Number(svg?.getAttribute("width"))).toBeCloseTo(
+      chartGeometry(22).chartWidth,
+      4,
+    );
+  });
+
+  it("re-reads the root font size when a mounted-while-closed modal opens (#870 finding 1)", () => {
+    mocks.textScale = "xl";
+    mockRootFontPx(22);
+    const { rerender } = renderModal(forecastWith(-5), false);
+
+    // Closed: AccessibleDialog renders null, so there is nothing painted yet
+    // for a stale measurement to have leaked into.
+    expect(document.body.querySelector("svg")).toBeNull();
+
+    rerender(
+      <PropagationForecastModal
+        isOpen
+        onClose={() => {}}
+        forecast={forecastWith(-5)}
+        bestWindows={[]}
+        currentHour={0}
+        kp={2}
+        sfi={120}
+        stationCallsign="K5ABC"
+        targetName="Tokyo"
+      />,
+    );
+
+    const svg = document.body.querySelector("svg");
+    expect(Number(svg?.getAttribute("width"))).toBeCloseTo(
+      chartGeometry(22).chartWidth,
+      4,
+    );
+  });
+
+  // #870 Codex round 4, finding 2 (PropagationForecastModal.tsx:385): the
+  // chart's `overflow-x-auto` container lets the SVG shrink as a flex item
+  // below its `min-w-[500px]` floor once the container is narrower than
+  // `chartWidth`; the unchanged `viewBox` then scales all SVG content --
+  // including the `text-xs` SNR labels -- down with it, undoing the
+  // `subTextSizeFloor` fix at exactly the screen widths it targets.
+  it("keeps the svg from shrinking as a flex item instead of relying on a min-w floor (#870 finding 2)", () => {
+    mocks.textScale = "md";
+    mockRootFontPx(16);
+    renderModal(forecastWith(-5));
+
+    const svg = document.body.querySelector("svg");
+    const { chartWidth } = chartGeometry(16);
+    expect(svg?.getAttribute("class")).toContain("shrink-0");
+    expect(svg?.getAttribute("class")).not.toContain("min-w-[500px]");
+    expect(svg?.style.width).toBe(`${chartWidth}px`);
   });
 });

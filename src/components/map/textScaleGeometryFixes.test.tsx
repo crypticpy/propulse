@@ -662,6 +662,25 @@ describe("TargetHoverTooltip (round-9 fix: ResizeObserver catches shape changes 
   });
 });
 
+describe("OperatorProfile (#926: licence row wraps at xl text scale)", () => {
+  it("wraps the grid + licence-status row so badges stay fully visible", () => {
+    const absPath = resolve(REPO_ROOT, "src/components/map/OperatorProfile.tsx");
+    const source = readFileSync(absPath, "utf8");
+    const lines = source.split("\n");
+    const markerIndex = lines.findIndex((line) =>
+      line.includes("Grid + License row"),
+    );
+    expect(markerIndex).toBeGreaterThanOrEqual(0);
+
+    const rowLine = lines
+      .slice(markerIndex)
+      .find((line) => line.includes("<div className="));
+    expect(rowLine).toBeDefined();
+    expect(rowLine).toContain("flex-wrap");
+    expect(rowLine).not.toContain('className="flex items-center gap-2 mb-2"');
+  });
+});
+
 describe("OperatorProfile (round-9 fix: primary VFO row wraps instead of clipping in the overflow-hidden button)", () => {
   it("wraps the band/mode/source row so the source badge can drop to its own line", () => {
     const absPath = resolve(REPO_ROOT, "src/components/map/OperatorProfile.tsx");

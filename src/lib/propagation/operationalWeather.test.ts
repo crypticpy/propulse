@@ -1,83 +1,79 @@
 import { describe, expect, it } from "vitest";
-import {
-  buildOperationalWeather,
-  type OperationalSolarSnapshot,
-} from "./operationalWeather";
+import { deriveOperationalWeatherAges } from "./operationalWeather";
 
-const issue = new Date("2026-07-15T18:00:00Z");
+describe("operational weather ages", () => {
+  it("returns the freshest fast source and the oldest of each group", () => {
+    const ages = deriveOperationalWeatherAges({
+      space_weather: 3_600,
+      kp: 300,
+      magnetic_field: 420,
+      solar_wind: 240,
+      dst: 3_600,
+      f107: 7_200,
+      path_history: 30,
+    });
 
-function snapshot(
-  observed: Record<string, string | null>,
-  values: Partial<OperationalSolarSnapshot>,
-): OperationalSolarSnapshot {
-  return {
-    captured_at: "2026-07-15T17:59:00Z",
-    source_observed_at: observed,
-    ...values,
-  };
-}
-
-describe("operational weather builder", () => {
-  it("does not treat a fresh fetch as a fresh upstream observation", () => {
-    const result = buildOperationalWeather(
-      [
-        snapshot(
-          { magnetic_field: "2026-07-15T12:00:00Z", f107: "2026-07-15T17:00:00Z" },
-          { bz_gsm: -8, sfi: 145 },
-        ),
-      ],
-      issue,
-    );
-    expect(result.values.bz_gsm).toBeUndefined();
-    expect(result.values.f107).toBe(145);
-    expect(result.sourceObservedAgesSeconds.f107).toBe(3600);
-    expect(result.sourceReceiptAgesSeconds.f107).toBe(60);
+    expect(ages.freshestFast).toEqual({
+      source: "solar_wind",
+      label: "Solar wind",
+      seconds: 240,
+    });
+    expect(ages.oldestFast).toEqual({
+      source: "magnetic_field",
+      label: "IMF",
+      seconds: 420,
+    });
+    expect(ages.oldestSlow).toEqual({
+      source: "f107",
+      label: "F10.7",
+      seconds: 7_200,
+    });
+    expect(ages.aggregateSeconds).toBe(3_600);
   });
 
-  it("selects latest source values and computes legal backward windows", () => {
-    const result = buildOperationalWeather(
-      [
-        snapshot(
-          {
-            kp: "2026-07-15T14:30:00Z",
-            magnetic_field: "2026-07-15T15:30:00Z",
-            dst: "2026-07-15T13:00:00Z",
-          },
-          { kp_index: 4, bz_gsm: -3, dst_index: -20 },
-        ),
-        snapshot(
-          {
-            kp: "2026-07-15T17:55:00Z",
-            magnetic_field: "2026-07-15T17:55:00Z",
-            dst: "2026-07-15T17:00:00Z",
-          },
-          { kp_index: 2, bz_gsm: 1, dst_index: -5 },
-        ),
-      ],
-      issue,
-    );
-    expect(result.values.kp).toBe(2);
-    expect(result.values.kp_delta_3h).toBe(-2);
-    expect(result.values.kp_max_24h).toBe(4);
-    expect(result.values.bz_min_3h).toBe(-3);
-    expect(result.values.dst_min_6h).toBe(-20);
-    expect(result.watermarkAt).toBe(Date.parse("2026-07-15T17:00:00Z"));
+  it("never lets an unrelated input pose as a space-weather source", () => {
+    const ages = deriveOperationalWeatherAges({
+      space_weather: 900,
+      path_history: 30,
+    });
+
+    expect(ages.freshestFast).toBeNull();
+    expect(ages.oldestFast).toBeNull();
+    expect(ages.oldestSlow).toBeNull();
+    expect(ages.aggregateSeconds).toBe(900);
   });
 
-  it("rejects future observations and values received after issue time", () => {
-    const result = buildOperationalWeather(
-      [
-        snapshot({ kp: "2026-07-15T18:01:00Z" }, { kp_index: 9 }),
-        {
-          ...snapshot({ kp: "2026-07-15T17:59:00Z" }, { kp_index: 8 }),
-          captured_at: "2026-07-15T18:02:00Z",
-        },
-      ],
-      issue,
-    );
-    expect(result.values.kp).toBeUndefined();
-    expect(result.sourceObservedAgesSeconds).toEqual({});
-    expect(result.sourceReceiptAgesSeconds).toEqual({});
-    expect(result.sourceAvailableAt).toEqual({});
+  it("keeps the earliest declared source when two ages tie", () => {
+    const ages = deriveOperationalWeatherAges({
+      kp: 300,
+      magnetic_field: 300,
+    });
+
+    expect(ages.freshestFast?.source).toBe("kp");
+    expect(ages.oldestFast?.source).toBe("kp");
+  });
+
+  it("ignores non-finite and negative ages", () => {
+    const ages = deriveOperationalWeatherAges({
+      kp: Number.NaN,
+      solar_wind: -1,
+      dst: 3_600,
+      space_weather: Number.POSITIVE_INFINITY,
+    });
+
+    expect(ages.freshestFast).toBeNull();
+    expect(ages.oldestSlow?.source).toBe("dst");
+    expect(ages.aggregateSeconds).toBeNull();
+  });
+
+  it("reports nothing when the prediction carries no freshness at all", () => {
+    const ages = deriveOperationalWeatherAges(undefined);
+
+    expect(ages).toEqual({
+      freshestFast: null,
+      oldestFast: null,
+      oldestSlow: null,
+      aggregateSeconds: null,
+    });
   });
 });

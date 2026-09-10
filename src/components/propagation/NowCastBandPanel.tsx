@@ -12,6 +12,10 @@ import {
   predictionIssueLabels,
   unsupportedChainReason,
 } from "@/lib/propagation/predictionPresentation";
+import {
+  deriveOperationalWeatherAges,
+  type OperationalWeatherAges,
+} from "@/lib/propagation/operationalWeather";
 
 interface NowCastBandPanelProps {
   state: NowCastBandPredictions;
@@ -54,6 +58,61 @@ function formatAge(seconds: number | undefined): string | null {
   return `${(seconds / 3_600).toFixed(1)}h old`;
 }
 
+const FAST_AGE_TITLE =
+  "Age of the fast space-weather inputs (Kp, IMF, solar wind, proton flux) " +
+  "behind this prediction.";
+const SLOW_AGE_TITLE =
+  "Age of the slow space-weather inputs (Dst, Hp60, F10.7, sunspot number) " +
+  "behind this prediction.";
+const AGGREGATE_AGE_TITLE =
+  "Oldest space-weather input behind this prediction. The service reports one " +
+  "aggregate age, not a per-source age.";
+
+interface WeatherAgeChip {
+  text: string;
+  title: string;
+}
+
+/**
+ * Wall (compact): one short line naming the freshest fast source, read at TV
+ * distance. Report modal and full page: one fast age and one slow age, each
+ * the oldest input in its group. Either way, when the service sends no
+ * per-source ages the aggregate is printed under its true meaning (#321).
+ */
+function weatherAgeChips(
+  ages: OperationalWeatherAges,
+  compact: boolean,
+): WeatherAgeChip[] {
+  if (compact) {
+    const age = formatAge(ages.freshestFast?.seconds);
+    if (ages.freshestFast && age) {
+      return [
+        { text: `${ages.freshestFast.label} ${age}`, title: FAST_AGE_TITLE },
+      ];
+    }
+  } else {
+    const chips: WeatherAgeChip[] = [];
+    const fastAge = formatAge(ages.oldestFast?.seconds);
+    if (ages.oldestFast && fastAge) {
+      chips.push({
+        text: `Fast inputs: ${ages.oldestFast.label} ${fastAge}`,
+        title: FAST_AGE_TITLE,
+      });
+    }
+    const slowAge = formatAge(ages.oldestSlow?.seconds);
+    if (ages.oldestSlow && slowAge) {
+      chips.push({
+        text: `Slow inputs: ${ages.oldestSlow.label} ${slowAge}`,
+        title: SLOW_AGE_TITLE,
+      });
+    }
+    if (chips.length > 0) return chips;
+  }
+  const aggregate = formatAge(ages.aggregateSeconds ?? undefined);
+  if (!aggregate) return [];
+  return [{ text: `Oldest input ${aggregate}`, title: AGGREGATE_AGE_TITLE }];
+}
+
 export function NowCastBandPanel({
   state,
   bands,
@@ -65,7 +124,10 @@ export function NowCastBandPanel({
   if (!state.visible) return null;
   const firstPrediction = [...state.predictions.values()][0];
   const pathAge = formatAge(firstPrediction?.data_freshness.path_history);
-  const weatherAge = formatAge(firstPrediction?.data_freshness.space_weather);
+  const weatherAges = weatherAgeChips(
+    deriveOperationalWeatherAges(firstPrediction?.data_freshness),
+    compact,
+  );
   const modeLabel = (mode ?? "").trim().toUpperCase();
   const personalizedLabel = modeLabel && modeLabel !== "WSPR"
     ? `Your ${modeLabel}`
@@ -268,7 +330,11 @@ export function NowCastBandPanel({
           </span>
           <span>Issued {firstPrediction.issue_time.slice(11, 16)} UTC</span>
           {pathAge && <span>Path data {pathAge}</span>}
-          {weatherAge && <span>Space weather {weatherAge}</span>}
+          {weatherAges.map((chip) => (
+            <span key={chip.text} title={chip.title}>
+              {chip.text}
+            </span>
+          ))}
           {state.fallbackBands.length > 0 && (
             <span>
               {state.fallbackBands.length} physics profile band

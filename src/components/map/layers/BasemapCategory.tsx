@@ -290,7 +290,25 @@ export default function BasemapCategory() {
             Effective: {effectiveQuality.label}
           </span>
         </div>
-        <div className="grid grid-cols-4 gap-1">
+        {/*
+          This submenu panel is a fixed-pixel box (LayersPopover's roughly
+          two-hundred-thirty-pixel-wide submenu column, tracked separately by
+          issue #849 for not following Settings -> Text Size), so the room
+          available here for these buttons never grows past roughly two
+          hundred pixels regardless of scale. Four equal columns at the
+          default text scale left each button only about fifty pixels wide --
+          under forty after its own padding and border -- and the longest
+          label here, "Extreme", could not fit on one line and spilled into
+          its neighbor; the same fixed room gets tighter relative to the
+          buttons at larger text scales, since the label text grows while
+          this box does not. `minmax(5rem, 1fr)` with `auto-fit` sizes each
+          column for the longest label at the current scale and lets the
+          grid fall back to fewer columns (down to a single column at the
+          largest scale) instead of holding four columns and letting one
+          overflow; `break-words` on the label is the backstop if a future
+          label is still too wide for even a single column.
+        */}
+        <div className="grid grid-cols-[repeat(auto-fit,minmax(5rem,1fr))] gap-1">
           {DISPLAY_QUALITY_OPTIONS.map((quality) => (
             <button
               key={quality.id}
@@ -298,7 +316,7 @@ export default function BasemapCategory() {
               onClick={() => setDisplayQuality(quality.id)}
               title={quality.description}
               aria-pressed={displayQuality === quality.id}
-              className={`rounded border px-1 py-1.5 text-xs transition-colors ${
+              className={`rounded border px-1 py-1.5 text-xs break-words transition-colors ${
                 displayQuality === quality.id
                   ? "border-cyan-500/60 bg-cyan-500/15 text-cyan-300"
                   : "border-su-line/40 bg-su-line/10 text-su-text/80 hover:bg-su-line/20 hover:text-su-text"

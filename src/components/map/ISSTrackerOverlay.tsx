@@ -85,6 +85,28 @@ function latLonToSurface(lat: number, lon: number): THREE.Vector3 {
 // ISS Ham Radio Constants
 // ---------------------------------------------------------------------------
 
+/**
+ * Info card width range (#832 follow-up). This card's own width used to be
+ * pinned to a fixed pixel range (roughly two hundred forty to two hundred
+ * eighty pixels) while its text is `text-xs`, which follows Settings ->
+ * Text Size. The three-field frequency rows below (a label, a frequency,
+ * and a short note, laid out with `justify-between` and no wrap) fit that
+ * fixed box at the default scale, but at the largest scale the row's own
+ * content -- e.g. "Voice Downlink" / "145.800 MHz" / "Worldwide" -- needed
+ * more room than the box ever grew to, and the note field spilled past the
+ * card's right edge. Sizing this range in rem instead lets the whole card
+ * grow at the same rate as its text, so the three fields stay proportioned
+ * to the box and keep reading as one row at every scale rather than needing
+ * to wrap or stack. Exported (and factored out of the inline style object)
+ * so this geometry is unit-testable without rendering the R3F tree this
+ * component lives in (`<Html>`/`useFrame` require a `<Canvas>` context that
+ * jsdom + Testing Library cannot provide).
+ */
+export const ISS_INFO_CARD_WIDTH_STYLE = {
+  minWidth: "15rem",
+  maxWidth: "17.5rem",
+} as const;
+
 /** Well-known ISS amateur radio frequencies and modes */
 const ISS_FREQUENCIES = [
   {
@@ -193,8 +215,7 @@ function ISSInfoCard({ tracker, occlusionOpacity }: ISSInfoCardProps) {
           border: "1px solid rgba(100, 180, 255, 0.4)",
           boxShadow:
             "0 0 20px rgba(100, 180, 255, 0.2), inset 0 0 30px rgba(100, 180, 255, 0.03)",
-          minWidth: "240px",
-          maxWidth: "280px",
+          ...ISS_INFO_CARD_WIDTH_STYLE,
           color: "#e0e0e8",
         }}
         onClick={(e) => e.stopPropagation()}

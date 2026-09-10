@@ -1,20 +1,27 @@
 /**
- * Composition guards for two of the three geometry fixes in this #832
- * follow-up round: the grid view's canonical status labels no longer overflow
- * their cell (`BandConditionsPanel.tsx`), and the hover tooltip re-places
- * itself once its real rendered height is known (`TargetHoverTooltip.tsx`).
+ * Composition guards for the geometry fixes in this #832 follow-up round: the
+ * grid view's canonical status labels no longer overflow their cell
+ * (`BandConditionsPanel.tsx`), the hover tooltip re-places itself once its
+ * real rendered height is known (`TargetHoverTooltip.tsx`), the Layers
+ * popover's quality-preset buttons reflow instead of overflowing their fixed
+ * submenu column (`layers/BasemapCategory.tsx`), and the ISS tracker's info
+ * card widens with its own text instead of clipping a frequency row
+ * (`ISSTrackerOverlay.tsx`).
  *
- * The third fix in this round (the forecast heatmap's per-cell SNR label
- * fit-check, `modals/PropagationForecastModal.tsx`) was carved out of this
- * PR to stay at the 15-file cap; its `snrLabelFits` arithmetic tests were
- * extracted to /tmp/839-modal-fix.test-block.txt for the follow-up PR.
+ * The forecast heatmap's per-cell SNR label fit-check
+ * (`modals/PropagationForecastModal.tsx`) was carved out of this PR to stay
+ * at the 15-file cap; its `snrLabelFits` arithmetic tests were extracted to
+ * /tmp/839-modal-fix.test-block.txt for the follow-up PR.
  *
  * jsdom computes no layout -- `getBoundingClientRect` returns zeros for real
  * DOM measurement and a collapsed box is invisible to it. Nothing here
- * asserts on a measured pixel from real layout: the grid-cell checks read
- * the rendered class/style attributes (not layout), and the tooltip check
- * supplies its own controlled height via a mocked `getBoundingClientRect`
- * rather than trusting jsdom to compute one.
+ * asserts on a measured pixel from real layout: the grid-cell and
+ * quality-button checks read the rendered class/style attributes (not
+ * layout), the tooltip check supplies its own controlled height via a mocked
+ * `getBoundingClientRect` rather than trusting jsdom to compute one, and the
+ * ISS card check reads the exported width-style constant directly rather
+ * than rendering the component (it lives in a React Three Fiber `<Html>`
+ * tree that requires a real `<Canvas>` context Testing Library can't supply).
  */
 
 import { render } from "@testing-library/react";
@@ -25,6 +32,8 @@ import {
   BAND_GRID_STYLE,
 } from "./BandConditionsPanel";
 import { TargetHoverTooltip } from "./TargetHoverTooltip";
+import BasemapCategory from "./layers/BasemapCategory";
+import { ISS_INFO_CARD_WIDTH_STYLE } from "./ISSTrackerOverlay";
 import type { PathBandCondition } from "@/lib/utils/bands";
 import type { BandLadderEntry } from "@/hooks/useBandVerdicts";
 
@@ -164,6 +173,32 @@ describe("TargetHoverTooltip (fix 2: measured-height re-placement)", () => {
     expect(rectCalls).toBeLessThanOrEqual(callsBeforeNoopRerender + 2);
 
     getRectSpy.mockRestore();
+  });
+});
+
+describe("BasemapCategory (fix 4: quality-button grid reflow)", () => {
+  it("sizes the quality-button grid to reflow columns in rem, not a fixed 4-column track, and lets labels wrap", () => {
+    const { container } = render(<BasemapCategory />);
+
+    const extremeButton = Array.from(
+      container.querySelectorAll("button"),
+    ).find((el) => el.textContent === "Extreme");
+    expect(extremeButton).toBeDefined();
+
+    const grid = extremeButton!.parentElement as HTMLElement;
+    expect(grid.className).toContain("auto-fit");
+    expect(grid.className).toContain("minmax(5rem");
+    expect(grid.className).not.toContain("grid-cols-4");
+    expect(extremeButton!.className).toContain("break-words");
+  });
+});
+
+describe("ISSTrackerOverlay (fix 5: info card width follows its own text)", () => {
+  it("sizes the info card's width range in rem instead of a fixed pixel range", () => {
+    expect(ISS_INFO_CARD_WIDTH_STYLE.minWidth).toContain("rem");
+    expect(ISS_INFO_CARD_WIDTH_STYLE.maxWidth).toContain("rem");
+    expect(ISS_INFO_CARD_WIDTH_STYLE.minWidth).not.toBe("240px");
+    expect(ISS_INFO_CARD_WIDTH_STYLE.maxWidth).not.toBe("280px");
   });
 });
 

@@ -1,5 +1,4 @@
 import { useEffect } from "react";
-import { useMapStore } from "@/stores/mapStore";
 
 export interface UseFullscreenEscapeOptions {
   observatoryMode: boolean;
@@ -27,13 +26,14 @@ export interface UseFullscreenEscapeOptions {
  * suppress the fullscreen exit. Kept character-identical to the predicate
  * `PathPointInspector` uses (merged cccf61f3).
  *
- * The `satelliteModalId` check stays even though the predicate above covers
- * every `AccessibleDialog`-style modal: `SatelliteDetailModal`
- * (`src/components/map/layers/SatelliteDetailModal.tsx`, mounted by
- * `PropSphere.tsx` underneath this view) closes itself from its own
- * bubble-phase `document` listener and renders no `role`/`aria-modal`
- * attributes at all, so the querySelector below can never see it. Do not
- * delete this check without first giving that modal real dialog semantics.
+ * `SatelliteDetailModal` (`src/components/map/layers/SatelliteDetailModal.tsx`,
+ * mounted by `PropSphere.tsx` underneath this view) used to need its own
+ * `satelliteModalId` carve-out here because it rendered no `role`/`aria-modal`
+ * attributes at all. Migrated to `AccessibleDialog` in #805, so its Escape is
+ * now owned by that `document` capture-phase listener + `stopImmediatePropagation()`
+ * described above — this bubble-phase listener never fires while it's open,
+ * with or without the querySelector predicate below — so the carve-out was
+ * deleted as genuinely redundant.
  */
 export function useFullscreenEscape({
   observatoryMode,
@@ -44,10 +44,6 @@ export function useFullscreenEscape({
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key !== "Escape") return;
-      // An open satellite modal owns Escape (it closes itself) — see the
-      // doc comment above for why this can't be folded into the predicate
-      // below.
-      if (useMapStore.getState().satelliteModalId !== null) return;
       if (
         document.querySelector(
           '[role="dialog"][aria-modal="true"], [role="alertdialog"][aria-modal="true"]',

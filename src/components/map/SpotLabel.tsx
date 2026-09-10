@@ -20,6 +20,7 @@ import { Html } from "@react-three/drei";
 import { getModeColor, getBandColor, inkOnFill } from "@/lib/utils/spotColors";
 import type { ScreenAnchor } from "@/lib/map/anchoredOverlay";
 import { GLOBE_DOM_LAYER_ORDER } from "@/lib/map/globeRenderOrder";
+import { limbAlphaGate } from "@/lib/map/globeOcclusion";
 
 /** Offset from globe surface to prevent z-fighting */
 const SURFACE_OFFSET = 1.000002;
@@ -46,13 +47,15 @@ export const TEXT_OCCLUSION_FLOOR = 0.5;
  * still lets the FINAL alpha collapse toward invisible even fully on the
  * near side (occlusionOpacity === 1, so TEXT_OCCLUSION_FLOOR never engages).
  * Matches the 0.35 value the parent revision used before it was raised to
- * 0.82 and then replaced by the occlusion-only split. Safe to apply
- * unconditionally: this only floors the text/background color ALPHA
- * channel, never the wrapper `<div>`'s own CSS `opacity` (`wrapperOpacity`/
- * `isVisible` below, driven by `occlusionOpacity` alone), which is the
- * mechanism that hides far-side labels and multiplies with this alpha
- * during compositing -- a label with wrapperOpacity 0 still renders fully
- * hidden regardless of this floor.
+ * 0.82 and then replaced by the occlusion-only split. This floors only the
+ * text/background color ALPHA channel, never the wrapper `<div>`'s own CSS
+ * `opacity` (`wrapperOpacity`/`isVisible` below, driven by
+ * `occlusionOpacity` alone), which is the other mechanism that hides
+ * far-side labels and multiplies with this alpha during compositing.
+ * This is a FRONT-SIDE floor (#932): `wrapperOpacity` is gated by
+ * `limbAlphaGate`, so a label past the horizon composites to 0 regardless of
+ * this floor, and every other channel (underline, shadow, badges, the
+ * hover/selected branches) fades with it.
  */
 const FINAL_ALPHA_FLOOR = 0.35;
 
@@ -258,15 +261,27 @@ export function SpotLabel({
   // tag) -- exactly the double-dimming the B1 fix (4d812d0) removed. `isVisible`
   // above now shares this ramp's occlusion-only domain, so the two can never
   // desync and the wrapper can't jump further than one ramp step.
+  //
+  // The linear ramp is then multiplied by the shared `limbAlphaGate` (#932).
+  // Gating the wrapper rather than any single channel is what makes a tag
+  // past the horizon disappear WHOLE: the wrapper's CSS opacity scales the
+  // text, the badge background, the band underline (`borderBottom`), the
+  // glow/drop `boxShadow` and every mode/band child chip together, including
+  // the hover/selected branches that bypass `textOpacity` entirely. Gating
+  // only the text alpha left underlines, badges and selected pills painted
+  // over the far side of the globe after the callsign had faded out.
+  // A label is not depth-tested, so this band straddles the limb: the tag
+  // stays lit up to tangency and fades out just past it. Arcs cannot do that
+  // (the depth test rejects them at tangency) and fade on the visible side
+  // instead — see `ARC_LIMB_FADE_WINDOW` in `src/lib/map/arcLimbFade.ts`.
   const wrapperOpacity = isVisible
     ? Math.max(
         0,
         Math.min(
           1,
-          (occlusionOpacity - HIDE_THRESHOLD) /
-            (FADE_IN_END - HIDE_THRESHOLD),
+          (occlusionOpacity - HIDE_THRESHOLD) / (FADE_IN_END - HIDE_THRESHOLD),
         ),
-      )
+      ) * limbAlphaGate(occlusionOpacity)
     : 0;
 
   // `receivesPointer` flips true the instant occlusionOpacity crosses
@@ -419,10 +434,7 @@ export function SpotLabel({
   const handleKeyDown = useCallback(
     (event: React.KeyboardEvent<HTMLButtonElement>) => {
       event.stopPropagation();
-      if (
-        isInteractive &&
-        (event.key === "Enter" || event.key === " ")
-      ) {
+      if (isInteractive && (event.key === "Enter" || event.key === " ")) {
         event.preventDefault();
         selectAtElement(event.currentTarget);
       }
@@ -466,12 +478,21 @@ export function SpotLabel({
   // can still collapse well below the occlusion floor even at full occlusion
   // (occlusionOpacity === 1). `FINAL_ALPHA_FLOOR` backstops the combined
   // product itself so contrast never regresses below what shipped before
-  // round 8 (#851, round 10) — see its doc comment for why this is safe to
-  // apply unconditionally without defeating far-side hiding.
+  // round 8 (#851, round 10) — see its doc comment.
+  // Both floors are FRONT-SIDE floors only. What re-couples them to the limb
+  // is `wrapperOpacity` above, which multiplies this alpha (and every other
+  // channel) during compositing and is itself gated by `limbAlphaGate`, so a
+  // label the limb has hidden renders at 0 whatever these floors say (#932).
+  // Applying the gate here as well would attenuate the text twice relative to
+  // the badge behind it and pull their contrast ratio apart mid-fade.
   const flooredOcclusion = Math.max(occlusionOpacity, TEXT_OCCLUSION_FLOOR);
   const textOpacity = Math.max(flooredOcclusion * opacity, FINAL_ALPHA_FLOOR);
   const labelStyle: React.CSSProperties = {
-    cursor: isInteractive ? "pointer" : interactionReady ? "default" : "inherit",
+    cursor: isInteractive
+      ? "pointer"
+      : interactionReady
+        ? "default"
+        : "inherit",
     color:
       isHovered || selected
         ? "rgba(255, 255, 255, 1)"
@@ -489,11 +510,7 @@ export function SpotLabel({
     textShadow: "0 1px 2px rgba(0,0,0,0.8)",
     letterSpacing: "0.03em",
     lineHeight: 1.2,
-    transform: isHovered
-      ? "scale(1.2)"
-      : selected
-        ? "scale(1.15)"
-        : "scale(1)",
+    transform: isHovered ? "scale(1.2)" : selected ? "scale(1.15)" : "scale(1)",
     transformOrigin: "center bottom",
     transition:
       "transform 0.15s ease-out, box-shadow 0.15s ease-out, background-color 0.15s ease-out, color 0.15s ease-out",

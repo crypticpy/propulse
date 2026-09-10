@@ -45,7 +45,7 @@ jobs:
           FILES=$(gh api "repos/${REPO}/pulls/${PR}/files" --paginate \
             --jq '.[] | .filename, (.previous_filename // empty)') \
             || { echo "::error::could not list PR files; the design-review gate cannot be evaluated (re-run the check)"; exit 1; }
-          UI=$(printf '%s\n' "$FILES" | grep -E '^(src/components/|src/pages/|src/styles/|src/lib/themes/|src/lib/widgets/|src/lib/hamclock/|src/lib/home/|src/lib/[^/]+/.*(Colors?|Layout|Tokens?|Fonts?)\.tsx?$|src/stores/themeStore\.ts$|src/hooks/use[^/]*(Layout|Docking|Mobile|TextScale|ColorBlind|Theme)[^/]*\.tsx?$|src/App\.tsx$|src/main\.tsx$|index\.html$|public/|tailwind\.config\.|postcss\.config\.|\.design-sync/|docs/designs/design-system/|docs/designs/.*-(spec|mock)[^/]*$|docs/designs/.*contact-sheet|docs/designs/.*\.(html|png|svg|jpg|webp)$)' || true)
+          UI=$(printf '%s\n' "$FILES" | grep -E '^(src/components/|src/pages/|src/styles/|src/lib/themes/|src/lib/widgets/|src/lib/hamclock/|src/lib/home/|src/lib/[^/]+/.*(Colors?|Layout|Tokens?|Fonts?)\.tsx?$|src/stores/themeStore\.ts$|src/hooks/use[^/]*(Layout|Docking|Mobile|TextScale|ColorBlind|Theme|DisplayFit|DisplayQuality|DisplaySync|HighContrast|VisualEffects|Presentation|Tint|Expanded|Disclosure|Gestures|Swipe|PullToRefresh|Tour|OperatingScreen|WallAutoPage)[^/]*\.tsx?$|src/App\.tsx$|src/main\.tsx$|index\.html$|public/|tailwind\.config\.|postcss\.config\.|\.design-sync/|docs/designs/design-system/|docs/designs/.*-(spec|mock)[^/]*$|docs/designs/.*contact-sheet|docs/designs/.*\.(html|png|svg|jpg|webp)$)' || true)
           if [ -z "$UI" ]; then
             echo "No UI paths changed; design review not required."
             exit 0

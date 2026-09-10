@@ -551,8 +551,18 @@ function extractTemplateLiteral(source: string, start: number): string {
  * strings joined the map in PR #874 round 12: an extraction such as
  * `const statusClasses = "text-alert-red animate-pulse"` is routine and
  * the census must see through it. */
-function collectConstTemplateMap(source: string): Map<string, string> {
-  const map = new Map<string, string>();
+interface ConstDecl {
+  name: string;
+  /** Offset of the declaration, so a reference resolves to the declaration
+   * visible where it is used (the nearest preceding one, else the first
+   * following one for a hoisted module-level const) rather than to the
+   * last same-named const anywhere in the file (Codex, PR #874 round 13). */
+  index: number;
+  literal: string;
+}
+
+function collectConstTemplateMap(source: string): ConstDecl[] {
+  const decls: ConstDecl[] = [];
   const declRe = /\bconst\s+([A-Za-z_$][\w$]*)(?:\s*:\s*string)?\s*=\s*(?=[`"'])/g;
   let m: RegExpExecArray | null;
   while ((m = declRe.exec(source))) {
@@ -566,21 +576,73 @@ function collectConstTemplateMap(source: string): Map<string, string> {
       if (close === -1) continue;
       literal = source.slice(start, close + 1);
     }
-    map.set(m[1], literal);
+    decls.push({ name: m[1], index: m.index, literal });
     declRe.lastIndex = start + literal.length;
   }
-  return map;
+  return decls;
+}
+
+function visibleDecl(decls: ConstDecl[], name: string, atIndex: number): ConstDecl | undefined {
+  let best: ConstDecl | undefined;
+  for (const d of decls) {
+    if (d.name !== name) continue;
+    if (d.index < atIndex) best = d;
+    else if (!best) return d;
+  }
+  return best;
 }
 
 /** Replaces every bare identifier in a class expression that names a
  * resolved const with that const's literal, so `cn(statusClasses, x)` and
  * `\`${statusClasses} mt-1\`` are scanned for the classes they render.
- * Hyphen-adjacent words (`text-xs`) are class tokens, not identifiers. */
-function resolveConstRefs(raw: string, constMap: Map<string, string>): string {
-  if (constMap.size === 0) return raw;
-  return raw.replace(/(?<![\w$-])[A-Za-z_$][\w$]*(?![\w$-])/g, (id) =>
-    constMap.has(id) ? constMap.get(id)! : id,
-  );
+ * Resolution recurses through chained consts (`const classes =
+ * \`text-alert-red ${pulse}\``) with a cycle guard. Hyphen-adjacent words
+ * (`text-xs`) are class tokens, not identifiers. */
+function resolveConstRefs(
+  raw: string,
+  decls: ConstDecl[],
+  atIndex: number,
+  seen: ReadonlySet<string> = new Set(),
+): string {
+  if (decls.length === 0 || seen.size > 8) return raw;
+  return raw.replace(/(?<![\w$-])[A-Za-z_$][\w$]*(?![\w$-])/g, (id) => {
+    if (seen.has(id)) return id;
+    const decl = visibleDecl(decls, id, atIndex);
+    if (!decl) return id;
+    return resolveConstRefs(decl.literal, decls, decl.index, new Set([...seen, id]));
+  });
+}
+
+/** The opening tag an attribute at `before` belongs to, found by walking
+ * backwards structurally: `{…}` attribute expressions are skipped as
+ * blocks, a `>` outside them (other than an arrow's `=>`) means the
+ * attribute is not inside a tag, and the first `<Tag` reached is the
+ * element. No fixed-width window, so verbose prop lists cannot push the
+ * tag out of reach (Codex, PR #874 round 13). */
+function findOpeningTag(source: string, before: number): { tag: string; index: number } | null {
+  let i = before - 1;
+  while (i >= 0) {
+    const c = source[i];
+    if (c === "}") {
+      let depth = 0;
+      let j = i;
+      for (; j >= 0; j--) {
+        if (source[j] === "}") depth++;
+        else if (source[j] === "{" && --depth === 0) break;
+      }
+      if (j < 0) return null;
+      i = j - 1;
+      continue;
+    }
+    if (c === ">" && source[i - 1] !== "=") return null;
+    if (c === "<") {
+      const m = source.slice(i).match(/^<([A-Za-z][\w.]*)(?=[\s/>])/);
+      if (m) return { tag: m[1], index: i };
+      return null;
+    }
+    i--;
+  }
+  return null;
 }
 
 interface ClassNameSite {
@@ -610,7 +672,7 @@ interface ClassNameSite {
 
 function findClassNameSites(
   source: string,
-  constMap: Map<string, string>,
+  constMap: ConstDecl[],
 ): ClassNameSite[] {
   const sites: ClassNameSite[] = [];
   const attrRe = /className\s*=\s*(\{|"|')/g;
@@ -624,7 +686,7 @@ function findClassNameSites(
     if (delim === "{") {
       const openIndex = contentStart - 1;
       const { text, endIndex } = extractBalanced(source, openIndex, "{", "}");
-      raw = resolveConstRefs(text.slice(1, -1), constMap);
+      raw = resolveConstRefs(text.slice(1, -1), constMap, m.index);
       afterIndex = endIndex + 1;
     } else {
       const closeIndex = source.indexOf(delim, contentStart);
@@ -632,15 +694,14 @@ function findClassNameSites(
       afterIndex = closeIndex === -1 ? contentStart : closeIndex + 1;
     }
 
-    const precedingWindow = source.slice(Math.max(0, m.index - 300), m.index);
-    const tagMatch = precedingWindow.match(/<([A-Za-z][\w.]*)\s[^<]*$/);
-    const tag = tagMatch ? tagMatch[1] : null;
+    const opening = findOpeningTag(source, m.index);
+    const tag = opening ? opening.tag : null;
 
     let childrenText: string | null = null;
     let openingTag: string | null = null;
-    if (tag && tagMatch) {
+    if (tag && opening) {
       const gt = findTagEnd(source, afterIndex);
-      const tagStart = m.index - precedingWindow.length + tagMatch.index!;
+      const tagStart = opening.index;
       openingTag = gt === -1 ? null : source.slice(tagStart, gt);
       if (gt !== -1 && source[gt - 1] !== "/") {
         const closeAt = findMatchingCloseTag(source, tag, gt + 1);
@@ -1001,6 +1062,44 @@ describe("scanSourceForViolations catches every spelling (fixture proofs, #878)"
       scanSourceForViolations(
         'const pulse = "animate-pulse";\nexport function A() { return <span className={cn("text-amber-400", live && pulsed)}>GL</span>; }',
       ),
+    ).toEqual([]);
+  });
+
+  it("resolves chained consts recursively, with a cycle guard", () => {
+    expect(
+      scanSourceForViolations(
+        'const pulse = "animate-pulse";\nconst classes = `text-alert-red ${pulse}`;\nexport function A() { return <span className={classes}>Loading</span>; }',
+      ),
+    ).not.toEqual([]);
+    expect(
+      scanSourceForViolations(
+        'const a = `${b} text-alert-red`;\nconst b = `${a} animate-pulse`;\nexport function A() { return <span className={a}>Loading</span>; }',
+      ),
+    ).not.toEqual([]);
+  });
+
+  it("resolves the declaration visible at each attribute, not the last same-named const in the file", () => {
+    const first =
+      'function A() { const classes = "text-alert-red animate-pulse"; return <span className={classes}>Loading</span>; }\n' +
+      'function B() { const classes = ""; return <span className={classes}>Idle</span>; }';
+    expect(scanSourceForViolations(first)).toHaveLength(1);
+    const second =
+      'function B() { const classes = ""; return <span className={classes}>Idle</span>; }\n' +
+      'function A() { const classes = "text-alert-red animate-pulse"; return <span className={classes}>Loading</span>; }';
+    expect(scanSourceForViolations(second)).toHaveLength(1);
+  });
+
+  it("finds the opening tag past any length of props, and not across a closed tag", () => {
+    const props = Array.from({ length: 12 }, (_, i) => `data-prop-${i}="${"x".repeat(40)}"`).join(" ");
+    expect(
+      scanSourceForViolations(`<span ${props} onClick={() => go()} className="text-alert-red animate-pulse">Critical</span>`),
+    ).not.toEqual([]);
+    expect(
+      scanSourceForViolations(`<span ${props} className="text-alert-red animate-pulse">Critical</span>`),
+    ).not.toEqual([]);
+    // A className-shaped token after the tag closed is not an attribute of it.
+    expect(
+      scanSourceForViolations('<span>text</span>{/* className="text-alert-red animate-pulse" */}'),
     ).toEqual([]);
   });
 

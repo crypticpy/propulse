@@ -166,13 +166,18 @@ export function patchArcLimbFadeShader(
 
 /**
  * Install the limb fade on one arc material, wiring it to the shared uniforms.
- * Idempotent: re-applying to the same material is a no-op.
+ * Idempotent: re-applying to the same material is a no-op. Accepts the array
+ * form because `Object3D.material` is typed as one-or-many.
  */
 export function applyArcLimbFade(
-  material: THREE.Material | null | undefined,
+  material: THREE.Material | THREE.Material[] | null | undefined,
   uniforms: ArcLimbFadeUniforms,
 ): void {
   if (!material) return;
+  if (Array.isArray(material)) {
+    for (const entry of material) applyArcLimbFade(entry, uniforms);
+    return;
+  }
   const tagged = material as THREE.Material & { __arcLimbFade?: boolean };
   if (tagged.__arcLimbFade) return;
   tagged.__arcLimbFade = true;

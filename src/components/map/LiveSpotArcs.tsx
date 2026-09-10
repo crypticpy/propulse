@@ -586,7 +586,7 @@ const SpotArc = React.memo(function SpotArc({
 
   // Install the limb fade on this arc's own LineMaterial. Runs once per arc
   // on mount; the per-frame work stays in the parent's single useFrame.
-  const lineRef = useRef<THREE.Object3D & { material?: THREE.Material }>(null);
+  const lineRef = useRef<React.ComponentRef<typeof Line>>(null);
   useLayoutEffect(() => {
     if (!limbFadeUniforms) return;
     applyArcLimbFade(lineRef.current?.material, limbFadeUniforms);

@@ -66,7 +66,19 @@ jobs:
           NAMED=$(printf '%s\n' "$FILES" \
             | grep -E '^src/.*(Colou?rs?|Layout|Tokens?|Fonts?|Styles?|Appearance|[Pp]resentation|[Pp]resets?|[Gg]lyphs?)\.tsx?$' \
             | grep -vE '\.test\.tsx?$' || true)
-          UI=$(printf '%s\n%s\n' "$UI" "$NAMED" | grep -v '^$' | sort -u || true)
+          # A visual helper can live in an excluded library under a plain
+          # name (Codex, #896 round 18: BAND_COLORS in src/lib/api/dxcluster.ts,
+          # getMUFColor in src/lib/api/muf.ts), so the diff hunks are read
+          # too: any src/ file whose change touches a colour, class name or
+          # other visual token is UI wherever it lives, and a file GitHub
+          # returns no hunk for (binary or oversized) is treated as UI rather
+          # than skipped.
+          HUNKED=$(gh api "repos/${REPO}/pulls/${PR}/files" --paginate \
+            --jq '.[] | select(.filename | test("^src/")) | select((.patch == null) or (.patch | test("#[0-9a-fA-F]{3,8}\\b|rgba?\\(|hsla?\\(|colou?r|className|\\b(font|text|bg|border|shadow|opacity|animate)-"; "i"))) | .filename') \
+            || { echo "::error::could not read PR hunks; the design-review gate cannot be evaluated (re-run the check)"; exit 1; }
+          HUNKED=$(printf '%s\n' "$HUNKED" \
+            | grep -vE '(\.test\.tsx?$|\.snap$|/__snapshots__/|^src/test/|^src/types/)' || true)
+          UI=$(printf '%s\n%s\n%s\n' "$UI" "$NAMED" "$HUNKED" | grep -v '^$' | sort -u || true)
           if [ -z "$UI" ]; then
             echo "No UI paths changed; design review not required."
             exit 0

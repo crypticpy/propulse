@@ -116,9 +116,12 @@ is the only statement of the rule; other files point here.
   libraries `src/lib/{db,audio,sync,api,adif,export,migrations,errors,dev,pwa,wspr,services}`
   and `src/lib/supabase.ts`; a style, token, colour, layout, font,
   presentation, preset or glyph module counts wherever it lives, excluded
-  directories included. A change in an excluded directory that alters what
-  renders is still UI even when the check stays green: the exclusion list
-  is a floor, not the definition. Design proposals (mocks, specs, contact
+  directories included, and so does any change inside an excluded library
+  whose diff touches a colour, class name or other visual token (the check
+  reads the hunks: `BAND_COLORS` in `src/lib/api/dxcluster.ts` is UI). A
+  change in an excluded directory that alters what renders is still UI
+  even when the check stays green: the exclusion list is a floor, not the
+  definition. Design proposals (mocks, specs, contact
   sheets) are reviewed before build starts, not after.
 - **Who**: the orchestrator when it is a Fable session, otherwise a Fable
   peer. The worker asks for it with `Design review: requested` in the PR body

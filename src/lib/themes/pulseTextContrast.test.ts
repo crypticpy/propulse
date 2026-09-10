@@ -1948,6 +1948,53 @@ function findConfigMapViolations(normalizedSource: string): Violation[] {
  * result -- stable. Applied once, by `scanSourceForViolations` and by the
  * census's own `normalize(raw)` call, so a violation's index and the anchor
  * window it's checked against are always computed from the same text. */
+/** Punctuation that puts an immediately-following quote character in
+ * JavaScript expression position -- a string/template literal is starting
+ * (Codex, PR #874 round 25). */
+const EXPRESSION_POSITION_PUNCT = new Set([
+  "=", "(", ",", "[", "{", ":", "?", "+", "-", "*", "/", "%", "&", "|", "^", "!", ";", "<", "~",
+]);
+
+/** Keywords that, immediately before a quote character, also put it in
+ * expression position (`return "x"`, `typeof "x"`, `new "x"` never appears
+ * but the list errs toward the spec rather than trimming it to only what's
+ * plausible). */
+const EXPRESSION_POSITION_KEYWORDS = new Set([
+  "return", "case", "typeof", "in", "of", "yield", "await", "throw", "new",
+  "else", "do", "delete", "void", "instanceof",
+]);
+
+/** True when the quote character at `source[quoteIndex]` opens a JavaScript
+ * string/template literal, as opposed to sitting in JSX text or an English
+ * contraction (Codex, PR #874 round 25: an ASCII apostrophe in JSX prose,
+ * `<p>Don't wait</p>`, used to always open a "string" that ran to the next
+ * apostrophe or EOF, and since that span could contain real JSX --
+ * `<span className="animate-pulse">Loading</span>` right after -- the real
+ * site got blanked away with it). Looks at the nearest non-whitespace
+ * character before the quote in the *original* `source` (not the
+ * already-partly-blanked `out`, whose spaces wouldn't reflect the real
+ * preceding token): expression position is the start of the file, one of
+ * the punctuation marks above, one of the keywords above, or the
+ * two-character exception `=>` -- a bare `>` (closing a JSX tag, or a
+ * `)`/`]`-closed value) is deliberately NOT expression position, since
+ * `<p>'x'</p>` is JSX text, not an expression, and neither is a quote
+ * right after any other completed value (an identifier, `)`, or `]`). */
+function isQuoteInExpressionPosition(source: string, quoteIndex: number): boolean {
+  let i = quoteIndex - 1;
+  while (i >= 0 && /\s/.test(source[i])) i--;
+  if (i < 0) return true;
+  const prevChar = source[i];
+  if (prevChar === ">") return i > 0 && source[i - 1] === "=";
+  if (prevChar === ")" || prevChar === "]") return false;
+  if (EXPRESSION_POSITION_PUNCT.has(prevChar)) return true;
+  if (/[\w$]/.test(prevChar)) {
+    let start = i;
+    while (start >= 0 && /[\w$]/.test(source[start])) start--;
+    return EXPRESSION_POSITION_KEYWORDS.has(source.slice(start + 1, i + 1));
+  }
+  return true;
+}
+
 function blankCommentsAndQuotedJsx(source: string): string {
   let out = "";
   let i = 0;
@@ -1968,7 +2015,7 @@ function blankCommentsAndQuotedJsx(source: string): string {
       i = end;
       continue;
     }
-    if (isQuoteChar(c)) {
+    if (isQuoteChar(c) && isQuoteInExpressionPosition(source, i)) {
       const quote = c;
       let j = i + 1;
       while (j < source.length && source[j] !== quote) {
@@ -2718,6 +2765,42 @@ describe("scanSourceForViolations catches every spelling (fixture proofs, #878)"
     expect(violations).toHaveLength(1);
     const expectedNormalized = normalize(blankCommentsAndQuotedJsx(fixture));
     expect(violations[0].index).toBe(expectedNormalized.indexOf(PULSE_CLASS));
+  });
+
+  it("still catches a real site after an English contraction's apostrophe in JSX text, at the offset the fixed blanking leaves it at", () => {
+    // An ASCII apostrophe in `Don't` used to open a "string" that ran to
+    // the next apostrophe or EOF -- with none following here, it swallowed
+    // everything after it, including the real pulse site (Codex, PR #874
+    // round 25).
+    const fixture = "<div><p>Don't wait</p><span className=\"animate-pulse\">Loading</span></div>";
+    const violations = scanSourceForViolations(fixture);
+    expect(violations).toHaveLength(1);
+    const expectedNormalized = normalize(blankCommentsAndQuotedJsx(fixture));
+    expect(violations[0].index).toBe(expectedNormalized.indexOf(PULSE_CLASS));
+  });
+
+  it("still catches a real site enclosed between a pair of apostrophes quoting JSX prose (not a JS string)", () => {
+    // Unlike a single unpaired apostrophe (previous fixture), this one closes
+    // -- but the old code still treated the pair as a JS string delimiter,
+    // and since the *body* between them contains real markup, that whole
+    // span (including the real pulse site) got blanked as if it were an
+    // illustrative doc-string quoting JSX (Codex, PR #874 round 25).
+    const fixture =
+      '<p>\'quoted <span className="animate-pulse">Loading</span> quoted\'</p>';
+    expect(scanSourceForViolations(fixture)).not.toEqual([]);
+  });
+
+  it("still blanks a real JS string in expression position even when it quotes JSX markup, unaffected by the apostrophe fix", () => {
+    for (const fixture of [
+      // Plain assignment (`=` is expression position).
+      'const s = \'x <span className="animate-pulse">Loading</span>\';',
+      // Arrow function body (the `=>` special case).
+      'const f = () => \'<span className="animate-pulse">Loading</span>\';',
+      // Ternary value position (`:` is expression position).
+      'x ? \'a\' : \'<span className="animate-pulse">Loading</span>\'',
+    ]) {
+      expect(scanSourceForViolations(fixture), fixture).toEqual([]);
+    }
   });
 });
 

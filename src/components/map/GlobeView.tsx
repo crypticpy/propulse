@@ -2664,7 +2664,22 @@ export function GlobeView({
             />
           }
         >
-          <Canvas dpr={qualitySettings.renderDevicePixelRatio}>
+          <Canvas
+            dpr={qualitySettings.renderDevicePixelRatio}
+            // Isolates every drei Html-overlay z-index (GLOBE_DOM_LAYER_ORDER's
+            // 0-6999 band range) inside this element's own stacking
+            // context. r3f's own wrapper div (the parent those overlay
+            // portals into by default) is otherwise a plain position:relative
+            // box with no isolation, so without this its overlay children's
+            // z-index compared directly against this MapSurface's other
+            // z-indexed siblings below (status chip, attribution, radar
+            // scrubber, Ft8SpotterHUD) -- letting the highest in-scene band
+            // (hud, up to 5999) paint over and intercept clicks meant for
+            // that fixed chrome. `z-0` keeps this wrapper's own stack level
+            // at 0 so it still paints below every sibling below, all of
+            // which use an explicit positive z-index.
+            className="relative isolate z-0"
+          >
             {/* Releases the context on unmount instead of r3f's delayed 500ms
                 teardown, and turns a genuine loss into the GlobeUnavailable
                 fallback whose Retry remounts a fresh context. */}

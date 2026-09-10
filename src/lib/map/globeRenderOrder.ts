@@ -125,6 +125,18 @@ export function getGlobeLayerSlotForRenderOrder(
  * timing or distance. Add a `<Html>` overlay under `src/components/map`?
  * Take the band matching its family below — never a bare numeric tuple.
  *
+ * These bands are portal-local to `<Canvas>`'s own stacking context, not
+ * globally meaningful. Drei's `<Html>` renders into `gl.domElement`'s parent
+ * div by default (r3f's own Canvas wrapper) -- see `GlobeView.tsx`, which
+ * gives that wrapper `className="relative isolate z-0"` specifically so
+ * this 0-6999 range is scoped inside it and can never compare directly
+ * against `MapSurface`'s other z-indexed siblings (the status chip, image
+ * attribution, radar scrubber, `Ft8SpotterHUD`, all fixed z-10/z-20/z-30
+ * chrome). `mapOverlayPortal` must stay a sibling of that wrapper, not a
+ * descendant, so its 10000 keeps outranking the chrome the same way it
+ * outranks every in-scene band -- see `globeDomZBands.test.ts`'s
+ * "GlobeView's Canvas wrapper isolates the DOM bands from map chrome" guard.
+ *
  *   placeLabel        tile-draped place/city labels and country/state
  *                      names (`LabelsOverlay`) — pure reference text, reads
  *                      under everything that represents live data.

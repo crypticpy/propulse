@@ -139,3 +139,68 @@ describe("GLOBE_DOM_LAYER_ORDER bands stay distinct (#851)", () => {
     }
   });
 });
+
+describe("GlobeView's Canvas wrapper isolates the DOM bands from map chrome (#851, round 6)", () => {
+  // The bands above (0-6999) only stay under GlobeView's fixed chrome
+  // (status chip, attribution, radar scrubber, Ft8SpotterHUD -- all
+  // z-10/z-20/z-30) if drei's <Html> elements, which by default portal into
+  // r3f's own Canvas-wrapper div, are confined to a stacking context of
+  // their own. Without `isolation: isolate` on that wrapper, r3f's div is a
+  // plain `position: relative` box with no isolation, so its <Html>
+  // children's z-index compares directly against MapSurface's other
+  // z-indexed siblings -- the round-6 finding. This is a source-level check
+  // (a live layout assertion would need a real WebGL canvas, which jsdom
+  // can't provide) that the <Canvas> JSX tag itself carries the isolating
+  // classes, and that `mapOverlayPortal` -- which must stay OUTSIDE that
+  // context so portaled popovers still out-rank the chrome -- is declared
+  // as a later sibling, not a descendant.
+  const GLOBE_VIEW_PATH = "src/components/map/GlobeView.tsx";
+  const src = readSrc(GLOBE_VIEW_PATH);
+
+  it("gives the <Canvas> wrapper its own stacking context (isolate)", () => {
+    const canvasStart = src.indexOf("<Canvas");
+    expect(
+      canvasStart,
+      "expected to find a <Canvas ...> opening tag in GlobeView.tsx",
+    ).toBeGreaterThan(-1);
+    // Slice a window after the tag, strip `//` line comments (JSX attribute
+    // lists allow them, and this file uses one to explain the isolation --
+    // its own prose contains a literal `<Html>` whose `>` would otherwise
+    // confuse a naive "match to the next >" scan for the tag's real end),
+    // then find the opening tag's true close.
+    const window = src.slice(canvasStart, canvasStart + 2000);
+    const windowNoComments = window.replace(/\/\/[^\n]*/g, "");
+    const tagEnd = windowNoComments.indexOf(">");
+    expect(
+      tagEnd,
+      `could not find the end of the <Canvas ...> opening tag within 2000 chars:\n${window}`,
+    ).toBeGreaterThan(-1);
+    const canvasTag = windowNoComments.slice(0, tagEnd + 1);
+    const classNameMatch = canvasTag.match(/className="([^"]*)"/);
+    expect(
+      classNameMatch,
+      `<Canvas> tag has no className to isolate its DOM bands:\n${canvasTag}`,
+    ).not.toBeNull();
+    const classes = classNameMatch![1].split(/\s+/);
+    expect(
+      classes,
+      `<Canvas className="${classNameMatch![1]}"> must include "isolate" so its drei <Html> z-index range (0-6999) can't leak into MapSurface's other z-indexed siblings`,
+    ).toContain("isolate");
+  });
+
+  it("declares mapOverlayPortal as a sibling of <Canvas>, not a descendant", () => {
+    const canvasOpen = src.indexOf("<Canvas");
+    const canvasClose = src.indexOf("</Canvas>");
+    const mapOverlayPortalDecl = src.indexOf("ref={setMapOverlayPortal}");
+    expect(canvasOpen).toBeGreaterThan(-1);
+    expect(canvasClose).toBeGreaterThan(canvasOpen);
+    expect(
+      mapOverlayPortalDecl,
+      "expected a `ref={setMapOverlayPortal}` element in GlobeView.tsx",
+    ).toBeGreaterThan(-1);
+    expect(
+      mapOverlayPortalDecl,
+      "mapOverlayPortal must be declared after </Canvas> (a sibling in MapSurface, outside the Canvas wrapper's isolated stacking context) so it keeps outranking every in-scene DOM band",
+    ).toBeGreaterThan(canvasClose);
+  });
+});

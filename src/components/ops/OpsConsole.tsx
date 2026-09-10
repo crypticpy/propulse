@@ -5,7 +5,7 @@
  * entry, and contest tools share one map-first operating surface.
  */
 
-import { useCallback, useEffect, useMemo } from "react";
+import { useCallback, useEffect, useMemo, useRef } from "react";
 import { useContestStore } from "@/stores/contestStore";
 import { useContestUIStore, type OpsDockTab } from "@/stores/contestUIStore";
 import { DXConsole, DXSpotList } from "@/components/dx";
@@ -283,7 +283,19 @@ export function OpsConsole({
 
   // Auto-enter contest pane when a session exists and user arrives in PropSphere.
   // Contact/Desk own the dock tab so Work does not hide the band map.
+  //
+  // #884: this reconciles a *change of scope*, not every render. Since a tab
+  // click stopped writing `manualScope`, the click's own posture move
+  // (`exitContact` / `setDesk`) is the only thing that changes here, and
+  // re-running the body would immediately overwrite the tab the operator just
+  // picked. Recording the scope on every run — including the run the
+  // posture gate rejects — keeps a click from being undone by the next
+  // posture change; a genuine scope change still takes the dock back.
+  const reconciledScope = useRef<MapDataScope | null>(null);
   useEffect(() => {
+    const previousScope = reconciledScope.current;
+    reconciledScope.current = scope;
+    if (previousScope === scope) return;
     if (posture === "contact" || posture === "desk") return;
     if (scope === "observe") {
       setDockTab(dockKey, "dx");

@@ -19,7 +19,10 @@ import * as THREE from "three";
 import { useISSTracker } from "@/hooks/useISSTracker";
 import type { UseISSTrackerResult } from "@/hooks/useISSTracker";
 import { useGlobeOcclusion } from "@/hooks/useGlobeOcclusion";
-import { GLOBE_LAYER_ORDER } from "@/lib/map/globeRenderOrder";
+import {
+  GLOBE_DOM_LAYER_ORDER,
+  GLOBE_LAYER_ORDER,
+} from "@/lib/map/globeRenderOrder";
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -180,7 +183,7 @@ function ISSInfoCard({ tracker, occlusionOpacity }: ISSInfoCardProps) {
     <Html
       position={[0, 0.06, 0]}
       center
-      zIndexRange={[10, 5]}
+      zIndexRange={GLOBE_DOM_LAYER_ORDER.hud}
       style={{
         pointerEvents: "auto",
         opacity: Math.max(occlusionOpacity, 0.85),
@@ -599,7 +602,7 @@ function ISSModel({ iss, isSelected, onToggleSelect, tracker }: ISSModelProps) {
         <Html
           position={[0, 0.04, 0]}
           center
-          zIndexRange={[1, 0]}
+          zIndexRange={GLOBE_DOM_LAYER_ORDER.marker}
           style={{
             pointerEvents: "auto",
             transition: "opacity 0.2s ease",

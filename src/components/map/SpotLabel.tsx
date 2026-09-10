@@ -24,6 +24,60 @@ import { GLOBE_DOM_LAYER_ORDER } from "@/lib/map/globeRenderOrder";
 /** Offset from globe surface to prevent z-fighting */
 const SURFACE_OFFSET = 1.000002;
 
+/**
+ * Minimum globe-occlusion opacity contribution on the visible face. This
+ * floors ONLY the limb-occlusion term (`occlusionOpacity`), never the
+ * caller-supplied `opacity` prop (age decay / active-band / contact-posture
+ * de-emphasis) — those are intentional, shipped dimming semantics and are
+ * still allowed to push the occlusion-floored product below `FINAL_ALPHA_
+ * FLOOR` (below), which is what backstops the FINAL rendered alpha. See the
+ * usage site below for the measured contrast this floor guarantees.
+ */
+export const TEXT_OCCLUSION_FLOOR = 0.5;
+
+/**
+ * Minimum FINAL rendered text/background alpha, i.e. the floor applied
+ * AFTER `TEXT_OCCLUSION_FLOOR` and the caller's `opacity` prop are combined
+ * (`textOpacity` below) -- restores the readability floor an earlier
+ * revision (4619980c/f6dc92f2) applied to the combined product, which the
+ * occlusion-only split (round 8, #851) dropped. With de-emphasis multipliers
+ * stacked by callers (e.g. LiveSpotArcs' off-band-spotter tag: 0.6 * 0.3
+ * active-band * 0.35 contact-posture ~= 0.063), the occlusion-only floor
+ * still lets the FINAL alpha collapse toward invisible even fully on the
+ * near side (occlusionOpacity === 1, so TEXT_OCCLUSION_FLOOR never engages).
+ * Matches the 0.35 value the parent revision used before it was raised to
+ * 0.82 and then replaced by the occlusion-only split. Safe to apply
+ * unconditionally: this only floors the text/background color ALPHA
+ * channel, never the wrapper `<div>`'s own CSS `opacity` (`wrapperOpacity`/
+ * `isVisible` below, driven by `occlusionOpacity` alone), which is the
+ * mechanism that hides far-side labels and multiplies with this alpha
+ * during compositing -- a label with wrapperOpacity 0 still renders fully
+ * hidden regardless of this floor.
+ */
+const FINAL_ALPHA_FLOOR = 0.35;
+
+/** Combined opacity below which a label is fully hidden (and non-interactive). */
+const HIDE_THRESHOLD = 0.05;
+/** Combined opacity at/above which the wrapper fade-in reaches full opacity. */
+const FADE_IN_END = 0.25;
+/**
+ * Occlusion opacity at/above which the *target* for mouse/pointer
+ * hit-testing (`receivesPointer`) turns on. Deliberately NOT the same
+ * threshold as `isVisible` (`HIDE_THRESHOLD`): at `occlusionOpacity ===
+ * HIDE_THRESHOLD`, `isVisible` is already true but `wrapperOpacity` is
+ * still exactly 0 -- CSS `opacity` does not remove hit testing, so a label
+ * in that window would be invisible yet still clickable/draggable, letting
+ * it intercept globe interaction the user is aiming at what's underneath.
+ * Reusing `FADE_IN_END` (rather than a separate constant) means this
+ * threshold lines up with the exact occlusion value where `wrapperOpacity`
+ * reaches 1. That alone isn't sufficient, though: the wrapper also has a
+ * `opacity 0.3s ease` CSS transition, so the *computed* opacity can stay
+ * below 1 for up to 300ms after `receivesPointer` flips true. See
+ * `pointerReady`'s doc comment (in the component body) for how that
+ * residual gap is closed.
+ */
+const POINTER_ENABLE_THRESHOLD = FADE_IN_END;
+
 export interface SpotLabelProps {
   /** Latitude in decimal degrees */
   lat: number;
@@ -35,7 +89,12 @@ export interface SpotLabelProps {
   mode?: string;
   /** Whether this is the spotter (sender) vs DX (receiver) */
   isSpotter?: boolean;
-  /** Opacity for age-based decay (0.4 - 1.0) */
+  /**
+   * Caller-supplied de-emphasis multiplier (0-1): active-band filtering,
+   * contact-posture dimming, and the flat 0.6 spotter-tag discount are all
+   * folded into this by callers (see `LiveSpotArcs.tsx`). Independent of,
+   * and multiplied with, `occlusionOpacity` below. Defaults to 1.0.
+   */
   opacity?: number;
   /** Label size variant */
   size?: "sm" | "md";
@@ -177,12 +236,110 @@ export function SpotLabel({
   // Falls back to the general spot color when no frequency is available.
   const underlineColor = frequency ? getBandColor(frequency) : color;
 
-  // Combined opacity: age-based decay multiplied by globe occlusion
-  const combinedOpacity = opacity * occlusionOpacity;
-  const isVisible = combinedOpacity >= 0.05;
-  const isInteractive = Boolean(onSelect || onClick) && isVisible;
+  // Visibility is gated on `occlusionOpacity` alone — the same domain the
+  // ramp below runs in. Gating on `opacity * occlusionOpacity` instead (as
+  // this used to) desyncs the two: for a de-emphasised caller opacity (e.g.
+  // 0.18, a real off-band-spotter value), the combined product doesn't clear
+  // HIDE_THRESHOLD until occlusion ~0.278 — past FADE_IN_END (0.25) — so the
+  // ramp is already saturated at 1 the instant visibility flips on, and the
+  // wrapper pops straight from 0 to a fully-drawn tag instead of fading in.
+  const isVisible = occlusionOpacity >= HIDE_THRESHOLD;
+  // Gated on POINTER_ENABLE_THRESHOLD, not isVisible/HIDE_THRESHOLD -- see
+  // that constant's doc comment.
   const receivesPointer =
-    Boolean(onHover || onHoverEnd || onSelect || onClick) && isVisible;
+    Boolean(onHover || onHoverEnd || onSelect || onClick) &&
+    occlusionOpacity >= POINTER_ENABLE_THRESHOLD;
+  // Ramp the wrapper in linearly across the last band of OCCLUSION opacity
+  // only -- not multiplied by the caller's `opacity` here. The caller's
+  // de-emphasis is already applied once, to the text alpha, via
+  // `flooredOcclusion * opacity` below; multiplying it into the wrapper too
+  // would square it into the rendered result (e.g. opacity=0.18 would yield
+  // wrapper 0.18 * text alpha 0.18 = 0.032 effective ink for a fully visible
+  // tag) -- exactly the double-dimming the B1 fix (4d812d0) removed. `isVisible`
+  // above now shares this ramp's occlusion-only domain, so the two can never
+  // desync and the wrapper can't jump further than one ramp step.
+  const wrapperOpacity = isVisible
+    ? Math.max(
+        0,
+        Math.min(
+          1,
+          (occlusionOpacity - HIDE_THRESHOLD) /
+            (FADE_IN_END - HIDE_THRESHOLD),
+        ),
+      )
+    : 0;
+
+  // `receivesPointer` flips true the instant occlusionOpacity crosses
+  // POINTER_ENABLE_THRESHOLD, but the wrapper's own `opacity 0.3s ease`
+  // transition (below) means the *rendered* opacity can still be mid-fade
+  // -- possibly starting at 0 -- for up to 300ms after that. CSS opacity
+  // never removes hit testing on its own, so without this, a still-fading
+  // (or still-fully-transparent) label could intercept globe clicks/drags
+  // for that entire window (#851, round 8). `pointerReady` closes it: it
+  // only flips true once the wrapper's own opacity transition actually
+  // finishes (`onTransitionEnd`, filtered to `propertyName === "opacity"`
+  // and to events targeting the wrapper itself, not a bubbled child
+  // transition), and flips false immediately -- no transition wait -- the
+  // instant `receivesPointer` goes false, so hiding is never delayed.
+  // Initialised from `receivesPointer` at mount: a label that mounts
+  // already fully visible has no fade-in transition to wait for.
+  const [pointerReady, setPointerReady] = useState(receivesPointer);
+  const receivesPointerRef = useRef(receivesPointer);
+  receivesPointerRef.current = receivesPointer;
+  useEffect(() => {
+    if (!receivesPointer) {
+      setPointerReady(false);
+    }
+  }, [receivesPointer]);
+  const handleWrapperTransitionEnd = useCallback(
+    (event: React.TransitionEvent<HTMLDivElement>) => {
+      if (event.target !== event.currentTarget) return;
+      if (event.propertyName !== "opacity") return;
+      if (receivesPointerRef.current) {
+        setPointerReady(true);
+      }
+    },
+    [],
+  );
+  // Single combined gate for both mouse hit-testing (`pointerEvents`) and
+  // keyboard reachability (rendering a `<button>` vs. an inert `<span>`):
+  // a label that isn't fully faded in yet must be neither clickable nor
+  // tab-focusable, even though `isVisible` (HIDE_THRESHOLD) already true.
+  const interactionReady = receivesPointer && pointerReady;
+  const isInteractive = Boolean(onSelect || onClick) && interactionReady;
+
+  // Rotating below the interaction threshold swaps the <button> for an
+  // inert <span> (via `isInteractive` above) while the component stays
+  // mounted. The removed button node doesn't reliably fire its
+  // blur/mouseleave -- the span never gets onFocus/onBlur at all, and its
+  // onMouseEnter/onMouseLeave are themselves gated on `interactionReady` --
+  // so without this, pointerHoveredRef/keyboardFocusedRef/isHovered stay
+  // set and onHoverEnd never fires: LiveSpotArcs keeps the hover candidate
+  // and preview open, and the occluded label stays promoted in
+  // `activeSpotLabel` (#851, round 12). Mirror the real blur/mouseleave
+  // release exactly once, only on the falling edge (`wasReady &&
+  // !interactionReady`) -- comparing against the previous render's value
+  // (not just checking the refs) means this never fires on mount, since
+  // the ref is seeded from the initial `interactionReady` before any
+  // render runs. A StrictMode replay re-runs this effect with the ref
+  // already updated to the current value, so the comparison is false both
+  // times; once the refs are cleared here, a later render with the same
+  // (still-not-ready) props also compares false and can't re-fire.
+  const wasInteractionReadyRef = useRef(interactionReady);
+  useEffect(() => {
+    const wasReady = wasInteractionReadyRef.current;
+    wasInteractionReadyRef.current = interactionReady;
+    if (
+      wasReady &&
+      !interactionReady &&
+      (pointerHoveredRef.current || keyboardFocusedRef.current)
+    ) {
+      pointerHoveredRef.current = false;
+      keyboardFocusedRef.current = false;
+      setIsHovered(false);
+      onHoverEndRef.current?.();
+    }
+  }, [interactionReady]);
 
   // Size classes - sized for legibility (target audience 50-70 age range)
   const sizeClasses =
@@ -293,10 +450,28 @@ export function SpotLabel({
     .filter(Boolean)
     .join(" ");
 
-  // Text opacity fades with age/occlusion but underline stays fully bright
-  const textOpacity = Math.max(combinedOpacity, 0.35);
+  // Text opacity fades with age/filter/contact dimming and limb occlusion,
+  // but underline stays fully bright. The occlusion term is floored first —
+  // flooring the raw product against a single floor (as before) erased
+  // legitimate `opacity`-prop de-emphasis (active-band filtering, contact
+  // posture, the spotter tag's flat 0.6 discount in `LiveSpotArcs.tsx`).
+  // Below the occlusion floor the white text and the dark badge it sits on
+  // both wash out toward the globe canvas and converge toward each other
+  // faster than either converges toward the canvas. Measured against the
+  // real dark canvas backdrop (`--su-canvas` #141827), TEXT_OCCLUSION_FLOOR
+  // = 0.5 keeps effective text-vs-badge contrast at 5.300:1 (WCAG floor is
+  // 4.5:1; breakeven is ~0.445) at full caller opacity. See `stationContrast`
+  // in `src/lib/themes/stationTokens`. That alone isn't sufficient, though:
+  // de-emphasis multipliers stack across callers, so the combined product
+  // can still collapse well below the occlusion floor even at full occlusion
+  // (occlusionOpacity === 1). `FINAL_ALPHA_FLOOR` backstops the combined
+  // product itself so contrast never regresses below what shipped before
+  // round 8 (#851, round 10) — see its doc comment for why this is safe to
+  // apply unconditionally without defeating far-side hiding.
+  const flooredOcclusion = Math.max(occlusionOpacity, TEXT_OCCLUSION_FLOOR);
+  const textOpacity = Math.max(flooredOcclusion * opacity, FINAL_ALPHA_FLOOR);
   const labelStyle: React.CSSProperties = {
-    cursor: isInteractive ? "pointer" : receivesPointer ? "default" : "inherit",
+    cursor: isInteractive ? "pointer" : interactionReady ? "default" : "inherit",
     color:
       isHovered || selected
         ? "rgba(255, 255, 255, 1)"
@@ -356,61 +531,90 @@ export function SpotLabel({
     <Html
       position={position}
       center
-      // When hovered, boost z-index so this label renders above all others
-      // in the stack. Default [1,0] keeps non-hovered labels in paint order.
+      // When hovered or selected, promote to the dedicated activeSpotLabel
+      // band -- strictly above pinLabel, not the same band pins use -- so
+      // this label renders above every passive tag, cluster chip, marker
+      // AND every saved pin in the stack; otherwise it stays in the passive
+      // spot-tag band. Sharing pinLabel with saved pins (as before) let
+      // drei's per-element camera-distance tie-break put a nearer pin above
+      // a farther promoted tag (#851, round 11) -- see activeSpotLabel's
+      // doc comment in globeRenderOrder.ts.
       zIndexRange={
         isHovered || selected
           ? GLOBE_DOM_LAYER_ORDER.activeSpotLabel
           : GLOBE_DOM_LAYER_ORDER.passiveSpotLabel
       }
-      style={{
-        // Hidden far-side labels must not remain hoverable or clickable through
-        // the globe. Visible labels still accept hover even without onClick.
-        pointerEvents: receivesPointer ? "auto" : "none",
-        userSelect: "none",
-        transition: "opacity 0.3s ease",
-        transform: wrapperTransform || undefined,
-        transformOrigin: "center bottom",
-        // Outer wrapper only hides when fully occluded (behind globe)
-        opacity: isVisible ? 1 : 0,
-      }}
+      // drei's Html renders its own outer DOM wrapper (default
+      // pointer-events: auto) sized to the label's border box, in addition
+      // to the inner div below. Without this, that outer wrapper still
+      // hit-tests even when the inner div is pointer-events: none, so a
+      // hidden/fading label could still block globe drags underneath it
+      // (#851, round 9). Html forwards `style` straight onto that wrapper.
+      style={{ pointerEvents: interactionReady ? "auto" : "none" }}
     >
-      {isInteractive ? (
-        <button
-          type="button"
-          className={`appearance-none border-0 font-mono font-bold whitespace-nowrap ${sizeClasses}`}
-          onMouseEnter={handleMouseEnter}
-          onMouseLeave={handleMouseLeave}
-          onFocus={handleFocus}
-          onBlur={handleBlur}
-          onPointerDown={stopInteraction}
-          onPointerUp={stopInteraction}
-          onTouchStart={stopInteraction}
-          onTouchEnd={stopInteraction}
-          onClick={handleClick}
-          onDoubleClick={handleDoubleClick}
-          onKeyDown={handleKeyDown}
-          onKeyUp={stopInteraction}
-          aria-label={
-            ariaLabel ??
-            (onSelect ? `Select ${callsign} as target` : `${callsign} spot`)
-          }
-          aria-pressed={onSelect ? selected : undefined}
-          style={labelStyle}
-        >
-          {labelContent}
-        </button>
-      ) : (
-        <span
-          className={`block font-mono font-bold whitespace-nowrap ${sizeClasses}`}
-          onMouseEnter={receivesPointer ? handleMouseEnter : undefined}
-          onMouseLeave={receivesPointer ? handleMouseLeave : undefined}
-          aria-hidden="true"
-          style={labelStyle}
-        >
-          {labelContent}
-        </span>
-      )}
+      {/*
+        drei's Html overlay component only forwards style/className/children
+        to the DOM node it owns, not arbitrary event handlers -- so the
+        opacity ramp and its onTransitionEnd listener (needed for
+        `pointerReady` above) have to live on a real element this component
+        renders itself, not on that overlay's own wrapper. This div is that
+        element; it owns exactly the styles the wrapper's style prop used to
+        carry before this change.
+      */}
+      <div
+        data-testid="spot-label-wrapper"
+        onTransitionEnd={handleWrapperTransitionEnd}
+        style={{
+          // Hidden far-side labels must not remain hoverable or clickable
+          // through the globe. `interactionReady`, not `receivesPointer`
+          // alone -- see `pointerReady`'s doc comment above.
+          pointerEvents: interactionReady ? "auto" : "none",
+          userSelect: "none",
+          transition: "opacity 0.3s ease",
+          transform: wrapperTransform || undefined,
+          transformOrigin: "center bottom",
+          // Ramps in across the last band of OCCLUSION opacity and only
+          // fully hides once occluded past HIDE_THRESHOLD.
+          opacity: wrapperOpacity,
+        }}
+      >
+        {isInteractive ? (
+          <button
+            type="button"
+            className={`appearance-none border-0 font-mono font-bold whitespace-nowrap ${sizeClasses}`}
+            onMouseEnter={handleMouseEnter}
+            onMouseLeave={handleMouseLeave}
+            onFocus={handleFocus}
+            onBlur={handleBlur}
+            onPointerDown={stopInteraction}
+            onPointerUp={stopInteraction}
+            onTouchStart={stopInteraction}
+            onTouchEnd={stopInteraction}
+            onClick={handleClick}
+            onDoubleClick={handleDoubleClick}
+            onKeyDown={handleKeyDown}
+            onKeyUp={stopInteraction}
+            aria-label={
+              ariaLabel ??
+              (onSelect ? `Select ${callsign} as target` : `${callsign} spot`)
+            }
+            aria-pressed={onSelect ? selected : undefined}
+            style={labelStyle}
+          >
+            {labelContent}
+          </button>
+        ) : (
+          <span
+            className={`block font-mono font-bold whitespace-nowrap ${sizeClasses}`}
+            onMouseEnter={interactionReady ? handleMouseEnter : undefined}
+            onMouseLeave={interactionReady ? handleMouseLeave : undefined}
+            aria-hidden="true"
+            style={labelStyle}
+          >
+            {labelContent}
+          </span>
+        )}
+      </div>
     </Html>
   );
 }

@@ -30,7 +30,10 @@ import {
   formatBeaconFrequency,
   BEACON_FREQUENCIES,
 } from "@/lib/data/beaconNetwork";
-import { GLOBE_LAYER_ORDER } from "@/lib/map/globeRenderOrder";
+import {
+  GLOBE_LAYER_ORDER,
+  GLOBE_DOM_LAYER_ORDER,
+} from "@/lib/map/globeRenderOrder";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -139,7 +142,7 @@ function BeaconInfoPopup({ beacon, occlusionOpacity }: BeaconInfoPopupProps) {
     <Html
       position={[0, MARKER_SIZE * 6, 0]}
       center
-      zIndexRange={[10, 5]}
+      zIndexRange={GLOBE_DOM_LAYER_ORDER.hud}
       style={{
         pointerEvents: "auto",
         opacity: Math.max(occlusionOpacity, ACTIVE_MIN_OPACITY),
@@ -370,7 +373,7 @@ function BeaconMarker({
       <Html
         position={[0, MARKER_SIZE * 3, 0]}
         center
-        zIndexRange={[1, 0]}
+        zIndexRange={GLOBE_DOM_LAYER_ORDER.marker}
         style={{
           pointerEvents: "none",
           transition: "opacity 0.2s ease",

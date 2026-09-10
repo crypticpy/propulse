@@ -16,6 +16,7 @@ import * as THREE from "three";
 import { useGlobeOcclusion } from "@/hooks/useGlobeOcclusion";
 import { getScreenSpaceScale } from "@/lib/map/screenSpaceScale";
 import {
+  GLOBE_DOM_LAYER_ORDER,
   GLOBE_LAYER_ORDER,
   GLOBE_SURFACE_MARKER_MATERIAL,
 } from "@/lib/map/globeRenderOrder";
@@ -318,7 +319,7 @@ export function PinMarker({
       <Html
         position={[0, STEM_HEIGHT + size * 2, 0]}
         center
-        zIndexRange={[1, 0]}
+        zIndexRange={GLOBE_DOM_LAYER_ORDER.pinLabel}
         style={{
           pointerEvents: "none",
           transition: "all 0.2s ease",
@@ -344,7 +345,7 @@ export function PinMarker({
         <Html
           position={[0, STEM_HEIGHT + size * 3.5, 0]}
           center
-          zIndexRange={[1, 0]}
+          zIndexRange={GLOBE_DOM_LAYER_ORDER.pinLabel}
           style={{
             pointerEvents: "none",
             transition: "opacity 0.2s ease",

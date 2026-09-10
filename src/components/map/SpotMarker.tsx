@@ -12,6 +12,7 @@ import * as THREE from "three";
 import { useGlobeOcclusion } from "@/hooks/useGlobeOcclusion";
 import { getScreenSpaceScale } from "@/lib/map/screenSpaceScale";
 import {
+  GLOBE_DOM_LAYER_ORDER,
   GLOBE_LAYER_ORDER,
   GLOBE_SURFACE_MARKER_MATERIAL,
 } from "@/lib/map/globeRenderOrder";
@@ -235,7 +236,10 @@ export function SpotMarker({
         <Html
           position={[0, size * 3, 0]}
           center
-          zIndexRange={[1, 0]}
+          // This label chip is near-opaque; painting it in the `marker` band
+          // would let it cover passive spot tags underneath (the bug #851
+          // describes). It belongs with the other passive tags instead.
+          zIndexRange={GLOBE_DOM_LAYER_ORDER.passiveSpotLabel}
           style={{
             pointerEvents: "none",
             transition: "opacity 0.2s ease",

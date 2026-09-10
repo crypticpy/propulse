@@ -3,16 +3,13 @@ import { LineMaterial } from "three-stdlib";
 import {
   applyArcLimbFade,
   createArcLimbFadeUniforms,
+  ARC_LIMB_FADE_WINDOW,
   getArcLimbClearance,
   getArcLimbFadeAlpha,
   patchArcLimbFadeShader,
   updateArcLimbFadeUniforms,
 } from "./arcLimbFade";
-import {
-  getGlobeOcclusionOpacity,
-  limbAlphaGate,
-  LIMB_ALPHA_GATE_WINDOW,
-} from "./globeOcclusion";
+import { getGlobeOcclusionOpacity, limbAlphaGate } from "./globeOcclusion";
 
 const CAMERA_DISTANCE = 2.5;
 const SURFACE_RADIUS = 1.005;
@@ -38,18 +35,43 @@ describe("getArcLimbFadeAlpha", () => {
     expect(partial.length).toBeGreaterThan(5);
   });
 
-  it("uses the same window as the label gate for a unit-radius point", () => {
-    // A tag and its arc must disappear together. At radius 1 the arc math
-    // reduces to limbAlphaGate(getGlobeOcclusionOpacity(...)), which is
-    // exactly what SpotLabel multiplies its floored alpha by.
-    const frameDistance = 3;
-    for (const dot of [-0.2, 0.1, 0.3, 0.32, 0.36, 0.4, 0.8]) {
-      const occlusion = occlusionFromDot(dot, frameDistance);
-      expect(getArcLimbFadeAlpha(1, dot, frameDistance)).toBeCloseTo(
-        limbAlphaGate(occlusion),
-        10,
-      );
-    }
+  it("fades out ACROSS the visible side and reaches 0 at tangency", () => {
+    // The arc must be mid-fade while it is still in front of the globe: past
+    // tangency the depth test rejects it, so a band centred on the horizon
+    // would never render a partially faded pixel and the arc would pop.
+    const dotAt = (clearance: number) => 1 / CAMERA_DISTANCE + clearance;
+    const justBefore = getArcLimbFadeAlpha(1, dotAt(0.01), CAMERA_DISTANCE);
+    expect(justBefore).toBeGreaterThan(0);
+    expect(justBefore).toBeLessThan(1);
+    // Half the window in is a clearly partial alpha, not a rounding artefact.
+    const midway = getArcLimbFadeAlpha(
+      1,
+      dotAt(ARC_LIMB_FADE_WINDOW / 2),
+      CAMERA_DISTANCE,
+    );
+    expect(midway).toBeCloseTo(0.5, 5);
+    // At and past tangency: nothing left for the depth test to cut.
+    expect(getArcLimbFadeAlpha(1, dotAt(0), CAMERA_DISTANCE)).toBe(0);
+    expect(getArcLimbFadeAlpha(1, dotAt(-0.01), CAMERA_DISTANCE)).toBe(0);
+    // Full alpha once a window clear of the horizon.
+    expect(
+      getArcLimbFadeAlpha(1, dotAt(ARC_LIMB_FADE_WINDOW), CAMERA_DISTANCE),
+    ).toBe(1);
+  });
+
+  it("stays inside the labels' own fade region", () => {
+    // Labels are not depth-tested, so their band straddles the horizon: the
+    // shared gate is still 1 at tangency and only reaches 0 once the tag is
+    // fully behind the globe. The arc is therefore always gone first, never
+    // left hanging after its tag has faded.
+    const occlusionAtTangency = occlusionFromDot(
+      1 / CAMERA_DISTANCE,
+      CAMERA_DISTANCE,
+    );
+    expect(limbAlphaGate(occlusionAtTangency)).toBe(1);
+    expect(getArcLimbFadeAlpha(1, 1 / CAMERA_DISTANCE, CAMERA_DISTANCE)).toBe(
+      0,
+    );
   });
 
   it("keeps a band-height arc peak visible far past the surface limb", () => {
@@ -59,12 +81,16 @@ describe("getArcLimbFadeAlpha", () => {
     // dot ~= 0.19, which erased the peaks of every multi-hop arc.
     const r = 1.283;
     expect(getArcLimbFadeAlpha(r, 0.19, CAMERA_DISTANCE)).toBe(1);
-    expect(getArcLimbFadeAlpha(r, -0.2, CAMERA_DISTANCE)).toBe(1);
+    // -0.2 is 0.062 clear of this radius's horizon: mid-fade, still drawn.
+    expect(getArcLimbFadeAlpha(r, -0.2, CAMERA_DISTANCE)).toBeGreaterThan(0);
+    expect(getArcLimbFadeAlpha(r, -0.2, CAMERA_DISTANCE)).toBeLessThan(1);
     // The boundary itself sits at n* = (1/r - sqrt(D^2-1)*sqrt(1-1/r^2)) / D
     // = -0.2624 for these inputs: still (just) visible at -0.26, gone below.
     expect(getArcLimbClearance(r, -0.26, CAMERA_DISTANCE)).toBeGreaterThan(0);
     expect(getArcLimbClearance(r, -0.26, CAMERA_DISTANCE)).toBeLessThan(0.01);
     expect(getArcLimbClearance(r, -0.2624, CAMERA_DISTANCE)).toBeCloseTo(0, 3);
+    // -0.2624 is the boundary to 4 dp; alpha is zero to floating-point dust.
+    expect(getArcLimbFadeAlpha(r, -0.2624, CAMERA_DISTANCE)).toBeCloseTo(0, 6);
     expect(getArcLimbFadeAlpha(r, -0.45, CAMERA_DISTANCE)).toBe(0);
     // A surface vertex at the same dot is long gone.
     expect(getArcLimbFadeAlpha(1.0, -0.2, CAMERA_DISTANCE)).toBe(0);
@@ -168,9 +194,9 @@ describe("patchArcLimbFadeShader", () => {
     expect(
       patched!.fragmentShader.indexOf("varying float vLimbFade;"),
     ).toBeLessThan(patched!.fragmentShader.indexOf("void main() {"));
-    // The gate window is inlined into the vertex source from the shared
-    // constant, so label and arc fades cannot drift apart.
-    expect(patched!.vertexShader).toContain(LIMB_ALPHA_GATE_WINDOW.toFixed(6));
+    // The window is inlined into the vertex source from the exported
+    // constant, so the shader and the CPU mirror cannot drift apart.
+    expect(patched!.vertexShader).toContain(ARC_LIMB_FADE_WINDOW.toFixed(6));
   });
 
   it("declines to patch a shader whose anchors are gone", () => {

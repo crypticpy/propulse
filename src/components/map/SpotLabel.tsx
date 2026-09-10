@@ -270,6 +270,10 @@ export function SpotLabel({
   // the hover/selected branches that bypass `textOpacity` entirely. Gating
   // only the text alpha left underlines, badges and selected pills painted
   // over the far side of the globe after the callsign had faded out.
+  // A label is not depth-tested, so this band straddles the limb: the tag
+  // stays lit up to tangency and fades out just past it. Arcs cannot do that
+  // (the depth test rejects them at tangency) and fade on the visible side
+  // instead — see `ARC_LIMB_FADE_WINDOW` in `src/lib/map/arcLimbFade.ts`.
   const wrapperOpacity = isVisible
     ? Math.max(
         0,

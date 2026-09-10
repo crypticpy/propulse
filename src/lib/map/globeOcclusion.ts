@@ -37,6 +37,13 @@ export const LIMB_FADE_AFTER = 0.12;
  * same occlusion value instead of crossing in the middle of the ramp. In dot
  * terms it is roughly the last 0.05 of the ~0.17-wide occlusion band, i.e. a
  * couple of degrees of rotation rather than a hard cut.
+ *
+ * This gate is for overlays that are NOT depth-tested — labels and markers,
+ * which stay lit up to the limb and fade out just past it. Spot arcs are
+ * depth-tested against the globe, so their fade has to finish before tangency
+ * instead; they use their own window on the visible side
+ * (`ARC_LIMB_FADE_WINDOW` in `src/lib/map/arcLimbFade.ts`, which explains
+ * why).
  */
 export const LIMB_ALPHA_GATE_WINDOW = 0.25;
 

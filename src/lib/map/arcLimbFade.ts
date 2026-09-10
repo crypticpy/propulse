@@ -7,11 +7,21 @@
  * transparent-pass basemap, so at grazing angles whole sets of long arcs pop in
  * and out over two or three degrees of rotation while their spot tags stay put.
  *
- * This module gives arcs the same limb ramp the labels and markers already use
- * (`src/lib/map/globeOcclusion.ts`): a per-vertex dot product against the
- * camera direction, smoothstepped across the shared fade band and then through
- * the shared `limbAlphaGate` window, multiplied into the fragment alpha. Depth
- * testing is left exactly as it was — this only softens the horizon crossing.
+ * This module gives arcs a per-vertex limb fade built on the same geometry the
+ * labels and markers use (`src/lib/map/globeOcclusion.ts`): a dot product
+ * against the globe-local camera direction, turned into a signed clearance
+ * from the horizon and smoothstepped into the fragment alpha. Depth testing is
+ * left exactly as it was — this only softens the horizon crossing.
+ *
+ * The fade band sits on the VISIBLE side of tangency, which is where it
+ * differs from the labels. Labels are not depth-tested, so their band can
+ * straddle the horizon: a tag stays lit up to the limb and fades out over the
+ * dot range just past it. An arc cannot do that, because the moment a vertex
+ * passes tangency the GPU depth test rejects it against the globe — a fade
+ * that only begins there would never render a single partially-faded pixel,
+ * which is the pop this change exists to remove. So an arc ramps from full
+ * alpha at `ARC_LIMB_FADE_WINDOW` before tangency down to 0 exactly at
+ * tangency, handing over to the depth test with nothing left to hide.
  *
  * Two details matter for correctness:
  *
@@ -31,14 +41,19 @@
  */
 
 import * as THREE from "three";
-import {
-  createGlobeOcclusionFrame,
-  LIMB_ALPHA_GATE_WINDOW,
-  LIMB_FADE_AFTER,
-  LIMB_FADE_BEFORE,
-  limbAlphaGate,
-  smoothstep,
-} from "./globeOcclusion";
+import { createGlobeOcclusionFrame, smoothstep } from "./globeOcclusion";
+
+/**
+ * Width of the arc fade, in dot-product units of clearance from the horizon.
+ *
+ * An arc vertex is at full alpha this far in front of tangency and reaches 0
+ * at tangency itself. 0.12 matches the width of the far half of the labels'
+ * occlusion band (`LIMB_FADE_AFTER`), so the two fade at the same visual rate
+ * — roughly 7 degrees of rotation at a typical camera distance — even though
+ * the arc band is positioned before the horizon and the label band after it.
+ * See the module comment for why they cannot share a position.
+ */
+export const ARC_LIMB_FADE_WINDOW = 0.12;
 
 /** Shared uniform block. One instance is reused by every arc material. */
 export interface ArcLimbFadeUniforms {
@@ -129,8 +144,7 @@ export function getArcLimbFadeAlpha(
 ): number {
   if (!(pointRadius > 0) || !(cameraDistance > 1)) return 1;
   const clearance = getArcLimbClearance(pointRadius, dotNormal, cameraDistance);
-  const occlusion = smoothstep(-LIMB_FADE_AFTER, LIMB_FADE_BEFORE, clearance);
-  return limbAlphaGate(occlusion);
+  return smoothstep(0, ARC_LIMB_FADE_WINDOW, clearance);
 }
 
 const glsl = (value: number) => value.toFixed(6);
@@ -153,8 +167,7 @@ const VERTEX_MAIN = `
 	float limbRise = sqrt( max( 1.0 - limbInverseRadius * limbInverseRadius, 0.0 ) );
 	float limbBoundary = ( limbInverseRadius - limbSilhouette * limbRise ) / uLimbCameraDistance;
 	float limbClearance = limbDotN - limbBoundary;
-	float limbOcclusion = smoothstep( ${glsl(-LIMB_FADE_AFTER)}, ${glsl(LIMB_FADE_BEFORE)}, limbClearance );
-	vLimbFade = smoothstep( 0.0, ${glsl(LIMB_ALPHA_GATE_WINDOW)}, limbOcclusion );
+	vLimbFade = smoothstep( 0.0, ${glsl(ARC_LIMB_FADE_WINDOW)}, limbClearance );
 `;
 
 const FRAGMENT_PARS = `

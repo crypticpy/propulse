@@ -289,3 +289,114 @@ describe("PropSphere page chrome sits on MAP_PAGE_CHROME_Z (#930)", () => {
     ).toEqual([]);
   });
 });
+
+/**
+ * Every `GlobeView` host has to bound the overlay portal (#930, round 2).
+ *
+ * `MapSurface` no longer isolates, so `mapOverlayPortal`'s 11000 resolves in
+ * the nearest ancestor stacking context. Each host therefore owes one of two
+ * things:
+ *
+ *   - a `data-map-stack-root` wrapper carrying `isolate`, which contains the
+ *     `<GlobeView>` mount and any chrome that must stay BELOW the portal (a
+ *     legend), so everything outside it — the host's own toolbars, panels,
+ *     tab bars and dialogs — outranks the portal automatically; or
+ *   - explicit values on `MAP_PAGE_CHROME_Z` for the chrome on each side of
+ *     the portal. `PropSphere` is the one host that must take this route: its
+ *     legend stack is positioned against the map `Card`, not the map
+ *     container, so it cannot live inside an isolated wrapper. The `Card`'s
+ *     `backdrop-blur-md` bounds the escape there, and the suite below covers
+ *     the ordering.
+ */
+describe("every GlobeView host bounds the overlay portal (#930, round 2)", () => {
+  /** Hosts that bound the portal with an isolated `data-map-stack-root`. */
+  const STACK_ROOT_HOSTS = [
+    "src/components/map/FullscreenPropSphere.tsx",
+    "src/components/map/HamClockView.tsx",
+    "src/components/mobile/MobileMap.tsx",
+    "src/components/atmos/AtmosGlobeView.tsx",
+  ];
+
+  /** The host that bounds it with the `MAP_PAGE_CHROME_Z` scale instead. */
+  const TOKEN_SCALE_HOSTS = ["src/pages/PropSphere.tsx"];
+
+  /** Every non-test `.tsx` under `src/**`, recursively. */
+  function listTsxFiles(dir: string): string[] {
+    const out: string[] = [];
+    for (const entry of readdirSync(dir)) {
+      const full = join(dir, entry);
+      if (statSync(full).isDirectory()) {
+        out.push(...listTsxFiles(full));
+        continue;
+      }
+      if (!entry.endsWith(".tsx")) continue;
+      if (entry.endsWith(".test.tsx")) continue;
+      out.push(full);
+    }
+    return out;
+  }
+
+  const MOUNTS = listTsxFiles(resolve(REPO_ROOT, "src"))
+    .filter((f) => /<GlobeView[\s/>]/.test(readFileSync(f, "utf8")))
+    .map((f) => relative(REPO_ROOT, f))
+    .sort();
+
+  it("census: the known hosts are every GlobeView mount site in src", () => {
+    // A new host that skips both routes would let the portal escape into its
+    // page. Adding one means picking a route above and listing it here.
+    expect(MOUNTS).toEqual([...STACK_ROOT_HOSTS, ...TOKEN_SCALE_HOSTS].sort());
+  });
+
+  it.each(STACK_ROOT_HOSTS)(
+    "%s isolates its map stack root above the GlobeView mount",
+    (host) => {
+      const src = readSrc(host);
+      const marker = src.indexOf("data-map-stack-root");
+      expect(
+        marker,
+        `${host} mounts <GlobeView> with no data-map-stack-root wrapper: mapOverlayPortal's ${GLOBE_DOM_LAYER_ORDER.mapOverlayPortal} would outrank this host's own chrome and dialogs`,
+      ).toBeGreaterThan(-1);
+
+      const tagStart = src.lastIndexOf("<", marker);
+      expect(tagStart).toBeGreaterThan(-1);
+      const tag = src
+        .slice(tagStart, tagStart + 1200)
+        .replace(/\/\/[^\n]*/g, "");
+      const tagEnd = tag.indexOf(">");
+      expect(
+        tagEnd,
+        `no closing > for the stack root in ${host}`,
+      ).toBeGreaterThan(-1);
+      const openTag = tag.slice(0, tagEnd + 1);
+      const classNameMatch = openTag.match(/className="([^"]*)"/);
+      expect(
+        classNameMatch,
+        `the data-map-stack-root element in ${host} has no className:\n${openTag}`,
+      ).not.toBeNull();
+      expect(
+        classNameMatch![1].split(/\s+/),
+        `${host}'s data-map-stack-root must carry "isolate" or the overlay portal escapes into the host's chrome`,
+      ).toContain("isolate");
+
+      const mount = src.search(/<GlobeView[\s/>]/);
+      expect(
+        mount,
+        `${host}'s <GlobeView> must be mounted inside the data-map-stack-root wrapper, not before it`,
+      ).toBeGreaterThan(tagStart);
+    },
+  );
+
+  it.each(TOKEN_SCALE_HOSTS)(
+    "%s puts its chrome on MAP_PAGE_CHROME_Z instead of isolating",
+    (host) => {
+      const src = readSrc(host);
+      expect(src).toContain("MAP_PAGE_CHROME_Z");
+      // Positive control for the exemption: if this host ever gains a stack
+      // root, the suite above should own it instead of the token scale.
+      expect(
+        src.includes("data-map-stack-root"),
+        `${host} now has a data-map-stack-root: move it to STACK_ROOT_HOSTS`,
+      ).toBe(false);
+    },
+  );
+});

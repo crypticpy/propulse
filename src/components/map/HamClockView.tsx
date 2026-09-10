@@ -452,7 +452,11 @@ export function HamClockView({
 
   const mapStage = (
     <main
-      className="min-h-0 min-w-0 overflow-hidden relative bg-void-black"
+      data-map-stack-root
+      // `isolate` bounds the map's overlay portal (11000) to the map stage so
+      // it cannot outrank the wall chrome or a dialog opened above it; the
+      // chips inside this stage stay below the portal, as intended (#930).
+      className="min-h-0 min-w-0 overflow-hidden relative isolate bg-void-black"
       onPointerDownCapture={() => {
         userNavigated.current = true;
       }}

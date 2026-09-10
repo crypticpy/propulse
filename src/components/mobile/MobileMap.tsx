@@ -252,8 +252,10 @@ export function MobileMap() {
   return (
     <BoundViewHost slot="normal">
     <div className="flex flex-col h-full relative">
-      {/* Map fills available space */}
-      <div className="flex-1 relative min-h-0">
+      {/* Map fills available space. `isolate` bounds the map's overlay portal
+          (11000) here so it cannot outrank the bottom panel (z-20), the tab
+          bar (z-50) or a modal on the page (#930). */}
+      <div data-map-stack-root className="flex-1 relative min-h-0 isolate">
         {viewMode === "globe" ? (
           <Suspense fallback={<GlobeLoadingFallback />}>
             <GlobeView displayTime={displayTime} />

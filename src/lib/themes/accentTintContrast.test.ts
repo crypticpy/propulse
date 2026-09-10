@@ -601,33 +601,119 @@ function extractClassSourceValue(source: string, locator: string): string {
 }
 
 /**
- * The alpha `FIXED_SITES` measures for a site. For a row with `classSource`,
- * this reads the full declaration that locator opens (via
- * `extractClassSourceValue`), so a rogue tint on a sibling branch or entry
- * of that same declaration is caught even when it never touches `snippet`'s
- * own line -- the #843 round-4 Codex thread, which named the round-3
- * snippet-only fallback below as the same blindness the round-3 fix itself
- * closed for inline classNames. For every other row, this reads the whole
- * `className` attribute the snippet lives in (via `extractClassNameValue`),
- * so a `hover:bg-plasma-orange/N` wrapped onto a different line or branch of
- * the same className -- the #843 round-3 Codex thread, reproduced on
+ * The single source of truth for what a `FIXED_SITES` row is judged against,
+ * for both the alpha derivation below and the ink assertions further down.
+ * For a row with `classSource`, this is the full declaration that locator
+ * opens (via `extractClassSourceValue`), so a rogue tint or a rogue ink class
+ * on a sibling branch or entry of that same declaration is caught even when
+ * it never touches `snippet`'s own line -- the #843 round-4 Codex thread,
+ * which named the round-3 snippet-only fallback as the same blindness the
+ * round-3 fix itself closed for inline classNames. For every other row, this
+ * is the whole `className` attribute the snippet lives in (via
+ * `extractClassNameValue`), so a `hover:bg-plasma-orange/N` or a rogue
+ * `text-plasma-orange` wrapped onto a different line or branch of the same
+ * className -- the #843 round-3 Codex thread, reproduced on
  * `ActivationPanel`'s SOTA selector button -- is not missed either.
- * `deriveAlpha` itself is unchanged; this only changes what gets fed to it.
  *
  * There is no silent fallback: a row whose class string is not literally
  * inside a `className=` attribute must carry `classSource`, or
  * `extractClassNameValue` throws and the row's own test fails, naming it.
- * The prior round measured such rows against `site.snippet` alone on a
- * catch -- exactly the hole this round closes. Confirmed there: none of the
- * existing 44 `FIXED_SITES` rows' measured alpha actually changes under this
- * rule from what round 3 measured -- this is a coverage widening for future
- * regressions, not a correction of a past one.
+ */
+function locatedClassText(source: string, site: TintedSite): string {
+  if (site.classSource !== undefined) {
+    return extractClassSourceValue(source, site.classSource);
+  }
+  return extractClassNameValue(source, site.snippet);
+}
+
+/**
+ * The alpha `FIXED_SITES` measures for a site: read fresh from
+ * `locatedClassText`, not from `site.snippet` alone. `deriveAlpha` itself is
+ * unchanged; this only changes what gets fed to it. Confirmed when this was
+ * introduced (#843 round 4): none of the existing 44 `FIXED_SITES` rows'
+ * measured alpha actually changed under this rule from what round 3
+ * measured -- this is a coverage widening for future regressions, not a
+ * correction of a past one.
  */
 function measuredAlpha(source: string, site: TintedSite): number {
-  if (site.classSource !== undefined) {
-    return deriveAlpha(extractClassSourceValue(source, site.classSource));
+  return deriveAlpha(locatedClassText(source, site));
+}
+
+/**
+ * The quoted string literals inside `text`, in order, with escape sequences
+ * left intact (they never matter for a class-name substring check). A plain
+ * dequoted `className="..."` value (`extractClassNameValue`'s quote-delimited
+ * case) has no quotes of its own, so this returns no segments for it --
+ * `tintedBranches` below treats that as a single implicit branch. A backtick
+ * template with an interpolated ternary, an array literal, or a
+ * `classSource` declaration all carry their alternatives as separate quoted
+ * strings (plus, for a `classSource` declaration, unrelated quoted
+ * identifiers like a switch's `case` labels or a ternary's own comparison
+ * value -- harmless, since nothing downstream judges a segment that carries
+ * no accent tint).
+ */
+function quotedSegments(text: string): string[] {
+  const segments: string[] = [];
+  let i = 0;
+  while (i < text.length) {
+    const quote = text[i];
+    if (quote === '"' || quote === "'" || quote === "`") {
+      let j = i + 1;
+      let content = "";
+      while (j < text.length && text[j] !== quote) {
+        if (text[j] === "\\") {
+          content += text.slice(j, j + 2);
+          j += 2;
+          continue;
+        }
+        content += text[j];
+        j++;
+      }
+      segments.push(content);
+      i = j + 1;
+      continue;
+    }
+    i++;
   }
-  return deriveAlpha(extractClassNameValue(source, site.snippet));
+  return segments;
+}
+
+/**
+ * The branches of `text` an ink check should judge separately: each quoted
+ * string literal it carries, or -- when it carries none, i.e. it is already
+ * a single dequoted class-list string -- the whole text as one branch.
+ */
+function tintedBranches(text: string): string[] {
+  const segments = quotedSegments(text);
+  return segments.length > 0 ? segments : [text];
+}
+
+/**
+ * Every branch of `text` that carries a `bg-plasma-orange/N` tint must also
+ * carry `text-su-text` and must not carry `text-plasma-orange` -- branches
+ * without a tint of their own (an untinted sibling in a ternary, a switch
+ * case for another type, a comparison value that happens to be quoted) are
+ * not judged, since they ship no accent ink for the contrast table below to
+ * answer for. Judging `locatedClassText`'s branches, not `site.snippet`,
+ * means a rogue ink class added to a *different* branch of the same
+ * declaration -- one `snippet` never names -- is still caught, matching how
+ * `measuredAlpha` above already reads the whole declaration rather than the
+ * snippet alone.
+ */
+function assertInkOnTintedBranches(text: string, what: string): void {
+  for (const branch of tintedBranches(text)) {
+    if (!/bg-plasma-orange\//.test(branch)) {
+      continue;
+    }
+    expect(
+      branch.includes("text-su-text"),
+      `${what}: a bg-plasma-orange branch does not carry text-su-text:\n${branch}`,
+    ).toBe(true);
+    expect(
+      branch.includes("text-plasma-orange"),
+      `${what}: a bg-plasma-orange branch draws accent ink on its own tint again:\n${branch}`,
+    ).toBe(false);
+  }
 }
 
 /**
@@ -918,17 +1004,12 @@ describe("the fixed accent-tint sites ship the --su-text treatment (#803)", () =
         source.includes(site.snippet),
         `${site.file} no longer contains the measured snippet:\n${site.snippet}`,
       ).toBe(true);
-      // The measurement is only honest if the snippet really carries the ink
-      // the table claims -- checked against the string just proven to be a
-      // substring of the file, not against another field of this object.
-      expect(
-        site.snippet.includes("text-su-text"),
-        `${site.what}'s measured snippet does not carry text-su-text`,
-      ).toBe(true);
-      expect(
-        site.snippet.includes("text-plasma-orange"),
-        `${site.what} draws accent ink on its own tint again`,
-      ).toBe(false);
+      // The measurement is only honest if every tinted branch of the located
+      // declaration really carries the ink the table claims -- checked
+      // against `locatedClassText`, the same text `measuredAlpha` reads
+      // below, not against `site.snippet` alone. A sibling branch of the
+      // same declaration that `snippet` never names is judged too.
+      assertInkOnTintedBranches(locatedClassText(source, site), site.what);
       expect(
         measuredAlpha(source, site),
         `${site.what} ships a tint above the measured cap`,

@@ -1,5 +1,6 @@
 import { act, render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it } from "vitest";
+import { OPERATING_PROTOCOL_VERSION } from "@/lib/workspace/operatingChannel";
 import { useOperatingStateStore } from "@/stores/operatingStateStore";
 import { HamClockWallCursorChip } from "./HamClockWallCursorChip";
 
@@ -56,6 +57,67 @@ describe("HamClockWallCursorChip", () => {
     expect(chip.textContent).toContain("K1ABC");
     expect(chip.textContent).toContain("20M");
     expect(chip.textContent).toContain("PHONE");
+  });
+
+  it("names the original writer after another screen relays the cursor", () => {
+    // A `hello` reply relays someone else's write. The chip must keep naming
+    // the screen the operator actually used, not whichever peer answered
+    // (#859 round 5) — the same attribution the merge rule depends on.
+    const at = Date.now();
+    act(() => {
+      useOperatingStateStore.setState({
+        registrations: {
+          "aaa-phone::phone-canvas": {
+            deviceId: "aaa-phone",
+            workspaceId: "phone-canvas",
+            canvasType: "phone",
+            label: "Phone",
+            capabilities: { canTune: true, canCommand: true },
+            lastSeen: at,
+          },
+          "zzz-peer::desk-canvas": {
+            deviceId: "zzz-peer",
+            workspaceId: "desk-canvas",
+            canvasType: "workstation",
+            label: "Desk",
+            capabilities: { canTune: true, canCommand: true },
+            lastSeen: at,
+          },
+        },
+      });
+      // First hand from the phone.
+      useOperatingStateStore.getState().applyMessage({
+        v: OPERATING_PROTOCOL_VERSION,
+        senderId: "aaa-phone",
+        sentAt: at,
+        kind: "state",
+        patch: {
+          target: {
+            value: { callsign: "K1ABC", grid: "EM10", lat: null, lon: null, spotId: null },
+            at,
+          },
+        },
+      });
+      // Then relayed by the peer whose id sorts above the phone's.
+      useOperatingStateStore.getState().applyMessage({
+        v: OPERATING_PROTOCOL_VERSION,
+        senderId: "zzz-peer",
+        sentAt: at,
+        kind: "state",
+        patch: {
+          target: {
+            value: { callsign: "K1ABC", grid: "EM10", lat: null, lon: null, spotId: null },
+            at,
+            by: "aaa-phone",
+          },
+        },
+      });
+    });
+
+    render(<HamClockWallCursorChip />);
+    const chip = screen.getByRole("status", { name: "Shared operating cursor" });
+    expect(chip.textContent).toContain("PHONE");
+    expect(chip.textContent).not.toContain("WORKSTATION");
   });
 
   it("omits the source when the writing screen has dropped off the roster", () => {

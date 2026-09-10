@@ -70,6 +70,12 @@ export interface FieldStamp {
    * never compare it against a locally produced timestamp. Use `appliedAt`.
    */
   at: number;
+  /**
+   * The screen that originally wrote the field — not whichever peer relayed
+   * it. A `hello` reply carries the author along (`currentPatch`), so this
+   * survives a relay and readers such as `HamClockWallCursorChip` name the
+   * screen the operator actually used.
+   */
   by: string;
   /**
    * This screen's `Date.now()` at the moment the write was *applied here*
@@ -194,8 +200,10 @@ function nextStamp(): number {
  * Deterministic on every screen: newer wins, and the higher sender id breaks a
  * tie. Compares the wire `at`, never `appliedAt` — arrival order differs per
  * screen, so merging on it would let two screens disagree about the winner.
+ * Takes only the wire half of a stamp, so a caller cannot mint the local half
+ * before knowing whether the write is even accepted.
  */
-function beats(incoming: FieldStamp, current: FieldStamp): boolean {
+function beats(incoming: Pick<FieldStamp, "at" | "by">, current: FieldStamp): boolean {
   if (incoming.at !== current.at) return incoming.at > current.at;
   return incoming.by > current.by;
 }
@@ -256,23 +264,36 @@ function post(payload: OperatingPayload): void {
 
 /**
  * The full cursor as a patch, used to answer a `hello` from a screen that just
- * opened. Sends `value` and the wire `at` only: `by` is carried by the
- * envelope's `senderId`, and `appliedAt`/`appliedSeq` are local to whichever
- * screen applied the write and are meaningless anywhere else.
+ * opened — and to publish this screen's view after it starts following.
+ *
+ * A relay is not a write. Both `at` and `by` are the *original* writer's, so
+ * the same logical write is byte-identical whichever peer answers: without
+ * `by`, the receiver would attribute it to the relaying peer, and a peer
+ * whose id sorts above the original author's would win `beats()` all over
+ * again — re-applying a cursor the receiver already had, and refreshing its
+ * local `appliedAt`/`appliedSeq` so a map target chosen in between looks
+ * older on the next remount (#859 round 5).
+ *
+ * `appliedAt`/`appliedSeq` themselves are never sent: they are local to
+ * whichever screen applied the write and are meaningless anywhere else.
  */
 function currentPatch(state: OperatingStateStoreState): CursorPatch {
   const patch: CursorPatch = {};
   for (const field of CURSOR_FIELDS) {
     const stamp = state.stamps[field];
     if (stamp.at === 0) continue;
-    Object.assign(patch, { [field]: { value: state.cursor[field], at: stamp.at } });
+    Object.assign(patch, {
+      [field]: { value: state.cursor[field], at: stamp.at, by: stamp.by },
+    });
   }
   return patch;
 }
 
 /**
  * Applies a patch under the per-field last-writer-wins rule. `by` is the
- * writer's id — this screen's own for a local edit.
+ * sender's id — this screen's own for a local edit — and is used only when
+ * the entry does not name an original author of its own (a first-hand write,
+ * or a relay from a bundle older than #859 round 5).
  */
 function mergePatch(
   state: OperatingStateStoreState,
@@ -286,19 +307,26 @@ function mergePatch(
   for (const field of CURSOR_FIELDS) {
     const entry = patch[field];
     if (!entry) continue;
-    // `appliedAt`/`appliedSeq` are stamped here — the one place a stamp is
-    // written — so they cover every path: a local `writeField` (same moment
-    // as its `nextStamp()`), an inbound `state` patch, a `hello` reply, and
-    // the `selectSpot` command that also moves the cursor.
-    const incoming: FieldStamp = {
-      at: entry.at,
-      by,
+    // The logical author, which for a relayed `hello` reply is not the
+    // sender. A write this screen already holds therefore arrives with an
+    // `(at, by)` identical to the stamp it already has, and `beats()`
+    // declines it — no value change and, because the local half of the stamp
+    // is minted *below* this check rather than above it, no refresh of
+    // `appliedAt`/`appliedSeq` either. Re-stamping a write already held is
+    // what let a replay outrank a map target chosen in between (#859 round 5).
+    const incoming = { at: entry.at, by: entry.by ?? by };
+    if (!beats(incoming, stamps[field])) continue;
+    // Stamped here — the one place a stamp is written — so the local half
+    // covers every accepted path: a local `writeField` (same moment as its
+    // `nextStamp()`), an inbound `state` patch, a `hello` reply carrying a
+    // genuinely newer write, and the `selectSpot` command that also moves
+    // the cursor.
+    Object.assign(cursor, { [field]: entry.value });
+    stamps[field] = {
+      ...incoming,
       appliedAt: Date.now(),
       appliedSeq: nextLocalWriteSeq(),
     };
-    if (!beats(incoming, stamps[field])) continue;
-    Object.assign(cursor, { [field]: entry.value });
-    stamps[field] = incoming;
     changed = true;
   }
 

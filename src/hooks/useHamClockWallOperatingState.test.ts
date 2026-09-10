@@ -52,6 +52,33 @@ function inboundTarget(
   };
 }
 
+/**
+ * A `hello` reply: a peer re-announcing a write it heard from someone else.
+ * `at` and `by` are the original author's; only the envelope's `senderId` is
+ * the relaying peer's.
+ */
+function relayedTarget(
+  relayId: string,
+  author: string,
+  callsign: string,
+  grid: string | null,
+  at: number,
+) {
+  return {
+    v: OPERATING_PROTOCOL_VERSION,
+    senderId: relayId,
+    sentAt: Date.now(),
+    kind: "state" as const,
+    patch: {
+      target: {
+        value: { callsign, grid, lat: null, lon: null, spotId: null },
+        at,
+        by: author,
+      },
+    },
+  };
+}
+
 /** A phone whose clock is a full day away from this browser's. */
 const SKEW_MS = 24 * 60 * 60 * 1000;
 
@@ -232,6 +259,61 @@ describe("useHamClockWallOperatingState", () => {
 
     // No second write: the sequence would have advanced.
     expect(useMapStore.getState().targetSeq).toBe(appliedSeq);
+  });
+
+  it("keeps a local target when a peer relays the cursor it already applied", () => {
+    // Every peer answers a `hello` with its view of the cursor. That reply is
+    // a relay, not a write: if it were attributed to the relaying peer and
+    // that peer's id sorted above the original author's, `beats()` would
+    // accept the same logical write a second time and refresh its local
+    // arrival stamp — making a cursor from before the operator's own pick
+    // look newer than it on the next remount (#859 round 5).
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-09-10T00:00:00Z"));
+
+    const cursorAt = Date.now();
+    useOperatingStateStore
+      .getState()
+      .applyMessage(inboundTarget("aaa-phone", "K1ABC", "EM10"));
+
+    // The operator then picks a target on the wall itself.
+    vi.advanceTimersByTime(5_000);
+    useMapStore.getState().setTarget({ lat: 40, lon: -80, name: "W3ABC" });
+
+    // A peer whose id sorts *above* the phone's replies to a `hello`.
+    vi.advanceTimersByTime(5_000);
+    act(() => {
+      useOperatingStateStore
+        .getState()
+        .applyMessage(relayedTarget("zzz-peer", "aaa-phone", "K1ABC", "EM10", cursorAt));
+    });
+
+    // The relay changed nothing: same author, same arrival stamp as the
+    // original application.
+    expect(useOperatingStateStore.getState().stamps.target.by).toBe("aaa-phone");
+    expect(useOperatingStateStore.getState().stamps.target.appliedAt).toBe(cursorAt);
+
+    renderHook(() => useHamClockWallOperatingState());
+
+    expect(useMapStore.getState().target).toMatchObject({ name: "W3ABC", lat: 40, lon: -80 });
+  });
+
+  it("still applies a genuinely newer cursor from the relaying peer", () => {
+    // The guard above must reject a re-delivery, not the peer: a write that
+    // peer makes itself, after the local pick, still wins.
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-09-10T00:00:00Z"));
+
+    useMapStore.getState().setTarget({ lat: 40, lon: -80, name: "W3ABC" });
+
+    vi.advanceTimersByTime(5_000);
+    useOperatingStateStore
+      .getState()
+      .applyMessage(inboundTarget("zzz-peer", "W2XYZ", "FN20"));
+
+    renderHook(() => useHamClockWallOperatingState());
+
+    expect(useMapStore.getState().target).toMatchObject({ name: "W2XYZ", grid: "FN20" });
   });
 
   it("keeps a target synced from a pop-out window over an older cursor", async () => {

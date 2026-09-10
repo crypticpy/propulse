@@ -150,7 +150,20 @@ export type OperatingCommand =
 
 /** One field's proposed value plus the stamp that resolves the race. */
 export type CursorPatch = {
-  [K in CursorField]?: { value: WorkflowCursor[K]; at: number };
+  [K in CursorField]?: {
+    value: WorkflowCursor[K];
+    at: number;
+    /**
+     * The screen that *originally* wrote the field, when that is not the
+     * sender. A `hello` reply relays another screen's write verbatim, so it
+     * must name the original author or the relay looks like a new write from
+     * the relaying peer and re-enters the last-writer-wins race (#859 round
+     * 5). Absent on a first-hand write — the sender is the author — and
+     * absent from an older bundle's relay, where the receiver falls back to
+     * `senderId` as before.
+     */
+    by?: string;
+  };
 };
 
 interface Envelope {
@@ -250,20 +263,24 @@ function parsePatchEntry(field: CursorField, raw: unknown): CursorPatch[CursorFi
   if (!isRecord(raw)) return null;
   const at = asFiniteNumber(raw.at);
   if (at === null) return null;
+  // Optional: a relayed write names its original author. Anything that is
+  // not a non-empty string is dropped rather than rejected, so the receiver
+  // falls back to `senderId` exactly as it did before this field existed.
+  const by = asString(raw.by) ?? undefined;
   const value = raw.value;
   switch (field) {
     case "sessionId":
     case "band": {
       const parsed = asNullableString(value);
-      return parsed === undefined ? null : { value: parsed, at };
+      return parsed === undefined ? null : { value: parsed, at, by };
     }
     case "target": {
       const parsed = parseTarget(value);
-      return parsed === undefined ? null : { value: parsed, at };
+      return parsed === undefined ? null : { value: parsed, at, by };
     }
     case "contact": {
       const parsed = parseContact(value);
-      return parsed === undefined ? null : { value: parsed, at };
+      return parsed === undefined ? null : { value: parsed, at, by };
     }
   }
 }

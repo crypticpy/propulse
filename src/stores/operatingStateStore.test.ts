@@ -367,6 +367,37 @@ describe("operatingStateStore", () => {
       a.disconnect();
     });
 
+    it("credits the original writer, not the peer that relayed the answer", async () => {
+      // Every peer answers a `hello`, so a screen that opens late hears the
+      // same write from several of them. A relay is not a write: if it were
+      // attributed to the relaying peer, a peer whose id sorts above the
+      // author's would win `beats()` with a write the receiver already had,
+      // re-stamping its local arrival time and letting a replay outrank a map
+      // target chosen in between (#859 round 5).
+      const bus = createMemoryBus();
+      const author = await openScreen(bus, "author", { connect: false });
+      const relay = await openScreen(bus, "relay", { connect: false });
+      // Deterministic ordering: the relay's id sorts above the author's, so
+      // an answer credited to the relay would win the tie-break.
+      author.store.setState({ deviceId: "aaa-author" });
+      relay.store.setState({ deviceId: "zzz-relay" });
+      author.connect();
+      relay.connect();
+
+      author.store.getState().setBand("40m");
+      expect(relay.store.getState().stamps.band.by).toBe("aaa-author");
+
+      // A third screen opens and both peers answer its `hello`.
+      const late = await openScreen(bus, "late");
+
+      expect(late.store.getState().cursor.band).toBe("40m");
+      expect(late.store.getState().stamps.band.by).toBe("aaa-author");
+
+      author.disconnect();
+      relay.disconnect();
+      late.disconnect();
+    });
+
     it("catches a screen that opened later up on the current cursor", async () => {
       const bus = createMemoryBus();
       const a = await openScreen(bus, "a");

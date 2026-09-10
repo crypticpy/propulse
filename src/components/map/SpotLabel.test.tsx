@@ -1,7 +1,7 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import type { CSSProperties, ReactNode } from "react";
-import { SpotLabel } from "./SpotLabel";
+import { SpotLabel, TEXT_OCCLUSION_FLOOR } from "./SpotLabel";
 import { GLOBE_DOM_LAYER_ORDER } from "@/lib/map/globeRenderOrder";
 import { stationContrast } from "@/lib/themes/stationTokens";
 
@@ -168,7 +168,24 @@ describe("SpotLabel visible-face opacity floor (#851)", () => {
     return channels.length === 4 ? channels[3] : 1;
   }
 
-  it("floors combined opacity at 0.82 for opacity=0.4, occlusionOpacity=0.3", () => {
+  it("floors only the occlusion term at TEXT_OCCLUSION_FLOOR, preserving full-strength caller opacity", () => {
+    render(
+      <SpotLabel
+        lat={35.5}
+        lon={-97.5}
+        callsign="K5ABC"
+        opacity={1}
+        occlusionOpacity={0.3}
+        onSelect={vi.fn()}
+      />,
+    );
+    // occlusionOpacity=0.3 is below TEXT_OCCLUSION_FLOOR (0.5); textOpacity
+    // should be max(0.3, FLOOR) * opacity = FLOOR * 1.
+    const button = screen.getByRole("button", { name: "Select K5ABC as target" });
+    expect(colorAlpha(button.style.color)).toBeCloseTo(TEXT_OCCLUSION_FLOOR, 5);
+  });
+
+  it("does NOT erase caller-supplied opacity de-emphasis (age/band/contact/spotter dimming)", () => {
     render(
       <SpotLabel
         lat={35.5}
@@ -179,10 +196,15 @@ describe("SpotLabel visible-face opacity floor (#851)", () => {
         onSelect={vi.fn()}
       />,
     );
-    // 0.4 * 0.3 = 0.12 combined -- above the 0.05 hide threshold (still on
-    // the visible face) but far below a legible text alpha without a floor.
+    // The old bug: flooring the PRODUCT would push this all the way up to
+    // 0.82, erasing the caller's 0.4 de-emphasis (active-band filter,
+    // contact posture, or the spotter tag's flat 0.6 discount). Flooring
+    // only the occlusion term keeps the de-emphasis visible:
+    // max(0.3, FLOOR) * 0.4 = FLOOR * 0.4, well below the old 0.82 value.
     const button = screen.getByRole("button", { name: "Select K5ABC as target" });
-    expect(colorAlpha(button.style.color)).toBeCloseTo(0.82, 5);
+    const alpha = colorAlpha(button.style.color);
+    expect(alpha).toBeCloseTo(TEXT_OCCLUSION_FLOOR * 0.4, 5);
+    expect(alpha).toBeLessThan(0.82);
   });
 
   it("does not clamp opacity down when the natural combined value is already above the floor (positive control)", () => {
@@ -200,20 +222,30 @@ describe("SpotLabel visible-face opacity floor (#851)", () => {
     expect(colorAlpha(button.style.color)).toBeCloseTo(1, 5);
   });
 
-  it("keeps text-vs-badge contrast at the floor at or above the 4.5:1 WCAG threshold over a worst-case bright globe canvas", () => {
+  it("keeps text-vs-badge contrast at TEXT_OCCLUSION_FLOOR at or above the 4.5:1 WCAG threshold over the real dark canvas", () => {
     // Composite white text at the floor over the badge background at the
-    // floor, over a worst-case white canvas (bright day-side ocean/cloud
-    // tiles) -- the same math SpotLabel.tsx's floor comment documents.
-    const FLOOR = 0.82;
-    const badgeAlpha = 0.88 * FLOOR;
-    const badgeOverCanvas = badgeAlpha * 10 + (1 - badgeAlpha) * 255; // r==g, badge rgb=(10,10,26)
-    const badgeOverCanvasBlue = badgeAlpha * 26 + (1 - badgeAlpha) * 255;
-    const toHex = (n: number) => Math.round(n).toString(16).padStart(2, "0");
-    const effBgHex = `#${toHex(badgeOverCanvas)}${toHex(badgeOverCanvas)}${toHex(badgeOverCanvasBlue)}`;
-    const effTextR = 255 * FLOOR + badgeOverCanvas * (1 - FLOOR);
-    const effTextB = 255 * FLOOR + badgeOverCanvasBlue * (1 - FLOOR);
-    const effTextHex = `#${toHex(effTextR)}${toHex(effTextR)}${toHex(effTextB)}`;
+    // floor, over the app's actual dark canvas backdrop (`--su-canvas`,
+    // `DARK_CANVAS_HEX` in src/lib/themes/stationTokens.ts) -- the same
+    // math SpotLabel.tsx's floor comment documents. This reads the REAL
+    // exported constant, not a locally re-declared one: lowering
+    // TEXT_OCCLUSION_FLOOR below the ~0.445 breakeven makes this fail.
+    const DARK_CANVAS_HEX = "#141827";
+    const canvasR = 0x14;
+    const canvasG = 0x18;
+    const canvasB = 0x27;
+    const badgeAlpha = 0.88 * TEXT_OCCLUSION_FLOOR;
+    const badgeR = badgeAlpha * 10 + (1 - badgeAlpha) * canvasR;
+    const badgeG = badgeAlpha * 10 + (1 - badgeAlpha) * canvasG;
+    const badgeB = badgeAlpha * 26 + (1 - badgeAlpha) * canvasB;
+    const toHex = (n: number) =>
+      Math.round(n).toString(16).padStart(2, "0");
+    const effBgHex = `#${toHex(badgeR)}${toHex(badgeG)}${toHex(badgeB)}`;
+    const effTextR = 255 * TEXT_OCCLUSION_FLOOR + badgeR * (1 - TEXT_OCCLUSION_FLOOR);
+    const effTextG = 255 * TEXT_OCCLUSION_FLOOR + badgeG * (1 - TEXT_OCCLUSION_FLOOR);
+    const effTextB = 255 * TEXT_OCCLUSION_FLOOR + badgeB * (1 - TEXT_OCCLUSION_FLOOR);
+    const effTextHex = `#${toHex(effTextR)}${toHex(effTextG)}${toHex(effTextB)}`;
 
+    expect(DARK_CANVAS_HEX).toBe("#141827"); // sanity: matches stationTokens.ts
     expect(stationContrast(effTextHex, effBgHex)).toBeGreaterThanOrEqual(4.5);
   });
 
@@ -236,5 +268,66 @@ describe("SpotLabel visible-face opacity floor (#851)", () => {
     expect(
       screen.queryByRole("button", { name: "Select K5ABC as target" }),
     ).toBeNull();
+  });
+});
+
+describe("SpotLabel pop-in fade ramp (#851)", () => {
+  // The wrapper used to snap opacity 0->1 at the 0.05 hide threshold, so a
+  // tag crossing the limb visibly popped in instead of fading. It now ramps
+  // linearly across combinedOpacity in [0.05, 0.25].
+  it("is fully transparent right at the hide threshold", () => {
+    render(
+      <SpotLabel
+        lat={35.5}
+        lon={-97.5}
+        callsign="K5ABC"
+        opacity={1}
+        occlusionOpacity={0.05}
+      />,
+    );
+    const overlay = screen.getByTestId("html-overlay");
+    expect(Number(overlay.style.opacity)).toBeCloseTo(0, 5);
+  });
+
+  it("is roughly half-visible halfway through the fade band", () => {
+    render(
+      <SpotLabel
+        lat={35.5}
+        lon={-97.5}
+        callsign="K5ABC"
+        opacity={1}
+        occlusionOpacity={0.15}
+      />,
+    );
+    const overlay = screen.getByTestId("html-overlay");
+    expect(Number(overlay.style.opacity)).toBeCloseTo(0.5, 5);
+  });
+
+  it("is fully opaque at and above the top of the fade band", () => {
+    render(
+      <SpotLabel
+        lat={35.5}
+        lon={-97.5}
+        callsign="K5ABC"
+        opacity={1}
+        occlusionOpacity={0.25}
+      />,
+    );
+    const overlay = screen.getByTestId("html-overlay");
+    expect(Number(overlay.style.opacity)).toBeCloseTo(1, 5);
+  });
+
+  it("does not exceed 1 above the fade band (positive control)", () => {
+    render(
+      <SpotLabel
+        lat={35.5}
+        lon={-97.5}
+        callsign="K5ABC"
+        opacity={1}
+        occlusionOpacity={1}
+      />,
+    );
+    const overlay = screen.getByTestId("html-overlay");
+    expect(Number(overlay.style.opacity)).toBeCloseTo(1, 5);
   });
 });

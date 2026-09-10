@@ -236,7 +236,10 @@ export function SpotMarker({
         <Html
           position={[0, size * 3, 0]}
           center
-          zIndexRange={GLOBE_DOM_LAYER_ORDER.marker}
+          // This label chip is near-opaque; painting it in the `marker` band
+          // would let it cover passive spot tags underneath (the bug #851
+          // describes). It belongs with the other passive tags instead.
+          zIndexRange={GLOBE_DOM_LAYER_ORDER.passiveSpotLabel}
           style={{
             pointerEvents: "none",
             transition: "opacity 0.2s ease",

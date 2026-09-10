@@ -25,11 +25,19 @@ import { GLOBE_DOM_LAYER_ORDER } from "@/lib/map/globeRenderOrder";
 const SURFACE_OFFSET = 1.000002;
 
 /**
- * Minimum text/badge opacity on the visible face, regardless of how far
- * age decay and limb occlusion have pushed `combinedOpacity` down. See the
+ * Minimum globe-occlusion opacity contribution on the visible face. This
+ * floors ONLY the limb-occlusion term (`occlusionOpacity`), never the
+ * caller-supplied `opacity` prop (age decay / active-band / contact-posture
+ * de-emphasis) — those are intentional, shipped dimming semantics and must
+ * still be able to push a label's final opacity below this floor. See the
  * usage site below for the measured contrast this floor guarantees.
  */
-const TEXT_OPACITY_FLOOR = 0.82;
+export const TEXT_OCCLUSION_FLOOR = 0.5;
+
+/** Combined opacity below which a label is fully hidden (and non-interactive). */
+const HIDE_THRESHOLD = 0.05;
+/** Combined opacity at/above which the wrapper fade-in reaches full opacity. */
+const FADE_IN_END = 0.25;
 
 export interface SpotLabelProps {
   /** Latitude in decimal degrees */
@@ -42,7 +50,12 @@ export interface SpotLabelProps {
   mode?: string;
   /** Whether this is the spotter (sender) vs DX (receiver) */
   isSpotter?: boolean;
-  /** Opacity for age-based decay (0.4 - 1.0) */
+  /**
+   * Caller-supplied de-emphasis multiplier (0-1): active-band filtering,
+   * contact-posture dimming, and the flat 0.6 spotter-tag discount are all
+   * folded into this by callers (see `LiveSpotArcs.tsx`). Independent of,
+   * and multiplied with, `occlusionOpacity` below. Defaults to 1.0.
+   */
   opacity?: number;
   /** Label size variant */
   size?: "sm" | "md";
@@ -186,10 +199,20 @@ export function SpotLabel({
 
   // Combined opacity: age-based decay multiplied by globe occlusion
   const combinedOpacity = opacity * occlusionOpacity;
-  const isVisible = combinedOpacity >= 0.05;
+  const isVisible = combinedOpacity >= HIDE_THRESHOLD;
   const isInteractive = Boolean(onSelect || onClick) && isVisible;
   const receivesPointer =
     Boolean(onHover || onHoverEnd || onSelect || onClick) && isVisible;
+  // Ramp the wrapper in linearly across the last band of combined opacity
+  // instead of snapping from 0 to 1 at the hide threshold — a tag crossing
+  // the limb now fades in/out instead of popping. pointerEvents gating
+  // above still keys off the binary `isVisible`, unchanged.
+  const wrapperOpacity = isVisible
+    ? Math.min(
+        1,
+        (combinedOpacity - HIDE_THRESHOLD) / (FADE_IN_END - HIDE_THRESHOLD),
+      )
+    : 0;
 
   // Size classes - sized for legibility (target audience 50-70 age range)
   const sizeClasses =
@@ -300,16 +323,20 @@ export function SpotLabel({
     .filter(Boolean)
     .join(" ");
 
-  // Text opacity fades with age/occlusion but underline stays fully bright.
-  // The floor is not cosmetic: below it the white text and the dark badge
-  // it sits on both wash out toward whatever the globe canvas is showing
-  // (bright ocean/cloud tiles worst-case), and the two converge toward each
-  // other faster than either converges toward the canvas. Measured against
-  // a worst-case white canvas backdrop, TEXT_OPACITY_FLOOR = 0.82 keeps
-  // effective text-vs-badge contrast at ~6.16:1 (WCAG floor is 4.5:1); the
-  // previous floor of 0.35 measured ~1.3:1 there, which is what the owner
-  // saw as "faded". See `stationContrast` in `src/lib/themes/stationTokens`.
-  const textOpacity = Math.max(combinedOpacity, TEXT_OPACITY_FLOOR);
+  // Text opacity fades with age/filter/contact dimming and limb occlusion,
+  // but underline stays fully bright. Only the occlusion term is floored —
+  // flooring the product (as before) erased legitimate `opacity`-prop
+  // de-emphasis (active-band filtering, contact posture, the spotter tag's
+  // flat 0.6 discount in `LiveSpotArcs.tsx`). Below the occlusion floor the
+  // white text and the dark badge it sits on both wash out toward the globe
+  // canvas and converge toward each other faster than either converges
+  // toward the canvas. Measured against the real dark canvas backdrop
+  // (`--su-canvas` #141827), TEXT_OCCLUSION_FLOOR = 0.5 keeps effective
+  // text-vs-badge contrast at 5.300:1 (WCAG floor is 4.5:1; breakeven is
+  // ~0.445) at full caller opacity. See `stationContrast` in
+  // `src/lib/themes/stationTokens`.
+  const flooredOcclusion = Math.max(occlusionOpacity, TEXT_OCCLUSION_FLOOR);
+  const textOpacity = flooredOcclusion * opacity;
   const labelStyle: React.CSSProperties = {
     cursor: isInteractive ? "pointer" : receivesPointer ? "default" : "inherit",
     color:
@@ -387,8 +414,9 @@ export function SpotLabel({
         transition: "opacity 0.3s ease",
         transform: wrapperTransform || undefined,
         transformOrigin: "center bottom",
-        // Outer wrapper only hides when fully occluded (behind globe)
-        opacity: isVisible ? 1 : 0,
+        // Outer wrapper ramps in across the last band of combined opacity
+        // and only fully hides once occluded past HIDE_THRESHOLD.
+        opacity: wrapperOpacity,
       }}
     >
       {isInteractive ? (

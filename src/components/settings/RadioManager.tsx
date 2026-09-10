@@ -1193,8 +1193,8 @@ export function RadioManager({
               ? `Maximum of ${MAX_USER_RADIOS} owned radio instances reached`
               : undefined
           }
-          className="px-3 py-1 text-sm bg-plasma-orange/20 border border-plasma-orange/50
-                     text-plasma-orange rounded-lg hover:bg-plasma-orange/30 transition-colors
+          className="px-3 py-1 text-sm bg-plasma-orange/15 border border-plasma-orange/50
+                     text-su-text rounded-lg hover:bg-plasma-orange/20 transition-colors
                      disabled:opacity-40 disabled:cursor-not-allowed"
         >
           {atRadioLimit

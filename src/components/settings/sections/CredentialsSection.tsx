@@ -472,8 +472,8 @@ export function CredentialsSection() {
               type="button"
               onClick={() => handleSetupOrUnlock()}
               className="px-3 py-1.5 rounded-lg text-xs font-medium
-                bg-plasma-orange/20 text-plasma-orange border border-plasma-orange/30
-                hover:bg-plasma-orange/30 transition-colors"
+                bg-plasma-orange/15 text-su-text border border-plasma-orange/30
+                hover:bg-plasma-orange/20 transition-colors"
             >
               {vaultSetup ? "Unlock" : "Set Up Passphrase"}
             </button>
@@ -558,7 +558,7 @@ export function CredentialsSection() {
                         vaultUnlocked
                           ? isStored
                             ? "bg-su-line/10 text-su-muted border border-su-line/40 hover:bg-su-line/20"
-                            : "bg-plasma-orange/15 text-plasma-orange border border-plasma-orange/25 hover:bg-plasma-orange/25"
+                            : "bg-plasma-orange/15 text-su-text border border-plasma-orange/25 hover:bg-plasma-orange/20"
                           : "bg-su-line/10 text-su-muted border border-su-line/20 cursor-not-allowed"
                       }`}
                   >

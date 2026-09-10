@@ -433,7 +433,7 @@ export function PreferencesSection() {
                   }}
                   className={`px-2 py-1.5 rounded text-xs font-medium transition-colors border ${
                     isSelected
-                      ? "bg-plasma-orange/20 text-plasma-orange border-plasma-orange/50"
+                      ? "bg-plasma-orange/20 text-su-text border-plasma-orange/50"
                       : "bg-nebula-blue text-su-muted border-su-line/40 hover:text-su-text"
                   }`}
                 >

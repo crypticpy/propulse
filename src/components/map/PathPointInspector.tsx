@@ -125,6 +125,14 @@ export function PathPointInspector({
     return () => {
       const previousFocus = previousFocusRef.current;
       previousFocusRef.current = null;
+      // Gate the whole restore on focus having actually died with this
+      // panel, not just the deferred fallback below (#824). See
+      // `PinFlyout.tsx` for the full mutation-phase reasoning: by the time
+      // this cleanup runs, `activeElement === body` means focus died with
+      // the panel; anything else means a live element legitimately owns
+      // focus and must not be yanked back.
+      const active = document.activeElement;
+      if (active && active !== document.body) return;
       if (previousFocus?.isConnected) {
         previousFocus.focus();
         return;

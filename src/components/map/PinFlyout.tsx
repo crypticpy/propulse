@@ -344,6 +344,26 @@ export function PinFlyout({
     return () => {
       const previousFocus = previousFocusRef.current;
       previousFocusRef.current = null;
+      // Gate the whole restore on focus having actually died with this
+      // flyout (#824). React detaches host nodes in the mutation phase,
+      // before passive `useEffect` cleanups flush: if focus was inside the
+      // flyout when it closed, the focused child is already detached and
+      // the browser has already moved focus to `<body>` by the time this
+      // cleanup runs. So `activeElement === body` means "focus died with
+      // the overlay, restore it"; anything else means a live element
+      // legitimately owns focus — e.g. the user tabbed to a different
+      // persistent control before this closed — and must be left alone.
+      // The explicit non-null check matters too: `document.activeElement`
+      // can be null in a detached document, and `null !== body` would
+      // otherwise skip a restore that should happen. Without this gate the
+      // restore below fires unconditionally and yanks focus back to the
+      // stale captured control even when it never lost focus to `<body>`;
+      // the fallback branch further down already carried this guard, the
+      // restore branch did not. Same reasoning applies to the identical
+      // cleanup shape in `SpotCollectionPopover`, `PathPointInspector`, and
+      // `SelectedSpotCard`.
+      const active = document.activeElement;
+      if (active && active !== document.body) return;
       if (previousFocus?.isConnected) {
         previousFocus.focus();
         return;

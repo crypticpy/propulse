@@ -84,15 +84,16 @@ anonymous; a free account costs nothing and unlocks every feature that does not 
 per-user hosting cost. Self-hosting is a supported path, not a grudging one. The project is run on a nonprofit footing:
 
 - **Donations** are the primary intended support.
-- **An optional Pro subscription ($6.99 per month)** covers the hosted costs of the
-  features that consume server storage, history or compute: spot replay from the
-  server-side spot window, contest-aware watch presets and a larger saved-watch limit,
-  custom profile and gear images, per-user propagation modelling, and high-resolution
-  satellite tiles. (The flags also carry 7-day and 30-day replay windows, but the raw
-  spot table is trimmed to roughly two hours, so neither window is served today.) The exact boundary is the
-  `FREE_FLAGS` / `PRO_FLAGS` table in [`src/lib/featureFlags.ts`](src/lib/featureFlags.ts);
-  the tier is set server-side from Stripe and synced to the profile, never decided in the
-  browser.
+- **An optional Pro subscription ($6.99 per month)** is intended to cover the hosted
+  costs of features that consume server storage, history or compute. The intended
+  boundary is the `FREE_FLAGS` / `PRO_FLAGS` table in
+  [`src/lib/featureFlags.ts`](src/lib/featureFlags.ts), and the tier is set server-side
+  from Stripe and synced to the profile, never decided in the browser. Enforcement is
+  partial today, and we say so: spot replay and contest-aware watch presets check the
+  tier, while custom profile and gear images, per-user propagation modelling and
+  high-resolution satellite tiles are declared in the table but not yet gated, so free
+  accounts can currently use them. The flags also carry 7-day and 30-day replay windows,
+  but the raw spot table is trimmed to roughly two hours, so neither window is served.
 - **Unlimited free displays.** Pairing extra screens to your station, the thing a
   commercial product would meter, is deliberately never metered.
 
@@ -161,15 +162,18 @@ mechanically disabled until enough genuine issuance days have matured to score i
 ### The live feature pipeline
 
 The [`collector/`](collector/) service ingests spots from PSK Reporter, the Reverse Beacon
-Network and DX cluster feeds into Supabase, alongside solar and geomagnetic inputs proxied
-from NOAA SWPC through 24 edge endpoints in [`api/solar/`](api/solar/): planetary K index,
-F10.7 and its forecasts, X-ray flux and flares, proton flux, solar wind plasma and
-magnetometer (Bt/Bz), Dst, sunspots, SWPC scales and alerts, and the D-RAP absorption
-product.
+Network and DX cluster feeds into Supabase, and fetches solar and geomagnetic inputs
+directly from NOAA SWPC and GFZ into `solar_snapshots` for the models. Separately, the
+browser reads its space-weather panels through 24 edge proxies in
+[`api/solar/`](api/solar/): planetary K index, F10.7 and its forecasts, X-ray flux and
+flares, proton flux, solar wind plasma and magnetometer (Bt/Bz), Dst, sunspots, SWPC
+scales and alerts, and the D-RAP absorption product. The two paths share sources but not
+code, so an outage in one does not imply an outage in the other.
 
 Raw spots are deliberately **not** hoarded: `spot_history` is a roughly two-hour sliding
-window trimmed by a scheduled job, and the only durable spot data are the small hourly
-aggregates `path_hourly_stats` and `band_hourly_stats`. Keeping the durable footprint
+window trimmed by a scheduled job. What persists are small aggregates rather than raw
+reports: `path_hourly_stats`, `band_hourly_stats`, `region_hourly_stats`,
+`path_recency_hourly` and the `band_activity_climatology` table. Keeping the durable footprint
 small is a design choice about cost and privacy, not an accident.
 
 ### The Band Health verified-state ladder

@@ -53,7 +53,7 @@ jobs:
           FILES=$(gh api "repos/${REPO}/pulls/${PR}/files" --paginate \
             --jq '.[] | .filename, (.previous_filename // empty)') \
             || { echo "::error::could not list PR files; the design-review gate cannot be evaluated (re-run the check)"; exit 1; }
-          UI=$(printf '%s\n' "$FILES" | grep -E '^(src/components/|src/pages/|src/styles/|src/lib/themes/|src/lib/widgets/|src/lib/hamclock/|src/lib/home/|src/lib/[^/]+/.*(Colors?|Layout|Tokens?|Fonts?)\.tsx?$|src/stores/(theme|hamclockDisplay|hamclockWidgetConfig|hamclock|kiosk|workspace|displayQuality|map|atmos|visualEffects)Store\.ts$|src/stores/[^/]*UIStore\.ts$|src/hooks/use[^/]*(Layout|Docking|Mobile|TextScale|ColorBlind|Theme|DisplayFit|DisplayQuality|DisplaySync|HighContrast|VisualEffects|Presentation|Tint|Expanded|Disclosure|Gestures|Swipe|PullToRefresh|Tour|OperatingScreen|WallAutoPage)[^/]*\.tsx?$|src/App\.tsx$|src/main\.tsx$|index\.html$|public/|tailwind\.config\.|postcss\.config\.|\.design-sync/|docs/designs/design-system/|docs/designs/.*-(spec|mock)[^/]*$|docs/designs/.*contact-sheet|docs/designs/.*\.(md|html|png|svg|jpg|webp)$)' || true)
+          UI=$(printf '%s\n' "$FILES" | grep -E '^(src/components/|src/pages/|src/styles/|src/lib/themes/|src/lib/widgets/|src/lib/hamclock/|src/lib/home/|src/lib/[^/]+/.*(Colors?|Layout|Tokens?|Fonts?|Styles?|Appearance)\.tsx?$|src/stores/(theme|hamclockDisplay|hamclockWidgetConfig|hamclock|kiosk|workspace|displayQuality|map|atmos|visualEffects)Store\.ts$|src/stores/[^/]*UIStore\.ts$|src/hooks/use[^/]*(Layout|Docking|Mobile|TextScale|ColorBlind|Theme|DisplayFit|DisplayQuality|DisplaySync|HighContrast|VisualEffects|Presentation|Tint|Expanded|Disclosure|Gestures|Swipe|PullToRefresh|Tour|OperatingScreen|WallAutoPage)[^/]*\.tsx?$|src/App\.tsx$|src/main\.tsx$|index\.html$|public/|tailwind\.config\.|postcss\.config\.|\.design-sync/|docs/designs/design-system/|docs/designs/.*-(spec|mock)[^/]*$|docs/designs/.*contact-sheet|docs/designs/.*\.(md|html|png|svg|jpg|webp)$)' || true)
           if [ -z "$UI" ]; then
             echo "No UI paths changed; design review not required."
             exit 0
@@ -102,9 +102,13 @@ jobs:
           REPO: ${{ github.repository }}
           PR: ${{ github.event.issue.number }}
           COMMENT_BODY: ${{ github.event.comment.body }}
+          # On `edited`, the body before the edit: an edit that strips the
+          # heading itself must still re-run, or a retracted approval would
+          # keep its green (empty for created/deleted).
+          PREVIOUS_BODY: ${{ github.event.changes.body.from }}
         run: |
-          if ! printf '%s' "$COMMENT_BODY" | grep -Eiq '\*\*design review\*\*'; then
-            echo "Not a design-review comment; nothing to re-run."
+          if ! printf '%s\n%s' "$COMMENT_BODY" "$PREVIOUS_BODY" | grep -Eiq '\*\*design review\*\*'; then
+            echo "Neither the current nor the previous comment body is a design review; nothing to re-run."
             exit 0
           fi
           HEAD_SHA=$(gh api "repos/${REPO}/pulls/${PR}" --jq '.head.sha')

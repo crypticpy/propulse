@@ -27,12 +27,14 @@
 
 import { fileURLToPath } from "node:url";
 import { readFileSync, readdirSync, statSync } from "node:fs";
-import { resolve, join, relative } from "node:path";
+import { resolve, join, relative, dirname } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
   GLOBE_DOM_LAYER_ORDER,
   MAP_PAGE_CHROME_Z,
 } from "@/lib/map/globeRenderOrder";
+
+type MapChromeTier = keyof typeof MAP_PAGE_CHROME_Z;
 
 const REPO_ROOT = resolve(fileURLToPath(import.meta.url), "../../../..");
 const MAP_DIR = resolve(REPO_ROOT, "src/components/map");
@@ -408,6 +410,38 @@ describe("every GlobeView host bounds the overlay portal (#930, round 2)", () =>
 });
 
 /**
+ * Files scanned, and the slice of each that overlays the map. For a host
+ * with a `data-map-stack-root` that is the stack root's subtree; for
+ * `PropSphere` it is the map `Card`; the rest position themselves inside
+ * one of those, so the whole file counts.
+ */
+const CHROME_FILES: readonly { file: string; openedBy?: string }[] = [
+  { file: "src/pages/PropSphere.tsx", openedBy: '<Card className="flex-1' },
+  {
+    file: "src/components/map/FullscreenPropSphere.tsx",
+    openedBy: "data-map-stack-root",
+  },
+  {
+    file: "src/components/map/HamClockView.tsx",
+    openedBy: "data-map-stack-root",
+  },
+  {
+    file: "src/components/mobile/MobileMap.tsx",
+    openedBy: "data-map-stack-root",
+  },
+  {
+    file: "src/components/atmos/AtmosGlobeView.tsx",
+    openedBy: "data-map-stack-root",
+  },
+  { file: "src/components/map/GlobeView.tsx" },
+  { file: "src/components/atmos/RadarScrubber3D.tsx" },
+  { file: "src/components/map/ReachMapControl.tsx" },
+  { file: "src/components/map/ObservatoryTiltSlider.tsx" },
+  { file: "src/components/map/MapSizeSliders.tsx" },
+  { file: "src/components/map/ISSSkyTracker.tsx" },
+];
+
+/**
  * Nothing a person can operate may sit at or below the overlay portal
  * (#930, round 3).
  *
@@ -423,38 +457,6 @@ describe("every GlobeView host bounds the overlay portal (#930, round 2)", () =>
  * themselves.
  */
 describe("map-host controls sit at or above interactiveChrome (#930, round 3)", () => {
-  /**
-   * Files scanned, and the slice of each that overlays the map. For a host
-   * with a `data-map-stack-root` that is the stack root's subtree; for
-   * `PropSphere` it is the map `Card`; the rest position themselves inside
-   * one of those, so the whole file counts.
-   */
-  const CHROME_FILES: readonly { file: string; openedBy?: string }[] = [
-    { file: "src/pages/PropSphere.tsx", openedBy: '<Card className="flex-1' },
-    {
-      file: "src/components/map/FullscreenPropSphere.tsx",
-      openedBy: "data-map-stack-root",
-    },
-    {
-      file: "src/components/map/HamClockView.tsx",
-      openedBy: "data-map-stack-root",
-    },
-    {
-      file: "src/components/mobile/MobileMap.tsx",
-      openedBy: "data-map-stack-root",
-    },
-    {
-      file: "src/components/atmos/AtmosGlobeView.tsx",
-      openedBy: "data-map-stack-root",
-    },
-    { file: "src/components/map/GlobeView.tsx" },
-    { file: "src/components/atmos/RadarScrubber3D.tsx" },
-    { file: "src/components/map/ReachMapControl.tsx" },
-    { file: "src/components/map/ObservatoryTiltSlider.tsx" },
-    { file: "src/components/map/MapSizeSliders.tsx" },
-    { file: "src/components/map/ISSSkyTracker.tsx" },
-  ];
-
   /**
    * The JSX subtree opened at `openedBy`, ending at the first closing tag
    * indented to the same column (both files are JSX-formatted, so the
@@ -556,5 +558,204 @@ describe("map-host controls sit at or above interactiveChrome (#930, round 3)", 
       readSrc(entry.file).includes("MAP_PAGE_CHROME_Z.interactiveChrome"),
     );
     expect(withTier.length).toBeGreaterThan(3);
+  });
+});
+
+/**
+ * The set of map chrome components is derived, not hand-listed
+ * (#930, round 4).
+ *
+ * Rounds 1-3 each fixed the sites a review named, and round 3's guard still
+ * read from a hand-written file list -- so `MapSizeSliders`' own default
+ * (`absolute bottom-3 left-3 z-10`, mounted by every host that does not pass
+ * `hideSizeSliders`) and `OptimalBandsPanel`'s draggable root (`absolute
+ * z-10`) went another round under the portal. This suite removes the hand
+ * list from the equation: it walks the import graph of the five hosts plus
+ * `GlobeView`, keeps every module under the map/mobile/atmos/hamclock trees,
+ * and checks each component's *own* root element -- the one that lands in
+ * whatever container mounts it, i.e. the map.
+ *
+ * A component that positions itself `absolute` with a z-index therefore has
+ * to declare a tier whether or not anybody remembered to list it.
+ */
+describe("map chrome components declare a tier (#930, round 4)", () => {
+  const HOSTS = [
+    "src/pages/PropSphere.tsx",
+    "src/components/map/FullscreenPropSphere.tsx",
+    "src/components/map/HamClockView.tsx",
+    "src/components/mobile/MobileMap.tsx",
+    "src/components/atmos/AtmosGlobeView.tsx",
+    "src/components/map/GlobeView.tsx",
+  ];
+
+  /** Only modules that can paint on a map surface are in scope. */
+  const IN_SCOPE = [
+    "src/components/map/",
+    "src/components/mobile/",
+    "src/components/atmos/",
+    "src/components/hamclock/",
+    "src/pages/PropSphere.tsx",
+  ];
+
+  function resolveImport(spec: string, from: string): string | null {
+    let base: string;
+    if (spec.startsWith("@/")) base = join("src", spec.slice(2));
+    else if (spec.startsWith(".")) base = join(dirname(from), spec);
+    else return null;
+    for (const candidate of [
+      `${base}.tsx`,
+      `${base}.ts`,
+      join(base, "index.tsx"),
+      join(base, "index.ts"),
+    ]) {
+      try {
+        if (statSync(resolve(REPO_ROOT, candidate)).isFile()) return candidate;
+      } catch {
+        /* not this extension */
+      }
+    }
+    return null;
+  }
+
+  /** Every in-scope module reachable from the hosts. */
+  function reachableModules(): string[] {
+    const seen = new Set<string>();
+    const queue = [...HOSTS];
+    while (queue.length > 0) {
+      const file = queue.pop() as string;
+      if (seen.has(file)) continue;
+      seen.add(file);
+      const src = readFileSync(resolve(REPO_ROOT, file), "utf8");
+      for (const match of src.matchAll(/from\s+"([^"]+)"/g)) {
+        const next = resolveImport(match[1], file);
+        if (!next) continue;
+        if (next.endsWith(".test.ts") || next.endsWith(".test.tsx")) continue;
+        if (!IN_SCOPE.some((prefix) => next.startsWith(prefix))) continue;
+        if (!seen.has(next)) queue.push(next);
+      }
+    }
+    return [...seen].filter((file) => file.endsWith(".tsx")).sort();
+  }
+
+  /**
+   * Reads a whole opening tag from `start`, tracking quotes and braces so an
+   * arrow function in a handler (`onClick={() => ...}`) does not end it early.
+   */
+  function openingTagAt(src: string, start: number): string {
+    let depth = 0;
+    let quote: string | null = null;
+    for (let i = start; i < src.length; i += 1) {
+      const char = src[i];
+      if (quote) {
+        if (char === quote && src[i - 1] !== "\\") quote = null;
+      } else if (char === '"' || char === "'" || char === "`") {
+        quote = char;
+      } else if (char === "{") {
+        depth += 1;
+      } else if (char === "}") {
+        depth -= 1;
+      } else if (char === ">" && depth === 0) {
+        return src.slice(start, i + 1);
+      }
+    }
+    return src.slice(start);
+  }
+
+  /** The root, or the subtree it opens, takes pointer input. */
+  function takesInput(tag: string, subtree: string): boolean {
+    if (/pointer-events-none/.test(tag)) return false;
+    return /pointer-events-auto|onClick=|onPointerDown=|onMouseDown=|onChange=|<button|<input|<select|role="(button|slider|switch)"/.test(
+      subtree,
+    );
+  }
+
+  type RootTag = {
+    file: string;
+    line: number;
+    tag: string;
+    level: number;
+    interactive: boolean;
+  };
+
+  const TIER_RE = /MAP_PAGE_CHROME_Z\.(\w+)/;
+  const RETURN_ROOT_RE = /(?:return\s*\(\s*|return\s+)(<[A-Za-z])/g;
+
+  /** Root elements the component positions on its host's map surface. */
+  function rootTags(file: string): RootTag[] {
+    const src = readFileSync(resolve(REPO_ROOT, file), "utf8");
+    const found: RootTag[] = [];
+    for (const match of src.matchAll(RETURN_ROOT_RE)) {
+      const start = match.index + match[0].length - match[1].length;
+      const tag = openingTagAt(src, start).replace(/\s+/g, " ");
+      // `fixed` chrome is page chrome, bounded by the host's own root.
+      if (!tag.includes("absolute") || /\bfixed\b/.test(tag)) continue;
+      const tier = TIER_RE.exec(tag);
+      const cls = /(?<![\w-])z-(\d+|\[\d+\])/.exec(tag);
+      const style = /zIndex:\s*(\d+)/.exec(tag);
+      let level: number | undefined;
+      if (tier) level = MAP_PAGE_CHROME_Z[tier[1] as MapChromeTier];
+      else if (cls) level = Number(cls[1].replace(/[[\]]/g, ""));
+      else if (style) level = Number(style[1]);
+      if (level === undefined || Number.isNaN(level)) continue;
+      found.push({
+        file,
+        line: src.slice(0, start).split("\n").length,
+        tag: tag.slice(0, 110),
+        level,
+        interactive: takesInput(tag, src.slice(start, start + 1500)),
+      });
+    }
+    return found;
+  }
+
+  const modules = reachableModules();
+  const roots = modules.flatMap(rootTags);
+
+  it("reaches the map component tree", () => {
+    // Non-vacuity: the walk must actually find the components this round fixed.
+    expect(modules.length).toBeGreaterThan(100);
+    const files = new Set(roots.map((root) => root.file));
+    expect(files).toContain("src/components/map/MapSizeSliders.tsx");
+    expect(files).toContain("src/components/map/OptimalBandsPanel.tsx");
+  });
+
+  it("only hand-lists components the hosts actually reach", () => {
+    // Keeps round 3's list honest: a file that no host imports cannot be
+    // certified by naming it.
+    const reachable = new Set(modules);
+    for (const { file } of CHROME_FILES) {
+      expect(
+        reachable,
+        `${file} is hand-listed but no host imports it`,
+      ).toContain(file);
+    }
+  });
+
+  it("puts every self-positioning control at or above interactiveChrome", () => {
+    const violations = roots
+      .filter((root) => root.interactive)
+      .filter((root) => root.level < MAP_PAGE_CHROME_Z.interactiveChrome)
+      .map(
+        (root) =>
+          `${root.file}:${root.line} z=${root.level} < interactiveChrome (${MAP_PAGE_CHROME_Z.interactiveChrome}): ${root.tag}`,
+      );
+    expect(violations).toEqual([]);
+  });
+
+  it("keeps passive overlays out of the portal's band", () => {
+    // A passive overlay may sit under the portal (`legend`) or above the
+    // controls, but not inside the band the portal itself occupies.
+    const violations = roots
+      .filter((root) => !root.interactive)
+      .filter(
+        (root) =>
+          root.level > MAP_PAGE_CHROME_Z.legend &&
+          root.level < MAP_PAGE_CHROME_Z.interactiveChrome,
+      )
+      .map(
+        (root) =>
+          `${root.file}:${root.line} z=${root.level} sits in the overlay portal's band: ${root.tag}`,
+      );
+    expect(violations).toEqual([]);
   });
 });

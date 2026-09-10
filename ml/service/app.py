@@ -717,6 +717,19 @@ def verified_path_history(
     return snapshots
 
 
+#: Census of every `data_freshness` key the service writes itself: the
+#: path-history age, the space-weather aggregate, and one age per weather
+#: source. A request cannot pre-empt one — each is stripped from the client's
+#: `data_freshness_seconds` before the server's own value is merged in — so
+#: these are the only keys that can grow a response beyond the request's key
+#: count. There is no shared source of truth with TypeScript, so the edge
+#: proxy mirrors this list by hand as `SERVER_OWNED_FRESHNESS_KEYS` in
+#: `api/_lib/propagationProxy.ts`, where it sizes the response contract.
+#: test_app.ServiceTests asserts the census against a real served response;
+#: keep the two lists in step (#321).
+SERVER_OWNED_FRESHNESS_KEYS = ("path_history", "space_weather", *SOURCE_NAMES)
+
+
 def apply_verified_path_history(
     provider: PathHistoryProvider,
     *,

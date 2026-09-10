@@ -103,13 +103,28 @@ const researchSubjectBindingSchema = z.object({
 
 const MAX_REQUEST_FRESHNESS_KEYS = 32;
 /**
- * Ages the service supplies itself and a request cannot pre-empt: the
- * `space_weather` aggregate plus one per weather source (`SOURCE_NAMES` in
- * `ml/service/operational_weather.py`). It strips them from the request before
- * merging its own, so they can only ever grow the response beyond the request
- * cap (#321).
+ * Census of every `data_freshness` key the service writes itself: the
+ * path-history age, the space-weather aggregate, and one age per weather
+ * source. Each is stripped from the client's `data_freshness_seconds` before
+ * the server's own value is merged in, so these are the only keys that can
+ * grow a response beyond the request's key count (#321).
+ *
+ * There is no shared source of truth across the language boundary: this
+ * mirrors `SERVER_OWNED_FRESHNESS_KEYS` in `ml/service/app.py`, which a
+ * service test asserts against a real served response. Keep the two in step.
  */
-const SERVER_OWNED_FRESHNESS_KEYS = 9;
+const SERVER_OWNED_FRESHNESS_KEYS = [
+  "path_history",
+  "space_weather",
+  "kp",
+  "f107",
+  "magnetic_field",
+  "solar_wind",
+  "sunspot_number",
+  "proton_flux_10mev",
+  "dst",
+  "hp60",
+] as const;
 
 function freshnessSchema(maximumKeys: number) {
   return z.record(
@@ -127,7 +142,7 @@ function freshnessSchema(maximumKeys: number) {
 
 const dataFreshnessSchema = freshnessSchema(MAX_REQUEST_FRESHNESS_KEYS);
 const responseFreshnessSchema = freshnessSchema(
-  MAX_REQUEST_FRESHNESS_KEYS + SERVER_OWNED_FRESHNESS_KEYS,
+  MAX_REQUEST_FRESHNESS_KEYS + SERVER_OWNED_FRESHNESS_KEYS.length,
 );
 
 const commonRequestFields = {

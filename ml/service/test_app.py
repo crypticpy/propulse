@@ -22,6 +22,7 @@ from operational_weather import (
 from runtime_activation import RuntimeActivation
 
 from app import (
+    SERVER_OWNED_FRESHNESS_KEYS,
     PathRequest,
     RuntimePrediction,
     StationEnvelope,
@@ -836,6 +837,43 @@ class ServiceTests(unittest.TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertNotIn("kp", response.json()["data_freshness"])
+
+    def test_server_owned_freshness_keys_match_a_served_response(self):
+        # The census the edge proxy mirrors (api/_lib/propagationProxy.ts):
+        # a request whose freshness keys are all client-owned comes back with
+        # exactly its own keys plus every server-owned key.
+        client_keys = {f"client_input_{index}": 60 for index in range(32)}
+        payload = request_payload()
+        payload["data_freshness_seconds"] = dict(client_keys)
+        client = TestClient(create_app(
+            self.registry,
+            inference_mode="shadow",
+            path_history_provider=FakePathHistoryProvider(),
+            operational_weather_provider=FakeOperationalWeatherProvider(
+                source_ages_seconds={
+                    "kp": 300,
+                    "f107": 25_200,
+                    "magnetic_field": 420,
+                    "solar_wind": 240,
+                    "sunspot_number": 18_000,
+                    "proton_flux_10mev": 360,
+                    "dst": 3_480,
+                    "hp60": 4_200,
+                },
+            ),
+        ))
+
+        response = client.post("/v1/propagation/path", json=payload)
+
+        self.assertEqual(response.status_code, 200)
+        freshness = response.json()["data_freshness"]
+        self.assertEqual(
+            set(freshness) - set(client_keys), set(SERVER_OWNED_FRESHNESS_KEYS)
+        )
+        self.assertEqual(len(SERVER_OWNED_FRESHNESS_KEYS), 10)
+        # 32 request keys + 10 server-owned: the number the proxy's response
+        # contract has to allow.
+        self.assertEqual(len(freshness), 42)
 
     def test_future_operational_weather_snapshot_is_rejected(self):
         client = TestClient(create_app(

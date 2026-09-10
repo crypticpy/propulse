@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
-import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { execFileSync, spawn } from "node:child_process";
+import { mkdir, mkdtemp, readFile, readdir, rm, writeFile } from "node:fs/promises";
 import net from "node:net";
 import os from "node:os";
 import path from "node:path";
@@ -8,9 +9,11 @@ import {
   assertNoRunningServer,
   claimSession,
   filterViteProcessLines,
+  findUnmanagedViteProcesses,
   listSessions,
   parseOptions,
   portAvailable,
+  refuseIfServerRunning,
   releaseSession,
   SHARED_PORT,
   startSession,
@@ -37,6 +40,40 @@ async function unusedPort(t) {
   const port = server.address().port;
   await new Promise((resolve) => server.close(resolve));
   return port;
+}
+
+// Spawns a real, harmless node process whose command line contains
+// `relativeBinPath` (never binding any port), then captures its REAL line
+// out of the live `ps -axo pid=,command=` output — not a hand-typed string —
+// for use as a filterViteProcessLines fixture. Kills the process afterward.
+async function captureRealProcessLine(t, relativeBinPath) {
+  const dir = await mkdtemp(path.join(os.tmpdir(), "propulse-ps-fixture-"));
+  t.after(() => rm(dir, { recursive: true, force: true }));
+  const binPath = path.join(dir, relativeBinPath);
+  await mkdir(path.dirname(binPath), { recursive: true });
+  await writeFile(binPath, "setTimeout(() => {}, 4000);\n");
+  const child = spawn(process.execPath, [binPath], { stdio: "ignore" });
+  t.after(() => {
+    try {
+      child.kill();
+    } catch {
+      // already exited
+    }
+  });
+  let line = null;
+  for (let attempt = 0; attempt < 40 && !line; attempt++) {
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    const out = execFileSync("ps", ["-axo", "pid=,command="], {
+      encoding: "utf8",
+    });
+    line = out
+      .split("\n")
+      .find((candidate) => candidate.trim().startsWith(`${child.pid} `));
+  }
+  // Left alive (killed only by the t.after above): callers may want to
+  // query the real process table for this pid again after this returns.
+  assert.ok(line, `did not observe pid ${child.pid} in real ps output`);
+  return line;
 }
 
 const base = {
@@ -216,22 +253,98 @@ test("claimSession reclaims a dead-pid claim and retries once", async (t) => {
   assert.equal((await listSessions(dir)).length, 1);
 });
 
-test("filterViteProcessLines drops vitest workers and shell wrappers, keeps only a real vite executable", () => {
-  const stdout = [
-    "11111 node /repo/node_modules/.bin/vitest run --pool=threads",
-    "22222 /bin/zsh -c pgrep -fl vite; npm run dev:session -- start",
-    "33333 node /Users/x/propulse/node_modules/.bin/vite",
-  ].join("\n");
-  const result = filterViteProcessLines(stdout, { ownPid: -1, ownPpid: -1 });
-  assert.deepEqual(result, [
-    "33333 node /Users/x/propulse/node_modules/.bin/vite",
+// Codex P1 (825n): GNU procps `pgrep -l` prints only the process NAME
+// ("node"), never the full command, so a path/args-based filter over it can
+// never see "vite". Switching detection to `ps -axo pid=,command=` (same
+// full-command-line shape on macOS and Linux) fixes that; these fixtures are
+// REAL lines captured from real spawned processes, not hand-typed strings.
+test("filterViteProcessLines keeps a real vite-path process and drops a real vitest-path process", async (t) => {
+  const [vitestLine, viteLine] = await Promise.all([
+    captureRealProcessLine(t, path.join("node_modules", ".bin", "vitest")),
+    captureRealProcessLine(t, path.join("node_modules", ".bin", "vite")),
   ]);
+  const stdout = [vitestLine, viteLine].join("\n");
+  const result = filterViteProcessLines(stdout, { ownPid: -1 });
+  assert.deepEqual(result, [viteLine]);
 });
 
-test("filterViteProcessLines excludes its own pid and ppid", () => {
+// Integration-level check that the real detection path (ps, not the old
+// pgrep -fl) actually finds a real vite-looking process end to end: pgrep's
+// `-l` output column is name-only on some builds even combined with `-f`
+// (the exact GNU-procps defect in 825n), so exercising the real function
+// against a real process — not just the pure filter — is the fix that
+// matters.
+test("findUnmanagedViteProcesses detects a real vite process through the real ps command", async (t) => {
+  const line = await captureRealProcessLine(
+    t,
+    path.join("node_modules", ".bin", "vite"),
+  );
+  const pid = Number(line.trim().split(/\s+/, 1)[0]);
+  const result = findUnmanagedViteProcesses();
+  assert.ok(
+    result.some((entry) => entry.pid === pid),
+    `expected pid ${pid} among ${JSON.stringify(result)}`,
+  );
+});
+
+test("filterViteProcessLines excludes its own pid", () => {
   const stdout = "42 node /repo/node_modules/.bin/vite";
-  assert.deepEqual(filterViteProcessLines(stdout, { ownPid: 42, ownPpid: -1 }), []);
-  assert.deepEqual(filterViteProcessLines(stdout, { ownPid: -1, ownPpid: 42 }), []);
+  assert.deepEqual(filterViteProcessLines(stdout, { ownPid: 42 }), []);
+  assert.equal(filterViteProcessLines(stdout, { ownPid: 43 }).length, 1);
+});
+
+// Codex P1 (825p... 825t naming aside — this is the 825n follow-up): an
+// unmanaged vite-looking process must refuse start, not just warn, even when
+// it's listening on a different port than the one being requested.
+test("refuseIfServerRunning refuses when an unmanaged vite process is found, even on a different port", async (t) => {
+  const dir = await registry(t);
+  const port = await unusedPort(t);
+  const findUnmanaged = () => [
+    {
+      pid: 999999,
+      command: "node /some/other/checkout/node_modules/.bin/vite --port 5180",
+      port: 5180,
+    },
+  ];
+  await assert.rejects(
+    refuseIfServerRunning({ registry: dir, port, findUnmanaged }),
+    /already running.*pid=999999 port=5180/s,
+  );
+});
+
+test("refuseIfServerRunning passes through when no unmanaged process is found", async (t) => {
+  const dir = await registry(t);
+  const port = await unusedPort(t);
+  await assert.doesNotReject(
+    refuseIfServerRunning({ registry: dir, port, findUnmanaged: () => [] }),
+  );
+});
+
+// Codex P2 (825t...): two claimants racing to reclaim the same dead-pid
+// claim must never both win it. The rename-then-create reclaim is atomic;
+// the loser must see ENOENT on its own rename and restart from scratch
+// rather than clobbering the winner's fresh claim.
+test("a stale claim's atomic reclaim never lets two racing claimants both win", async (t) => {
+  const dir = await registry(t);
+  const port = await unusedPort(t);
+  const filename = path.join(dir, `${port}.json`);
+  await writeFile(filename, JSON.stringify({ ...base, pid: 0, port }));
+  const claims = await Promise.allSettled([
+    claimSession({ ...base, registry: dir, ports: [port] }),
+    claimSession({ ...base, owner: "agent-two", registry: dir, ports: [port] }),
+  ]);
+  const fulfilled = claims.filter((claim) => claim.status === "fulfilled");
+  const rejected = claims.filter((claim) => claim.status === "rejected");
+  assert.equal(fulfilled.length, 1);
+  assert.equal(rejected.length, 1);
+  assert.match(rejected[0].reason.message, /No requested port/);
+  const sessions = await listSessions(dir);
+  assert.equal(sessions.length, 1);
+  assert.equal(sessions[0].pid, process.pid);
+  const leftover = (await readdir(dir)).filter((name) =>
+    name.includes(".stale-"),
+  );
+  assert.deepEqual(leftover, []);
 });
 
 // F10(a): startSession must thread { registry } through to the guard and

@@ -13,6 +13,7 @@ import {
   readdir,
   readFile,
   realpath,
+  rename,
   unlink,
 } from "node:fs/promises";
 import net from "node:net";
@@ -132,6 +133,60 @@ async function isStaleClaim(filename) {
   }
 }
 
+// At most this many reclaim rounds per port before giving up on it (each
+// round is only taken when a racing claimant just won the rename below, so a
+// handful covers any realistic contention without looping forever on a
+// genuinely wedged registry).
+const MAX_RECLAIM_ATTEMPTS = 5;
+
+// Attempts to claim `filename` for one port. Returns null when the port is
+// held by a live (non-stale) claim — the caller should try the next
+// requested port. Returns { handle, stalePath } on success: `handle` is the
+// freshly opened exclusive-create file handle for the new claim, and
+// `stalePath` (set only when a dead claim was reclaimed) is the renamed-away
+// old file to delete once the new claim is durably written.
+//
+// Reclaiming a stale (dead-pid) claim is a rename-then-create, never
+// unlink-then-open: `rename` is atomic, so exactly one racing claimant wins
+// it — the loser gets ENOENT and must re-examine `filename` from scratch
+// (it may now be free, or already re-claimed by the winner) rather than
+// unlinking a file it no longer owns out from under whoever created it.
+async function claimPort(filename) {
+  for (let attempt = 0; attempt < MAX_RECLAIM_ATTEMPTS; attempt++) {
+    try {
+      return { handle: await open(filename, "wx", 0o600), stalePath: null };
+    } catch (error) {
+      if (error.code !== "EEXIST") throw error;
+    }
+    if (!(await isStaleClaim(filename))) return null;
+    const stalePath = `${filename}.stale-${process.pid}-${Date.now()}`;
+    try {
+      await rename(filename, stalePath);
+    } catch (error) {
+      if (error.code === "ENOENT") continue; // lost the race; restart
+      throw error;
+    }
+    // `rename` is atomic but content-blind: by the time it lands, a racing
+    // claimant may already have recreated `filename` with a fresh live
+    // claim, which we'd have just displaced. Re-check what we actually
+    // moved; if it wasn't genuinely stale, put it back and restart rather
+    // than clobbering a live claim we didn't mean to touch.
+    if (!(await isStaleClaim(stalePath))) {
+      await rename(stalePath, filename).catch(() => {});
+      continue;
+    }
+    try {
+      return { handle: await open(filename, "wx", 0o600), stalePath };
+    } catch (error) {
+      // Never leave our renamed-away file orphaned if we can't finish.
+      await unlink(stalePath).catch(() => {});
+      if (error.code === "EEXIST") continue; // restart from scratch
+      throw error;
+    }
+  }
+  return null;
+}
+
 export async function claimSession({
   owner,
   task,
@@ -145,22 +200,9 @@ export async function claimSession({
   for (const port of ports) {
     const filename = path.join(registry, `${port}.json`);
     attempted.push(filename);
-    let handle;
-    try {
-      handle = await open(filename, "wx", 0o600);
-    } catch (error) {
-      if (error.code !== "EEXIST") throw error;
-      // Retry once: reclaim a dead-pid claim (crashed session), otherwise
-      // move on to the next requested port.
-      if (!(await isStaleClaim(filename))) continue;
-      await unlink(filename).catch(() => {});
-      try {
-        handle = await open(filename, "wx", 0o600);
-      } catch (retryError) {
-        if (retryError.code === "EEXIST") continue; // lost the race; move on
-        throw retryError;
-      }
-    }
+    const claimed = await claimPort(filename);
+    if (claimed === null) continue;
+    const { handle, stalePath } = claimed;
     const session = {
       id: randomUUID(),
       owner,
@@ -175,6 +217,7 @@ export async function claimSession({
     try {
       await handle.writeFile(`${JSON.stringify(session, null, 2)}\n`);
       await handle.close();
+      if (stalePath) await unlink(stalePath).catch(() => {});
       if (!(await portAvailable(port))) {
         await unlink(filename);
         continue;
@@ -183,6 +226,7 @@ export async function claimSession({
     } catch (error) {
       await handle.close().catch(() => {});
       await unlink(filename).catch(() => {});
+      if (stalePath) await unlink(stalePath).catch(() => {});
       throw error;
     }
   }
@@ -245,17 +289,16 @@ export async function findLiveSession(registry = REGISTRY) {
   );
 }
 
-// Pure filter for `pgrep -fl vite` output: a full-command-line substring
-// match on "vite" also matches vitest workers and any shell whose own
-// command line happens to quote "vite" (e.g. the documented `pgrep -fl vite;
-// npm run dev:session -- start` recipe, run as one shell invocation). Keep
-// only lines that actually exec a vite binary, and never match this
-// process's own pid/ppid (e.g. the zsh wrapper that ran `pgrep`/this script).
+// Pure filter over `ps -axo pid=,command=` output (full command line on both
+// macOS and Linux — unlike `pgrep -l`, whose GNU procps build prints only the
+// process *name* ("node"), never the vite path/args, so it could never match
+// "vite" for a `node .../vite` invocation). Drops vitest workers and this
+// process's own pid; everything else containing "vite" is reported as an
+// unmanaged Vite-looking process.
 export function filterViteProcessLines(
   stdout,
-  { ownPid = process.pid, ownPpid = process.ppid } = {},
+  { ownPid = process.pid } = {},
 ) {
-  const exclude = new Set([ownPid, ownPpid]);
   return stdout
     .trim()
     .split("\n")
@@ -263,28 +306,39 @@ export function filterViteProcessLines(
     .filter((line) => !/\bvitest\b/.test(line))
     .filter((line) => {
       const pid = Number(line.trim().split(/\s+/, 1)[0]);
-      return !exclude.has(pid);
+      return pid !== ownPid;
     })
-    .filter((line) => /\/(?:\.bin\/vite|vite\/bin\/vite\.js)(?:\s|$)/.test(line));
+    .filter((line) => /\bvite\b/.test(line));
 }
 
-// Best-effort, advisory-only detection of an unmanaged Vite process (e.g. a
-// plain `npm run dev`), which the registry cannot see. Never authoritative
-// and never throws: pgrep being unavailable, or matching nothing (or too
-// much — see filterViteProcessLines), must not block or pass a genuinely
-// free/occupied machine on its own. assertPortFree is the real signal.
+function parseUnmanagedProcessLine(line) {
+  const trimmed = line.trim();
+  const firstSpace = trimmed.indexOf(" ");
+  const pid = Number(trimmed.slice(0, firstSpace));
+  const command = trimmed.slice(firstSpace + 1).trim();
+  const portMatch = command.match(/--port[=\s]+(\d+)/);
+  return { pid, command, port: portMatch ? Number(portMatch[1]) : null };
+}
+
+// Detection of an unmanaged Vite process (e.g. a plain `npm run dev`, or one
+// on a different port), which the registry cannot see. `ps` being
+// unavailable, or matching nothing, must not itself throw — refuseIfServerRunning
+// decides whether a match is a refusal.
 export function findUnmanagedViteProcesses() {
   try {
-    const out = execFileSync("pgrep", ["-fl", "vite"], { encoding: "utf8" });
-    return filterViteProcessLines(out);
+    const out = execFileSync("ps", ["-axo", "pid=,command="], {
+      encoding: "utf8",
+    });
+    return filterViteProcessLines(out).map(parseUnmanagedProcessLine);
   } catch {
     return [];
   }
 }
 
 // Registry-only check: unit-testable in isolation from the real machine's
-// process table (see assertPortFree for the authoritative OS-level check,
-// and findUnmanagedViteProcesses for the advisory-only process-name check).
+// process table (see assertPortFree for the authoritative OS-level port
+// check, and findUnmanagedViteProcesses for the process-name check that
+// catches an unmanaged server on a *different* port).
 export async function assertNoRunningServer(registry = REGISTRY) {
   const live = await findLiveSession(registry);
   if (live) {
@@ -294,8 +348,8 @@ export async function assertNoRunningServer(registry = REGISTRY) {
   }
 }
 
-// The authoritative refusal: whatever the registry or pgrep say, an actually
-// occupied port means a server (this tool's or not) is already there.
+// An occupied port means a server (this tool's or not) is already there,
+// regardless of what the registry or the process table say.
 export async function assertPortFree(port = SHARED_PORT) {
   if (!(await portAvailable(port))) {
     throw new Error(
@@ -304,19 +358,27 @@ export async function assertPortFree(port = SHARED_PORT) {
   }
 }
 
-// Composite guard shared by `start` and `guard`: registry + port are
-// authoritative and throw; pgrep is advisory and only warns.
+// Composite guard shared by `start` and `guard`: registry, port, and any
+// unmanaged vite-looking process (e.g. one already running on a different
+// port, which assertPortFree cannot see) all refuse. DEV_SERVER_ALLOW_EXTRA
+// only ever changes which port `start` itself binds — it does not bypass
+// this check; a second server is a second server regardless of who set it.
 export async function refuseIfServerRunning({
   registry = REGISTRY,
   port = SHARED_PORT,
+  findUnmanaged = findUnmanagedViteProcesses,
 } = {}) {
   await assertNoRunningServer(registry);
   await assertPortFree(port);
-  const unmanaged = findUnmanagedViteProcesses();
+  const unmanaged = findUnmanaged();
   if (unmanaged.length) {
-    console.warn(
-      `Advisory only (the port check above is authoritative): a Vite-looking ` +
-        `process is already running on this machine, unmanaged by this tool:\n${unmanaged.join("\n")}`,
+    const details = unmanaged
+      .map((p) => `pid=${p.pid} port=${p.port ?? "unknown"} command=${p.command}`)
+      .join("\n");
+    throw new Error(
+      `A dev server is already running (unmanaged by this tool):\n${details}\n` +
+        `${SINGLE_SERVER_RULE} Run \`npm run dev:session -- status\` and use the ` +
+        "existing server, or stop that process yourself.",
     );
   }
 }
@@ -409,10 +471,11 @@ async function main() {
       `npm run dev:session -- status\nnpm run dev:session -- start --owner <agent-slug> --task <description> [--profile connected|local]\nnpm run dev:session -- guard\n` +
         `${SINGLE_SERVER_RULE}\n` +
         "start (and guard, run automatically before `npm run dev` via predev) refuses if any dev " +
-        "server is already running: an occupied port 5173 is authoritative, a live registry entry " +
-        "is authoritative, an unmanaged `vite`-looking process is advisory only. Port is always 5173; " +
+        "server is already running: an occupied port 5173, a live registry entry, or an unmanaged " +
+        "`vite`-looking process anywhere on this machine (any port) all refuse. Port is always 5173; " +
         "DEV_SERVER_ALLOW_EXTRA=1 moves the single server to a different port (owner-only escape " +
-        "hatch), it never permits a second server. See docs/guides/LOCAL-AGENT-TESTING.md.",
+        "hatch); it does not bypass any of these checks and never permits a second server. See " +
+        "docs/guides/LOCAL-AGENT-TESTING.md.",
     );
   } else if (options.command === "status") {
     console.log(

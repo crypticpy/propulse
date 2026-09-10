@@ -4,12 +4,12 @@
  * Opens when `satelliteModalId` is set in mapStore (independent of the
  * follower popup's `selectedSatelliteId`). Shows satellite position data,
  * transponder info with Doppler correction, and pass predictions. Rendered
- * via createPortal to document.body.
+ * through `AccessibleDialog`, which portals to document.body itself.
  */
 
-import { useMemo, useEffect, useCallback } from "react";
-import { createPortal } from "react-dom";
+import { useMemo, useCallback, useId } from "react";
 import { format, formatDistanceToNow } from "date-fns";
+import { AccessibleDialog } from "@/components/ui/AccessibleDialog";
 import { useMapStore } from "@/stores/mapStore";
 import { useSatellites } from "@/hooks/useSatellites";
 import { useSatelliteTransponders } from "@/hooks/useSatelliteTransponders";
@@ -393,10 +393,12 @@ function SatelliteDetailContent({
   satellite,
   passes,
   onClose,
+  titleId,
 }: {
   satellite: SatelliteInfo;
   passes: PassPrediction[];
   onClose: () => void;
+  titleId: string;
 }) {
   const { lat, lon, alt, velocity } = satellite.position;
   const { station } = useUserStore();
@@ -458,9 +460,12 @@ function SatelliteDetailContent({
       <div className="flex items-center gap-2 mb-3 flex-shrink-0">
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
-            <span className="text-sm font-medium text-su-text truncate">
+            <h2
+              id={titleId}
+              className="text-sm font-medium text-su-text truncate"
+            >
               {satellite.name}
-            </span>
+            </h2>
             <CategoryBadge category={satellite.category} />
             <VisibilityDot isVisible={satellite.isVisible} />
           </div>
@@ -612,48 +617,95 @@ function SatelliteDetailContent({
 // ---------------------------------------------------------------------------
 
 export default function SatelliteDetailModal() {
+  // Reading only `satelliteModalId` here (instead of also calling
+  // useSatellites unconditionally) keeps the expensive TLE query, position
+  // timer and satellite-list useMemo in `SatelliteDetailModalInner` out of
+  // every PropSphere render — they only run while a satellite modal is
+  // actually open. See #805.
   const satelliteModalId = useMapStore((s) => s.satelliteModalId);
-  const setSatelliteModalId = useMapStore((s) => s.setSatelliteModalId);
 
-  const { selectedSatellite, nextPasses } = useSatellites(true, satelliteModalId);
+  if (satelliteModalId === null) return null;
+
+  return <SatelliteDetailModalInner satelliteModalId={satelliteModalId} />;
+}
+
+function SatelliteDetailModalInner({
+  satelliteModalId,
+}: {
+  satelliteModalId: number;
+}) {
+  const setSatelliteModalId = useMapStore((s) => s.setSatelliteModalId);
+  const { selectedSatellite, nextPasses } = useSatellites(
+    true,
+    satelliteModalId,
+  );
+  const titleId = useId();
 
   const handleClose = useCallback(() => {
     setSatelliteModalId(null);
   }, [setSatelliteModalId]);
 
-  // Escape key handler
-  useEffect(() => {
-    if (satelliteModalId === null) return;
-    function handleKey(e: KeyboardEvent) {
-      if (e.key === "Escape") handleClose();
-    }
-    document.addEventListener("keydown", handleKey);
-    return () => document.removeEventListener("keydown", handleKey);
-  }, [satelliteModalId, handleClose]);
-
-  // Render nothing when no satellite is selected
-  if (satelliteModalId === null || !selectedSatellite) return null;
-
-  return createPortal(
-    <div
-      className="fixed inset-0 z-[300] flex items-center justify-center"
-      onClick={handleClose}
-    >
-      {/* Backdrop */}
-      <div className="absolute inset-0 bg-black/50" />
-
-      {/* Modal content */}
-      <div
-        className="relative w-full max-w-md mx-4 bg-su-canvas border border-su-line/40 rounded-xl shadow-2xl shadow-black/60 p-4"
-        onClick={(e) => e.stopPropagation()}
+  // AccessibleDialog supplies role="dialog", aria-modal, capture-phase
+  // Escape (with stopImmediatePropagation), the backdrop button, background
+  // inerting, scroll lock and initial focus. It must stay mounted for the
+  // *entire* time satelliteModalId is non-null — including the window before
+  // selectedSatellite resolves, or if it never resolves (the satellite was
+  // dropped from the enabled groups, or its orbit can't be computed) — or
+  // Escape falls through to useFullscreenEscape's bubble-phase handler
+  // instead of being owned by this dialog, and the id is left stuck set for
+  // the dialog to silently re-open on the next refetch. See #805 Codex
+  // thread PRRT_kwDORFr4R86g3-Vc.
+  if (!selectedSatellite) {
+    return (
+      <AccessibleDialog
+        open
+        onClose={handleClose}
+        title="Satellite unavailable"
+        chrome="bare"
+        labelledBy={titleId}
+        zIndexClassName="z-[300]"
+        panelProps={{
+          className:
+            "w-full max-w-md bg-su-canvas border border-su-line/40 rounded-xl shadow-2xl shadow-black/60 p-4",
+        }}
       >
-        <SatelliteDetailContent
-          satellite={selectedSatellite}
-          passes={nextPasses}
-          onClose={handleClose}
-        />
-      </div>
-    </div>,
-    document.body,
+        <h2 id={titleId} className="text-sm font-medium text-su-text">
+          Satellite unavailable
+        </h2>
+        <p className="text-xs text-su-muted mt-2">
+          Satellite data is not available right now. It may have been
+          removed from the enabled groups or its orbit could not be
+          computed.
+        </p>
+        <button
+          onClick={handleClose}
+          className="mt-3 px-3 py-1.5 text-xs font-medium bg-su-line/10 hover:bg-su-line/20 text-su-text rounded-lg transition-colors"
+        >
+          Close
+        </button>
+      </AccessibleDialog>
+    );
+  }
+
+  return (
+    <AccessibleDialog
+      open
+      onClose={handleClose}
+      title={selectedSatellite.name}
+      chrome="bare"
+      labelledBy={titleId}
+      zIndexClassName="z-[300]"
+      panelProps={{
+        className:
+          "w-full max-w-md bg-su-canvas border border-su-line/40 rounded-xl shadow-2xl shadow-black/60 p-4",
+      }}
+    >
+      <SatelliteDetailContent
+        satellite={selectedSatellite}
+        passes={nextPasses}
+        onClose={handleClose}
+        titleId={titleId}
+      />
+    </AccessibleDialog>
   );
 }

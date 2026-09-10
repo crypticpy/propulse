@@ -73,6 +73,13 @@ export default tseslint.config(
             "STORM_CATEGORY_HEX",
             "RIVER_STATUS_HEX",
             "outlookKpToneClass",
+            // Pure fit-check helper for PropagationForecastModal's SNR label
+            // gate (#832 follow-up); unit-tested without rendering.
+            "snrLabelFits",
+            // Pure chart-sizing and NOW-label-position helpers for the same
+            // modal (#854 round 2); unit-tested without rendering.
+            "chartGeometry",
+            "nowLabelY",
           ],
         },
       ],

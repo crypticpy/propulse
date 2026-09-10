@@ -72,6 +72,22 @@
  * `PredictionsCard.tsx` precedent, since #826 named it explicitly rather
  * than leaving it out like the dead-code bucket (`WorkStationPanel.tsx`,
  * `DXSpotOverlay.tsx`) from the #825 round. Zero allowlist entries added.
+ *
+ * #854 (carved out of PR #839, part of the #832 map-slice work in flight on
+ * a separate branch): fixes the nine sub-floor `text-[Npx]` sites in
+ * `modals/PropagationForecastModal.tsx`. That file also drew an SNR-label
+ * visibility gate (`CELL_WIDTH > 20 && CELL_HEIGHT > 20`) built from two
+ * module constants, so the comparison was a compile-time `true` -- it never
+ * actually gated anything. Once the label moved to `text-xs` it started
+ * following Settings -> Text Size, and the old gate would let three-digit
+ * or negative SNR values overflow the cell at `lg`/`xl`. Landed together
+ * with a text-scale-aware `snrLabelFits()` fit check (unit-tested
+ * separately in `modals/PropagationForecastModal.test.ts`) so the site
+ * conversion doesn't ship a visible regression. This branch's base (`main`
+ * at the time of writing) predates the #832 census paragraph and running
+ * total recorded on `fix/sub-text-xs-map-slice1-832`; this entry documents
+ * only this file's 9 sites and does not attempt to reconcile that total.
+ * Refs #832, #839.
  */
 
 import { fileURLToPath } from "node:url";
@@ -116,6 +132,8 @@ const FILES = [
   "src/components/dx/PredictionsCard.tsx",
   "src/components/dx/modals/HistoryDetailModal.tsx",
   "src/components/dx/BandScope.tsx",
+  // #854 -- see module doc above.
+  "src/components/map/modals/PropagationForecastModal.tsx",
 ];
 
 interface AllowlistEntry {

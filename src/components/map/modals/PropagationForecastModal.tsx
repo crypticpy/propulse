@@ -5,7 +5,7 @@
  * Shows larger heatmap, best window recommendations, and educational content.
  */
 
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { DetailModal } from "@/components/ui/DetailModal";
 import { NowCastBandPanel } from "@/components/propagation/NowCastBandPanel";
 import { HF_MODEL_BANDS } from "@/lib/propagation/coreFeatureBuilder";
@@ -15,6 +15,7 @@ import {
   type HourlyForecast,
   type BestWindow,
 } from "@/lib/utils/bands";
+import { useSettingsStore } from "@/stores/settingsStore";
 
 interface PropagationForecastModalProps {
   isOpen: boolean;
@@ -47,13 +48,163 @@ const DISPLAY_BANDS = [
   "160m",
 ];
 
-// Modal SVG dimensions (larger)
-const CHART_WIDTH = 600;
+// Modal SVG dimensions (larger). `CHART_WIDTH_BASE` is the chart width at
+// the default 16px root font size; `chartGeometry()` scales it up with the
+// operator's Text Size setting so the heat-map's SNR labels keep fitting
+// their cells instead of being hidden past `md` (see `snrLabelFits` below).
+const CHART_WIDTH_BASE = 600;
 const CHART_HEIGHT = 300;
+// `MARGIN.top` is the *base* (unscaled) top margin. The chart's actual top
+// margin at render time is `chartTopMargin(rootFontPx)`, which never goes
+// below this but grows past it once the NOW label needs more room than
+// this fits (see that function below). `right`/`bottom`/`left` aren't
+// touched by any of this -- they don't interact with `text-xs` labels the
+// way the NOW label does.
 const MARGIN = { top: 28, right: 16, bottom: 32, left: 48 };
-const CELL_WIDTH = (CHART_WIDTH - MARGIN.left - MARGIN.right) / 24;
-const CELL_HEIGHT =
-  (CHART_HEIGHT - MARGIN.top - MARGIN.bottom) / DISPLAY_BANDS.length;
+
+const ROOT_FONT_PX_DEFAULT = 16;
+// Tailwind's `text-xs` is 0.75rem at every root size, so this stays a
+// constant multiplier of whatever the computed root font size is.
+const TEXT_XS_REM = 0.75;
+const CHAR_WIDTH_EM = 0.6; // rough per-character advance for a monospace numeral
+/**
+ * Clearance so a label flush against the fit line isn't chosen. 3px rather
+ * than a hairline margin, since two labels only 0.73px apart still read as
+ * touching at typical screen densities.
+ */
+const LABEL_FIT_MARGIN_PX = 3;
+/**
+ * Fixed vertical offset (in SVG px) from the chart's top margin up to the
+ * flat top edge of the current-time triangle. This is a graphic dimension
+ * -- the triangle itself doesn't grow with Text Size -- unlike the NOW
+ * label positioned above it, which does.
+ */
+const NOW_TRIANGLE_TOP_OFFSET_PX = 12;
+/**
+ * Approximate cap-height of a `text-xs` label as a fraction of its font
+ * size. Used only to reserve enough vertical clearance above/below the
+ * label -- SVG text has no layout-time metrics to measure exactly, so this
+ * is a deliberately rough but scale-aware stand-in.
+ */
+const LABEL_CAP_HEIGHT_EM = 0.7;
+/**
+ * Gap between the NOW label's bottom edge and the top of the current-time
+ * triangle, as a fraction of the label's own font size (not a fixed px
+ * value) so the two stay visibly separated as Text Size grows instead of
+ * the fixed-size triangle eating into a shrinking share of the label.
+ */
+const NOW_LABEL_GAP_EM = 1 / 3;
+
+/**
+ * Chart width and per-hour cell width at a given computed root font size.
+ *
+ * Scaling the chart *proportionally* with the root font size (round 2's
+ * approach) doesn't actually help: both the cell width and the label width
+ * grow at the same rate, so their ratio -- and therefore the fit -- never
+ * changes. A 3-character SNR value (most readings, since `bands.ts` clamps
+ * to [-30, -5]) needs `3 * 0.6 * (rootFontPx * 0.75)` px plus
+ * `LABEL_FIT_MARGIN_PX` of clearance; proportional scaling stays short of
+ * that at every one of the app's text scales.
+ *
+ * Cells are sized from the *widest label they need to hold* instead: each
+ * cell is at least wide enough for a 3-character label plus a full
+ * `2 * LABEL_FIT_MARGIN_PX` of clearance (double `snrLabelFits`'s own
+ * margin, so the fit check below always has slack to spare), falling back
+ * to the proportionally-scaled width on the rare chance that's ever wider.
+ * `chartWidth` is then rebuilt from that cell width so `viewBox` and the
+ * SVG's `width` attribute stay equal (one SVG user unit is exactly one CSS
+ * pixel). The heat map's container is `overflow-x-auto`, so a wider chart
+ * scrolls instead of overflowing. Pure so it is unit-testable without
+ * rendering the SVG.
+ */
+export function chartGeometry(rootFontPx: number): {
+  chartWidth: number;
+  cellWidth: number;
+  marginTop: number;
+  cellHeight: number;
+} {
+  const proportionalCellWidth =
+    (CHART_WIDTH_BASE * (rootFontPx / ROOT_FONT_PX_DEFAULT) -
+      MARGIN.left -
+      MARGIN.right) /
+    24;
+  const fontSizePx = rootFontPx * TEXT_XS_REM;
+  const charWidthPx = fontSizePx * CHAR_WIDTH_EM;
+  const widestLabelPx = 3 * charWidthPx; // "-30".."-10": the widest SNR readings
+  const cellWidth = Math.max(
+    proportionalCellWidth,
+    widestLabelPx + 2 * LABEL_FIT_MARGIN_PX,
+  );
+  const chartWidth = MARGIN.left + MARGIN.right + 24 * cellWidth;
+  const marginTop = chartTopMargin(rootFontPx);
+  const cellHeight =
+    (CHART_HEIGHT - marginTop - MARGIN.bottom) / DISPLAY_BANDS.length;
+  return { chartWidth, cellWidth, marginTop, cellHeight };
+}
+
+/**
+ * Top margin for the chart at a given computed root font size.
+ *
+ * Round 5 fix (#870 finding 2): the NOW label sits `nowLabelY(rootFontPx)`
+ * px above the current-time triangle, inside the fixed `MARGIN.top` band of
+ * space above the grid. The label is `text-xs`, so it grows with the root
+ * font size while the triangle (a fixed graphic) and a fixed top margin do
+ * not -- past roughly an 18px root the label's top edge clips off the top
+ * of the SVG. The margin now grows with the label's own font size so
+ * there's always room for the triangle's fixed offset, the label's full
+ * cap height, the label-to-triangle gap, and a `LABEL_FIT_MARGIN_PX` worth
+ * of clearance to the SVG's own top edge -- and never shrinks below the
+ * original 28px base.
+ */
+function chartTopMargin(rootFontPx: number): number {
+  const fontSizePx = rootFontPx * TEXT_XS_REM;
+  const capHeightPx = fontSizePx * LABEL_CAP_HEIGHT_EM;
+  const gapPx = fontSizePx * NOW_LABEL_GAP_EM;
+  const required =
+    NOW_TRIANGLE_TOP_OFFSET_PX + gapPx + capHeightPx + LABEL_FIT_MARGIN_PX;
+  return Math.max(MARGIN.top, required);
+}
+
+/**
+ * Whether `value`'s rendered `text-xs` label fits inside a chart cell
+ * `cellWidthPx` wide, given the page's current computed root font size in
+ * pixels. Pure and exported so the arithmetic is unit-testable without
+ * rendering the SVG (jsdom computes no layout, so a real measurement is not
+ * available here). Replaces the old `CELL_WIDTH > 20 && CELL_HEIGHT > 20`
+ * gate, which was built from two module-level constants and so was always
+ * `true` -- a compile-time constant that gated nothing.
+ */
+export function snrLabelFits(
+  value: number,
+  cellWidthPx: number,
+  rootFontPx: number = ROOT_FONT_PX_DEFAULT,
+): boolean {
+  const fontSizePx = rootFontPx * TEXT_XS_REM;
+  const charWidthPx = fontSizePx * CHAR_WIDTH_EM;
+  const labelWidthPx = String(value).length * charWidthPx;
+  return labelWidthPx + LABEL_FIT_MARGIN_PX <= cellWidthPx;
+}
+
+/**
+ * Vertical center for the "NOW" label above the current-time arrow, paired
+ * with `dominantBaseline="central"` in the markup below.
+ *
+ * Round 5 fix (#870 finding 2): at the default 16px root this used to place
+ * the label's center only 6px above the triangle's flat top edge, while the
+ * centered 12px label's own glyphs occupy roughly 8px of vertical space --
+ * so the label sat on top of the triangle instead of above it, worse as
+ * Text Size grows. The label is now anchored `NOW_LABEL_GAP_EM` of its own
+ * font size above the triangle's top edge (not a fixed px gap), and
+ * `chartTopMargin` grows in lockstep so the label's top edge never clips
+ * off the top of the SVG either.
+ */
+export function nowLabelY(rootFontPx: number): number {
+  const fontSizePx = rootFontPx * TEXT_XS_REM;
+  const capHeightPx = fontSizePx * LABEL_CAP_HEIGHT_EM;
+  const gapPx = fontSizePx * NOW_LABEL_GAP_EM;
+  const marginTop = chartTopMargin(rootFontPx);
+  return marginTop - NOW_TRIANGLE_TOP_OFFSET_PX - gapPx - capHeightPx / 2;
+}
 
 /**
  * Format hour for display
@@ -96,6 +247,45 @@ export function PropagationForecastModal({
   stationLabel,
   locationLabel,
 }: PropagationForecastModalProps) {
+  const textScale = useSettingsStore((s) => s.textScale ?? "md");
+  // The value used for layout math is the browser's actual computed root
+  // font size, not `textScale` itself, so a user's browser default other
+  // than 16px is honored even at the app's default `md` setting (Settings
+  // -> Text Size leaves the root font unset there). `textScale` still
+  // triggers a re-read (and the effect re-reads on `isOpen` too, for a
+  // caller that keeps this modal mounted while closed), but a
+  // `MutationObserver` on `data-text-scale` is what actually keeps the
+  // value correct: descendant effects run before `useTextScale()`'s own
+  // effect applies that attribute to `<html>`, so a persisted `lg`/`xl`
+  // preference reads as 16px on the first pass here and, since `textScale`
+  // itself never changes again for an already-hydrated store, a
+  // `[textScale]`-only effect would never get a second chance to fix it.
+  const [rootFontPx, setRootFontPx] = useState(ROOT_FONT_PX_DEFAULT);
+  useEffect(() => {
+    const measureRootFontPx = () => {
+      const parsed = parseFloat(
+        getComputedStyle(document.documentElement).fontSize,
+      );
+      setRootFontPx(Number.isFinite(parsed) ? parsed : ROOT_FONT_PX_DEFAULT);
+    };
+    measureRootFontPx();
+
+    if (typeof MutationObserver === "undefined") {
+      return;
+    }
+    const observer = new MutationObserver(measureRootFontPx);
+    observer.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ["data-text-scale"],
+    });
+    return () => observer.disconnect();
+  }, [isOpen, textScale]);
+
+  const { chartWidth, cellWidth, marginTop, cellHeight } = useMemo(
+    () => chartGeometry(rootFontPx),
+    [rootFontPx],
+  );
+
   // Group best windows by quality
   const windowsByQuality = useMemo(() => {
     const excellent = bestWindows.filter((w) => w.peakStatus === "excellent");
@@ -177,7 +367,7 @@ export function PropagationForecastModal({
             >
               {kp}
             </div>
-            <div className="text-[10px] text-su-muted mt-1">
+            <div className="text-xs text-su-muted mt-1">
               {kp <= 2 ? "Quiet" : kp <= 4 ? "Unsettled" : "Stormy"}
             </div>
           </div>
@@ -194,7 +384,7 @@ export function PropagationForecastModal({
             >
               {sfi}
             </div>
-            <div className="text-[10px] text-su-muted mt-1">
+            <div className="text-xs text-su-muted mt-1">
               {sfi >= 150 ? "Excellent" : sfi >= 100 ? "Good" : "Low"}
             </div>
           </div>
@@ -203,7 +393,7 @@ export function PropagationForecastModal({
             <div className="text-2xl font-mono font-bold text-plasma-orange">
               {currentHour.toString().padStart(2, "0")}:00z
             </div>
-            <div className="text-[10px] text-su-muted mt-1">UTC</div>
+            <div className="text-xs text-su-muted mt-1">UTC</div>
           </div>
           <div className="bg-su-line/10 rounded-xl p-4 text-center">
             <div className="text-xs text-su-muted mb-1">Best Band Now</div>
@@ -217,7 +407,7 @@ export function PropagationForecastModal({
             >
               {currentBestBand?.band || "---"}
             </div>
-            <div className="text-[10px] text-su-muted mt-1">
+            <div className="text-xs text-su-muted mt-1">
               {currentBestBand
                 ? `${currentBestBand.snrEstimate} dB`
                 : "No opening"}
@@ -227,11 +417,11 @@ export function PropagationForecastModal({
 
         {/* Large heatmap */}
         <div className="bg-su-line/10 rounded-xl p-4">
-          <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center justify-between flex-wrap gap-y-1 mb-4">
             <h3 className="text-sm font-medium text-su-text">
               Band Conditions by Hour (UTC)
             </h3>
-            <div className="flex items-center gap-4 text-[10px]">
+            <div className="flex items-center flex-wrap gap-4 gap-y-1 text-xs">
               <div className="flex items-center gap-1.5">
                 <div
                   className="w-3 h-3 rounded"
@@ -270,12 +460,27 @@ export function PropagationForecastModal({
             </div>
           </div>
 
-          <div className="flex justify-center overflow-x-auto">
+          <div className="overflow-x-auto">
+            {/* `shrink-0` (plus an explicit width, not just `min-w`) keeps
+                this SVG from being scaled down as a flex item if a flex
+                layout is ever reintroduced here, so `overflow-x-auto`
+                scrolls to the unshrunk width instead of the whole chart
+                (labels included) contracting with the `viewBox`. The SVG
+                is `block mx-auto` rather than sitting in a
+                `flex justify-center` parent (round 5, #870 finding 1):
+                with `justify-center`, a chart wider than the container on
+                a narrow viewport puts half the overflow on the *start*
+                side, which the scrollbar can't reach, leaving the band
+                labels and earliest hour columns permanently hidden.
+                `margin: auto` on a block element centers it when it fits
+                and collapses to 0 when it overflows, so the scrollable
+                range always starts at the left edge. */}
             <svg
-              width={CHART_WIDTH}
+              width={chartWidth}
               height={CHART_HEIGHT}
-              viewBox={`0 0 ${CHART_WIDTH} ${CHART_HEIGHT}`}
-              className="min-w-[500px]"
+              viewBox={`0 0 ${chartWidth} ${CHART_HEIGHT}`}
+              className="block shrink-0 mx-auto"
+              style={{ width: `${chartWidth}px` }}
             >
               {/* Definitions */}
               <defs>
@@ -309,9 +514,9 @@ export function PropagationForecastModal({
                 <text
                   key={band}
                   x={MARGIN.left - 8}
-                  y={MARGIN.top + idx * CELL_HEIGHT + CELL_HEIGHT / 2 + 4}
+                  y={marginTop + idx * cellHeight + cellHeight / 2 + 4}
                   textAnchor="end"
-                  className="fill-su-text text-[11px] font-mono"
+                  className="fill-su-text text-xs font-mono"
                 >
                   {band}
                 </text>
@@ -321,10 +526,10 @@ export function PropagationForecastModal({
               {Array.from({ length: 12 }, (_, i) => i * 2).map((hour) => (
                 <text
                   key={hour}
-                  x={MARGIN.left + hour * CELL_WIDTH + CELL_WIDTH}
+                  x={MARGIN.left + hour * cellWidth + cellWidth}
                   y={CHART_HEIGHT - 8}
                   textAnchor="middle"
-                  className="fill-su-muted text-[10px] font-mono"
+                  className="fill-su-muted text-xs font-mono"
                 >
                   {hour.toString().padStart(2, "0")}
                 </text>
@@ -336,16 +541,16 @@ export function PropagationForecastModal({
                   const bandData = hourData.bands.find((b) => b.band === band);
                   const status = bandData?.status || "closed";
                   const color = getForecastStatusColor(status);
-                  const x = MARGIN.left + hourData.hour * CELL_WIDTH;
-                  const y = MARGIN.top + bandIdx * CELL_HEIGHT;
+                  const x = MARGIN.left + hourData.hour * cellWidth;
+                  const y = marginTop + bandIdx * cellHeight;
 
                   return (
                     <g key={`modal-${hourData.hour}-${band}`}>
                       <rect
                         x={x + 0.5}
                         y={y + 0.5}
-                        width={CELL_WIDTH - 1}
-                        height={CELL_HEIGHT - 1}
+                        width={cellWidth - 1}
+                        height={cellHeight - 1}
                         fill={color}
                         opacity={0.9}
                         rx={2}
@@ -354,22 +559,31 @@ export function PropagationForecastModal({
                       <rect
                         x={x + 0.5}
                         y={y + 0.5}
-                        width={CELL_WIDTH - 1}
-                        height={(CELL_HEIGHT - 1) / 2}
+                        width={cellWidth - 1}
+                        height={(cellHeight - 1) / 2}
                         fill="url(#modalCellShine)"
                         rx={2}
                       />
-                      {/* Show SNR on hover area - larger cells */}
-                      {CELL_WIDTH > 20 && CELL_HEIGHT > 20 && bandData && (
-                        <text
-                          x={x + CELL_WIDTH / 2}
-                          y={y + CELL_HEIGHT / 2 + 3}
-                          textAnchor="middle"
-                          className="fill-black/40 text-[8px] font-mono pointer-events-none"
-                        >
-                          {bandData.snrEstimate}
-                        </text>
-                      )}
+                      {/* Show SNR only when its text-xs label actually fits
+                          this cell at the current root font size -- the
+                          color heatmap still carries the information either
+                          way, and no label beats an overlapping one. */}
+                      {bandData &&
+                        snrLabelFits(
+                          bandData.snrEstimate,
+                          cellWidth,
+                          rootFontPx,
+                        ) && (
+                          <text
+                            x={x + cellWidth / 2}
+                            y={y + cellHeight / 2}
+                            textAnchor="middle"
+                            dominantBaseline="central"
+                            className="fill-black/40 text-xs font-mono pointer-events-none"
+                          >
+                            {bandData.snrEstimate}
+                          </text>
+                        )}
                     </g>
                   );
                 }),
@@ -378,9 +592,9 @@ export function PropagationForecastModal({
               {/* Current time indicator */}
               <g filter="url(#modalGlow)">
                 <line
-                  x1={MARGIN.left + currentHour * CELL_WIDTH + CELL_WIDTH / 2}
-                  y1={MARGIN.top - 6}
-                  x2={MARGIN.left + currentHour * CELL_WIDTH + CELL_WIDTH / 2}
+                  x1={MARGIN.left + currentHour * cellWidth + cellWidth / 2}
+                  y1={marginTop - 6}
+                  x2={MARGIN.left + currentHour * cellWidth + cellWidth / 2}
                   y2={CHART_HEIGHT - MARGIN.bottom + 6}
                   stroke="#ff6b35"
                   strokeWidth={2.5}
@@ -388,9 +602,9 @@ export function PropagationForecastModal({
                 />
                 <polygon
                   points={`
-                    ${MARGIN.left + currentHour * CELL_WIDTH + CELL_WIDTH / 2 - 6},${MARGIN.top - 12}
-                    ${MARGIN.left + currentHour * CELL_WIDTH + CELL_WIDTH / 2 + 6},${MARGIN.top - 12}
-                    ${MARGIN.left + currentHour * CELL_WIDTH + CELL_WIDTH / 2},${MARGIN.top - 2}
+                    ${MARGIN.left + currentHour * cellWidth + cellWidth / 2 - 6},${marginTop - NOW_TRIANGLE_TOP_OFFSET_PX}
+                    ${MARGIN.left + currentHour * cellWidth + cellWidth / 2 + 6},${marginTop - NOW_TRIANGLE_TOP_OFFSET_PX}
+                    ${MARGIN.left + currentHour * cellWidth + cellWidth / 2},${marginTop - 2}
                   `}
                   fill="#ff6b35"
                 />
@@ -398,10 +612,11 @@ export function PropagationForecastModal({
 
               {/* NOW label */}
               <text
-                x={MARGIN.left + currentHour * CELL_WIDTH + CELL_WIDTH / 2}
-                y={MARGIN.top - 18}
+                x={MARGIN.left + currentHour * cellWidth + cellWidth / 2}
+                y={nowLabelY(rootFontPx)}
                 textAnchor="middle"
-                className="fill-plasma-orange text-[10px] font-bold"
+                dominantBaseline="central"
+                className="fill-plasma-orange text-xs font-bold"
               >
                 NOW
               </text>

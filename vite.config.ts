@@ -3,7 +3,7 @@ import react from "@vitejs/plugin-react";
 import { VitePWA } from "vite-plugin-pwa";
 import path from "path";
 import { realpathSync } from "fs";
-import type { Plugin } from "vite";
+import type { Connect, Plugin, PreviewServer, ViteDevServer } from "vite";
 import { SOLAR_ROUTES } from "./api/_lib/solarRoutes";
 import { PORTABLE_ROUTES } from "./api/_lib/portableRoutes";
 import {
@@ -14,41 +14,85 @@ import { handleViewLibrary, handleViewDisplayAssignment } from "./api/_lib/handl
 import { TILE_RUNTIME_CACHING } from "./src/lib/tiles/tileRuntimeCaching";
 
 // ─── Dev session identity plugin ──────────────────────────────────────────
-// Answers /__propulse_dev_session for ANY dev server on this port, managed
-// or a plain `npm run dev`, so browser checks and scripts/dev-session.mjs's
-// worktree-identity guard both work regardless of how the server was
-// started. scripts/dev-session.mjs's startSession() sets PROPULSE_DEV_SESSION
-// (a JSON session record) before importing vite/createServer, which loads
-// this same config file — so a managed session's real owner/task/profile
-// show here too, without a second copy of this middleware in that script.
-// profile is deliberately "manual" (never "local"/"connected") for a plain
-// `npm run dev`, so scripts that require a managed local-profile session
-// keep refusing it.
+// Answers /__propulse_dev_session for ANY dev or preview server on this
+// port, managed or a plain `npm run dev`/`npm run preview`, so browser checks
+// and scripts/dev-session.mjs's worktree-identity guard both work regardless
+// of how the server was started. scripts/dev-session.mjs's startSession()
+// sets PROPULSE_DEV_SESSION (a JSON session record) before importing
+// vite/createServer, which loads this same config file — so a managed
+// session's real owner/task/profile show here too, without a second copy of
+// this middleware in that script.
+// profile is deliberately "manual"/"manual-preview" (never "local"/
+// "connected") for a plain `npm run dev`/`npm run preview`, so scripts that
+// require a managed local-profile session keep refusing it.
+
+// The bound host/port are read from the live http server at REQUEST time,
+// not captured once at plugin-setup time: by the time any request reaches
+// this handler the server is guaranteed to already be listening, so this
+// always reports what Vite actually bound — including when
+// DEV_SERVER_ALLOW_EXTRA moved the shared server to a different port, or
+// `--host` changed the bind address — rather than a hard-coded 5173/127.0.0.1
+// that could silently disagree with reality.
+function resolveManualAddress(
+  server: ViteDevServer | PreviewServer,
+): { host: string; port: number } | null {
+  const address = server.httpServer?.address();
+  if (!address || typeof address !== "object") return null;
+  const host = ["::", "0.0.0.0", "::1", "127.0.0.1"].includes(
+    address.address,
+  )
+    ? "127.0.0.1"
+    : address.address;
+  return { host, port: address.port };
+}
+
+function createDevSessionIdentityHandler(
+  server: ViteDevServer | PreviewServer,
+  manualRoot: string,
+  profile: "manual" | "manual-preview",
+): Connect.NextHandleFunction {
+  return (req, res, next) => {
+    if (req.url !== "/__propulse_dev_session") return next();
+    res.setHeader("Content-Type", "application/json");
+    res.setHeader("Cache-Control", "no-store");
+    const managed = process.env.PROPULSE_DEV_SESSION;
+    if (managed) {
+      res.end(managed);
+      return;
+    }
+    const resolved = resolveManualAddress(server) ?? {
+      host: "127.0.0.1",
+      port: 5173,
+    };
+    res.end(
+      JSON.stringify({
+        id: null,
+        owner: "manual",
+        task: null,
+        profile,
+        root: manualRoot,
+        pid: process.pid,
+        port: resolved.port,
+        url: `http://${resolved.host}:${resolved.port}`,
+        startedAt: null,
+      }),
+    );
+  };
+}
+
 function devSessionIdentityPlugin(): Plugin {
   const manualRoot = realpathSync(process.cwd());
   return {
     name: "propulse-dev-session-identity",
     configureServer(server) {
-      server.middlewares.use((req, res, next) => {
-        if (req.url !== "/__propulse_dev_session") return next();
-        res.setHeader("Content-Type", "application/json");
-        res.setHeader("Cache-Control", "no-store");
-        const managed = process.env.PROPULSE_DEV_SESSION;
-        const identity = managed
-          ? JSON.parse(managed)
-          : {
-              id: null,
-              owner: "manual",
-              task: null,
-              profile: "manual",
-              root: manualRoot,
-              pid: process.pid,
-              port: 5173,
-              url: "http://127.0.0.1:5173",
-              startedAt: null,
-            };
-        res.end(JSON.stringify(identity));
-      });
+      server.middlewares.use(
+        createDevSessionIdentityHandler(server, manualRoot, "manual"),
+      );
+    },
+    configurePreviewServer(server) {
+      server.middlewares.use(
+        createDevSessionIdentityHandler(server, manualRoot, "manual-preview"),
+      );
     },
   };
 }

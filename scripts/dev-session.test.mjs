@@ -23,6 +23,7 @@ import {
   findUnmanagedViteProcesses,
   isViteExecutableCommand,
   listSessions,
+  parseForwardedPort,
   parseOptions,
   portAvailable,
   refuseIfServerRunning,
@@ -597,6 +598,132 @@ test("runManagedVite propagates the guard's refusal without spawning vite", asyn
       guard: async () => {
         throw new Error("A dev server is already running: fixture");
       },
+    }),
+    /already running/,
+  );
+  assert.equal(calls.length, 0);
+});
+
+// Round 3 (Codex P2): DEV_SERVER_ALLOW_EXTRA=1 with `--port 5180` used to
+// still guard the hard-coded default port, so `npm run dev -- --port 5180`
+// refused whenever the *default* port was busy — even though the hatch
+// exists precisely so Vite can bind somewhere else. parseForwardedPort is
+// the pure extractor that lets the guard target the real requested port.
+test("parseForwardedPort extracts an explicit port from every accepted form", () => {
+  assert.equal(parseForwardedPort(["--port", "5180"]), 5180);
+  assert.equal(parseForwardedPort(["-p", "5180"]), 5180);
+  assert.equal(parseForwardedPort(["--port=5180"]), 5180);
+  assert.equal(parseForwardedPort(["--host", "--port", "5180"]), 5180);
+});
+
+test("parseForwardedPort returns null when no explicit port is present or the value isn't numeric", () => {
+  assert.equal(parseForwardedPort([]), null);
+  assert.equal(parseForwardedPort(["--host"]), null);
+  assert.equal(parseForwardedPort(["--strictPort", "false"]), null);
+  assert.equal(parseForwardedPort(["--port", "not-a-number"]), null);
+  assert.equal(parseForwardedPort(["--port"]), null);
+});
+
+test("runManagedVite guards the parsed forwarded port only when the escape hatch permits the override", async (t) => {
+  const prior = process.env.DEV_SERVER_ALLOW_EXTRA;
+  t.after(() => {
+    if (prior === undefined) delete process.env.DEV_SERVER_ALLOW_EXTRA;
+    else process.env.DEV_SERVER_ALLOW_EXTRA = prior;
+  });
+  const guardCalls = [];
+  const guard = async (opts) => {
+    guardCalls.push(opts);
+  };
+
+  delete process.env.DEV_SERVER_ALLOW_EXTRA;
+  await runManagedVite([], { spawnFn: fakeChildFactory([]), guard });
+  assert.deepEqual(guardCalls.at(-1), { port: SHARED_PORT });
+
+  // Without the hatch, an override still guards the default port (then
+  // refuses below) — it must never guard the requested port instead.
+  await assert.rejects(
+    runManagedVite(["--port", "5180"], {
+      spawnFn: fakeChildFactory([]),
+      guard,
+    }),
+    /Refusing to forward --port/,
+  );
+  assert.deepEqual(guardCalls.at(-1), { port: SHARED_PORT });
+
+  process.env.DEV_SERVER_ALLOW_EXTRA = "1";
+  await runManagedVite(["--port", "5180"], {
+    spawnFn: fakeChildFactory([]),
+    guard,
+  });
+  assert.deepEqual(guardCalls.at(-1), { port: 5180 });
+
+  // An override with no explicit port value (e.g. bare --host) still has
+  // nothing else to guard, so it falls back to the default port.
+  await runManagedVite(["--host"], { spawnFn: fakeChildFactory([]), guard });
+  assert.deepEqual(guardCalls.at(-1), { port: SHARED_PORT });
+});
+
+// Integration-level: exercises the real refuseIfServerRunning, not a spy, so
+// this proves the fix end to end — the exact scenario from
+// docs/guides/LOCAL-AGENT-TESTING.md:42-45 (the hatch moves the server past
+// a busy default port).
+test("runManagedVite (with the hatch): guards the requested port, not a busy default port, and proceeds when it's free", async (t) => {
+  const dir = await registry(t);
+  const busyOnDefault = await listener(t); // stands in for "the default port is occupied by something else"
+  const requestedPort = await unusedPort(t);
+  const prior = process.env.DEV_SERVER_ALLOW_EXTRA;
+  t.after(() => {
+    if (prior === undefined) delete process.env.DEV_SERVER_ALLOW_EXTRA;
+    else process.env.DEV_SERVER_ALLOW_EXTRA = prior;
+  });
+  process.env.DEV_SERVER_ALLOW_EXTRA = "1";
+  const realGuard = (opts) =>
+    refuseIfServerRunning({ ...opts, registry: dir, findUnmanaged: () => [] });
+
+  // Requesting the already-occupied "default" port must still refuse.
+  await assert.rejects(
+    runManagedVite(["--port", String(busyOnDefault.address().port)], {
+      spawnFn: fakeChildFactory([]),
+      guard: realGuard,
+    }),
+    /already in use/,
+  );
+
+  // Requesting the actually-free port proceeds and forwards it to vite.
+  const calls = [];
+  await runManagedVite(["--port", String(requestedPort)], {
+    spawnFn: fakeChildFactory(calls),
+    guard: realGuard,
+  });
+  assert.deepEqual(calls[0].args, ["--port", String(requestedPort)]);
+});
+
+test("runManagedVite (with the hatch): still refuses when an unmanaged vite process is running anywhere", async (t) => {
+  const dir = await registry(t);
+  const requestedPort = await unusedPort(t);
+  const prior = process.env.DEV_SERVER_ALLOW_EXTRA;
+  t.after(() => {
+    if (prior === undefined) delete process.env.DEV_SERVER_ALLOW_EXTRA;
+    else process.env.DEV_SERVER_ALLOW_EXTRA = prior;
+  });
+  process.env.DEV_SERVER_ALLOW_EXTRA = "1";
+  const calls = [];
+  const guard = (opts) =>
+    refuseIfServerRunning({
+      ...opts,
+      registry: dir,
+      findUnmanaged: () => [
+        {
+          pid: 999999,
+          command: "node /elsewhere/node_modules/.bin/vite",
+          port: null,
+        },
+      ],
+    });
+  await assert.rejects(
+    runManagedVite(["--port", String(requestedPort)], {
+      spawnFn: fakeChildFactory(calls),
+      guard,
     }),
     /already running/,
   );

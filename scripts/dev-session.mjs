@@ -559,6 +559,24 @@ export function findForwardedOverrideFlags(args) {
   return args.filter((arg) => FORWARDED_OVERRIDE_FLAG.test(arg));
 }
 
+// Extracts an explicit `-p <n>`, `--port <n>`, or `--port=<n>` value from a
+// forwarded arg list, or null when none is present (or its value isn't a
+// plain integer). Used only to pick which port to guard when
+// DEV_SERVER_ALLOW_EXTRA=1 legitimately moves the single server elsewhere —
+// never to decide whether an override is allowed at all.
+export function parseForwardedPort(args) {
+  for (let i = 0; i < args.length; i++) {
+    const arg = args[i];
+    const equals = /^--port=(\d+)$/.exec(arg);
+    if (equals) return Number(equals[1]);
+    if (arg === "-p" || arg === "--port") {
+      const value = args[i + 1];
+      if (value !== undefined && /^\d+$/.test(value)) return Number(value);
+    }
+  }
+  return null;
+}
+
 // Runs `vite` or `vite preview` for real, but only after the same guard
 // `start` uses, and only after confirming the caller isn't trying to sneak a
 // port/host/strictPort override past that guard (see module doc comment).
@@ -568,11 +586,24 @@ export async function runManagedVite(
   args,
   { spawnFn = spawn, guard = refuseIfServerRunning } = {},
 ) {
-  await guard();
   const isPreview = args[0] === "preview";
   const forwarded = isPreview ? args.slice(1) : args;
   const overrides = findForwardedOverrideFlags(forwarded);
-  if (overrides.length && process.env.DEV_SERVER_ALLOW_EXTRA !== "1") {
+  const hatchSet = process.env.DEV_SERVER_ALLOW_EXTRA === "1";
+  // Without the hatch, an override is always refused below regardless of
+  // what's on the default port, so guard the default port as usual. With the
+  // hatch AND an override, guard the port Vite will actually bind instead —
+  // the default port may legitimately be occupied by something else in
+  // exactly this scenario (that's the documented reason the hatch exists).
+  // Either way, refuseIfServerRunning's unmanaged-process scan is machine-wide
+  // and its registry check is port-independent, so "one server per machine"
+  // still holds no matter which port is passed here.
+  const targetPort =
+    overrides.length && hatchSet
+      ? (parseForwardedPort(forwarded) ?? SHARED_PORT)
+      : SHARED_PORT;
+  await guard({ port: targetPort });
+  if (overrides.length && !hatchSet) {
     throw new Error(
       `Refusing to forward ${overrides.join(", ")} to vite: ${SINGLE_SERVER_RULE} ` +
         "DEV_SERVER_ALLOW_EXTRA=1 is the owner-only escape hatch that moves the " +

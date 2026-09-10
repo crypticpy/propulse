@@ -466,7 +466,7 @@ daemon and ML checks, so a contributor who intends to push needs their dependenc
 ```bash
 (cd bridge && npm install)
 (cd collector && npm install)
-python3 -m venv ml/.venv
+python3.12 -m venv ml/.venv   # Python 3.12 is the known-good version (the service image uses it)
 ml/.venv/bin/pip install -r ml/requirements.txt -r ml/service/requirements-runtime.txt
 # radio daemon tests need a Rust toolchain (https://rustup.rs); on Debian/Ubuntu also
 # apt install pkg-config libasound2-dev libudev-dev for the cpal and serialport crates
@@ -523,6 +523,11 @@ against a model service, as described in [`ml/service/README.md`](ml/service/REA
 reads and writes. The `/api/propagation` proxy also needs `PROPULSE_INFERENCE_URL` and
 `PROPULSE_SERVICE_TOKEN` (server-only) to reach the model service; without both it answers
 503 and the client stays on physics.
+
+**Collector** (self-hosted only): configured from its own
+[`collector/.env.example`](collector/.env.example), not the root file. Note that the default
+`COLLECTOR_ENABLED_SOURCES` includes `rbn`, and the RBN feed refuses to start without a
+`RBN_LOGIN_CALLSIGN` (a receive-only callsign); set one or drop `rbn` from the list.
 
 **Bridge**: `BRIDGE_PORT` (default 9867), `BRIDGE_HOST` (default 127.0.0.1),
 `BRIDGE_STATIC_PORT` (default 3173).

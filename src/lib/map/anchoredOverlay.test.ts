@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest";
 import {
-  overlayMaxHeight,
   placeAnchoredOverlay,
   placeAnchoredOverlayInFrame,
   resolveOverlayFrame,
@@ -82,15 +81,5 @@ describe("placeAnchoredOverlayInFrame", () => {
     expect(frame.position).toBe("fixed");
     expect(frame.left).toBe(0);
     expect(frame.top).toBe(0);
-  });
-});
-
-describe("overlayMaxHeight", () => {
-  it("bounds a popover to a short map host, not the window (#846)", () => {
-    expect(overlayMaxHeight({ height: 600 }, 10)).toBe(580);
-  });
-
-  it("never returns a negative height for a frame shorter than the padding", () => {
-    expect(overlayMaxHeight({ height: 4 }, 10)).toBe(0);
   });
 });

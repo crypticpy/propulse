@@ -6655,6 +6655,7 @@ export function FlatMapView({
           title={`${openSpotCollection.spots.length} active spots`}
           subtitle="Geographic group on this flat map"
           spots={openSpotCollection.spots}
+          boundsHost={containerRef.current}
           onClose={() => setOpenSpotCollection(null)}
           onSpotSelect={(spot) =>
             handleMapSpotSelect(spot, openSpotCollection.screenPos)
@@ -6673,6 +6674,7 @@ export function FlatMapView({
           title={`${selectedGridCollection.grid} active spots`}
           subtitle={`${selectedGridCollection.spots.length} report${selectedGridCollection.spots.length === 1 ? "" : "s"} in this highlighted grid`}
           spots={selectedGridCollection.spots}
+          boundsHost={containerRef.current}
           onClose={() => setSelectedGridCollection(null)}
           onSpotSelect={(spot) =>
             handleMapSpotSelect(spot, selectedGridCollection.screenPos)

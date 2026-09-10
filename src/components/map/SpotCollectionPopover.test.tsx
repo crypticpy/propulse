@@ -1,5 +1,12 @@
 /**
- * Host-bounded max height for the map spot-collection popover (#846).
+ * Host-bounded max height for the map spot-collection popover (#846), plus
+ * the #871 rework round: pointer-events re-enablement inside a
+ * pointer-events-none map portal (F1), maxHeight derived from the same
+ * clamp that placed the popover rather than an independent frame-only
+ * formula (F2), a bounds-only host that keeps `position: fixed` but adds
+ * its own rect back into the on-screen coordinates (F3), inline width
+ * matching the frame-clamped overlay size (F6), and a wall aria-label that
+ * announces the capped count (F7).
  *
  * `resolveOverlayFrame`/`placeAnchoredOverlayInFrame` (the same helpers
  * `PathPointInspector` uses) read `portalTarget.getBoundingClientRect()`.
@@ -7,8 +14,8 @@
  * element to stand in for a map container shorter than the viewport (a
  * bottom toolbar row, the HamClock wall, an embedded panel). What this
  * can't prove: real pixel layout, scrollbar rendering, or anchor placement
- * against an actual painted map — only the computed `max-height` style
- * value and the class/row contract that produces scrolling vs. capping.
+ * against an actual painted map — only the computed style values and the
+ * class/row contract that produces scrolling vs. capping.
  */
 import { render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
@@ -34,18 +41,18 @@ function makeSpots(count: number): PresentableSpot[] {
 
 /** A detached host whose rect stands in for a map container shorter than
  * the viewport — jsdom never lays this out, so the rect is stubbed. */
-function makeHost(width: number, height: number) {
+function makeHost(width: number, height: number, left = 0, top = 0) {
   const host = document.createElement("div");
   host.getBoundingClientRect = () =>
     ({
-      left: 0,
-      top: 0,
-      right: width,
-      bottom: height,
+      left,
+      top,
+      right: left + width,
+      bottom: top + height,
       width,
       height,
-      x: 0,
-      y: 0,
+      x: left,
+      y: top,
       toJSON() {},
     }) as DOMRect;
   document.body.appendChild(host);
@@ -57,7 +64,7 @@ afterEach(() => {
 });
 
 describe("SpotCollectionPopover host-bounded height (#846)", () => {
-  it("caps the popover to a 600px-tall map host, not the 100vh window default", () => {
+  it("caps the popover to a 600px-tall map host, not the 100vh window default, and re-enables pointer events", () => {
     const host = makeHost(400, 600);
     render(
       <SpotCollectionPopover
@@ -71,12 +78,26 @@ describe("SpotCollectionPopover host-bounded height (#846)", () => {
       />,
     );
     const panel = screen.getByRole("dialog");
-    // The bug: without a host-bounded max-height this renders unbounded
-    // (or bounded only by `100vh`, which is far larger than the 600px host
-    // used here), so the popover can spill past the host's own bottom edge.
-    expect(panel.style.maxHeight).toBe("580px"); // 600 - EDGE_PADDING(10) * 2
+    // Anchor {x:100,y:300} against a 400x600 frame clamps to the left
+    // placement (right overflows) at {x:10, y:85} (EDGE_PADDING=10,
+    // POPOVER_WIDTH=330, POPOVER_HEIGHT=430 all clamped to the frame).
+    expect(panel.style.left).toBe("10px");
+    expect(panel.style.top).toBe("85px");
+    expect(panel.style.width).toBe("330px"); // F6: inline, not viewport-bound
+    // F2: maxHeight is derived from the same placement that set `top`, so
+    // top + maxHeight lands exactly on the host's bottom edge (minus
+    // padding) rather than an independently-computed, possibly-looser bound.
+    expect(panel.style.maxHeight).toBe("505px");
+    const top = Number.parseInt(panel.style.top, 10);
+    const maxHeight = Number.parseInt(panel.style.maxHeight, 10);
+    expect(top + maxHeight).toBeLessThanOrEqual(600 - 10);
     expect(panel.style.maxHeight).not.toContain("100vh");
     expect(panel.style.position).toBe("absolute");
+
+    // F1: the map overlay portal host GlobeView renders this into is
+    // `pointer-events-none`; without re-enabling it here the popover is
+    // inert to clicks despite being visibly on top.
+    expect(panel.className).toContain("pointer-events-auto");
 
     const list = panel.querySelector(":scope > div:nth-child(2)");
     expect(list?.className).toContain("overflow-y-auto");
@@ -96,7 +117,39 @@ describe("SpotCollectionPopover host-bounded height (#846)", () => {
     );
     const panel = screen.getByRole("dialog");
     expect(panel.style.position).toBe("fixed");
-    expect(panel.style.maxHeight).toBe(`${window.innerHeight - 20}px`);
+    // jsdom's default viewport is 1024x768; the anchor fits to the right at
+    // {x:112, y:85}, so maxHeight is bounded by the window height, not an
+    // arbitrary constant.
+    expect(panel.style.left).toBe("112px");
+    expect(panel.style.top).toBe("85px");
+    expect(panel.style.maxHeight).toBe(`${window.innerHeight - 85 - 10}px`);
+  });
+
+  it("bounds by a boundsHost without portaling into it, compensating the host's own offset (#871 F3)", () => {
+    const host = makeHost(400, 600, 50, 40);
+    render(
+      <SpotCollectionPopover
+        visible
+        position={{ x: 100, y: 300 }}
+        title="Test collection"
+        spots={makeSpots(3)}
+        boundsHost={host}
+        onClose={() => {}}
+        onSpotSelect={() => {}}
+      />,
+    );
+    const panel = screen.getByRole("dialog");
+    // Still position: fixed (the popover portals to document.body, not into
+    // `host`) but the on-screen left/top add the host's own viewport offset
+    // (50, 40) back on top of the frame-local placement (10, 45) —
+    // otherwise a bounds-only host at a non-zero offset would place the
+    // popover in the wrong spot despite computing the right size.
+    expect(panel.style.position).toBe("fixed");
+    expect(panel.style.left).toBe("60px");
+    expect(panel.style.top).toBe("85px");
+    expect(panel.style.maxHeight).toBe("545px");
+    expect(host.contains(panel)).toBe(false);
+    host.remove();
   });
 
   describe("on the HamClock wall", () => {
@@ -104,7 +157,7 @@ describe("SpotCollectionPopover host-bounded height (#846)", () => {
       useWorkspaceStore.getState().setCanvasTypeOverride("wall");
     });
 
-    it("caps rows and shows a +N more affordance instead of scrolling", () => {
+    it("caps rows and shows a +N more affordance instead of scrolling, announcing the capped count", () => {
       const host = makeHost(400, 600);
       render(
         <SpotCollectionPopover
@@ -122,6 +175,11 @@ describe("SpotCollectionPopover host-bounded height (#846)", () => {
       expect(screen.getByText("+74 more")).toBeTruthy();
 
       const panel = screen.getByRole("dialog");
+      // F7: the wall only renders 6 rows, so the announced count must match
+      // what's actually on screen, not the full un-capped collection.
+      expect(panel.getAttribute("aria-label")).toBe(
+        "Test collection: showing 6 of 80 spots",
+      );
       const list = panel.querySelector(":scope > div:nth-child(2)");
       expect(list?.className).toContain("overflow-hidden");
       expect(list?.className).not.toContain("overflow-y-auto");

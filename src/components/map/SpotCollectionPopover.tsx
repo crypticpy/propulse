@@ -8,9 +8,9 @@ import {
 } from "@/lib/map/spotPresentation";
 import { formatActivationFrequency } from "@/lib/map/activationMarkers";
 import {
-  overlayMaxHeight,
   placeAnchoredOverlayInFrame,
   resolveOverlayFrame,
+  type OverlayFrame,
   type ScreenAnchor,
 } from "@/lib/map/anchoredOverlay";
 import { getModeColor, modeInk } from "@/lib/utils/spotColors";
@@ -31,10 +31,18 @@ export interface SpotCollectionPopoverProps {
   onClose: () => void;
   onSpotSelect: (spot: LiveSpot) => void;
   onMapTheseSpots?: () => void;
-  /** Map-owned portal (e.g. GlobeView's `mapOverlayPortal`) to bound this
-   * popover by, matching `PathPointInspector`'s pattern. Falls back to
-   * `document.body` — a viewport-sized frame — when omitted. */
+  /** Map-owned portal (e.g. GlobeView's `mapOverlayPortal`) to both bound
+   * AND render into, matching `PathPointInspector`'s pattern. When set, the
+   * popover is a DOM child of this element (`position: absolute`). Falls
+   * back to `document.body` — a viewport-sized frame — when omitted. */
   portalTarget?: Element | null;
+  /** A map-surface container (e.g. `AzimuthalView`/`FlatMapView`'s
+   * `containerRef.current`) to bound the popover by WITHOUT portaling into
+   * it — the popover still renders at `document.body` (`position: fixed`),
+   * clamped to this element's rect instead of the full viewport. Ignored
+   * when `portalTarget` is set. Ineffective for a view whose map host is
+   * shorter than the viewport if neither prop is supplied (#846 rework). */
+  boundsHost?: Element | null;
 }
 
 const POPOVER_WIDTH = 330;
@@ -66,6 +74,7 @@ export function SpotCollectionPopover({
   onSpotSelect,
   onMapTheseSpots,
   portalTarget,
+  boundsHost,
 }: SpotCollectionPopoverProps) {
   const panelRef = useRef<HTMLDivElement>(null);
   const firstSpotRef = useRef<HTMLButtonElement>(null);
@@ -116,25 +125,6 @@ export function SpotCollectionPopover({
     ? sortedSpots.slice(0, WALL_MAX_VISIBLE_SPOTS)
     : sortedSpots;
   const hiddenSpotCount = sortedSpots.length - visibleSpots.length;
-
-  // Bound by the map host frame (GlobeView's `mapOverlayPortal` when
-  // provided), not the window — a map host shorter than the viewport still
-  // let this popover spill past its own bottom edge (#846).
-  const frame = resolveOverlayFrame(portalTarget);
-  const overlaySize = {
-    width: Math.min(POPOVER_WIDTH, frame.width - EDGE_PADDING * 2),
-    height: Math.min(POPOVER_HEIGHT, frame.height - EDGE_PADDING * 2),
-  };
-  const maxHeight = overlayMaxHeight(frame, EDGE_PADDING);
-  // `frame` and `overlaySize` are cheap, freshly computed values (no layout
-  // cost) recomputed every render, same as `PathPointInspector`'s own
-  // `resolveOverlayFrame` call — not worth memoizing against.
-  const adjustedPosition = placeAnchoredOverlayInFrame(
-    position,
-    overlaySize,
-    frame,
-    { axis: "horizontal", gap: 12, padding: EDGE_PADDING },
-  );
 
   const handleKeyDown = useCallback(
     (event: KeyboardEvent) => {
@@ -239,17 +229,56 @@ export function SpotCollectionPopover({
   }, [focusMapSurface, sortedSpots.length, visible]);
   if (!visible || sortedSpots.length === 0) return null;
 
+  // Bound by the map host frame, not the window — a map host shorter than
+  // the viewport still let this popover spill past its own bottom edge
+  // (#846). `portalTarget` (an actual DOM destination) wins over `boundsHost`
+  // (bounds-only, no re-parenting): resolveOverlayFrame returns "absolute"
+  // for either since both are real Elements, but only a real `portalTarget`
+  // means the popover is actually a child of that element — a bounds-only
+  // host must stay `position: fixed` (the popover still portals to
+  // `document.body`) with its frame's own `left`/`top` added back into the
+  // final on-screen position below, since `placeAnchoredOverlayInFrame`
+  // returns coordinates local to the frame's origin.
+  const measuredHost = portalTarget ?? boundsHost;
+  const rawFrame = resolveOverlayFrame(measuredHost);
+  const frame: OverlayFrame =
+    !portalTarget && boundsHost ? { ...rawFrame, position: "fixed" } : rawFrame;
+  const overlaySize = {
+    width: Math.min(POPOVER_WIDTH, frame.width - EDGE_PADDING * 2),
+    height: Math.min(POPOVER_HEIGHT, frame.height - EDGE_PADDING * 2),
+  };
+  const adjustedPosition = placeAnchoredOverlayInFrame(
+    position,
+    overlaySize,
+    frame,
+    { axis: "horizontal", gap: 12, padding: EDGE_PADDING },
+  );
+  // The height the clamp above actually used to place `adjustedPosition.y`,
+  // not `frame.height - padding*2` in isolation — the two disagreed
+  // whenever `overlaySize.height` was clamped smaller than the frame, which
+  // let the rendered box still cross the frame's bottom edge even though
+  // `max-height` looked frame-bound (#871 review, F2).
+  const maxHeight = Math.max(0, frame.height - adjustedPosition.y - EDGE_PADDING);
+  const screenLeft =
+    frame.position === "fixed" ? frame.left + adjustedPosition.x : adjustedPosition.x;
+  const screenTop =
+    frame.position === "fixed" ? frame.top + adjustedPosition.y : adjustedPosition.y;
+  const visibleSpotLabel = isWallCanvas
+    ? `${title}: showing ${visibleSpots.length} of ${sortedSpots.length} spots`
+    : `${title}: ${sortedSpots.length} spots`;
+
   return createPortal(
     <div
       ref={panelRef}
       role="dialog"
       aria-modal="false"
-      aria-label={`${title}: ${sortedSpots.length} spots`}
-      className="z-[65] flex w-[min(330px,calc(100vw-20px))] flex-col overflow-hidden rounded-xl border border-su-line/50 bg-deep-space/95 text-su-text shadow-2xl backdrop-blur-xl"
+      aria-label={visibleSpotLabel}
+      className="pointer-events-auto z-[65] flex flex-col overflow-hidden rounded-xl border border-su-line/50 bg-deep-space/95 text-su-text shadow-2xl backdrop-blur-xl"
       style={{
         position: frame.position,
-        left: adjustedPosition.x,
-        top: adjustedPosition.y,
+        left: screenLeft,
+        top: screenTop,
+        width: overlaySize.width,
         maxHeight,
       }}
       onPointerDown={(event) => event.stopPropagation()}

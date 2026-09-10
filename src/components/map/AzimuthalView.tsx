@@ -3087,6 +3087,7 @@ export function AzimuthalView({
         title={openSpotCollection?.title ?? "Live spots"}
         subtitle={openSpotCollection?.subtitle}
         spots={openSpotCollection?.spots ?? []}
+        boundsHost={containerRef.current}
         onClose={() => setOpenSpotCollection(null)}
         onSpotSelect={(spot) => {
           const position = openSpotCollection?.position ?? { x: 0, y: 0 };

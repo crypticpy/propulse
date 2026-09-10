@@ -14,6 +14,8 @@ export interface ClusterDetailPopoverProps {
   /** Forwarded to `SpotCollectionPopover` so it can bound itself by the map
    * host frame instead of the viewport (#846). */
   portalTarget?: Element | null;
+  /** Forwarded to `SpotCollectionPopover`'s bounds-only host (#846 rework). */
+  boundsHost?: Element | null;
 }
 
 function formatCoord(value: number, latitude: boolean) {
@@ -36,6 +38,7 @@ export function ClusterDetailPopover({
   onSpotSelect,
   onMapTheseSpots,
   portalTarget,
+  boundsHost,
 }: ClusterDetailPopoverProps) {
   const grid = useMemo(() => {
     if (!cluster) return "";
@@ -59,6 +62,7 @@ export function ClusterDetailPopover({
       onSpotSelect={onSpotSelect}
       onMapTheseSpots={onMapTheseSpots}
       portalTarget={portalTarget}
+      boundsHost={boundsHost}
     />
   );
 }

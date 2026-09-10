@@ -78,22 +78,6 @@ export function resolveOverlayFrame(
   };
 }
 
-/**
- * Maximum height a popover may take inside its frame, leaving `padding` clear
- * at both the top and bottom edge. Feed this into the popover's own CSS
- * `max-height` (as an inline style, since the frame's height is only known at
- * render time) instead of a `100vh`-based Tailwind class — a `100vh` bound is
- * correct only when the frame IS the window; a map host shorter than the
- * window (a bottom toolbar row, the HamClock wall, an embedded panel) still
- * lets the popover grow past its own bottom edge (#846).
- */
-export function overlayMaxHeight(
-  frame: Pick<OverlayFrame, "height">,
-  padding: number = 10,
-): number {
-  return Math.max(0, frame.height - padding * 2);
-}
-
 /** Place a viewport-space anchor inside a portal or the window. */
 export function placeAnchoredOverlayInFrame(
   anchor: ScreenAnchor,

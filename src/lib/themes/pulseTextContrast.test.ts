@@ -879,23 +879,36 @@ interface ConstDecl {
 }
 
 /** Every string/template literal body found in the RHS of a later
- * reassignment of `name` (`name = …`, `name += …`, `name ||= …`, `name ??=
- * …` -- a bare identifier at a statement boundary, not `.name =` reaching
- * into an unrelated object and not a comparison `name == …`/`name === …`)
- * between `searchStart` and `scopeEnd` in `source`. Only ever called for
- * `let`/`var` (a `const` is never reassigned in valid code): a `let`/`var`
- * declaration's initial literal set can miss classes added by a later
+ * reassignment of `decl.name` (`name = …`, `name += …`, `name ||= …`, `name
+ * ??= …` -- a bare identifier at a statement boundary, not `.name =`
+ * reaching into an unrelated object and not a comparison `name == …`/`name
+ * === …`) between `searchStart` and `scopeEnd` in `source`. Only ever called
+ * for `let`/`var` (a `const` is never reassigned in valid code): a `let`/
+ * `var` declaration's initial literal set can miss classes added by a later
  * assignment (`classes += " animate-pulse"`), so every RHS's literals found
  * in the declaration's own scope are unioned in here, fail closed -- which
  * branch of an `if` actually reaches a given reference is control flow this
- * scanner deliberately does not resolve (Codex, PR #874 round 26). */
+ * scanner deliberately does not resolve (Codex, PR #874 round 26).
+ *
+ * A same-named assignment inside a NESTED scope may actually be that inner
+ * scope's own declaration of `name` (`let classes = "text-alert-red"; function
+ * inner() { let classes = "animate-pulse"; }`), not a reassignment of
+ * `decl` at all -- the bare regex above can't tell `let classes =` from
+ * `classes =`, since both end in the same "name, optional whitespace, `=`"
+ * text. `decls` (already fully populated -- callers only run this sweep
+ * once every declaration in the file has been collected, Codex, PR #874
+ * round 31) resolves which declaration is actually visible at the match's
+ * position via the same `visibleDecl` scoping rule a reference site uses; a
+ * match that resolves to a DIFFERENT declaration than `decl` itself is
+ * shadowed and skipped. */
 function collectReassignedLiteralBodies(
   source: string,
-  name: string,
+  decl: ConstDecl,
+  decls: ConstDecl[],
   searchStart: number,
   scopeEnd: number,
 ): string[] {
-  const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const escaped = decl.name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   const assignRe = new RegExp(`(?<![\\w$.])${escaped}\\s*(\\+=|\\|\\|=|\\?\\?=|=)(?!=)`, "g");
   const scopeText = source.slice(searchStart, scopeEnd);
   const bodies: string[] = [];
@@ -903,7 +916,10 @@ function collectReassignedLiteralBodies(
   while ((am = assignRe.exec(scopeText))) {
     const rhsStart = am.index + am[0].length;
     const rhsEnd = findInitializerEnd(scopeText, rhsStart);
-    bodies.push(...extractLiteralBodies(scopeText.slice(rhsStart, rhsEnd)));
+    const shadow = visibleDecl(decls, decl.name, searchStart + am.index);
+    if (!shadow || shadow.index === decl.index) {
+      bodies.push(...extractLiteralBodies(scopeText.slice(rhsStart, rhsEnd)));
+    }
     assignRe.lastIndex = rhsEnd;
   }
   return bodies;
@@ -914,14 +930,17 @@ function collectReassignedLiteralBodies(
  * of quoted literal bodies -- a `let`/`var` alias reassigned to another
  * binding (`let classes; classes = pulse;`) needs the same "no literal body
  * yet, but reaches one through an identifier" treatment as an aliasing
- * initializer (Codex, PR #874 round 29). */
+ * initializer (Codex, PR #874 round 29). Shares the same shadowed-by-a-
+ * nested-declaration exclusion as `collectReassignedLiteralBodies` (Codex,
+ * PR #874 round 31). */
 function collectReassignedIdentifierRefs(
   source: string,
-  name: string,
+  decl: ConstDecl,
+  decls: ConstDecl[],
   searchStart: number,
   scopeEnd: number,
 ): string[] {
-  const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const escaped = decl.name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   const assignRe = new RegExp(`(?<![\\w$.])${escaped}\\s*(\\+=|\\|\\|=|\\?\\?=|=)(?!=)`, "g");
   const scopeText = source.slice(searchStart, scopeEnd);
   const refs: string[] = [];
@@ -929,7 +948,10 @@ function collectReassignedIdentifierRefs(
   while ((am = assignRe.exec(scopeText))) {
     const rhsStart = am.index + am[0].length;
     const rhsEnd = findInitializerEnd(scopeText, rhsStart);
-    refs.push(...extractIdentifierRefs(scopeText.slice(rhsStart, rhsEnd)));
+    const shadow = visibleDecl(decls, decl.name, searchStart + am.index);
+    if (!shadow || shadow.index === decl.index) {
+      refs.push(...extractIdentifierRefs(scopeText.slice(rhsStart, rhsEnd)));
+    }
     assignRe.lastIndex = rhsEnd;
   }
   return refs;
@@ -1087,6 +1109,14 @@ function extractIdentifierRefs(text: string): string[] {
 
 function collectConstTemplateMap(source: string): ConstDecl[] {
   const decls: ConstDecl[] = [];
+  // Reassignment sweeps (below) need every declaration in the file already
+  // collected -- including one that appears LATER in the text than the
+  // `let`/`var` it might shadow, e.g. a nested function's own `let classes`
+  // declared after the outer `let classes` this same-named regex sweep runs
+  // for -- so a shadow check against a still-partial `decls` list would miss
+  // it. Queued here and run once the forward scan below finishes populating
+  // `decls` completely (Codex, PR #874 round 31).
+  const reassignQueue: Array<{ decl: ConstDecl; searchStart: number }> = [];
   const declRe = /\b(const|let|var)\s+([A-Za-z_$][\w$]*)\s*/g;
   let m: RegExpExecArray | null;
   while ((m = declRe.exec(source))) {
@@ -1149,21 +1179,25 @@ function collectConstTemplateMap(source: string): ConstDecl[] {
     const scope = findEnclosingBraceRange(source, m.index);
     const scopeStart = scope ? scope.start : 0;
     const scopeEnd = scope ? scope.end : source.length;
-    let literal = [bodies.join(" "), refs.join(" ")].filter(Boolean).join(" ");
-    if (kind !== "const") {
-      const reassigned = collectReassignedLiteralBodies(source, name, end, scopeEnd);
-      const reassignedRefs = collectReassignedIdentifierRefs(source, name, end, scopeEnd);
-      literal = [literal, reassigned.join(" "), reassignedRefs.join(" ")].filter(Boolean).join(" ");
-    }
-    decls.push({
+    const literal = [bodies.join(" "), refs.join(" ")].filter(Boolean).join(" ");
+    const declObj: ConstDecl = {
       name,
       index: m.index,
       literal,
       entries,
       scopeStart,
       scopeEnd,
-    });
+    };
+    decls.push(declObj);
+    if (kind !== "const") reassignQueue.push({ decl: declObj, searchStart: end });
     declRe.lastIndex = end;
+  }
+  for (const { decl, searchStart } of reassignQueue) {
+    const reassigned = collectReassignedLiteralBodies(source, decl, decls, searchStart, decl.scopeEnd);
+    const reassignedRefs = collectReassignedIdentifierRefs(source, decl, decls, searchStart, decl.scopeEnd);
+    if (reassigned.length > 0 || reassignedRefs.length > 0) {
+      decl.literal = [decl.literal, reassigned.join(" "), reassignedRefs.join(" ")].filter(Boolean).join(" ");
+    }
   }
   return decls;
 }
@@ -2646,8 +2680,22 @@ function collectExportedPulseBindings(
     const pulsing = new Map<string, ConstDecl>();
     for (const [exportedName, localName] of exportedNames) {
       const decl = moduleLevelByName.get(localName);
-      if (decl && PULSE_CLASS_RE.test(decl.literal)) {
-        pulsing.set(exportedName, decl);
+      if (!decl) continue;
+      // `decl.literal` may itself be nothing but an unresolved alias chain
+      // (`export const alertClasses = pulse;` -> literal `"pulse"`, or
+      // `export const alertClasses = STYLES.alert;` -> literal
+      // `"STYLES.alert"`, per round 29's identifier-ref folding in
+      // `collectConstTemplateMap`) with no `animate-pulse` substring of its
+      // own -- filtering on the raw literal missed both shapes entirely.
+      // Resolved here through the module's own full `decls` map with the
+      // same recursive, cycle-guarded `resolveConstRefs`/`resolveMemberAccess`
+      // walk a reference site already gets, and the RESOLVED text (not the
+      // raw alias chain) is what gets stored in the export map, so a
+      // consumer never needs the exporter's own private `decls` to see
+      // through it (Codex, PR #874 round 31).
+      const resolvedLiteral = resolveConstRefs(decl.literal, decls, decl.index);
+      if (PULSE_CLASS_RE.test(resolvedLiteral)) {
+        pulsing.set(exportedName, { ...decl, literal: resolvedLiteral });
       }
     }
     if (pulsing.size === 0) continue;
@@ -3061,6 +3109,30 @@ describe("scanSourceForViolations catches every spelling (fixture proofs, #878)"
     // than guessing the reassignment always wins (Codex, PR #874 round 26).
     const fixture =
       'let classes = "text-alert-red animate-pulse"; classes = "text-xs"; return <span className={classes}>Critical</span>;';
+    expect(scanSourceForViolations(fixture)).not.toEqual([]);
+  });
+
+  it("does not treat a nested function's own let declaration of the same name as a reassignment of the outer binding", () => {
+    // The reassignment-sweep regex can't tell `let classes =` (a NEW,
+    // inner-scoped declaration) from `classes =` (a real reassignment of
+    // the outer `classes`) by text shape alone -- both end in "classes",
+    // optional whitespace, "=". Before this fix the inner declaration's own
+    // "animate-pulse" literal got unioned into the OUTER `classes` binding's
+    // literal set, even though the outer binding is never actually assigned
+    // that value; the two are unrelated, shadowed declarations of the same
+    // name (Codex, PR #874 round 31).
+    const fixture =
+      'let classes = "text-alert-red"; function inner() { let classes = "animate-pulse"; return null; } return <span className={classes}>Critical</span>;';
+    expect(scanSourceForViolations(fixture)).toEqual([]);
+  });
+
+  it("still unions a nested function's genuine reassignment (no declaration of its own) into the outer binding", () => {
+    // Unlike the previous fixture, `inner` here never declares its own
+    // `classes` -- `classes += " animate-pulse"` is a real reassignment of
+    // the single, outer `classes` binding, and must still be unioned in
+    // (Codex, PR #874 round 31).
+    const fixture =
+      'let classes = "text-alert-red"; function inner() { classes += " animate-pulse"; return null; } return <span className={classes}>Critical</span>;';
     expect(scanSourceForViolations(fixture)).not.toEqual([]);
   });
 
@@ -3828,6 +3900,46 @@ describe("scanModuleForViolations resolves imported animate-pulse class bindings
       'import { alertClasses } from "@/lib/a";\nconst classes = alertClasses;\nexport function B() { return <span className={classes}>Critical</span>; }';
     const exportsMap = collectExportedPulseBindings({ "src/lib/a.ts": aSource, "src/lib/b.tsx": bSource });
     expect(scanModuleForViolations("src/lib/b.tsx", bSource, exportsMap)).not.toEqual([]);
+  });
+
+  it("flags a named import of an exported alias of a same-module pulsing const (round 29 alias resolution applied to the exporter's own decl)", () => {
+    // `alertClasses`'s own initializer (`pulse`) has no literal body of its
+    // own -- pass 1 used to filter on the raw, unresolved literal
+    // ("pulse"), which never contains "animate-pulse", so the export was
+    // dropped even though the module itself is unambiguously pulsing
+    // (Codex, PR #874 round 31).
+    const exporterSource = 'const pulse = "text-alert-red animate-pulse";\nexport const alertClasses = pulse;';
+    const bSource =
+      'import { alertClasses } from "@/lib/exporter";\nexport function B() { return <span className={alertClasses}>Critical</span>; }';
+    const exportsMap = collectExportedPulseBindings({
+      "src/lib/exporter.ts": exporterSource,
+      "src/lib/b.tsx": bSource,
+    });
+    expect(scanModuleForViolations("src/lib/b.tsx", bSource, exportsMap)).not.toEqual([]);
+  });
+
+  it("flags a named import of an exported member-access alias into a same-module object const", () => {
+    const exporterSource =
+      'const STYLES = { alert: "text-alert-red animate-pulse", ok: "text-xs" };\nexport const alertClasses = STYLES.alert;';
+    const bSource =
+      'import { alertClasses } from "@/lib/exporter";\nexport function B() { return <span className={alertClasses}>Critical</span>; }';
+    const exportsMap = collectExportedPulseBindings({
+      "src/lib/exporter.ts": exporterSource,
+      "src/lib/b.tsx": bSource,
+    });
+    expect(scanModuleForViolations("src/lib/b.tsx", bSource, exportsMap)).not.toEqual([]);
+  });
+
+  it("does not flag a named import of an exported alias of a same-module non-pulsing const", () => {
+    const exporterSource =
+      'export const otherClasses = "text-xs";\nexport const labelClasses = otherClasses;';
+    const bSource =
+      'import { labelClasses } from "@/lib/exporter";\nexport function B() { return <span className={labelClasses}>Label</span>; }';
+    const exportsMap = collectExportedPulseBindings({
+      "src/lib/exporter.ts": exporterSource,
+      "src/lib/b.tsx": bSource,
+    });
+    expect(scanModuleForViolations("src/lib/b.tsx", bSource, exportsMap)).toEqual([]);
   });
 });
 

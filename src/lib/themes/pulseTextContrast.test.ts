@@ -666,9 +666,17 @@ function stripBalancedExpressions(text: string): {
 function isTextBearingChildren(children: string | null): boolean {
   if (!children) return false;
   const withoutTags = children.replace(/<[^>]*>/g, "");
-  const { withoutExpr, blocks } = stripBalancedExpressions(withoutTags);
-  if (/\S/.test(withoutExpr)) return true;
-  return blocks.some((block) => !/\.map\(|=>/.test(block));
+  if (/\S/.test(stripBalancedExpressions(withoutTags).withoutExpr)) return true;
+  // Classify the `{…}` blocks on the raw children (tags intact) so a mapping
+  // that emits JSX can be told from one that yields strings.
+  return stripBalancedExpressions(children).blocks.some((block) => {
+    if (!/\.map\(|=>/.test(block)) return true;
+    // A mapping or arrow that emits JSX (`items.map((i) => <Chip … />)`)
+    // renders child elements, which the scan visits on their own. One that
+    // yields strings (`items.map((i) => i.label).join(", ")`) renders text
+    // right here, so it counts (Codex, PR #874 round 7).
+    return !/<[A-Za-z]/.test(block);
+  });
 }
 
 /** Finds the nearest enclosing `{...}` block around `index`, used only by
@@ -899,6 +907,18 @@ describe("scanSourceForViolations catches every spelling (fixture proofs, #878)"
     ]) {
       expect(scanSourceForViolations(fixture), fixture).not.toEqual([]);
     }
+  });
+
+  it("catches text rendered through a mapping that yields strings, not elements", () => {
+    const fixture =
+      '<span className="rounded bg-su-line/10 animate-pulse">{items.map((item) => item.label).join(", ")}</span>';
+    expect(scanSourceForViolations(fixture)).not.toEqual([]);
+  });
+
+  it("still dismisses a mapping that emits child elements (they are scanned on their own)", () => {
+    const fixture =
+      '<div className="flex gap-1 animate-pulse">{items.map((item) => <Chip key={item.id} label={item.label} />)}</div>';
+    expect(scanSourceForViolations(fixture)).toEqual([]);
   });
 
   it("does not flag graphics or void elements that carry a text-color class for currentColor", () => {

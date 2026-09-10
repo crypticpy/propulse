@@ -138,7 +138,10 @@ export function getGlobeLayerSlotForRenderOrder(
  *                      `BeaconNetworkOverlay3D`/`TimeStationsOverlay3D`
  *                      callsign labels, `MeteorShowerOverlay3D` radiant
  *                      label, `NVISOverlay3D` distance labels and
- *                      unselected band labels).
+ *                      unselected band labels, `ISSTrackerOverlay`'s
+ *                      clickable ISS label — passive/clickable labels stay
+ *                      here so they can never paint over the detail popup
+ *                      they toggle, which stays in `hud`).
  *   pinLabel            saved pins, and any spot tag that is selected,
  *                      hovered or otherwise promoted above the passive
  *                      pile-up — must outrank every marker/cluster/label
@@ -147,10 +150,18 @@ export function getGlobeLayerSlotForRenderOrder(
  *                      for `NVISOverlay3D`'s selected band label (its
  *                      unselected siblings live in `marker`, below).
  *   hud                 globe-anchored heads-up widgets that are always
- *                      meant to float above the scene: ISS tracker panel
- *                      and label, satellite detail popup, compass rose,
+ *                      meant to float above the scene: ISS tracker detail
+ *                      popup (its clickable label lives in `marker`, below,
+ *                      so it can never occlude the popup it opens),
+ *                      satellite detail popup, compass rose,
  *                      `BeaconNetworkOverlay3D`/`TimeStationsOverlay3D`
  *                      info popups, `SpectrumWaterfallRing3D` band labels.
+ *                      Every current `hud` site is either non-interactive
+ *                      (`pointerEvents: "none"`, e.g. compass labels and
+ *                      spectrum-ring band labels) or a detail popup with no
+ *                      passive sibling sharing this band — if a future
+ *                      clickable passive label needs `hud`, split it into
+ *                      the passive-vs-popup pattern used here instead.
  *   rayPathInspector    the ray-path point inspector portal (`RayPathArc.tsx`,
  *                      `<Html portal={overlayPortal}>`). This band is
  *                      portal-local: it only orders elements against each

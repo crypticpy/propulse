@@ -602,7 +602,7 @@ function ISSModel({ iss, isSelected, onToggleSelect, tracker }: ISSModelProps) {
         <Html
           position={[0, 0.04, 0]}
           center
-          zIndexRange={GLOBE_DOM_LAYER_ORDER.hud}
+          zIndexRange={GLOBE_DOM_LAYER_ORDER.marker}
           style={{
             pointerEvents: "auto",
             transition: "opacity 0.2s ease",

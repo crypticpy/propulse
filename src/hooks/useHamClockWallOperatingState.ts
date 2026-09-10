@@ -17,10 +17,13 @@
  * require `capabilities.canCommand`, which this registration always reports
  * `false`, so no phone or workstation can ever address one to this screen.
  *
- * `mapStore.target` is written plainly from `cursor.target` on every change,
+ * `mapStore.target` is written from `cursor.target` on later cursor changes,
  * with no fallback merge of any kind — the reader/writer seam for a scoped
  * view runtime is `dxStore.selectedSpot` (#707), not this field, and this
- * hook must not anticipate that landing.
+ * hook must not anticipate that landing. On mount, a non-null cursor is
+ * applied only when the map has no target yet: remount (layout-mode toggle,
+ * navigate back to `/map`) must not clobber a newer local `setTarget` with a
+ * stale phone cursor (#859).
  */
 
 import { useEffect } from "react";
@@ -82,15 +85,16 @@ export function useHamClockWallOperatingState(): void {
   );
 
   useEffect(() => {
-    // Pick up whatever the cursor already holds (a `hello` reply may have
-    // arrived before this hook mounted), then track every later change.
-    // Only when it actually holds something: an empty cursor means "nothing
-    // shared yet", not "clear the map". Writing `null` here would wipe a
-    // target the wall's own reports set (`BandTopDx`, `RecentContactsReport`,
-    // `QuickTargets` all write `mapStore.target`) and, because `setTarget`
-    // also resets `isolateTargetPath` on a null, silently drop that setting.
+    // Pick up a cursor that arrived before this hook mounted (a `hello`
+    // reply), but only when the map has no target yet. An empty cursor means
+    // "nothing shared yet", not "clear the map"; a stale non-null cursor
+    // must not overwrite a newer local `setTarget` on remount (#859).
+    // Writing `null` here would also reset `isolateTargetPath`. Live cursor
+    // changes still follow via the subscription below.
     const initial = useOperatingStateStore.getState().cursor.target;
-    if (initial) useMapStore.getState().setTarget(toMapTarget(initial));
+    if (initial && useMapStore.getState().target == null) {
+      useMapStore.getState().setTarget(toMapTarget(initial));
+    }
 
     return useOperatingStateStore.subscribe((state, previous) => {
       if (state.cursor.target === previous.cursor.target) return;

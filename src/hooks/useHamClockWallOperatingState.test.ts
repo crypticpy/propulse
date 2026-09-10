@@ -37,6 +37,34 @@ beforeEach(() => {
 });
 
 describe("useHamClockWallOperatingState", () => {
+  it("does not overwrite a locally set map target with a stale cursor on mount", () => {
+    useMapStore.setState({
+      target: { lat: 40, lon: -80, name: "W3ABC" },
+      isolateTargetPath: true,
+    });
+    useOperatingStateStore
+      .getState()
+      .applyMessage(inboundTarget("phone-device", "K1ABC", "EM10"));
+
+    renderHook(() => useHamClockWallOperatingState());
+
+    expect(useMapStore.getState().target).toMatchObject({ name: "W3ABC", lat: 40, lon: -80 });
+    expect(useMapStore.getState().isolateTargetPath).toBe(true);
+  });
+
+  it("applies a non-null cursor on mount when the map has no target yet", () => {
+    useOperatingStateStore
+      .getState()
+      .applyMessage(inboundTarget("phone-device", "K1ABC", "EM10"));
+
+    renderHook(() => useHamClockWallOperatingState());
+
+    const target = useMapStore.getState().target;
+    expect(target).toMatchObject({ name: "K1ABC", grid: "EM10" });
+    expect(target?.lat).toBeCloseTo(30.5, 1);
+    expect(target?.lon).toBeCloseTo(-97, 1);
+  });
+
   it("does not clear a locally set map target when nothing has been shared yet", () => {
     // The wall's own reports write `mapStore.target` (BandTopDx,
     // RecentContactsReport, QuickTargets). An empty shared cursor means

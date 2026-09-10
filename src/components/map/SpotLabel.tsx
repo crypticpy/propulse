@@ -308,6 +308,39 @@ export function SpotLabel({
   const interactionReady = receivesPointer && pointerReady;
   const isInteractive = Boolean(onSelect || onClick) && interactionReady;
 
+  // Rotating below the interaction threshold swaps the <button> for an
+  // inert <span> (via `isInteractive` above) while the component stays
+  // mounted. The removed button node doesn't reliably fire its
+  // blur/mouseleave -- the span never gets onFocus/onBlur at all, and its
+  // onMouseEnter/onMouseLeave are themselves gated on `interactionReady` --
+  // so without this, pointerHoveredRef/keyboardFocusedRef/isHovered stay
+  // set and onHoverEnd never fires: LiveSpotArcs keeps the hover candidate
+  // and preview open, and the occluded label stays promoted in
+  // `activeSpotLabel` (#851, round 12). Mirror the real blur/mouseleave
+  // release exactly once, only on the falling edge (`wasReady &&
+  // !interactionReady`) -- comparing against the previous render's value
+  // (not just checking the refs) means this never fires on mount, since
+  // the ref is seeded from the initial `interactionReady` before any
+  // render runs. A StrictMode replay re-runs this effect with the ref
+  // already updated to the current value, so the comparison is false both
+  // times; once the refs are cleared here, a later render with the same
+  // (still-not-ready) props also compares false and can't re-fire.
+  const wasInteractionReadyRef = useRef(interactionReady);
+  useEffect(() => {
+    const wasReady = wasInteractionReadyRef.current;
+    wasInteractionReadyRef.current = interactionReady;
+    if (
+      wasReady &&
+      !interactionReady &&
+      (pointerHoveredRef.current || keyboardFocusedRef.current)
+    ) {
+      pointerHoveredRef.current = false;
+      keyboardFocusedRef.current = false;
+      setIsHovered(false);
+      onHoverEndRef.current?.();
+    }
+  }, [interactionReady]);
+
   // Size classes - sized for legibility (target audience 50-70 age range)
   const sizeClasses =
     size === "sm" ? "text-[11px] px-1.5 py-0.5" : "text-[13px] px-2 py-1";

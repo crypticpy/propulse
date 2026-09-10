@@ -708,3 +708,91 @@ describe("SpotLabel pointer/keyboard readiness waits for the fade transition (#8
     );
   });
 });
+
+describe("SpotLabel releases stale hover ownership when interactionReady drops (#851, round 12)", () => {
+  // Rotating a hovered label below the interaction threshold swaps its
+  // <button> for an inert <span> while the component stays mounted. The
+  // removed button doesn't reliably fire blur/mouseleave, so without an
+  // explicit release, pointerHoveredRef/keyboardFocusedRef/isHovered would
+  // stay set and onHoverEnd would never fire -- leaving the hover
+  // candidate/preview open upstream and the label wrongly promoted.
+
+  it("fires onHoverEnd exactly once and demotes the zIndexRange when interactionReady falls while hovered", () => {
+    const onHover = vi.fn();
+    const onHoverEnd = vi.fn();
+    const { rerender } = render(
+      <SpotLabel
+        lat={35.5}
+        lon={-97.5}
+        callsign="K5ABC"
+        opacity={1}
+        occlusionOpacity={1}
+        onHover={onHover}
+        onHoverEnd={onHoverEnd}
+        onSelect={vi.fn()}
+      />,
+    );
+    // Mounts already fully ready (occlusionOpacity=1): no transition wait.
+    const label = screen.getByRole("button", {
+      name: "Select K5ABC as target",
+    });
+    fireEvent.mouseEnter(label);
+    expect(onHover).toHaveBeenCalledOnce();
+    expect(screen.getByTestId("html-overlay").dataset.zindexrange).toBe(
+      JSON.stringify(GLOBE_DOM_LAYER_ORDER.activeSpotLabel),
+    );
+
+    // Rotate below POINTER_ENABLE_THRESHOLD while still hovered: the
+    // <button> unmounts in favor of a <span>, which never fires
+    // mouseleave/blur for this transition.
+    rerender(
+      <SpotLabel
+        lat={35.5}
+        lon={-97.5}
+        callsign="K5ABC"
+        opacity={1}
+        occlusionOpacity={0.1}
+        onHover={onHover}
+        onHoverEnd={onHoverEnd}
+        onSelect={vi.fn()}
+      />,
+    );
+    expect(onHoverEnd).toHaveBeenCalledOnce();
+    expect(screen.getByTestId("html-overlay").dataset.zindexrange).toBe(
+      JSON.stringify(GLOBE_DOM_LAYER_ORDER.passiveSpotLabel),
+    );
+
+    // A second rerender with the same (still not interaction-ready) props
+    // must not re-fire onHoverEnd -- the refs are already clear and the
+    // falling-edge comparison is false again.
+    rerender(
+      <SpotLabel
+        lat={35.5}
+        lon={-97.5}
+        callsign="K5ABC"
+        opacity={1}
+        occlusionOpacity={0.1}
+        onHover={onHover}
+        onHoverEnd={onHoverEnd}
+        onSelect={vi.fn()}
+      />,
+    );
+    expect(onHoverEnd).toHaveBeenCalledOnce();
+  });
+
+  it("does not call onHoverEnd on mount, even when interactionReady starts false", () => {
+    const onHoverEnd = vi.fn();
+    render(
+      <SpotLabel
+        lat={35.5}
+        lon={-97.5}
+        callsign="K5ABC"
+        opacity={1}
+        occlusionOpacity={0.1}
+        onHoverEnd={onHoverEnd}
+        onSelect={vi.fn()}
+      />,
+    );
+    expect(onHoverEnd).not.toHaveBeenCalled();
+  });
+});

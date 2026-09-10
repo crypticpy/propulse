@@ -22,8 +22,9 @@ import { formatDistanceToNow } from "date-fns";
 import { useGlobeOcclusion } from "@/hooks/useGlobeOcclusion";
 import { useSatellites } from "@/hooks/useSatellites";
 import { useMapStore } from "@/stores/mapStore";
+import type { SatelliteTrackConfig } from "@/stores/mapStore";
 import { useSatellitePrefsStore } from "@/stores/satellitePrefsStore";
-import { calculateGroundTrack } from "@/lib/api/satellites";
+import { buildOrbitTrack } from "@/lib/api/satellites";
 import { getTransponder } from "@/lib/data/satelliteTransponders";
 import {
   GLOBE_DOM_LAYER_ORDER,
@@ -546,64 +547,152 @@ function SatelliteMarker({
 }
 
 // ---------------------------------------------------------------------------
-// Ground Track Line
+// Ground Track Line — store-driven per-satellite "Map orbit" track (#994)
 // ---------------------------------------------------------------------------
 
 interface GroundTrackProps {
   satellite: SatelliteInfoExtended;
+  config: SatelliteTrackConfig;
+  isSelected: boolean;
 }
 
-function GroundTrack({ satellite }: GroundTrackProps) {
+interface TimeMarkerLabel {
+  position: THREE.Vector3;
+  minutesFromNow: number;
+}
+
+/**
+ * One satellite's orbit track, built from the shared `buildOrbitTrack` per
+ * that satellite's own `satelliteTracks` config (orbits ahead, whether to
+ * show the past 45 minutes). Past/future segments are split the same way
+ * `ISSOrbitRing` splits its altitude ring (dim past, bright future), and,
+ * like it and `ISSGroundTrack`, split again at antimeridian crossings so a
+ * `Line` never draws a spurious wrap-around chord.
+ */
+function GroundTrack({ satellite, config, isSelected }: GroundTrackProps) {
   const color = CATEGORY_COLORS[satellite.category];
+  const lineWidth = isSelected ? 2.5 : 1.5;
 
-  // Calculate ground track — 90 minutes forward (typical LEO orbit period)
-  const trackPoints = useMemo(() => {
-    const track = calculateGroundTrack(satellite, new Date(), 90, 1);
+  const { pastSegments, futureSegments, tenMinDots, thirtyMinLabels } =
+    useMemo(() => {
+      const pastMin = config.showPast ? 45 : 0;
+      const track = buildOrbitTrack(satellite, new Date(), {
+        pastMin,
+        orbitsAhead: config.orbitsAhead,
+        stepMin: 1,
+      });
 
-    // Convert to 3D positions, splitting on large longitude jumps (antimeridian crossing)
-    const segments: THREE.Vector3[][] = [];
-    let currentSegment: THREE.Vector3[] = [];
+      const past: THREE.Vector3[][] = [];
+      const future: THREE.Vector3[][] = [];
+      let currentPast: THREE.Vector3[] = [];
+      let currentFuture: THREE.Vector3[] = [];
+      const dots: THREE.Vector3[] = [];
+      const labels: TimeMarkerLabel[] = [];
 
-    for (let i = 0; i < track.length; i++) {
-      const point = track[i];
-      const vec = latLonToSurface(point.lat, point.lon);
+      for (let i = 0; i < track.length; i++) {
+        const point = track[i];
+        const vec = latLonToSurface(point.lat, point.lon);
 
-      if (i > 0) {
-        const prevLon = track[i - 1].lon;
-        const lonDiff = Math.abs(point.lon - prevLon);
-        // Split at antimeridian crossing
-        if (lonDiff > 180) {
-          if (currentSegment.length > 1) {
-            segments.push(currentSegment);
+        if (i > 0) {
+          const prevLon = track[i - 1].lon;
+          const lonDiff = Math.abs(point.lon - prevLon);
+          if (lonDiff > 180) {
+            if (currentPast.length > 1) past.push(currentPast);
+            if (currentFuture.length > 1) future.push(currentFuture);
+            currentPast = [];
+            currentFuture = [];
           }
-          currentSegment = [];
+        }
+
+        if (point.minutesFromNow < 0) {
+          currentPast.push(vec);
+          if (currentFuture.length > 1) {
+            future.push(currentFuture);
+            currentFuture = [];
+          }
+        } else if (currentPast.length > 0 && currentFuture.length === 0) {
+          // Bridge: carry the last past point into the future segment so the
+          // line stays continuous across the "now" boundary.
+          currentFuture.push(vec);
+          if (currentPast.length > 1) past.push(currentPast);
+          currentPast = [];
+        } else {
+          currentFuture.push(vec);
+        }
+
+        if (point.minutesFromNow % 10 === 0) {
+          dots.push(vec);
+        }
+        if (point.minutesFromNow % 30 === 0) {
+          labels.push({ position: vec, minutesFromNow: point.minutesFromNow });
         }
       }
 
-      currentSegment.push(vec);
-    }
+      if (currentPast.length > 1) past.push(currentPast);
+      if (currentFuture.length > 1) future.push(currentFuture);
 
-    if (currentSegment.length > 1) {
-      segments.push(currentSegment);
-    }
-
-    return segments;
-  }, [satellite]);
+      return {
+        pastSegments: past,
+        futureSegments: future,
+        tenMinDots: dots,
+        thirtyMinLabels: labels,
+      };
+    }, [satellite, config.showPast, config.orbitsAhead]);
 
   return (
     <>
-      {trackPoints.map((segment, idx) => (
+      {pastSegments.map((segment, idx) => (
         <Line
-          key={idx}
+          key={`past-${idx}`}
           points={segment}
           color={color}
-          lineWidth={1.5}
+          lineWidth={lineWidth}
           transparent
-          opacity={0.4}
+          opacity={0.18}
           depthTest={true}
           depthWrite={false}
           renderOrder={GLOBE_LAYER_ORDER.arcs}
         />
+      ))}
+      {futureSegments.map((segment, idx) => (
+        <Line
+          key={`future-${idx}`}
+          points={segment}
+          color={color}
+          lineWidth={lineWidth}
+          transparent
+          opacity={0.45}
+          depthTest={true}
+          depthWrite={false}
+          renderOrder={GLOBE_LAYER_ORDER.arcs}
+        />
+      ))}
+      {tenMinDots.map((pos, idx) => (
+        <mesh key={`dot-${idx}`} position={pos} renderOrder={GLOBE_LAYER_ORDER.markers}>
+          <sphereGeometry args={[0.003, 8, 8]} />
+          <meshBasicMaterial
+            color={color}
+            transparent
+            opacity={0.5}
+            depthTest={true}
+            depthWrite={false}
+          />
+        </mesh>
+      ))}
+      {thirtyMinLabels.map(({ position, minutesFromNow }, idx) => (
+        <Html
+          key={`label-${idx}`}
+          position={position}
+          center
+          zIndexRange={GLOBE_DOM_LAYER_ORDER.marker}
+          style={{ pointerEvents: "none" }}
+        >
+          <div className="px-1 py-0.5 rounded text-xs font-mono whitespace-nowrap bg-su-panel text-su-text border border-su-line/40">
+            {minutesFromNow === 0
+              ? "now"
+              : `${minutesFromNow > 0 ? "+" : ""}${minutesFromNow}m`}
+          </div>
+        </Html>
       ))}
     </>
   );
@@ -626,6 +715,7 @@ export function SatelliteOverlay() {
     useSatellites();
   const issTrackerActive = useMapStore((s) => s.layers.issTracker);
   const setSatelliteModalId = useMapStore((s) => s.setSatelliteModalId);
+  const satelliteTracks = useMapStore((s) => s.satelliteTracks);
 
   const trackedNoradIds = useSatellitePrefsStore((s) => s.trackedNoradIds);
 
@@ -656,19 +746,37 @@ export function SatelliteOverlay() {
     [selectedSatellite, selectSatellite],
   );
 
-  if (filteredSatellites.length === 0) {
+  // Store-driven "Map orbit" tracks — one per satellite the user has opted
+  // into via the SatelliteDetailModal controls, independent of selection
+  // and independent of the marker display prefs above (#994).
+  const trackedSatellites = useMemo(() => {
+    const entries: { satellite: SatelliteInfoExtended; config: SatelliteTrackConfig }[] =
+      [];
+    for (const [noradIdStr, config] of Object.entries(satelliteTracks)) {
+      const noradId = Number(noradIdStr);
+      const satellite = satellites.find((s) => s.noradId === noradId);
+      if (satellite) {
+        entries.push({ satellite, config });
+      }
+    }
+    return entries;
+  }, [satelliteTracks, satellites]);
+
+  if (filteredSatellites.length === 0 && trackedSatellites.length === 0) {
     return null;
   }
 
-  // Skip ISS ground track if issTracker is active and selected satellite is ISS
-  const showGroundTrack =
-    selectedSatellite &&
-    !(issTrackerActive && selectedSatellite.noradId === 25544);
-
   return (
     <group>
-      {/* Ground track for selected satellite */}
-      {showGroundTrack && <GroundTrack satellite={selectedSatellite} />}
+      {/* Store-driven orbit tracks (#994) */}
+      {trackedSatellites.map(({ satellite, config }) => (
+        <GroundTrack
+          key={satellite.noradId}
+          satellite={satellite}
+          config={config}
+          isSelected={satellite.noradId === selectedSatellite?.noradId}
+        />
+      ))}
 
       {/* Satellite markers */}
       {filteredSatellites.map((sat) => (

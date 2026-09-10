@@ -153,4 +153,175 @@ describe("SatelliteDetailModal", () => {
       expect(dialog.contains(document.activeElement)).toBe(true);
     });
   });
+
+  describe("Map orbit controls (#994)", () => {
+    afterEach(() => {
+      useMapStore.setState({ satelliteTracks: {} });
+    });
+
+    it("shows 'Map orbit' when untracked and creates a default track on click", async () => {
+      openModal();
+      renderModal();
+      await screen.findByRole("dialog", { name: FAKE_SATELLITE.name });
+
+      const toggle = screen.getByRole("button", { name: "Map orbit" });
+      expect(toggle.getAttribute("aria-pressed")).toBe("false");
+
+      const user = userEvent.setup();
+      await user.click(toggle);
+
+      expect(useMapStore.getState().satelliteTracks).toEqual({
+        [String(FAKE_SATELLITE.noradId)]: {
+          orbitsAhead: 1,
+          showPast: false,
+          showFootprint: false,
+        },
+      });
+    });
+
+    it("shows 'Clear orbit' when tracked and removes the track on click", async () => {
+      openModal();
+      useMapStore.setState({
+        satelliteTracks: {
+          [String(FAKE_SATELLITE.noradId)]: {
+            orbitsAhead: 1,
+            showPast: false,
+            showFootprint: false,
+          },
+        },
+      });
+      renderModal();
+      await screen.findByRole("dialog", { name: FAKE_SATELLITE.name });
+
+      const toggle = screen.getByRole("button", { name: "Clear orbit" });
+      expect(toggle.getAttribute("aria-pressed")).toBe("true");
+
+      const user = userEvent.setup();
+      await user.click(toggle);
+
+      expect(useMapStore.getState().satelliteTracks).toEqual({});
+    });
+
+    it("only shows the orbits-ahead / past / footprint controls once tracked", async () => {
+      openModal();
+      renderModal();
+      await screen.findByRole("dialog", { name: FAKE_SATELLITE.name });
+
+      expect(screen.queryByRole("radio", { name: "2 orbits" })).toBeNull();
+      expect(
+        screen.queryByRole("switch", { name: /Show past 45 minutes/ }),
+      ).toBeNull();
+
+      const user = userEvent.setup();
+      await user.click(screen.getByRole("button", { name: "Map orbit" }));
+
+      expect(
+        await screen.findByRole("radio", { name: "2 orbits" }),
+      ).not.toBeNull();
+      expect(
+        screen.getByRole("switch", { name: /Show past 45 minutes/ }),
+      ).not.toBeNull();
+      expect(
+        screen.getByRole("switch", { name: /Footprint/ }),
+      ).not.toBeNull();
+    });
+
+    it("the orbits-ahead segmented control updates orbitsAhead in the store", async () => {
+      openModal();
+      useMapStore.setState({
+        satelliteTracks: {
+          [String(FAKE_SATELLITE.noradId)]: {
+            orbitsAhead: 1,
+            showPast: false,
+            showFootprint: false,
+          },
+        },
+      });
+      renderModal();
+      await screen.findByRole("dialog", { name: FAKE_SATELLITE.name });
+
+      const user = userEvent.setup();
+      await user.click(screen.getByRole("radio", { name: "3 orbits" }));
+
+      expect(
+        useMapStore.getState().satelliteTracks[String(FAKE_SATELLITE.noradId)]
+          .orbitsAhead,
+      ).toBe(3);
+    });
+
+    it("the 'Show past 45 minutes' toggle updates showPast in the store", async () => {
+      openModal();
+      useMapStore.setState({
+        satelliteTracks: {
+          [String(FAKE_SATELLITE.noradId)]: {
+            orbitsAhead: 1,
+            showPast: false,
+            showFootprint: false,
+          },
+        },
+      });
+      renderModal();
+      await screen.findByRole("dialog", { name: FAKE_SATELLITE.name });
+
+      const user = userEvent.setup();
+      await user.click(
+        screen.getByRole("switch", { name: /Show past 45 minutes/ }),
+      );
+
+      expect(
+        useMapStore.getState().satelliteTracks[String(FAKE_SATELLITE.noradId)]
+          .showPast,
+      ).toBe(true);
+    });
+
+    it("the 'Footprint' toggle updates showFootprint in the store", async () => {
+      openModal();
+      useMapStore.setState({
+        satelliteTracks: {
+          [String(FAKE_SATELLITE.noradId)]: {
+            orbitsAhead: 1,
+            showPast: false,
+            showFootprint: false,
+          },
+        },
+      });
+      renderModal();
+      await screen.findByRole("dialog", { name: FAKE_SATELLITE.name });
+
+      const user = userEvent.setup();
+      await user.click(screen.getByRole("switch", { name: /Footprint/ }));
+
+      expect(
+        useMapStore.getState().satelliteTracks[String(FAKE_SATELLITE.noradId)]
+          .showFootprint,
+      ).toBe(true);
+    });
+
+    it("shows 'Clear all orbits' only once 2+ tracks exist, and it clears every track", async () => {
+      openModal();
+      useMapStore.setState({
+        satelliteTracks: {
+          [String(FAKE_SATELLITE.noradId)]: {
+            orbitsAhead: 1,
+            showPast: false,
+            showFootprint: false,
+          },
+        },
+      });
+      renderModal();
+      await screen.findByRole("dialog", { name: FAKE_SATELLITE.name });
+
+      expect(screen.queryByText(/Clear all orbits/)).toBeNull();
+
+      useMapStore.getState().setSatelliteTrack(99998, {});
+
+      const clearAll = await screen.findByRole("button", {
+        name: /Clear all orbits/,
+      });
+      const user = userEvent.setup();
+      await user.click(clearAll);
+
+      expect(useMapStore.getState().satelliteTracks).toEqual({});
+    });
+  });
 });

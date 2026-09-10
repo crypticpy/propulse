@@ -1158,6 +1158,11 @@ const GlobeScene = React.memo(function GlobeScene({
   const gridActivityEndpoint = useMapStore((s) => s.gridActivityEndpoint);
   const globeZoom = useMapStore((s) => s.zoom);
   const selectedSatelliteId = useMapStore((s) => s.selectedSatelliteId);
+  const satelliteTracks = useMapStore((s) => s.satelliteTracks);
+  const hasFootprintTrack = useMemo(
+    () => Object.values(satelliteTracks).some((t) => t.showFootprint),
+    [satelliteTracks],
+  );
   const isStandard = mapStyle === "standard";
   const subscriptionTier = useProfileStore((s) => s.subscriptionTier);
   const tileProviderId = useMapStore((s) => s.tileProviderId);
@@ -1246,7 +1251,7 @@ const GlobeScene = React.memo(function GlobeScene({
   const { regions: sporadicERegions } = useSporadicE();
   const { regions: ductingRegions } = useDuctingForecast();
   const { satellites: satelliteData } = useSatellites(
-    layers.satellites || layers.satelliteFootprints,
+    layers.satellites || layers.satelliteFootprints || hasFootprintTrack,
   );
 
   // FT8 enriched decodes for Ft8DecodeLayer3D (Zustand works in R3F reconciler)
@@ -1481,14 +1486,13 @@ const GlobeScene = React.memo(function GlobeScene({
   }, [layers.spectrumRing]);
 
   // ── Satellite footprints (derived from satellite positions) ───────────
+  // Shown either via the global `satelliteFootprints` layer toggle (visible
+  // satellites only, capped at 5) or per-satellite via a "Footprint" track
+  // opted into from SatelliteDetailModal (#994) — the latter bypasses the
+  // isVisible/cap restrictions since the user explicitly asked for it.
   const satelliteFootprints = useMemo(() => {
-    if (
-      !layers.satelliteFootprints ||
-      !satelliteData ||
-      satelliteData.length === 0
-    )
-      return [];
-    // Category color map (mirrors SatelliteOverlay)
+    if (!satelliteData || satelliteData.length === 0) return [];
+
     const catColors: Record<string, string> = {
       iss: "#ffffff",
       fm: "#00ff88",
@@ -1496,18 +1500,33 @@ const GlobeScene = React.memo(function GlobeScene({
       digital: "#ff9933",
       weather: "#cc88ff",
     };
-    // Only show visible satellites with valid positions, limit to 5
-    return satelliteData
-      .filter((s) => s.isVisible && s.position)
-      .slice(0, 5)
-      .map((s) => ({
-        satelliteId: String(s.noradId),
-        lat: s.position.lat,
-        lon: s.position.lon,
-        altitudeKm: s.position.alt,
-        color: catColors[s.category] ?? "#aaaaaa",
-      }));
-  }, [layers.satelliteFootprints, satelliteData]);
+
+    const trackedFootprintIds = new Set(
+      Object.entries(satelliteTracks)
+        .filter(([, config]) => config.showFootprint)
+        .map(([noradId]) => Number(noradId)),
+    );
+
+    const globalSats = layers.satelliteFootprints
+      ? satelliteData.filter((s) => s.isVisible && s.position).slice(0, 5)
+      : [];
+    const trackedSats = satelliteData.filter(
+      (s) => trackedFootprintIds.has(s.noradId) && s.position,
+    );
+
+    const byId = new Map<number, (typeof satelliteData)[number]>();
+    for (const s of [...globalSats, ...trackedSats]) {
+      byId.set(s.noradId, s);
+    }
+
+    return Array.from(byId.values()).map((s) => ({
+      satelliteId: String(s.noradId),
+      lat: s.position.lat,
+      lon: s.position.lon,
+      altitudeKm: s.position.alt,
+      color: catColors[s.category] ?? "#aaaaaa",
+    }));
+  }, [layers.satelliteFootprints, satelliteData, satelliteTracks]);
 
   // Handle click on globe surface
   const handleGlobeClick = useCallback(
@@ -1780,8 +1799,10 @@ const GlobeScene = React.memo(function GlobeScene({
         )}
 
         {/* === Satellite Layers === */}
-        {layers.satelliteFootprints &&
-          satelliteFootprints &&
+        {/* Gate is content-driven, not just the global toggle: a per-satellite
+            "Footprint" track (#994) can populate satelliteFootprints even
+            when layers.satelliteFootprints is off. */}
+        {satelliteFootprints &&
           satelliteFootprints.length > 0 && (
             <SatelliteFootprint3D
               footprints={satelliteFootprints}

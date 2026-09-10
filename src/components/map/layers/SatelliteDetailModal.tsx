@@ -10,7 +10,10 @@
 import { useMemo, useCallback, useId } from "react";
 import { format, formatDistanceToNow } from "date-fns";
 import { AccessibleDialog } from "@/components/ui/AccessibleDialog";
+import { ToggleSwitch } from "@/components/ui/ToggleSwitch";
+import { SegmentedButton } from "@/components/settings/ui/SegmentedButton";
 import { useMapStore } from "@/stores/mapStore";
+import type { SatelliteTrackConfig } from "@/stores/mapStore";
 import { useSatellites } from "@/hooks/useSatellites";
 import { useSatelliteTransponders } from "@/hooks/useSatelliteTransponders";
 import { useTimeFormat } from "@/hooks/useTimeFormat";
@@ -404,6 +407,114 @@ export function PassRow({ pass }: { pass: PassPrediction }) {
 }
 
 // ---------------------------------------------------------------------------
+// OrbitTrackControls — Map orbit / orbits ahead / past / footprint (#994)
+// ---------------------------------------------------------------------------
+
+const ORBITS_AHEAD_OPTIONS: { value: "1" | "2" | "3"; label: string }[] = [
+  { value: "1", label: "1 orbit" },
+  { value: "2", label: "2 orbits" },
+  { value: "3", label: "3 orbits" },
+];
+
+/**
+ * "Map orbit" toggle plus its dependent controls, scoped to one satellite by
+ * NORAD id. Selecting a satellite no longer implies a track on the
+ * globe — mapping (or clearing) one is this explicit action, stored per
+ * satellite in mapStore.satelliteTracks so several satellites can be
+ * tracked at once (capped at 5, oldest dropped).
+ */
+function OrbitTrackControls({ noradId }: { noradId: number }) {
+  const id = String(noradId);
+  const track = useMapStore((s) => s.satelliteTracks[id]);
+  const trackCount = useMapStore(
+    (s) => Object.keys(s.satelliteTracks).length,
+  );
+  const setSatelliteTrack = useMapStore((s) => s.setSatelliteTrack);
+  const clearSatelliteTrack = useMapStore((s) => s.clearSatelliteTrack);
+  const clearAllSatelliteTracks = useMapStore(
+    (s) => s.clearAllSatelliteTracks,
+  );
+
+  const isTracked = track !== undefined;
+
+  const handleToggleTrack = useCallback(() => {
+    if (isTracked) {
+      clearSatelliteTrack(noradId);
+    } else {
+      setSatelliteTrack(noradId, {});
+    }
+  }, [isTracked, noradId, clearSatelliteTrack, setSatelliteTrack]);
+
+  const handlePatch = useCallback(
+    (patch: Partial<SatelliteTrackConfig>) => {
+      setSatelliteTrack(noradId, patch);
+    },
+    [noradId, setSatelliteTrack],
+  );
+
+  return (
+    <div className="mt-3 bg-su-line/10 rounded-md px-2.5 py-2.5">
+      <div className="flex items-center justify-between gap-2 mb-2">
+        <span className="text-xs text-su-muted uppercase tracking-wider font-semibold">
+          Map Orbit
+        </span>
+        {trackCount >= 2 && (
+          <button
+            type="button"
+            onClick={() => clearAllSatelliteTracks()}
+            className="text-xs font-medium text-su-muted hover:text-su-text underline underline-offset-2 focus:outline-none focus-visible:ring-1 focus-visible:ring-su-line/60 rounded"
+          >
+            Clear all orbits ({trackCount})
+          </button>
+        )}
+      </div>
+
+      <button
+        type="button"
+        onClick={handleToggleTrack}
+        aria-pressed={isTracked}
+        className={`w-full flex items-center justify-center gap-2 rounded-lg px-3 py-2.5 text-sm font-semibold transition-colors focus:outline-none focus-visible:ring-1 focus-visible:ring-su-line/60 ${
+          isTracked
+            ? "bg-plasma-orange/15 text-plasma-orange border border-plasma-orange/40 hover:bg-plasma-orange/25"
+            : "bg-su-line/15 text-su-text border border-su-line/40 hover:bg-su-line/25"
+        }`}
+      >
+        {isTracked ? "Clear orbit" : "Map orbit"}
+      </button>
+
+      {isTracked && track && (
+        <div className="mt-3 flex flex-col gap-3">
+          <div>
+            <div className="text-xs text-su-muted mb-1.5">Orbits ahead</div>
+            <SegmentedButton
+              options={ORBITS_AHEAD_OPTIONS}
+              value={String(track.orbitsAhead) as "1" | "2" | "3"}
+              onChange={(value) =>
+                handlePatch({ orbitsAhead: Number(value) as 1 | 2 | 3 })
+              }
+            />
+          </div>
+
+          <ToggleSwitch
+            checked={track.showPast}
+            onChange={(checked) => handlePatch({ showPast: checked })}
+            label="Show past 45 minutes"
+            description="Adds the trailing ground track behind the satellite"
+          />
+
+          <ToggleSwitch
+            checked={track.showFootprint}
+            onChange={(checked) => handlePatch({ showFootprint: checked })}
+            label="Footprint"
+            description="Shows this satellite's radio horizon on the globe"
+          />
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // SatelliteDetailContent
 // ---------------------------------------------------------------------------
 
@@ -553,6 +664,9 @@ function SatelliteDetailContent({
             </div>
           </div>
         </div>
+
+        {/* Map orbit controls (#994) */}
+        <OrbitTrackControls noradId={satellite.noradId} />
 
         {/* Transponder & Doppler info */}
         {transponderData && (

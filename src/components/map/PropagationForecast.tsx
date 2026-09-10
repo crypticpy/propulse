@@ -306,7 +306,7 @@ export function PropagationForecast({
                     x={0}
                     y={MARGIN.top + idx * CELL_HEIGHT}
                     width={3}
-                    height={CELL_HEIGHT}
+                    height={CELL_HEIGHT - 1}
                     fill={getBandColor(band)}
                   />
                   <text

@@ -323,7 +323,11 @@ export const BandConditionsModal: React.FC<BandConditionsModalProps> = ({
                       }`}
                     >
                       <td className="py-3 px-3">
-                        <BandPill band={band.name} size="sm" className="font-bold" />
+                        <BandPill
+                          band={band.name}
+                          size="md"
+                          className="font-bold"
+                        />
                         {isRecommended && (
                           <span className="ml-2 text-xs text-su-success">
                             *
@@ -396,9 +400,11 @@ export const BandConditionsModal: React.FC<BandConditionsModalProps> = ({
                   <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
                     <div className="flex-1">
                       <div className="flex items-center gap-3 mb-2">
-                        <span className="font-mono font-bold text-xl text-su-text">
-                          {band.name}
-                        </span>
+                        <BandPill
+                          band={band.name}
+                          size="md"
+                          className="font-bold"
+                        />
                         <span className="text-sm text-su-muted/80">
                           {band.freq}
                         </span>

@@ -23,7 +23,9 @@ describe("BandPill", () => {
     const el = container.querySelector('[data-band="99m"]') as HTMLElement;
 
     expect(el.style.getPropertyValue("--band-hue")).toBe(getBandColor("99m"));
-    expect(el.style.getPropertyValue("--band-hue")).toBe(getBandColor("default"));
+    expect(el.style.getPropertyValue("--band-hue")).toBe(
+      getBandColor("default"),
+    );
   });
 
   it("sets data-band to the band string", () => {
@@ -43,7 +45,7 @@ describe("BandPill", () => {
 
     expect(el.className).toContain("border-l-[3px]");
     expect(el.style.borderLeftColor).toBe("var(--band-hue)");
-    expect(el.style.background).toContain("color-mix");
+    expect(el.style.backgroundColor).toContain("color-mix");
   });
 
   it("rule variant has the border but no tint", () => {
@@ -52,7 +54,7 @@ describe("BandPill", () => {
 
     expect(el.className).toContain("border-l-[3px]");
     expect(el.style.borderLeftColor).toBe("var(--band-hue)");
-    expect(el.style.background).toBe("");
+    expect(el.style.backgroundColor).toBe("");
   });
 
   it("inherit size sets no text-xs/text-sm class, for use inside an already-sized hero", () => {
@@ -73,5 +75,36 @@ describe("BandPill", () => {
     expect(el.className).toContain("ring-1");
     expect(el.className).toContain("ring-su-info");
     expect(el.className).toContain("text-su-text");
+  });
+
+  it("inherit size drops font-mono/leading-tight so the parent face wins", () => {
+    const { container } = render(<BandPill band="20m" size="inherit" />);
+    const el = container.querySelector('[data-band="20m"]') as HTMLElement;
+
+    expect(el.className).not.toContain("font-mono");
+    expect(el.className).not.toContain("leading-tight");
+  });
+
+  it("sm/md sizes keep font-mono and leading-tight", () => {
+    const { container } = render(<BandPill band="20m" size="md" />);
+    const el = container.querySelector('[data-band="20m"]') as HTMLElement;
+
+    expect(el.className).toContain("font-mono");
+    expect(el.className).toContain("leading-tight");
+  });
+
+  it("rule variant has no right padding at sm/md (dense rows)", () => {
+    const { container } = render(<BandPill band="20m" variant="rule" />);
+    const el = container.querySelector('[data-band="20m"]') as HTMLElement;
+
+    expect(el.className).toContain("pr-0");
+    expect(el.className).not.toContain("px-1.5");
+  });
+
+  it("falls back to the band string when children is empty", () => {
+    const { container } = render(<BandPill band="20m">{""}</BandPill>);
+    const el = container.querySelector('[data-band="20m"]') as HTMLElement;
+
+    expect(el.textContent).toBe("20m");
   });
 });

@@ -36,6 +36,21 @@ export function BestBandTile() {
     };
   }, [bands, ready]);
 
+  // Keyed on the band string, not `best`, so the element stays referentially
+  // stable across renders that don't change the band. `TileHero`'s fit
+  // effect is keyed `[children]`; a fresh element every render would tear
+  // down and rebuild its ResizeObserver/font/theme listeners on every tick.
+  const bestBand = best?.band;
+  const heroBand = useMemo(
+    () =>
+      bestBand ? (
+        <BandPill band={bestBand} size="inherit">
+          {bestBand.toUpperCase()}
+        </BandPill>
+      ) : null,
+    [bestBand],
+  );
+
   // No station/home set (wall spec §7, HW-53): a neutral state, never an
   // error or a stalled fetch. The band-verdict hooks above are shared,
   // globally-cached data (not a per-tile fetch), so there is nothing to
@@ -76,10 +91,8 @@ export function BestBandTile() {
         openLabel={`Best band now: ${best.band}, ${verdict}. Open band health report`}
       >
         <div className="hc-heroline">
-          <TileHero flush>
-            <BandPill band={best.band} size="inherit">
-              {best.band.toUpperCase()}
-            </BandPill>
+          <TileHero flush large>
+            {heroBand}
           </TileHero>
           <div className={`hc-verdict hc-glow ${tone}`}>{verdict}</div>
         </div>
@@ -90,7 +103,7 @@ export function BestBandTile() {
           </span>
           {second && (
             <span className="inline-flex items-center gap-1">
-              <BandPill band={second.band} size="sm">
+              <BandPill band={second.band} size="inherit">
                 {second.band.toUpperCase()}
               </BandPill>
               {LADDER_WALL_LABEL[second.stable]}

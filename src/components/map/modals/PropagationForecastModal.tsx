@@ -411,7 +411,7 @@ export function PropagationForecastModal({
                 />
                 <BandPill
                   band={currentBestBand.band}
-                  size="md"
+                  size="inherit"
                   className="text-2xl font-bold"
                 />
               </div>

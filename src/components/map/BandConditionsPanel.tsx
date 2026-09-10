@@ -309,12 +309,15 @@ export const BandConditionGridCell = memo(function BandConditionGridCell({
         backgroundColor: colors.bg,
         textAlign: "center",
         position: "relative",
+        ...(isSynced
+          ? { boxShadow: "inset 0 0 0 1px var(--su-info)" }
+          : {}),
       }}
     >
       <BandPill
         band={condition.band}
         size="sm"
-        className={`justify-center font-bold ${isSynced ? "ring-1 ring-su-info" : ""}`}
+        className={`font-bold ${isSynced ? "ring-1 ring-su-info" : ""}`}
       />
       <div
         style={{
@@ -1295,8 +1298,11 @@ const BandConditionRow = memo(function BandConditionRow({
     <tr
       onClick={() => verdict && onSelect?.(condition.band)}
       className={`transition-colors ${verdict ? "cursor-pointer hover:bg-su-line/10" : ""} ${
-        isSynced ? "bg-cyan-500/10 border-l-2 border-cyan-400" : ""
-      } ${isGreylineActive ? "bg-amber-500/5" : ""}`}
+        isGreylineActive ? "bg-amber-500/5" : ""
+      }`}
+      style={
+        isSynced ? { boxShadow: "inset 0 0 0 1px var(--su-info)" } : undefined
+      }
     >
       <td className="px-1 py-1">
         {/*
@@ -1330,17 +1336,21 @@ const BandConditionRow = memo(function BandConditionRow({
                 event.stopPropagation();
                 onSelect?.(condition.band);
               }}
-              className={`rounded font-mono text-sm underline decoration-transparent underline-offset-2 hover:decoration-current focus-visible:outline focus-visible:outline-1 focus-visible:outline-cyan-300 ${isSynced ? "text-cyan-400" : "text-su-text"}`}
+              className="rounded underline decoration-transparent underline-offset-2 hover:decoration-current focus-visible:outline focus-visible:outline-1 focus-visible:outline-cyan-300"
               aria-label={`${condition.band} ${statusLabel}. Open live band health details`}
             >
-              {condition.band}
+              <BandPill
+                band={condition.band}
+                size="md"
+                className={isSynced ? "ring-1 ring-su-info" : ""}
+              />
             </button>
           ) : (
-            <div
-              className={`font-mono text-sm ${isSynced ? "text-cyan-400" : "text-su-text"}`}
-            >
-              {condition.band}
-            </div>
+            <BandPill
+              band={condition.band}
+              size="md"
+              className={isSynced ? "ring-1 ring-su-info" : ""}
+            />
           )}
           {/* Greyline active indicator for low bands */}
           {isGreylineActive && (

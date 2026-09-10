@@ -436,7 +436,7 @@ export function OptimalBandsPanel({
                         >
                           {index + 1}
                         </span>
-                        <BandPill band={band.band} size="sm" />
+                        <BandPill band={band.band} size="md" />
                       </div>
                       <span
                         className={`text-[10px] px-1.5 py-0.5 rounded ${

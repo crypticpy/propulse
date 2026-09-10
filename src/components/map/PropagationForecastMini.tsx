@@ -435,12 +435,12 @@ export function PropagationForecastMini({
   const fadeSpan = Math.max(Math.floor(hoursToShow / 2), 1);
 
   // Caret center-on-column position (CSS calc)
-  // Band label column = w-10 (2.5rem), flex gap = gap-1 (0.25rem) → 2.75rem offset
+  // Band label column = w-12 (3rem), flex gap = gap-1 (0.25rem) → 3.25rem offset
   // Grid gap = 3px (inline, pixel-based), caret width = 24px → center offset = 12px
   const totalGapPx = (hoursToShow - 1) * 3;
   const caretLeft =
     currentHourIndex >= 0
-      ? `calc(2.75rem + ${currentHourIndex * 3}px + ${2 * currentHourIndex + 1} * (100% - 2.75rem - ${totalGapPx}px) / ${2 * hoursToShow} - 12px)`
+      ? `calc(3.25rem + ${currentHourIndex * 3}px + ${2 * currentHourIndex + 1} * (100% - 3.25rem - ${totalGapPx}px) / ${2 * hoursToShow} - 12px)`
       : "0px";
 
   // Calculate target sunrise/sunset times
@@ -1009,7 +1009,7 @@ export function PropagationForecastMini({
             )}
             {/* Band labels - use CSS Grid to match heatmap rows exactly */}
             <div
-              className="w-10 grid"
+              className="w-12 grid"
               style={{
                 gridTemplateRows: `repeat(${displayBands.length}, 1fr)`,
                 gap: "2px",
@@ -1126,7 +1126,7 @@ export function PropagationForecastMini({
 
           {/* Hour labels - below heatmap, offset to align with grid (skip band label column) */}
           <div className="flex gap-1">
-            <div className="w-10" /> {/* Spacer matching band labels width */}
+            <div className="w-12" /> {/* Spacer matching band labels width */}
             <div
               className="flex-1 grid mt-1 text-xs font-mono"
               style={{ gridTemplateColumns: `repeat(${hoursToShow}, 1fr)` }}

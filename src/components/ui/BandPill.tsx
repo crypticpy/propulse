@@ -14,14 +14,34 @@ export interface BandPillProps
 }
 
 // `inherit` is for a value that already lives inside a sized element (a
-// wall tile's hero digit, a hero stat) — it sets no font-size class of its
-// own, and the rule width/padding scale in `em` so they track whatever
-// size the parent hero settles on instead of clipping/floating at a fixed
-// px size.
-const SIZE_STYLES: Record<BandPillSize, string[]> = {
-  sm: ["text-xs", "py-0.5", "px-1.5", "border-l-[3px]"],
-  md: ["text-sm", "py-1", "px-1.5", "border-l-[3px]"],
-  inherit: ["py-[0.15em]", "px-[0.4em]", "border-l-[0.12em]"],
+// wall tile's hero digit, a hero stat) — it sets no font-size class, no
+// font-family/line-height (the parent's face and line-height must win),
+// and the rule width/padding scale in `em` so they track whatever size the
+// parent settles on instead of clipping/floating at a fixed px size.
+const SIZE_TEXT: Record<BandPillSize, string | null> = {
+  sm: "text-xs",
+  md: "text-sm",
+  inherit: null,
+};
+
+const SIZE_PADDING_Y: Record<BandPillSize, string> = {
+  sm: "py-0.5",
+  md: "py-1",
+  inherit: "py-[0.15em]",
+};
+
+// Chip padding-x is unchanged across sizes. `rule` drops the right side for
+// sm/md (dense rows) — `inherit` keeps its em padding either way.
+const CHIP_PADDING_X: Record<BandPillSize, string> = {
+  sm: "px-1.5",
+  md: "px-1.5",
+  inherit: "px-[0.4em]",
+};
+
+const SIZE_BORDER: Record<BandPillSize, string> = {
+  sm: "border-l-[3px]",
+  md: "border-l-[3px]",
+  inherit: "border-l-[0.12em]",
 };
 
 /**
@@ -40,41 +60,60 @@ const SIZE_STYLES: Record<BandPillSize, string[]> = {
  * <BandPill band="20m" />
  * <BandPill band="40m" variant="rule" size="md" />
  * <BandPill band={second.band} size="sm" className="ring-1 ring-su-info" />
- * <TileHero flush><BandPill band={best.band} size="inherit">{best.band.toUpperCase()}</BandPill></TileHero>
+ * <TileHero flush>
+ *   <BandPill band={best.band} size="inherit">
+ *     {best.band.toUpperCase()}
+ *   </BandPill>
+ * </TileHero>
  * ```
  */
 export const BandPill = forwardRef<HTMLSpanElement, BandPillProps>(
   (
-    { band, size = "sm", variant = "chip", className = "", style, children, ...props },
+    {
+      band,
+      size = "sm",
+      variant = "chip",
+      className = "",
+      style,
+      children,
+      ...props
+    },
     ref,
   ) => {
     const hue = getBandColor(band);
+    const isInherit = size === "inherit";
+    const paddingX =
+      variant === "rule" && !isInherit ? "pl-1 pr-0" : CHIP_PADDING_X[size];
 
     const combinedClassName = [
       "inline-flex",
       "items-center",
-      "font-mono",
       "rounded-sm",
-      "leading-tight",
       "text-su-text",
-      ...SIZE_STYLES[size],
+      isInherit ? null : "font-mono",
+      isInherit ? null : "leading-tight",
+      SIZE_TEXT[size],
+      SIZE_PADDING_Y[size],
+      paddingX,
+      SIZE_BORDER[size],
       className,
     ]
       .filter(Boolean)
       .join(" ");
 
     const combinedStyle: CSSProperties = {
-      ...style,
+      // Component defaults first, so a caller's `style` can override them.
       borderLeftColor: "var(--band-hue)",
       ...(variant === "chip"
         ? {
-            background:
+            backgroundColor:
               "color-mix(in srgb, var(--band-hue) 14%, transparent)",
           }
         : {}),
+      ...style,
       // Set last so it always reflects this band, even if a caller's
       // `style` prop happened to include the same custom property.
-      ["--band-hue" as string]: hue,
+      ...({ "--band-hue": hue } as CSSProperties),
     };
 
     return (
@@ -85,7 +124,7 @@ export const BandPill = forwardRef<HTMLSpanElement, BandPillProps>(
         style={combinedStyle}
         {...props}
       >
-        {children ?? band}
+        {children || band}
       </span>
     );
   },

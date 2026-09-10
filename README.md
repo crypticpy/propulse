@@ -174,7 +174,8 @@ code, so an outage in one does not imply an outage in the other.
 Raw spots are deliberately **not** hoarded: `spot_history` is a roughly two-hour sliding
 window trimmed by a scheduled job. What persists are small aggregates rather than raw
 reports: `path_hourly_stats`, `band_hourly_stats`, `region_hourly_stats`,
-`path_recency_hourly` and the `band_activity_climatology` table. Keeping the durable footprint
+`path_recency_hourly`, and the daily `band_activity_climatology` and
+`region_activity_climatology` tables (see `supabase/migrations/` for the full set). Keeping the durable footprint
 small is a design choice about cost and privacy, not an accident.
 
 ### The Band Health verified-state ladder
@@ -207,7 +208,9 @@ promote a band alone. A **surprise** flag, orthogonal to the ladder, fires when 
 activity appears while the forecast said closed: the honest signal of sporadic-E or TEP,
 logged rather than smoothed away.
 
-Operator feedback is collected but is **never an input to the live ladder**. The evaluation
+The schema has a `verdict_feedback` table as groundwork for operator feedback, but no
+submission flow ships yet, and by design feedback will **never be an input to the live
+ladder**. The evaluation
 function takes only the physics score, the deduplicated observation and reporter counts,
 and the two trend windows. Nothing a user clicks can talk a band into looking open.
 
@@ -427,7 +430,8 @@ daemon and ML checks, so a contributor who intends to push needs their dependenc
 ```bash
 (cd bridge && npm install)
 (cd collector && npm install)
-python3 -m venv ml/.venv && ml/.venv/bin/pip install -r ml/requirements.txt
+python3 -m venv ml/.venv
+ml/.venv/bin/pip install -r ml/requirements.txt -r ml/service/requirements-runtime.txt
 # radio daemon tests need a Rust toolchain: https://rustup.rs
 ```
 

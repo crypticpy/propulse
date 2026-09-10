@@ -445,6 +445,19 @@ describe("SatelliteOverlay (round-5 sweep: info card width follows its own text)
     expect(SATELLITE_INFO_CARD_WIDTH_STYLE.minWidth).not.toBe("200px");
     expect(SATELLITE_INFO_CARD_WIDTH_STYLE.maxWidth).not.toBe("260px");
   });
+
+  it("round-7: clamps both bounds to the viewport and lets the two-column rows stack", () => {
+    expect(SATELLITE_INFO_CARD_WIDTH_STYLE.minWidth).toContain("100vw");
+    expect(SATELLITE_INFO_CARD_WIDTH_STYLE.maxWidth).toContain("100vw");
+    const source = readFileSync(
+      resolve(__dirname, "SatelliteOverlay.tsx"),
+      "utf8",
+    );
+    // A fixed two-column grid cannot reflow at the narrow cap; auto-fit
+    // columns stack when the card is narrower than two cells.
+    expect(source).not.toContain('className="grid grid-cols-2');
+    expect(source).toContain("grid-cols-[repeat(auto-fit,minmax(6.5rem,1fr))]");
+  });
 });
 
 describe("PathAnalysis (round-5 sweep: collapsed header row wraps instead of overflowing)", () => {

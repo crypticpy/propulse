@@ -128,8 +128,11 @@ function latLonToSurface(lat: number, lon: number): THREE.Vector3 {
  * Testing Library cannot provide).
  */
 export const SATELLITE_INFO_CARD_WIDTH_STYLE = {
-  minWidth: "12.5rem",
-  maxWidth: "16.25rem",
+  // Same viewport clamp as ISS_INFO_CARD_WIDTH_STYLE (Codex, PR #839 round
+  // 7): at the largest text scale 16.25rem is 357px, wider than a 320px
+  // phone, and the drei `<Html center>` wrapper does no clamping of its own.
+  minWidth: "min(12.5rem, calc(100vw - 2rem))",
+  maxWidth: "min(16.25rem, calc(100vw - 2rem))",
 } as const;
 
 // ---------------------------------------------------------------------------
@@ -253,7 +256,7 @@ function SatelliteInfoPopup({
         />
 
         {/* Position & altitude grid */}
-        <div className="grid grid-cols-2 gap-x-3 gap-y-0.5">
+        <div className="grid grid-cols-[repeat(auto-fit,minmax(6.5rem,1fr))] gap-x-3 gap-y-0.5">
           <div>
             <span style={{ color: "#888" }}>Pos: </span>
             <span style={{ color: "#ccc" }}>{formatLatLon(lat, lon)}</span>
@@ -315,7 +318,7 @@ function SatelliteInfoPopup({
               </div>
             ))}
             {primaryXpdr && (
-              <div className="grid grid-cols-2 gap-x-3 text-xs">
+              <div className="grid grid-cols-[repeat(auto-fit,minmax(6.5rem,1fr))] gap-x-3 text-xs">
                 <div>
                   <span style={{ color: "#888" }}>UP: </span>
                   <span style={{ color: "#aaa" }}>

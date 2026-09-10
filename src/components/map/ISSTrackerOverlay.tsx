@@ -361,7 +361,7 @@ function ISSInfoCard({ tracker, occlusionOpacity }: ISSInfoCardProps) {
                       {formatDegrees(currentPass.maxEl)}
                     </span>
                   </div>
-                  <div className="col-span-2 flex justify-between">
+                  <div className="col-span-full flex justify-between">
                     <span style={{ color: "#888" }}>Direction:</span>
                     <span style={{ color: "#ccc" }}>
                       {currentPass.direction}
@@ -384,7 +384,7 @@ function ISSInfoCard({ tracker, occlusionOpacity }: ISSInfoCardProps) {
                       {formatDegrees(nextPass.maxEl)}
                     </span>
                   </div>
-                  <div className="col-span-2 flex justify-between">
+                  <div className="col-span-full flex justify-between">
                     <span style={{ color: "#888" }}>Direction:</span>
                     <span style={{ color: "#ccc" }}>{nextPass.direction}</span>
                   </div>

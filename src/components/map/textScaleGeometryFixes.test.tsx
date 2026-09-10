@@ -997,3 +997,37 @@ describe("OperatorProfile (round-11 Codex sites: narrow 220px column overflow)",
     expect(row.textContent).toContain("100W");
   });
 });
+
+describe("round-12 Codex sites: implicit grid tracks and a non-wrapping path header", () => {
+  it("ISS pass rows span the full explicit grid instead of forcing an implicit second column at the single-track fallback", () => {
+    const source = readFileSync(
+      resolve(REPO_ROOT, "src/components/map/ISSTrackerOverlay.tsx"),
+      "utf8",
+    );
+    // `col-span-2` on an auto-fit grid that has collapsed to one 6.5rem
+    // track makes CSS Grid create an implicit second column, so the pass
+    // section overflows the card at xl on a 320px viewport. `col-span-full`
+    // spans whatever explicit tracks exist without adding one.
+    expect(source).not.toContain("col-span-2");
+    expect(source.match(/col-span-full flex justify-between/g)?.length).toBe(2);
+  });
+
+  it("Short Path / Long Path headers wrap so the ACTIVE badge drops under the heading at the 220px panel minimum", () => {
+    const source = readFileSync(
+      resolve(REPO_ROOT, "src/components/map/PathAnalysis.tsx"),
+      "utf8",
+    );
+    const lines = source.split("\n");
+    for (const heading of ["Short Path <InfoTip", "Long Path <InfoTip"]) {
+      const headingIndex = lines.findIndex((line) => line.includes(heading));
+      expect(headingIndex, heading).toBeGreaterThanOrEqual(0);
+      // The header row is the flex container just above the <h4>.
+      const rowLine = lines
+        .slice(Math.max(0, headingIndex - 3), headingIndex)
+        .reverse()
+        .find((line) => line.includes('className="flex'));
+      expect(rowLine, heading).toBeDefined();
+      expect(rowLine, heading).toContain("flex-wrap");
+    }
+  });
+});

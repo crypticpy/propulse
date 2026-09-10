@@ -1380,7 +1380,7 @@ export function PathAnalysis({
                 : "bg-su-line/10 border border-transparent"
             }`}
           >
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
               <h4 className="text-xs font-medium text-su-muted inline-flex items-center gap-1">
                 Short Path <InfoTip content={GEOGRAPHY_TOOLTIPS.greatCircle} />
               </h4>
@@ -1421,7 +1421,7 @@ export function PathAnalysis({
                 : "bg-su-line/10 border border-transparent"
             }`}
           >
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
               <h4 className="text-xs font-medium text-su-muted inline-flex items-center gap-1">
                 Long Path <InfoTip content={GEOGRAPHY_TOOLTIPS.greatCircle} />
               </h4>

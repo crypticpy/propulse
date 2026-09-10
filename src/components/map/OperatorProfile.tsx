@@ -111,7 +111,7 @@ function BandConditionsStrip({
       {hoveredBand && (
         <div className="absolute -top-6 left-0 right-0 flex justify-center pointer-events-none z-20">
           <div
-            className="flex items-center gap-1.5 px-2 py-0.5 rounded-md text-xs font-medium whitespace-nowrap"
+            className="flex items-center gap-1.5 px-2 py-0.5 rounded-md text-xs font-medium max-w-full flex-wrap justify-center text-center"
             style={{
               backgroundColor: "rgba(0,0,0,0.85)",
               border: `1px solid ${hoveredColor}40`,
@@ -667,9 +667,17 @@ export function OperatorProfile({ className = "" }: OperatorProfileProps) {
             )}
           </div>
 
-          {/* Tertiary row: Radio info (integrated into VFO panel) */}
+          {/*
+            Tertiary row: Radio info (integrated into VFO panel).
+            Same fixed-width overflow-hidden column as the rows above. The
+            manufacturer/model string has no internal wrap points, so at the
+            xl scale it can outgrow the column alongside the power reading.
+            `flex-wrap` + `min-w-0` let the label wrap or drop to its own
+            line, and `break-words` stops a single long model name from
+            forcing the row wider than the column.
+          */}
           {activeRadio && (
-            <div className="flex items-center gap-1.5 mt-1.5 text-xs text-su-muted">
+            <div className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 mt-1.5 text-xs text-su-muted min-w-0">
               <svg
                 className="w-3 h-3 flex-shrink-0"
                 fill="none"
@@ -680,7 +688,7 @@ export function OperatorProfile({ className = "" }: OperatorProfileProps) {
                 <rect x="2" y="7" width="20" height="14" rx="2" ry="2" />
                 <polyline points="17 2 12 7 7 2" />
               </svg>
-              <span>
+              <span className="min-w-0 break-words">
                 {activeRadio.manufacturer} {activeRadio.model}
               </span>
               <span className="font-mono" style={{ color: `${bandColor}90` }}>

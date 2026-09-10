@@ -27,9 +27,9 @@
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { resolve } from "node:path";
-import { render } from "@testing-library/react";
+import { render, fireEvent } from "@testing-library/react";
 import { act } from "react";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   BandConditionGridCell,
   BAND_GRID_STYLE,
@@ -40,9 +40,21 @@ import { ISS_INFO_CARD_WIDTH_STYLE } from "./ISSTrackerOverlay";
 import { SATELLITE_INFO_CARD_WIDTH_STYLE } from "./SatelliteOverlay";
 import { PassRow } from "./SatellitePanel";
 import { PassRow as ModalPassRow } from "./layers/SatelliteDetailModal";
+import { OperatorProfile } from "./OperatorProfile";
+import { useUserStore } from "@/stores/userStore";
+import { useShackStore } from "@/stores/shackStore";
 import type { PathBandCondition } from "@/lib/utils/bands";
 import type { BandLadderEntry } from "@/hooks/useBandVerdicts";
 import type { PassPrediction } from "@/types/satellite";
+
+// OperatorProfile's band-conditions strip calls useBandConditionsTint, which
+// pulls live K-index/SFI via these hooks. Mocked to static "no data" so the
+// two tests below exercise only the layout fix, not network/react-query
+// plumbing this file doesn't otherwise set up.
+vi.mock("@/hooks/useSolarData", () => ({
+  useKIndex: () => ({ data: undefined }),
+  useSolarFlux: () => ({ data: undefined }),
+}));
 
 const REPO_ROOT = resolve(fileURLToPath(import.meta.url), "../../../..");
 
@@ -924,5 +936,60 @@ describe("BasemapCategory (round-10 design review: basemap tiles stack before th
     expect(source).toContain(
       'className="max-w-full break-words text-center text-xs text-su-text/80"',
     );
+  });
+});
+
+describe("OperatorProfile (round-11 Codex sites: narrow 220px column overflow)", () => {
+  beforeEach(() => {
+    useUserStore.getState().setStation({
+      callsign: "K1ABC",
+      homeLocationId: "home",
+      activeLocationId: "home",
+      savedLocations: [],
+      grid: "FN42",
+      lat: 42.36,
+      lon: -71.06,
+    });
+    // "flex-6700" resolves via the built-in radio catalog (src/lib/data/radios.ts)
+    // to manufacturer "FlexRadio" / model "FLEX-6700" / maxPower 100 -- the
+    // exact combination Codex named as clipping in the tertiary row.
+    useShackStore.setState({ activeRadioId: "flex-6700", radios: [] });
+  });
+
+  afterEach(() => {
+    useUserStore.getState().setStation(null);
+    useShackStore.setState({ activeRadioId: null, radios: [] });
+  });
+
+  it("lets the band-strip status tooltip wrap and cap to the column instead of overflowing it with whitespace-nowrap", () => {
+    const { container } = render(<OperatorProfile />);
+    const bandGroup = container.querySelector(
+      '[aria-label="Band conditions — click any bar to switch bands"]',
+    );
+    expect(bandGroup).toBeTruthy();
+    const firstBandButton = bandGroup!.querySelector("button");
+    expect(firstBandButton).toBeTruthy();
+
+    fireEvent.mouseEnter(firstBandButton as Element);
+
+    const tooltip = container.querySelector(".absolute.-top-6");
+    expect(tooltip).toBeTruthy();
+    const tooltipInner = tooltip!.firstElementChild as HTMLElement;
+    expect(tooltipInner).toBeTruthy();
+    expect(tooltipInner.className).not.toContain("whitespace-nowrap");
+    expect(tooltipInner.className).toContain("flex-wrap");
+    expect(tooltipInner.className).toContain("max-w-full");
+  });
+
+  it("lets the active-radio tertiary row wrap instead of silently clipping the manufacturer/model inside the VFO button's overflow-hidden", () => {
+    const { getByText } = render(<OperatorProfile />);
+
+    const modelLabel = getByText(/FLEX-6700/);
+    expect(modelLabel.className).toContain("break-words");
+
+    const row = modelLabel.parentElement as HTMLElement;
+    expect(row.className).toContain("flex-wrap");
+    expect(row.className).toContain("min-w-0");
+    expect(row.textContent).toContain("100W");
   });
 });

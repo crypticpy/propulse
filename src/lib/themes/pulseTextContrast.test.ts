@@ -2078,13 +2078,37 @@ function isQuoteInExpressionPosition(source: string, quoteIndex: number): boolea
   return true;
 }
 
+/** True when `//` at `source[slashIndex]` starts a real line comment, as
+ * opposed to sitting inside a URL scheme (`https://example.com`) or right
+ * after a word character with no space (`foo//bar` in JSX text) -- neither
+ * of which is a comment, even though both contain the two-character `//`
+ * token (Codex, PR #874 round 27: `https:` immediately before `//` used to
+ * make the whole rest of the line, including a real pulse site further
+ * along it, get blanked as if it were a comment). Same conservative
+ * "unlisted previous character defaults to comment" fallback as round 25's
+ * `isQuoteInExpressionPosition`: a `;`, `}`, `)`, `{`, start-of-line, or any
+ * whitespace immediately before `//` (with or without a space) is still a
+ * real comment -- only the two carved-out cases below are excluded. */
+function isRealLineCommentStart(source: string, slashIndex: number): boolean {
+  if (slashIndex === 0) return true;
+  const prev = source[slashIndex - 1];
+  // A URL scheme -- the character right before `//` is `:`, and the one
+  // before that is a letter (`https:`, `http:`, `ftp:`, ...).
+  if (prev === ":" && slashIndex >= 2 && /[A-Za-z]/.test(source[slashIndex - 2])) {
+    return false;
+  }
+  // Directly follows a word character with no space (`foo//bar`).
+  if (/[\w$]/.test(prev)) return false;
+  return true;
+}
+
 function blankCommentsAndQuotedJsx(source: string): string {
   let out = "";
   let i = 0;
   while (i < source.length) {
     const c = source[i];
     const c2 = source[i + 1];
-    if (c === "/" && c2 === "/") {
+    if (c === "/" && c2 === "/" && isRealLineCommentStart(source, i)) {
       const nl = source.indexOf("\n", i);
       const end = nl === -1 ? source.length : nl;
       out += " ".repeat(end - i);
@@ -2850,6 +2874,34 @@ describe("scanSourceForViolations catches every spelling (fixture proofs, #878)"
   it("does not read a `//` line comment's illustrative markup as a real rendered site", () => {
     const fixture = '// <span className="animate-pulse">Loading</span>';
     expect(scanSourceForViolations(fixture)).toEqual([]);
+  });
+
+  it("does not treat a URL scheme in JSX text as a line comment, so a following real site is still caught", () => {
+    // `https:` immediately before `//` used to make the comment scanner
+    // treat the rest of the line as a `//` comment, blanking away a real
+    // pulse site sitting further along it (Codex, PR #874 round 27).
+    const fixture =
+      '<div>Visit https://example.com <span className="animate-pulse">Loading</span></div>';
+    const violations = scanSourceForViolations(fixture);
+    expect(violations).toHaveLength(1);
+    const expectedNormalized = normalize(blankCommentsAndQuotedJsx(fixture));
+    expect(violations[0].index).toBe(expectedNormalized.indexOf(PULSE_CLASS));
+  });
+
+  it("still blanks a real `//` comment on its own line, even when an earlier line has a URL scheme", () => {
+    const fixture =
+      '<p>See http://x.y/z</p>\n// <span className="animate-pulse">Loading</span>';
+    expect(scanSourceForViolations(fixture)).toEqual([]);
+  });
+
+  it("still blanks a real trailing `//` comment after a statement", () => {
+    const fixture = 'const a = 1; // <span className="animate-pulse">Loading</span>';
+    expect(scanSourceForViolations(fixture)).toEqual([]);
+  });
+
+  it("still catches a real site immediately followed by its own trailing `//` comment", () => {
+    const fixture = '<span className="animate-pulse">Loading</span> // trailing';
+    expect(scanSourceForViolations(fixture)).not.toEqual([]);
   });
 
   it("does not read a `/* … */` block comment's (bare or `{/* … */}` JSX-style) illustrative markup as a real rendered site", () => {

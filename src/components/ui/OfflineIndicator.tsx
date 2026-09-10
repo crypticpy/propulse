@@ -102,8 +102,12 @@ export function OfflineIndicator({
     return `${hours}h ${remainMins}m`;
   };
 
+  // Danger ink on its own /20 tint measures 4.61-5.06:1 depending on
+  // theme/surface -- passes, but only by a hair on Light (#827, the same
+  // same-hue defect #791/#795/#803 fixed elsewhere). Keep the tint as the
+  // identity cue; draw the label in --su-text.
   const defaultClasses =
-    "fixed top-0 left-0 right-0 z-50 bg-alert-red/20 text-alert-red text-xs py-1.5 text-center font-medium border-b border-alert-red/30 backdrop-blur-sm";
+    "fixed top-0 left-0 right-0 z-50 bg-alert-red/20 text-su-text text-xs py-1.5 text-center font-medium border-b border-alert-red/30 backdrop-blur-sm";
 
   const hasPending = pendingSyncCount != null && pendingSyncCount > 0;
 

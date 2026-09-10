@@ -28,11 +28,33 @@ const SURFACE_OFFSET = 1.000002;
  * Minimum globe-occlusion opacity contribution on the visible face. This
  * floors ONLY the limb-occlusion term (`occlusionOpacity`), never the
  * caller-supplied `opacity` prop (age decay / active-band / contact-posture
- * de-emphasis) — those are intentional, shipped dimming semantics and must
- * still be able to push a label's final opacity below this floor. See the
+ * de-emphasis) — those are intentional, shipped dimming semantics and are
+ * still allowed to push the occlusion-floored product below `FINAL_ALPHA_
+ * FLOOR` (below), which is what backstops the FINAL rendered alpha. See the
  * usage site below for the measured contrast this floor guarantees.
  */
 export const TEXT_OCCLUSION_FLOOR = 0.5;
+
+/**
+ * Minimum FINAL rendered text/background alpha, i.e. the floor applied
+ * AFTER `TEXT_OCCLUSION_FLOOR` and the caller's `opacity` prop are combined
+ * (`textOpacity` below) -- restores the readability floor an earlier
+ * revision (4619980c/f6dc92f2) applied to the combined product, which the
+ * occlusion-only split (round 8, #851) dropped. With de-emphasis multipliers
+ * stacked by callers (e.g. LiveSpotArcs' off-band-spotter tag: 0.6 * 0.3
+ * active-band * 0.35 contact-posture ~= 0.063), the occlusion-only floor
+ * still lets the FINAL alpha collapse toward invisible even fully on the
+ * near side (occlusionOpacity === 1, so TEXT_OCCLUSION_FLOOR never engages).
+ * Matches the 0.35 value the parent revision used before it was raised to
+ * 0.82 and then replaced by the occlusion-only split. Safe to apply
+ * unconditionally: this only floors the text/background color ALPHA
+ * channel, never the wrapper `<div>`'s own CSS `opacity` (`wrapperOpacity`/
+ * `isVisible` below, driven by `occlusionOpacity` alone), which is the
+ * mechanism that hides far-side labels and multiplies with this alpha
+ * during compositing -- a label with wrapperOpacity 0 still renders fully
+ * hidden regardless of this floor.
+ */
+const FINAL_ALPHA_FLOOR = 0.35;
 
 /** Combined opacity below which a label is fully hidden (and non-interactive). */
 const HIDE_THRESHOLD = 0.05;
@@ -396,19 +418,25 @@ export function SpotLabel({
     .join(" ");
 
   // Text opacity fades with age/filter/contact dimming and limb occlusion,
-  // but underline stays fully bright. Only the occlusion term is floored —
-  // flooring the product (as before) erased legitimate `opacity`-prop
-  // de-emphasis (active-band filtering, contact posture, the spotter tag's
-  // flat 0.6 discount in `LiveSpotArcs.tsx`). Below the occlusion floor the
-  // white text and the dark badge it sits on both wash out toward the globe
-  // canvas and converge toward each other faster than either converges
-  // toward the canvas. Measured against the real dark canvas backdrop
-  // (`--su-canvas` #141827), TEXT_OCCLUSION_FLOOR = 0.5 keeps effective
-  // text-vs-badge contrast at 5.300:1 (WCAG floor is 4.5:1; breakeven is
-  // ~0.445) at full caller opacity. See `stationContrast` in
-  // `src/lib/themes/stationTokens`.
+  // but underline stays fully bright. The occlusion term is floored first —
+  // flooring the raw product against a single floor (as before) erased
+  // legitimate `opacity`-prop de-emphasis (active-band filtering, contact
+  // posture, the spotter tag's flat 0.6 discount in `LiveSpotArcs.tsx`).
+  // Below the occlusion floor the white text and the dark badge it sits on
+  // both wash out toward the globe canvas and converge toward each other
+  // faster than either converges toward the canvas. Measured against the
+  // real dark canvas backdrop (`--su-canvas` #141827), TEXT_OCCLUSION_FLOOR
+  // = 0.5 keeps effective text-vs-badge contrast at 5.300:1 (WCAG floor is
+  // 4.5:1; breakeven is ~0.445) at full caller opacity. See `stationContrast`
+  // in `src/lib/themes/stationTokens`. That alone isn't sufficient, though:
+  // de-emphasis multipliers stack across callers, so the combined product
+  // can still collapse well below the occlusion floor even at full occlusion
+  // (occlusionOpacity === 1). `FINAL_ALPHA_FLOOR` backstops the combined
+  // product itself so contrast never regresses below what shipped before
+  // round 8 (#851, round 10) — see its doc comment for why this is safe to
+  // apply unconditionally without defeating far-side hiding.
   const flooredOcclusion = Math.max(occlusionOpacity, TEXT_OCCLUSION_FLOOR);
-  const textOpacity = flooredOcclusion * opacity;
+  const textOpacity = Math.max(flooredOcclusion * opacity, FINAL_ALPHA_FLOOR);
   const labelStyle: React.CSSProperties = {
     cursor: isInteractive ? "pointer" : interactionReady ? "default" : "inherit",
     color:

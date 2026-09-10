@@ -191,19 +191,21 @@ describe("SpotLabel visible-face opacity floor (#851)", () => {
         lat={35.5}
         lon={-97.5}
         callsign="K5ABC"
-        opacity={0.4}
+        opacity={0.9}
         occlusionOpacity={0.3}
         onSelect={vi.fn()}
       />,
     );
-    // The old bug: flooring the PRODUCT would push this all the way up to
-    // 0.82, erasing the caller's 0.4 de-emphasis (active-band filter,
-    // contact posture, or the spotter tag's flat 0.6 discount). Flooring
-    // only the occlusion term keeps the de-emphasis visible:
-    // max(0.3, FLOOR) * 0.4 = FLOOR * 0.4, well below the old 0.82 value.
+    // The old bug (pre-#851): flooring the PRODUCT against a single high
+    // floor would push this all the way up to 0.82, erasing the caller's
+    // 0.9 de-emphasis (active-band filter, contact posture, or the spotter
+    // tag's flat 0.6 discount). Flooring the occlusion term first keeps the
+    // de-emphasis visible: max(0.3, TEXT_OCCLUSION_FLOOR) * 0.9 = FLOOR *
+    // 0.9 = 0.45, comfortably above round 10's FINAL_ALPHA_FLOOR (0.35) so
+    // that floor doesn't engage here and mask what this test is proving.
     const button = screen.getByRole("button", { name: "Select K5ABC as target" });
     const alpha = colorAlpha(button.style.color);
-    expect(alpha).toBeCloseTo(TEXT_OCCLUSION_FLOOR * 0.4, 5);
+    expect(alpha).toBeCloseTo(TEXT_OCCLUSION_FLOOR * 0.9, 5);
     expect(alpha).toBeLessThan(0.82);
   });
 
@@ -268,6 +270,36 @@ describe("SpotLabel visible-face opacity floor (#851)", () => {
     expect(
       screen.queryByRole("button", { name: "Select K5ABC as target" }),
     ).toBeNull();
+  });
+
+  it("round 10: the combined rendered alpha never drops below 0.35 for a visible label with stacked tiny caller opacity", () => {
+    // LiveSpotArcs' real off-band-spotter case: contact posture (0.35) *
+    // active-band filter (0.3) * the flat spotter-tag discount (0.6) =
+    // 0.063. At occlusionOpacity=1 (fully on the near side, so
+    // TEXT_OCCLUSION_FLOOR never engages), the pre-round-10 formula emitted
+    // textOpacity = 1 * 0.063 = 0.063 -- about 1.18:1 contrast, well under
+    // WCAG. FINAL_ALPHA_FLOOR backstops the combined product itself.
+    render(
+      <SpotLabel
+        lat={35.5}
+        lon={-97.5}
+        callsign="K5ABC"
+        opacity={0.6 * 0.3 * 0.35}
+        occlusionOpacity={1}
+        onSelect={vi.fn()}
+      />,
+    );
+    const button = screen.getByRole("button", { name: "Select K5ABC as target" });
+    const alpha = colorAlpha(button.style.color);
+    expect(alpha).toBeCloseTo(0.35, 5);
+    expect(alpha).toBeGreaterThanOrEqual(0.35);
+
+    // The floor must not resurrect a fully-occluded far-side label: the
+    // wrapper's own CSS opacity (occlusion-driven hide/show, independent of
+    // this alpha floor) still collapses to 0 and multiplies with it during
+    // compositing.
+    const overlay = screen.getByTestId("spot-label-wrapper");
+    expect(Number(overlay.style.opacity)).toBeGreaterThan(0);
   });
 });
 

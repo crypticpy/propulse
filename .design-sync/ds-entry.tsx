@@ -15,6 +15,7 @@ import { HomeLocationProvider } from "@/components/home/HomeLocationProvider";
 // -- ui/ ---------------------------------------------------------------
 export { AccessibleDialog } from "@/components/ui/AccessibleDialog";
 export { Badge } from "@/components/ui/Badge";
+export { BandPill } from "@/components/ui/BandPill";
 export { Card } from "@/components/ui/Card";
 export { CommandPalette } from "@/components/ui/CommandPalette";
 export { ConfirmDialog } from "@/components/ui/ConfirmDialog";

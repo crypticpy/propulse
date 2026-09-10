@@ -1418,6 +1418,12 @@ export default defineConfig(({ mode }) => {
         "maplibre-gl",
       ],
     },
+    // `vite preview` defaults to 4173; the shared-server rule is one listener
+    // on 5173, so preview binds the same port and refuses instead of drifting.
+    preview: {
+      port: 5173,
+      strictPort: true,
+    },
     server: {
       port: 5173,
       strictPort: true,

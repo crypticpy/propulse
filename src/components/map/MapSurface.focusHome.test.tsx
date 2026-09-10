@@ -1646,4 +1646,133 @@ describe("map surface focus home", () => {
       container.querySelector("[data-map-surface]"),
     );
   });
+
+  // -------------------------------------------------------------------------
+  // Pointer-only blur of a live opener (#824 round 5, Codex on PR #842): a
+  // click on non-focusable overlay content can blur a persistent control to
+  // `<body>` without focus ever entering the overlay. The restore-branch
+  // cases above never hit this — each one either moves focus into the
+  // overlay (so `heldFocusRef` is true) or moves it to a second live control
+  // (so gate 1, `activeElement !== body`, returns before the restore branch
+  // is ever reached). This is the one shape neither of those covers: focus
+  // dies to `<body>` while the overlay never held it. Only `PinFlyout` and
+  // `PathPointInspector` can reach it through their normal open flow —
+  // `SpotCollectionPopover` and `SelectedSpotCard` both auto-focus
+  // themselves on a `setTimeout(0)` shortly after opening, so `heldFocusRef`
+  // is always true by the time either of them could close in this shape.
+  // -------------------------------------------------------------------------
+
+  it("PinFlyout: does not resurrect the opener after a pointer-only interaction", async () => {
+    usePinStore.getState().addPin({
+      lat: 10,
+      lon: 10,
+      grid: "JJ00aa",
+      name: "Test Pin",
+    });
+    const { FlatMapView } = await import("@/components/map/FlatMapView");
+    const { container } = render(
+      <Wrap>
+        <FlatMapView displayTime={displayTime} />
+        <button type="button" aria-label="control a">
+          a
+        </button>
+      </Wrap>,
+    );
+
+    const controlA = screen.getByRole("button", { name: "control a" });
+    controlA.focus();
+    expect(focusHolder()).toBe('button[aria-label="control a"]');
+
+    const canvas = screen.getByRole("img", {
+      name: /Interactive propagation map/i,
+    });
+    const pinPos = toCanvas(10, 10);
+    fireEvent.pointerMove(canvas, {
+      clientX: pinPos.x,
+      clientY: pinPos.y,
+      pointerId: 1,
+    });
+    await screen.findByRole("button", { name: "Edit Pin" });
+    // `controlA` was still focused and untouched when the flyout's setup
+    // effect ran, so `previousFocusRef` now holds it.
+    expect(document.activeElement).toBe(controlA);
+
+    // A click on non-focusable flyout content ("No notes" — Test Pin has no
+    // notes, so this text is always present), not a button. Real browsers
+    // can blur the currently focused element on a mousedown against
+    // non-focusable content by default; jsdom does not reproduce that on a
+    // bare `fireEvent`, so the explicit `.blur()` stands in for it.
+    fireEvent.mouseDown(screen.getByText("No notes"));
+    (document.activeElement as HTMLElement).blur();
+    expect(document.activeElement).toBe(document.body);
+
+    fireEvent.keyDown(document, { key: "Escape" });
+    await waitFor(() =>
+      expect(
+        screen.queryByRole("dialog", { name: /Pin info: Test Pin/i }),
+      ).toBeNull(),
+    );
+
+    // Long enough for the deferred fallback tick (#824) to have fired.
+    await new Promise((resolve) => setTimeout(resolve, 20));
+
+    // Not restored to `controlA` (this flyout never held focus, so it has
+    // nothing to give back) and not handed to the map surface either (same
+    // reason — the fallback is gated on `heldFocusRef` too).
+    expect(focusHolder()).toBe("<body>");
+    expect(document.activeElement).not.toBe(
+      container.querySelector("[data-map-surface]"),
+    );
+  });
+
+  it("PathPointInspector: does not resurrect the opener after a pointer-only interaction", async () => {
+    const pointSet = buildTestPathPointSet();
+    const { container } = render(
+      <>
+        <PathPointInspectorHost pointSet={pointSet} />
+        <button type="button" aria-label="control a">
+          a
+        </button>
+      </>,
+    );
+
+    const controlA = screen.getByRole("button", { name: "control a" });
+    controlA.focus();
+    expect(focusHolder()).toBe('button[aria-label="control a"]');
+
+    // The no-select hit area, matching the "focus never entered" cases
+    // above: it opens the panel without picking a point, so `PathPointList`
+    // never auto-focuses anything and `controlA` stays focused while the
+    // panel's own setup effect runs.
+    fireEvent.click(screen.getByTestId("path-point-hit-area-no-select"));
+    await screen.findByRole("dialog", { name: "Path point details" });
+    expect(document.activeElement).toBe(controlA);
+
+    // A click on non-focusable panel content (the "Path details" heading,
+    // shown here because no point is selected), not a button. Real browsers
+    // can blur the currently focused element on a mousedown against
+    // non-focusable content by default; jsdom does not reproduce that on a
+    // bare `fireEvent`, so the explicit `.blur()` stands in for it.
+    fireEvent.mouseDown(screen.getByText("Path details"));
+    (document.activeElement as HTMLElement).blur();
+    expect(document.activeElement).toBe(document.body);
+
+    fireEvent.keyDown(window, { key: "Escape" });
+    await waitFor(() =>
+      expect(
+        screen.queryByRole("dialog", { name: "Path point details" }),
+      ).toBeNull(),
+    );
+
+    // Long enough for the deferred fallback tick (#824) to have fired.
+    await new Promise((resolve) => setTimeout(resolve, 20));
+
+    // Not restored to `controlA` (this panel never held focus, so it has
+    // nothing to give back) and not handed to the map surface either (same
+    // reason — the fallback is gated on `heldFocusRef` too).
+    expect(focusHolder()).toBe("<body>");
+    expect(document.activeElement).not.toBe(
+      container.querySelector("[data-map-surface]"),
+    );
+  });
 });

@@ -391,6 +391,15 @@ export function PinFlyout({
       // `SelectedSpotCard`.
       const active = document.activeElement;
       if (active && active !== document.body) return;
+      // You cannot restore what was never taken (#824 round 3; moved ahead
+      // of the restore branch in round 5, Codex on PR #842): a pointer-only
+      // interaction can blur a persistent control to `<body>` — e.g. a click
+      // on non-focusable flyout content — without focus ever entering this
+      // flyout. `<body>` here otherwise reads the same as "this overlay held
+      // focus and its removal dropped it", so both the restore below and the
+      // fallback beneath it must be gated on `heldFocusRef`: cleanup only
+      // ever gives back focus it actually held.
+      if (!heldFocusRef.current) return;
       if (previousFocus?.isConnected) {
         previousFocus.focus();
         return;
@@ -411,11 +420,6 @@ export function PinFlyout({
       // the surface, and merely hovering changes keyboard focus in dev. Any
       // re-run of setup means the overlay is open again, which makes a
       // pending fallback stale by definition.
-      // You cannot restore what was never taken (#824, Codex round 3): if
-      // focus never entered this flyout, `<body>` here just means the user
-      // was never focused on anything to begin with (e.g. a pure hover that
-      // auto-dismissed), not that this overlay's removal dropped focus.
-      if (!heldFocusRef.current) return;
       fallbackTimerRef.current = window.setTimeout(() => {
         fallbackTimerRef.current = null;
         if (document.activeElement === document.body) focusMapSurface?.();

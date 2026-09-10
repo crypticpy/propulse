@@ -175,6 +175,14 @@ export function SpotCollectionPopover({
       // focus and must not be yanked back.
       const active = document.activeElement;
       if (active && active !== document.body) return;
+      // You cannot restore what was never taken (#824 round 3; moved ahead
+      // of the restore branch in round 5, Codex on PR #842): a pointer-only
+      // interaction can blur a persistent control to `<body>` without focus
+      // ever entering this popover. `<body>` here otherwise reads the same
+      // as "this popover held focus and its removal dropped it", so both the
+      // restore below and the fallback beneath it must be gated on
+      // `heldFocusRef`: cleanup only ever gives back focus it actually held.
+      if (!heldFocusRef.current) return;
       if (previousFocus?.isConnected) {
         previousFocus.focus();
         return;
@@ -198,8 +206,6 @@ export function SpotCollectionPopover({
       // the surface, and merely hovering changes keyboard focus in dev. Any
       // re-run of setup means the overlay is open again, which makes a
       // pending fallback stale by definition.
-      // You cannot restore what was never taken (#824, Codex round 3).
-      if (!heldFocusRef.current) return;
       fallbackTimerRef.current = window.setTimeout(() => {
         fallbackTimerRef.current = null;
         if (document.activeElement === document.body) focusMapSurface?.();

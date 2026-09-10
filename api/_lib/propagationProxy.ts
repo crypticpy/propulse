@@ -101,17 +101,34 @@ const researchSubjectBindingSchema = z.object({
   hmac_sha256: z.string().regex(SHA256_PATTERN),
 }).strict();
 
-const dataFreshnessSchema = z.record(
-  z.string().min(1).max(128),
-  z.number().int().nonnegative().max(366 * 24 * 60 * 60),
-).superRefine((value, context) => {
-  if (Object.keys(value).length > 32) {
-    context.addIssue({
-      code: z.ZodIssueCode.custom,
-      message: "too many freshness values",
-    });
-  }
-});
+const MAX_REQUEST_FRESHNESS_KEYS = 32;
+/**
+ * Ages the service supplies itself and a request cannot pre-empt: the
+ * `space_weather` aggregate plus one per weather source (`SOURCE_NAMES` in
+ * `ml/service/operational_weather.py`). It strips them from the request before
+ * merging its own, so they can only ever grow the response beyond the request
+ * cap (#321).
+ */
+const SERVER_OWNED_FRESHNESS_KEYS = 9;
+
+function freshnessSchema(maximumKeys: number) {
+  return z.record(
+    z.string().min(1).max(128),
+    z.number().int().nonnegative().max(366 * 24 * 60 * 60),
+  ).superRefine((value, context) => {
+    if (Object.keys(value).length > maximumKeys) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "too many freshness values",
+      });
+    }
+  });
+}
+
+const dataFreshnessSchema = freshnessSchema(MAX_REQUEST_FRESHNESS_KEYS);
+const responseFreshnessSchema = freshnessSchema(
+  MAX_REQUEST_FRESHNESS_KEYS + SERVER_OWNED_FRESHNESS_KEYS,
+);
 
 const commonRequestFields = {
   origin_grid4: z.string().regex(GRID4_PATTERN),
@@ -165,7 +182,7 @@ const predictionSchema = z.object({
   personalized_probability: finiteNumber.min(0).max(1),
   confidence: finiteNumber.min(0).max(1),
   ood_flags: stringList,
-  data_freshness: dataFreshnessSchema,
+  data_freshness: responseFreshnessSchema,
   top_factors: stringList,
   assumptions: stringList,
   profile: z.string().min(1).max(64),

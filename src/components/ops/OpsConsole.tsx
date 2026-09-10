@@ -5,7 +5,7 @@
  * entry, and contest tools share one map-first operating surface.
  */
 
-import { useCallback, useEffect, useMemo, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useContestStore } from "@/stores/contestStore";
 import { useContestUIStore, type OpsDockTab } from "@/stores/contestUIStore";
 import { DXConsole, DXSpotList } from "@/components/dx";
@@ -284,15 +284,33 @@ export function OpsConsole({
   // Auto-enter contest pane when a session exists and user arrives in PropSphere.
   // Contact/Desk own the dock tab so Work does not hide the band map.
   //
-  // #884: this reconciles a *change of scope*, not every render. Since a tab
-  // click stopped writing `manualScope`, the click's own posture move
-  // (`exitContact` / `setDesk`) is the only thing that changes here, and
-  // re-running the body would immediately overwrite the tab the operator just
-  // picked. Recording the scope on every run — including the run the
-  // posture gate rejects — keeps a click from being undone by the next
-  // posture change; a genuine scope change still takes the dock back.
+  // #884: this reconciles a *change of scope*, not every render, and it never
+  // undoes the tab the operator just picked.
+  //
+  // Since a tab click stopped writing `manualScope`, everything the handler
+  // does is an input to this effect: the posture move (`exitContact` /
+  // `setDesk`) is a dependency, and `setWorkspaceOpen(true)` can flip the
+  // automatic scope itself (`workspaceOpen && draft callsign` is one of the
+  // `stationOperationActive` terms). Guarding on "the scope changed" is
+  // therefore not enough — a Contest click on a collapsed console with a
+  // draft in the logger *does* change the scope, to Log, and the reconciler
+  // would answer by putting the dock back on Log.
+  //
+  // So the click declares an explicit intent and this effect consumes it:
+  // whatever scope the click produced becomes the reconciled scope, and the
+  // tab stands. Every later scope change reconciles normally. The intent is
+  // state, not a ref, so that setting it always schedules the run that
+  // consumes it — a click that changes nothing else (re-picking the active
+  // tab) re-renders nothing, and a ref would leave a stale intent armed to
+  // swallow the next genuine scope change.
+  const [explicitTab, setExplicitTab] = useState<OpsDockTab | null>(null);
   const reconciledScope = useRef<MapDataScope | null>(null);
   useEffect(() => {
+    if (explicitTab !== null) {
+      setExplicitTab(null);
+      reconciledScope.current = scope;
+      return;
+    }
     const previousScope = reconciledScope.current;
     reconciledScope.current = scope;
     if (previousScope === scope) return;
@@ -304,7 +322,7 @@ export function OpsConsole({
     } else if (scope === "contest" && sessionId) {
       setDockTab(sessionId, "contest");
     }
-  }, [dockKey, posture, scope, sessionId, setDockTab]);
+  }, [dockKey, explicitTab, posture, scope, sessionId, setDockTab]);
 
   const handleCollapse = useCallback(() => {
     setWorkspaceOpen(false);
@@ -363,6 +381,9 @@ export function OpsConsole({
                 type="button"
                 disabled={disabled}
                 onClick={() => {
+                  // Declare the choice before touching any store, so the
+                  // reconciler below sees it on the run this click schedules.
+                  setExplicitTab(tab.id);
                   // #884 (owner decision B): a tab click chooses the visible
                   // panel and the posture, never the persisted operating
                   // scope. Only the explicit scope <select> in

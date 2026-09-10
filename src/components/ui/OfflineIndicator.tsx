@@ -131,13 +131,24 @@ export function OfflineIndicator({
             <path d="M10 2a8 8 0 00-4 14.9l1.5-1.5A6 6 0 014 10h2a4 4 0 011.5-3.12L6.1 5.47A6 6 0 014 10" />
           </svg>
           <span>Offline</span>
+          {/* The duration carried a 70% opacity utility and the pill below
+              carried a second danger fill. Both undo what the banner's
+              --su-text treatment just fixed. The opacity faded the ink toward
+              the tint behind it (4.0-4.5:1); a 30% fill inside the banner's
+              20% one paints 44% danger, not 30%, which put the count at
+              3.5-4.1:1 on the dark and midnight surfaces. The contrast table
+              measured only the banner and so certified both (#827, found by
+              Codex on PR #840). The pill keeps its chip identity from a
+              border, which does not touch the ink it encloses.
+
+              The old classes are described, not quoted: the guard that now
+              closes this hole reads the whole file, and it cannot tell a
+              comment naming a fill from a fill. */}
           {offlineDuration > 0 && (
-            <span className="opacity-70">
-              ({formatDuration(offlineDuration)})
-            </span>
+            <span>({formatDuration(offlineDuration)})</span>
           )}
           {hasPending && (
-            <span className="rounded-full bg-alert-red/30 px-1.5 py-0 text-[10px]">
+            <span className="rounded-full border border-alert-red/50 px-1.5 py-0 text-xs">
               {pendingSyncCount} pending
             </span>
           )}

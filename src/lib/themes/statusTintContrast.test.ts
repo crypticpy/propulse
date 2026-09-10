@@ -292,6 +292,139 @@ describe("the src/components/ui status tints ship the --su-text treatment (#827)
   );
 });
 
+/**
+ * A snippet certifies one element's own classes. A DESCENDANT can undo that
+ * certification without touching the snippet, and Codex found both ways of
+ * doing it in `OfflineIndicator.tsx` after the table above had already called
+ * the banner clean:
+ *
+ *   - A second fill of the same tint. Alphas of one hue do not add, they
+ *     stack. A 30% danger chip inside the banner's 20% danger paints
+ *     1 - 0.8 x 0.7 = 44%, and the inherited --su-text ink measured 3.5-4.1:1
+ *     on the dark and midnight surfaces where the table reported 6.5-8.4:1.
+ *   - A partial opacity. It fades the element's ink toward whatever is behind
+ *     it, which inside a tinted surface is the tint: the banner's duration
+ *     text ran 4.0-4.5:1. Same shape as the `animate-pulse` finding on the
+ *     storm badge in this PR -- a modifier that quietly undoes the ink.
+ *
+ * Neither is reachable from a substring assertion on a snippet, so this clause
+ * reads the whole file. Two rules, both exact rather than budgeted:
+ *
+ *   1. Every status-tint FILL in a measured file appears inside one of that
+ *      file's measured snippets, counted rather than merely present -- a
+ *      second copy of an already-measured class is exactly the hole this
+ *      closes. Borders are exempt on purpose: a border does not sit behind the
+ *      ink it encloses, which is why the count pill's fix is a border.
+ *   2. No partial opacity, in any spelling the codebase can reach: the scale
+ *      utility, the arbitrary-value utility, and the inline style. Fully
+ *      hidden and fully opaque are allowed because neither degrades legible
+ *      text; everything between them is a contrast question this table cannot
+ *      see. The #832 guard shipped green for two rounds while missing the
+ *      inline spelling of its own rule, so all three go in now.
+ *
+ * The scope is these five files rather than the repo because a file in this
+ * table has already accepted that its status text is load-bearing. A file that
+ * joins the table joins these rules automatically.
+ */
+describe("a measured file hides no descendant tint or fade (#827)", () => {
+  const MEASURED_FILES = [...new Set(FIXED_SITES.map((site) => site.file))];
+
+  /** Every `bg-<status-token>/N` in `text`, with multiplicity. */
+  function tallyFills(text: string): Map<string, number> {
+    const counts = new Map<string, number>();
+    for (const [fill] of text.matchAll(/bg-(?:caution-amber|alert-red)\/\d+/g)) {
+      counts.set(fill, (counts.get(fill) ?? 0) + 1);
+    }
+    return counts;
+  }
+
+  it.each(MEASURED_FILES)(
+    "%s puts every status-tint fill inside a measured snippet",
+    (file) => {
+      const source = readFileSync(resolve(REPO_ROOT, file), "utf8");
+      const measured = new Map<string, number>();
+      for (const site of FIXED_SITES.filter((entry) => entry.file === file)) {
+        for (const [fill, count] of tallyFills(site.snippet)) {
+          measured.set(fill, (measured.get(fill) ?? 0) + count);
+        }
+      }
+      const unmeasured = [...tallyFills(source)]
+        .filter(([fill, count]) => count > (measured.get(fill) ?? 0))
+        .map(
+          ([fill, count]) =>
+            `${fill}: ${count} in the file, ${measured.get(fill) ?? 0} in the table`,
+        );
+      expect(
+        unmeasured,
+        `${file} fills with a status tint this table does not measure -- a descendant of a measured element repaints its backdrop:\n${unmeasured.join("\n")}`,
+      ).toEqual([]);
+    },
+  );
+
+  /**
+   * Every partial-opacity site in `text`. Three spellings, because a guard is
+   * only worth its green when it recognises every form the codebase can use:
+   * the scale utility, the arbitrary-value utility, and the inline style.
+   */
+  function partialFades(text: string): string[] {
+    const spellings: [RegExp, (raw: string) => number][] = [
+      [/\bopacity-(\d+)(?![\w.[])/g, (raw) => Number(raw) / 100],
+      [/\bopacity-\[(\d*\.?\d+)\]/g, Number],
+      [/\bopacity:\s*(\d*\.?\d+)/g, Number],
+    ];
+    const fades: string[] = [];
+    for (const [pattern, toFraction] of spellings) {
+      for (const match of text.matchAll(pattern)) {
+        const fraction = toFraction(match[1]);
+        if (fraction > 0 && fraction < 1) fades.push(match[0]);
+      }
+    }
+    return fades;
+  }
+
+  it.each(MEASURED_FILES)("%s fades no ink with a partial opacity", (file) => {
+    const source = readFileSync(resolve(REPO_ROOT, file), "utf8");
+    const fades = partialFades(source);
+    expect(
+      fades,
+      `${file} fades an element this table measures at full opacity:\n${fades.join("\n")}`,
+    ).toEqual([]);
+  });
+
+  it("counts a status fill wherever it appears, and never a border", () => {
+    expect(tallyFills(`bg-alert-red/20 hover:bg-alert-red/30`)).toEqual(
+      new Map([
+        ["bg-alert-red/20", 1],
+        ["bg-alert-red/30", 1],
+      ]),
+    );
+    // The same class twice is two fills, not one: counting rather than
+    // membership is what closes the descendant hole.
+    expect(tallyFills(`bg-caution-amber/20 ... bg-caution-amber/20`)).toEqual(
+      new Map([["bg-caution-amber/20", 2]]),
+    );
+    expect(tallyFills(`border border-alert-red/50 text-su-text`)).toEqual(
+      new Map(),
+    );
+  });
+
+  it("recognises every opacity spelling it claims to, and no full one", () => {
+    expect(partialFades(`<span className="opacity-70">`)).toEqual([
+      "opacity-70",
+    ]);
+    expect(partialFades(`group-hover:opacity-40`)).toEqual(["opacity-40"]);
+    expect(partialFades(`className="opacity-[0.65]"`)).toEqual([
+      "opacity-[0.65]",
+    ]);
+    expect(partialFades(`style={{ opacity: 0.7 }}`)).toEqual(["opacity: 0.7"]);
+    // Fully hidden and fully opaque never degrade legible text, in any
+    // spelling -- `PanelCard`'s collapse transition uses the first two.
+    expect(partialFades(`max-h-0 opacity-0`)).toEqual([]);
+    expect(partialFades(`max-h-[2000px] opacity-100`)).toEqual([]);
+    expect(partialFades(`opacity-[1] style={{ opacity: 1 }}`)).toEqual([]);
+  });
+});
+
 describe("census guard: no new status ink on a status tint (#827)", () => {
   /**
    * A per-line regex guard, not a className parser: it only sees a tint and

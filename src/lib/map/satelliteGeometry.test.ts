@@ -1,10 +1,12 @@
 import { describe, expect, it } from "vitest";
 import {
+  ISS_NORAD_ID,
   MAX_TRACK_DOTS,
   MAX_TRACK_LABELS,
   selectLimitedFootprints,
   selectTrackDotIndices,
   selectTrackLabelIndices,
+  shouldRenderIssDefaultTrack,
   type TrackLabelPoint,
 } from "./satelliteGeometry";
 
@@ -182,6 +184,42 @@ describe("selectByCadence boundary enforcement", () => {
       const labelIndices = selectTrackLabelIndices(track);
       expect(labelIndices.length).toBeLessThanOrEqual(MAX_TRACK_LABELS);
     }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// shouldRenderIssDefaultTrack (#1029 review round 4 — store track wins)
+// ---------------------------------------------------------------------------
+
+describe("shouldRenderIssDefaultTrack", () => {
+  it("renders the default ring/track when the ISS tracker is active and there is no store track", () => {
+    expect(shouldRenderIssDefaultTrack({}, true)).toBe(true);
+  });
+
+  it("suppresses the default ring/track once a store track exists for the ISS", () => {
+    const tracks = { [ISS_NORAD_ID]: { orbitsAhead: 2, showPast: true, showFootprint: false } };
+    expect(shouldRenderIssDefaultTrack(tracks, true)).toBe(false);
+  });
+
+  it("is unaffected by store tracks for other satellites", () => {
+    const tracks = { "44713": { orbitsAhead: 1, showPast: false, showFootprint: false } };
+    expect(shouldRenderIssDefaultTrack(tracks, true)).toBe(true);
+  });
+
+  it("returns false when the ISS tracker isn't active, regardless of store state", () => {
+    expect(shouldRenderIssDefaultTrack({}, false)).toBe(false);
+    expect(shouldRenderIssDefaultTrack({ [ISS_NORAD_ID]: {} }, false)).toBe(
+      false,
+    );
+  });
+
+  it("returns true again once the ISS store track is cleared (Clear orbit / Clear all)", () => {
+    const withTrack = { [ISS_NORAD_ID]: { orbitsAhead: 3, showPast: true, showFootprint: false } };
+    expect(shouldRenderIssDefaultTrack(withTrack, true)).toBe(false);
+
+    const { [ISS_NORAD_ID]: _cleared, ...afterClear } = withTrack;
+    void _cleared;
+    expect(shouldRenderIssDefaultTrack(afterClear, true)).toBe(true);
   });
 });
 

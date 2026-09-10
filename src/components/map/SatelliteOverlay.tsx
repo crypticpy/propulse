@@ -891,23 +891,23 @@ export function SatelliteOverlay() {
   // into via the SatelliteDetailModal controls, independent of selection
   // and independent of the marker display prefs above (#994).
   //
-  // NORAD 25544 (ISS) is skipped here while the dedicated ISS tracker is
-  // active: ISSTrackerOverlay draws its own ground track for the ISS, and
-  // without this carve-out the two would double-draw the same surface path
-  // with different styles.
+  // NORAD 25544 (ISS) is rendered here like any other satellite, even while
+  // the dedicated ISS tracker is active: the store track wins, and
+  // `ISSTrackerOverlay` suppresses its own fixed ±45-minute ring/track
+  // whenever `satelliteTracks["25544"]` exists (`shouldRenderIssDefaultTrack`,
+  // #1029 review round 4) so the two never double-draw the same path.
   const trackedSatellites = useMemo(() => {
     const entries: { satellite: SatelliteInfoExtended; config: SatelliteTrackConfig }[] =
       [];
     for (const [noradIdStr, config] of Object.entries(satelliteTracks)) {
       const noradId = Number(noradIdStr);
-      if (issTrackerActive && noradId === 25544) continue;
       const satellite = satellites.find((s) => s.noradId === noradId);
       if (satellite) {
         entries.push({ satellite, config });
       }
     }
     return entries;
-  }, [satelliteTracks, satellites, issTrackerActive]);
+  }, [satelliteTracks, satellites]);
 
   if (filteredSatellites.length === 0 && trackedSatellites.length === 0) {
     return null;

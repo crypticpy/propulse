@@ -19,6 +19,7 @@ import * as THREE from "three";
 import { useISSTracker } from "@/hooks/useISSTracker";
 import type { UseISSTrackerResult } from "@/hooks/useISSTracker";
 import { useGlobeOcclusion } from "@/hooks/useGlobeOcclusion";
+import { useMapStore } from "@/stores/mapStore";
 import {
   GLOBE_DOM_LAYER_ORDER,
   GLOBE_LAYER_ORDER,
@@ -26,6 +27,7 @@ import {
 import {
   latLonAltToVector3,
   latLonToSurface,
+  shouldRenderIssDefaultTrack,
 } from "@/lib/map/satelliteGeometry";
 
 // ---------------------------------------------------------------------------
@@ -959,6 +961,22 @@ export function ISSTrackerOverlay() {
     setIsSelected((prev) => !prev);
   }, []);
 
+  // The ISS can also have a store-driven "Map orbit" track set via
+  // SatelliteDetailModal, rendered by SatelliteOverlay's GroundTrack
+  // exactly like any other satellite. When one exists, it wins: this
+  // overlay's own fixed ±45-minute ring/ground-track is suppressed so
+  // "1/2/3 orbits", "past track" and "Clear orbit" have a visible effect on
+  // the ISS instead of being shadowed by an always-on duplicate path
+  // (#1029 review round 4). Marker, info-card label, footprint and the
+  // connector line are unaffected -- they reflect the ISS's live position,
+  // not its orbit-track configuration.
+  const issTrackerActive = useMapStore((s) => s.layers.issTracker);
+  const satelliteTracks = useMapStore((s) => s.satelliteTracks);
+  const showDefaultTrack = shouldRenderIssDefaultTrack(
+    satelliteTracks,
+    issTrackerActive,
+  );
+
   if (!tracker.iss) return null;
 
   return (
@@ -969,11 +987,15 @@ export function ISSTrackerOverlay() {
         onToggleSelect={handleToggleSelect}
         tracker={tracker}
       />
-      <ISSOrbitRing
-        orbitTrack={tracker.orbitTrack}
-        alt={tracker.iss.position.alt}
-      />
-      <ISSGroundTrack orbitTrack={tracker.orbitTrack} />
+      {showDefaultTrack && (
+        <>
+          <ISSOrbitRing
+            orbitTrack={tracker.orbitTrack}
+            alt={tracker.iss.position.alt}
+          />
+          <ISSGroundTrack orbitTrack={tracker.orbitTrack} />
+        </>
+      )}
       <ISSFootprint
         lat={tracker.iss.position.lat}
         lon={tracker.iss.position.lon}

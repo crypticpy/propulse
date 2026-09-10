@@ -272,6 +272,35 @@ export function selectTrackDotIndices(
 }
 
 // ---------------------------------------------------------------------------
+// ISS default-track suppression (#1029 review round 4)
+// ---------------------------------------------------------------------------
+
+/** NORAD id of the ISS, as used as a string key into `satelliteTracks`. */
+export const ISS_NORAD_ID = "25544";
+
+/**
+ * Whether `ISSTrackerOverlay` should render its own fixed ±45-minute orbit
+ * ring / ground track for the ISS.
+ *
+ * NORAD 25544 can also have a store-driven "Map orbit" track
+ * (`satelliteTracks["25544"]`, set via `SatelliteDetailModal`'s orbit
+ * controls) alongside the dedicated ISS tracker. The store track wins: once
+ * it exists, `SatelliteOverlay`'s `GroundTrack` renders it like any other
+ * satellite's orbit, and `ISSTrackerOverlay`'s own always-on ring/track
+ * would otherwise draw a second, un-configurable path underneath it —
+ * "1/2/3 orbits", "past track" and "Clear orbit" would update the store but
+ * have no visible effect on the ISS (#1029 review round 4). The dedicated
+ * tracker's default ring/track only returns once the store track is
+ * cleared.
+ */
+export function shouldRenderIssDefaultTrack(
+  satelliteTracks: Readonly<Record<string, unknown>>,
+  issTrackerActive: boolean,
+): boolean {
+  return issTrackerActive && !(ISS_NORAD_ID in satelliteTracks);
+}
+
+// ---------------------------------------------------------------------------
 // Footprint slot selection (#1029 review)
 // ---------------------------------------------------------------------------
 

@@ -1258,11 +1258,100 @@ function stripBalancedExpressions(text: string): {
   return { withoutExpr, blocks };
 }
 
+/** Every tag in `text` dropped whole -- unlike a naive `/<[^>]*>/g` strip,
+ * this finds each tag's real end with `findTagEnd` (which already skips
+ * quoted attribute values and `{…}` expressions), so a `>` inside a quoted
+ * value (`<div data-formula="x > y" />`) can never be mistaken for the tag's
+ * own close and leave trailing quote/attribute text (`y" />`) behind to read
+ * as false text content (Codex, PR #874 round 18). */
+function stripTags(text: string): string {
+  let out = "";
+  let i = 0;
+  while (i < text.length) {
+    if (text[i] === "<") {
+      const gt = findTagEnd(text, i + 1);
+      if (gt === -1) {
+        out += text.slice(i);
+        break;
+      }
+      i = gt + 1;
+      continue;
+    }
+    out += text[i];
+    i++;
+  }
+  return out;
+}
+
+/** True when `block` contains a real (non-self-closing) opening tag with
+ * content of its own immediately after its `>` -- `<span>{i.label}</span>`
+ * or `<span>text</span>`, not `<Chip … />` or a skeleton `<div … />`. Like
+ * `stripTags`, walks tag boundaries with `findTagEnd` rather than a blind
+ * `>` search, so a quoted `>` in an attribute value can't be mistaken for a
+ * tag's own close and produce a false "has content" reading (round 18, the
+ * same class of bug as `stripTags` -- Codex asked for every regex in this
+ * function that walks tag text to be fixed the same way). */
+function tagHasOwnContent(block: string): boolean {
+  let i = 0;
+  while (i < block.length) {
+    if (block[i] !== "<") {
+      i++;
+      continue;
+    }
+    if (block[i + 1] === "/") {
+      i++;
+      continue;
+    }
+    const gt = findTagEnd(block, i + 1);
+    if (gt === -1) break;
+    const selfClosing = block[gt - 1] === "/";
+    if (!selfClosing) {
+      let j = gt + 1;
+      while (j < block.length && /\s/.test(block[j])) j++;
+      if (j < block.length && block[j] !== "<") return true;
+    }
+    i = gt + 1;
+  }
+  return false;
+}
+
+/** Prop names whose value is rendered as visible text by the component that
+ * receives them -- a self-closing PascalCase component carrying one of
+ * these (or a spread, which might carry one) still renders text under its
+ * parent's pulse even though the component tag itself has no children for
+ * this scanner to see (Codex, PR #874 round 18: `<RadioBadge label={i.label}
+ * />` renders `i.label` as text, but a self-closing tag has no closing tag
+ * or children text for the rest of this function to find). A spread
+ * (`{...props}`) fails closed, since any of its keys could be one of these. */
+const TEXT_PROP_RE =
+  /\b(label|text|title|children|value|name|caption|content|message|summary|description|heading|subtitle|badge)\s*=|\{\s*\.\.\./;
+
+/** Every self-closing `<Name … />` tag in `text` whose tag name starts with
+ * an uppercase letter (a component, not an intrinsic element -- intrinsic
+ * self-closing tags keep the existing value-bearing-control rule instead),
+ * found the same quote/brace-aware way as `stripTags`. */
+function findSelfClosingComponentTags(text: string): string[] {
+  const tags: string[] = [];
+  let i = 0;
+  while (i < text.length) {
+    if (text[i] === "<" && /[A-Z]/.test(text[i + 1] ?? "")) {
+      const gt = findTagEnd(text, i + 1);
+      if (gt === -1) break;
+      if (text[gt - 1] === "/") tags.push(text.slice(i, gt + 1));
+      i = gt + 1;
+      continue;
+    }
+    i++;
+  }
+  return tags;
+}
+
 /** True when `children` (the raw JSX between an opening and closing tag)
- * carries non-whitespace text, or a `{...}` expression child that renders a
+ * carries non-whitespace text, a `{...}` expression child that renders a
  * simple value rather than delegating to a `.map()`/arrow-callback
  * sub-render (which produces further elements, not text on *this*
- * element). */
+ * element), or a self-closing component that renders a text-shaped prop of
+ * its own (round 18). */
 function isTextBearingChildren(children: string | null): boolean {
   if (!children) return false;
   // A value-bearing form control anywhere under this element renders its
@@ -1271,7 +1360,11 @@ function isTextBearingChildren(children: string | null): boolean {
   // control itself carries no pulse class for the scan to find (Codex,
   // PR #874 round 10).
   if (VALUE_BEARING_CONTROL.test(children)) return true;
-  const withoutTags = children.replace(/<[^>]*>/g, "");
+  // A self-closing component (direct child or emitted by a mapping) that
+  // carries a text-shaped prop renders that prop's value as text, even
+  // though the tag itself has no children of its own (round 18).
+  if (findSelfClosingComponentTags(children).some((tag) => TEXT_PROP_RE.test(tag))) return true;
+  const withoutTags = stripTags(children);
   if (/\S/.test(stripBalancedExpressions(withoutTags).withoutExpr)) return true;
   // Classify the `{…}` blocks on the raw children (tags intact) so a mapping
   // that emits JSX can be told from one that yields strings.
@@ -1283,9 +1376,11 @@ function isTextBearingChildren(children: string | null): boolean {
     // element has content of its own (`<span>{i.label}</span>`): the
     // parent's pulse fades that text and the child carries no pulse class
     // for the scan to find (round 8). A mapping of self-closing elements
-    // (`<Chip … />`, a skeleton `<div … />`) renders nothing of its own.
+    // (`<Chip … />`, a skeleton `<div … />`) renders nothing of its own,
+    // unless it's a component carrying a text-shaped prop, already caught
+    // above (round 18).
     if (!/<[A-Za-z]/.test(block)) return true;
-    return /[^/=]>\s*[^<\s]/.test(block);
+    return tagHasOwnContent(block);
   });
 }
 
@@ -1754,9 +1849,9 @@ describe("scanSourceForViolations catches every spelling (fixture proofs, #878)"
     expect(scanSourceForViolations(fixture)).not.toEqual([]);
   });
 
-  it("still dismisses a mapping that emits self-closing elements (nothing rendered in place)", () => {
+  it("still dismisses a mapping that emits self-closing elements with no text-shaped prop (nothing rendered in place)", () => {
     for (const fixture of [
-      '<div className="flex gap-1 animate-pulse">{items.map((item) => <Chip key={item.id} label={item.label} />)}</div>',
+      '<div className="flex gap-1 animate-pulse">{items.map((item) => <Chip key={item.id} icon={item.icon} />)}</div>',
       '<div className="space-y-2 animate-pulse">{rows.map((row) => <div key={row} className="h-3 rounded bg-su-line/20" />)}</div>',
     ]) {
       expect(scanSourceForViolations(fixture), fixture).toEqual([]);
@@ -1770,6 +1865,37 @@ describe("scanSourceForViolations catches every spelling (fixture proofs, #878)"
     ]) {
       expect(scanSourceForViolations(fixture), fixture).not.toEqual([]);
     }
+  });
+
+  it("parses a quoted '>' while stripping child tags, so a decorative wrapper is never falsely read as text", () => {
+    const fixture =
+      '<div className="animate-pulse">' +
+      '<div data-formula="x > y" className="h-2" />' +
+      "</div>";
+    expect(scanSourceForViolations(fixture)).toEqual([]);
+  });
+
+  it("counts text rendered by a self-closing component's text-shaped prop, mapped or direct", () => {
+    // No text-color class on the wrapper itself -- otherwise it would flag
+    // independently of the mapped `RadioBadge`, which is not what this
+    // fixture tests; only its text-bearing children should trigger this.
+    const fixture =
+      '<div className="animate-pulse">{items.map((i) => <RadioBadge label={i.label} />)}</div>';
+    expect(scanSourceForViolations(fixture)).not.toEqual([]);
+  });
+
+  it("does not flag a self-closing component with no text-shaped prop", () => {
+    // No text-color class on the wrapper itself -- otherwise it would flag
+    // independently of `Icon`, which is not what this fixture tests.
+    const fixture = '<div className="animate-pulse"><Icon className="w-4" /></div>';
+    expect(scanSourceForViolations(fixture)).toEqual([]);
+  });
+
+  it("fails closed on a self-closing component's spread props, since any key could be text-shaped", () => {
+    // No text-color class on the wrapper itself, same reason as above -- the
+    // spread on `Badge` is what should trigger this, not the wrapper alone.
+    const fixture = '<span className="animate-pulse"><Badge {...props} /></span>';
+    expect(scanSourceForViolations(fixture)).not.toEqual([]);
   });
 
   it("treats a form control's value or placeholder as rendered text", () => {

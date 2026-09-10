@@ -56,6 +56,8 @@ function formatWatts(w: number): string {
   return `${w.toFixed(1)}W`;
 }
 
+const ACCESSORY_BADGE_CLASS = "bg-plasma-orange/15 text-su-text";
+
 function SectionLabel({ children }: { children: React.ReactNode }) {
   return (
     <dt className="text-xs text-su-muted uppercase tracking-wider">
@@ -273,7 +275,7 @@ function AccessorySection({
             Your Inventory
           </span>
         </div>
-        <Badge color="bg-plasma-orange/15 text-plasma-orange">
+        <Badge color={ACCESSORY_BADGE_CLASS}>
           {ACCESSORY_CATEGORY_LABELS[acc.category]}
         </Badge>
       </div>

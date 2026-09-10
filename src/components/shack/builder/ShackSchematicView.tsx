@@ -974,8 +974,8 @@ export function ShackSchematicView({
             className="
               flex items-center gap-2 px-5 py-2.5
               bg-plasma-orange/15 border border-plasma-orange/30
-              rounded-xl text-plasma-orange text-sm font-semibold
-              hover:bg-plasma-orange/25 hover:border-plasma-orange/50
+              rounded-xl text-su-text text-sm font-semibold
+              hover:bg-plasma-orange/20 hover:border-plasma-orange/50
               transition-all duration-200
             "
           >

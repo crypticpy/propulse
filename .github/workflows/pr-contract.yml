@@ -124,6 +124,7 @@ jobs:
     permissions:
       actions: write
       pull-requests: read
+      statuses: write
     steps:
       - name: Re-run the latest pr-contract run for the PR head
         env:
@@ -140,16 +141,40 @@ jobs:
             echo "Neither the current nor the previous comment body is a design review; nothing to re-run."
             exit 0
           fi
-          # Every lookup fails closed: an API error here must not read as
-          # "no run to re-run", or a retracted approval keeps its green.
-          HEAD_SHA=$(gh api "repos/${REPO}/pulls/${PR}" --jq '.head.sha') \
-            || { echo "::error::could not read the PR head; re-run this job"; exit 1; }
-          [ -n "$HEAD_SHA" ] || { echo "::error::empty PR head sha; re-run this job"; exit 1; }
+          # This job runs on the default branch, so its own failure is not a
+          # check on the PR head: a lookup that fails here would leave the
+          # last pr-contract result green after an approval was retracted
+          # (Codex, #896 round 19). Every lookup therefore retries, and when
+          # the rerun is still lost a failing commit status is published on
+          # the head (cleared by the next successful rerun) so the PR shows
+          # red instead of a stale green.
+          STATUS_CTX='pr-contract (design-review rerun)'
+          HEAD_SHA=''
+          api() {
+            local label=$1 n out; shift
+            for n in 1 2 3 4 5; do
+              if out=$(gh api "$@"); then printf '%s' "$out"; return 0; fi
+              echo "::warning::${label} failed (attempt ${n}/5)" >&2; sleep $((n * 10))
+            done
+            return 1
+          }
+          fail() {
+            echo "::error::$1"
+            if [ -n "$HEAD_SHA" ]; then
+              gh api -X POST "repos/${REPO}/statuses/${HEAD_SHA}" -f state=failure -f context="$STATUS_CTX" \
+                -f description="$1" -f target_url="${GITHUB_SERVER_URL}/${REPO}/actions/runs/${GITHUB_RUN_ID}" >/dev/null \
+                || echo "::error::could not publish the failing status on ${HEAD_SHA}"
+            fi
+            exit 1
+          }
+          HEAD_SHA=$(api "PR head lookup" "repos/${REPO}/pulls/${PR}" --jq '.head.sha') \
+            || fail "could not read the PR head after 5 attempts; re-run this job"
+          [ -n "$HEAD_SHA" ] || fail "empty PR head sha; re-run this job"
           # Two open PRs can share a head commit, so the run is selected by
           # this PR's number, not by head sha alone (Codex, #896 round 17).
-          RUN_ID=$(gh api "repos/${REPO}/actions/workflows/pr-contract.yml/runs?event=pull_request&head_sha=${HEAD_SHA}&per_page=30" \
+          RUN_ID=$(api "pr-contract run lookup" "repos/${REPO}/actions/workflows/pr-contract.yml/runs?event=pull_request&head_sha=${HEAD_SHA}&per_page=30" \
             --jq "[.workflow_runs[] | select(any(.pull_requests[]?; .number == ${PR}))] | first | .id // empty") \
-            || { echo "::error::could not list pr-contract runs for ${HEAD_SHA}; re-run this job"; exit 1; }
+            || fail "could not list pr-contract runs for ${HEAD_SHA} after 5 attempts; re-run this job"
           if [ -z "$RUN_ID" ]; then
             echo "No pull_request run for ${HEAD_SHA} yet; the next push or body edit evaluates the comment."
             exit 0
@@ -158,15 +183,15 @@ jobs:
           # comments, so it cannot be trusted to see this change: wait for it
           # to finish, then re-run it (the check itself takes seconds).
           for _ in $(seq 1 60); do
-            STATUS=$(gh api "repos/${REPO}/actions/runs/${RUN_ID}" --jq '.status') \
-              || { echo "::error::could not read run ${RUN_ID}; re-run this job"; exit 1; }
+            STATUS=$(api "run status lookup" "repos/${REPO}/actions/runs/${RUN_ID}" --jq '.status') \
+              || fail "could not read run ${RUN_ID} after 5 attempts; re-run this job"
             [ "$STATUS" = "completed" ] && break
             sleep 10
           done
-          if [ "$STATUS" != "completed" ]; then
-            echo "::error::run ${RUN_ID} still ${STATUS} after 10 minutes; re-run this job"
-            exit 1
-          fi
-          gh api -X POST "repos/${REPO}/actions/runs/${RUN_ID}/rerun" >/dev/null \
-            || { echo "::error::could not re-run pr-contract run ${RUN_ID}; re-run this job"; exit 1; }
+          [ "$STATUS" = "completed" ] || fail "run ${RUN_ID} still ${STATUS} after 10 minutes; re-run this job"
+          api "pr-contract rerun" -X POST "repos/${REPO}/actions/runs/${RUN_ID}/rerun" >/dev/null \
+            || fail "could not re-run pr-contract run ${RUN_ID} after 5 attempts; re-run this job"
+          gh api -X POST "repos/${REPO}/statuses/${HEAD_SHA}" -f state=success -f context="$STATUS_CTX" \
+            -f description="pr-contract run ${RUN_ID} re-run for this comment" >/dev/null \
+            || echo "::warning::could not clear the rerun status on ${HEAD_SHA}"
           echo "Re-ran pr-contract run ${RUN_ID} for ${HEAD_SHA}"

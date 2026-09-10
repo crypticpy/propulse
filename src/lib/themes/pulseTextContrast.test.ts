@@ -1138,7 +1138,13 @@ function findClassNameSites(
   constMap: ConstDecl[],
 ): ClassNameSite[] {
   const sites: ClassNameSite[] = [];
-  const attrRe = /className\s*=\s*(\{|"|')/g;
+  // The negative lookbehind requires `className` to start a prop name (only
+  // preceded by whitespace, a tag's `<Name`, or other prop-boundary
+  // punctuation) -- without it, a differently-named prop that merely ends in
+  // "className" (`labelClassName="..."`, a common forwarding-prop pattern)
+  // would be misread as the element's own `className` (Codex, PR #874
+  // round 24 regex sweep).
+  const attrRe = /(?<![\w.:-])className\s*=\s*(\{|"|')/g;
   let m: RegExpExecArray | null;
   while ((m = attrRe.exec(source))) {
     const delim = m[1];
@@ -1319,9 +1325,17 @@ function stripTags(text: string): string {
  * this scanner to see (Codex, PR #874 round 18: `<RadioBadge label={i.label}
  * />` renders `i.label` as text, but a self-closing tag has no closing tag
  * or children text for the rest of this function to find). A spread
- * (`{...props}`) fails closed, since any of its keys could be one of these. */
+ * (`{...props}`) fails closed, since any of its keys could be one of these.
+ * The negative lookbehind on the prop-name alternation requires the name to
+ * start at a prop boundary (whitespace, tag start, or other punctuation --
+ * never a word char, `-`, `.`, or `:`), so `aria-label=`/`data-label=` never
+ * match `label=` the way a bare `\b` would (`\b` only asks for a transition
+ * between word and non-word chars, and `-` counts as non-word either side)
+ * (Codex, PR #874 round 24). The spread alternative needs no such boundary:
+ * it matches a literal `{` followed by `...`, which can't be a suffix of an
+ * unrelated identifier the way a bare word can. */
 const TEXT_PROP_RE =
-  /\b(label|text|title|children|value|name|caption|content|message|summary|description|heading|subtitle|badge)\s*=|\{\s*\.\.\./;
+  /(?<![\w.:-])(label|text|title|children|value|name|caption|content|message|summary|description|heading|subtitle|badge)\s*=|\{\s*\.\.\./;
 
 /** Every self-closing `<Name … />` tag in `text` whose tag name starts with
  * an uppercase letter (a component, not an intrinsic element -- intrinsic
@@ -1613,22 +1627,62 @@ function isValuePositionTextBearing(value: string): boolean {
   return true;
 }
 
+/** Strips a `( … )` pair that wraps `text`'s *entire* trimmed span, repeated
+ * as long as one keeps wrapping the result -- so `{(ready ? <span /> :
+ * "Loading")}`'s grouping parens don't hide its ternary's `?`/`:` at depth 1
+ * from a depth-0 split (Codex, PR #874 round 24). Only ever strips a paren
+ * that is the very first character of the trimmed text, which a call's
+ * parens (`t("x")`) can never be (a call always has an identifier/expression
+ * immediately before its `(`), so `t("x")` is left alone. Confirms the pair
+ * spans the *whole* string (via `extractBalanced`, quote-aware) before
+ * stripping, so a non-wrapping pair like `(a)(b)` -- where the first `(`
+ * only closes partway through -- is left alone too. */
+function unwrapGroupingParens(text: string): string {
+  let out = text.trim();
+  while (out.length >= 2 && out[0] === "(") {
+    const { endIndex } = extractBalanced(out, 0, "(", ")");
+    if (endIndex !== out.length - 1) break;
+    out = out.slice(1, -1).trim();
+  }
+  return out;
+}
+
+/** Classifies one value operand of a `?`/`:`/`&&`/`||`/`??` chain (already
+ * isolated by `valueOperands`): unwraps its own grouping parens and, if
+ * doing so reveals the operand is itself a further chain (`(b || "x")`),
+ * recurses through the same value-operand rule for its own operands, rather
+ * than falling straight to `isValuePositionTextBearing`'s flat fail-closed
+ * check -- so a chain nested by its own parens is examined the same way a
+ * depth-0 one is (round 24: `{(a ? (b ? <X /> : "y") : null)}`'s inner
+ * ternary is itself a value operand of the outer one). A true leaf (a bare
+ * identifier, string, or blanked-JSX span with no operator of its own) falls
+ * through to `isValuePositionTextBearing` unchanged. */
+function isValueOperandTextBearing(operand: string): boolean {
+  const unwrapped = unwrapGroupingParens(operand);
+  const parts = splitAtTopLevelOperators(unwrapped);
+  if (parts.length > 1) return valueOperands(parts).some(isValueOperandTextBearing);
+  return isValuePositionTextBearing(unwrapped);
+}
+
 /** True when `remainder` -- an expression block's text with every JSX
  * element `extractJsxElements` found already blanked to spaces -- still
  * renders text through a non-JSX alternative: every value operand
  * (`valueOperands`, which knows `?`'s condition and `&&`'s left operand are
  * the only non-value positions) of a `?`/`:`/`&&`/`||`/`??` chain at depth 0
- * is judged by `isValuePositionTextBearing` (round 21's `{ready ? <span
+ * is judged by `isValueOperandTextBearing` (round 21's `{ready ? <span
  * className="h-2" /> : "Loading"}` -- the only JSX is the decorative span,
  * but the ternary's other branch is a literal string that renders when
  * `ready` is false; round 23's `{message || <Spinner />}` -- `message` is a
- * value here, not a condition, and renders whenever it's truthy). An arrow
- * function's body (`.map((i) => ...)`) is examined the same way,
- * recursively, since its own ternary/logical operators sit inside the
- * call's parens and are invisible to a depth-0 split of the whole block. */
+ * value here, not a condition, and renders whenever it's truthy; round 24:
+ * `unwrapGroupingParens` runs first, so a whole block wrapped in its own
+ * grouping parens still exposes its chain at depth 0). An arrow function's
+ * body (`.map((i) => ...)`) is examined the same way, recursively, since its
+ * own ternary/logical operators sit inside the call's parens and are
+ * invisible to a depth-0 split of the whole block. */
 function isRemainderTextBearing(remainder: string): boolean {
-  const parts = splitAtTopLevelOperators(remainder);
-  if (parts.length > 1 && valueOperands(parts).some(isValuePositionTextBearing)) return true;
+  const unwrapped = unwrapGroupingParens(remainder);
+  const parts = splitAtTopLevelOperators(unwrapped);
+  if (parts.length > 1 && valueOperands(parts).some(isValueOperandTextBearing)) return true;
   return findArrowBodies(remainder).some(isRemainderTextBearing);
 }
 
@@ -1703,9 +1757,11 @@ function isTextBearingChildren(children: string | null): boolean {
 
 /** Void form controls render their value or placeholder as text, so a pulse
  * on the control fades it even though the element has no children
- * (Codex, PR #874 round 8). */
+ * (Codex, PR #874 round 8). Same prop-boundary lookbehind as `TEXT_PROP_RE`
+ * (round 24), so `aria-placeholder=`/`data-value=` don't count as this
+ * control's own rendered value or placeholder. */
 const FORM_VALUE_TAGS = new Set(["input", "textarea"]);
-const VALUE_ATTR_RE = /\b(value|defaultValue|placeholder)=/;
+const VALUE_ATTR_RE = /(?<![\w.:-])(value|defaultValue|placeholder)=/;
 const FORM_VALUE_TAG_OPEN_RE = new RegExp(`<(${[...FORM_VALUE_TAGS].join("|")})(?=[\\s/>])`, "y");
 
 /** Every `<input …>`/`<textarea …>` opening tag (self-closing or not) found
@@ -2457,6 +2513,19 @@ describe("scanSourceForViolations catches every spelling (fixture proofs, #878)"
     expect(scanSourceForViolations(fixture)).toEqual([]);
   });
 
+  it("does not treat an ARIA/data attribute as the text-shaped prop it merely shares a suffix with (`aria-label=`/`data-label=` are not `label=`)", () => {
+    // A bare `\b(label|...)=` would match "label=" inside "aria-label=" too
+    // -- `\b` only requires a word/non-word transition, and `-` is
+    // non-word on both sides, so it sits right before "label" the same way
+    // a real prop boundary would (Codex, PR #874 round 24).
+    for (const fixture of [
+      '<Icon className="animate-pulse" aria-label="Loading" />',
+      '<Icon className="animate-pulse" data-label="x" />',
+    ]) {
+      expect(scanSourceForViolations(fixture), fixture).toEqual([]);
+    }
+  });
+
   it("does not lose the closing tag to a same-tag token inside a JSX comment, so trailing visible text is still seen", () => {
     const fixture =
       '<div className="animate-pulse">{/* replace <div> later */}Loading</div>';
@@ -2510,6 +2579,22 @@ describe("scanSourceForViolations catches every spelling (fixture proofs, #878)"
     expect(scanSourceForViolations(fixture)).toEqual([]);
   });
 
+  it("catches a ternary's string alternative even when the whole expression is wrapped in its own grouping parens", () => {
+    // `(ready ? <span className="h-2" /> : "Loading")` -- the outer parens
+    // put the ternary's `?`/`:` at depth 1, invisible to a naive depth-0
+    // split; `unwrapGroupingParens` strips them first (Codex, PR #874
+    // round 24).
+    const fixture =
+      '<div className="animate-pulse">{(ready ? <span className="h-2" /> : "Loading")}</div>';
+    expect(scanSourceForViolations(fixture)).not.toEqual([]);
+  });
+
+  it("still dismisses a decorative `&&` conditional wrapped in its own grouping parens", () => {
+    const fixture =
+      '<div className="animate-pulse">{(ready && <span className="h-2" />)}</div>';
+    expect(scanSourceForViolations(fixture)).toEqual([]);
+  });
+
   it("still dismisses a mapping that emits a decorative self-closing element (`.map((i) => <div … />)`)", () => {
     const fixture =
       '<div className="animate-pulse">{items.map((i) => <div key={i} className="h-2" />)}</div>';
@@ -2526,6 +2611,16 @@ describe("scanSourceForViolations catches every spelling (fixture proofs, #878)"
     expect(
       scanSourceForViolations('<input type="checkbox" className="animate-pulse" checked={armed} />'),
     ).toEqual([]);
+  });
+
+  it("does not treat an ARIA attribute as a form control's own rendered value or placeholder (`aria-placeholder=` is not `placeholder=`)", () => {
+    const fixture = '<div className="animate-pulse"><input aria-placeholder="x" /></div>';
+    expect(scanSourceForViolations(fixture)).toEqual([]);
+  });
+
+  it("still catches a descendant form control's real placeholder, unaffected by the ARIA/data prop-boundary fix", () => {
+    const fixture = '<div className="animate-pulse"><input placeholder="Call" /></div>';
+    expect(scanSourceForViolations(fixture)).not.toEqual([]);
   });
 
   it("finds a descendant form control's value past a quoted '>' in an earlier attribute", () => {

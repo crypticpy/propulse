@@ -281,7 +281,18 @@ function CategoryRow({
 }) {
   return (
     <div
-      className={`flex items-center gap-2 px-2.5 py-[7px] cursor-pointer transition-colors duration-100 rounded-md group ${
+      /*
+        This row sits in LayersPopover's fixed 168px category column
+        (`w-[168px]` on the wrapping list). The count badge's `enabledCount/
+        totalCount` text is `text-xs`, which follows Settings -> Text Size:
+        a two-digit total like "1/10" next to a label such as "Propagation"
+        no longer shares the row at the xl scale, and neither the label
+        (a single unbreakable word) nor the badge (no space to break on)
+        can shrink to make room. `flex-wrap` lets the badge and chevron
+        drop to their own line under the icon/label instead of being
+        clipped by the column.
+      */
+      className={`flex flex-wrap items-center gap-2 px-2.5 py-[7px] cursor-pointer transition-colors duration-100 rounded-md group ${
         isActive ? "bg-su-line/20" : "hover:bg-su-line/10"
       }`}
       onMouseEnter={onMouseEnter}

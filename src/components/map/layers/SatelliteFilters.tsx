@@ -271,7 +271,15 @@ function TrackingStatusFooter({ totalCount }: { totalCount: number }) {
     : "Tracking all";
 
   return (
-    <div className="flex items-center justify-between px-0.5 pt-1 border-t border-su-line/20">
+    /*
+      This footer sits in the same fixed 232px LayersPopover submenu column
+      as BasemapCategory's "Image quality" row. The tracking label ("Tracking
+      <n> of <n>") and the "Manage" link are both `text-xs`; at the xl scale
+      a two-digit count on each side can push their combined width past the
+      column. `flex-wrap` lets "Manage" drop to its own line instead of
+      overflowing.
+    */
+    <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-0.5 px-0.5 pt-1 border-t border-su-line/20">
       <span className="text-xs text-su-text/80">{label}</span>
       <Link
         to="/satellites"

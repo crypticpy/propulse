@@ -1308,7 +1308,15 @@ const BandConditionRow = memo(function BandConditionRow({
       } ${isGreylineActive ? "bg-amber-500/5" : ""}`}
     >
       <td className="px-1 py-1">
-        <div className="flex items-center gap-1.5">
+        {/*
+          Table view's first cell, inside the scroll container's
+          `overflow-x-hidden` and the compact floating panel's ~220px
+          width. The GL/Es/OPEN badges are `text-xs` (Settings -> Text
+          Size); at the xl scale a 6m/10m opening with all three badges no
+          longer fits next to the band name on one line. `flex-wrap` lets
+          the badges drop to their own line instead of clipping.
+        */}
+        <div className="flex flex-wrap items-center gap-1.5">
           {isSynced && (
             <svg
               className="w-3 h-3 text-cyan-400 flex-shrink-0"

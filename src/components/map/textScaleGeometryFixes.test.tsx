@@ -765,3 +765,131 @@ function placeVertical(
   );
   return { y };
 }
+
+/**
+ * Round-10 sweep: three named Codex findings (LayersPopover's category row,
+ * OperatorProfile's secondary VFO row, BandConditionsPanel's table-view band
+ * cell) plus two more of the same shape found while auditing the rest of the
+ * PR's diff (BasemapCategory's "Image quality" header row and
+ * SatelliteFilters' tracking-status footer, both in the same fixed 232px
+ * LayersPopover submenu column as the already-fixed quality-button grid).
+ * All five are local, unexported components rendered deep in store-backed
+ * trees, so -- matching this file's established pattern for such cases
+ * (e.g. the round-9 OperatorProfile primary-row check above) -- these read
+ * the source text directly rather than rendering the component.
+ */
+describe("LayersPopover (round-10 fix: category row wraps instead of overflowing the 168px column)", () => {
+  it("wraps the icon/label/count-badge/chevron row so the badge can drop under the label", () => {
+    const source = readFileSync(
+      resolve(REPO_ROOT, "src/components/map/LayersPopover.tsx"),
+      "utf8",
+    );
+    const lines = source.split("\n");
+    const markerIndex = lines.findIndex((line) =>
+      line.includes("This row sits in LayersPopover's fixed 168px category column"),
+    );
+    expect(markerIndex).toBeGreaterThanOrEqual(0);
+
+    const rowLine = lines
+      .slice(markerIndex)
+      .find((line) => line.includes("className={`flex"));
+    expect(rowLine).toBeDefined();
+    expect(rowLine).toContain("flex-wrap");
+  });
+});
+
+describe("OperatorProfile (round-10 fix: secondary VFO row wraps instead of clipping in the overflow-hidden button)", () => {
+  it("wraps the frequency/segment/session row so the session timer can drop to its own line", () => {
+    const source = readFileSync(
+      resolve(REPO_ROOT, "src/components/map/OperatorProfile.tsx"),
+      "utf8",
+    );
+    const lines = source.split("\n");
+    const markerIndex = lines.findIndex((line) =>
+      line.includes("Secondary row: Frequency + Segment + Session"),
+    );
+    expect(markerIndex).toBeGreaterThanOrEqual(0);
+
+    const rowLine = lines
+      .slice(markerIndex)
+      .find((line) => line.includes("<div className="));
+    expect(rowLine).toBeDefined();
+    expect(rowLine).toContain("flex-wrap");
+    expect(rowLine).not.toContain(
+      'className="flex items-center gap-1.5 mt-1.5 text-xs font-mono text-su-muted"',
+    );
+  });
+});
+
+describe("BandConditionsPanel (round-10 fix: table-view band cell wraps instead of clipping in overflow-x-hidden)", () => {
+  it("wraps the band-name/GL/Es/OPEN row so a badge can drop to its own line", () => {
+    const source = readFileSync(
+      resolve(REPO_ROOT, "src/components/map/BandConditionsPanel.tsx"),
+      "utf8",
+    );
+    const lines = source.split("\n");
+    const markerIndex = lines.findIndex((line) =>
+      line.includes(
+        "Table view's first cell, inside the scroll container's",
+      ),
+    );
+    expect(markerIndex).toBeGreaterThanOrEqual(0);
+
+    const rowLine = lines
+      .slice(markerIndex)
+      .find((line) => line.includes("<div className="));
+    expect(rowLine).toBeDefined();
+    expect(rowLine).toContain("flex-wrap");
+    expect(rowLine).not.toContain('className="flex items-center gap-1.5"');
+  });
+});
+
+describe("BasemapCategory (round-10 fix: Image quality header row wraps in the fixed 232px submenu column)", () => {
+  it("wraps the 'Image quality' / 'Effective: <label>' row instead of overflowing", () => {
+    const source = readFileSync(
+      resolve(REPO_ROOT, "src/components/map/layers/BasemapCategory.tsx"),
+      "utf8",
+    );
+    const lines = source.split("\n");
+    const markerIndex = lines.findIndex((line) =>
+      line.includes(
+        "Same fixed-pixel submenu column as the quality-button grid below",
+      ),
+    );
+    expect(markerIndex).toBeGreaterThanOrEqual(0);
+
+    const rowLine = lines
+      .slice(markerIndex)
+      .find((line) => line.includes("<div className="));
+    expect(rowLine).toBeDefined();
+    expect(rowLine).toContain("flex-wrap");
+    expect(rowLine).not.toContain(
+      'className="mb-2 flex items-center justify-between gap-2"',
+    );
+  });
+});
+
+describe("SatelliteFilters (round-10 fix: tracking-status footer wraps in the fixed 232px submenu column)", () => {
+  it("wraps the tracking-label / Manage-link row instead of overflowing", () => {
+    const source = readFileSync(
+      resolve(REPO_ROOT, "src/components/map/layers/SatelliteFilters.tsx"),
+      "utf8",
+    );
+    const lines = source.split("\n");
+    const markerIndex = lines.findIndex((line) =>
+      line.includes(
+        "This footer sits in the same fixed 232px LayersPopover submenu column",
+      ),
+    );
+    expect(markerIndex).toBeGreaterThanOrEqual(0);
+
+    const rowLine = lines
+      .slice(markerIndex)
+      .find((line) => line.includes("<div className="));
+    expect(rowLine).toBeDefined();
+    expect(rowLine).toContain("flex-wrap");
+    expect(rowLine).not.toContain(
+      'className="flex items-center justify-between px-0.5 pt-1 border-t border-su-line/20"',
+    );
+  });
+});

@@ -635,8 +635,16 @@ export function OperatorProfile({ className = "" }: OperatorProfileProps) {
             )}
           </div>
 
-          {/* Secondary row: Frequency + Segment + Session */}
-          <div className="flex items-center gap-1.5 mt-1.5 text-xs font-mono text-su-muted">
+          {/*
+            Secondary row: Frequency + Segment + Session.
+            Same fixed-width overflow-hidden column and clip risk as the
+            primary row above. The frequency ("14.074.00") and segment
+            ("Digital/FM") strings have no internal wrap points, so at the
+            xl scale they can outgrow the column with nothing to give.
+            `flex-wrap` lets the session timer (pushed right by `ml-auto`)
+            drop to its own line instead of being clipped.
+          */}
+          <div className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 mt-1.5 text-xs font-mono text-su-muted">
             {(activeSource === "cat" || activeSource === "wsjtx") &&
               activeFrequency > 0 && (
                 <span className="text-su-muted tracking-wider">

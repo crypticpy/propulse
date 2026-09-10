@@ -732,10 +732,22 @@ function extractObjectEntries(text: string): Map<string, ConstEntry> {
   return entries;
 }
 
+/** Result of `skipTypeAnnotation`: either the position just past the
+ * terminating `=` and any following whitespace (`kind: "initializer"`), or --
+ * only reachable for `let`/`var`, since a `const` always has an initializer
+ * in valid code -- the position of a depth-0 `;` reached before any `=` was
+ * found at all, meaning the declaration has no initializer (`let classes:
+ * string;`, Codex, PR #874 round 26). */
+interface TypeAnnotationResult {
+  kind: "initializer" | "none";
+  pos: number;
+}
+
 /** Index just past a `const NAME: <this>` type annotation that starts at
  * `colonIndex` (the annotation's own colon), i.e. the position right after
- * the terminating `=` and any following whitespace -- or `null` if no such
- * `=` is ever found. Scans forward tracking depth over `<>`/`()`/`[]`/`{}`
+ * the terminating `=` and any following whitespace -- or `null` if the
+ * annotation runs off the end of the source with no `=` and no statement-
+ * ending `;` ever found. Scans forward tracking depth over `<>`/`()`/`[]`/`{}`
  * (so a generic `Record<State, string>`, `Readonly<Record<"a" | "b",
  * string>>`, `Array<string>`, `string[]`, and an object-type literal `{ foo:
  * string }` are all skipped whole) and over quoted/template text (a union
@@ -744,11 +756,16 @@ function extractObjectEntries(text: string): Map<string, ConstEntry> {
  * string`, is part of the type, not the terminator) and `==`/`===` (skipped
  * as a run), both of which are stepped over whole before the check for a
  * bare `=` can fire (a bare `>=`/`<=` can't occur at depth 0 inside a type,
- * so only the arrow needs an explicit guard). Without this, the collector's
- * old regex only tolerated a literal `: string` annotation, so any other
- * annotation made the whole `const` declaration invisible to it (Codex, PR
- * #874 round 17). */
-function skipTypeAnnotation(source: string, colonIndex: number): number | null {
+ * so only the arrow needs an explicit guard). A depth-0 `;` reached before
+ * any such `=` ends the statement with no initializer at all -- this can't
+ * happen for a real `const` (always initialized), so it never changes that
+ * path's behavior, but it's what lets `let`/`var` with a bare type
+ * annotation and no initializer register instead of the scan running away
+ * hunting for a stray unrelated `=` later in the file. Without this, the
+ * collector's old regex only tolerated a literal `: string` annotation, so
+ * any other annotation made the whole `const` declaration invisible to it
+ * (Codex, PR #874 round 17). */
+function skipTypeAnnotation(source: string, colonIndex: number): TypeAnnotationResult | null {
   let i = colonIndex + 1;
   let depth = 0;
   while (i < source.length) {
@@ -778,6 +795,9 @@ function skipTypeAnnotation(source: string, colonIndex: number): number | null {
       i++;
       continue;
     }
+    if (depth === 0 && c === ";") {
+      return { kind: "none", pos: i };
+    }
     if (c === "=") {
       if (source[i + 1] === ">") {
         i += 2; // a function type's arrow, part of the annotation
@@ -790,7 +810,7 @@ function skipTypeAnnotation(source: string, colonIndex: number): number | null {
       if (depth === 0) {
         i++;
         while (i < source.length && /\s/.test(source[i])) i++;
-        return i;
+        return { kind: "initializer", pos: i };
       }
       i++;
       continue;
@@ -815,11 +835,20 @@ function skipTypeAnnotation(source: string, colonIndex: number): number | null {
  * top-level key to just that key's own literals, for `resolveConstRefs` to
  * substitute precisely on a `NAME.key`/`NAME["key"]` reference. An
  * initializer with no string/template literal anywhere in it (numbers, bare
- * references) is skipped as not class-shaped. A type annotation between
- * the name and the initializer -- `Record<State, string>`, a function
- * type, a union, `typeof X` -- is skipped whole by `skipTypeAnnotation`
- * regardless of its shape, not just the literal `: string` case (round
- * 17). */
+ * references) is skipped as not class-shaped, *unless* it's a `let`/`var`
+ * (see below), which registers regardless since a later assignment can add
+ * the classes an empty/absent initializer doesn't have. A type annotation
+ * between the name and the initializer -- `Record<State, string>`, a
+ * function type, a union, `typeof X` -- is skipped whole by
+ * `skipTypeAnnotation` regardless of its shape, not just the literal `:
+ * string` case (round 17). Despite the name, also collects `let` and `var`
+ * declarations the same way, including one with no initializer at all
+ * (`let classes: string;` or bare `let classes;`), and then unions in every
+ * literal body from a later reassignment in the declaration's own scope via
+ * `collectReassignedLiteralBodies` -- `classes += "…"`/`classes ||=
+ * "…"`/`classes ??= "…"`/a later plain `classes = "…"` -- fail closed, since
+ * a `const` is never reassigned but a `let`/`var` used for conditionally-
+ * built class strings is invisible otherwise (Codex, PR #874 round 26). */
 interface ConstDecl {
   name: string;
   /** Offset of the declaration, used as the tie-break when two visible
@@ -844,11 +873,44 @@ interface ConstDecl {
   scopeEnd: number;
 }
 
+/** Every string/template literal body found in the RHS of a later
+ * reassignment of `name` (`name = …`, `name += …`, `name ||= …`, `name ??=
+ * …` -- a bare identifier at a statement boundary, not `.name =` reaching
+ * into an unrelated object and not a comparison `name == …`/`name === …`)
+ * between `searchStart` and `scopeEnd` in `source`. Only ever called for
+ * `let`/`var` (a `const` is never reassigned in valid code): a `let`/`var`
+ * declaration's initial literal set can miss classes added by a later
+ * assignment (`classes += " animate-pulse"`), so every RHS's literals found
+ * in the declaration's own scope are unioned in here, fail closed -- which
+ * branch of an `if` actually reaches a given reference is control flow this
+ * scanner deliberately does not resolve (Codex, PR #874 round 26). */
+function collectReassignedLiteralBodies(
+  source: string,
+  name: string,
+  searchStart: number,
+  scopeEnd: number,
+): string[] {
+  const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const assignRe = new RegExp(`(?<![\\w$.])${escaped}\\s*(\\+=|\\|\\|=|\\?\\?=|=)(?!=)`, "g");
+  const scopeText = source.slice(searchStart, scopeEnd);
+  const bodies: string[] = [];
+  let am: RegExpExecArray | null;
+  while ((am = assignRe.exec(scopeText))) {
+    const rhsStart = am.index + am[0].length;
+    const rhsEnd = findInitializerEnd(scopeText, rhsStart);
+    bodies.push(...extractLiteralBodies(scopeText.slice(rhsStart, rhsEnd)));
+    assignRe.lastIndex = rhsEnd;
+  }
+  return bodies;
+}
+
 function collectConstTemplateMap(source: string): ConstDecl[] {
   const decls: ConstDecl[] = [];
-  const declRe = /\bconst\s+([A-Za-z_$][\w$]*)\s*/g;
+  const declRe = /\b(const|let|var)\s+([A-Za-z_$][\w$]*)\s*/g;
   let m: RegExpExecArray | null;
   while ((m = declRe.exec(source))) {
+    const kind = m[1] as "const" | "let" | "var";
+    const name = m[2];
     const afterName = declRe.lastIndex;
     let valueStart: number;
     if (source[afterName] === ":") {
@@ -857,11 +919,23 @@ function collectConstTemplateMap(source: string): ConstDecl[] {
         declRe.lastIndex = afterName + 1;
         continue;
       }
-      valueStart = afterType;
+      if (afterType.kind === "none" && kind === "const") {
+        // Can't happen in valid code (a const always has an initializer);
+        // skip defensively rather than guess at an initializer that isn't
+        // there.
+        declRe.lastIndex = afterType.pos + 1;
+        continue;
+      }
+      valueStart = afterType.pos;
     } else if (source[afterName] === "=") {
       let i = afterName + 1;
       while (i < source.length && /\s/.test(source[i])) i++;
       valueStart = i;
+    } else if (kind !== "const" && source[afterName] === ";") {
+      // A `let`/`var` with no type annotation and no initializer at all
+      // (`let classes;`) -- registers with an empty literal set, same as
+      // the typed no-initializer case above (Codex, PR #874 round 26).
+      valueStart = afterName;
     } else {
       declRe.lastIndex = afterName;
       continue;
@@ -870,16 +944,25 @@ function collectConstTemplateMap(source: string): ConstDecl[] {
     const end = findInitializerEnd(source, valueStart);
     const initializerText = source.slice(valueStart, end);
     const bodies = extractLiteralBodies(initializerText);
-    if (bodies.length === 0) continue;
+    if (bodies.length === 0 && kind === "const") continue;
     const entries = firstChar === "{" ? extractObjectEntries(initializerText) : undefined;
     const scope = findEnclosingBraceRange(source, m.index);
+    const scopeStart = scope ? scope.start : 0;
+    const scopeEnd = scope ? scope.end : source.length;
+    let literal = bodies.join(" ");
+    if (kind !== "const") {
+      const reassigned = collectReassignedLiteralBodies(source, name, end, scopeEnd);
+      if (reassigned.length > 0) {
+        literal = [literal, reassigned.join(" ")].filter(Boolean).join(" ");
+      }
+    }
     decls.push({
-      name: m[1],
+      name,
       index: m.index,
-      literal: bodies.join(" "),
+      literal,
       entries,
-      scopeStart: scope ? scope.start : 0,
-      scopeEnd: scope ? scope.end : source.length,
+      scopeStart,
+      scopeEnd,
     });
     declRe.lastIndex = end;
   }
@@ -2280,6 +2363,47 @@ describe("scanSourceForViolations catches every spelling (fixture proofs, #878)"
         'const pulse = "animate-pulse";\nexport function A() { return <span className={cn("text-amber-400", live && pulsed)}>GL</span>; }',
       ),
     ).toEqual([]);
+  });
+
+  it("resolves a let-bound class string, plain or var, the same as a const", () => {
+    // The `ConstDecl` collector only ever recognised `const`, so a `let`
+    // (or `var`) class binding was invisible to `visibleDecl` no matter
+    // what it resolved to (Codex, PR #874 round 26).
+    for (const fixture of [
+      'let classes = "text-alert-red animate-pulse"; return <span className={classes}>Critical</span>;',
+      'var classes = "text-alert-red animate-pulse"; return <span className={classes}>Critical</span>;',
+    ]) {
+      expect(scanSourceForViolations(fixture), fixture).not.toEqual([]);
+    }
+  });
+
+  it("unions in a let-bound class string's later reassignment (+=), fail closed over conditional flow", () => {
+    const fixture =
+      'let classes = "text-xs"; if (critical) classes += " text-alert-red animate-pulse"; return <span className={classes}>Critical</span>;';
+    expect(scanSourceForViolations(fixture)).not.toEqual([]);
+  });
+
+  it("unions in a let-bound class string's later plain reassignment too, even though it looks like full replacement", () => {
+    // The declaration's own literal ("text-alert-red animate-pulse") and
+    // the reassignment's literal ("text-xs") are both kept -- this scanner
+    // doesn't trace control flow to know only one of them ever actually
+    // renders, so it unions everything ever assigned (fail closed) rather
+    // than guessing the reassignment always wins (Codex, PR #874 round 26).
+    const fixture =
+      'let classes = "text-alert-red animate-pulse"; classes = "text-xs"; return <span className={classes}>Critical</span>;';
+    expect(scanSourceForViolations(fixture)).not.toEqual([]);
+  });
+
+  it("registers a let declared with a type annotation and no initializer, resolved only once assigned, but still dismisses it when decorative", () => {
+    // `let classes: string;` has no initializer to extract a literal from
+    // at all -- it must still register (with an empty literal set) so the
+    // later `classes = "…"` assignment has a declaration to attach to.
+    // The element itself is a self-closing `<div />` with no text-shaped
+    // prop or children, so even once `classes` resolves to a pulsing class,
+    // this stays decorative and unflagged.
+    const fixture =
+      'let classes: string; classes = "h-2 animate-pulse"; return <div className={classes} />;';
+    expect(scanSourceForViolations(fixture)).toEqual([]);
   });
 
   it("resolves chained consts recursively, with a cycle guard", () => {

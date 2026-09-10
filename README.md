@@ -117,8 +117,8 @@ and run client-side in three modules:
   frequencies `f0F2` and `f0E`, heights `hmF2`/`hmF1`/`hmE`, the `M(3000)F2` MUF factor
   and D-layer absorption, with solar flux converted to a 12-month smoothed sunspot number
   through the CCIR relation `SFI = 63.7 + 0.728 * R12`.
-- **[`rayTrace.ts`](src/lib/utils/rayTrace.ts)** walks the great circle in up to seven
-  hops: local `f0F2` from a Chapman-style profile, MUF via **Martyn's secant law**,
+- **[`rayTrace.ts`](src/lib/utils/rayTrace.ts)** walks the great circle, short or long
+  path, in up to twelve hops: local `f0F2` from a Chapman-style profile, MUF via **Martyn's secant law**,
   D-layer absorption, free-space path loss, and a hop quality score folding in MUF margin,
   absorption and Kp.
 - **[`signal.ts`](src/lib/utils/signal.ts)** turns path loss into a signal prediction: an
@@ -316,8 +316,9 @@ the phone. The same modules compose differently on each, rather than each device
 its own cut-down product.
 
 **Shipped today:** the wall display, the mobile and tablet layouts, and display pairing.
-Extra screens pair to your station over the `/pair` and `/displays` routes and run as
-view-only displays, with no limit on how many you may pair.
+A new screen opens `/display/pair` to register and show a code, the owner claims that
+code on `/pair`, and `/displays` manages the screens already paired. Paired screens run
+as view-only displays, with no limit on how many you may pair.
 
 **In design:** the composed workstation, tablet and phone _workspaces_, with rails,
 docking, paged spaces and cross-device operating state so that an action on the phone

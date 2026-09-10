@@ -145,9 +145,17 @@ function selectByCadence(
     1,
     Math.abs(points[points.length - 1].minutesFromNow - points[0].minutesFromNow),
   );
+  // Inclusive-count style: fitting `maxCount` points across `totalMinutes`
+  // (both endpoints included) needs `maxCount - 1` gaps, not `maxCount` --
+  // dividing by the point count instead of the gap count under-sizes the
+  // interval by just enough that an exact multiple (e.g. a 600-minute track
+  // sampled every 10 minutes against MAX_TRACK_DOTS = 60) reproduces the
+  // *un*rounded cadence and selects one point past the cap (#1029 review
+  // round 3). This alone is a heuristic, not a proof -- the explicit cap
+  // below is what makes `result.length <= maxCount` hold unconditionally.
   const rawIntervalMin = Math.max(
     baseIntervalMin,
-    Math.ceil(totalMinutes / Math.max(1, maxCount)),
+    Math.floor(totalMinutes / Math.max(1, maxCount - 1)) || 1,
   );
   const intervalMin =
     Math.ceil(rawIntervalMin / roundingMin) * roundingMin;
@@ -173,6 +181,20 @@ function selectByCadence(
 
     selected.push(i);
     lastSelected = point;
+  }
+
+  // Structural cap (#1029 review round 3): regardless of what the interval
+  // math above produced, never return more than `maxCount` indices. Drop
+  // from the far end (the entries farthest in the future) first, and never
+  // drop the t = 0 anchor -- every consumer (labels, dots) depends on "now"
+  // always being present.
+  while (selected.length > maxCount) {
+    let removeAt = selected.length - 1;
+    while (removeAt >= 0 && points[selected[removeAt]].minutesFromNow === 0) {
+      removeAt--;
+    }
+    if (removeAt < 0) break;
+    selected.splice(removeAt, 1);
   }
 
   return selected;

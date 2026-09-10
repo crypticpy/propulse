@@ -741,8 +741,16 @@ function GroundTrack({ satellite, config, isSelected, minuteTick }: GroundTrackP
   useLayoutEffect(() => {
     const mesh = dotMeshRef.current;
     if (!mesh) return;
-    dotMatrices.forEach((matrix, i) => mesh.setMatrixAt(i, matrix));
-    mesh.count = dotMatrices.length;
+    // Defensive clamp (#1029 review round 3): `selectTrackDotIndices` is
+    // relied on to keep `dotMatrices.length <= MAX_TRACK_DOTS`, but the
+    // instancedMesh's fixed-capacity buffer (args below) is what actually
+    // owns that invariant -- never write or report more instances than it
+    // was allocated for, even if the selector's guarantee were ever broken.
+    const count = Math.min(dotMatrices.length, MAX_TRACK_DOTS);
+    for (let i = 0; i < count; i++) {
+      mesh.setMatrixAt(i, dotMatrices[i]);
+    }
+    mesh.count = count;
     mesh.instanceMatrix.needsUpdate = true;
   }, [dotMatrices]);
 

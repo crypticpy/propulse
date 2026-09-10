@@ -125,6 +125,67 @@ describe("selectTrackDotIndices", () => {
 });
 
 // ---------------------------------------------------------------------------
+// selectByCadence structural cap (#1029 review round 3 — off-by-one at the
+// exact maxCount * intervalMin boundary)
+// ---------------------------------------------------------------------------
+
+describe("selectByCadence boundary enforcement", () => {
+  it("caps a dot track landing exactly on MAX_TRACK_DOTS * intervalMin, keeping t=0 and dropping the far endpoint", () => {
+    // 0..600 minutes at a 10-minute cadence (a ~200-minute-period satellite,
+    // 3 orbits ahead) used to reproduce the un-rounded 10-minute cadence
+    // exactly and select 61 indices -- one past the instancedMesh's fixed
+    // MAX_TRACK_DOTS (60) capacity. Movement is monotonic and fast enough
+    // that the 1-degree spatial dedup never interferes.
+    const track = buildMinuteTrack(0, 600, (m) => ({
+      lat: -60 + m * 0.2,
+      lon: -150 + m * 0.3,
+    }));
+
+    const indices = selectTrackDotIndices(track);
+    const minutes = indices.map((i) => track[i].minutesFromNow);
+
+    expect(indices.length).toBe(MAX_TRACK_DOTS);
+    expect(minutes).toContain(0);
+    expect(minutes).not.toContain(600);
+  });
+
+  it("caps the label selector at its own maxLabels * intervalMin boundary", () => {
+    // With maxLabels overridden to 32, a 0..960-minute track at the
+    // selector's 30-minute base cadence reproduces the same off-by-one
+    // shape (33 raw candidates for a 32-label budget) as the dot case
+    // above, just at a different (maxCount, interval) pair -- proving the
+    // fix lives in the shared `selectByCadence` helper, not a
+    // dot-specific special case.
+    const track = buildMinuteTrack(0, 960, (m) => ({
+      lat: -60 + m * 0.2,
+      lon: -150 + m * 0.3,
+    }));
+
+    const indices = selectTrackLabelIndices(track, { maxLabels: 32 });
+    const minutes = indices.map((i) => track[i].minutesFromNow);
+
+    expect(indices.length).toBe(32);
+    expect(minutes).toContain(0);
+    expect(minutes).not.toContain(960);
+  });
+
+  it("never exceeds its cap across a sweep of track durations from 0 to 3000 minutes", () => {
+    for (let durationMin = 0; durationMin <= 3000; durationMin++) {
+      const track = buildMinuteTrack(0, durationMin, (m) => ({
+        lat: -60 + m * 0.2,
+        lon: -150 + m * 0.3,
+      }));
+
+      const dotIndices = selectTrackDotIndices(track);
+      expect(dotIndices.length).toBeLessThanOrEqual(MAX_TRACK_DOTS);
+
+      const labelIndices = selectTrackLabelIndices(track);
+      expect(labelIndices.length).toBeLessThanOrEqual(MAX_TRACK_LABELS);
+    }
+  });
+});
+
+// ---------------------------------------------------------------------------
 // selectLimitedFootprints (#1029 review — selected satellite must always win)
 // ---------------------------------------------------------------------------
 

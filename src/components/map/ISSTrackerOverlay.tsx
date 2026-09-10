@@ -23,66 +23,17 @@ import {
   GLOBE_DOM_LAYER_ORDER,
   GLOBE_LAYER_ORDER,
 } from "@/lib/map/globeRenderOrder";
+import {
+  latLonAltToVector3,
+  latLonToSurface,
+} from "@/lib/map/satelliteGeometry";
 
 // ---------------------------------------------------------------------------
 // Constants
 // ---------------------------------------------------------------------------
 
-/** Globe radius (matching EarthSphere) */
-const GLOBE_RADIUS = 1.0;
-
 /** Earth radius in km */
 const EARTH_RADIUS_KM = 6371.0;
-
-/**
- * Visual altitude scale factor — same as SatelliteOverlay.
- * Exaggerates altitude so satellites are clearly above the surface.
- */
-const ALT_SCALE = 3.0;
-
-/** Base surface offset to prevent z-fighting */
-const SURFACE_OFFSET = 0.015;
-
-// ---------------------------------------------------------------------------
-// Coordinate Helpers
-// ---------------------------------------------------------------------------
-
-/**
- * Convert lat/lon/alt to a 3D position on the globe.
- * Matches the SatelliteOverlay coordinate system exactly.
- */
-function latLonAltToVector3(
-  lat: number,
-  lon: number,
-  altKm: number,
-): THREE.Vector3 {
-  const visualAlt = (altKm / EARTH_RADIUS_KM) * ALT_SCALE;
-  const radius = GLOBE_RADIUS + SURFACE_OFFSET + visualAlt;
-
-  const phi = (90 - lat) * (Math.PI / 180);
-  const theta = (lon + 180) * (Math.PI / 180);
-
-  return new THREE.Vector3(
-    -radius * Math.sin(phi) * Math.cos(theta),
-    radius * Math.cos(phi),
-    radius * Math.sin(phi) * Math.sin(theta),
-  );
-}
-
-/**
- * Convert lat/lon to surface position (for ground track, footprint, connector base).
- */
-function latLonToSurface(lat: number, lon: number): THREE.Vector3 {
-  const radius = GLOBE_RADIUS + 0.005;
-  const phi = (90 - lat) * (Math.PI / 180);
-  const theta = (lon + 180) * (Math.PI / 180);
-
-  return new THREE.Vector3(
-    -radius * Math.sin(phi) * Math.cos(theta),
-    radius * Math.cos(phi),
-    radius * Math.sin(phi) * Math.sin(theta),
-  );
-}
 
 // ---------------------------------------------------------------------------
 // ISS Ham Radio Constants

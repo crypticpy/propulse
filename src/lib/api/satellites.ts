@@ -470,6 +470,69 @@ export function calculateGroundTrack(
   return points;
 }
 
+/**
+ * Orbital period, in minutes, derived from the TLE's mean motion
+ * (`satrec.no`, radians/minute — set by `sgp4init` inside `twoline2satrec`,
+ * so it is available immediately with no propagation step required).
+ * Falls back to a typical LEO period for a degenerate TLE (`no` missing or
+ * non-positive) rather than dividing by zero.
+ */
+export function getOrbitalPeriodMinutes(tle: TLEData): number {
+  const satrec = satelliteLib.twoline2satrec(tle.line1, tle.line2);
+  if (!satrec.no || satrec.no <= 0) return 90;
+  return (2 * Math.PI) / satrec.no;
+}
+
+export interface OrbitTrackOptions {
+  /** Minutes of trailing (past) track to include, e.g. 45. */
+  pastMin: number;
+  /** Forward window expressed in real orbits (period comes from the TLE). */
+  orbitsAhead: number;
+  /** Time step between points, in minutes (default 1). */
+  stepMin?: number;
+}
+
+export interface OrbitTrackPoint {
+  lat: number;
+  lon: number;
+  alt: number;
+  minutesFromNow: number;
+}
+
+/**
+ * Build a ground-track timeline centred on `now`: `pastMin` minutes behind
+ * through `orbitsAhead` real orbital periods ahead. Generalises the
+ * ISS-only orbit track (`useISSTracker`) and the always-forward,
+ * fixed-90-minute `calculateGroundTrack` above into one builder shared by
+ * every tracked satellite, so "orbits ahead" follows the satellite's own
+ * period instead of an LEO-typical guess baked into the caller.
+ *
+ * A small epsilon on the loop bound absorbs float error from
+ * `orbitsAhead * periodMin` (e.g. a caller reconstructing a fixed number of
+ * forward minutes as a fraction of the period) so it never drops the final
+ * point.
+ */
+export function buildOrbitTrack(
+  tle: TLEData,
+  now: Date,
+  { pastMin, orbitsAhead, stepMin = 1 }: OrbitTrackOptions,
+): OrbitTrackPoint[] {
+  const periodMin = getOrbitalPeriodMinutes(tle);
+  const forwardMin = orbitsAhead * periodMin;
+  const EPSILON_MIN = 1e-6;
+
+  const points: OrbitTrackPoint[] = [];
+  for (let t = -pastMin; t <= forwardMin + EPSILON_MIN; t += stepMin) {
+    const date = new Date(now.getTime() + t * 60000);
+    const pos = calculatePosition(tle, date);
+    if (pos) {
+      points.push({ lat: pos.lat, lon: pos.lon, alt: pos.alt, minutesFromNow: t });
+    }
+  }
+
+  return points;
+}
+
 // ---------------------------------------------------------------------------
 // Elevation & Azimuth (pure geometry — kept as-is)
 // ---------------------------------------------------------------------------

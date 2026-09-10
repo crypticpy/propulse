@@ -11,7 +11,8 @@ import {
   computeElevation,
   computeAzimuth,
   calculatePosition,
-  calculateGroundTrack,
+  buildOrbitTrack,
+  getOrbitalPeriodMinutes,
   getSimplePassPrediction,
 } from "@/lib/api/satellites";
 import { useSatellites } from "@/hooks/useSatellites";
@@ -203,17 +204,24 @@ export function useISSTracker(): UseISSTrackerResult {
     return points;
   }, [currentPass, nextPass, iss, station]);
 
-  // Orbit track +-45 min
+  // Orbit track +-45 min, now built from the shared `buildOrbitTrack` (#994)
+  // instead of a bespoke ±45-minute call. `buildOrbitTrack`'s forward window
+  // is expressed in real orbits, so the fixed 45-minutes-forward window this
+  // hook has always shown is reconstructed as a fraction of the ISS's own
+  // period (~92.9 min) rather than a fixed orbit count, keeping the output
+  // identical to the previous ±45 min / 91-point track.
   const orbitTrack = useMemo(() => {
     if (!iss) return [];
-    const now = new Date();
-    const startTime = new Date(now.getTime() - 45 * 60000);
-    const track = calculateGroundTrack(iss, startTime, 90, 1);
-    return track.map((p, i) => ({
-      lat: p.lat,
-      lon: p.lon,
+    const periodMin = getOrbitalPeriodMinutes(iss);
+    const orbitsAhead = periodMin > 0 ? 45 / periodMin : 45 / 90;
+    const track = buildOrbitTrack(iss, new Date(), {
+      pastMin: 45,
+      orbitsAhead,
+      stepMin: 1,
+    });
+    return track.map((p) => ({
+      ...p,
       alt: iss.position.alt, // approximate - altitude doesn't change much in 90 min for ISS
-      minutesFromNow: i - 45,
     }));
   }, [iss]);
 

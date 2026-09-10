@@ -30,6 +30,10 @@ import {
   GLOBE_LAYER_ORDER,
 } from "@/lib/map/globeRenderOrder";
 import {
+  latLonAltToVector3,
+  latLonToSurface,
+} from "@/lib/map/satelliteGeometry";
+import {
   CATEGORY_META,
   formatFreqMHz,
   formatLatLon,
@@ -43,22 +47,6 @@ import type {
 // ---------------------------------------------------------------------------
 // Constants
 // ---------------------------------------------------------------------------
-
-/** Globe radius (matching EarthSphere) */
-const GLOBE_RADIUS = 1.0;
-
-/** Earth radius in km (for altitude scaling) */
-const EARTH_RADIUS_KM = 6371.0;
-
-/**
- * Visual altitude scale factor.
- * True altitude would place ISS at r = 1 + 408/6371 = ~1.064
- * We scale up a bit so satellites are clearly above the surface.
- */
-const ALT_SCALE = 3.0;
-
-/** Base surface offset to prevent z-fighting */
-const SURFACE_OFFSET = 0.015;
 
 /** Size of the diamond marker */
 const MARKER_SIZE = 0.012;
@@ -76,47 +64,6 @@ export const CATEGORY_COLORS: Record<SatelliteCategory, string> = {
   weather: "#cc88ff",
   other: "#888888",
 };
-
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
-/**
- * Convert lat/lon/alt to a 3D position on the globe.
- * Uses the same coordinate system as SpotMarker and GlobeView.
- */
-function latLonAltToVector3(
-  lat: number,
-  lon: number,
-  altKm: number,
-): THREE.Vector3 {
-  const visualAlt = (altKm / EARTH_RADIUS_KM) * ALT_SCALE;
-  const radius = GLOBE_RADIUS + SURFACE_OFFSET + visualAlt;
-
-  const phi = (90 - lat) * (Math.PI / 180);
-  const theta = (lon + 180) * (Math.PI / 180);
-
-  return new THREE.Vector3(
-    -radius * Math.sin(phi) * Math.cos(theta),
-    radius * Math.cos(phi),
-    radius * Math.sin(phi) * Math.sin(theta),
-  );
-}
-
-/**
- * Convert lat/lon to surface position (for ground track lines).
- */
-function latLonToSurface(lat: number, lon: number): THREE.Vector3 {
-  const radius = GLOBE_RADIUS + 0.005; // Tiny offset above surface
-  const phi = (90 - lat) * (Math.PI / 180);
-  const theta = (lon + 180) * (Math.PI / 180);
-
-  return new THREE.Vector3(
-    -radius * Math.sin(phi) * Math.cos(theta),
-    radius * Math.cos(phi),
-    radius * Math.sin(phi) * Math.sin(theta),
-  );
-}
 
 /**
  * Info popup width range (#832 sweep). Sibling of ISS_INFO_CARD_WIDTH_STYLE

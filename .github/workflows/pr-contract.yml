@@ -41,6 +41,29 @@ jobs:
           if [ "${CHANGED_FILES:-0}" -gt 15 ]; then
             echo "::warning::PR touches ${CHANGED_FILES} files, over the 15-file guideline"
           fi
+      - name: Check DCO sign-off on every commit
+        # TODO(owner): make blocking once bot committers sign off
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          PR: ${{ github.event.pull_request.number }}
+        run: |
+          COMMITS=$(gh api "repos/${REPO}/pulls/${PR}/commits" --paginate \
+            --jq '.[] | [.sha, (.commit.message | @base64)] | @tsv') \
+            || { echo "::warning::could not list PR commits; skipping DCO check"; exit 0; }
+          UNSIGNED=""
+          while IFS=$'\t' read -r sha msg64; do
+            [ -n "$sha" ] || continue
+            msg=$(printf '%s' "$msg64" | base64 -d)
+            if ! printf '%s' "$msg" | grep -Eiq '^Signed-off-by:.+<.+>$'; then
+              UNSIGNED="${UNSIGNED}${sha:0:7} "
+            fi
+          done <<< "$COMMITS"
+          if [ -n "$UNSIGNED" ]; then
+            echo "::warning::commits missing Signed-off-by (DCO): ${UNSIGNED}. Re-run \`git commit -s\` or \`git rebase --signoff\` to certify the DCO (docs/AGENT-CONSTITUTION.md, Pull requests; DCO.txt)."
+          else
+            echo "All commits carry a Signed-off-by trailer."
+          fi
       - name: Require a Fable design review on UI changes
         # Rule and path list: docs/AGENT-CONSTITUTION.md, "Design and UI review".
         # The list here is a floor (what CI can see), not the definition.

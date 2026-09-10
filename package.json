@@ -2,6 +2,7 @@
   "name": "propulse",
   "private": true,
   "version": "0.16.0",
+  "license": "AGPL-3.0-only",
   "description": "Ham radio operator toolset - solar weather and propagation visualization",
   "type": "module",
   "scripts": {

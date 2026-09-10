@@ -78,15 +78,18 @@ collector and the bridge are in this repository.
 
 **The operating app is free.** The map, physics engine, Band Health ladder, wall display,
 logbook, contest engine, nets, shack builder, space weather and bridge are all free to use at
-[propulse.cloud](https://propulse.cloud) with or without an account, and self-hosting is a
-supported path, not a grudging one. The project is run on a nonprofit footing:
+[propulse.cloud](https://propulse.cloud) on a free account. The hosted build asks you to sign
+in for everything except the home page and paired wall displays, which are deliberately
+anonymous; a free account costs nothing and unlocks every feature that does not carry a
+per-user hosting cost. Self-hosting is a supported path, not a grudging one. The project is run on a nonprofit footing:
 
 - **Donations** are the primary intended support.
 - **An optional Pro subscription ($6.99 per month)** covers the hosted costs of the
-  features that consume server storage, history or compute: spot replay from Supabase
-  history and a 30-day rather than 7-day replay window, contest-aware watch presets and
-  a larger saved-watch limit, custom profile and gear images, per-user propagation
-  modelling, and high-resolution satellite tiles. The exact boundary is the
+  features that consume server storage, history or compute: spot replay from the
+  server-side spot window, contest-aware watch presets and a larger saved-watch limit,
+  custom profile and gear images, per-user propagation modelling, and high-resolution
+  satellite tiles. (The flags also carry 7-day and 30-day replay windows, but the raw
+  spot table is trimmed to roughly two hours, so neither window is served today.) The exact boundary is the
   `FREE_FLAGS` / `PRO_FLAGS` table in [`src/lib/featureFlags.ts`](src/lib/featureFlags.ts);
   the tier is set server-side from Stripe and synced to the profile, never decided in the
   browser.
@@ -184,9 +187,13 @@ closed  <  forecast  <  stirring  <  verified  <  hot
   model claim and it is labelled as one.
 - **`stirring`** requires at least one real deduplicated observation.
 - **`verified`** requires **6 deduplicated observations from 3 distinct reporters in the
-  trailing 20 minutes**, and it only drops back out below 2 observations. That asymmetry
-  is deliberate hysteresis: a lull between spots must not flap a verified band off the
-  wall.
+  trailing 20 minutes**, and the raw condition only drops back out once observations fall
+  to 2 or fewer. That asymmetry is deliberate hysteresis: a lull between spots must not
+  flap a verified band off the wall. On top of the raw evaluation, a state machine
+  (`src/lib/verdict/stateMachine.ts`) holds every promotion for 5 minutes and every
+  demotion for 20 minutes before the served state changes, so a band that has just
+  qualified is not shown as verified instantly, and a sustained count of exactly two does
+  eventually demote it.
 - **`hot`** is `verified` plus a rising trend across two 10-minute windows.
 
 One observation is one deduplicated `(tx, rx, band, 5-minute bucket)` tuple, and reporters
@@ -389,7 +396,8 @@ propulse/
 
 ## Getting started
 
-Requires Node.js 18 or later and npm 9 or later.
+Requires Node.js 20 or later and npm 9 or later (the frontend alone builds on Node 18,
+but the collector, and therefore the full verify gate, needs Node 20).
 
 ```bash
 git clone https://github.com/crypticpy/propulse.git
@@ -483,8 +491,10 @@ trust. This is stated plainly because it shapes the codebase a reviewer is looki
 - **A single verify pipeline gates every push.** `npm run verify` runs tracked-artifact and
   design-token checks, preregistration and archive integrity checks, production-boundary
   checks, lint at zero warnings, the full Vitest suite plus the bridge, radio daemon and
-  collector suites, a typechecked build, and bundle-size budgets. Git hooks run it on
-  pre-push.
+  collector suites, a typechecked build, and bundle-size budgets. The pre-push hook runs
+  a reduced, path-specific subset for documentation, tooling and application-only
+  pushes and the full pipeline only for ML and migration changes, so `npm run verify`
+  is run by hand before any push that matters.
 - **Contrast and legibility are tests.** Design rules that would normally live in a style
   guide are executable assertions, so they cannot rot.
 - **Preregistration for model claims.** Model plans state their gates and their metrics

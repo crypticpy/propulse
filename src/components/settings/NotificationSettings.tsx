@@ -47,7 +47,7 @@ function BandChip({
         px-2 py-1 rounded text-xs font-medium transition-all
         ${
           selected
-            ? "bg-plasma-orange/20 text-plasma-orange border border-plasma-orange/50"
+            ? "bg-plasma-orange/20 text-su-text border border-plasma-orange/50"
             : "bg-su-line/10 text-su-muted border border-su-line/40 hover:border-su-line/50"
         }
         ${disabled ? "opacity-50 cursor-not-allowed" : "cursor-pointer"}
@@ -276,7 +276,7 @@ export function NotificationSettings({
                   border text-sm font-medium
                   ${
                     notifications.alertDisplayStyle === opt.value
-                      ? "bg-plasma-orange/20 text-plasma-orange border-plasma-orange/50"
+                      ? "bg-plasma-orange/20 text-su-text border-plasma-orange/50"
                       : "bg-su-line/10 text-su-muted border-su-line/40 hover:border-su-line/50"
                   }
                 `}

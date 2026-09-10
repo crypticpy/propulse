@@ -42,7 +42,7 @@
  * So the treatment is the ink, not the alpha: keep the accent tint as the fill,
  * draw the label in `--su-text`, and keep the tint at or below `/20`. The sites
  * inside `src/components/ui` (this agent's file scope on #803) carry that
- * treatment and are measured individually below. The remaining 173 sites in 111
+ * treatment and are measured individually below. The remaining 147 sites in 98
  * files are sequenced by the orchestrator; the census ledger at the bottom
  * budgets them so no *new* same-line site can land in the meantime.
  */
@@ -993,6 +993,187 @@ const FIXED_SITES: TintedSite[] = [
     snippet: `bg-plasma-orange/15 text-su-text hover:bg-plasma-orange/20 hover:shadow-[0_0_12px_rgba(255,107,53,0.25)]`,
     classSource: `const colors =`,
   },
+  // Batch 3 (#803): src/components/settings -- 14 files, 26 sites, minus one
+  // deferred (WatchAlertSettings.tsx's TestSoundButton pairs its /20 tint
+  // with an animate-pulse icon whose stroke inherits the same --su-text ink,
+  // so its certified contrast is invalidated for half of every cycle; the
+  // source fix (cap 30->20, ink swap) still ships, but it is not counted
+  // fixed here and its ledger row stays at 1, deferred to #847). 25 sites
+  // certified. Two same-text pairs need a preceding discriminator line to
+  // stay unique in this table: LocationManager.tsx's two modal buttons
+  // (Save vs Set Location, disambiguated by their onClick) and
+  // DataAccountSection.tsx's Export ADIF / Clear Map Cache buttons
+  // (disambiguated by their ternary condition). Surfaces argued per-site in
+  // the PR body; the desktop settings page mounts bare on canvas, the
+  // mobile settings sheet wraps in a translucent panel, and modals render
+  // on the opaque --su-panel role -- --su-text clears every measured
+  // surface at /20 regardless.
+  {
+    file: "src/components/settings/BandPresetManager.tsx",
+    what: "the selected band chip",
+    snippet: `? "bg-plasma-orange/20 text-su-text border-plasma-orange/50"`,
+  },
+  {
+    file: "src/components/settings/CATSettings.tsx",
+    what: "the selected CAT backend button",
+    snippet: `? "bg-plasma-orange/20 text-su-text border border-plasma-orange/50"`,
+  },
+  {
+    file: "src/components/settings/FavoredBandsPicker.tsx",
+    what: "the favored-band chip state",
+    snippet: `favored:
+      "bg-plasma-orange/15 text-su-text border-plasma-orange/50 hover:bg-plasma-orange/20",`,
+    classSource: `const stateClasses = {`,
+  },
+  {
+    file: "src/components/settings/LicenseSection.tsx",
+    what: '"Save License Info" button, dirty state',
+    snippet: `? "bg-plasma-orange/15 border border-plasma-orange/50 text-su-text hover:bg-plasma-orange/20"`,
+  },
+  {
+    file: "src/components/settings/LocationInput.tsx",
+    what: "the selected input-mode tab",
+    snippet: `? "bg-plasma-orange/20 text-su-text border border-plasma-orange/50"`,
+  },
+  {
+    file: "src/components/settings/LocationInput.tsx",
+    what: '"Get Location" button',
+    snippet: `bg-plasma-orange/15 border border-plasma-orange/50 rounded-lg
+                         text-su-text hover:bg-plasma-orange/20
+                         transition-colors text-sm font-medium
+                         disabled:opacity-50 disabled:cursor-wait flex items-center gap-2"`,
+  },
+  {
+    file: "src/components/settings/LocationInput.tsx",
+    what: "the GPS coordinate convert-to-grid button",
+    snippet: `bg-plasma-orange/15 border border-plasma-orange/50 rounded-lg
+                         text-su-text hover:bg-plasma-orange/20
+                         transition-colors text-sm font-medium"
+              title="Convert coordinates to grid"`,
+  },
+  {
+    file: "src/components/settings/LocationManager.tsx",
+    what: '"+ Set" temporary-location button',
+    snippet: `bg-plasma-orange/15 border border-plasma-orange/40
+                         text-su-text hover:bg-plasma-orange/20 transition-colors"`,
+  },
+  {
+    // The edit-home modal's "Save" button (onClick={saveHomeEdits}) and the
+    // temporary-location modal's "Set Location" button
+    // (onClick={saveTempLocation}) ship the identical class string -- a
+    // plain quoted className= attribute has no text of its own to
+    // discriminate them by (unlike the DataAccountSection pair below, whose
+    // backtick template carries its ternary condition inside the className
+    // value itself), and the onClick prop is a sibling JSX attribute
+    // outside the className value, so a prefix locator doesn't work either
+    // (extractClassNameValue throws if the snippet start doesn't fall
+    // inside the located className). Each row instead uses a SUFFIX
+    // discriminator: the snippet starts inside the className (so
+    // `snippetIndex`/`lastIndexOf("className=")` resolve the right
+    // attribute and `measuredAlpha` reads the correct value) and continues
+    // past the closing quote into the button's own label text, which is
+    // unique per button -- `indexOf` then lands on the right occurrence for
+    // each row.
+    file: "src/components/settings/LocationManager.tsx",
+    what: 'the edit-home modal "Save" button',
+    snippet: `bg-plasma-orange/15 border border-plasma-orange/50 rounded-lg
+                         text-su-text hover:bg-plasma-orange/20 transition-colors font-medium text-sm"
+            >
+              Save`,
+  },
+  {
+    file: "src/components/settings/LocationManager.tsx",
+    what: 'the temporary-location modal "Set Location" button',
+    snippet: `bg-plasma-orange/15 border border-plasma-orange/50 rounded-lg
+                         text-su-text hover:bg-plasma-orange/20 transition-colors font-medium text-sm"
+            >
+              Set Location`,
+  },
+  {
+    file: "src/components/settings/NotificationSettings.tsx",
+    what: "the selected band chip",
+    snippet: `? "bg-plasma-orange/20 text-su-text border border-plasma-orange/50"`,
+  },
+  {
+    file: "src/components/settings/NotificationSettings.tsx",
+    what: "the selected alert-display-style button",
+    snippet: `notifications.alertDisplayStyle === opt.value
+                      ? "bg-plasma-orange/20 text-su-text border-plasma-orange/50"`,
+  },
+  {
+    file: "src/components/settings/RadioManager.tsx",
+    what: '"Add Radio" button',
+    snippet: `bg-plasma-orange/15 border border-plasma-orange/50
+                     text-su-text rounded-lg hover:bg-plasma-orange/20 transition-colors
+                     disabled:opacity-40 disabled:cursor-not-allowed"`,
+  },
+  {
+    file: "src/components/settings/ResearchParticipationSettings.tsx",
+    what: '"Save Research Choices" button',
+    snippet: `bg-plasma-orange/15 text-su-text border border-plasma-orange/30 hover:bg-plasma-orange/20 disabled:cursor-not-allowed disabled:opacity-50"`,
+  },
+  {
+    file: "src/components/settings/WatchAlertSettings.tsx",
+    what: "the selected cooldown-preset button",
+    snippet: `? "bg-plasma-orange/20 text-su-text border border-plasma-orange/50"`,
+  },
+  {
+    file: "src/components/settings/sections/AppearanceSection.tsx",
+    what: '"Apply" custom-theme button',
+    snippet: `bg-plasma-orange/15 text-su-text border border-plasma-orange/30 hover:bg-plasma-orange/20 transition-colors"`,
+  },
+  {
+    file: "src/components/settings/sections/CredentialsSection.tsx",
+    what: '"Set Up Passphrase" / "Unlock" vault button',
+    snippet: `bg-plasma-orange/15 text-su-text border border-plasma-orange/30
+                hover:bg-plasma-orange/20 transition-colors"`,
+  },
+  {
+    file: "src/components/settings/sections/CredentialsSection.tsx",
+    what: "the per-service store-credential button, unstored state",
+    snippet: `: "bg-plasma-orange/15 text-su-text border border-plasma-orange/25 hover:bg-plasma-orange/20"`,
+  },
+  {
+    file: "src/components/settings/sections/DataAccountSection.tsx",
+    what: "the account avatar circle",
+    snippet: `bg-plasma-orange/20 flex items-center justify-center text-su-text font-bold"`,
+  },
+  {
+    file: "src/components/settings/sections/DataAccountSection.tsx",
+    what: '"Sign In" button',
+    snippet: `bg-plasma-orange/15 text-su-text hover:bg-plasma-orange/20 border border-plasma-orange/30 transition-colors"`,
+  },
+  {
+    file: "src/components/settings/sections/DataAccountSection.tsx",
+    what: '"Export Settings" button',
+    snippet: `bg-plasma-orange/15 text-su-text hover:bg-plasma-orange/20
+                     border border-plasma-orange/30 transition-colors"`,
+  },
+  {
+    file: "src/components/settings/sections/DataAccountSection.tsx",
+    what: '"Confirm Import" button',
+    snippet: `bg-plasma-orange/15 text-su-text hover:bg-plasma-orange/20
+                           border border-plasma-orange/30 transition-colors
+                           disabled:opacity-50 disabled:cursor-not-allowed"`,
+  },
+  {
+    file: "src/components/settings/sections/DataAccountSection.tsx",
+    what: '"Export ADIF" button, entries present',
+    snippet: `entries.length > 0
+                           ? "bg-plasma-orange/15 text-su-text hover:bg-plasma-orange/20 border border-plasma-orange/30"`,
+  },
+  {
+    file: "src/components/settings/sections/DataAccountSection.tsx",
+    what: '"Clear Map Cache" button, cache present',
+    snippet: `tileCacheCount !== 0 && !isClearingCache
+                           ? "bg-plasma-orange/15 text-su-text hover:bg-plasma-orange/20 border border-plasma-orange/30"`,
+  },
+  {
+    file: "src/components/settings/sections/PreferencesSection.tsx",
+    what: "the selected custom-band chip",
+    snippet: `isSelected
+                      ? "bg-plasma-orange/20 text-su-text border-plasma-orange/50"`,
+  },
 ];
 
 describe("the fixed accent-tint sites ship the --su-text treatment (#803)", () => {
@@ -1110,13 +1291,13 @@ describe("census guard: no new accent ink on an accent tint (#803)", () => {
    * escapes it by construction -- the `FIXED_SITES` table above is what covers
    * those.
    *
-   * The 173 sites below are the census #803 asks for, as a debt ledger rather
+   * The 147 sites below are the census #803 asks for, as a debt ledger rather
    * than an exemption list: each entry is the number of same-line pairings that
    * file carried at `32cf480c`, minus every batch fixed since, and the
    * assertion is `<=`. A file that gains a pairing fails; a file that is not
    * listed is budgeted at zero, so a brand new site fails; a file whose sites
    * get fixed simply passes with room to spare, so the sequenced follow-up PRs
-   * (the 111 files outside this agent's scope on #803) never have to touch
+   * (the 98 files outside this agent's scope on #803) never have to touch
    * this table to land. `src/components/ui` is deliberately absent -- see the
    * explicit clause below.
    */
@@ -1194,20 +1375,15 @@ describe("census guard: no new accent ink on an accent tint (#803)", () => {
     ["src/components/sdr/skins/fate/FateBandAdvisor.tsx", 1],
     ["src/components/sdr/skins/flexible/FlexSideControls.tsx", 2],
     ["src/components/sdr/skins/flexible/SlicePanelTabs.tsx", 1],
-    ["src/components/settings/BandPresetManager.tsx", 1],
-    ["src/components/settings/CATSettings.tsx", 1],
-    ["src/components/settings/FavoredBandsPicker.tsx", 1],
-    ["src/components/settings/LicenseSection.tsx", 1],
-    ["src/components/settings/LocationInput.tsx", 3],
-    ["src/components/settings/LocationManager.tsx", 3],
-    ["src/components/settings/NotificationSettings.tsx", 2],
-    ["src/components/settings/RadioManager.tsx", 1],
-    ["src/components/settings/ResearchParticipationSettings.tsx", 1],
-    ["src/components/settings/WatchAlertSettings.tsx", 2],
-    ["src/components/settings/sections/AppearanceSection.tsx", 1],
-    ["src/components/settings/sections/CredentialsSection.tsx", 2],
-    ["src/components/settings/sections/DataAccountSection.tsx", 6],
-    ["src/components/settings/sections/PreferencesSection.tsx", 1],
+    // WatchAlertSettings.tsx is not listed: its TestSoundButton fix already
+    // ships (capped /30->/20, ink swapped to --su-text), so this file's
+    // same-line text-plasma-orange count is 0 -- the census guard only sees
+    // classes, not animation. The site is not FIXED_SITES-certified because
+    // the button's icon carries animate-pulse on that same --su-text ink
+    // while isPlaying, which invalidates certified contrast for half of
+    // every cycle; that certification gap is deferred to #847, but it is
+    // not expressed as a ledger budget since there is no longer an
+    // ink-on-tint pairing for the census to find.
     ["src/components/settings/sections/SubscriptionSection.tsx", 1],
     ["src/components/shack/AccessoryManager.tsx", 1],
     ["src/components/shack/AntennaManager.tsx", 1],
@@ -1240,7 +1416,7 @@ describe("census guard: no new accent ink on an accent tint (#803)", () => {
    * (>= 5.19:1), while a near-white or near-black custom accent drops to
    * 3.70-4.21:1. These two `/30` sites predate #803 and sit in
    * `src/components/alerts`, outside this agent's file scope; they go into the
-   * same sequenced follow-up as the 173 above.
+   * same sequenced follow-up as the 147 above.
    */
   const ABOVE_CAP_LEDGER = new Map<string, number>([
     ["src/components/alerts/AlertRuleBuilder.tsx", 1],
@@ -1297,7 +1473,7 @@ describe("census guard: no new accent ink on an accent tint (#803)", () => {
     // The ledger only ever shrinks; a fix that lands must not be able to raise
     // the total past the census this PR measured.
     expect([...counts.values()].reduce((a, b) => a + b, 0)).toBeLessThanOrEqual(
-      173,
+      147,
     );
   });
 

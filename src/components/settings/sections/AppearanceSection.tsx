@@ -139,7 +139,7 @@ export function AppearanceSection() {
             <button
               type="button"
               onClick={handleApply}
-              className="px-3 py-1.5 text-xs font-medium rounded-lg bg-plasma-orange/20 text-plasma-orange border border-plasma-orange/30 hover:bg-plasma-orange/30 transition-colors"
+              className="px-3 py-1.5 text-xs font-medium rounded-lg bg-plasma-orange/15 text-su-text border border-plasma-orange/30 hover:bg-plasma-orange/20 transition-colors"
             >
               Apply
             </button>

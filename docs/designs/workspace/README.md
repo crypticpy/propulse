@@ -45,6 +45,23 @@ resolve. Each is settled on epic #892 (Owner decisions), not in this README:
   the others above are — flagging that here rather than overstating it as a distinct,
   named decision point.
 
+**Heat-map sheet** — additional open questions raised only in the heatmap sheet's own notes:
+
+- **Verdict vocabulary** — "One verdict vocabulary, or two?" (open / marginal / closed vs.
+  the shipped five-state ladder).
+- **Opacity ramp scaling** — "Is the opacity ramp linear or logarithmic?" (and whether the
+  400-spot ceiling is fixed or rescales to the current maximum).
+- **"Can't work this" hatching** — "What counts as 'can't work this'?" (whether a
+  low-confidence Band Health "closed" should hatch a cell at all).
+- **Footprint-mode ladder** — "Does 'My footprint' need its own ladder?" (footprint counts
+  measure receptions of me, not verified opens).
+- **Count vs. verdict windows** — "Window choice: 30 min / 2 h — or does the verdict window
+  differ from the count window?"
+
+This README is a summary, not the source of truth — each sheet's own "Notes for review" /
+"Open decisions" block is authoritative; if this list and a sheet ever disagree, the sheet
+wins.
+
 The HTML sheets live in the repo, not in the Claude Design project — the design-sync
 guidelines glob only carries markdown, so only this README is mirrored there; the sheets
 themselves are reachable through the links above.

@@ -15,7 +15,7 @@ const analysisFixture = {
 };
 
 const { useContactAnalysisMock } = vi.hoisted(() => ({
-  useContactAnalysisMock: vi.fn(() => analysisFixture),
+  useContactAnalysisMock: vi.fn((_args: unknown) => analysisFixture),
 }));
 
 vi.mock("@/hooks/useContactAnalysis", () => ({

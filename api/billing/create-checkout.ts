@@ -69,6 +69,7 @@ export default async function handler(request: Request): Promise<Response> {
 
   const supabaseUrl = process.env.SUPABASE_URL;
   const supabaseAnonKey = process.env.SUPABASE_ANON_KEY;
+  const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
   const stripeSecretKey = process.env.STRIPE_SECRET_KEY;
   const stripePriceId = process.env.STRIPE_PRICE_ID;
   const stripeSuccessUrl = process.env.STRIPE_SUCCESS_URL;
@@ -77,6 +78,7 @@ export default async function handler(request: Request): Promise<Response> {
   if (
     !supabaseUrl ||
     !supabaseAnonKey ||
+    !supabaseServiceRoleKey ||
     !stripeSecretKey ||
     !stripePriceId ||
     !stripeSuccessUrl ||
@@ -87,8 +89,15 @@ export default async function handler(request: Request): Promise<Response> {
 
   try {
     const token = authHeader.replace("Bearer ", "");
+    // The caller's JWT identifies who is checking out, and nothing else. Every
+    // read and write of `profile_billing` goes through the service role: that
+    // table grants no write to `authenticated` at all (20260909140000), which
+    // is the point — a client must never be able to move its own tier.
     const supabase = createClient(supabaseUrl, supabaseAnonKey, {
       global: { headers: { Authorization: `Bearer ${token}` } },
+    });
+    const supabaseAdmin = createClient(supabaseUrl, supabaseServiceRoleKey, {
+      auth: { persistSession: false, autoRefreshToken: false },
     });
 
     // Verify the user's JWT
@@ -101,21 +110,22 @@ export default async function handler(request: Request): Promise<Response> {
       return jsonResponse({ error: "Unauthorized" }, 401);
     }
 
-    // Look up existing Stripe customer ID
-    const { data: profile, error: profileError } = await supabase
-      .from("profiles")
+    // Look up existing Stripe customer ID. A first-time subscriber has no
+    // billing row yet, so this must tolerate an absent row rather than 500.
+    const { data: billing, error: billingError } = await supabaseAdmin
+      .from("profile_billing")
       .select("stripe_customer_id")
-      .eq("id", user.id)
-      .single();
+      .eq("user_id", user.id)
+      .maybeSingle();
 
-    if (profileError) {
+    if (billingError) {
       return jsonResponse(
-        { error: `Failed to fetch profile: ${profileError.message}` },
+        { error: `Failed to fetch billing record: ${billingError.message}` },
         500,
       );
     }
 
-    let stripeCustomerId: string = profile?.stripe_customer_id || "";
+    let stripeCustomerId: string = billing?.stripe_customer_id || "";
 
     // If no Stripe customer, create one
     if (!stripeCustomerId) {
@@ -142,11 +152,14 @@ export default async function handler(request: Request): Promise<Response> {
       const customer = (await customerRes.json()) as { id: string };
       stripeCustomerId = customer.id;
 
-      // Save stripe_customer_id back to profiles
-      const { error: updateError } = await supabase
-        .from("profiles")
-        .update({ stripe_customer_id: stripeCustomerId })
-        .eq("id", user.id);
+      // Save stripe_customer_id back. Upsert, not update: the row does not
+      // exist until the first checkout.
+      const { error: updateError } = await supabaseAdmin
+        .from("profile_billing")
+        .upsert(
+          { user_id: user.id, stripe_customer_id: stripeCustomerId },
+          { onConflict: "user_id" },
+        );
 
       if (updateError) {
         return jsonResponse(

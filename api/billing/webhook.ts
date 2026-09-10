@@ -128,7 +128,8 @@ export default async function handler(request: Request): Promise<Response> {
 
     const event = JSON.parse(body) as StripeEvent;
 
-    // Use service role key to bypass RLS
+    // Use service role key to bypass RLS. `profile_billing` (20260909140000)
+    // grants writes to nobody else, so this is the only path that moves a tier.
     const supabase = createClient(supabaseUrl, supabaseServiceRoleKey);
 
     const customerId = event.data.object.customer;
@@ -148,7 +149,7 @@ export default async function handler(request: Request): Promise<Response> {
         }
 
         const { error } = await supabase
-          .from("profiles")
+          .from("profile_billing")
           .update(checkoutUpdates)
           .eq("stripe_customer_id", customerId);
 
@@ -178,7 +179,7 @@ export default async function handler(request: Request): Promise<Response> {
 
         if (Object.keys(updates).length > 0) {
           const { error } = await supabase
-            .from("profiles")
+            .from("profile_billing")
             .update(updates)
             .eq("stripe_customer_id", customerId);
 
@@ -196,7 +197,7 @@ export default async function handler(request: Request): Promise<Response> {
         if (!customerId) break;
 
         const { error } = await supabase
-          .from("profiles")
+          .from("profile_billing")
           .update({
             subscription_tier: "free",
             subscription_status: "inactive",
@@ -213,7 +214,7 @@ export default async function handler(request: Request): Promise<Response> {
         if (!customerId) break;
 
         const { error } = await supabase
-          .from("profiles")
+          .from("profile_billing")
           .update({
             subscription_status: "past_due",
           })

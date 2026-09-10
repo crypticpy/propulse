@@ -62,15 +62,17 @@ describe("profileSync location conflict handling", () => {
       active_location_id: CURRENT_LOCATION_ID,
       bio: null,
       social_links: null,
-      subscription_tier: null,
-      subscription_status: null,
-      subscription_period_end: null,
       rank_override: null,
       interests: null,
       on_air_status: null,
       sked_availability: null,
       favorite_freqs: null,
       updated_at: "2026-08-31T12:00:00.000Z",
+    };
+    const billingRow = {
+      subscription_tier: "pro",
+      subscription_status: "active",
+      subscription_period_end: "2026-10-01T00:00:00.000Z",
     };
     const locationRows = [
       {
@@ -113,6 +115,18 @@ describe("profileSync location conflict handling", () => {
           return query;
         }
 
+        if (table === "profile_billing") {
+          const query = {
+            select: vi.fn(() => query),
+            eq: vi.fn(() => query),
+            maybeSingle: vi.fn(async () => ({
+              data: billingRow,
+              error: null,
+            })),
+          };
+          return query;
+        }
+
         const query = {
           select: vi.fn(() => query),
           eq: vi.fn(async () => ({ data: locationRows, error: null })),
@@ -131,6 +145,11 @@ describe("profileSync location conflict handling", () => {
     expect(current?.timezone).toBe("America/Denver");
     expect(station.grid).toBe("DM79");
     expect(station.lon).toBe(-105);
+    // Subscription state comes from `profile_billing`, not the profile row.
+    expect(useProfileStore.getState().subscriptionTier).toBe("pro");
+    expect(useProfileStore.getState().subscriptionPeriodEnd).toBe(
+      "2026-10-01T00:00:00.000Z",
+    );
   });
 
   it("clears only the dirty token that completed its push", () => {

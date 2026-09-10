@@ -1,7 +1,8 @@
 /**
  * Profile sync module — Tier 1 (Eager)
  *
- * Syncs `profiles` and `saved_locations` tables.
+ * Syncs `profiles` and `saved_locations` tables, and reads the account's own
+ * `profile_billing` row (server-authoritative, never pushed).
  * Pushes the full profile blob and all saved locations on every push.
  * Pulls delta on `profiles.updated_at`; saved_locations are always full-pulled
  * (the table has no `updated_at` column).
@@ -94,6 +95,22 @@ export const profileSync: SyncModule = {
 
     if (profileError) {
       throw new Error(`Profile pull failed: ${profileError.message}`);
+    }
+
+    // --- Pull billing state (own row only, server-authoritative) ---
+    // Subscription state moved off `profiles` in 20260909140000 so that
+    // `profiles_select` — which exposes any row marked public — cannot leak it.
+    // Pulled unconditionally rather than behind `since`: a Stripe webhook moves
+    // this row without touching `profiles.updated_at`, so a delta on the
+    // profile cursor would never see the change.
+    const { data: billingRow, error: billingError } = await supabase
+      .from("profile_billing")
+      .select("subscription_tier, subscription_status, subscription_period_end")
+      .eq("user_id", userId)
+      .maybeSingle();
+
+    if (billingError) {
+      throw new Error(`Billing pull failed: ${billingError.message}`);
     }
 
     // --- Pull saved locations (always full pull — no updated_at column) ---
@@ -205,18 +222,7 @@ export const profileSync: SyncModule = {
         stateUpdate.socialLinks = profileRows.social_links;
       }
 
-      // Subscription fields (server-authoritative via Stripe webhooks)
       const row = profileRows as Record<string, unknown>;
-      if (row.subscription_tier != null) {
-        stateUpdate.subscriptionTier = row.subscription_tier as string;
-      }
-      if (row.subscription_status != null) {
-        stateUpdate.subscriptionStatus = row.subscription_status as string;
-      }
-      if (row.subscription_period_end != null) {
-        stateUpdate.subscriptionPeriodEnd =
-          row.subscription_period_end as string;
-      }
 
       // Rank override (server-authoritative — admin can set this in Supabase)
       const serverOverride = profileRows.rank_override as string | null;
@@ -247,6 +253,21 @@ export const profileSync: SyncModule = {
       }
       if (row.favorite_freqs != null) {
         stateUpdate.favoriteFreqs = row.favorite_freqs;
+      }
+    }
+
+    // Subscription fields (server-authoritative via Stripe webhooks). Outside
+    // the `profileRows` branch: a delta pull can skip the profile row entirely
+    // and still need the current tier.
+    if (billingRow) {
+      if (billingRow.subscription_tier != null) {
+        stateUpdate.subscriptionTier = billingRow.subscription_tier;
+      }
+      if (billingRow.subscription_status != null) {
+        stateUpdate.subscriptionStatus = billingRow.subscription_status;
+      }
+      if (billingRow.subscription_period_end != null) {
+        stateUpdate.subscriptionPeriodEnd = billingRow.subscription_period_end;
       }
     }
 

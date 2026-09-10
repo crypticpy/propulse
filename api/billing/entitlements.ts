@@ -64,8 +64,8 @@ export default async function handler(request: Request): Promise<Response> {
   if (authResult instanceof Response) return authResult;
 
   // Cross-device sync is gated on the same paid tier as Pro imagery today —
-  // there is only one paid tier (`profiles.subscription_tier === "pro"`). If
-  // a distinct `sync` add-on ships later, this is the one place to split it.
+  // there is only one paid tier (`profile_billing.subscription_tier === "pro"`).
+  // If a distinct `sync` add-on ships later, this is the one place to split it.
   const entitled = await hasProEntitlement(authResult.user.id);
   if (entitled === null) {
     return jsonError("Unable to verify entitlement", 503);

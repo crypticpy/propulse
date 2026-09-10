@@ -1,5 +1,9 @@
 import { realpath } from "node:fs/promises";
-import { portAvailable, SINGLE_SERVER_RULE } from "../../scripts/dev-session.mjs";
+import {
+  assertSharedServerIdentity,
+  portAvailable,
+  SINGLE_SERVER_RULE,
+} from "../../scripts/dev-session.mjs";
 
 /**
  * One shared machine-wide dev server, not a Playwright-managed one: both
@@ -22,11 +26,14 @@ export function resolveE2EPort(): number {
  * Runs once before all tests (after webServer, if configured, has already
  * started or confirmed reuse of a listener — see the plugin ordering in
  * playwright/lib/runner: webServer setup precedes globalSetup). Fails fast
- * with the single-server rule when nothing is listening, and — this is the
- * Codex P1 fix — refuses to reuse a listener that answers
- * /__propulse_dev_session with a different worktree's root: a same-port
- * server from another checkout would otherwise let this branch's tests run
- * silently against different source code.
+ * with the single-server rule when nothing is listening, and refuses to
+ * reuse a listener that answers /__propulse_dev_session with either a
+ * different worktree's root (a same-port server from another checkout
+ * would otherwise let this branch's tests run silently against different
+ * source code) or a profile other than "local" (both Playwright commands
+ * request --profile local for the AuthGate bypass; a `connected` or
+ * `manual` shared server would pass the root check and then fail every
+ * test at AuthGate instead).
  */
 export default async function globalSetup(): Promise<void> {
   const port = resolveE2EPort();
@@ -48,15 +55,10 @@ export default async function globalSetup(): Promise<void> {
         `(status ${response.status}). It may not be a ProPulse dev server.`,
     );
   }
-  const identity = (await response.json()) as { root?: string };
+  const identity = (await response.json()) as {
+    root?: string;
+    profile?: string;
+  };
   const thisRoot = await realpath(process.cwd());
-  if (identity.root !== thisRoot) {
-    throw new Error(
-      `${origin} is serving a different tree than this one. Served: ` +
-        `${identity.root ?? "unknown"}. This worktree: ${thisRoot}. Ask its ` +
-        "owner to restart against this branch, or run these tests from the " +
-        "worktree it already serves — never start a second server to work " +
-        "around this.",
-    );
-  }
+  assertSharedServerIdentity(identity, { root: thisRoot });
 }

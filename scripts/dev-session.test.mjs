@@ -1,12 +1,21 @@
 import assert from "node:assert/strict";
 import { execFileSync, spawn } from "node:child_process";
-import { mkdir, mkdtemp, readFile, readdir, rm, writeFile } from "node:fs/promises";
+import {
+  mkdir,
+  mkdtemp,
+  readFile,
+  readdir,
+  rm,
+  utimes,
+  writeFile,
+} from "node:fs/promises";
 import net from "node:net";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 import {
   assertNoRunningServer,
+  assertSharedServerIdentity,
   claimSession,
   filterViteProcessLines,
   findUnmanagedViteProcesses,
@@ -320,31 +329,107 @@ test("refuseIfServerRunning passes through when no unmanaged process is found", 
   );
 });
 
-// Codex P2 (825t...): two claimants racing to reclaim the same dead-pid
-// claim must never both win it. The rename-then-create reclaim is atomic;
-// the loser must see ENOENT on its own rename and restart from scratch
-// rather than clobbering the winner's fresh claim.
-test("a stale claim's atomic reclaim never lets two racing claimants both win", async (t) => {
+// Codex P1 (9zJ3): the identity check must also refuse a shared server
+// running the wrong profile, not just the wrong worktree — a `connected` or
+// `manual` server would pass the root check and then fail every test at
+// AuthGate instead of the local bypass Playwright's --profile local asks for.
+test("assertSharedServerIdentity accepts a matching root and profile", () => {
+  assert.doesNotThrow(() =>
+    assertSharedServerIdentity(
+      { root: "/repo/checkout", profile: "local" },
+      { root: "/repo/checkout" },
+    ),
+  );
+});
+
+test("assertSharedServerIdentity refuses a non-local profile, naming both profiles", () => {
+  assert.throws(
+    () =>
+      assertSharedServerIdentity(
+        { root: "/repo/checkout", profile: "connected" },
+        { root: "/repo/checkout" },
+      ),
+    /"connected".*"local"/s,
+  );
+});
+
+test("assertSharedServerIdentity refuses a mismatched root even with the right profile", () => {
+  assert.throws(
+    () =>
+      assertSharedServerIdentity(
+        { root: "/other/checkout", profile: "local" },
+        { root: "/repo/checkout" },
+      ),
+    /different tree/,
+  );
+});
+
+// Codex P2 (825t..., then 9zKC): claimants racing to reclaim the same
+// dead-pid claim must never let more than one win it. The reclaim decision
+// (stale? unlink, then create) is a critical section serialized per port by
+// an exclusive `mkdir` lock directory; a losing claimant blocks on the lock
+// (or the earlier `open(..., "wx")`) and re-reads fresh state rather than
+// racing a rename against the winner. Run several times: this is exactly
+// the kind of race that passes most of the time by luck.
+for (let run = 0; run < 10; run++) {
+  test(`three racing claimants on one stale record: exactly one wins (run ${run})`, async (t) => {
+    const dir = await registry(t);
+    const port = await unusedPort(t);
+    const filename = path.join(dir, `${port}.json`);
+    await writeFile(filename, JSON.stringify({ ...base, pid: 0, port }));
+    const claims = await Promise.allSettled([
+      claimSession({ ...base, owner: "agent-one", registry: dir, ports: [port] }),
+      claimSession({ ...base, owner: "agent-two", registry: dir, ports: [port] }),
+      claimSession({ ...base, owner: "agent-three", registry: dir, ports: [port] }),
+    ]);
+    const fulfilled = claims.filter((claim) => claim.status === "fulfilled");
+    const rejected = claims.filter((claim) => claim.status === "rejected");
+    assert.equal(fulfilled.length, 1);
+    assert.equal(rejected.length, 2);
+    for (const claim of rejected) {
+      assert.match(claim.reason.message, /No requested port/);
+    }
+    const sessions = await listSessions(dir);
+    assert.equal(sessions.length, 1);
+    assert.equal(sessions[0].pid, process.pid);
+    const leftover = (await readdir(dir)).filter(
+      (name) => name.includes(".stale-") || name.endsWith(".lock"),
+    );
+    assert.deepEqual(leftover, []);
+  });
+}
+
+test("an abandoned reclaim lock dir is cleared rather than blocking forever", async (t) => {
   const dir = await registry(t);
   const port = await unusedPort(t);
   const filename = path.join(dir, `${port}.json`);
   await writeFile(filename, JSON.stringify({ ...base, pid: 0, port }));
-  const claims = await Promise.allSettled([
-    claimSession({ ...base, registry: dir, ports: [port] }),
-    claimSession({ ...base, owner: "agent-two", registry: dir, ports: [port] }),
-  ]);
-  const fulfilled = claims.filter((claim) => claim.status === "fulfilled");
-  const rejected = claims.filter((claim) => claim.status === "rejected");
-  assert.equal(fulfilled.length, 1);
-  assert.equal(rejected.length, 1);
-  assert.match(rejected[0].reason.message, /No requested port/);
-  const sessions = await listSessions(dir);
-  assert.equal(sessions.length, 1);
-  assert.equal(sessions[0].pid, process.pid);
-  const leftover = (await readdir(dir)).filter((name) =>
-    name.includes(".stale-"),
-  );
+  const lockPath = `${filename}.lock`;
+  await mkdir(lockPath);
+  // Back-date the lock dir well past the 10s abandoned-lock threshold.
+  const old = new Date(Date.now() - 60_000);
+  await utimes(lockPath, old, old);
+  const session = await claimSession({ ...base, registry: dir, ports: [port] });
+  assert.equal(session.port, port);
+  const leftover = (await readdir(dir)).filter((name) => name.endsWith(".lock"));
   assert.deepEqual(leftover, []);
+});
+
+test("a held reclaim lock makes a second claimant wait rather than proceed", async (t) => {
+  const dir = await registry(t);
+  const port = await unusedPort(t);
+  const filename = path.join(dir, `${port}.json`);
+  await writeFile(filename, JSON.stringify({ ...base, pid: 0, port }));
+  const lockPath = `${filename}.lock`;
+  await mkdir(lockPath);
+  const claimPromise = claimSession({ ...base, registry: dir, ports: [port] });
+  // Give the claim attempt time to hit the held lock and start retrying,
+  // then release it — the claimant must still succeed, proving it waited
+  // rather than tripping over the lock directory as if it were the claim.
+  await new Promise((resolve) => setTimeout(resolve, 150));
+  await rm(lockPath, { recursive: true, force: true });
+  const session = await claimPromise;
+  assert.equal(session.port, port);
 });
 
 // F10(a): startSession must thread { registry } through to the guard and

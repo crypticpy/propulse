@@ -13,7 +13,8 @@ import {
   readdir,
   readFile,
   realpath,
-  rename,
+  rm,
+  stat,
   unlink,
 } from "node:fs/promises";
 import net from "node:net";
@@ -121,6 +122,35 @@ export async function portAvailable(port) {
   return (await canBind(port, "127.0.0.1")) && (await canBind(port, "::1"));
 }
 
+// Shared by tests/support/sharedServer.ts's globalSetup: the identity a
+// browser suite fetched from /__propulse_dev_session must both belong to
+// this worktree AND be running the profile that suite requires (Playwright
+// requests --profile local so AuthGate is bypassed; a `connected` or
+// `manual` session would otherwise pass the root check and still fail every
+// test downstream at AuthGate). Throws with a message naming the found and
+// required profile, or the found and expected root, on mismatch.
+export function assertSharedServerIdentity(
+  identity,
+  { root, profile = "local" } = {},
+) {
+  if (identity?.profile !== profile) {
+    throw new Error(
+      `The shared dev server is running profile "${identity?.profile ?? "unknown"}"; ` +
+        `this suite requires "${profile}". Restart it with ` +
+        `\`npm run dev:session -- start --profile ${profile} ...\`, or ask its owner to.`,
+    );
+  }
+  if (identity?.root !== root) {
+    throw new Error(
+      `The shared dev server is serving a different tree than this one. ` +
+        `Served: ${identity?.root ?? "unknown"}. This worktree: ${root}. Ask its ` +
+        "owner to restart against this branch, or run these tests from the " +
+        "worktree it already serves — never start a second server to work " +
+        "around this.",
+    );
+  }
+}
+
 // A claim file whose pid is confirmed dead is safe to reclaim automatically
 // (a crashed/SIGKILLed session, not a race with another process still
 // writing it). An unreadable/unparsable file is ambiguous — never touched.
@@ -133,58 +163,80 @@ async function isStaleClaim(filename) {
   }
 }
 
-// At most this many reclaim rounds per port before giving up on it (each
-// round is only taken when a racing claimant just won the rename below, so a
-// handful covers any realistic contention without looping forever on a
-// genuinely wedged registry).
-const MAX_RECLAIM_ATTEMPTS = 5;
+// A rename-then-create reclaim is atomic per-call but content-blind: a
+// delayed loser's rename can land after the winner already recreated the
+// claim file, silently displacing a live claim (found and fixed once
+// already, empirically, as an intermittent race). Rather than keep chasing
+// that class of bug, the reclaim decision (stale? unlink, then create) is
+// now a true critical section, serialized per port by an exclusive `mkdir`
+// lock directory — `mkdir` with no `recursive` option fails EEXIST if the
+// lock is already held, which is the same atomicity guarantee `open(...,
+// "wx")` gives for file creation.
+const LOCK_STALE_MS = 10_000;
+const MAX_LOCK_ATTEMPTS = 40;
+const LOCK_RETRY_DELAY_MS = 50;
+
+async function removeAbandonedLock(lockPath) {
+  try {
+    const info = await stat(lockPath);
+    if (Date.now() - info.mtimeMs > LOCK_STALE_MS) {
+      await rm(lockPath, { recursive: true, force: true });
+    }
+  } catch {
+    // Already gone, or a transient stat error — the next mkdir attempt
+    // will surface anything that still matters.
+  }
+}
+
+async function withReclaimLock(filename, fn) {
+  const lockPath = `${filename}.lock`;
+  for (let attempt = 0; attempt < MAX_LOCK_ATTEMPTS; attempt++) {
+    try {
+      await mkdir(lockPath);
+    } catch (error) {
+      if (error.code !== "EEXIST") throw error;
+      await removeAbandonedLock(lockPath);
+      await new Promise((resolve) => setTimeout(resolve, LOCK_RETRY_DELAY_MS));
+      continue;
+    }
+    try {
+      return await fn();
+    } finally {
+      await rm(lockPath, { recursive: true, force: true }).catch(() => {});
+    }
+  }
+  throw new Error(
+    `Timed out waiting for the reclaim lock on ${filename} ` +
+      `(held by another claimant for over ${MAX_LOCK_ATTEMPTS * LOCK_RETRY_DELAY_MS}ms).`,
+  );
+}
 
 // Attempts to claim `filename` for one port. Returns null when the port is
 // held by a live (non-stale) claim — the caller should try the next
-// requested port. Returns { handle, stalePath } on success: `handle` is the
-// freshly opened exclusive-create file handle for the new claim, and
-// `stalePath` (set only when a dead claim was reclaimed) is the renamed-away
-// old file to delete once the new claim is durably written.
-//
-// Reclaiming a stale (dead-pid) claim is a rename-then-create, never
-// unlink-then-open: `rename` is atomic, so exactly one racing claimant wins
-// it — the loser gets ENOENT and must re-examine `filename` from scratch
-// (it may now be free, or already re-claimed by the winner) rather than
-// unlinking a file it no longer owns out from under whoever created it.
+// requested port. Returns { handle } on success: the freshly opened
+// exclusive-create file handle for the new claim.
 async function claimPort(filename) {
-  for (let attempt = 0; attempt < MAX_RECLAIM_ATTEMPTS; attempt++) {
+  try {
+    return { handle: await open(filename, "wx", 0o600) };
+  } catch (error) {
+    if (error.code !== "EEXIST") throw error;
+  }
+  // Contended: the fast uncontended path above failed, so re-examine and
+  // (if warranted) reclaim `filename` entirely inside the lock, re-reading
+  // its state fresh rather than trusting anything observed before we held
+  // it.
+  return withReclaimLock(filename, async () => {
     try {
-      return { handle: await open(filename, "wx", 0o600), stalePath: null };
+      return { handle: await open(filename, "wx", 0o600) };
     } catch (error) {
       if (error.code !== "EEXIST") throw error;
     }
     if (!(await isStaleClaim(filename))) return null;
-    const stalePath = `${filename}.stale-${process.pid}-${Date.now()}`;
-    try {
-      await rename(filename, stalePath);
-    } catch (error) {
-      if (error.code === "ENOENT") continue; // lost the race; restart
-      throw error;
-    }
-    // `rename` is atomic but content-blind: by the time it lands, a racing
-    // claimant may already have recreated `filename` with a fresh live
-    // claim, which we'd have just displaced. Re-check what we actually
-    // moved; if it wasn't genuinely stale, put it back and restart rather
-    // than clobbering a live claim we didn't mean to touch.
-    if (!(await isStaleClaim(stalePath))) {
-      await rename(stalePath, filename).catch(() => {});
-      continue;
-    }
-    try {
-      return { handle: await open(filename, "wx", 0o600), stalePath };
-    } catch (error) {
-      // Never leave our renamed-away file orphaned if we can't finish.
-      await unlink(stalePath).catch(() => {});
-      if (error.code === "EEXIST") continue; // restart from scratch
-      throw error;
-    }
-  }
-  return null;
+    await unlink(filename).catch((error) => {
+      if (error.code !== "ENOENT") throw error;
+    });
+    return { handle: await open(filename, "wx", 0o600) };
+  });
 }
 
 export async function claimSession({
@@ -202,7 +254,7 @@ export async function claimSession({
     attempted.push(filename);
     const claimed = await claimPort(filename);
     if (claimed === null) continue;
-    const { handle, stalePath } = claimed;
+    const { handle } = claimed;
     const session = {
       id: randomUUID(),
       owner,
@@ -217,7 +269,6 @@ export async function claimSession({
     try {
       await handle.writeFile(`${JSON.stringify(session, null, 2)}\n`);
       await handle.close();
-      if (stalePath) await unlink(stalePath).catch(() => {});
       if (!(await portAvailable(port))) {
         await unlink(filename);
         continue;
@@ -226,7 +277,6 @@ export async function claimSession({
     } catch (error) {
       await handle.close().catch(() => {});
       await unlink(filename).catch(() => {});
-      if (stalePath) await unlink(stalePath).catch(() => {});
       throw error;
     }
   }
